@@ -61,9 +61,9 @@ const REPORT_TABS = new Set(["monthly", "daily", "rodent", "flycatcher", "chemic
 // /pest/daily[/{year}/{month0}], /pest/service/{slug}[/{year}], /pest/trend/{slug}[/{year}]
 const PEST_SERVICE_SLUGS = new Set(["rodent", "general", "fly"]);
 const PEST_TREND_SLUGS = new Set(["rodent", "fly-catcher"]);
-const YEAR_RE = /^\d{4}$/;
-const MONTH0_RE = /^(?:0?[0-9]|1[01])$/; // 0-11, optional leading zero
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+export const YEAR_RE = /^\d{4}$/;
+export const MONTH0_RE = /^(?:0?[0-9]|1[01])$/; // 0-11, optional leading zero
+export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const SLUG_RE = /^[a-z0-9-]+$/;
 
 export function isValidAppRoute(path: string): boolean {

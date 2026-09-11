@@ -1,11 +1,12 @@
 import React from "react";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
-import { useRouter } from "./store/router";
+import { ISO_DATE_RE, MONTH0_RE, YEAR_RE, useRouter } from "./store/router";
 import { AssistantProvider } from "./store/AssistantContext";
 import { SidebarProvider } from "./store/sidebar";
 import { DocumentAssistant } from "./components/common/DocumentAssistant";
 import { AssistantBriefingPopup } from "./components/common/AssistantBriefingPopup";
+import { StorageFullBanner } from "./components/common/StorageFullBanner";
 
 import { DashboardPage } from "./pages/DashboardPage";
 import { ProcessFlowPage } from "./pages/ProcessFlowPage";
@@ -43,6 +44,23 @@ function NotFoundPage() {
   );
 }
 
+// Route parameters come from the address bar, so anything can be in them.
+// A year or month that isn't one is treated as not given (the page shows the
+// current one) instead of reaching the page as NaN — "undefined NaN"
+// headings, NaN options in the year list, a calendar stuck on NaN.
+function yearParam(s: string | undefined): number | undefined {
+  return s !== undefined && YEAR_RE.test(s) ? Number(s) : undefined;
+}
+function month0Param(s: string | undefined): number | undefined {
+  return s !== undefined && MONTH0_RE.test(s) ? Number(s) : undefined;
+}
+function isRealISODate(s: string): boolean {
+  if (!ISO_DATE_RE.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
 function RouteSwitch() {
   const { segments } = useRouter();
   const [root, ...rest] = segments;
@@ -66,8 +84,11 @@ function RouteSwitch() {
       // CalendarPage's y/m state has no prop-resync effect of its own, so
       // without this a deep link to a new month while already mounted here
       // would silently keep showing the old one.
-      return <CalendarPage key={rest.join("/")} year={rest[0] ? Number(rest[0]) : undefined} month={rest[1] ? Number(rest[1]) : undefined} />;
+      return <CalendarPage key={rest.join("/")} year={yearParam(rest[0])} month={month0Param(rest[1])} />;
     case "day":
+      // Not a real date (#/day/abc, #/day/2026-02-31): nothing to show, and
+      // the Day View can't even print a heading for it.
+      if (rest[0] !== undefined && !isRealISODate(rest[0])) return <NotFoundPage />;
       return <DayViewPage date={rest[0]} />;
     case "record":
       return <RecordPage recordId={rest[0]} />;
@@ -75,13 +96,17 @@ function RouteSwitch() {
       // /gap → Internal-or-External chooser; /gap/internal, /gap/external →
       // the two lists; /gap/complaint/{id} → a complaint checklist;
       // /gap/{id} → an internal findings report (kept for existing links).
+      // Record pages are keyed by id: they read their record once, so moving
+      // from one record straight to another (a reminder, Back / Forward) has
+      // to remount them — otherwise the page kept showing the first record
+      // and its next edit was saved into the second.
       if (!rest[0]) return <CapaHomePage />;
       if (rest[0] === "internal") return <GapListPage />;
       if (rest[0] === "external") return <ComplaintListPage />;
       if (rest[0] === "complaint") return rest[1] ? <ComplaintChecklistPage key={rest[1]} recordId={rest[1]} /> : <ComplaintListPage />;
-      return <GapRecordPage recordId={rest[0]} />;
+      return <GapRecordPage key={rest[0]} recordId={rest[0]} />;
     case "training":
-      return rest[0] ? <TrainingRecordPage recordId={rest[0]} /> : <TrainingListPage />;
+      return rest[0] ? <TrainingRecordPage key={rest[0]} recordId={rest[0]} /> : <TrainingListPage />;
     case "pest-control":
       return <PestControlOverviewPage />;
     case "pest":
@@ -89,11 +114,11 @@ function RouteSwitch() {
       // Trend Analysis. Keyed like Calendar/Reports so a deep link to another
       // month/year/service remounts cleanly.
       if (rest[0] === "daily") {
-        return <DailyMonitoringListPage key={rest.join("/")} year={rest[1] ? Number(rest[1]) : undefined} month={rest[2] ? Number(rest[2]) : undefined} />;
+        return <DailyMonitoringListPage key={rest.join("/")} year={yearParam(rest[1])} month={month0Param(rest[2])} />;
       }
-      if (rest[0] === "service") return <ServiceReportListPage key={rest.join("/")} slug={rest[1] ?? ""} year={rest[2] ? Number(rest[2]) : undefined} />;
-      if (rest[0] === "trend" && rest[1] === "rodent") return <RodentTrendPage key={rest.join("/")} year={rest[2] ? Number(rest[2]) : undefined} />;
-      if (rest[0] === "trend" && rest[1] === "fly-catcher") return <FlyCatcherTrendPage key={rest.join("/")} year={rest[2] ? Number(rest[2]) : undefined} />;
+      if (rest[0] === "service") return <ServiceReportListPage key={rest.join("/")} slug={rest[1] ?? ""} year={yearParam(rest[2])} />;
+      if (rest[0] === "trend" && rest[1] === "rodent") return <RodentTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
+      if (rest[0] === "trend" && rest[1] === "fly-catcher") return <FlyCatcherTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
       return <NotFoundPage />;
     case "chemical-master":
       return <ChemicalMasterPage />;
@@ -108,14 +133,7 @@ function RouteSwitch() {
       // genuine route change instead of relying solely on ReportsPage's own
       // props-resync effect, which otherwise paints the previous month for
       // one frame before catching up (effects run after paint).
-      return (
-        <ReportsPage
-          key={rest.join("/")}
-          initialYear={rest[0] ? Number(rest[0]) : undefined}
-          initialMonth={rest[1] ? Number(rest[1]) : undefined}
-          initialTab={rest[2]}
-        />
-      );
+      return <ReportsPage key={rest.join("/")} initialYear={yearParam(rest[0])} initialMonth={month0Param(rest[1])} initialTab={rest[2]} />;
     case "master-data":
       return <MasterDataPage />;
     case "demo":
@@ -129,6 +147,42 @@ function RouteSwitch() {
   }
 }
 
+// One screen failing to render must not take the whole app with it: without
+// this, any exception while drawing a page left a blank white window, sidebar
+// and all. Keyed by the address (below), so going anywhere else starts over.
+class ScreenErrorBoundary extends React.Component<{ children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown, info: React.ErrorInfo): void {
+    console.error("A screen failed to render:", error, info.componentStack);
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="empty-state" role="alert">
+        <h2 className="text-xl mb-2">This screen couldn't be shown</h2>
+        <p>
+          Something went wrong while drawing it. Records already saved are not affected. <a href="#/dashboard">Back to the Dashboard</a>
+        </p>
+      </div>
+    );
+  }
+}
+
+function Screen() {
+  const { path } = useRouter();
+  return (
+    <ScreenErrorBoundary key={path}>
+      <RouteSwitch />
+    </ScreenErrorBoundary>
+  );
+}
+
 export function App() {
   return (
     <AssistantProvider>
@@ -138,7 +192,8 @@ export function App() {
           <div className="app-main">
             <Topbar />
             <div className="app-content">
-              <RouteSwitch />
+              <StorageFullBanner />
+              <Screen />
             </div>
           </div>
         </div>

@@ -25,6 +25,10 @@ export function LogSheetRecordView({
   const layout = getLogSheetLayout(doc.id);
   const data = record.data ?? { header: {}, rows: [] };
   const employees = masterRepository.get().employees;
+  // Before the early return below: a hook called only on some renders breaks
+  // React ("rendered fewer hooks than expected") the moment this component is
+  // reused for a document without a layout.
+  const [showReference, setShowReference] = React.useState(false);
 
   if (!layout) {
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
@@ -44,7 +48,6 @@ export function LogSheetRecordView({
   const canAddRows = editable && mode.kind === "free";
   const canRemoveRows = editable && mode.kind === "free" && data.rows.length > (mode.minRows ?? 0);
   const outOfBand = data.rows.reduce((n, row) => n + layout.columns.filter((c) => isOutOfBand(c, row[c.key])).length, 0);
-  const [showReference, setShowReference] = React.useState(false);
 
   return (
     <div>
