@@ -32,9 +32,9 @@ function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function alreadySentToday(): boolean {
+function lastSentDate(): string | null {
   const row = getDigestLog.get() as { last_sent_date: string | null } | undefined;
-  return row?.last_sent_date === todayISO();
+  return row?.last_sent_date ?? null;
 }
 
 function escapeHtml(s: unknown): string {
@@ -62,7 +62,8 @@ function renderDigestHtml(items: DigestReminder[]): string {
 // Groups by recipient email so each person only sees their own items.
 export async function sendReminderDigestIfDue(reminders: DigestReminder[]): Promise<DigestResult> {
   if (!isEmailConfigured()) return { sent: false, reason: "not-configured" };
-  if (alreadySentToday()) return { sent: false, reason: "already-sent-today" };
+  const previous = lastSentDate();
+  if (previous === todayISO()) return { sent: false, reason: "already-sent-today" };
 
   const byEmail = new Map<string, DigestReminder[]>();
   for (const r of reminders) {
@@ -73,10 +74,15 @@ export async function sendReminderDigestIfDue(reminders: DigestReminder[]): Prom
     }
   }
 
-  if (byEmail.size === 0) {
-    upsertDigestLog.run(todayISO());
-    return { sent: false, reason: "no-recipients" };
-  }
+  // Not marked as sent: reminders are computed per browser, and one whose
+  // Master Data has no emails must not use up the day for one that has.
+  if (byEmail.size === 0) return { sent: false, reason: "no-recipients" };
+
+  // Claim the day before the first await. Everything from the check above to
+  // here runs without yielding (node:sqlite is synchronous), so a second
+  // request arriving while this one is still sending sees it as already sent
+  // instead of sending the same mail again.
+  upsertDigestLog.run(todayISO());
 
   let successCount = 0;
   for (const [email, items] of byEmail) {
@@ -88,6 +94,8 @@ export async function sendReminderDigestIfDue(reminders: DigestReminder[]): Prom
     }
   }
 
-  upsertDigestLog.run(todayISO());
+  // Nothing went out (e.g. Gmail was unreachable): give the day back so the
+  // next request tries again, rather than silently skipping today's digest.
+  if (successCount === 0) upsertDigestLog.run(previous);
   return { sent: successCount > 0, recipientCount: successCount, attempted: byEmail.size };
 }

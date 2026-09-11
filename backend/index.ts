@@ -18,6 +18,8 @@ import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// RFC 5321's limit on a whole address; anything longer is not a real email.
+const MAX_EMAIL_LENGTH = 254;
 
 const app = express();
 app.disable("x-powered-by");
@@ -141,7 +143,7 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
     res.status(400).json({ error: "Name is required." });
     return;
   }
-  if (typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+  if (typeof email !== "string" || email.trim().length > MAX_EMAIL_LENGTH || !EMAIL_RE.test(email.trim())) {
     res.status(400).json({ error: "A valid email address is required." });
     return;
   }
@@ -156,10 +158,13 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
     return;
   }
 
-  const isFirstUser = (countUsers.get() as { c: number }).c === 0;
-  const role = isFirstUser ? "admin" : "staff";
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
+  // Counted after the await, with nothing asynchronous between this and the
+  // insert: counted before hashing, two signups racing on an empty database
+  // both saw zero users and both became admin.
+  const isFirstUser = (countUsers.get() as { c: number }).c === 0;
+  const role = isFirstUser ? "admin" : "staff";
 
   try {
     insertUser.run(id, name.trim(), normalizedEmail, passwordHash, role, new Date().toISOString());
@@ -184,6 +189,13 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
   }
 
   const normalizedEmail = email.trim().toLowerCase();
+  // No account can have an address like this (signup refuses it), so answer
+  // exactly as for a wrong password — but without adding it to the throttle
+  // map, which would otherwise keep one entry per made-up "email" forever.
+  if (normalizedEmail.length > MAX_EMAIL_LENGTH || !EMAIL_RE.test(normalizedEmail)) {
+    res.status(401).json({ error: "Invalid email or password." });
+    return;
+  }
   if (isThrottled(normalizedEmail)) {
     res.status(429).json({ error: "Too many failed attempts. Try again in a few minutes." });
     return;
@@ -238,6 +250,19 @@ function recordAssistantCall(userId: string): void {
   rec.count += 1;
   assistantCalls.set(userId, rec);
 }
+
+// Each throttle only forgets a key when that same key comes back after its
+// window, so keys that never return (one-off IPs, users who stopped) would
+// otherwise sit in memory until restart. Sweep them once a minute.
+function sweepExpired(map: Map<string, AttemptRecord>, windowMs: number): void {
+  const now = Date.now();
+  for (const [key, rec] of map) if (now - rec.first > windowMs) map.delete(key);
+}
+setInterval(() => {
+  sweepExpired(loginAttempts, THROTTLE_WINDOW_MS);
+  sweepExpired(signupAttempts, THROTTLE_WINDOW_MS);
+  sweepExpired(assistantCalls, ASSISTANT_THROTTLE_WINDOW_MS);
+}, 60 * 1000).unref();
 
 const ROUTE_RE = /^\/[a-z0-9/_-]*$/i;
 
@@ -348,14 +373,65 @@ app.post("/api/assistant/checklist-answer", requireAuth, async (req: Request, re
   }
 });
 
+// The digest goes out from the company mailbox to whatever addresses the
+// browser sends, so it is held to what the app itself would send: the
+// briefing posts at most 200 reminders, each naming the employees Master
+// Data assigns to it. A recipient must be one plain address — a comma,
+// semicolon or angle bracket would let one "email" fan out to anyone.
+const MAX_DIGEST_REMINDERS = 500;
+const MAX_DIGEST_RECIPIENTS = 50;
+const MAX_ASSIGNED_PER_REMINDER = 25;
+const PLAIN_EMAIL_RE = /^[^\s@,;<>"'()]+@[^\s@,;<>"'()]+\.[^\s@,;<>"'()]+$/;
+
+function shortString(value: unknown, max: number): string | null {
+  return typeof value === "string" && value.length <= max ? value : null;
+}
+
+// Keeps only well-formed reminders and well-formed recipient addresses. A
+// badly typed email in Master Data drops that one recipient, not the whole
+// day's digest for everyone else.
+function sanitizeDigestReminders(input: unknown[]): DigestReminder[] {
+  const clean: DigestReminder[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const documentName = shortString(r.documentName, 200);
+    const dueDate = shortString(r.dueDate, 10);
+    const urgency = shortString(r.urgency, 20);
+    if (!documentName || !dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !urgency) continue;
+    const assignedEmployees: { name: string; email?: string }[] = [];
+    if (Array.isArray(r.assignedEmployees)) {
+      for (const emp of r.assignedEmployees.slice(0, MAX_ASSIGNED_PER_REMINDER)) {
+        if (!emp || typeof emp !== "object") continue;
+        const e = emp as Record<string, unknown>;
+        const email = shortString(e.email, MAX_EMAIL_LENGTH)?.trim();
+        if (!email || !PLAIN_EMAIL_RE.test(email)) continue;
+        assignedEmployees.push({ name: shortString(e.name, 100) ?? "", email: email.toLowerCase() });
+      }
+    }
+    clean.push({ documentName, dueDate, urgency, assignedEmployees });
+  }
+  return clean;
+}
+
 app.post("/api/reminders/send-digest", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const { reminders } = req.body ?? {};
   if (!Array.isArray(reminders)) {
     res.status(400).json({ error: "reminders must be an array." });
     return;
   }
+  if (reminders.length > MAX_DIGEST_REMINDERS) {
+    res.status(400).json({ error: "Too many reminders in one digest." });
+    return;
+  }
+  const clean = sanitizeDigestReminders(reminders);
+  const recipients = new Set(clean.flatMap((r) => (r.assignedEmployees ?? []).map((e) => e.email)));
+  if (recipients.size > MAX_DIGEST_RECIPIENTS) {
+    res.status(400).json({ error: "Too many recipients in one digest." });
+    return;
+  }
   try {
-    const result = await sendReminderDigestIfDue(reminders as DigestReminder[]);
+    const result = await sendReminderDigestIfDue(clean);
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -379,8 +455,15 @@ if (existsSync(distDir)) {
 // unless NODE_ENV is explicitly "production" — this app never sets that (see
 // the CORS comment above for why), so without this, an unexpected error
 // would leak internals to the client. Log server-side, respond generically.
+// A client error (malformed JSON is 400, an oversized body 413) keeps its
+// status — it is the request that was wrong, not the server.
 app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
   if (res.headersSent) return next(err);
+  const status = typeof (err as { status?: unknown })?.status === "number" ? (err as { status: number }).status : 500;
+  if (status >= 400 && status < 500) {
+    res.status(status).json({ error: status === 413 ? "Request is too large." : "Bad request." });
+    return;
+  }
   console.error(err);
   res.status(500).json({ error: "Something went wrong." });
 });

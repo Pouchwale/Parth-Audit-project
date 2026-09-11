@@ -15,7 +15,12 @@ if (existsSync(envPath)) {
     const eq = trimmed.indexOf("=");
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    const value = trimmed.slice(eq + 1).trim();
+    // `KEY="value"` / `KEY='value'` keep what's inside the quotes; an unquoted
+    // value ends at a ` # comment` (the style README.md's example uses), which
+    // would otherwise become part of the key and make Groq reject it.
+    const raw = trimmed.slice(eq + 1).trim();
+    const quoted = /^(["'])(.*)\1\s*(?:#.*)?$/.exec(raw);
+    const value = quoted ? quoted[2] : raw.replace(/\s+#.*$/, "");
     if (key && !(key in process.env)) process.env[key] = value;
   }
 }
