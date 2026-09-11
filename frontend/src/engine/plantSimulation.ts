@@ -301,8 +301,12 @@ export interface LifecycleOutcome {
   rejectionReason?: string;
 }
 
-function stampAt(dateISO: string, hour: number, minute: number): string {
-  return `${dateISO}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00.000Z`;
+// A clock time at the plant, stored the way the app stores every other time:
+// as the UTC instant it was. Written straight out as "…T18:45:00.000Z" it was
+// read back as UTC, so 18:45 at the plant showed as 00:15 the next day on any
+// screen in India.
+export function stampAt(dateISO: string, hour: number, minute: number): string {
+  return new Date(Number(dateISO.slice(0, 4)), Number(dateISO.slice(5, 7)) - 1, Number(dateISO.slice(8, 10)), hour, minute).toISOString();
 }
 
 /**

@@ -27,6 +27,7 @@ import {
   findingScheduleFor,
   lifecycleFor,
   serviceRemarkFor,
+  stampAt,
   type LifecycleOutcome,
 } from "../engine/plantSimulation";
 import { generateId } from "../utils/id";
@@ -44,6 +45,12 @@ const DEMO_VERIFIER = "Kapila Barad";
 // seed names what it decides.
 function rngFor(...parts: string[]) {
   return makeRng(`demo|${parts.join("|")}`);
+}
+
+// A demo record made as an empty shell because its day was still ahead when
+// it was generated, and not touched by anyone since.
+function isUnfilledPastShell(r: RecordInstance, today: string): boolean {
+  return r.status === "Due" && compareISO(r.dueDate, today) <= 0 && r.updatedAt === r.createdAt;
 }
 
 function buildDailyData(dueDate: string, isHoliday: boolean): DailyPestMonitoringData {
@@ -149,13 +156,27 @@ export interface ServiceObservation {
   correctiveAction: string;
 }
 
+function serviceAreasFor(doc: DocumentDefinition): { name: string }[] {
+  const areas = masterRepository.get().areas.filter((a) => a.context === `service-report:${doc.variantKey}`);
+  return areas.length ? areas : [{ name: "General area (demo)" }];
+}
+
+// What the technician flagged on a visit already on file — the same
+// deterministic remarks buildServiceReportData wrote into its report.
+function serviceObservationsFor(doc: DocumentDefinition, dueDate: string): ServiceObservation[] {
+  const out: ServiceObservation[] = [];
+  for (const a of serviceAreasFor(doc)) {
+    const finding = serviceRemarkFor(doc.variantKey, a.name, dueDate).finding;
+    if (finding) out.push({ areaName: a.name, ...finding });
+  }
+  return out;
+}
+
 function buildServiceReportData(doc: DocumentDefinition, dueDate: string, observed: ServiceObservation[]): ServiceReportData {
-  const master = masterRepository.get();
-  const areas = master.areas.filter((a) => a.context === `service-report:${doc.variantKey}`);
   const rng = rngFor("service", doc.id, dueDate);
   return {
     serviceName: doc.variantKey ?? doc.name,
-    lines: (areas.length ? areas : [{ id: "adhoc", name: "General area (demo)", context: "" }]).map((a, i) => {
+    lines: serviceAreasFor(doc).map((a, i) => {
       const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name);
       // What the technician actually noted at this area on this visit — and
       // where that is something the plant has to act on, it is collected so
@@ -273,9 +294,9 @@ function buildMonthlyCapaRecord(
       createdAt: now,
       updatedAt: now,
       submittedBy: DEMO_CHECKERS[0],
-      submittedAt: `${inspectionDate}T16:${String(rng.int(0, 59)).padStart(2, "0")}:00.000Z`,
+      submittedAt: stampAt(inspectionDate, 16, rng.int(0, 59)),
       verifiedBy: status === "Verified" ? DEMO_VERIFIER : undefined,
-      verifiedAt: status === "Verified" ? `${addDays(inspectionDate, 1)}T11:00:00.000Z` : undefined,
+      verifiedAt: status === "Verified" ? stampAt(addDays(inspectionDate, 1), 11, 0) : undefined,
     },
   ];
 }
@@ -287,7 +308,9 @@ export function generateDemoRecordsForMonth(year: number, month: number): number
   const now = new Date().toISOString();
 
   const master = masterRepository.get();
-  const existing = recordRepository.periodKeys(true);
+  // Every demo record already stored, by document and period.
+  const stored = new Map<string, RecordInstance>();
+  for (const r of recordRepository.query({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
   // Findings the fortnightly service visits raised this month, collected as
   // the reports are built so they can be carried into a CAPA record below.
   const observedThisMonth: ServiceObservation[] = [];
@@ -297,7 +320,8 @@ export function generateDemoRecordsForMonth(year: number, month: number): number
     // carry-forward logic has something to chain from for log sheets.
     let previous: RecordInstance | undefined = recordRepository
       .query({ documentId: doc.id, isDemo: true })
-      .filter((r) => compareISO(r.dueDate, `${year}-${String(month + 1).padStart(2, "0")}-01`) < 0)
+      // (never an empty future shell — there is nothing in it to carry forward)
+      .filter((r) => r.status !== "Due" && compareISO(r.dueDate, `${year}-${String(month + 1).padStart(2, "0")}-01`) < 0)
       .sort((a, b) => compareISO(b.dueDate, a.dueDate))[0];
 
     // Same holiday-aware dates as the Live generator (engine/holidays.ts):
@@ -305,7 +329,15 @@ export function generateDemoRecordsForMonth(year: number, month: number): number
     // visits that land on a closed day move to the next working day.
     for (const { scheduled, due: dueDate, holiday } of effectiveDueDatesInMonth(doc, year, month, master)) {
       const periodKey = periodKeyFor(doc, scheduled);
-      if (existing.has(`${doc.id}|${periodKey}`)) continue;
+      // A period already on file is left alone — except a blank shell made
+      // for a day that was still ahead when it was generated, untouched
+      // since. That day has happened now, so it is filled in like any other;
+      // skipped, it sat blank and overdue in the demo for good.
+      const prior = stored.get(`${doc.id}|${periodKey}`);
+      if (prior && !isUnfilledPastShell(prior, today)) {
+        if (prior.status !== "Due") previous = prior;
+        continue;
+      }
       if (holiday && doc.kind !== "daily-pest-monitoring") continue;
 
       // The Daily Monitoring register's "H O L I D A Y" rows are the real
@@ -340,13 +372,13 @@ export function generateDemoRecordsForMonth(year: number, month: number): number
         : lifecycleFor(doc, dueDate, submitter, DEMO_VERIFIER, today);
 
       const rec: RecordInstance = {
-        id: generateId("demo"),
+        id: prior?.id ?? generateId("demo"),
         documentId: doc.id,
         periodKey,
         dueDate,
         isDemo: true,
         data,
-        createdAt: now,
+        createdAt: prior?.createdAt ?? now,
         updatedAt: now,
         ...life,
       };
@@ -361,7 +393,18 @@ export function generateDemoRecordsForMonth(year: number, month: number): number
   // an auditor actually follows: an observation in a register, an action
   // raised against it, and a date it was closed on. Before this, a demo year
   // contained no CAPA activity at all.
-  created.push(...buildMonthlyCapaRecord(year, month, created, observedThisMonth, existing, today));
+  // Built from the whole month on file, not only this run's records: a month
+  // first generated before it ended gets its CAPA record on the first run
+  // after it ends, from everything its registers observed.
+  const createdIds = new Set(created.map((r) => r.id));
+  const earlier = recordRepository
+    .query({ isDemo: true, fromDate: `${year}-${String(month + 1).padStart(2, "0")}-01`, toDate: MONTH_END(year, month) })
+    .filter((r) => !createdIds.has(r.id) && r.status !== "Due");
+  for (const r of earlier) {
+    const d = docs.find((x) => x.id === r.documentId);
+    if (d?.kind === "service-report") observedThisMonth.push(...serviceObservationsFor(d, r.dueDate));
+  }
+  created.push(...buildMonthlyCapaRecord(year, month, [...earlier, ...created], observedThisMonth, new Set(stored.keys()), today));
 
   recordRepository.upsertMany(created);
   return created.length;
