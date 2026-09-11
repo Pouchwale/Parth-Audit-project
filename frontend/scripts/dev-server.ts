@@ -31,7 +31,34 @@ const { hosts, port } = await ctx.serve({
 });
 const host = hosts[0] ?? "127.0.0.1";
 
-const server = http.createServer(async (req, res) => {
+const publicDir = path.join(root, "public");
+
+// Maps a request path onto a file inside public/, or null if it would land
+// anywhere else. `path.join(publicDir, url)` alone followed `/../../` (and,
+// on Windows, `..\` or `%5c`) straight out to backend/.env and the session
+// secret in backend/data/.
+function publicFilePath(url: string): string | null {
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(new URL(url, "http://localhost").pathname);
+  } catch {
+    return null; // malformed %-escape
+  }
+  const filePath = path.resolve(publicDir, "." + path.sep + pathname);
+  return filePath.startsWith(publicDir + path.sep) ? filePath : null;
+}
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch((err) => {
+    // e.g. index.html briefly missing mid-save: answer this request with an
+    // error instead of letting the rejection take the whole dev server down.
+    console.error(err);
+    if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/plain" });
+    res.end("Dev server error — see the terminal.");
+  });
+});
+
+async function handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const url = req.url === "/" || !req.url ? "/index.html" : req.url;
 
   if (url === "/index.html") {
@@ -52,6 +79,10 @@ const server = http.createServer(async (req, res) => {
     const proxyReq = http.request({ hostname: host, port, path: forwardUrl, method: req.method }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
       proxyRes.pipe(res, { end: true });
+    });
+    proxyReq.on("error", () => {
+      if (!res.headersSent) res.writeHead(502, { "Content-Type": "text/plain" });
+      res.end("The bundler is not answering — see the terminal.");
     });
     req.pipe(proxyReq, { end: true });
     return;
@@ -74,8 +105,9 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   // static /public passthrough
+  const filePath = publicFilePath(url);
   try {
-    const filePath = path.join(root, "public", url);
+    if (!filePath) throw new Error("outside public/");
     const data = await fs.readFile(filePath);
     res.writeHead(200);
     res.end(data);
@@ -83,7 +115,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404);
     res.end("Not found");
   }
-});
+}
 
 server.listen(PORT, () => {
   console.log(`Dev server running at http://localhost:${PORT}`);
