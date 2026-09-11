@@ -201,7 +201,7 @@ export function DocumentAssistant() {
       bot(prompt.text, prompt.chips);
       return;
     }
-    askStep(stepAfter(res.data, g.step));
+    askStep(res.next ?? stepAfter(res.data, g.step));
   };
 
   const runAction = (chip: Chip) => {

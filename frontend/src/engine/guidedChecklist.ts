@@ -222,6 +222,8 @@ export interface ApplyResult {
   ack: string;
   // Stay on the same step (e.g. a date that couldn't be read).
   stay?: boolean;
+  // Go here next instead of the usual stepAfter() — "Skip this section".
+  next?: GuidedStep;
 }
 
 export function applyAnswer(data: ComplaintChecklistData, step: GuidedStep, answer: GuidedAnswer, today = todayISO()): ApplyResult {
@@ -248,7 +250,9 @@ export function applyAnswer(data: ComplaintChecklistData, step: GuidedStep, answ
       const n = items.filter((it, i) => it.done && !s.items[i].done).length;
       return { data: replaceSection(data, step.sectionIndex, items), ack: `Marked ${n} activit${n === 1 ? "y" : "ies"} in Section ${s.key} as done today.` };
     }
-    if (answer.type === "sectionSkip") return { data, ack: `Skipping Section ${s.key} for now.` };
+    // stepAfter() from a section's intro goes INTO the section, which is what
+    // "Let's go" wants — a skip has to name the step past it instead.
+    if (answer.type === "sectionSkip") return { data, ack: `Skipping Section ${s.key} for now.`, next: nextSectionOrApproval(data, step.sectionIndex) };
     return { data, ack: "" };
   }
 
@@ -351,5 +355,8 @@ export function parseUserDate(text: string, today = todayISO()): string | null {
 
 function build(y: number, mo: number, d: number): string | null {
   if (y < 2000 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  // 31/02 or 31/09 would otherwise be stored as-is and read back as a day in
+  // the following month.
+  if (new Date(Date.UTC(y, mo - 1, d)).getUTCMonth() !== mo - 1) return null;
   return `${y}-${pad2(mo)}-${pad2(d)}`;
 }

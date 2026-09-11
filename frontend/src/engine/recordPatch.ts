@@ -1,5 +1,6 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../types";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { masterRepository } from "../data/repositories/masterRepository";
 import { addDays, pad2, todayISO } from "../utils/date";
 import { generateId } from "../utils/id";
 
@@ -331,6 +332,25 @@ function normArray(key: string, cur: unknown[], value: unknown[], problems: stri
 
 // ---- daily monitoring check points ------------------------------------------
 
+const OK_WORDS = new Set(["ok", "okay", "all ok", "fine"]);
+const NOT_OK_WORDS = new Set(["not ok", "notok", "not okay"]);
+
+// A check point's Yes / No. "OK" says the point is fine — but on the points
+// that ask about a problem ("any gap…?", "any pest trapped…?") fine is "No",
+// so it can't simply mean Yes: "check point 2 is ok" used to record a gap.
+function checkpointAnswer(no: number, raw: unknown): "Yes" | "No" | null {
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[.!]+$/, "");
+  const flagWhen = masterRepository.get().checkpoints.find((c) => Number(c.no) === no)?.flagWhen;
+  if (flagWhen === "Yes" || flagWhen === "No") {
+    if (OK_WORDS.has(s)) return flagWhen === "Yes" ? "No" : "Yes";
+    if (NOT_OK_WORDS.has(s)) return flagWhen;
+  }
+  return normYesNo(raw);
+}
+
 function normCheckpoints(cur: Obj, value: unknown, problems: string[]): Obj {
   const next: Obj = { ...cur };
   if (!isObj(value)) {
@@ -359,7 +379,7 @@ function normCheckpoints(cur: Obj, value: unknown, problems: string[]): Obj {
       next[k] = { ...prev, value: n, ...(note !== undefined ? { note } : {}) };
       continue;
     }
-    const yn = normYesNo(raw);
+    const yn = checkpointAnswer(no, raw);
     if (!yn) {
       problems.push(`Check point ${no} can only be Yes or No — ${quote(raw)} wasn't used.`);
       continue;
@@ -416,7 +436,11 @@ function normRow(layout: LogSheetLayout, row: Obj, set: Obj, problems: string[])
 function normRows(layout: LogSheetLayout, cur: Obj[], value: unknown[], problems: string[]): Obj[] {
   const free = layout.rowMode.kind === "free";
   const byId = new Map(cur.map((r, i) => [String(r.id), i]));
+  // `out` is indexed by existing row; new rows are kept apart. Pushed onto
+  // `out`, a new row listed before the existing ones took slot 0 and was then
+  // overwritten by existing row 0 — silently lost.
   const out: Obj[] = [];
+  const added: Obj[] = [];
   const used = new Set<number>();
   value.forEach((raw, i) => {
     if (!isObj(raw)) return;
@@ -427,7 +451,7 @@ function normRows(layout: LogSheetLayout, cur: Obj[], value: unknown[], problems
       out[idx] = normRow(layout, cur[idx], raw, problems);
       return;
     }
-    if (free) out.push(normRow(layout, { id: generateId("row") }, raw, problems));
+    if (free) added.push(normRow(layout, { id: generateId("row") }, raw, problems));
   });
   if (!free) {
     if (value.length !== cur.length) problems.push("This form has a fixed set of rows, so none were added or removed — only values in the existing rows changed.");
@@ -435,9 +459,6 @@ function normRows(layout: LogSheetLayout, cur: Obj[], value: unknown[], problems
   }
   // Free rows: kept rows first in their original order, then any new ones.
   const kept = cur.map((_, i) => out[i]).filter(Boolean) as Obj[];
-  const added = out.slice(cur.length).filter(Boolean);
-  const extra = out.filter((r, i) => i < cur.length && !r).length; // (never happens; keeps the intent explicit)
-  void extra;
   return [...kept, ...added];
 }
 

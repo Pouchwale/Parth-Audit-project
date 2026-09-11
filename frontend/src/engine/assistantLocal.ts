@@ -115,16 +115,23 @@ function parseDateRef(text: string, today: string): { date: string; phrase: stri
   if (/\byesterday\b/.test(lower)) return { date: addDays(today, -1), phrase: "Yesterday" };
   if (/\btoday\b/.test(lower)) return { date: today, phrase: "Today" };
 
+  // A date that doesn't exist ("31-02-2026") is no date at all: built as-is
+  // it rolled over, and the answer was about 3 March.
   const iso = lower.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
-  if (iso) return { date: `${iso[1]}-${iso[2]}-${iso[3]}`, phrase: formatDisplayDate(`${iso[1]}-${iso[2]}-${iso[3]}`) };
+  if (iso) {
+    if (!isValidYMD(Number(iso[1]), Number(iso[2]), Number(iso[3]))) return null;
+    return { date: `${iso[1]}-${iso[2]}-${iso[3]}`, phrase: formatDisplayDate(`${iso[1]}-${iso[2]}-${iso[3]}`) };
+  }
   const dmy = lower.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b/);
   if (dmy) {
+    if (!isValidYMD(Number(dmy[3]), Number(dmy[2]), Number(dmy[1]))) return null;
     const date = `${dmy[3]}-${pad2(Number(dmy[2]))}-${pad2(Number(dmy[1]))}`;
     return { date, phrase: formatDisplayDate(date) };
   }
   const dMon = lower.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+(\d{4}))?\b/);
   if (dMon) {
     const year = dMon[3] ? Number(dMon[3]) : fromISODate(today).getFullYear();
+    if (!isValidYMD(year, MONTHS.indexOf(dMon[2]) + 1, Number(dMon[1]))) return null;
     const date = `${year}-${pad2(MONTHS.indexOf(dMon[2]) + 1)}-${pad2(Number(dMon[1]))}`;
     return { date, phrase: formatDisplayDate(date) };
   }
@@ -254,14 +261,26 @@ function isValidYMD(y: number, m: number, d: number): boolean {
   return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
 
+interface ExplicitDate {
+  date: string;
+  /** Where in the message it was written — dates come back in this order. */
+  pos: number;
+  /** Whether the year was written, rather than assumed to be this one. */
+  yearGiven: boolean;
+}
+
 // Every explicit calendar date named in the message (ISO, dd-mm-yyyy,
-// "1 January[ 2026]", "January 1[, 2026]"), deduplicated — used for BOTH a
-// two-sided range ("from 1 January to 19 January" finds both) and a single
-// date ("documents for 5 September" finds one, so from===to).
-function extractExplicitDates(text: string, yearFallback: number): string[] {
-  const out = new Set<string>();
-  const push = (y: number, m: number, d: number) => {
-    if (isValidYMD(y, m, d)) out.add(`${y}-${pad2(m)}-${pad2(d)}`);
+// "1 January[ 2026]", "January 1[, 2026]"), deduplicated, in the order the
+// message names them — used for BOTH a two-sided range ("from 1 January to 19
+// January" finds both) and a single date ("documents for 5 September" finds
+// one, so from===to).
+function extractExplicitDates(text: string, yearFallback: number): ExplicitDate[] {
+  const out = new Map<string, ExplicitDate>();
+  const push = (y: number, m: number, d: number, pos: number, yearGiven: boolean) => {
+    if (!isValidYMD(y, m, d)) return;
+    const date = `${y}-${pad2(m)}-${pad2(d)}`;
+    const prev = out.get(date);
+    if (!prev || pos < prev.pos) out.set(date, { date, pos, yearGiven: yearGiven || !!prev?.yearGiven });
   };
   // Shorthand where the month is only stated once for both ends — "1 to 19
   // January", "1-19 January 2026" — checked first so both day numbers get
@@ -271,18 +290,18 @@ function extractExplicitDates(text: string, yearFallback: number): string[] {
   )) {
     const year = m[4] ? Number(m[4]) : yearFallback;
     const mi = MONTHS.indexOf(m[3].toLowerCase()) + 1;
-    push(year, mi, Number(m[1]));
-    push(year, mi, Number(m[2]));
+    push(year, mi, Number(m[1]), m.index, !!m[4]);
+    push(year, mi, Number(m[2]), m.index + 1, !!m[4]);
   }
-  for (const m of text.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) push(Number(m[1]), Number(m[2]), Number(m[3]));
-  for (const m of text.matchAll(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b/g)) push(Number(m[3]), Number(m[2]), Number(m[1]));
+  for (const m of text.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) push(Number(m[1]), Number(m[2]), Number(m[3]), m.index, true);
+  for (const m of text.matchAll(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b/g)) push(Number(m[3]), Number(m[2]), Number(m[1]), m.index, true);
   for (const m of text.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+(\d{4}))?\b/gi)) {
-    push(m[3] ? Number(m[3]) : yearFallback, MONTHS.indexOf(m[2].toLowerCase()) + 1, Number(m[1]));
+    push(m[3] ? Number(m[3]) : yearFallback, MONTHS.indexOf(m[2].toLowerCase()) + 1, Number(m[1]), m.index, !!m[3]);
   }
   for (const m of text.matchAll(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/gi)) {
-    push(m[3] ? Number(m[3]) : yearFallback, MONTHS.indexOf(m[1].toLowerCase()) + 1, Number(m[2]));
+    push(m[3] ? Number(m[3]) : yearFallback, MONTHS.indexOf(m[1].toLowerCase()) + 1, Number(m[2]), m.index, !!m[3]);
   }
-  return Array.from(out);
+  return Array.from(out.values()).sort((a, b) => a.pos - b.pos);
 }
 
 // A month as people write it — "jan", "January", "sept." — and nothing that
@@ -311,7 +330,15 @@ function parseDateRange(text: string, today: string): DateRange | null {
 
   const explicit = extractExplicitDates(text, year0);
   if (explicit.length >= 1) {
-    const sorted = explicit.slice().sort(compareISO);
+    let dates = explicit.map((e) => e.date);
+    // "25 December to 5 January" with no year written runs into next year,
+    // the way "November to February" does — sorted as they stood, it became
+    // 5 January to 25 December of this year, nearly the whole year.
+    if (explicit.length === 2 && !explicit[0].yearGiven && !explicit[1].yearGiven && compareISO(explicit[1].date, explicit[0].date) < 0) {
+      const [y, m, d] = explicit[1].date.split("-").map(Number);
+      if (isValidYMD(y + 1, m, d)) dates = [explicit[0].date, `${y + 1}-${pad2(m)}-${pad2(d)}`];
+    }
+    const sorted = dates.slice().sort(compareISO);
     const from = sorted[0];
     const to = sorted[sorted.length - 1];
     return { from, to, label: from === to ? formatDisplayDate(from) : `${formatDisplayDate(from)} to ${formatDisplayDate(to)}` };

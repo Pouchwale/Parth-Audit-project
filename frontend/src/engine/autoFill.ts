@@ -29,6 +29,7 @@ import {
   serviceRemarkFor,
 } from "./plantSimulation";
 import { dayInfo } from "./holidays";
+import { isOutOfBand } from "./validation";
 import { compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
@@ -710,8 +711,13 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
     case "qc-viscosity": {
       const r = rangeOf(rows, "viscosity");
       const testers = Array.from(new Set(rows.map((x) => x.testedBy).filter(Boolean)));
+      // The readings drift out of band now and then (engine/plantSimulation.ts),
+      // so "all within" is only said when it's true — beside an out-of-band
+      // reading it was exactly the false pass this note must never give.
+      const col = layout.columns.find((c) => c.key === "viscosity");
+      const outside = col ? rows.filter((x) => isOutOfBand(col, x.viscosity)).length : 0;
       return [
-        `Filled all ${rows.length} hourly readings: ${r?.min.toFixed(2)}–${r?.max.toFixed(2)} Sec., all within 20.0 ± 1.0.`,
+        `Filled all ${rows.length} hourly readings: ${r?.min.toFixed(2)}–${r?.max.toFixed(2)} Sec., ${outside === 0 ? "all within 20.0 ± 1.0" : `${outside} outside 20.0 ± 1.0`}.`,
         `Tested by ${testers.join(" (day) / ")}${testers.length > 1 ? " (night)" : ""}.`,
       ];
     }
