@@ -1,16 +1,9 @@
 import React from "react";
 import { FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, RecordInstance, ServiceReportAreaLine, ServiceReportData } from "../../types";
-import { masterRepository } from "../../data/repositories/masterRepository";
 import { COMPANY } from "../../data/seed/masterData";
 import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "../../engine/serviceMaterials";
 import { formatDisplayDate } from "../../utils/date";
-
-function matchingChemicalSuggestion(variantKey: string | undefined, serviceTypeChemicals: ReturnType<typeof masterRepository.get>["serviceTypeChemicals"]) {
-  if (!variantKey) return undefined;
-  const key = variantKey.toLowerCase();
-  return serviceTypeChemicals.find((s) => key.includes(s.serviceName.split(" ")[0].toLowerCase()));
-}
 
 export function ServiceReportRecordView({
   doc,
@@ -29,8 +22,6 @@ export function ServiceReportRecordView({
   onChange: (data: ServiceReportData) => void;
 }) {
   const data = record.data;
-  const master = masterRepository.get();
-  const suggestion = matchingChemicalSuggestion(doc.variantKey, master.serviceTypeChemicals);
 
   // Every change to the lines goes through the service's fixed rules
   // (engine/serviceMaterials.ts): material and method follow the area, and the
@@ -67,15 +58,6 @@ export function ServiceReportRecordView({
           </div>
         </div>
       </div>
-
-      {suggestion && (
-        <div className="card mt-3 no-print" style={{ background: "var(--color-primary-light)", border: "1px solid var(--color-primary)" }}>
-          <div className="card-pad text-sm">
-            <strong>Chemical Master suggestion</strong> for {suggestion.serviceName}: Pest covered — {suggestion.pestCovered}.
-            Chemicals — {suggestion.chemicals.join(", ")}. Dilution — {suggestion.dilutionRatio}.
-          </div>
-        </div>
-      )}
 
       <div className="doc-table mt-4">
         <table data-table="service-lines">
