@@ -75,12 +75,68 @@ python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actual
 Every suite signs up a fresh, randomly-emailed account at the start of the run (the app gates
 every page behind login — see `frontend/src/main.tsx`/`AuthProvider`) before exercising the rest of the app.
 
-## Results (last full run — 11-Sep-2026, on the TypeScript-only backend/scripts, after the record-correction and change-history batch)
+## Results (last full run — 11-Sep-2026, on the TypeScript-only backend/scripts, after the whole-project bug-fix pass)
 
 The run below is the production shape end to end: `frontend/scripts/build.ts` builds the bundle,
 `backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every
 suite runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts
 (`tsconfig.node.json`).
+
+### Whole-project bug-fix pass (11-Sep-2026)
+
+The whole codebase was reviewed read-only in four slices — backend + tooling, engine, data / store,
+pages + components — and every finding was re-checked against the code before anything changed.
+One was a false positive and was left alone: the correction banner's split marker looks like `""` in
+an editor but is the invisible U+0001, so the sentence splits correctly. Everything else was fixed,
+one commit per group:
+
+- **Dev server file leak (security).** `frontend/scripts/dev-server.ts` joined the raw URL onto
+  `public/`, so `/../../backend/.env` — or `backend/data/jwt-secret.txt`, enough to forge any session
+  — was readable by anyone on the LAN. Checked live: `/../../backend/.env`, `..%2f` and `..%5c`
+  all answer 404, public files still 200.
+- **Server.** The reminder digest claims the day before sending (two browsers no longer both send),
+  isn't used up by a browser with no recipient emails, is given back if every send fails, and only
+  goes to single well-formed addresses, at most 50 (a comma list could relay mail from the company
+  mailbox). The login throttle no longer stores made-up emails, and all three throttles sweep expired
+  entries. Two racing first signups can't both become admin. Malformed JSON is 400 and an oversized
+  body 413, not 500. `.env` values may be quoted or carry a trailing `# comment`.
+- **Tooling.** `npm run test:e2e` refuses to start if something already answers on :8842 (it would
+  have tested the old build); `npm run dev` reports a crashed child as a failure; the dev server
+  survives a failed read or proxy request.
+- **Storage full.** A failed save was logged and kept only in memory — shown as saved, lost on the
+  next reload. The cache now follows what is stored and a banner says the change wasn't kept.
+  Measured in Chromium: a fresh Live account 244,660 characters (5% of the ~5M quota); after Demo
+  Mode fills the year, 4,208,499 (80%) — see DEPLOYMENT.md → Capacity.
+- **Two tabs.** A save in one tab was overwritten by the other tab's stale copy; the storage event
+  now drops it and redraws. Clean-ups that remove nothing no longer rewrite the records array.
+- **Demo Mode.** Shells made for days still ahead stayed blank and overdue forever, and a month
+  generated before it ended never got its CAPA record; both are filled on the next run. Demo
+  sign-off times were stored as UTC (18:45 showed as 00:15 the next day in India).
+- **Assistant and engine.** "check point 2 is ok" recorded a gap (OK always meant Yes — it now
+  follows each point's finding polarity); new rows listed before existing ones were lost; "25
+  December to 5 January" listed 5 Jan – 25 Dec of one year; 31/02 was accepted by the complaint
+  walk-through and read as 3 March by the calendar questions; "Skip this section" went into the
+  section; the viscosity note said "all within 20.0 ± 1.0" beside out-of-band readings.
+- **Screens.** `#/day/abc` blanked the whole app, and any render error did the same — now a
+  screen-level error boundary, real dates only, and a non-numeric year / month falls back instead of
+  showing NaN. Gap and Training record pages kept the previous record when the address changed and
+  saved the next edit into the new one. The log-sheet view called a hook after an early return.
+- **CSV exports** carry a UTF-8 byte-order mark (Excel showed "Lamination â€” Quality Control") and
+  neutralise cells that would run as formulas.
+- **Keyboard.** Master Data / Reports / Pest Control tabs, Live / Demo, the language pills, calendar
+  days and reminders were mouse-only; they now take focus, answer Enter / Space and show a focus ring.
+- **Stale test.** `e2e_assistant_chat.py` looked for the model's "I've filled in"; a plain edit has
+  been confirmed locally as "Done — saved. I changed: …" since the record-correction batch.
+
+How it was checked: `npm run typecheck` clean; 25 unit checks of the engine fixes from a scratch
+harness (check-point polarity, row order, impossible dates, section skip, the New-Year span, the CSV
+guard); every suite re-run against the rebuilt app — `e2e_smoke.py` 144/144, backlog 8/8, voice
+13/13, realism 22/22 (2,686 demo records), editing 20/20, files 17/17, translate 18/18,
+`visual_qa.py` 20/20 and `e2e_assistant_chat.py` 12/12 against live Groq, the last two with no
+JavaScript errors; `npm audit` reports 0 vulnerabilities.
+
+Known limit, not changed here: operational data still lives in `localStorage`, so the capacity
+figures above stand until the storage migration in DEPLOYMENT.md is done.
 
 ### What this batch changed, and how it was checked
 

@@ -103,6 +103,17 @@ expecting to see everyone else's records. That second model is exactly what the 
 above (repositories → REST API) unlocks — accounts already exist for it; only the operational data
 needs to move.
 
+**Capacity.** A browser gives each site about 5 million characters of `localStorage`, and every
+record of both modes shares it. Measured in Chromium (11-Sep-2026): a fresh Live account uses
+244,660 characters (5%); once Demo Mode has filled the year so far — 2,875 records, five daily
+lamination log sheets of 24 hourly rows among them — 4,208,499 (80%), growing with every demo month
+generated. When a save no longer fits, the change is **not** kept, and the app now says so on screen
+("Your last change could not be saved…", `components/common/StorageFullBanner.tsx`) instead of
+showing it as saved and losing it on the next reload. The quickest relief is Demo Mode → **Clear
+All Demo Data**; the lasting fix is the storage migration above, which removes the limit altogether.
+For a pilot that will run for months, keep Demo Mode for demonstrations on a separate browser
+profile rather than on the shared device that holds the real records.
+
 ## Backup instructions
 
 Since data lives in `localStorage`, back it up from the browser console:
@@ -150,6 +161,11 @@ just shows a clear "isn't configured yet" message instead of failing silently.
 | `API_PORT` | `4000` | `backend/index.ts`, dev proxy | Auth API port |
 | `JWT_SECRET` | auto-generated, saved to `backend/data/jwt-secret.txt` | `backend/auth.ts` | Session-signing key |
 | `FORCE_HTTPS` | unset (`off`) | `backend/index.ts` | Set to `1` to mark the session cookie `Secure` (only do this if actually served over HTTPS, e.g. behind a reverse proxy) |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | none (digest disabled) | `backend/email.ts` | The mailbox the daily reminder digest is sent from. Recipients are the employees Master Data assigns to each due record; the server accepts only single, well-formed addresses (at most 50 per digest), so the endpoint can't be used to relay mail. |
+
+In `backend/.env`, one `KEY=value` per line. A value may be wrapped in `"…"` or `'…'`, and an
+unquoted value ends at a ` # comment` — so the commented layout README.md shows works as written.
+A real environment variable always wins over the file.
 
 ## A note on the build toolchain (why esbuild, not Vite)
 
