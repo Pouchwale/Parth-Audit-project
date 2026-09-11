@@ -5,6 +5,7 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { generateId } from "../utils/id";
+import { pressable } from "../utils/pressable";
 import { todayISO } from "../utils/date";
 import { scheduleLabel } from "../engine/frequencyEngine";
 import { resolveResponsibleEmployees } from "../engine/documentInfo";
@@ -42,7 +43,7 @@ export function MasterDataPage() {
 
       <div className="pill-tabs mb-4 wrap" style={{ flexWrap: "wrap" }}>
         {TABS.map((t) => (
-          <div key={t.key} className={`pill-tab ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>
+          <div key={t.key} className={`pill-tab ${tab === t.key ? "active" : ""}`} {...pressable(() => setTab(t.key), tab === t.key)}>
             {t.label}
           </div>
         ))}

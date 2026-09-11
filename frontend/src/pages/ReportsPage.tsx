@@ -16,6 +16,7 @@ import { COMPANY } from "../data/seed/masterData";
 import { CatchTrendSheet, rowTotal, type TrendRow } from "../components/reports/CatchTrendSheet";
 import { MONTH_NAMES, daysInMonth, pad2, formatDisplayDate } from "../utils/date";
 import { toCSV, downloadCSV } from "../utils/csv";
+import { pressable } from "../utils/pressable";
 import { MiniBarChart } from "../components/reports/MiniBarChart";
 import { DemoTag } from "../components/common/DemoTag";
 import { DailyRegisterSheet } from "../components/records/DailyRegisterSheet";
@@ -102,7 +103,7 @@ export function ReportsPage({
 
       <div className="pill-tabs mb-4" style={{ flexWrap: "wrap" }}>
         {TAB_KEYS.map((key) => (
-          <div key={key} className={`pill-tab ${tab === key ? "active" : ""}`} onClick={() => setTab(key)}>
+          <div key={key} className={`pill-tab ${tab === key ? "active" : ""}`} {...pressable(() => setTab(key), tab === key)}>
             {t(`rep.tab.${key}`)}
           </div>
         ))}

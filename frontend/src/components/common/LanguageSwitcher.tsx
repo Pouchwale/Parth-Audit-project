@@ -2,6 +2,7 @@ import React from "react";
 import { FiGlobe } from "react-icons/fi";
 import { useAppStore } from "../../store/AppStore";
 import { useT } from "../../i18n";
+import { pressable } from "../../utils/pressable";
 import { LANGUAGE_NAMES, type Language } from "../../i18n/strings";
 
 const LANGS: Language[] = ["en", "gu"];
@@ -39,7 +40,7 @@ export function LanguageSwitcher({ variant = "pills" }: { variant?: "pills" | "c
     <div className="lang-switcher">
       <div className="pill-tabs notranslate" translate="no" role="group" aria-label={t("common.language")}>
         {LANGS.map((l) => (
-          <div key={l} className={`pill-tab ${lang === l ? "active" : ""}`} onClick={() => setLang(l)} data-lang={l}>
+          <div key={l} className={`pill-tab ${lang === l ? "active" : ""}`} {...pressable(() => setLang(l), lang === l)} data-lang={l}>
             {l === "en" && <FiGlobe size={12} style={{ marginRight: 5, verticalAlign: -2 }} />}
             {LANGUAGE_NAMES[l]}
           </div>

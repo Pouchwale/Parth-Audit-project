@@ -2,6 +2,7 @@ import React from "react";
 import type { DocumentReminder, ReminderUrgency } from "../../engine/reminders";
 import { formatDisplayDate } from "../../utils/date";
 import { useRouter } from "../../store/router";
+import { pressable } from "../../utils/pressable";
 
 const URGENCY_LABEL: Record<ReminderUrgency, string> = {
   overdue: "Overdue",
@@ -37,10 +38,10 @@ export function ReminderList({ reminders, onNavigate }: { reminders: DocumentRem
           key={r.recordId}
           className="card-clickable"
           style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", padding: "8px 10px", cursor: "pointer" }}
-          onClick={() => {
+          {...pressable(() => {
             navigate(r.route);
             onNavigate?.();
-          }}
+          })}
         >
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-semibold">{r.documentName}</span>

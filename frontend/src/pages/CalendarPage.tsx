@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
+import { pressable } from "../utils/pressable";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
@@ -119,7 +120,7 @@ export function CalendarPage({ year, month }: { year?: number; month?: number })
             <div
               key={dateISO}
               className={`calendar-cell${isToday ? " today" : ""}${day.kind !== "working" ? ` ${day.kind}` : ""}`}
-              onClick={() => navigate(`/day/${dateISO}`)}
+              {...pressable(() => navigate(`/day/${dateISO}`))}
               title={day.kind !== "working" ? day.label : undefined}
             >
               <div className="cal-date">{d}</div>

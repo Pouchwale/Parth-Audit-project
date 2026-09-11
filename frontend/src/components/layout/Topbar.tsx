@@ -3,6 +3,7 @@ import { FiUser, FiPlayCircle, FiCheckCircle, FiLogOut, FiZap, FiMenu, FiSidebar
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
 import { useRouter } from "../../store/router";
+import { pressable } from "../../utils/pressable";
 import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
 import { NotificationBell } from "./NotificationBell";
@@ -35,16 +36,16 @@ export function Topbar() {
             {sidebarVisible ? <FiSidebar size={16} /> : <FiMenu size={16} />}
           </button>
           <div className="pill-tabs">
-            <div className={`pill-tab ${mode === "live" ? "active" : ""}`} onClick={() => setMode("live")} title={t("top.liveModeTitle")}>
+            <div className={`pill-tab ${mode === "live" ? "active" : ""}`} {...pressable(() => setMode("live"), mode === "live")} title={t("top.liveModeTitle")}>
               <FiCheckCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
               {t("top.liveMode")}
             </div>
             <div
               className={`pill-tab ${mode === "demo" ? "active" : ""}`}
-              onClick={() => {
+              {...pressable(() => {
                 setMode("demo");
                 navigate("/demo");
-              }}
+              }, mode === "demo")}
               title={t("top.demoModeTitle")}
             >
               <FiPlayCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard, FiDroplet, FiFileText, FiPrinter, FiTrendingUp, FiTruck } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
+import { pressable } from "../utils/pressable";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -440,10 +441,10 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
 
       <div className="flex items-center justify-between wrap gap-2 mb-2 no-print">
         <div className="pill-tabs">
-          <div className={`pill-tab ${view === "register" ? "active" : ""}`} onClick={() => setView("register")}>
+          <div className={`pill-tab ${view === "register" ? "active" : ""}`} {...pressable(() => setView("register"), view === "register")}>
             {t("pest.registerView")}
           </div>
-          <div className={`pill-tab ${view === "list" ? "active" : ""}`} onClick={() => setView("list")}>
+          <div className={`pill-tab ${view === "list" ? "active" : ""}`} {...pressable(() => setView("list"), view === "list")}>
             {t("pest.statusListView")}
           </div>
         </div>
@@ -791,13 +792,13 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
 
       <div className="flex items-center justify-between wrap gap-2 mb-2 no-print">
         <div className="pill-tabs">
-          <div className={`pill-tab ${view === "register" ? "active" : ""}`} data-view="register" onClick={() => setView("register")}>
+          <div className={`pill-tab ${view === "register" ? "active" : ""}`} data-view="register" {...pressable(() => setView("register"), view === "register")}>
             {t("pest.fhr18RegisterView")}
           </div>
-          <div className={`pill-tab ${view === "trend" ? "active" : ""}`} data-view="trend" onClick={() => setView("trend")}>
+          <div className={`pill-tab ${view === "trend" ? "active" : ""}`} data-view="trend" {...pressable(() => setView("trend"), view === "trend")}>
             {t("pest.trendView")}
           </div>
-          <div className={`pill-tab ${view === "list" ? "active" : ""}`} data-view="list" onClick={() => setView("list")}>
+          <div className={`pill-tab ${view === "list" ? "active" : ""}`} data-view="list" {...pressable(() => setView("list"), view === "list")}>
             {t("pest.visitListView")}
           </div>
         </div>
