@@ -37,6 +37,13 @@ Seven scripts live in `tests/`:
   documents from 1 to 5 …" opens every module; a folder narrows the list, From changes the span and
   the address, a file opens its record; a broken `/files` address falls back to this month; "may I
   … marked …" isn't read as May or March. Network-independent.
+- `tests/e2e_print_and_forms.py` — printing prints the document and nothing else (a record's Print,
+  the F/HR/18 register's Print, the browser's own Print on the register and on Reports, the SOP's new
+  Print; `window.print` is replaced by a counter and the printout inspected under print media); the
+  service report's fixed material / method and one-quantity-per-material rule, on the form, through
+  the assistant and for an older draft brought into line at start-up; and the F/HR/18 register's Add
+  visit / Edit register for a chosen Month & Year (refusals, autosave into the visit's history, names
+  carried forward, a submitted visit locked, an added visit left alone at restart). Network-independent.
 - `tests/visual_qa.py` — deeper per-module interaction checks (Fly Catcher, Service Report, CAPA
   creation, Training creation) plus full-page screenshots of every major screen for visual
   review, saved to `tests/shots/`, network-independent.
@@ -51,7 +58,8 @@ Seven scripts live in `tests/`:
 ```bash
 npm run test:e2e     # builds, boots backend/index.ts on :8842, runs e2e_smoke.py THEN
                       # e2e_backlog_regression.py, e2e_voice.py, e2e_realism.py,
-                      # e2e_editing.py and e2e_files.py against it, tears down
+                      # e2e_editing.py, e2e_files.py, e2e_translate.py and
+                      # e2e_print_and_forms.py against it, tears down
                       # (see scripts/run-e2e.ts)
 ```
 
@@ -67,6 +75,7 @@ python tests/e2e_voice.py
 python tests/e2e_realism.py
 python tests/e2e_editing.py
 python tests/e2e_files.py
+python tests/e2e_print_and_forms.py
 python tests/visual_qa.py
 python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actually resolve; edit
                                     # the BASE constant at the top if your server isn't on :8844
@@ -75,12 +84,49 @@ python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actual
 Every suite signs up a fresh, randomly-emailed account at the start of the run (the app gates
 every page behind login — see `frontend/src/main.tsx`/`AuthProvider`) before exercising the rest of the app.
 
-## Results (last full run — 11-Sep-2026, on the TypeScript-only backend/scripts, after the whole-project bug-fix pass)
+## Results (last full run — 11-Sep-2026, after the print / service-report / F/HR/18 batch)
 
 The run below is the production shape end to end: `frontend/scripts/build.ts` builds the bundle,
 `backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every
 suite runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts
 (`tsconfig.node.json`).
+
+### Print only the document; fixed service material, method and quantity; F/HR/18 by Month & Year (11-Sep-2026)
+
+Three requests from the department, each built and then checked in the browser:
+
+- **"When user take print then it will only print document, not whole page."** `utils/print.ts`
+  marks, for the length of a print, everything that is neither the document (`data-print-doc`), inside
+  it, nor on the way down to it; the containers on the way down lose their padding, frame and grid /
+  flex layout. Every Print button calls it, and a `beforeprint` listener gives the browser's own Print
+  / Ctrl+P the same printout. Documents marked: every record form, the F/HR/17 and F/HR/18 registers,
+  the catch report sheets, the open Reports tab, the licence's scans, a Statement of Compliance, the
+  SOP and the Chemical Master (both gained a Print button) and the Document Files list. Screen-only
+  hints inside forms are `no-print`, placeholders don't print, and the DEMO band prints in colour.
+- **"Material name is fixed and method is also fixed, and quantity added in the first [line] will be
+  same for all others."** `normalizeServiceLines` (`engine/serviceMaterials.ts`) is the one rule, used
+  by the form, the assistant's change checker, the assistant's pre-fill, Demo Mode and a boot-time
+  pass over drafts (`engine/serviceReportDrafts.ts`, logged by "System"; nothing submitted or verified
+  is touched). The Rat / Mice bait area (Bromadiolone Cake, in grams) keeps its own quantity, as on the
+  specimen.
+- **"In Fly catcher infestation keep add / edit option according to Month and Year."** The F/HR/18
+  register carries Add visit / Edit register / Print register for the Month & Year chosen
+  (`engine/flyRegister.ts`, `components/records/FlyCatcherRegisterSheet.tsx`), on Fly Catcher
+  Infestation and on the Fly Control service page.
+
+How it was checked: `npm run typecheck` clean; `npm run test:e2e` — smoke 144/144, backlog 8/8, voice
+13/13, realism 22/22, editing 20/20, files 17/17, translate 18/18 and the new `e2e_print_and_forms.py`
+35/35 (table below), no JavaScript errors; the print-media screenshots `28_print_service_report.png`
+and `29_print_fhr18_register.png` show the form and the register alone. What the first run caught:
+the record page's own Print button had been left calling the browser directly (fixed), and the new
+suite's first probe read an element's computed `display`, which stays "block" under a hidden parent —
+it now asks whether the element has any box in the print layout. The screenshot then showed an empty
+field printing its on-screen hint ("Customer representative name (required…"); placeholders no longer
+print. After that, against the rebuilt app: `e2e_print_and_forms.py` 35/35 again and `visual_qa.py`
+20/20, no JavaScript errors — its `05_servicereport.png` shows the form with material and method as
+text and a quantity box only on the first Glue Board line (noted "Same on all 15 Glue Board lines")
+and on the bait line, and `16_pest_fly_catcher_infestation.png` the register's "Month & Year:
+SEPTEMBER-26" toolbar with Add visit / Edit register / Print register.
 
 ### Whole-project bug-fix pass (11-Sep-2026)
 
@@ -647,6 +693,46 @@ pause, inside the 2.5 s silence window), emit the rest, then go quiet. This is w
 | 11 | Composer was cleared | PASS |
 | 12 | The assistant answered the spoken question | PASS |
 | 13 | Pressing "Done" sends what was said instead of discarding it | PASS |
+
+### `tests/e2e_print_and_forms.py` — 35/35 checks passed, 0 JS errors (11-Sep-2026)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | An older draft is brought into line at start-up: every Glue Board line carries the first line's quantity | PASS |
+| 2 | ...the bait area keeps a quantity of its own (grams, not glue boards) | PASS |
+| 3 | ...a material typed over is set back to the fixed one | PASS |
+| 4 | ...and the change is in its history, by System, after the assistant's preparation | PASS |
+| 5 | Material and method are fixed text on the form — there is no box to type them in | PASS |
+| 6 | The quantity is typed on the first line of each material only (line 1 for the glue boards, the bait line for the cake) | PASS |
+| 7 | Typing it on line 1 gives every Glue Board line the same quantity | PASS |
+| 8 | ...and leaves the bait line's quantity alone | PASS |
+| 9 | The last line shows that same quantity on screen | PASS |
+| 10 | The assistant won't change a fixed material, and says why | PASS |
+| 11 | "quantity is 6" sets it once — every Glue Board line reads 6 | PASS |
+| 12 | Print on a record prints the form (the browser was asked to print once) | PASS |
+| 13 | ...and nothing around it: the assistant's banner, the sidebar and the buttons stay off the paper | PASS |
+| 14 | When printing ends the page is back as it was | PASS |
+| 15 | The register shows the Month & Year chosen | PASS |
+| 16 | It offers Add visit, Edit register and Print on the register | PASS |
+| 17 | Add visit offers a date in that month (its first scheduled visit) | PASS |
+| 18 | A date outside the register's month is refused, with the reason | PASS |
+| 19 | The visit is on the register: a Live F/HR/18 draft for that date, noted in its history as added | PASS |
+| 20 | ...and the register opens for editing: one count box per unit for that visit | PASS |
+| 21 | What is typed into the register saves itself into that visit | PASS |
+| 22 | ...with the change in the visit's history (before -> after) | PASS |
+| 23 | The same date can't go on the register twice | PASS |
+| 24 | The next visit carries the names forward from the one before it and leaves its counts to be entered | PASS |
+| 25 | The first visit, filled in on the register, submits from its own page | PASS |
+| 26 | Back on the register the visit reads as the paper does: its date and a two-digit count | PASS |
+| 27 | In Edit register a submitted visit is locked — only the draft visit takes input | PASS |
+| 28 | Print register prints the register alone — not the page title or its toolbar | PASS |
+| 29 | ...and as the paper form: the edit boxes are gone from the printout | PASS |
+| 30 | The browser's own Print (Ctrl+P) gives the same printout: the register, not the page's title or explanation | PASS |
+| 31 | Printing Reports prints the open report — not the tabs or the title above it | PASS |
+| 32 | The SOP has a Print of its own, which prints the SOP without the page's note | PASS |
+| 33 | The Fly Control service page's register has the same Add visit / Edit register | PASS |
+| 34 | After a restart the added draft visit is untouched: not filled in by the assistant, not moved | PASS |
+| 35 | No JavaScript errors | PASS |
 
 ### `tests/e2e_files.py` — 17/17 checks passed, 0 JS errors (11-Sep-2026)
 

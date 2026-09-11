@@ -190,9 +190,21 @@ The printed formats that span many records are rendered over those records, not 
     distinguishable from a transcribed one.
   - `flyTrendRows(isDemo)` adds up the F/HR/18 visits (there is no paper history for flies).
 
-Editing happens only in the per-record forms; a sheet line opens its record. Tube-light dates follow
-the specimen's annual cycle — installed 24 December, due 23 December, all units together
+A sheet line opens its record, where it is edited. The F/HR/18 register can also be filled in where
+it stands (Add visit / Edit register): `engine/flyRegister.ts` adds a visit record for a date in the
+chosen month — keyed by the schedule slot it fulfils when it falls on one, so the generator never makes
+a second — and the register's inputs write through the visit's own `saveDraft`, so each change is in
+that visit's history. It is still one record per visit, never a stored copy of the sheet. Tube-light
+dates follow the specimen's annual cycle — installed 24 December, due 23 December, all units together
 (`tubeLightCycleFor`, `engine/flyPattern.ts`).
+
+## Printing
+
+`utils/print.ts`: every screen marks its document with `data-print-doc`. A Print button calls
+`printDocument(target?)`, and the browser's own Print fires `beforeprint`; either way every element
+that is neither a document, inside one, nor an ancestor of one is marked `print-scope-hidden` for the
+length of the print (`afterprint` removes the marks), and the ancestors drop their padding, frame and
+grid / flex layout (styles.css → Print). A screen with no marked document prints as it always did.
 
 ## Seed synchronisation (existing installs pick up new documents)
 

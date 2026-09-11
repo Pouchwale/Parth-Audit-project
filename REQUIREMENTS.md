@@ -214,8 +214,15 @@ REPORT               Pest Control > Service Reports (last visit / next due / mat
   Bromadiolone Cake / "Baiting" specifically at First Floor Offline Punching & QC Inspection
   (the one area the source specimens show treated differently), Deltamethrin 2.5% SC / "Spraying"
   for General Pest Control, Beta-Cyfluthrin 2.45% SC / "Spraying" for Fly Control (see
-  `src/engine/serviceMaterials.ts`). Quantity Used and Remarks remain free-text, entered by the
-  technician per area per visit, exactly as before.
+  `src/engine/serviceMaterials.ts`). Remarks remain free text per area per visit. **Quantity Used is
+  entered once per material** (11-Sep-2026, on the department's instruction — "when quantity is added
+  in the first [line] it will be same for all others"): typed on the first line, it is carried by
+  every other line with the same material, which is what the specimens' single first-row entry means.
+  The Rat / Mice report's bait area (Bromadiolone Cake, 30–40 grams) is the first line of its own
+  material and keeps its own quantity. Material and method can't be typed over — not on the form, not
+  through the assistant — and service-report drafts written before this rule are brought into line at
+  start-up, logged in their history by "System" (`src/engine/serviceReportDrafts.ts`); submitted and
+  verified reports are left exactly as signed.
 - **Lizard / Mosquito — no service-report document.** The SOP describes Lizard Control (quarterly)
   and Mosquito Control services, but the uploaded files contain no service-report specimen for
   either — the April-2026 workbook has Rodent / General / Fly sheets only. A "Lizard Control
@@ -921,6 +928,20 @@ check point 3.
 (a fresh install read "from 18 recorded days" with nothing recorded); only days actually filled in
 count now.
 
+**Filled in by Month & Year, where it stands (11-Sep-2026).** On the department's request ("in Fly
+catcher infestation make sure keep add edit option according to month and Year"), the register for the
+Month & Year chosen above it — on Fly Catcher Infestation and on the Fly Control service page — carries
+**Add visit**, **Edit register** and **Print register**. Add visit puts a visit on that month's register
+for the date it was carried out (`engine/flyRegister.ts`): a date outside the month, a date still to
+come, or a second visit on one date is refused with the reason; a visit added on the day a scheduled one
+is due takes the schedule's key, so the generator never makes a second; the tube-light dates and the two
+names are carried forward from the visit before it, as the paper dittoes them, and the counts are left
+to be entered. It is a person's draft ("In Progress", never prepared), so the assistant never fills it
+and the start-up clean-ups leave it where it is. Edit register turns every draft visit's cells into
+inputs, saved a moment after the last keystroke through the visit's own `saveDraft` — each change in
+that visit's history; a submitted or verified visit stays locked (grey) and is corrected from its own
+page, with a reason. Printing while editing prints the paper form, not the input boxes.
+
 ## 27. Correcting records — by hand or through the assistant (11-Sep-2026)
 
 ```
@@ -973,7 +994,8 @@ undo — and on the complaint checklist it could change a *verified* record with
   single rows with `itemEdits` instead of sending back whole tables (the 8,000-token-a-minute limit),
   and whose reply the server shape-checks before the app ever sees it.
 - **Smaller fixes that were traps:** the service report's customer countersignature stays writable
-  while the report awaits verification; material and method are editable; CAPA findings expose
+  while the report awaits verification; material and method were made editable (superseded the same
+  day: they are fixed per area again and the quantity is entered once per material — see §5); CAPA findings expose
   address, contractor's action, source and the service provider's verification; the complaint, CAPA
   and training pages no longer show a Save button that is always disabled ("All changes saved"
   instead); errors scroll into view and say whether they block submitting or verifying; *Fill again*
@@ -1017,6 +1039,21 @@ whole calendar of that particular month — like file system."
   records are never created before the system went live (§ launch-date floor), so browsing old
   months never invents a backlog.
 
+## 29. Printing prints the document (11-Sep-2026)
+
+On the department's instruction ("when user take print then it will only print document not whole
+page of that open site"), every printout is the document alone. Each screen marks its document with
+`data-print-doc` — a record's form (every kind), the F/HR/17 and F/HR/18 registers, the Rodent / Fly
+catch report sheets, the open Reports tab, the licence's scanned pages, a Statement of Compliance, the
+SOP, the Chemical Master and the Document Files list. A Print button, or the browser's own Print /
+Ctrl+P, then leaves everything else off the paper (`src/utils/print.ts`): page titles and
+explanations, stat tiles, banners (the assistant's, a correction, a rejection), tabs and filters, the
+record history, the buttons, the sidebar and the assistant. Screen-only hints inside a form (the
+Chemical Master suggestion, "Specimen source", the working-calendar note, the approval hint) are
+marked `no-print`. A register being edited prints as the paper form, and a demo printout keeps its
+"DEMO / SYNTHETIC DATA — NOT AUDIT EVIDENCE" band, printed in colour. The SOP and the Chemical Master
+gained Print buttons of their own. A screen with no document on it prints as it always did.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -1045,8 +1082,9 @@ whole calendar of that particular month — like file system."
    photograph — see §12).
 6. Whether Mosquito Control needs its own standalone Service Report document.
 7. ~~Whether Service Report material/qty/method is meant to be logged once per visit or per
-   area.~~ — **RESOLVED**: Material/Method are fixed per area (pre-filled, not re-entered); Qty
-   and Remarks are logged per area per visit (see §5 above).
+   area.~~ — **RESOLVED**: Material/Method are fixed per area (pre-filled, not re-entered); Qty is
+   entered once per material — on the first line, carried by every line with that material — and
+   Remarks per area per visit (see §5 above).
 8. ~~Training cadence (no source-stated recurrence).~~ — **RESOLVED** as Yearly (see §15).
 9. Rodent Bait Station master list / numbering scheme (explicitly missing per the GAP report).
 10. Exact source of the company's existing "Rodent Catch Report" numbers (see section 8 above).

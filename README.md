@@ -113,6 +113,29 @@ The app behaves like a personal assistant rather than a blank form:
   beside the services they belong to, on the Fly Control and Rat / Mice service pages; **Training & Reference** — Training
   Records, Chemical Master, SOP. The assistant navigates there from plain speech ("show me the rat
   reports", "fly catcher infestation for this year").
+- **The F/HR/18 register can be filled in for any Month & Year, where it stands.** Pick the month and
+  year above the register (Pest Control > Trend Analysis > Fly Catcher Infestation, or the Fly Control
+  service page): **Add visit** puts a visit on that month's register for the date it was carried out —
+  a paper register from before go-live copied in, or an extra inspection — carrying the tube-light
+  dates and names forward from the visit before it; **Edit register** turns every draft visit's cells
+  into inputs that save themselves a moment later, each change going into that visit's history. A date
+  outside the month, a date still to come or a second visit on one date is refused with the reason; a
+  visit already submitted or verified stays locked (grey) and is corrected from its own page
+  (`src/engine/flyRegister.ts`, `src/components/records/FlyCatcherRegisterSheet.tsx`).
+- **Service reports: material and method are fixed, the quantity is entered once.** On the Rat / Mice,
+  Ants & Cockroaches and Fly Control reports, Material Name and Method of Application are fixed text for
+  each area (the SOP / Chemical Master values). The quantity is typed on the first line and every other
+  line with the same material carries it — the April-2026 specimens write it once, on the first row. The
+  one bait area on the Rat / Mice report (Bromadiolone Cake, in grams) is the first line of its own
+  material and keeps its own quantity. The assistant follows the same rule (it won't change a material;
+  "quantity is 4" sets every line), and drafts written before the rule are brought into line at
+  start-up, with the change logged (`src/engine/serviceMaterials.ts`).
+- **Printing prints the document, nothing else.** Every Print button — a record's "Print Original-Style
+  Record", the registers, the report sheets, the licence, a Statement of Compliance, Document Files, and
+  new Print buttons on the SOP and the Chemical Master — and the browser's own Print / Ctrl+P print only
+  the document on the screen: no page title, explanations, stat tiles, banners, tabs, history or
+  buttons. A register being edited prints as the paper form; a demo printout keeps its DEMO band
+  (`src/utils/print.ts`; each document is marked `data-print-doc`).
 - **Two languages — English and ગુજરાતી — chosen on the Dashboard.** Choosing ગુજરાતી switches
   **Google Translate** on automatically for the whole website: every page, menu, list, message and the
   assistant's chat turns Gujarati as it appears, including text that changes afterwards. Choosing
