@@ -92,7 +92,7 @@ export function DailyPestMonitoringRecordView({
           {(() => {
             const day = dayInfo(record.dueDate, master);
             return day.kind !== "working" ? (
-              <div className={`text-xs mt-1 ${day.isHoliday ? "text-warning" : "text-success"}`} style={{ paddingLeft: 22 }}>
+              <div className={`text-xs mt-1 no-print ${day.isHoliday ? "text-warning" : "text-success"}`} style={{ paddingLeft: 22 }}>
                 {day.label} — per the working calendar (Master Data → Holidays)
                 {day.isHoliday && data.isHoliday ? "; untick only if the plant actually worked this day." : ""}
                 {day.isHoliday && !data.isHoliday ? "; unticked — this day is being recorded as worked, with checkpoints to fill." : ""}
@@ -269,7 +269,7 @@ export function DailyPestMonitoringRecordView({
           )}
         </div>
         {anyFinding && data.summaryActions.length === 0 && (
-          <div className="card-pad" style={{ paddingBottom: 0 }}>
+          <div className="card-pad no-print" style={{ paddingBottom: 0 }}>
             <div className="text-danger text-sm">
               <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> A checkpoint above indicates a finding. Please
               add a row describing the observation and action taken.

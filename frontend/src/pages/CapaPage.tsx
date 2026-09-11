@@ -27,6 +27,7 @@ import { useSetAssistantTarget } from "../store/AssistantContext";
 import { startGuidedChecklist } from "../components/common/DocumentAssistant";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
+import { printDocument } from "../utils/print";
 import { useT } from "../i18n";
 
 const GAP_DOC_ID = "gap-inspection";
@@ -423,6 +424,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         </div>
       )}
 
+      {/* The document itself — the part that prints (utils/print.ts). */}
+      <div data-print-doc>
       <DocumentHeader doc={doc} dateLabel={formatDisplayDate(record.dueDate)} pageLabel="1 of 1 (digital)" />
 
       <div className="card mt-4 no-print" style={{ borderLeft: "4px solid var(--color-accent)" }}>
@@ -561,8 +564,9 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
       <p className="text-xs text-muted mt-3" style={{ fontStyle: "italic" }}>
         {COMPLAINT_FOOTER_NOTE}
       </p>
-      <div className="text-xs text-faint mt-1">
+      <div className="text-xs text-faint mt-1 no-print">
         Format number: {doc.formatNo} ({doc.revisionNo} / {formatDisplayDate(doc.revisionDate)}) · {COMPLAINT_ACTIVITY_COUNT} activities · Source: {doc.sourceFile}
+      </div>
       </div>
 
       <RecordHistoryPanel record={record} />
@@ -578,7 +582,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         onReject={doSendBack}
         onResume={() => persist(resumeAfterRejection(record, currentUser) as RecordInstance<ComplaintChecklistData>)}
         onCorrect={doCorrect}
-        onPrint={() => window.print()}
+        onPrint={() => printDocument()}
         onDelete={() => {
           recordRepository.remove(record.id);
           bump();

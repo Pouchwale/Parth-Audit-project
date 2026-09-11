@@ -4,6 +4,7 @@ import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { SERVICE_LICENCE } from "../data/seed/serviceLicence";
 import { formatDisplayDate } from "../utils/date";
+import { printDocument } from "../utils/print";
 
 // The service provider's insecticide licence, on file. The scanned pages
 // ARE the document and are shown first, exactly as supplied (nothing
@@ -29,7 +30,7 @@ export function LicencePage() {
           <button className="btn btn-secondary btn-sm" onClick={() => setZoom((z) => !z)}>
             {zoom ? "Fit to page" : "Larger scan"}
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+          <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
             <FiPrinter size={13} /> Print
           </button>
         </div>
@@ -55,7 +56,8 @@ export function LicencePage() {
             </a>
           </span>
         </div>
-        <div className="card-pad licence-scans">
+        {/* The licence as issued — the scanned pages are what prints (utils/print.ts). */}
+        <div className="card-pad licence-scans" data-print-doc>
           {L.pages.map((src, i) => (
             <figure key={src} className="licence-scan" style={{ maxWidth: zoom ? 1100 : 760 }}>
               <img src={src} alt={`Insecticide licence — scanned page ${i + 1} of ${L.pages.length}`} />

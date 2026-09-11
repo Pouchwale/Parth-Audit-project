@@ -24,6 +24,7 @@ import { DemoTag } from "../components/common/DemoTag";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
+import { printDocument } from "../utils/print";
 import { COMPANY } from "../data/seed/masterData";
 
 const GAP_DOC_ID = "gap-inspection";
@@ -281,6 +282,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
 
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
+      {/* The document itself — the part that prints (utils/print.ts). */}
+      <div data-print-doc>
       <div className="doc-header notranslate" translate="no">
         <div className="company-name">CAPA — Internal: Pest Control Inspection Findings Report</div>
         <div className="meta-row">
@@ -468,6 +471,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
         </div>
       </div>
 
+      </div>
+
       <RecordHistoryPanel record={record} />
 
       <RecordActionBar
@@ -481,7 +486,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
         onReject={handleReject}
         onResume={handleResume}
         onCorrect={handleCorrect}
-        onPrint={() => window.print()}
+        onPrint={() => printDocument()}
         onDelete={handleDelete}
       />
     </div>

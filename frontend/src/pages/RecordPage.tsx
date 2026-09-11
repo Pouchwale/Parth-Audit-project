@@ -31,6 +31,7 @@ import { DemoTag } from "../components/common/DemoTag";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { useT } from "../i18n";
 import { todayISO } from "../utils/date";
+import { printDocument } from "../utils/print";
 
 // Record kinds this page renders AND the assistant has a field guide for.
 const ASSISTANT_KINDS = new Set(["daily-pest-monitoring", "fly-catcher", "service-report", "log-sheet"]);
@@ -254,7 +255,8 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
       {/* The form exactly as issued — Google Translate leaves it alone (i18n/googleTranslate.ts). */}
-      <div className="notranslate" translate="no">
+      {/* ...and the part that prints (utils/print.ts): the form, nothing around it. */}
+      <div className="notranslate" translate="no" data-print-doc>
       {doc.kind === "daily-pest-monitoring" && (
         <DailyPestMonitoringRecordView doc={doc} record={{ ...record, data: data as DailyPestMonitoringData }} editable={editable} onChange={handleChange} />
       )}
@@ -310,7 +312,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         onReject={handleReject}
         onResume={handleResume}
         onCorrect={handleCorrect}
-        onPrint={() => window.print()}
+        onPrint={() => printDocument()}
         onDelete={handleDelete}
       />
     </div>

@@ -172,7 +172,7 @@ export function DailyRegisterSheet({
   );
 
   return (
-    <div className="register-sheet notranslate" translate="no">
+    <div className="register-sheet notranslate" translate="no" data-print-doc>
       <section className="register-page">
         <DocumentHeader doc={doc} extraTitle={monthLabel} pageLabel="1 Of 3" />
         <div className="register-instructions">

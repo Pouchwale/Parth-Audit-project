@@ -4,6 +4,7 @@ import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { COMPLIANCE_STATEMENTS, complianceValidUntil } from "../data/seed/complianceStatements";
 import { formatDisplayDate, todayISO } from "../utils/date";
+import { printDocument } from "../utils/print";
 import { useT } from "../i18n";
 
 function validityBadge(validUntil: string) {
@@ -79,14 +80,14 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
   }
   const validUntil = complianceValidUntil(s);
   return (
-    <div>
+    <div data-print-doc>
       <div className="flex items-center justify-between mb-3 no-print">
         <button className="btn btn-ghost btn-sm" onClick={() => navigate("/soc")}>
           <FiArrowLeft size={13} /> Back to Statements
         </button>
         <div className="flex items-center gap-2">
           {validityBadge(validUntil)}
-          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+          <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
             <FiPrinter size={13} /> Print
           </button>
         </div>
@@ -162,7 +163,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
           <div className="text-muted mt-1">{formatDisplayDate(s.signedOn)}</div>
         </div>
       </div>
-      <div className="text-xs text-faint mt-3">Source: {doc.sourceFile}</div>
+      <div className="text-xs text-faint mt-3 no-print">Source: {doc.sourceFile}</div>
     </div>
   );
 }

@@ -6,8 +6,10 @@ import { AuthProvider, useAuth } from "./store/AuthContext";
 import { RouterProvider } from "./store/router";
 import { AuthScreen } from "./components/auth/AuthScreen";
 import { App } from "./App";
+import { installPrintScoping } from "./utils/print";
 
 bootstrap();
+installPrintScoping();
 
 function Root() {
   const { status } = useAuth();

@@ -165,7 +165,7 @@ export function CatchTrendSheet({
   const anyTranscribed = rows.some((r) => r.months.some((m, i) => m !== null && !r.fromRegister[i]));
 
   return (
-    <div className="register-sheet trend-sheet notranslate" translate="no">
+    <div className="register-sheet trend-sheet notranslate" translate="no" data-print-doc>
       <section className="register-page">
         <div className="trend-head">
           <div className="company-name">{companyName}</div>

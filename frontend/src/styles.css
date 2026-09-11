@@ -572,6 +572,20 @@ textarea.input { resize: vertical; min-height: 60px; }
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
   .btn { display: none !important; }
+  /* Only the document prints (utils/print.ts): everything around it is
+     hidden, and the containers it sits in give up their own padding, frame
+     and grid / flex layout so it starts at the top of the page. */
+  .print-scope-hidden { display: none !important; }
+  html.print-scoped .print-scope-ancestor {
+    margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important;
+    box-shadow: none !important; background: transparent !important; max-width: none !important; min-height: 0 !important;
+  }
+  html.print-scoped :is(div, section, main, article, nav).print-scope-ancestor { display: block !important; }
+  /* An empty field prints empty, not with its on-screen hint ("Qty used"). */
+  input::placeholder, textarea::placeholder { color: transparent !important; }
+  /* The demo band is a coloured strip with white text: it has to print as
+     one, or a demo printout would pass for a real record. */
+  .demo-watermark::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* ---- Assistant: prepared records & login briefing ---- */

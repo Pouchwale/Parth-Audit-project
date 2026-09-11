@@ -35,7 +35,7 @@ export function FlyCatcherRecordView({
             <label>Month &amp; Year</label>
             <input className="input" value={data.monthYear} disabled={!editable} onChange={(e) => onChange({ ...data, monthYear: e.target.value })} />
           </div>
-          <div className="mt-3 text-xs text-muted">
+          <div className="mt-3 text-xs text-muted no-print">
             PC ID and location are master data, auto-populated from the Fly Catcher master list — not re-entered each visit.
           </div>
           <div className="grid mt-2" style={{ gridTemplateColumns: "repeat(2, 1fr)", gap: "4px 24px" }}>

@@ -11,6 +11,7 @@ import { DemoTag } from "../components/common/DemoTag";
 import { toCSV, downloadCSV } from "../utils/csv";
 import { useT } from "../i18n";
 import { MONTH_NAMES, formatDisplayDate, todayISO } from "../utils/date";
+import { printDocument } from "../utils/print";
 import type { DailyPestMonitoringData, DocumentDefinition, RecordInstance } from "../types";
 
 // DOCUMENT FILES — /files[/{scope}/{from}/{to}]
@@ -168,7 +169,7 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
           <button className="btn btn-secondary btn-sm" onClick={exportCSV} disabled={visible.length === 0}>
             <FiDownload size={13} /> {t("common.exportCsv")}
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+          <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
             <FiPrinter size={13} /> {t("common.print")}
           </button>
         </div>
@@ -271,7 +272,7 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
           })}
         </nav>
 
-        <section className="file-pane">
+        <section className="file-pane" data-print-doc>
           <div className="file-summary text-sm" data-section="file-summary">
             {t("files.summary", { files: visible.length, docs: docsWithFiles, from: formatDisplayDate(range.from), to: formatDisplayDate(range.to) })}
             {range.capped && <span className="text-muted"> — {t("files.capped")}</span>}

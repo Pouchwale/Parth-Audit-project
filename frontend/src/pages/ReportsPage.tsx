@@ -17,6 +17,7 @@ import { CatchTrendSheet, rowTotal, type TrendRow } from "../components/reports/
 import { MONTH_NAMES, daysInMonth, pad2, formatDisplayDate } from "../utils/date";
 import { toCSV, downloadCSV } from "../utils/csv";
 import { pressable } from "../utils/pressable";
+import { printDocument } from "../utils/print";
 import { MiniBarChart } from "../components/reports/MiniBarChart";
 import { DemoTag } from "../components/common/DemoTag";
 import { DailyRegisterSheet } from "../components/records/DailyRegisterSheet";
@@ -109,6 +110,8 @@ export function ReportsPage({
         ))}
       </div>
 
+      {/* The open report is what prints (utils/print.ts) — not the tabs and pickers above it. */}
+      <div data-print-doc>
       {tab === "monthly" && <MonthlyReport records={monthRecords} year={year} month={month} />}
       {tab === "daily" && <DailyMonitoringReport isDemo={isDemo} year={year} month={month} />}
       {tab === "rodent" && <RodentTrendReport isDemo={isDemo} year={year} />}
@@ -117,6 +120,7 @@ export function ReportsPage({
       {tab === "gap" && <GapStatusReport isDemo={isDemo} />}
       {tab === "training" && <TrainingStatusReport isDemo={isDemo} />}
       {tab === "lamination" && <LaminationQcReport isDemo={isDemo} year={year} month={month} />}
+      </div>
 
       {docs.length === 0 && null}
     </div>
@@ -411,7 +415,7 @@ export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: num
             <button className="btn btn-secondary btn-sm" onClick={exportCSV}>
               <FiDownload size={13} /> Export CSV
             </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+            <button className="btn btn-secondary btn-sm" onClick={(e) => printDocument(e.currentTarget.closest(".card"))}>
               <FiPrinter size={13} /> Print
             </button>
           </div>
@@ -541,7 +545,7 @@ export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean
             <button className="btn btn-secondary btn-sm" onClick={exportCSV}>
               <FiDownload size={13} /> Export CSV
             </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+            <button className="btn btn-secondary btn-sm" onClick={(e) => printDocument(e.currentTarget.closest(".card"))}>
               <FiPrinter size={13} /> Print
             </button>
           </div>

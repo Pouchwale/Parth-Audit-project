@@ -24,6 +24,7 @@ import { DemoTag } from "../components/common/DemoTag";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
+import { printDocument } from "../utils/print";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { reprepareRecord } from "../engine/assistantPrepare";
@@ -268,6 +269,8 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         />
       )}
 
+      {/* The document itself — the part that prints (utils/print.ts). */}
+      <div data-print-doc>
       <DocumentHeader doc={doc} dateLabel={formatDisplayDate(data.trainingDate)} />
 
       <div className="card mt-4">
@@ -408,6 +411,8 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         </div>
       </div>
 
+      </div>
+
       <RecordHistoryPanel record={record} />
 
       <RecordActionBar
@@ -421,7 +426,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         onReject={handleReject}
         onResume={handleResume}
         onCorrect={handleCorrect}
-        onPrint={() => window.print()}
+        onPrint={() => printDocument()}
         onDelete={handleDelete}
       />
     </div>

@@ -167,7 +167,7 @@ export function LogSheetRecordView({
                 <HeaderFieldInput key={f.key} field={f} value={data.header?.[f.key] ?? ""} editable={editable} onChange={(v) => setHeader(f.key, v)} employees={employees.map((e) => e.name)} />
               ))}
             </div>
-            <div className="text-xs text-muted mt-3">
+            <div className="text-xs text-muted mt-3 no-print">
               "Approved by (QA Manager)" on the paper form is the <strong>Verify</strong> step here — the verifier's name and time are stamped automatically.
             </div>
           </div>
@@ -178,7 +178,7 @@ export function LogSheetRecordView({
           <option key={e.id} value={e.name} />
         ))}
       </datalist>
-      <div className="text-xs text-faint mt-3">Specimen source: {layout.specimenSource}</div>
+      <div className="text-xs text-faint mt-3 no-print">Specimen source: {layout.specimenSource}</div>
     </div>
   );
 }

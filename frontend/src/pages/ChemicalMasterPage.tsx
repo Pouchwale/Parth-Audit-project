@@ -1,20 +1,29 @@
 import React from "react";
+import { FiPrinter } from "react-icons/fi";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
+import { useT } from "../i18n";
+import { printDocument } from "../utils/print";
 
 export function ChemicalMasterPage() {
+  const t = useT();
   const doc = documentRepository.getById("chemical-master")!;
   const rows = masterRepository.get().serviceTypeChemicals;
 
   return (
-    <div>
+    <div data-print-doc>
+      <div className="flex justify-end mb-3 no-print">
+        <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
+          <FiPrinter size={13} /> {t("common.print")}
+        </button>
+      </div>
       <DocumentHeader doc={doc} dateLabel="Reference" />
-      <p className="text-muted mt-3 mb-4">
+      <p className="text-muted mt-3 mb-4 no-print">
         Source: Pesticide Application Chart. Selecting a Service Type in a Service Report auto-suggests the pest
         covered, chemicals and dilution ratio below — nothing here is invented; blank cells are marked TO BE CONFIRMED.
       </p>
-      <div className="doc-table">
+      <div className="doc-table mt-4">
         <table>
           <thead>
             <tr>
