@@ -5,12 +5,24 @@
 // adapter later without touching the rest of the app. See DATA_MODEL.md.
 export interface IStorageAdapter {
   getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
+  /** False when the value could not be stored (e.g. the browser's quota is full). */
+  setItem(key: string, value: string): boolean;
   removeItem(key: string): void;
   keys(): string[];
 }
 
 const NAMESPACE = "dcrs:v1:"; // Digital Controlled Record System
+
+/** Fired on window when a write fails — see components/common/StorageFullBanner.tsx. */
+export const STORAGE_WRITE_FAILED = "dcrs:storage-write-failed";
+
+function announceWriteFailure(): void {
+  try {
+    window.dispatchEvent(new Event(STORAGE_WRITE_FAILED));
+  } catch {
+    /* no window (tests) */
+  }
+}
 
 export class LocalStorageAdapter implements IStorageAdapter {
   getItem(key: string): string | null {
@@ -20,11 +32,17 @@ export class LocalStorageAdapter implements IStorageAdapter {
       return null;
     }
   }
-  setItem(key: string, value: string): void {
+  setItem(key: string, value: string): boolean {
     try {
       window.localStorage.setItem(NAMESPACE + key, value);
+      return true;
     } catch (err) {
+      // Logging alone left the screen showing a change that was never
+      // stored, and lost it on the next reload with nothing said. The caller
+      // now learns it failed, and the page tells the user.
       console.error("Storage write failed (quota exceeded?)", err);
+      announceWriteFailure();
+      return false;
     }
   }
   removeItem(key: string): void {
@@ -55,8 +73,9 @@ export class MemoryStorageAdapter implements IStorageAdapter {
   getItem(key: string): string | null {
     return this.map.has(key) ? this.map.get(key)! : null;
   }
-  setItem(key: string, value: string): void {
+  setItem(key: string, value: string): boolean {
     this.map.set(key, value);
+    return true;
   }
   removeItem(key: string): void {
     this.map.delete(key);
@@ -91,6 +110,22 @@ export function readJSON<T>(key: string, fallback: T): T {
   }
 }
 
-export function writeJSON<T>(key: string, value: T): void {
-  storage.setItem(key, JSON.stringify(value));
+/** Returns false when the value could not be stored. */
+export function writeJSON<T>(key: string, value: T): boolean {
+  return storage.setItem(key, JSON.stringify(value));
+}
+
+/**
+ * Calls `onChange` when ANOTHER tab of the app writes to storage (the browser
+ * only sends `storage` events to the other tabs). `key` is the app's key
+ * without the namespace, or null when that tab cleared storage altogether.
+ */
+export function onExternalChange(onChange: (key: string | null) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = (e: StorageEvent) => {
+    if (e.key === null) onChange(null);
+    else if (e.key.startsWith(NAMESPACE)) onChange(e.key.slice(NAMESPACE.length));
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
 }

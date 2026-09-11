@@ -1,6 +1,6 @@
 import type { RecordInstance, RecordStatus } from "../../types";
 import { SEED_HISTORICAL_RECORDS } from "../seed/historicalRecords";
-import { readJSON, writeJSON } from "../storageAdapter";
+import { onExternalChange, readJSON, writeJSON } from "../storageAdapter";
 import { compareISO, todayISO } from "../../utils/date";
 
 const KEY = "records";
@@ -9,18 +9,27 @@ const KEY = "records";
 // reads through the repository many times per render, and with the
 // lamination log sheets (24 hourly rows per day, five daily formats) the
 // stored JSON is large enough that re-parsing localStorage on each call made
-// the Demo generator visibly freeze the page. This module is the only writer
-// of the key, so caching the parsed array (and refreshing it on every write)
-// is safe; nothing above the repository layer changes.
+// the Demo generator visibly freeze the page. Within one tab this module is
+// the only writer of the key, so caching the parsed array (and refreshing it
+// on every write) is safe; nothing above the repository layer changes.
 let cache: RecordInstance[] | null = null;
+
+// Another tab of the app saved records: drop the copy, or the next save here
+// would write this tab's stale array back over what that tab just saved.
+onExternalChange((key) => {
+  if (key === null || key === KEY) cache = null;
+});
 
 function loadAll(): RecordInstance[] {
   if (cache === null) cache = readJSON<RecordInstance[]>(KEY, []);
   return cache;
 }
 function saveAll(records: RecordInstance[]): void {
-  cache = records;
-  writeJSON(KEY, records);
+  // The copy is only updated once the array is really stored. When the
+  // browser's storage is full the write fails; a cached copy showing the
+  // change would be lost, silently, on the next reload. Dropping it makes the
+  // screens show what is actually stored, and StorageFullBanner says why.
+  cache = writeJSON(KEY, records) ? records : null;
 }
 
 // Historical (real, source-document) records are added by id if missing —
@@ -95,8 +104,13 @@ export const recordRepository = {
     for (const r of records) byId.set(r.id, r);
     saveAll(Array.from(byId.values()));
   },
+  // The three removals below skip the write when nothing matched: the
+  // records array is megabytes, and boot-time clean-ups that find nothing
+  // (e.g. the retired Lizard report) used to rewrite all of it every start.
   remove(id: string): void {
-    saveAll(loadAll().filter((r) => r.id !== id));
+    const all = loadAll();
+    const keep = all.filter((r) => r.id !== id);
+    if (keep.length !== all.length) saveAll(keep);
   },
   // Bulk variant of remove() — one filter pass and one write, instead of one
   // of each per id. Matters for a backlog cleanup that can touch thousands
@@ -106,13 +120,13 @@ export const recordRepository = {
     if (idSet.size === 0) return 0;
     const all = loadAll();
     const keep = all.filter((r) => !idSet.has(r.id));
-    saveAll(keep);
+    if (keep.length !== all.length) saveAll(keep);
     return all.length - keep.length;
   },
   removeWhere(filter: RecordFilter): number {
     const all = loadAll();
     const keep = all.filter((r) => !matches(r, filter));
-    saveAll(keep);
+    if (keep.length !== all.length) saveAll(keep);
     return all.length - keep.length;
   },
   clearDemoData(): number {

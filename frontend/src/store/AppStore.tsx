@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { settingsRepository, type AppMode } from "../data/repositories/settingsRepository";
+import { onExternalChange } from "../data/storageAdapter";
 import type { Language } from "../i18n/strings";
 import {
   getTranslateStatus,
@@ -46,6 +47,10 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const uiLang = uiLanguageFor(lang, translation);
 
   const bump = useCallback(() => setVersion((v) => v + 1), []);
+
+  // Another tab of the app saved something: redraw, so this one shows it
+  // (recordRepository has already dropped its stale copy).
+  useEffect(() => onExternalChange(() => bump()), [bump]);
 
   // Gujarati was chosen before (the choice is remembered): translate as the app opens.
   useEffect(() => {
