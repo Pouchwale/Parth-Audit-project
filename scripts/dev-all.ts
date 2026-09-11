@@ -23,7 +23,9 @@ function shutdown(code: number): void {
 }
 
 for (const child of children) {
-  child.on("exit", (code) => shutdown(code ?? 0));
+  // A child killed by a signal reports code null — that's a crash, not a
+  // clean exit, so it mustn't turn into exit status 0.
+  child.on("exit", (code, signal) => shutdown(code ?? (signal ? 1 : 0)));
 }
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));

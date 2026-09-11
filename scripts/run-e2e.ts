@@ -31,21 +31,33 @@ function findPython(): string {
   throw new Error("No Python interpreter found (tried python3, python).");
 }
 
+async function answers(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url);
+    return !!res.status;
+  } catch {
+    return false;
+  }
+}
+
 async function waitForServer(url: string, timeoutMs: number): Promise<boolean> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(url);
-      if (res.status) return true;
-    } catch {
-      /* not up yet */
-    }
+    if (await answers(url)) return true;
     await new Promise((r) => setTimeout(r, 200));
   }
   return false;
 }
 
 async function main(): Promise<void> {
+  // A server left over from an earlier run would answer the readiness probe
+  // while the fresh one dies on EADDRINUSE — and every suite would then pass
+  // or fail against the old build without saying so.
+  if (await answers(`http://localhost:${TEST_PORT}/api/auth/me`)) {
+    console.error(`Something is already listening on :${TEST_PORT} — stop it first, so the tests run against this build.`);
+    process.exit(1);
+  }
+
   console.log("Building frontend...");
   run(process.execPath, [...nodeArgs, "frontend/scripts/build.ts"]);
 
