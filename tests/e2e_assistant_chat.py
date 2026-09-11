@@ -178,7 +178,11 @@ def main():
         check("Opened a Daily Pest Monitoring record for the fill test", opened)
         if opened:
             ask(page, "checker is Buddy QA Tester")
-            check("Fill instruction applied a field", bot_messages(page).filter(has_text="I've filled in").count() > 0)
+            # A plain "<field> is <value>" is now understood without the model
+            # and confirmed as "Done — saved. I changed: ..."; a fill the model
+            # made still says "I've filled in". Either one means it applied.
+            applied = bot_messages(page).filter(has_text="I changed").count() + bot_messages(page).filter(has_text="I've filled in").count()
+            check("Fill instruction applied a field", applied > 0)
             checker_input = page.locator("input[placeholder='Name of checker']")
             check("Checker field actually updated", checker_input.count() > 0 and checker_input.input_value() == "Buddy QA Tester")
 
