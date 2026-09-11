@@ -3,6 +3,7 @@ import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard,
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { pressable } from "../utils/pressable";
+import { printDocument } from "../utils/print";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -434,8 +435,8 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
         <button className="btn btn-secondary btn-sm" onClick={() => navigate("/pest/trend/rodent")}>
           <FiTrendingUp size={12} /> Rodent Catch Trend
         </button>
-        <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
-          {t("pest.printRegister")}
+        <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
+          <FiPrinter size={12} /> {t("pest.printRegister")}
         </button>
       </div>
 
@@ -469,7 +470,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
       {view === "register" && <DailyRegisterSheet year={year} month={month} isDemo={isDemo} onOpenDay={(r) => navigate(`/record/${r.id}`)} />}
 
       {view === "list" && (
-      <div className="doc-table">
+      <div className="doc-table" data-print-doc>
         <table>
           <thead>
             <tr>
@@ -614,7 +615,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
         </button>
       </div>
 
-      <div className="doc-table">
+      <div className="doc-table" data-print-doc>
         {/* data-table: a stable hook, since this page now also carries the
             company-format sheets, which are tables too. */}
         <table data-table="visits">
@@ -670,14 +671,14 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
         <div className="mt-6" data-section="fhr18">
           <div className="flex items-center justify-between wrap gap-2 mb-1">
             <h2 className="text-lg">{t("pest.fhr18SectionTitle")}</h2>
+            {/* The register's Month & Year (the year is the page's own). Add
+                visit / Edit register / Print sit on the register itself. */}
             <div className="flex gap-2 no-print">
+              <YearSelect value={year} onChange={setYear} />
               <MonthSelect value={registerMonth} onChange={setRegisterMonth} />
-              <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
-                <FiPrinter size={12} /> {t("pest.printRegister")}
-              </button>
             </div>
           </div>
-          <FlyCatcherRegisterSheet year={year} month={registerMonth} isDemo={isDemo} onOpenVisit={(r) => navigate(`/record/${r.id}`)} />
+          <FlyCatcherRegisterSheet year={year} month={registerMonth} isDemo={isDemo} onOpenVisit={(r) => navigate(`/record/${r.id}`)} allowEdit />
         </div>
       )}
       {slug === "rodent" && (
@@ -802,19 +803,15 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
             {t("pest.visitListView")}
           </div>
         </div>
-        {view === "register" && (
-          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
-            <FiPrinter size={12} /> {t("pest.printRegister")}
-          </button>
-        )}
       </div>
 
-      {view === "register" && <FlyCatcherRegisterSheet year={year} month={month} isDemo={isDemo} onOpenVisit={(r) => navigate(`/record/${r.id}`)} />}
+      {/* The Month & Year chosen above: Add visit / Edit register / Print sit on the register itself. */}
+      {view === "register" && <FlyCatcherRegisterSheet year={year} month={month} isDemo={isDemo} onOpenVisit={(r) => navigate(`/record/${r.id}`)} allowEdit />}
 
       {view === "trend" && <FlyCatcherTrendReport isDemo={isDemo} year={year} month={month} />}
 
       {view === "list" && (
-      <div className="card mt-4">
+      <div className="card mt-4" data-print-doc>
         <div className="card-header">
           <h3 className="text-lg">
             <FiActivity size={14} style={{ verticalAlign: -2 }} /> Inspection & cleaning records — {year}

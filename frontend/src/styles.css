@@ -257,6 +257,19 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
    file at equal specificity and was winning — which pushed F/HR/18's last
    column (VERIFIED BY) off the right edge with the sidebar open. */
 .doc-table .register-grid th { white-space: normal; }
+/* F/HR/18 — Add visit / Edit register for the chosen Month & Year (FlyCatcherRegisterSheet.tsx) */
+.fhr18-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-alt);
+}
+.fhr18-add, .fhr18-edit-hint { margin-top: 8px; }
+.fhr18-edit-hint { line-height: 1.7; }
+.fhr18-visit-link { background: none; border: none; padding: 0; font: inherit; color: var(--color-primary); text-decoration: underline; cursor: pointer; }
+.fhr18-grid td.edit-cell { padding: 2px 3px; }
+.fhr18-grid .fhr18-input { width: 100%; min-width: 0; padding: 3px 5px; font-size: 12px; }
+.fhr18-grid input[type="number"].fhr18-input { text-align: center; }
+.fhr18-grid input[type="date"].fhr18-input { min-width: 118px; }
+.register-grid tr.register-row.locked td { background: #f5f6f8; color: var(--color-text-muted); }
 
 /* ---- Document Files (pages/FileBrowserPage.tsx) ---- */
 .file-controls { margin: 12px 0 10px; }
