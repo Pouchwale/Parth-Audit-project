@@ -112,7 +112,7 @@ export function TrainingListPage() {
                     <StatusBadge status={r.status} />
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    <button className="btn btn-ghost btn-sm">Open</button>
+                    <button className="btn btn-ghost btn-sm">Open / Edit</button>
                   </td>
                 </tr>
               ))}

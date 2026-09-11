@@ -3,7 +3,8 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
-import { COMPLIANCE_STATEMENTS, complianceValidUntil } from "../data/seed/complianceStatements";
+import { complianceValidUntil } from "../data/seed/complianceStatements";
+import { allComplianceStatements } from "../data/repositories/referenceRepository";
 import { findPreLaunchNoise } from "./backlogCleanup";
 import { isCompanyHoliday } from "./holidays";
 import { computeReminders, routeForRecord } from "./reminders";
@@ -118,7 +119,7 @@ export function computeBriefing(userName: string | undefined): Briefing {
     })
     .sort(byDate);
 
-  const renewals: ComplianceRenewal[] = Object.values(COMPLIANCE_STATEMENTS)
+  const renewals: ComplianceRenewal[] = allComplianceStatements()
     .map((s) => {
       const doc = documentRepository.getById(s.documentId);
       const validUntil = complianceValidUntil(s);

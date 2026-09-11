@@ -1,8 +1,11 @@
-import React from "react";
-import { FiArrowLeft, FiPrinter, FiShield } from "react-icons/fi";
+import React, { useState } from "react";
+import { FiArrowLeft, FiShield } from "react-icons/fi";
 import { useRouter } from "../store/router";
+import { useAppStore } from "../store/AppStore";
 import { documentRepository } from "../data/repositories/documentRepository";
-import { COMPLIANCE_STATEMENTS, complianceValidUntil } from "../data/seed/complianceStatements";
+import { complianceValidUntil, type ComplianceSection, type ComplianceStatement } from "../data/seed/complianceStatements";
+import { allComplianceStatements, complianceStatement, referenceRepository } from "../data/repositories/referenceRepository";
+import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 import { useT } from "../i18n";
@@ -18,7 +21,7 @@ function validityBadge(validUntil: string) {
 export function ComplianceListPage() {
   const t = useT();
   const { navigate } = useRouter();
-  const statements = Object.values(COMPLIANCE_STATEMENTS);
+  const statements = allComplianceStatements();
   return (
     <div>
       <h1 className="text-2xl mb-1">{t("soc.title")}</h1>
@@ -52,7 +55,7 @@ export function ComplianceListPage() {
                   <td className="text-sm">{formatDisplayDate(validUntil)}</td>
                   <td>{validityBadge(validUntil)}</td>
                   <td style={{ textAlign: "right" }}>
-                    <button className="btn btn-ghost btn-sm">Open</button>
+                    <button className="btn btn-ghost btn-sm">Open / Edit</button>
                   </td>
                 </tr>
               );
@@ -64,11 +67,23 @@ export function ComplianceListPage() {
   );
 }
 
+// Blank lines left while typing are dropped when a correction is saved.
+function tidy(s: ComplianceStatement): ComplianceStatement {
+  return {
+    ...s,
+    sections: s.sections.map((sec) => ({ ...sec, lines: sec.lines.map((l) => l.trimEnd()).filter((l) => l.trim() !== "") })),
+    declarations: s.declarations.map((d) => d.trim()).filter(Boolean),
+  };
+}
+
 export function ComplianceDetailPage({ documentId }: { documentId: string }) {
   const { navigate } = useRouter();
-  const s = COMPLIANCE_STATEMENTS[documentId];
+  const { currentUser, bump } = useAppStore();
+  // The statement being corrected, while Edit is on; null otherwise.
+  const [draft, setDraft] = useState<ComplianceStatement | null>(null);
+  const current = complianceStatement(documentId);
   const doc = documentRepository.getById(documentId);
-  if (!s || !doc) {
+  if (!current || !doc) {
     return (
       <div className="empty-state">
         <h2 className="text-xl mb-2">Statement not found</h2>
@@ -78,41 +93,73 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
       </div>
     );
   }
+  const editing = draft !== null;
+  const s = draft ?? current;
+  const edited = referenceRepository.get<ComplianceStatement>(documentId);
   const validUntil = complianceValidUntil(s);
+
+  const patch = (p: Partial<ComplianceStatement>) => setDraft({ ...s, ...p });
+  const setSection = (i: number, p: Partial<ComplianceSection>) => patch({ sections: s.sections.map((sec, idx) => (idx === i ? { ...sec, ...p } : sec)) });
+  const save = () => {
+    if (draft) referenceRepository.save(documentId, tidy(draft), currentUser);
+    setDraft(null);
+    bump();
+  };
+  const restore = () => {
+    referenceRepository.reset(documentId);
+    bump();
+  };
+
   return (
     <div data-print-doc>
-      <div className="flex items-center justify-between mb-3 no-print">
+      <div className="flex items-center justify-between mb-3 no-print wrap gap-2">
         <button className="btn btn-ghost btn-sm" onClick={() => navigate("/soc")}>
           <FiArrowLeft size={13} /> Back to Statements
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 wrap">
           {validityBadge(validUntil)}
-          <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
-            <FiPrinter size={13} /> Print
-          </button>
+          <ReferenceEditBar
+            editing={editing}
+            edited={edited}
+            onEdit={() => setDraft(current)}
+            onSave={save}
+            onCancel={() => setDraft(null)}
+            onRestore={restore}
+            onPrint={() => printDocument()}
+          />
         </div>
       </div>
 
       <div className="doc-header notranslate" translate="no">
         <div className="company-name">GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED</div>
-        <div className="doc-title">{s.headerTitle}</div>
+        <div className="doc-title">
+          {editing ? <input className="input input-sm" data-field="soc-title" value={s.headerTitle} onChange={(e) => patch({ headerTitle: e.target.value })} /> : s.headerTitle}
+        </div>
         <div className="meta-row">
           <div className="meta-cell">
             <span className="k">Format / Rev</span>
-            <span className="v">{s.footerRef}</span>
+            {editing ? <input className="input input-sm" value={s.footerRef} onChange={(e) => patch({ footerRef: e.target.value })} /> : <span className="v">{s.footerRef}</span>}
           </div>
           <div className="meta-cell">
             <span className="k">Date of publication</span>
-            <span className="v">{formatDisplayDate(s.signedOn)}</span>
+            {editing ? (
+              <input type="date" className="input input-sm" value={s.signedOn} onChange={(e) => e.target.value && patch({ signedOn: e.target.value })} />
+            ) : (
+              <span className="v">{formatDisplayDate(s.signedOn)}</span>
+            )}
           </div>
           <div className="meta-cell">
             <span className="k">Valid until</span>
             <span className="v">{formatDisplayDate(validUntil)}</span>
           </div>
-          {s.referenceSource && (
+          {(s.referenceSource || editing) && (
             <div className="meta-cell" style={{ flex: 2 }}>
               <span className="k">Reference source</span>
-              <span className="v">{s.referenceSource}</span>
+              {editing ? (
+                <input className="input input-sm" value={s.referenceSource ?? ""} onChange={(e) => patch({ referenceSource: e.target.value })} />
+              ) : (
+                <span className="v">{s.referenceSource}</span>
+              )}
             </div>
           )}
         </div>
@@ -121,17 +168,27 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
       <div className="doc-table mt-4 notranslate" translate="no">
         <table>
           <tbody>
-            {s.sections.map((sec) => (
-              <tr key={sec.label}>
+            {s.sections.map((sec, i) => (
+              <tr key={i}>
                 <td className="font-semibold text-sm" style={{ width: 220, verticalAlign: "top", background: "var(--color-surface-alt)" }}>
-                  {sec.label}
+                  {editing ? <input className="input input-sm" value={sec.label} onChange={(e) => setSection(i, { label: e.target.value })} /> : sec.label}
                 </td>
                 <td className="text-sm">
-                  {sec.lines.map((l, i) => (
-                    <div key={i} className={i > 0 ? "mt-1" : ""}>
-                      {l}
-                    </div>
-                  ))}
+                  {editing ? (
+                    <textarea
+                      className="input"
+                      data-field="soc-lines"
+                      rows={Math.max(2, sec.lines.length)}
+                      value={sec.lines.join("\n")}
+                      onChange={(e) => setSection(i, { lines: e.target.value.split("\n") })}
+                    />
+                  ) : (
+                    sec.lines.map((l, li) => (
+                      <div key={li} className={li > 0 ? "mt-1" : ""}>
+                        {l}
+                      </div>
+                    ))
+                  )}
                 </td>
               </tr>
             ))}
@@ -146,11 +203,21 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
           </h3>
         </div>
         <div className="card-pad">
-          {s.declarations.map((d, i) => (
-            <p key={i} className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}`}>
-              {d}
-            </p>
-          ))}
+          {s.declarations.map((d, i) =>
+            editing ? (
+              <textarea
+                key={i}
+                className="input mb-2"
+                rows={3}
+                value={d}
+                onChange={(e) => patch({ declarations: s.declarations.map((x, xi) => (xi === i ? e.target.value : x)) })}
+              />
+            ) : (
+              <p key={i} className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}`}>
+                {d}
+              </p>
+            )
+          )}
         </div>
       </div>
 
@@ -158,8 +225,17 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
         <div className="card-pad text-sm">
           <div>Signed</div>
           <div className="mt-3" style={{ borderTop: "1px solid var(--color-border-strong)", width: 220 }} />
-          <div className="font-semibold mt-1">{s.signedBy}</div>
-          <div className="text-muted">({s.signedTitle})</div>
+          {editing ? (
+            <div className="flex gap-2 wrap mt-1">
+              <input className="input input-sm" style={{ maxWidth: 220 }} placeholder="Signed by" value={s.signedBy} onChange={(e) => patch({ signedBy: e.target.value })} />
+              <input className="input input-sm" style={{ maxWidth: 220 }} placeholder="Title" value={s.signedTitle} onChange={(e) => patch({ signedTitle: e.target.value })} />
+            </div>
+          ) : (
+            <>
+              <div className="font-semibold mt-1">{s.signedBy}</div>
+              <div className="text-muted">({s.signedTitle})</div>
+            </>
+          )}
           <div className="text-muted mt-1">{formatDisplayDate(s.signedOn)}</div>
         </div>
       </div>

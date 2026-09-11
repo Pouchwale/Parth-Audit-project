@@ -8,7 +8,7 @@ export type SaveState = "saved" | "saving" | "unsaved";
 
 // Reasons offered as one-tap choices when correcting a record — the common
 // ones, so nobody has to think of wording; any other reason can be typed.
-const CORRECTION_REASONS = ["record.reason.wrongValue", "record.reason.typo", "record.reason.late", "record.reason.missing"];
+const CORRECTION_REASONS = ["record.reason.assistant", "record.reason.wrongValue", "record.reason.typo", "record.reason.late", "record.reason.missing"];
 
 export function RecordActionBar({
   status,
