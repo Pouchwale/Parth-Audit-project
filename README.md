@@ -136,6 +136,16 @@ The app behaves like a personal assistant rather than a blank form:
   the document on the screen: no page title, explanations, stat tiles, banners, tabs, history or
   buttons. A register being edited prints as the paper form; a demo printout keeps its DEMO band
   (`src/utils/print.ts`; each document is marked `data-print-doc`).
+- **Every document has an Edit button — for a mistake by the assistant or by a person.** A draft is
+  edited directly (it saves itself). A record already submitted or verified shows **Edit**: pick a
+  reason (the first one offered is "The assistant filled it in wrong"), change anything on it, Submit —
+  it goes for verification again, and its history keeps what it said before. A rejected record's
+  button is **Edit** too. The reference documents are editable in place as well: the **SOP**, the
+  **Chemical Master** and each **Statement of Compliance** have Edit / Save / Cancel, and a corrected SOP
+  or statement keeps a "Restore the original" button and says who edited it and when
+  (`src/data/repositories/referenceRepository.ts`). The service provider's licence stays exactly as
+  issued, on the owner's instruction. The service report no longer shows the Chemical Master suggestion
+  box.
 - **Two languages — English and ગુજરાતી — chosen on the Dashboard.** Choosing ગુજરાતી switches
   **Google Translate** on automatically for the whole website: every page, menu, list, message and the
   assistant's chat turns Gujarati as it appears, including text that changes afterwards. Choosing

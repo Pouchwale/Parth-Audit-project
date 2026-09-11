@@ -1004,9 +1004,15 @@ undo — and on the complaint checklist it could change a *verified* record with
   number.
 
 **Deliberately not editable:** the service provider's licence (the owner's instruction: "not a single
-change"), the Statements of Compliance and the SOP — issued documents reproduced exactly as supplied —
-and a fly catcher's PC ID, which every fly catcher record refers to (its location and floor are
-editable).
+change") and a fly catcher's PC ID, which every fly catcher record refers to (its location and floor are
+editable). *Changed later on 11-Sep-2026*, on the department's instruction that every document can be
+corrected wherever the assistant or a person got it wrong: the Statements of Compliance, the SOP and the
+Chemical Master chart are now editable in place — Edit / Save / Cancel on the page, the transcription kept
+as the source with "Restore the original", and who edited it and when shown beside it
+(`src/data/repositories/referenceRepository.ts`; the chart's rows are saved to master data). On records,
+"Correct this record" is now labelled **Edit** (a rejected record's "Resume Editing" too), with "The
+assistant filled it in wrong" as the first reason offered; the service report's Chemical Master
+suggestion box was removed.
 
 ## 28. Document Files — any span, opened like a file system (11-Sep-2026)
 

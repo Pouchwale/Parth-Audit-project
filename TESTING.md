@@ -91,6 +91,20 @@ The run below is the production shape end to end: `frontend/scripts/build.ts` bu
 suite runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts
 (`tsconfig.node.json`).
 
+### Edit on every document; the Chemical Master suggestion removed (11-Sep-2026, later)
+
+On the department's instruction ("give edit option … applicable to each and every document … so even
+AI do any mistake or user enter wrong anything, user can edit everywhere"): a record already signed off
+shows **Edit** (was "Correct this record"; a rejected record's "Resume Editing" too), with "The assistant
+filled it in wrong" as the first reason offered; the SOP, the Chemical Master and each Statement of
+Compliance are editable in place (`data/repositories/referenceRepository.ts`,
+`components/documents/ReferenceEditBar.tsx`); the Training list reads "Open / Edit"; and the service
+report's Chemical Master suggestion box is gone. Checked quickly, as asked, instead of re-running every
+suite: `npm run typecheck` clean; a 13-check browser pass over just these screens (no suggestion box; a
+signed-off Training record → Edit → reason → every field editable and saved; the SOP edited, kept after
+a reload and restored; a Statement of Compliance and the Chemical Master edited and kept), no JavaScript
+errors; and `e2e_editing.py` 20/20 for the reopen-and-edit flow itself.
+
 ### Print only the document; fixed service material, method and quantity; F/HR/18 by Month & Year (11-Sep-2026)
 
 Three requests from the department, each built and then checked in the browser:
