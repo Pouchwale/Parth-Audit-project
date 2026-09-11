@@ -54,8 +54,12 @@ Fields: serviceName (string, e.g. "Rodent Control", "General Pest Control",
 "Fly Control"). lines (array of { slNo, areaName,
 materialName, qtyUsed, methodOfApplication, remarks }) — one line per area
 treated; slNo is a plain sequential number (1, 2, 3, ...), not an id.
-technicianSign (string, technician's name). customerSign (string,
-customer/site contact's name).`,
+materialName and methodOfApplication are FIXED for each area (the SOP /
+Chemical Master) — never change them. qtyUsed is entered once per material:
+the first line with a material holds it and every other line with the same
+material carries the same quantity, so to change the quantity change the
+first line of that material. technicianSign (string, technician's name).
+customerSign (string, customer/site contact's name).`,
   gap: `
 This is the CAPA (Corrective and Preventive Action) document.
 Fields: inspectionDate (calendar date). premisesName (string).

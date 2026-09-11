@@ -1,10 +1,9 @@
 import React from "react";
 import { FiPlus, FiTrash2 } from "react-icons/fi";
-import type { DocumentDefinition, RecordInstance, ServiceReportData } from "../../types";
-import { DocumentHeader } from "../documents/DocumentHeader";
+import type { DocumentDefinition, RecordInstance, ServiceReportAreaLine, ServiceReportData } from "../../types";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { COMPANY } from "../../data/seed/masterData";
-import { fixedMaterialForServiceArea } from "../../engine/serviceMaterials";
+import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "../../engine/serviceMaterials";
 import { formatDisplayDate } from "../../utils/date";
 
 function matchingChemicalSuggestion(variantKey: string | undefined, serviceTypeChemicals: ReturnType<typeof masterRepository.get>["serviceTypeChemicals"]) {
@@ -33,21 +32,18 @@ export function ServiceReportRecordView({
   const master = masterRepository.get();
   const suggestion = matchingChemicalSuggestion(doc.variantKey, master.serviceTypeChemicals);
 
-  const updateLine = (slNo: number, patch: Partial<ServiceReportData["lines"][number]>) => {
-    onChange({ ...data, lines: data.lines.map((l) => (l.slNo === slNo ? { ...l, ...patch } : l)) });
-  };
+  // Every change to the lines goes through the service's fixed rules
+  // (engine/serviceMaterials.ts): material and method follow the area, and the
+  // quantity follows the first line of its material.
+  const setLines = (lines: ServiceReportAreaLine[]) => onChange({ ...data, lines: normalizeServiceLines(doc.variantKey, lines) });
+  const updateLine = (slNo: number, patch: Partial<ServiceReportAreaLine>) => setLines(data.lines.map((l) => (l.slNo === slNo ? { ...l, ...patch } : l)));
   const addLine = () => {
     const nextNo = (data.lines.at(-1)?.slNo ?? 0) + 1;
     const fixed = fixedMaterialForServiceArea(doc.variantKey, "");
-    onChange({
-      ...data,
-      lines: [
-        ...data.lines,
-        { slNo: nextNo, areaName: "", materialName: fixed.materialName, qtyUsed: "", methodOfApplication: fixed.methodOfApplication, remarks: "" },
-      ],
-    });
+    setLines([...data.lines, { slNo: nextNo, areaName: "", materialName: fixed.materialName, qtyUsed: "", methodOfApplication: fixed.methodOfApplication, remarks: "" }]);
   };
-  const removeLine = (slNo: number) => onChange({ ...data, lines: data.lines.filter((l) => l.slNo !== slNo) });
+  const removeLine = (slNo: number) => setLines(data.lines.filter((l) => l.slNo !== slNo));
+  const linesWith = (material: string) => data.lines.filter((l) => l.materialName === material);
 
   return (
     <div>
@@ -73,7 +69,7 @@ export function ServiceReportRecordView({
       </div>
 
       {suggestion && (
-        <div className="card mt-3" style={{ background: "var(--color-primary-light)", border: "1px solid var(--color-primary)" }}>
+        <div className="card mt-3 no-print" style={{ background: "var(--color-primary-light)", border: "1px solid var(--color-primary)" }}>
           <div className="card-pad text-sm">
             <strong>Chemical Master suggestion</strong> for {suggestion.serviceName}: Pest covered — {suggestion.pestCovered}.
             Chemicals — {suggestion.chemicals.join(", ")}. Dilution — {suggestion.dilutionRatio}.
@@ -82,77 +78,96 @@ export function ServiceReportRecordView({
       )}
 
       <div className="doc-table mt-4">
-        <table>
+        <table data-table="service-lines">
           <thead>
             <tr>
               <th style={{ width: 40 }}>Sl.No</th>
               <th>Area of Pesticide Applied</th>
               <th style={{ width: 170 }}>Material Name</th>
-              <th style={{ width: 110 }}>Qty Used</th>
+              <th style={{ width: 130 }}>Qty Used</th>
               <th style={{ width: 150 }}>Method of Application</th>
               <th>Remarks</th>
-              {editable && <th></th>}
+              {editable && <th className="no-print"></th>}
             </tr>
           </thead>
           <tbody>
-            {data.lines.map((l) => (
-              <tr key={l.slNo}>
-                <td>{l.slNo}</td>
-                <td>
-                  <input
-                    className="input input-sm"
-                    disabled={!editable}
-                    value={l.areaName}
-                    onChange={(e) => updateLine(l.slNo, { areaName: e.target.value })}
-                  />
-                </td>
-                <td className="text-sm" title="Normally the SOP / Chemical Master material for this service — change it only if something else was used">
-                  {editable ? (
-                    <input className="input input-sm" value={l.materialName} onChange={(e) => updateLine(l.slNo, { materialName: e.target.value })} />
-                  ) : (
-                    l.materialName || <span className="text-faint">—</span>
-                  )}
-                </td>
-                <td>
-                  <input
-                    className="input input-sm"
-                    disabled={!editable}
-                    placeholder="Qty used"
-                    value={l.qtyUsed}
-                    onChange={(e) => updateLine(l.slNo, { qtyUsed: e.target.value })}
-                  />
-                </td>
-                <td className="text-sm" title="Normally the SOP method for this service — change it only if it was applied differently">
-                  {editable ? (
-                    <input className="input input-sm" value={l.methodOfApplication} onChange={(e) => updateLine(l.slNo, { methodOfApplication: e.target.value })} />
-                  ) : (
-                    l.methodOfApplication || <span className="text-faint">—</span>
-                  )}
-                </td>
-                <td>
-                  <input
-                    className="input input-sm"
-                    disabled={!editable}
-                    value={l.remarks}
-                    onChange={(e) => updateLine(l.slNo, { remarks: e.target.value })}
-                  />
-                </td>
-                {editable && (
+            {data.lines.map((l, i) => {
+              const entersQty = isQuantityLine(data.lines, i);
+              const group = linesWith(l.materialName);
+              return (
+                <tr key={l.slNo} data-line={l.slNo}>
+                  <td>{l.slNo}</td>
                   <td>
-                    <button className="btn btn-ghost btn-sm btn-icon" onClick={() => removeLine(l.slNo)}>
-                      <FiTrash2 size={13} />
-                    </button>
+                    <input
+                      className="input input-sm"
+                      disabled={!editable}
+                      value={l.areaName}
+                      onChange={(e) => updateLine(l.slNo, { areaName: e.target.value })}
+                    />
                   </td>
-                )}
-              </tr>
-            ))}
+                  <td className="text-sm" data-cell="material" title="Fixed for this service — the SOP / Chemical Master material for this area">
+                    {l.materialName || <span className="text-faint">—</span>}
+                  </td>
+                  <td data-cell="qty">
+                    {editable && entersQty ? (
+                      <>
+                        <input
+                          className="input input-sm"
+                          data-field="qty"
+                          placeholder="Qty used"
+                          value={l.qtyUsed}
+                          onChange={(e) => updateLine(l.slNo, { qtyUsed: e.target.value })}
+                          title={group.length > 1 ? `Entered once — the same on all ${group.length} ${l.materialName} lines` : undefined}
+                        />
+                        {group.length > 1 && (
+                          <div className="text-xs text-muted mt-1 no-print">
+                            Same on all {group.length} {l.materialName} lines
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <input
+                        className="input input-sm"
+                        disabled
+                        value={l.qtyUsed}
+                        title={entersQty ? undefined : `Same as line ${group[0]?.slNo} — the quantity is entered once, on the first ${l.materialName} line`}
+                      />
+                    )}
+                  </td>
+                  <td className="text-sm" data-cell="method" title="Fixed for this service — the SOP method for this area">
+                    {l.methodOfApplication || <span className="text-faint">—</span>}
+                  </td>
+                  <td>
+                    <input
+                      className="input input-sm"
+                      disabled={!editable}
+                      value={l.remarks}
+                      onChange={(e) => updateLine(l.slNo, { remarks: e.target.value })}
+                    />
+                  </td>
+                  {editable && (
+                    <td className="no-print">
+                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => removeLine(l.slNo)}>
+                        <FiTrash2 size={13} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
       {editable && (
-        <button className="btn btn-secondary btn-sm mt-2" onClick={addLine}>
-          <FiPlus size={13} /> Add Area
-        </button>
+        <div className="flex items-center gap-3 wrap mt-2 no-print">
+          <button className="btn btn-secondary btn-sm" onClick={addLine}>
+            <FiPlus size={13} /> Add Area
+          </button>
+          <span className="text-xs text-muted">
+            Material and method are fixed for this service. The quantity is entered once, on the first line of each material, and is the same on every line
+            with that material.
+          </span>
+        </div>
       )}
 
       <div className="card mt-4">
@@ -178,7 +193,7 @@ export function ServiceReportRecordView({
               placeholder="Customer representative name (required to verify)"
             />
             {countersignEditable && !data.customerSign.trim() && (
-              <div className="text-xs text-muted mt-1">The customer's representative countersigns here — it's needed before this report can be verified.</div>
+              <div className="text-xs text-muted mt-1 no-print">The customer's representative countersigns here — it's needed before this report can be verified.</div>
             )}
           </div>
         </div>

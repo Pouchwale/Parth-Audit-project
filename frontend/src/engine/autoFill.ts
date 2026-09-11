@@ -15,7 +15,7 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { createDefaultData } from "./recordDefaults";
 import { resolveResponsibleEmployees } from "./documentInfo";
-import { fixedMaterialForServiceArea } from "./serviceMaterials";
+import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "./serviceMaterials";
 import { describeRodentEvent, rodentEventFor, totalRodents } from "./rodentPattern";
 import { flyCatchFor, flySeasonLabel, tubeLightCycleFor } from "./flyPattern";
 import {
@@ -317,25 +317,36 @@ function fillServiceReport(
   // report looks like: the remark column is where a technician notes the
   // bait that was taken, the box that had moved, the gap they want closed.
   const observed: { area: string; finding: string; correctiveAction: string }[] = [];
-  const lines = base.lines.map((l) => {
-    const prev = previous?.data.lines.find((p) => p.areaName === l.areaName);
-    const fixed = fixedMaterialForServiceArea(doc.variantKey, l.areaName);
-    const observation = serviceRemarkFor(doc.variantKey, l.areaName, dueDate);
-    if (observation.finding) observed.push({ area: l.areaName, ...observation.finding });
-    return {
-      ...l,
-      materialName: fixed.materialName,
-      methodOfApplication: fixed.methodOfApplication,
-      qtyUsed: prev?.qtyUsed?.trim() || typicalQty(fixed.materialName, rng),
-      remarks: observation.remark,
-    };
-  });
+  // The quantity is written once per material and holds for every area
+  // treated with it (engine/serviceMaterials.ts): the first line of each
+  // material carries the last visit's quantity, or the specimen's usual amount.
+  const lines = normalizeServiceLines(
+    doc.variantKey,
+    base.lines.map((l) => {
+      const prev = previous?.data.lines.find((p) => p.areaName === l.areaName);
+      const fixed = fixedMaterialForServiceArea(doc.variantKey, l.areaName);
+      const observation = serviceRemarkFor(doc.variantKey, l.areaName, dueDate);
+      if (observation.finding) observed.push({ area: l.areaName, ...observation.finding });
+      return {
+        ...l,
+        materialName: fixed.materialName,
+        methodOfApplication: fixed.methodOfApplication,
+        qtyUsed: prev?.qtyUsed?.trim() || typicalQty(fixed.materialName, rng),
+        remarks: observation.remark,
+      };
+    })
+  );
   const notes: string[] = [];
   if (lines.length === 0) {
     notes.push("No fixed area list exists for this service yet (TO BE CONFIRMED) — add the areas treated.");
   } else {
-    const materials = Array.from(new Set(lines.map((l) => l.materialName))).join(" / ");
-    notes.push(`Filled quantity and remarks for all ${lines.length} areas (${materials}) as on the April-2026 service reports.`);
+    const quantities = lines
+      .filter((_, i) => isQuantityLine(lines, i))
+      .map((l) => `${l.materialName}: ${l.qtyUsed || "—"}`)
+      .join("; ");
+    notes.push(
+      `Filled the remarks for all ${lines.length} areas, and the quantity once per material (${quantities}) — the same on every area treated with it, as on the April-2026 service reports.`
+    );
   }
   if (observed.length > 0) {
     notes.unshift(

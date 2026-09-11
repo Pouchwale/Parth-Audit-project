@@ -17,7 +17,7 @@ import { masterRepository } from "./repositories/masterRepository";
 import { recordRepository } from "./repositories/recordRepository";
 import { effectiveDueDatesInMonth } from "../engine/holidays";
 import { periodKeyFor } from "../engine/recordGenerator";
-import { fixedMaterialForServiceArea } from "../engine/serviceMaterials";
+import { fixedMaterialForServiceArea, normalizeServiceLines } from "../engine/serviceMaterials";
 import { autoFillRecord } from "../engine/autoFill";
 import { createDefaultData } from "../engine/recordDefaults";
 import { describeRodentEvent, rodentEventFor } from "../engine/rodentPattern";
@@ -176,22 +176,28 @@ function buildServiceReportData(doc: DocumentDefinition, dueDate: string, observ
   const rng = rngFor("service", doc.id, dueDate);
   return {
     serviceName: doc.variantKey ?? doc.name,
-    lines: serviceAreasFor(doc).map((a, i) => {
-      const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name);
-      // What the technician actually noted at this area on this visit — and
-      // where that is something the plant has to act on, it is collected so
-      // a CAPA finding can be raised against it below.
-      const observation = serviceRemarkFor(doc.variantKey, a.name, dueDate);
-      if (observation.finding) observed.push({ areaName: a.name, ...observation.finding });
-      return {
-        slNo: i + 1,
-        areaName: a.name,
-        materialName: fixed.materialName,
-        qtyUsed: randomQtyFor(fixed.materialName, rng),
-        methodOfApplication: fixed.methodOfApplication,
-        remarks: observation.remark,
-      };
-    }),
+    // One quantity per material: every area treated with it carries the first
+    // line's (engine/serviceMaterials.ts). The generator still draws one per
+    // line, so the rest of the visit's story comes out as it always has.
+    lines: normalizeServiceLines(
+      doc.variantKey,
+      serviceAreasFor(doc).map((a, i) => {
+        const fixed = fixedMaterialForServiceArea(doc.variantKey, a.name);
+        // What the technician actually noted at this area on this visit — and
+        // where that is something the plant has to act on, it is collected so
+        // a CAPA finding can be raised against it below.
+        const observation = serviceRemarkFor(doc.variantKey, a.name, dueDate);
+        if (observation.finding) observed.push({ areaName: a.name, ...observation.finding });
+        return {
+          slNo: i + 1,
+          areaName: a.name,
+          materialName: fixed.materialName,
+          qtyUsed: randomQtyFor(fixed.materialName, rng),
+          methodOfApplication: fixed.methodOfApplication,
+          remarks: observation.remark,
+        };
+      })
+    ),
     technicianSign: "Yogesh Rathod",
     // The customer's countersignature is genuinely missed now and then, and
     // that is exactly what blocks verification (engine/validation.ts).

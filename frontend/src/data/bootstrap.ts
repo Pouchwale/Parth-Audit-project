@@ -5,6 +5,7 @@ import { RETIRED_DOCUMENT_IDS } from "./seed/documentDefinitions";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { prepareDueRecords } from "../engine/assistantPrepare";
 import { alignRecordsToWorkingCalendar } from "../engine/calendarMigration";
+import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
 import { todayISO } from "../utils/date";
 
 // Called once on app start. Seeds / re-syncs master, document and historical
@@ -27,6 +28,9 @@ export function bootstrap(): void {
   // would place them today — before this month's generation and the
   // assistant's preparation run, so both see the corrected set.
   alignRecordsToWorkingCalendar();
+  // Service-report drafts written before the one-quantity-per-material rule
+  // are brought into line with it — drafts only, and logged in their history.
+  alignServiceReportDrafts();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

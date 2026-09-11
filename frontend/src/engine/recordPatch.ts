@@ -1,6 +1,8 @@
-import type { LogColumn, LogHeaderField, LogSheetLayout } from "../types";
+import type { LogColumn, LogHeaderField, LogSheetLayout, ServiceReportAreaLine } from "../types";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
+import { normalizeServiceLines } from "./serviceMaterials";
 import { addDays, pad2, todayISO } from "../utils/date";
 import { generateId } from "../utils/id";
 
@@ -577,7 +579,37 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
   }
 
   if (Array.isArray(itemEdits)) for (const edit of itemEdits) applyItemEdit(layout, next, edit, problems);
+  if (kind === "service-report" && isObj(current)) next.lines = serviceLinesAfterPatch(documentId, current.lines, next.lines, problems);
   return { data: next as unknown as T, problems };
+}
+
+// A service report's material and method are fixed for each area, and its
+// quantity is entered once per material (engine/serviceMaterials.ts). So a
+// proposed change to a material or a method is refused, and a quantity given
+// for any line becomes the quantity of every line with that material.
+function serviceLinesAfterPatch(documentId: string, before: unknown, after: unknown, problems: string[]): unknown {
+  if (!Array.isArray(after)) return after;
+  const was = new Map((Array.isArray(before) ? before : []).filter(isObj).map((l) => [Number(l.slNo), l] as const));
+  let refused = false;
+  const lines: Obj[] = after.filter(isObj).map((l) => {
+    const out: Obj = { ...l };
+    const prev = was.get(Number(l.slNo));
+    if (!prev) return out;
+    for (const k of ["materialName", "methodOfApplication"]) {
+      if (String(out[k] ?? "") === String(prev[k] ?? "")) continue;
+      out[k] = prev[k];
+      refused = true;
+    }
+    return out;
+  });
+  if (refused) problems.push("Material name and method of application are fixed for this service (they follow the SOP / Chemical Master), so they weren't changed.");
+  for (const l of lines) {
+    const prev = was.get(Number(l.slNo));
+    if (!prev || String(l.qtyUsed ?? "") === String(prev.qtyUsed ?? "")) continue;
+    const first = lines.find((x) => x.materialName === l.materialName);
+    if (first && first !== l) first.qtyUsed = l.qtyUsed;
+  }
+  return normalizeServiceLines(documentRepository.getById(documentId)?.variantKey, lines as unknown as ServiceReportAreaLine[]);
 }
 
 /** The labels printed on a log sheet, for readable change history. */
@@ -782,6 +814,10 @@ function serviceEdit(tt: string[], value: string, data: Obj): Obj | null {
     line = best(lines, (l) => (precision(areaWords, tokens(String(l.areaName ?? ""))) >= 0.999 ? 1 + recall(areaWords, tokens(String(l.areaName ?? ""))) : 0), 1);
   } else if (lineNo) {
     line = lines.find((l) => Number(l.slNo) === Number(lineNo)) ?? null;
+  } else if (field[0] === "qtyUsed") {
+    // "quantity is 4": the quantity is entered once, on the first line, and
+    // holds for every line with that material (engine/serviceMaterials.ts).
+    line = lines[0] ?? null;
   }
   return line ? { itemEdits: [{ collection: "lines", match: { slNo: line.slNo }, set: { [field[0]]: value } }] } : null;
 }
