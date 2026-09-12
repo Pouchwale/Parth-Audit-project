@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { FiAlertTriangle, FiClock, FiEdit3 } from "react-icons/fi";
+import { FiAlertTriangle, FiClock, FiEdit3, FiX } from "react-icons/fi";
 import type { CorrectionInfo, HistoryAction, RecordInstance } from "../../types";
 import { historyIsDerived, historyOf } from "../../engine/recordHistory";
 import { useT } from "../../i18n";
@@ -17,6 +17,7 @@ const ACTION_KEY: Record<HistoryAction, string> = {
   rejected: "history.rejected",
   resumed: "history.resumed",
   reopened: "history.reopened",
+  "correction-cancelled": "history.correctionCancelled",
 };
 
 const TONE: Partial<Record<HistoryAction, string>> = {
@@ -99,19 +100,31 @@ function CorrectionBy({ correction }: { correction: CorrectionInfo }) {
 }
 
 /** Shown while a record that had been submitted or verified is reopened to correct it. */
-export function CorrectionBanner({ correction }: { correction: CorrectionInfo }) {
+// `onCancel`, where the page offers it, puts the record straight back as it was
+// before Edit — for the common case of opening a record to correct it and
+// finding there was nothing to correct.
+export function CorrectionBanner({ correction, onCancel }: { correction: CorrectionInfo; onCancel?: () => void }) {
   const t = useT();
   return (
     <div className="card mb-4 correction-banner no-print" data-section="correction-banner" role="status">
       <div className="card-pad text-sm">
-        <strong>
-          <FiEdit3 size={13} style={{ verticalAlign: -1 }} /> {t("record.beingCorrected")}
-        </strong>{" "}
-        — <CorrectionBy correction={correction} />
-        <div className="mt-1">
-          <strong>{t("record.reason")}:</strong> <span translate="no">{correction.reason}</span>
+        <div className="flex items-start justify-between gap-2 wrap">
+          <div>
+            <strong>
+              <FiEdit3 size={13} style={{ verticalAlign: -1 }} /> {t("record.beingCorrected")}
+            </strong>{" "}
+            — <CorrectionBy correction={correction} />
+            <div className="mt-1">
+              <strong>{t("record.reason")}:</strong> <span translate="no">{correction.reason}</span>
+            </div>
+            <div className="text-xs text-muted mt-1">{onCancel ? t("record.correctionNextOrCancel") : t("record.correctionNext")}</div>
+          </div>
+          {onCancel && (
+            <button className="btn btn-secondary btn-sm" data-action="cancel-correction-banner" onClick={onCancel}>
+              <FiX size={13} /> {t("record.cancelCorrection")}
+            </button>
+          )}
         </div>
-        <div className="text-xs text-muted mt-1">{t("record.correctionNext")}</div>
       </div>
     </div>
   );

@@ -1,10 +1,13 @@
 import React, { useState } from "react";
-import { FiChevronDown, FiChevronUp, FiExternalLink, FiSearch, FiX } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiExternalLink, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { useRouter } from "../store/router";
 import { getDocumentInfo } from "../engine/documentInfo";
-import { formatDisplayDate } from "../utils/date";
+import { formatDisplayDate, todayISO } from "../utils/date";
+import { useAppStore } from "../store/AppStore";
+import { createRecordForDocument, deletionLog } from "../engine/recordCrud";
+import type { DocumentDefinition } from "../types";
 import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
 import { PEST_CONTROL_SECTIONS } from "../data/seed/documentDefinitions";
@@ -18,6 +21,7 @@ function openTarget(docId: string, kind: string): string {
   if (kind === "complaint-checklist") return "/gap/external";
   if (kind === "complaint-ack") return "/gap/internal";
   if (kind === "pest-responsibilities") return "/pest-control";
+  if (kind === "service-agreement") return "/licence";
   if (kind === "training-record") return "/training";
   // Pest Control documents have their own pages (src/pages/PestControlPages.tsx).
   if (kind === "daily-pest-monitoring") return "/pest/daily";
@@ -25,6 +29,23 @@ function openTarget(docId: string, kind: string): string {
   if (kind === "service-report") return `/pest/service/${docId.replace(/^service-report-/, "")}`;
   return "/calendar";
 }
+
+// Which documents hold records at all: the reference ones — the SOP, the
+// Chemical Master, a Statement of Compliance, the licence — are single
+// documents kept as issued, edited in place, so there is nothing to create or
+// delete for them (they have their own Edit / Cancel on the page).
+const RECORDABLE_KINDS = new Set([
+  "daily-pest-monitoring",
+  "fly-catcher",
+  "service-report",
+  "log-sheet",
+  "gap-inspection",
+  "complaint-checklist",
+  "complaint-ack",
+  "training-record",
+  "pest-responsibilities",
+  "service-agreement",
+]);
 
 // Within a module, documents are listed in the order of their sections (the
 // department's own grouping — see DocumentDefinition.section); documents
@@ -40,8 +61,21 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   const { navigate } = useRouter();
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { mode, bump, version } = useAppStore();
+  const isDemo = mode === "demo";
   const docs = documentRepository.getAll();
   const master = masterRepository.get();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const deletions = React.useMemo(() => deletionLog(isDemo), [isDemo, version]);
+
+  // CREATE: a record for this document, dated today — or the one that already
+  // covers today, since a controlled register must not hold two sheets for one
+  // day (engine/recordCrud.ts).
+  const startRecord = (doc: DocumentDefinition) => {
+    const { record } = createRecordForDocument(doc, { dateISO: todayISO(), isDemo });
+    bump();
+    navigate(doc.kind === "training-record" ? `/training/${record.id}` : doc.kind === "complaint-checklist" ? `/complaint/${record.id}` : `/record/${record.id}`);
+  };
 
   const activeModule = activeSlug ? docs.find((d) => moduleSlug(d.module) === activeSlug)?.module : undefined;
   // A slug that matches no real module (a stale/bad deep link) must show
@@ -146,15 +180,34 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                           <span className="badge badge-Verified">{d.status}</span>
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(openTarget(d.id, d.kind));
-                            }}
-                          >
-                            Open Document <FiExternalLink size={12} />
-                          </button>
+                          <div className="flex items-center justify-end gap-2 wrap">
+                            {/* CREATE, for every document that holds records —
+                                the same starting data the schedule would give
+                                it (engine/recordCrud.ts). */}
+                            {RECORDABLE_KINDS.has(d.kind) && (
+                              <button
+                                className="btn btn-primary btn-sm"
+                                data-action="new-record"
+                                data-document={d.id}
+                                title={`Start a ${d.name} for today`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startRecord(d);
+                                }}
+                              >
+                                <FiPlus size={12} /> New
+                              </button>
+                            )}
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(openTarget(d.id, d.kind));
+                              }}
+                            >
+                              Open Document <FiExternalLink size={12} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                       {isOpen && (
@@ -200,6 +253,47 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
           </div>
         </div>
       ))}
+
+      {/* DELETE leaves a trail: a record can be removed whatever its status,
+          and what it was stays here (engine/recordCrud.ts). */}
+      {deletions.length > 0 && (
+        <details className="card mt-4 no-print" data-section="deleted-records">
+          <summary className="record-history-summary">
+            <span className="text-base font-semibold">
+              <FiTrash2 size={14} style={{ verticalAlign: -2 }} /> Records deleted ({deletions.length})
+            </span>
+            <span className="text-xs text-muted">what was removed, by whom, when and why</span>
+          </summary>
+          <div className="doc-table">
+            <table className="compact">
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Dated</th>
+                  <th>Status when deleted</th>
+                  <th>Deleted by</th>
+                  <th>When</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deletions.map((d) => (
+                  <tr key={d.id} data-deleted-record={d.recordId}>
+                    <td>{d.documentName}</td>
+                    <td>{formatDisplayDate(d.dueDate)}</td>
+                    <td>
+                      <span className="badge badge-Rejected">{d.status}</span>
+                    </td>
+                    <td translate="no">{d.deletedBy}</td>
+                    <td className="text-sm">{new Date(d.deletedAt).toLocaleString()}</td>
+                    <td className="text-sm">{d.reason || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

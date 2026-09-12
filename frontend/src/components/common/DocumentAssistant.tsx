@@ -25,6 +25,8 @@ import {
   type GuidedStep,
 } from "../../engine/guidedChecklist";
 import { buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
+import { parseAssistantCommand } from "../../engine/assistantCommands";
+import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
 import { useLanguage, useT } from "../../i18n";
 import { SPEECH_LOCALES } from "../../i18n/strings";
 import { settingsRepository } from "../../data/repositories/settingsRepository";
@@ -52,6 +54,7 @@ const PLACEHOLDER_BY_KIND: Record<string, string> = {
   training: "e.g. Training on 3 Sept, topic pest control basics, trainer ABC Pest Solutions",
   "complaint-ack": "e.g. customer is Krishna Packaging, FG code FGSL 3877, root cause: job card missed the HM strip",
   "pest-responsibilities": "e.g. change point 12 to: dispose of trapped pests as per the SOP",
+  "service-agreement": "e.g. agreement number is GPC/2026/14, or: service charges for the term are ₹18,000 per year",
   reference: "e.g. change the dilution ratio for Rodent Control to 1:20",
 };
 
@@ -76,7 +79,7 @@ export function DocumentAssistant() {
   const { hasTarget, targetKind, targetDocumentId, targetSignature, getTarget } = useAssistantTarget();
   const { elRef, style: dragStyle, dragHandleProps, didJustDrag, reclamp } = useDraggable(WIDGET_POSITION_KEY);
   const { user } = useAuth();
-  const { version, currentUser, mode } = useAppStore();
+  const { version, currentUser, mode, bump } = useAppStore();
   const { path, navigate } = useRouter();
   const { lang } = useLanguage();
   const t = useT();
@@ -91,6 +94,9 @@ export function DocumentAssistant() {
   const [guided, setGuided] = useState<{ step: GuidedStep; prompt: GuidedPrompt } | null>(null);
   const [pickingDate, setPickingDate] = useState(false);
   const [awaitingSendBackReason, setAwaitingSendBackReason] = useState(false);
+  // A delete asked for in words: the record it is about, and whether the
+  // reason still has to be typed (a signed-off record always needs one).
+  const [pendingDelete, setPendingDelete] = useState<{ recordId: string; needsReason: boolean } | null>(null);
   const [listening, setListening] = useState(false);
   const sessionRef = useRef<VoiceSession | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
@@ -283,6 +289,124 @@ export function DocumentAssistant() {
         pendingRef.current = null;
         bot("Okay — I've left the record exactly as it was.");
         return;
+      case "createRecord": {
+        me(chip.label);
+        const doc = documentRepository.getById(a.documentId);
+        if (!doc) {
+          bot("I couldn't find that document.");
+          return;
+        }
+        const { record, existed } = createRecordForDocument(doc, { dateISO: a.dateISO, isDemo });
+        bump();
+        bot(
+          existed
+            ? `There is already a ${doc.name} for ${formatDisplayDate(a.dateISO)} — opening that one rather than starting a second.`
+            : `Started a new ${doc.name} for ${formatDisplayDate(a.dateISO)}. It's a draft — fill it in here or on the form. Check everything on it before you submit; anything I fill in can be corrected.`
+        );
+        navigate(`/record/${record.id}`);
+        return;
+      }
+      case "askDelete": {
+        me(chip.label);
+        const tt = getTarget();
+        if (!tt?.remove) {
+          bot("Open the record you want deleted first, then tell me again.");
+          return;
+        }
+        const needsReason = deletionNeedsReason(tt.status);
+        setPendingDelete({ recordId: tt.recordId, needsReason });
+        if (needsReason) {
+          bot(
+            `${tt.title ?? "This record"} is ${tt.status} — it has been through verification, so deleting it takes a reason, and the deletion itself is recorded (who, when and why). Type the reason and I'll remove it, or tap Keep it.`,
+            [{ label: "Keep it", action: { type: "cancelDelete" } }]
+          );
+          return;
+        }
+        bot(`Delete ${tt.title ?? "this record"}? It is ${tt.status}, and this can't be undone.`, [
+          { label: "Delete it", action: { type: "confirmDelete", reason: "Deleted from the assistant" }, tone: "danger" },
+          { label: "Keep it", action: { type: "cancelDelete" } },
+        ]);
+        return;
+      }
+      case "confirmDelete": {
+        me(chip.label);
+        const tt = getTarget();
+        const p = pendingDelete;
+        setPendingDelete(null);
+        if (!p || !tt?.remove || tt.recordId !== p.recordId) {
+          bot("That record isn't open any more — open it again and tell me.");
+          return;
+        }
+        const what = tt.title ?? "The record";
+        tt.remove(a.reason);
+        bot(`${what} is deleted. The deletion is on file — what it was, its status, who removed it, when and why (Document Library → Records deleted).`);
+        return;
+      }
+      case "cancelDelete":
+        me(chip.label);
+        setPendingDelete(null);
+        bot("Kept — nothing was deleted.");
+        return;
+      case "askSubmit": {
+        me(chip.label);
+        const tt = getTarget();
+        if (!tt?.submit) {
+          bot("This one can't be submitted from here — open the record and try again.");
+          return;
+        }
+        bot(
+          `Before I submit ${tt.title ?? "this record"}: look over the form and make sure every value is right — once it goes for verification, changing it means reopening it with a reason. Anything I filled in can still be corrected now.`,
+          [
+            { label: "I've checked it — submit", action: { type: "doSubmit" }, tone: "primary" },
+            { label: "Not yet", action: { type: "later" } },
+          ]
+        );
+        return;
+      }
+      case "doSubmit": {
+        me(chip.label);
+        const tt = getTarget();
+        if (!tt?.submit) {
+          bot("This one can't be submitted from here — open the record and try again.");
+          return;
+        }
+        const r = tt.submit();
+        bot(r.ok ? `Submitted ✅ ${tt.title ?? "The record"} is waiting for verification now.` : `Before I can submit it: ${r.errors.join(" ")}`);
+        return;
+      }
+      case "doVerify": {
+        me(chip.label);
+        const tt = getTarget();
+        if (!tt?.verify) {
+          bot("This record isn't waiting for verification — submit it first.");
+          return;
+        }
+        const r = tt.verify();
+        bot(r.ok ? `Verified ✅ ${tt.title ?? "The record"} is signed off in your name.` : `I couldn't verify it yet: ${r.errors.join(" ")}`);
+        return;
+      }
+      case "doCancelCorrection": {
+        me(chip.label);
+        const tt = getTarget();
+        if (!tt?.cancelCorrection) {
+          bot("This record isn't open for correction, so there's nothing to put back.");
+          return;
+        }
+        tt.cancelCorrection();
+        bot("Put back exactly as it was, at the status it came from — the history notes that the edit was cancelled.");
+        return;
+      }
+      case "doPrint": {
+        me(chip.label);
+        const tt = getTarget();
+        if (!tt?.print) {
+          bot("Open the document you want printed, then ask me again.");
+          return;
+        }
+        tt.print();
+        bot("Printing the document itself — nothing else on the page goes on the paper.");
+        return;
+      }
       case "undo": {
         me(chip.label);
         const saved = undoRef.current.get(a.id);
@@ -314,6 +438,12 @@ export function DocumentAssistant() {
     chips.push({ label: "This month's reports", action: { type: "navigate", route: "/reports" } });
     if (!path.startsWith("/gap")) chips.push({ label: "Open CAPA", action: { type: "navigate", route: "/gap" } });
     if (hasTarget && !t?.checklist) chips.push({ label: t && !t.editable ? "Correct this record…" : "Fill this record for me…", action: { type: "focusInput", placeholder: "" } });
+    // Everything the record's own buttons can do, in the chat as well.
+    if (t?.cancelCorrection) chips.push({ label: "Cancel the edit", action: { type: "doCancelCorrection" } });
+    if (t?.submit) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });
+    if (t?.verify) chips.push({ label: "Verify this record", action: { type: "doVerify" }, tone: "success" });
+    if (t?.print) chips.push({ label: "Print the document", action: { type: "doPrint" } });
+    if (t?.remove) chips.push({ label: "Delete this record", action: { type: "askDelete" }, tone: "danger" });
     return chips;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasTarget, targetKind, targetDocumentId, targetSignature, guided, path, version]);
@@ -372,13 +502,20 @@ export function DocumentAssistant() {
     return lines.join("\n");
   };
 
+  // Said after every change the assistant makes, and before it submits
+  // anything — the department's standing instruction (12-Sep-2026): whatever
+  // it changes, it says so and asks for it to be checked first, and says how to
+  // put it right if it has got something wrong.
+  const REVIEW_LINE =
+    "Please check it on the form before you submit — if I have got anything wrong, tap Undo, tell me the correction, or use Edit on the record.";
+
   const commitEdit = (target: AssistantTarget, next: unknown, changes: FieldChange[], note: string, problems: string[], intro = "") => {
     const before = target.getData();
     target.commit(next, note);
     const id = generateId("undo");
     undoRef.current.set(id, { recordId: target.recordId, data: before });
     const issues = problems.length ? `\n\n${problems.join("\n")}` : "";
-    bot(`${intro}Done — saved. I changed:\n${listChanges(changes)}${issues}`, [{ label: "Undo", action: { type: "undo", id } }]);
+    bot(`${intro}Done — saved. I changed:\n${listChanges(changes)}${issues}\n\n${REVIEW_LINE}`, [{ label: "Undo", action: { type: "undo", id } }]);
   };
 
   const applyEdit = (patch: Record<string, unknown>, note: string, lead?: string) => {
@@ -424,6 +561,16 @@ export function DocumentAssistant() {
       if (spoken || speakReplies) speak(reply, speechLocale);
     };
 
+    // A delete waiting for its reason: the next thing typed (or said) is it.
+    if (pendingDelete?.needsReason && t2?.remove && t2.recordId === pendingDelete.recordId) {
+      me(text);
+      const what = t2.title ?? "The record";
+      setPendingDelete(null);
+      t2.remove(text);
+      bot(`${what} is deleted, with your reason on file: “${text}”. The deletion is listed in Document Library → Records deleted.`);
+      return;
+    }
+
     if (awaitingSendBackReason && t2?.checklist) {
       me(text);
       setAwaitingSendBackReason(false);
@@ -434,6 +581,31 @@ export function DocumentAssistant() {
 
     const g = guidedRef.current;
     if (g && t2?.checklist) {
+      // An outright instruction — "submit this record", "print it", "delete
+      // this" — is obeyed even mid-walk-through; anything else typed here is
+      // the answer to the question on screen (engine/assistantCommands.ts).
+      const midWalk = parseAssistantCommand(text, true, todayISO(), { strict: true });
+      if (midWalk) {
+        switch (midWalk.kind) {
+          case "submit":
+            runAction({ label: text, action: { type: "askSubmit" } });
+            return;
+          case "verify":
+            runAction({ label: text, action: { type: "doVerify" } });
+            return;
+          case "delete":
+            runAction({ label: text, action: { type: "askDelete" } });
+            return;
+          case "print":
+            runAction({ label: text, action: { type: "doPrint" } });
+            return;
+          case "cancelEdit":
+            runAction({ label: text, action: { type: "doCancelCorrection" } });
+            return;
+          default:
+            break;
+        }
+      }
       if (g.prompt.freeText === "header") {
         answerGuided({ type: "text", text }, text);
         return;
@@ -455,6 +627,33 @@ export function DocumentAssistant() {
       if (g.step.kind === "approval" && /^(yes|yeah|yep|ok|okay|sure|submit|go ahead|do it)\b/i.test(text)) {
         runAction({ label: text, action: { type: "submit" } });
         return;
+      }
+    }
+
+    // An instruction about the RECORD rather than its fields — create, delete,
+    // submit, verify, cancel the edit, print — understood here with no network,
+    // so it works spoken too (engine/assistantCommands.ts).
+    const command = parseAssistantCommand(text, !!t2);
+    if (command) {
+      switch (command.kind) {
+        case "create":
+          runAction({ label: text, action: { type: "createRecord", documentId: command.documentId, dateISO: command.dateISO } });
+          return;
+        case "delete":
+          runAction({ label: text, action: { type: "askDelete" } });
+          return;
+        case "submit":
+          runAction({ label: text, action: { type: "askSubmit" } });
+          return;
+        case "verify":
+          runAction({ label: text, action: { type: "doVerify" } });
+          return;
+        case "cancelEdit":
+          runAction({ label: text, action: { type: "doCancelCorrection" } });
+          return;
+        case "print":
+          runAction({ label: text, action: { type: "doPrint" } });
+          return;
       }
     }
 

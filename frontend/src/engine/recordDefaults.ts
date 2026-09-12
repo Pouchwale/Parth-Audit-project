@@ -15,6 +15,8 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { generateId } from "../utils/id";
 import { newComplaintAckData } from "../data/seed/complaintAck";
 import { newPestResponsibilitiesData } from "../data/seed/pestResponsibilities";
+import { newServiceAgreementData } from "../data/seed/serviceAgreement";
+import { termEnd } from "./serviceAgreement";
 
 // Builds the AUTOMATIC / STATIC part of a new record shell (section 11 & 26):
 // header info, checkpoint lists, PC locations, area lists are all
@@ -96,6 +98,10 @@ export function createDefaultData(
     case "pest-responsibilities":
       // Started by hand too: the agreement's own wording, for the two parties to agree and sign.
       return newPestResponsibilitiesData();
+    case "service-agreement":
+      // The provider's format for a two-year term starting on the due date —
+      // normally created from the Service Provider page (engine/serviceAgreement.ts).
+      return newServiceAgreementData(dueDateISO, termEnd(dueDateISO));
     case "log-sheet": {
       const layout = getLogSheetLayout(doc.id);
       const header: Record<string, string> = {};

@@ -33,6 +33,10 @@ export interface AppSettings {
   // turn it on for typed messages too). Voice input itself is always
   // press-to-talk, never left listening.
   speakReplies: boolean;
+  // "Remind me later" on the two-yearly service provider agreement: the date
+  // the reminder starts asking again (engine/serviceAgreement.ts). It is only
+  // ever a snooze — a week — never a way to switch the reminder off.
+  agreementReminderSnoozedUntil: string | null;
 }
 
 const KEY = "settings";
@@ -46,6 +50,7 @@ const DEFAULTS: AppSettings = {
   briefingShown: { date: "", slots: [] },
   briefingFirstShownAt: null,
   liveStartDate: null,
+  agreementReminderSnoozedUntil: null,
 };
 
 export const settingsRepository = {

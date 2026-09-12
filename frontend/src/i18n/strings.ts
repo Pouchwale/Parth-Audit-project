@@ -59,6 +59,14 @@ const en = {
   "record.correctionBy": "reopened by {by} on {when} (it was {status})",
   "record.reason": "Reason",
   "record.correctionNext": "Make the change, then press Submit — the record goes for verification again.",
+  // Pressed Edit and found nothing to put right: Cancel edit puts the record
+  // straight back the way it was, so it needn't be submitted and verified again.
+  "record.correctionNextOrCancel": "Make the change, then press Submit — the record goes for verification again. Nothing to change? Press Cancel edit and it goes back as it was.",
+  "record.cancelCorrection": "Cancel edit",
+  "record.cancelCorrectionTitle": "Put this record back as it was?",
+  "record.cancelCorrectionBody": "{count} change(s) have been made since this record was reopened. Cancelling puts it back exactly as it was and returns it to {status}. The history keeps a note of it.",
+  "record.keepEditing": "Keep editing",
+  "record.putItBack": "Put it back",
   "record.history": "Record history",
   "record.historyHint": "every change, who made it and when",
   "record.historyDerived": "Reconstructed from the record's sign-off stamps (it was saved before change history existed).",
@@ -83,6 +91,7 @@ const en = {
   "history.rejected": "Rejected",
   "history.resumed": "Resumed after rejection",
   "history.reopened": "Reopened for correction",
+  "history.correctionCancelled": "Edit cancelled — put back",
   "record.filledAgain": "Filled in again by the assistant",
   "common.exportCsv": "Export CSV",
   "common.addRow": "Add Row",
@@ -103,6 +112,10 @@ const en = {
   "common.language": "Language",
   "lang.translating": "Turning the page into Gujarati with Google Translate…",
   "lang.builtIn": "Google Translate can't be reached — showing the built-in Gujarati.",
+  // Beside the language box in the top bar, where there is only room for a word
+  // or two; the sentence above is the tooltip.
+  "lang.translatingShort": "Translating…",
+  "lang.builtInShort": "Built-in Gujarati",
   "common.demo": "Demo",
   "common.of": "of",
 
@@ -449,6 +462,12 @@ const gu: Record<StringKey, string> = {
   "record.correctionBy": "{by} દ્વારા {when} એ ફરી ખોલાયું (તે {status} હતું)",
   "record.reason": "કારણ",
   "record.correctionNext": "ફેરફાર કરો, પછી સબમિટ દબાવો — રેકોર્ડ ફરી ચકાસણી માટે જશે.",
+  "record.correctionNextOrCancel": "ફેરફાર કરો, પછી સબમિટ દબાવો — રેકોર્ડ ફરી ચકાસણી માટે જશે. કંઈ બદલવાનું નથી? \"ફેરફાર રદ કરો\" દબાવો, રેકોર્ડ પહેલાં જેવો હતો તેવો થઈ જશે.",
+  "record.cancelCorrection": "ફેરફાર રદ કરો",
+  "record.cancelCorrectionTitle": "રેકોર્ડ પહેલાં જેવો હતો તેવો કરી દઈએ?",
+  "record.cancelCorrectionBody": "આ રેકોર્ડ ફરી ખોલ્યા પછી {count} ફેરફાર થયા છે. રદ કરવાથી તે બરાબર પહેલાં જેવો થઈ જશે અને ફરી {status} બનશે. ઇતિહાસમાં તેની નોંધ રહેશે.",
+  "record.keepEditing": "ફેરફાર ચાલુ રાખો",
+  "record.putItBack": "પહેલાં જેવું કરો",
   "record.history": "રેકોર્ડનો ઇતિહાસ",
   "record.historyHint": "દરેક ફેરફાર, કોણે અને ક્યારે કર્યો",
   "record.historyDerived": "આ ઇતિહાસ રેકોર્ડ પરની સહી-તારીખોમાંથી બનાવેલ છે (ફેરફારનો ઇતિહાસ શરૂ થયો તે પહેલાં સાચવેલ રેકોર્ડ).",
@@ -474,6 +493,7 @@ const gu: Record<StringKey, string> = {
   "history.rejected": "નકાર્યું",
   "history.resumed": "નકાર પછી ફરી શરૂ કર્યું",
   "history.reopened": "સુધારા માટે ફરી ખોલ્યું",
+  "history.correctionCancelled": "ફેરફાર રદ — પહેલાં જેવું કર્યું",
   "common.exportCsv": "CSV નિકાસ કરો",
   "common.addRow": "પંક્તિ ઉમેરો",
   "common.back": "પાછળ",
@@ -493,6 +513,8 @@ const gu: Record<StringKey, string> = {
   "common.language": "ભાષા",
   "lang.translating": "Google Translate વડે ગુજરાતીમાં ફેરવી રહ્યા છીએ…",
   "lang.builtIn": "Google Translate સુધી પહોંચી શકાયું નથી — બિલ્ટ-ઇન ગુજરાતી બતાવી રહ્યા છીએ.",
+  "lang.translatingShort": "ફેરવી રહ્યા છીએ…",
+  "lang.builtInShort": "બિલ્ટ-ઇન ગુજરાતી",
   "common.demo": "ડેમો",
   "common.of": "માંથી",
 

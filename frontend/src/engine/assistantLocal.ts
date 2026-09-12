@@ -1,5 +1,5 @@
 import type { Chip } from "./guidedChecklist";
-import type { DailyPestMonitoringData, DocumentDefinition } from "../types";
+import type { ComplaintAckData, ComplaintChecklistData, DailyPestMonitoringData, DocumentDefinition, GapInspectionData, RecordInstance } from "../types";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -234,7 +234,7 @@ function mentionsAny(lower: string, aliases: string[]): boolean {
 // ("daily pest control monitoring record"), falling back to a whole module
 // ("pest", "lamination") only when no single document was recognised, so a
 // precise request never gets diluted into every document in the module.
-function matchDocuments(lower: string): string[] {
+export function matchDocuments(lower: string): string[] {
   const ids = new Set<string>();
   for (const { id, aliases } of DOC_KEYWORDS) if (mentionsAny(lower, aliases)) ids.add(id);
   if (ids.size > 0) return Array.from(ids);
@@ -249,7 +249,7 @@ function matchDocuments(lower: string): string[] {
   return Array.from(ids);
 }
 
-interface DateRange {
+export interface DateRange {
   from: string;
   to: string;
   label: string;
@@ -324,7 +324,7 @@ function weekBounds(today: string, weekOffset: number): { from: string; to: stri
 // week, or a whole month (bare month name, or "this/last/next month") — so
 // "1 to 19 January" lists 19 days and "for January" lists the whole month,
 // exactly as asked. Returns null when no date reference is found at all.
-function parseDateRange(text: string, today: string): DateRange | null {
+export function parseDateRange(text: string, today: string): DateRange | null {
   const lower = text.toLowerCase();
   const year0 = fromISODate(today).getFullYear();
 
@@ -489,6 +489,62 @@ function answerForDay(info: DayInfo, phrase: string, today: string): string {
   }
 }
 
+// "CAPA summary", "summary of the internal CAPA", "how many complaints are
+// open" — answered from the records themselves, instantly and with no network
+// call. Internal covers the inspection findings reports and the complaint
+// acknowledgement reports; External covers the customer complaint checklists.
+const CAPA_RE = /\b(capa|corrective (?:and|&) preventive|complaints?|inspection findings?)\b/i;
+const CAPA_SUMMARY_RE = /\b(summary|summarise|summarize|overview|status|how many|where (?:do|does) (?:we|it|they) stand)\b/i;
+
+function capaSummary(lower: string, isDemo: boolean): LocalAnswer {
+  const today = todayISO();
+  const wantsInternal = !/\bexternal\b/.test(lower);
+  const wantsExternal = !/\binternal\b/.test(lower);
+  const parts: string[] = [];
+  const chips: Chip[] = [];
+  const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+  if (wantsInternal) {
+    const reports = recordRepository.query({ documentId: "gap-inspection", isDemo }) as RecordInstance<GapInspectionData>[];
+    const findings = reports.flatMap((r) => r.data.findings);
+    const open = findings.filter((f) => f.status === "Open" || f.status === "Overdue");
+    const overdue = open.filter((f) => f.status === "Overdue" || (!!f.targetDate && compareISO(f.targetDate, today) < 0));
+    const closed = findings.filter((f) => f.status === "Closed" || f.status === "Verified");
+    const latest = reports.slice().sort((a, b) => compareISO(b.dueDate, a.dueDate))[0];
+    const acks = recordRepository.query({ documentId: "capa-complaint-ack", isDemo }) as RecordInstance<ComplaintAckData>[];
+    const oldest = overdue.slice().sort((a, b) => compareISO(a.targetDate ?? "9999-12-31", b.targetDate ?? "9999-12-31"))[0];
+    parts.push(
+      [
+        `Internal — ${count(reports.length, "inspection findings report")} holding ${count(findings.length, "finding")}: ${open.length} open (${overdue.length} overdue), ${closed.length} closed or verified.`,
+        latest ? ` Last inspection ${formatDisplayDate(latest.data.inspectionDate || latest.dueDate)}.` : "",
+        oldest ? ` Oldest overdue: "${oldest.findingOfInspection}"${oldest.targetDate ? `, target ${formatDisplayDate(oldest.targetDate)}` : ""}.` : "",
+        acks.length ? ` ${count(acks.length, "complaint acknowledgement report")}, ${acks.filter((r) => r.status === "Verified").length} signed off.` : "",
+      ].join("")
+    );
+    chips.push({ label: "Open Internal CAPA", action: { type: "navigate", route: "/gap/internal" } });
+  }
+
+  if (wantsExternal) {
+    const complaints = recordRepository.query({ documentId: "capa-customer-complaint", isDemo }) as RecordInstance<ComplaintChecklistData>[];
+    const approved = complaints.filter((r) => r.status === "Verified");
+    const awaiting = complaints.filter((r) => r.status === "Submitted" || r.status === "Pending Verification");
+    const working = complaints.filter((r) => ["Scheduled", "Due", "In Progress", "Rejected"].includes(r.status));
+    const items = complaints.flatMap((r) => r.data.sections.flatMap((s) => s.items));
+    const done = items.filter((it) => it.done || it.notRequired).length;
+    const latest = complaints.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+    parts.push(
+      [
+        `External — ${count(complaints.length, "customer complaint")}: ${working.length} being worked on, ${awaiting.length} waiting for approval, ${approved.length} approved.`,
+        items.length ? ` ${done} of ${items.length} checklist activities done.` : "",
+        latest ? ` Latest ${latest.data.complaintNo || "(no number yet)"}${latest.data.customerName ? ` — ${latest.data.customerName}` : ""}.` : "",
+      ].join("")
+    );
+    chips.push({ label: "Open External CAPA", action: { type: "navigate", route: "/gap/external" } });
+  }
+
+  return { reply: `${isDemo ? "Demo data. " : ""}${parts.join("\n\n")}`, chips };
+}
+
 export function localAnswer(message: string, isDemo: boolean, userName?: string): LocalAnswer | null {
   const text = message.trim();
   const lower = text.toLowerCase();
@@ -552,13 +608,15 @@ export function localAnswer(message: string, isDemo: boolean, userName?: string)
     };
   }
 
+  if (CAPA_RE.test(lower) && CAPA_SUMMARY_RE.test(lower)) return capaSummary(lower, isDemo);
+
   const listing = listDocumentsAnswer(text, isDemo);
   if (listing) return listing;
 
   if (/^(help|\?|what can you do\??|how do you work\??)$/.test(lower) || /\b(what can you do|what do you do|how can you help)\b/.test(lower)) {
     const off = WEEKDAY_LONG[weeklyOffDay(master)];
     return {
-      reply: `I can take you anywhere in the app in plain words ("show me August's reports", "open the rat / mice service reports"), list a document's records for a date range ("daily pest control monitoring record from 1 to 19 January", "pest records for September"), fill in a record you have open ("checker is Ramesh, time 9:15"), tell you what's due and what I've already prepared, and answer calendar questions — holidays, the ${off} weekly off, adjustment days. I stick to this record system only — I'm not a general chatbot, so anything outside this software I'll politely decline. Text only, no voice.`,
+      reply: `I can take you anywhere in the app in plain words ("show me August's reports", "open the rat / mice service reports"), list a document's records for a date range ("daily pest control monitoring record from 1 to 19 January", "pest records for September"), fill in a record you have open ("checker is Ramesh, time 9:15"), start a new one ("create a new fly catcher record"), submit it, verify it, print it, put an edit back or delete it — anything the buttons do, said in words or spoken — tell you what's due and what I've already prepared, summarise CAPA for you (internal findings and customer complaints), and answer calendar questions — holidays, the ${off} weekly off, adjustment days. I stick to this record system only — I'm not a general chatbot, so anything outside this software I'll politely decline. Text only, no voice.`,
       chips: [
         { label: t("ai.chip.dueToday"), action: { type: "navigate", route: `/day/${today}` } },
         { label: t("ai.chip.pestControl"), action: { type: "navigate", route: "/pest-control" } },

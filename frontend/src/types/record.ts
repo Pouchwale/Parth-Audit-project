@@ -57,7 +57,8 @@ export type HistoryAction =
   | "verified"
   | "rejected"
   | "resumed"
-  | "reopened";
+  | "reopened"
+  | "correction-cancelled";
 
 export interface HistoryEntry {
   id: string;
@@ -77,6 +78,12 @@ export interface CorrectionInfo {
   by: string;
   at: string;
   fromStatus: RecordStatus;
+  /**
+   * What the record said the moment Edit reopened it, so "Cancel edit" can put
+   * it back exactly as it was (engine/recordLifecycle.ts). Held only while the
+   * correction is open — Submit and Cancel both clear the whole correction.
+   */
+  dataBefore?: unknown;
 }
 
 export interface PreparedInfo {
@@ -301,6 +308,45 @@ export interface PestResponsibilitiesData {
   serviceClauses: string[];
   client: ResponsibilitySignatory;
   provider: ResponsibilitySignatory;
+}
+
+// ---- Pest Control Service Agreement (renewed every two years) -------------
+export interface ServiceAgreementParty {
+  organisation: string;
+  addressLines: string[];
+  contactName: string;
+  designation: string;
+  phone: string;
+  email: string;
+}
+
+/** A page of the signed copy: a photograph or scan, or the PDF itself. */
+export interface ServiceAgreementScan {
+  id: string;
+  name: string;
+  kind: "image" | "pdf";
+  dataUrl: string;
+  addedAt: string;
+}
+
+export interface ServiceAgreementData {
+  agreementNo: string;
+  /** The two-year term. `effectiveTo` is what the renewal reminder watches. */
+  effectiveFrom: string;
+  effectiveTo: string;
+  client: ServiceAgreementParty;
+  provider: ServiceAgreementParty;
+  providerLicenceNo: string;
+  scopeOfServices: string[];
+  serviceSchedule: string[];
+  obligations: string[];
+  commercialTerms: string[];
+  generalTerms: string[];
+  clientSignatory: ResponsibilitySignatory;
+  providerSignatory: ResponsibilitySignatory;
+  scans: ServiceAgreementScan[];
+  /** Drafted on the provider's format by this system, or uploaded as signed. */
+  origin: "generated" | "uploaded";
 }
 
 export interface TrainingRecordData {

@@ -71,6 +71,14 @@ const KEY_LABELS: Record<string, string> = {
   preventiveAction: "Preventive action",
   acknowledgement: "Acknowledgement",
   employeeSignDate: "Employee's date",
+  agreementNo: "Agreement No.",
+  effectiveFrom: "Agreement starts",
+  effectiveTo: "Agreement runs to",
+  providerLicenceNo: "Provider's licence",
+  scopeOfServices: "Scope of services",
+  serviceSchedule: "Schedule and reporting",
+  commercialTerms: "Commercial terms",
+  generalTerms: "General",
 };
 
 function words(key: string): string {

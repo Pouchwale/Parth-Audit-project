@@ -59,4 +59,9 @@ export type DocumentKind =
   // Responsibilities of Pest Control — the three-page agreement between the
   // site and the pest control service provider, on the company's letterhead
   // (components/records/PestResponsibilitiesRecordView.tsx).
-  | "pest-responsibilities";
+  | "pest-responsibilities"
+  // Pest Control Service Agreement — the contract with the service provider,
+  // on the provider's letterhead, renewed every two years. The system either
+  // drafts it in that format or holds the signed copy that was uploaded
+  // (components/records/ServiceAgreementRecordView.tsx, engine/serviceAgreement.ts).
+  | "service-agreement";

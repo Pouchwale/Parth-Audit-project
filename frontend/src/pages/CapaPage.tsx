@@ -8,6 +8,8 @@ import { refreshGapFindingStatuses, openCorrectiveActionsCount } from "../data/s
 import { COMPLAINT_DOC_ID, COMPLAINT_FOOTER_NOTE, COMPLAINT_ACTIVITY_COUNT, newComplaintChecklistData } from "../data/seed/complaintChecklist";
 import type { ChecklistItem, ComplaintChecklistData, RecordInstance } from "../types";
 import {
+  cancelCorrection,
+  correctionChanges,
   isCorrectableStatus,
   isEditableStatus,
   reopenForCorrection,
@@ -27,7 +29,9 @@ import { useSetAssistantTarget } from "../store/AssistantContext";
 import { startGuidedChecklist } from "../components/common/DocumentAssistant";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
+import { codeRulesFor, nextComplaintNo } from "../engine/documentFormats";
 import { printDocument } from "../utils/print";
+import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { useT } from "../i18n";
 
 const GAP_DOC_ID = "gap-inspection";
@@ -138,6 +142,9 @@ export function ComplaintListPage() {
 
   const createNew = () => {
     const now = new Date().toISOString();
+    // The next free number for this year — 26-27/001, /002, … — which the
+    // person can change on the form (engine/documentFormats.ts).
+    const complaintNo = nextComplaintNo(records.map((r) => r.data.complaintNo));
     const rec: RecordInstance<ComplaintChecklistData> = {
       id: generateId("complaint"),
       documentId: COMPLAINT_DOC_ID,
@@ -145,7 +152,7 @@ export function ComplaintListPage() {
       dueDate: todayISO(),
       status: "In Progress",
       isDemo,
-      data: newComplaintChecklistData(),
+      data: newComplaintChecklistData(complaintNo),
       createdAt: now,
       updatedAt: now,
     };
@@ -327,13 +334,35 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   };
 
   const answered = record ? summarise(record.data) : null;
-  const isFresh = !!record && editable && !record.data.customerName && !record.data.complaintNo && answered?.done === 0 && answered?.notRequired === 0;
+  // Nothing recorded yet, so the assistant offers to walk the sheet through.
+  // The complaint number doesn't count: the app fills that in itself the
+  // moment the complaint is opened (26-27/001 — see engine/documentFormats.ts),
+  // and a number nobody typed is not the same as a sheet somebody has begun.
+  const isFresh =
+    !!record &&
+    editable &&
+    !record.data.customerName &&
+    !record.data.jobName &&
+    !record.data.jobCode &&
+    !record.data.poNo &&
+    !record.data.complaintReceivedDate &&
+    answered?.done === 0 &&
+    answered?.notRequired === 0;
 
   const doCorrect = (reason: string) => {
     const base = current();
     if (!base) return;
     setErrors([]);
     setRecord(reopenForCorrection(base, currentUser, reason) as RecordInstance<ComplaintChecklistData>);
+    bump();
+  };
+
+  // Pressed Edit with nothing to put right: back as it was, at its old status.
+  const doCancelCorrection = () => {
+    const base = current();
+    if (!base) return;
+    setErrors([]);
+    setRecord(cancelCorrection(base, currentUser) as RecordInstance<ComplaintChecklistData>);
     bump();
   };
 
@@ -349,6 +378,17 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
           getData: () => current()?.data,
           commit: (next, note) => setData(next as ComplaintChecklistData, { action: "assistant-edit", note }),
           reopen: isCorrectableStatus(record.status) ? doCorrect : undefined,
+          // The rest of what the buttons do, for the assistant (typed or spoken).
+          title: `complaint ${record.data.complaintNo || "(no number)"}`,
+          submit: editable ? () => doSubmit() : undefined,
+          verify: canApprove ? () => doApprove() : undefined,
+          cancelCorrection: record.correction ? doCancelCorrection : undefined,
+          remove: (reason: string) => {
+            deleteRecordWithTrail(record, currentUser, reason);
+            bump();
+            navigate("/gap/external");
+          },
+          print: () => printDocument(),
           checklist: {
             recordId: record.id,
             title: `Complaint ${record.data.complaintNo || "(new)"}${record.data.customerName ? ` · ${record.data.customerName}` : ""}`,
@@ -388,18 +428,42 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
     });
   };
 
-  const headerField = (label: string, key: keyof ComplaintChecklistData, type: "text" | "date" = "text") => (
-    <div className="field">
-      <label>{label}</label>
-      <input
-        type={type}
-        className="input input-sm"
-        disabled={!editable}
-        value={(data[key] as string | null) ?? ""}
-        onChange={(e) => patch({ [key]: e.target.value || (type === "date" ? null : "") } as Partial<ComplaintChecklistData>)}
-      />
-    </div>
-  );
+  // The coded fields (Complaint No., Job Code, PO No.) carry the plant's own
+  // formats: what is typed is tidied when the field is left, and anything that
+  // doesn't fit says so under the box and blocks Submit.
+  const codeRules = codeRulesFor("complaint-checklist");
+  const headerField = (label: string, key: keyof ComplaintChecklistData, type: "text" | "date" = "text") => {
+    const rule = codeRules[key as string];
+    const value = (data[key] as string | null) ?? "";
+    const says = rule && editable ? rule.problem(String(value)) : null;
+    return (
+      <div className="field">
+        <label>{label}</label>
+        <input
+          type={type}
+          className={`input input-sm${says ? " error" : ""}`}
+          data-field={key}
+          placeholder={rule ? rule.example : undefined}
+          disabled={!editable}
+          value={value}
+          onChange={(e) => patch({ [key]: e.target.value || (type === "date" ? null : "") } as Partial<ComplaintChecklistData>)}
+          onBlur={
+            rule
+              ? (e) => {
+                  const tidied = rule.normalise(e.target.value);
+                  if (tidied !== e.target.value) patch({ [key]: tidied } as Partial<ComplaintChecklistData>);
+                }
+              : undefined
+          }
+        />
+        {says && (
+          <div className="text-xs text-danger mt-1 no-print" data-problem={key}>
+            {says}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
@@ -413,7 +477,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         </div>
       </div>
 
-      {record.correction && <CorrectionBanner correction={record.correction} />}
+      {record.correction && <CorrectionBanner correction={record.correction} onCancel={doCancelCorrection} />}
 
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
@@ -583,9 +647,12 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         onReject={doSendBack}
         onResume={() => persist(resumeAfterRejection(record, currentUser) as RecordInstance<ComplaintChecklistData>)}
         onCorrect={doCorrect}
+        onCancelCorrection={record.correction ? doCancelCorrection : undefined}
+        correctionFromStatus={record.correction?.fromStatus}
+        correctionChangeCount={correctionChanges(record).length}
         onPrint={() => printDocument()}
-        onDelete={() => {
-          recordRepository.remove(record.id);
+        onDelete={(reason) => {
+          deleteRecordWithTrail(record, currentUser, reason);
           bump();
           navigate("/gap/external");
         }}

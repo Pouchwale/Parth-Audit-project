@@ -8,6 +8,8 @@ import {
   isCorrectableStatus,
   isEditableStatus,
   rejectRecord,
+  cancelCorrection,
+  correctionChanges,
   reopenForCorrection,
   resumeAfterRejection,
   saveDraft,
@@ -18,12 +20,22 @@ import { withEditHistory } from "../engine/recordHistory";
 import { fieldLabels } from "../engine/recordPatch";
 import { reprepareRecord } from "../engine/assistantPrepare";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
-import type { ComplaintAckData, DailyPestMonitoringData, FlyCatcherData, LogSheetData, PestResponsibilitiesData, RecordInstance, ServiceReportData } from "../types";
+import type {
+  ComplaintAckData,
+  DailyPestMonitoringData,
+  FlyCatcherData,
+  LogSheetData,
+  PestResponsibilitiesData,
+  RecordInstance,
+  ServiceAgreementData,
+  ServiceReportData,
+} from "../types";
 import { DailyPestMonitoringRecordView } from "../components/records/DailyPestMonitoringRecordView";
 import { FlyCatcherRecordView } from "../components/records/FlyCatcherRecordView";
 import { ServiceReportRecordView } from "../components/records/ServiceReportRecordView";
 import { LogSheetRecordView } from "../components/records/LogSheetRecordView";
 import { ComplaintAckRecordView } from "../components/records/ComplaintAckRecordView";
+import { ServiceAgreementRecordView } from "../components/records/ServiceAgreementRecordView";
 import { PestResponsibilitiesRecordView } from "../components/records/PestResponsibilitiesRecordView";
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
@@ -32,11 +44,12 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { useT } from "../i18n";
-import { todayISO } from "../utils/date";
+import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
+import { deleteRecordWithTrail } from "../engine/recordCrud";
 
 // Record kinds this page renders AND the assistant has a field guide for.
-const ASSISTANT_KINDS = new Set(["daily-pest-monitoring", "fly-catcher", "service-report", "log-sheet", "complaint-ack", "pest-responsibilities"]);
+const ASSISTANT_KINDS = new Set(["daily-pest-monitoring", "fly-catcher", "service-report", "log-sheet", "complaint-ack", "pest-responsibilities", "service-agreement"]);
 // A change is saved this long after the last keystroke — nobody has to
 // remember a Save button, and leaving the page mid-edit loses nothing.
 const AUTOSAVE_MS = 700;
@@ -44,6 +57,8 @@ const AUTOSAVE_MS = 700;
 // for verification (Verify requires that signature), so that one field stays
 // writable then — see ServiceReportRecordView.
 const COUNTERSIGN_STATUSES = ["Submitted", "Pending Verification"];
+// The statuses a record can be verified from — the same set the action bar uses.
+const VERIFIABLE_STATUSES = ["Submitted", "Pending Verification"];
 
 export function RecordPage({ recordId }: { recordId?: string }) {
   const { navigate } = useRouter();
@@ -60,6 +75,16 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   const countersign = !!record && doc?.kind === "service-report" && COUNTERSIGN_STATUSES.includes(record.status);
   const canWrite = editable || countersign;
   const labels = doc ? fieldLabels(doc.kind, doc.id) : {};
+
+  // What the page's own buttons do, for the assistant to call. The target is
+  // registered above where the handlers are declared (hooks can't move below
+  // the "record not found" return), so it goes through this ref.
+  const actions = useRef<{
+    submit?: () => { ok: boolean; errors: string[] };
+    verify?: () => { ok: boolean; errors: string[] };
+    cancelCorrection?: () => void;
+    remove?: (reason: string) => void;
+  }>({});
 
   // The latest values, for callbacks that outlive a render (the autosave
   // timer, leaving the page, the assistant committing a change).
@@ -157,6 +182,14 @@ export function RecordPage({ recordId }: { recordId?: string }) {
                 if (base) persistLocal(reopenForCorrection(base, currentUser, reason));
               }
             : undefined,
+          // The rest of what the buttons do, so the assistant can do it too —
+          // typed or spoken (engine/assistantCommands.ts).
+          title: `${doc.name} for ${formatDisplayDate(record.dueDate)}`,
+          submit: editable ? () => actions.current.submit?.() ?? { ok: false, errors: ["This record can't be submitted."] } : undefined,
+          verify: VERIFIABLE_STATUSES.includes(record.status) ? () => actions.current.verify?.() ?? { ok: false, errors: ["This record can't be verified."] } : undefined,
+          cancelCorrection: record.correction && canWrite ? () => actions.current.cancelCorrection?.() : undefined,
+          remove: (reason: string) => actions.current.remove?.(reason),
+          print: () => printDocument(),
         }
       : null
   );
@@ -176,28 +209,30 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
   const handleSave = () => void flush();
 
-  const handleSubmit = () => {
+  const handleSubmit = (): { ok: boolean; errors: string[] } => {
     const saved = flush() ?? record;
     const { record: updated, result } = submitRecord(doc, saved, currentUser);
     if (!result.valid) {
       setErrorsFor("submit");
       setErrors(result.errors);
-      return;
+      return { ok: false, errors: result.errors };
     }
     setErrors([]);
     persistLocal(updated);
+    return { ok: true, errors: [] };
   };
 
-  const handleVerify = () => {
+  const handleVerify = (): { ok: boolean; errors: string[] } => {
     const saved = flush() ?? record;
     const { record: updated, result } = verifyRecord(doc, saved, currentUser);
     if (!result.valid) {
       setErrorsFor("verify");
       setErrors(result.errors);
-      return;
+      return { ok: false, errors: result.errors };
     }
     setErrors([]);
     persistLocal(updated);
+    return { ok: true, errors: [] };
   };
 
   const handleReject = (reason: string) => persistLocal(rejectRecord(flush() ?? record, currentUser, reason));
@@ -207,9 +242,20 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     persistLocal(reopenForCorrection(flush() ?? record, currentUser, reason));
   };
 
-  const handleDelete = () => {
+  // Pressed Edit and there was nothing to put right (or a change of mind):
+  // the record goes back exactly as it was, at the status it came from.
+  const handleCancelCorrection = () => {
+    setErrors([]);
+    persistLocal(cancelCorrection(flush() ?? record, currentUser, labels));
+  };
+  // Counted against what is on screen, including an edit not yet autosaved.
+  const undoneChanges = record.correction ? correctionChanges({ ...record, data }, labels).length : 0;
+
+  // Delete is offered whatever the status now; a signed-off record takes a
+  // reason, and every deletion is recorded (engine/recordCrud.ts).
+  const handleDelete = (reason: string) => {
     latest.current = { ...latest.current, dirty: false }; // nothing left to save
-    recordRepository.remove(record.id);
+    deleteRecordWithTrail(record, currentUser, reason);
     bump();
     navigate("/calendar");
   };
@@ -228,6 +274,8 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     persistLocal(recordRepository.upsert(logged));
   };
 
+  actions.current = { submit: handleSubmit, verify: handleVerify, cancelCorrection: handleCancelCorrection, remove: handleDelete };
+
   const overdue = record.dueDate < todayISO() && ["Scheduled", "Due", "In Progress"].includes(record.status);
 
   return (
@@ -242,7 +290,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         </div>
       </div>
 
-      {record.correction && <CorrectionBanner correction={record.correction} />}
+      {record.correction && <CorrectionBanner correction={record.correction} onCancel={canWrite ? handleCancelCorrection : undefined} />}
 
       {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable ? handleReprepare : undefined} />}
 
@@ -275,6 +323,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       {doc.kind === "log-sheet" && <LogSheetRecordView doc={doc} record={{ ...record, data: data as LogSheetData }} editable={editable} onChange={handleChange} />}
       {doc.kind === "complaint-ack" && (
         <ComplaintAckRecordView doc={doc} record={{ ...record, data: data as ComplaintAckData }} editable={editable} onChange={handleChange} />
+      )}
+      {doc.kind === "service-agreement" && (
+        <ServiceAgreementRecordView doc={doc} record={{ ...record, data: data as ServiceAgreementData }} editable={editable} onChange={handleChange} />
       )}
       {doc.kind === "pest-responsibilities" && (
         <PestResponsibilitiesRecordView doc={doc} record={{ ...record, data: data as PestResponsibilitiesData }} editable={editable} onChange={handleChange} />
@@ -315,11 +366,14 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         isDemo={record.isDemo}
         saveState={canWrite ? (dirty ? "saving" : "saved") : undefined}
         onSave={handleSave}
-        onSubmit={handleSubmit}
-        onVerify={handleVerify}
+        onSubmit={() => handleSubmit()}
+        onVerify={() => handleVerify()}
         onReject={handleReject}
         onResume={handleResume}
         onCorrect={handleCorrect}
+        onCancelCorrection={record.correction && canWrite ? handleCancelCorrection : undefined}
+        correctionFromStatus={record.correction?.fromStatus}
+        correctionChangeCount={undoneChanges}
         onPrint={() => printDocument()}
         onDelete={handleDelete}
       />

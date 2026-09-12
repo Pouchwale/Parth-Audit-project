@@ -9,11 +9,13 @@ import type {
   LogSheetData,
   PestResponsibilitiesData,
   RecordInstance,
+  ServiceAgreementData,
   ServiceReportData,
   TrainingRecordData,
 } from "../types";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { codeRulesFor } from "./documentFormats";
 
 // A numeric log-sheet cell outside its printed acceptance band. Not a
 // submit blocker (the paper form has no such gate — the reading is what it
@@ -43,6 +45,16 @@ function ok(): ValidationResult {
 }
 function fail(errors: string[]): ValidationResult {
   return { valid: false, errors };
+}
+
+// The plant's own codes on a document — an FG code, a PO number, a complaint
+// number — have to read the way the department writes them
+// (engine/documentFormats.ts) before it can be submitted.
+function codeProblems(kind: string, data: unknown): string[] {
+  const values = (data ?? {}) as Record<string, unknown>;
+  return Object.entries(codeRulesFor(kind))
+    .map(([key, rule]) => rule.problem(String(values[key] ?? "")))
+    .filter((p): p is string => !!p);
 }
 
 export function validateForSubmit(doc: DocumentDefinition, record: RecordInstance): ValidationResult {
@@ -110,10 +122,21 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       const d = record.data as ComplaintChecklistData;
       if (!d.customerName.trim()) errors.push("Customer Name is required.");
       if (!d.complaintNo.trim()) errors.push("Complaint No. is required.");
+      errors.push(...codeProblems("complaint-checklist", d));
       if (!d.complaintReceivedDate) errors.push("Complaint Received Date is required.");
       if (!d.preparedBy.name.trim()) errors.push("Prepared By (name) is required.");
-      const answered = d.sections.reduce((n, s) => n + s.items.filter((it) => it.done || it.notRequired || it.comment.trim()).length, 0);
-      if (answered === 0) errors.push("Nothing on the checklist has been filled in yet — go through sections A to E first.");
+      // Every section is mandatory, activity by activity (the department's
+      // rule for External CAPA, 12-Sep-2026): each one is done, done on a date,
+      // or marked not required — nothing is left blank. The walk-through works
+      // the same way, so this is the same rule from either end.
+      for (const s of d.sections) {
+        const blank = s.items.filter((it) => !it.done && !it.notRequired && !it.comment.trim());
+        if (blank.length === 0) continue;
+        const which = blank.map((it) => `${s.key}${it.srNo}`).join(", ");
+        errors.push(
+          `Section ${s.key} — ${s.title} is not finished: ${blank.length} activit${blank.length === 1 ? "y" : "ies"} still blank (${which}). Mark each one done, done on a date, or not required.`
+        );
+      }
       break;
     }
     case "complaint-ack": {
@@ -128,6 +151,7 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       if (!d.correctiveAction.trim()) errors.push("Corrective Action is required.");
       if (!d.preventiveAction.trim()) errors.push("Preventive Action is required.");
       if (!d.employeeName.trim()) errors.push("The employee's name (the acknowledgement) is required.");
+      errors.push(...codeProblems("complaint-ack", d));
       break;
     }
     case "pest-responsibilities": {
@@ -135,6 +159,18 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       if (d.siteResponsibilities.length === 0) errors.push("The site responsibilities are empty — add at least one point.");
       if (!d.client.name.trim()) errors.push("The client representative's name is required.");
       if (!d.provider.name.trim()) errors.push("The pest control agency representative's name is required.");
+      break;
+    }
+    case "service-agreement": {
+      const d = record.data as ServiceAgreementData;
+      if (!d.effectiveFrom) errors.push("The date the agreement starts is required.");
+      if (!d.effectiveTo) errors.push("The date the agreement runs to is required.");
+      if (d.effectiveFrom && d.effectiveTo && d.effectiveTo <= d.effectiveFrom) errors.push("The agreement must run to a date after it starts.");
+      // Either the signed copy is on file, or this format carries both names.
+      if (d.scans.length === 0) {
+        if (!d.clientSignatory.name.trim()) errors.push("Who signs for the client is required (or upload the signed agreement).");
+        if (!d.providerSignatory.name.trim()) errors.push("Who signs for the service provider is required (or upload the signed agreement).");
+      }
       break;
     }
     case "log-sheet": {

@@ -150,7 +150,7 @@ with sync_playwright() as p:
     check("English: Google Translate is not loaded at all", len(REQUESTS) == 0, REQUESTS)
 
     # ---- choose Gujarati ----
-    page.click(".dash-language .pill-tab[data-lang='gu']")
+    page.select_option(".lang-select", "gu")
     page.wait_for_timeout(1200)
     sidebar = page.locator(".app-sidebar").inner_text()
     check("Choosing ગુજરાતી loads Google Translate", len(REQUESTS) == 1 and "translate.google.com/translate_a/element.js" in REQUESTS[0], REQUESTS)
@@ -169,7 +169,7 @@ with sync_playwright() as p:
     )
     check(
         "The language buttons keep their own names",
-        "ગુજરાતી" in page.locator(".dash-language .pill-tabs").inner_text() and MARK not in page.locator(".dash-language .pill-tabs").inner_text(),
+        "ગુજરાતી" in page.locator(".lang-select").inner_text() and MARK not in page.locator(".lang-select").inner_text(),
     )
 
     # ---- issued documents stay as issued ----
@@ -243,7 +243,7 @@ with sync_playwright() as p:
     page.evaluate("window.__stillHere = true")
     n_before = len(REQUESTS)
     with page.expect_navigation():
-        page.click(".dash-language .pill-tab[data-lang='en']")
+        page.select_option(".lang-select", "en")
     page.wait_for_timeout(1200)
     dismiss(page)
     body = page.locator("body").inner_text()
@@ -262,14 +262,14 @@ with sync_playwright() as p:
     page.unroute("**/translate_a/**")
     page.route("**/translate_a/**", lambda route: route.abort())
     page.evaluate("window.__stillHere = true")
-    page.click(".dash-language .pill-tab[data-lang='gu']")
+    page.select_option(".lang-select", "gu")
     page.wait_for_timeout(1000)
     check(
         "Without Google, Gujarati falls back to the built-in text",
         "ડેશબોર્ડ" in page.locator(".app-sidebar").inner_text() and page.locator(".lang-note[data-translation='failed']").count() == 1,
         page.locator(".app-sidebar").inner_text()[:200],
     )
-    page.click(".dash-language .pill-tab[data-lang='en']")
+    page.select_option(".lang-select", "en")
     page.wait_for_timeout(600)
     check(
         "…and English comes straight back, without a reload",

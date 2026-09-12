@@ -1,7 +1,7 @@
-import type { DocumentDefinition, RecordInstance, RecordStatus } from "../types";
+import type { DocumentDefinition, FieldChange, RecordInstance, RecordStatus } from "../types";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { validateForSubmit, validateForVerify, ValidationResult } from "./validation";
-import { appendHistory, makeEntry, withEditHistory } from "./recordHistory";
+import { appendHistory, diffRecordData, makeEntry, withEditHistory } from "./recordHistory";
 
 // Scheduled -> Due -> In Progress -> Submitted -> Pending Verification -> Verified
 //                                        \-> Rejected -> (edit) -> Pending Verification
@@ -104,10 +104,45 @@ export function reopenForCorrection(record: RecordInstance, actorName: string, r
   if (!isCorrectableStatus(record.status)) return record;
   const now = new Date().toISOString();
   const updated: RecordInstance = appendHistory(
-    { ...record, status: "In Progress", correction: { reason: why, by: actorName, at: now, fromStatus: record.status } },
+    {
+      ...record,
+      status: "In Progress",
+      // What it says right now is kept, so Cancel can put it back untouched.
+      correction: { reason: why, by: actorName, at: now, fromStatus: record.status, dataBefore: record.data },
+    },
     makeEntry("reopened", actorName, { note: why, fromStatus: record.status })
   );
   return recordRepository.upsert(updated);
+}
+
+/** What has been changed since Edit reopened the record — nothing, usually. */
+export function correctionChanges(record: RecordInstance, labels: Record<string, string> = {}): FieldChange[] {
+  const before = record.correction?.dataBefore;
+  return before === undefined ? [] : diffRecordData(before, record.data, labels);
+}
+
+/**
+ * CANCEL EDIT. Someone pressed Edit, then found there was nothing to put right
+ * (or changed their mind). The record goes back to the status it was reopened
+ * from and back to exactly what it said then — no half-corrected record left
+ * behind, and no need to submit and verify it all over again. The cancellation
+ * itself is written into the history, with whatever it put back, because the
+ * reopening is in there too and the trail has to make sense to an auditor.
+ */
+export function cancelCorrection<T>(record: RecordInstance<T>, actorName: string, labels: Record<string, string> = {}): RecordInstance<T> {
+  const correction = record.correction;
+  if (!correction) return record;
+  const restored = (correction.dataBefore === undefined ? record.data : correction.dataBefore) as T;
+  const undone = diffRecordData(record.data, restored, labels);
+  const note =
+    undone.length === 0
+      ? `Edit cancelled — nothing had been changed. Back to ${correction.fromStatus}.`
+      : `Edit cancelled — ${undone.length} change${undone.length === 1 ? "" : "s"} put back. Back to ${correction.fromStatus}.`;
+  const updated: RecordInstance<T> = appendHistory(
+    { ...record, data: restored, status: correction.fromStatus, correction: undefined },
+    makeEntry("correction-cancelled", actorName, { note, changes: undone.length ? undone : undefined, fromStatus: record.status })
+  );
+  return recordRepository.upsert(updated as RecordInstance) as RecordInstance<T>;
 }
 
 export function isOverdue(record: RecordInstance, todayISO: string): boolean {

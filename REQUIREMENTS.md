@@ -736,9 +736,10 @@ DATABASE FIELDS      AppSettings.language ("en" | "gu"), AppSettings.speakReplie
 ```
 
 The plant is in Mehsana and the shop floor works in Gujarati, so the department asked for the whole
-application in either language, chosen on the Dashboard, plus an assistant that can be spoken to.
+application in either language, chosen in the top bar, plus an assistant that can be spoken to.
 
-- **Language.** Picked on the Dashboard (and from the top bar on any screen); the entire interface
+- **Language.** Picked in the top bar, so it is in the same place on every screen (the Dashboard's
+  own copy of the buttons was removed 12-Sep-2026 at the department's request); the entire interface
   changes at once — navigation, page titles, buttons, statuses, frequencies, module names, report
   tabs, the calendar and Day View, the Pest Control pages, and the assistant's own wording, briefing
   and canned replies. Remembered per browser. Asking the assistant something in Gujarati gets a
@@ -783,8 +784,9 @@ application in either language, chosen on the Dashboard, plus an assistant that 
     the only way to get Google's rewritten text back to the original exactly. Nothing is lost:
     records save themselves and flush on unload. With English chosen Google is never loaded.
   - The choice is remembered: a reload in Gujarati translates again.
-  - No internet / Google blocked → the built-in Gujarati tables (§ above) are used, and the language
-    buttons say so. So the choice always does something.
+  - No internet / Google blocked → the built-in Gujarati tables (§ above) are used, and a word beside
+    the language box says so ("Built-in Gujarati", with the whole sentence as its tooltip). So the
+    choice always does something.
   - Still never translated (marked `translate="no"`, so not sent to Google either): every record form
     and register, document headers, the SOP, licence and SOC text, record history values, people's
     names (the top bar, "submitted / verified / rejected by", the files and Day View columns) and
@@ -1014,6 +1016,28 @@ as the source with "Restore the original", and who edited it and when shown besi
 assistant filled it in wrong" as the first reason offered; the service report's Chemical Master
 suggestion box was removed.
 
+### Cancel edit (12-Sep-2026)
+
+The department asked for the way out of an Edit nobody needed: *"in training record make sure give
+cancel option so if user click on edit button and not edit anything in document so it will be click
+on cancel button there and this applies to all document of all modules."* Every document that can be
+reopened now offers **Cancel edit** — beside Submit, and in the banner at the top of the record —
+while the correction is open:
+
+- It puts the record back at the status it was reopened from (Verified stays Verified), so a record
+  nobody actually changed doesn't have to go through Submit and verification again.
+- It also puts back **what the record said**: `reopenForCorrection` keeps a copy of the data at the
+  moment Edit reopened it (`CorrectionInfo.dataBefore`), which Submit and Cancel both clear.
+- Nothing had changed → it just goes back. Something had → it says how many changes and asks first
+  ("Put it back" / "Keep editing").
+- The cancellation is written into the record's history (`correction-cancelled`, with whatever it put
+  back), because the reopening is in there too and the trail has to make sense to an auditor.
+- It is in the shared record components (`components/records/RecordActionBar.tsx` and the correction
+  banner in `RecordHistoryPanel.tsx`), so every record kind in every module has it — the record page's
+  documents, Training records and the CAPA complaint checklist alike. The reference documents (SOP,
+  Chemical Master, Statements of Compliance) already had Cancel on their own edit bar, and Master Data
+  rows are edited in place with no Edit step to cancel.
+
 ## 28. Document Files — any span, opened like a file system (11-Sep-2026)
 
 ```
@@ -1127,6 +1151,198 @@ WORKFLOW             As Required — Pest Control > Training & Reference > Respo
   stays in its history.
 - **TO BE CONFIRMED:** its format and revision number (none is printed on the pages), and the
   certification logos in the page footer (not reproduced).
+
+## 32. The codes on CAPA paperwork, and a CAPA summary on request (12-Sep-2026)
+
+```
+REQUESTED            "in CAPA report complain number is like 26-27/001 so in this 26-27 is year and 001
+                      is complain number which is can be change so whenever user open then it should
+                      according to year format and complain number which can be change and what every
+                      document you open or user tell you to edit it then it should be according to
+                      decided format only same applies to FG Code also … PO number should also of 8
+                      digit and Same applies for JOB Code also it also Like start with FG only with
+                      that user will also want CAPA Summaries for both"
+DIGITAL TEMPLATE     src/engine/documentFormats.ts (the one place the formats live);
+                      src/components/records/FormField.tsx (tidy on blur + the format message);
+                      src/engine/validation.ts (the check at Submit); src/engine/recordPatch.ts and
+                      src/engine/guidedChecklist.ts (the assistant held to the same formats);
+                      src/engine/assistantLocal.ts (the summary)
+DATABASE FIELDS      ComplaintChecklistData.complaintNo / jobCode / poNo, ComplaintAckData.fgCode —
+                      unchanged in shape; what changed is how they are written and checked
+```
+
+- **Complaint No. — `26-27/001`.** The two calendar years, then a three-digit count. The year part
+  changes on **1 January** (the department's answer, 12-Sep-2026), and the count starts again at 001.
+  A new complaint is numbered by the app the moment it is opened — the next free number for this year
+  — and stays editable: typing `7` over it gives `26-27/007`, `26/27/7` gives `26-27/007`.
+- **FG code / Job Code — `FGSL3877`.** FG, two letters for the job type (SL, PO, LA …), then four
+  digits: eight characters in all (confirmed by the department against the source report
+  "Foram P. - FGSL3877.pdf"). **PO No. — eight digits**, `10004321`.
+- **One rule, three places.** Everything reads the formats from `engine/documentFormats.ts`, so a
+  person typing, the assistant filling in, and the check that runs at Submit can never disagree: the
+  field tidies what was typed when you leave it (`fgsl 3877` → `FGSL3877`), says what the format is
+  underneath while it doesn't fit, and Submit is refused until it does.
+- **The assistant is held to the same formats** — both ways it can write one: a plain-words edit
+  (`engine/recordPatch.ts`) and the guided complaint walk-through (`engine/guidedChecklist.ts`) each
+  tidy what they are told and refuse what doesn't fit, with the reason, rather than writing a wrong
+  code onto a controlled record. The walk-through no longer asks for the complaint number (it is
+  already on the sheet) and its questions now carry the format as an example.
+- **Deliberately not applied to the lamination and QC log sheets.** Their FG / PO columns hold the
+  short codes the company's own specimens use ("7204", "88825"), so enforcing the eight-character form
+  there would block the plant's own records; an entry on those sheets is only checked if it is typed
+  as an FG code (`softFgCodeProblem`).
+- **CAPA summaries — in the assistant, when asked** (the department's choice: *"in bot when user will
+  ask for it"*). "CAPA summary", "how many complaints are open", "where does internal CAPA stand" are
+  answered from the records themselves, with no internet: **Internal** — reports, findings, open,
+  overdue, closed/verified, the last inspection, the oldest overdue finding, acknowledgement reports
+  signed off; **External** — complaints being worked on / awaiting approval / approved, checklist
+  activities done, and the latest complaint's number and customer. Naming one side answers for that
+  side only, with a chip straight into it.
+- Covered by `tests/e2e_capa_formats.py` (18 checks).
+
+## 33. Pest Control Service Agreement — asked for every two years (12-Sep-2026)
+
+```
+REQUESTED            "in service provider there should be pop up for every two year for service
+                      provider agreement and in that keep upload option or the system will
+                      automatically generate the same format or user can upload it so it can be more
+                      easy for the user to use it"
+SOURCE DOCUMENT      "Letter head.pdf" — the service provider's printed letterhead: the GPC mark, the
+                      two mobile numbers, GURUDEV PEST CONTROL, "F/54 , Golden Square Complex, Nr.
+                      Goodluck Party plot, Radhanapur Road, Mahesana-384002", info@gurudevpestcontrol.com
+                      and www.Gurudevpestcontrol.com. The page carries no agreement text — only the
+                      letterhead, which is the FORMAT the agreement is written on. Transcribed once, in
+                      src/components/documents/ProviderLetterhead.tsx, and used by every document the
+                      provider issues (see the training record below)
+DOCUMENT STRUCTURE   The letterhead, the title, Agreement No., the two-year term, the provider's
+                      insecticide licence, the two parties, then the clauses: 1. Scope of services,
+                      2. Schedule and reporting, 3. Obligations of the parties, 4. Commercial terms,
+                      5. General — and the two signatures (organisation, name, designation, dated,
+                      sign & stamp)
+DIGITAL TEMPLATE     kind: "service-agreement" —
+                      src/components/records/ServiceAgreementRecordView.tsx on the shared RecordPage;
+                      the format and the wording in src/data/seed/serviceAgreement.ts; the two-year
+                      cycle and the reminder in src/engine/serviceAgreement.ts and
+                      src/components/documents/ServiceAgreementReminder.tsx
+DATABASE FIELDS      ServiceAgreementData: agreementNo, effectiveFrom, effectiveTo, client and
+                      provider ({ organisation, addressLines, contactName, designation, phone,
+                      email }), providerLicenceNo, scopeOfServices[], serviceSchedule[],
+                      obligations[], commercialTerms[], generalTerms[], clientSignatory and
+                      providerSignatory, scans[] ({ id, name, kind, dataUrl, addedAt }), origin
+                      ("generated" | "uploaded"); AppSettings.agreementReminderSnoozedUntil
+WORKFLOW             As Required — Pest Control > Service Provider (and Training & Reference >
+                      Service Agreement). The term itself drives the two-year cycle
+```
+
+- **The pop-up.** The Service Provider page asks sixty days before the agreement's term ends
+  (`SA_REMIND_BEFORE_DAYS`), keeps asking once it has run out, and asks from the start while there is
+  none on file — which is the state the plant is in today, so nothing is seeded: **no agreement is
+  invented to look complete**. "Remind me later" snoozes for a week and never switches the asking off.
+  A card on the page says where the agreement stands whether or not the pop-up is showing.
+- **Two ways out of it, both the user's choice.** *Draft it for me* writes the agreement on the
+  provider's letterhead for the next two years. *Upload the signed agreement* takes the scan, the
+  photographed pages or the PDF (images are scaled down as elsewhere; a PDF is held as it is, up to
+  2.5 MB, because the whole system lives in about 5 MB of browser storage) and puts it on file as the
+  agreement itself — shown above the typed format, the way the licence page shows the scan first.
+- **What the drafted agreement contains, and where each line comes from.** The parties (the company's
+  letterhead and the provider's), the provider's insecticide licence number (§ licence), the services
+  and their frequencies **as the SOP writes them** — including the SOP's own "TO BE CONFIRMED"
+  frequencies, unchanged — the monthly report by the 7th and the 6-monthly meetings (from the signed
+  Responsibilities document, §31, cross-referenced rather than restated). **Nothing else is invented:**
+  the charges, the payment terms, the GSTIN, the notice period and the indemnity are written
+  TO BE CONFIRMED for the two parties to complete.
+- **It is a record like any other**: every line editable by hand or by asking the assistant, submitted
+  and verified by people, printed as the document alone, with its own history and Edit / Cancel edit.
+  Submit requires the term, and either the signed copy on file or both signatories' names.
+- **TO BE CONFIRMED:** the agreement's own format and revision number (the letterhead carries none),
+  the GPC logo artwork (the mark is reproduced as lettering), and whether the plant wants the term to
+  start on the day it is drafted or on a fixed anniversary.
+- Covered by `tests/e2e_agreement_and_cancel.py` (37 checks, with the letterhead ones below).
+
+### The training record is on the provider's letterhead too (12-Sep-2026)
+
+The department asked for it directly: *"i want to make both document of training record to change
+heading of document to same as i provided letter head"*. The Pest Control Training Record's heading is
+now Gurudev Pest Control's printed letterhead instead of the plant's company line — which is what the
+paper is: the training is run and certified by the service provider, and its trainer field already
+said so. Both training records on file (the technician certification and the Dec-2025 awareness
+programme) render through the same page, so both changed together.
+
+- `DocumentHeader` takes an optional `letterhead` node that stands in for the company-name line; the
+  form's own title and the Format No. / Rev No. / Date row are untouched beneath it, and it prints with
+  the document.
+- The letterhead is one component (`components/documents/ProviderLetterhead.tsx`), shared with the
+  service agreement (§33), so the provider's details are transcribed in exactly one place.
+- The GPC mark is reproduced as its lettering on the printed green badge; the artwork itself is
+  **TO BE CONFIRMED**, as noted in §33.
+
+## 34. CRUD on every document, and the assistant able to do all of it (12-Sep-2026)
+
+```
+REQUESTED            "make all documents this CRUD operation which is CREATE, READ, UPDATE DELETE ...
+                      and whatever user can do manually that can do with ai assistant also and
+                      whatever he want that should be can be made available for them whatever his
+                      requirement even he can speak and work will be done"
+DIGITAL TEMPLATE     src/engine/recordCrud.ts (create a record for any document; delete any record,
+                      with the deletion recorded), src/engine/assistantCommands.ts (the same actions
+                      asked for in words), src/components/records/RecordActionBar.tsx (Delete on every
+                      status, with a reason where it matters), src/pages/DocumentLibraryPage.tsx
+                      (New per document, and "Records deleted")
+DATABASE FIELDS      dcrs:v1:deletions — DeletionEntry { recordId, documentId, documentName, dueDate,
+                      status, isDemo, deletedBy, deletedAt, reason, historyEntries }, newest first,
+                      the last 200 kept
+```
+
+- **Create.** `createRecordForDocument(doc, { dateISO, isDemo })` builds a record with the same
+  starting data the generator would have given it, so a one-off sheet reads like a scheduled one. A
+  record already covering that period is returned instead of a second one — two sheets for one day is
+  precisely what a controlled register must not have. Reachable from the Document Library's **New**
+  button and from the assistant ("create a new fly catcher record").
+- **Read / Update** were already in place (§27) — every field editable, saved as typed, changed by the
+  assistant, every change in the record's history.
+- **Delete.** Any record can be removed now, at any status — the department asked for it plainly. The
+  concern with deleting a *verified* record is that it is part of the audit trail, so rather than
+  refuse: it is confirmed first, a signed-off record takes a **reason**, and the deletion itself is
+  recorded and shown in Document Library → **Records deleted** (what it was, its status, who, when,
+  why, and how many history entries it carried). A hole in the trail is now an explained hole.
+- **The assistant has the whole surface.** `parseAssistantCommand` reads create / delete / submit /
+  verify / cancel edit / print with no network call, and the record pages hand the assistant the very
+  same functions their buttons call (`AssistantTarget.submit/verify/remove/cancelCorrection/print`),
+  so there is nothing a person can do on a record that cannot be asked for. Destructive or signing
+  steps always ask first. **Speech needs nothing extra**: voice input becomes text and takes this same
+  path (§24), so "delete this record" spoken behaves exactly as typed.
+- Covered by `tests/e2e_crud.py` (22 checks).
+
+## 35. External CAPA — every section mandatory, and the assistant hands work back to be checked (12-Sep-2026)
+
+```
+REQUESTED            "in CAPA for specially external CAPA make section mandatory each after each
+                      question ... tell user to review each and every time before user submit and if
+                      ai has done any mistake so user can do edit it also"
+DIGITAL TEMPLATE     src/engine/guidedChecklist.ts (the walk-through), src/engine/validation.ts (the
+                      check at Submit), src/components/common/DocumentAssistant.tsx (the review line
+                      and the review step before a submit)
+```
+
+- **Mandatory, activity by activity.** Every activity of every section (A to E) has to be answered —
+  done, done on a date, or **not required** — before the next section starts. The walk-through no
+  longer offers "Skip" on an activity or "Skip this section"; if an activity is passed over some other
+  way, the section loops back to it before moving on, and approval is only reached when every section
+  is complete. Nothing here forces WORK to be done: "Not required" is a real answer, and it is what the
+  printed form's "(If required)" / "(If not received)" activities expect.
+- **The same rule at Submit** (`validateForSubmit`): a checklist with anything blank is refused, and
+  the message names the section and the activities still open (e.g. "Section B — INVESTIGATION is not
+  finished: 3 activities still blank (B7, B10, B12)"). So the rule holds whether the checklist is
+  filled in through the chat or straight on the form.
+- **The assistant hands the work back.** Every change it saves ends with the same line — check it on
+  the form before submitting; Undo, a correction, or Edit puts anything right — and asking it to submit
+  produces a review step first ("look over the form … once it goes for verification, changing it means
+  reopening it with a reason") with **"I've checked it — submit"** as the only way through. This is the
+  department's standing instruction that the assistant may prepare, but a person confirms.
+- An explicit instruction still works mid-walk-through ("submit this record", "print it", "delete
+  this") — but only when the message *begins* with it, because an answer to a question can easily
+  contain one of those words ("Gujarat Printpack" is not a print instruction).
+- Covered by `tests/e2e_capa_formats.py` (9 further checks) and `tests/e2e_crud.py`.
 
 ## Master data provenance summary
 

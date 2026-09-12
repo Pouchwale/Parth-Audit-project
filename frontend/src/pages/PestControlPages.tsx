@@ -15,6 +15,7 @@ import { countFindings } from "../engine/checkpoints";
 import { totalRodents } from "../engine/rodentPattern";
 import { flySeasonLabel } from "../engine/flyPattern";
 import { fixedMaterialForServiceArea } from "../engine/serviceMaterials";
+import { agreementStatus } from "../engine/serviceAgreement";
 import { PR_DOC_ID, newPestResponsibilitiesData } from "../data/seed/pestResponsibilities";
 import { generateId } from "../utils/id";
 import { fliesInMonth, flyStatsForYear, rodentStatsForYear, rodentsInMonth } from "../data/selectors";
@@ -172,6 +173,13 @@ export function PestControlOverviewPage() {
   const flyDoc = docs.find((d) => d.id === FLY_DOC_ID);
   const nextFly = flyDoc ? nextDueDate(flyDoc, today) : null;
   const lastTraining = latestRecord<TrainingRecordData>(TRAINING_DOC_ID, isDemo, today);
+
+  // The service provider agreement: the one on file, or the Service Provider
+  // page, which is where it is drafted or the signed copy uploaded.
+  const openServiceAgreement = () => {
+    const current = agreementStatus(isDemo).record;
+    navigate(current ? `/record/${current.id}` : "/licence");
+  };
 
   // The signed Responsibilities of Pest Control document: the seeded signed
   // copy on the Live side, a fresh one started here on the Demo side.
@@ -366,6 +374,11 @@ export function PestControlOverviewPage() {
               </button>
               <button className="btn btn-secondary btn-sm" data-action="open-responsibilities" onClick={openResponsibilities}>
                 <FiFileText size={12} /> Responsibilities (Site &amp; Provider)
+              </button>
+              {/* The two-yearly contract: its standing, and the renewal, live
+                  on the Service Provider page (engine/serviceAgreement.ts). */}
+              <button className="btn btn-secondary btn-sm" data-action="open-service-agreement" onClick={openServiceAgreement}>
+                <FiFileText size={12} /> Service Agreement (every 2 years)
               </button>
             </div>
           </div>

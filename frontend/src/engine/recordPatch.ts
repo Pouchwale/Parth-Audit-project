@@ -3,6 +3,7 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { normalizeServiceLines } from "./serviceMaterials";
+import { codeRulesFor, softFgCodeProblem } from "./documentFormats";
 import { addDays, pad2, todayISO } from "../utils/date";
 import { generateId } from "../utils/id";
 
@@ -580,7 +581,38 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
 
   if (Array.isArray(itemEdits)) for (const edit of itemEdits) applyItemEdit(layout, next, edit, problems);
   if (kind === "service-report" && isObj(current)) next.lines = serviceLinesAfterPatch(documentId, current.lines, next.lines, problems);
+  applyCodeFormats(kind, next, isObj(current) ? current : {}, problems);
   return { data: next as unknown as T, problems };
+}
+
+// The plant's own codes (engine/documentFormats.ts): an FG code, a PO number or
+// a complaint number the assistant proposes is tidied into the format the
+// document uses — and refused, with the reason, when it cannot be.
+function applyCodeFormats(kind: string, next: Obj, current: Obj, problems: string[]): void {
+  for (const [key, rule] of Object.entries(codeRulesFor(kind))) {
+    if (!(key in next)) continue;
+    const proposed = String(next[key] ?? "");
+    const before = String(current[key] ?? "");
+    if (proposed === before) continue;
+    const tidied = rule.normalise(proposed);
+    const problem = rule.problem(tidied);
+    if (problem) {
+      problems.push(problem);
+      next[key] = before;
+      continue;
+    }
+    next[key] = tidied;
+  }
+  // A log sheet's FG column holds the short codes the company's own specimens
+  // use ("7204"), so only something typed as an FG code is held to the format.
+  if (kind === "log-sheet" && isObj(next.header)) {
+    const header = next.header as Obj;
+    const problem = softFgCodeProblem(String(header.fgCode ?? ""));
+    if (problem) {
+      problems.push(problem);
+      header.fgCode = isObj(current.header) ? (current.header as Obj).fgCode : "";
+    }
+  }
 }
 
 // A service report's material and method are fixed for each area, and its

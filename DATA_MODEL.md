@@ -152,17 +152,23 @@ edit (form or assistant) ──► saveDraft(record, data, actor, {action, note,
 submit / verify / reject / resume ──► the same functions as before, each appending an entry
 Submitted | Pending Verification | Verified | Rejected
         ──► reopenForCorrection(record, actor, reason)  → In Progress + record.correction
+                                                           (.correction.dataBefore = the data as it was)
         ──► (edit) ──► submitRecord clears .correction, stamps a "resubmitted after correction" entry
+        ──► cancelCorrection(record, actor, labels) → back to .correction.fromStatus, data restored,
+                                                       .correction cleared, "correction-cancelled" entry
 ```
 
 `RecordInstance.history: HistoryEntry[]` is append-only — `{ id, at, by, action, note?, changes?,
 moreChanges?, fromStatus? }` with `action` one of prepared / edited / assistant-edit / submitted /
-verified / rejected / resumed / reopened. `FieldChange { field, label, before, after }`: `field` is a
+verified / rejected / resumed / reopened / correction-cancelled. `FieldChange { field, label, before, after }`: `field` is a
 stable path whose array elements are keyed by their own `id` (so inserting a row doesn't mark every
 row below it as changed); `label` is what a person reads. `historyOf(record)` returns the history, or
 a timeline reconstructed from the envelope's stamps for records saved before the field existed.
-`RecordInstance.correction { reason, by, at, fromStatus }` is set while a signed-off record is being
-corrected.
+`RecordInstance.correction { reason, by, at, fromStatus, dataBefore? }` is set while a signed-off
+record is being corrected; `dataBefore` is what the record said when Edit reopened it, which is what
+**Cancel edit** (`cancelCorrection`) puts back — status and data together — for the common case of
+reopening a record and finding nothing to correct. Submit and Cancel both clear the whole correction,
+so the copy is only held while one is open.
 
 Every change the assistant makes — whether from the model or from a plain-words sentence
 (`parseLocalEdit`) — goes through `applyAssistantPatch(kind, documentId, current, patch)` in
@@ -422,6 +428,9 @@ values — nothing else.
   needs every finding Closed/Verified) and only then moves to **Verified**. *A record can never
   reach Verified without passing this check* — the explicit requirement in section 16.
 - `rejectRecord()` / `resumeAfterRejection()` implement the Rejected → Correct → Resubmit loop.
+- `reopenForCorrection()` takes a signed-off record back to **In Progress** with a reason;
+  `cancelCorrection()` is the way back out of that without a round trip through verification — it
+  restores the status it was reopened from and the data as it stood, and records the cancellation.
 
 ## Demo vs. Live data integrity (section 38)
 

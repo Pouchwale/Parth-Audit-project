@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FiSave, FiSend, FiCheckCircle, FiXCircle, FiPrinter, FiRotateCcw, FiTrash2, FiEdit3, FiCheck, FiLoader } from "react-icons/fi";
+import { FiSave, FiSend, FiCheckCircle, FiXCircle, FiPrinter, FiRotateCcw, FiTrash2, FiEdit3, FiCheck, FiLoader, FiX } from "react-icons/fi";
 import type { RecordStatus } from "../../types";
 import { Modal } from "../common/Modal";
 import { useT } from "../../i18n";
@@ -21,6 +21,9 @@ export function RecordActionBar({
   onReject,
   onResume,
   onCorrect,
+  onCancelCorrection,
+  correctionFromStatus,
+  correctionChangeCount = 0,
   onPrint,
   onDelete,
 }: {
@@ -36,25 +39,37 @@ export function RecordActionBar({
   onResume: () => void;
   /** Reopen a submitted / verified record to correct it (reason required). */
   onCorrect?: (reason: string) => void;
+  /**
+   * Given while the record is open for correction: put it back exactly as it
+   * was before Edit — for pressing Edit and finding nothing to change.
+   */
+  onCancelCorrection?: () => void;
+  /** The status it will go back to (what it was reopened from). */
+  correctionFromStatus?: RecordStatus;
+  /** How much has been changed since Edit — 0 asks nothing, anything else confirms first. */
+  correctionChangeCount?: number;
   onPrint: () => void;
   // Optional: omit to hide Delete entirely (e.g. while the record's own
   // page hasn't wired a destination to navigate back to after deleting).
-  onDelete?: () => void;
+  // The reason is what goes into the deletion log (engine/recordCrud.ts).
+  onDelete?: (reason: string) => void;
 }) {
   const t = useT();
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
   const [correcting, setCorrecting] = useState(false);
   const [correctionReason, setCorrectionReason] = useState("");
+  const [cancellingCorrection, setCancellingCorrection] = useState(false);
 
   const editableStatuses: RecordStatus[] = ["Scheduled", "Due", "In Progress"];
   const verifiableStatuses: RecordStatus[] = ["Submitted", "Pending Verification"];
-  // Deletable while it's still a draft — once Submitted/Pending
-  // Verification/Verified it's part of the audit trail and shouldn't be
-  // removable from the UI, same as Rejected records (still not finalized,
-  // someone may just want to discard a mistake rather than resume it).
-  const deletableStatuses: RecordStatus[] = ["Scheduled", "Due", "In Progress", "Rejected"];
+  // Any record can be deleted — the department asked for full CRUD on every
+  // document (12-Sep-2026). A signed-off one is part of the audit trail, so it
+  // takes a reason, and every deletion is recorded whatever the status
+  // (engine/recordCrud.ts, Document Library → Records deleted).
+  const needsReason = ["Submitted", "Pending Verification", "Verified"].includes(status);
   // A rejected record has its own way back (Resume Editing); these are the
   // ones that can only be reopened by a deliberate correction.
   const correctableStatuses: RecordStatus[] = ["Submitted", "Pending Verification", "Verified"];
@@ -63,7 +78,7 @@ export function RecordActionBar({
 
   return (
     <div className="flex items-center justify-end gap-2 wrap no-print" style={{ marginTop: 16 }}>
-      {onDelete && deletableStatuses.includes(status) && (
+      {onDelete && (
         <button className="btn btn-danger btn-sm" onClick={() => setConfirmingDelete(true)} style={{ marginRight: "auto" }}>
           <FiTrash2 size={13} /> {t("common.delete")}
         </button>
@@ -71,6 +86,18 @@ export function RecordActionBar({
       <button className="btn btn-secondary btn-sm" onClick={onPrint}>
         <FiPrinter size={13} /> {t("common.printRecord")}
       </button>
+
+      {/* Pressed Edit and there was nothing to put right: back as it was. */}
+      {onCancelCorrection && (
+        <button
+          className="btn btn-secondary"
+          data-action="cancel-correction"
+          title={t("record.cancelCorrectionTitle")}
+          onClick={() => (correctionChangeCount > 0 ? setCancellingCorrection(true) : onCancelCorrection())}
+        >
+          <FiX size={14} /> {t("record.cancelCorrection")}
+        </button>
+      )}
 
       {editable && (
         <>
@@ -166,6 +193,34 @@ export function RecordActionBar({
         </Modal>
       )}
 
+      {cancellingCorrection && onCancelCorrection && (
+        <Modal
+          title={t("record.cancelCorrectionTitle")}
+          onClose={() => setCancellingCorrection(false)}
+          footer={
+            <div className="flex justify-end gap-2 w-full">
+              <button className="btn btn-secondary" onClick={() => setCancellingCorrection(false)}>
+                {t("record.keepEditing")}
+              </button>
+              <button
+                className="btn btn-primary"
+                data-action="confirm-cancel-correction"
+                onClick={() => {
+                  setCancellingCorrection(false);
+                  onCancelCorrection();
+                }}
+              >
+                <FiRotateCcw size={13} /> {t("record.putItBack")}
+              </button>
+            </div>
+          }
+        >
+          <p className="text-sm">
+            {t("record.cancelCorrectionBody", { count: String(correctionChangeCount), status: correctionFromStatus ?? "" })}
+          </p>
+        </Modal>
+      )}
+
       {rejecting && (
         <Modal
           title="Reject record"
@@ -206,15 +261,24 @@ export function RecordActionBar({
           title="Delete this record?"
           onClose={() => setConfirmingDelete(false)}
           footer={
-            <div className="flex justify-end gap-2 w-full">
+            <div className="flex justify-end gap-2 w-full items-center">
+              {needsReason && !deleteReason.trim() && (
+                <span className="text-xs text-muted" style={{ marginRight: "auto" }}>
+                  Type a reason first
+                </span>
+              )}
               <button className="btn btn-secondary" onClick={() => setConfirmingDelete(false)}>
                 {t("common.cancel")}
               </button>
               <button
                 className="btn btn-danger"
+                data-action="confirm-delete"
+                disabled={needsReason && !deleteReason.trim()}
                 onClick={() => {
+                  const why = deleteReason.trim() || "Deleted from the record page";
                   setConfirmingDelete(false);
-                  onDelete();
+                  setDeleteReason("");
+                  onDelete(why);
                 }}
               >
                 <FiTrash2 size={13} /> {t("common.deletePermanently")}
@@ -222,7 +286,16 @@ export function RecordActionBar({
             </div>
           }
         >
-          <p className="text-sm">This permanently removes this draft record — there's no undo. Only do this for a record created by mistake.</p>
+          <p className="text-sm">
+            This permanently removes the record — there's no undo.
+            {needsReason
+              ? ` It is ${status}, so it has been through verification: the deletion is recorded — what it was, its status, who removed it, when and why — in Document Library → Records deleted.`
+              : " The deletion is recorded in Document Library → Records deleted."}
+          </p>
+          <div className="field mt-2">
+            <label>{needsReason ? "Why is it being deleted?" : "Reason (optional)"}</label>
+            <textarea className="input" data-field="delete-reason" rows={2} value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} />
+          </div>
         </Modal>
       )}
     </div>

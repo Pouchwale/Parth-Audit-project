@@ -38,7 +38,8 @@ The app behaves like a personal assistant rather than a blank form:
     loses nothing.
   - *Once it's submitted or verified* it's locked, and offers **Correct this record**: pick or type a
     reason, and the record reopens — a banner says who reopened it and why — you make the change, and
-    it goes through Submit and verification again. A verified record is never changed quietly.
+    it goes through Submit and verification again. A verified record is never changed quietly. Pressed
+    Edit and found nothing to put right? **Cancel edit** puts it straight back as it was.
   - *Every change is recorded*: each record has a **Record history** listing every edit field by field
     (before → after), every submit, verification, rejection and correction, and who did it. That is
     what makes a correction a correction and not a rewrite.
@@ -167,13 +168,92 @@ The app behaves like a personal assistant rather than a blank form:
   chart or a Statement of Compliance — and it is checked, saved, listed back field by field and can be
   undone, exactly as before. The one document it can't change is the service provider's licence, which
   stays exactly as issued.
-- **Two languages — English and ગુજરાતી — chosen on the Dashboard.** Choosing ગુજરાતી switches
+- **The Pest Control Training Record is headed with the service provider's letterhead, and nothing
+  else.** The training is run and issued by Gurudev Pest Control, so both training records carry their
+  printed letterhead from "Letter head.pdf" — the GPC mark, both mobile numbers, the name, the Golden
+  Square Complex address, the email and the website — and the plant's company line, the title and the
+  Format No. / Rev No. / Date row have come off it, as the department asked. It prints that way too.
+  One component serves both documents the provider issues, the training record and the service
+  agreement (`src/components/documents/ProviderLetterhead.tsx`).
+- **External CAPA is mandatory section by section.** On the Customer Complaint Handling Checklist
+  (F/MKT/05) every activity of every section now has to be answered before the next section starts —
+  done, done on a date, or **not required** (which is a real answer, and the one the "(If required)"
+  activities on the printed form expect). The assistant asks one activity at a time and offers no way
+  to skip one or jump a section; **Submit is refused** while anything is blank and says exactly which
+  section and which activities are still open, from the form and from the chat alike.
+- **The assistant always hands the work back for checking.** Every change it makes ends with "check it
+  on the form before you submit — if I have got anything wrong, tap Undo, tell me the correction, or
+  use Edit on the record", and when it is asked to submit it **stops and asks for the record to be
+  looked over first**, submitting only on "I've checked it". Nothing it fills in is ever signed off
+  without a person seeing it.
+- **Every document can be created, read, updated and deleted — by hand, by asking, or out loud.**
+  - **Create.** The Document Library has a **New** button on every document that holds records, and
+    the assistant starts one from words: *"create a new fly catcher record"*, *"start a training record
+    for 5 September"*. A new record gets the same starting data the schedule would have given it, and
+    asking twice for the same day opens the first one rather than putting two sheets on a controlled
+    register (`src/engine/recordCrud.ts`). The reference documents — the SOP, the Chemical Master, a
+    Statement of Compliance, the licence — are single documents kept as issued and edited in place, so
+    there is nothing to create or delete for them.
+  - **Read and update** were already there: every field editable, saved as you type, changed by the
+    assistant, with the full history.
+  - **Delete.** Any record can now be deleted, whatever its status — but never silently. The page and
+    the assistant both confirm first; a **submitted or verified** record takes a **reason**; and every
+    deletion is recorded — the document, the date, the status it was in, who removed it, when and why —
+    in **Document Library → Records deleted**, so the audit trail doesn't get a hole in it.
+  - **The assistant can do everything the buttons do**: fill in, correct, cancel an edit, submit,
+    verify, print, create and delete — each understood with no internet, and each asked for before
+    anything is signed off or destroyed. **Spoken instructions take exactly the same path**, so
+    pressing the microphone and saying "submit this record" does what typing it does
+    (`src/engine/assistantCommands.ts`).
+- **The service provider agreement, asked for every two years.** The contract with Gurudev Pest
+  Control runs two years, and the **Service Provider** page asks for it sixty days before it ends —
+  and keeps asking once it has run out — with the two ways out of it in the pop-up itself: **"Draft it
+  for me"** writes the agreement on the provider's own letterhead (the format from their
+  "Letter head.pdf" — the GPC mark, the name, the address, the numbers, the email and the website),
+  already filled in with what this system holds: the two parties, the two-year term, the services and
+  their frequencies from the SOP, the provider's insecticide licence number, and the obligations both
+  parties have already signed in the Responsibilities document. Nothing beyond that is invented —
+  what nobody has told the system (the charges, the payment terms, the notice period) is written
+  **TO BE CONFIRMED** for the two of you to complete. **"Upload the signed agreement"** takes the scan,
+  the photographed pages or the PDF instead, and puts it on file as the agreement itself. Either way
+  it becomes a record like any other: editable by hand or by asking the assistant, submitted, verified,
+  printed, with its own history. "Remind me later" is a week, never a way to switch the asking off; the
+  card on the page always says where the agreement stands (`src/engine/serviceAgreement.ts`).
+- **Pressed Edit by mistake? Cancel edit.** Every document in every module now offers **Cancel edit**
+  beside Submit (and in the banner at the top) while it is open for correction: the record goes
+  straight back to the status it came from — Verified stays Verified — without having to be submitted
+  and verified all over again. If something was changed after all, it says how much and asks before
+  putting it back; either way the history records that the edit was cancelled, because the reopening is
+  in there too and the trail has to make sense to an auditor.
+- **The plant's own codes, written the plant's way, everywhere.** A new customer complaint is numbered
+  the way the department numbers one — the two calendar years, then a three-digit count that starts
+  again at 001 each January (**26-27/001**) — put on the sheet the moment the complaint is opened, and
+  still yours to change: type `7` over it and it becomes 26-27/007. A **Job Code / FG code** reads like
+  **FGSL3877** (FG, two letters for the job type — SL, PO, LA … — then four digits, eight characters in
+  all) and a **PO No.** is **eight digits** (10004321). Type one loosely and it is tidied on the spot
+  (`fgsl 3877` → `FGSL3877`); type one that doesn't fit and the form says what the format is and
+  Submit is refused until it does. The assistant is held to exactly the same formats — whether you ask
+  it in plain words or let it walk a new complaint through, it tidies what you tell it and refuses what
+  doesn't fit, with the reason, rather than writing a wrong code onto a controlled record. All of it is
+  in one place, `src/engine/documentFormats.ts`, so the person typing, the assistant and the check at
+  Submit can never disagree. The lamination and QC log sheets are deliberately left alone: their FG /
+  PO columns hold the short codes the company's own specimens use ("7204", "88825").
+- **Ask the assistant for a CAPA summary.** "CAPA summary", "how many complaints are open", "where does
+  internal CAPA stand" — it answers from the records themselves, instantly and with no internet:
+  **Internal** — how many inspection findings reports, how many findings, how many open, overdue,
+  closed or verified, the last inspection, the oldest overdue finding and how many complaint
+  acknowledgement reports are signed off; **External** — how many customer complaints are being worked
+  on, waiting for approval or approved, how many checklist activities are done, and the latest
+  complaint's number and customer. Name one side ("external CAPA summary") and it answers for that side
+  only, and offers a way straight into it (`src/engine/assistantLocal.ts`).
+- **Two languages — English and ગુજરાતી — chosen in the top bar.** Choosing ગુજરાતી switches
   **Google Translate** on automatically for the whole website: every page, menu, list, message and the
   assistant's chat turns Gujarati as it appears, including text that changes afterwards. Choosing
   English switches it off — the page reloads in the original English, on the same screen, with
-  nothing lost (records save themselves). Remembered per browser (a reload stays Gujarati) and also
-  reachable from the top bar. Nothing is sent to Google while English is chosen. If Google can't be
-  reached (no internet), Gujarati falls back to the app's own built-in Gujarati and says so. What
+  nothing lost (records save themselves). Remembered per browser (a reload stays Gujarati). The one
+  control sits in the top bar, so it is the same on every screen. Nothing is sent to Google while
+  English is chosen. If Google can't be reached (no internet), Gujarati falls back to the app's own
+  built-in Gujarati and the word beside the box says so. What
   deliberately does **not** translate is the controlled documents' own text — every form and
   register, format numbers (F/HR/17), the printed check points transcribed verbatim from the paper
   form, the SOP, the licence and its terms, the Statements of Compliance — and people's and

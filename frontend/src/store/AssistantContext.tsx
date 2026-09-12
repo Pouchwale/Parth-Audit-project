@@ -33,6 +33,21 @@ export interface AssistantTarget {
   commit: (next: unknown, note: string) => void;
   /** Reopens a submitted/verified record for correction; absent when that isn't possible. */
   reopen?: (reason: string) => void;
+  // The rest of the record's life, so the assistant can do anything the
+  // buttons can (engine/assistantCommands.ts). Each is absent when the page
+  // can't do it right now — a draft has no Verify, a locked record no Submit.
+  /** What to call this record when talking about it. */
+  title?: string;
+  /** Send it for verification. */
+  submit?: () => { ok: boolean; errors: string[] };
+  /** Verify it. */
+  verify?: () => { ok: boolean; errors: string[] };
+  /** Put a reopened record back exactly as it was. */
+  cancelCorrection?: () => void;
+  /** Delete it for good, with the reason recorded (engine/recordCrud.ts). */
+  remove?: (reason: string) => void;
+  /** Print the document alone. */
+  print?: () => void;
   // Present only on a Customer Complaint Handling Checklist page: lets the
   // widget run its guided A→E walk-through against the live record and
   // drive the submit/approve steps (see engine/guidedChecklist.ts).

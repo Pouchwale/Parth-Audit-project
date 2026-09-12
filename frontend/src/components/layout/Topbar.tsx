@@ -54,9 +54,9 @@ export function Topbar() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* The full picker lives on the Dashboard; this keeps it reachable
-              from every other screen without hunting for it. */}
-          <LanguageSwitcher variant="compact" />
+          {/* The one language control for the whole app, reachable from every
+              screen; beside it, a word on which translation is showing. */}
+          <LanguageSwitcher />
           <button className="btn btn-secondary btn-sm" onClick={openBriefing} title={t("top.briefingTitle")}>
             <FiZap size={13} /> {t("top.todaysBriefing")}
           </button>

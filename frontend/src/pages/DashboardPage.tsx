@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCalendar, FiCheckCircle, FiClock, FiAlertTriangle, FiBookOpen, FiArrowRight, FiZap, FiTrash2, FiX, FiGlobe } from "react-icons/fi";
+import { FiCalendar, FiCheckCircle, FiClock, FiAlertTriangle, FiBookOpen, FiArrowRight, FiZap, FiTrash2, FiX } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useAuth } from "../store/AuthContext";
 import { useRouter } from "../store/router";
@@ -16,7 +16,6 @@ import { openCorrectiveActionsCount, refreshGapFindingStatuses, moduleSummaries,
 import { masterRepository } from "../data/repositories/masterRepository";
 import { dayInfo, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG } from "../engine/holidays";
 import { useT } from "../i18n";
-import { LanguageSwitcher } from "../components/common/LanguageSwitcher";
 import { todayISO, formatDisplayDate, MONTH_NAMES } from "../utils/date";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -148,14 +147,7 @@ export function DashboardPage() {
           )}
         </div>
         <div className="flex items-center gap-3 wrap" style={{ justifyContent: "flex-end" }}>
-          {/* The language choice lives here, on the Dashboard, and applies to
-              every screen the moment it changes. */}
-          <div className="dash-language">
-            <div className="text-xs text-muted mb-1 flex items-center gap-1">
-              <FiGlobe size={11} /> {t("common.language")}
-            </div>
-            <LanguageSwitcher />
-          </div>
+          {/* The language choice lives in the top bar, reachable from every screen. */}
           <button className="btn btn-primary" onClick={() => navigate("/calendar")}>
             <FiCalendar size={15} /> {t("dash.openCalendar")}
           </button>

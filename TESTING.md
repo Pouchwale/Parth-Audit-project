@@ -44,6 +44,31 @@ Seven scripts live in `tests/`:
   the assistant and for an older draft brought into line at start-up; and the F/HR/18 register's Add
   visit / Edit register for a chosen Month & Year (refusals, autosave into the visit's history, names
   carried forward, a submitted visit locked, an added visit left alone at restart). Network-independent.
+- `tests/e2e_capa_formats.py` — the plant's codes on CAPA paperwork and the CAPA summary: a new
+  complaint is numbered 26-27/001 (the next taking /002) and stays editable (a bare "7" becomes
+  26-27/007); a Job Code typed loosely is tidied to FGSL3877, one that doesn't fit shows the format and
+  a wrong PO No. blocks Submit; the assistant is held to the same formats both ways it can write one (a
+  plain-words edit and the guided complaint walk-through) — tidying what it is told and refusing what
+  doesn't fit with the reason; asking for a CAPA summary answers for both sides, or one when named;
+  the language control is in the top bar only; External CAPA is mandatory section by section (no
+  skipping an activity or a section, Submit refused while anything is blank and naming what is left);
+  and the assistant asks for a review before it submits. Network-independent.
+- `tests/e2e_agreement_and_cancel.py` — the two-yearly service provider agreement and Cancel edit:
+  the Service Provider page asks for the agreement (none on file), offering both ways out — drafted on
+  the provider's letterhead or the signed copy uploaded; "Remind me later" snoozes to a date and the
+  card still says where it stands; the drafted agreement carries the provider's printed letterhead, a
+  two-year term, the SOP's services and the licence number, and TO BE CONFIRMED where nobody has told
+  the system; it saves itself, the assistant can fill it in, a signed copy uploads onto it, and once in
+  force the page stops asking; both training records are headed with the provider's printed letterhead
+  and it prints with the document; and Cancel edit puts a reopened record straight back — on a
+  record-page document and on a Training record — asking first when something was changed, with the
+  cancellation in the record's history. Signs IN to a fixed account (see the note below). Network-independent.
+- `tests/e2e_crud.py` — Create / Read / Update / Delete on every document, by hand and by assistant:
+  the Document Library offers New on every document that holds records (and not on the reference ones);
+  the assistant starts one from words and a second for the same day opens the first; it can print,
+  submit and verify from the chat; delete always asks first, a signed-off record takes a reason, and
+  every deletion is listed in Document Library → Records deleted, from the page and from the chat
+  alike. Signs IN to a fixed account. Network-independent.
 - `tests/visual_qa.py` — deeper per-module interaction checks (Fly Catcher, Service Report, CAPA
   creation, Training creation) plus full-page screenshots of every major screen for visual
   review, saved to `tests/shots/`, network-independent.
@@ -58,8 +83,10 @@ Seven scripts live in `tests/`:
 ```bash
 npm run test:e2e     # builds, boots backend/index.ts on :8842, runs e2e_smoke.py THEN
                       # e2e_backlog_regression.py, e2e_voice.py, e2e_realism.py,
-                      # e2e_editing.py, e2e_files.py, e2e_translate.py and
-                      # e2e_print_and_forms.py against it, tears down
+                      # e2e_editing.py, e2e_files.py, e2e_translate.py,
+                      # e2e_print_and_forms.py, e2e_capa_formats.py,
+                      # e2e_agreement_and_cancel.py and e2e_crud.py against it,
+                      # tears down
                       # (see scripts/run-e2e.ts)
 ```
 
@@ -76,20 +103,163 @@ python tests/e2e_realism.py
 python tests/e2e_editing.py
 python tests/e2e_files.py
 python tests/e2e_print_and_forms.py
+python tests/e2e_capa_formats.py
+python tests/e2e_agreement_and_cancel.py
+python tests/e2e_crud.py
 python tests/visual_qa.py
 python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actually resolve; edit
                                     # the BASE constant at the top if your server isn't on :8844
 ```
 
-Every suite signs up a fresh, randomly-emailed account at the start of the run (the app gates
+Most suites sign up a fresh, randomly-emailed account at the start of the run (the app gates
 every page behind login — see `frontend/src/main.tsx`/`AuthProvider`) before exercising the rest of the app.
+`e2e_agreement_and_cancel.py` instead signs **in** to a fixed account (creating it only if it isn't
+there yet) and clears its browser storage: the server allows a limited number of new accounts per
+network in ten minutes (`MAX_SIGNUPS_PER_IP`, `backend/index.ts` — deliberately, so free signups can't
+multiply the assistant's per-account cap), and a run plus a few manual re-runs can reach it. If a suite
+ever stops at the login screen, that throttle is the first thing to check — it clears when the server
+restarts, or after ten minutes.
 
-## Results (last full run — 11-Sep-2026, after the print / service-report / F/HR/18 batch)
+## Results (last full run — 12-Sep-2026, after the mandatory-sections / review batch)
 
 The run below is the production shape end to end: `frontend/scripts/build.ts` builds the bundle,
 `backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every
 suite runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts
 (`tsconfig.node.json`).
+
+### External CAPA mandatory section by section, and review before submit (12-Sep-2026, last)
+
+*"In CAPA for specially external CAPA make section mandatory each after each question … tell user to
+review each and every time before user submit and if ai has done any mistake so user can do edit it
+also."* Every activity of every section now has to be answered before the next section starts — the
+walk-through offers no Skip on an activity or a section, loops back to anything left behind, and Submit
+is refused while anything is blank, naming the section and the activities (from the form and from the
+chat alike). The assistant ends every change by asking for it to be checked, and asking it to submit
+produces a review step first, with "I've checked it — submit" the only way through.
+
+`npm run typecheck` clean and `npm run test:e2e` green end to end — 364 checks across eleven suites,
+no JavaScript errors.
+
+What the runs caught:
+
+- **A typed instruction was being swallowed by the walk-through.** Mid-questions, "submit this record"
+  was treated as the answer to the activity on screen. It is obeyed now — but only when the message
+  *begins* with the instruction, because an answer can easily contain one of those words ("Gujarat
+  Printpack" must not read as "print").
+- A Python escape in a patch script wrote a **backspace character into a regex** (the word-boundary
+  escape became 0x08), which would have made that guard match nothing. Caught by inspecting the written
+  line; repaired, and the file checked for stray control characters.
+- The CRUD suite's submit check failed on the new review step — updated to go through it, which is the
+  behaviour that was asked for.
+
+### CRUD on every document, and the assistant able to do all of it (12-Sep-2026, earlier)
+
+*"Make all documents this CRUD operation ... whatever user can do manually that can do with ai
+assistant also ... even he can speak and work will be done."* **Create** is now on every document that
+holds records — a **New** button in the Document Library and "create a new fly catcher record" in the
+chat — building a record with the same starting data the schedule would have given it, and returning
+the existing one rather than putting two sheets on one day. **Delete** works at any status: it always
+asks first, a submitted or verified record takes a reason, and every deletion is recorded and listed in
+**Document Library → Records deleted**, so removing a signed-off record leaves an explained hole rather
+than a silent one. The **assistant now has the whole surface** — create, submit, verify, print, cancel
+an edit and delete, on top of filling in and correcting — each parsed locally
+(`engine/assistantCommands.ts`) and each confirmed before anything is signed off or destroyed; speech
+needed no extra work, because voice input takes the same path as typing.
+
+Also in this run: the Pest Control Training Record's heading is now the provider's letterhead and
+nothing else — the title and the Format No. / Rev No. / Date row came off it, as asked — and the two
+checks that asserted the old heading were flipped to assert the new one.
+
+`npm run typecheck` clean and `npm run test:e2e` green end to end — smoke 145/145, backlog 8/8, voice
+13/13, realism 22/22, editing 20/20, files 17/17, translate 18/18, print and forms 35/35, CAPA formats
+18/18, agreement and Cancel edit 37/37 and the new `e2e_crud.py` 22/22 (355 checks, no JavaScript
+errors). One first-run failure was the check's fault, not the app's: it expected exactly one new record
+after pressing New, but opening a page also generates that day's scheduled shells — it now asserts the
+thing that matters, that the register still holds only one sheet for the day.
+
+### The training record on the provider's letterhead (12-Sep-2026, earlier)
+
+*"I want to make both document of training record to change heading of document to same as I provided
+letter head."* The Pest Control Training Record now carries Gurudev Pest Control's printed letterhead
+("Letter head.pdf") where the plant's company name used to be — the GPC mark, both mobile numbers, the
+name, the address, the email and the website — with the form's own title and Format No. / Rev No. /
+Date row beneath it. Both records on file changed together (they share one page), and the letterhead
+prints as part of the document. It is the same component the service agreement uses, so the provider's
+details are transcribed once. Checked by six new checks in `e2e_agreement_and_cancel.py` (both records,
+the heading, what is no longer there, the format row, and the printout) — the full run stayed green at
+333 checks. One fault was in the check, not the app: it looked for "Format No." as typed, but the
+meta labels render uppercased.
+
+### The two-yearly service provider agreement, and Cancel edit (12-Sep-2026, later)
+
+Two requests from the department. The **Service Provider page now asks for the service agreement**:
+there is none on file (nothing was seeded — inventing a signed agreement is exactly what this system
+must not do), so the pop-up asks straight away, offering to draft it on Gurudev Pest Control's own
+letterhead ("Letter head.pdf") for the next two years, or to take the signed copy as a scan,
+photographs or a PDF. What it drafts is filled in from what the system already holds — the parties,
+the SOP's services and frequencies, the insecticide licence number, the obligations both parties
+signed in the Responsibilities document — and everything else is left TO BE CONFIRMED. The agreement
+is then a record like any other. **Cancel edit** is now on every document in every module: pressing
+Edit and finding nothing to put right sends the record straight back to the status it came from,
+asking first (and restoring what it said) if something was changed, with the cancellation in its
+history.
+
+`npm run typecheck` clean and `npm run test:e2e` green end to end — smoke 145/145, backlog 8/8, voice
+13/13, realism 22/22, editing 20/20, files 17/17, translate 18/18, print and forms 35/35, CAPA formats
+18/18 and the new `e2e_agreement_and_cancel.py` 37/37 (333 checks, no JavaScript errors). The smoke
+suite's Document Library count moved from 24 to 25 with the new document.
+
+What the runs caught:
+
+- **A new suite tipped the run past the app's own signup throttle.** Every suite signs up a fresh
+  account, and the server allows ten new accounts per network in ten minutes
+  (`MAX_SIGNUPS_PER_IP`) — a deliberate control, so free signups can't multiply the assistant's
+  per-account cap. Nine suites plus a few manual re-runs of the new one reached it, and the tenth
+  suite sat on the login screen with every check failing for a reason that had nothing to do with
+  what it was testing. Fixed in the harness, not the product: the new suite signs **in** to a fixed
+  account (creating it only the first time) and clears its own browser storage.
+- Two first-run failures were faults in the new checks rather than the app: they read the document's
+  text for values that live in form fields (an input's value is not page text), and looked for
+  `input[type='text']` on a page whose inputs carry no explicit type attribute.
+- The pop-up and the card below it each rendered their own hidden file input, so there were two of
+  them on the page at once; the component now renders one and both buttons open it.
+
+### CAPA code formats, CAPA summaries, and one language control (12-Sep-2026, later)
+
+The department's rule for the codes on CAPA paperwork now lives in one place
+(`engine/documentFormats.ts`) and everything reads it from there: a new complaint is numbered
+`26-27/001` by the app (the year part turning over on 1 January), a Job Code / FG code reads like
+`FGSL3877` and a PO No. is eight digits. The field tidies what was typed when you leave it, says what
+the format is while it doesn't fit, Submit is refused until it does, and the assistant is held to the
+same formats both ways it can write one — a plain-words edit and the guided complaint walk-through.
+Asking the assistant for a CAPA summary answers for both sides from the records themselves, with no
+internet. The Dashboard's own language buttons are gone; the top bar's box is the one control, with a
+word beside it when the built-in Gujarati is showing.
+
+Checked with a full run, not a quick pass: `npm run typecheck` clean and `npm run test:e2e` green end
+to end — smoke 145/145, backlog 8/8, voice 13/13, realism 22/22, editing 20/20, files 17/17, translate
+18/18, print and forms 35/35, and the new `e2e_capa_formats.py` 18/18 (296 checks, no JavaScript
+errors).
+
+What the run caught, and what it cost:
+
+- **The walk-through stopped starting itself.** A new complaint was no longer "fresh" once the app put
+  a number on it, so the assistant never opened with "Which customer raised this complaint?". Freshness
+  now means *nothing has been recorded* — a number nobody typed doesn't count (`pages/CapaPage.tsx`).
+  The smoke suite caught this, and its complaint walk-through was rewritten around the new behaviour:
+  the number is already on the sheet, so it goes customer → job name → job code → PO no. → date, and
+  the job code is now typed as `fgsl 3877` to prove the assistant tidies it.
+- **The guided walk-through wasn't checking the codes at all** — it stored what it was told verbatim.
+  It now uses the same rules, so "ABC12" as a job code is refused with the format and asked again
+  (`engine/guidedChecklist.ts`); its questions carry the format as an example.
+- **Nothing said the built-in Gujarati was showing** once the Dashboard's buttons went: that note had
+  lived under them, and the top bar's box only had it as a tooltip. `e2e_translate.py` caught it. The
+  compact control now shows a short note beside the box ("Built-in Gujarati"), keeping the full
+  sentence as its tooltip, and the unreachable pills variant of `LanguageSwitcher` was removed rather
+  than left as dead code.
+- Two first-run failures were faults in the new check, not the app: it clicked a "Close assistant"
+  button on a page where the panel wasn't open, and it counted "Which customer" messages across the
+  whole chat, which keeps earlier walk-throughs' questions.
 
 ### Responsibilities of Pest Control, and the assistant on every document (12-Sep-2026)
 
@@ -360,7 +530,8 @@ figures above stand until the storage migration in DEPLOYMENT.md is done.
   Gujarati answer. **Controlled document text is deliberately excluded** — format numbers, the
   verbatim check points, the licence, the SOCs — because translating a controlled record's wording
   would break source-to-digital traceability (REQUIREMENTS §24). Checked by eight new smoke
-  assertions: both languages offered on the Dashboard; Gujarati translates the Dashboard, the
+  assertions: both languages offered in the top bar (on the Dashboard until 12-Sep-2026, when the
+  department asked for that copy of the buttons to go); Gujarati translates the Dashboard, the
   sidebar's module names and the mode banner; another page follows without a reload; **F/HR/17 and
   "Total number of rodent traps provided" are still on screen in Gujarati** (the traceability
   guard); the Calendar is translated; switching back restores English. Plus two visual-QA
@@ -549,11 +720,14 @@ figures above stand until the storage migration in DEPLOYMENT.md is done.
   Python's `print` raised `UnicodeEncodeError` mid-run. Labels are ASCII-only now (em dashes are
   fine in cp1252; arrows are not).
 
-### `e2e_smoke.py` — all 144 checks passed, 0 unexpected console errors
+### `e2e_smoke.py` — all 145 checks passed, 0 unexpected console errors
 
 (11-Sep-2026: section 15b gained two checks — asking for a document's or a module's records over a
 span now opens `#/files/{scope}/{from}/{to}` holding only files dated inside it; the chat reply is
-read after going back. The numbered table below predates them.)
+read after going back. 12-Sep-2026: section 7b gained one — a new complaint arrives already numbered
+26-27/001 — and its walk-through now types the job code as "fgsl 3877" to prove it is tidied to
+FGSL3877. The numbered table below predates the new rows; the labels of the two rows whose meaning
+changed are updated in place.)
 
 (Two checks are date-conditional and are skipped on the days they can't apply: the "month that hasn't happened yet is blank" check in December, and the F/HR/18 fill checks in January, when last month's demo visits belong to the previous year.)
 
@@ -607,7 +781,7 @@ read after going back. The numbered table below predates them.)
 | 46 | CAPA External list shows the F/MKT/05 checklist | PASS |
 | 47 | New complaint auto-starts the assistant walk-through | PASS |
 | 48 | Assistant asks for the customer first | PASS |
-| 49 | Header details captured on the form | PASS |
+| 49 | Header details captured on the form, the job code in the plant's format | PASS |
 | 50 | Assistant announces Section A | PASS |
 | 51 | Section B is announced after A's five activities | PASS |
 | 52 | Section C is announced next | PASS |
@@ -693,7 +867,7 @@ read after going back. The numbered table below predates them.)
 | 132 | Declining a general question does not navigate away | PASS |
 | 133 | A general request that mentions a pest-control word is still declined | PASS |
 | 134 | An in-scope question straight after is still answered normally (scope guard does not over-block) | PASS |
-| 135 | Dashboard offers both languages | PASS |
+| 135 | The top bar offers both languages | PASS |
 | 136 | Choosing Gujarati translates the Dashboard | PASS |
 | 137 | ...and the sidebar's module names | PASS |
 | 138 | ...and the top bar / mode banner | PASS |
@@ -736,6 +910,107 @@ pause, inside the 2.5 s silence window), emit the rest, then go quiet. This is w
 | 11 | Composer was cleared | PASS |
 | 12 | The assistant answered the spoken question | PASS |
 | 13 | Pressing "Done" sends what was said instead of discarding it | PASS |
+
+### `tests/e2e_crud.py` — 24/24 checks passed, 0 JS errors (12-Sep-2026)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Every document that holds records offers New in the library | PASS |
+| 2 | …and the reference documents don't (they are single documents, edited in place) | PASS |
+| 3 | New starts a record and opens it | PASS |
+| 4 | …as a draft, dated today, with the form's own starting data | PASS |
+| 5 | …and there is still only one for that day, not two | PASS |
+| 6 | The assistant starts a record from words | PASS |
+| 7 | …of the document that was named | PASS |
+| 8 | …and a second one for the same day opens the first, not a duplicate | PASS |
+| 9 | The assistant prints the document | PASS |
+| 10 | The assistant asks for the record to be checked before it submits | PASS |
+| 11 | …offering to go ahead once it has been | PASS |
+| 12 | …and then submits it (or says exactly what is missing) | PASS |
+| 13 | Asking to delete asks first, never straight away | PASS |
+| 14 | …offering Delete it / Keep it | PASS |
+| 15 | The record is deleted | PASS |
+| 16 | …and the deletion is on file: what it was, its status, who, when and why | PASS |
+| 17 | Keeping it leaves the record alone | PASS |
+| 18 | A verified record now offers Delete as well | PASS |
+| 19 | …and asks for a reason before it will go | PASS |
+| 20 | The record is gone | PASS |
+| 21 | …with the reason on file | PASS |
+| 22 | The Document Library lists what was deleted | PASS |
+| 23 | …with the document, the status it was in, who removed it and why | PASS |
+| 24 | No JavaScript errors | PASS |
+
+### `tests/e2e_agreement_and_cancel.py` — 37/37 checks passed, 0 JS errors (12-Sep-2026)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | The Service Provider page asks for the agreement, and says the term is two years | PASS |
+| 2 | …offering both ways: drafted for you, or the signed copy uploaded | PASS |
+| 3 | 'Remind me later' snoozes it to a date, not for ever | PASS |
+| 4 | …and it stays quiet on the next visit | PASS |
+| 5 | …while the card on the page still says where the agreement stands | PASS |
+| 6 | Drafting it opens the agreement on the provider's letterhead | PASS |
+| 7 | …with the provider's address, phones and website exactly as printed | PASS |
+| 8 | …for a two-year term | PASS |
+| 9 | …with the services and the licence number taken from what the system holds | PASS |
+| 10 | …and nothing invented: what nobody has told the system is TO BE CONFIRMED | PASS |
+| 11 | A typed change saves itself | PASS |
+| 12 | The assistant can fill it in too | PASS |
+| 13 | The signed copy uploads onto the agreement | PASS |
+| 14 | …and shows on the page | PASS |
+| 15 | With an agreement in force the card says so and stops asking | PASS |
+| 16 | With the term nearly up it asks again, saying when it runs out | PASS |
+| 17 | …offering the renewal the same two ways | PASS |
+| 18 | Once it has run out it says so, and keeps asking | PASS |
+| 19 | The agreement submits and verifies | PASS |
+| 20 | Edit reopens it, and offers Cancel edit | PASS |
+| 21 | Cancel edit puts a record-page document straight back to Verified | PASS |
+| 22 | The training list holds both records | PASS |
+| 23 | Training record 1 is headed with the provider's letterhead, exactly as printed | PASS |
+| 24 | Training record 1: the plant's company line is gone from the heading | PASS |
+| 25 | Training record 1: the title and the Format No. / Rev No. / Date row are gone | PASS |
+| 26 | Training record 2 is headed with the provider's letterhead, exactly as printed | PASS |
+| 27 | Training record 2: the plant's company line is gone from the heading | PASS |
+| 28 | Training record 2: the title and the Format No. / Rev No. / Date row are gone | PASS |
+| 29 | The letterhead prints with the record | PASS |
+| 30 | A signed-off training record is locked and offers Edit | PASS |
+| 31 | Edit reopens it for correction | PASS |
+| 32 | …and offers Cancel edit, in the banner at the top and beside Submit | PASS |
+| 33 | Cancel edit puts it straight back, nothing changed | PASS |
+| 34 | …and the history says the edit was cancelled | PASS |
+| 35 | Cancelling after a change asks first | PASS |
+| 36 | …and putting it back restores what the record said, at its old status | PASS |
+| 37 | No JavaScript errors | PASS |
+
+### `tests/e2e_capa_formats.py` — 25/25 checks passed, 0 JS errors (12-Sep-2026)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | The Dashboard has no language buttons of its own, and the top bar still offers both languages | PASS |
+| 2 | A new complaint is numbered for this year | PASS |
+| 3 | …and the next one takes the next number | PASS |
+| 4 | A job code typed loosely is tidied to the plant's format | PASS |
+| 5 | A job code that doesn't fit says what the format is | PASS |
+| 6 | …and the message goes when it fits | PASS |
+| 7 | A PO No. must be eight digits | PASS |
+| 8 | …and eight digits is accepted | PASS |
+| 9 | A bare number typed over the complaint number becomes this year's | PASS |
+| 10 | Submit is refused while the PO No. doesn't fit, and says why | PASS |
+| 11 | The assistant writes an FG code in the plant's format | PASS |
+| 12 | …and refuses one that doesn't fit, with the reason, leaving the good one | PASS |
+| 13 | The walk-through still starts itself on a complaint that is only numbered | PASS |
+| 14 | The walk-through refuses a job code that doesn't fit, and asks again | PASS |
+| 15 | …and writes a tidied one onto the sheet | PASS |
+| 16 | Section A says every activity has to be answered before the next section | PASS |
+| 17 | …and a section cannot be skipped any more | PASS |
+| 18 | …nor an activity: only real answers are offered | PASS |
+| 19 | Section A finished takes it to Section B by itself | PASS |
+| 20 | The assistant asks for a review before it submits anything | PASS |
+| 21 | …and only submits once it has been checked | PASS |
+| 22 | Submit is refused while a section is unfinished, naming what is left | PASS |
+| 23 | Asking for a CAPA summary answers for both sides | PASS |
+| 24 | …and offers a way into each | PASS |
+| 25 | …or just one side when it is named | PASS |
 
 ### `tests/e2e_print_and_forms.py` — 35/35 checks passed, 0 JS errors (11-Sep-2026)
 

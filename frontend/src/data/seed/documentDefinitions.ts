@@ -176,6 +176,23 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "as-required" },
   },
   {
+    id: "service-agreement",
+    kind: "service-agreement",
+    name: "Pest Control Service Agreement — Site & Service Provider",
+    formatNo: "TO BE CONFIRMED",
+    revisionNo: "TO BE CONFIRMED",
+    revisionDate: "2026-09-12",
+    department: "Quality / Purchase",
+    module: "Pest Control",
+    section: "Training & Reference",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The contract with Gurudev Pest Control, on the provider's own letterhead: the two-year term, the parties, the scope of services and their frequencies (from the SOP), the schedule and reporting, the obligations of both parties, the commercial terms and the two signatures. Renewed every two years — the Service Provider page asks sixty days before it runs out, and the signed copy can be uploaded instead of using this format.",
+    sourceFile: "Letter head.pdf (the service provider's letterhead — the format)",
+    schedule: { type: "as-required" },
+  },
+  {
     id: "training-record",
     kind: "training-record",
     name: "Pest Control Training Record",

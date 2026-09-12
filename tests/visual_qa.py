@@ -206,7 +206,7 @@ def main():
         # --- Gujarati: the whole interface, every page ---
         page.goto(f"{BASE}/index.html#/dashboard")
         page.wait_for_timeout(400)
-        page.click(".dash-language .pill-tab[data-lang='gu']")
+        page.select_option(".lang-select", "gu")
         page.wait_for_timeout(400)
         check("Dashboard switches to Gujarati", "ડેશબોર્ડ" in page.locator(".app-sidebar").inner_text())
         page.screenshot(path="tests/shots/21_dashboard_gujarati.png", full_page=True)
@@ -215,7 +215,7 @@ def main():
         page.screenshot(path="tests/shots/22_pest_control_gujarati.png", full_page=True)
         page.goto(f"{BASE}/index.html#/dashboard")
         page.wait_for_timeout(400)
-        page.click(".dash-language .pill-tab[data-lang='en']")
+        page.select_option(".lang-select", "en")
         page.wait_for_timeout(300)
 
         # --- The assistant's voice controls ---

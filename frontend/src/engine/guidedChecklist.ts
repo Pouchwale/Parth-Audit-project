@@ -1,5 +1,6 @@
 import type { ChecklistItem, ComplaintChecklistData } from "../types";
 import { isConditionalActivity } from "../data/seed/complaintChecklist";
+import { codeRulesFor, COMPLAINT_NO_EXAMPLE, FG_CODE_EXAMPLE, PO_NUMBER_EXAMPLE } from "./documentFormats";
 import { formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
 
 // THE ASSISTANT'S WALK-THROUGH of a Customer Complaint Handling Checklist
@@ -19,10 +20,10 @@ export type HeaderField = "customerName" | "complaintNo" | "jobName" | "jobCode"
 
 export const HEADER_FIELDS: { field: HeaderField; label: string; question: string; optional: boolean; isDate?: boolean }[] = [
   { field: "customerName", label: "Customer Name", question: "Which customer raised this complaint?", optional: false },
-  { field: "complaintNo", label: "Complaint No.", question: "What complaint number shall I register it under?", optional: false },
+  { field: "complaintNo", label: "Complaint No.", question: `What complaint number shall I register it under? (like ${COMPLAINT_NO_EXAMPLE})`, optional: false },
   { field: "jobName", label: "Job Name", question: "Which job is it about? (job name)", optional: true },
-  { field: "jobCode", label: "Job Code", question: "And the job code (FG code)?", optional: true },
-  { field: "poNo", label: "PO No.", question: "PO number, if you have it?", optional: true },
+  { field: "jobCode", label: "Job Code", question: `And the job code (FG code, like ${FG_CODE_EXAMPLE})?`, optional: true },
+  { field: "poNo", label: "PO No.", question: `PO number, if you have it? (eight digits, like ${PO_NUMBER_EXAMPLE})`, optional: true },
   { field: "complaintReceivedDate", label: "Complaint Received Date", question: "When was the complaint received?", optional: false, isDate: true },
 ];
 
@@ -62,7 +63,17 @@ export type ChipAction =
   | { type: "confirmCorrection" }
   | { type: "cancelCorrection" }
   // Put back what the record said before an assistant change.
-  | { type: "undo"; id: string };
+  | { type: "undo"; id: string }
+  // The record's own life, driven from the chat (engine/assistantCommands.ts).
+  | { type: "createRecord"; documentId: string; dateISO: string }
+  | { type: "askDelete" }
+  | { type: "confirmDelete"; reason: string }
+  | { type: "cancelDelete" }
+  | { type: "askSubmit" }
+  | { type: "doSubmit" }
+  | { type: "doVerify" }
+  | { type: "doCancelCorrection" }
+  | { type: "doPrint" };
 
 export interface Chip {
   label: string;
@@ -115,8 +126,14 @@ export function stepAfter(data: ComplaintChecklistData, step: GuidedStep): Guide
       return nextSectionOrApproval(data, step.sectionIndex);
     }
     case "item": {
+      // Look on from here, then back to anything left behind: a section is
+      // finished before the next one starts (the department's rule for
+      // External CAPA, 12-Sep-2026 — "make section mandatory each after each
+      // question"), so nothing can be left blank by walking past it.
       const i = firstUnansweredItem(data, step.sectionIndex, step.itemIndex + 1);
       if (i >= 0) return { kind: "item", sectionIndex: step.sectionIndex, itemIndex: i };
+      const back = firstUnansweredItem(data, step.sectionIndex);
+      if (back >= 0) return { kind: "item", sectionIndex: step.sectionIndex, itemIndex: back };
       return nextSectionOrApproval(data, step.sectionIndex);
     }
     case "approval":
@@ -127,7 +144,20 @@ export function stepAfter(data: ComplaintChecklistData, step: GuidedStep): Guide
 }
 
 function nextSectionOrApproval(data: ComplaintChecklistData, sectionIndex: number): GuidedStep {
-  return sectionIndex + 1 < data.sections.length ? { kind: "section-intro", sectionIndex: sectionIndex + 1 } : { kind: "approval" };
+  if (sectionIndex + 1 < data.sections.length) return { kind: "section-intro", sectionIndex: sectionIndex + 1 };
+  // Last section done — but approval waits for any earlier section that isn't.
+  const unfinished = firstUnfinishedSection(data);
+  return unfinished >= 0 ? { kind: "section-intro", sectionIndex: unfinished } : { kind: "approval" };
+}
+
+/** The first section with an activity still blank, or -1 when they are all done. */
+export function firstUnfinishedSection(data: ComplaintChecklistData): number {
+  return data.sections.findIndex((s) => s.items.some((it) => !isItemAnswered(it)));
+}
+
+/** Every activity still blank, section by section — what stops a submit. */
+export function unansweredActivities(data: ComplaintChecklistData): { key: string; srNo: number; activity: string }[] {
+  return data.sections.flatMap((s) => s.items.filter((it) => !isItemAnswered(it)).map((it) => ({ key: s.key, srNo: it.srNo, activity: it.activity })));
 }
 
 export interface ChecklistSummary {
@@ -169,7 +199,7 @@ export function promptFor(step: GuidedStep, data: ComplaintChecklistData, prepar
       const text =
         remaining === 0
           ? `Section ${s.key} — ${titleCase(s.title)} is already complete. Moving on.`
-          : `Section ${s.key} — ${titleCase(s.title)}: ${remaining} activit${remaining === 1 ? "y" : "ies"} to go through. I'll ask one at a time — tap an answer or just tell me what happened.`;
+          : `Section ${s.key} — ${titleCase(s.title)}: ${remaining} activit${remaining === 1 ? "y" : "ies"} to go through. Every one has to be answered before the next section — done, done on a date, or not required. I'll ask one at a time; tap an answer or just tell me what happened.`;
       return {
         text,
         chips:
@@ -178,7 +208,6 @@ export function promptFor(step: GuidedStep, data: ComplaintChecklistData, prepar
             : [
                 { label: "Let's go", action: { type: "guided", answer: { type: "continue" } }, tone: "primary" },
                 { label: `All ${remaining} done today`, action: { type: "guided", answer: { type: "sectionDone" } } },
-                { label: "Skip this section", action: { type: "guided", answer: { type: "sectionSkip" } } },
               ],
         freeText: "none",
       };
@@ -186,11 +215,13 @@ export function promptFor(step: GuidedStep, data: ComplaintChecklistData, prepar
     case "item": {
       const s = data.sections[step.sectionIndex];
       const it = s.items[step.itemIndex];
+      // No "Skip" here: every activity of every section is mandatory. What it
+      // isn't is compulsory WORK — "Not required" is a real answer, and the one
+      // the conditional activities on the printed form expect.
       const chips: Chip[] = [
         { label: "Done today", action: { type: "guided", answer: { type: "done" } }, tone: "success" },
         { label: "Done on a date…", action: { type: "pickDate" } },
         { label: isConditionalActivity(it.activity) ? "Not required" : "Not applicable", action: { type: "guided", answer: { type: "notRequired" } } },
-        { label: "Skip", action: { type: "guided", answer: { type: "skip" } } },
       ];
       return {
         text: `${s.key}${it.srNo}. ${it.activity} — done?`,
@@ -238,7 +269,14 @@ export function applyAnswer(data: ComplaintChecklistData, step: GuidedStep, answ
     if (answer.type === "text") {
       const v = answer.text.trim();
       if (!v) return { data, ack: "Type it in, or tap Skip.", stay: true };
-      return { data: { ...data, [h.field]: v }, ack: `${h.label}: ${v}.` };
+      // The complaint number, job code and PO number are written the plant's
+      // way (engine/documentFormats.ts): tidy what was said, and ask again if
+      // it still doesn't read like one of those codes.
+      const rule = codeRulesFor("complaint-checklist")[h.field];
+      const value = rule ? rule.normalise(v) : v;
+      const problem = rule?.problem(value);
+      if (problem) return { data, ack: `${problem} What shall I put?`, stay: true };
+      return { data: { ...data, [h.field]: value }, ack: `${h.label}: ${value}.` };
     }
     return { data, ack: "Type the value, or tap Skip.", stay: true };
   }
@@ -252,7 +290,8 @@ export function applyAnswer(data: ComplaintChecklistData, step: GuidedStep, answ
     }
     // stepAfter() from a section's intro goes INTO the section, which is what
     // "Let's go" wants — a skip has to name the step past it instead.
-    if (answer.type === "sectionSkip") return { data, ack: `Skipping Section ${s.key} for now.`, next: nextSectionOrApproval(data, step.sectionIndex) };
+    // A section can't be skipped any more: it is finished before the next one.
+    if (answer.type === "sectionSkip") return { data, ack: `Section ${s.key} has to be finished before the next one — let's go through it.`, stay: true };
     return { data, ack: "" };
   }
 
@@ -275,7 +314,14 @@ export function applyAnswer(data: ComplaintChecklistData, step: GuidedStep, answ
         ack = `${s.key}${it.srNo} marked not required.`;
         break;
       case "skip":
-        return { data, ack: `Leaving ${s.key}${it.srNo} for later.` };
+        // Every activity is mandatory now, so "skip" asks the same question
+        // again rather than walking past it — "Not required" is the answer for
+        // something that genuinely doesn't apply.
+        return {
+          data,
+          ack: `${s.key}${it.srNo} still needs an answer — every activity in a section has to be answered. Tap "Not required" if it doesn't apply.`,
+          stay: true,
+        };
       case "text":
         // Un-interpreted free text (backend unavailable): keep it as the
         // comment and treat the activity as done — never lose what the user

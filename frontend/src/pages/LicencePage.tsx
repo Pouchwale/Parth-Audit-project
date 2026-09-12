@@ -5,6 +5,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { SERVICE_LICENCE } from "../data/seed/serviceLicence";
 import { formatDisplayDate } from "../utils/date";
 import { printDocument } from "../utils/print";
+import { ServiceAgreementReminder } from "../components/documents/ServiceAgreementReminder";
 
 // The service provider's insecticide licence, on file. The scanned pages
 // ARE the document and are shown first, exactly as supplied (nothing
@@ -35,6 +36,10 @@ export function LicencePage() {
           </button>
         </div>
       </div>
+
+      {/* The two-yearly agreement with this service provider: where it stands,
+          and the pop-up that asks for it when the term is running out. */}
+      <ServiceAgreementReminder />
 
       <h1 className="text-2xl mb-1">{doc?.name ?? "Insecticide Licence — Gurudev Pesticides (Form III)"}</h1>
       <p className="text-muted mb-4">

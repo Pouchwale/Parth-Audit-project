@@ -17,6 +17,12 @@ import { groqChatJSON } from "./groq.ts";
 const DATE_TIME_RULE =
   'Any calendar-date field must be an ISO "YYYY-MM-DD" string (e.g. "2026-09-15"). timeOfChecking, if present, must be 24-hour "HH:MM" (e.g. "09:15" for 9:15 AM). Never use a display format like "15 Sept 2026" or "9:15 AM" for these.';
 
+// The codes this plant writes on its CAPA paperwork. The app checks every one
+// of these before it is saved (frontend/src/engine/documentFormats.ts) and
+// refuses what doesn't fit, so say the formats here to save the refusal.
+const CODE_FORMAT_RULE =
+  `Codes on this document have fixed formats. A Complaint No. is the two calendar years then a three-digit count, "26-27/001" (the count starts again at 001 each January). An FG code / Job Code is FG, two letters for the job type (SL, PO, LA ...), then four digits: "FGSL3877" — eight characters. A PO No. is eight digits: "10004321". Write what the user tells you in that shape (they may say it loosely: "fgsl 3877" -> "FGSL3877", "complaint 7" -> this year's "26-27/007"); if what they said cannot be read as one of these codes, leave the field alone and say so rather than inventing a code.`;
+
 const FIELD_GUIDES: Record<string, string> = {
   "daily-pest-monitoring": `
 Fields: isHoliday (boolean). checkpoints (object keyed "1".."10", each value
@@ -92,7 +98,8 @@ comment, notRequired (boolean) } — match the user's words to the item whose
 activity text fits, keep every item in every section (return the COMPLETE
 sections array when changing any item, ids/order preserved), set done=true
 with today's date when they say something was done, notRequired=true for
-"not required"/"N/A". Never change activity text or srNo. ${DATE_TIME_RULE}`,
+"not required"/"N/A". Never change activity text or srNo. ${DATE_TIME_RULE}
+${CODE_FORMAT_RULE}`,
   "log-sheet": `
 A tabular log sheet (lamination QC / production register). Fields: header
 (object of string values keyed by field key) and rows (array of row objects,
@@ -126,7 +133,8 @@ addressed to), subject, intro, customerName, fgCode, complaintReceivedOn
 rootCause, correctiveAction, preventiveAction, acknowledgement, employeeName,
 employeeSignDate (calendar date). photos is a list of uploaded photographs
 ({ id, name, dataUrl }) — never change, add or remove it, and never echo a
-dataUrl back. ${DATE_TIME_RULE}`,
+dataUrl back. ${DATE_TIME_RULE}
+${CODE_FORMAT_RULE}`,
   "pest-responsibilities": `
 The Responsibilities of Pest Control document (site and service provider).
 Fields: siteResponsibilities (array of strings — the numbered points for the
@@ -139,6 +147,21 @@ date. To change one line of a list use itemEdits with {"__row": n}, the
 1-based line number the user names (e.g. point 5 of the site list). Only when
 the user asks for a new line, return the complete array for that field with
 the line added. ${DATE_TIME_RULE}`,
+  "service-agreement": `
+The Pest Control Service Agreement with the service provider, on the
+provider's letterhead, renewed every two years. Fields (strings unless noted):
+agreementNo, effectiveFrom and effectiveTo (calendar dates — the two-year
+term), providerLicenceNo, client and provider (each { organisation,
+addressLines (array of strings), contactName, designation, phone, email }),
+scopeOfServices, serviceSchedule, obligations, commercialTerms and generalTerms
+(arrays of strings — the numbered clauses), clientSignatory and
+providerSignatory (each { organisation, name, designation, department, dated }
+with dated a calendar date), and origin ("generated" or "uploaded"). scans is
+the uploaded signed copy ({ id, name, kind, dataUrl, addedAt }) — never change,
+add or remove it, and never echo a dataUrl back. To change one clause use
+itemEdits with {"__row": n}, the 1-based number of the clause the user names;
+only when they ask for a new clause, return the complete array for that field.
+${DATE_TIME_RULE}`,
   reference: `
 A reference document kept in the app, transcribed from the company's own
 paper: the SOP (field "sections", an array of { title, chemicals, process,

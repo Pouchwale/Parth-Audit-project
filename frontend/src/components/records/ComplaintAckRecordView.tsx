@@ -15,6 +15,10 @@ import {
 import { imageFileToDataUrl } from "../../utils/image";
 import { generateId } from "../../utils/id";
 import { FormField as Field } from "./FormField";
+import { FG_CODE_EXAMPLE, fgCodeRule } from "../../engine/documentFormats";
+
+// The FG code on this report reads like FGSL3877 (engine/documentFormats.ts).
+const FG_RULE = fgCodeRule("FG code");
 
 // CAPA — Internal: Complaint Acknowledgement Report, QA-CAF-00 (22.03.26),
 // laid out as the company's two-page form: page 1 the logo, title, date, "To",
@@ -162,7 +166,7 @@ export function ComplaintAckRecordView({
                 <Field {...f("customerName")} kind="long" />
               </td>
               <td>
-                <Field {...f("fgCode")} />
+                <Field {...f("fgCode")} placeholder={FG_CODE_EXAMPLE} normalise={FG_RULE.normalise} problem={FG_RULE.problem} />
               </td>
               <td>
                 <Field {...f("complaintReceivedOn")} kind="date" />

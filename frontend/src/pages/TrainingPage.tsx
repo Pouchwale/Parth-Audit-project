@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { FiPlus, FiTrash2, FiArrowLeft } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
@@ -9,6 +9,8 @@ import type { RecordInstance, TrainingRecordData } from "../types";
 import {
   isCorrectableStatus,
   isEditableStatus,
+  cancelCorrection,
+  correctionChanges,
   reopenForCorrection,
   saveDraft,
   submitRecord,
@@ -25,7 +27,9 @@ import { useSetAssistantTarget } from "../store/AssistantContext";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
+import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
+import { ProviderLetterhead } from "../components/documents/ProviderLetterhead";
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { reprepareRecord } from "../engine/assistantPrepare";
 import { useT } from "../i18n";
@@ -148,6 +152,15 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
     bump();
   };
 
+  // The page's own actions, for the assistant — the target is registered
+  // before they are declared, so it calls them through this ref.
+  const actions = useRef<{
+    submit?: () => { ok: boolean; errors: string[] };
+    verify?: () => { ok: boolean; errors: string[] };
+    cancelCorrection?: () => void;
+    remove?: (reason: string) => void;
+  }>({});
+
   useSetAssistantTarget(
     record
       ? {
@@ -167,6 +180,13 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
                 bump();
               }
             : undefined,
+          // Everything the buttons do, so it can be asked for in words too.
+          title: `the training record of ${formatDisplayDate(record.data.trainingDate || record.dueDate)}`,
+          submit: editable ? () => actions.current.submit?.() ?? { ok: false, errors: [] } : undefined,
+          verify: ["Submitted", "Pending Verification"].includes(record.status) ? () => actions.current.verify?.() ?? { ok: false, errors: [] } : undefined,
+          cancelCorrection: record.correction ? () => actions.current.cancelCorrection?.() : undefined,
+          remove: (reason: string) => actions.current.remove?.(reason),
+          print: () => printDocument(),
         }
       : null
   );
@@ -191,25 +211,29 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   const addTopic = () => update({ topics: [...data.topics, ""] });
 
   const handleSave = () => undefined; // every change is already saved as it's made
-  const handleSubmit = () => {
+  const handleSubmit = (): { ok: boolean; errors: string[] } => {
     const { record: updated, result } = submitRecord(doc, record, currentUser);
     if (!result.valid) {
       setErrorsFor("submit");
-      return setErrors(result.errors);
+      setErrors(result.errors);
+      return { ok: false, errors: result.errors };
     }
     setErrors([]);
     setRecord(updated as RecordInstance<TrainingRecordData>);
     bump();
+    return { ok: true, errors: [] };
   };
-  const handleVerify = () => {
+  const handleVerify = (): { ok: boolean; errors: string[] } => {
     const { record: updated, result } = verifyRecord(doc, record, currentUser);
     if (!result.valid) {
       setErrorsFor("verify");
-      return setErrors(result.errors);
+      setErrors(result.errors);
+      return { ok: false, errors: result.errors };
     }
     setErrors([]);
     setRecord(updated as RecordInstance<TrainingRecordData>);
     bump();
+    return { ok: true, errors: [] };
   };
   const handleReject = (reason: string) => {
     setRecord(rejectRecord(record, currentUser, reason) as RecordInstance<TrainingRecordData>);
@@ -224,11 +248,20 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
     setRecord(reopenForCorrection(record, currentUser, reason) as RecordInstance<TrainingRecordData>);
     bump();
   };
-  const handleDelete = () => {
-    recordRepository.remove(record.id);
+  // Pressed Edit with nothing to put right: back as it was, at its old status.
+  const handleCancelCorrection = () => {
+    setErrors([]);
+    setRecord(cancelCorrection(record, currentUser) as RecordInstance<TrainingRecordData>);
+    bump();
+  };
+  // Any status can be deleted now; the deletion itself is recorded.
+  const handleDelete = (reason: string) => {
+    deleteRecordWithTrail(record, currentUser, reason);
     bump();
     navigate("/training");
   };
+
+  actions.current = { submit: handleSubmit, verify: handleVerify, cancelCorrection: handleCancelCorrection, remove: handleDelete };
 
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
@@ -242,7 +275,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         </div>
       </div>
 
-      {record.correction && <CorrectionBanner correction={record.correction} />}
+      {record.correction && <CorrectionBanner correction={record.correction} onCancel={handleCancelCorrection} />}
 
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
@@ -271,7 +304,13 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
 
       {/* The document itself — the part that prints (utils/print.ts). */}
       <div data-print-doc>
-      <DocumentHeader doc={doc} dateLabel={formatDisplayDate(data.trainingDate)} />
+      {/* The training is run and issued by Gurudev Pest Control, so the record
+          carries their printed letterhead ("Letter head.pdf") — and nothing else
+          above the form: the department asked for the title and the Format No. /
+          Rev No. / Date row to come off this document (12-Sep-2026). */}
+      <div className="doc-header notranslate" translate="no">
+        <ProviderLetterhead />
+      </div>
 
       <div className="card mt-4">
         <div className="card-pad flex gap-4 wrap">
@@ -421,11 +460,14 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         isDemo={record.isDemo}
         saveState="saved"
         onSave={handleSave}
-        onSubmit={handleSubmit}
-        onVerify={handleVerify}
+        onSubmit={() => handleSubmit()}
+        onVerify={() => handleVerify()}
         onReject={handleReject}
         onResume={handleResume}
         onCorrect={handleCorrect}
+        onCancelCorrection={record.correction ? handleCancelCorrection : undefined}
+        correctionFromStatus={record.correction?.fromStatus}
+        correctionChangeCount={correctionChanges(record).length}
         onPrint={() => printDocument()}
         onDelete={handleDelete}
       />

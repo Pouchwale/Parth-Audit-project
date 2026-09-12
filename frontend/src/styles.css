@@ -325,7 +325,37 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .caf-table.pr-signatures td { width: 50%; vertical-align: top; }
 .pr-sign-role { font-weight: 700; margin-bottom: 4px; }
 .pr-sheet .caf-row { margin: 3px 0; }
+/* The service provider's printed letterhead, as "Letter head.pdf" prints it —
+   on the documents Gurudev Pest Control issues: the Pest Control Training
+   Record and the Service Agreement (components/documents/ProviderLetterhead.tsx) */
+.provider-letterhead { text-align: center; margin-bottom: 14px; position: relative; padding-top: 2px; }
+.pl-logo {
+  position: absolute; left: 0; top: 0; font-weight: 800; letter-spacing: 1px; color: #fff; background: #57a11c;
+  border-radius: 4px; padding: 3px 12px; font-size: 15px;
+}
+.pl-phones { text-align: right; font-weight: 700; color: #b91c1c; font-size: 12px; }
+.pl-name { font-size: 26px; font-weight: 800; color: #1d4ed8; letter-spacing: 0.5px; margin-top: 2px; }
+.pl-address { font-size: 11.5px; font-weight: 700; color: #7c3aed; line-height: 1.4; }
+.pl-contact { font-size: 11.5px; font-weight: 700; color: #1d4ed8; text-align: right; margin-top: 4px; }
+.pl-rule { border: none; border-top: 1.5px solid #111; margin: 8px 0 0; }
+/* In a document header block it stands in for the company-name line. */
+.doc-header .provider-letterhead { margin: 0; padding: 12px 16px 6px; }
+.doc-header .pl-logo { left: 16px; top: 12px; }
+.sa-sheet .caf-row { margin: 4px 0; }
+.sa-to { margin: 0 6px; }
+.sa-term-note { margin-left: 6px; }
+.caf-table.sa-parties td { width: 50%; vertical-align: top; }
+.sa-scans { border: 1px dashed var(--color-border); border-radius: var(--radius); padding: 12px; margin-bottom: 14px; }
+.sa-scans-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.sa-scan { margin: 0 0 10px; }
+.sa-scan img { max-width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius); display: block; }
+.sa-pdf { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: var(--radius); }
+/* The agreement's standing on the Service Provider page (components/documents/ServiceAgreementReminder.tsx) */
+.agreement-card.warning { border-color: var(--color-warning); background: var(--color-warning-bg); }
+.agreement-card.danger { border-color: var(--color-danger); background: var(--color-danger-bg); }
 @media print {
+  .pl-logo, .pl-name, .pl-address, .pl-contact, .pl-phones { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sa-scans { border: none; padding: 0; }
   .caf-page { border: none; border-radius: 0; padding: 0; margin: 0; min-height: 250mm; break-after: page; }
   .caf-page:last-of-type { break-after: auto; }
   .caf-sheet .caf-screen-only { display: none !important; }
@@ -444,8 +474,6 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 
 /* ---- Language switcher (Dashboard + top bar) ---- */
 .lang-select { width: auto; min-width: 104px; }
-.dash-language { text-align: right; }
-.dash-language .pill-tabs { justify-content: flex-end; }
 
 /* ---- Voice controls (assistant page + widget) ---- */
 .btn.voice-on { color: var(--color-danger); }
@@ -759,5 +787,5 @@ body > .skiptranslate, iframe.skiptranslate, .goog-te-banner-frame, .goog-te-bal
 .VIpgJd-ZVi9od-ORHb-OEVmcd, .VIpgJd-ZVi9od-aZ2wEe-wOHMyf, .VIpgJd-yAWNEb-L7lbkb { display: none !important; }
 body { top: 0 !important; }
 .goog-text-highlight, .VIpgJd-yAWNEb-VIpgJd-fmcmS-sn54Q { background: none !important; box-shadow: none !important; }
-.lang-switcher { display: inline-flex; flex-direction: column; gap: 4px; }
-.lang-note { max-width: 260px; }
+.lang-switcher-compact { display: inline-flex; align-items: center; gap: 6px; }
+.lang-note { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

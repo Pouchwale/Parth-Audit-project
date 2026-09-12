@@ -414,13 +414,20 @@ def main():
             chips.last.click()
             page.wait_for_timeout(250)
 
+        # The complaint number is already on the sheet (26-27/001 — the app
+        # numbers a new complaint itself), so the walk-through doesn't ask for
+        # it; it goes customer → job name → job code → PO no. → received date.
+        year_part = f"{date.today().year % 100:02d}-{(date.today().year % 100 + 1) % 100:02d}"
+        check("A new complaint is already numbered for this year", page.locator(f"input[value='{year_part}/001']").count() == 1)
         chat_type("Gulab Oil And Food")
-        chat_type("CC-2026-001")
         chat_chip(r"^Skip$")          # job name (optional)
-        chat_chip(r"^Skip$")          # job code
+        chat_type("fgsl 3877")        # job code — tidied to the plant's format
         chat_chip(r"^Skip$")          # PO no.
         chat_chip(r"^Today$")         # complaint received date
-        check("Header details captured on the form", page.locator("input[value='Gulab Oil And Food']").count() == 1 and page.locator("input[value='CC-2026-001']").count() == 1)
+        check(
+            "Header details captured on the form, the job code in the plant's format",
+            page.locator("input[value='Gulab Oil And Food']").count() == 1 and page.locator("input[value='FGSL3877']").count() == 1,
+        )
 
         check("Assistant announces Section A", page.locator(".chat-msg.bot", has_text="Section A").count() >= 1)
         chat_chip(r"^Let's go$")
@@ -486,7 +493,7 @@ def main():
         # ---- 12. Document Library ----
         page.click("text=Document Library")
         page.wait_for_timeout(300)
-        check("Document Library lists all 24 documents", page.locator(".doc-table tbody tr").count() == 24)
+        check("Document Library lists all 25 documents", page.locator(".doc-table tbody tr").count() == 25)
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)
@@ -806,8 +813,8 @@ def main():
         # nothing to reload (src/i18n, wired through AppStore).
         page.click("a[href='#/dashboard']")
         page.wait_for_timeout(400)
-        check("Dashboard offers both languages", page.locator(".dash-language .pill-tab[data-lang='en']").count() == 1 and page.locator(".dash-language .pill-tab[data-lang='gu']").count() == 1)
-        page.click(".dash-language .pill-tab[data-lang='gu']")
+        check("The top bar offers both languages", page.locator(".lang-select option").count() == 2)
+        page.select_option(".lang-select", "gu")
         page.wait_for_timeout(400)
         check("Choosing Gujarati translates the Dashboard", "ડેશબોર્ડ" in page.locator(".app-sidebar").inner_text() and "આજે" in page.locator(".app-content").inner_text())
         check("...and the sidebar's module names", "જીવાત નિયંત્રણ" in page.locator(".app-sidebar").inner_text())
@@ -823,7 +830,7 @@ def main():
         # Back to English for the remaining checks (and so a re-run starts clean).
         page.click("a[href='#/dashboard']")
         page.wait_for_timeout(300)
-        page.click(".dash-language .pill-tab[data-lang='en']")
+        page.select_option(".lang-select", "en")
         page.wait_for_timeout(300)
         check("Switching back to English restores it everywhere", "Dashboard" in page.locator(".app-sidebar").inner_text())
         page.goto(f"{BASE}/index.html#/assistant")

@@ -78,10 +78,10 @@ const SECTIONS: { key: ChecklistSection["key"]; title: string; items: [number, s
 
 export const COMPLAINT_ACTIVITY_COUNT = SECTIONS.reduce((n, s) => n + s.items.length, 0);
 
-export function newComplaintChecklistData(): ComplaintChecklistData {
+export function newComplaintChecklistData(complaintNo = ""): ComplaintChecklistData {
   return {
     customerName: "",
-    complaintNo: "",
+    complaintNo,
     jobName: "",
     jobCode: "",
     complaintReceivedDate: null,
