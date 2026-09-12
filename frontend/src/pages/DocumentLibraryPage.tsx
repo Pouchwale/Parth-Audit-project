@@ -17,6 +17,7 @@ function openTarget(docId: string, kind: string): string {
   if (kind === "gap-inspection") return "/gap";
   if (kind === "complaint-checklist") return "/gap/external";
   if (kind === "complaint-ack") return "/gap/internal";
+  if (kind === "pest-responsibilities") return "/pest-control";
   if (kind === "training-record") return "/training";
   // Pest Control documents have their own pages (src/pages/PestControlPages.tsx).
   if (kind === "daily-pest-monitoring") return "/pest/daily";

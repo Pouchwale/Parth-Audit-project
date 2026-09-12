@@ -55,4 +55,8 @@ export type DocumentKind =
   // side: a customer complaint explained to the employee involved, with
   // photographs, root cause, corrective / preventive action and the
   // employee's acknowledgement (components/records/ComplaintAckRecordView.tsx).
-  | "complaint-ack";
+  | "complaint-ack"
+  // Responsibilities of Pest Control — the three-page agreement between the
+  // site and the pest control service provider, on the company's letterhead
+  // (components/records/PestResponsibilitiesRecordView.tsx).
+  | "pest-responsibilities";

@@ -310,6 +310,21 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .caf-footer { margin-top: auto; padding-top: 22px; display: flex; flex-direction: column; font-size: 12.5px; }
 .caf-footer .ref { align-self: flex-end; }
 .caf-footer .page-no { align-self: center; color: #2563eb; font-size: 11px; margin-top: 2px; }
+/* Responsibilities of Pest Control (components/records/PestResponsibilitiesRecordView.tsx) */
+.pr-letterhead { display: flex; align-items: flex-start; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.pr-letterhead .caf-logo { margin-bottom: 0; }
+.pr-address { font-size: 11px; line-height: 1.45; color: #333; align-self: center; }
+.pr-heading { font-size: 15px; }
+.pr-subheading { font-weight: 700; margin-top: 10px; }
+.pr-list { margin-top: 6px; }
+.pr-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.pr-marker { min-width: 22px; padding-top: 3px; }
+.pr-item-text { flex: 1; min-width: 0; }
+.pr-note { font-style: italic; }
+.caf-table.pr-calls td { width: 33%; }
+.caf-table.pr-signatures td { width: 50%; vertical-align: top; }
+.pr-sign-role { font-weight: 700; margin-bottom: 4px; }
+.pr-sheet .caf-row { margin: 3px 0; }
 @media print {
   .caf-page { border: none; border-radius: 0; padding: 0; margin: 0; min-height: 250mm; break-after: page; }
   .caf-page:last-of-type { break-after: auto; }

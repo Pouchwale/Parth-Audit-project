@@ -93,6 +93,14 @@ function buildIndex(isDemo: boolean): SearchRow[] {
         matchText: [doc.name, doc.formatNo, r.dueDate, r.status, r.id, d.customerName, d.fgCode, d.jobName, d.toName, d.employeeName, d.complaintType, d.complaintSubType].join(" ").toLowerCase(),
         snippet: `${d.fgCode || "—"} · ${d.customerName || "—"} · ${d.jobName || "—"}`,
       });
+    } else if (doc.kind === "pest-responsibilities") {
+      const d = r.data as import("../types").PestResponsibilitiesData;
+      rows.push({
+        ...base,
+        route: routeForRecord(doc, r.id),
+        matchText: [doc.name, r.dueDate, r.status, r.id, d.client.name, d.provider.name, d.provider.organisation, ...d.siteResponsibilities].join(" ").toLowerCase(),
+        snippet: `${d.client.name || "—"} / ${d.provider.name || "—"}`,
+      });
     } else if (doc.kind === "training-record") {
       const d = r.data as TrainingRecordData;
       rows.push({

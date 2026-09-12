@@ -15,6 +15,8 @@ import { countFindings } from "../engine/checkpoints";
 import { totalRodents } from "../engine/rodentPattern";
 import { flySeasonLabel } from "../engine/flyPattern";
 import { fixedMaterialForServiceArea } from "../engine/serviceMaterials";
+import { PR_DOC_ID, newPestResponsibilitiesData } from "../data/seed/pestResponsibilities";
+import { generateId } from "../utils/id";
 import { fliesInMonth, flyStatsForYear, rodentStatsForYear, rodentsInMonth } from "../data/selectors";
 import { FlyCatcherTrendReport, RodentTrendReport } from "./ReportsPage";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -23,7 +25,7 @@ import { DailyRegisterSheet, FHR17_ORIGINAL_PAGES } from "../components/records/
 import { FlyCatcherRegisterSheet } from "../components/records/FlyCatcherRegisterSheet";
 import { useT } from "../i18n";
 import { MONTH_NAMES, WEEKDAY_NAMES, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
-import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
+import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
 
 // The Pest Control module, organised the way the department actually talks
 // about its paperwork (and the way the source documents fall):
@@ -170,6 +172,30 @@ export function PestControlOverviewPage() {
   const flyDoc = docs.find((d) => d.id === FLY_DOC_ID);
   const nextFly = flyDoc ? nextDueDate(flyDoc, today) : null;
   const lastTraining = latestRecord<TrainingRecordData>(TRAINING_DOC_ID, isDemo, today);
+
+  // The signed Responsibilities of Pest Control document: the seeded signed
+  // copy on the Live side, a fresh one started here on the Demo side.
+  const openResponsibilities = () => {
+    const existing = latestRecord<PestResponsibilitiesData>(PR_DOC_ID, isDemo, "9999-12-31");
+    if (existing) {
+      navigate(`/record/${existing.id}`);
+      return;
+    }
+    const now = new Date().toISOString();
+    const rec: RecordInstance<PestResponsibilitiesData> = {
+      id: generateId("resp"),
+      documentId: PR_DOC_ID,
+      periodKey: generateId("period"),
+      dueDate: today,
+      status: "In Progress",
+      isDemo,
+      data: newPestResponsibilitiesData(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    recordRepository.upsert(rec as RecordInstance);
+    navigate(`/record/${rec.id}`);
+  };
 
   return (
     <div className={isDemo ? "demo-watermark" : ""}>
@@ -337,6 +363,9 @@ export function PestControlOverviewPage() {
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => navigate("/licence")}>
                 <FiFileText size={12} /> Service Provider Licence
+              </button>
+              <button className="btn btn-secondary btn-sm" data-action="open-responsibilities" onClick={openResponsibilities}>
+                <FiFileText size={12} /> Responsibilities (Site &amp; Provider)
               </button>
             </div>
           </div>

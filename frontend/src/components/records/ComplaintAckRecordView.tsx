@@ -14,6 +14,7 @@ import {
 } from "../../data/seed/complaintAck";
 import { imageFileToDataUrl } from "../../utils/image";
 import { generateId } from "../../utils/id";
+import { FormField as Field } from "./FormField";
 
 // CAPA — Internal: Complaint Acknowledgement Report, QA-CAF-00 (22.03.26),
 // laid out as the company's two-page form: page 1 the logo, title, date, "To",
@@ -24,65 +25,6 @@ import { generateId } from "../../utils/id";
 // RecordPage); once submitted or verified it is locked, and Edit reopens it.
 // A draft shows input boxes on screen; the printout, and a locked record, show
 // each value as plain text the way the paper reads, so nothing is cut off.
-
-/** 2026-07-11 -> "11.07.2026", as the form writes a date. */
-function formDate(iso: string): string {
-  const [y, m, d] = (iso || "").split("-");
-  return y && m && d ? `${d}.${m}.${y}` : "";
-}
-
-type FieldKind = "text" | "date" | "long";
-
-function Field({
-  value,
-  onChange,
-  editable,
-  kind = "text",
-  field,
-  placeholder,
-  list,
-  roomy,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  editable: boolean;
-  kind?: FieldKind;
-  field: string;
-  placeholder?: string;
-  list?: string;
-  /** Leaves writing room on a printed blank form (root cause, the actions). */
-  roomy?: boolean;
-}) {
-  const shown = kind === "date" ? formDate(value) : value;
-  const cls = `caf-value${kind === "long" ? " long" : ""}${roomy ? " roomy" : ""}${editable ? " caf-print-only" : ""}`;
-  const text = kind === "long" ? <div className={cls}>{shown}</div> : <span className={cls}>{shown}</span>;
-  if (!editable) return text;
-  return (
-    <>
-      {kind === "long" ? (
-        <textarea
-          className="input caf-input caf-long caf-screen-only"
-          data-field={field}
-          rows={3}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      ) : (
-        <input
-          className="input caf-input caf-screen-only"
-          data-field={field}
-          type={kind === "date" ? "date" : "text"}
-          list={list}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
-      {text}
-    </>
-  );
-}
 
 function Logo() {
   return (

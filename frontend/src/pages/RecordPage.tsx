@@ -18,12 +18,13 @@ import { withEditHistory } from "../engine/recordHistory";
 import { fieldLabels } from "../engine/recordPatch";
 import { reprepareRecord } from "../engine/assistantPrepare";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
-import type { ComplaintAckData, DailyPestMonitoringData, FlyCatcherData, LogSheetData, RecordInstance, ServiceReportData } from "../types";
+import type { ComplaintAckData, DailyPestMonitoringData, FlyCatcherData, LogSheetData, PestResponsibilitiesData, RecordInstance, ServiceReportData } from "../types";
 import { DailyPestMonitoringRecordView } from "../components/records/DailyPestMonitoringRecordView";
 import { FlyCatcherRecordView } from "../components/records/FlyCatcherRecordView";
 import { ServiceReportRecordView } from "../components/records/ServiceReportRecordView";
 import { LogSheetRecordView } from "../components/records/LogSheetRecordView";
 import { ComplaintAckRecordView } from "../components/records/ComplaintAckRecordView";
+import { PestResponsibilitiesRecordView } from "../components/records/PestResponsibilitiesRecordView";
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
@@ -35,7 +36,7 @@ import { todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 
 // Record kinds this page renders AND the assistant has a field guide for.
-const ASSISTANT_KINDS = new Set(["daily-pest-monitoring", "fly-catcher", "service-report", "log-sheet"]);
+const ASSISTANT_KINDS = new Set(["daily-pest-monitoring", "fly-catcher", "service-report", "log-sheet", "complaint-ack", "pest-responsibilities"]);
 // A change is saved this long after the last keystroke — nobody has to
 // remember a Save button, and leaving the page mid-edit loses nothing.
 const AUTOSAVE_MS = 700;
@@ -274,6 +275,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       {doc.kind === "log-sheet" && <LogSheetRecordView doc={doc} record={{ ...record, data: data as LogSheetData }} editable={editable} onChange={handleChange} />}
       {doc.kind === "complaint-ack" && (
         <ComplaintAckRecordView doc={doc} record={{ ...record, data: data as ComplaintAckData }} editable={editable} onChange={handleChange} />
+      )}
+      {doc.kind === "pest-responsibilities" && (
+        <PestResponsibilitiesRecordView doc={doc} record={{ ...record, data: data as PestResponsibilitiesData }} editable={editable} onChange={handleChange} />
       )}
       </div>
       {doc.kind === "training-record" && (

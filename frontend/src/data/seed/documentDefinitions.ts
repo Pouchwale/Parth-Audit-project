@@ -159,6 +159,23 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "as-required" },
   },
   {
+    id: "pest-responsibilities",
+    kind: "pest-responsibilities",
+    name: "Responsibilities of Pest Control — Site & Service Provider",
+    formatNo: "TO BE CONFIRMED",
+    revisionNo: "TO BE CONFIRMED",
+    revisionDate: "2025-01-01",
+    department: "Quality / Purchase",
+    module: "Pest Control",
+    section: "Training & Reference",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "What the site is responsible for (fourteen points) and what Gurudev Pest Control is responsible for — equipment and storage, emergency contacts, yearly awareness training, the environmental / health & safety clauses and the service clauses — signed by both parties on 01-Jan-2025.",
+    sourceFile: "responsibilities of pest control report .pdf",
+    schedule: { type: "as-required" },
+  },
+  {
     id: "training-record",
     kind: "training-record",
     name: "Pest Control Training Record",

@@ -7,6 +7,7 @@ import type {
   GapInspectionData,
   LogColumn,
   LogSheetData,
+  PestResponsibilitiesData,
   RecordInstance,
   ServiceReportData,
   TrainingRecordData,
@@ -127,6 +128,13 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       if (!d.correctiveAction.trim()) errors.push("Corrective Action is required.");
       if (!d.preventiveAction.trim()) errors.push("Preventive Action is required.");
       if (!d.employeeName.trim()) errors.push("The employee's name (the acknowledgement) is required.");
+      break;
+    }
+    case "pest-responsibilities": {
+      const d = record.data as PestResponsibilitiesData;
+      if (d.siteResponsibilities.length === 0) errors.push("The site responsibilities are empty — add at least one point.");
+      if (!d.client.name.trim()) errors.push("The client representative's name is required.");
+      if (!d.provider.name.trim()) errors.push("The pest control agency representative's name is required.");
       break;
     }
     case "log-sheet": {

@@ -3,7 +3,8 @@
 // on first run so the prototype demonstrates real traceability alongside the
 // Demo Mode generator. Nothing here is invented; blank source fields stay
 // blank / null.
-import type { GapInspectionData, RecordInstance, TrainingRecordData } from "../../types";
+import type { GapInspectionData, PestResponsibilitiesData, RecordInstance, TrainingRecordData } from "../../types";
+import { newPestResponsibilitiesData } from "./pestResponsibilities";
 import { generateId } from "../../utils/id";
 
 const now = new Date().toISOString();
@@ -177,8 +178,29 @@ export const SEED_AWARENESS_TRAINING_RECORD: RecordInstance<TrainingRecordData> 
   verifiedAt: "2025-12-24T00:00:00.000Z",
 };
 
+// The Responsibilities of Pest Control document as both parties signed it on
+// 01.01.2025 ("responsibilities of pest control report .pdf"); its wording is
+// in data/seed/pestResponsibilities.ts. It is on file as a signed document, so
+// it is seeded verified — correcting it goes through Edit, like any record.
+export const SEED_PEST_RESPONSIBILITIES_RECORD: RecordInstance<PestResponsibilitiesData> = {
+  id: "pest-responsibilities-2025-01-01",
+  documentId: "pest-responsibilities",
+  periodKey: "2025-01-01",
+  dueDate: "2025-01-01",
+  status: "Verified",
+  isDemo: false,
+  data: newPestResponsibilitiesData(),
+  createdAt: now,
+  updatedAt: now,
+  submittedBy: "Chirag Parmar (Manager, Purchase)",
+  submittedAt: "2025-01-01T00:00:00.000Z",
+  verifiedBy: "Rohit Patel (Gurudev Pest Control Services)",
+  verifiedAt: "2025-01-01T00:00:00.000Z",
+};
+
 export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   SEED_GAP_RECORD as RecordInstance,
   SEED_TRAINING_RECORD as RecordInstance,
   SEED_AWARENESS_TRAINING_RECORD as RecordInstance,
+  SEED_PEST_RESPONSIBILITIES_RECORD as RecordInstance,
 ];

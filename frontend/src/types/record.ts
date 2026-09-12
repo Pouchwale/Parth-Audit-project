@@ -272,6 +272,37 @@ export interface ComplaintAckData {
   employeeSignDate: string; // ISO date, or ""
 }
 
+// ---- Responsibilities of Pest Control — Site & Service Provider -----------
+// The three-page agreement on the company's letterhead: what the site is
+// responsible for, what the pest control service provider is responsible for
+// (equipment and storage, emergency contacts, yearly awareness training, the
+// environmental / health & safety clauses and the service clauses), and the
+// two signatories.
+export interface ResponsibilityContact {
+  issue: string;
+  name: string;
+  phone: string;
+}
+
+export interface ResponsibilitySignatory {
+  organisation: string;
+  name: string;
+  designation: string;
+  department: string;
+  dated: string; // ISO date, or ""
+}
+
+export interface PestResponsibilitiesData {
+  siteResponsibilities: string[];
+  equipmentStorage: string[];
+  emergencyCalls: ResponsibilityContact[];
+  trainingNote: string;
+  ehsClauses: string[];
+  serviceClauses: string[];
+  client: ResponsibilitySignatory;
+  provider: ResponsibilitySignatory;
+}
+
 export interface TrainingRecordData {
   trainingDate: string;
   trainingType: string; // e.g. "Technician Certification"
