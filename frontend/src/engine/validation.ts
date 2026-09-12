@@ -1,4 +1,5 @@
 import type {
+  ComplaintAckData,
   ComplaintChecklistData,
   DailyPestMonitoringData,
   DocumentDefinition,
@@ -112,6 +113,20 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       if (!d.preparedBy.name.trim()) errors.push("Prepared By (name) is required.");
       const answered = d.sections.reduce((n, s) => n + s.items.filter((it) => it.done || it.notRequired || it.comment.trim()).length, 0);
       if (answered === 0) errors.push("Nothing on the checklist has been filled in yet — go through sections A to E first.");
+      break;
+    }
+    case "complaint-ack": {
+      const d = record.data as ComplaintAckData;
+      if (!d.reportDate) errors.push("Date is required.");
+      if (!d.toName.trim()) errors.push('"To" — the person the complaint is explained to — is required.');
+      if (!d.customerName.trim()) errors.push("Customer Name is required.");
+      if (!d.complaintReceivedOn) errors.push("Complaint received on is required.");
+      if (!d.jobName.trim()) errors.push("Job name is required.");
+      if (!d.scenario.trim()) errors.push("Scenario is required.");
+      if (!d.rootCause.trim()) errors.push("Root Cause is required.");
+      if (!d.correctiveAction.trim()) errors.push("Corrective Action is required.");
+      if (!d.preventiveAction.trim()) errors.push("Preventive Action is required.");
+      if (!d.employeeName.trim()) errors.push("The employee's name (the acknowledgement) is required.");
       break;
     }
     case "log-sheet": {

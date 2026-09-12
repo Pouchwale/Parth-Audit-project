@@ -271,6 +271,56 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .fhr18-grid input[type="date"].fhr18-input { min-width: 118px; }
 .register-grid tr.register-row.locked td { background: #f5f6f8; color: var(--color-text-muted); }
 
+/* ---- CAPA Internal: Complaint Acknowledgement Report, QA-CAF-00 (components/records/ComplaintAckRecordView.tsx) ---- */
+.caf-sheet { color: #111; }
+.caf-page {
+  background: #fff; border: 1px solid var(--color-border-strong); border-radius: 2px; padding: 26px 40px 16px; margin-bottom: 18px;
+  display: flex; flex-direction: column; font-size: 13.5px; line-height: 1.5;
+}
+.caf-logo { align-self: center; border: 2px solid #c1272d; padding: 3px 12px 4px; text-align: center; color: #c1272d; line-height: 1.1; margin-bottom: 18px; font-family: "Arial Narrow", Arial, sans-serif; }
+.caf-logo .l1 { font-size: 22px; font-weight: 800; letter-spacing: 0.02em; }
+.caf-logo .l2 { font-size: 13px; font-weight: 700; letter-spacing: 0.05em; border-top: 1.5px solid #c1272d; margin-top: 3px; padding-top: 2px; }
+.caf-title { font-weight: 700; margin-bottom: 8px; }
+.caf-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 5px 0; }
+.caf-row > strong { white-space: nowrap; }
+.caf-row .caf-input { width: auto; flex: 1 1 180px; max-width: 360px; }
+.caf-rule { border: none; border-top: 2px solid #9ca3af; margin: 12px 0; }
+.caf-text { margin: 8px 0; }
+.caf-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 8px 0 4px; }
+.caf-table th, .caf-table td { border: 1.5px solid #111; padding: 5px 6px; vertical-align: top; text-align: left; font-weight: 400; }
+.caf-table th:nth-child(1) { width: 18%; } .caf-table th:nth-child(2) { width: 9%; } .caf-table th:nth-child(3) { width: 14%; }
+.caf-table th:nth-child(4) { width: 29%; } .caf-table th:nth-child(5) { width: 11%; } .caf-table th:nth-child(6) { width: 19%; }
+.caf-table .caf-input { width: 100%; min-width: 0; padding: 4px 6px; font-size: 12.5px; }
+.caf-section { margin-top: 12px; }
+.caf-label { margin-bottom: 4px; }
+.caf-long { width: 100%; min-height: 64px; resize: vertical; field-sizing: content; }
+.caf-table .caf-long { min-height: 48px; }
+.caf-value.long { display: block; white-space: pre-wrap; }
+.caf-sheet .caf-print-only { display: none !important; }
+.caf-photos { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; margin: 12px 0; }
+.caf-photo { position: relative; margin: 0; }
+.caf-photo img { display: block; height: 220px; width: auto; max-width: 100%; border: 1px solid var(--color-border); }
+.caf-photo-remove { position: absolute; top: 4px; right: 4px; background: rgba(255, 255, 255, 0.92) !important; }
+.caf-photo-add {
+  height: 220px; width: 170px; border: 2px dashed var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-alt);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; color: var(--color-text-muted); font: inherit;
+}
+.caf-photo-add:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.caf-sign-line { display: inline-block; min-width: 190px; border-bottom: 1.5px solid #111; height: 1.1em; }
+.caf-footer { margin-top: auto; padding-top: 22px; display: flex; flex-direction: column; font-size: 12.5px; }
+.caf-footer .ref { align-self: flex-end; }
+.caf-footer .page-no { align-self: center; color: #2563eb; font-size: 11px; margin-top: 2px; }
+@media print {
+  .caf-page { border: none; border-radius: 0; padding: 0; margin: 0; min-height: 250mm; break-after: page; }
+  .caf-page:last-of-type { break-after: auto; }
+  .caf-sheet .caf-screen-only { display: none !important; }
+  .caf-sheet .caf-print-only { display: inline !important; }
+  .caf-sheet .caf-print-only.long { display: block !important; }
+  .caf-value.long.roomy { min-height: 38mm; }
+  .caf-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .caf-photo img { height: 230px; }
+}
+
 /* ---- Document Files (pages/FileBrowserPage.tsx) ---- */
 .file-controls { margin: 12px 0 10px; }
 .file-breadcrumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; margin-bottom: 12px; }

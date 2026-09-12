@@ -68,7 +68,8 @@ export function CapaHomePage() {
             </div>
             <p className="text-sm text-muted mb-3">
               Findings raised by our own or our service provider's pest control inspections (e.g. the Dec-2023 GAP report), each
-              with a corrective action tracked to closure.
+              with a corrective action tracked to closure — and Complaint Acknowledgement Reports (QA-CAF-00): a customer complaint
+              explained to the employee involved, with photos, root cause and corrective / preventive action.
             </p>
             <div className="flex gap-3 wrap mb-3">
               <div className="stat-tile" style={{ padding: "10px 14px", minWidth: 110 }}>

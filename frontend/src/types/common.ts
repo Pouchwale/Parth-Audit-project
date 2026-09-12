@@ -50,4 +50,9 @@ export type DocumentKind =
   // flag / date / comment, plus a Prepared-by / Approved-by sign-off. The
   // assistant walks the user through it section by section (see
   // src/engine/guidedChecklist.ts).
-  | "complaint-checklist";
+  | "complaint-checklist"
+  // Complaint Acknowledgement Report (QA-CAF-00) — the CAPA module's Internal
+  // side: a customer complaint explained to the employee involved, with
+  // photographs, root cause, corrective / preventive action and the
+  // employee's acknowledgement (components/records/ComplaintAckRecordView.tsx).
+  | "complaint-ack";

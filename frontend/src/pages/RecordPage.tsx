@@ -18,11 +18,12 @@ import { withEditHistory } from "../engine/recordHistory";
 import { fieldLabels } from "../engine/recordPatch";
 import { reprepareRecord } from "../engine/assistantPrepare";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
-import type { DailyPestMonitoringData, FlyCatcherData, LogSheetData, RecordInstance, ServiceReportData } from "../types";
+import type { ComplaintAckData, DailyPestMonitoringData, FlyCatcherData, LogSheetData, RecordInstance, ServiceReportData } from "../types";
 import { DailyPestMonitoringRecordView } from "../components/records/DailyPestMonitoringRecordView";
 import { FlyCatcherRecordView } from "../components/records/FlyCatcherRecordView";
 import { ServiceReportRecordView } from "../components/records/ServiceReportRecordView";
 import { LogSheetRecordView } from "../components/records/LogSheetRecordView";
+import { ComplaintAckRecordView } from "../components/records/ComplaintAckRecordView";
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
@@ -271,6 +272,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         />
       )}
       {doc.kind === "log-sheet" && <LogSheetRecordView doc={doc} record={{ ...record, data: data as LogSheetData }} editable={editable} onChange={handleChange} />}
+      {doc.kind === "complaint-ack" && (
+        <ComplaintAckRecordView doc={doc} record={{ ...record, data: data as ComplaintAckData }} editable={editable} onChange={handleChange} />
+      )}
       </div>
       {doc.kind === "training-record" && (
         <div className="empty-state">

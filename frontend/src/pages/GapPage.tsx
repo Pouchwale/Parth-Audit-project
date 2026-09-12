@@ -5,7 +5,8 @@ import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { refreshGapFindingStatuses } from "../data/selectors";
-import type { GapFinding, GapInspectionData, RecordInstance } from "../types";
+import type { ComplaintAckData, GapFinding, GapInspectionData, RecordInstance } from "../types";
+import { CAF_DOC_ID, CAF_FORMAT_REF, newComplaintAckData } from "../data/seed/complaintAck";
 import {
   isCorrectableStatus,
   isEditableStatus,
@@ -35,6 +36,29 @@ export function GapListPage() {
   const isDemo = mode === "demo";
   refreshGapFindingStatuses(isDemo);
   const records = recordRepository.query({ documentId: GAP_DOC_ID, isDemo }) as RecordInstance<GapInspectionData>[];
+  const acks = (recordRepository.query({ documentId: CAF_DOC_ID, isDemo }) as RecordInstance<ComplaintAckData>[])
+    .slice()
+    .sort((a, b) => (a.data.reportDate < b.data.reportDate ? 1 : -1));
+
+  // A Complaint Acknowledgement Report is started by hand and opens on its own
+  // page (RecordPage), with the form's wording already filled in.
+  const createAck = () => {
+    const now = new Date().toISOString();
+    const rec: RecordInstance<ComplaintAckData> = {
+      id: generateId("caf"),
+      documentId: CAF_DOC_ID,
+      periodKey: generateId("period"),
+      dueDate: todayISO(),
+      status: "In Progress",
+      isDemo,
+      data: newComplaintAckData(todayISO()),
+      createdAt: now,
+      updatedAt: now,
+    };
+    recordRepository.upsert(rec as RecordInstance);
+    bump();
+    navigate(`/record/${rec.id}`);
+  };
   const doc = documentRepository.getById(GAP_DOC_ID)!;
 
   const createNew = () => {
@@ -114,11 +138,66 @@ export function GapListPage() {
                       <StatusBadge status={r.status} />
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <button className="btn btn-ghost btn-sm">Open</button>
+                      <button className="btn btn-ghost btn-sm">Open / Edit</button>
                     </td>
                   </tr>
                 );
               })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* CAPA — Internal: Complaint Acknowledgement Reports (QA-CAF-00). */}
+      <div className="flex items-center justify-between mt-6 mb-3 gap-3 wrap" data-section="complaint-ack">
+        <div>
+          <h2 className="text-xl mb-1">Complaint Acknowledgement Reports</h2>
+          <p className="text-muted text-sm">
+            Format {CAF_FORMAT_REF} — a customer complaint explained to the employee(s) involved: the complaint, what happened (with photos), root cause,
+            corrective and preventive action, and the employee's signed acknowledgement.
+          </p>
+        </div>
+        <button className="btn btn-primary" data-action="new-complaint-ack" onClick={createAck}>
+          <FiPlus size={14} /> New Complaint Acknowledgement
+        </button>
+      </div>
+      <div className="doc-table">
+        <table data-table="complaint-ack">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Customer</th>
+              <th>FG code</th>
+              <th>Job name</th>
+              <th>Com. type</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {acks.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-muted text-center" style={{ padding: 24 }}>
+                  No complaint acknowledgements yet.
+                </td>
+              </tr>
+            )}
+            {acks.map((r) => (
+              <tr key={r.id} className="card-clickable" onClick={() => navigate(`/record/${r.id}`)}>
+                <td>{r.data.reportDate ? formatDisplayDate(r.data.reportDate) : "—"}</td>
+                <td>
+                  {r.data.customerName || "—"} {r.isDemo && <DemoTag />}
+                </td>
+                <td>{r.data.fgCode || "—"}</td>
+                <td className="text-sm">{r.data.jobName || "—"}</td>
+                <td className="text-sm">{r.data.complaintType || "—"}</td>
+                <td>
+                  <StatusBadge status={r.status} />
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <button className="btn btn-ghost btn-sm">Open / Edit</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

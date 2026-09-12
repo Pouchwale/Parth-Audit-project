@@ -55,6 +55,22 @@ const KEY_LABELS: Record<string, string> = {
   lotStatus: "Lot status",
   deviationReason: "Reason for deviation",
   monthYear: "Month & year",
+  reportDate: "Date",
+  toName: "To",
+  toDesignation: "To (designation)",
+  subject: "Subject",
+  customerName: "Customer name",
+  fgCode: "FG code",
+  complaintReceivedOn: "Complaint received on",
+  jobName: "Job name",
+  complaintType: "Complaint type",
+  complaintSubType: "Complaint sub type",
+  scenario: "Scenario",
+  rootCause: "Root cause",
+  correctiveAction: "Corrective action",
+  preventiveAction: "Preventive action",
+  acknowledgement: "Acknowledgement",
+  employeeSignDate: "Employee's date",
 };
 
 function words(key: string): string {
@@ -90,6 +106,7 @@ const COLLECTION_LABELS: Record<string, string> = {
   topics: "Topic",
   items: "Item",
   sections: "Section",
+  photos: "Photo",
 };
 
 // ---------------------------------------------------------------------------

@@ -85,6 +85,14 @@ function buildIndex(isDemo: boolean): SearchRow[] {
         matchText: [doc.name, doc.formatNo, r.dueDate, r.status, r.id, d.customerName, d.complaintNo, d.jobName, d.jobCode, d.poNo, ...d.sections.flatMap((s) => s.items.map((it) => it.comment))].join(" ").toLowerCase(),
         snippet: `${d.complaintNo || "(no number)"} · ${d.customerName || "—"} · ${answered}/${total}`,
       });
+    } else if (doc.kind === "complaint-ack") {
+      const d = r.data as import("../types").ComplaintAckData;
+      rows.push({
+        ...base,
+        route: routeForRecord(doc, r.id),
+        matchText: [doc.name, doc.formatNo, r.dueDate, r.status, r.id, d.customerName, d.fgCode, d.jobName, d.toName, d.employeeName, d.complaintType, d.complaintSubType].join(" ").toLowerCase(),
+        snippet: `${d.fgCode || "—"} · ${d.customerName || "—"} · ${d.jobName || "—"}`,
+      });
     } else if (doc.kind === "training-record") {
       const d = r.data as TrainingRecordData;
       rows.push({

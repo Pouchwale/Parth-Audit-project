@@ -239,6 +239,39 @@ export interface TrainingAttendee {
   attended: boolean;
 }
 
+// ---- CAPA — Internal: Complaint Acknowledgement Report (QA-CAF-00) ---------
+// One per customer complaint explained to the employee(s) involved: the
+// complaint as received, what happened (with photographs), root cause,
+// corrective / preventive action, and the employee's acknowledgement.
+export interface ComplaintAckPhoto {
+  id: string;
+  name: string;
+  /** A scaled-down JPEG (utils/image.ts), kept inside the record. */
+  dataUrl: string;
+}
+
+export interface ComplaintAckData {
+  reportDate: string; // ISO date
+  toName: string;
+  toDesignation: string;
+  subject: string;
+  intro: string;
+  customerName: string;
+  fgCode: string;
+  complaintReceivedOn: string; // ISO date, or "" until known
+  jobName: string;
+  complaintType: string;
+  complaintSubType: string;
+  scenario: string;
+  photos: ComplaintAckPhoto[];
+  rootCause: string;
+  correctiveAction: string;
+  preventiveAction: string;
+  acknowledgement: string;
+  employeeName: string;
+  employeeSignDate: string; // ISO date, or ""
+}
+
 export interface TrainingRecordData {
   trainingDate: string;
   trainingType: string; // e.g. "Technician Certification"

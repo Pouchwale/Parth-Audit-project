@@ -13,6 +13,7 @@ import { fixedMaterialForServiceArea } from "./serviceMaterials";
 import { isCompanyHoliday } from "./holidays";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { generateId } from "../utils/id";
+import { newComplaintAckData } from "../data/seed/complaintAck";
 
 // Builds the AUTOMATIC / STATIC part of a new record shell (section 11 & 26):
 // header info, checkpoint lists, PC locations, area lists are all
@@ -88,6 +89,9 @@ export function createDefaultData(
       };
       return data;
     }
+    case "complaint-ack":
+      // A report is started by hand (As Required) — the form's own wording filled in, the rest blank.
+      return newComplaintAckData(dueDateISO);
     case "log-sheet": {
       const layout = getLogSheetLayout(doc.id);
       const header: Record<string, string> = {};

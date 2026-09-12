@@ -143,6 +143,22 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "as-required" },
   },
   {
+    id: "capa-complaint-ack",
+    kind: "complaint-ack",
+    name: "CAPA — Internal: Complaint Acknowledgement Report",
+    formatNo: "QA-CAF-00",
+    revisionNo: "TO BE CONFIRMED",
+    revisionDate: "2026-03-22",
+    department: "Quality Assurance",
+    module: "CAPA (Corrective & Preventive Action)",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "Internal side of the CAPA module: a customer complaint explained to the employee(s) involved — the complaint as received (customer, FG code, date, job, type), the scenario with photographs, root cause, corrective and preventive action, and the employee's signed acknowledgement.",
+    sourceFile: "Foram P. - FGSL3877.pdf (format reference — QA-CAF-00 (22.03.26))",
+    schedule: { type: "as-required" },
+  },
+  {
     id: "training-record",
     kind: "training-record",
     name: "Pest Control Training Record",
