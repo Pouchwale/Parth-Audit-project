@@ -1096,6 +1096,38 @@ WORKFLOW             As Required — started from CAPA → Internal → New Comp
 - **TO BE CONFIRMED:** the revision number (the footer gives "QA-CAF-00 (22.03.26)" only) and the
   company logo artwork (drawn as the name in the red box, not the scanned emblem).
 
+## 31. Responsibilities of Pest Control — Site & Service Provider (11-Sep-2026)
+
+```
+SOURCE DOCUMENT      "responsibilities of pest control report .pdf" — three pages on the company's
+                      letterhead, signed 01.01.2025 by Chirag Parmar (Manager, Purchase) for Gujarat
+                      Print Pack Publications and Rohit Patel (Owner) for Gurudev Pest Control Services
+DOCUMENT STRUCTURE   Page 1: Responsibilities of Site — fourteen numbered points. Page 2:
+                      Responsibilities of Pest control service provider — Equipment & Storage
+                      Specifications (four points), the Emergency call procedures table (Service
+                      related issues / Critical Hazards issues, with name and number), the yearly
+                      awareness training note, and the Environmental, Health & Safety Clauses a) to
+                      g). Page 3: the further clauses h. to l. and the two signatories (organisation,
+                      Name, Designation, Department, Dated, Sign & Stamp)
+DIGITAL TEMPLATE     kind: "pest-responsibilities" —
+                      src/components/records/PestResponsibilitiesRecordView.tsx on the shared
+                      RecordPage; the wording in src/data/seed/pestResponsibilities.ts
+DATABASE FIELDS      PestResponsibilitiesData: siteResponsibilities[], equipmentStorage[],
+                      emergencyCalls[] { issue, name, phone }, trainingNote, ehsClauses[],
+                      serviceClauses[], client and provider { organisation, name, designation,
+                      department, dated }
+WORKFLOW             As Required — Pest Control > Training & Reference > Responsibilities (Site &
+                      Provider). The signed 01-Jan-2025 copy is seeded as a verified record
+```
+
+- Transcribed verbatim, including the **blank "Critical Hazards issues" contact**, which is empty on
+  the paper. Nothing here is generated: the assistant never pre-fills this document.
+- Every line can be corrected — by hand or by asking the assistant — and a point can be added or
+  removed; the signed copy is corrected through **Edit**, like any record, so what it said before
+  stays in its history.
+- **TO BE CONFIRMED:** its format and revision number (none is printed on the pages), and the
+  certification logos in the page footer (not reproduced).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

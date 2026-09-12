@@ -155,6 +155,18 @@ The app behaves like a personal assistant rather than a blank form:
   "QA-CAF-00 (22.03.26)" on both pages. Every value — including the form's own wording — is editable, it
   saves itself, Submit / Verify / **Edit** / history work as on every record, and it prints as the two
   paper pages (`src/components/records/ComplaintAckRecordView.tsx`).
+- **Responsibilities of Pest Control — Site & Service Provider.** The three-page agreement on the
+  company's letterhead ("responsibilities of pest control report .pdf"), signed by both parties on
+  01-Jan-2025 and held as signed: the site's fourteen responsibilities; the service provider's
+  equipment and storage rules, emergency contacts, yearly awareness training note, environmental /
+  health & safety clauses and service clauses; then both signatories. Open it from Pest Control →
+  Training & Reference. Every line is editable and a point can be added or removed — and nothing on it
+  is ever filled in automatically (`src/components/records/PestResponsibilitiesRecordView.tsx`).
+- **The assistant can fill in and correct every document, not only some.** Say or type the change on
+  whichever document is open — any record (including the two new ones), the SOP, the Chemical Master
+  chart or a Statement of Compliance — and it is checked, saved, listed back field by field and can be
+  undone, exactly as before. The one document it can't change is the service provider's licence, which
+  stays exactly as issued.
 - **Two languages — English and ગુજરાતી — chosen on the Dashboard.** Choosing ગુજરાતી switches
   **Google Translate** on automatically for the whole website: every page, menu, list, message and the
   assistant's chat turns Gujarati as it appears, including text that changes afterwards. Choosing
@@ -243,7 +255,7 @@ The app behaves like a personal assistant rather than a blank form:
 
 ## What's implemented
 
-**Documents (23 configured):**
+**Documents (24 configured):**
 
 - Pest Control (9), in the module's four groups — *Daily Report*: Daily Pest Control Monitoring
   Record (F/HR/17). *Service Reports*: Rat / Mice (Rodent Control Service), Ants & Cockroaches

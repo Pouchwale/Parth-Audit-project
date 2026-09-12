@@ -91,6 +91,23 @@ The run below is the production shape end to end: `frontend/scripts/build.ts` bu
 suite runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts
 (`tsconfig.node.json`).
 
+### Responsibilities of Pest Control, and the assistant on every document (12-Sep-2026)
+
+The three-page agreement ("responsibilities of pest control report .pdf") is now a record kind of its
+own, seeded as the copy both parties signed on 01-Jan-2025, and the assistant has a field guide for
+every document it can reach: the two new records, and the reference documents — the SOP, the Chemical
+Master chart and the Statements of Compliance register themselves as "reference" targets, so a
+correction can be dictated as well as typed. Only the service provider's licence stays untouchable, on
+the owner's instruction. Checked quickly, as asked: `npm run typecheck` clean and a 15-check browser
+pass — the document opens from Pest Control > Training & Reference in its letterhead layout with the
+paper's 14 / 4 / 7 / 5 lines and both signatories; a signed copy is locked and offers Edit; any line
+edits and saves itself; a point can be added and removed; "training note is …" typed to the assistant
+changes it, is listed back and is marked as the assistant's change; Print gives the three pages alone
+as text (`32_print_responsibilities.png`); the SOP, the Chemical Master and a Statement of Compliance
+each offer the assistant their document; the Document Library lists 24 documents (the smoke suite's
+count moved from 23 to 24); no JavaScript errors. The first run of that pass stopped on a fault in the
+check itself, not the app — it read the assistant's placeholder without opening the panel.
+
 ### CAPA Internal: Complaint Acknowledgement Report, QA-CAF-00 (11-Sep-2026, later)
 
 The new document ("Foram P. - FGSL3877.pdf" as the format reference) was checked quickly, as asked:
