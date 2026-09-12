@@ -146,6 +146,15 @@ The app behaves like a personal assistant rather than a blank form:
   (`src/data/repositories/referenceRepository.ts`). The service provider's licence stays exactly as
   issued, on the owner's instruction. The service report no longer shows the Chemical Master suggestion
   box.
+- **Complaint Acknowledgement Report (QA-CAF-00) under CAPA → Internal.** A customer complaint explained
+  to the employee involved, on the company's two-page form ("Foram P. - FGSL3877.pdf" as the format
+  reference): logo, title, date, "To", subject, the complaint table (Customer Name / FG code / Complaint
+  received on / Job name / Com. Type / Comp. sub type), the scenario with **photos uploaded from the
+  computer or phone** (up to four, scaled down to keep the record small), root cause, corrective and
+  preventive action, the employee's acknowledgement, signature line, name and date, and the footer
+  "QA-CAF-00 (22.03.26)" on both pages. Every value — including the form's own wording — is editable, it
+  saves itself, Submit / Verify / **Edit** / history work as on every record, and it prints as the two
+  paper pages (`src/components/records/ComplaintAckRecordView.tsx`).
 - **Two languages — English and ગુજરાતી — chosen on the Dashboard.** Choosing ગુજરાતી switches
   **Google Translate** on automatically for the whole website: every page, menu, list, message and the
   assistant's chat turns Gujarati as it appears, including text that changes afterwards. Choosing
@@ -234,7 +243,7 @@ The app behaves like a personal assistant rather than a blank form:
 
 ## What's implemented
 
-**Documents (22 configured):**
+**Documents (23 configured):**
 
 - Pest Control (9), in the module's four groups — *Daily Report*: Daily Pest Control Monitoring
   Record (F/HR/17). *Service Reports*: Rat / Mice (Rodent Control Service), Ants & Cockroaches
@@ -246,8 +255,9 @@ The app behaves like a personal assistant rather than a blank form:
   Master, SOP, and Gurudev Pesticides' Government of Gujarat insecticide licence (Form III, kept as
   the scanned pages, unaltered, plus a transcription). (A Lizard Control service-report variant that existed earlier was retired — no
   specimen for it exists in the uploaded files; the SOP's lizard section is still in SOP Reference.)
-- CAPA (Corrective & Preventive Action) (2): **Internal** — Pest Control Inspection Findings Report
-  (the Dec-2023 GAP report as history); **External** — Customer Complaint Handling Checklist
+- CAPA (Corrective & Preventive Action) (3): **Internal** — Pest Control Inspection Findings Report
+  (the Dec-2023 GAP report as history) and the Complaint Acknowledgement Report (QA-CAF-00, with
+  photos); **External** — Customer Complaint Handling Checklist
   (F/MKT/05, Rev 00 / 21.07.2026): 31 activities in five sections A–E plus Prepared-by / Approved-by,
   filled conversationally by the assistant.
 - Lamination — Quality Control (3, from the photographed registers in "Audit documents.zip"):

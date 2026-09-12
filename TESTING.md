@@ -91,6 +91,18 @@ The run below is the production shape end to end: `frontend/scripts/build.ts` bu
 suite runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts
 (`tsconfig.node.json`).
 
+### CAPA Internal: Complaint Acknowledgement Report, QA-CAF-00 (11-Sep-2026, later)
+
+The new document ("Foram P. - FGSL3877.pdf" as the format reference) was checked quickly, as asked:
+`npm run typecheck` clean, and a 13-check browser pass — Internal CAPA lists the reports with a New
+button; a new report opens in the two-page QA-CAF-00 layout (title, subject, the six-column complaint
+table, the acknowledgement, the footer on both pages); two photos upload and one is removed, the other
+stored as a scaled-down JPEG; every field saves itself; it submits and verifies; a verified report reads
+as the paper form and offers Edit, which reopens it with the change in its history; Print gives the two
+pages alone, as text (`30_print_complaint_ack.png`, compared with the PDF page for page); the list shows
+its customer and FG code; the Document Library lists 23 documents (the smoke suite's count moved from
+22 to 23); no JavaScript errors.
+
 ### Edit on every document; the Chemical Master suggestion removed (11-Sep-2026, later)
 
 On the department's instruction ("give edit option … applicable to each and every document … so even

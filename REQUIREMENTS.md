@@ -1060,6 +1060,42 @@ marked `no-print`. A register being edited prints as the paper form, and a demo 
 "DEMO / SYNTHETIC DATA — NOT AUDIT EVIDENCE" band, printed in colour. The SOP and the Chemical Master
 gained Print buttons of their own. A screen with no document on it prints as it always did.
 
+## 30. CAPA — Internal: Complaint Acknowledgement Report, QA-CAF-00 (11-Sep-2026)
+
+```
+SOURCE DOCUMENT      "Foram P. - FGSL3877.pdf" — a filled report (Krishna Packaging, FGSL 3877,
+                      10.07.2026), supplied as the FORMAT reference only: its complaint is not
+                      loaded as data
+DOCUMENT STRUCTURE   Page 1: logo, "Complaint Acknowledgement Report", Date, To (name and
+                      designation), Subject, the intro line, a table — Customer Name | FG code |
+                      Complaint received on | Job name | Com. Type | Comp. sub type — Scenario,
+                      photographs, Root Cause. Page 2: Corrective Action, Preventive Action, the
+                      Acknowledgement statement, Employee Signature line, Name, Date. Footer on both
+                      pages "QA-CAF-00 (22.03.26)" and the page number
+DIGITAL TEMPLATE     kind: "complaint-ack" — src/components/records/ComplaintAckRecordView.tsx, on
+                      the shared RecordPage (autosave, Submit / Verify / Edit, history, print)
+DATABASE FIELDS      ComplaintAckData (types/record.ts): reportDate, toName, toDesignation, subject,
+                      intro, customerName, fgCode, complaintReceivedOn, jobName, complaintType,
+                      complaintSubType, scenario, photos[] {id, name, dataUrl}, rootCause,
+                      correctiveAction, preventiveAction, acknowledgement, employeeName,
+                      employeeSignDate
+WORKFLOW             As Required — started from CAPA → Internal → New Complaint Acknowledgement
+```
+
+- The form's own wording (subject, intro line, acknowledgement statement) is filled in verbatim on a
+  new report (`src/data/seed/complaintAck.ts`) and, like every other value, can be edited on it.
+- Com. Type and Comp. sub type are free text with suggestions: the specimen's "Process related" /
+  "Deviation from specification", then whatever earlier reports used — no list was invented.
+- Photographs are uploaded from the computer or phone, up to four per report, each scaled down to at
+  most 1024 px and saved as a JPEG inside the record (`src/utils/image.ts`) — operational data still
+  lives in the browser's storage (DEPLOYMENT.md → Capacity), so size is kept small.
+- Submit needs the complaint details, the scenario, root cause, both actions and the employee's name;
+  once submitted or verified the report is locked and **Edit** reopens it, as on every record.
+- On screen a draft shows input boxes; the printout and a locked report show each value as plain text
+  (dates as dd.mm.yyyy, as on the form), so nothing is cut off, over two pages.
+- **TO BE CONFIRMED:** the revision number (the footer gives "QA-CAF-00 (22.03.26)" only) and the
+  company logo artwork (drawn as the name in the red box, not the scanned emblem).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
