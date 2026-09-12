@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FiArrowLeft, FiShield } from "react-icons/fi";
 import { useRouter } from "../store/router";
 import { useAppStore } from "../store/AppStore";
+import { useSetAssistantTarget } from "../store/AssistantContext";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { complianceValidUntil, type ComplianceSection, type ComplianceStatement } from "../data/seed/complianceStatements";
 import { allComplianceStatements, complianceStatement, referenceRepository } from "../data/repositories/referenceRepository";
@@ -71,8 +72,8 @@ export function ComplianceListPage() {
 function tidy(s: ComplianceStatement): ComplianceStatement {
   return {
     ...s,
-    sections: s.sections.map((sec) => ({ ...sec, lines: sec.lines.map((l) => l.trimEnd()).filter((l) => l.trim() !== "") })),
-    declarations: s.declarations.map((d) => d.trim()).filter(Boolean),
+    sections: (s.sections ?? []).map((sec) => ({ ...sec, lines: (sec.lines ?? []).map((l) => l.trimEnd()).filter((l) => l.trim() !== "") })),
+    declarations: (s.declarations ?? []).map((d) => d.trim()).filter(Boolean),
   };
 }
 
@@ -83,7 +84,33 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
   const [draft, setDraft] = useState<ComplianceStatement | null>(null);
   const current = complianceStatement(documentId);
   const doc = documentRepository.getById(documentId);
-  if (!current || !doc) {
+  const editing = draft !== null;
+  const s = draft ?? current;
+
+  const save = (next: ComplianceStatement) => {
+    referenceRepository.save(documentId, tidy(next), currentUser);
+    setDraft(null);
+    bump();
+  };
+
+  // The assistant can correct a statement too — "signed by Shail Patel on 1
+  // April 2026" — through the same checked-and-listed path as a record.
+  useSetAssistantTarget(
+    current && doc
+      ? {
+          documentKind: "reference",
+          documentId,
+          recordId: documentId,
+          status: "In Progress",
+          editable: true,
+          currentData: current,
+          getData: () => complianceStatement(documentId),
+          commit: (next) => save(next as ComplianceStatement),
+        }
+      : null
+  );
+
+  if (!current || !s || !doc) {
     return (
       <div className="empty-state">
         <h2 className="text-xl mb-2">Statement not found</h2>
@@ -93,22 +120,10 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
       </div>
     );
   }
-  const editing = draft !== null;
-  const s = draft ?? current;
   const edited = referenceRepository.get<ComplianceStatement>(documentId);
   const validUntil = complianceValidUntil(s);
-
   const patch = (p: Partial<ComplianceStatement>) => setDraft({ ...s, ...p });
   const setSection = (i: number, p: Partial<ComplianceSection>) => patch({ sections: s.sections.map((sec, idx) => (idx === i ? { ...sec, ...p } : sec)) });
-  const save = () => {
-    if (draft) referenceRepository.save(documentId, tidy(draft), currentUser);
-    setDraft(null);
-    bump();
-  };
-  const restore = () => {
-    referenceRepository.reset(documentId);
-    bump();
-  };
 
   return (
     <div data-print-doc>
@@ -122,9 +137,12 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
             editing={editing}
             edited={edited}
             onEdit={() => setDraft(current)}
-            onSave={save}
+            onSave={() => draft && save(draft)}
             onCancel={() => setDraft(null)}
-            onRestore={restore}
+            onRestore={() => {
+              referenceRepository.reset(documentId);
+              bump();
+            }}
             onPrint={() => printDocument()}
           />
         </div>

@@ -50,6 +50,9 @@ const PLACEHOLDER_BY_KIND: Record<string, string> = {
   "complaint-checklist": "e.g. samples received on 3 Sept, or: customer is Gulab Oil, complaint CC-12",
   gap: "e.g. Found a gap near the loading dock, corrective action: install a net, target 20 Sept",
   training: "e.g. Training on 3 Sept, topic pest control basics, trainer ABC Pest Solutions",
+  "complaint-ack": "e.g. customer is Krishna Packaging, FG code FGSL 3877, root cause: job card missed the HM strip",
+  "pest-responsibilities": "e.g. change point 12 to: dispose of trapped pests as per the SOP",
+  reference: "e.g. change the dilution ratio for Rodent Control to 1:20",
 };
 
 interface ChatMessage {

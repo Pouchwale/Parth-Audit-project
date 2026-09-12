@@ -5,11 +5,14 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
 import { useAppStore } from "../store/AppStore";
+import { useSetAssistantTarget } from "../store/AssistantContext";
 import { printDocument } from "../utils/print";
+
+const CHEMICAL_DOC_ID = "chemical-master";
 
 export function ChemicalMasterPage() {
   const { bump } = useAppStore();
-  const doc = documentRepository.getById("chemical-master")!;
+  const doc = documentRepository.getById(CHEMICAL_DOC_ID)!;
   // The chart being corrected, while Edit is on; null otherwise. Its rows are
   // master data, so a correction is saved there (masterRepository).
   const [draft, setDraft] = useState<ServiceTypeChemical[] | null>(null);
@@ -17,11 +20,36 @@ export function ChemicalMasterPage() {
   const rows = draft ?? masterRepository.get().serviceTypeChemicals;
 
   const setRow = (i: number, patch: Partial<ServiceTypeChemical>) => setDraft(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  const save = () => {
-    if (draft) masterRepository.update({ serviceTypeChemicals: draft.map((r) => ({ ...r, chemicals: r.chemicals.map((c) => c.trim()).filter(Boolean) })) });
+  const save = (next: ServiceTypeChemical[]) => {
+    const existing = masterRepository.get().serviceTypeChemicals;
+    masterRepository.update({
+      serviceTypeChemicals: next.map((r, i) => ({
+        ...existing[i],
+        ...r,
+        // A row keeps its id even if a proposed change left it out.
+        id: r.id || existing[i]?.id || `stc-${i + 1}`,
+        chemicals: (r.chemicals ?? []).map((c) => c.trim()).filter(Boolean),
+      })),
+    });
     setDraft(null);
     bump();
   };
+
+  // The assistant can correct the chart too — "the dilution ratio for fly
+  // control is 1:20" — through the same checked-and-listed path as a record.
+  useSetAssistantTarget({
+    documentKind: "reference",
+    documentId: CHEMICAL_DOC_ID,
+    recordId: CHEMICAL_DOC_ID,
+    status: "In Progress",
+    editable: true,
+    currentData: { rows },
+    getData: () => ({ rows: masterRepository.get().serviceTypeChemicals }),
+    commit: (next) => {
+      const proposed = (next as { rows?: ServiceTypeChemical[] }).rows;
+      if (Array.isArray(proposed)) save(proposed);
+    },
+  });
 
   return (
     <div data-print-doc>
@@ -29,7 +57,7 @@ export function ChemicalMasterPage() {
         <ReferenceEditBar
           editing={editing}
           onEdit={() => setDraft(masterRepository.get().serviceTypeChemicals)}
-          onSave={save}
+          onSave={() => draft && save(draft)}
           onCancel={() => setDraft(null)}
           onPrint={() => printDocument()}
         />
@@ -38,7 +66,7 @@ export function ChemicalMasterPage() {
       <p className="text-muted mt-3 mb-4 no-print">
         {editing
           ? "Editing — correct any cell that is wrong, then Save. Chemicals: one per line."
-          : "Source: Pesticide Application Chart. Selecting a Service Type in a Service Report auto-suggests the pest covered, chemicals and dilution ratio below — nothing here is invented; blank cells are marked TO BE CONFIRMED."}
+          : "Source: Pesticide Application Chart. Selecting a Service Type in a Service Report auto-suggests the pest covered, chemicals and dilution ratio below — nothing here is invented; blank cells are marked TO BE CONFIRMED. Edit it here, or ask the assistant to."}
       </p>
       <div className="doc-table mt-4">
         <table>

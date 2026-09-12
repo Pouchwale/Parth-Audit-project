@@ -5,6 +5,7 @@ import type { SopSection } from "../data/seed/sopContent";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
 import { useAppStore } from "../store/AppStore";
+import { useSetAssistantTarget } from "../store/AssistantContext";
 import { printDocument } from "../utils/print";
 
 const FIELDS: { key: Exclude<keyof SopSection, "title">; label: string }[] = [
@@ -24,16 +25,32 @@ export function SopReferencePage() {
   const sections = draft ?? sopSections();
   const edited = referenceRepository.get<SopSection[]>(SOP_DOC_ID);
 
-  const setField = (i: number, key: keyof SopSection, value: string) => setDraft(sections.map((s, idx) => (idx === i ? { ...s, [key]: value } : s)));
-  const save = () => {
-    if (draft) referenceRepository.save(SOP_DOC_ID, draft, currentUser);
+  const save = (next: SopSection[]) => {
+    referenceRepository.save(SOP_DOC_ID, next, currentUser);
     setDraft(null);
     bump();
   };
+  const setField = (i: number, key: keyof SopSection, value: string) => setDraft(sections.map((s, idx) => (idx === i ? { ...s, [key]: value } : s)));
   const restore = () => {
     referenceRepository.reset(SOP_DOC_ID);
     bump();
   };
+
+  // The assistant can correct the SOP too — "change the frequency of rodent
+  // control to monthly" — through the same checked-and-listed path as a record.
+  useSetAssistantTarget({
+    documentKind: "reference",
+    documentId: SOP_DOC_ID,
+    recordId: SOP_DOC_ID,
+    status: "In Progress",
+    editable: true,
+    currentData: { sections },
+    getData: () => ({ sections: sopSections() }),
+    commit: (next) => {
+      const proposed = (next as { sections?: SopSection[] }).sections;
+      if (Array.isArray(proposed)) save(proposed);
+    },
+  });
 
   return (
     <div data-print-doc>
@@ -42,7 +59,7 @@ export function SopReferencePage() {
           editing={editing}
           edited={edited}
           onEdit={() => setDraft(sopSections())}
-          onSave={save}
+          onSave={() => draft && save(draft)}
           onCancel={() => setDraft(null)}
           onRestore={restore}
           onPrint={() => printDocument()}
@@ -52,7 +69,7 @@ export function SopReferencePage() {
       <p className="text-muted mt-3 mb-4 no-print">
         {editing
           ? "Editing — correct any wording that is wrong, then Save. The original transcription can be restored at any time."
-          : "Reference configuration derived from the Standard Operating Procedure. Used to configure checkpoints, chemicals and frequencies across the Pest Control module — not rewritten beyond formatting for on-screen display."}
+          : "Reference configuration derived from the Standard Operating Procedure. Used to configure checkpoints, chemicals and frequencies across the Pest Control module — not rewritten beyond formatting for on-screen display. Edit it here, or ask the assistant to."}
       </p>
       {/* The SOP's own wording, as issued — never machine-translated (i18n/googleTranslate.ts). */}
       <div className="notranslate mt-4" translate="no">

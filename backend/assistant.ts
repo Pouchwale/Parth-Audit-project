@@ -117,6 +117,39 @@ returning the rows array; header/footer changes go in patch.header with only
 the keys that change. Only on a "free" sheet may rows be added — then return
 the COMPLETE rows array, giving a new row an id like "new-1". Never return the
 _layout object. ${DATE_TIME_RULE}`,
+  "complaint-ack": `
+The Complaint Acknowledgement Report (QA-CAF-00) — a customer complaint
+explained to the employee involved. Fields (all strings unless noted):
+reportDate (calendar date), toName and toDesignation (the person it is
+addressed to), subject, intro, customerName, fgCode, complaintReceivedOn
+(calendar date), jobName, complaintType, complaintSubType, scenario,
+rootCause, correctiveAction, preventiveAction, acknowledgement, employeeName,
+employeeSignDate (calendar date). photos is a list of uploaded photographs
+({ id, name, dataUrl }) — never change, add or remove it, and never echo a
+dataUrl back. ${DATE_TIME_RULE}`,
+  "pest-responsibilities": `
+The Responsibilities of Pest Control document (site and service provider).
+Fields: siteResponsibilities (array of strings — the numbered points for the
+site), equipmentStorage (array of strings), emergencyCalls (array of
+{ issue, name, phone }), trainingNote (string), ehsClauses (array of strings —
+the lettered environmental / health & safety clauses), serviceClauses (array
+of strings — the further clauses), and client and provider, each
+{ organisation, name, designation, department, dated } with dated a calendar
+date. To change one line of a list use itemEdits with {"__row": n}, the
+1-based line number the user names (e.g. point 5 of the site list). Only when
+the user asks for a new line, return the complete array for that field with
+the line added. ${DATE_TIME_RULE}`,
+  reference: `
+A reference document kept in the app, transcribed from the company's own
+paper: the SOP (field "sections", an array of { title, chemicals, process,
+logSheet, preventiveMeasures, frequency }), the Chemical Master chart (field
+"rows", an array of { id, serviceName, pestCovered, chemicals (array of
+strings), dilutionRatio }), or a Statement of Compliance (headerTitle,
+footerRef, referenceSource, sections (array of { label, lines (array of
+strings) }), declarations (array of strings), signedBy, signedTitle, signedOn
+(calendar date)). Change only what the user asks for and keep every other line
+word for word; use itemEdits with {"__row": n} to change one line of a list.
+${DATE_TIME_RULE}`,
 };
 
 // How to change one row or item without resending a whole list — keeps the
