@@ -6,6 +6,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { refreshGapFindingStatuses, openCorrectiveActionsCount } from "../data/selectors";
 import { COMPLAINT_DOC_ID, COMPLAINT_FOOTER_NOTE, COMPLAINT_ACTIVITY_COUNT, isConditionalActivity, newComplaintChecklistData } from "../data/seed/complaintChecklist";
+import { CAF_DOC_ID } from "../data/seed/complaintAck";
 import type { ChecklistItem, ComplaintChecklistData, RecordInstance } from "../types";
 import {
   cancelCorrection,
@@ -25,6 +26,7 @@ import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/r
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { startGuidedChecklist } from "../components/common/DocumentAssistant";
 import { generateId } from "../utils/id";
@@ -58,12 +60,23 @@ export function CapaHomePage() {
     };
   }, [isDemo, version]);
 
+  // CAPA's two halves belong to different departments — the inspection
+  // findings report to Quality Assurance, the customer complaint checklist to
+  // Marketing — so a card is only offered to somebody who may open what is
+  // behind it; otherwise it would show a count of 0 and land on a refusal
+  // (REQUIREMENTS §40).
+  const canSeeInternal = !!documentRepository.getById(GAP_DOC_ID) || !!documentRepository.getById(CAF_DOC_ID);
+  const canSeeExternal = !!documentRepository.getById(COMPLAINT_DOC_ID);
+
+  if (!canSeeInternal && !canSeeExternal) return <NotYourDepartment documentId={COMPLAINT_DOC_ID} what="module" />;
+
   return (
     <div>
       <h1 className="text-2xl mb-1">{t("capa.title")}</h1>
       <p className="text-muted mb-5">Where did the issue come from? Pick one — the assistant takes it from there.</p>
 
       <div className="flex gap-4 wrap">
+        {canSeeInternal && (
         <div className="card capa-option" onClick={() => navigate("/gap/internal")}>
           <div className="card-pad">
             <div className="flex items-center gap-2 mb-2">
@@ -91,6 +104,8 @@ export function CapaHomePage() {
           </div>
         </div>
 
+        )}
+        {canSeeExternal && (
         <div className="card capa-option external" onClick={() => navigate("/gap/external")}>
           <div className="card-pad">
             <div className="flex items-center gap-2 mb-2">
@@ -120,6 +135,7 @@ export function CapaHomePage() {
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
@@ -138,7 +154,13 @@ export function ComplaintListPage() {
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
   const records = recordRepository.query({ documentId: COMPLAINT_DOC_ID, isDemo }) as RecordInstance<ComplaintChecklistData>[];
-  const doc = documentRepository.getById(COMPLAINT_DOC_ID)!;
+  const doc = documentRepository.getById(COMPLAINT_DOC_ID);
+
+  // The complaint register is Marketing's own (F/MKT/05), so somebody from
+  // another department who reaches this address by an old bookmark or a link
+  // is told whose register it is instead of being shown the register, an empty
+  // list and a "New Complaint" button they must not use (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={COMPLAINT_DOC_ID} what="register" />;
 
   const createNew = () => {
     const now = new Date().toISOString();
@@ -249,7 +271,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
     () => recordRepository.getById(recordId) as RecordInstance<ComplaintChecklistData> | undefined
   );
   const [errors, setErrors] = useState<string[]>([]);
-  const doc = documentRepository.getById(COMPLAINT_DOC_ID)!;
+  const doc = documentRepository.getById(COMPLAINT_DOC_ID);
 
   const t = useT();
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
@@ -281,6 +303,11 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   const doSubmit = (): { ok: boolean; errors: string[] } => {
     const current = recordRepository.getById(recordId) as RecordInstance<ComplaintChecklistData> | undefined;
     if (!current) return { ok: false, errors: ["Record not found."] };
+    // Nobody outside Marketing gets this far — the refusal below replaces the
+    // form before a button or the assistant can call this (REQUIREMENTS §40) —
+    // but the lifecycle validates against the definition, so it is never
+    // called without one.
+    if (!doc) return { ok: false, errors: ["This checklist belongs to another department."] };
     const prepared = {
       name: current.data.preparedBy.name.trim() || currentUser,
       designation: current.data.preparedBy.designation,
@@ -305,6 +332,9 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   const doApprove = (): { ok: boolean; errors: string[] } => {
     const current = recordRepository.getById(recordId) as RecordInstance<ComplaintChecklistData> | undefined;
     if (!current) return { ok: false, errors: ["Record not found."] };
+    // As in doSubmit: unreachable once the refusal has replaced the form
+    // (REQUIREMENTS §40), and verification needs the definition.
+    if (!doc) return { ok: false, errors: ["This checklist belongs to another department."] };
     const approved = {
       name: current.data.approvedBy.name.trim() || currentUser,
       designation: current.data.approvedBy.designation.trim() || "QA Head",
@@ -367,7 +397,10 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   };
 
   useSetAssistantTarget(
-    record
+    // No `doc` means this isn't the viewer's department, and the assistant
+    // must not be pointed at a checklist they may not open — it would read the
+    // complaint out to them (REQUIREMENTS §40).
+    record && doc
       ? {
           documentKind: "complaint-checklist",
           documentId: doc.id,
@@ -404,6 +437,13 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         }
       : null
   );
+
+  // Another department's checklist, reached by a link or an address typed by
+  // hand: whose it is, and not one word of the complaint itself. This comes
+  // before "not found" on purpose — a person who may not see Marketing's
+  // checklists must be told that, not told whether the complaint exists
+  // (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={COMPLAINT_DOC_ID} what="checklist" />;
 
   if (!record) {
     return (

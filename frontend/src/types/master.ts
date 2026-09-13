@@ -53,6 +53,20 @@ export interface CompanyHoliday {
   name: string;
 }
 
+// A department of the plant, as its own "MASTER LIST OF FORMATS & RECORDS"
+// (F/SYS/02) has them: the department is the middle segment of every format
+// number it owns, so F-QC-30 is Quality Control's and F-HR-17 is HR's. Which
+// department owns which of this system's documents is in
+// src/data/seed/departments.ts; who may see them is
+// src/engine/departmentScope.ts.
+export interface Department {
+  id: string; // "dept-qc"
+  code: string; // "QC" — as it appears inside the format number
+  name: string; // "Quality Control"
+  /** The prefix its format numbers carry on the master list, e.g. "F-QC". */
+  formatPrefix: string;
+}
+
 // "Everyone must report to the company on adjustment Day" — a date on the
 // leave calendar that would normally be the weekly off but is a WORKING day,
 // making up for a festival holiday. The opposite of a holiday.
@@ -90,6 +104,10 @@ export interface MasterData {
   holidays: CompanyHoliday[];
   weeklyOffDay?: number;
   adjustmentDays?: AdjustmentDay[];
+  // The plant's departments (F/SYS/02). Read defensively for the same reason
+  // as the fields above: a browser that used the app before this existed has
+  // no `departments` key, and falls back to the seed list.
+  departments?: Department[];
   // Ids of seeded holiday / adjustment-day rows an admin deleted on purpose.
   // The seed merge (masterRepository.ensureSeeded) is additive by id, so
   // without this a deleted seed row — e.g. the doubtful 20-11-2026

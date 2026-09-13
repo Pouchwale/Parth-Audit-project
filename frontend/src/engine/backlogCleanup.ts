@@ -29,7 +29,9 @@ const UNTOUCHED_WINDOW_MS = 2 * 60 * 1000;
 export function findPreLaunchNoise(): RecordInstance[] {
   const { liveStartDate } = settingsRepository.get();
   if (!liveStartDate) return [];
-  return recordRepository.query({ isDemo: false }).filter((r) => {
+  // Unscoped: pre-launch noise is cleaned up for the whole plant, not only
+  // for the department of whoever happens to be looking.
+  return recordRepository.queryUnscoped({ isDemo: false }).filter((r) => {
     if (SEED_IDS.has(r.id)) return false;
     if (compareISO(r.dueDate, liveStartDate) >= 0) return false;
     if (r.status === "Due" || r.status === "Scheduled") return true;

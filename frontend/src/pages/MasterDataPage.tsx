@@ -11,12 +11,14 @@ import { scheduleLabel } from "../engine/frequencyEngine";
 import { resolveResponsibleEmployees } from "../engine/documentInfo";
 import { weeklyOffDay, WEEKDAY_LONG } from "../engine/holidays";
 import type { AdjustmentDay, CompanyHoliday, Employee } from "../types";
+import { DepartmentsAccess } from "../components/master/DepartmentsAccess";
 import { useT } from "../i18n";
 
-type Tab = "employees" | "chemicals" | "pcLocations" | "rodentStations" | "areas" | "checkpoints" | "documents" | "holidays" | "settings";
+type Tab = "employees" | "departments" | "chemicals" | "pcLocations" | "rodentStations" | "areas" | "checkpoints" | "documents" | "holidays" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "employees", label: "Employees" },
+  { key: "departments", label: "Departments & access" },
   { key: "chemicals", label: "Chemicals" },
   { key: "pcLocations", label: "PC IDs (Fly Catchers)" },
   { key: "rodentStations", label: "Rodent Stations" },
@@ -74,6 +76,8 @@ export function MasterDataPage() {
           />
         </>
       )}
+
+      {tab === "departments" && <DepartmentsAccess />}
 
       {tab === "chemicals" && (
         <SimpleTable

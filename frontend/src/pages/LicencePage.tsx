@@ -6,6 +6,7 @@ import { SERVICE_LICENCE } from "../data/seed/serviceLicence";
 import { formatDisplayDate } from "../utils/date";
 import { printDocument } from "../utils/print";
 import { ServiceAgreementReminder } from "../components/documents/ServiceAgreementReminder";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 
 // The service provider's insecticide licence, on file. The scanned pages
 // ARE the document and are shown first, exactly as supplied (nothing
@@ -16,6 +17,14 @@ export function LicencePage() {
   const L = SERVICE_LICENCE;
   const doc = documentRepository.getById(L.documentId);
   const [zoom, setZoom] = useState(false);
+
+  // The provider's licence is kept in Human Resources' file, so somebody from
+  // another department who reaches this address by an old bookmark or a link
+  // is told whose licence it is instead of being shown it (REQUIREMENTS §40).
+  // Nothing crashes without this guard — the scanned pages below ARE the
+  // document, so they would simply be handed over. The return sits below every
+  // hook so the order of hooks never changes between renders.
+  if (!doc) return <NotYourDepartment documentId={L.documentId} what="licence" />;
 
   return (
     <div className="licence-page">

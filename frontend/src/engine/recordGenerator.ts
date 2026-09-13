@@ -18,7 +18,10 @@ export function ensureRecordsGeneratedForMonth(
 ): RecordInstance[] {
   const master = masterRepository.get();
   const docs = documentRepository
-    .getRecordable()
+    // Unscoped on purpose: the plant's registers must be generated in full
+    // whoever is logged in, or a department's records would simply never exist
+    // (engine/departmentScope.ts).
+    .getRecordableUnscoped()
     .filter((d) => !opts.documentIds || opts.documentIds.includes(d.id));
   const existing = recordRepository.periodKeys(!!opts.isDemo);
   // Demo data is isolated and explicitly opt-in (Demo Mode), so it has no

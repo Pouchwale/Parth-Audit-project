@@ -1,3 +1,5 @@
+import type { AuthUser, ManagedUser } from "../types/auth";
+
 // Thin fetch wrapper for the auth API (backend/index.ts). Requests are
 // same-origin in both dev (proxied, see frontend/scripts/dev-server.ts) and
 // production (backend/index.ts serves the built frontend itself), so no
@@ -82,6 +84,16 @@ export const assistantApi = {
   chat: (req: AssistantChatRequest) => api.post<AssistantChatResult>("/assistant/chat", req),
   checklistAnswer: (activity: string, answer: string, today: string) =>
     api.post<ChecklistAnswerResult>("/assistant/checklist-answer", { activity, answer, today }),
+};
+
+// WHO MAY SEE WHICH DEPARTMENT'S DOCUMENTS. Only the administrator account
+// (the first one created) can read this list or change an assignment — the
+// restriction has to be set by somebody else, or it would be a preference
+// rather than a rule (REQUIREMENTS §40, backend/index.ts requireAdmin).
+export const usersApi = {
+  list: () => api.get<{ users: ManagedUser[] }>("/users"),
+  setDepartments: (userId: string, departments: string[]) =>
+    api.post<{ user: AuthUser }>(`/users/${encodeURIComponent(userId)}/departments`, { departments }),
 };
 
 export interface DigestReminderInput {

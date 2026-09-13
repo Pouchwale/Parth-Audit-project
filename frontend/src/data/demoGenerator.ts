@@ -225,7 +225,7 @@ function buildMonthlyCapaRecord(
   existing: Set<string>,
   today: string
 ): RecordInstance[] {
-  const doc = documentRepository.getById("gap-inspection");
+  const doc = documentRepository.getByIdUnscoped("gap-inspection");
   if (!doc) return [];
   const inspectionDate = MONTH_END(year, month);
   if (compareISO(inspectionDate, today) > 0) return [];
@@ -308,7 +308,8 @@ function buildMonthlyCapaRecord(
 }
 
 export function generateDemoRecordsForMonth(year: number, month: number): number {
-  const docs = documentRepository.getRecordable();
+  // Unscoped: Demo Mode generates a whole synthetic year for the plant.
+  const docs = documentRepository.getRecordableUnscoped();
   const today = todayISO();
   const created: RecordInstance[] = [];
   const now = new Date().toISOString();

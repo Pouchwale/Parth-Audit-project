@@ -112,6 +112,17 @@ export function ReportsPage({
 
       {/* The open report is what prints (utils/print.ts) — not the tabs and pickers above it. */}
       <div data-print-doc>
+      {/* On paper the report needs to say whose it is and what it covers; on
+          screen the page's own title and pickers already do (REQUIREMENTS §38).
+          The two trend tabs bring the company's own sheet header with them. */}
+      {tab !== "rodent" && tab !== "flycatcher" && (
+        <div className="doc-header print-only notranslate" translate="no">
+          <div className="company-name">{COMPANY.name}</div>
+          <div className="doc-title">
+            {t(`rep.tab.${tab}`).toUpperCase()} — {MONTH_NAMES[month]} {year}
+          </div>
+        </div>
+      )}
       {tab === "monthly" && <MonthlyReport records={monthRecords} year={year} month={month} />}
       {tab === "daily" && <DailyMonitoringReport isDemo={isDemo} year={year} month={month} />}
       {tab === "rodent" && <RodentTrendReport isDemo={isDemo} year={year} />}

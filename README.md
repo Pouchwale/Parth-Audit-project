@@ -243,6 +243,27 @@ The app behaves like a personal assistant rather than a blank form:
     (`src/engine/assistantHandoff.ts`); an ambiguous name ("a CAPA record") is asked about, not
     guessed. The model is told the same rule: it may invent values only when sample data is asked
     for explicitly, and must say so.
+- **Every document belongs to a department, and you see your own.** The plant's own **Master List of
+  Formats & Records (F/SYS/02)** already groups every format by the department inside its number, so that
+  is the list the app uses: SYS, MKT, PUR, STR, QC, QA, PRD, MNT, HR and DISP. F-QC-30 is Quality
+  Control's, F-PRD-18 is Production's, F/MKT/05 is Marketing's, and - exactly as the list has it - the
+  pest control paperwork is HR's (F-HR-17 and F-HR-18 sit beside the cleaning records). A person assigned
+  to Quality Control sees the nine QC documents and nothing else: not in the Document Library, not in the
+  sidebar, not on the Record Calendar or in Reports, not through Search or the assistant, and not by
+  typing another department's record address - which answers "This record belongs to Human Resources...
+  ask the system administrator" instead of opening it. A new joiner picks their department when they sign
+  up; the administrator changes anyone's in **Master Data > Departments & access**, which also lists the
+  ten departments and the documents each owns. An account with no department assigned covers every
+  department, which is what management, the MR and QA need. The records themselves are still generated
+  for the whole plant whoever is logged in, so no department's obligations can go missing
+  (`src/engine/departmentScope.ts`; it decides what is shown, and is not a server-side security boundary
+  while the records live in each browser - see REQUIREMENTS §40).
+- **Printing prints the whole document.** A list that is a document on paper carries the register's own
+  header block - company name, title, Format No. / Rev No. and the period - and the buttons stay off the
+  paper. Four print defects went with it: a table is no longer a scroll container under print media, so a
+  31-row register no longer stops at the bottom of page one; the grey header bands of the company's grids
+  print as grey; a tick box prints ticked; and a card is allowed to break across pages, with an A4 page
+  margin (REQUIREMENTS §38).
 - **The service provider agreement, asked for every two years.** The contract with Gurudev Pest
   Control runs two years, and the **Service Provider** page asks for it sixty days before it ends —
   and keeps asking once it has run out — with the two ways out of it in the pop-up itself: **"Draft it

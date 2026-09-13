@@ -20,7 +20,8 @@ export const SERVICE_RULE_NOTE =
 export function alignServiceReportDrafts(): number {
   const variants = new Map(
     documentRepository
-      .getAll()
+      // Unscoped: a boot-time clean-up works on the whole catalogue.
+      .getAllUnscoped()
       .filter((d) => d.kind === "service-report")
       .map((d) => [d.id, d.variantKey] as const)
   );

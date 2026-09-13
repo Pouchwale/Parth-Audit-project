@@ -42,6 +42,7 @@ import { RecordActionBar } from "../components/records/RecordActionBar";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { useT } from "../i18n";
 import { formatDisplayDate, todayISO } from "../utils/date";
@@ -205,7 +206,19 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     );
   }
 
-  if (!doc) return <div className="empty-state">Document definition missing for this record.</div>;
+  // A scoped lookup that finds nothing almost always means this record belongs
+  // to a department the account may not see (REQUIREMENTS §40) rather than
+  // that anything is broken, so the unscoped lookup tells the two apart: if the
+  // plant still holds the definition this is a department refusal, and it is
+  // shown before any of the record's own values are rendered. Only a definition
+  // that has really gone (a withdrawn format whose records outlived it) keeps
+  // the old message, which would otherwise send somebody hunting a bug that
+  // isn't there.
+  if (!doc) {
+    const unscoped = documentRepository.getByIdUnscoped(record.documentId);
+    if (unscoped) return <NotYourDepartment documentId={unscoped.id} formatNo={unscoped.formatNo} what="record" />;
+    return <div className="empty-state">Document definition missing for this record.</div>;
+  }
 
   const handleSave = () => void flush();
 

@@ -7,6 +7,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { complianceValidUntil, type ComplianceSection, type ComplianceStatement } from "../data/seed/complianceStatements";
 import { allComplianceStatements, complianceStatement, referenceRepository } from "../data/repositories/referenceRepository";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 import { useT } from "../i18n";
@@ -22,7 +23,18 @@ function validityBadge(validUntil: string) {
 export function ComplianceListPage() {
   const t = useT();
   const { navigate } = useRouter();
-  const statements = allComplianceStatements();
+  const issued = allComplianceStatements();
+  // Both Statements of Compliance are Quality Control's own formats (F/QC-09
+  // and F/QC-38), so a statement whose document is outside the viewer's
+  // departments must not be listed at all — a row naming it, with an
+  // "Open / Edit" button, is already more than they may see (REQUIREMENTS
+  // §40). When that leaves nothing we show the refusal rather than an empty
+  // table, because the only reason the list can be empty is the viewer's
+  // department, and the refusal is what says whose documents these are and
+  // how to be given them.
+  const statements = issued.filter((s) => documentRepository.getById(s.documentId));
+  if (statements.length === 0 && issued.length > 0) return <NotYourDepartment documentId={issued[0].documentId} what="document" />;
+
   return (
     <div>
       <h1 className="text-2xl mb-1">{t("soc.title")}</h1>
@@ -110,7 +122,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
       : null
   );
 
-  if (!current || !s || !doc) {
+  if (!current || !s) {
     return (
       <div className="empty-state">
         <h2 className="text-xl mb-2">Statement not found</h2>
@@ -120,6 +132,16 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
       </div>
     );
   }
+
+  // The statement exists but its document belongs to Quality Control, so
+  // somebody outside QC who reaches /soc/<id> by an old bookmark or a link is
+  // told whose document it is instead of being shown the statement itself and
+  // an Edit bar they must not use (REQUIREMENTS §40). It is kept apart from
+  // the "Statement not found" return above so an address that names no
+  // statement still reads as a wrong address, not as another department's.
+  // Both returns sit below every hook, the assistant target included, so the
+  // order of hooks never changes between renders.
+  if (!doc) return <NotYourDepartment documentId={documentId} what="document" />;
   const edited = referenceRepository.get<ComplianceStatement>(documentId);
   const validUntil = complianceValidUntil(s);
   const patch = (p: Partial<ComplianceStatement>) => setDraft({ ...s, ...p });

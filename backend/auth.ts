@@ -10,6 +10,13 @@ export interface PublicUser {
   name: string;
   email: string;
   role: "admin" | "staff";
+  /**
+   * The department codes this account may see (F/SYS/02's own codes — QC, PRD,
+   * HR, MKT, ...). EMPTY means every department: management, the MR and QA
+   * work across all of them, and so does an account nobody has assigned yet.
+   * See frontend/src/engine/departmentScope.ts.
+   */
+  departments: string[];
 }
 
 // A signing secret is required to issue trustworthy session tokens. Rather

@@ -80,6 +80,16 @@ Seven scripts live in `tests/`:
   is open opens the document and asks there; the same from the full-page Assistant; an ambiguous name
   asked about; and every document that holds records started from the library, filled with sample data
   and submitted. Signs IN to a fixed account. Network-independent.
+- `tests/e2e_departments.py` - departments, whole-document printing and the trend graph: an unassigned
+  account covers every department; the Daily Report's status list and a service report's visit register
+  print with the company's header block and Format No., nothing around them, and no table left as a
+  scroll container; the rodent trend chart is an inline SVG whose bars carry the table's own figures for
+  the year it says it is drawing, redraws when the year changes, and never offers a year that hasn't
+  happened; Master Data lists the plant's ten departments with the documents each owns; and a Quality
+  Control account sees only its nine documents - the library, the sidebar's modules, the calendar,
+  search, the assistant's CAPA summary and a record reached by its own address all refuse or leave out
+  another department's paperwork, while a staff account cannot change its own assignment (403 from the
+  API). Signs IN to two fixed accounts. Network-independent.
 - `tests/visual_qa.py` — deeper per-module interaction checks (Fly Catcher, Service Report, CAPA
   creation, Training creation) plus full-page screenshots of every major screen for visual
   review, saved to `tests/shots/`, network-independent.
@@ -97,7 +107,8 @@ npm run test:e2e     # builds, boots backend/index.ts on :8842, runs e2e_smoke.p
                       # e2e_editing.py, e2e_files.py, e2e_translate.py,
                       # e2e_print_and_forms.py, e2e_capa_formats.py,
                       # e2e_agreement_and_cancel.py, e2e_crud.py,
-                      # e2e_print_all_documents.py and e2e_assistant_fill.py
+                      # e2e_print_all_documents.py, e2e_assistant_fill.py and
+                      # e2e_departments.py
                       # against it, tears down
                       # (see scripts/run-e2e.ts)
 ```
@@ -120,6 +131,7 @@ python tests/e2e_agreement_and_cancel.py
 python tests/e2e_crud.py
 python tests/e2e_print_all_documents.py
 python tests/e2e_assistant_fill.py
+python tests/e2e_departments.py
 python tests/visual_qa.py
 python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actually resolve; edit
                                     # the BASE constant at the top if your server isn't on :8844
@@ -134,7 +146,63 @@ multiply the assistant's per-account cap), and a run plus a few manual re-runs c
 ever stops at the login screen, that throttle is the first thing to check — it clears when the server
 restarts, or after ten minutes.
 
-## Results (last full run — 13-Sep-2026, after the one-at-a-time External CAPA batch)
+## Results (last full run - 13-Sep-2026, after the departments / printing / trend batch)
+
+The run below is the production shape end to end: `frontend/scripts/build.ts` builds the bundle,
+`backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every suite
+runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts.
+
+### Departments, whole-document printing and the trend graph (13-Sep-2026)
+
+Three requests in one batch. **Departments** (REQUIREMENTS §40): the ten departments of the company's own
+F/SYS/02 master list are configured, every one of the 25 documents is assigned to the department that
+owns its format, and a person sees only their own - enforced in the two repositories, so the library, the
+sidebar, the calendar, the day view, the dashboard, the reports, the files browser, search, the reminders
+and the assistant all follow without each having to remember. Another department's page or record address
+answers with a refusal that names the owning department instead of opening, crashing or claiming a
+missing definition. The administrator assigns departments in Master Data > Departments & access; a staff
+account cannot change its own, and the API refuses it the list of accounts. Record GENERATION is
+deliberately unscoped, so no department's obligations vanish because nobody from that department logged
+in. **Printing** (§38): three printed lists gained the register's own header block, and four print
+defects were fixed - the worst being that `.doc-table`'s scroll container silently clipped everything
+past page one. **The trend graph** (§39): checked and already data-driven (an inline SVG of the table's
+own row, not an image), with two real defects fixed - a year picker that offered a year the report drops,
+and an empty chart drawn for a year with no row.
+
+New suite `tests/e2e_departments.py` covers all three — 38 checks, using two fixed accounts (one left
+unassigned, so it covers every department, and one assigned to Quality Control at signup).
+
+`npm run typecheck` clean and `npm run test:e2e` green end to end — **541 checks across fourteen
+suites**, no JavaScript errors. The live Groq suite `tests/e2e_assistant_chat.py` re-run on the same
+build: **13/13**.
+
+What the work turned up, beyond the three requests themselves:
+
+- **A printed register was being silently truncated at the first page boundary**, on every screen with a
+  long table. `.doc-table` is a horizontal scroll container on screen, and a scroll container cannot
+  paginate — so "the whole document should print" turned out to be a literal defect, not a preference.
+  Found by reading the print CSS against the complaint rather than by a failing test, because no test
+  looked past page one; the new suite now asserts that no printed table is left as a scroll container.
+- **The trend graph was already right.** The request asked us to check whether it was a static image;
+  it is an inline SVG built from the same rows as the table, and the screenshot the department sent is
+  the app's own screen (its tinted December-2025 cell is a figure the system added up from the
+  register). Two genuine defects came out of checking: a year picker that offered a year the report
+  itself drops, and an empty chart drawn for a year with no row.
+- **A repository-level filter is the only way to scope this app honestly.** Fourteen screens and the
+  assistant enumerate documents or records; filtering at each call site would have leaked at the first
+  one anybody forgot. Putting it in `documentRepository` and `recordRepository` and then adding
+  `*Unscoped` variants for the four generators is what keeps the plant's registers complete while
+  still showing each person only their own — and made the page guards the only remaining work.
+- **Scoping `getById` breaks non-null assertions.** Nine pages did `documentRepository.getById(X)!`, so
+  the first version of the filter turned another department's page into the error boundary. Every one
+  now renders a refusal that names the owning department; a record reached by its own address is found
+  (its lookup stays unscoped) and then refused, so it can say "belongs to Human Resources" instead of
+  "document definition missing".
+- The signup cap went from 10 to 20 accounts per network per ten minutes: fourteen suites against one
+  server process, nine of which create a fresh account, left no room for the two fixed accounts of the
+  new suite on a first run.
+
+## Results (13-Sep-2026, the one-at-a-time External CAPA batch)
 
 ### External CAPA answered one activity at a time (13-Sep-2026, last)
 

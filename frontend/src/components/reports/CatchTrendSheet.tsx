@@ -158,14 +158,23 @@ export function CatchTrendSheet({
   registerName: string;
   footnote?: string;
 }) {
+  // The year asked for, else the most recent year there are figures for — a
+  // year with no row at all used to draw an empty chart with bare axes and say
+  // it was showing that year (REQUIREMENTS §39). The footnote names the year
+  // actually drawn, so the chart and the caption can never disagree.
   const chartRow =
     rows.find((r) => r.year === chartYear) ??
+    rows[rows.length - 1] ??
     ({ source: "", unit: "", targetPest: "", year: chartYear, months: Array(12).fill(null), fromRegister: Array(12).fill(false) } satisfies TrendRow);
+  const drawnYear = chartRow.year;
   const anyFromRegister = rows.some((r) => r.fromRegister.some(Boolean));
   const anyTranscribed = rows.some((r) => r.months.some((m, i) => m !== null && !r.fromRegister[i]));
 
   return (
-    <div className="register-sheet trend-sheet notranslate" translate="no" data-print-doc>
+    // data-chart-year: which row the chart is drawing — on the sheet so the
+    // caption and the bars can never disagree, and so a test can prove the
+    // bars follow the data rather than a picture.
+    <div className="register-sheet trend-sheet notranslate" translate="no" data-print-doc data-chart-year={drawnYear}>
       <section className="register-page">
         <div className="trend-head">
           <div className="company-name">{companyName}</div>
@@ -215,7 +224,8 @@ export function CatchTrendSheet({
             {anyTranscribed ? "; the others are as reported on the company's paper report" : ""}.{" "}
           </>
         )}
-        A month stays blank until it has happened, as on the paper report. The chart shows {chartYear}.{footnote ? ` ${footnote}` : ""} The tint does not print.
+        A month stays blank until it has happened, as on the paper report. The chart shows {drawnYear}
+        {drawnYear !== chartYear ? ` (there are no figures for ${chartYear} yet)` : ""}.{footnote ? ` ${footnote}` : ""} The tint does not print.
       </div>
     </div>
   );

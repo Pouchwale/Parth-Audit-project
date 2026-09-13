@@ -1480,6 +1480,137 @@ DATABASE FIELDS      none new — the rule is derived from the data (an activity
   read-only, and not merely "locked") and one in `tests/e2e_assistant_chat.py` (a real model call cannot
   answer a later activity).
 
+## 38. Printing prints the whole document, and it reads like the real thing (13-Sep-2026)
+
+```
+REQUESTED            "when user click on print button then whole document should will be print and not
+                      different section. So when user will download or take print of it then it seem to
+                      be more real not fake"
+DIGITAL TEMPLATE     src/pages/PestControlPages.tsx (three printed lists now carry the document's own
+                      header block), src/pages/ReportsPage.tsx (a print-only heading on every report
+                      tab), src/styles.css (the four print defects below)
+```
+
+- **A printed list is a document, so it now has a document's head.** Three screens printed a bare grid
+  with no company name, no title and no Format No. - the Daily Report's status list, a service report's
+  visit register and the fly catcher inspection list. Each is now wrapped as a sheet carrying the
+  register's own `DocumentHeader` (company name, title, Format No. / Rev No., and the month or year it
+  covers), and the "Open" button column is left off the paper. A report tab that brings no sheet of its
+  own gets a print-only heading with the company name and the month, so a printed Chemical Usage or CAPA
+  Status report says whose it is and what it covers.
+- **Four CSS defects made even a complete document print wrong**, all in the print block of
+  `src/styles.css`:
+  - **Everything past the first page was being cut off.** `.doc-table` is a horizontal scroll container
+    on screen, so a wide grid scrolls inside its card instead of stretching the page. A scroll container
+    cannot paginate: a 31-row register printed its first page and the rest was simply clipped. Under
+    print media those containers are now `overflow: visible`, `thead` repeats on every page as a
+    `table-header-group`, and a row is never split (`tr { break-inside: avoid }`). This is the literal
+    answer to "the whole document should print".
+  - **The grey header bands printed blank.** The company's own grids band their heading row in #d9d9d9,
+    and a browser drops a background unless asked; `print-color-adjust: exact` is now set for
+    `.register-grid th`, `.register-summary-title`, `.doc-table th`, `.trend-table th` and `.badge`.
+  - **Every tick box printed empty.** A blanket `input { border: none; background: transparent;
+    -webkit-appearance: none }` was meant to make a filled field read like handwriting on paper, and it
+    also erased the checkboxes that *are* the record. Checkboxes and radios are now excluded from that
+    reset and print as a bordered box, colour-exact.
+  - **A card refused to break.** `.card { break-inside: avoid }` is right for a stat tile and wrong for
+    a month of records; only the small blocks that must not be split keep it, and
+    `@page { size: A4; margin: 12mm }` gives the sheet a margin it never had.
+- Covered by `tests/e2e_departments.py` (the header block and Format No. on the paper, nothing around
+  it, and no table left as a scroll container under print media) on top of
+  `tests/e2e_print_all_documents.py`, which still requires that only the document prints.
+
+## 39. The trend graph is drawn from the data, not a picture of it (13-Sep-2026)
+
+```
+REQUESTED            "i have shared a image with you so it will automatically update according to year
+                      and check whether the graph is proper according to data not static image which is
+                      might be there right now"
+DIGITAL TEMPLATE     src/components/reports/CatchTrendSheet.tsx, src/pages/PestControlPages.tsx
+                      (YearSelect)
+```
+
+- **Checked, and it is already data-driven** - no image, no chart library. `CatchTrendChart` is an
+  inline SVG built from the very row the table shows: thirteen bars (JAN..DEC and Total), each labelled
+  with its own figure, a month with no figure drawing no bar at all, axes titled "Months" and "Number or
+  Quantity Trapped". The table above it is one row per year, and every month comes from one place only -
+  the digital register where it holds that month, otherwise the company's transcribed paper report,
+  otherwise blank, including every month that has not happened yet (`rodentTrendRows` / `flyTrendRows`,
+  `src/data/selectors.ts`). The screenshot the department sent is the app's own screen, and its tinted
+  December-2025 cell is the proof: a tinted figure is one the system added up from the register itself.
+- **Two real defects found while checking it, both fixed.** The year picker offered next year, which the
+  trend reports drop (they keep years up to this one), so choosing it drew a chart of an entirely empty
+  year captioned "the chart shows 2027": a year that has not happened is no longer offered. And when no
+  row matched the year asked for, the sheet drew twelve nulls; it now falls back to the most recent year
+  it has figures for, and the caption names the year it actually drew, so the bars and the caption can
+  never disagree.
+- The sheet carries `data-chart-year`, so a test can assert that the bars are the table's own figures
+  for that year and that changing the year redraws them - which is what proves it is a chart of the data
+  rather than a picture. Covered by `tests/e2e_departments.py`.
+
+## 40. Departments, from the company's own master list of formats (13-Sep-2026)
+
+```
+REQUESTED            "i have shared a pdf with you so keep that in so now make departments in and assign
+                      id's according that and if QC has those document like wise that only that
+                      department will be able to see so do this also"
+SOURCE               "F-SYS-02-Master List of Formats. (R-2025).xlsx" - MASTER LIST OF FORMATS &
+                      RECORDS, F/SYS/02 (00/01.12.2021), 141 formats
+DIGITAL TEMPLATE     src/data/seed/departments.ts (the ten departments and which owns which document),
+                      src/engine/departmentScope.ts (the rule), the two repositories (where it is
+                      applied), src/components/common/NotYourDepartment.tsx (the refusal),
+                      src/components/master/DepartmentsAccess.tsx (Master Data > Departments & access),
+                      backend/db.ts + backend/index.ts (the assignment, and who may change it)
+DATABASE FIELDS      users.departments - comma-separated department codes, "" = every department; added
+                      to an existing app.db by ALTER TABLE on start-up
+```
+
+- **The departments are the plant's own.** Every format number on the master list carries its department
+  in the middle segment, so the list is already written down: SYS (System / Management), MKT, PUR, STR,
+  QC, QA, PRD, MNT, HR and DISP, each with the `F-...` prefix it owns. All ten are configured, not only
+  the six that own a document today - a Store or Maintenance user is told nothing has been digitised for
+  them yet rather than left out of the system.
+- **Which department owns which document follows the format number**, and is listed in one auditable
+  place (`DOCUMENT_DEPARTMENTS`). QC gets the nine F-QC formats (the three lamination QC registers, the
+  four inspection records, F/QC/13 and the two Statements of Compliance); Production the two F-PRD
+  registers; Marketing F/MKT/05 and the Complaint Acknowledgement form (F-MKT-06 on the list); HR the
+  ten documents of the pest control file, because that is where the list files them (F-HR-17 and F-HR-18
+  sit beside the cleaning records F-HR-15/16); QA the internal inspection findings report; Purchase the
+  service agreement. The nine whose format number is still TO BE CONFIRMED are assigned to the
+  department that owns the process, each with its reason in the file and each flagged TBC for the MR to
+  confirm.
+- **A person sees their own department's documents and nothing else.** The rule lives in
+  `engine/departmentScope.ts` and is applied in exactly two places - `documentRepository`'s
+  `getAll` / `getById` / `getRecordable`, and `recordRepository`'s `query` / `monthStats` - so every
+  screen that reads through them is answered for the right scope without having to remember: the
+  library, the sidebar's modules and links, the calendar, the day view, the dashboard, the reports, the
+  files browser, search, the reminders, the briefing and the assistant's answers.
+- **What is deliberately NOT scoped**: the record generator, the demo generator, the boot migrations and
+  the assistant's preparation all use the `...Unscoped` variants. The plant's registers have to be
+  complete whoever happens to be logged in - and since this browser's localStorage is the only copy of
+  them, scoping generation would make another department's obligations vanish for everyone, not just for
+  the person looking. The briefing that *shows* prepared records is scoped, so each person still only
+  sees their own.
+- **Reaching another department's document says so.** Every page that is about one document, and every
+  record address, now renders `NotYourDepartment`: "This record belongs to Human Resources. Your account
+  covers Quality Control... ask the system administrator." It names the owning department, never shows a
+  field of the record, and never reads as a fault - the old "Document definition missing for this
+  record" message is now kept only for a document that genuinely has been withdrawn.
+- **Who assigns it.** A new joiner picks their department on the signup form; the administrator (the
+  first account created) can change anyone's in **Master Data > Departments & access**, which also lists
+  the ten departments and the documents each owns. A staff account cannot change its own - a restriction
+  somebody can lift for themselves is a preference, not a rule - and the API refuses them the list of
+  accounts (403). An empty assignment means every department, which is what management, the MR and QA
+  need, and what the administrator and any unassigned account get, so a fresh installation is never
+  locked.
+- **What this is and is not.** It decides what a person is shown and what they can open. It is not a
+  server-side authorisation boundary: the records still live in each browser's own localStorage
+  (DATA_MODEL.md), so it keeps departments out of each other's paperwork in the plant's shared,
+  logged-in app but cannot defend a browser's storage against its own owner. When the records move to
+  the server (FUTURE_ROADMAP.md) this same assignment is what the API must enforce. Said plainly here so
+  it is never described to the customer as security.
+- Covered by `tests/e2e_departments.py`.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

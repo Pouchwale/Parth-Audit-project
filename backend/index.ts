@@ -36,13 +36,49 @@ const getUserByEmail = db.prepare("SELECT * FROM users WHERE email = ?");
 const getUserById = db.prepare("SELECT * FROM users WHERE id = ?");
 const countUsers = db.prepare("SELECT COUNT(*) AS c FROM users");
 const insertUser = db.prepare(
-  "INSERT INTO users (id, name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+  "INSERT INTO users (id, name, email, password_hash, role, created_at, departments) VALUES (?, ?, ?, ?, ?, ?, ?)"
 );
+const listUsers = db.prepare("SELECT * FROM users ORDER BY created_at");
+const setUserDepartments = db.prepare("UPDATE users SET departments = ? WHERE id = ?");
 
 type AuthedRequest = Request & { user: PublicUser };
 
+// The department codes of the company's master list of formats (F/SYS/02) —
+// two to four capitals inside the format number (QC, PRD, HR, MKT, DISP, ...).
+// The list of real codes lives with the documents it groups, in the frontend
+// seed (src/data/seed/departments.ts); here only the shape is checked, so the
+// two never have to be kept in step.
+const DEPARTMENT_CODE_RE = /^[A-Z]{2,4}$/;
+const MAX_DEPARTMENTS = 10;
+
+/** Reads a departments field off a request body: an array of codes, or absent. */
+function readDepartments(value: unknown): { codes: string[] } | { error: string } {
+  if (value === undefined || value === null) return { codes: [] };
+  const list = Array.isArray(value) ? value : [value];
+  if (list.length > MAX_DEPARTMENTS) return { error: "Too many departments." };
+  const codes: string[] = [];
+  for (const raw of list) {
+    if (typeof raw !== "string") return { error: "A department must be a code like QC." };
+    const code = raw.trim().toUpperCase();
+    if (!code) continue;
+    if (!DEPARTMENT_CODE_RE.test(code)) return { error: `"${raw}" is not a department code.` };
+    if (!codes.includes(code)) codes.push(code);
+  }
+  return { codes };
+}
+
 function toPublicUser(row: UserRow): PublicUser {
-  return { id: row.id, name: row.name, email: row.email, role: row.role };
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    // "" -> [], which the app reads as every department.
+    departments: String(row.departments ?? "")
+      .split(",")
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean),
+  };
 }
 
 function cookieOptions(): CookieOptions {
@@ -114,7 +150,12 @@ function clearAttempts(key: string): void {
 // trivially) with the same window as the assistant throttle, generous
 // enough that nobody doing legitimate testing/onboarding would ever hit it.
 const signupAttempts = new Map<string, AttemptRecord>();
-const MAX_SIGNUPS_PER_IP = 10;
+// Raised from 10 to 20 on 13-Sep-2026: the Playwright suite now runs
+// fourteen files against one server process, nine of which create a fresh
+// account, and the two fixed accounts of the departments suite have to be
+// creatable on a first run. Still a cap, and the per-account assistant cap
+// below is the control that actually bounds the Groq bill.
+const MAX_SIGNUPS_PER_IP = 20;
 
 function isSignupThrottled(key: string): boolean {
   const rec = signupAttempts.get(key);
@@ -143,6 +184,14 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
     res.status(400).json({ error: "Name is required." });
     return;
   }
+  // Which department the person works in, chosen on the signup form. Left out
+  // (or "all") it stays empty, which means every department — an account
+  // nobody has assigned must not be locked out of the system.
+  const departments = readDepartments((req.body ?? {}).departments);
+  if ("error" in departments) {
+    res.status(400).json({ error: departments.error });
+    return;
+  }
   if (typeof email !== "string" || email.trim().length > MAX_EMAIL_LENGTH || !EMAIL_RE.test(email.trim())) {
     res.status(400).json({ error: "A valid email address is required." });
     return;
@@ -166,8 +215,11 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   const isFirstUser = (countUsers.get() as { c: number }).c === 0;
   const role = isFirstUser ? "admin" : "staff";
 
+  // The first account runs the plant's system, so it is the admin and is not
+  // restricted to one department whatever the form said.
+  const assigned = isFirstUser ? [] : departments.codes;
   try {
-    insertUser.run(id, name.trim(), normalizedEmail, passwordHash, role, new Date().toISOString());
+    insertUser.run(id, name.trim(), normalizedEmail, passwordHash, role, new Date().toISOString(), assigned.join(","));
   } catch {
     // Two concurrent signups for the same email both pass the check above;
     // the table's UNIQUE constraint catches the second one here instead.
@@ -176,9 +228,54 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   }
 
   recordSignup(req.ip ?? "unknown");
-  const user: PublicUser = { id, name: name.trim(), email: normalizedEmail, role };
+  const user: PublicUser = { id, name: name.trim(), email: normalizedEmail, role, departments: assigned };
   issueSession(res, user);
   res.status(201).json({ user });
+});
+
+// WHO SEES WHICH DEPARTMENT'S DOCUMENTS — set by the admin, not by the person
+// themselves, or the restriction would be a preference rather than a rule.
+// The admin is the first account created (see signup above).
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  const user = getSessionUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+  if (user.role !== "admin") {
+    res.status(403).json({ error: "Only the system administrator can change department access." });
+    return;
+  }
+  (req as AuthedRequest).user = user;
+  next();
+}
+
+app.get("/api/users", requireAdmin, (_req: Request, res: Response): void => {
+  const rows = listUsers.all() as unknown as UserRow[];
+  res.json({ users: rows.map((r) => ({ ...toPublicUser(r), createdAt: r.created_at })) });
+});
+
+app.post("/api/users/:id/departments", requireAdmin, (req: Request, res: Response): void => {
+  const target = getUserById.get(String(req.params.id ?? "")) as UserRow | undefined;
+  if (!target) {
+    res.status(404).json({ error: "No such user." });
+    return;
+  }
+  const departments = readDepartments((req.body ?? {}).departments);
+  if ("error" in departments) {
+    res.status(400).json({ error: departments.error });
+    return;
+  }
+  // An admin must stay unrestricted: they are the one who assigns everyone
+  // else, and an admin who had locked themselves into one department could no
+  // longer see the documents they were asked about.
+  if (target.role === "admin" && departments.codes.length > 0) {
+    res.status(400).json({ error: "The administrator account covers every department." });
+    return;
+  }
+  setUserDepartments.run(departments.codes.join(","), target.id);
+  const updated = (getUserById.get(target.id) as UserRow | undefined) ?? { ...target, departments: departments.codes.join(",") };
+  res.json({ user: toPublicUser(updated) });
 });
 
 app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> => {

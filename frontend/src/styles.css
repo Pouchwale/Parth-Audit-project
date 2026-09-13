@@ -660,20 +660,60 @@ textarea.input { resize: vertical; min-height: 60px; }
 .calendar-cell .cal-date { font-size: 12px; font-weight: 700; }
 .calendar-cell .cal-chip { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; display: inline-block; }
 
+/* A heading that belongs on the paper but not on the screen — it gives a
+   printed report the company name and its own title, so a printout is a whole
+   document rather than a loose table (REQUIREMENTS §38). */
+.print-only { display: none; }
+
 /* ---- Print ---- */
+@page {
+  size: A4;
+  margin: 12mm;
+}
 @media print {
   .app-sidebar, .app-topbar, .mode-banner, .no-print { display: none !important; }
+  .print-only { display: block !important; }
   .app-content { max-width: 100%; padding: 0; }
   body { background: #fff; }
-  .card { box-shadow: none; break-inside: avoid; }
+  /* A card no longer refuses to break: a month's register is 31 rows and was
+     being CLIPPED at the first page boundary rather than carried onto page 2 —
+     which is what made a printout look like part of a document (§38). Only
+     the small blocks that must not be split keep break-inside: avoid. */
+  .card { box-shadow: none; }
+  .stat-tile, .doc-header, .trend-head, .licence-scan, .trend-chart { break-inside: avoid; }
+  /* A table is a scroll container on screen (overflow-x, for a grid wider
+     than its card). On paper a scroll container cannot paginate: everything
+     past the first page was cut off. Let them overflow visibly instead, keep
+     each row whole, and repeat the head on every page. */
+  .doc-table, .register-grid-wrap, .file-table-wrap, .file-month, .doc-header { overflow: visible !important; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr, img { break-inside: avoid; }
+  /* The grey header bands of the company's own grids are part of the form:
+     without this browsers drop the background and the band prints blank. */
+  .register-grid th, .register-summary-title, .doc-table th, .trend-table th, .badge {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* A card that is part of a printed document sheds its web frame. */
+  [data-print-doc] .card { border: none !important; border-radius: 0 !important; box-shadow: none !important; }
   /* Make filled-in fields read like a completed paper record rather than a
-     web form when printed (section 30). */
-  input, select, textarea {
+     web form when printed (section 30) — except a tick box, which IS the
+     record: the blanket reset below used to erase every printed tick. */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
     border: none !important;
     background: transparent !important;
     padding: 2px 0 !important;
     color: #000 !important;
     -webkit-appearance: none;
+  }
+  input[type="checkbox"], input[type="radio"] {
+    -webkit-appearance: auto;
+    appearance: auto;
+    border: 1px solid #000 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="time"]::-webkit-calendar-picker-indicator { display: none; }

@@ -16,9 +16,27 @@ db.exec(`
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'staff',
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    departments TEXT NOT NULL DEFAULT ''
   )
 `);
+
+// The departments a user may see — the department codes of the company's own
+// master list of formats (F/SYS/02: QC, PRD, HR, MKT, ...), comma separated;
+// EMPTY means every department, which is what management / QA need and what a
+// new account has until somebody assigns it (see
+// frontend/src/engine/departmentScope.ts).
+//
+// CREATE TABLE IF NOT EXISTS above does nothing to a database that already
+// exists, so an app.db from before this column has to be altered. SQLite
+// allows ADD COLUMN with a non-null DEFAULT, which fills every existing row;
+// the guard keeps it idempotent across restarts.
+{
+  const columns = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!columns.some((c) => c.name === "departments")) {
+    db.exec("ALTER TABLE users ADD COLUMN departments TEXT NOT NULL DEFAULT ''");
+  }
+}
 
 // Single-row table (id is always 1) tracking the last calendar date a
 // reminder digest email was sent. The reminder data itself lives in the
@@ -40,4 +58,6 @@ export interface UserRow {
   password_hash: string;
   role: "admin" | "staff";
   created_at: string;
+  /** Comma-separated department codes; "" = every department. */
+  departments: string;
 }

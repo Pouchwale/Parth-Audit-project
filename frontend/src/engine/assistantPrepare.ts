@@ -17,7 +17,9 @@ const CONFIRMED_STATUSES = ["Submitted", "Pending Verification", "Verified"] as 
 // the given date — the carry-forward source for the assistant.
 export function latestConfirmedRecord(documentId: string, beforeISO: string, isDemo: boolean): RecordInstance | undefined {
   return recordRepository
-    .query({ documentId, isDemo })
+    // Unscoped: what to carry forward is a property of the register, not of
+    // who is looking at it (engine/departmentScope.ts).
+    .queryUnscoped({ documentId, isDemo })
     .filter((r) => CONFIRMED_STATUSES.includes(r.status as (typeof CONFIRMED_STATUSES)[number]) && compareISO(r.dueDate, beforeISO) < 0)
     .sort((a, b) => compareISO(b.dueDate, a.dueDate))[0];
 }
@@ -32,7 +34,12 @@ export function latestConfirmedRecord(documentId: string, beforeISO: string, isD
 export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   ensureNearTermRecordsGenerated(false);
   const master = masterRepository.get();
-  const docs = documentRepository.getRecordable();
+  // Unscoped: the assistant prepares the plant's due records whoever opened
+  // the app — a department's paperwork must not go unprepared because nobody
+  // from that department logged in today (engine/departmentScope.ts). The
+  // briefing that SHOWS them is scoped, so each person still only sees their
+  // own (engine/assistantBriefing.ts).
+  const docs = documentRepository.getRecordableUnscoped();
   const now = new Date().toISOString();
   const prepared: RecordInstance[] = [];
   // Same launch-date floor as the generator (ensureNearTermRecordsGenerated,
@@ -47,7 +54,7 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
 
   for (const doc of docs) {
     const records = recordRepository
-      .query({ documentId: doc.id, isDemo: false })
+      .queryUnscoped({ documentId: doc.id, isDemo: false })
       .filter(
         (r) =>
           BLANK_STATUSES.includes(r.status as (typeof BLANK_STATUSES)[number]) &&
@@ -86,7 +93,7 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
 export function reprepareRecord(recordId: string): RecordInstance | undefined {
   const record = recordRepository.getById(recordId);
   if (!record || !["Scheduled", "Due", "In Progress", "Rejected"].includes(record.status)) return undefined;
-  const doc = documentRepository.getById(record.documentId);
+  const doc = documentRepository.getByIdUnscoped(record.documentId);
   if (!doc) return undefined;
   const result = autoFillRecord(doc, record.dueDate, masterRepository.get(), latestConfirmedRecord(doc.id, record.dueDate, record.isDemo));
   if (!result) return undefined;

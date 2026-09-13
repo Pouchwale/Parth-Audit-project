@@ -24,6 +24,7 @@ import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/r
 import { useT } from "../i18n";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
@@ -61,7 +62,15 @@ export function GapListPage() {
     bump();
     navigate(`/record/${rec.id}`);
   };
-  const doc = documentRepository.getById(GAP_DOC_ID)!;
+  const doc = documentRepository.getById(GAP_DOC_ID);
+  // The inspection findings report belongs to Quality Assurance, so somebody
+  // outside QA reaching this address by bookmark or link is told whose
+  // register it is instead of being shown it (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={GAP_DOC_ID} what="register" />;
+  // The Complaint Acknowledgement Report is Marketing's own format, and this
+  // list is only its neighbour here: when it is out of the viewer's
+  // departments we must not offer to start one (REQUIREMENTS §40).
+  const canCreateAck = !!documentRepository.getById(CAF_DOC_ID);
 
   const createNew = () => {
     const now = new Date().toISOString();
@@ -158,9 +167,11 @@ export function GapListPage() {
             corrective and preventive action, and the employee's signed acknowledgement.
           </p>
         </div>
-        <button className="btn btn-primary" data-action="new-complaint-ack" onClick={createAck}>
-          <FiPlus size={14} /> New Complaint Acknowledgement
-        </button>
+        {canCreateAck && (
+          <button className="btn btn-primary" data-action="new-complaint-ack" onClick={createAck}>
+            <FiPlus size={14} /> New Complaint Acknowledgement
+          </button>
+        )}
       </div>
       <div className="doc-table">
         <table data-table="complaint-ack">
@@ -216,7 +227,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
-  const doc = documentRepository.getById(GAP_DOC_ID)!;
+  const doc = documentRepository.getById(GAP_DOC_ID);
 
   const editable = !!record && isEditableStatus(record.status);
   // Closing a finding is a follow-up to a report that has already been
@@ -246,7 +257,11 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   }>({});
 
   useSetAssistantTarget(
-    record
+    // The hook has to stay above the returns below, so the document being out
+    // of the viewer's departments is handled here too: no target is registered,
+    // because the assistant must not read out or edit another department's
+    // record either (REQUIREMENTS §40).
+    record && doc
       ? {
           documentKind: "gap",
           documentId: doc.id,
@@ -275,6 +290,13 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
         }
       : null
   );
+
+  // recordRepository.getById stays unscoped on purpose, so the record above is
+  // found whoever is logged in; it is the document that decides who may open
+  // it. This comes before the "not found" return so that nothing of the
+  // record — not even whether that address exists — reaches somebody outside
+  // Quality Assurance (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={GAP_DOC_ID} what="report" />;
 
   if (!record) {
     return (

@@ -4,6 +4,7 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { computeBriefing } from "./assistantBriefing";
+import { departmentScopeLabel, documentDepartmentLabel, isDocumentIdVisible } from "./departmentScope";
 import { routeForRecord } from "./reminders";
 import { filesRoute, recordsInRange, scopeForDocuments } from "./fileScope";
 import { dayInfo, describeDay, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG, type DayInfo } from "./holidays";
@@ -261,7 +262,15 @@ export function matchDocuments(lower: string): string[] {
     if (alias) hits.push({ id, alias });
   }
   const ids = new Set(hits.filter((h) => !hits.some((o) => o.id !== h.id && o.alias.length > h.alias.length && o.alias.includes(h.alias))).map((h) => h.id));
-  if (ids.size > 0) return Array.from(ids);
+  // DOC_KEYWORDS is a hardcoded alias table, so a word can name a document
+  // this user's department may not see — nothing above went through the
+  // scoped repository. Keeping only the ids that survive a scoped lookup
+  // stops the assistant naming, listing or opening another department's
+  // document just because the words matched (REQUIREMENTS §40). When the
+  // words named nothing visible, the message counts as naming no document at
+  // all and goes to the model, rather than being answered out of somebody
+  // else's paperwork.
+  if (ids.size > 0) return Array.from(ids).filter((id) => documentRepository.getById(id) !== undefined);
 
   const recordable = documentRepository.getRecordable();
   for (const { module, aliases } of MODULE_KEYWORDS) {
@@ -522,8 +531,15 @@ const CAPA_SUMMARY_RE = /\b(summary|summarise|summarize|overview|status|how many
 
 function capaSummary(lower: string, isDemo: boolean): LocalAnswer {
   const today = todayISO();
-  const wantsInternal = !/\bexternal\b/.test(lower);
-  const wantsExternal = !/\binternal\b/.test(lower);
+  // The document ids this summary counts are written in below, so the
+  // department filter the repositories apply never gets a say: asked plainly,
+  // this would tell a Production or Stores account how many of Marketing's
+  // customer complaints are open (REQUIREMENTS §40). Each side is reported
+  // only when its own document is visible, and they are checked one at a time
+  // because they belong to different departments — the inspection findings
+  // report to QA, the complaint checklist and its acknowledgement to Marketing.
+  const wantsInternal = !/\bexternal\b/.test(lower) && isDocumentIdVisible("gap-inspection");
+  const wantsExternal = !/\binternal\b/.test(lower) && isDocumentIdVisible("capa-customer-complaint");
   const parts: string[] = [];
   const chips: Chip[] = [];
   const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -535,7 +551,9 @@ function capaSummary(lower: string, isDemo: boolean): LocalAnswer {
     const overdue = open.filter((f) => f.status === "Overdue" || (!!f.targetDate && compareISO(f.targetDate, today) < 0));
     const closed = findings.filter((f) => f.status === "Closed" || f.status === "Verified");
     const latest = reports.slice().sort((a, b) => compareISO(b.dueDate, a.dueDate))[0];
-    const acks = recordRepository.query({ documentId: "capa-complaint-ack", isDemo }) as RecordInstance<ComplaintAckData>[];
+    const acks = (isDocumentIdVisible("capa-complaint-ack")
+      ? recordRepository.query({ documentId: "capa-complaint-ack", isDemo })
+      : []) as RecordInstance<ComplaintAckData>[];
     const oldest = overdue.slice().sort((a, b) => compareISO(a.targetDate ?? "9999-12-31", b.targetDate ?? "9999-12-31"))[0];
     parts.push(
       [
@@ -564,6 +582,15 @@ function capaSummary(lower: string, isDemo: boolean): LocalAnswer {
       ].join("")
     );
     chips.push({ label: "Open External CAPA", action: { type: "navigate", route: "/gap/external" } });
+  }
+
+  // Nothing left to report means the CAPA documents asked about belong to
+  // another department (REQUIREMENTS §40) — said plainly, and before the
+  // "Demo data." prefix, so it cannot read as an empty answer or a fault.
+  if (parts.length === 0) {
+    return {
+      reply: `That part of CAPA isn't yours to see: your account covers ${departmentScopeLabel()}, while the inspection findings reports belong to ${documentDepartmentLabel("gap-inspection")} and the customer complaint records to ${documentDepartmentLabel("capa-customer-complaint")}. Ask the system administrator to add the department to your account if you need them.`,
+    };
   }
 
   return { reply: `${isDemo ? "Demo data. " : ""}${parts.join("\n\n")}`, chips };

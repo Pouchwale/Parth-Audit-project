@@ -12,6 +12,7 @@ import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
 import { PEST_CONTROL_SECTIONS } from "../data/seed/documentDefinitions";
 import { routeForRecord } from "../engine/reminders";
+import { departmentScopeLabel, isDocumentIdVisible } from "../engine/departmentScope";
 
 function openTarget(docId: string, kind: string): string {
   if (kind === "chemical-master") return "/chemical-master";
@@ -66,8 +67,13 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   const isDemo = mode === "demo";
   const docs = documentRepository.getAll();
   const master = masterRepository.get();
+  // The deletion log is kept in its own store (engine/recordCrud.ts), so
+  // nothing has filtered it by department: unfiltered, it would name another
+  // department's documents, dates and reasons on this page (REQUIREMENTS
+  // §40). The scope only changes at sign-in, so it needs no extra dependency
+  // here.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const deletions = React.useMemo(() => deletionLog(isDemo), [isDemo, version]);
+  const deletions = React.useMemo(() => deletionLog(isDemo).filter((d) => isDocumentIdVisible(d.documentId)), [isDemo, version]);
 
   // CREATE: a record for this document, dated today — or the one that already
   // covers today, since a controlled register must not hold two sheets for one
@@ -138,7 +144,15 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
       </div>
 
       {byModule.size === 0 && (
-        <div className="empty-state">No documents match "{query || activeSlug}".</div>
+        <div className="empty-state">
+          {/* An empty library because of the department scope is not a failed
+              search, and must not be reported as one (REQUIREMENTS §40): a
+              person shown "No documents match" would go looking for lost
+              documents that are simply somebody else's. */}
+          {docs.length === 0
+            ? `Your account covers ${departmentScopeLabel()}, and no document on the Master List of Formats & Records is assigned to it — ask the system administrator to add a department to your account (Master Data → Departments & access).`
+            : `No documents match "${query || activeSlug}".`}
+        </div>
       )}
 
       {Array.from(byModule.entries()).map(([module, list]) => (

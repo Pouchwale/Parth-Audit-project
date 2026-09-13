@@ -1,5 +1,6 @@
 import type { DocumentDefinition } from "../../types";
 import { RETIRED_DOCUMENT_IDS, SEED_DOCUMENTS } from "../seed/documentDefinitions";
+import { isDocumentVisible } from "../../engine/departmentScope";
 import { readJSON, writeJSON } from "../storageAdapter";
 
 const KEY = "documents";
@@ -30,16 +31,41 @@ export function ensureSeeded(): void {
   if (JSON.stringify(next) !== JSON.stringify(existing)) saveAll(next);
 }
 
+// THE DEPARTMENT FILTER LIVES HERE, so every screen that asks this repository
+// for documents is answered for the logged-in user's own department(s) without
+// having to remember to filter (engine/departmentScope.ts, REQUIREMENTS §40).
+//
+// The *Unscoped variants exist for the handful of callers that must work on
+// the plant's whole catalogue whoever happens to be logged in: the record
+// generator, the demo generator, the boot migrations and this file's own
+// ensureSeeded. Scoping those would mean another department's records were
+// never created — and since localStorage is the only store, that obligation
+// would vanish for everyone, not just for the person looking.
 export const documentRepository = {
   getAll(): DocumentDefinition[] {
-    return loadAll();
+    return loadAll().filter(isDocumentVisible);
   },
   getById(id: string): DocumentDefinition | undefined {
-    return loadAll().find((d) => d.id === id);
+    const doc = loadAll().find((d) => d.id === id);
+    return doc && isDocumentVisible(doc) ? doc : undefined;
   },
   getRecordable(): DocumentDefinition[] {
+    return loadAll().filter((d) => !d.isReferenceOnly && isDocumentVisible(d));
+  },
+
+  /** Every definition, whatever the viewer's department — for generators and migrations. */
+  getAllUnscoped(): DocumentDefinition[] {
+    return loadAll();
+  },
+  /** One definition, whatever the viewer's department. */
+  getByIdUnscoped(id: string): DocumentDefinition | undefined {
+    return loadAll().find((d) => d.id === id);
+  },
+  /** Every record-holding definition, whatever the viewer's department. */
+  getRecordableUnscoped(): DocumentDefinition[] {
     return loadAll().filter((d) => !d.isReferenceOnly);
   },
+
   upsert(doc: DocumentDefinition): void {
     const all = loadAll();
     const idx = all.findIndex((d) => d.id === doc.id);

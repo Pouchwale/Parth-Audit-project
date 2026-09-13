@@ -47,7 +47,9 @@ export interface CalendarAlignment {
 
 export function alignRecordsToWorkingCalendar(): CalendarAlignment {
   const master = masterRepository.get();
-  const docs = new Map(documentRepository.getAll().map((d) => [d.id, d] as const));
+  // Unscoped: a boot-time migration moves every department's records onto
+  // working days, not only the ones the person logged in may see.
+  const docs = new Map(documentRepository.getAllUnscoped().map((d) => [d.id, d] as const));
   const updates: RecordInstance[] = [];
   const removeIds: string[] = [];
   let remarked = 0;

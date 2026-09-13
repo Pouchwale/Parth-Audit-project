@@ -4,6 +4,7 @@ import { SOP_DOC_ID, referenceRepository, sopSections } from "../data/repositori
 import type { SopSection } from "../data/seed/sopContent";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useAppStore } from "../store/AppStore";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { printDocument } from "../utils/print";
@@ -18,7 +19,10 @@ const FIELDS: { key: Exclude<keyof SopSection, "title">; label: string }[] = [
 
 export function SopReferencePage() {
   const { currentUser, bump } = useAppStore();
-  const doc = documentRepository.getById(SOP_DOC_ID)!;
+  // Not asserted: the repository answers for the logged-in user's own
+  // departments, so this is undefined for somebody who may not see the SOP
+  // (engine/departmentScope.ts).
+  const doc = documentRepository.getById(SOP_DOC_ID);
   // The SOP being corrected, while Edit is on; null otherwise.
   const [draft, setDraft] = useState<SopSection[] | null>(null);
   const editing = draft !== null;
@@ -51,6 +55,14 @@ export function SopReferencePage() {
       if (Array.isArray(proposed)) save(proposed);
     },
   });
+
+  // The Standard Operating Procedure belongs to Human Resources, so somebody
+  // outside it who reaches this address by an old bookmark or a link is told
+  // whose document it is instead of being shown the SOP's own wording and an
+  // Edit button they must not use (REQUIREMENTS §40). The return sits below
+  // every hook, the assistant target included, so the order of hooks never
+  // changes between renders.
+  if (!doc) return <NotYourDepartment documentId={SOP_DOC_ID} what="document" />;
 
   return (
     <div data-print-doc>

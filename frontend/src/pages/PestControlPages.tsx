@@ -22,8 +22,10 @@ import { fliesInMonth, flyStatsForYear, rodentStatsForYear, rodentsInMonth } fro
 import { FlyCatcherTrendReport, RodentTrendReport } from "./ReportsPage";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { DailyRegisterSheet, FHR17_ORIGINAL_PAGES } from "../components/records/DailyRegisterSheet";
 import { FlyCatcherRegisterSheet } from "../components/records/FlyCatcherRegisterSheet";
+import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { useT } from "../i18n";
 import { MONTH_NAMES, WEEKDAY_NAMES, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
 import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
@@ -95,10 +97,16 @@ function useEnsureMonth(year: number, month: number, version: number) {
   }, [year, month, version]);
 }
 
+// A year that hasn't happened holds no records, and the trend reports drop it
+// (data/selectors.ts keeps years up to this one), so offering it only produced
+// an empty table row and a bare chart captioned "the chart shows 2027"
+// (REQUIREMENTS §39). The year after this one is therefore not offered.
 function YearSelect({ value, onChange }: { value: number; onChange: (y: number) => void }) {
+  const thisYear = new Date().getFullYear();
+  const years = [value - 1, value, value + 1].filter((y) => y <= thisYear);
   return (
-    <select className="input input-sm" style={{ width: 90 }} value={value} onChange={(e) => onChange(Number(e.target.value))}>
-      {[value - 1, value, value + 1].map((y) => (
+    <select className="input input-sm" style={{ width: 90 }} data-select="year" value={value} onChange={(e) => onChange(Number(e.target.value))}>
+      {years.map((y) => (
         <option key={y} value={y}>
           {y}
         </option>
@@ -174,6 +182,23 @@ export function PestControlOverviewPage() {
   const nextFly = flyDoc ? nextDueDate(flyDoc, today) : null;
   const lastTraining = latestRecord<TrainingRecordData>(TRAINING_DOC_ID, isDemo, today);
 
+  // WHOSE PAPERWORK THIS SHELF HOLDS. Every format in the pest control file
+  // belongs to Human Resources on the company's own Master List of Formats
+  // (data/seed/departments.ts), so somebody from another department who
+  // reaches /pest-control by an old bookmark or a link must not be shown
+  // these cards: a card names a document, prints its format number, counts
+  // the month on it and offers to open it, which is already more than they
+  // may see (REQUIREMENTS §40). This page is a shelf of several documents
+  // rather than one document, so a card is left out when its own document is
+  // outside the viewer's departments instead of the whole page being
+  // refused. When that leaves nothing, the refusal takes the page's place:
+  // the only reason every card can be missing is the viewer's department,
+  // and only the refusal says whose documents these are and how to be given
+  // them.
+  const visibleServices = services.filter((s) => !!s.doc);
+  const trainingDoc = docs.find((d) => d.id === TRAINING_DOC_ID);
+  if (!dailyDoc && !flyDoc && !trainingDoc && visibleServices.length === 0) return <NotYourDepartment documentId={DAILY_DOC_ID} what="document" />;
+
   // The service provider agreement: the one on file, or the Service Provider
   // page, which is where it is drafted or the signed copy uploaded.
   const openServiceAgreement = () => {
@@ -221,6 +246,7 @@ export function PestControlOverviewPage() {
 
       <div className="pest-grid">
         {/* 1. Daily Report */}
+        {dailyDoc && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-base font-semibold">
@@ -262,8 +288,10 @@ export function PestControlOverviewPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* 2. Service Reports */}
+        {visibleServices.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-base font-semibold">
@@ -284,7 +312,7 @@ export function PestControlOverviewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {services.map((s) => (
+                  {visibleServices.map((s) => (
                     <tr key={s.slug} className="card-clickable" onClick={() => navigate(`/pest/service/${s.slug}`)}>
                       <td>
                         <div className="font-semibold text-sm">{s.title}</div>
@@ -312,8 +340,10 @@ export function PestControlOverviewPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* 3. Trend Analysis */}
+        {(dailyDoc || flyDoc) && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-base font-semibold">
@@ -322,6 +352,7 @@ export function PestControlOverviewPage() {
             <span className="badge badge-Due">Monthly</span>
           </div>
           <div className="card-pad">
+            {dailyDoc && (
             <div className="mb-4">
               <div className="font-semibold text-sm">Rodent Catch Report and Trend Analysis</div>
               <div className="text-sm text-muted">
@@ -332,6 +363,8 @@ export function PestControlOverviewPage() {
                 Open <FiArrowRight size={12} />
               </button>
             </div>
+            )}
+            {flyDoc && (
             <div>
               <div className="font-semibold text-sm">Fly Catcher Infestation</div>
               <div className="text-sm text-muted">
@@ -342,10 +375,13 @@ export function PestControlOverviewPage() {
                 Open <FiArrowRight size={12} />
               </button>
             </div>
+            )}
           </div>
         </div>
+        )}
 
         {/* 4. Training & Reference */}
+        {trainingDoc && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-base font-semibold">
@@ -383,6 +419,7 @@ export function PestControlOverviewPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
@@ -407,6 +444,15 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
   useEnsureMonth(year, month, version);
 
   const doc = documentRepository.getById(DAILY_DOC_ID);
+  // F/HR/17 is Human Resources' own format, so somebody outside that
+  // department who reaches this address by an old bookmark or a link is told
+  // whose register it is. Nothing crashed without this guard, which is why
+  // it was easy to miss: the records are scoped by the same rule, so the
+  // page drew a month nobody had filled in, and an empty register reads as a
+  // lapse in the plant's paperwork rather than as another department's
+  // document (REQUIREMENTS §40). The return sits below every hook, so the
+  // order of hooks never changes between renders.
+  if (!doc) return <NotYourDepartment documentId={DAILY_DOC_ID} what="register" />;
   const master = masterRepository.get();
   const records = recordRepository.query({ documentId: DAILY_DOC_ID, isDemo, ...monthRange(year, month) }) as RecordInstance<DailyPestMonitoringData>[];
   const byDate = new Map(records.map((r) => [r.dueDate, r]));
@@ -512,7 +558,14 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
       {view === "register" && <DailyRegisterSheet year={year} month={month} isDemo={isDemo} onOpenDay={(r) => navigate(`/record/${r.id}`)} />}
 
       {view === "list" && (
-      <div className="doc-table" data-print-doc>
+      // The list is a document in its own right once it is on paper, so it
+      // prints with the register's own header block — company name, title,
+      // Format No. / Rev No. and the month it covers (REQUIREMENTS §38). A
+      // bare grid with no heading is what made a printout look unfinished.
+      <div className="register-sheet" data-print-doc>
+        <section className="register-page">
+        {doc && <DocumentHeader doc={doc} extraTitle={`STATUS LIST — ${MONTH_NAMES[month].toUpperCase()} ${year}`} dateLabel={`${MONTH_NAMES[month]} ${year}`} />}
+        <div className="doc-table" style={{ border: "none" }}>
         <table>
           <thead>
             <tr>
@@ -522,7 +575,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
               <th>Rodents (box · location)</th>
               <th>Checker</th>
               <th>Time</th>
-              <th></th>
+              <th className="no-print"></th>
             </tr>
           </thead>
           <tbody>
@@ -547,12 +600,14 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
                   <td className={`text-sm ${rodents ? "text-danger" : "text-faint"}`}>{rodents || "—"}</td>
                   <td className="text-sm">{r?.data.checker || "—"}</td>
                   <td className="text-sm">{r?.data.timeOfChecking || "—"}</td>
-                  <td style={{ textAlign: "right" }}>{r && <button className="btn btn-ghost btn-sm">Open</button>}</td>
+                  <td className="no-print" style={{ textAlign: "right" }}>{r && <button className="btn btn-ghost btn-sm">Open</button>}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        </div>
+        </section>
       </div>
       )}
     </div>
@@ -577,6 +632,19 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
   const service = PEST_SERVICES[slug];
   const doc = service ? documentRepository.getById(service.docId) : undefined;
   const master = masterRepository.get();
+
+  // An address nobody recognises and a report outside the viewer's departments
+  // are two different things, and only the first is a wrong address: the
+  // provider's visit reports are filed with Human Resources' pest control
+  // file, so when the plant still holds the definition and only the scoped
+  // lookup came back empty, this is a department refusal, and "Unknown
+  // service report" would send somebody hunting a broken link that isn't
+  // there (REQUIREMENTS §40). The unscoped lookup is what tells the two
+  // apart; the empty state below is kept for a slug that really is unknown.
+  if (service && !doc) {
+    const unscoped = documentRepository.getByIdUnscoped(service.docId);
+    if (unscoped) return <NotYourDepartment documentId={unscoped.id} formatNo={unscoped.formatNo} what="report" />;
+  }
 
   if (!service || !doc) {
     return (
@@ -657,9 +725,14 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
         </button>
       </div>
 
-      <div className="doc-table" data-print-doc>
+      {/* On paper this is the service report's own visit register for the year,
+          so it carries the document's header block (REQUIREMENTS §38). */}
+      <div className="register-sheet" data-print-doc>
+        <section className="register-page">
+        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${year}`} dateLabel={String(year)} />
         {/* data-table: a stable hook, since this page now also carries the
             company-format sheets, which are tables too. */}
+        <div className="doc-table" style={{ border: "none" }}>
         <table data-table="visits">
           <thead>
             <tr>
@@ -670,7 +743,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
               <th>Areas</th>
               <th>Material</th>
               <th>Remarks</th>
-              <th></th>
+              <th className="no-print"></th>
             </tr>
           </thead>
           <tbody>
@@ -695,7 +768,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
                   <td className="text-sm">{r.data.lines.length}</td>
                   <td className="text-sm">{s.mats || "—"}</td>
                   <td className="text-sm">{s.remarks || <span className="text-faint">—</span>}</td>
-                  <td style={{ textAlign: "right" }}>
+                  <td className="no-print" style={{ textAlign: "right" }}>
                     <button className="btn btn-ghost btn-sm">Open</button>
                   </td>
                 </tr>
@@ -703,6 +776,8 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
             })}
           </tbody>
         </table>
+        </div>
+        </section>
       </div>
 
       {/* The company's own formats that go with this service, filled from the
@@ -742,6 +817,13 @@ export function RodentTrendPage({ year: initialYear }: { year?: number }) {
   const isDemo = mode === "demo";
   const [year, setYear] = useState(initialYear ?? new Date().getFullYear());
   const doc = documentRepository.getById(DAILY_DOC_ID);
+  // The trend is counted off F/HR/17's own daily records, which are Human
+  // Resources', so for anybody else this page could only ever draw an empty
+  // chart and a table of zeros below a caption quoting a format number that
+  // came out blank. Degrading quietly like that looks like a plant with no
+  // rodents; the refusal says whose document it is instead
+  // (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={DAILY_DOC_ID} what="report" />;
 
   return (
     <div className={isDemo ? "demo-watermark" : ""}>
@@ -786,6 +868,12 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
   useEnsureMonth(now.getFullYear(), now.getMonth(), version);
 
   const doc = documentRepository.getById(FLY_DOC_ID);
+  // The register, the trend and the visit list here are all F/HR/18, Human
+  // Resources' own format, so this whole page is one document a viewer may
+  // either see or not: outside HR it is told whose register it is rather
+  // than shown thirteen empty fly catcher units and a trend of nothing
+  // (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={FLY_DOC_ID} what="register" />;
   const records = (recordRepository.query({ documentId: FLY_DOC_ID, isDemo, fromDate: `${year}-01-01`, toDate: `${year}-12-31` }) as RecordInstance<FlyCatcherData>[])
     .slice()
     .sort((a, b) => compareISO(b.dueDate, a.dueDate));
@@ -853,12 +941,14 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
       {view === "trend" && <FlyCatcherTrendReport isDemo={isDemo} year={year} month={month} />}
 
       {view === "list" && (
-      <div className="card mt-4" data-print-doc>
-        <div className="card-header">
-          <h3 className="text-lg">
+      // The year's inspections as a document: the F/HR/18 header block, then
+      // the list (REQUIREMENTS §38).
+      <div className="register-sheet" data-print-doc>
+        <section className="register-page">
+          {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${year}`} dateLabel={String(year)} />}
+          <h3 className="text-lg no-print" style={{ marginTop: 10 }}>
             <FiActivity size={14} style={{ verticalAlign: -2 }} /> Inspection & cleaning records — {year}
           </h3>
-        </div>
         <div className="doc-table" style={{ border: "none" }}>
           <table>
             <thead>
@@ -869,7 +959,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
                 <th>Busiest unit</th>
                 <th>Cleaning done by</th>
                 <th>Verified by</th>
-                <th></th>
+                <th className="no-print"></th>
               </tr>
             </thead>
             <tbody>
@@ -893,7 +983,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
                     <td className="text-sm">{s.top && s.top.n > 0 ? `${s.top.pcId} (${s.top.n})` : "—"}</td>
                     <td className="text-sm">{s.cleaning || "—"}</td>
                     <td className="text-sm">{s.verified || "—"}</td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="no-print" style={{ textAlign: "right" }}>
                       <button className="btn btn-ghost btn-sm">Open</button>
                     </td>
                   </tr>
@@ -902,6 +992,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
             </tbody>
           </table>
         </div>
+        </section>
       </div>
       )}
     </div>

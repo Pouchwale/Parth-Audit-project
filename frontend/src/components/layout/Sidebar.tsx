@@ -31,6 +31,7 @@ import {
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
+import { documentRepository } from "../../data/repositories/documentRepository";
 import { readJSON, writeJSON } from "../../data/storageAdapter";
 import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
@@ -125,6 +126,67 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
   "Quality — Compliance": [{ to: "/soc", labelKey: "nav.statementsOfCompliance", icon: FiShield }],
 };
 
+// WHICH OF THOSE LINKS OPEN ONE PARTICULAR DOCUMENT (REQUIREMENTS §40).
+//
+// A person only sees the documents of their own department(s)
+// (engine/departmentScope.ts), and a link straight into another department's
+// register has no business being in their sidebar: the refusal screen exists
+// for an old bookmark or an address somebody sent them, not for a link this
+// app drew itself.
+//
+// The ids are written out here, beside the table of links they belong to,
+// rather than worked out at runtime from each destination: every line can be
+// checked by eye against the page that serves it (e.g. "/pest/service/rodent"
+// against SERVICE_REPORTS in pages/PestControlPages.tsx), and reading a
+// document id out of a URL would quietly get the two trend analyses wrong.
+//
+// A link is shown when ANY of its documents is visible. A destination that
+// appears nowhere in this table owns no single document — the Dashboard, the
+// Calendar, Reports, Search, Master Data, the assistant, Document Files, Demo
+// Mode and the module landing pages — and is always shown, because what those
+// screens list is already filtered document by document by the repository.
+const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
+  "/pest/daily": ["daily-pest-monitoring"],
+  "/pest/service/rodent": ["service-report-rodent"],
+  "/pest/service/general": ["service-report-general"],
+  "/pest/service/fly": ["service-report-fly"],
+  // Neither trend analysis is a document of its own: the rodent trend counts
+  // checkpoint 7 of the Daily Report and the fly catcher trend reads the Fly
+  // Catcher register, so those two documents are what decide them.
+  "/pest/trend/rodent": ["daily-pest-monitoring"],
+  "/pest/trend/fly-catcher": ["fly-catcher"],
+  "/training": ["training-record"],
+  "/chemical-master": ["chemical-master"],
+  "/sop": ["sop-reference"],
+  "/licence": ["gurudev-insecticide-licence"],
+  // Internal CAPA is the inspection findings register, Quality Assurance's.
+  // The Complaint Acknowledgement Report — capa-complaint-ack, Marketing's
+  // own format — is only its neighbour on that page, which withdraws its
+  // "new acknowledgement" button by itself when it is out of scope, and the
+  // page refuses outright without the findings register (pages/GapPage.tsx),
+  // so it is the findings register alone that earns this link.
+  "/gap/internal": ["gap-inspection"],
+  "/gap/external": ["capa-customer-complaint"],
+  // The Statements of Compliance page lists both statements and refuses only
+  // when neither is the viewer's, so either one earns the link.
+  "/soc": ["soc-labels", "soc-flexible-packaging"],
+};
+
+// One module's entries with the other departments' links taken out, and then
+// any sub-heading left standing over nothing (REQUIREMENTS §40): a "Service
+// Reports" heading above a gap reads like a page that failed to load rather
+// than like paperwork that isn't yours. A heading's links always follow it
+// directly, so a heading is worth keeping exactly when a link — not another
+// heading, and not the end of the list — comes next.
+function visibleEntries(entries: NavEntry[], visibleDocumentIds: Set<string>): NavEntry[] {
+  const kept = entries.filter((entry) => {
+    if (isHeading(entry)) return true;
+    const ids = LINK_DOCUMENT_IDS[entry.to];
+    return !ids || ids.some((id) => visibleDocumentIds.has(id));
+  });
+  return kept.filter((entry, i) => !isHeading(entry) || (kept[i + 1] !== undefined && !isHeading(kept[i + 1])));
+}
+
 const NAV_SYSTEM: NavItem[] = [
   { to: "/reports", labelKey: "nav.reports", icon: FiBarChart2 },
   { to: "/master-data", labelKey: "nav.masterData", icon: FiDatabase },
@@ -173,6 +235,19 @@ export function Sidebar() {
   const t = useT();
   const { visible, narrow, close } = useSidebar();
   const [openState, setOpenState] = useState<Record<string, boolean>>(loadOpenState);
+  // WHICH MODULES AND LINKS THIS PERSON MAY OPEN (REQUIREMENTS §40).
+  //
+  // documentRepository.getAll() is already answered for the logged-in user's
+  // own departments, so the modules it still has documents in are exactly the
+  // modules worth offering — and a module all of whose links turned out to
+  // belong to another department goes as well, because an empty panel only
+  // invites a click that ends in a refusal.
+  const visibleDocuments = documentRepository.getAll();
+  const visibleModuleNames = new Set(visibleDocuments.map((d) => d.module));
+  const visibleDocumentIds = new Set(visibleDocuments.map((d) => d.id));
+  const modules = MODULE_ORDER.filter((m) => visibleModuleNames.has(m))
+    .map((module) => ({ module, entries: visibleEntries(MODULE_LINKS[module], visibleDocumentIds) }))
+    .filter(({ entries }) => entries.some((entry) => !isHeading(entry)));
   // Undefined (never explicitly toggled) defaults to open — discoverable
   // without a click. Once a module has been explicitly opened or closed,
   // that choice is authoritative and persists across navigation: an earlier
@@ -180,7 +255,7 @@ export function Sidebar() {
   // navigated to any other page within it (e.g. clicking from CAPA to
   // Training), which made "closing" a module feel like it didn't stick.
   const isOpen = (module: string) => openState[module] ?? true;
-  const allOpen = MODULE_ORDER.every((m) => isOpen(m));
+  const allOpen = modules.every(({ module }) => isOpen(module));
 
   const persist = (next: Record<string, boolean>) => {
     writeJSON(SIDEBAR_STATE_KEY, next);
@@ -190,7 +265,10 @@ export function Sidebar() {
   const toggle = (module: string) => persist({ ...openState, [module]: !isOpen(module) });
   // One control for "show me everything" / "get it out of the way", instead of
   // six clicks. Explicit either way, so it obeys the same stickiness rule.
-  const toggleAll = () => persist(Object.fromEntries(MODULE_ORDER.map((m) => [m, !allOpen])));
+  // Only the modules on screen are toggled, and whatever another
+  // department's modules were left at is kept rather than wiped, so the same
+  // browser still remembers them for whoever can see them (REQUIREMENTS §40).
+  const toggleAll = () => persist({ ...openState, ...Object.fromEntries(modules.map(({ module }) => [module, !allOpen])) });
 
   // As an overlay drawer the panel sits on top of the page, so going somewhere
   // has to put it away again — including when the assistant navigates for you.
@@ -240,26 +318,32 @@ export function Sidebar() {
           <div className="nav-section-label">{t("nav.workspace")}</div>
           <NavGroup items={NAV_MAIN} path={path} />
 
-          <div className="nav-section-label with-action">
-            <span>{t("nav.modules")}</span>
-            <button
-              type="button"
-              className="nav-section-action"
-              data-action="toggle-all-modules"
-              onClick={toggleAll}
-              title={allOpen ? t("nav.collapseAll") : t("nav.expandAll")}
-              aria-label={allOpen ? t("nav.collapseAll") : t("nav.expandAll")}
-            >
-              {allOpen ? <FiChevronsUp size={13} /> : <FiChevronsDown size={13} />}
-            </button>
-          </div>
+          {/* The heading and its expand/collapse belong to the modules
+              underneath, so a department with no module of its own is not
+              given a section header and a control over nothing
+              (REQUIREMENTS §40). */}
+          {modules.length > 0 && (
+            <div className="nav-section-label with-action">
+              <span>{t("nav.modules")}</span>
+              <button
+                type="button"
+                className="nav-section-action"
+                data-action="toggle-all-modules"
+                onClick={toggleAll}
+                title={allOpen ? t("nav.collapseAll") : t("nav.expandAll")}
+                aria-label={allOpen ? t("nav.collapseAll") : t("nav.expandAll")}
+              >
+                {allOpen ? <FiChevronsUp size={13} /> : <FiChevronsDown size={13} />}
+              </button>
+            </div>
+          )}
 
-          {MODULE_ORDER.map((module) => {
+          {modules.map(({ module, entries }) => {
             const open = isOpen(module);
             const ModuleIcon = MODULE_ICONS[module];
             // Marked whether the module is open or shut, so a collapsed module
             // still tells you the page you're on lives inside it.
-            const holdsCurrentPage = MODULE_LINKS[module].some((entry) => !isHeading(entry) && isActivePath(path, entry.to));
+            const holdsCurrentPage = entries.some((entry) => !isHeading(entry) && isActivePath(path, entry.to));
             return (
               <div key={module} className={`nav-module ${open ? "open" : "closed"} ${holdsCurrentPage ? "current" : ""}`}>
                 <button
@@ -278,7 +362,7 @@ export function Sidebar() {
                 </button>
                 {open && (
                   <div className="nav-module-body">
-                    <NavGroup items={MODULE_LINKS[module]} path={path} />
+                    <NavGroup items={entries} path={path} />
                   </div>
                 )}
               </div>

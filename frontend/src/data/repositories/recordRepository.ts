@@ -1,4 +1,5 @@
 import type { RecordInstance, RecordStatus } from "../../types";
+import { isDocumentIdVisible } from "../../engine/departmentScope";
 import { SEED_HISTORICAL_RECORDS } from "../seed/historicalRecords";
 import { onExternalChange, readJSON, writeJSON } from "../storageAdapter";
 import { compareISO, todayISO } from "../../utils/date";
@@ -63,6 +64,16 @@ function matches(r: RecordInstance, f: RecordFilter): boolean {
   return true;
 }
 
+// A record belongs to its document, so it is only listed for somebody who may
+// see that document (engine/departmentScope.ts, REQUIREMENTS §40). Applied to
+// query() and monthStats() — everything that LISTS or counts records for a
+// person — and deliberately NOT to getAll(), getById(), periodKeys(),
+// upsertMany() or the removals, which the record generators, the assistant's
+// preparation and the boot migrations use: the plant's registers have to be
+// complete whoever happens to be logged in, and this browser's localStorage is
+// the only copy of them.
+const inScope = (r: RecordInstance): boolean => isDocumentIdVisible(r.documentId);
+
 export const recordRepository = {
   getAll(): RecordInstance[] {
     return loadAll().slice();
@@ -71,6 +82,10 @@ export const recordRepository = {
     return loadAll().find((r) => r.id === id);
   },
   query(filter: RecordFilter): RecordInstance[] {
+    return loadAll().filter((r) => matches(r, filter) && inScope(r));
+  },
+  /** As query(), but across every department — for the generators and the assistant's preparation. */
+  queryUnscoped(filter: RecordFilter): RecordInstance[] {
     return loadAll().filter((r) => matches(r, filter));
   },
   upsert(record: RecordInstance): RecordInstance {
@@ -137,7 +152,7 @@ export const recordRepository = {
   monthStats(year: number, month: number, opts: { isDemo?: boolean } = {}) {
     const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
     const to = `${year}-${String(month + 1).padStart(2, "0")}-31`;
-    const all = loadAll().filter((r) => (opts.isDemo === undefined ? true : r.isDemo === opts.isDemo));
+    const all = loadAll().filter((r) => (opts.isDemo === undefined ? true : r.isDemo === opts.isDemo) && inScope(r));
     const inMonth = all.filter((r) => compareISO(r.dueDate, from) >= 0 && compareISO(r.dueDate, to) <= 0);
     const today = todayISO();
     const completed = inMonth.filter((r) => ["Submitted", "Pending Verification", "Verified"].includes(r.status));

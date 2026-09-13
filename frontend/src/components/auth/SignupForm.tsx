@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../../store/AuthContext";
 import { ApiError } from "../../api/client";
+import { DEPARTMENTS } from "../../data/seed/departments";
 
 export function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   const { signup } = useAuth();
@@ -8,6 +9,12 @@ export function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void })
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  // Which department the new joiner works in — they then see that
+  // department's documents and no others (REQUIREMENTS §40). Blank means every
+  // department, which is what management / the MR need and what the answer
+  // stays unless somebody chooses; the administrator can change it afterwards
+  // in Master Data → Departments & access.
+  const [department, setDepartment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -26,7 +33,7 @@ export function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void })
 
     setSubmitting(true);
     try {
-      await signup(name.trim(), email.trim(), password);
+      await signup(name.trim(), email.trim(), password, department ? [department] : []);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not create account. Please try again.");
     } finally {
@@ -78,6 +85,21 @@ export function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void })
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
         />
+      </div>
+      <div className="field mb-4">
+        <label htmlFor="signup-department">Department</label>
+        <select id="signup-department" className="input" value={department} onChange={(e) => setDepartment(e.target.value)}>
+          <option value="">All departments (management / QA)</option>
+          {DEPARTMENTS.map((d) => (
+            <option key={d.code} value={d.code}>
+              {d.name} ({d.code})
+            </option>
+          ))}
+        </select>
+        <div className="text-xs text-muted mt-1">
+          You'll see the documents of the department you pick — its formats on the company's master list ({DEPARTMENTS.map((d) => d.formatPrefix).slice(0, 3).join(", ")}
+          …). Pick "All departments" if you work across the plant; an administrator can change this later.
+        </div>
       </div>
       <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={submitting}>
         {submitting ? "Creating account…" : "Create Account"}

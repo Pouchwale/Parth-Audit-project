@@ -215,6 +215,43 @@ that visit's history. It is still one record per visit, never a stored copy of t
 dates follow the specimen's annual cycle — installed 24 December, due 23 December, all units together
 (`tubeLightCycleFor`, `engine/flyPattern.ts`).
 
+## Departments: who sees which document
+
+```
+backend: users.departments  ("QC,PRD" | "" = every department)
+        |  /api/auth/me, /auth/login, /auth/signup return it on the user
+        v
+store/AuthContext.tsx  applyScope(user)  ->  engine/departmentScope.ts
+        |    (role "admin" or an empty assignment => null = every department)
+        v
+setDepartmentScope(codes)      module-level, so non-React code asks the same question
+        |
+        +--> data/repositories/documentRepository.ts   getAll / getById / getRecordable   SCOPED
+        |         getAllUnscoped / getByIdUnscoped / getRecordableUnscoped                UNSCOPED
+        +--> data/repositories/recordRepository.ts     query / monthStats                 SCOPED
+                  queryUnscoped, getAll, getById, periodKeys, upsertMany, remove*         UNSCOPED
+```
+
+Which department owns which document is `DOCUMENT_DEPARTMENTS` in `src/data/seed/departments.ts`,
+taken from the company's own MASTER LIST OF FORMATS & RECORDS (F/SYS/02): the department is the middle
+segment of the format number, so F-QC-30 is Quality Control's and F-HR-17 is HR's. A document no
+department owns is shown to everyone — a missing assignment must never make a controlled document
+disappear.
+
+Only two files apply the filter, which is what keeps it honest: every screen that reads through the
+repositories is scoped without having to remember. The `*Unscoped` variants exist for the record
+generator, the demo generator, the boot migrations and the assistant's preparation — the plant's
+registers must be complete whoever is logged in, and this browser's localStorage is the only copy of
+them, so scoping generation would make another department's obligations vanish for everybody.
+
+`recordRepository.getById` is deliberately unscoped so a record reached by its own address is still
+found, and the page can then refuse it by name (`components/common/NotYourDepartment.tsx`) rather than
+claim the record does not exist. No field of the record is rendered on that path.
+
+This decides what a person is SHOWN. It is not an authorisation boundary while the records live in the
+browser (see "Storage keys" below); when they move to the server, `users.departments` is what the API
+must enforce. REQUIREMENTS §40.
+
 ## Printing
 
 `utils/print.ts`: every screen marks its document with `data-print-doc`. A Print button calls

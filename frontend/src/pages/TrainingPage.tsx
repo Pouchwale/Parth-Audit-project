@@ -23,6 +23,7 @@ import { RecordActionBar } from "../components/records/RecordActionBar";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
@@ -42,7 +43,13 @@ export function TrainingListPage() {
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
   const records = recordRepository.query({ documentId: TRAINING_DOC_ID, isDemo }) as RecordInstance<TrainingRecordData>[];
-  const doc = documentRepository.getById(TRAINING_DOC_ID)!;
+  const doc = documentRepository.getById(TRAINING_DOC_ID);
+
+  // The training record belongs to Human Resources, so somebody from another
+  // department who reaches this address by an old bookmark or a link is told
+  // whose register it is instead of being shown the list and a "New Training
+  // Record" button they must not use (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={TRAINING_DOC_ID} what="register" />;
 
   const createNew = () => {
     const now = new Date().toISOString();
@@ -136,7 +143,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
-  const doc = documentRepository.getById(TRAINING_DOC_ID)!;
+  const doc = documentRepository.getById(TRAINING_DOC_ID);
   const employees = masterRepository.get().employees;
 
   const editable = !!record && isEditableStatus(record.status);
@@ -162,7 +169,10 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   }>({});
 
   useSetAssistantTarget(
-    record
+    // No `doc` means this isn't the viewer's department, and the assistant
+    // must not be pointed at a training record they may not open — it would
+    // read the record out to them (REQUIREMENTS §40).
+    record && doc
       ? {
           documentKind: "training",
           documentId: doc.id,
@@ -190,6 +200,13 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         }
       : null
   );
+
+  // Another department's training record, reached by a link or an address
+  // typed by hand: whose it is, and not one word of the training itself. This
+  // comes before "not found" on purpose — a person who may not see Human
+  // Resources' records must be told that, not told whether this record exists
+  // (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={TRAINING_DOC_ID} what="record" />;
 
   if (!record) {
     return (

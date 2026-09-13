@@ -4,6 +4,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useAppStore } from "../store/AppStore";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { printDocument } from "../utils/print";
@@ -12,7 +13,10 @@ const CHEMICAL_DOC_ID = "chemical-master";
 
 export function ChemicalMasterPage() {
   const { bump } = useAppStore();
-  const doc = documentRepository.getById(CHEMICAL_DOC_ID)!;
+  // Not asserted: the repository answers for the logged-in user's own
+  // departments, so this is undefined for somebody who may not see the chart
+  // (engine/departmentScope.ts).
+  const doc = documentRepository.getById(CHEMICAL_DOC_ID);
   // The chart being corrected, while Edit is on; null otherwise. Its rows are
   // master data, so a correction is saved there (masterRepository).
   const [draft, setDraft] = useState<ServiceTypeChemical[] | null>(null);
@@ -50,6 +54,14 @@ export function ChemicalMasterPage() {
       if (Array.isArray(proposed)) save(proposed);
     },
   });
+
+  // The Pesticide Application Chart belongs to Human Resources, so somebody
+  // outside it who reaches this address by an old bookmark or a link is told
+  // whose document it is instead of being shown the chart and an Edit button
+  // they must not use (REQUIREMENTS §40). The return sits below every hook,
+  // the assistant target included, so the order of hooks never changes
+  // between renders.
+  if (!doc) return <NotYourDepartment documentId={CHEMICAL_DOC_ID} what="document" />;
 
   return (
     <div data-print-doc>
