@@ -20,10 +20,18 @@ Drives the real UI against the production build on :8842, network-independent
   * External CAPA is mandatory section by section: the walk-through offers no
     way to skip an activity or a section, finishes one before starting the next,
     and Submit is refused while anything is blank, naming what is left;
+  * and it is answered ONE ACTIVITY AT A TIME (13-Sep-2026): the checklist waits
+    on the first blank activity and everything after it is locked on the form —
+    tick, date, comment and N/R all — until that one is answered; an answered
+    activity stays open so a mistake can be put right, and clearing one closes
+    what followed it again. A change the assistant proposes is held to the same
+    order: the model's reply is stubbed here (no network) so the refusal itself
+    can be checked, not just its outcome;
   * the assistant asks for a review before it submits anything.
 
 All of it is the department's rule of 12-Sep-2026 — engine/documentFormats.ts.
 """
+import copy
 import re
 import sys
 import time
@@ -235,6 +243,100 @@ with sync_playwright() as p:
     page.wait_for_timeout(800)
     body = page.locator(".app-content").inner_text()
     check("Submit is refused while a section is unfinished, naming what is left", "is not finished" in body and "Section B" in body, body[:300])
+
+    # ---- one activity at a time, on the form (13-Sep-2026) ----
+    # The checklist waits on the first blank activity, reading A1 → E32, and
+    # nothing after it can be answered until that one is.
+    fourth = new_complaint(page)
+    # A new complaint auto-starts the walk-through, which would read anything
+    # typed below as the answer to the question on screen — this block fills the
+    # form by hand instead, so stop it first.
+    page.locator(".chat-chip", has_text="Stop the walk-through").last.click()
+    page.wait_for_timeout(300)
+    close_assistant(page)
+    page.wait_for_timeout(300)
+    check(
+        "The form says which activity the checklist is waiting on",
+        page.locator("[data-waiting-on='A1']").count() == 1,
+        page.locator("[data-waiting-on]").all_inner_texts(),
+    )
+    check("A1 is open — it is the one to answer", page.locator("tr[data-activity='A1']").get_attribute("data-locked") is None)
+    check(
+        "...and every activity after it is locked, through to the last one in Section E",
+        page.locator("tr[data-activity='A2'][data-locked='1']").count() == 1 and page.locator("tr[data-activity='E32'][data-locked='1']").count() == 1,
+    )
+    check(
+        "...a locked activity cannot be answered any of the three ways",
+        page.locator("tr[data-activity='A2'] input[data-field='done']").is_disabled()
+        and page.locator("tr[data-activity='A2'] [data-field='not-required']").is_disabled()
+        and page.locator("tr[data-activity='A2'] input[type='date']").is_disabled(),
+    )
+    check("...and the later sections say what has to be finished first", page.locator("[data-section-locked='B']").count() == 1)
+
+    page.locator("tr[data-activity='A1'] input[data-field='done']").check()
+    page.wait_for_timeout(800)
+    check("Answering A1 opens A2", page.locator("tr[data-activity='A2']").get_attribute("data-locked") is None)
+    check("...and only A2 — A3 is still locked", page.locator("tr[data-activity='A3'][data-locked='1']").count() == 1)
+    check("...while A1 stays open, so a mistake can be put right", page.locator("tr[data-activity='A1'] input[data-field='done']").is_enabled())
+    a1 = stored(page, fourth)["sections"][0]["items"][0]
+    check("...and the answer carries its date", bool(a1["done"] and a1["date"]), a1)
+
+    page.locator("tr[data-activity='A2'] [data-field='not-required']").click()
+    page.wait_for_timeout(800)
+    a2 = stored(page, fourth)["sections"][0]["items"][1]
+    check("N/R answers an activity that doesn't apply, with a note on it", bool(a2["notRequired"] and not a2["done"] and a2["comment"]), a2)
+    check("...and that opens the next one", page.locator("tr[data-activity='A3']").get_attribute("data-locked") is None)
+    # Pressed again it takes its own note back, so the activity is blank again
+    # rather than answered on a comment nobody typed.
+    page.locator("tr[data-activity='A2'] [data-field='not-required']").click()
+    page.wait_for_timeout(800)
+    a2 = stored(page, fourth)["sections"][0]["items"][1]
+    check("Pressing N/R again clears it, note and all", not a2["notRequired"] and not a2["comment"].strip(), a2)
+    check("...so A3 is locked again", page.locator("tr[data-activity='A3'][data-locked='1']").count() == 1)
+    page.locator("tr[data-activity='A2'] [data-field='not-required']").click()
+    page.wait_for_timeout(800)
+
+    page.locator("tr[data-activity='A1'] input[data-field='done']").uncheck()
+    page.wait_for_timeout(800)
+    check("Clearing A1's answer makes the checklist wait on it again", page.locator("[data-waiting-on='A1']").count() == 1)
+    check("...and closes the activities after it", page.locator("tr[data-activity='A3'][data-locked='1']").count() == 1)
+
+    # ---- the assistant is held to the same order ----
+    # A change it proposes goes through engine/recordPatch.ts, which puts back
+    # any activity answered while an earlier one is blank. The model's reply is
+    # stubbed with exactly such a change, so what is checked is the app's own
+    # refusal — deterministically, and with no network call.
+    today_iso = page.evaluate("() => new Date().toISOString().slice(0, 10)")
+
+    def with_model_reply(sections, text, message):
+        """Stub the model's reply with a whole-sections change, then send `message`."""
+        page.route(
+            "**/api/assistant/chat",
+            lambda route: route.fulfill(status=200, json={"action": "fill", "patch": {"sections": sections}, "reply": text}),
+        )
+        try:
+            return say(page, message)
+        finally:
+            page.unroute("**/api/assistant/chat")
+
+    # In order — the activity the checklist is actually waiting on (A1) — is
+    # applied, which is also what proves a whole-sections reply survives the
+    # check at all (engine/recordPatch.ts matches id-less lists by position).
+    ordered = copy.deepcopy(stored(page, fourth)["sections"])
+    ordered[0]["items"][0].update({"done": True, "date": today_iso, "comment": "Details came with the complaint"})
+    reply = with_model_reply(ordered, "Marked A1 as done today.", "mark the first activity as done today")
+    a1 = stored(page, fourth)["sections"][0]["items"][0]
+    check("The assistant can answer the activity the checklist is waiting on", bool(a1["done"] and a1["comment"].strip()), (reply, a1))
+    check("...and the rest of the checklist is left as it was", stored(page, fourth)["sections"][0]["items"][0]["activity"].startswith("Complaint details requested"), stored(page, fourth)["sections"][0]["items"][0])
+
+    # Out of order — the last activity in Section E, with A3 still blank — is
+    # put back, and the reason said.
+    jump = copy.deepcopy(stored(page, fourth)["sections"])
+    jump[-1]["items"][-1].update({"done": True, "date": today_iso, "comment": "Closed in system"})
+    reply = with_model_reply(jump, "Marked the last activity as done today.", "mark the last activity as done today")
+    check("A change that jumps ahead is refused, with the reason", "one activity at a time" in reply, reply)
+    e32 = stored(page, fourth)["sections"][-1]["items"][-1]
+    check("...and that activity is left exactly as it was", not e32["done"] and not e32["comment"].strip(), e32)
 
     # ---- the CAPA summary, when the user asks for it ----
     page.goto(f"{BASE}/index.html#/dashboard")

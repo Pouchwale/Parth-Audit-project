@@ -101,6 +101,48 @@ export function isItemAnswered(item: ChecklistItem): boolean {
   return item.done || item.notRequired || !!item.comment.trim();
 }
 
+// ONE ACTIVITY AT A TIME. The department's rule for External CAPA
+// (13-Sep-2026): "section wise make one by one mandatory … if any question is
+// incompleted then he will not able to answer to other questions without
+// completing that." So the checklist is always waiting on exactly ONE activity
+// — the first one still blank, reading A1 → E32 — and nothing after it can be
+// answered until it is. This is the single definition of that rule, used by
+// the form (pages/CapaPage.tsx disables the locked rows), by the assistant's
+// walk-through (which asks in this order anyway) and by every change the
+// assistant proposes (engine/recordPatch.ts refuses one that leapfrogs).
+//
+// An activity that HAS been answered always stays open, so a mistake can be
+// corrected; clearing one closes everything after it again, because the
+// checklist is then waiting on that one.
+
+export interface ActivityRef {
+  sectionIndex: number;
+  itemIndex: number;
+  /** As printed and as the app labels it, e.g. "B7". */
+  label: string;
+  activity: string;
+}
+
+/** The one activity the checklist is waiting on, or null when none is blank. */
+export function currentActivity(data: ComplaintChecklistData): ActivityRef | null {
+  for (let si = 0; si < data.sections.length; si++) {
+    const s = data.sections[si];
+    for (let ii = 0; ii < s.items.length; ii++) {
+      if (!isItemAnswered(s.items[ii])) return { sectionIndex: si, itemIndex: ii, label: `${s.key}${s.items[ii].srNo}`, activity: s.items[ii].activity };
+    }
+  }
+  return null;
+}
+
+/** May this activity be answered right now — is it answered already, or the one being waited on? */
+export function isItemOpen(data: ComplaintChecklistData, sectionIndex: number, itemIndex: number): boolean {
+  const item = data.sections[sectionIndex]?.items[itemIndex];
+  if (!item) return false;
+  if (isItemAnswered(item)) return true;
+  const current = currentActivity(data);
+  return !!current && current.sectionIndex === sectionIndex && current.itemIndex === itemIndex;
+}
+
 function headerEmpty(data: ComplaintChecklistData, field: HeaderField): boolean {
   const v = data[field];
   return v === null || v === undefined || `${v}`.trim() === "";

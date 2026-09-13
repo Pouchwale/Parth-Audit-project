@@ -452,6 +452,20 @@ def main():
         chat_chip(r"^Approve$")
         check("Assistant confirms approval", page.locator(".chat-msg.bot", has_text="signed off as Approved By with your name").count() == 1)
         check("Checklist status is Verified (approved)", "Verified" in page.locator(".app-content").inner_text())
+        # An approved checklist answers nothing more: the one-at-a-time rule
+        # keeps an ANSWERED activity open so a mistake can be put right while
+        # the sheet is a draft, and this is the other half of that — once it is
+        # signed off, every row is read-only again (REQUIREMENTS §37).
+        check(
+            "An approved checklist is read-only — no activity can be answered or changed",
+            page.locator("tr[data-activity='A1'] input[data-field='done']").is_disabled()
+            and page.locator("tr[data-activity='A1'] input.input-sm").first.is_disabled()
+            and page.locator("tr[data-activity='E32'] input[data-field='done']").is_disabled(),
+        )
+        check(
+            "...and it is read-only rather than 'locked' — nothing is waiting to be answered",
+            page.locator("tr[data-locked='1']").count() == 0 and page.locator("[data-waiting-on]").count() == 0,
+        )
         page.click("button[aria-label='Close assistant']")
         page.wait_for_timeout(150)
 

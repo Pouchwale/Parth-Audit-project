@@ -186,6 +186,41 @@ def main():
             checker_input = page.locator("input[placeholder='Name of checker']")
             check("Checker field actually updated", checker_input.count() > 0 and checker_input.input_value() == "Buddy QA Tester")
 
+        # ---- 4b. One activity at a time: the assistant cannot jump ahead ----
+        # External CAPA is answered in order (REQUIREMENTS §37): the checklist
+        # waits on the first blank activity and nothing after it can be
+        # answered — on the form (checked network-independently in
+        # e2e_capa_formats.py) or by the assistant, which is what this checks:
+        # whatever the model proposes, engine/recordPatch.ts puts back anything
+        # that leapfrogs, so a brand-new checklist still has nothing answered.
+        # The panel is still open from the fill test and sits over the list's
+        # "New Complaint" button, so close it first — and press the button
+        # directly, since the top bar is sticky over a scrolled row.
+        close = page.locator("button[aria-label='Close assistant']")
+        if close.count():
+            close.first.click()
+            page.wait_for_timeout(150)
+        page.goto(f"{BASE}/index.html#/gap/external")
+        page.wait_for_timeout(500)
+        page.locator("button:has-text('New Complaint')").first.evaluate("el => el.click()")
+        page.wait_for_timeout(1400)
+        complaint_id = page.url.split("/complaint/")[-1]
+        stop = page.locator(".chat-chip", has_text="Stop the walk-through")
+        if stop.count():
+            stop.last.click()
+            page.wait_for_timeout(300)
+        ask(page, "mark activity 31, complaint closure approved by QA Head, as done today")
+        print(f"    (leapfrog reply: {ascii_safe(bot_messages(page).last.inner_text()[:200])!r})")
+        answered = page.evaluate(
+            """(id) => {
+                 const r = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find((x) => x.id === id);
+                 if (!r) return -1;
+                 return r.data.sections.flatMap((s) => s.items).filter((it) => it.done || it.notRequired || it.comment.trim()).length;
+               }""",
+            complaint_id,
+        )
+        check("The assistant cannot answer a later activity while an earlier one is blank", answered == 0)
+
         # ---- 5. Full-page Assistant: the model answers from the live app context ----
         # No date/weekday in the question, so it is NOT answered locally
         # (engine/assistantLocal.ts) — it goes to Groq with the context digest

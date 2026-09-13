@@ -319,8 +319,22 @@ function normArray(key: string, cur: unknown[], value: unknown[], problems: stri
   if (scalarList) return value.filter((v) => !isObj(v) && !Array.isArray(v)).map((v) => String(v ?? "").trim());
   const template = (cur.find(isObj) ?? {}) as Obj;
   const hasId = "id" in template;
-  return value.filter(isObj).map((raw) => {
-    const existing = hasId && typeof raw.id === "string" ? (cur.find((c) => isObj(c) && c.id === raw.id) as Obj | undefined) : undefined;
+  return value.filter(isObj).map((raw, i) => {
+    // A list whose items carry an id is matched by it; one whose items carry
+    // none — the complaint checklist's sections and their activities, a
+    // service report's area lines, the fly catcher's units, the emergency
+    // contacts — is matched by POSITION, the way the printed form identifies
+    // them. Without that, a reply giving the COMPLETE list (which is exactly
+    // what the model is told to do for the checklist) rebuilt every item from
+    // a blank template: the values it echoed back unchanged were dropped, and
+    // the printed text it repeated came back as "not a field on this form".
+    const existing = hasId
+      ? typeof raw.id === "string"
+        ? (cur.find((c) => isObj(c) && c.id === raw.id) as Obj | undefined)
+        : undefined
+      : isObj(cur[i])
+        ? (cur[i] as Obj)
+        : undefined;
     if (existing) return normObjectSet(existing, raw, problems, template);
     const fresh: Obj = { ...blankLike(template) };
     if (hasId) fresh.id = generateId(key);
@@ -581,6 +595,7 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
 
   if (Array.isArray(itemEdits)) for (const edit of itemEdits) applyItemEdit(layout, next, edit, problems);
   if (kind === "service-report" && isObj(current)) next.lines = serviceLinesAfterPatch(documentId, current.lines, next.lines, problems);
+  if (kind === "complaint-checklist" && isObj(current)) keepChecklistOrder(current, next, problems);
   applyCodeFormats(kind, next, isObj(current) ? current : {}, problems);
   return { data: next as unknown as T, problems };
 }
@@ -612,6 +627,46 @@ function applyCodeFormats(kind: string, next: Obj, current: Obj, problems: strin
       problems.push(problem);
       header.fgCode = isObj(current.header) ? (current.header as Obj).fgCode : "";
     }
+  }
+}
+
+// External CAPA is answered ONE ACTIVITY AT A TIME (the department's rule,
+// 13-Sep-2026 — engine/guidedChecklist.ts holds the rule itself): the checklist
+// waits on the first blank activity, reading A1 → E32, and nothing after it can
+// be answered until that one is. The form locks the later rows
+// (pages/CapaPage.tsx); this is the same rule for a change the assistant
+// proposes, so asking it to jump ahead is refused with the reason rather than
+// quietly writing an answer the person could not have written themselves.
+// A change that fills everything (the sample-data fill) leaves nothing blank,
+// so nothing is out of order and nothing is refused.
+function keepChecklistOrder(before: Obj, after: Obj, problems: string[]): void {
+  const afterSections = Array.isArray(after.sections) ? (after.sections as Obj[]) : [];
+  const beforeSections = Array.isArray(before.sections) ? (before.sections as Obj[]) : [];
+  if (afterSections.length === 0) return;
+  const answered = (it: unknown): boolean => isObj(it) && (it.done === true || it.notRequired === true || String(it.comment ?? "").trim() !== "");
+  let waiting: string | null = null;
+  const refused: string[] = [];
+  for (const [si, section] of afterSections.entries()) {
+    if (!isObj(section) || !Array.isArray(section.items)) continue;
+    const items = section.items as Obj[];
+    const beforeItems = isObj(beforeSections[si]) && Array.isArray((beforeSections[si] as Obj).items) ? ((beforeSections[si] as Obj).items as Obj[]) : [];
+    for (const [ii, item] of items.entries()) {
+      const label = `${String(section.key ?? "")}${item?.srNo ?? ii + 1}`;
+      const was = beforeItems[ii];
+      if (waiting && was && answered(item) && !answered(was)) {
+        items[ii] = was; // put it back: the checklist isn't at this one yet
+        refused.push(label);
+        continue;
+      }
+      if (!answered(items[ii]) && !waiting) waiting = label;
+    }
+  }
+  if (refused.length > 0) {
+    problems.push(
+      `This checklist is answered one activity at a time — ${waiting ?? "the first blank activity"} has to be answered first, so I left ${refused.join(", ")} as ${
+        refused.length === 1 ? "it was" : "they were"
+      }.`
+    );
   }
 }
 

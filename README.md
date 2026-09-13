@@ -175,12 +175,18 @@ The app behaves like a personal assistant rather than a blank form:
   Format No. / Rev No. / Date row have come off it, as the department asked. It prints that way too.
   One component serves both documents the provider issues, the training record and the service
   agreement (`src/components/documents/ProviderLetterhead.tsx`).
-- **External CAPA is mandatory section by section.** On the Customer Complaint Handling Checklist
-  (F/MKT/05) every activity of every section now has to be answered before the next section starts —
-  done, done on a date, or **not required** (which is a real answer, and the one the "(If required)"
-  activities on the printed form expect). The assistant asks one activity at a time and offers no way
-  to skip one or jump a section; **Submit is refused** while anything is blank and says exactly which
-  section and which activities are still open, from the form and from the chat alike.
+- **External CAPA is mandatory section by section — and answered one activity at a time.** On the
+  Customer Complaint Handling Checklist (F/MKT/05) the checklist is always waiting on exactly **one**
+  activity: the first one still blank, reading A1 → E32. Everything after it is **locked** — on the form
+  the later rows are dimmed with their tick, date and comment disabled, each later section says
+  "Locked — finish Section B first", and the row to answer is highlighted "Answer this one next". Answer
+  it — tick **Done** with its date, press **N/R** if it doesn't apply, or write what happened in
+  **Comments** — and the next one opens, one at a time. An activity already answered always stays open
+  so a mistake can be put right, and clearing an answer makes the checklist wait on it again. The
+  assistant is held to the same order: its walk-through asks in it, and a change that would jump ahead
+  is refused with the reason. **Submit is refused** while anything is blank and says exactly which
+  section and which activities are still open, from the form and from the chat alike. None of the
+  locking prints — the paper form is unchanged.
 - **The assistant always hands the work back for checking.** Every change it makes ends with "check it
   on the form before you submit — if I have got anything wrong, tap Undo, tell me the correction, or
   use Edit on the record", and when it is asked to submit it **stops and asks for the record to be

@@ -748,6 +748,19 @@ textarea.input { resize: vertical; min-height: 60px; }
 .progress-bar > div { height: 100%; background: var(--color-success); transition: width 0.2s; }
 .checklist-section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
 .checklist-done td { background: #f4fbf7; }
+/* One activity at a time (REQUIREMENTS §37): the activity the checklist is
+   waiting on is marked, and everything after it is dimmed and unusable until
+   it is answered. Both are screen-only — the paper form is unchanged. */
+.checklist-current td { background: var(--color-warning-bg); }
+.checklist-current td:first-child { box-shadow: inset 3px 0 0 var(--color-warning); }
+.checklist-locked td { opacity: 0.5; }
+.checklist-locked .input,
+.checklist-locked input[type="checkbox"] { cursor: not-allowed; }
+@media print {
+  .checklist-current td { background: transparent; }
+  .checklist-current td:first-child { box-shadow: none; }
+  .checklist-locked td { opacity: 1; }
+}
 
 /* ---- Log sheets ---- */
 .doc-table table.log-sheet th { white-space: normal; line-height: 1.25; vertical-align: bottom; }

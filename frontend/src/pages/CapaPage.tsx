@@ -5,7 +5,7 @@ import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { refreshGapFindingStatuses, openCorrectiveActionsCount } from "../data/selectors";
-import { COMPLAINT_DOC_ID, COMPLAINT_FOOTER_NOTE, COMPLAINT_ACTIVITY_COUNT, newComplaintChecklistData } from "../data/seed/complaintChecklist";
+import { COMPLAINT_DOC_ID, COMPLAINT_FOOTER_NOTE, COMPLAINT_ACTIVITY_COUNT, isConditionalActivity, newComplaintChecklistData } from "../data/seed/complaintChecklist";
 import type { ChecklistItem, ComplaintChecklistData, RecordInstance } from "../types";
 import {
   cancelCorrection,
@@ -19,7 +19,7 @@ import {
   rejectRecord,
   resumeAfterRejection,
 } from "../engine/recordLifecycle";
-import { summarise } from "../engine/guidedChecklist";
+import { currentActivity, isItemOpen, summarise } from "../engine/guidedChecklist";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
@@ -418,6 +418,9 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
 
   const data = record.data;
   const progress = progressOf(data);
+  // The one activity the checklist is waiting on — nothing after it can be
+  // answered until it is (engine/guidedChecklist.ts, REQUIREMENTS §37).
+  const waitingOn = currentActivity(data);
 
   const updateItem = (sectionIndex: number, itemIndex: number, p: Partial<ChecklistItem>) => {
     setData({
@@ -507,6 +510,18 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
             <div className="text-xs text-muted">
               {answered?.done ?? 0} done · {answered?.notRequired ?? 0} not required · {answered?.blank ?? 0} to go, across sections A–E
             </div>
+            {editable && waitingOn && (
+              <div className="text-xs mt-2" data-waiting-on={waitingOn.label}>
+                <strong>One at a time.</strong> This checklist is waiting on <strong>{waitingOn.label}</strong> — “{waitingOn.activity}”. Every activity after it is locked
+                until this one is answered: tick <em>Done</em> with its date, mark it <em>N/R</em> if it doesn't apply, or write what happened in Comments. The assistant can
+                answer it for you — just tell it what happened.
+              </div>
+            )}
+            {editable && !waitingOn && (
+              <div className="text-xs mt-2" data-waiting-on="none">
+                Every activity in all five sections is answered — check it over and submit it for approval.
+              </div>
+            )}
           </div>
           {editable && (
             <button className="btn btn-primary" onClick={() => startGuidedChecklist()}>
@@ -535,14 +550,24 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
       </div>
 
       {data.sections.map((s, si) => (
-        <div key={s.key} className="card mt-4">
+        <div key={s.key} className="card mt-4" data-section={s.key}>
           <div className="card-header">
             <span className="checklist-section-title">
               {s.key}. {s.title}
             </span>
-            <span className="text-xs text-muted">
-              {s.items.filter((it) => it.done || it.notRequired).length} / {s.items.length}
-            </span>
+            <div className="flex items-center gap-2">
+              {editable && waitingOn && waitingOn.sectionIndex < si && (
+                <span className="badge badge-Scheduled no-print" data-section-locked={s.key}>
+                  Locked — finish Section {data.sections[waitingOn.sectionIndex].key} first
+                </span>
+              )}
+              {editable && waitingOn && waitingOn.sectionIndex === si && (
+                <span className="badge badge-Due no-print">Waiting on {waitingOn.label}</span>
+              )}
+              <span className="text-xs text-muted">
+                {s.items.filter((it) => it.done || it.notRequired).length} / {s.items.length}
+              </span>
+            </div>
           </div>
           <div className="doc-table notranslate" translate="no" style={{ border: "none" }}>
             <table className="compact">
@@ -556,29 +581,76 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {s.items.map((it, ii) => (
-                  <tr key={it.srNo} className={it.done ? "checklist-done" : ""}>
-                    <td className="text-muted">{it.srNo}</td>
-                    <td className="text-sm">
-                      {it.activity}
-                      {it.notRequired && <span className="badge badge-Scheduled" style={{ marginLeft: 6 }}>Not required</span>}
-                    </td>
-                    <td style={{ textAlign: "center" }}>
-                      <input
-                        type="checkbox"
-                        checked={it.done}
-                        disabled={!editable}
-                        onChange={(e) => updateItem(si, ii, { done: e.target.checked, notRequired: e.target.checked ? false : it.notRequired, date: e.target.checked ? it.date ?? todayISO() : it.date })}
-                      />
-                    </td>
-                    <td>
-                      <input type="date" className="input input-sm" disabled={!editable} value={it.date ?? ""} onChange={(e) => updateItem(si, ii, { date: e.target.value || null })} />
-                    </td>
-                    <td>
-                      <input className="input input-sm" disabled={!editable} value={it.comment} onChange={(e) => updateItem(si, ii, { comment: e.target.value })} />
-                    </td>
-                  </tr>
-                ))}
+                {s.items.map((it, ii) => {
+                  // Answered, or the one being waited on: anything else stays
+                  // locked until the checklist gets past it. A signed-off
+                  // checklist answers nothing — `editable` still decides that,
+                  // or an answered activity on a verified sheet would be
+                  // writable again.
+                  const open = editable && isItemOpen(data, si, ii);
+                  const locked = editable && !open;
+                  const isCurrent = !!waitingOn && waitingOn.sectionIndex === si && waitingOn.itemIndex === ii;
+                  return (
+                    <tr
+                      key={it.srNo}
+                      className={`${it.done ? "checklist-done" : ""}${locked ? " checklist-locked" : ""}${editable && isCurrent ? " checklist-current" : ""}`.trim()}
+                      data-activity={`${s.key}${it.srNo}`}
+                      data-locked={locked ? "1" : undefined}
+                      title={locked && waitingOn ? `Answer ${waitingOn.label} first — this checklist is filled one activity at a time.` : undefined}
+                    >
+                      <td className="text-muted">{it.srNo}</td>
+                      <td className="text-sm">
+                        {it.activity}
+                        {it.notRequired && <span className="badge badge-Scheduled" style={{ marginLeft: 6 }}>Not required</span>}
+                        {editable && isCurrent && <span className="badge badge-Due no-print" style={{ marginLeft: 6 }}>Answer this one next</span>}
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={it.done}
+                          disabled={!open}
+                          data-field="done"
+                          onChange={(e) => updateItem(si, ii, { done: e.target.checked, notRequired: e.target.checked ? false : it.notRequired, date: e.target.checked ? it.date ?? todayISO() : it.date })}
+                        />
+                        {/* "Not required" is one of the three valid answers (the
+                            "(If required)" activities on the printed form expect
+                            it), so it has to be answerable here too — otherwise
+                            the one-at-a-time rule would trap an activity that
+                            genuinely doesn't apply. Screen only; what prints is
+                            the badge beside the activity. */}
+                        {editable && (
+                          <button
+                            type="button"
+                            className={`btn btn-sm no-print ${it.notRequired ? "btn-secondary" : "btn-ghost"}`}
+                            style={{ marginTop: 4, padding: "1px 6px", fontSize: 10 }}
+                            disabled={!open}
+                            data-field="not-required"
+                            title={isConditionalActivity(it.activity) ? "Not required for this complaint" : "Not applicable to this complaint"}
+                            onClick={() =>
+                              updateItem(si, ii, {
+                                notRequired: !it.notRequired,
+                                done: false,
+                                // Pressed again, the note this button wrote is
+                                // taken back with it — otherwise the activity
+                                // would stay "answered" on a comment nobody
+                                // typed, and the next one would stay open.
+                                comment: it.notRequired ? (it.comment.trim() === "Not required" ? "" : it.comment) : it.comment || "Not required",
+                              })
+                            }
+                          >
+                            N/R
+                          </button>
+                        )}
+                      </td>
+                      <td>
+                        <input type="date" className="input input-sm" disabled={!open} value={it.date ?? ""} onChange={(e) => updateItem(si, ii, { date: e.target.value || null })} />
+                      </td>
+                      <td>
+                        <input className="input input-sm" disabled={!open} value={it.comment} onChange={(e) => updateItem(si, ii, { comment: e.target.value })} />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

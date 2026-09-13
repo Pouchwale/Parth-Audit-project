@@ -134,7 +134,48 @@ multiply the assistant's per-account cap), and a run plus a few manual re-runs c
 ever stops at the login screen, that throttle is the first thing to check — it clears when the server
 restarts, or after ten minutes.
 
-## Results (last full run — 13-Sep-2026, after the whole-document fill batch)
+## Results (last full run — 13-Sep-2026, after the one-at-a-time External CAPA batch)
+
+### External CAPA answered one activity at a time (13-Sep-2026, last)
+
+*"Make some questions mandatory … in external CAPA section wise make one by one mandatory … if any
+question is incompleted then he will not able to answer to other questions without completing that."*
+The checklist now waits on exactly one activity — the first blank one, A1 → E32 — and every activity
+after it is locked until that one is answered: on the form the later rows are dimmed with their tick,
+date and comment disabled, each later section says which section to finish first, and the row to answer
+is highlighted. An answered activity stays open so a mistake can be corrected, and clearing an answer
+closes what followed it again. "Not required" became answerable on the form too (a screen-only **N/R**
+button) — otherwise the rule would have trapped an activity that genuinely does not apply. The
+assistant is held to the same order, in its walk-through and in every change it proposes
+(`engine/recordPatch.ts` puts back anything that leapfrogs and says so). One rule, one definition
+(`engine/guidedChecklist.ts`), so the form, the chat and the submit check cannot disagree.
+
+`npm run typecheck` clean and `npm run test:e2e` green end to end — **503 checks across thirteen
+suites**, no JavaScript errors: `e2e_capa_formats.py` gained 21 checks (the form, and the assistant's
+reply stubbed with a whole-sections change so both the applied in-order change and the refused leapfrog
+are checked with no network call) and `e2e_smoke.py` two (an approved checklist is read-only, and not
+merely "locked"). The live Groq suite `e2e_assistant_chat.py` gained a check — a real model call cannot
+answer a later activity while an earlier one is blank — and passed 13/13.
+
+What the runs caught:
+
+- **The assistant had no working way to answer a checklist activity at all** — found by writing the
+  test for the new rule rather than by the rule itself. The model is told to "return the COMPLETE
+  sections array when changing any item", but `applyAssistantPatch` matched list objects by their `id`,
+  and neither a section nor an activity has one; every section was therefore rebuilt from a blank
+  template, dropping the values echoed back unchanged and rejecting the printed text it repeated. An
+  id-less list is now matched by **position**, which also repairs the same latent fault for a service
+  report's area lines, the fly catcher's units and the emergency contacts. Until the whole-document fill
+  of §36 there had been no way to ask the assistant to fill a checklist — the walk-through writes the
+  data directly — which is why it had gone unnoticed.
+- **A verified checklist would have become writable again.** The first version of the rule kept an
+  answered activity open so a mistake could be corrected, without also asking whether the record was
+  still a draft. Caught in review before the run, and now checked in `e2e_smoke.py`.
+- Two faults were in the new checks, not the app: they typed into the chat while the auto-started
+  walk-through was still asking its header questions (so the message became the customer's name), and
+  clicked "New Complaint" with the assistant panel open over it.
+
+## Results (13-Sep-2026, the whole-document fill batch)
 
 The run below is the production shape end to end: `frontend/scripts/build.ts` builds the bundle,
 `backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every

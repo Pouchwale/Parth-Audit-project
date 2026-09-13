@@ -1415,6 +1415,71 @@ DATABASE FIELDS      none new — every fill is an ordinary "assistant-edit" his
 - Covered by `tests/e2e_assistant_fill.py` (51 checks), including every document that holds records
   filled with sample data and submitted.
 
+## 37. External CAPA — one activity at a time, and nothing after it until it is answered (13-Sep-2026)
+
+```
+REQUESTED            "i want to make some questions mandatory for example in external CAPA section
+                      wise make one by one mandetory so user fill that or tell bot than he can do
+                      according if any question is incompleted then he will not able to answer to
+                      other questions without completing that"
+DIGITAL TEMPLATE     src/engine/guidedChecklist.ts (currentActivity / isItemOpen — the rule itself),
+                      src/pages/CapaPage.tsx (the form locks the later rows, and gained the N/R
+                      answer), src/engine/recordPatch.ts (keepChecklistOrder — the same rule for a
+                      change the assistant proposes), src/styles.css (how a locked row reads)
+DATABASE FIELDS      none new — the rule is derived from the data (an activity is answered when it is
+                      done, marked not required, or carries a comment, exactly as at Submit, §35)
+```
+
+- **The checklist is always waiting on exactly one activity** — the first one still blank, reading
+  A1 → E32 across the five sections in order. `currentActivity()` names it; `isItemOpen()` says whether
+  a given activity may be answered right now: only that one, plus any activity **already** answered, so
+  a mistake can always be put right. Clearing an answer makes the checklist wait on it again and closes
+  everything after it.
+- **On the form** the row being waited on is highlighted and labelled "Answer this one next"; every row
+  after it is dimmed, its tick, date and comment all disabled, and hovering says which activity to
+  answer first. Each later section carries a "Locked — finish Section B first" badge, and the progress
+  card states the rule in words with the activity's own text. None of this prints: the paper form is
+  unchanged.
+- **"Not required" is answerable on the form now.** It is one of the three valid answers (the
+  "(If required)" / "(If not received)" activities on the printed form expect it) and was previously
+  only offered in the chat — which, with this rule, would have trapped anyone who reached an activity
+  that genuinely does not apply. A small screen-only **N/R** button beside the tick sets it, writes
+  "Not required" as the comment if nothing else is written, and the printed badge beside the activity is
+  what appears on paper.
+- **The assistant is held to the same order.** Its walk-through already asks in this order; and every
+  change it proposes now passes `keepChecklistOrder()`, which puts back any activity that was answered
+  while an earlier one is blank and says so ("This checklist is answered one activity at a time — A1 has
+  to be answered first, so I left E31 as it was."). So asking it to jump ahead is refused with the
+  reason rather than quietly writing an answer the person could not have written themselves. A change
+  that fills **everything** — the sample-data fill of §36 — leaves nothing blank, so nothing is out of
+  order and nothing is refused.
+- **What counts as answered is unchanged** (§35): done, not required, or a comment — the same test
+  Submit applies, so the form, the chat and the submit check cannot disagree. A comment is a real answer
+  for an activity that is genuinely in progress ("waiting on the customer"), and the printed form has a
+  Comments column for exactly that.
+- **A signed-off checklist answers nothing more.** Keeping an answered activity open is what lets a
+  mistake be corrected *while the sheet is a draft*; once it is submitted or approved every row is
+  read-only again, as it always was. (Caught in review: the first version of the rule looked only at
+  whether an activity was answered, which would have made a verified checklist writable again.)
+- **Two defects this rule uncovered, both fixed:**
+  - **The assistant had no working way to answer a checklist activity at all.** The model is told to
+    "return the COMPLETE sections array when changing any item", but `applyAssistantPatch` matched the
+    objects in a list by their `id` — and neither a section nor an activity has one. So every section
+    was rebuilt from a blank template: the values echoed back unchanged were dropped and the printed
+    text repeated verbatim came back as "isn't a field on this form". A list whose items carry no id is
+    now matched by **position**, the way the printed form identifies them, which also repairs the same
+    latent fault for a service report's area lines, the fly catcher's units and the emergency contacts
+    (`engine/recordPatch.ts`, `normArray`).
+  - The walk-through's own free-text path was never affected (it writes the data directly), which is why
+    this had gone unnoticed: until §36 there was no other way to ask the assistant to fill a checklist.
+- Covered by 21 further checks in `tests/e2e_capa_formats.py` — the form (what is open, what is locked,
+  all three ways of answering refused on a locked row, the section badges, answering A1 opening only A2,
+  A1 staying open, N/R and un-N/R, clearing an answer closing what followed) and the assistant (its
+  reply stubbed with a whole-sections change, so both the applied in-order change and the refused
+  leapfrog are checked without a network call) — two in `tests/e2e_smoke.py` (an approved checklist is
+  read-only, and not merely "locked") and one in `tests/e2e_assistant_chat.py` (a real model call cannot
+  answer a later activity).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
