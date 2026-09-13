@@ -215,6 +215,31 @@ that visit's history. It is still one record per visit, never a stored copy of t
 dates follow the specimen's annual cycle — installed 24 December, due 23 December, all units together
 (`tubeLightCycleFor`, `engine/flyPattern.ts`).
 
+### The three trend reports
+
+`data/seed/trendReports.ts` holds the company's own transcription of all three pages of its trend
+file - the rodent, lizard and flies reports - together with each page's header wording (title, Source,
+Unit, Target Pest, axis titles). `data/selectors.ts` turns each into year rows, and one component,
+`components/reports/CatchTrendSheet.tsx`, draws all three:
+
+```
+                    rodentTrendRows      lizardTrendRows        flyTrendRows
+                    F/HR/17 cp.7   +     transcribed only       reported gramms  +
+                    transcribed                                 F/HR/18 counts
+                         |                     |                      |
+                         +---------------------+----------------------+
+                                               v
+                              CatchTrendSheet  (one row per year,
+                              Source / Unit / Target Pest PER ROW,
+                              a chart of one year, a signature line)
+```
+
+Source / Unit / Target Pest are per row, not per report, because the flies report needs it: the years
+the provider weighed the catch out of the EFKs are in "Gramms" and a year added up from the
+fortnightly board counts is in "Number", and there is no factor to convert between them. A row that
+carries no wording of its own takes the report's (`withReportHeader`, ReportsPage). `rowTotal` returns
+null unless all twelve months are filled, which is how the company prints it. REQUIREMENTS §41.
+
 ## Departments: who sees which document
 
 ```

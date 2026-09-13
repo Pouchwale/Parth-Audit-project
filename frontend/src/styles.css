@@ -452,6 +452,11 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .trend-chart .cat { font-weight: 600; }
 .trend-chart .value { font-size: 11px; font-weight: 700; fill: var(--color-text); }
 .trend-chart .axis-title { font-size: 12px; font-weight: 700; fill: var(--color-text); }
+/* The "Report prepared by" signature line at the foot of each of the three
+   company trend pages — a rule to sign above, then the caption, as printed. */
+.trend-signature { margin-top: 18px; padding: 0 6px 4px; }
+.trend-signature .sig-line { display: block; width: 220px; border-top: 1px solid #2c3e50; }
+.trend-signature .sig-label { display: block; width: 220px; text-align: center; font-size: 11px; font-weight: 600; padding-top: 3px; color: var(--color-text); }
 .trend-chart .mark { fill: #333a40; }
 .trend-chart .bar.total .mark { fill: #0a4258; }
 .trend-chart .hit { fill: transparent; }

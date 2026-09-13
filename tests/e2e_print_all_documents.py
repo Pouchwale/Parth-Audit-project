@@ -154,12 +154,12 @@ with sync_playwright() as p:
 
     # ---- the reference documents, registers, reports and file lists ----
     pages = [
-        ("SOP Reference", "#/sop"),
         ("Chemical Master", "#/chemical-master"),
         ("Service Provider Licence", "#/licence"),
         ("Daily register (F/HR/17)", "#/pest/daily"),
         ("Fly Catcher Infestation (F/HR/18)", "#/pest/trend/fly-catcher"),
         ("Rodent Catch Report", "#/pest/trend/rodent"),
+        ("Lizard Catch Report", "#/pest/trend/lizard"),
         ("Rat / Mice service page", "#/pest/service/rodent"),
         ("Reports", "#/reports"),
         ("Document Files", "#/files"),
@@ -204,7 +204,7 @@ with sync_playwright() as p:
         check_printout(page, "Statement of Compliance")
 
     # ---- the page's own Print button prints once, and puts the page back ----
-    page.goto(f"{BASE}/index.html#/sop")
+    page.goto(f"{BASE}/index.html#/chemical-master")
     page.wait_for_timeout(900)
     dismiss(page)
     page.evaluate(STUB_PRINT)

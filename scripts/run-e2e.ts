@@ -3,7 +3,7 @@
 // tests/e2e_translate.py, tests/e2e_print_and_forms.py, tests/e2e_capa_formats.py,
 // tests/e2e_agreement_and_cancel.py, tests/e2e_crud.py,
 // tests/e2e_print_all_documents.py, tests/e2e_assistant_fill.py,
-// tests/e2e_departments.py): build,
+// tests/e2e_departments.py, tests/e2e_trend_reports.py): build,
 // single-process server (dist/ + auth API) on the port the tests expect,
 // wait for it to answer, run each suite in turn against the same server,
 // then always tear the server down again -- regardless of pass/fail -- so
@@ -92,6 +92,7 @@ async function main(): Promise<void> {
       "tests/e2e_print_all_documents.py",
       "tests/e2e_assistant_fill.py",
       "tests/e2e_departments.py",
+      "tests/e2e_trend_reports.py",
     ];
     exitCode = 0;
     for (const suite of suites) {

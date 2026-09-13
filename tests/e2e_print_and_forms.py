@@ -8,7 +8,7 @@ Drives the real UI against the production build on :8842, network-independent
   * Print -- a record's Print button prints the form and nothing around it
     (the assistant's banner, the sidebar, the buttons); the register's own
     Print prints the register alone, as the paper form; the browser's own
-    Print (Ctrl+P) does the same on the register and on Reports; the SOP has a
+    Print (Ctrl+P) does the same on the register and on Reports; the Chemical Master has a
     Print of its own. The marks come off when printing ends.
   * Service report -- material and method are fixed text, never inputs; the
     quantity is typed once on the first line of each material and every other
@@ -354,14 +354,14 @@ with sync_playwright() as p:
     page.evaluate(END_PRINT)
     check("Printing Reports prints the open report — not the tabs or the title above it", seen["report"] and not seen["tabs"] and not seen["title"], seen)
 
-    page.goto(f"{BASE}/index.html#/sop")
+    page.goto(f"{BASE}/index.html#/chemical-master")
     page.wait_for_timeout(400)
     page.evaluate(STUB_PRINT)
     page.click(".app-content button:has-text('Print')")
     page.wait_for_timeout(200)
     seen = printed_view(page, "{ printed: window.__printed, header: shown('[data-print-doc] .doc-header'), note: shown('[data-print-doc] > p') }")
     page.evaluate(END_PRINT)
-    check("The SOP has a Print of its own, which prints the SOP without the page's note", seen["printed"] == 1 and seen["header"] and not seen["note"], seen)
+    check("The Chemical Master has a Print of its own, which prints the chart without the page's note", seen["printed"] == 1 and seen["header"] and not seen["note"], seen)
 
     page.goto(f"{BASE}/index.html#/pest/service/fly")
     page.wait_for_timeout(500)

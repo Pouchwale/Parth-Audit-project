@@ -174,7 +174,7 @@ with sync_playwright() as p:
     who = me(page)
     check("An account with no department assigned is stored with none", who.get("user", {}).get("departments") == [], who)
     all_docs = library_documents(page)
-    check("...and its Document Library holds the whole catalogue", len(all_docs) >= 25, len(all_docs))
+    check("...and its Document Library holds the whole catalogue", len(all_docs) >= 24, len(all_docs))
     all_modules = page.eval_on_selector_all(".app-sidebar .nav-module", "els => els.length")
     check("...and every module is in the sidebar", all_modules >= 6, all_modules)
 

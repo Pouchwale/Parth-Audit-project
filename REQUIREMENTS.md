@@ -147,7 +147,14 @@ REPORT               Reports > Chemical Usage
      2.5% SC) / Responsar (Beta‑Cyfluthrin 2.45% SC) — Ready to Use (gel) / 25 ml per Sq.Mt
      (Kothrine) / 20 ml per litre (Responsar).
 
-## 4. Standard Operating Procedure for Pest Control Services
+## 4. Standard Operating Procedure for Pest Control Services — WITHDRAWN 13-Sep-2026
+
+> **This document is no longer in the system.** It was withdrawn on the owner's instruction
+> ("remove whole SOP Reference from pest control module"): it is the service provider's own
+> procedure, not one of the company's controlled formats — it appears nowhere on the Master List
+> of Formats & Records, which is why its Format No. and Revision were both TO BE CONFIRMED below.
+> See §42 for what came out and what the Service Agreement kept. The section is left here because
+> it records what the source file said and what was built from it; the paths it names are gone.
 
 ```
 SOURCE DOCUMENT      Standard Operating Procedure for Pest Control Services..docx
@@ -155,7 +162,8 @@ DOCUMENT STRUCTURE   5 sections (General Pest Control, Rodent Control, Fly Contr
                       Control, Lizard Control), each with Chemicals / Process / Log Sheet note /
                       Preventive Measures
 DIGITAL TEMPLATE     kind: "sop-reference" (reference only) — src/pages/SopReferencePage.tsx,
-                      content in src/data/seed/sopContent.ts
+                      content in src/data/seed/sopContent.ts — BOTH DELETED 13-Sep-2026 (§42).
+                      Its Scope of Services lines live on in src/data/seed/serviceAgreement.ts.
 DATABASE FIELDS      n/a (static reference content)
 WORKFLOW             As Required / reference. Used to configure checkpoints and chemicals (its
                       Lizard-control cadence is noted in §5 — no service-report document exists
@@ -223,7 +231,9 @@ REPORT               Pest Control > Service Reports (last visit / next due / mat
   through the assistant — and service-report drafts written before this rule are brought into line at
   start-up, logged in their history by "System" (`src/engine/serviceReportDrafts.ts`); submitted and
   verified reports are left exactly as signed.
-- **Lizard / Mosquito — no service-report document.** The SOP describes Lizard Control (quarterly)
+- **Lizard / Mosquito — no service-report document.** (The lizards trapped in the Roda-boxes are
+  reported on the company's own Lizard Catch Report and Trend Analysis — §41.) The provider's
+  procedure describes Lizard Control (quarterly)
   and Mosquito Control services, but the uploaded files contain no service-report specimen for
   either — the April-2026 workbook has Rodent / General / Fly sheets only. A "Lizard Control
   Services" variant that had been created from the SOP text alone was **retired on 08-Sep-2026**
@@ -265,7 +275,8 @@ SOURCE DOCUMENT      Tr. Certi.docx
 DOCUMENT STRUCTURE   Letterhead + subject line + narrative certifying a named technician + 5 topics + signatory
 DIGITAL TEMPLATE     kind: "training-record" — src/pages/TrainingPage.tsx
 DATABASE FIELDS      TrainingRecordData: trainingDate, trainingType, trainerProvider, topics[],
-                      attendees[] {employeeName, department, attended}, certificateRef, remarks
+                      attendees[] {employeeName, department} — the attendance sheet itself; the
+                      `attended` tick was withdrawn 13-Sep-2026 (§43) — certificateRef, remarks
 WORKFLOW             Frequency: As Required. The real 02‑Dec‑2025 certificate is loaded as
                       historical LIVE data (isDemo: false), status Verified (a signed
                       certificate is treated as the verification evidence).
@@ -612,7 +623,7 @@ The module is now organised the way the department reads its paperwork, in four 
 | **Daily Report** | Daily Pest Control Monitoring Record (F/HR/17), daily | `/pest/daily[/{year}/{month0}]` — the month register: date, status, findings, rodents (box · location), checker, time; "Open today's record" |
 | **Service Reports** | Rat / Mice (Rodent Control Service); Ants & Cockroaches (General Pest Control Services); Fly Control Services — Gurudev Pest Control, fortnightly (4th & 18th) | `/pest/service/{rodent|general|fly}[/{year}]` — next visit due, last visit, visits completed, material / fixed areas / pests covered, then the year's visits |
 | **Trend Analysis** | Rodent Catch Report and Trend Analysis (computed from the daily record's checkpoint 7 — §8); Fly Catcher Infestation (from the Fortnightly Fly Catcher Inspection & Cleaning Record, F/HR/18 — §2) | `/pest/trend/rodent[/{year}]`, `/pest/trend/fly-catcher[/{year}]` — both in the company's Source / Unit / Target Pest / Year / Jan–Dec / Total layout |
-| **Training & Reference** | Training Record (yearly, §7 / §15); Pesticide Application Chart (§3); SOP (§4) | `/training`, `/chemical-master`, `/sop` |
+| **Training & Reference** | Training Record (yearly, §7 / §15); Pesticide Application Chart (§3) | `/training`, `/chemical-master` |
 
 `/pest-control` is the module overview: today's daily record and its status, this month's days
 recorded / awaiting submit / findings / rodents, each service's last visit and next due, this
@@ -1008,7 +1019,7 @@ undo — and on the complaint checklist it could change a *verified* record with
 **Deliberately not editable:** the service provider's licence (the owner's instruction: "not a single
 change") and a fly catcher's PC ID, which every fly catcher record refers to (its location and floor are
 editable). *Changed later on 11-Sep-2026*, on the department's instruction that every document can be
-corrected wherever the assistant or a person got it wrong: the Statements of Compliance, the SOP and the
+corrected wherever the assistant or a person got it wrong: the Statements of Compliance and the
 Chemical Master chart are now editable in place — Edit / Save / Cancel on the page, the transcription kept
 as the source with "Restore the original", and who edited it and when shown beside it
 (`src/data/repositories/referenceRepository.ts`; the chart's rows are saved to master data). On records,
@@ -1034,7 +1045,7 @@ while the correction is open:
   back), because the reopening is in there too and the trail has to make sense to an auditor.
 - It is in the shared record components (`components/records/RecordActionBar.tsx` and the correction
   banner in `RecordHistoryPanel.tsx`), so every record kind in every module has it — the record page's
-  documents, Training records and the CAPA complaint checklist alike. The reference documents (SOP,
+  documents, Training records and the CAPA complaint checklist alike. The reference documents (the
   Chemical Master, Statements of Compliance) already had Cancel on their own edit bar, and Master Data
   rows are edited in place with no Edit step to cancel.
 
@@ -1075,7 +1086,7 @@ On the department's instruction ("when user take print then it will only print d
 page of that open site"), every printout is the document alone. Each screen marks its document with
 `data-print-doc` — a record's form (every kind), the F/HR/17 and F/HR/18 registers, the Rodent / Fly
 catch report sheets, the open Reports tab, the licence's scanned pages, a Statement of Compliance, the
-SOP, the Chemical Master and the Document Files list. A Print button, or the browser's own Print /
+the Chemical Master and the Document Files list. A Print button, or the browser's own Print /
 Ctrl+P, then leaves everything else off the paper (`src/utils/print.ts`): page titles and
 explanations, stat tiles, banners (the assistant's, a correction, a rejection), tabs and filters, the
 record history, the buttons, the sidebar and the assistant. Screen-only hints inside a form (the
@@ -1611,6 +1622,113 @@ DATABASE FIELDS      users.departments - comma-separated department codes, "" = 
   it is never described to the customer as security.
 - Covered by `tests/e2e_departments.py`.
 
+## 41. Three trend analyses, exactly as the company reports them (13-Sep-2026)
+
+```
+REQUESTED            "So add this three different trends analysis and make sure that what i provided
+                      you i want exactly"
+SOURCE               "GP-3 Trend Analysis - 2025.pdf" - three pages, one per target pest
+DIGITAL TEMPLATE     src/data/seed/trendReports.ts (the transcription and each page's header
+                      wording), src/data/selectors.ts (lizardTrendRows, flyTrendRows,
+                      rodentTrendRows), src/components/reports/CatchTrendSheet.tsx (the page),
+                      src/pages/ReportsPage.tsx (LizardTrendReport + the two existing ones),
+                      src/pages/PestControlPages.tsx (LizardTrendPage)
+```
+
+The company keeps **three** trend reports on one page format, not the two this system had:
+
+| Page | Report | Source | Unit | Target Pest |
+|---|---|---|---|---|
+| 1 | RODENT CATCH REPORT AND TREND ANALYSIS | Trapped on Glue boards in Roda-boxes | Number | Rodents |
+| 2 | LIZARD CATCH REPORT AND TREND ANALYSIS | Trapped on Glue boards in Roda-boxes | Number | Lizard |
+| 3 | FLIES CATCH REPORT AND TREND ANALYSIS | Collected in EFKs | Gramms | Flies |
+
+- **The figures are the company's, to the cell.** 2024 rodents 0 (total 0); 2024 lizards
+  0,0,1,0,1,0,0,0,0,1,0,0 (total 3); 2024 flies 30,22,22,16,15,17,15,13,22,24,22,17 gramms (total
+  235). The lizard row is reported to November and the flies row to October, with the later months
+  and the year Total left blank exactly as the page leaves them. "Gramms" is the company's
+  spelling and is kept. `tests/e2e_trend_reports.py` types every one of those figures out again and
+  fails the build if a single cell reads differently.
+- **One cell is deliberately not the supplied snapshot**, and it is the only one. The supplied file
+  reports 2025 rodents to October and leaves Nov/Dec blank; the earlier-transcribed
+  "Kapila mam department reports .pdf" is a later issue of the same report and gives the complete
+  2025 — Nov 0, Dec 0, Total 2 — plus Jan–Jun 2026. The complete row is kept, because it agrees
+  with the supplied file on every cell the supplied file fills and discarding it would lose the
+  company's own later figures. Open question 10 records this, to be reverted to the October
+  snapshot on a word from the MR.
+- **The Total is printed only when the year is complete**, which is the convention on all three
+  pages: every 2024 row carries one, every part-reported 2025 row leaves it blank. The running figure
+  for the year in progress is not lost - it is in the text beside the sheet on each report page.
+- **The lizard report is new, and is transcription only.** The house lizards come off the same glue
+  boards in the same Roda-boxes as the rodents, but F/HR/17 has no column for them - its check point
+  7 records the rodent catch alone - so there is nothing in the digital register to add up. Nothing on
+  that sheet is tinted and its footnote says so, which is the difference between a figure this system
+  computed and one it copied. It lives at `/pest/trend/lizard`, in Reports as its own tab, in the
+  sidebar under Trend Analysis and on the module overview, and it belongs to F/HR/17 for the purposes
+  of who may see it (§40).
+- **The flies report is reported by WEIGHT, and that changed what the fly sheet says.** The company
+  weighs what it collects out of the electric fly killers each month, in grammes. That is not the same
+  measurement as the approximate per-board counts written on the fortnightly F/HR/18 register, and
+  there is no factor to convert between them - so a year the provider reported is the reported
+  gramms, and a year only the digital register covers carries its own Source ("Caught on Glue boards
+  of Fly catchers (PC-01 to PC-13)") and its own Unit ("Number") on its own row. Source / Unit /
+  Target Pest are printed per ROW on the company's page, which is exactly what makes that honest. The
+  per-unit PC-01..PC-13 breakdown stays below the sheet as the register's own detail. The sheet was
+  previously titled "FLY CATCH REPORT AND TREND ANALYSIS" with a source line this system had made up;
+  both are now the company's.
+- **Each page gets its "Report prepared by" signature line**, ruled and left blank: the system does
+  not sign a report for anybody.
+- **A row of twelve empty cells is never added.** A year is on the sheet because the provider
+  reported it or because the register holds a record for it - never because the calendar reached it.
+  And if the year asked for has a row whose cells are all still blank, the chart falls back to the
+  most recent year that has figures and the caption names the year it drew (the §39 rule, extended).
+
+## 42. The SOP Reference comes out of the Pest Control module (13-Sep-2026)
+
+```
+REQUESTED            "also remove whole SOP Reference from pest control module"
+```
+
+- Gurudev Pest Control's Standard Operating Procedure was reproduced in this system as a
+  reference-only document. It is withdrawn: the document, its page, its `/sop` route, its sidebar
+  entry, the two buttons that opened it, its transcribed content and its `DocumentKind` are all gone.
+- **Why it is right to remove it and keep the chemical chart**: the SOP is the service *provider's*
+  own procedure, not one of the company's controlled formats. It appears nowhere on the Master List of
+  Formats & Records (F/SYS/02), and its Format No. and Revision were both TO BE CONFIRMED for exactly
+  that reason. The Pesticide Application Chart is the company's, so that one stays.
+- Retired through `RETIRED_DOCUMENT_IDS`, so a browser that already holds the document, its
+  reminder-role entry or any records for it drops them on the next load rather than keeping an orphan.
+- **One thing the removal had to carry with it.** The Service Agreement's Scope of Services clause -
+  the five services and their frequencies - was being derived from that transcription. Those lines are
+  the contract's own content, so they moved into `src/data/seed/trendReports.ts`'s neighbour
+  `src/data/seed/serviceAgreement.ts` as `SCOPE_OF_SERVICES`, word for word, TO BE CONFIRMED
+  frequencies included. The agreement's schedule clause no longer sends the reader to a page that
+  does not exist; it says the provider's procedure is held on site by Purchase.
+
+## 43. The Training Record's Attended tick box is withdrawn (13-Sep-2026)
+
+```
+REQUESTED            "in training record remove that attendance checkbox whole column also"
+DIGITAL TEMPLATE     src/pages/TrainingPage.tsx, src/types/record.ts (TrainingAttendee)
+```
+
+- The attendee list **is** the attendance sheet now, the way the paper sheet reads it: a name on the
+  list is somebody who was there. The Attended column, its tick box and the `attended` flag behind it
+  are all gone.
+- Everything that used to read or write that flag is re-expressed in terms of who is on the list, so
+  nothing silently lost its meaning:
+  - **auto-fill** carries last year's names forward as a starting point and says so in its note
+    ("take off anyone who did not attend, add anyone new") instead of copying them in unticked;
+  - **the assistant's "Who attended?"** question builds the list - the names given are the sheet, so
+    anybody carried forward who is not named comes off it;
+  - **"Ajay Vaghela absent"** takes that name off the sheet and **"... attended"** puts one on, which
+    is what a person does to the paper sheet;
+  - **validation** asks for at least one name rather than at least one tick;
+  - **sample data** signs off a realistic sheet - most of last year's invitees, one or two missing;
+  - **the Training Status report** counts the names on the sheet.
+- The model's field guide (`backend/assistant.ts`) no longer offers the field, and is told that
+  recording an absence means removing that person's entry.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -1644,7 +1762,13 @@ DATABASE FIELDS      users.departments - comma-separated department codes, "" = 
    Remarks per area per visit (see §5 above).
 8. ~~Training cadence (no source-stated recurrence).~~ — **RESOLVED** as Yearly (see §15).
 9. Rodent Bait Station master list / numbering scheme (explicitly missing per the GAP report).
-10. Exact source of the company's existing "Rodent Catch Report" numbers (see section 8 above).
+10. ~~Exact source of the company's existing "Rodent Catch Report" numbers (see section 8
+    above).~~ — **RESOLVED** 13-Sep-2026: "GP-3 Trend Analysis - 2025.pdf", which also supplied
+    the lizard and flies pages. Transcribed in `src/data/seed/trendReports.ts` (§41). One cell
+    to confirm: that file reports 2025 to October and leaves Nov/Dec blank, while the earlier
+    "Kapila mam department reports .pdf" gives the complete 2025 (Nov 0, Dec 0, Total 2) and
+    Jan–Jun 2026. The complete transcription is kept, since it agrees with the new file on
+    every cell the new file fills — say so if the Oct-2025 snapshot is wanted verbatim instead.
 11. Full names / spelling of the lamination QC testers ("Jeni" day shift, "Singh" night shift) and
     the departments of the six training attendees.
 12. Adhesive / hardener batch numbers on the Process Parameter specimen (best-effort handwriting
@@ -1659,6 +1783,17 @@ DATABASE FIELDS      users.departments - comma-separated department codes, "" = 
 15. Full names of the QA inspectors signing as "Harsh", "Pooja P", "S.V.M." and "HNP".
 16. Who approves customer complaint checklists (F/MKT/05) — activity 31 says "QA Head", so the app
     defaults the Approved By designation to that; the actual person's name is whoever verifies.
+17. **How much of the Rat / Mice round is baited rather than glue-boarded.** The Dec-2023 and
+    April-2026 specimens bait ONE area (First floor - Offline punching & QC Inspection) with
+    Bromadiolone Cake and glue-board the other fifteen, which is what the app pre-fills
+    (`src/engine/serviceMaterials.ts`, AREA_OVERRIDES). The March-2026 specimen supplied on
+    13-Sep-2026 ("Service Report- March 2026.xls — 1st Service-Rcs") baits EIGHT: rows 9–16,
+    Offline punching & QC Inspection through Canteen, at 50 gramms, with rows 1–8 on Glue Board
+    at 3. Left as it is rather than changed on one specimen — the field is editable per area and
+    per visit — but if rows 9–16 are the standing arrangement, that is a one-line change.
+18. **Which floor the Ink store is on.** The master list of Rodent Control areas has "Ink store -
+    Ground floor" as row 4; the March-2026 specimen prints "First floor - Ink store" in that
+    position. Master data, corrected in Master Data → Service Areas once confirmed.
 
 ## How the assistant pre-fills records (and what it never does)
 

@@ -1,6 +1,5 @@
 import type { ServiceAgreementData, ServiceAgreementParty } from "../../types";
 import { TBC } from "../../types";
-import { SOP_SECTIONS } from "./sopContent";
 import { SERVICE_LICENCE } from "./serviceLicence";
 import { PR_LETTERHEAD } from "./pestResponsibilities";
 
@@ -18,8 +17,8 @@ import { PR_LETTERHEAD } from "./pestResponsibilities";
 // WHAT THE SYSTEM FILLS IN, and where each line comes from: the parties (the
 // company's own letterhead and the provider's), the provider's insecticide
 // licence number (data/seed/serviceLicence.ts), the services and their
-// frequencies (the SOP, data/seed/sopContent.ts — including its own
-// "TO BE CONFIRMED" frequencies, unchanged), and the obligations already signed
+// frequencies (SCOPE_OF_SERVICES below — the service provider's own wording,
+// including its own "TO BE CONFIRMED" frequencies), and the obligations signed
 // by both parties (the Responsibilities of Pest Control document, cross
 // referenced rather than restated). NOTHING ELSE IS INVENTED: the commercial
 // terms nobody has told the system are left as TO BE CONFIRMED for the two
@@ -63,14 +62,24 @@ const CLIENT: ServiceAgreementParty = {
   email: "info@gujprintpack.com",
 };
 
-// The services, as the SOP describes them — its own wording and its own
-// frequencies, including where the SOP itself says TO BE CONFIRMED.
-function scopeFromSop(): string[] {
-  return SOP_SECTIONS.map((s) => `${s.title.replace(/^\d+\.\s*/, "")} — frequency: ${s.frequency}`);
-}
+// THE SCOPE OF SERVICES CLAUSE — the five services the provider contracts to
+// carry out and the frequency of each, in the provider's own wording from its
+// Standard Operating Procedure for Pest Control Services, including the
+// frequencies that procedure itself leaves TO BE CONFIRMED. These lines used to
+// be derived from a transcription of that SOP held as a document in this system;
+// the SOP was withdrawn on 13-Sep-2026 (it is the provider's procedure, not one
+// of the company's controlled formats — REQUIREMENTS §42), so the clause now
+// lives here, in the agreement it belongs to, word for word as before.
+const SCOPE_OF_SERVICES: string[] = [
+  "General Pest Control (Cockroaches, Ants & Crawling Insects) — frequency: TO BE CONFIRMED (service report specimens observed at fortnightly cadence)",
+  "Rodent Control Service (Rat, Mice & Bandicoots) — frequency: TO BE CONFIRMED (service report specimens observed at fortnightly cadence)",
+  "Fly Control Service (House Fly, Drain Fly, Fruit Fly) — frequency: TO BE CONFIRMED (service report specimens observed at fortnightly cadence)",
+  "Mosquito Control Services (Mosquitoes) — frequency: TO BE CONFIRMED — no standalone service report specimen supplied; Chemical Chart groups Mosquito Control with Fly Control Service.",
+  "Lizard Control Services (House Lizard) — frequency: Quarterly (explicitly stated in source: \"recommended is quarterly however it may depend upon the local situation and may vary from place to place\").",
+];
 
 const SERVICE_SCHEDULE = [
-  "The work schedule, and the frequency of each treatment under it, is the one in the Standard Operating Procedure for Pest Control Services, kept on file with this system (Pest Control → Training & Reference → SOP Reference).",
+  "The work schedule, and the frequency of each treatment under it, is the one in the service provider's Standard Operating Procedure for Pest Control Services, a copy of which is held on site by the Purchase department.",
   "A service report is filed for every visit (Rat / Mice, Ants & Cockroaches, Fly Control), signed by the technician and the site contact.",
   "A monthly summarised service report is submitted not later than the 7th of every month, covering the services carried out, the date of service, the targeted pests, the pesticide used and its quantity, pest sighting and catch count, and the action plan for the next month if necessary.",
   "There are at minimum 6-monthly meetings between the service provider and the client on status, progress and action plan. In case of pest infestation or any issue, the frequency of service is increased.",
@@ -108,7 +117,7 @@ export function newServiceAgreementData(effectiveFrom: string, effectiveTo: stri
     client: { ...CLIENT, addressLines: [...CLIENT.addressLines] },
     provider: { ...PROVIDER, addressLines: [...PROVIDER.addressLines] },
     providerLicenceNo: SERVICE_LICENCE.licenseNo,
-    scopeOfServices: scopeFromSop(),
+    scopeOfServices: SCOPE_OF_SERVICES,
     serviceSchedule: [...SERVICE_SCHEDULE],
     obligations: [...OBLIGATIONS],
     commercialTerms: [...COMMERCIAL_TERMS],

@@ -19,7 +19,6 @@ import { GapListPage, GapRecordPage } from "./pages/GapPage";
 import { CapaHomePage, ComplaintListPage, ComplaintChecklistPage } from "./pages/CapaPage";
 import { TrainingListPage, TrainingRecordPage } from "./pages/TrainingPage";
 import { ChemicalMasterPage } from "./pages/ChemicalMasterPage";
-import { SopReferencePage } from "./pages/SopReferencePage";
 import { ComplianceDetailPage, ComplianceListPage } from "./pages/CompliancePage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { MasterDataPage } from "./pages/MasterDataPage";
@@ -30,6 +29,7 @@ import { LicencePage } from "./pages/LicencePage";
 import {
   DailyMonitoringListPage,
   FlyCatcherTrendPage,
+  LizardTrendPage,
   PestControlOverviewPage,
   RodentTrendPage,
   ServiceReportListPage,
@@ -118,12 +118,11 @@ function RouteSwitch() {
       }
       if (rest[0] === "service") return <ServiceReportListPage key={rest.join("/")} slug={rest[1] ?? ""} year={yearParam(rest[2])} />;
       if (rest[0] === "trend" && rest[1] === "rodent") return <RodentTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
+      if (rest[0] === "trend" && rest[1] === "lizard") return <LizardTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
       if (rest[0] === "trend" && rest[1] === "fly-catcher") return <FlyCatcherTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
       return <NotFoundPage />;
     case "chemical-master":
       return <ChemicalMasterPage />;
-    case "sop":
-      return <SopReferencePage />;
     case "licence":
       return <LicencePage />;
     case "soc":

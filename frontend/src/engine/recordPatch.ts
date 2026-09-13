@@ -6,6 +6,7 @@ import { normalizeServiceLines } from "./serviceMaterials";
 import { codeRulesFor, softFgCodeProblem } from "./documentFormats";
 import { addDays, pad2, todayISO } from "../utils/date";
 import { generateId } from "../utils/id";
+import { COMPANY } from "../data/seed/masterData";
 
 // EVERY CHANGE THE ASSISTANT MAKES IS CHECKED HERE FIRST.
 //
@@ -932,15 +933,25 @@ function findingEdit(target: string, value: string, data: Obj): Obj | null {
   return { itemEdits: [{ collection: "findings", match: { sNo }, set: { [key]: value } }] };
 }
 
+// "Ajay Vaghela attended" / "… was absent". With the Attended tick gone
+// (REQUIREMENTS §43) the attendance sheet is the list itself, so absent means
+// take the name off it and attended means put it on — which is also what a
+// person does to the paper sheet.
 function attendanceEdit(text: string, data: Obj): Obj | null {
   const m = text.match(/^(.+?)\s+(?:was\s+|is\s+)?(attended|present|absent|did not attend|didn'?t attend|not attended)$/i);
   if (!m) return null;
   const who = tokens(m[1]);
   const attendees = Array.isArray(data.attendees) ? (data.attendees as Obj[]) : [];
   const hit = best(attendees, (a) => (precision(who, tokens(String(a.employeeName ?? ""))) >= 0.999 ? 1 : 0), 0.5);
-  if (!hit) return null;
   const attended = /^(attended|present)$/i.test(m[2]);
-  return { itemEdits: [{ collection: "attendees", match: { employeeName: hit.employeeName }, set: { attended } }] };
+  if (attended) {
+    if (hit) return null; // already on the sheet — nothing to change
+    const name = m[1].trim().replace(/\s+/g, " ");
+    if (name.length < 3) return null;
+    return { attendees: [...attendees, { id: generateId("att"), employeeName: name, department: COMPANY.shortName }] };
+  }
+  if (!hit) return null;
+  return { attendees: attendees.filter((a) => a.employeeName !== hit.employeeName) };
 }
 
 /**

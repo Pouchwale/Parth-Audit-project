@@ -118,7 +118,7 @@ with sync_playwright() as p:
     check("Every document that holds records offers New in the library", new_buttons.count() >= 10, new_buttons.count())
     check(
         "...and the reference documents don't (they are single documents, edited in place)",
-        page.locator("[data-action='new-record'][data-document='sop-reference']").count() == 0
+        page.locator("[data-action='new-record'][data-document='chemical-master']").count() == 0
         and page.locator("[data-action='new-record'][data-document='service-licence']").count() == 0,
     )
     page.locator("[data-action='new-record'][data-document='daily-pest-monitoring']").first.click()

@@ -108,6 +108,10 @@ CAKE_BITING_ALONE_P = 0.012  # biting sign on a day with no catch
 DEAD_RODENT_P = 0.20       # dead rodent observed on a catch day (checkpoint 8)
 
 # ---- The company's own reported history, transcribed from the PDF page.
+# The later of the two issues of the company's Rodent Catch Report (see the
+# note in the generated pestPattern.ts): it completes 2025 and carries Jan-Jun
+# 2026. The 13-Sep-2026 "GP-3 Trend Analysis - 2025.pdf" is the October-2025
+# snapshot of the same report and agrees on every cell it fills.
 HISTORY = [
     {"year": 2024, "months": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "total": 0},
     {"year": 2025, "months": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0], "total": 2},

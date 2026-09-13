@@ -54,13 +54,13 @@ export function useRouter(): RouterValue {
 // their own case (root, optional id), not as a zero-segment-only route.
 const SIMPLE_ROUTES = new Set([
   "", "dashboard", "process-flow", "library", "calendar", "reports",
-  "chemical-master", "sop", "master-data", "demo", "search", "pest-control", "assistant", "licence",
+  "chemical-master", "master-data", "demo", "search", "pest-control", "assistant", "licence",
 ]);
-const REPORT_TABS = new Set(["monthly", "daily", "rodent", "flycatcher", "chemical", "gap", "training", "lamination"]);
+const REPORT_TABS = new Set(["monthly", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"]);
 // Pest Control module pages (src/pages/PestControlPages.tsx):
 // /pest/daily[/{year}/{month0}], /pest/service/{slug}[/{year}], /pest/trend/{slug}[/{year}]
 const PEST_SERVICE_SLUGS = new Set(["rodent", "general", "fly"]);
-const PEST_TREND_SLUGS = new Set(["rodent", "fly-catcher"]);
+const PEST_TREND_SLUGS = new Set(["rodent", "lizard", "fly-catcher"]);
 export const YEAR_RE = /^\d{4}$/;
 export const MONTH0_RE = /^(?:0?[0-9]|1[01])$/; // 0-11, optional leading zero
 export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

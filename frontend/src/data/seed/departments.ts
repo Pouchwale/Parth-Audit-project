@@ -73,7 +73,6 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "pest-responsibilities": "HR", // TBC — the site/provider responsibilities behind the pest control file
   "training-record": "HR", // TBC — training is HR's (F-HR-05..F-HR-12)
   "chemical-master": "HR", // TBC — the pesticide application chart the pest control file works to
-  "sop-reference": "HR", // TBC — the pest control SOP those records are kept under
   "gurudev-insecticide-licence": "HR", // TBC — the provider's licence, held in the pest control file
 
   // --- Purchase: the contract with the service provider

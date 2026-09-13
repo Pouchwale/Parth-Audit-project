@@ -47,7 +47,6 @@ const KEY_LABELS: Record<string, string> = {
   dateOfObservation: "Date of observation",
   actionTaken: "Action taken",
   employeeName: "Employee",
-  attended: "Attended",
   certificateRef: "Certificate reference",
   trainingDate: "Training date",
   trainingType: "Training type",

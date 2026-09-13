@@ -80,6 +80,16 @@ Seven scripts live in `tests/`:
   is open opens the document and asks there; the same from the full-page Assistant; an ambiguous name
   asked about; and every document that holds records started from the library, filled with sample data
   and submitted. Signs IN to a fixed account. Network-independent.
+- `tests/e2e_trend_reports.py` - the company's three trend reports, cell for cell against the paper:
+  every figure of "GP-3 Trend Analysis - 2025.pdf" is typed out in the suite, so the rodent, lizard
+  and flies sheets must show that Source, that Unit, that Target Pest, those twelve months and that
+  Total (blank where the page leaves it blank), with nothing tinted as computed on a transcribed row;
+  each sheet's chart must be an inline SVG of thirteen bars carrying the drawn year's own figures, and
+  picking 2024 must redraw it from the 2024 row. Also: all three are reachable from the module
+  overview, the sidebar and Reports; the Training Record has no Attended column, no tick box and no
+  `attended` field; and the SOP Reference is gone from the module, the sidebar, the library and this
+  browser's document list, while the Service Agreement still carries all five services and their
+  frequencies. Network-independent.
 - `tests/e2e_departments.py` - departments, whole-document printing and the trend graph: an unassigned
   account covers every department; the Daily Report's status list and a service report's visit register
   print with the company's header block and Format No., nothing around them, and no table left as a
@@ -108,7 +118,7 @@ npm run test:e2e     # builds, boots backend/index.ts on :8842, runs e2e_smoke.p
                       # e2e_print_and_forms.py, e2e_capa_formats.py,
                       # e2e_agreement_and_cancel.py, e2e_crud.py,
                       # e2e_print_all_documents.py, e2e_assistant_fill.py and
-                      # e2e_departments.py
+                      # e2e_departments.py, e2e_trend_reports.py
                       # against it, tears down
                       # (see scripts/run-e2e.ts)
 ```
@@ -132,6 +142,7 @@ python tests/e2e_crud.py
 python tests/e2e_print_all_documents.py
 python tests/e2e_assistant_fill.py
 python tests/e2e_departments.py
+python tests/e2e_trend_reports.py
 python tests/visual_qa.py
 python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actually resolve; edit
                                     # the BASE constant at the top if your server isn't on :8844
@@ -151,6 +162,42 @@ restarts, or after ten minutes.
 The run below is the production shape end to end: `frontend/scripts/build.ts` builds the bundle,
 `backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every suite
 runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts.
+
+### Three trend reports, the SOP withdrawn, the Attended column withdrawn (13-Sep-2026)
+
+The company's own trend file arrived with three pages, not two: RODENT, LIZARD and FLIES CATCH REPORT
+AND TREND ANALYSIS. All three are now in the system with the company's header wording and its figures
+to the cell, and `tests/e2e_trend_reports.py` (**102 checks**) is a transcription test rather than a
+smoke test - every figure from the PDF is typed out again in the suite, so a single cell reading
+differently fails the build. It also covers the two withdrawals that came with the same request.
+
+`npm run typecheck` clean and `npm run test:e2e` green end to end — **642 checks across fifteen
+suites**, no JavaScript errors. The live Groq suite `tests/e2e_assistant_chat.py` re-run on the
+same build: **13/13**. The Document Library is 24 documents now, not 25.
+
+What the work turned up:
+
+- **The flies trend was measuring the wrong thing.** The company reports it by WEIGHT - gramms
+  collected out of the electric fly killers each month - while this system was adding up the
+  approximate per-board counts on the fortnightly F/HR/18 register and printing a source line it had
+  invented. There is no factor to convert one into the other, so the sheet now carries each year in
+  its own unit on its own row (Source / Unit / Target Pest are printed per row on the company's page,
+  which is what makes that possible) and the board counts stay below it as the register's detail.
+- **The Total was being computed where the paper leaves it blank.** All three of the company's pages
+  print a year's Total only once the year is complete. The sheet now does the same; the running figure
+  is in the text beside it, so nothing is lost on screen.
+- **A year the calendar had reached but nobody had reported was getting a row of twelve blanks**, and
+  the chart would then draw that empty row and caption it with that year - the §39 defect again, by a
+  different route. A year is now on the sheet only if it was reported or the register holds a record
+  for it, and the chart falls back past a row that is still all blank.
+- **Removing a document is never just deleting it.** The SOP came out cleanly (retired through
+  `RETIRED_DOCUMENT_IDS` so existing browsers drop it), but the Service Agreement was deriving its
+  Scope of Services clause - five services and their frequencies - from that transcription. Those
+  lines are the contract's own content, so they moved into the agreement rather than disappearing
+  with the SOP, and the suite checks all five are still there with their frequencies.
+- **Dropping the `attended` flag touched eleven files**, because a boolean nobody looks at is still a
+  boolean six engines write. Each one was re-expressed in terms of who is on the sheet - notably
+  "X absent" in the assistant, which now removes the name rather than unticking it.
 
 ### Departments, whole-document printing and the trend graph (13-Sep-2026)
 

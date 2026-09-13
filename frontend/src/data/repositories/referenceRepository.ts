@@ -1,9 +1,8 @@
 import { readJSON, writeJSON } from "../storageAdapter";
 import { COMPLIANCE_STATEMENTS, type ComplianceStatement } from "../seed/complianceStatements";
-import { SOP_SECTIONS, type SopSection } from "../seed/sopContent";
 
-// CORRECTIONS TO THE REFERENCE DOCUMENTS. The SOP and the Statements of
-// Compliance were transcribed from the company's files; where a word came out
+// CORRECTIONS TO THE REFERENCE DOCUMENTS. The Statements of Compliance were
+// transcribed from the company's files; where a word came out
 // wrong, a person can correct it on the page. The transcription stays in the
 // code as the source; a correction is stored beside it with who made it and
 // when, and "Restore the original" drops it again. (The service provider's
@@ -36,13 +35,6 @@ export const referenceRepository = {
     return writeJSON(KEY, store);
   },
 };
-
-export const SOP_DOC_ID = "sop-reference";
-
-/** The SOP as it reads now — corrected where someone corrected it. */
-export function sopSections(): SopSection[] {
-  return referenceRepository.get<SopSection[]>(SOP_DOC_ID)?.data ?? SOP_SECTIONS;
-}
 
 /** A Statement of Compliance as it reads now — corrected where someone corrected it. */
 export function complianceStatement(documentId: string): ComplianceStatement | undefined {

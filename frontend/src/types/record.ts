@@ -239,11 +239,13 @@ export interface ComplaintChecklistData {
 }
 
 // ---- 5. Training Record ----------------------------------------------------
+// One line of the training record's attendance sheet. A name on the list is
+// somebody who attended — there is no separate tick, the way the paper sheet
+// reads it (the Attended column was withdrawn on 13-Sep-2026, REQUIREMENTS §43).
 export interface TrainingAttendee {
   id: string;
   employeeName: string;
   department: string;
-  attended: boolean;
 }
 
 // ---- CAPA — Internal: Complaint Acknowledgement Report (QA-CAF-00) ---------

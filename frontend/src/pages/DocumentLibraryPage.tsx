@@ -16,7 +16,6 @@ import { departmentScopeLabel, isDocumentIdVisible } from "../engine/departmentS
 
 function openTarget(docId: string, kind: string): string {
   if (kind === "chemical-master") return "/chemical-master";
-  if (kind === "sop-reference") return "/sop";
   if (kind === "licence") return "/licence";
   if (kind === "compliance-statement") return `/soc/${docId}`;
   if (kind === "gap-inspection") return "/gap";
@@ -32,8 +31,8 @@ function openTarget(docId: string, kind: string): string {
   return "/calendar";
 }
 
-// Which documents hold records at all: the reference ones — the SOP, the
-// Chemical Master, a Statement of Compliance, the licence — are single
+// Which documents hold records at all: the reference ones — the Chemical
+// Master, a Statement of Compliance, the licence — are single
 // documents kept as issued, edited in place, so there is nothing to create or
 // delete for them (they have their own Edit / Cancel on the page).
 const RECORDABLE_KINDS = new Set([

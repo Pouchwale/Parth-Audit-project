@@ -332,7 +332,7 @@ def main():
         check("Fly Catcher Infestation trend lists all 13 units in the company's year layout", "target pest" in fly_report and page.locator("table.fly-units tbody tr").count() == 13)
         check(
             "Fly trend uses the same company format (title and the JAN-DEC + Total chart)",
-            "FLY CATCH REPORT AND TREND ANALYSIS" in page.locator(".trend-head").first.inner_text() and page.locator(".trend-chart .bar").count() == 13,
+            "FLIES CATCH REPORT AND TREND ANALYSIS" in page.locator(".trend-head").first.inner_text() and page.locator(".trend-chart .bar").count() == 13,
         )
 
         # The F/HR/18 register in the company's own two-page format, filled
@@ -488,11 +488,6 @@ def main():
         page.wait_for_timeout(300)
         check("Chemical master shows pesticide chart", "Rodent Control Service" in page.content())
 
-        # ---- 10. SOP reference ----
-        page.click("text=SOP Reference")
-        page.wait_for_timeout(300)
-        check("SOP reference shows Lizard quarterly frequency", "Quarterly" in page.content())
-
         # ---- 11. Reports ----
         page.click("a[href='#/reports']")
         page.wait_for_timeout(300)
@@ -507,7 +502,7 @@ def main():
         # ---- 12. Document Library ----
         page.click("text=Document Library")
         page.wait_for_timeout(300)
-        check("Document Library lists all 25 documents", page.locator(".doc-table tbody tr").count() == 25)
+        check("Document Library lists all 24 documents", page.locator(".doc-table tbody tr").count() == 24)
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)

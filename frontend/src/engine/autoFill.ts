@@ -373,25 +373,25 @@ function fillTraining(
   previous: RecordInstance<TrainingRecordData> | undefined
 ): AutoFillResult {
   const source = previous?.data ?? SEED_AWARENESS_TRAINING_RECORD.data;
-  // The invitee list is carried forward; attendance is not assumed. Marking
-  // everybody present before the session has happened is the assistant
-  // asserting something it cannot know — and a training record showing 100%
-  // attendance every year is the kind of thing an auditor asks to see the
-  // attendance sheet for.
+  // Last year's names are carried forward as a starting point for the sheet,
+  // not as an assertion that those people were there: the note below says so,
+  // and a person strikes out whoever did not come and adds whoever did. A
+  // training record showing the same full attendance every year is the kind of
+  // thing an auditor asks to see the signed attendance sheet for.
   const data: TrainingRecordData = {
     trainingDate: dueDate,
     trainingType: source.trainingType || "Pest Control Awareness Training Program (annual)",
     trainerProvider: source.trainerProvider || "Gurudev Pest Control",
     topics: [...source.topics],
-    attendees: source.attendees.map((a) => ({ ...a, id: generateId("att"), attended: false })),
+    attendees: source.attendees.map((a) => ({ ...a, id: generateId("att") })),
     certificateRef: "",
     remarks: "",
   };
   return {
     data,
     notes: [
-      `Copied the ${data.topics.length} topics and ${data.attendees.length} invitees from the ${formatDisplayDate(source.trainingDate)} programme.`,
-      "Attendance is left unticked on purpose — tick who actually attended after the session, and add the certificate / attendance sheet reference.",
+      `Copied the ${data.topics.length} topics and the ${data.attendees.length} names from the ${formatDisplayDate(source.trainingDate)} programme.`,
+      "The attendance sheet is last year's list — take off anyone who did not attend, add anyone new, and put in the certificate / attendance sheet reference.",
     ],
     basedOn: previous ? basedOnLabel(doc, previous, "") : "the 24-Dec-2025 awareness training (Training - Yrl (1).doc)",
   };

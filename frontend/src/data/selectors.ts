@@ -7,6 +7,13 @@ import { masterRepository } from "./repositories/masterRepository";
 import { todayISO, compareISO, pad2 } from "../utils/date";
 import { totalRodents } from "../engine/rodentPattern";
 import { RODENT_HISTORY_REPORTED } from "./seed/pestPattern";
+import {
+  FLIES_GRAMS_HISTORY_REPORTED,
+  FLIES_TREND_REPORT,
+  FLY_BOARD_COUNT_SOURCE,
+  LIZARD_HISTORY_REPORTED,
+  LIZARD_TREND_REPORT,
+} from "./seed/trendReports";
 
 // Rodents recorded on the Daily Pest Control Monitoring Record (checkpoint 7
 // + catch details) — what Reports > Rodent Trend and the Dashboard add up.
@@ -177,6 +184,14 @@ export interface TrendYearRow {
   year: number;
   months: (number | null)[];
   fromRegister: boolean[];
+  // Source / Unit / Target Pest are per ROW on the company's sheet, not per
+  // report, and the flies report needs that: the years the provider weighed
+  // the catch out of the EFKs are reported in "Gramms", a year added up from
+  // the fortnightly board counts in "Number". Left out, the report's own
+  // header wording is used (data/seed/trendReports.ts).
+  source?: string;
+  unit?: string;
+  targetPest?: string;
 }
 
 function monthKey(iso: string): string {
@@ -225,9 +240,15 @@ export function rodentTrendRows(isDemo: boolean, today = todayISO()): TrendYearR
     });
 }
 
-// The same year rows for the flies counted on the fortnightly F/HR/18
-// register. There is no paper history for flies, so every figure is added up
-// from the visits recorded; a month with no inspection carried out is blank.
+// The year rows of the company's "FLIES CATCH REPORT AND TREND ANALYSIS"
+// (page 3 of GP-3 Trend Analysis - 2025.pdf). The company reports this one by
+// WEIGHT — grams of flies collected out of the electric fly killers each
+// month — which is not the same measurement as the approximate per-board
+// counts written on the fortnightly F/HR/18 register. So a year the provider
+// reported is the reported grams, unconverted; a year only the digital
+// register covers is its own board count, carrying its own Source and Unit on
+// the row (the sheet prints those per row). Nothing is converted between the
+// two, because there is no factor to convert with. REQUIREMENTS §41.
 export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[] {
   const records = recordRepository.query({ documentId: "fly-catcher", isDemo }) as RecordInstance<FlyCatcherData>[];
   const byMonth = new Map<string, number>();
@@ -237,12 +258,28 @@ export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[
     const key = monthKey(r.dueDate);
     byMonth.set(key, (byMonth.get(key) ?? 0) + counts.reduce((s, e) => s + (Number(e.catchCountApprox) || 0), 0));
   }
+  const reported = new Map(FLIES_GRAMS_HISTORY_REPORTED.map((h) => [h.year, h.months]));
   const currentYear = Number(today.slice(0, 4));
-  const years = new Set<number>([currentYear, ...Array.from(byMonth.keys(), (k) => Number(k.slice(0, 4)))]);
+  // A year is on the sheet because the provider reported it or because the
+  // register holds an inspection for it — never just because the calendar
+  // reached it, which would put a row of twelve empty cells on the company's
+  // page and give the chart an empty year to draw (REQUIREMENTS §39).
+  const years = new Set<number>([...reported.keys(), ...Array.from(byMonth.keys(), (k) => Number(k.slice(0, 4)))]);
   return Array.from(years)
     .filter((y) => y <= currentYear)
     .sort((a, b) => a - b)
     .map((year) => {
+      const asReported = reported.get(year);
+      if (asReported) {
+        return {
+          year,
+          months: [...asReported],
+          fromRegister: Array(12).fill(false),
+          source: FLIES_TREND_REPORT.source,
+          unit: FLIES_TREND_REPORT.unit,
+          targetPest: FLIES_TREND_REPORT.targetPest,
+        };
+      }
       const months: (number | null)[] = [];
       const fromRegister: boolean[] = [];
       for (let m = 0; m < 12; m++) {
@@ -250,8 +287,27 @@ export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[
         months.push(v ?? null);
         fromRegister.push(v !== undefined);
       }
-      return { year, months, fromRegister };
+      return { year, months, fromRegister, source: FLY_BOARD_COUNT_SOURCE, unit: "Number", targetPest: FLIES_TREND_REPORT.targetPest };
     });
+}
+
+// The year rows of the company's "LIZARD CATCH REPORT AND TREND ANALYSIS"
+// (page 2 of the same file). The house lizards come off the same glue boards
+// in the same Roda-boxes as the rodents, but F/HR/17 has no column for them —
+// its check point 7 records the rodent catch only — so there is nothing in the
+// register to add up and every figure here is the provider's own monthly
+// report, transcribed. Nothing is tinted on this sheet for exactly that
+// reason, and its footnote says so. REQUIREMENTS §41.
+export function lizardTrendRows(_isDemo: boolean, today = todayISO()): TrendYearRow[] {
+  const currentYear = Number(today.slice(0, 4));
+  return LIZARD_HISTORY_REPORTED.filter((h) => h.year <= currentYear).map((h) => ({
+    year: h.year,
+    months: [...h.months],
+    fromRegister: Array(12).fill(false),
+    source: LIZARD_TREND_REPORT.source,
+    unit: LIZARD_TREND_REPORT.unit,
+    targetPest: LIZARD_TREND_REPORT.targetPest,
+  }));
 }
 
 export function allGapFindings(isDemo: boolean): { record: RecordInstance<GapInspectionData>; finding: GapFinding }[] {

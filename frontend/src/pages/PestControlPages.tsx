@@ -19,7 +19,7 @@ import { agreementStatus } from "../engine/serviceAgreement";
 import { PR_DOC_ID, newPestResponsibilitiesData } from "../data/seed/pestResponsibilities";
 import { generateId } from "../utils/id";
 import { fliesInMonth, flyStatsForYear, rodentStatsForYear, rodentsInMonth } from "../data/selectors";
-import { FlyCatcherTrendReport, RodentTrendReport } from "./ReportsPage";
+import { FlyCatcherTrendReport, LizardTrendReport, RodentTrendReport } from "./ReportsPage";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
@@ -364,12 +364,24 @@ export function PestControlOverviewPage() {
               </button>
             </div>
             )}
+            {dailyDoc && (
+            <div className="mb-4">
+              <div className="font-semibold text-sm">Lizard Catch Report and Trend Analysis</div>
+              <div className="text-sm text-muted">
+                The house lizards off the same glue boards, as the service provider reports them each month — the company's own page, transcribed.
+              </div>
+              <button className="btn btn-secondary btn-sm mt-2" onClick={() => navigate("/pest/trend/lizard")}>
+                Open <FiArrowRight size={12} />
+              </button>
+            </div>
+            )}
             {flyDoc && (
             <div>
-              <div className="font-semibold text-sm">Fly Catcher Infestation</div>
+              <div className="font-semibold text-sm">Flies Catch Report and Trend Analysis</div>
               <div className="text-sm text-muted">
-                Fortnightly F/HR/18 inspection of PC-01…PC-13, added up per unit and per month. <strong>{fliesYear}</strong> flies in {year}, {fliesMonth} this month ({flySeasonLabel(month)}).
-                Next inspection {nextFly ? formatDisplayDate(nextFly) : "—"}.
+                Gramms collected out of the electric fly killers each month, as reported; below it the fortnightly F/HR/18 inspection of PC-01…PC-13,
+                added up per unit. <strong>{fliesYear}</strong> flies counted in {year}, {fliesMonth} this month ({flySeasonLabel(month)}). Next inspection{" "}
+                {nextFly ? formatDisplayDate(nextFly) : "—"}.
               </div>
               <button className="btn btn-secondary btn-sm mt-2" onClick={() => navigate("/pest/trend/fly-catcher")}>
                 Open <FiArrowRight size={12} />
@@ -392,7 +404,7 @@ export function PestControlOverviewPage() {
           <div className="card-pad">
             <div className="text-sm text-muted mb-3">
               Last training: {lastTraining ? `${formatDisplayDate(lastTraining.data.trainingDate || lastTraining.dueDate)} — ${lastTraining.data.trainingType || "pest control training"}` : "—"}. The
-              chemical chart and the SOP are the reference material behind the service reports; Gurudev Pesticides' Government of Gujarat insecticide licence
+              chemical chart is the reference material behind the service reports; Gurudev Pesticides' Government of Gujarat insecticide licence
               (Form III, MEH/FP1230000675/2023-2024) is on file, exactly as supplied.
             </div>
             <div className="flex gap-2 wrap">
@@ -401,9 +413,6 @@ export function PestControlOverviewPage() {
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => navigate("/chemical-master")}>
                 <FiDroplet size={12} /> Chemical Master
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => navigate("/sop")}>
-                <FiFileText size={12} /> SOP Reference
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => navigate("/licence")}>
                 <FiFileText size={12} /> Service Provider Licence
@@ -717,9 +726,6 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
         <button className="btn btn-secondary btn-sm" onClick={() => navigate("/chemical-master")}>
           <FiDroplet size={12} /> Chemical Master
         </button>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate("/sop")}>
-          <FiFileText size={12} /> SOP
-        </button>
         <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/reports/${now.getFullYear()}/${now.getMonth()}/chemical`)}>
           Chemical Usage report
         </button>
@@ -850,7 +856,48 @@ export function RodentTrendPage({ year: initialYear }: { year?: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// 3b. Trend Analysis — Fly Catcher Infestation — /pest/trend/fly-catcher[/{year}]
+// 3b. Trend Analysis — Lizard Catch Report — /pest/trend/lizard[/{year}]
+
+export function LizardTrendPage({ year: initialYear }: { year?: number }) {
+  const { mode } = useAppStore();
+  const t = useT();
+  const { navigate } = useRouter();
+  const isDemo = mode === "demo";
+  const [year, setYear] = useState(initialYear ?? new Date().getFullYear());
+  const doc = documentRepository.getById(DAILY_DOC_ID);
+  // The lizards come off the glue boards in F/HR/17's own Roda-boxes, so this
+  // report belongs to the same document — and to the same department. Outside
+  // it the refusal names the owner rather than drawing somebody else's trend
+  // (REQUIREMENTS §40).
+  if (!doc) return <NotYourDepartment documentId={DAILY_DOC_ID} what="report" />;
+
+  return (
+    <div className={isDemo ? "demo-watermark" : ""}>
+      <div className="flex items-center justify-between mb-1 wrap gap-3">
+        <div>
+          <h1 className="text-2xl mb-1">{t("pest.trendAnalysisTitle")} — {t("nav.lizardTrend")}</h1>
+          <div className="text-xs text-muted">
+            As the service provider reports it each month, transcribed from the company's own Lizard Catch Report and Trend Analysis — the same
+            glue boards in the same Roda-boxes as the rodents, which {doc?.formatNo} has no column for.
+          </div>
+        </div>
+        <YearSelect value={year} onChange={setYear} />
+      </div>
+      <div className="flex gap-2 wrap mb-4 mt-3">
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate("/pest/trend/rodent")}>
+          <FiTrendingUp size={12} /> Rodent Catch Report
+        </button>
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate("/pest/service/rodent")}>
+          <FiTruck size={12} /> Rat / Mice service reports
+        </button>
+      </div>
+      <LizardTrendReport isDemo={isDemo} year={year} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 3c. Trend Analysis — Fly Catcher Infestation — /pest/trend/fly-catcher[/{year}]
 
 export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
   const { mode, version } = useAppStore();

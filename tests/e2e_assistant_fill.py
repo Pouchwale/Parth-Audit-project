@@ -243,8 +243,11 @@ with sync_playwright() as p:
     d = rec["data"]
     check(
         "The answers are on the form — trainer, topics and who attended",
-        d.get("trainerProvider") and d.get("topics") and any(a["attended"] for a in d.get("attendees", [])),
-        {k: d.get(k) for k in ("trainingType", "trainerProvider")} | {"topics": len(d.get("topics", [])), "attended": sum(1 for a in d.get("attendees", []) if a["attended"])},
+        # A name on the attendance sheet IS somebody who attended: the Attended
+        # tick was withdrawn on 13-Sep-2026 (REQUIREMENTS §43).
+        d.get("trainerProvider") and d.get("topics") and len(d.get("attendees", [])) > 0
+        and all("attended" not in a for a in d.get("attendees", [])),
+        {k: d.get(k) for k in ("trainingType", "trainerProvider")} | {"topics": len(d.get("topics", [])), "attendees": d.get("attendees", [])},
     )
     check("...each saved with the assistant's history line", any(h.get("action") == "assistant-edit" for h in rec.get("history", [])), [h.get("action") for h in rec.get("history", [])])
     check(

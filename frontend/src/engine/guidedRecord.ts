@@ -794,29 +794,33 @@ function trainingPlan(d: TrainingRecordData): InterviewPlan {
   qs.push({
     id: "attendees",
     label: "Attendance",
-    ask: `Who attended? Names separated by commas — or "everyone".${d.attendees?.length ? ` (${d.attendees.length} invitees are listed on the form.)` : ""}`,
+    ask: `Who attended? Names separated by commas — or "everyone".${d.attendees?.length ? ` (${d.attendees.length} names are carried forward on the form.)` : ""}`,
     type: "text",
     suggestions: [{ label: "Everyone attended", value: "everyone" }],
-    answered: (x) => attendees(x).some((a) => a.attended === true),
+    answered: (x) => attendees(x).length > 0,
     apply: (x, v) => {
       const raw = String(v).trim();
       if (/^(everyone|everybody|all|all of them|all attended)$/i.test(raw)) {
-        // "Everyone" on a form with no invitee list yet means the usual
-        // invitees — the plant's awareness-programme list.
+        // "Everyone" on a form with no list yet means the usual attendees —
+        // the plant's awareness-programme list.
         const list = attendees(x).length ? attendees(x) : SEED_AWARENESS_TRAINING_RECORD.data.attendees.map((a) => ({ ...a, id: generateId("att") }));
-        return { ...x, attendees: list.map((a) => ({ ...a, attended: true })) };
+        return { ...x, attendees: list };
       }
+      // The names given ARE the attendance sheet: anybody carried forward who
+      // is not named is taken off it, since the list no longer carries a tick
+      // to leave them unmarked with.
       const names = raw.split(/,|;|\band\b|\r?\n/).map((s) => s.trim()).filter(Boolean);
-      const list = attendees(x).map((a) => ({ ...a }));
+      const carried = attendees(x).map((a) => ({ ...a }));
+      const list: Obj[] = [];
       for (const name of names) {
         const words = name.toLowerCase().replace(/^(mr|ms|mrs)\.?\s+/, "").split(/\s+/).filter(Boolean);
-        const hit = list.find((a) => words.every((w) => String(a.employeeName).toLowerCase().includes(w)));
-        if (hit) hit.attended = true;
-        else list.push({ id: generateId("att"), employeeName: name, department: COMPANY.shortName, attended: true });
+        const hit = carried.find((a) => words.every((w) => String(a.employeeName).toLowerCase().includes(w)));
+        if (hit) list.push(hit);
+        else list.push({ id: generateId("att"), employeeName: name, department: COMPANY.shortName });
       }
       return { ...x, attendees: list };
     },
-    ack: (v) => (/^(everyone|everybody|all)/i.test(String(v)) ? "Everyone marked present." : "Attendance ticked for the names you gave; anyone not on the list was added."),
+    ack: (v) => (/^(everyone|everybody|all)/i.test(String(v)) ? "Everyone on the list is marked as having attended." : "The attendance sheet now holds the names you gave."),
   });
   qs.push(textQ("certificateRef", "Certificate reference", "Certificate / attendance sheet reference? (or Skip)", (x) => x.certificateRef, (x, v) => ({ ...x, certificateRef: v }), { optional: true }));
   qs.push(textQ("remarks", "Remarks", "Any remarks? (or Skip)", (x) => x.remarks, (x, v) => ({ ...x, remarks: v }), { optional: true }));

@@ -8,8 +8,16 @@ import type { DocumentDefinition } from "../../types";
 //   the uploaded files contain no service-report specimen for it (the April-
 //   2026 workbook covers Rodent / General / Fly only); retired 08-Sep-2026
 //   when the Pest Control module was reorganised around the three service
-//   reports the department actually receives.
-export const RETIRED_DOCUMENT_IDS: string[] = ["service-report-lizard"];
+//   reports the department actually receives. The lizards trapped in the
+//   Roda-boxes are reported on the company's own Lizard Catch Report and
+//   Trend Analysis instead (REQUIREMENTS §41).
+//   sop-reference — Gurudev Pest Control's Standard Operating Procedure.
+//   Retired 13-Sep-2026 on the owner's instruction: it is the service
+//   provider's own procedure, not one of the company's controlled formats
+//   (it appears nowhere on the Master List of Formats & Records, and its
+//   Format No. was never confirmed), so the plant does not hold it as a
+//   record. The chemical chart stays — that one IS the company's.
+export const RETIRED_DOCUMENT_IDS: string[] = ["service-report-lizard", "sop-reference"];
 
 // The Pest Control module's sub-groups, in display order — see DocumentDefinition.section.
 export const PEST_CONTROL_SECTIONS = ["Daily Report", "Service Reports", "Trend Analysis", "Training & Reference"] as const;
@@ -223,23 +231,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description: "Reference chart: Service Type -> Pest Covered -> Chemicals -> Dilution Ratio.",
     sourceFile: "Chemical Cahrt new.docx",
-    schedule: { type: "as-required" },
-    isReferenceOnly: true,
-  },
-  {
-    id: "sop-reference",
-    kind: "sop-reference",
-    name: "Standard Operating Procedure for Pest Control Services",
-    formatNo: "TO BE CONFIRMED",
-    revisionNo: "TO BE CONFIRMED",
-    revisionDate: null,
-    department: "Pest Control Service Provider",
-    module: "Pest Control",
-    section: "Training & Reference",
-    frequency: "As Required",
-    status: "Configured",
-    description: "General Pest Control, Rodent Control, Fly Control, Mosquito Control, Lizard Control — chemicals, process, preventive measures.",
-    sourceFile: "Standard Operating Procedure for Pest Control Services..docx",
     schedule: { type: "as-required" },
     isReferenceOnly: true,
   },

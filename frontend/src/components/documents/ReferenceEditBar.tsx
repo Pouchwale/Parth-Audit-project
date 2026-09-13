@@ -2,7 +2,7 @@ import React from "react";
 import { FiEdit3, FiPrinter, FiRotateCcw, FiSave, FiX } from "react-icons/fi";
 import { useT } from "../../i18n";
 
-// Edit / Save / Cancel (and Print) for a reference document — the SOP, the
+// Edit / Save / Cancel (and Print) for a reference document — the
 // Chemical Master, a Statement of Compliance. Records have their own action
 // bar (RecordActionBar); these documents have no draft / verify cycle, so a
 // correction is simply edited in place and saved.

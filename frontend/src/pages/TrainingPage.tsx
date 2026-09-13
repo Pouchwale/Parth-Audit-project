@@ -223,7 +223,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   const update = applyPatch;
 
   const addAttendee = () => {
-    update({ attendees: [...data.attendees, { id: generateId("att"), employeeName: "", department: "", attended: true }] });
+    update({ attendees: [...data.attendees, { id: generateId("att"), employeeName: "", department: "" }] });
   };
   const addTopic = () => update({ topics: [...data.topics, ""] });
 
@@ -397,7 +397,6 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
               <tr>
                 <th>Employee</th>
                 <th>Department</th>
-                <th style={{ width: 90 }}>Attended</th>
                 {editable && <th></th>}
               </tr>
             </thead>
@@ -423,14 +422,6 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
                       onChange={(e) => update({ attendees: data.attendees.map((x) => (x.id === a.id ? { ...x, department: e.target.value } : x)) })}
                     />
                   </td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      disabled={!editable}
-                      checked={a.attended}
-                      onChange={(e) => update({ attendees: data.attendees.map((x) => (x.id === a.id ? { ...x, attended: e.target.checked } : x)) })}
-                    />
-                  </td>
                   {editable && (
                     <td>
                       <button
@@ -445,7 +436,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
               ))}
               {data.attendees.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-muted text-center" style={{ padding: 16 }}>
+                  <td colSpan={3} className="text-muted text-center" style={{ padding: 16 }}>
                     No attendees added.
                   </td>
                 </tr>

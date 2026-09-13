@@ -31,7 +31,6 @@ export type DocumentKind =
   | "gap-inspection"
   | "training-record"
   | "chemical-master"
-  | "sop-reference"
   // Generic tabular log sheet (header fields + a grid of rows), driven by a
   // per-document LogSheetLayout (src/data/seed/logSheetLayouts.ts). Covers
   // the lamination QC / production formats: F-QC-30, F-QC-32, F-QC-40.C,

@@ -113,8 +113,8 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
     case "training-record": {
       const d = record.data as TrainingRecordData;
       if (!d.trainerProvider.trim()) errors.push("Trainer / provider is required.");
-      if (d.attendees.length === 0 || !d.attendees.some((a) => a.attended)) {
-        errors.push("At least one attendee must be marked as attended.");
+      if (d.attendees.length === 0) {
+        errors.push("The attendance sheet needs at least one name.");
       }
       break;
     }

@@ -127,6 +127,15 @@ export const RODENT_DEAD_P = 0.2;
 // The company's own "Rodent Catch Report and Trend Analysis" — Source:
 // Trapped on Glue boards in Roda-boxes; Unit: Number; Target Pest: Rodents.
 // null = month not yet reported on the source page.
+//
+// TWO ISSUES OF THE SAME REPORT have been supplied, and they agree on every
+// cell both of them fill. This is the later one ("Kapila mam department
+// reports .pdf"), which completes 2025 and carries Jan-Jun 2026;
+// "GP-3 Trend Analysis - 2025.pdf" (13-Sep-2026) is the October-2025 snapshot
+// and leaves Nov/Dec 2025 and the Total blank. The complete row is kept so the
+// company's later figures are not discarded — REQUIREMENTS open question 10.
+// The lizard and flies pages of that same file, which have no earlier issue,
+// are in data/seed/trendReports.ts.
 export interface RodentHistoryRow {
   year: number;
   months: (number | null)[];

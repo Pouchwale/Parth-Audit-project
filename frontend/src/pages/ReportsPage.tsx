@@ -9,7 +9,13 @@ import { countFindings } from "../engine/checkpoints";
 import { logSheetOutOfBandCount } from "../engine/validation";
 import { summarise } from "../engine/guidedChecklist";
 import { COMPLAINT_DOC_ID } from "../data/seed/complaintChecklist";
-import { flyStatsForYear, flyTrendRows, rodentStatsForYear, rodentTrendRows } from "../data/selectors";
+import { flyStatsForYear, flyTrendRows, lizardTrendRows, rodentStatsForYear, rodentTrendRows, type TrendYearRow } from "../data/selectors";
+import {
+  FLIES_TREND_REPORT,
+  LIZARD_TREND_REPORT,
+  RODENT_TREND_REPORT,
+  type TrendReportMeta,
+} from "../data/seed/trendReports";
 import { totalRodents } from "../engine/rodentPattern";
 import { FLY_REPORT_SOURCE, RODENT_HISTORY_SOURCE, RODENT_REPORT_MONTHS } from "../data/seed/pestPattern";
 import { COMPANY } from "../data/seed/masterData";
@@ -32,10 +38,10 @@ import type {
   TrainingRecordData,
 } from "../types";
 
-type Tab = "monthly" | "daily" | "rodent" | "flycatcher" | "chemical" | "gap" | "training" | "lamination";
+type Tab = "monthly" | "daily" | "rodent" | "lizard" | "flycatcher" | "chemical" | "gap" | "training" | "lamination";
 // The tab key is the route segment (/reports/{y}/{m}/{tab}) and never
 // changes; only the label shown follows the language.
-const TAB_KEYS: Tab[] = ["monthly", "daily", "rodent", "flycatcher", "chemical", "gap", "training", "lamination"];
+const TAB_KEYS: Tab[] = ["monthly", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"];
 
 const isTab = (v: string | undefined): v is Tab => !!v && (TAB_KEYS as string[]).includes(v);
 
@@ -114,8 +120,8 @@ export function ReportsPage({
       <div data-print-doc>
       {/* On paper the report needs to say whose it is and what it covers; on
           screen the page's own title and pickers already do (REQUIREMENTS §38).
-          The two trend tabs bring the company's own sheet header with them. */}
-      {tab !== "rodent" && tab !== "flycatcher" && (
+          The three trend tabs bring the company's own sheet header with them. */}
+      {tab !== "rodent" && tab !== "lizard" && tab !== "flycatcher" && (
         <div className="doc-header print-only notranslate" translate="no">
           <div className="company-name">{COMPANY.name}</div>
           <div className="doc-title">
@@ -126,6 +132,7 @@ export function ReportsPage({
       {tab === "monthly" && <MonthlyReport records={monthRecords} year={year} month={month} />}
       {tab === "daily" && <DailyMonitoringReport isDemo={isDemo} year={year} month={month} />}
       {tab === "rodent" && <RodentTrendReport isDemo={isDemo} year={year} />}
+      {tab === "lizard" && <LizardTrendReport isDemo={isDemo} year={year} />}
       {tab === "flycatcher" && <FlyCatcherTrendReport isDemo={isDemo} year={year} month={month} />}
       {tab === "chemical" && <ChemicalUsageReport isDemo={isDemo} year={year} month={month} />}
       {tab === "gap" && <GapStatusReport isDemo={isDemo} />}
@@ -399,14 +406,25 @@ function DailyMonitoringReport({ isDemo, year, month }: { isDemo: boolean; year:
 // the rodents were found and in which box.
 // Exported: also rendered by Pest Control > Trend Analysis and the Rat / Mice
 // service report page (src/pages/PestControlPages.tsx).
+// A row keeps whatever Source / Unit / Target Pest it came with (the flies
+// report's years differ from one another); otherwise it takes the report's own.
+function withReportHeader(row: TrendYearRow, meta: TrendReportMeta): TrendRow {
+  return {
+    source: row.source ?? meta.source,
+    unit: row.unit ?? meta.unit,
+    targetPest: row.targetPest ?? meta.targetPest,
+    year: row.year,
+    months: row.months,
+    fromRegister: row.fromRegister,
+  };
+}
+
 export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: number }) {
   const stats = rodentStatsForYear(year, isDemo);
-  const rows: TrendRow[] = rodentTrendRows(isDemo).map((r) => ({
-    source: "Trapped on Glue boards in Roda-boxes",
-    unit: "Number",
-    targetPest: "Rodents",
-    ...r,
-  }));
+  // Source / Unit / Target Pest come from the transcription of the company's own
+  // page (data/seed/trendReports.ts) so the three sheets cannot drift apart; a
+  // row that carries its own wording keeps it (REQUIREMENTS §41).
+  const rows: TrendRow[] = rodentTrendRows(isDemo).map((r) => withReportHeader(r, RODENT_TREND_REPORT));
   const exportCSV = () => {
     downloadCSV(
       `rodent-catch-report-and-trend-analysis.csv`,
@@ -434,11 +452,11 @@ export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: num
         <div className="card-pad">
           <CatchTrendSheet
             companyName={COMPANY.name}
-            title="RODENT CATCH REPORT AND TREND ANALYSIS"
+            title={RODENT_TREND_REPORT.title}
             rows={rows}
             chartYear={year}
-            yAxisLabel="Number or Quantity Trapped"
-            unitWord="rodent(s)"
+            yAxisLabel={RODENT_TREND_REPORT.yAxisLabel}
+            unitWord={RODENT_TREND_REPORT.unitWord}
             registerName="Daily Pest Control Monitoring Records (F/HR/17, check point 7)"
           />
         </div>
@@ -527,14 +545,57 @@ export function RodentTrendReport({ isDemo, year }: { isDemo: boolean; year: num
 // in), added up from the fortnightly F/HR/18 visits: one row per year, the bar
 // chart, then every unit PC-01..PC-13 month by month below.
 // Exported: also rendered by Pest Control > Trend Analysis (src/pages/PestControlPages.tsx).
+// ---------------------------------------------------------------------------
+// LIZARD CATCH REPORT AND TREND ANALYSIS — page 2 of the company's own trend
+// file. Every figure is the service provider's monthly report, transcribed:
+// the house lizards come off the same glue boards in the same Roda-boxes as
+// the rodents, but F/HR/17 has no column for them, so there is nothing in the
+// digital register to add up and nothing on this sheet is tinted
+// (data/selectors.ts, lizardTrendRows — REQUIREMENTS §41).
+export function LizardTrendReport({ isDemo, year }: { isDemo: boolean; year: number }) {
+  const rows: TrendRow[] = lizardTrendRows(isDemo).map((r) => withReportHeader(r, LIZARD_TREND_REPORT));
+  const exportCSV = () => {
+    downloadCSV(
+      `lizard-catch-report-and-trend-analysis.csv`,
+      toCSV(
+        ["Source", "Unit", "Target Pest", "YEAR", ...RODENT_REPORT_MONTHS, "Total"],
+        rows.map((r) => [r.source, r.unit, r.targetPest, r.year, ...r.months.map((m) => m ?? ""), rowTotal(r.months) ?? ""])
+      )
+    );
+  };
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <h3 className="text-lg">Lizard Catch Report and Trend Analysis</h3>
+        <div className="flex gap-2 no-print">
+          <button className="btn btn-secondary btn-sm" onClick={exportCSV}>
+            <FiDownload size={13} /> Export CSV
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={(e) => printDocument(e.currentTarget.closest(".card"))}>
+            <FiPrinter size={13} /> Print
+          </button>
+        </div>
+      </div>
+      <div className="card-pad">
+        <CatchTrendSheet
+          companyName={COMPANY.name}
+          title={LIZARD_TREND_REPORT.title}
+          rows={rows}
+          chartYear={year}
+          yAxisLabel={LIZARD_TREND_REPORT.yAxisLabel}
+          unitWord={LIZARD_TREND_REPORT.unitWord}
+          registerName="Daily Pest Control Monitoring Records (F/HR/17)"
+          footnote="Every figure here is the service provider's own monthly report, transcribed: the lizards come off the same glue boards as the rodents, but F/HR/17 has no column for them, so the system adds nothing up on this sheet and tints nothing."
+        />
+      </div>
+    </div>
+  );
+}
+
 export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean; year: number; month: number }) {
   const stats = flyStatsForYear(year, isDemo);
-  const rows: TrendRow[] = flyTrendRows(isDemo).map((r) => ({
-    source: "Caught on Glue boards of Fly catchers (PC-01 to PC-13)",
-    unit: "Number",
-    targetPest: "Flies",
-    ...r,
-  }));
+  const rows: TrendRow[] = flyTrendRows(isDemo).map((r) => withReportHeader(r, FLIES_TREND_REPORT));
   const monthUnits = stats.byUnit.map((u) => ({ label: u.pcId, value: u.months[month] }));
   const monthTotal = stats.months[month];
   const exportCSV = () => {
@@ -551,7 +612,7 @@ export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean
     <>
       <div className="card">
         <div className="card-header">
-          <h3 className="text-lg">Fly Catch Report and Trend Analysis</h3>
+          <h3 className="text-lg">Flies Catch Report and Trend Analysis</h3>
           <div className="flex gap-2 no-print">
             <button className="btn btn-secondary btn-sm" onClick={exportCSV}>
               <FiDownload size={13} /> Export CSV
@@ -564,13 +625,13 @@ export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean
         <div className="card-pad">
           <CatchTrendSheet
             companyName={COMPANY.name}
-            title="FLY CATCH REPORT AND TREND ANALYSIS"
+            title={FLIES_TREND_REPORT.title}
             rows={rows}
             chartYear={year}
-            yAxisLabel="Number or Quantity Trapped"
-            unitWord="flies"
-            registerName="Fortnightly Fly Catcher Inspection & Cleaning Records (F/HR/18)"
-            footnote="Laid out as the company's Rodent Catch Report and Trend Analysis."
+            yAxisLabel={FLIES_TREND_REPORT.yAxisLabel}
+            unitWord={FLIES_TREND_REPORT.unitWord}
+            registerName="Fortnightly Fly Catcher Inspection &amp; Cleaning Records (F/HR/18)"
+            footnote="The company reports this one by weight — gramms of flies collected out of the electric fly killers each month, as the service provider reports them. A year taken from the fortnightly F/HR/18 board counts says so in its own Source and Unit; the two are never converted into one another. The per-unit breakdown below is the F/HR/18 register."
           />
         </div>
       </div>
@@ -841,7 +902,7 @@ function TrainingStatusReport({ isDemo }: { isDemo: boolean }) {
                 <td>
                   {r.data.trainingType || "—"} {r.isDemo && <DemoTag />}
                 </td>
-                <td>{r.data.attendees.filter((a) => a.attended).length}</td>
+                <td>{r.data.attendees.length}</td>
                 <td>
                   <span className={`badge badge-${r.status.replace(/\s/g, "")}`}>{r.status}</span>
                 </td>

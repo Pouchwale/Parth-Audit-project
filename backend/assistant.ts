@@ -85,8 +85,10 @@ ${DATE_TIME_RULE}`,
   training: `
 Fields: trainingDate (calendar date). trainingType (string, e.g.
 "Technician Certification"). trainerProvider (string). topics (array of
-strings). attendees (array of { id, employeeName, department, attended });
-attended is a boolean. certificateRef (string). remarks (string).
+strings). attendees (array of { id, employeeName, department }) — the
+attendance sheet: a name on the list is somebody who attended, so to record
+an absence remove that person's entry. certificateRef (string). remarks
+(string).
 ${DATE_TIME_RULE}`,
   "complaint-checklist": `
 The Customer Complaint Handling Checklist (F/MKT/05). Top-level fields:
@@ -238,8 +240,9 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
 - /day/{YYYY-MM-DD} — everything due on one specific date
 - /reports — Reports, current month
 - /reports/{year}/{month0}/{tab} — Reports for a specific month and tab. tab is one of:
-  monthly (overall records report), daily (Daily Monitoring summary), rodent (Rodent Trend),
-  flycatcher (Fly Catcher Trend), chemical (Chemical Usage), gap (CAPA Status), training (Training Status),
+  monthly (overall records report), daily (Daily Monitoring summary), rodent (Rodent Catch Trend),
+  lizard (Lizard Catch Trend), flycatcher (Fly Catcher Infestation, which carries the Flies Catch Trend),
+  training (Training Status),
   lamination (Lamination QC). Default to "monthly" if the user didn't ask for a specific kind of report.
 - /pest-control — the Pest Control module overview: Daily Report, Service Reports, Trend Analysis, Training & Reference
 - /pest/daily — the Daily Pest Control Monitoring Record (F/HR/17) register for the current month
@@ -251,9 +254,12 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
 - /pest/service/fly — the Fly Control service reports (spraying visits). Use for "fly service", "fly control report"
 - /pest/service/{rodent|general|fly}/{year} — those service reports for a specific year
 - /pest/trend/rodent — Rodent Catch Report and Trend Analysis (rodents per month, per location, per trap box)
-- /pest/trend/fly-catcher — Fly Catcher Infestation: the fortnightly F/HR/18 inspection records and flies per
-  unit (PC-01..PC-13) per month. Use for "fly catcher", "flies caught", "infestation"
-- /pest/trend/{rodent|fly-catcher}/{year} — those trends for a specific year
+- /pest/trend/lizard — Lizard Catch Report and Trend Analysis: the house lizards trapped on the same glue
+  boards in the Roda-boxes, month by month, as the service provider reports them. Use for "lizard", "gecko"
+- /pest/trend/fly-catcher — Flies Catch Report and Trend Analysis (gramms collected in the EFKs each month)
+  plus the fortnightly F/HR/18 inspection records and flies per unit (PC-01..PC-13). Use for "fly catcher",
+  "flies caught", "infestation"
+- /pest/trend/{rodent|lizard|fly-catcher}/{year} — those trends for a specific year
 - /gap — CAPA (Corrective & Preventive Action) home: choose Internal or External
 - /gap/internal — CAPA Internal: pest-control inspection findings reports
 - /gap/external — CAPA External: customer complaint handling checklists (F/MKT/05)

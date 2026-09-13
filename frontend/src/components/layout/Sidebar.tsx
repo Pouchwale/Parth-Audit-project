@@ -109,11 +109,11 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/pest/service/fly", labelKey: "nav.flyControl", icon: FiTruck },
     { headingKey: "nav.trendAnalysis" },
     { to: "/pest/trend/rodent", labelKey: "nav.rodentTrend", icon: FiTrendingUp },
+    { to: "/pest/trend/lizard", labelKey: "nav.lizardTrend", icon: FiTrendingUp },
     { to: "/pest/trend/fly-catcher", labelKey: "nav.flyCatcherInfestation", icon: FiActivity },
     { headingKey: "nav.trainingReference" },
     { to: "/training", labelKey: "nav.trainingRecords", icon: FiAward },
     { to: "/chemical-master", labelKey: "nav.chemicalMaster", icon: FiDroplet },
-    { to: "/sop", labelKey: "nav.sopReference", icon: FiFileText },
     { to: "/licence", labelKey: "nav.licence", icon: FiShield },
   ],
   "CAPA (Corrective & Preventive Action)": [
@@ -154,10 +154,13 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   // checkpoint 7 of the Daily Report and the fly catcher trend reads the Fly
   // Catcher register, so those two documents are what decide them.
   "/pest/trend/rodent": ["daily-pest-monitoring"],
+  // The Lizard Catch Report is the same Roda-boxes and the same document;
+  // F/HR/17 simply has no column for the lizards, so the figures are the
+  // provider's own report, transcribed (REQUIREMENTS §41).
+  "/pest/trend/lizard": ["daily-pest-monitoring"],
   "/pest/trend/fly-catcher": ["fly-catcher"],
   "/training": ["training-record"],
   "/chemical-master": ["chemical-master"],
-  "/sop": ["sop-reference"],
   "/licence": ["gurudev-insecticide-licence"],
   // Internal CAPA is the inspection findings register, Quality Assurance's.
   // The Complaint Acknowledgement Report — capa-complaint-ack, Marketing's

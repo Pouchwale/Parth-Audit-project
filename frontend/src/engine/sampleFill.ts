@@ -299,10 +299,11 @@ function fillTraining(doc: DocumentDefinition, record: RecordInstance, master: M
   const filled = autoFillRecord(doc, record.dueDate, master, previous);
   if (!filled) return null;
   const base = filled.data as TrainingRecordData;
-  // Attendance is what auto-fill refuses to assume; a sample record marks most
-  // people present, one or two absent, as an attendance sheet usually reads.
-  let attendees = base.attendees.map((a) => ({ ...a, attended: rng.chance(0.85) }));
-  if (!attendees.some((a) => a.attended) && attendees.length > 0) attendees = attendees.map((a, i) => ({ ...a, attended: i === 0 ? true : a.attended }));
+  // Auto-fill carries last year's names forward without claiming they came; a
+  // sample record signs off a realistic sheet instead — most of the invitees
+  // present, one or two missing, the way an attendance sheet usually reads.
+  let attendees = base.attendees.filter(() => rng.chance(0.85));
+  if (attendees.length === 0 && base.attendees.length > 0) attendees = [base.attendees[0]];
   const year = (base.trainingDate || today).slice(0, 4);
   const data: TrainingRecordData = {
     ...base,
@@ -311,12 +312,12 @@ function fillTraining(doc: DocumentDefinition, record: RecordInstance, master: M
     remarks: base.remarks || `Conducted at ${COMPANY.address.split(",").slice(0, 3).join(",")} by ${base.trainerProvider}; signed Rohit Patel. Absentees to attend the next session.`,
     attendees,
   };
-  const present = attendees.filter((a) => a.attended).length;
+  const present = attendees.length;
   return {
     data,
     summary: [
       `${data.trainingType} on ${formatDisplayDate(data.trainingDate)} by ${data.trainerProvider}, with the ${data.topics.length} standard topics.`,
-      `${present} of ${attendees.length} invitees marked present, certificate reference and remarks written.`,
+      `${present} of the ${base.attendees.length} invitees on the attendance sheet, certificate reference and remarks written.`,
     ],
   };
 }

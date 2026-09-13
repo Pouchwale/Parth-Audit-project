@@ -112,7 +112,7 @@ The app behaves like a personal assistant rather than a blank form:
   Year, the PC location legend, PC-01–08 on page 1 and PC-09–13 on page 2, one line per unit per
   visit, dates written d/mm/yy and tube-light dates dittoed down). The same two sheets also sit
   beside the services they belong to, on the Fly Control and Rat / Mice service pages; **Training & Reference** — Training
-  Records, Chemical Master, SOP. The assistant navigates there from plain speech ("show me the rat
+  Records and the Chemical Master. The assistant navigates there from plain speech ("show me the rat
   reports", "fly catcher infestation for this year").
 - **The F/HR/18 register can be filled in for any Month & Year, where it stands.** Pick the month and
   year above the register (Pest Control > Trend Analysis > Fly Catcher Infestation, or the Fly Control
@@ -125,7 +125,7 @@ The app behaves like a personal assistant rather than a blank form:
   (`src/engine/flyRegister.ts`, `src/components/records/FlyCatcherRegisterSheet.tsx`).
 - **Service reports: material and method are fixed, the quantity is entered once.** On the Rat / Mice,
   Ants & Cockroaches and Fly Control reports, Material Name and Method of Application are fixed text for
-  each area (the SOP / Chemical Master values). The quantity is typed on the first line and every other
+  each area (the Chemical Master's values, following the provider's procedure). The quantity is typed on the first line and every other
   line with the same material carries it — the April-2026 specimens write it once, on the first row. The
   one bait area on the Rat / Mice report (Bromadiolone Cake, in grams) is the first line of its own
   material and keeps its own quantity. The assistant follows the same rule (it won't change a material;
@@ -133,7 +133,7 @@ The app behaves like a personal assistant rather than a blank form:
   start-up, with the change logged (`src/engine/serviceMaterials.ts`).
 - **Printing prints the document, nothing else.** Every Print button — a record's "Print Original-Style
   Record", the registers, the report sheets, the licence, a Statement of Compliance, Document Files, and
-  new Print buttons on the SOP and the Chemical Master — and the browser's own Print / Ctrl+P print only
+  new Print buttons on the Chemical Master and the Statements of Compliance — and the browser's own Print / Ctrl+P print only
   the document on the screen: no page title, explanations, stat tiles, banners, tabs, history or
   buttons. A register being edited prints as the paper form; a demo printout keeps its DEMO band
   (`src/utils/print.ts`; each document is marked `data-print-doc`).
@@ -141,8 +141,8 @@ The app behaves like a personal assistant rather than a blank form:
   edited directly (it saves itself). A record already submitted or verified shows **Edit**: pick a
   reason (the first one offered is "The assistant filled it in wrong"), change anything on it, Submit —
   it goes for verification again, and its history keeps what it said before. A rejected record's
-  button is **Edit** too. The reference documents are editable in place as well: the **SOP**, the
-  **Chemical Master** and each **Statement of Compliance** have Edit / Save / Cancel, and a corrected SOP
+  button is **Edit** too. The reference documents are editable in place as well: the
+  **Chemical Master** and each **Statement of Compliance** have Edit / Save / Cancel, and a corrected page
   or statement keeps a "Restore the original" button and says who edited it and when
   (`src/data/repositories/referenceRepository.ts`). The service provider's licence stays exactly as
   issued, on the owner's instruction. The service report no longer shows the Chemical Master suggestion
@@ -164,7 +164,7 @@ The app behaves like a personal assistant rather than a blank form:
   Training & Reference. Every line is editable and a point can be added or removed — and nothing on it
   is ever filled in automatically (`src/components/records/PestResponsibilitiesRecordView.tsx`).
 - **The assistant can fill in and correct every document, not only some.** Say or type the change on
-  whichever document is open — any record (including the two new ones), the SOP, the Chemical Master
+  whichever document is open — any record (including the two new ones), the Chemical Master
   chart or a Statement of Compliance — and it is checked, saved, listed back field by field and can be
   undone, exactly as before. The one document it can't change is the service provider's licence, which
   stays exactly as issued.
@@ -197,7 +197,7 @@ The app behaves like a personal assistant rather than a blank form:
     the assistant starts one from words: *"create a new fly catcher record"*, *"start a training record
     for 5 September"*. A new record gets the same starting data the schedule would have given it, and
     asking twice for the same day of a scheduled document opens the first one rather than putting two
-    sheets on a controlled register (`src/engine/recordCrud.ts`). The reference documents — the SOP, the Chemical Master, a
+    sheets on a controlled register (`src/engine/recordCrud.ts`). The reference documents — the Chemical Master, a
     Statement of Compliance, the licence — are single documents kept as issued and edited in place, so
     there is nothing to create or delete for them.
   - **Read and update** were already there: every field editable, saved as you type, changed by the
@@ -243,6 +243,16 @@ The app behaves like a personal assistant rather than a blank form:
     (`src/engine/assistantHandoff.ts`); an ambiguous name ("a CAPA record") is asked about, not
     guessed. The model is told the same rule: it may invent values only when sample data is asked
     for explicitly, and must say so.
+- **Three pest trend reports, exactly as the company writes them.** The plant keeps a
+  **RODENT**, a **LIZARD** and a **FLIES CATCH REPORT AND TREND ANALYSIS**, each one table of a year
+  per row over a bar chart of one year, with a "Report prepared by" line at the foot. All three are
+  here, with the company's own header wording and its own figures to the cell - including the flies
+  being reported by weight ("Collected in EFKs", unit "Gramms"), which is a different measurement from
+  the board counts on the fortnightly F/HR/18 register, so the two are shown as what they are and
+  never converted into one another. The rodent months the digital register covers are added up from
+  F/HR/17's check point 7 and tinted to say so; the lizards have no column on F/HR/17, so that sheet
+  is the provider's own report, transcribed, and tints nothing. A Total is printed only once a year is
+  complete, as on the paper. See REQUIREMENTS §41.
 - **Every document belongs to a department, and you see your own.** The plant's own **Master List of
   Formats & Records (F/SYS/02)** already groups every format by the department inside its number, so that
   is the list the app uses: SYS, MKT, PUR, STR, QC, QA, PRD, MNT, HR and DISP. F-QC-30 is Quality
@@ -270,7 +280,7 @@ The app behaves like a personal assistant rather than a blank form:
   for me"** writes the agreement on the provider's own letterhead (the format from their
   "Letter head.pdf" — the GPC mark, the name, the address, the numbers, the email and the website),
   already filled in with what this system holds: the two parties, the two-year term, the services and
-  their frequencies from the SOP, the provider's insecticide licence number, and the obligations both
+  their frequencies as the provider's procedure states them, the provider's insecticide licence number, and the obligations both
   parties have already signed in the Responsibilities document. Nothing beyond that is invented —
   what nobody has told the system (the charges, the payment terms, the notice period) is written
   **TO BE CONFIRMED** for the two of you to complete. **"Upload the signed agreement"** takes the scan,
@@ -315,7 +325,7 @@ The app behaves like a personal assistant rather than a blank form:
   built-in Gujarati and the word beside the box says so. What
   deliberately does **not** translate is the controlled documents' own text — every form and
   register, format numbers (F/HR/17), the printed check points transcribed verbatim from the paper
-  form, the SOP, the licence and its terms, the Statements of Compliance — and people's and
+  form, the licence and its terms, the Statements of Compliance — and people's and
   master-data names, because translating a controlled record's wording would break the traceability
   the system exists to provide (those parts are marked `translate="no"`, so they aren't sent to
   Google either). (The Gujarati F/QC/13 in-process sheet stays Gujarati either way.) Ask the
@@ -403,9 +413,10 @@ The app behaves like a personal assistant rather than a blank form:
   (F/HR/18), which feeds the Fly Catcher Infestation trend (the Rodent Catch trend is computed from
   the daily record). *Training & Reference*: Training Record (**Yearly**, with both the Dec-2025
   technician certificate and the 24-Dec-2025 awareness programme loaded as history), Chemical
-  Master, SOP, and Gurudev Pesticides' Government of Gujarat insecticide licence (Form III, kept as
+  Master, and Gurudev Pesticides' Government of Gujarat insecticide licence (Form III, kept as
   the scanned pages, unaltered, plus a transcription). (A Lizard Control service-report variant that existed earlier was retired — no
-  specimen for it exists in the uploaded files; the SOP's lizard section is still in SOP Reference.)
+  specimen for it exists in the uploaded files. The lizards trapped in the Roda-boxes are reported on
+  the company's own Lizard Catch Report and Trend Analysis instead — REQUIREMENTS §41.)
 - CAPA (Corrective & Preventive Action) (3): **Internal** — Pest Control Inspection Findings Report
   (the Dec-2023 GAP report as history) and the Complaint Acknowledgement Report (QA-CAF-00, with
   photos); **External** — Customer Complaint Handling Checklist
@@ -440,7 +451,7 @@ row, no new component.
      Control variants.
   4. GAP / Corrective Action report (with the real Dec‑2023 findings loaded as history).
   5. Training Record (with the real Dec‑2025 technician certificate loaded as history).
-  6. Chemical Master (Pesticide Application Chart) + SOP reference.
+  6. Chemical Master (Pesticide Application Chart).
 - **Frequency engine** (Daily / Weekly / Fortnightly / Monthly / Quarterly / Yearly / As Required)
   that generates due record shells automatically and idempotently.
 - **Record lifecycle**: Scheduled → Due → In Progress → Submitted → Pending Verification →

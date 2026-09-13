@@ -1,17 +1,22 @@
 import React from "react";
 import { RODENT_REPORT_MONTHS } from "../../data/seed/pestPattern";
+import { TREND_PREPARED_BY } from "../../data/seed/trendReports";
 
-// THE COMPANY'S TREND REPORT FORMAT — "RODENT CATCH REPORT AND TREND
-// ANALYSIS" ("trend analysis .pdf", and page 1 of "Kapila mam department
-// reports .pdf"), reproduced:
+// THE COMPANY'S TREND REPORT FORMAT, reproduced. All three of the company's
+// pest trend reports are laid out on this one page format — RODENT CATCH,
+// LIZARD CATCH and FLIES CATCH REPORT AND TREND ANALYSIS ("GP-3 Trend
+// Analysis - 2025.pdf", pages 1 to 3; also "trend analysis .pdf" and page 1 of
+// "Kapila mam department reports .pdf"):
 //   * a two-line header box — company name, report title (this report has no
 //     Format No. row, so none is added);
 //   * one table row per year: Source | Unit | Target Pest | YEAR | JAN..DEC |
-//     Total, a month left blank until it has happened;
+//     Total, a month left blank until it has happened. Source, Unit and Target
+//     Pest are printed per ROW, which is what lets the flies report carry its
+//     reported "Gramms" years and a board-counted "Number" year on one page;
 //   * below it, a bar chart of one year — JAN..DEC and Total, y axis "Number or
-//     Quantity Trapped", x axis "Months".
-// The same format carries the Fly Catcher figures, since that is the layout the
-// department already reads its trend in.
+//     Quantity Trapped", x axis "Months";
+//   * a "Report prepared by" signature line at the foot, blank to be signed,
+//     as on every page of the company's file.
 //
 // What is added, screen-only (never printed): a light tint on the cells that
 // were added up from the digital register rather than copied from the paper
@@ -29,9 +34,14 @@ export interface TrendRow {
   fromRegister: boolean[];
 }
 
+// The company prints the Total only once the year is complete: every 2024 row
+// on its trend pages carries one, every part-reported 2025 row leaves it blank.
+// So a year still being reported shows no total here either (REQUIREMENTS §41).
+// The running figure for the current year is not lost — it is in the text beside
+// the sheet on each report page.
 export function rowTotal(months: (number | null)[]): number | null {
-  const filled = months.filter((m): m is number => m !== null);
-  return filled.length ? filled.reduce((s, n) => s + n, 0) : null;
+  if (months.some((m) => m === null)) return null;
+  return (months as number[]).reduce((s, n) => s + n, 0);
 }
 
 // Axis steps that read naturally: the specimen's own 0-5 in halves for small
@@ -59,6 +69,9 @@ export function CatchTrendChart({
   unitWord: string;
 }) {
   const total = rowTotal(row.months);
+  // A row reported by weight says grams in its tooltip, not the report's
+  // default word — the flies report carries both kinds of year.
+  const word = row.unit && /gram/i.test(row.unit) ? "gramms" : unitWord;
   const bars = [
     ...RODENT_REPORT_MONTHS.map((label, i) => ({ label, value: row.months[i] })),
     { label: "Total", value: total },
@@ -113,7 +126,7 @@ export function CatchTrendChart({
             <g key={b.label} className={`bar${b.label === "Total" ? " total" : ""}`}>
               {/* generous, invisible hit target for the tooltip */}
               <rect x={cx - slot / 2} y={topPad} width={slot} height={plotH} className="hit">
-                <title>{has ? `${b.label} ${row.year}: ${v} ${unitWord}` : `${b.label} ${row.year}: not yet recorded`}</title>
+                <title>{has ? `${b.label} ${row.year}: ${v} ${word}` : `${b.label} ${row.year}: not yet recorded`}</title>
               </rect>
               {path && <path d={path} className="mark" />}
               {has && (
@@ -158,11 +171,15 @@ export function CatchTrendSheet({
   registerName: string;
   footnote?: string;
 }) {
-  // The year asked for, else the most recent year there are figures for — a
-  // year with no row at all used to draw an empty chart with bare axes and say
-  // it was showing that year (REQUIREMENTS §39). The footnote names the year
-  // actually drawn, so the chart and the caption can never disagree.
+  // The year asked for, else the most recent year there are figures for. A year
+  // with no row at all — and, since 13-Sep-2026, a row whose twelve cells are
+  // all still empty — used to draw a chart of bare axes and caption it with
+  // that year (REQUIREMENTS §39). The footnote names the year actually drawn,
+  // so the chart and the caption can never disagree.
+  const hasFigures = (r: TrendRow) => r.months.some((m) => m !== null);
   const chartRow =
+    rows.find((r) => r.year === chartYear && hasFigures(r)) ??
+    rows.filter(hasFigures).slice(-1)[0] ??
     rows.find((r) => r.year === chartYear) ??
     rows[rows.length - 1] ??
     ({ source: "", unit: "", targetPest: "", year: chartYear, months: Array(12).fill(null), fromRegister: Array(12).fill(false) } satisfies TrendRow);
@@ -216,6 +233,13 @@ export function CatchTrendSheet({
           </table>
         </div>
         <CatchTrendChart row={chartRow} yAxisLabel={yAxisLabel} unitWord={unitWord} />
+        {/* The signature line every page of the company's file carries. Left
+            blank on purpose: the system does not sign a report for anybody
+            (REQUIREMENTS §41). */}
+        <div className="trend-signature">
+          <span className="sig-line" />
+          <span className="sig-label">{TREND_PREPARED_BY}</span>
+        </div>
       </section>
       <div className="text-xs text-faint mt-2 no-print">
         {anyFromRegister && (
