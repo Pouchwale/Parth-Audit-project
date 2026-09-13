@@ -2,6 +2,7 @@ import type {
   DailyPestMonitoringData,
   DocumentDefinition,
   FlyCatcherData,
+  GapInspectionData,
   LogSheetData,
   LogSheetRow,
   MasterData,
@@ -16,6 +17,10 @@ import { generateId } from "../utils/id";
 import { newComplaintAckData } from "../data/seed/complaintAck";
 import { newPestResponsibilitiesData } from "../data/seed/pestResponsibilities";
 import { newServiceAgreementData } from "../data/seed/serviceAgreement";
+import { newComplaintChecklistData, COMPLAINT_DOC_ID } from "../data/seed/complaintChecklist";
+import { nextComplaintNo } from "./documentFormats";
+import { recordRepository } from "../data/repositories/recordRepository";
+import { COMPANY } from "../data/seed/masterData";
 import { termEnd } from "./serviceAgreement";
 
 // Builds the AUTOMATIC / STATIC part of a new record shell (section 11 & 26):
@@ -102,6 +107,23 @@ export function createDefaultData(
       // The provider's format for a two-year term starting on the due date —
       // normally created from the Service Provider page (engine/serviceAgreement.ts).
       return newServiceAgreementData(dueDateISO, termEnd(dueDateISO));
+    case "gap-inspection": {
+      // An inspection findings report starts on the premises it is about, with
+      // no findings on it — they are added as the inspection turns them up.
+      const data: GapInspectionData = {
+        inspectionDate: dueDateISO,
+        premisesName: COMPANY.name,
+        premisesAddress: COMPANY.address,
+        contactPerson: "",
+        findings: [],
+        generalComments: [],
+      };
+      return data;
+    }
+    case "complaint-checklist":
+      // The F/MKT/05 checklist, its activities as printed and the next free
+      // complaint number for this year (engine/documentFormats.ts).
+      return newComplaintChecklistData(nextComplaintNo(existingComplaintNumbers()));
     case "log-sheet": {
       const layout = getLogSheetLayout(doc.id);
       const header: Record<string, string> = {};
@@ -123,6 +145,11 @@ export function createDefaultData(
     default:
       return {};
   }
+}
+
+/** The complaint numbers already in use, so a new checklist takes the next one. */
+function existingComplaintNumbers(): string[] {
+  return (recordRepository.query({ documentId: COMPLAINT_DOC_ID }) as { data: { complaintNo?: string } }[]).map((r) => r.data.complaintNo ?? "");
 }
 
 // The fields that record a judgement rather than a setting, and so are never

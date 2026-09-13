@@ -201,8 +201,20 @@ const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "service-report-rodent", aliases: ["rat / mice", "rat and mice", "rat & mice", "rodent control service", "rodent service", "rat report", "mice report", "rat", "mice", "rodent"] },
   { id: "service-report-general", aliases: ["general pest control", "general pest service", "ants and cockroaches", "cockroach", "cockroaches", "ants", "ant"] },
   { id: "service-report-fly", aliases: ["fly control service", "fly control services", "fly service"] },
-  { id: "gap-inspection", aliases: ["internal inspection", "capa internal", "gap report", "gap analysis", "inspection finding"] },
-  { id: "capa-customer-complaint", aliases: ["customer complaint", "capa external", "f/mkt/05", "complaint checklist", "complaint"] },
+  {
+    id: "gap-inspection",
+    aliases: ["internal inspection", "capa internal", "internal capa", "gap report", "gap analysis", "inspection finding", "inspection findings", "inspection findings report", "inspection report", "findings report"],
+  },
+  {
+    id: "capa-customer-complaint",
+    aliases: ["customer complaint", "capa external", "external capa", "external complaint", "f/mkt/05", "complaint checklist", "complaint handling checklist", "complaint"],
+  },
+  {
+    id: "capa-complaint-ack",
+    aliases: ["complaint acknowledgement", "complaint acknowledgment", "acknowledgement report", "acknowledgment report", "qa-caf", "qa caf", "caf report"],
+  },
+  { id: "pest-responsibilities", aliases: ["responsibilities of pest control", "responsibilities document", "pest responsibilities", "responsibilities"] },
+  { id: "service-agreement", aliases: ["service agreement", "service provider agreement", "pest control agreement", "agreement"] },
   { id: "training-record", aliases: ["training record", "training"] },
   { id: "qc-viscosity", aliases: ["adhesive viscosity", "viscosity record", "f-qc-30", "viscosity"] },
   { id: "qc-adhesive-mixing", aliases: ["adhesive mixing", "mixing ratio", "f-qc-32"] },
@@ -229,14 +241,26 @@ function escapeReg(s: string): string {
 function mentionsAny(lower: string, aliases: string[]): boolean {
   return aliases.some((a) => new RegExp(`\\b${escapeReg(a)}\\b`, "i").test(lower));
 }
+/** The longest alias the message uses, or null. */
+function longestMentioned(lower: string, aliases: string[]): string | null {
+  const hits = aliases.filter((a) => new RegExp(`\\b${escapeReg(a)}\\b`, "i").test(lower));
+  return hits.length ? hits.sort((a, b) => b.length - a.length)[0] : null;
+}
 
 // Which document id(s) the message names — a specific document first
 // ("daily pest control monitoring record"), falling back to a whole module
 // ("pest", "lamination") only when no single document was recognised, so a
 // precise request never gets diluted into every document in the module.
+// A document named by a longer phrase wins over one named by a word inside
+// it: "complaint acknowledgement report" is the acknowledgement report, not
+// also the customer complaint checklist.
 export function matchDocuments(lower: string): string[] {
-  const ids = new Set<string>();
-  for (const { id, aliases } of DOC_KEYWORDS) if (mentionsAny(lower, aliases)) ids.add(id);
+  const hits: { id: string; alias: string }[] = [];
+  for (const { id, aliases } of DOC_KEYWORDS) {
+    const alias = longestMentioned(lower, aliases);
+    if (alias) hits.push({ id, alias });
+  }
+  const ids = new Set(hits.filter((h) => !hits.some((o) => o.id !== h.id && o.alias.length > h.alias.length && o.alias.includes(h.alias))).map((h) => h.id));
   if (ids.size > 0) return Array.from(ids);
 
   const recordable = documentRepository.getRecordable();
@@ -616,7 +640,7 @@ export function localAnswer(message: string, isDemo: boolean, userName?: string)
   if (/^(help|\?|what can you do\??|how do you work\??)$/.test(lower) || /\b(what can you do|what do you do|how can you help)\b/.test(lower)) {
     const off = WEEKDAY_LONG[weeklyOffDay(master)];
     return {
-      reply: `I can take you anywhere in the app in plain words ("show me August's reports", "open the rat / mice service reports"), list a document's records for a date range ("daily pest control monitoring record from 1 to 19 January", "pest records for September"), fill in a record you have open ("checker is Ramesh, time 9:15"), start a new one ("create a new fly catcher record"), submit it, verify it, print it, put an edit back or delete it — anything the buttons do, said in words or spoken — tell you what's due and what I've already prepared, summarise CAPA for you (internal findings and customer complaints), and answer calendar questions — holidays, the ${off} weekly off, adjustment days. I stick to this record system only — I'm not a general chatbot, so anything outside this software I'll politely decline. Text only, no voice.`,
+      reply: `I can take you anywhere in the app in plain words ("show me August's reports", "open the rat / mice service reports"), list a document's records for a date range ("daily pest control monitoring record from 1 to 19 January", "pest records for September"), fill in a record you have open ("checker is Ramesh, time 9:15"), fill a whole document for you — question by question ("I want to fill the external CAPA", "walk me through it") or with realistic sample data ("fill it with sample data", "generate an external CAPA for me") — start a new one ("create a new fly catcher record"), submit it, verify it, print it, put an edit back or delete it — anything the buttons do, said in words or spoken — tell you what's due and what I've already prepared, summarise CAPA for you (internal findings and customer complaints), and answer calendar questions — holidays, the ${off} weekly off, adjustment days. I stick to this record system only — I'm not a general chatbot, so anything outside this software I'll politely decline.`,
       chips: [
         { label: t("ai.chip.dueToday"), action: { type: "navigate", route: `/day/${today}` } },
         { label: t("ai.chip.pestControl"), action: { type: "navigate", route: "/pest-control" } },

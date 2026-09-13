@@ -69,6 +69,17 @@ Seven scripts live in `tests/`:
   submit and verify from the chat; delete always asks first, a signed-off record takes a reason, and
   every deletion is listed in Document Library → Records deleted, from the page and from the chat
   alike. Signs IN to a fixed account. Network-independent.
+- `tests/e2e_print_all_documents.py` — printing prints the document and nothing around it, on every
+  document of every module: each record started from the library, every reference document, register,
+  report and file list is inspected under print media. Signs IN to a fixed account. Network-independent.
+- `tests/e2e_assistant_fill.py` — the assistant fills a WHOLE document, question by question or with
+  sample data: a complaint checklist generated from words (in format, every activity answered with a
+  date and a comment, prepared-by filled, approval left, the chat saying it is sample data) and passing
+  every submit check; sample data on an open record, undone; a training record filled question by
+  question, each answer in the history, handed back to be checked; "I want to fill …" said where nothing
+  is open opens the document and asks there; the same from the full-page Assistant; an ambiguous name
+  asked about; and every document that holds records started from the library, filled with sample data
+  and submitted. Signs IN to a fixed account. Network-independent.
 - `tests/visual_qa.py` — deeper per-module interaction checks (Fly Catcher, Service Report, CAPA
   creation, Training creation) plus full-page screenshots of every major screen for visual
   review, saved to `tests/shots/`, network-independent.
@@ -85,8 +96,9 @@ npm run test:e2e     # builds, boots backend/index.ts on :8842, runs e2e_smoke.p
                       # e2e_backlog_regression.py, e2e_voice.py, e2e_realism.py,
                       # e2e_editing.py, e2e_files.py, e2e_translate.py,
                       # e2e_print_and_forms.py, e2e_capa_formats.py,
-                      # e2e_agreement_and_cancel.py and e2e_crud.py against it,
-                      # tears down
+                      # e2e_agreement_and_cancel.py, e2e_crud.py,
+                      # e2e_print_all_documents.py and e2e_assistant_fill.py
+                      # against it, tears down
                       # (see scripts/run-e2e.ts)
 ```
 
@@ -106,6 +118,8 @@ python tests/e2e_print_and_forms.py
 python tests/e2e_capa_formats.py
 python tests/e2e_agreement_and_cancel.py
 python tests/e2e_crud.py
+python tests/e2e_print_all_documents.py
+python tests/e2e_assistant_fill.py
 python tests/visual_qa.py
 python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actually resolve; edit
                                     # the BASE constant at the top if your server isn't on :8844
@@ -120,12 +134,58 @@ multiply the assistant's per-account cap), and a run plus a few manual re-runs c
 ever stops at the login screen, that throttle is the first thing to check — it clears when the server
 restarts, or after ten minutes.
 
-## Results (last full run — 12-Sep-2026, after the mandatory-sections / review batch)
+## Results (last full run — 13-Sep-2026, after the whole-document fill batch)
 
 The run below is the production shape end to end: `frontend/scripts/build.ts` builds the bundle,
 `backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every
 suite runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts
 (`tsconfig.node.json`).
+
+### The assistant fills a whole document — question by question, or with sample data (13-Sep-2026)
+
+*"If user tell to perform any action like fill xyz document then bot will open that document and ask
+questions like what to fill where … or fill fake data and generate external CAPA for me … data which he
+fills should seem to be real … applicable to each and every document."* Two new paths, on every document
+that holds records: **"I want to fill the external CAPA" / "ask me question by question"** opens the
+document (starting one if needed) and asks what to put where, one thing at a time, with the likely
+answers as buttons, each answer checked like a typed value and saved with an assistant history line
+(`engine/guidedRecord.ts` — the complaint checklist keeps its own A → E walk-through); **"fill it with
+sample data" / "generate an external CAPA for me"** fills the whole form with realistic, made-up values —
+the plant's own people, areas, customers and codes — and says plainly that it is sample data to be
+checked (`engine/sampleFill.ts`). Both work from the record, from the library and from the full-page
+Assistant, the request carrying over to the record once it opens (`engine/assistantHandoff.ts`). The
+model's prompt gained the matching rule: invent values only when sample data is asked for, and say so.
+
+`npm run typecheck` clean and `npm run test:e2e` green end to end — **482 checks across thirteen
+suites, no JavaScript errors** (the twelve earlier suites unchanged in outcome, plus the two new ones:
+`e2e_print_all_documents.py`, every document printing as the document alone, and
+`e2e_assistant_fill.py`, **51/51**). The fill suite carries the strongest check of the sample data:
+every one of the twenty documents, started from the library, filled with sample data and
+**submitted**, so the sample values satisfy every submit rule on every format. The live Groq suite
+(`e2e_assistant_chat.py`, real model calls) re-run on the new build: **12/12** — navigation, a
+conversational reply, the out-of-scope refusal, a plain-words fill and the full-page answer from the
+live-facts digest, with the key answering in about a second.
+
+What the runs caught:
+
+- **The library's New button returned an existing same-day record even for an as-required document.**
+  `createRecordForDocument` looked for any record with the same due date before creating one — right
+  for a scheduled register (one sheet per day), wrong for a complaint or an inspection report, where
+  the afternoon's complaint would have been filed under the morning's. Only the CAPA page's own New
+  button, which does not go through it, escaped this. Now only scheduled documents keep to one sheet per
+  period (`engine/recordCrud.ts`).
+- **The inspection findings report never handed submit, verify, print or delete to the assistant.**
+  Its page registered only the fill / correct half of the assistant target, so "submit this record" on
+  an internal CAPA answered "can't be submitted from here". It now registers the same full set as every
+  other record page, its Submit / Verify return their outcome, Cancel edit is on its action bar, and
+  its Delete leaves the same deletion trail as the rest (`pages/GapPage.tsx`).
+- Two first-run failures were the harness's: the answer heuristic clicked the widget's own quick buttons
+  ("Stop the questions") as if they were answers to the question, and in the every-document pass the
+  open chat panel covered the library's New button. The training steps of the suite also collided with
+  each other (a yearly document has one sheet per day, so the second New reopened the first, already
+  submitted, record) — the question-by-question step now dates its record earlier in the month.
+- `e2e_print_all_documents.py` navigated to `#/compliance`, a route the app does not have (the
+  Statements of Compliance live at `#/soc`); corrected.
 
 ### External CAPA mandatory section by section, and review before submit (12-Sep-2026, last)
 

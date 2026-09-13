@@ -7,6 +7,12 @@ import { isValidAppRoute, useRouter } from "../store/router";
 import { readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
+import { parseAssistantCommand } from "../engine/assistantCommands";
+import { createRecordForDocument } from "../engine/recordCrud";
+import { documentRepository } from "../data/repositories/documentRepository";
+import { routeForRecord } from "../engine/reminders";
+import { sampleFillStoredRecord } from "../engine/sampleFill";
+import { queueAfterOpen } from "../engine/assistantHandoff";
 import type { Chip } from "../engine/guidedChecklist";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
 import { useLanguage, useT } from "../i18n";
@@ -88,7 +94,7 @@ function timeLabel(iso: string): string {
 
 export function AssistantPage() {
   const { user } = useAuth();
-  const { mode, currentUser } = useAppStore();
+  const { mode, currentUser, bump } = useAppStore();
   const { navigate } = useRouter();
   const { lang } = useLanguage();
   const t = useT();
@@ -172,11 +178,42 @@ export function AssistantPage() {
     }));
   };
 
+  const stamp = () => new Date().toISOString();
+
+  // "Generate an external CAPA for me", "I want to fill the daily monitoring
+  // record", "create a new fly catcher record" — said here, where no record
+  // is open. The record is started (or today's found) and opened; sample data
+  // is written before it opens, and question-by-question filling is parked
+  // for the widget to begin the moment it does (engine/assistantHandoff.ts).
+  const startDocument = (kind: "create" | "fill" | "guide", documentId: string, dateISO: string, convId: string) => {
+    const doc = documentRepository.getById(documentId);
+    if (!doc) return;
+    const { record, existed } = createRecordForDocument(doc, { dateISO, isDemo });
+    bump();
+    const opened = existed ? `Opening the ${doc.name} for ${formatDisplayDate(dateISO)} that already exists` : `Started a new ${doc.name} for ${formatDisplayDate(dateISO)}`;
+    let reply = `${opened}. It's a draft — fill it in on the form, or ask me there.`;
+    if (kind === "fill") {
+      const filled = sampleFillStoredRecord(record.id, user?.name ?? currentUser);
+      reply = filled
+        ? `${opened} and filled it with sample data — realistic, but made up, so check every value before you submit:\n${filled.summary.map((s) => `• ${s}`).join("\n")}`
+        : `${opened}. This document is kept as issued, so there was nothing to fill with sample data.`;
+    } else if (kind === "guide") {
+      queueAfterOpen(record.id, "interview");
+      reply = `${opened} — I'll ask you what to put in it, one thing at a time, as soon as it opens.`;
+    }
+    const route = routeForRecord(doc, record.id);
+    append(convId, { id: generateId("msg"), role: "bot", text: reply, at: stamp(), chips: [{ label: t("ai.openItAgain"), action: { type: "navigate", route } }] });
+    navigate(route);
+  };
+
   const runChip = (chip: Chip) => {
     const a = chip.action;
     if (a.type === "navigate") navigate(a.route);
     else if (a.type === "briefing") openBriefing();
     else if (a.type === "focusInput") inputRef.current?.focus();
+    else if ((a.type === "sampleFill" || a.type === "startInterview") && a.documentId) {
+      startDocument(a.type === "sampleFill" ? "fill" : "guide", a.documentId, a.dateISO ?? todayISO(), active?.id ?? createConversation());
+    } else if (a.type === "createRecord") startDocument("create", a.documentId, a.dateISO, active?.id ?? createConversation());
   };
 
   // `spoken` = the question arrived by voice, so the reply is read back even
@@ -188,11 +225,36 @@ export function AssistantPage() {
     setInput("");
     setVoiceNote(null);
     const convId = active?.id ?? createConversation();
-    const stamp = () => new Date().toISOString();
     const readOut = (reply: string) => {
       if (spoken || speakReplies) speak(reply, speechLocale);
     };
     append(convId, { id: generateId("msg"), role: "user", text, at: stamp() });
+
+    // Starting or filling a whole document (engine/assistantCommands.ts) —
+    // no network, and the same whether typed or spoken.
+    const command = parseAssistantCommand(text, false);
+    if (command && (command.kind === "create" || command.kind === "fill" || command.kind === "guide")) {
+      if (command.documentId) {
+        startDocument(command.kind, command.documentId, command.dateISO, convId);
+        return;
+      }
+      if (command.kind !== "create") {
+        const type = command.kind === "fill" ? "sampleFill" : "startInterview";
+        const ids = command.candidates ?? ["capa-customer-complaint", "gap-inspection", "daily-pest-monitoring", "fly-catcher", "training-record"];
+        const chips: Chip[] = ids
+          .map((id) => documentRepository.getById(id))
+          .filter((d): d is NonNullable<typeof d> => !!d)
+          .map((d) => ({ label: d.name.replace(/^CAPA — /, ""), action: { type, documentId: d.id, dateISO: command.dateISO } }));
+        const reply = command.candidates
+          ? "Which document do you mean?"
+          : command.kind === "fill"
+            ? "Which document shall I fill with sample data? Name it, or pick one:"
+            : "Which document shall we fill together? Name it, or pick one:";
+        append(convId, { id: generateId("msg"), role: "bot", text: reply, at: stamp(), chips });
+        readOut(reply);
+        return;
+      }
+    }
 
     const local = localAnswer(text, isDemo, user?.name);
     if (local) {

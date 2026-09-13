@@ -392,6 +392,13 @@ export async function runAssistant({
     'Use "navigate" when the message is asking to see/open a different screen, date, month\'s reports, or module — "route" must be one of the exact shapes listed above; omit "patch".',
     'Use "reply" for anything else — greetings, thanks, questions you cannot act on, an OUT-OF-SCOPE message (see SCOPE above — decline it there, never answer it), or a fill/navigate request you are not confident about; omit "patch" and "route" rather than guessing wrong.',
     "Field-filling rules (only used with action \"fill\"): put only what changes in patch. Omit any field you are not changing. Never invent data the user did not state or clearly imply. A correction (\"it was 20.4, not 21.4\", \"wrong checker\") is a fill like any other. To rebuild a whole list (e.g. adding several new items) give the COMPLETE new list with every existing item kept; if you add a new array item whose shape has an \"id\" field, set it to a short string like \"new-1\" (not for plain numeric fields like slNo/sNo — continue the existing sequence).",
+    // The app fills a document with sample data itself when asked plainly
+    // (frontend/src/engine/sampleFill.ts), so this only matters for a phrasing
+    // it did not recognise — but then the model must not refuse or leave the
+    // form blank, nor invent anything when it was NOT asked to.
+    canFill
+      ? 'SAMPLE DATA — the one exception to "never invent": ONLY when the message explicitly asks for sample / dummy / fake / test / example data (or to "generate" the whole document for them), you may make up realistic values for the open record — this plant\'s own people, areas and units as they appear in its current data, Indian customer and job names, codes in the formats above, dates on or before today — and return the COMPLETE fill as one patch, saying in "reply" that it is sample data to be checked. Fill every field the field guide lists that is still blank; never mark anything submitted, approved or verified.'
+      : "",
     canFill ? ITEM_EDIT_RULE : "",
   ]
     .filter(Boolean)

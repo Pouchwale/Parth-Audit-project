@@ -190,8 +190,8 @@ The app behaves like a personal assistant rather than a blank form:
   - **Create.** The Document Library has a **New** button on every document that holds records, and
     the assistant starts one from words: *"create a new fly catcher record"*, *"start a training record
     for 5 September"*. A new record gets the same starting data the schedule would have given it, and
-    asking twice for the same day opens the first one rather than putting two sheets on a controlled
-    register (`src/engine/recordCrud.ts`). The reference documents — the SOP, the Chemical Master, a
+    asking twice for the same day of a scheduled document opens the first one rather than putting two
+    sheets on a controlled register (`src/engine/recordCrud.ts`). The reference documents — the SOP, the Chemical Master, a
     Statement of Compliance, the licence — are single documents kept as issued and edited in place, so
     there is nothing to create or delete for them.
   - **Read and update** were already there: every field editable, saved as you type, changed by the
@@ -205,6 +205,38 @@ The app behaves like a personal assistant rather than a blank form:
     anything is signed off or destroyed. **Spoken instructions take exactly the same path**, so
     pressing the microphone and saying "submit this record" does what typing it does
     (`src/engine/assistantCommands.ts`).
+  - An **as-required** document — a complaint, an inspection report, an acknowledgement — can be
+    started as often as things happen, two on one day included; only a *scheduled* document keeps to
+    one sheet per period.
+- **The assistant fills a whole document on request — question by question, or with sample data
+  (13-Sep-2026).** Two ways, on every document that holds records, from the record itself, from the
+  library or from the full-page Assistant:
+  - **"I want to fill the external CAPA"**, *"help me fill this"*, *"walk me through the daily
+    record"*, *"ask me question by question"*: the document is opened (started if there isn't one) and
+    the assistant asks what to put where, one thing at a time, with the likely answers as buttons —
+    the check points, the time and the checker on F/HR/17; each unit's catch on F/HR/18; the quantity
+    per material and the technician on a service report; the header and the readings on a log sheet
+    ("fill typical readings for me" is offered); each finding with its action and target date on an
+    inspection report; the session, topics and attendance on a training record; every line of an
+    acknowledgement report; the signatures on the Responsibilities document and the agreement. Every
+    answer is checked the way a typed value is (dates day-first, 24-hour times, Yes / No, the exact
+    option, the department's code formats) and saved at once with an "assistant" history line; "skip",
+    "stop" and "submit this record" work mid-questions; the complaint checklist keeps its own A → E
+    walk-through (`src/engine/guidedRecord.ts`).
+  - **"Fill it with sample data"**, *"generate an external CAPA for me"*, *"create a complaint
+    checklist with dummy data"*: the whole form is filled with **realistic, made-up** values — the
+    plant's own people, areas and units, customers and jobs from its own specimens, codes in the
+    department's formats, dates on or before today — and the chat says plainly that it is sample data
+    to be checked. A generated complaint checklist, for example, has every one of the 31 activities
+    answered on a date from receipt to closure with a comment against each, prepared-by filled and
+    approval left for the QA Head; an inspection report has three to five findings in the plant's own
+    wording, some already closed. The routine registers reuse the calibrated auto-fill. It is a draft
+    like any other assistant change — history line, undoable, never submitted by the assistant — and
+    it passes every submit check on every document (`src/engine/sampleFill.ts`).
+  - Said where nothing is open, the document is started first and the request carried on there
+    (`src/engine/assistantHandoff.ts`); an ambiguous name ("a CAPA record") is asked about, not
+    guessed. The model is told the same rule: it may invent values only when sample data is asked
+    for explicitly, and must say so.
 - **The service provider agreement, asked for every two years.** The contract with Gurudev Pest
   Control runs two years, and the **Service Provider** page asks for it sixty days before it ends —
   and keeps asking once it has run out — with the two ways out of it in the pop-up itself: **"Draft it

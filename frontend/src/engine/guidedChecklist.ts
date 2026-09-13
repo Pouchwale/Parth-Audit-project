@@ -73,7 +73,15 @@ export type ChipAction =
   | { type: "doSubmit" }
   | { type: "doVerify" }
   | { type: "doCancelCorrection" }
-  | { type: "doPrint" };
+  | { type: "doPrint" }
+  // Filling a whole document: with sample data, or question by question
+  // (engine/sampleFill.ts, engine/guidedRecord.ts). A documentId means "start
+  // or open that document first, then do it there".
+  | { type: "sampleFill"; documentId?: string; dateISO?: string }
+  | { type: "startInterview"; documentId?: string; dateISO?: string }
+  | { type: "interviewAnswer"; value: string }
+  | { type: "interviewSkip" }
+  | { type: "interviewStop" };
 
 export interface Chip {
   label: string;

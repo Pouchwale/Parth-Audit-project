@@ -103,6 +103,17 @@ dashboard card and assistant widget) · PreparedBanner on each record · "Prepar
 <user>". Demo Mode reuses `autoFillRecord` for log sheets and training, so demo data looks the same
 as prepared Live data (still `isDemo: true`).
 
+Two further fills happen only when a person asks for them in the chat (REQUIREMENTS §36), and both
+write nothing new to the model — each is an ordinary `history` entry of action `"assistant-edit"`:
+
+- **Question by question** (`engine/guidedRecord.ts`): one entry per answer, note `"Q&A — <field>"`
+  (consecutive ones by the same person fold into one, as any edit does).
+- **Sample data** (`engine/sampleFill.ts`): one entry, note `"Filled with sample data by the
+  assistant, on request — realistic, but made up"`. The record is deliberately not stamped
+  `prepared` and carries no watermark — it is meant to read like a real one — so that history line
+  is the only, and sufficient, record of where the values came from. The routine registers reuse
+  `autoFillRecord`; the CAPA paperwork, training and the agreements have their own generators there.
+
 ## The plant behaviour model
 
 `tools/plant_pattern.py` → `src/data/seed/plantPattern.ts` (generated) → `engine/plantSimulation.ts`

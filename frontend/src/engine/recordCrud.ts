@@ -60,9 +60,14 @@ export function createRecordForDocument(
   const dueDate = opts.dateISO ?? todayISO();
   const isDemo = !!opts.isDemo;
   const periodKey = periodKeyFor(doc, dueDate);
-  const already = (recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[]).find(
-    (r) => r.periodKey === periodKey || r.dueDate === dueDate
-  );
+  // Only a SCHEDULED document has one sheet per period. An as-required one —
+  // a complaint, an inspection report, an acknowledgement — can be started as
+  // often as things happen, two on one day included; returning the morning's
+  // complaint for the afternoon's would file the second under the first.
+  const asRequired = doc.schedule.type === "as-required";
+  const already = asRequired
+    ? undefined
+    : (recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[]).find((r) => r.periodKey === periodKey || r.dueDate === dueDate);
   if (already) return { record: already, existed: true };
   const now = new Date().toISOString();
   const record: RecordInstance = {
@@ -71,7 +76,7 @@ export function createRecordForDocument(
     // As-required documents can have any number of records, so each gets a
     // period of its own; scheduled ones keep the generator's period key, which
     // is what stops a second sheet for the same day.
-    periodKey: doc.schedule.type === "as-required" ? `${doc.id}:${dueDate}:${generateId("p")}` : periodKey,
+    periodKey: asRequired ? `${doc.id}:${dueDate}:${generateId("p")}` : periodKey,
     dueDate,
     status: "In Progress",
     isDemo,

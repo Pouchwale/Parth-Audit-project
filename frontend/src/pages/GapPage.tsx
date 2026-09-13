@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { FiPlus, FiTrash2, FiArrowLeft } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
@@ -8,6 +8,7 @@ import { refreshGapFindingStatuses } from "../data/selectors";
 import type { ComplaintAckData, GapFinding, GapInspectionData, RecordInstance } from "../types";
 import { CAF_DOC_ID, CAF_FORMAT_REF, newComplaintAckData } from "../data/seed/complaintAck";
 import {
+  cancelCorrection,
   isCorrectableStatus,
   isEditableStatus,
   reopenForCorrection,
@@ -17,6 +18,7 @@ import {
   rejectRecord,
   resumeAfterRejection,
 } from "../engine/recordLifecycle";
+import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { useT } from "../i18n";
@@ -234,6 +236,15 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
     bump();
   };
 
+  // The page's own actions, for the assistant — the target is registered
+  // before they are declared, so it calls them through this ref.
+  const actions = useRef<{
+    submit?: () => { ok: boolean; errors: string[] };
+    verify?: () => { ok: boolean; errors: string[] };
+    cancelCorrection?: () => void;
+    remove?: (reason: string) => void;
+  }>({});
+
   useSetAssistantTarget(
     record
       ? {
@@ -253,6 +264,14 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
                 bump();
               }
             : undefined,
+          // Everything the buttons do, so it can be asked for in words too
+          // (engine/assistantCommands.ts) — the same as every other record.
+          title: `the inspection findings report of ${formatDisplayDate(record.data.inspectionDate || record.dueDate)}`,
+          submit: editable ? () => actions.current.submit?.() ?? { ok: false, errors: [] } : undefined,
+          verify: ["Submitted", "Pending Verification"].includes(record.status) ? () => actions.current.verify?.() ?? { ok: false, errors: [] } : undefined,
+          cancelCorrection: record.correction ? () => actions.current.cancelCorrection?.() : undefined,
+          remove: (reason: string) => actions.current.remove?.(reason),
+          print: () => printDocument(),
         }
       : null
   );
@@ -306,25 +325,31 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   };
 
   const handleSave = () => undefined; // every change is already saved as it's made
-  const handleSubmit = () => {
-    const { record: updated, result } = submitRecord(doc, record, currentUser);
+  const handleSubmit = (): { ok: boolean; errors: string[] } => {
+    const base = current() ?? record;
+    const { record: updated, result } = submitRecord(doc, base, currentUser);
     if (!result.valid) {
       setErrorsFor("submit");
-      return setErrors(result.errors);
+      setErrors(result.errors);
+      return { ok: false, errors: result.errors };
     }
     setErrors([]);
     setRecord(updated as RecordInstance<GapInspectionData>);
     bump();
+    return { ok: true, errors: [] };
   };
-  const handleVerify = () => {
-    const { record: updated, result } = verifyRecord(doc, record, currentUser);
+  const handleVerify = (): { ok: boolean; errors: string[] } => {
+    const base = current() ?? record;
+    const { record: updated, result } = verifyRecord(doc, base, currentUser);
     if (!result.valid) {
       setErrorsFor("verify");
-      return setErrors(result.errors);
+      setErrors(result.errors);
+      return { ok: false, errors: result.errors };
     }
     setErrors([]);
     setRecord(updated as RecordInstance<GapInspectionData>);
     bump();
+    return { ok: true, errors: [] };
   };
   const handleReject = (reason: string) => {
     setRecord(rejectRecord(record, currentUser, reason) as RecordInstance<GapInspectionData>);
@@ -339,11 +364,21 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
     setRecord(reopenForCorrection(record, currentUser, reason) as RecordInstance<GapInspectionData>);
     bump();
   };
-  const handleDelete = () => {
-    recordRepository.remove(record.id);
+  // Pressed Edit with nothing to put right: back as it was, at its old status.
+  const handleCancelCorrection = () => {
+    setErrors([]);
+    setRecord(cancelCorrection(current() ?? record, currentUser) as RecordInstance<GapInspectionData>);
+    bump();
+  };
+  // Any status can be deleted now; the deletion itself is recorded
+  // (engine/recordCrud.ts) — the same trail as every other document.
+  const handleDelete = (reason: string) => {
+    deleteRecordWithTrail(current() ?? record, currentUser, reason);
     bump();
     navigate("/gap/internal");
   };
+
+  actions.current = { submit: handleSubmit, verify: handleVerify, cancelCorrection: handleCancelCorrection, remove: handleDelete };
 
   return (
     <div className={record.isDemo ? "demo-watermark" : ""}>
@@ -565,6 +600,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
         onReject={handleReject}
         onResume={handleResume}
         onCorrect={handleCorrect}
+        onCancelCorrection={record.correction ? handleCancelCorrection : undefined}
+        correctionFromStatus={record.correction?.fromStatus}
         onPrint={() => printDocument()}
         onDelete={handleDelete}
       />

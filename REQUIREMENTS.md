@@ -1344,6 +1344,77 @@ DIGITAL TEMPLATE     src/engine/guidedChecklist.ts (the walk-through), src/engin
   contain one of those words ("Gujarat Printpack" is not a print instruction).
 - Covered by `tests/e2e_capa_formats.py` (9 further checks) and `tests/e2e_crud.py`.
 
+## 36. The assistant fills a whole document — question by question, or with sample data (13-Sep-2026)
+
+```
+REQUESTED            "if user tell to perform any action like fill xyz document then bot will open that
+                      document and ask questions like what to fill where … like an agent who perform
+                      task on one click/query … fill fake data and generate external CAPA for me …
+                      data which he fills should seem to be real not fake … applicable to each and
+                      every document"
+DIGITAL TEMPLATE     src/engine/guidedRecord.ts (the questions, per document), src/engine/sampleFill.ts
+                      (the sample data, per document), src/engine/assistantCommands.ts (the two new
+                      intents: fill / guide), src/engine/assistantHandoff.ts (a request that outlives
+                      the navigation), src/components/common/DocumentAssistant.tsx and
+                      src/pages/AssistantPage.tsx (the chat on both screens), backend/assistant.ts
+                      (the model's matching rule)
+DATABASE FIELDS      none new — every fill is an ordinary "assistant-edit" history entry on the record
+                      (note "Q&A — <field>" per answer, or "Filled with sample data by the assistant,
+                      on request — realistic, but made up")
+```
+
+- **Question by question.** "I want to fill the external CAPA", "help me fill this", "walk me through
+  the daily record", "ask me question by question", "start assigning it". The document is opened —
+  started if there isn't one for the day (`createRecordForDocument`) — and the assistant asks what to
+  put where, one thing at a time, offering the likely answers as buttons: the ten check points, then the
+  time and the checker on F/HR/17 (a Yes to check point 7 asks for the box, the place and the count; a
+  flagged point asks for the action taken); each unit's catch on F/HR/18, then who cleaned and verified;
+  the quantity per material, any remarks by area, the technician and the countersignature on a service
+  report; the header fields, then the readings on a log sheet ("fill typical readings for me" is
+  offered, or "11:00 20.4, 12:00 20.6" typed); the inspection details, then each finding with its
+  comments, corrective action, target date and source, "another finding?", the general comments; the
+  session, topics and attendance on a training record ("everyone" or names); every line of a complaint
+  acknowledgement report; the two signatures on the Responsibilities document; the agreement number,
+  term, the commercial terms the format leaves TO BE CONFIRMED and the two signatures on the service
+  agreement. The customer complaint checklist keeps its A → E walk-through (§35).
+- **Every answer is checked the way a typed value is** — dates day-first (and "in 7 days"), 24-hour
+  times ("now"), numbers, Yes / No (with "OK" read by the check point's polarity), the exact select
+  option, the code formats of §33 — and an answer that cannot be read is asked again rather than
+  written wrong. Each is saved at once with an assistant history line; "skip" and "stop" work, so does
+  an outright "submit this record" / "print it" (only when the message *begins* with it, as in §35),
+  and at the end the record is handed back to be checked with Submit offered — never pressed.
+- **Sample data.** "Fill it with sample data", "generate an external CAPA for me", "create a complaint
+  checklist with dummy data", or just "fill it" on an open record with nothing else said. The whole
+  form is filled with **realistic, made-up** values: the plant's own people, areas and units from Master
+  Data, the customers and jobs on its own specimens plus plausible ones, codes in the department's
+  formats, dates on or before today. A generated complaint checklist has every one of the 31 activities
+  answered on a date from receipt to closure with a comment against each (the "(If required)" ones
+  marked not required where the case didn't need them), prepared-by filled and approval left for the
+  QA Head; an inspection report has three to five findings in the plant's own inspection wording, some
+  already closed; an acknowledgement report a scenario, root cause and actions that belong together; the
+  routine registers reuse the calibrated auto-fill (§"How the assistant pre-fills records"). **The chat
+  says every time that it is sample data, to be checked**; the record itself is not stamped, because the
+  department asked for it to read like a real one — the history line is the honest record of where it
+  came from. It is a draft like any other assistant change: undoable, and never submitted by the
+  assistant. Nothing that identifies a real outside company beyond what the source documents already
+  carry is invented.
+- **Said where nothing is open** — the library, the dashboard, the full-page Assistant — the document
+  is started or found first and the request carried over to it once it opens
+  (`queueAfterOpen` / `takeHandoff`); an ambiguous name ("a CAPA record" could be three documents) is
+  asked about with the choices as buttons, never guessed; "complaint acknowledgement report" is the
+  acknowledgement, not also the complaint checklist (the longer phrase wins).
+- **The model has the matching rule** (`backend/assistant.ts`): it may invent values only when the
+  message explicitly asks for sample / dummy / test data, must then fill everything blank and say it is
+  sample data, and otherwise never invents — the app handles the plain phrasings itself, so the model
+  sees only what those miss.
+- **Two defects found on the way, fixed:** an as-required document (complaint, inspection report,
+  acknowledgement) started from the library or by the assistant returned the same day's existing
+  record instead of a new one (§34's one-sheet-per-period rule applied to documents it should never
+  have), and the inspection findings report's page did not hand submit / verify / print / delete to the
+  assistant (§34) — it does now, with the same deletion trail as every other record.
+- Covered by `tests/e2e_assistant_fill.py` (51 checks), including every document that holds records
+  filled with sample data and submitted.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

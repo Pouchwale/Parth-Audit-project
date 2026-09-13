@@ -11,6 +11,7 @@ import type { DocumentDefinition } from "../types";
 import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
 import { PEST_CONTROL_SECTIONS } from "../data/seed/documentDefinitions";
+import { routeForRecord } from "../engine/reminders";
 
 function openTarget(docId: string, kind: string): string {
   if (kind === "chemical-master") return "/chemical-master";
@@ -74,7 +75,8 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   const startRecord = (doc: DocumentDefinition) => {
     const { record } = createRecordForDocument(doc, { dateISO: todayISO(), isDemo });
     bump();
-    navigate(doc.kind === "training-record" ? `/training/${record.id}` : doc.kind === "complaint-checklist" ? `/complaint/${record.id}` : `/record/${record.id}`);
+    // Opened where the module's own pages open it (engine/reminders.ts).
+    navigate(routeForRecord(doc, record.id));
   };
 
   const activeModule = activeSlug ? docs.find((d) => moduleSlug(d.module) === activeSlug)?.module : undefined;
