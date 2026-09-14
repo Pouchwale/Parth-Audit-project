@@ -13,7 +13,7 @@ import { installTranslateGuard } from "./translateGuard";
 //
 // Two things are never handed to Google:
 //   * the issued documents themselves — every form, register, header, the
-//     SOP, licence and Statements of Compliance carry translate="no", so a
+//     licence and Statements of Compliance carry translate="no", so a
 //     controlled record reads exactly as issued (and its contents aren't sent
 //     to Google);
 //   * anything at all while English is chosen — the script isn't even loaded.

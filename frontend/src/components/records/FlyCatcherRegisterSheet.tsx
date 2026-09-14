@@ -12,6 +12,7 @@ import { useAppStore } from "../../store/AppStore";
 import { useT } from "../../i18n";
 import { printDocument } from "../../utils/print";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
+import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "../../engine/flyPattern";
 
 // THE FLY CATCHER REGISTER IN ITS OWN FORMAT — F/HR/18 Rev 02, exactly as the
 // company prints it ("Fly catcher reports .pdf", and pages 5-6 of "Kapila mam
@@ -180,7 +181,21 @@ export function FlyCatcherRegisterSheet({
     const base = dataOf(r);
     const entries = base.entries.some((e) => e.pcId === pcId)
       ? base.entries.map((e) => (e.pcId === pcId ? { ...e, ...patch } : e))
-      : [...base.entries, { pcId, catchCountApprox: null, tubeLightInstallDate: null, tubeLightDueDate: null, cleaningDoneBy: "", verifiedBy: "", ...patch }];
+      // A unit missing from an older record gets its row built here. The
+      // tube-light dates are the register's own fixed pair, not blanks
+      // (engine/flyPattern.ts, REQUIREMENTS §44).
+      : [
+          ...base.entries,
+          {
+            pcId,
+            catchCountApprox: null,
+            tubeLightInstallDate: TUBE_LIGHT_INSTALLED,
+            tubeLightDueDate: TUBE_LIGHT_DUE,
+            cleaningDoneBy: "",
+            verifiedBy: "",
+            ...patch,
+          },
+        ];
     pending.current.set(r.id, { ...base, entries });
     setDirty(true);
     setKeystrokes((n) => n + 1);
@@ -283,8 +298,16 @@ export function FlyCatcherRegisterSheet({
                 const canEdit = editing && !!r && isEditableStatus(r.status);
                 const locked = editing && !!r && !canEdit;
                 const above = i > 0 ? rows[i - 1].entry : undefined;
+                // THE TWO TUBE-LIGHT COLUMNS ARE FIXED ON THIS REGISTER (24-11-2025
+                // and 23-11-2026, REQUIREMENTS §44), so they are printed on every
+                // line — a unit's line shows them whether or not that fortnight's
+                // visit has been carried out yet, because the tube in it was still
+                // fitted on that date and is still due on the other. Only what the
+                // VISIT records — the date of service, the catch count, the two
+                // names — stays blank until the visit happens. The second line of a
+                // unit carries the ditto mark, as the specimen writes it.
                 const tube = (value: string | null | undefined, previous: string | null | undefined) =>
-                  !value ? "" : !editing && i > 0 && above && previous === value ? DITTO : paperDate(value);
+                  !value ? "" : !editing && i > 0 && previous === value ? DITTO : paperDate(value);
                 const clickable = !editing && !!r && !!onOpenVisit;
                 const status = r ? r.status.replace(/\s+/g, "-").toLowerCase() : "none";
                 const isToday = r?.dueDate === today;
@@ -331,7 +354,7 @@ export function FlyCatcherRegisterSheet({
                             className="input input-sm fhr18-input"
                             data-field="installed"
                             aria-label={`${label} — date of tube light installation`}
-                            value={e?.tubeLightInstallDate ?? ""}
+                            value={e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED}
                             onChange={(ev) => updateEntry(r!, pc.id, { tubeLightInstallDate: ev.target.value || null })}
                           />
                         </td>
@@ -341,7 +364,7 @@ export function FlyCatcherRegisterSheet({
                             className="input input-sm fhr18-input"
                             data-field="due"
                             aria-label={`${label} — due date for tube light replacement`}
-                            value={e?.tubeLightDueDate ?? ""}
+                            value={e?.tubeLightDueDate ?? TUBE_LIGHT_DUE}
                             onChange={(ev) => updateEntry(r!, pc.id, { tubeLightDueDate: ev.target.value || null })}
                           />
                         </td>
@@ -369,8 +392,8 @@ export function FlyCatcherRegisterSheet({
                     ) : (
                       <>
                         <td className="count-cell">{paperCount(e?.catchCountApprox)}</td>
-                        <td>{tube(e?.tubeLightInstallDate, above?.tubeLightInstallDate)}</td>
-                        <td>{tube(e?.tubeLightDueDate, above?.tubeLightDueDate)}</td>
+                        <td>{tube(e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED, above?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED)}</td>
+                        <td>{tube(e?.tubeLightDueDate ?? TUBE_LIGHT_DUE, above?.tubeLightDueDate ?? TUBE_LIGHT_DUE)}</td>
                         <td className="name-cell">{e?.cleaningDoneBy ?? ""}</td>
                         <td className="name-cell">{e?.verifiedBy ?? ""}</td>
                       </>

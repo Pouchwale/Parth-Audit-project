@@ -22,6 +22,7 @@ import { nextComplaintNo } from "./documentFormats";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { COMPANY } from "../data/seed/masterData";
 import { termEnd } from "./serviceAgreement";
+import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "./flyPattern";
 
 // Builds the AUTOMATIC / STATIC part of a new record shell (section 11 & 26):
 // header info, checkpoint lists, PC locations, area lists are all
@@ -52,11 +53,15 @@ export function createDefaultData(
       const d = fromISODate(dueDateISO);
       const data: FlyCatcherData = {
         monthYear: formatMonthYearShort(d.getFullYear(), d.getMonth()),
+        // The tube-light dates are the register's own, fixed for every unit
+        // (engine/flyPattern.ts, REQUIREMENTS §44), so a sheet started by hand
+        // carries them already printed rather than as two blanks somebody has
+        // to look up. Both stay editable, as on paper.
         entries: master.pcLocations.map((pc) => ({
           pcId: pc.id,
           catchCountApprox: null,
-          tubeLightInstallDate: null,
-          tubeLightDueDate: null,
+          tubeLightInstallDate: TUBE_LIGHT_INSTALLED,
+          tubeLightDueDate: TUBE_LIGHT_DUE,
           cleaningDoneBy: "",
           verifiedBy: "",
         })),

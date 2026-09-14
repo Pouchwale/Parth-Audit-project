@@ -25,7 +25,8 @@ export interface DocumentDefinition {
   // (e.g. Service Report has 3 service types), each variant is its own
   // DocumentDefinition with a distinguishing `variantKey`.
   variantKey?: string;
-  // Reference-only documents (Chemical Master, SOP) have no due dates / record
+  // Reference-only documents (the Chemical Master, a Statement of Compliance,
+  // the licence) have no due dates / record
   // lifecycle — they open straight into a reference viewer.
   isReferenceOnly?: boolean;
   // Optional sub-grouping inside a module, the way the department itself

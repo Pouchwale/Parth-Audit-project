@@ -28,6 +28,7 @@ import { normDate, normNumber, normOption, normTime, normYesNo } from "./recordP
 import { termEnd } from "./serviceAgreement";
 import { addDays, formatDisplayDate, todayISO } from "../utils/date";
 import { generateId } from "../utils/id";
+import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "./flyPattern";
 
 // THE ASSISTANT'S QUESTION-BY-QUESTION FILL, for every document that is not
 // the customer complaint checklist (which has its own A→E walk-through in
@@ -452,13 +453,28 @@ function flyPlan(d: FlyCatcherData, master: MasterData): InterviewPlan {
     ask: "When were the tube lights last changed? (one date for all units — Skip if the dates on the form are right)",
     type: "date",
     optional: true,
-    suggestions: [{ label: "Today", value: "today" }],
-    answered: (x) => entries(x).length > 0 && entries(x).every((en) => !blank(en.tubeLightInstallDate)),
+    // The register's own date first: it is fixed for every unit
+    // (REQUIREMENTS §44), so normally the form already has it and this
+    // question does not come up at all. The due date follows at +364 days,
+    // which is what makes 24-11-2025 fall due on 23-11-2026.
+    suggestions: [{ label: "24-11-2025, as on the register", value: TUBE_LIGHT_INSTALLED }, { label: "Today", value: "today" }],
+    // Both dates, not just the install one: a sheet with an install date and a
+    // blank due date would never be asked about otherwise.
+    answered: (x) =>
+      entries(x).length > 0 && entries(x).every((en) => !blank(en.tubeLightInstallDate) && !blank(en.tubeLightDueDate)),
     apply: (x, v) =>
       mapEntries(x, (en) => ({
         ...en,
         tubeLightInstallDate: blank(en.tubeLightInstallDate) ? String(v) : en.tubeLightInstallDate,
-        tubeLightDueDate: blank(en.tubeLightDueDate) ? addDays(String(v), 364) : en.tubeLightDueDate,
+        // The register's own install date has its own stated due date; any
+        // other date a person gives is a tube changed since, and carries a
+        // year's validity from that day — which is the same rule the
+        // register's own pair follows (REQUIREMENTS §44).
+        tubeLightDueDate: blank(en.tubeLightDueDate)
+          ? String(v) === TUBE_LIGHT_INSTALLED
+            ? TUBE_LIGHT_DUE
+            : addDays(String(v), 364)
+          : en.tubeLightDueDate,
       })),
   });
   return { intro: `the flies caught at each of the ${d.entries?.length ?? 0} units, then who cleaned and verified`, questions: qs };

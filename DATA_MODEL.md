@@ -211,9 +211,10 @@ A sheet line opens its record, where it is edited. The F/HR/18 register can also
 it stands (Add visit / Edit register): `engine/flyRegister.ts` adds a visit record for a date in the
 chosen month — keyed by the schedule slot it fulfils when it falls on one, so the generator never makes
 a second — and the register's inputs write through the visit's own `saveDraft`, so each change is in
-that visit's history. It is still one record per visit, never a stored copy of the sheet. Tube-light
-dates follow the specimen's annual cycle — installed 24 December, due 23 December, all units together
-(`tubeLightCycleFor`, `engine/flyPattern.ts`).
+that visit's history. It is still one record per visit, never a stored copy of the sheet. The
+tube-light dates are two fixed constants — installed 24-11-2025, due 23-11-2026, every unit together
+(`TUBE_LIGHT_INSTALLED` / `TUBE_LIGHT_DUE`, `engine/flyPattern.ts`) — pre-filled on a new sheet and
+never computed from a service date. REQUIREMENTS §44.
 
 ### The three trend reports
 

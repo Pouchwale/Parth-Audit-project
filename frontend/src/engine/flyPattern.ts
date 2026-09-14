@@ -23,17 +23,32 @@ export function flyCatchFor(pcId: string, dateISO: string): number {
   return Math.min(k - 1, 9);
 }
 
-// Tube-light validity, as the F/HR/18 specimen records it: all thirteen units
-// installed on 24/12/25, all due for replacement on 23/12/26 — the tubes are
-// changed together once a year, at the December service. So for any service
-// date the current tubes went in on the most recent 24 December and are due on
-// the 23 December a year after. (An earlier version staggered the dates across
-// the year on the assumption that thirteen identical dates was a data-entry
-// artefact; the company's own register shows it is simply how they do it.)
-export function tubeLightCycleFor(serviceDateISO: string): { installed: string; due: string } {
-  const year = Number(serviceDateISO.slice(0, 4));
-  const installYear = serviceDateISO >= `${year}-12-24` ? year : year - 1;
-  return { installed: `${installYear}-12-24`, due: `${installYear + 1}-12-23` };
+// TUBE-LIGHT VALIDITY — TWO FIXED DATES ON THE REGISTER, not a computed cycle.
+// The department's own statement (13-Sep-2026): the date of tube light
+// installation is fixed at 24-11-2025 and the due date for replacement at
+// 23-11-2026, for every one of the thirteen fly catcher units. The tubes are
+// changed together, once, and both dates are the same on every line of
+// F/HR/18 — which is why the specimen dittoes them down the page.
+//
+// This replaces two earlier readings, and it is worth saying why neither
+// survived. The first staggered the dates across the year, on the assumption
+// that thirteen identical dates was a data-entry artefact; the register showed
+// it was not. The second read the specimen's month as December and rolled the
+// pair forward from whatever the service date was, so a 2027 record would have
+// claimed an install date nobody has stated. Both computed a date the company
+// had not given. These two constants are what the company gave, and nothing
+// derives a third date from them: when the tubes are next changed, a person
+// types the new dates on the register (or these two lines are updated), which
+// is the only honest way for the system to learn a fact only the plant knows.
+// A record dated after the due date still flags the unit as overdue in the
+// assistant's notes, which is exactly the prompt to enter the new dates.
+// REQUIREMENTS §44.
+export const TUBE_LIGHT_INSTALLED = "2025-11-24";
+export const TUBE_LIGHT_DUE = "2026-11-23";
+
+/** The register's tube-light dates. Takes no date: they do not vary. */
+export function tubeLightCycle(): { installed: string; due: string } {
+  return { installed: TUBE_LIGHT_INSTALLED, due: TUBE_LIGHT_DUE };
 }
 
 export function flySeasonLabel(month: number): string {

@@ -356,8 +356,8 @@ def main():
                 and first[6] == "Roshni",
             )
             check(
-                "Tube-light dates follow the specimen's annual cycle (installed 24/12, due 23/12), with ditto marks on the line below",
-                len(first) == 7 and first[3].startswith("24/12/") and first[4].startswith("23/12/") and len(second) == 6 and second[2] == '"' and second[3] == '"',
+                "Tube-light dates are the register's own fixed pair (installed 24/11/25, due 23/11/26), with ditto marks on the line below",
+                len(first) == 7 and first[3] == "24/11/25" and first[4] == "23/11/26" and len(second) == 6 and second[2] == '"' and second[3] == '"',
             )
 
         # The same formats beside the services they belong to.

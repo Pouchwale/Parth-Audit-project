@@ -105,15 +105,17 @@ REPORT               Reports > Fly Catcher Trend
   PC‑10's floor was not legible/labelled with GF or FF in the source — kept as **TO BE CONFIRMED**.
 - Table columns, verbatim: PC ID No. | Date of Service | Flies Catch Count Approx. | Date of Tube
   Light Installation | Due Date for Tube Light Replacement | Cleaning Done By | Verified By.
-- Tube light install/due dates repeat via ditto marks within a PC's two rows in the specimen —
-  modeled as fields the user sets once per PC per visit (not forced to be identical, since a
-  replacement could happen between visits).
+- Tube light install/due dates repeat via ditto marks within a PC's two rows in the specimen, and
+  are the same on every unit — two fixed dates, pre-filled on every sheet (§44). They remain
+  editable per PC per visit rather than hard-locked, since a replacement can happen between visits.
 - Sample names observed: Cleaning Done By = "Vijay"; Verified By reads like "Roshni" — **TO BE
   CONFIRMED** exact spelling (same caveat as above).
 - **Specimen counts (August-26, transcribed):** visit 03/08/26 then 17/08/26 — PC-01 1, 1; PC-02 0, 1;
   PC-03 2, 2; PC-04 1, 1; PC-05 3, 0; PC-06 1, 1; PC-07 1, 1; PC-08 0, 1; PC-09 1, 0; PC-10 2, 1;
-  PC-11 2, 0; PC-12 1, 1; PC-13 1, 0. Tube light installed 24/12/25, replacement due 23/12/26 on
-  every unit (ditto marks on the second row).
+  PC-11 2, 0; PC-12 1, 1; PC-13 1, 0. Tube light installed **24/11/25**, replacement due
+  **23/11/26** on every unit (ditto marks on the second row) — the department confirmed both dates
+  on 13-Sep-2026 and they are fixed, not an annual cycle; the month had been read as December from
+  the photographed specimen. See §44.
 - **Fly Catcher Infestation trend + fly pattern.** This record is the data behind **Pest Control >
   Trend Analysis > Fly Catcher Infestation** (`/pest/trend/fly-catcher`, also Reports > Fly Catcher
   Infestation): the per-unit counts are added up per month in the same Source / Unit / Target Pest /
@@ -926,13 +928,13 @@ cells the system added up are tinted, with a key, so an auditor can always tell 
 from a transcribed one; the tint does not print. Flies have no paper history, so every fly figure is
 added up from the F/HR/18 visits.
 
-**A correction this required.** The specimen shows all thirteen tube lights installed on 24/12/25
-and due on 23/12/26 — changed together at the December service. §25's first cut had staggered the
-dates across the year on the assumption that thirteen identical dates was a data-entry artefact; the
-company's register shows it is simply how they do it. Restored (`tubeLightCycleFor`,
-`src/engine/flyPattern.ts`): the assistant and Demo Mode now use the most recent 24 December and the
-23 December after it, exactly as printed, and cleaning by Vijay / verification by Roshni on every
-line as on the specimen (an invented second cleaner was removed). For the same reason check point 10
+**A correction this required.** The specimen shows all thirteen tube lights installed and due on the
+same two dates — the tubes are changed together. §25's first cut had staggered the dates across the
+year on the assumption that thirteen identical dates was a data-entry artefact; the company's
+register shows it is simply how they do it. Restored here as a single annual cycle, and then
+corrected again on 13-Sep-2026 to the two fixed dates the department gave — 24-11-2025 and
+23-11-2026, computed from nothing (§44). Cleaning by Vijay / verification by Roshni on every line as
+on the specimen (an invented second cleaner was removed). For the same reason check point 10
 on F/HR/17 ("tube lights having validity of usage?") is no longer generated as a finding — a tube past
 its validity mid-year would contradict the register printed beside it; a tube that simply fails is
 check point 3.
@@ -1728,6 +1730,75 @@ DIGITAL TEMPLATE     src/pages/TrainingPage.tsx, src/types/record.ts (TrainingAt
   - **the Training Status report** counts the names on the sheet.
 - The model's field guide (`backend/assistant.ts`) no longer offers the field, and is told that
   recording an absence means removing that person's entry.
+
+## 44. The fly catcher tube lights: two fixed dates (13-Sep-2026)
+
+```
+REQUESTED            "So in fly catcher date of the tube light intsallation date is fix which is
+                      24-11-25 and due date for tube light replacement 23-11-26 so do that in
+                      FORTNIGHTLY - fly catcher inspection & cleaning record"
+DIGITAL TEMPLATE     src/engine/flyPattern.ts (TUBE_LIGHT_INSTALLED / TUBE_LIGHT_DUE),
+                      src/engine/recordDefaults.ts, src/engine/autoFill.ts,
+                      src/data/demoGenerator.ts, src/engine/guidedRecord.ts,
+                      backend/assistant.ts
+```
+
+- **DATE OF TUBE LIGHT INSTALLATION is 24-11-2025 and DUE DATE FOR TUBE LIGHT REPLACEMENT is
+  23-11-2026**, on every one of the thirteen units, on every line of F/HR/18 — the department's own
+  statement. Two constants, `TUBE_LIGHT_INSTALLED` and `TUBE_LIGHT_DUE`, and nothing derives a third
+  date from them.
+- **The app used to compute them, and that was the defect.** `tubeLightCycleFor(serviceDateISO)` read
+  the specimen's month as December and rolled the pair forward from whatever the service date was, so
+  a record dated 2027 would have claimed an install date nobody had stated. An earlier cut had been
+  worse still: it staggered thirteen different dates across the year, on the assumption that thirteen
+  identical dates in the specimen was a data-entry artefact. Both invented a fact only the plant
+  knows. The function is deleted.
+- **A sheet started by hand now opens with the two dates already on it** (`recordDefaults.ts`) rather
+  than two blanks somebody has to look up, which is what "is fix" means in practice; the assistant's
+  pre-fill and Demo Mode use the same two constants. Both fields stay editable, as on paper, and a
+  date a person types is carried forward to the next visit and never overwritten (`autoFill.ts` takes
+  `prev?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED`).
+- **When the tubes are next changed**, a person types the new dates on the register, or these two
+  lines are updated — the only honest way for the system to learn a date only the plant can know. A
+  record dated after the due date still flags that unit as overdue in the assistant's notes, which is
+  exactly the prompt to enter the new pair. (Today is 13-Sep-2026, so 23-11-2026 has not yet passed.)
+- **Every other route to a tube-light date had to follow.** Fixing the two constants alone would have
+  left five ways for the old dates, or blanks, to come back, and a four-angle sweep over the change
+  found each of them:
+  - **Records already stored in a browser** were filled in by the old code and carry a December pair.
+    Because auto-fill carries the previous visit's dates forward, one stale record would keep seeding
+    the next for as long as the register runs. `src/engine/tubeLightMigration.ts` corrects them at
+    every boot (idempotent), and only where the old code could have produced the value — an install
+    date on a 24 December, a due date on a 23 December. A date somebody typed is left alone, and so is
+    a submitted, verified or rejected sheet: that is signed paperwork and changes only through a
+    correction. Each change goes into the record's own history, by "System".
+  - **"Add visit"** copied the previous visit's dates unconditionally, so an older record holding
+    blanks would have written two empty cells onto a sheet whose dates the department has stated. It
+    now falls back to the register's own pair.
+  - **A unit missing from an older record** got its row built in the register grid with two nulls;
+    it now gets the fixed pair.
+  - **The guided interview** derived the due date as install + 364 days. The register's own install
+    date now gives the register's own due date exactly; any other date a person gives is a tube
+    changed since and still carries a year's validity from that day — which is the same rule the
+    register's pair follows. Its "already answered" test also required only the install date, so a
+    sheet with a blank due date was never asked about.
+  - **The assistant's own note** still told the reader the dates came from an annual December cycle
+    while writing November ones, and the pattern generator still justified leaving check point 10
+    unflagged with the December pair. Both now say what the register says.
+- The assistant's field guide now states both dates and tells the model not to compute or invent a
+  tube-light date, and its sample-data rule no longer pulls a printed future validity date back to
+  today. Covered by `tests/e2e_smoke.py` (the F/HR/18 two-page sheet reads `24/11/25 · 23/11/26`
+  with ditto marks on the unit's second line, in Demo Mode where the visits have been carried out)
+  and by `tests/e2e_trend_reports.py` (a sheet started from the library carries both dates on all
+  thirteen units, and no stored record carries any other pair).
+- **The two columns print on EVERY line of the register**, which is the point of their being fixed.
+  A fortnightly visit not yet carried out is otherwise a blank line on the paper — no date of
+  service, no count, no names — and the digital sheet reproduces that; but the tube in a unit was
+  still fitted on 24-11-2025 and is still due on 23-11-2026 whether or not this fortnight's
+  inspection has happened, so those two cells are not a property of the visit and are not left
+  blank with it. Every unit's first line prints both dates and its second line dittoes them, as the
+  specimen writes them (`FlyCatcherRegisterSheet.tsx`). This was the department's actual complaint
+  on being shown the first cut: the dates were on every record but the register still looked empty.
 
 ## Master data provenance summary
 

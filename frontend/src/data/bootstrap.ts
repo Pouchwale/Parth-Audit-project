@@ -6,6 +6,7 @@ import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { prepareDueRecords } from "../engine/assistantPrepare";
 import { alignRecordsToWorkingCalendar } from "../engine/calendarMigration";
 import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
+import { alignTubeLightDates } from "../engine/tubeLightMigration";
 import { todayISO } from "../utils/date";
 
 // Called once on app start. Seeds / re-syncs master, document and historical
@@ -31,6 +32,11 @@ export function bootstrap(): void {
   // Service-report drafts written before the one-quantity-per-material rule
   // are brought into line with it — drafts only, and logged in their history.
   alignServiceReportDrafts();
+  // Fly catcher drafts whose tube-light dates an earlier version COMPUTED on a
+  // December cycle are corrected to the two dates the department stated, so a
+  // stale record cannot keep seeding the next one through carry-forward —
+  // drafts only, and logged in their history (REQUIREMENTS §44).
+  alignTubeLightDates();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

@@ -17,7 +17,7 @@ import { createDefaultData } from "./recordDefaults";
 import { resolveResponsibleEmployees } from "./documentInfo";
 import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "./serviceMaterials";
 import { describeRodentEvent, rodentEventFor, totalRodents } from "./rodentPattern";
-import { flyCatchFor, flySeasonLabel, tubeLightCycleFor } from "./flyPattern";
+import { flyCatchFor, flySeasonLabel, tubeLightCycle } from "./flyPattern";
 import {
   checkpointFindingsFor,
   excursionRemarkFor,
@@ -153,8 +153,9 @@ function fillDailyMonitoring(
 
   const summaryActions: DailyPestMonitoringData["summaryActions"] = [];
 
-  // The housekeeping check points (1, 2, 3, 5, 6 — 10 follows the annual
-  // tube-light cycle on F/HR/18, see tools/plant_pattern.py). A register that
+  // The housekeeping check points (1, 2, 3, 5, 6 — 10 is never flagged here,
+  // because the tube-light validity it asks about is the fixed pair printed on
+  // F/HR/18 beside it, see tools/plant_pattern.py). A register that
   // answered all ten the clean way every day for a year is a register nobody
   // is really walking round with — and this plant's own Dec-2023 GAP report
   // lists five things the contractor found, in the wording used here
@@ -243,16 +244,16 @@ function fillFlyCatcher(
   const verifier = master.employees.find((e) => e.id === "emp-checker-1")?.name ?? "Roshni";
   let missingDates = 0;
   const expiring: string[] = [];
-  const cycle = tubeLightCycleFor(dueDate);
+  const cycle = tubeLightCycle();
   // Catch counts follow the seasonal fly pattern per unit (engine/flyPattern.ts,
   // calibrated to the August-26 specimen) so the Fly Catcher Infestation
   // trend has a real shape — not a uniform random number per box.
   const entries = base.entries.map((e) => {
     const prev = previous?.data.entries.find((p) => p.pcId === e.pcId);
-    // Carried forward from the last visit; with no history, the register's
-    // own annual cycle — the F/HR/18 specimen has all thirteen units installed
-    // 24/12/25 and due 23/12/26, the tubes being changed together each
-    // December (engine/flyPattern.ts).
+    // Carried forward from the last visit; with no history, the register's own
+    // two fixed dates — every one of the thirteen units installed 24-11-2025
+    // and due 23-11-2026, the tubes being changed together
+    // (engine/flyPattern.ts, REQUIREMENTS §44).
     const install = prev?.tubeLightInstallDate ?? cycle.installed;
     const due = prev?.tubeLightDueDate ?? cycle.due;
     if (!prev?.tubeLightInstallDate || !prev?.tubeLightDueDate) missingDates += 1;
@@ -277,7 +278,7 @@ function fillFlyCatcher(
   ];
   if (missingDates > 0) {
     notes.push(
-      `Tube light dates for ${missingDates === entries.length ? "all units" : `${missingDates} unit(s)`} set from the register's annual cycle — installed ${formatDisplayDate(cycle.installed)}, due ${formatDisplayDate(cycle.due)}, as on the F/HR/18 specimen (all 13 units changed together each December). Correct them if a tube was changed in between.`
+      `Tube light dates for ${missingDates === entries.length ? "all units" : `${missingDates} unit(s)`} taken from the F/HR/18 register itself — installed ${formatDisplayDate(cycle.installed)}, replacement due ${formatDisplayDate(cycle.due)}, the same on every unit. Correct them if a tube has been changed since.`
     );
   } else {
     notes.push("Tube light install / due dates carried forward from your last record.");

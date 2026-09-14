@@ -163,6 +163,30 @@ The run below is the production shape end to end: `frontend/scripts/build.ts` bu
 `backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every suite
 runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts.
 
+### The fly catcher tube lights (13-Sep-2026)
+
+The department gave the two dates: installation 24-11-2025, replacement due 23-11-2026, fixed, every
+unit. The app had been COMPUTING them from the service date on a rolling annual cycle it read off the
+photographed specimen as December. Two constants replaced the function (REQUIREMENTS §44).
+
+A four-angle adversarial sweep over that change — every producer of a tube-light date; carry-forward
+and preservation; what the person and the paper see; stale statements, tests and the model's prompt —
+found five further routes by which the old dates or blanks could still appear, and each is fixed. The
+one that mattered most was not in the code at all: **records already stored in a browser** were
+written by the old code, and because auto-fill carries the previous visit's dates forward, a single
+stale record would have kept seeding the next one indefinitely. `src/engine/tubeLightMigration.ts`
+corrects those at boot, touching only values the old code could have produced and only drafts, logged
+in each record's own history.
+
+The sweep also flagged the F/HR/18 register showing no tube-light dates, and the first reading of that
+was wrong. A fortnightly visit not yet carried out IS a blank line on the paper register, and the
+sheet reproduces that — but the tube in a unit was still fitted on 24-11-2025 and is still due on
+23-11-2026 whether or not this fortnight's inspection has happened, so those two cells are not a
+property of the visit. They now print on every line, dittoed on a unit's second line as the specimen
+writes them. The department's complaint on being shown the first cut was exactly this: the dates were
+on every record, and the register still looked empty. Worth remembering as a general lesson — a
+faithful reproduction of "what the paper does" is still wrong if it hides a fact the paper states.
+
 ### Three trend reports, the SOP withdrawn, the Attended column withdrawn (13-Sep-2026)
 
 The company's own trend file arrived with three pages, not two: RODENT, LIZARD and FLIES CATCH REPORT
@@ -856,17 +880,18 @@ figures above stand until the storage migration in DEPLOYMENT.md is done.
   catcher reports .pdf" and "trend analysis .pdf"). `FlyCatcherRegisterSheet.tsx` reproduces the
   two-page monthly register and `CatchTrendSheet.tsx` the trend report with its bar chart, both filled
   from the records — see REQUIREMENTS §26. Checked against the specimens on screen and in print
-  emulation (PC-01 reads `3/08/26 · 01 · 24/12/25 · 23/12/26 · Vijay · Roshni`, then `17/08/26 · 03 ·
+  emulation (PC-01 reads `3/08/26 · 01 · 24/11/25 · 23/11/26 · Vijay · Roshni`, then `17/08/26 · 03 ·
   " · "`; the Live rodent sheet shows 2024 all 0, 2025 May 1 + Jun 1 = 2, 2026 Jan–Jun as reported,
   Jul–Aug blank, September from the register). Eleven new smoke assertions: the sheet's title, year
   rows and 13-bar chart; the 2025 paper figures; register months tinted; future months blank; the fly
   trend in the same format; the register's two pages, legend, seven headings and header; its cells
-  written as the specimen writes them, with the annual tube cycle and ditto marks; and both sheets on
+  written as the specimen writes them, with the register's two fixed tube dates and ditto marks; and both sheets on
   their service pages. Two new visual-QA checks and screenshots. Three things this surfaced: (1) the
   register's VERIFIED BY column was clipped with the sidebar open — a generic `.doc-table th { nowrap }`
   rule later in the stylesheet was beating the register's wrapping headings; (2) §25 had staggered the
-  tube-light dates across the year, which the specimen contradicts (all 13 installed 24/12/25, due
-  23/12/26) — restored, and check point 10 is no longer generated as a finding; (3) the rodent report
+  tube-light dates across the year, which the specimen contradicts (all 13 installed and due on the
+  same pair of dates — later confirmed by the department as 24/11/25 and 23/11/26, REQUIREMENTS §44)
+  — restored, and check point 10 is no longer generated as a finding; (3) the rodent report
   counted blank future shells as "recorded days". The service page now also holds sheet tables, so its
   visit list got a `data-table="visits"` hook: the old `.doc-table tbody` selector hit four tables and
   crashed the smoke suite in strict mode on the first run.

@@ -532,7 +532,7 @@ export const REJECTION_REASONS: Record<string, string[]> = {
     "Checker name does not match the person who did the round."
   ],
   "fly-catcher": [
-    "Tube light validity dates missing for four units.",
+    "Catch count for PC-05 does not match the board photographed at cleaning.",
     "Catch counts entered for 11 of 13 units only."
   ],
   "service-report": [

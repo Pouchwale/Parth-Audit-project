@@ -21,7 +21,7 @@ import { fixedMaterialForServiceArea, normalizeServiceLines } from "../engine/se
 import { autoFillRecord } from "../engine/autoFill";
 import { createDefaultData } from "../engine/recordDefaults";
 import { describeRodentEvent, rodentEventFor } from "../engine/rodentPattern";
-import { flyCatchFor, tubeLightCycleFor } from "../engine/flyPattern";
+import { flyCatchFor, tubeLightCycle } from "../engine/flyPattern";
 import {
   checkpointFindingsFor,
   findingScheduleFor,
@@ -120,12 +120,11 @@ function buildFlyCatcherData(dueDate: string): FlyCatcherData {
     // Same "August-26" style as the paper register's Month & Year box.
     monthYear: `${MONTH_LONG[month]}-${String(year).slice(2)}`,
     entries: master.pcLocations.map((pc) => {
-      // Exactly as the F/HR/18 specimen records it: every unit's tubes were
-      // installed together on 24/12/25 and fall due together on 23/12/26 —
-      // they are changed at the December service each year
-      // (engine/flyPattern.ts tubeLightCycleFor). Cleaning by Vijay and
-      // verification by Roshni on every line, as on the specimen.
-      const tubes = tubeLightCycleFor(dueDate);
+      // The register's own two fixed dates, as the department states them: every
+      // unit's tubes installed together on 24-11-2025 and falling due together
+      // on 23-11-2026 (engine/flyPattern.ts, REQUIREMENTS §44). Cleaning by
+      // Vijay and verification by Roshni on every line, as on the specimen.
+      const tubes = tubeLightCycle();
       return {
         pcId: pc.id,
         // The same seasonal per-unit pattern the Live assistant uses, so the

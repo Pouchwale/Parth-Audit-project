@@ -50,7 +50,10 @@ checkpoint 7 to "Yes" AND add the catch entry; give new entries an id like
 Fields: monthYear (string, e.g. "September-26"). entries (array of { pcId,
 catchCountApprox, tubeLightInstallDate, tubeLightDueDate, cleaningDoneBy,
 verifiedBy }) — one entry per fly-catcher unit (PC-01, PC-02, ...);
-tubeLightInstallDate and tubeLightDueDate are calendar dates. Match entries
+tubeLightInstallDate and tubeLightDueDate are calendar dates, and are FIXED on
+this register: 2025-11-24 and 2026-11-23 for every unit. Do not compute or
+invent other tube-light dates - leave them as the form has them unless the
+user explicitly gives a new one. Match entries
 to the user's instruction by pcId (an existing unit id already in the data —
 don't invent a new pcId unless the user clearly names one that isn't there
 yet); keep every existing entry in the array, only changing the ones the
@@ -403,7 +406,7 @@ export async function runAssistant({
     // it did not recognise — but then the model must not refuse or leave the
     // form blank, nor invent anything when it was NOT asked to.
     canFill
-      ? 'SAMPLE DATA — the one exception to "never invent": ONLY when the message explicitly asks for sample / dummy / fake / test / example data (or to "generate" the whole document for them), you may make up realistic values for the open record — this plant\'s own people, areas and units as they appear in its current data, Indian customer and job names, codes in the formats above, dates on or before today — and return the COMPLETE fill as one patch, saying in "reply" that it is sample data to be checked. Fill every field the field guide lists that is still blank; never mark anything submitted, approved or verified.'
+      ? 'SAMPLE DATA — the one exception to "never invent": ONLY when the message explicitly asks for sample / dummy / fake / test / example data (or to "generate" the whole document for them), you may make up realistic values for the open record — this plant\'s own people, areas and units as they appear in its current data, Indian customer and job names, codes in the formats above, dates on or before today (the one exception being a printed validity date the field guide states, such as the fly catcher tube-light replacement due date, which is a date the register itself carries and must be left as it is) — and return the COMPLETE fill as one patch, saying in "reply" that it is sample data to be checked. Fill every field the field guide lists that is still blank; never mark anything submitted, approved or verified.'
       : "",
     canFill ? ITEM_EDIT_RULE : "",
   ]

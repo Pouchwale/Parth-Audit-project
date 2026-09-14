@@ -110,7 +110,8 @@ The app behaves like a personal assistant rather than a blank form:
   the paper report before that; and the **Fortnightly Fly Catcher Inspection & Cleaning Record
   (F/HR/18)** as its two-page monthly register exactly as on "Fly catcher reports .pdf" (Month &
   Year, the PC location legend, PC-01–08 on page 1 and PC-09–13 on page 2, one line per unit per
-  visit, dates written d/mm/yy and tube-light dates dittoed down). The same two sheets also sit
+  visit, dates written d/mm/yy and the two fixed tube-light dates — installed 24/11/25, due 23/11/26 —
+  dittoed down). The same two sheets also sit
   beside the services they belong to, on the Fly Control and Rat / Mice service pages; **Training & Reference** — Training
   Records and the Chemical Master. The assistant navigates there from plain speech ("show me the rat
   reports", "fly catcher infestation for this year").

@@ -84,7 +84,17 @@ export function addFlyCatcherVisit(dateISO: string, isDemo: boolean, by: string)
     entries: blank.entries.map((e) => {
       const p = previous?.data.entries.find((x) => x.pcId === e.pcId);
       if (!p) return e;
-      return { ...e, tubeLightInstallDate: p.tubeLightInstallDate, tubeLightDueDate: p.tubeLightDueDate, cleaningDoneBy: p.cleaningDoneBy ?? "", verifiedBy: p.verifiedBy ?? "" };
+      // The previous visit's dates, but never a blank over the register's own
+      // fixed pair: an older record written before those dates were pre-filled
+      // can hold nulls, and carrying those forward would print two empty cells
+      // on a sheet whose dates the department has stated (REQUIREMENTS §44).
+      return {
+        ...e,
+        tubeLightInstallDate: p.tubeLightInstallDate || e.tubeLightInstallDate,
+        tubeLightDueDate: p.tubeLightDueDate || e.tubeLightDueDate,
+        cleaningDoneBy: p.cleaningDoneBy ?? "",
+        verifiedBy: p.verifiedBy ?? "",
+      };
     }),
   };
   const now = new Date().toISOString();
@@ -102,7 +112,7 @@ export function addFlyCatcherVisit(dateISO: string, isDemo: boolean, by: string)
   const register = `${MONTH_NAMES[month]} ${year}`;
   const note = previous
     ? `Visit added to the ${register} F/HR/18 register. Tube-light dates and names carried forward from the ${formatDisplayDate(previous.dueDate)} visit; the counts are to be entered.`
-    : `Visit added to the ${register} F/HR/18 register; every column is to be entered.`;
+    : `Visit added to the ${register} F/HR/18 register with the tube-light dates the register carries; the counts and names are to be entered.`;
   let record = withEditHistory(shell, filled, by, { note });
   if (!record.history?.length) record = appendHistory(record, makeEntry("edited", by, { note }));
   return recordRepository.upsert(record as RecordInstance) as RecordInstance<FlyCatcherData>;

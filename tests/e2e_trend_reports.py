@@ -306,6 +306,104 @@ with sync_playwright() as p:
         )
 
     # ==================================================================
+    # 3b. The fly catcher tube-light dates are the register's fixed pair
+    # ==================================================================
+    # A fresh browser holds no F/HR/18 visit yet (the Live register cannot
+    # start before the browser first ran the system), so one is started the way
+    # a person would — which is also what proves a NEW sheet carries the dates
+    # rather than two blanks.
+    page.goto(f"{BASE}/index.html#/library")
+    page.wait_for_timeout(1300)
+    dismiss(page)
+    new_fly = page.locator("[data-action='new-record'][data-document='fly-catcher']")
+    check("A fly catcher inspection can be started from the library", new_fly.count() == 1)
+    if new_fly.count():
+        new_fly.first.click()
+        page.wait_for_timeout(1800)
+        dismiss(page)
+        close_assistant(page)
+        pairs = page.evaluate(
+            """() => {
+                 const all = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]');
+                 const fly = all.filter((r) => r.documentId === 'fly-catcher');
+                 const dates = new Set();
+                 let units = 0;
+                 for (const r of fly) for (const e of (r.data.entries || [])) {
+                   units += 1;
+                   dates.add(String(e.tubeLightInstallDate) + '|' + String(e.tubeLightDueDate));
+                 }
+                 return { records: fly.length, units, pairs: Array.from(dates) };
+               }"""
+        )
+        check("The new sheet has a line for every fly catcher unit", pairs["units"] >= 13, pairs)
+        check(
+            "Every unit carries the register's own fixed tube-light dates — installed 2025-11-24, due 2026-11-23",
+            pairs["pairs"] == ["2025-11-24|2026-11-23"],
+            pairs,
+        )
+
+        # ...and they are on the form a person actually fills, in its own two
+        # date boxes. The RENDERED F/HR/18 register is asserted in
+        # tests/e2e_smoke.py instead, against Demo Mode: a fortnightly visit
+        # that has not been carried out yet is deliberately a blank LINE on the
+        # paper register (FlyCatcherRegisterSheet.tsx, unitRows), so a sheet
+        # whose only visit is still due shows no dates at all - correctly.
+        # the New button already navigated to the record; nothing to re-open
+        date_values = page.eval_on_selector_all(
+            ".app-content input[type='date']", "els => els.map((e) => e.value).filter(Boolean)"
+        )
+        installs = [v for v in date_values if v == "2025-11-24"]
+        dues = [v for v in date_values if v == "2026-11-23"]
+        check(
+            "The form shows the installation date on every unit's line",
+            len(installs) >= 13,
+            {"installs": len(installs), "all": date_values[:6]},
+        )
+        check(
+            "...and the replacement due date on every one",
+            len(dues) >= 13,
+            {"dues": len(dues), "all": date_values[:6]},
+        )
+        check(
+            "...and no line carries the December pair the earlier version computed",
+            "2025-12-24" not in date_values and "2026-12-23" not in date_values,
+            date_values[:8],
+        )
+
+        # ...and, because the two dates are FIXED on this register, they are
+        # printed on EVERY line of the F/HR/18 sheet — a unit's line carries
+        # them whether or not that fortnight's visit has been carried out yet,
+        # with the ditto mark on the unit's second line as the specimen writes
+        # it. Only what the visit records stays blank until it happens.
+        page.goto(f"{BASE}/index.html#/pest/trend/fly-catcher")
+        page.wait_for_timeout(1900)
+        dismiss(page)
+        close_assistant(page)
+        lines = page.eval_on_selector_all(
+            ".fhr18-grid tbody.fhr18-unit tr",
+            "els => els.map((tr) => Array.from(tr.children).map((td) => (td.textContent || '').trim()))",
+        )
+        check("The F/HR/18 register has a two-line block for each of the thirteen units", len(lines) == 26, len(lines))
+        firsts = [l for l in lines if len(l) == 7]
+        seconds = [l for l in lines if len(l) == 6]
+        check(
+            "Every unit's first line prints installed 24/11/25 and due 23/11/26",
+            len(firsts) == 13 and all(l[3] == "24/11/25" and l[4] == "23/11/26" for l in firsts),
+            [l for l in firsts if not (l[3] == "24/11/25" and l[4] == "23/11/26")][:3] or len(firsts),
+        )
+        check(
+            "...and every second line dittoes them, as on the paper register",
+            len(seconds) == 13 and all(l[2] == '"' and l[3] == '"' for l in seconds),
+            [l for l in seconds if not (l[2] == '"' and l[3] == '"')][:3] or len(seconds),
+        )
+        sheet_text = page.locator(".fhr18-sheet").inner_text()
+        check(
+            "...and the December pair appears nowhere on the register",
+            "24/12/25" not in sheet_text and "23/12/26" not in sheet_text,
+            [line for line in sheet_text.splitlines() if "/12/" in line][:3],
+        )
+
+    # ==================================================================
     # 4. The SOP Reference is gone from the Pest Control module
     # ==================================================================
     page.goto(f"{BASE}/index.html#/pest-control")
