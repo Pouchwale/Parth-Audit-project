@@ -1,4 +1,5 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
+import { HR_LAYOUTS } from "./hrLayouts";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
 // photographed specimens in the uploaded "Audit documents.zip" (WhatsApp
@@ -377,6 +378,9 @@ Object.assign(LOG_SHEET_LAYOUTS, {
     specimenSource: "Photographed F/QC/13 register, 2 pages (filled 6-9-26, Lombardi, PO 89480)",
   } satisfies LogSheetLayout,
 });
+
+// The sixteen Human Resources formats, F/HR/01 to F/HR/22 — data/seed/hrLayouts.ts.
+Object.assign(LOG_SHEET_LAYOUTS, HR_LAYOUTS);
 
 export function getLogSheetLayout(documentId: string): LogSheetLayout | undefined {
   return LOG_SHEET_LAYOUTS[documentId];

@@ -565,16 +565,16 @@ def main():
         # ---- 12. Document Library ----
         page.click("text=Document Library")
         page.wait_for_timeout(300)
-        check("Document Library lists all 24 documents", page.locator(".doc-table tbody tr").count() == 24)
+        check("Document Library lists all 40 documents", page.locator(".doc-table tbody tr:not(.doc-section-row)").count() == 40)
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)
 
         # ---- 12a. Sidebar module accordion + module-filtered library deep link ----
-        header = page.locator(".nav-module-header:has-text('Pest Control')")
-        check("Sidebar has a collapsible Pest Control module header", header.count() == 1)
+        header = page.locator(".nav-module-header:has-text('Human Resources')")
+        check("Sidebar has a collapsible Human Resources module header", header.count() == 1)
         check("Sidebar has a CAPA module with Internal and External links", page.locator("a:has-text('Internal — Inspection Findings')").count() == 1 and page.locator("a:has-text('External — Customer Complaints')").count() == 1)
-        check("Pest Control module starts expanded (Training link visible)", page.locator("a:has-text('Training Records')").count() == 1)
+        check("Human Resources module starts expanded (Training link visible)", page.locator("a:has-text('Training Records')").count() == 1)
         header.click()
         page.wait_for_timeout(150)
         check("Collapsing the module header hides its links", page.locator("a:has-text('Training Records')").count() == 0)
@@ -631,12 +631,12 @@ def main():
         # which page is open, so checking the whole page would always fail.
         check("Filtered library shows only that module's documents", "Lamination — Production" not in page.locator(".app-content").inner_text())
 
-        # ---- 12c. Pest Control module: Daily Report / Service Reports / Trend Analysis ----
-        # The module is organised the way the department reads its paperwork
+        # ---- 12c. The pest control file inside Human Resources: Daily Report / Service Reports / Trend Analysis ----
+        # The file is organised the way the department reads its paperwork
         # (src/pages/PestControlPages.tsx); each group has its own page.
         check(
-            "Pest Control module lists its report groups in the sidebar",
-            all(page.locator(f".nav-sub-label:has-text('{h}')").count() == 1 for h in ["Daily Report", "Service Reports", "Trend Analysis", "Training & Reference"]),
+            "Human Resources module lists HR Records and the pest control file's groups in the sidebar",
+            all(page.locator(f".nav-sub-label:has-text('{h}')").count() == 1 for h in ["HR Records", "Pest Control", "Daily Report", "Service Reports", "Trend Analysis", "Training & Reference"]),
         )
         page.click("a:has-text('Rat / Mice')")
         page.wait_for_timeout(300)

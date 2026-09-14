@@ -90,6 +90,16 @@ Seven scripts live in `tests/`:
   `attended` field; and the SOP Reference is gone from the module, the sidebar, the library and this
   browser's document list, while the Service Agreement still carries all five services and their
   frequencies. Network-independent.
+- `tests/e2e_hr_module.py` - the Human Resources module (REQUIREMENTS §46): the library holds forty
+  documents and the module's twenty-six are shelved by section, HR's five groups then the pest control
+  file's four, with every one of the sixteen F/HR formats under the right one; the sidebar has a Human
+  Resources module and no Pest Control module, reading HR Records, then Pest Control and the file's
+  groups; the eight filled registers are on file as LIVE records with the PDFs' own figures - row
+  counts, first and last lines, named lines, the analysis sheet's percentages - and open read-only in
+  their own layout; a new record of each blank format opens with the paper's printed rows; a Quality
+  Control account sees nothing of it and a Human Resources account sees the module without CAPA.
+  Signs in as the trend suite's account, the departments suite's QC account, and an HR account of its
+  own. Network-independent.
 - `tests/e2e_departments.py` - departments, whole-document printing and the trend graph: an unassigned
   account covers every department; the Daily Report's status list and a service report's visit register
   print with the company's header block and Format No., nothing around them, and no table left as a
@@ -118,7 +128,7 @@ npm run test:e2e     # builds, boots backend/index.ts on :8842, runs e2e_smoke.p
                       # e2e_print_and_forms.py, e2e_capa_formats.py,
                       # e2e_agreement_and_cancel.py, e2e_crud.py,
                       # e2e_print_all_documents.py, e2e_assistant_fill.py and
-                      # e2e_departments.py, e2e_trend_reports.py
+                      # e2e_departments.py, e2e_trend_reports.py, e2e_hr_module.py
                       # against it, tears down
                       # (see scripts/run-e2e.ts)
 ```
@@ -143,6 +153,7 @@ python tests/e2e_print_all_documents.py
 python tests/e2e_assistant_fill.py
 python tests/e2e_departments.py
 python tests/e2e_trend_reports.py
+python tests/e2e_hr_module.py
 python tests/visual_qa.py
 python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actually resolve; edit
                                     # the BASE constant at the top if your server isn't on :8844
@@ -208,6 +219,35 @@ property of the visit. They now print on every line, dittoed on a unit's second 
 writes them. The department's complaint on being shown the first cut was exactly this: the dates were
 on every record, and the register still looked empty. Worth remembering as a general lesson — a
 faithful reproduction of "what the paper does" is still wrong if it hides a fact the paper states.
+
+### The Human Resources module: sixteen F/HR formats, and the pest control file inside it (14-Sep-2026)
+
+Sixteen F/HR PDFs arrived with "make HR module ... add those in HR Module only ... also added that Pest
+Control module and everything in HR Module". The Pest Control module became one shelf of a new Human
+Resources module (REQUIREMENTS s46); the sixteen formats are log-sheet layouts, and the eight
+registers that arrived filled are LIVE records line for line. `tests/e2e_hr_module.py` (**118
+checks**) is a transcription check like the trend suite - the row counts, first and last lines, named
+lines and the survey analysis percentages are typed from the PDFs - plus the library shelving, the
+sidebar, the read-only sheets, a new record of each blank format, and the QC / HR department views.
+
+`npm run typecheck` clean and `npm run test:e2e` green end to end - **821 checks across sixteen
+suites**, no JavaScript errors. The print-every-document and fill-every-document suites picked the
+sixteen new formats up by themselves, so each was started from the library, filled with sample data,
+submitted and printed. The live Groq suite `tests/e2e_assistant_chat.py` re-run on the same build: all
+checks passed. The Document Library is 40 documents now, not 24.
+
+What the work turned up:
+
+- **A module rename is an address change.** The smoke suite asked the assistant for "pest control
+  records" over a span and expected `#/files/pest-control/...`; with no Pest Control module the route
+  would have become the Human Resources module - every HR register included - which is not what the
+  words mean. So "pest" now names the pest control file (the module's shelf holding F/HR/17, F/HR/18,
+  the service reports and the training record), `pest-control` stays a valid Document Files scope for
+  exactly those documents, and old links keep working.
+- **Section rows are set in small capitals by CSS**, so a test must read `textContent`, not
+  `innerText`, to compare them with the seed - `innerText` reports the transformed text.
+- **Question 06 of the pre-employment declaration is twelve tick boxes**, so the form is 21 lines, not
+  the 22 first written down; the suite counts what the layout prints.
 
 ### Three trend reports, the SOP withdrawn, the Attended column withdrawn (13-Sep-2026)
 

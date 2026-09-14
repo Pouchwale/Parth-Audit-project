@@ -1851,6 +1851,121 @@ and a re-run "Fill again" still agree.
 - Covered by `tests/e2e_smoke.py`, in Demo Mode: the demo year's rodent catches are within three to
   four and spread across separate months, and the fly figures are higher in the rains than in summer.
 
+## 46. The Human Resources module — sixteen F/HR formats, and the pest control file inside it (14-Sep-2026)
+
+```
+REQUESTED            "make HR module So for that i am uploading mutiple files so add those in HR Module
+                      only ... also added that Pest Control module and everything in HR Module"
+SOURCE               Sixteen PDFs supplied 14-Sep-2026: F-HR-01 Personal Competence record (R-2023),
+                      F-HR-03 Operator skill matrix (2023), F-HR-04 Pre Employment Health declaration,
+                      F-HR-05 / F-HR-06 Induction Training programme (Staff / Operators), F-HR-07 Job
+                      responsibility & authorities (two files), F-HR-08 Employee wise Training need
+                      identification Record, F-HR-09 Training Calender (2026-27), F-HR-11 Training
+                      Evaluation sheet, F-HR-12 Training Feedback & Evaluation Record, F-HR-13
+                      Authorization for Mobile inside Plant, F-HR-14 Visitor health declaration record,
+                      F-HR-19 Monthly GMP Inspection record, F-HR-20 Product safety culture survey,
+                      F-HR-21 Product Safety Culture Survey analysis record, F-HR-22 Daily Employee
+                      Sanitation & Hygiene record
+DIGITAL TEMPLATE     src/data/seed/hrLayouts.ts (the sixteen log-sheet layouts), src/data/seed/hrRecords.ts
+                      (the filled registers, seeded LIVE), src/data/seed/documentDefinitions.ts (the
+                      definitions, the module and its sections), src/components/layout/Sidebar.tsx,
+                      src/pages/DocumentLibraryPage.tsx (section rows), src/engine/assistantLocal.ts
+                      (the documents by name), src/data/seed/departments.ts (all sixteen are HR's)
+```
+
+**ONE MODULE, TWO SHELVES.** The Pest Control module is gone as a module and has become one shelf of a
+new **Human Resources** module, exactly as asked: the module holds HR's own sixteen formats and, beside
+them, the whole pest control file — the ten documents that were the Pest Control module, unchanged,
+with their own pages, their four groups and their trend analyses. That is also what the company's own
+Master List of Formats says (§40): F/HR/17 and F/HR/18 are Human Resources' formats, filed with
+F/HR/15 to F/HR/19. In the sidebar the module reads **HR Records** (the sixteen formats, opening in the
+Document Library filtered to the module) and then **Pest Control** with the file's Overview and its
+Daily Report / Service Reports / Trend Analysis / Training & Reference groups. The Document Library
+shelves the module's twenty-six documents by section, each section named on a row of its own, HR's
+five groups first and then the pest control file's four (`HR_SECTIONS`, `PEST_CONTROL_SECTIONS`,
+`MODULE_SECTIONS`). `/library/human-resources` is the module's address; `/pest-control` stays the
+file's front door. Every one of the sixteen is Human Resources' in `departments.ts`, so a Quality
+Control account sees none of them and the refusal names the department.
+
+**THE SIXTEEN FORMATS.** All are grids, so all render through the generic `log-sheet` kind (§9), one
+layout each, with the paper's own wording — spelling included ("Calender", "Insection",
+"callibration", "Quality Supervisior" are the company's). Where the paper prints a table the system
+never fills (the skill grades, the induction topics, the mobile-usage designation matrix, the
+evaluation criteria, the Form-22 monthly problem counts) it is carried as a reference table; where it
+prints a list the system always fills (health questions, GMP points, survey attributes, days of the
+month) the rows are fixed. Nothing was added to a format.
+
+| Format | Document | Section | Records | On file |
+|---|---|---|---|---|
+| F/HR/01 | Personal Competence Records (Staff Members Only) | Personnel & Competence | Yearly, 1 Oct | **80 staff**, reviewed as on 01.10.2026 — Verified |
+| F/HR/03 | Skill Matrix - Operator | Personnel & Competence | Yearly, 1 Sep | **58 operators**, status as on 01.09.2026 — Verified |
+| F/HR/07 | Job Responsibility & Authority | Personnel & Competence | As required, one sheet per position | **8 positions** (Executive-Lab, Executive-Hr, Manager Dispatch & Logistics, Executive, Pouching Manager, Sales Coordination, Pouch-Manager, Quality Executive) — Verified |
+| F/HR/13 | Authorization for Mobile Usage in Plant Area | Personnel & Competence | As required | **37 authorisations** — Verified |
+| F/HR/08 | Employee Wise Training Need Identification Record | Training | Yearly, 1 Apr | **154 employees** for 01.04.2026 ~ 31.03.2027 — Submitted (ticks TBC, below) |
+| F/HR/09 | Training Plan Calender (Rev. 00 / 07.03.2022) | Training | Yearly, 1 Apr | **19 topics**, both pages — Verified |
+| F/HR/11 | Training Effectiveness Evaluation Record | Training | As required | blank format |
+| F/HR/12 | Training Feedback & Evaluation Record | Training | As required | blank format |
+| F/HR/04 | Pre-Employment Medical Health Declaration | Induction & Health | As required | blank format (10 questions, 06 as twelve lines — 21 rows) |
+| F/HR/05 | Induction Training Record — Staff (Supervisor & above) | Induction & Health | As required | blank format (5 topics with their responsibility) |
+| F/HR/06 | Induction Training Record — Operators / Workers | Induction & Health | As required | **28 inductions**, Jun-2025 to Jan-2026 — Verified |
+| F/HR/14 | Visitor Health Status Declaration Record | Induction & Health | As required | blank format (9 questions incl. body temperature) |
+| F/HR/19 | Monthly PRP Check List (GMP Inspection Record) | Hygiene & GMP | Monthly, 1st | blank format (55 points, 12 locations) |
+| F/HR/22 | Daily Personal Sanitation & Hygiene Inspection Report | Hygiene & GMP | Monthly, due at month end | blank month sheet (31 day lines × 9 checks) |
+| F/HR/20 | Product Safety Culture Survey | Product Safety Culture | As required, one form per employee | blank format (15 attributes, 7-point scale) |
+| F/HR/21 | Product Safety Culture Survey — Analysis | Product Safety Culture | Yearly, 31 Jan | **January 2026**, fifteen attributes, 63 respondents, 93.99% overall — Verified |
+
+**THE FILLED REGISTERS ARE LIVE RECORDS, LINE FOR LINE.** The eight registers that arrived filled are
+seeded the way the Dec-2023 GAP report and the two training records are (`hrRecords.ts`, merged by id
+into `SEED_HISTORICAL_RECORDS`): Verified, `isDemo: false`, submitted and verified "HR & Admin
+(register as supplied, 14-Sep-2026)". Names, designations and dates are as written, spelling and
+date style included — the competence register mixes `01.04.2014` with `4/30/2025`, and two operators'
+joining dates survive only as spreadsheet serials (`43893`, `45439`); all kept as printed, because a
+transcription that "tidies" is no longer a transcription. The analysis sheet's figures are as printed
+and nothing is recomputed (attribute 8 reads 63 actual against 58 ideal, 92.06%, as the sheet does).
+A yearly register's next issue starts from the whole previous register, not from two typical lines
+(`typicalRows: ROSTER` in the layouts).
+
+Three things are deliberately **not** transcribed, and the records say so:
+
+- **F/HR/08's topic ticks.** The 154 names and designations are in; the X marks did not survive the
+  PDF's text layer unambiguously enough to place against seventeen columns, so none is guessed. The
+  record is seeded *Submitted*, not Verified, with the note `TNI_NOTE` — HR ticks the topics from the
+  paper copy and verifies.
+- **F/HR/03's earlier issue.** The same PDF carries the 01.02.2025 skill matrix after the current one;
+  the 01.09.2026 status supersedes it and only that one is seeded.
+- **F/HR/07's duplicate.** The Executive-Lab sheet appears twice, near-identically, across the two
+  PDFs; it is one position and is seeded once (eight positions, not nine).
+
+**WHAT THE ASSISTANT DOES WITH THEM.** Each of the sixteen is named in the assistant's alias table
+("skill matrix", "training calendar", "gmp inspection", "visitor", "mobile", "hygiene", the format
+numbers…); "hr" and "human resources" name the module, and "pest" / "pest control" name the pest control
+file inside it — F/HR/17, F/HR/18, the service reports and the training record — so "pest control records
+from 1 to 19 January" opens exactly those, at the Document Files scope `pest-control`, which old links
+still resolve to (`engine/fileScope.ts`). The sample fill keeps to the
+plant's own people: a per-person form (pre-employment declaration, staff induction, trainer's
+evaluation, culture survey) is filled in the name of the person who answers for that document — the
+Manager – HR & Admin or the PSTL / Training Coordinator, via `documentRoleKeywords` — and the visitor
+declaration in the name of the plant's most regular visitor, Gurudev's technician. No applicant,
+visitor or respondent is invented. The two new master-data facts come from the registers themselves:
+Sandeep Parekh (Manager – HR & Admin, joined 05.07.2024) is added to Employees, and Ms. Kapila Barad's
+role gains "PSTL (Manager - QA)", which is how F/HR/13, F/HR/19 and F/HR/20 name her.
+
+**SCHEDULES ARE THIS SYSTEM'S, NOT THE PAPER'S.** None of the sixteen states a recurrence, so the
+cadence in the table above is assumed from what the register is: the competence review on 1 October
+and the skill matrix on 1 September (the dates the current issues are "as on"), the training need
+identification and calendar on 1 April (the training year), the GMP walk monthly, the hygiene sheet a
+monthly record filled day by day and due at the month's end (dayOfMonth 31 clamps to the month),
+the survey analysis each January (the round on file), and everything else as required. All are one
+line each in `documentDefinitions.ts` and are listed in the TO BE CONFIRMED list below.
+
+- Covered by `tests/e2e_hr_module.py` (**118 checks**): the forty-document library and the module's
+  twenty-six shelved by section, the sidebar, every seeded register's row count and its first, last
+  and named lines against the PDFs, the analysis sheet's figures, the sheets opening in their own
+  layout read-only, a new record of each blank format with the paper's printed rows, and the two
+  department views (QC sees nothing of it; HR sees the module and the pest control file, not CAPA).
+  `tests/e2e_print_all_documents.py` and `tests/e2e_assistant_fill.py` pick the sixteen up
+  automatically — each is started from the library, filled with sample data, submitted and printed.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -1916,6 +2031,20 @@ and a re-run "Fill again" still agree.
 18. **Which floor the Ink store is on.** The master list of Rodent Control areas has "Ink store -
     Ground floor" as row 4; the March-2026 specimen prints "First floor - Ink store" in that
     position. Master data, corrected in Master Data → Service Areas once confirmed.
+19. **F/HR/08's topic ticks** (§46). The 154 names and designations of the 01.04.2026 ~ 31.03.2027
+    Training Need Identification Record are on file; the X marks against the seventeen topics did
+    not survive the PDF's text layer unambiguously and are not guessed. The record is seeded
+    Submitted with a note to that effect — tick from the paper copy, then verify.
+20. **F/HR/09, topic 10's training duration** ("Quality & Product safety Policy + PRP Policies") is
+    not legible on the supplied copy — marked TO BE CONFIRMED on the calendar.
+21. **F/HR/07's Executive-Lab sheet appears twice** across the two PDFs, near-identically; seeded once.
+    Say so if the second is a different position. Also: F/HR/01 is "Reviewed as on 01.10.2026", a
+    date after the copy was supplied (14-Sep-2026) — kept as printed; and F/HR/22 prints "Rev. 00"
+    without a revision date.
+22. **The cadence of the sixteen HR formats** (§46) is this system's assumption — competence review
+    1 Oct, skill matrix 1 Sep, TNI and calendar 1 Apr, GMP walk monthly on the 1st, hygiene sheet
+    monthly (due month end), survey analysis 31 Jan, the rest as required — since none of the formats
+    states one. Each is one line in `documentDefinitions.ts`.
 
 ## How the assistant pre-fills records (and what it never does)
 

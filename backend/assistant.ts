@@ -106,7 +106,7 @@ with today's date when they say something was done, notRequired=true for
 "not required"/"N/A". Never change activity text or srNo. ${DATE_TIME_RULE}
 ${CODE_FORMAT_RULE}`,
   "log-sheet": `
-A tabular log sheet (lamination QC / production register). Fields: header
+A tabular log sheet (a lamination QC / production register, or one of the HR formats). Fields: header
 (object of string values keyed by field key) and rows (array of row objects,
 each with an "id" plus one value per column key). The current data carries a
 "_layout" object describing the form: _layout.headerFields lists the header
@@ -227,14 +227,21 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
 - /dashboard — the home/overview screen
 - /library — Document Library, every controlled document
 - /library/{moduleSlug} — Document Library filtered to one module. moduleSlug is the module name,
-  lowercased, non-letters/digits turned into single hyphens: "pest-control", "lamination-quality-control",
+  lowercased, non-letters/digits turned into single hyphens: "human-resources" (the Human Resources module — HR's
+  sixteen F/HR formats and the pest control file), "lamination-quality-control",
   "lamination-production", "quality-control-inspection-records", "quality-compliance"
 - /files/{scope}/{from}/{to} — Document Files: every record filed by module → document → month, for EXACTLY the
-  dates from..to (ISO YYYY-MM-DD). scope is "all", a moduleSlug (as above), or comma-separated document ids
+  dates from..to (ISO YYYY-MM-DD). scope is "all", a moduleSlug (as above), "pest-control" (the pest control
+  file — the shelf of the Human Resources module holding the daily monitoring record, the fly catcher register,
+  the three service reports and the training record; use it for "pest control documents / records / files"), or
+  comma-separated document ids
   (daily-pest-monitoring, fly-catcher, service-report-rodent, service-report-general, service-report-fly,
   gap-inspection, capa-customer-complaint, training-record, qc-viscosity, qc-adhesive-mixing, qc-temperature,
   prd-process-parameter, prd-alc-production, qc-inspection-pouching, qc-inspection-slitting,
-  qc-inspection-printed-film, qc-inprocess-printing). Use it whenever the user asks for the documents / records /
+  qc-inspection-printed-film, qc-inprocess-printing, hr-competence, hr-skill-matrix, hr-pre-employment-health,
+  hr-induction-staff, hr-induction-operators, hr-job-responsibility, hr-training-needs, hr-training-calendar,
+  hr-training-effectiveness, hr-training-feedback, hr-mobile-authorization, hr-visitor-health, hr-gmp-checklist,
+  hr-psc-survey, hr-psc-survey-analysis, hr-hygiene-report). Use it whenever the user asks for the documents / records /
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
   NOT the calendar, which would show the whole month.
@@ -247,7 +254,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   lizard (Lizard Catch Trend), flycatcher (Fly Catcher Infestation, which carries the Flies Catch Trend),
   training (Training Status),
   lamination (Lamination QC). Default to "monthly" if the user didn't ask for a specific kind of report.
-- /pest-control — the Pest Control module overview: Daily Report, Service Reports, Trend Analysis, Training & Reference
+- /pest-control — the Pest Control overview (the pest control file inside the Human Resources module): Daily Report, Service Reports, Trend Analysis, Training & Reference
 - /pest/daily — the Daily Pest Control Monitoring Record (F/HR/17) register for the current month
 - /pest/daily/{year}/{month0} — that register for a specific month
 - /pest/service/rodent — the Rat / Mice service reports (Rodent Control Service, by Gurudev Pest Control). Use for
@@ -371,7 +378,8 @@ export async function runAssistant({
     // a vague "stay on topic" instruction leaks answers with a disclaimer.
     [
       "SCOPE — the rule you must never break. You help ONLY with this system: its records, documents and formats, its",
-      "modules (Pest Control, CAPA, Lamination QC & Production, QC Inspection, Compliance), the calendar and company",
+      "modules (Human Resources — its HR formats and the pest control file — CAPA, Lamination QC & Production, QC",
+      "Inspection, Compliance), the calendar and company",
       "holidays, reports, master data, and filling in / submitting / verifying / finding those records.",
       "Anything else — general knowledge, news, sport, weather, maths, jokes, poems or any creative writing, recipes,",
       "programming, medical, legal or financial advice, other companies' products — is OUT OF SCOPE: do NOT answer it,",

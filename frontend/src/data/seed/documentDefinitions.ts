@@ -19,17 +19,26 @@ import type { DocumentDefinition } from "../../types";
 //   record. The chemical chart stays — that one IS the company's.
 export const RETIRED_DOCUMENT_IDS: string[] = ["service-report-lizard", "sop-reference"];
 
-// The Pest Control module's sub-groups, in display order — see DocumentDefinition.section.
+// THE HUMAN RESOURCES MODULE'S SUB-GROUPS, in display order — see
+// DocumentDefinition.section. The module holds two things (REQUIREMENTS §46):
+// HR's own sixteen F/HR formats, supplied on 14-Sep-2026, in five groups, and
+// the pest control file — F/HR/17, F/HR/18 and what is filed with them, which
+// the company's Master List of Formats also puts under HR — in the four groups
+// the department reads that file in (its pages are organised by them).
+export const HR_SECTIONS = ["Personnel & Competence", "Training", "Induction & Health", "Hygiene & GMP", "Product Safety Culture"] as const;
 export const PEST_CONTROL_SECTIONS = ["Daily Report", "Service Reports", "Trend Analysis", "Training & Reference"] as const;
+export const MODULE_SECTIONS: readonly string[] = [...HR_SECTIONS, ...PEST_CONTROL_SECTIONS];
 
 // Every controlled document / form actually identified in the uploaded
 // source files. See REQUIREMENTS.md for full source-to-digital traceability.
 export const SEED_DOCUMENTS: DocumentDefinition[] = [
   // ---------------------------------------------------------------------
-  // Pest Control — organised the way the department reads its paperwork:
+  // Human Resources — the pest control file, organised the way the
+  // department reads its paperwork:
   //   Daily Report → Service Reports (Rat / Mice, Ants & Cockroaches, Fly)
   //   → Trend Analysis (Rodent catch, Fly catcher infestation)
   //   → Training & Reference. See src/pages/PestControlPages.tsx.
+  // The module's own sixteen F/HR formats follow, after the licence.
   // ---------------------------------------------------------------------
   {
     id: "daily-pest-monitoring",
@@ -39,7 +48,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "00",
     revisionDate: "2021-12-01",
     department: "Production / HR",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Daily Report",
     frequency: "Daily",
     status: "Configured",
@@ -56,7 +65,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "TO BE CONFIRMED",
     revisionDate: null,
     department: "Pest Control Service Provider (Gurudev Pest Control)",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Service Reports",
     frequency: "Fortnightly",
     status: "Configured",
@@ -74,7 +83,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "TO BE CONFIRMED",
     revisionDate: null,
     department: "Pest Control Service Provider (Gurudev Pest Control)",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Service Reports",
     frequency: "Fortnightly",
     status: "Configured",
@@ -92,7 +101,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "TO BE CONFIRMED",
     revisionDate: null,
     department: "Pest Control Service Provider (Gurudev Pest Control)",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Service Reports",
     frequency: "Fortnightly",
     status: "Configured",
@@ -110,7 +119,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "02",
     revisionDate: "2024-12-15",
     department: "Housekeeping",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Trend Analysis",
     frequency: "Fortnightly",
     status: "Configured",
@@ -174,7 +183,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "TO BE CONFIRMED",
     revisionDate: "2025-01-01",
     department: "Quality / Purchase",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Training & Reference",
     frequency: "As Required",
     status: "Configured",
@@ -191,7 +200,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "TO BE CONFIRMED",
     revisionDate: "2026-09-12",
     department: "Quality / Purchase",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Training & Reference",
     frequency: "As Required",
     status: "Configured",
@@ -208,7 +217,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "TO BE CONFIRMED",
     revisionDate: null,
     department: "HR / Pest Control Service Provider",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Training & Reference",
     frequency: "Yearly",
     status: "Configured",
@@ -225,7 +234,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "TO BE CONFIRMED",
     revisionDate: null,
     department: "Pest Control Service Provider",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Training & Reference",
     frequency: "As Required",
     status: "Configured",
@@ -242,7 +251,7 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "TO BE CONFIRMED",
     revisionDate: "2023-04-12",
     department: "Pest Control Service Provider (Gurudev Pest Control / Gurudev Pesticides)",
-    module: "Pest Control",
+    module: "Human Resources",
     section: "Training & Reference",
     frequency: "As Required",
     status: "Configured",
@@ -251,6 +260,286 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     sourceFile: "Service licence GP3 kapila mam.pdf (2 pages, scanned)",
     schedule: { type: "as-required" },
     isReferenceOnly: true,
+  },
+
+  // ---------------------------------------------------------------------
+  // Human Resources — the department's own formats, sixteen F/HR/… PDFs
+  // supplied on 14-Sep-2026 (REQUIREMENTS §46). All are grids rendered
+  // through the generic "log-sheet" kind; their layouts are in
+  // src/data/seed/hrLayouts.ts and the filled registers among them are
+  // seeded as LIVE records in src/data/seed/hrRecords.ts.
+  // ---------------------------------------------------------------------
+  {
+    id: "hr-competence",
+    kind: "log-sheet",
+    name: "Personal Competence Records (Staff Members Only)",
+    formatNo: "F/HR/01",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Personnel & Competence",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "One line per staff member: department, designation, the education and experience the position requires against what the person holds, the justification for any gap, and the dates of joining and leaving — reviewed as on a date written at the top. The current review (80 staff, reviewed as on 01.10.2026) is on file.",
+    sourceFile: "F-HR-01_Personal Competence record (R-2023).pdf",
+    schedule: { type: "yearly", month: 9, dayOfMonth: 1 },
+  },
+  {
+    id: "hr-skill-matrix",
+    kind: "log-sheet",
+    name: "Skill Matrix - Operator",
+    formatNo: "F/HR/03",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Personnel & Competence",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "One line per operator, with points under each of fourteen operations — 5 (S) can operate individually, 3 (SS) under supervision, 1 (US) cannot — and the status of skill up-gradation, as on a date. The current matrix (58 operators, status as on 01.09.2026) is on file.",
+    sourceFile: "F-HR-03_Operator skill matr3ix-2023.pdf",
+    schedule: { type: "yearly", month: 8, dayOfMonth: 1 },
+  },
+  {
+    id: "hr-job-responsibility",
+    kind: "log-sheet",
+    name: "Job Responsibility & Authority",
+    formatNo: "F/HR/07",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Personnel & Competence",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One sheet per position: who it reports to, its responsibilities and authorities line by line, the delegation of duties during absence, the minimum qualification (as per the Employees Competence Chart) and the employee's signed acknowledgement. Eight positions are on file, from Executive-Lab to Quality Executive.",
+    sourceFile: "F-HR-07_Job responsibility & authorities (two PDFs, nine position sheets)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-mobile-authorization",
+    kind: "log-sheet",
+    name: "Authorization for Mobile Usage in Plant Area",
+    formatNo: "F/HR/13",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Personnel & Competence",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The personnel authorised to carry and use a mobile handset inside the plant — each with department & designation, signature, date of allowance and the PSTL's authorisation — under the printed rule about breakage and the glass policy, with the department-wise / designation-wise table of who may be allowed. The current list (37 people) is on file.",
+    sourceFile: "F-HR-13_Authorization for Mobile inside Plant.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-training-needs",
+    kind: "log-sheet",
+    name: "Employee Wise Training Need Identification Record",
+    formatNo: "F/HR/08",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Training",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "One line per employee, a tick under each of the seventeen training topics the person needs in the year (BRCGS awareness to testing method & calibration). The 01.04.2026 ~ 31.03.2027 record (154 employees) is on file with its names and designations; the topic ticks are TO BE CONFIRMED from the paper copy.",
+    sourceFile: "F-HR-08_Employee wise Training need identification Record(2024-25).pdf",
+    schedule: { type: "yearly", month: 3, dayOfMonth: 1 },
+  },
+  {
+    id: "hr-training-calendar",
+    kind: "log-sheet",
+    name: "Training Plan Calender",
+    formatNo: "F/HR/09",
+    revisionNo: "00",
+    revisionDate: "2022-03-07",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Training",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "Nineteen topics, each with its source, method, duration and method of evaluation, planned month by month from April to March with the actual date each training was held. The 01.04.2026 ~ 31.03.2027 calendar is on file, both pages.",
+    sourceFile: "F-HR-09_Training Calender(2026-27).pdf",
+    schedule: { type: "yearly", month: 3, dayOfMonth: 1 },
+  },
+  {
+    id: "hr-training-effectiveness",
+    kind: "log-sheet",
+    name: "Training Effectiveness Evaluation Record",
+    formatNo: "F/HR/11",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Training",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "Two pages per trainee: the trainer's evaluation by the trainee — structure, methodology, content, delivery and interaction rated 1 to 10, then the trainer's knowledge, interest and encouragement graded — and, after a period, the trainee's evaluation by the trainer or reporting officer: method of evaluation, whether the trainee benefited and applies it, further training needed, HOD's comments.",
+    sourceFile: "F-HR-11_Trainging Evaluation sheet.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-training-feedback",
+    kind: "log-sheet",
+    name: "Training Feedback & Evaluation Record",
+    formatNo: "F/HR/12",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Training",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One sheet per training session — date, topic, who imparted it and its duration — then one line per employee: whether the employee grasped and adopted the knowledge or skill (rated 0 to 3 against the printed criteria), whether additional training is needed, and remarks; evaluated and signed.",
+    sourceFile: "F-HR-12_Training Feedback & Evaluation Record (1).pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-pre-employment-health",
+    kind: "log-sheet",
+    name: "Pre-Employment Medical Health Declaration",
+    formatNo: "F/HR/04",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Induction & Health",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "Completed by an applicant before employment: ten questions on infections, food poisoning, skin complaints, chest and other conditions (question 06's twelve tick boxes are one line each), footwear, physical work, specialist referrals and family history — each answered Yes / No with details — signed and dated. Treated as private and confidential.",
+    sourceFile: "F-HR-04_Pre Employment Health declaration.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-induction-staff",
+    kind: "log-sheet",
+    name: "Induction Training Record — New Employee (Staff: Supervisor & Above)",
+    formatNo: "F/HR/05",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Induction & Health",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One record per new staff member: five induction topics — company profile; GMP, pest control, waste management and personal hygiene; quality and product safety policies; HARA / CCP awareness; fire safety — each with its responsibility, planned date and actual date with initial, signed off by the Manager – HR & Admin and the employee.",
+    sourceFile: "F-HR-05_Induction Training  programme-Staff.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-induction-operators",
+    kind: "log-sheet",
+    name: "Induction Training Record — Operators / Workers",
+    formatNo: "F/HR/06",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Induction & Health",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The register of operators and workers inducted: one line per person with the joining department & designation, the date of joining and induction, and the signatures of the department HOD, Head HR & Admin and the operator, against the six printed induction topics. The 28 inductions of Jun-2025 to Jan-2026 are on file.",
+    sourceFile: "F-HR-06_Induction Training  programme -Operators.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-visitor-health",
+    kind: "log-sheet",
+    name: "Visitor Health Status Declaration Record",
+    formatNo: "F/HR/14",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Induction & Health",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "Completed by every visitor entering the factory: name, designation, company and purpose; nine health questions — sickness, wounds, fever, breathing, recent travel and COVID-19 contact, and the body temperature as taken by the security guard — answered Yes / No; the hygiene rules for entry to the processing area; and the visitor's and the company representative's signatures.",
+    sourceFile: "F-HR-14_Visitor health declaration record.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-gmp-checklist",
+    kind: "log-sheet",
+    name: "Monthly PRP Check List (GMP Inspection Record)",
+    formatNo: "F/HR/19",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Hygiene & GMP",
+    frequency: "Monthly",
+    status: "Configured",
+    description:
+      "Fifty-five GMP points walked once a month by the HARA team across twelve locations, outside premises to lunch rooms — each answered Yes / No with the action taken if NC — and the inspection team's names, departments, processes, designations and signatures on the last page.",
+    sourceFile: "F-HR-19_Monthly GMP Inspection record.pdf",
+    schedule: { type: "monthly", dayOfMonth: 1 },
+  },
+  {
+    id: "hr-hygiene-report",
+    kind: "log-sheet",
+    name: "Daily Personal Sanitation & Hygiene Inspection Report",
+    formatNo: "F/HR/22",
+    revisionNo: "00",
+    revisionDate: null,
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Hygiene & GMP",
+    frequency: "Monthly",
+    status: "Configured",
+    description:
+      "One sheet per month, one line per day: the nine personal hygiene checks made at frisking — finger-nails, jewellery, protective clothing and PPE, sickness or wounds, hair and beard, footwear, food and tobacco, nail polish and bindi, strong scent — each Yes / No, with the observation, the corrective action and who checked. Due at the month's end; a day's line is filled on the day.",
+    sourceFile: "F-HR-22_Daily Employee Sanitation & Hygiene record.pdf",
+    schedule: { type: "monthly", dayOfMonth: 31 },
+  },
+  {
+    id: "hr-psc-survey",
+    kind: "log-sheet",
+    name: "Product Safety Culture Survey",
+    formatNo: "F/HR/20",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Product Safety Culture",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One form per employee, issued in English and Gujarati: fifteen statements about product safety and quality culture — speaking up, management commitment, procedures, time pressure, root causes, training, equipment — each answered on the printed seven-point scale from Strongly Agree (7) to Strongly Disagree (1).",
+    sourceFile: "F-HR-20_Product safety culture survey (1).pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "hr-psc-survey-analysis",
+    kind: "log-sheet",
+    name: "Product Safety Culture Survey — Analysis",
+    formatNo: "F/HR/21",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Product Safety Culture",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The analysis of one survey round: for each of the fifteen attributes, how many responses fell at each point of the scale, the actual and ideal weighted responses and the percentage achieved, with the overall figure. The January-2026 analysis (63 respondents, 93.99% overall) is on file exactly as printed — nothing recomputed.",
+    sourceFile: "F-HR-21_Product Safety Culture Survey analysis record.pdf",
+    schedule: { type: "yearly", month: 0, dayOfMonth: 31 },
   },
 
   // ---------------------------------------------------------------------

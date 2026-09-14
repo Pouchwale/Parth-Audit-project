@@ -45,9 +45,9 @@ interface NavItem {
 }
 
 // A module's body is a list of links, optionally broken up by small
-// sub-headings — the Pest Control module uses these for the groups the
-// department itself thinks in (Daily Report / Service Reports / Trend
-// Analysis / Training & Reference).
+// sub-headings — the Human Resources module uses these for HR's own records
+// and for the groups the department thinks of its pest control file in (Daily
+// Report / Service Reports / Trend Analysis / Training & Reference).
 type NavEntry = NavItem | { headingKey: string };
 const isHeading = (e: NavEntry): e is { headingKey: string } => "headingKey" in e;
 
@@ -73,7 +73,7 @@ const NAV_MAIN: NavItem[] = [
 // lamination log sheets, the QC inspection records) still get a real
 // destination here.
 const MODULE_ORDER = [
-  "Pest Control",
+  "Human Resources",
   "CAPA (Corrective & Preventive Action)",
   "Lamination — Quality Control",
   "Lamination — Production",
@@ -86,7 +86,7 @@ type ModuleName = (typeof MODULE_ORDER)[number];
 // A face for each module, so a closed panel of six headers is still scannable
 // at a glance rather than six identical rows of text.
 const MODULE_ICONS: Record<ModuleName, IconType> = {
-  "Pest Control": FiActivity,
+  "Human Resources": FiUsers,
   "CAPA (Corrective & Preventive Action)": FiAlertCircle,
   "Lamination — Quality Control": FiLayers,
   "Lamination — Production": FiPackage,
@@ -95,11 +95,17 @@ const MODULE_ICONS: Record<ModuleName, IconType> = {
 };
 
 const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
-  // Organised the way the pest-control paperwork actually falls (see
-  // src/pages/PestControlPages.tsx): the daily report, Gurudev Pest
-  // Control's three service reports, the two trend analyses drawn from
-  // them, and the training / reference material.
-  "Pest Control": [
+  // The Human Resources module holds two things (REQUIREMENTS §46): HR's own
+  // sixteen F/HR formats — personnel, training, induction and health, hygiene
+  // and GMP, the product safety culture survey — which open in the Document
+  // Library filtered to the module, and the pest control file, organised the
+  // way that paperwork actually falls (see src/pages/PestControlPages.tsx):
+  // the daily report, Gurudev Pest Control's three service reports, the trend
+  // analyses drawn from them, and the training / reference material.
+  "Human Resources": [
+    { headingKey: "nav.hrRecords" },
+    { to: "/library/human-resources", labelKey: "nav.hrDocuments", icon: FiBookOpen },
+    { headingKey: "nav.pestControlGroup" },
     { to: "/pest-control", labelKey: "nav.overview", icon: FiHome },
     { headingKey: "nav.dailyReport" },
     { to: "/pest/daily", labelKey: "nav.dailyPestMonitoring", icon: FiClipboard },
@@ -145,7 +151,30 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
 // Calendar, Reports, Search, Master Data, the assistant, Document Files, Demo
 // Mode and the module landing pages — and is always shown, because what those
 // screens list is already filtered document by document by the repository.
+// HR's own sixteen formats (data/seed/documentDefinitions.ts, REQUIREMENTS §46).
+const HR_DOCUMENT_IDS = [
+  "hr-competence",
+  "hr-skill-matrix",
+  "hr-job-responsibility",
+  "hr-mobile-authorization",
+  "hr-training-needs",
+  "hr-training-calendar",
+  "hr-training-effectiveness",
+  "hr-training-feedback",
+  "hr-pre-employment-health",
+  "hr-induction-staff",
+  "hr-induction-operators",
+  "hr-visitor-health",
+  "hr-gmp-checklist",
+  "hr-hygiene-report",
+  "hr-psc-survey",
+  "hr-psc-survey-analysis",
+] as const;
+
 const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
+  // The HR records link lists exactly these sixteen, so it is shown when any
+  // one of them is the viewer's.
+  "/library/human-resources": HR_DOCUMENT_IDS,
   "/pest/daily": ["daily-pest-monitoring"],
   "/pest/service/rodent": ["service-report-rodent"],
   "/pest/service/general": ["service-report-general"],

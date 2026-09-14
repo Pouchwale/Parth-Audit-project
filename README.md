@@ -1,4 +1,4 @@
-# Digital Controlled Record System — Pest Control · Lamination QC & Production · Compliance
+# Digital Controlled Record System — Human Resources & Pest Control · Lamination QC & Production · Compliance
 
 **Phase 1 prototype.** A digital reproduction of Gujarat Printpack Publication Pvt. Ltd.'s
 existing paper-based controlled records — not a generic document manager. Every screen is built
@@ -86,9 +86,10 @@ The app behaves like a personal assistant rather than a blank form:
   logged-in user; the approver then sees it and can approve (Verify) from the same chat, which stamps
   Approved By. Quick-reply answers never need the network; typed answers go through Groq and fall
   back gracefully. See `src/engine/guidedChecklist.ts`.
-- **The sidebar is organized module-by-module, collapsible, and can be closed altogether** — Pest
-  Control, CAPA, Lamination — Quality Control, Lamination — Production, Quality Control — Inspection
-  Records, and Quality — Compliance each carry their own icon and expand/collapse independently; a
+- **The sidebar is organized module-by-module, collapsible, and can be closed altogether** — Human
+  Resources (HR's sixteen F/HR formats under **HR Records**, and the whole pest control file under
+  **Pest Control**), CAPA, Lamination — Quality Control, Lamination — Production, Quality Control —
+  Inspection Records, and Quality — Compliance each carry their own icon and expand/collapse independently; a
   module you close stays closed until you open it again (remembered per browser), and one control
   collapses or expands all six at once. The module holding the page you're on stays marked with a dot
   even while shut. The whole panel closes from the **×** in its header or the button at the left of
@@ -96,7 +97,19 @@ The app behaves like a personal assistant rather than a blank form:
   button; that choice is remembered too. On a narrow window or tablet it becomes an overlay drawer
   instead, dismissed by the backdrop, Escape, or picking a link. Modules without their own list page
   link into Document Library pre-filtered to just that module (`/library/{module-slug}`).
-- **The Pest Control module is laid out the way the department reads its paperwork** (`/pest-control`
+- **The Human Resources module holds HR's own formats and the pest control file** (REQUIREMENTS §46).
+  The sixteen F/HR formats supplied on 14-Sep-2026 — Personal Competence Records, Skill Matrix, Job
+  Responsibility & Authority, mobile-usage authorisation, Training Need Identification, Training Plan
+  Calender, training effectiveness and feedback, pre-employment and visitor health declarations, the
+  two induction records, the Monthly PRP (GMP) check list, the Daily Personal Sanitation & Hygiene
+  sheet, and the Product Safety Culture Survey with its analysis — open from **HR Records** in the
+  Document Library filtered to the module (`/library/human-resources`), shelved by section. The eight
+  registers that arrived filled are on file as Live records line for line: 80 staff on the competence
+  register (reviewed as on 01.10.2026), 58 operators on the skill matrix, 28 inductions, eight
+  position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile
+  authorisations and the January-2026 survey analysis (93.99%). A Quality Control account sees none of
+  them.
+- **The pest control file inside it is laid out the way the department reads its paperwork** (`/pest-control`
   overview, `src/pages/PestControlPages.tsx`): **Daily Report** — the Daily Pest Control Monitoring
   Record as a month register (`/pest/daily`); **Service Reports** — Gurudev Pest Control's three
   fortnightly visit reports, Rat / Mice (Rodent Control Service), Ants & Cockroaches (General Pest
@@ -411,9 +424,21 @@ The app behaves like a personal assistant rather than a blank form:
 
 ## What's implemented
 
-**Documents (24 configured):**
+**Documents (40 configured):**
 
-- Pest Control (9), in the module's four groups — *Daily Report*: Daily Pest Control Monitoring
+- Human Resources — the department's own formats (16), in five groups (REQUIREMENTS §46) — *Personnel &
+  Competence*: Personal Competence Records (F/HR/01, yearly), Skill Matrix - Operator (F/HR/03,
+  yearly), Job Responsibility & Authority (F/HR/07), Authorization for Mobile Usage in Plant Area
+  (F/HR/13). *Training*: Employee Wise Training Need Identification Record (F/HR/08, yearly), Training
+  Plan Calender (F/HR/09, yearly), Training Effectiveness Evaluation Record (F/HR/11), Training
+  Feedback & Evaluation Record (F/HR/12). *Induction & Health*: Pre-Employment Medical Health
+  Declaration (F/HR/04), Induction Training Record — Staff (F/HR/05) and — Operators / Workers
+  (F/HR/06), Visitor Health Status Declaration Record (F/HR/14). *Hygiene & GMP*: Monthly PRP Check
+  List / GMP Inspection Record (F/HR/19, monthly), Daily Personal Sanitation & Hygiene Inspection
+  Report (F/HR/22, a month sheet). *Product Safety Culture*: the survey (F/HR/20) and its analysis
+  (F/HR/21, yearly). All are log sheets (`src/data/seed/hrLayouts.ts`); the filled registers among
+  them are seeded as history (`src/data/seed/hrRecords.ts`).
+- Human Resources — the pest control file (10), in its four groups — *Daily Report*: Daily Pest Control Monitoring
   Record (F/HR/17). *Service Reports*: Rat / Mice (Rodent Control Service), Ants & Cockroaches
   (General Pest Control Services), Fly Control Services — the three reports in the April-2026
   service-report workbook. *Trend Analysis*: Fortnightly Fly Catcher Inspection & Cleaning Record

@@ -10,7 +10,7 @@ import { createRecordForDocument, deletionLog } from "../engine/recordCrud";
 import type { DocumentDefinition } from "../types";
 import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
-import { PEST_CONTROL_SECTIONS } from "../data/seed/documentDefinitions";
+import { MODULE_SECTIONS } from "../data/seed/documentDefinitions";
 import { routeForRecord } from "../engine/reminders";
 import { departmentScopeLabel, isDocumentIdVisible } from "../engine/departmentScope";
 
@@ -49,9 +49,10 @@ const RECORDABLE_KINDS = new Set([
 ]);
 
 // Within a module, documents are listed in the order of their sections (the
-// department's own grouping — see DocumentDefinition.section); documents
-// without a section keep their seed order after any sectioned ones.
-const SECTION_ORDER: readonly string[] = PEST_CONTROL_SECTIONS;
+// department's own grouping — see DocumentDefinition.section), each section
+// named on a row of its own above its documents; documents without a section
+// keep their seed order after any sectioned ones.
+const SECTION_ORDER: readonly string[] = MODULE_SECTIONS;
 const sectionRank = (section: string | undefined) => {
   const i = section ? SECTION_ORDER.indexOf(section) : -1;
   return i === -1 ? SECTION_ORDER.length : i;
@@ -170,11 +171,19 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                 </tr>
               </thead>
               <tbody>
-                {list.map((d) => {
+                {list.map((d, i) => {
                   const info = getDocumentInfo(d, master);
                   const isOpen = expandedId === d.id;
+                  // A module that shelves its documents by section prints the
+                  // section's name above its first document.
+                  const sectionStart = !!d.section && (i === 0 || list[i - 1].section !== d.section);
                   return (
                     <React.Fragment key={d.id}>
+                      {sectionStart && (
+                        <tr className="doc-section-row" data-section={d.section}>
+                          <td colSpan={6}>{d.section}</td>
+                        </tr>
+                      )}
                       <tr className="card-clickable" onClick={() => setExpandedId(isOpen ? null : d.id)}>
                         <td>
                           <div className="flex items-center gap-2 wrap">

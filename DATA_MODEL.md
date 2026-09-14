@@ -67,7 +67,11 @@ acceptance band `min/max/nominal`, required, fixed), how rows are created (`free
 carry-forward, jitter, default). Payload is `LogSheetData { header, rows[] }`. Validation
 (`validation.ts`) and the assistant (`autoFill.ts`, and the field guide in `backend/assistant.ts`,
 run through Groq) are generic over the layout, so a sixth register is one layout entry +
-one DocumentDefinition row. `compliance-statement` is a second new kind: reference-only, content in
+one DocumentDefinition row. The sixteen Human Resources formats (REQUIREMENTS §46) are exactly that:
+`src/data/seed/hrLayouts.ts` holds their layouts (`HR_LAYOUTS`, merged into `LOG_SHEET_LAYOUTS`), and
+`src/data/seed/hrRecords.ts` the filled registers among them as seeded LIVE `RecordInstance<LogSheetData>`
+(`SEED_HR_RECORDS`, spread into `SEED_HISTORICAL_RECORDS`) — one record per register, or per position
+for the Job Responsibility & Authority sheets, with `periodKey` = `{documentId}:{dueDate}`. `compliance-statement` is a second new kind: reference-only, content in
 `complianceStatements.ts`, with a validity date the briefing tracks.
 
 ## The assistant: auto-fill + briefing
@@ -329,10 +333,13 @@ and re-run it rather than the `.ts`. The same generated module carries the fly-c
 turns into `FlyCatcherEntry.catchCountApprox`; `data/selectors.ts` (`flyStatsForYear`, `fliesInMonth`)
 adds those up per unit / per month for the Fly Catcher Infestation trend.
 
-`DocumentDefinition.section?: string` is an optional sub-grouping inside a module — Pest Control uses
-"Daily Report" / "Service Reports" / "Trend Analysis" / "Training & Reference" (order in
-`PEST_CONTROL_SECTIONS`, `data/seed/documentDefinitions.ts`). The Document Library sorts a module's
-rows by it; the Pest Control pages (`pages/PestControlPages.tsx`, routes `/pest-control`,
+`DocumentDefinition.section?: string` is an optional sub-grouping inside a module. The Human
+Resources module uses nine: its own "Personnel & Competence" / "Training" / "Induction & Health" /
+"Hygiene & GMP" / "Product Safety Culture" (`HR_SECTIONS`) for the sixteen F/HR formats, and the pest
+control file's "Daily Report" / "Service Reports" / "Trend Analysis" / "Training & Reference"
+(`PEST_CONTROL_SECTIONS`); `MODULE_SECTIONS` is the display order (`data/seed/documentDefinitions.ts`).
+The Document Library sorts a module's rows by it and prints each section's name on a row of its own
+(`tr.doc-section-row`); the Pest Control pages (`pages/PestControlPages.tsx`, routes `/pest-control`,
 `/pest/daily[/{y}/{m0}]`, `/pest/service/{rodent|general|fly}[/{y}]`, `/pest/trend/{rodent|fly-catcher}[/{y}]`,
 validated in `store/router.tsx`) are the module's own front door — they read the same
 `recordRepository` and never copy data. `RETIRED_DOCUMENT_IDS` (same seed file) lists withdrawn

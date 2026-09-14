@@ -11,7 +11,13 @@ export const SEED_MASTER_DATA: MasterData = {
     { id: "emp-vijay", name: "Vijay", role: "Fly Catcher Cleaning", department: "Housekeeping", active: true },
     { id: "emp-yogesh", name: "Yogesh Rathod", role: "Technician (Gurudev Pest Control)", department: "Pest Control Service Provider", active: true },
     { id: "emp-rohit", name: "Rohit Patel", role: "Signatory, Gurudev Pest Control", department: "Pest Control Service Provider", active: true },
-    { id: "emp-kapila", name: "Ms. Kapila Barad", role: "Client Contact Person / Training Coordinator", department: "Gujarat Printpack Publication Pvt. Ltd.", active: true },
+    // PSTL (Product Safety Team Leader) and Manager - QA on the F/HR formats of
+    // 14-Sep-2026: she signs the mobile authorisations, leads the HARA team's
+    // GMP inspection and runs the product safety culture survey.
+    { id: "emp-kapila", name: "Ms. Kapila Barad", role: "Client Contact Person / Training Coordinator / PSTL (Manager - QA)", department: "Gujarat Printpack Publication Pvt. Ltd.", active: true },
+    // Human Resources — named on the F/HR formats (F/HR/01 competence register:
+    // HR & Admin, Manager, joined 05.07.2024; F/HR/13: Hr Manager, 10/07/2024).
+    { id: "emp-sandeep", name: "Sandeep Parekh", role: "Manager – HR & Admin (Head – HR & Admin; signs the induction, competence and hygiene registers)", department: "HR & Admin", active: true },
     // Lamination QC / Production — names read off the photographed F-QC-30,
     // F-QC-32, Process Parameter and F-PRD-18 registers (Sept-2026).
     { id: "emp-gaurav", name: "Gaurav Singh", role: "Lamination Operator (Lamination-1)", department: "Production", active: true },
@@ -194,6 +200,26 @@ export const SEED_MASTER_DATA: MasterData = {
     "qc-inspection-slitting": "QA Inspector",
     "qc-inspection-printed-film": "QA Inspector",
     "qc-inprocess-printing": "QA Person",
+    // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46): the
+    // registers HR & Admin keeps, the training records the Training
+    // Coordinator keeps, and the PSTL's own — mobile authorisation, the HARA
+    // team's GMP inspection and the product safety culture survey.
+    "hr-competence": "HR & Admin",
+    "hr-skill-matrix": "HR & Admin",
+    "hr-pre-employment-health": "HR & Admin",
+    "hr-induction-staff": "HR & Admin",
+    "hr-induction-operators": "HR & Admin",
+    "hr-job-responsibility": "HR & Admin",
+    "hr-training-needs": "Training Coordinator",
+    "hr-training-calendar": "Training Coordinator",
+    "hr-training-effectiveness": "Training Coordinator",
+    "hr-training-feedback": "Training Coordinator",
+    "hr-mobile-authorization": "PSTL",
+    "hr-visitor-health": "HR & Admin",
+    "hr-gmp-checklist": "PSTL",
+    "hr-psc-survey": "PSTL",
+    "hr-psc-survey-analysis": "PSTL",
+    "hr-hygiene-report": "HR & Admin",
   },
 
   // "Gujarat Print Pack Leave Calendar 2026" (WhatsApp Image 2026-08-11 at

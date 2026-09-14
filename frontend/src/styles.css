@@ -629,6 +629,8 @@ textarea.input { resize: vertical; min-height: 60px; }
 .doc-table td { padding: 8px 10px; border-bottom: 1px solid var(--color-border); font-size: 13px; vertical-align: middle; }
 .doc-table tr:last-child td { border-bottom: none; }
 .doc-table tr:hover td { background: var(--color-surface-alt); }
+/* A module's documents shelved by section (Document Library): the section's name on a row of its own. */
+.doc-table tr.doc-section-row td, .doc-table tr.doc-section-row:hover td { background: var(--color-surface-alt); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); padding: 6px 10px; }
 .doc-table.compact td, .doc-table.compact th { padding: 6px 8px; }
 
 /* ---- Original-style document header block ---- */

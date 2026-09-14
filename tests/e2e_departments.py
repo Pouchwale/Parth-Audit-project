@@ -321,7 +321,7 @@ with sync_playwright() as p:
     )
     check(
         "The sidebar drops the modules that hold no QC document",
-        len(modules) < all_modules and not any("Pest Control" in m for m in modules) and not any("CAPA" in m for m in modules),
+        len(modules) < all_modules and not any("Human Resources" in m for m in modules) and not any("Pest Control" in m for m in modules) and not any("CAPA" in m for m in modules),
         modules,
     )
 

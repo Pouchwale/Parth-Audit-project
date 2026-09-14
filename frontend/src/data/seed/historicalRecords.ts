@@ -6,6 +6,7 @@
 import type { GapInspectionData, PestResponsibilitiesData, RecordInstance, TrainingRecordData } from "../../types";
 import { newPestResponsibilitiesData } from "./pestResponsibilities";
 import { generateId } from "../../utils/id";
+import { SEED_HR_RECORDS } from "./hrRecords";
 
 const now = new Date().toISOString();
 
@@ -203,4 +204,6 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   SEED_TRAINING_RECORD as RecordInstance,
   SEED_AWARENESS_TRAINING_RECORD as RecordInstance,
   SEED_PEST_RESPONSIBILITIES_RECORD as RecordInstance,
+  // The filled Human Resources registers supplied on 14-Sep-2026 (hrRecords.ts).
+  ...SEED_HR_RECORDS,
 ];

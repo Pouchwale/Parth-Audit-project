@@ -6,7 +6,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { computeBriefing } from "./assistantBriefing";
 import { departmentScopeLabel, documentDepartmentLabel, isDocumentIdVisible } from "./departmentScope";
 import { routeForRecord } from "./reminders";
-import { filesRoute, recordsInRange, scopeForDocuments } from "./fileScope";
+import { filesRoute, isPestFileDocument, recordsInRange, scopeForDocuments } from "./fileScope";
 import { dayInfo, describeDay, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG, type DayInfo } from "./holidays";
 import { t } from "../i18n";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
@@ -226,10 +226,32 @@ const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "qc-inspection-slitting", aliases: ["slitting inspection", "f/qc/35", "slitting"] },
   { id: "qc-inspection-printed-film", aliases: ["printed film inspection", "printed film", "f/qc/34"] },
   { id: "qc-inprocess-printing", aliases: ["in process quality control", "in-process quality control", "in process printing", "f/qc/13"] },
+  // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46).
+  { id: "hr-competence", aliases: ["personal competence", "competence record", "competence records", "competence chart", "f/hr/01", "competence"] },
+  { id: "hr-skill-matrix", aliases: ["skill matrix", "operator skill", "skill status", "f/hr/03"] },
+  { id: "hr-pre-employment-health", aliases: ["pre-employment", "pre employment", "medical health declaration", "medical declaration", "f/hr/04"] },
+  { id: "hr-induction-staff", aliases: ["staff induction", "induction staff", "induction record staff", "f/hr/05"] },
+  { id: "hr-induction-operators", aliases: ["operator induction", "operators induction", "induction operators", "induction training record", "induction training", "induction", "f/hr/06"] },
+  { id: "hr-job-responsibility", aliases: ["job responsibility", "job responsibilities", "responsibility and authority", "responsibility & authority", "job description", "f/hr/07"] },
+  { id: "hr-training-needs", aliases: ["training need identification", "training needs", "training need", "tni", "f/hr/08"] },
+  { id: "hr-training-calendar", aliases: ["training plan calender", "training calender", "training calendar", "training plan", "f/hr/09"] },
+  { id: "hr-training-effectiveness", aliases: ["training effectiveness", "effectiveness evaluation", "trainer evaluation", "f/hr/11"] },
+  { id: "hr-training-feedback", aliases: ["training feedback", "feedback & evaluation", "feedback and evaluation", "f/hr/12"] },
+  { id: "hr-mobile-authorization", aliases: ["mobile authorization", "mobile authorisation", "mobile usage", "mobile handset", "mobile", "f/hr/13"] },
+  { id: "hr-visitor-health", aliases: ["visitor health", "visitor declaration", "visitor", "visitors", "f/hr/14"] },
+  { id: "hr-gmp-checklist", aliases: ["gmp inspection", "gmp checklist", "gmp check list", "prp check list", "prp checklist", "monthly prp", "gmp", "f/hr/19"] },
+  { id: "hr-psc-survey", aliases: ["product safety culture survey", "culture survey", "psc survey", "safety culture", "f/hr/20"] },
+  { id: "hr-psc-survey-analysis", aliases: ["culture survey analysis", "survey analysis", "psc analysis", "f/hr/21"] },
+  { id: "hr-hygiene-report", aliases: ["hygiene inspection", "hygiene report", "personal hygiene", "sanitation", "hygiene", "frisking", "f/hr/22"] },
 ];
 
+// The pest control file is a shelf of the Human Resources module, not a module
+// (REQUIREMENTS §46): "pest" names that shelf — F/HR/17, F/HR/18, the service
+// reports, the training record — and not HR's competence or training registers.
+const PEST_FILE_ALIASES = ["pest control", "pest"];
+
 const MODULE_KEYWORDS: { module: string; aliases: string[] }[] = [
-  { module: "Pest Control", aliases: ["pest control", "pest"] },
+  { module: "Human Resources", aliases: ["human resources", "hr module", "hr records", "hr documents", "hr"] },
   { module: "Lamination — Quality Control", aliases: ["lamination qc", "lamination quality control", "lamination quality"] },
   { module: "Lamination — Production", aliases: ["lamination production"] },
   { module: "Quality Control — Inspection Records", aliases: ["inspection records", "inspection record", "qc inspection"] },
@@ -276,6 +298,7 @@ export function matchDocuments(lower: string): string[] {
   for (const { module, aliases } of MODULE_KEYWORDS) {
     if (mentionsAny(lower, aliases)) recordable.filter((d) => d.module === module).forEach((d) => ids.add(d.id));
   }
+  if (ids.size === 0 && mentionsAny(lower, PEST_FILE_ALIASES)) recordable.filter(isPestFileDocument).forEach((d) => ids.add(d.id));
   if (ids.size === 0 && /\blamination\b/i.test(lower)) {
     recordable.filter((d) => d.module.startsWith("Lamination")).forEach((d) => ids.add(d.id));
   }

@@ -4,6 +4,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { ensureDemoRecordsGeneratedForYear } from "../data/demoGenerator";
 import { ensureRecordsGeneratedForMonth } from "./recordGenerator";
 import { moduleSlug } from "../utils/moduleSlug";
+import { PEST_CONTROL_SECTIONS } from "../data/seed/documentDefinitions";
 import { compareISO, daysInMonth, pad2, todayISO } from "../utils/date";
 
 // DOCUMENT FILES — every record filed like a file system: module folder →
@@ -13,8 +14,10 @@ import { compareISO, daysInMonth, pad2, todayISO } from "../utils/date";
 // pest control documents from 1 to 19 January" or "lamination files from June
 // to August" — the files for that span, not the whole calendar of the month.
 //
-// A scope is "all", a module slug ("pest-control"), or comma-separated
-// document ids ("daily-pest-monitoring,fly-catcher").
+// A scope is "all", a module slug ("human-resources"), the pest control file
+// ("pest-control" — the shelf of the Human Resources module that holds
+// F/HR/17, F/HR/18, the service reports and the training record, REQUIREMENTS
+// §46), or comma-separated document ids ("daily-pest-monitoring,fly-catcher").
 
 /** A range this wide (in months) is the most one view shows. */
 export const FILES_MAX_MONTHS = 36;
@@ -28,11 +31,20 @@ export interface FileScope {
   module?: string;
 }
 
+/** The pest control file: the shelf of the Human Resources module the department reads as "pest control". */
+export const PEST_FILE_SCOPE = "pest-control";
+const PEST_SECTIONS: ReadonlySet<string> = new Set(PEST_CONTROL_SECTIONS);
+export const isPestFileDocument = (d: DocumentDefinition): boolean => d.module === "Human Resources" && PEST_SECTIONS.has(d.section ?? "");
+
 export function resolveFileScope(scope: string | undefined): FileScope {
   const recordable = documentRepository.getRecordable();
   if (!scope || scope === "all") return { docs: recordable, kind: "all" };
   const byModule = recordable.filter((d) => moduleSlug(d.module) === scope);
   if (byModule.length > 0) return { docs: byModule, kind: "module", module: byModule[0].module };
+  if (scope === PEST_FILE_SCOPE) {
+    const pest = recordable.filter(isPestFileDocument);
+    if (pest.length > 0) return { docs: pest, kind: "documents", module: "Human Resources" };
+  }
   const ids = new Set(scope.split(",").filter(Boolean));
   const docs = recordable.filter((d) => ids.has(d.id));
   const oneModule = docs.length > 0 && docs.every((d) => d.module === docs[0].module) ? docs[0].module : undefined;
@@ -49,6 +61,8 @@ export function scopeForDocuments(docIds: string[]): string {
     const inModule = recordable.filter((d) => d.module === modules[0]);
     if (inModule.length === wanted.size && inModule.every((d) => wanted.has(d.id))) return moduleSlug(modules[0]);
   }
+  const pest = recordable.filter(isPestFileDocument);
+  if (pest.length > 0 && pest.length === wanted.size && pest.every((d) => wanted.has(d.id))) return PEST_FILE_SCOPE;
   return docIds.join(",");
 }
 

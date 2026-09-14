@@ -56,7 +56,7 @@ export function departmentName(code: string): string {
 
 // WHICH DEPARTMENT OWNS EACH OF THIS SYSTEM'S DOCUMENTS.
 //
-// Kept here, in one auditable place, rather than as a field on each of the 25
+// Kept here, in one auditable place, rather than as a field on each of the
 // definitions: every line can be checked against the master list in one read.
 // Where the document has a format number the department follows from it and
 // the reason is that number. The formats this system holds that are still
@@ -74,6 +74,24 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "training-record": "HR", // TBC — training is HR's (F-HR-05..F-HR-12)
   "chemical-master": "HR", // TBC — the pesticide application chart the pest control file works to
   "gurudev-insecticide-licence": "HR", // TBC — the provider's licence, held in the pest control file
+
+  // --- Human Resources: the department's own formats (F-HR-01 … F-HR-22 on the master list; REQUIREMENTS §46)
+  "hr-competence": "HR", // F/HR/01
+  "hr-skill-matrix": "HR", // F/HR/03
+  "hr-pre-employment-health": "HR", // F/HR/04
+  "hr-induction-staff": "HR", // F/HR/05
+  "hr-induction-operators": "HR", // F/HR/06
+  "hr-job-responsibility": "HR", // F/HR/07
+  "hr-training-needs": "HR", // F/HR/08
+  "hr-training-calendar": "HR", // F/HR/09
+  "hr-training-effectiveness": "HR", // F/HR/11
+  "hr-training-feedback": "HR", // F/HR/12
+  "hr-mobile-authorization": "HR", // F/HR/13
+  "hr-visitor-health": "HR", // F/HR/14
+  "hr-gmp-checklist": "HR", // F/HR/19
+  "hr-psc-survey": "HR", // F/HR/20
+  "hr-psc-survey-analysis": "HR", // F/HR/21
+  "hr-hygiene-report": "HR", // F/HR/22
 
   // --- Purchase: the contract with the service provider
   "service-agreement": "PUR", // TBC — Purchase signs it (Manager, Purchase) and owns F-PUR-06, service provider performance
