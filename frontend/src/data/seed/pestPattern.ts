@@ -2,13 +2,22 @@
 // Python and re-run it. See that file for how each number was derived and
 // how each pattern was calibrated against the company's own documents
 // (Rodent Catch Report: 0 rodents in 2024, 2 in 2025, 0 through Jun-2026;
-// Fly Catcher register: August-2026 specimen, 0-3 flies per unit per visit).
+// Fly Catcher register: August-2026 specimen, 0-3 flies per unit per visit),
+// and to the department's own account of its year (13-Sep-2026): three to
+// four rodents a year, and flies busiest in the rains, busy again in winter,
+// quietest in the dry summer heat. See REQUIREMENTS §45.
 
 // ===================== RODENT (F/HR/17, checkpoints 7/8/9) =====================
 
-// Probability that a given calendar day has a rodent catch, by month
-// (Jan..Dec). Seasonal — peaks in the monsoon, ~5 catch days a year.
-export const RODENT_MONTHLY_RATE: number[] = [0.003, 0.0014, 0.003, 0.0075, 0.0137, 0.0199, 0.0244, 0.026, 0.0244, 0.0199, 0.0137, 0.0075];
+// How likely each month (Jan..Dec) is to be the one a rodent is caught in —
+// a weighting that sums to 1, peaking in the monsoon. It decides WHICH
+// months, never how many: the count is the quota below, drawn per year by
+// engine/rodentPattern.ts.
+export const RODENT_MONTH_WEIGHT: number[] = [0.0184, 0.0083, 0.0184, 0.0458, 0.0833, 0.1208, 0.1483, 0.1583, 0.1483, 0.1208, 0.0833, 0.0458];
+
+// Rodents caught in a year, inclusive — the department's own figure
+// (13-Sep-2026): three to four, in three or four different months.
+export const RODENT_CATCHES_PER_YEAR: [number, number] = [3, 4];
 
 // The 16 Rodent Control Service areas with catch weights and the numbered
 // trap boxes (RB-01..RB-100) each one owns.
@@ -117,9 +126,9 @@ export const RODENT_LOCATIONS: RodentLocationSpec[] = [
   }
 ];
 
-// Rodents per catch day.
-export const RODENT_COUNT_DIST: { count: number; p: number }[] = [{"count": 1, "p": 0.72}, {"count": 2, "p": 0.22}, {"count": 3, "p": 0.06}];
-export const RODENT_SECOND_LOCATION_P = 0.15;
+// Signs found in a box, which are not catches and so do not count against
+// the year's quota: bait-cake biting (check point 9) and a dead rodent
+// (check point 8).
 export const RODENT_CAKE_BITING_P = 0.35;
 export const RODENT_CAKE_BITING_ALONE_P = 0.012;
 export const RODENT_DEAD_P = 0.2;
@@ -128,14 +137,14 @@ export const RODENT_DEAD_P = 0.2;
 // Trapped on Glue boards in Roda-boxes; Unit: Number; Target Pest: Rodents.
 // null = month not yet reported on the source page.
 //
-// TWO ISSUES OF THE SAME REPORT have been supplied, and they agree on every
+// TWO ISSUES OF THE SAME REPORT have been supplied and they agree on every
 // cell both of them fill. This is the later one ("Kapila mam department
 // reports .pdf"), which completes 2025 and carries Jan-Jun 2026;
-// "GP-3 Trend Analysis - 2025.pdf" (13-Sep-2026) is the October-2025 snapshot
-// and leaves Nov/Dec 2025 and the Total blank. The complete row is kept so the
-// company's later figures are not discarded — REQUIREMENTS open question 10.
-// The lizard and flies pages of that same file, which have no earlier issue,
-// are in data/seed/trendReports.ts.
+// "GP-3 Trend Analysis - 2025.pdf" (13-Sep-2026) is the October-2025
+// snapshot and leaves Nov/Dec 2025 and the Total blank. The complete row is
+// kept so the company's later figures are not discarded — REQUIREMENTS open
+// question 10. The lizard and flies pages of that same file, which have no
+// earlier issue, are in data/seed/trendReports.ts.
 export interface RodentHistoryRow {
   year: number;
   months: (number | null)[];
@@ -203,7 +212,7 @@ export const RODENT_REPORT_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "
 // ===================== FLY CATCHERS (F/HR/18, PC-01..PC-13) =====================
 
 // Relative fly activity by month (Jan..Dec), 1.0 = the August peak.
-export const FLY_MONTHLY_FACTOR: number[] = [0.394, 0.35, 0.394, 0.513, 0.675, 0.838, 0.956, 1.0, 0.956, 0.838, 0.675, 0.513];
+export const FLY_MONTHLY_FACTOR: number[] = [0.8, 0.72, 0.5, 0.38, 0.34, 0.52, 0.92, 1.0, 0.94, 0.8, 0.74, 0.84];
 
 // Mean flies caught per unit per fortnightly visit in the peak month.
 export const FLY_UNIT_BASE: Record<string, number> = {

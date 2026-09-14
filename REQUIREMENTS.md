@@ -1800,6 +1800,57 @@ DIGITAL TEMPLATE     src/engine/flyPattern.ts (TUBE_LIGHT_INSTALLED / TUBE_LIGHT
   specimen writes them (`FlyCatcherRegisterSheet.tsx`). This was the department's actual complaint
   on being shown the first cut: the dates were on every record but the register still looked empty.
 
+## 45. The plant's own seasons, and its own rodent figures (13-Sep-2026)
+
+```
+REQUESTED            "in Fly catcher report the trend report will increase like according to season
+                      wise for example in rainy season and winter there is more Fly's then summer so
+                      data should be according to that and in rodent make three to four found in
+                      months or in a year"
+DIGITAL TEMPLATE     tools/pest_pattern.py (the calibration, regenerating
+                      src/data/seed/pestPattern.ts), src/engine/rodentPattern.ts (the year plan)
+```
+
+**THE FLY SEASON HAD ONE PEAK AND THE PLANT HAS TWO.** The seasonal curve was a single cosine peaking
+in the monsoon, which forced winter to be the quietest quarter of the year — measured over the
+register, winter averaged 15 flies a month against summer's 19. The department's year is not shaped
+like that: the rains are busiest, **winter is busy again** as the flies come indoors, and the dry
+summer heat is the quiet season. A cosine cannot say that, so the curve is now written out month by
+month (1.0 = August, keeping the photographed specimen's per-unit means calibrated):
+
+| | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| factor | 0.80 | 0.72 | 0.50 | 0.38 | 0.34 | 0.52 | 0.92 | **1.00** | 0.94 | 0.80 | 0.74 | 0.84 |
+
+Measured back off the seeded register for 2025-27, the monthly means now run **rainy 26-34 > winter
+22-24 > summer 11-16**, in that order every year. The generator asserts the ordering, so the shape
+cannot be lost by a later tweak. It also matches the plant's own trend report, where January-2024 is
+the heaviest month on the page at 30 gramms.
+
+**THREE TO FOUR RODENTS A YEAR IS A STATEMENT ABOUT THE YEAR**, and a per-day probability cannot hold
+one. At the rate that averages three and a half a year, the seeded draws gave 4, 2, 1, 1 and 5 across
+2024-28 — the variance of a few rare independent events is as large as the events. Earlier settings
+were worse the other way: ten catch days a year, then five, giving 4-9 rodents and arguing with the
+company's own Rodent Catch Report (0 in 2024, 2 in 2025) printed in the same table.
+
+So `engine/rodentPattern.ts` now **plans each year instead of rolling it day by day**: it draws three
+or four catches from the year alone, places each on a date chosen by the monsoon-leaning month
+weighting, and every other day of that year is quiet. Checked against the seeded draws themselves,
+every year from 2024 to 2033 lands on three or four rodents in three or four different months. The
+answer for any one date is still a pure function of that date, so the assistant's pre-fill, Demo Mode
+and a re-run "Fill again" still agree.
+
+- **What changed in the seed**: `RODENT_MONTHLY_RATE` (a per-day probability) became
+  `RODENT_MONTH_WEIGHT` (which months, summing to 1) plus `RODENT_CATCHES_PER_YEAR` (how many, `[3,
+  4]`). `RODENT_COUNT_DIST` and `RODENT_SECOND_LOCATION_P` are gone: both added rodents to a day and
+  so could not coexist with a yearly total. Bait-cake biting and a dead rodent observed are still
+  independent per-day draws — they are signs, not catches, and do not count against the year.
+- **A lesson about generated files.** The provenance note on the two issues of the Rodent Catch Report
+  had been hand-added to `pestPattern.ts`, which `tools/pest_pattern.py` overwrites — regenerating
+  silently erased it. It now lives in the generator's own emit list, where re-running preserves it.
+- Covered by `tests/e2e_smoke.py`, in Demo Mode: the demo year's rodent catches are within three to
+  four and spread across separate months, and the fly figures are higher in the rains than in summer.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

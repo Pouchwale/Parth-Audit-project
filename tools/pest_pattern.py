@@ -20,10 +20,10 @@ Two patterns live here:
     Calibrated to the company's own "Rodent Catch Report and Trend Analysis"
     (source-documents/Kapila mam department reports .pdf, page 1): 0 rodents
     in 2024, 2 in 2025 (May, June), 0 for Jan-Jun 2026 — a low, monsoon-
-    leaning incidence. The generated pattern keeps that seasonal shape but
-    is deliberately a little richer (roughly 8-12 catch days a year) so the
-    trend is visible in a demo year; the reported history is embedded
-    verbatim so the report can show both side by side.
+    leaning incidence. The generated pattern keeps that seasonal shape and is
+    set to the three or four rodents a year the department says the plant
+    actually catches (13-Sep-2026); the reported history is embedded verbatim
+    so the report can show both side by side.
 
   FLY — Fortnightly Fly Catcher Inspection & Cleaning Record (F/HR/18),
     "Flies Catch Count Approx." per unit PC-01..PC-13 per visit.
@@ -31,7 +31,9 @@ Two patterns live here:
     (3rd & 17th), counts 0-3 per unit, ~14 flies per visit in total. August
     is the peak month in Mehsana's calendar, so the specimen's per-unit
     averages are treated as the peak-month means and every other month is
-    scaled down by a seasonal factor (February ≈ a third of August).
+    scaled by the seasonal curve below — busiest in the rains, busy again in
+    winter, quietest in the dry summer heat, as the department describes its
+    own year (13-Sep-2026).
 
 Only the Python standard library and numpy are used. Deterministic (fixed
 seeds) so re-running it is a no-op unless the inputs below change.
@@ -56,16 +58,25 @@ months = np.arange(12)
 # catch. A smooth annual curve peaking in the monsoon (Jul-Sep), lowest in the
 # dry winter, scaled to ~10 catch days / year.
 seasonal = 1.0 + 0.9 * np.cos((months - 7) * 2 * np.pi / 12)  # peak at index 7 = August
-# Reconciled downwards (09-Sep-2026) from 10 to 5. The company's own Rodent
-# Catch Report — which the app prints alongside the digital total, so the two
-# sit in the same table for an auditor to compare — reports 0 rodents in 2024,
-# 2 in 2025 and 0 through Jun-2026. A digital column showing eleven catch days
-# a year next to a reported column showing two contradicts the very document
-# it is printed beside. Five catch days keeps the seasonal shape visible
-# without arguing with the plant's own history.
-TARGET_CATCH_DAYS_PER_YEAR = 5.0
-daily_rate = seasonal / seasonal.sum() * TARGET_CATCH_DAYS_PER_YEAR / 30.4
-daily_rate = np.round(daily_rate, 4)
+# HOW MANY RODENTS A YEAR — A QUOTA, NOT A PROBABILITY. The department stated
+# it on 13-Sep-2026: "in rodent make three to four found in months or in a
+# year". That is a statement about the YEAR, and a per-day probability cannot
+# hold one: at the rate that averages three and a half rodents a year, the
+# seeded draws gave 4, 2, 1, 1 and 5 across 2024-2028, because the variance of
+# a few rare independent events is as large as the events. (Earlier settings
+# were worse in the other direction: ten catch days a year, then five, which
+# gave 4-9 rodents and argued with the company's own Rodent Catch Report — 0
+# in 2024, 2 in 2025 — printed in the same table for an auditor to compare.)
+#
+# So the app plans each year instead (engine/rodentPattern.ts): it draws three
+# or four catches for the year, places each one on a date chosen by the
+# seasonal weighting below, and every other day of that year is quiet. The
+# total is then exactly what the department said, in three or four different
+# months, while the monsoon still gets most of them. What this file supplies is
+# the SHAPE (which months are likely) and the RANGE (how many a year).
+# REQUIREMENTS §45.
+CATCHES_PER_YEAR = (3, 4)
+month_weight = np.round(seasonal / seasonal.sum(), 4)
 
 # ---- Where rodents turn up: the 16 areas of the Rodent Control Service
 # report (verbatim, see masterData.ts), weighted towards food / inward-goods /
@@ -101,8 +112,6 @@ for i, (name, w) in enumerate(AREAS):
 assert next_box == 101, next_box
 
 # ---- How many rodents on a catch day, and the conditional signs.
-COUNT_DIST = [{"count": 1, "p": 0.72}, {"count": 2, "p": 0.22}, {"count": 3, "p": 0.06}]
-SECOND_LOCATION_P = 0.15   # a second area catches on the same day
 CAKE_BITING_P = 0.35       # bait-cake biting seen in the box on a catch day (checkpoint 9)
 CAKE_BITING_ALONE_P = 0.012  # biting sign on a day with no catch
 DEAD_RODENT_P = 0.20       # dead rodent observed on a catch day (checkpoint 8)
@@ -124,8 +133,28 @@ HISTORY = [
 
 # ---- Seasonal factor (1.0 = August peak). Flies follow warmth + humidity:
 # highest Jul-Sep, still busy in the hot pre-monsoon months, quiet in winter.
-fly_seasonal = 0.35 + 0.65 * (1 + np.cos((months - 7) * 2 * np.pi / 12)) / 2
-fly_seasonal = np.round(fly_seasonal, 3)
+#
+# RESHAPED 13-Sep-2026 to the department's own description of its year: "in
+# rainy season and winter there is more Fly's then summer". A single cosine
+# cannot say that — it gives one peak and one trough, so with the peak in the
+# monsoon the winter came out as the quietest months of the year, below summer.
+# The plant's year has TWO busy seasons and one quiet one, so the curve is
+# written out month by month instead of computed:
+#
+#   RAINY    Jul Aug Sep   busiest — the monsoon, humid, breeding everywhere
+#   POST     Oct Nov       still warm and humid, coming down
+#   WINTER   Dec Jan Feb   busy again — the flies come indoors to the warmth,
+#                          and the plant's own EFK collection for Jan-2024 (30
+#                          gramms) is the heaviest month on its trend report
+#   SUMMER   Mar Apr May   the quietest — 40°C+ and bone dry outside, which
+#            Jun           suppresses them; June climbs as the rains break
+#
+# 1.0 = August, the peak the specimen was read at, so the per-unit means below
+# stay calibrated to the photographed register. REQUIREMENTS §45.
+fly_seasonal = np.array([0.80, 0.72, 0.50, 0.38, 0.34, 0.52, 0.92, 1.00, 0.94, 0.80, 0.74, 0.84])
+assert fly_seasonal.shape == (12,) and fly_seasonal.max() == 1.0
+_rainy, _winter, _summer = fly_seasonal[[6, 7, 8]].mean(), fly_seasonal[[11, 0, 1]].mean(), fly_seasonal[2:6].mean()
+assert _rainy > _winter > _summer, (_rainy, _winter, _summer)
 
 # ---- The August-2026 specimen: (visit 1 = 03-Aug-26, visit 2 = 17-Aug-26)
 # per unit, read straight off the photographed register.
@@ -153,13 +182,22 @@ parts = [
     "// Python and re-run it. See that file for how each number was derived and",
     "// how each pattern was calibrated against the company's own documents",
     "// (Rodent Catch Report: 0 rodents in 2024, 2 in 2025, 0 through Jun-2026;",
-    "// Fly Catcher register: August-2026 specimen, 0-3 flies per unit per visit).",
+    "// Fly Catcher register: August-2026 specimen, 0-3 flies per unit per visit),",
+    "// and to the department's own account of its year (13-Sep-2026): three to",
+    "// four rodents a year, and flies busiest in the rains, busy again in winter,",
+    "// quietest in the dry summer heat. See REQUIREMENTS §45.",
     "",
     "// ===================== RODENT (F/HR/17, checkpoints 7/8/9) =====================",
     "",
-    "// Probability that a given calendar day has a rodent catch, by month",
-    f"// (Jan..Dec). Seasonal — peaks in the monsoon, ~{TARGET_CATCH_DAYS_PER_YEAR:.0f} catch days a year.",
-    f"export const RODENT_MONTHLY_RATE: number[] = {json.dumps([float(x) for x in daily_rate])};",
+    "// How likely each month (Jan..Dec) is to be the one a rodent is caught in —",
+    "// a weighting that sums to 1, peaking in the monsoon. It decides WHICH",
+    "// months, never how many: the count is the quota below, drawn per year by",
+    "// engine/rodentPattern.ts.",
+    f"export const RODENT_MONTH_WEIGHT: number[] = {json.dumps([float(x) for x in month_weight])};",
+    "",
+    "// Rodents caught in a year, inclusive — the department's own figure",
+    "// (13-Sep-2026): three to four, in three or four different months.",
+    f"export const RODENT_CATCHES_PER_YEAR: [number, number] = {json.dumps(list(CATCHES_PER_YEAR))};",
     "",
     "// The 16 Rodent Control Service areas with catch weights and the numbered",
     "// trap boxes (RB-01..RB-100) each one owns.",
@@ -171,9 +209,9 @@ parts = [
     "}",
     f"export const RODENT_LOCATIONS: RodentLocationSpec[] = {json.dumps(locations, indent=2)};",
     "",
-    "// Rodents per catch day.",
-    f"export const RODENT_COUNT_DIST: {{ count: number; p: number }}[] = {json.dumps(COUNT_DIST)};",
-    f"export const RODENT_SECOND_LOCATION_P = {SECOND_LOCATION_P};",
+    "// Signs found in a box, which are not catches and so do not count against",
+    "// the year's quota: bait-cake biting (check point 9) and a dead rodent",
+    "// (check point 8).",
     f"export const RODENT_CAKE_BITING_P = {CAKE_BITING_P};",
     f"export const RODENT_CAKE_BITING_ALONE_P = {CAKE_BITING_ALONE_P};",
     f"export const RODENT_DEAD_P = {DEAD_RODENT_P};",
@@ -181,6 +219,15 @@ parts = [
     "// The company's own \"Rodent Catch Report and Trend Analysis\" — Source:",
     "// Trapped on Glue boards in Roda-boxes; Unit: Number; Target Pest: Rodents.",
     "// null = month not yet reported on the source page.",
+    "//",
+    "// TWO ISSUES OF THE SAME REPORT have been supplied and they agree on every",
+    "// cell both of them fill. This is the later one (\"Kapila mam department",
+    "// reports .pdf\"), which completes 2025 and carries Jan-Jun 2026;",
+    "// \"GP-3 Trend Analysis - 2025.pdf\" (13-Sep-2026) is the October-2025",
+    "// snapshot and leaves Nov/Dec 2025 and the Total blank. The complete row is",
+    "// kept so the company's later figures are not discarded — REQUIREMENTS open",
+    "// question 10. The lizard and flies pages of that same file, which have no",
+    "// earlier issue, are in data/seed/trendReports.ts.",
     "export interface RodentHistoryRow {",
     "  year: number;",
     "  months: (number | null)[];",
@@ -207,8 +254,8 @@ parts = [
 
 OUT.write_text("\n".join(parts), encoding="utf-8", newline="\n")
 print(f"wrote {OUT}")
-print("rodent daily rate by month:", dict(zip(MONTH_NAMES, [float(x) for x in daily_rate])))
-print("expected rodent catch days / year:", round(float((daily_rate * 30.4).sum()), 1))
+print("rodent month weighting:", dict(zip(MONTH_NAMES, [float(x) for x in month_weight])))
+print("rodents per year (quota):", CATCHES_PER_YEAR)
 print("fly seasonal factor:", dict(zip(MONTH_NAMES, [float(x) for x in fly_seasonal])))
 specimen_visit_totals = [sum(v[i] for v in FLY_SPECIMEN.values()) for i in (0, 1)]
 print("fly peak-month mean per visit, all units:", round(sum(unit_base.values()), 1),

@@ -19,6 +19,24 @@ Network-independent, and driven against the production build on :8842.
 import sys
 import time
 from playwright.sync_api import sync_playwright
+def settle_briefing(page):
+    """Mark today's briefing slots as already shown, so it cannot re-open part
+    way through the run and intercept a click. The briefing shows itself once in
+    the first hour of the working day and once in the last
+    (engine/briefingSchedule.ts); a suite that crosses one of those boundaries
+    while running would otherwise fail on whatever it was clicking at the time.
+    Reopening it deliberately from the top bar still works, which is how the
+    suites that test the briefing itself get at it."""
+    page.evaluate(
+        """() => {
+             const KEY = 'dcrs:v1:settings';
+             const now = new Date();
+             const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+             const s = JSON.parse(localStorage.getItem(KEY) || '{}');
+             s.briefingShown = { date: today, slots: ['first', 'morning', 'evening'] };
+             localStorage.setItem(KEY, JSON.stringify(s));
+           }"""
+    )
 
 BASE = "http://localhost:8842"
 FAILURES = []
@@ -63,6 +81,7 @@ def dismiss(page):
         if g.count():
             g.first.click()
             page.wait_for_timeout(200)
+    settle_briefing(page)
 
 
 def close_assistant(page):

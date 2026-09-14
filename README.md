@@ -244,6 +244,12 @@ The app behaves like a personal assistant rather than a blank form:
     (`src/engine/assistantHandoff.ts`); an ambiguous name ("a CAPA record") is asked about, not
     guessed. The model is told the same rule: it may invent values only when sample data is asked
     for explicitly, and must say so.
+- **The data follows the plant's own year.** Flies are busiest in the monsoon and busy again in
+  winter, when they come indoors; the dry summer heat is the quiet season. Rodents run to three or
+  four a year, in three or four different months — what this plant actually catches, and what its own
+  Rodent Catch Report shows. Both are measured off the generated register rather than assumed, and the
+  pattern generator asserts the seasonal ordering so it cannot be lost by a later change
+  (REQUIREMENTS §45).
 - **Three pest trend reports, exactly as the company writes them.** The plant keeps a
   **RODENT**, a **LIZARD** and a **FLIES CATCH REPORT AND TREND ANALYSIS**, each one table of a year
   per row over a bar chart of one year, with a "Report prepared by" line at the foot. All three are

@@ -163,6 +163,28 @@ The run below is the production shape end to end: `frontend/scripts/build.ts` bu
 `backend/index.ts` (run directly by Node 23.6, no compile step) serves it plus the API, and every suite
 runs against that. `npm run typecheck` is clean for the frontend and for the backend/scripts.
 
+### The plant's own seasons and rodent figures (13-Sep-2026)
+
+The department described its own year — "in rainy season and winter there is more Fly's then summer"
+— and its own rodent figures: three to four a year. Neither matched what the app generated.
+
+- **The fly curve had one peak, and the plant has two.** A single cosine peaking in the monsoon forces
+  winter to be the year's quietest quarter; measured off the register, winter ran 15 flies a month
+  against summer's 19 — backwards. The curve is now written out month by month, and the generator
+  asserts rainy > winter > summer so the shape cannot be lost later. Measured back off the seeded
+  register for 2025-27: rainy 26-34, winter 22-24, summer 11-16, in that order every year.
+- **A per-day probability cannot hold a yearly total.** At the rate averaging three and a half rodents
+  a year the seeded draws gave 4, 2, 1, 1, 5 — the variance of a few rare events is as large as the
+  events. The year is now planned rather than rolled: three or four catches drawn from the year alone,
+  placed by the seasonal weighting. Every year from 2024 to 2033 lands on three or four, in three or
+  four months, checked against the draws themselves rather than against the intended probability.
+- **Calibration was measured, not assumed.** Both patterns were checked by replicating the app's own
+  seeded draws and summing whole years, before and after — which is how the backwards winter was found
+  at all. The intended probability said "monsoon-leaning and seasonal", and it was; the realised
+  numbers said winter was below summer.
+- **Regenerating a generated file erases hand edits.** A provenance note added directly to
+  `pestPattern.ts` disappeared the moment `tools/pest_pattern.py` ran. It now lives in the generator.
+
 ### The fly catcher tube lights (13-Sep-2026)
 
 The department gave the two dates: installation 24-11-2025, replacement due 23-11-2026, fixed, every

@@ -319,6 +319,34 @@ def main():
             check("A month that hasn't happened yet is left blank, as on the paper report", this_year is not None and this_year["cells"][4 + date.today().month] == "")
         digital_total = re.search(r"\((\d+) in total across (\d+) days?", rodent_report)
         check("Digital rodent total over the demo year is non-zero (pattern applied)", digital_total is not None and int(digital_total.group(1)) > 0)
+        # The department's own figure for what its plant catches: three to four a
+        # year, in three or four different months (REQUIREMENTS §45). The year is
+        # planned rather than rolled day by day precisely so this holds for EVERY
+        # year, not on average — so it is asserted, not sampled. A part-finished
+        # year can of course be short of its three, since the later catches have
+        # not happened yet, so only whole past years are checked here.
+        def rodent_year_total(y):
+            row = trend_row(y)
+            if row is None:
+                return None
+            return sum(int(c) for c in row["cells"][4:16] if c.isdigit())
+
+        def rodent_year_months(y):
+            row = trend_row(y)
+            if row is None:
+                return None
+            return len([c for c in row["cells"][4:16] if c.isdigit() and int(c) > 0])
+
+        demo_year = date.today().year
+        so_far = rodent_year_total(demo_year)
+        check(
+            "The demo year's rodent catches are within the three to four a year the department states",
+            so_far is not None and 0 < so_far <= 4,
+        )
+        check(
+            "...and they are spread across separate months, not clustered in one",
+            rodent_year_months(demo_year) == so_far or so_far is None,
+        )
         check("Rodent report breaks catches down by location", "where they were found" in rodent_report and ("canteen" in rodent_report or "rm inward" in rodent_report or "store" in rodent_report))
 
         # The fly catcher counts follow the seasonal per-unit pattern from the
@@ -330,6 +358,41 @@ def main():
         fly_total = re.search(r"(\d+) flies caught in", fly_report)
         check("Fly Catcher Infestation trend has a non-zero yearly total in Demo Mode (seasonal fly pattern applied)", fly_total is not None and int(fly_total.group(1)) > 0)
         check("Fly Catcher Infestation trend lists all 13 units in the company's year layout", "target pest" in fly_report and page.locator("table.fly-units tbody tr").count() == 13)
+        # THE SEASON, as the department describes its own year (REQUIREMENTS §45):
+        # busiest in the rains, busy again in winter, quietest in the dry summer
+        # heat. Read off the per-unit table's own month columns for the demo year,
+        # which is the register's own arithmetic rather than the pattern's.
+        fly_months = page.evaluate(
+            """() => {
+                 const rows = Array.from(document.querySelectorAll('table.fly-units tbody tr'));
+                 const per = Array(12).fill(0);
+                 for (const tr of rows) {
+                   const cells = Array.from(tr.querySelectorAll('td'));
+                   // PC ID, Location, JAN..DEC, Total
+                   for (let m = 0; m < 12; m++) per[m] += Number(cells[2 + m].textContent.trim()) || 0;
+                 }
+                 return per;
+               }"""
+        )
+        if fly_months and sum(fly_months) > 0 and date.today().month == 12:
+            rainy = sum(fly_months[6:9]) / 3
+            winter = (fly_months[11] + fly_months[0] + fly_months[1]) / 3
+            summer = sum(fly_months[2:6]) / 4
+            check(
+                "Flies are busiest in the rains and busy again in winter, quietest in summer",
+                rainy > summer and winter > summer,
+            )
+        elif fly_months and sum(fly_months) > 0:
+            # Part-way through the year the winter months are mostly still to come,
+            # so only the two seasons the year has actually reached are compared.
+            done = date.today().month  # months 1..N are complete-ish
+            rainy = [fly_months[m] for m in (6, 7, 8) if m < done]
+            summer = [fly_months[m] for m in (2, 3, 4, 5) if m < done]
+            if rainy and summer:
+                check(
+                    "Flies are busier in the rains than in the dry summer heat, as the department describes its year",
+                    sum(rainy) / len(rainy) > sum(summer) / len(summer),
+                )
         check(
             "Fly trend uses the same company format (title and the JAN-DEC + Total chart)",
             "FLIES CATCH REPORT AND TREND ANALYSIS" in page.locator(".trend-head").first.inner_text() and page.locator(".trend-chart .bar").count() == 13,
