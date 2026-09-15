@@ -2041,6 +2041,74 @@ its title, in the same place and style as the record page's, translated with the
   from, still does after a day and *Back to Calendar*, and goes to the Dashboard when the calendar was
   loaded from its own address.
 
+## 49. A new joiner from their CV, onto Personal Competence Records and every HR format that asks for the same details (15-Sep-2026)
+
+```
+REQUESTED            "in Personal competence Records Whenever user upload his Resume/CV and the detail will be
+                      automatically come in that excel sheet and whereever the similar data required in HR
+                      document so it will be go there which is similar or correaltion"
+DIGITAL TEMPLATE     backend/cvExtract.ts (reading the CV), POST /api/hr/cv/read (backend/index.ts),
+                      frontend/src/engine/hrJoiner.ts (where the details go), frontend/src/components/hr/
+                      CvImportDialog.tsx (the review form), Personal Competence Records' page (/hr/competence)
+```
+
+**ADD FROM CV / RESUME.** Personal Competence Records (F/HR/01) has a button that takes the candidate's CV
+— PDF, Word (.docx) or plain text, up to 5 MB — and reads it on the server. What the CV states comes up in
+a form for HR to check against the CV: name, sex and date of birth where written, the highest
+qualification in the short form the register uses (MBA, B.Com, Diploma, ITI, 12 Pass…) with the CV's own
+line for it, and the experience ("3 Years", "Fresher"). The position applied for becomes the designation.
+Nothing is written anywhere until HR presses Add.
+
+- **How the CV is read.** Text rules always run: labelled lines (Name, Date of Birth — day first, as
+  Indian CVs write it — Gender), the e-mail and phone patterns, the qualification ladder from 10th to
+  Ph.D, an experience total the CV states, or else the employment periods listed under its experience
+  heading added up with overlaps counted once and education dates left out. When Groq is configured the
+  assistant then fills only what the rules could not find, told to return nothing the CV doesn't state;
+  a name, e-mail, employer or position it returns that is not in the CV's own text is dropped, and sex is
+  never inferred from a name. Setting `CV_READ_WITH_ASSISTANT=0` keeps CVs to the rules alone (the
+  network-independent test run does). The server stores neither the file nor its text.
+- **What only HR knows, and what the plant's own register says.** Department, designation and date of
+  joining are HR's. What the position requires — education and experience — is taken from F/HR/01 itself:
+  the most common entries on the register's lines for the same designation, which also suggest the
+  department (Sales Coordinator: Sales & Marketing, Graduate, 1 Year, from seventeen lines). A designation
+  with no line on the register leaves the requirement for HR to write. The gap is worked out from the two:
+  "NA" when the person meets both, otherwise left blank with the gap named, because a justification is
+  HR's to write, not the system's.
+- **Where the person goes — the correlation.** Each format gets exactly the columns it prints, in the date
+  style its own register already uses:
+
+| Format | Staff (default) | Operator / worker (default) | What it gets |
+|---|---|---|---|
+| F/HR/01 Personal Competence Records | yes | — (the format is for staff members only) | a line: name, department, designation, education and experience required / available, gap, date of joining (dd.mm.yyyy) |
+| F/HR/03 Skill Matrix - Operator | — | yes | a line: name, designation, date of joining (m/d/yyyy); the skill points are graded later |
+| F/HR/08 Training Need Identification | yes | yes | a line: name, designation; topics ticked later |
+| F/HR/06 Induction — Operators / Workers | — | yes | a line: name, joining department & designation, date of joining & induction (dd/mm/yyyy) |
+| F/HR/05 Induction — Staff | yes | — | a record of their own: name, department / process, designation, date of joining |
+| F/HR/04 Pre-Employment Health Declaration | yes | yes | a record of their own: name, department & designation, sex, date of birth — the questions are theirs to answer |
+| F/HR/13 Mobile Usage Authorization | never ticked by default | never | a line: name, department & designation, date of allowance; the form notes when the designation is on the matrix, but allowing a phone is the PSTL's decision |
+
+  The category comes from the designation (operator, helper, worker, packing, loading…) and every tick
+  can be changed.
+- **A controlled register is never changed quietly.** A register that is submitted or verified — F/HR/01
+  and F/HR/03 are verified, F/HR/08 submitted — is reopened for correction with the reason written ("New
+  joiner from the CV "Riya_Mehta_Resume.pdf": Riya Mehta (Sales Coordinator, Sales & Marketing)"), the
+  line is added, and the register goes back to be submitted and verified again; *Cancel correction* on the
+  record puts it back as it was. The form says so beside each such format before Add. Every change is in
+  the record's history.
+- **Nobody twice.** A format that already lists the person (or already holds their F/HR/04 / F/HR/05
+  record) says so and cannot be ticked.
+- **What cannot be read** is refused with the way forward: an old Word .doc, a photo of a CV, a scanned PDF
+  with no text, a damaged or password-protected PDF, a file over 5 MB. *Enter details by hand* opens the
+  same form empty, and it files the person the same way.
+- Covered by `tests/e2e_hr_cv_import.py` (**42 checks**, text rules): a PDF CV made by Chromium and a .docx
+  made as a zip read field by field; the periods of an unlabelled CV added up; the form's requirement,
+  department and gap from the register; the staff member onto F/HR/01 and F/HR/08 (reopened from Verified
+  and Submitted) with her F/HR/05 and F/HR/04 started; the operator onto F/HR/03, F/HR/06 and F/HR/08, not
+  F/HR/01; each register's date style; nobody twice; .doc, photo and oversized files refused; entry by hand;
+  the reader refusing a request without a session. The assistant path is checked live in
+  `tests/e2e_assistant_chat.py`: a CV with no name line gets its name from the assistant, as written, with
+  nothing invented.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -2120,6 +2188,13 @@ its title, in the same place and style as the record page's, translated with the
     1 Oct, skill matrix 1 Sep, TNI and calendar 1 Apr, GMP walk monthly on the 1st, hygiene sheet
     monthly (due month end), survey analysis 31 Jan, the rest as required — since none of the formats
     states one. Each is one line in `documentDefinitions.ts`.
+23. **Two HR titles differ between the Master List of Formats and the forms themselves.** F/SYS/02
+    (re-supplied 15-Sep-2026) lists F-HR-11 as "Training Evaluation Record" and F-HR-12 as "TRAINING
+    EFFECTIVENESS EVALUATION RECORD"; the forms supplied on 14-Sep-2026 print F/HR/11 as "TRAINING
+    EFFECTIVENESS EVALUATION RECORD" and F/HR/12 as "TRAINING FEEDBACK & EVALUATION RECORD". The system
+    follows the forms, which are the controlled copies. The list also names formats not supplied yet:
+    F-HR-02 Personnel competence criteria, F-HR-10 Training Imparted Record, F-HR-15 / F-HR-16 the
+    cleaning records.
 
 ## How the assistant pre-fills records (and what it never does)
 

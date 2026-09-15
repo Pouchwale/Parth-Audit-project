@@ -157,6 +157,7 @@ just shows a clear "isn't configured yet" message instead of failing silently.
 |---|---|---|---|
 | `GROQ_API_KEY` | none (assistant disabled without it) | `backend/groq.ts` | Powers the assistant. Never reaches the browser. |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | `backend/groq.ts` | Override the model. Check `GET https://api.groq.com/openai/v1/models` with your key first — not every model name in Groq's general docs is enabled per-account (see README.md's Configuration section). |
+| `CV_READ_WITH_ASSISTANT` | on (when `GROQ_API_KEY` is set) | `backend/index.ts`, `backend/cvExtract.ts` | Set to `0` to read uploaded CVs with the text rules alone, so no CV text is sent to Groq. The test run sets it. |
 | `PORT` | `5173` | `frontend/scripts/dev-server.ts` | Frontend dev server port |
 | `API_PORT` | `4000` | `backend/index.ts`, dev proxy | Auth API port |
 | `JWT_SECRET` | auto-generated, saved to `backend/data/jwt-secret.txt` | `backend/auth.ts` | Session-signing key |

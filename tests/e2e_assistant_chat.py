@@ -256,6 +256,29 @@ def main():
         print(f"    (assistant page replied: {ascii_safe(page_reply[:160])!r}; url now {page.url})")
         check("Assistant page answers from the live app context (weekly off = Thursday)", "thursday" in page_reply.lower())
 
+        # ---- 6. A CV the text rules can't fully read: the assistant fills the gap (REQUIREMENTS s49) ----
+        # No "Name:" line and no heading that looks like a name, so the rules
+        # find no name; the assistant must - and only a name that is in the CV
+        # itself is kept (backend/cvExtract.ts).
+        cv_text = (
+            "Hello, my name is Suresh Patel and I am applying for a job in your pouching department.\n"
+            "I completed my B.Com from Gujarat University in 2019.\n"
+            "Contact me at suresh.patel.work@example.com.\n"
+        )
+        pace(page)
+        res = page.request.post(
+            f"{BASE}/api/hr/cv/read",
+            data=cv_text.encode("utf-8"),
+            headers={"Content-Type": "application/octet-stream", "X-File-Name": "suresh-cv.txt"},
+            timeout=60000,
+        )
+        cv = res.json() if res.ok else {}
+        print(f"    (CV read: {ascii_safe(str(cv)[:220])})")
+        check("A CV with no name line is read by the assistant", res.ok and cv.get("readBy") == "assistant")
+        check("...which finds the name the rules could not, as the CV writes it", cv.get("profile", {}).get("name") == "Suresh Patel")
+        check("...keeping what the rules read exactly: B.Com and the e-mail", cv.get("profile", {}).get("qualification") == "B.Com" and cv.get("profile", {}).get("email") == "suresh.patel.work@example.com")
+        check("...and inventing no date of birth or sex the CV does not state", cv.get("profile", {}).get("dateOfBirth") == "" and cv.get("profile", {}).get("sex") == "")
+
         browser.close()
         print("\nJS errors:", errors[:10])
         if FAILURES:

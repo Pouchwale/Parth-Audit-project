@@ -104,6 +104,16 @@ Seven scripts live in `tests/`:
   documents with none landing on the Record Calendar. With that change `npm run test:e2e` is green end to
   end at **845 checks across sixteen suites**. REQUIREMENTS s48 then added the Record Calendar's Back
   button, covered in `tests/e2e_smoke.py`, bringing the run to **850 checks**.
+- `tests/e2e_hr_cv_import.py` - a new joiner from their CV (REQUIREMENTS s49): a PDF CV made by Chromium
+  and a Word .docx made as a zip are read by the server field by field, and an unlabelled CV's employment
+  periods are added up (education dates left out); the review form takes the department and what the
+  position requires from the competence register and works out the gap; Add puts a staff member on F/HR/01
+  and F/HR/08, each reopened for correction, and starts her F/HR/05 and F/HR/04, and puts an operator on
+  F/HR/03, F/HR/06 and F/HR/08 instead, each line in its register's own date style; nobody is added twice;
+  .doc, photo and oversized files are refused with a reason, entry by hand works, and the reader wants a
+  session. The server runs with CV_READ_WITH_ASSISTANT=0 (scripts/run-e2e.ts), so this is the text rules;
+  the assistant's part is checked live in `tests/e2e_assistant_chat.py`. Network-independent. With it
+  `npm run test:e2e` is green at **892 checks across seventeen suites**.
   Signs in as the trend suite's account, the departments suite's QC account, and an HR account of its
   own. Network-independent.
 - `tests/e2e_departments.py` - departments, whole-document printing and the trend graph: an unassigned
@@ -134,7 +144,8 @@ npm run test:e2e     # builds, boots backend/index.ts on :8842, runs e2e_smoke.p
                       # e2e_print_and_forms.py, e2e_capa_formats.py,
                       # e2e_agreement_and_cancel.py, e2e_crud.py,
                       # e2e_print_all_documents.py, e2e_assistant_fill.py and
-                      # e2e_departments.py, e2e_trend_reports.py, e2e_hr_module.py
+                      # e2e_departments.py, e2e_trend_reports.py, e2e_hr_module.py,
+                      # e2e_hr_cv_import.py
                       # against it, tears down
                       # (see scripts/run-e2e.ts)
 ```
@@ -160,6 +171,7 @@ python tests/e2e_assistant_fill.py
 python tests/e2e_departments.py
 python tests/e2e_trend_reports.py
 python tests/e2e_hr_module.py
+python tests/e2e_hr_cv_import.py  # start the server with CV_READ_WITH_ASSISTANT=0 for the text rules alone
 python tests/visual_qa.py
 python tests/e2e_assistant_chat.py # needs backend/.env's GROQ_API_KEY to actually resolve; edit
                                     # the BASE constant at the top if your server isn't on :8844

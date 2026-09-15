@@ -113,6 +113,15 @@ The app behaves like a personal assistant rather than a blank form:
   position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile
   authorisations and the January-2026 survey analysis (93.99%). A Quality Control account sees none of
   them.
+- **A new joiner from their CV** (REQUIREMENTS §49). *Add from CV / Resume* on Personal Competence Records
+  reads a PDF, Word (.docx) or text CV on the server — name, sex and date of birth where written, the
+  highest qualification, the experience, the position applied for — into a form HR checks, adds the
+  department, designation and date of joining, and gets what the position requires and the gap from the
+  competence register itself. Add then files the person on every HR format that asks for the same
+  details: F/HR/01 (staff), F/HR/03 and F/HR/06 (operators), F/HR/08, and a started F/HR/05 induction and
+  F/HR/04 declaration, each in its own register's date style. A submitted or verified register is
+  reopened for correction to take the line, and nobody is added twice. Text rules read every CV; the
+  assistant fills gaps when Groq is configured (`CV_READ_WITH_ASSISTANT=0` turns that off).
 - **The pest control file inside it is laid out the way the department reads its paperwork** (`/pest-control`
   overview, `src/pages/PestControlPages.tsx`): **Daily Report** — the Daily Pest Control Monitoring
   Record as a month register (`/pest/daily`); **Service Reports** — Gurudev Pest Control's three

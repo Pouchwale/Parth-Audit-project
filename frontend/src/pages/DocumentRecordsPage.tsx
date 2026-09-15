@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiExternalLink, FiPlus, FiPrinter } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiExternalLink, FiPlus, FiPrinter, FiUpload } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -15,6 +15,7 @@ import { LogSheetRecordView } from "../components/records/LogSheetRecordView";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
+import { CvImportDialog } from "../components/hr/CvImportDialog";
 import { DocMeta, nextDueDate } from "./PestControlPages";
 import { moduleSlug } from "../utils/moduleSlug";
 import { printDocument } from "../utils/print";
@@ -63,6 +64,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const isDemo = mode === "demo";
   const today = todayISO();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [cvOpen, setCvOpen] = useState(false);
 
   // This month's due sheet exists before the page reads the records, as on the
   // Calendar and the pest control pages (the generator keeps the launch-date floor).
@@ -127,6 +129,13 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
           <DocMeta doc={doc} />
         </div>
         <div className="flex gap-2 wrap">
+          {/* A new joiner from their CV, onto F/HR/01 and the other HR formats
+              that ask for the same details (REQUIREMENTS §49). */}
+          {doc.id === "hr-competence" && (
+            <button className="btn btn-primary btn-sm" data-action="cv-import" onClick={() => setCvOpen(true)}>
+              <FiUpload size={12} /> Add from CV / Resume
+            </button>
+          )}
           {!doc.isReferenceOnly && (
             <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
               <FiPlus size={12} /> New record
@@ -138,6 +147,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
         </div>
       </div>
       <p className="text-muted mb-4">{doc.description}</p>
+      {cvOpen && <CvImportDialog onClose={() => setCvOpen(false)} />}
 
       <div className="flex gap-3 wrap mb-4">
         <div className="stat-tile">

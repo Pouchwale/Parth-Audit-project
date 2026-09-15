@@ -15,6 +15,7 @@ import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COO
 import { distDir } from "./paths.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS } from "./assistant.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
+import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -438,6 +439,45 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
     res.status(502).json({ error: "The assistant is having trouble right now — try again in a moment." });
   }
 });
+
+// A CANDIDATE'S CV, READ INTO THE NEW-JOINER FORM (REQUIREMENTS §49, backend/cvExtract.ts).
+// The file comes as the raw request body (application/octet-stream), so the
+// JSON parser's 100KB limit doesn't apply and nothing is base64-inflated on the
+// way; its own cap is 5 MB. The text rules always run; the assistant adds what
+// they miss when Groq is configured, the per-user throttle allows it, and
+// CV_READ_WITH_ASSISTANT isn't "0" (the network-independent test run sets it).
+// Nothing is stored — the answer goes back to the form HR checks.
+app.post(
+  "/api/hr/cv/read",
+  requireAuth,
+  express.raw({ type: "application/octet-stream", limit: CV_MAX_BYTES }),
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as AuthedRequest).user.id;
+    const body = req.body;
+    if (!Buffer.isBuffer(body) || body.length === 0) {
+      res.status(400).json({ error: "Choose a CV file to read." });
+      return;
+    }
+    let fileName = "cv";
+    try {
+      fileName = decodeURIComponent(String(req.get("x-file-name") ?? "cv")).slice(0, 200);
+    } catch {
+      /* a malformed name only loses the extension hint */
+    }
+    const useAssistant = process.env.CV_READ_WITH_ASSISTANT !== "0" && !!process.env.GROQ_API_KEY && !isAssistantThrottled(userId);
+    if (useAssistant) recordAssistantCall(userId);
+    try {
+      res.json(await readCv(body, fileName, { useAssistant }));
+    } catch (err) {
+      if (err instanceof CvReadError) {
+        res.status(422).json({ error: err.message });
+        return;
+      }
+      console.error(err);
+      res.status(500).json({ error: "The CV couldn't be read — enter the details by hand." });
+    }
+  }
+);
 
 // The guided checklist walk-through's free-text path (see
 // frontend/src/engine/guidedChecklist.ts). Same per-user throttle as chat —

@@ -3,7 +3,8 @@
 // tests/e2e_translate.py, tests/e2e_print_and_forms.py, tests/e2e_capa_formats.py,
 // tests/e2e_agreement_and_cancel.py, tests/e2e_crud.py,
 // tests/e2e_print_all_documents.py, tests/e2e_assistant_fill.py,
-// tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py): build,
+// tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py,
+// tests/e2e_hr_cv_import.py): build,
 // single-process server (dist/ + auth API) on the port the tests expect,
 // wait for it to answer, run each suite in turn against the same server,
 // then always tear the server down again -- regardless of pass/fail -- so
@@ -68,7 +69,8 @@ async function main(): Promise<void> {
   const server = spawn(process.execPath, [...nodeArgs, "backend/index.ts"], {
     cwd: root,
     stdio: "inherit",
-    env: { ...process.env, API_PORT: String(TEST_PORT) },
+    // CVs are read by the text rules alone here, so the suites stay network-independent (backend/cvExtract.ts).
+    env: { ...process.env, API_PORT: String(TEST_PORT), CV_READ_WITH_ASSISTANT: "0" },
   });
 
   let exitCode = 1;
@@ -94,6 +96,7 @@ async function main(): Promise<void> {
       "tests/e2e_departments.py",
       "tests/e2e_trend_reports.py",
       "tests/e2e_hr_module.py",
+      "tests/e2e_hr_cv_import.py",
     ];
     exitCode = 0;
     for (const suite of suites) {

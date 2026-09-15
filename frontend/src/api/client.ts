@@ -96,6 +96,40 @@ export const usersApi = {
     api.post<{ user: AuthUser }>(`/users/${encodeURIComponent(userId)}/departments`, { departments }),
 };
 
+// A CANDIDATE'S CV, READ ON THE SERVER (backend/cvExtract.ts, REQUIREMENTS §49).
+export interface CvProfile {
+  name: string;
+  sex: "" | "Male" | "Female";
+  dateOfBirth: string;
+  email: string;
+  phone: string;
+  qualification: string;
+  qualificationDetail: string;
+  experience: string;
+  positionAppliedFor: string;
+  lastDesignation: string;
+  lastEmployer: string;
+}
+
+export interface CvReadResult {
+  profile: CvProfile;
+  fileKind: "pdf" | "docx" | "text";
+  readBy: "assistant" | "rules";
+  missing: string[];
+  characters: number;
+}
+
+export const hrApi = {
+  // The file goes as the raw body, not base64 in JSON: the server's JSON limit
+  // is 100KB and a CV is often more.
+  readCv: (file: File) =>
+    request<CvReadResult>("/hr/cv/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(file.name) },
+      body: file,
+    }),
+};
+
 export interface DigestReminderInput {
   documentName: string;
   dueDate: string;

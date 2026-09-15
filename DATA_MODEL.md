@@ -76,7 +76,12 @@ for the Job Responsibility & Authority sheets, with `periodKey` = `{documentId}:
 sidebar label: `/hr` is the HR Records overview (`pages/HrPages.tsx`) and `/hr/{slug}` a format's own page
 (`pages/DocumentRecordsPage.tsx`, also served at `/document/{id}` for every other log sheet), reading the
 same `recordRepository`. `engine/documentRoutes.ts` (`documentOpenRoute`) is where the Document Library's
-Open Document goes for every kind. `compliance-statement` is a second new kind: reference-only, content in
+Open Document goes for every kind.
+A new joiner from a CV (REQUIREMENTS §49) adds no stored type: `POST /api/hr/cv/read` (raw file body,
+`backend/cvExtract.ts`) answers a `CvReadResult { profile: CvProfile, fileKind, readBy, missing }` and keeps
+nothing; `engine/hrJoiner.ts` turns the checked `NewJoiner` into ordinary `LogSheetData` changes — a row
+appended to the register on file (the newest issue with lines in it) or a new record started — through
+`reopenForCorrection` and `saveDraft`, so each change carries the usual correction and history entries. `compliance-statement` is a second new kind: reference-only, content in
 `complianceStatements.ts`, with a validity date the briefing tracks.
 
 ## The assistant: auto-fill + briefing
