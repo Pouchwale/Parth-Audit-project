@@ -726,6 +726,41 @@ def main():
         page.wait_for_timeout(300)
         check("Search finds the lamination operator on the prepared log sheets", page.locator(".doc-table tbody tr").count() >= 1)
 
+        # ---- 13b. Back from the Record Calendar (REQUIREMENTS s48) ----
+        # Back returns to the page the calendar was opened from; a day opened
+        # from the calendar and "Back to Calendar" is a real step back, so the
+        # calendar's Back still leads to where you were before it; and opened
+        # straight from its address, Back goes to the Dashboard rather than out
+        # of the app.
+        page.goto(f"{BASE}/index.html#/library")
+        page.wait_for_timeout(500)
+        dismiss_briefing(page)
+        page.click(".app-sidebar a:has-text('Record Calendar')")
+        page.wait_for_timeout(500)
+        calendar_back = page.locator("button[data-action='back']")
+        check("The Record Calendar has a Back button", calendar_back.count() == 1)
+        calendar_back.click()
+        page.wait_for_timeout(500)
+        check("Back on the calendar returns to the page it was opened from", page.url.endswith("#/library"))
+        page.click(".app-sidebar a:has-text('Record Calendar')")
+        page.wait_for_timeout(500)
+        page.locator(".calendar-cell.today").click()
+        page.wait_for_timeout(500)
+        page.click("button:has-text('Back to Calendar')")
+        page.wait_for_timeout(500)
+        check("Back to Calendar from a day returns to the calendar", "#/calendar" in page.url and page.locator(".calendar-cell.today").count() == 1)
+        page.locator("button[data-action='back']").click()
+        page.wait_for_timeout(500)
+        check("...and the calendar's Back then leads to where the calendar was opened from, not the day", page.url.endswith("#/library"))
+        page.goto(f"{BASE}/index.html#/calendar")
+        page.reload()
+        page.wait_for_selector(".app-sidebar", timeout=30000)
+        page.wait_for_timeout(1200)
+        dismiss_briefing(page)
+        page.locator("button[data-action='back']").click()
+        page.wait_for_timeout(500)
+        check("Opened straight from its address, the calendar's Back goes to the Dashboard instead of leaving the app", page.url.endswith("#/dashboard"))
+
         # ---- 14. The working calendar: Thursday weekly off, leave calendar, adjustment days ----
         # (engine/holidays.ts — the Gujarat Print Pack Leave Calendar 2026,
         # Thursday copy.) September 2026 has four Thursdays (3, 10, 17, 24) and

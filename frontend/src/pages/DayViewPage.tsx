@@ -15,7 +15,7 @@ import { DemoTag } from "../components/common/DemoTag";
 export function DayViewPage({ date }: { date?: string }) {
   const dateISO = date ?? todayISO();
   const { mode, version } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, backTo } = useRouter();
   const isDemo = mode === "demo";
   const d = fromISODate(dateISO);
 
@@ -35,7 +35,10 @@ export function DayViewPage({ date }: { date?: string }) {
 
   return (
     <div>
-      <button className="btn btn-ghost btn-sm mb-3" onClick={() => navigate("/calendar")}>
+      {/* A real step back when the day was opened from the calendar — the month
+          you were looking at, and the calendar's own Back still leads to where
+          you were before it — and the calendar itself otherwise. */}
+      <button className="btn btn-ghost btn-sm mb-3" onClick={() => backTo("/calendar")}>
         <FiArrowLeft size={13} /> Back to Calendar
       </button>
       <h1 className="text-2xl mb-1">

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiArrowLeft, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { pressable } from "../utils/pressable";
@@ -16,7 +16,7 @@ export function CalendarPage({ year, month }: { year?: number; month?: number })
   const [y, setY] = useState(year ?? now.getFullYear());
   const [m, setM] = useState(month !== undefined ? month : now.getMonth());
   const { mode, version, bump } = useAppStore();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const isDemo = mode === "demo";
   const today = todayISO();
 
@@ -67,6 +67,11 @@ export function CalendarPage({ year, month }: { year?: number; month?: number })
 
   return (
     <div>
+      {/* Back to the page the calendar was opened from — the Dashboard when it
+          was opened straight from its address (store/router.tsx, REQUIREMENTS §48). */}
+      <button className="btn btn-ghost btn-sm mb-3 no-print" data-action="back" onClick={() => back()}>
+        <FiArrowLeft size={13} /> {t("common.back")}
+      </button>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl mb-1">{t("cal.title")}</h1>

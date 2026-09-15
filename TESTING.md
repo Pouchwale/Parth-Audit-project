@@ -102,7 +102,8 @@ Seven scripts live in `tests/`:
   page showing its register in full, the eight job responsibility sheets read one after another, a
   blank format started from its page, HR Overview's groups, and Open Document clicked for all forty
   documents with none landing on the Record Calendar. With that change `npm run test:e2e` is green end to
-  end at **845 checks across sixteen suites**.
+  end at **845 checks across sixteen suites**. REQUIREMENTS s48 then added the Record Calendar's Back
+  button, covered in `tests/e2e_smoke.py`, bringing the run to **850 checks**.
   Signs in as the trend suite's account, the departments suite's QC account, and an HR account of its
   own. Network-independent.
 - `tests/e2e_departments.py` - departments, whole-document printing and the trend graph: an unassigned

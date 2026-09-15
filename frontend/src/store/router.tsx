@@ -16,6 +16,32 @@ interface RouterValue {
   path: string;
   segments: string[];
   navigate: (path: string) => void;
+  /** Back to the page you came from, or to `fallback` (the Dashboard) when this screen was opened straight from an address. */
+  back: (fallback?: string) => void;
+  /** Back to `path` if that is where you came from (keeping the browser's history in step), otherwise open it. */
+  backTo: (path: string) => void;
+}
+
+// WHERE YOU CAME FROM, for the app's own Back buttons (REQUIREMENTS §48).
+//
+// The browser's history can't tell whether the entry before this one is a page
+// of this app: a screen opened from a bookmark, a new tab or a link somebody
+// sent has nothing of the app behind it, and history.back() would leave the
+// app. So the router keeps the trail itself. A change of address made through
+// navigate() is a step forward; any other change — the browser's Back and
+// Forward, a page's own history.back() — is a step back when it returns to the
+// address before this one, and a step forward otherwise. Back then goes back
+// through the browser, so its history stays in step, whenever the trail has
+// somewhere to go.
+const trail: string[] = [currentPath()];
+let navigating = false;
+
+function followAddress(path: string): void {
+  if (trail[trail.length - 1] !== path) {
+    if (!navigating && trail.length >= 2 && trail[trail.length - 2] === path) trail.pop();
+    else trail.push(path);
+  }
+  navigating = false;
 }
 
 const RouterContext = createContext<RouterValue | null>(null);
@@ -24,18 +50,36 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
   const [path, setPath] = useState(currentPath());
 
   useEffect(() => {
-    const onHashChange = () => setPath(currentPath());
+    const onHashChange = () => {
+      const next = currentPath();
+      followAddress(next);
+      setPath(next);
+    };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
   const navigate = (next: string) => {
-    window.location.hash = next.startsWith("/") ? next : `/${next}`;
+    const target = next.startsWith("/") ? next : `/${next}`;
+    // The same address again fires no hashchange, so only a real move is marked.
+    if (target !== currentPath()) navigating = true;
+    window.location.hash = target;
+  };
+
+  const back = (fallback = "/dashboard") => {
+    if (trail.length >= 2) window.history.back();
+    else navigate(fallback);
+  };
+
+  const backTo = (to: string) => {
+    const previous = trail[trail.length - 2];
+    if (previous !== undefined && (previous === to || previous.startsWith(`${to}/`))) window.history.back();
+    else navigate(to);
   };
 
   const segments = path.split("/").filter(Boolean);
 
-  return <RouterContext.Provider value={{ path, segments, navigate }}>{children}</RouterContext.Provider>;
+  return <RouterContext.Provider value={{ path, segments, navigate, back, backTo }}>{children}</RouterContext.Provider>;
 }
 
 export function useRouter(): RouterValue {

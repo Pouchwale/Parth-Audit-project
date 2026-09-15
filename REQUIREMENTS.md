@@ -2014,6 +2014,33 @@ name, as every page does (§40), and the assistant can navigate to them (`/hr`, 
   and at a format's page. `tests/e2e_print_all_documents.py` prints an HR format's page and a log
   sheet's document page with nothing around the sheet.
 
+## 48. A Back button on the Record Calendar (15-Sep-2026)
+
+```
+REQUESTED            "Add Back option in Record calendar"
+DIGITAL TEMPLATE     src/pages/CalendarPage.tsx (the button), src/store/router.tsx (where you came from),
+                      src/pages/DayViewPage.tsx (Back to Calendar)
+```
+
+The Record Calendar had no way back to the page it was opened from. It now has a **Back** button above
+its title, in the same place and style as the record page's, translated with the rest of the screen.
+
+- **Back returns to the page you came from.** The router keeps the app's own trail of addresses
+  (`back()` in `store/router.tsx`): a move made in the app is a step forward, the browser's Back and
+  Forward are steps back and forward, and Back goes back through the browser so its history stays in
+  step.
+- **Opened straight from its address** — a bookmark, a new tab, a link somebody sent, a reload — there
+  is no page of the app behind the calendar, and the browser's Back would leave the app. Back goes to
+  the **Dashboard** instead.
+- **A day and back.** The Day View's *Back to Calendar* used to open the calendar afresh, which would
+  have made the calendar's Back return to the day just left. When the day was opened from the calendar
+  it is now a real step back (`backTo("/calendar")`) — to the same month — so the calendar's Back
+  still leads to where you were before the calendar. Opened any other way, it opens the calendar as
+  before.
+- Covered by `tests/e2e_smoke.py`: the button is there, returns to the page the calendar was opened
+  from, still does after a day and *Back to Calendar*, and goes to the Dashboard when the calendar was
+  loaded from its own address.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
