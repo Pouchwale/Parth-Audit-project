@@ -13,23 +13,8 @@ import { useT } from "../i18n";
 import { MODULE_SECTIONS } from "../data/seed/documentDefinitions";
 import { routeForRecord } from "../engine/reminders";
 import { departmentScopeLabel, isDocumentIdVisible } from "../engine/departmentScope";
+import { documentOpenRoute } from "../engine/documentRoutes";
 
-function openTarget(docId: string, kind: string): string {
-  if (kind === "chemical-master") return "/chemical-master";
-  if (kind === "licence") return "/licence";
-  if (kind === "compliance-statement") return `/soc/${docId}`;
-  if (kind === "gap-inspection") return "/gap";
-  if (kind === "complaint-checklist") return "/gap/external";
-  if (kind === "complaint-ack") return "/gap/internal";
-  if (kind === "pest-responsibilities") return "/pest-control";
-  if (kind === "service-agreement") return "/licence";
-  if (kind === "training-record") return "/training";
-  // Pest Control documents have their own pages (src/pages/PestControlPages.tsx).
-  if (kind === "daily-pest-monitoring") return "/pest/daily";
-  if (kind === "fly-catcher") return "/pest/trend/fly-catcher";
-  if (kind === "service-report") return `/pest/service/${docId.replace(/^service-report-/, "")}`;
-  return "/calendar";
-}
 
 // Which documents hold records at all: the reference ones — the Chemical
 // Master, a Statement of Compliance, the licence — are single
@@ -222,11 +207,15 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                                 <FiPlus size={12} /> New
                               </button>
                             )}
+                            {/* OPEN: the document's own page — never the Record
+                                Calendar (engine/documentRoutes.ts, REQUIREMENTS §47). */}
                             <button
                               className="btn btn-secondary btn-sm"
+                              data-action="open-document"
+                              data-document={d.id}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(openTarget(d.id, d.kind));
+                                navigate(documentOpenRoute(d));
                               }}
                             >
                               Open Document <FiExternalLink size={12} />

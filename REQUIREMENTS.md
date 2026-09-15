@@ -1966,6 +1966,54 @@ line each in `documentDefinitions.ts` and are listed in the TO BE CONFIRMED list
   `tests/e2e_print_all_documents.py` and `tests/e2e_assistant_fill.py` pick the sixteen up
   automatically — each is started from the library, filled with sample data, submitted and printed.
 
+## 47. HR Records get pages of their own, and Open Document opens the document (15-Sep-2026)
+
+```
+REQUESTED            "you have already created Pest Control module in HR like wise do for other records of
+                      HR also now make and when user click on open document it will open it and not
+                      calendar"
+DIGITAL TEMPLATE     src/pages/HrPages.tsx (the HR Records overview), src/pages/DocumentRecordsPage.tsx (one
+                      document's page), src/data/seed/hrModule.ts (the sixteen pages, their slugs and groups),
+                      src/engine/documentRoutes.ts (where Open Document goes), src/components/layout/Sidebar.tsx
+```
+
+**HR RECORDS ARE LAID OUT LIKE THE PEST CONTROL FILE.** The pest control file inside the Human
+Resources module had an overview and a page per report; HR's own sixteen formats had one link into the
+library. They now have the same shape. In the sidebar, **HR Records** reads *HR Overview* and then the
+five groups — Personnel & Competence, Training, Induction & Health, Hygiene & GMP, Product Safety
+Culture — with a link per format under each, exactly as **Pest Control** reads *Overview* and then
+Daily Report, Service Reports, Trend Analysis and Training & Reference. The two shelf names are set a
+little heavier than the group headings under them, so the module reads as two shelves. Only the most
+specific link is lit: on the competence page that is the competence link, not the overview too.
+
+- **/hr — HR Overview.** A card per group; each format on it with its format number, frequency, how
+  many records are on file, the latest one's date and status, and the next due date (or "As
+  required"). A format opens on its own page.
+- **/hr/{slug} — one format's page.** The records on file (dated, what tells them apart — the position,
+  the period, the trainee, the review date — lines filled, status, submitted and verified by), and the
+  latest record **shown in full below, exactly as the form prints**, so opening the competence register
+  opens the 80-line register. Clicking a line shows that record instead (the eight position sheets of
+  F/HR/07 are read one after another this way); *Open record* takes it to its own page to fill in,
+  submit or verify; *New record* starts one. A format with nothing on file yet shows its blank form,
+  with *Start this record*. The sheet shown is the printable document of the page.
+
+**OPEN DOCUMENT OPENS THE DOCUMENT.** "Open Document" in the Document Library sent every log sheet to
+the Record Calendar — a month of every department's due dates with the document nowhere on it. Now
+(`documentOpenRoute`) an HR format opens its HR page, and every other log sheet — the lamination QC and
+production registers, the QC inspection records — opens the same kind of page at `/document/{id}`.
+Nothing in the library opens the calendar any more. Both pages refuse another department's document by
+name, as every page does (§40), and the assistant can navigate to them (`/hr`, `/hr/{slug}`,
+`/document/{id}` in the route guide and `isValidAppRoute`).
+
+- Covered by `tests/e2e_hr_module.py` (now **138 checks**): the sidebar's overview and sixteen format
+  links in order, a format link opening its register with only that link lit; every one of the forty
+  documents' Open Document clicked and none landing on the calendar, each HR format on its own page and
+  a lamination log sheet on its document page; the competence page's 80-line register, the eight
+  position sheets shown one after another, the TNI still Submitted, the visitor declaration's blank
+  form and Start; HR Overview's five groups and sixteen formats; and the QC account refused at `/hr`
+  and at a format's page. `tests/e2e_print_all_documents.py` prints an HR format's page and a log
+  sheet's document page with nothing around the sheet.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

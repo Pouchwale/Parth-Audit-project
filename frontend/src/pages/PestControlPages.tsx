@@ -62,7 +62,7 @@ function monthRange(year: number, month: number) {
 
 // First due date on/after `fromISO` (looks up to 13 months ahead), holiday-
 // aware: a visit scheduled on the Thursday weekly off is due on the Friday.
-function nextDueDate(doc: DocumentDefinition, fromISO: string): string | null {
+export function nextDueDate(doc: DocumentDefinition, fromISO: string): string | null {
   const master = masterRepository.get();
   const d = fromISODate(fromISO);
   let y = d.getFullYear();
@@ -134,7 +134,7 @@ function rodentCellFor(r: RecordInstance<DailyPestMonitoringData> | undefined): 
   return `${totalRodents(catches)} — ${catches.map((c) => `${c.trapBoxNo || "?"} ${c.location}`).join("; ")}`;
 }
 
-function DocMeta({ doc }: { doc: DocumentDefinition }) {
+export function DocMeta({ doc }: { doc: DocumentDefinition }) {
   const info = getDocumentInfo(doc, masterRepository.get());
   return (
     <div className="text-xs text-muted">

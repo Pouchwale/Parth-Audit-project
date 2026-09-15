@@ -169,6 +169,9 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 /* Sub-headings inside a module body (Pest Control: Daily Report / Service
    Reports / Trend Analysis / Training & Reference). */
 .nav-sub-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-faint); padding: 9px 10px 3px 12px; font-weight: 700; }
+/* A whole shelf of a module (Human Resources: HR Records, then the pest control file), above its groups' headings. */
+.nav-sub-label.nav-group-label { font-size: 10.5px; color: var(--color-text-muted); letter-spacing: 0.07em; border-top: 1px solid var(--color-border); margin: 6px 8px 0; padding: 10px 2px 3px 4px; }
+.nav-module-body > .nav-group-label:first-child { border-top: none; margin-top: 0; padding-top: 6px; }
 .nav-module-body a { font-size: 13px; }
 
 /* Top-bar control that brings the panel back — the panel's own close button
@@ -629,6 +632,8 @@ textarea.input { resize: vertical; min-height: 60px; }
 .doc-table td { padding: 8px 10px; border-bottom: 1px solid var(--color-border); font-size: 13px; vertical-align: middle; }
 .doc-table tr:last-child td { border-bottom: none; }
 .doc-table tr:hover td { background: var(--color-surface-alt); }
+/* The record shown in full below a document's records table (pages/DocumentRecordsPage.tsx). */
+.doc-table tr.is-selected td, .doc-table tr.is-selected:hover td { background: var(--color-primary-light); }
 /* A module's documents shelved by section (Document Library): the section's name on a row of its own. */
 .doc-table tr.doc-section-row td, .doc-table tr.doc-section-row:hover td { background: var(--color-surface-alt); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); padding: 6px 10px; }
 .doc-table.compact td, .doc-table.compact th { padding: 6px 8px; }

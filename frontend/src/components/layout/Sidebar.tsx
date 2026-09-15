@@ -28,6 +28,17 @@ import {
   FiPackage,
   FiCheckSquare,
   FiX,
+  FiBriefcase,
+  FiTarget,
+  FiSmartphone,
+  FiList,
+  FiStar,
+  FiMessageCircle,
+  FiHeart,
+  FiUserPlus,
+  FiUserCheck,
+  FiLogIn,
+  FiPieChart,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
@@ -35,6 +46,7 @@ import { documentRepository } from "../../data/repositories/documentRepository";
 import { readJSON, writeJSON } from "../../data/storageAdapter";
 import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
+import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
 
 interface NavItem {
   to: string;
@@ -48,8 +60,12 @@ interface NavItem {
 // sub-headings — the Human Resources module uses these for HR's own records
 // and for the groups the department thinks of its pest control file in (Daily
 // Report / Service Reports / Trend Analysis / Training & Reference).
-type NavEntry = NavItem | { headingKey: string };
-const isHeading = (e: NavEntry): e is { headingKey: string } => "headingKey" in e;
+// A heading with `group` names a whole shelf of the module — the Human
+// Resources module has two, HR Records and the pest control file — and the
+// plain headings under it name that shelf's groups.
+type NavHeading = { headingKey: string; group?: boolean };
+type NavEntry = NavItem | NavHeading;
+const isHeading = (e: NavEntry): e is NavHeading => "headingKey" in e;
 
 const NAV_MAIN: NavItem[] = [
   { to: "/dashboard", labelKey: "nav.dashboard", icon: FiGrid },
@@ -103,9 +119,33 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
   // the daily report, Gurudev Pest Control's three service reports, the trend
   // analyses drawn from them, and the training / reference material.
   "Human Resources": [
-    { headingKey: "nav.hrRecords" },
-    { to: "/library/human-resources", labelKey: "nav.hrDocuments", icon: FiBookOpen },
-    { headingKey: "nav.pestControlGroup" },
+    // HR Records — HR's own sixteen formats, laid out like the pest control file
+    // below: an overview, then a page per format under its group (REQUIREMENTS §47).
+    { headingKey: "nav.hrRecords", group: true },
+    { to: "/hr", labelKey: "nav.hrOverview", icon: FiHome },
+    { headingKey: "nav.hrPersonnel" },
+    { to: "/hr/competence", labelKey: "nav.hrCompetence", icon: FiBriefcase },
+    { to: "/hr/skill-matrix", labelKey: "nav.hrSkillMatrix", icon: FiTarget },
+    { to: "/hr/job-responsibility", labelKey: "nav.hrJobResponsibility", icon: FiClipboard },
+    { to: "/hr/mobile-authorization", labelKey: "nav.hrMobile", icon: FiSmartphone },
+    { headingKey: "nav.hrTraining" },
+    { to: "/hr/training-needs", labelKey: "nav.hrTrainingNeeds", icon: FiList },
+    { to: "/hr/training-calendar", labelKey: "nav.hrTrainingCalendar", icon: FiCalendar },
+    { to: "/hr/training-effectiveness", labelKey: "nav.hrTrainingEffectiveness", icon: FiStar },
+    { to: "/hr/training-feedback", labelKey: "nav.hrTrainingFeedback", icon: FiMessageCircle },
+    { headingKey: "nav.hrInductionHealth" },
+    { to: "/hr/pre-employment-health", labelKey: "nav.hrPreEmployment", icon: FiHeart },
+    { to: "/hr/induction-staff", labelKey: "nav.hrInductionStaff", icon: FiUserPlus },
+    { to: "/hr/induction-operators", labelKey: "nav.hrInductionOperators", icon: FiUserCheck },
+    { to: "/hr/visitor-health", labelKey: "nav.hrVisitor", icon: FiLogIn },
+    { headingKey: "nav.hrHygieneGmp" },
+    { to: "/hr/gmp-checklist", labelKey: "nav.hrGmp", icon: FiCheckSquare },
+    { to: "/hr/hygiene-report", labelKey: "nav.hrHygiene", icon: FiDroplet },
+    { headingKey: "nav.hrSafetyCulture" },
+    { to: "/hr/psc-survey", labelKey: "nav.hrPscSurvey", icon: FiMessageSquare },
+    { to: "/hr/psc-survey-analysis", labelKey: "nav.hrPscAnalysis", icon: FiPieChart },
+    // The pest control file.
+    { headingKey: "nav.pestControlGroup", group: true },
     { to: "/pest-control", labelKey: "nav.overview", icon: FiHome },
     { headingKey: "nav.dailyReport" },
     { to: "/pest/daily", labelKey: "nav.dailyPestMonitoring", icon: FiClipboard },
@@ -151,30 +191,11 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
 // Calendar, Reports, Search, Master Data, the assistant, Document Files, Demo
 // Mode and the module landing pages — and is always shown, because what those
 // screens list is already filtered document by document by the repository.
-// HR's own sixteen formats (data/seed/documentDefinitions.ts, REQUIREMENTS §46).
-const HR_DOCUMENT_IDS = [
-  "hr-competence",
-  "hr-skill-matrix",
-  "hr-job-responsibility",
-  "hr-mobile-authorization",
-  "hr-training-needs",
-  "hr-training-calendar",
-  "hr-training-effectiveness",
-  "hr-training-feedback",
-  "hr-pre-employment-health",
-  "hr-induction-staff",
-  "hr-induction-operators",
-  "hr-visitor-health",
-  "hr-gmp-checklist",
-  "hr-hygiene-report",
-  "hr-psc-survey",
-  "hr-psc-survey-analysis",
-] as const;
-
 const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
-  // The HR records link lists exactly these sixteen, so it is shown when any
-  // one of them is the viewer's.
-  "/library/human-resources": HR_DOCUMENT_IDS,
+  // HR Records (data/seed/hrModule.ts): a format's page is shown when that format
+  // is the viewer's, and the overview when any of the sixteen is.
+  "/hr": HR_RECORD_PAGES.map((p) => p.docId),
+  ...Object.fromEntries(HR_RECORD_PAGES.map((p) => [`/hr/${p.slug}`, [p.docId]])),
   "/pest/daily": ["daily-pest-monitoring"],
   "/pest/service/rodent": ["service-report-rodent"],
   "/pest/service/general": ["service-report-general"],
@@ -205,18 +226,27 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
 };
 
 // One module's entries with the other departments' links taken out, and then
-// any sub-heading left standing over nothing (REQUIREMENTS §40): a "Service
+// any heading left standing over nothing (REQUIREMENTS §40): a "Service
 // Reports" heading above a gap reads like a page that failed to load rather
-// than like paperwork that isn't yours. A heading's links always follow it
-// directly, so a heading is worth keeping exactly when a link — not another
-// heading, and not the end of the list — comes next.
+// than like paperwork that isn't yours. A heading's links follow it, so a
+// heading is worth keeping exactly when a link comes before the next heading of
+// its own rank or above — a shelf's name (`group`) looks past its groups' own
+// headings, a group's heading does not.
 function visibleEntries(entries: NavEntry[], visibleDocumentIds: Set<string>): NavEntry[] {
   const kept = entries.filter((entry) => {
     if (isHeading(entry)) return true;
     const ids = LINK_DOCUMENT_IDS[entry.to];
     return !ids || ids.some((id) => visibleDocumentIds.has(id));
   });
-  return kept.filter((entry, i) => !isHeading(entry) || (kept[i + 1] !== undefined && !isHeading(kept[i + 1])));
+  const rank = (h: NavHeading) => (h.group ? 0 : 1);
+  return kept.filter((entry, i) => {
+    if (!isHeading(entry)) return true;
+    for (const next of kept.slice(i + 1)) {
+      if (!isHeading(next)) return true;
+      if (rank(next) <= rank(entry)) return false;
+    }
+    return false;
+  });
 }
 
 const NAV_SYSTEM: NavItem[] = [
@@ -237,18 +267,23 @@ const isActivePath = (path: string, to: string): boolean => path === to || path.
 
 function NavGroup({ items, path }: { items: NavEntry[]; path: string }) {
   const t = useT();
+  // The most specific link that holds the page is the one lit: on
+  // /hr/competence that is the competence link, not the HR overview (/hr) too.
+  const activeTo = items
+    .filter((item): item is NavItem => !isHeading(item) && isActivePath(path, item.to))
+    .sort((a, b) => b.to.length - a.to.length)[0]?.to;
   return (
     <>
       {items.map((item, i) => {
         if (isHeading(item)) {
           return (
-            <div key={`heading-${i}`} className="nav-sub-label">
+            <div key={`heading-${i}`} className={item.group ? "nav-sub-label nav-group-label" : "nav-sub-label"}>
               {t(item.headingKey)}
             </div>
           );
         }
         const Icon = item.icon;
-        const active = isActivePath(path, item.to);
+        const active = item.to === activeTo;
         return (
           <Link key={item.to} to={item.to} className={active ? "active" : ""} aria-current={active ? "page" : undefined}>
             <span className="nav-icon">

@@ -98,6 +98,11 @@ Seven scripts live in `tests/`:
   counts, first and last lines, named lines, the analysis sheet's percentages - and open read-only in
   their own layout; a new record of each blank format opens with the paper's printed rows; a Quality
   Control account sees nothing of it and a Human Resources account sees the module without CAPA.
+  Since REQUIREMENTS s47 also: the sidebar's HR Overview and sixteen format pages in order, each format
+  page showing its register in full, the eight job responsibility sheets read one after another, a
+  blank format started from its page, HR Overview's groups, and Open Document clicked for all forty
+  documents with none landing on the Record Calendar. With that change `npm run test:e2e` is green end to
+  end at **845 checks across sixteen suites**.
   Signs in as the trend suite's account, the departments suite's QC account, and an HR account of its
   own. Network-independent.
 - `tests/e2e_departments.py` - departments, whole-document printing and the trend graph: an unassigned

@@ -180,6 +180,8 @@ with sync_playwright() as p:
         ("Rodent Catch Report", "#/pest/trend/rodent"),
         ("Lizard Catch Report", "#/pest/trend/lizard"),
         ("Rat / Mice service page", "#/pest/service/rodent"),
+        ("HR Records: the Skill Matrix page (F/HR/03)", "#/hr/skill-matrix"),
+        ("A log sheet's own page (F-QC-30)", "#/document/qc-viscosity"),
         ("Reports", "#/reports"),
         ("Document Files", "#/files"),
     ]

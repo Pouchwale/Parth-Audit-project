@@ -102,8 +102,12 @@ The app behaves like a personal assistant rather than a blank form:
   Responsibility & Authority, mobile-usage authorisation, Training Need Identification, Training Plan
   Calender, training effectiveness and feedback, pre-employment and visitor health declarations, the
   two induction records, the Monthly PRP (GMP) check list, the Daily Personal Sanitation & Hygiene
-  sheet, and the Product Safety Culture Survey with its analysis — open from **HR Records** in the
-  Document Library filtered to the module (`/library/human-resources`), shelved by section. The eight
+  sheet, and the Product Safety Culture Survey with its analysis — are laid out like the pest control
+  file (REQUIREMENTS §47): **HR Records** in the sidebar reads *HR Overview* (`/hr`) and then the five
+  groups with a page per format (`/hr/{slug}`), each page holding the format's records on file with the
+  latest shown in full as it prints, and New. In the Document Library they are shelved by section, and
+  **Open Document** opens a document on its own page — never the Record Calendar (log sheets of other
+  modules open at `/document/{id}`). The eight
   registers that arrived filled are on file as Live records line for line: 80 staff on the competence
   register (reviewed as on 01.10.2026), 58 operators on the skill matrix, 28 inductions, eight
   position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile

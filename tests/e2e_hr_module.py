@@ -7,9 +7,12 @@ everything in HR Module". So this suite checks that:
   * the Document Library holds forty documents, and the Human Resources module
     groups twenty-six of them - the sixteen formats under HR's five sections,
     then the pest control file's ten under its own four;
-  * the sidebar has a Human Resources module and no Pest Control module: an
-    "HR Records" heading over the library link, then "Pest Control" over the
-    overview and the file's four groups;
+  * the sidebar has a Human Resources module and no Pest Control module: "HR
+    Records" over its overview and a page per format under the five groups,
+    then "Pest Control" over the file's overview and its four groups;
+  * "Open Document" opens every document on a page of its own, never the Record
+    Calendar - an HR format its HR page, with the register on it in full, and
+    any other log sheet its document page (REQUIREMENTS s47);
   * the filled registers among the PDFs are on file as LIVE records, line for
     line - F/HR/01 (80 staff, reviewed as on 01.10.2026), F/HR/03 (58
     operators, status as on 01.09.2026), F/HR/06 (28 inductions), F/HR/07
@@ -83,7 +86,20 @@ SECTIONS = [
     "Personnel & Competence", "Training", "Induction & Health", "Hygiene & GMP", "Product Safety Culture",
     "Daily Report", "Service Reports", "Trend Analysis", "Training & Reference",
 ]
-SUB_LABELS = ["HR Records", "Pest Control", "Daily Report", "Service Reports", "Trend Analysis", "Training & Reference"]
+SUB_LABELS = [
+    "HR Records", "Personnel & Competence", "Training", "Induction & Health", "Hygiene & GMP", "Product Safety Culture",
+    "Pest Control", "Daily Report", "Service Reports", "Trend Analysis", "Training & Reference",
+]
+# Each HR format's own page, in the sidebar's order (data/seed/hrModule.ts).
+HR_PAGES = [
+    ("hr-competence", "competence"), ("hr-skill-matrix", "skill-matrix"), ("hr-job-responsibility", "job-responsibility"),
+    ("hr-mobile-authorization", "mobile-authorization"), ("hr-training-needs", "training-needs"),
+    ("hr-training-calendar", "training-calendar"), ("hr-training-effectiveness", "training-effectiveness"),
+    ("hr-training-feedback", "training-feedback"), ("hr-pre-employment-health", "pre-employment-health"),
+    ("hr-induction-staff", "induction-staff"), ("hr-induction-operators", "induction-operators"),
+    ("hr-visitor-health", "visitor-health"), ("hr-gmp-checklist", "gmp-checklist"), ("hr-hygiene-report", "hygiene-report"),
+    ("hr-psc-survey", "psc-survey"), ("hr-psc-survey-analysis", "psc-survey-analysis"),
+]
 POSITIONS = {
     "Executive-Lab": "Manager-QA",
     "Executive-Hr": "Manager-Hr",
@@ -260,26 +276,34 @@ with sync_playwright() as p:
     check("The sidebar has a Human Resources module header", page.locator(".nav-module-header:has-text('Human Resources')").count() == 1)
     check("...and no Pest Control module header", page.locator(".nav-module-header:has-text('Pest Control')").count() == 0)
     labels = module_sub_labels(page)
-    check("The module reads HR Records, then Pest Control and the file's four groups", labels == SUB_LABELS, labels)
-    link = page.locator("a:has-text('Personnel, Training & Hygiene Formats')")
-    check("HR Records offers the module's formats", link.count() == 1)
+    check("The module reads HR Records and its five groups, then Pest Control and the file's four", labels == SUB_LABELS, labels)
+    hr_links = page.eval_on_selector_all(
+        ".nav-module:has(.nav-module-header:has-text('Human Resources')) a", "els => els.map((e) => e.getAttribute('href'))"
+    )
+    check("HR Records has an overview and a page for each of the sixteen formats, like the pest control file",
+          hr_links[:17] == ["#/hr"] + [f"#/hr/{slug}" for _, slug in HR_PAGES], hr_links[:17])
     check("...and the pest control file's pages are still there, inside the module",
           page.locator("a:has-text('Daily Pest Control Monitoring')").count() == 1 and page.locator("a:has-text('Rat / Mice')").count() == 1
           and page.locator("a:has-text('Training Records')").count() == 1)
     page.goto(f"{BASE}/index.html#/dashboard")
     page.wait_for_timeout(600)
     dismiss(page)
-    link.first.click()
-    page.wait_for_timeout(600)
-    check("Clicking HR Records opens the library filtered to Human Resources", "#/library/human-resources" in page.url, page.url)
+    page.locator("a[href='#/hr/skill-matrix']").first.click()
+    page.wait_for_timeout(1500)
+    close_assistant(page)
+    check("Clicking Skill Matrix in the sidebar opens its own page with the 58-line register on it",
+          page.url.endswith("#/hr/skill-matrix") and page.locator("[data-section='document-preview'] table.log-sheet tbody tr").count() == 58,
+          (page.url, page.locator("[data-section='document-preview'] table.log-sheet tbody tr").count()))
+    check("...and only that link is lit, not the HR overview as well",
+          page.locator(".app-sidebar a.active").count() == 1 and page.locator(".app-sidebar a.active[href='#/hr/skill-matrix']").count() == 1)
     header = page.locator(".nav-module-header:has-text('Human Resources')")
     header.click()
     page.wait_for_timeout(200)
     check("Collapsing the module hides HR Records and the pest control file together",
-          page.locator("a:has-text('Personnel, Training & Hygiene Formats')").count() == 0 and page.locator("a:has-text('Daily Pest Control Monitoring')").count() == 0)
+          page.locator("a[href='#/hr/competence']").count() == 0 and page.locator("a:has-text('Daily Pest Control Monitoring')").count() == 0)
     header.click()
     page.wait_for_timeout(200)
-    check("...and expanding it brings both back", page.locator("a:has-text('Personnel, Training & Hygiene Formats')").count() == 1 and page.locator("a:has-text('Daily Pest Control Monitoring')").count() == 1)
+    check("...and expanding it brings both back", page.locator("a[href='#/hr/competence']").count() == 1 and page.locator("a:has-text('Daily Pest Control Monitoring')").count() == 1)
 
     # ==================================================================
     # 3. The filled registers are on file, line for line
@@ -407,6 +431,94 @@ with sync_playwright() as p:
     check("...with the topics and the month headings printed on the sheet", "BRCGS - Packaging (Issue 07)Awareness" in sheet_text and "Apr-26 — Plan" in sheet_text and "Mar-27 — Actual" in sheet_text)
 
     # ==================================================================
+    # 4b. Every document opens on a page of its own - never the calendar
+    # ==================================================================
+    open_library(page)
+    all_ids = page.eval_on_selector_all("[data-action='open-document']", "els => els.map((e) => e.getAttribute('data-document'))")
+    check("Every document in the library has Open Document", len(all_ids) == 40, len(all_ids))
+    landed = {}
+    for doc_id in all_ids:
+        open_library(page)
+        page.locator(f"[data-action='open-document'][data-document='{doc_id}']").first.evaluate("el => el.click()")
+        page.wait_for_timeout(500)
+        landed[doc_id] = page.url.split("#", 1)[-1]
+    check("Open Document never lands on the Record Calendar", not any(u.startswith("/calendar") for u in landed.values()),
+          {d: u for d, u in landed.items() if u.startswith("/calendar")})
+    wrong = {d: landed.get(d) for d, slug in HR_PAGES if landed.get(d) != f"/hr/{slug}"}
+    check("Each of the sixteen HR formats opens on its own HR page", not wrong, wrong)
+    check("A log sheet of another module opens on its document page", landed.get("qc-viscosity") == "/document/qc-viscosity", landed.get("qc-viscosity"))
+
+    page.goto(f"{BASE}/index.html#/hr/competence")
+    page.wait_for_timeout(1600)
+    dismiss(page)
+    close_assistant(page)
+    table = page.locator("[data-table='document-records'] tbody tr")
+    preview = page.locator("[data-section='document-preview']")
+    check("The competence page lists the register on file, and shows it in full: 80 lines",
+          table.count() == 1 and preview.locator("table.log-sheet tbody tr").count() == 80 and "80 of 80" in table.first.inner_text(),
+          (table.count(), preview.locator("table.log-sheet tbody tr").count()))
+    check("...named by its review date and headed F/HR/01", "01.10.2026" in table.first.inner_text() and "F/HR/01" in preview.inner_text())
+    check("...inside a printable document, like every record page", preview.locator("[data-print-doc]").count() == 1)
+    preview.locator("[data-action='open-shown-record']").click()
+    page.wait_for_timeout(900)
+    check("Open record takes it to its own record page", page.url.endswith("#/record/hr-competence-2026-10-01"), page.url)
+
+    page.goto(f"{BASE}/index.html#/hr/job-responsibility")
+    page.wait_for_timeout(1400)
+    dismiss(page)
+    close_assistant(page)
+    table = page.locator("[data-table='document-records'] tbody tr")
+    check("The job responsibility page lists the eight position sheets", table.count() == 8, table.count())
+    table.filter(has_text="Quality Executive").first.click()
+    page.wait_for_timeout(700)
+    preview = page.locator("[data-section='document-preview']")
+    check("Clicking a position shows that sheet in full below: Quality Executive, one line",
+          preview.get_attribute("data-record") == "hr-job-responsibility-quality-executive"
+          and preview.locator("table.log-sheet tbody tr").count() == 1
+          and header_input(page, "Position").input_value() == "Quality Executive",
+          preview.get_attribute("data-record"))
+
+    page.goto(f"{BASE}/index.html#/hr/training-needs")
+    page.wait_for_timeout(1600)
+    dismiss(page)
+    close_assistant(page)
+    check("The TNI page shows the 154 employees, still Submitted for the ticks to be confirmed",
+          page.locator("[data-section='document-preview'] table.log-sheet tbody tr").count() == 154
+          and "Submitted" in page.locator("[data-table='document-records'] tbody tr").first.inner_text())
+
+    page.goto(f"{BASE}/index.html#/hr/visitor-health")
+    page.wait_for_timeout(1200)
+    dismiss(page)
+    close_assistant(page)
+    preview = page.locator("[data-section='document-preview']")
+    check("A format with nothing on file shows its blank form: the visitor declaration's nine questions",
+          preview.get_attribute("data-record") == "blank-format" and preview.locator("table.log-sheet tbody tr").count() == 9,
+          (preview.get_attribute("data-record"), preview.locator("table.log-sheet tbody tr").count()))
+    preview.locator("[data-action='start-from-blank']").click()
+    page.wait_for_timeout(1300)
+    close_assistant(page)
+    check("...and Start this record starts one and opens it", "#/record/" in page.url and sheet_rows(page).count() == 9, page.url)
+
+    page.goto(f"{BASE}/index.html#/hr")
+    page.wait_for_timeout(1300)
+    dismiss(page)
+    close_assistant(page)
+    sections = page.eval_on_selector_all("[data-hr-section]", "els => els.map((e) => e.dataset.hrSection)")
+    check("HR Overview shows the five groups with all sixteen formats",
+          sections == SECTIONS[:5] and page.locator("[data-hr-doc]").count() == 16, (sections, page.locator("[data-hr-doc]").count()))
+    page.locator("[data-hr-doc='hr-gmp-checklist']").click()
+    page.wait_for_timeout(900)
+    check("...and a format there opens on its own page", page.url.endswith("#/hr/gmp-checklist"), page.url)
+
+    open_library(page)
+    page.locator("[data-action='open-document'][data-document='qc-viscosity']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1300)
+    close_assistant(page)
+    check("A lamination log sheet's document page shows its records table and a sheet",
+          page.locator("[data-page='document-records'][data-document='qc-viscosity']").count() == 1
+          and page.locator("[data-section='document-preview'] table.log-sheet").count() == 1)
+
+    # ==================================================================
     # 5. A new record of each blank format opens with the paper's rows
     # ==================================================================
     for doc_id, expected, first_text in [
@@ -445,12 +557,23 @@ with sync_playwright() as p:
     page.wait_for_timeout(1300)
     refusal = page.locator("[data-state='not-your-department']")
     check("...and the competence register, reached by its address, is refused by name", refusal.count() == 1 and refusal.get_attribute("data-department") == "Human Resources" and "Shail Patel" not in page.locator(".app-content").inner_text(), refusal.count())
+    page.goto(f"{BASE}/index.html#/hr")
+    page.wait_for_timeout(1300)
+    check("...HR Overview is refused too", page.locator("[data-state='not-your-department']").count() == 1)
+    page.goto(f"{BASE}/index.html#/hr/skill-matrix")
+    page.wait_for_timeout(1300)
+    check("...and so is a format's own page, without a line of it shown",
+          page.locator("[data-state='not-your-department']").count() == 1 and "Karan Kalusinh Bariya" not in page.locator(".app-content").inner_text())
 
     sign_in(page, *HR_USER)
     headers = module_headers(page)
     check("A Human Resources account has the module and not CAPA", any("Human Resources" in h for h in headers) and not any("CAPA" in h for h in headers), headers)
     labels = module_sub_labels(page)
     check("...with HR Records and the pest control file inside it", labels == SUB_LABELS, labels)
+    page.goto(f"{BASE}/index.html#/hr")
+    page.wait_for_timeout(1300)
+    dismiss(page)
+    check("...and HR Overview with all sixteen formats", page.locator("[data-hr-doc]").count() == 16, page.locator("[data-hr-doc]").count())
     open_library(page)
     check("Its library holds the sixteen formats and the pest control file's nine HR documents - twenty-five", library_rows(page).count() == 25, library_rows(page).count())
     new_ids = set(page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.getAttribute('data-document'))"))

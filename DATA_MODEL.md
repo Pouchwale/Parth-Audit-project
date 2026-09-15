@@ -71,7 +71,12 @@ one DocumentDefinition row. The sixteen Human Resources formats (REQUIREMENTS §
 `src/data/seed/hrLayouts.ts` holds their layouts (`HR_LAYOUTS`, merged into `LOG_SHEET_LAYOUTS`), and
 `src/data/seed/hrRecords.ts` the filled registers among them as seeded LIVE `RecordInstance<LogSheetData>`
 (`SEED_HR_RECORDS`, spread into `SEED_HISTORICAL_RECORDS`) — one record per register, or per position
-for the Job Responsibility & Authority sheets, with `periodKey` = `{documentId}:{dueDate}`. `compliance-statement` is a second new kind: reference-only, content in
+for the Job Responsibility & Authority sheets, with `periodKey` = `{documentId}:{dueDate}`.
+`src/data/seed/hrModule.ts` (`HR_RECORD_PAGES`) gives each of the sixteen its page slug, group and
+sidebar label: `/hr` is the HR Records overview (`pages/HrPages.tsx`) and `/hr/{slug}` a format's own page
+(`pages/DocumentRecordsPage.tsx`, also served at `/document/{id}` for every other log sheet), reading the
+same `recordRepository`. `engine/documentRoutes.ts` (`documentOpenRoute`) is where the Document Library's
+Open Document goes for every kind. `compliance-statement` is a second new kind: reference-only, content in
 `complianceStatements.ts`, with a validity date the briefing tracks.
 
 ## The assistant: auto-fill + briefing

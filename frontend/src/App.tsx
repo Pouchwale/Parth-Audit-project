@@ -34,6 +34,8 @@ import {
   RodentTrendPage,
   ServiceReportListPage,
 } from "./pages/PestControlPages";
+import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
+import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
 
 function NotFoundPage() {
   return (
@@ -121,6 +123,13 @@ function RouteSwitch() {
       if (rest[0] === "trend" && rest[1] === "lizard") return <LizardTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
       if (rest[0] === "trend" && rest[1] === "fly-catcher") return <FlyCatcherTrendPage key={rest.join("/")} year={yearParam(rest[2])} />;
       return <NotFoundPage />;
+    case "hr":
+      // HR Records — the Human Resources module's own sixteen formats: the
+      // overview of their five groups, and one page per format (REQUIREMENTS §47).
+      return rest[0] ? <HrDocumentPage key={rest[0]} slug={rest[0]} /> : <HrOverviewPage />;
+    case "document":
+      // Any other log sheet's own page — where "Open Document" lands.
+      return rest[0] ? <DocumentRecordsPage key={rest[0]} docId={rest[0]} /> : <NotFoundPage />;
     case "chemical-master":
       return <ChemicalMasterPage />;
     case "licence":

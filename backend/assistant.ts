@@ -245,6 +245,14 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
   NOT the calendar, which would show the whole month.
+- /hr — HR Records: the overview of the Human Resources module's own sixteen F/HR formats in their five groups
+- /hr/{slug} — one HR format's own page: its records on file, the latest shown in full, and New. slug is one of
+  competence, skill-matrix, job-responsibility, mobile-authorization, training-needs, training-calendar,
+  training-effectiveness, training-feedback, pre-employment-health, induction-staff, induction-operators,
+  visitor-health, gmp-checklist, hygiene-report, psc-survey, psc-survey-analysis. Use it for "open the skill
+  matrix", "show the training calendar", "visitor declarations", "the GMP inspection" and the like
+- /document/{documentId} — any other log sheet's own page (lamination QC / production, the QC inspection
+  records), e.g. /document/qc-viscosity — open a document there, not on the calendar
 - /calendar — this month's Record Calendar
 - /calendar/{year}/{month0} — Record Calendar for a specific month. month0 is 0-based (January=0 ... December=11)
 - /day/{YYYY-MM-DD} — everything due on one specific date

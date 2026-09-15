@@ -1,0 +1,258 @@
+import React, { useMemo, useState } from "react";
+import { FiArrowLeft, FiArrowRight, FiExternalLink, FiPlus, FiPrinter } from "react-icons/fi";
+import { useAppStore } from "../store/AppStore";
+import { useRouter } from "../store/router";
+import { documentRepository } from "../data/repositories/documentRepository";
+import { masterRepository } from "../data/repositories/masterRepository";
+import { recordRepository } from "../data/repositories/recordRepository";
+import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { hrPageForDocument } from "../data/seed/hrModule";
+import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
+import { createRecordForDocument } from "../engine/recordCrud";
+import { createDefaultData } from "../engine/recordDefaults";
+import { routeForRecord } from "../engine/reminders";
+import { LogSheetRecordView } from "../components/records/LogSheetRecordView";
+import { StatusBadge } from "../components/common/StatusBadge";
+import { DemoTag } from "../components/common/DemoTag";
+import { NotYourDepartment } from "../components/common/NotYourDepartment";
+import { DocMeta, nextDueDate } from "./PestControlPages";
+import { moduleSlug } from "../utils/moduleSlug";
+import { printDocument } from "../utils/print";
+import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
+import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types";
+
+// ONE DOCUMENT'S OWN PAGE (REQUIREMENTS §47) — /hr/{slug} for the sixteen HR
+// formats, /document/{id} for every other log sheet.
+//
+// What "Open Document" shows: the document's records on file, and the latest of
+// them in full, exactly as the form prints — so opening a register opens the
+// register. A line of the table shows that record instead; Open takes it to its
+// own page to fill in, submit or verify. A format with nothing on file yet shows
+// its blank form, with New to start one.
+
+const DONE = new Set(["Submitted", "Pending Verification", "Verified"]);
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+const shownValue = (v: unknown): string => {
+  const s = String(v ?? "").trim();
+  return ISO.test(s) ? formatDisplayDate(s) : s;
+};
+
+/** What tells this record from the format's other records: its position, period, trainee… */
+function describeRecord(doc: DocumentDefinition, record: RecordInstance): string {
+  const header = (record.data as LogSheetData | undefined)?.header ?? {};
+  const hr = hrPageForDocument(doc.id);
+  if (hr?.labelKey && shownValue(header[hr.labelKey])) return shownValue(header[hr.labelKey]);
+  const layout = getLogSheetLayout(doc.id);
+  const first = layout?.headerFields.find((f) => shownValue(header[f.key]));
+  return first ? `${first.label}: ${shownValue(header[first.key])}` : "";
+}
+
+/** "80 of 80": the lines with something written in them, of the lines on the sheet. */
+function linesFilled(doc: DocumentDefinition, record: RecordInstance): string {
+  const layout = getLogSheetLayout(doc.id);
+  const rows = (record.data as LogSheetData | undefined)?.rows;
+  if (!layout || !rows) return "—";
+  const filled = rows.filter((row) => layout.columns.some((c) => !c.fixed && String(row[c.key] ?? "").trim() !== "")).length;
+  return `${filled} of ${rows.length}`;
+}
+
+export function DocumentRecordsPage({ docId }: { docId: string }) {
+  const { mode, version, bump } = useAppStore();
+  const { navigate } = useRouter();
+  const isDemo = mode === "demo";
+  const today = todayISO();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // This month's due sheet exists before the page reads the records, as on the
+  // Calendar and the pest control pages (the generator keeps the launch-date floor).
+  useMemo(() => {
+    const now = new Date();
+    ensureRecordsGeneratedForMonth(now.getFullYear(), now.getMonth(), { documentIds: [docId], isDemo: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId, version]);
+
+  const doc = documentRepository.getById(docId);
+  // Another department's document is refused by name, not reported missing
+  // (REQUIREMENTS §40); an address that names no document at all is the empty state.
+  if (!doc) {
+    const unscoped = documentRepository.getByIdUnscoped(docId);
+    if (unscoped) return <NotYourDepartment documentId={unscoped.id} formatNo={unscoped.formatNo} what="document" />;
+    return (
+      <div className="empty-state">
+        <h2 className="text-xl mb-2">Unknown document</h2>
+        <p>Choose a document from the Document Library.</p>
+      </div>
+    );
+  }
+
+  const master = masterRepository.get();
+  const hr = hrPageForDocument(doc.id);
+  const layout = doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined;
+  const records = (recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[]).slice().sort((a, b) => compareISO(b.dueDate, a.dueDate));
+  const shown = records.find((r) => r.id === selectedId) ?? records[0];
+  const blank: RecordInstance<LogSheetData> | undefined =
+    !shown && layout
+      ? {
+          id: "blank-format",
+          documentId: doc.id,
+          periodKey: "",
+          dueDate: today,
+          status: "Scheduled",
+          isDemo,
+          data: createDefaultData(doc, today, master) as LogSheetData,
+          createdAt: today,
+          updatedAt: today,
+        }
+      : undefined;
+  const preview = shown ?? blank;
+  const next = doc.schedule.type === "as-required" ? null : nextDueDate(doc, today);
+  const done = records.filter((r) => DONE.has(r.status)).length;
+  const detailsTitle = hr?.labelTitle ?? "Details";
+
+  const startRecord = () => {
+    const { record } = createRecordForDocument(doc, { dateISO: today, isDemo });
+    bump();
+    navigate(routeForRecord(doc, record.id));
+  };
+
+  return (
+    <div className={isDemo ? "demo-watermark" : ""} data-page="document-records" data-document={doc.id}>
+      <div className="flex items-center justify-between mb-1 wrap gap-3">
+        <div>
+          <div className="text-xs text-muted mb-1" data-crumb>
+            {hr ? `HR Records · ${hr.section}` : `${doc.module}${doc.section ? ` · ${doc.section}` : ""}`}
+          </div>
+          <h1 className="text-2xl mb-1">{doc.name}</h1>
+          <DocMeta doc={doc} />
+        </div>
+        <div className="flex gap-2 wrap">
+          {!doc.isReferenceOnly && (
+            <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
+              <FiPlus size={12} /> New record
+            </button>
+          )}
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate(hr ? "/hr" : `/library/${moduleSlug(doc.module)}`)}>
+            <FiArrowLeft size={12} /> {hr ? "All HR records" : "Document Library"}
+          </button>
+        </div>
+      </div>
+      <p className="text-muted mb-4">{doc.description}</p>
+
+      <div className="flex gap-3 wrap mb-4">
+        <div className="stat-tile">
+          <div className="stat-value" data-stat="on-file">
+            {records.length}
+          </div>
+          <div className="stat-label">Records on file{isDemo ? " (demo)" : ""}</div>
+        </div>
+        <div className="stat-tile">
+          <div className="stat-value" style={{ fontSize: 18 }}>
+            {records[0] ? formatDisplayDate(records[0].dueDate) : "—"}
+          </div>
+          <div className="stat-label">Latest{records[0] ? ` · ${records[0].status}` : ""}</div>
+        </div>
+        <div className="stat-tile">
+          <div className="stat-value" style={{ fontSize: 18 }}>
+            {next ? formatDisplayDate(next) : doc.frequency}
+          </div>
+          <div className="stat-label">{next ? `Next due · ${doc.frequency}` : "Started when needed"}</div>
+        </div>
+        <div className="stat-tile">
+          <div className="stat-value">{done}</div>
+          <div className="stat-label">Submitted or verified</div>
+        </div>
+      </div>
+
+      <div className="doc-table">
+        <table className="compact" data-table="document-records">
+          <thead>
+            <tr>
+              <th>Dated</th>
+              <th>{detailsTitle}</th>
+              <th>Lines filled</th>
+              <th>Status</th>
+              <th>Submitted by</th>
+              <th>Verified by</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {records.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-muted text-center" style={{ padding: 20 }}>
+                  No {doc.name} on file yet{isDemo ? " (demo)" : ""} — start one with New record.{layout ? " The blank format is shown below." : ""}
+                </td>
+              </tr>
+            )}
+            {records.map((r) => (
+              <tr
+                key={r.id}
+                data-record={r.id}
+                className={`card-clickable ${shown?.id === r.id ? "is-selected" : ""}`}
+                onClick={() => setSelectedId(r.id)}
+                title="Show this record below"
+              >
+                <td className="font-semibold">{formatDisplayDate(r.dueDate)}</td>
+                <td className="text-sm" translate="no">
+                  {describeRecord(doc, r) || <span className="text-faint">—</span>}
+                </td>
+                <td className="text-sm">{linesFilled(doc, r)}</td>
+                <td>
+                  <StatusBadge status={r.status} />
+                  {r.isDemo && <DemoTag />}
+                </td>
+                <td className="text-sm" translate="no">
+                  {r.submittedBy || <span className="text-faint">—</span>}
+                </td>
+                <td className="text-sm" translate="no">
+                  {r.verifiedBy || <span className="text-faint">—</span>}
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    data-action="open-record"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routeForRecord(doc, r.id));
+                    }}
+                  >
+                    Open <FiArrowRight size={12} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {records.length > 1 && <div className="text-xs text-muted mt-2">Click a line to show that record below; Open takes it to its own page to fill in, submit or verify.</div>}
+
+      {layout && preview && (
+        <div className="mt-5" data-section="document-preview" data-record={preview.id}>
+          <div className="flex items-center justify-between wrap gap-2 mb-2">
+            <h2 className="text-lg">{shown ? `On file — ${describeRecord(doc, shown) || formatDisplayDate(shown.dueDate)}` : "Blank format — nothing on file yet"}</h2>
+            <div className="flex items-center gap-2 wrap">
+              {shown && <StatusBadge status={shown.status} />}
+              {shown ? (
+                <button className="btn btn-primary btn-sm" data-action="open-shown-record" onClick={() => navigate(routeForRecord(doc, shown.id))}>
+                  Open record <FiExternalLink size={12} />
+                </button>
+              ) : (
+                <button className="btn btn-primary btn-sm" data-action="start-from-blank" onClick={startRecord}>
+                  <FiPlus size={12} /> Start this record
+                </button>
+              )}
+              <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
+                <FiPrinter size={12} /> Print
+              </button>
+            </div>
+          </div>
+          {/* The form exactly as issued, and the part that prints (utils/print.ts). */}
+          <div className="notranslate" translate="no" data-print-doc>
+            <LogSheetRecordView key={preview.id} doc={doc} record={preview as RecordInstance<LogSheetData>} editable={false} onChange={() => undefined} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
