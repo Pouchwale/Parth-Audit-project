@@ -113,6 +113,16 @@ The app behaves like a personal assistant rather than a blank form:
   position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile
   authorisations and the January-2026 survey analysis (93.99%). A Quality Control account sees none of
   them.
+- **The assistant has a name and a character: Mitra** (REQUIREMENTS §50). *Mitra* is "friend" in
+  Gujarati, and that is the idea — the plant's record-keeping buddy. The floating button reads **Ask
+  Mitra**; it opens with a greeting by the hour and by name and asks **"Where would you like to go?"**,
+  with the answers as buttons: today's work, a document (which shelf → which part → which one, each
+  opening that document's own page), a report, finding something, today's briefing, or what it can do.
+  Each answer asks the next question the way a colleague would, none of it needs the network, and it
+  only offers what your departments may see. A typed "hi", "thanks", "what can you do?" or "are you a
+  real person?" is answered on the spot — the last one plainly: Mitra is this system's assistant, not a
+  person. The name is one constant (`src/engine/assistantPersona.ts`) if you want to call it something
+  else.
 - **A new joiner from their CV** (REQUIREMENTS §49). *Add from CV / Resume* on Personal Competence Records
   reads a PDF, Word (.docx) or text CV on the server — name, sex and date of birth where written, the
   highest qualification, the experience, the position applied for — into a form HR checks, adds the

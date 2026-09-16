@@ -55,6 +55,9 @@ export type ChipAction =
   | { type: "approve" }
   | { type: "sendBack" }
   | { type: "navigate"; route: string }
+  // "Where would you like to go?" — the next question of Mitra's own
+  // walk-through (engine/assistantPersona.ts, REQUIREMENTS §50).
+  | { type: "guide"; step: string }
   | { type: "briefing" }
   | { type: "startGuided" }
   | { type: "focusInput"; placeholder: string }

@@ -190,7 +190,7 @@ with sync_playwright() as p:
     page.fill("input[data-field='agreementNo']", "GPC/2026/14")
     page.wait_for_timeout(1200)
     check("A typed change saves itself", stored(page, agreement_id)["data"]["agreementNo"] == "GPC/2026/14")
-    opener = page.locator("button:has-text('Ask the assistant')")
+    opener = page.locator("button:has-text('Ask Mitra')")
     if opener.count():
         opener.first.click()
         page.wait_for_timeout(300)

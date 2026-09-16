@@ -9,6 +9,7 @@ import { routeForRecord } from "./reminders";
 import { filesRoute, isPestFileDocument, recordsInRange, scopeForDocuments } from "./fileScope";
 import { dayInfo, describeDay, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG, type DayInfo } from "./holidays";
 import { t } from "../i18n";
+import { guide, hello, whoIAm } from "./assistantPersona";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
 
 // WHAT THE ASSISTANT KNOWS WITHOUT ASKING THE MODEL.
@@ -90,6 +91,15 @@ const SUGGESTION_IDS = ["due", "tomorrow", "nextHoliday", "adjustment", "reports
 export function suggestedPrompts(): { title: string; text: string }[] {
   return SUGGESTION_IDS.map((id) => ({ title: t(`sugg.${id}.title`), text: t(`sugg.${id}.text`) }));
 }
+
+// Mitra's own small talk (REQUIREMENTS §50) — deliberately narrow, so a real
+// question about the work never lands here. "Who are you" and its kin are
+// answered by name and honestly; a bare greeting or thanks is answered warmly.
+const IDENTITY_RE =
+  /\b(?:who\s+are\s+you|what(?:'?s| is)\s+your\s+name|are\s+you\s+(?:a\s+)?(?:real|human|person|bot|robot|machine|an?\s+ai|ai)|are\s+you\s+there|am\s+i\s+(?:talking|speaking|chatting)\s+(?:to|with)\s+(?:a\s+)?(?:real\s+)?(?:person|human|bot|machine))\b/i;
+const GREETING_RE = /^(?:hi+|hey+|hello+|hlo|helo|namaste|namaskar|jai\s+shree\s+krishna|kem\s+cho|good\s+(?:morning|afternoon|evening))\b[\s!.,]*$/i;
+const THANKS_RE = /^(?:thanks?|thank\s+you|thx|ty|shukriya|aabhar|dhanyavad|great|nice|perfect|well\s+done)\b[\s!.,]*$/i;
+const CAPABILITY_RE = /\b(?:what\s+can\s+you\s+do|what\s+do\s+you\s+do|how\s+can\s+you\s+help|what\s+are\s+you\s+for|what\s+all\s+can\s+you\s+do)\b/i;
 
 const WEEKDAY_RE = /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)\b/i;
 // Deliberately narrow: bare words like "closed" or "adjustment" also occur in
@@ -629,6 +639,24 @@ export function localAnswer(message: string, isDemo: boolean, userName?: string)
   // before any intent routing (see offTopicReply above).
   const offTopic = offTopicReply(text);
   if (offTopic) return offTopic;
+
+  // WHO IS TALKING (REQUIREMENTS §50). A greeting, a thank you, "what can you
+  // do?" and "are you a real person?" are answered here and now — a buddy
+  // shouldn't need a network round trip to say hello, and the honest answer to
+  // the last one is never the model's to improvise.
+  if (IDENTITY_RE.test(lower)) return { reply: whoIAm(), chips: guide("home").chips };
+  if (GREETING_RE.test(text)) {
+    const home = guide("home");
+    return { reply: `${hello(userName)}\n${home.text}`, chips: home.chips };
+  }
+  if (THANKS_RE.test(text)) {
+    const first = (userName ?? "").trim().split(/\s+/)[0];
+    return { reply: t("ai.youreWelcome", { name: first ? `, ${first}` : "" }), chips: guide("home").chips };
+  }
+  if (CAPABILITY_RE.test(lower)) {
+    const about = guide("about");
+    return { reply: about.text, chips: about.chips };
+  }
 
   if (HOLIDAY_RE.test(lower)) {
     if (ADJUSTMENT_RE.test(lower)) return { reply: listAdjustmentDays(today), chips: holidayChips() };

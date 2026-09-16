@@ -136,16 +136,21 @@ with sync_playwright() as p:
     )
 
     # ---- the assistant: a plain sentence, saved, listed, undoable ----
-    page.click("button:has-text('Ask the assistant')")
+    page.click("button:has-text('Ask Mitra')")
     page.wait_for_timeout(400)
     box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
     before_time = stored(page, rid)["data"]["timeOfChecking"]
-    box.fill("time of checking is 9.40 am")
+    # A time the pre-fill did not already write for today. The assistant's
+    # pre-filled time of checking is seeded from the date (engine/autoFill.ts),
+    # so a fixed one here fails on whichever day it happens to land on - and
+    # "nothing on the form changed" would then look like a broken assistant.
+    target, spoken = ("10:55", "10.55 am") if before_time != "10:55" else ("11:20", "11.20 am")
+    box.fill(f"time of checking is {spoken}")
     box.press("Enter")
     page.wait_for_timeout(900)
     reply = page.locator(".chat-msg.bot").last.inner_text()
     r = stored(page, rid)
-    check("The assistant changes a field from a plain sentence, saves it and lists the change", r["data"]["timeOfChecking"] == "09:40" and "Done" in reply and "09:40" in reply, reply)
+    check("The assistant changes a field from a plain sentence, saves it and lists the change", r["data"]["timeOfChecking"] == target and "Done" in reply and target in reply, reply)
     check("The history marks it as the assistant's change", any(h["action"] == "assistant-edit" for h in r.get("history") or []))
     page.locator(".chat-chip:has-text('Undo')").last.click()
     page.wait_for_timeout(700)

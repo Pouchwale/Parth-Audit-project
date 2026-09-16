@@ -114,6 +114,11 @@ Seven scripts live in `tests/`:
   session. The server runs with CV_READ_WITH_ASSISTANT=0 (scripts/run-e2e.ts), so this is the text rules;
   the assistant's part is checked live in `tests/e2e_assistant_chat.py`. Network-independent. With it
   `npm run test:e2e` is green at **892 checks across seventeen suites**.
+- REQUIREMENTS s50 (Mitra - the assistant's name, character and "where would you like to go?") is
+  covered inside `tests/e2e_smoke.py`: the floating button calls it by name; the opening greets by the
+  hour and by name and asks where to go with its answers as buttons; a document is reached by shelf ->
+  part -> name and lands on that document's own page; a typed "hello" is answered by name with no
+  network; "are you a real person?" is answered plainly. That brings the run to **902 checks across seventeen suites**.
   Signs in as the trend suite's account, the departments suite's QC account, and an HR account of its
   own. Network-independent.
 - `tests/e2e_departments.py` - departments, whole-document printing and the trend graph: an unassigned

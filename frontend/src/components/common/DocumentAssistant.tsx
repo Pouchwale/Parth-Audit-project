@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiMessageCircle, FiMic, FiMicOff, FiMove, FiSend, FiX, FiZap } from "react-icons/fi";
+import { FiMessageCircle, FiMic, FiMicOff, FiMove, FiSend, FiX } from "react-icons/fi";
 import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
 import { applyAssistantPatch, looksLikeEdit, parseLocalEdit } from "../../engine/recordPatch";
@@ -25,6 +25,7 @@ import {
   type GuidedStep,
 } from "../../engine/guidedChecklist";
 import { buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
+import { ASSISTANT_NAME, guide, openingMessage } from "../../engine/assistantPersona";
 import { parseAssistantCommand, type AssistantCommand } from "../../engine/assistantCommands";
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
 import { recordRepository } from "../../data/repositories/recordRepository";
@@ -32,7 +33,7 @@ import { routeForRecord } from "../../engine/reminders";
 import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
 import { answerQuestion, interviewPlan, nextQuestion, planProgress, type InterviewQuestion } from "../../engine/guidedRecord";
 import { queueAfterOpen, takeHandoff } from "../../engine/assistantHandoff";
-import { useLanguage, useT } from "../../i18n";
+import { useLanguage, useT, t as phrase } from "../../i18n";
 import { SPEECH_LOCALES } from "../../i18n/strings";
 import { settingsRepository } from "../../data/repositories/settingsRepository";
 import { isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../../utils/speech";
@@ -152,18 +153,20 @@ export function DocumentAssistant() {
   const bot = (text: string, chips?: Chip[]) => post("bot", text, chips);
   const me = (text: string) => post("user", text);
 
-  // Greeting once, when the panel first opens.
+  // Mitra introduces itself once, when the panel first opens, and asks where
+  // you would like to go — with the answers as chips (REQUIREMENTS §50).
   useEffect(() => {
     if (!open || messages.length > 0) return;
     const t = getTarget();
     const where = t?.checklist
-      ? ` I can see you're on ${t.checklist.title}.`
+      ? phrase("ai.opening.checklist", { title: t.checklist.title })
       : t && !t.editable && t.reopen
-        ? ` This record is ${t.status} — tell me what's wrong on it and I'll help you correct it.`
+        ? phrase("ai.opening.recordLocked", { status: t.status ?? "" })
         : hasTarget
-          ? " I can see you have a record open — tell me what to put in it, or what to change."
+          ? phrase("ai.opening.recordOpen")
           : "";
-    bot(`Hi ${firstName}! 👋${where}\nAsk me to open anything, or tell me what happened and I'll fill it in. The quick buttons below are always there.`);
+    const opening = openingMessage(user?.name, where);
+    bot(opening.text, opening.chips);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -524,9 +527,16 @@ export function DocumentAssistant() {
         return;
       case "navigate":
         me(chip.label);
-        bot("On it.");
+        bot(phrase("ai.onIt", { what: chip.label }), [{ label: phrase("ai.guide.whereTo"), action: { type: "guide", step: "home" } }]);
         navigate(a.route);
         return;
+      // The next question of "where would you like to go?" — no network.
+      case "guide": {
+        me(chip.label);
+        const step = guide(a.step);
+        bot(step.text, step.chips);
+        return;
+      }
       case "briefing":
         me(chip.label);
         setOpen(false);
@@ -713,6 +723,7 @@ export function DocumentAssistant() {
     if (hasTarget && t?.editable && !t.checklist && !interview) chips.push({ label: "Ask me question by question", action: { type: "startInterview" }, tone: "primary" });
     if (interview) chips.push({ label: "Stop the questions", action: { type: "interviewStop" } });
     if (hasTarget && t?.editable) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
+    if (!hasTarget) chips.push({ label: phrase("ai.guide.whereToChip"), action: { type: "guide", step: "home" }, tone: "primary" });
     chips.push({ label: "Today's briefing", action: { type: "briefing" } });
     chips.push({ label: "What's due today?", action: { type: "navigate", route: `/day/${todayISO()}` } });
     chips.push({ label: "This month's reports", action: { type: "navigate", route: "/reports" } });
@@ -1126,8 +1137,9 @@ export function DocumentAssistant() {
             {...dragHandleProps}
           >
             <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
-              <span className="chat-avatar">
-                <FiZap size={12} />
+              {/* Mitra's face: its own initial, the way a person's chat avatar reads. */}
+              <span className="chat-avatar" style={{ fontSize: 11, fontWeight: 700 }} aria-hidden="true">
+                {ASSISTANT_NAME.charAt(0)}
               </span>
               <div style={{ minWidth: 0 }}>
                 <div className="text-sm font-semibold flex items-center gap-1">

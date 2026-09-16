@@ -90,7 +90,7 @@ def last_bot(page):
 
 def say(page, text, wait=1300):
     """Type an instruction to the floating assistant and return its latest reply."""
-    opener = page.locator("button:has-text('Ask the assistant')")
+    opener = page.locator("button:has-text('Ask Mitra')")
     if opener.count():
         opener.first.click()
         page.wait_for_timeout(300)
@@ -112,7 +112,7 @@ def open_record_id(page):
 
 
 def submit_via_assistant(page, rid):
-    """Ask the assistant to submit, go through its review step, and say whether it went."""
+    """Ask Mitra to submit, go through its review step, and say whether it went."""
     reply = say(page, "submit this record")
     go = page.locator(".chat-chip", has_text="I've checked it")
     if go.count() == 0:

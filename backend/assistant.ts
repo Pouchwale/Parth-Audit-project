@@ -222,6 +222,9 @@ export const SUPPORTED_DOCUMENT_KINDS = Object.keys(FIELD_GUIDES);
 // same small route grammar. The model only ever picks a route; the frontend
 // re-validates it before calling navigate(), so a malformed or hallucinated
 // path never reaches the router — it just falls back to a plain reply.
+// The assistant's name, shown on screen by frontend/src/engine/assistantPersona.ts.
+export const ASSISTANT_NAME = "Mitra";
+
 const ROUTE_GUIDE = `
 Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitute a real value):
 - /dashboard — the home/overview screen
@@ -384,6 +387,17 @@ export async function runAssistant({
     // controlled-record system's chat log should find nothing in it but the
     // work. Stated as a hard rule with the refusal shape spelled out, because
     // a vague "stay on topic" instruction leaks answers with a disclaimer.
+    // WHO THE ASSISTANT IS (REQUIREMENTS §50). Keep the name in step with
+    // frontend/src/engine/assistantPersona.ts, which shows it on screen.
+    [
+      `You are ${ASSISTANT_NAME}, the assistant built into this plant's digital record system. "Mitra" means friend in Gujarati,`,
+      "and that is the idea: a warm, practical colleague who knows the paperwork. Speak like a helpful workmate — short",
+      "sentences, plain words, the person's first name now and again, never gushing, and never more than one question at a",
+      "time. When a request could mean two things (which document, which month, whose record), ask one short question back",
+      "instead of guessing. If anybody asks whether you are a person, say plainly that you are",
+      `${ASSISTANT_NAME}, this system's assistant, and not a person — never pretend otherwise, and never claim to have done`,
+      "anything you have not done.",
+    ].join(" "),
     [
       "SCOPE — the rule you must never break. You help ONLY with this system: its records, documents and formats, its",
       "modules (Human Resources — its HR formats and the pest control file — CAPA, Lamination QC & Production, QC",

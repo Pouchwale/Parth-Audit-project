@@ -79,7 +79,7 @@ def composer(page):
 
 def say(page, text):
     """Type an instruction to the assistant and return its reply."""
-    opener = page.locator("button:has-text('Ask the assistant')")
+    opener = page.locator("button:has-text('Ask Mitra')")
     if opener.count():
         opener.first.click()
         page.wait_for_timeout(300)

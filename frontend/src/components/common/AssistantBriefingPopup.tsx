@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertCircle, FiArrowRight, FiCheck, FiCheckCircle, FiClock, FiSend, FiShield, FiTrash2, FiX, FiZap } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiCheck, FiCheckCircle, FiClock, FiSend, FiShield, FiTrash2, FiX } from "react-icons/fi";
+import { ASSISTANT_NAME } from "../../engine/assistantPersona";
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
 import { useRouter } from "../../store/router";
@@ -120,7 +121,7 @@ export function AssistantBriefingPopup() {
     slot === "evening"
       ? "end of the day — this is what's still waiting on you before you go"
       : slot === "morning" || slot === "first"
-        ? "your assistant has been through today's paperwork"
+        ? `${ASSISTANT_NAME} has been through today's paperwork`
         : "where things stand right now";
 
   return (
@@ -128,8 +129,8 @@ export function AssistantBriefingPopup() {
       <div className="card briefing" style={{ width: 640, maxWidth: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
         <div className="briefing-head">
           <div className="flex items-center gap-3">
-            <div className="briefing-avatar">
-              <FiZap size={18} />
+            <div className="briefing-avatar" style={{ fontSize: 15, fontWeight: 700 }} aria-hidden="true">
+              {ASSISTANT_NAME.charAt(0)}
             </div>
             <div>
               <div className="text-lg font-bold">{slot === "evening" ? `Before you go, ${briefing.greeting.replace(/^Good \w+, /, "").replace(/!$/, "")}` : briefing.greeting}</div>

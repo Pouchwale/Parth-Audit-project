@@ -16,6 +16,7 @@ import { queueAfterOpen } from "../engine/assistantHandoff";
 import type { Chip } from "../engine/guidedChecklist";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
 import { useLanguage, useT } from "../i18n";
+import { guide, hello } from "../engine/assistantPersona";
 import { SPEECH_LOCALES } from "../i18n/strings";
 import { isSpeechOutputSupported, isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../utils/speech";
 import { generateId } from "../utils/id";
@@ -208,6 +209,14 @@ export function AssistantPage() {
 
   const runChip = (chip: Chip) => {
     const a = chip.action;
+    if (a.type === "guide") {
+      // Mitra's own walk-through, answered in the conversation itself.
+      const convId = active?.id ?? createConversation();
+      const step = guide(a.step);
+      append(convId, { id: generateId("msg"), role: "user", text: chip.label, at: stamp() });
+      append(convId, { id: generateId("msg"), role: "bot", text: step.text, chips: step.chips, at: stamp() });
+      return;
+    }
     if (a.type === "navigate") navigate(a.route);
     else if (a.type === "briefing") openBriefing();
     else if (a.type === "focusInput") inputRef.current?.focus();
@@ -408,10 +417,17 @@ export function AssistantPage() {
         <div ref={logRef} className="assistant-log chat-log">
           {(!active || active.messages.length === 0) && (
             <div className="assistant-welcome">
-              <h2 className="text-xl mb-1">{t("ai.greeting", { name: firstName })}</h2>
+              <h2 className="text-xl mb-1">{hello(user?.name)}</h2>
               <p className="text-muted mb-4" style={{ maxWidth: 560 }}>
                 {t("ai.welcome")}
               </p>
+              {/* "Where would you like to go?" — the same question the widget
+                  opens with, answered right here (REQUIREMENTS §50). */}
+              <div className="chat-chips mb-4">
+                <button type="button" className="chat-chip primary" data-action="guide-home" onClick={() => runChip({ label: t("ai.guide.whereToChip"), action: { type: "guide", step: "home" } })}>
+                  {t("ai.whereTo")}
+                </button>
+              </div>
               <div className="assistant-suggestions">
                 {suggestedPrompts().map((p) => (
                   <button key={p.title} type="button" className="assistant-suggestion" onClick={() => send(p.text)}>

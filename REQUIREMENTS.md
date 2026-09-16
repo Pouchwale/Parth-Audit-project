@@ -2109,6 +2109,64 @@ Nothing is written anywhere until HR presses Add.
   `tests/e2e_assistant_chat.py`: a CV with no name line gets its name from the assistant, as written, with
   nothing invented.
 
+## 50. Mitra — the assistant gets a name, a character, and asks where you want to go (16-Sep-2026)
+
+```
+REQUESTED            "i want to make bot like a real buddy engaging and give any character and name like
+                      which seem to be helpful to the interface in which it will look like and ask who to
+                      do where you want to go like real person asking question"
+DIGITAL TEMPLATE     src/engine/assistantPersona.ts (the name, the character, the questions),
+                      src/components/common/DocumentAssistant.tsx (the widget), src/pages/AssistantPage.tsx,
+                      src/engine/assistantLocal.ts (hello, thanks, "who are you"),
+                      src/components/common/AssistantBriefingPopup.tsx, backend/assistant.ts (the model's prompt)
+```
+
+**THE ASSISTANT IS CALLED MITRA** — *mitra* is "friend" in Gujarati, so the name says what it is meant
+to be: the plant's record-keeping buddy. It is one constant, `ASSISTANT_NAME` in
+`src/engine/assistantPersona.ts`; change it there and the floating button, the panel, the full-page
+Assistant, the login briefing and the model's own prompt all follow (`backend/assistant.ts` keeps a
+copy in step, beside a comment saying so). The name is the same in both languages — a name is not
+translated — while what it calls itself, *your records buddy*, is.
+
+- **What it looks like.** The floating button reads **Ask Mitra**; the panel and the briefing carry a
+  round avatar with its initial where a person's photo would be; the sidebar's entry reads *Ask Mitra*.
+- **How it speaks.** The model is told who it is before it is told anything else: a warm, practical
+  colleague, short sentences, plain words, the person's first name now and again, never gushing, never
+  more than one question at a time, and **one short question back** rather than a guess when a request
+  could mean two things. It is also told to say plainly that it is Mitra, this system's assistant and
+  not a person, if anybody asks — the character is a manner, not a disguise.
+
+**"WHERE WOULD YOU LIKE TO GO?"** Mitra opens with a greeting by the hour and by name, and then that
+question, with its answers as buttons — and each answer asks the next question instead of showing a
+menu of everything:
+
+| Step | What Mitra asks | The answers |
+|---|---|---|
+| opening | "Good morning, Parth — Mitra here, your records buddy. Where would you like to go?" | Today's work · Open a document · See a report · Find a record · Today's briefing · What can you do? |
+| a document | "Which shelf shall I open?" | the modules the person's own departments hold, then the whole Library |
+| a full shelf | "Which part of Human Resources (HR)?" | the module's own groups (a shelf of twenty-six is asked about by section first) |
+| a group | "Which one in Personnel & Competence?" | the documents, by their short names — each opens that document's own page |
+| a report | "Which report shall I open?" | this month's Monthly, Daily Monitoring, Rodent, Fly Catcher, Training, Lamination QC |
+| finding something | "Tell me what you remember — a name, PC-01, a job, a format number, a month…" | Open Search · Open Document Files |
+
+Every step is plain data, so the widget and the full-page Assistant ask the same questions, the steps
+never need the network, and they only ever offer what the person's departments may see (they are built
+from the scoped repository — §40). Each step carries a **Back**, and after opening something Mitra says
+what it opened and offers *Somewhere else*.
+
+- **Small talk, answered on the spot** (`engine/assistantLocal.ts`, no network, no tokens): a bare
+  "hi" or "namaste" gets the greeting and the same question; "thanks" gets a short, warm line; "what
+  can you do?" gets the honest list; and "are you a real person?" / "who are you?" gets *I'm Mitra, the
+  assistant built into this system — not a person*. The patterns are deliberately narrow so a real
+  question about the work still goes where it belongs.
+- **What did not change**: the scope rule (this record system only), the review-before-submit rule, the
+  refusal to invent data, and every existing quick action. Mitra is a manner and a way in, not new
+  powers.
+- Covered by `tests/e2e_smoke.py`: the button calls it by name; the opening greets by the hour and by
+  name and asks where to go, with the answers as buttons; a document is reached by shelf → part → name
+  and lands on that document's own page; a typed "hello" is answered by name without the network; and
+  "are you a real person?" is answered plainly.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

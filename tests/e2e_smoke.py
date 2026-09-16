@@ -915,7 +915,60 @@ def main():
             "weekly off" in page.locator(".assistant-page .chat-msg.bot").last.inner_text().lower(),
         )
 
-        # ---- 15d. Language: English / Gujarati across every page ----
+        # ---- 15d. Mitra: a name, a character, and "where would you like to go?" ----
+        # (REQUIREMENTS s50, engine/assistantPersona.ts.) The opening question
+        # and every answer are local - no network - and each answer asks the
+        # next question instead of showing a menu of everything.
+        page.goto(f"{BASE}/index.html#/dashboard")
+        page.wait_for_timeout(600)
+        dismiss_briefing(page)
+        opener = page.locator("button:has-text('Ask Mitra')")
+        check("The assistant's floating button calls it by name", opener.count() == 1)
+        opener.click()
+        page.wait_for_timeout(500)
+        opening = page.locator(".chat-log .chat-msg.bot").first.inner_text()
+        check(
+            "Mitra introduces itself by name, greets the person by the hour and asks where they want to go",
+            "Mitra" in opening and any(g in opening for g in ["Good morning", "Good afternoon", "Good evening"]) and "Where would you like to go?" in opening,
+        )
+        chat_chip = lambda text: page.locator(".chat-log .chat-chip", has_text=text)
+        check(
+            "...with the answers offered as buttons",
+            all(chat_chip(x).count() >= 1 for x in ["Today's work", "Open a document", "See a report", "Find a record", "What can you do?"]),
+        )
+        chat_chip("Open a document").first.click()
+        page.wait_for_timeout(300)
+        check("Asked for a document, Mitra asks which shelf, module by module", "Which shelf" in page.locator(".chat-log .chat-msg.bot").last.inner_text() and chat_chip("Human Resources").count() >= 1)
+        chat_chip("Human Resources").first.click()
+        page.wait_for_timeout(300)
+        check(
+            "...then which part of a module as full as Human Resources, by its own groups",
+            "Which part of Human Resources" in page.locator(".chat-log .chat-msg.bot").last.inner_text() and chat_chip("Personnel & Competence").count() >= 1,
+        )
+        chat_chip("Personnel & Competence").first.click()
+        page.wait_for_timeout(300)
+        check(
+            "...then which document of that group, by name",
+            "Which one in Personnel & Competence" in page.locator(".chat-log .chat-msg.bot").last.inner_text() and chat_chip("Personal Competence Records").count() == 1,
+        )
+        chat_chip("Personal Competence Records").first.click()
+        page.wait_for_timeout(900)
+        check("...and takes you to that document's own page", page.url.endswith("#/hr/competence"))
+        check("...saying what it opened, and offering to go somewhere else", "Opening" in page.locator(".chat-log .chat-msg.bot").last.inner_text() and chat_chip("Somewhere else").count() >= 1)
+        page.fill("textarea.input", "hello")
+        page.click("button[aria-label='Send']")
+        page.wait_for_timeout(700)
+        check("A plain hello is answered by name, with the same question, without the network", "Mitra" in page.locator(".chat-log .chat-msg.bot").last.inner_text() and chat_chip("Today's work").count() >= 1)
+        page.fill("textarea.input", "are you a real person?")
+        page.click("button[aria-label='Send']")
+        page.wait_for_timeout(700)
+        who = page.locator(".chat-log .chat-msg.bot").last.inner_text()
+        check("Asked whether it is a person, Mitra says plainly that it is this system's assistant and not a person", "Mitra" in who and "not a person" in who)
+        page.click("button[aria-label='Close assistant']")
+        page.wait_for_timeout(200)
+
+
+        # ---- 15e. Language: English / Gujarati across every page ----
         # The choice lives on the Dashboard and applies app-wide immediately —
         # nothing to reload (src/i18n, wired through AppStore).
         page.click("a[href='#/dashboard']")

@@ -211,7 +211,7 @@ with sync_playwright() as p:
     shown = page.locator(f"{table} tr[data-line='16'] td[data-cell='qty'] input").input_value()
     check("The last line shows that same quantity on screen", shown == "5", shown)
 
-    page.click("button:has-text('Ask the assistant')")
+    page.click("button:has-text('Ask Mitra')")
     page.wait_for_timeout(400)
     box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
     box.fill("material of canteen is Deltamethrin")

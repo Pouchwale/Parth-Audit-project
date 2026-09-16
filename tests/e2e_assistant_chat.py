@@ -66,11 +66,11 @@ def check(label, condition):
 
 
 def open_widget(page):
-    # The floating "Ask the assistant" button only exists while the panel is
+    # The floating "Ask Mitra" button only exists while the panel is
     # CLOSED (it's replaced by the panel itself once open) — a previous ask()
     # on this page may have left it open, so only click if it's actually
     # showing, rather than assuming a fresh collapsed state every time.
-    toggle = page.locator("button:has-text('Ask the assistant')")
+    toggle = page.locator("button:has-text('Ask Mitra')")
     if toggle.count() > 0:
         toggle.click()
         page.wait_for_timeout(200)
