@@ -696,6 +696,44 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
   },
 
   // ---------------------------------------------------------------------
+  // Quality Control — the two internal calibration records supplied on
+  // 16-Sep-2026 (REQUIREMENTS §51). Layouts: src/data/seed/qcCalibrationLayouts.ts;
+  // the supplied pages are seeded in src/data/seed/qcCalibrationRecords.ts.
+  // ---------------------------------------------------------------------
+  {
+    id: "qc-weight-scale-calibration",
+    kind: "log-sheet",
+    name: "Weekly Internal Calibration Records - Weight Scale",
+    formatNo: "F/QC/12",
+    revisionNo: "01",
+    revisionDate: "2022-01-01",
+    department: "Quality Control",
+    module: "Quality Control — Inspection Records",
+    frequency: "Weekly",
+    status: "Configured",
+    description:
+      "Internal calibration of the laboratory weight scale (QC-76, 0.1 gm to 600 gm, acceptable tolerance 0.05%): each week the five test weights are placed and the value the scale shows is written beside each, with the deviation, Pass / Fail, the tester's sign and the next due date. One sheet carries several weeks; the four calibrations of Feb–Mar 2024 are on file as supplied. The deviation is entered as found — it is not calculated yet.",
+    sourceFile: "weekly and monthly internal calibration records.pdf (page 1, scanned)",
+    schedule: { type: "weekly", weekday: 3 },
+  },
+  {
+    id: "qc-gsm-plate-calibration",
+    kind: "log-sheet",
+    name: "Monthly Internal Calibration Records – GSM Cutting Plate",
+    formatNo: "F/QC/11",
+    revisionNo: "01",
+    revisionDate: "2022-01-01",
+    department: "Quality Control",
+    module: "Quality Control — Inspection Records",
+    frequency: "Monthly",
+    status: "Configured",
+    description:
+      "Internal calibration of the four GSM cutting plates (No. 54 20 x 20cm, No. 55 10 x 10cm, No. 56 5 x 5cm, No. 57 2.5 x 2.5cm, Global Eng. Co.): each plate measured four times with the deviation beside every measurement, then Pass / Fail and the tester's sign per plate, against the calibration date and the next due date. The 31.12.2024 calibration is on file as supplied. The deviation is entered as found — it is not calculated yet.",
+    sourceFile: "weekly and monthly internal calibration records.pdf (page 2, scanned)",
+    schedule: { type: "monthly", dayOfMonth: 1 },
+  },
+
+  // ---------------------------------------------------------------------
   // Quality — Statements of Compliance (reference documents with a validity
   // period; see src/data/seed/complianceStatements.ts).
   // ---------------------------------------------------------------------

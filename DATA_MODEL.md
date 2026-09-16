@@ -72,6 +72,12 @@ one DocumentDefinition row. The sixteen Human Resources formats (REQUIREMENTS §
 `src/data/seed/hrRecords.ts` the filled registers among them as seeded LIVE `RecordInstance<LogSheetData>`
 (`SEED_HR_RECORDS`, spread into `SEED_HISTORICAL_RECORDS`) — one record per register, or per position
 for the Job Responsibility & Authority sheets, with `periodKey` = `{documentId}:{dueDate}`.
+Quality Control's two internal calibration records (REQUIREMENTS §51) are the same pattern:
+`src/data/seed/qcCalibrationLayouts.ts` holds the two layouts (`QC_CALIBRATION_LAYOUTS`, merged into
+`LOG_SHEET_LAYOUTS`) and `src/data/seed/qcCalibrationRecords.ts` the two supplied pages as seeded LIVE
+records. F/QC/12 is a `free` grid (a line per weekly calibration, each weight with its own Deviation %
+column); F/QC/11 is `fixedRows` — the form's own six lines, four measurements then Pass/Fail then Sign,
+with a pair of columns per plate.
 `src/data/seed/hrModule.ts` (`HR_RECORD_PAGES`) gives each of the sixteen its page slug, group and
 sidebar label: `/hr` is the HR Records overview (`pages/HrPages.tsx`) and `/hr/{slug}` a format's own page
 (`pages/DocumentRecordsPage.tsx`, also served at `/document/{id}` for every other log sheet), reading the

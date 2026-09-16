@@ -2167,6 +2167,66 @@ what it opened and offers *Somewhere else*.
   and lands on that document's own page; a typed "hello" is answered by name without the network; and
   "are you a real person?" is answered plainly.
 
+## 51. Quality Control's two internal calibration records (16-Sep-2026)
+
+```
+REQUESTED            "add this in QC module with same format which i gave and make sure there is two page
+                      in it with different names so check it and add it firstly so here bot need to
+                      perform some calulation for the data present in it so don't do it first just for
+                      now add and make sure there is no single error"
+SOURCE               "weekly and monthly internal calibration records.pdf" — two scanned pages:
+                      F/QC/12 (01 / 01.01.2022) WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE and
+                      F/QC/11 (01 / 01.01.2022) MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE
+DIGITAL TEMPLATE     src/data/seed/qcCalibrationLayouts.ts (the two formats),
+                      src/data/seed/qcCalibrationRecords.ts (the two pages as supplied),
+                      src/data/seed/documentDefinitions.ts, departments.ts, masterData.ts
+```
+
+**TWO PAGES, TWO DOCUMENTS, EACH BY ITS OWN NAME**, both on the Quality Control — Inspection Records
+shelf (the module the plant calls QC), and both Quality Control's own on the Master List of Formats
+(F-QC-11 *GSM cutting plate internal calibration record*, F-QC-12 *Weighing balance internal
+calibration record*, each Rev. 01 of 01.01.22 — the revision the scanned forms print):
+
+| Format | Document | Records | On file |
+|---|---|---|---|
+| F/QC/12 | Weekly Internal Calibration Records - Weight Scale | Weekly | four calibrations of scale QC-76, 25.02.2024 to 27.03.2024 — Verified |
+| F/QC/11 | Monthly Internal Calibration Records – GSM Cutting Plate | Monthly | the 31.12.2024 calibration of plates No. 54 to No. 57 — Verified |
+
+- **F/QC/12** carries the device block as written — Device ID QC-76, Laboratory, LAB, Force Strain
+  Sensors, Serial No 06, calibration expiry 27.08.2024, minimum reading capacity 0.1 gm, maximum 600 gm,
+  acceptable tolerance 0.05 % — then a line per weekly calibration: five test weights, the value the
+  scale showed for each, the deviation beside it, Pass / Fail, the tester's sign and the next due date.
+  On file: 0.050mg and the 50 / 100 / 200 / 400 gm weights, every tested value equal to its weight,
+  every deviation 0%, all Pass; tested by Rashmi twice and then by Anjali twice.
+- **F/QC/11** carries Device ID 1-54, 2-55, 3-56, 4-57, LAB, Global Eng. Co. (GEC), calibration expiry
+  22.09.2025 and the calibration date, then the grid the paper prints: four measurements of each plate
+  with the deviation beside each, and a Pass/Fail and a Sign line per plate. On file: each plate
+  measured at its own size (20 x 20cm, 10 x 10cm, 5 x 5cm, 2.5 x 2.5cm) four times, 0% deviation, all
+  Pass, signed Rashmi.
+- **One difference in shape, and it is the paper's own doing.** The weight scale sheet writes each
+  entry's Deviation % on a second line beneath it, which a grid cannot hold, so every weight carries
+  its own Deviation % column on the same line. Nothing else differs: the headings, the wording, the
+  "Tasted-1" spelling of F/QC/11 and the printed procedure note are the forms' own.
+- **THE DEVIATION IS NOT CALCULATED YET**, as asked ("don't do it first just for now add"). The
+  Deviation % and Pass / Fail cells are ordinary entry cells holding what the sheet says. When the
+  arithmetic is added it is one place — (tested value − weight) ÷ weight × 100, judged against
+  Acceptable Tolerance — and the layouts already have the columns for it.
+- **Master data.** Rashmi and Anjali join Employees as QA — Internal Calibration (Lab); both spellings
+  are TO BE CONFIRMED, being handwritten. Both documents answer to them.
+- Covered by `tests/e2e_qc_calibration.py` (**32 checks**): both documents on the QC shelf with their
+  format numbers and revisions; every column of both grids in the form's order; both supplied pages
+  picked from the document's own page and read cell for cell, header block included; the illegible
+  cells left blank and marked; a new weekly sheet starting from the page on file with the device
+  carried forward; and the Deviation % cells still ordinary entry cells.
+
+### What the scans could not settle
+
+1. **F/QC/12's last Next Due Date** (after 27.03.2024) is not legible — left blank.
+2. **F/QC/11's Serial No** is a scribble — held as TO BE CONFIRMED.
+3. **F/QC/11's Due Date** beside "Calibration Date: 31.12.2024" is not legible — left blank.
+4. **F/QC/12's first test weight** is written "0.050mg" on a scale whose minimum reading capacity is
+   0.1 gm; transcribed exactly as written, to be confirmed with the lab.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

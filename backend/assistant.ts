@@ -244,7 +244,8 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   qc-inspection-printed-film, qc-inprocess-printing, hr-competence, hr-skill-matrix, hr-pre-employment-health,
   hr-induction-staff, hr-induction-operators, hr-job-responsibility, hr-training-needs, hr-training-calendar,
   hr-training-effectiveness, hr-training-feedback, hr-mobile-authorization, hr-visitor-health, hr-gmp-checklist,
-  hr-psc-survey, hr-psc-survey-analysis, hr-hygiene-report). Use it whenever the user asks for the documents / records /
+  hr-psc-survey, hr-psc-survey-analysis, hr-hygiene-report, qc-weight-scale-calibration,
+  qc-gsm-plate-calibration). Use it whenever the user asks for the documents / records /
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
   NOT the calendar, which would show the whole month.

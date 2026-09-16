@@ -51,6 +51,8 @@ ALL_DEPARTMENT_CODES = ["SYS", "MKT", "PUR", "STR", "QC", "QA", "PRD", "MNT", "H
 # The nine documents whose format number is F-QC-... on the company's master list.
 QC_DOCUMENT_IDS = {
     "qc-viscosity",
+    "qc-weight-scale-calibration",
+    "qc-gsm-plate-calibration",
     "qc-adhesive-mixing",
     "qc-temperature",
     "qc-inspection-pouching",
@@ -298,7 +300,7 @@ with sync_playwright() as p:
     codes = page.eval_on_selector_all("[data-table='departments'] tbody tr", "els => els.map((e) => e.dataset.department)")
     check("All ten departments of the master list are configured", codes == ALL_DEPARTMENT_CODES, codes)
     qc_row = page.locator("[data-table='departments'] tbody tr[data-department='QC']").inner_text()
-    check("...each with the documents it owns (Quality Control has nine)", "9" in qc_row and "F-QC" in qc_row, qc_row[:200])
+    check("...each with the documents it owns (Quality Control has eleven)", "11" in qc_row and "F-QC" in qc_row, qc_row[:200])
 
     # ==================================================================
     # 5. A Quality Control account sees QC's documents and nothing else
@@ -310,8 +312,8 @@ with sync_playwright() as p:
 
     qc_docs = library_documents(page)
     check(
-        "Its Document Library holds only Quality Control's nine documents",
-        len(qc_docs) == 9 and len(qc_docs) < len(all_docs),
+        "Its Document Library holds only Quality Control's eleven documents",
+        len(qc_docs) == 11 and len(qc_docs) < len(all_docs),
         {"count": len(qc_docs), "docs": qc_docs},
     )
     ids = page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.dataset.document)")

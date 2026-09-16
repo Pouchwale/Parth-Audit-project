@@ -236,6 +236,8 @@ const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "qc-inspection-slitting", aliases: ["slitting inspection", "f/qc/35", "slitting"] },
   { id: "qc-inspection-printed-film", aliases: ["printed film inspection", "printed film", "f/qc/34"] },
   { id: "qc-inprocess-printing", aliases: ["in process quality control", "in-process quality control", "in process printing", "f/qc/13"] },
+  { id: "qc-weight-scale-calibration", aliases: ["weight scale calibration", "weighing balance", "weight scale", "weighing scale", "f/qc/12"] },
+  { id: "qc-gsm-plate-calibration", aliases: ["gsm cutting plate", "cutting plate", "gsm plate", "f/qc/11"] },
   // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46).
   { id: "hr-competence", aliases: ["personal competence", "competence record", "competence records", "competence chart", "f/hr/01", "competence"] },
   { id: "hr-skill-matrix", aliases: ["skill matrix", "operator skill", "skill status", "f/hr/03"] },

@@ -482,7 +482,12 @@ The app behaves like a personal assistant rather than a blank form:
   (F-QC-32), Temperature Monitoring Record — Hot Room (F-QC-40.C).
 - Lamination — Production (2): Solvent Base Lamination Process Parameter Record, ALC & Production
   Report (F-PRD-18).
-- Quality Control — Inspection Records (4): Pouching Process (F/QC/37), Slitting - Lamination Grade
+- Quality Control — Inspection Records (6): the two internal calibration records supplied on
+  16-Sep-2026 (REQUIREMENTS §51) — **Weekly Internal Calibration Records - Weight Scale** (F/QC/12: the
+  five test weights against scale QC-76, with the deviation beside each, four calibrations of Feb–Mar
+  2024 on file) and **Monthly Internal Calibration Records – GSM Cutting Plate** (F/QC/11: plates No. 54
+  to No. 57 measured four times each, the 31.12.2024 calibration on file). The Deviation % is entered as
+  found — the arithmetic is deliberately not done yet. Plus the four inspection records: Pouching Process (F/QC/37), Slitting - Lamination Grade
   Film (F/QC/35), Lamination Grade Printed Film (F/QC/34) and the Gujarati In Process Quality Control
   sheet for printing (F/QC/13). Fixed printed test parameters with read-only specifications; the
   assistant carries observations, grades, lot status and the inspector's sign forward; "Approved by /

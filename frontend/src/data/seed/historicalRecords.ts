@@ -7,6 +7,7 @@ import type { GapInspectionData, PestResponsibilitiesData, RecordInstance, Train
 import { newPestResponsibilitiesData } from "./pestResponsibilities";
 import { generateId } from "../../utils/id";
 import { SEED_HR_RECORDS } from "./hrRecords";
+import { SEED_QC_CALIBRATION_RECORDS } from "./qcCalibrationRecords";
 
 const now = new Date().toISOString();
 
@@ -206,4 +207,6 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   SEED_PEST_RESPONSIBILITIES_RECORD as RecordInstance,
   // The filled Human Resources registers supplied on 14-Sep-2026 (hrRecords.ts).
   ...SEED_HR_RECORDS,
+  // The two internal calibration pages supplied on 16-Sep-2026 (qcCalibrationRecords.ts).
+  ...SEED_QC_CALIBRATION_RECORDS,
 ];

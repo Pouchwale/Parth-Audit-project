@@ -114,6 +114,14 @@ Seven scripts live in `tests/`:
   session. The server runs with CV_READ_WITH_ASSISTANT=0 (scripts/run-e2e.ts), so this is the text rules;
   the assistant's part is checked live in `tests/e2e_assistant_chat.py`. Network-independent. With it
   `npm run test:e2e` is green at **892 checks across seventeen suites**.
+- `tests/e2e_qc_calibration.py` - Quality Control's two internal calibration records (REQUIREMENTS
+  s51), a transcription check of the two scanned pages: both documents on the QC shelf with their format
+  numbers and revisions; every column of both grids in the form's own order, the Deviation % beside every
+  weight and every plate; both supplied pages picked from the document's page and read cell for cell,
+  header block included; the illegible cells left blank and marked TO BE CONFIRMED; a new weekly sheet
+  starting from the page on file with the device carried forward; and the Deviation % cells still
+  ordinary entry cells, since the calculation was deliberately left for later. Network-independent.
+  With it `npm run test:e2e` is green at **940 checks across eighteen suites**.
 - REQUIREMENTS s50 (Mitra - the assistant's name, character and "where would you like to go?") is
   covered inside `tests/e2e_smoke.py`: the floating button calls it by name; the opening greets by the
   hour and by name and asks where to go with its answers as buttons; a document is reached by shelf ->

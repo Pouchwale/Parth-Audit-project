@@ -1,5 +1,6 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
+import { QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
 // photographed specimens in the uploaded "Audit documents.zip" (WhatsApp
@@ -381,6 +382,8 @@ Object.assign(LOG_SHEET_LAYOUTS, {
 
 // The sixteen Human Resources formats, F/HR/01 to F/HR/22 — data/seed/hrLayouts.ts.
 Object.assign(LOG_SHEET_LAYOUTS, HR_LAYOUTS);
+// Quality Control's two internal calibration records, F/QC/11 and F/QC/12.
+Object.assign(LOG_SHEET_LAYOUTS, QC_CALIBRATION_LAYOUTS);
 
 export function getLogSheetLayout(documentId: string): LogSheetLayout | undefined {
   return LOG_SHEET_LAYOUTS[documentId];

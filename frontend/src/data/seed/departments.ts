@@ -111,6 +111,8 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "qc-inspection-slitting": "QC", // F/QC/35
   "qc-inspection-printed-film": "QC", // F/QC/34
   "qc-inprocess-printing": "QC", // F/QC/13
+  "qc-weight-scale-calibration": "QC", // F-QC-12 on the list
+  "qc-gsm-plate-calibration": "QC", // F-QC-11 on the list
   "soc-labels": "QC", // F/QC-09
   "soc-flexible-packaging": "QC", // F/QC-38
 

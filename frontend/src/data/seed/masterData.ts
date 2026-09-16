@@ -28,6 +28,10 @@ export const SEED_MASTER_DATA: MasterData = {
     { id: "emp-pooja", name: "Pooja P", role: "QA Inspector (slitting / inspection records) — full name TO BE CONFIRMED", department: "Quality Assurance", active: true },
     { id: "emp-svm", name: "S.V.M.", role: "QA Inspector (printed film) — initials only, TO BE CONFIRMED", department: "Quality Assurance", active: true },
     { id: "emp-hnp", name: "HNP", role: "QA Person (in-process printing QC) — initials only, TO BE CONFIRMED", department: "Quality Assurance", active: true },
+    // The two QA people who sign the internal calibration records supplied on
+    // 16-Sep-2026 (F/QC/11, F/QC/12) — handwritten, so the spelling is TO BE CONFIRMED.
+    { id: "emp-rashmi", name: "Rashmi", role: "QA — Internal Calibration (Lab) — spelling TO BE CONFIRMED (handwritten)", department: "Quality Control", active: true },
+    { id: "emp-anjali", name: "Anjali", role: "QA — Internal Calibration (Lab) — spelling TO BE CONFIRMED (handwritten)", department: "Quality Control", active: true },
     { id: "emp-pankaj", name: "Pankajbhai", role: "Printing Operator (Lombardi)", department: "Production", active: true },
     // Statement of Compliance signatory.
     { id: "emp-shail", name: "Shail Patel", role: "CEO — SOC Signatory", department: "Management", active: true },
@@ -200,6 +204,8 @@ export const SEED_MASTER_DATA: MasterData = {
     "qc-inspection-slitting": "QA Inspector",
     "qc-inspection-printed-film": "QA Inspector",
     "qc-inprocess-printing": "QA Person",
+    "qc-weight-scale-calibration": "Internal Calibration",
+    "qc-gsm-plate-calibration": "Internal Calibration",
     // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46): the
     // registers HR & Admin keeps, the training records the Training
     // Coordinator keeps, and the PSTL's own — mobile authorisation, the HARA

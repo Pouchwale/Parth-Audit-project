@@ -565,7 +565,7 @@ def main():
         # ---- 12. Document Library ----
         page.click("text=Document Library")
         page.wait_for_timeout(300)
-        check("Document Library lists all 40 documents", page.locator(".doc-table tbody tr:not(.doc-section-row)").count() == 40)
+        check("Document Library lists all 42 documents", page.locator(".doc-table tbody tr:not(.doc-section-row)").count() == 42)
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)
