@@ -202,6 +202,48 @@ function hash(value: string): string {
   return `${value.length}:${(h >>> 0).toString(36)}`;
 }
 
+// A FINGERPRINT OF A STORED ITEM, kept in its marker, tells at the next
+// sign-in whether the working copy was changed after it was last in step.
+// Every change the app makes is also marked unsent the moment it is made
+// (noteLocalWrite), so the fingerprint is only the second line; a large item
+// (the records run to megabytes) is fingerprinted from its length and evenly
+// spread samples — about a millisecond — instead of reading every character,
+// which held a slow computer up for a noticeable moment on every sync. While
+// the page is open, the copy kept in memory is compared instead.
+const FINGERPRINT_FULL_MAX = 200_000;
+
+function fingerprint(value: string): string {
+  if (value.length <= FINGERPRINT_FULL_MAX) return hash(value);
+  let h = 0x811c9dc5;
+  const n = value.length;
+  const take = (from: number, to: number) => {
+    for (let i = from; i < to; i++) {
+      h ^= value.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+  };
+  take(0, 8192);
+  for (let w = 1; w < 64; w++) {
+    const start = Math.floor(((n - 1024) * w) / 64);
+    take(start, start + 1024);
+  }
+  take(n - 8192, n);
+  return `s${n}:${(h >>> 0).toString(36)}`;
+}
+
+/** Writes a marker carrying the fingerprint of `value`. */
+function writeMarkerOf(key: string, marker: Omit<Marker, "h">, value: string): void {
+  writeMarker(key, { ...marker, h: fingerprint(value) } as Marker);
+}
+
+/** Has the working copy been changed here since it was in step with the database? */
+function changedSince(key: string, marker: Marker, current: string): boolean {
+  const base = bases.get(key);
+  if (base && base.v === marker.v) return current !== base.value;
+  if (!marker.h) return true;
+  return marker.h !== fingerprint(current);
+}
+
 function readMarker(key: string): Marker | null {
   try {
     const text = raw.get(MARKER_PREFIX + key);
@@ -546,8 +588,23 @@ function merge(key: string, base: BaseView | null, mine: string, theirs: string,
 // talking to the database
 
 /** Every request says which account it works for: a tab left open after the browser signed in as someone else is refused. */
-async function request(method: string, path: string, account: string, body?: string, headers: Record<string, string> = {}, keepalive = false): Promise<Response> {
+async function request(method: string, path: string, account: string, body?: BodyInit, headers: Record<string, string> = {}, keepalive = false): Promise<Response> {
   return fetch(`/api/storage${path}`, { method, body, headers: { ...headers, "X-Account": account }, credentials: "same-origin", keepalive });
+}
+
+/**
+ * A large item goes to the server compressed (the records shrink about tenfold),
+ * so a save over the office network is a fraction of the upload. Browsers
+ * without CompressionStream send it as it is.
+ */
+async function packed(body: string): Promise<{ body: BodyInit; headers: Record<string, string> }> {
+  if (body.length < 16_000 || typeof CompressionStream === "undefined") return { body, headers: {} };
+  try {
+    const stream = new Blob([body]).stream().pipeThrough(new CompressionStream("gzip"));
+    return { body: await new Response(stream).arrayBuffer(), headers: { "Content-Encoding": "gzip" } };
+  } catch {
+    return { body, headers: {} };
+  }
 }
 
 const sendHeaders = (key: string, base: number, copyScope: string): Record<string, string> => ({
@@ -571,13 +628,15 @@ async function send(key: string): Promise<void> {
   let copyScope = ours?.d ?? s.scope;
   if (!ours || !ours.p) writeMarker(key, { s: scope, v: base, h: ours ? ours.h : "", t: ours ? ours.t : "", p: 1, d: copyScope });
   for (let attempt = 0; attempt < 8; attempt++) {
-    const res = await request("PUT", `/${encodeURIComponent(key)}`, s.userId, body, sendHeaders(key, base, copyScope));
+    const upload = await packed(body);
+    if (session !== s) return;
+    const res = await request("PUT", `/${encodeURIComponent(key)}`, s.userId, upload.body, { ...sendHeaders(key, base, copyScope), ...upload.headers });
     if (session !== s) return;
     if (res.ok) {
       const { version } = (await res.json()) as { version: number };
       rememberBase(key, version, body);
       const now = local.get(key);
-      writeMarker(key, { s: scope, v: version, h: hash(body), t: iso(), d: copyScope, ...(now === body ? {} : { p: 1 as const }) });
+      writeMarkerOf(key, { s: scope, v: version, t: iso(), d: copyScope, ...(now === body ? {} : { p: 1 as const }) }, body);
       if (now === body) forgetSavedBase(key);
       else if (now !== null) schedule(key);
       return;
@@ -596,7 +655,7 @@ async function send(key: string): Promise<void> {
     if (res.status === 400) {
       // A value the database will never take: not sent again; the database's copy replaces it when it next changes.
       console.error(`The database refused ${key} as unreadable.`);
-      writeMarker(key, { s: scope, v: base, h: hash(body), t: iso(), d: copyScope });
+      writeMarkerOf(key, { s: scope, v: base, t: iso(), d: copyScope }, body);
       return;
     }
     if (res.status === 409) {
@@ -624,11 +683,11 @@ async function send(key: string): Promise<void> {
       base = current.version;
       baseView = { value: current.value };
       if (merged === current.value) {
-        writeMarker(key, { s: scope, v: current.version, h: hash(current.value), t: iso(), d: copyScope });
+        writeMarkerOf(key, { s: scope, v: current.version, t: iso(), d: copyScope }, current.value);
         forgetSavedBase(key);
         return;
       }
-      writeMarker(key, { s: scope, v: current.version, h: hash(current.value), t: iso(), p: 1, d: copyScope });
+      writeMarkerOf(key, { s: scope, v: current.version, t: iso(), p: 1, d: copyScope }, current.value);
       continue;
     }
     throw new Error(`The database refused ${key} (${res.status}).`);
@@ -795,7 +854,7 @@ async function pull(): Promise<void> {
       continue;
     }
     // A change made here that has not gone yet: it goes, and merges, first.
-    if (current !== null && marker && marker.s === scope && (marker.p || marker.h !== hash(current))) {
+    if (current !== null && marker && marker.s === scope && (marker.p || changedSince(key, marker, current))) {
       schedule(key);
       continue;
     }
@@ -805,7 +864,7 @@ async function pull(): Promise<void> {
       continue;
     }
     rememberBase(key, item.version, item.value);
-    writeMarker(key, { s: scope, v: item.version, h: hash(item.value), t: iso(), d: s.scope });
+    writeMarkerOf(key, { s: scope, v: item.version, t: iso(), d: s.scope }, item.value);
     forgetSavedBase(key);
     if (current !== item.value) notify(key);
   }
@@ -851,7 +910,7 @@ function sortOutPersonalItems(userId: string): void {
   for (const key of USER_KEYS) {
     const mine = local.get(key);
     const m = readMarker(key);
-    if (mine === null || !m || m.s === myScope || !m.s.startsWith("user:") || !(m.p || m.h !== hash(mine))) continue;
+    if (mine === null || !m || m.s === myScope || !m.s.startsWith("user:") || !(m.p || m.h !== fingerprint(mine))) continue;
     const saved = raw.get(BASE_PREFIX + key);
     if (raw.set(`${HELD_PREFIX}${m.s}:${key}`, JSON.stringify({ value: mine, marker: m, base: saved }))) {
       local.remove(key);
@@ -919,7 +978,7 @@ export function startServerSync(userId: string): Promise<void> {
         throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
       }
       rememberBase(key, item.version, item.value);
-      writeMarker(key, { s: scopeFor(key, userId), v: item.version, h: hash(item.value), t: iso(), d: s.scope });
+      writeMarkerOf(key, { s: scopeFor(key, userId), v: item.version, t: iso(), d: s.scope }, item.value);
       forgetSavedBase(key);
     };
     try {
@@ -929,7 +988,7 @@ export function startServerSync(userId: string): Promise<void> {
         const mine = local.get(key);
         const marker = readMarker(key);
         const ours = marker && marker.s === scope ? marker : null;
-        const pending = mine !== null && !!ours && (!!ours.p || ours.h !== hash(mine));
+        const pending = mine !== null && !!ours && (!!ours.p || changedSince(key, ours, mine));
         if (s.denied.has(key)) {
           // Not this account's to hold. An unsent change (someone else's, from this browser) is left as it is,
           // for the next person who may send it; anything else is dropped.
@@ -957,7 +1016,7 @@ export function startServerSync(userId: string): Promise<void> {
             else {
               if (!local.set(key, merged)) throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
               rememberBase(key, item.version, item.value);
-              writeMarker(key, { s: scope, v: item.version, h: hash(item.value), t: iso(), p: 1, d: s.scope });
+              writeMarkerOf(key, { s: scope, v: item.version, t: iso(), p: 1, d: s.scope }, item.value);
               sends.push(key);
             }
           } else adopt(key, item);

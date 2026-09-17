@@ -10,6 +10,7 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { toCSV, downloadCSV } from "../utils/csv";
 import { useT } from "../i18n";
+import { useProgressiveCount } from "../utils/useProgressive";
 import { MONTH_NAMES, formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 import type { DailyPestMonitoringData, DocumentDefinition, RecordInstance } from "../types";
@@ -50,6 +51,8 @@ function MonthFolder({
   const m = Number(ym.slice(5, 7)) - 1;
   const empty = records.length === 0;
   const showOpen = open && !empty;
+  // A month of hundreds of files shows its first lines at once and the rest a batch at a time.
+  const rowsShown = useProgressiveCount(showOpen ? records.length : 0, 40, 80);
   return (
     <div className={`file-month ${empty ? "empty" : ""}`} data-month={ym}>
       <button type="button" className="file-month-head" onClick={() => setOpen((o) => !o)} aria-expanded={showOpen} disabled={empty}>
@@ -64,7 +67,7 @@ function MonthFolder({
         <div className="doc-table file-table-wrap">
           <table className="file-table">
             <tbody>
-              {records.map((r) => {
+              {records.slice(0, rowsShown).map((r) => {
                 const doc = docsById.get(r.documentId);
                 const holiday = r.documentId === "daily-pest-monitoring" && (r.data as DailyPestMonitoringData)?.isHoliday;
                 return (
@@ -115,7 +118,18 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
   const docsById = new Map(documentRepository.getAll().map((d) => [d.id, d]));
   const modulesInScope = Array.from(new Set(resolved.docs.map((d) => d.module)));
   const allModules = Array.from(new Set(documentRepository.getRecordable().map((d) => d.module)));
-  const countFor = (predicate: (r: RecordInstance) => boolean) => records.filter(predicate).length;
+  // Every folder's count from one pass over the records, not a pass per folder.
+  const counts = useMemo(() => {
+    const byDoc = new Map<string, number>();
+    const byModule = new Map<string, number>();
+    for (const r of records) {
+      byDoc.set(r.documentId, (byDoc.get(r.documentId) ?? 0) + 1);
+      const mod = docsById.get(r.documentId)?.module;
+      if (mod) byModule.set(mod, (byModule.get(mod) ?? 0) + 1);
+    }
+    return { byDoc, byModule };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [records]);
 
   const visible = records.filter((r) => {
     if (!selected) return true;
@@ -237,7 +251,7 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
           </button>
           {modulesInScope.map((mod) => {
             const docs = resolved.docs.filter((d) => d.module === mod);
-            const moduleCount = countFor((r) => docsById.get(r.documentId)?.module === mod);
+            const moduleCount = counts.byModule.get(mod) ?? 0;
             return (
               <div key={mod} className="file-tree-module">
                 {modulesInScope.length > 1 && (
@@ -252,7 +266,7 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
                   </button>
                 )}
                 {docs.map((d) => {
-                  const n = countFor((r) => r.documentId === d.id);
+                  const n = counts.byDoc.get(d.id) ?? 0;
                   return (
                     <button
                       key={d.id}

@@ -119,17 +119,29 @@ function editDistance(a: string, b: string): number {
   return d[a.length][b.length];
 }
 
+// Each line's name words, worked out once (the comparison below runs for every pair of lines).
+const wordsOf = new WeakMap<RegisterLine, string[]>();
+function words(line: RegisterLine): string[] {
+  let w = wordsOf.get(line);
+  if (!w) {
+    w = nameKey(line.name).split(" ").filter(Boolean);
+    wordsOf.set(line, w);
+  }
+  return w;
+}
+
 function samePerson(a: RegisterLine, b: RegisterLine): boolean {
-  const x = nameKey(a.name).split(" ").filter(Boolean);
-  const y = nameKey(b.name).split(" ").filter(Boolean);
+  const x = words(a);
+  const y = words(b);
   if (x.length === 0 || y.length === 0) return false;
-  if (x.join(" ") === y.join(" ")) return true;
+  if (x.length === y.length && x.every((word, i) => word === y[i])) return true;
   if (x.length < 2 || y.length < 2) return false;
   const [fx, fy] = [x[0], y[0]];
   const firstNames = fx === fy || (Math.min(fx.length, fy.length) >= 4 && (fx.startsWith(fy) || fy.startsWith(fx)));
+  if (!firstNames) return false;
   const [lx, ly] = [x[x.length - 1], y[y.length - 1]];
-  const surnames = lx === ly || (Math.min(lx.length, ly.length) >= 4 && editDistance(lx, ly) <= 1);
-  return firstNames && surnames;
+  // Surnames one letter apart (a slip of the pen) are the same; two lengths more than one apart never are.
+  return lx === ly || (Math.min(lx.length, ly.length) >= 4 && Math.abs(lx.length - ly.length) <= 1 && editDistance(lx, ly) <= 1);
 }
 
 function toPerson(group: RegisterLine[]): HrMasterPerson {
@@ -172,4 +184,9 @@ function buildSeed(): HrMasterPerson[] {
   return groups.filter((g) => !g.some((l) => l.left)).map(toPerson);
 }
 
-export const HR_MASTER_SEED: HrMasterPerson[] = buildSeed();
+// Built the first time it is asked for — not while the app loads, before anybody has signed in.
+let seed: HrMasterPerson[] | null = null;
+export function hrMasterSeed(): HrMasterPerson[] {
+  if (!seed) seed = buildSeed();
+  return seed;
+}

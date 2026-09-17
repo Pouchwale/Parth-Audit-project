@@ -7,8 +7,9 @@ import "./env.ts";
 import express, { type CookieOptions, type NextFunction, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import crypto from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import {
   database,
   deleteItem,
@@ -674,6 +675,24 @@ function visibleLines(value: string, visible: (line: unknown) => boolean): strin
   }
 }
 
+// The stored data runs to megabytes; sent compressed it is a fraction of that
+// over the office network, and the browser unpacks it natively.
+function sendCompressedJson(req: Request, res: Response, status: number, body: unknown): void {
+  const text = JSON.stringify(body);
+  res.status(status).set("Vary", "Accept-Encoding");
+  if (text.length < 4096 || !/\bgzip\b/.test(req.get("accept-encoding") ?? "")) {
+    res.type("application/json").send(text);
+    return;
+  }
+  zlib.gzip(text, { level: 3 }, (err, packed) => {
+    if (err) {
+      res.type("application/json").send(text);
+      return;
+    }
+    res.set("Content-Encoding", "gzip").type("application/json").send(packed);
+  });
+}
+
 app.get("/api/storage", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const user = (req as AuthedRequest).user;
   if (otherAccount(req, user)) {
@@ -691,7 +710,7 @@ app.get("/api/storage", requireAuth, async (req: Request, res: Response): Promis
       .map((item) => (DEPARTMENT_LINE_KEYS.has(item.key) && item.scope === "company" ? { ...item, value: visibleLines(item.value, visible) } : item));
     for (const key of denied) delete result.versions[key];
   }
-  res.json({ ...result, denied, scope: scopeKey(departments) });
+  sendCompressedJson(req, res, 200, { ...result, denied, scope: scopeKey(departments) });
 });
 
 app.put(
@@ -733,7 +752,7 @@ app.put(
     if (DEPARTMENT_LINE_KEYS.has(key) && claimedScope !== undefined && claimedScope !== scopeNow) {
       const stored = await readItem(storageScope(key, user.id), key);
       const current = stored && visible ? { ...stored, value: visibleLines(stored.value, visible) } : stored;
-      res.status(409).json({ current, scope: scopeNow });
+      sendCompressedJson(req, res, 409, { current, scope: scopeNow });
       return;
     }
     const posted: string = req.body;
@@ -761,7 +780,7 @@ app.put(
       return;
     }
     const current = result.current && visible ? { ...result.current, value: visibleLines(result.current.value, visible) } : result.current;
-    res.status(409).json({ current, scope: scopeNow });
+    sendCompressedJson(req, res, 409, { current, scope: scopeNow });
   }
 );
 
@@ -790,6 +809,28 @@ app.delete("/api/storage/:key", requireAuth, async (req: Request, res: Response)
 // run/expose for a pilot (see DEPLOYMENT.md). In dev, the frontend is served
 // separately by frontend/scripts/dev-server.ts, which proxies /api/* here instead.
 if (existsSync(distDir)) {
+  // The app's script and styles are compressed when it is built
+  // (frontend/scripts/build.ts): a browser that accepts it gets the brotli or
+  // gzip copy — a quarter of the size — as long as it is not older than the file.
+  const precompressed: Record<string, string> = { ".js": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const type = precompressed[path.extname(req.path)];
+    if ((req.method !== "GET" && req.method !== "HEAD") || !type || !req.path.startsWith("/assets/")) return next();
+    const file = path.join(distDir, path.normalize(req.path));
+    if (!file.startsWith(distDir)) return next();
+    const accepts = req.get("accept-encoding") ?? "";
+    for (const [encoding, ext] of [["br", ".br"], ["gzip", ".gz"]] as const) {
+      if (!new RegExp(`\\b${encoding}\\b`).test(accepts)) continue;
+      try {
+        if (statSync(file + ext).mtimeMs < statSync(file).mtimeMs) continue;
+      } catch {
+        continue;
+      }
+      res.sendFile(file + ext, { headers: { "Content-Type": type, "Content-Encoding": encoding, Vary: "Accept-Encoding" } });
+      return;
+    }
+    next();
+  });
   app.use(express.static(distDir));
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.method !== "GET" || req.path.startsWith("/api/")) return next();

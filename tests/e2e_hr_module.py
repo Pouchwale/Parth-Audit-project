@@ -412,7 +412,8 @@ with sync_playwright() as p:
     check("The competence register opens as an 80-line sheet headed F/HR/01", sheet_rows(page).count() == 80 and "F/HR/01" in body, (sheet_rows(page).count(), body[:200]))
     check("...with 'Reviewed as on' 01.10.2026 above the grid", header_input(page, "Reviewed as on").input_value() == "01.10.2026")
     first = sheet_rows(page).first
-    check("...the first line reads Shail Patel", first.locator("input").first.input_value() == "Shail Patel")
+    # A register that cannot be written on shows its values as text, not in greyed-out boxes.
+    check("...the first line reads Shail Patel", first.locator("td").nth(1).inner_text().strip() == "Shail Patel", first.locator("td").nth(1).inner_text())
     check("...and a Verified register is read-only", not page.locator("table.log-sheet input:not([disabled])").count())
 
     page.goto(f"{BASE}/index.html#/record/hr-psc-survey-analysis-2026-01")

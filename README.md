@@ -113,6 +113,9 @@ The app behaves like a personal assistant rather than a blank form:
   position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile
   authorisations and the January-2026 survey analysis (93.99%). A Quality Control account sees none of
   them.
+- **Fast on a low-end computer** (REQUIREMENTS §56): measured with the processor slowed six times; read-only
+  sheets as text, long lists that appear at once and fill in, no repeated scans of the records, syncing that
+  never freezes the screen, and the app and its data compressed over the network.
 - **The whole project's data in PostgreSQL** (REQUIREMENTS §55): accounts and all the app's data in one
   PostgreSQL database — shared by everyone signed in, each person's settings their own, two people's
   simultaneous changes merged against the copy both started from, a department's account handed only

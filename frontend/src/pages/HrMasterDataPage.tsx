@@ -10,6 +10,7 @@ import {
   HR_MASTER_COLUMNS,
   HR_MASTER_LINKS,
   HR_MASTER_SHEET_NAME,
+  gp3Key,
   hrMasterColumnLabel,
   linkedFieldLabel,
   personProblems,
@@ -24,6 +25,7 @@ import { printDocument } from "../utils/print";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import type { HrMasterColumnKey, HrMasterPerson } from "../types";
 import { useT } from "../i18n";
+import { useProgressiveCount } from "../utils/useProgressive";
 
 // HR MASTER DATA (REQUIREMENTS §53) — /hr/master-data.
 //
@@ -95,7 +97,24 @@ export function HrMasterDataPage() {
     });
   }, [people, query, sort]);
 
-  const problems = useMemo(() => new Map(people.map((p) => [p.id, personProblems(p, people)])), [people]);
+  const problems = useMemo(() => {
+    // Only a person whose GP3 No. is also someone else's needs the whole sheet
+    // compared against them — found in one pass, not a search per person.
+    const byNumber = new Map<string, number>();
+    for (const p of people) {
+      const k = gp3Key(p.gp3No);
+      const n = /^\d+$/.test(k) ? String(Number(k)) : k;
+      if (n) byNumber.set(n, (byNumber.get(n) ?? 0) + 1);
+    }
+    const shared = (p: HrMasterPerson) => {
+      const k = gp3Key(p.gp3No);
+      const n = /^\d+$/.test(k) ? String(Number(k)) : k;
+      return !!n && (byNumber.get(n) ?? 0) > 1;
+    };
+    return new Map(people.map((p) => [p.id, personProblems(p, shared(p) ? people : [p])]));
+  }, [people]);
+  // A long sheet shows its first lines at once and the rest a batch at a time (utils/useProgressive.ts).
+  const rowsShown = useProgressiveCount(shown.length, 30, 40);
 
   // A line just added gets the cursor in its GP3 No., once.
   useEffect(() => {
@@ -292,7 +311,7 @@ export function HrMasterDataPage() {
                   </td>
                 </tr>
               )}
-              {shown.map(({ person, index }) => {
+              {shown.slice(0, rowsShown).map(({ person, index }) => {
                 const issues = problems.get(person.id) ?? [];
                 return (
                   <React.Fragment key={person.id}>

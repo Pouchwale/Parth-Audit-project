@@ -24,8 +24,8 @@ export function CalendarPage({ year, month }: { year?: number; month?: number })
     // Always Live here — see the matching comment in DashboardPage.tsx for
     // why passing the viewed mode's isDemo through would silently defeat
     // Demo Mode's own "Generate Demo Records" button.
-    ensureRecordsGeneratedForMonth(y, m, { isDemo: false });
-    bump();
+    // Everything is redrawn only when the month actually gained records.
+    if (ensureRecordsGeneratedForMonth(y, m, { isDemo: false }).length > 0) bump();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [y, m, isDemo]);
 

@@ -5,6 +5,7 @@
 // backend's API for login and the assistant — `npm start` serves both from one process.)
 import * as esbuild from "esbuild";
 import { promises as fs } from "node:fs";
+import zlib from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -51,6 +52,15 @@ async function main(): Promise<void> {
   // Copy static assets (index.html, styles.css, public/*)
   await fs.copyFile(path.join(root, "src", "styles.css"), path.join(dist, "assets", "styles.css"));
   await fs.copyFile(path.join(root, "index.html"), path.join(dist, "index.html"));
+
+  // Compressed copies for the server to send to browsers that accept them
+  // (backend/index.ts): the script is a quarter of the size over the network.
+  for (const name of ["app.js", "styles.css"]) {
+    const file = path.join(dist, "assets", name);
+    const raw = await fs.readFile(file);
+    await fs.writeFile(`${file}.br`, zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } }));
+    await fs.writeFile(`${file}.gz`, zlib.gzipSync(raw, { level: 9 }));
+  }
 
   const publicDir = path.join(root, "public");
   try {

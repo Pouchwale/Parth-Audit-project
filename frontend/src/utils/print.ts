@@ -138,6 +138,7 @@ function scope(targets: Element[]): void {
  * screen is printed.
  */
 export function printDocument(target?: Element | null): void {
+  preparePrint();
   let docs: Element[];
   if (!target) docs = documentsOnScreen();
   else if (target.matches(DOC_SELECTOR)) docs = [target];
@@ -150,8 +151,16 @@ export function printDocument(target?: Element | null): void {
 }
 
 /** Gives Ctrl+P and the browser's own Print menu the same printout. Call once, at start-up. */
+/** Fired before a printout is measured: long lists still being built put in every line (utils/useProgressive.ts). */
+export const PRINT_PREPARE_EVENT = "dcrs:print-prepare";
+
+function preparePrint(): void {
+  window.dispatchEvent(new Event(PRINT_PREPARE_EVENT));
+}
+
 export function installPrintScoping(): void {
   window.addEventListener("beforeprint", () => {
+    preparePrint();
     // A Print button has already chosen what to print.
     if (active) return;
     const docs = documentsOnScreen();

@@ -10,6 +10,7 @@ import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
 import { isOutOfBand } from "../../engine/validation";
 import { formatDisplayDate } from "../../utils/date";
 import { generateId } from "../../utils/id";
+import { useProgressiveCount } from "../../utils/useProgressive";
 
 // One renderer for every grid-shaped log sheet. The shape of the form —
 // header fields, columns, how rows are created — comes entirely from the
@@ -28,10 +29,14 @@ export function LogSheetRecordView({
   const layout = getLogSheetLayout(doc.id);
   const data = record.data ?? { header: {}, rows: [] };
   const employees = masterRepository.get().employees;
+  // Once per render, not once per cell (a 58 x 25 sheet asked for it 1,450 times).
+  const employeeNames = React.useMemo(() => employees.map((e) => e.name), [employees]);
   // Before the early return below: a hook called only on some renders breaks
   // React ("rendered fewer hooks than expected") the moment this component is
   // reused for a document without a layout.
   const [showReference, setShowReference] = React.useState(false);
+  // A long sheet shows its first lines at once and the rest a batch at a time (utils/useProgressive.ts).
+  const rowsShown = useProgressiveCount(data.rows.length, 25, 40);
 
   if (!layout) {
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
@@ -129,7 +134,7 @@ export function LogSheetRecordView({
                       value={data.header?.[f.key] ?? ""}
                       editable={editable}
                       onChange={(v) => setHeader(f.key, v)}
-                      employees={employees.map((e) => e.name)}
+                      employees={employeeNames}
                       list={personBox ? "hr-master-people" : undefined}
                       onBlur={personBox ? (v) => fillFromName(null, v) : undefined}
                     />
@@ -173,7 +178,7 @@ export function LogSheetRecordView({
                 </td>
               </tr>
             )}
-            {data.rows.map((row, i) => (
+            {data.rows.slice(0, rowsShown).map((row, i) => (
               <tr key={row.id}>
                 <td className="text-muted">{i + 1}</td>
                 {layout.columns.map((c) => {
@@ -188,7 +193,7 @@ export function LogSheetRecordView({
                         value={row[c.key]}
                         editable={editable && !col.fixed}
                         onChange={(v) => setCell(row.id, c.key, v)}
-                        employees={employees.map((e) => e.name)}
+                        employees={employeeNames}
                         list={fetching && link?.where === "rows" && link.nameField === c.key ? "hr-master-people" : undefined}
                         onBlur={fetching && link?.where === "rows" && link.nameField === c.key ? (v) => fillFromName(row.id, v) : undefined}
                       />
@@ -218,7 +223,7 @@ export function LogSheetRecordView({
           <div className="card-pad">
             <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 16px" }}>
               {layout.footerFields.map((f) => (
-                <HeaderFieldInput key={f.key} field={f} value={data.header?.[f.key] ?? ""} editable={editable} onChange={(v) => setHeader(f.key, v)} employees={employees.map((e) => e.name)} />
+                <HeaderFieldInput key={f.key} field={f} value={data.header?.[f.key] ?? ""} editable={editable} onChange={(v) => setHeader(f.key, v)} employees={employeeNames} />
               ))}
             </div>
             <div className="text-xs text-muted mt-3 no-print">
@@ -306,6 +311,14 @@ function CellInput({
   onBlur?: (v: string) => void;
 }) {
   if (col.fixed) return <span className={`text-sm ${col.key === "specification" || col.key === "testChart" ? "text-muted" : "font-semibold"}`} style={{ whiteSpace: "pre-line" }}>{value ?? ""}</span>;
+  // A sheet that cannot be written on (a preview, a submitted or verified record)
+  // shows what is written as text: the same words, without a greyed-out box —
+  // and a fraction of the page to build (a disabled choice box carried every
+  // option with it).
+  if (!editable) {
+    const shown = value === null || value === undefined ? "" : col.type === "date" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? formatDisplayDate(value) : String(value);
+    return <span className="cell-text">{shown}</span>;
+  }
   if (col.type === "number") {
     return (
       <input

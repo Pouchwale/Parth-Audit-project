@@ -4,6 +4,7 @@ import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
+import { departmentScope } from "../engine/departmentScope";
 import { formatDisplayDate } from "../utils/date";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -43,11 +44,11 @@ interface SearchRow {
 
 function buildIndex(isDemo: boolean): SearchRow[] {
   const records = recordRepository.query({ isDemo });
-  const docs = documentRepository.getAll();
+  const docs = new Map(documentRepository.getAll().map((d) => [d.id, d] as const));
   const rows: SearchRow[] = [];
 
   for (const r of records) {
-    const doc = docs.find((d) => d.id === r.documentId);
+    const doc = docs.get(r.documentId);
     if (!doc) continue;
     const base = { id: r.id, documentId: doc.id, dueDate: r.dueDate, status: r.status, isDemo: r.isDemo, documentName: doc.name };
 
@@ -135,6 +136,18 @@ function buildIndex(isDemo: boolean): SearchRow[] {
   return rows;
 }
 
+// Built from every record, so kept while the records, the document names and
+// the viewer's departments are what they were — opening Search again is instant.
+let indexCache: { records: readonly unknown[]; key: string; rows: SearchRow[] } | null = null;
+function searchIndex(isDemo: boolean): SearchRow[] {
+  const records = recordRepository.snapshot();
+  const key = [isDemo, departmentScope()?.join(",") ?? "*", ...documentRepository.getAll().map((d) => `${d.id}:${d.name}:${d.formatNo}:${d.kind}`)].join("|");
+  if (indexCache && indexCache.records === records && indexCache.key === key) return indexCache.rows;
+  const rows = buildIndex(isDemo);
+  indexCache = { records, key, rows };
+  return rows;
+}
+
 /** Documents the query names — by format number however it is written, else by name or number as typed. */
 function documentsFor(query: string): DocumentDefinition[] {
   const q = query.trim();
@@ -164,7 +177,7 @@ export function SearchPage() {
   const [q, setQ] = useState("");
   const isDemo = mode === "demo";
 
-  const index = useMemo(() => buildIndex(isDemo), [isDemo]);
+  const index = useMemo(() => searchIndex(isDemo), [isDemo]);
   // A format number finds the document's records however it is written
   // (F/HR/05, F-HR-05, hr 5 — engine/formatNumbers.ts, REQUIREMENTS §52);
   // anything else is matched as typed.

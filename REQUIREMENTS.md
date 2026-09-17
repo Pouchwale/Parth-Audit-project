@@ -2570,6 +2570,55 @@ after, stopped with a clean shutdown even when a suite fails or the run is inter
 - Covered by `tests/e2e_postgres_storage.py` (**34 checks**), and by every other suite, which now
   runs against PostgreSQL.
 
+## 56. Fast and smooth on a low-end computer (17-Sep-2026)
+
+```
+REQUESTED            "make whole project thing very good ui and response like that very smooth and fast functioning
+                      of everything so even if someone is using on low ending laptop or computer so this project run
+                      in their computer very fast and smoothly without any error or taking load for any page"
+                      — and: remove "Answers cover this record system only — not general questions. Conversations
+                      are saved in this browser." from the assistant
+DIGITAL TEMPLATE     utils/useProgressive.ts, components/records/LogSheetRecordView.tsx, pages/HrMasterDataPage.tsx,
+                      pages/FileBrowserPage.tsx, pages/SearchPage.tsx, data/repositories/recordRepository.ts,
+                      data/serverSync.ts, data/demoGenerator.ts, data/seed/hrMasterSeed.ts, backend/index.ts,
+                      frontend/scripts/build.ts
+```
+
+**MEASURED, NOT GUESSED.** Every page was timed in Chromium with the processor slowed six times — about a
+low-end office laptop — with the plant's data, and again with a full year of demo records (4.5 million
+characters of records). What made pages slow was found by profiling, and fixed at the cause:
+
+| Page / action (6× slower processor) | Before | After |
+|---|---|---|
+| HR · Skill Matrix | 3.9 s | 0.2–0.7 s |
+| HR · Training Calendar | 1.7 s | 0.4–0.5 s |
+| HR · Master Data | 2.5 s | 0.4–1.0 s |
+| HR · Competence (year of data) | 1.4 s | 0.25 s |
+| Document Files (year of data) | 2.6 s | 0.8 s |
+| Generating a demo year | 8.5 s | 1.0 s |
+| Opening the app to the sign-in screen | 2.1 s | 1.1–1.5 s |
+
+- **A read-only sheet is text.** A register that cannot be written on (the preview under every HR format, a
+  submitted or verified record) showed each value in a greyed-out box, and each choice box carried all of its
+  options: the Skill Matrix alone built 21,000 page elements. It now shows the same values as text.
+- **Long lists appear at once.** A long sheet, the HR Master Data sheet and a month of files show their first
+  lines immediately and add the rest a batch at a time at low priority, so the page can be read and used while
+  it fills, and typing is never held up. A line added afterwards shows at once; printing always has every line.
+- **No repeated work.** One document's records are looked up directly instead of scanning every record for each
+  question; folder counts, duplicate GP3 checks and the demo year are worked out in one pass; the search index is
+  kept while the records are unchanged; the HR Master Data starting sheet is built when first needed, not while
+  the app loads; the calendar redraws the app only when it actually made new records.
+- **Syncing never freezes the screen.** A large stored item is fingerprinted from its length and samples instead
+  of reading every character on each sync; while a page is open, changes are told by comparing with the copy in
+  memory.
+- **Less over the network.** The app's script is sent compressed (1.2 MB → 276 KB), and the stored data travels
+  compressed both ways (the records shrink about tenfold) — a save over the office network is a fraction of the
+  upload.
+
+**THE ASSISTANT'S FOOTER** now reads only "The assistant never submits or verifies anything by itself." — the
+line about general questions, and the one saying conversations are saved in the browser (they are in the
+database, §55), are gone, in English and Gujarati.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

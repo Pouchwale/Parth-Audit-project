@@ -817,6 +817,8 @@ textarea.input { resize: vertical; min-height: 60px; }
 /* ---- Log sheets ---- */
 .doc-table table.log-sheet th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
 .doc-table table.log-sheet td .input-sm { min-width: 64px; }
+/* A sheet that cannot be written on shows its values as text (LogSheetRecordView). */
+.doc-table table.log-sheet td .cell-text { display: block; min-width: 40px; font-size: 12.5px; line-height: 1.35; white-space: pre-line; }
 .cell-out-of-band { background: var(--color-warning-bg) !important; }
 .cell-out-of-band .input { border-color: var(--color-warning); }
 

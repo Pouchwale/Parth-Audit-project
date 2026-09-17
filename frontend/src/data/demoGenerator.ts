@@ -433,9 +433,25 @@ export function clearAllDemoData(): number {
 export function ensureDemoRecordsGeneratedForYear(year: number): number {
   const now = new Date();
   const lastMonth = year < now.getFullYear() ? 11 : year > now.getFullYear() ? -1 : Math.min(11, now.getMonth() + 1);
+  if (lastMonth < 0) return 0;
+  // Asked on every visit to the Files and the reports: one look over what is
+  // already stored decides which months lack anything, and only those are
+  // generated — not a full pass over every record for each of twelve months.
+  const docs = documentRepository.getRecordableUnscoped();
+  const master = masterRepository.get();
+  const today = todayISO();
+  const stored = new Map<string, RecordInstance>();
+  for (const r of recordRepository.query({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
   let total = 0;
   for (let month = 0; month <= lastMonth; month++) {
-    total += generateDemoRecordsForMonth(year, month);
+    const lacking = docs.some((doc) =>
+      effectiveDueDatesInMonth(doc, year, month, master).some(({ scheduled, holiday }) => {
+        if (holiday && doc.kind !== "daily-pest-monitoring") return false;
+        const prior = stored.get(`${doc.id}|${periodKeyFor(doc, scheduled)}`);
+        return !prior || isUnfilledPastShell(prior, today);
+      })
+    );
+    if (lacking) total += generateDemoRecordsForMonth(year, month);
   }
   return total;
 }

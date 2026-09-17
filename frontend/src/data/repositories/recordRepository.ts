@@ -25,6 +25,26 @@ function loadAll(): RecordInstance[] {
   if (cache === null) cache = readJSON<RecordInstance[]>(KEY, []);
   return cache;
 }
+
+// The records of each document, kept alongside the copy above and rebuilt only
+// when it changes: the screens ask for one document's records many times per
+// page (every register on the dashboard, every line of a report), and a scan
+// of every record for each of those questions was most of a page's work.
+let byDocumentOf: RecordInstance[] | null = null;
+let byDocument = new Map<string, RecordInstance[]>();
+function recordsOfDocument(documentId: string): RecordInstance[] {
+  const all = loadAll();
+  if (byDocumentOf !== all) {
+    byDocument = new Map();
+    for (const r of all) {
+      const list = byDocument.get(r.documentId);
+      if (list) list.push(r);
+      else byDocument.set(r.documentId, [r]);
+    }
+    byDocumentOf = all;
+  }
+  return byDocument.get(documentId) ?? [];
+}
 function saveAll(records: RecordInstance[]): void {
   // The copy is only updated once the array is really stored. When the
   // browser's storage is full the write fails; a cached copy showing the
@@ -78,15 +98,19 @@ export const recordRepository = {
   getAll(): RecordInstance[] {
     return loadAll().slice();
   },
+  /** The stored records as they are now, not to be changed: a new array whenever they change, so it can key a cache. */
+  snapshot(): readonly RecordInstance[] {
+    return loadAll();
+  },
   getById(id: string): RecordInstance | undefined {
     return loadAll().find((r) => r.id === id);
   },
   query(filter: RecordFilter): RecordInstance[] {
-    return loadAll().filter((r) => matches(r, filter) && inScope(r));
+    return (filter.documentId ? recordsOfDocument(filter.documentId) : loadAll()).filter((r) => matches(r, filter) && inScope(r));
   },
   /** As query(), but across every department — for the generators and the assistant's preparation. */
   queryUnscoped(filter: RecordFilter): RecordInstance[] {
-    return loadAll().filter((r) => matches(r, filter));
+    return (filter.documentId ? recordsOfDocument(filter.documentId) : loadAll()).filter((r) => matches(r, filter));
   },
   upsert(record: RecordInstance): RecordInstance {
     const all = loadAll().slice();

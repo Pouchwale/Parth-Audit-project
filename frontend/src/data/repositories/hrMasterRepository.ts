@@ -1,5 +1,5 @@
 import type { HrMasterColumnKey, HrMasterPerson } from "../../types";
-import { HR_MASTER_SEED } from "../seed/hrMasterSeed";
+import { hrMasterSeed } from "../seed/hrMasterSeed";
 import { readJSON, writeJSON } from "../storageAdapter";
 import { blankHrMasterValues, HR_MASTER_COLUMNS, namesPerson, sameGp3, type HrMasterValues, type ImportPlan } from "../../engine/hrMaster";
 import { generateId } from "../../utils/id";
@@ -19,11 +19,12 @@ interface Store {
   removedIds?: string[];
 }
 
-const SEED_IDS = new Set(HR_MASTER_SEED.map((p) => p.id));
+let seedIds: Set<string> | null = null;
+const SEED_IDS = { has: (id: string) => (seedIds ??= new Set(hrMasterSeed().map((p) => p.id))).has(id) };
 
 function load(): Store {
   const raw = readJSON<Store | null>(KEY, null);
-  if (!raw || !Array.isArray(raw.people)) return { people: HR_MASTER_SEED, removedSeedIds: [] };
+  if (!raw || !Array.isArray(raw.people)) return { people: hrMasterSeed(), removedSeedIds: [] };
   return { people: raw.people, removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] };
 }
 
@@ -34,12 +35,12 @@ function save(store: Store): boolean {
 export function ensureSeeded(): void {
   const raw = readJSON<Store | null>(KEY, null);
   if (!raw || !Array.isArray(raw.people)) {
-    save({ people: HR_MASTER_SEED, removedSeedIds: [] });
+    save({ people: hrMasterSeed(), removedSeedIds: [] });
     return;
   }
   const ids = new Set(raw.people.map((p) => p.id));
   const removed = new Set(raw.removedSeedIds ?? []);
-  const additions = HR_MASTER_SEED.filter((p) => !ids.has(p.id) && !removed.has(p.id));
+  const additions = hrMasterSeed().filter((p) => !ids.has(p.id) && !removed.has(p.id));
   if (additions.length > 0) save({ people: [...raw.people, ...additions], removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] });
 }
 
