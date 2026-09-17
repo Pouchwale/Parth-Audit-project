@@ -7,6 +7,7 @@ import { SidebarProvider } from "./store/sidebar";
 import { DocumentAssistant } from "./components/common/DocumentAssistant";
 import { AssistantBriefingPopup } from "./components/common/AssistantBriefingPopup";
 import { StorageFullBanner } from "./components/common/StorageFullBanner";
+import { DatabaseSyncBanner } from "./components/common/DatabaseSyncBanner";
 
 import { DashboardPage } from "./pages/DashboardPage";
 import { ProcessFlowPage } from "./pages/ProcessFlowPage";
@@ -204,6 +205,7 @@ export function App() {
             <Topbar />
             <div className="app-content">
               <StorageFullBanner />
+              <DatabaseSyncBanner />
               <Screen />
             </div>
           </div>

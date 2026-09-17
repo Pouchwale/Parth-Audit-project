@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "../api/client";
 import { setDepartmentScope } from "../engine/departmentScope";
+import { stopServerSync } from "../data/serverSync";
 import type { AuthUser } from "../types/auth";
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
@@ -66,6 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      // What is still on its way to the database goes before the session ends.
+      await stopServerSync();
       await api.post("/auth/logout");
     } finally {
       applyScope(null);

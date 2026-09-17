@@ -113,6 +113,9 @@ The app behaves like a personal assistant rather than a blank form:
   position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile
   authorisations and the January-2026 survey analysis (93.99%). A Quality Control account sees none of
   them.
+- **The whole project's data in PostgreSQL** (REQUIREMENTS §55): accounts and all the app's data in one
+  PostgreSQL database — shared by everyone signed in, each person's settings their own, two people's
+  simultaneous changes merged line by line, a change that could not be saved said so and sent again.
 - **Download Excel / Download Word, and print that fits the paper** (REQUIREMENTS §54). Every document screen can
   download the document as its own kind of file — registers and log sheets and the workbook originals as Excel,
   forms, letters and the Word originals as Word — made from the document as filled in on screen; only the
@@ -554,8 +557,12 @@ row, no new component.
 - **Master Data** screen (Employees, Chemicals, PC IDs, Rodent Stations, Areas, Checkpoints,
   Documents) seeded from source, editable for the fields safe to edit in a prototype.
 - **Global search** across records, dates, PC IDs, employees, status.
-- Local persistence (see **DEPLOYMENT.md** for why LocalStorage and how to move to a server DB).
-- **Accounts**: real signup/login (`backend/`, a small Express + SQLite service) gates the app —
+- **One database: PostgreSQL** (REQUIREMENTS §55). Accounts and all of the app's data — records,
+  documents, master data, HR Master Data, settings — are stored in PostgreSQL; the browser keeps a
+  working copy that is loaded at sign-in, written back as people work, and refreshed from the database
+  every few seconds, so everyone sees everyone else's work. With no `DATABASE_URL` the server starts a
+  PostgreSQL of its own. See DEPLOYMENT.md.
+- **Accounts**: real signup/login (`backend/`, a small Express service on PostgreSQL) gates the app —
   no more free-text "Acting as" dropdown. Passwords are bcrypt-hashed, sessions are a signed JWT
   in an httpOnly cookie, and every submit/verify/reject action now records the actual logged-in
   user. The first account created on a fresh install becomes `admin`; every later signup is
@@ -579,8 +586,9 @@ single-process production build:
 npm start         # builds frontend/dist/ then serves it + the API from one Express process
 ```
 
-See DEPLOYMENT.md for LAN pilot instructions and what still lives in the browser (`localStorage`)
-vs. the server (accounts).
+The data is in PostgreSQL: set `DATABASE_URL` in `backend/.env` to use your own server, or leave it
+unset and `npm start` / `npm run dev` start a local PostgreSQL of their own (data in
+`backend/data/postgres`). See DEPLOYMENT.md for LAN pilot instructions, backups and resets.
 
 ## Configuration
 

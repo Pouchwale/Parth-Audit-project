@@ -145,6 +145,15 @@ Seven scripts live in `tests/`:
   true only on its scheduled Wednesday; any other day New record starts the sheet blank. On those days
   the suite now asks Mitra to fill it, the same carry-forward from the page on file, so the check holds
   whatever the day.
+- `tests/e2e_postgres_storage.py` - the whole project's data in PostgreSQL (REQUIREMENTS s55): what the app
+  sets up at sign-in stored in the database (the company's items once, a person's settings as their own)
+  and the browser's working copy equal to it; a change on HR Master Data written to the database, seen by a
+  second person signing in elsewhere, and their change reaching the first person's open screen without a
+  reload; one person's language leaving the other's alone; two people changing the same sheet at once both
+  keeping their change; a change the database cannot take said on screen, kept, and sent when it answers
+  again; a change on its way when the page closed reaching the database at the next opening; accounts
+  signing in from the database; the stored data refused without a session. Every suite now runs against
+  a PostgreSQL the runner starts for the run, emptied before each suite. Network-independent. (19 checks) `npm run test:e2e` is green at **1102 checks across twenty-two suites**, all on PostgreSQL, no JavaScript errors.
 - `tests/e2e_downloads_and_print.py` - every document as its own kind of file, and a wide one printed whole
   (REQUIREMENTS s54): F/HR/01, F/HR/09, the GAP report and the daily pest control register downloaded and read
   back as Excel workbooks (header block, bold heading row, every line and every one of F/HR/09's 29 columns,

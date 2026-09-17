@@ -2485,6 +2485,59 @@ Every column is on the paper and in the PDF; the screen is put back when printin
 
 - Covered by `tests/e2e_downloads_and_print.py` (**21 checks**).
 
+## 55. The whole project's data in PostgreSQL, and nowhere else (17-Sep-2026)
+
+```
+REQUESTED            "make sure i want my whole project database will be in postgres only not any other else"
+BEFORE               accounts and the digest log in SQLite (backend/data/app.db); everything else — records,
+                      documents, master data, HR Master Data, settings — in each browser's localStorage
+DIGITAL TEMPLATE     backend/db.ts (PostgreSQL: schema, accounts, digest log, stored items, the local server,
+                      the SQLite import), backend/index.ts (/api/storage), frontend/src/data/serverSync.ts,
+                      frontend/src/data/storageAdapter.ts, frontend/src/main.tsx, scripts/run-e2e.ts
+```
+
+**ONE DATABASE.** Everything the system keeps is in PostgreSQL:
+
+| Table | What |
+|---|---|
+| `users` | the accounts (moved from SQLite) |
+| `digest_log` | the last date a reminder digest went out (moved from SQLite) |
+| `app_storage` | all of the app's data, one row per stored item — the company's: `records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`; each person's own: `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible` |
+
+SQLite is gone from the server; the browser's storage is no longer where anything is kept. The only
+thing left in a browser alone is where the assistant bubble was dragged to on that screen.
+
+**HOW THE APP USES IT.** Every screen reads and writes as it did (the repositories are unchanged), on a
+working copy that is kept in step with the database:
+
+- **Signing in** loads the person's data — the company's items and their own — from the database, and
+  only then does the app start. If the database cannot be reached the app says so, with *Try again*,
+  instead of opening on a copy that may be out of date.
+- **A change** shows at once and is written to the database a moment later.
+- **Other people's work** arrives every five seconds (and when the window comes back into focus) and the
+  screen redraws — somebody editing HR Master Data sees a colleague's line change without reloading.
+- **Two people at once**: a write made from an out-of-date copy is refused by the database and merged —
+  records, HR Master Data lines and the deletions log line by line (the newer line wins; a line deleted
+  here stays deleted) — then written again. Neither person loses their change.
+- **A change the database could not take** stays on the computer, is sent again every few seconds, and
+  a banner says so until it has gone. One still on its way when the page was closed is sent at the next
+  sign-in.
+- **Settings are a person's own**: one person switching to Gujarati or to Demo Mode no longer switches
+  anyone else.
+
+**WHERE THE DATABASE IS.** `DATABASE_URL` names it (a deployment's own PostgreSQL). Without one, the
+server starts a PostgreSQL of its own on the machine (the `embedded-postgres` package: real PostgreSQL
+18 binaries, no installation), data in `backend/data/postgres` — so `npm start` still needs nothing but
+Node.js. The database must be UTF8 (the records hold Gujarati and dashes); the server refuses any
+other. An install with the old SQLite file has its accounts copied in on first start (the file is then
+renamed `app.db.imported`); records in a browser's storage go up the first time somebody signs in there.
+
+**TESTS.** The runner starts a PostgreSQL of its own for each run (a temporary cluster, thrown away
+after), and empties `app_storage` before each suite — as each suite used to start from a fresh browser.
+
+- Covered by `tests/e2e_postgres_storage.py` (**19 checks**), and by every other suite, which now
+  runs against PostgreSQL.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

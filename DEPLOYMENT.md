@@ -51,14 +51,13 @@ recommended for anything beyond a quick local demo.
 `backend/` is a small, separate Express service that owns real user accounts — this is the one
 part of the app that is no longer purely client-side:
 
-- **Storage**: `backend/data/app.db`, a SQLite database via Node's built-in `node:sqlite` module
-  (no native compilation, no extra dependency; Node 23.6+ as above). One `users` table: id, name,
-  email (unique), bcrypt password hash, role, created_at.
+- **Storage**: the `users` table of the PostgreSQL database (see **Database** below): id, name,
+  email (unique), bcrypt password hash, role, created_at, departments.
 - **Sessions**: signup/login issue a JWT (`backend/auth.ts`) in an httpOnly, `SameSite=Lax` cookie
   (`dcrs_session`, 7-day expiry). The signing secret is generated once on first run and saved to
   `backend/data/jwt-secret.txt` (gitignored) so restarts keep existing sessions valid; set
   `JWT_SECRET` yourself to control it explicitly (e.g. if you ever run more than one instance).
-- **Roles**: the very first account created on a fresh `app.db` becomes `admin`; every account
+- **Roles**: the very first account created in a fresh database becomes `admin`; every account
   after that is `staff`. Nothing in the UI is currently gated by role — it's issued and displayed
   (a badge in the top bar) but not yet enforced anywhere (see FUTURE_ROADMAP.md).
 - **Brute-force throttling**: a simple in-memory counter blocks an email after 8 failed logins for
@@ -69,82 +68,85 @@ part of the app that is no longer purely client-side:
   the frontend (5173) and API (4000) share one origin and cookies work without CORS games; in
   production, `backend/index.ts` serves `frontend/dist/` itself, so there's only one origin regardless.
 
-**What auth does *not* cover**: the app's operational data (documents/records/master/settings)
-still lives in the browser's `localStorage`, not in `app.db` — see below for why, and what
-changes when that also moves server-side.
+The app's operational data is in the same PostgreSQL database — see below.
 
-## Storage / database
+## Database — PostgreSQL only (REQUIREMENTS §55)
 
-This prototype stores all data in the browser's `localStorage`, namespaced under `dcrs:v1:*`
-(see `frontend/src/data/storageAdapter.ts`). This was a deliberate Phase‑1 choice explicitly sanctioned by
-the brief ("If database setup threatens the delivery deadline, use LocalStorage for the
-prototype but structure the data service so a real database can be added later") — **and the
-data service is structured exactly that way**: every read/write goes through
-`frontend/src/data/repositories/*.ts`, which talk only to `IStorageAdapter`. To move to SQLite/Postgres:
+**Every piece of data the system keeps is in PostgreSQL** (`backend/db.ts`): the user accounts, the
+reminder digest log, and all of the app's own data — the records, the document definitions, master
+data, the HR Master Data sheet, reference edits and the deletions log (shared by the whole company),
+and each person's settings, assistant conversations and sidebar layout (their own). Nothing is kept
+in SQLite or in files any more. The browser holds only a **working copy**: loaded from the database
+when a person signs in, written back a moment after every change, and refreshed from the database
+every five seconds (and when the window regains focus), so everyone signed in sees everyone else's
+work. Only the assistant bubble's position on the screen stays in the browser.
 
-1. Implement `IStorageAdapter` (4 methods: `getItem/setItem/removeItem/keys`) against your chosen
-   backend, or — better, for true multi-user support — replace the *bodies* of the repository
-   functions (`documentRepository`, `masterRepository`, `recordRepository`, `settingsRepository`)
-   with calls to a REST/GraphQL API, keeping their exported function signatures identical.
-2. Nothing in `engine/`, `components/`, or `pages/` needs to change — they only call repository
-   functions.
-3. FUTURE_ROADMAP.md (carried over from the uploaded roadmap) already recommends Postgres +
-   LDAP/SSO + RBAC for the production rollout across the remaining ~141 formats — this prototype's
-   storage abstraction is the seam where that migration happens.
+Tables:
 
-**Important caveat for the pilot**: because storage is per-browser (per-origin, to be precise),
-two people filling records in two different browsers/machines do **not** share data — even though
-they now log into separate, real accounts (see Accounts above), those accounts are just *identity*
-for the audit trail (who submitted/verified what); the records themselves aren't centralized.
-This matches the intended deployment model: **one shared device** (e.g. one tablet at the pest
-control checkpoint) that multiple staff log into and out of over the course of a shift, each
-signing their own submissions/verifications — not one account per person on their own device
-expecting to see everyone else's records. That second model is exactly what the storage migration
-above (repositories → REST API) unlocks — accounts already exist for it; only the operational data
-needs to move.
+| Table | Holds |
+|---|---|
+| `users` | accounts: id, name, email, bcrypt hash, role, created_at, departments |
+| `digest_log` | the last date a reminder digest was emailed (one row) |
+| `app_storage` | the app's data, one row per stored item: `scope` (`company`, or a user's id), `key` (`records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `settings`, `assistant-conversations`, …), `value` (the item as JSON text), `version`, `seq`, `updated_at`, `updated_by` |
 
-**Capacity.** A browser gives each site about 5 million characters of `localStorage`, and every
-record of both modes shares it. Measured in Chromium (11-Sep-2026): a fresh Live account uses
-244,660 characters (5%); once Demo Mode has filled the year so far — 2,875 records, five daily
-lamination log sheets of 24 hourly rows among them — 4,208,499 (80%), growing with every demo month
-generated. When a save no longer fits, the change is **not** kept, and the app now says so on screen
-("Your last change could not be saved…", `components/common/StorageFullBanner.tsx`) instead of
-showing it as saved and losing it on the next reload. The quickest relief is Demo Mode → **Clear
-All Demo Data**; the lasting fix is the storage migration above, which removes the limit altogether.
-For a pilot that will run for months, keep Demo Mode for demonstrations on a separate browser
-profile rather than on the shared device that holds the real records.
+**Where the database is.**
+
+- **`DATABASE_URL` set** — the server uses that PostgreSQL, e.g.
+  `DATABASE_URL=postgres://dcrs:secret@db-host:5432/dcrs` in `backend/.env`. This is how a real
+  deployment should run (a managed or on-site PostgreSQL with its own backups). Create the database in
+  **UTF8** (`CREATE DATABASE dcrs ENCODING 'UTF8' TEMPLATE template0;`) — the records hold Gujarati
+  and typographic dashes, and the server refuses to start on a database in any other encoding. The
+  tables are created on first start.
+- **`DATABASE_URL` not set** — the server starts **a PostgreSQL of its own** on this machine, from the
+  `embedded-postgres` npm package (real PostgreSQL 18 binaries, no installation, no admin rights),
+  listening on `127.0.0.1:5433` (`EMBEDDED_PG_PORT` to change it), data in `backend/data/postgres`,
+  password generated once into `backend/data/postgres-password`. So `npm install && npm start` still
+  needs nothing but Node.js. The first start takes ~15 seconds to set the cluster up. If the server is
+  stopped hard, that PostgreSQL may keep running; the next start simply uses it.
+
+**Coming from the SQLite version.** An install that has `backend/data/app.db` has its accounts and
+digest log copied into PostgreSQL automatically the first time the server starts against an empty
+database; the file is then renamed `app.db.imported` and never read again. The records that lived in
+a browser's `localStorage` go up the first time somebody signs in on that browser: anything the
+database does not hold yet is sent from the browser's copy.
+
+**Two people at once.** Each write says which version of the item it was made from. A write made from
+an out-of-date copy is refused (`409`) and comes back with what is stored now; for the records, the
+HR Master Data sheet and the deletions log the browser merges the two line by line — the newer version
+of each line wins, a line deleted here stays deleted — and writes the merged item. A change that
+cannot reach the database is kept on the computer and sent again, with a banner saying so; one still
+on its way when the page was closed is sent at the next sign-in.
+
+**API** (all need a signed-in session): `GET /api/storage` (everything for the person: the company's
+items and their own), `GET /api/storage?since=<seq>` (what changed), `PUT /api/storage/<key>` (body:
+the value; header `X-Base-Version`), `DELETE /api/storage/<key>`.
+
+**Capacity.** No browser quota applies any more: PostgreSQL holds the data. A single item may be up to
+100 MB (`STORAGE_MAX_BYTES` in `backend/index.ts`).
 
 ## Backup instructions
 
-Since data lives in `localStorage`, back it up from the browser console:
+Back up the PostgreSQL database with PostgreSQL's own tools:
 
-```js
-// Export everything (paste in the browser console on the app's origin):
-copy(JSON.stringify(Object.fromEntries(
-  Object.keys(localStorage).filter(k => k.startsWith('dcrs:v1:'))
-    .map(k => [k, localStorage.getItem(k)])
-)));
-// Clipboard now has a JSON backup — save it to a file.
+```bash
+pg_dump --format=custom --file=dcrs-$(date +%F).dump "$DATABASE_URL"
+# restore into an empty database:
+pg_restore --clean --if-exists --dbname="$DATABASE_URL" dcrs-2026-09-17.dump
 ```
 
-```js
-// Restore (paste the JSON backup object as `backup`):
-Object.entries(backup).forEach(([k, v]) => localStorage.setItem(k, v));
-location.reload();
-```
-
-A "real" backup/export button (JSON download) is a natural Phase‑2 addition once the app moves
-off pure `localStorage` — see FUTURE_ROADMAP.md.
+For the built-in local database, the same tools work against
+`postgres://postgres:<backend/data/postgres-password>@127.0.0.1:5433/dcrs` (the binaries are in
+`node_modules/@embedded-postgres/<platform>/native/bin/`); or stop the server and copy
+`backend/data/postgres/` as a whole.
 
 ## Reset-demo instructions
 
 - **In-app** (preferred): Demo Mode page → "Clear All Demo Data" button. This deletes every
   record with `isDemo: true` and leaves Live data untouched (see DATA_MODEL.md's Demo/Live
   integrity guarantee).
-- **Full reset** (wipes Live data too — used for a clean pilot start): in the browser console,
-  `Object.keys(localStorage).filter(k => k.startsWith('dcrs:v1:')).forEach(k =>
-  localStorage.removeItem(k)); location.reload();`. The app reseeds master/document/historical
-  data automatically on next load (`frontend/src/data/bootstrap.ts`).
+- **Full reset** (wipes Live data too — used for a clean pilot start): in PostgreSQL,
+  `TRUNCATE app_storage;` (accounts stay). The app reseeds master/document/historical data the next
+  time somebody signs in (`frontend/src/data/bootstrap.ts`).
 
 ## Environment configuration
 

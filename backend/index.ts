@@ -1,16 +1,26 @@
-// Auth API server. Owns real user accounts (SQLite, hashed passwords,
-// signed session cookies) so the app can require signup/login instead of
-// the old "Acting as" name dropdown — see FUTURE_ROADMAP.md, which already
-// flagged that dropdown as a placeholder for real identity. The app's other
-// data (documents/records/master/settings) intentionally still lives in the
-// browser's localStorage; only accounts move server-side. See DEPLOYMENT.md.
+// API server. Owns the user accounts (hashed passwords, signed session
+// cookies) and ALL of the app's data, kept in PostgreSQL (db.ts, REQUIREMENTS
+// §55): the records, documents, master data, HR Master Data and the rest are
+// loaded from here when a person signs in and written back as they work, over
+// /api/storage below. See DEPLOYMENT.md.
 import "./env.ts";
 import express, { type CookieOptions, type NextFunction, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { db, type UserRow } from "./db.ts";
+import {
+  deleteItem,
+  getUserByEmail,
+  getUserById,
+  insertUser,
+  listUsers,
+  openDatabase,
+  setUserDepartments,
+  storedItems,
+  writeItem,
+  type UserRow,
+} from "./db.ts";
 import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, SESSION_TTL_MS, type PublicUser } from "./auth.ts";
 import { distDir } from "./paths.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS } from "./assistant.ts";
@@ -32,15 +42,6 @@ app.use(cookieParser());
 // cross-origin request to this API, so there's no third-party origin to
 // allow. Adding permissive CORS here would only widen the attack surface
 // for no functional benefit.
-
-const getUserByEmail = db.prepare("SELECT * FROM users WHERE email = ?");
-const getUserById = db.prepare("SELECT * FROM users WHERE id = ?");
-const countUsers = db.prepare("SELECT COUNT(*) AS c FROM users");
-const insertUser = db.prepare(
-  "INSERT INTO users (id, name, email, password_hash, role, created_at, departments) VALUES (?, ?, ?, ?, ?, ?, ?)"
-);
-const listUsers = db.prepare("SELECT * FROM users ORDER BY created_at");
-const setUserDepartments = db.prepare("UPDATE users SET departments = ? WHERE id = ?");
 
 type AuthedRequest = Request & { user: PublicUser };
 
@@ -96,16 +97,16 @@ function issueSession(res: Response, user: PublicUser): void {
   res.cookie(COOKIE_NAME, signSessionToken(user), cookieOptions());
 }
 
-function getSessionUser(req: Request): PublicUser | null {
+async function getSessionUser(req: Request): Promise<PublicUser | null> {
   const token = req.cookies?.[COOKIE_NAME];
   const payload = token ? verifySessionToken(token) : null;
   if (!payload) return null;
-  const row = getUserById.get(payload.sub) as UserRow | undefined;
+  const row = await getUserById(payload.sub);
   return row ? toPublicUser(row) : null;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const user = getSessionUser(req);
+async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const user = await getSessionUser(req);
   if (!user) {
     res.status(401).json({ error: "Not authenticated." });
     return;
@@ -203,33 +204,32 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  if (getUserByEmail.get(normalizedEmail)) {
+  if (await getUserByEmail(normalizedEmail)) {
     res.status(409).json({ error: "An account with that email already exists." });
     return;
   }
 
-  const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
-  // Counted after the await, with nothing asynchronous between this and the
-  // insert: counted before hashing, two signups racing on an empty database
-  // both saw zero users and both became admin.
-  const isFirstUser = (countUsers.get() as { c: number }).c === 0;
-  const role = isFirstUser ? "admin" : "staff";
-
   // The first account runs the plant's system, so it is the admin and is not
-  // restricted to one department whatever the form said.
-  const assigned = isFirstUser ? [] : departments.codes;
-  try {
-    insertUser.run(id, name.trim(), normalizedEmail, passwordHash, role, new Date().toISOString(), assigned.join(","));
-  } catch {
-    // Two concurrent signups for the same email both pass the check above;
-    // the table's UNIQUE constraint catches the second one here instead.
+  // restricted to one department whatever the form said — decided inside the
+  // insert, under a lock, so two signups racing on an empty database cannot
+  // both become admin (db.ts insertUser). Two concurrent signups for the same
+  // email both pass the check above; the UNIQUE email catches the second.
+  const row = await insertUser({
+    id: crypto.randomUUID(),
+    name: name.trim(),
+    email: normalizedEmail,
+    password_hash: passwordHash,
+    created_at: new Date().toISOString(),
+    departments: departments.codes.join(","),
+  });
+  if (!row) {
     res.status(409).json({ error: "An account with that email already exists." });
     return;
   }
 
   recordSignup(req.ip ?? "unknown");
-  const user: PublicUser = { id, name: name.trim(), email: normalizedEmail, role, departments: assigned };
+  const user = toPublicUser(row);
   issueSession(res, user);
   res.status(201).json({ user });
 });
@@ -237,8 +237,8 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
 // WHO SEES WHICH DEPARTMENT'S DOCUMENTS — set by the admin, not by the person
 // themselves, or the restriction would be a preference rather than a rule.
 // The admin is the first account created (see signup above).
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const user = getSessionUser(req);
+async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const user = await getSessionUser(req);
   if (!user) {
     res.status(401).json({ error: "Not authenticated." });
     return;
@@ -251,13 +251,13 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
-app.get("/api/users", requireAdmin, (_req: Request, res: Response): void => {
-  const rows = listUsers.all() as unknown as UserRow[];
+app.get("/api/users", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  const rows = await listUsers();
   res.json({ users: rows.map((r) => ({ ...toPublicUser(r), createdAt: r.created_at })) });
 });
 
-app.post("/api/users/:id/departments", requireAdmin, (req: Request, res: Response): void => {
-  const target = getUserById.get(String(req.params.id ?? "")) as UserRow | undefined;
+app.post("/api/users/:id/departments", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const target = await getUserById(String(req.params.id ?? ""));
   if (!target) {
     res.status(404).json({ error: "No such user." });
     return;
@@ -274,8 +274,7 @@ app.post("/api/users/:id/departments", requireAdmin, (req: Request, res: Respons
     res.status(400).json({ error: "The administrator account covers every department." });
     return;
   }
-  setUserDepartments.run(departments.codes.join(","), target.id);
-  const updated = (getUserById.get(target.id) as UserRow | undefined) ?? { ...target, departments: departments.codes.join(",") };
+  const updated: UserRow = (await setUserDepartments(target.id, departments.codes.join(","))) ?? { ...target, departments: departments.codes.join(",") };
   res.json({ user: toPublicUser(updated) });
 });
 
@@ -299,7 +298,7 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
-  const row = getUserByEmail.get(normalizedEmail) as UserRow | undefined;
+  const row = await getUserByEmail(normalizedEmail);
   const ok = row ? await verifyPassword(password, row.password_hash) : false;
   if (!row || !ok) {
     recordFailedAttempt(normalizedEmail);
@@ -318,8 +317,8 @@ app.post("/api/auth/logout", (_req: Request, res: Response): void => {
   res.status(204).end();
 });
 
-app.get("/api/auth/me", (req: Request, res: Response): void => {
-  const user = getSessionUser(req);
+app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSessionUser(req);
   if (!user) {
     res.status(401).json({ error: "Not authenticated." });
     return;
@@ -576,6 +575,59 @@ app.post("/api/reminders/send-digest", requireAuth, async (req: Request, res: Re
   }
 });
 
+// THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55). The browser keeps a
+// working copy of each stored item (frontend/src/data/storageAdapter.ts): it
+// loads them all here when a person signs in, asks every few seconds what
+// has changed since, and writes each item back as it changes. A write says
+// which version it was made from; one made from an out-of-date copy is
+// refused with the current item, which the browser merges and writes again.
+// What the whole plant shares is stored once for the company; a person's
+// settings, assistant conversations and screen layout are stored for them.
+const STORAGE_KEY_RE = /^[A-Za-z0-9._:-]{1,120}$/;
+const USER_SCOPED_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
+const STORAGE_MAX_BYTES = "100mb";
+const storageScope = (key: string, userId: string) => (USER_SCOPED_KEYS.has(key) ? userId : "company");
+
+app.get("/api/storage", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const user = (req as AuthedRequest).user;
+  const since = Number(req.query.since ?? 0);
+  res.json(await storedItems(user.id, Number.isSafeInteger(since) && since > 0 ? since : 0));
+});
+
+app.put(
+  "/api/storage/:key",
+  requireAuth,
+  express.text({ type: () => true, limit: STORAGE_MAX_BYTES }),
+  async (req: Request, res: Response): Promise<void> => {
+    const key = String(req.params.key ?? "");
+    if (!STORAGE_KEY_RE.test(key) || typeof req.body !== "string") {
+      res.status(400).json({ error: "Bad storage key or value." });
+      return;
+    }
+    const base = req.get("x-base-version");
+    const baseVersion = base === undefined || base === "*" ? null : Number(base);
+    if (baseVersion !== null && (!Number.isSafeInteger(baseVersion) || baseVersion < 0)) {
+      res.status(400).json({ error: "Bad base version." });
+      return;
+    }
+    const user = (req as AuthedRequest).user;
+    const result = await writeItem(storageScope(key, user.id), key, req.body, baseVersion, user.email);
+    if (result.ok) res.json({ version: result.version, seq: result.seq });
+    else res.status(409).json({ current: result.current });
+  }
+);
+
+app.delete("/api/storage/:key", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const key = String(req.params.key ?? "");
+  if (!STORAGE_KEY_RE.test(key)) {
+    res.status(400).json({ error: "Bad storage key." });
+    return;
+  }
+  const user = (req as AuthedRequest).user;
+  await deleteItem(storageScope(key, user.id), key);
+  res.status(204).end();
+});
+
 // Single-process production deployment: serve the built frontend (dist/)
 // from the same server as the API, so there's one process and one origin to
 // run/expose for a pilot (see DEPLOYMENT.md). In dev, the frontend is served
@@ -604,6 +656,13 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
   console.error(err);
   res.status(500).json({ error: "Something went wrong." });
 });
+
+try {
+  await openDatabase();
+} catch (err) {
+  console.error("Could not open the PostgreSQL database:", err);
+  process.exit(1);
+}
 
 app.listen(PORT, () => {
   console.log(`API server listening on http://localhost:${PORT}`);

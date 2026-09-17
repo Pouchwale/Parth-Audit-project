@@ -5,7 +5,7 @@
 // and this module decides whether to actually send (see digest_log dedup in
 // db.ts: only the first request on a given calendar date sends anything,
 // no matter how many browsers/staff trigger it that day).
-import { db } from "./db.ts";
+import { claimDigestDate, lastDigestDate, setDigestDate } from "./db.ts";
 import { isEmailConfigured, sendMail } from "./email.ts";
 
 export interface DigestReminder {
@@ -22,19 +22,9 @@ export interface DigestResult {
   attempted?: number;
 }
 
-const getDigestLog = db.prepare("SELECT last_sent_date FROM digest_log WHERE id = 1");
-const upsertDigestLog = db.prepare(
-  "INSERT INTO digest_log (id, last_sent_date) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET last_sent_date = excluded.last_sent_date"
-);
-
 function todayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function lastSentDate(): string | null {
-  const row = getDigestLog.get() as { last_sent_date: string | null } | undefined;
-  return row?.last_sent_date ?? null;
 }
 
 function escapeHtml(s: unknown): string {
@@ -62,7 +52,7 @@ function renderDigestHtml(items: DigestReminder[]): string {
 // Groups by recipient email so each person only sees their own items.
 export async function sendReminderDigestIfDue(reminders: DigestReminder[]): Promise<DigestResult> {
   if (!isEmailConfigured()) return { sent: false, reason: "not-configured" };
-  const previous = lastSentDate();
+  const previous = await lastDigestDate();
   if (previous === todayISO()) return { sent: false, reason: "already-sent-today" };
 
   const byEmail = new Map<string, DigestReminder[]>();
@@ -78,11 +68,10 @@ export async function sendReminderDigestIfDue(reminders: DigestReminder[]): Prom
   // Master Data has no emails must not use up the day for one that has.
   if (byEmail.size === 0) return { sent: false, reason: "no-recipients" };
 
-  // Claim the day before the first await. Everything from the check above to
-  // here runs without yielding (node:sqlite is synchronous), so a second
-  // request arriving while this one is still sending sees it as already sent
-  // instead of sending the same mail again.
-  upsertDigestLog.run(todayISO());
+  // Claim the day before sending. The claim is one conditional statement in
+  // PostgreSQL (db.ts claimDigestDate), so of two requests arriving together
+  // only one gets it; the other sees the day as already sent.
+  if (!(await claimDigestDate(todayISO()))) return { sent: false, reason: "already-sent-today" };
 
   let successCount = 0;
   for (const [email, items] of byEmail) {
@@ -96,6 +85,6 @@ export async function sendReminderDigestIfDue(reminders: DigestReminder[]): Prom
 
   // Nothing went out (e.g. Gmail was unreachable): give the day back so the
   // next request tries again, rather than silently skipping today's digest.
-  if (successCount === 0) upsertDigestLog.run(previous);
+  if (successCount === 0) await setDigestDate(previous);
   return { sent: successCount > 0, recipientCount: successCount, attempted: byEmail.size };
 }

@@ -15,6 +15,8 @@ const KEY = "hrMasterData";
 interface Store {
   people: HrMasterPerson[];
   removedSeedIds: string[];
+  /** Every line removed — so a copy merged with someone else's never brings one back (data/serverSync.ts). */
+  removedIds?: string[];
 }
 
 const SEED_IDS = new Set(HR_MASTER_SEED.map((p) => p.id));
@@ -22,7 +24,7 @@ const SEED_IDS = new Set(HR_MASTER_SEED.map((p) => p.id));
 function load(): Store {
   const raw = readJSON<Store | null>(KEY, null);
   if (!raw || !Array.isArray(raw.people)) return { people: HR_MASTER_SEED, removedSeedIds: [] };
-  return { people: raw.people, removedSeedIds: raw.removedSeedIds ?? [] };
+  return { people: raw.people, removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] };
 }
 
 function save(store: Store): boolean {
@@ -38,7 +40,7 @@ export function ensureSeeded(): void {
   const ids = new Set(raw.people.map((p) => p.id));
   const removed = new Set(raw.removedSeedIds ?? []);
   const additions = HR_MASTER_SEED.filter((p) => !ids.has(p.id) && !removed.has(p.id));
-  if (additions.length > 0) save({ people: [...raw.people, ...additions], removedSeedIds: raw.removedSeedIds ?? [] });
+  if (additions.length > 0) save({ people: [...raw.people, ...additions], removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] });
 }
 
 const clean = (values: Partial<HrMasterValues>): Partial<HrMasterValues> =>
@@ -83,7 +85,7 @@ export const hrMasterRepository = {
   remove(id: string): void {
     const store = load();
     const removedSeedIds = SEED_IDS.has(id) && !store.removedSeedIds.includes(id) ? [...store.removedSeedIds, id] : store.removedSeedIds;
-    save({ people: store.people.filter((p) => p.id !== id), removedSeedIds });
+    save({ people: store.people.filter((p) => p.id !== id), removedSeedIds, removedIds: [...(store.removedIds ?? []), id] });
   },
 
   /** Carries out an upload the person has looked over (engine/hrMaster.ts planImport). */

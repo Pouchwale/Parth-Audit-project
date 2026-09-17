@@ -1,8 +1,10 @@
 // Storage abstraction. Everything above this line (repositories, engine,
-// components) only ever talks to `IStorageAdapter` — never to
-// localStorage/SQLite/REST directly. That keeps the promise in
-// TECHNICAL REQUIREMENTS: swap `LocalStorageAdapter` for a real DB-backed
-// adapter later without touching the rest of the app. See DATA_MODEL.md.
+// components) only ever talks to `IStorageAdapter` — never to the database or
+// REST directly. The data itself lives in PostgreSQL (backend/db.ts,
+// REQUIREMENTS §55): what is read here is this browser's working copy, loaded
+// from the database at sign-in, and every write is sent on to the database by
+// data/serverSync.ts. See DATA_MODEL.md.
+import { NAMESPACE, noteLocalRemove, noteLocalWrite, onServerChange } from "./serverSync";
 export interface IStorageAdapter {
   getItem(key: string): string | null;
   /** False when the value could not be stored (e.g. the browser's quota is full). */
@@ -11,7 +13,6 @@ export interface IStorageAdapter {
   keys(): string[];
 }
 
-const NAMESPACE = "dcrs:v1:"; // Digital Controlled Record System
 
 /** Fired on window when a write fails — see components/common/StorageFullBanner.tsx. */
 export const STORAGE_WRITE_FAILED = "dcrs:storage-write-failed";
@@ -35,6 +36,7 @@ export class LocalStorageAdapter implements IStorageAdapter {
   setItem(key: string, value: string): boolean {
     try {
       window.localStorage.setItem(NAMESPACE + key, value);
+      noteLocalWrite(key);
       return true;
     } catch (err) {
       // Logging alone left the screen showing a change that was never
@@ -48,6 +50,7 @@ export class LocalStorageAdapter implements IStorageAdapter {
   removeItem(key: string): void {
     try {
       window.localStorage.removeItem(NAMESPACE + key);
+      noteLocalRemove(key);
     } catch {
       /* noop */
     }
@@ -116,9 +119,11 @@ export function writeJSON<T>(key: string, value: T): boolean {
 }
 
 /**
- * Calls `onChange` when ANOTHER tab of the app writes to storage (the browser
- * only sends `storage` events to the other tabs). `key` is the app's key
- * without the namespace, or null when that tab cleared storage altogether.
+ * Calls `onChange` when something other than this page changed stored data:
+ * ANOTHER tab of the app (the browser only sends `storage` events to the other
+ * tabs), or another person's work brought in from the database
+ * (data/serverSync.ts). `key` is the app's key without the namespace, or null
+ * when everything may have changed.
  */
 export function onExternalChange(onChange: (key: string | null) => void): () => void {
   if (typeof window === "undefined") return () => {};
@@ -127,5 +132,9 @@ export function onExternalChange(onChange: (key: string | null) => void): () => 
     else if (e.key.startsWith(NAMESPACE)) onChange(e.key.slice(NAMESPACE.length));
   };
   window.addEventListener("storage", handler);
-  return () => window.removeEventListener("storage", handler);
+  const stopServer = onServerChange(onChange);
+  return () => {
+    window.removeEventListener("storage", handler);
+    stopServer();
+  };
 }

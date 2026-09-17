@@ -3,7 +3,7 @@
 ## Layered architecture
 
 ```
-components/ pages/          UI — reads repositories directly (cheap, localStorage-scale),
+components/ pages/          UI — reads repositories directly (cheap: a working copy in memory),
                               writes go through engine/ functions, never touch storage directly.
         │
 engine/                     Frequency engine, recurring-record generator, validation,
@@ -14,13 +14,20 @@ data/repositories/          One repository per collection: documentRepository, m
                               knows the storage key names.
         │
 data/storageAdapter.ts      IStorageAdapter interface + LocalStorageAdapter (+ MemoryStorageAdapter
-                              fallback). readJSON/writeJSON helpers.
+                              fallback). readJSON/writeJSON helpers. Every write is handed to
+                              data/serverSync.ts.
         │
+data/serverSync.ts          Keeps the browser's working copy ("dcrs:v1:*") and the database in step:
+                              loads everything at sign-in, sends each change, pulls others' changes
+                              every 5 s, merges a write refused as out of date.
+        │  /api/storage
         ▼
-   localStorage (namespaced "dcrs:v1:*")
+backend/db.ts               PostgreSQL — the only database (REQUIREMENTS §55): users, digest_log,
+                              app_storage (one row per stored item, company-wide or per user).
 ```
 
-**Why this shape, and how to swap storage later** (section 39's explicit requirement): every
+**Why this shape** (section 39's explicit requirement — and how the move to PostgreSQL was made
+without touching anything above the adapter): every
 repository method is storage-agnostic — `documentRepository.getAll()`, `recordRepository.query(filter)`,
 etc. To move to a real database, replace `LocalStorageAdapter` with e.g. a `RestApiAdapter` or a
 `SqliteAdapter` implementing the same 4-method `IStorageAdapter` interface (`getItem/setItem/
