@@ -18,6 +18,7 @@ import {
   isDatabaseUnavailable,
   listUsers,
   openDatabase,
+  readItem,
   setUserDepartments,
   storedItems,
   writeItem,
@@ -617,6 +618,21 @@ function accountDepartments(user: PublicUser): string[] | null {
 
 const deniedKeys = (departments: string[] | null): string[] => (departments && !departments.includes("HR") ? HR_ONLY_KEYS : []);
 
+// WHICH DEPARTMENTS A BROWSER'S COPY WAS MADE FOR. The records a browser holds
+// were filtered for the account's departments when it received them; if the
+// administrator has since changed those departments, a write from that copy
+// would replace lines it never had (a department just added) — so the browser
+// says which departments its copy is for (X-Scope), and a copy made for other
+// departments than the account has now is refused and comes back to be merged
+// with what the account sees now.
+const scopeKey = (departments: string[] | null): string => (departments ? [...departments].sort().join(",") : "*");
+
+/** A tab still working for one account while the browser has signed in as another: refused. */
+function otherAccount(req: Request, user: PublicUser): boolean {
+  const claimed = req.get("x-account");
+  return claimed !== undefined && claimed !== user.id;
+}
+
 // The format number of each stored document definition, for a document the
 // fixed list doesn't name (its department follows from the number).
 let formatNoCache: { version: number; byId: Map<string, string> } | null = null;
@@ -660,6 +676,10 @@ function visibleLines(value: string, visible: (line: unknown) => boolean): strin
 
 app.get("/api/storage", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const user = (req as AuthedRequest).user;
+  if (otherAccount(req, user)) {
+    res.status(401).json({ error: "This browser is signed in as another account now." });
+    return;
+  }
   const since = Number(req.query.since ?? 0);
   const result = await storedItems(user.id, Number.isSafeInteger(since) && since > 0 ? since : 0);
   const departments = accountDepartments(user);
@@ -671,7 +691,7 @@ app.get("/api/storage", requireAuth, async (req: Request, res: Response): Promis
       .map((item) => (DEPARTMENT_LINE_KEYS.has(item.key) && item.scope === "company" ? { ...item, value: visibleLines(item.value, visible) } : item));
     for (const key of denied) delete result.versions[key];
   }
-  res.json({ ...result, denied });
+  res.json({ ...result, denied, scope: scopeKey(departments) });
 });
 
 app.put(
@@ -697,6 +717,10 @@ app.put(
       return;
     }
     const user = (req as AuthedRequest).user;
+    if (otherAccount(req, user)) {
+      res.status(401).json({ error: "This browser is signed in as another account now." });
+      return;
+    }
     const departments = accountDepartments(user);
     if (deniedKeys(departments).includes(key)) {
       res.status(403).json({ error: "This account's departments do not hold that." });
@@ -704,6 +728,14 @@ app.put(
     }
     const scoped = !!departments && DEPARTMENT_LINE_KEYS.has(key);
     const visible = scoped ? await lineVisibility(departments!) : null;
+    const scopeNow = scopeKey(departments);
+    const claimedScope = req.get("x-scope");
+    if (DEPARTMENT_LINE_KEYS.has(key) && claimedScope !== undefined && claimedScope !== scopeNow) {
+      const stored = await readItem(storageScope(key, user.id), key);
+      const current = stored && visible ? { ...stored, value: visibleLines(stored.value, visible) } : stored;
+      res.status(409).json({ current, scope: scopeNow });
+      return;
+    }
     const posted: string = req.body;
     // A department's account writes its own departments' lines; everyone else's stay as stored.
     const compose = visible
@@ -729,13 +761,17 @@ app.put(
       return;
     }
     const current = result.current && visible ? { ...result.current, value: visibleLines(result.current.value, visible) } : result.current;
-    res.status(409).json({ current });
+    res.status(409).json({ current, scope: scopeNow });
   }
 );
 
 app.delete("/api/storage/:key", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const key = String(req.params.key ?? "");
   const user = (req as AuthedRequest).user;
+  if (otherAccount(req, user)) {
+    res.status(401).json({ error: "This browser is signed in as another account now." });
+    return;
+  }
   if (!(COMPANY_KEYS.has(key) || USER_SCOPED_KEYS.has(key))) {
     res.status(400).json({ error: "Bad storage key." });
     return;

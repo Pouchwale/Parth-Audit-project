@@ -482,6 +482,12 @@ export async function writeItem(
   );
 }
 
+export async function readItem(scope: string, key: string): Promise<StoredItem | null> {
+  const { rows } = await database().query<{ value: string; version: number; seq: string }>("SELECT value, version, seq::text AS seq FROM app_storage WHERE scope = $1 AND key = $2", [scope, key]);
+  const row = rows[0];
+  return row ? { key, value: row.value, version: row.version, seq: Number(row.seq) } : null;
+}
+
 export async function deleteItem(scope: string, key: string): Promise<void> {
   await database().query("DELETE FROM app_storage WHERE scope = $1 AND key = $2", [scope, key]);
 }

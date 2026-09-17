@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { setDepartmentScope } from "../engine/departmentScope";
 import { SESSION_ENDED_EVENT, stopServerSync } from "../data/serverSync";
@@ -65,16 +65,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // The session ran out, or was ended in another tab: the server refuses the
   // stored data (data/serverSync.ts). Back to the sign-in screen — what was
   // still unsent stays marked on this computer and goes at the next sign-in.
+  // The same happens when this browser has since signed in as another account
+  // (in another tab): asking the server again who is signed in opens the app
+  // for that account instead.
+  const ending = useRef(false);
   useEffect(() => {
     const onEnded = () => {
-      void stopServerSync();
-      applyScope(null);
-      setUser(null);
-      setStatus((current) => (current === "checking" ? current : "unauthenticated"));
+      if (ending.current) return;
+      ending.current = true;
+      void stopServerSync().finally(() => {
+        ending.current = false;
+        retry();
+      });
     };
     window.addEventListener(SESSION_ENDED_EVENT, onEnded);
     return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
-  }, []);
+  }, [retry]);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.post<{ user: AuthUser }>("/auth/login", { email, password });

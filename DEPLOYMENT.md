@@ -136,11 +136,15 @@ again in the same tab starts from the database's copy, never from what the page 
 assigned) is handed only the records and deletions-log lines of documents its departments own (or no
 department owns), and the HR Master Data sheet only with Human Resources (`403` otherwise). What such
 an account writes to the records replaces only its own departments' lines; everyone else's stay as
-stored. An account with no department assigned still sees every department (REQUIREMENTS §40), so the
-administrator should assign departments to new accounts.
+stored. A browser says which departments its copy was made for (`X-Scope`); after the administrator
+changes an account's departments, a write from a copy made for the old ones is refused and merged with
+what the account sees now, so a department just added is never wiped, and an open page loads again for
+the new departments. An account with no department assigned still sees every department (REQUIREMENTS
+§40), so the administrator should assign departments to new accounts.
 
 **Session and outages.** A session that has run out (or was ended in another tab) sends the page back
-to the sign-in screen; what was unsent goes at the next sign-in. When the server or its database does
+to the sign-in screen; what was unsent goes at the next sign-in. A tab left open for one account after
+the browser signed in as another (`X-Account`) is refused, and opens for the account now signed in. When the server or its database does
 not answer, the app says so with *Try again* (the API answers `503`) instead of showing the sign-in
 screen.
 

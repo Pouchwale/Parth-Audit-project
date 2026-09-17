@@ -4,7 +4,7 @@ import { ApiError, assistantApi } from "../api/client";
 import { useAuth } from "../store/AuthContext";
 import { useAppStore } from "../store/AppStore";
 import { isValidAppRoute, useRouter } from "../store/router";
-import { readJSON, writeJSON } from "../data/storageAdapter";
+import { onExternalChange, readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
 import { parseAssistantCommand } from "../engine/assistantCommands";
@@ -120,9 +120,19 @@ export function AssistantPage() {
   const speechSupported = isSpeechOutputSupported();
   const speechLocale = SPEECH_LOCALES[lang];
 
+  // Written only when it changed — and a conversation brought in from another
+  // device (data/serverSync.ts) is taken in, not written over with this page's
+  // older copy.
   useEffect(() => {
-    writeJSON(STORE_KEY, state);
+    if (JSON.stringify(loadState()) !== JSON.stringify(state)) writeJSON(STORE_KEY, state);
   }, [state]);
+  useEffect(
+    () =>
+      onExternalChange((key) => {
+        if (key === null || key === STORE_KEY) setState(loadState());
+      }),
+    []
+  );
 
   useEffect(() => {
     const el = logRef.current;

@@ -49,6 +49,8 @@ const USER_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-
 const SYNC_KEYS = new Set<string>([...COMPANY_KEYS, ...USER_KEYS]);
 /** Never handed on to the next person who signs in on this browser. */
 const PRIVATE_KEYS = new Set(["assistant-conversations"]);
+/** Items whose lines belong to departments: the server keeps a department's account to its own (backend/index.ts). */
+const LINE_KEYS = new Set(["records", "deletions"]);
 
 const WRITE_DELAY_MS = 400;
 const PULL_EVERY_MS = 5000;
@@ -66,6 +68,8 @@ interface Marker {
   t: string;
   /** A change was made that has not been confirmed stored. */
   p?: 1;
+  /** The departments the copy was made for, as the server named them ("*": every department). */
+  d?: string;
 }
 
 interface StoredItem {
@@ -80,6 +84,8 @@ interface StorageResponse {
   seq: number;
   versions?: Record<string, number>;
   denied?: string[];
+  /** The departments this account's copy is made for now. */
+  scope?: string;
 }
 
 interface Session {
@@ -89,6 +95,8 @@ interface Session {
   failing: boolean;
   /** Items this account's departments do not hold (backend/index.ts): never sent, never kept. */
   denied: Set<string>;
+  /** The departments the account's copy is made for ("*": every department). */
+  scope: string;
 }
 
 /** Why the working copy could not be loaded — main.tsx says it in words. */
@@ -421,8 +429,19 @@ type Rec = Obj & { id: string | number };
  * and date — to the one somebody worked on, or, between two blank ones, to the
  * same one in every browser.
  */
+/** Last changed by the assistant's automatic preparation (engine/assistantPrepare.ts), not by a person. */
+const preparedOnly = (r: Rec) => isObject(r.prepared) && typeof r.updatedAt === "string" && r.prepared.at === r.updatedAt;
+
+/** Of two versions of a record both sides changed: a person's change over an automatic preparation, then the later. */
+function laterRecord(mine: Rec, theirs: Rec, prefer: Prefer): Rec {
+  if (preparedOnly(mine) !== preparedOnly(theirs)) return preparedOnly(mine) ? theirs : mine;
+  return newer(mine, theirs, prefer);
+}
+
 function withoutDuplicateBlanks(records: Rec[]): Rec[] {
-  const blank = (r: Rec) => (r.status === "Due" || r.status === "Scheduled") && typeof r.createdAt === "string" && r.createdAt === r.updatedAt;
+  const blank = (r: Rec) =>
+    ((r.status === "Due" || r.status === "Scheduled") && typeof r.createdAt === "string" && r.createdAt === r.updatedAt) ||
+    (r.status === "In Progress" && preparedOnly(r));
   const groups = new Map<string, Rec[]>();
   for (const r of records) {
     if (typeof r.periodKey !== "string" || typeof r.documentId !== "string") continue;
@@ -471,10 +490,10 @@ function mergeRecords(base: BaseView | null, mine: Rec[], theirs: Rec[], prefer:
     changedSinceBase: (id, e) => !ids || ids.get(id) !== h(e),
     equal: (a, b) => h(a) === h(b),
     both: (id, m, t) => {
-      if (!ids || !ids.has(id)) return newer(m, t, prefer);
+      if (!ids || !ids.has(id)) return laterRecord(m, t, prefer);
       if (ids.get(id) === h(m)) return t;
       if (ids.get(id) === h(t)) return m;
-      return newer(m, t, "mine");
+      return laterRecord(m, t, "mine");
     },
     gone: (id) => !!gone && gone.has(id),
   });
@@ -526,9 +545,16 @@ function merge(key: string, base: BaseView | null, mine: string, theirs: string,
 // ---------------------------------------------------------------------------
 // talking to the database
 
-async function request(method: string, path: string, body?: string, headers: Record<string, string> = {}, keepalive = false): Promise<Response> {
-  return fetch(`/api/storage${path}`, { method, body, headers, credentials: "same-origin", keepalive });
+/** Every request says which account it works for: a tab left open after the browser signed in as someone else is refused. */
+async function request(method: string, path: string, account: string, body?: string, headers: Record<string, string> = {}, keepalive = false): Promise<Response> {
+  return fetch(`/api/storage${path}`, { method, body, headers: { ...headers, "X-Account": account }, credentials: "same-origin", keepalive });
 }
+
+const sendHeaders = (key: string, base: number, copyScope: string): Record<string, string> => ({
+  "Content-Type": "text/plain;charset=utf-8",
+  "X-Base-Version": String(base),
+  ...(LINE_KEYS.has(key) ? { "X-Scope": copyScope } : {}),
+});
 
 /** Sends one item; merges and sends again when the database has moved on. */
 async function send(key: string): Promise<void> {
@@ -542,15 +568,16 @@ async function send(key: string): Promise<void> {
   const ours = before && before.s === scope ? before : null;
   let base = ours ? ours.v : 0;
   let baseView = baseFor(key, base);
-  if (!ours || !ours.p) writeMarker(key, { s: scope, v: base, h: ours ? ours.h : "", t: ours ? ours.t : "", p: 1 });
+  let copyScope = ours?.d ?? s.scope;
+  if (!ours || !ours.p) writeMarker(key, { s: scope, v: base, h: ours ? ours.h : "", t: ours ? ours.t : "", p: 1, d: copyScope });
   for (let attempt = 0; attempt < 8; attempt++) {
-    const res = await request("PUT", `/${encodeURIComponent(key)}`, body, { "Content-Type": "text/plain;charset=utf-8", "X-Base-Version": String(base) });
+    const res = await request("PUT", `/${encodeURIComponent(key)}`, s.userId, body, sendHeaders(key, base, copyScope));
     if (session !== s) return;
     if (res.ok) {
       const { version } = (await res.json()) as { version: number };
       rememberBase(key, version, body);
       const now = local.get(key);
-      writeMarker(key, { s: scope, v: version, h: hash(body), t: iso(), ...(now === body ? {} : { p: 1 as const }) });
+      writeMarker(key, { s: scope, v: version, h: hash(body), t: iso(), d: copyScope, ...(now === body ? {} : { p: 1 as const }) });
       if (now === body) forgetSavedBase(key);
       else if (now !== null) schedule(key);
       return;
@@ -569,12 +596,14 @@ async function send(key: string): Promise<void> {
     if (res.status === 400) {
       // A value the database will never take: not sent again; the database's copy replaces it when it next changes.
       console.error(`The database refused ${key} as unreadable.`);
-      writeMarker(key, { s: scope, v: base, h: hash(body), t: iso() });
+      writeMarker(key, { s: scope, v: base, h: hash(body), t: iso(), d: copyScope });
       return;
     }
     if (res.status === 409) {
-      const { current } = (await res.json()) as { current: StoredItem | null };
+      const { current, scope: scopeNow } = (await res.json()) as { current: StoredItem | null; scope?: string };
       if (session !== s) return;
+      // Refused because the copy was made for other departments than the account has now: merged with what it sees now.
+      if (typeof scopeNow === "string") copyScope = scopeNow;
       if (!current) {
         // It was stored, and the database no longer has it: the database was reset.
         if (base > 0) {
@@ -595,11 +624,11 @@ async function send(key: string): Promise<void> {
       base = current.version;
       baseView = { value: current.value };
       if (merged === current.value) {
-        writeMarker(key, { s: scope, v: current.version, h: hash(current.value), t: iso() });
+        writeMarker(key, { s: scope, v: current.version, h: hash(current.value), t: iso(), d: copyScope });
         forgetSavedBase(key);
         return;
       }
-      writeMarker(key, { s: scope, v: current.version, h: hash(current.value), t: iso(), p: 1 });
+      writeMarker(key, { s: scope, v: current.version, h: hash(current.value), t: iso(), p: 1, d: copyScope });
       continue;
     }
     throw new Error(`The database refused ${key} (${res.status}).`);
@@ -651,7 +680,7 @@ export function noteLocalWrite(key: string): void {
   const scope = scopeFor(key, s.userId);
   const marker = readMarker(key);
   // Marked unsent now, so a page closed before the send leaves this copy to go at the next sign-in.
-  if (!marker) writeMarker(key, { s: scope, v: 0, h: "", t: "", p: 1 });
+  if (!marker) writeMarker(key, { s: scope, v: 0, h: "", t: "", p: 1, d: s.scope });
   else if (marker.s === scope && !marker.p) writeMarker(key, { ...marker, p: 1 });
   schedule(key);
 }
@@ -660,7 +689,7 @@ export function noteLocalWrite(key: string): void {
 export function noteLocalRemove(key: string): void {
   if (!session || !SYNC_KEYS.has(key)) return;
   writeMarker(key, null);
-  void request("DELETE", `/${encodeURIComponent(key)}`).catch((err) => console.error(err));
+  void request("DELETE", `/${encodeURIComponent(key)}`, session.userId).catch((err) => console.error(err));
 }
 
 function clearTimers(s: Session): void {
@@ -704,19 +733,33 @@ async function pull(): Promise<void> {
     const m = readMarker(key);
     if (m && m.v > 0 && m.s === scopeFor(key, s.userId)) known.set(key, m.v);
   }
-  const res = await request("GET", `?since=${s.seq}`);
+  const res = await request("GET", `?since=${s.seq}`, s.userId);
   if (session !== s) return;
   if (res.status === 401) {
     sessionEnded();
     return;
   }
   if (!res.ok) return;
-  const { items, seq, versions, denied } = (await res.json()) as StorageResponse;
+  const { items, seq, versions, denied, scope } = (await res.json()) as StorageResponse;
   if (session !== s) return;
+
+  // The administrator changed this account's departments: the app loads again for them. What is
+  // unsent stays marked with the departments it was made for, and is merged on the way.
+  if (typeof scope === "string" && scope !== s.scope) {
+    console.warn("This account's departments changed; loading the app again.");
+    saveBasesOfPending();
+    try {
+      window.location.reload();
+    } catch {
+      /* no window */
+    }
+    return;
+  }
 
   const deniedNow = new Set(denied ?? []);
   for (const key of deniedNow) {
-    if (s.denied.has(key)) continue;
+    const m = readMarker(key);
+    if (s.denied.has(key) || (m && m.p)) continue; // an unsent change is left for someone who may send it
     const timer = scheduled.get(key);
     if (timer !== undefined) window.clearTimeout(timer);
     scheduled.delete(key);
@@ -746,7 +789,11 @@ async function pull(): Promise<void> {
     const scope = scopeFor(key, s.userId);
     const marker = readMarker(key);
     const current = local.get(key);
-    if (marker && marker.s === scope && marker.v >= item.version) continue;
+    if (marker && marker.s === scope && marker.v >= item.version) {
+      // Brought in step by another tab of this browser: what the database holds is still the copy a merge here starts from.
+      if (marker.v === item.version && bases.get(key)?.v !== item.version) rememberBase(key, item.version, item.value);
+      continue;
+    }
     // A change made here that has not gone yet: it goes, and merges, first.
     if (current !== null && marker && marker.s === scope && (marker.p || marker.h !== hash(current))) {
       schedule(key);
@@ -758,7 +805,7 @@ async function pull(): Promise<void> {
       continue;
     }
     rememberBase(key, item.version, item.value);
-    writeMarker(key, { s: scope, v: item.version, h: hash(item.value), t: iso() });
+    writeMarker(key, { s: scope, v: item.version, h: hash(item.value), t: iso(), d: s.scope });
     forgetSavedBase(key);
     if (current !== item.value) notify(key);
   }
@@ -787,8 +834,8 @@ const onPageHide = () => {
     const body = local.get(key);
     const marker = readMarker(key);
     if (body === null || body.length > KEEPALIVE_MAX_CHARS || s.denied.has(key)) continue;
-    const base = marker && marker.s === scopeFor(key, s.userId) ? marker.v : 0;
-    void request("PUT", `/${encodeURIComponent(key)}`, body, { "Content-Type": "text/plain;charset=utf-8", "X-Base-Version": String(base) }, true).catch(() => undefined);
+    const ours = marker && marker.s === scopeFor(key, s.userId) ? marker : null;
+    void request("PUT", `/${encodeURIComponent(key)}`, s.userId, body, sendHeaders(key, ours ? ours.v : 0, ours?.d ?? s.scope), true).catch(() => undefined);
   }
   saveBasesOfPending();
 };
@@ -846,7 +893,7 @@ export function startServerSync(userId: string): Promise<void> {
     const loadStartedAt = iso();
     let res: Response;
     try {
-      res = await request("GET", "");
+      res = await request("GET", "", userId);
     } catch (err) {
       throw new SyncError("unreachable", `The database could not be reached (${err instanceof Error ? err.message : String(err)}).`);
     }
@@ -855,8 +902,8 @@ export function startServerSync(userId: string): Promise<void> {
       throw new SyncError("signed-out", "Not signed in.");
     }
     if (!res.ok) throw new SyncError("unreachable", `The database could not be reached (${res.status}).`);
-    const { items, seq, denied } = (await res.json()) as StorageResponse;
-    const s: Session = { userId, seq, pollTimer: null, failing: false, denied: new Set(denied ?? []) };
+    const { items, seq, denied, scope: copyScope } = (await res.json()) as StorageResponse;
+    const s: Session = { userId, seq, pollTimer: null, failing: false, denied: new Set(denied ?? []), scope: copyScope ?? "*" };
     session = s;
     bases.clear();
     sortOutPersonalItems(userId);
@@ -872,31 +919,37 @@ export function startServerSync(userId: string): Promise<void> {
         throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
       }
       rememberBase(key, item.version, item.value);
-      writeMarker(key, { s: scopeFor(key, userId), v: item.version, h: hash(item.value), t: iso() });
+      writeMarker(key, { s: scopeFor(key, userId), v: item.version, h: hash(item.value), t: iso(), d: s.scope });
       forgetSavedBase(key);
     };
     try {
       for (const key of keys) {
         const scope = scopeFor(key, userId);
-        if (s.denied.has(key)) {
-          local.remove(key);
-          writeMarker(key, null);
-          forgetSavedBase(key);
-          continue;
-        }
         const item = stored.get(key);
         const mine = local.get(key);
         const marker = readMarker(key);
         const ours = marker && marker.s === scope ? marker : null;
         const pending = mine !== null && !!ours && (!!ours.p || ours.h !== hash(mine));
+        if (s.denied.has(key)) {
+          // Not this account's to hold. An unsent change (someone else's, from this browser) is left as it is,
+          // for the next person who may send it; anything else is dropped.
+          if (pending) continue;
+          local.remove(key);
+          writeMarker(key, null);
+          forgetSavedBase(key);
+          continue;
+        }
         // Another tab of this browser brought this copy in step while the load was on its way: it is the newer.
         if (mine !== null && ours && !pending && ours.t >= loadStartedAt && (!item || ours.v >= item.version)) {
           if (item && ours.v === item.version) rememberBase(key, item.version, item.value);
           continue;
         }
         if (item) {
-          if (pending && ours!.v > item.version) adopt(key, item); // the database went back (reset or restored): its copy stands
-          else if (pending) sends.push(key);
+          if (pending && ours!.v > item.version) {
+            // Brought further by another tab while this load was on its way: that tab sends it.
+            if (ours!.t >= loadStartedAt) continue;
+            adopt(key, item); // the database went back (reset or restored): its copy stands
+          } else if (pending) sends.push(key);
           else if (mine !== null && !marker && mine !== item.value) {
             // Kept in this browser from before the database: merged in, never thrown away.
             const merged = merge(key, null, mine, item.value, "theirs");
@@ -904,7 +957,7 @@ export function startServerSync(userId: string): Promise<void> {
             else {
               if (!local.set(key, merged)) throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
               rememberBase(key, item.version, item.value);
-              writeMarker(key, { s: scope, v: item.version, h: hash(item.value), t: iso(), p: 1 });
+              writeMarker(key, { s: scope, v: item.version, h: hash(item.value), t: iso(), p: 1, d: s.scope });
               sends.push(key);
             }
           } else adopt(key, item);

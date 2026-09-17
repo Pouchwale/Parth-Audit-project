@@ -22,6 +22,8 @@ postgres only not any other else". REQUIREMENTS s55. The runner gives this suite
     its first sign-in, not thrown away;
   * an account kept to a department is handed only that department's records,
     not HR Master Data, and what it writes leaves everyone else's records alone;
+    a copy made for other departments than the account has now is refused, and
+    a tab still working for another account is refused;
   * the date the system went live is the company's, not a person's;
   * the server's accounts are in PostgreSQL: signing in works, a wrong password
     does not.
@@ -306,6 +308,18 @@ with sync_playwright() as p:
         "...replacing only Quality Control's records: everyone else's stay as they were",
         not any(r["id"] == legacy_id for r in after) and any(r["id"] == other_id for r in after) and any(hr_like(r) for r in after),
     )
+    after_version = next(i for i in qc.get("/api/storage").json()["items"] if i["key"] == "records")["version"]
+    stale_scope = qc.put("/api/storage/records", data=json.dumps(kept), headers={"Content-Type": "text/plain", "X-Base-Version": str(after_version), "X-Scope": "*"})
+    stale_body = stale_scope.json() if stale_scope.status == 409 else {}
+    check(
+        "A copy made for other departments than the account has now is refused, and comes back as the account sees it now",
+        stale_scope.status == 409 and stale_body.get("scope") == "QC" and not any(hr_like(r) for r in json.loads((stale_body.get("current") or {}).get("value") or "[]")),
+        (stale_scope.status, stale_body.get("scope")),
+    )
+    me_qc = qc.get("/api/auth/me").json()["user"]["id"]
+    other_tab = qc.get("/api/storage", headers={"X-Account": me_qc + "-someone-else"})
+    same_tab = qc.get("/api/storage", headers={"X-Account": me_qc})
+    check("A tab still working for another account is refused, its own account's is not", other_tab.status == 401 and same_tab.status == 200, (other_tab.status, same_tab.status))
     junk = qc.put("/api/storage/anything-else", data="{}", headers={"Content-Type": "text/plain"})
     not_json = qc.put("/api/storage/settings", data="not json", headers={"Content-Type": "text/plain"})
     check("Only the app's own items are stored, and only as JSON", junk.status == 400 and not_json.status == 400, (junk.status, not_json.status))

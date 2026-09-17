@@ -2540,7 +2540,12 @@ working copy that is kept in step with the database:
   overdue work look like pre-launch noise to be cleaned up.
 - **A department's account gets its department's records** (§40, now enforced by the server): only
   the records and deletions-log lines of its departments' documents, and HR Master Data only with Human
-  Resources; what it writes replaces only its own departments' lines.
+  Resources; what it writes replaces only its own departments' lines. When the administrator changes an
+  account's departments, a copy made for the old ones is refused and merged first — a department just
+  added is never wiped — and the account's open page loads again for its new departments. A change
+  somebody else left unsent is kept for whoever may send it. An automatic preparation by the assistant
+  never overwrites a person's change to the same record. A tab left open for one account after the
+  browser signed in as another stops writing as the first.
 - **A session that ran out** goes back to the sign-in screen instead of a banner that never clears.
 - **A database reset or restored from a backup** is noticed by the pages left open (their copy is newer
   than the database's), which load again from it instead of writing their old copy back.
