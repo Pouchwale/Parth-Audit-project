@@ -230,6 +230,19 @@ with sync_playwright() as p:
     close_assistant(page)
     new_id = page.url.split("#/record/")[-1]
     fresh = record(page, new_id)
+    # On its Wednesday the week's sheet is already prepared from the page on
+    # file (engine/assistantPrepare.ts), and New record opens that one. Any
+    # other day New record starts it blank, and Mitra fills it when asked - the
+    # same carry-forward (engine/sampleFill.ts), so this holds whatever the day.
+    if fresh is not None and not fresh.get("prepared"):
+        page.click("button:has-text('Ask Mitra')")
+        page.wait_for_timeout(400)
+        mitra_box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+        mitra_box.fill("fill it with sample data")
+        mitra_box.press("Enter")
+        page.wait_for_timeout(1500)
+        close_assistant(page)
+        fresh = record(page, new_id)
     check("A new weight scale sheet starts from the page on file, ready to be checked", fresh is not None and len(fresh["data"]["rows"]) == 4, len(fresh["data"]["rows"]) if fresh else None)
     if fresh:
         check(

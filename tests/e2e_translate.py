@@ -21,7 +21,7 @@ appears later. That swap is exactly what trips React up, so this proves:
 """
 import sys
 import time
-from datetime import date
+from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
 def settle_briefing(page):
     """Mark today's briefing slots as already shown, so it cannot re-open part
@@ -110,6 +110,22 @@ FAKE_GOOGLE = r"""
   if (cb && window[cb]) window[cb]();
 })();
 """
+
+
+# The company's working calendar (the Gujarat Print Pack Leave Calendar 2026,
+# as tests/e2e_smoke.py has it): Thursday is the weekly off except on
+# adjustment days, plus the festival holidays.
+ADJUSTMENT_DAYS_2026 = {"2026-01-22", "2026-08-06", "2026-10-22", "2026-11-05", "2026-11-20"}
+FESTIVAL_HOLIDAYS_2026 = {
+    "2026-01-14", "2026-01-26", "2026-03-04", "2026-08-15", "2026-08-28", "2026-09-04", "2026-10-19", "2026-10-20",
+    "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13",
+}
+
+
+def next_working_day(d):
+    while d.isoformat() in FESTIVAL_HOLIDAYS_2026 or (d.weekday() == 3 and d.isoformat() not in ADJUSTMENT_DAYS_2026):
+        d += timedelta(days=1)
+    return d
 
 
 def check(label, cond, detail=None):
@@ -203,9 +219,11 @@ with sync_playwright() as p:
     check("…while the page around it is translated", MARK in page.locator(".app-content").inner_text())
 
     today = date.today().isoformat()
+    # The next WORKING day's daily record: on a closed day (the Thursday weekly
+    # off, a festival holiday) today's is the holiday line, with no checker.
     rid = page.evaluate(
         "(d) => (JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find(r => r.documentId === 'daily-pest-monitoring' && !r.isDemo && r.dueDate === d) || {}).id",
-        today,
+        next_working_day(date.today()).isoformat(),
     )
     page.goto(f"{BASE}/index.html#/record/{rid}")
     page.wait_for_timeout(900)

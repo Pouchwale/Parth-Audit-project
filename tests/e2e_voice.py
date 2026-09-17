@@ -8,7 +8,7 @@ mid-sentence pause.
 """
 import sys
 import time
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 def settle_briefing(page):
     """Mark today's briefing slots as already shown, so it cannot re-open part
     way through the run and intercept a click. The briefing shows itself once in
@@ -75,7 +75,15 @@ with sync_playwright() as p:
     page.fill("#signup-password", "PlaywrightQA123")
     page.fill("#signup-confirm", "PlaywrightQA123")
     page.click("button:has-text('Create Account')")
-    page.wait_for_timeout(700)
+    # A browser's first open always gets the briefing (engine/briefingSchedule.ts),
+    # but only once the account exists and the app has drawn - on a busy machine
+    # later than any fixed pause, and a briefing left up swallows every click
+    # (moving to the Assistant page is a hash change, which doesn't close it).
+    page.wait_for_selector(".app-sidebar", timeout=30000)
+    try:
+        page.wait_for_selector("button:has-text('Got it')", timeout=10000)
+    except PlaywrightTimeoutError:
+        pass
     got_it = page.locator("button:has-text('Got it')")
     if got_it.count():
         got_it.first.click()

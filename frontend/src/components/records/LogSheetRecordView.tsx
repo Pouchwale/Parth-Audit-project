@@ -136,11 +136,17 @@ export function LogSheetRecordView({
             {data.rows.map((row, i) => (
               <tr key={row.id}>
                 <td className="text-muted">{i + 1}</td>
-                {layout.columns.map((c) => (
-                  <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
-                    <CellInput col={c} value={row[c.key]} editable={editable && !c.fixed} onChange={(v) => setCell(row.id, c.key, v)} employees={employees.map((e) => e.name)} />
-                  </td>
-                ))}
+                {layout.columns.map((c) => {
+                  // A line the form prints blank (F/HR/05's two spare topic lines)
+                  // has nothing fixed in it, so it is written in like any cell.
+                  const printedBlank = c.fixed && mode.kind === "fixedRows" && mode.rows[i] !== undefined && String(mode.rows[i][c.key] ?? "") === "";
+                  const col = printedBlank ? { ...c, fixed: false } : c;
+                  return (
+                    <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
+                      <CellInput col={col} value={row[c.key]} editable={editable && !col.fixed} onChange={(v) => setCell(row.id, c.key, v)} employees={employees.map((e) => e.name)} />
+                    </td>
+                  );
+                })}
                 {canRemoveRows && (
                   <td>
                     <button className="btn btn-ghost btn-sm btn-icon" onClick={() => removeRow(row.id)} title="Remove row">
@@ -240,7 +246,7 @@ function CellInput({
   onChange: (v: string | number | null) => void;
   employees: string[];
 }) {
-  if (col.fixed) return <span className={`text-sm ${col.key === "specification" || col.key === "testChart" ? "text-muted" : "font-semibold"}`} style={{ whiteSpace: "normal" }}>{value ?? ""}</span>;
+  if (col.fixed) return <span className={`text-sm ${col.key === "specification" || col.key === "testChart" ? "text-muted" : "font-semibold"}`} style={{ whiteSpace: "pre-line" }}>{value ?? ""}</span>;
   if (col.type === "number") {
     return (
       <input

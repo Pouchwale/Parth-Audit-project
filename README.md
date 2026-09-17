@@ -113,6 +113,12 @@ The app behaves like a personal assistant rather than a blank form:
   position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile
   authorisations and the January-2026 survey analysis (93.99%). A Quality Control account sees none of
   them.
+- **Any document by its format number** (REQUIREMENTS §52). Search and Mitra both take a format number
+  however it is written — F/HR/05, F-HR-05, FHR05, hr 5, F-QC-40.C, QA-CAF-00 — in every module. Search
+  lists the document (with *Open document* and *New record*) and its records; Mitra says what the document
+  is and asks what to do — *Open it*, *Start a new one*, *Fill it question by question*, *Fill it with
+  sample data* — doing nothing until one is chosen, and opens it straight away when told "open F-QC-12".
+  Another department's number is answered by naming that department only.
 - **The assistant has a name and a character: Mitra** (REQUIREMENTS §50). *Mitra* is "friend" in
   Gujarati, and that is the idea — the plant's record-keeping buddy. The floating button reads **Ask
   Mitra**; it opens with a greeting by the hour and by name and asks **"Where would you like to go?"**,

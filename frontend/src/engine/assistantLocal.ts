@@ -10,6 +10,7 @@ import { filesRoute, isPestFileDocument, recordsInRange, scopeForDocuments } fro
 import { dayInfo, describeDay, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG, type DayInfo } from "./holidays";
 import { t } from "../i18n";
 import { guide, hello, whoIAm } from "./assistantPersona";
+import { documentsByFormatNumber, formatNumberAnswer } from "./formatNumbers";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
 
 // WHAT THE ASSISTANT KNOWS WITHOUT ASKING THE MODEL.
@@ -290,6 +291,11 @@ function longestMentioned(lower: string, aliases: string[]): string | null {
 // it: "complaint acknowledgement report" is the acknowledgement report, not
 // also the customer complaint checklist.
 export function matchDocuments(lower: string): string[] {
+  // A format number names its document outright, in any module and however it
+  // is written — F/HR/05, f-hr-05, hr 5 (engine/formatNumbers.ts, REQUIREMENTS
+  // §52) — and only the person's own departments' documents are found.
+  const byNumber = documentsByFormatNumber(lower);
+  if (byNumber.length > 0) return byNumber.map((d) => d.id);
   const hits: { id: string; alias: string }[] = [];
   for (const { id, aliases } of DOC_KEYWORDS) {
     const alias = longestMentioned(lower, aliases);
@@ -659,6 +665,12 @@ export function localAnswer(message: string, isDemo: boolean, userName?: string)
     const about = guide("about");
     return { reply: about.text, chips: about.chips };
   }
+
+  // "F/HR/05", "what is F-QC-12?", "open hr 5": the document by its format
+  // number — what it is and what to do with it, asked first; opened when that
+  // is what was asked (engine/formatNumbers.ts, REQUIREMENTS §52).
+  const byFormat = formatNumberAnswer(text);
+  if (byFormat) return byFormat;
 
   if (HOLIDAY_RE.test(lower)) {
     if (ADJUSTMENT_RE.test(lower)) return { reply: listAdjustmentDays(today), chips: holidayChips() };

@@ -271,9 +271,9 @@ with sync_playwright() as p:
           (len(tni["data"]["rows"]), tni["data"]["rows"][-1]))
     staff = live(page, "hr-induction-staff")
     h = staff[0]["data"]["header"] if staff else {}
-    check("F/HR/05: a staff induction record is started for her - name, department / process, designation, date of joining, the five topics",
+    check("F/HR/05: a staff induction record is started for her - name, department / process, designation, date of joining, the five topics and the form's two blank lines",
           len(staff) == 1 and (h.get("name"), h.get("deptProcess"), h.get("designation"), h.get("dateOfJoining")) == ("Riya Mehta", "Sales & Marketing", "Sales Coordinator", ISO_TODAY)
-          and len(staff[0]["data"]["rows"]) == 5 and staff[0]["status"] == "In Progress", h)
+          and len(staff[0]["data"]["rows"]) == 7 and staff[0]["status"] == "In Progress", h)
     pre = live(page, "hr-pre-employment-health")
     h = pre[0]["data"]["header"] if pre else {}
     check("F/HR/04: her pre-employment declaration is started with name, department & designation, sex and date of birth - the questions left for her",

@@ -2227,6 +2227,59 @@ calibration record*, each Rev. 01 of 01.01.22 — the revision the scanned forms
 4. **F/QC/12's first test weight** is written "0.050mg" on a scale whose minimum reading capacity is
    0.1 gm; transcribed exactly as written, to be confirmed with the lab.
 
+## 52. Any document by its format number — in Search and with Mitra — and F/HR/05 as the form prints it (17-Sep-2026)
+
+```
+REQUESTED            "this document in HR module and make sure in search option and in our ai assistant if
+                      user name enter Format number also of any document of any module then it should
+                      repond on that also and work on it with user permission"
+SOURCE               "F-HR-05_Induction Training  programme-Staff.pdf" — F/HR/05 Rev 00 / 01.12.2021
+DIGITAL TEMPLATE     src/engine/formatNumbers.ts (reading a format number however it is written),
+                      src/pages/SearchPage.tsx, src/engine/assistantLocal.ts, src/components/common/
+                      DocumentAssistant.tsx, src/data/seed/hrLayouts.ts, src/components/records/LogSheetRecordView.tsx
+```
+
+**F/HR/05 WAS ALREADY IN THE HR MODULE** (§46, Induction & Health). Held up against the PDF it differed in
+three details, now put right:
+
+- **The topics were numbered twice** — "1. Briefing…" in the topic beside the grid's own Sr. No. column. The
+  form numbers them in the Sr. No. column only, so the topic text no longer repeats it.
+- **Topic 2's points ran into one line.** "Good Manufacturing Practice", "- Pest Control", "- Waste
+  Management", "- Personal hygiene" are on lines of their own, as printed (a printed item now keeps its own
+  line breaks on every log sheet).
+- **The form's two blank lines under topic 5 were missing.** They are there now, and — the form leaving them
+  blank for a further topic — their topic and responsibility are written in like any cell (on any log sheet,
+  a line the form prints blank is writable).
+
+The header (Name, Department / Process, Designation, Date of Joining), the caption *Induction programme;*,
+the responsibilities and the sign-off for the Manager – HR and Admin and the Employee are the form's own.
+
+**A FORMAT NUMBER FINDS ITS DOCUMENT, HOWEVER IT IS WRITTEN, IN EVERY MODULE.** The plant writes the same
+number many ways — F/HR/05, F-HR-05, F HR 05, FHR05, HR/05, hr 5; F-QC-40.C or f/qc/40c — so every one is
+read to one key (`formatKey`: "HR-5", "QC-40C"). Numbers of their own shape — the complaint
+acknowledgement's QA-CAF-00, the provider's licence number — are matched as written, punctuation aside.
+Only the person's own departments' documents are ever found (§40).
+
+- **Search** lists the matching **documents** first — format number, name, module and section — each with
+  *Open document* (its own page) and *New record* (started only when pressed); then that document's
+  **records**. A number typed any of those ways lists exactly that document's records; anything else is
+  matched as typed, as before. A number the system doesn't hold finds nothing.
+- **Mitra** answers a format number the way a colleague would, and does nothing without the person's
+  say-so:
+
+| Message | Mitra |
+|---|---|
+| `F/HR/05` · `what is F-QC-40.C?` | says what it is — name, module, section, how often — and asks *What would you like to do with it?*: **Open it** · **Start a new one** · **Fill it question by question** · **Fill it with sample data** |
+| `open f-qc-12` · `show me hr 5` | opens it, and says what it opened (asked for, so no second question) |
+| `F/HR/05 and F/QC/11` | names each, with an *Open* for each |
+| `F/HR/10` | "There's no F/HR/10 in this system yet" — with the Document Library and Search |
+| another department's number | "F/HR/05 belongs to Human Resources, which isn't one of your departments" — the department, never the document |
+| `fill F/HR/14 with sample data` · `create a new F-QC-30 record` · `F/HR/17 records from 1 to 15 September` | the usual commands, the document named by its number |
+
+  A bare format number is a question even when a record is open, so it is never taken as data for that
+  record. The widget and the full-page Assistant answer alike, with no network.
+- Covered by `tests/e2e_format_numbers.py` (**45 checks**).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

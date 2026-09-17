@@ -8,6 +8,11 @@ import { formatDisplayDate } from "../utils/date";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { routeForRecord } from "../engine/reminders";
+import { documentsByFormatNumber, namesFormatNumber } from "../engine/formatNumbers";
+import { documentOpenRoute } from "../engine/documentRoutes";
+import { createRecordForDocument } from "../engine/recordCrud";
+import { todayISO } from "../utils/date";
+import type { DocumentDefinition } from "../types";
 import { useT } from "../i18n";
 import type {
   ComplaintChecklistData,
@@ -22,6 +27,7 @@ import type {
 
 interface SearchRow {
   id: string;
+  documentId: string;
   route: string;
   documentName: string;
   dueDate: string;
@@ -39,7 +45,7 @@ function buildIndex(isDemo: boolean): SearchRow[] {
   for (const r of records) {
     const doc = docs.find((d) => d.id === r.documentId);
     if (!doc) continue;
-    const base = { id: r.id, dueDate: r.dueDate, status: r.status, isDemo: r.isDemo, documentName: doc.name };
+    const base = { id: r.id, documentId: doc.id, dueDate: r.dueDate, status: r.status, isDemo: r.isDemo, documentName: doc.name };
 
     if (doc.kind === "daily-pest-monitoring") {
       const d = r.data as DailyPestMonitoringData;
@@ -48,7 +54,7 @@ function buildIndex(isDemo: boolean): SearchRow[] {
       rows.push({
         ...base,
         route: `/record/${r.id}`,
-        matchText: [doc.name, r.dueDate, r.status, d.checker, r.id, rodents ? "rodent rodents" : "", ...catches.map((c) => `${c.trapBoxNo} ${c.location}`)].join(" ").toLowerCase(),
+        matchText: [doc.name, doc.formatNo, r.dueDate, r.status, d.checker, r.id, rodents ? "rodent rodents" : "", ...catches.map((c) => `${c.trapBoxNo} ${c.location}`)].join(" ").toLowerCase(),
         snippet: rodents ? `${rodents} rodent${rodents === 1 ? "" : "s"} — ${catches.map((c) => `${c.trapBoxNo} ${c.location}`).join("; ")}` : `Checker: ${d.checker || "—"}`,
       });
     } else if (doc.kind === "fly-catcher") {
@@ -56,7 +62,7 @@ function buildIndex(isDemo: boolean): SearchRow[] {
       rows.push({
         ...base,
         route: `/record/${r.id}`,
-        matchText: [doc.name, r.dueDate, r.status, r.id, ...d.entries.map((e) => `${e.pcId} ${e.cleaningDoneBy} ${e.verifiedBy}`)].join(" ").toLowerCase(),
+        matchText: [doc.name, doc.formatNo, r.dueDate, r.status, r.id, ...d.entries.map((e) => `${e.pcId} ${e.cleaningDoneBy} ${e.verifiedBy}`)].join(" ").toLowerCase(),
         snippet: `PC-01..PC-${String(d.entries.length).padStart(2, "0")}`,
       });
     } else if (doc.kind === "service-report") {
@@ -64,7 +70,7 @@ function buildIndex(isDemo: boolean): SearchRow[] {
       rows.push({
         ...base,
         route: `/record/${r.id}`,
-        matchText: [doc.name, r.dueDate, r.status, r.id, d.serviceName, ...d.lines.map((l) => `${l.areaName} ${l.materialName}`)].join(" ").toLowerCase(),
+        matchText: [doc.name, doc.formatNo, r.dueDate, r.status, r.id, d.serviceName, ...d.lines.map((l) => `${l.areaName} ${l.materialName}`)].join(" ").toLowerCase(),
         snippet: d.serviceName,
       });
     } else if (doc.kind === "gap-inspection") {
@@ -72,7 +78,7 @@ function buildIndex(isDemo: boolean): SearchRow[] {
       rows.push({
         ...base,
         route: `/gap/${r.id}`,
-        matchText: [doc.name, r.dueDate, r.status, r.id, d.contactPerson, ...d.findings.map((f) => f.findingOfInspection)].join(" ").toLowerCase(),
+        matchText: [doc.name, doc.formatNo, r.dueDate, r.status, r.id, d.contactPerson, ...d.findings.map((f) => f.findingOfInspection)].join(" ").toLowerCase(),
         snippet: `${d.findings.length} finding(s)`,
       });
     } else if (doc.kind === "complaint-checklist") {
@@ -98,7 +104,7 @@ function buildIndex(isDemo: boolean): SearchRow[] {
       rows.push({
         ...base,
         route: routeForRecord(doc, r.id),
-        matchText: [doc.name, r.dueDate, r.status, r.id, d.client.name, d.provider.name, d.provider.organisation, ...d.siteResponsibilities].join(" ").toLowerCase(),
+        matchText: [doc.name, doc.formatNo, r.dueDate, r.status, r.id, d.client.name, d.provider.name, d.provider.organisation, ...d.siteResponsibilities].join(" ").toLowerCase(),
         snippet: `${d.client.name || "—"} / ${d.provider.name || "—"}`,
       });
     } else if (doc.kind === "training-record") {
@@ -106,7 +112,7 @@ function buildIndex(isDemo: boolean): SearchRow[] {
       rows.push({
         ...base,
         route: `/training/${r.id}`,
-        matchText: [doc.name, r.dueDate, r.status, r.id, d.trainerProvider, ...d.attendees.map((a) => a.employeeName)].join(" ").toLowerCase(),
+        matchText: [doc.name, doc.formatNo, r.dueDate, r.status, r.id, d.trainerProvider, ...d.attendees.map((a) => a.employeeName)].join(" ").toLowerCase(),
         snippet: d.trainerProvider,
       });
     } else if (doc.kind === "log-sheet") {
@@ -125,21 +131,46 @@ function buildIndex(isDemo: boolean): SearchRow[] {
   return rows;
 }
 
+/** Documents the query names — by format number however it is written, else by name or number as typed. */
+function documentsFor(query: string): DocumentDefinition[] {
+  const q = query.trim();
+  if (!q) return [];
+  const byNumber = documentsByFormatNumber(q);
+  if (byNumber.length > 0) return byNumber;
+  if (q.length < 3) return [];
+  const lower = q.toLowerCase();
+  return documentRepository.getAll().filter((d) => d.name.toLowerCase().includes(lower) || d.formatNo.toLowerCase().includes(lower));
+}
+
+const holdsRecords = (d: DocumentDefinition) => !d.isReferenceOnly && !["chemical-master", "licence", "compliance-statement"].includes(d.kind);
+
 export function SearchPage() {
   const t = useT();
-  const { mode } = useAppStore();
+  const { mode, bump } = useAppStore();
   const { navigate } = useRouter();
   const [q, setQ] = useState("");
   const isDemo = mode === "demo";
 
   const index = useMemo(() => buildIndex(isDemo), [isDemo]);
-  const results = q.trim() ? index.filter((r) => r.matchText.includes(q.trim().toLowerCase())) : [];
+  // A format number finds the document's records however it is written
+  // (F/HR/05, F-HR-05, hr 5 — engine/formatNumbers.ts, REQUIREMENTS §52);
+  // anything else is matched as typed.
+  const docs = documentsFor(q);
+  const byNumber = namesFormatNumber(q) ? new Set(documentsByFormatNumber(q).map((d) => d.id)) : null;
+  const results = !q.trim() ? [] : byNumber ? index.filter((r) => byNumber.has(r.documentId)) : index.filter((r) => r.matchText.includes(q.trim().toLowerCase()));
+
+  // New record is a button, so a record is only ever started when asked for.
+  const startRecord = (doc: DocumentDefinition) => {
+    const { record } = createRecordForDocument(doc, { dateISO: todayISO(), isDemo });
+    bump();
+    navigate(routeForRecord(doc, record.id));
+  };
 
   return (
     <div>
       <h1 className="text-2xl mb-1">{t("search.title")}</h1>
       <p className="text-muted mb-4">
-        Search by record ID, document, format no., date, area, employee, checker, PC ID, job name, PO number, batch number or status.
+        Search by format number (F/HR/05, F-QC-30 — any way it is written), document, record ID, date, area, employee, checker, PC ID, job name, PO number, batch number or status.
       </p>
       <div className="field mb-4" style={{ maxWidth: 480 }}>
         <div className="input flex items-center gap-2" style={{ padding: "4px 10px" }}>
@@ -147,15 +178,60 @@ export function SearchPage() {
           <input
             autoFocus
             style={{ border: "none", outline: "none", flex: 1, fontSize: 13.5 }}
-            placeholder="e.g. PC-04, Roshni, 2026-09, Rejected…"
+            placeholder="e.g. F/HR/05, PC-04, Roshni, 2026-09, Rejected…"
+            data-field="search-query"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
       </div>
 
+      {docs.length > 0 && (
+        <div className="mb-5" data-section="search-documents">
+          <h3 className="text-sm uppercase text-muted mb-2">Documents</h3>
+          <div className="doc-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Format No.</th>
+                  <th>Document</th>
+                  <th>Module</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {docs.map((d) => (
+                  <tr key={d.id} data-search-document={d.id}>
+                    <td className="font-semibold" translate="no">
+                      {d.formatNo}
+                    </td>
+                    <td>{d.name}</td>
+                    <td className="text-sm text-muted">
+                      {t(`module.${d.module}`)}
+                      {d.section ? ` · ${d.section}` : ""}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <div className="flex gap-2 justify-end wrap">
+                        <button className="btn btn-secondary btn-sm" data-action="search-open-document" onClick={() => navigate(documentOpenRoute(d))}>
+                          Open document
+                        </button>
+                        {holdsRecords(d) && (
+                          <button className="btn btn-primary btn-sm" data-action="search-new-record" onClick={() => startRecord(d)}>
+                            New record
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {q.trim() && (
-        <div className="doc-table">
+        <div className="doc-table" data-section="search-records">
           <table>
             <thead>
               <tr>

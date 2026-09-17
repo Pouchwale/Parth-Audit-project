@@ -174,7 +174,7 @@ const preEmployment: LogSheetLayout = {
 
 const inductionStaff: LogSheetLayout = {
   documentId: "hr-induction-staff",
-  instructions: ["Induction programme for a new employee in the staff category (Supervisor & above). One record per person."],
+  instructions: ["Induction programme;", "One record per new employee in the staff category (Supervisor & above). The two blank lines under topic 5 are the form's own, for a further topic."],
   headerFields: [
     { key: "name", label: "Name", type: "text", required: true, autoFill: { sign: true } },
     { key: "deptProcess", label: "Department / Process", type: "text", autoFill: { carryForward: true } },
@@ -190,11 +190,16 @@ const inductionStaff: LogSheetLayout = {
   rowMode: {
     kind: "fixedRows",
     rows: [
-      { parameter: "1. Briefing on Company profile – Plant, Products, Production process etc.", responsibility: "Manager - QC" },
-      { parameter: "2. Good Manufacturing Practice - Pest Control - Waste Management - Personal hygiene", responsibility: "Manager - QC" },
-      { parameter: "3. Quality & Product safety related all policies", responsibility: "PSTL" },
-      { parameter: "4. Basic HARA Principal awareness (Self-study) & CCP monitoring – if HACCP team members", responsibility: "PSTL" },
-      { parameter: "5. Fire safety precautions", responsibility: "Manager – HR & admin" },
+      // The Sr. No. column numbers the topics, as on the form; topic 2's
+      // points are the form's own lines. The last two lines are blank on the
+      // paper — their topic and responsibility are written in when used.
+      { parameter: "Briefing on Company profile – Plant, Products, Production process etc.", responsibility: "Manager - QC" },
+      { parameter: "Good Manufacturing Practice\n- Pest Control\n- Waste Management\n- Personal hygiene", responsibility: "Manager - QC" },
+      { parameter: "Quality & Product safety related all policies", responsibility: "PSTL" },
+      { parameter: "Basic HARA Principal awareness (Self-study) & CCP monitoring – if HACCP team members", responsibility: "PSTL" },
+      { parameter: "Fire safety precautions", responsibility: "Manager – HR & admin" },
+      { parameter: "", responsibility: "" },
+      { parameter: "", responsibility: "" },
     ],
   },
   footerFields: [

@@ -26,6 +26,7 @@ import {
 } from "../../engine/guidedChecklist";
 import { buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
 import { ASSISTANT_NAME, guide, openingMessage } from "../../engine/assistantPersona";
+import { formatNumberAnswer } from "../../engine/formatNumbers";
 import { parseAssistantCommand, type AssistantCommand } from "../../engine/assistantCommands";
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
 import { recordRepository } from "../../data/repositories/recordRepository";
@@ -950,6 +951,18 @@ export function DocumentAssistant() {
         return;
       }
       answerInterview(text, text);
+      return;
+    }
+
+    // A document named by its format number and nothing else — "F/HR/05",
+    // "open F-QC-12" — is a question about that document even with a record
+    // open, never data for the open record (engine/formatNumbers.ts, §52).
+    const byFormat = formatNumberAnswer(text);
+    if (byFormat) {
+      me(text);
+      bot(byFormat.reply, byFormat.chips);
+      readOut(byFormat.reply);
+      if (byFormat.navigate && isValidAppRoute(byFormat.navigate)) navigate(byFormat.navigate);
       return;
     }
 

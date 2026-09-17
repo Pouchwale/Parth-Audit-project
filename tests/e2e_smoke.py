@@ -225,10 +225,20 @@ def main():
                 check("Log sheet submitted (status Pending Verification)", "Pending Verification" in page.content())
 
         # ---- 4. Persistence across reload ----
+        # On a working day the sheet above was submitted, so its status must
+        # survive the reload. On a closed day - the Thursday weekly off, a
+        # festival holiday - nothing was submitted (PREPARED_EXPECTED), so what
+        # must survive is the sheet itself, still open.
         page.reload()
         page.wait_for_timeout(400)
         dismiss_briefing(page)
-        check("Status persists after reload", "Verified" in page.content() or "Pending Verification" in page.content())
+        if PREPARED_EXPECTED:
+            check("Status persists after reload", "Verified" in page.content() or "Pending Verification" in page.content())
+        else:
+            check(
+                "Status persists after reload (a closed day: the sheet is still there, not submitted)",
+                page.locator("table.log-sheet tbody tr").count() == 24 and "Pending Verification" not in page.content(),
+            )
 
         # ---- 5. Dashboard reflects update ----
         page.click("text=Dashboard")

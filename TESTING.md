@@ -122,6 +122,29 @@ Seven scripts live in `tests/`:
   starting from the page on file with the device carried forward; and the Deviation % cells still
   ordinary entry cells, since the calculation was deliberately left for later. Network-independent.
   With it `npm run test:e2e` is green at **940 checks across eighteen suites**.
+- `tests/e2e_format_numbers.py` - any document by its format number, and F/HR/05 as the form prints it
+  (REQUIREMENTS s52): F/HR/05's seven lines (five topics numbered only by Sr. No., topic 2's points on their
+  own lines, two blank lines that take a written topic); Search finding each document from F/HR/05, f-hr-05,
+  F HR 05, FHR05, hr 5, F-QC-40.C, QA-CAF-00 and the rest, listing only that document's records, with Open
+  document and New record; Mitra naming a format number and asking before it does anything, opening one
+  when told to, saying when a number isn't in the system, treating a bare number as a question even on an
+  open record, and taking numbers in its commands; the full-page Assistant alike; and a Quality Control
+  account told only whose F/HR/05 is. Network-independent. With it `npm run test:e2e` is green at
+  **981 checks across nineteen suites**.
+  That run fell on a Thursday weekly off (17-Sep-2026), which showed three suites assuming today is a
+  working day. `e2e_editing.py` and `e2e_translate.py` now open the next working day's daily record (from
+  the leave calendar - Thursday weekly off, adjustment days, festival holidays - as `e2e_assistant_chat.py`
+  already did), since a closed day's record is the holiday line with no checker to write in; on a closed
+  day `e2e_editing.py` has Mitra fill it with sample data first. `e2e_smoke.py` submits nothing on a
+  closed day, so its reload check there is that the sheet itself survives - its 24 lines, not
+  submitted. They pass on any day of the week. The same run found `e2e_voice.py` dismissing the
+  first-open briefing after a fixed 0.7-second pause: on a busy machine the briefing came up just after
+  it, stayed over the Assistant page and swallowed the click on the voice button. It now waits for the
+  app and then for the briefing before dismissing it. And `e2e_qc_calibration.py`, written on a
+  Wednesday, took F/QC/12's New record to be the week's sheet already prepared from the page on file -
+  true only on its scheduled Wednesday; any other day New record starts the sheet blank. On those days
+  the suite now asks Mitra to fill it, the same carry-forward from the page on file, so the check holds
+  whatever the day.
 - REQUIREMENTS s50 (Mitra - the assistant's name, character and "where would you like to go?") is
   covered inside `tests/e2e_smoke.py`: the floating button calls it by name; the opening greets by the
   hour and by name and asks where to go with its answers as buttons; a document is reached by shelf ->

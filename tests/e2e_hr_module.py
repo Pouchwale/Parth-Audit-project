@@ -530,7 +530,7 @@ with sync_playwright() as p:
         ("hr-pre-employment-health", 21, "01. Have you suffered from any of the following"),
         ("hr-psc-survey", 15, "1. I can freely speak up"),
         ("hr-training-effectiveness", 8, "Structure"),
-        ("hr-induction-staff", 5, "1. Briefing on Company profile"),
+        ("hr-induction-staff", 7, "Briefing on Company profile"),
     ]:
         open_library(page)
         page.locator(f"[data-action='new-record'][data-document='{doc_id}']").first.evaluate("el => el.click()")
