@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { HR_PAGE_SLUGS } from "../data/seed/hrModule";
+import { HR_MASTER_SLUG, HR_PAGE_SLUGS } from "../data/seed/hrModule";
 
 // Minimal dependency-free hash router (react-router-dom is not available in
 // this offline build — see DEPLOYMENT.md). Hash-based routing also means the
@@ -138,8 +138,9 @@ export function isValidAppRoute(path: string): boolean {
       if (rest.length === 2) return rest[0] === "complaint" && /^[a-zA-Z0-9_-]+$/.test(rest[1]);
       return rest.length === 1 && /^[a-zA-Z0-9_-]+$/.test(rest[0]);
     case "hr":
-      // /hr (HR Records overview), /hr/{slug} (one HR format's page — data/seed/hrModule.ts)
-      return rest.length === 0 || (rest.length === 1 && HR_PAGE_SLUGS.has(rest[0]));
+      // /hr (HR Records overview), /hr/{slug} (one HR format's page — data/seed/hrModule.ts),
+      // /hr/master-data (HR Master Data, the employee master sheet — REQUIREMENTS §53)
+      return rest.length === 0 || (rest.length === 1 && (rest[0] === HR_MASTER_SLUG || HR_PAGE_SLUGS.has(rest[0])));
     case "document":
       // /document/{id} — a log sheet's own page (pages/DocumentRecordsPage.tsx)
       return rest.length === 1 && SLUG_RE.test(rest[0]);

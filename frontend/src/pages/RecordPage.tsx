@@ -47,6 +47,7 @@ import { useSetAssistantTarget } from "../store/AssistantContext";
 import { useT } from "../i18n";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
+import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 
 // Record kinds this page renders AND the assistant has a field guide for.
@@ -388,6 +389,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         correctionFromStatus={record.correction?.fromStatus}
         correctionChangeCount={undoneChanges}
         onPrint={() => printDocument()}
+        download={<DownloadDocumentButton doc={doc} dateISO={record.dueDate} />}
         onDelete={handleDelete}
       />
     </div>

@@ -8,6 +8,7 @@ import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useAppStore } from "../store/AppStore";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { printDocument } from "../utils/print";
+import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 
 const CHEMICAL_DOC_ID = "chemical-master";
 
@@ -72,6 +73,7 @@ export function ChemicalMasterPage() {
           onSave={() => draft && save(draft)}
           onCancel={() => setDraft(null)}
           onPrint={() => printDocument()}
+          download={<DownloadDocumentButton doc={doc} />}
         />
       </div>
       <DocumentHeader doc={doc} dateLabel="Reference" />

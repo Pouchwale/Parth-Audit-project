@@ -10,6 +10,10 @@ import { DemoTag } from "../components/common/DemoTag";
 import { routeForRecord } from "../engine/reminders";
 import { documentsByFormatNumber, namesFormatNumber } from "../engine/formatNumbers";
 import { documentOpenRoute } from "../engine/documentRoutes";
+import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
+import { searchPeople } from "../engine/hrMaster";
+import { hrMasterVisible } from "../engine/hrMasterAssistant";
+import type { HrMasterPerson } from "../types";
 import { createRecordForDocument } from "../engine/recordCrud";
 import { todayISO } from "../utils/date";
 import type { DocumentDefinition } from "../types";
@@ -142,6 +146,15 @@ function documentsFor(query: string): DocumentDefinition[] {
   return documentRepository.getAll().filter((d) => d.name.toLowerCase().includes(lower) || d.formatNo.toLowerCase().includes(lower));
 }
 
+/** People on HR Master Data the query names by GP3 No. or name (REQUIREMENTS §53) — only for a viewer with the HR formats. */
+function peopleFor(query: string): HrMasterPerson[] {
+  const q = query.trim();
+  if (q.length < 2 || namesFormatNumber(q) || !hrMasterVisible()) return [];
+  return searchPeople(q, hrMasterRepository.all(), 20).candidates;
+}
+
+const SHEET_QUERY = /\b(?:hr\s+master|employee\s+master|master\s+sheet|gp\s*-?\s*3)\b/i;
+
 const holdsRecords = (d: DocumentDefinition) => !d.isReferenceOnly && !["chemical-master", "licence", "compliance-statement"].includes(d.kind);
 
 export function SearchPage() {
@@ -157,6 +170,8 @@ export function SearchPage() {
   // anything else is matched as typed.
   const docs = documentsFor(q);
   const byNumber = namesFormatNumber(q) ? new Set(documentsByFormatNumber(q).map((d) => d.id)) : null;
+  const people = peopleFor(q);
+  const namesSheet = SHEET_QUERY.test(q) && hrMasterVisible();
   const results = !q.trim() ? [] : byNumber ? index.filter((r) => byNumber.has(r.documentId)) : index.filter((r) => r.matchText.includes(q.trim().toLowerCase()));
 
   // New record is a button, so a record is only ever started when asked for.
@@ -185,6 +200,56 @@ export function SearchPage() {
           />
         </div>
       </div>
+
+      {(people.length > 0 || namesSheet) && (
+        <div className="mb-5" data-section="search-people">
+          <div className="flex items-center justify-between mb-2 wrap gap-2">
+            <h3 className="text-sm uppercase text-muted">People — HR Master Data</h3>
+            <button className="btn btn-secondary btn-sm" data-action="search-open-hr-master" onClick={() => navigate("/hr/master-data")}>
+              Open HR Master Data
+            </button>
+          </div>
+          {people.length > 0 && (
+            <div className="doc-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>GP3 No.</th>
+                    <th>Full Name</th>
+                    <th>Department</th>
+                    <th>Designation/Position</th>
+                    <th>Joining Date</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {people.map((p) => (
+                    <tr key={p.id} data-search-person={p.id}>
+                      <td className="font-semibold">{p.gp3No || "—"}</td>
+                      <td>{p.fullName}</td>
+                      <td className="text-sm">{p.department}</td>
+                      <td className="text-sm">{p.designation}</td>
+                      <td className="text-sm">{p.joiningDate ? formatDisplayDate(p.joiningDate) : "—"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          data-action="search-show-person"
+                          onClick={() => {
+                            hrMasterRepository.setPendingFilter(p.gp3No || p.fullName);
+                            navigate("/hr/master-data");
+                          }}
+                        >
+                          Show on the sheet
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {docs.length > 0 && (
         <div className="mb-5" data-section="search-documents">

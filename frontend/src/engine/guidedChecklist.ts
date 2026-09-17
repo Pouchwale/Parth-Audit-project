@@ -84,7 +84,12 @@ export type ChipAction =
   | { type: "startInterview"; documentId?: string; dateISO?: string }
   | { type: "interviewAnswer"; value: string }
   | { type: "interviewSkip" }
-  | { type: "interviewStop" };
+  | { type: "interviewStop" }
+  // A person fetched from HR Master Data onto the open HR record — asked,
+  // then written only on "Yes" (engine/hrMasterAssistant.ts, REQUIREMENTS §53).
+  | { type: "hrMasterFetch"; personId?: string }
+  | { type: "confirmMasterFill"; blanksOnly?: boolean }
+  | { type: "cancelMasterFill" };
 
 export interface Chip {
   label: string;

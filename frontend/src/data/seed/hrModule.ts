@@ -46,6 +46,9 @@ export const HR_RECORD_PAGES: HrRecordPage[] = [
 
 export const HR_PAGE_SLUGS: ReadonlySet<string> = new Set(HR_RECORD_PAGES.map((p) => p.slug));
 
+/** /hr/master-data — HR Master Data, the employee master sheet the formats fetch from (REQUIREMENTS §53). Not a format, so not in HR_RECORD_PAGES. */
+export const HR_MASTER_SLUG = "master-data";
+
 export const hrPageForDocument = (docId: string): HrRecordPage | undefined => HR_RECORD_PAGES.find((p) => p.docId === docId);
 
 export const hrPageForSlug = (slug: string): HrRecordPage | undefined => HR_RECORD_PAGES.find((p) => p.slug === slug);

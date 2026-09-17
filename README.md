@@ -113,6 +113,17 @@ The app behaves like a personal assistant rather than a blank form:
   position sheets, 154 employees on the TNI, the nineteen-topic 2026-27 calendar, 37 mobile
   authorisations and the January-2026 survey analysis (93.99%). A Quality Control account sees none of
   them.
+- **Download Excel / Download Word, and print that fits the paper** (REQUIREMENTS §54). Every document screen can
+  download the document as its own kind of file — registers and log sheets and the workbook originals as Excel,
+  forms, letters and the Word originals as Word — made from the document as filled in on screen; only the
+  scanned service licence stays print-to-PDF. Printing measures a wide grid first: slightly too wide stays
+  portrait, scaled; much wider turns landscape, scaled — every column on the paper and in the PDF.
+- **HR Master Data** (REQUIREMENTS §53). Human Resources' employee master sheet — GP3 No., Joining Date, Full
+  Name, Department, Designation/Position, Date of Birth — in the HR module, set up with the 115 current employees
+  on F/HR/01, F/HR/03 and F/HR/06, typed in place, downloaded to a real Excel workbook and uploaded back (with a
+  look over first). Ten HR formats fetch a person from it by GP3 No. or name — blank boxes at once, anything
+  already written only when told — on the record, through Mitra (which lists what goes where and waits for yes),
+  from the CV import, and Search finds people on it.
 - **Any document by its format number** (REQUIREMENTS §52). Search and Mitra both take a format number
   however it is written — F/HR/05, F-HR-05, FHR05, hr 5, F-QC-40.C, QA-CAF-00 — in every module. Search
   lists the document (with *Open document* and *New record*) and its records; Mitra says what the document

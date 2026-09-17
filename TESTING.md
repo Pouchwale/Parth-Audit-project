@@ -145,6 +145,28 @@ Seven scripts live in `tests/`:
   true only on its scheduled Wednesday; any other day New record starts the sheet blank. On those days
   the suite now asks Mitra to fill it, the same carry-forward from the page on file, so the check holds
   whatever the day.
+- `tests/e2e_downloads_and_print.py` - every document as its own kind of file, and a wide one printed whole
+  (REQUIREMENTS s54): F/HR/01, F/HR/09, the GAP report and the daily pest control register downloaded and read
+  back as Excel workbooks (header block, bold heading row, every line and every one of F/HR/09's 29 columns,
+  landscape one-page-wide print setup); F/HR/05, a statement of compliance, the training record and a complaint
+  checklist downloaded and read back as Word documents (title, header block, the grid as a table with a
+  repeating heading row, a portrait page for a five-column form); no download for the scanned licence; printing
+  F/HR/09 turning the page landscape and scaling it to the paper, the PDF coming out on landscape A4, the screen
+  put back afterwards, and F/HR/05 staying portrait. Network-independent. With it and `e2e_hr_master_data.py`
+  (81 checks) `npm run test:e2e` is green at **1083 checks across twenty-one suites**, no JavaScript errors.
+- `tests/e2e_hr_master_data.py` - HR Master Data, the employee master sheet the HR formats fetch from
+  (REQUIREMENTS s53): in the HR module's sidebar and on HR Overview, in exactly the six columns; set up with the
+  115 current employees of F/HR/01, F/HR/03 and F/HR/06 (one line per person across registers, leavers left
+  off, the notes to confirm, GP3 No. and Date of Birth blank); cells written in place, a GP3 No. given twice
+  flagged, a line added, found, removed, the sheet sorted; Download Excel read back as a workbook (bold
+  headings, text GP3 Nos., real date cells) and Upload of a workbook saved the Excel way (shared strings,
+  compressed, a title line, other heading names, dates as dates and as text) and of a CSV, looked over before
+  it is applied, with an old .xls refused; Fetch on F/HR/05 by GP3 No., a differing box listed and only
+  replaced on Replace, a name typed on F/HR/04 filling the date of birth, candidates for part of a name on
+  F/HR/11, Add line on F/HR/06 and on a reopened F/HR/01 in their own date styles, Fill blanks; Mitra listing a
+  fetch and writing it only on yes, a GP3 No. answering its "Employee name?" question, opening the sheet, the
+  full-page Assistant; the CV import's GP3 No., its fill from the sheet and the joiner put on it; Search by GP3
+  No.; and a Quality Control account refused it all. Network-independent.
 - REQUIREMENTS s50 (Mitra - the assistant's name, character and "where would you like to go?") is
   covered inside `tests/e2e_smoke.py`: the floating button calls it by name; the opening greets by the
   hour and by name and asks where to go with its answers as buttons; a document is reached by shelf ->

@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { FiActivity, FiArrowRight, FiAward, FiBarChart2, FiBookOpen, FiCheckSquare, FiUserCheck, FiUsers } from "react-icons/fi";
+import { FiActivity, FiArrowRight, FiAward, FiBarChart2, FiBookOpen, FiCheckSquare, FiDatabase, FiUserCheck, FiUsers } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
@@ -64,6 +64,9 @@ export function HrOverviewPage() {
       <div className="flex items-center justify-between mb-1 wrap gap-3">
         <h1 className="text-2xl">{t("hr.title")}</h1>
         <div className="flex gap-2 wrap">
+          <button className="btn btn-primary btn-sm" data-action="open-hr-master" onClick={() => navigate("/hr/master-data")}>
+            <FiDatabase size={13} /> {t("nav.hrMasterData")}
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate("/pest-control")}>
             <FiActivity size={13} /> Pest Control file
           </button>

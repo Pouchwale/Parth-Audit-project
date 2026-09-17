@@ -255,6 +255,9 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   training-effectiveness, training-feedback, pre-employment-health, induction-staff, induction-operators,
   visitor-health, gmp-checklist, hygiene-report, psc-survey, psc-survey-analysis. Use it for "open the skill
   matrix", "show the training calendar", "visitor declarations", "the GMP inspection" and the like
+- /hr/master-data — HR Master Data: Human Resources' employee master sheet (GP3 No., joining date, full name,
+  department, designation/position, date of birth) that the HR formats fetch a person from. Use it for "HR master
+  data", "employee master", "GP3 numbers" — NOT /master-data, which is the administrator's reference data
 - /document/{documentId} — any other log sheet's own page (lamination QC / production, the QC inspection
   records), e.g. /document/qc-viscosity — open a document there, not on the calendar
 - /calendar — this month's Record Calendar

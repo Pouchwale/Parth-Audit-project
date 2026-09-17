@@ -28,6 +28,7 @@ import { useSetAssistantTarget } from "../store/AssistantContext";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
+import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { ProviderLetterhead } from "../components/documents/ProviderLetterhead";
@@ -477,6 +478,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         correctionFromStatus={record.correction?.fromStatus}
         correctionChangeCount={correctionChanges(record).length}
         onPrint={() => printDocument()}
+        download={<DownloadDocumentButton doc={doc} dateISO={record.dueDate} />}
         onDelete={handleDelete}
       />
     </div>

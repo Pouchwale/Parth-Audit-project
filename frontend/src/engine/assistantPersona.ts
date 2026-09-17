@@ -104,6 +104,8 @@ export function guide(step: string): GuideStep {
     // by its own groups first; a small module goes straight to its documents.
     if (docs.length > MAX_CHIPS && sections.length > 1) {
       const chips: Chip[] = sections.map((section, i) => ({ label: section, action: { type: "guide", step: `section:${slug}:${i}` } }));
+      // Human Resources' employee sheet, which its formats fetch people from (REQUIREMENTS §53).
+      if (slug === "human-resources") chips.push({ label: t("nav.hrMasterData"), action: { type: "navigate", route: "/hr/master-data" } });
       chips.push({ label: t("ai.guide.seeAll"), action: { type: "navigate", route: `/library/${slug}` } });
       chips.push(back("documents"));
       return { text: t("ai.guide.whichPart", { module: moduleName }), chips };

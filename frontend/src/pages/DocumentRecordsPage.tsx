@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiExternalLink, FiPlus, FiPrinter, FiUpload } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiDatabase, FiExternalLink, FiPlus, FiPrinter, FiUpload } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -11,6 +11,7 @@ import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { createRecordForDocument } from "../engine/recordCrud";
 import { createDefaultData } from "../engine/recordDefaults";
 import { routeForRecord } from "../engine/reminders";
+import { hrMasterLinkFor } from "../engine/hrMaster";
 import { LogSheetRecordView } from "../components/records/LogSheetRecordView";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -19,6 +20,7 @@ import { CvImportDialog } from "../components/hr/CvImportDialog";
 import { DocMeta, nextDueDate } from "./PestControlPages";
 import { moduleSlug } from "../utils/moduleSlug";
 import { printDocument } from "../utils/print";
+import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
 import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types";
 
@@ -134,6 +136,12 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
           {doc.id === "hr-competence" && (
             <button className="btn btn-primary btn-sm" data-action="cv-import" onClick={() => setCvOpen(true)}>
               <FiUpload size={12} /> Add from CV / Resume
+            </button>
+          )}
+          {/* The HR formats that fetch a person from HR Master Data (REQUIREMENTS §53). */}
+          {hrMasterLinkFor(doc.id) && (
+            <button className="btn btn-secondary btn-sm" data-action="open-hr-master" onClick={() => navigate("/hr/master-data")}>
+              <FiDatabase size={12} /> HR Master Data
             </button>
           )}
           {!doc.isReferenceOnly && (
@@ -252,6 +260,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
                   <FiPlus size={12} /> Start this record
                 </button>
               )}
+              <DownloadDocumentButton doc={doc} dateISO={preview?.dueDate} />
               <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
                 <FiPrinter size={12} /> Print
               </button>

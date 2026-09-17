@@ -10,6 +10,7 @@ import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
+import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { useT } from "../i18n";
 
 function validityBadge(validUntil: string) {
@@ -166,6 +167,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
               bump();
             }}
             onPrint={() => printDocument()}
+            download={<DownloadDocumentButton doc={doc} />}
           />
         </div>
       </div>

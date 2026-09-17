@@ -2280,6 +2280,211 @@ Only the person's own departments' documents are ever found (§40).
   record. The widget and the full-page Assistant answer alike, with no network.
 - Covered by `tests/e2e_format_numbers.py` (**45 checks**).
 
+## 53. HR Master Data — the employee master sheet the HR formats fetch from (17-Sep-2026)
+
+```
+REQUESTED            "there are many document in HR module ... there is one master excel sheet which you have
+                      to create by yourself and in that there are 6 columns which is GP3 No., Joining Date,
+                      Full Name, Department, Designation/Position, Date of birth so this sheet will help all
+                      other required documents of HR to fill it through fetch ... So basically many document
+                      is connected to Master data report so that various document will fetch that data and
+                      fill in them and make sure add this in HR Module only"
+SOURCE               No supplied document is an employee master. The sheet is set up from the three registers
+                      on file that record a joining — F/HR/01, F/HR/03, F/HR/06 (§46).
+DIGITAL TEMPLATE     /hr/master-data — src/pages/HrMasterDataPage.tsx; src/engine/hrMaster.ts (the fetch map and
+                      its rules); src/data/seed/hrMasterSeed.ts; src/data/repositories/hrMasterRepository.ts;
+                      src/utils/xlsx.ts; src/components/records/HrMasterFetch.tsx; src/engine/hrMasterAssistant.ts
+```
+
+**THE SHEET, IN THE HR MODULE ONLY.** *HR Master Data* sits in the sidebar under HR Records, straight after
+HR Overview, and HR Overview has a button to it. It is laid out as the spreadsheet HR keeps, in exactly the six
+columns asked for, in that order: **GP3 No. · Joining Date · Full Name · Department · Designation/Position ·
+Date of Birth** (GP3 No. being the employee's number at GP-3).
+
+- Every cell is typed in place and saved as it is left. *Add employee* puts a new line at the end; *Remove*
+  takes one off (a line set up from the registers stays off). The sheet searches across all six columns and
+  sorts by any of them.
+- Counts at the top: employees; without a GP3 No.; without a Date of Birth; lines with a note to confirm; lines
+  needing a correction. A line needs a correction when it has no Full Name, a GP3 No. given to someone else too,
+  a date that is not a date, or a Date of Birth in the future or not before the Joining Date — flagged on the
+  line, with the reason under it.
+- It is master data, not a record: the same sheet in Live and Demo mode. It is Human Resources' own — any other
+  department's account is refused it by name, has no link to it, and Mitra and Search tell it nothing about the
+  people on it (§40).
+
+**HOW IT WAS SET UP.** From F/HR/01 (staff), F/HR/03 (operators) and F/HR/06 (operators / workers inducted),
+nothing else:
+
+| Rule | As applied |
+|---|---|
+| Current employees only | A line on F/HR/01 with a Date of Leaving on or before the register's *reviewed as on* date (01.10.2026), or on F/HR/03 marked *Left*, leaves that person off — from every register (Pooja Prajapati, left per F/HR/01, is not taken from F/HR/06 either). A leaving date still to come keeps the person on, with a note (Fena Modi). |
+| One person, one line | Lines on different registers are one person when the names match — or the first names match (one may begin the other: Neel / Neelkumar) and the surnames match or differ by one letter (Bhaach / Bharach). A line that could be two people joins neither. |
+| Full Name | The fullest spelling (Sunny Mahesh Singh, not Sunny Singh). |
+| Department / Designation | F/HR/01's; else F/HR/06's *joining department & designation*, split at the dash (the part naming a role is the designation: OPERATOR- POUCH → POUCH / OPERATOR); else F/HR/03's process. |
+| Joining Date | F/HR/01's, else F/HR/03's, else F/HR/06's — each read in its register's own style (F/HR/01 and F/HR/03 write slashed dates month first, F/HR/06 day first, dotted dates are day first; F/HR/03's two Excel serials read as dates). |
+| GP3 No., Date of Birth | Blank: no supplied document has them. |
+
+That gives **115 employees** — 18 of them on two registers — and **17 lines with a note for HR to confirm**:
+another spelling of the name on the other register, the registers disagreeing on the date of joining (Azaz
+Bharach 6/23/2025 v. 01/06/2025; Vishnubhai Jadhav 12/1/2025 v. 01/11/2025), F/HR/01's 30.02.2020 for Keyur
+Sathavara (not a date, so his Joining Date is blank), Fena Modi's leaving date to come. Each line keeps where it
+came from ("F/HR/01 line 60 and F/HR/06 line 1"), shown under it with the notes. F/HR/08 and F/HR/13 are not
+used: neither records a joining, and F/HR/08's designations run a line out of step for part of the PDF. The other spellings of a merged person are
+kept on the line too, so a register that writes "Sunny Singh" is recognised as Sunny Mahesh Singh's line when
+fetching.
+
+**EXCEL — OUT AND BACK IN, WITH NO LIBRARY.**
+
+- *Download Excel* gives a real .xlsx workbook, *HR Master Data*: the heading row bold, frozen and filtered;
+  GP3 No. held as text (a 0101 keeps its zero); Joining Date and Date of Birth as Excel dates shown
+  dd-mmm-yyyy, which read the same whatever Windows' regional setting. It opens in Excel without a repair
+  prompt.
+- *Upload Excel / CSV* takes the sheet back — as HR saved it from Excel (shared strings, compressed, a title
+  line above the headings, any column order), or as a CSV (UTF-8 or Excel's own, comma or semicolon). The
+  headings are found by name in the first 30 lines: GP3 No. / Emp No / Employee Code / Token No; Joining Date /
+  Date of Joining / DOJ; Full Name / Name / Employee Name; Department / Dept; Designation / Position /
+  Designation/Position; Date of Birth / DOB. A date is an Excel date or text (15/08/2026, 01.02.1999,
+  01-Apr-2014 — day first).
+- Nothing changes until the upload is looked over: what will be added, what updated (each cell's before and
+  after), what is already the same, and what is left out and why. A line is matched by its GP3 No., or — when
+  it has none, or the number is new and the name is on the sheet without one — by its Full Name. A blank cell in
+  the file leaves what the sheet has. A GP3 No. repeated in the file, a name shared by two people on the sheet
+  with no number to tell them apart, a line with neither name nor number, are left out with the reason; a date
+  that is not a date is named and left out of its line. An old .xls (or a password-protected workbook) is
+  refused with how to save it instead.
+- A file that writes a GP3 No. without its leading zero (202 for 0202 — a number-formatted Excel column) matches
+  that line and leaves the stored number as it is. Slashed dates are read in **one order for the whole file**:
+  day first, unless a date in it can only be month first (5/13/1990), and the look-over says which order was
+  used; a file that writes them both ways leaves out the dates that could be either.
+
+**TEN HR FORMATS FETCH FROM IT.** Written out once, per format (`HR_MASTER_LINKS`), in each format's own boxes
+and style:
+
+| Format | A person is | Filled from the sheet |
+|---|---|---|
+| F/HR/01 Personal Competence Records | a line | Name of person · Department · Designation · Date of Joining (dd.mm.yyyy) |
+| F/HR/03 Skill Matrix – Operator | a line | Name · Designation (Operator) · Date of Joining (m/d/yyyy) |
+| F/HR/04 Pre-Employment Medical Health Declaration | the form | Name · Department & Designation ("Department - Designation") · Date of Birth |
+| F/HR/05 Induction Training Record — Staff | the form | Name · Department / Process · Designation · Date of Joining |
+| F/HR/06 Induction Training Record — Operators | a line | Name of the Operator / EMP · Joining department & designation ("Designation - Department") · Date of Joining & Induction (dd/mm/yyyy) |
+| F/HR/08 Training Need Identification | a line | Employee Name · Designation |
+| F/HR/11 Training Effectiveness Evaluation | the form | Trainee's Name · Department · Designation |
+| F/HR/12 Training Feedback & Evaluation | a line | Name of the Employee |
+| F/HR/13 Authorization for Mobile Usage | a line | Employee Name · Department & Designation ("Designation - Department") |
+| F/HR/20 Product Safety Culture Survey | the form | Employee name · Department · Designation |
+
+F/HR/06's and F/HR/13's combined box is written designation first, as the CV import has always written it and
+as F/HR/13's own lines read ("Manager - HR"); F/HR/04's department first, as its specimen reads. Not fetched:
+F/HR/07 (a position, not a person), F/HR/09, 21 and 22 (no one named), F/HR/14 (visitors, who are not
+employees), F/HR/19 (only an inspection team). The sheet lists the ten, each with what it fills.
+
+**ON A RECORD.** While an HR record of those ten can be written in, a *Fetch from HR Master Data* bar sits
+above its grid (it does not print):
+
+- **A GP3 No. or a name** → *Fetch* on a one-person form, *Add line* on a register. Part of a name offers the
+  people it could be; a number or name not on the sheet is said so.
+- **Blank boxes are filled straight away. A box that already says something else is never replaced without
+  asking**: it is listed with what the sheet has ("Designation: “Supervisor” → “Manager”"), with *Replace*,
+  *Fill only the blank boxes* and *Leave it*. A GP3 No. typed where the name goes becomes the name; the same
+  name written another way stays as the register wrote it; the same date in another style is the same date.
+- **A name box left holding a name (or GP3 No.) on the sheet** fills that person's blank boxes as it is left.
+- *Add line* does not give a person a second line; *Fill blanks from the sheet* fills the blank boxes of every
+  line (or the form's person) that is on the sheet, and names the names that are not.
+- A register line is a person's by their name — only when no one else on the sheet has that name — or by a GP3
+  No. in its name box. Of two lines with the name (F/HR/01 has two Anil Ravals), a line with a Date of Leaving is
+  passed over; if it is still not clear which line is theirs, nothing is fetched and the lines are named.
+- *Replace* works the change out again against the form as it is by then: a box typed into, or a line added or
+  removed, after the list was shown is never overwritten by the old list.
+- A fetch copies: the record keeps what was fetched if the sheet changes later, as paper would. A submitted or
+  verified register shows no bar until *Edit* reopens it for correction — whose *Cancel* puts it back.
+
+**MITRA — ASKS BEFORE IT WRITES.**
+
+| Message | Mitra |
+|---|---|
+| `open HR master data` · `show the employee master` | opens the sheet |
+| `fetch GP3 1024` · `GP3 No. 1024` · `fill from HR master data for Sandeep Parekh` · `add Sandeep Parekh from the employee master` (an HR record open) | lists what would go where, box by box — "Designation: Manager → Assistant" — and asks *Fill these in?*: **Yes, fill it** · **Only the blank boxes** (when something would be replaced) · **No, leave it**. Nothing is written before yes; on a submitted / verified record it says it will reopen it for correction first. Written with a history line ("Fetched from HR Master Data — …") and Undo. |
+| part of a name · a name on the sheet twice | the people it could be, one button each |
+| a number or name not on the sheet | says so, with the sheet |
+| *Fetch from HR Master Data* (quick chip on those records) | asks whose details |
+| asked "Employee name?" / "Name?" by its question-by-question fill | a GP3 No. or a name on the sheet answers it and fills the person's other boxes, which are then not asked |
+| a fetch with no HR record open (widget or full-page Assistant) | which formats take one, and whether that person is on the sheet; "fill F/HR/05 for GP3 1024" offers to start or open F/HR/05 |
+| another department's account | the sheet isn't one of its departments — nothing about the people on it |
+
+A typed "yes", "only the blanks" or "no" answers the question as the buttons do, and "Yes" works the change
+out again first — if the record has been edited, submitted or verified since, the new list is shown instead.
+"fetch Sandeep Parekh" needs no mention of the sheet on those records, and after *Whose details?* the next
+message is the person. A GP3 No. given to the "Employee name?" question that is nobody's on the sheet is asked
+again, never written as the name. "open master data" still means the administrator's Master Data. All of it is worked out with no network; the
+model's route guide knows /hr/master-data from /master-data.
+
+**THE CV IMPORT (§49) AND SEARCH.** The CV import's form has a *GP3 No.*; a person already on the sheet (by the
+name read from the CV, the name typed, or the GP3 No. typed) has the form filled from it, and *Add* puts the new
+joiner on the sheet — or brings their line up to date — saying which. The sheet is looked up when the GP3 No. or
+Name box is left, never on a half-typed number; a person found later replaces what an earlier one filled in, and
+nobody found takes it back out. A GP3 No. that is somebody else's on the sheet is pointed out and Add waits for it
+to be corrected — a line on the sheet is never written over under another person's name. Search lists **People — HR Master Data**
+by GP3 No. or name, each with *Show on the sheet*; "hr master" offers the sheet.
+
+- Covered by `tests/e2e_hr_master_data.py` (**81 checks**).
+
+### What HR is asked to confirm
+
+1. **GP3 No. and Date of Birth** for every employee — on no supplied document.
+2. **The 17 notes** on the sheet — spellings, two joining dates, F/HR/01's 30.02.2020.
+3. **The order of F/HR/06's and F/HR/13's combined box.** The printed labels read department first; the
+   registers mostly write designation first, and so does the fetch. Say if the labels should win.
+
+## 54. Every document downloads as its own kind of file, and a wide one prints whole (17-Sep-2026)
+
+```
+REQUESTED            "there will be like excel and word file also so make sure user will get his own excel and
+                      word file which user if download then it will become pdf and that is not applicable to
+                      excel sheet and also i want that to make sure when user take print then if there are many
+                      columns then it will be also download not only shown in preview"
+DIGITAL TEMPLATE     src/utils/documentExport.ts (which kind, and the document on screen as a file),
+                      src/utils/docx.ts (Word), src/utils/xlsx.ts (Excel), src/components/common/
+                      DownloadDocumentButton.tsx, src/utils/print.ts (fitting to the paper)
+```
+
+**DOWNLOAD, IN THE DOCUMENT'S OWN FORMAT.** Until now a document left the app only by Print, whose "Save as PDF"
+suits a scanned letter but not a register kept in Excel or a form kept in Word. Every document screen now has a
+**Download Excel** or **Download Word** button beside Print — the record page, a format's own page, the CAPA
+complaint checklist, the GAP report, the training record, the chemical chart, a statement of compliance, the
+daily pest control register and the fly catcher register:
+
+| Downloads as | Documents |
+|---|---|
+| **Excel (.xlsx)** | what was supplied as a workbook — the GAP report, the three service reports — and every register or log sheet: F/HR/01, 03, 06, 08, 09, 12, 13, 19, 21, 22, the QC and production sheets, the calibration records, the daily pest control register, the fly catcher register |
+| **Word (.docx)** | what was supplied as a Word file — the complaint checklist, both statements of compliance, the chemical chart, the training record — and the forms about one person or one position (F/HR/04, 05, 07, 11, 14, 20), the complaint acknowledgement, the service agreement, the responsibilities |
+| **PDF (Print)** | the service licence, held as the provider's own scanned PDF — no download button; Print as before |
+
+- The file is the document as it is on screen, filled in as it is: the header block (company, title, Format No.,
+  Rev No., Date, Page No.), the form's boxes as label / value pairs, its grid as a table with a heading row, the
+  ticks as ☑ / ☐. Buttons, hints and anything that does not print are left out.
+- **Excel**: headings bold and shaded, cells bordered and wrapped, dates as real Excel dates, readings as numbers,
+  columns sized to what is in them; a sheet of more than six columns is set to print landscape, one page wide.
+- **Word**: the title centred, the boxes as a two-column table, the grid as a bordered table whose heading row
+  repeats on every page; a grid of more than six columns (or any table of more than eight) turns the page to
+  landscape, and a very wide grid uses a smaller type.
+- Named for the document: "F-HR-01 Personal Competence Records (Staff Members Only) 17-Sep-2026.xlsx". Made in
+  the browser with no library and no network, like the HR Master Data workbook (§53).
+
+**PRINT FITS THE PAPER.** A grid wider than the page ran off the right-hand edge of A4: the print preview scrolled
+and the saved PDF was cut, losing every column past the edge (F/HR/09's 29 columns, F/HR/01's ten). Now, before
+anything prints — from a Print button or Ctrl+P — the narrowest each document's tables can be laid out is
+measured:
+
+| The document needs | It prints |
+|---|---|
+| no more than a portrait page | portrait, as it is |
+| up to a fifth more than a portrait page (F/HR/05, F/HR/04) | portrait, scaled to fit — never below 80% |
+| more than that (F/HR/01, F/HR/09, the QC sheets) | **landscape**, scaled to fit if it still needs to be |
+
+Every column is on the paper and in the PDF; the screen is put back when printing ends.
+
+- Covered by `tests/e2e_downloads_and_print.py` (**21 checks**).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -14,6 +14,7 @@ export function ReferenceEditBar({
   onCancel,
   onRestore,
   onPrint,
+  download,
 }: {
   editing: boolean;
   /** Who last corrected it and when, if anyone has. */
@@ -24,6 +25,8 @@ export function ReferenceEditBar({
   /** Offered once the document has been corrected: back to the transcription. */
   onRestore?: () => void;
   onPrint?: () => void;
+  /** Download Excel / Word beside Print. */
+  download?: React.ReactNode;
 }) {
   const t = useT();
   return (
@@ -52,6 +55,7 @@ export function ReferenceEditBar({
           <button className="btn btn-secondary btn-sm" data-action="edit-reference" onClick={onEdit}>
             <FiEdit3 size={13} /> Edit
           </button>
+          {download}
           {onPrint && (
             <button className="btn btn-secondary btn-sm" onClick={onPrint}>
               <FiPrinter size={13} /> {t("common.print")}

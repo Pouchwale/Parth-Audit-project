@@ -4,6 +4,9 @@ import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSh
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { masterRepository } from "../../data/repositories/masterRepository";
+import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
+import { applyFills, hrMasterLinkFor, personFill, personNamed } from "../../engine/hrMaster";
+import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
 import { isOutOfBand } from "../../engine/validation";
 import { formatDisplayDate } from "../../utils/date";
 import { generateId } from "../../utils/id";
@@ -43,6 +46,29 @@ export function LogSheetRecordView({
     onChange({ ...data, rows: [...data.rows, row] });
   };
   const removeRow = (rowId: string) => onChange({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
+
+  // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS
+  // §53): the bar above the form, and a name box left holding a name — or a GP3
+  // No. — that is on the sheet has that person's BLANK boxes filled. Nothing
+  // already written is changed here.
+  const link = hrMasterLinkFor(doc.id);
+  const fetching = !!link && editable;
+  const fillFromName = (rowId: string | null, value: string) => {
+    if (!link || !editable) return;
+    const person = personNamed(value, hrMasterRepository.all());
+    if (!person) return;
+    if (rowId === null) {
+      const header = { ...data.header, [link.nameField]: value };
+      const { fills } = personFill(link, person, header);
+      if (fills.length > 0) onChange({ ...data, header: applyFills(header, fills) });
+      return;
+    }
+    const row = data.rows.find((r) => r.id === rowId);
+    if (!row) return;
+    const current = { ...row, [link.nameField]: value };
+    const { fills } = personFill(link, person, current);
+    if (fills.length > 0) onChange({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
+  };
 
   const mode = layout.rowMode;
   const canAddRows = editable && mode.kind === "free";
@@ -94,14 +120,28 @@ export function LogSheetRecordView({
             ))}
             {layout.headerFields.length > 0 && (
               <div className="grid mt-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px 16px" }}>
-                {layout.headerFields.map((f) => (
-                  <HeaderFieldInput key={f.key} field={f} value={data.header?.[f.key] ?? ""} editable={editable} onChange={(v) => setHeader(f.key, v)} employees={employees.map((e) => e.name)} />
-                ))}
+                {layout.headerFields.map((f) => {
+                  const personBox = fetching && link?.where === "header" && link.nameField === f.key;
+                  return (
+                    <HeaderFieldInput
+                      key={f.key}
+                      field={f}
+                      value={data.header?.[f.key] ?? ""}
+                      editable={editable}
+                      onChange={(v) => setHeader(f.key, v)}
+                      employees={employees.map((e) => e.name)}
+                      list={personBox ? "hr-master-people" : undefined}
+                      onBlur={personBox ? (v) => fillFromName(null, v) : undefined}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
       )}
+
+      {fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={onChange} newRowId={() => generateId("row")} />}
 
       {outOfBand > 0 && (
         <div className="card mt-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
@@ -143,7 +183,15 @@ export function LogSheetRecordView({
                   const col = printedBlank ? { ...c, fixed: false } : c;
                   return (
                     <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
-                      <CellInput col={col} value={row[c.key]} editable={editable && !col.fixed} onChange={(v) => setCell(row.id, c.key, v)} employees={employees.map((e) => e.name)} />
+                      <CellInput
+                        col={col}
+                        value={row[c.key]}
+                        editable={editable && !col.fixed}
+                        onChange={(v) => setCell(row.id, c.key, v)}
+                        employees={employees.map((e) => e.name)}
+                        list={fetching && link?.where === "rows" && link.nameField === c.key ? "hr-master-people" : undefined}
+                        onBlur={fetching && link?.where === "rows" && link.nameField === c.key ? (v) => fillFromName(row.id, v) : undefined}
+                      />
                     </td>
                   );
                 })}
@@ -179,6 +227,7 @@ export function LogSheetRecordView({
           </div>
         </div>
       )}
+      {fetching && <HrMasterPeopleList />}
       <datalist id="log-sheet-employees">
         {employees.map((e) => (
           <option key={e.id} value={e.name} />
@@ -195,12 +244,17 @@ function HeaderFieldInput({
   editable,
   onChange,
   employees,
+  list,
+  onBlur,
 }: {
   field: LogHeaderField;
   value: string;
   editable: boolean;
   onChange: (v: string) => void;
   employees: string[];
+  /** A suggestion list of its own (HR Master Data's people), in place of the employees. */
+  list?: string;
+  onBlur?: (v: string) => void;
 }) {
   const isName = /operator|name|inspected|person|sign/i.test(field.label) && field.type === "text" && !/job name|customer name/i.test(field.label);
   return (
@@ -222,10 +276,11 @@ function HeaderFieldInput({
         <input
           className="input input-sm"
           type={field.type === "date" ? "date" : field.type === "time" ? "time" : "text"}
-          list={isName ? "log-sheet-employees" : undefined}
+          list={list ?? (isName ? "log-sheet-employees" : undefined)}
           disabled={!editable}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
         />
       )}
       {isName && employees.length === 0 ? null : null}
@@ -239,12 +294,16 @@ function CellInput({
   editable,
   onChange,
   employees,
+  list,
+  onBlur,
 }: {
   col: LogColumn;
   value: string | number | null | undefined;
   editable: boolean;
   onChange: (v: string | number | null) => void;
   employees: string[];
+  list?: string;
+  onBlur?: (v: string) => void;
 }) {
   if (col.fixed) return <span className={`text-sm ${col.key === "specification" || col.key === "testChart" ? "text-muted" : "font-semibold"}`} style={{ whiteSpace: "pre-line" }}>{value ?? ""}</span>;
   if (col.type === "number") {
@@ -278,10 +337,11 @@ function CellInput({
     <input
       type={col.type === "time" ? "time" : col.type === "date" ? "date" : "text"}
       className="input input-sm"
-      list={isSign && employees.length ? "log-sheet-employees" : undefined}
+      list={list ?? (isSign && employees.length ? "log-sheet-employees" : undefined)}
       disabled={!editable}
       value={(value as string) ?? ""}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
     />
   );
 }

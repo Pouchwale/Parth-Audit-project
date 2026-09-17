@@ -11,6 +11,7 @@ import { isEditableStatus, saveDraft } from "../../engine/recordLifecycle";
 import { useAppStore } from "../../store/AppStore";
 import { useT } from "../../i18n";
 import { printDocument } from "../../utils/print";
+import { DownloadDocumentButton } from "../common/DownloadDocumentButton";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
 import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "../../engine/flyPattern";
 
@@ -437,6 +438,7 @@ export function FlyCatcherRegisterSheet({
             <button className={`btn btn-sm ${editing ? "btn-primary" : "btn-secondary"}`} data-action="fhr18-edit" aria-pressed={editing} onClick={toggleEditing}>
               {editing ? <FiCheck size={12} /> : <FiEdit3 size={12} />} {editing ? t("pest.doneEditing") : t("pest.editRegister")}
             </button>
+            <DownloadDocumentButton doc={doc} target={() => sheetRef.current} />
             <button className="btn btn-secondary btn-sm" data-action="fhr18-print" onClick={print}>
               <FiPrinter size={12} /> {t("pest.printRegister")}
             </button>

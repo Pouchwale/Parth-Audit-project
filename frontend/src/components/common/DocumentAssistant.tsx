@@ -4,7 +4,7 @@ import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
 import { applyAssistantPatch, looksLikeEdit, parseLocalEdit } from "../../engine/recordPatch";
 import { diffRecordData } from "../../engine/recordHistory";
-import type { FieldChange } from "../../types";
+import type { FieldChange, LogSheetData } from "../../types";
 import { useAuth } from "../../store/AuthContext";
 import { useAppStore } from "../../store/AppStore";
 import { useRouter, isValidAppRoute } from "../../store/router";
@@ -27,6 +27,9 @@ import {
 import { buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
 import { ASSISTANT_NAME, guide, openingMessage } from "../../engine/assistantPersona";
 import { formatNumberAnswer } from "../../engine/formatNumbers";
+import { hrMasterChatAnswer, hrMasterIntent, hrMasterVisible, proposeMasterFill } from "../../engine/hrMasterAssistant";
+import { describePerson, hrMasterLinkFor } from "../../engine/hrMaster";
+import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { parseAssistantCommand, type AssistantCommand } from "../../engine/assistantCommands";
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
 import { recordRepository } from "../../data/repositories/recordRepository";
@@ -133,6 +136,10 @@ export function DocumentAssistant() {
   const pendingRef = useRef<{ next: unknown; changes: FieldChange[]; note: string; recordId: string; problems: string[] } | null>(null);
   // What each assistant change replaced, so "Undo" can put it back.
   const undoRef = useRef(new Map<string, { recordId: string; data: unknown }>());
+  // A fetch from HR Master Data shown to the user and waiting for their yes (REQUIREMENTS §53).
+  const masterFillRef = useRef<{ recordId: string; personId: string; editable: boolean; next: unknown; blanksOnly: unknown; changes: FieldChange[]; blankChanges: FieldChange[]; note: string } | null>(null);
+  // Mitra asked "whose details?" — the next message names the person (REQUIREMENTS §53).
+  const awaitingPersonRef = useRef<string | null>(null);
 
   const firstName = (user?.name ?? currentUser).trim().split(/\s+/)[0];
 
@@ -427,6 +434,64 @@ export function DocumentAssistant() {
     commitEdit(t, result.data, changes, SAMPLE_FILL_NOTE, [], `${intro}\n\n`, { brief: true, offerSubmit: !!t.submit });
   };
 
+  // A PERSON FROM HR MASTER DATA onto the open HR record (REQUIREMENTS §53):
+  // looked up here, listed box by box — what is blank and what would be
+  // replaced — and written only when the user says yes.
+  const askMasterFill = (text: string, query: string, personId?: string, lead = "") => {
+    awaitingPersonRef.current = null;
+    masterFillRef.current = null;
+    const tt = getTarget();
+    const link = hrMasterLinkFor(tt?.documentId);
+    const layout = tt && link ? getLogSheetLayout(tt.documentId) : undefined;
+    const sheetChip: Chip = { label: phrase("nav.hrMasterData"), action: { type: "navigate", route: "/hr/master-data" } };
+    if (!tt || !link || !layout) {
+      const answer = hrMasterChatAnswer(text);
+      bot(answer?.reply ?? "Open the HR record the details should go on first.", answer?.chips ?? [sheetChip]);
+      return;
+    }
+    if (!tt.editable && !tt.reopen) {
+      bot(`${tt.title ?? "This record"} is ${tt.status} and can't be changed from here.`);
+      return;
+    }
+    if (!query.trim() && !personId) {
+      awaitingPersonRef.current = tt.recordId;
+      bot(`Whose details shall I fetch onto ${tt.title ?? "this record"}? Tell me their GP3 No. or name — e.g. “fetch GP3 1024” or “fetch Sandeep Parekh”.`, [sheetChip]);
+      return;
+    }
+    const before = tt.getData() as LogSheetData;
+    const found = proposeMasterFill(link, layout, before, query, personId, () => generateId("row"));
+    if (found.kind === "not-found") {
+      bot(`No one on HR Master Data has the GP3 No. or name “${query.trim()}”. Add them to the sheet first, then ask me again.`, [sheetChip]);
+      return;
+    }
+    if (found.kind === "candidates") {
+      bot(
+        found.people.length === 1 ? "Do you mean this person on HR Master Data?" : `${found.people.length} people on HR Master Data match “${query.trim()}” — which one?`,
+        found.people.map((p) => ({ label: describePerson(p), action: { type: "hrMasterFetch", personId: p.id } }))
+      );
+      return;
+    }
+    if (found.kind === "nothing") {
+      bot(`${lead}${found.person.fullName}'s details from HR Master Data are already on ${found.where} — nothing to fetch.`);
+      return;
+    }
+    if (found.kind === "several-lines") {
+      bot(`${found.person.fullName} could be line ${found.lines.join(" or line ")} of this register, so I haven't fetched anything — fill the right line on the form.`);
+      return;
+    }
+    const { proposal } = found;
+    const changes = diffRecordData(before, proposal.next, tt.labels);
+    const blankChanges = proposal.replaces ? diffRecordData(before, proposal.blanksOnly, tt.labels) : changes;
+    const note = `Fetched from HR Master Data — ${describePerson(proposal.person)}`;
+    masterFillRef.current = { recordId: tt.recordId, personId: proposal.person.id, editable: tt.editable, next: proposal.next, blanksOnly: proposal.blanksOnly, changes, blankChanges, note };
+    const chips: Chip[] = [{ label: "Yes, fill it", action: { type: "confirmMasterFill" }, tone: "primary" }];
+    if (proposal.replaces && blankChanges.length > 0) chips.push({ label: "Only the blank boxes", action: { type: "confirmMasterFill", blanksOnly: true } });
+    chips.push({ label: "No, leave it", action: { type: "cancelMasterFill" } });
+    const replacing = proposal.replaces ? "\n\nSome of these replace what the record already says." : "";
+    const lock = tt.editable ? "" : `\n\nThis record is ${tt.status}, so I'll reopen it for correction first — then it has to be submitted and verified again.`;
+    bot(`${lead}From HR Master Data — ${describePerson(proposal.person)}. On ${proposal.where}:\n${listChanges(changes)}${replacing}${lock}\n\nFill these in?`, chips);
+  };
+
   // An outright instruction typed mid-walk-through / mid-interview.
   const runStrictCommand = (command: AssistantCommand, text: string): boolean => {
     switch (command.kind) {
@@ -569,6 +634,52 @@ export function DocumentAssistant() {
         pendingRef.current = null;
         bot("Okay — I've left the record exactly as it was.");
         return;
+      case "hrMasterFetch":
+        me(chip.label);
+        askMasterFill(chip.label, "", a.personId);
+        return;
+      case "confirmMasterFill": {
+        me(chip.label);
+        const p = masterFillRef.current;
+        masterFillRef.current = null;
+        const tt = getTarget();
+        if (!p || !tt || tt.recordId !== p.recordId) {
+          bot("That record isn't open any more — open it again and tell me whose details to fetch.");
+          return;
+        }
+        // Worked out again on the record as it is now: if it has been edited,
+        // submitted or verified since the list was shown, show the new list.
+        const link = hrMasterLinkFor(tt.documentId);
+        const layout = link ? getLogSheetLayout(tt.documentId) : undefined;
+        const now = link && layout ? proposeMasterFill(link, layout, tt.getData() as LogSheetData, "", p.personId, () => generateId("row")) : null;
+        const same = (x: FieldChange[], y: FieldChange[]) => x.length === y.length && x.every((c, i) => c.label === y[i].label && c.before === y[i].before && c.after === y[i].after);
+        const fresh = now?.kind === "proposal" ? now.proposal : null;
+        const freshChanges = fresh ? diffRecordData(tt.getData(), a.blanksOnly ? fresh.blanksOnly : fresh.next, tt.labels) : [];
+        if (!fresh || tt.editable !== p.editable || !same(freshChanges, a.blanksOnly ? p.blankChanges : p.changes)) {
+          askMasterFill(chip.label, "", p.personId, "The record has changed since I listed that, so here it is again. ");
+          return;
+        }
+        const next = a.blanksOnly ? fresh.blanksOnly : fresh.next;
+        if (!tt.editable) {
+          if (!tt.reopen) {
+            bot(`${tt.title ?? "This record"} is ${tt.status} and can't be changed from here.`);
+            return;
+          }
+          tt.reopen(p.note);
+          commitEdit(tt, next, freshChanges, p.note, [], "Reopened for correction — it will need submitting and verifying again. ");
+        } else commitEdit(tt, next, freshChanges, p.note, []);
+        // An interview that was running carries on from its next question.
+        if (interviewRef.current?.recordId === tt.recordId) askNextQuestion();
+        return;
+      }
+      case "cancelMasterFill": {
+        me(chip.label);
+        masterFillRef.current = null;
+        bot("Okay — nothing fetched; the record is as it was.");
+        const tt = getTarget();
+        if (tt && interviewRef.current?.recordId === tt.recordId) askNextQuestion();
+        return;
+      }
       case "createRecord": {
         me(chip.label);
         const doc = documentRepository.getById(a.documentId);
@@ -724,6 +835,7 @@ export function DocumentAssistant() {
     if (hasTarget && t?.editable && !t.checklist && !interview) chips.push({ label: "Ask me question by question", action: { type: "startInterview" }, tone: "primary" });
     if (interview) chips.push({ label: "Stop the questions", action: { type: "interviewStop" } });
     if (hasTarget && t?.editable) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
+    if (hasTarget && t && hrMasterLinkFor(t.documentId) && (t.editable || t.reopen)) chips.push({ label: "Fetch from HR Master Data", action: { type: "hrMasterFetch" } });
     if (!hasTarget) chips.push({ label: phrase("ai.guide.whereToChip"), action: { type: "guide", step: "home" }, tone: "primary" });
     chips.push({ label: "Today's briefing", action: { type: "briefing" } });
     chips.push({ label: "What's due today?", action: { type: "navigate", route: `/day/${todayISO()}` } });
@@ -897,6 +1009,34 @@ export function DocumentAssistant() {
       return;
     }
 
+    // A fetch from HR Master Data waiting for a yes: "yes", "only the blanks" and
+    // "no" answer it; anything else sets it aside.
+    const mf = masterFillRef.current;
+    if (mf && t2 && mf.recordId === t2.recordId) {
+      if (/^(?:only\b.*\bblank|just\b.*\bblank)/i.test(text)) {
+        runAction({ label: text, action: { type: "confirmMasterFill", blanksOnly: true } });
+        return;
+      }
+      if (/^(?:yes|yeah|yep|ok|okay|sure|go\s+ahead|do\s+it|fill\s+(?:it|them|these))\b/i.test(text)) {
+        runAction({ label: text, action: { type: "confirmMasterFill" } });
+        return;
+      }
+      if (/^(?:no|nope|cancel|leave\s+it|don'?t|not\s+now)\b/i.test(text)) {
+        runAction({ label: text, action: { type: "cancelMasterFill" } });
+        return;
+      }
+      masterFillRef.current = null;
+    }
+    // Asked "whose details?": the answer is the person, unless it is an instruction.
+    if (awaitingPersonRef.current && t2 && awaitingPersonRef.current === t2.recordId) {
+      awaitingPersonRef.current = null;
+      if (!parseAssistantCommand(text, true, todayISO(), { strict: true }) && !/^(?:stop|cancel|no|never\s*mind|later)\b/i.test(text)) {
+        me(text);
+        askMasterFill(text, hrMasterIntent(text, true)?.kind === "fetch" ? (hrMasterIntent(text, true) as { query: string }).query || text : text);
+        return;
+      }
+    }
+
     if (awaitingSendBackReason && t2?.checklist) {
       me(text);
       setAwaitingSendBackReason(false);
@@ -940,6 +1080,14 @@ export function DocumentAssistant() {
     // unless it BEGINS with an instruction (submit, print, stop, skip …).
     const iv = interviewRef.current;
     if (iv && t2 && t2.recordId === iv.recordId) {
+      // "fetch GP3 1024" said mid-interview fetches that person; a bare GP3 No.
+      // or name is the answer to the question on screen.
+      const midFetch = hrMasterIntent(text, !!hrMasterLinkFor(t2.documentId));
+      if (midFetch?.kind === "fetch" && midFetch.explicit && hrMasterLinkFor(t2.documentId)) {
+        me(text);
+        askMasterFill(text, midFetch.query);
+        return;
+      }
       const midQ = parseAssistantCommand(text, true, todayISO(), { strict: true });
       if (midQ && runStrictCommand(midQ, text)) return;
       if (/^(stop|cancel|later|enough|not now|that'?s all)\b/i.test(text)) {
@@ -963,6 +1111,25 @@ export function DocumentAssistant() {
       bot(byFormat.reply, byFormat.chips);
       readOut(byFormat.reply);
       if (byFormat.navigate && isValidAppRoute(byFormat.navigate)) navigate(byFormat.navigate);
+      return;
+    }
+
+    // HR Master Data (REQUIREMENTS §53): "open HR master data" opens the sheet;
+    // "fetch GP3 1024" / "fill from HR master data for Sandeep Parekh" on an HR
+    // record that names a person lists what would go where and asks first.
+    const onLinkedRecord = !!(t2 && hrMasterLinkFor(t2.documentId));
+    const masterIntent = hrMasterIntent(text, onLinkedRecord);
+    if (masterIntent?.kind === "fetch" && onLinkedRecord && hrMasterVisible()) {
+      me(text);
+      askMasterFill(text, masterIntent.query);
+      return;
+    }
+    const masterAnswer = masterIntent ? hrMasterChatAnswer(text) : null;
+    if (masterAnswer) {
+      me(text);
+      bot(masterAnswer.reply, masterAnswer.chips);
+      readOut(masterAnswer.reply);
+      if (masterAnswer.navigate && isValidAppRoute(masterAnswer.navigate)) navigate(masterAnswer.navigate);
       return;
     }
 

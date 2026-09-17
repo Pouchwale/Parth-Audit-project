@@ -249,7 +249,7 @@ def main():
         page.wait_for_timeout(400)
 
         # --- Master data ---
-        page.click("text=Master Data")
+        page.click(".app-sidebar a[href='#/master-data']")
         page.wait_for_timeout(300)
         page.screenshot(path="tests/shots/12_masterdata.png", full_page=True)
 

@@ -8,6 +8,7 @@ import { readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
 import { parseAssistantCommand } from "../engine/assistantCommands";
+import { hrMasterChatAnswer } from "../engine/hrMasterAssistant";
 import { createRecordForDocument } from "../engine/recordCrud";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { routeForRecord } from "../engine/reminders";
@@ -238,6 +239,16 @@ export function AssistantPage() {
       if (spoken || speakReplies) speak(reply, speechLocale);
     };
     append(convId, { id: generateId("msg"), role: "user", text, at: stamp() });
+
+    // HR Master Data (REQUIREMENTS §53) — "open HR master data"; a fetch said
+    // here is told which record to open first.
+    const master = hrMasterChatAnswer(text);
+    if (master) {
+      append(convId, { id: generateId("msg"), role: "bot", text: master.reply, at: stamp(), chips: master.chips });
+      readOut(master.reply);
+      if (master.navigate && isValidAppRoute(master.navigate)) navigate(master.navigate);
+      return;
+    }
 
     // Starting or filling a whole document (engine/assistantCommands.ts) —
     // no network, and the same whether typed or spoken.

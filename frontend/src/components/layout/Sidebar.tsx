@@ -123,6 +123,8 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     // below: an overview, then a page per format under its group (REQUIREMENTS §47).
     { headingKey: "nav.hrRecords", group: true },
     { to: "/hr", labelKey: "nav.hrOverview", icon: FiHome },
+    // The employee master sheet the formats below fetch a person from (REQUIREMENTS §53).
+    { to: "/hr/master-data", labelKey: "nav.hrMasterData", icon: FiDatabase },
     { headingKey: "nav.hrPersonnel" },
     { to: "/hr/competence", labelKey: "nav.hrCompetence", icon: FiBriefcase },
     { to: "/hr/skill-matrix", labelKey: "nav.hrSkillMatrix", icon: FiTarget },
@@ -195,6 +197,8 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   // HR Records (data/seed/hrModule.ts): a format's page is shown when that format
   // is the viewer's, and the overview when any of the sixteen is.
   "/hr": HR_RECORD_PAGES.map((p) => p.docId),
+  // HR Master Data serves every one of them, so it goes with the overview.
+  "/hr/master-data": HR_RECORD_PAGES.map((p) => p.docId),
   ...Object.fromEntries(HR_RECORD_PAGES.map((p) => [`/hr/${p.slug}`, [p.docId]])),
   "/pest/daily": ["daily-pest-monitoring"],
   "/pest/service/rodent": ["service-report-rodent"],

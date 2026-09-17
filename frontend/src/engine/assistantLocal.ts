@@ -11,6 +11,7 @@ import { dayInfo, describeDay, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WE
 import { t } from "../i18n";
 import { guide, hello, whoIAm } from "./assistantPersona";
 import { documentsByFormatNumber, formatNumberAnswer } from "./formatNumbers";
+import { hrMasterChatAnswer } from "./hrMasterAssistant";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
 
 // WHAT THE ASSISTANT KNOWS WITHOUT ASKING THE MODEL.
@@ -671,6 +672,10 @@ export function localAnswer(message: string, isDemo: boolean, userName?: string)
   // is what was asked (engine/formatNumbers.ts, REQUIREMENTS §52).
   const byFormat = formatNumberAnswer(text);
   if (byFormat) return byFormat;
+
+  // "open HR master data", and where a fetch from it is done (REQUIREMENTS §53).
+  const hrMaster = hrMasterChatAnswer(text);
+  if (hrMaster) return hrMaster;
 
   if (HOLIDAY_RE.test(lower)) {
     if (ADJUSTMENT_RE.test(lower)) return { reply: listAdjustmentDays(today), chips: holidayChips() };

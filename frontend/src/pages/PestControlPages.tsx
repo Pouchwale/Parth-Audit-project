@@ -4,6 +4,7 @@ import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { pressable } from "../utils/pressable";
 import { printDocument } from "../utils/print";
+import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -532,6 +533,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
         <button className="btn btn-secondary btn-sm" onClick={() => navigate("/pest/trend/rodent")}>
           <FiTrendingUp size={12} /> Rodent Catch Trend
         </button>
+        <DownloadDocumentButton doc={doc} dateISO={`${year}-${String(month + 1).padStart(2, "0")}-01`} />
         <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
           <FiPrinter size={12} /> {t("pest.printRegister")}
         </button>

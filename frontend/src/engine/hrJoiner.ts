@@ -29,6 +29,8 @@ import { compareISO, todayISO } from "../utils/date";
 export type JoinerCategory = "staff" | "operator";
 
 export interface NewJoiner {
+  /** Their GP3 No., for HR Master Data (REQUIREMENTS §53) — no F/HR format prints it. */
+  gp3No: string;
   name: string;
   sex: "" | "Male" | "Female";
   /** YYYY-MM-DD or "". */
@@ -66,6 +68,7 @@ export const JOINER_TARGETS: JoinerTarget[] = [
 
 export function blankJoiner(): NewJoiner {
   return {
+    gp3No: "",
     name: "",
     sex: "",
     dateOfBirth: "",

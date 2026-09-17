@@ -29,6 +29,7 @@ import { useSetAssistantTarget } from "../store/AssistantContext";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
+import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { COMPANY } from "../data/seed/masterData";
 
 const GAP_DOC_ID = "gap-inspection";
@@ -625,6 +626,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
         onCancelCorrection={record.correction ? handleCancelCorrection : undefined}
         correctionFromStatus={record.correction?.fromStatus}
         onPrint={() => printDocument()}
+        download={<DownloadDocumentButton doc={doc} dateISO={record.dueDate} />}
         onDelete={handleDelete}
       />
     </div>

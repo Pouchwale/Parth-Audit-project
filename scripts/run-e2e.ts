@@ -4,7 +4,8 @@
 // tests/e2e_agreement_and_cancel.py, tests/e2e_crud.py,
 // tests/e2e_print_all_documents.py, tests/e2e_assistant_fill.py,
 // tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py,
-// tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_format_numbers.py): build,
+// tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_format_numbers.py,
+// tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py): build,
 // single-process server (dist/ + auth API) on the port the tests expect,
 // wait for it to answer, run each suite in turn against the same server,
 // then always tear the server down again -- regardless of pass/fail -- so
@@ -99,6 +100,8 @@ async function main(): Promise<void> {
       "tests/e2e_hr_cv_import.py",
       "tests/e2e_qc_calibration.py",
       "tests/e2e_format_numbers.py",
+      "tests/e2e_hr_master_data.py",
+      "tests/e2e_downloads_and_print.py",
     ];
     exitCode = 0;
     for (const suite of suites) {

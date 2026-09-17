@@ -35,6 +35,7 @@ import {
   ServiceReportListPage,
 } from "./pages/PestControlPages";
 import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
+import { HrMasterDataPage } from "./pages/HrMasterDataPage";
 import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
 
 function NotFoundPage() {
@@ -125,7 +126,9 @@ function RouteSwitch() {
       return <NotFoundPage />;
     case "hr":
       // HR Records — the Human Resources module's own sixteen formats: the
-      // overview of their five groups, and one page per format (REQUIREMENTS §47).
+      // overview of their five groups, and one page per format (REQUIREMENTS §47) —
+      // and HR Master Data, the employee sheet those formats fetch from (§53).
+      if (rest[0] === "master-data") return <HrMasterDataPage />;
       return rest[0] ? <HrDocumentPage key={rest[0]} slug={rest[0]} /> : <HrOverviewPage />;
     case "document":
       // Any other log sheet's own page — where "Open Document" lands.

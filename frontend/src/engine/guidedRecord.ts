@@ -17,6 +17,8 @@ import type {
 } from "../types";
 import { TBC } from "../types";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
+import { applyFills, describePerson, hrMasterLinkFor, personFill, searchPeople } from "./hrMaster";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { CAF_COMPLAINT_SUB_TYPES, CAF_COMPLAINT_TYPES } from "../data/seed/complaintAck";
 import { COMPANY } from "../data/seed/masterData";
@@ -549,7 +551,47 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
   const rows = (x: Obj) => ((x.rows as LogSheetRow[]) ?? []);
   const setHeader = (x: Obj, key: string, v: unknown): Obj => ({ ...x, header: { ...header(x), [key]: String(v ?? "") } });
 
+  // The person an HR form is about can be answered with a GP3 No. or a name on
+  // HR Master Data, which fills their other blank boxes too — so those
+  // questions are not asked (REQUIREMENTS §53).
+  const link = hrMasterLinkFor(doc.id);
+  const personKey = link?.where === "header" ? link.nameField : null;
+
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+    if (link && f.key === personKey) {
+      qs.push({
+        id: `h-${f.key}`,
+        label: f.label,
+        ask: `${f.label}? (a GP3 No. or a name on HR Master Data fills in the rest)`,
+        type: "text",
+        optional: !f.required,
+        answered: (x) => !blank(header(x)[f.key]),
+        parse: (raw) => {
+          const text = raw.trim();
+          if (!text) return null;
+          const { exact } = searchPeople(text, hrMasterRepository.all());
+          if (exact) return { personId: exact.id };
+          // A number is a GP3 No., never a name.
+          return /\d/.test(text) && !/[a-z]{3,}/i.test(text.replace(/\bgp\s*-?\s*3\b|\bno\b\.?/gi, "")) ? { unknownNumber: text } : text;
+        },
+        validate: (v) =>
+          typeof v === "object" && v && "unknownNumber" in v
+            ? `No one on HR Master Data has the GP3 No. "${(v as { unknownNumber: string }).unknownNumber}" — give their name, or add them to the sheet first.`
+            : null,
+        apply: (x, v) => {
+          const person = typeof v === "object" && v ? hrMasterRepository.get((v as { personId: string }).personId) : undefined;
+          if (!person) return setHeader(x, f.key, v);
+          const current = { ...header(x), [f.key]: "" };
+          const { fills } = personFill(link, person, current);
+          return { ...x, header: applyFills(current, fills) };
+        },
+        ack: (v) => {
+          const person = typeof v === "object" && v ? hrMasterRepository.get((v as { personId: string }).personId) : undefined;
+          return person ? `${f.label}: ${person.fullName} — from HR Master Data (${describePerson(person)}); the rest of their details are filled in.` : `${f.label}: ${String(v)}.`;
+        },
+      });
+      continue;
+    }
     const isReason = f.key === "deviationReason";
     const suggestion = layout.specimenHeader?.[f.key] ?? (f.autoFill?.default !== undefined ? String(f.autoFill.default) : undefined);
     qs.push({

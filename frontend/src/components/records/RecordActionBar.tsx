@@ -25,6 +25,7 @@ export function RecordActionBar({
   correctionFromStatus,
   correctionChangeCount = 0,
   onPrint,
+  download,
   onDelete,
 }: {
   status: RecordStatus;
@@ -49,6 +50,8 @@ export function RecordActionBar({
   /** How much has been changed since Edit — 0 asks nothing, anything else confirms first. */
   correctionChangeCount?: number;
   onPrint: () => void;
+  /** Download Excel / Word beside Print (components/common/DownloadDocumentButton.tsx). */
+  download?: React.ReactNode;
   // Optional: omit to hide Delete entirely (e.g. while the record's own
   // page hasn't wired a destination to navigate back to after deleting).
   // The reason is what goes into the deletion log (engine/recordCrud.ts).
@@ -83,6 +86,7 @@ export function RecordActionBar({
           <FiTrash2 size={13} /> {t("common.delete")}
         </button>
       )}
+      {download}
       <button className="btn btn-secondary btn-sm" onClick={onPrint}>
         <FiPrinter size={13} /> {t("common.printRecord")}
       </button>

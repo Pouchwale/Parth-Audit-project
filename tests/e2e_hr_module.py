@@ -282,8 +282,8 @@ with sync_playwright() as p:
     hr_links = page.eval_on_selector_all(
         ".nav-module:has(.nav-module-header:has-text('Human Resources')) a", "els => els.map((e) => e.getAttribute('href'))"
     )
-    check("HR Records has an overview and a page for each of the sixteen formats, like the pest control file",
-          hr_links[:17] == ["#/hr"] + [f"#/hr/{slug}" for _, slug in HR_PAGES], hr_links[:17])
+    check("HR Records has an overview, HR Master Data (REQUIREMENTS s53) and a page for each of the sixteen formats, like the pest control file",
+          hr_links[:18] == ["#/hr", "#/hr/master-data"] + [f"#/hr/{slug}" for _, slug in HR_PAGES], hr_links[:18])
     check("...and the pest control file's pages are still there, inside the module",
           page.locator("a:has-text('Daily Pest Control Monitoring')").count() == 1 and page.locator("a:has-text('Rat / Mice')").count() == 1
           and page.locator("a:has-text('Training Records')").count() == 1)
