@@ -115,7 +115,8 @@ The app behaves like a personal assistant rather than a blank form:
   them.
 - **The whole project's data in PostgreSQL** (REQUIREMENTS §55): accounts and all the app's data in one
   PostgreSQL database — shared by everyone signed in, each person's settings their own, two people's
-  simultaneous changes merged line by line, a change that could not be saved said so and sent again.
+  simultaneous changes merged against the copy both started from, a department's account handed only
+  its department's records, a change that could not be saved said so and sent again.
 - **Download Excel / Download Word, and print that fits the paper** (REQUIREMENTS §54). Every document screen can
   download the document as its own kind of file — registers and log sheets and the workbook originals as Excel,
   forms, letters and the Word originals as Word — made from the document as filled in on screen; only the

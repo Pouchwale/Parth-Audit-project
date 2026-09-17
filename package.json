@@ -18,7 +18,8 @@
     "build": "npm run build --workspace=frontend",
     "start": "npm run build --workspace=frontend && npm run start --workspace=backend",
     "typecheck": "npm run typecheck --workspace=frontend && tsc -p tsconfig.node.json",
-    "test:e2e": "node --no-warnings=ExperimentalWarning scripts/run-e2e.ts"
+    "test:e2e": "node --no-warnings=ExperimentalWarning scripts/run-e2e.ts",
+    "db:stop": "node --no-warnings=ExperimentalWarning scripts/db-stop.ts"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

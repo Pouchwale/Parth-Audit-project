@@ -16,6 +16,13 @@ postgres only not any other else". REQUIREMENTS s55. The runner gives this suite
     computer, and goes as soon as the database answers again;
   * a change still on its way when the page was closed reaches the database at
     the next sign-in;
+  * signing out and in again in the same tab never writes the old copy back
+    over what others did in between;
+  * records a browser kept from before the database existed are merged in at
+    its first sign-in, not thrown away;
+  * an account kept to a department is handed only that department's records,
+    not HR Master Data, and what it writes leaves everyone else's records alone;
+  * the date the system went live is the company's, not a person's;
   * the server's accounts are in PostgreSQL: signing in works, a wrong password
     does not.
 
@@ -81,6 +88,32 @@ def set_gp3(page, pid, value):
     box = gp3_box(page, pid)
     box.fill(value)
     box.blur()
+
+
+def records_on_server(page):
+    import json
+
+    item = stored(page).get("records")
+    return json.loads(item[2]) if item else []
+
+
+def put_records(page, change):
+    """Changes the stored records the way another client would: read, change, write with the version read."""
+    return page.evaluate(
+        """async (change) => {
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const j = await (await fetch('/api/storage')).json();
+            const item = j.items.find((i) => i.key === 'records');
+            const records = JSON.parse(item.value);
+            const now = new Date().toISOString();
+            records.push({ id: change.id, documentId: change.documentId, periodKey: change.documentId + ':2020-02-02#' + change.id, dueDate: '2020-02-02', status: 'Verified', isDemo: false, data: {}, createdAt: now, updatedAt: now });
+            const res = await fetch('/api/storage/records', { method: 'PUT', headers: { 'Content-Type': 'text/plain', 'X-Base-Version': String(item.version) }, body: JSON.stringify(records) });
+            if (res.status !== 409) return res.status;
+          }
+          return 409;
+        }""",
+        change,
+    )
 
 
 def wait_until(fn, timeout_s=15, step_ms=300, page=None):
@@ -202,7 +235,89 @@ with sync_playwright() as p:
     check("...and nobody's other changes were lost on the way", (person_on_server(a, "hrm-hrc-1") or {}).get("gp3No") == "3002" and (person_on_server(a, "hrm-hrc-3") or {}).get("gp3No") == "3004")
 
     # ==================================================================
-    # 7. The accounts are in the database
+    # 7. Signing out and in again in the same tab keeps what others did meanwhile
+    # ==================================================================
+    import json
+
+    a.goto(f"{BASE}/index.html#/calendar")
+    a.wait_for_timeout(1500)
+    a.locator("button[title='Log Out']").first.click()
+    a.wait_for_selector("#login-email", timeout=20000)
+    other_id = f"pg-meanwhile-{stamp}"
+    check("(meanwhile, someone else adds a record)", put_records(b, {"id": other_id, "documentId": "daily-pest-monitoring"}) == 200)
+    a.fill("#login-email", f"db-alpha-{stamp}@example.com")
+    a.fill("#login-password", PASSWORD)
+    a.click("button:has-text('Log In')")
+    a.wait_for_selector(".app-sidebar", timeout=60000)
+    a.wait_for_timeout(1200)
+    # A month nobody has opened: the app makes its records, so the records are written.
+    a.goto(f"{BASE}/index.html#/calendar/2027/3")
+    wrote = wait_until(lambda: any(str(r.get("dueDate", "")).startswith("2027-04") for r in records_on_server(a)), timeout_s=20, page=a)
+    check("Signing in again in the same tab and working on writes the records", wrote)
+    check("...without writing the old copy back over the record someone added meanwhile", any(r["id"] == other_id for r in records_on_server(a)))
+
+    # ==================================================================
+    # 8. Records kept in a browser from before the database are merged in
+    # ==================================================================
+    gamma_ctx = browser.new_context(viewport={"width": 1400, "height": 1000})
+    g = gamma_ctx.new_page()
+    g.on("pageerror", lambda e: errors.append(str(e)))
+    legacy_id = f"pg-legacy-{stamp}"
+    g.goto(f"{BASE}/index.html")
+    g.wait_for_timeout(500)
+    g.evaluate(
+        """(id) => {
+          const now = '2026-03-01T10:00:00.000Z';
+          localStorage.setItem('dcrs:v1:records', JSON.stringify([{ id, documentId: 'qc-viscosity', periodKey: 'qc-viscosity:2026-03-01#' + id, dueDate: '2026-03-01', status: 'Verified', isDemo: false, data: {}, createdAt: now, updatedAt: '2026-03-01T11:00:00.000Z' }]));
+        }""",
+        legacy_id,
+    )
+    signup(g, "Database Gamma", f"db-gamma-{stamp}@example.com")
+    check(
+        "A record this browser kept from before the database reaches it at the first sign-in",
+        wait_until(lambda: any(r["id"] == legacy_id for r in records_on_server(g)), timeout_s=20, page=g),
+    )
+    check("...and nothing the database already held is lost to it", any(r["id"] == other_id for r in records_on_server(g)))
+    gamma_ctx.close()
+
+    # ==================================================================
+    # 9. A department's account gets its department's records
+    # ==================================================================
+    qc = p.request.new_context(base_url=BASE)
+    made = qc.post("/api/auth/signup", data={"name": "Database QC", "email": f"db-qc-{stamp}@example.com", "password": PASSWORD, "departments": ["QC"]})
+    check("(an account kept to Quality Control)", made.status in (200, 201), made.status)
+    given = qc.get("/api/storage").json()
+    given_items = {i["key"]: i for i in given["items"]}
+    qc_records = json.loads(given_items["records"]["value"]) if "records" in given_items else []
+    hr_like = lambda r: r.get("documentId") in ("daily-pest-monitoring", "fly-catcher", "training-record") or str(r.get("documentId", "")).startswith("hr-")
+    check(
+        "An account kept to Quality Control is handed its own records and no Human Resources ones",
+        any(r.get("documentId") == "qc-viscosity" for r in qc_records) and not any(hr_like(r) for r in qc_records),
+        sorted({r.get("documentId") for r in qc_records})[:12],
+    )
+    check("...and not the HR Master Data sheet", "hrMasterData" not in given_items and "hrMasterData" in given.get("denied", []), given.get("denied"))
+    refused = qc.put("/api/storage/hrMasterData", data='{"people":[],"removedSeedIds":[]}', headers={"Content-Type": "text/plain", "X-Base-Version": "*"})
+    check("...which it cannot write either", refused.status == 403, refused.status)
+    kept = [r for r in qc_records if r["id"] != legacy_id]
+    written = qc.put("/api/storage/records", data=json.dumps(kept), headers={"Content-Type": "text/plain", "X-Base-Version": str(given_items["records"]["version"])})
+    check("What it writes to the records is stored", written.status == 200, written.status)
+    after = records_on_server(b)
+    check(
+        "...replacing only Quality Control's records: everyone else's stay as they were",
+        not any(r["id"] == legacy_id for r in after) and any(r["id"] == other_id for r in after) and any(hr_like(r) for r in after),
+    )
+    junk = qc.put("/api/storage/anything-else", data="{}", headers={"Content-Type": "text/plain"})
+    not_json = qc.put("/api/storage/settings", data="not json", headers={"Content-Type": "text/plain"})
+    check("Only the app's own items are stored, and only as JSON", junk.status == 400 and not_json.status == 400, (junk.status, not_json.status))
+
+    # ==================================================================
+    # 10. The date the system went live is the company's
+    # ==================================================================
+    live = stored(b).get("live-start")
+    check("The date the system went live is stored once, for the company", bool(live) and live[0] == "company" and json.loads(live[2]).get("date"), live)
+
+    # ==================================================================
+    # 11. The accounts are in the database
     # ==================================================================
     api = p.request.new_context(base_url=BASE)
     ok = api.post("/api/auth/login", data={"email": f"db-beta-{stamp}@example.com", "password": PASSWORD})

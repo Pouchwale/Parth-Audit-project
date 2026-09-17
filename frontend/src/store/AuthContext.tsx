@@ -1,10 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { setDepartmentScope } from "../engine/departmentScope";
-import { stopServerSync } from "../data/serverSync";
+import { SESSION_ENDED_EVENT, stopServerSync } from "../data/serverSync";
 import type { AuthUser } from "../types/auth";
 
-type AuthStatus = "checking" | "authenticated" | "unauthenticated";
+// "unreachable": the server (or its database) did not answer whether anyone is
+// signed in — not the same as nobody being signed in, so it is not shown the
+// sign-in screen (main.tsx says so, with Try again).
+type AuthStatus = "checking" | "authenticated" | "unauthenticated" | "unreachable";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -12,6 +15,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string, departments?: string[]) => Promise<void>;
   logout: () => Promise<void>;
+  /** Asks the server again who is signed in (after "unreachable"). */
+  retry: () => void;
 }
 
 // WHICH DEPARTMENTS THE PERSON MAY SEE is decided by their own account record
@@ -30,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>("checking");
 
+  const [check, setCheck] = useState(0);
   useEffect(() => {
     let cancelled = false;
     api
@@ -40,15 +46,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(res.user);
         setStatus("authenticated");
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
         applyScope(null);
         setUser(null);
-        setStatus("unauthenticated");
+        setStatus(err instanceof ApiError && err.status === 401 ? "unauthenticated" : "unreachable");
       });
     return () => {
       cancelled = true;
     };
+  }, [check]);
+
+  const retry = useCallback(() => {
+    setStatus("checking");
+    setCheck((n) => n + 1);
+  }, []);
+
+  // The session ran out, or was ended in another tab: the server refuses the
+  // stored data (data/serverSync.ts). Back to the sign-in screen — what was
+  // still unsent stays marked on this computer and goes at the next sign-in.
+  useEffect(() => {
+    const onEnded = () => {
+      void stopServerSync();
+      applyScope(null);
+      setUser(null);
+      setStatus((current) => (current === "checking" ? current : "unauthenticated"));
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -77,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  return <AuthContext.Provider value={{ user, status, login, signup, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, status, login, signup, logout, retry }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

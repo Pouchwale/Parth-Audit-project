@@ -151,9 +151,16 @@ Seven scripts live in `tests/`:
   second person signing in elsewhere, and their change reaching the first person's open screen without a
   reload; one person's language leaving the other's alone; two people changing the same sheet at once both
   keeping their change; a change the database cannot take said on screen, kept, and sent when it answers
-  again; a change on its way when the page closed reaching the database at the next opening; accounts
-  signing in from the database; the stored data refused without a session. Every suite now runs against
-  a PostgreSQL the runner starts for the run, emptied before each suite. Network-independent. (19 checks) `npm run test:e2e` is green at **1102 checks across twenty-two suites**, all on PostgreSQL, no JavaScript errors.
+  again; a change on its way when the page closed reaching the database at the next opening; signing out
+  and in again in the same tab never writing the old copy back over a record someone added meanwhile;
+  records a browser kept from before the database merged in at its first sign-in, nothing the database
+  held lost; an account kept to Quality Control handed only its own department's records and not HR Master
+  Data (which it cannot write either), and what it writes replacing only Quality Control's records; only
+  the app's own items, and only JSON, stored; the date the system went live stored once, for the company;
+  accounts signing in from the database; the stored data refused without a session. Every suite now runs
+  against a PostgreSQL the runner starts for the run, emptied before each suite
+  (`npm run test:e2e -- tests/e2e_postgres_storage.py` runs one suite). Network-independent. (32 checks)
+  `npm run test:e2e` is green at **1115 checks across twenty-two suites**, all on PostgreSQL, no JavaScript errors.
 - `tests/e2e_downloads_and_print.py` - every document as its own kind of file, and a wide one printed whole
   (REQUIREMENTS s54): F/HR/01, F/HR/09, the GAP report and the daily pest control register downloaded and read
   back as Excel workbooks (header block, bold heading row, every line and every one of F/HR/09's 29 columns,

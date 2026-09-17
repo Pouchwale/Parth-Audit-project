@@ -14,13 +14,14 @@
 // and tests/e2e_assistant_chat.py are NOT run here -- they're slower/make
 // real network calls to Groq -- see TESTING.md for running those manually.)
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import EmbeddedPostgres from "embedded-postgres";
 import pg from "pg";
+import { pgCtlPath } from "../backend/db.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -90,19 +91,53 @@ async function main(): Promise<void> {
   // never the database on this machine that holds real work.
   console.log("Starting a fresh PostgreSQL for the run...");
   const pgPort = await freePort();
+  const databaseDir = mkdtempSync(path.join(os.tmpdir(), "dcrs-e2e-pg-"));
+  const pgLog: string[] = [];
   const database = new EmbeddedPostgres({
-    databaseDir: mkdtempSync(path.join(os.tmpdir(), "dcrs-e2e-pg-")),
+    databaseDir,
     user: "postgres",
     password: "e2e",
     port: pgPort,
     persistent: false,
     initdbFlags: ["--encoding=UTF8", "--locale=C"],
-    onLog: () => {},
+    onLog: (message: unknown) => {
+      pgLog.push(String(message));
+      if (pgLog.length > 40) pgLog.shift();
+    },
     onError: (message: unknown) => console.error("[postgres]", String(message)),
   });
-  await database.initialise();
-  await database.start();
-  await database.createDatabase("dcrs_e2e");
+  const pgCtl = await pgCtlPath();
+  // Stopped with pg_ctl's fast shutdown — not the library's forced kill of the
+  // process tree, which on Windows can leave a postgres child behind — and the
+  // cluster's directory removed. Runs whether the run passed, failed or was
+  // interrupted, and whether or not the database got as far as starting.
+  let stopped = false;
+  const stopDatabase = async (): Promise<void> => {
+    if (stopped) return;
+    stopped = true;
+    spawnSync(pgCtl, ["stop", "-D", databaseDir, "-m", "fast", "-w", "-t", "60"], { stdio: "ignore", windowsHide: true });
+    (database as unknown as { process?: unknown }).process = undefined;
+    for (let i = 0; i < 10; i++) {
+      try {
+        rmSync(databaseDir, { recursive: true, force: true });
+        return;
+      } catch {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+  };
+  process.once("SIGINT", () => void stopDatabase().finally(() => process.exit(130)));
+  try {
+    await database.initialise();
+    await database.start();
+    await database.createDatabase("dcrs_e2e");
+  } catch (err) {
+    await stopDatabase();
+    throw new Error(
+      `PostgreSQL for the run did not start on :${pgPort}: ${err instanceof Error ? err.message : "postgres exited while starting"}` +
+        (pgLog.length ? `\n${pgLog.join("").trim().split(/\r?\n/).slice(-15).join("\n")}` : "")
+    );
+  }
   const DATABASE_URL = `postgres://postgres:e2e@127.0.0.1:${pgPort}/dcrs_e2e`;
 
   console.log(`Starting server on :${TEST_PORT}...`);
@@ -144,9 +179,13 @@ async function main(): Promise<void> {
       "tests/e2e_downloads_and_print.py",
       "tests/e2e_postgres_storage.py",
     ];
+    // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
+    const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));
+    const unknown = only.filter((a) => !suites.includes(a));
+    if (unknown.length) throw new Error(`Not suites of this run: ${unknown.join(", ")}`);
     exitCode = 0;
     await sql.connect();
-    for (const suite of suites) {
+    for (const suite of only.length ? suites.filter((s) => only.includes(s)) : suites) {
       // Each suite starts from an empty store, as each used to start from a
       // fresh browser: the app seeds it again on the first sign-in. The
       // accounts stay, as they did in the one account database.
@@ -162,7 +201,7 @@ async function main(): Promise<void> {
   } finally {
     server.kill();
     await sql.end().catch(() => undefined);
-    await database.stop().catch(() => undefined);
+    await stopDatabase();
   }
 
   process.exit(exitCode);

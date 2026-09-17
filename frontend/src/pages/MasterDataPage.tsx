@@ -315,8 +315,8 @@ export function MasterDataPage() {
             })()}
             <p className="text-xs text-faint mt-3">
               Morning briefing: {settingsRepository.get().workdayStart} for one hour · End-of-day briefing: the hour before{" "}
-              {settingsRepository.get().workdayEnd}. Records dated before {settingsRepository.get().liveStartDate ?? "—"} (when this browser first ran the
-              app) are treated as pre-launch and never generated or reminded about.
+              {settingsRepository.get().workdayEnd}. Records dated before {settingsRepository.get().liveStartDate ?? "—"} (when the system first ran for the
+              company) are treated as pre-launch and never generated or reminded about.
             </p>
           </div>
         </div>

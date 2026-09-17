@@ -19,7 +19,8 @@ data/storageAdapter.ts      IStorageAdapter interface + LocalStorageAdapter (+ M
         │
 data/serverSync.ts          Keeps the browser's working copy ("dcrs:v1:*") and the database in step:
                               loads everything at sign-in, sends each change, pulls others' changes
-                              every 5 s, merges a write refused as out of date.
+                              every 5 s, merges a write refused as out of date against the copy
+                              both sides started from (three-way).
         │  /api/storage
         ▼
 backend/db.ts               PostgreSQL — the only database (REQUIREMENTS §55): users, digest_log,

@@ -40,6 +40,18 @@ export interface AppSettings {
 }
 
 const KEY = "settings";
+// THE DATE THE SYSTEM WENT LIVE is the company's, not a person's (REQUIREMENTS
+// §55): the records are shared, so the floor that decides which of them are
+// real obligations has to be the same for everyone. It is kept on its own
+// company-wide item; the earliest date anyone's copy knows of wins (a person's
+// own settings from before carry theirs), so a person signing in for the first
+// time can never move it forward and make real overdue work look like noise.
+const LIVE_KEY = "live-start";
+
+function companyLiveStart(): string | null {
+  const date = readJSON<{ date?: unknown }>(LIVE_KEY, {}).date;
+  return typeof date === "string" && date ? date : null;
+}
 
 const DEFAULTS: AppSettings = {
   mode: "live",
@@ -58,20 +70,25 @@ export const settingsRepository = {
     // Spread over DEFAULTS (not returned raw) so a settings object saved
     // before a field like liveStartDate existed still comes back with it
     // present (as its default) rather than undefined.
-    return { ...DEFAULTS, ...readJSON<Partial<AppSettings>>(KEY, {}) };
+    const stored = readJSON<Partial<AppSettings>>(KEY, {});
+    return { ...DEFAULTS, ...stored, liveStartDate: companyLiveStart() ?? stored.liveStartDate ?? null };
   },
   update(patch: Partial<AppSettings>): AppSettings {
-    const next = { ...this.get(), ...patch };
-    writeJSON(KEY, next);
-    return next;
+    const { liveStartDate, ...own } = patch;
+    if (liveStartDate !== undefined) writeJSON(LIVE_KEY, { date: liveStartDate });
+    writeJSON(KEY, { ...DEFAULTS, ...readJSON<Partial<AppSettings>>(KEY, {}), ...own });
+    return this.get();
   },
-  // Idempotent: the first call on a given browser stamps today as the
-  // floor and persists it; every later call just returns that same date.
+  // Idempotent: the first call anywhere stamps today as the company's floor
+  // (or the earlier date a person's own settings carried from before); every
+  // later call just returns that same date.
   ensureLiveStartDate(todayISO: string): string {
-    const s = this.get();
-    if (s.liveStartDate) return s.liveStartDate;
-    writeJSON(KEY, { ...s, liveStartDate: todayISO });
-    return todayISO;
+    const company = companyLiveStart();
+    const own = readJSON<Partial<AppSettings>>(KEY, {}).liveStartDate;
+    const earliest = [company, own, todayISO].filter((d): d is string => typeof d === "string" && !!d).sort()[0];
+    if (company && company <= earliest) return company;
+    writeJSON(LIVE_KEY, { date: earliest });
+    return earliest;
   },
   briefingSlotsShownOn(dateISO: string): BriefingSlot[] {
     const s = this.get();
@@ -80,8 +97,9 @@ export const settingsRepository = {
   markBriefingShown(dateISO: string, slot: BriefingSlot): void {
     const s = this.get();
     const slots = s.briefingShown?.date === dateISO ? s.briefingShown.slots : [];
+    const { liveStartDate: _floor, ...own } = s;
     writeJSON(KEY, {
-      ...s,
+      ...own,
       briefingShown: { date: dateISO, slots: slots.includes(slot) ? slots : [...slots, slot] },
       briefingFirstShownAt: s.briefingFirstShownAt ?? new Date().toISOString(),
     });

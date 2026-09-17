@@ -88,11 +88,16 @@ export class MemoryStorageAdapter implements IStorageAdapter {
   }
 }
 
+// Checks that the browser's storage can be reached at all — not that there is
+// room in it: a full store is still the working copy, and a write that does not
+// fit says so (StorageFullBanner) instead of the app silently running on a
+// copy nothing is sent from. When storage is blocked outright, signing in stops
+// with a message instead (data/serverSync.ts).
 function detectAdapter(): IStorageAdapter {
   try {
-    const testKey = "__dcrs_test__";
-    window.localStorage.setItem(testKey, "1");
-    window.localStorage.removeItem(testKey);
+    const ls = window.localStorage;
+    if (!ls) throw new Error("no localStorage");
+    ls.getItem("__dcrs_test__");
     return new LocalStorageAdapter();
   } catch {
     console.warn("localStorage unavailable — falling back to in-memory storage (data will not persist).");

@@ -10,10 +10,12 @@ import crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import {
+  database,
   deleteItem,
   getUserByEmail,
   getUserById,
   insertUser,
+  isDatabaseUnavailable,
   listUsers,
   openDatabase,
   setUserDepartments,
@@ -21,6 +23,7 @@ import {
   writeItem,
   type UserRow,
 } from "./db.ts";
+import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
 import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, SESSION_TTL_MS, type PublicUser } from "./auth.ts";
 import { distDir } from "./paths.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS } from "./assistant.ts";
@@ -576,22 +579,99 @@ app.post("/api/reminders/send-digest", requireAuth, async (req: Request, res: Re
 });
 
 // THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55). The browser keeps a
-// working copy of each stored item (frontend/src/data/storageAdapter.ts): it
+// working copy of each stored item (frontend/src/data/serverSync.ts): it
 // loads them all here when a person signs in, asks every few seconds what
 // has changed since, and writes each item back as it changes. A write says
 // which version it was made from; one made from an out-of-date copy is
 // refused with the current item, which the browser merges and writes again.
 // What the whole plant shares is stored once for the company; a person's
 // settings, assistant conversations and screen layout are stored for them.
-const STORAGE_KEY_RE = /^[A-Za-z0-9._:-]{1,120}$/;
+//
+// ONLY THESE ITEMS, AS JSON. The keys are the app's own (mirrored in
+// serverSync.ts); anything else is refused, so nothing stored can make the
+// load fail for everybody.
+//
+// A DEPARTMENT'S ACCOUNT GETS ITS DEPARTMENT'S RECORDS (REQUIREMENTS §40). An
+// account kept to departments (not the administrator, and with departments
+// assigned) is handed only the records and deletions-log lines of documents
+// its departments own (or no department owns), and the HR Master Data sheet
+// only with Human Resources. What such an account writes to the records or
+// the log replaces only its own departments' lines; everyone else's stay as
+// they are stored. The department of a document comes from the same list the
+// app uses (frontend/src/data/seed/documentDepartments.ts).
+const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "referenceEdits", "deletions", "live-start"]);
 const USER_SCOPED_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
-const STORAGE_MAX_BYTES = "100mb";
+const STORAGE_MAX_BYTES = "25mb";
+const MAX_VERSION = 2147483647;
+/** Items whose lines each belong to a document, and so to a department. */
+const DEPARTMENT_LINE_KEYS = new Set(["records", "deletions"]);
+/** Items only Human Resources may hold. */
+const HR_ONLY_KEYS = ["hrMasterData"];
+
 const storageScope = (key: string, userId: string) => (USER_SCOPED_KEYS.has(key) ? userId : "company");
+
+/** The departments an account is kept to, or null for every department — as the app applies it (store/AuthContext.tsx). */
+function accountDepartments(user: PublicUser): string[] | null {
+  return user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
+}
+
+const deniedKeys = (departments: string[] | null): string[] => (departments && !departments.includes("HR") ? HR_ONLY_KEYS : []);
+
+// The format number of each stored document definition, for a document the
+// fixed list doesn't name (its department follows from the number).
+let formatNoCache: { version: number; byId: Map<string, string> } | null = null;
+async function documentFormatNos(): Promise<Map<string, string>> {
+  const found = await database().query<{ version: number }>("SELECT version FROM app_storage WHERE scope = 'company' AND key = 'documents'");
+  const version = found.rows[0]?.version ?? 0;
+  if (formatNoCache && formatNoCache.version === version) return formatNoCache.byId;
+  const byId = new Map<string, string>();
+  if (version > 0) {
+    const { rows } = await database().query<{ value: string }>("SELECT value FROM app_storage WHERE scope = 'company' AND key = 'documents'");
+    try {
+      for (const d of JSON.parse(rows[0]?.value ?? "[]") as { id?: unknown; formatNo?: unknown }[]) {
+        if (typeof d?.id === "string" && typeof d.formatNo === "string") byId.set(d.id, d.formatNo);
+      }
+    } catch {
+      /* unreadable definitions: the fixed list alone decides */
+    }
+  }
+  formatNoCache = { version, byId };
+  return byId;
+}
+
+async function lineVisibility(departments: string[]): Promise<(line: unknown) => boolean> {
+  const formatNos = await documentFormatNos();
+  return (line) => {
+    const id = (line as { documentId?: unknown } | null)?.documentId;
+    if (typeof id !== "string" || !id) return true;
+    const code = departmentOfDocument(id, formatNos.get(id));
+    return code === null || departments.includes(code);
+  };
+}
+
+function visibleLines(value: string, visible: (line: unknown) => boolean): string {
+  try {
+    const lines = JSON.parse(value);
+    return Array.isArray(lines) ? JSON.stringify(lines.filter(visible)) : value;
+  } catch {
+    return value;
+  }
+}
 
 app.get("/api/storage", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const user = (req as AuthedRequest).user;
   const since = Number(req.query.since ?? 0);
-  res.json(await storedItems(user.id, Number.isSafeInteger(since) && since > 0 ? since : 0));
+  const result = await storedItems(user.id, Number.isSafeInteger(since) && since > 0 ? since : 0);
+  const departments = accountDepartments(user);
+  const denied = deniedKeys(departments);
+  if (departments) {
+    const visible = await lineVisibility(departments);
+    result.items = result.items
+      .filter((item) => !denied.includes(item.key))
+      .map((item) => (DEPARTMENT_LINE_KEYS.has(item.key) && item.scope === "company" ? { ...item, value: visibleLines(item.value, visible) } : item));
+    for (const key of denied) delete result.versions[key];
+  }
+  res.json({ ...result, denied });
 });
 
 app.put(
@@ -600,30 +680,71 @@ app.put(
   express.text({ type: () => true, limit: STORAGE_MAX_BYTES }),
   async (req: Request, res: Response): Promise<void> => {
     const key = String(req.params.key ?? "");
-    if (!STORAGE_KEY_RE.test(key) || typeof req.body !== "string") {
+    if (!(COMPANY_KEYS.has(key) || USER_SCOPED_KEYS.has(key)) || typeof req.body !== "string") {
       res.status(400).json({ error: "Bad storage key or value." });
+      return;
+    }
+    try {
+      JSON.parse(req.body);
+    } catch {
+      res.status(400).json({ error: "A stored value must be JSON." });
       return;
     }
     const base = req.get("x-base-version");
     const baseVersion = base === undefined || base === "*" ? null : Number(base);
-    if (baseVersion !== null && (!Number.isSafeInteger(baseVersion) || baseVersion < 0)) {
+    if (baseVersion !== null && (!Number.isSafeInteger(baseVersion) || baseVersion < 0 || baseVersion > MAX_VERSION)) {
       res.status(400).json({ error: "Bad base version." });
       return;
     }
     const user = (req as AuthedRequest).user;
-    const result = await writeItem(storageScope(key, user.id), key, req.body, baseVersion, user.email);
-    if (result.ok) res.json({ version: result.version, seq: result.seq });
-    else res.status(409).json({ current: result.current });
+    const departments = accountDepartments(user);
+    if (deniedKeys(departments).includes(key)) {
+      res.status(403).json({ error: "This account's departments do not hold that." });
+      return;
+    }
+    const scoped = !!departments && DEPARTMENT_LINE_KEYS.has(key);
+    const visible = scoped ? await lineVisibility(departments!) : null;
+    const posted: string = req.body;
+    // A department's account writes its own departments' lines; everyone else's stay as stored.
+    const compose = visible
+      ? (stored: string | null): string => {
+          const mine = (JSON.parse(posted) as unknown[]).filter(visible);
+          let others: unknown[] = [];
+          try {
+            const all = stored ? JSON.parse(stored) : [];
+            if (Array.isArray(all)) others = all.filter((line) => !visible(line));
+          } catch {
+            /* nothing readable stored */
+          }
+          return JSON.stringify([...mine, ...others]);
+        }
+      : undefined;
+    if (compose && !Array.isArray(JSON.parse(posted))) {
+      res.status(400).json({ error: "A stored value must be JSON." });
+      return;
+    }
+    const result = await writeItem(storageScope(key, user.id), key, posted, baseVersion, user.email, compose);
+    if (result.ok) {
+      res.json({ version: result.version, seq: result.seq });
+      return;
+    }
+    const current = result.current && visible ? { ...result.current, value: visibleLines(result.current.value, visible) } : result.current;
+    res.status(409).json({ current });
   }
 );
 
 app.delete("/api/storage/:key", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const key = String(req.params.key ?? "");
-  if (!STORAGE_KEY_RE.test(key)) {
+  const user = (req as AuthedRequest).user;
+  if (!(COMPANY_KEYS.has(key) || USER_SCOPED_KEYS.has(key))) {
     res.status(400).json({ error: "Bad storage key." });
     return;
   }
-  const user = (req as AuthedRequest).user;
+  // The company's items are removed only by the administrator; a person's own, by them.
+  if (COMPANY_KEYS.has(key) && user.role !== "admin") {
+    res.status(403).json({ error: "Only the administrator may remove the company's data." });
+    return;
+  }
   await deleteItem(storageScope(key, user.id), key);
   res.status(204).end();
 });
@@ -653,6 +774,13 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     res.status(status).json({ error: status === 413 ? "Request is too large." : "Bad request." });
     return;
   }
+  // The database itself is down: said as that, so the app shows "could not be
+  // reached, try again" instead of treating a signed-in person as signed out.
+  if (isDatabaseUnavailable(err)) {
+    console.error("[postgres]", err instanceof Error ? err.message : err);
+    res.status(503).json({ error: "The database could not be reached." });
+    return;
+  }
   console.error(err);
   res.status(500).json({ error: "Something went wrong." });
 });
@@ -660,7 +788,7 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
 try {
   await openDatabase();
 } catch (err) {
-  console.error("Could not open the PostgreSQL database:", err);
+  console.error("Could not open the PostgreSQL database:", err instanceof Error ? err.message : err);
   process.exit(1);
 }
 

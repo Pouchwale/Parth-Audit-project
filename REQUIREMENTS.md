@@ -2493,7 +2493,9 @@ BEFORE               accounts and the digest log in SQLite (backend/data/app.db)
                       documents, master data, HR Master Data, settings — in each browser's localStorage
 DIGITAL TEMPLATE     backend/db.ts (PostgreSQL: schema, accounts, digest log, stored items, the local server,
                       the SQLite import), backend/index.ts (/api/storage), frontend/src/data/serverSync.ts,
-                      frontend/src/data/storageAdapter.ts, frontend/src/main.tsx, scripts/run-e2e.ts
+                      frontend/src/data/storageAdapter.ts, frontend/src/main.tsx, store/AuthContext.tsx,
+                      data/repositories/settingsRepository.ts, data/seed/documentDepartments.ts,
+                      scripts/run-e2e.ts, scripts/db-stop.ts
 ```
 
 **ONE DATABASE.** Everything the system keeps is in PostgreSQL:
@@ -2502,7 +2504,7 @@ DIGITAL TEMPLATE     backend/db.ts (PostgreSQL: schema, accounts, digest log, st
 |---|---|
 | `users` | the accounts (moved from SQLite) |
 | `digest_log` | the last date a reminder digest went out (moved from SQLite) |
-| `app_storage` | all of the app's data, one row per stored item — the company's: `records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`; each person's own: `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible` |
+| `app_storage` | all of the app's data, one row per stored item — the company's: `records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `live-start` (the date the system went live); each person's own: `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible`. No other items, and only JSON, are accepted |
 
 SQLite is gone from the server; the browser's storage is no longer where anything is kept. The only
 thing left in a browser alone is where the assistant bubble was dragged to on that screen.
@@ -2512,30 +2514,55 @@ working copy that is kept in step with the database:
 
 - **Signing in** loads the person's data — the company's items and their own — from the database, and
   only then does the app start. If the database cannot be reached the app says so, with *Try again*,
-  instead of opening on a copy that may be out of date.
+  instead of opening on a copy that may be out of date (and instead of the sign-in screen, when it is
+  the server that does not answer). Signing out and in again in the same tab starts from the
+  database's copy — never from what the page held before, which would write it back over what others
+  did in between. A browser that kept records from before the database merges them in at its first
+  sign-in; they are never thrown away.
 - **A change** shows at once and is written to the database a moment later.
 - **Other people's work** arrives every five seconds (and when the window comes back into focus) and the
   screen redraws — somebody editing HR Master Data sees a colleague's line change without reloading.
-- **Two people at once**: a write made from an out-of-date copy is refused by the database and merged —
-  records, HR Master Data lines and the deletions log line by line (the newer line wins; a line deleted
-  here stays deleted) — then written again. Neither person loses their change.
+- **Two people at once**: a write made from an out-of-date copy is refused by the database and merged
+  against the copy both started from — what only one side changed is kept, a line deleted on one side
+  and untouched on the other stays deleted, a line both changed keeps the later version — then written
+  again. Records and HR Master Data lines go by id; master data, document definitions, reference edits
+  and settings field by field; a save made while the request was out is part of the merge. Two browsers
+  opening a new month at once do not list its blank records twice. Neither person loses their change.
 - **A change the database could not take** stays on the computer, is sent again every few seconds, and
   a banner says so until it has gone. One still on its way when the page was closed is sent at the next
   sign-in.
 - **Settings are a person's own**: one person switching to Gujarati or to Demo Mode no longer switches
-  anyone else.
+  anyone else. A person's own change left unsent on a shared computer is kept aside for them — never
+  sent as the next person's.
+- **The date the system went live is the company's** (`live-start`): the records are shared, so the
+  floor that decides which of them are real obligations is the same for everyone, and the earliest date
+  anyone knows of stands. A person signing in for the first time can no longer make the plant's real
+  overdue work look like pre-launch noise to be cleaned up.
+- **A department's account gets its department's records** (§40, now enforced by the server): only
+  the records and deletions-log lines of its departments' documents, and HR Master Data only with Human
+  Resources; what it writes replaces only its own departments' lines.
+- **A session that ran out** goes back to the sign-in screen instead of a banner that never clears.
+- **A database reset or restored from a backup** is noticed by the pages left open (their copy is newer
+  than the database's), which load again from it instead of writing their old copy back.
+- **The browser's room**: the working copy still lives in the browser's storage, which is limited. When
+  it no longer fits, the database is never overwritten from an incomplete copy — the save says so, and
+  signing in says "no room" instead of starting on part of the data.
 
 **WHERE THE DATABASE IS.** `DATABASE_URL` names it (a deployment's own PostgreSQL). Without one, the
 server starts a PostgreSQL of its own on the machine (the `embedded-postgres` package: real PostgreSQL
 18 binaries, no installation), data in `backend/data/postgres` — so `npm start` still needs nothing but
-Node.js. The database must be UTF8 (the records hold Gujarati and dashes); the server refuses any
-other. An install with the old SQLite file has its accounts copied in on first start (the file is then
+Node.js. That PostgreSQL is started with `pg_ctl` as a process of its own: it keeps running when the
+server stops (a second server may be using it), is reused by the next start only if it is this app's
+own, and `npm run db:stop` shuts it down cleanly. A failed start quotes PostgreSQL's own log. The
+database must be UTF8 (the records hold Gujarati and dashes); the server refuses any other. An install with the old SQLite file has its accounts copied in on first start (the file is then
 renamed `app.db.imported`); records in a browser's storage go up the first time somebody signs in there.
 
 **TESTS.** The runner starts a PostgreSQL of its own for each run (a temporary cluster, thrown away
-after), and empties `app_storage` before each suite — as each suite used to start from a fresh browser.
+after, stopped with a clean shutdown even when a suite fails or the run is interrupted), and empties
+`app_storage` before each suite — as each suite used to start from a fresh browser.
+`npm run test:e2e -- tests/<suite>.py` runs chosen suites only.
 
-- Covered by `tests/e2e_postgres_storage.py` (**19 checks**), and by every other suite, which now
+- Covered by `tests/e2e_postgres_storage.py` (**32 checks**), and by every other suite, which now
   runs against PostgreSQL.
 
 ## Master data provenance summary

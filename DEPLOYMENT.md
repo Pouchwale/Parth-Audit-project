@@ -74,7 +74,8 @@ The app's operational data is in the same PostgreSQL database — see below.
 
 **Every piece of data the system keeps is in PostgreSQL** (`backend/db.ts`): the user accounts, the
 reminder digest log, and all of the app's own data — the records, the document definitions, master
-data, the HR Master Data sheet, reference edits and the deletions log (shared by the whole company),
+data, the HR Master Data sheet, reference edits, the deletions log and the date the system went live
+(shared by the whole company),
 and each person's settings, assistant conversations and sidebar layout (their own). Nothing is kept
 in SQLite or in files any more. The browser holds only a **working copy**: loaded from the database
 when a person signs in, written back a moment after every change, and refreshed from the database
@@ -87,7 +88,7 @@ Tables:
 |---|---|
 | `users` | accounts: id, name, email, bcrypt hash, role, created_at, departments |
 | `digest_log` | the last date a reminder digest was emailed (one row) |
-| `app_storage` | the app's data, one row per stored item: `scope` (`company`, or a user's id), `key` (`records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `settings`, `assistant-conversations`, …), `value` (the item as JSON text), `version`, `seq`, `updated_at`, `updated_by` |
+| `app_storage` | the app's data, one row per stored item: `scope` (`company`, or a user's id), `key` (`records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `live-start` for the company; `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible` for a person — no other keys are accepted), `value` (the item as JSON text), `version`, `seq`, `updated_at`, `updated_by` |
 
 **Where the database is.**
 
@@ -100,29 +101,60 @@ Tables:
 - **`DATABASE_URL` not set** — the server starts **a PostgreSQL of its own** on this machine, from the
   `embedded-postgres` npm package (real PostgreSQL 18 binaries, no installation, no admin rights),
   listening on `127.0.0.1:5433` (`EMBEDDED_PG_PORT` to change it), data in `backend/data/postgres`,
-  password generated once into `backend/data/postgres-password`. So `npm install && npm start` still
-  needs nothing but Node.js. The first start takes ~15 seconds to set the cluster up. If the server is
-  stopped hard, that PostgreSQL may keep running; the next start simply uses it.
+  password generated once into `backend/data/postgres-password`, its log in
+  `backend/data/postgres.log`. So `npm install && npm start` still needs nothing but Node.js. The first
+  start takes ~15 seconds to set the cluster up. It is started with `pg_ctl` as a process of its own and
+  **keeps running when the server stops** — a second server on the same machine (the live assistant
+  suite's, say) may be using it, and the next start simply uses it again. `npm run db:stop` shuts it
+  down cleanly (a fast shutdown, with a checkpoint). A server only reuses a PostgreSQL on that port if
+  it is this app's own (same data directory); another PostgreSQL there — the Windows installer often
+  puts a second one on 5433 — stops the start with a message naming the port and `EMBEDDED_PG_PORT`.
+  A start that fails quotes the last lines of the PostgreSQL log.
 
 **Coming from the SQLite version.** An install that has `backend/data/app.db` has its accounts and
 digest log copied into PostgreSQL automatically the first time the server starts against an empty
 database; the file is then renamed `app.db.imported` and never read again. The records that lived in
-a browser's `localStorage` go up the first time somebody signs in on that browser: anything the
-database does not hold yet is sent from the browser's copy.
+a browser's `localStorage` go up the first time somebody signs in on that browser: they are **merged**
+with what the database already holds (records, HR Master Data lines and deletions by id; other items
+field by field, the database's value kept where both have one), never thrown away.
 
 **Two people at once.** Each write says which version of the item it was made from. A write made from
-an out-of-date copy is refused (`409`) and comes back with what is stored now; for the records, the
-HR Master Data sheet and the deletions log the browser merges the two line by line — the newer version
-of each line wins, a line deleted here stays deleted — and writes the merged item. A change that
-cannot reach the database is kept on the computer and sent again, with a banner saying so; one still
-on its way when the page was closed is sent at the next sign-in.
+an out-of-date copy is refused (`409`) and comes back with what is stored now, and the browser merges
+the two **against the copy both started from** (the last one it had in step with the database): what
+only one side changed is kept; a line deleted on one side and untouched on the other stays deleted; a
+line both changed keeps the version changed last. This holds for every item — records and HR Master
+Data lines by id, master data, document definitions, reference edits and settings field by field — and
+for a save made while the request was on its way. Two browsers opening a new month at the same moment
+do not list its blank records twice. The date the system went live keeps the earliest date either
+side knows of. Writes take their sequence number one at a time, in commit order, so a browser asking
+"what changed since" never misses one. A change that cannot reach the database is kept on the computer
+and sent again, with a banner saying so; one still on its way when the page was closed is sent at the
+next sign-in (the copy it was made from is kept with it, so it merges properly). Signing out and in
+again in the same tab starts from the database's copy, never from what the page held before.
+
+**Departments.** An account kept to departments (not the administrator, and with departments
+assigned) is handed only the records and deletions-log lines of documents its departments own (or no
+department owns), and the HR Master Data sheet only with Human Resources (`403` otherwise). What such
+an account writes to the records replaces only its own departments' lines; everyone else's stay as
+stored. An account with no department assigned still sees every department (REQUIREMENTS §40), so the
+administrator should assign departments to new accounts.
+
+**Session and outages.** A session that has run out (or was ended in another tab) sends the page back
+to the sign-in screen; what was unsent goes at the next sign-in. When the server or its database does
+not answer, the app says so with *Try again* (the API answers `503`) instead of showing the sign-in
+screen.
 
 **API** (all need a signed-in session): `GET /api/storage` (everything for the person: the company's
-items and their own), `GET /api/storage?since=<seq>` (what changed), `PUT /api/storage/<key>` (body:
-the value; header `X-Base-Version`), `DELETE /api/storage/<key>`.
+items and their own, with every item's `versions` and the items the account may not hold, `denied`),
+`GET /api/storage?since=<seq>` (what changed), `PUT /api/storage/<key>` (body: the value as JSON;
+header `X-Base-Version`), `DELETE /api/storage/<key>` (the company's items: administrator only).
 
-**Capacity.** No browser quota applies any more: PostgreSQL holds the data. A single item may be up to
-100 MB (`STORAGE_MAX_BYTES` in `backend/index.ts`).
+**Capacity.** PostgreSQL holds the data, but each browser still keeps a working copy of the whole
+company's items in its `localStorage`, which browsers limit to about 5 MB of text per site. When a copy
+no longer fits, nothing is overwritten in the database: a save that does not fit says so on screen,
+a change from the database that does not fit is asked for again, and signing in stops with "This
+browser has no room for the company's records". Clearing Demo data frees the most room. A single
+stored item may be up to 25 MB (`STORAGE_MAX_BYTES` in `backend/index.ts`).
 
 ## Backup instructions
 
@@ -134,10 +166,13 @@ pg_dump --format=custom --file=dcrs-$(date +%F).dump "$DATABASE_URL"
 pg_restore --clean --if-exists --dbname="$DATABASE_URL" dcrs-2026-09-17.dump
 ```
 
-For the built-in local database, the same tools work against
-`postgres://postgres:<backend/data/postgres-password>@127.0.0.1:5433/dcrs` (the binaries are in
-`node_modules/@embedded-postgres/<platform>/native/bin/`); or stop the server and copy
-`backend/data/postgres/` as a whole.
+For the built-in local database, the same tools (from any PostgreSQL 18 client installation — the
+embedded package ships only the server) work against
+`postgres://postgres:<backend/data/postgres-password>@127.0.0.1:5433/dcrs`; or run `npm run db:stop`
+and copy `backend/data/postgres/` as a whole.
+
+Pages left open during a restore notice that the database went back (their copy is newer than it) and
+load the app again from the restored data; nothing they held is written over it.
 
 ## Reset-demo instructions
 
@@ -146,7 +181,8 @@ For the built-in local database, the same tools work against
   integrity guarantee).
 - **Full reset** (wipes Live data too — used for a clean pilot start): in PostgreSQL,
   `TRUNCATE app_storage;` (accounts stay). The app reseeds master/document/historical data the next
-  time somebody signs in (`frontend/src/data/bootstrap.ts`).
+  time somebody signs in (`frontend/src/data/bootstrap.ts`). Pages left open notice within a few
+  seconds and load again from the emptied database; none of them writes its old copy back.
 
 ## Environment configuration
 
