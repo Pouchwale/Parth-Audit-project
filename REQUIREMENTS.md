@@ -2213,7 +2213,7 @@ calibration record*, each Rev. 01 of 01.01.22 — the revision the scanned forms
   Acceptable Tolerance — and the layouts already have the columns for it.
 - **Master data.** Rashmi and Anjali join Employees as QA — Internal Calibration (Lab); both spellings
   are TO BE CONFIRMED, being handwritten. Both documents answer to them.
-- Covered by `tests/e2e_qc_calibration.py` (**32 checks**): both documents on the QC shelf with their
+- Covered by `tests/e2e_qc_calibration.py` (**34 checks**): both documents on the QC shelf with their
   format numbers and revisions; every column of both grids in the form's order; both supplied pages
   picked from the document's own page and read cell for cell, header block included; the illegible
   cells left blank and marked; a new weekly sheet starting from the page on file with the device
@@ -2567,7 +2567,7 @@ after, stopped with a clean shutdown even when a suite fails or the run is inter
 `app_storage` before each suite — as each suite used to start from a fresh browser.
 `npm run test:e2e -- tests/<suite>.py` runs chosen suites only.
 
-- Covered by `tests/e2e_postgres_storage.py` (**32 checks**), and by every other suite, which now
+- Covered by `tests/e2e_postgres_storage.py` (**34 checks**), and by every other suite, which now
   runs against PostgreSQL.
 
 ## Master data provenance summary

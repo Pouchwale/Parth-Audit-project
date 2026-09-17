@@ -159,8 +159,8 @@ Seven scripts live in `tests/`:
   the app's own items, and only JSON, stored; the date the system went live stored once, for the company;
   accounts signing in from the database; the stored data refused without a session. Every suite now runs
   against a PostgreSQL the runner starts for the run, emptied before each suite
-  (`npm run test:e2e -- tests/e2e_postgres_storage.py` runs one suite). Network-independent. (32 checks)
-  `npm run test:e2e` is green at **1115 checks across twenty-two suites**, all on PostgreSQL, no JavaScript errors.
+  (`npm run test:e2e -- tests/e2e_postgres_storage.py` runs one suite). Network-independent. (34 checks)
+  `npm run test:e2e` is green at **1117 checks across twenty-two suites**, all on PostgreSQL, no JavaScript errors.
 - `tests/e2e_downloads_and_print.py` - every document as its own kind of file, and a wide one printed whole
   (REQUIREMENTS s54): F/HR/01, F/HR/09, the GAP report and the daily pest control register downloaded and read
   back as Excel workbooks (header block, bold heading row, every line and every one of F/HR/09's 29 columns,
