@@ -125,6 +125,9 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **A printout carries the document alone** (REQUIREMENTS §59): the page takes no margin, so no browser
+  prints the date, the time, the screen's address or the page number around a controlled record; each
+  document keeps that 12 mm for itself, on every page of a register.
 - **Fast on a low-end computer** (REQUIREMENTS §56): measured with the processor slowed six times; read-only
   sheets as text, long lists that appear at once and fill in, no repeated scans of the records, syncing that
   never freezes the screen, and the app and its data compressed over the network.

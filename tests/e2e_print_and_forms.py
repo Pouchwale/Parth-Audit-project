@@ -5,6 +5,10 @@ and edited by Month & Year.
 Drives the real UI against the production build on :8842, network-independent
 (the assistant's plain-words edits are understood locally):
 
+  * The paper carries the document and nothing the browser adds (s59): the page
+    takes no margin, so a browser has nowhere to print the date, the time, the
+    address or the page number, and each document keeps that 12 mm for itself -
+    on every page of a register, which is built of page sections.
   * Print -- a record's Print button prints the form and nothing around it
     (the assistant's banner, the sidebar, the buttons); the register's own
     Print prints the register alone, as the paper form; the browser's own
@@ -249,6 +253,39 @@ with sync_playwright() as p:
     page.emulate_media(media="screen")
     check("Print on a record prints the form (the browser was asked to print once)", seen["printed"] == 1 and seen["scoped"] and seen["form"] and seen["rows"] == 16, seen)
     check("...and nothing around it: the assistant's banner, the sidebar and the buttons stay off the paper", not seen["banner"] and not seen["sidebar"] and not seen["submit"], seen)
+
+    # ---- nothing the browser adds goes on the paper (REQUIREMENTS s59) ----
+    # A browser prints its header and footer IN THE PAGE'S MARGIN - the date and
+    # time top left, the address and "1/3" at the foot. With no page margin
+    # there is nowhere for them, and the document carries its own margin.
+    margins = page.evaluate(
+        """() => {
+             const out = [];
+             for (const sheet of Array.from(document.styleSheets)) {
+               let rules;
+               try { rules = Array.from(sheet.cssRules); } catch (e) { continue; }
+               for (const r of rules) if (r.cssText && r.cssText.startsWith('@page')) out.push(r.style.margin || r.cssText);
+             }
+             return out;
+           }"""
+    )
+    check(
+        "The printed page takes no margin, so a browser cannot print the date and time on it",
+        len(margins) > 0 and all(m in ("0px", "0", "0px 0px 0px 0px") for m in margins),
+        margins,
+    )
+    kept = printed_view(
+        page,
+        """{
+          doc: getComputedStyle(document.querySelector('[data-print-doc]')).padding,
+        }""",
+    )
+    # 12 mm at 96 dpi is 45.35 px.
+    check(
+        "…and the document keeps that margin for itself, so it does not print against the paper's edge",
+        kept["doc"].startswith("45.3"),
+        kept,
+    )
     page.evaluate(END_PRINT)
     check(
         "When printing ends the page is back as it was",
@@ -258,6 +295,19 @@ with sync_playwright() as p:
     # ---- 4. F/HR/18: Add visit / Edit register for the chosen Month & Year ----
     open_register_for_last_month(page)
     month_year = page.locator(".fhr18-sheet .fhr18-month .v").first.inner_text().strip()
+    pages = printed_view(
+        page,
+        """{
+          wrapper: getComputedStyle(document.querySelector('[data-print-doc]')).padding,
+          sheet: getComputedStyle(document.querySelector('.register-page')).padding,
+          sheets: document.querySelectorAll('.register-page').length,
+        }""",
+    )
+    check(
+        "Every page of a register keeps the margin, and the register does not add a second one",
+        pages["sheets"] >= 2 and pages["sheet"].startswith("45.3") and pages["wrapper"] == "0px",
+        pages,
+    )
     check("The register shows the Month & Year chosen", month_year == f"{LAST_MONTH.strftime('%B').upper()}-{LAST_MONTH.strftime('%y')}", month_year)
     check("It offers Add visit, Edit register and Print on the register", all(page.locator(f"[data-action='{a}']").count() == 1 for a in ["fhr18-add", "fhr18-edit", "fhr18-print"]))
 

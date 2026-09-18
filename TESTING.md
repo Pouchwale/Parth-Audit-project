@@ -145,6 +145,10 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- `tests/e2e_print_and_forms.py` was extended on 19-Sep-2026 for REQUIREMENTS §59 (the paper carrying the
+  document alone): the `@page` rule carries no margin at all, so a browser has nowhere to print the date,
+  the time, the address or the page number; a printed document keeps that 12 mm for itself; and every page
+  of the F/HR/18 register keeps it without the register adding a second one. (3 checks)
 - `tests/e2e_format_numbers.py` - any document by its format number, and F/HR/05 as the form prints it
   (REQUIREMENTS s52): F/HR/05's seven lines (five topics numbered only by Sr. No., topic 2's points on their
   own lines, two blank lines that take a written topic); Search finding each document from F/HR/05, f-hr-05,

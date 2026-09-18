@@ -32,7 +32,9 @@ let active: { hidden: Element[]; ancestors: Element[] } | null = null;
 
 const PAGE_STYLE_ID = "print-page-fit";
 const PX_PER_MM = 96 / 25.4;
-// A4 less the 12 mm margins on each side (styles.css @page).
+// A4 less the 12 mm each side that a printed document keeps for itself
+// (styles.css, "Print"; the page itself has no margin, so that the browser
+// cannot print the date and the time in it — REQUIREMENTS §59).
 const PRINTABLE_WIDTH = { portrait: (210 - 24) * PX_PER_MM, landscape: (297 - 24) * PX_PER_MM };
 const SMALLEST_SCALE = 0.3;
 // A form a little too wide for a portrait page stays portrait, slightly smaller.
@@ -67,7 +69,7 @@ function fitToPage(docs: Element[]): void {
   const widest = Math.max(0, ...needs.map((n) => n.width));
   const landscape = widest > PRINTABLE_WIDTH.portrait / PORTRAIT_SCALE;
   const paper = landscape ? PRINTABLE_WIDTH.landscape : PRINTABLE_WIDTH.portrait;
-  pageStyle().textContent = landscape ? "@page { size: A4 landscape; margin: 12mm; }" : "";
+  pageStyle().textContent = landscape ? "@page { size: A4 landscape; margin: 0; }" : "";
   document.documentElement.dataset.printPage = landscape ? "landscape" : "portrait";
   for (const { doc, width } of needs) {
     if (width <= paper) continue;

@@ -2808,6 +2808,32 @@ being read in — those questions are screen text, not record content.
   `tests/e2e_translate.py` (the documents translated with the page, the marks that identify them left as
   issued).
 
+## 59. The paper carries the document, not the browser's date and time (19-Sep-2026)
+
+```
+REQUESTED            "i need to remove the time and date when user take print of any document"
+DIGITAL TEMPLATE     src/styles.css (@page and the print block), src/utils/print.ts
+```
+
+A browser prints its own header and footer around whatever it is given: Chrome and Edge put the **date and
+the time** in the top left, the screen's title top right, the address at the foot and "1 / 3" beside it.
+On a controlled record every one of those is wrong — a printed F/HR/17 is the register itself, and the date
+in its corner is the day somebody pressed Print, not the day the register records. An auditor holding the
+sheet has no way to tell the two apart.
+
+**THE PAGE NOW TAKES NO MARGIN.** There is no way to switch a browser's header off from the page; what
+decides whether it prints is whether there is a margin to print it in. So `@page` asks for A4 with
+`margin: 0`, and the 12 mm the paper used to keep is moved onto the documents themselves. A register and a
+complaint report are built of page sections, one printed page each, so the margin goes on those and every
+page of them keeps it; every other document takes it on itself. The printout is the same size on the paper
+as it was before — what has gone is the line of browser text above and below it.
+
+This also covers the address of the screen it was printed from (`localhost:8842/index.html#/record/…`),
+which had no business on a controlled record either.
+
+- Covered by `tests/e2e_print_and_forms.py`: the page rule carries no margin, a printed document keeps the
+  12 mm for itself, and every page of a register keeps it without the register adding a second one.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

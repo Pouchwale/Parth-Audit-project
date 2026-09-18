@@ -680,10 +680,21 @@ textarea.input { resize: vertical; min-height: 60px; }
 /* ---- Print ---- */
 @page {
   size: A4;
-  margin: 12mm;
+  /* No page margin, so the browser has nowhere to print the date, the time,
+     the address and the page number: a printed record carries what the form
+     carries and nothing else. The 12 mm margin moves onto the documents
+     themselves, below (REQUIREMENTS §59). */
+  margin: 0;
 }
 @media print {
   .app-sidebar, .app-topbar, .mode-banner, .no-print { display: none !important; }
+  /* The margin the page gave up (see @page above). A register and a complaint
+     report are built of page sections, one printed page each, so the margin
+     goes on those and every page of them keeps it; anything else takes it on
+     the document itself. */
+  [data-print-doc] { padding: 12mm; }
+  [data-print-doc]:has(.register-page), [data-print-doc]:has(.caf-page) { padding: 0; }
+  .register-page, .caf-page { padding: 12mm !important; }
   .print-only { display: block !important; }
   .app-content { max-width: 100%; padding: 0; }
   body { background: #fff; }
