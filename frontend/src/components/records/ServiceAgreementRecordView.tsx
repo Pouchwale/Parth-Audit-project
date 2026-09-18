@@ -41,7 +41,8 @@ function ClauseList({
         <div key={i} className="pr-item">
           <span className="pr-marker">{marker(i)}</span>
           <div className="pr-item-text">
-            <FormField field={`${field}-${i + 1}`} kind="long" value={text} editable={editable} onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))} />
+            {/* A printed clause is the paper's own wording (REQUIREMENTS §58). */}
+            <FormField field={`${field}-${i + 1}`} kind="long" translatable value={text} editable={editable} onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))} />
           </div>
           {editable && (
             <button className="btn btn-ghost btn-sm btn-icon no-print" title="Remove this point" aria-label="Remove this point" onClick={() => onChange(items.filter((_, xi) => xi !== i))}>
@@ -206,7 +207,7 @@ export function ServiceAgreementRecordView({
   });
 
   return (
-    <div className="caf-sheet sa-sheet notranslate" translate="no" data-doc="service-agreement">
+    <div className="caf-sheet sa-sheet" data-doc="service-agreement">
       {/* The signed copy, where there is one: that IS the agreement. */}
       {(data.scans.length > 0 || editable) && (
         <section className="sa-scans" data-section="agreement-scans">

@@ -11,10 +11,11 @@ import { routeForRecord } from "../engine/reminders";
 import { formatDisplayDate, fromISODate, todayISO } from "../utils/date";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
+import { documentTextIn } from "../i18n/documentText";
 
 export function DayViewPage({ date }: { date?: string }) {
   const dateISO = date ?? todayISO();
-  const { mode, version } = useAppStore();
+  const { mode, version, lang } = useAppStore();
   const { navigate, backTo } = useRouter();
   const isDemo = mode === "demo";
   const d = fromISODate(dateISO);
@@ -97,7 +98,7 @@ export function DayViewPage({ date }: { date?: string }) {
                   <tr key={r.id}>
                     <td>
                       <div className="font-semibold">
-                        {doc?.name} {r.isDemo && <DemoTag />}
+                        {documentTextIn(doc?.name, lang)} {r.isDemo && <DemoTag />}
                       </div>
                       <div className="text-faint text-xs">
                         {doc?.module}

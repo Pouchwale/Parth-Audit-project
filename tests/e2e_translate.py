@@ -10,7 +10,16 @@ appears later. That swap is exactly what trips React up, so this proves:
   * choosing ગુજરાતી loads Google Translate and the WHOLE page is translated
     (from the English screens, not the built-in Gujarati), with Google's
     toolbar hidden and the page not pushed down;
-  * issued documents (forms, registers, headers) are left exactly as issued;
+  * the documents follow the chosen language too (REQUIREMENTS s58): the forms,
+    the registers and their printed instructions are translated along with the
+    screens around them, while the marks that identify a record - the format
+    number, the revision, the company's registered name - read exactly as
+    issued, and so does what was typed into it;
+  * a format the department issues IN GUJARATI reads in English while English
+    is chosen, without Google being involved at all, and is not handed to Google
+    at all when ગુજરાતી is chosen - it already reads as issued;
+  * a value somebody TYPED into a register still reads as typed with the page
+    translated, shown as text in a read-only view;
   * every page still works with the page translated — no crash — and text
     that changes afterwards (a count, "All changes saved") shows its NEW value,
     translated again (like Google, the stand-in never re-translates a node it
@@ -211,12 +220,17 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/index.html#/pest/daily")
     page.wait_for_timeout(900)
     kept = protected_text(page)
+    sheet = page.locator("[data-print-doc]").first.inner_text()
     check(
-        "The F/HR/17 register is left exactly as issued (its check points are not translated)",
-        "Total number of rodent traps provided" in kept and MARK not in kept,
+        "The F/HR/17 register itself reads in Gujarati — its ten printed check points included",
+        MARK in sheet and "Total number of rodent traps provided" in plain(sheet),
+        sheet[:400],
+    )
+    check(
+        "…while the marks that identify it are left exactly as issued (format number, revision, company name)",
+        "F/HR/17" in kept and MARK not in kept,
         kept[:300],
     )
-    check("…while the page around it is translated", MARK in page.locator(".app-content").inner_text())
 
     today = date.today().isoformat()
     # The next WORKING day's daily record: on a closed day (the Thursday weekly
@@ -229,7 +243,19 @@ with sync_playwright() as p:
     page.wait_for_timeout(900)
     dismiss(page)
     kept = protected_text(page)
-    check("An open record's form is left exactly as issued", "F/HR/17" in kept and MARK not in kept, kept[:200])
+    header = page.locator(".doc-header").first.inner_text()
+    check(
+        "An open record's form reads in Gujarati — the form's own headings and labels translated",
+        # The form's header row prints its labels in capitals (CSS), so the
+        # text reads "FORMAT NO." with the translation mark in front of it.
+        MARK in header and "FORMAT NO." in plain(header).upper(),
+        header[:300],
+    )
+    check(
+        "…and its format number, revision and date read exactly as issued, and are never sent to Google",
+        "F/HR/17" in kept and MARK not in kept,
+        kept[:200],
+    )
     page.fill("input[placeholder='Name of checker']", "Vijay")
     page.wait_for_timeout(1500)
     saved = page.locator("[data-save-state='saved']")
@@ -240,6 +266,45 @@ with sync_playwright() as p:
     )
     stored = page.evaluate("(id) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find(r => r.id === id).data.checker", rid)
     check("Typing into a form still saves with the page translated", stored == "Vijay", stored)
+
+    # ---- what was WRITTEN into a record reads as written, even translated ----
+    # The register shows the month's checkers as text, not in a box, so this is
+    # exactly where a name would be machine-translated if it were unprotected
+    # (REQUIREMENTS s58).
+    page.goto(f"{BASE}/index.html#/pest/daily")
+    page.wait_for_timeout(900)
+    dismiss(page)
+    kept = protected_text(page)
+    body = page.locator("[data-print-doc]").first.inner_text()
+    check(
+        "A name typed into the register reads exactly as typed with the page translated",
+        "Vijay" in kept and f"{MARK}Vijay" not in body,
+        (("Vijay" in kept), [l for l in body.split("\n") if "Vijay" in l][:3]),
+    )
+
+    # ---- a QC format: its printed words translated, its number as issued ----
+    page.goto(f"{BASE}/index.html#/document/qc-bopp-film")
+    page.wait_for_timeout(1200)
+    dismiss(page)
+    sheet = page.locator("[data-print-doc]").first.inner_text()
+    kept = protected_text(page)
+    check(
+        "An inspection record's printed words are translated with the page",
+        MARK in sheet and "Date of Inspection" in plain(sheet),
+        sheet[:300],
+    )
+    check("…and its format number reads as issued", "F/QC/01" in kept and MARK not in kept, kept[:200])
+
+    # ---- a form issued IN GUJARATI is not handed to Google at all ----
+    page.goto(f"{BASE}/index.html#/document/qc-line-clearance-materials")
+    page.wait_for_timeout(1200)
+    dismiss(page)
+    sheet = page.locator("[data-print-doc]").first.inner_text()
+    check(
+        "A form the department issues in Gujarati reads exactly as issued, untouched by Google",
+        "પ્રિન્ટીંગ" in sheet and "રો–મટીરીયલ્સ સ્ટોક" in sheet and MARK not in sheet,
+        sheet[:400],
+    )
 
     # A count that changes when a folder is picked.
     first = date.today().replace(day=1).isoformat()

@@ -3,6 +3,8 @@ import type { DocumentReminder, ReminderUrgency } from "../../engine/reminders";
 import { formatDisplayDate } from "../../utils/date";
 import { useRouter } from "../../store/router";
 import { pressable } from "../../utils/pressable";
+import { documentTextIn } from "../../i18n/documentText";
+import { useAppStore } from "../../store/AppStore";
 
 const URGENCY_LABEL: Record<ReminderUrgency, string> = {
   overdue: "Overdue",
@@ -25,6 +27,8 @@ function urgencyDetail(r: DocumentReminder): string {
 // Shared between the notification bell dropdown and the on-login popup so
 // both present reminders identically.
 export function ReminderList({ reminders, onNavigate }: { reminders: DocumentReminder[]; onNavigate?: () => void }) {
+  // A format issued in Gujarati is named in the chosen language (REQUIREMENTS §58).
+  const { lang } = useAppStore();
   const { navigate } = useRouter();
 
   if (reminders.length === 0) {
@@ -44,7 +48,7 @@ export function ReminderList({ reminders, onNavigate }: { reminders: DocumentRem
           })}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold">{r.documentName}</span>
+            <span className="text-sm font-semibold">{documentTextIn(r.documentName, lang)}</span>
             <span className={`badge ${URGENCY_BADGE[r.urgency]}`}>{URGENCY_LABEL[r.urgency]}</span>
           </div>
           <div className="text-xs text-muted mt-1">

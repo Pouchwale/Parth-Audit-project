@@ -23,6 +23,7 @@ export function FormField({
   value,
   onChange,
   editable,
+  translatable = false,
   kind = "text",
   field,
   placeholder,
@@ -34,6 +35,8 @@ export function FormField({
   value: string;
   onChange: (v: string) => void;
   editable: boolean;
+  /** True for the paper's own printed wording (a letter's body, a printed responsibility), which follows the chosen language; false for a written value, which never does (REQUIREMENTS §58). */
+  translatable?: boolean;
   kind?: FieldKind;
   field: string;
   placeholder?: string;
@@ -47,7 +50,21 @@ export function FormField({
 }) {
   const shown = kind === "date" ? formDate(value) : value;
   const cls = `caf-value${kind === "long" ? " long" : ""}${roomy ? " roomy" : ""}${editable ? " caf-print-only" : ""}`;
-  const text = kind === "long" ? <div className={cls}>{shown}</div> : <span className={cls}>{shown}</span>;
+  // What was written on the form reads exactly as it was written in either
+  // language (REQUIREMENTS §58); the paper's own wording the caller marks
+  // `translatable` follows the chosen language, like every other printed line.
+  const keep = translatable ? "" : " notranslate";
+  const no = translatable ? undefined : "no";
+  const text =
+    kind === "long" ? (
+      <div className={`${cls}${keep}`} translate={no}>
+        {shown}
+      </div>
+    ) : (
+      <span className={`${cls}${keep}`} translate={no}>
+        {shown}
+      </span>
+    );
   if (!editable) return text;
   const says = problem ? problem(value) : null;
   const tidy = () => {

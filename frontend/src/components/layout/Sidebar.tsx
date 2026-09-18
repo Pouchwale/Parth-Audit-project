@@ -47,6 +47,7 @@ import { readJSON, writeJSON } from "../../data/storageAdapter";
 import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
 import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
+import { QC_OVERVIEW_DOCUMENT_IDS } from "../../data/seed/qcModule";
 
 interface NavItem {
   to: string;
@@ -170,7 +171,13 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
   ],
   "Lamination — Quality Control": [{ to: "/library/lamination-quality-control", labelKey: "nav.laminationQcDocs", icon: FiBookOpen }],
   "Lamination — Production": [{ to: "/library/lamination-production", labelKey: "nav.laminationProductionDocs", icon: FiBookOpen }],
-  "Quality Control — Inspection Records": [{ to: "/library/quality-control-inspection-records", labelKey: "nav.inspectionRecordDocs", icon: FiBookOpen }],
+  // QC Records — the department's own overview of its thirty-eight formats in
+  // their seven sections (REQUIREMENTS §58), and then the Document Library
+  // filtered to the module, which is how the collection was reached before.
+  "Quality Control — Inspection Records": [
+    { to: "/qc", labelKey: "nav.qcOverview", icon: FiHome },
+    { to: "/library/quality-control-inspection-records", labelKey: "nav.inspectionRecordDocs", icon: FiBookOpen },
+  ],
   "Quality — Compliance": [{ to: "/soc", labelKey: "nav.statementsOfCompliance", icon: FiShield }],
 };
 
@@ -200,6 +207,9 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   // HR Master Data serves every one of them, so it goes with the overview.
   "/hr/master-data": HR_RECORD_PAGES.map((p) => p.docId),
   ...Object.fromEntries(HR_RECORD_PAGES.map((p) => [`/hr/${p.slug}`, [p.docId]])),
+  // QC Records (data/seed/qcModule.ts): shown when any one of the formats it
+  // lists is the viewer's — Quality Control's or Quality Assurance's.
+  "/qc": QC_OVERVIEW_DOCUMENT_IDS,
   "/pest/daily": ["daily-pest-monitoring"],
   "/pest/service/rodent": ["service-report-rodent"],
   "/pest/service/general": ["service-report-general"],

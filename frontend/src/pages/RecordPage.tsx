@@ -45,6 +45,7 @@ import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { useT } from "../i18n";
+import { documentLayoutIn, documentTextIn, isGujaratiDocument } from "../i18n/documentText";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
@@ -64,7 +65,7 @@ const VERIFIABLE_STATUSES = ["Submitted", "Pending Verification"];
 
 export function RecordPage({ recordId }: { recordId?: string }) {
   const { navigate } = useRouter();
-  const { currentUser, bump } = useAppStore();
+  const { currentUser, bump, lang } = useAppStore();
   const t = useT();
   const [record, setRecord] = useState<RecordInstance | undefined>(() => (recordId ? recordRepository.getById(recordId) : undefined));
   const [data, setData] = useState<unknown>(record?.data);
@@ -77,6 +78,12 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   const countersign = !!record && doc?.kind === "service-report" && COUNTERSIGN_STATUSES.includes(record.status);
   const canWrite = editable || countersign;
   const labels = doc ? fieldLabels(doc.kind, doc.id) : {};
+  // What the ASSISTANT calls each box: the words on screen. What goes into the
+  // record's history is `labels` above, the words the form was issued in, so
+  // two people correcting the same box in different languages leave the same
+  // entry behind (REQUIREMENTS §58).
+  const displayLabels =
+    doc && lang === "en" && isGujaratiDocument(doc.id) ? Object.fromEntries(Object.entries(labels).map(([k, v]) => [k, documentTextIn(v, lang)])) : labels;
 
   // What the page's own buttons do, for the assistant to call. The target is
   // registered above where the handlers are declared (hooks can't move below
@@ -149,7 +156,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   // For log sheets the assistant needs the printed layout to map "11 o'clock
   // viscosity was 20.4" onto the right cell — sent alongside the data, never
   // stored, and stripped from anything it sends back.
-  const layout = doc?.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined;
+  const layout = doc?.kind === "log-sheet" ? documentLayoutIn(getLogSheetLayout(doc.id), lang) : undefined;
   const assistantData = layout
     ? {
         ...(data as Record<string, unknown>),
@@ -172,7 +179,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           editable,
           currentData: assistantData,
           getData: () => latest.current.data,
-          labels,
+          labels: displayLabels,
           commit: (next, note) => {
             const base = flush() ?? latest.current.record;
             if (!base) return;
@@ -318,9 +325,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
-      {/* The form exactly as issued — Google Translate leaves it alone (i18n/googleTranslate.ts). */}
+      {/* The form as issued, in the language chosen beside Today's Briefing (REQUIREMENTS §58). */}
       {/* ...and the part that prints (utils/print.ts): the form, nothing around it. */}
-      <div className="notranslate" translate="no" data-print-doc>
+      <div data-print-doc>
       {doc.kind === "daily-pest-monitoring" && (
         <DailyPestMonitoringRecordView doc={doc} record={{ ...record, data: data as DailyPestMonitoringData }} editable={editable} onChange={handleChange} />
       )}

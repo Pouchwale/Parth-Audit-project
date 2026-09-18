@@ -758,15 +758,17 @@ application in either language, chosen in the top bar, plus an assistant that ca
   and canned replies. Remembered per browser. Asking the assistant something in Gujarati gets a
   Gujarati answer (the backend is told the language; routes, field names and stored values stay as
   the app defines them).
-- **What is NOT translated, deliberately.** The controlled documents' own text: format numbers
-  (F/HR/17, F/QC/13, F/MKT/05 …), the printed instruction lines and the ten check points transcribed
-  verbatim from the paper form, the licence and its terms and conditions, the Statements of
-  Compliance, and employee / area / holiday names held as master data. Translating a controlled
-  record's wording would break the source-to-digital traceability this whole document exists to
-  record — the digital record must read as the same document the auditor holds on paper. The Gujarati
-  F/QC/13 in-process sheet (§18) stays in Gujarati in both languages, for the same reason. The smoke
-  suite asserts this: with Gujarati selected, "F/HR/17" and "Total number of rodent traps provided"
-  are still on screen.
+- **What is NOT translated, deliberately.** The marks that identify a document and everything written
+  into it: format numbers (F/HR/17, F/QC/13, F/MKT/05 …), revision numbers, the company's registered
+  name, employee / area / holiday names held as master data, and a record's own contents — the names
+  signed, the readings typed, the dates and the remarks. They read exactly as issued in either
+  language, and none of them is sent to a translation service.
+  **Changed on 19-Sep-2026 (§58):** the documents' own printed WORDS — the instruction lines, the check
+  points, the box labels and column headings, the licence's terms, the Statements of Compliance — now
+  follow the chosen language, because the department asked for the whole record to be readable in
+  Gujarati; and the three formats issued in Gujarati read in English when English is chosen. The
+  traceability that matters is kept by the rule above: what a record HOLDS is never rewritten, only the
+  words the paper prints.
 - **Voice.** Press-to-talk on the Assistant page and in the floating widget: the browser's own Web
   Speech API turns speech into text, which then takes exactly the same path as a typed message (no
   extra service, nothing else sent). A question asked aloud is answered aloud; a speaker toggle
@@ -2697,9 +2699,114 @@ of 02-Dec-2022; and the Gangwal Healthcare meeting of 07-Jun-2022 with its seven
    in the order the page prints them.
 9. **Two things on the scans cannot be reproduced**: the photograph of the label roll under the PSL analysis,
    and the sample labels mounted on the tolerance card.
+10. **F/QC/13's grade chart repeats two cells.** On the Coating row, the C and F cells read word for word the
+    same as the Shade row's C and F ("small variations are seen in the logo and the process colours", "moderate
+    variations in the logo colour and major variations in the other colours") — they describe colour, not
+    coating. Transcribed as the photograph reads; worth checking against the paper, and if the paper prints
+    different Coating wording, that wording needs its own two lines here and in `i18n/documentTextEn.ts`
+    (found on 19-Sep-2026 while rendering the form's English, §58).
 
 - Covered by `tests/e2e_qc_formats.py` (**42 checks**), and by every suite that walks the whole
   library: each new format is started, filled by the assistant and print-checked with the rest.
+
+## 58. QC Records, and the language every document reads in (19-Sep-2026)
+
+```
+REQUESTED            "i dedicated QC module in all types of documents of all different department are
+                      there present same as HR overview which you have created i want document according
+                      to Format number - Name of that document also there are many document which are
+                      Gujarati so i need that what the user select from language option in side of today's
+                      breifing button so if selected english then every in that should be tarnslate in
+                      English and if selected Gujarati then everything with all document should be
+                      Gujarati which google translate will do"
+DIGITAL TEMPLATE     src/pages/QcPages.tsx and src/data/seed/qcModule.ts (QC Records at /qc),
+                      src/i18n/documentText.ts and src/i18n/documentTextEn.ts (the documents' language),
+                      src/components/documents/DocumentHeader.tsx (what is never translated)
+```
+
+**QC RECORDS — /qc.** Quality Control's collection is the largest in the app, and until now the only way
+into it was the Document Library filtered to the module. It now has its own page, laid out exactly the way
+HR Records is (§47): one card per section of the department's paperwork, and in it every format the way the
+department asks for it — **its format number, then its name** — with what is on file, what is next due, and
+a click straight onto that format's own page. A format the paper carries no number for is listed by name
+alone, saying underneath that no format number is printed on it, rather than heading the row with a
+placeholder.
+
+| The page holds | |
+|---|---|
+| The department's seven sections | In-Process & Inspection · Incoming Material Inspection · Line Clearance · Calibration · Certificates of Analysis · Registers & Records · Analysis & Meetings |
+| Its two departments | Of the forty-three rows, thirty-three are headed Quality Control and ten Quality Assurance — the module's own eight (the four in-process and inspection records, the three certificates of analysis and the camera challenge test) and the two Statements of Compliance — and each row says which |
+| Forty-three formats | the module's thirty-eight, and the five of Quality Control's that other modules keep, listed last under the module that keeps them so nothing of the department's is missing: F-QC-30 viscosity, F-QC-32 adhesive mixing and F-QC-40.C hot room in the Lamination module, and the two Statements of Compliance, F/QC-09 for pressure labels and F/QC-38 for flexible packaging, in the Compliance module |
+| Each row | `F/QC/01 - Inspection Record - BOPP Film`, with the department, the frequency, and — for the three formats issued in Gujarati — that they are Gujarati forms |
+
+What each card holds is read from the document definitions themselves (`data/seed/qcModule.ts`), so a format
+added to the module appears here the same day, in its section, with no page to edit. The sidebar reaches it
+above the library link, and it is offered only to somebody who can see at least one of the formats (§40).
+The assistant opens it by name — "QC records", "the QC module", "quality control documents".
+
+Two notes on what the page says. The department beside each format is the one **printed on the form**, which
+is why ten of them read Quality Assurance; who may open them is decided by their F/QC numbers, and those
+put all forty-three in Quality Control's hands (`data/seed/documentDepartments.ts`), so somebody kept to
+Quality Assurance alone is refused this page by name like any other outsider (§40). And the whole page is
+read from the definitions: the nine cards are the department's seven sections plus the two modules that
+keep its other formats, and a format shelved in the module without one of the seven would get a tenth card
+of its own, Other Quality Control Records, rather than disappearing.
+
+**THE LANGUAGE BOX NOW DECIDES THE DOCUMENTS TOO.** The box beside Today's Briefing used to change the
+screens and deliberately leave every controlled document exactly as issued (§24). The department asked for
+the opposite, and this is what it now does:
+
+- **ગુજરાતી chosen** — the whole page goes to Google's website translator, the forms and registers
+  included: printed instructions, box labels, column headings, the parameter and material lines a form
+  prints down its side, the licence's terms, the Statements of Compliance. A form already printed in
+  Gujarati is already in the chosen language.
+- **English chosen** — Google is not loaded at all, so the three formats the department issues **in
+  Gujarati** would otherwise sit in Gujarati on an English screen. Their English is written down
+  (`i18n/documentTextEn.ts`) rather than fetched: F/QC/13's three instruction paragraphs, its labels, its
+  six parameters with the test chart beside each and its whole grade chart, and both line clearance
+  checklists — every printed line, rendered once and checked line by line against the paper.
+
+**WHAT IS STILL NEVER TRANSLATED, IN EITHER LANGUAGE.** The marks that identify a document and everything
+written into it: the format number, the revision number, the company's registered name, and a record's own
+contents — the names signed, the readings typed, the dates, the remarks. They carry `translate="no"` where
+they are shown, so an auditor reads exactly what was written and none of it is sent to a translation
+service. The same holds for master data (employees, chemicals, machines, areas) and the audit trail (who
+submitted, verified or corrected a record). Boxes being typed into are never touched either — a browser
+does not translate what is inside an input — so the protection is needed exactly where a written value is
+shown as TEXT, and that is where it is:
+
+- a read-only cell on any log sheet (`components/records/LogSheetRecordView.tsx`);
+- the written values on the complaint acknowledgement, the service agreement and the responsibilities
+  sheet (`components/records/FormField.tsx`), which takes a `translatable` flag for the two blocks that
+  are the paper's own printed wording rather than somebody's answer — the letter's opening and its
+  acknowledgement, the printed responsibilities and clauses;
+- the complaint report's printed mark, its format reference and the person it is addressed to;
+- the checker, the time of checking, the typed notes and the observation lines of the daily pest control
+  register (`components/records/DailyRegisterSheet.tsx`), and the names that signed the fly catcher
+  register with the catcher numbers and the areas they hang in;
+- a service report's chemical and method of application, which are the Chemical Master's own words, and
+  the provider / plant / address block it is headed with;
+- the insecticide licence's registration and licence numbers, its dates, its seal, the officer who signed
+  it and the issuing office's stamp (`pages/LicencePage.tsx`), while its terms and conditions translate;
+- the Statement of Compliance's format and revision line, and the company's registered name above it;
+- the trend sheets' company name and the Source / Unit / Target Pest cells transcribed from the
+  provider's own report;
+- the format number, the revision and the people responsible, under every document's name
+  (`DocMeta` in `pages/PestControlPages.tsx`).
+
+**A RECORD IS NOT CHANGED BY BEING READ IN ANOTHER LANGUAGE.** Only the words the paper prints are
+swapped, and only on screen: the field KEYS a record is stored under never change, so a line typed on the
+Gujarati clearance checklist stays exactly as typed and reads the same on the paper it prints on. Printing
+and downloading follow the screen, so a sheet printed while English is chosen prints in English and one
+printed in Gujarati prints in Gujarati. The AUDIT TRAIL is deliberately left in the issued words: a
+correction recorded on a Gujarati form names the box the way the form was issued, whichever language it
+happened to be read in, so two people correcting the same box in different languages leave the same entry
+in the record's history. The assistant, on the other hand, asks its questions in the language the form is
+being read in — those questions are screen text, not record content.
+
+- Covered by `tests/e2e_qc_formats.py` (QC Records and the Gujarati formats in English) and
+  `tests/e2e_translate.py` (the documents translated with the page, the marks that identify them left as
+  issued).
 
 ## Master data provenance summary
 

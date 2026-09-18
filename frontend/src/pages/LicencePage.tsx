@@ -85,27 +85,39 @@ export function LicencePage() {
 
       <div className="text-xs text-faint mb-2 no-print">Transcription (verbatim, for reading and search — the scan above is authoritative)</div>
 
-      <div className="doc-header notranslate" translate="no">
-        <div className="company-name">{L.issuer}</div>
+      <div className="doc-header">
+        <div className="company-name notranslate" translate="no">
+          {L.issuer}
+        </div>
         <div className="doc-title">
           {L.form} — {L.formTitle}
         </div>
         <div className="meta-row">
+          {/* The licence's own numbers and dates read exactly as issued, in either
+              language; the labels beside them follow the chosen one (REQUIREMENTS §58). */}
           <div className="meta-cell">
             <span className="k">Registration No</span>
-            <span className="v">{L.registrationNo}</span>
+            <span className="v notranslate" translate="no">
+              {L.registrationNo}
+            </span>
           </div>
           <div className="meta-cell">
             <span className="k">License No</span>
-            <span className="v">{L.licenseNo}</span>
+            <span className="v notranslate" translate="no">
+              {L.licenseNo}
+            </span>
           </div>
           <div className="meta-cell">
             <span className="k">Date of issue</span>
-            <span className="v">{formatDisplayDate(L.dateOfIssue)}</span>
+            <span className="v notranslate" translate="no">
+              {formatDisplayDate(L.dateOfIssue)}
+            </span>
           </div>
           <div className="meta-cell">
             <span className="k">Valid upto</span>
-            <span className="v">{L.validUpto}</span>
+            <span className="v notranslate" translate="no">
+              {L.validUpto}
+            </span>
           </div>
         </div>
       </div>
@@ -134,7 +146,9 @@ export function LicencePage() {
             </table>
           </div>
           <p className="text-sm mb-3">{L.conditionsNote}</p>
-          <div className="flex gap-6 wrap text-sm">
+          {/* The date it was signed, the seal, the officer who signed it and the
+              issuing office's stamp: all as issued (REQUIREMENTS §58). */}
+          <div className="flex gap-6 wrap text-sm notranslate" translate="no">
             <div>
               <div className="text-xs text-muted">Date</div>
               <div>{L.signedDate}</div>
@@ -164,7 +178,7 @@ export function LicencePage() {
           <h3 className="text-base font-semibold">{L.termsTitle}</h3>
           <span className="text-sm text-muted">{L.applicantLine}</span>
         </div>
-        <div className="doc-table notranslate" translate="no" style={{ border: "none" }}>
+        <div className="doc-table" style={{ border: "none" }}>
           <table className="licence-terms">
             <thead>
               <tr>

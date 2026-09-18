@@ -392,7 +392,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
             </button>
           )}
         </div>
-        <div className="doc-table notranslate" translate="no" style={{ border: "none" }}>
+        <div className="doc-table" style={{ border: "none" }}>
           <table>
             <thead>
               <tr>

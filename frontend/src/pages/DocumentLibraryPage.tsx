@@ -14,6 +14,7 @@ import { MODULE_SECTIONS } from "../data/seed/documentDefinitions";
 import { routeForRecord } from "../engine/reminders";
 import { departmentScopeLabel, isDocumentIdVisible } from "../engine/departmentScope";
 import { documentOpenRoute } from "../engine/documentRoutes";
+import { documentTextIn } from "../i18n/documentText";
 
 
 // Which documents hold records at all: the reference ones — the Chemical
@@ -48,7 +49,7 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   const { navigate } = useRouter();
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const { mode, bump, version } = useAppStore();
+  const { mode, bump, version, lang } = useAppStore();
   const isDemo = mode === "demo";
   const docs = documentRepository.getAll();
   const master = masterRepository.get();
@@ -173,7 +174,8 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                         <td>
                           <div className="flex items-center gap-2 wrap">
                             {isOpen ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
-                            <span className="font-semibold">{d.name}</span>
+                            {/* A format issued in Gujarati is listed in the chosen language (REQUIREMENTS §58). */}
+                            <span className="font-semibold">{documentTextIn(d.name, lang)}</span>
                             {d.section && <span className="text-xs text-faint">· {d.section}</span>}
                           </div>
                         </td>

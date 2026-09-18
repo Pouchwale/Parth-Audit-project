@@ -138,8 +138,15 @@ export function DailyRegisterSheet({
               );
             })
           )}
-          <td className="time-cell">{r && !r.data.isHoliday ? r.data.timeOfChecking : ""}</td>
-          <td className="checker-cell">{r && !r.data.isHoliday ? r.data.checker : ""}</td>
+          {/* What was written in the register reads as it was written, in either
+              language; the register's own printed words follow the chosen one
+              (REQUIREMENTS §58). */}
+          <td className="time-cell notranslate" translate="no">
+            {r && !r.data.isHoliday ? r.data.timeOfChecking : ""}
+          </td>
+          <td className="checker-cell notranslate" translate="no">
+            {r && !r.data.isHoliday ? r.data.checker : ""}
+          </td>
         </tr>
       );
     });
@@ -172,7 +179,7 @@ export function DailyRegisterSheet({
   );
 
   return (
-    <div className="register-sheet notranslate" translate="no" data-print-doc>
+    <div className="register-sheet" data-print-doc>
       <section className="register-page">
         <DocumentHeader doc={doc} extraTitle={monthLabel} pageLabel="1 Of 3" />
         <div className="register-instructions">
@@ -197,7 +204,10 @@ export function DailyRegisterSheet({
         {notes.length > 0 && (
           <div className="register-notes text-xs">
             <strong>* Notes (check points 8 / 9):</strong>{" "}
-            {notes.map((n) => `${n.day}. — no. ${n.no}: ${n.note}`).join("; ")}
+            {/* The notes themselves are what the checker wrote (REQUIREMENTS §58). */}
+            <span className="notranslate" translate="no">
+              {notes.map((n) => `${n.day}. — no. ${n.no}: ${n.note}`).join("; ")}
+            </span>
           </div>
         )}
         <div className="register-summary-title">SUMMARY OF ACTIONS TAKEN IF PEST OBSERVED</div>
@@ -214,10 +224,18 @@ export function DailyRegisterSheet({
             <tbody>
               {Array.from({ length: summaryRows }, (_, i) => actions[i]).map((a, i) => (
                 <tr key={a ? a.id : `blank-${i}`}>
-                  <td>{a ? formatDisplayDate(a.dateOfObservation || a.fallbackDate) : ""}</td>
-                  <td>{a?.descriptionOfObservation ?? ""}</td>
-                  <td>{a?.actionTaken ?? ""}</td>
-                  <td>{a?.remarks ?? ""}</td>
+                  <td className="notranslate" translate="no">
+                    {a ? formatDisplayDate(a.dateOfObservation || a.fallbackDate) : ""}
+                  </td>
+                  <td className="notranslate" translate="no">
+                    {a?.descriptionOfObservation ?? ""}
+                  </td>
+                  <td className="notranslate" translate="no">
+                    {a?.actionTaken ?? ""}
+                  </td>
+                  <td className="notranslate" translate="no">
+                    {a?.remarks ?? ""}
+                  </td>
                 </tr>
               ))}
             </tbody>

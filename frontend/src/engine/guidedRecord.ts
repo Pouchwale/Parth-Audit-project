@@ -17,6 +17,8 @@ import type {
 } from "../types";
 import { TBC } from "../types";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { documentLayoutIn } from "../i18n/documentText";
+import type { Language } from "../i18n/strings";
 import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
 import { applyFills, describePerson, hrMasterLinkFor, personFill, searchPeople } from "./hrMaster";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
@@ -106,7 +108,15 @@ function nowTime(): string {
 // the plan, per document kind
 
 /** The questions for this record, or null when the document has no interview (the checklist has its own; reference documents are kept as issued). */
-export function interviewPlan(doc: DocumentDefinition, record: RecordInstance, data: unknown, master: MasterData, today = todayISO()): InterviewPlan | null {
+export function interviewPlan(
+  doc: DocumentDefinition,
+  record: RecordInstance,
+  data: unknown,
+  master: MasterData,
+  today = todayISO(),
+  /** The chosen language: a form issued in Gujarati is asked about in English while English is chosen (REQUIREMENTS §58). */
+  lang: Language = "en"
+): InterviewPlan | null {
   const d = (data ?? {}) as Obj;
   switch (doc.kind) {
     case "daily-pest-monitoring":
@@ -116,7 +126,7 @@ export function interviewPlan(doc: DocumentDefinition, record: RecordInstance, d
     case "service-report":
       return servicePlan(doc, d as unknown as ServiceReportData, master);
     case "log-sheet":
-      return logSheetPlan(doc, record, d as unknown as LogSheetData, master);
+      return logSheetPlan(doc, record, d as unknown as LogSheetData, master, lang);
     case "gap-inspection":
       return inspectionPlan(d as unknown as GapInspectionData, today);
     case "training-record":
@@ -544,8 +554,10 @@ function fieldType(f: LogHeaderField): AnswerType {
   return f.type === "select" ? "select" : f.type === "date" ? "date" : f.type === "time" ? "time" : f.type === "number" ? "number" : f.type === "yesno" ? "yesno" : "text";
 }
 
-function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogSheetData, master: MasterData): InterviewPlan | null {
-  const layout = getLogSheetLayout(doc.id);
+function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogSheetData, master: MasterData, lang: Language): InterviewPlan | null {
+  // The questions name the form's own boxes, so they are asked in the words the
+  // form is being READ in — its own Gujarati, or the English of it.
+  const layout = documentLayoutIn(getLogSheetLayout(doc.id), lang);
   if (!layout) return null;
   const qs: InterviewQuestion[] = [];
   const header = (x: Obj) => ((x.header as Record<string, string>) ?? {});

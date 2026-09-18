@@ -4,19 +4,23 @@
 // titles and explanations, buttons, table headings, statuses, tabs, the
 // assistant's own chrome and its canned replies.
 //
-// What is NOT translated, deliberately: the controlled documents' own text.
-// Format numbers (F/HR/17), the printed instruction lines and the ten check
-// points transcribed verbatim from the paper form, the licence and its terms,
-// the Statements of Compliance, employee and area names, and the company name
-// stay exactly as issued in every language — translating a controlled record's
-// wording would break the traceability the whole system exists to provide
-// (REQUIREMENTS.md §24). Gujarati source text stays Gujarati either way: the
-// F/QC/13 in-process sheet is already in Gujarati.
+// The documents follow the chosen language too (REQUIREMENTS §58): with
+// ગુજરાતી chosen the forms, registers and their printed instructions are
+// translated along with the screens around them, and the three formats the
+// department issues in Gujarati — F/QC/13 and the two line clearance
+// checklists — read in English when English is chosen (i18n/documentText.ts).
+//
+// What is NOT translated, in either language: a record's own CONTENTS and the
+// marks that identify it — format numbers (F/HR/17), revision numbers, the
+// company's registered name, employee and area names, signatures, readings,
+// dates and typed remarks. Those carry translate="no" where they are shown, so
+// an auditor reads exactly what was written into the record and nothing is
+// sent to a translation service (REQUIREMENTS.md §24, §58).
 //
 // How Gujarati is shown: choosing ગુજરાતી turns Google Translate on for the
-// whole app (the screens are written in English and Google translates them;
-// the controlled documents carry translate="no") — see i18n/googleTranslate.ts.
-// The `gu` table below is what shows when Google can't be reached.
+// whole app (the screens are written in English and Google translates them)
+// — see i18n/googleTranslate.ts. The `gu` table below is what shows when
+// Google can't be reached.
 //
 // `en` is the source of truth for the key set; `gu` is typed against it, so a
 // missing Gujarati string is a compile error, never a silent English fallback.
@@ -207,6 +211,11 @@ const en = {
   "nav.hrPscSurvey": "Product Safety Culture Survey",
   "nav.hrPscAnalysis": "Safety Culture Survey Analysis",
   "hr.title": "HR Records",
+  "nav.qcRecords": "QC Records",
+  "nav.qcOverview": "QC Overview",
+  "qc.title": "QC Records",
+  "qc.gujaratiForm": "Gujarati form",
+  "qc.gujaratiInEnglish": "Gujarati form, shown in English",
   "nav.dailyPestMonitoring": "Daily Pest Control Monitoring",
   "nav.ratMice": "Rat / Mice — Rodent Control",
   "nav.antsCockroaches": "Ants & Cockroaches — General Pest",
@@ -680,6 +689,11 @@ const gu: Record<StringKey, string> = {
   "nav.hrPscSurvey": "પ્રોડક્ટ સેફ્ટી કલ્ચર સર્વે",
   "nav.hrPscAnalysis": "સેફ્ટી કલ્ચર સર્વે વિશ્લેષણ",
   "hr.title": "HR રેકોર્ડ",
+  "nav.qcRecords": "QC રેકોર્ડ",
+  "nav.qcOverview": "QC ઝાંખી",
+  "qc.title": "QC રેકોર્ડ",
+  "qc.gujaratiForm": "ગુજરાતી ફોર્મ",
+  "qc.gujaratiInEnglish": "ગુજરાતી ફોર્મ, અંગ્રેજીમાં બતાવેલ",
   "nav.dailyPestMonitoring": "દૈનિક જીવાત નિયંત્રણ મોનિટરિંગ",
   "nav.ratMice": "ઉંદર / મૂષક — રોડન્ટ કંટ્રોલ",
   "nav.antsCockroaches": "કીડી અને વંદા — સામાન્ય જીવાત",

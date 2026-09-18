@@ -191,10 +191,13 @@ export function CatchTrendSheet({
     // data-chart-year: which row the chart is drawing — on the sheet so the
     // caption and the bars can never disagree, and so a test can prove the
     // bars follow the data rather than a picture.
-    <div className="register-sheet trend-sheet notranslate" translate="no" data-print-doc data-chart-year={drawnYear}>
+    <div className="register-sheet trend-sheet" data-print-doc data-chart-year={drawnYear}>
       <section className="register-page">
         <div className="trend-head">
-          <div className="company-name">{companyName}</div>
+          {/* The company's registered name reads as issued in either language (REQUIREMENTS §58). */}
+          <div className="company-name notranslate" translate="no">
+            {companyName}
+          </div>
           <div className="doc-title">{title}</div>
         </div>
         <div className="doc-table register-grid-wrap">
@@ -216,9 +219,16 @@ export function CatchTrendSheet({
                 const total = rowTotal(r.months);
                 return (
                   <tr key={r.year} data-year={r.year}>
-                    <td className="src-cell">{r.source}</td>
-                    <td>{r.unit}</td>
-                    <td>{r.targetPest}</td>
+                    {/* Transcribed from the provider's own report, so read as transcribed (REQUIREMENTS §58). */}
+                    <td className="src-cell notranslate" translate="no">
+                      {r.source}
+                    </td>
+                    <td className="notranslate" translate="no">
+                      {r.unit}
+                    </td>
+                    <td className="notranslate" translate="no">
+                      {r.targetPest}
+                    </td>
                     <td className="year-cell">{r.year}</td>
                     {r.months.map((m, i) => (
                       <td key={i} data-month={i} className={r.fromRegister[i] ? "from-register" : ""}>

@@ -20,6 +20,7 @@ import { todayISO, formatDisplayDate, MONTH_NAMES } from "../utils/date";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
+import { documentTextIn } from "../i18n/documentText";
 
 function StatTile({
   icon: Icon,
@@ -46,7 +47,7 @@ function StatTile({
 }
 
 export function DashboardPage() {
-  const { mode, version, bump } = useAppStore();
+  const { mode, version, bump, lang } = useAppStore();
   const { user } = useAuth();
   const { navigate } = useRouter();
   const t = useT();
@@ -277,7 +278,7 @@ export function DashboardPage() {
                     <tr key={r.id}>
                       <td>
                         <div>
-                          {doc?.name} {r.isDemo && <DemoTag />}
+                          {documentTextIn(doc?.name, lang)} {r.isDemo && <DemoTag />}
                         </div>
                         {prepared && (
                           <span className="prepared-chip mt-1">

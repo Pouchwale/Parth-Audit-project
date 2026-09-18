@@ -32,7 +32,8 @@ const FG_RULE = fgCodeRule("FG code");
 
 function Logo() {
   return (
-    <div className="caf-logo" aria-label="Gujarat Print Pack Publications Pvt. Ltd.">
+    // The company's printed mark reads as issued in either language (REQUIREMENTS §58).
+    <div className="caf-logo notranslate" translate="no" aria-label="Gujarat Print Pack Publications Pvt. Ltd.">
       <div className="l1">{CAF_COMPANY_LINE_1}</div>
       <div className="l2">{CAF_COMPANY_LINE_2}</div>
     </div>
@@ -42,7 +43,9 @@ function Logo() {
 function Footer({ page }: { page: number }) {
   return (
     <div className="caf-footer">
-      <span className="ref">{CAF_FORMAT_REF}</span>
+      <span className="ref notranslate" translate="no">
+        {CAF_FORMAT_REF}
+      </span>
       <span className="page-no">{page}</span>
     </div>
   );
@@ -112,7 +115,7 @@ export function ComplaintAckRecordView({
   });
 
   return (
-    <div className="caf-sheet notranslate" translate="no" data-doc="complaint-ack">
+    <div className="caf-sheet" data-doc="complaint-ack">
       <section className="caf-page">
         <Logo />
         <div className="caf-title">{CAF_TITLE}</div>
@@ -135,7 +138,7 @@ export function ComplaintAckRecordView({
               />
             </>
           )}
-          <span className={`caf-value${editable ? " caf-print-only" : ""}`}>
+          <span className={`caf-value notranslate${editable ? " caf-print-only" : ""}`} translate="no">
             {data.toName}
             {data.toDesignation ? ` (${data.toDesignation})` : ""}
           </span>
@@ -146,7 +149,7 @@ export function ComplaintAckRecordView({
         </div>
         <hr className="caf-rule" />
         <div className="caf-text">
-          <Field {...f("intro")} kind="long" />
+          <Field {...f("intro")} kind="long" translatable />
         </div>
 
         <table className="caf-table">
@@ -234,7 +237,7 @@ export function ComplaintAckRecordView({
         </div>
         <hr className="caf-rule" />
         <div className="caf-text">
-          <strong>Acknowledgement:</strong> <Field {...f("acknowledgement")} kind="long" />
+          <strong>Acknowledgement:</strong> <Field {...f("acknowledgement")} kind="long" translatable />
         </div>
         <hr className="caf-rule" />
         <div className="caf-row caf-sign">

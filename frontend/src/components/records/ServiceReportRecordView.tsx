@@ -43,10 +43,13 @@ export function ServiceReportRecordView({
         <div className="meta-row">
           <div className="meta-cell" style={{ flex: 2 }}>
             <span className="k">Provider / Unit</span>
-            <span className="v">
+            {/* The provider, the plant and its address read as issued in either language (REQUIREMENTS §58). */}
+            <span className="v notranslate" translate="no">
               {COMPANY.serviceProvider} — {COMPANY.name}
             </span>
-            <div className="text-faint" style={{ fontSize: 10 }}>{COMPANY.address}</div>
+            <div className="text-faint notranslate" translate="no" style={{ fontSize: 10 }}>
+              {COMPANY.address}
+            </div>
           </div>
           <div className="meta-cell">
             <span className="k">Service Name</span>
@@ -87,7 +90,9 @@ export function ServiceReportRecordView({
                       onChange={(e) => updateLine(l.slNo, { areaName: e.target.value })}
                     />
                   </td>
-                  <td className="text-sm" data-cell="material" title="Fixed for this service — the SOP / Chemical Master material for this area">
+                  {/* The chemical and the method come from the Chemical Master and read as
+                      it names them, in either language (REQUIREMENTS §58). */}
+                  <td className="text-sm notranslate" translate="no" data-cell="material" title="Fixed for this service — the SOP / Chemical Master material for this area">
                     {l.materialName || <span className="text-faint">—</span>}
                   </td>
                   <td data-cell="qty">
@@ -116,7 +121,7 @@ export function ServiceReportRecordView({
                       />
                     )}
                   </td>
-                  <td className="text-sm" data-cell="method" title="Fixed for this service — the SOP method for this area">
+                  <td className="text-sm notranslate" translate="no" data-cell="method" title="Fixed for this service — the SOP method for this area">
                     {l.methodOfApplication || <span className="text-faint">—</span>}
                   </td>
                   <td>

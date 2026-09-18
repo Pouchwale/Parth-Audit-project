@@ -13,6 +13,7 @@ import { weeklyOffDay, WEEKDAY_LONG } from "../engine/holidays";
 import type { AdjustmentDay, CompanyHoliday, Employee } from "../types";
 import { DepartmentsAccess } from "../components/master/DepartmentsAccess";
 import { useT } from "../i18n";
+import { documentTextIn } from "../i18n/documentText";
 
 type Tab = "employees" | "departments" | "chemicals" | "pcLocations" | "rodentStations" | "areas" | "checkpoints" | "documents" | "holidays" | "settings";
 
@@ -31,7 +32,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 export function MasterDataPage() {
   const t = useT();
-  const { bump, version } = useAppStore();
+  const { bump, version, lang } = useAppStore();
   const [tab, setTab] = useState<Tab>("employees");
   const master = masterRepository.get();
 
@@ -234,7 +235,7 @@ export function MasterDataPage() {
                   const matched = resolveResponsibleEmployees(d, master);
                   return (
                     <tr key={d.id}>
-                      <td className="font-semibold">{d.name}</td>
+                      <td className="font-semibold">{documentTextIn(d.name, lang)}</td>
                       <td className={d.formatNo === "TO BE CONFIRMED" ? "tbc" : ""}>{d.formatNo}</td>
                       <td className={d.revisionNo === "TO BE CONFIRMED" ? "tbc" : ""}>{d.revisionNo}</td>
                       <td className="text-sm">{scheduleLabel(d)}</td>

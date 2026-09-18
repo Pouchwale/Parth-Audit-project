@@ -135,6 +135,16 @@ Seven scripts live in `tests/`:
   while a register downloads as Excel; each format found by its format number (including the two numbered
   F/QC/21); and Mitra opening one asked for by name. Network-independent. (42 checks)
   With it `npm run test:e2e` is green at **940 checks across eighteen suites**.
+  Extended on 19-Sep-2026 for REQUIREMENTS §58: QC Records at `/qc` showing the department's seven sections
+  and then the two modules that keep its other formats, all forty-three of Quality Control's formats one row
+  each, every row reading "format number - name of that document" (and by name alone, saying so, for the two
+  forms that print no number), the row naming the department printed on the form (Quality Control's and
+  Quality Assurance's both present), the three Gujarati formats saying they are being shown in English, a row
+  opening that format's own page, the button opening the library on the module, and the sidebar reaching the
+  page; then the three Gujarati formats read line for line in English - both clearance checklists' processes,
+  materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
+  nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
+  form's own Gujarati. (17 more checks, 59 in the suite)
 - `tests/e2e_format_numbers.py` - any document by its format number, and F/HR/05 as the form prints it
   (REQUIREMENTS s52): F/HR/05's seven lines (five topics numbered only by Sr. No., topic 2's points on their
   own lines, two blank lines that take a written topic); Search finding each document from F/HR/05, f-hr-05,
@@ -174,6 +184,10 @@ Seven scripts live in `tests/`:
   against a PostgreSQL the runner starts for the run, emptied before each suite
   (`npm run test:e2e -- tests/e2e_postgres_storage.py` runs one suite). Network-independent. (34 checks)
   `npm run test:e2e` is green at **1260 checks across twenty-three suites**, all on PostgreSQL, no JavaScript errors.
+  After REQUIREMENTS §58 (19-Sep-2026) the same twenty-three suites are green at **1282 checks**: seventeen
+  more on `e2e_qc_formats.py` (QC Records, and the three Gujarati formats read in English) and five on
+  `e2e_translate.py` (the documents translated with the page, a typed value still as typed, a Gujarati form
+  untouched, the identifying marks as issued).
 - `tests/e2e_downloads_and_print.py` - every document as its own kind of file, and a wide one printed whole
   (REQUIREMENTS s54): F/HR/01, F/HR/09, the GAP report and the daily pest control register downloaded and read
   back as Excel workbooks (header block, bold heading row, every line and every one of F/HR/09's 29 columns,
@@ -946,7 +960,8 @@ figures above stand until the storage migration in DEPLOYMENT.md is done.
   the whole Dashboard reads correctly in Gujarati while the document titles stay as issued.
   **Since 11-Sep-2026 Gujarati is Google Translate** (below); these smoke / visual-QA checks now
   cover its offline fallback — both suites block `**/translate_a/**`, so the built-in tables show.
-- **Gujarati through Google Translate** (11-Sep-2026). `tests/e2e_translate.py` (18 checks,
+- **Gujarati through Google Translate** (11-Sep-2026). `tests/e2e_translate.py` (18 checks then,
+  23 after §58 below,
   network-independent) serves a stand-in for Google's widget at the same address that behaves like
   it — hidden language box, toolbar pushed in, every English text node swapped for a `<font>` (both
   swap styles Google uses), text it has already handled never re-translated — and proves: English
@@ -963,6 +978,13 @@ figures above stand until the storage migration in DEPLOYMENT.md is done.
   gone. The only Gujarati left after switching back is the ગુજરાતી button and the F/QC/13 title,
   which is issued in Gujarati. That run also caught Google translating a person's name literally —
   names are now `translate="no"`.
+  **Changed on 19-Sep-2026 (REQUIREMENTS §58), at the department's request:** the documents follow the
+  chosen language too. The suite now proves the opposite of what it proved above for the documents —
+  the F/HR/17 register and an open record's form are translated along with the page, while the marks
+  that identify them (the format number, the revision, the date, the company's registered name) are
+  left exactly as issued and never handed to Google. What is typed into a record is untouched either
+  way, and the formats issued in Gujarati read in English while English is chosen
+  (`tests/e2e_qc_formats.py`).
 - **A voice assistant** (09-Sep-2026), reversing the earlier "text only, no voice" decision at the
   department's request. `src/utils/speech.ts` wraps the browser's Web Speech API: press-to-talk on
   the Assistant page and in the floating widget, one utterance per press, the transcript handed

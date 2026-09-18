@@ -610,7 +610,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
               </span>
             </div>
           </div>
-          <div className="doc-table notranslate" translate="no" style={{ border: "none" }}>
+          <div className="doc-table" style={{ border: "none" }}>
             <table className="compact">
               <thead>
                 <tr>

@@ -172,15 +172,23 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
         </div>
       </div>
 
-      <div className="doc-header notranslate" translate="no">
-        <div className="company-name">GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED</div>
+      <div className="doc-header">
+        <div className="company-name notranslate" translate="no">
+          GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED
+        </div>
         <div className="doc-title">
           {editing ? <input className="input input-sm" data-field="soc-title" value={s.headerTitle} onChange={(e) => patch({ headerTitle: e.target.value })} /> : s.headerTitle}
         </div>
         <div className="meta-row">
           <div className="meta-cell">
             <span className="k">Format / Rev</span>
-            {editing ? <input className="input input-sm" value={s.footerRef} onChange={(e) => patch({ footerRef: e.target.value })} /> : <span className="v">{s.footerRef}</span>}
+            {editing ? (
+              <input className="input input-sm" value={s.footerRef} onChange={(e) => patch({ footerRef: e.target.value })} />
+            ) : (
+              <span className="v notranslate" translate="no">
+                {s.footerRef}
+              </span>
+            )}
           </div>
           <div className="meta-cell">
             <span className="k">Date of publication</span>
@@ -207,7 +215,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
         </div>
       </div>
 
-      <div className="doc-table mt-4 notranslate" translate="no">
+      <div className="doc-table mt-4">
         <table>
           <tbody>
             {s.sections.map((sec, i) => (

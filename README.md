@@ -118,6 +118,13 @@ The app behaves like a personal assistant rather than a blank form:
   instruments, the three certificates of analysis, the registers and the analyses and minutes — every one
   editable, printable, downloadable as the kind of file it reads as, and answerable by the assistant. The
   pages the department supplied filled in are on file as records.
+- **QC Records, and the language the documents read in** (REQUIREMENTS §58): Quality Control's own page
+  at `/qc` lists all forty-three of its formats as the department asks for them — format number, then name —
+  in its seven sections plus the formats the Lamination and Compliance modules keep, each opening on the
+  format's own page. The language box beside Today's Briefing
+  now decides the documents too: Gujarati translates the forms and registers along with the screens, English
+  shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
+  readings typed, the format number and the revision — reads exactly as issued in either language.
 - **Fast on a low-end computer** (REQUIREMENTS §56): measured with the processor slowed six times; read-only
   sheets as text, long lists that appear at once and fill in, no repeated scans of the records, syncing that
   never freezes the screen, and the app and its data compressed over the network.

@@ -303,7 +303,10 @@ const MODULE_KEYWORDS: { module: string; aliases: string[] }[] = [
   { module: "Human Resources", aliases: ["human resources", "hr module", "hr records", "hr documents", "hr"] },
   { module: "Lamination — Quality Control", aliases: ["lamination qc", "lamination quality control", "lamination quality"] },
   { module: "Lamination — Production", aliases: ["lamination production"] },
-  { module: "Quality Control — Inspection Records", aliases: ["inspection records", "inspection record", "qc inspection"] },
+  {
+    module: "Quality Control — Inspection Records",
+    aliases: ["inspection records", "inspection record", "qc inspection", "qc records", "qc record", "qc module", "quality control records", "quality control documents", "quality control module"],
+  },
   { module: "CAPA (Corrective & Preventive Action)", aliases: ["capa"] },
 ];
 

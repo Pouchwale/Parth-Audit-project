@@ -8,6 +8,8 @@ import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
 import { applyFills, hrMasterLinkFor, personFill, personNamed } from "../../engine/hrMaster";
 import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
 import { isOutOfBand } from "../../engine/validation";
+import { documentLayoutIn, documentTextIn, keepFormAsIssued } from "../../i18n/documentText";
+import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { useProgressiveCount } from "../../utils/useProgressive";
@@ -26,7 +28,16 @@ export function LogSheetRecordView({
   editable: boolean;
   onChange: (data: LogSheetData) => void;
 }) {
-  const layout = getLogSheetLayout(doc.id);
+  // The form reads in the language chosen beside Today's Briefing: a form the
+  // department issues in Gujarati reads in English while English is chosen
+  // (REQUIREMENTS §58, i18n/documentText.ts). The KEYS never change, so what a
+  // record holds is untouched either way.
+  const { lang } = useAppStore();
+  const issued = getLogSheetLayout(doc.id);
+  const layout = documentLayoutIn(issued, lang);
+  // A form the department issues in Gujarati already reads in Gujarati, so with
+  // ગુજરાતી chosen it is not handed to Google at all — it reads as issued.
+  const asIssued = keepFormAsIssued(doc.id, lang);
   const data = record.data ?? { header: {}, rows: [] };
   const employees = masterRepository.get().employees;
   // Once per render, not once per cell (a 58 x 25 sheet asked for it 1,450 times).
@@ -81,7 +92,7 @@ export function LogSheetRecordView({
   const outOfBand = data.rows.reduce((n, row) => n + layout.columns.filter((c) => isOutOfBand(c, row[c.key])).length, 0);
 
   return (
-    <div>
+    <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined}>
       <DocumentHeader doc={doc} dateLabel={formatDisplayDate(record.dueDate)} pageLabel="1 of 1 (digital)" />
 
       {(layout.instructions?.length || layout.headerFields.length > 0) && (
@@ -125,12 +136,13 @@ export function LogSheetRecordView({
             ))}
             {layout.headerFields.length > 0 && (
               <div className="grid mt-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px 16px" }}>
-                {layout.headerFields.map((f) => {
+                {layout.headerFields.map((f, fi) => {
                   const personBox = fetching && link?.where === "header" && link.nameField === f.key;
                   return (
                     <HeaderFieldInput
                       key={f.key}
                       field={f}
+                      issuedLabel={issued?.headerFields[fi]?.label ?? f.label}
                       value={data.header?.[f.key] ?? ""}
                       editable={editable}
                       onChange={(v) => setHeader(f.key, v)}
@@ -181,7 +193,7 @@ export function LogSheetRecordView({
             {data.rows.slice(0, rowsShown).map((row, i) => (
               <tr key={row.id}>
                 <td className="text-muted">{i + 1}</td>
-                {layout.columns.map((c) => {
+                {layout.columns.map((c, ci) => {
                   // A line the form prints blank (F/HR/05's two spare topic lines)
                   // has nothing fixed in it, so it is written in like any cell.
                   const printedBlank = c.fixed && mode.kind === "fixedRows" && mode.rows[i] !== undefined && String(mode.rows[i][c.key] ?? "") === "";
@@ -190,7 +202,11 @@ export function LogSheetRecordView({
                     <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
                       <CellInput
                         col={col}
-                        value={row[c.key]}
+                        issuedLabel={issued?.columns[ci]?.label ?? c.label}
+                        // A printed cell — the parameter, the material, the specification
+                        // the form prints down its side — reads in the chosen language;
+                        // a written one reads exactly as it was written.
+                        value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
                         editable={editable && !col.fixed}
                         onChange={(v) => setCell(row.id, c.key, v)}
                         employees={employeeNames}
@@ -222,8 +238,16 @@ export function LogSheetRecordView({
         <div className="card mt-4">
           <div className="card-pad">
             <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 16px" }}>
-              {layout.footerFields.map((f) => (
-                <HeaderFieldInput key={f.key} field={f} value={data.header?.[f.key] ?? ""} editable={editable} onChange={(v) => setHeader(f.key, v)} employees={employeeNames} />
+              {layout.footerFields.map((f, fi) => (
+                <HeaderFieldInput
+                  key={f.key}
+                  field={f}
+                  issuedLabel={issued?.footerFields?.[fi]?.label ?? f.label}
+                  value={data.header?.[f.key] ?? ""}
+                  editable={editable}
+                  onChange={(v) => setHeader(f.key, v)}
+                  employees={employeeNames}
+                />
               ))}
             </div>
             <div className="text-xs text-muted mt-3 no-print">
@@ -245,6 +269,7 @@ export function LogSheetRecordView({
 
 function HeaderFieldInput({
   field,
+  issuedLabel,
   value,
   editable,
   onChange,
@@ -253,6 +278,8 @@ function HeaderFieldInput({
   onBlur,
 }: {
   field: LogHeaderField;
+  /** The label AS ISSUED — which boxes offer the employee list cannot depend on the language being read (REQUIREMENTS §58). */
+  issuedLabel: string;
   value: string;
   editable: boolean;
   onChange: (v: string) => void;
@@ -261,7 +288,7 @@ function HeaderFieldInput({
   list?: string;
   onBlur?: (v: string) => void;
 }) {
-  const isName = /operator|name|inspected|person|sign/i.test(field.label) && field.type === "text" && !/job name|customer name/i.test(field.label);
+  const isName = /operator|name|inspected|person|sign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name/i.test(issuedLabel);
   return (
     <div className="field">
       <label>
@@ -295,6 +322,7 @@ function HeaderFieldInput({
 
 function CellInput({
   col,
+  issuedLabel,
   value,
   editable,
   onChange,
@@ -303,6 +331,8 @@ function CellInput({
   onBlur,
 }: {
   col: LogColumn;
+  /** As in HeaderFieldInput: the issued label, so a signature column is one in either language. */
+  issuedLabel: string;
   value: string | number | null | undefined;
   editable: boolean;
   onChange: (v: string | number | null) => void;
@@ -317,7 +347,14 @@ function CellInput({
   // option with it).
   if (!editable) {
     const shown = value === null || value === undefined ? "" : col.type === "date" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? formatDisplayDate(value) : String(value);
-    return <span className="cell-text">{shown}</span>;
+    // What was WRITTEN into the record — a reading, a name signed, a remark —
+    // reads exactly as it was written in either language (REQUIREMENTS §58).
+    // The form's own printed cells are above, and those do follow the language.
+    return (
+      <span className="cell-text notranslate" translate="no">
+        {shown}
+      </span>
+    );
   }
   if (col.type === "number") {
     return (
@@ -345,7 +382,7 @@ function CellInput({
       </select>
     );
   }
-  const isSign = !!col.autoFill?.sign || /sign|by$/i.test(col.label);
+  const isSign = !!col.autoFill?.sign || /sign|by$/i.test(issuedLabel);
   return (
     <input
       type={col.type === "time" ? "time" : col.type === "date" ? "date" : "text"}

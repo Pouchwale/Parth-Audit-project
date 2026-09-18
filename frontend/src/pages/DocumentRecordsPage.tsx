@@ -22,6 +22,8 @@ import { moduleSlug } from "../utils/moduleSlug";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
+import { documentLayoutIn, documentTextIn } from "../i18n/documentText";
+import type { Language } from "../i18n/strings";
 import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types";
 
 // ONE DOCUMENT'S OWN PAGE (REQUIREMENTS §47) — /hr/{slug} for the sixteen HR
@@ -42,11 +44,11 @@ const shownValue = (v: unknown): string => {
 };
 
 /** What tells this record from the format's other records: its position, period, trainee… */
-function describeRecord(doc: DocumentDefinition, record: RecordInstance): string {
+function describeRecord(doc: DocumentDefinition, record: RecordInstance, lang: Language): string {
   const header = (record.data as LogSheetData | undefined)?.header ?? {};
   const hr = hrPageForDocument(doc.id);
   if (hr?.labelKey && shownValue(header[hr.labelKey])) return shownValue(header[hr.labelKey]);
-  const layout = getLogSheetLayout(doc.id);
+  const layout = documentLayoutIn(getLogSheetLayout(doc.id), lang);
   const first = layout?.headerFields.find((f) => shownValue(header[f.key]));
   return first ? `${first.label}: ${shownValue(header[first.key])}` : "";
 }
@@ -61,7 +63,7 @@ function linesFilled(doc: DocumentDefinition, record: RecordInstance): string {
 }
 
 export function DocumentRecordsPage({ docId }: { docId: string }) {
-  const { mode, version, bump } = useAppStore();
+  const { mode, version, bump, lang } = useAppStore();
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
   const today = todayISO();
@@ -127,7 +129,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
           <div className="text-xs text-muted mb-1" data-crumb>
             {hr ? `HR Records · ${hr.section}` : `${doc.module}${doc.section ? ` · ${doc.section}` : ""}`}
           </div>
-          <h1 className="text-2xl mb-1">{doc.name}</h1>
+          <h1 className="text-2xl mb-1">{documentTextIn(doc.name, lang)}</h1>
           <DocMeta doc={doc} />
         </div>
         <div className="flex gap-2 wrap">
@@ -199,7 +201,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
             {records.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-muted text-center" style={{ padding: 20 }}>
-                  No {doc.name} on file yet{isDemo ? " (demo)" : ""} — start one with New record.{layout ? " The blank format is shown below." : ""}
+                  No {documentTextIn(doc.name, lang)} on file yet{isDemo ? " (demo)" : ""} — start one with New record.{layout ? " The blank format is shown below." : ""}
                 </td>
               </tr>
             )}
@@ -213,7 +215,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
               >
                 <td className="font-semibold">{formatDisplayDate(r.dueDate)}</td>
                 <td className="text-sm" translate="no">
-                  {describeRecord(doc, r) || <span className="text-faint">—</span>}
+                  {describeRecord(doc, r, lang) || <span className="text-faint">—</span>}
                 </td>
                 <td className="text-sm">{linesFilled(doc, r)}</td>
                 <td>
@@ -248,7 +250,7 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
       {layout && preview && (
         <div className="mt-5" data-section="document-preview" data-record={preview.id}>
           <div className="flex items-center justify-between wrap gap-2 mb-2">
-            <h2 className="text-lg">{shown ? `On file — ${describeRecord(doc, shown) || formatDisplayDate(shown.dueDate)}` : "Blank format — nothing on file yet"}</h2>
+            <h2 className="text-lg">{shown ? `On file — ${describeRecord(doc, shown, lang) || formatDisplayDate(shown.dueDate)}` : "Blank format — nothing on file yet"}</h2>
             <div className="flex items-center gap-2 wrap">
               {shown && <StatusBadge status={shown.status} />}
               {shown ? (
@@ -266,8 +268,8 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
               </button>
             </div>
           </div>
-          {/* The form exactly as issued, and the part that prints (utils/print.ts). */}
-          <div className="notranslate" translate="no" data-print-doc>
+          {/* The form as issued, in the chosen language (REQUIREMENTS §58), and the part that prints (utils/print.ts). */}
+          <div data-print-doc>
             <LogSheetRecordView key={preview.id} doc={doc} record={preview as RecordInstance<LogSheetData>} editable={false} onChange={() => undefined} />
           </div>
         </div>

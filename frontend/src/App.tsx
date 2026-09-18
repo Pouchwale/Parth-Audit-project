@@ -37,6 +37,7 @@ import {
 } from "./pages/PestControlPages";
 import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
 import { HrMasterDataPage } from "./pages/HrMasterDataPage";
+import { QcOverviewPage } from "./pages/QcPages";
 import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
 
 function NotFoundPage() {
@@ -131,6 +132,12 @@ function RouteSwitch() {
       // and HR Master Data, the employee sheet those formats fetch from (§53).
       if (rest[0] === "master-data") return <HrMasterDataPage />;
       return rest[0] ? <HrDocumentPage key={rest[0]} slug={rest[0]} /> : <HrOverviewPage />;
+    case "qc":
+      // QC Records — Quality Control's overview of its thirty-eight formats in
+      // their seven sections, and of its three log sheets kept with the
+      // lamination line's paperwork (REQUIREMENTS §58). Each row opens the
+      // format's own page, which is where "Open Document" lands too.
+      return <QcOverviewPage />;
     case "document":
       // Any other log sheet's own page — where "Open Document" lands.
       return rest[0] ? <DocumentRecordsPage key={rest[0]} docId={rest[0]} /> : <NotFoundPage />;

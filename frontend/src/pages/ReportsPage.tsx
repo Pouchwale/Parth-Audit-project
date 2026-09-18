@@ -28,6 +28,7 @@ import { MiniBarChart } from "../components/reports/MiniBarChart";
 import { DemoTag } from "../components/common/DemoTag";
 import { DailyRegisterSheet } from "../components/records/DailyRegisterSheet";
 import { useT } from "../i18n";
+import { documentTextIn } from "../i18n/documentText";
 import type {
   ComplaintChecklistData,
   DailyPestMonitoringData,
@@ -54,7 +55,7 @@ export function ReportsPage({
   initialMonth?: number;
   initialTab?: string;
 }) {
-  const { mode, version } = useAppStore();
+  const { mode, version, lang } = useAppStore();
   const t = useT();
   const isDemo = mode === "demo";
   const now = new Date();
@@ -122,8 +123,10 @@ export function ReportsPage({
           screen the page's own title and pickers already do (REQUIREMENTS §38).
           The three trend tabs bring the company's own sheet header with them. */}
       {tab !== "rodent" && tab !== "lizard" && tab !== "flycatcher" && (
-        <div className="doc-header print-only notranslate" translate="no">
-          <div className="company-name">{COMPANY.name}</div>
+        <div className="doc-header print-only">
+          <div className="company-name notranslate" translate="no">
+            {COMPANY.name}
+          </div>
           <div className="doc-title">
             {t(`rep.tab.${tab}`).toUpperCase()} — {MONTH_NAMES[month]} {year}
           </div>
@@ -242,6 +245,8 @@ function LaminationQcReport({ isDemo, year, month }: { isDemo: boolean; year: nu
 }
 
 function MonthlyReport({ records, year, month }: { records: RecordInstance[]; year: number; month: number }) {
+  // A format issued in Gujarati is named in the chosen language (REQUIREMENTS §58).
+  const { lang } = useAppStore();
   const docs = documentRepository.getAll();
   const byDoc = docs
     .filter((d) => !d.isReferenceOnly)
@@ -288,7 +293,7 @@ function MonthlyReport({ records, year, month }: { records: RecordInstance[]; ye
           <tbody>
             {byDoc.map((r) => (
               <tr key={r.doc.id}>
-                <td>{r.doc.name}</td>
+                <td>{documentTextIn(r.doc.name, lang)}</td>
                 <td>{r.total}</td>
                 <td>{r.completed}</td>
                 <td>{r.pending}</td>

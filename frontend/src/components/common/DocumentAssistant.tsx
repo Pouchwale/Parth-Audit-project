@@ -297,7 +297,7 @@ export function DocumentAssistant() {
       return;
     }
     const data = t.getData();
-    const plan = interviewPlan(doc, record, data, masterRepository.get(), todayISO());
+    const plan = interviewPlan(doc, record, data, masterRepository.get(), todayISO(), lang);
     const q = plan ? nextQuestion(plan, data, askedRef.current) : null;
     if (!q) {
       setIv(null);
@@ -328,7 +328,7 @@ export function DocumentAssistant() {
     const { doc, record } = openRecordFor(t);
     if (!doc || !record) return;
     const data = t.getData();
-    const plan = interviewPlan(doc, record, data, masterRepository.get(), todayISO());
+    const plan = interviewPlan(doc, record, data, masterRepository.get(), todayISO(), lang);
     if (!plan) {
       bot("This document is kept as issued — tell me the line to change and I'll change it.");
       return;

@@ -993,7 +993,12 @@ def main():
         page.wait_for_timeout(500)
         pest_gu = page.locator(".app-content").inner_text()
         check("Other pages follow the same language without a reload", "દૈનિક રિપોર્ટ" in pest_gu)
-        check("Controlled document text (F/HR/17 and its check points) stays exactly as issued", "F/HR/17" in pest_gu and "Total number of rodent traps provided" in pest_gu)
+        # With Google unreachable the built-in Gujarati covers the screens, and
+        # there is nothing to translate the documents with, so the register reads
+        # as issued. Gujarati WITH Google — where the documents are translated too
+        # and only the marks that identify them are not — is e2e_translate.py
+        # (REQUIREMENTS s58).
+        check("Without Google, the built-in Gujarati covers the screens and the register reads as issued", "F/HR/17" in pest_gu and "Total number of rodent traps provided" in pest_gu)
         page.goto(f"{BASE}/index.html#/calendar")
         page.wait_for_timeout(400)
         check("The Record Calendar is translated too", "રેકોર્ડ કેલેન્ડર" in page.locator(".app-content").inner_text())

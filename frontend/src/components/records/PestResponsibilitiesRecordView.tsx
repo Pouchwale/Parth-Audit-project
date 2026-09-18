@@ -51,7 +51,8 @@ function ListBlock({
         <div key={i} className="pr-item">
           <span className="pr-marker">{marker(i)}</span>
           <div className="pr-item-text">
-            <FormField field={`${field}-${i + 1}`} kind="long" value={text} editable={editable} onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))} />
+            {/* A printed responsibility is the paper's own wording (REQUIREMENTS §58). */}
+            <FormField field={`${field}-${i + 1}`} kind="long" translatable value={text} editable={editable} onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))} />
           </div>
           {editable && (
             <button className="btn btn-ghost btn-sm btn-icon no-print" title="Remove this point" aria-label="Remove this point" onClick={() => onChange(items.filter((_, xi) => xi !== i))}>
@@ -120,7 +121,7 @@ export function PestResponsibilitiesRecordView({
     set({ emergencyCalls: data.emergencyCalls.map((c, ci) => (ci === i ? { ...c, ...patch } : c)) });
 
   return (
-    <div className="caf-sheet pr-sheet notranslate" translate="no" data-doc="pest-responsibilities">
+    <div className="caf-sheet pr-sheet" data-doc="pest-responsibilities">
       <section className="caf-page">
         <Letterhead />
         <div className="caf-title pr-heading">Responsibilities of Site</div>
@@ -170,7 +171,7 @@ export function PestResponsibilitiesRecordView({
         )}
 
         <div className="pr-note mt-3">
-          <FormField field="trainingNote" kind="long" value={data.trainingNote} editable={editable} onChange={(v) => set({ trainingNote: v })} />
+          <FormField field="trainingNote" kind="long" translatable value={data.trainingNote} editable={editable} onChange={(v) => set({ trainingNote: v })} />
         </div>
 
         <div className="pr-subheading mt-3">Environmental, Health &amp; Safety Clauses</div>

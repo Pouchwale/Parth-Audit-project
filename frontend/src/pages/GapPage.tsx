@@ -421,7 +421,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
 
       {/* The document itself — the part that prints (utils/print.ts). */}
       <div data-print-doc>
-      <div className="doc-header notranslate" translate="no">
+      <div className="doc-header">
         <div className="company-name">CAPA — Internal: Pest Control Inspection Findings Report</div>
         <div className="meta-row">
           <div className="meta-cell">
@@ -462,7 +462,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
         </div>
       </div>
 
-      <div className="doc-table mt-4 notranslate" translate="no">
+      <div className="doc-table mt-4">
         <table>
           <thead>
             <tr>

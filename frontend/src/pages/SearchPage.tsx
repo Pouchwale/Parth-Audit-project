@@ -19,6 +19,7 @@ import { createRecordForDocument } from "../engine/recordCrud";
 import { todayISO } from "../utils/date";
 import type { DocumentDefinition } from "../types";
 import { useT } from "../i18n";
+import { documentTextIn } from "../i18n/documentText";
 import type {
   ComplaintChecklistData,
   DailyPestMonitoringData,
@@ -172,7 +173,7 @@ const holdsRecords = (d: DocumentDefinition) => !d.isReferenceOnly && !["chemica
 
 export function SearchPage() {
   const t = useT();
-  const { mode, bump } = useAppStore();
+  const { mode, bump, lang } = useAppStore();
   const { navigate } = useRouter();
   const [q, setQ] = useState("");
   const isDemo = mode === "demo";
@@ -331,7 +332,7 @@ export function SearchPage() {
               {results.map((r) => (
                 <tr key={r.id} className="card-clickable" onClick={() => navigate(r.route)}>
                   <td>
-                    {r.documentName} {r.isDemo && <DemoTag />}
+                    {documentTextIn(r.documentName, lang)} {r.isDemo && <DemoTag />}
                   </td>
                   <td>{formatDisplayDate(r.dueDate)}</td>
                   <td>

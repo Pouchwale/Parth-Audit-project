@@ -1,5 +1,6 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout, ServiceReportAreaLine } from "../types";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { documentTextIn } from "../i18n/documentText";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { normalizeServiceLines } from "./serviceMaterials";
@@ -733,6 +734,19 @@ export function splitInstruction(text: string): { target: string; value: string 
 
 const STOP = new Set(["the", "of", "a", "an", "for", "at", "in", "on", "by", "to", "is", "was", "no", "number", "hrs", "hr", "sec", "mm"]);
 
+/**
+ * The names one box answers to: the words the form prints, and — for a form
+ * issued in Gujarati — the English it is read in when English is chosen. For
+ * every other form the two are the same string, so nothing changes.
+ */
+function names(printed: string, key?: string): string[][] {
+  const out = [tokens(printed)];
+  const english = documentTextIn(printed, "en");
+  if (english !== printed) out.push(tokens(english));
+  if (key) out.push(tokens(humanKey(key)));
+  return out.filter((t) => t.length > 0);
+}
+
 function tokens(s: string): string[] {
   return s
     .toLowerCase()
@@ -822,8 +836,9 @@ function logSheetEdit(layout: LogSheetLayout, target: string, tt: string[], valu
   const editableCols = layout.columns.filter((c) => !c.fixed);
   const columnFor = (words: string[]): LogColumn | null =>
     best(editableCols, (c) => {
-      const p = Math.max(precision(words, tokens(c.label)), precision(words, tokens(humanKey(c.key))));
-      return p >= 0.999 ? 1 + recall(words, tokens(c.label)) : 0;
+      const candidates = names(c.label, c.key);
+      const p = Math.max(...candidates.map((n) => precision(words, n)));
+      return p >= 0.999 ? 1 + Math.max(...candidates.map((n) => recall(words, n))) : 0;
     }, 1);
   const mode = layout.rowMode;
 
@@ -848,7 +863,10 @@ function logSheetEdit(layout: LogSheetLayout, target: string, tt: string[], valu
   // Header / footer fields by their printed label ("operator name", "lot status").
   const headerHit = best(
     layoutFields(layout),
-    (f) => (precision(tt, tokens(f.label)) >= 0.999 ? 1 + recall(tt, tokens(f.label)) : 0),
+    (f) => {
+      const candidates = names(f.label);
+      return Math.max(...candidates.map((n) => precision(tt, n))) >= 0.999 ? 1 + Math.max(...candidates.map((n) => recall(tt, n))) : 0;
+    },
     1
   );
 
@@ -858,10 +876,12 @@ function logSheetEdit(layout: LogSheetLayout, target: string, tt: string[], valu
   if (mode.kind === "fixedRows") {
     const paramKey = layout.columns.find((c) => c.fixed && c.key === "parameter") ? "parameter" : null;
     if (paramKey) {
-      const scored = rows.map((r, i) => ({ i, s: recall(tt, tokens(String(r[paramKey] ?? ""))) }));
+      const rowNames = rows.map((r) => names(String(r[paramKey] ?? "")));
+      const scored = rows.map((r, i) => ({ i, s: Math.max(0, ...rowNames[i].map((n) => recall(tt, n))) }));
       const top = best(scored, (x) => x.s, 0.5);
       if (top) {
-        const leftover = tt.filter((w) => !tokens(String(rows[top.i][paramKey] ?? "")).includes(w));
+        const matched = new Set(rowNames[top.i].flat());
+        const leftover = tt.filter((w) => !matched.has(w));
         const col = (leftover.length ? columnFor(leftover) : null) ?? editableCols[0] ?? null;
         if (col) {
           paramEdit = { itemEdits: [{ collection: "rows", match: { __row: top.i + 1 }, set: { [col.key]: value } }] };

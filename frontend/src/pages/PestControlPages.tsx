@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard, FiDroplet, FiFileText, FiPrinter, FiTrendingUp, FiTruck } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
+import { documentTextIn } from "../i18n/documentText";
 import { useRouter } from "../store/router";
 import { pressable } from "../utils/pressable";
 import { printDocument } from "../utils/print";
@@ -29,7 +30,7 @@ import { FlyCatcherRegisterSheet } from "../components/records/FlyCatcherRegiste
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { useT } from "../i18n";
 import { MONTH_NAMES, WEEKDAY_NAMES, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
-import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
+import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, MasterData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
 
 // The Pest Control module, organised the way the department actually talks
 // about its paperwork (and the way the source documents fall):
@@ -63,8 +64,10 @@ function monthRange(year: number, month: number) {
 
 // First due date on/after `fromISO` (looks up to 13 months ahead), holiday-
 // aware: a visit scheduled on the Thursday weekly off is due on the Friday.
-export function nextDueDate(doc: DocumentDefinition, fromISO: string): string | null {
-  const master = masterRepository.get();
+export function nextDueDate(doc: DocumentDefinition, fromISO: string, masterData?: MasterData): string | null {
+  // A page asking for a whole shelf of formats at once passes the master sheet
+  // in: read from storage it is parsed again on every call (REQUIREMENTS §56).
+  const master = masterData ?? masterRepository.get();
   const d = fromISODate(fromISO);
   let y = d.getFullYear();
   let m = d.getMonth();
@@ -137,11 +140,22 @@ function rodentCellFor(r: RecordInstance<DailyPestMonitoringData> | undefined): 
 
 export function DocMeta({ doc }: { doc: DocumentDefinition }) {
   const info = getDocumentInfo(doc, masterRepository.get());
+  // The paper this was read from, named in the chosen language (REQUIREMENTS §58).
+  const { lang } = useAppStore();
   return (
     <div className="text-xs text-muted">
-      Format {doc.formatNo}
-      {doc.revisionNo && doc.revisionNo !== "TO BE CONFIRMED" ? ` (Rev ${doc.revisionNo})` : ""} · {scheduleLabel(doc)} · {info.whoLabel} ·{" "}
-      <span className="text-faint">Source: {doc.sourceFile}</span>
+      {/* The number, the revision and the people named read as issued in either language (REQUIREMENTS §58). */}
+      Format{" "}
+      <span className="notranslate" translate="no">
+        {doc.formatNo}
+        {doc.revisionNo && doc.revisionNo !== "TO BE CONFIRMED" ? ` (Rev ${doc.revisionNo})` : ""}
+      </span>{" "}
+      · {scheduleLabel(doc)} ·{" "}
+      <span className="notranslate" translate="no">
+        {info.whoLabel}
+      </span>{" "}
+      ·{" "}
+      <span className="text-faint">Source: {documentTextIn(doc.sourceFile, lang)}</span>
     </div>
   );
 }

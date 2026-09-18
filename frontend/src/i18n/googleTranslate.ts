@@ -11,12 +11,21 @@ import { installTranslateGuard } from "./translateGuard";
 // unload), which is the only way to get Google's rewritten text back to the
 // original exactly.
 //
-// Two things are never handed to Google:
-//   * the issued documents themselves — every form, register, header, the
-//     licence and Statements of Compliance carry translate="no", so a
-//     controlled record reads exactly as issued (and its contents aren't sent
-//     to Google);
-//   * anything at all while English is chosen — the script isn't even loaded.
+// What is never handed to Google (REQUIREMENTS §58):
+//   * anything at all while English is chosen — the script isn't even loaded;
+//   * a form the department issues IN GUJARATI — F/QC/13 and the two line
+//     clearance checklists — which already reads in the chosen language and
+//     must read as issued (i18n/documentText.ts, keepFormAsIssued);
+//   * the marks that identify a document and everything written into it: the
+//     format number, the revision, the company's registered name, the licence's
+//     own numbers, master data, the audit trail, and every value shown as text
+//     that somebody typed into a record. Those carry translate="no".
+//
+// What IS handed to Google, deliberately, since 19-Sep-2026: the documents'
+// own printed words — instructions, box labels, column headings, printed
+// parameter lines, the licence's terms, the Statements of Compliance — so that
+// a record reads in Gujarati along with the screen around it. Before that the
+// forms were kept back wholesale; the department asked for the opposite.
 //
 // If Google can't be reached (no internet on the plant network, blocked),
 // Gujarati falls back to the app's own built-in Gujarati text (i18n/

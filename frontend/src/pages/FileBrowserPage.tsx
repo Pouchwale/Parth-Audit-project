@@ -14,6 +14,7 @@ import { useProgressiveCount } from "../utils/useProgressive";
 import { MONTH_NAMES, formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 import type { DailyPestMonitoringData, DocumentDefinition, RecordInstance } from "../types";
+import { documentTextIn } from "../i18n/documentText";
 
 // DOCUMENT FILES — /files[/{scope}/{from}/{to}]
 //
@@ -100,7 +101,7 @@ function MonthFolder({
 }
 
 export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: string; to?: string }) {
-  const { mode, version } = useAppStore();
+  const { mode, version, lang } = useAppStore();
   const { navigate } = useRouter();
   const t = useT();
   const isDemo = mode === "demo";
@@ -159,7 +160,7 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
         ? t(`module.${resolved.module}`)
         : resolved.docs.length === 1
           ? resolved.docs[0].name
-          : resolved.docs.map((d) => d.name).join(", ");
+          : resolved.docs.map((d) => documentTextIn(d.name, lang)).join(", ");
   const selectionLabel = !selected ? null : selected.kind === "module" ? t(`module.${selected.module}`) : docsById.get(selected.id)?.name;
 
   const exportCSV = () => {
@@ -274,9 +275,9 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
                       className={`file-node doc ${modulesInScope.length > 1 ? "nested" : ""} ${selected?.kind === "doc" && selected.id === d.id ? "active" : ""} ${n === 0 ? "empty" : ""}`}
                       data-folder={`doc:${d.id}`}
                       onClick={() => setSelected({ kind: "doc", id: d.id })}
-                      title={d.name}
+                      title={documentTextIn(d.name, lang)}
                     >
-                      <FiFolder size={13} /> <span className="file-node-name">{d.name}</span>
+                      <FiFolder size={13} /> <span className="file-node-name">{documentTextIn(d.name, lang)}</span>
                       <span className="file-count">{n}</span>
                     </button>
                   );

@@ -264,10 +264,19 @@ export function FlyCatcherRegisterSheet({
         <tbody>
           {legendRows.map(([left, right], i) => (
             <tr key={i}>
-              <td className="pc-id">{left ?? ""}</td>
-              <td className="pc-loc">{left && byId.get(left) ? locationLabel(byId.get(left)!) : ""}</td>
-              <td className="pc-id">{right ?? ""}</td>
-              <td className="pc-loc">{right && byId.get(right) ? locationLabel(byId.get(right)!) : ""}</td>
+              {/* The catcher numbers and the areas they hang in are master data, named as the plant names them (REQUIREMENTS §58). */}
+              <td className="pc-id notranslate" translate="no">
+                {left ?? ""}
+              </td>
+              <td className="pc-loc notranslate" translate="no">
+                {left && byId.get(left) ? locationLabel(byId.get(left)!) : ""}
+              </td>
+              <td className="pc-id notranslate" translate="no">
+                {right ?? ""}
+              </td>
+              <td className="pc-loc notranslate" translate="no">
+                {right && byId.get(right) ? locationLabel(byId.get(right)!) : ""}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -393,10 +402,20 @@ export function FlyCatcherRegisterSheet({
                     ) : (
                       <>
                         <td className="count-cell">{paperCount(e?.catchCountApprox)}</td>
-                        <td>{tube(e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED, above?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED)}</td>
-                        <td>{tube(e?.tubeLightDueDate ?? TUBE_LIGHT_DUE, above?.tubeLightDueDate ?? TUBE_LIGHT_DUE)}</td>
-                        <td className="name-cell">{e?.cleaningDoneBy ?? ""}</td>
-                        <td className="name-cell">{e?.verifiedBy ?? ""}</td>
+                        <td className="notranslate" translate="no">
+                          {tube(e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED, above?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED)}
+                        </td>
+                        <td className="notranslate" translate="no">
+                          {tube(e?.tubeLightDueDate ?? TUBE_LIGHT_DUE, above?.tubeLightDueDate ?? TUBE_LIGHT_DUE)}
+                        </td>
+                        {/* The names signed read exactly as they were written, in
+                            either language (REQUIREMENTS §58). */}
+                        <td className="name-cell notranslate" translate="no">
+                          {e?.cleaningDoneBy ?? ""}
+                        </td>
+                        <td className="name-cell notranslate" translate="no">
+                          {e?.verifiedBy ?? ""}
+                        </td>
                       </>
                     )}
                   </tr>
@@ -504,7 +523,7 @@ export function FlyCatcherRegisterSheet({
         </div>
       )}
 
-      <div ref={sheetRef} className="register-sheet fhr18-sheet notranslate" translate="no" data-print-doc data-editing={editing ? "true" : undefined}>
+      <div ref={sheetRef} className="register-sheet fhr18-sheet" data-print-doc data-editing={editing ? "true" : undefined}>
         <section className="register-page">
           {header("1 of 2")}
           {grid(pageOne)}

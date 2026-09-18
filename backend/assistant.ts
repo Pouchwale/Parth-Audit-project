@@ -256,6 +256,9 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
   NOT the calendar, which would show the whole month.
+- /qc — QC Records: Quality Control's own overview of all forty-three of its formats, by format number, in the
+  department's seven sections plus the formats the Lamination and Compliance modules keep (use it for "QC
+  records / QC module / quality control documents")
 - /hr — HR Records: the overview of the Human Resources module's own sixteen F/HR formats in their five groups
 - /hr/{slug} — one HR format's own page: its records on file, the latest shown in full, and New. slug is one of
   competence, skill-matrix, job-responsibility, mobile-authorization, training-needs, training-calendar,

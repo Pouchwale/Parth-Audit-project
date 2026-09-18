@@ -100,6 +100,8 @@ export function useRouter(): RouterValue {
 const SIMPLE_ROUTES = new Set([
   "", "dashboard", "process-flow", "library", "calendar", "reports",
   "chemical-master", "master-data", "demo", "search", "pest-control", "assistant", "licence",
+  // /qc — QC Records, Quality Control's own overview (REQUIREMENTS §58).
+  "qc",
 ]);
 const REPORT_TABS = new Set(["monthly", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"]);
 // Pest Control module pages (src/pages/PestControlPages.tsx):
