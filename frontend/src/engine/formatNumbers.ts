@@ -84,10 +84,34 @@ function resolve(ref: Reference): Resolved {
   return { written: ref.written.toUpperCase() };
 }
 
+/**
+ * EVERY document of the person's that carries the number a reference names.
+ * The company numbers two formats alike more than once — F/QC/19, F/QC/20,
+ * F/QC/21 and F/QC/29 each arrive on two different forms (REQUIREMENTS §57) —
+ * so a number names a list, not one document, and the search and the assistant
+ * offer all of them rather than whichever happened to be first.
+ */
+function resolveAll(ref: Reference): DocumentDefinition[] {
+  const visible = documentRepository.getAll();
+  if (ref.documentId) {
+    const named = visible.find((d) => d.id === ref.documentId);
+    return named ? [named] : [];
+  }
+  if (!ref.key) return [];
+  const exact = visible.filter((d) => knownNumber(d) && formatKey(d.formatNo) === ref.key);
+  if (exact.length > 0) return exact;
+  // "F/QC/40" for F-QC-40.C: a suffix-less number finds the lettered formats.
+  const lettered = visible.filter((d) => knownNumber(d) && formatKey(d.formatNo)?.replace(/[A-Z]$/, "") === ref.key);
+  if (lettered.length > 0) return lettered;
+  if (!ref.key.match(/[A-Z]$/)) return [];
+  const base = ref.key.replace(/[A-Z]$/, "");
+  return visible.filter((d) => knownNumber(d) && formatKey(d.formatNo) === base);
+}
+
 /** The person's own documents a piece of text names by format number, in the order named. */
 export function documentsByFormatNumber(text: string): DocumentDefinition[] {
   const out: DocumentDefinition[] = [];
-  for (const r of references(text).map(resolve)) if (r.doc && !out.some((d) => d.id === r.doc!.id)) out.push(r.doc);
+  for (const ref of references(text)) for (const doc of resolveAll(ref)) if (!out.some((d) => d.id === doc.id)) out.push(doc);
   return out;
 }
 

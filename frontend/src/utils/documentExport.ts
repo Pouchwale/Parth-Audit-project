@@ -29,7 +29,23 @@ import { formatDisplayDate, todayISO } from "./date";
 export type DocumentFileKind = "xlsx" | "docx" | "pdf";
 
 // Log sheets that are a form about one person or one position, not a grid.
-const WORD_FORMS = new Set(["hr-pre-employment-health", "hr-induction-staff", "hr-job-responsibility", "hr-training-effectiveness", "hr-visitor-health", "hr-psc-survey"]);
+// A certificate, a report or a card reads as a document, not as a spreadsheet:
+// the three Certificates of Analysis, the analysis report, the minutes of a
+// meeting and the customer's tolerance card download as Word (REQUIREMENTS §57).
+const WORD_FORMS = new Set([
+  "hr-pre-employment-health",
+  "hr-induction-staff",
+  "hr-job-responsibility",
+  "hr-training-effectiveness",
+  "hr-visitor-health",
+  "hr-psc-survey",
+  "qc-coa-label",
+  "qc-coa-sleeve",
+  "qc-coa-corrugated",
+  "qc-analysis-report",
+  "qc-minutes-of-meetings",
+  "qc-tolerance-card-nivea",
+]);
 const EXCEL_KINDS = new Set(["log-sheet", "daily-pest-monitoring", "fly-catcher", "service-report", "gap-inspection"]);
 const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-record", "compliance-statement", "chemical-master", "service-agreement", "pest-responsibilities"]);
 

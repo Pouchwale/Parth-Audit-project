@@ -1,6 +1,12 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
 import { QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
+import { QC_INCOMING_LAYOUTS } from "./qcIncomingLayouts";
+import { QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
+import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
+import { QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
+import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
+import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
 // photographed specimens in the uploaded "Audit documents.zip" (WhatsApp
@@ -384,6 +390,17 @@ Object.assign(LOG_SHEET_LAYOUTS, {
 Object.assign(LOG_SHEET_LAYOUTS, HR_LAYOUTS);
 // Quality Control's two internal calibration records, F/QC/11 and F/QC/12.
 Object.assign(LOG_SHEET_LAYOUTS, QC_CALIBRATION_LAYOUTS);
+
+// Quality Control's formats supplied on 18-Sep-2026 (REQUIREMENTS §57): the
+// thirteen incoming material inspection records, the seven line clearances
+// (F/QC/15-A to F/QC/15-G plus the two Gujarati checklists), the registers,
+// the three Certificates of Analysis, and the analyses and minutes.
+Object.assign(LOG_SHEET_LAYOUTS, QC_INCOMING_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, QC_LINE_CLEARANCE_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, QC_GUJARATI_LINE_CLEARANCE_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, QC_REGISTER_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, QC_COA_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, QC_REPORT_LAYOUTS);
 
 export function getLogSheetLayout(documentId: string): LogSheetLayout | undefined {
   return LOG_SHEET_LAYOUTS[documentId];

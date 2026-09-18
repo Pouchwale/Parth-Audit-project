@@ -206,6 +206,42 @@ export const SEED_MASTER_DATA: MasterData = {
     "qc-inprocess-printing": "QA Person",
     "qc-weight-scale-calibration": "Internal Calibration",
     "qc-gsm-plate-calibration": "Internal Calibration",
+    // Quality Control's formats supplied on 18-Sep-2026 (REQUIREMENTS §57): the
+    // incoming material inspections and the line clearances are the QA
+    // inspector's, the instrument list is the internal calibration's, and the
+    // registers, the tolerance card and the minutes are QA's own.
+    "qc-bopp-film": "QA Inspector",
+    "qc-corrugated-box": "QA Inspector",
+    "qc-label-stock": "QA Inspector",
+    "qc-paper-core": "QA Inspector",
+    "qc-pvc-pet-film": "QA Inspector",
+    "qc-offset-ink": "QA Inspector",
+    "qc-duplex-board": "QA Inspector",
+    "qc-kraft-paper": "QA Inspector",
+    "qc-flexo-ink": "QA Inspector",
+    "qc-lamination-adhesive-inspection": "QA Inspector",
+    "qc-side-pasting-adhesive": "QA Inspector",
+    "qc-starch-powder": "QA Inspector",
+    "qc-sheet-pasting-powder": "QA Inspector",
+    "qc-line-clearance-printing": "QA Inspector",
+    "qc-line-clearance-qc-machine": "QA Inspector",
+    "qc-line-clearance-qc-manual": "QA Inspector",
+    "qc-line-clearance-slitting": "QA Inspector",
+    "qc-line-clearance-sleeve-gluing": "QA Inspector",
+    "qc-line-clearance-sleeve-cutting": "QA Inspector",
+    "qc-line-clearance-materials": "QA Inspector",
+    "qc-line-clearance-quality": "QA Inspector",
+    "qc-calibration-master-list": "Internal Calibration",
+    "qc-coa-label": "QA Inspector",
+    "qc-coa-sleeve": "QA Inspector",
+    "qc-coa-corrugated": "QA Inspector",
+    "qc-obsolete-artwork": "QA",
+    "qc-printing-aids-destruction": "QA Inspector",
+    "qc-camera-challenge-test": "QA Inspector",
+    "qc-tolerance-card-nivea": "QA",
+    "qc-analysis-report": "QA Inspector",
+    "qc-utility-test-report": "QA Inspector",
+    "qc-minutes-of-meetings": "QA",
     // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46): the
     // registers HR & Admin keeps, the training records the Training
     // Coordinator keeps, and the PSTL's own — mobile authorisation, the HARA

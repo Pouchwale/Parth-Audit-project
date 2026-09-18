@@ -66,6 +66,43 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "qc-inprocess-printing": "QC", // F/QC/13
   "qc-weight-scale-calibration": "QC", // F-QC-12 on the list
   "qc-gsm-plate-calibration": "QC", // F-QC-11 on the list
+  // --- Quality Control: the formats supplied on 18-Sep-2026 (REQUIREMENTS §57).
+  // Listed here whether or not the format number resolves on its own: the two
+  // Gujarati clearance checklists print no number at all, and a number that
+  // resolves to nothing would put a document in front of every department.
+  "qc-bopp-film": "QC", // F/QC/01
+  "qc-corrugated-box": "QC", // F/QC/02
+  "qc-label-stock": "QC", // F/QC/03
+  "qc-paper-core": "QC", // F/QC/04
+  "qc-pvc-pet-film": "QC", // F/QC/05
+  "qc-offset-ink": "QC", // F/QC/18
+  "qc-duplex-board": "QC", // F/QC/19
+  "qc-kraft-paper": "QC", // F/QC/20
+  "qc-flexo-ink": "QC", // F/QC/21
+  "qc-lamination-adhesive-inspection": "QC", // F/QC/21
+  "qc-side-pasting-adhesive": "QC", // F/QC/22
+  "qc-starch-powder": "QC", // F/QC/23
+  "qc-sheet-pasting-powder": "QC", // F/QC/24
+  "qc-line-clearance-printing": "QC", // F/QC/15-A
+  "qc-line-clearance-qc-machine": "QC", // F/QC/15-C
+  "qc-line-clearance-qc-manual": "QC", // F/QC/15-D
+  "qc-line-clearance-slitting": "QC", // F/QC/15-E
+  "qc-line-clearance-sleeve-gluing": "QC", // F/QC/15-F
+  "qc-line-clearance-sleeve-cutting": "QC", // F/QC/15-G
+  "qc-line-clearance-materials": "QC", // TO BE CONFIRMED (Gujarati form)
+  "qc-line-clearance-quality": "QC", // TO BE CONFIRMED (Gujarati form)
+  "qc-calibration-master-list": "QC", // F/QC/08
+  "qc-coa-label": "QC", // F/QC/06
+  "qc-coa-sleeve": "QC", // F/QC/07
+  "qc-coa-corrugated": "QC", // F/QC/25
+  "qc-obsolete-artwork": "QC", // F/QC/16
+  "qc-printing-aids-destruction": "QC", // F/QC/20
+  "qc-camera-challenge-test": "QC", // F: QA/PRO/FL/CCT/01
+  "qc-tolerance-card-nivea": "QC", // F-QC-19
+  "qc-analysis-report": "QC", // F/QC/29
+  "qc-utility-test-report": "QC", // F/QC/29 (on the MOM format)
+  "qc-minutes-of-meetings": "QC", // F/QC/30
+
   "soc-labels": "QC", // F/QC-09
   "soc-flexible-packaging": "QC", // F/QC-38
 

@@ -25,6 +25,7 @@ import { COMPANY } from "../data/seed/masterData";
 import { autoFillRecord } from "./autoFill";
 import { latestConfirmedRecord } from "./assistantPrepare";
 import { codeRulesFor, FG_CODE_EXAMPLE } from "./documentFormats";
+import { isLotAccepted } from "./validation";
 import { dayInfo } from "./holidays";
 import { normDate, normNumber, normOption, normTime, normYesNo } from "./recordPatch";
 import { termEnd } from "./serviceAgreement";
@@ -602,7 +603,7 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
       options: f.options,
       suggestions: f.type === "select" ? chips(...(f.options ?? [])) : f.autoFill?.sign ? people(master, "qc", "qa", "operator") : suggestion ? chips(suggestion) : undefined,
       optional: !f.required && !isReason,
-      answered: (x) => (isReason ? blank(header(x).lotStatus) || header(x).lotStatus === "Accepted" || !blank(header(x)[f.key]) : !blank(header(x)[f.key])),
+      answered: (x) => (isReason ? blank(header(x).lotStatus) || isLotAccepted(header(x).lotStatus) || !blank(header(x)[f.key]) : !blank(header(x)[f.key])),
       apply: (x, v) => setHeader(x, f.key, v),
     });
   }

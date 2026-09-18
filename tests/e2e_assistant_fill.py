@@ -27,6 +27,11 @@ Checked here, against the production build on :8842, with no network
 import re
 import sys
 from playwright.sync_api import sync_playwright
+
+# A failure detail can carry the plant's own Gujarati or a typographic dash,
+# which a Windows console's default code page cannot encode - and a crash in
+# the reporting would hide the failure it was reporting.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 def settle_briefing(page):
     """Mark today's briefing slots as already shown, so it cannot re-open part
     way through the run and intercept a click. The briefing shows itself once in
@@ -281,6 +286,35 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/index.html#/library")
     page.wait_for_timeout(700)
     dismiss(page)
+    # A fortnightly register is prepared by the assistant on its own due date
+    # (the 4th and the 18th of a month), and a prepared record has nothing left
+    # to ask - so a fly catcher record already on file for today is deleted
+    # first, and the questions are checked on a fresh sheet whatever the date.
+    today_record = page.evaluate(
+        """() => {
+             const now = new Date();
+             const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+             const all = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]');
+             const r = all.find((x) => x.documentId === 'fly-catcher' && !x.isDemo && x.dueDate === iso);
+             return r ? r.id : null;
+           }"""
+    )
+    if today_record:
+        page.goto(f"{BASE}/index.html#/record/{today_record}")
+        page.wait_for_timeout(1200)
+        dismiss(page)
+        close_assistant(page)
+        page.locator("button:has-text('Delete')").first.click()
+        page.wait_for_timeout(500)
+        reason = page.locator("textarea[data-field='delete-reason']")
+        if reason.count():
+            reason.fill("Checking the assistant's questions on a fresh sheet")
+            page.wait_for_timeout(200)
+        page.click("[data-action='confirm-delete']")
+        page.wait_for_timeout(1300)
+        page.goto(f"{BASE}/index.html#/library")
+        page.wait_for_timeout(900)
+        dismiss(page)
     reply = say(page, "I want to fill the fly catcher record", wait=2000)
     text = last_bot(page)
     check("'I want to fill …' opens the document and starts asking there", "/record/" in page.url and text.rstrip().endswith("?"), (page.url, text))

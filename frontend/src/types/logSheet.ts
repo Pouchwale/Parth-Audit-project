@@ -16,8 +16,9 @@ export interface LogHeaderField {
   required?: boolean;
   // Auto-fill behaviour: carry the previous record's value forward (the
   // usual case for operator / machine / batch numbers), use a fixed default,
-  // or resolve a signature field to the responsible employee.
-  autoFill?: { carryForward?: boolean; default?: string; sign?: boolean };
+  // resolve a signature field to the responsible employee, or — for a date box
+  // such as "Date of Inspection" — answer it with the date the record is for.
+  autoFill?: { carryForward?: boolean; default?: string; sign?: boolean; dueDate?: boolean };
   width?: number;
 }
 

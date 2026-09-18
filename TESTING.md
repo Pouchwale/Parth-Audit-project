@@ -121,6 +121,19 @@ Seven scripts live in `tests/`:
   header block included; the illegible cells left blank and marked TO BE CONFIRMED; a new weekly sheet
   starting from the page on file with the device carried forward; and the Deviation % cells still
   ordinary entry cells, since the calculation was deliberately left for later. Network-independent.
+- `tests/e2e_qc_formats.py` - Quality Control's thirty-two formats as the department supplied them
+  (REQUIREMENTS s57): the module holding all thirty-eight documents in the department's seven sections;
+  every one of the thirty-two opening on a page of its own under its own format number; an incoming
+  material inspection record printing its test parameters and specifications, taking the observation (or
+  the three samples) beside each and offering the form's own four lot statuses, with what is typed stored;
+  the offset ink's two drying tests kept against the one parameter; a line clearance register taking the
+  twelve columns and the area's own checklist, a line written and another added; the two Gujarati
+  checklists printing their processes and lines; the master list of calibration instruments taking its
+  sixteen columns; the supplied pages on file cell for cell - thirteen obsolete artworks, the printing
+  aids destroyed, the label and sleeve certificates with their colours, the PSL analysis, the nine Nivea
+  utility tests and the Gangwal meeting's seven points; a certificate and the minutes downloading as Word
+  while a register downloads as Excel; each format found by its format number (including the two numbered
+  F/QC/21); and Mitra opening one asked for by name. Network-independent. (42 checks)
   With it `npm run test:e2e` is green at **940 checks across eighteen suites**.
 - `tests/e2e_format_numbers.py` - any document by its format number, and F/HR/05 as the form prints it
   (REQUIREMENTS s52): F/HR/05's seven lines (five topics numbered only by Sr. No., topic 2's points on their
@@ -160,7 +173,7 @@ Seven scripts live in `tests/`:
   accounts signing in from the database; the stored data refused without a session. Every suite now runs
   against a PostgreSQL the runner starts for the run, emptied before each suite
   (`npm run test:e2e -- tests/e2e_postgres_storage.py` runs one suite). Network-independent. (34 checks)
-  `npm run test:e2e` is green at **1117 checks across twenty-two suites**, all on PostgreSQL, no JavaScript errors.
+  `npm run test:e2e` is green at **1260 checks across twenty-three suites**, all on PostgreSQL, no JavaScript errors.
 - `tests/e2e_downloads_and_print.py` - every document as its own kind of file, and a wide one printed whole
   (REQUIREMENTS s54): F/HR/01, F/HR/09, the GAP report and the daily pest control register downloaded and read
   back as Excel workbooks (header block, bold heading row, every line and every one of F/HR/09's 29 columns,

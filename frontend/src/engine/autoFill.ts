@@ -29,7 +29,7 @@ import {
   serviceRemarkFor,
 } from "./plantSimulation";
 import { dayInfo } from "./holidays";
-import { isOutOfBand } from "./validation";
+import { isLotAccepted, isOutOfBand } from "./validation";
 import { compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
@@ -609,6 +609,8 @@ function fillLogSheet(
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
     const prev = previous?.data.header?.[f.key];
     if (f.autoFill?.sign) header[f.key] = prev?.trim() || responsibleName(doc, master, layout.specimenHeader?.[f.key] ?? "");
+    // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.
+    else if (f.autoFill?.dueDate) header[f.key] = dueDate;
     else if (f.autoFill?.carryForward && prev) header[f.key] = prev;
     else if (f.autoFill?.default !== undefined) header[f.key] = f.autoFill.default;
     else header[f.key] = f.autoFill?.carryForward ? (layout.specimenHeader?.[f.key] ?? "") : "";
@@ -647,7 +649,13 @@ function fillLogSheet(
   } else {
     const source = previous?.data.rows?.length ? previous.data.rows : (layout.specimenRows ?? []);
     const wanted = mode.typicalRows ?? Math.max(mode.minRows ?? 1, 1);
-    const templates = source.slice(0, Math.max(wanted, mode.minRows ?? 1));
+    // A register supplied blank has nothing to copy from — no sheet before it
+    // and no filled specimen. It still gets the lines the form prints a minimum
+    // of, each filled by its own columns' rules (the date, a signature), rather
+    // than no lines at all: a record with no lines cannot be submitted.
+    const templates = source.length
+      ? source.slice(0, Math.max(wanted, mode.minRows ?? 1))
+      : Array.from({ length: Math.max(mode.minRows ?? 1, 1) }, () => ({}) as Record<string, string | number | null>);
     if (doc.id === "qc-adhesive-mixing") {
       // Batches are mixed a few times a day at irregular hours; spread them
       // out rather than copying yesterday's clock times verbatim.
@@ -663,9 +671,12 @@ function fillLogSheet(
   explainExcursions(layout, rows, doc, dueDate, ctx);
   // How the lot was dispositioned, on the three inspection formats that print
   // a Lot Status box. Every one of them used to read "Accepted" for ever.
-  if (layout.footerFields?.some((f) => f.key === "lotStatus")) {
+  const lotStatusField = layout.footerFields?.find((f) => f.key === "lotStatus");
+  if (lotStatusField) {
     const lot = lotOutcomeFor(doc.id, dueDate);
-    header.lotStatus = lot.status;
+    // In the form's own words: the incoming material records print their
+    // statuses in capitals ("ACCEPTED"), the lamination ones in title case.
+    header.lotStatus = lotStatusField.options?.find((o) => o.trim().toLowerCase() === lot.status.trim().toLowerCase()) ?? lot.status;
     header.deviationReason = lot.reason;
   }
 
@@ -681,7 +692,7 @@ function fillLogSheet(
   const excursion = describeExcursions(ctx);
   if (excursion) notes.unshift(excursion);
   if (gradeAction) notes.unshift(`Check this before you submit: ${gradeAction}`);
-  if (header.lotStatus && header.lotStatus !== "Accepted") {
+  if (header.lotStatus && !isLotAccepted(header.lotStatus)) {
     notes.unshift(`Check this before you submit: this lot is marked ${header.lotStatus} — ${header.deviationReason} Confirm the disposition with QA.`);
   }
   return { data, notes, basedOn: basedOnLabel(doc, previous, layout.specimenSource) };

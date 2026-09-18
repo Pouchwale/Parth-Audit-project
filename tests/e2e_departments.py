@@ -48,7 +48,9 @@ BASE = "http://localhost:8842"
 FAILURES = []
 
 ALL_DEPARTMENT_CODES = ["SYS", "MKT", "PUR", "STR", "QC", "QA", "PRD", "MNT", "HR", "DISP"]
-# The nine documents whose format number is F-QC-... on the company's master list.
+# The documents whose format number is F-QC-... on the company's master list:
+# the eleven the plant started with and the thirty-two Quality Control formats
+# supplied on 18-Sep-2026 (REQUIREMENTS s57).
 QC_DOCUMENT_IDS = {
     "qc-viscosity",
     "qc-weight-scale-calibration",
@@ -61,6 +63,38 @@ QC_DOCUMENT_IDS = {
     "qc-inprocess-printing",
     "soc-labels",
     "soc-flexible-packaging",
+    "qc-bopp-film",
+    "qc-corrugated-box",
+    "qc-label-stock",
+    "qc-paper-core",
+    "qc-pvc-pet-film",
+    "qc-offset-ink",
+    "qc-duplex-board",
+    "qc-kraft-paper",
+    "qc-flexo-ink",
+    "qc-lamination-adhesive-inspection",
+    "qc-side-pasting-adhesive",
+    "qc-starch-powder",
+    "qc-sheet-pasting-powder",
+    "qc-line-clearance-printing",
+    "qc-line-clearance-qc-machine",
+    "qc-line-clearance-qc-manual",
+    "qc-line-clearance-slitting",
+    "qc-line-clearance-sleeve-gluing",
+    "qc-line-clearance-sleeve-cutting",
+    "qc-line-clearance-materials",
+    "qc-line-clearance-quality",
+    "qc-calibration-master-list",
+    "qc-coa-label",
+    "qc-coa-sleeve",
+    "qc-coa-corrugated",
+    "qc-obsolete-artwork",
+    "qc-printing-aids-destruction",
+    "qc-camera-challenge-test",
+    "qc-tolerance-card-nivea",
+    "qc-analysis-report",
+    "qc-utility-test-report",
+    "qc-minutes-of-meetings",
 }
 
 UNSCOPED = ("dept-all@example.com", "Dept All QA", "")
@@ -312,8 +346,8 @@ with sync_playwright() as p:
 
     qc_docs = library_documents(page)
     check(
-        "Its Document Library holds only Quality Control's eleven documents",
-        len(qc_docs) == 11 and len(qc_docs) < len(all_docs),
+        "Its Document Library holds only Quality Control's forty-three documents",
+        len(qc_docs) == 43 and len(qc_docs) < len(all_docs),
         {"count": len(qc_docs), "docs": qc_docs},
     )
     ids = page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.dataset.document)")

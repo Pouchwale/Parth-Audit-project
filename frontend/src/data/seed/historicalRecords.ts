@@ -8,6 +8,9 @@ import { newPestResponsibilitiesData } from "./pestResponsibilities";
 import { generateId } from "../../utils/id";
 import { SEED_HR_RECORDS } from "./hrRecords";
 import { SEED_QC_CALIBRATION_RECORDS } from "./qcCalibrationRecords";
+import { SEED_QC_REGISTER_RECORDS } from "./qcRegisterRecords";
+import { SEED_QC_COA_RECORDS } from "./qcCoaRecords";
+import { SEED_QC_REPORT_RECORDS } from "./qcReportRecords";
 
 const now = new Date().toISOString();
 
@@ -209,4 +212,10 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   ...SEED_HR_RECORDS,
   // The two internal calibration pages supplied on 16-Sep-2026 (qcCalibrationRecords.ts).
   ...SEED_QC_CALIBRATION_RECORDS,
+  // The Quality Control pages supplied filled in on 18-Sep-2026 (REQUIREMENTS §57):
+  // the obsolete artwork register and the printing aids destroyed, the two
+  // certificates of analysis, and the analysis, utility test and meeting minutes.
+  ...(SEED_QC_REGISTER_RECORDS as RecordInstance[]),
+  ...SEED_QC_COA_RECORDS,
+  ...SEED_QC_REPORT_RECORDS,
 ];

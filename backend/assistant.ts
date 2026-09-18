@@ -245,7 +245,14 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   hr-induction-staff, hr-induction-operators, hr-job-responsibility, hr-training-needs, hr-training-calendar,
   hr-training-effectiveness, hr-training-feedback, hr-mobile-authorization, hr-visitor-health, hr-gmp-checklist,
   hr-psc-survey, hr-psc-survey-analysis, hr-hygiene-report, qc-weight-scale-calibration,
-  qc-gsm-plate-calibration). Use it whenever the user asks for the documents / records /
+  qc-gsm-plate-calibration, qc-bopp-film, qc-corrugated-box, qc-label-stock, qc-paper-core, qc-pvc-pet-film,
+  qc-offset-ink, qc-duplex-board, qc-kraft-paper, qc-flexo-ink, qc-lamination-adhesive-inspection,
+  qc-side-pasting-adhesive, qc-starch-powder, qc-sheet-pasting-powder, qc-line-clearance-printing,
+  qc-line-clearance-qc-machine, qc-line-clearance-qc-manual, qc-line-clearance-slitting,
+  qc-line-clearance-sleeve-gluing, qc-line-clearance-sleeve-cutting, qc-line-clearance-materials,
+  qc-line-clearance-quality, qc-calibration-master-list, qc-coa-label, qc-coa-sleeve, qc-coa-corrugated,
+  qc-obsolete-artwork, qc-printing-aids-destruction, qc-camera-challenge-test, qc-tolerance-card-nivea,
+  qc-analysis-report, qc-utility-test-report, qc-minutes-of-meetings). Use it whenever the user asks for the documents / records /
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
   NOT the calendar, which would show the whole month.

@@ -17,6 +17,12 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { codeRulesFor } from "./documentFormats";
 
+// "Was the lot accepted as it is?" — the one status that needs no reason
+// beside it. Each form prints the words its own way (the incoming material
+// records in capitals, the lamination ones in title case), so the word is
+// read, not matched character for character.
+export const isLotAccepted = (status: string | undefined | null): boolean => String(status ?? "").trim().toLowerCase() === "accepted";
+
 // A numeric log-sheet cell outside its printed acceptance band. Not a
 // submit blocker (the paper form has no such gate — the reading is what it
 // is, and a remark is expected) but surfaced in the UI and in reports.
@@ -180,7 +186,7 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
         if (f.required && !(d.header?.[f.key] ?? "").toString().trim()) errors.push(`${f.label} is required.`);
       }
-      if (layout.footerFields?.some((f) => f.key === "lotStatus") && d.header?.lotStatus && d.header.lotStatus !== "Accepted" && !(d.header.deviationReason ?? "").trim()) {
+      if (layout.footerFields?.some((f) => f.key === "lotStatus") && d.header?.lotStatus && !isLotAccepted(d.header.lotStatus) && !(d.header.deviationReason ?? "").trim()) {
         errors.push("Reason for Deviation / Rejection / Segregation is required when the lot is not Accepted.");
       }
       if (!d.rows || d.rows.length === 0) errors.push("At least one row is required.");

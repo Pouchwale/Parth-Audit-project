@@ -131,7 +131,7 @@ with sync_playwright() as p:
     open_page(page, "#/library/quality-control-inspection-records")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
     text = page.locator(".app-content").inner_text()
-    check("Quality Control - Inspection Records now holds six documents", rows.count() == 6, rows.count())
+    check("Quality Control - Inspection Records now holds thirty-eight documents", rows.count() == 38, rows.count())
     check(
         "...the two calibration records among them, each with its own name and format number",
         "Weekly Internal Calibration Records - Weight Scale" in text and "F/QC/12" in text

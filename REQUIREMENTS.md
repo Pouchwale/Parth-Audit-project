@@ -2619,6 +2619,88 @@ characters of records). What made pages slow was found by profiling, and fixed a
 line about general questions, and the one saying conversations are saved in the browser (they are in the
 database, §55), are gone, in English and Gujarati.
 
+## 57. Quality Control's own formats, as the department supplied them (18-Sep-2026)
+
+```
+REQUESTED            "from now onwards i will give you all documents which you have put in QC Module and make
+                      sure each and every document will be editable and bot will perform task according to user
+                      query. SO do this make sure add each and every document which i have shared with you
+                      properly without any error."
+SOURCE DOCUMENTS     31 PDFs and 2 photographed Gujarati forms, supplied 18-Sep-2026 (listed below)
+DIGITAL TEMPLATE     data/seed/documentDefinitions.ts (the thirty-two definitions and QC_SECTIONS),
+                      data/seed/qcIncomingLayouts.ts, qcLineClearanceLayouts.ts,
+                      qcGujaratiLineClearanceLayouts.ts, qcRegisterLayouts.ts, qcCoaLayouts.ts,
+                      qcReportLayouts.ts, and the supplied pages in qcRegisterRecords.ts, qcCoaRecords.ts,
+                      qcReportRecords.ts
+```
+
+**THIRTY-TWO FORMATS, ALL IN THE QUALITY CONTROL MODULE.** The module now holds thirty-eight documents,
+shelved in the department's own seven sections. Every one of them is a full record: it opens on a page of
+its own, it can be filled in, corrected and printed, it downloads as the kind of file it reads as, the
+assistant can fill it or be asked for it by name or by format number, and it is scoped to Quality Control.
+
+| Section | Formats |
+|---|---|
+| In-Process & Inspection | F/QC/13 (Gujarati in-process control), F/QC/34, F/QC/35, F/QC/37 — already on file |
+| Incoming Material Inspection | F/QC/01 BOPP film · F/QC/02 corrugated box · F/QC/03 label stock · F/QC/04 paper core · F/QC/05 PVC / PET film · F/QC/18 offset ink · F/QC/19 duplex board · F/QC/20 kraft paper & white top liner · F/QC/21 flexo ink · F/QC/21 lamination film adhesive · F/QC/22 side pasting adhesive · F/QC/23 corrugation starch powder · F/QC/24 sheet pasting powder |
+| Line Clearance | F/QC/15-A printing · F/QC/15-C QC machine inspection · F/QC/15-D QC manual inspection · F/QC/15-E slitting · F/QC/15-F shrink sleeve gluing · F/QC/15-G shrink sleeve cutting · the two Gujarati clearance checklists (materials and quality) |
+| Calibration | F/QC/08 master list of calibration instruments (new) · F/QC/11 and F/QC/12 — already on file (§51) |
+| Certificates of Analysis | F/QC/06 label · F/QC/07 shrink sleeves · F/QC/25 corrugated boxes |
+| Registers & Records | F/QC/16 register of obsolete artwork · F/QC/20 printing aids destruction record · F: QA/PRO/FL/CCT/01 camera challenge test · F-QC-19 Beiersdorf tolerance card |
+| Analysis & Meetings | F/QC/29 analysis report · F/QC/29 utility test report · F/QC/30 minutes of meetings |
+
+**HOW EACH SHAPE IS REPRODUCED.** Every label, specification and printed word is the paper's own, including
+its spellings ("RELEAE LINER THICKNES", "APPERANCE.", "BRUSTING", "COADING", "Shrinkage Ration").
+
+- **An incoming material inspection record** prints the four-line header box (supplier, product, GRN quantity,
+  report number, batch number, GRN number, date of inspection), then its test parameters with their
+  specifications printed and the observation typed beside each — three sample columns instead of one on the
+  corrugated box and the paper core — and the footer's four lot statuses (accepted, reject and send back to
+  the supplier or scrap, segregation, accepted on deviation), the reason for a deviation, and the QA
+  inspector's and QA manager's signatures.
+- **A line clearance report** is a register: one line per job change, with the twelve columns the form prints
+  and, above them, the area's own clearance checklist (the printing one's numbering jumps from (5) to (7) —
+  kept as printed).
+- **The two Gujarati checklists** print their processes — printing, punching, quality checking, label
+  slitting — with the material or the parameter on each line and the operator's sign, QA's tick and QA's
+  sign beside it. The paper merges the process cell down its lines; a grid repeats it on each.
+- **A certificate of analysis** is a certificate of blocks, not a grid: the client and the order, what was
+  specified and what was tested, the printing colours as the grid's lines, the coating, the finishing and the
+  retest date, with the printed tolerance block kept as reference. It downloads as Word, as do the analysis
+  report, the minutes of a meeting and the tolerance card.
+- **The tolerance card** reproduces the card's panels and their approval boxes; the sample labels mounted on
+  the physical card are not reproducible.
+
+**THE PAGES THAT CAME FILLED IN ARE ON FILE** as real records, read cell for cell: the thirteen obsolete
+artworks of January and February 2022; the printing aids destroyed on 01-Jun-2022; the label certificate of
+04-Jan-2022 (Weener Empire, Dr. fixit 301, order 33858, six colours); the shrink sleeve certificate (The
+Unjha Pharmacy, Narogi Churana, order 33814); the PSL analysis of 07-Jan-2022; the nine Nivea utility tests
+of 02-Dec-2022; and the Gangwal Healthcare meeting of 07-Jun-2022 with its seven points.
+
+**TO BE CONFIRMED with the MR** (added to the list below):
+
+1. **Five format numbers are each carried by two formats.** F/QC/19 — duplex board inspection and the
+   Beiersdorf tolerance card. F/QC/20 — kraft paper inspection and the printing aids destruction record.
+   F/QC/21 — lamination film adhesive (Rev 01, 16.02.2022) and flexo ink (Rev 00, 01.04.2023). F/QC/29 —
+   the analysis report and the Nivea utility test report (the latter typed on the Minutes of Meetings form).
+   F/QC/30 — the minutes of meetings, while the company's master list gives F-QC-30 to the Lamination
+   Adhesive Viscosity Record already on file. Both of each pair are held as supplied.
+2. **F/QC/15-B was not supplied** — the area line clearance series here runs A, C, D, E, F and G.
+3. **The two Gujarati clearance checklists print no format number** and no revision.
+4. **The three certificates of analysis print no revision number**; the corrugated one carries an older
+   document number instead, QA-IP-TRFCBA-011-00-01-09-18 (2009 edition).
+5. **The camera challenge test is numbered as a QA procedure**, F: QA/PRO/FL/CCT/01, not as an F/QC format.
+6. **The utility test report's date reads "02/12/20222"** — five digits; filed under 02-Dec-2022.
+7. **The shrink sleeve certificate carries no COA date and no retest date**, and a loose "White" appears
+   beside its five printed colours.
+8. **The obsolete artwork register's own Sr. No. runs 1–7, then 9, then 8, then 10–13** — the lines are held
+   in the order the page prints them.
+9. **Two things on the scans cannot be reproduced**: the photograph of the label roll under the PSL analysis,
+   and the sample labels mounted on the tolerance card.
+
+- Covered by `tests/e2e_qc_formats.py` (**42 checks**), and by every suite that walks the whole
+  library: each new format is started, filled by the assistant and print-checked with the rest.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

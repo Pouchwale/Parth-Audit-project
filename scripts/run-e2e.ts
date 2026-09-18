@@ -4,7 +4,7 @@
 // tests/e2e_agreement_and_cancel.py, tests/e2e_crud.py,
 // tests/e2e_print_all_documents.py, tests/e2e_assistant_fill.py,
 // tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py,
-// tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_format_numbers.py,
+// tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_qc_formats.py, tests/e2e_format_numbers.py,
 // tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py):
 // a fresh PostgreSQL for the run, build,
 // single-process server (dist/ + auth API) on the port the tests expect,
@@ -174,6 +174,7 @@ async function main(): Promise<void> {
       "tests/e2e_hr_module.py",
       "tests/e2e_hr_cv_import.py",
       "tests/e2e_qc_calibration.py",
+      "tests/e2e_qc_formats.py",
       "tests/e2e_format_numbers.py",
       "tests/e2e_hr_master_data.py",
       "tests/e2e_downloads_and_print.py",
