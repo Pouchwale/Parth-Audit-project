@@ -219,6 +219,26 @@ const SCHEMA = `
     PRIMARY KEY (scope, key)
   );
   CREATE INDEX IF NOT EXISTS app_storage_seq_idx ON app_storage (seq);
+
+  -- THE ACTIVITY LOG (REQUIREMENTS §62): one line for everything anybody does
+  -- on the portal — signing in and out, opening, writing, submitting,
+  -- verifying, correcting, deleting, printing, downloading, changing a format,
+  -- changing who sees what. Who and when are stamped HERE from the session,
+  -- never taken from the browser, and nothing updates or deletes a line.
+  CREATE TABLE IF NOT EXISTS activity_log (
+    id BIGSERIAL PRIMARY KEY,
+    at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    user_id TEXT,
+    user_name TEXT NOT NULL DEFAULT '',
+    user_email TEXT NOT NULL DEFAULT '',
+    action TEXT NOT NULL,
+    target TEXT NOT NULL DEFAULT '',
+    detail TEXT NOT NULL DEFAULT '',
+    -- The department code of the document it concerns ('' when it concerns none).
+    department TEXT NOT NULL DEFAULT '',
+    ip TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX IF NOT EXISTS activity_log_at_idx ON activity_log (at DESC);
 `;
 
 /**
@@ -361,6 +381,81 @@ export async function insertUser(u: Omit<UserRow, "role" | "departments"> & { de
     if ((err as { code?: string }).code === "23505") return null; // the email is taken
     throw err;
   }
+}
+
+/** Adds a named account with its role and departments as given, unless that email already has one. Returns true when it was added. */
+export async function seedUser(u: UserRow): Promise<boolean> {
+  const { rowCount } = await database().query(
+    `INSERT INTO users (id, name, email, password_hash, role, created_at, departments)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (email) DO NOTHING`,
+    [u.id, u.name, u.email, u.password_hash, u.role, u.created_at, u.departments]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+export async function setUserPassword(id: string, passwordHash: string): Promise<void> {
+  await database().query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, id]);
+}
+
+// ---------------------------------------------------------------------------
+// the activity log
+
+export interface ActivityLine {
+  id: string;
+  at: string;
+  userId: string | null;
+  userName: string;
+  userEmail: string;
+  action: string;
+  target: string;
+  detail: string;
+  department: string;
+}
+
+export interface ActivityInput {
+  userId: string | null;
+  userName: string;
+  userEmail: string;
+  action: string;
+  target?: string;
+  detail?: string;
+  department?: string;
+  ip?: string;
+}
+
+export async function insertActivity(lines: ActivityInput[]): Promise<void> {
+  for (const l of lines) {
+    await database().query(
+      `INSERT INTO activity_log (user_id, user_name, user_email, action, target, detail, department, ip)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [l.userId, l.userName, l.userEmail, l.action, l.target ?? "", l.detail ?? "", l.department ?? "", l.ip ?? ""]
+    );
+  }
+}
+
+/** Newest first. `departments` null = every line; otherwise the person's own lines and their departments'. */
+export async function listActivity(opts: { limit: number; before?: string; departments: string[] | null; userId: string; search?: string }): Promise<ActivityLine[]> {
+  const where: string[] = [];
+  const args: unknown[] = [];
+  if (opts.before) {
+    args.push(opts.before);
+    where.push(`id < $${args.length}`);
+  }
+  if (opts.departments) {
+    args.push(opts.userId, opts.departments);
+    where.push(`(user_id = $${args.length - 1} OR department = ANY($${args.length}))`);
+  }
+  if (opts.search) {
+    args.push(`%${opts.search.toLowerCase()}%`);
+    where.push(`lower(user_name || ' ' || action || ' ' || target || ' ' || detail) LIKE $${args.length}`);
+  }
+  args.push(opts.limit);
+  const { rows } = await database().query<{ id: string; at: Date; user_id: string | null; user_name: string; user_email: string; action: string; target: string; detail: string; department: string }>(
+    `SELECT id::text, at, user_id, user_name, user_email, action, target, detail, department FROM activity_log
+     ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY id DESC LIMIT $${args.length}`,
+    args
+  );
+  return rows.map((r) => ({ id: r.id, at: r.at.toISOString(), userId: r.user_id, userName: r.user_name, userEmail: r.user_email, action: r.action, target: r.target, detail: r.detail, department: r.department }));
 }
 
 export async function setUserDepartments(id: string, departments: string): Promise<UserRow | undefined> {

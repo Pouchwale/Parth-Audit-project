@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { FiChevronDown, FiChevronUp, FiExternalLink, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FiChevronDown, FiChevronUp, FiEdit3, FiExternalLink, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { FormatEditor } from "../components/documents/FormatEditor";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { useRouter } from "../store/router";
@@ -49,7 +50,8 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   const { navigate } = useRouter();
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const { mode, bump, version, lang } = useAppStore();
+  const { mode, bump, version, lang, currentUser } = useAppStore();
+  const [editingFormat, setEditingFormat] = useState<DocumentDefinition | null>(null);
   const isDemo = mode === "demo";
   const docs = documentRepository.getAll();
   const master = masterRepository.get();
@@ -98,6 +100,17 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
 
   return (
     <div>
+      {editingFormat && (
+        <FormatEditor
+          doc={editingFormat}
+          actor={currentUser}
+          onClose={() => setEditingFormat(null)}
+          onSaved={() => {
+            setEditingFormat(null);
+            bump();
+          }}
+        />
+      )}
       <h1 className="text-2xl mb-1">{t("lib.title")}</h1>
       <p className="text-muted mb-4">
         Every controlled document identified from the uploaded source files. {docs.length} documents configured — click
@@ -209,6 +222,19 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                                 <FiPlus size={12} /> New
                               </button>
                             )}
+                            {/* EDIT FORMAT: every document's, from here (REQUIREMENTS §62). */}
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              data-action="edit-format"
+                              data-document={d.id}
+                              title={`Edit the format — now Rev ${d.revisionNo}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFormat(d);
+                              }}
+                            >
+                              <FiEdit3 size={12} />
+                            </button>
                             {/* OPEN: the document's own page — never the Record
                                 Calendar (engine/documentRoutes.ts, REQUIREMENTS §47). */}
                             <button

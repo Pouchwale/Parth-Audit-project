@@ -90,7 +90,7 @@ function printedTextIn(layout: LogSheetLayout): LogSheetLayout {
 
 // Rendered once per form, not once per render: a sheet of 15 lines × 5 columns
 // asked for its layout on every keystroke (REQUIREMENTS §56).
-const cache = new Map<string, LogSheetLayout>();
+const cache = new Map<string, { issued: LogSheetLayout; read: LogSheetLayout }>();
 
 /**
  * A form's layout as it should READ in the chosen language. The same object is
@@ -99,9 +99,11 @@ const cache = new Map<string, LogSheetLayout>();
  */
 export function documentLayoutIn<T extends LogSheetLayout | undefined>(layout: T, lang: Language): T {
   if (!layout || lang !== "en" || !isGujaratiDocument(layout.documentId)) return layout;
+  // Remembered for THIS layout: a format the plant has since changed is a
+  // different object and is rendered afresh (data/formatEdits.ts).
   const hit = cache.get(layout.documentId);
-  if (hit) return hit as T;
+  if (hit && hit.issued === layout) return hit.read as T;
   const out = printedTextIn(layout);
-  cache.set(layout.documentId, out);
+  cache.set(layout.documentId, { issued: layout, read: out });
   return out as T;
 }

@@ -5,8 +5,8 @@ import { makeRng } from "../utils/random";
 // date, from the generated seasonal pattern (tools/pest_pattern.py). Seeded
 // by unit + date, so the assistant's pre-fill, Demo Mode and a re-run "Fill
 // again" all agree, and Pest Control > Trend Analysis > Fly Catcher
-// Infestation reads as one consistent story: busy entrances in the monsoon,
-// near-empty boards in winter.
+// Infestation reads as one consistent story: busiest in the monsoon, busy
+// again in winter, and quietest in the dry summer heat (REQUIREMENTS §45, §62).
 export function flyCatchFor(pcId: string, dateISO: string): number {
   const rng = makeRng(`fly|${pcId}|${dateISO}`);
   const month = Number(dateISO.slice(5, 7)) - 1;

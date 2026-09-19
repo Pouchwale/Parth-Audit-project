@@ -229,9 +229,12 @@ with sync_playwright() as p:
     page.wait_for_timeout(900)
     dismiss(page)
     page.evaluate(STUB_PRINT)
-    page.locator("button:has-text('Print')").first.click()
+    # The PAGE's Print button: the person's own name in the top bar is a button
+    # too (it opens Change password, REQUIREMENTS s62), and this account is "Print QA".
+    page.locator(".app-content button:has-text('Print')").first.click()
     page.wait_for_timeout(500)
-    check("A page's own Print button asks the browser to print once", page.evaluate("() => window.__printed") == 1)
+    printed = page.evaluate("() => window.__printed")
+    check("A page's own Print button asks the browser to print once", printed == 1, printed)
     page.evaluate(END_PRINT)
     page.wait_for_timeout(300)
     check(

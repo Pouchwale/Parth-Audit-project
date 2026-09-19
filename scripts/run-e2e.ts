@@ -145,7 +145,8 @@ async function main(): Promise<void> {
     cwd: root,
     stdio: "inherit",
     // CVs are read by the text rules alone here, so the suites stay network-independent (backend/cvExtract.ts).
-    env: { ...process.env, API_PORT: String(TEST_PORT), CV_READ_WITH_ASSISTANT: "0", DATABASE_URL, SQLITE_IMPORT: "0" },
+    // SEED_ACCOUNTS=0: the suites rely on their first signup being the administrator.
+    env: { ...process.env, API_PORT: String(TEST_PORT), CV_READ_WITH_ASSISTANT: "0", DATABASE_URL, SQLITE_IMPORT: "0", SEED_ACCOUNTS: "0" },
   });
   const sql = new pg.Client({ connectionString: DATABASE_URL });
 
@@ -179,6 +180,8 @@ async function main(): Promise<void> {
       "tests/e2e_hr_master_data.py",
       "tests/e2e_downloads_and_print.py",
       "tests/e2e_postgres_storage.py",
+  // The portal's own controls (REQUIREMENTS §62): reviewed before submitted, formats revised on record, the activity log.
+  "tests/e2e_portal_controls.py",
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));

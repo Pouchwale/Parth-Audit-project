@@ -2,11 +2,23 @@ import type { DocumentDefinition } from "../../types";
 import { RETIRED_DOCUMENT_IDS, SEED_DOCUMENTS } from "../seed/documentDefinitions";
 import { isDocumentVisible } from "../../engine/departmentScope";
 import { readJSON, writeJSON } from "../storageAdapter";
+import { formatEdits } from "../formatEdits";
 
 const KEY = "documents";
 
+// The definitions as they stand now: the issued ones, with the name and the
+// revision of any format the plant has changed laid over them
+// (data/formatEdits.ts, REQUIREMENTS §62). What is STORED stays the issued
+// list — ensureSeeded puts it back on every start-up — so a change is never
+// lost to a re-seed and "Restore the issued format" only has to drop the edit.
 function loadAll(): DocumentDefinition[] {
-  return readJSON<DocumentDefinition[]>(KEY, []);
+  const issued = readJSON<DocumentDefinition[]>(KEY, []);
+  const edits = formatEdits();
+  if (Object.keys(edits).length === 0) return issued;
+  return issued.map((d) => {
+    const e = edits[d.id];
+    return e ? { ...d, name: e.name ?? d.name, revisionNo: e.revisionNo, revisionDate: e.revisionDate } : d;
+  });
 }
 
 function saveAll(docs: DocumentDefinition[]): void {
@@ -23,7 +35,7 @@ function saveAll(docs: DocumentDefinition[]): void {
 // been explicitly retired (RETIRED_DOCUMENT_IDS), in which case it is
 // dropped so a withdrawn document doesn't keep generating records.
 export function ensureSeeded(): void {
-  const existing = loadAll();
+  const existing = readJSON<DocumentDefinition[]>(KEY, []);
   const seedIds = new Set(SEED_DOCUMENTS.map((d) => d.id));
   const retired = new Set(RETIRED_DOCUMENT_IDS);
   const extras = existing.filter((d) => !seedIds.has(d.id) && !retired.has(d.id));
@@ -67,7 +79,7 @@ export const documentRepository = {
   },
 
   upsert(doc: DocumentDefinition): void {
-    const all = loadAll();
+    const all = readJSON<DocumentDefinition[]>(KEY, []);
     const idx = all.findIndex((d) => d.id === doc.id);
     if (idx >= 0) all[idx] = doc;
     else all.push(doc);

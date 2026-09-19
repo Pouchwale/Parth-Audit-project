@@ -42,7 +42,7 @@ export const SESSION_ENDED_EVENT = "dcrs:session-ended";
 const STORAGE_WRITE_FAILED = "dcrs:storage-write-failed";
 
 /** The company's items. Mirrors backend/index.ts COMPANY_KEYS. */
-const COMPANY_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "deletions", "live-start"];
+const COMPANY_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start"];
 /** A person's own. Mirrors backend/index.ts USER_SCOPED_KEYS. */
 const USER_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
 /** Everything kept in the database. Anything else (the assistant bubble's position) stays in this browser. */

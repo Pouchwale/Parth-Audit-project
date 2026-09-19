@@ -39,6 +39,8 @@ export function AssistantBriefingPopup() {
   const [open, setOpen] = useState(false);
   const [slot, setSlot] = useState<BriefingSlot | "manual">("manual");
   const [submitResult, setSubmitResult] = useState<{ submitted: number; failed: number } | null>(null);
+  // The records the person has ticked as reviewed and verified, this sitting.
+  const [reviewed, setReviewed] = useState<Set<string>>(new Set());
   const [purged, setPurged] = useState<number | null>(null);
 
   useEffect(() => {
@@ -101,16 +103,31 @@ export function AssistantBriefingPopup() {
     dismiss();
     navigate(route);
   };
+  // NOTHING GOES FOR VERIFICATION UNSEEN (REQUIREMENTS §62). Mitra fills these
+  // records in, so the briefing will not submit one until the person says they
+  // have reviewed and verified it — a tick per record. "Submit" is disabled
+  // until then, and "Submit all" sends only the ticked ones. The tick is for
+  // this sitting only: a record prepared again tomorrow is looked at again.
   const submitOne = (item: BriefingItem) => {
+    if (!reviewed.has(item.recordId)) return;
     const r = submitPreparedRecords([item], currentUser);
     setSubmitResult({ submitted: r.submitted, failed: r.failed.length });
     bump();
   };
+  const reviewedReady = briefing.ready.filter((item) => reviewed.has(item.recordId));
   const submitAll = () => {
-    const r = submitPreparedRecords(briefing.ready, currentUser);
+    if (reviewedReady.length === 0) return;
+    const r = submitPreparedRecords(reviewedReady, currentUser);
     setSubmitResult({ submitted: r.submitted, failed: r.failed.length });
     bump();
   };
+  const toggleReviewed = (recordId: string) =>
+    setReviewed((prev) => {
+      const next = new Set(prev);
+      if (next.has(recordId)) next.delete(recordId);
+      else next.add(recordId);
+      return next;
+    });
   const cleanUp = () => {
     setPurged(purgePreLaunchNoise());
     bump();
@@ -179,15 +196,31 @@ export function AssistantBriefingPopup() {
               tone="success"
               title={`Filled in and ready for your OK (${briefing.ready.length})`}
               action={
-                <button className="btn btn-success btn-sm" onClick={submitAll}>
-                  <FiSend size={12} /> Submit all {briefing.ready.length}
+                <button
+                  className="btn btn-success btn-sm"
+                  data-action="briefing-submit-all"
+                  onClick={submitAll}
+                  disabled={reviewedReady.length === 0}
+                  title={reviewedReady.length === 0 ? "Tick “Reviewed & verified” on the records you have checked first" : "Submit the records you have ticked as reviewed"}
+                >
+                  <FiSend size={12} /> Submit {reviewedReady.length} reviewed
                 </button>
               }
             >
               {briefing.ready.slice(0, MAX_ROWS).map((item) => (
-                <ItemRow key={item.recordId} item={item} onView={() => go(item.route)} onSubmit={() => submitOne(item)} />
+                <ItemRow
+                  key={item.recordId}
+                  item={item}
+                  onView={() => go(item.route)}
+                  onSubmit={() => submitOne(item)}
+                  reviewed={reviewed.has(item.recordId)}
+                  onReviewed={() => toggleReviewed(item.recordId)}
+                />
               ))}
-              <More count={briefing.ready.length - MAX_ROWS} hint="Submit all covers every one of them." />
+              <div className="text-xs text-muted mt-1" data-section="briefing-review-rule">
+                I filled these in, so check each one — View opens it — and tick <strong>Reviewed &amp; verified</strong>. Only a ticked record can be submitted.
+              </div>
+              <More count={briefing.ready.length - MAX_ROWS} hint="Open them from the Dashboard to review them too." />
             </Section>
           )}
 
@@ -298,7 +331,24 @@ function Section({ icon, tone, title, action, children }: { icon: React.ReactNod
   );
 }
 
-function ItemRow({ item, onView, onSubmit, showErrors, compact }: { item: BriefingItem; onView: () => void; onSubmit?: () => void; showErrors?: boolean; compact?: boolean }) {
+function ItemRow({
+  item,
+  onView,
+  onSubmit,
+  showErrors,
+  compact,
+  reviewed,
+  onReviewed,
+}: {
+  item: BriefingItem;
+  onView: () => void;
+  onSubmit?: () => void;
+  showErrors?: boolean;
+  compact?: boolean;
+  /** Ticked as reviewed and verified — what makes Submit available (REQUIREMENTS §62). */
+  reviewed?: boolean;
+  onReviewed?: () => void;
+}) {
   const today = todayISO();
   const late = item.dueDate < today;
   return (
@@ -313,8 +363,19 @@ function ItemRow({ item, onView, onSubmit, showErrors, compact }: { item: Briefi
           <button className="btn btn-ghost btn-sm" onClick={onView}>
             View <FiArrowRight size={11} />
           </button>
+          {onSubmit && onReviewed && (
+            <label className="text-xs flex items-center gap-1" style={{ cursor: "pointer", whiteSpace: "nowrap" }} data-field="briefing-reviewed">
+              <input type="checkbox" checked={!!reviewed} onChange={onReviewed} /> Reviewed &amp; verified
+            </label>
+          )}
           {onSubmit && (
-            <button className="btn btn-success btn-sm" onClick={onSubmit} title="Submit for verification">
+            <button
+              className="btn btn-success btn-sm"
+              data-action="briefing-submit"
+              onClick={onSubmit}
+              disabled={!reviewed}
+              title={reviewed ? "Submit for verification" : "Review the record and tick “Reviewed & verified” first"}
+            >
               <FiSend size={11} /> Submit
             </button>
           )}

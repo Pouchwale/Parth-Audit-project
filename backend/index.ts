@@ -15,12 +15,16 @@ import {
   deleteItem,
   getUserByEmail,
   getUserById,
+  insertActivity,
   insertUser,
   isDatabaseUnavailable,
+  listActivity,
   listUsers,
   openDatabase,
   readItem,
+  seedUser,
   setUserDepartments,
+  setUserPassword,
   storedItems,
   writeItem,
   type UserRow,
@@ -118,6 +122,16 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
   }
   (req as AuthedRequest).user = user;
   next();
+}
+
+// THE ACTIVITY LOG (REQUIREMENTS §62). Who and when come from the session and
+// the server's clock; a line that cannot be written must never fail the thing
+// it describes, so it is awaited nowhere on the way out and its error is only
+// printed.
+function logActivity(req: Request, who: PublicUser | null, action: string, target = "", detail = "", department = ""): void {
+  void insertActivity([{ userId: who?.id ?? null, userName: who?.name ?? "", userEmail: who?.email ?? "", action, target, detail, department, ip: req.ip ?? "" }]).catch((err) =>
+    console.error("[activity log]", err instanceof Error ? err.message : err)
+  );
 }
 
 // Simple in-memory brute-force throttle per email. Resets on server restart;
@@ -236,6 +250,7 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   recordSignup(req.ip ?? "unknown");
   const user = toPublicUser(row);
   issueSession(res, user);
+  logActivity(req, user, "Account created", user.email, user.role === "admin" ? "The first account — the system administrator" : user.departments.length ? `Departments: ${user.departments.join(", ")}` : "Every department");
   res.status(201).json({ user });
 });
 
@@ -280,6 +295,7 @@ app.post("/api/users/:id/departments", requireAdmin, async (req: Request, res: R
     return;
   }
   const updated: UserRow = (await setUserDepartments(target.id, departments.codes.join(","))) ?? { ...target, departments: departments.codes.join(",") };
+  logActivity(req, (req as AuthedRequest).user, "Department access changed", `${target.name} <${target.email}>`, `${target.departments || "every department"} → ${departments.codes.join(", ") || "every department"}`);
   res.json({ user: toPublicUser(updated) });
 });
 
@@ -307,6 +323,7 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
   const ok = row ? await verifyPassword(password, row.password_hash) : false;
   if (!row || !ok) {
     recordFailedAttempt(normalizedEmail);
+    logActivity(req, row ? toPublicUser(row) : null, "Sign-in failed", normalizedEmail, row ? "Wrong password" : "No such account");
     res.status(401).json({ error: "Invalid email or password." });
     return;
   }
@@ -314,12 +331,79 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
   clearAttempts(normalizedEmail);
   const user = toPublicUser(row);
   issueSession(res, user);
+  logActivity(req, user, "Signed in", user.email);
   res.json({ user });
 });
 
-app.post("/api/auth/logout", (_req: Request, res: Response): void => {
+app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> => {
+  const user = await getSessionUser(req).catch(() => null);
+  if (user) logActivity(req, user, "Signed out", user.email);
   res.clearCookie(COOKIE_NAME, cookieOptions());
   res.status(204).end();
+});
+
+// The named accounts start on a password somebody else chose (the seeding at
+// the foot of this file), so a person has to be able to make it their own.
+app.post("/api/auth/change-password", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const user = (req as AuthedRequest).user;
+  const { currentPassword, newPassword } = req.body ?? {};
+  if (typeof currentPassword !== "string" || typeof newPassword !== "string" || newPassword.length < 8) {
+    res.status(400).json({ error: "The new password must be at least 8 characters." });
+    return;
+  }
+  const row = await getUserById(user.id);
+  if (!row || !(await verifyPassword(currentPassword, row.password_hash))) {
+    logActivity(req, user, "Password change refused", user.email, "The current password was wrong");
+    res.status(401).json({ error: "The current password is not right." });
+    return;
+  }
+  await setUserPassword(user.id, await hashPassword(newPassword));
+  logActivity(req, user, "Password changed", user.email);
+  res.status(204).end();
+});
+
+// ---- the activity log: written by the app as things happen, read by whoever may see them
+const MAX_ACTIVITY_BATCH = 50;
+const clip = (v: unknown, n: number): string => (typeof v === "string" ? v.slice(0, n) : "");
+
+app.post("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const user = (req as AuthedRequest).user;
+  const events: unknown = (req.body ?? {}).events;
+  if (!Array.isArray(events) || events.length === 0 || events.length > MAX_ACTIVITY_BATCH) {
+    res.status(400).json({ error: "Between 1 and 50 events." });
+    return;
+  }
+  const lines = [];
+  for (const e of events as Record<string, unknown>[]) {
+    const action = clip(e?.action, 80).trim();
+    if (!action) continue;
+    const department = clip(e?.department, 8).toUpperCase();
+    lines.push({
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      action,
+      target: clip(e?.target, 240),
+      detail: clip(e?.detail, 600),
+      department: DEPARTMENT_CODE_RE.test(department) ? department : "",
+      ip: req.ip ?? "",
+    });
+  }
+  await insertActivity(lines);
+  res.status(204).end();
+});
+
+// The administrator reads every line. An account kept to departments reads its
+// own lines and its departments'; an account with no departments set works
+// across the plant (management, the MR, QA) and reads every line too.
+app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const user = (req as AuthedRequest).user;
+  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+  const before = typeof req.query.before === "string" && /^[0-9]+$/.test(req.query.before) ? req.query.before : undefined;
+  const search = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80) : "";
+  const departments = user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
+  const lines = await listActivity({ limit, before, departments, userId: user.id, search: search || undefined });
+  sendCompressedJson(req, res, 200, { lines });
 });
 
 app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
@@ -601,7 +685,7 @@ app.post("/api/reminders/send-digest", requireAuth, async (req: Request, res: Re
 // the log replaces only its own departments' lines; everyone else's stay as
 // they are stored. The department of a document comes from the same list the
 // app uses (frontend/src/data/seed/documentDepartments.ts).
-const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "referenceEdits", "deletions", "live-start"]);
+const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start"]);
 const USER_SCOPED_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
 const STORAGE_MAX_BYTES = "25mb";
 const MAX_VERSION = 2147483647;
@@ -867,6 +951,31 @@ try {
 } catch (err) {
   console.error("Could not open the PostgreSQL database:", err instanceof Error ? err.message : err);
   process.exit(1);
+}
+
+// THE PLANT'S NAMED ACCOUNTS (REQUIREMENTS §62), added once if they are not
+// there: the super admin, who covers every module and assigns everybody else;
+// Quality Control's own account, kept to QC's documents; and Human Resources'
+// two, kept to HR's. Each is an ordinary account from then on — its password
+// is changed from the top bar, its departments by the administrator — and an
+// account that already exists is never touched. SEED_ACCOUNTS=0 leaves them
+// out (the test runner does, because its first signup has to be the admin).
+const SEED_ACCOUNTS: { name: string; email: string; role: "admin" | "staff"; departments: string }[] = [
+  { name: "Super Admin", email: "admin@gpp.local", role: "admin", departments: "" },
+  { name: "Kapila Barad", email: "kapila.barad@gpp.local", role: "staff", departments: "QC" },
+  { name: "Vinay Bhojak", email: "vinay.bhojak@gpp.local", role: "staff", departments: "HR" },
+  { name: "Sandeep Parekh", email: "sandeep.parekh@gpp.local", role: "staff", departments: "HR" },
+];
+
+if (process.env.SEED_ACCOUNTS !== "0") {
+  const password = process.env.SEED_ACCOUNT_PASSWORD || "Gpp@12345";
+  for (const a of SEED_ACCOUNTS) {
+    const added = await seedUser({ id: crypto.randomUUID(), name: a.name, email: a.email, password_hash: await hashPassword(password), role: a.role, created_at: new Date().toISOString(), departments: a.departments });
+    if (added) {
+      console.log(`Added the account ${a.name} <${a.email}> (${a.role === "admin" ? "every module" : a.departments}).`);
+      void insertActivity([{ userId: null, userName: "System", userEmail: "", action: "Account created", target: a.email, detail: a.role === "admin" ? "Super admin — every module" : `Departments: ${a.departments}` }]).catch(() => undefined);
+    }
+  }
 }
 
 app.listen(PORT, () => {

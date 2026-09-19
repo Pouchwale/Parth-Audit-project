@@ -7,6 +7,7 @@ import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLay
 import { QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
 import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
 import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
+import { formatEditFor } from "../formatEdits";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
 // photographed specimens in the uploaded "Audit documents.zip" (WhatsApp
@@ -402,6 +403,13 @@ Object.assign(LOG_SHEET_LAYOUTS, QC_REGISTER_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_COA_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REPORT_LAYOUTS);
 
+// The layout as it stands now: the plant's own change to the format where
+// there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout
+// otherwise. `getIssuedLogSheetLayout` is the paper's own transcription.
 export function getLogSheetLayout(documentId: string): LogSheetLayout | undefined {
+  return formatEditFor(documentId)?.layout ?? LOG_SHEET_LAYOUTS[documentId];
+}
+
+export function getIssuedLogSheetLayout(documentId: string): LogSheetLayout | undefined {
   return LOG_SHEET_LAYOUTS[documentId];
 }

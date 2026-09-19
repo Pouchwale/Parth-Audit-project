@@ -46,6 +46,8 @@ import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { useT } from "../i18n";
 import { withCalibration } from "../engine/calibration";
+import { logActivity } from "../utils/activityLog";
+import { recordLabel } from "../engine/recordHistory";
 import { documentLayoutIn, documentTextIn, isGujaratiDocument } from "../i18n/documentText";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
@@ -75,6 +77,11 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
 
   const doc = record ? documentRepository.getById(record.documentId) : undefined;
+  // Opening a record is a line of the activity log too (REQUIREMENTS §62) — once per visit, not for demo data.
+  React.useEffect(() => {
+    if (record && !record.isDemo) logActivity("Record opened", recordLabel(record), record.status, record.documentId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordId]);
   const editable = !!record && isEditableStatus(record.status);
   const countersign = !!record && doc?.kind === "service-report" && COUNTERSIGN_STATUSES.includes(record.status);
   const canWrite = editable || countersign;

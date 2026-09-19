@@ -15,9 +15,10 @@
 // engine/rodentPattern.ts.
 export const RODENT_MONTH_WEIGHT: number[] = [0.0184, 0.0083, 0.0184, 0.0458, 0.0833, 0.1208, 0.1483, 0.1583, 0.1483, 0.1208, 0.0833, 0.0458];
 
-// Rodents caught in a year, inclusive — the department's own figure
-// (13-Sep-2026): three to four, in three or four different months.
-export const RODENT_CATCHES_PER_YEAR: [number, number] = [3, 4];
+// Rodents caught in each HALF of a year, inclusive — the department's own
+// figure, restated on 19-Sep-2026: two to four in six months, each in a month
+// of its own. (It was first given as three to four a year, 13-Sep-2026.)
+export const RODENT_CATCHES_PER_HALF_YEAR: [number, number] = [2, 4];
 
 // The 16 Rodent Control Service areas with catch weights and the numbered
 // trap boxes (RB-01..RB-100) each one owns.

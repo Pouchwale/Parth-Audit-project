@@ -6,6 +6,7 @@ import { documentRepository } from "./repositories/documentRepository";
 import { masterRepository } from "./repositories/masterRepository";
 import { todayISO, compareISO, pad2 } from "../utils/date";
 import { totalRodents } from "../engine/rodentPattern";
+import { lizardYearPlan } from "../engine/lizardPattern";
 import { RODENT_HISTORY_REPORTED } from "./seed/pestPattern";
 import {
   FLIES_GRAMS_HISTORY_REPORTED,
@@ -298,9 +299,17 @@ export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[
 // register to add up and every figure here is the provider's own monthly
 // report, transcribed. Nothing is tinted on this sheet for exactly that
 // reason, and its footnote says so. REQUIREMENTS §41.
+//
+// A YEAR THE PROVIDER HAS NOT REPORTED YET follows the plant's own season
+// (engine/lizardPattern.ts, REQUIREMENTS §62): more in the rains and in winter
+// than in the dry summer, to the month that has been reached and no further.
+// Its row says so in its Source, so it is never read as the provider's figure.
+export const LIZARD_PATTERN_SOURCE = "Seasonal pattern — not yet reported by the service provider";
+
 export function lizardTrendRows(_isDemo: boolean, today = todayISO()): TrendYearRow[] {
   const currentYear = Number(today.slice(0, 4));
-  return LIZARD_HISTORY_REPORTED.filter((h) => h.year <= currentYear).map((h) => ({
+  const currentMonth = Number(today.slice(5, 7)) - 1;
+  const reported: TrendYearRow[] = LIZARD_HISTORY_REPORTED.filter((h) => h.year <= currentYear).map((h) => ({
     year: h.year,
     months: [...h.months],
     fromRegister: Array(12).fill(false),
@@ -308,6 +317,20 @@ export function lizardTrendRows(_isDemo: boolean, today = todayISO()): TrendYear
     unit: LIZARD_TREND_REPORT.unit,
     targetPest: LIZARD_TREND_REPORT.targetPest,
   }));
+  const lastReported = Math.max(...LIZARD_HISTORY_REPORTED.map((h) => h.year));
+  const planned: TrendYearRow[] = [];
+  for (let year = lastReported + 1; year <= currentYear; year++) {
+    const plan = lizardYearPlan(year);
+    planned.push({
+      year,
+      months: plan.map((n, m) => (year < currentYear || m <= currentMonth ? n : null)),
+      fromRegister: Array(12).fill(false),
+      source: LIZARD_PATTERN_SOURCE,
+      unit: LIZARD_TREND_REPORT.unit,
+      targetPest: LIZARD_TREND_REPORT.targetPest,
+    });
+  }
+  return [...reported, ...planned];
 }
 
 export function allGapFindings(isDemo: boolean): { record: RecordInstance<GapInspectionData>; finding: GapFinding }[] {

@@ -266,6 +266,8 @@ function visibleEntries(entries: NavEntry[], visibleDocumentIds: Set<string>): N
 const NAV_SYSTEM: NavItem[] = [
   { to: "/reports", labelKey: "nav.reports", icon: FiBarChart2 },
   { to: "/master-data", labelKey: "nav.masterData", icon: FiDatabase },
+  // Everything anybody has done on the portal (REQUIREMENTS §62).
+  { to: "/activity", labelKey: "nav.activityLog", icon: FiActivity },
   { to: "/demo", labelKey: "nav.demoMode", icon: FiPlayCircle },
 ];
 

@@ -8,6 +8,8 @@ import { historyOf } from "./recordHistory";
 import { readJSON, writeJSON } from "../data/storageAdapter";
 import { generateId } from "../utils/id";
 import { todayISO } from "../utils/date";
+import { logActivity } from "../utils/activityLog";
+import { recordLabel } from "./recordHistory";
 
 // CREATE and DELETE for every document, by hand or by asking the assistant —
 // the two ends of the record's life that the app used to leave to the schedule
@@ -84,6 +86,7 @@ export function createRecordForDocument(
     createdAt: now,
     updatedAt: now,
   };
+  if (!isDemo) logActivity("Record started", recordLabel(record), "", doc.id);
   return { record: recordRepository.upsert(record), existed: false };
 }
 
@@ -106,6 +109,7 @@ export function deleteRecordWithTrail(record: RecordInstance, actorName: string,
   const log = [entry, ...readJSON<DeletionEntry[]>(DELETIONS_KEY, [])].slice(0, MAX_DELETIONS_KEPT);
   writeJSON(DELETIONS_KEY, log);
   recordRepository.remove(record.id);
+  if (!record.isDemo) logActivity("Record deleted", recordLabel(record), `It was ${record.status}. Reason: ${reason.trim() || "none given"}`, record.documentId);
   return entry;
 }
 

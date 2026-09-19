@@ -75,7 +75,7 @@ seasonal = 1.0 + 0.9 * np.cos((months - 7) * 2 * np.pi / 12)  # peak at index 7 
 # months, while the monsoon still gets most of them. What this file supplies is
 # the SHAPE (which months are likely) and the RANGE (how many a year).
 # REQUIREMENTS §45.
-CATCHES_PER_YEAR = (3, 4)
+CATCHES_PER_HALF_YEAR = (2, 4)
 month_weight = np.round(seasonal / seasonal.sum(), 4)
 
 # ---- Where rodents turn up: the 16 areas of the Rodent Control Service
@@ -195,9 +195,11 @@ parts = [
     "// engine/rodentPattern.ts.",
     f"export const RODENT_MONTH_WEIGHT: number[] = {json.dumps([float(x) for x in month_weight])};",
     "",
-    "// Rodents caught in a year, inclusive — the department's own figure",
-    "// (13-Sep-2026): three to four, in three or four different months.",
-    f"export const RODENT_CATCHES_PER_YEAR: [number, number] = {json.dumps(list(CATCHES_PER_YEAR))};",
+    "// Rodents caught in each HALF of a year, inclusive — the department's own",
+    "// figure, restated on 19-Sep-2026: two to four in six months, each in a month",
+    "// of its own. (It was first given as three to four a year, 13-Sep-2026.)",
+    f"export const RODENT_CATCHES_PER_HALF_YEAR: [number, number] = {json.dumps(list(CATCHES_PER_HALF_YEAR))};",
+
     "",
     "// The 16 Rodent Control Service areas with catch weights and the numbered",
     "// trap boxes (RB-01..RB-100) each one owns.",
@@ -255,7 +257,7 @@ parts = [
 OUT.write_text("\n".join(parts), encoding="utf-8", newline="\n")
 print(f"wrote {OUT}")
 print("rodent month weighting:", dict(zip(MONTH_NAMES, [float(x) for x in month_weight])))
-print("rodents per year (quota):", CATCHES_PER_YEAR)
+print("rodents per half year (quota):", CATCHES_PER_HALF_YEAR)
 print("fly seasonal factor:", dict(zip(MONTH_NAMES, [float(x) for x in fly_seasonal])))
 specimen_visit_totals = [sum(v[i] for v in FLY_SPECIMEN.values()) for i in (0, 1)]
 print("fly peak-month mean per visit, all units:", round(sum(unit_base.values()), 1),

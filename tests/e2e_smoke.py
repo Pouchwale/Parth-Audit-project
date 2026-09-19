@@ -349,9 +349,11 @@ def main():
 
         demo_year = date.today().year
         so_far = rodent_year_total(demo_year)
+        # Restated by the department on 19-Sep-2026 (REQUIREMENTS s62): two to four
+        # in six months, so at most eight in a year and at least two once June is past.
         check(
-            "The demo year's rodent catches are within the three to four a year the department states",
-            so_far is not None and 0 < so_far <= 4,
+            "The demo year's rodent catches are within the two to four per six months the department states",
+            so_far is not None and 0 < so_far <= 8 and (date.today().month <= 6 or so_far >= 2),
         )
         check(
             "...and they are spread across separate months, not clustered in one",

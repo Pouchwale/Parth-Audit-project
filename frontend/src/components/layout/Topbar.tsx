@@ -9,10 +9,12 @@ import { useT } from "../../i18n";
 import { NotificationBell } from "./NotificationBell";
 import { LanguageSwitcher } from "../common/LanguageSwitcher";
 import { openBriefing } from "../common/AssistantBriefingPopup";
+import { ChangePasswordDialog } from "../common/ChangePasswordDialog";
 
 export function Topbar() {
   const { mode, setMode } = useAppStore();
   const { user, logout } = useAuth();
+  const [changingPassword, setChangingPassword] = React.useState(false);
   const { navigate } = useRouter();
   const { visible: sidebarVisible, toggle: toggleSidebar } = useSidebar();
   const t = useT();
@@ -61,11 +63,14 @@ export function Topbar() {
             <FiZap size={13} /> {t("top.todaysBriefing")}
           </button>
           <NotificationBell />
-          <div className="flex items-center gap-2" title={user?.email}>
+          {/* The person's own name opens "Change password": the plant's named
+              accounts start on a password somebody else chose (REQUIREMENTS §62). */}
+          <button className="btn btn-ghost btn-sm flex items-center gap-2" data-action="change-password" onClick={() => setChangingPassword(true)} title={`${user?.email ?? ""} — ${t("top.changePassword")}`}>
             <FiUser size={15} className="text-muted" />
             <span className="text-sm font-semibold notranslate" translate="no">{user?.name}</span>
             {user?.role === "admin" && <span className="badge badge-Verified">{t("top.admin")}</span>}
-          </div>
+          </button>
+          {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
           <button className="btn btn-ghost btn-sm" onClick={() => logout()} title={t("top.logOut")}>
             <FiLogOut size={13} /> {t("top.logOut")}
           </button>

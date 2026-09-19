@@ -23,6 +23,8 @@
 // (to no less than 80%), a wider one turns the page to landscape and is scaled
 // down to that if it has to be — every column on the paper, and in the PDF.
 
+import { logActivity } from "./activityLog";
+
 const DOC_SELECTOR = "[data-print-doc]";
 const HIDDEN = "print-scope-hidden";
 const ANCESTOR = "print-scope-ancestor";
@@ -149,6 +151,9 @@ export function printDocument(target?: Element | null): void {
     docs = inside.length ? inside : [target];
   }
   scope(docs);
+  // One line in the activity log for what went to the printer (REQUIREMENTS §62).
+  const titles = docs.map((d) => d.querySelector(".doc-title")?.textContent?.trim() ?? "").filter(Boolean);
+  logActivity("Document printed", titles.join(" · ") || document.title, window.location.hash.replace(/^#/, ""));
   window.print();
 }
 

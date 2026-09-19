@@ -591,7 +591,7 @@ export function LizardTrendReport({ isDemo, year }: { isDemo: boolean; year: num
           yAxisLabel={LIZARD_TREND_REPORT.yAxisLabel}
           unitWord={LIZARD_TREND_REPORT.unitWord}
           registerName="Daily Pest Control Monitoring Records (F/HR/17)"
-          footnote="Every figure here is the service provider's own monthly report, transcribed: the lizards come off the same glue boards as the rodents, but F/HR/17 has no column for them, so the system adds nothing up on this sheet and tints nothing."
+          footnote="The years headed “Trapped on Glue boards in Roda-boxes” are the service provider's own monthly report, transcribed: the lizards come off the same glue boards as the rodents, but F/HR/17 has no column for them, so the system adds nothing up here and tints nothing. A year the provider has not reported yet is headed “Seasonal pattern” and follows the plant's own season — more in the rains and in winter than in the dry summer — until the provider's figures are entered."
         />
       </div>
     </div>

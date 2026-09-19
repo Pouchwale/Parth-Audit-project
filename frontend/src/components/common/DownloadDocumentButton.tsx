@@ -6,6 +6,7 @@ import { documentsOnScreen } from "../../utils/print";
 import { documentTextIn } from "../../i18n/documentText";
 import { useAppStore } from "../../store/AppStore";
 import { useT } from "../../i18n";
+import { logActivity } from "../../utils/activityLog";
 
 // "Download Excel" / "Download Word" beside Print (REQUIREMENTS §54): the
 // document on screen, as the kind of file it is (utils/documentExport.ts). A
@@ -33,6 +34,7 @@ export function DownloadDocumentButton({
     const holder = target?.();
     const roots = !holder ? documentsOnScreen() : holder.matches("[data-print-doc]") ? [holder] : documentsOnScreen(holder).length > 0 ? documentsOnScreen(holder) : [holder];
     downloadDocumentFile({ ...doc, name: documentTextIn(doc.name, lang) }, roots, dateISO);
+    logActivity(kind === "xlsx" ? "Document downloaded as Excel" : "Document downloaded as Word", `${doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `}${doc.name}`, dateISO ?? "", doc.id);
   };
   return (
     <button className={`btn btn-secondary${small ? " btn-sm" : ""}`} data-action="download-document" data-format={kind} onClick={download} title={kind === "xlsx" ? "Download as an Excel workbook" : "Download as a Word document"}>

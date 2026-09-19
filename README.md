@@ -125,6 +125,12 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **Reviewed before submitted, formats revised on record, named accounts, the activity log** (REQUIREMENTS §62):
+  the briefing submits only what has been ticked as reviewed; *Edit format* changes any format and raises its
+  revision with who, what and why; the super admin, Quality Control's and Human Resources' named accounts are
+  added at start-up (`admin@gpp.local`, `kapila.barad@gpp.local`, `vinay.bhojak@gpp.local`,
+  `sandeep.parekh@gpp.local`, first password `Gpp@12345` — change it from the top bar); everything done on the
+  portal is a line in the Activity Log; and the rodent, fly and lizard trends follow the plant's own season.
 - **The calibration records work their deviation out** (REQUIREMENTS §61): on the weight scale sheet each
   Deviation % comes from the weight and its tested value, in gm, mg or kg, with Pass / Fail following the
   Acceptable Tolerance; on the GSM cutting plate it is the measured plate against its printed size, by area —

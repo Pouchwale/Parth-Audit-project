@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiDatabase, FiExternalLink, FiPlus, FiPrinter, FiUpload } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiPlus, FiPrinter, FiUpload } from "react-icons/fi";
+import { FormatEditor } from "../components/documents/FormatEditor";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -23,6 +24,7 @@ import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
 import { documentLayoutIn, documentTextIn } from "../i18n/documentText";
+import { logActivity } from "../utils/activityLog";
 import type { Language } from "../i18n/strings";
 import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types";
 
@@ -63,12 +65,18 @@ function linesFilled(doc: DocumentDefinition, record: RecordInstance): string {
 }
 
 export function DocumentRecordsPage({ docId }: { docId: string }) {
-  const { mode, version, bump, lang } = useAppStore();
+  const { mode, version, bump, lang, currentUser } = useAppStore();
+  const [editingFormat, setEditingFormat] = useState(false);
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
   const today = todayISO();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cvOpen, setCvOpen] = useState(false);
+  // Opening a format's page is a line of the activity log (REQUIREMENTS §62).
+  React.useEffect(() => {
+    const d = documentRepository.getById(docId);
+    if (d) logActivity("Document opened", `${d.formatNo.startsWith("TO BE") ? "" : `${d.formatNo} `}${d.name}`, "", d.id);
+  }, [docId]);
 
   // This month's due sheet exists before the page reads the records, as on the
   // Calendar and the pest control pages (the generator keeps the launch-date floor).
@@ -124,6 +132,17 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
 
   return (
     <div className={isDemo ? "demo-watermark" : ""} data-page="document-records" data-document={doc.id}>
+      {editingFormat && (
+        <FormatEditor
+          doc={doc}
+          actor={currentUser}
+          onClose={() => setEditingFormat(false)}
+          onSaved={() => {
+            setEditingFormat(false);
+            bump();
+          }}
+        />
+      )}
       <div className="flex items-center justify-between mb-1 wrap gap-3">
         <div>
           <div className="text-xs text-muted mb-1" data-crumb>
@@ -146,6 +165,10 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
               <FiDatabase size={12} /> HR Master Data
             </button>
           )}
+          {/* The format itself can be changed; saving raises its revision (REQUIREMENTS §62). */}
+          <button className="btn btn-secondary btn-sm" data-action="edit-format" onClick={() => setEditingFormat(true)} title={`Now Rev ${doc.revisionNo}`}>
+            <FiEdit3 size={12} /> Edit format
+          </button>
           {!doc.isReferenceOnly && (
             <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
               <FiPlus size={12} /> New record

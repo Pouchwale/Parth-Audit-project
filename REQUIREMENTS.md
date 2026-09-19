@@ -2915,6 +2915,94 @@ number leaves its deviation blank rather than guessing.
   the record, Pass; 200400 mg read in its own unit as 0.2%, Fail by itself; the same told to Mitra (0.03%,
   Pass again); the GSM plate's 0.5% by area and 0% at its own size, with nothing on its Pass/Fail and Sign lines.
 
+## 62. Reviewed before submitted, formats that can be revised, named accounts, the activity log, the season (19-Sep-2026)
+
+```
+REQUESTED            "in today's briefing add validation if user has review and verified and only user can submit it
+                      ... in rodent and fly and lizard trend analysis ... 4 or 2 in 6 months ... according to climate
+                      ... in rainy and winter season there is more flies and lizards than summer ... each and every
+                      document must be editable like if i want to add any column or cell or if format change so
+                      likewise rev number will also change ... ids ... Kapila Barad for QC module and for HR Module
+                      Vinay Bhojak and Sandeep Parekh ... super admin will have all module access ... i want log
+                      for all activity happening on this portal"
+DIGITAL TEMPLATE     components/common/AssistantBriefingPopup.tsx; engine/rodentPattern.ts, engine/lizardPattern.ts;
+                      data/formatEdits.ts, components/documents/FormatEditor.tsx; backend/index.ts (the named
+                      accounts, /api/activity, /api/auth/change-password), backend/db.ts (activity_log);
+                      utils/activityLog.ts, pages/ActivityLogPage.tsx
+```
+
+**1. TODAY'S BRIEFING SUBMITS NOTHING UNSEEN.** The records under "Filled in and ready for your OK" are ones
+Mitra filled in. Each now carries a tick, **Reviewed & verified**, and its Submit is disabled until the person
+ticks it; the button over the list reads "Submit N reviewed", covers the ticked records only, and is disabled at
+none. View opens the record to look at it. The tick is for the sitting: a record prepared again tomorrow is
+looked at again.
+
+**2. THE TRENDS FOLLOW THE PLANT'S OWN SEASON.**
+- *Rodents.* The department's figure is restated as **two to four in six months** (it was three to four a year,
+  §45). Each half of the year now has its own quota of two to four, each catch in a month of its own, chosen by
+  the monsoon-leaning weighting — so a year holds four to eight, never clustered.
+- *Flies.* Already as described: busiest in the rains, busy again in winter, quietest in the dry summer
+  (`FLY_MONTHLY_FACTOR`, August 1.0 · January 0.8 · May 0.34). A stale comment that said "near-empty boards in
+  winter" is corrected.
+- *Lizards.* The report held only the two years the provider reported (three in 2024, three to November 2025),
+  so the current year had no row. A year the provider has not reported is now planned the way the rodent year
+  is — three to six, placed by a weighting that puts the rains first, winter next and the dry summer last — to
+  the month that has been reached and no further. Its row is headed **"Seasonal pattern — not yet reported by the
+  service provider"** and the sheet's footnote says so, so it is never read as the provider's count; the
+  provider's figures, once entered, take its place.
+
+**3. ANY FORMAT CAN BE CHANGED, AND ITS REVISION CHANGES WITH IT.** *Edit format* is on every format's own
+page and on every line of the Document Library. On a log sheet it renames the format; adds, renames, retypes,
+reorders or removes the boxes above and below the grid and the grid's columns; rewords the printed
+instructions; and adds, rewords or removes the lines a form prints down its side. **Saving raises the revision
+number (01 → 02), dates it today, and records who changed what and why** — a reason is required — and that
+list is the format's change history, shown with the issued revision at its foot. *Restore the issued format*
+puts the paper's own transcription back.
+- The issued formats stay in the code and are put back at every start-up (which is how a newly digitized form
+  reaches a browser that already used the app), so a change is kept **beside** them under its own key,
+  `formatEdits`, in PostgreSQL like everything else, and laid over the definition and the layout wherever they
+  are read. It therefore survives a re-seed, a reload and another person's browser.
+- **Records already on file are untouched.** A record keeps every value under the key it was written with: a
+  column taken off the format is simply not drawn, one added is blank on older records. Keys are never renamed
+  or reused — a new box gets a new key, and renaming a box changes only its label.
+- The forms the program draws by hand — the daily pest register, the fly catcher register, the service
+  reports, the complaint forms, the licence — have their **name and revision** changed here; their grid is
+  code, so a change to it is a change to the program, and the editor says so.
+
+**4. THE PLANT'S NAMED ACCOUNTS**, added once at start-up if they are not there, never touched if they are:
+
+| Account | Signs in as | Sees |
+|---|---|---|
+| Super Admin | `admin@gpp.local` | every module; assigns everybody else's departments; reads the whole activity log |
+| Kapila Barad | `kapila.barad@gpp.local` | Quality Control's documents only |
+| Vinay Bhojak | `vinay.bhojak@gpp.local` | Human Resources' documents only |
+| Sandeep Parekh | `sandeep.parekh@gpp.local` | Human Resources' documents only |
+
+They start on one password (`SEED_ACCOUNT_PASSWORD`, otherwise `Gpp@12345`), so each person's first act is
+**Change password** — their own name in the top bar. The addresses are sign-in names on a domain that does not
+exist, so no mail is ever sent to them. The department rule is the one already in force (§40), enforced by the
+server as well as the screen: a QC account is handed only QC's records, and another department's page refuses
+by name. `SEED_ACCOUNTS=0` leaves them out, which the test runner does because its first signup has to be the
+administrator.
+
+**5. THE ACTIVITY LOG.** Everything done on the portal is one line in a PostgreSQL table, `activity_log`, that
+is only ever added to: signing in and out and a sign-in that failed, an account created, a password changed or
+refused, department access changed (written by the server, where they happen); and a document or record
+opened, a record started, edited, edited through Mitra, submitted, verified, sent back, reopened, deleted, a
+document printed or downloaded, a format changed or restored (sent by the app as they happen). **Who and when
+are stamped by the server from the session**, never taken from the browser, so nobody can write a line in
+another name. Demo data and what the system does by itself at start-up are not logged — nobody did them — and an
+autosave folded into the edit before it is one line, not thirty. The Activity Log page shows it newest first,
+searchable, with a CSV export: the super admin reads every line, an account kept to departments reads its own
+and its departments'.
+
+- Covered by `tests/e2e_portal_controls.py` (**30 checks**): the briefing gate; a format changed with its
+  revision, reason, reload and restore, a record taking a value in the new column, a program-drawn form
+  offering name and revision only; the log holding the account, the opening, the record, the format change and
+  the password change without the password; the password change itself; the lizard year and how it is headed.
+  The named accounts are checked against the real database at start-up rather than in the suite, which runs
+  with them off.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -145,6 +145,13 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- `tests/e2e_portal_controls.py` - the portal's own controls (REQUIREMENTS §62), a twenty-fourth suite: the
+  briefing's review gate, a format changed and revised on record and restored, the activity log, the password
+  change, the lizard year. Network-independent. (30 checks) The smoke suite's rodent check now holds the year
+  to the two-to-four-per-six-months the department restated.
+  With it `npm run test:e2e` is green at **1328 checks across twenty-four suites**, all on PostgreSQL. One
+  check in `e2e_print_all_documents.py` now looks for the PAGE's Print button: the person's own name in the
+  top bar became a button (it opens Change password), and that suite's account is called "Print QA".
 - `tests/e2e_qc_calibration.py` was extended on 19-Sep-2026 for REQUIREMENTS §61 (the deviation worked out):
   nine checks, listed in that section, replacing the one that held the Deviation % cells to be ordinary entry
   cells.
