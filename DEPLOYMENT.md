@@ -103,7 +103,13 @@ Tables:
   listening on `127.0.0.1:5433` (`EMBEDDED_PG_PORT` to change it), data in `backend/data/postgres`,
   password generated once into `backend/data/postgres-password`, its log in
   `backend/data/postgres.log`. So `npm install && npm start` still needs nothing but Node.js. The first
-  start takes ~15 seconds to set the cluster up. It is started with `pg_ctl` as a process of its own and
+  start takes ~15 seconds to set the cluster up. It is started with `pg_ctl` as a process of its own,
+  **in the background with no window** — `npm run dev` (or `npm start`) in one terminal is everything, and
+  the terminal says "Local PostgreSQL started in the background on port 5433". (Until 19-Sep-2026 a black
+  console window opened beside the terminal on Windows and had to be left open: `pg_ctl` was spawned
+  `detached`, which on Windows gives it no console, so the `postgres.exe` it launched opened a visible one
+  of its own. It is now spawned with a hidden console instead, which the database inherits — measured both
+  ways on a throwaway cluster.) It
   **keeps running when the server stops** — a second server on the same machine (the live assistant
   suite's, say) may be using it, and the next start simply uses it again. `npm run db:stop` shuts it
   down cleanly (a fast shutdown, with a checkpoint). A server only reuses a PostgreSQL on that port if

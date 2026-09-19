@@ -15,7 +15,8 @@
 //                       binaries, no installation), its data in
 //                       backend/data/postgres — so `npm start` still needs
 //                       nothing but Node.js. It is started with pg_ctl as a
-//                       process of its own, not a child of this server: it
+//                       process of its own, not a child of this server, in
+//                       the background WITH NO WINDOW (see pgCtl below): it
 //                       keeps running when the server stops (a second server
 //                       on this machine may be using it), and the next start
 //                       uses it. `npm run db:stop` shuts it down cleanly.
@@ -105,11 +106,25 @@ function lastLines(file: string, n: number): string {
   }
 }
 
-/** Runs pg_ctl as a process of its own (detached), so the database outlives this server. */
+// Runs pg_ctl so that the database it starts outlives this server AND HAS NO WINDOW.
+//
+// On Windows `detached: true` was what opened a black console window beside
+// `npm run dev` — one that had to stay open, because closing it killed the
+// database. A detached process is given no console at all, so the postgres.exe
+// that pg_ctl launches (through cmd.exe) made a new, visible one of its own, and
+// `windowsHide` cannot help: Windows ignores it on a detached process. Without
+// `detached`, and with nothing inherited, pg_ctl gets a hidden console and the
+// server inherits that — no window, and not the terminal's console either, so
+// Ctrl+C on `npm run dev` does not reach the database. It still outlives this
+// server: only pg_ctl itself is tied to this process, and it has exited by the
+// time the database is up. (Measured both ways on a throwaway cluster, 19-Sep-2026.)
+//
+// Elsewhere there is no console to open, and `detached` is what keeps the
+// terminal's Ctrl+C away from the database, so it stays.
 async function pgCtl(args: string[]): Promise<number> {
   const bin = await pgCtlPath();
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { detached: true, stdio: "ignore", windowsHide: true });
+    const child = spawn(bin, args, { detached: process.platform !== "win32", stdio: "ignore", windowsHide: true });
     child.on("error", reject);
     // Waited for (pg_ctl exits once the server is up); the server it starts is not this process's child.
     child.on("exit", (code) => resolve(code ?? 1));
@@ -163,6 +178,9 @@ async function embeddedDatabaseUrl(): Promise<string> {
     }
     state = await probe(url("postgres"));
     if (state.kind !== "running") throw new Error(`The local PostgreSQL started but does not answer on port ${port}.`);
+    console.log(`Local PostgreSQL started in the background on port ${port} - no window, nothing to keep open. (npm run db:stop stops it.)`);
+  } else {
+    console.log(`Local PostgreSQL is already running in the background on port ${port}.`);
   }
 
   const admin = new pg.Client({ connectionString: url("postgres") });
