@@ -125,6 +125,10 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **The calibration records work their deviation out** (REQUIREMENTS §61): on the weight scale sheet each
+  Deviation % comes from the weight and its tested value, in gm, mg or kg, with Pass / Fail following the
+  Acceptable Tolerance; on the GSM cutting plate it is the measured plate against its printed size, by area —
+  typed or told to Mitra alike.
 - **Mitra opens with the document** (REQUIREMENTS §60): open any record or format and the assistant opens
   beside it, docked down the side with the page making room, says where the document stands and offers the
   task — one tap starts today's record and asks the first question. Left untouched, it closes again when the

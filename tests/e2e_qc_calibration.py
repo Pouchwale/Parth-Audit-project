@@ -5,8 +5,10 @@ records.pdf": "add this in QC module with same format which i gave and make
 sure there is two page in it with different names ... here bot need to perform
 some calulation for the data present in it so don't do it first just for now
 add". REQUIREMENTS s51. So this suite is a transcription check of the two
-formats and the two pages on file, and it also checks that nothing calculates
-the deviation yet - the columns are there, holding what the paper wrote.
+formats and the two pages on file. The calculation followed on 19-Sep-2026
+(REQUIREMENTS s61), so it also checks that every Deviation % is worked out from
+what is written - typed or told to Mitra, in gm or mg - with Pass / Fail
+following the sheet's Acceptable Tolerance, and the GSM plate by area.
 
   page 1  F/QC/12  WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE
   page 2  F/QC/11  MONTHLY INTERNAL CALIBRATION RECORDS - GSM CUTTING PLATE
@@ -222,7 +224,7 @@ with sync_playwright() as p:
         check("...the due date beside the calibration date left blank, being illegible on the copy", stored["data"]["header"].get("dueDate") == "")
 
     # ==================================================================
-    # 4. Nothing calculates the deviation yet - it holds what was written
+    # 4. A new sheet starts from the page on file
     # ==================================================================
     open_page(page, "#/library")
     page.locator("[data-action='new-record'][data-document='qc-weight-scale-calibration']").first.evaluate("el => el.click()")
@@ -252,8 +254,62 @@ with sync_playwright() as p:
             fresh["data"]["header"].get("deviceIdNo") == "QC-76" and fresh["data"]["header"].get("acceptableTolerance") == "0.05 %",
             fresh["data"]["header"],
         )
-    inputs = page.locator("table.log-sheet tbody tr").first.locator("input")
-    check("...and its Deviation % cells are ordinary entry cells, as asked - no arithmetic yet", inputs.count() >= 18 and not page.locator("table.log-sheet [readonly]").count())
+    # ==================================================================
+    # 5. The deviation is worked out, not typed (REQUIREMENTS s61)
+    # ==================================================================
+    # Columns: Sr, Date, Tested By, then Weight / Tested Value / Deviation % x 5, Pass / Fail, Sign, Next Due.
+    line = page.locator("table.log-sheet tbody tr").first
+    cell = lambda n: line.locator("td").nth(n)
+    check(
+        "The Deviation % cells are worked out, not typed: no box to type into, while the weights and tested values keep theirs",
+        cell(5).locator("input").count() == 0 and cell(14).locator("input").count() == 0 and cell(3).locator("input").count() == 1 and cell(4).locator("input").count() == 1,
+    )
+    cell(13).locator("input").fill("200.04 gm")
+    page.wait_for_timeout(1500)
+    row = record(page, new_id)["data"]["rows"][0]
+    check(
+        "Typing a tested value of 200.04 gm against the 200.000gm weight gives 0.02%, on the sheet and in the record",
+        row["deviation4"] == "0.02%" and cell(14).inner_text().strip() == "0.02%",
+        (row["deviation4"], cell(14).inner_text()),
+    )
+    check("...inside the 0.05 % tolerance, so the line stays Pass, and the other weights stay 0%", row["passFail"] == "Pass" and row["deviation1"] == "0%" and row["deviation5"] == "0%", row)
+    cell(13).locator("input").fill("200400 mg")
+    page.wait_for_timeout(1500)
+    row = record(page, new_id)["data"]["rows"][0]
+    check("A tested value written in mg against a weight in gm is read in its own unit: 200400 mg is 0.2%", row["deviation4"] == "0.2%", row["deviation4"])
+    check("...which is over the tolerance, so the line turns Fail by itself", row["passFail"] == "Fail", row["passFail"])
+    if page.locator("button:has-text('Ask Mitra')").count():
+        page.click("button:has-text('Ask Mitra')")
+    page.wait_for_timeout(400)
+    mitra_box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+    mitra_box.fill("row 1 tested value 4 is 200.06 gm")
+    mitra_box.press("Enter")
+    page.wait_for_timeout(1800)
+    row = record(page, new_id)["data"]["rows"][0]
+    check(
+        "Told to Mitra instead, the same happens: tested value 200.06 gm, deviation 0.03%, Pass again",
+        row["testedValue4"] == "200.06 gm" and row["deviation4"] == "0.03%" and row["passFail"] == "Pass",
+        (row["testedValue4"], row["deviation4"], row["passFail"], page.locator(".chat-msg.bot").last.inner_text()[:200]),
+    )
+    close_assistant(page)
+
+    # The GSM cutting plate: the measured plate against the size at the head of its column, by area.
+    open_page(page, "#/library")
+    page.locator("[data-action='new-record'][data-document='qc-gsm-plate-calibration']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1400)
+    close_assistant(page)
+    gsm_id = page.url.split("#/record/")[-1]
+    first = page.locator("table.log-sheet tbody tr").first
+    # Columns: Sr, Index, then each plate's size and its Deviation %.
+    check("The GSM plate's Deviation % cells are worked out too", first.locator("td").nth(3).locator("input").count() == 0 and first.locator("td").nth(2).locator("input").count() == 1)
+    first.locator("td").nth(2).locator("input").fill("20.1 x 20cm")
+    page.wait_for_timeout(1500)
+    grow = record(page, gsm_id)["data"]["rows"][0]
+    check("No. 54 measured 20.1 x 20cm against its 20 x 20cm is 0.5%", grow["p54dev"] == "0.5%", grow)
+    first.locator("td").nth(2).locator("input").fill("20 x 20cm")
+    page.wait_for_timeout(1500)
+    rows = record(page, gsm_id)["data"]["rows"]
+    check("...and back at its own size, 0% - with nothing worked out on the Pass/Fail and Sign lines", rows[0]["p54dev"] == "0%" and (rows[4].get("p54dev") or "") == "" and (rows[5].get("p54dev") or "") == "", [r.get("p54dev") for r in rows])
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

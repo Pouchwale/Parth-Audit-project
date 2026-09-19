@@ -145,6 +145,9 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- `tests/e2e_qc_calibration.py` was extended on 19-Sep-2026 for REQUIREMENTS §61 (the deviation worked out):
+  nine checks, listed in that section, replacing the one that held the Deviation % cells to be ordinary entry
+  cells.
 - `tests/e2e_qc_formats.py` was extended again on 19-Sep-2026 for REQUIREMENTS §60 (Mitra opening with the
   document): six checks, listed in that section. Four clicks on the "Ask Mitra" pill in `e2e_editing.py`,
   `e2e_print_and_forms.py` and `e2e_qc_calibration.py` now happen only when the panel is not already open.

@@ -2879,6 +2879,42 @@ are not covered by a chat nobody asked for. Say or tap anything and it stays.
   question; a record opened directly offering the fill; the pill back on the dashboard when it was left
   untouched; and a record already greeted not being interrupted twice. (6 checks)
 
+## 61. The calibration records work their deviation out (19-Sep-2026)
+
+```
+REQUESTED            "when user enter weights for example 200.04 gm ... deviation will come there automatically by
+                      calculating weights and tested value ... many time in mg and sometimes in gm ... don't put
+                      deviation value to only 0 percent ... whenever user enter or even tell bot to do so ...
+                      likewise in MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE ... there is no
+                      acceptable tolerance ... index present for example 20 x 20 and deviation come automatically"
+DIGITAL TEMPLATE     src/engine/calibration.ts, the `computed` Deviation % columns of
+                      src/data/seed/qcCalibrationLayouts.ts, applied in src/pages/RecordPage.tsx
+```
+
+§51 added the two formats and left the arithmetic for later, as asked then. This is the arithmetic.
+
+**F/QC/12 — WEIGHT SCALE.** For each of the five weights, Deviation % = (tested value − weight) ÷ weight × 100.
+The figures are read in the unit they are written in — `0.050mg`, `200.04 gm`, `0.2 kg` — so a weight in gm
+against a tested value in mg is compared properly, and a figure written bare takes the unit of the one beside
+it. 200.000gm tested at 200.04 gm is **0.02%**; nothing is forced to 0%. **Pass / Fail follows the sheet's own
+Acceptable Tolerance**: every deviation within it is Pass, any one over it turns the line Fail by itself, and
+back again when the figure is corrected.
+
+**F/QC/11 — GSM CUTTING PLATE.** The form has no tolerance; it has the plate's size at the head of each column
+— 20 x 20cm, 10 x 10cm, 5 x 5cm, 2.5 x 2.5cm. The deviation is the measured plate against that size **by area**,
+because area is what a GSM plate is for: No. 54 measured 20.1 x 20cm is **0.5%**. A single figure is read as
+the side of a square plate. The Pass/Fail and Sign lines have nothing to work out and stay the tester's.
+
+**WHOEVER WRITES THE FIGURE.** It is done on the record's data, not in the grid, so it is the same for a
+person typing into the sheet, for Mitra told "row 1 tested value 4 is 200.06 gm", and for sample data. The
+Deviation % columns are marked `computed`: they show as text, cannot be typed into, are not asked about in
+Mitra's question-by-question fill, and anything sent for them is dropped. A figure that cannot be read as a
+number leaves its deviation blank rather than guessing.
+
+- Covered by `tests/e2e_qc_calibration.py`: the cells not typable; 200.04 gm giving 0.02% on the sheet and in
+  the record, Pass; 200400 mg read in its own unit as 0.2%, Fail by itself; the same told to Mitra (0.03%,
+  Pass again); the GSM plate's 0.5% by area and 0% at its own size, with nothing on its Pass/Fail and Sign lines.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

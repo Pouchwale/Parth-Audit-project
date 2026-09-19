@@ -624,7 +624,7 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
     const filled = autoFillRecord(doc, record.dueDate, master, latestConfirmedRecord(doc.id, record.dueDate, record.isDemo));
     return ((filled?.data as LogSheetData | undefined)?.rows ?? []).map((r) => ({ ...r }));
   };
-  const editable = layout.columns.filter((c) => !c.fixed);
+  const editable = layout.columns.filter((c) => !c.fixed && !c.computed);
   const mode = layout.rowMode;
 
   if (mode.kind === "timeSlots") {

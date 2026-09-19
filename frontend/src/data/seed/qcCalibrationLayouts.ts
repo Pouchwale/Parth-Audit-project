@@ -17,17 +17,16 @@ import type { LogColumn, LogSheetLayout } from "../../types";
 // which a grid cannot hold, so each weight carries its own Deviation % column
 // on the same line. Nothing is added and nothing is dropped.
 //
-// THE DEVIATION IS NOT CALCULATED YET. The department's instruction with this
-// upload was to add the formats first and leave the arithmetic for later, so
-// the Deviation % columns are ordinary entry columns for now. When they are
-// computed it will be one place: (tested value − weight) ÷ weight × 100, with
-// Pass / Fail against Acceptable Tolerance.
+// THE DEVIATION IS WORKED OUT, NOT TYPED (REQUIREMENTS §61, engine/calibration.ts):
+// (tested value − weight) ÷ weight × 100 on the weight scale, with Pass / Fail
+// against the sheet's Acceptable Tolerance; measured area against the plate's
+// printed size on the GSM cutting plate. The Deviation % columns are `computed`.
 
 const PROCEDURE =
   "PROCEDURE: Calibration to be done by qualified QA person as per calibration work procedure. If any deviation is found during internal calibration, it must be reported to the QA manager. Calibration records of all weights used must be available and valid.";
 
 const text = (key: string, label: string, width?: number): LogColumn => ({ key, label, type: "text", width });
-const deviation = (key: string): LogColumn => ({ key, label: "Deviation %", type: "text", width: 90 });
+const deviation = (key: string): LogColumn => ({ key, label: "Deviation %", type: "text", width: 90, computed: true });
 
 /** The five test weights of the weight scale sheet, as the form prints them. */
 export const WEIGHT_SCALE_COLUMNS: LogColumn[] = [
@@ -89,7 +88,7 @@ const weightScale: LogSheetLayout = {
   instructions: [
     "WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE. One line per weekly calibration: the five test weights, the value the scale showed for each, the deviation, Pass / Fail, the tester's sign and when the next one is due.",
     PROCEDURE,
-    "On the paper the Deviation % of each entry is written on a second line beneath it; here every weight carries its own Deviation % column on the same line. The percentages are entered as found — they are not worked out for you yet.",
+    "On the paper the Deviation % of each entry is written on a second line beneath it; here every weight carries its own Deviation % column on the same line. Each Deviation % is worked out from the weight and its tested value — (tested − weight) ÷ weight × 100, in whatever unit they are written — and Pass / Fail follows the Acceptable Tolerance above.",
   ],
   headerFields: [
     { key: "deviceIdNo", label: "Device ID No", type: "text", width: 140, autoFill: { carryForward: true } },
@@ -157,7 +156,7 @@ const gsmPlate: LogSheetLayout = {
   instructions: [
     "MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE. The four plates — No. 54 (20 x 20cm), No. 55 (10 x 10cm), No. 56 (5 x 5cm), No. 57 (2.5 x 2.5cm) — measured four times each, with the deviation beside every measurement, then Pass / Fail and the tester's sign for each plate.",
     PROCEDURE,
-    "The Deviation % is entered as found — it is not worked out for you yet.",
+    "Each Deviation % is worked out from the size written beside it, by area, against the plate's own size printed at the head of its column.",
   ],
   headerFields: [
     { key: "deviceIdNo", label: "Device ID No", type: "text", width: 170, autoFill: { carryForward: true } },

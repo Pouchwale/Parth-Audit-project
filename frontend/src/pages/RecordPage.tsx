@@ -45,6 +45,7 @@ import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { useT } from "../i18n";
+import { withCalibration } from "../engine/calibration";
 import { documentLayoutIn, documentTextIn, isGujaratiDocument } from "../i18n/documentText";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
@@ -148,8 +149,10 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     return () => window.removeEventListener("beforeunload", onLeave);
   }, [dirty, flush]);
 
+  // The two calibration records work their deviations out from what is written
+  // (engine/calibration.ts, REQUIREMENTS §61) — whoever writes it.
   const handleChange = (next: unknown) => {
-    setData(next);
+    setData(withCalibration(doc?.id, next));
     setDirty(true);
   };
 
@@ -183,7 +186,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           commit: (next, note) => {
             const base = flush() ?? latest.current.record;
             if (!base) return;
-            persistLocal(saveDraft(base, next, currentUser, { action: "assistant-edit", note, labels: latest.current.labels }));
+            persistLocal(saveDraft(base, withCalibration(doc?.id, next), currentUser, { action: "assistant-edit", note, labels: latest.current.labels }));
           },
           reopen: isCorrectableStatus(record.status)
             ? (reason) => {

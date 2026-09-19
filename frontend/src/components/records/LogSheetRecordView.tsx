@@ -207,7 +207,7 @@ export function LogSheetRecordView({
                         // the form prints down its side — reads in the chosen language;
                         // a written one reads exactly as it was written.
                         value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
-                        editable={editable && !col.fixed}
+                        editable={editable && !col.fixed && !col.computed}
                         onChange={(v) => setCell(row.id, c.key, v)}
                         employees={employeeNames}
                         list={fetching && link?.where === "rows" && link.nameField === c.key ? "hr-master-people" : undefined}

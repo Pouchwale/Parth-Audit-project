@@ -442,6 +442,8 @@ function normRow(layout: LogSheetLayout, row: Obj, set: Obj, problems: string[])
       problems.push(`"${k}" isn't a column on this form, so I left it out.`);
       continue;
     }
+    // Worked out from the other cells (engine/calibration.ts): whatever is sent is dropped.
+    if (col.computed) continue;
     if (col.fixed) {
       if (String(v ?? "") !== String(row[k] ?? "")) problems.push(`${col.label.split(" (")[0]} is printed on the form and can't be changed.`);
       continue;
@@ -833,7 +835,7 @@ function flyEdit(target: string, value: string, data: Obj): Obj | null {
 
 function logSheetEdit(layout: LogSheetLayout, target: string, tt: string[], value: string, data: Obj): Obj | null {
   const rows = Array.isArray(data.rows) ? (data.rows as Obj[]) : [];
-  const editableCols = layout.columns.filter((c) => !c.fixed);
+  const editableCols = layout.columns.filter((c) => !c.fixed && !c.computed);
   const columnFor = (words: string[]): LogColumn | null =>
     best(editableCols, (c) => {
       const candidates = names(c.label, c.key);

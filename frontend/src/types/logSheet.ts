@@ -32,6 +32,8 @@ export interface LogColumn {
   width?: number;
   // Read-only, pre-filled column (e.g. the fixed hourly time slot).
   fixed?: boolean;
+  /** Worked out from the other cells, never typed — shown as text and not asked for (REQUIREMENTS §61). */
+  computed?: boolean;
   // Acceptance band for numeric columns. Values outside are highlighted (not
   // blocked — the paper form has no such gate either; a remark is expected).
   nominal?: number;
