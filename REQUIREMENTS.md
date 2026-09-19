@@ -2834,6 +2834,51 @@ which had no business on a controlled record either.
 - Covered by `tests/e2e_print_and_forms.py`: the page rule carries no margin, a printed document keeps the
   12 mm for itself, and every page of a register keeps it without the register adding a second one.
 
+## 60. Mitra opens with the document, beside it, and offers the task (19-Sep-2026)
+
+```
+REQUESTED            "whenever user tell or open any document then bot will open in sidebar and perform the task"
+DIGITAL TEMPLATE     src/components/common/DocumentAssistant.tsx, src/styles.css (".assistant-dock")
+```
+
+**IT OPENS BY ITSELF.** Whenever a document is opened — a record, a format's own page, a statement of
+compliance, the chemical master — by a click, a link, or because Mitra was told to open it, the assistant
+opens with it. A record page hands over its live record; a format's own page (`/document/{id}`,
+`/hr/{slug}`) is known from the address. The one page it waits to be asked on is the Service Provider
+Licence: a scan with nothing to fill, which opens with a question of its own — the agreement reminder (§33)
+— that Mitra should not talk over.
+
+**IN A SIDE PANEL, NOT OVER THE PAGE.** Open, Mitra is docked down the right-hand side and the page gives up
+that width, so the document and the chat about it sit side by side and nothing on the form is covered (the
+floating card used to sit exactly where most tables keep their Open buttons). Closed, it is the same pill as
+before, draggable anywhere. On a narrow screen there is no width to give, so the panel lies over the page. It
+never prints.
+
+**AND SAYS WHAT IT CAN DO, WITH THE FIRST STEP AS A BUTTON.**
+
+| What was opened | What Mitra says and offers |
+|---|---|
+| A blank record | that it is open and still blank — *Fill it in with me* (one question at a time, each answer saved), *Fill it with sample data*, *Tell me what to fill…* |
+| A record part done | how many answers are on it — *Carry on filling it with me* |
+| A record fully answered | to check it over — *Submit this record* |
+| A submitted or verified record | that nothing is left to fill — *Correct this record…* (reopens with the reason), *Verify*, *Print* |
+| A format's own page | what is on file and the latest — *Start today's record and fill it with me* (starts it, opens it and asks the first question), *Start today's with sample data*, *Open the latest* |
+| A reference document | what it is, who keeps it and when |
+
+A task already asked for — "I want to fill the fly catcher record" said in the library, a fresh complaint
+checklist's walk-through — is simply carried on with; nothing is added to it. Nothing is ever submitted
+without being asked.
+
+**ONCE PER DOCUMENT, AND IT GOES AS IT CAME.** Mitra comes forward once for each document in a sitting, so
+closing the panel on a record is respected until a different document is opened. A panel that opened itself
+and was never spoken to closes again when the document is left — the dashboard, the calendar and the lists
+are not covered by a chat nobody asked for. Say or tap anything and it stays.
+
+- Covered by `tests/e2e_qc_formats.py`: the panel opening by itself, docked, with the page making room;
+  naming the document and offering today's record; one tap starting the record and asking the first
+  question; a record opened directly offering the fill; the pill back on the dashboard when it was left
+  untouched; and a record already greeted not being interrupted twice. (6 checks)
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

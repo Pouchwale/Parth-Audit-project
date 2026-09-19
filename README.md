@@ -125,6 +125,10 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **Mitra opens with the document** (REQUIREMENTS §60): open any record or format and the assistant opens
+  beside it, docked down the side with the page making room, says where the document stands and offers the
+  task — one tap starts today's record and asks the first question. Left untouched, it closes again when the
+  document is left.
 - **A printout carries the document alone** (REQUIREMENTS §59): the page takes no margin, so no browser
   prints the date, the time, the screen's address or the page number around a controlled record; each
   document keeps that 12 mm for itself, on every page of a register.

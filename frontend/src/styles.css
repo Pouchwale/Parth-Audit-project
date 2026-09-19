@@ -536,6 +536,21 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
    widget is .no-print and never appears there anyway. */
 .app-content { flex: 1; padding: 22px 22px 90px; max-width: 1320px; width: 100%; margin: 0 auto; }
 
+/* ---- The assistant, docked beside the page (REQUIREMENTS §60) ----
+   Open, Mitra runs down the right-hand side and the page gives up that width,
+   so a document and the chat about it sit side by side and nothing on the
+   form is covered. On a narrow screen there is no width to give, so the panel
+   lies over the page instead. Never on paper. */
+:root { --assistant-dock-width: 380px; }
+.assistant-dock { position: fixed; top: 0; right: 0; bottom: 0; width: var(--assistant-dock-width); z-index: 50; display: flex; }
+.assistant-dock-card { width: 100%; height: 100%; border-radius: 0 !important; border-width: 0 0 0 1px !important; box-shadow: var(--shadow-lg); }
+html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
+@media (max-width: 900px) {
+  html.assistant-docked .app-main { margin-right: 0; }
+  .assistant-dock { width: min(var(--assistant-dock-width), 100vw); }
+}
+@media print { html.assistant-docked .app-main { margin-right: 0 !important; } }
+
 /* ---- Mode banner ---- */
 .mode-banner { padding: 7px 22px; font-size: 12.5px; font-weight: 600; text-align: center; letter-spacing: 0.03em; }
 .mode-banner.demo { background: repeating-linear-gradient(45deg, var(--color-demo), var(--color-demo) 10px, #8a4fc9 10px, #8a4fc9 20px); color: #fff; }

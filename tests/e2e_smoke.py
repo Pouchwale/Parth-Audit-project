@@ -964,7 +964,13 @@ def main():
         chat_chip("Personal Competence Records").first.click()
         page.wait_for_timeout(900)
         check("...and takes you to that document's own page", page.url.endswith("#/hr/competence"))
-        check("...saying what it opened, and offering to go somewhere else", "Opening" in page.locator(".chat-log .chat-msg.bot").last.inner_text() and chat_chip("Somewhere else").count() >= 1)
+        # It says what it is opening, and then - the document now being open - what
+        # it can do with it (REQUIREMENTS s60), with the way on still offered.
+        said = page.locator(".chat-log .chat-msg.bot").all_inner_texts()
+        check(
+            "...saying what it opened, offering today's record of it, and offering to go somewhere else",
+            any("Opening" in m for m in said) and "F/HR/01" in said[-1] and chat_chip("Start today's record and fill it with me").count() == 1 and chat_chip("Somewhere else").count() >= 1,
+        )
         page.fill("textarea.input", "hello")
         page.click("button[aria-label='Send']")
         page.wait_for_timeout(700)

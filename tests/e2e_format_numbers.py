@@ -236,7 +236,14 @@ with sync_playwright() as p:
     page.wait_for_timeout(900)
     check("Open it goes to the document's own page", page.url.endswith("#/hr/induction-staff"), page.url)
     reply = say(page, "open f-qc-12")
-    check("Told to open a format number, Mitra opens it and says so", page.url.endswith("#/document/qc-weight-scale-calibration") and "Opening F/QC/12" in reply, (page.url, reply))
+    # It says it is opening it, and - the document now being open - what it can
+    # do with it (REQUIREMENTS s60), which is the message left on screen.
+    said = page.locator(".chat-log .chat-msg.bot").all_inner_texts()
+    check(
+        "Told to open a format number, Mitra opens it, says so, and offers the task",
+        page.url.endswith("#/document/qc-weight-scale-calibration") and any("Opening F/QC/12" in m for m in said) and "F/QC/12" in reply and "is open" in reply,
+        (page.url, said[-2:]),
+    )
     reply = say(page, "what is F-QC-40.C?")
     check("Asked what a format number is, Mitra names it", "F-QC-40.C is Temperature Monitoring Record" in reply, reply)
     reply = say(page, "F/HR/10")

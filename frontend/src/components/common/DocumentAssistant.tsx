@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiMessageCircle, FiMic, FiMicOff, FiMove, FiSend, FiX } from "react-icons/fi";
+import { FiMessageCircle, FiMic, FiMicOff, FiSend, FiX } from "react-icons/fi";
 import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
 import { applyAssistantPatch, looksLikeEdit, parseLocalEdit } from "../../engine/recordPatch";
@@ -37,11 +37,13 @@ import { routeForRecord } from "../../engine/reminders";
 import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
 import { answerQuestion, interviewPlan, nextQuestion, planProgress, type InterviewQuestion } from "../../engine/guidedRecord";
 import { queueAfterOpen, takeHandoff } from "../../engine/assistantHandoff";
+import { hrPageForSlug } from "../../data/seed/hrModule";
+import { documentTextIn } from "../../i18n/documentText";
 import { useLanguage, useT, t as phrase } from "../../i18n";
 import { SPEECH_LOCALES } from "../../i18n/strings";
 import { settingsRepository } from "../../data/repositories/settingsRepository";
 import { isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../../utils/speech";
-import { formatDisplayDate, todayISO } from "../../utils/date";
+import { compareISO, formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { openBriefing } from "./AssistantBriefingPopup";
 
@@ -73,6 +75,19 @@ interface ChatMessage {
   role: "bot" | "user";
   text: string;
   chips?: Chip[];
+}
+
+// THE DOCUMENT ON A PAGE THAT REGISTERS NO RECORD (REQUIREMENTS §60): a
+// format's own page — /document/{id}, or /hr/{slug} for an HR format. A
+// record page hands the widget its live record instead (AssistantContext), so
+// it is not looked for here. The Service Provider Licence page is left out on
+// purpose: it is a scan with nothing to fill, and it opens with a question of
+// its own — the agreement reminder — which Mitra should not talk over.
+function documentOnPath(path: string): string | null {
+  const [root, slug] = path.split("/").filter(Boolean);
+  if (root === "document" && slug) return slug;
+  if (root === "hr" && slug) return hrPageForSlug(slug)?.docId ?? null;
+  return null;
 }
 
 // THE ASSISTANT — one chat, everywhere. Message bubbles, quick-reply chips,
@@ -119,6 +134,16 @@ export function DocumentAssistant() {
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const startedRef = useRef<Set<string>>(new Set());
+  // The documents and records Mitra has already come forward for in this
+  // sitting (REQUIREMENTS §60) — once each, so closing the panel on a record
+  // is respected until a different document is opened.
+  const arrivedRef = useRef<Set<string>>(new Set());
+  // True while the panel is open only because a document was opened, and the
+  // person has not yet said or tapped anything: leaving the document then
+  // closes it again, the way it came.
+  const autoOpenedRef = useRef(false);
+  // Set when a document opens the panel: its own message takes the greeting's place.
+  const arrivalGreetsRef = useRef(false);
   const guidedRef = useRef(guided);
   guidedRef.current = guided;
   // The question-by-question fill of any other document: which record, and
@@ -165,6 +190,11 @@ export function DocumentAssistant() {
   // you would like to go — with the answers as chips (REQUIREMENTS §50).
   useEffect(() => {
     if (!open || messages.length > 0) return;
+    // Opened by a document: what Mitra says about it is the opening (§60).
+    if (arrivalGreetsRef.current) {
+      arrivalGreetsRef.current = false;
+      return;
+    }
     const t = getTarget();
     const where = t?.checklist
       ? phrase("ai.opening.checklist", { title: t.checklist.title })
@@ -395,6 +425,75 @@ export function DocumentAssistant() {
     navigate(routeForRecord(doc, record.id));
   };
 
+  // ---- coming forward for the document that was just opened (REQUIREMENTS §60)
+  const formatAndName = (doc: { formatNo: string; name: string }): string =>
+    `${doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `}${documentTextIn(doc.name, lang)}`.trim();
+
+  /** A record is open: say where it stands and offer the next step. */
+  const greetRecord = (t: AssistantTarget) => {
+    // A complaint checklist has its own walk-through, started by its button or
+    // by itself when fresh; the greeting already names it.
+    if (t.checklist) return;
+    const { doc, record } = openRecordFor(t);
+    if (!doc || !record) return;
+    const title = t.title ?? `${formatAndName(doc)} for ${formatDisplayDate(record.dueDate)}`;
+    const chips: Chip[] = [];
+    if (!t.editable) {
+      if (t.reopen) chips.push({ label: "Correct this record…", action: { type: "focusInput", placeholder: "" }, tone: "primary" });
+      if (t.verify) chips.push({ label: "Verify this record", action: { type: "doVerify" }, tone: "success" });
+      if (t.print) chips.push({ label: "Print the document", action: { type: "doPrint" } });
+      bot(
+        t.reopen
+          ? `${title} is ${t.status} — nothing left to fill in. I can correct it for you (it reopens with the reason on record), verify or print it, or answer anything about it.`
+          : `${title} is open. It is kept as issued, so tell me the line to change, or ask me about it.`,
+        chips
+      );
+      return;
+    }
+    const data = t.getData();
+    const plan = interviewPlan(doc, record, data, masterRepository.get(), todayISO(), lang);
+    if (!plan) {
+      if (t.print) chips.push({ label: "Print the document", action: { type: "doPrint" } });
+      bot(`${title} is open. It is kept as issued — tell me the line to change and I'll change it.`, chips);
+      return;
+    }
+    const progress = planProgress(plan, data);
+    const left = progress.total - progress.answered;
+    if (left > 0) chips.push({ label: progress.answered ? "Carry on filling it with me" : "Fill it in with me", action: { type: "startInterview" }, tone: "primary" });
+    if (canSampleFill(doc.kind)) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
+    chips.push({ label: progress.answered ? "Tell me what to change…" : "Tell me what to fill…", action: { type: "focusInput", placeholder: "" } });
+    if (t.submit && left === 0) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });
+    const standing =
+      progress.answered === 0
+        ? `${title} is open and still blank. Shall I fill it in with you? I ask one thing at a time and save each answer on the form — nothing is submitted until you say so.`
+        : left === 0
+          ? `${title} is open, and everything I would ask is already on it. Check it over — submit it when you're ready, or tell me what to change.`
+          : `${title} is open — ${progress.answered} of ${progress.total} answered so far. Shall we carry on?`;
+    bot(standing, chips);
+  };
+
+  /** A format's own page is open: say what is on file and offer to start today's. */
+  const greetDocument = (documentId: string) => {
+    const doc = documentRepository.getById(documentId);
+    if (!doc) return;
+    const name = formatAndName(doc);
+    if (doc.isReferenceOnly) {
+      const info = getDocumentInfo(doc, masterRepository.get());
+      bot(`${name} is open — a reference document, kept as issued.\nWHAT — ${info.what}\nWHO — ${info.whoLabel}\nWHEN — ${info.when}`);
+      return;
+    }
+    const records = recordRepository.query({ documentId, isDemo }).slice().sort((a, b) => compareISO(b.dueDate, a.dueDate));
+    const latest = records[0];
+    const today = todayISO();
+    const chips: Chip[] = [{ label: "Start today's record and fill it with me", action: { type: "startInterview", documentId, dateISO: today }, tone: "primary" }];
+    if (canSampleFill(doc.kind)) chips.push({ label: "Start today's with sample data", action: { type: "sampleFill", documentId, dateISO: today } });
+    if (latest) chips.push({ label: `Open the latest (${formatDisplayDate(latest.dueDate)})`, action: { type: "navigate", route: routeForRecord(doc, latest.id) } });
+    // Reached through Mitra's own "where would you like to go?", the way on stays on offer.
+    chips.push({ label: phrase("ai.guide.whereTo"), action: { type: "guide", step: "home" } });
+    const onFile = latest ? `${records.length} on file — the latest is for ${formatDisplayDate(latest.dueDate)}, ${latest.status}.` : "Nothing is on file for it yet.";
+    bot(`${name} is open. ${onFile} Shall I start today's record and fill it in with you?`, chips);
+  };
+
   const fillWithSample = () => {
     const t = getTarget();
     if (!t) return;
@@ -521,6 +620,8 @@ export function DocumentAssistant() {
   };
 
   const runAction = (chip: Chip) => {
+    // Spoken to: the panel now stays when the document is left (REQUIREMENTS §60).
+    autoOpenedRef.current = false;
     const a: ChipAction = chip.action;
     const t = getTarget();
     switch (a.type) {
@@ -863,6 +964,9 @@ export function DocumentAssistant() {
     const then = takeHandoff(t.recordId);
     if (!then) return;
     if (t.checklist) startedRef.current.add(t.recordId);
+    // The task asked for is being done; Mitra need not also introduce the record.
+    arrivedRef.current.add(`record:${t.recordId}`);
+    autoOpenedRef.current = false;
     setOpen(true);
     setTimeout(() => (then === "sample" ? fillWithSample() : startInterview()), 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -875,12 +979,59 @@ export function DocumentAssistant() {
     const t = getTarget();
     if (t?.checklist?.autoStart && !startedRef.current.has(t.checklist.recordId)) {
       startedRef.current.add(t.checklist.recordId);
+      arrivedRef.current.add(`record:${t.checklist.recordId}`);
+      autoOpenedRef.current = false;
       setOpen(true);
       // Let the greeting effect post first so the walk-through reads in order.
       setTimeout(() => beginGuided(), 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetSignature]);
+
+  // WHENEVER A DOCUMENT IS OPENED, MITRA OPENS WITH IT (REQUIREMENTS §60).
+  //
+  // A record page hands over its live record; a format's own page is known
+  // from the address. Either way the panel docks beside the
+  // page and Mitra says what it can do with what is open — fill a blank
+  // record question by question or with sample data, carry on with one half
+  // done, correct or print one that is signed off, start today's record of a
+  // format — with the first step as a chip. Once per document in a sitting:
+  // closing the panel is respected until a different document is opened. A
+  // task already asked for (a handoff, a fresh checklist's walk-through) is
+  // under way, so nothing is added to it.
+  useEffect(() => {
+    if (path === "/assistant") return;
+    const t = getTarget();
+    const onPath = t ? null : documentOnPath(path);
+    const key = t ? `record:${t.recordId}` : onPath ? `document:${onPath}` : null;
+    if (!key || arrivedRef.current.has(key)) return;
+    arrivedRef.current.add(key);
+    autoOpenedRef.current = true;
+    // A checklist is greeted by name in the usual way; anything else is
+    // introduced by what Mitra says about it.
+    arrivalGreetsRef.current = !open && !t?.checklist;
+    setOpen(true);
+    setTimeout(() => (t ? greetRecord(t) : greetDocument(onPath!)), 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetSignature, path]);
+
+  // …and goes with it: a panel that opened itself for a document, and was not
+  // spoken to, closes when the document is left — the dashboard, the calendar
+  // and the lists are not covered by a chat nobody asked for.
+  useEffect(() => {
+    if (!autoOpenedRef.current || !open) return;
+    if (getTarget() || documentOnPath(path)) return;
+    autoOpenedRef.current = false;
+    setOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetSignature, path]);
+
+  // The page makes room for the docked panel (styles.css, ".assistant-dock").
+  useEffect(() => {
+    const docked = open && path !== "/assistant";
+    document.documentElement.classList.toggle("assistant-docked", docked);
+    return () => document.documentElement.classList.remove("assistant-docked");
+  }, [open, path]);
 
   // Leaving the checklist page ends any walk-through in progress; leaving the
   // record being filled question by question ends that.
@@ -992,6 +1143,7 @@ export function DocumentAssistant() {
   const send = async (raw?: string, spoken = false) => {
     const text = (raw ?? input).trim();
     if (!text || loading) return;
+    autoOpenedRef.current = false;
     setInput("");
     const t2 = getTarget();
     const speakReplies = settingsRepository.get().speakReplies;
@@ -1293,7 +1445,15 @@ export function DocumentAssistant() {
   if (path === "/assistant") return null;
 
   return (
-    <div ref={elRef} className="no-print" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 50, ...dragStyle }}>
+    // Closed, Mitra is a pill that can be dragged anywhere; open, it docks
+    // down the right-hand side and the page makes room for it (styles.css,
+    // ".assistant-dock"), so nothing on a document is covered (REQUIREMENTS §60).
+    <div
+      ref={elRef}
+      className={open ? "assistant-dock no-print" : "no-print"}
+      data-assistant={open ? "docked" : "closed"}
+      style={open ? undefined : { position: "fixed", right: 20, bottom: 20, zIndex: 50, ...dragStyle }}
+    >
       {!open && (
         <button
           className="btn btn-primary"
@@ -1307,15 +1467,8 @@ export function DocumentAssistant() {
         </button>
       )}
       {open && (
-        // Sized to its content, capped — a short conversation shouldn't park a
-        // 640px panel over the page (it sits bottom-right, exactly where most
-        // tables keep their "Open" buttons); a long one scrolls inside.
-        <div className="card" style={{ width: 370, maxHeight: "min(640px, calc(100vh - 40px))", display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
-          <div
-            className="flex items-center justify-between"
-            style={{ cursor: "grab", touchAction: "none", padding: "12px 14px", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}
-            {...dragHandleProps}
-          >
+        <div className="card assistant-dock-card" style={{ display: "flex", flexDirection: "column" }}>
+          <div className="flex items-center justify-between" style={{ padding: "12px 14px", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
             <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
               {/* Mitra's face: its own initial, the way a person's chat avatar reads. */}
               <span className="chat-avatar" style={{ fontSize: 11, fontWeight: 700 }} aria-hidden="true">
@@ -1323,7 +1476,7 @@ export function DocumentAssistant() {
               </span>
               <div style={{ minWidth: 0 }}>
                 <div className="text-sm font-semibold flex items-center gap-1">
-                  {t("ai.title")} <FiMove size={10} className="text-faint" />
+                  {t("ai.title")}
                 </div>
                 <div className="text-xs text-muted truncate" style={{ maxWidth: 250 }}>
                   {subtitle}
@@ -1346,7 +1499,12 @@ export function DocumentAssistant() {
               >
                 {listening ? <FiMicOff size={14} /> : <FiMic size={14} />}
               </button>
-              <button className="btn btn-ghost btn-sm" onPointerDown={(e) => e.stopPropagation()} onClick={() => setOpen(false)} aria-label="Close assistant">
+              <button className="btn btn-ghost btn-sm" onPointerDown={(e) => e.stopPropagation()} onClick={() => {
+                  autoOpenedRef.current = false;
+                  setOpen(false);
+                }}
+                aria-label="Close assistant"
+              >
                 <FiX size={14} />
               </button>
             </div>

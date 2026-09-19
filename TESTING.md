@@ -145,6 +145,9 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- `tests/e2e_qc_formats.py` was extended again on 19-Sep-2026 for REQUIREMENTS §60 (Mitra opening with the
+  document): six checks, listed in that section. Four clicks on the "Ask Mitra" pill in `e2e_editing.py`,
+  `e2e_print_and_forms.py` and `e2e_qc_calibration.py` now happen only when the panel is not already open.
 - `tests/e2e_print_and_forms.py` was extended on 19-Sep-2026 for REQUIREMENTS §59 (the paper carrying the
   document alone): the `@page` rule carries no margin at all, so a browser has nowhere to print the date,
   the time, the address or the page number; a printed document keeps that 12 mm for itself; and every page

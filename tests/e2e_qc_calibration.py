@@ -235,7 +235,9 @@ with sync_playwright() as p:
     # other day New record starts it blank, and Mitra fills it when asked - the
     # same carry-forward (engine/sampleFill.ts), so this holds whatever the day.
     if fresh is not None and not fresh.get("prepared"):
-        page.click("button:has-text('Ask Mitra')")
+        # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
+        if page.locator("button:has-text('Ask Mitra')").count():
+            page.click("button:has-text('Ask Mitra')")
         page.wait_for_timeout(400)
         mitra_box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
         mitra_box.fill("fill it with sample data")

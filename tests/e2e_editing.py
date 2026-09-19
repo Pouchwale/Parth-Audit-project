@@ -110,7 +110,9 @@ with sync_playwright() as p:
     # assistant's sample data first - the state a prepared record is in, and one
     # that can be submitted and verified below.
     if today != date.today().isoformat():
-        page.click("button:has-text('Ask Mitra')")
+        # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
+        if page.locator("button:has-text('Ask Mitra')").count():
+            page.click("button:has-text('Ask Mitra')")
         page.wait_for_timeout(400)
         mitra_box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
         mitra_box.fill("fill it with sample data")
@@ -168,7 +170,9 @@ with sync_playwright() as p:
     )
 
     # ---- the assistant: a plain sentence, saved, listed, undoable ----
-    page.click("button:has-text('Ask Mitra')")
+    # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
+    if page.locator("button:has-text('Ask Mitra')").count():
+        page.click("button:has-text('Ask Mitra')")
     page.wait_for_timeout(400)
     box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
     before_time = stored(page, rid)["data"]["timeOfChecking"]

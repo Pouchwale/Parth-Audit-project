@@ -30,6 +30,9 @@ query". REQUIREMENTS s57. So this suite checks that:
   * the three formats the department issues in Gujarati read in English while
     English is chosen, line for line, while a record of one still holds the
     Gujarati the form was issued in (REQUIREMENTS s58);
+  * opening a document opens Mitra beside it, docked, offering the task - one
+    tap starts today's record and asks the first question - and it goes again
+    when the document is left untouched (REQUIREMENTS s60);
   * every new format is found by its format number, and Mitra opens one by name;
   * what a person types on any of them is stored.
 
@@ -668,6 +671,81 @@ with sync_playwright() as p:
         "Printing" in shown and "Raw materials stock" in shown and not GUJARATI.search(shown),
         shown[:300],
     )
+
+
+    # ------------------------------------------------------------------ MITRA OPENS WITH THE DOCUMENT (s60)
+    # Whenever a document is opened the assistant opens beside it, docked, and
+    # offers the task; it goes again when the document is left untouched.
+    page.goto(f"{BASE}/index.html#/dashboard")
+    # A fresh sitting: Mitra comes forward once per document, and this suite has
+    # already opened every format above.
+    page.reload()
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    close_assistant(page)
+    page.goto(f"{BASE}/index.html#/document/qc-pvc-pet-film")
+    page.wait_for_timeout(1500)
+    dock = page.evaluate(
+        """() => {
+             const d = document.querySelector('.assistant-dock');
+             return {
+               open: !!d && document.querySelectorAll("button[aria-label='Close assistant']").length === 1,
+               pill: Array.from(document.querySelectorAll('button')).some((b) => b.textContent.includes('Ask Mitra')),
+               docked: document.documentElement.classList.contains('assistant-docked'),
+               right: d ? Math.round(window.innerWidth - d.getBoundingClientRect().right) : null,
+               top: d ? Math.round(d.getBoundingClientRect().top) : null,
+               room: getComputedStyle(document.querySelector('.app-main')).marginRight,
+             };
+           }"""
+    )
+    check(
+        "Opening a document opens Mitra by itself, docked down the side with the page making room",
+        dock["open"] and not dock["pill"] and dock["docked"] and dock["right"] == 0 and dock["top"] == 0 and dock["room"] == "380px",
+        dock,
+    )
+    said = page.locator(".chat-log .chat-msg.bot").last.inner_text()
+    chips = page.locator(".chat-log .chat-chip").all_inner_texts()
+    check(
+        "…and it names the document and offers to start today's record",
+        "F/QC/05" in said and "PVC / PET Film" in said and "Start today's record and fill it with me" in chips,
+        (said, chips),
+    )
+    page.locator(".chat-log .chat-chip", has_text="Start today's record and fill it with me").click()
+    page.wait_for_timeout(2200)
+    asked = page.locator(".chat-log .chat-msg.bot").last.inner_text()
+    opened = record(page, page.url.split("#/record/")[-1]) if "#/record/" in page.url else None
+    check(
+        "One tap and it performs the task: today's record is started, opened, and the first question asked",
+        bool(opened) and opened["documentId"] == "qc-pvc-pet-film" and asked.rstrip().endswith("?"),
+        (page.url, asked),
+    )
+    page.locator(".chat-log .chat-chip", has_text="Stop for now").click()
+    page.wait_for_timeout(400)
+    close_assistant(page)
+
+    # A record opened directly: Mitra says where it stands and offers the fill.
+    rid = start_record(page, "qc-label-stock")
+    page.goto(f"{BASE}/index.html#/dashboard")
+    page.reload()  # a fresh sitting: starting it above already brought Mitra forward once
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    page.goto(f"{BASE}/index.html#/record/{rid}")
+    page.wait_for_timeout(1500)
+    chips = page.locator(".chat-log .chat-chip").all_inner_texts()
+    check(
+        "Opening a record opens Mitra with the fill on offer",
+        page.locator(".assistant-dock").count() == 1 and any(c in chips for c in ("Fill it in with me", "Carry on filling it with me")) and "Fill it with sample data" in chips,
+        chips,
+    )
+    page.goto(f"{BASE}/index.html#/dashboard")
+    page.wait_for_timeout(900)
+    check(
+        "Left untouched, it goes with the document: the dashboard has the pill again",
+        page.locator(".assistant-dock").count() == 0 and page.locator("button:has-text('Ask Mitra')").count() == 1,
+    )
+    page.goto(f"{BASE}/index.html#/record/{rid}")
+    page.wait_for_timeout(1200)
+    check("…and a record it has already come forward for is not interrupted a second time", page.locator(".assistant-dock").count() == 0)
 
     open_page(page, "#/search")
     box = page.locator(".app-content input").first
