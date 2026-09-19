@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../../store/AuthContext";
 import { ApiError } from "../../api/client";
+import { PasswordInput } from "../common/PasswordInput";
 
 export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () => void }) {
   const { login } = useAuth();
@@ -39,15 +40,7 @@ export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () => void }
       </div>
       <div className="field mb-4">
         <label htmlFor="login-password">Password</label>
-        <input
-          id="login-password"
-          type="password"
-          className="input"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <PasswordInput id="login-password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
       <button type="submit" className="btn btn-primary" style={{ width: "100%" }} disabled={submitting}>
         {submitting ? "Logging in…" : "Log In"}

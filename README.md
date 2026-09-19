@@ -125,6 +125,8 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **An eye beside every password box** (REQUIREMENTS §63): signing in, signing up and changing a password all
+  let a person see what they have typed, and hide it again, without sending the form.
 - **Reviewed before submitted, formats revised on record, named accounts, the activity log** (REQUIREMENTS §62):
   the briefing submits only what has been ticked as reviewed; *Edit format* changes any format and raises its
   revision with who, what and why; the super admin, Quality Control's and Human Resources' named accounts are

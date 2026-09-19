@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../../store/AuthContext";
 import { ApiError } from "../../api/client";
 import { DEPARTMENTS } from "../../data/seed/departments";
+import { PasswordInput } from "../common/PasswordInput";
 
 export function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   const { signup } = useAuth();
@@ -62,29 +63,11 @@ export function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void })
       </div>
       <div className="field mb-3">
         <label htmlFor="signup-password">Password</label>
-        <input
-          id="signup-password"
-          type="password"
-          className="input"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <PasswordInput id="signup-password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
       <div className="field mb-4">
         <label htmlFor="signup-confirm">Confirm Password</label>
-        <input
-          id="signup-confirm"
-          type="password"
-          className="input"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
+        <PasswordInput id="signup-confirm" autoComplete="new-password" required minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
       </div>
       <div className="field mb-4">
         <label htmlFor="signup-department">Department</label>

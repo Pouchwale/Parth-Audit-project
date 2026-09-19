@@ -145,6 +145,8 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- `tests/e2e_portal_controls.py` gained seven checks on 19-Sep-2026 for REQUIREMENTS §63 (the eye beside a
+  password box), listed in that section - 37 in the suite, **1335 across the twenty-four**.
 - `tests/e2e_portal_controls.py` - the portal's own controls (REQUIREMENTS §62), a twenty-fourth suite: the
   briefing's review gate, a format changed and revised on record and restored, the activity log, the password
   change, the lizard year. Network-independent. (30 checks) The smoke suite's rodent check now holds the year

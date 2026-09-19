@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { api } from "../../api/client";
 import { Modal } from "./Modal";
+import { PasswordInput } from "./PasswordInput";
 
 // A person makes their password their own (REQUIREMENTS §62). The plant's
 // named accounts start on a password somebody else chose, so this is the first
@@ -58,15 +59,15 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
         <div className="flex flex-col gap-3">
           <div className="field">
             <label>Current password</label>
-            <input className="input" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} data-field="current-password" />
+            <PasswordInput autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} data-field="current-password" />
           </div>
           <div className="field">
             <label>New password (8 characters or more)</label>
-            <input className="input" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} data-field="new-password" />
+            <PasswordInput autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} data-field="new-password" />
           </div>
           <div className="field">
             <label>New password, again</label>
-            <input className="input" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} data-field="new-password-again" />
+            <PasswordInput autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} data-field="new-password-again" />
           </div>
           {(problem || error) && <div className="text-sm text-danger">{problem ?? error}</div>}
         </div>

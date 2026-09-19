@@ -3003,6 +3003,30 @@ and its departments'.
   The named accounts are checked against the real database at start-up rather than in the suite, which runs
   with them off.
 
+## 63. An eye beside every password box (19-Sep-2026)
+
+```
+REQUESTED            "in password for both signup and login add eye button so user can see what he is entering"
+DIGITAL TEMPLATE     src/components/common/PasswordInput.tsx, used by components/auth/LoginForm.tsx,
+                      components/auth/SignupForm.tsx and components/common/ChangePasswordDialog.tsx
+```
+
+Every password box — signing in, both boxes when signing up, and the three of Change password (§62) — has an
+eye at its right-hand end. Pressed, the box shows what has been typed, so a person can check it before signing
+in rather than find out from "Invalid email or password"; pressed again it is dots again, with nothing lost.
+Each box has its own eye and starts hidden, so showing the password does not also show its confirmation.
+
+- The eye is a plain button, never a submit: showing a password cannot send the form, and Enter in the box
+  still signs in.
+- The box keeps its own id, name and autocomplete, so its label, the browser's password manager and everything
+  that finds it by id are unchanged. The box leaves room for the eye, so a long password never runs under it,
+  and Edge's built-in eye is switched off so there are not two.
+- It says what it will do next — "Show password" / "Hide password" — for a screen reader and as its tooltip.
+
+- Covered by `tests/e2e_portal_controls.py`: a box starting hidden with its eye; the eye showing that box only;
+  what it announces; the form not being sent; hiding again with nothing lost; the eye on all three boxes of
+  Change password; and the sign-in form. (7 checks)
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

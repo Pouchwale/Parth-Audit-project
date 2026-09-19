@@ -11,6 +11,8 @@
     server: the account, documents opened, the format change with its
     revisions, a password changed (and one refused);
   * a person changes their own password from the top bar;
+  * every password box - signing up, signing in, changing it - has an eye that
+    shows what was typed and hides it again, without sending the form (s63);
   * the lizard trend carries the years the provider has not reported yet, by
     the plant's own season, and says which rows those are; the rodent year
     holds two to four catches in each half.
@@ -104,6 +106,21 @@ with sync_playwright() as p:
     page.fill("#signup-email", email)
     page.fill("#signup-password", PASSWORD)
     page.fill("#signup-confirm", PASSWORD)
+
+    # ---- the eye beside a password box (REQUIREMENTS s63) ----
+    box_type = lambda sel: page.locator(sel).get_attribute("type")
+    eye = lambda sel: page.locator(sel).locator("xpath=following-sibling::button[@data-action='toggle-password']")
+    check("A password box on the signup form starts hidden, with an eye beside it", box_type("#signup-password") == "password" and eye("#signup-password").count() == 1 and eye("#signup-confirm").count() == 1)
+    eye("#signup-password").click()
+    check(
+        "The eye shows what was typed - in that box only, the other stays hidden",
+        box_type("#signup-password") == "text" and page.locator("#signup-password").input_value() == PASSWORD and box_type("#signup-confirm") == "password",
+        (box_type("#signup-password"), box_type("#signup-confirm")),
+    )
+    check("...and says what it will do next, for a screen reader", eye("#signup-password").get_attribute("aria-label") == "Hide password" and eye("#signup-password").get_attribute("aria-pressed") == "true")
+    check("Showing the password does not send the form", page.locator("#signup-name").count() == 1 and page.locator(".app-sidebar").count() == 0)
+    eye("#signup-password").click()
+    check("Pressed again, it is dots again, with nothing lost", box_type("#signup-password") == "password" and page.locator("#signup-password").input_value() == PASSWORD)
     page.click("button:has-text('Create Account')")
     page.wait_for_selector(".app-sidebar", timeout=60000)
     page.wait_for_timeout(1500)
@@ -220,6 +237,7 @@ with sync_playwright() as p:
     page.fill("[data-field='current-password']", "not-the-password")
     page.fill("[data-field='new-password']", NEW_PASSWORD)
     page.fill("[data-field='new-password-again']", NEW_PASSWORD)
+    check("Change password has the eye on all three of its boxes", page.locator(".modal-box [data-action='toggle-password']").count() == 3)
     page.click("[data-action='save-password']")
     page.wait_for_timeout(900)
     check("The wrong current password is refused", "current password is not right" in page.locator(".modal-box").inner_text())
@@ -234,6 +252,12 @@ with sync_playwright() as p:
     page.wait_for_selector("#login-email", timeout=30000)
     page.fill("#login-email", email)
     page.fill("#login-password", NEW_PASSWORD)
+    eye("#login-password").click()
+    check(
+        "The sign-in form has the eye too: the password shows, and the person can check it before signing in",
+        box_type("#login-password") == "text" and page.locator("#login-password").input_value() == NEW_PASSWORD and page.locator("#login-email").count() == 1,
+        box_type("#login-password"),
+    )
     page.click("button:has-text('Log In')")
     page.wait_for_selector(".app-sidebar", timeout=60000)
     page.wait_for_timeout(1200)
