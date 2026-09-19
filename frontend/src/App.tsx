@@ -39,6 +39,8 @@ import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
 import { HrMasterDataPage } from "./pages/HrMasterDataPage";
 import { QcOverviewPage } from "./pages/QcPages";
 import { ActivityLogPage } from "./pages/ActivityLogPage";
+import { PerformancePage } from "./pages/PerformancePage";
+import { MitraReaction } from "./components/common/MitraReaction";
 import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
 
 function NotFoundPage() {
@@ -133,6 +135,9 @@ function RouteSwitch() {
       // and HR Master Data, the employee sheet those formats fetch from (§53).
       if (rest[0] === "master-data") return <HrMasterDataPage />;
       return rest[0] ? <HrDocumentPage key={rest[0]} slug={rest[0]} /> : <HrOverviewPage />;
+    case "performance":
+      // The scorecard: who did their documents on time, by person, department and module (REQUIREMENTS §64).
+      return <PerformancePage />;
     case "activity":
       // Everything anybody has done on the portal (REQUIREMENTS §62).
       return <ActivityLogPage />;
@@ -223,6 +228,8 @@ export function App() {
         </div>
       </SidebarProvider>
       <DocumentAssistant />
+      {/* Mitra's reaction to work done on time or late — one toast, bottom left (REQUIREMENTS §64). */}
+      <MitraReaction />
       <AssistantBriefingPopup />
     </AssistantProvider>
   );

@@ -89,7 +89,13 @@ export type ChipAction =
   // then written only on "Yes" (engine/hrMasterAssistant.ts, REQUIREMENTS §53).
   | { type: "hrMasterFetch"; personId?: string }
   | { type: "confirmMasterFill"; blanksOnly?: boolean }
-  | { type: "cancelMasterFill" };
+  | { type: "cancelMasterFill" }
+  // A change to the FORMAT told to Mitra in words — asked about first, saved as
+  // the next revision only on "Yes" (engine/formatCommands.ts, REQUIREMENTS §64).
+  | { type: "confirmFormatChange" }
+  | { type: "cancelFormatChange" }
+  // "Which one?" — the chip says the completed sentence for the person.
+  | { type: "sendText"; text: string };
 
 export interface Chip {
   label: string;

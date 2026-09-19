@@ -2,7 +2,7 @@ import React from "react";
 import { FiUser, FiPlayCircle, FiCheckCircle, FiLogOut, FiZap, FiMenu, FiSidebar } from "react-icons/fi";
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
-import { useRouter } from "../../store/router";
+import { confirmLeave, useRouter } from "../../store/router";
 import { pressable } from "../../utils/pressable";
 import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
@@ -71,7 +71,7 @@ export function Topbar() {
             {user?.role === "admin" && <span className="badge badge-Verified">{t("top.admin")}</span>}
           </button>
           {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
-          <button className="btn btn-ghost btn-sm" onClick={() => logout()} title={t("top.logOut")}>
+          <button className="btn btn-ghost btn-sm" onClick={() => confirmLeave(() => logout())} title={t("top.logOut")}>
             <FiLogOut size={13} /> {t("top.logOut")}
           </button>
         </div>

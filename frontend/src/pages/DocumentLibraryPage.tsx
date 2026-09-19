@@ -4,6 +4,8 @@ import { FormatEditor } from "../components/documents/FormatEditor";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { useRouter } from "../store/router";
+import { canDesignGrid } from "../engine/formatOps";
+import { requestDesign } from "../engine/designSession";
 import { getDocumentInfo } from "../engine/documentInfo";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { useAppStore } from "../store/AppStore";
@@ -230,7 +232,11 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                               title={`Edit the format — now Rev ${d.revisionNo}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingFormat(d);
+                                // A sheet drawn from a layout is designed on the sheet, on its own page (§64); any other form, in the dialog.
+                                if (canDesignGrid(d)) {
+                                  requestDesign(d.id);
+                                  navigate(`/document/${d.id}`);
+                                } else setEditingFormat(d);
                               }}
                             >
                               <FiEdit3 size={12} />

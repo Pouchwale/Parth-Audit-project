@@ -316,7 +316,9 @@ export function generateDemoRecordsForMonth(year: number, month: number): number
   const master = masterRepository.get();
   // Every demo record already stored, by document and period.
   const stored = new Map<string, RecordInstance>();
-  for (const r of recordRepository.query({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
+  // Unscoped, like the documents above: a department's account sees only its own records, and would take
+  // every other department's demo record for missing and write it again on each visit.
+  for (const r of recordRepository.queryUnscoped({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
   // Findings the fortnightly service visits raised this month, collected as
   // the reports are built so they can be carried into a CAPA record below.
   const observedThisMonth: ServiceObservation[] = [];
@@ -441,7 +443,9 @@ export function ensureDemoRecordsGeneratedForYear(year: number): number {
   const master = masterRepository.get();
   const today = todayISO();
   const stored = new Map<string, RecordInstance>();
-  for (const r of recordRepository.query({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
+  // Unscoped, like the documents above: a department's account sees only its own records, and would take
+  // every other department's demo record for missing and write it again on each visit.
+  for (const r of recordRepository.queryUnscoped({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
   let total = 0;
   for (let month = 0; month <= lastMonth; month++) {
     const lacking = docs.some((doc) =>

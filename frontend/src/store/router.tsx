@@ -44,14 +44,118 @@ function followAddress(path: string): void {
   navigating = false;
 }
 
+// A SCREEN HOLDING WORK NOBODY HAS SAVED MAY ASK BEFORE IT IS LEFT (REQUIREMENTS §64).
+//
+// The sheet designer holds a draft of a format. A link in the sidebar, a Back
+// button or Mitra opening another page would unmount it and the draft would be
+// gone without a word. So such a screen registers a guard WHILE it has
+// something to lose: every move then goes to the guard instead, which shows
+// its own pop-up and calls `go` if the person says to leave. Logging out is
+// asked about the same way (confirmLeave). A session the server has ended
+// cannot be: there is nobody left to ask on behalf of.
+type LeaveGuard = (go: () => void) => void;
+let leaveGuard: LeaveGuard | null = null;
+// The next change of address is one the app made itself, already asked about.
+let leaveApproved = false;
+// Inside a move the person has just agreed to: whatever it does is not asked about again.
+let passing = false;
+
+/** Registers the guard; returns what takes it off again. One at a time: there is one screen. */
+export function setLeaveGuard(guard: LeaveGuard): () => void {
+  leaveGuard = guard;
+  return () => {
+    if (leaveGuard === guard) leaveGuard = null;
+  };
+}
+
+function pass(go: () => void): void {
+  passing = true;
+  try {
+    go();
+  } finally {
+    passing = false;
+  }
+}
+
+function guarded(go: () => void): void {
+  if (!leaveGuard || passing) return go();
+  leaveGuard(() => pass(go));
+}
+
+/**
+ * For whatever takes the screen away WITHOUT changing the address — logging
+ * out — or does work before it moves — starting a record and then opening it:
+ * `then` runs at once when nothing is unsaved, and after the person agrees to
+ * leave when something is.
+ */
+export function confirmLeave(then: () => void): void {
+  guarded(then);
+}
+
+// WHERE EACH ENTRY IS IN THE TAB'S HISTORY. The browser's own Back and Forward
+// cannot be stopped, only undone: by the time the app hears of one the address
+// has moved. To undo it without adding an entry of the app's own — which would
+// leave the page the person declined sitting behind the sheet, and lose what
+// was ahead — every entry carries its place in history.state, so the way back
+// onto the sheet's own entry is a number, and so is the way to go again once
+// the person agrees. An entry with no place is one just made (a typed address),
+// one step ahead.
+let position = 0;
+function placeOf(): number | undefined {
+  const s = window.history.state as { dcrsIndex?: unknown } | null;
+  return s && typeof s.dcrsIndex === "number" ? s.dcrsIndex : undefined;
+}
+function stampPlace(): void {
+  const s = window.history.state;
+  window.history.replaceState({ ...(s && typeof s === "object" ? s : {}), dcrsIndex: position }, "");
+}
+/** After a change of address that stands: read this entry's place, or give a new entry the next one. */
+function settlePlace(): void {
+  const at = placeOf();
+  if (at === undefined) {
+    position += 1;
+    stampPlace();
+  } else position = at;
+}
+
 const RouterContext = createContext<RouterValue | null>(null);
 
 export function RouterProvider({ children }: { children: React.ReactNode }) {
   const [path, setPath] = useState(currentPath());
 
   useEffect(() => {
+    const here = placeOf();
+    if (here === undefined) stampPlace();
+    else position = here;
+
     const onHashChange = () => {
       const next = currentPath();
+      const shown = trail[trail.length - 1];
+      if (leaveGuard && !leaveApproved && next !== shown) {
+        // The browser's own Back or Forward, or an address typed: it has already
+        // moved. The tab is stepped back onto the sheet's own entry — nothing is
+        // added to its history, and the hashchange that causes names the address
+        // already shown, so it passes below without a stir — and the guard asks.
+        // Agreed to, the very same step is taken again, so a Back stays a Back:
+        // the trail pops, and the next Back goes where it always would have.
+        const at = placeOf();
+        const steps = at === undefined ? -1 : position - at;
+        if (steps !== 0) window.history.go(steps);
+        else window.history.pushState({ dcrsIndex: position }, "", `#${shown}`);
+        leaveGuard(() =>
+          pass(() => {
+            leaveApproved = true;
+            if (steps !== 0) window.history.go(-steps);
+            else {
+              navigating = true;
+              window.location.hash = next;
+            }
+          })
+        );
+        return;
+      }
+      leaveApproved = false;
+      settlePlace();
       followAddress(next);
       setPath(next);
     };
@@ -61,19 +165,31 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
 
   const navigate = (next: string) => {
     const target = next.startsWith("/") ? next : `/${next}`;
-    // The same address again fires no hashchange, so only a real move is marked.
-    if (target !== currentPath()) navigating = true;
-    window.location.hash = target;
+    // The same address again fires no hashchange, so only a real move is marked — and asked about.
+    if (target === currentPath()) return;
+    guarded(() => {
+      leaveApproved = true;
+      navigating = true;
+      window.location.hash = target;
+    });
   };
 
   const back = (fallback = "/dashboard") => {
-    if (trail.length >= 2) window.history.back();
+    if (trail.length >= 2)
+      guarded(() => {
+        leaveApproved = true;
+        window.history.back();
+      });
     else navigate(fallback);
   };
 
   const backTo = (to: string) => {
     const previous = trail[trail.length - 2];
-    if (previous !== undefined && (previous === to || previous.startsWith(`${to}/`))) window.history.back();
+    if (previous !== undefined && (previous === to || previous.startsWith(`${to}/`)))
+      guarded(() => {
+        leaveApproved = true;
+        window.history.back();
+      });
     else navigate(to);
   };
 
@@ -104,6 +220,8 @@ const SIMPLE_ROUTES = new Set([
   "qc",
   // /activity — the Activity Log (REQUIREMENTS §62).
   "activity",
+  // /performance — the scorecard: who did their documents on time (REQUIREMENTS §64).
+  "performance",
 ]);
 const REPORT_TABS = new Set(["monthly", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"]);
 // Pest Control module pages (src/pages/PestControlPages.tsx):

@@ -268,6 +268,8 @@ const NAV_SYSTEM: NavItem[] = [
   { to: "/master-data", labelKey: "nav.masterData", icon: FiDatabase },
   // Everything anybody has done on the portal (REQUIREMENTS §62).
   { to: "/activity", labelKey: "nav.activityLog", icon: FiActivity },
+  // Who did their documents on time — by person, department and module (REQUIREMENTS §64).
+  { to: "/performance", labelKey: "nav.performance", icon: FiAward },
   { to: "/demo", labelKey: "nav.demoMode", icon: FiPlayCircle },
 ];
 

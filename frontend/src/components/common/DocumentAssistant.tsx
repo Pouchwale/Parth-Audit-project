@@ -4,10 +4,10 @@ import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
 import { applyAssistantPatch, looksLikeEdit, parseLocalEdit } from "../../engine/recordPatch";
 import { diffRecordData } from "../../engine/recordHistory";
-import type { FieldChange, LogSheetData } from "../../types";
+import type { DocumentDefinition, FieldChange, LogSheetData } from "../../types";
 import { useAuth } from "../../store/AuthContext";
 import { useAppStore } from "../../store/AppStore";
-import { useRouter, isValidAppRoute } from "../../store/router";
+import { confirmLeave, useRouter, isValidAppRoute } from "../../store/router";
 import { useDraggable } from "../../utils/useDraggable";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { documentRepository } from "../../data/repositories/documentRepository";
@@ -37,6 +37,13 @@ import { routeForRecord } from "../../engine/reminders";
 import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
 import { answerQuestion, interviewPlan, nextQuestion, planProgress, type InterviewQuestion } from "../../engine/guidedRecord";
 import { queueAfterOpen, takeHandoff } from "../../engine/assistantHandoff";
+import { applyFormatCommand, parseFormatCommand, type FormatCommand } from "../../engine/formatCommands";
+import { canDesignGrid, commitFormatChange, draftOf } from "../../engine/formatOps";
+import { designSessionFor } from "../../engine/designSession";
+import { applyRowCommand, parseRowCommand, type RowCommand } from "../../engine/recordRowCommands";
+import { REACTION_EVENT, reactionFor, summariseReactions, type ReactionEvent } from "../../engine/reactions";
+import { nextRevisionNo } from "../../data/formatEdits";
+import { moduleSlug } from "../../utils/moduleSlug";
 import { hrPageForSlug } from "../../data/seed/hrModule";
 import { documentTextIn } from "../../i18n/documentText";
 import { useLanguage, useT, t as phrase } from "../../i18n";
@@ -69,6 +76,9 @@ const PLACEHOLDER_BY_KIND: Record<string, string> = {
   "service-agreement": "e.g. agreement number is GPC/2026/14, or: service charges for the term are ₹18,000 per year",
   reference: "e.g. change the dilution ratio for Rodent Control to 1:20",
 };
+
+// What "Change this format…" shows in the box: two sentences of the kind engine/formatCommands.ts reads.
+const FORMAT_HINT = "e.g. add a column Batch No. after Remarks — or: delete the box Serial No";
 
 interface ChatMessage {
   id: string;
@@ -165,6 +175,25 @@ export function DocumentAssistant() {
   const masterFillRef = useRef<{ recordId: string; personId: string; editable: boolean; next: unknown; blanksOnly: unknown; changes: FieldChange[]; blankChanges: FieldChange[]; note: string } | null>(null);
   // Mitra asked "whose details?" — the next message names the person (REQUIREMENTS §53).
   const awaitingPersonRef = useRef<string | null>(null);
+  // A change to the FORMAT told in words and waiting for "Yes, save as Rev NN"
+  // (REQUIREMENTS §64): the document, what was understood, and the person's own
+  // words — which become the reason on the revision.
+  const pendingFormatRef = useRef<{ documentId: string; cmd: FormatCommand; words: string } | null>(null);
+  // Example sentences a chip puts in the box ("Change this format…"), until something is sent.
+  const [hint, setHint] = useState<string | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+  // True while Mitra itself is submitting, verifying or sending back: it answers
+  // for that in its own words, so its reaction is not said a second time in the chat.
+  const ownActRef = useRef(false);
+  const quietly = <T,>(act: () => T): T => {
+    ownActRef.current = true;
+    try {
+      return act();
+    } finally {
+      ownActRef.current = false;
+    }
+  };
 
   const firstName = (user?.name ?? currentUser).trim().split(/\s+/)[0];
 
@@ -179,9 +208,15 @@ export function DocumentAssistant() {
   }, [messages, loading, pickingDate]);
 
   // ---- message helpers -----------------------------------------------------
-  const post = (role: "bot" | "user", text: string, chips?: Chip[]) => {
+  // `aside`: something said in passing (a reaction to a submit) — the question
+  // before it keeps its chips, because it is still waiting for its answer.
+  const post = (role: "bot" | "user", text: string, chips?: Chip[], aside = false) => {
     if (!text && !chips?.length) return;
-    setMessages((m) => [...m.map((x) => (x.chips ? { ...x, chips: undefined } : x)), { id: generateId("msg"), role, text, chips }]);
+    // A format change waiting for its "Yes" stands only as long as its chips do:
+    // once anything else is said, a "yes" typed later is an answer to THAT, and
+    // must never save a change the person has stopped looking at (REQUIREMENTS §64).
+    if (!aside) pendingFormatRef.current = null;
+    setMessages((m) => [...(aside ? m : m.map((x) => (x.chips ? { ...x, chips: undefined } : x))), { id: generateId("msg"), role, text, chips }]);
   };
   const bot = (text: string, chips?: Chip[]) => post("bot", text, chips);
   const me = (text: string) => post("user", text);
@@ -417,12 +452,16 @@ export function DocumentAssistant() {
       return;
     }
     const date = dateISO ?? todayISO();
-    const { record, existed } = createRecordForDocument(doc, { dateISO: date, isDemo });
-    bump();
-    queueAfterOpen(record.id, then);
-    const next = then === "sample" ? "filling it with sample data as soon as it opens." : "I'll ask you what to put in it as soon as it opens.";
-    bot(existed ? `Opening the ${doc.name} for ${formatDisplayDate(date)} that already exists — ${next}` : `Started a new ${doc.name} for ${formatDisplayDate(date)} — ${next}`);
-    navigate(routeForRecord(doc, record.id));
+    // Asked about first where a sheet holds an unsaved design (store/router.tsx):
+    // "Keep designing" must not leave a record started and a fill waiting for it.
+    confirmLeave(() => {
+      const { record, existed } = createRecordForDocument(doc, { dateISO: date, isDemo });
+      bump();
+      queueAfterOpen(record.id, then);
+      const next = then === "sample" ? "filling it with sample data as soon as it opens." : "I'll ask you what to put in it as soon as it opens.";
+      bot(existed ? `Opening the ${doc.name} for ${formatDisplayDate(date)} that already exists — ${next}` : `Started a new ${doc.name} for ${formatDisplayDate(date)} — ${next}`);
+      navigate(routeForRecord(doc, record.id));
+    });
   };
 
   // ---- coming forward for the document that was just opened (REQUIREMENTS §60)
@@ -665,7 +704,8 @@ export function DocumentAssistant() {
       case "submit": {
         me(chip.label);
         if (!t?.checklist) return;
-        const r = t.checklist.submit();
+        const checklist = t.checklist;
+        const r = quietly(() => checklist.submit());
         if (r.ok) {
           setGuided(null);
           bot("Submitted ✅ It's now waiting for the QA Head's approval — they'll see it in their briefing and can approve it right from here. Nothing more for you to do on this one.");
@@ -683,7 +723,8 @@ export function DocumentAssistant() {
       case "approve": {
         me(chip.label);
         if (!t?.checklist) return;
-        const r = t.checklist.approve();
+        const checklist = t.checklist;
+        const r = quietly(() => checklist.approve());
         bot(r.ok ? "Approved ✅ The checklist is signed off as Approved By with your name and today's date, and the complaint is closed." : `I couldn't approve it yet: ${r.errors.join(" ")}`);
         return;
       }
@@ -715,7 +756,24 @@ export function DocumentAssistant() {
         return;
       case "focusInput":
         setInput("");
+        setHint(a.placeholder || null);
         inputRef.current?.focus();
+        return;
+      case "confirmFormatChange": {
+        // Taken before the "Yes" is echoed: whatever is said next sets the question aside (see post).
+        const waiting = pendingFormatRef.current;
+        me(chip.label);
+        saveFormatChange(waiting);
+        return;
+      }
+      case "cancelFormatChange":
+        me(chip.label);
+        pendingFormatRef.current = null;
+        bot("Left as it is — the format has not been changed.");
+        return;
+      // "Which one?" answered with a tap: the completed sentence is said for the person.
+      case "sendText":
+        void send(a.text);
         return;
       case "confirmCorrection": {
         me(chip.label);
@@ -869,7 +927,8 @@ export function DocumentAssistant() {
           bot("This one can't be submitted from here — open the record and try again.");
           return;
         }
-        const r = tt.submit();
+        const submit = tt.submit;
+        const r = quietly(() => submit());
         bot(r.ok ? `Submitted ✅ ${tt.title ?? "The record"} is waiting for verification now.` : `Before I can submit it: ${r.errors.join(" ")}`);
         return;
       }
@@ -880,7 +939,8 @@ export function DocumentAssistant() {
           bot("This record isn't waiting for verification — submit it first.");
           return;
         }
-        const r = tt.verify();
+        const verify = tt.verify;
+        const r = quietly(() => verify());
         bot(r.ok ? `Verified ✅ ${tt.title ?? "The record"} is signed off in your name.` : `I couldn't verify it yet: ${r.errors.join(" ")}`);
         return;
       }
@@ -943,6 +1003,9 @@ export function DocumentAssistant() {
     chips.push({ label: "This month's reports", action: { type: "navigate", route: "/reports" } });
     if (!path.startsWith("/gap")) chips.push({ label: "Open CAPA", action: { type: "navigate", route: "/gap" } });
     if (hasTarget && !t?.checklist) chips.push({ label: t && !t.editable ? "Correct this record…" : "Tell me what to fill…", action: { type: "focusInput", placeholder: "" } });
+    // The format itself can be changed by saying so, wherever its sheet is drawn from a layout (REQUIREMENTS §64).
+    const screenDoc = documentRepository.getById(targetDocumentId ?? documentOnPath(path) ?? "");
+    if (screenDoc && canDesignGrid(screenDoc) && !guided && !interview) chips.push({ label: "Change this format…", action: { type: "focusInput", placeholder: FORMAT_HINT } });
     // Everything the record's own buttons can do, in the chat as well.
     if (t?.cancelCorrection) chips.push({ label: "Cancel the edit", action: { type: "doCancelCorrection" } });
     if (t?.submit) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });
@@ -1046,6 +1109,49 @@ export function DocumentAssistant() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetKind, targetDocumentId]);
 
+  // A format change waiting for its "Yes" was about the document then on screen;
+  // with another one open — or none — it is dropped, never saved onto the wrong format.
+  // The example sentences in the box go the same way: they were about that sheet.
+  useEffect(() => {
+    setHint(null);
+    const p = pendingFormatRef.current;
+    if (p && (getTarget()?.documentId ?? documentOnPath(path)) !== p.documentId) pendingFormatRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetDocumentId, path]);
+
+  // MITRA'S REACTION to a record submitted, verified or sent back
+  // (engine/reactions.ts, REQUIREMENTS §64) is said in the chat as well as in the
+  // toast, when the chat is open — for what was done on the PAGE. What Mitra did
+  // itself it has already answered for ("Submitted ✅ …"), so that is not said
+  // twice. It never takes the chips off a question still waiting, and a press
+  // that submits many at once is said as one, exactly as the toast says it.
+  useEffect(() => {
+    let gathered: ReactionEvent[] = [];
+    let timer: number | null = null;
+    const say = () => {
+      timer = null;
+      const events = gathered;
+      gathered = [];
+      if (!openRef.current || events.length === 0) return;
+      for (const r of events.length > 5 ? [summariseReactions(events)] : events.map(reactionFor)) {
+        post("bot", `${r.emoji} ${r.text}`, undefined, true);
+        if (r.bonus) post("bot", `${r.bonus.emoji} ${r.bonus.text}`, undefined, true);
+      }
+    };
+    const onReaction = (e: Event) => {
+      const detail = (e as CustomEvent<ReactionEvent>).detail;
+      if (!detail || ownActRef.current) return;
+      gathered.push(detail);
+      if (timer === null) timer = window.setTimeout(say, 60);
+    };
+    window.addEventListener(REACTION_EVENT, onReaction);
+    return () => {
+      window.removeEventListener(REACTION_EVENT, onReaction);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const onStart = () => {
       setOpen(true);
@@ -1119,22 +1225,140 @@ export function DocumentAssistant() {
       bot(`${intro}Nothing on the form changed.${issues || ' Tell me the field and the new value, e.g. "checker is Vijay".'}`);
       return;
     }
-    if (!target.editable) {
-      if (!target.reopen) {
-        bot(`${intro}This record can't be changed from here.`);
-        return;
-      }
-      pendingRef.current = { next, changes, note, recordId: target.recordId, problems };
+    changeOrAsk(target, next, changes, note, problems, intro);
+  };
+
+  // A checked change goes onto a draft at once. A submitted or verified record
+  // is changed only after "Yes, correct it", which reopens it with the reason on
+  // record — whether the change is a value (above) or the record's lines (below).
+  const changeOrAsk = (target: AssistantTarget, next: unknown, changes: FieldChange[], note: string, problems: string[], intro: string) => {
+    if (target.editable) {
+      commitEdit(target, next, changes, note, problems, intro);
+      return;
+    }
+    if (!target.reopen) {
+      bot(`${intro}This record can't be changed from here.`);
+      return;
+    }
+    const issues = problems.length ? `\n\n${problems.join("\n")}` : "";
+    pendingRef.current = { next, changes, note, recordId: target.recordId, problems };
+    bot(
+      `${intro}This record is ${target.status}. To change it I'll reopen it for correction — then it has to be submitted and verified again, and its history keeps what it said before.\n\nThe change:\n${listChanges(changes)}${issues}\n\nReason I'll record: “${note}”. Go ahead?`,
+      [
+        { label: "Yes, correct it", action: { type: "confirmCorrection" }, tone: "primary" },
+        { label: "No, leave it", action: { type: "cancelCorrection" } },
+      ]
+    );
+  };
+
+  // ---- the open record's own lines, in words (REQUIREMENTS §64) ------------------
+  // "add 2 rows", "delete the last row", "duplicate row 2", "clear row 4" on a
+  // sheet whose lines a person writes (engine/recordRowCommands.ts): done at
+  // once, listed back and undoable like every other change Mitra makes.
+  const changeRows = (words: string, cmd: RowCommand, target: AssistantTarget) => {
+    me(words);
+    const layout = getLogSheetLayout(target.documentId);
+    if (!layout) {
+      bot("This document is kept as issued — tell me the line to change and I'll change it.");
+      return;
+    }
+    const before = target.getData() as LogSheetData;
+    const res = applyRowCommand(layout, before, cmd, () => generateId("row"));
+    if (!res.ok) {
+      bot(`🚫 ${res.why}`);
+      return;
+    }
+    changeOrAsk(target, res.data, diffRecordData(before, res.data, target.labels), words, [], `${res.what.charAt(0).toUpperCase()}${res.what.slice(1)}.\n`);
+  };
+
+  // ---- changing the FORMAT, in words (REQUIREMENTS §64) --------------------------
+  // "add a column Batch No. after Remarks", "delete line 3", "rename the box
+  // Location to Area" — read with no network (engine/formatCommands.ts). With a
+  // designer open on the document the change goes onto ITS draft, in front of the
+  // person, and is saved with everything else there: one revision, not two.
+  // Otherwise Mitra ASKS FIRST, in the chat, and on "Yes" saves it the one way a
+  // format change is saved (commitFormatChange): the next revision, dated, in the
+  // person's name, with their own words as the reason. Records on file are never
+  // touched by it.
+  const documentOnScreen = (): string | null => getTarget()?.documentId ?? documentOnPath(path);
+
+  // 🤔 which one? — 🚫 cannot be done. A choice is the completed sentence, said for the person when tapped.
+  const formatQuestion = (res: { ask: string; choices?: string[]; refused?: boolean }) =>
+    bot(`${res.refused ? "🚫" : "🤔"} ${res.ask}`, res.choices?.map((text): Chip => ({ label: text, action: { type: "sendText", text } })));
+
+  // One path for the question and for its "Yes": the change is worked out on the
+  // format as it stands at that moment — it may have been changed, or a designer
+  // opened on it, since the question was put — and only `confirmed` saves it.
+  const carryOutFormatChange = (doc: DocumentDefinition, cmd: FormatCommand, words: string, confirmed: boolean) => {
+    const session = designSessionFor(doc.id);
+    const res = applyFormatCommand(session ? session.getDraft() : draftOf(doc), cmd, lang);
+    if (!res.ok) {
+      formatQuestion(res);
+      return;
+    }
+    const rev = nextRevisionNo(doc.revisionNo);
+    if (session) {
+      // The designer shows this as its own notice, so it says who did it.
+      session.apply(res.draft, `${ASSISTANT_NAME} ${res.what}`);
+      bot(`✏️ Done on the sheet in front of you — ${res.what}. Nothing is saved yet: press Save as Rev ${rev} when you have finished.`);
+      return;
+    }
+    if (!confirmed) {
       bot(
-        `${intro}This record is ${target.status}. To change it I'll reopen it for correction — then it has to be submitted and verified again, and its history keeps what it said before.\n\nThe change:\n${listChanges(changes)}${issues}\n\nReason I'll record: “${note}”. Go ahead?`,
+        `I will ${res.plan} on ${formatAndName(doc)}.\n\nThat makes it Rev ${rev}, dated today, in your name, with your words as the reason. Records already on file are not touched — each keeps everything written on it.\n\nShall I save it?`,
         [
-          { label: "Yes, correct it", action: { type: "confirmCorrection" }, tone: "primary" },
-          { label: "No, leave it", action: { type: "cancelCorrection" } },
+          { label: `Yes, save as Rev ${rev}`, action: { type: "confirmFormatChange" }, tone: "primary" },
+          { label: "No, leave it", action: { type: "cancelFormatChange" } },
         ]
+      );
+      // After the question is put, not before: putting it sets any earlier one aside (see post).
+      pendingFormatRef.current = { documentId: doc.id, cmd, words };
+      return;
+    }
+    const saved = commitFormatChange(doc, res.draft, { actor: currentUser, reason: `Asked of Mitra: ${words}` });
+    if (!saved.ok) {
+      bot(`🚫 ${saved.error}`);
+      return;
+    }
+    bump();
+    bot(
+      `✅ Saved — ${formatAndName({ formatNo: doc.formatNo, name: res.draft.name })} is now Rev ${saved.revision.revisionNo}, dated today: ${saved.revision.summary}. Records on file are untouched. To go back to the format as issued, use Edit format → Restore the issued format.`
+    );
+  };
+
+  const changeFormat = (words: string, cmd: FormatCommand) => {
+    me(words);
+    pendingFormatRef.current = null;
+    const documentId = documentOnScreen();
+    const doc = documentId ? documentRepository.getById(documentId) : undefined;
+    if (!doc) {
+      bot("Open the document you want to change first — its own page, or one of its records — then tell me again.", [
+        { label: "Library page", action: { type: "navigate", route: "/library" }, tone: "primary" },
+      ]);
+      return;
+    }
+    if (!canDesignGrid(doc) && cmd.kind !== "renameFormat") {
+      bot(
+        `🚫 ${formatAndName(doc)} is drawn by the program itself rather than from a layout, so its grid is not mine to change — that is a change to the program, which its keeper issues as the next revision. Its name and its revision can be changed with Edit format, in the Document Library.`,
+        [{ label: "Library page", action: { type: "navigate", route: `/library/${moduleSlug(doc.module)}` } }]
       );
       return;
     }
-    commitEdit(target, next, changes, note, problems, intro);
+    carryOutFormatChange(doc, cmd, words, false);
+  };
+
+  const saveFormatChange = (p: { documentId: string; cmd: FormatCommand; words: string } | null) => {
+    pendingFormatRef.current = null;
+    if (!p) {
+      bot("That question has been set aside since, so nothing was changed — tell me the change again and I'll ask once more.");
+      return;
+    }
+    const doc = documentOnScreen() === p.documentId ? documentRepository.getById(p.documentId) : undefined;
+    if (!doc) {
+      bot("That document isn't on screen any more, so nothing was changed — open it and tell me again.");
+      return;
+    }
+    carryOutFormatChange(doc, p.cmd, p.words, true);
   };
 
   // ---- sending free text ---------------------------------------------------
@@ -1145,6 +1369,7 @@ export function DocumentAssistant() {
     if (!text || loading) return;
     autoOpenedRef.current = false;
     setInput("");
+    setHint(null);
     const t2 = getTarget();
     const speakReplies = settingsRepository.get().speakReplies;
     const readOut = (reply: string) => {
@@ -1159,6 +1384,22 @@ export function DocumentAssistant() {
       t2.remove(text);
       bot(`${what} is deleted, with your reason on file: “${text}”. The deletion is listed in Document Library → Records deleted.`);
       return;
+    }
+
+    // A format change waiting for its yes (REQUIREMENTS §64): "yes" and "no" typed
+    // or spoken answer it like the chips; anything else sets it aside.
+    if (pendingFormatRef.current) {
+      // A BARE yes. "ok, but put it before Remarks" is a new instruction, not a
+      // go-ahead for the change as first worded — it sets the question aside below.
+      if (/^(?:yes|yeah|yep|ok|okay|sure|go\s+ahead|do\s+it|save(?:\s+it)?)(?:\s+(?:please|pls|mitra))*[\s.!]*$/i.test(text)) {
+        runAction({ label: text, action: { type: "confirmFormatChange" } });
+        return;
+      }
+      if (/^(?:no|nope|cancel|leave\s+it|don'?t|not\s+now|never\s*mind)\b/i.test(text)) {
+        runAction({ label: text, action: { type: "cancelFormatChange" } });
+        return;
+      }
+      pendingFormatRef.current = null;
     }
 
     // A fetch from HR Master Data waiting for a yes: "yes", "only the blanks" and
@@ -1192,7 +1433,8 @@ export function DocumentAssistant() {
     if (awaitingSendBackReason && t2?.checklist) {
       me(text);
       setAwaitingSendBackReason(false);
-      t2.checklist.sendBack(text);
+      const checklist = t2.checklist;
+      quietly(() => checklist.sendBack(text));
       bot("Sent back with your note. It's back with whoever prepared it.");
       return;
     }
@@ -1252,6 +1494,36 @@ export function DocumentAssistant() {
       }
       answerInterview(text, text);
       return;
+    }
+
+    // A CHANGE TO THE FORMAT, or to the open record's own lines, told in words
+    // (REQUIREMENTS §64) — read here with no network, before anything else is
+    // given the sentence, and never while a walk-through is waiting for an
+    // answer. With a designer open it is the designer's DRAFT the words are read
+    // against, since a column added there a minute ago can already be named.
+    if (!guidedRef.current) {
+      const onScreen = t2?.documentId ?? documentOnPath(path);
+      const screenDoc = onScreen ? documentRepository.getById(onScreen) : undefined;
+      const designed = designSessionFor(onScreen)?.getDraft().layout;
+      const formatCommand = parseFormatCommand(text, designed ?? (screenDoc && canDesignGrid(screenDoc) ? getLogSheetLayout(screenDoc.id) : undefined));
+      // "create a new line clearance record" names a document to start, not a printed line to add.
+      const startsRecord = formatCommand?.kind === "add" && formatCommand.noun === "line" && ["create", "fill", "guide"].includes(parseAssistantCommand(text, !!t2)?.kind ?? "");
+      if (formatCommand && !startsRecord) {
+        changeFormat(text, formatCommand);
+        return;
+      }
+      const rowCommand = formatCommand ? null : parseRowCommand(text);
+      if (rowCommand && t2?.documentKind === "log-sheet") {
+        changeRows(text, rowCommand, t2);
+        return;
+      }
+      if (rowCommand && !t2 && screenDoc && canDesignGrid(screenDoc)) {
+        me(text);
+        bot("That is something to do on a record — its lines are what a person writes, not part of the format. Open the record you mean, or start today's, and tell me there.", [
+          { label: "Start a record for today", action: { type: "createRecord", documentId: screenDoc.id, dateISO: todayISO() }, tone: "primary" },
+        ]);
+        return;
+      }
     }
 
     // A document named by its format number and nothing else — "F/HR/05",
@@ -1435,7 +1707,10 @@ export function DocumentAssistant() {
         : "Tap an answer above, or ask me something else"
     : interview
       ? "Type your answer, or tap one above (\"skip\" / \"stop\" work too)"
-      : (targetKind && PLACEHOLDER_BY_KIND[targetKind]) || t("ai.defaultPlaceholder");
+      : (hint ?? ((targetKind && PLACEHOLDER_BY_KIND[targetKind]) || t("ai.defaultPlaceholder")));
+
+  // What a chip DOES, for a test to find it by — never by its words, which change with the language.
+  const chipAttrs = (c: Chip) => ({ "data-chip": c.action.type, "data-placeholder": c.action.type === "focusInput" && c.action.placeholder ? c.action.placeholder : undefined });
 
   const subtitle = getTarget()?.checklist?.title ?? (hasTarget ? t("ai.recordOpenSubtitle") : t("ai.widgetSubtitle"));
 
@@ -1517,7 +1792,7 @@ export function DocumentAssistant() {
                 {m.chips && m.chips.length > 0 && (
                   <div className="chat-chips" style={{ alignSelf: "flex-start", maxWidth: "95%" }}>
                     {m.chips.map((c) => (
-                      <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} onClick={() => runAction(c)}>
+                      <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} {...chipAttrs(c)} onClick={() => runAction(c)}>
                         {c.label}
                       </button>
                     ))}
@@ -1557,7 +1832,7 @@ export function DocumentAssistant() {
           <div style={{ borderTop: "1px solid var(--color-border)", padding: "8px 12px 10px", flexShrink: 0 }}>
             <div className="chat-chips mb-2">
               {quickChips.map((c) => (
-                <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} style={{ fontSize: 11, padding: "3px 9px" }} onClick={() => runAction(c)}>
+                <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} style={{ fontSize: 11, padding: "3px 9px" }} {...chipAttrs(c)} onClick={() => runAction(c)}>
                   {c.label}
                 </button>
               ))}

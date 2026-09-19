@@ -182,6 +182,10 @@ async function main(): Promise<void> {
       "tests/e2e_postgres_storage.py",
   // The portal's own controls (REQUIREMENTS §62): reviewed before submitted, formats revised on record, the activity log.
   "tests/e2e_portal_controls.py",
+  // REQUIREMENTS §64: a format designed on the sheet, told to Mitra in words, and the scorecard.
+  "tests/e2e_sheet_designer.py",
+  "tests/e2e_mitra_format.py",
+  "tests/e2e_performance.py",
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));

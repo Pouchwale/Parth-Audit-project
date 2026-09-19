@@ -162,8 +162,12 @@ with sync_playwright() as p:
     open_page(page, "#/document/qc-bopp-film")
     head = page.locator("[data-section='document-preview'] .doc-header").inner_text()
     check("F/QC/01 starts at the revision it was issued at, Rev 01", "01" in head and "F/QC/01" in head, head[:200])
+    # Edit format on a format's own page is design mode on the sheet (REQUIREMENTS s64,
+    # tests/e2e_sheet_designer.py); the dialog checked here is under "More options…".
     page.click("[data-action='edit-format']")
     page.wait_for_timeout(500)
+    page.click("[data-action='designer-more']")
+    page.wait_for_timeout(400)
     editor = page.locator("[data-section='format-editor']")
     check("Edit format opens on the format as it stands, offering the next revision", editor.count() == 1 and page.locator("[data-field='format-revision']").input_value() == "02")
     page.click("[data-action='add-column']")
@@ -287,6 +291,8 @@ with sync_playwright() as p:
     # Put the format back, as the last thing, so the suite leaves the library as issued.
     open_page(page, "#/document/qc-bopp-film")
     page.click("[data-action='edit-format']")
+    page.wait_for_timeout(400)
+    page.click("[data-action='designer-more']")
     page.wait_for_timeout(400)
     page.click("[data-action='restore-format']")
     page.wait_for_timeout(1200)

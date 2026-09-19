@@ -1,7 +1,10 @@
 import type { DocumentDefinition, FieldChange, RecordInstance, RecordStatus } from "../types";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { validateForSubmit, validateForVerify, ValidationResult } from "./validation";
-import { appendHistory, diffRecordData, makeEntry, withEditHistory } from "./recordHistory";
+import { appendHistory, diffRecordData, makeEntry, recordLabel, withEditHistory } from "./recordHistory";
+import { REACTION_EVENT, type ReactionEvent } from "./reactions";
+import { computeReminders } from "./reminders";
+import { compareISO, todayISO } from "../utils/date";
 
 // Scheduled -> Due -> In Progress -> Submitted -> Pending Verification -> Verified
 //                                        \-> Rejected -> (edit) -> Pending Verification
@@ -20,6 +23,32 @@ export const CORRECTABLE_STATUSES: RecordStatus[] = ["Submitted", "Pending Verif
 
 export const isEditableStatus = (s: RecordStatus): boolean => EDITABLE_STATUSES.includes(s);
 export const isCorrectableStatus = (s: RecordStatus): boolean => CORRECTABLE_STATUSES.includes(s);
+
+// MITRA REACTS TO WORK DONE ON TIME OR LATE (REQUIREMENTS §64, engine/reactions.ts).
+// A submit, a verify or a send-back that a PERSON made is announced to whoever
+// is listening — the toast (components/common/MitraReaction.tsx) and Mitra's
+// chat. Never for a demo record, and never for what the system or the
+// assistant's own preparation does, which nobody did. (The generators do not
+// come through here at all: engine/plantSimulation.ts writes a demo year's
+// stamps itself. The one caller that submits several at once is Today's
+// Briefing's Submit — a person's click — and the toast says those as one.)
+function announce(record: RecordInstance, by: string, event: () => ReactionEvent): void {
+  if (typeof window === "undefined" || record.isDemo || by === "System" || by === "Assistant") return;
+  // By now the record IS submitted and stored. A reaction that cannot be worked
+  // out (what is left due is read from every repository) must not make the page
+  // believe it is not.
+  try {
+    window.dispatchEvent(new CustomEvent<ReactionEvent>(REACTION_EVENT, { detail: event() }));
+  } catch (err) {
+    console.error("Mitra's reaction could not be announced", err);
+  }
+}
+
+/** Nothing of the person's visible documents is still due today or overdue. Read AFTER the submit is stored, and only for a record that was itself due. */
+function nothingLeftDue(record: RecordInstance): boolean {
+  if (compareISO(record.dueDate, todayISO()) > 0) return false;
+  return !computeReminders(false).some((r) => r.urgency !== "upcoming");
+}
 
 export function saveDraft<T>(
   record: RecordInstance<T>,
@@ -59,7 +88,20 @@ export function submitRecord(
     },
     makeEntry("submitted", actorName, { note: wasCorrection ? `Resubmitted after correction: ${wasCorrection.reason}` : undefined, fromStatus: record.status })
   );
-  return { record: recordRepository.upsert(updated), result };
+  const stored = recordRepository.upsert(updated);
+  // Handed in before and put right since: the scorecard judges a record by when it was
+  // FIRST submitted (engine/performance.ts), so this submit is not the one to call late.
+  const again = !!record.history?.some((h) => h.action === "submitted");
+  announce(stored, actorName, () => ({
+    kind: "submitted",
+    what: recordLabel(stored),
+    dueDate: stored.dueDate,
+    on: todayISO(),
+    asRequired: doc.schedule.type === "as-required",
+    again,
+    lastOneDue: nothingLeftDue(stored),
+  }));
+  return { record: stored, result };
 }
 
 export function verifyRecord(
@@ -74,7 +116,9 @@ export function verifyRecord(
     { ...record, status: "Verified", verifiedBy: actorName, verifiedAt: now },
     makeEntry("verified", actorName, { fromStatus: record.status })
   );
-  return { record: recordRepository.upsert(updated), result };
+  const stored = recordRepository.upsert(updated);
+  announce(stored, actorName, () => ({ kind: "verified", what: recordLabel(stored) }));
+  return { record: stored, result };
 }
 
 export function rejectRecord(record: RecordInstance, actorName: string, reason: string): RecordInstance {
@@ -83,7 +127,9 @@ export function rejectRecord(record: RecordInstance, actorName: string, reason: 
     { ...record, status: "Rejected", rejectedBy: actorName, rejectedAt: now, rejectionReason: reason },
     makeEntry("rejected", actorName, { note: reason, fromStatus: record.status })
   );
-  return recordRepository.upsert(updated);
+  const stored = recordRepository.upsert(updated);
+  announce(stored, actorName, () => ({ kind: "rejected", what: recordLabel(stored), reason }));
+  return stored;
 }
 
 export function resumeAfterRejection(record: RecordInstance, actorName = "User"): RecordInstance {

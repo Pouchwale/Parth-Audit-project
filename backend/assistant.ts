@@ -306,6 +306,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   "Gurudev's licence"
 - /soc — Statements of Compliance list
 - /assistant — the full-page Assistant chat (the user may already be there; rarely a navigation target)
+- /performance — the Performance Scorecard: a score for each person, department, module and document from what was done on time, late or never done. Use for "scores", "scorecard", "performance", "who is on time", "who is late", "how is Kapila / HR / QC doing"
 - /search — the global search screen
 - /master-data — admin reference data (employees, chemicals, PC IDs, holidays, ...)
 - /demo — Demo Mode (synthetic data for trying the app out)

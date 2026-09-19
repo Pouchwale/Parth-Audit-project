@@ -3,10 +3,10 @@ import { FiArrowDown, FiArrowUp, FiPlus, FiRotateCcw, FiTrash2 } from "react-ico
 import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSheetLayout } from "../../types";
 import { Modal } from "../common/Modal";
 import { getIssuedLogSheetLayout, getLogSheetLayout } from "../../data/seed/logSheetLayouts";
-import { dropFormatEdit, formatEditFor, nextRevisionNo, saveFormatEdit, type FormatRevision } from "../../data/formatEdits";
+import { formatEditFor, nextRevisionNo } from "../../data/formatEdits";
+import { commitFormatChange, newKey, restoreIssuedFormat, setInstructions as withInstructions } from "../../engine/formatOps";
 import { SEED_DOCUMENTS } from "../../data/seed/documentDefinitions";
-import { logActivity } from "../../utils/activityLog";
-import { formatDisplayDate, todayISO } from "../../utils/date";
+import { formatDisplayDate } from "../../utils/date";
 
 // EDIT FORMAT — any document's format can be changed by the plant
 // (REQUIREMENTS §62): rename it; on a log sheet add, rename, retype, reorder
@@ -37,48 +37,12 @@ const TYPES: { value: LogFieldType; label: string }[] = [
 
 type Item = (LogHeaderField | LogColumn) & { isNew?: boolean };
 
-const slug = (label: string): string => {
-  const words = label.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").trim().split(/\s+/).filter(Boolean).slice(0, 4);
-  const camel = words.map((w, i) => (i === 0 ? w : w[0].toUpperCase() + w.slice(1))).join("");
-  return camel || "field";
-};
-
-function uniqueKey(label: string, taken: Set<string>): string {
-  const base = slug(label);
-  let key = base;
-  for (let n = 2; taken.has(key); n++) key = `${base}${n}`;
-  taken.add(key);
-  return key;
-}
-
 function move<T>(list: T[], i: number, by: number): T[] {
   const j = i + by;
   if (j < 0 || j >= list.length) return list;
   const next = list.slice();
   [next[i], next[j]] = [next[j], next[i]];
   return next;
-}
-
-/** What changed between two lists of boxes or columns, in words. */
-function describeItems(what: string, before: Item[], after: Item[]): string[] {
-  const out: string[] = [];
-  const was = new Map(before.map((b) => [b.key, b]));
-  const now = new Map(after.map((a) => [a.key, a]));
-  for (const a of after) {
-    const b = was.get(a.key);
-    if (!b) out.push(`added ${what} “${a.label}”`);
-    else {
-      if (b.label !== a.label) out.push(`renamed ${what} “${b.label}” to “${a.label}”`);
-      if (b.type !== a.type) out.push(`${what} “${a.label}” is now ${TYPES.find((t) => t.value === a.type)?.label ?? a.type}`);
-      if (!!b.required !== !!a.required) out.push(`${what} “${a.label}” is ${a.required ? "now required" : "no longer required"}`);
-      if ((b.options ?? []).join("|") !== (a.options ?? []).join("|")) out.push(`changed the choices of ${what} “${a.label}”`);
-    }
-  }
-  for (const b of before) if (!now.has(b.key)) out.push(`removed ${what} “${b.label}”`);
-  const kept = after.filter((a) => was.has(a.key)).map((a) => a.key);
-  const keptBefore = before.filter((b) => now.has(b.key)).map((b) => b.key);
-  if (kept.join("|") !== keptBefore.join("|")) out.push(`reordered the ${what}s`);
-  return out;
 }
 
 function ItemList({ title, what, items, onChange, column }: { title: string; what: string; items: Item[]; onChange: (next: Item[]) => void; column?: boolean }) {
@@ -155,70 +119,50 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
 
   const printedColumns = (columns as LogColumn[]).filter((c) => c.fixed);
 
+  // Saved the one way a format change is saved (engine/formatOps.ts): the next
+  // revision, dated, with who changed what and why, and a line in the activity log.
   const save = () => {
     setError(null);
-    if (!name.trim()) return setError("The format needs a name.");
-    if (!revisionNo.trim()) return setError("Give the new revision number.");
-    if (!reason.trim()) return setError("Say why the format is changing — it goes in its change history.");
     const all = [...headerFields, ...columns, ...footerFields];
     if (all.some((it) => !it.label.trim())) return setError("Every box and column needs a name.");
-    if (current && columns.length === 0) return setError("A sheet needs at least one column.");
-
-    // A new box or column gets a key of its own; an existing one keeps its key
-    // whatever it is renamed to, so the records on file still find their values.
-    const taken = new Set(all.filter((it) => it.key).map((it) => it.key));
-    const keyed = <T extends Item>(list: T[]): T[] =>
-      list.map((it) => {
+    let layout: LogSheetLayout | undefined;
+    if (current) {
+      // A new box or column gets a key of its own; an existing one keeps its key
+      // whatever it is renamed to, so the records on file still find their values.
+      // `keyed` always holds every key already spoken for — the ones on the form
+      // now and the ones handed out so far — so two new items never share one.
+      let keyed: LogSheetLayout = {
+        ...current,
+        headerFields: headerFields.filter((x) => x.key) as LogHeaderField[],
+        columns: columns.filter((x) => x.key) as LogColumn[],
+        footerFields: footerFields.filter((x) => x.key) as LogHeaderField[],
+      };
+      const withKey = <T extends Item>(it: T): T => {
         const { isNew: _isNew, ...rest } = it;
         void _isNew;
-        return { ...rest, label: it.label.trim(), key: it.key || uniqueKey(it.label, taken) } as T;
-      });
-
-    const summary: string[] = [];
-    if (name.trim() !== doc.name) summary.push(`renamed the format from “${doc.name}” to “${name.trim()}”`);
-    let layout: LogSheetLayout | undefined = existing?.layout;
-    if (current) {
-      const nextHeader = keyed(headerFields) as LogHeaderField[];
-      const nextColumns = keyed(columns) as LogColumn[];
-      const nextFooter = keyed(footerFields) as LogHeaderField[];
-      const nextInstructions = instructions.split("\n").map((l) => l.trim()).filter(Boolean);
-      summary.push(...describeItems("box", current.headerFields, nextHeader));
-      summary.push(...describeItems("column", current.columns, nextColumns));
-      summary.push(...describeItems("footer box", current.footerFields ?? [], nextFooter));
-      if (nextInstructions.join("\n") !== (current.instructions ?? []).join("\n")) summary.push("reworded the printed instructions");
-      let rowMode = current.rowMode;
+        const key = it.key || newKey(keyed, it.label);
+        if (!it.key) keyed = { ...keyed, columns: [...keyed.columns, { key, label: it.label, type: "text" }] };
+        return { ...rest, label: it.label.trim(), key } as T;
+      };
+      const nextHeader = headerFields.map(withKey) as LogHeaderField[];
+      const nextColumns = columns.map(withKey) as LogColumn[];
+      const nextFooter = footerFields.map(withKey) as LogHeaderField[];
+      layout = withInstructions({ ...current, headerFields: nextHeader, columns: nextColumns, footerFields: nextFooter.length ? nextFooter : undefined }, instructions.split(/\r?\n/));
       if (fixedMode) {
-        const rows = printedRows.map((r) => {
-          const out: Record<string, string | number | null> = {};
-          for (const c of nextColumns.filter((c) => c.fixed)) out[c.key] = r[c.key] ?? "";
-          return out;
-        });
-        if (JSON.stringify(rows) !== JSON.stringify(fixedMode.rows)) summary.push(`changed the printed lines (${fixedMode.rows.length} → ${rows.length})`);
-        rowMode = { ...fixedMode, rows };
+        const printed = layout.columns.filter((c) => c.fixed);
+        layout = {
+          ...layout,
+          rowMode: { ...fixedMode, rows: printedRows.map((r) => Object.fromEntries(printed.map((c) => [c.key, r[c.key] ?? ""]))) },
+        };
       }
-      layout = { ...current, instructions: nextInstructions.length ? nextInstructions : undefined, headerFields: nextHeader, columns: nextColumns, footerFields: nextFooter.length ? nextFooter : undefined, rowMode };
     }
-    if (summary.length === 0) return setError("Nothing about the format has been changed yet.");
-
-    const today = todayISO();
-    const revision: FormatRevision = { revisionNo: revisionNo.trim(), revisionDate: today, by: actor, at: new Date().toISOString(), reason: reason.trim(), summary: summary.join("; ") };
-    const ok = saveFormatEdit(doc.id, {
-      revisionNo: revision.revisionNo,
-      revisionDate: today,
-      name: name.trim() !== (issuedDoc?.name ?? doc.name) ? name.trim() : undefined,
-      layout,
-      revisions: [revision, ...(existing?.revisions ?? [])],
-    });
-    if (!ok) return setError("The change could not be stored.");
-    logActivity("Format changed", `${doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `}${name.trim()}`, `Rev ${doc.revisionNo} → ${revision.revisionNo}: ${revision.summary}. Reason: ${revision.reason}`, doc.id);
+    const result = commitFormatChange(doc, { name, layout }, { actor, reason, revisionNo });
+    if (!result.ok) return setError(result.error);
     onSaved();
   };
 
   const restore = () => {
-    if (!existing) return;
-    dropFormatEdit(doc.id);
-    logActivity("Format restored to the issued one", `${doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `}${issuedDoc?.name ?? doc.name}`, `Rev ${doc.revisionNo} → ${issuedDoc?.revisionNo ?? ""}`, doc.id);
-    onSaved();
+    if (restoreIssuedFormat(doc)) onSaved();
   };
 
   const issuedLayout = getIssuedLogSheetLayout(doc.id);

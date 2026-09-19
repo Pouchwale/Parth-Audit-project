@@ -23,6 +23,8 @@ import { storage, writeJSON } from "./storageAdapter";
 export const FORMAT_EDITS_KEY = "formatEdits";
 
 export interface FormatRevision {
+  /** What two people's histories are merged by (engine/formatOps.ts); absent on an entry from before 19-Sep-2026 until the next save. */
+  id?: string;
   revisionNo: string;
   revisionDate: string; // ISO date
   by: string;

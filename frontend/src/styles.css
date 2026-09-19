@@ -895,3 +895,148 @@ body { top: 0 !important; }
 .goog-text-highlight, .VIpgJd-yAWNEb-VIpgJd-fmcmS-sn54Q { background: none !important; box-shadow: none !important; }
 .lang-switcher-compact { display: inline-flex; align-items: center; gap: 6px; }
 .lang-note { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Sheet designer (REQUIREMENTS §64) ---- */
+/* A format designed on the sheet itself (components/documents/SheetDesigner.tsx).
+   The sheet keeps the classes every log sheet is drawn with, so it looks like
+   the form; what is below is only what makes it editable. Every control on it
+   is .no-print, so the designer prints as the document alone. */
+.designer-toolbar {
+  position: sticky; top: 58px; z-index: 15; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  padding: 8px 10px; background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+}
+.designer-toolbar .designer-gap { flex: 1; }
+.designer-toolbar .designer-rule { width: 1px; align-self: stretch; background: var(--color-border); margin: 0 2px; }
+.designer-count { font-size: 12px; font-weight: 600; color: var(--color-text-faint); padding: 0 6px; white-space: nowrap; }
+.designer-count.is-dirty { color: var(--color-warning); }
+.designer-notice {
+  margin-top: 8px; padding: 8px 12px; font-size: 12.5px; border-radius: var(--radius-sm);
+  background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success);
+}
+.designer-name { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.designer-name .designer-name-label { flex: 0 1 auto; font-size: 15px; font-weight: 700; }
+.designer-name .designer-rename { flex: 1 1 320px; max-width: 640px; }
+
+/* A name that is typed over where it stands. A button's own styles would undo
+   the heading's capitals and weight, so it takes them from where it sits. */
+.designer-heading { display: flex; align-items: flex-start; gap: 2px; }
+.designer-label {
+  flex: 1 1 auto; min-width: 0; margin: -3px -5px; padding: 2px 4px; border: 1px dashed transparent; border-radius: var(--radius-sm);
+  background: transparent; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; text-align: inherit;
+  line-height: inherit; white-space: normal; cursor: text;
+}
+.designer-label:hover, .designer-label:focus-visible { border-color: var(--color-primary); background: var(--color-primary-light); outline: none; }
+.designer-block { display: block; width: 100%; margin: 0; text-align: left; }
+.designer-box .designer-heading { font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
+.designer-rename { min-width: 140px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.designer-menu-button {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0;
+  border: none; border-radius: var(--radius-sm); background: transparent; color: var(--color-text-faint); cursor: pointer;
+}
+.designer-menu-button:hover, .designer-menu-button:focus-visible, .designer-menu-button[aria-expanded="true"] { background: var(--color-primary-light); color: var(--color-primary); outline: none; }
+.designer-type { display: block; margin-top: 3px; font-size: 10px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--color-text-faint); }
+.designer-sample { min-height: 29px; background: var(--color-surface-alt); color: var(--color-text-faint); font-size: 11.5px; cursor: default; }
+
+/* The grid: the words a form prints are typed in their cells; what a person
+   writes on a record is blank here, and says so by its shade. */
+.doc-table table.log-sheet td.designer-blank, .doc-table table.log-sheet tr.designer-sample-line td { background: var(--color-surface-alt); height: 34px; }
+.doc-table table.log-sheet tr.designer-sample-line td { color: var(--color-text-faint); }
+.doc-table table.log-sheet td.designer-line-no { white-space: nowrap; }
+.doc-table table.log-sheet td.designer-line-no .designer-menu-button { vertical-align: middle; margin-left: 2px; }
+.designer-printed {
+  display: block; width: 100%; min-width: 150px; padding: 3px 5px; border: 1px dashed transparent; border-radius: var(--radius-sm);
+  background: transparent; color: inherit; font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.35;
+  resize: none; overflow: hidden; field-sizing: content;
+}
+.designer-printed:hover { border-color: var(--color-border-strong); }
+.designer-printed:focus { outline: 2px solid var(--color-primary); border-color: transparent; background: #fff; }
+
+/* The menu of a heading, a box or a line. Over the page, and over Mitra's
+   panel when the last column's menu reaches under it; under every pop-up. */
+.designer-menu {
+  position: fixed; z-index: 60; width: 250px; padding: 5px; background: #fff; border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+.designer-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 9px; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--color-text); font-size: 12.5px; text-align: left; cursor: pointer;
+}
+.designer-menu-item:hover:not(:disabled), .designer-menu-item:focus-visible { background: var(--color-primary-light); outline: none; }
+.designer-menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.designer-menu-item.is-danger { color: var(--color-danger); }
+.designer-menu-item.is-danger:hover:not(:disabled) { background: var(--color-danger-bg); }
+.designer-menu-rule { height: 1px; background: var(--color-border); margin: 4px 0; }
+.designer-menu-fields { display: flex; flex-direction: column; gap: 7px; padding: 5px 9px; }
+.designer-menu-field { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--color-text-muted); }
+.designer-menu-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
+.designer-changes { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+
+@media print {
+  .designer-label, .designer-printed { border: none !important; background: transparent !important; }
+  .doc-table table.log-sheet td.designer-blank, .doc-table table.log-sheet tr.designer-sample-line td, .designer-sample { background: transparent !important; }
+}
+/* ---- end of Sheet designer ---- */
+
+/* ---- Mitra's reaction (REQUIREMENTS §64) ---- */
+/* One toast at a time, bottom-left: the docked assistant owns the right-hand
+   side (REQUIREMENTS §60) and a record's Submit sits bottom-right, so neither
+   is covered. Above a dialog, because Today's Briefing submits from inside
+   one. Never on paper (.no-print). */
+.mitra-reaction {
+  position: fixed; left: 20px; bottom: 20px; z-index: 110; max-width: min(420px, calc(100vw - 40px));
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px 12px 14px; cursor: pointer;
+  background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);
+  border-left: 5px solid var(--color-info); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  animation: mitra-reaction-in 0.22s ease-out;
+}
+.mitra-reaction[data-tone="good"] { border-left-color: var(--color-success); background: var(--color-success-bg); }
+.mitra-reaction[data-tone="warn"] { border-left-color: var(--color-warning); background: var(--color-warning-bg); }
+.mitra-reaction[data-tone="bad"] { border-left-color: var(--color-danger); background: var(--color-danger-bg); }
+.mitra-reaction[data-tone="info"] { border-left-color: var(--color-info); background: var(--color-info-bg); }
+.mitra-reaction-emoji { font-size: 30px; line-height: 1; flex-shrink: 0; }
+.mitra-reaction-text { font-size: 13.5px; font-weight: 600; line-height: 1.4; min-width: 0; word-break: break-word; }
+.mitra-reaction-bonus { font-weight: 500; margin-top: 2px; }
+@keyframes mitra-reaction-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mitra-reaction { animation: none; } }
+/* ---- end of Mitra's reaction ---- */
+
+/* ---- Performance Scorecard (REQUIREMENTS §64) ---- */
+/* pages/PerformancePage.tsx. The rule people are judged by, a card per person,
+   and the figures in columns that line up. The grade tints follow the status
+   colours the rest of the app already uses. */
+.score-rule { background: var(--color-surface-alt); border: 1px solid var(--color-border); border-left: 4px solid var(--color-primary); border-radius: var(--radius-md); padding: 12px 14px; font-size: 12.5px; line-height: 1.55; color: var(--color-text-muted); }
+.score-rule strong { color: var(--color-text); }
+.score-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.score-card { background: var(--color-surface); border: 1px solid var(--color-border); border-top: 4px solid var(--color-border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 16px 18px; min-width: 0; }
+.score-card[data-grade="excellent"], .score-card[data-grade="on-track"] { border-top-color: var(--color-success); }
+.score-card[data-grade="needs-attention"] { border-top-color: var(--color-warning); }
+.score-card[data-grade="falling-behind"] { border-top-color: var(--color-danger); }
+.score-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.score-card-name { font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.score-card-figure { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 8px; }
+.score-big { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+.score-unscored { font-size: 20px; font-weight: 600; color: var(--color-text-faint); }
+.score-counts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; }
+.score-counts [data-count="late"] strong { color: var(--color-warning); }
+.score-counts [data-count="overdue"] strong { color: var(--color-danger); }
+.score-counts [data-count="onTime"] strong { color: var(--color-success); }
+.score-decision { margin: 10px 0 0; font-size: 13px; line-height: 1.5; }
+.score-worst { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--color-border); }
+.score-worst-line { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 12.5px; }
+.score-worst-name { min-width: 0; overflow-wrap: anywhere; }
+.score-worst-figures { display: inline-flex; gap: 8px; flex-shrink: 0; white-space: nowrap; }
+.score-grade { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; background: var(--color-neutral-bg); color: var(--color-neutral); }
+.score-grade[data-grade="excellent"], .score-grade[data-grade="on-track"] { background: var(--color-success-bg); color: var(--color-success); }
+.score-grade[data-grade="needs-attention"] { background: var(--color-warning-bg); color: var(--color-warning); }
+.score-grade[data-grade="falling-behind"] { background: var(--color-danger-bg); color: var(--color-danger); }
+/* A control that reads as the text it is: a document's name that opens the document. */
+.score-open { border: none; background: transparent; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.score-open:hover { color: var(--color-primary-dark); text-decoration: underline; }
+.score-open:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 2px; }
+.doc-table th.score-num, .doc-table td.score-num { text-align: right; font-variant-numeric: tabular-nums; }
+@media print {
+  .score-rule, .score-grade { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .score-card { box-shadow: none; break-inside: avoid; }
+  .score-cards { grid-template-columns: repeat(2, 1fr); }
+}

@@ -145,6 +145,36 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- Three suites were added on 19-Sep-2026 for REQUIREMENTS §64, the twenty-fifth to the twenty-seventh. All
+  three are network-independent and read no model.
+  - `tests/e2e_sheet_designer.py` - a format designed on the sheet, on F/QC/03 (a form that prints its lines)
+    and F/QC/16 (a register people write): Edit format turning the page into the designer; a column inserted
+    from a heading's menu, named where it appears, renamed (Enter keeps, Escape leaves), duplicated, moved and
+    deleted behind a pop-up that says what happens to records on file; a printed column's type locked; a key
+    never handed out twice; every control kept off the paper; a box made a required Choice; printed lines
+    inserted, reworded, duplicated, moved, deleted; undo and redo by button and by Ctrl+Z / Ctrl+Y, which stay
+    a text box's own inside one; Save listing the changes, offering the next revision and refusing without a
+    reason; the saved revision on the page, in `formatEdits` and on a record started afterwards; Discard; the
+    toolbar still in view at the foot of the sheet; **a sidebar link, the browser's Back and Log out all asking
+    before a sheet with changes is left** - a Back that is agreed to landing on the page before the sheet, and
+    the next Back on the page before that; the Document Library's Edit format opening the sheet on the
+    format's own page, with no New record beside it; a program-drawn form still opening the dialog; the
+    activity log. It restores the issued formats on its way out. (140 checks)
+  - `tests/e2e_mitra_format.py` - the same changes told to Mitra: asked first with the revision named, No
+    leaving the format alone, Yes saving it with the person's words as the reason; a name that fits two things
+    asked about, never guessed; "row" meaning the record wherever the form does not print its lines, with
+    Undo; the change landing on an open designer's draft with no revision made; a program-drawn form refused
+    honestly; an offer that lapses once the conversation moves on; and Mitra's reaction to a submit - on time,
+    late, as-required, several at once - as a toast and in the chat. (54 checks)
+  - `tests/e2e_performance.py` - the scorecard: the rule on its face; every line adding up and its score
+    recomputed here from its own numbers, one document recounted from its records; the period changing what
+    is counted; a line opening its format; CSV and print; `/api/users/directory` carrying no email or hash; an
+    account with no departments listed unscored, a QC account scored on and shown QC only; a shared
+    department's records counted for whoever submitted them. It makes two signups and is last in the run.
+    (62 checks)
+  `tests/e2e_portal_controls.py` reaches the §62 dialog through the designer's *More options…* (37 checks,
+  unchanged). With them `npm run test:e2e` is green at **1591 checks across twenty-seven suites**, all on
+  PostgreSQL, no JavaScript errors.
 - `tests/e2e_portal_controls.py` gained seven checks on 19-Sep-2026 for REQUIREMENTS §63 (the eye beside a
   password box), listed in that section - 37 in the suite, **1335 across the twenty-four**.
 - `tests/e2e_portal_controls.py` - the portal's own controls (REQUIREMENTS §62), a twenty-fourth suite: the

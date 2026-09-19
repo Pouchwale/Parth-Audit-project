@@ -2558,7 +2558,9 @@ working copy that is kept in step with the database:
 **WHERE THE DATABASE IS.** `DATABASE_URL` names it (a deployment's own PostgreSQL). Without one, the
 server starts a PostgreSQL of its own on the machine (the `embedded-postgres` package: real PostgreSQL
 18 binaries, no installation), data in `backend/data/postgres` — so `npm start` still needs nothing but
-Node.js. That PostgreSQL is started with `pg_ctl` as a process of its own: it keeps running when the
+Node.js. That PostgreSQL is started with `pg_ctl` as a process of its own, in the background and **with no
+window of its own** (19-Sep-2026: on Windows a black console window used to open beside `npm run dev` and had
+to be left open — closing it killed the database; one terminal is now everything): it keeps running when the
 server stops (a second server may be using it), is reused by the next start only if it is this app's
 own, and `npm run db:stop` shuts it down cleanly. A failed start quotes PostgreSQL's own log. The
 database must be UTF8 (the records hold Gujarati and dashes); the server refuses any other. An install with the old SQLite file has its accounts copied in on first start (the file is then
@@ -2964,7 +2966,8 @@ puts the paper's own transcription back.
   are read. It therefore survives a re-seed, a reload and another person's browser.
 - **Records already on file are untouched.** A record keeps every value under the key it was written with: a
   column taken off the format is simply not drawn, one added is blank on older records. Keys are never renamed
-  or reused — a new box gets a new key, and renaming a box changes only its label.
+  or reused — a new box gets a new key (one that carries the moment it was made, §64), and renaming a box
+  changes only its label.
 - The forms the program draws by hand — the daily pest register, the fly catcher register, the service
   reports, the complaint forms, the licence — have their **name and revision** changed here; their grid is
   code, so a change to it is a change to the program, and the editor says so.
@@ -3026,6 +3029,181 @@ Each box has its own eye and starts hidden, so showing the password does not als
 - Covered by `tests/e2e_portal_controls.py`: a box starting hidden with its eye; the eye showing that box only;
   what it announces; the form not being sent; hiding again with nothing lost; the eye on all three boxes of
   Change password; and the sign-in form. (7 checks)
+
+## 64. A format designed on the sheet, changed by telling Mitra, reacted to with emojis, and scored (19-Sep-2026)
+
+```
+REQUESTED            "each and every document has various option in which user can create similar column, row and
+                      whatever in whole document he want to edit ... make sure to show pop up also and make system
+                      very super intelligent which does whatever task the user need to do manually ... my user can
+                      write what he want to do, create anything, add anything in any document or delete anything
+                      which might be any row, column, cells ... when user click on edit button then he should like
+                      word file in ms word or ms excel ... without opening anything in his system ... bot will give
+                      reactions on timely activity is complete or not through emojis ... separate dashboard which
+                      give score to Kapila, HR's and module wise who is responsible for their document and decision
+                      will be taken on basis of what assigned task is done on time or not"
+DIGITAL TEMPLATE     engine/formatOps.ts (the operations, and the one way a change is saved), engine/designSession.ts,
+                      components/documents/SheetDesigner.tsx, pages/DocumentRecordsPage.tsx; engine/formatCommands.ts,
+                      engine/recordRowCommands.ts, components/common/DocumentAssistant.tsx; engine/reactions.ts,
+                      components/common/MitraReaction.tsx, engine/recordLifecycle.ts; engine/performance.ts,
+                      pages/PerformancePage.tsx, backend/index.ts (GET /api/users/directory); store/router.tsx
+                      (setLeaveGuard)
+```
+
+**1. EDIT FORMAT OPENS THE SHEET ITSELF, AND THE SHEET IS EDITED LIKE A SPREADSHEET.** On every log sheet —
+every format whose grid is drawn from a layout — *Edit format* no longer opens a dialog of lists, whether it
+is pressed on the format's own page or on its line of the Document Library (which goes to that page). The page
+turns into the sheet as it prints: header block, printed instructions, the boxes above the grid, the grid, the
+boxes below. Everything on it is changed where it stands:
+- **A name is clicked and typed over** — the format's name, the instructions, a box, a column heading. A
+  printed cell of a form that prints its lines is a text box in its place.
+- **Every column heading, every box and every printed line has a small menu**: insert to the left / right
+  (above / below for a line), **duplicate** — "create a similar column" is one click, with a printed column's
+  words copied down its lines — move, delete; and for a column or a box, what it takes (Text, Number, Date,
+  Time, Yes / No, Choice with its choices) and whether it is required. A printed line has no type to set; a
+  column the form prints, or one the sheet works out, has its type and Required locked; the last column cannot
+  be deleted. A copy of a printed column on a sheet that does not print its lines is an ordinary column, so it
+  can be written in.
+- **A toolbar that stays in view**: + Column, + Box above, + Box below, + Line (only on a form that prints its
+  lines), **Undo** and **Redo**
+  (also Ctrl+Z / Ctrl+Y, a hundred steps), how many changes the sheet holds, Save, Discard, and *More
+  options…*, which is the §62 dialog (revision number typed by hand, the change history, Restore the issued
+  format) — offered only while the sheet holds no unsaved change, so the two never save over each other.
+- **Pop-ups say what is about to happen.** Deleting asks first and says, in plain words, that records already
+  on file keep what was written. **Save** lists every change in words, shows the revision it will become
+  (02 → 03) and requires a reason; then a second pop-up confirms "Saved as Rev 03, dated …, by …". Discard
+  lists what would be thrown away.
+- **Leaving with unsaved changes asks first** — closing the tab, and equally the sidebar, a Back button, the
+  browser's own Back or Forward, Mitra opening another page, and **Log out** (`setLeaveGuard` / `confirmLeave`
+  in store/router.tsx). A browser Back that is agreed to stays a Back: nothing is added to the tab's history,
+  so the next Back goes where it always would have. While a sheet is being designed the page offers no *New
+  record* beside it, and Mitra starts no record until the leave is agreed. The one thing that cannot ask is a
+  session the server has ended.
+- Nothing reaches the stored format or any record until Save, and Save is the same one road as §62
+  (`commitFormatChange`): next revision, dated today, who / what / why, one line in the activity log, kept in
+  PostgreSQL under `formatEdits`.
+- **A key is never reused — not across revisions, not after a restore.** A new box or column's key carries the
+  moment it was made (`remarks_mfk2p9c0`), so taking "Remarks" off in Rev 02 and adding a "Remarks" in Rev 03
+  cannot make old values reappear under the new heading. The label is all anybody sees.
+- Two people designing the same format at the same moment: what each changed is merged item by item the way
+  all shared data is (data/serverSync.ts), and every entry of the change history carries an id so both
+  entries — each with its who / what / why — stay in it. Saved within the same few seconds they can carry the
+  same revision number; the history shows both.
+- The forms the program draws by hand (§62.3) keep the dialog: their name and revision are what can change.
+- The designer draws its own sheet rather than threading design controls through the view every record is read
+  with, so no record page pays for it (§56); the names on it read as stored in either language (§58), because
+  the value shown is the very value being typed over.
+
+**2. OR THE PERSON JUST SAYS IT TO MITRA.** Typed or spoken, read with no network and no model:
+
+| Said | Done |
+|---|---|
+| "add a column Batch No. after Remarks" · "insert a number column Weight before Result" | column added, where asked, of the type asked |
+| "add a box Shift above the grid" · "add a field Checked by below the grid" | box added above / below |
+| "duplicate the Remarks column" · "add another column like Result" | copy beside it, "Remarks (2)" |
+| "rename Remarks to Remarks / Action" · "rename this format to …" | label only — the key stays |
+| "make Result a choice of Pass, Fail" · "make Batch No. required" | type changed; Required for a COLUMN (a box's is set on the sheet) |
+| "move Batch No. to the left" · "move Shift to the end" | reordered |
+| "delete the box Serial No" · "remove the last column" | removed from the format |
+| "add a line Printing / Special ink" · "delete line 3" · "change line 2 to …" · "rename the line Special ink to Special inks" | the lines a form PRINTS — only on a form that prints them; rewording is of the line's name |
+| "add 3 rows" · "delete the last row" · "duplicate row 2" · "clear row 4" · "clear the Remarks of row 2" | the OPEN RECORD's own lines, on a sheet whose lines a person writes |
+
+- **It asks first, in the chat**: "I will add a column Batch No. after Remarks on F/QC/12 …. That makes it Rev
+  03, dated today, in your name, with your words as the reason. Records already on file are not touched …
+  Shall I save it?" — with *Yes, save as Rev 03* and *No, leave it* beside it. A bare "yes" / "ok" typed or
+  spoken does the same; "ok, but put it before Remarks" is a new instruction and sets the question aside. Yes
+  saves through the same one road, the sentence as its reason. The offer lapses the moment the conversation moves on, so a stale Yes can never save
+  a change nobody is looking at.
+- **With the designer open it does not ask and does not save**: the change lands on the sheet in front of the
+  person as one more undoable step — a delete too, Undo being the way back — and is saved with everything
+  else: one revision, not two (engine/designSession.ts).
+- Not while Mitra is asking question by question or walking through a checklist: what is typed then is the
+  answer to the question on screen. Say "stop" first.
+- **It never guesses.** A thing is found by the words printed on the form, whatever the case or punctuation,
+  and by the English reading of a Gujarati form. More than one match and it asks which, with the completed
+  sentences to tap; no match and it says what the sheet does have. "Row" means the format only where the form
+  prints its lines; everywhere else it is the record's. A value — "row 2 line speed is 90" — is still §57's.
+- A row command changes the open record at once and offers **Undo**; on a submitted record it goes through the
+  existing "Yes, correct it" reopen; the lines a form prints (`minRows`) are kept; a printed or worked-out cell
+  is never cleared.
+- Mitra's chips on a format's page offer **Change this format…**, which puts two example sentences in the box.
+
+**3. MITRA REACTS, WITH AN EMOJI, TO WORK DONE ON TIME OR LATE.** Whenever a record is submitted, verified or
+sent back — by hand, from the briefing or through Mitra — a toast appears bottom-left for six seconds, on the
+screen of the person who did it, and the open chat says the same (when Mitra did the submitting itself the
+chat keeps Mitra's own words and only the toast is added):
+
+| What happened | Reaction |
+|---|---|
+| submitted on or before its due date | 🎉 "… submitted on time." |
+| submitted N days after it | ⏰ "… submitted N days late." |
+| an as-required record (no due date to be late for) | ✅ "… submitted." |
+| submitted again after a correction | ✅ "… submitted again, put right." — it is judged by its FIRST submission, here and on the scorecard |
+| verified | ✅ "… verified." |
+| sent back | ↩️ "… sent back — *the reason*" |
+| …and nothing else of theirs is due or overdue | 🌟 "That was the last one due today." as a second line |
+
+The words come from one pure function (`reactionFor`), so the toast and the chat cannot disagree; the format
+number, the date and a typed reason are shown as written (§58). The reaction is worked out after the record is
+stored and can never stop a submit. More than five submitted at once from Today's Briefing are said as one;
+up to five are shown one after another.
+Demo records and what the system does by itself get no reaction — nobody did them.
+
+**4. THE PERFORMANCE SCORECARD — `/performance`, in the sidebar under Activity Log.** One question is asked of
+every record that fell due in the period — *was it handed in on time?* — and added up four ways: **by person**
+(cards: Kapila Barad, Vinay Bhojak, Sandeep Parekh and every other account), **by department**, **by module**
+and **by document**, worst first. Because people are judged by it, the rule is one line and is printed on the
+page:
+
+> on time counts 1, late counts ½, never done counts 0 —
+> score = 100 × (on time + ½ × late) ÷ (on time + late + never done)
+
+| Score | Grade |
+|---|---|
+| 90 – 100 | 🌟 Excellent |
+| 75 – 89 | ✅ On track |
+| 50 – 74 | ⚠️ Needs attention |
+| below 50 | 🔴 Falling behind |
+| nothing due | ➖ Nothing was due |
+
+- **The decision is a sentence built from the numbers**, naming the record it turns on: "28 of 46 on time, 8
+  late, 10 never done — needs attention; the oldest never done is F/QC/12 of 09-Sep." (score 70). The grade is
+  the score and nothing else: a record never done lowers it, it does not cap it. A person's card also lists up
+  to three of their documents with something late or never done.
+- **What would make it unfair is left out**: a weekly off or festival holiday, the daily register's
+  H O L I D A Y line, reference documents, a record not due yet (shown as "still to come", never counted), and
+  the blank shells from before the system went live. An **as-required** record has no schedule, so it gets
+  **two days** from the date it is for — and the last of them is never a day the plant was closed: the
+  allowance runs on to the next open day. (A record dated back to last week is therefore late: the event was
+  last week.)
+- **On time is judged by the FIRST submission** in the record's history, so a record put right later is not
+  turned into a late one; the count of days is the same one Mitra's "N days late" uses.
+- **Who answers for a record**: the accounts kept to the department that owns its document. Where a department
+  has two accounts (HR), a record handed in counts for whoever handed it in, and one nobody handed in — or one
+  handed in by somebody outside the department — counts for both, because it was each one's to do. An account
+  with no departments (the administrator, management) is listed without a score.
+- A document's line opens that format's own page; the scorecard **exports as CSV** and **prints alone**.
+- **Four periods**: this month, last month, the last 3 months, this year. Demo Mode scores the demo records,
+  Live the live ones, like every other page.
+- **Who sees what**: the names come from `GET /api/users/directory`, which returns id, name, role and
+  departments — never an email or a hash. The administrator and an account with no departments see everybody; a
+  department account sees the accounts that share a department with it, and only its own documents' scores —
+  so a colleague who also answers for another department is scored there from part of their work, and the
+  card and the CSV say so ("Also answers for …, outside your departments").
+- The page reads and never writes. Live records exist only for the months somebody has opened (the app creates
+  a month's shells on first visit), so a month nobody has looked at has nothing due rather than everything
+  missed; the Dashboard and Calendar open the current month for everyone daily, which is what keeps it honest.
+- One pass over the records builds all four scorecards, worked out once per change, and the long tables are
+  drawn progressively (the low-end standard of §57).
+- Mitra knows the page through the assistant's model — "open the scorecard", "who is late", "how is Kapila
+  doing" (backend/assistant.ts ROUTE_GUIDE); unlike the sentences of part 2 this needs the network.
+
+**Also put right on the way.** In Demo Mode a department's account took every other department's demo record
+for missing and wrote it again on each visit (data/demoGenerator.ts read the stored demo records through the
+department filter); it now reads them unscoped, like the documents beside it.
+
+- Covered by `tests/e2e_sheet_designer.py`, `tests/e2e_mitra_format.py` and `tests/e2e_performance.py`, and by
+  `tests/e2e_portal_controls.py`, which now reaches the §62 dialog through *More options…*.
 
 ## Master data provenance summary
 

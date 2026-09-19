@@ -125,6 +125,16 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **A format designed on the sheet, changed by telling Mitra, reacted to, and scored** (REQUIREMENTS §64):
+  *Edit format* turns the page into the sheet itself, edited the way a spreadsheet is — click a name and type,
+  a menu on every column, box and printed line to insert, duplicate, move or delete (and to retype a column or
+  a box), undo and redo, and pop-ups that say what is about to happen, leaving included — saved as the next
+  revision with who, what and why. Or say it: "add a column Batch No. after Remarks", "delete line 3" — Mitra
+  asks before it saves a format change; "add 3 rows" changes the open record at once, with Undo. Mitra reacts
+  to a record handed in (🎉 on time, ⏰ N days late, ✅ verified, ↩️ sent back, 🌟 the last one due) — Live
+  records, on the screen of the person who did it.
+  And the **Performance Scorecard** (`/performance`) scores each person, department, module and document on
+  one rule — on time 1, late ½, never done 0 — with the decision written out as a sentence.
 - **An eye beside every password box** (REQUIREMENTS §63): signing in, signing up and changing a password all
   let a person see what they have typed, and hide it again, without sending the form.
 - **Reviewed before submitted, formats revised on record, named accounts, the activity log** (REQUIREMENTS §62):

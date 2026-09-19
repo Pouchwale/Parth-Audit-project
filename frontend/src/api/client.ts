@@ -86,12 +86,19 @@ export const assistantApi = {
     api.post<ChecklistAnswerResult>("/assistant/checklist-answer", { activity, answer, today }),
 };
 
+/** An account as the Performance Scorecard reads it: who it is and which departments it answers for — never the sign-in address. */
+export type DirectoryPerson = Pick<AuthUser, "id" | "name" | "role" | "departments">;
+
 // WHO MAY SEE WHICH DEPARTMENT'S DOCUMENTS. Only the administrator account
 // (the first one created) can read this list or change an assignment — the
 // restriction has to be set by somebody else, or it would be a preference
 // rather than a rule (REQUIREMENTS §40, backend/index.ts requireAdmin).
 export const usersApi = {
   list: () => api.get<{ users: ManagedUser[] }>("/users"),
+  // Anybody signed in may read this one (REQUIREMENTS §64): every account for
+  // the administrator and for an account with no departments, the accounts
+  // that share a department for everybody else (backend/index.ts).
+  directory: () => api.get<{ people: DirectoryPerson[] }>("/users/directory"),
   setDepartments: (userId: string, departments: string[]) =>
     api.post<{ user: AuthUser }>(`/users/${encodeURIComponent(userId)}/departments`, { departments }),
 };

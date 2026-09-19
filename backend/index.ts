@@ -276,6 +276,24 @@ app.get("/api/users", requireAdmin, async (_req: Request, res: Response): Promis
   res.json({ users: rows.map((r) => ({ ...toPublicUser(r), createdAt: r.created_at })) });
 });
 
+// WHO ANSWERS FOR WHICH DEPARTMENT — for the Performance Scorecard (REQUIREMENTS
+// §64), which scores each person on the documents of their own department and
+// so has to know who the accounts are. The list above is the administrator's
+// and carries the sign-in addresses; this one is for anybody signed in and
+// carries only what the scorecard prints: a name, the role and the departments
+// — never the email, never the hash. The administrator and an account with no
+// departments work across the plant and read every account; an account kept to
+// departments reads only the accounts that share one with it (itself among
+// them), the same line the records and the activity log are kept to.
+app.get("/api/users/directory", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const own = accountDepartments((req as AuthedRequest).user);
+  const people = (await listUsers())
+    .map(toPublicUser)
+    .filter((p) => own === null || p.departments.some((code) => own.includes(code)))
+    .map((p) => ({ id: p.id, name: p.name, role: p.role, departments: p.departments }));
+  res.json({ people });
+});
+
 app.post("/api/users/:id/departments", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   const target = await getUserById(String(req.params.id ?? ""));
   if (!target) {

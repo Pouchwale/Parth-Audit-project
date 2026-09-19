@@ -492,7 +492,9 @@ function fillRow(
   return row;
 }
 
-const isRemarkColumn = (col: LogColumn): boolean => col.type === "text" && /^remarks?$/i.test(col.key);
+// By the issued key, by the key a plant-added column gets ("remarks_mfk2p9c0" —
+// engine/formatOps.ts newKey), or by the heading itself.
+const isRemarkColumn = (col: LogColumn): boolean => col.type === "text" && (/^remarks?(?:_|$)/i.test(col.key) || /^remarks?$/i.test(col.label.trim()));
 
 // An out-of-band number with nothing written beside it is the first thing an
 // auditor asks about, so where the printed form HAS a remark column, the
