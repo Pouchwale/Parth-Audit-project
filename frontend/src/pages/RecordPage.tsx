@@ -66,15 +66,27 @@ const COUNTERSIGN_STATUSES = ["Submitted", "Pending Verification"];
 // The statuses a record can be verified from — the same set the action bar uses.
 const VERIFIABLE_STATUSES = ["Submitted", "Pending Verification"];
 
+// What the page says when the record moved on under it (REQUIREMENTS §65). It
+// does not say WHERE: a colleague's computer, or Today's Briefing in this very tab.
+const changedElsewhere = (now: RecordInstance, typingSetAside: boolean): string =>
+  `This record was changed elsewhere while it was open here and is now ${now.status}.${
+    typingSetAside ? " What was typed here in the last moment was not saved." : ""
+  } It is shown as it now stands.`;
+const DELETED_ELSEWHERE = "This record was deleted while it was open here. The deletion is recorded in Document Library → Records deleted.";
+
 export function RecordPage({ recordId }: { recordId?: string }) {
   const { navigate } = useRouter();
-  const { currentUser, bump, lang } = useAppStore();
+  const { currentUser, bump, lang, version } = useAppStore();
   const t = useT();
   const [record, setRecord] = useState<RecordInstance | undefined>(() => (recordId ? recordRepository.getById(recordId) : undefined));
   const [data, setData] = useState<unknown>(record?.data);
   const [dirty, setDirty] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
+  // Said once when a change made elsewhere took the place of what was on screen.
+  const [notice, setNotice] = useState<string | null>(null);
+  // Deleted with this page's own button: on its way to the calendar, nothing to adopt or save.
+  const removedHere = useRef(false);
 
   const doc = record ? documentRepository.getById(record.documentId) : undefined;
   // Opening a record is a line of the activity log too (REQUIREMENTS §62) — once per visit, not for demo data.
@@ -114,31 +126,108 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       setRecord(updated);
       setData(updated.data);
       setDirty(false);
+      setNotice(null);
       bump();
     },
     [bump]
   );
 
-  /** Saves any pending edit now (with its change history) and returns the saved record. */
+  // A COLLEAGUE'S CHANGE IS NEVER SAVED OVER (REQUIREMENTS §65). This page holds
+  // its own copy of the record, because what is being typed lives here until the
+  // autosave; a pull (data/serverSync.ts) can store a newer one underneath it at
+  // any moment — a cell filled, the sheet submitted, verified or deleted on
+  // another computer. adopt() puts the STORED record on screen in place of the
+  // copy held; nothing is written. `why` is said only when something the person
+  // did was set aside, never for a change that simply arrived.
+  const adopt = useCallback((stored: RecordInstance | undefined, why?: string) => {
+    latest.current = { ...latest.current, record: stored, data: stored?.data, dirty: false };
+    setRecord(stored);
+    setData(stored?.data);
+    setDirty(false);
+    setErrors([]); // they described a copy that is no longer on screen
+    setNotice(why ?? null);
+  }, []);
+
+  /**
+   * Saves any pending edit now (with its change history) and returns the record
+   * AS STORED — so whatever the caller does next (submit, verify, send back,
+   * reopen) is done to the record as it stands, not to the copy this page
+   * opened with. Undefined when there is no record to act on: none open, or it
+   * was deleted elsewhere — saving then would bring a deleted record back, here
+   * and, through the merge, on every computer (REQUIREMENTS §65).
+   */
   const flush = useCallback((): RecordInstance | undefined => {
     const { record: r, data: d, dirty: isDirty, canWrite: w, labels: l } = latest.current;
-    if (!r) return undefined;
-    if (!isDirty || !w) return r;
-    const updated = saveDraft(r, d, currentUser, { labels: l });
+    if (!r || removedHere.current) return undefined;
+    // Read again, the way GapPage, CapaPage and TrainingPage save from current().
+    // updatedAt is compared, never identity: a pull parses every record anew.
+    const stored = recordRepository.getById(r.id);
+    if (!stored) {
+      adopt(undefined, DELETED_ELSEWHERE);
+      return undefined;
+    }
+    if (!isDirty || !w) {
+      if (stored.updatedAt !== r.updatedAt) adopt(stored);
+      return stored;
+    }
+    // Still open to the kind of writing that was being done here? A sheet that
+    // was being filled in has to be editable still; the customer's countersign
+    // (COUNTERSIGN_STATUSES) has to be waiting for verification still. Submitted,
+    // verified or reopened elsewhere in the meantime: the stored record stands
+    // and what was typed is NOT written — a signed-off record is changed only
+    // through Correct, with a reason. The page says so.
+    const stillOpen = isEditableStatus(r.status) ? isEditableStatus(stored.status) : COUNTERSIGN_STATUSES.includes(stored.status);
+    if (!stillOpen) {
+      adopt(stored, changedElsewhere(stored, true));
+      return stored;
+    }
+    // Saved FROM the stored record, carrying this page's data: a colleague's
+    // history lines, status and stamps survive, and withEditHistory diffs against
+    // what is stored, so a cell they filled within the autosave's pause and this
+    // save puts back is a recorded change with a name on it, not a silent loss.
+    // (The later save still wins that race for the whole sheet — there is no
+    // cell-by-cell merge of two people's typing.)
+    const updated = saveDraft(stored, d, currentUser, { labels: l });
     persistLocal(updated);
     return updated;
-  }, [currentUser, persistLocal]);
+  }, [currentUser, persistLocal, adopt]);
 
   useEffect(() => {
     flush(); // anything pending on the record we're leaving
     const r = recordId ? recordRepository.getById(recordId) : undefined;
+    removedHere.current = false;
     latest.current = { ...latest.current, record: r, data: r?.data, dirty: false };
     setRecord(r);
     setData(r?.data);
     setDirty(false);
     setErrors([]);
+    setNotice(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordId]);
+
+  // THE STORE MOVED ON: show the record as it now stands (REQUIREMENTS §65).
+  // Every bump asks one question — is the stored record the one held? — by
+  // updatedAt, so this page's own save (persistLocal holds exactly what upsert
+  // stamped) and everybody's changes to OTHER records are a no-op. While
+  // something typed is waiting for the autosave nothing is adopted, or the
+  // typing would be thrown away: flush() reads the store again and decides.
+  // A record that has gone is shown as gone at once — there is nothing left to
+  // save it into. One that was not here yet when the page opened is shown when
+  // it arrives.
+  useEffect(() => {
+    if (removedHere.current) return;
+    const held = latest.current.record;
+    const id = held?.id ?? recordId;
+    if (!id) return;
+    const stored = recordRepository.getById(id);
+    if (!stored) {
+      if (held) adopt(undefined, DELETED_ELSEWHERE);
+      return;
+    }
+    if (held && (stored.updatedAt === held.updatedAt || latest.current.dirty)) return;
+    adopt(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version]);
 
   // Autosave, a moment after the last change.
   useEffect(() => {
@@ -190,14 +279,22 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           currentData: assistantData,
           getData: () => latest.current.data,
           labels: displayLabels,
+          // Both start from flush(): the record as stored now, never a copy kept
+          // from an earlier render (REQUIREMENTS §65). Mitra only commits to a
+          // record she was told is editable (or has just reopened, a line above
+          // in the same breath); one signed off elsewhere since is left alone.
           commit: (next, note) => {
-            const base = flush() ?? latest.current.record;
+            const base = flush();
             if (!base) return;
+            if (!isEditableStatus(base.status)) {
+              setNotice((said) => said ?? changedElsewhere(base, true));
+              return;
+            }
             persistLocal(saveDraft(base, withCalibration(doc?.id, next), currentUser, { action: "assistant-edit", note, labels: latest.current.labels }));
           },
           reopen: isCorrectableStatus(record.status)
             ? (reason) => {
-                const base = flush() ?? latest.current.record;
+                const base = flush();
                 if (base) persistLocal(reopenForCorrection(base, currentUser, reason));
               }
             : undefined,
@@ -217,6 +314,12 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     return (
       <div className="empty-state">
         <h2 className="text-xl mb-2">Record not found</h2>
+        {/* It was here a moment ago: deleted elsewhere while open (REQUIREMENTS §65). */}
+        {notice && (
+          <p className="text-sm mb-3" data-record-notice>
+            {notice}
+          </p>
+        )}
         <button className="btn btn-secondary" onClick={() => navigate("/calendar")}>
           <FiArrowLeft size={13} /> Back to Calendar
         </button>
@@ -240,8 +343,20 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
   const handleSave = () => void flush();
 
+  // EVERY BUTTON ACTS ON THE RECORD AS STORED (REQUIREMENTS §65). flush() hands
+  // it back, having adopted it if it moved on elsewhere. When it is no longer in
+  // a status the button was offered for — somebody else already submitted,
+  // verified or reopened it, or it has gone — nothing is done to it, the page
+  // shows it as it stands and says why the press did nothing.
+  const movedOn = (now: RecordInstance | undefined): { ok: boolean; errors: string[] } => {
+    const why = now ? changedElsewhere(now, false) : DELETED_ELSEWHERE;
+    if (now) setNotice((said) => said ?? why); // flush() may just have said more: that typing was set aside
+    return { ok: false, errors: [why] };
+  };
+
   const handleSubmit = (): { ok: boolean; errors: string[] } => {
-    const saved = flush() ?? record;
+    const saved = flush();
+    if (!saved || !isEditableStatus(saved.status)) return movedOn(saved);
     const { record: updated, result } = submitRecord(doc, saved, currentUser);
     if (!result.valid) {
       setErrorsFor("submit");
@@ -254,7 +369,8 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   };
 
   const handleVerify = (): { ok: boolean; errors: string[] } => {
-    const saved = flush() ?? record;
+    const saved = flush(); // the customer's countersign, if it was just written
+    if (!saved || !VERIFIABLE_STATUSES.includes(saved.status)) return movedOn(saved);
     const { record: updated, result } = verifyRecord(doc, saved, currentUser);
     if (!result.valid) {
       setErrorsFor("verify");
@@ -266,18 +382,30 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     return { ok: true, errors: [] };
   };
 
-  const handleReject = (reason: string) => persistLocal(rejectRecord(flush() ?? record, currentUser, reason));
-  const handleResume = () => persistLocal(resumeAfterRejection(record, currentUser));
+  const handleReject = (reason: string) => {
+    const saved = flush();
+    if (!saved || !VERIFIABLE_STATUSES.includes(saved.status)) return void movedOn(saved);
+    persistLocal(rejectRecord(saved, currentUser, reason));
+  };
+  const handleResume = () => {
+    const saved = flush();
+    if (!saved || saved.status !== "Rejected") return void movedOn(saved);
+    persistLocal(resumeAfterRejection(saved, currentUser));
+  };
   const handleCorrect = (reason: string) => {
     setErrors([]);
-    persistLocal(reopenForCorrection(flush() ?? record, currentUser, reason));
+    const saved = flush();
+    if (!saved || !isCorrectableStatus(saved.status)) return void movedOn(saved);
+    persistLocal(reopenForCorrection(saved, currentUser, reason));
   };
 
   // Pressed Edit and there was nothing to put right (or a change of mind):
   // the record goes back exactly as it was, at the status it came from.
   const handleCancelCorrection = () => {
     setErrors([]);
-    persistLocal(cancelCorrection(flush() ?? record, currentUser, labels));
+    const saved = flush();
+    if (!saved || !saved.correction) return void movedOn(saved);
+    persistLocal(cancelCorrection(saved, currentUser, labels));
   };
   // Counted against what is on screen, including an edit not yet autosaved.
   const undoneChanges = record.correction ? correctionChanges({ ...record, data }, labels).length : 0;
@@ -286,7 +414,12 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   // reason, and every deletion is recorded (engine/recordCrud.ts).
   const handleDelete = (reason: string) => {
     latest.current = { ...latest.current, dirty: false }; // nothing left to save
-    deleteRecordWithTrail(record, currentUser, reason);
+    // The deletions log says what the record WAS: its status as stored now. One
+    // already deleted elsewhere is not logged a second time.
+    const stored = recordRepository.getById(record.id);
+    if (!stored) return adopt(undefined, DELETED_ELSEWHERE);
+    removedHere.current = true;
+    deleteRecordWithTrail(stored, currentUser, reason);
     bump();
     navigate("/calendar");
   };
@@ -294,7 +427,8 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   // "Fill again" replaces the form with a fresh fill from the assistant; the
   // history records exactly what that changed.
   const handleReprepare = () => {
-    const before = flush() ?? record;
+    const before = flush();
+    if (!before || !isEditableStatus(before.status)) return void movedOn(before);
     const refreshed = reprepareRecord(record.id);
     if (!refreshed) return;
     const logged = withEditHistory({ ...refreshed, data: before.data, history: before.history }, refreshed.data, "Assistant", {
@@ -320,6 +454,13 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           <StatusBadge status={record.status} overdue={overdue} />
         </div>
       </div>
+
+      {/* The record moved on elsewhere and something done here was set aside (REQUIREMENTS §65). Gone with the next save. */}
+      {notice && (
+        <div className="card mb-4 no-print" data-record-notice role="status" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
+          <div className="card-pad text-sm">{notice}</div>
+        </div>
+      )}
 
       {record.correction && <CorrectionBanner correction={record.correction} onCancel={canWrite ? handleCancelCorrection : undefined} />}
 

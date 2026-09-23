@@ -3205,6 +3205,114 @@ department filter); it now reads them unscoped, like the documents beside it.
 - Covered by `tests/e2e_sheet_designer.py`, `tests/e2e_mitra_format.py` and `tests/e2e_performance.py`, and by
   `tests/e2e_portal_controls.py`, which now reaches the §62 dialog through *More options…*.
 
+## 65. The company's own mark, no Demo Mode in the portal, and a colleague's work never saved over (23-Sep-2026)
+
+```
+REQUESTED            "remove demo mode also and also remove :- Human Resources & Pest Control · Lamination QC &
+                      Production · Compliance from sidebar in below of Gujarat print pack publications pvt ltd ...
+                      i have shared logo with you so attach that logo in project so it will look like professional
+                      ... also remove process flow in below of ask mitra and also remove uncessary file which
+                      project are not using and make whole applcation archiecture very optimistic and can run in
+                      low ending devices also without any lags or wrong data anywhere also remove this line from
+                      dashboard:- Gujarat Printpack Publication Pvt. Ltd. — Pest Control · Lamination QC &
+                      Production · Compliance"
+DIGITAL TEMPLATE     frontend/public/brand/* (the mark the company sent), frontend/index.html,
+                      components/layout/Sidebar.tsx, components/auth/AuthLayout.tsx, pages/DashboardPage.tsx;
+                      backend/features.ts + frontend/src/engine/features.ts (what this server has switched on),
+                      store/AuthContext.tsx, components/layout/Topbar.tsx, data/bootstrap.ts;
+                      pages/RecordPage.tsx (a colleague's work is never saved over),
+                      data/storageAdapter.ts (readJSONCached, measureWorkingCopy), utils/useEnsureMonth.ts
+```
+
+**1. THE COMPANY'S OWN MARK, AND ONLY THE COMPANY'S NAME UNDER IT.** The mark the company sent is in the
+sidebar as a 40 px tile beside the title, above the title on the sign-in and sign-up screens at 72 px, and in
+the browser's tab, its bookmarks and a phone's home screen (`frontend/public/brand/`, four files: the icon
+itself and the three sizes the screens draw). The sidebar's second line is now **the company's name alone** —
+the list of modules that used to follow it said what the sidebar itself already shows — and the Dashboard's
+date line ends at the day, its own copy of that list gone. The sign-in screen names the company and says in
+one plain line what the system is for. The tab reads "Digital Controlled Record System — Gujarat Printpack
+Publication".
+- **No mark on the paper.** Nothing about a printed record changed: the shell is `no-print` and printing is
+  scoped to the document (§35), so a record still prints as the company's own form and nothing else.
+- The name reads as written in either language (§58); the tile is drawn at twice its size so it is sharp on a
+  good screen, with its width and height given so no line moves as it loads.
+
+**2. PROCESS FLOW IS GONE** — the sidebar entry under Ask Mitra, the page, the route, its strings. An old
+bookmark to it lands on "Page not found", and Mitra cannot navigate there (`isValidAppRoute`).
+
+**3. DEMO MODE IS NOT PART OF THE PORTAL.** The portal is going into real use, so nobody using it can reach a
+screen of made-up records: no switch in the top bar, no sidebar entry, no page, no banner, no watermark, and
+`#/demo` typed into the address bar is not a route. Mitra is never told the page exists.
+- **What decides is the server, not the browser.** `DEMO_MODE=1` on the server that is started switches it on;
+  anything else leaves it off (`backend/features.ts`). The answer the app already waits for before it draws
+  anything — who is signed in — carries `features: { demoMode }`, and every screen reads it synchronously
+  (`frontend/src/engine/features.ts`). Nothing a person does in a browser can turn it on: a stored setting
+  that says "demo" is read as Live, and `setMode("demo")` does nothing.
+- **Only the switch went.** A record's `isDemo` field, the pages' filters and the behaviour model the demo
+  generator shares with the Live pre-fill (`engine/plantSimulation.ts`, the rodent, fly and lizard patterns of
+  §62) are exactly as they were: that model is what makes a real record read like a real plant's.
+- **Why it stays at all:** the year of synthetic records is what five of the Playwright suites stand on
+  (`e2e_smoke`, `e2e_realism`, `e2e_files`, `e2e_performance`, `e2e_trend_reports`), so `scripts/run-e2e.ts`
+  gives its server `DEMO_MODE=1` and those suites are unchanged.
+- **The demo records an earlier version left behind go.** No screen lists them any more, and a year of them is
+  most of what a slow computer parses and sends. So once the server has *said* this installation has no Demo
+  Mode, start-up makes the same one call the Demo Mode page's "Clear All Demo Data" made: it matches
+  `isDemo === true` and nothing else, so a Live record is never touched, and the merge keeps a line removed
+  here and untouched elsewhere removed (§55). **Take a backup before the first start without `DEMO_MODE=1`** —
+  the removal happens on that first sign-in and is not undone.
+- Every sentence that named Demo Mode — the Files empty hint, the HR master sheet's note, the "no room"
+  screen, the storage banner's advice — names it only where it exists.
+
+**4. A COLLEAGUE'S WORK IS NEVER SAVED OVER.** A record's page held the copy it opened with and saved that
+copy back. So if a record sat open and idle on one computer while somebody else filled a cell in it, submitted
+it or verified it, the next keystroke here wrote the old copy over their work — in this browser and, through
+the merge, in the database, with no 409 and no warning. (The other three record pages already re-read before
+saving; this one did not.)
+- **Every save now starts from the record as it is stored**, carrying only what is being typed here, so the
+  other person's history line, status and stamps survive and the change is recorded with a name on it.
+- **Every button acts on the record as stored.** Submitted, verified, reopened or deleted elsewhere in the
+  meantime, the press does nothing to it: the page shows the record as it now stands and says so in a plain
+  banner. A record deleted elsewhere is never brought back by a save.
+- **What arrives while nothing is being typed is simply shown.** While something typed is still waiting for the
+  autosave nothing is taken away; the save a moment later decides.
+- Honestly: where two people change **different cells of the same sheet in the same moment**, the later save
+  still wins the sheet. There is no cell-by-cell merge of two people's typing, and the record's history shows
+  what happened.
+
+**5. THE LOW-END STANDARD, MEASURED AND MENDED** (§56, §57 — pages are measured at 6× CPU throttle).
+- **The documents list, the master data and the HR master sheet are parsed once per stored value**, not once
+  per lookup (`readJSONCached`, in the manner of `data/formatEdits.ts`). They were asked for dozens of times a
+  screen — the Chemical tab of Reports did it once per record of the month, 297 parses of 53 KB — and each was
+  a full parse. The copy is remembered against the **raw stored string**, so anything that replaces the item —
+  a save, another tab, a colleague's work arriving, a different person signing in — is parsed afresh; it can
+  never answer with anything but what is stored. Every reader is handed the same object, so it is frozen all
+  the way down: a change made to it throws where it is made instead of quietly showing every later reader
+  something that was never stored. Whoever means to change what it read takes a copy of its own.
+- **A month's due sheets are made in an effect, not while the page draws** (`utils/useEnsureMonth.ts`). The
+  pages used to run the generator from inside a render on every change of anything: a write to storage from a
+  render React may throw away, and nothing redrawn afterwards, so the bell and the briefing stayed a step
+  behind the records.
+- **The browser says it is filling up before it is full.** A browser gives the app about five million
+  characters, and a year of records comes close; past it a save does not fit and the working copy cannot be
+  loaded at all. The size is added up once at start-up — no timer — and above four million the banner says so
+  plainly, months before the wall, while there is still time to archive. (Measured on this installation on
+  19-Sep-2026: 3,741 records, 4.84 million characters, of which about 4 MB are blank "Due" sheets from before
+  the go-live date that Today's Briefing offers to clear in one click.)
+
+**6. NOTHING UNUSED IS KEPT.** Every one of the 213 source files is reached from an entry point, every
+dependency is imported by something, and every `npm run` target exists — checked by building the import graph
+from `main.tsx`, `backend/index.ts` and the scripts, then grepping each basename for a reference by string.
+What went: `frontend/src/components/calendar/` (an empty folder), and two sizes of the mark that nothing
+draws. What stays, and why: `tools/pest_pattern.py` and `tools/plant_pattern.py` generate the seeded behaviour
+model; `tests/visual_qa.py` and `tests/e2e_assistant_chat.py` are run by hand; `source-documents/` is the
+company's own originals.
+
+- Covered by `tests/e2e_no_demo_mode.py` (a suite of its own, against a **second server on :8843** started
+  without the test flags — the product as a plant gets it): no switch in the top bar, no sidebar entry, `#/demo`
+  not a route, a stored setting of "demo" read as Live, `features.demoMode` false, and no screen with the word
+  anywhere on it. The branding and the record-page fix are covered by the suites that already read the sidebar,
+  the sign-in screen and a record being filled.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

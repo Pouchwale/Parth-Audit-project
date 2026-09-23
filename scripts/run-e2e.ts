@@ -26,6 +26,14 @@ import { pgCtlPath } from "../backend/db.ts";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const TEST_PORT = 8842;
+// DEMO MODE IS NOT PART OF THE PRODUCT (REQUIREMENTS §65): the server has it only
+// when started with DEMO_MODE=1. The suites stand on the year of synthetic
+// records it makes, so the server they run against is started with it — and
+// tests/e2e_no_demo_mode.py, which proves the product has none, gets a second
+// server of its own for as long as it runs: this port, the same database, the
+// same build, Demo Mode off.
+const PRODUCT_PORT = 8843;
+const PRODUCT_SUITE = "tests/e2e_no_demo_mode.py";
 const nodeArgs = ["--no-warnings=ExperimentalWarning"];
 
 function run(cmd: string, args: string[]): void {
@@ -80,6 +88,13 @@ async function main(): Promise<void> {
   // or fail against the old build without saying so.
   if (await answers(`http://localhost:${TEST_PORT}/api/auth/me`)) {
     console.error(`Something is already listening on :${TEST_PORT} — stop it first, so the tests run against this build.`);
+    process.exit(1);
+  }
+  // The same for the second server's port, asked NOW and not only when its suite
+  // comes up, last but one: a run must not get that far before it is refused.
+  const asked = process.argv.slice(2).filter((a) => a.endsWith(".py"));
+  if ((!asked.length || asked.some((a) => a.split("\\").join("/") === PRODUCT_SUITE)) && (await answers(`http://localhost:${PRODUCT_PORT}/api/auth/me`))) {
+    console.error(`Something is already listening on :${PRODUCT_PORT} — stop it first, so ${PRODUCT_SUITE} runs against this build.`);
     process.exit(1);
   }
 
@@ -140,14 +155,18 @@ async function main(): Promise<void> {
   }
   const DATABASE_URL = `postgres://postgres:e2e@127.0.0.1:${pgPort}/dcrs_e2e`;
 
+  const startServer = (port: number, demoMode: "1" | "0") =>
+    spawn(process.execPath, [...nodeArgs, "backend/index.ts"], {
+      cwd: root,
+      stdio: "inherit",
+      // CVs are read by the text rules alone here, so the suites stay network-independent (backend/cvExtract.ts).
+      // SEED_ACCOUNTS=0: the suites rely on their first signup being the administrator.
+      // DEMO_MODE is always said, "0" included: a DEMO_MODE=1 left in the shell or in backend/.env must not reach the product's server.
+      env: { ...process.env, API_PORT: String(port), CV_READ_WITH_ASSISTANT: "0", DATABASE_URL, SQLITE_IMPORT: "0", SEED_ACCOUNTS: "0", DEMO_MODE: demoMode },
+    });
   console.log(`Starting server on :${TEST_PORT}...`);
-  const server = spawn(process.execPath, [...nodeArgs, "backend/index.ts"], {
-    cwd: root,
-    stdio: "inherit",
-    // CVs are read by the text rules alone here, so the suites stay network-independent (backend/cvExtract.ts).
-    // SEED_ACCOUNTS=0: the suites rely on their first signup being the administrator.
-    env: { ...process.env, API_PORT: String(TEST_PORT), CV_READ_WITH_ASSISTANT: "0", DATABASE_URL, SQLITE_IMPORT: "0", SEED_ACCOUNTS: "0" },
-  });
+  const server = startServer(TEST_PORT, "1");
+  let productServer: ReturnType<typeof startServer> | null = null;
   const sql = new pg.Client({ connectionString: DATABASE_URL });
 
   let exitCode = 1;
@@ -185,6 +204,9 @@ async function main(): Promise<void> {
   // REQUIREMENTS §64: a format designed on the sheet, told to Mitra in words, and the scorecard.
   "tests/e2e_sheet_designer.py",
   "tests/e2e_mitra_format.py",
+  // REQUIREMENTS §65: the product has no Demo Mode — run against a second server started without it (below).
+  PRODUCT_SUITE,
+  // Last, because of its signups.
   "tests/e2e_performance.py",
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
@@ -198,8 +220,19 @@ async function main(): Promise<void> {
       // fresh browser: the app seeds it again on the first sign-in. The
       // accounts stay, as they did in the one account database.
       await sql.query("TRUNCATE app_storage");
+      if (suite === PRODUCT_SUITE) {
+        // The product as it is installed: started, waited for and stopped like the first server, for this suite alone.
+        if (await answers(`http://localhost:${PRODUCT_PORT}/api/auth/me`)) throw new Error(`Something is already listening on :${PRODUCT_PORT} — stop it first, so ${PRODUCT_SUITE} runs against this build.`);
+        console.log(`Starting a server without Demo Mode on :${PRODUCT_PORT}...`);
+        productServer = startServer(PRODUCT_PORT, "0");
+        if (!(await waitForServer(`http://localhost:${PRODUCT_PORT}/api/auth/me`, 15000))) throw new Error(`Server did not come up on :${PRODUCT_PORT} in time.`);
+      }
       console.log(`Running ${suite}...`);
       const test = spawnSync(python, [suite], { cwd: root, stdio: "inherit", shell: process.platform === "win32" });
+      if (productServer) {
+        productServer.kill();
+        productServer = null;
+      }
       const suiteExit = test.status ?? 1;
       if (suiteExit !== 0) {
         exitCode = suiteExit;
@@ -207,6 +240,7 @@ async function main(): Promise<void> {
       }
     }
   } finally {
+    productServer?.kill();
     server.kill();
     await sql.end().catch(() => undefined);
     await stopDatabase();

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { HR_MASTER_SLUG, HR_PAGE_SLUGS } from "../data/seed/hrModule";
+import { demoModeAvailable } from "../engine/features";
 
 // Minimal dependency-free hash router (react-router-dom is not available in
 // this offline build — see DEPLOYMENT.md). Hash-based routing also means the
@@ -212,10 +213,11 @@ export function useRouter(): RouterValue {
 // backend/assistant.ts's ROUTE_GUIDE (the prompt describing these same
 // shapes) and with App.tsx's switch.
 // "gap"/"training"/"soc"/"record" are NOT here — they're handled below with
-// their own case (root, optional id), not as a zero-segment-only route.
+// their own case (root, optional id), not as a zero-segment-only route. Nor is
+// "demo", which is a route only where the server has Demo Mode switched on.
 const SIMPLE_ROUTES = new Set([
-  "", "dashboard", "process-flow", "library", "calendar", "reports",
-  "chemical-master", "master-data", "demo", "search", "pest-control", "assistant", "licence",
+  "", "dashboard", "library", "calendar", "reports",
+  "chemical-master", "master-data", "search", "pest-control", "assistant", "licence",
   // /qc — QC Records, Quality Control's own overview (REQUIREMENTS §58).
   "qc",
   // /activity — the Activity Log (REQUIREMENTS §62).
@@ -278,6 +280,10 @@ export function isValidAppRoute(path: string): boolean {
       void month;
       return false;
     }
+    case "demo":
+      // Demo Mode is not part of the product, so Mitra cannot be sent there
+      // either — only on a server started with it (engine/features.ts, REQUIREMENTS §65).
+      return rest.length === 0 && demoModeAvailable();
     default:
       return rest.length === 0 && SIMPLE_ROUTES.has(root);
   }

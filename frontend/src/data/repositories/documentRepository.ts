@@ -1,7 +1,7 @@
 import type { DocumentDefinition } from "../../types";
 import { RETIRED_DOCUMENT_IDS, SEED_DOCUMENTS } from "../seed/documentDefinitions";
 import { isDocumentVisible } from "../../engine/departmentScope";
-import { readJSON, writeJSON } from "../storageAdapter";
+import { readJSON, readJSONCached, writeJSON } from "../storageAdapter";
 import { formatEdits } from "../formatEdits";
 
 const KEY = "documents";
@@ -11,14 +11,27 @@ const KEY = "documents";
 // (data/formatEdits.ts, REQUIREMENTS §62). What is STORED stays the issued
 // list — ensureSeeded puts it back on every start-up — so a change is never
 // lost to a re-seed and "Restore the issued format" only has to drop the edit.
+// READ ONCE PER STORED VALUE (REQUIREMENTS §65). This is asked ninety-eight
+// times over a screen — once per line of a report, once per reminder — and each
+// was a JSON.parse of the whole 53 KB list. readJSONCached hands back the same
+// parsed copy until the stored string changes; the OVERLAID list is remembered
+// beside it, against both of the things it is made from, so a change to either
+// (a format revised, a re-seed, a colleague's edit arriving) is laid over
+// afresh. Nothing here is ever changed in place — upsert and ensureSeeded read
+// with readJSON and get a copy of their own.
+let overlaid: { issued: DocumentDefinition[]; edits: object; value: DocumentDefinition[] } | null = null;
+
 function loadAll(): DocumentDefinition[] {
-  const issued = readJSON<DocumentDefinition[]>(KEY, []);
+  const issued = readJSONCached<DocumentDefinition[]>(KEY, []);
   const edits = formatEdits();
   if (Object.keys(edits).length === 0) return issued;
-  return issued.map((d) => {
+  if (overlaid && overlaid.issued === issued && overlaid.edits === edits) return overlaid.value;
+  const value = issued.map((d) => {
     const e = edits[d.id];
     return e ? { ...d, name: e.name ?? d.name, revisionNo: e.revisionNo, revisionDate: e.revisionDate } : d;
   });
+  overlaid = { issued, edits, value };
+  return value;
 }
 
 function saveAll(docs: DocumentDefinition[]): void {

@@ -12,6 +12,7 @@ import { t } from "../i18n";
 import { guide, hello, whoIAm } from "./assistantPersona";
 import { documentsByFormatNumber, formatNumberAnswer } from "./formatNumbers";
 import { hrMasterChatAnswer } from "./hrMasterAssistant";
+import { demoModeAvailable } from "./features";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
 
 // WHAT THE ASSISTANT KNOWS WITHOUT ASKING THE MODEL.
@@ -810,7 +811,9 @@ export function buildAssistantContext(isDemo: boolean, userName?: string): strin
     `Upcoming holidays / adjustment days: ${upcoming.length ? upcoming.join("; ") : "none in the next five months"}.`,
     "Scheduling rule: a Daily Pest Control Monitoring Record on a closed day is pre-marked as a holiday; other daily registers have no sheet that day; fortnightly / monthly / quarterly / yearly records that land on a closed day move to the next working day.",
     workload,
-    `Mode: ${isDemo ? "Demo (synthetic data)" : "Live"}. User: ${userName ?? "unknown"}.`,
+    // The model is told which mode this is only where there are two (engine/features.ts,
+    // REQUIREMENTS §65): the product has one, and Mitra has no "Live mode" to speak of.
+    `${demoModeAvailable() ? `Mode: ${isDemo ? "Demo (synthetic data)" : "Live"}. ` : ""}User: ${userName ?? "unknown"}.`,
   ]
     .join("\n")
     .slice(0, 3800);

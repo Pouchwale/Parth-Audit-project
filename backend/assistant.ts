@@ -4,6 +4,7 @@
 // reach the browser bundle, so this file is only ever invoked from
 // index.ts's /api/assistant/chat route.
 import { groqChatJSON } from "./groq.ts";
+import { DEMO_MODE } from "./features.ts";
 
 // Kept in sync with the shapes in src/types/record.ts. Field guides are
 // plain-language, not JSON Schema, because the model just needs to know
@@ -225,6 +226,11 @@ export const SUPPORTED_DOCUMENT_KINDS = Object.keys(FIELD_GUIDES);
 // The assistant's name, shown on screen by frontend/src/engine/assistantPersona.ts.
 export const ASSISTANT_NAME = "Mitra";
 
+// Demo Mode is not part of the product: the model hears of its page only on a
+// server started with it (features.ts, REQUIREMENTS §65) — and the app refuses
+// the route besides (frontend/src/store/router.tsx isValidAppRoute).
+const DEMO_ROUTE_LINE = DEMO_MODE ? "\n- /demo — Demo Mode (synthetic data for trying the app out)" : "";
+
 const ROUTE_GUIDE = `
 Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitute a real value):
 - /dashboard — the home/overview screen
@@ -308,8 +314,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
 - /assistant — the full-page Assistant chat (the user may already be there; rarely a navigation target)
 - /performance — the Performance Scorecard: a score for each person, department, module and document from what was done on time, late or never done. Use for "scores", "scorecard", "performance", "who is on time", "who is late", "how is Kapila / HR / QC doing"
 - /search — the global search screen
-- /master-data — admin reference data (employees, chemicals, PC IDs, holidays, ...)
-- /demo — Demo Mode (synthetic data for trying the app out)
+- /master-data — admin reference data (employees, chemicals, PC IDs, holidays, ...)${DEMO_ROUTE_LINE}
 Never invent a path outside this list, and never include a record id (you don't know any).`;
 
 // One free-text answer about ONE checklist activity, during the assistant's

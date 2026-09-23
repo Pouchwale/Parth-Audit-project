@@ -145,6 +145,22 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- `tests/e2e_no_demo_mode.py` - Demo Mode is not part of the product (REQUIREMENTS §65), a twenty-eighth
+  suite, added 23-Sep-2026 and the only one that runs against a **second server on :8843**: the same database
+  and the same build, started WITHOUT the test flags - the product exactly as a plant installs it. The runner
+  brings that server up for this suite alone and stops it again, and refuses a busy :8843 before it builds.
+  It checks that the server says so with who is signed in (`features.demoMode` false); that the top bar has no
+  Live / Demo switch and no mode band and the sidebar no Demo Mode link; that `#/demo` typed into the address
+  bar is "Page not found"; that a "demo" left in somebody's settings from before is read as Live, with no
+  banner and no watermark; that the Dashboard, the Calendar and the Performance Scorecard do not say the word
+  anywhere; and that a demo record left in the database from before is removed when the app starts - in the
+  working copy and in PostgreSQL - while every Live record stays. (25 checks)
+  The rest of §65 is covered by the suites that already read the sidebar, the sign-in screen and a record being
+  filled. Six of them were run together after the change - `e2e_smoke`, `e2e_editing`, `e2e_crud`,
+  `e2e_hr_master_data`, `e2e_files` and this one - green at **331 checks, no JavaScript errors**, which is what
+  proves the newly shared, frozen copies of the documents list, the master data and the HR master sheet are
+  never changed in place: a change made to one would throw where it was made, and every suite fails on a
+  JavaScript error.
 - Three suites were added on 19-Sep-2026 for REQUIREMENTS §64, the twenty-fifth to the twenty-seventh. All
   three are network-independent and read no model.
   - `tests/e2e_sheet_designer.py` - a format designed on the sheet, on F/QC/03 (a form that prints its lines)

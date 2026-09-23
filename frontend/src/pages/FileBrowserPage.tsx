@@ -5,6 +5,7 @@ import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { routeForRecord } from "../engine/reminders";
 import { filesRoute, monthsInRange, normaliseRange, recordsInRange, resolveFileScope } from "../engine/fileScope";
+import { demoModeAvailable } from "../engine/features";
 import { moduleSlug } from "../utils/moduleSlug";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -296,7 +297,7 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
             <div className="empty-state file-empty">
               <FiFolder size={28} />
               <div className="mt-2 font-semibold">{t("files.empty")}</div>
-              {!isDemo && <div className="text-xs text-muted mt-1">{t("files.emptyHint")}</div>}
+              {!isDemo && <div className="text-xs text-muted mt-1">{t(demoModeAvailable() ? "files.emptyHintDemo" : "files.emptyHint")}</div>}
             </div>
           ) : (
             months.map((ym) => (

@@ -11,7 +11,6 @@ import {
   FiFileText,
   FiPlayCircle,
   FiSearch,
-  FiGitBranch,
   FiShield,
   FiChevronDown,
   FiChevronsDown,
@@ -48,6 +47,7 @@ import { useSidebar } from "../../store/sidebar";
 import { useT } from "../../i18n";
 import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
 import { QC_OVERVIEW_DOCUMENT_IDS } from "../../data/seed/qcModule";
+import { demoModeAvailable } from "../../engine/features";
 
 interface NavItem {
   to: string;
@@ -73,7 +73,6 @@ const NAV_MAIN: NavItem[] = [
   // The assistant as a screen of its own (ChatGPT-style, text and voice) —
   // the same assistant as the floating widget, see pages/AssistantPage.tsx.
   { to: "/assistant", labelKey: "nav.assistant", icon: FiMessageSquare },
-  { to: "/process-flow", labelKey: "nav.processFlow", icon: FiGitBranch },
   { to: "/library", labelKey: "nav.documentLibrary", icon: FiBookOpen },
   // Every record filed by module → document → month, for any date span.
   { to: "/files", labelKey: "nav.files", icon: FiHardDrive },
@@ -270,8 +269,11 @@ const NAV_SYSTEM: NavItem[] = [
   { to: "/activity", labelKey: "nav.activityLog", icon: FiActivity },
   // Who did their documents on time — by person, department and module (REQUIREMENTS §64).
   { to: "/performance", labelKey: "nav.performance", icon: FiAward },
-  { to: "/demo", labelKey: "nav.demoMode", icon: FiPlayCircle },
 ];
+// Demo Mode is not part of the product: its link is listed only on a server
+// started with it, which is how the Playwright suites get their year of
+// synthetic records (engine/features.ts, REQUIREMENTS §65).
+const NAV_SYSTEM_WITH_DEMO: NavItem[] = [...NAV_SYSTEM, { to: "/demo", labelKey: "nav.demoMode", icon: FiPlayCircle }];
 
 const SIDEBAR_STATE_KEY = "sidebar-open-modules";
 
@@ -381,9 +383,26 @@ export function Sidebar() {
         aria-label={t("nav.menu")}
       >
         <div className="app-sidebar-brand">
+          {/* THE COMPANY'S MARK, and under the title the company's name alone
+              (REQUIREMENTS §65). The 96px file drawn at 40px stays crisp on a
+              2× screen and is a 5 KB decode; alt is empty because the name is
+              written beside it; the address is relative, like assets/styles.css
+              in index.html, so it holds from whatever base the app is opened. */}
+          <img
+            className="brand-logo notranslate"
+            translate="no"
+            src="brand/logo-96.png"
+            width={40}
+            height={40}
+            alt=""
+            decoding="async"
+            draggable={false}
+          />
           <div className="brand-text">
             <div className="title">{t("dash.title")}</div>
-            <div className="subtitle">{t("nav.brandSubtitle")}</div>
+            <div className="subtitle notranslate" translate="no">
+              {t("nav.brandSubtitle")}
+            </div>
           </div>
           <button
             type="button"
@@ -455,7 +474,7 @@ export function Sidebar() {
           })}
 
           <div className="nav-section-label">{t("nav.system")}</div>
-          <NavGroup items={NAV_SYSTEM} path={path} />
+          <NavGroup items={demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM} path={path} />
         </nav>
 
         <div className="app-sidebar-foot">{t("nav.foot")}</div>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard, FiDroplet, FiFileText, FiPrinter, FiTrendingUp, FiTruck } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { documentTextIn } from "../i18n/documentText";
@@ -9,7 +9,7 @@ import { DownloadDocumentButton } from "../components/common/DownloadDocumentBut
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
-import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
+import { useEnsureMonth } from "../utils/useEnsureMonth";
 import { scheduleLabel } from "../engine/frequencyEngine";
 import { effectiveDueDatesInMonth } from "../engine/holidays";
 import { getDocumentInfo } from "../engine/documentInfo";
@@ -93,13 +93,8 @@ function latestRecord<T>(docId: string, isDemo: boolean, uptoISO: string): Recor
 
 // Live records for the month being looked at (the engine applies the
 // launch-date floor itself, so browsing old months never fabricates a
-// backlog — see engine/recordGenerator.ts).
-function useEnsureMonth(year: number, month: number, version: number) {
-  useMemo(() => {
-    ensureRecordsGeneratedForMonth(year, month, { isDemo: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, month, version]);
-}
+// backlog — see engine/recordGenerator.ts) are made by useEnsureMonth: in an
+// effect keyed on the month, not while drawing on every bump (REQUIREMENTS §65).
 
 // A year that hasn't happened holds no records, and the trend reports drop it
 // (data/selectors.ts keeps years up to this one), so offering it only produced
@@ -164,7 +159,7 @@ export function DocMeta({ doc }: { doc: DocumentDefinition }) {
 // 0. Module overview — /pest-control
 
 export function PestControlOverviewPage() {
-  const { mode, version } = useAppStore();
+  const { mode } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
@@ -172,7 +167,7 @@ export function PestControlOverviewPage() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
-  useEnsureMonth(year, month, version);
+  useEnsureMonth(year, month);
 
   const docs = documentRepository.getAll();
   const master = masterRepository.get();
@@ -453,7 +448,7 @@ export function PestControlOverviewPage() {
 // 1. Daily Report — /pest/daily[/{year}/{month0}]
 
 export function DailyMonitoringListPage({ year: initialYear, month: initialMonth }: { year?: number; month?: number }) {
-  const { mode, version } = useAppStore();
+  const { mode } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
@@ -465,7 +460,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
   const [view, setView] = useState<"register" | "list">("register");
   const [showOriginal, setShowOriginal] = useState(false);
   const today = todayISO();
-  useEnsureMonth(year, month, version);
+  useEnsureMonth(year, month);
 
   const doc = documentRepository.getById(DAILY_DOC_ID);
   // F/HR/17 is Human Resources' own format, so somebody outside that
@@ -643,7 +638,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
 // 2. Service Reports — /pest/service/{rodent|general|fly}[/{year}]
 
 export function ServiceReportListPage({ slug, year: initialYear }: { slug: string; year?: number }) {
-  const { mode, version } = useAppStore();
+  const { mode } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
@@ -652,7 +647,7 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
   // Month of the F/HR/18 register shown on the Fly Control page.
   const [registerMonth, setRegisterMonth] = useState(now.getMonth());
   const today = todayISO();
-  useEnsureMonth(now.getFullYear(), now.getMonth(), version);
+  useEnsureMonth(now.getFullYear(), now.getMonth());
 
   const service = PEST_SERVICES[slug];
   const doc = service ? documentRepository.getById(service.docId) : undefined;
@@ -916,7 +911,7 @@ export function LizardTrendPage({ year: initialYear }: { year?: number }) {
 // 3c. Trend Analysis — Fly Catcher Infestation — /pest/trend/fly-catcher[/{year}]
 
 export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
-  const { mode, version } = useAppStore();
+  const { mode } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
@@ -928,7 +923,7 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
   // records.
   const [view, setView] = useState<"register" | "trend" | "list">("register");
   const today = todayISO();
-  useEnsureMonth(now.getFullYear(), now.getMonth(), version);
+  useEnsureMonth(now.getFullYear(), now.getMonth());
 
   const doc = documentRepository.getById(FLY_DOC_ID);
   // The register, the trend and the visit list here are all F/HR/18, Human

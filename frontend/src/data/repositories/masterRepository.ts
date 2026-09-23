@@ -1,12 +1,15 @@
 import type { MasterData } from "../../types";
 import { SEED_MASTER_DATA } from "../seed/masterData";
 import { RETIRED_DOCUMENT_IDS } from "../seed/documentDefinitions";
-import { readJSON, writeJSON } from "../storageAdapter";
+import { readJSON, readJSONCached, writeJSON } from "../storageAdapter";
 
 const KEY = "master";
 
+// Read once per stored value, like the documents list (REQUIREMENTS §65): this
+// is asked fifty-three times over a screen. Read-only — ensureSeeded and
+// update() use readJSON and get a copy of their own to change.
 function load(): MasterData {
-  return readJSON<MasterData>(KEY, SEED_MASTER_DATA);
+  return readJSONCached<MasterData>(KEY, SEED_MASTER_DATA);
 }
 function save(data: MasterData): void {
   writeJSON(KEY, data);

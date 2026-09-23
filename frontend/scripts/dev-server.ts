@@ -48,6 +48,19 @@ function publicFilePath(url: string): string | null {
   return filePath.startsWith(publicDir + path.sep) ? filePath : null;
 }
 
+// What public/ holds, named for the browser as the production server's
+// express.static names it: the company's mark and the tab icon
+// (public/brand, REQUIREMENTS §65) and the scanned source pages
+// (public/source). Anything else goes out untyped, as it always has.
+const PUBLIC_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".pdf": "application/pdf",
+};
+
 const server = http.createServer((req, res) => {
   handle(req, res).catch((err) => {
     // e.g. index.html briefly missing mid-save: answer this request with an
@@ -109,7 +122,8 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
   try {
     if (!filePath) throw new Error("outside public/");
     const data = await fs.readFile(filePath);
-    res.writeHead(200);
+    const type = PUBLIC_TYPES[path.extname(filePath).toLowerCase()];
+    res.writeHead(200, type ? { "Content-Type": type } : {});
     res.end(data);
   } catch {
     res.writeHead(404);

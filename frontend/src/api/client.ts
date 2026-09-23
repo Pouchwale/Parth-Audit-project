@@ -40,6 +40,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+/**
+ * What GET /auth/me, POST /auth/login and POST /auth/signup answer: who is
+ * signed in, and what this server has switched on (engine/features.ts,
+ * REQUIREMENTS §65). `features` is optional: a server from before it says nothing, which reads as off.
+ */
+export interface AuthResponse {
+  user: AuthUser;
+  features?: { demoMode?: boolean };
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, data?: unknown) =>

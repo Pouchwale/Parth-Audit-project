@@ -5,6 +5,7 @@ import { useAuth } from "../../store/AuthContext";
 import { confirmLeave, useRouter } from "../../store/router";
 import { pressable } from "../../utils/pressable";
 import { useSidebar } from "../../store/sidebar";
+import { demoModeAvailable } from "../../engine/features";
 import { useT } from "../../i18n";
 import { NotificationBell } from "./NotificationBell";
 import { LanguageSwitcher } from "../common/LanguageSwitcher";
@@ -37,23 +38,28 @@ export function Topbar() {
           >
             {sidebarVisible ? <FiSidebar size={16} /> : <FiMenu size={16} />}
           </button>
-          <div className="pill-tabs">
-            <div className={`pill-tab ${mode === "live" ? "active" : ""}`} {...pressable(() => setMode("live"), mode === "live")} title={t("top.liveModeTitle")}>
-              <FiCheckCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
-              {t("top.liveMode")}
+          {/* The Live / Demo switch exists only on a server started with Demo Mode
+              (engine/features.ts, REQUIREMENTS §65). The product has one mode, and
+              a lone "Live" pill would be a switch to nowhere. */}
+          {demoModeAvailable() && (
+            <div className="pill-tabs">
+              <div className={`pill-tab ${mode === "live" ? "active" : ""}`} {...pressable(() => setMode("live"), mode === "live")} title={t("top.liveModeTitle")}>
+                <FiCheckCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
+                {t("top.liveMode")}
+              </div>
+              <div
+                className={`pill-tab ${mode === "demo" ? "active" : ""}`}
+                {...pressable(() => {
+                  setMode("demo");
+                  navigate("/demo");
+                }, mode === "demo")}
+                title={t("top.demoModeTitle")}
+              >
+                <FiPlayCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
+                {t("top.demoMode")}
+              </div>
             </div>
-            <div
-              className={`pill-tab ${mode === "demo" ? "active" : ""}`}
-              {...pressable(() => {
-                setMode("demo");
-                navigate("/demo");
-              }, mode === "demo")}
-              title={t("top.demoModeTitle")}
-            >
-              <FiPlayCircle size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
-              {t("top.demoMode")}
-            </div>
-          </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {/* The one language control for the whole app, reachable from every
@@ -76,7 +82,8 @@ export function Topbar() {
           </button>
         </div>
       </div>
-      <div className={`mode-banner no-print ${mode}`}>{mode === "demo" ? t("top.demoBanner") : t("top.liveBanner")}</div>
+      {/* The band that says WHICH mode this is — said only where there are two to tell apart. */}
+      {demoModeAvailable() && <div className={`mode-banner no-print ${mode}`}>{mode === "demo" ? t("top.demoBanner") : t("top.liveBanner")}</div>}
     </>
   );
 }

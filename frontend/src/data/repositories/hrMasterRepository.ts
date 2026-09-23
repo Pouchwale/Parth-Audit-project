@@ -1,6 +1,6 @@
 import type { HrMasterColumnKey, HrMasterPerson } from "../../types";
 import { hrMasterSeed } from "../seed/hrMasterSeed";
-import { readJSON, writeJSON } from "../storageAdapter";
+import { readJSON, readJSONCached, writeJSON } from "../storageAdapter";
 import { blankHrMasterValues, HR_MASTER_COLUMNS, namesPerson, sameGp3, type HrMasterValues, type ImportPlan } from "../../engine/hrMaster";
 import { generateId } from "../../utils/id";
 
@@ -22,8 +22,11 @@ interface Store {
 let seedIds: Set<string> | null = null;
 const SEED_IDS = { has: (id: string) => (seedIds ??= new Set(hrMasterSeed().map((p) => p.id))).has(id) };
 
+// Read once per stored value (REQUIREMENTS §65) — the sheet is 39 KB and every
+// HR format that names a person reads it. ensureSeeded and the writers below
+// use readJSON and get a copy of their own.
 function load(): Store {
-  const raw = readJSON<Store | null>(KEY, null);
+  const raw = readJSONCached<Store | null>(KEY, null);
   if (!raw || !Array.isArray(raw.people)) return { people: hrMasterSeed(), removedSeedIds: [] };
   return { people: raw.people, removedSeedIds: raw.removedSeedIds ?? [], removedIds: raw.removedIds ?? [] };
 }

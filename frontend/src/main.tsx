@@ -8,6 +8,8 @@ import { AuthScreen } from "./components/auth/AuthScreen";
 import { App } from "./App";
 import { installPrintScoping } from "./utils/print";
 import { startServerSync, SyncError, type SyncErrorKind } from "./data/serverSync";
+import { measureWorkingCopy } from "./data/storageAdapter";
+import { demoModeAvailable } from "./engine/features";
 
 installPrintScoping();
 
@@ -23,7 +25,7 @@ const LOAD_FAILURES: Record<Exclude<SyncErrorKind, "signed-out">, { state: strin
   "no-room": {
     state: "database-no-room",
     title: "This browser has no room for the company's records",
-    text: "The records are kept in the company's PostgreSQL database, and this browser keeps a working copy of them, which no longer fits in the space the browser gives the app. Clear the demo data (Demo Mode → Clear All Demo Data) from another computer, or use a browser with more room, then try again.",
+    text: "The records are kept in the company's PostgreSQL database, and this browser keeps a working copy of them, which no longer fits in the space the browser gives the app. Use a browser with more room, or ask your administrator to back up and archive older records, then try again.",
   },
   "storage-disabled": {
     state: "database-storage-blocked",
@@ -42,6 +44,10 @@ function DataGate({ userId, children }: { userId: string; children: React.ReactN
       .then(() => {
         if (cancelled) return;
         bootstrap();
+        // Once, with the working copy as it now stands: how close this browser is
+        // to the space it allows the app (REQUIREMENTS §65). No timer — it only
+        // grows as records are filled, and a save that does not fit says so itself.
+        measureWorkingCopy();
         setState("ready");
       })
       .catch((err) => {
@@ -59,7 +65,11 @@ function DataGate({ userId, children }: { userId: string; children: React.ReactN
     return (
       <div className="empty-state" data-state={failure.state}>
         <h2 className="text-xl mb-2">{failure.title}</h2>
-        <p className="text-muted mb-3">{failure.text}</p>
+        <p className="text-muted mb-3">
+          {failure.text}
+          {/* Demo Mode is named only where it exists (engine/features.ts, REQUIREMENTS §65). */}
+          {state === "no-room" && demoModeAvailable() ? " Clearing the demo data (Demo Mode → Clear All Demo Data) from another computer makes room too." : ""}
+        </p>
         <button className="btn btn-primary" onClick={() => setAttempt((n) => n + 1)}>
           Try again
         </button>

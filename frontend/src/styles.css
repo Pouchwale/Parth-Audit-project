@@ -103,9 +103,17 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 /* Brand band sticks to the top of the panel, so the close button stays
    reachable however far down the module list you have scrolled. */
 .app-sidebar-brand {
-  padding: 16px 12px 15px 18px; color: #fff; display: flex; align-items: flex-start; gap: 8px;
+  padding: 16px 12px 15px 14px; color: #fff; display: flex; align-items: flex-start; gap: 10px;
   background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 60%, var(--color-accent) 100%);
   position: sticky; top: 0; z-index: 2;
+}
+/* The company's mark (REQUIREMENTS §65): a fixed 40px tile, so the title and
+   the company name wrap beside it and the close button keeps its place at any
+   width the panel is drawn at. The hairline ring keeps the maroon square from
+   bleeding into the band behind it. Screen only — no document carries it. */
+.app-sidebar-brand .brand-logo {
+  flex-shrink: 0; width: 40px; height: 40px; display: block; border-radius: 9px; margin-top: 1px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 .app-sidebar-brand .brand-text { flex: 1; min-width: 0; }
 .app-sidebar-brand .title { font-size: 15px; font-weight: 700; line-height: 1.3; }
@@ -866,7 +874,11 @@ textarea.input { resize: vertical; min-height: 60px; }
 .auth-card { width: 100%; max-width: 400px; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 32px 28px; }
 .auth-brand { text-align: center; margin-bottom: 24px; }
 .auth-brand .title { font-size: 16.5px; font-weight: 700; color: var(--color-text); line-height: 1.3; }
-.auth-brand .subtitle { font-size: 11.5px; color: var(--color-text-muted); margin-top: 5px; }
+.auth-brand .subtitle { font-size: 12.5px; font-weight: 600; color: var(--color-text-muted); margin-top: 5px; }
+/* The company's mark above the system's name, and one plain line under the
+   company's name saying what the system is for (REQUIREMENTS §65). */
+.auth-brand .auth-logo { display: block; width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 16px; }
+.auth-brand .purpose { font-size: 12px; color: var(--color-text-muted); margin-top: 8px; line-height: 1.45; }
 /* A password box with an eye inside its right-hand end (components/common/
    PasswordInput.tsx, REQUIREMENTS §63). The box keeps room for the eye so a
    long password never runs underneath it. */

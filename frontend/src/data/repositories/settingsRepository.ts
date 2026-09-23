@@ -1,4 +1,5 @@
 import { readJSON, writeJSON } from "../storageAdapter";
+import { demoModeAvailable } from "../../engine/features";
 import type { Language } from "../../i18n/strings";
 
 export type AppMode = "live" | "demo";
@@ -71,7 +72,10 @@ export const settingsRepository = {
     // before a field like liveStartDate existed still comes back with it
     // present (as its default) rather than undefined.
     const stored = readJSON<Partial<AppSettings>>(KEY, {});
-    return { ...DEFAULTS, ...stored, liveStartDate: companyLiveStart() ?? stored.liveStartDate ?? null };
+    // A "demo" stored from before Demo Mode was taken out of the product reads
+    // as "live" — here, so whatever reads the settings agrees (REQUIREMENTS §65).
+    const mode: AppMode = stored.mode === "demo" && demoModeAvailable() ? "demo" : "live";
+    return { ...DEFAULTS, ...stored, mode, liveStartDate: companyLiveStart() ?? stored.liveStartDate ?? null };
   },
   update(patch: Partial<AppSettings>): AppSettings {
     const { liveStartDate, ...own } = patch;

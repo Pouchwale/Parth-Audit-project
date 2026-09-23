@@ -125,6 +125,16 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **The company's own mark, no Demo Mode, and a colleague's work never saved over** (REQUIREMENTS §65): the
+  mark the company sent is in the sidebar, on the sign-in screen and in the browser tab — never on a printed
+  record; the sidebar's second line and the Dashboard's date line carry the company's name alone. Demo Mode is
+  no longer part of the portal (no switch, no page, no route) — it exists only for a server started with
+  `DEMO_MODE=1`, which is how the Playwright suites still get their year of synthetic records. A record open on
+  one computer while somebody else changes it is no longer saved over: every save and every button starts from
+  the record as stored, and the page says plainly when it moved on. And the low-end standard was measured and
+  mended: the documents list, master data and HR master sheet are parsed once per stored value instead of once
+  per lookup, a month's due sheets are made in an effect rather than while drawing, and the app warns that this
+  browser is filling up months before it is full.
 - **A format designed on the sheet, changed by telling Mitra, reacted to, and scored** (REQUIREMENTS §64):
   *Edit format* turns the page into the sheet itself, edited the way a spreadsheet is — click a name and type,
   a menu on every column, box and printed line to insert, duplicate, move or delete (and to retype a column or

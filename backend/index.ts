@@ -32,6 +32,7 @@ import {
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
 import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, SESSION_TTL_MS, type PublicUser } from "./auth.ts";
 import { distDir } from "./paths.ts";
+import { FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS } from "./assistant.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
@@ -251,7 +252,8 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   const user = toPublicUser(row);
   issueSession(res, user);
   logActivity(req, user, "Account created", user.email, user.role === "admin" ? "The first account — the system administrator" : user.departments.length ? `Departments: ${user.departments.join(", ")}` : "Every department");
-  res.status(201).json({ user });
+  // With the account, what this server has switched on (features.ts, REQUIREMENTS §65) — here, at sign-in and in /api/auth/me.
+  res.status(201).json({ user, features: FEATURES });
 });
 
 // WHO SEES WHICH DEPARTMENT'S DOCUMENTS — set by the admin, not by the person
@@ -350,7 +352,7 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
   const user = toPublicUser(row);
   issueSession(res, user);
   logActivity(req, user, "Signed in", user.email);
-  res.json({ user });
+  res.json({ user, features: FEATURES });
 });
 
 app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> => {
@@ -430,7 +432,7 @@ app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
     res.status(401).json({ error: "Not authenticated." });
     return;
   }
-  res.json({ user });
+  res.json({ user, features: FEATURES });
 });
 
 // Same in-memory-per-key throttle shape as loginAttempts above, just keyed

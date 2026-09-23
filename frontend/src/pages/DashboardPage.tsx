@@ -134,8 +134,7 @@ export function DashboardPage() {
               <span className={`badge ${todayInfo.isHoliday ? "badge-Scheduled" : "badge-Verified"}`} style={{ marginLeft: 6 }} title={todayInfo.label}>
                 {todayInfo.short}
               </span>
-            )}{" "}
-            · {t("dash.company")}
+            )}
           </p>
           {nextHolidays.length > 0 && (
             <p className="text-xs text-faint mt-1">

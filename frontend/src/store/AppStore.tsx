@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { settingsRepository, type AppMode } from "../data/repositories/settingsRepository";
 import { onExternalChange } from "../data/storageAdapter";
+import { demoModeAvailable } from "../engine/features";
 import type { Language } from "../i18n/strings";
 import {
   getTranslateStatus,
@@ -77,8 +78,12 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     [bump]
   );
 
+  // THE PRODUCT HAS ONE MODE, LIVE (REQUIREMENTS §65). Unless the server was
+  // started with Demo Mode (engine/features.ts), a "demo" left in somebody's
+  // settings reads as "live" (settingsRepository.get) and asking for it does nothing.
   const setMode = useCallback(
     (m: AppMode) => {
+      if (m === "demo" && !demoModeAvailable()) return;
       settingsRepository.update({ mode: m });
       setModeState(m);
       bump();

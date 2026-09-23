@@ -10,7 +10,6 @@ import { StorageFullBanner } from "./components/common/StorageFullBanner";
 import { DatabaseSyncBanner } from "./components/common/DatabaseSyncBanner";
 
 import { DashboardPage } from "./pages/DashboardPage";
-import { ProcessFlowPage } from "./pages/ProcessFlowPage";
 import { DocumentLibraryPage } from "./pages/DocumentLibraryPage";
 import { FileBrowserPage } from "./pages/FileBrowserPage";
 import { CalendarPage } from "./pages/CalendarPage";
@@ -42,6 +41,7 @@ import { ActivityLogPage } from "./pages/ActivityLogPage";
 import { PerformancePage } from "./pages/PerformancePage";
 import { MitraReaction } from "./components/common/MitraReaction";
 import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
+import { demoModeAvailable } from "./engine/features";
 
 function NotFoundPage() {
   return (
@@ -77,8 +77,6 @@ function RouteSwitch() {
     case undefined:
     case "dashboard":
       return <DashboardPage />;
-    case "process-flow":
-      return <ProcessFlowPage />;
     case "library":
       return <DocumentLibraryPage moduleSlug={rest[0]} />;
     case "files":
@@ -165,7 +163,10 @@ function RouteSwitch() {
     case "master-data":
       return <MasterDataPage />;
     case "demo":
-      return <DemoModePage />;
+      // Not a page of the product: the address shows the same "Page not found"
+      // as any other that does not exist, unless the server was started with
+      // Demo Mode (engine/features.ts, REQUIREMENTS §65).
+      return demoModeAvailable() ? <DemoModePage /> : <NotFoundPage />;
     case "search":
       return <SearchPage />;
     case "assistant":

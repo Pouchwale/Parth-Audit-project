@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, type AuthResponse } from "../api/client";
 import { setDepartmentScope } from "../engine/departmentScope";
+import { setFeatures } from "../engine/features";
 import { SESSION_ENDED_EVENT, stopServerSync } from "../data/serverSync";
 import type { AuthUser } from "../types/auth";
 
@@ -29,6 +30,14 @@ function applyScope(user: AuthUser | null): void {
   setDepartmentScope(user && user.role !== "admin" ? user.departments : null);
 }
 
+// WHAT THE SERVER HAS SWITCHED ON comes with the same answer (REQUIREMENTS §65)
+// and is set beside the scope, BEFORE the status that lets the app draw: every
+// screen then reads engine/features.ts synchronously. Nobody signed in: all off.
+function applySession(res: AuthResponse | null): void {
+  applyScope(res ? res.user : null);
+  setFeatures(res?.features);
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -39,16 +48,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     api
-      .get<{ user: AuthUser }>("/auth/me")
+      .get<AuthResponse>("/auth/me")
       .then((res) => {
         if (cancelled) return;
-        applyScope(res.user);
+        applySession(res);
         setUser(res.user);
         setStatus("authenticated");
       })
       .catch((err) => {
         if (cancelled) return;
-        applyScope(null);
+        applySession(null);
         setUser(null);
         setStatus(err instanceof ApiError && err.status === 401 ? "unauthenticated" : "unreachable");
       });
@@ -83,15 +92,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [retry]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post<{ user: AuthUser }>("/auth/login", { email, password });
-    applyScope(res.user);
+    const res = await api.post<AuthResponse>("/auth/login", { email, password });
+    applySession(res);
     setUser(res.user);
     setStatus("authenticated");
   }, []);
 
   const signup = useCallback(async (name: string, email: string, password: string, departments?: string[]) => {
-    const res = await api.post<{ user: AuthUser }>("/auth/signup", { name, email, password, departments: departments ?? [] });
-    applyScope(res.user);
+    const res = await api.post<AuthResponse>("/auth/signup", { name, email, password, departments: departments ?? [] });
+    applySession(res);
     setUser(res.user);
     setStatus("authenticated");
   }, []);
@@ -102,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await stopServerSync();
       await api.post("/auth/logout");
     } finally {
-      applyScope(null);
+      applySession(null);
       setUser(null);
       setStatus("unauthenticated");
     }

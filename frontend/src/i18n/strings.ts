@@ -155,7 +155,6 @@ const en = {
   // ---- navigation --------------------------------------------------------
   "nav.dashboard": "Dashboard",
   "nav.assistant": "Ask Mitra",
-  "nav.processFlow": "Process Flow",
   "nav.documentLibrary": "Document Library",
   "nav.files": "Document Files",
   "nav.recordCalendar": "Record Calendar",
@@ -174,7 +173,9 @@ const en = {
   "files.summary": "{files} files in {docs} documents · {from} to {to}",
   "files.capped": "a view covers at most 36 months, so it stops there",
   "files.empty": "No files for these dates.",
-  "files.emptyHint": "Live records start from the day this system went live on this computer — choose later dates, or use Demo Mode to see a full year.",
+  // The product's wording. The second is said only on a server started with Demo Mode (engine/features.ts, REQUIREMENTS §65).
+  "files.emptyHint": "Records start from the day this system went live — choose later dates.",
+  "files.emptyHintDemo": "Live records start from the day this system went live on this computer — choose later dates, or use Demo Mode to see a full year.",
   "nav.search": "Search",
   "nav.reports": "Reports",
   "nav.masterData": "Master Data",
@@ -235,7 +236,8 @@ const en = {
   "nav.laminationProductionDocs": "Lamination Production Documents",
   "nav.inspectionRecordDocs": "Inspection Record Documents",
   "nav.statementsOfCompliance": "Statements of Compliance",
-  "nav.brandSubtitle": "Gujarat Printpack Publication Pvt. Ltd. · Human Resources & Pest Control · Lamination QC & Production · Compliance",
+  // The company name alone — the modules are in the panel underneath (REQUIREMENTS §65).
+  "nav.brandSubtitle": "Gujarat Printpack Publication Pvt. Ltd.",
   "nav.foot": "Phase 1 Prototype · Local data only",
   "nav.menu": "Menu",
   "nav.workspace": "Workspace",
@@ -260,7 +262,6 @@ const en = {
 
   // ---- dashboard ---------------------------------------------------------
   "dash.title": "Digital Controlled Record System",
-  "dash.company": "Gujarat Printpack Publication Pvt. Ltd. — Pest Control · Lamination QC & Production · Compliance",
   "dash.openCalendar": "Open Calendar",
   "dash.nextOnLeaveCalendar": "Next on the leave calendar:",
   "dash.adjustmentWorkingDay": "adjustment (working) day",
@@ -386,7 +387,6 @@ const en = {
   "search.title": "Search",
   "master.title": "Master Data",
   "demo.title": "Demo Mode",
-  "flow.title": "Process Flow",
   "training.title": "Training Records",
   "chem.title": "Pesticide Application Chart",
   "soc.title": "Statements of Compliance (SOC)",
@@ -636,7 +636,6 @@ const gu: Record<StringKey, string> = {
   // ---- navigation --------------------------------------------------------
   "nav.dashboard": "ડેશબોર્ડ",
   "nav.assistant": "સહાયક",
-  "nav.processFlow": "પ્રક્રિયા પ્રવાહ",
   "nav.documentLibrary": "દસ્તાવેજ સૂચિ",
   "nav.files": "દસ્તાવેજ ફાઇલો",
   "nav.recordCalendar": "રેકોર્ડ કેલેન્ડર",
@@ -655,7 +654,8 @@ const gu: Record<StringKey, string> = {
   "files.summary": "{docs} દસ્તાવેજમાં {files} ફાઇલ · {from} થી {to}",
   "files.capped": "એક દૃશ્યમાં વધુમાં વધુ 36 મહિના આવે છે, તેથી ત્યાં અટકે છે",
   "files.empty": "આ તારીખો માટે કોઈ ફાઇલ નથી.",
-  "files.emptyHint": "લાઇવ રેકોર્ડ આ કમ્પ્યુટર પર સિસ્ટમ શરૂ થઈ તે દિવસથી જ છે — પછીની તારીખો પસંદ કરો, અથવા આખું વર્ષ જોવા ડેમો મોડ વાપરો.",
+  "files.emptyHint": "રેકોર્ડ સિસ્ટમ શરૂ થઈ તે દિવસથી જ છે — પછીની તારીખો પસંદ કરો.",
+  "files.emptyHintDemo": "લાઇવ રેકોર્ડ આ કમ્પ્યુટર પર સિસ્ટમ શરૂ થઈ તે દિવસથી જ છે — પછીની તારીખો પસંદ કરો, અથવા આખું વર્ષ જોવા ડેમો મોડ વાપરો.",
   "nav.search": "શોધ",
   "nav.reports": "રિપોર્ટ",
   "nav.masterData": "માસ્ટર ડેટા",
@@ -716,7 +716,7 @@ const gu: Record<StringKey, string> = {
   "nav.laminationProductionDocs": "લેમિનેશન ઉત્પાદન દસ્તાવેજો",
   "nav.inspectionRecordDocs": "નિરીક્ષણ રેકોર્ડ દસ્તાવેજો",
   "nav.statementsOfCompliance": "અનુપાલન નિવેદનો",
-  "nav.brandSubtitle": "ગુજરાત પ્રિન્ટપેક પબ્લિકેશન પ્રા. લિ. · માનવ સંસાધન અને જીવાત નિયંત્રણ · લેમિનેશન QC અને ઉત્પાદન · અનુપાલન",
+  "nav.brandSubtitle": "ગુજરાત પ્રિન્ટપેક પબ્લિકેશન પ્રા. લિ.",
   "nav.foot": "તબક્કો ૧ પ્રોટોટાઇપ · ડેટા ફક્ત આ ઉપકરણ પર",
   "nav.menu": "મેનુ",
   "nav.workspace": "કાર્યસ્થળ",
@@ -741,7 +741,6 @@ const gu: Record<StringKey, string> = {
 
   // ---- dashboard ---------------------------------------------------------
   "dash.title": "ડિજિટલ કંટ્રોલ્ડ રેકોર્ડ સિસ્ટમ",
-  "dash.company": "ગુજરાત પ્રિન્ટપેક પબ્લિકેશન પ્રા. લિ. — જીવાત નિયંત્રણ · લેમિનેશન QC અને ઉત્પાદન · અનુપાલન",
   "dash.openCalendar": "કેલેન્ડર ખોલો",
   "dash.nextOnLeaveCalendar": "રજા કેલેન્ડરમાં હવે પછી:",
   "dash.adjustmentWorkingDay": "એડજસ્ટમેન્ટ (કામનો) દિવસ",
@@ -867,7 +866,6 @@ const gu: Record<StringKey, string> = {
   "search.title": "શોધ",
   "master.title": "માસ્ટર ડેટા",
   "demo.title": "ડેમો મોડ",
-  "flow.title": "પ્રક્રિયા પ્રવાહ",
   "training.title": "તાલીમ રેકોર્ડ",
   "chem.title": "જંતુનાશક ઉપયોગ ચાર્ટ",
   "soc.title": "અનુપાલન નિવેદનો (SOC)",

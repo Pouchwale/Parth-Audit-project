@@ -26,6 +26,7 @@ import { formatDisplayDate, todayISO } from "../utils/date";
 import type { HrMasterColumnKey, HrMasterPerson } from "../types";
 import { useT } from "../i18n";
 import { useProgressiveCount } from "../utils/useProgressive";
+import { demoModeAvailable } from "../engine/features";
 
 // HR MASTER DATA (REQUIREMENTS §53) — /hr/master-data.
 //
@@ -217,7 +218,9 @@ export function HrMasterDataPage() {
       <p className="text-muted mb-4">
         Human Resources' employee master sheet — one line per employee: GP3 No., Joining Date, Full Name, Department, Designation/Position and Date of Birth.
         The HR formats that name a person fetch that person's details from here, so they are written once. Type in any cell (it is saved when you leave it),
-        or download the sheet to Excel and upload it back. It is the same sheet in Live and Demo mode.
+        or download the sheet to Excel and upload it back.
+        {/* The two modes are spoken of only where there are two (engine/features.ts, REQUIREMENTS §65). */}
+        {demoModeAvailable() ? " It is the same sheet in Live and Demo mode." : ""}
       </p>
 
       <div className="flex gap-3 wrap mb-4">
