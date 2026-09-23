@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FiGrid,
   FiBookOpen,
@@ -48,6 +48,7 @@ import { useT } from "../../i18n";
 import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
 import { QC_OVERVIEW_DOCUMENT_IDS } from "../../data/seed/qcModule";
 import { demoModeAvailable } from "../../engine/features";
+import { useAuth } from "../../store/AuthContext";
 
 interface NavItem {
   to: string;
@@ -275,6 +276,10 @@ const NAV_SYSTEM: NavItem[] = [
 // synthetic records (engine/features.ts, REQUIREMENTS §65).
 const NAV_SYSTEM_WITH_DEMO: NavItem[] = [...NAV_SYSTEM, { to: "/demo", labelKey: "nav.demoMode", icon: FiPlayCircle }];
 
+// USERS & ACCESS is the administrator's (REQUIREMENTS §66): everybody else is
+// not shown it, and the server refuses them the accounts whatever they reach for.
+const USERS_ITEM: NavItem = { to: "/users", labelKey: "nav.users", icon: FiUsers };
+
 const SIDEBAR_STATE_KEY = "sidebar-open-modules";
 
 function loadOpenState(): Record<string, boolean> {
@@ -320,6 +325,13 @@ function NavGroup({ items, path }: { items: NavEntry[]; path: string }) {
 export function Sidebar() {
   const { path } = useRouter();
   const t = useT();
+  const { user } = useAuth();
+  // Demo Mode only where the server has it (§65); Users & Access only for the
+  // administrator, whose own it is (§66).
+  const systemItems = useMemo(() => {
+    const items = demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM;
+    return user?.role === "admin" ? [...items, USERS_ITEM] : items;
+  }, [user?.role]);
   const { visible, narrow, close } = useSidebar();
   const [openState, setOpenState] = useState<Record<string, boolean>>(loadOpenState);
   // WHICH MODULES AND LINKS THIS PERSON MAY OPEN (REQUIREMENTS §40).
@@ -474,7 +486,7 @@ export function Sidebar() {
           })}
 
           <div className="nav-section-label">{t("nav.system")}</div>
-          <NavGroup items={demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM} path={path} />
+          <NavGroup items={systemItems} path={path} />
         </nav>
 
         <div className="app-sidebar-foot">{t("nav.foot")}</div>

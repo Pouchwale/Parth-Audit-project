@@ -35,7 +35,11 @@ from playwright.sync_api import sync_playwright
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 BASE = "http://localhost:8843"
-PASSWORD = "PlaywrightQA123"
+# The product server creates no account for a stranger (REQUIREMENTS s66): the
+# runner seeds the plant's named accounts on this password and this suite signs
+# in as the super admin, like anybody in the plant.
+PASSWORD = "SeedQA@2026"
+ACCOUNT_EMAIL = "admin@gpp.local"
 FAILURES = []
 
 
@@ -118,18 +122,14 @@ with sync_playwright() as p:
     page = browser.new_page(viewport={"width": 1500, "height": 1000})
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    # Neither the name nor the address may hold the word this suite looks for.
-    email = f"product-{int(time.time() * 1000)}@example.com"
+    # Signed in, because on this server that is the only way in (REQUIREMENTS s66).
+    email = ACCOUNT_EMAIL
     page.goto(f"{BASE}/index.html")
-    page.wait_for_selector("text=Sign up", timeout=60000)
-    page.wait_for_timeout(800)
-    page.click("text=Sign up")
-    page.wait_for_selector("#signup-name", timeout=30000)
-    page.fill("#signup-name", "Product QA")
-    page.fill("#signup-email", email)
-    page.fill("#signup-password", PASSWORD)
-    page.fill("#signup-confirm", PASSWORD)
-    page.click("button:has-text('Create Account')")
+    page.wait_for_selector("#login-email", timeout=60000)
+    page.wait_for_timeout(500)
+    page.fill("#login-email", email)
+    page.fill("#login-password", PASSWORD)
+    page.click("button:has-text('Log In')")
     page.wait_for_selector(".app-sidebar", timeout=60000)
     page.wait_for_timeout(1500)
     dismiss(page)

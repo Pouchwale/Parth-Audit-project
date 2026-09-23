@@ -3,7 +3,9 @@ import { useAuth } from "../../store/AuthContext";
 import { ApiError } from "../../api/client";
 import { PasswordInput } from "../common/PasswordInput";
 
-export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () => void }) {
+// `onSwitchToSignup` is absent where accounts are made by the administrator
+// alone (REQUIREMENTS §66): then nothing here offers to create one.
+export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup?: () => void }) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,16 +48,22 @@ export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () => void }
         {submitting ? "Logging in…" : "Log In"}
       </button>
       <div className="auth-footer">
-        Don't have an account?{" "}
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            onSwitchToSignup();
-          }}
-        >
-          Sign up
-        </a>
+        {onSwitchToSignup ? (
+          <>
+            Don&apos;t have an account?{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                onSwitchToSignup();
+              }}
+            >
+              Sign up
+            </a>
+          </>
+        ) : (
+          <span data-section="accounts-by-administrator">Accounts are created by the administrator. Ask them for yours.</span>
+        )}
       </div>
     </form>
   );

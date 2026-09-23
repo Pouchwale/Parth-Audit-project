@@ -2981,7 +2981,8 @@ puts the paper's own transcription back.
 | Vinay Bhojak | `vinay.bhojak@gpp.local` | Human Resources' documents only |
 | Sandeep Parekh | `sandeep.parekh@gpp.local` | Human Resources' documents only |
 
-They start on one password (`SEED_ACCOUNT_PASSWORD`, otherwise `Gpp@12345`), so each person's first act is
+They start on one password (`SEED_ACCOUNT_PASSWORD`, otherwise `Gpp@12345` — and on the built-in one the
+system now *requires* the change before the account can be used, §66), so each person's first act is
 **Change password** — their own name in the top bar. The addresses are sign-in names on a domain that does not
 exist, so no mail is ever sent to them. The department rule is the one already in force (§40), enforced by the
 server as well as the screen: a QC account is handed only QC's records, and another department's page refuses
@@ -3312,6 +3313,75 @@ company's own originals.
   not a route, a stored setting of "demo" read as Live, `features.demoMode` false, and no screen with the word
   anywhere on it. The branding and the record-page fix are covered by the suites that already read the sidebar,
   the sign-in screen and a record being filled.
+
+## 66. A login-only portal: the administrator makes every account (23-Sep-2026)
+
+```
+REQUESTED            "keep login portal only for now for superadmin and everyone else also and in superadmin keep
+                      one access like for example i will access to all QC documents to kapila barad like wise i
+                      will only give access to anyone from superadmin according so they will login and continue
+                      there work."
+DIGITAL TEMPLATE     backend/features.ts (ALLOW_SIGNUP), backend/index.ts (GET /api/auth/config, POST /api/users,
+                      /api/users/:id/password, /api/users/:id/active, the password gate in requireAuth),
+                      backend/db.ts (must_change_password, active, last_sign_in); pages/UsersPage.tsx,
+                      components/auth/AuthScreen.tsx + LoginForm.tsx, components/common/ChangePasswordDialog.tsx,
+                      store/AuthContext.tsx, main.tsx
+```
+
+**1. THERE IS NO WAY IN BUT SIGNING IN.** The sign-in screen has no *Create account* tab, no link and no route:
+it says, where the link used to be, that **accounts are created by the administrator**. The server refuses
+registration as well — `POST /api/auth/signup` answers 403 whatever is sent, and the attempt is a line in the
+activity log — so the screen is a courtesy and the rule is the server's. An empty database is refused too: a
+closed portal can never hand the first caller an administrator's account.
+- The sign-in screen has to know this before anybody is signed in, so there is one public question,
+  `GET /api/auth/config`, which answers what the server has switched on **and nothing about anybody** — no
+  account, no name, not even how many there are.
+- `ALLOW_SIGNUP=1` opens it again: `scripts/run-e2e.ts` sets it (all 28 suites begin by signing themselves up),
+  and it is how a first administrator is made on an empty database if the seeded accounts were left out. A
+  server with no account, no seeded accounts and no sign-up says so loudly at start-up, with the two ways to
+  put it right, rather than leaving somebody at a screen that refuses everything.
+
+**2. USERS & ACCESS — `/users`, in the sidebar for the administrator alone.** On one screen:
+- **Add a person**: their name, the address they sign in with, a first password (with the eye of §63, and
+  *Suggest one* for a password that can be read down a telephone), and **what they see** — *Every module*, or a
+  tick per department with the number of documents each owns beside it, so "all of Quality Control to Kapila
+  Barad" is one tick. The account is always **staff**: there is one super admin, and the role is not read from
+  the request at all, so asking for an administrator's account gets an ordinary one.
+- **The accounts**, each with their name, sign-in address, role, what they see in words, when they last signed
+  in, and whether they are active, still on their first password, or switched off.
+- **Reset password**: the administrator types or suggests another temporary one. The old one stops working at
+  once and the person chooses their own at the next sign-in.
+- **Switch off** somebody who has left: they cannot sign in — told plainly why, not that their password is
+  wrong — and whatever they have open stops working at its next request, because every request reads the
+  account afresh rather than trusting the session. **Nothing is ever deleted**: their name stays on every
+  record they signed, and the account can be switched on again. The administrator cannot switch off the
+  account they are signed in with.
+- Each of those asks first, in a pop-up that says what will happen. **A password is typed here and never seen
+  again**: not read back, not returned by any endpoint, and not in the activity log — what the log says is
+  that a password was set, and by whom.
+- **The screen is never the lock.** Every one of these endpoints is refused by the server for anybody who is
+  not the administrator, so a member of staff who types `/users` is refused by the page *and* by the server.
+- Which departments an existing account sees is still changed in **Master Data → Departments & access** (§40).
+
+**3. THE FIRST PASSWORD IS THEIRS TO CHOOSE.** An account made by the administrator — and a seeded account
+still on the **built-in** password, which is written in this documentation — must be given a password of its
+own before it can be used. At that sign-in the app shows nothing but the dialog: it cannot be dismissed by the
+cross, by Escape or by clicking beside it, it says why, and signing out is the only other way on. **The server
+holds the door, not the dialog**: that session is refused every data endpoint with
+`password-change-required` until the password is changed, while `/api/auth/*` stays open so it *can* be
+changed. The new password must differ from the one they were given.
+- A seeded account on a password the administrator chose themselves (`SEED_ACCOUNT_PASSWORD`) is left alone —
+  it was never published. **The four accounts already in use are not affected**: the two columns were added to
+  a table in use with defaults that leave every existing row exactly as it was.
+
+- Covered by `tests/e2e_login_only.py` (**45 checks**), against the same product server on :8843 as §65: the
+  screen with no way to register and the server's 403; the administrator's page and a member of staff refused
+  it by the page and by the server; a person added with Quality Control ticked, and the same address refused a
+  second time; her forced first password — the pop-up that will not be waved away, the records refused until
+  she has chosen, the one she was given refused as her own; then Quality Control's documents open to her and
+  Human Resources refused by name; a reset that stops her chosen password working; her account switched off,
+  the plain reason, and switched on again; and every one of those in the activity log with no password
+  anywhere in it.
 
 ## Master data provenance summary
 

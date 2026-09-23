@@ -7,7 +7,13 @@ import { PasswordInput } from "./PasswordInput";
 // named accounts start on a password somebody else chose, so this is the first
 // thing each of them does. The change is one line in the activity log, written
 // by the server; the password itself is never logged anywhere.
-export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
+//
+// `required` is the first sign-in of an account the administrator made
+// (REQUIREMENTS §66): then it cannot be closed or dismissed, says why, and
+// offers signing out as the only other way — and the server refuses that
+// session everything but this until it is done, so the dialog is the way
+// through rather than the lock itself.
+export function ChangePasswordDialog({ onClose, required, onSignOut }: { onClose: () => void; required?: boolean; onSignOut?: () => void }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [again, setAgain] = useState("");
@@ -33,26 +39,42 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal
-      title="Change password"
-      onClose={onClose}
+      title={required ? "Choose your own password" : "Change password"}
+      // Nothing dismisses it while it is required: no Escape, no backdrop, no close cross.
+      onClose={required ? () => undefined : onClose}
+      dismissible={!required}
       width={420}
       footer={
         done ? (
-          <button className="btn btn-primary btn-sm" onClick={onClose}>
-            Done
+          <button className="btn btn-primary btn-sm" data-action="password-done" onClick={onClose}>
+            {required ? "Carry on" : "Done"}
           </button>
         ) : (
           <div className="flex gap-2">
-            <button className="btn btn-ghost btn-sm" onClick={onClose}>
-              Cancel
-            </button>
+            {required ? (
+              onSignOut && (
+                <button className="btn btn-ghost btn-sm" data-action="sign-out-instead" onClick={onSignOut}>
+                  Sign out
+                </button>
+              )
+            ) : (
+              <button className="btn btn-ghost btn-sm" onClick={onClose}>
+                Cancel
+              </button>
+            )}
             <button className="btn btn-primary btn-sm" data-action="save-password" disabled={!ready} onClick={() => void save()}>
-              Change password
+              {required ? "Save and carry on" : "Change password"}
             </button>
           </div>
         )
       }
     >
+      {required && !done && (
+        <p className="text-sm mb-3" data-section="password-required">
+          Your password was set by the administrator, so nobody but you should know the next one. Choose your own to carry on — until you do, the records are
+          not opened.
+        </p>
+      )}
       {done ? (
         <p className="text-sm">Your password is changed. Use the new one the next time you sign in.</p>
       ) : (

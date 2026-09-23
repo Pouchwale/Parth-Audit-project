@@ -222,6 +222,8 @@ const SIMPLE_ROUTES = new Set([
   "qc",
   // /activity — the Activity Log (REQUIREMENTS §62).
   "activity",
+  // /users — Users & Access, the administrator's own (REQUIREMENTS §66).
+  "users",
   // /performance — the scorecard: who did their documents on time (REQUIREMENTS §64).
   "performance",
 ]);

@@ -41,6 +41,12 @@ export interface UserRow {
   created_at: string;
   /** Comma-separated department codes; "" = every department. */
   departments: string;
+  /** The administrator set this password: the person chooses their own before they can work (REQUIREMENTS §66). */
+  must_change_password: boolean;
+  /** False for somebody who has left — they cannot sign in, and nothing of theirs is deleted. */
+  active: boolean;
+  /** When they last signed in, ISO; null until they have. */
+  last_sign_in: string | null;
 }
 
 let pool: pg.Pool | null = null;
@@ -212,6 +218,19 @@ const SCHEMA = `
     departments TEXT NOT NULL DEFAULT ''
   );
 
+  -- ACCOUNTS THE ADMINISTRATOR MAKES (REQUIREMENTS §66). Added to a table that
+  -- is already in use, so both have a default that leaves every existing row
+  -- exactly as it was: the accounts the plant signs in with today are not asked
+  -- to change their password, and none of them is switched off.
+  --   must_change_password  given a password by the administrator, so the person
+  --                         chooses their own before they can do anything.
+  --   active                false for somebody who has left: they cannot sign in
+  --                         and their session stops at its next request. NOTHING
+  --                         is ever deleted — their name stays on what they signed.
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sign_in TEXT;
+
   -- Single row (id is always 1): the last date a reminder digest email went
   -- out, so five people opening the app one morning send one digest.
   CREATE TABLE IF NOT EXISTS digest_log (
@@ -378,7 +397,7 @@ export async function listUsers(): Promise<UserRow[]> {
  * signups racing on an empty database cannot both become admin. Returns null
  * when the email is taken.
  */
-export async function insertUser(u: Omit<UserRow, "role" | "departments"> & { departments: string }): Promise<UserRow | null> {
+export async function insertUser(u: Omit<UserRow, "role" | "departments" | "must_change_password" | "active" | "last_sign_in"> & { departments: string }): Promise<UserRow | null> {
   try {
     return await withClient((client) =>
       transaction(client, async () => {
@@ -404,15 +423,54 @@ export async function insertUser(u: Omit<UserRow, "role" | "departments"> & { de
 /** Adds a named account with its role and departments as given, unless that email already has one. Returns true when it was added. */
 export async function seedUser(u: UserRow): Promise<boolean> {
   const { rowCount } = await database().query(
-    `INSERT INTO users (id, name, email, password_hash, role, created_at, departments)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (email) DO NOTHING`,
-    [u.id, u.name, u.email, u.password_hash, u.role, u.created_at, u.departments]
+    `INSERT INTO users (id, name, email, password_hash, role, created_at, departments, must_change_password)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (email) DO NOTHING`,
+    [u.id, u.name, u.email, u.password_hash, u.role, u.created_at, u.departments, u.must_change_password]
   );
   return (rowCount ?? 0) > 0;
 }
 
-export async function setUserPassword(id: string, passwordHash: string): Promise<void> {
-  await database().query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, id]);
+/**
+ * An account the administrator makes (REQUIREMENTS §66): never an administrator
+ * itself — there is one, and it is the seeded super admin — and always on a
+ * password of the administrator's choosing, so the person must choose their own.
+ * Returns null when the email is taken.
+ */
+export async function createStaffUser(u: {
+  id: string;
+  name: string;
+  email: string;
+  password_hash: string;
+  created_at: string;
+  departments: string;
+}): Promise<UserRow | null> {
+  try {
+    const { rows } = await database().query<UserRow>(
+      `INSERT INTO users (id, name, email, password_hash, role, created_at, departments, must_change_password)
+       VALUES ($1, $2, $3, $4, 'staff', $5, $6, true) RETURNING *`,
+      [u.id, u.name, u.email, u.password_hash, u.created_at, u.departments]
+    );
+    return rows[0] ?? null;
+  } catch (err) {
+    if ((err as { code?: string }).code === "23505") return null; // the email is taken
+    throw err;
+  }
+}
+
+/** The password, and whether its owner must now choose one of their own (REQUIREMENTS §66). */
+export async function setUserPassword(id: string, passwordHash: string, mustChange = false): Promise<void> {
+  await database().query("UPDATE users SET password_hash = $1, must_change_password = $2 WHERE id = $3", [passwordHash, mustChange, id]);
+}
+
+/** Switches an account on or off. Returns the row as it now stands, or undefined when there is no such account. */
+export async function setUserActive(id: string, active: boolean): Promise<UserRow | undefined> {
+  const { rows } = await database().query<UserRow>("UPDATE users SET active = $1 WHERE id = $2 RETURNING *", [active, id]);
+  return rows[0];
+}
+
+/** Stamped at every sign-in, so the administrator can see who has never used their account. */
+export async function markSignedIn(id: string, atISO: string): Promise<void> {
+  await database().query("UPDATE users SET last_sign_in = $1 WHERE id = $2", [atISO, id]);
 }
 
 // ---------------------------------------------------------------------------

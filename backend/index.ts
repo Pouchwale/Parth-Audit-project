@@ -11,6 +11,7 @@ import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import {
+  createStaffUser,
   database,
   deleteItem,
   getUserByEmail,
@@ -20,9 +21,11 @@ import {
   isDatabaseUnavailable,
   listActivity,
   listUsers,
+  markSignedIn,
   openDatabase,
   readItem,
   seedUser,
+  setUserActive,
   setUserDepartments,
   setUserPassword,
   storedItems,
@@ -32,7 +35,7 @@ import {
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
 import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, SESSION_TTL_MS, type PublicUser } from "./auth.ts";
 import { distDir } from "./paths.ts";
-import { FEATURES } from "./features.ts";
+import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS } from "./assistant.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
@@ -107,18 +110,52 @@ function issueSession(res: Response, user: PublicUser): void {
   res.cookie(COOKIE_NAME, signSessionToken(user), cookieOptions());
 }
 
+// WHO IS MAKING THIS REQUEST — read from the users table every time, not from
+// the token. That is what lets the administrator switch an account off and have
+// it stop at its very next request (REQUIREMENTS §66): a session already issued
+// is no use to somebody who has left.
 async function getSessionUser(req: Request): Promise<PublicUser | null> {
   const token = req.cookies?.[COOKIE_NAME];
   const payload = token ? verifySessionToken(token) : null;
   if (!payload) return null;
   const row = await getUserById(payload.sub);
-  return row ? toPublicUser(row) : null;
+  if (!row || !row.active) return null;
+  return toPublicUser(row);
+}
+
+/** Whether this session's account is still on the password the administrator gave it (REQUIREMENTS §66). */
+async function mustChangePassword(id: string): Promise<boolean> {
+  const row = await getUserById(id);
+  return !!row?.must_change_password;
+}
+
+/**
+ * Signed in, and nothing more asked of them: for the few things somebody on the
+ * administrator's password must still be able to do — change it, and sign out.
+ * Everything else goes through requireAuth, which holds the door (REQUIREMENTS §66).
+ */
+async function requireSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const user = await getSessionUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+  (req as AuthedRequest).user = user;
+  next();
 }
 
 async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const user = await getSessionUser(req);
   if (!user) {
     res.status(401).json({ error: "Not authenticated." });
+    return;
+  }
+  // STILL ON THE ADMINISTRATOR'S PASSWORD: nothing of the company's is handed
+  // over or taken in until they have chosen their own (REQUIREMENTS §66). The
+  // dialog on screen is not the lock — this is. /api/auth/* stays open, or they
+  // could neither change it nor sign out.
+  if (await mustChangePassword(user.id)) {
+    res.status(403).json({ error: "Choose a password of your own before you carry on.", code: "password-change-required" });
     return;
   }
   (req as AuthedRequest).user = user;
@@ -194,7 +231,23 @@ function recordSignup(key: string): void {
   signupAttempts.set(key, rec);
 }
 
+// BEFORE ANYBODY IS SIGNED IN: what this server has switched on, and nothing
+// else — no account, no name, no count of accounts (REQUIREMENTS §66). The
+// sign-in screen asks so that it knows whether to offer a way to create an
+// account at all.
+app.get("/api/auth/config", (_req: Request, res: Response): void => {
+  res.json({ features: FEATURES });
+});
+
 app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> => {
+  // ACCOUNTS ARE MADE BY THE ADMINISTRATOR (REQUIREMENTS §66). Refused here,
+  // whatever is sent and whoever sends it — an empty users table included, so a
+  // closed portal can never hand the first caller an administrator's account.
+  if (!ALLOW_SIGNUP) {
+    logActivity(req, null, "Sign-up refused", typeof (req.body ?? {}).email === "string" ? String((req.body ?? {}).email).slice(0, MAX_EMAIL_LENGTH) : "", "Accounts are created by the administrator (ALLOW_SIGNUP is not set)");
+    res.status(403).json({ error: "Accounts are created by the administrator. Ask them for yours." });
+    return;
+  }
   if (isSignupThrottled(req.ip ?? "unknown")) {
     res.status(429).json({ error: "Too many accounts created from this network recently. Try again later." });
     return;
@@ -275,7 +328,10 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
 
 app.get("/api/users", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   const rows = await listUsers();
-  res.json({ users: rows.map((r) => ({ ...toPublicUser(r), createdAt: r.created_at })) });
+  // No hash and nothing of anybody's password, here or anywhere (REQUIREMENTS §66).
+  res.json({
+    users: rows.map((r) => ({ ...toPublicUser(r), createdAt: r.created_at, mustChangePassword: r.must_change_password, active: r.active, lastSignIn: r.last_sign_in })),
+  });
 });
 
 // WHO ANSWERS FOR WHICH DEPARTMENT — for the Performance Scorecard (REQUIREMENTS
@@ -294,6 +350,102 @@ app.get("/api/users/directory", requireAuth, async (req: Request, res: Response)
     .filter((p) => own === null || p.departments.some((code) => own.includes(code)))
     .map((p) => ({ id: p.id, name: p.name, role: p.role, departments: p.departments }));
   res.json({ people });
+});
+
+// THE ADMINISTRATOR MAKES AN ACCOUNT (REQUIREMENTS §66): a name, a sign-in
+// address, a password of the administrator's choosing and the departments it may
+// see. Never an administrator — there is one, the seeded super admin — whatever
+// the body says, because the role is not read from it at all.
+app.post("/api/users", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const { name, email, password } = req.body ?? {};
+  if (typeof name !== "string" || !name.trim()) {
+    res.status(400).json({ error: "The person's name is required." });
+    return;
+  }
+  if (typeof email !== "string" || email.trim().length > MAX_EMAIL_LENGTH || !EMAIL_RE.test(email.trim())) {
+    res.status(400).json({ error: "A valid sign-in address is required." });
+    return;
+  }
+  if (typeof password !== "string" || password.length < 8) {
+    res.status(400).json({ error: "The first password must be at least 8 characters." });
+    return;
+  }
+  const departments = readDepartments((req.body ?? {}).departments);
+  if ("error" in departments) {
+    res.status(400).json({ error: departments.error });
+    return;
+  }
+  // Normalised exactly as signing in normalises it, so the same person cannot be
+  // given two accounts by typing their address in different case.
+  const normalizedEmail = email.trim().toLowerCase();
+  if (await getUserByEmail(normalizedEmail)) {
+    res.status(409).json({ error: "An account with that sign-in address already exists." });
+    return;
+  }
+  const row = await createStaffUser({
+    id: crypto.randomUUID(),
+    name: name.trim(),
+    email: normalizedEmail,
+    password_hash: await hashPassword(password),
+    created_at: new Date().toISOString(),
+    departments: departments.codes.join(","),
+  });
+  if (!row) {
+    res.status(409).json({ error: "An account with that sign-in address already exists." });
+    return;
+  }
+  const made = toPublicUser(row);
+  // The password is never written down — not here, not in the log.
+  logActivity(req, (req as AuthedRequest).user, "Account created by the administrator", `${made.name} <${made.email}>`, made.departments.length ? `Departments: ${made.departments.join(", ")}` : "Every department");
+  res.status(201).json({ user: { ...made, createdAt: row.created_at, mustChangePassword: true, active: true, lastSignIn: null } });
+});
+
+// A PASSWORD THE PERSON HAS FORGOTTEN. The administrator gives them another
+// temporary one; they choose their own at their next sign-in, and every session
+// they had is over — the next request of it is refused until they do.
+app.post("/api/users/:id/password", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const target = await getUserById(String(req.params.id ?? ""));
+  if (!target) {
+    res.status(404).json({ error: "No such account." });
+    return;
+  }
+  const { password } = req.body ?? {};
+  if (typeof password !== "string" || password.length < 8) {
+    res.status(400).json({ error: "The new password must be at least 8 characters." });
+    return;
+  }
+  await setUserPassword(target.id, await hashPassword(password), true);
+  logActivity(req, (req as AuthedRequest).user, "Password reset by the administrator", `${target.name} <${target.email}>`, "They must choose their own at the next sign-in");
+  res.json({ ok: true });
+});
+
+// SOMEBODY WHO HAS LEFT. Their account is switched off, not deleted: their name
+// stays on every record they signed, and their sessions stop at the next request
+// (getSessionUser). The administrator cannot switch their own account off — there
+// would be nobody left to switch it back on.
+app.post("/api/users/:id/active", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const target = await getUserById(String(req.params.id ?? ""));
+  if (!target) {
+    res.status(404).json({ error: "No such account." });
+    return;
+  }
+  const active = (req.body ?? {}).active;
+  if (typeof active !== "boolean") {
+    res.status(400).json({ error: "Say whether the account is to be on or off." });
+    return;
+  }
+  const me = (req as AuthedRequest).user;
+  if (!active && target.id === me.id) {
+    res.status(400).json({ error: "You cannot switch off the account you are signed in with." });
+    return;
+  }
+  const row = await setUserActive(target.id, active);
+  if (!row) {
+    res.status(404).json({ error: "No such account." });
+    return;
+  }
+  logActivity(req, me, active ? "Account switched on" : "Account switched off", `${target.name} <${target.email}>`, active ? "They can sign in again" : "They can no longer sign in; nothing of theirs is deleted");
+  res.json({ user: { ...toPublicUser(row), createdAt: row.created_at, mustChangePassword: row.must_change_password, active: row.active, lastSignIn: row.last_sign_in } });
 });
 
 app.post("/api/users/:id/departments", requireAdmin, async (req: Request, res: Response): Promise<void> => {
@@ -348,11 +500,21 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
+  // SWITCHED OFF (REQUIREMENTS §66): said plainly rather than as a wrong
+  // password — the person is not mistaken, and the administrator is who to ask.
+  // Only ever after the password was right, so it tells a stranger nothing.
+  if (!row.active) {
+    logActivity(req, toPublicUser(row), "Sign-in refused", normalizedEmail, "The account is switched off");
+    res.status(403).json({ error: "This account has been switched off. Ask the administrator." });
+    return;
+  }
+
   clearAttempts(normalizedEmail);
   const user = toPublicUser(row);
   issueSession(res, user);
+  void markSignedIn(row.id, new Date().toISOString()).catch(() => undefined);
   logActivity(req, user, "Signed in", user.email);
-  res.json({ user, features: FEATURES });
+  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password });
 });
 
 app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> => {
@@ -364,7 +526,9 @@ app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> 
 
 // The named accounts start on a password somebody else chose (the seeding at
 // the foot of this file), so a person has to be able to make it their own.
-app.post("/api/auth/change-password", requireAuth, async (req: Request, res: Response): Promise<void> => {
+// requireSession, not requireAuth: somebody who MUST change their password has
+// to be able to change it (REQUIREMENTS §66).
+app.post("/api/auth/change-password", requireSession, async (req: Request, res: Response): Promise<void> => {
   const user = (req as AuthedRequest).user;
   const { currentPassword, newPassword } = req.body ?? {};
   if (typeof currentPassword !== "string" || typeof newPassword !== "string" || newPassword.length < 8) {
@@ -377,8 +541,14 @@ app.post("/api/auth/change-password", requireAuth, async (req: Request, res: Res
     res.status(401).json({ error: "The current password is not right." });
     return;
   }
-  await setUserPassword(user.id, await hashPassword(newPassword));
-  logActivity(req, user, "Password changed", user.email);
+  // A password of their OWN: the one the administrator gave them will not do again.
+  if (currentPassword === newPassword) {
+    res.status(400).json({ error: "Choose a password different from the one you have now." });
+    return;
+  }
+  // Chosen by them, so nothing is asked of them again.
+  await setUserPassword(user.id, await hashPassword(newPassword), false);
+  logActivity(req, user, "Password changed", user.email, row.must_change_password ? "The first password, set by the administrator, was replaced" : "");
   res.status(204).end();
 });
 
@@ -429,10 +599,12 @@ app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promi
 app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
   const user = await getSessionUser(req);
   if (!user) {
-    res.status(401).json({ error: "Not authenticated." });
+    // With the features, so the sign-in screen knows what to offer without a
+    // second request (REQUIREMENTS §66) — and nothing else whatever.
+    res.status(401).json({ error: "Not authenticated.", features: FEATURES });
     return;
   }
-  res.json({ user, features: FEATURES });
+  res.json({ user, features: FEATURES, mustChangePassword: await mustChangePassword(user.id) });
 });
 
 // Same in-memory-per-key throttle shape as loginAttempts above, just keyed
@@ -988,13 +1160,52 @@ const SEED_ACCOUNTS: { name: string; email: string; role: "admin" | "staff"; dep
 ];
 
 if (process.env.SEED_ACCOUNTS !== "0") {
-  const password = process.env.SEED_ACCOUNT_PASSWORD || "Gpp@12345";
+  const chosen = process.env.SEED_ACCOUNT_PASSWORD;
+  const password = chosen || "Gpp@12345";
+  // A PASSWORD ANYBODY CAN READ IS NOT A PASSWORD (REQUIREMENTS §66). The
+  // built-in one is written in the documentation, so an account created on it
+  // must be given its own before it can be used. One the administrator chose
+  // themselves (SEED_ACCOUNT_PASSWORD) is theirs already, and is left alone.
+  const mustChange = !chosen;
   for (const a of SEED_ACCOUNTS) {
-    const added = await seedUser({ id: crypto.randomUUID(), name: a.name, email: a.email, password_hash: await hashPassword(password), role: a.role, created_at: new Date().toISOString(), departments: a.departments });
+    // must_change_password: they start on a password that is written in the
+    // documentation, so the first thing each person does is choose their own
+    // (REQUIREMENTS §66). Accounts that already exist are not touched.
+    const added = await seedUser({
+      id: crypto.randomUUID(),
+      name: a.name,
+      email: a.email,
+      password_hash: await hashPassword(password),
+      role: a.role,
+      created_at: new Date().toISOString(),
+      departments: a.departments,
+      must_change_password: mustChange,
+      active: true,
+      last_sign_in: null,
+    });
     if (added) {
-      console.log(`Added the account ${a.name} <${a.email}> (${a.role === "admin" ? "every module" : a.departments}).`);
+      console.log(
+        `Added the account ${a.name} <${a.email}> (${a.role === "admin" ? "every module" : a.departments})` +
+          (mustChange ? " — on the built-in first password, which it must change at its first sign-in." : " — on the password you set in SEED_ACCOUNT_PASSWORD.")
+      );
       void insertActivity([{ userId: null, userName: "System", userEmail: "", action: "Account created", target: a.email, detail: a.role === "admin" ? "Super admin — every module" : `Departments: ${a.departments}` }]).catch(() => undefined);
     }
+  }
+}
+
+// NOBODY COULD EVER SIGN IN (REQUIREMENTS §66). With no account on file, no
+// seeded accounts and no self-registration, the portal has no way in at all —
+// which is worth saying at the top of the terminal rather than leaving somebody
+// at a sign-in screen that refuses everything.
+if (!ALLOW_SIGNUP) {
+  const accounts = await listUsers();
+  if (accounts.length === 0) {
+    console.warn(
+      "\n*** THERE IS NO ACCOUNT TO SIGN IN WITH. ***\n" +
+        "Accounts are created by the administrator, and this database has none.\n" +
+        "Start once without SEED_ACCOUNTS=0 to add the plant's named accounts,\n" +
+        "or once with ALLOW_SIGNUP=1 to create the first administrator yourself.\n"
+    );
   }
 }
 

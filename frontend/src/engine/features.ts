@@ -13,13 +13,23 @@
 // filters and the behaviour model the generator shares with the Live pre-fill
 // (engine/plantSimulation.ts) stay exactly as they are.
 let demoMode = false;
+// Whether anybody may create their own account. The portal is login-only
+// (REQUIREMENTS §66): the administrator makes each account, so the sign-in
+// screen offers no way to make one unless the server says it is open.
+let signup = false;
 // Whether the server has answered at all. Hiding Demo Mode needs no answer;
 // REMOVING the demo records an earlier version left behind does (data/bootstrap.ts).
 let told = false;
 
-export function setFeatures(f: { demoMode?: boolean } | undefined): void {
+export function setFeatures(f: { demoMode?: boolean; signup?: boolean } | undefined): void {
   demoMode = f?.demoMode === true;
+  signup = f?.signup === true;
   told = typeof f?.demoMode === "boolean";
+}
+
+/** Whether this server lets somebody create their own account — off in the plant (REQUIREMENTS §66). */
+export function signupAllowed(): boolean {
+  return signup;
 }
 
 export function demoModeAvailable(): boolean {

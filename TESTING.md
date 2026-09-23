@@ -145,6 +145,19 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- `tests/e2e_login_only.py` - nobody creates their own account (REQUIREMENTS §66), a twenty-ninth suite, added
+  23-Sep-2026. It runs against the same **product server on :8843** as the suite below - the portal as a plant
+  installs it, which now also means the plant's named accounts are seeded there (on a password only the runner
+  and the suite know) because with sign-up closed there has to be somebody to sign in as. It checks the screen
+  with no way to register and the server's own 403 with it; `GET /api/auth/config` saying signup is false and
+  carrying nothing about anybody; the administrator's Users & Access page, and a member of staff refused it by
+  the page AND by the server; a person added with Quality Control ticked, the same address refused a second
+  time, and an account asked for as an administrator made staff all the same; her forced first password - the
+  pop-up that will not be waved away by Escape or a click beside it, `/api/storage` refused with
+  `password-change-required` until she has chosen, and the password she was given refused as her own; then
+  Quality Control's documents opening for her and Human Resources refused by name; a reset that stops her
+  chosen password working and asks her to choose again; her account switched off, the plain reason at sign-in,
+  and switched on again; and all of it in the activity log with no password anywhere in it. (45 checks)
 - `tests/e2e_no_demo_mode.py` - Demo Mode is not part of the product (REQUIREMENTS §65), a twenty-eighth
   suite, added 23-Sep-2026 and the only one that runs against a **second server on :8843**: the same database
   and the same build, started WITHOUT the test flags - the product exactly as a plant installs it. The runner
@@ -160,7 +173,8 @@ Seven scripts live in `tests/`:
   `e2e_hr_master_data`, `e2e_files` and this one - green at **331 checks, no JavaScript errors**, which is what
   proves the newly shared, frozen copies of the documents list, the master data and the HR master sheet are
   never changed in place: a change made to one would throw where it was made, and every suite fails on a
-  JavaScript error.
+  JavaScript error. It now signs IN as the seeded super admin rather than signing itself up, because on that
+  server nobody may register (§66).
 - Three suites were added on 19-Sep-2026 for REQUIREMENTS §64, the twenty-fifth to the twenty-seventh. All
   three are network-independent and read no model.
   - `tests/e2e_sheet_designer.py` - a format designed on the sheet, on F/QC/03 (a form that prints its lines)

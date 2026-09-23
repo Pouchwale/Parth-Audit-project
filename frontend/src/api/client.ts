@@ -47,7 +47,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
  */
 export interface AuthResponse {
   user: AuthUser;
-  features?: { demoMode?: boolean };
+  features?: ServerFeatures;
+  /** The administrator set this password: they must choose their own before they can work (REQUIREMENTS §66). */
+  mustChangePassword?: boolean;
+}
+
+/** What the server has switched on. Both optional: a server from before them says nothing, which reads as off. */
+export interface ServerFeatures {
+  demoMode?: boolean;
+  signup?: boolean;
 }
 
 export const api = {
@@ -105,6 +113,12 @@ export type DirectoryPerson = Pick<AuthUser, "id" | "name" | "role" | "departmen
 // rather than a rule (REQUIREMENTS §40, backend/index.ts requireAdmin).
 export const usersApi = {
   list: () => api.get<{ users: ManagedUser[] }>("/users"),
+  // THE ADMINISTRATOR'S OWN (REQUIREMENTS §66) — every one of them refused by
+  // the server for anybody else, whatever the screen shows (backend/index.ts
+  // requireAdmin). A password is sent to be stored and never comes back.
+  create: (person: { name: string; email: string; password: string; departments: string[] }) => api.post<{ user: ManagedUser }>("/users", person),
+  resetPassword: (userId: string, password: string) => api.post<{ ok: true }>(`/users/${encodeURIComponent(userId)}/password`, { password }),
+  setActive: (userId: string, active: boolean) => api.post<{ user: ManagedUser }>(`/users/${encodeURIComponent(userId)}/active`, { active }),
   // Anybody signed in may read this one (REQUIREMENTS §64): every account for
   // the administrator and for an account with no departments, the accounts
   // that share a department for everybody else (backend/index.ts).

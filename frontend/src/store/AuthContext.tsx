@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { api, ApiError, type AuthResponse } from "../api/client";
+import { api, ApiError, type AuthResponse, type ServerFeatures } from "../api/client";
 import { setDepartmentScope } from "../engine/departmentScope";
 import { setFeatures } from "../engine/features";
 import { SESSION_ENDED_EVENT, stopServerSync } from "../data/serverSync";
@@ -18,6 +18,14 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   /** Asks the server again who is signed in (after "unreachable"). */
   retry: () => void;
+  /**
+   * This account is still on the password the administrator gave it, so it can
+   * do nothing until its owner chooses their own (REQUIREMENTS §66). The server
+   * refuses the data either way; this is what puts the dialog on screen.
+   */
+  mustChangePassword: boolean;
+  /** Said once they have chosen one, so the app opens. */
+  passwordChosen: () => void;
 }
 
 // WHICH DEPARTMENTS THE PERSON MAY SEE is decided by their own account record
@@ -43,8 +51,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>("checking");
+  const [mustChange, setMustChange] = useState(false);
 
   const [check, setCheck] = useState(0);
+  // Bumped when the public answer arrives, so the sign-in screen draws again with it.
+  const [, setCheckedConfig] = useState(0);
   useEffect(() => {
     let cancelled = false;
     api
@@ -53,13 +64,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         applySession(res);
         setUser(res.user);
+        setMustChange(res.mustChangePassword === true);
         setStatus("authenticated");
       })
       .catch((err) => {
         if (cancelled) return;
         applySession(null);
         setUser(null);
-        setStatus(err instanceof ApiError && err.status === 401 ? "unauthenticated" : "unreachable");
+        setMustChange(false);
+        const signedOut = err instanceof ApiError && err.status === 401;
+        setStatus(signedOut ? "unauthenticated" : "unreachable");
+        // NOBODY IS SIGNED IN, and the sign-in screen still has to know whether
+        // to offer a way to create an account (REQUIREMENTS §66). This asks the
+        // one public question there is — what the server has switched on — and
+        // nothing about anybody. Unanswered, everything stays off, which is the
+        // safe way round: no way in that the server would refuse anyway.
+        if (signedOut) {
+          void api
+            .get<{ features?: ServerFeatures }>("/auth/config")
+            .then((cfg) => {
+              if (!cancelled) {
+                setFeatures(cfg.features);
+                setCheckedConfig((n) => n + 1);
+              }
+            })
+            .catch(() => undefined);
+        }
       });
     return () => {
       cancelled = true;
@@ -95,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await api.post<AuthResponse>("/auth/login", { email, password });
     applySession(res);
     setUser(res.user);
+    setMustChange(res.mustChangePassword === true);
     setStatus("authenticated");
   }, []);
 
@@ -102,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await api.post<AuthResponse>("/auth/signup", { name, email, password, departments: departments ?? [] });
     applySession(res);
     setUser(res.user);
+    setMustChange(res.mustChangePassword === true);
     setStatus("authenticated");
   }, []);
 
@@ -113,11 +145,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       applySession(null);
       setUser(null);
+      setMustChange(false);
       setStatus("unauthenticated");
     }
   }, []);
 
-  return <AuthContext.Provider value={{ user, status, login, signup, logout, retry }}>{children}</AuthContext.Provider>;
+  const passwordChosen = useCallback(() => setMustChange(false), []);
+
+  return (
+    <AuthContext.Provider value={{ user, status, login, signup, logout, retry, mustChangePassword: mustChange, passwordChosen }}>{children}</AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

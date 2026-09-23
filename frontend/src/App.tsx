@@ -37,6 +37,7 @@ import {
 import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
 import { HrMasterDataPage } from "./pages/HrMasterDataPage";
 import { QcOverviewPage } from "./pages/QcPages";
+import { UsersPage } from "./pages/UsersPage";
 import { ActivityLogPage } from "./pages/ActivityLogPage";
 import { PerformancePage } from "./pages/PerformancePage";
 import { MitraReaction } from "./components/common/MitraReaction";
@@ -136,6 +137,9 @@ function RouteSwitch() {
     case "performance":
       // The scorecard: who did their documents on time, by person, department and module (REQUIREMENTS §64).
       return <PerformancePage />;
+    // Users & Access — the administrator makes the accounts (REQUIREMENTS §66).
+    case "users":
+      return <UsersPage />;
     case "activity":
       // Everything anybody has done on the portal (REQUIREMENTS §62).
       return <ActivityLogPage />;

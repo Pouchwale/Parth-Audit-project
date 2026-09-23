@@ -12,5 +12,14 @@ import "./env.ts";
 
 export const DEMO_MODE = process.env.DEMO_MODE === "1";
 
-/** What the browser is told, beside the account. */
-export const FEATURES = { demoMode: DEMO_MODE };
+// WHETHER ANYBODY MAY CREATE THEIR OWN ACCOUNT (REQUIREMENTS §66). In the plant
+// they may not: the super admin makes each person's account and says which
+// departments it may see, and the sign-in screen offers nothing else. Every
+// Playwright suite begins by signing itself up, so the flag exists for the test
+// server (scripts/run-e2e.ts sets ALLOW_SIGNUP=1) and for the one case a real
+// installation needs it — the very first administrator on an empty database,
+// when the seeded accounts have been left out.
+export const ALLOW_SIGNUP = process.env.ALLOW_SIGNUP === "1";
+
+/** What the browser is told, beside the account — and, before anybody signs in, by GET /api/auth/config. */
+export const FEATURES = { demoMode: DEMO_MODE, signup: ALLOW_SIGNUP };

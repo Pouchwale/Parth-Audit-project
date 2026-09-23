@@ -5,6 +5,8 @@ import { AppStoreProvider } from "./store/AppStore";
 import { AuthProvider, useAuth } from "./store/AuthContext";
 import { RouterProvider } from "./store/router";
 import { AuthScreen } from "./components/auth/AuthScreen";
+import { ChangePasswordDialog } from "./components/common/ChangePasswordDialog";
+import { AuthLayout } from "./components/auth/AuthLayout";
 import { App } from "./App";
 import { installPrintScoping } from "./utils/print";
 import { startServerSync, SyncError, type SyncErrorKind } from "./data/serverSync";
@@ -80,7 +82,7 @@ function DataGate({ userId, children }: { userId: string; children: React.ReactN
 }
 
 function Root() {
-  const { status, user, retry } = useAuth();
+  const { status, user, retry, mustChangePassword, passwordChosen, logout } = useAuth();
 
   if (status === "checking") {
     return <div className="empty-state">Loading…</div>;
@@ -98,6 +100,17 @@ function Root() {
   }
   if (status === "unauthenticated" || !user) {
     return <AuthScreen />;
+  }
+  // STILL ON THE PASSWORD THE ADMINISTRATOR SET (REQUIREMENTS §66). Asked for
+  // here, above DataGate, so the app does not first try to load the records the
+  // server is refusing this session — and so there is nothing behind the dialog
+  // to reach: no sidebar, no Mitra, no briefing.
+  if (mustChangePassword) {
+    return (
+      <AuthLayout>
+        <ChangePasswordDialog required onClose={passwordChosen} onSignOut={() => void logout()} />
+      </AuthLayout>
+    );
   }
   return (
     <DataGate key={user.id} userId={user.id}>
