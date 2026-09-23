@@ -11,6 +11,7 @@ import { prepareDueRecords } from "../engine/assistantPrepare";
 import { routeForRecord } from "../engine/reminders";
 import { computeBriefing, briefingHeadline } from "../engine/assistantBriefing";
 import { findPreLaunchNoise, purgePreLaunchNoise } from "../engine/backlogCleanup";
+import { measureWorkingCopy } from "../data/storageAdapter";
 import { ensureDemoRecordsGeneratedForYear } from "../data/demoGenerator";
 import { openCorrectiveActionsCount, refreshGapFindingStatuses, moduleSummaries, rodentsInMonth } from "../data/selectors";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -179,6 +180,7 @@ export function DashboardPage() {
                   className="btn btn-secondary btn-sm"
                   onClick={() => {
                     setPurged(purgePreLaunchNoise());
+                    measureWorkingCopy(); // much smaller now — the storage warning goes with it (REQUIREMENTS §65)
                     bump();
                   }}
                 >

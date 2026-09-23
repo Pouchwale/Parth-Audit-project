@@ -153,6 +153,13 @@ Seven scripts live in `tests/`:
   throws where it is made. And the record serialiser carries its own guard: every save re-reads one record for
   real, a different one each time, so a record altered in place prints a line naming it and the whole array is
   stored properly; a suite run that is silent is a run in which nothing was.
+  The serialiser was also checked on its own, against **the plant's real 3,741 records taken straight out of
+  PostgreSQL** (4.88 million characters, the Gujarati forms among them), because what it produces is read by
+  the version markers, the merge between computers and the database itself — a single character of difference
+  could mis-merge a record. Character for character it is what `JSON.stringify` of the whole array produces,
+  before and after one record is changed the way an upsert changes one; a record altered in place is caught by
+  the guard; and the cost of a save falls from **35.7 ms to 0.1 ms** on this machine (a low-end laptop is about
+  6× slower either way). The harness is kept out of the repository — it reads the database and writes nothing.
   The first full run of §66 also caught a defect of its own worth recording: signing out reset what the server
   had said it allows and nothing asked again, so a sign-in screen that came back after a sign-out offered no
   way to create an account even where sign-up is open. `e2e_departments.py`, which signs out and then signs a

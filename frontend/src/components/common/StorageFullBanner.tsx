@@ -16,7 +16,8 @@ export function StorageFullBanner() {
 
   useEffect(() => {
     const onFail = () => setFailed(true);
-    const onNearlyFull = () => setNearlyFull(true);
+    // Read, not assumed: the same word is sent when the working copy has been cut back down.
+    const onNearlyFull = () => setNearlyFull(storageNearlyFull());
     window.addEventListener(STORAGE_WRITE_FAILED, onFail);
     window.addEventListener(STORAGE_NEARLY_FULL, onNearlyFull);
     return () => {

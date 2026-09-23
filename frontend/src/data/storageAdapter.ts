@@ -197,13 +197,13 @@ export function measureWorkingCopy(): number {
     return 0; // no localStorage (in-memory fallback): there is no limit to be near
   }
   nearlyFull = chars > NEARLY_FULL_CHARS;
-  if (nearlyFull) {
-    console.warn(`The working copy in this browser is ${chars.toLocaleString("en-IN")} characters — close to what the browser allows.`);
-    try {
-      window.dispatchEvent(new Event(STORAGE_NEARLY_FULL));
-    } catch {
-      /* no window (tests) */
-    }
+  if (nearlyFull) console.warn(`The working copy in this browser is ${chars.toLocaleString("en-IN")} characters — close to what the browser allows.`);
+  // Said either way: measured again after the leftovers are cleared out
+  // (engine/backlogCleanup.ts), this is what takes the warning back down.
+  try {
+    window.dispatchEvent(new Event(STORAGE_NEARLY_FULL));
+  } catch {
+    /* no window (tests) */
   }
   return chars;
 }

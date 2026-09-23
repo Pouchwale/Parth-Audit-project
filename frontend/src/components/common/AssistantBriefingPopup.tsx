@@ -8,6 +8,7 @@ import { prepareDueRecords } from "../../engine/assistantPrepare";
 import { computeBriefing, briefingHeadline, pendingCount, submitPreparedRecords, upcomingLabel, type Briefing, type BriefingItem } from "../../engine/assistantBriefing";
 import { dueBriefingSlot, recordBriefingShown } from "../../engine/briefingSchedule";
 import { purgePreLaunchNoise } from "../../engine/backlogCleanup";
+import { measureWorkingCopy } from "../../data/storageAdapter";
 import { computeReminders } from "../../engine/reminders";
 import type { BriefingSlot } from "../../data/repositories/settingsRepository";
 import { reminderDigestApi } from "../../api/client";
@@ -135,6 +136,7 @@ export function AssistantBriefingPopup() {
     });
   const cleanUp = () => {
     setPurged(purgePreLaunchNoise());
+    measureWorkingCopy(); // much smaller now — the storage warning goes with it (REQUIREMENTS §65)
     bump();
   };
 
