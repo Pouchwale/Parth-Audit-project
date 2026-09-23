@@ -171,8 +171,61 @@ export function guide(step: string): GuideStep {
   };
 }
 
-/** Mitra's opening: who it is, and where would you like to go. */
-export function openingMessage(name: string | undefined, aboutTheRecord = "", now = new Date()): GuideStep {
+/** A document of this person's that is waiting, as Mitra offers it (REQUIREMENTS §67). */
+export interface WaitingDocument {
+  /** The format's number and name, as it is written: "F/QC/01 Line Clearance Checklist". */
+  what: string;
+  /** Overdue rather than due today. */
+  overdue: boolean;
+  /** Where it opens. */
+  route: string;
+}
+
+/** A chip is read at a glance, so a long format name is cut rather than wrapped to three lines. */
+const shortly = (what: string, limit = 34): string => (what.length <= limit ? what : `${what.slice(0, limit - 1).trimEnd()}…`);
+
+/**
+ * MITRA ASKS FIRST, AND ASKS ABOUT WHAT IS THEIRS (REQUIREMENTS §67).
+ *
+ * Opened, Mitra says who it is, says what of this person's own work is waiting
+ * — by name, as tappable answers — and then asks where they would like to go.
+ * Somebody who has nothing waiting is told so, because that is worth knowing
+ * too, and is the nicest thing the screen can say.
+ *
+ * `waiting` is the person's OWN documents: the ones their department keeps and
+ * Master Data names them on (components/common/DocumentAssistant.tsx works
+ * them out when the panel opens, never on every render — REQUIREMENTS §65).
+ */
+export function openingMessage(
+  name: string | undefined,
+  aboutTheRecord = "",
+  waiting: WaitingDocument[] = [],
+  /** False when nobody is named on this work in Master Data — the administrator and the MR answer for the plant, not for their own list. */
+  theirOwn = true,
+  now = new Date()
+): GuideStep {
   const home = guide("home");
-  return { text: `${hello(name, now)}${aboutTheRecord}\n${home.text}`, chips: home.chips };
+  const shown = waiting.slice(0, 3);
+  const overdue = waiting.filter((w) => w.overdue).length;
+  // One line about the work that is waiting — theirs, or the plant's — or one
+  // saying there is none, which is the nicest thing this screen can say.
+  const key = theirOwn ? "ai.yours" : "ai.plants";
+  const yours = aboutTheRecord
+    ? "" // a record is open: what Mitra says about THAT is what matters
+    : waiting.length === 0
+      ? `\n${t(`${key}.none`)}`
+      : `\n${overdue > 0 ? t(`${key}.waitingOverdue`, { n: String(waiting.length), overdue: String(overdue) }) : t(`${key}.waiting`, { n: String(waiting.length) })}`;
+  // THE CHIPS INVITE, THE SENTENCE INFORMS. What is overdue is said in words
+  // above; the answers themselves stay the ordinary inviting blue, because
+  // three red buttons on opening make a person feel told off rather than
+  // helped — and this is a screen they open many times a day.
+  const chips: Chip[] = [
+    ...shown.map((w, i) => ({
+      label: t("ai.yours.open", { what: shortly(w.what) }),
+      action: { type: "navigate" as const, route: w.route },
+      tone: (i === 0 ? "primary" : undefined) as Chip["tone"],
+    })),
+    ...home.chips,
+  ];
+  return { text: `${hello(name, now)}${aboutTheRecord}${yours}\n${home.text}`, chips };
 }

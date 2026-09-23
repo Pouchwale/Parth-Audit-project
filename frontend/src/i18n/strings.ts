@@ -407,6 +407,16 @@ const en = {
   "ai.helloName": "{time}, {name} — {who} here, {role}.",
   "ai.hello": "{time} — {who} here, {role}.",
   "ai.whereTo": "Where would you like to go?",
+  // What of this person's own work is waiting, said as Mitra opens (REQUIREMENTS §67).
+  "ai.yours.none": "Nothing of yours is waiting — the file is clean. 🌿",
+  "ai.yours.waiting": "{n} of your documents are waiting.",
+  "ai.yours.waitingOverdue": "{n} of your documents are waiting, {overdue} of them overdue.",
+  "ai.yours.open": "Open {what}",
+  // Nobody is named on this work in Master Data: the administrator and the MR
+  // answer for the plant, so Mitra says so rather than calling it theirs.
+  "ai.plants.none": "Nothing is waiting anywhere — the whole file is clean. 🌿",
+  "ai.plants.waiting": "The plant has {n} documents waiting.",
+  "ai.plants.waitingOverdue": "The plant has {n} documents waiting, {overdue} of them overdue.",
   "ai.whoIAm":
     "I'm {who}, the assistant built into this system — not a person. I know this plant's documents, its records and its calendar, and I'm glad to open or fill in anything here.",
   "ai.youreWelcome": "Any time{name}. Call me whenever something needs opening, filling or checking.",
@@ -887,6 +897,13 @@ const gu: Record<StringKey, string> = {
   "ai.helloName": "{time}, {name} — આ {who}, {role}.",
   "ai.hello": "{time} — આ {who}, {role}.",
   "ai.whereTo": "તમે ક્યાં જવા માંગો છો?",
+  "ai.yours.none": "તમારું કંઈ બાકી નથી — ફાઇલ ચોખ્ખી છે. 🌿",
+  "ai.yours.waiting": "તમારા {n} દસ્તાવેજ બાકી છે.",
+  "ai.yours.waitingOverdue": "તમારા {n} દસ્તાવેજ બાકી છે, તેમાંથી {overdue} મુદત વીતી ગયા છે.",
+  "ai.yours.open": "{what} ખોલો",
+  "ai.plants.none": "ક્યાંય કંઈ બાકી નથી — આખી ફાઇલ ચોખ્ખી છે. 🌿",
+  "ai.plants.waiting": "પ્લાન્ટના {n} દસ્તાવેજ બાકી છે.",
+  "ai.plants.waitingOverdue": "પ્લાન્ટના {n} દસ્તાવેજ બાકી છે, તેમાંથી {overdue} મુદત વીતી ગયા છે.",
   "ai.whoIAm":
     "હું {who} છું — આ સિસ્ટમમાં બનેલો સહાયક, વ્યક્તિ નહીં. આ પ્લાન્ટના દસ્તાવેજો, રેકોર્ડ અને કેલેન્ડર હું જાણું છું, અને અહીંનું કંઈ પણ ખોલવા કે ભરવામાં મદદ કરું છું.",
   "ai.youreWelcome": "ક્યારેય પણ કહો{name}. કંઈ ખોલવું, ભરવું કે તપાસવું હોય ત્યારે બોલાવો.",

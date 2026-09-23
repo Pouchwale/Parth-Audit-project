@@ -125,6 +125,13 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **Mitra asks first, about work that is yours** (REQUIREMENTS §67): opened, the assistant greets you by the
+  hour, says what of *your own* documents is waiting — the ones your department keeps and Master Data names you
+  on — offers the three that have waited longest as one-tap buttons, and asks where you would like to go. Every
+  time it is opened, not only the first. The closed pill carries the figure, so you can see it without opening
+  anything. And the chat moves like something alive: the panel slides in, messages rise into place, answers lift
+  under the pointer, Mitra's face pulses while it thinks. Anybody who has asked their computer for less movement
+  gets none of it, and hears every word just the same.
 - **A login-only portal: the administrator makes every account** (REQUIREMENTS §66): nobody creates their own
   — the sign-in screen has no way to, and the server refuses registration as well. The super admin's
   **Users & Access** page (`/users`) adds a person with a first password and one tick for what they see ("all of

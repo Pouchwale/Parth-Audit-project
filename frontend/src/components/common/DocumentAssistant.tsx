@@ -25,7 +25,8 @@ import {
   type GuidedStep,
 } from "../../engine/guidedChecklist";
 import { buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
-import { ASSISTANT_NAME, guide, openingMessage } from "../../engine/assistantPersona";
+import { ASSISTANT_NAME, guide, openingMessage, type WaitingDocument } from "../../engine/assistantPersona";
+import { computeReminders } from "../../engine/reminders";
 import { formatNumberAnswer } from "../../engine/formatNumbers";
 import { hrMasterChatAnswer, hrMasterIntent, hrMasterVisible, proposeMasterFill } from "../../engine/hrMasterAssistant";
 import { describePerson, hrMasterLinkFor } from "../../engine/hrMaster";
@@ -223,13 +224,31 @@ export function DocumentAssistant() {
 
   // Mitra introduces itself once, when the panel first opens, and asks where
   // you would like to go — with the answers as chips (REQUIREMENTS §50).
+  // MITRA ASKS FIRST — EVERY TIME IT IS OPENED (REQUIREMENTS §67).
+  //
+  // It used to ask only while the chat was still empty, so a person who had
+  // said anything at all was met by silence ever after: they opened the panel
+  // and had to work out for themselves what to do next. Now the question comes
+  // every time the panel is opened by hand, and it is about THEIR work — the
+  // documents their department keeps and Master Data names them on.
+  //
+  // It never talks over anything: a walk-through or a question-by-question fill
+  // in progress, a change waiting for its Yes, or a document's own arrival
+  // greeting (§60) all mean Mitra has already said the useful thing.
+  const greetedThisOpenRef = useRef(false);
   useEffect(() => {
-    if (!open || messages.length > 0) return;
+    if (!open) {
+      greetedThisOpenRef.current = false; // asked again the next time it is opened
+      return;
+    }
+    if (greetedThisOpenRef.current) return;
+    greetedThisOpenRef.current = true;
     // Opened by a document: what Mitra says about it is the opening (§60).
     if (arrivalGreetsRef.current) {
       arrivalGreetsRef.current = false;
       return;
     }
+    if (guidedRef.current || interviewRef.current || pendingFormatRef.current) return;
     const t = getTarget();
     const where = t?.checklist
       ? phrase("ai.opening.checklist", { title: t.checklist.title })
@@ -238,10 +257,52 @@ export function DocumentAssistant() {
         : hasTarget
           ? phrase("ai.opening.recordOpen")
           : "";
-    const opening = openingMessage(user?.name, where);
+    const mine = where ? { documents: [], theirOwn: true } : waitingForMe();
+    const opening = openingMessage(user?.name, where, mine.documents, mine.theirOwn);
     bot(opening.text, opening.chips);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // WHAT IS WAITING, AND WHOSE IT IS (REQUIREMENTS §67).
+  //
+  // The reminders are already kept to the departments this account may see
+  // (engine/reminders.ts, §40). Of those, the ones that CONCERN THIS PERSON are
+  // the ones Master Data names them on — the checker, the verifier, the
+  // technician of that document. Somebody nobody is named on (the
+  // administrator, the MR) is answering for the plant, so they are shown the
+  // plant's.
+  //
+  // Worked out WHEN THE PANEL OPENS, never while drawing: Mitra is on every
+  // screen, and computeReminders walks every format's records (§65).
+  const waitingForMe = (): { documents: WaitingDocument[]; theirOwn: boolean } => {
+    const all = computeReminders(isDemo).filter((r) => r.urgency !== "upcoming");
+    const me = (user?.name ?? "").trim().toLowerCase();
+    const named = me ? all.filter((r) => r.assignedEmployees.some((e) => e.name.trim().toLowerCase() === me)) : [];
+    const theirOwn = named.length > 0;
+    const mine = theirOwn ? named : all;
+    // The oldest first: what has waited longest is what to start with.
+    const documents = mine
+      .slice()
+      .sort((a, b) => compareISO(a.dueDate, b.dueDate))
+      .map((r) => {
+        const doc = documentRepository.getById(r.documentId);
+        return { what: doc ? formatAndName(doc) : r.documentName, overdue: r.urgency === "overdue", route: r.route };
+      });
+    return { documents, theirOwn };
+  };
+
+  // HOW MANY ARE WAITING, ON THE PILL (REQUIREMENTS §67). Counted when the
+  // widget first appears, when the day turns and each time the panel is closed
+  // — the person has just done some work, so the figure should have moved.
+  // NOT on every change of anything: computeReminders walks every format's
+  // records and Mitra is on every screen (§65).
+  const [waiting, setWaiting] = useState(0);
+  const today = todayISO();
+  useEffect(() => {
+    if (open) return; // the panel says it in words; the pill is for when it is shut
+    setWaiting(waitingForMe().documents.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, today, user?.id, isDemo]);
 
   // ---- guided walk-through -------------------------------------------------
   const askStep = (step: GuidedStep) => {
@@ -1737,14 +1798,22 @@ export function DocumentAssistant() {
     >
       {!open && (
         <button
-          className="btn btn-primary"
+          className={`btn btn-primary assistant-pill${waiting > 0 ? " has-waiting" : ""}`}
           style={{ borderRadius: 999, boxShadow: "var(--shadow-lg)", cursor: "grab", touchAction: "none" }}
           onClick={() => {
             if (!didJustDrag()) setOpen(true);
           }}
+          title={waiting > 0 ? phrase("ai.yours.waiting", { n: String(waiting) }) : t("ai.yours.none")}
           {...dragHandleProps}
         >
           <FiMessageCircle size={15} /> {t("ai.widgetOpen")}
+          {/* How much of this person's own work is waiting (REQUIREMENTS §67) — a
+              figure, not a red dot: "3" says something, a dot only nags. */}
+          {waiting > 0 && (
+            <span className="assistant-pill-count" data-assistant-waiting={waiting}>
+              {waiting}
+            </span>
+          )}
         </button>
       )}
       {open && (
@@ -1752,7 +1821,7 @@ export function DocumentAssistant() {
           <div className="flex items-center justify-between" style={{ padding: "12px 14px", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
             <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
               {/* Mitra's face: its own initial, the way a person's chat avatar reads. */}
-              <span className="chat-avatar" style={{ fontSize: 11, fontWeight: 700 }} aria-hidden="true">
+              <span className={`chat-avatar${loading ? " is-thinking" : ""}`} style={{ fontSize: 11, fontWeight: 700 }} aria-hidden="true">
                 {ASSISTANT_NAME.charAt(0)}
               </span>
               <div style={{ minWidth: 0 }}>

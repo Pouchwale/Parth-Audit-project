@@ -165,6 +165,21 @@ Seven scripts live in `tests/`:
   way to create an account even where sign-up is open. `e2e_departments.py`, which signs out and then signs a
   second account up, is what found it (701 checks in, no check having failed — it stopped on the missing link).
   The app now asks the public question again whenever that screen returns.
+- REQUIREMENTS §67 (Mitra asking first, about work that is theirs, and the chat's movement) adds no suite of
+  its own: what it changes is what Mitra SAYS and how the panel MOVES, and the suites already read both.
+  `e2e_smoke` holds the opening to naming itself, greeting by the hour and asking where to go, with its answers
+  as buttons; eight suites in all read Mitra's messages or her buttons (`e2e_smoke`, `e2e_capa_formats`,
+  `e2e_editing`, `e2e_crud`, `e2e_voice`, `e2e_format_numbers`, `e2e_mitra_format`, `e2e_qc_formats`) and were
+  run together after the change. The greeting on every opening is placed so it can never land between a suite's
+  question and its answer: it is posted as the panel opens, never while a walk-through or a
+  question-by-question fill is under way, which is what `e2e_capa_formats` walks through reading
+  `.chat-msg.bot` last each time.
+  Two things there are no Playwright checks for, and how they were confirmed instead: the MOVEMENT, read from
+  the browser's own computed style in the running app (`assistant-dock-in`, `chat-msg-in`, the chip's
+  transition, the pill's wave) - **and read again in a context that asks for reduced motion, where every one of
+  them must be `none`**. That second reading is what caught the block being written too high in the stylesheet
+  to win the cascade, so reduced motion was being ignored altogether. The greeting itself was read from the
+  real app on this installation's own data, including that it is asked again on a second opening.
 - `tests/e2e_login_only.py` - nobody creates their own account (REQUIREMENTS §66), a twenty-ninth suite, added
   23-Sep-2026. It runs against the same **product server on :8843** as the suite below - the portal as a plant
   installs it, which now also means the plant's named accounts are seeded there (on a password only the runner

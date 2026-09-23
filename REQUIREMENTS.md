@@ -3413,6 +3413,74 @@ changed. The new password must differ from the one they were given.
   the plain reason, and switched on again; and every one of those in the activity log with no password
   anywhere in it.
 
+## 67. Mitra asks first, about work that is yours, and the chat comes alive (23-Sep-2026)
+
+```
+REQUESTED            "now brought some animations when user click on ask mistra which is our chatbot it should be
+                      first ask and make whole interface interactive like when user come on it and open it then bot
+                      will first ask what user want to and make whole chatbot very interactive like user can feel it
+                      happy to use bot will also make sure about pop ups of various documents according to concern
+                      person so i want happy chatbot and happy user."
+DIGITAL TEMPLATE     engine/assistantPersona.ts (openingMessage, WaitingDocument),
+                      components/common/DocumentAssistant.tsx (the greeting on every open, waitingForMe, the pill's
+                      count), i18n/strings.ts, styles.css (the movement, and switching it off)
+```
+
+**1. MITRA ASKS FIRST — EVERY TIME IT IS OPENED.** It always had a question to open with (§50), but only while
+the chat was still empty: a person who had said anything at all was met by silence ever after, opened the panel
+and had to work out for themselves what to do next. The question now comes **every time the panel is opened**,
+and it is the same one a colleague would ask — *Where would you like to go?* — with the answers as buttons.
+- It never talks over anything. A walk-through or a question-by-question fill in progress, a format change
+  waiting for its Yes, or a document's own arrival greeting (§60) all mean Mitra has already said the useful
+  thing, and it stays quiet.
+- Asked once per opening, not once per render: closing the panel is what arms the question again.
+
+**2. AND IT ASKS ABOUT WORK THAT IS THEIRS.** The opening now names what is waiting for **that person** — the
+documents their department keeps *and* Master Data names them on, as the checker, the verifier or the
+technician — with the **three that have waited longest** offered as one-tap buttons:
+
+> Good afternoon, Kapila — Mitra here, your records buddy.
+> 3 of your documents are waiting, 1 of them overdue.
+> Where would you like to go?
+> [ Open F/QC/01 Line Clearance Check… ] [ Open F-QC-30 Lamination Adhesive… ] …
+
+- **Somebody nobody is named on answers for the plant**, not for a list of their own — the administrator, the
+  MR, QA — so Mitra says "The plant has 176 documents waiting" rather than calling it theirs. Accurate instead
+  of accusing.
+- **Nothing waiting is worth saying too**: "Nothing of yours is waiting — the file is clean. 🌿"
+- **The closed pill carries the figure** — *Ask Mitra · 3* — so it can be seen without opening anything. A
+  number, not a red dot: "3" says something, a dot only nags.
+- Worked out **when the panel opens**, and for the pill when it closes or the day turns — never while drawing.
+  Mitra is mounted on every screen, and working out the reminders walks every format's records (§65).
+
+**3. THE CHAT MOVES LIKE SOMETHING ALIVE.** All of it in the stylesheet, all of it short:
+- the **panel slides in** from its own edge as it opens, rather than appearing;
+- each **message rises into place** as it is said — Mitra's from its side, the person's from theirs;
+- **answers lift** under the pointer and press back down when used;
+- **Mitra's face pulses** while it is thinking, so being busy can be seen without reading;
+- the **pill lifts** under the pointer, and **waves two or three times** when work is waiting — then stops,
+  because a thing that never stops moving is a thing people learn to ignore.
+
+**WHAT IS DELIBERATELY NOT ANIMATED: the page's own width.** The page makes room for the panel in one step. To
+slide that margin instead would re-measure every line of a long table on every frame — the exact cost §65 was
+written to remove. Every movement here is opacity and transform, which a browser hands to the graphics card,
+and each is 120–200 ms.
+
+**ANYBODY WHO HAS ASKED FOR LESS MOVEMENT GETS NONE OF IT** (`prefers-reduced-motion`), and Mitra still says
+every word it would have said. That block sits at the **end** of the stylesheet on purpose: a media query adds
+no specificity, so it has to come after the rules it switches off. Written further up — which is where it
+started — the cascade ignored it entirely, and only reading the browser's own computed style caught that.
+
+**THE ANSWERS INVITE; THE SENTENCE INFORMS.** What is overdue is said in words, and the document buttons stay
+the ordinary inviting blue. Three red buttons on opening make a person feel told off rather than helped, and
+this is a screen they open many times a day.
+
+- Covered by the suites that already read Mitra's own words and buttons — `e2e_smoke` holds the opening to
+  naming itself, greeting by the hour and asking where to go, with its answers as buttons. Checked in the real
+  app as well, on this installation's own data: the question asked again on a second opening, the figure on the
+  pill, and every movement confirmed from the browser's computed style — present normally, and gone for
+  somebody who has asked for less movement.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

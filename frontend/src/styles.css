@@ -551,6 +551,17 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
    lies over the page instead. Never on paper. */
 :root { --assistant-dock-width: 380px; }
 .assistant-dock { position: fixed; top: 0; right: 0; bottom: 0; width: var(--assistant-dock-width); z-index: 50; display: flex; }
+/* MITRA ARRIVES, RATHER THAN APPEARING (REQUIREMENTS §67). The panel slides in
+   from its own edge and the messages rise into place, so opening the chat feels
+   like somebody turning to you instead of a box being switched on.
+   TRANSFORM AND OPACITY ONLY, and never the page's own width: the page makes
+   room for the panel in one step (html.assistant-docked .app-main), because
+   animating that margin would re-measure every line of a long table on every
+   frame — the opposite of what §65 is for. Each of these is one short movement
+   the browser can hand to the graphics card, and every one of them is switched
+   off for somebody who has asked for less movement. */
+.assistant-dock { animation: assistant-dock-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes assistant-dock-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
 .assistant-dock-card { width: 100%; height: 100%; border-radius: 0 !important; border-width: 0 0 0 1px !important; box-shadow: var(--shadow-lg); }
 html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 @media (max-width: 900px) {
@@ -827,6 +838,49 @@ textarea.input { resize: vertical; min-height: 60px; }
 @keyframes chat-bounce { 0%, 70%, 100% { transform: translateY(0); opacity: 0.5; } 35% { transform: translateY(-4px); opacity: 1; } }
 .chat-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
+/* Each message rises into place as it is said (REQUIREMENTS §67). Only a new
+   message animates: the ones already in the log keep their place in React's
+   list, so nothing replays while the chat is scrolled or something is typed. */
+.chat-msg { animation: chat-msg-in 170ms ease-out both; }
+@keyframes chat-msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* Mitra's own messages lean in from its side, the person's from theirs. */
+.chat-msg.user { animation-name: chat-msg-in-user; }
+@keyframes chat-msg-in-user { from { opacity: 0; transform: translateY(6px) translateX(6px); } to { opacity: 1; transform: none; } }
+
+/* An answer worth tapping looks worth tapping: it lifts a little under the
+   pointer and presses back down when it is used. */
+.chat-chip { transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease; }
+.chat-chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.chat-chip:active { transform: translateY(0); box-shadow: none; }
+
+/* Mitra's face while it is thinking: the same three dots the message shows,
+   but on the avatar, so the person can see it is busy without reading. */
+.chat-avatar.is-thinking { animation: chat-avatar-thinking 1.4s ease-in-out infinite; }
+@keyframes chat-avatar-thinking {
+  0%, 100% { transform: none; box-shadow: none; }
+  50% { transform: scale(1.08); box-shadow: 0 0 0 4px var(--color-primary-light); }
+}
+
+/* THE PILL THAT CALLS MITRA. It lifts under the pointer; and when something of
+   this person's is waiting it waves once or twice on arrival — a few seconds,
+   not for ever, because a thing that never stops moving is a thing people
+   learn to ignore. */
+.assistant-pill { transition: transform 140ms ease, box-shadow 140ms ease; }
+.assistant-pill:hover { transform: translateY(-2px); }
+.assistant-pill:active { transform: translateY(0); }
+.assistant-pill.has-waiting { animation: assistant-pill-wave 1.8s ease-in-out 3; }
+@keyframes assistant-pill-wave {
+  0%, 60%, 100% { box-shadow: var(--shadow-lg); }
+  /* A plain colour, not color-mix(): an older browser on an old laptop would drop the whole line. */
+  30% { box-shadow: var(--shadow-lg), 0 0 0 7px rgba(15, 92, 122, 0.18); }
+}
+/* How many of their documents are waiting, on the pill itself. */
+.assistant-pill-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 4px;
+  margin-left: 2px; border-radius: 999px; background: #fff; color: var(--color-primary);
+  font-size: 11px; font-weight: 700; line-height: 1;
+}
+
 /* ---- CAPA ---- */
 .capa-option { flex: 1 1 280px; min-width: 0; cursor: pointer; border-top: 4px solid var(--color-primary); }
 .capa-option.external { border-top-color: var(--color-accent); }
@@ -1051,4 +1105,16 @@ body { top: 0 !important; }
   .score-rule, .score-grade { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .score-card { box-shadow: none; break-inside: avoid; }
   .score-cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
+   At the END of the stylesheet on purpose: a media query adds no specificity,
+   so this has to come after the rules it switches off or the cascade simply
+   ignores it — which is exactly what happened when it was written further up,
+   and what reading the browser's own computed style caught. Mitra still says
+   everything it says; it just stops moving. */
+@media (prefers-reduced-motion: reduce) {
+  .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .assistant-pill.has-waiting, .chat-typing span, .mitra-reaction { animation: none !important; }
+  .chat-chip, .assistant-pill { transition: none; }
+  .chat-chip:hover, .chat-chip:active, .assistant-pill:hover, .assistant-pill:active { transform: none; }
 }
