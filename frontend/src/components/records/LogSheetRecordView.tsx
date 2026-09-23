@@ -8,6 +8,7 @@ import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
 import { applyFills, hrMasterLinkFor, personFill, personNamed } from "../../engine/hrMaster";
 import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
 import { isOutOfBand } from "../../engine/validation";
+import { withPurchaseRatings } from "../../engine/purchaseRatings";
 import { documentLayoutIn, documentTextIn, keepFormAsIssued } from "../../i18n/documentText";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate } from "../../utils/date";
@@ -38,13 +39,21 @@ export function LogSheetRecordView({
   // A form the department issues in Gujarati already reads in Gujarati, so with
   // ગુજરાતી chosen it is not handed to Google at all — it reads as issued.
   const asIssued = keepFormAsIssued(doc.id, lang);
-  const data = record.data ?? { header: {}, rows: [] };
+  // THE TWO PURCHASE MONITORING REGISTERS WORK THEIR WEIGHTED RATINGS OUT FROM
+  // WHAT IS WRITTEN (engine/purchaseRatings.ts, REQUIREMENTS §68), the way the
+  // calibration records work out their deviations. It is applied on the way in
+  // as well as on the way out, so a formula cell is right the moment X, Y or Z
+  // is entered AND right on a record that was written elsewhere.
+  const data = withPurchaseRatings(doc.id, record.data ?? { header: {}, rows: [] });
   const employees = masterRepository.get().employees;
   // Once per render, not once per cell (a 58 x 25 sheet asked for it 1,450 times).
   const employeeNames = React.useMemo(() => employees.map((e) => e.name), [employees]);
   // Before the early return below: a hook called only on some renders breaks
   // React ("rendered fewer hooks than expected") the moment this component is
   // reused for a document without a layout.
+  // The reference material the form prints beside the grid, shown or hidden as
+  // one: F/PUR/05's four criteria tables are one printed band across the top of
+  // the form, so "Show" on any of them shows the criteria (REQUIREMENTS §68).
   const [showReference, setShowReference] = React.useState(false);
   // A long sheet shows its first lines at once and the rest a batch at a time (utils/useProgressive.ts).
   const rowsShown = useProgressiveCount(data.rows.length, 25, 40);
@@ -53,15 +62,16 @@ export function LogSheetRecordView({
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
   }
 
-  const setHeader = (key: string, value: string) => onChange({ ...data, header: { ...data.header, [key]: value } });
+  const save = (next: LogSheetData) => onChange(withPurchaseRatings(doc.id, next));
+  const setHeader = (key: string, value: string) => save({ ...data, header: { ...data.header, [key]: value } });
   const setCell = (rowId: string, key: string, value: string | number | null) =>
-    onChange({ ...data, rows: data.rows.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)) });
+    save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)) });
   const addRow = () => {
     const row: LogSheetRow = { id: generateId("row") };
     for (const c of layout.columns) row[c.key] = c.type === "number" ? null : c.autoFill?.default !== undefined && c.type !== "text" ? String(c.autoFill.default) : "";
-    onChange({ ...data, rows: [...data.rows, row] });
+    save({ ...data, rows: [...data.rows, row] });
   };
-  const removeRow = (rowId: string) => onChange({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
+  const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
 
   // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS
   // §53): the bar above the form, and a name box left holding a name — or a GP3
@@ -76,20 +86,29 @@ export function LogSheetRecordView({
     if (rowId === null) {
       const header = { ...data.header, [link.nameField]: value };
       const { fills } = personFill(link, person, header);
-      if (fills.length > 0) onChange({ ...data, header: applyFills(header, fills) });
+      if (fills.length > 0) save({ ...data, header: applyFills(header, fills) });
       return;
     }
     const row = data.rows.find((r) => r.id === rowId);
     if (!row) return;
     const current = { ...row, [link.nameField]: value };
     const { fills } = personFill(link, person, current);
-    if (fills.length > 0) onChange({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
+    if (fills.length > 0) save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
   };
 
   const mode = layout.rowMode;
   const canAddRows = editable && mode.kind === "free";
   const canRemoveRows = editable && mode.kind === "free" && data.rows.length > (mode.minRows ?? 0);
   const outOfBand = data.rows.reduce((n, row) => n + layout.columns.filter((c) => isOutOfBand(c, row[c.key])).length, 0);
+  // A FORM THE PAPER PRINTS AS BOXES ALONE has no grid to draw — the Supplier
+  // Registration Form is labelled lines and prose blocks from the top of page 1
+  // to the bottom of page 3 (REQUIREMENTS §68). Drawing the empty table would
+  // put a Sr. No. column on a form that has none.
+  const hasGrid = layout.columns.length > 0;
+  // The heading rows: the columns grouped into the runs the paper draws under
+  // one spanning heading, and two rows instead of one where there is such a run.
+  const headRuns = headingRuns(layout.columns);
+  const headRows = headRuns.some((r) => r.group !== undefined) ? 2 : 1;
 
   return (
     <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined}>
@@ -158,7 +177,7 @@ export function LogSheetRecordView({
         </div>
       )}
 
-      {fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={onChange} newRowId={() => generateId("row")} />}
+      {fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
 
       {outOfBand > 0 && (
         <div className="card mt-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
@@ -169,18 +188,37 @@ export function LogSheetRecordView({
         </div>
       )}
 
+      {hasGrid && (
       <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
         <table className="compact log-sheet">
           <thead>
             <tr>
-              <th style={{ width: 44 }}>Sr. No.</th>
-              {layout.columns.map((c) => (
-                <th key={c.key} style={c.width ? { minWidth: c.width } : undefined} title={c.nominal !== undefined ? `Nominal ${c.nominal}${c.unit ? " " + c.unit : ""}; band ${c.min}–${c.max}` : undefined}>
-                  {c.label}
-                </th>
+              <th style={{ width: 44 }} rowSpan={headRows}>
+                Sr. No.
+              </th>
+              {/* A run of columns the paper draws under ONE spanning heading gets
+                  that heading here and its own headings on the row below; every
+                  other column spans both rows, as it does on the paper. */}
+              {headRuns.map((run, ri) => (
+                <React.Fragment key={run.group ?? `column-${ri}`}>
+                  {run.group === undefined ? (
+                    run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={headRows} />)
+                  ) : (
+                    <th className="col-group" colSpan={run.columns.length}>
+                      {run.group}
+                    </th>
+                  )}
+                </React.Fragment>
               ))}
-              {canRemoveRows && <th style={{ width: 36 }}></th>}
+              {canRemoveRows && <th style={{ width: 36 }} rowSpan={headRows}></th>}
             </tr>
+            {headRows === 2 && (
+              <tr>
+                {layout.columns.filter((c) => c.group !== undefined).map((c) => (
+                  <ColumnHead key={c.key} col={c} />
+                ))}
+              </tr>
+            )}
           </thead>
           <tbody>
             {data.rows.length === 0 && (
@@ -228,7 +266,8 @@ export function LogSheetRecordView({
           </tbody>
         </table>
       </div>
-      {canAddRows && (
+      )}
+      {hasGrid && canAddRows && (
         <button className="btn btn-secondary btn-sm mt-2" onClick={addRow}>
           <FiPlus size={13} /> Add Row
         </button>
@@ -267,6 +306,30 @@ export function LogSheetRecordView({
   );
 }
 
+// The columns as the grid heads them: consecutive columns carrying the same
+// `group` become one run, and every other column is a run of its own.
+function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn[] }[] {
+  const runs: { group?: string; columns: LogColumn[] }[] = [];
+  for (const col of columns) {
+    const last = runs[runs.length - 1];
+    if (last && last.group !== undefined && last.group === col.group) last.columns.push(col);
+    else runs.push({ group: col.group, columns: [col] });
+  }
+  return runs;
+}
+
+function ColumnHead({ col, rowSpan }: { col: LogColumn; rowSpan?: number }) {
+  return (
+    <th
+      style={col.width ? { minWidth: col.width } : undefined}
+      rowSpan={rowSpan}
+      title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
+    >
+      {col.label}
+    </th>
+  );
+}
+
 function HeaderFieldInput({
   field,
   issuedLabel,
@@ -289,6 +352,19 @@ function HeaderFieldInput({
   onBlur?: (v: string) => void;
 }) {
   const isName = /operator|name|inspected|person|sign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name/i.test(issuedLabel);
+  // A block of prose is its own kind of box: it takes the width of the row it
+  // sits in and grows with what is written (REQUIREMENTS §68).
+  if (field.type === "paragraph") {
+    return (
+      <div className="field field-paragraph">
+        <label>
+          {field.label}
+          {field.required ? " *" : ""}
+        </label>
+        <ParagraphInput value={value} editable={editable} onChange={onChange} />
+      </div>
+    );
+  }
   return (
     <div className="field">
       <label>
@@ -318,6 +394,31 @@ function HeaderFieldInput({
       {isName && employees.length === 0 ? null : null}
     </div>
   );
+}
+
+/**
+ * The box a form prints for a block of prose. It is never given a placeholder —
+ * a hint sitting in an empty box on a controlled record could be read as
+ * something somebody wrote — and it is sized to what it holds, so the whole
+ * block is on the paper with no scrollbar cutting it off. A record that cannot
+ * be written on shows the block as text, exactly as it was written.
+ */
+function ParagraphInput({ value, editable, onChange }: { value: string; editable: boolean; onChange: (v: string) => void }) {
+  const box = React.useRef<HTMLTextAreaElement | null>(null);
+  React.useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value, editable]);
+  if (!editable) {
+    return (
+      <p className="paragraph-text notranslate" translate="no">
+        {value}
+      </p>
+    );
+  }
+  return <textarea ref={box} className="input input-sm input-paragraph" rows={2} value={value} onChange={(e) => onChange(e.target.value)} />;
 }
 
 function CellInput({

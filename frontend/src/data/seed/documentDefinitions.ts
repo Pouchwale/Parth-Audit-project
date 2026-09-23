@@ -41,7 +41,16 @@ export const QC_SECTIONS = [
   "Registers & Records",
   "Analysis & Meetings",
 ] as const;
-export const MODULE_SECTIONS: readonly string[] = [...HR_SECTIONS, ...PEST_CONTROL_SECTIONS, ...QC_SECTIONS];
+// PURCHASE'S SUB-GROUPS, in display order (REQUIREMENTS §68). The department's
+// paperwork falls into two: what has to be done before a supplier may be used
+// at all — the registration form, the audit report, the list the approved ones
+// go onto — and what is reviewed about one afterwards, the two performance
+// monitoring registers.
+export const PURCHASE_SECTIONS = ["Supplier Approval", "Supplier Monitoring"] as const;
+// Dispatch (REQUIREMENTS §70): the agreement a transporter signs, and the check
+// made on the container and the vehicle before a load leaves the plant.
+export const DISPATCH_SECTIONS = ["Transporter Agreement", "Dispatch Inspection"] as const;
+export const MODULE_SECTIONS: readonly string[] = [...HR_SECTIONS, ...PEST_CONTROL_SECTIONS, ...QC_SECTIONS, ...PURCHASE_SECTIONS, ...DISPATCH_SECTIONS];
 
 // Every controlled document / form actually identified in the uploaded
 // source files. See REQUIREMENTS.md for full source-to-digital traceability.
@@ -1347,5 +1356,155 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     sourceFile: "F-QC-38_Statement of Compliance (SOC) - Flexible packaging Pouch & Film.docx",
     schedule: { type: "as-required" },
     isReferenceOnly: true,
+  },
+  // ---------------------------------------------------------------------
+  // Purchase — the five formats supplied on 23-Sep-2026 (REQUIREMENTS §68),
+  // in the order the department works through them: a supplier registers, is
+  // audited if the assessment calls for it, goes onto the approved list, and is
+  // then monitored — materials on one register, services on the other. Their
+  // layouts are in src/data/seed/purchaseLayouts.ts and the weighted ratings on
+  // the two registers are worked out in src/engine/purchaseRatings.ts.
+  //
+  // F/PUR/04 WAS NOT SUPPLIED: there is no definition for it and none was
+  // invented. The department owns F/PUR/06's service provider monitoring
+  // alongside the Pest Control Service Agreement, which is already Purchase's
+  // (data/seed/documentDepartments.ts). "F/PUR/xx" resolves to PUR by its
+  // prefix, so none of these five needs a line in that file.
+  // ---------------------------------------------------------------------
+  {
+    id: "pur-supplier-registration",
+    kind: "log-sheet",
+    name: "Supplier Registration Form",
+    formatNo: "F/PUR/01",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Purchase",
+    module: "Purchase",
+    section: "Supplier Approval",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The three-page form a supplier fills before it may be used: general details (type of concern, both addresses, contact person, telephone, e-mail, weekly off and working hours, company activities, number of technical and non-technical employees, year of commencement), then the prose blocks — range of products / services offered, major customers, plant machinery and other infrastructure, details of the quality control department — the ISO 9001 / ISO 22000 / HACCP / FSSC / BRCGS question, the five documents asked for with the form, and who furnished the information. The INTERNAL OFFICE USE ONLY block below it is the office's: the status of the supplier, the type of assessment, what the supplier is approved for, APPROVED or REJECTED, and the authorised person's signature. One form per supplier.",
+    sourceFile: "F-PUR-01_Supplier registration form.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "pur-supplier-audit-report",
+    kind: "log-sheet",
+    name: "Supplier Audit Report",
+    formatNo: "F/PUR/02",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Purchase",
+    module: "Purchase",
+    section: "Supplier Approval",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The nine-page report of a visit to a supplier: the supplier, the contacts, the date and number of the visit, the auditors, the scope and the product supplied, then the eight audit criteria marked Y / N / NA — a criterion may be omitted, and is then marked N/A — and the fifty-one audit points of those eight sections, from specification suitability and HACCP through the premises, personnel hygiene, infestation and foreign body control, raw materials, process control, product analysis (in-house and, if used, the external laboratory) to the storage and distribution of packed product. Then the summary of observations against each of the eight, the observations / NC table with the supplier's response and the date of closure, and the overall status: Approved or Rejected. One report per visit.",
+    sourceFile: "F-PUR-02_Supplier audit report.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "pur-approved-suppliers",
+    kind: "log-sheet",
+    name: "List of Approved Suppliers (RM, PM, Service Provider)",
+    formatNo: "F/PUR/03",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Purchase",
+    module: "Purchase",
+    section: "Supplier Approval",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The landscape list of every approved supplier and service provider, updated as on a date written at its head: the supplier's name, the product or service, whether it is a trader, a manufacturer or a service provider, the manufacturer's name where the material is procured from a trader, the contact person and number, the location, the method by which it was approved — monopoly / reputed supplier, registration form, supplier visit / audit, trial lot / sample approval, GFSI scheme certification — and the approval date. The supplied format prints seven rows; the list grows as suppliers are approved.",
+    sourceFile: "F-PUR-03_List of Approved suppliers.pdf",
+    // The format prints "UPDATION AS ON : XX - XX - XXXX" but no review
+    // period; anchored on 1 December, the date the F/PUR formats took effect,
+    // for the MR to confirm.
+    schedule: { type: "yearly", month: 11, dayOfMonth: 1 },
+  },
+  {
+    id: "pur-supplier-performance",
+    kind: "log-sheet",
+    name: "Raw Material (Label Stock, Ink, Films etc.) & Packing Materials Supplier (Paper Core, Wooden Pallets etc.) Performance Monitoring Register",
+    formatNo: "F/PUR/05",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Purchase",
+    module: "Purchase",
+    section: "Supplier Monitoring",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The landscape register that rates each raw material and packing material supplier for a period under review: the material, how many lots were received and how many were rejected, returned or infested, then the three ratings the printed criteria give — product safety (no infestation 100, infestation 0), quality (100% accept 100, accepted on segregation 50, rejected and sent back 00) and delivery (before time or under 7 days 100, 7 to 15 days late 75, over 15 days late 50). The form says of the rest \"Don't enter value in the following cell, its formula based\": the three weightages (50%, 40%, 10%), the Overall Rating and the Grade — A at 90 and above (continue), B below 90 and 80 or above (continue & improve), C below 80 (replace / improve) — are worked out here and cannot be typed. The supplied format prints eight rows.",
+    sourceFile: "F-PUR-05_RM & PM Supplier Performance Monitoring.pdf",
+    // "Period under review" is written on the sheet; the format prints no
+    // period of its own. Anchored as F/PUR/03 is, for the MR to confirm.
+    schedule: { type: "yearly", month: 11, dayOfMonth: 1 },
+  },
+  {
+    id: "pur-service-provider-performance",
+    kind: "log-sheet",
+    name: "Service Provider - Performance Monitoring Register",
+    formatNo: "F/PUR/06",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Purchase",
+    module: "Purchase",
+    section: "Supplier Monitoring",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The register that rates each service the plant buys in for a rating period: the description of the service, the provider, the delivery parameter rating and the quality & product safety parameter rating — each out of 50 — the Overall Rating, which is the two added and is worked out here rather than typed, and the status or decision the buyer records against it. The supplied format prints thirteen rows.",
+    sourceFile: "F-PUR-06_Service provider monitoring.pdf",
+    // "Rating Period :" is written on the sheet; the format prints no period of
+    // its own. Anchored as F/PUR/03 is, for the MR to confirm.
+    schedule: { type: "yearly", month: 11, dayOfMonth: 1 },
+  },
+
+  // ---------------------------------------------------------------------
+  // Dispatch — the two formats the department supplied on 23-Sep-2026
+  // (REQUIREMENTS §70). F/DISP/02 is printed in Gujarati, like the three
+  // Quality Control forms of §58, and reads in English from
+  // i18n/documentTextEn.ts when English is chosen.
+  // ---------------------------------------------------------------------
+  {
+    id: "disp-safe-transporter-agreement",
+    kind: "log-sheet",
+    name: "Safe Transporter Agreement",
+    formatNo: "F/DISP/01",
+    // The paper prints no revision block of its own — only the period it is
+    // valid for. The MR confirms the revision; the format number is the
+    // company's own, from its file name and the master list of formats.
+    revisionNo: "TO BE CONFIRMED",
+    revisionDate: "2025-04-01",
+    department: "Dispatch",
+    module: "Dispatch",
+    section: "Transporter Agreement",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The code of practice a contract transporter agrees to before it carries the plant's finished product: the standards for the vehicle and its driver, what may never be carried with the product, how a load is protected and secured, what happens if a vehicle breaks down or a seal is tampered with, and the inspection and rejection rights on arrival. It is signed by both sides — the plant's Purchase Manager and the transporter's own representative — and returned within seven days. The supplied copy runs from 01.04.2025 to 31.03.2026 and carries no commercial values.",
+    sourceFile: "F-DISP-01_Safe Transportation agreement (Finish product).pdf (the signed agreement); the company's own original is a .docx",
+    schedule: { type: "yearly", month: 3, dayOfMonth: 1 },
+  },
+  {
+    id: "disp-container-stuffing",
+    kind: "log-sheet",
+    name: "Container Stuffing & Vehicle Inspection Record — કન્ટેનર સ્ટફિંગ અને વાહન નિરીક્ષણ રેકોર્ડ",
+    formatNo: "F/DISP/02",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Dispatch",
+    module: "Dispatch",
+    section: "Dispatch Inspection",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The check made on the container and the vehicle before the plant's product is loaded into it, printed in Gujarati: the seven things to do when the container arrives, the consignment's own details — the customer, the invoice, both purchase order numbers, the driver, the transporter and the vehicle — and the nine-point checklist, each point answered હા or નાં with NA struck out, and any other observation written beside it. It is authorised by the Dispatch In charge for product release and checked and approved by QC. The paper numbers its points 1, 2, 3, 4, 6, 7, 8, 9 — there is no 5.",
+    sourceFile: "F-DISP-02_Container stuffing & Vehicle Inspection record.pdf (the blank format, both pages)",
+    schedule: { type: "as-required" },
   },
 ];

@@ -97,7 +97,7 @@ export function DepartmentsAccess() {
                   <td className="font-semibold">{d.code}</td>
                   <td>{d.name}</td>
                   <td className="text-sm text-muted">{d.formatPrefix}-…</td>
-                  <td className={owned.length ? "font-semibold" : "text-faint"}>{owned.length}</td>
+                  <td className={owned.length ? "font-semibold" : "text-faint"} data-field="documents">{owned.length}</td>
                   <td className="text-sm">
                     {owned.length === 0 ? (
                       <span className="text-faint">Nothing digitised for this department yet</span>

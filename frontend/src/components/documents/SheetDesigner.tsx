@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FiArrowDown, FiArrowLeft, FiArrowRight, FiArrowUp, FiCheckCircle, FiChevronDown, FiCopy, FiCornerUpLeft, FiCornerUpRight, FiPlus, FiSave, FiSliders, FiTrash2, FiX } from "react-icons/fi";
+import { FiAlignLeft, FiArrowDown, FiArrowLeft, FiArrowRight, FiArrowUp, FiCheckCircle, FiChevronDown, FiCopy, FiCornerUpLeft, FiCornerUpRight, FiEdit3, FiPlus, FiSave, FiSliders, FiTrash2, FiX } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSheetLayout } from "../../types";
 import { Modal } from "../common/Modal";
 import { DocumentHeader } from "./DocumentHeader";
@@ -9,9 +9,12 @@ import { nextRevisionNo, type FormatRevision } from "../../data/formatEdits";
 import { closeDesignSession, openDesignSession } from "../../engine/designSession";
 import { setLeaveGuard } from "../../store/router";
 import {
+  BOX_TYPES,
+  COLUMN_TYPES,
   FIELD_TYPE_LABELS,
   addBox,
   addColumn,
+  addInstructionLine,
   addPrintedRow,
   commitFormatChange,
   copyLabel,
@@ -20,18 +23,25 @@ import {
   duplicateBox,
   duplicateColumn,
   duplicatePrintedRow,
+  groupNames,
+  instructionsOf,
   moveBox,
   moveColumn,
+  moveInstructionLine,
   movePrintedRow,
   printedRowsOf,
   removeBox,
   removeColumn,
+  removeInstructionLine,
   removePrintedRow,
   renameBox,
   renameColumn,
   setBoxType,
+  setColumnGroup,
   setColumnRequired,
   setColumnType,
+  setGroupName,
+  setInstructionLine,
   setInstructions,
   setPrintedCell,
   type BoxArea,
@@ -43,7 +53,7 @@ import { formatDisplayDate } from "../../utils/date";
 import { useProgressiveCount } from "../../utils/useProgressive";
 
 // DESIGN A FORMAT ON THE SHEET ITSELF, THE WAY A SPREADSHEET IS EDITED
-// (REQUIREMENTS §64).
+// (REQUIREMENTS §64) — INCLUDING THE WORDS IT PRINTS (REQUIREMENTS §68).
 //
 // "Edit format" used to open a dialog of lists. A person who wants another
 // column beside Remarks should not have to find Remarks in a list: they should
@@ -57,6 +67,18 @@ import { useProgressiveCount } from "../../utils/useProgressive";
 // is read and written through; design controls threaded through it would be
 // paid for by every record on every page. The class names are the same, so the
 // two look the same.
+//
+// THE WORDS A FORM PRINTS ARE CHANGED THE SAME WAY (REQUIREMENTS §68). A
+// person who wants one printed line reworded should not have to retype the
+// block, so each line of a format's printed prose is its own control: click
+// it and type, Enter keeps and Escape leaves, with a menu beside it to add a
+// line, duplicate it, move it up or down, or take it off — each one step to
+// undo, each named for itself in the save pop-up's change list. The block as
+// a whole still opens in one piece, which is how a form's words are pasted in
+// to begin with. A box can be made a BLOCK OF PROSE (the paper's RANGE OF
+// PRODUCTS, SUMMARY OF OBSERVATIONS) from its own type menu, and the heading
+// the paper draws OVER a run of columns — "METHOD OF APPROVAL" — is named,
+// renamed and taken off on the sheet where it is printed.
 //
 // IT WORKS ON A DRAFT, with the pure operations of engine/formatOps.ts and
 // nothing else, and saves the one way a format change is saved
@@ -80,7 +102,9 @@ import { useProgressiveCount } from "../../utils/useProgressive";
 // follow the language like the rest of the app.
 
 const HISTORY_CAP = 100;
-const TYPES = Object.keys(FIELD_TYPE_LABELS) as LogFieldType[];
+
+/** What a printed line is called before anybody has said what it should say. */
+const NEW_PROSE_LINE = "New printed line";
 
 /** Undo and redo: the drafts before this one, this one, and the ones stepped back from. */
 interface DraftHistory {
@@ -90,10 +114,21 @@ interface DraftHistory {
 }
 
 /** What a menu is open on — and, for a delete, what is being deleted. */
-type ItemTarget = { kind: "column"; key: string } | { kind: "box"; area: BoxArea; key: string } | { kind: "line"; index: number };
+type ItemTarget = { kind: "column"; key: string } | { kind: "box"; area: BoxArea; key: string } | { kind: "line"; index: number } | { kind: "instruction"; index: number };
 
-/** What is being renamed in place. */
-type RenameTarget = { kind: "name" } | { kind: "instructions" } | { kind: "column"; key: string } | { kind: "box"; area: BoxArea; key: string };
+/**
+ * What is being typed over in place. "instructions" is the whole block of
+ * printed words at once; "instruction" is ONE line of it (REQUIREMENTS §68).
+ * A spanning heading is known on screen by the first column under it, and
+ * changed by its words — a heading a form prints twice is the one heading.
+ */
+type RenameTarget =
+  | { kind: "name" }
+  | { kind: "instructions" }
+  | { kind: "instruction"; index: number }
+  | { kind: "column"; key: string }
+  | { kind: "box"; area: BoxArea; key: string }
+  | { kind: "group"; key: string; said: string };
 
 type Dialog =
   | { kind: "delete"; target: ItemTarget }
@@ -103,12 +138,37 @@ type Dialog =
   | { kind: "discard"; then?: () => void }
   | { kind: "more" };
 
-const sameTarget = (a: ItemTarget, b: ItemTarget): boolean =>
-  a.kind === "line" ? b.kind === "line" && a.index === b.index : a.kind === b.kind && a.key === (b as { key: string }).key;
+const sameTarget = (a: ItemTarget, b: ItemTarget): boolean => {
+  if (a.kind !== b.kind) return false;
+  // A line has no key of its own — printed or prose, it is known by its place.
+  if (a.kind === "line" || a.kind === "instruction") return a.index === (b as { index: number }).index;
+  return a.key === (b as { key: string }).key;
+};
 
 /** The button a menu hangs from. Found again on every change, because a moved line's button is a different one. */
 const anchorSelector = (t: ItemTarget): string =>
-  t.kind === "line" ? `[data-action="line-menu"][data-line="${t.index}"]` : `[data-action="${t.kind}-menu"][data-${t.kind}="${CSS.escape(t.key)}"]`;
+  t.kind === "line"
+    ? `[data-action="line-menu"][data-line="${t.index}"]`
+    : t.kind === "instruction"
+      ? `[data-action="instruction-menu"][data-instruction="${t.index}"]`
+      : `[data-action="${t.kind}-menu"][data-${t.kind}="${CSS.escape(t.key)}"]`;
+
+/**
+ * The columns as the grid heads them: neighbours carrying the same `group`
+ * become one run under the heading the paper draws over them, and every other
+ * column is a run of its own. The record's own view works the same way
+ * (components/records/LogSheetRecordView.tsx) — the designer draws its own
+ * sheet by design, so the few lines are here rather than threaded through it.
+ */
+function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn[] }[] {
+  const runs: { group?: string; columns: LogColumn[] }[] = [];
+  for (const col of columns) {
+    const last = runs[runs.length - 1];
+    if (last && last.group !== undefined && last.group === col.group) last.columns.push(col);
+    else runs.push({ group: col.group, columns: [col] });
+  }
+  return runs;
+}
 
 const boxesOf = (layout: LogSheetLayout, area: BoxArea): LogHeaderField[] => (area === "header" ? layout.headerFields : (layout.footerFields ?? []));
 
@@ -352,6 +412,35 @@ export function SheetDesigner({
     setMenu({ kind: "line", index: index + by });
   };
 
+  // ---- the words the form prints, a line at a time (REQUIREMENTS §68) -----
+  // A line arrives with a placeholder ready to type over, the way a column
+  // does, and every one of these is one step to undo.
+
+  const insertProse = (index?: number) => {
+    const d = live.current.present;
+    if (!d.layout) return;
+    const at = index ?? instructionsOf(d.layout).length;
+    put({ ...d, layout: addInstructionLine(d.layout, at, NEW_PROSE_LINE) });
+    setMenu(null);
+    setRenaming({ kind: "instruction", index: at });
+  };
+  const copyProse = (index: number) => {
+    const d = live.current.present;
+    const line = d.layout ? instructionsOf(d.layout)[index] : undefined;
+    if (!d.layout || line === undefined) return;
+    put({ ...d, layout: addInstructionLine(d.layout, index + 1, line) });
+    setMenu(null);
+    setRenaming({ kind: "instruction", index: index + 1 });
+  };
+  const moveProse = (index: number, by: number) => {
+    putLayout((l) => moveInstructionLine(l, index, by));
+    setMenu({ kind: "instruction", index: index + by });
+  };
+  const rewordAllProse = () => {
+    setMenu(null);
+    setRenaming({ kind: "instructions" });
+  };
+
   const commitRename = (value: string) => {
     const target = renaming;
     setRenaming(null);
@@ -362,9 +451,24 @@ export function SheetDesigner({
       if ((next.instructions ?? []).join("\n") !== (d.layout.instructions ?? []).join("\n")) put({ ...d, layout: next });
       return;
     }
+    // A SPANNING HEADING RUBBED OUT IS TAKEN OFF: unlike a name, a heading over
+    // a run of columns is something a form either draws or does not, and its
+    // own columns keep their names either way.
+    if (target.kind === "group") {
+      const want = value.trim();
+      if (want === target.said) return;
+      const next = setGroupName(d.layout, target.said, want || undefined);
+      if (next !== d.layout) put({ ...d, layout: next });
+      return;
+    }
     // Nothing on a format is nameless: a name rubbed out stays what it was.
     const text = value.trim();
     if (!text) return;
+    if (target.kind === "instruction") {
+      const next = setInstructionLine(d.layout, target.index, text);
+      if (next !== d.layout) put({ ...d, layout: next });
+      return;
+    }
     if (target.kind === "name") {
       if (text !== d.name) put({ ...d, name: text });
     } else if (target.kind === "column") {
@@ -382,6 +486,7 @@ export function SheetDesigner({
     const t = dialog.target;
     if (t.kind === "column") putLayout((l) => removeColumn(l, t.key));
     else if (t.kind === "box") putLayout((l) => removeBox(l, t.area, t.key));
+    else if (t.kind === "instruction") putLayout((l) => removeInstructionLine(l, t.index));
     else putLayout((l) => removePrintedRow(l, t.index));
     setDialog(null);
   };
@@ -395,6 +500,8 @@ export function SheetDesigner({
   // ---- the menu that is open, if any --------------------------------------
 
   const columns = layout.columns;
+  const prose = instructionsOf(layout);
+  const headings = groupNames(layout);
   let menuBody: React.ReactNode = null;
   if (menu?.kind === "column") {
     const i = columns.findIndex((c) => c.key === menu.key);
@@ -423,18 +530,23 @@ export function SheetDesigner({
           <ItemSettings
             key={key}
             item={c}
+            types={COLUMN_TYPES}
             locked={locked}
             onType={(type) => putLayout((l) => setColumnType(l, key, type))}
             onChoices={(options) => putLayout((l) => setColumnType(l, key, "select", options))}
             onRequired={(required) => putLayout((l) => setColumnRequired(l, key, required))}
+            group={{ value: c.group ?? "", names: headings, onChange: (g) => putLayout((l) => setColumnGroup(l, key, g)) }}
           />
           <div className="designer-menu-rule" />
+          {/* A grid keeps at least one column (engine/formatOps.ts validateDraft)
+              — unless this format has no grid on file, in which case the column
+              was added here and can be taken off again. */}
           <MenuItem
             action="delete-column"
             icon={<FiTrash2 size={13} />}
             danger
-            disabled={columns.length === 1}
-            title={columns.length === 1 ? "A sheet needs at least one column." : undefined}
+            disabled={columns.length === 1 && (base.layout?.columns.length ?? 1) > 0}
+            title={columns.length === 1 && (base.layout?.columns.length ?? 1) > 0 ? "A sheet needs at least one column." : undefined}
             onClick={() => askDelete({ kind: "column", key })}
           >
             Delete column
@@ -470,6 +582,7 @@ export function SheetDesigner({
           <ItemSettings
             key={key}
             item={b}
+            types={BOX_TYPES}
             onType={(type) => putLayout((l) => setBoxType(l, area, key, type))}
             onChoices={(options) => putLayout((l) => setBoxType(l, area, key, "select", options))}
             onRequired={(required) => putLayout((l) => setBoxRequired(l, area, key, required))}
@@ -506,6 +619,35 @@ export function SheetDesigner({
         </MenuItem>
       </>
     );
+  } else if (menu?.kind === "instruction" && prose[menu.index] !== undefined) {
+    const index = menu.index;
+    menuBody = (
+      <>
+        <MenuItem action="insert-instruction-above" icon={<FiPlus size={13} />} onClick={() => insertProse(index)}>
+          Insert line above
+        </MenuItem>
+        <MenuItem action="insert-instruction-below" icon={<FiPlus size={13} />} onClick={() => insertProse(index + 1)}>
+          Insert line below
+        </MenuItem>
+        <MenuItem action="duplicate-instruction" icon={<FiCopy size={13} />} onClick={() => copyProse(index)}>
+          Duplicate line
+        </MenuItem>
+        <MenuItem action="move-instruction-up" icon={<FiArrowUp size={13} />} disabled={index === 0} onClick={() => moveProse(index, -1)}>
+          Move up
+        </MenuItem>
+        <MenuItem action="move-instruction-down" icon={<FiArrowDown size={13} />} disabled={index === prose.length - 1} onClick={() => moveProse(index, 1)}>
+          Move down
+        </MenuItem>
+        <div className="designer-menu-rule" />
+        <MenuItem action="reword-instructions" icon={<FiEdit3 size={13} />} onClick={rewordAllProse}>
+          Reword them all at once…
+        </MenuItem>
+        <div className="designer-menu-rule" />
+        <MenuItem action="delete-instruction" icon={<FiTrash2 size={13} />} danger onClick={() => askDelete({ kind: "instruction", index })}>
+          Delete line
+        </MenuItem>
+      </>
+    );
   }
 
   // ---- the pieces of the sheet --------------------------------------------
@@ -525,7 +667,8 @@ export function SheetDesigner({
           const isRenaming = renaming?.kind === "box" && renaming.key === f.key;
           const open = menu?.kind === "box" && menu.key === f.key;
           return (
-            <div key={f.key} className="field designer-box" data-designer-item="box" data-key={f.key} data-area={area}>
+            // A prose box takes the whole width of the row of boxes, as the paper draws it (REQUIREMENTS §68).
+            <div key={f.key} className={`field designer-box${f.type === "paragraph" ? " field-paragraph" : ""}`} data-designer-item="box" data-key={f.key} data-area={area}>
               <div className="designer-heading">
                 {isRenaming ? (
                   <RenameBox field="rename-box" label="Name of the box" initial={f.label} onCommit={commitRename} onCancel={cancelRename} />
@@ -561,8 +704,43 @@ export function SheetDesigner({
   };
 
   const nextRev = nextRevisionNo(doc.revisionNo);
-  const instructions = layout.instructions ?? [];
   const deleting = dialog?.kind === "delete" ? dialog.target : null;
+  const runs = headingRuns(columns);
+  // Two heading rows where the paper draws a heading over a run of columns, one otherwise.
+  const headRows = runs.some((r) => r.group !== undefined) ? 2 : 1;
+
+  /** One column's heading: typed over in place, with its own menu beside it. */
+  const columnHead = (c: LogColumn, rowSpan?: number) => {
+    const isRenaming = renaming?.kind === "column" && renaming.key === c.key;
+    const open = menu?.kind === "column" && menu.key === c.key;
+    return (
+      <th key={c.key} style={c.width ? { minWidth: c.width } : undefined} rowSpan={rowSpan} data-designer-item="column" data-key={c.key}>
+        <div className="designer-heading">
+          {isRenaming ? (
+            <RenameBox field="rename-column" label="Column heading" initial={c.label} onCommit={commitRename} onCancel={cancelRename} />
+          ) : (
+            <button type="button" className="designer-label notranslate" translate="no" data-action="rename-column" data-column={c.key} title="Click to rename" onClick={() => setRenaming({ kind: "column", key: c.key })}>
+              {c.label}
+              {c.required ? " *" : ""}
+            </button>
+          )}
+          <button
+            type="button"
+            className="designer-menu-button no-print"
+            data-action="column-menu"
+            data-column={c.key}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label={`What can be done to the column ${c.label}`}
+            onClick={() => toggleMenu({ kind: "column", key: c.key })}
+          >
+            <FiChevronDown size={13} />
+          </button>
+        </div>
+        <span className="designer-type no-print">{c.fixed ? "Printed on the form" : c.computed ? "Worked out" : typeHint(c)}</span>
+      </th>
+    );
+  };
 
   return (
     <div ref={root} data-section="sheet-designer" data-document={doc.id}>
@@ -581,6 +759,10 @@ export function SheetDesigner({
             + Line
           </button>
         )}
+        {/* The words the form prints above its grid — its own instructions (REQUIREMENTS §68). */}
+        <button className="btn btn-secondary btn-sm" data-action="designer-add-instruction" onClick={() => insertProse()} title="A line of printed words above the grid — what the form itself says">
+          <FiAlignLeft size={13} /> + Instruction
+        </button>
         <span className="designer-rule" />
         <button className="btn btn-ghost btn-sm" data-action="designer-undo" onClick={undo} disabled={history.past.length === 0} title="Undo (Ctrl+Z)">
           <FiCornerUpLeft size={13} /> Undo
@@ -625,9 +807,19 @@ export function SheetDesigner({
       )}
 
       <p className="text-xs text-muted mt-2 no-print">
-        This is the format, not a record. Click any name to change it; the small arrow beside {printed ? "a heading, a box or a line's number" : "a heading or a box"} opens what else can be done to it. Nothing is
-        saved until Save, and records already on file are never rewritten.
+        This is the format, not a record. Click any name — or any line of printed words — to change it; the small arrow beside{" "}
+        {printed ? "a heading, a box, a printed line or a line's number" : "a heading, a box or a printed line"} opens what else can be done to it. Nothing is saved until Save, and records already on file are
+        never rewritten.
       </p>
+
+      {/* The spanning headings this grid already draws, offered while one is being typed. */}
+      {headings.length > 0 && (
+        <datalist id="designer-group-names">
+          {headings.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+      )}
 
       <div className="designer-name mt-3 no-print" data-section="designer-name">
         <span className="text-xs text-muted">Name of the format</span>
@@ -645,19 +837,69 @@ export function SheetDesigner({
         <DocumentHeader doc={doc} title={draft.name} pageLabel="1 of 1 (digital)" />
 
         {/* A sheet with no instructions and no boxes above prints no card there (LogSheetRecordView); here the card is where they are added, so it is a control. */}
-        <div className={`card mt-4${instructions.length || layout.headerFields.length ? "" : " no-print"}`}>
+        <div className={`card mt-4${prose.length || layout.headerFields.length ? "" : " no-print"}`}>
           <div className="card-pad">
+            {/* THE WORDS THE FORM PRINTS (REQUIREMENTS §68): each line is typed
+                over where it stands, with a menu of its own to add a line, move
+                it or take it off — while the block still opens as one piece,
+                which is how a form's prose is pasted in to begin with. */}
             {renaming?.kind === "instructions" ? (
-              <RenameBox field="designer-instructions" label="Printed instructions, one per line" multiline initial={instructions.join("\n")} onCommit={commitRename} onCancel={cancelRename} />
-            ) : (
-              <button type="button" className={`designer-label designer-block notranslate${instructions.length ? "" : " no-print"}`} translate="no" data-action="rename-instructions" title="Click to reword — one instruction per line" onClick={() => setRenaming({ kind: "instructions" })}>
-                {instructions.length === 0 && <span className="text-sm text-faint">No printed instructions — click to write them, one per line.</span>}
-                {instructions.map((line, i) => (
-                  <span key={i} className={`text-sm ${i === 0 ? "font-semibold" : "text-muted"}`} style={{ display: "block", marginBottom: i < instructions.length - 1 ? 4 : 0 }}>
-                    {line}
-                  </span>
-                ))}
+              <RenameBox field="designer-instructions" label="Printed instructions, one per line" multiline initial={prose.join("\n")} onCommit={commitRename} onCancel={cancelRename} />
+            ) : prose.length === 0 ? (
+              // Nothing printed yet: one control, which writes the whole block —
+              // a form's words are pasted in, not typed a line at a time.
+              <button type="button" className="designer-label designer-block no-print" data-action="rename-instructions" title="Click to write the words the form prints, one per line" onClick={() => setRenaming({ kind: "instructions" })}>
+                <span className="text-sm text-faint">No printed instructions — click to write them, one per line.</span>
               </button>
+            ) : (
+              <div
+                className="designer-prose"
+                data-action="rename-instructions"
+                title="Click a line to reword it; click beside the lines to reword them all at once"
+                onClick={(e) => {
+                  // A click on a line, or on its arrow, is that line's own. The
+                  // block is reachable from the keyboard through any line's menu
+                  // ("Reword them all at once…"), so this is a shortcut, not the
+                  // only way in.
+                  if (!(e.target as HTMLElement).closest("button, input, textarea, select")) setRenaming({ kind: "instructions" });
+                }}
+              >
+                {prose.map((line, i) => {
+                  const isRenaming = renaming?.kind === "instruction" && renaming.index === i;
+                  const open = menu?.kind === "instruction" && menu.index === i;
+                  return (
+                    <div key={i} className="designer-prose-line" data-designer-item="instruction" data-index={i}>
+                      {isRenaming ? (
+                        <RenameBox field="rename-instruction" label={`Printed line ${i + 1}`} initial={line} onCommit={commitRename} onCancel={cancelRename} />
+                      ) : (
+                        <button
+                          type="button"
+                          className={`designer-label designer-block notranslate text-sm ${i === 0 ? "font-semibold" : "text-muted"}`}
+                          translate="no"
+                          data-action="rename-instruction"
+                          data-instruction={i}
+                          title="Click to reword this printed line"
+                          onClick={() => setRenaming({ kind: "instruction", index: i })}
+                        >
+                          {line}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="designer-menu-button no-print"
+                        data-action="instruction-menu"
+                        data-instruction={i}
+                        aria-haspopup="menu"
+                        aria-expanded={open}
+                        aria-label={`What can be done to printed line ${i + 1}`}
+                        onClick={() => toggleMenu({ kind: "instruction", index: i })}
+                      >
+                        <FiChevronDown size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
             {layout.referenceTables?.map((t) => (
               <div key={t.title} className="text-xs text-faint mt-2 no-print">
@@ -668,43 +910,60 @@ export function SheetDesigner({
           </div>
         </div>
 
+        {/* A FORM THE PAPER PRINTS AS BOXES ALONE has no grid to draw — the
+            Supplier Registration Form has none (REQUIREMENTS §68), and the
+            record's own view leaves the table out for the same reason. Drawing
+            an empty one would put a Sr. No. column on a form that never had it.
+            "+ Column" still starts a grid, which is a change like any other. */}
+        {columns.length === 0 ? (
+          <p className="text-xs text-muted mt-4 no-print" data-section="designer-no-grid">
+            This form has no grid — it is labelled boxes and printed words, as the paper is. “+ Column” would start one.
+          </p>
+        ) : (
         <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
           <table className="compact log-sheet" data-table="designer-grid">
             <thead>
               <tr>
-                <th style={{ width: printed ? 64 : 44 }}>Sr. No.</th>
-                {columns.map((c) => {
-                  const isRenaming = renaming?.kind === "column" && renaming.key === c.key;
-                  const open = menu?.kind === "column" && menu.key === c.key;
-                  return (
-                    <th key={c.key} style={c.width ? { minWidth: c.width } : undefined} data-designer-item="column" data-key={c.key}>
-                      <div className="designer-heading">
-                        {isRenaming ? (
-                          <RenameBox field="rename-column" label="Column heading" initial={c.label} onCommit={commitRename} onCancel={cancelRename} />
-                        ) : (
-                          <button type="button" className="designer-label notranslate" translate="no" data-action="rename-column" data-column={c.key} title="Click to rename" onClick={() => setRenaming({ kind: "column", key: c.key })}>
-                            {c.label}
-                            {c.required ? " *" : ""}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="designer-menu-button no-print"
-                          data-action="column-menu"
-                          data-column={c.key}
-                          aria-haspopup="menu"
-                          aria-expanded={open}
-                          aria-label={`What can be done to the column ${c.label}`}
-                          onClick={() => toggleMenu({ kind: "column", key: c.key })}
-                        >
-                          <FiChevronDown size={13} />
-                        </button>
-                      </div>
-                      <span className="designer-type no-print">{c.fixed ? "Printed on the form" : c.computed ? "Worked out" : typeHint(c)}</span>
-                    </th>
-                  );
-                })}
+                <th style={{ width: printed ? 64 : 44 }} rowSpan={headRows}>
+                  Sr. No.
+                </th>
+                {/* A run of columns the paper draws under ONE spanning heading
+                    gets that heading here — typed over like any other name, and
+                    rubbed out to take it off — and its own headings on the row
+                    below; every other column spans both rows (REQUIREMENTS §68). */}
+                {runs.map((run, ri) => (
+                  <React.Fragment key={run.group === undefined ? `column-${ri}` : `group-${ri}-${run.group}`}>
+                    {run.group === undefined
+                      ? run.columns.map((c) => columnHead(c, headRows))
+                      : (() => {
+                          const first = run.columns[0];
+                          const isRenaming = renaming?.kind === "group" && renaming.key === first.key;
+                          return (
+                            <th className="col-group" colSpan={run.columns.length} data-designer-item="group" data-key={first.key}>
+                              <div className="designer-heading">
+                                {isRenaming ? (
+                                  <RenameBox field="rename-group" label="Heading over these columns — leave it empty to take it off" initial={run.group ?? ""} onCommit={commitRename} onCancel={cancelRename} />
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="designer-label notranslate"
+                                    translate="no"
+                                    data-action="rename-group"
+                                    data-group={run.group}
+                                    title="Click to rename this spanning heading; leave it empty to take it off"
+                                    onClick={() => setRenaming({ kind: "group", key: first.key, said: run.group ?? "" })}
+                                  >
+                                    {run.group}
+                                  </button>
+                                )}
+                              </div>
+                            </th>
+                          );
+                        })()}
+                  </React.Fragment>
+                ))}
               </tr>
+              {headRows === 2 && <tr>{columns.filter((c) => c.group !== undefined).map((c) => columnHead(c))}</tr>}
             </thead>
             <tbody>
               {printed ? (
@@ -746,7 +1005,8 @@ export function SheetDesigner({
             </tbody>
           </table>
         </div>
-        {!printed && (
+        )}
+        {!printed && columns.length > 0 && (
           <p className="text-xs text-muted mt-2 no-print" data-section="designer-lines-note">
             The lines of this sheet are written on each record, so there is nothing of the format&apos;s to design there — the two above only show where they go.
           </p>
@@ -765,7 +1025,9 @@ export function SheetDesigner({
 
       {deleting && (
         <Modal
-          title={deleting.kind === "column" ? "Delete this column?" : deleting.kind === "box" ? "Delete this box?" : "Delete this printed line?"}
+          title={
+            deleting.kind === "column" ? "Delete this column?" : deleting.kind === "box" ? "Delete this box?" : deleting.kind === "instruction" ? "Delete this line of printed text?" : "Delete this printed line?"
+          }
           onClose={() => setDialog(null)}
           width={480}
           footer={
@@ -781,16 +1043,19 @@ export function SheetDesigner({
         >
           <div data-section="designer-confirm" data-kind={deleting.kind}>
             <p className="text-sm mb-2">
-              {deleting.kind === "line" ? `Line ${deleting.index + 1} ` : deleting.kind === "column" ? "The column " : "The box "}
+              {deleting.kind === "line" ? `Line ${deleting.index + 1} ` : deleting.kind === "instruction" ? `Printed line ${deleting.index + 1}, ` : deleting.kind === "column" ? "The column " : "The box "}
               <strong className="notranslate" translate="no">
                 “{deletedName(layout, deleting)}”
-              </strong>{" "}
-              comes off the format.
+              </strong>
+              {deleting.kind === "instruction" ? ", is no longer printed on the form." : " comes off the format."}
             </p>
             <p className="text-sm text-muted mb-2">
               {deleting.kind === "line"
                 ? "Records already on file keep the lines they were started with; a record started from now on is printed without this one."
-                : `Records already on file keep what was written in this ${deleting.kind}; it is simply no longer drawn.`}
+                : deleting.kind === "instruction"
+                  ? // These words are the FORMAT's, not a record's: nothing anybody wrote is touched, and every record — old or new — is printed without this line from now on.
+                    "Nothing anybody has written is touched: these words belong to the format, not to a record, so every record of it is printed without this line from now on."
+                  : `Records already on file keep what was written in this ${deleting.kind}; it is simply no longer drawn.`}
             </p>
             <p className="text-xs text-faint">Nothing is final until the format is saved — Undo puts it back.</p>
           </div>
@@ -909,6 +1174,11 @@ function typeHint(item: LogHeaderField | LogColumn): string {
 function deletedName(layout: LogSheetLayout, target: ItemTarget): string {
   if (target.kind === "column") return layout.columns.find((c) => c.key === target.key)?.label ?? "";
   if (target.kind === "box") return boxesOf(layout, target.area).find((b) => b.key === target.key)?.label ?? "";
+  // A printed line is its own words; a paragraph of them is named, not repeated.
+  if (target.kind === "instruction") {
+    const line = instructionsOf(layout)[target.index] ?? "";
+    return line.length > 90 ? `${line.slice(0, 87)}…` : line;
+  }
   const row = printedRowsOf(layout)?.[target.index] ?? {};
   const first = layout.columns.find((c) => c.fixed && String(row[c.key] ?? "").trim() !== "");
   return first ? String(row[first.key]).split("\n")[0] : "a blank line";
@@ -1097,27 +1367,33 @@ function MenuItem({ action, icon, danger, disabled, title, onClick, children }: 
   );
 }
 
-/** Type, the choices of a Choice, and Required — the same three for a column and for a box. */
+/** Type, the choices of a Choice, and Required — the same three for a column and for a box; a column also has the heading drawn over it. */
 function ItemSettings({
   item,
+  types,
   locked,
   onType,
   onChoices,
   onRequired,
+  group,
 }: {
   item: LogHeaderField | LogColumn;
+  /** What this one may be: every type for a box, all but Paragraph for a column (engine/formatOps.ts). */
+  types: LogFieldType[];
   /** Why this one's type and "required" cannot change — a printed or worked-out column — when they cannot. */
   locked?: string;
   onType: (type: LogFieldType) => void;
   onChoices: (options: string[]) => void;
   onRequired: (required: boolean) => void;
+  /** A column only: the spanning heading it sits under, and the ones the grid already draws. */
+  group?: { value: string; names: string[]; onChange: (group: string) => void };
 }) {
   return (
     <div className="designer-menu-fields">
       <label className="designer-menu-field">
         <span>Type</span>
         <select className="input input-sm" data-field="item-type" value={item.type} disabled={!!locked} onChange={(e) => onType(e.target.value as LogFieldType)}>
-          {TYPES.map((t) => (
+          {types.map((t) => (
             <option key={t} value={t}>
               {FIELD_TYPE_LABELS[t]}
             </option>
@@ -1125,11 +1401,56 @@ function ItemSettings({
         </select>
       </label>
       {item.type === "select" && !locked && <ChoicesBox options={item.options ?? []} onCommit={onChoices} />}
+      {item.type === "paragraph" && <div className="text-xs text-faint">A block of prose, as wide as the row it sits in — the paper's own RANGE OF PRODUCTS or SUMMARY OF OBSERVATIONS box.</div>}
       <label className="designer-menu-check">
         <input type="checkbox" data-field="item-required" checked={!!item.required} disabled={!!locked} onChange={(e) => onRequired(e.target.checked)} /> Required
       </label>
+      {/* A printed or worked-out column still sits under whatever heading the paper draws over it, so this is offered even when the rest is locked. */}
+      {group && <GroupBox group={group.value} names={group.names} onCommit={group.onChange} />}
       {locked && <div className="text-xs text-faint">{locked}</div>}
     </div>
+  );
+}
+
+/**
+ * THE HEADING THE PAPER DRAWS OVER THIS COLUMN AND ITS NEIGHBOURS
+ * (REQUIREMENTS §68) — "METHOD OF APPROVAL" over the List of Approved
+ * Suppliers' five tick columns. Kept when the box is left, on Enter, and when
+ * the menu closes under it, the same as the choices of a Choice. Emptied, the
+ * column comes out of the heading. Columns under one heading are drawn as one
+ * run where they sit side by side; given to a column away from them, the form
+ * prints the heading twice, which is what the sheet then shows.
+ */
+function GroupBox({ group, names, onCommit }: { group: string; names: string[]; onCommit: (group: string) => void }) {
+  const [text, setText] = useState(group);
+  const latest = useRef({ text, kept: group, onCommit });
+  latest.current.text = text;
+  latest.current.onCommit = onCommit;
+  const keep = useCallback(() => {
+    const now = latest.current;
+    const value = now.text.trim();
+    if (value === now.kept.trim()) return;
+    now.kept = value;
+    now.onCommit(value);
+  }, []);
+  useEffect(() => keep, [keep]);
+  return (
+    <label className="designer-menu-field">
+      <span>Heading over this column{names.length > 0 ? " (and its neighbours)" : ""}</span>
+      <input
+        className="input input-sm notranslate"
+        translate="no"
+        data-field="item-group"
+        list={names.length > 0 ? "designer-group-names" : undefined}
+        value={text}
+        placeholder="None — e.g. METHOD OF APPROVAL"
+        onChange={(e) => setText(e.target.value)}
+        onBlur={keep}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") keep();
+        }}
+      />
+    </label>
   );
 }
 
@@ -1181,14 +1502,34 @@ function DesignerMenu({ root, selector, watch, onClose, children }: { root: Reac
   const box = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState<{ left: number; top: number } | null>(null);
 
+  // Which button the menu was last hung from, so that a menu which FOLLOWED
+  // something can be told from one whose button was scrolled away (§70).
+  const hungFrom = useRef<string | null>(null);
+
   // Under its button; above it when there is no room below; never off the side of the screen.
   const place = useCallback(() => {
     const anchor = root.current?.querySelector(selector);
     const el = box.current;
     if (!anchor || !el) return onClose();
-    const a = anchor.getBoundingClientRect();
-    // Scrolled off the screen, the button has nothing for a menu to hang from.
-    if (a.bottom < 0 || a.top > window.innerHeight || a.right < 0 || a.left > window.innerWidth) return onClose();
+    let a = anchor.getBoundingClientRect();
+    const offScreen = () => a.bottom < 0 || a.top > window.innerHeight || a.right < 0 || a.left > window.innerWidth;
+    if (offScreen()) {
+      // A MENU THAT FOLLOWED ITS ITEM IS NOT A MENU THAT WAS SCROLLED AWAY
+      // FROM. Moving a line near the foot of a long sheet takes its button off
+      // the bottom of the screen; closing the menu then would read as the menu
+      // losing the line, and the line cannot be moved again without finding it.
+      // So a menu that has just changed button brings that button into view;
+      // one whose own button scrolled away is closed, as before.
+      if (hungFrom.current !== null && hungFrom.current !== selector) {
+        anchor.scrollIntoView({ block: "nearest", inline: "nearest" });
+        a = anchor.getBoundingClientRect();
+      }
+      if (offScreen()) {
+        hungFrom.current = null;
+        return onClose();
+      }
+    }
+    hungFrom.current = selector;
     const m = el.getBoundingClientRect();
     const left = Math.max(8, Math.min(a.left, window.innerWidth - m.width - 8));
     const below = a.bottom + 4;

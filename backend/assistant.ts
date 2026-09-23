@@ -238,7 +238,8 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
 - /library/{moduleSlug} — Document Library filtered to one module. moduleSlug is the module name,
   lowercased, non-letters/digits turned into single hyphens: "human-resources" (the Human Resources module — HR's
   sixteen F/HR formats and the pest control file), "lamination-quality-control",
-  "lamination-production", "quality-control-inspection-records", "quality-compliance"
+  "lamination-production", "purchase" (the Purchase module — the five F/PUR supplier and service-provider formats),
+  "quality-control-inspection-records", "quality-compliance"
 - /files/{scope}/{from}/{to} — Document Files: every record filed by module → document → month, for EXACTLY the
   dates from..to (ISO YYYY-MM-DD). scope is "all", a moduleSlug (as above), "pest-control" (the pest control
   file — the shelf of the Human Resources module holding the daily monitoring record, the fly catcher register,
@@ -258,7 +259,10 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   qc-line-clearance-sleeve-gluing, qc-line-clearance-sleeve-cutting, qc-line-clearance-materials,
   qc-line-clearance-quality, qc-calibration-master-list, qc-coa-label, qc-coa-sleeve, qc-coa-corrugated,
   qc-obsolete-artwork, qc-printing-aids-destruction, qc-camera-challenge-test, qc-tolerance-card-nivea,
-  qc-analysis-report, qc-utility-test-report, qc-minutes-of-meetings). Use it whenever the user asks for the documents / records /
+  qc-analysis-report, qc-utility-test-report, qc-minutes-of-meetings, pur-supplier-registration,
+  pur-supplier-audit-report, pur-approved-suppliers, pur-supplier-performance,
+  pur-service-provider-performance, disp-safe-transporter-agreement, disp-container-stuffing).
+  Use it whenever the user asks for the documents / records /
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
   NOT the calendar, which would show the whole month.
@@ -275,7 +279,12 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   department, designation/position, date of birth) that the HR formats fetch a person from. Use it for "HR master
   data", "employee master", "GP3 numbers" — NOT /master-data, which is the administrator's reference data
 - /document/{documentId} — any other log sheet's own page (lamination QC / production, the QC inspection
-  records), e.g. /document/qc-viscosity — open a document there, not on the calendar
+  records, the Purchase module's five formats), e.g. /document/qc-viscosity — open a document there, not on the
+  calendar. Purchase has no overview screen of its own, so its formats are opened here: pur-supplier-registration
+  (F/PUR/01 Supplier Registration Form), pur-supplier-audit-report (F/PUR/02 Supplier Audit Report),
+  pur-approved-suppliers (F/PUR/03 List of Approved Suppliers), pur-supplier-performance (F/PUR/05 the raw material
+  and packing material suppliers' performance monitoring register) and pur-service-provider-performance (F/PUR/06
+  the service providers'); for "the purchase documents" as a whole use /library/purchase
 - /calendar — this month's Record Calendar
 - /calendar/{year}/{month0} — Record Calendar for a specific month. month0 is 0-based (January=0 ... December=11)
 - /day/{YYYY-MM-DD} — everything due on one specific date
@@ -420,7 +429,9 @@ export async function runAssistant({
     ].join(" "),
     [
       "SCOPE — the rule you must never break. You help ONLY with this system: its records, documents and formats, its",
-      "modules (Human Resources — its HR formats and the pest control file — CAPA, Lamination QC & Production, QC",
+      "modules (Human Resources — its HR formats and the pest control file — CAPA, Lamination QC & Production,",
+      "Purchase — supplier registration, supplier audits, the approved supplier list and the two performance",
+      "monitoring registers — QC",
       "Inspection, Compliance), the calendar and company",
       "holidays, reports, master data, and filling in / submitting / verifying / finding those records.",
       "Anything else — general knowledge, news, sport, weather, maths, jokes, poems or any creative writing, recipes,",

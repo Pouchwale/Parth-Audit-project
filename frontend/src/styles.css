@@ -654,6 +654,18 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 textarea.input { resize: vertical; min-height: 60px; }
 .input-sm { padding: 5px 8px; font-size: 12.5px; }
 
+/* A box the form prints for a BLOCK OF PROSE — the Supplier Registration
+   Form's RANGE OF PRODUCTS / SERVICES OFFERED, the Supplier Audit Report's
+   COMMENTS and its SUMMARY OF OBSERVATIONS (REQUIREMENTS §68). It takes the
+   whole width of the row of boxes it sits in, because that is how the paper
+   draws it, and its height follows what is written (LogSheetRecordView sets it)
+   so the whole block is on the printout with nothing scrolled out of sight. */
+.field-paragraph { grid-column: 1 / -1; }
+textarea.input.input-paragraph { resize: none; overflow: hidden; min-height: 44px; line-height: 1.45; }
+/* The same block on a record that cannot be written on: the words, kept as
+   they were typed, line breaks and all. */
+.paragraph-text { margin: 0; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; min-height: 19px; }
+
 /* ---- Tables ---- */
 /* overflow-x:auto (not "hidden") so a table wider than its card scrolls
    internally instead of silently clipping/truncating its own content — the
@@ -671,6 +683,11 @@ textarea.input { resize: vertical; min-height: 60px; }
 /* A module's documents shelved by section (Document Library): the section's name on a row of its own. */
 .doc-table tr.doc-section-row td, .doc-table tr.doc-section-row:hover td { background: var(--color-surface-alt); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); padding: 6px 10px; }
 .doc-table.compact td, .doc-table.compact th { padding: 6px 8px; }
+/* A heading the paper draws ACROSS several columns — the List of Approved
+   Suppliers' "METHOD OF APPROVAL" over its five tick columns (REQUIREMENTS
+   §68). It sits centred over the columns it spans, with its own headings
+   beneath it on a second row. */
+.doc-table th.col-group { text-align: center; border-left: 1px solid var(--color-border); border-right: 1px solid var(--color-border); }
 
 /* ---- Original-style document header block ---- */
 .doc-header { border: 1.5px solid #2c3e50; border-radius: 2px; overflow: hidden; background: #fff; }
@@ -1106,6 +1123,25 @@ body { top: 0 !important; }
   .score-card { box-shadow: none; break-inside: avoid; }
   .score-cards { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---- The words a form prints, edited where they stand (REQUIREMENTS §68) ---- */
+/* components/documents/SheetDesigner.tsx. A format's printed prose — its own
+   instructions, the notes above its grid — is changed LINE BY LINE the way a
+   column heading is: every line is a control that reads exactly as the line it
+   will print, with its own arrow beside it; the block as a whole is still one
+   click away, which is how a form's words are pasted in to begin with. Every
+   control here is .no-print, so the sheet prints as the document alone. */
+.designer-prose { display: block; cursor: text; }
+.designer-prose-line { display: flex; align-items: flex-start; gap: 2px; }
+.designer-prose-line + .designer-prose-line { margin-top: 4px; }
+/* The line's own words take the width; the arrow keeps its place at the end. */
+.designer-prose-line > .designer-label, .designer-prose-line > .designer-rename { flex: 1 1 auto; min-width: 0; }
+.designer-prose-line > .designer-rename { font-size: 12.5px; }
+/* The heading a form draws OVER a run of columns, typed over in place: centred
+   above the columns it spans, as .doc-table th.col-group draws it. */
+.doc-table th.col-group .designer-heading { justify-content: center; }
+/* A prose box among the boxes: the sample shows the shape of the block, not a line. */
+.designer-box.field-paragraph .designer-sample { min-height: 44px; }
 
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,

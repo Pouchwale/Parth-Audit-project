@@ -5,25 +5,31 @@ import {
   FIELD_TYPE_LABELS,
   addBox,
   addColumn,
+  addInstructionLine,
   addPrintedRow,
   copyLabel,
   describeFormatChange,
   duplicateBox,
   duplicateColumn,
   duplicatePrintedRow,
+  groupNames,
+  instructionsOf,
   moveBox,
   moveColumn,
   movePrintedRow,
   printedRowsOf,
   removeBox,
   removeColumn,
+  removeInstructionLine,
   removePrintedRow,
   renameBox,
   renameColumn,
   setBoxType,
+  setColumnGroup,
   setColumnRequired,
   setColumnType,
-  setInstructions,
+  setGroupName,
+  setInstructionLine,
   setPrintedCell,
   type BoxArea,
   type FormatDraft,
@@ -34,7 +40,10 @@ import {
 //
 // "add a column Batch No. after Remarks", "delete the box Serial No", "rename
 // the line Special ink to Special inks", "make Result a choice of Pass, Fail",
-// "move Batch No. to the left" — typed or spoken to Mitra. Everything here is
+// "move Batch No. to the left" — and, since §68, the WORDS A FORM PRINTS and
+// the heading drawn over a run of columns: "reword the printed line X to Y",
+// "add a printed line X", "delete the printed line X", "make Remarks a prose
+// box", "put Registration form under the heading METHOD OF APPROVAL" — typed or spoken to Mitra. Everything here is
 // read with no network and no model: a sentence either reads as a change to
 // the format or it does not, and one that does is turned into a draft with the
 // SAME operations the designer and the Edit format dialog use
@@ -68,6 +77,9 @@ export interface TargetRef {
 
 export type Place = { rel: "after" | "before"; ref: TargetRef } | { rel: "start" | "end" };
 
+/** Which of the lines the form PRINTS above its grid: its place, or the words on it. */
+export type InstructionRef = { index: number | "last" } | { said: string };
+
 export type FormatCommand =
   | {
       kind: "add";
@@ -93,7 +105,12 @@ export type FormatCommand =
   | { kind: "type"; target: TargetRef; type: LogFieldType; options?: string[] }
   | { kind: "renameFormat"; name: string }
   | { kind: "addInstruction"; text: string }
-  | { kind: "removeInstruction"; index: number | "last" };
+  | { kind: "removeInstruction"; ref: InstructionRef }
+  | { kind: "rewordInstruction"; ref: InstructionRef; to: string }
+  /** One column put under the heading the paper draws over a run of them, or taken out of it. */
+  | { kind: "group"; target: TargetRef; group?: string }
+  /** The spanning heading itself: reworded, or taken off every column under it. */
+  | { kind: "renameGroup"; said: string; to?: string };
 
 export type FormatCommandResult =
   // `plan` is the change still to be made ("add the column …"), `what` the same once made ("added the column …").
@@ -147,7 +164,11 @@ const NOUN = "(?:(?:header|footer|top|bottom)\\s+)?(?:box|boxes|fields?)|columns
 const NOUN_GRID = "(?:(?:header|footer|top|bottom)\\s+)?(?:box|boxes|fields?)|columns?|cols?|headings?";
 const ORDINAL = "first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last|final|\\d{1,3}(?:st|nd|rd|th)";
 const ARTICLES = "(?:(?:the|a|an|one|another|new|extra|this|that)\\s+)*";
-const TYPE = "text|words|numbers?|numeric|figure|date|time|yes\\s*/\\s*no|yes[- ]no|yes\\s+or\\s+no|yesno|tick|checkbox|choices?|select|selection|drop[- ]?down|list|options?";
+// A block of prose is said many ways and never just "text" — that is the
+// one-line box. The longest readings come first, so "text area" is not read as
+// "text" (REQUIREMENTS §68).
+const TYPE =
+  "paragraphs?|prose\\s+(?:box|block)|prose|para|text\\s*area|long\\s+text|multi[- ]?line|text|words|numbers?|numeric|figure|date|time|yes\\s*/\\s*no|yes[- ]no|yes\\s+or\\s+no|yesno|tick|checkbox|choices?|select|selection|drop[- ]?down|list|options?";
 const ADD = "add|insert|create|put\\s+in|put|make|append|include|new|give\\s+me|i\\s+want|i\\s+need|we\\s+need";
 const DELETE = "delete|remove|drop|erase|scrap|strike\\s+(?:off|out)|get\\s+rid\\s+of|take\\s+(?:off|out|away)";
 const MOVE = "move|shift|bring|put|send|push|slide|place";
@@ -163,6 +184,7 @@ function nounOf(word: string): { noun: FormatNoun; area?: BoxArea; loose?: boole
 
 function typeOf(word: string): LogFieldType {
   const w = word.toLowerCase();
+  if (/^(?:para|prose|multi)|area|long\s+text/.test(w)) return "paragraph";
   if (/^num|figure/.test(w)) return "number";
   if (w === "date") return "date";
   if (w === "time") return "time";
@@ -381,14 +403,94 @@ function placeFrom(raw: RawPlace | undefined, noun: FormatNoun, r: Reading): { p
   return { place: { rel: raw.rel } };
 }
 
+// THE WORDS THE FORM PRINTS, SAID IN WORDS (REQUIREMENTS §68). "reword the
+// printed line X to Y", "add a printed line X", "delete the printed line X" —
+// the prose a format prints above its grid, which the app has always called
+// its printed instructions.
+//
+// "PRINTED LINE" IS TAKEN AS THE PROSE ONLY WHERE THE FORM DOES NOT PRINT ITS
+// OWN LINES DOWN THE SHEET. On an inspection record "delete the printed line
+// 3" has meant a line of the grid since §64, and it still does; there the
+// prose is reached by the word the dialog uses — "instruction". Everywhere
+// else nothing else answers to "printed line", so it is the printed words.
+const PROSE_NOUN = "(?:printed\\s+)?instructions?|instruction\\s+lines?|printed\\s+(?:text|words|prose|sentences?)";
+const proseNoun = (r: Reading): string => (r.layout?.rowMode.kind === "fixedRows" ? PROSE_NOUN : `${PROSE_NOUN}|printed\\s+lines?`);
+
+const REWORD = "reword|rewrite|rename|relabel|retitle|change|correct|edit|fix|amend";
+
 function readInstruction(s: string, r: Reading): FormatCommand | null {
+  const noun = proseNoun(r);
   // Not "give me instructions" or "I need instructions on …" — those ask Mitra for help, not the form for a new line.
-  let m = s.match(new RegExp(`^(?:add|insert|append|include|write|print|put(?:\\s+in)?)\\s+${ARTICLES}(?:printed\\s+)?instructions?\\s*(?:[:\\-–—]|saying|that\\s+says|which\\s+says|reading)?\\s*(.+)$`, "i"));
+  let m = s.match(new RegExp(`^(?:add|insert|append|include|write|print|put(?:\\s+in)?)\\s+${ARTICLES}(?:${noun})\\s*(?:[:\\-–—]|saying|that\\s+says|which\\s+says|reading)?\\s*(.+)$`, "i"));
   if (m && r.unq(m[1])) return { kind: "addInstruction", text: r.unq(m[1]) };
-  m = s.match(new RegExp(`^(?:${DELETE})\\s+(?:the\\s+)?(?:printed\\s+)?instructions?\\s*(?:no\\.?\\s*|number\\s+|#\\s*)?(\\d{1,2})$`, "i"));
-  if (m) return { kind: "removeInstruction", index: Number(m[1]) - 1 };
-  m = s.match(new RegExp(`^(?:${DELETE})\\s+(?:the\\s+)?(${ORDINAL})\\s+(?:printed\\s+)?instructions?$`, "i"));
-  if (m) return { kind: "removeInstruction", index: ordinalOf(m[1]) };
+  // Its place first — "instruction 2", "the last printed line" — then its own words.
+  m = s.match(new RegExp(`^(?:${DELETE})\\s+(?:the\\s+)?(?:${noun})\\s*(?:no\\.?\\s*|number\\s+|#\\s*)?(\\d{1,2})$`, "i"));
+  if (m) return { kind: "removeInstruction", ref: { index: Number(m[1]) - 1 } };
+  m = s.match(new RegExp(`^(?:${DELETE})\\s+(?:the\\s+)?(${ORDINAL})\\s+(?:${noun})$`, "i"));
+  if (m) return { kind: "removeInstruction", ref: { index: ordinalOf(m[1]) } };
+  m = s.match(new RegExp(`^(?:${DELETE})\\s+(?:the\\s+)?(?:${noun})\\s+(?:saying\\s+|that\\s+says\\s+|reading\\s+)?(.+)$`, "i"));
+  if (m && r.unq(m[1])) return { kind: "removeInstruction", ref: { said: r.unq(m[1]) } };
+  m = s.match(new RegExp(`^(?:${REWORD})\\s+(?:the\\s+)?(?:${noun})\\s*(?:no\\.?\\s*|number\\s+|#\\s*)?(\\d{1,2})\\s+(?:to|as|into|->|=>|→)\\s+(.+)$`, "i"));
+  if (m && r.unq(m[2])) return { kind: "rewordInstruction", ref: { index: Number(m[1]) - 1 }, to: r.unq(m[2]) };
+  m = s.match(new RegExp(`^(?:${REWORD})\\s+(?:the\\s+)?(${ORDINAL})\\s+(?:${noun})\\s+(?:to|as|into|->|=>|→)\\s+(.+)$`, "i"));
+  if (m && r.unq(m[2])) return { kind: "rewordInstruction", ref: { index: ordinalOf(m[1]) }, to: r.unq(m[2]) };
+  m = s.match(new RegExp(`^(?:${REWORD})\\s+(?:the\\s+)?(?:${noun})\\s+(.+?)\\s+(?:to|as|into|->|=>|→)\\s+(.+)$`, "i"));
+  if (m && r.unq(m[1]) && r.unq(m[2])) return { kind: "rewordInstruction", ref: { said: r.unq(m[1]) }, to: r.unq(m[2]) };
+  return null;
+}
+
+// THE SPANNING HEADING, SAID IN WORDS (REQUIREMENTS §68). "put Registration
+// form under Method of approval", "take GFSI out of the heading", "rename the
+// spanning heading Method of approval to Basis of approval".
+//
+// "under" already means "after" everywhere else on a sheet (peelPlace), and
+// "heading" is what this app calls a COLUMN's own name — so a sentence is read
+// as a spanning heading only when it says so outright, or when the words after
+// "under" are a spanning heading the sheet already draws. Otherwise it is left
+// to be read as a move or a rename, as before.
+const SPAN = "(?:spanning|common|group|top|shared|joint)\\s+(?:heading|title|header)|heading\\s+(?:over|above|across)|group|span";
+
+function readGroup(s: string, r: Reading): FormatCommand | null {
+  const names = r.layout ? groupNames(r.layout) : [];
+  const isGroup = (said: string): boolean => findByLabel(names, (n) => [n], said).length > 0;
+
+  let m = s.match(new RegExp(`^(?:rename|reword|retitle|relabel|change|correct)\\s+(?:the\\s+)?(?:${SPAN})\\s+(.+?)\\s+(?:to|as|into|->|=>|→)\\s+(.+)$`, "i"));
+  if (m && r.unq(m[2])) return { kind: "renameGroup", said: r.unq(m[1]), to: r.unq(m[2]) };
+  // "rename the heading METHOD OF APPROVAL to …" — the word "heading" alone is
+  // a column's, so this is the format's spanning one only when it names one.
+  m = s.match(new RegExp(`^(?:rename|reword|retitle|relabel)\\s+(?:the\\s+)?headings?\\s+(.+?)\\s+(?:to|as|into|->|=>|→)\\s+(.+)$`, "i"));
+  if (m && r.unq(m[2]) && isGroup(r.unq(m[1]))) return { kind: "renameGroup", said: r.unq(m[1]), to: r.unq(m[2]) };
+
+  m = s.match(new RegExp(`^(?:${DELETE})\\s+(?:the\\s+)?(?:${SPAN})\\s+(.+)$`, "i"));
+  if (m && r.unq(m[1])) return { kind: "renameGroup", said: r.unq(m[1]) };
+  m = s.match(new RegExp(`^take\\s+(?:the\\s+)?(?:${SPAN})\\s+(.+?)\\s+(?:off|out|away)$`, "i"));
+  if (m && r.unq(m[1])) return { kind: "renameGroup", said: r.unq(m[1]) };
+
+  // One column out of whatever heading it is under. Its name need not be said.
+  m = s.match(new RegExp(`^(?:take|move|pull|lift)\\s+(.+?)\\s+out\\s+of\\s+(?:the\\s+|its\\s+)?(?:${SPAN}|headings?)(?:\\s+.+)?$`, "i"));
+  if (m) {
+    const target = readTarget(m[1], r, "column");
+    return target ? { kind: "group", target } : null;
+  }
+  m = s.match(new RegExp(`^(?:${DELETE})\\s+(?:the\\s+)?(?:${SPAN}|headings?)\\s+(?:over|above|from|of)\\s+(.+)$`, "i"));
+  if (m) {
+    const target = readTarget(m[1], r, "column");
+    return target ? { kind: "group", target } : null;
+  }
+
+  // One column put under a heading — named as one, or already drawn as one.
+  m = s.match(new RegExp(`^(?:${MOVE}|group)\\s+(.+?)\\s+(?:under|below|beneath|underneath|into|in|within|inside|to)\\s+(?:the\\s+)?(?:${SPAN}|headings?)\\s+(.+)$`, "i"));
+  if (!m) {
+    const loose = s.match(new RegExp(`^(?:${MOVE}|group)\\s+(.+?)\\s+(?:under|below|beneath|underneath|into|within|inside)\\s+(.+)$`, "i"));
+    if (loose && isGroup(r.unq(loose[2]))) m = loose;
+  }
+  if (m) {
+    const group = r.unq(m[2]);
+    const target = readTarget(m[1], r, "column");
+    // The heading a sheet already draws is matched by its own words, so its capitals are the paper's.
+    const known = r.layout ? findByLabel(groupNames(r.layout), (n) => [n], group) : [];
+    return target && group ? { kind: "group", target, group: known.length === 1 ? known[0] : group } : null;
+  }
   return null;
 }
 
@@ -582,7 +684,20 @@ export function parseFormatCommand(text: string, layout: LogSheetLayout | undefi
       .replace(/\s+/g, " ")
       .trim();
   const r: Reading = { layout, unq };
-  return readInstruction(s, r) ?? readFormatName(s, r) ?? readRequired(s, r) ?? readType(s, r) ?? readDuplicate(s, r) ?? readMove(s, r) ?? readRename(s, r) ?? readRemove(s, r) ?? readAdd(s, r);
+  return (
+    readInstruction(s, r) ??
+    readFormatName(s, r) ??
+    readRequired(s, r) ??
+    readType(s, r) ??
+    readDuplicate(s, r) ??
+    // Before the move: "put X under Y" is a move everywhere except where Y is
+    // the heading drawn over a run of columns.
+    readGroup(s, r) ??
+    readMove(s, r) ??
+    readRename(s, r) ??
+    readRemove(s, r) ??
+    readAdd(s, r)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -599,7 +714,19 @@ function refWords(ref: TargetRef): string {
 
 const placeWords = (place: Place): string => ("ref" in place ? `${place.rel} ${refWords(place.ref)}` : place.rel === "start" ? "at the start" : "at the end");
 
-const TYPE_WORDS: Record<LogFieldType, string> = { text: "text", number: "number", date: "date", time: "time", yesno: "yes/no", select: "choice" };
+const TYPE_WORDS: Record<LogFieldType, string> = { text: "text", number: "number", date: "date", time: "time", yesno: "yes/no", select: "choice", paragraph: "paragraph" };
+
+/** A printed line can be a paragraph long; a sentence names it, it does not carry the whole of it. */
+const shortLine = (text: string): string => (text.length > 70 ? `${text.slice(0, 67)}…` : text);
+
+/**
+ * Which printed line, in words Mitra can read back. Always "instruction",
+ * never "printed line": on a form that prints its own lines down the sheet
+ * "printed line" is one of THOSE, and a chip must mean the same thing when it
+ * is tapped as it did when it was offered.
+ */
+const instructionWords = (ref: InstructionRef): string =>
+  "said" in ref ? `the instruction ${quote(ref.said)}` : ref.index === "last" ? "the last instruction" : `instruction ${ref.index + 1}`;
 
 export function sentenceFor(cmd: FormatCommand): string {
   switch (cmd.kind) {
@@ -629,7 +756,13 @@ export function sentenceFor(cmd: FormatCommand): string {
     case "addInstruction":
       return `add the instruction: ${cmd.text}`;
     case "removeInstruction":
-      return cmd.index === "last" ? "remove the last instruction" : `remove instruction ${cmd.index + 1}`;
+      return `remove ${instructionWords(cmd.ref)}`;
+    case "rewordInstruction":
+      return `reword ${instructionWords(cmd.ref)} to ${quote(cmd.to)}`;
+    case "group":
+      return cmd.group ? `put ${refWords(cmd.target)} under the spanning heading ${quote(cmd.group)}` : `take ${refWords(cmd.target)} out of its spanning heading`;
+    case "renameGroup":
+      return cmd.to ? `rename the spanning heading ${quote(cmd.said)} to ${quote(cmd.to)}` : `delete the spanning heading ${quote(cmd.said)}`;
   }
 }
 
@@ -637,11 +770,18 @@ export function sentenceFor(cmd: FormatCommand): string {
 // making the change
 
 type Failure = Extract<FormatCommandResult, { ok: false }>;
-type Verb = "add" | "remove" | "rename" | "copy" | "move" | "make";
-const DONE: Record<Verb, string> = { add: "added", remove: "removed", rename: "renamed", copy: "copied", move: "moved", make: "made" };
+type Verb = "add" | "remove" | "rename" | "copy" | "move" | "make" | "reword" | "put" | "take";
+const DONE: Record<Verb, string> = { add: "added", remove: "removed", rename: "renamed", copy: "copied", move: "moved", make: "made", reword: "reworded", put: "put", take: "took" };
 
 const refuse = (ask: string): Failure => ({ ok: false, ask, refused: true });
-const isFailure = (x: Thing | Failure): x is Failure => "ok" in x;
+function isFailure<T extends object>(x: T | Failure): x is Failure {
+  return "ok" in x;
+}
+
+// A grid cell is one line; the paper draws a block of prose the width of the
+// page, so a paragraph belongs among the boxes and never in the grid (§68).
+const PROSE_IS_NOT_A_COLUMN =
+  "A cell of the grid is one line, so a column cannot be a prose box — the paper draws a block of prose the width of the page. Add a box above or below the grid and make that one a prose box instead.";
 
 /** The sheet being changed, and how it is spoken of: the labels it shows read in `lang` (a Gujarati form's English reading, REQUIREMENTS §58). */
 interface Sheet {
@@ -698,6 +838,31 @@ function sheetOf(layout: LogSheetLayout, lang: Language): Sheet {
     };
   };
   return { layout, shown, words, pick };
+}
+
+/**
+ * The one printed line `ref` names — by its place, or by the words on it.
+ * MORE THAN ONE MATCH IS ASKED ABOUT, never guessed, the same as a column or a
+ * box: the lines that answered come back as numbered sentences to tap.
+ */
+function pickInstruction(a: Sheet, ref: InstructionRef, again: (ref: InstructionRef) => FormatCommand): { index: number; line: string } | Failure {
+  const lines = instructionsOf(a.layout);
+  const listed = (some: { line: string; index: number }[]): string => some.slice(0, 6).map((l) => `${l.index + 1} ${a.shown(shortLine(l.line))}`).join("; ");
+  if (lines.length === 0) return refuse("This form prints no words above its grid, so there is no printed line to change. One is written on the sheet with Edit format.");
+  if ("index" in ref) {
+    const at = ref.index === "last" ? lines.length - 1 : ref.index;
+    if (lines[at] === undefined) return refuse(`This form prints ${lines.length} line${lines.length === 1 ? "" : "s"} above its grid, so there is no line ${at + 1}.`);
+    return { index: at, line: lines[at] };
+  }
+  const numbered = lines.map((line, index) => ({ line, index }));
+  const hits = findByLabel(numbered, (l) => [l.line], ref.said);
+  if (hits.length === 1) return { index: hits[0].index, line: hits[0].line };
+  if (hits.length === 0) return { ok: false, ask: `I can't find a printed line saying “${ref.said}” on this form. It prints: ${listed(numbered)}. Which one do you mean?` };
+  return {
+    ok: false,
+    ask: `${hits.length} of the printed lines answer to “${ref.said}”: ${listed(hits)}. Which one do you mean?`,
+    choices: hits.slice(0, 6).map((h) => sentenceFor(again({ index: h.index }))),
+  };
 }
 
 function placeIndex(a: Sheet, place: Place | undefined, noun: FormatNoun, again: (ref: TargetRef) => FormatCommand, area?: BoxArea): { thing?: Thing; rel?: Place["rel"] } | Failure {
@@ -764,6 +929,7 @@ function applyAdd(a: Sheet, cmd: Extract<FormatCommand, { kind: "add" }>, finish
   }
 
   const what = cmd.noun === "column" ? "column" : "box";
+  if (cmd.noun === "column" && cmd.type === "paragraph") return refuse(PROSE_IS_NOT_A_COLUMN);
   if (!cmd.label) return { ok: false, ask: `What shall I call the new ${what}? Say it in one go — for example: add a ${what} "Batch No."${cmd.noun === "column" ? " after Remarks" : ""}.` };
   if (cmd.type === "select" && !cmd.options?.length) {
     return {
@@ -911,6 +1077,7 @@ export function applyFormatCommand(draft: FormatDraft, cmd: FormatCommand, lang:
       const thing = a.pick(cmd.target, (target) => ({ ...cmd, target }));
       if (isFailure(thing)) return thing;
       if (thing.noun === "line") return refuse("A printed line has no type — its columns do.");
+      if (thing.noun === "column" && cmd.type === "paragraph") return refuse(PROSE_IS_NOT_A_COLUMN);
       if (thing.noun === "column" && (thing.item.fixed || thing.item.computed)) return refuse(`${a.words(thing)} is ${thing.item.computed ? "worked out by the sheet" : "printed on the form"}, so its type stays as it is.`);
       if (cmd.type === "select" && !cmd.options?.length && !thing.item.options?.length) {
         return {
@@ -924,13 +1091,48 @@ export function applyFormatCommand(draft: FormatDraft, cmd: FormatCommand, lang:
       return finish("make", `${a.words(thing)} a ${FIELD_TYPE_LABELS[cmd.type]} ${thing.noun}${choices}`, next);
     }
     case "addInstruction":
-      return finish("add", `the printed instruction “${cmd.text}”`, setInstructions(layout, [...(layout.instructions ?? []), cmd.text]));
+      return finish("add", `the printed instruction “${shortLine(cmd.text)}”`, addInstructionLine(layout, undefined, cmd.text));
     case "removeInstruction": {
-      const lines = layout.instructions ?? [];
-      const at = cmd.index === "last" ? lines.length - 1 : cmd.index;
-      if (!lines[at]) return refuse(lines.length ? `This form prints ${lines.length} instruction${lines.length === 1 ? "" : "s"}, so there is no instruction ${at + 1}.` : "This form prints no instructions.");
-      const shown = documentTextIn(lines[at], lang);
-      return finish("remove", `printed instruction ${at + 1} (“${shown.length > 80 ? `${shown.slice(0, 77)}…` : shown}”)`, setInstructions(layout, lines.filter((_, i) => i !== at)));
+      const at = pickInstruction(a, cmd.ref, (ref) => ({ ...cmd, ref }));
+      if (isFailure(at)) return at;
+      return finish("remove", `printed instruction ${at.index + 1} (“${shortLine(documentTextIn(at.line, lang))}”)`, removeInstructionLine(layout, at.index));
+    }
+    case "rewordInstruction": {
+      const at = pickInstruction(a, cmd.ref, (ref) => ({ ...cmd, ref }));
+      if (isFailure(at)) return at;
+      if (at.line === cmd.to) return refuse(`Printed instruction ${at.index + 1} already says “${shortLine(cmd.to)}”.`);
+      return finish("reword", `printed instruction ${at.index + 1} from “${shortLine(documentTextIn(at.line, lang))}” to “${shortLine(cmd.to)}”`, setInstructionLine(layout, at.index, cmd.to));
+    }
+    case "group": {
+      // Said of a box it means nothing: a spanning heading is drawn over columns.
+      const thing = a.pick(cmd.target.noun ? cmd.target : { ...cmd.target, noun: "column" }, (target) => ({ ...cmd, target }));
+      if (isFailure(thing)) return thing;
+      if (thing.noun !== "column") return refuse(`A spanning heading is drawn over the COLUMNS of the grid, and ${a.words(thing)} is not one.`);
+      const was = thing.item.group;
+      if (!cmd.group) {
+        if (!was) return refuse(`${a.words(thing)} is not under a spanning heading.`);
+        return finish("take", `${a.words(thing)} out of the spanning heading “${was}”`, setColumnGroup(layout, thing.key, undefined));
+      }
+      if (was === cmd.group) return refuse(`${a.words(thing)} is already under the spanning heading “${cmd.group}”.`);
+      return finish("put", `${a.words(thing)} under the spanning heading “${cmd.group}”`, setColumnGroup(layout, thing.key, cmd.group));
+    }
+    case "renameGroup": {
+      const names = groupNames(layout);
+      if (names.length === 0) return refuse("This grid draws no heading over a run of its columns, so there is none to change. A column is put under one by saying so — for example: put “Registration form” under the heading “METHOD OF APPROVAL”.");
+      const hits = findByLabel(names, (n) => [n], cmd.said);
+      if (hits.length === 0) return { ok: false, ask: `I can't find a spanning heading called “${cmd.said}” on this grid. It draws ${names.map((n) => a.shown(n)).join(", ")}. Which one do you mean?` };
+      if (hits.length > 1) {
+        return {
+          ok: false,
+          ask: `${hits.length} spanning headings answer to “${cmd.said}”: ${hits.map((n) => a.shown(n)).join(", ")}. Which one do you mean?`,
+          choices: hits.slice(0, 6).map((n) => sentenceFor({ ...cmd, said: n })),
+        };
+      }
+      const from = hits[0];
+      const under = layout.columns.filter((c) => c.group === from).length;
+      if (!cmd.to) return finish("take", `the spanning heading “${from}” off ${under === 1 ? "its column" : `all ${under} of its columns`}`, setGroupName(layout, from));
+      if (cmd.to === from) return refuse(`The spanning heading is already called “${from}”.`);
+      return finish("rename", `the spanning heading “${from}” to “${cmd.to}”`, setGroupName(layout, from, cmd.to));
     }
   }
 }

@@ -15,7 +15,7 @@ import { measureWorkingCopy } from "../data/storageAdapter";
 import { ensureDemoRecordsGeneratedForYear } from "../data/demoGenerator";
 import { openCorrectiveActionsCount, refreshGapFindingStatuses, moduleSummaries, rodentsInMonth } from "../data/selectors";
 import { masterRepository } from "../data/repositories/masterRepository";
-import { dayInfo, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG } from "../engine/holidays";
+import { dayInfo } from "../engine/holidays";
 import { useT } from "../i18n";
 import { todayISO, formatDisplayDate, MONTH_NAMES } from "../utils/date";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -122,7 +122,6 @@ export function DashboardPage() {
   const liveStartDate = settingsRepository.get().liveStartDate;
   const master = masterRepository.get();
   const todayInfo = dayInfo(today, master);
-  const nextHolidays = upcomingHolidays(today, master, 2, 120);
 
   return (
     <div className={isDemo ? "demo-watermark" : ""}>
@@ -137,15 +136,12 @@ export function DashboardPage() {
               </span>
             )}
           </p>
-          {nextHolidays.length > 0 && (
-            <p className="text-xs text-faint mt-1">
-              {t("dash.nextOnLeaveCalendar")}{" "}
-              {nextHolidays
-                .map((h) => `${h.kind === "adjustment" ? t("dash.adjustmentWorkingDay") : h.name} ${formatDisplayDate(h.date)} (${h.weekday.slice(0, 3)})`)
-                .join(" · ")}{" "}
-              · {t("dash.weeklyOffEvery")} {WEEKDAY_LONG[weeklyOffDay(master)]}
-            </p>
-          )}
+          {/* WHAT IS COMING ON THE LEAVE CALENDAR IS NOT DASHBOARD NEWS (REQUIREMENTS §69).
+              Two festival dates a month away and "weekly off every Thursday" sat under the
+              date every day, above the work — and the Record Calendar is where a person
+              looks for them, which is one tap away. The badge beside today's date still
+              says when TODAY is a holiday or the weekly off, because that changes what is
+              due today. */}
         </div>
         <div className="flex items-center gap-3 wrap" style={{ justifyContent: "flex-end" }}>
           {/* The language choice lives in the top bar, reachable from every screen. */}

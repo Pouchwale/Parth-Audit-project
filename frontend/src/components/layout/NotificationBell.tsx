@@ -4,6 +4,8 @@ import { useAppStore } from "../../store/AppStore";
 import { todayISO } from "../../utils/date";
 import { computeReminders, ensureNearTermRecordsGenerated } from "../../engine/reminders";
 import { ReminderList } from "../common/ReminderList";
+import { documentRepository } from "../../data/repositories/documentRepository";
+import { priorityOf, PRIORITY_ORDER, type Priority } from "../../engine/notifications";
 import { openBriefing } from "../common/AssistantBriefingPopup";
 
 // Reminders only ever track Live records, regardless of which mode (Live /
@@ -36,6 +38,25 @@ export function NotificationBell() {
   const urgentCount = reminders.filter((r) => r.urgency !== "upcoming").length;
   const shown = useMemo(() => reminders.slice(0, MAX_SHOWN), [reminders]);
 
+  // HIGHEST FIRST, AND SAID WHY (REQUIREMENTS §69). A list of twenty documents
+  // in date order tells a person nothing about what to do first. These are the
+  // same reminders, grouped by what the document's own FREQUENCY makes of its
+  // due date: a daily sheet due today cannot be made up tomorrow, a yearly
+  // review due today can. No extra walk — the reminders are already here.
+  const byPriority = useMemo(() => {
+    const groups = new Map<Priority, typeof shown>();
+    for (const r of shown) {
+      const doc = documentRepository.getById(r.documentId);
+      if (!doc) continue;
+      const p = priorityOf(doc.schedule, r.daysUntilDue);
+      const list = groups.get(p);
+      if (list) list.push(r);
+      else groups.set(p, [r]);
+    }
+    return groups;
+  }, [shown]);
+  const highCount = byPriority.get("high")?.length ?? 0;
+
   useEffect(() => {
     if (!open) return;
     const onClickOutside = (e: MouseEvent) => {
@@ -66,7 +87,7 @@ export function NotificationBell() {
               fontSize: 10,
               lineHeight: "15px",
               textAlign: "center",
-              background: urgentCount > 0 ? "var(--color-danger)" : "var(--color-neutral)",
+              background: highCount > 0 ? "var(--color-danger)" : urgentCount > 0 ? "var(--color-warning)" : "var(--color-neutral)",
               color: "#fff",
               borderRadius: 999,
             }}
@@ -96,7 +117,22 @@ export function NotificationBell() {
                 <FiX size={14} />
               </button>
             </div>
-            <ReminderList reminders={shown} onNavigate={() => setOpen(false)} />
+            {PRIORITY_ORDER.map((p) => {
+              const list = byPriority.get(p);
+              if (!list || list.length === 0) return null;
+              return (
+                <div key={p} className="mb-2" data-priority={p} data-count={list.length}>
+                  <div
+                    className="text-xs font-semibold mb-1"
+                    style={{ color: p === "high" ? "var(--color-danger)" : p === "medium" ? "var(--color-warning)" : "var(--color-text-muted)" }}
+                  >
+                    {p === "high" ? "High priority" : p === "medium" ? "Medium" : "Low"} ({list.length})
+                  </div>
+                  <ReminderList reminders={list} onNavigate={() => setOpen(false)} />
+                </div>
+              );
+            })}
+            {shown.length === 0 && <ReminderList reminders={shown} onNavigate={() => setOpen(false)} />}
             {reminders.length > MAX_SHOWN && (
               <button
                 className="btn btn-secondary btn-sm mt-2 w-full"

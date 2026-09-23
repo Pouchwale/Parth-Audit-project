@@ -40,7 +40,16 @@ export const SEED_MASTER_DATA: MasterData = {
     { id: "emp-ajay", name: "Ajay Vaghela", role: "Staff — pest control awareness trainee", department: "TO BE CONFIRMED", active: true },
     { id: "emp-meet", name: "Meet Patel", role: "Staff — pest control awareness trainee", department: "TO BE CONFIRMED", active: true },
     { id: "emp-harsh", name: "Harsh Parmar", role: "Staff — pest control awareness trainee", department: "TO BE CONFIRMED", active: true },
-    { id: "emp-chirag", name: "Chirag Parmar", role: "Staff — pest control awareness trainee", department: "TO BE CONFIRMED", active: true },
+    // WHO ANSWERS FOR THE PURCHASE FORMATS (REQUIREMENTS §68). Not a new
+    // person: this line was written from the Dec-2025 training certificate,
+    // which says only that he attended, and the company's own papers already
+    // on file say what he does — F/HR/01 puts "Chirag Parmar" in Purchase as
+    // Purchase Manager (joined 13.07.2022, no leaving date), F/HR/13 writes it
+    // "Manager -Purchase", and the pest control agreement and the
+    // responsibilities document are both signed "Chirag Parmar (Manager,
+    // Purchase)". So the line is completed from them rather than left TO BE
+    // CONFIRMED, and the five F/PUR formats have their own manager to name.
+    { id: "emp-chirag", name: "Chirag Parmar", role: "Manager – Purchase (Purchase Manager on F/HR/01; also a pest control awareness trainee, Dec-2025)", department: "Purchase", active: true },
     { id: "emp-mukesh", name: "Mukesh Patel", role: "Staff — pest control awareness trainee", department: "TO BE CONFIRMED", active: true },
   ],
 
@@ -262,6 +271,23 @@ export const SEED_MASTER_DATA: MasterData = {
     "hr-psc-survey": "PSTL",
     "hr-psc-survey-analysis": "PSTL",
     "hr-hygiene-report": "HR & Admin",
+    // Purchase — the five F/PUR formats supplied on 23-Sep-2026 (REQUIREMENTS
+    // §68). All five are the buyer's: it is Purchase that sends the
+    // registration form out, goes on the audit visit, keeps the approved
+    // supplier list and marks the suppliers and service providers half-yearly.
+    // "Purchase" matches the Manager – Purchase in the employee list above,
+    // who is the only person on it whose role names the department.
+    "pur-supplier-registration": "Purchase",
+    "pur-supplier-audit-report": "Purchase",
+    "pur-approved-suppliers": "Purchase",
+    "pur-supplier-performance": "Purchase",
+    "pur-service-provider-performance": "Purchase",
+    // Dispatch (REQUIREMENTS §70). The container check is the Dispatch In
+    // charge's — the paper's own product-release authorisation says so — and
+    // the transporter agreement is signed by Purchase, as the company's own
+    // signed copy shows ("Chirag Parmar, Purchase Manager").
+    "disp-container-stuffing": "Dispatch",
+    "disp-safe-transporter-agreement": "Purchase",
   },
 
   // "Gujarat Print Pack Leave Calendar 2026" (WhatsApp Image 2026-08-11 at

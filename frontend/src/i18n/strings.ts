@@ -151,6 +151,9 @@ const en = {
   "module.Lamination — Production": "Lamination — Production",
   "module.Quality Control — Inspection Records": "Quality Control — Inspection Records",
   "module.Quality — Compliance": "Quality — Compliance",
+  // The department's own name on the company's Master List of Formats &
+  // Records (F/SYS/02) — the F/PUR formats (REQUIREMENTS §68).
+  "module.Purchase": "Purchase",
 
   // ---- navigation --------------------------------------------------------
   "nav.dashboard": "Dashboard",
@@ -236,6 +239,23 @@ const en = {
   "nav.laminationQcDocs": "Lamination QC Documents",
   "nav.laminationProductionDocs": "Lamination Production Documents",
   "nav.inspectionRecordDocs": "Inspection Record Documents",
+  // Purchase — the two things the department's paperwork divides into
+  // (REQUIREMENTS §68): how a supplier gets onto the approved list, and how it
+  // is marked once it is on it.
+  "nav.purSupplierApproval": "Supplier Approval",
+  "nav.purSupplierMonitoring": "Supplier Monitoring",
+  "nav.purSupplierRegistration": "Supplier Registration Form",
+  "nav.purSupplierAudit": "Supplier Audit Report",
+  "nav.purApprovedSuppliers": "List of Approved Suppliers",
+  "nav.purRmPmPerformance": "RM & PM Supplier Performance",
+  "nav.purServiceProvider": "Service Provider Performance",
+  "nav.purchaseDocs": "Purchase Documents",
+  // Dispatch (REQUIREMENTS §70).
+  "nav.dispatchDocs": "Dispatch Documents",
+  "nav.dispTransporterAgreement": "Transporter Agreement",
+  "nav.dispInspection": "Dispatch Inspection",
+  "nav.dispSafeTransporter": "Safe Transporter Agreement",
+  "nav.dispContainerStuffing": "Container Stuffing & Vehicle Inspection",
   "nav.statementsOfCompliance": "Statements of Compliance",
   // The company name alone — the modules are in the panel underneath (REQUIREMENTS §65).
   "nav.brandSubtitle": "Gujarat Printpack Publication Pvt. Ltd.",
@@ -643,6 +663,7 @@ const gu: Record<StringKey, string> = {
   "module.Lamination — Production": "લેમિનેશન — ઉત્પાદન",
   "module.Quality Control — Inspection Records": "ગુણવત્તા નિયંત્રણ — નિરીક્ષણ રેકોર્ડ",
   "module.Quality — Compliance": "ગુણવત્તા — અનુપાલન",
+  "module.Purchase": "ખરીદી",
 
   // ---- navigation --------------------------------------------------------
   "nav.dashboard": "ડેશબોર્ડ",
@@ -727,6 +748,19 @@ const gu: Record<StringKey, string> = {
   "nav.laminationQcDocs": "લેમિનેશન QC દસ્તાવેજો",
   "nav.laminationProductionDocs": "લેમિનેશન ઉત્પાદન દસ્તાવેજો",
   "nav.inspectionRecordDocs": "નિરીક્ષણ રેકોર્ડ દસ્તાવેજો",
+  "nav.purSupplierApproval": "સપ્લાયર મંજૂરી",
+  "nav.purSupplierMonitoring": "સપ્લાયર નિરીક્ષણ",
+  "nav.purSupplierRegistration": "સપ્લાયર નોંધણી ફોર્મ",
+  "nav.purSupplierAudit": "સપ્લાયર ઓડિટ રિપોર્ટ",
+  "nav.purApprovedSuppliers": "મંજૂર સપ્લાયરની યાદી",
+  "nav.purRmPmPerformance": "RM અને PM સપ્લાયર કામગીરી",
+  "nav.purServiceProvider": "સેવા પ્રદાતા કામગીરી",
+  "nav.purchaseDocs": "ખરીદી દસ્તાવેજો",
+  "nav.dispatchDocs": "ડિસ્પેચ દસ્તાવેજો",
+  "nav.dispTransporterAgreement": "ટ્રાન્સપોર્ટર કરાર",
+  "nav.dispInspection": "ડિસ્પેચ નિરીક્ષણ",
+  "nav.dispSafeTransporter": "સેફ ટ્રાન્સપોર્ટર કરાર",
+  "nav.dispContainerStuffing": "કન્ટેનર સ્ટફિંગ અને વાહન નિરીક્ષણ",
   "nav.statementsOfCompliance": "અનુપાલન નિવેદનો",
   "nav.brandSubtitle": "ગુજરાત પ્રિન્ટપેક પબ્લિકેશન પ્રા. લિ.",
   "nav.foot": "તબક્કો ૧ પ્રોટોટાઇપ · ડેટા ફક્ત આ ઉપકરણ પર",

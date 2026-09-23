@@ -168,4 +168,52 @@ export const DOCUMENT_TEXT_EN: Record<string, string> = {
   "માસ્ટર – સેડ": "Master – Shade",
   "માસ્ટર – સ્પોટસ": "Master – Spots",
   "Photographed Gujarati ક્વોલીટી શહી form, blank (supplied 18-Sep-2026) — no format number printed": "Photographed Gujarati Quality Sign form, blank (supplied 18-Sep-2026) — no format number printed",
+  // ── F/DISP/02 — Container Stuffing & Vehicle Inspection Record, the fourth
+  //    form the plant issues in Gujarati (REQUIREMENTS §70). Its name, the
+  //    seven things to do when a container arrives, the consignment's own
+  //    boxes, the nine-point checklist, the two answers and the two
+  //    authorisations. The plant's own English, keeping every obligation as
+  //    the paper has it — including the checklist's own numbering, which runs
+  //    1, 2, 3, 4, 6, 7, 8, 9 with no 5.
+  "Container Stuffing & Vehicle Inspection Record — કન્ટેનર સ્ટફિંગ અને વાહન નિરીક્ષણ રેકોર્ડ": "Container Stuffing & Vehicle Inspection Record",
+
+  "1. તેના આગમન પર કન્ટેનર ખોલો.": "1. Open the container on its arrival.",
+  "2. જુઓ કે તે કોઈપણ પ્રકારના દૃશ્યમાન સંકટથી મુક્ત છે (દા.ત. - ગંદકી, ધૂળ, અગાઉના શિપમેન્ટના રાસાયણિક અવશેષો, પક્ષીઓની છી, ખાદ્ય ચીજો, કોઈપણ વાંધાજનક વસ્તુઓ વગેરે). જો કોઈ નુકસાન/સફાઈ ન કરી શકાય તેવી સ્થિતિ મળી આવે, તો કન્ટેનર પરત કરો. ત્યાં કોઈ વાંધાજનક ગંધ હોવી જોઈએ નહીં": "2. See that it is free of any kind of visible hazard (e.g. - dirt, dust, chemical residues of a previous shipment, bird droppings, food items, any objectionable things and so on). If any damage, or a condition that cannot be cleaned, is found, return the container. There must be no objectionable smell",
+  "3. જો જરૂરી હોય તો કન્ટેનર સાફ કરો.": "3. Clean the container if necessary.",
+  "4. જો લોડિંગ તરત જ શરૂ ન થાય તો કન્ટેનર લોડિંગ સમયે જ બંધ અને ખોલવું જોઈએ.": "4. If loading does not begin at once, the container should be closed and opened only at the time of loading.",
+  "5. કન્ટેનરનો ફ્લોર સુધ અને સ્વચ્છ ફેબ્રિકથી ઢંકાયેલો હોવો જોઈએ, માત્ર ગાંસડીના કિસ્સામાં.": "5. The container's floor should be covered with sound and clean fabric, in the case of bales only.",
+  "6. લોડિંગ સમર્પિત કેનોપી હેઠળ થવું જોઈએ.": "6. Loading should take place under a dedicated canopy.",
+  "7. લોડ થઈ જાય પછી કન્ટેનર તરત જ બંધ કરવું જોઈએ.": "7. Once the load is in, the container should be closed at once.",
+
+  "તારીખ": "Date",
+  "ગ્રાહકનું નામ": "Customer's name",
+  "ઇન્વોઇસ નં.": "Invoice No.",
+  "આંતરિક પીઓ નંબર": "Internal PO number",
+  "ડ્રાઈવરનું નામ": "Driver's name",
+  "ગ્રાહક પીઓ નંબર": "Customer PO number",
+  "ટ્રાન્સપોર્ટરનું નામ": "Transporter's name",
+  "વાહન નં.": "Vehicle No.",
+
+  "ક્રમ નં.": "Sr. No.",
+  "ચેકલિસ્ટ": "Checklist",
+  "પાલન (NA સ્ટ્રાઈક આઉટ)": "Compliance (strike NA out)",
+  "જો કોઈ અન્ય અવલોકનો હોય": "If there are any other observations",
+  "હા": "Yes",
+  "નાં": "No",
+
+  "શું કન્ટેનર દૂષણથી મુક્ત છે અને અમારા ઉત્પાદનના પરિવહન માટે યોગ્ય છે?": "Is the container free of contamination and fit for the transport of our product?",
+  "શું કન્ટેનર આંતરિક સપાટી પર કોઈપણ ખાડા, છિદ્રો, લીક અથવા નખથી મુક્ત છે?": "Is the container free of any dents, holes, leaks or nails on the inner surface?",
+  "શું કન્ટેનર દૂષિતતા, ઘનીકરણ, ઝેરી પદાર્થો અથવા જંતુઓથી મુક્ત છે?": "Is the container free of contamination, condensation, toxic substances or insects?",
+  "શું કન્ટેનર અપ્રિય / તીવ્ર ગંધથી મુક્ત છે?": "Is the container free of an unpleasant / strong smell?",
+  "ફેબ્રિકથી ઢંકાયેલો ફ્લોર": "Floor covered with fabric",
+  "લાકડાના પેલેટની સ્થિતિ યોગ્ય અને કોઈ નુકસાન નથી": "The wooden pallets are in a fit condition and there is no damage",
+  "ગાંસડી/પેલેટ્સ પર માર્કિંગ ઉપલબ્ધ છે": "Marking is available on the bales / pallets",
+  "બધા દસ્તાવેજો (લાયસન્સ, પીયુસી, વીમો અને નોંધણી જગ્યાએ?": "All the documents (licence, PUC, insurance and registration in place?",
+
+  "(ડિસ્પેચ ઇન્ચાર્જ) પ્રોડક્ટ રિલીઝ ઓથોરાઇઝેશન — નામ": "(Dispatch In charge) Product release authorisation — Name",
+  "(ડિસ્પેચ ઇન્ચાર્જ) પ્રોડક્ટ રિલીઝ ઓથોરાઇઝેશન — હોદ્દો": "(Dispatch In charge) Product release authorisation — Designation",
+  "(ડિસ્પેચ ઇન્ચાર્જ) પ્રોડક્ટ રિલીઝ ઓથોરાઇઝેશન — સાઇન": "(Dispatch In charge) Product release authorisation — Sign",
+  "(QC) દ્વારા ચેક અને મંજૂર — નામ": "Checked and approved by (QC) — Name",
+  "(QC) દ્વારા ચેક અને મંજૂર — હોદ્દો": "Checked and approved by (QC) — Designation",
+  "(QC) દ્વારા ચેક અને મંજૂર — સાઇન": "Checked and approved by (QC) — Sign",
 };

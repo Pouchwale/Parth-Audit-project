@@ -26,7 +26,8 @@ import type { Language } from "./strings";
 // the grade chart beside them.
 
 /** The formats the department issues in Gujarati (REQUIREMENTS §57). */
-export const GUJARATI_DOCUMENT_IDS: readonly string[] = ["qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality"];
+// Dispatch's container check is the fourth form the plant issues in Gujarati (REQUIREMENTS §70).
+export const GUJARATI_DOCUMENT_IDS: readonly string[] = ["qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality", "disp-container-stuffing"];
 
 export const isGujaratiDocument = (documentId: string): boolean => GUJARATI_DOCUMENT_IDS.includes(documentId);
 

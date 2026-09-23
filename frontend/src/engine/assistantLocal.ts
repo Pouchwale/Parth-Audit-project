@@ -293,6 +293,66 @@ const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "hr-psc-survey", aliases: ["product safety culture survey", "culture survey", "psc survey", "safety culture", "f/hr/20"] },
   { id: "hr-psc-survey-analysis", aliases: ["culture survey analysis", "survey analysis", "psc analysis", "f/hr/21"] },
   { id: "hr-hygiene-report", aliases: ["hygiene inspection", "hygiene report", "personal hygiene", "sanitation", "hygiene", "frisking", "f/hr/22"] },
+  // Purchase — the five formats supplied on 23-Sep-2026 (REQUIREMENTS §68).
+  // Every one is also found by its format number, which needs no alias
+  // (engine/formatNumbers.ts) — these are the words the department says
+  // instead. "supplier performance" is the material suppliers' register and
+  // "service provider monitoring" the service providers', because those are
+  // the two the papers are headed with; a message that says only "performance"
+  // is the Performance Scorecard's word and is left to it.
+  {
+    id: "pur-supplier-registration",
+    aliases: ["supplier registration form", "supplier registration", "registration form", "register a supplier", "new supplier form", "f/pur/01"],
+  },
+  { id: "pur-supplier-audit-report", aliases: ["supplier audit report", "supplier audit", "audit report", "audit a supplier", "f/pur/02"] },
+  {
+    id: "pur-approved-suppliers",
+    aliases: ["list of approved suppliers", "approved suppliers list", "approved suppliers", "approved supplier list", "supplier list", "f/pur/03"],
+  },
+  // Dispatch (REQUIREMENTS §70): the agreement a transporter signs, and the
+  // check on the container before a load goes. "container" and "vehicle
+  // inspection" are the words the paper is headed with.
+  {
+    id: "disp-safe-transporter-agreement",
+    aliases: ["safe transporter agreement", "transporter agreement", "safe transportation agreement", "transport agreement", "transporter code of practice", "f/disp/01"],
+  },
+  {
+    id: "disp-container-stuffing",
+    aliases: [
+      "container stuffing",
+      "container stuffing record",
+      "vehicle inspection record",
+      "vehicle inspection",
+      "container inspection",
+      "container and vehicle inspection",
+      "stuffing record",
+      "f/disp/02",
+    ],
+  },
+  {
+    id: "pur-supplier-performance",
+    aliases: [
+      "supplier performance monitoring",
+      "supplier performance",
+      "rm & pm supplier performance",
+      "rm and pm supplier performance",
+      "raw material supplier performance",
+      "packing material supplier performance",
+      "supplier rating",
+      "supplier grade",
+      "f/pur/05",
+    ],
+  },
+  {
+    id: "pur-service-provider-performance",
+    aliases: [
+      "service provider performance monitoring",
+      "service provider monitoring",
+      "service provider performance",
+      "service provider rating",
+      "f/pur/06",
+    ],
+  },
 ];
 
 // The pest control file is a shelf of the Human Resources module, not a module
@@ -309,6 +369,10 @@ const MODULE_KEYWORDS: { module: string; aliases: string[] }[] = [
     aliases: ["inspection records", "inspection record", "qc inspection", "qc records", "qc record", "qc module", "quality control records", "quality control documents", "quality control module"],
   },
   { module: "CAPA (Corrective & Preventive Action)", aliases: ["capa"] },
+  // The Purchase module as a whole (REQUIREMENTS §68) — only reached when the
+  // message named no single F/PUR format, so "the supplier audit report" is
+  // still that one document and "the purchase documents" is all five.
+  { module: "Purchase", aliases: ["purchase module", "purchase documents", "purchase records", "purchasing", "purchase"] },
 ];
 
 function escapeReg(s: string): string {

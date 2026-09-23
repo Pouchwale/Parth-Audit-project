@@ -7,6 +7,8 @@ import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLay
 import { QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
 import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
 import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
+import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
+import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
 import { formatEditFor } from "../formatEdits";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
@@ -402,6 +404,13 @@ Object.assign(LOG_SHEET_LAYOUTS, QC_GUJARATI_LINE_CLEARANCE_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REGISTER_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_COA_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REPORT_LAYOUTS);
+
+// Purchase's formats supplied on 23-Sep-2026 (REQUIREMENTS §68): the supplier
+// registration form and the supplier audit report, the list of approved
+// suppliers, and the two performance monitoring registers whose weighted
+// ratings are worked out (engine/purchaseRatings.ts). F/PUR/04 was not supplied.
+Object.assign(LOG_SHEET_LAYOUTS, PURCHASE_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, DISPATCH_LAYOUTS);
 
 // The layout as it stands now: the plant's own change to the format where
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout

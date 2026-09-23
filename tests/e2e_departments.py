@@ -333,8 +333,23 @@ with sync_playwright() as p:
     page.wait_for_timeout(800)
     codes = page.eval_on_selector_all("[data-table='departments'] tbody tr", "els => els.map((e) => e.dataset.department)")
     check("All ten departments of the master list are configured", codes == ALL_DEPARTMENT_CODES, codes)
-    qc_row = page.locator("[data-table='departments'] tbody tr[data-department='QC']").inner_text()
-    check("...each with the documents it owns (Quality Control has eleven)", "11" in qc_row and "F-QC" in qc_row, qc_row[:200])
+    # READ THE NUMBER, NOT THE ROW. This used to look for "11" anywhere in the
+    # row's text and so passed on the format number F/QC/11 long after Quality
+    # Control had grown past eleven documents — a check that could not fail.
+    # Now it reads the count cell and compares it with what the app itself holds.
+    qc_row = page.locator("[data-table='departments'] tbody tr[data-department='QC']")
+    shown = int((qc_row.locator("[data-field='documents']").text_content() or "0").strip())
+    # COUNTED THE WAY THE APP COUNTS IT. A format number is not the whole story:
+    # three of Quality Control's documents carry no F/QC number of their own and
+    # are assigned to the department by name (data/seed/documentDepartments.ts),
+    # so counting on the number alone said 40 where the page rightly said 43 —
+    # which is the number the Document Library check below reads as well.
+    qc_documents = len(QC_DOCUMENT_IDS)
+    check(
+        f"...each with the documents it owns (Quality Control has {qc_documents})",
+        shown == qc_documents and qc_documents > 0 and "F-QC" in qc_row.inner_text(),
+        (shown, qc_documents),
+    )
 
     # ==================================================================
     # 5. A Quality Control account sees QC's documents and nothing else

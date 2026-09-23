@@ -19,6 +19,9 @@ export interface AppSettings {
   // app (shown regardless of the clock).
   briefingShown: { date: string; slots: BriefingSlot[] };
   briefingFirstShownAt: string | null;
+  // The day the daily notification was last shown, so it comes once a day and
+  // not once a reload (REQUIREMENTS §69).
+  nudgeShownOn: string | null;
   // The earliest date the recurring-record generator (engine/recordGenerator.ts)
   // is allowed to create a real, Live "Due" shell for — set once, the first
   // time the app ever boots on this browser, and never changed after. Without
@@ -62,6 +65,7 @@ const DEFAULTS: AppSettings = {
   workdayEnd: "18:00",
   briefingShown: { date: "", slots: [] },
   briefingFirstShownAt: null,
+  nudgeShownOn: null,
   liveStartDate: null,
   agreementReminderSnoozedUntil: null,
 };
@@ -97,6 +101,15 @@ export const settingsRepository = {
   briefingSlotsShownOn(dateISO: string): BriefingSlot[] {
     const s = this.get();
     return s.briefingShown?.date === dateISO ? s.briefingShown.slots : [];
+  },
+  /** Whether the day's notification has already been shown (REQUIREMENTS §69). */
+  nudgeShownOn(dateISO: string): boolean {
+    return this.get().nudgeShownOn === dateISO;
+  },
+  markNudgeShown(dateISO: string): void {
+    const s = this.get();
+    const { liveStartDate: _floor, ...own } = s;
+    writeJSON(KEY, { ...own, nudgeShownOn: dateISO });
   },
   markBriefingShown(dateISO: string, slot: BriefingSlot): void {
     const s = this.get();

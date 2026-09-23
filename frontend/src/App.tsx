@@ -7,6 +7,7 @@ import { SidebarProvider } from "./store/sidebar";
 import { DocumentAssistant } from "./components/common/DocumentAssistant";
 import { AssistantBriefingPopup } from "./components/common/AssistantBriefingPopup";
 import { StorageFullBanner } from "./components/common/StorageFullBanner";
+import { DailyNudge } from "./components/common/DailyNudge";
 import { DatabaseSyncBanner } from "./components/common/DatabaseSyncBanner";
 
 import { DashboardPage } from "./pages/DashboardPage";
@@ -226,6 +227,8 @@ export function App() {
             <Topbar />
             <div className="app-content">
               <StorageFullBanner />
+              {/* The day's own notification: what is waiting for this person, and where it leaves them on the scorecard (REQUIREMENTS §69). */}
+              <DailyNudge />
               <DatabaseSyncBanner />
               <Screen />
             </div>

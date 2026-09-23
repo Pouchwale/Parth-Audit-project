@@ -225,7 +225,7 @@ def main():
         page.screenshot(path="tests/shots/23_assistant_voice.png", full_page=True)
 
         # --- The navigation panel: modules collapsed, and the panel closed ---
-        # Six modules shut fit on one screen with the current one still marked,
+        # Eight modules shut fit on one screen with the current one still marked,
         # and closing the panel hands the full window to a wide register.
         page.goto(f"{BASE}/index.html#/pest/daily")
         page.wait_for_timeout(500)
@@ -233,7 +233,7 @@ def main():
         page.wait_for_timeout(300)
         check(
             "Every module collapses to one row, with the current one still marked",
-            page.locator(".nav-module.closed").count() == 6 and page.locator(".nav-module.current .nav-module-dot").count() == 1,
+            page.locator(".nav-module.closed").count() == 8 and page.locator(".nav-module.current .nav-module-dot").count() == 1,
         )
         page.screenshot(path="tests/shots/24_sidebar_modules_collapsed.png")
         page.click("button[data-action='toggle-all-modules']")

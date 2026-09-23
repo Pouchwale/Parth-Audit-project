@@ -6,7 +6,13 @@
 // header fields, etc.). Nothing here is persisted: layouts are looked up by
 // DocumentDefinition.id from src/data/seed/logSheetLayouts.ts at render time.
 
-export type LogFieldType = "text" | "number" | "time" | "date" | "select" | "yesno";
+// "paragraph" is a box the form prints for a BLOCK OF PROSE, not a line: the
+// Supplier Registration Form's RANGE OF PRODUCTS / SERVICES OFFERED and LIST OF
+// MAJOR CUSTOMERS, the Supplier Audit Report's COMMENTS and its eight SUMMARY
+// OF OBSERVATIONS prompts (REQUIREMENTS §68). It belongs among the boxes above
+// or below the grid — a paragraph is never a column, because a grid cell is a
+// line and the paper draws these as areas the width of the page.
+export type LogFieldType = "text" | "number" | "time" | "date" | "select" | "yesno" | "paragraph";
 
 export interface LogHeaderField {
   key: string;
@@ -30,6 +36,12 @@ export interface LogColumn {
   options?: string[];
   required?: boolean;
   width?: number;
+  // The heading the paper draws ABOVE this column and its neighbours, spanning
+  // them all — the four "METHOD OF APPROVAL" columns of the List of Approved
+  // Suppliers (REQUIREMENTS §68). Columns carrying the same group name must sit
+  // next to each other, and the grid then draws a second heading row for them;
+  // a column with no group spans both rows, as it does on the paper.
+  group?: string;
   // Read-only, pre-filled column (e.g. the fixed hourly time slot).
   fixed?: boolean;
   /** Worked out from the other cells, never typed — shown as text and not asked for (REQUIREMENTS §61). */

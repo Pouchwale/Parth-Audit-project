@@ -3481,6 +3481,200 @@ this is a screen they open many times a day.
   pill, and every movement confirmed from the browser's computed style — present normally, and gone for
   somebody who has asked for less movement.
 
+## 68. The Purchase module, and the words a form prints edited on the sheet (23-Sep-2026)
+
+```
+REQUESTED            "So i am giving you some pdf so you have create new module Called Purchase and add those
+                      document accoriding into it and make sure make each and every document editable also and when
+                      user click to edit the if it like normal document then user has the option edit like word file
+                      ... and if it is excel then same applies for it also ... and this thing is applies for each and
+                      every documents for every modules."
+SUPPLIED             F-PUR-01_Supplier registration form.pdf, F-PUR-02_Supplier audit report.pdf,
+                      F-PUR-03_List of Approved suppliers.pdf, F-PUR-05_RM & PM Supplier Performance Monitoring.pdf,
+                      F-PUR-06_Service provider monitoring.pdf — all in source-documents/
+DIGITAL TEMPLATE     data/seed/purchaseLayouts.ts, engine/purchaseRatings.ts, types/logSheet.ts (the "paragraph"
+                      field and LogColumn.group), components/records/LogSheetRecordView.tsx;
+                      components/documents/SheetDesigner.tsx + engine/formatOps.ts + engine/formatCommands.ts
+```
+
+**1. PURCHASE IS A MODULE OF ITS OWN**, seventh in the sidebar, holding the five formats the department supplied,
+in the two parts its own paperwork falls into — **Supplier Approval** (F/PUR/01, F/PUR/02, F/PUR/03) and
+**Supplier Monitoring** (F/PUR/05, F/PUR/06). Every one is reproduced from the company's paper: every heading,
+column, printed instruction and rating rule verbatim, including the company's own numbering gaps in the audit
+report (**4.5 → 4.10** and **6.2 → 6.5**), the double space in "> 15  days delay", "house keeping" as two words,
+"yours internal Traceability record", and the curly apostrophe the forms were typed with in "SUPPLIER’S NAME"
+and "SIGNATURE WITH COMPANY’S SEAL". The format numbers resolve to the **PUR** department by their prefix, so a
+QC account never sees them (§40).
+- **F/PUR/04 was not supplied and nothing stands in for it.** The company's own original exists
+  (`F-PUR-04_Purchase order.xlsx`), and the Purchase suite asserts exactly the five that were sent, so an
+  invented one would fail the run.
+
+**2. THE TWO REGISTERS WORK THEIR OWN ARITHMETIC OUT** (the way §61 did for calibration — a worked-out cell is
+never typed and never asked for):
+- **F/PUR/05**: Product safety × 50%, Quality × 40%, Delivery × 10%, the Overall Rating their sum to two
+  decimals, and the Grade from the paper's own boundaries — **A at 90 or more, B below 90 down to 80, C below
+  80** — with the legend's Action beside it. The four criteria tables print as the form's own reference tables.
+  An **unrated line has no grade**: the blank form prints four 0.00 cells and nothing in the Grade column, and a
+  "C" beside a supplier nobody has rated would say they had failed.
+- **F/PUR/06**: Overall Rating = the delivery rating plus the quality & product safety rating, each out of 50.
+- The Overall Rating adds the **rounded** weightages, so the figure on the sheet is always the sum of the three
+  columns printed beside it and an auditor's own arithmetic agrees.
+
+**3. TWO NEW THINGS A LAYOUT CAN SAY**, both because the paper says them:
+- a **"paragraph"** box, for the prose blocks — F/PUR/01's "RANGE OF PRODUCTS / SERVICES OFFERED", F/PUR/02's
+  COMMENTS and its eight summary prompts. A paragraph is a header or footer box, never a grid column: a cell is
+  one line, and the paper draws a prose block the width of the page.
+- a **spanning heading** over a run of columns (`group`), for F/PUR/03's **METHOD OF APPROVAL**, which the form
+  draws over five columns including GFSI scheme certification.
+
+**4. THE WORDS A FORM PRINTS ARE NOW EDITED ON THE SHEET** — the "like a Word file" half of the request, done
+inside the §64 machinery rather than beside it. Each line of a format's printed prose is its own control in the
+designer: click it and type, Enter keeps, Escape leaves, with a menu to insert a line above or below, duplicate,
+move it or take it off, and a "+ Instruction" button on the toolbar. Each is **one step to undo** and each is
+named for itself in the save pop-up ("line 3 of the printed instructions"), so the change history says what
+changed rather than "the instructions were replaced". A prose box can be added, renamed and retyped like any
+other box; a spanning heading is typed over where it is printed and comes off the whole run when it is rubbed
+out. Mitra takes the same instructions in words, through the ask-first confirmation that already exists.
+- On a form that prints its own lines down the side, "the printed line 3" still means a line of the **grid** —
+  that is what it has always meant there, and what the suites depend on. Mitra's own sentences say
+  "instruction" for the prose, so a chip means the same thing when it is tapped as when it was offered.
+- **What is still not editable from the screen, honestly:** a form the PROGRAM draws by hand has no sheet to
+  design — the daily pest register, the fly catcher register, the service reports, the complaint forms and the
+  licence. Their name and revision change in the dialog (§62); their grid is code. The reference tables printed
+  beside a form (F/PUR/05's criteria, F/QC/13's grade chart) stay as issued, and a computed column's arithmetic
+  is engine code, not a setting.
+
+- Covered by `tests/e2e_purchase_module.py` (a thirtieth suite): the module in the sidebar, all five formats in
+  the Document Library with their numbers as printed, each on a page of its own, the registers' columns
+  verbatim including the spanning heading, F/PUR/05's weightages and grades appearing without being typed at
+  two different grades, F/PUR/06's thirteen lines and its sum, the audit report's numbering gaps, and a record
+  started, filled, submitted and printed. The hard-coded document counts moved from **74 to 79** and the
+  sidebar from six modules to seven.
+
+## 69. The day's own notification, by priority — and a quieter Dashboard (23-Sep-2026)
+
+```
+REQUESTED            "you need to remove some things on dashboard :- Next on the leave calendar: Navratri Atham
+                      19-Oct-2026 (Mon) · Navratri Navam 20-Oct-2026 (Tue) · weekly off every Thursday. Also you
+                      need to make a dedicated notification system which comes daily to encourage the user to finish
+                      there work and lead in that score dashboard ... according to frequency and due date system will
+                      notify the user and this applies to all modules. So that will like highest prority, medium, low
+                      like wise according to frequency of that document."
+DIGITAL TEMPLATE     engine/notifications.ts, components/common/DailyNudge.tsx,
+                      components/layout/NotificationBell.tsx, data/repositories/settingsRepository.ts,
+                      pages/DashboardPage.tsx
+```
+
+**1. THE DASHBOARD IS QUIETER.** "Next on the leave calendar: Navratri Atham 19-Oct-2026 (Mon) · Navratri Navam
+20-Oct-2026 (Tue) · weekly off every Thursday" is gone from under the date. Two festivals a month away and a
+weekly off that never changes sat above the work, every day. The **badge beside today's date stays**, because
+when TODAY is a holiday or the weekly off that changes what is due; the leave calendar itself is one tap away
+on the Record Calendar.
+
+**2. HIGH, MEDIUM OR LOW — FROM THE DOCUMENT'S OWN FREQUENCY AND ITS DUE DATE**, which are not the same thing.
+A daily sheet not filled today leaves a hole in the file that tomorrow's sheet cannot fill; a yearly review due
+today can be done tomorrow and lose nothing:
+
+| Priority | When |
+|---|---|
+| **High** | Late already — whatever it is; or due **today** on a document whose period is a week or less (daily, weekly) |
+| **Medium** | Due today on anything longer (fortnightly, monthly, yearly); or due **tomorrow** on a daily or weekly one |
+| **Low** | Due later than that |
+
+An **as-required** document has no period to be short of, so being due at all is a medium ask (§64 gives it two
+days). The rule is one small function, `priorityOf`, and every screen that shows a priority asks it — so the
+bell, the day's notification and anything after them can never disagree.
+
+**3. THE DAY'S NOTIFICATION, ONCE A DAY.** On the first screen of the day a person is told, in one line, what is
+waiting **for them** — their department's documents and the ones Master Data names them on, the same rule Mitra
+uses (§67) — how much of it is high priority, which modules it falls in, and where that leaves them on the
+Performance Scorecard (§64), which is what they are measured by:
+
+> **Kapila, 4 documents are waiting, 2 of them high priority.**
+> You are at 92% on the scorecard — Excellent. Finishing these on time is what holds it there.
+> *2 high priority · 1 medium · 1 low · Quality Control — Inspection Records*
+> [ Start with F/QC/01 ] [ Today's briefing ] [ Scorecard ] [ ✕ ]
+
+- **Once a day, then it goes.** The day it was last shown is kept with the person's own settings, so a reload
+  never repeats it: a notice that comes back every time is a notice people learn to close without reading.
+- **Nothing waiting is worth saying too** — "Nothing is waiting for you today, Kapila — every one of your
+  documents is in."
+- **Nobody is accused of the plant's work.** An account nobody is named on — the administrator, the MR, QA —
+  is told "The plant has N documents waiting", not that they are theirs.
+- **It is worked out once, when it is shown**, never while drawing: both questions behind it walk every
+  format's records (§65). The scorecard half is wrapped so that a failure there can never stop the
+  notification.
+
+**4. THE BELL SORTS BY PRIORITY TOO.** The reminder list is grouped **High priority / Medium / Low** with a
+count on each, and the badge turns red only when something is high priority — amber otherwise. No extra work:
+these are the same reminders the bell already had, asked the one new question.
+
+- Covered by the suites that already read the Dashboard and the bell. The rule itself is a pure function with
+  no storage behind it, and the day's notification carries `data-section="daily-nudge"` with its counts, so a
+  suite can read what it decided rather than how it looks.
+
+## 70. The Dispatch module — and the fourth form the plant issues in Gujarati (23-Sep-2026)
+
+```
+REQUESTED            "So now you need to create another module called Dispatch and those document in it as it and
+                      make commit and push also always whatever you do it should go in my github also every single
+                      commit and push."
+SUPPLIED             F-DISP-01_Safe Transportation agreement (Finish product).pdf,
+                      F-DISP-02_Container stuffing & Vehicle Inspection record.pdf — both in source-documents/
+DIGITAL TEMPLATE     data/seed/dispatchLayouts.ts, the two definitions in data/seed/documentDefinitions.ts,
+                      i18n/documentTextEn.ts + i18n/documentText.ts (GUJARATI_DOCUMENT_IDS),
+                      components/layout/Sidebar.tsx, tests/e2e_dispatch_module.py
+```
+
+**1. DISPATCH IS A MODULE OF ITS OWN**, eighth in the sidebar, holding the two formats the department supplied,
+in the two parts its paperwork falls into — **Transporter Agreement** and **Dispatch Inspection**. Their format
+numbers resolve to the **DISP** department by their prefix, so only Dispatch (and an account that covers every
+department) sees them.
+
+**2. F/DISP/01 — SAFE TRANSPORTER AGREEMENT.** The code of practice a contract transporter agrees to before it
+carries the plant's finished product: the standards for the vehicle and its driver, what may never be carried
+with the product, how a load is protected and secured, what happens when a vehicle breaks down or a seal is
+tampered with, and the inspection and rejection rights on arrival. Every clause is on the sheet under the
+paper's own headings — *Damage / Contamination*, *Loading / Protection*, *Load Acceptance*, *Product Security &
+Integrity*, *Vehicle breaks down in transit* — and both sides sign it.
+- **It is all words: there is no grid on it at all**, and the sheet draws none (the guard added with §68).
+- **The paper prints no revision**, only the period it is valid for (01.04.2025 to 31.03.2026), so the revision
+  is **TO BE CONFIRMED** for the MR rather than invented. The format number is the company's own.
+- The company's signed copy is the specimen: M/s V-Trans (India) Ltd., **Chirag Parmar, Purchase Manager** for
+  the plant and Bhavsar Bhai, Logistic In charge for the transporter — which is the same signature that
+  settled who answers for Purchase's formats in §68.
+
+**3. F/DISP/02 — CONTAINER STUFFING & VEHICLE INSPECTION RECORD**, the check made before the plant's product is
+loaded: the **seven things to do when a container arrives**, the consignment's own boxes (the customer, the
+invoice, both purchase order numbers, the driver, the transporter and the vehicle), and the checklist — each
+point answered **હા** or **નાં** with **NA** struck out, and any other observation written beside it. It is
+authorised for product release by the **Dispatch In charge** and checked and approved by **QC**, as the paper's
+own two blocks say.
+- **The checklist is numbered as the paper numbers it: 1, 2, 3, 4, 6, 7, 8, 9 — there is no 5.** Those numbers
+  are printed values of the format, not a count the screen makes, or the gap would close itself.
+
+**4. IT IS THE FOURTH FORM THE PLANT ISSUES IN GUJARATI**, after the three Quality Control ones of §58, and it
+is treated the same way. Every printed line of it — its name, the seven instructions, the eight boxes, the four
+column headings, the two answers, all nine checklist points and both authorisations — is written down once in
+the plant's own English (`i18n/documentTextEn.ts`). So:
+- with **Gujarati** chosen the form reads exactly as it was issued and is kept away from Google's translator,
+  because a controlled form reads as it was issued;
+- with **English** chosen it reads in English **with no network at all** — Google is not loaded on an English
+  screen, and without this the form would simply sit there in Gujarati.
+- What a person TYPED is never translated either way, and the field keys a record is stored under are the same
+  in both languages (§58).
+
+- Covered by `tests/e2e_dispatch_module.py` (a thirty-first suite), which blocks the translator outright so the
+  form is judged as the app itself renders it: the module and its links; the agreement's clauses and its two
+  signature blocks, and that it draws no grid; the checklist numbered 1, 2, 3, 4, 6, 7, 8, 9; હા / નાં / NA on
+  each point; the form read in Gujarati as issued and then in English with nothing left in Gujarati; and a
+  container check started, filled, submitted and on file. The document total moved from **79 to 81** and the
+  sidebar from seven modules to eight.
+
+- **Still to come from the department:** F/PUR/04 (Purchase order) was never supplied, and the company's own
+  master list of formats — `F-SYS-02-Master List of Formats. (R-2025)..xlsx`, which sits beside these PDFs in
+  the plant's own folders — would say which of its formats are still only on paper.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

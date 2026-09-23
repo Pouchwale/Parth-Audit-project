@@ -180,6 +180,30 @@ Seven scripts live in `tests/`:
   them must be `none`**. That second reading is what caught the block being written too high in the stylesheet
   to win the cascade, so reduced motion was being ignored altogether. The greeting itself was read from the
   real app on this installation's own data, including that it is asked again on a second opening.
+- `tests/e2e_dispatch_module.py` - the Dispatch module and its two supplied formats (REQUIREMENTS §70), a
+  thirty-first suite, added 23-Sep-2026. It **blocks Google Translate outright**, so the Gujarati form is judged
+  as the app itself renders it: the module and its two links; F/DISP/01's clauses under the paper's own headings
+  with both signature blocks, and that it draws no grid at all (it is all words); F/DISP/02's checklist numbered
+  as the paper numbers it - **1, 2, 3, 4, 6, 7, 8, 9, with no 5** - each point answered હા / નાં with NA struck
+  out; the same form read in Gujarati as issued, with its controlled text kept from the translator, and then in
+  English with nothing of it left in Gujarati; and a container check started, filled, submitted and on file.
+  Two more documents moved the totals again: **79 → 81** in `e2e_smoke.py` and `e2e_hr_module.py`, and the
+  sidebar's modules **7 → 8** in `e2e_smoke.py` (collapse-all and expand-all) and `tests/visual_qa.py`.
+- `tests/e2e_purchase_module.py` - the Purchase module and its five supplied formats (REQUIREMENTS §68), a
+  thirtieth suite, added 23-Sep-2026: the module in the sidebar and its links opening the Document Library
+  filtered to it; all five formats listed with their numbers as printed and each opening on a page of its own;
+  the registers' columns read VERBATIM off the paper, including F/PUR/03's spanning METHOD OF APPROVAL; F/PUR/05
+  answering with its three weightages, its Overall Rating and its Grade WITHOUT any of them being typed, checked
+  at two different grades, with its four criteria tables on the page; F/PUR/06's thirteen lines and its sum; the
+  audit report keeping the company's own numbering gaps (4.10 after 4.5, 6.5 after 6.2) and its division between
+  what the supplier fills and INTERNAL OFFICE USE ONLY; and a record started, filled, submitted and printed with
+  the company's header block and format number.
+  Five new documents moved every hard-coded total: **74 → 79** in `e2e_smoke.py` and `e2e_hr_module.py`, and the
+  sidebar's module count **6 → 7** in `e2e_smoke.py` (collapse-all and expand-all) and in `tests/visual_qa.py`,
+  which is run by hand. A stale check went with them: `e2e_departments.py` claimed "Quality Control has eleven"
+  but only looked for "11" anywhere in the row, so it passed on the format number F/QC/11 long after QC had
+  grown to 43 — it now reads the count cell (`[data-field='documents']`) and compares it with what the app
+  itself holds, so it cannot pass on a coincidence again.
 - `tests/e2e_login_only.py` - nobody creates their own account (REQUIREMENTS §66), a twenty-ninth suite, added
   23-Sep-2026. It runs against the same **product server on :8843** as the suite below - the portal as a plant
   installs it, which now also means the plant's named accounts are seeded there (on a password only the runner

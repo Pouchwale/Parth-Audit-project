@@ -38,6 +38,7 @@ import {
   FiUserCheck,
   FiLogIn,
   FiPieChart,
+  FiShoppingCart,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
@@ -89,11 +90,21 @@ const NAV_MAIN: NavItem[] = [
 // module, which is how modules without their own dedicated list page (the
 // lamination log sheets, the QC inspection records) still get a real
 // destination here.
+// Purchase sits directly above Quality Control's inspection records because
+// that is the order the material moves in, and the order the company's own
+// Master List of Formats & Records (F/SYS/02) puts the two departments in
+// (F/SYS, F/MKT, F/PUR, F/STR, F/QC …): a supplier is registered, audited and
+// approved on the F/PUR formats BEFORE anything it sends can be booked in and
+// inspected on the F/QC ones, and the two monitoring registers are what the
+// inspections feed back into. Put anywhere else it would separate the supplier
+// from its material; put above HR it would move the modules people already use.
 const MODULE_ORDER = [
   "Human Resources",
   "CAPA (Corrective & Preventive Action)",
   "Lamination — Quality Control",
   "Lamination — Production",
+  "Purchase",
+  "Dispatch",
   "Quality Control — Inspection Records",
   "Quality — Compliance",
 ] as const;
@@ -107,6 +118,9 @@ const MODULE_ICONS: Record<ModuleName, IconType> = {
   "CAPA (Corrective & Preventive Action)": FiAlertCircle,
   "Lamination — Quality Control": FiLayers,
   "Lamination — Production": FiPackage,
+  // Buying: the department that places the order and keeps the supplier list.
+  Purchase: FiShoppingCart,
+  Dispatch: FiTruck,
   "Quality Control — Inspection Records": FiCheckSquare,
   "Quality — Compliance": FiShield,
 };
@@ -171,6 +185,33 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
   ],
   "Lamination — Quality Control": [{ to: "/library/lamination-quality-control", labelKey: "nav.laminationQcDocs", icon: FiBookOpen }],
   "Lamination — Production": [{ to: "/library/lamination-production", labelKey: "nav.laminationProductionDocs", icon: FiBookOpen }],
+  // Purchase — the department's five F/PUR formats (REQUIREMENTS §68): the
+  // collection in the Document Library first, then the two groups its paperwork
+  // actually falls into. Supplier Approval is how a supplier gets onto the
+  // approved list at all — it registers itself (F/PUR/01), it is audited on a
+  // visit (F/PUR/02), and it is written onto the list (F/PUR/03). Performance
+  // Monitoring is how it is marked once it is on the list — the material
+  // suppliers half-yearly (F/PUR/05), the service providers (F/PUR/06). Each
+  // format opens on its own document page, like an HR format does.
+  Purchase: [
+    { to: "/library/purchase", labelKey: "nav.purchaseDocs", icon: FiBookOpen },
+    { headingKey: "nav.purSupplierApproval" },
+    { to: "/document/pur-supplier-registration", labelKey: "nav.purSupplierRegistration", icon: FiUserPlus },
+    { to: "/document/pur-supplier-audit-report", labelKey: "nav.purSupplierAudit", icon: FiClipboard },
+    { to: "/document/pur-approved-suppliers", labelKey: "nav.purApprovedSuppliers", icon: FiList },
+    { headingKey: "nav.purSupplierMonitoring" },
+    { to: "/document/pur-supplier-performance", labelKey: "nav.purRmPmPerformance", icon: FiTrendingUp },
+    { to: "/document/pur-service-provider-performance", labelKey: "nav.purServiceProvider", icon: FiActivity },
+  ],
+  // Dispatch — what a transporter signs before it carries the plant's product,
+  // and the check made on the container before a load leaves (REQUIREMENTS §70).
+  Dispatch: [
+    { to: "/library/dispatch", labelKey: "nav.dispatchDocs", icon: FiBookOpen },
+    { headingKey: "nav.dispTransporterAgreement" },
+    { to: "/document/disp-safe-transporter-agreement", labelKey: "nav.dispSafeTransporter", icon: FiTruck },
+    { headingKey: "nav.dispInspection" },
+    { to: "/document/disp-container-stuffing", labelKey: "nav.dispContainerStuffing", icon: FiClipboard },
+  ],
   // QC Records — the department's own overview of its thirty-eight formats in
   // their seven sections (REQUIREMENTS §58), and then the Document Library
   // filtered to the module, which is how the collection was reached before.
@@ -237,6 +278,14 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   // The Statements of Compliance page lists both statements and refuses only
   // when neither is the viewer's, so either one earns the link.
   "/soc": ["soc-labels", "soc-flexible-packaging"],
+  // Purchase (REQUIREMENTS §68): one page per F/PUR format, each shown when
+  // that format is the viewer's. "/library/purchase" owns no single document
+  // and so is not listed — the library filters itself document by document.
+  "/document/pur-supplier-registration": ["pur-supplier-registration"],
+  "/document/pur-supplier-audit-report": ["pur-supplier-audit-report"],
+  "/document/pur-approved-suppliers": ["pur-approved-suppliers"],
+  "/document/pur-supplier-performance": ["pur-supplier-performance"],
+  "/document/pur-service-provider-performance": ["pur-service-provider-performance"],
 };
 
 // One module's entries with the other departments' links taken out, and then

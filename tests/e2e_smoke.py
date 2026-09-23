@@ -577,7 +577,7 @@ def main():
         # ---- 12. Document Library ----
         page.click("text=Document Library")
         page.wait_for_timeout(300)
-        check("Document Library lists all 74 documents", page.locator(".doc-table tbody tr:not(.doc-section-row)").count() == 74)
+        check("Document Library lists all 81 documents", page.locator(".doc-table tbody tr:not(.doc-section-row)").count() == 81)
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)
@@ -620,12 +620,12 @@ def main():
         page.wait_for_timeout(400)
         check("The top-bar button brings the panel back", sidebar_width() > 200)
 
-        # Collapse-all / expand-all: six modules in one click either way.
+        # Collapse-all / expand-all: eight modules in one click either way.
         page.click("button[data-action='toggle-all-modules']")
         page.wait_for_timeout(200)
         check(
             "Collapse-all closes every module at once",
-            page.locator(".nav-module.closed").count() == 6 and page.locator(".nav-module.open").count() == 0,
+            page.locator(".nav-module.closed").count() == 8 and page.locator(".nav-module.open").count() == 0,
         )
         check(
             "A collapsed module still marks the one holding the current page",
@@ -633,7 +633,7 @@ def main():
         )
         page.click("button[data-action='toggle-all-modules']")
         page.wait_for_timeout(200)
-        check("Expand-all opens them again", page.locator(".nav-module.open").count() == 6)
+        check("Expand-all opens them again", page.locator(".nav-module.open").count() == 8)
 
         page.click("a:has-text('Lamination QC Documents')")
         page.wait_for_timeout(300)

@@ -4,7 +4,7 @@ import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSh
 import { Modal } from "../common/Modal";
 import { getIssuedLogSheetLayout, getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { formatEditFor, nextRevisionNo } from "../../data/formatEdits";
-import { commitFormatChange, newKey, restoreIssuedFormat, setInstructions as withInstructions } from "../../engine/formatOps";
+import { BOX_TYPES, COLUMN_TYPES, FIELD_TYPE_LABELS, commitFormatChange, newKey, restoreIssuedFormat, setInstructions as withInstructions } from "../../engine/formatOps";
 import { SEED_DOCUMENTS } from "../../data/seed/documentDefinitions";
 import { formatDisplayDate } from "../../utils/date";
 
@@ -14,6 +14,13 @@ import { formatDisplayDate } from "../../utils/date";
 // the printed instructions, and add, reword or remove the lines a form prints
 // down its side. Saving raises the REVISION NUMBER, dates it today, and records
 // who changed what and why; the list of those is the format's change history.
+//
+// THE SHEET ITSELF IS WHERE A FORMAT IS DESIGNED NOW (REQUIREMENTS §64,
+// components/documents/SheetDesigner.tsx); this dialog is what "More options…"
+// opens — the change history, restoring the issued format, and the same
+// changes as lists. It keeps step with the sheet on what a box can BE: since
+// §68 that includes a block of prose, and a box's printed words are reworded
+// line by line on the sheet rather than in this textarea.
 //
 // WHAT A CHANGE DOES TO RECORDS ALREADY ON FILE: nothing. A record keeps every
 // value it holds under the key it was written with — a column taken off the
@@ -26,14 +33,13 @@ import { formatDisplayDate } from "../../utils/date";
 // forms, the licence — have their name and revision changed here; their grid is
 // code, so a change to it is a change to the program.
 
-const TYPES: { value: LogFieldType; label: string }[] = [
-  { value: "text", label: "Text" },
-  { value: "number", label: "Number" },
-  { value: "date", label: "Date" },
-  { value: "time", label: "Time" },
-  { value: "yesno", label: "Yes / No" },
-  { value: "select", label: "Choice" },
-];
+// WHAT A BOX OR A COLUMN CAN BE, the one list the whole app works from
+// (engine/formatOps.ts): every type for a box above or below the grid — a
+// block of prose among them since §68 — and all but Paragraph for a column,
+// because a cell of the grid is one line. A dialog offering fewer than the
+// sheet does would show a prose box as blank and retype it the moment anybody
+// touched it.
+const typesFor = (column?: boolean): LogFieldType[] => (column ? COLUMN_TYPES : BOX_TYPES);
 
 type Item = (LogHeaderField | LogColumn) & { isNew?: boolean };
 
@@ -66,9 +72,9 @@ function ItemList({ title, what, items, onChange, column }: { title: string; wha
           <div key={it.key || `new-${i}`} className="flex items-center gap-2 mb-1 wrap" data-format-item={it.key || "new"}>
             <input className="input input-sm" style={{ flex: "2 1 200px" }} placeholder={`Name of the ${what}`} value={it.label} onChange={(e) => set(i, { label: e.target.value })} data-field="format-label" />
             <select className="input input-sm" style={{ flex: "0 0 110px" }} value={it.type} disabled={!!locked} onChange={(e) => set(i, { type: e.target.value as LogFieldType })}>
-              {TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {typesFor(column).map((t) => (
+                <option key={t} value={t}>
+                  {FIELD_TYPE_LABELS[t]}
                 </option>
               ))}
             </select>

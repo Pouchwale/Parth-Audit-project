@@ -6,7 +6,13 @@ import { logActivity } from "../utils/activityLog";
 import { todayISO } from "../utils/date";
 
 // WHAT CAN BE DONE TO A FORMAT, AND THE ONE WAY A CHANGE IS SAVED
-// (REQUIREMENTS §62, §64).
+// (REQUIREMENTS §62, §64, §68).
+//
+// §68 added the PROSE side: the words a form prints above its grid are changed
+// a line at a time (setInstructionLine and the three beside it), a box can be
+// a block of prose rather than a line (BOX_TYPES), and the heading the paper
+// draws over a run of columns is named, renamed and taken off (setColumnGroup,
+// setGroupName). All of it goes down the same road as everything else.
 //
 // Three things change a format: the Edit format dialog
 // (components/documents/FormatEditor.tsx), designing it on the sheet itself
@@ -33,7 +39,12 @@ export interface FormatDraft {
 
 export type BoxArea = "header" | "footer";
 
-export const FIELD_TYPE_LABELS: Record<LogFieldType, string> = { text: "Text", number: "Number", date: "Date", time: "Time", yesno: "Yes / No", select: "Choice" };
+export const FIELD_TYPE_LABELS: Record<LogFieldType, string> = { text: "Text", number: "Number", date: "Date", time: "Time", yesno: "Yes / No", select: "Choice", paragraph: "Paragraph" };
+
+/** What a box above or below the grid can be — every type there is, prose among them (REQUIREMENTS §68). */
+export const BOX_TYPES = Object.keys(FIELD_TYPE_LABELS) as LogFieldType[];
+/** What a COLUMN can be. A grid cell is one line and the paper draws a prose block the width of the page, so a paragraph is never a column (types/logSheet.ts). */
+export const COLUMN_TYPES = BOX_TYPES.filter((t) => t !== "paragraph");
 
 /** Whether this format's grid is drawn from a layout, and so can be designed on the sheet. */
 export function canDesignGrid(doc: Pick<DocumentDefinition, "id" | "kind">): boolean {
@@ -171,6 +182,32 @@ function moved<T extends { key: string }>(list: T[], key: string, by: number): T
 export const moveColumn = (layout: LogSheetLayout, key: string, by: number): LogSheetLayout => ({ ...layout, columns: moved(layout.columns, key, by) });
 
 // ---------------------------------------------------------------------------
+// the heading the paper draws OVER a run of columns (REQUIREMENTS §68)
+//
+// The List of Approved Suppliers prints "METHOD OF APPROVAL" across its five
+// tick columns, and the grid draws a second heading row for them
+// (LogColumn.group). A column is put under such a heading or taken out of it
+// one at a time; the heading ITSELF is reworded by its words, because a
+// heading the form prints twice — F/PUR/03 redraws it on its second page — is
+// the one heading, not two.
+
+export const setColumnGroup = (layout: LogSheetLayout, key: string, group?: string): LogSheetLayout => patchColumn(layout, key, { group: group?.trim() || undefined });
+
+/** Every column under the spanning heading `from` put under `to` — or taken out of it when `to` is left out. */
+export function setGroupName(layout: LogSheetLayout, from: string, to?: string): LogSheetLayout {
+  const want = to?.trim() || undefined;
+  if (!layout.columns.some((c) => c.group === from)) return layout;
+  return { ...layout, columns: layout.columns.map((c) => (c.group === from ? { ...c, group: want } : c)) };
+}
+
+/** The spanning headings this grid draws, in the order they are printed. */
+export function groupNames(layout: LogSheetLayout): string[] {
+  const out: string[] = [];
+  for (const c of layout.columns) if (c.group && !out.includes(c.group)) out.push(c.group);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // the boxes above and below the grid
 
 const boxesOf = (layout: LogSheetLayout, area: BoxArea): LogHeaderField[] => (area === "header" ? layout.headerFields : (layout.footerFields ?? []));
@@ -252,15 +289,158 @@ export function setPrintedCell(layout: LogSheetLayout, index: number, key: strin
   return rows ? withPrintedRows(layout, rows.map((r, i) => (i === index ? { ...r, [key]: value } : r))) : layout;
 }
 
-export const setInstructions = (layout: LogSheetLayout, lines: string[]): LogSheetLayout => {
+// ---------------------------------------------------------------------------
+// the words the form PRINTS above its grid, a line at a time (REQUIREMENTS §68)
+//
+// `instructions` is the prose a format prints: the Supplier Registration
+// Form's "Please provide following documents along with this form." and the
+// five documents listed under it, the note that the boxes at the foot are the
+// office's. Rewording one of those is not retyping the block — a printed line
+// is changed where it stands, the way a column heading is, so each rewording,
+// each line added, moved or taken off is ONE step to undo and shows in the
+// change history as itself.
+
+export const instructionsOf = (layout: LogSheetLayout): string[] => layout.instructions ?? [];
+
+// A form has no way to print a blank line, so one never reaches the layout.
+function withInstructionLines(layout: LogSheetLayout, lines: string[]): LogSheetLayout {
   const kept = lines.map((l) => l.trim()).filter(Boolean);
   return { ...layout, instructions: kept.length ? kept : undefined };
-};
+}
+
+/** The whole block at once — the Edit format dialog's textarea, and the sheet's "reword them all". */
+export const setInstructions = (layout: LogSheetLayout, lines: string[]): LogSheetLayout => withInstructionLines(layout, lines);
+
+/** One printed line reworded. Rubbed out it stays as it was: a line comes off the form by being deleted, which asks first. */
+export function setInstructionLine(layout: LogSheetLayout, index: number, text: string): LogSheetLayout {
+  const lines = instructionsOf(layout);
+  // The same words again are not a change: nothing to undo, nothing to list.
+  if (lines[index] === undefined || !text.trim() || lines[index] === text.trim()) return layout;
+  return withInstructionLines(layout, lines.map((l, i) => (i === index ? text : l)));
+}
+
+/** A printed line at `index` (the end when left out). */
+export function addInstructionLine(layout: LogSheetLayout, index: number | undefined, text: string): LogSheetLayout {
+  if (!text.trim()) return layout;
+  const lines = instructionsOf(layout);
+  const at = index === undefined ? lines.length : Math.max(0, Math.min(index, lines.length));
+  return withInstructionLines(layout, [...lines.slice(0, at), text, ...lines.slice(at)]);
+}
+
+export function removeInstructionLine(layout: LogSheetLayout, index: number): LogSheetLayout {
+  const lines = instructionsOf(layout);
+  return lines[index] === undefined ? layout : withInstructionLines(layout, lines.filter((_, i) => i !== index));
+}
+
+export function moveInstructionLine(layout: LogSheetLayout, index: number, by: number): LogSheetLayout {
+  const lines = instructionsOf(layout);
+  const j = index + by;
+  if (lines[index] === undefined || j < 0 || j >= lines.length) return layout;
+  const next = lines.slice();
+  [next[index], next[j]] = [next[j], next[index]];
+  return withInstructionLines(layout, next);
+}
 
 // ---------------------------------------------------------------------------
 // what changed, in words
 
 type Item = LogHeaderField | LogColumn;
+
+/** A printed line can be a paragraph long; the change history says which line it is, not the whole of it. */
+const short = (text: string): string => (text.length > 60 ? `${text.slice(0, 57)}…` : text);
+
+/**
+ * THE PRINTED WORDS, LINE BY LINE (REQUIREMENTS §68). Two states of a block of
+ * prose say nothing about which step made them, so each difference is named
+ * for what it IS. A line is known by its words — the same words are the same
+ * line — so one rewording names that one line and leaves the rest unsaid,
+ * instead of the whole block being called "reworded".
+ */
+function describeInstructions(before: string[], after: string[]): string[] {
+  if (before.join("\n") === after.join("\n")) return [];
+  const out: string[] = [];
+  const tally = (list: string[]): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const l of list) m.set(l, (m.get(l) ?? 0) + 1);
+    return m;
+  };
+  const take = (m: Map<string, number>, line: string): boolean => {
+    const n = m.get(line) ?? 0;
+    if (n === 0) return false;
+    m.set(line, n - 1);
+    return true;
+  };
+  // A line on both sides is the same line; what is left over on each side was
+  // added or taken off — and one of each is a line REWORDED, which is what a
+  // person nearly always did.
+  const inAfter = tally(after);
+  const inBefore = tally(before);
+  type Line = { line: string; index: number };
+  const keptBefore: Line[] = [];
+  const gone: Line[] = [];
+  before.forEach((line, index) => (take(inAfter, line) ? keptBefore : gone).push({ line, index }));
+  const keptAfter: Line[] = [];
+  const fresh: Line[] = [];
+  after.forEach((line, index) => (take(inBefore, line) ? keptAfter : fresh).push({ line, index }));
+  const pairs = Math.min(gone.length, fresh.length);
+  for (let i = 0; i < pairs; i++) out.push(`reworded line ${fresh[i].index + 1} of the printed instructions, from “${short(gone[i].line)}” to “${short(fresh[i].line)}”`);
+  for (const f of fresh.slice(pairs)) out.push(`added line ${f.index + 1} to the printed instructions: “${short(f.line)}”`);
+  for (const g of gone.slice(pairs)) out.push(`took line ${g.index + 1}, “${short(g.line)}”, off the printed instructions`);
+
+  // A line that kept its words but changed its PLACE was moved. Its place is
+  // counted among the lines that stayed, so a line added at the top does not
+  // read as every line below it moving down.
+  const ranks = new Map<string, number[]>();
+  keptBefore.forEach((k, rank) => ranks.set(k.line, [...(ranks.get(k.line) ?? []), rank]));
+  const used = new Map<string, number>();
+  const moved: { at: number; up: boolean; delta: number; line: string }[] = [];
+  keptAfter.forEach((k, rank) => {
+    const n = used.get(k.line) ?? 0;
+    used.set(k.line, n + 1);
+    const was = (ranks.get(k.line) ?? [])[n];
+    if (was !== undefined && was !== rank) moved.push({ at: k.index, up: rank < was, delta: Math.abs(rank - was), line: k.line });
+  });
+  if (moved.length > 0) {
+    // Two lines that changed places both moved, and which of them a person
+    // took hold of cannot be read off the two states: the one that went up is
+    // named, which is true of either step. Where the order was shuffled more
+    // than that, it is called what it is.
+    moved.sort((a, b) => b.delta - a.delta || Number(b.up) - Number(a.up));
+    if (moved.length <= 2 || moved[0].delta > moved[1].delta) out.push(`moved line ${moved[0].at + 1} of the printed instructions, “${short(moved[0].line)}”, ${moved[0].up ? "up" : "down"}`);
+    else out.push("reordered the printed instructions");
+  }
+  return out;
+}
+
+/**
+ * The heading the paper draws over a run of columns, changed (REQUIREMENTS §68).
+ * Kept apart from the columns' own names: a heading taken off five columns is
+ * one change to the form, not five.
+ */
+function describeGroups(before: LogColumn[], after: LogColumn[]): string[] {
+  const was = new Map(before.map((c) => [c.key, c]));
+  const changed = after.filter((a) => {
+    const b = was.get(a.key);
+    return !!b && (b.group ?? "") !== (a.group ?? "");
+  });
+  if (changed.length === 0) return [];
+  const runs = new Map<string, LogColumn[]>();
+  for (const a of changed) {
+    const step = `${was.get(a.key)?.group ?? ""}\u0000${a.group ?? ""}`;
+    runs.set(step, [...(runs.get(step) ?? []), a]);
+  }
+  const out: string[] = [];
+  for (const [step, cols] of runs) {
+    const [from, to] = step.split("\u0000");
+    const what = cols.length === 1 ? "column" : "columns";
+    const names = cols.map((c) => `“${c.label}”`).join(", ");
+    // Every column of a heading given the same new name is that HEADING reworded.
+    if (from && to && before.filter((c) => (c.group ?? "") === from).length === cols.length) out.push(`renamed the spanning heading “${from}” to “${to}”`);
+    else if (to) out.push(`put the ${what} ${names} under the spanning heading “${to}”`);
+    else out.push(`took the ${what} ${names} out of the spanning heading “${from}”`);
+  }
+  return out;
+}
 
 function describeItems(what: string, before: Item[], after: Item[]): string[] {
   const out: string[] = [];
@@ -292,8 +472,9 @@ export function describeFormatChange(before: FormatDraft, after: FormatDraft): s
   if (!a || !b) return out;
   out.push(...describeItems("box", a.headerFields, b.headerFields));
   out.push(...describeItems("column", a.columns, b.columns));
+  out.push(...describeGroups(a.columns, b.columns));
   out.push(...describeItems("footer box", a.footerFields ?? [], b.footerFields ?? []));
-  if ((a.instructions ?? []).join("\n") !== (b.instructions ?? []).join("\n")) out.push("reworded the printed instructions");
+  out.push(...describeInstructions(a.instructions ?? [], b.instructions ?? []));
   const rowsA = printedRowsOf(a);
   const rowsB = printedRowsOf(b);
   if (rowsA && rowsB && JSON.stringify(rowsA) !== JSON.stringify(rowsB)) {
@@ -307,12 +488,20 @@ export function describeFormatChange(before: FormatDraft, after: FormatDraft): s
 
 export type CommitResult = { ok: true; revision: FormatRevision } | { ok: false; error: string };
 
-export function validateDraft(draft: FormatDraft): string | null {
+/** `now` is the format as it stands, which says whether it has a grid at all to keep. */
+export function validateDraft(draft: FormatDraft, now?: FormatDraft): string | null {
   if (!draft.name.trim()) return "The format needs a name.";
   const l = draft.layout;
   if (!l) return null;
   if ([...l.headerFields, ...l.columns, ...(l.footerFields ?? [])].some((x) => !x.label.trim())) return "Every box and column needs a name.";
-  if (l.columns.length === 0) return "A sheet needs at least one column.";
+  // A GRID-SHAPED FORM KEEPS AT LEAST ONE COLUMN: emptying it would quietly
+  // turn the form into labelled lines alone. But a format that HAS no grid has
+  // none to keep — the Supplier Registration Form is labelled lines and prose
+  // blocks from the top of its first page to the bottom of its third
+  // (REQUIREMENTS §68) — and its boxes and its printed words must still be
+  // changeable, so it is never asked for a column it has never had.
+  if (l.columns.length === 0 && (now?.layout ? now.layout.columns.length > 0 : true)) return "A sheet needs at least one column.";
+  if ([...l.headerFields, ...(l.footerFields ?? [])].length === 0 && l.columns.length === 0) return "A format with no grid needs at least one box.";
   return null;
 }
 
@@ -323,10 +512,11 @@ export function validateDraft(draft: FormatDraft): string | null {
  * with the reason, when nothing has changed or something is missing.
  */
 export function commitFormatChange(doc: DocumentDefinition, draft: FormatDraft, opts: { actor: string; reason: string; revisionNo?: string }): CommitResult {
-  const invalid = validateDraft(draft);
+  const before = draftOf(doc);
+  const invalid = validateDraft(draft, before);
   if (invalid) return { ok: false, error: invalid };
   if (!opts.reason.trim()) return { ok: false, error: "Say why the format is changing — it goes in its change history." };
-  const summary = describeFormatChange(draftOf(doc), draft);
+  const summary = describeFormatChange(before, draft);
   if (summary.length === 0) return { ok: false, error: "Nothing about the format has been changed yet." };
   const revisionNo = (opts.revisionNo ?? nextRevisionNo(doc.revisionNo)).trim();
   if (!revisionNo) return { ok: false, error: "Give the new revision number." };

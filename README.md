@@ -125,6 +125,21 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **A Dispatch module** (REQUIREMENTS §70): the Safe Transporter Agreement a contract transporter signs, clause
+  by clause under the paper's own headings, and the Container Stuffing & Vehicle Inspection Record — the fourth
+  form the plant issues in **Gujarati**, so it reads as issued in Gujarati and in the plant's own English when
+  English is chosen, with no network either way. Its checklist keeps the paper's own numbering: 1, 2, 3, 4, 6,
+  7, 8, 9, with no 5.
+- **A Purchase module, and the words a form prints edited on the sheet** (REQUIREMENTS §68): the department's
+  five supplied formats — the supplier registration form, the supplier audit report, the approved supplier list
+  and the two performance monitoring registers — reproduced from the company's paper, with F/PUR/05's
+  weightages (50 / 40 / 10), Overall Rating and A / B / C grade and F/PUR/06's Overall Rating worked out rather
+  than typed. Editing a format now covers its PROSE as well as its grid: each printed line is changed where it
+  stands, with undo and a revision on record, and Mitra takes the same instructions in words.
+- **The day's own notification, by priority** (REQUIREMENTS §69): once a day, a person is told what is waiting
+  for THEM — their department's documents and the ones Master Data names them on — ranked **high / medium /
+  low** from each document's own frequency and its due date, with where that leaves them on the Performance
+  Scorecard. The bell groups by the same priority. The Dashboard's leave-calendar line is gone.
 - **Mitra asks first, about work that is yours** (REQUIREMENTS §67): opened, the assistant greets you by the
   hour, says what of *your own* documents is waiting — the ones your department keeps and Master Data names you
   on — offers the three that have waited longest as one-tap buttons, and asks where you would like to go. Every

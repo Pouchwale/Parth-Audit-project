@@ -45,6 +45,13 @@ const WORD_FORMS = new Set([
   "qc-analysis-report",
   "qc-minutes-of-meetings",
   "qc-tolerance-card-nivea",
+  // Purchase (REQUIREMENTS §68): the registration form is one supplier's
+  // details and prose blocks with no grid at all, and the audit report is a
+  // nine-page report. Both read as documents. The three F/PUR registers are
+  // grids and stay spreadsheets — F/PUR/05 prints its own formulas, which is
+  // what a workbook is for.
+  "pur-supplier-registration",
+  "pur-supplier-audit-report",
 ]);
 const EXCEL_KINDS = new Set(["log-sheet", "daily-pest-monitoring", "fly-catcher", "service-report", "gap-inspection"]);
 const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-record", "compliance-statement", "chemical-master", "service-agreement", "pest-responsibilities"]);
