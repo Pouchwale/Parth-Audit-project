@@ -11,7 +11,7 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { hrPageForDocument } from "../data/seed/hrModule";
-import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
+import { useEnsureMonth } from "../utils/useEnsureMonth";
 import { createRecordForDocument } from "../engine/recordCrud";
 import { createDefaultData } from "../engine/recordDefaults";
 import { routeForRecord } from "../engine/reminders";
@@ -28,6 +28,7 @@ import { DownloadDocumentButton } from "../components/common/DownloadDocumentBut
 import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
 import { documentLayoutIn, documentTextIn } from "../i18n/documentText";
 import { logActivity } from "../utils/activityLog";
+import { useProgressiveCount } from "../utils/useProgressive";
 import type { Language } from "../i18n/strings";
 import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types";
 
@@ -73,6 +74,79 @@ function linesFilled(doc: DocumentDefinition, record: RecordInstance): string {
   return `${filled} of ${rows.length}`;
 }
 
+// THE LINES OF THE RECORDS TABLE, drawn a batch at a time (REQUIREMENTS §65).
+//
+// A daily format has a record for every day of the year so far — by September
+// 255 of them, seven cells each with a badge and a button: about 5,200 elements,
+// which the browser then measures column by column to size an auto-laid-out
+// table. That was most of the second those pages took to open on a slow laptop
+// (F/QC/13 and F/QC/34 were the two that were noticed; every daily format was
+// the same).
+//
+// A component of its own because the hook cannot go in the page — the page
+// returns early, above where `records` exists. The COUNTS on the tiles above
+// still come from the whole list, so nothing on the page is ever short; only
+// the drawing is spread out. First forty at once, then sixty a frame, and
+// everything before a print (utils/useProgressive.ts).
+function RecordLines({
+  doc,
+  records,
+  lang,
+  selectedId,
+  onSelect,
+  onOpen,
+}: {
+  doc: DocumentDefinition;
+  records: RecordInstance[];
+  lang: Language;
+  selectedId?: string;
+  onSelect: (id: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  const shownCount = useProgressiveCount(records.length, 40, 60);
+  return (
+    <>
+      {records.slice(0, shownCount).map((r) => (
+        <tr
+          key={r.id}
+          data-record={r.id}
+          className={`card-clickable ${selectedId === r.id ? "is-selected" : ""}`}
+          onClick={() => onSelect(r.id)}
+          title="Show this record below"
+        >
+          <td className="font-semibold">{formatDisplayDate(r.dueDate)}</td>
+          <td className="text-sm" translate="no">
+            {describeRecord(doc, r, lang) || <span className="text-faint">—</span>}
+          </td>
+          <td className="text-sm">{linesFilled(doc, r)}</td>
+          <td>
+            <StatusBadge status={r.status} />
+            {r.isDemo && <DemoTag />}
+          </td>
+          <td className="text-sm" translate="no">
+            {r.submittedBy || <span className="text-faint">—</span>}
+          </td>
+          <td className="text-sm" translate="no">
+            {r.verifiedBy || <span className="text-faint">—</span>}
+          </td>
+          <td style={{ textAlign: "right" }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              data-action="open-record"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen(r.id);
+              }}
+            >
+              Open <FiArrowRight size={12} />
+            </button>
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
 export function DocumentRecordsPage({ docId }: { docId: string }) {
   const { mode, version, bump, lang, currentUser } = useAppStore();
   const [editingFormat, setEditingFormat] = useState(false);
@@ -98,13 +172,13 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
     if (d) logActivity("Document opened", `${d.formatNo.startsWith("TO BE") ? "" : `${d.formatNo} `}${d.name}`, "", d.id);
   }, [docId]);
 
-  // This month's due sheet exists before the page reads the records, as on the
-  // Calendar and the pest control pages (the generator keeps the launch-date floor).
-  useMemo(() => {
-    const now = new Date();
-    ensureRecordsGeneratedForMonth(now.getFullYear(), now.getMonth(), { documentIds: [docId], isDemo: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docId, version]);
+  // This month's due sheet exists before the page shows the records — in an
+  // effect keyed on the document, which redraws only when it really made one
+  // (utils/useEnsureMonth.ts, REQUIREMENTS §65). It used to run from inside the
+  // render on every bump: a generator pass and a write to storage per keystroke
+  // saved anywhere in the app.
+  const thisMonth = new Date();
+  useEnsureMonth(thisMonth.getFullYear(), thisMonth.getMonth(), [docId]);
 
   const doc = documentRepository.getById(docId);
   // Another department's document is refused by name, not reported missing
@@ -270,43 +344,14 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
                     </td>
                   </tr>
                 )}
-                {records.map((r) => (
-                  <tr
-                    key={r.id}
-                    data-record={r.id}
-                    className={`card-clickable ${shown?.id === r.id ? "is-selected" : ""}`}
-                    onClick={() => setSelectedId(r.id)}
-                    title="Show this record below"
-                  >
-                    <td className="font-semibold">{formatDisplayDate(r.dueDate)}</td>
-                    <td className="text-sm" translate="no">
-                      {describeRecord(doc, r, lang) || <span className="text-faint">—</span>}
-                    </td>
-                    <td className="text-sm">{linesFilled(doc, r)}</td>
-                    <td>
-                      <StatusBadge status={r.status} />
-                      {r.isDemo && <DemoTag />}
-                    </td>
-                    <td className="text-sm" translate="no">
-                      {r.submittedBy || <span className="text-faint">—</span>}
-                    </td>
-                    <td className="text-sm" translate="no">
-                      {r.verifiedBy || <span className="text-faint">—</span>}
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        data-action="open-record"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(routeForRecord(doc, r.id));
-                        }}
-                      >
-                        Open <FiArrowRight size={12} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                <RecordLines
+                  doc={doc}
+                  records={records}
+                  lang={lang}
+                  selectedId={shown?.id}
+                  onSelect={setSelectedId}
+                  onOpen={(id) => navigate(routeForRecord(doc, id))}
+                />
               </tbody>
             </table>
           </div>

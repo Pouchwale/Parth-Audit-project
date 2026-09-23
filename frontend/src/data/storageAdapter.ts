@@ -164,6 +164,11 @@ export function writeJSON<T>(key: string, value: T): boolean {
   return storage.setItem(key, JSON.stringify(value));
 }
 
+/** As writeJSON, for a caller that has already made the JSON itself (data/repositories/recordRepository.ts). */
+export function writeText(key: string, text: string): boolean {
+  return storage.setItem(key, text);
+}
+
 // THE WORKING COPY IS NEARLY AS LARGE AS THE BROWSER ALLOWS (REQUIREMENTS §65).
 // A browser gives a site about five million characters of localStorage, and a
 // year of records comes close to that. Past it, a save does not fit

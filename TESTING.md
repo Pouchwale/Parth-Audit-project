@@ -145,6 +145,19 @@ Seven scripts live in `tests/`:
   materials and parameters, F/QC/13's procedure, boxes, six graded parameters and its grade chart - with
   nothing left in Gujarati on screen, while a record started on the clearance checklist still HOLDS the
   form's own Gujarati. (17 more checks, 59 in the suite)
+- The low-end work of REQUIREMENTS §65 (23-Sep-2026) is covered by the suites that already exercise the paths it
+  changed, run together after it: `e2e_smoke`, `e2e_editing`, `e2e_crud`, `e2e_files`, `e2e_hr_module`,
+  `e2e_departments`, `e2e_trend_reports`, `e2e_qc_formats`, `e2e_no_demo_mode` and `e2e_login_only`. Two of
+  those checks are what the work turns on. **"No JavaScript errors"** is what proves the shared, frozen copies
+  of the documents list, the master data and the HR master sheet are never altered in place — altering one
+  throws where it is made. And the record serialiser carries its own guard: every save re-reads one record for
+  real, a different one each time, so a record altered in place prints a line naming it and the whole array is
+  stored properly; a suite run that is silent is a run in which nothing was.
+  The first full run of §66 also caught a defect of its own worth recording: signing out reset what the server
+  had said it allows and nothing asked again, so a sign-in screen that came back after a sign-out offered no
+  way to create an account even where sign-up is open. `e2e_departments.py`, which signs out and then signs a
+  second account up, is what found it (701 checks in, no check having failed — it stopped on the missing link).
+  The app now asks the public question again whenever that screen returns.
 - `tests/e2e_login_only.py` - nobody creates their own account (REQUIREMENTS §66), a twenty-ninth suite, added
   23-Sep-2026. It runs against the same **product server on :8843** as the suite below - the portal as a plant
   installs it, which now also means the plant's named accounts are seeded there (on a password only the runner

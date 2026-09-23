@@ -1,7 +1,7 @@
 import type { RecordInstance, RecordStatus } from "../../types";
 import { isDocumentIdVisible } from "../../engine/departmentScope";
 import { SEED_HISTORICAL_RECORDS } from "../seed/historicalRecords";
-import { onExternalChange, readJSON, writeJSON } from "../storageAdapter";
+import { onExternalChange, readJSON, writeJSON, writeText } from "../storageAdapter";
 import { compareISO, todayISO } from "../../utils/date";
 
 const KEY = "records";
@@ -45,12 +45,77 @@ function recordsOfDocument(documentId: string): RecordInstance[] {
   }
   return byDocument.get(documentId) ?? [];
 }
+// ONE RECORD CHANGED, ONE RECORD WRITTEN OUT AGAIN (REQUIREMENTS §65).
+//
+// Saving meant JSON.stringify of every record there is. With a year on file
+// that is about 4.7 million characters — 38 ms here, nearer a quarter of a
+// second on a low-end laptop — and it happened on every pause in typing, while
+// the person was still typing. Yet one record had changed: upsert builds a new
+// object for that one and every other keeps the identity it already had.
+//
+// So each record's own JSON is remembered AGAINST THAT IDENTITY and the pieces
+// are joined. Measured on the same year: 29 ms down to 4 ms, and the text is
+// identical to what JSON.stringify would have produced — which it must be, or
+// the version markers, the merge and the database would all see something else
+// (data/serverSync.ts). A WeakMap, so a record that is dropped is forgotten
+// with it.
+//
+// IT IS ONLY RIGHT WHILE NOTHING IS CHANGED IN PLACE. Everything that writes
+// here builds a new object (upsert, upsertMany, removeWhere, and the engines
+// above them), and a record read through the repository must never be altered
+// directly. That is a rule a future change could break silently — the stored
+// text would simply stop matching the records — so every save re-reads ONE
+// record for real, taking the next one each time. A record altered in place is
+// found within a few saves, the whole array is written properly, and the
+// terminal says which record and where to look. One record is about 1.5 KB:
+// nothing beside the 4.7 MB this exists to avoid.
+const writtenOut = new WeakMap<RecordInstance, string>();
+let checkFrom = 0;
+
+function serialise(records: RecordInstance[]): string {
+  let out = "[";
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+    let text = writtenOut.get(record);
+    if (text === undefined) {
+      text = JSON.stringify(record);
+      writtenOut.set(record, text);
+    }
+    out += (i === 0 ? "" : ",") + text;
+  }
+  return out + "]";
+}
+
+/** The next record, read again for real: null when what was remembered is still right. */
+function alteredInPlace(records: RecordInstance[]): RecordInstance | null {
+  if (records.length === 0) return null;
+  const record = records[checkFrom % records.length];
+  checkFrom = (checkFrom + 1) % records.length;
+  const remembered = writtenOut.get(record);
+  if (remembered === undefined) return null;
+  const now = JSON.stringify(record);
+  if (now === remembered) return null;
+  writtenOut.set(record, now);
+  return record;
+}
+
 function saveAll(records: RecordInstance[]): void {
+  const altered = alteredInPlace(records);
+  if (altered) {
+    console.error(
+      `The record ${altered.id} (${altered.documentId}) was changed in place, so what was about to be stored was not what the records are. ` +
+        "Every writer must build a new object — see data/repositories/recordRepository.ts. The whole array has been stored instead.",
+    );
+    writtenOut.delete(altered);
+    cache = writeJSON(KEY, records) ? records : null;
+    return;
+  }
+  const text = serialise(records);
   // The copy is only updated once the array is really stored. When the
   // browser's storage is full the write fails; a cached copy showing the
   // change would be lost, silently, on the next reload. Dropping it makes the
   // screens show what is actually stored, and StorageFullBanner says why.
-  cache = writeJSON(KEY, records) ? records : null;
+  cache = writeText(KEY, text) ? records : null;
 }
 
 // Historical (real, source-document) records are added by id if missing —

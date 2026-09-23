@@ -131,6 +131,13 @@ The app behaves like a personal assistant rather than a blank form:
   Quality Control to Kapila Barad"), resets a forgotten password, and switches off somebody who has left
   without deleting anything. A person given a password must choose their own before the records open — and the
   server, not the dialog, holds that door.
+- **Fast on a low-end laptop** (REQUIREMENTS §65, measured at 6× CPU throttle): typing no longer waits while
+  the whole year of records is written out again — only the record that changed is (38 ms → 4 ms, so the
+  quarter-second freeze at every pause in typing is gone); a daily format's page draws its year of lines a
+  batch at a time rather than all 5,200 elements at once (the F/QC/13 and F/QC/34 pages that took ~2.9 s);
+  Today's Briefing works itself out when it is shown rather than on every change while closed; a month of
+  Document Files fills in progressively; a hidden tab asks the database for nothing until you look at it; and
+  the app warns that this browser is filling up months before it is full.
 - **The company's own mark, no Demo Mode, and a colleague's work never saved over** (REQUIREMENTS §65): the
   mark the company sent is in the sidebar, on the sign-in screen and in the browser tab — never on a printed
   record; the sidebar's second line and the Dashboard's date line carry the company's name alone. Demo Mode is

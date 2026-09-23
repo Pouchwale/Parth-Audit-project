@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { FiMessageCircle, FiMic, FiMicOff, FiSend, FiX } from "react-icons/fi";
 import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
@@ -1062,7 +1062,12 @@ export function DocumentAssistant() {
   // closing the panel is respected until a different document is opened. A
   // task already asked for (a handoff, a fresh checklist's walk-through) is
   // under way, so nothing is added to it.
-  useEffect(() => {
+  // A LAYOUT effect, so the panel is there in the first paint (REQUIREMENTS §65).
+  // Opening after the paint changed `.app-main`'s width, which sized a long
+  // table all over again — the browser measures every line of an auto-laid-out
+  // table — and the person saw the page jump. The greeting itself still waits
+  // its turn below.
+  useLayoutEffect(() => {
     if (path === "/assistant") return;
     const t = getTarget();
     const onPath = t ? null : documentOnPath(path);
@@ -1089,8 +1094,9 @@ export function DocumentAssistant() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetSignature, path]);
 
-  // The page makes room for the docked panel (styles.css, ".assistant-dock").
-  useEffect(() => {
+  // The page makes room for the docked panel (styles.css, ".assistant-dock") —
+  // before the paint, with the effect above, so the page is laid out once.
+  useLayoutEffect(() => {
     const docked = open && path !== "/assistant";
     document.documentElement.classList.toggle("assistant-docked", docked);
     return () => document.documentElement.classList.remove("assistant-docked");

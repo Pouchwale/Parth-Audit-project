@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiBell, FiX, FiZap } from "react-icons/fi";
 import { useAppStore } from "../../store/AppStore";
+import { todayISO } from "../../utils/date";
 import { computeReminders, ensureNearTermRecordsGenerated } from "../../engine/reminders";
 import { ReminderList } from "../common/ReminderList";
 import { openBriefing } from "../common/AssistantBriefingPopup";
@@ -17,14 +18,19 @@ const IS_DEMO = false;
 const MAX_SHOWN = 20;
 
 export function NotificationBell() {
-  const { version } = useAppStore();
+  const { version, bump } = useAppStore();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  // ONCE A DAY'S WORTH, not on every change of anything (REQUIREMENTS §65): the
+  // month being looked at is what decides, and the count below is redrawn only
+  // when something was really made — before, the bell could show a number that
+  // did not yet include the sheets it had just created.
+  const today = todayISO();
   useEffect(() => {
-    ensureNearTermRecordsGenerated(IS_DEMO);
+    if (ensureNearTermRecordsGenerated(IS_DEMO) > 0) bump();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version]);
+  }, [today]);
 
   const reminders = useMemo(() => computeReminders(IS_DEMO), [version]);
   const urgentCount = reminders.filter((r) => r.urgency !== "upcoming").length;

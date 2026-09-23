@@ -56,6 +56,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [check, setCheck] = useState(0);
   // Bumped when the public answer arrives, so the sign-in screen draws again with it.
   const [, setCheckedConfig] = useState(0);
+
+  // WHAT THE SERVER ALLOWS, WITH NOBODY SIGNED IN (REQUIREMENTS §66). Asked
+  // whenever this browser ends up at the sign-in screen — on the first look, and
+  // again after signing out, which resets the features with the session. Without
+  // the second, a screen that came back after a sign-out would offer no way to
+  // create an account even on a server that allows it. It asks nothing about
+  // anybody, and if it goes unanswered everything stays off, which is the safe
+  // way round: no way in that the server would refuse anyway.
+  const readPublicFeatures = useCallback(() => {
+    void api
+      .get<{ features?: ServerFeatures }>("/auth/config")
+      .then((cfg) => {
+        setFeatures(cfg.features);
+        setCheckedConfig((n) => n + 1);
+      })
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     let cancelled = false;
     api
@@ -74,27 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setMustChange(false);
         const signedOut = err instanceof ApiError && err.status === 401;
         setStatus(signedOut ? "unauthenticated" : "unreachable");
-        // NOBODY IS SIGNED IN, and the sign-in screen still has to know whether
-        // to offer a way to create an account (REQUIREMENTS §66). This asks the
-        // one public question there is — what the server has switched on — and
-        // nothing about anybody. Unanswered, everything stays off, which is the
-        // safe way round: no way in that the server would refuse anyway.
-        if (signedOut) {
-          void api
-            .get<{ features?: ServerFeatures }>("/auth/config")
-            .then((cfg) => {
-              if (!cancelled) {
-                setFeatures(cfg.features);
-                setCheckedConfig((n) => n + 1);
-              }
-            })
-            .catch(() => undefined);
-        }
+        if (signedOut) readPublicFeatures();
       });
     return () => {
       cancelled = true;
     };
-  }, [check]);
+  }, [check, readPublicFeatures]);
 
   const retry = useCallback(() => {
     setStatus("checking");
@@ -147,8 +149,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setMustChange(false);
       setStatus("unauthenticated");
+      // The sign-in screen is about to be drawn again: ask what the server allows.
+      readPublicFeatures();
     }
-  }, []);
+  }, [readPublicFeatures]);
 
   const passwordChosen = useCallback(() => setMustChange(false), []);
 

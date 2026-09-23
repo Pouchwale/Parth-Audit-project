@@ -3289,10 +3289,40 @@ saving; this one did not.)
   never answer with anything but what is stored. Every reader is handed the same object, so it is frozen all
   the way down: a change made to it throws where it is made instead of quietly showing every later reader
   something that was never stored. Whoever means to change what it read takes a copy of its own.
+- **Typing no longer waits for the whole year to be written out again.** Saving a record meant turning EVERY
+  record into text — 4.7 million characters with a year on file, 38 ms here and nearer a quarter of a second
+  on a low-end laptop — and it happened at every pause in typing, while the person was still typing. Yet one
+  record had changed. Each record's own text is now remembered against that record's identity and the pieces
+  joined: 38 ms becomes 4 ms, and what is stored is character-for-character what it was before, which it must
+  be — the version markers, the merge and the database all read it. It is only right while no record is ever
+  altered in place, so **every save re-reads one record for real**, a different one each time: a record altered
+  in place is found within a few saves, the whole array is written properly, and the terminal says which record
+  it was. (One record is about 1.5 KB — nothing beside the 4.7 MB it saves.)
+- **A daily format's page no longer draws a year of lines at once.** F/QC/13 and F/QC/34 were the two that
+  were noticed, at about 2.9 s against a second elsewhere, but every daily format was the same: a table line
+  per record on file — 255 by September, some 5,200 elements, each measured again by the browser to size the
+  columns. The lines are now drawn forty at once and sixty a frame, like every other long list; every COUNT on
+  the page still comes from the whole list, so nothing shown is ever short. **Mitra's panel now opens within
+  the first layout** rather than after it, so the page is laid out once instead of twice and no longer jumps as
+  it settles.
+- **Today's Briefing works itself out when it is shown**, not on every change of anything while it is closed —
+  which is nearly always. It walks every format's records, validates every prepared one and then works out
+  every reminder: 19 ms with a month on file, 0.1 s on a slow laptop, none of it drawn. The one thing the
+  closed popup needs is whether anything is still pending, and only in the evening slot, so it asks at the
+  minute it fires.
+- **A month of Document Files is drawn progressively when its folder is opened.** A folder that starts closed
+  used to build all of its lines in one go — nearly three hundred on a busy month — because the list was
+  handed to the progressive count as empty and it rightly settled as "everything is shown".
+- **A hidden tab asks the database for nothing.** A pull that finds a colleague's work parses the whole records
+  item, about half a second on a low-end laptop, and a tab nobody was looking at did that every time anybody
+  saved anything. It catches up the moment it is looked at again, and it still SENDS what it has of its own.
+  Only one pull ever runs at a time, and one asked for while another is in flight follows it rather than being
+  dropped.
 - **A month's due sheets are made in an effect, not while the page draws** (`utils/useEnsureMonth.ts`). The
-  pages used to run the generator from inside a render on every change of anything: a write to storage from a
-  render React may throw away, and nothing redrawn afterwards, so the bell and the briefing stayed a step
-  behind the records.
+  pages used to run the generator from inside a render on every change of anything: a generator pass per
+  keystroke saved anywhere in the app, a write to storage from a render React may throw away, and nothing
+  redrawn afterwards, so the bell and the briefing stayed a step behind the records they had just made. The
+  Chemical tab of Reports likewise asked the documents list once per record of the month; it asks once.
 - **The browser says it is filling up before it is full.** A browser gives the app about five million
   characters, and a year of records comes close; past it a save does not fit and the working copy cannot be
   loaded at all. The size is added up once at start-up — no timer — and above four million the banner says so

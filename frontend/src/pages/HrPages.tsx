@@ -7,7 +7,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { HR_SECTIONS } from "../data/seed/documentDefinitions";
 import { HR_RECORD_PAGES, hrPageForSlug, type HrSection } from "../data/seed/hrModule";
-import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
+import { useEnsureMonth } from "../utils/useEnsureMonth";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { DocumentRecordsPage } from "./DocumentRecordsPage";
@@ -43,11 +43,9 @@ export function HrOverviewPage() {
   const isDemo = mode === "demo";
   const today = todayISO();
 
-  useMemo(() => {
-    const now = new Date();
-    ensureRecordsGeneratedForMonth(now.getFullYear(), now.getMonth(), { documentIds: HR_RECORD_PAGES.map((p) => p.docId), isDemo: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version]);
+  // In an effect, not while drawing (utils/useEnsureMonth.ts, REQUIREMENTS §65).
+  const thisMonth = new Date();
+  useEnsureMonth(thisMonth.getFullYear(), thisMonth.getMonth(), HR_RECORD_PAGES.map((p) => p.docId));
 
   const docs = documentRepository.getAll();
   const items = HR_RECORD_PAGES.map((page) => ({ page, doc: docs.find((d) => d.id === page.docId) })).filter(

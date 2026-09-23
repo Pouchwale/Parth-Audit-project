@@ -53,8 +53,6 @@ function MonthFolder({
   const m = Number(ym.slice(5, 7)) - 1;
   const empty = records.length === 0;
   const showOpen = open && !empty;
-  // A month of hundreds of files shows its first lines at once and the rest a batch at a time.
-  const rowsShown = useProgressiveCount(showOpen ? records.length : 0, 40, 80);
   return (
     <div className={`file-month ${empty ? "empty" : ""}`} data-month={ym}>
       <button type="button" className="file-month-head" onClick={() => setOpen((o) => !o)} aria-expanded={showOpen} disabled={empty}>
@@ -65,7 +63,22 @@ function MonthFolder({
         </span>
         <span className="file-count">{empty ? t("files.folderEmpty") : t("files.count", { n: records.length })}</span>
       </button>
-      {showOpen && (
+      {showOpen && <MonthFiles records={records} docsById={docsById} onOpen={onOpen} />}
+    </div>
+  );
+}
+
+// THE LINES OF ONE MONTH, drawn a batch at a time (REQUIREMENTS §65, and §56's
+// standard). A CHILD, mounted the moment the folder is opened, because the hook
+// has to be given the real number of lines from its first breath: mounted with
+// nothing (a folder that starts closed) it rightly settles as "everything is
+// shown" — which is correct for a list that starts short and grows, and wrong
+// here, where opening a month then built all two hundred and ninety-odd lines
+// in one go. That is the very freeze the hook exists to remove.
+function MonthFiles({ records, docsById, onOpen }: { records: RecordInstance[]; docsById: Map<string, DocumentDefinition>; onOpen: (r: RecordInstance) => void }) {
+  const t = useT();
+  const rowsShown = useProgressiveCount(records.length, 40, 80);
+  return (
         <div className="doc-table file-table-wrap">
           <table className="file-table">
             <tbody>
@@ -96,8 +109,6 @@ function MonthFolder({
             </tbody>
           </table>
         </div>
-      )}
-    </div>
   );
 }
 

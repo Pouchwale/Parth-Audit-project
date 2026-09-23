@@ -59,13 +59,15 @@ export function routeForRecord(doc: DocumentDefinition | undefined, recordId: st
 // a side effect (e.g. inside a useEffect, same as DashboardPage/CalendarPage
 // already do for their own generation) and then read the result via
 // computeReminders, which stays a pure read over the repositories.
-export function ensureNearTermRecordsGenerated(isDemo: boolean): void {
+/** Returns how many records it had to make, so a caller can redraw only when there is something new (REQUIREMENTS §65). */
+export function ensureNearTermRecordsGenerated(isDemo: boolean): number {
   const now = new Date();
-  ensureRecordsGeneratedForMonth(now.getFullYear(), now.getMonth(), { isDemo });
+  let made = ensureRecordsGeneratedForMonth(now.getFullYear(), now.getMonth(), { isDemo }).length;
   const horizon = fromISODate(addDays(todayISO(), ADVANCE_WARNING_DAYS));
   if (horizon.getFullYear() !== now.getFullYear() || horizon.getMonth() !== now.getMonth()) {
-    ensureRecordsGeneratedForMonth(horizon.getFullYear(), horizon.getMonth(), { isDemo });
+    made += ensureRecordsGeneratedForMonth(horizon.getFullYear(), horizon.getMonth(), { isDemo }).length;
   }
+  return made;
 }
 
 export function computeReminders(isDemo: boolean): DocumentReminder[] {

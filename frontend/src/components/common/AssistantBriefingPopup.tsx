@@ -49,16 +49,21 @@ export function AssistantBriefingPopup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const briefing: Briefing = useMemo(() => computeBriefing(user?.name), [version, user?.name]);
-  const briefingRef = useRef(briefing);
-  briefingRef.current = briefing;
+  // WORKED OUT WHEN IT IS SHOWN, not on every change of anything (REQUIREMENTS §65).
+  // computeBriefing walks every recordable format's records, validates every
+  // prepared one and then works out every reminder — 19 ms with a month on file
+  // here, 0.1 s on a slow laptop — and this ran on every bump even while the
+  // popup was closed, which is almost always. The one thing the closed popup
+  // needs is whether anything is still pending, and only in the evening slot:
+  // the tick below asks for that at the minute it fires.
+  const briefing: Briefing | null = useMemo(() => (open ? computeBriefing(user?.name) : null), [open, version, user?.name]);
 
   // Scheduled showing: check on mount and then once a minute, so an app left
   // open all day still gets its end-of-day nudge at the right time.
   useEffect(() => {
     const tick = () => {
       if (open) return;
-      const due = dueBriefingSlot(new Date(), () => pendingCount(briefingRef.current) > 0);
+      const due = dueBriefingSlot(new Date(), () => pendingCount(computeBriefing(user?.name)) > 0);
       if (!due) return;
       recordBriefingShown(due);
       setSlot(due);
@@ -69,7 +74,7 @@ export function AssistantBriefingPopup() {
     const id = window.setInterval(tick, 60_000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, user?.name]);
 
   useEffect(() => {
     const onOpen = () => {
@@ -96,7 +101,7 @@ export function AssistantBriefingPopup() {
       });
   }, [version]);
 
-  if (!open) return null;
+  if (!open || !briefing) return null;
 
   const dismiss = () => setOpen(false);
   const go = (route: string) => {

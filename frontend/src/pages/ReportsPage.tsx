@@ -701,13 +701,17 @@ export function FlyCatcherTrendReport({ isDemo, year, month }: { isDemo: boolean
 
 function ChemicalUsageReport({ isDemo, year, month }: { isDemo: boolean; year: number; month: number }) {
   const dim = daysInMonth(year, month);
+  const kindOf = new Map(documentRepository.getAll().map((d) => [d.id, d.kind]));
   const records = recordRepository.query({
     documentId: undefined,
     isDemo,
     fromDate: `${year}-${pad2(month + 1)}-01`,
     toDate: `${year}-${pad2(month + 1)}-${pad2(dim)}`,
   })
-    .filter((r) => documentRepository.getById(r.documentId)?.kind === "service-report") as RecordInstance<ServiceReportData>[];
+    // One list of kinds, not a lookup per record of the month: this asked the
+    // repository once for every record the month holds — nearly three hundred
+    // on a busy month (REQUIREMENTS §65).
+    .filter((r) => kindOf.get(r.documentId) === "service-report") as RecordInstance<ServiceReportData>[];
 
   const byChemical = new Map<string, { count: number; sample: string }>();
   for (const r of records) {

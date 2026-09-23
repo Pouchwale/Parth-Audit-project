@@ -770,6 +770,7 @@ function databaseWasReset(): void {
   console.warn("The database was reset or restored; loading the app again from it.");
   clearTimers(s);
   window.removeEventListener("focus", onFocus);
+  document.removeEventListener("visibilitychange", onShown);
   window.removeEventListener("pagehide", onPageHide);
   session = null;
   starting = null;
@@ -871,9 +872,19 @@ async function pull(): Promise<void> {
   s.seq = cursor;
 }
 
+// A HIDDEN TAB ASKS FOR NOTHING (REQUIREMENTS §65). A pull that finds a
+// colleague's work has to parse the whole records item — nearly five million
+// characters with a year on file, about half a second on a low-end laptop — and
+// a tab nobody is looking at was doing that every time anybody, anywhere, saved
+// anything. It catches up the moment it is looked at again (onShown below), and
+// it still SENDS what it has of its own: sending is not on this timer.
 function poll(): void {
   const s = session;
   if (!s) return;
+  if (typeof document !== "undefined" && document.hidden) {
+    s.pollTimer = window.setTimeout(poll, PULL_EVERY_MS);
+    return;
+  }
   void pull()
     .catch(() => undefined)
     .finally(() => {
@@ -881,7 +892,33 @@ function poll(): void {
     });
 }
 
-const onFocus = () => void pull().catch(() => undefined);
+// ONE PULL AT A TIME. The timer, coming back to the tab and giving it focus can
+// all land together; each used to download and parse the same thing. A pull
+// asked for while one is in flight waits for it and then goes, so nothing that
+// arrived in between is missed.
+let pulling: Promise<void> | null = null;
+let pullAgain = false;
+function pullOnce(): Promise<void> {
+  if (pulling) {
+    pullAgain = true;
+    return pulling;
+  }
+  pulling = pull()
+    .catch(() => undefined)
+    .finally(() => {
+      pulling = null;
+      if (pullAgain) {
+        pullAgain = false;
+        void pullOnce();
+      }
+    });
+  return pulling;
+}
+
+const onFocus = () => void pullOnce();
+const onShown = () => {
+  if (typeof document === "undefined" || !document.hidden) void pullOnce();
+};
 
 // Closing the page: what is still waiting goes now, if it is small enough to
 // go with the page; and for everything not yet confirmed, the copy it was made
@@ -1056,6 +1093,7 @@ export function startServerSync(userId: string): Promise<void> {
     // The working copy was replaced: every copy held in memory (the records repository's) is dropped.
     notify(null);
     window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onShown);
     window.addEventListener("pagehide", onPageHide);
     s.pollTimer = window.setTimeout(poll, PULL_EVERY_MS);
     announce();
@@ -1082,6 +1120,7 @@ async function endSession(forgetStart: boolean): Promise<void> {
   const waiting = Array.from(scheduled.keys());
   clearTimers(s);
   window.removeEventListener("focus", onFocus);
+  document.removeEventListener("visibilitychange", onShown);
   window.removeEventListener("pagehide", onPageHide);
   await Promise.allSettled([...sending.values(), ...waiting.map((key) => send(key))]);
   if (session === s) {
