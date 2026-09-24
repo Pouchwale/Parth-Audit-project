@@ -41,6 +41,9 @@ import {
   FiShoppingCart,
   FiArchive,
   FiScissors,
+  FiTool,
+  FiSun,
+  FiAlertTriangle,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
@@ -105,6 +108,11 @@ const MODULE_ORDER = [
   "CAPA (Corrective & Preventive Action)",
   "Lamination — Quality Control",
   "Lamination — Production",
+  // Maintenance comes after the production formats, which is where the
+  // company's own Master List of Formats & Records puts F/MNT (after F/PRD),
+  // and outside the Purchase -> Store -> Dispatch run the material moves
+  // through (REQUIREMENTS §74).
+  "Maintenance",
   "Purchase",
   // Store sits between Purchase and Dispatch because that is where the
   // material is: bought on the F/PUR formats, taken in and kept on the F/STR
@@ -128,6 +136,8 @@ const MODULE_ICONS: Record<ModuleName, IconType> = {
   "Lamination — Production": FiPackage,
   // Buying: the department that places the order and keeps the supplier list.
   Purchase: FiShoppingCart,
+  // The machines, and the work that keeps them running.
+  Maintenance: FiTool,
   // The room the material is kept in.
   Store: FiArchive,
   Dispatch: FiTruck,
@@ -218,6 +228,24 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
   // its load as it comes IN, then the register of the sharp tools the store
   // issues out and takes back. The first was supplied as the rubber stamp
   // itself, and the stamp is shown beside the form.
+  // Maintenance — the department's eight F/MNT formats (REQUIREMENTS §74). The
+  // equipment list comes first because it is the MASTER the other formats
+  // fetch a machine from, as HR Master Data leads the HR module (§53).
+  Maintenance: [
+    { to: "/library/maintenance", labelKey: "nav.maintenanceDocs", icon: FiBookOpen },
+    { headingKey: "nav.mntEquipment" },
+    { to: "/document/mnt-equipment-list", labelKey: "nav.mntEquipmentList", icon: FiDatabase },
+    { to: "/document/mnt-new-equipment", labelKey: "nav.mntNewEquipment", icon: FiPackage },
+    { headingKey: "nav.mntPreventive" },
+    { to: "/document/mnt-yearly-pm-schedule", labelKey: "nav.mntYearlyPm", icon: FiCalendar },
+    { to: "/document/mnt-pm-record", labelKey: "nav.mntPmRecord", icon: FiClipboard },
+    { headingKey: "nav.mntHealthBreakdowns" },
+    { to: "/document/mnt-daily-health", labelKey: "nav.mntDailyHealth", icon: FiCheckSquare },
+    { to: "/document/mnt-breakdown-record", labelKey: "nav.mntBreakdown", icon: FiAlertTriangle },
+    { headingKey: "nav.mntGlassLighting" },
+    { to: "/document/mnt-glass-breakage", labelKey: "nav.mntGlass", icon: FiShield },
+    { to: "/document/mnt-lux-level", labelKey: "nav.mntLux", icon: FiSun },
+  ],
   Store: [
     { to: "/library/store", labelKey: "nav.storeDocs", icon: FiBookOpen },
     { headingKey: "nav.strIncomingMaterial" },
@@ -308,6 +336,21 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/pur-approved-suppliers": ["pur-approved-suppliers"],
   "/document/pur-supplier-performance": ["pur-supplier-performance"],
   "/document/pur-service-provider-performance": ["pur-service-provider-performance"],
+  // Store and Dispatch (REQUIREMENTS §71, §70) — missing until §74, so their
+  // links showed to anybody who could see the module at all.
+  "/document/str-incoming-material-vehicle": ["str-incoming-material-vehicle"],
+  "/document/str-sharp-metal-objects": ["str-sharp-metal-objects"],
+  "/document/disp-safe-transporter-agreement": ["disp-safe-transporter-agreement"],
+  "/document/disp-container-stuffing": ["disp-container-stuffing"],
+  // Maintenance (REQUIREMENTS §74): one page per F/MNT format.
+  "/document/mnt-equipment-list": ["mnt-equipment-list"],
+  "/document/mnt-new-equipment": ["mnt-new-equipment"],
+  "/document/mnt-yearly-pm-schedule": ["mnt-yearly-pm-schedule"],
+  "/document/mnt-pm-record": ["mnt-pm-record"],
+  "/document/mnt-daily-health": ["mnt-daily-health"],
+  "/document/mnt-breakdown-record": ["mnt-breakdown-record"],
+  "/document/mnt-glass-breakage": ["mnt-glass-breakage"],
+  "/document/mnt-lux-level": ["mnt-lux-level"],
 };
 
 // One module's entries with the other departments' links taken out, and then

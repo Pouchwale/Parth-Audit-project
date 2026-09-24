@@ -2,13 +2,16 @@ import React from "react";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
-import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
+import { getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
+import { departmentOfDocument } from "../../data/seed/departments";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
 import { applyFills, hrMasterLinkFor, personFill, personNamed } from "../../engine/hrMaster";
 import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
-import { isOutOfBand } from "../../engine/validation";
-import { withPurchaseRatings } from "../../engine/purchaseRatings";
+import { equipmentLinkFor, equipmentMasterVisible, machineBlankFills } from "../../engine/equipmentMaster";
+import { EquipmentFetch, EquipmentMachineList } from "./EquipmentFetch";
+import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
+import { withComputedCells } from "../../engine/computedCells";
 import { documentLayoutIn, documentTextIn, keepFormAsIssued } from "../../i18n/documentText";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate } from "../../utils/date";
@@ -23,28 +26,44 @@ export function LogSheetRecordView({
   record,
   editable,
   onChange,
+  lists,
 }: {
   doc: DocumentDefinition;
   record: RecordInstance<LogSheetData>;
   editable: boolean;
   onChange: (data: LogSheetData) => void;
+  /**
+   * The suggestion list a box offers, by the box's key — the id of a
+   * <datalist> the page draws, e.g. { machineIdNo: "equipment-machines" }
+   * (REQUIREMENTS §74). It takes the place of the layout's own `list` and of
+   * the employee names a box whose label names a person would otherwise offer.
+   */
+  lists?: Record<string, string>;
 }) {
   // The form reads in the language chosen beside Today's Briefing: a form the
   // department issues in Gujarati reads in English while English is chosen
   // (REQUIREMENTS §58, i18n/documentText.ts). The KEYS never change, so what a
   // record holds is untouched either way.
   const { lang } = useAppStore();
-  const issued = getLogSheetLayout(doc.id);
+  // The layout THIS RECORD was filled on: the format as it stands, or — for a
+  // page kept on a revision the format has since replaced — that revision's
+  // own boxes and columns (REQUIREMENTS §74).
+  const issued = getLogSheetLayoutForRecord(doc.id, record);
   const layout = documentLayoutIn(issued, lang);
+  const superseded = supersededRevisionOf(record);
   // A form the department issues in Gujarati already reads in Gujarati, so with
   // ગુજરાતી chosen it is not handed to Google at all — it reads as issued.
   const asIssued = keepFormAsIssued(doc.id, lang);
-  // THE TWO PURCHASE MONITORING REGISTERS WORK THEIR WEIGHTED RATINGS OUT FROM
-  // WHAT IS WRITTEN (engine/purchaseRatings.ts, REQUIREMENTS §68), the way the
-  // calibration records work out their deviations. It is applied on the way in
-  // as well as on the way out, so a formula cell is right the moment X, Y or Z
-  // is entered AND right on a record that was written elsewhere.
-  const data = withPurchaseRatings(doc.id, record.data ?? { header: {}, rows: [] });
+  // EVERY WORKED-OUT CELL IS WORKED OUT FROM WHAT IS WRITTEN — the purchase
+  // registers' weighted ratings (§68), the calibration deviations (§61), the
+  // breakdown register's total minutes (§74) — in one pass
+  // (engine/computedCells.ts). It is applied on the way in as well as on the
+  // way out, so a formula cell is right the moment a figure is entered AND
+  // right on a record that was written elsewhere. Worked out once per version
+  // of the record rather than on every render, so a long register is not
+  // walked again for a render that changed nothing in it.
+  const stored = record.data;
+  const data = React.useMemo(() => withComputedCells(doc.id, stored ?? { header: {}, rows: [] }), [doc.id, stored]);
   const employees = masterRepository.get().employees;
   // Once per render, not once per cell (a 58 x 25 sheet asked for it 1,450 times).
   const employeeNames = React.useMemo(() => employees.map((e) => e.name), [employees]);
@@ -62,7 +81,7 @@ export function LogSheetRecordView({
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
   }
 
-  const save = (next: LogSheetData) => onChange(withPurchaseRatings(doc.id, next));
+  const save = (next: LogSheetData) => onChange(withComputedCells(doc.id, next));
   const setHeader = (key: string, value: string) => save({ ...data, header: { ...data.header, [key]: value } });
   const setCell = (rowId: string, key: string, value: string | number | null) =>
     save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)) });
@@ -96,7 +115,37 @@ export function LogSheetRecordView({
     if (fills.length > 0) save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
   };
 
+  // THE MAINTENANCE FORMATS FETCH A MACHINE FROM THE EQUIPMENT MASTER, F/MNT/01
+  // (REQUIREMENTS §74), the same way the HR formats fetch a person: the bar
+  // above the form, the list of machine numbers on the Machine No. box, and a
+  // number left in that box fills the machine's BLANK boxes. Nothing already
+  // written is changed here. Only for an account that may see Maintenance's
+  // list, and never on F/MNT/01 itself.
+  const eqLink = equipmentLinkFor(doc.id);
+  const eqFetching = !!eqLink && editable && equipmentMasterVisible();
+  const fillFromMachine = (rowId: string | null, value: string) => {
+    if (!eqLink || !eqFetching) return;
+    if (rowId === null) {
+      const header = { ...data.header, [eqLink.idField]: value };
+      const fills = machineBlankFills(eqLink, header, value);
+      if (fills.length > 0) save({ ...data, header: applyFills(header, fills) });
+      return;
+    }
+    const row = data.rows.find((r) => r.id === rowId);
+    if (!row) return;
+    const current = { ...row, [eqLink.idField]: value };
+    const fills = machineBlankFills(eqLink, current, value);
+    if (fills.length > 0) save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? applyFills(current, fills) : r)) });
+  };
+  // A machine box offers the machine numbers; the machine's OTHER boxes offer
+  // nothing — without the "" a "Machine Name:" box would offer employees.
+  const machineHeaderList = (key: string): string | undefined => {
+    if (!eqLink || eqLink.where !== "header" || !eqLink.fields.some((x) => x.key === key)) return undefined;
+    return eqFetching && eqLink.idField === key ? "equipment-machines" : "";
+  };
+
   const mode = layout.rowMode;
+  const qcForm = departmentOfDocument(doc.id, doc.formatNo) === "QC";
   const canAddRows = editable && mode.kind === "free";
   const canRemoveRows = editable && mode.kind === "free" && data.rows.length > (mode.minRows ?? 0);
   const outOfBand = data.rows.reduce((n, row) => n + layout.columns.filter((c) => isOutOfBand(c, row[c.key])).length, 0);
@@ -112,7 +161,22 @@ export function LogSheetRecordView({
 
   return (
     <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined}>
-      <DocumentHeader doc={doc} dateLabel={formatDisplayDate(record.dueDate)} pageLabel="1 of 1 (digital)" />
+      <DocumentHeader
+        doc={doc}
+        dateLabel={formatDisplayDate(record.dueDate)}
+        pageLabel="1 of 1 (digital)"
+        revision={superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined}
+      />
+      {/* A page kept on the revision it was written on says so (REQUIREMENTS §74). */}
+      {superseded && (
+        <div className="card mt-4 no-print" data-superseded-revision={superseded.revisionNo}>
+          <div className="card-pad text-sm">
+            Filled on Rev {superseded.revisionNo} of this format ({formatDisplayDate(superseded.revisionDate)}), which Rev {doc.revisionNo} has since replaced. It is
+            shown as it was written, on the revision it was written on, and is kept as it is.
+            {superseded.note ? ` ${superseded.note}` : ""}
+          </div>
+        </div>
+      )}
 
       {(layout.instructions?.length || layout.headerFields.length > 0) && (
         <div className="card mt-4">
@@ -157,6 +221,8 @@ export function LogSheetRecordView({
               <div className="grid mt-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px 16px" }}>
                 {layout.headerFields.map((f, fi) => {
                   const personBox = fetching && link?.where === "header" && link.nameField === f.key;
+                  const machineList = machineHeaderList(f.key);
+                  const machineIdBox = eqFetching && eqLink?.where === "header" && eqLink.idField === f.key;
                   return (
                     <HeaderFieldInput
                       key={f.key}
@@ -166,8 +232,8 @@ export function LogSheetRecordView({
                       editable={editable}
                       onChange={(v) => setHeader(f.key, v)}
                       employees={employeeNames}
-                      list={personBox ? "hr-master-people" : undefined}
-                      onBlur={personBox ? (v) => fillFromName(null, v) : undefined}
+                      list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : (lists?.[f.key] ?? f.list)}
+                      onBlur={personBox ? (v) => fillFromName(null, v) : machineIdBox ? (v) => fillFromMachine(null, v) : undefined}
                     />
                   );
                 })}
@@ -178,6 +244,7 @@ export function LogSheetRecordView({
       )}
 
       {fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
+      {eqFetching && eqLink && <EquipmentFetch key={`eq-${record.id}`} link={eqLink} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
 
       {outOfBand > 0 && (
         <div className="card mt-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
@@ -248,8 +315,20 @@ export function LogSheetRecordView({
                         editable={editable && !col.fixed && !col.computed}
                         onChange={(v) => setCell(row.id, c.key, v)}
                         employees={employeeNames}
-                        list={fetching && link?.where === "rows" && link.nameField === c.key ? "hr-master-people" : undefined}
-                        onBlur={fetching && link?.where === "rows" && link.nameField === c.key ? (v) => fillFromName(row.id, v) : undefined}
+                        list={
+                          fetching && link?.where === "rows" && link.nameField === c.key
+                            ? "hr-master-people"
+                            : eqFetching && eqLink?.where === "rows" && eqLink.idField === c.key
+                              ? "equipment-machines"
+                              : (lists?.[c.key] ?? c.list)
+                        }
+                        onBlur={
+                          fetching && link?.where === "rows" && link.nameField === c.key
+                            ? (v) => fillFromName(row.id, v)
+                            : eqFetching && eqLink?.where === "rows" && eqLink.idField === c.key
+                              ? (v) => fillFromMachine(row.id, v)
+                              : undefined
+                        }
                       />
                     </td>
                   );
@@ -286,16 +365,24 @@ export function LogSheetRecordView({
                   editable={editable}
                   onChange={(v) => setHeader(f.key, v)}
                   employees={employeeNames}
+                  list={lists?.[f.key] ?? f.list}
                 />
               ))}
             </div>
-            <div className="text-xs text-muted mt-3 no-print">
-              "Approved by (QA Manager)" on the paper form is the <strong>Verify</strong> step here — the verifier's name and time are stamped automatically.
-            </div>
+            {/* The QA Manager's approval is a QC form's own box, so the line
+                about it belongs under QC forms only: under a Maintenance or a
+                Purchase footer it named a signature those forms do not have
+                (REQUIREMENTS §74). */}
+            {qcForm && (
+              <div className="text-xs text-muted mt-3 no-print">
+                "Approved by (QA Manager)" on the paper form is the <strong>Verify</strong> step here — the verifier's name and time are stamped automatically.
+              </div>
+            )}
           </div>
         </div>
       )}
       {fetching && <HrMasterPeopleList />}
+      {eqFetching && <EquipmentMachineList />}
       <datalist id="log-sheet-employees">
         {employees.map((e) => (
           <option key={e.id} value={e.name} />
@@ -351,7 +438,12 @@ function HeaderFieldInput({
   list?: string;
   onBlur?: (v: string) => void;
 }) {
-  const isName = /operator|name|inspected|person|sign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name/i.test(issuedLabel);
+  // A box that names a PERSON offers the employee names. "Machine Name:",
+  // "Name of Equipment:" and "EQUIPMENT NAME" name a machine (REQUIREMENTS §74),
+  // and offering them the people on the payroll put a person's name one tap
+  // away from a machine's box.
+  const isName =
+    /operator|name|inspected|person|sign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name|machine|equipment|equipoment/i.test(issuedLabel);
   // A block of prose is its own kind of box: it takes the width of the row it
   // sits in and grows with what is written (REQUIREMENTS §68).
   if (field.type === "paragraph") {

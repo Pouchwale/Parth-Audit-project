@@ -29,7 +29,8 @@ import {
   serviceRemarkFor,
 } from "./plantSimulation";
 import { dayInfo } from "./holidays";
-import { isLotAccepted, isOutOfBand } from "./validation";
+import { isLotAccepted, isOutOfBand, supersededRevisionOf } from "./validation";
+import { withComputedCells } from "./computedCells";
 import { compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
@@ -451,6 +452,13 @@ function fillRow(
       row[col.key] = t;
       continue;
     }
+    // "Date of Measurement" on a round walked in one day: the date the record
+    // is for, on every line, never the date the last sheet was for
+    // (REQUIREMENTS §74).
+    if (!col.fixed && col.autoFill?.dueDate) {
+      row[col.key] = dueDate;
+      continue;
+    }
     if (col.autoFill?.sign) {
       row[col.key] = signFor(col, timeForSign, doc, master, dueDate);
       continue;
@@ -598,11 +606,17 @@ function fillLogSheet(
   doc: DocumentDefinition,
   dueDate: string,
   master: MasterData,
-  previous: RecordInstance<LogSheetData> | undefined,
+  given: RecordInstance<LogSheetData> | undefined,
   rng: Rng
 ): AutoFillResult | null {
   const layout = getLogSheetLayout(doc.id);
   if (!layout) return null;
+  // A page filled on a revision the format has since replaced holds that
+  // revision's boxes and columns, not these (REQUIREMENTS §74): F/MNT/11's 2024
+  // Day/Night readings would carry nothing into Rev 01's single Lux Level
+  // column, or worse, carry row 7 of one area list onto row 7 of another. It is
+  // never the sheet a new one is carried forward from — the specimen is.
+  const previous = given && supersededRevisionOf(given) ? undefined : given;
 
   // Header + footer fields: carry forward (job, operator, machine,
   // batches...), sign fields resolve to the responsible employee, else the
@@ -689,7 +703,10 @@ function fillLogSheet(
   const gradeAction = gradeRuleAction(doc, rows);
   if (gradeAction) header.remarks = gradeAction;
 
-  const data: LogSheetData = { header, rows };
+  // Every worked-out cell worked out on what was filled (engine/computedCells.ts,
+  // REQUIREMENTS §74): a prepared, sample, guided or demo record stores the
+  // right figure, not the one the specimen or the last sheet happened to hold.
+  const data: LogSheetData = withComputedCells(doc.id, { header, rows });
   const notes = describeLogSheet(doc, layout, data, previous);
   const excursion = describeExcursions(ctx);
   if (excursion) notes.unshift(excursion);

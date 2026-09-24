@@ -125,6 +125,15 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **A Maintenance module** (REQUIREMENTS §74): the eight F/MNT formats the department supplied, verbatim to the
+  last misspelling ("Equipoment", "Monthaly", "BREKAGE", "VARIFIED"). **F/MNT/01, the list of 43 machines, is the
+  equipment master** — the preventive maintenance record, the daily health sheet and the breakdown register fetch a
+  machine from it by its number, and Mitra answers "which machine is M-47?". F/MNT/04 prints its check parameters
+  in **Hindi and Gujarati side by side**, read from the page itself because the PDF's text was mis-encoded, and
+  reads in English with English chosen. F/MNT/06 **works out** its breakdown minutes. And a record is now **read under
+  the revision it was made on**: the 2024 lux round, filled on the superseded Rev 00 with Day and Night columns, is
+  still drawn and headed as Rev 00, while the 2025 round reads on Rev 01. Every supplied page can be seen as it came,
+  captioned with its revision. F/MNT/05, 07 and 10 are on the master list but were not supplied.
 - **Mitra asks the model, and says when it could not** (REQUIREMENTS §72). A question goes to the Groq-backed
   assistant. Only four things are answered without it, each for a reason: an out-of-scope message, "are you a real
   person?", the opening greeting with its buttons, and a command that opens a screen. **When the model cannot be

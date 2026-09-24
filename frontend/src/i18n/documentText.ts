@@ -27,7 +27,10 @@ import type { Language } from "./strings";
 
 /** The formats the department issues in Gujarati (REQUIREMENTS §57). */
 // Dispatch's container check is the fourth form the plant issues in Gujarati (REQUIREMENTS §70).
-export const GUJARATI_DOCUMENT_IDS: readonly string[] = ["qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality", "disp-container-stuffing"];
+// F/MNT/04 (REQUIREMENTS §74) prints its check parameters in HINDI and Gujarati
+// side by side; it is kept as issued the same way, and its English is read
+// from the same table.
+export const GUJARATI_DOCUMENT_IDS: readonly string[] = ["qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality", "disp-container-stuffing", "mnt-daily-health"];
 
 export const isGujaratiDocument = (documentId: string): boolean => GUJARATI_DOCUMENT_IDS.includes(documentId);
 

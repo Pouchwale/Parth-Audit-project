@@ -11,6 +11,7 @@ import { SEED_QC_CALIBRATION_RECORDS } from "./qcCalibrationRecords";
 import { SEED_QC_REGISTER_RECORDS } from "./qcRegisterRecords";
 import { SEED_QC_COA_RECORDS } from "./qcCoaRecords";
 import { SEED_QC_REPORT_RECORDS } from "./qcReportRecords";
+import { SEED_MNT_RECORDS } from "./maintenanceRecords";
 
 const now = new Date().toISOString();
 
@@ -218,4 +219,7 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   ...(SEED_QC_REGISTER_RECORDS as RecordInstance[]),
   ...SEED_QC_COA_RECORDS,
   ...SEED_QC_REPORT_RECORDS,
+  // Maintenance's pages supplied filled in on 24-Sep-2026 (REQUIREMENTS §74): the
+  // equipment list, and the two lux rounds — the older kept on its own revision.
+  ...(SEED_MNT_RECORDS as RecordInstance[]),
 ];

@@ -7,6 +7,7 @@ import type {
   GapInspectionData,
   LogColumn,
   LogSheetData,
+  LogSheetLayout,
   PestResponsibilitiesData,
   RecordInstance,
   ServiceAgreementData,
@@ -14,7 +15,7 @@ import type {
   TrainingRecordData,
 } from "../types";
 import { masterRepository } from "../data/repositories/masterRepository";
-import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { codeRulesFor } from "./documentFormats";
 
 // "Was the lot accepted as it is?" — the one status that needs no reason
@@ -33,12 +34,37 @@ export function isOutOfBand(col: LogColumn, value: unknown): boolean {
   return false;
 }
 
-export function logSheetOutOfBandCount(documentId: string, data: LogSheetData): number {
-  const layout = getLogSheetLayout(documentId);
+export function logSheetOutOfBandCount(documentId: string, data: LogSheetData, record?: { formatRevision?: string } | null): number {
+  const layout = getLogSheetLayoutForRecord(documentId, record);
   if (!layout) return 0;
   let n = 0;
   for (const row of data.rows) for (const col of layout.columns) if (isOutOfBand(col, row[col.key])) n += 1;
   return n;
+}
+
+/** A revision of a format that a record was filled on and the format has since replaced. */
+export interface SupersededRevisionInfo {
+  revisionNo: string;
+  revisionDate: string;
+  note?: string;
+  layout: LogSheetLayout;
+}
+
+/**
+ * The superseded revision this record was filled on (REQUIREMENTS §74), or
+ * undefined for every record that reads with the format as it now stands —
+ * which is every record that names no revision, or names one the current
+ * layout does not list as superseded. Such a record is a page of the past:
+ * drawn and checked with its own layout, headed with its own revision, never a
+ * source to carry forward from and never reopened for correction.
+ */
+export function supersededRevisionOf(record: { documentId: string; formatRevision?: string } | null | undefined): SupersededRevisionInfo | undefined {
+  const revisionNo = record?.formatRevision;
+  if (!revisionNo) return undefined;
+  const revisions = getLogSheetLayout(record.documentId)?.supersededRevisions;
+  if (!revisions || !Object.prototype.hasOwnProperty.call(revisions, revisionNo)) return undefined;
+  const found = revisions[revisionNo];
+  return found?.layout ? { revisionNo, revisionDate: found.revisionDate, note: found.note, layout: found.layout } : undefined;
 }
 
 export interface ValidationResult {
@@ -181,7 +207,8 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
     }
     case "log-sheet": {
       const d = record.data as LogSheetData;
-      const layout = getLogSheetLayout(doc.id);
+      // Checked against the layout the record was filled on (REQUIREMENTS §74).
+      const layout = getLogSheetLayoutForRecord(doc.id, record);
       if (!layout) break;
       for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
         if (f.required && !(d.header?.[f.key] ?? "").toString().trim()) errors.push(`${f.label} is required.`);
@@ -194,7 +221,10 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       (d.rows ?? []).forEach((row, i) => {
         const label = mode.kind === "timeSlots" ? `${row[mode.slotKey]}` : mode.kind === "fixedRows" && row.parameter ? `${row.parameter}` : `Row ${i + 1}`;
         for (const col of layout.columns) {
-          if (!col.required) continue;
+          // A worked-out cell is never asked for: it is blank only while the
+          // cells it comes from are, and those carry their own requirement
+          // (engine/computedCells.ts, REQUIREMENTS §74).
+          if (!col.required || col.computed) continue;
           const v = row[col.key];
           if (v === null || v === undefined || `${v}`.trim() === "") errors.push(`${label}: ${col.label} is required.`);
         }

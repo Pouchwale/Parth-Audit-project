@@ -38,6 +38,15 @@ export interface RecordInstance<TData = unknown> {
   // correct a mistake — why, by whom, and what state it was in. Cleared on
   // the next Submit (the history keeps it).
   correction?: CorrectionInfo;
+  // THE REVISION OF THE FORMAT THIS RECORD WAS FILLED ON, when that is not the
+  // current one (REQUIREMENTS §74). Set only on a record written on a revision
+  // the format has since replaced — F/MNT/11's 2024 lux readings, taken on
+  // Rev 00 — and named in the current layout's supersededRevisions. Such a
+  // record is drawn, checked and headed with its own revision's layout
+  // (getLogSheetLayoutForRecord), is never carried forward from and is not
+  // offered for correction: it is a page of the past, kept exactly as written.
+  // Absent on every other record, which reads with the format as it now stands.
+  formatRevision?: string;
 }
 
 export interface FieldChange {

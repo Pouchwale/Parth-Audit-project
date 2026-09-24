@@ -109,6 +109,31 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   // --- Production: the lamination production registers
   "prd-process-parameter": "PRD", // F-PRD-19 on the list
   "prd-alc-production": "PRD", // F-PRD-18
+
+  // --- Purchase, Store and Dispatch (REQUIREMENTS §68, §71, §70). Their format
+  // numbers already give the department, but the activity log names a document
+  // by its id alone (utils/activityLog.ts), so until §74 every line written on
+  // one of these was filed under no department at all — invisible to that
+  // department's own accounts.
+  "pur-supplier-registration": "PUR", // F/PUR/01
+  "pur-supplier-audit-report": "PUR", // F/PUR/02
+  "pur-approved-suppliers": "PUR", // F/PUR/03
+  "pur-supplier-performance": "PUR", // F/PUR/05
+  "pur-service-provider-performance": "PUR", // F/PUR/06
+  "str-incoming-material-vehicle": "STR", // F/STR/01
+  "str-sharp-metal-objects": "STR", // F/STR/02
+  "disp-safe-transporter-agreement": "DISP", // F/DISP/01
+  "disp-container-stuffing": "DISP", // F/DISP/02
+
+  // --- Maintenance (REQUIREMENTS §74)
+  "mnt-equipment-list": "MNT", // F/MNT/01
+  "mnt-pm-record": "MNT", // F/MNT/02
+  "mnt-yearly-pm-schedule": "MNT", // F/MNT/03
+  "mnt-daily-health": "MNT", // F/MNT/04
+  "mnt-breakdown-record": "MNT", // F/MNT/06
+  "mnt-new-equipment": "MNT", // F/MNT/08
+  "mnt-glass-breakage": "MNT", // F/MNT/09
+  "mnt-lux-level": "MNT", // F/MNT/11
 };
 
 /**

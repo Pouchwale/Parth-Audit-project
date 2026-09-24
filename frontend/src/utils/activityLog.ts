@@ -21,6 +21,14 @@ export interface ActivityEvent {
   detail?: string;
   /** Department code of the document concerned, so a department's account can read its own lines. */
   department?: string;
+  /**
+   * The document itself (REQUIREMENTS §75). The server works the department
+   * out from it with the same rule it scopes records by, so a line is filed
+   * under its department even where this browser's map does not name the
+   * document — which is how every Purchase, Store and Dispatch line came to be
+   * filed under no department at all.
+   */
+  documentId?: string;
 }
 
 const FLUSH_AFTER_MS = 1200;
@@ -68,7 +76,7 @@ export function logActivity(action: string, target = "", detail = "", documentId
     installed = true;
     window.addEventListener("pagehide", () => flush(true));
   }
-  waiting.push({ action, target, detail, department: documentId ? (departmentOfDocument(documentId) ?? "") : "" });
+  waiting.push({ action, target, detail, department: documentId ? (departmentOfDocument(documentId) ?? "") : "", ...(documentId ? { documentId } : {}) });
   if (waiting.length > MAX_WAITING) waiting = waiting.slice(-MAX_WAITING);
   if (timer === null) timer = window.setTimeout(() => flush(), FLUSH_AFTER_MS);
 }

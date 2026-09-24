@@ -12,6 +12,7 @@ import { t } from "../i18n";
 import { guide, hello, whoIAm } from "./assistantPersona";
 import { documentsByFormatNumber, formatNumberAnswer } from "./formatNumbers";
 import { hrMasterChatAnswer } from "./hrMasterAssistant";
+import { equipmentChatAnswer } from "./equipmentMasterAssistant";
 import { demoModeAvailable } from "./features";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
 
@@ -339,6 +340,33 @@ const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
     id: "pur-approved-suppliers",
     aliases: ["list of approved suppliers", "approved suppliers list", "approved suppliers", "approved supplier list", "supplier list", "f/pur/03"],
   },
+  // Maintenance (REQUIREMENTS §74), by the words the maintenance team uses.
+  // Kept specific on purpose: a bare "master list" is the calibration master
+  // list's, "daily" belongs to the pest control daily report, and "schedule"
+  // or "cleaning" alone name nothing in particular.
+  {
+    id: "mnt-equipment-list",
+    aliases: ["list of equipments", "list of equipment", "equipment list", "equipments list", "machine list", "list of machines", "equipment master", "machine master", "list of equipments & utilities", "f/mnt/01"],
+  },
+  { id: "mnt-new-equipment", aliases: ["new equipment installation", "equipment installation report", "new equipment installation report", "installation report", "commissioning record", "new machine installation", "f/mnt/08"] },
+  {
+    id: "mnt-pm-record",
+    aliases: ["preventive maintenance schedule & record", "preventive maintenance record", "pm record", "pm schedule & record", "pm schedule and record", "pm check list", "pm checklist", "f/mnt/02"],
+  },
+  { id: "mnt-yearly-pm-schedule", aliases: ["yearly preventive maintenance schedule", "yearly pm schedule", "yearly pm plan", "annual pm schedule", "pm plan", "f/mnt/03"] },
+  {
+    id: "mnt-daily-health",
+    aliases: ["daily equipment health", "equipment health status", "equipment health", "machine health", "daily machine health", "machine cleaning record", "daily equipment health status & cleaning record", "f/mnt/04"],
+  },
+  {
+    id: "mnt-breakdown-record",
+    aliases: ["breakdown record", "equipment breakdown", "equipments breakdown", "breakdown maintenance record", "machine breakdown", "breakdown register", "breakdowns", "breakdown", "f/mnt/06"],
+  },
+  {
+    id: "mnt-glass-breakage",
+    aliases: ["glass breakage", "glass articles", "list of glass articles", "glass breakage monitoring", "brittle plastic", "glass monitoring", "glass and brittle plastic", "f/mnt/09"],
+  },
+  { id: "mnt-lux-level", aliases: ["lux level", "lux levels", "lux measurement", "lux meter", "light level", "lighting level", "lux", "f/mnt/11"] },
   // Store (REQUIREMENTS §71): the stamp put on incoming material paperwork,
   // and the sharp tool register. The store says "blade" and "cutter" far more
   // often than it says the format's own name, so both are aliases, and
@@ -437,6 +465,11 @@ const MODULE_KEYWORDS: { module: string; aliases: string[] }[] = [
   // message named no single F/PUR format, so "the supplier audit report" is
   // still that one document and "the purchase documents" is all five.
   { module: "Purchase", aliases: ["purchase module", "purchase documents", "purchase records", "purchasing", "purchase"] },
+  // Maintenance, Store and Dispatch as wholes (REQUIREMENTS §74, §71, §70) — Store
+  // and Dispatch never had an entry, so "the store documents" found nothing.
+  { module: "Maintenance", aliases: ["maintenance module", "maintenance documents", "maintenance records", "maintenance formats", "maintenance"] },
+  { module: "Store", aliases: ["store module", "store documents", "store records", "store formats"] },
+  { module: "Dispatch", aliases: ["dispatch module", "dispatch documents", "dispatch records", "dispatch formats", "dispatch"] },
 ];
 
 function escapeReg(s: string): string {
@@ -843,6 +876,12 @@ export function localAnswer(message: string, isDemo: boolean, userName?: string)
   // "open HR master data", and where a fetch from it is done (REQUIREMENTS §53).
   const hrMaster = hrMasterChatAnswer(text);
   if (hrMaster) return hrMaster;
+
+  // "which machine is M-47?", "where is the Delta 330", "machines in QC" — from
+  // the equipment master, F/MNT/01 (REQUIREMENTS §74). A data answer, so the
+  // model gives it when it can be reached and this is the labelled fallback.
+  const equipment = equipmentChatAnswer(text);
+  if (equipment) return equipment;
 
   if (HOLIDAY_RE.test(lower)) {
     if (ADJUSTMENT_RE.test(lower)) return { reply: listAdjustmentDays(today), chips: holidayChips() };

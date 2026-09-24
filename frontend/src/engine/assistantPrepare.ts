@@ -5,6 +5,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { autoFillRecord } from "./autoFill";
 import { ensureNearTermRecordsGenerated } from "./reminders";
+import { supersededRevisionOf } from "./validation";
 import { compareISO, todayISO } from "../utils/date";
 
 // Statuses in which a record is still an untouched shell the assistant may
@@ -14,13 +15,21 @@ const BLANK_STATUSES = ["Scheduled", "Due"] as const;
 const CONFIRMED_STATUSES = ["Submitted", "Pending Verification", "Verified"] as const;
 
 // The most recent record a real person confirmed for this document before
-// the given date — the carry-forward source for the assistant.
+// the given date — the carry-forward source for the assistant. A record filled
+// on a revision the format has since replaced (F/MNT/11's 2024 page, on Rev 00)
+// is passed over: its boxes and columns are not this revision's, so there is
+// nothing in it to carry into a sheet of the current one (REQUIREMENTS §74).
 export function latestConfirmedRecord(documentId: string, beforeISO: string, isDemo: boolean): RecordInstance | undefined {
   return recordRepository
     // Unscoped: what to carry forward is a property of the register, not of
     // who is looking at it (engine/departmentScope.ts).
     .queryUnscoped({ documentId, isDemo })
-    .filter((r) => CONFIRMED_STATUSES.includes(r.status as (typeof CONFIRMED_STATUSES)[number]) && compareISO(r.dueDate, beforeISO) < 0)
+    .filter(
+      (r) =>
+        CONFIRMED_STATUSES.includes(r.status as (typeof CONFIRMED_STATUSES)[number]) &&
+        compareISO(r.dueDate, beforeISO) < 0 &&
+        !supersededRevisionOf(r)
+    )
     .sort((a, b) => compareISO(b.dueDate, a.dueDate))[0];
 }
 

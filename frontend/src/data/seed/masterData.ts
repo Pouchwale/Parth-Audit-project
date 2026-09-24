@@ -50,7 +50,19 @@ export const SEED_MASTER_DATA: MasterData = {
     // Purchase)". So the line is completed from them rather than left TO BE
     // CONFIRMED, and the five F/PUR formats have their own manager to name.
     { id: "emp-chirag", name: "Chirag Parmar", role: "Manager – Purchase (Purchase Manager on F/HR/01; also a pest control awareness trainee, Dec-2025)", department: "Purchase", active: true },
-    { id: "emp-mukesh", name: "Mukesh Patel", role: "Staff — pest control awareness trainee", department: "TO BE CONFIRMED", active: true },
+    // WHO ANSWERS FOR THE MAINTENANCE FORMATS (REQUIREMENTS §74). Written from
+    // the Dec-2025 training certificate at first, which says only that he
+    // attended; the company's own papers say what he does — F/HR/01 has "Mukesh
+    // Patel", Maintainance, "Manager - Mentainance", joined 06.04.1996 with no
+    // leaving date, and F/HR/13 writes him "Manager - Mentainance" as of
+    // 01.12.2021. The paper's spelling is kept in brackets; the role says
+    // "Maintenance" so the maintenance formats find him (engine/documentInfo.ts
+    // matches the role by that word). An install that already holds the old
+    // line is corrected by masterRepository.ensureSeeded's SEED_CORRECTIONS.
+    { id: "emp-mukesh", name: "Mukesh Patel", role: "Manager – Maintenance (\"Manager - Mentainance\" on F/HR/01 and F/HR/13; also a pest control awareness trainee, Dec-2025)", department: "Maintenance", active: true },
+    // His supervisor, the same way: F/HR/01 has "Rahul Patel", Maintainance,
+    // Supervisor, joined 19.12.2014; F/HR/13 writes "Supervisor - Mentainance".
+    { id: "emp-rahul-patel", name: "Rahul Patel", role: "Supervisor – Maintenance (\"Supervisor - Mentainance\" on F/HR/13)", department: "Maintenance", active: true },
     // WHO ANSWERS FOR THE STORE FORMATS (REQUIREMENTS §71). Like Chirag
     // Parmar above, not a new person and not a guess: the company's own
     // personnel records already say who runs the store. F/HR/01 has
@@ -312,6 +324,18 @@ export const SEED_MASTER_DATA: MasterData = {
     // the Manager – Store in the employee list above.
     "str-incoming-material-vehicle": "Store",
     "str-sharp-metal-objects": "Store",
+    // Maintenance (REQUIREMENTS §74). Every F/MNT format is the maintenance
+    // department's, signed by its manager or supervisor — except the daily
+    // health sheet, which the MACHINE OPERATOR ticks every shift (its own
+    // columns say "Operator").
+    "mnt-equipment-list": "Maintenance",
+    "mnt-new-equipment": "Maintenance",
+    "mnt-pm-record": "Maintenance",
+    "mnt-yearly-pm-schedule": "Maintenance",
+    "mnt-daily-health": "Operator",
+    "mnt-breakdown-record": "Maintenance",
+    "mnt-glass-breakage": "Maintenance",
+    "mnt-lux-level": "Maintenance",
   },
 
   // "Gujarat Print Pack Leave Calendar 2026" (WhatsApp Image 2026-08-11 at

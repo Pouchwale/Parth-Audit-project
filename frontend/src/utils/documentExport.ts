@@ -57,6 +57,10 @@ const WORD_FORMS = new Set([
   // reads as a document. The sharp tool register beside it is a grid and
   // stays a spreadsheet, which is what a register of issues and returns is.
   "str-incoming-material-vehicle",
+  // Maintenance (REQUIREMENTS §74): the New Equipment Installation Report is a
+  // two-page report of boxes, a Y/N checklist and a hand-over, so it reads as a
+  // document. The other seven F/MNT formats are grids and stay spreadsheets.
+  "mnt-new-equipment",
 ]);
 const EXCEL_KINDS = new Set(["log-sheet", "daily-pest-monitoring", "fly-catcher", "service-report", "gap-inspection"]);
 const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-record", "compliance-statement", "chemical-master", "service-agreement", "pest-responsibilities"]);
@@ -134,21 +138,47 @@ function cellOf(el: Element): Cell {
   return { text };
 }
 
+// A grid read into rows of cells the way the screen lays it out. A heading that
+// spans columns (colSpan) keeps its place by blank cells after it; a heading
+// that spans ROWS (rowSpan) keeps its column on the rows below it too — the
+// "Sr. No." and every ungrouped heading beside a run of grouped ones span both
+// heading rows, and without holding their columns the second row's headings
+// shifted left under them in the workbook and the Word table (F/PUR/03's
+// METHOD OF APPROVAL; F/MNT/06's three grouped headings, REQUIREMENTS §74). So
+// each row starts from the columns still held by a cell above it.
 function tableBlock(table: HTMLTableElement): ExportBlock | null {
   const rows: Cell[][] = [];
   let headerRows = 0;
-  for (const tr of Array.from(table.rows)) {
-    if (skipped(tr)) continue;
+  // Columns held by a cell above, by the index of the table row they reach into.
+  const held = new Map<number, Set<number>>();
+  Array.from(table.rows).forEach((tr, ri) => {
+    const taken = held.get(ri);
+    held.delete(ri);
+    if (skipped(tr)) return;
     const cells: Cell[] = [];
+    const skipHeld = () => {
+      while (taken?.has(cells.length)) cells.push({ text: "" });
+    };
+    let own = 0;
     for (const cell of Array.from(tr.cells)) {
       if (skipped(cell)) continue;
+      skipHeld();
+      const at = cells.length;
+      const across = Math.max(1, cell.colSpan);
       cells.push(cellOf(cell));
-      for (let i = 1; i < cell.colSpan; i++) cells.push({ text: "" });
+      own++;
+      for (let i = 1; i < across; i++) cells.push({ text: "" });
+      for (let down = 1; down < cell.rowSpan; down++) {
+        const below = held.get(ri + down) ?? new Set<number>();
+        for (let c = at; c < at + across; c++) below.add(c);
+        held.set(ri + down, below);
+      }
     }
-    if (cells.length === 0) continue;
+    if (own === 0) return;
+    skipHeld(); // a held column at the end of the row (the spare column after the last heading)
     rows.push(cells);
     if (tr.parentElement?.tagName === "THEAD") headerRows++;
-  }
+  });
   return rows.length > 0 ? { kind: "table", rows, headerRows } : null;
 }
 

@@ -55,10 +55,17 @@ export const DISPATCH_SECTIONS = ["Transporter Agreement", "Dispatch Inspection"
 // store and comes back. The company's Master List of Formats & Records
 // (F/SYS/02) lists exactly these two under F/STR.
 export const STORE_SECTIONS = ["Incoming Material", "Sharp Tool Control"] as const;
+// Maintenance (REQUIREMENTS §74): the equipment itself and what is installed,
+// the preventive maintenance planned and done, the machines' daily health and
+// breakdowns, and the plant checks of glass and lighting that protect the
+// product. The master list of formats (F/SYS/02) lists F/MNT after the
+// production formats.
+export const MAINTENANCE_SECTIONS = ["Equipment", "Preventive Maintenance", "Equipment Health & Breakdowns", "Glass & Lighting"] as const;
 export const MODULE_SECTIONS: readonly string[] = [
   ...HR_SECTIONS,
   ...PEST_CONTROL_SECTIONS,
   ...QC_SECTIONS,
+  ...MAINTENANCE_SECTIONS,
   ...PURCHASE_SECTIONS,
   ...STORE_SECTIONS,
   ...DISPATCH_SECTIONS,
@@ -1369,6 +1376,156 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "as-required" },
     isReferenceOnly: true,
   },
+  // ---------------------------------------------------------------------
+  // Maintenance — the eight formats supplied on 24-Sep-2026 (REQUIREMENTS
+  // §74), placed before Purchase as the company's master list of formats
+  // places F/MNT after the production formats. F/MNT/05, 07 and 10 are on that
+  // list but were not supplied, and nothing stands in for them.
+  // ---------------------------------------------------------------------
+  {
+    id: "mnt-equipment-list",
+    kind: "log-sheet",
+    name: "List of Equipments & Utilities",
+    formatNo: "F/MNT/01",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Equipment",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The plant's EQUIPMENT MASTER: every machine and utility with its number, section, room, manufacturer, model, description, country of origin, size or capacity, month and year of manufacture and serial number — 43 machines, M-01 to M-85 with gaps. The other maintenance formats fetch a machine from it by its Machine No. One line on the supplied page, M-68, is printed one column out of step on the paper itself (its size reads \"France\" and its serial number \"2023\"); it is kept exactly as printed for the department to confirm.",
+    sourceFile: "F-MNT- 01_Master List of Equipments-Flexo & Pouch.pdf (the list as supplied)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mnt-new-equipment",
+    kind: "log-sheet",
+    name: "New Equipment Installation Report",
+    formatNo: "F/MNT/08",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Equipment",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "Written up when a new machine is installed and commissioned: the equipment, its manufacturer, supplier, model and serial number, where it goes and what it does; ten requirements each assessed Y or N with a comment and a date of action — production needs, cleaning, maintenance access, food-grade lubricants, food-safety controls, manuals, training, spares, the trial production date and productivity; the benefits and the risks accepted; and the hand-over signed by the Maintenance, Production and QC heads.",
+    sourceFile: "F-MNT-08_New Equipment Installation & commissioning record.pdf (the blank format, two pages)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mnt-pm-record",
+    kind: "log-sheet",
+    name: "Preventive Maintenance Schedule & Record",
+    formatNo: "F/MNT/02",
+    // Two revisions were supplied, both dated 01.12.2021. This is the higher,
+    // Rev 01; the Rev 00 "CHECK LIST & RECORD" page is shown beside it as the
+    // superseded original. That both carry the same date is for the MR to
+    // confirm.
+    revisionNo: "01",
+    revisionDate: "2021-12-01",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Preventive Maintenance",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One sheet for each machine, picked from the equipment list: the machine's monthly, 3-monthly, 6-monthly and yearly check points, then every preventive maintenance done on it through the year — twelve monthly, four quarterly, two six-monthly and one yearly — each with its date, who did it and the supervisor, and any abnormal finding and the action taken beside the visit it was found on. The hygiene clearance the format prints applies to every visit.",
+    sourceFile: "F-MNT-02_PM schedule & record-1.pdf (Rev 01, two pages); the superseded Rev 00 is F-MNT-02_PM schedule & record.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mnt-yearly-pm-schedule",
+    kind: "log-sheet",
+    name: "Yearly Preventive Maintenance Schedule",
+    formatNo: "F/MNT/03",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Preventive Maintenance",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The year's preventive maintenance plan: for each machine, the monthly, half-yearly and yearly PM, with the date planned and the date actually done in each month. The supplied page names the printing machine and the slitting machine and leaves a third block for another; its only marks are January's — printing planned 10.01 and done 28.01, slitting planned 12.01 — and it prints no year. A PM done well after its plan, or a planned date passed with nothing done, is exactly what this sheet is kept to show.",
+    sourceFile: "F-MNT-03_Yearly PM Schedule .pdf (the page as supplied)",
+    schedule: { type: "yearly", month: 0, dayOfMonth: 1 },
+  },
+  {
+    id: "mnt-daily-health",
+    kind: "log-sheet",
+    name: "Daily Equipment Health Status & Cleaning Record",
+    formatNo: "F/MNT/04",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Equipment Health & Breakdowns",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "One sheet for each machine for each month, ticked every day in the day shift and the night shift by the operator after checking the seven parameters the form prints in Hindi and Gujarati side by side: clean the machine, check the electrical panels, listen for any unusual sound, check for pipe leakage, test the emergency stop once a week, check the air and water pressures, and clear tools and blades from the floor. Anything wrong goes to the supervisor, and its details to the back of the sheet.",
+    sourceFile: "F-MNT-04_Daily Equipment Health Status & Cleaning Record.pdf (the blank format, Hindi and Gujarati)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mnt-breakdown-record",
+    kind: "log-sheet",
+    name: "Equipments Breakdown Maintenance Record",
+    formatNo: "F/MNT/06",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Equipment Health & Breakdowns",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The register of every breakdown: when the failure was reported, which machine, the fault and who attended it, the action taken, the materials used, when it was repaired, the total breakdown minutes — worked out from the two dates and times, never typed — the production minutes lost and the reason. It is the record that shows which machines break down most and how long they stay down.",
+    sourceFile: "F-MNT-06_Equipment breakdown record.pdf (the blank format)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mnt-glass-breakage",
+    kind: "log-sheet",
+    // The title as the page prints it — "BREKAGE" is the paper's spelling, and
+    // the header of every sheet prints this name. Mitra and Search still find
+    // it by "glass breakage".
+    name: "List of Glass Articles & Weekly Glass Brekage Monitoring Record",
+    formatNo: "F/MNT/09",
+    revisionNo: "02",
+    revisionDate: "2025-09-01",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Glass & Lighting",
+    frequency: "Monthly",
+    status: "Configured",
+    description:
+      "The list of every glass and brittle-plastic article in the plant by area — windows and doors, false-ceiling acrylic, tube lights, CCTV cameras, LED lights, monitors and insect killers, 3,980 articles in twelve areas at Rev 02 — with its revision history, and the month's sheet on which each area is checked every week for any crack or breakage, with the breakage answered YES or NO, checked by the maintenance technician and verified by the head of maintenance. A breakage or crack calls for the CA / Incident record with its root cause, correction and corrective action.",
+    sourceFile: "F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024 (1) (2).pdf (Rev 02, two pages)",
+    schedule: { type: "monthly", dayOfMonth: 1 },
+  },
+  {
+    id: "mnt-lux-level",
+    kind: "log-sheet",
+    name: "Lux Level Measurement Record",
+    formatNo: "F/MNT/11",
+    revisionNo: "01",
+    revisionDate: "2024-12-15",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Glass & Lighting",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The light level measured in every area of the plant with the Kusam-Meco KM-LUX-99 lux meter (Sr.No. S1135510). Two rounds were supplied: 12.08.2025 on the current Rev 01, one reading in each of 26 areas, and 11.05.2024 on the superseded Rev 00, which measured 19 areas by day and by night — that record keeps its own layout. Comparing the two shows where the light has fallen, which matters most at the colour-matching cabinets.",
+    sourceFile: "F-MNT-11_LUX LEVEL MEASUREMENT RECORD.pdf (Rev 01, filled 12.08.2025); the Rev 00 page of 11.05.2024 is F-MNT-11_LUX LEVEL MEASUREMENT RECORD-2.pdf",
+    schedule: { type: "as-required" },
+  },
+
   // ---------------------------------------------------------------------
   // Purchase — the five formats supplied on 23-Sep-2026 (REQUIREMENTS §68),
   // in the order the department works through them: a supplier registers, is

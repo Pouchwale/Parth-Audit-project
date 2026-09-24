@@ -17,6 +17,12 @@ import { formatDisplayDate } from "../../utils/date";
 // name, the format number, the revision number and the dates — the marks that
 // identify the document and the record, which read as issued in every
 // language.
+//
+// A record filled on a revision the format has since replaced is headed with
+// THAT revision (REQUIREMENTS §74): F/MNT/11's 2024 page says Rev 00 and the
+// date Rev 00 was issued, as the paper it was written on did, not the Rev 01
+// that replaced it. The caller passes `revision` only for such a record, so
+// every other header reads exactly as before.
 export function DocumentHeader({
   doc,
   extraTitle,
@@ -25,6 +31,7 @@ export function DocumentHeader({
   companyName,
   letterhead,
   title,
+  revision,
 }: {
   doc: DocumentDefinition;
   extraTitle?: string;
@@ -36,6 +43,8 @@ export function DocumentHeader({
   letterhead?: React.ReactNode;
   /** The title exactly as the form prints it, when it differs from doc.name. */
   title?: string;
+  /** The superseded revision a record was filled on (number, ISO issue date), printed in place of the current one. */
+  revision?: { no: string; date: string };
 }) {
   // A form issued in Gujarati carries its Gujarati title; with English chosen
   // the title reads in English like the rest of it (REQUIREMENTS §58).
@@ -60,14 +69,25 @@ export function DocumentHeader({
         </div>
         <div className="meta-cell">
           <span className="k">Rev No.</span>
-          <span className="v notranslate" translate="no">
-            {doc.revisionNo}
+          <span className="v notranslate" translate="no" data-revision={revision ? revision.no : undefined}>
+            {revision ? revision.no : doc.revisionNo}
           </span>
         </div>
+        {/* Where the Date cell is taken by the record's own date, the date the
+            superseded revision was issued still has to be on the header — it is
+            half of what identifies the paper the record was written on. */}
+        {revision && dateLabel !== undefined && (
+          <div className="meta-cell" data-meta="revision-date">
+            <span className="k">Rev Date</span>
+            <span className="v notranslate" translate="no">
+              {formatDisplayDate(revision.date)}
+            </span>
+          </div>
+        )}
         <div className="meta-cell">
           <span className="k">Date</span>
           <span className="v notranslate" translate="no">
-            {dateLabel ?? formatDisplayDate(doc.revisionDate)}
+            {dateLabel ?? formatDisplayDate(revision ? revision.date : doc.revisionDate)}
           </span>
         </div>
         {pageLabel && (

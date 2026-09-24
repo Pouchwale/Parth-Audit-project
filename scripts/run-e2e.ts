@@ -6,7 +6,7 @@
 // tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py,
 // tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_qc_formats.py,
 // tests/e2e_purchase_module.py, tests/e2e_store_module.py, tests/e2e_assistant_and_logout.py,
-// tests/e2e_format_numbers.py,
+// tests/e2e_maintenance_module.py, tests/e2e_format_numbers.py,
 // tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py):
 // a fresh PostgreSQL for the run, build,
 // single-process server (dist/ + auth API) on the port the tests expect,
@@ -108,6 +108,14 @@ async function main(): Promise<void> {
     console.error(`Something is already listening on :${PRODUCT_PORT} — stop it first, so ${PRODUCT_SUITE} runs against this build.`);
     process.exit(1);
   }
+
+  // THE CATALOGUE CHECKS FIRST, IN A SECOND (npm run test:unit): every document's
+  // sample fill against the submit rules, every format number, layout and
+  // module string. A document that cannot be filled used to be found by
+  // tests/e2e_assistant_fill.py forty minutes into this run; now the run stops
+  // before it builds.
+  console.log("Unit tests...");
+  run(process.execPath, [...nodeArgs, "scripts/unit-tests.ts"]);
 
   console.log("Building frontend...");
   run(process.execPath, [...nodeArgs, "frontend/scripts/build.ts"]);
@@ -241,6 +249,10 @@ async function main(): Promise<void> {
       "tests/e2e_assistant_and_logout.py",
       // REQUIREMENTS §70: the Dispatch module, and its Gujarati container check.
       "tests/e2e_dispatch_module.py",
+      // REQUIREMENTS §74: the Maintenance module — the equipment master, the Hindi and
+      // Gujarati health sheet, the worked-out breakdown minutes, and a record read
+      // under the revision it was made on.
+      "tests/e2e_maintenance_module.py",
       "tests/e2e_format_numbers.py",
       "tests/e2e_hr_master_data.py",
       "tests/e2e_downloads_and_print.py",

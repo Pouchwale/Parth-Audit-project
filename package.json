@@ -17,7 +17,8 @@
     "server": "npm run start --workspace=backend",
     "build": "npm run build --workspace=frontend",
     "start": "npm run build --workspace=frontend && npm run start --workspace=backend",
-    "typecheck": "npm run typecheck --workspace=frontend && tsc -p tsconfig.node.json",
+    "typecheck": "npm run typecheck --workspace=frontend && tsc -p frontend/tsconfig.test.json && tsc -p tsconfig.node.json",
+    "test:unit": "node --no-warnings=ExperimentalWarning scripts/unit-tests.ts",
     "test:e2e": "node --no-warnings=ExperimentalWarning scripts/run-e2e.ts",
     "db:stop": "node --no-warnings=ExperimentalWarning scripts/db-stop.ts"
   },

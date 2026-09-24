@@ -23,6 +23,18 @@ function save(data: MasterData): void {
 // role-keyword defaults are only filled in for documents that have no entry
 // yet. That's how an existing install gains the lamination staff and the
 // new documents' reminder assignments without losing local changes.
+/**
+ * Seeded employee lines the seed has since corrected from the company's own
+ * papers, each with the role the OLD seed gave it. Only a stored line still
+ * reading exactly that is updated (see ensureSeeded).
+ */
+const SEED_CORRECTIONS: { id: string; fromRole: string }[] = [
+  // §68: Chirag Parmar is Purchase Manager on F/HR/01, not only a trainee.
+  { id: "emp-chirag", fromRole: "Staff — pest control awareness trainee" },
+  // §74: Mukesh Patel is "Manager - Mentainance" on F/HR/01 and F/HR/13.
+  { id: "emp-mukesh", fromRole: "Staff — pest control awareness trainee" },
+];
+
 export function ensureSeeded(): void {
   const raw = readJSON<MasterData | null>(KEY, null as unknown as MasterData);
   if (!raw) {
@@ -58,6 +70,21 @@ export function ensureSeeded(): void {
     adjustmentDays: mergeById(raw.adjustmentDays, SEED_MASTER_DATA.adjustmentDays ?? []),
   };
   if (raw.weeklyOffDay === undefined && SEED_MASTER_DATA.weeklyOffDay !== undefined) changed = true;
+  // A SEEDED LINE THE SEED ITSELF HAS SINCE CORRECTED (REQUIREMENTS §74). The
+  // merge above adds what is missing and never touches what is there — right
+  // for an admin's own edits, wrong for a line the seed got wrong and later put
+  // right from the company's own papers: that correction would reach a fresh
+  // install and never the plant's. So a stored line is brought up to the seed
+  // only while it still reads EXACTLY as the old seed wrote it; one anybody has
+  // since edited is theirs, and is left alone.
+  for (const fix of SEED_CORRECTIONS) {
+    const i = next.employees.findIndex((e) => e.id === fix.id && e.role === fix.fromRole);
+    const to = SEED_MASTER_DATA.employees.find((e) => e.id === fix.id);
+    if (i >= 0 && to) {
+      next.employees = next.employees.map((e, j) => (j === i ? { ...e, role: to.role, department: to.department } : e));
+      changed = true;
+    }
+  }
   for (const [docId, keyword] of Object.entries(SEED_MASTER_DATA.documentRoleKeywords)) {
     if (next.documentRoleKeywords[docId] === undefined) {
       next.documentRoleKeywords[docId] = keyword;

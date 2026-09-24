@@ -189,6 +189,27 @@ Seven scripts live in `tests/`:
   English with nothing of it left in Gujarati; and a container check started, filled, submitted and on file.
   Two more documents moved the totals again: **79 → 81** in `e2e_smoke.py` and `e2e_hr_module.py`, and the
   sidebar's modules **7 → 8** in `e2e_smoke.py` (collapse-all and expand-all) and `tests/visual_qa.py`.
+- **`npm run test:unit`** - unit tests in about a second (REQUIREMENTS §74), no new dependencies:
+  `scripts/unit-tests.ts` bundles every `frontend/tests/*.test.ts` with esbuild and runs it with `node --test`,
+  behind an in-memory `localStorage` shim. `npm run test:unit -- <name>` runs only matching files. It checks EVERY
+  recordable document the way `e2e_assistant_fill.py` does (default data, the sample fill, the submit rules, on
+  today and the next working day, from the specimens and from the records on file), every format number, section,
+  module string and layout (unique keys, no numbers in printed rows, no required computed column, every supplied
+  original on disk, superseded revisions included). **`npm run test:e2e` runs it first** and stops before building
+  if it fails - a document that could not be filled used to be found forty minutes into the browser run. New tests
+  go in `frontend/tests/*.test.ts` with helpers in `frontend/tests/support/`; `npm run typecheck` covers them.
+- `tests/e2e_maintenance_module.py` - the Maintenance module and its eight formats (REQUIREMENTS §74), a
+  thirty-fourth suite, added 24-Sep-2026: the module placed after the production modules and before Purchase (the
+  Store suite still finds Purchase, Store and Dispatch together); the library filtered to it with all eight F/MNT
+  numbers; F/MNT/01's 43 machines on file with the paper's own spellings and row M-68 kept one column out of step as
+  printed; **a machine fetched from the equipment master** onto a daily health sheet by its number; Mitra naming
+  M-47; F/MNT/04's Hindi and Gujarati read as issued with Gujarati chosen and in English with English chosen, nothing
+  of either script left; F/MNT/06's three spanning headings and its breakdown minutes **worked out** (10:15 to 11:40
+  is 85) and submitted; **the 2024 lux page drawn on Rev 00** — Day and Night columns, 19 areas, headed Rev 00 with
+  that revision's date, and not offered for correction — beside the 2025 page on Rev 01; and every supplied page
+  shown as it came and really LOADING, captioned with its revision. Eight more documents moved the totals:
+  **83 → 91** in `e2e_smoke.py` and `e2e_hr_module.py`, and the sidebar's modules **9 → 10** in `e2e_smoke.py` and
+  `tests/visual_qa.py`.
 - `tests/e2e_assistant_and_logout.py` - Mitra asking the model, and the log-out review (REQUIREMENTS §72), a
   thirty-third suite, added 24-Sep-2026. **This server is started with no `GROQ_API_KEY`** — `scripts/run-e2e.ts`
   blanks it, because the real key in `backend/.env` reaches the test server through `process.env` and every scripted

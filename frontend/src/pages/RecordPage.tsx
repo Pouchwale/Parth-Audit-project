@@ -19,7 +19,7 @@ import {
 import { withEditHistory } from "../engine/recordHistory";
 import { fieldLabels } from "../engine/recordPatch";
 import { reprepareRecord } from "../engine/assistantPrepare";
-import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import type {
   ComplaintAckData,
   DailyPestMonitoringData,
@@ -45,7 +45,8 @@ import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { useT } from "../i18n";
-import { withCalibration } from "../engine/calibration";
+import { withComputedCells } from "../engine/computedCells";
+import { supersededRevisionOf } from "../engine/validation";
 import { logActivity } from "../utils/activityLog";
 import { recordLabel } from "../engine/recordHistory";
 import { documentLayoutIn, documentTextIn, isGujaratiDocument } from "../i18n/documentText";
@@ -97,7 +98,11 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   const editable = !!record && isEditableStatus(record.status);
   const countersign = !!record && doc?.kind === "service-report" && COUNTERSIGN_STATUSES.includes(record.status);
   const canWrite = editable || countersign;
-  const labels = doc ? fieldLabels(doc.kind, doc.id) : {};
+  // A page kept on a revision the format has since replaced (REQUIREMENTS §74):
+  // read with its own revision's layout, and never reopened for correction —
+  // a correction would be written on a revision nobody fills in any more.
+  const superseded = supersededRevisionOf(record);
+  const labels = doc ? fieldLabels(doc.kind, doc.id, record) : {};
   // What the ASSISTANT calls each box: the words on screen. What goes into the
   // record's history is `labels` above, the words the form was issued in, so
   // two people correcting the same box in different languages leave the same
@@ -265,17 +270,19 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     };
   }, [dirty, flush]);
 
-  // The two calibration records work their deviations out from what is written
-  // (engine/calibration.ts, REQUIREMENTS §61) — whoever writes it.
+  // Every worked-out cell — the calibration deviations (§61), the purchase
+  // ratings (§68), the breakdown minutes (§74) — is worked out from what is
+  // written, whoever writes it (engine/computedCells.ts).
   const handleChange = (next: unknown) => {
-    setData(withCalibration(doc?.id, next));
+    setData(withComputedCells(doc?.id, next));
     setDirty(true);
   };
 
   // For log sheets the assistant needs the printed layout to map "11 o'clock
   // viscosity was 20.4" onto the right cell — sent alongside the data, never
   // stored, and stripped from anything it sends back.
-  const layout = doc?.kind === "log-sheet" ? documentLayoutIn(getLogSheetLayout(doc.id), lang) : undefined;
+  // The record's own revision's layout, where it was filled on one the format has since replaced (§74).
+  const layout = doc?.kind === "log-sheet" ? documentLayoutIn(getLogSheetLayoutForRecord(doc.id, record), lang) : undefined;
   const assistantData = layout
     ? {
         ...(data as Record<string, unknown>),
@@ -310,9 +317,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
               setNotice((said) => said ?? changedElsewhere(base, true));
               return;
             }
-            persistLocal(saveDraft(base, withCalibration(doc?.id, next), currentUser, { action: "assistant-edit", note, labels: latest.current.labels }));
+            persistLocal(saveDraft(base, withComputedCells(doc?.id, next), currentUser, { action: "assistant-edit", note, labels: latest.current.labels }));
           },
-          reopen: isCorrectableStatus(record.status)
+          reopen: isCorrectableStatus(record.status) && !superseded
             ? (reason) => {
                 const base = flush();
                 if (base) persistLocal(reopenForCorrection(base, currentUser, reason));
@@ -416,6 +423,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     setErrors([]);
     const saved = flush();
     if (!saved || !isCorrectableStatus(saved.status)) return void movedOn(saved);
+    if (supersededRevisionOf(saved)) return; // kept as written on its own revision (§74)
     persistLocal(reopenForCorrection(saved, currentUser, reason));
   };
 
@@ -484,7 +492,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
       {record.correction && <CorrectionBanner correction={record.correction} onCancel={canWrite ? handleCancelCorrection : undefined} />}
 
-      {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable ? handleReprepare : undefined} />}
+      {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable && !superseded ? handleReprepare : undefined} />}
 
       {record.status === "Rejected" && record.rejectionReason && (
         <div className="card mb-4" style={{ borderColor: "var(--color-danger)", background: "var(--color-danger-bg)" }}>
@@ -562,7 +570,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         onVerify={() => handleVerify()}
         onReject={handleReject}
         onResume={handleResume}
-        onCorrect={handleCorrect}
+        onCorrect={superseded ? undefined : handleCorrect}
         onCancelCorrection={record.correction && canWrite ? handleCancelCorrection : undefined}
         correctionFromStatus={record.correction?.fromStatus}
         correctionChangeCount={undoneChanges}

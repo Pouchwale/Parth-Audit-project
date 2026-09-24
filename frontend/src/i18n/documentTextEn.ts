@@ -1,3 +1,5 @@
+import { MNT04_TEXT_EN } from "../data/seed/maintenanceLayouts";
+
 // THE THREE GUJARATI FORMATS, IN ENGLISH (REQUIREMENTS §58).
 //
 // The department issues three of its Quality Control formats in Gujarati:
@@ -216,4 +218,10 @@ export const DOCUMENT_TEXT_EN: Record<string, string> = {
   "(QC) દ્વારા ચેક અને મંજૂર — નામ": "Checked and approved by (QC) — Name",
   "(QC) દ્વારા ચેક અને મંજૂર — હોદ્દો": "Checked and approved by (QC) — Designation",
   "(QC) દ્વારા ચેક અને મંજૂર — સાઇન": "Checked and approved by (QC) — Sign",
+
+  // ── F/MNT/04 — Daily Equipment Health Status & Cleaning Record (REQUIREMENTS
+  //    §74): its seven check parameters, each printed in Hindi AND Gujarati on
+  //    one row, and its two footnotes. Written once, beside the layout they
+  //    belong to (data/seed/maintenanceLayouts.ts), so the two cannot drift.
+  ...MNT04_TEXT_EN,
 };

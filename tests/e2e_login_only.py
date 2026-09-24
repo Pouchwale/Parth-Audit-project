@@ -107,6 +107,11 @@ def sign_out(page):
     btn = page.locator(".app-topbar button[title='Log Out']")
     if btn.count():
         btn.first.click()
+        # Every log-out asks about the day's work first (REQUIREMENTS s72).
+        page.wait_for_timeout(500)
+        ok = page.locator("[data-action='logout-review-confirm']")
+        if ok.count():
+            ok.first.click()
         page.wait_for_selector("#login-email", timeout=30000)
         page.wait_for_timeout(300)
 

@@ -1,5 +1,5 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout, ServiceReportAreaLine } from "../types";
-import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { documentTextIn } from "../i18n/documentText";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -549,15 +549,20 @@ const OPTIONAL_KEYS: Record<string, string[]> = {
   "daily-pest-monitoring": ["rodentCatches"],
 };
 
+/** Which record a change is for, where that decides the layout: the revision it was filled on (REQUIREMENTS §74). */
+export type PatchRecord = { formatRevision?: string } | null | undefined;
+
 /**
  * Applies a proposed change (from the assistant, or from a plain-words edit)
  * to a copy of the record's data, checking and normalising every value.
- * Never mutates `current`.
+ * Never mutates `current`. A log sheet's change is checked against the layout
+ * the record was filled on — `record` names it — so a page kept on a
+ * superseded revision is only ever changed in its own boxes.
  */
-export function applyAssistantPatch<T>(kind: string, documentId: string, current: T, patch: Obj): PatchOutcome<T> {
+export function applyAssistantPatch<T>(kind: string, documentId: string, current: T, patch: Obj, record?: PatchRecord): PatchOutcome<T> {
   const problems: string[] = [];
   const next = (clone(current) ?? {}) as unknown as Obj;
-  const layout = kind === "log-sheet" ? getLogSheetLayout(documentId) : undefined;
+  const layout = kind === "log-sheet" ? getLogSheetLayoutForRecord(documentId, record) : undefined;
   const { itemEdits, _layout, ...fields } = isObj(patch) ? patch : ({} as Obj);
   void _layout;
 
@@ -703,10 +708,10 @@ function serviceLinesAfterPatch(documentId: string, before: unknown, after: unkn
   return normalizeServiceLines(documentRepository.getById(documentId)?.variantKey, lines as unknown as ServiceReportAreaLine[]);
 }
 
-/** The labels printed on a log sheet, for readable change history. */
-export function fieldLabels(kind: string, documentId: string): Record<string, string> {
+/** The labels printed on a log sheet, for readable change history — the ones the record's own revision prints (REQUIREMENTS §74). */
+export function fieldLabels(kind: string, documentId: string, record?: PatchRecord): Record<string, string> {
   if (kind !== "log-sheet") return {};
-  const layout = getLogSheetLayout(documentId);
+  const layout = getLogSheetLayoutForRecord(documentId, record);
   if (!layout) return {};
   const out: Record<string, string> = {};
   for (const f of layoutFields(layout)) out[f.key] = f.label;
@@ -981,7 +986,7 @@ function attendanceEdit(text: string, data: Obj): Obj | null {
  * or null when it isn't confident — in which case the AI model is asked. The
  * result still goes through applyAssistantPatch like any other change.
  */
-export function parseLocalEdit(kind: string, documentId: string, data: unknown, text: string): Obj | null {
+export function parseLocalEdit(kind: string, documentId: string, data: unknown, text: string, record?: PatchRecord): Obj | null {
   if (!isObj(data)) return null;
   const clean = text.trim().replace(/[.!]+$/, "");
 
@@ -1007,7 +1012,7 @@ export function parseLocalEdit(kind: string, documentId: string, data: unknown, 
     if (r) return r;
   }
   if (kind === "log-sheet") {
-    const layout = getLogSheetLayout(documentId);
+    const layout = getLogSheetLayoutForRecord(documentId, record);
     if (layout) {
       const r = logSheetEdit(layout, target, tt, value, data);
       if (r) return r;

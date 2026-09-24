@@ -9,7 +9,7 @@ import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
-import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { hrPageForDocument } from "../data/seed/hrModule";
 import { useEnsureMonth } from "../utils/useEnsureMonth";
 import { createRecordForDocument } from "../engine/recordCrud";
@@ -61,14 +61,17 @@ function describeRecord(doc: DocumentDefinition, record: RecordInstance, lang: L
   const header = (record.data as LogSheetData | undefined)?.header ?? {};
   const hr = hrPageForDocument(doc.id);
   if (hr?.labelKey && shownValue(header[hr.labelKey])) return shownValue(header[hr.labelKey]);
-  const layout = documentLayoutIn(getLogSheetLayout(doc.id), lang);
+  // Read with the boxes of the revision the record was filled on (REQUIREMENTS §74).
+  const layout = documentLayoutIn(getLogSheetLayoutForRecord(doc.id, record), lang);
   const first = layout?.headerFields.find((f) => shownValue(header[f.key]));
   return first ? `${first.label}: ${shownValue(header[first.key])}` : "";
 }
 
 /** "80 of 80": the lines with something written in them, of the lines on the sheet. */
 function linesFilled(doc: DocumentDefinition, record: RecordInstance): string {
-  const layout = getLogSheetLayout(doc.id);
+  // Counted in the record's own revision's columns: F/MNT/11's 2024 page wrote
+  // Day and Night readings, which the current revision has no column for (§74).
+  const layout = getLogSheetLayoutForRecord(doc.id, record);
   const rows = (record.data as LogSheetData | undefined)?.rows;
   if (!layout || !rows) return "—";
   const filled = rows.filter((row) => layout.columns.some((c) => !c.fixed && String(row[c.key] ?? "").trim() !== "")).length;
@@ -310,14 +313,21 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
               <div className="card-pad">
                 <div className="text-xs text-muted mb-2">{doc.sourceFile} — shown unaltered.</div>
                 <div className="register-original">
-                  {(layout?.originalPages ?? []).map((src, i, all) => (
-                    <img
-                      key={src}
-                      src={src}
-                      loading="lazy"
-                      alt={`${doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo} as supplied${all.length > 1 ? `, page ${i + 1} of ${all.length}` : ""}`}
-                    />
-                  ))}
+                  {(layout?.originalPages ?? []).map((page, i, all) => {
+                    const src = typeof page === "string" ? page : page.src;
+                    const alt = `${doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo} as supplied${all.length > 1 ? `, page ${i + 1} of ${all.length}` : ""}`;
+                    // A page that carries its own caption says which page it
+                    // is — the current revision or the one it replaced, the
+                    // blank form or a filled one (REQUIREMENTS §74) — under the
+                    // picture itself, so the two can never be confused.
+                    if (typeof page === "string") return <img key={src} src={src} loading="lazy" alt={alt} />;
+                    return (
+                      <figure key={src} style={{ margin: 0 }} data-original-page={i + 1}>
+                        <img src={src} loading="lazy" alt={`${alt} — ${page.caption}`} />
+                        <figcaption className="text-xs text-muted mt-1">{page.caption}</figcaption>
+                      </figure>
+                    );
+                  })}
                 </div>
               </div>
             </div>

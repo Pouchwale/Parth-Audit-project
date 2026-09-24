@@ -3864,6 +3864,110 @@ needs both: **a department can be perfectly up to date because one person did al
 say so.** The panel is an extra — if the log cannot be read the scorecard stands on its own and the panel does not
 appear.
 
+## 74. The Maintenance module — the equipment master, and a record read under the revision it was made on (24-Sep-2026)
+
+```
+REQUESTED            "So now you have to create another module called Maintenance so i have shared this pdfs with you so
+                      add those in that module ... my aim is that i want to make superintelligent system not only basic
+                      audit project"
+SUPPLIED             ten PDFs in source-documents/F-MNT-*.pdf: F/MNT/01, 02 (two revisions), 03, 04, 06, 08, 09 and 11 (two
+                      rounds, two revisions); every page rendered unaltered to frontend/public/source/fmnt*.jpg
+DIGITAL TEMPLATE     data/seed/maintenanceLayouts.ts, data/seed/maintenanceRecords.ts, the eight definitions in
+                      data/seed/documentDefinitions.ts, engine/equipmentMaster.ts, components/records/EquipmentFetch.tsx,
+                      engine/equipmentMasterAssistant.ts, engine/maintenanceCalc.ts, engine/computedCells.ts,
+                      components/layout/Sidebar.tsx, tests/e2e_maintenance_module.py
+```
+
+**1. MAINTENANCE IS A MODULE OF ITS OWN**, placed after the production modules because that is where the company's
+own Master List of Formats & Records (F/SYS/02) puts F/MNT — and outside the Purchase → Store → Dispatch run the
+material moves through. Its parts are **Equipment**, **Preventive Maintenance**, **Equipment Health & Breakdowns**
+and **Glass & Lighting**. The format numbers resolve to the **MNT** department.
+
+The master list holds **eleven** F/MNT formats. Eight were supplied and are built; **F/MNT/05 Breakdown intimation
+Slip, F/MNT/07 Temporary engineering record and F/MNT/10 Weekly Wooden article condition monitoring record were not
+supplied, and nothing stands in for them.**
+
+**2. F/MNT/01 IS THE EQUIPMENT MASTER.** The List of Equipments & Utilities is kept as an ordinary format with the
+supplied page on file as a Verified record — **43 machines**, M-01 to M-85 with gaps (the file is named "Flexo &
+Pouch" but carries the Flexo list and one Common forklift). Making the format itself the master means no second
+copy of the list, no new storage key, and scoping to Maintenance for free. The preventive maintenance record, the
+daily health sheet and the breakdown register **fetch a machine from it by its Machine No.** (engine/equipmentMaster.ts,
+components/records/EquipmentFetch.tsx), on the HR Master Data pattern of §53: a blank box fills at once, a box
+already written is changed only when the person says so. A machine is identified **only** by its number, or by a
+serial number that is not a placeholder — model names repeat (Brison 370 twice; UltraFlex Video Plate Mounter three
+times) and "NA" / "-" stand for unknown. The breakdown register's "Add line" always adds a line: one machine has
+many breakdowns, and HR's one-line-per-person rule is never copied. Mitra answers "which machine is M-47?" from the
+list, on the device.
+
+- **Row M-68 is printed one column out of step on the paper itself** — its manufacturer box is empty and every value
+  after it sits one box to the right, so the page reads Country of Origin "DCM Sleeve Seaming", Size "France", Year
+  "December", Serial No. "2023". It is **kept exactly as printed** and reported for the department to confirm, never
+  quietly straightened. M-85's Location / Room is blank on the page. The paper's own spellings are kept: "Itlay",
+  "Febraury", "Hyfra Industrukuhalanlagen GmbH", "Konika Minolta".
+- The "Department" column of F/MNT/01 holds a plant **section** (Flexo / Common), never a system department code.
+
+**3. THE OTHER SEVEN, VERBATIM.** Every label is the paper's: "Equipoment Name", "Monthaly", "Machine discription",
+"BREKAGE", "VARIFIED", "Articals", "Trail Production date", "Accessible & ease to clean", "Poucing" — and the
+dashes: F/MNT/09 heads weeks 1 and 5 with a hyphen and weeks 2 to 4 with an en dash, and so do these.
+- **F/MNT/02 Preventive Maintenance Schedule & Record**, one sheet per machine, at **Rev 01** — the higher of the two
+  revisions supplied. Its page 2 table of abnormal findings and actions is joined to the PM visit it describes, so a
+  finding can never drift from its visit. **The Rev 00 "Check List & Record" page is shown beside it as the
+  superseded original.** Both revisions print the date 01.12.2021 — for the MR to confirm.
+- **F/MNT/03 Yearly Preventive Maintenance Schedule** — Plan and Actual side by side under each month (the F/HR/09
+  shape), so a slipped PM shows on its own line. Its only marks — printing planned 10.01 and done 28.01, slitting
+  planned 12.01 — carry no year, so they are the format's **specimen, not a record** of a year.
+- **F/MNT/04 Daily Equipment Health Status & Cleaning Record** prints its seven check parameters **in Hindi and
+  Gujarati side by side**. The PDF's text layer for both scripts is mis-encoded ("मर्ीन" for "मशीन", "બલકેગે" for
+  "લિકેગે"), so **every line was read from the rendered page** and the paper's own spellings kept ("अनावस्यक",
+  "તાપસ"). It is kept as issued with Gujarati chosen and reads in the plant's own English with English chosen, with
+  no network (§58). The paper lays the month out as two half-month strips of a tick and an operator per shift; here
+  each **day is a line** with its day-shift and night-shift marks side by side, the words all the paper's.
+- **F/MNT/06 Equipments Breakdown Maintenance Record** — its three spanning headings as printed, and **TOTAL
+  BREAKDOWN MINUTES worked out from the failure and repair dates and times, never typed** (engine/maintenanceCalc.ts).
+- **F/MNT/08 New Equipment Installation Report** — ten requirements assessed with the paper's own "Y" / "N", and the
+  hand-over signed by the Maintenance, Production and QC heads. A new machine is written up, not fetched: it is not
+  on the equipment list until it has been installed.
+- **F/MNT/09 Glass Articles & Weekly Glass Breakage Monitoring** at Rev 02 (01.09.2025): the list of 3,980 glass and
+  brittle-plastic articles in twelve areas (every row and column total checked by hand, the grand total left blank
+  as on the paper) and its revision history, as the format's printed tables; the month's grid of areas by week as
+  printed. Page 2's area names differ from page 1's and both are kept.
+- **F/MNT/11 Lux Level Measurement Record** at **Rev 01** (26 areas, one Lux Level), with the meter printed in its
+  header (Kusam-Meco KM-LUX-99, Sr.No. S1135510).
+
+**4. A RECORD IS READ UNDER THE REVISION IT WAS MADE ON.** Two lux rounds were supplied: 12.08.2025 on Rev 01, and
+**11.05.2024 on the superseded Rev 00, which measured 19 areas by day AND by night**. Redrawn on Rev 01, the 2024 page
+would lose its night readings, show six blank lines and head itself "Rev 01" — a false record. So a record can now
+be **pinned** to a revision (`RecordInstance.formatRevision`), and a layout lists the revisions it replaced with the
+layout each was printed with (`LogSheetLayout.supersededRevisions`). A pinned record is drawn, headed, checked and
+patched with its own revision's layout; it is never a source to carry values forward from, and it is not offered
+for correction on a layout it was never written on. Records without a pin behave exactly as before.
+
+**5. EVERY WORKED-OUT CELL IS WORKED OUT IN ONE PLACE.** Until now the purchase ratings (§68) were worked out on
+screen and the calibration deviations (§61) only while a person typed — neither in a sample fill, the assistant's
+preparation or the demo year, so stored values could disagree with the screen. engine/computedCells.ts is the one
+pass, applied wherever a record is drawn, saved or filled, and a computed column is never required.
+
+**6. EVERY SUPPLIED PAGE CAN BE SEEN AS IT CAME**, now with a caption of its own (§71's originals extended): F/MNT/02
+shows both revisions, F/MNT/11 both rounds, and a superseded page says that it is superseded.
+
+**7. WHO SIGNS THEM — from the company's own papers, not invented.** F/HR/01 and F/HR/13 have **Mukesh Patel**,
+"Manager - Mentainance" (joined 06.04.1996), and **Rahul Patel**, "Supervisor - Mentainance" (joined 19.12.2014).
+Mukesh Patel's line in the seed read "Staff — pest control awareness trainee"; the seed now says what his papers say,
+and an install that already holds the old line is corrected by `SEED_CORRECTIONS` in masterRepository.ensureSeeded —
+**only while the stored line still reads exactly as the old seed wrote it**, so an administrator's own edit is never
+overwritten. The same fix reaches Chirag Parmar's §68 correction, which had never reached an existing install. The
+daily health sheet is ticked by the machine operator, as its columns say.
+
+**8. GAPS FOUND ON THE WAY, CLOSED:** Store and Dispatch had no entry in the sidebar's link-visibility map, Mitra's
+module keywords, or the model's list of modules in scope — so the model was told they were out of scope. Every
+Purchase, Store and Dispatch line of the activity log was filed under no department (§75 covers the server side).
+The employee-name suggestions appeared in "Machine Name" boxes. The QC-only footer note printed on every form with a
+footer. The downloaded workbook shifted grouped headings left.
+
+**Still to confirm with the department:** F/MNT/01 row M-68 and M-85's location; F/MNT/02 Rev 01 and Rev 00 carrying
+the same date; the year of F/MNT/03's January marks; how often F/MNT/11 is measured (the two supplied rounds are 15
+months apart); and F/MNT/05, 07 and 10, which were not supplied.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

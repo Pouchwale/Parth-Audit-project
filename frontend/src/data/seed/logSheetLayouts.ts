@@ -10,6 +10,7 @@ import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
 import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
 import { STORE_LAYOUTS } from "./storeLayouts";
+import { MAINTENANCE_LAYOUTS } from "./maintenanceLayouts";
 import { formatEditFor } from "../formatEdits";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
@@ -416,6 +417,9 @@ Object.assign(LOG_SHEET_LAYOUTS, DISPATCH_LAYOUTS);
 // material and vehicle check, supplied as the rubber stamp itself and shown
 // beside the form, and the sharp metal objects register.
 Object.assign(LOG_SHEET_LAYOUTS, STORE_LAYOUTS);
+// Maintenance's eight formats, supplied 24-Sep-2026 (REQUIREMENTS §74): the
+// equipment master and the seven formats that name a machine or an area.
+Object.assign(LOG_SHEET_LAYOUTS, MAINTENANCE_LAYOUTS);
 
 // The layout as it stands now: the plant's own change to the format where
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout
@@ -426,4 +430,18 @@ export function getLogSheetLayout(documentId: string): LogSheetLayout | undefine
 
 export function getIssuedLogSheetLayout(documentId: string): LogSheetLayout | undefined {
   return LOG_SHEET_LAYOUTS[documentId];
+}
+
+// The layout ONE RECORD is drawn, checked and edited with (REQUIREMENTS §74).
+// A record filled on a revision the format has since replaced names it
+// (RecordInstance.formatRevision), and when the current layout lists that
+// revision among its supersededRevisions the record keeps the layout it was
+// written on — F/MNT/11's 2024 Day/Night lux readings on Rev 00. Every other
+// record, which names no revision or names the current one, reads with the
+// layout as it stands now, exactly as getLogSheetLayout gives it.
+export function getLogSheetLayoutForRecord(documentId: string, record?: { formatRevision?: string } | null): LogSheetLayout | undefined {
+  const current = getLogSheetLayout(documentId);
+  const revision = record?.formatRevision;
+  if (!revision) return current;
+  return current?.supersededRevisions?.[revision]?.layout ?? current;
 }

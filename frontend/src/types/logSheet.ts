@@ -26,6 +26,11 @@ export interface LogHeaderField {
   // such as "Date of Inspection" — answer it with the date the record is for.
   autoFill?: { carryForward?: boolean; default?: string; sign?: boolean; dueDate?: boolean };
   width?: number;
+  // THE SUGGESTION LIST THIS BOX OFFERS, by the id of a <datalist> on the page —
+  // "equipment-machines" on a Machine No. box (REQUIREMENTS §74). Without it a
+  // box whose label names a person offers the employee names, and any other box
+  // offers nothing.
+  list?: string;
 }
 
 export interface LogColumn {
@@ -44,7 +49,12 @@ export interface LogColumn {
   group?: string;
   // Read-only, pre-filled column (e.g. the fixed hourly time slot).
   fixed?: boolean;
-  /** Worked out from the other cells, never typed — shown as text and not asked for (REQUIREMENTS §61). */
+  /**
+   * Worked out from the other cells, never typed — shown as text and not asked
+   * for (REQUIREMENTS §61). Never required either: validation skips it, because
+   * a blank one means the cells it is worked out from are not all written yet,
+   * and it is those the person is asked for (engine/computedCells.ts, §74).
+   */
   computed?: boolean;
   // Acceptance band for numeric columns. Values outside are highlighted (not
   // blocked — the paper form has no such gate either; a remark is expected).
@@ -52,9 +62,11 @@ export interface LogColumn {
   min?: number;
   max?: number;
   decimals?: number;
+  /** As on a header box: the id of the <datalist> this column's cells offer (REQUIREMENTS §74). */
+  list?: string;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
-  //   sign → nominal (random reading inside the band) → carryForward (copy
-  //   the template value exactly) → jitter (template value ± jitter%) →
+  //   dueDate → sign → nominal (random reading inside the band) → carryForward
+  //   (copy the template value exactly) → jitter (template value ± jitter%) →
   //   template value as-is → default.
   // Rule of thumb: measured READINGS get a `nominal` (they genuinely vary);
   // machine SET-POINTS and weighed set quantities get `carryForward` (they
@@ -75,6 +87,11 @@ export interface LogColumn {
     default?: string | number;
     // A "clock time" column filled with the current/typical time.
     nowTime?: boolean;
+    // A date column that answers with the date the record is for, on every
+    // line — F/MNT/11's "Date of Measurement", where the whole round is walked
+    // on one day (REQUIREMENTS §74). Copying the previous sheet's date instead
+    // would put last year's date on this year's readings.
+    dueDate?: boolean;
   };
 }
 
@@ -117,11 +134,36 @@ export interface LogSheetLayout {
   // picture rather than as a document is only honestly reproduced if the
   // picture can be put next to it, so the two can be compared. Where a layout
   // sets nothing here the document page shows no such button at all.
-  originalPages?: string[];
+  //
+  // A page can carry a caption of its own — { src, caption } — where the pages
+  // are not simply page 1, 2, 3 of one issue: Maintenance's F/MNT/02 and
+  // F/MNT/11 were supplied at their current AND their superseded revision, and
+  // a filled page beside a blank one (REQUIREMENTS §74), and a picture that
+  // does not say which it is would invite the two to be confused.
+  originalPages?: (string | { src: string; caption: string })[];
+  // THE REVISIONS THIS FORMAT REPLACED, by revision number, each with the layout
+  // it was printed with (REQUIREMENTS §74). A record filled on a superseded
+  // revision says so (RecordInstance.formatRevision) and is drawn, checked and
+  // headed with THAT revision's layout: F/MNT/11's 2024 lux readings were taken
+  // on Rev 00, which had Day and Night columns and 19 areas, and redrawing them
+  // on Rev 01's single column and 26 areas would hide half of what was written
+  // and label it with a revision it was never on. Only the current revision is
+  // ever filled in, so nothing here is scheduled, carried forward or corrected.
+  supersededRevisions?: Record<string, SupersededRevision>;
   // "Typical" example rows taken from the filled specimen, used by the
   // assistant when there is no previous record to carry forward from.
   specimenRows?: Record<string, string | number | null>[];
   specimenHeader?: Record<string, string>;
   // Which source file the specimen values came from (shown for traceability).
   specimenSource: string;
+}
+
+/** One revision a format has replaced: when it was issued, how it was printed, and why it matters. */
+export interface SupersededRevision {
+  /** ISO date the superseded revision was issued, as its own header printed it. */
+  revisionDate: string;
+  /** The grid and boxes as that revision printed them. */
+  layout: LogSheetLayout;
+  /** A plain-English line on what changed, shown beside a record filled on it. */
+  note?: string;
 }

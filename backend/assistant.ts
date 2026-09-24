@@ -238,8 +238,10 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
 - /library/{moduleSlug} — Document Library filtered to one module. moduleSlug is the module name,
   lowercased, non-letters/digits turned into single hyphens: "human-resources" (the Human Resources module — HR's
   sixteen F/HR formats and the pest control file), "lamination-quality-control",
-  "lamination-production", "purchase" (the Purchase module — the five F/PUR supplier and service-provider formats),
-  "quality-control-inspection-records", "quality-compliance"
+  "lamination-production", "maintenance" (the Maintenance module — the eight F/MNT formats: the equipment list,
+  preventive maintenance, daily machine health, breakdowns, glass breakage and lux levels), "purchase" (the Purchase
+  module — the five F/PUR supplier and service-provider formats), "store" (the two F/STR formats), "dispatch" (the
+  two F/DISP formats), "quality-control-inspection-records", "quality-compliance"
 - /files/{scope}/{from}/{to} — Document Files: every record filed by module → document → month, for EXACTLY the
   dates from..to (ISO YYYY-MM-DD). scope is "all", a moduleSlug (as above), "pest-control" (the pest control
   file — the shelf of the Human Resources module holding the daily monitoring record, the fly catcher register,
@@ -262,7 +264,8 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   qc-analysis-report, qc-utility-test-report, qc-minutes-of-meetings, pur-supplier-registration,
   pur-supplier-audit-report, pur-approved-suppliers, pur-supplier-performance,
   pur-service-provider-performance, str-incoming-material-vehicle, str-sharp-metal-objects,
-  disp-safe-transporter-agreement, disp-container-stuffing).
+  disp-safe-transporter-agreement, disp-container-stuffing, mnt-equipment-list, mnt-new-equipment, mnt-pm-record,
+  mnt-yearly-pm-schedule, mnt-daily-health, mnt-breakdown-record, mnt-glass-breakage, mnt-lux-level).
   Use it whenever the user asks for the documents / records /
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
@@ -285,7 +288,16 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   (F/PUR/01 Supplier Registration Form), pur-supplier-audit-report (F/PUR/02 Supplier Audit Report),
   pur-approved-suppliers (F/PUR/03 List of Approved Suppliers), pur-supplier-performance (F/PUR/05 the raw material
   and packing material suppliers' performance monitoring register) and pur-service-provider-performance (F/PUR/06
-  the service providers'); for "the purchase documents" as a whole use /library/purchase
+  the service providers'); for "the purchase documents" as a whole use /library/purchase. The Maintenance formats
+  open here too: mnt-equipment-list (F/MNT/01 List of Equipments & Utilities — the equipment master, machines M-01
+  to M-85), mnt-new-equipment (F/MNT/08 New Equipment Installation Report), mnt-pm-record (F/MNT/02 Preventive
+  Maintenance Schedule & Record, one per machine), mnt-yearly-pm-schedule (F/MNT/03 Yearly Preventive Maintenance
+  Schedule), mnt-daily-health (F/MNT/04 Daily Equipment Health Status & Cleaning Record), mnt-breakdown-record
+  (F/MNT/06 Equipments Breakdown Maintenance Record), mnt-glass-breakage (F/MNT/09 Glass Articles & Weekly Glass
+  Breakage Monitoring) and mnt-lux-level (F/MNT/11 Lux Level Measurement Record); for "the maintenance documents" as a
+  whole use /library/maintenance. The Store formats are str-incoming-material-vehicle (F/STR/01) and
+  str-sharp-metal-objects (F/STR/02); the Dispatch formats are disp-safe-transporter-agreement (F/DISP/01) and
+  disp-container-stuffing (F/DISP/02)
 - /calendar — this month's Record Calendar
 - /calendar/{year}/{month0} — Record Calendar for a specific month. month0 is 0-based (January=0 ... December=11)
 - /day/{YYYY-MM-DD} — everything due on one specific date
@@ -432,7 +444,8 @@ export async function runAssistant({
       "SCOPE — the rule you must never break. You help ONLY with this system: its records, documents and formats, its",
       "modules (Human Resources — its HR formats and the pest control file — CAPA, Lamination QC & Production,",
       "Purchase — supplier registration, supplier audits, the approved supplier list and the two performance",
-      "monitoring registers — QC",
+      "monitoring registers — Maintenance — the equipment list and every machine on it, preventive maintenance,",
+      "daily machine health, breakdowns, glass breakage and lux levels — Store, Dispatch, QC",
       "Inspection, Compliance), the calendar and company",
       "holidays, reports, master data, and filling in / submitting / verifying / finding those records.",
       "Anything else — general knowledge, news, sport, weather, maths, jokes, poems or any creative writing, recipes,",
