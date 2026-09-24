@@ -3968,6 +3968,71 @@ footer. The downloaded workbook shifted grouped headings left.
 the same date; the year of F/MNT/03's January marks; how often F/MNT/11 is measured (the two supplied rounds are 15
 months apart); and F/MNT/05, 07 and 10, which were not supplied.
 
+## 75. A system that reads its own records — Insights, and what they lead to (24-Sep-2026)
+
+```
+REQUESTED            "my aim is that i want to make superintelligent system not only basic audit project which is right
+                      now at present moment" — with the changes proposed on 24-Sep-2026: a smarter Mitra, smarter
+                      compliance, one search over every record, smarter notifications, and scale
+DIGITAL TEMPLATE     engine/insights.ts, engine/insightRules.ts, engine/insightsInput.ts, engine/raiseCapa.ts,
+                      pages/InsightsPage.tsx, components/insights/DashboardInsights.tsx,
+                      components/charts/ReadingChart.tsx, tests/e2e_insights.py
+```
+
+Until now every record was read on its own: a sheet was checked against its own printed band, a finding against its
+own target date. Nothing read the records **together** — so a cabinet losing half its light between two lux rounds,
+the same lot deviation written on four lots, or a CAPA closed and the same finding back a month later, was visible
+only to someone who happened to lay the papers side by side. This section is the system doing that, and what follows
+from it.
+
+**1. INSIGHTS — /insights, in the System group of the sidebar, for every account.** Each insight is worked out by a
+**fixed rule** from the plant's own records — plain arithmetic, no model, nothing estimated — and each one **names
+the records it was read from**, every one a link. The rules, and why each carries its severity, are written at the top
+of engine/insightRules.ts:
+
+| Rule | What it finds |
+|---|---|
+| A1 | readings outside the band the form itself prints (F-QC-30 and F-QC-32 viscosity, F-QC-40.C's six temperatures), per sheet and day, with the run length and a chart |
+| A2 | a process that has shifted, caught **before** a reading leaves the band (Western Electric rule 2, on the hourly series) |
+| A4 | out-of-band readings on a sheet that was verified with no remark and no CAPA naming it |
+| B1 | the same lot deviation written on three or more lots in 90 days (F/QC/37, /35, /34) |
+| B2 | the same observation on the daily pest control register three or more times in 90 days |
+| B3 | a CAPA whose action date has passed, and the same finding back afterwards — **the CAPA did not hold** |
+| B4 | CAPA findings past their target date |
+| B5 | printing stopped twice or more in a month on F/QC/13 |
+| C3 | an instrument whose calibration has expired (and, low, one expiring within 30 days) |
+| SUP | a supplier graded C on F/PUR/05, quoting the action the form prints |
+| M1 | light lost per area between the two latest lux rounds (a fall of 25% is medium, 40% high) |
+| M2 | the equipment list's own inconsistencies — M-68 printed out of step, a missing location, a year that is not a year |
+| M3 | one machine breaking down three or more times in 90 days, with its repair time and time between failures |
+| M4 | glass breakage marked YES, or an area written as cracked or broken |
+| M5 | unticked day or night checks on the daily health sheet, closed days skipped |
+| M6 | preventive maintenance done more than 7 days after its plan, or not done 7 days after it |
+| M7 | a breakdown naming a machine that is not on F/MNT/01 |
+
+- **Only what people wrote is read**: submitted, pending, verified and sent-back records, and drafts a person has
+  edited. A blank sheet the calendar made, or a draft only the assistant filled, is never evidence of anything.
+- **No limit is invented.** The plant has not given a lux standard, so M1 reports the fall between two rounds and
+  never "below standard"; a rule whose band is not printed on the form does not exist.
+- **Rules that were tried and left out**, because on a full year of the plant's records they raised more false alarms
+  than true ones: the other three Western Electric rules, EWMA, and a straight-line "will reach the limit on" forecast.
+- **Scoped** (§40): the records and documents are the scoped ones, so a Maintenance account reads Maintenance's
+  insights and a Quality Control account reads Quality Control's.
+- **Fast on a slow laptop** (§56): the page paints first and the insights are worked out after it, in slices of about
+  8 ms with the browser free in between; a record already read is remembered, so the next run reads only what changed.
+
+**2. THE DASHBOARD SHOWS THE THREE THAT MATTER MOST** — high first, then medium, with how many there are of each and a
+link to the page. Low ones (a summary, a missing location) are counted but not put on the Dashboard, and with nothing
+high or medium the card is not drawn at all: the Dashboard is for what needs doing.
+
+**3. AN INSIGHT BECOMES A CAPA ONLY ON A CLICK.** Beside an insight that calls for one, "What the CAPA finding will
+say" shows the finding, comment and corrective action before anything is written; **Raise CAPA** then adds it as an
+**Open** finding to this month's internal CAPA report (starting the report if there is none), target date 15 days
+out, remembering the insight it came from (`GapFinding.insightKey`) and the records behind it
+(`GapFinding.sourceRecordIds`). The same insight is **not offered again while its finding is open**; if it is found
+again after the finding was closed, that is rule B3. The internal CAPA report is Quality Assurance's, so an account
+that cannot open it is not offered to write on it.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

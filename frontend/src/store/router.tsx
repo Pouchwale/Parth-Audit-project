@@ -218,6 +218,8 @@ export function useRouter(): RouterValue {
 const SIMPLE_ROUTES = new Set([
   "", "dashboard", "library", "calendar", "reports",
   "chemical-master", "master-data", "search", "pest-control", "assistant", "licence",
+  // /insights — what the plant's records show when they are read together (REQUIREMENTS §75).
+  "insights",
   // /qc — QC Records, Quality Control's own overview (REQUIREMENTS §58).
   "qc",
   // /activity — the Activity Log (REQUIREMENTS §62).

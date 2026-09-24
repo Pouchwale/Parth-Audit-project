@@ -198,6 +198,14 @@ export interface GapFinding {
   verifiedByServiceProvider: string;
   status: "Open" | "Overdue" | "Closed" | "Verified";
   source: "Internal" | "External"; // internal self-inspection finding, or from an external audit/customer/regulator
+  /**
+   * The insight this finding was raised from (REQUIREMENTS §75) — so the same
+   * insight is never raised twice while its finding is open, and a problem
+   * that comes back after the finding was closed reads as "CAPA not effective".
+   */
+  insightKey?: string;
+  /** The records the insight was read from, so each one names the CAPA that answers it. */
+  sourceRecordIds?: string[];
 }
 
 export interface GapInspectionData {

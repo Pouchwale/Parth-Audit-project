@@ -198,6 +198,14 @@ Seven scripts live in `tests/`:
   original on disk, superseded revisions included). **`npm run test:e2e` runs it first** and stops before building
   if it fails - a document that could not be filled used to be found forty minutes into the browser run. New tests
   go in `frontend/tests/*.test.ts` with helpers in `frontend/tests/support/`; `npm run typecheck` covers them.
+- `tests/e2e_insights.py` - Insights (REQUIREMENTS §75), a thirty-fifth suite, added 24-Sep-2026, run straight
+  after the Maintenance suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the
+  2024 one** — the QC Lab's colour-matching cabinet down 45%, 1863 to 1025 lux, high, naming both rounds — and row
+  M-68 pointed out; the module and severity filters; the Dashboard's card of at most three, none low, linking to the
+  page; **Raise CAPA** showing the finding before the click, landing on the CAPA report with a finding that remembers
+  its insight and its records, and not offered again while open; a Maintenance account reading only Maintenance's
+  and not offered to write on QA's report; a Quality Control account reading none of Maintenance's. It is anchored on
+  insight ids (`data-insight`), never on counts, because the suites before it add records of their own.
 - `tests/e2e_maintenance_module.py` - the Maintenance module and its eight formats (REQUIREMENTS §74), a
   thirty-fourth suite, added 24-Sep-2026: the module placed after the production modules and before Purchase (the
   Store suite still finds Purchase, Store and Dispatch together); the library filtered to it with all eight F/MNT

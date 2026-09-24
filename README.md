@@ -125,6 +125,12 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **Insights: the system reads its own records together** (REQUIREMENTS §75). Fixed rules — plain arithmetic, no
+  model — find what no single record shows: readings leaving their printed band or drifting before they do, the same
+  lot deviation or pest finding again and again, a CAPA that did not hold or is past its date, an expired calibration,
+  a supplier graded C, a cabinet that lost 45% of its light between two lux rounds, a machine that keeps breaking
+  down. Every insight names the records it was read from; the Dashboard shows the three that matter most; and one
+  click raises an insight as a CAPA finding — never without that click.
 - **A Maintenance module** (REQUIREMENTS §74): the eight F/MNT formats the department supplied, verbatim to the
   last misspelling ("Equipoment", "Monthaly", "BREKAGE", "VARIFIED"). **F/MNT/01, the list of 43 machines, is the
   equipment master** — the preventive maintenance record, the daily health sheet and the breakdown register fetch a

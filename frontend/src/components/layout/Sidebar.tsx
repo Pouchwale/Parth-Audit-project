@@ -384,6 +384,10 @@ const NAV_SYSTEM: NavItem[] = [
   { to: "/activity", labelKey: "nav.activityLog", icon: FiActivity },
   // Who did their documents on time — by person, department and module (REQUIREMENTS §64).
   { to: "/performance", labelKey: "nav.performance", icon: FiAward },
+  // What the records show when read together — drift, repeats, overdue CAPA,
+  // expired calibration, breakdowns, lux falls (REQUIREMENTS §75). Shown to
+  // every account: the page reads only what the account may see.
+  { to: "/insights", labelKey: "nav.insights", icon: FiTrendingUp },
 ];
 // Demo Mode is not part of the product: its link is listed only on a server
 // started with it, which is how the Playwright suites get their year of

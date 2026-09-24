@@ -41,6 +41,7 @@ import { QcOverviewPage } from "./pages/QcPages";
 import { UsersPage } from "./pages/UsersPage";
 import { ActivityLogPage } from "./pages/ActivityLogPage";
 import { PerformancePage } from "./pages/PerformancePage";
+import { InsightsPage } from "./pages/InsightsPage";
 import { MitraReaction } from "./components/common/MitraReaction";
 import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
 import { demoModeAvailable } from "./engine/features";
@@ -138,6 +139,9 @@ function RouteSwitch() {
     case "performance":
       // The scorecard: who did their documents on time, by person, department and module (REQUIREMENTS §64).
       return <PerformancePage />;
+    case "insights":
+      // What the plant's records show when read together, worked out by fixed rules from them (REQUIREMENTS §75).
+      return <InsightsPage />;
     // Users & Access — the administrator makes the accounts (REQUIREMENTS §66).
     case "users":
       return <UsersPage />;

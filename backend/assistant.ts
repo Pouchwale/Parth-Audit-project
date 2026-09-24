@@ -298,6 +298,10 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   whole use /library/maintenance. The Store formats are str-incoming-material-vehicle (F/STR/01) and
   str-sharp-metal-objects (F/STR/02); the Dispatch formats are disp-safe-transporter-agreement (F/DISP/01) and
   disp-container-stuffing (F/DISP/02)
+- /insights — Insights: what the plant's records show when read together (readings out of band or drifting, the
+  same lot deviation again, CAPA not effective or overdue, expired calibration, a supplier graded C, lux falls,
+  breakdowns per machine, glass breakage, missed daily health checks, PM slipping). Use it for "anything unusual",
+  "what stands out", "trends", "drift", "which machine breaks down most"
 - /calendar — this month's Record Calendar
 - /calendar/{year}/{month0} — Record Calendar for a specific month. month0 is 0-based (January=0 ... December=11)
 - /day/{YYYY-MM-DD} — everything due on one specific date

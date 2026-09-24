@@ -22,6 +22,7 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
 import { documentTextIn } from "../i18n/documentText";
+import { DashboardInsights } from "../components/insights/DashboardInsights";
 
 function StatTile({
   icon: Icon,
@@ -218,6 +219,9 @@ export function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* What the records show when read together — the three that matter most (REQUIREMENTS §75). */}
+      <DashboardInsights />
 
       <h3 className="text-sm uppercase text-muted mb-2">{t("dash.today")}</h3>
       <div className="flex gap-3 wrap mb-6">
