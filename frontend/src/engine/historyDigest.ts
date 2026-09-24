@@ -23,7 +23,7 @@ import { breakdownLines, luxReadings, normText, type BreakdownLine } from "./ins
 import { prepareScopedInsights, scopedInsights } from "./scopedInsights";
 import { isLotAccepted, isOutOfBand } from "./validation";
 import { actionForGrade, RM_PM_PERFORMANCE_ID, SERVICE_PROVIDER_PERFORMANCE_ID, serviceRatingCells, supplierRatingCells } from "./purchaseRatings";
-import { closedDays, decisionText, periodFor, scoreOf, scorecards, type PeriodKey, type Person } from "./performance";
+import { closedDays, decisionText, scoreOf, scorecards, type Person } from "./performance";
 import { machineNumbersIn } from "./equipmentMaster";
 import { totalRodents } from "./rodentPattern";
 import { routeForRecord } from "./reminders";
@@ -1023,28 +1023,9 @@ function* filedWork(ctx: Ctx, topic: "hr" | "store" | "dispatch"): Work<Evidence
 
 // ---- on time and late: the Performance Scorecard itself ----
 
-const PERIOD_KEYS: PeriodKey[] = ["this-month", "last-month", "last-3-months", "this-year"];
-
-/** The smallest of the Performance Scorecard's own periods that holds the whole range, or null. */
-function coveringPeriod(from: string, to: string, today: string): PeriodKey | null {
-  for (const key of PERIOD_KEYS) {
-    const p = periodFor(key, today);
-    if (compareISO(from, p.from) >= 0 && compareISO(to, p.to) <= 0) return key;
-  }
-  return null;
-}
-
 function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
   const { from, to, label } = ctx.intent;
   const facts: EvidenceFact[] = [];
-  const key = coveringPeriod(from, to, ctx.today);
-  if (!key) {
-    facts.push({
-      text: `Lateness for ${label} is not given: the Performance Scorecard's periods reach back to 1 January ${ctx.today.slice(0, 4)} at most (see /performance).`,
-      recordIds: [],
-    });
-    return { topic: "people", heading: TOPIC_NAME.people, facts };
-  }
   yield;
   // Exactly the Performance page's question (pages/PerformancePage.tsx): the
   // records due in the period, read through the scoped repository, judged by
@@ -1052,7 +1033,9 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
   const records = recordRepository.query({ isDemo: ctx.isDemo, fromDate: from, toDate: to });
   const named = ctx.intent.documentIds;
   const docs = documentRepository.getAll().filter((d) => named.length === 0 || named.includes(d.id));
-  const cards = scorecards(records, docs, ctx.people, key, ctx.today, {
+  // The question's own dates, whatever they are ("last quarter", 2025): the
+  // Scorecard scores any range the same way it scores its own periods.
+  const cards = scorecards(records, docs, ctx.people, { from, to, label }, ctx.today, {
     isClosedDay: closedDays(masterRepository.get()),
     countedFrom: ctx.isDemo ? null : settingsRepository.get().liveStartDate,
   });

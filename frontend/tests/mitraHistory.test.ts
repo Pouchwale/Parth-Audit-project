@@ -213,3 +213,14 @@ test("the live facts add what stands out and the machine asked about, and stay w
   assert.match(context, /Insights \(\d+ high, \d+ medium, \d+ low\)/);
   assert.match(context, /Delta 330/);
 });
+
+test("lateness is scored for any period asked about, not only the Scorecard's own", () => {
+  // Before 1 January of this year none of the Scorecard's four periods reaches;
+  // the Scorecard now scores the question's own dates (REQUIREMENTS §75).
+  const intent = analyticIntent("who was late last year?", "2026-09-24");
+  assert.ok(intent, "a question about lateness last year reads as history");
+  assert.ok(intent.topics.includes("people"), `topics: ${intent.topics.join(", ")}`);
+  const pack = buildEvidence(intent, false);
+  assert.ok(pack.text.includes("Performance Scorecard"), pack.text.slice(0, 600));
+  assert.ok(!pack.text.includes("is not given"), pack.text.slice(0, 600));
+});
