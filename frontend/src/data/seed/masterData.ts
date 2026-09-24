@@ -51,6 +51,23 @@ export const SEED_MASTER_DATA: MasterData = {
     // CONFIRMED, and the five F/PUR formats have their own manager to name.
     { id: "emp-chirag", name: "Chirag Parmar", role: "Manager – Purchase (Purchase Manager on F/HR/01; also a pest control awareness trainee, Dec-2025)", department: "Purchase", active: true },
     { id: "emp-mukesh", name: "Mukesh Patel", role: "Staff — pest control awareness trainee", department: "TO BE CONFIRMED", active: true },
+    // WHO ANSWERS FOR THE STORE FORMATS (REQUIREMENTS §71). Like Chirag
+    // Parmar above, not a new person and not a guess: the company's own
+    // personnel records already say who runs the store. F/HR/01 has
+    // "Hemantbhai Nayak", General Stores, Manager, joined 01.01.2004 with no
+    // leaving date, and F/HR/13 writes the same man "Manager - Store" as of
+    // 01.12.2021. F/STR/02 names a "Store In-charge" and prints a STORE
+    // KEEPER SIGN column, and F/STR/01 is stamped and signed by the store, so
+    // both formats have their own manager to name rather than an empty
+    // signature box.
+    { id: "emp-hemant", name: "Hemantbhai Nayak", role: "Manager – Store (General Stores Manager on F/HR/01, joined 01.01.2004; \"Manager - Store\" on F/HR/13)", department: "Store", active: true },
+    // And the Dispatch In charge the container check is authorised by
+    // (REQUIREMENTS §70). F/STR's neighbour format named a role with nobody
+    // behind it: "disp-container-stuffing" resolves to a role containing
+    // "Dispatch", and until now no employee had one, so the paper's own
+    // product-release authorisation box filled with nothing. F/HR/13 has
+    // "Parth Chauhan", "Manager - Dispatch", as of 01.12.2023.
+    { id: "emp-parth-chauhan", name: "Parth Chauhan", role: "Manager – Dispatch (on F/HR/13 as of 01.12.2023)", department: "Dispatch", active: true },
   ],
 
   // Areas are kept separate per source document, exactly as filed on paper
@@ -288,6 +305,13 @@ export const SEED_MASTER_DATA: MasterData = {
     // signed copy shows ("Chirag Parmar, Purchase Manager").
     "disp-container-stuffing": "Dispatch",
     "disp-safe-transporter-agreement": "Purchase",
+    // Store — the two F/STR formats (REQUIREMENTS §71). Both are the store's
+    // own: the incoming material check is stamped and signed by whoever takes
+    // the load in, and the sharp tool register is the Store In-charge's, which
+    // the format's own first paragraph says in as many words. "Store" matches
+    // the Manager – Store in the employee list above.
+    "str-incoming-material-vehicle": "Store",
+    "str-sharp-metal-objects": "Store",
   },
 
   // "Gujarat Print Pack Leave Calendar 2026" (WhatsApp Image 2026-08-11 at

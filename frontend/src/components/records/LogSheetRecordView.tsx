@@ -371,10 +371,17 @@ function HeaderFieldInput({
         {field.label}
         {field.required ? " *" : ""}
       </label>
-      {field.type === "select" ? (
+      {/* A BOX THE FORM PRINTS AS A CHOICE is offered as one, and "yesno"
+          means the same thing here as it does in the grid above: the two
+          answers, without them having to be written out in the layout. It did
+          not, and so F/PUR/01's "DO YOU HOLD ISO 9001 ... CERTIFICATION:"
+          asked a yes-or-no question and gave a free text box to answer it
+          (REQUIREMENTS §68, found while adding F/STR/01 in §71, whose stamp is
+          seven such questions). */}
+      {field.type === "select" || field.type === "yesno" ? (
         <select className="input input-sm" disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">Select…</option>
-          {field.options?.map((o) => (
+          {(field.type === "yesno" ? ["Yes", "No"] : (field.options ?? [])).map((o) => (
             <option key={o} value={o}>
               {o}
             </option>

@@ -309,6 +309,40 @@ const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
     id: "pur-approved-suppliers",
     aliases: ["list of approved suppliers", "approved suppliers list", "approved suppliers", "approved supplier list", "supplier list", "f/pur/03"],
   },
+  // Store (REQUIREMENTS §71): the stamp put on incoming material paperwork,
+  // and the sharp tool register. The store says "blade" and "cutter" far more
+  // often than it says the format's own name, so both are aliases, and
+  // "incoming material" is deliberately NOT one on its own — Quality Control
+  // has thirteen incoming material inspection records, and a bare "incoming
+  // material" belongs to them.
+  {
+    id: "str-incoming-material-vehicle",
+    aliases: [
+      "incoming material vehicle",
+      "incoming material vehicle & condition monitoring record",
+      "incoming vehicle check",
+      "vehicle and condition monitoring",
+      "condition monitoring record",
+      "incoming material stamp",
+      "vehicle stamp",
+      "f/str/01",
+    ],
+  },
+  {
+    id: "str-sharp-metal-objects",
+    aliases: [
+      "sharp metal objects",
+      "sharp metal object record",
+      "sharp tool register",
+      "sharp tool",
+      "blade issue",
+      "blade issuance",
+      "issue a blade",
+      "cutter blade record",
+      "razor blade record",
+      "f/str/02",
+    ],
+  },
   // Dispatch (REQUIREMENTS §70): the agreement a transporter signs, and the
   // check on the container before a load goes. "container" and "vehicle
   // inspection" are the words the paper is headed with.

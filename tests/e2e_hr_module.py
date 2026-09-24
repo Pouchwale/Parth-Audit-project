@@ -4,7 +4,7 @@ Asked for on 14-Sep-2026, with sixteen F/HR PDFs attached: "make HR module ...
 add those in HR Module only ... also added that Pest Control module and
 everything in HR Module". So this suite checks that:
 
-  * the Document Library holds eighty-one documents, and the Human Resources module
+  * the Document Library holds eighty-three documents, and the Human Resources module
     groups twenty-six of them - the sixteen formats under HR's five sections,
     then the pest control file's ten under its own four;
   * the sidebar has a Human Resources module and no Pest Control module: "HR
@@ -13,7 +13,7 @@ everything in HR Module". So this suite checks that:
   * "Open Document" opens every document on a page of its own, never the Record
     Calendar - an HR format its HR page, with the register on it in full, and
     any other log sheet its document page (REQUIREMENTS s47);
-  * the library holds eighty-one documents (REQUIREMENTS s51 added Quality
+  * the library holds eighty-three documents (REQUIREMENTS s51 added Quality
     Control's two internal calibration records, s57 its thirty-two more, s68 the
     Purchase module's five);
   * the filled registers among the PDFs are on file as LIVE records, line for
@@ -231,7 +231,7 @@ with sync_playwright() as p:
     # 1. The Document Library: seventy-nine documents, twenty-six of them HR's
     # ==================================================================
     open_library(page)
-    check("The Document Library lists eighty-one documents", library_rows(page).count() == 81, library_rows(page).count())
+    check("The Document Library lists eighty-three documents", library_rows(page).count() == 83, library_rows(page).count())
     group = hr_group(page)
     check("The Human Resources module is one group of the library", group.count() == 1)
     check("...and there is no Pest Control module any more", page.locator(".app-content h3:has-text('Pest Control')").count() == 0)
@@ -442,7 +442,7 @@ with sync_playwright() as p:
     # ==================================================================
     open_library(page)
     all_ids = page.eval_on_selector_all("[data-action='open-document']", "els => els.map((e) => e.getAttribute('data-document'))")
-    check("Every document in the library has Open Document", len(all_ids) == 81, len(all_ids))
+    check("Every document in the library has Open Document", len(all_ids) == 83, len(all_ids))
     landed = {}
     for doc_id in all_ids:
         open_library(page)

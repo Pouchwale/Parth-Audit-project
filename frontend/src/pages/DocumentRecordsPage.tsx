@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiPlus, FiPrinter, FiUpload } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiDatabase, FiEdit3, FiExternalLink, FiImage, FiPlus, FiPrinter, FiUpload } from "react-icons/fi";
 import { FormatEditor } from "../components/documents/FormatEditor";
 import { SheetDesigner } from "../components/documents/SheetDesigner";
 import { canDesignGrid } from "../engine/formatOps";
@@ -23,6 +23,7 @@ import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { CvImportDialog } from "../components/hr/CvImportDialog";
 import { DocMeta, nextDueDate } from "./PestControlPages";
 import { moduleSlug } from "../utils/moduleSlug";
+import { useT } from "../i18n";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
@@ -164,8 +165,12 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
   const today = todayISO();
+  const t = useT();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cvOpen, setCvOpen] = useState(false);
+  // Closed to begin with: a picture of a form is the heaviest thing on the
+  // page, and nothing is fetched until it is asked for (REQUIREMENTS §65).
+  const [showOriginal, setShowOriginal] = useState(false);
   // Opening a format's page is a line of the activity log (REQUIREMENTS §62).
   React.useEffect(() => {
     const d = documentRepository.getById(docId);
@@ -282,6 +287,43 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
         </div>
       </div>
       <p className="text-muted mb-4">{doc.description}</p>
+
+      {/* THE SUPPLIED ORIGINAL, SHOWN AS IT IS (REQUIREMENTS §71). Only on a
+          format whose layout names one, so every other document page is
+          exactly as it was. F/STR/01 was supplied as a photograph of the
+          rubber stamp itself rather than as a document, and a form built from
+          a picture is only honestly reproduced if the picture can be put
+          beside it and compared — including the spellings cut into the stamp,
+          which are kept rather than corrected. */}
+      {(layout?.originalPages?.length ?? 0) > 0 && (
+        <div className="mb-4 no-print">
+          <button
+            className="btn btn-secondary btn-sm"
+            data-action="show-supplied-original"
+            aria-expanded={showOriginal}
+            onClick={() => setShowOriginal((v) => !v)}
+          >
+            <FiImage size={12} /> {showOriginal ? t("doc.hideOriginal") : t("doc.showOriginal")}
+          </button>
+          {showOriginal && (
+            <div className="card mt-2" data-section="supplied-original">
+              <div className="card-pad">
+                <div className="text-xs text-muted mb-2">{doc.sourceFile} — shown unaltered.</div>
+                <div className="register-original">
+                  {(layout?.originalPages ?? []).map((src, i, all) => (
+                    <img
+                      key={src}
+                      src={src}
+                      loading="lazy"
+                      alt={`${doc.formatNo.startsWith("TO BE") ? doc.name : doc.formatNo} as supplied${all.length > 1 ? `, page ${i + 1} of ${all.length}` : ""}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {cvOpen && <CvImportDialog onClose={() => setCvOpen(false)} />}
 
       {designing ? (

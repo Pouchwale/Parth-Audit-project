@@ -3675,6 +3675,88 @@ the plant's own English (`i18n/documentTextEn.ts`). So:
   master list of formats — `F-SYS-02-Master List of Formats. (R-2025)..xlsx`, which sits beside these PDFs in
   the plant's own folders — would say which of its formats are still only on paper.
 
+## 71. The Store module — and the form supplied as a rubber stamp (23-Sep-2026)
+
+```
+REQUESTED            "also you need to add this in New module called Store. And make the image which i give us
+                      should be visible as it is so this task perfectly and without any error."
+SUPPLIED             F-STR-02_Sharp metal objects issuance & replacement record.pdf,
+                      F-STR-01_Incoming material vehicle & condition monitoring record (rubber stamp).jpg
+                      — both in source-documents/, the picture also in frontend/public/source/
+DIGITAL TEMPLATE     data/seed/storeLayouts.ts, the two definitions in data/seed/documentDefinitions.ts,
+                      components/layout/Sidebar.tsx, pages/DocumentRecordsPage.tsx (the supplied original),
+                      types/logSheet.ts (originalPages), tests/e2e_store_module.py
+```
+
+**1. STORE IS A MODULE OF ITS OWN**, and it sits **between Purchase and Dispatch** — the order the material
+moves in (bought on the F/PUR formats, taken in and kept on the F/STR ones, then inspected, made and sent out)
+and the order the company's own **Master List of Formats & Records (F/SYS/02)** puts the departments in:
+F/SYS, F/MKT, F/PUR, **F/STR**, F/QC. Its two parts are **Incoming Material** and **Sharp Tool Control**. The
+format numbers resolve to the **STR** department by their prefix, so only Store (and an account that covers
+every department) sees them.
+
+That master list is also what settled **which** two formats these are: it holds exactly two F/STR entries, both
+issued 01.12.21 — F-STR-01 *Incoming Material & Vehicle inspection Record* and F-STR-02 *Sharp metal objects
+issuance & replacement record* — and the plant supplied one of each.
+
+**2. F/STR/01 — INCOMING MATERIAL VEHICLE & CONDITION MONITORING RECORD.** This one was not supplied as a
+document at all: it was supplied as a **photograph of the rubber stamp**, which is what the store actually puts
+on the receiving paperwork. So it is built as the stamp is: a date, seven points each answered **Yes or No**,
+and who checked it. There is no grid, because a stamp has none.
+
+- **THE STAMP IS SHOWN AS IT IS.** *"make the image which i give us should be visible as it is."* A new
+  `originalPages` on a layout names the pictures a format was supplied as, and the document page then offers
+  **Show the supplied original** — the photograph, unaltered, with the file it came from named beneath it. It is
+  closed until it is asked for, so nothing is fetched by a page that is only being read (§65), and a format with
+  no supplied picture shows no such button at all, so every other document page is exactly as it was.
+- **The stamp's own spellings are kept**: *"Foreign matter contaminaiton"* and *"Oil Sport on Floor"* are what
+  is cut into the stamp, and a controlled format is reproduced, not corrected. The `e2e` suite asserts both
+  misspellings are present **and** that neither has been quietly fixed.
+- **The number is the company's, the revision is not invented.** The stamp prints neither. The number comes from
+  the master list above; the revision is written nowhere the plant supplied, so it reads **TO BE CONFIRMED** for
+  the MR rather than being assumed to be 00 like its neighbour.
+- **A sample fill answers it as a load that passes** — covered *Yes*, foreign matter *No*, odour *No*, floor and
+  sides clean *Yes*, oil spot *No*, pest or dropping *No*, packaging *Yes*. Answering "Yes" down the list, which
+  is what a mechanical fill would do, would record a load that arrived contaminated, smelt, had pest droppings
+  on it, and was taken in anyway.
+
+**3. F/STR/02 — SHARP METAL OBJECTS ISSUANCE (NEW) & RETURN (OLD) RECORD.** The register of every razor blade,
+scissor, cutter blade and surgical blade the store issues, and of what comes back against it: both printed
+paragraphs above the grid, verbatim — the second ends without a full stop on the paper and so does it here —
+and the nine headings in the paper's own words and punctuation, *QTY. ISSUED* and *RETURN QTY.* keeping their
+full stops and *RECEIVERS SIGNATURE* its missing apostrophe.
+- **RETURN QTY. is the one column that may be left empty**, and that is the format's own rule, not a relaxation:
+  its second paragraph says a new tool may be issued *"without receipt of new sharp metal object"* — to a new
+  employee, a new machine or a new requirement. A line with nothing returned files successfully; every other
+  column is required.
+
+**4. WHO SIGNS THEM.** F/STR/02 names a *Store In-charge* and prints a *STORE KEEPER SIGN* column. Rather than
+invent a person, the company's own personnel records were read: F/HR/01 has **Hemantbhai Nayak**, General
+Stores, Manager, joined 01.01.2004 with no leaving date, and F/HR/13 writes the same man *"Manager - Store"* as
+of 01.12.2021. Both formats are his. The same reading also filled a gap left by §70 — **Parth Chauhan**,
+*"Manager - Dispatch"* on F/HR/13 — because `disp-container-stuffing` resolves its signature to a role
+containing "Dispatch" and no employee had one, so the paper's own product-release authorisation box was
+filling with nothing.
+
+**5. TWO DEFECTS THIS FORMAT FOUND IN WORK ALREADY SHIPPED.**
+- **A `yesno` box above the grid was a free text box.** The grid understood `yesno`; the header and footer boxes
+  did not, and fell through to a plain text input. The stamp is seven such questions, which is how it surfaced —
+  but the format it was already wrong on is **F/PUR/01** (§68), whose *"DO YOU HOLD ISO 9001 / ISO 22000 /
+  HACCP / FSSC / BRCGS CERTIFICATION:"* asked a yes-or-no question and offered somewhere to type. `yesno` now
+  means the same thing wherever it appears.
+- **The Dispatch module had no name of its own.** `module.Dispatch` was never written into `i18n/strings.ts`
+  with §70. A missing key falls back to the tail of the key itself, so English read "Dispatch" by luck and
+  Gujarati read "Dispatch" too — the only module in the sidebar with no Gujarati name. Both it and
+  `module.Store` are written down now, and the suite asserts no sidebar module shows a translation key.
+
+- Covered by `tests/e2e_store_module.py` (a thirty-second suite): the module and where it sits in the order; the
+  library filtered to it; the stamp's seven points and both of its spellings; the supplied photograph shown
+  unaltered and **actually loading at the size it was supplied** — a wrong path renders an `<img>` too, so the
+  check reads `naturalWidth`; the seven points offered as choices rather than text boxes; the sample fill
+  answering as a load that passes; both printed paragraphs and the nine headings verbatim; and a line with
+  nothing returned filed successfully. The document total moved from **81 to 83** and the sidebar from eight
+  modules to nine.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

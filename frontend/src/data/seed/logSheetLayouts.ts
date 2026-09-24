@@ -9,6 +9,7 @@ import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
 import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
 import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
+import { STORE_LAYOUTS } from "./storeLayouts";
 import { formatEditFor } from "../formatEdits";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
@@ -411,6 +412,10 @@ Object.assign(LOG_SHEET_LAYOUTS, QC_REPORT_LAYOUTS);
 // ratings are worked out (engine/purchaseRatings.ts). F/PUR/04 was not supplied.
 Object.assign(LOG_SHEET_LAYOUTS, PURCHASE_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, DISPATCH_LAYOUTS);
+// Store's two formats, supplied 23-Sep-2026 (REQUIREMENTS §71): the incoming
+// material and vehicle check, supplied as the rubber stamp itself and shown
+// beside the form, and the sharp metal objects register.
+Object.assign(LOG_SHEET_LAYOUTS, STORE_LAYOUTS);
 
 // The layout as it stands now: the plant's own change to the format where
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout

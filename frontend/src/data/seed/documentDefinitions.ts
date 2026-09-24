@@ -50,7 +50,19 @@ export const PURCHASE_SECTIONS = ["Supplier Approval", "Supplier Monitoring"] as
 // Dispatch (REQUIREMENTS §70): the agreement a transporter signs, and the check
 // made on the container and the vehicle before a load leaves the plant.
 export const DISPATCH_SECTIONS = ["Transporter Agreement", "Dispatch Inspection"] as const;
-export const MODULE_SECTIONS: readonly string[] = [...HR_SECTIONS, ...PEST_CONTROL_SECTIONS, ...QC_SECTIONS, ...PURCHASE_SECTIONS, ...DISPATCH_SECTIONS];
+// Store (REQUIREMENTS §71): the check made on a vehicle and its load as the
+// material comes IN, and the register of every sharp tool that goes out of the
+// store and comes back. The company's Master List of Formats & Records
+// (F/SYS/02) lists exactly these two under F/STR.
+export const STORE_SECTIONS = ["Incoming Material", "Sharp Tool Control"] as const;
+export const MODULE_SECTIONS: readonly string[] = [
+  ...HR_SECTIONS,
+  ...PEST_CONTROL_SECTIONS,
+  ...QC_SECTIONS,
+  ...PURCHASE_SECTIONS,
+  ...STORE_SECTIONS,
+  ...DISPATCH_SECTIONS,
+];
 
 // Every controlled document / form actually identified in the uploaded
 // source files. See REQUIREMENTS.md for full source-to-digital traceability.
@@ -1462,6 +1474,57 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     // "Rating Period :" is written on the sheet; the format prints no period of
     // its own. Anchored as F/PUR/03 is, for the MR to confirm.
     schedule: { type: "yearly", month: 11, dayOfMonth: 1 },
+  },
+
+  // ---------------------------------------------------------------------
+  // Store — the two formats the department keeps (REQUIREMENTS §71), both
+  // supplied 23-Sep-2026 and both listed under F/STR on the company's own
+  // Master List of Formats & Records (F/SYS/02), issued 01.12.21.
+  // ---------------------------------------------------------------------
+  {
+    id: "str-incoming-material-vehicle",
+    kind: "log-sheet",
+    // The title the STAMP prints. The master list calls the same format
+    // "Incoming Material & Vehicle inspection Record"; the stamp is what the
+    // storekeeper actually puts on the paperwork, so the stamp's wording is
+    // the one shown and the list's wording is recorded here.
+    name: "Incoming Material Vehicle & Condition Monitoring Record",
+    formatNo: "F/STR/01",
+    // The stamp prints no format number and no revision block — a rubber
+    // stamp has no room for one. The NUMBER is the company's own, from the
+    // Master List of Formats & Records, which lists F-STR-01 "Incoming
+    // Material & Vehicle inspection Record" issued 01.12.21 and holds only
+    // two F/STR formats, the other being the sharp tool register below. The
+    // REVISION is not written anywhere the plant supplied, so it is left for
+    // the MR to confirm rather than assumed to be 00 like its neighbour.
+    revisionNo: "TO BE CONFIRMED",
+    revisionDate: "2021-12-01",
+    department: "Store",
+    module: "Store",
+    section: "Incoming Material",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The check the store makes on a vehicle and its load before incoming material is taken in, stamped onto the receiving paperwork: the date it was received, then seven points answered Yes or No — whether the vehicle was covered, whether there was foreign matter contamination or an objectionable odour, whether the floor and sides were clean, whether there was an oil spot on the floor, whether there was any sign of pest or dropping, and whether the packaging was intact — and who checked it. It was supplied as a photograph of the rubber stamp itself, which is shown beside the form so the two can be compared; the stamp's own spellings are kept exactly as they are cut into it.",
+    sourceFile: "F-STR-01_Incoming material vehicle & condition monitoring record (rubber stamp).jpg (the stamp, photographed)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "str-sharp-metal-objects",
+    kind: "log-sheet",
+    name: "Sharp Metal Objects Issuance (New) & Return (Old) Record",
+    formatNo: "F/STR/02",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Store",
+    module: "Store",
+    section: "Sharp Tool Control",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The register of every sharp metal object the store issues — razor blade, scissor, cutter blade, surgical blade — and of what comes back against it: the date, the tool, the quantity issued, who it went to and for which department, their signature, the quantity returned, the store keeper's signature and any remark. A new tool is issued against the return of the worn-out one intact, or of the complete assembly of a broken one; the format's own second paragraph allows an issue with nothing returned, to a new employee, a new machine or a new requirement, so the return quantity is the one column that may be left empty. In night shift the departmental supervisor issues the tool and makes the entry himself, and the Store In-charge reconciles issued against returned.",
+    sourceFile: "F-STR-02_Sharp metal objects issuance & replacement record.pdf (the blank format)",
+    schedule: { type: "as-required" },
   },
 
   // ---------------------------------------------------------------------

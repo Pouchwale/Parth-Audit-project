@@ -261,7 +261,8 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   qc-obsolete-artwork, qc-printing-aids-destruction, qc-camera-challenge-test, qc-tolerance-card-nivea,
   qc-analysis-report, qc-utility-test-report, qc-minutes-of-meetings, pur-supplier-registration,
   pur-supplier-audit-report, pur-approved-suppliers, pur-supplier-performance,
-  pur-service-provider-performance, disp-safe-transporter-agreement, disp-container-stuffing).
+  pur-service-provider-performance, str-incoming-material-vehicle, str-sharp-metal-objects,
+  disp-safe-transporter-agreement, disp-container-stuffing).
   Use it whenever the user asks for the documents / records /
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —

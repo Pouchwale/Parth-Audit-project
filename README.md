@@ -125,6 +125,15 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **A Store module** (REQUIREMENTS §71): the two formats the store keeps, sitting between Purchase and Dispatch
+  because that is the order the material moves in. The **Incoming Material Vehicle & Condition Monitoring
+  Record** was supplied as a photograph of the **rubber stamp** the store puts on receiving paperwork, so it is
+  built as the stamp is — a date, seven points answered Yes or No, and who checked it — and **the photograph
+  itself is shown beside it, unaltered**, on a "Show the supplied original" button. The stamp's own spellings
+  ("Foreign matter contaminaiton", "Oil Sport on Floor") are kept, because a controlled format is reproduced,
+  not corrected. Beside it, the **Sharp Metal Objects Issuance & Return Record**: every blade, scissor and
+  cutter the store issues and what came back against it, with RETURN QTY. the one column that may be empty —
+  the format's own second paragraph allows an issue with nothing returned.
 - **A Dispatch module** (REQUIREMENTS §70): the Safe Transporter Agreement a contract transporter signs, clause
   by clause under the paper's own headings, and the Container Stuffing & Vehicle Inspection Record — the fourth
   form the plant issues in **Gujarati**, so it reads as issued in Gujarati and in the plant's own English when

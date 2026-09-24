@@ -111,6 +111,13 @@ export interface LogSheetLayout {
   // Reference material printed on the form (e.g. F/QC/13's grade chart) —
   // shown collapsed, never filled in.
   referenceTables?: ReferenceTable[];
+  // THE SUPPLIED ORIGINAL, shown unaltered beside the form (REQUIREMENTS §71) —
+  // paths under frontend/public, one per printed page or, for F/STR/01, the
+  // photograph of the rubber stamp itself. A form that was supplied as a
+  // picture rather than as a document is only honestly reproduced if the
+  // picture can be put next to it, so the two can be compared. Where a layout
+  // sets nothing here the document page shows no such button at all.
+  originalPages?: string[];
   // "Typical" example rows taken from the filled specimen, used by the
   // assistant when there is no previous record to carry forward from.
   specimenRows?: Record<string, string | number | null>[];

@@ -39,6 +39,8 @@ import {
   FiLogIn,
   FiPieChart,
   FiShoppingCart,
+  FiArchive,
+  FiScissors,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
@@ -104,6 +106,12 @@ const MODULE_ORDER = [
   "Lamination — Quality Control",
   "Lamination — Production",
   "Purchase",
+  // Store sits between Purchase and Dispatch because that is where the
+  // material is: bought on the F/PUR formats, taken in and kept on the F/STR
+  // ones, then inspected, made and sent out. It is also the order the
+  // company's own Master List of Formats & Records puts them in — F/SYS,
+  // F/MKT, F/PUR, F/STR, F/QC (REQUIREMENTS §71).
+  "Store",
   "Dispatch",
   "Quality Control — Inspection Records",
   "Quality — Compliance",
@@ -120,6 +128,8 @@ const MODULE_ICONS: Record<ModuleName, IconType> = {
   "Lamination — Production": FiPackage,
   // Buying: the department that places the order and keeps the supplier list.
   Purchase: FiShoppingCart,
+  // The room the material is kept in.
+  Store: FiArchive,
   Dispatch: FiTruck,
   "Quality Control — Inspection Records": FiCheckSquare,
   "Quality — Compliance": FiShield,
@@ -202,6 +212,18 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { headingKey: "nav.purSupplierMonitoring" },
     { to: "/document/pur-supplier-performance", labelKey: "nav.purRmPmPerformance", icon: FiTrendingUp },
     { to: "/document/pur-service-provider-performance", labelKey: "nav.purServiceProvider", icon: FiActivity },
+  ],
+  // Store — the department's two F/STR formats (REQUIREMENTS §71), in the
+  // order the material moves through it: the check made on the vehicle and
+  // its load as it comes IN, then the register of the sharp tools the store
+  // issues out and takes back. The first was supplied as the rubber stamp
+  // itself, and the stamp is shown beside the form.
+  Store: [
+    { to: "/library/store", labelKey: "nav.storeDocs", icon: FiBookOpen },
+    { headingKey: "nav.strIncomingMaterial" },
+    { to: "/document/str-incoming-material-vehicle", labelKey: "nav.strIncomingMaterialVehicle", icon: FiTruck },
+    { headingKey: "nav.strSharpToolControl" },
+    { to: "/document/str-sharp-metal-objects", labelKey: "nav.strSharpMetalObjects", icon: FiScissors },
   ],
   // Dispatch — what a transporter signs before it carries the plant's product,
   // and the check made on the container before a load leaves (REQUIREMENTS §70).

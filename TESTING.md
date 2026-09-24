@@ -189,6 +189,19 @@ Seven scripts live in `tests/`:
   English with nothing of it left in Gujarati; and a container check started, filled, submitted and on file.
   Two more documents moved the totals again: **79 → 81** in `e2e_smoke.py` and `e2e_hr_module.py`, and the
   sidebar's modules **7 → 8** in `e2e_smoke.py` (collapse-all and expand-all) and `tests/visual_qa.py`.
+- `tests/e2e_store_module.py` - the Store module and its two formats (REQUIREMENTS §71), a thirty-second
+  suite, added 23-Sep-2026: the module in the sidebar and that it sits between Purchase and Dispatch, the order
+  the material moves in; that **no module in the sidebar shows a translation key** instead of a name (Dispatch
+  did, until §71 wrote `module.Dispatch` down); the library filtered to Store; F/STR/01's seven points read as
+  they are cut into the stamp, **including both of its misspellings**, and a check that neither has been quietly
+  corrected; **the supplied photograph shown unaltered and actually LOADING at the size it was supplied** — a
+  wrong path renders an `<img>` too, so the check reads `naturalWidth`/`naturalHeight`, and it also asserts the
+  picture is not fetched until asked for and that a format without one offers no such button; the seven points
+  offered as Yes/No CHOICES rather than text boxes; the sample fill answering as a load that passes rather than
+  "Yes" down the list; F/STR/02's two printed paragraphs and its nine headings verbatim, punctuation and all;
+  and a register line with **nothing returned** filed successfully, which is the format's own rule. Two more
+  documents moved the totals again: **81 → 83** in `e2e_smoke.py` and `e2e_hr_module.py`, and the sidebar's
+  modules **8 → 9** in `e2e_smoke.py` (collapse-all and expand-all) and `tests/visual_qa.py`.
 - `tests/e2e_purchase_module.py` - the Purchase module and its five supplied formats (REQUIREMENTS §68), a
   thirtieth suite, added 23-Sep-2026: the module in the sidebar and its links opening the Document Library
   filtered to it; all five formats listed with their numbers as printed and each opening on a page of its own;

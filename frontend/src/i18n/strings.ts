@@ -154,6 +154,10 @@ const en = {
   // The department's own name on the company's Master List of Formats &
   // Records (F/SYS/02) — the F/PUR formats (REQUIREMENTS §68).
   "module.Purchase": "Purchase",
+  // The store room, and the department that sends the finished product out —
+  // the F/STR and F/DISP formats (REQUIREMENTS §71, §70).
+  "module.Store": "Store",
+  "module.Dispatch": "Dispatch",
 
   // ---- navigation --------------------------------------------------------
   "nav.dashboard": "Dashboard",
@@ -256,6 +260,15 @@ const en = {
   "nav.dispInspection": "Dispatch Inspection",
   "nav.dispSafeTransporter": "Safe Transporter Agreement",
   "nav.dispContainerStuffing": "Container Stuffing & Vehicle Inspection",
+  "nav.storeDocs": "Store Documents",
+  "nav.strIncomingMaterial": "Incoming Material",
+  "nav.strIncomingMaterialVehicle": "Incoming Material Vehicle & Condition",
+  "nav.strSharpToolControl": "Sharp Tool Control",
+  "nav.strSharpMetalObjects": "Sharp Metal Objects Issuance & Return",
+  // The picture the plant supplied, shown unaltered beside the form it was
+  // built from (REQUIREMENTS §71). Only on a document that has one.
+  "doc.showOriginal": "Show the supplied original",
+  "doc.hideOriginal": "Hide the supplied original",
   "nav.statementsOfCompliance": "Statements of Compliance",
   // The company name alone — the modules are in the panel underneath (REQUIREMENTS §65).
   "nav.brandSubtitle": "Gujarat Printpack Publication Pvt. Ltd.",
@@ -664,6 +677,8 @@ const gu: Record<StringKey, string> = {
   "module.Quality Control — Inspection Records": "ગુણવત્તા નિયંત્રણ — નિરીક્ષણ રેકોર્ડ",
   "module.Quality — Compliance": "ગુણવત્તા — અનુપાલન",
   "module.Purchase": "ખરીદી",
+  "module.Store": "સ્ટોર",
+  "module.Dispatch": "ડિસ્પેચ",
 
   // ---- navigation --------------------------------------------------------
   "nav.dashboard": "ડેશબોર્ડ",
@@ -761,6 +776,13 @@ const gu: Record<StringKey, string> = {
   "nav.dispInspection": "ડિસ્પેચ નિરીક્ષણ",
   "nav.dispSafeTransporter": "સેફ ટ્રાન્સપોર્ટર કરાર",
   "nav.dispContainerStuffing": "કન્ટેનર સ્ટફિંગ અને વાહન નિરીક્ષણ",
+  "nav.storeDocs": "સ્ટોર દસ્તાવેજો",
+  "nav.strIncomingMaterial": "આવતું મટીરિયલ",
+  "nav.strIncomingMaterialVehicle": "આવતા મટીરિયલનું વાહન અને સ્થિતિ",
+  "nav.strSharpToolControl": "ધારદાર ઓજાર નિયંત્રણ",
+  "nav.strSharpMetalObjects": "ધારદાર ધાતુ વસ્તુઓ ઇશ્યૂ અને પરત",
+  "doc.showOriginal": "મળેલું મૂળ બતાવો",
+  "doc.hideOriginal": "મળેલું મૂળ છુપાવો",
   "nav.statementsOfCompliance": "અનુપાલન નિવેદનો",
   "nav.brandSubtitle": "ગુજરાત પ્રિન્ટપેક પબ્લિકેશન પ્રા. લિ.",
   "nav.foot": "તબક્કો ૧ પ્રોટોટાઇપ · ડેટા ફક્ત આ ઉપકરણ પર",

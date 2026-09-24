@@ -52,6 +52,11 @@ const WORD_FORMS = new Set([
   // what a workbook is for.
   "pur-supplier-registration",
   "pur-supplier-audit-report",
+  // Store (REQUIREMENTS §71): the incoming material check is a stamp — a
+  // date, seven Yes/No answers and a signature, with no grid at all — so it
+  // reads as a document. The sharp tool register beside it is a grid and
+  // stays a spreadsheet, which is what a register of issues and returns is.
+  "str-incoming-material-vehicle",
 ]);
 const EXCEL_KINDS = new Set(["log-sheet", "daily-pest-monitoring", "fly-catcher", "service-report", "gap-inspection"]);
 const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-record", "compliance-statement", "chemical-master", "service-agreement", "pest-responsibilities"]);
