@@ -1,6 +1,6 @@
 import type { DailyPestMonitoringData, GapFinding, GapInspectionData, LogColumn, LogSheetData, LogSheetLayout, LogSheetRow, RecordInstance } from "../types";
 import type { Insight, InsightChart, InsightEvidence, InsightRule, InsightSeverity, RuleContext, SuggestedCapa } from "./insights";
-import { isOutOfBand } from "./validation";
+import { isLotAccepted, isOutOfBand } from "./validation";
 import { actionForGrade, RM_PM_PERFORMANCE_ID, supplierRatingCells } from "./purchaseRatings";
 import { breakdownSpanMinutes } from "./maintenanceCalc";
 import { isPlaceholder, machineKey } from "./equipmentMaster";
@@ -23,15 +23,27 @@ import { compareISO, formatDisplayDate, MONTH_NAMES } from "../utils/date";
 //   B3  a CAPA closed, and the same finding back afterwards
 //   B4  CAPA findings past their target date
 //   B5  printing stopped twice or more in a month on F/QC/13
+//   C1  a record that passes and fails the same test: a lot Accepted while one
+//       of its pass/fail tests reads its failing word, an F grade marked Pass
+//   C2  a lot's reason stating a figure its own observation does not read
 //   C3  an instrument's calibration expired
 //   SUP a supplier graded C on F/PUR/05
 //   M1–M7 Maintenance (REQUIREMENTS §74): lux, the equipment list, breakdowns,
 //       glass breakage, daily health gaps, PM slippage, unknown machines.
 // Left out on purpose: the other three Western Electric rules and EWMA (on
 // 5,376 hourly viscosity points they raised 13–18 false-alarm days against
-// WE2's 8), least-squares "projected to reach the limit" (the demo's shifts are
-// abrupt, within a day, so it had no true positives), and any rule comparing a
-// rejection reason with a record's content (the demo picks those at random).
+// WE2's 8), and least-squares "projected to reach the limit" (the demo's shifts
+// are abrupt, within a day, so it had no true positives).
+// C1 and C2 could not be checked against the demo year until the generator
+// stopped contradicting itself (commit 4c29d1e): it carried a FAIL forward
+// onto every inspection after the first failed lot (127 of 224 pouching sheets
+// read FAIL beside an Accepted lot), no lot reason's figure was the one written
+// beside it (0 of 26), and 91 of 104 rejection reasons were disproved by their
+// own record. Now its observations agree with the lot's status, its reasons
+// name what the record shows, and a demo year gives neither rule anything — so
+// what C1 or C2 finds was written that way by a person. A rule comparing a
+// verifier's rejection reason with the record is still not here: most reasons
+// ("to be re-checked against the shop-floor sheet") name nothing a record holds.
 
 // ---------------------------------------------------------------------------
 // shared helpers
@@ -52,7 +64,16 @@ const daysBetween = (from: string, to: string): number => dayNumber(to) - dayNum
 const isoFromDay = (day: number): string => new Date(day * 86400000).toISOString().slice(0, 10);
 const shiftDays = (iso: string, n: number): string => isoFromDay(dayNumber(iso) + n);
 
-const fmt = (iso: string): string => formatDisplayDate(iso);
+/** A real calendar day written as ISO — not "12.09.2026", not "2026-02-31". */
+const isRealISO = (v: unknown): v is string => isISO(v) && isoFromDay(dayNumber(v)) === v;
+/**
+ * "2026-09-12" → "12-Sep-2026"; anything else comes back as it was written.
+ * formatDisplayDate THROWS on text that is not an ISO date ("12.09.2026", which
+ * a date column holds once the Format Editor has made it Text), and a rule that
+ * throws loses every insight it would have given — so nothing here hands it a
+ * value it has not checked.
+ */
+const fmt = (value: unknown): string => (isRealISO(value) ? formatDisplayDate(value) : text(value));
 const monthLabel = (ym: string): string => `${MONTH_NAMES[Number(ym.slice(5, 7)) - 1] ?? ym.slice(5, 7)} ${ym.slice(0, 4)}`;
 /**
  * 5376 → "5,376", 123456 → "1,23,456": whole numbers grouped the Indian way, as
@@ -81,6 +102,8 @@ const clip = (v: unknown, n = 80): string => {
   return s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s;
 };
 const quote = (v: unknown, n = 80): string => `"${clip(v, n)}"`;
+/** "રજિસ્ટ્રેશન (Registration)" → "Registration": F/QC/13 prints its parameters in Gujarati with the English in brackets. */
+const englishName = (parameter: unknown): string => text(parameter).match(/\(([^)]+)\)\s*$/)?.[1] ?? text(parameter);
 const num = (n: number, places = 2): string => {
   const f = 10 ** places;
   return String(Math.round(n * f) / f);
@@ -135,9 +158,12 @@ function within(iso: string, today: string, days: number): boolean {
   return iso >= from && iso <= today && isISO(iso);
 }
 
-function insight(ctx: RuleContext, documentId: string, fields: Omit<Insight, "module" | "documentId" | "evidence" | "evidenceTotal"> & { evidence: InsightEvidence[] }): Insight {
+function insight(ctx: RuleContext, documentId: string, fields: Omit<Insight, "module" | "documentId" | "evidence" | "evidenceTotal" | "sourceRecordIds"> & { evidence: InsightEvidence[] }): Insight {
   const { evidence, ...rest } = fields;
-  return { ...rest, module: ctx.moduleOf(documentId), documentId, ...capEvidence(evidence) };
+  // Every record, from the list as the rule made it — before capEvidence keeps
+  // twelve for the card — so a CAPA raised from it names them all (raiseCapa.ts).
+  const sourceRecordIds = [...new Set(evidence.map((e) => e.recordId))];
+  return { ...rest, module: ctx.moduleOf(documentId), documentId, ...capEvidence(evidence), sourceRecordIds };
 }
 
 /** The internal CAPA report's findings on this computer that the person may see, with the report each is on. */
@@ -409,7 +435,14 @@ const readingRule: InsightRule = (ctx) => {
     for (const [key, list] of byKey) {
       const latest = list[list.length - 1].s;
       remarkForm = remarkForm || latest.remarkForm;
-      const sigmaInfo = latest.dense && latest.nominal !== undefined ? sigmaFor(documentId, latest, list.map((l) => l.s)) : null;
+      // σ is read from the DENSE sheets — one reading per time slot, 12 or more
+      // a day, the only ones whose consecutive readings are an hour apart —
+      // with the band of the newest of them, and A2 then asks it of each dense
+      // sheet in turn. Asked only when the NEWEST sheet was dense, one short
+      // sheet written today (the shift half done, or a machine stopped at noon)
+      // switched the early warning off for every day before it.
+      const denseSheets = list.filter((l) => l.s.dense && l.s.nominal !== undefined).map((l) => l.s);
+      const sigmaInfo = denseSheets.length > 0 ? sigmaFor(documentId, denseSheets[denseSheets.length - 1], denseSheets) : null;
 
       let totalPoints = 0;
       let totalOut = 0;
@@ -577,8 +610,12 @@ const readingRule: InsightRule = (ctx) => {
           // unexplained excursion as that check not working.
           severity: "medium",
           title: `${fno}: ${plural(a4.length, "verified sheet")} in the last ${EVENT_WINDOW} days carry out-of-band readings that nothing explains`,
+          // "No CAPA finding names the sheet" only to someone who can see the
+          // internal CAPA report (REQUIREMENTS §40): to anyone else the reports
+          // are not handed in at all, so a finding may well name it — they
+          // are told nothing about CAPA either way.
           detail:
-            `${plural(total, "reading")} outside the printed band ${total === 1 ? "was" : "were"} verified with ${remarkForm ? "the Remark column left blank" : "no remark (the form prints no remark column)"}, and no CAPA finding names the sheet. ` +
+            `${plural(total, "reading")} outside the printed band ${total === 1 ? "was" : "were"} verified with ${remarkForm ? "the Remark column left blank" : "no remark (the form prints no remark column)"}${ctx.visible("gap-inspection") ? ", and no CAPA finding names the sheet" : ""}. ` +
             `Before verifying, the verifier should see an explanation for every highlighted reading: a remark, or a CAPA for a real excursion.` +
             (remarkForm ? "" : " Because this form cannot hold one, consider adding a Remark column in the format's next revision."),
           evidence: a4.map((a) => ev(a.record, undefined, a.sample)),
@@ -792,11 +829,17 @@ const capaRecurrenceRule: InsightRule = (ctx) => {
           // three: seen that often, it is a standing condition, not a slip.
           severity: recent.length >= 6 ? "high" : "medium",
           title: `${fno}: ${quote(description, 70)} written ${times(recent.length)} in ${EVENT_WINDOW} days`,
+          // As A4: whether there is a corrective action for it yet is said
+          // only to someone who can see the internal CAPA report (REQUIREMENTS
+          // §40). To anyone else the reports are not handed in, so "it needs a
+          // corrective action" could be telling them to raise one that exists.
           detail:
             `Observed on ${dates.slice(-6).join(", ")}${dates.length > 6 ? ` and ${dates.length - 6} earlier` : ""}. ` +
             (open
               ? `It is already an open CAPA finding (the report of ${fmt(inspectionDateOf(open.record))}, target ${open.finding.targetDate ? fmt(open.finding.targetDate) : "not set"}); the register shows it has not been put right yet.`
-              : `Each day it was noted and handled on the spot; written this often, it needs a corrective action that removes the cause.`),
+              : ctx.visible("gap-inspection")
+                ? `Each day it was noted and handled on the spot; written this often, it needs a corrective action that removes the cause.`
+                : `Each day it was noted and handled on the spot; written this often, it is a standing condition whose cause has to be found and removed.`),
           evidence: [...recent.map((o) => ev(o.record, "summaryActions", clip(o.description, 60))), ...(open ? [ev(open.record, "findings", clip(open.finding.findingOfInspection, 60))] : [])],
           route: ctx.documentRoute(DAILY_PEST_ID),
           metric: { label: `In ${EVENT_WINDOW} days`, value: times(recent.length) },
@@ -873,7 +916,7 @@ const INPROCESS_PRINTING_ID = "qc-inprocess-printing";
 function printingStop(record: RecordInstance): { why: string; f: boolean; parameters: string[] } | null {
   const rows = rowsOf(record);
   const graded = (g: string) => rows.filter((r) => text(r.grade).toUpperCase() === g);
-  const english = (r: LogSheetRow) => text(r.parameter).match(/\(([^)]+)\)\s*$/)?.[1] ?? text(r.parameter);
+  const english = (r: LogSheetRow) => englishName(r.parameter);
   const f = graded("F");
   const c = graded("C");
   const b = graded("B");
@@ -922,6 +965,245 @@ const printingStopRule: InsightRule = (ctx) => {
           finding: `Printing stopped ${times(stops.length)} in ${monthLabel(month)} on ${fno} (In Process Quality Control).`,
           comment: `${stops.map((s) => `${fmt(s.record.dueDate)}: ${s.stop.why}`).join("; ")}.`,
           action: `Look for the shared cause of these stops (most often ${top[0] ?? "the same parameter"}), correct it at the machine or in the method, and watch the next month's grades.`,
+        },
+      })
+    );
+  }
+  return out;
+};
+
+// ===========================================================================
+// C1 / C2 — A RECORD THAT CONTRADICTS ITSELF
+// ===========================================================================
+
+// Smarter compliance (REQUIREMENTS §75): two things the same person wrote on
+// the same record that cannot both be true. Nothing is compared with a limit
+// or a standard from outside the record — the words a test passes and fails
+// with are the ones the form's own filled specimen uses (LogSheetLayout
+// specimenRows), and a figure is compared only with the figure the record
+// itself gives for the very parameter the reason names.
+//
+// Only records HANDED IN — submitted, awaiting verification, or verified. A
+// draft is still being written (Lot Status starts at "Accepted", and the
+// inspector may not have reached it when a test is written FAIL), and a record
+// sent back is already with its writer to be put right. Recent ones only (the
+// last EVENT_WINDOW days): these are about a lot, and a lot dispatched more
+// than a quarter ago is past holding back.
+
+const isHandedIn = (r: RecordInstance): boolean => r.status === "Submitted" || r.status === "Pending Verification" || r.status === "Verified";
+
+// The words a pass/fail observation is written with — the same two lists
+// engine/autoFill.ts fills the inspection formats from (PASS_WORDS,
+// FAIL_WORDS), so what the pre-fill writes for a failed test is exactly what
+// is read here as one. F/QC/13's Pass? is a Yes / No box instead: "Yes" is
+// what it passes with.
+const PASS_WORD = /^(?:pass|passed|ok|no ?leak)$/i;
+const FAIL_WORD = /^(?:fail|failed|not ok|leak|leaking)$/i;
+
+// "Pouch height 178 mm against 181 mm specified": the figure, its unit, then
+// "against" (or "vs") the figure it should have been. Only that shape is read
+// — "a variation of 0.3 mm on the repeat" states a spread, not a reading.
+const STATED_FIGURE = /^\s*(?:[:=–-]\s*)?(?:(?:is|was|of|at|found)\s+)?(\d+(?:\.\d+)?)\s*(?:[a-zµ%]+\.?)?\s*(?:against|vs\.?|versus)\s+(\d+(?:\.\d+)?)/;
+
+/** The printed name without its unit or note: "Pouch Height (mm)" → "Pouch Height". */
+const printedName = (parameter: string): string => text(parameter).replace(/\s*\(.*$/, "") || text(parameter);
+
+/** The figure a lot reason states for one printed parameter, and what it was measured against; null when it states none. */
+function statedFigure(reason: string, parameter: string): { figure: string; against: string } | null {
+  const name = printedName(parameter).toLowerCase().replace(/\s+/g, " ");
+  if (name.length < 3) return null;
+  const r = text(reason).toLowerCase().replace(/\s+/g, " ");
+  for (let at = r.indexOf(name); at >= 0; at = r.indexOf(name, at + 1)) {
+    if (at > 0 && /[a-z0-9]/.test(r[at - 1])) continue; // "size" inside "oversize"
+    const m = r.slice(at + name.length).match(STATED_FIGURE);
+    if (m) return { figure: m[1], against: m[2] };
+  }
+  return null;
+}
+
+/** Every figure written in an observation: "H-304 W-203.2" → 304, 203.2; the 1 of "L1 = 0.306 kg" is a name, not a figure. */
+function figuresIn(observation: string): number[] {
+  return Array.from(observation.matchAll(/(^|[^a-z\d.])(\d+(?:\.\d+)?)/gi), (m) => Number(m[2]));
+}
+
+interface FailedTest {
+  parameter: string;
+  observation: string;
+  specification: string;
+}
+
+interface StatedMismatch {
+  parameter: string;
+  stated: string;
+  against: string;
+  observation: string;
+}
+
+interface SelfContradiction {
+  lotStatus: string;
+  reason: string;
+  /** C1: pass/fail tests reading their failing word on a lot marked Accepted. */
+  failedOnAccepted: FailedTest[];
+  /** C2: figures the reason states that the named parameter's observation does not read. */
+  stated: StatedMismatch[];
+}
+
+/** What one inspection record (F/QC/37, /35, /34) says against itself; null when nothing. */
+function selfContradictions(record: RecordInstance, layout: LogSheetLayout | undefined): SelfContradiction | null {
+  if (!layout || layout.rowMode.kind !== "fixedRows") return null;
+  // The printed parameters, each with the word its filled specimen passes it
+  // with — a line whose specimen reads a figure or a description ("181",
+  // "Standy + Zipper") is not a pass/fail test.
+  const params = layout.rowMode.rows.map((r, i) => {
+    const own = text(layout.specimenRows?.[i]?.observation);
+    return { parameter: text(r.parameter), passes: PASS_WORD.test(own) };
+  });
+  const byName = new Map(params.map((p, i) => [normText(p.parameter), i]));
+  const rows = rowsOf(record);
+  const lines = rows.map((row, i) => {
+    const at = byName.get(normText(row.parameter)) ?? (rows.length === params.length ? i : -1);
+    return { row, param: at >= 0 ? params[at] : undefined };
+  });
+  const h = headerOf(record);
+  const lotStatus = text(h.lotStatus);
+  const reason = text(h.deviationReason);
+
+  const failedOnAccepted: FailedTest[] = [];
+  if (isLotAccepted(lotStatus)) {
+    for (const { row, param } of lines) {
+      const observation = text(row.observation);
+      if (param?.passes && FAIL_WORD.test(observation)) failedOnAccepted.push({ parameter: param.parameter, observation, specification: text(row.specification) });
+    }
+  }
+
+  const stated: StatedMismatch[] = [];
+  if (reason && !isPlaceholder(reason)) {
+    for (const { row, param } of lines) {
+      if (!param) continue;
+      const s = statedFigure(reason, param.parameter);
+      if (!s) continue;
+      const observation = text(row.observation);
+      const figures = figuresIn(observation);
+      // Nothing written, or "-": a gap, not a second figure to disagree with.
+      if (figures.length === 0 || figures.includes(Number(s.figure))) continue;
+      stated.push({ parameter: param.parameter, stated: s.figure, against: s.against, observation });
+    }
+  }
+  return failedOnAccepted.length > 0 || stated.length > 0 ? { lotStatus, reason, failedOnAccepted, stated } : null;
+}
+
+/** F/QC/13: the parameters graded F that are nonetheless marked Pass? — "Yes". */
+function fGradesPassed(record: RecordInstance): { parameter: string; defects: string }[] {
+  return rowsOf(record)
+    .filter((r) => text(r.grade).toUpperCase() === "F" && /^y(?:es)?$/i.test(text(r.pass)))
+    .map((r) => ({ parameter: englishName(r.parameter), defects: text(r.defectCount) }));
+}
+
+const statusWords = (r: RecordInstance): string =>
+  r.status === "Verified" ? `verified${r.verifiedBy ? ` by ${r.verifiedBy}` : ""}` : r.status === "Pending Verification" ? "awaiting verification" : "submitted";
+
+const consistencyRule: InsightRule = (ctx) => {
+  const out: Insight[] = [];
+  for (const documentId of INSPECTION_DOCS) {
+    const fno = ctx.formatNo(documentId);
+    for (const record of ctx.records(documentId)) {
+      if (!isHandedIn(record) || !within(record.dueDate, ctx.today, EVENT_WINDOW)) continue;
+      const found = selfContradictionMemo(ctx, record);
+      if (!found) continue;
+      const date = fmt(record.dueDate);
+      const po = text(headerOf(record).poNumber);
+      const lot = `${date}${po ? `, PO ${po}` : ""}`;
+
+      // ---- C1: a lot Accepted while one of its tests reads failed ----
+      if (found.failedOnAccepted.length > 0) {
+        const tests = found.failedOnAccepted;
+        const named = tests.map((t) => `${t.parameter} reads ${quote(t.observation, 30)}${t.specification ? ` (specification ${quote(t.specification, 40)})` : ""}`);
+        out.push(
+          insight(ctx, documentId, {
+            id: `c1|${documentId}|${record.id}`,
+            rule: "C1",
+            // HIGH: the record releases the lot and fails it in the same
+            // breath. If the test did fail, product that does not meet its
+            // specification — a leaking food pouch, a bond that peels — has
+            // gone on to the customer; the record alone cannot say which is
+            // true, so somebody has to find out.
+            severity: "high",
+            title: `${fno}: lot accepted while its ${tests.map((t) => t.parameter).join(", ")} ${tests.length === 1 ? "reads" : "read"} ${tests.map((t) => quote(t.observation, 20)).join(", ")} (${lot})`,
+            detail:
+              `The ${fno} record of ${lot} gives Lot Status "Accepted", and ${named.join("; ")}. It was ${statusWords(record)} as it stands. ` +
+              `A lot cannot both pass and fail the same test: either it was released with a failed test, or the observation was written wrongly. ` +
+              `Check the lot — its retained samples, and where it went — then correct whichever of the two is wrong.`,
+            evidence: tests.map((t) => ev(record, "observation", `${t.parameter}: ${clip(t.observation, 20)}; Lot Status Accepted`)),
+            route: ctx.recordRoute(record),
+            metric: { label: "Lot Status", value: "Accepted" },
+            suggestedCapa: {
+              finding: `Lot accepted on ${fno} of ${lot} while its ${tests.map((t) => `${t.parameter} reads "${clip(t.observation, 20)}"`).join(" and ")}.`,
+              comment: `Lot Status "Accepted"; ${named.join("; ")}. Record ${statusWords(record)}.`,
+              action:
+                "Establish whether the lot was released with a failed test: check its retained samples and where it was dispatched, and hold or recall it if the test failed. Correct the record (Lot Status with its reason, or the observation), and have inspector and verifier confirm that no failed test is handed in beside an Accepted lot.",
+            },
+          })
+        );
+      }
+
+      // ---- C2: the lot's reason states a figure its observation does not read ----
+      if (found.stated.length > 0) {
+        const s = found.stated;
+        const named = s.map((m) => `${m.parameter}: the reason gives ${m.stated} against ${m.against}, the observation reads ${quote(m.observation, 30)}`);
+        out.push(
+          insight(ctx, documentId, {
+            id: `c2|${documentId}|${record.id}`,
+            rule: "C2",
+            // MEDIUM: the lot's decision rests on a figure its own record does
+            // not show. Nothing more is released by it than was decided, but a
+            // complaint or an audit is answered from this record, and here it
+            // cannot say what the lot measured — the figure written is wrong,
+            // or the reason was carried over from another lot.
+            severity: "medium",
+            title: `${fno}: the lot's reason gives ${s.map((m) => `${printedName(m.parameter)} ${m.stated}`).join(", ")}, but the record reads ${s.map((m) => quote(m.observation, 20)).join(", ")} (${lot})`,
+            detail:
+              `The ${fno} record of ${lot} gives Lot Status "${found.lotStatus || "not written"}" for the reason ${quote(found.reason.replace(/[\s.]+$/, ""), 140)}. ${named.join("; ")}. ` +
+              `The decision and the measurement written beside it disagree, so one of them is wrong. Correct the record so the lot's decision rests on what it shows.`,
+            evidence: s.map((m) => ev(record, "deviationReason", `${m.parameter}: reason ${m.stated}, observation ${clip(m.observation, 20)}`)),
+            route: ctx.recordRoute(record),
+            metric: { label: "Reason / record", value: `${s[0].stated} / ${clip(s[0].observation, 12)}` },
+          })
+        );
+      }
+    }
+  }
+
+  // ---- C1 on F/QC/13: an F grade marked as passed ----
+  const fno = ctx.formatNo(INPROCESS_PRINTING_ID);
+  for (const record of ctx.records(INPROCESS_PRINTING_ID)) {
+    if (!isHandedIn(record) || !within(record.dueDate, ctx.today, EVENT_WINDOW)) continue;
+    const passed = fGradesPassedMemo(ctx, record);
+    if (passed.length === 0) continue;
+    const date = fmt(record.dueDate);
+    const h = headerOf(record);
+    const job = [text(h.poNumber) ? `PO ${text(h.poNumber)}` : "", text(h.machine)].filter(Boolean).join(", ");
+    const names = passed.map((p) => p.parameter).join(", ");
+    out.push(
+      insight(ctx, INPROCESS_PRINTING_ID, {
+        id: `c1|${INPROCESS_PRINTING_ID}|${record.id}`,
+        rule: "C1",
+        // HIGH, as for a lot: the form's own rule is that any F grade stops
+        // production, so an F marked Pass? — Yes either let the job run on
+        // past a fault the form stops it for, or holds a grade or an answer
+        // written wrongly.
+        severity: "high",
+        title: `${fno}: ${names} graded F but marked Pass? — Yes (${date}${job ? `, ${job}` : ""})`,
+        detail:
+          `${fno}'s own grading rule, printed on the form: any F grade — stop production. The sheet of ${date}${job ? ` (${job})` : ""} grades ${names} F and answers Pass? "Yes" beside ${passed.length === 1 ? "it" : "them"}. It was ${statusWords(record)} as it stands. ` +
+          `Either printing went on past an F grade, or the grade or the answer is wrong: check what was printed after this sample, and correct the sheet.`,
+        evidence: passed.map((p) => ev(record, "grade", `${p.parameter}: F, Pass? Yes${p.defects && p.defects !== "-" ? `, defects ${clip(p.defects, 12)}` : ""}`)),
+        route: ctx.recordRoute(record),
+        metric: { label: "Graded F, passed", value: String(passed.length) },
+        suggestedCapa: {
+          finding: `${fno} of ${date}${job ? ` (${job})` : ""}: ${names} graded F but marked Pass? — Yes.`,
+          comment: `The form's grading rule stops production on any F grade. Sheet ${statusWords(record)}.`,
+          action:
+            "Establish whether printing continued after the F grade: check the rolls printed after this sample and segregate them if the fault is on them. Correct the sheet, and remind QA that an F grade is never passed — production stops and the QA Manager decides.",
         },
       })
     );
@@ -1005,20 +1287,93 @@ const calibrationRule: InsightRule = (ctx) => {
 // The grade is worked out again from the three ratings the buyer wrote, by the
 // form's own table (engine/purchaseRatings.ts), not read from the stored cell.
 // F/PUR/06 prints no grade table, so no threshold is invented for it.
+//
+// ONLY A LINE WITH ALL THREE RATINGS WRITTEN IS GRADED. The form's arithmetic
+// weighs a blank rating as 0, so a line the buyer has rated for product safety
+// and not yet for quality and delivery works out to 50 at most — a C for a
+// supplier nobody has finished rating. And the register is yearly, so the
+// newest sheet is often this year's, still being filled while last year's
+// holds the real grades. So:
+//   * the suppliers are the ones on the register as it now stands — the
+//     newest sheet handed in (a draft only when none has been), so a supplier
+//     since replaced, the very action a C calls for, is not reported again;
+//   * each is graded from ITS newest line with all three ratings written, on
+//     a sheet handed in where there is one, else on a draft a person has
+//     written on — which may be an earlier sheet than the newest.
+const ratingWritten = (v: unknown): boolean => text(v) !== "" && Number.isFinite(Number(text(v)));
+const fullyRated = (row: LogSheetRow): boolean => ratingWritten(row.productSafetyRating) && ratingWritten(row.qualityRating) && ratingWritten(row.deliveryRating);
+
+/** One supplier on F/PUR/05 as the register now stands: its newest line with all three ratings written. */
+export interface SupplierStanding {
+  supplier: string;
+  /** The supplier as compared (normText), for ids. */
+  key: string;
+  /** The sheet the grade was read from — the newest handed in, or an earlier one. */
+  record: RecordInstance;
+  row: LogSheetRow;
+  cells: ReturnType<typeof supplierRatingCells>;
+}
+
+/**
+ * EVERY SUPPLIER'S GRADE AS THE REGISTER NOW STANDS (the rule above), one place
+ * for everything that reports a grade — the SUP insight, the Management
+ * Summary's Purchase part and Mitra's evidence (REQUIREMENTS §75) — so the
+ * three can never disagree about who is graded C. `records` are the human
+ * F/PUR/05 records, oldest first. A supplier on the register with no line
+ * fully rated yet is listed in `notRated`, never graded.
+ */
+export function supplierStandings(records: readonly RecordInstance[]): { register: RecordInstance | null; handedIn: boolean; graded: SupplierStanding[]; notRated: string[] } {
+  if (records.length === 0) return { register: null, handedIn: false, graded: [], notRated: [] };
+  const handedIn = records.filter((r) => r.status !== "In Progress");
+  const register = (handedIn.length > 0 ? handedIn : records)[(handedIn.length > 0 ? handedIn : records).length - 1];
+  // Each supplier's newest fully rated line — handed-in sheets first, drafts
+  // only for a supplier no handed-in sheet has rated. Oldest first, so a later
+  // line overwrites an earlier one.
+  const ratedIn = new Map<string, { record: RecordInstance; row: LogSheetRow }>();
+  const ratedInDraft = new Map<string, { record: RecordInstance; row: LogSheetRow }>();
+  for (const record of records) {
+    const into = record.status === "In Progress" ? ratedInDraft : ratedIn;
+    for (const row of rowsOf(record)) {
+      const k = normText(row.supplierName);
+      if (k && fullyRated(row)) into.set(k, { record, row });
+    }
+  }
+  const graded: SupplierStanding[] = [];
+  const notRated: string[] = [];
+  const done = new Set<string>();
+  for (const listed of rowsOf(register)) {
+    const k = normText(listed.supplierName);
+    if (!k || done.has(k)) continue;
+    done.add(k);
+    const found = ratedIn.get(k) ?? ratedInDraft.get(k);
+    if (!found) {
+      notRated.push(text(listed.supplierName));
+      continue;
+    }
+    graded.push({ supplier: text(found.row.supplierName), key: k, record: found.record, row: found.row, cells: supplierRatingCells(found.row) });
+  }
+  return { register, handedIn: handedIn.length > 0, graded, notRated };
+}
+
 const supplierRule: InsightRule = (ctx) => {
   const records = ctx.records(RM_PM_PERFORMANCE_ID);
-  if (records.length === 0) return [];
-  const latest = records[records.length - 1];
+  const standing = supplierStandings(records);
+  const current = standing.register;
+  if (!current) return [];
   const fno = ctx.formatNo(RM_PM_PERFORMANCE_ID);
   const out: Insight[] = [];
-  for (const row of rowsOf(latest)) {
-    const supplier = text(row.supplierName);
-    if (!supplier) continue;
-    const cells = supplierRatingCells(row);
+  for (const { record: latest, row, supplier, cells } of standing.graded) {
     if (cells.grade !== "C") continue;
     const overall = text(cells.overallRating);
     const action = actionForGrade("C");
     const lots = row.lotsReceived !== null && row.lotsReceived !== undefined && text(row.lotsReceived) !== "" ? ` Lots received ${text(row.lotsReceived)}, rejected / returned ${text(row.lotsRejected) || "0"}.` : "";
+    // Which sheet the grade is from, when it is not simply the newest one.
+    const from =
+      latest.id !== current.id
+        ? ` Graded from the ${fno} of ${fmt(latest.dueDate)}${latest.status === "In Progress" ? " (a draft, not yet handed in)" : ""}: ${standing.handedIn ? "the last sheet handed in" : "the newest sheet"}, of ${fmt(current.dueDate)}, does not have all three of ${supplier}'s ratings written.`
+        : latest.status === "In Progress"
+          ? ` The sheet is a draft, not yet handed in.`
+          : "";
     out.push(
       insight(ctx, RM_PM_PERFORMANCE_ID, {
         id: `sup|${RM_PM_PERFORMANCE_ID}|${normText(supplier)}`,
@@ -1028,7 +1383,7 @@ const supplierRule: InsightRule = (ctx) => {
         severity: "medium",
         title: `${supplier}: Grade C (${overall}) on ${fno} — the form's action is "${action}"`,
         detail:
-          `Product safety ${text(row.productSafetyRating) || "—"}, quality ${text(row.qualityRating) || "—"}, delivery ${text(row.deliveryRating) || "—"}, weighted 50 / 40 / 10 to ${overall}.${lots} ` +
+          `Product safety ${text(row.productSafetyRating) || "—"}, quality ${text(row.qualityRating) || "—"}, delivery ${text(row.deliveryRating) || "—"}, weighted 50 / 40 / 10 to ${overall}.${lots}${from} ` +
           `${fno}'s Overall Rating table grades below 80 as C and prints "${action}" beside it: decide which, and record it.`,
         evidence: [ev(latest, "supplierName", `${supplier} — ${overall} (C)`)],
         route: ctx.recordRoute(latest),
@@ -1326,10 +1681,15 @@ export function breakdownLines(record: RecordInstance): BreakdownLine[] {
     const machine = machineKey(idWritten) || idWritten.toUpperCase() || (name ? `“${name}”` : "(no equipment named)");
     const lossRaw = row.productionLossMinutes;
     const loss = typeof lossRaw === "number" ? lossRaw : text(lossRaw) !== "" && Number.isFinite(Number(text(lossRaw))) ? Number(text(lossRaw)) : null;
+    // A failure date the plant wrote some other way ("12.09.2026", once the
+    // Format Editor has made the column Text) is dated by the sheet and SHOWN
+    // as written: fmt never formats what is not a real ISO day. Formatting it
+    // regardless threw, and because this runs in the warm-up, outside the
+    // per-rule guard, one such line stopped every insight for everybody.
     out.push({
       record,
       rowId: String(row.id ?? ""),
-      date: isISO(row.failureDate) ? text(row.failureDate) : record.dueDate,
+      date: isRealISO(text(row.failureDate)) ? text(row.failureDate) : record.dueDate,
       machine,
       idWritten,
       name,
@@ -1677,11 +2037,32 @@ const pmSlipRule: InsightRule = (ctx) => {
 // ===========================================================================
 
 type MemoContext = Pick<RuleContext, "memo">;
-const readingsMemo = (ctx: MemoContext, r: RecordInstance) => ctx.memo("readings", r, (layout) => readingSeriesOf(r, layout));
-const printingStopMemo = (ctx: MemoContext, r: RecordInstance) => ctx.memo("printing-stop", r, () => printingStop(r));
-const luxMemo = (ctx: MemoContext, r: RecordInstance) => ctx.memo("lux", r, () => luxReadings(r));
-const equipmentRowsMemo = (ctx: MemoContext, r: RecordInstance) => ctx.memo("equipment-rows", r, () => equipmentRows(r));
-const breakdownsMemo = (ctx: MemoContext, r: RecordInstance) => ctx.memo("breakdowns", r, () => breakdownLines(r));
+
+/**
+ * One record read for one purpose, remembered with it — and a record that
+ * cannot be read (a cell holding what its column never expected, after a
+ * format edit) is read as holding nothing for that purpose, and said so in
+ * the console, instead of taking the whole rule, or the warm-up and so every
+ * rule, down with it.
+ */
+function readSafely<T>(ctx: MemoContext, kind: string, r: RecordInstance, nothing: () => NoInfer<T>, read: (layout: LogSheetLayout | undefined) => T): T {
+  return ctx.memo(kind, r, (layout) => {
+    try {
+      return read(layout);
+    } catch (err) {
+      console.error(`Insights: record ${r.id} (${r.documentId}) could not be read for "${kind}"; it is left out of that rule`, err);
+      return nothing();
+    }
+  });
+}
+
+const readingsMemo = (ctx: MemoContext, r: RecordInstance) => readSafely(ctx, "readings", r, () => [], (layout) => readingSeriesOf(r, layout));
+const printingStopMemo = (ctx: MemoContext, r: RecordInstance) => readSafely(ctx, "printing-stop", r, () => null, () => printingStop(r));
+const luxMemo = (ctx: MemoContext, r: RecordInstance) => readSafely(ctx, "lux", r, () => new Map(), () => luxReadings(r));
+const equipmentRowsMemo = (ctx: MemoContext, r: RecordInstance) => readSafely(ctx, "equipment-rows", r, () => [], () => equipmentRows(r));
+const breakdownsMemo = (ctx: MemoContext, r: RecordInstance) => readSafely(ctx, "breakdowns", r, () => [], () => breakdownLines(r));
+const selfContradictionMemo = (ctx: MemoContext, r: RecordInstance) => readSafely(ctx, "self-contradiction", r, () => null, (layout) => selfContradictions(r, layout));
+const fGradesPassedMemo = (ctx: MemoContext, r: RecordInstance) => readSafely(ctx, "f-grades-passed", r, () => [], () => fGradesPassed(r));
 
 /**
  * Reads out of one record everything the rules will want from it, into the
@@ -1693,6 +2074,7 @@ export function warmRecord(ctx: Pick<RuleContext, "memo" | "layout">, record: Re
   switch (record.documentId) {
     case INPROCESS_PRINTING_ID:
       printingStopMemo(ctx, record);
+      fGradesPassedMemo(ctx, record);
       return;
     case LUX_ID:
       luxMemo(ctx, record);
@@ -1704,6 +2086,10 @@ export function warmRecord(ctx: Pick<RuleContext, "memo" | "layout">, record: Re
       breakdownsMemo(ctx, record);
       return;
   }
+  if (INSPECTION_DOCS.includes(record.documentId)) {
+    selfContradictionMemo(ctx, record);
+    return;
+  }
   if (ctx.layout(record)?.columns.some(isReadingColumn)) readingsMemo(ctx, record);
 }
 
@@ -1714,6 +2100,7 @@ export const INSIGHT_RULES: InsightRule[] = [
   capaRecurrenceRule,
   overdueCapaRule,
   printingStopRule,
+  consistencyRule,
   calibrationRule,
   supplierRule,
   luxRule,

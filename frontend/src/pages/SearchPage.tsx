@@ -1,6 +1,7 @@
 import React, { memo, startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { FiSearch } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
+import { useAuth } from "../store/AuthContext";
 import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -21,8 +22,8 @@ import { useT } from "../i18n";
 import { documentTextIn } from "../i18n/documentText";
 import type { Language } from "../i18n/strings";
 import { useProgressiveCount } from "../utils/useProgressive";
-import { ensureRecordIndex, recordCells, recordIndexGeneration, searchRecords, subscribeRecordIndex, type RecordHit } from "../engine/recordSearch";
-import { recordSummary, searchTerms, snippetFor } from "../engine/recordText";
+import { ensureRecordIndex, readSearchQuery, recordCells, recordIndexGeneration, searchRecords, subscribeRecordIndex, type RecordHit } from "../engine/recordSearch";
+import { clipSnippet, recordSummaryParts, searchTerms, snippetParts, snippetText } from "../engine/recordText";
 
 // ONE SEARCH BOX (REQUIREMENTS §75, §52, §53).
 //
@@ -33,7 +34,9 @@ import { recordSummary, searchTerms, snippetFor } from "../engine/recordText";
 //     a person typing a format number expects the form at once.
 //   - The RECORDS of a format number are its register, listed straight from
 //     the document's own records, blank sheets included: asking for F/HR/17 is
-//     asking for every day's sheet.
+//     asking for every day's sheet. Only when the number is ALL that was typed
+//     (or "open F/HR/17"): "F/HR/17 RB-27" looks for RB-27 in F/HR/17's records
+//     (engine/recordSearch.ts readSearchQuery).
 //   - Anything else is looked for IN the records — every word must be written
 //     on the record (engine/recordSearch.ts). That answer follows the typing
 //     rather than holding it up (useDeferredValue), is read from an index built
@@ -91,6 +94,10 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export function SearchPage() {
   const t = useT();
   const { mode, bump, lang, version } = useAppStore();
+  // The index outlives the page and a sign-out (which does not reload the
+  // tab), so it is kept per account: another person signing in here is never
+  // answered from what the last one could see (engine/recordSearch.ts).
+  const account = useAuth().user?.id;
   const { navigate } = useRouter();
   const [q, setQ] = useState("");
   const [withDrafts, setWithDrafts] = useState(false);
@@ -116,14 +123,17 @@ export function SearchPage() {
   // at a time, never rebuilt from nothing (engine/recordSearch.ts). In an
   // effect, so the first slice of work is never done while the page is drawn.
   useEffect(() => {
-    ensureRecordIndex({ isDemo, includeDrafts: withDrafts });
-  }, [isDemo, withDrafts, version]);
+    ensureRecordIndex({ isDemo, includeDrafts: withDrafts, account });
+  }, [isDemo, withDrafts, version, account]);
 
   // A format number finds the document's records however it is written
   // (F/HR/05, F-HR-05, hr 5 — engine/formatNumbers.ts, REQUIREMENTS §52);
-  // anything else is matched as typed.
+  // anything else is matched as typed. Typed alone, the number lists its
+  // register; typed with other words, it keeps the search for those words to
+  // its own records (readSearchQuery).
   const docs = documentsFor(q);
-  const numberIds = namesFormatNumber(q) ? documentsByFormatNumber(q).map((d) => d.id) : null;
+  const reading = useMemo(() => readSearchQuery(q), [q, version]);
+  const numberIds = reading.kind === "register" ? reading.documentIds : null;
   const people = peopleFor(q);
   const namesSheet = SHEET_QUERY.test(q) && hrMasterVisible();
 
@@ -134,11 +144,15 @@ export function SearchPage() {
   );
 
   const deferredQ = useDeferredValue(q);
-  const contentQuery = deferredQ.trim().length >= SHORTEST_CONTENT_QUERY && !namesFormatNumber(deferredQ) ? deferredQ.trim() : "";
+  const deferredReading = useMemo(() => readSearchQuery(deferredQ), [deferredQ, version]);
+  const contentQuery = deferredReading.kind === "words" && deferredReading.words.length >= SHORTEST_CONTENT_QUERY ? deferredReading.words : "";
+  // The documents a format number typed with the words keeps the search to — as a key, so the search is not redone for an equal list.
+  const onlyKey = deferredReading.kind === "words" && deferredReading.documentIds ? deferredReading.documentIds.join("|") : null;
+  const onlyIds = useMemo(() => (onlyKey === null ? null : onlyKey ? onlyKey.split("|") : []), [onlyKey]);
   const terms = useMemo(() => searchTerms(contentQuery), [contentQuery]);
   const content = useMemo(
-    () => (contentQuery ? searchRecords(contentQuery, { isDemo, includeDrafts: withDrafts }) : null),
-    [contentQuery, isDemo, withDrafts, indexGeneration]
+    () => (contentQuery ? searchRecords(contentQuery, { isDemo, includeDrafts: withDrafts, account, documentIds: onlyIds ?? undefined }) : null),
+    [contentQuery, onlyIds, isDemo, withDrafts, account, indexGeneration]
   );
   const catchingUp = !numberRecords && q.trim() !== deferredQ.trim();
 
@@ -166,6 +180,8 @@ export function SearchPage() {
   let listKey = "";
   let listRows: readonly Listed[] = [];
   let listTerms: readonly string[] = NO_TERMS;
+  // "in F/HR/17", when a format number typed with the words keeps the search to its documents.
+  const onlyIn = onlyIds && onlyIds.length > 0 ? ` in ${Array.from(new Set(onlyIds.map((id) => docsById.get(id)?.formatNo ?? id))).join(", ")}` : "";
   if (numberRecords) {
     if (numberRecords.length === 0) message = { text: "No matches." };
     else {
@@ -175,18 +191,22 @@ export function SearchPage() {
     }
   } else if (q.trim().length < SHORTEST_CONTENT_QUERY) {
     message = { text: "Type at least two letters to look in what the records say." };
+  } else if (onlyIds && onlyIds.length === 0 && contentQuery) {
+    // The words came with a format number none of this person's documents carries.
+    message = { text: "No matches.", note: "None of your documents has that format number." };
   } else if (!content) {
     // For the moment the answer is a keystroke behind the box.
     message = { text: "Searching..." };
   } else if (content.total === 0) {
+    const drafts = withDrafts ? "" : "Blank sheets and sheets only the assistant has prepared were not looked in — tick the box above to include them.";
     message = content.ready
-      ? { text: "No matches.", note: withDrafts ? undefined : "Blank sheets and sheets only the assistant has prepared were not looked in — tick the box above to include them." }
+      ? { text: "No matches.", note: [onlyIn ? `Looked only${onlyIn}.` : "", drafts].filter(Boolean).join(" ") || undefined }
       : { text: "Still indexing..." };
   } else {
     countLine = content.ready
-      ? `${plural(content.total, "record")} ${content.total === 1 ? "matches" : "match"}${terms.length > 1 ? " every word" : ""}`
-      : `Still indexing... ${plural(content.total, "record")} found so far`;
-    listKey = `c|${contentQuery}|${content.ready ? 1 : 0}|${withDrafts ? 1 : 0}`;
+      ? `${plural(content.total, "record")} ${content.total === 1 ? "matches" : "match"}${terms.length > 1 ? " every word" : ""}${onlyIn}`
+      : `Still indexing... ${plural(content.total, "record")} found so far${onlyIn}`;
+    listKey = `c|${contentQuery}|${onlyKey ?? "*"}|${content.ready ? 1 : 0}|${withDrafts ? 1 : 0}`;
     listRows = content.ready ? content.hits : content.hits.slice(0, FIRST_LINES);
     listTerms = terms;
   }
@@ -198,8 +218,9 @@ export function SearchPage() {
     <div>
       <h1 className="text-2xl mb-1">{t("search.title")}</h1>
       <p className="text-muted mb-4">
-        Search by format number (F/HR/05, F-QC-30 — any way it is written), document, or anything written on a record: record ID, date, area, employee, checker, PC ID,
-        machine number, job name, PO number, batch number, a remark or status. Type several words to find the records that have every one of them.
+        Search by format number (F/HR/05, F-QC-30 — any way it is written), document, or anything written on a record: record ID, date (14-Aug-2026, 14.08.2026 or
+        2026-08-14), area, employee, checker, PC ID, machine number, job name, PO number, batch number, a remark or status. Type several words to find the records that
+        have every one of them — with a format number among them (F/HR/17 RB-27), in that document's records only.
       </p>
       <div className="field mb-2" style={{ maxWidth: 480 }}>
         <div className="input flex items-center gap-2" style={{ padding: "4px 10px" }}>
@@ -321,7 +342,13 @@ export function SearchPage() {
               {countLine}
             </p>
           )}
-          <div className="doc-table" data-section="search-records" style={catchingUp ? { opacity: 0.6 } : undefined}>
+          <div
+            className="doc-table"
+            data-section="search-records"
+            // The documents a format number typed with the words keeps the search to ("daily-pest-monitoring"), for the suites.
+            data-search-in={!numberRecords && onlyIds ? onlyIds.join(" ") : undefined}
+            style={catchingUp ? { opacity: 0.6 } : undefined}
+          >
             <table>
               <thead>
                 <tr>
@@ -395,6 +422,15 @@ function ResultLines({
 // One result. Its detail — the value that holds the search words, under its
 // heading and on its line of the form — is worked out only for a line that is
 // drawn, and once: a line already on screen is not redrawn as more arrive.
+//
+// The detail is what people WROTE — a name, a machine, a figure — under the
+// form's printed heading. With Gujarati chosen, Google Translate may turn the
+// heading into Gujarati like every printed word of a form, but never what was
+// written: the line of the form and the value carry translate="no", as every
+// written value in the app does (i18n/googleTranslate.ts, REQUIREMENTS §58).
+// So the detail comes in parts (recordText.snippetParts), not as one string.
+// What a cut left out shows on hovering over the last value shown — a title
+// on that value, not on the cell, since the cell itself is translatable.
 const ResultLine = memo(function ResultLine({
   item,
   doc,
@@ -410,7 +446,11 @@ const ResultLine = memo(function ResultLine({
 }) {
   const detail = useMemo(() => {
     const cells = "cells" in item ? item.cells : recordCells(item);
-    return terms.length > 0 ? snippetFor(cells, terms) : recordSummary(cells);
+    const whole = terms.length > 0 ? snippetParts(cells, terms) : recordSummaryParts(cells);
+    const shown = clipSnippet(whole, DETAIL_CHARS);
+    // What the cut left out, from the last part shown on: its hover text.
+    const rest = shown.length > 0 && snippetText(shown) !== snippetText(whole) ? snippetText(whole.slice(shown.length - 1)) : undefined;
+    return { shown, rest };
   }, [item, terms]);
   const route = routeForRecord(doc, item.id);
   return (
@@ -426,8 +466,23 @@ const ResultLine = memo(function ResultLine({
           hover): laying the table out was the slowest part of a search on a
           low-end laptop, a wrapped line of prose in every row, and Gujarati
           or Hindi text is shaped letter by letter even where it is cut off. */}
-      <td className="text-sm text-muted" title={detail} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 380 }}>
-        {detail.length > DETAIL_CHARS ? `${detail.slice(0, DETAIL_CHARS - 1)}…` : detail || "—"}
+      <td className="text-sm text-muted" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 380 }}>
+        {detail.shown.length === 0
+          ? "—"
+          : detail.shown.map((p, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && " · "}
+                {p.where && (
+                  <span className="notranslate" translate="no">
+                    {p.where} ·{" "}
+                  </span>
+                )}
+                {p.label}:{" "}
+                <span className="notranslate" translate="no" title={i === detail.shown.length - 1 ? detail.rest : undefined}>
+                  {p.value}
+                </span>
+              </React.Fragment>
+            ))}
       </td>
       <td style={{ textAlign: "right" }}>
         <button className="btn btn-ghost btn-sm">Open</button>

@@ -3993,15 +3993,17 @@ of engine/insightRules.ts:
 | Rule | What it finds |
 |---|---|
 | A1 | readings outside the band the form itself prints (F-QC-30 and F-QC-32 viscosity, F-QC-40.C's six temperatures), per sheet and day, with the run length and a chart |
-| A2 | a process that has shifted, caught **before** a reading leaves the band (Western Electric rule 2, on the hourly series) |
+| A2 | a process that has shifted, caught **before** a reading leaves the band (Western Electric rule 2, on the hourly series) — decided sheet by sheet, σ from every hourly sheet with 12 or more readings, so one short sheet today does not switch the warning off |
 | A4 | out-of-band readings on a sheet that was verified with no remark and no CAPA naming it |
 | B1 | the same lot deviation written on three or more lots in 90 days (F/QC/37, /35, /34) |
 | B2 | the same observation on the daily pest control register three or more times in 90 days |
 | B3 | a CAPA whose action date has passed, and the same finding back afterwards — **the CAPA did not hold** |
 | B4 | CAPA findings past their target date |
 | B5 | printing stopped twice or more in a month on F/QC/13 |
+| C1 | **a record that passes and fails the same test**: a lot marked Accepted on F/QC/37, /35 or /34 while one of its pass/fail tests reads its failing word (FAIL, Fail, NOT OK, Leak — which lines are pass/fail tests is taken from the form's own filled specimen), or an F/QC/13 parameter graded F and marked Pass? "Yes"; high, with a suggested CAPA — find out whether the lot went out with a failed test |
+| C2 | **a lot's reason that states a figure** ("Pouch height 178 mm against 181 mm specified") while the observation of that parameter on the same record reads a different figure; medium — the record is corrected |
 | C3 | an instrument whose calibration has expired (and, low, one expiring within 30 days) |
-| SUP | a supplier graded C on F/PUR/05, quoting the action the form prints |
+| SUP | a supplier graded C on F/PUR/05, quoting the action the form prints — graded only from a line with all three ratings written (a blank rating is not a 0): each supplier on the sheet last handed in, from its newest fully rated line. The Management Summary and Mitra grade exactly the same way (insightRules.supplierStandings) |
 | M1 | light lost per area between the two latest lux rounds (a fall of 25% is medium, 40% high) |
 | M2 | the equipment list's own inconsistencies — M-68 printed out of step, a missing location, a year that is not a year |
 | M3 | one machine breaking down three or more times in 90 days, with its repair time and time between failures |
@@ -4011,13 +4013,25 @@ of engine/insightRules.ts:
 | M7 | a breakdown naming a machine that is not on F/MNT/01 |
 
 - **Only what people wrote is read**: submitted, pending, verified and sent-back records, and drafts a person has
-  edited. A blank sheet the calendar made, or a draft only the assistant filled, is never evidence of anything.
+  edited. A blank sheet the calendar made, or a draft only the assistant filled, is never evidence of anything. A
+  draft counts only for an entry a person made after the assistant last filled it: "Fill again" replaces every value,
+  and entries by a start-up migration ("System") or by the assistant are not a person's. Mitra's edits and her sample
+  fill are saved under the person's own name and count as theirs. The search reads "written by a person" the same way.
+- **A record that contradicts itself** (C1, C2) is read only once it is handed in, and for 90 days. A generated demo
+  year gives neither rule anything, so whatever they find was written that way by a person.
+- **One unreadable record never stops the insights.** A cell holding something its column never expected (a date
+  written 12.09.2026 after the Format Editor made the column Text) is shown as written, or that record is left out of
+  the one rule that could not read it; every other insight is still worked out.
+- **Two runs at once both finish**: the Insights page, the Dashboard card, Mitra and the Management Summary each keep
+  their own place while taking the records a slice at a time.
 - **No limit is invented.** The plant has not given a lux standard, so M1 reports the fall between two rounds and
   never "below standard"; a rule whose band is not printed on the form does not exist.
 - **Rules that were tried and left out**, because on a full year of the plant's records they raised more false alarms
   than true ones: the other three Western Electric rules, EWMA, and a straight-line "will reach the limit on" forecast.
 - **Scoped** (§40): the records and documents are the scoped ones, so a Maintenance account reads Maintenance's
-  insights and a Quality Control account reads Quality Control's.
+  insights and a Quality Control account reads Quality Control's. An account that cannot open the internal CAPA report
+  is told nothing about what that report holds: A4 does not say "no CAPA finding names the sheet", and B2 does not say
+  that a corrective action is needed.
 - **Fast on a slow laptop** (§56): the page paints first and the insights are worked out after it, in slices of about
   8 ms with the browser free in between; a record already read is remembered, so the next run reads only what changed.
 
@@ -4028,8 +4042,8 @@ high or medium the card is not drawn at all: the Dashboard is for what needs doi
 **3. AN INSIGHT BECOMES A CAPA ONLY ON A CLICK.** Beside an insight that calls for one, "What the CAPA finding will
 say" shows the finding, comment and corrective action before anything is written; **Raise CAPA** then adds it as an
 **Open** finding to this month's internal CAPA report (starting the report if there is none), target date 15 days
-out, remembering the insight it came from (`GapFinding.insightKey`) and the records behind it
-(`GapFinding.sourceRecordIds`). The same insight is **not offered again while its finding is open**; if it is found
+out, remembering the insight it came from (`GapFinding.insightKey`) and every record behind it, not only those its card
+lists (`GapFinding.sourceRecordIds`). The same insight is **not offered again while its finding is open**; if it is found
 again after the finding was closed, that is rule B3. The internal CAPA report is Quality Assurance's, so an account
 that cannot open it is not offered to write on it.
 
@@ -4040,14 +4054,27 @@ word must be there**, and each result shows the value that matched with its head
 Name / Model No.: DCM Usimeca".
 - A record is read through its own layout — a Rev 00 record under Rev 00's headings (§74) — and a heading printed
   twice is named with its group ("January Plan", "DAY SHIFT Operator"). Pictures, scans, ids, change diffs and the
-  cells the form prints or works out are not searched.
+  cells the form prints or works out are not searched, nor are notes the system or the assistant left in a record's
+  history: only what people wrote.
+- **A format number with other words** — "F/HR/17 RB-27", "QC-30 Gaurav", "hr 5 roshni" — looks for those words in
+  that document's records only, and the count says "… in F/HR/17". Only a query that is nothing but a format number,
+  however it is written, or a request to open one ("open F/HR/05"), lists the register. A number none of the person's
+  documents carries finds nothing, and says so.
+- **Dates are found as they are shown and written**: a date stored as 2026-08-14 is found as 14-Aug-2026, 14/08/2026,
+  14.08.2026 and 14-08-2026 too, and a result shows it as 14-Aug-2026; a date written by hand as 12.09.2026 is found
+  as 2026-09-12 and 12-Sep-2026 too. A slashed date written on a record is left as written (the HR sheets carry
+  month-first dates), and an impossible date or one inside a sentence is never converted.
+- With Gujarati chosen, a result's heading may be translated; its line and value — what people wrote — carry
+  `translate="no"` (§58).
 - **What people wrote is searched by default**: blank calendar sheets and sheets only the assistant prepared are left
   out unless "Also look in blank sheets and sheets only the assistant has prepared" is ticked. A format number still
   lists that document's whole register, blank sheets included, now newest first.
 - **Scoped** (§40): a Quality Control account searching a Maintenance machine finds nothing.
 - **Fast on a slow laptop**: the index is built in idle 8 ms slices outside the page, re-reads only a record whose
   `updatedAt` or status changed, pauses while the tab is hidden, and at most 200 result lines are drawn before "Show
-  all N records". Content search starts at two letters.
+  all N records". Content search starts at two letters. A record is re-read when its `updatedAt`, status, due date,
+  history length or data shape changes, and a draft also when its data's written length does (the start-up migrations
+  keep `updatedAt`); the index is kept per signed-in account, since a sign-out does not reload the tab.
 
 **5. THE ACTIVITY LOG, CORRECT AND FAST AT ANY SIZE** (backend/db.ts, the /api/activity routes).
 - **A live bug fixed: the log was not newest first.** It was ordered by the text copy of the line number, so line 99

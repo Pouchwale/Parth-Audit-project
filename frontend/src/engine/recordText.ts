@@ -1,5 +1,5 @@
 import type { LogColumn, LogSheetData, LogSheetLayout, RecordInstance } from "../types";
-import { formatDisplayDate } from "../utils/date";
+import { daysInMonth, formatDisplayDate } from "../utils/date";
 
 // WHAT A RECORD SAYS, AS ONE SEARCHABLE TEXT (REQUIREMENTS §75).
 //
@@ -48,9 +48,9 @@ export interface SearchCell {
   where: string;
   /** The heading it is written under, as the form prints it. */
   label: string;
-  /** As written (with the column's unit, if it has one). */
+  /** As written (with the column's unit, if it has one) — a date stored as 2026-08-14 as the screens show it, 14-Aug-2026. */
   value: string;
-  /** `value` normalised for matching. */
+  /** `value` normalised for matching, followed, for a date, by the other ways the same day is written. */
   lower: string;
 }
 
@@ -237,7 +237,45 @@ function clip(s: string, max: number): string {
   return one.length > max ? `${one.slice(0, max - 1)}…` : one;
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DOTTED_DATE = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+
+// ONE DAY, WRITTEN EVERY WAY IT IS WRITTEN (REQUIREMENTS §75.4). A date box
+// stores 2026-08-14, yet every screen, printout and export shows 14-Aug-2026,
+// and the plant writes 14.08.2026 by hand — so a date was found only by
+// somebody who typed it the way nobody sees it. A value that is exactly one
+// date is searched in all five forms below, and a result's line shows it as
+// the screens do. Read as a date: the stored form, and the plant's dotted
+// day-first form. NOT a slashed value: the HR sheets carry Excel's month-first
+// "10/18/2025" beside day-first dates, so "4/8/2025" could be either day and
+// is left as written — the slashed form is only ever made FROM a date known
+// for certain. A date inside a sentence, or an impossible one (31.02.2026,
+// month 13), is left as written too: nothing is invented.
+interface DateForms {
+  /** How the screens show it: 14-Aug-2026. */
+  display: string;
+  /** 2026-08-14, 14-Aug-2026, 14/08/2026, 14.08.2026, 14-08-2026. */
+  forms: string[];
+}
+
+function dateForms(value: string): DateForms | null {
+  let y: number, m: number, d: number;
+  const iso = ISO_DATE.exec(value);
+  const dotted = iso ? null : DOTTED_DATE.exec(value);
+  if (iso) [y, m, d] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+  else if (dotted) [d, m, y] = [Number(dotted[1]), Number(dotted[2]), Number(dotted[3])];
+  else return null;
+  if (y < 1900 || m < 1 || m > 12 || d < 1 || d > daysInMonth(y, m - 1)) return null;
+  const [dd, mm] = [pad2(d), pad2(m)];
+  const display = formatDisplayDate(`${y}-${mm}-${dd}`);
+  return { display, forms: [`${y}-${mm}-${dd}`, display, `${dd}/${mm}/${y}`, `${dd}.${mm}.${y}`, `${dd}-${mm}-${y}`] };
+}
+
+/** A stored date as the screens show it; anything else as it is. */
+function shownAs(value: string): string {
+  return ISO_DATE.test(value) ? (dateForms(value)?.display ?? value) : value;
+}
 
 // ---------------------------------------------------------------------------
 // the walk
@@ -250,7 +288,9 @@ class TextBuilder {
   add(value: string | null | undefined): void {
     if (typeof value !== "string") return;
     const v = value.trim();
-    if (v && !v.startsWith("data:")) this.parts.push(normaliseSearchText(v));
+    if (!v || v.startsWith("data:")) return;
+    const date = dateForms(v);
+    this.parts.push(normaliseSearchText(date ? date.forms.join("\n") : v));
   }
 
   cell(where: string, label: string, raw: unknown, unit?: string): void {
@@ -259,9 +299,12 @@ class TextBuilder {
     else if (typeof raw === "number" && Number.isFinite(raw)) value = String(raw);
     else return;
     if (!value || value.startsWith("data:")) return;
-    const lower = normaliseSearchText(value);
+    // A stored date is shown as the screens show it; one written by hand, as written.
+    const date = dateForms(value);
+    const shown = date && ISO_DATE.test(value) ? date.display : value;
+    const lower = normaliseSearchText(date ? [shown, ...date.forms.filter((f) => f !== shown)].join("\n") : value);
     this.parts.push(lower);
-    this.cells.push({ where, label, value: unit ? `${value} ${unit}` : value, lower });
+    this.cells.push({ where, label, value: unit ? `${shown} ${unit}` : shown, lower });
   }
 
   text(): string {
@@ -367,12 +410,13 @@ function rowWhere(row: Record<string, unknown>, index: number, layout: LogSheetL
   const mode = layout?.rowMode;
   if (!mode || mode.kind === "free") {
     // A register's line is known by what its first column says — the
-    // equipment master's "M-68", the breakdown register's failure date — when
-    // that is short enough to be a name; otherwise by its number.
+    // equipment master's "M-68", the breakdown register's failure date (as the
+    // screens show a date, 14-Aug-2026) — when that is short enough to be a
+    // name; otherwise by its number.
     const first = reading?.columns[0]?.col;
     const v = first ? row[first.key] : undefined;
     const s = typeof v === "number" ? String(v) : typeof v === "string" ? v.trim() : "";
-    if (first && s && s.length <= 24) return /^\d+$/.test(s) ? `${cleanLabel(first.label)} ${s}` : s;
+    if (first && s && s.length <= 24) return /^\d+$/.test(s) ? `${cleanLabel(first.label)} ${s}` : shownAs(s);
     return `Row ${index + 1}`;
   }
   if (mode.kind === "single") return "";
@@ -382,7 +426,7 @@ function rowWhere(row: Record<string, unknown>, index: number, layout: LogSheetL
     const v = row[col.key];
     const s = typeof v === "number" ? String(v) : typeof v === "string" ? v.trim() : "";
     // F/MNT/04's day "5" reads as "Date 5", not as a bare number.
-    if (s) names.push(/^\d+$/.test(s) ? `${cleanLabel(col.label)} ${s}` : clip(s, 48));
+    if (s) names.push(/^\d+$/.test(s) ? `${cleanLabel(col.label)} ${s}` : clip(shownAs(s), 48));
     if (names.length === 2) break;
   }
   return names.join(" · ") || `Row ${index + 1}`;
@@ -432,14 +476,13 @@ const ACTION_WORDS: Record<string, string> = {
 export function recordSearchText(record: RecordInstance, doc: SearchableDocument | undefined, layout?: LogSheetLayout): RecordSearchText {
   const b = new TextBuilder();
 
-  // Its document, day and state: "fly catcher", "f/hr/18", "2026-09-04", "04-sep-2026", "rejected".
+  // Its document, day and state: "fly catcher", "f/hr/18", "2026-09-04",
+  // "04-sep-2026", "04.09.2026", "rejected". The day goes in every form a
+  // date is written (dateForms), and only when it is one.
   b.add(doc?.name);
   b.add(doc?.formatNo);
   b.add(record.id);
-  if (typeof record.dueDate === "string" && ISO_DATE.test(record.dueDate)) {
-    b.add(record.dueDate);
-    b.add(formatDisplayDate(record.dueDate));
-  }
+  if (typeof record.dueDate === "string" && ISO_DATE.test(record.dueDate)) b.add(record.dueDate);
   b.add(record.status);
   b.add(record.responsibleUser);
 
@@ -456,8 +499,14 @@ export function recordSearchText(record: RecordInstance, doc: SearchableDocument
   b.cell("", "Reason sent back", record.rejectionReason);
   b.cell("", "Reason for correction", record.correction?.reason);
   for (const entry of record.history ?? []) {
-    // The assistant's own preparation note is the system describing itself.
-    if (entry.action === "prepared" || !entry.note) continue;
+    // Only what PEOPLE wrote is a record's words (REQUIREMENTS §75): the
+    // assistant's preparation note, and the notes the system and the
+    // assistant leave when they change a record themselves — a boot
+    // migration's "tube light dates corrected", a sample fill — are the
+    // system describing itself, and would make every record they touched
+    // answer to the same words. (The same test engine/recordSearch.ts's
+    // writtenByAPerson makes of a history entry.)
+    if (entry.action === "prepared" || entry.by === "System" || entry.by === "Assistant" || !entry.note) continue;
     if (entry.action === "rejected" && entry.note === record.rejectionReason) continue;
     b.cell("", ACTION_WORDS[entry.action] ?? "Note", entry.note);
   }
@@ -470,43 +519,107 @@ export function recordSearchText(record: RecordInstance, doc: SearchableDocument
 
 const SNIPPET_VALUE_CHARS = 110;
 
-function excerpt(value: string, lower: string, term: string | undefined): string {
+// The part of a long value around the word that matched. The word is looked
+// for in the very text that is cut — the value with its runs of spaces and
+// line breaks made single spaces — not in the stored text: a remark with a
+// blank line or a column of spaces before the word put it further along the
+// stored text than in the cut one, and the excerpt could miss it altogether.
+function excerpt(value: string, term: string | undefined): string {
   const one = value.replace(/\s+/g, " ");
   if (one.length <= SNIPPET_VALUE_CHARS) return one;
-  const at = term ? Math.max(0, Math.min(lower.indexOf(term), one.length - 1)) : 0;
+  const found = term ? normaliseSearchText(one).indexOf(term) : -1;
+  // (Lower-casing and NFC can shift a position by a letter or two, never by
+  // the 30 letters shown before the word.)
+  const at = found < 0 ? 0 : Math.min(found, one.length - 1);
   const start = Math.max(0, Math.min(at - 30, one.length - SNIPPET_VALUE_CHARS));
   const piece = one.slice(start, start + SNIPPET_VALUE_CHARS);
   return `${start > 0 ? "…" : ""}${piece}${start + SNIPPET_VALUE_CHARS < one.length ? "…" : ""}`;
 }
 
-function cellLine(cell: SearchCell, term?: string, sameLineAs?: SearchCell): string {
-  const where = cell.where && cell.where !== cell.value && cell.where !== sameLineAs?.where ? `${cell.where} · ` : "";
-  return `${where}${cell.label}: ${excerpt(cell.value, cell.lower, term)}`;
+/**
+ * One value a result's line shows, in three pieces kept apart for the page
+ * (REQUIREMENTS §58, §75.4): `where` and `value` are what was written on the
+ * record — a machine, a PC ID, a name, a figure — and must never be handed to
+ * Google Translate when Gujarati is chosen; `label` is the form's printed
+ * heading, which Google may translate like every other printed word of a form.
+ */
+export interface SnippetPart {
+  /** The line of the form it is on, or "" (a box above or below the grid, or the same line as the part before). */
+  where: string;
+  /** The heading it is written under, as the form prints it. */
+  label: string;
+  /** What was written, cut to the words that matched. */
+  value: string;
+}
+
+function partOf(cell: SearchCell, term?: string, sameLineAs?: SearchCell): SnippetPart {
+  const where = cell.where && cell.where !== cell.value && cell.where !== sameLineAs?.where ? cell.where : "";
+  return { where, label: cell.label, value: excerpt(cell.value, term) };
+}
+
+/** The parts as one line: "Row 3 · Operator: Gaurav Singh · Remarks: …". */
+export function snippetText(parts: readonly SnippetPart[]): string {
+  return parts.map((p) => `${p.where ? `${p.where} · ` : ""}${p.label}: ${p.value}`).join(" · ");
+}
+
+/**
+ * The parts cut to at most `max` letters as snippetText would print them —
+ * about what a result's cell has room for (pages/SearchPage.tsx). Only values
+ * are cut, ending "…"; a part whose line and heading no longer fit is left off,
+ * and the value before it ends "…" instead.
+ */
+export function clipSnippet(parts: readonly SnippetPart[], max: number): SnippetPart[] {
+  const out: SnippetPart[] = [];
+  let used = 0;
+  for (const p of parts) {
+    const head = (out.length > 0 ? 3 : 0) + (p.where ? p.where.length + 3 : 0) + p.label.length + 2;
+    const room = max - used - head;
+    if (room < 2) {
+      const last = out[out.length - 1];
+      if (last && !last.value.endsWith("…")) out[out.length - 1] = { ...last, value: `${last.value.slice(0, Math.max(0, last.value.length - 1))}…` };
+      else if (!last) out.push({ ...p, value: "…" });
+      break;
+    }
+    if (p.value.length > room) {
+      out.push({ ...p, value: `${p.value.slice(0, room - 1)}…` });
+      break;
+    }
+    out.push(p);
+    used += head + p.value.length;
+  }
+  return out;
+}
+
+/** The first values on the record, for a result that names no words (a format number) or matched only its document or date — in parts (snippetParts). */
+export function recordSummaryParts(cells: readonly SearchCell[], count = 2): SnippetPart[] {
+  return cells.slice(0, count).map((c) => partOf({ ...c, value: clip(c.value, 60) }));
 }
 
 /** The first values on the record, for a result that names no words (a format number) or matched only its document or date. */
 export function recordSummary(cells: readonly SearchCell[], count = 2): string {
-  return cells
-    .slice(0, count)
-    .map((c) => cellLine({ ...c, value: clip(c.value, 60) }))
-    .join(" · ");
+  return snippetText(recordSummaryParts(cells, count));
 }
 
 /**
- * The one line a search result shows: the value that holds the most of the
- * search words, with its heading and the line of the form it is on —
+ * The one line a search result shows, in parts: the value that holds the most
+ * of the search words, with its heading and the line of the form it is on —
  * "Row 3 · Operator: Gaurav Singh". Where the words are spread over two values
  * ("m-13 bearing": the machine in one column, the fault in another) the second
  * value is shown beside the first. A record that matched only by its document,
  * date or status shows its first values instead.
  */
-export function snippetFor(cells: readonly SearchCell[], terms: readonly string[]): string {
+export function snippetParts(cells: readonly SearchCell[], terms: readonly string[]): SnippetPart[] {
   const first = bestCell(cells, terms);
-  if (!first) return recordSummary(cells);
+  if (!first) return recordSummaryParts(cells);
   const rest = terms.filter((t) => !first.cell.lower.includes(t));
   const second = rest.length > 0 ? bestCell(cells, rest) : null;
-  const line = cellLine(first.cell, first.term);
-  return second ? `${line} · ${cellLine(second.cell, second.term, first.cell)}` : line;
+  const line = partOf(first.cell, first.term);
+  return second ? [line, partOf(second.cell, second.term, first.cell)] : [line];
+}
+
+/** snippetParts as one line of text. */
+export function snippetFor(cells: readonly SearchCell[], terms: readonly string[]): string {
+  return snippetText(snippetParts(cells, terms));
 }
 
 /** The value holding the most of the words (the first such), and the first of them it holds. */

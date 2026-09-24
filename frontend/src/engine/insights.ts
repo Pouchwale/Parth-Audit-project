@@ -91,7 +91,7 @@ export interface SuggestedCapa {
 export interface Insight {
   /** Stable across runs, e.g. "a1|qc-viscosity|viscosity|2026-08-14" — a raised CAPA remembers it (GapFinding.insightKey). */
   id: string;
-  /** Which rule found it: A1, A2, A4, B1…B5, C3, SUP, M1…M7. */
+  /** Which rule found it: A1, A2, A4, B1…B5, C1…C3, SUP, M1…M7. */
   rule: string;
   severity: InsightSeverity;
   /** The module of the document it is about, as the Document Library names it. */
@@ -105,6 +105,13 @@ export interface Insight {
   evidence: InsightEvidence[];
   /** How many records the insight was read from, when that is more than `evidence` lists. */
   evidenceTotal?: number;
+  /**
+   * Every record the insight was read from, taken BEFORE `evidence` is capped.
+   * A CAPA raised from it remembers these (engine/raiseCapa.ts,
+   * GapFinding.sourceRecordIds), so A4 knows every sheet that finding answers
+   * for — not only the twelve the card lists.
+   */
+  sourceRecordIds?: string[];
   /** Where to look: the document's page, or the one record. */
   route?: string;
   suggestedCapa?: SuggestedCapa;
@@ -164,10 +171,23 @@ const HUMAN_STATUSES = new Set<RecordInstance["status"]>(["Submitted", "Pending 
 /**
  * Is this record something a PERSON wrote? Submitted, awaiting verification,
  * verified or sent back — yes. In Progress only when its history holds an entry
- * that is not the assistant's own preparation: somebody has typed into it, or
- * asked Mitra to change it. A Due or Scheduled shell never — its cells are the
- * form's fixed text and nothing else. A draft dated before go-live that nobody
- * handed in is left out as the Briefing leaves it out (engine/assistantBriefing.ts).
+ * a PERSON made since the assistant last filled it: somebody has typed into it,
+ * or asked Mitra to change it (Mitra's edits and her sample fill are saved under
+ * the person's own name, on purpose — they asked for it, and it is their work).
+ * A Due or Scheduled shell never — its cells are the form's fixed text and
+ * nothing else. A draft dated before go-live that nobody handed in is left out
+ * as the Briefing leaves it out (engine/assistantBriefing.ts).
+ *
+ * Two kinds of entry are not a person's, the same two engine/recordSearch.ts
+ * byAPerson leaves out: an entry by "System" (a start-up migration, such as
+ * engine/tubeLightMigration.ts, rewriting a cell on every record it applies to)
+ * and one by "Assistant". The Assistant's own entry is "Fill again" on the
+ * record page (pages/RecordPage.tsx handleReprepare): it replaces EVERY value on
+ * the sheet with a fresh synthetic fill (engine/assistantPrepare.ts
+ * reprepareRecord), so whatever a person typed before it is gone, and only an
+ * entry of theirs AFTER it puts a person's hand back on the sheet. Counting
+ * either as a person's (as this did before) read a fully synthetic draft as
+ * evidence — exactly the values promise 2 above keeps out.
  *
  * The one exception is the internal CAPA report: its findings are only ever
  * written by a person (or raised by one from an insight), so an In Progress
@@ -182,7 +202,16 @@ export function isHumanRecord(record: RecordInstance, liveStartDate?: string | n
     if (Array.isArray(findings) && findings.length > 0) return true;
   }
   if (liveStartDate && compareISO(record.dueDate, liveStartDate) < 0) return false;
-  return !!record.history?.some((h) => h.action !== "prepared");
+  const history = record.history;
+  if (!history) return false;
+  // Oldest first (engine/recordHistory.ts appendHistory), so read from the end:
+  // a person's entry before the latest refill no longer describes the sheet.
+  for (let i = history.length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (h.by === "Assistant" && h.action === "assistant-edit") return false;
+    if (h.action !== "prepared" && h.by !== "Assistant" && h.by !== "System") return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +374,14 @@ export function startInsights(input: InsightInput): InsightRun {
     // The very same arrays asked about again (a re-render handing in the
     // repository's snapshot): the answer cannot have changed.
     lastRun && lastRun.records === input.records && lastRun.documents === input.documents && lastRun.key === key ? lastRun.insights : null;
+  // This run's own place in the first read of the records. Two runs are often
+  // under way at once — the Insights page or the Dashboard card while Mitra
+  // prepares hers (engine/scopedInsights.ts), the monthly summary as of another
+  // day — each with its own records array (recordRepository.query returns a
+  // new one on every call). One place shared between them was put back to the
+  // start by each run in turn, so neither ever finished and the page stayed on
+  // "Reading the records…". Each run now keeps its own.
+  const warmState = newWarmState(input, key);
   let warmed = false;
   let built: ReturnType<typeof buildContext> | null = null;
   let ruleIndex = 0;
@@ -356,7 +393,7 @@ export function startInsights(input: InsightInput): InsightRun {
       if (result) return result;
       const deadline = performance.now() + budgetMs;
       if (!warmed) {
-        if (!warmInsights(input, budgetMs)) return null;
+        if (!warmInsights(input, budgetMs, warmState)) return null;
         warmed = true;
         if (performance.now() > deadline) return null;
       }
@@ -411,35 +448,64 @@ export function computeInsights(input: InsightInput): Insight[] {
 // ---------------------------------------------------------------------------
 // the first read of each record, in slices
 
-let warm: { records: readonly RecordInstance[]; key: string; index: number; layouts: Map<string, LogSheetLayout | undefined>; visible: Map<string, boolean> } | null = null;
+/** How far one run's first read of the records has got (startInsights keeps one per run). */
+export interface WarmState {
+  records: readonly RecordInstance[];
+  key: string;
+  index: number;
+  layouts: Map<string, LogSheetLayout | undefined>;
+  visible: Map<string, boolean>;
+}
+
+const newWarmState = (input: InsightInput, key = runKeyOf(input)): WarmState => ({ records: input.records, key, index: 0, layouts: new Map(), visible: new Map() });
+
+// For a caller that hands in no state of its own: one place per input object,
+// so two callers with different inputs can never put each other back to the
+// start. A WeakMap, so an input nobody holds any more takes its place with it.
+const warmByInput = new WeakMap<InsightInput, WarmState>();
 
 /**
  * Reads the records into the per-record memo for at most `budgetMs`, and says
  * whether every record has been read. The first read of a year of records is
  * the costly part of a first run, so startInsights does it in slices before
- * anything is added up. Hand in the SAME input object on each call; a different
- * records array starts again from the beginning.
+ * anything is added up, with a WarmState of its own. Without one, the place is
+ * kept per input object: hand in the SAME input object on each call.
+ *
+ * Only a speed-up: a rule reads any record not read here when it needs it
+ * (RuleContext.memo), so where this stops never changes an answer. That is
+ * also why one record that cannot be read is passed over here, never allowed
+ * to stop the read of the rest — an exception out of this loop, which runs
+ * outside the per-rule guard in startInsights, would fail every run from then
+ * on and leave the page on "Reading the records…" for good.
  */
-export function warmInsights(input: InsightInput, budgetMs = 8): boolean {
-  const key = runKeyOf(input);
-  if (!warm || warm.records !== input.records || warm.key !== key) warm = { records: input.records, key, index: 0, layouts: new Map(), visible: new Map() };
-  const state = warm;
+export function warmInsights(input: InsightInput, budgetMs = 8, warmState?: WarmState): boolean {
+  let state = warmState;
+  if (!state) {
+    const key = runKeyOf(input);
+    state = warmByInput.get(input);
+    if (!state || state.records !== input.records || state.key !== key) warmByInput.set(input, (state = newWarmState(input, key)));
+  }
+  const { layouts, visible: visibleMemo } = state;
   const layout = (record: RecordInstance): LogSheetLayout | undefined => {
     const k = `${record.documentId}|${record.formatRevision ?? ""}`;
-    if (!state.layouts.has(k)) state.layouts.set(k, getLogSheetLayoutForRecord(record.documentId, record));
-    return state.layouts.get(k);
+    if (!layouts.has(k)) layouts.set(k, getLogSheetLayoutForRecord(record.documentId, record));
+    return layouts.get(k);
   };
   const visible = (documentId: string): boolean => {
-    let v = state.visible.get(documentId);
-    if (v === undefined) state.visible.set(documentId, (v = isDocumentIdVisible(documentId)));
+    let v = visibleMemo.get(documentId);
+    if (v === undefined) visibleMemo.set(documentId, (v = isDocumentIdVisible(documentId)));
     return v;
   };
   const ctx = { layout, memo: <T>(kind: string, record: RecordInstance, compute: (layout: LogSheetLayout | undefined) => T): T => remember(kind, record, layout(record), compute) };
-  const records = input.records;
+  const records = state.records;
   const deadline = performance.now() + budgetMs;
   while (state.index < records.length) {
     const r = records[state.index++];
-    if (r.isDemo === input.isDemo && visible(r.documentId) && isHumanRecord(r, input.liveStartDate)) warmRecord(ctx, r);
+    try {
+      if (r.isDemo === input.isDemo && visible(r.documentId) && isHumanRecord(r, input.liveStartDate)) warmRecord(ctx, r);
+    } catch (err) {
+      console.error(`Insights: record ${r?.id} could not be read ahead of the rules; the rest are read all the same`, err);
+    }
     if ((state.index & 15) === 0 && performance.now() > deadline) break;
   }
   return state.index >= records.length;

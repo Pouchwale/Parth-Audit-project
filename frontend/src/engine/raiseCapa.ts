@@ -28,9 +28,10 @@ import { generateId } from "../utils/id";
 //   3. It is written as the insight worded it — finding, the evidence as the
 //      comment, the suggested action — with a target date 15 days out (the
 //      plant's usual target) and status Open, and it remembers the insight it
-//      came from (insightKey) and the records it was read from
-//      (sourceRecordIds). That is what marks the insight "CAPA raised" and
-//      what tells A4 an excursion now has an action.
+//      came from (insightKey) and EVERY record it was read from
+//      (sourceRecordIds — all of them, not only those its card lists). That
+//      is what marks the insight "CAPA raised" and what tells A4 an excursion
+//      now has an action.
 //   4. It is saved as a draft with the history entry "Record edited through
 //      Mitra" (action "assistant-edit"): the words were the system's, the
 //      decision was the person's, and the history says both. The person then
@@ -120,7 +121,11 @@ export function raiseCapaFromInsight(insight: Insight, actor: string, isDemo: bo
   }
 
   const findings = (record.data?.findings ?? []) as LinkedFinding[];
-  const sourceRecordIds = [...new Set(insight.evidence.map((e) => e.recordId))];
+  // Every record the insight was read from, not only the twelve its card lists
+  // (Insight.sourceRecordIds is taken before the evidence is capped). Read from
+  // the capped list, an A4 over twenty verified sheets linked twelve of them,
+  // and came straight back for the other eight after its CAPA was raised.
+  const sourceRecordIds = insight.sourceRecordIds?.length ? [...new Set(insight.sourceRecordIds)] : [...new Set(insight.evidence.map((e) => e.recordId))];
   const finding: LinkedFinding = {
     id: generateId("finding"),
     sNo: findings.reduce((max, f) => Math.max(max, f.sNo || 0), 0) + 1,

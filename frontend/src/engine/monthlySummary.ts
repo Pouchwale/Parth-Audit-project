@@ -18,7 +18,7 @@ import { daysInMonth, formatDisplayDate, MONTH_NAMES, pad2 } from "../utils/date
 import { countFindings } from "./checkpoints";
 import { departmentScopeLabel, isDocumentIdVisible, seesEveryDepartment } from "./departmentScope";
 import { insightCounts, isHumanRecord, startInsights, type Insight, type InsightInput, type InsightRun } from "./insights";
-import { breakdownLines, dayMonth, luxReadings, type BreakdownLine } from "./insightRules";
+import { breakdownLines, dayMonth, luxReadings, supplierStandings, type BreakdownLine } from "./insightRules";
 import {
   grade as gradeOf,
   monthRange,
@@ -32,7 +32,7 @@ import {
   type PersonScore,
   type Scorecards,
 } from "./performance";
-import { actionForGrade, RM_PM_PERFORMANCE_ID, supplierRatingCells } from "./purchaseRatings";
+import { actionForGrade, RM_PM_PERFORMANCE_ID } from "./purchaseRatings";
 import { totalRodents } from "./rodentPattern";
 import { isLotAccepted, isOutOfBand } from "./validation";
 
@@ -953,26 +953,27 @@ function purchasePart(frame: Frame, seen: Seen, human: (documentId: string) => R
   const fno = calledBy(seen.docs.get(RM_PM_PERFORMANCE_ID), "F/PUR/05");
   const none = (sentence: string): PurchasePart => ({ sentences: [sentence], empty: true, sheet: null, a: 0, b: 0, c: 0, ungraded: 0, gradedC: [] });
   if (frame.state === "future") return none(notBegun(frame));
-  // The supplier ratings in force at the month's end: the latest sheet written by then.
+  // The supplier ratings in force at the month's end, read exactly as the SUP
+  // insight reads them (insightRules.supplierStandings): the suppliers on the
+  // register as it stood, each graded from its newest line with all three
+  // ratings written — a blank rating is not a 0 (REQUIREMENTS §75).
   const written = human(RM_PM_PERFORMANCE_ID).filter((r) => r.dueDate <= frame.asOf);
-  const latest = written[written.length - 1];
+  const standing = supplierStandings(written);
+  const latest = standing.register;
   if (!latest) return none(`No supplier performance rating (${fno}) had been written ${asOfPhrase(frame)}.`);
   let a = 0;
   let b = 0;
   let c = 0;
-  let ungraded = 0;
+  const ungraded = standing.notRated.length;
   const gradedC: PurchasePart["gradedC"] = [];
-  for (const row of (latest.data as LogSheetData | undefined)?.rows ?? []) {
-    const supplier = text(row.supplierName);
-    if (!supplier) continue;
+  for (const { supplier, cells } of standing.graded) {
     // The grade worked out again from the three ratings, by the form's own table — never the stored cell.
-    const cells = supplierRatingCells(row);
     if (cells.grade === "A") a += 1;
     else if (cells.grade === "B") b += 1;
     else if (cells.grade === "C") {
       c += 1;
       gradedC.push({ supplier, overall: text(cells.overallRating), action: actionForGrade("C") });
-    } else ungraded += 1;
+    }
   }
   const sheet = { recordId: latest.id, dueDate: latest.dueDate, inMonth: inMonth(latest.dueDate) };
   const sentences = [

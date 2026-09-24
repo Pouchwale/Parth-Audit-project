@@ -19,10 +19,10 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { departmentScope, departmentScopeLabel, isDocumentIdVisible } from "./departmentScope";
 import { isHumanRecord, type Insight } from "./insights";
-import { breakdownLines, luxReadings, normText, type BreakdownLine } from "./insightRules";
+import { breakdownLines, luxReadings, normText, supplierStandings, type BreakdownLine } from "./insightRules";
 import { prepareScopedInsights, scopedInsights } from "./scopedInsights";
 import { isLotAccepted, isOutOfBand } from "./validation";
-import { actionForGrade, RM_PM_PERFORMANCE_ID, SERVICE_PROVIDER_PERFORMANCE_ID, serviceRatingCells, supplierRatingCells } from "./purchaseRatings";
+import { actionForGrade, RM_PM_PERFORMANCE_ID, SERVICE_PROVIDER_PERFORMANCE_ID, serviceRatingCells } from "./purchaseRatings";
 import { closedDays, decisionText, scoreOf, scorecards, type Person } from "./performance";
 import { machineNumbersIn } from "./equipmentMaster";
 import { totalRodents } from "./rodentPattern";
@@ -834,9 +834,11 @@ function* purchaseWork(ctx: Ctx): Work<EvidenceSection> {
     const reg = registerFor(RM_PM_PERFORMANCE_ID);
     if (!reg) facts.push({ text: `${fno} (supplier performance): no register handed in yet.`, recordIds: [] });
     else {
-      const rated = ((reg.record.data as LogSheetData | undefined)?.rows ?? [])
-        .map((row) => ({ row, cells: supplierRatingCells(row) }))
-        .filter((x) => text(x.row.supplierName) && text(x.cells.grade));
+      // Graded exactly as the SUP insight grades (insightRules.supplierStandings):
+      // each supplier on the register from its newest line with all three
+      // ratings written, as of the register's date — a blank rating is not a 0.
+      const upTo = humanOf(ctx, RM_PM_PERFORMANCE_ID).filter((r) => compareISO(r.dueDate, reg.record.dueDate) <= 0);
+      const rated = supplierStandings(upTo).graded.map((g) => ({ row: g.row, cells: g.cells }));
       const count = (g: string) => rated.filter((x) => x.cells.grade === g).length;
       facts.push({
         text: `${fno} supplier grades, the register of ${fmt(reg.record.dueDate)}${reg.within ? "" : " (the latest on file)"}, by the form's own table (A 90+, B 80–89, C below 80; ratings weighted 50/40/10): ${plural(rated.length, "supplier")} rated — ${count("A")} A, ${count("B")} B, ${count("C")} C.`,

@@ -198,6 +198,16 @@ Seven scripts live in `tests/`:
   original on disk, superseded revisions included). **`npm run test:e2e` runs it first** and stops before building
   if it fails - a document that could not be filled used to be found forty minutes into the browser run. New tests
   go in `frontend/tests/*.test.ts` with helpers in `frontend/tests/support/`; `npm run typecheck` covers them.
+- `frontend/tests/insights.test.ts`, `frontend/tests/recordSearch.test.ts` and `frontend/tests/consistency.test.ts` -
+  the fixes an adversarial review of §75 confirmed (24-Sep-2026), each check proven to fail on the code before its fix:
+  a sheet the assistant filled again is nobody's evidence; one unreadable record (a date written 12.09.2026) no
+  longer stops every insight; two insight runs at once both finish; A2 survives a short newest sheet; a supplier is
+  graded only from a fully rated line, and the Insights page, the Management Summary and Mitra grade alike; a CAPA
+  raised from an insight names every record behind it; an account that cannot open the CAPA report is told nothing
+  about it; the new consistency rules C1 and C2 fire on a contradictory record and never on a generated demo year;
+  and the search finds dates as they are shown, keeps a format number's other words, keeps written values out of
+  the translator, ignores the system's history notes, re-reads a record a start-up migration changed, and keeps its
+  index per signed-in account.
 - `frontend/tests/mitraHistory.test.ts` and `frontend/tests/monthlySummary.test.ts` - unit checks of §75's Mitra
   answering from history (which questions read as history and which keep their own answers, "last quarter" and "and
   the month before?", the evidence's budget and quoting, its cites, the offline answer) and of the Management Summary

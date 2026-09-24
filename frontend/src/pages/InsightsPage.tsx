@@ -18,9 +18,11 @@ import type { DocumentDefinition } from "../types";
 //
 // What the plant's own records show when they are read together: readings
 // drifting out of their printed band, the same deviation or finding coming back,
-// CAPA that did not hold or is past its date, an expired calibration, a
-// supplier graded C, and Maintenance's lux, breakdowns, glass breakage, missed
-// daily checks and slipping PM. Every insight is worked out by code
+// CAPA that did not hold or is past its date, a record that contradicts itself
+// (a lot Accepted beside a failed test, a reason's figure the record does not
+// read), an expired calibration, a supplier graded C, and Maintenance's lux,
+// breakdowns, glass breakage, missed daily checks and slipping PM. Every
+// insight is worked out by code
 // (engine/insights.ts, engine/insightRules.ts) from records people wrote, and
 // lists the records it was read from, each one a link.
 //
