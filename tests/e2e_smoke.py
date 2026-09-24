@@ -771,12 +771,31 @@ def main():
         # ---- 13. Search ----
         page.click("text=Search")
         page.wait_for_timeout(200)
-        page.fill("input[placeholder*='PC-04']", "PC-01")
-        page.wait_for_timeout(300)
-        check("Search returns results for PC-01", page.locator(".doc-table tbody tr").count() >= 1)
+        page.fill("input[placeholder*='PC-04']", "Playwright QA")
+        try:
+            page.wait_for_selector("[data-search-record]", timeout=15000)
+        except Exception:
+            pass
+        # A result is a record's own row: a message row ("No matches.", "Still
+        # indexing...") is a table row too, so counting table rows proved
+        # nothing. (The query was PC-01, which is on no record of a fresh
+        # account: this month's two fly catcher dates fall before its go-live,
+        # so there is no sheet - that check passed on the "No matches." row.)
+        # The checker's name written on the pest round submitted in step 3 is.
+        check(
+            "Search finds a word written on a record: the checker of the pest round submitted above",
+            page.locator("[data-search-record]").count() >= 1,
+            page.locator("[data-section='search-records']").inner_text()[:300],
+        )
+        # The operator's name is on sheets the assistant PREPARED, which a search
+        # of what people wrote looks in only when asked to (REQUIREMENTS s75).
+        page.check("[data-field='search-include-drafts']")
         page.fill("input[placeholder*='PC-04']", "Gaurav Singh")
-        page.wait_for_timeout(300)
-        check("Search finds the lamination operator on the prepared log sheets", page.locator(".doc-table tbody tr").count() >= 1)
+        try:
+            page.wait_for_selector("[data-search-record]", timeout=15000)
+        except Exception:
+            pass
+        check("Search finds the lamination operator on the prepared log sheets", page.locator("[data-search-record]").count() >= 1)
 
         # ---- 13b. Back from the Record Calendar (REQUIREMENTS s48) ----
         # Back returns to the page the calendar was opened from; a day opened

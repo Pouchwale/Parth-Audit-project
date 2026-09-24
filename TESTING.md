@@ -204,8 +204,15 @@ Seven scripts live in `tests/`:
   M-68 pointed out; the module and severity filters; the Dashboard's card of at most three, none low, linking to the
   page; **Raise CAPA** showing the finding before the click, landing on the CAPA report with a finding that remembers
   its insight and its records, and not offered again while open; a Maintenance account reading only Maintenance's
-  and not offered to write on QA's report; a Quality Control account reading none of Maintenance's. It is anchored on
-  insight ids (`data-insight`), never on counts, because the suites before it add records of their own.
+  and not offered to write on QA's report; a Quality Control account reading none of Maintenance's; and **one search
+  over what records say** — "usimeca" finds the equipment master and shows "M-68 · Machine Name / Model No.", every
+  word must be there, and the QC account's search does not reach Maintenance's records. It is anchored on insight ids
+  (`data-insight`) and record ids (`data-search-record`), never on counts, because the suites before it add records of
+  their own. `e2e_smoke.py`'s two search checks now count `[data-search-record]` rows, not table rows: a "No
+  matches." line is a table row too, so they could not fail. The first searched PC-01, which is on no record of a
+  fresh account (this month's two fly catcher dates fall before its go-live) — it only ever passed on that line — and
+  now searches the checker's name written on the pest round the suite itself submits; the operator search ticks the
+  box that also looks in sheets the assistant prepared, which is where that name is.
 - `tests/e2e_maintenance_module.py` - the Maintenance module and its eight formats (REQUIREMENTS §74), a
   thirty-fourth suite, added 24-Sep-2026: the module placed after the production modules and before Purchase (the
   Store suite still finds Purchase, Store and Dispatch together); the library filtered to it with all eight F/MNT

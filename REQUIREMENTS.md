@@ -4033,6 +4033,22 @@ out, remembering the insight it came from (`GapFinding.insightKey`) and the reco
 again after the finding was closed, that is rule B3. The internal CAPA report is Quality Assurance's, so an account
 that cannot open it is not offered to write on it.
 
+**4. ONE SEARCH OVER WHAT EVERY RECORD SAYS** (pages/SearchPage.tsx, engine/recordText.ts, engine/recordSearch.ts).
+The search box found documents, people and a format number's register; a word written *inside* a record — a machine
+model, a supplier, a finding — found nothing. Now anything else typed is looked for in what the records say, **every
+word must be there**, and each result shows the value that matched with its heading and row, e.g. "M-68 · Machine
+Name / Model No.: DCM Usimeca".
+- A record is read through its own layout — a Rev 00 record under Rev 00's headings (§74) — and a heading printed
+  twice is named with its group ("January Plan", "DAY SHIFT Operator"). Pictures, scans, ids, change diffs and the
+  cells the form prints or works out are not searched.
+- **What people wrote is searched by default**: blank calendar sheets and sheets only the assistant prepared are left
+  out unless "Also look in blank sheets and sheets only the assistant has prepared" is ticked. A format number still
+  lists that document's whole register, blank sheets included, now newest first.
+- **Scoped** (§40): a Quality Control account searching a Maintenance machine finds nothing.
+- **Fast on a slow laptop**: the index is built in idle 8 ms slices outside the page, re-reads only a record whose
+  `updatedAt` or status changed, pauses while the tab is hidden, and at most 200 result lines are drawn before "Show
+  all N records". Content search starts at two letters.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
