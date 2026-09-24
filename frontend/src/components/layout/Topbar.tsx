@@ -24,8 +24,12 @@ export function Topbar() {
 
   return (
     <>
+      {/* ON A PHONE (REQUIREMENTS §75) the bar keeps every control and gives up
+          only room: styles.css cuts the words beside an icon, shortens the
+          name and lets the controls wrap rather than widen the page. The two
+          groups are named for that; nothing else reads the names. */}
       <div className="app-topbar no-print">
-        <div className="flex items-center gap-3">
+        <div className="app-topbar-start flex items-center gap-3">
           {/* The only way back once the panel is closed, so it lives here
               rather than inside the panel it hides. */}
           <button
@@ -63,28 +67,28 @@ export function Topbar() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="app-topbar-end flex items-center gap-3">
           {/* The one language control for the whole app, reachable from every
               screen; beside it, a word on which translation is showing. */}
           <LanguageSwitcher />
-          <button className="btn btn-secondary btn-sm" onClick={openBriefing} title={t("top.briefingTitle")}>
-            <FiZap size={13} /> {t("top.todaysBriefing")}
+          <button className="btn btn-secondary btn-sm" onClick={openBriefing} title={t("top.briefingTitle")} aria-label={t("top.todaysBriefing")}>
+            <FiZap size={13} /> <span className="topbar-label">{t("top.todaysBriefing")}</span>
           </button>
           <NotificationBell />
           {/* The person's own name opens "Change password": the plant's named
               accounts start on a password somebody else chose (REQUIREMENTS §62). */}
           <button className="btn btn-ghost btn-sm flex items-center gap-2" data-action="change-password" onClick={() => setChangingPassword(true)} title={`${user?.email ?? ""} — ${t("top.changePassword")}`}>
             <FiUser size={15} className="text-muted" />
-            <span className="text-sm font-semibold notranslate" translate="no">{user?.name}</span>
-            {user?.role === "admin" && <span className="badge badge-Verified">{t("top.admin")}</span>}
+            <span className="topbar-name text-sm font-semibold notranslate" translate="no">{user?.name}</span>
+            {user?.role === "admin" && <span className="topbar-role badge badge-Verified">{t("top.admin")}</span>}
           </button>
           {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
           {/* EVERY LOG-OUT ASKS ABOUT TODAY'S WORK FIRST (REQUIREMENTS §72).
               confirmLeave still runs after it, so a sheet being designed is
               still asked about too — the two questions are different: one is
               about a draft on this screen, this one about the day's records. */}
-          <button className="btn btn-ghost btn-sm" data-action="logout" onClick={() => setLoggingOut(true)} title={t("top.logOut")}>
-            <FiLogOut size={13} /> {t("top.logOut")}
+          <button className="btn btn-ghost btn-sm" data-action="logout" onClick={() => setLoggingOut(true)} title={t("top.logOut")} aria-label={t("top.logOut")}>
+            <FiLogOut size={13} /> <span className="topbar-label">{t("top.logOut")}</span>
           </button>
           {loggingOut && (
             <LogoutReview

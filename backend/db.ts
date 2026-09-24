@@ -285,6 +285,20 @@ const SCHEMA = `
   -- lines are old. at_idx above still serves the plain day/month/year spans.
   CREATE INDEX IF NOT EXISTS activity_log_user_at_idx ON activity_log (user_id, at);
   CREATE INDEX IF NOT EXISTS activity_log_department_at_idx ON activity_log (department, at);
+  -- A LINE SENT TWICE IS WRITTEN ONCE (REQUIREMENTS §62, §75). The browser
+  -- gives each line a random id of its own (a UUID) the moment the line is
+  -- queued, and keeps it however many times the line is sent. When the answer
+  -- to a send is lost after the lines were already written — the connection
+  -- dropped just after COMMIT — the browser sends the batch again, and this
+  -- index is what makes that second send write nothing new (insertActivity:
+  -- ON CONFLICT on this index, DO NOTHING). NULL for every line written before this, for a
+  -- browser too old to make an id, and for the server's own lines (signing in,
+  -- the jobs), which are never sent twice — and a unique index never compares
+  -- NULLs, so those lines are written exactly as before. Added to a table
+  -- already in use, with no default: no existing line is touched (the table
+  -- refuses an UPDATE anyway, activityArchive.ts). Never handed out by a read.
+  ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS client_id TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS activity_log_client_id_idx ON activity_log (client_id) WHERE client_id IS NOT NULL;
 `;
 
 // THE WORDS A SEARCH OF THE ACTIVITY LOG LOOKS IN (REQUIREMENTS §62, §73):
@@ -340,11 +354,12 @@ async function ensureActivitySearchIndex(client: pg.PoolClient): Promise<void> {
 // date, and that cast uses the connection's time zone. The app's own database
 // takes India's from the machine, but a hosted server usually runs in UTC — and
 // there, everything done before 05:30 would be counted on the day before.
-// Every connection is therefore set to the plant's zone; PLANT_TIMEZONE is for
-// a plant somewhere else. Only a plain zone name is accepted: the value goes
-// into the connection's start-up options, where a space would split it. Read
-// when the database is opened, not when this file is loaded, so a value from
-// backend/.env is seen whichever file happens to import this one first.
+// Every connection is therefore set to the plant's zone (openDatabase, as each
+// connection is made); PLANT_TIMEZONE is for a plant somewhere else. Only a
+// plain zone name is accepted; anything else falls back to India's, and the
+// same name is what the jobs, the archive and the assistant date their days by.
+// Read when the database is opened, not when this file is loaded, so a value
+// from backend/.env is seen whichever file happens to import this one first.
 const TIME_ZONE_RE = /^[A-Za-z][A-Za-z0-9_+\-/]{0,63}$/;
 export function plantTimeZone(): string {
   const zone = process.env.PLANT_TIMEZONE?.trim() ?? "";
@@ -418,7 +433,23 @@ async function importSqliteOnce(): Promise<void> {
 export async function openDatabase(): Promise<pg.Pool> {
   if (pool) return pool;
   const connectionString = process.env.DATABASE_URL || (await embeddedDatabaseUrl());
-  pool = new pg.Pool({ connectionString, max: Number(process.env.PG_POOL_MAX ?? 10), options: `-c TimeZone=${plantTimeZone()}` });
+  const zone = plantTimeZone();
+  pool = new pg.Pool({
+    connectionString,
+    max: Number(process.env.PG_POOL_MAX ?? 10),
+    // THE PLANT'S ZONE ON EVERY CONNECTION, WHATEVER ELSE IT WAS STARTED WITH
+    // (REQUIREMENTS §73). It used to go in the start-up `options`, and there it
+    // could be lost without a word: a DATABASE_URL carrying its own ?options=
+    // (a hosted PostgreSQL's search_path, say) replaced it — every day then
+    // counted in the server's zone — and it replaced a PGOPTIONS the host had
+    // set. So it is set here instead, as each new connection is made, before
+    // the pool hands the connection to anybody (pg-pool awaits this hook), and
+    // the URL's and PGOPTIONS' own options are left exactly as they were. A
+    // zone PostgreSQL does not know fails the connection, as it did before, so
+    // the server stops at start-up instead of counting days in the wrong zone.
+    // (Measured both ways on a throwaway cluster, 24-Sep-2026.)
+    onConnect: (client) => client.query("SELECT set_config('TimeZone', $1, false)", [zone]),
+  });
   pool.on("error", (err) => console.error("[postgres pool]", err.message));
   // The records are written in English and Gujarati, with dashes and arrows: a
   // database in a Windows or Latin-1 encoding would refuse them one save at a time.
@@ -581,6 +612,8 @@ export interface ActivityInput {
   detail?: string;
   department?: string;
   ip?: string;
+  /** The browser's own id for the line (a UUID, checked by the route), so a resent line is written once; none for the server's own lines. */
+  clientId?: string | null;
 }
 
 /**
@@ -590,16 +623,27 @@ export interface ActivityInput {
  * that was half written before a failure would put its first half in the log
  * twice — an audit trail that says a thing was done twice when it was done once.
  * A single INSERT is one transaction; it is also fifteen times quicker.
+ *
+ * AND ONCE ONLY (§75). All-or-nothing covers a send that fails BEFORE it is
+ * written; it cannot cover one written and then unheard of — the connection
+ * dropped after COMMIT, the browser saw a failure and sent the batch again.
+ * A line the browser named (clientId) and the log already has is therefore
+ * passed over (ON CONFLICT on the unique index on client_id — that index
+ * only, so any other clash still fails the batch loudly): a resent batch
+ * writes only what it had not written, still in order, and a retry racing the
+ * first send waits for it and then writes nothing. A line with no id is
+ * written as it always was.
  */
 export async function insertActivity(lines: ActivityInput[]): Promise<void> {
   if (lines.length === 0) return;
   const column = (pick: (l: ActivityInput) => string | null) => lines.map(pick);
   await database().query(
-    `INSERT INTO activity_log (user_id, user_name, user_email, action, target, detail, department, ip)
-     SELECT user_id, user_name, user_email, action, target, detail, department, ip
-       FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
-            WITH ORDINALITY AS line (user_id, user_name, user_email, action, target, detail, department, ip, n)
-      ORDER BY n`,
+    `INSERT INTO activity_log (user_id, user_name, user_email, action, target, detail, department, ip, client_id)
+     SELECT user_id, user_name, user_email, action, target, detail, department, ip, client_id
+       FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[])
+            WITH ORDINALITY AS line (user_id, user_name, user_email, action, target, detail, department, ip, client_id, n)
+      ORDER BY n
+     ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO NOTHING`,
     [
       column((l) => l.userId),
       column((l) => l.userName),
@@ -609,6 +653,7 @@ export async function insertActivity(lines: ActivityInput[]): Promise<void> {
       column((l) => l.detail ?? ""),
       column((l) => l.department ?? ""),
       column((l) => l.ip ?? ""),
+      column((l) => l.clientId ?? null),
     ]
   );
 }

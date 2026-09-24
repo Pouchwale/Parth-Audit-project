@@ -83,10 +83,18 @@ registerSchema(`
     detail TEXT NOT NULL DEFAULT '',
     department TEXT NOT NULL DEFAULT '',
     ip TEXT NOT NULL DEFAULT '',
+    -- The browser's own id for the line (db.ts, activity_log.client_id), moved
+    -- with it so an archived line keeps everything it had. Only the log itself
+    -- needs it unique — it is how a resent line is known, and a line is resent
+    -- within moments, never years after — so it has no index here.
+    client_id TEXT,
     archived_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     -- The super admin who moved it, as "Name <email>".
     archived_by TEXT NOT NULL DEFAULT ''
   );
+  -- For an archive made before the log had client_id: the column added at the
+  -- end (nothing reads the archive by position; every statement names its columns).
+  ALTER TABLE activity_log_archive ADD COLUMN IF NOT EXISTS client_id TEXT;
   CREATE INDEX IF NOT EXISTS activity_log_archive_at_idx ON activity_log_archive (at);
   CREATE INDEX IF NOT EXISTS activity_log_archive_user_at_idx ON activity_log_archive (user_id, at);
   CREATE INDEX IF NOT EXISTS activity_log_archive_department_at_idx ON activity_log_archive (department, at);
@@ -259,8 +267,8 @@ export async function archiveActivity(
       await client.query("SET LOCAL dcrs.archiving = 'on'");
       const moved = await client.query<{ n: string; oldest: Date | null; newest: Date | null }>(
         `WITH moved AS (DELETE FROM activity_log WHERE at < $1::date RETURNING *),
-              kept AS (INSERT INTO activity_log_archive (id, at, user_id, user_name, user_email, action, target, detail, department, ip, archived_by)
-                       SELECT id, at, user_id, user_name, user_email, action, target, detail, department, ip, $2 FROM moved
+              kept AS (INSERT INTO activity_log_archive (id, at, user_id, user_name, user_email, action, target, detail, department, ip, client_id, archived_by)
+                       SELECT id, at, user_id, user_name, user_email, action, target, detail, department, ip, client_id, $2 FROM moved
                        RETURNING at)
          SELECT count(*)::text AS n, min(at) AS oldest, max(at) AS newest FROM kept`,
         [cutoff, `${by.name} <${by.email}>`]

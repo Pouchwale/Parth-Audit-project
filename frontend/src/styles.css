@@ -549,6 +549,38 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   height: 58px; flex-shrink: 0; background: var(--color-surface); border-bottom: 1px solid var(--color-border);
   display: flex; align-items: center; justify-content: space-between; padding: 0 22px; gap: 16px; position: sticky; top: 0; z-index: 20;
 }
+/* THE TOP BAR ON A PHONE (REQUIREMENTS §75). At 390 px it was 629 px wide:
+   the account name and Log Out sat past the right-hand edge, and the whole
+   app scrolled sideways to reach them. In a narrow window every control stays
+   — only room is given up: the words beside an icon ("Today's briefing", "Log
+   Out") go, the button keeping its name (aria-label) and its tooltip; the
+   buttons are drawn a little tighter; a long name is cut short, and on a
+   phone the "Admin" tag beside it goes (the name's tooltip still says whose
+   account it is); and should the controls still not fit (a translation note,
+   say) they wrap onto a second row rather than widen the page. At 390 px the
+   bar is then one row of 58 px again. From 761 px up — every window the
+   suites use — the bar is exactly as it was (Topbar.tsx). */
+@media (max-width: 760px) {
+  .app-topbar { height: auto; min-height: 58px; padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
+  .app-topbar .app-topbar-start { gap: 8px; }
+  .app-topbar .app-topbar-end { gap: 4px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; min-width: 0; }
+  .app-topbar .topbar-label { display: none; }
+  .app-topbar .btn-sm { padding: 5px 7px; }
+  .app-topbar .lang-select { min-width: 0; }
+  .app-topbar .topbar-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (max-width: 420px) {
+  .app-topbar .topbar-name { max-width: 80px; }
+  .app-topbar .topbar-role { display: none; }
+}
+/* The bell's list of reminders (NotificationBell.tsx), hung under the bell and
+   running leftwards from it. On a phone the bell is not far enough from the
+   left edge for 340 px to fit, so there the list spans the window instead,
+   still starting just under the bell (top: auto keeps it where it would be). */
+.card.reminders-panel { position: absolute; right: 0; top: calc(100% + 8px); width: 340px; max-height: 420px; overflow-y: auto; z-index: 60; box-shadow: var(--shadow-lg); }
+@media (max-width: 760px) {
+  .card.reminders-panel { position: fixed; top: auto; left: 8px; right: 8px; width: auto; margin-top: 8px; max-height: min(420px, calc(100vh - 90px)); }
+}
 /* Extra bottom padding reserves clearance for the fixed-position assistant
    widget (bottom-right, ~40px tall collapsed) so it can never sit on top of
    a page's own bottom-right action buttons (e.g. RecordActionBar's Submit)

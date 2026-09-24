@@ -4086,12 +4086,20 @@ Name / Model No.: DCM Usimeca".
   extension; without that right the server starts, logs one line, and searches unindexed.
 - **The search means what it says**: `%`, `_` and `\` are escaped, so "F_QC" no longer finds "F/QC" and "100%" no
   longer finds "1000". The per-person tally beside the lines honours the search too.
-- **A batch of lines is written all or nothing**, in the order given.
+- **A batch of lines is written all or nothing**, in the order given — **and once only**: every line the browser
+  queues carries an id of its own (a UUID, made from `crypto.getRandomValues` where the page is plain http), kept
+  through every retry, and the log keeps a line whose id it already has no second time. A batch whose answer was lost
+  after it was written — the connection dropped just after COMMIT — used to be written twice when it was sent again.
+  Lines with no id (the server's own, an older browser's) are written as before.
 - **Every line carries its department, worked out by the server** from the document's id with the same rule the
   line's visibility uses — the browser's claim is used only when the server's rule places nothing. Purchase, Store,
   Dispatch and Maintenance lines had been filed under no department (§74).
 - **The plant's own clock** (`PLANT_TIMEZONE`, default Asia/Kolkata) for "today", "this month" and active days: a
-  hosted PostgreSQL usually runs in UTC, where everything done before 05:30 was counted on the day before.
+  hosted PostgreSQL usually runs in UTC, where everything done before 05:30 was counted on the day before. It is set on
+  each new connection as it is made: set in the connection's start-up options, a `DATABASE_URL` carrying its own
+  `?options=` silently replaced it, and it replaced a `PGOPTIONS` the host had set.
+- **"Show older" goes on with the list on the screen**: the next page is read with the filter the list was loaded
+  with, not with a search typed into the box but not yet sent, which used to add another search's lines under it.
 - Two servers starting on one database no longer race on creating the tables (an advisory lock).
 
 **6. THE PRE-FILL AND THE DEMO YEAR READ TRUE** (engine/autoFill.ts, engine/plantSimulation.ts, data/demoGenerator.ts,
@@ -4199,6 +4207,9 @@ it reached the super admin only if somebody happened to open the Performance pag
   (language, working hours) are handed on to the next who has none of their own. What was shown or put off for the
   first — the day's notification, the briefing, a snoozed reminder — no longer is: the second person's first sign-in
   used to take on "already shown today", so they never saw theirs (found by `tests/e2e_escalation.py`).
+- **On a phone** the top bar keeps every control and gives up only room — the words beside an icon go (the button
+  keeps its name for a screen reader and its tooltip), a long name is cut short, and the controls wrap rather than
+  widen the page — so at 390 px the app no longer scrolls sideways; the bell's list spans the window there.
 
 **10. THE ACTIVITY LOG IS KEPT FOR EVER; ARCHIVED ONLY ON PURPOSE** (backend/activityArchive.ts,
 backend/archiveRoutes.ts, the Activity Log page). Nothing removes a line by itself — no purge, no timer — and the

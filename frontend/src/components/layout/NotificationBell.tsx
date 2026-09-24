@@ -150,19 +150,8 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div
-          className="card"
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 8px)",
-            width: 340,
-            maxHeight: 420,
-            overflowY: "auto",
-            zIndex: 60,
-            boxShadow: "var(--shadow-lg)",
-          }}
-        >
+        // Placed by styles.css (.reminders-panel), which on a phone spans the window instead of running off its left edge.
+        <div className="card reminders-panel">
           <div className="card-pad">
             <div className="flex items-center justify-between mb-2">
               <strong className="text-sm">Reminders{reminders.length > 0 ? ` (${reminders.length})` : ""}</strong>

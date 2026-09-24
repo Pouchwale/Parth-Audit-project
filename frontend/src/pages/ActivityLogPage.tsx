@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FiArchive, FiDownload, FiRefreshCw, FiSearch, FiX } from "react-icons/fi";
 import { activityArchiveApi, api, ApiError, type ActivityArchivePreview } from "../api/client";
 import { useAuth } from "../store/AuthContext";
@@ -94,29 +94,48 @@ export function ActivityLogPage() {
       .join("&");
   }, [span, person, query]);
 
+  // "SHOW OLDER" GOES ON WITH THE LIST ON THE SCREEN (REQUIREMENTS §62, §75).
+  // The next page must be read with the filter the list was LOADED with — the
+  // span, the person, the search and the archive tick of that reading — not
+  // with whatever is in the search box now: a search typed but not yet sent
+  // used to go with "Show older", and lines of another search were added
+  // under the first one's, beside a tally re-counted for the words typed.
+  // `shown` is set when a fresh reading arrives and only then. `reading`
+  // counts the fresh readings: a page that comes back after a newer reading
+  // began belongs to a list no longer shown, and is dropped.
+  const shown = useRef<{ rest: string; archived: boolean } | null>(null);
+  const reading = useRef(0);
+
   const load = useCallback(
     async (before?: string) => {
+      const fresh = !before;
+      const filter = !fresh && shown.current ? shown.current : { rest: params(), archived };
+      const mine = fresh ? ++reading.current : reading.current;
+      const current = () => mine === reading.current;
       setLoading(true);
       setError(null);
-      const rest = params();
-      const page = `limit=${PAGE}${before ? `&before=${before}` : ""}${rest ? `&${rest}` : ""}`;
+      const page = `limit=${PAGE}${before ? `&before=${before}` : ""}${filter.rest ? `&${filter.rest}` : ""}`;
       try {
         // With the archive ticked: the same query, read over the log and its
         // archive together — same filters, same order, same "Show older".
-        const res = archived ? await activityArchiveApi.lines(page) : await api.get<{ lines: Line[] }>(`/activity?${page}`);
+        const res = filter.archived ? await activityArchiveApi.lines(page) : await api.get<{ lines: Line[] }>(`/activity?${page}`);
+        if (!current()) return;
+        if (fresh) shown.current = filter;
         setLines((prev) => (before ? [...prev, ...res.lines] : res.lines));
         setMore(res.lines.length === PAGE);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "The activity log could not be read.");
+        if (current()) setError(e instanceof Error ? e.message : "The activity log could not be read.");
       } finally {
-        setLoading(false);
+        if (current()) setLoading(false);
       }
+      // The tally counts the whole reading, so a further page of it leaves the tally as it is.
+      if (!fresh || !current()) return;
       // The tally is an extra: a page of lines must still show if it fails.
       try {
-        const sum = archived ? await activityArchiveApi.summary(rest) : await api.get<{ people: ActivityTally[] }>(`/activity/summary${rest ? `?${rest}` : ""}`);
-        setTallies(sum.people ?? []);
+        const sum = filter.archived ? await activityArchiveApi.summary(filter.rest) : await api.get<{ people: ActivityTally[] }>(`/activity/summary${filter.rest ? `?${filter.rest}` : ""}`);
+        if (current()) setTallies(sum.people ?? []);
       } catch {
-        setTallies([]);
+        if (current()) setTallies([]);
       }
     },
     [params, archived]

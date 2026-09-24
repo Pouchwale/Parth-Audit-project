@@ -34,6 +34,7 @@ Network-independent, against the production build on :8843.
 """
 import sys
 import time
+import uuid
 
 from playwright.sync_api import sync_playwright
 
@@ -395,6 +396,34 @@ with sync_playwright() as p:
     page.uncheck("[data-field='include-archived']")
     page.wait_for_timeout(800)
     check("A department account may not read the archive", get_as(browser, "kapila.barad@gpp.local", SEED_PASSWORD, "/api/activity/with-archive") == 403)
+
+    # ---- a line sent again is written once (REQUIREMENTS s75) ----
+    # The browser resends a batch whose answer it never heard; the lines carry
+    # the ids they were given when queued, and the log keeps each one once.
+    probe = f"resend-probe-{STAMP}"
+    batch = {"events": [{"action": "Record opened", "target": probe, "detail": "", "clientId": str(uuid.uuid4())}]}
+    first = post(page, "/api/activity", batch)
+    again = post(page, "/api/activity", batch)
+    found = get(page, f"/api/activity?q={probe}&limit=50")
+    written = [l for l in ((found.get("body") or {}).get("lines") or []) if l.get("target") == probe]
+    check("A line sent twice, its answer lost the first time, is written once", first.get("status") == 204 and again.get("status") == 204 and len(written) == 1, (first.get("status"), again.get("status"), len(written)))
+    bare = {"events": [{"action": "Record opened", "target": probe + "-bare", "detail": ""}]}
+    post(page, "/api/activity", bare)
+    post(page, "/api/activity", bare)
+    found = get(page, f"/api/activity?q={probe}-bare&limit=50")
+    check("...while a line with no id is written each time it is sent, as before", len([l for l in ((found.get("body") or {}).get("lines") or []) if l.get("target") == probe + "-bare"]) == 2)
+
+    # ---- on a phone (REQUIREMENTS s75) ----
+    page.set_viewport_size({"width": 390, "height": 844})
+    for route in ("#/activity", "#/dashboard"):
+        page.goto(f"{BASE}/index.html{route}")
+        page.wait_for_timeout(1500)
+        dismiss(page)
+        close_assistant(page)
+        width = page.evaluate("() => document.documentElement.scrollWidth")
+        check(f"At phone width {route} does not scroll sideways", width <= 390, width)
+    check("...and every control of the top bar is still there to press", all(page.locator(sel).first.is_visible() for sel in ("[data-action='logout']", "button[aria-label='Reminders']", ".app-topbar .lang-select")))
+    page.set_viewport_size({"width": 1500, "height": 1000})
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

@@ -559,6 +559,14 @@ app.post("/api/auth/change-password", requireSession, async (req: Request, res: 
 // ---- the activity log: written by the app as things happen, read by whoever may see them
 const MAX_ACTIVITY_BATCH = 50;
 const clip = (v: unknown, n: number): string => (typeof v === "string" ? v.slice(0, n) : "");
+// THE BROWSER'S OWN ID FOR A LINE (REQUIREMENTS §62, §75; db.ts insertActivity):
+// a UUID and nothing else, kept in small letters so one id is one id however
+// it was written. Anything else — too long, the wrong shape, not a string —
+// is simply not kept: the line is still written, only without the means of
+// knowing it again if it is resent. A line is evidence; it is never refused
+// over the label a browser gave it.
+const CLIENT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const clientLineId = (v: unknown): string | null => (typeof v === "string" && CLIENT_ID_RE.test(v) ? v.toLowerCase() : null);
 
 app.post("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const user = (req as AuthedRequest).user;
@@ -596,6 +604,7 @@ app.post("/api/activity", requireAuth, async (req: Request, res: Response): Prom
       detail: clip(e?.detail, 600),
       department,
       ip: req.ip ?? "",
+      clientId: clientLineId(e?.clientId),
     });
   }
   await insertActivity(lines);

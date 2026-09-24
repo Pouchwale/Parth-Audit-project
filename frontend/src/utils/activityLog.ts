@@ -14,6 +14,13 @@ import { departmentOfDocument } from "../data/seed/documentDepartments";
 // several together, and on the way out of the page; one that cannot be sent is
 // tried again with the next, and the thing it describes is never held up by it.
 // Nothing is kept in the browser's storage: the log lives in PostgreSQL only.
+//
+// SENT AGAIN, WRITTEN ONCE (REQUIREMENTS §75). "Could not be sent" is not
+// always true: the lines may have been written and only the answer lost — the
+// connection dropped after the server saved them. Each line is therefore given
+// an id of its own when it is queued (clientId, a random UUID), and keeps it
+// through every retry; the server writes a line whose id it already has no
+// second time (backend/db.ts insertActivity).
 
 export interface ActivityEvent {
   action: string;
@@ -29,6 +36,33 @@ export interface ActivityEvent {
    * filed under no department at all.
    */
   documentId?: string;
+  /** Made once, when the line is queued, and sent with it every time — so a resent line is written once. */
+  clientId?: string;
+}
+
+/**
+ * A random UUID for a line. crypto.randomUUID exists only on a secure page
+ * (https, or localhost) — and the plant opens the portal over its own network,
+ * by address, on plain http — so the same kind of id is also made from
+ * crypto.getRandomValues, which every browser has on any page. A browser with
+ * neither sends the line without one; it is still written.
+ */
+export function newClientId(): string | undefined {
+  const c: Crypto | undefined = typeof crypto !== "undefined" ? crypto : undefined;
+  if (!c) return undefined;
+  if (typeof c.randomUUID === "function") {
+    try {
+      return c.randomUUID();
+    } catch {
+      /* not a secure page after all: made by hand below */
+    }
+  }
+  if (typeof c.getRandomValues !== "function") return undefined;
+  const b = c.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; // version 4
+  b[8] = (b[8] & 0x3f) | 0x80; // the RFC 4122 variant
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 const FLUSH_AFTER_MS = 1200;
@@ -76,7 +110,8 @@ export function logActivity(action: string, target = "", detail = "", documentId
     installed = true;
     window.addEventListener("pagehide", () => flush(true));
   }
-  waiting.push({ action, target, detail, department: documentId ? (departmentOfDocument(documentId) ?? "") : "", ...(documentId ? { documentId } : {}) });
+  const clientId = newClientId();
+  waiting.push({ action, target, detail, department: documentId ? (departmentOfDocument(documentId) ?? "") : "", ...(documentId ? { documentId } : {}), ...(clientId ? { clientId } : {}) });
   if (waiting.length > MAX_WAITING) waiting = waiting.slice(-MAX_WAITING);
   if (timer === null) timer = window.setTimeout(() => flush(), FLUSH_AFTER_MS);
 }

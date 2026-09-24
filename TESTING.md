@@ -232,6 +232,11 @@ Seven scripts live in `tests/`:
 - `tests/e2e_login_only.py` gained **the archive**: the super admin's panel with nothing old enough on a fresh log and
   its button off, the preview through the API, a move that moves nothing and writes no line, a stale cutoff refused,
   "Include archived lines" changing nothing when nothing is archived, and a department account refused the archive.
+- `tests/e2e_login_only.py` also checks **a line sent twice is written once** (the same id sent in two batches, as a
+  browser does after a lost answer) while a line with no id is written each time, and **a phone's width**: at 390 px
+  neither the Activity Log nor the Dashboard scrolls sideways, and the top bar's Log Out, bell and language are still
+  there to press. `frontend/tests/activityLog.test.ts` checks the browser's half: every line gets a UUID, on a
+  plain-http page too, and a batch sent again carries the very same ids.
 - `frontend/tests/latenessCore.test.ts` - the one lateness rule the server and the scorecard share, held to identical
   results against a frozen copy of the old scorecard code over 17,000 judgements and 126 whole scorecards, and the
   plant's closed days against engine/holidays.ts for every day of three years.
