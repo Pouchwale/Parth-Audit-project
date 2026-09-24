@@ -9,80 +9,57 @@ import { assistantConfigured } from "./features";
 // The tables are good, and offline they are all there is — but a person could
 // not tell which of the two had answered, and that is the part that was wrong.
 //
-// So now the MODEL answers, and this module is what says whether it can be
-// asked. Three things can stop it:
+// So now the MODEL answers, and this module decides only ONE thing: whether to
+// bother trying.
 //
-//   1. THE BROWSER IS OFFLINE. navigator.onLine is a hint, not a promise — it
-//      says the machine has a network, not that Groq is reachable — so it is
-//      used only to skip a request that is certain to fail, never as proof
-//      that one will succeed.
-//   2. THE SERVER HAS NO KEY. Then there is no model at all, for anybody, and
-//      saying "no internet" would be a lie. The server says so with the other
-//      feature flags (backend/features.ts → engine/features.ts).
-//   3. A REQUEST JUST FAILED. Asking again immediately would make every
-//      message wait for the same timeout, so a failure is remembered — but
-//      only for a short while, and it is forgotten the moment the browser
-//      says it is back online. A network that comes back must not need a
-//      reload to be noticed.
+// AND IT ANSWERS THAT AS NARROWLY AS IT CAN. The first version of this file
+// also refused to try when the server had reported no GROQ_API_KEY, and
+// remembered a failure for twenty seconds so the next few messages would not
+// each wait out the same timeout. Both were the client second-guessing the
+// server, and both were wrong:
+//
+//   * tests/e2e_capa_formats.py STUBS /api/assistant/chat to check the app's
+//     own refusal of an out-of-order checklist answer "deterministically, and
+//     with no network call" — a request that is never made cannot be stubbed,
+//     and the check failed. Anything else standing in for that endpoint — a
+//     proxy, a different model, a plant's own server — would have been skipped
+//     the same way.
+//   * a remembered failure makes the app stop trying while the person watches
+//     it not try, and it can only ever be out of date.
+//
+// A request to OUR OWN server is not the slow thing: if there is no key it
+// fails at once, without any call to Groq. So the only case worth short-
+// circuiting is the one the browser can actually be sure of — no network at
+// all. Everything else is attempted, and the server's answer decides.
 
-/** Why the model could not be asked — what the person is told, in the app's own words. */
+/** Why the model could not answer — what the person is told, in the app's own words. */
 export type Unreachable = "offline" | "not-configured" | "failed";
 
-const RETRY_AFTER_MS = 20_000;
-
-let failedAt = 0;
-let lastReason: Unreachable | null = null;
-let installed = false;
-
-/** The machine's own answer, treated as a hint. `undefined` in a non-browser context. */
+/** The machine's own answer. `true` in a non-browser context, where there is nothing to ask. */
 const browserOnline = (): boolean => (typeof navigator === "undefined" || typeof navigator.onLine !== "boolean" ? true : navigator.onLine);
 
-function install(): void {
-  if (installed || typeof window === "undefined") return;
-  installed = true;
-  // Back online: forget the failure at once rather than making the next
-  // message serve out the rest of the cool-off.
-  window.addEventListener("online", () => {
-    failedAt = 0;
-    lastReason = null;
-  });
-  window.addEventListener("offline", () => {
-    lastReason = "offline";
-  });
-}
-
 /**
- * WHETHER TO ASK THE MODEL. When this says no, the caller answers from the
- * app's own tables and SAYS SO — the answer is never passed off as the
- * model's (that is the whole complaint this module exists for).
+ * WHETHER TO ASK THE MODEL. No is returned only when this browser has no
+ * network at all — the one thing it can be certain of. When this says no, the
+ * caller answers from the app's own tables and SAYS SO; it never passes that
+ * answer off as the model's, which is the whole complaint this exists for.
  */
 export function modelReachable(): { ok: true } | { ok: false; why: Unreachable } {
-  install();
-  if (!assistantConfigured()) return { ok: false, why: "not-configured" };
   if (!browserOnline()) return { ok: false, why: "offline" };
-  if (failedAt && Date.now() - failedAt < RETRY_AFTER_MS) return { ok: false, why: lastReason ?? "failed" };
   return { ok: true };
 }
 
 /**
- * A request to the model failed. Remembered briefly so the next few messages
- * are answered at once instead of each waiting for the same timeout. If the
- * browser says it is offline, that is the honest reason to give.
+ * A request to the model failed, and this is the honest reason to give for it.
+ * The distinction matters: telling somebody their internet is down when the
+ * server simply has no key set would send them to fix the wrong thing.
  */
 export function noteModelFailed(): Unreachable {
-  install();
-  failedAt = Date.now();
-  lastReason = browserOnline() ? "failed" : "offline";
-  return lastReason;
+  if (!browserOnline()) return "offline";
+  return assistantConfigured() ? "failed" : "not-configured";
 }
 
-/** The model answered: whatever was wrong is over. */
+/** The model answered. Nothing is remembered either way, so there is nothing to clear. */
 export function noteModelAnswered(): void {
-  failedAt = 0;
-  lastReason = null;
-}
-
-/** For the tests and for the composer's own pill. */
-export function lastUnreachableReason(): Unreachable | null {
-  return lastReason;
+  /* nothing to do: no failure is cached, on purpose — see the note above. */
 }
