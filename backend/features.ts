@@ -21,5 +21,13 @@ export const DEMO_MODE = process.env.DEMO_MODE === "1";
 // when the seeded accounts have been left out.
 export const ALLOW_SIGNUP = process.env.ALLOW_SIGNUP === "1";
 
+// WHETHER THERE IS A MODEL TO ASK AT ALL (REQUIREMENTS §72). Mitra's replies
+// come from Groq (backend/groq.ts), which needs GROQ_API_KEY. Without it there
+// is no model for anybody, and the app must say THAT rather than blame the
+// person's internet — or, worse, answer from its own tables and let them think
+// they were talking to the model. Only WHETHER a key is set is ever sent; the
+// key itself never leaves the server.
+export const ASSISTANT_CONFIGURED = !!(process.env.GROQ_API_KEY ?? "").trim();
+
 /** What the browser is told, beside the account — and, before anybody signs in, by GET /api/auth/config. */
-export const FEATURES = { demoMode: DEMO_MODE, signup: ALLOW_SIGNUP };
+export const FEATURES = { demoMode: DEMO_MODE, signup: ALLOW_SIGNUP, assistant: ASSISTANT_CONFIGURED };

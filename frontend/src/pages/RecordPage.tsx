@@ -241,8 +241,28 @@ export function RecordPage({ recordId }: { recordId?: string }) {
   useEffect(() => {
     if (!dirty) return;
     const onLeave = () => void flush();
+    // THREE EVENTS, NOT ONE (REQUIREMENTS §72). beforeunload is the event
+    // browsers are least willing to fire: a tab discarded under memory
+    // pressure, a phone putting the app to sleep, or a connection lost while
+    // the page sits in the background can all skip it. pagehide fires in those
+    // cases, and a tab merely being hidden is caught too — whichever comes
+    // first, the keystroke inside the autosave's pause is already written.
+    const onHide = () => {
+      if (document.visibilityState === "hidden") void flush();
+    };
     window.addEventListener("beforeunload", onLeave);
-    return () => window.removeEventListener("beforeunload", onLeave);
+    window.addEventListener("pagehide", onLeave);
+    document.addEventListener("visibilitychange", onHide);
+    // The connection going is not itself a reason to lose anything: what is
+    // typed goes to this computer's own storage now, and data/serverSync.ts
+    // sends it to PostgreSQL when the database can be reached again.
+    window.addEventListener("offline", onLeave);
+    return () => {
+      window.removeEventListener("beforeunload", onLeave);
+      window.removeEventListener("pagehide", onLeave);
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("offline", onLeave);
+    };
   }, [dirty, flush]);
 
   // The two calibration records work their deviations out from what is written

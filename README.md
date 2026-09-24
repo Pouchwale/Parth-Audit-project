@@ -125,6 +125,21 @@ The app behaves like a personal assistant rather than a blank form:
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
   shows the three formats issued in Gujarati in English. What a record holds — the names signed, the
   readings typed, the format number and the revision — reads exactly as issued in either language.
+- **Mitra asks the model, and says when it could not** (REQUIREMENTS §72). A question goes to the Groq-backed
+  assistant. Only four things are answered without it, each for a reason: an out-of-scope message, "are you a real
+  person?", the opening greeting with its buttons, and a command that opens a screen. **When the model cannot be
+  reached the reply says so on its face** — no internet on this machine, Mitra did not answer, or no key on this
+  server, which are three different things and are never run together. The app can still answer offline from the
+  plant's own records; what it no longer does is pass that off as the model's.
+- **Every log-out asks about the day first** (REQUIREMENTS §72), for every account and every module: what is due and
+  not submitted, worst first, with an offer to go and review it, and a word about anything that has not reached the
+  database yet. Nobody is held there — "Log out" always logs out. Work itself is saved as it is typed, and now also
+  when a tab is discarded, a phone sleeps, or the connection drops.
+- **Every person's work over a day, a month or a year** (REQUIREMENTS §73): the Activity Log filters to a span and to
+  one person, and counts what each of them did — filled in, submitted, approved, days active. The same tally sits on
+  the **Performance Scorecard beside the scores**, because the two answer different questions: the score is what fell
+  due and what was submitted on time, and this is who actually did the work. A department can be perfectly up to date
+  because one person did all of it, and the score alone would never say so.
 - **A Store module** (REQUIREMENTS §71): the two formats the store keeps, sitting between Purchase and Dispatch
   because that is the order the material moves in. The **Incoming Material Vehicle & Condition Monitoring
   Record** was supplied as a photograph of the **rubber stamp** the store puts on receiving paperwork, so it is

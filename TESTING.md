@@ -189,6 +189,17 @@ Seven scripts live in `tests/`:
   English with nothing of it left in Gujarati; and a container check started, filled, submitted and on file.
   Two more documents moved the totals again: **79 → 81** in `e2e_smoke.py` and `e2e_hr_module.py`, and the
   sidebar's modules **7 → 8** in `e2e_smoke.py` (collapse-all and expand-all) and `tests/visual_qa.py`.
+- `tests/e2e_assistant_and_logout.py` - Mitra asking the model, and the log-out review (REQUIREMENTS §72), a
+  thirty-third suite, added 24-Sep-2026. **This server is started with no `GROQ_API_KEY`** — `scripts/run-e2e.ts`
+  blanks it, because the real key in `backend/.env` reaches the test server through `process.env` and every scripted
+  chat message would otherwise become a live, paid, flaky API call. That is also what makes the suite's point
+  testable: with no model to ask, a question is still answered from the app's own records **and is labelled as such**,
+  which is the thing that was missing (before §72 the app answered from those records first and never said so, which
+  is why the plant could not tell the API was unused). It checks: the server reporting WHETHER it has a key and never
+  what it is; a question answered and labelled with the honest reason; a greeting and "are you a real person?"
+  answered locally, NOT labelled, buttons intact; and the log-out pop-up counting what is due, listing it worst
+  first, keeping the session on "Stay signed in", asking AGAIN the next time, and logging out when told to. Eight
+  other suites log out mid-run and now click through the review first.
 - `tests/e2e_store_module.py` - the Store module and its two formats (REQUIREMENTS §71), a thirty-second
   suite, added 23-Sep-2026: the module in the sidebar and that it sits between Purchase and Dispatch, the order
   the material moves in; that **no module in the sidebar shows a translation key** instead of a name (Dispatch

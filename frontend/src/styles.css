@@ -250,6 +250,18 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .register-original { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .register-original img { width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fff; }
 
+/* ---- a plain list of things to go and look at, and a word that acts like a link ---- */
+.plain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.plain-list > li { padding-left: 10px; border-left: 3px solid var(--color-border); }
+.plain-list > li[data-priority="high"] { border-left-color: var(--color-danger); }
+.plain-list > li[data-priority="medium"] { border-left-color: var(--color-warning); }
+.link-button { background: none; border: 0; padding: 0; color: var(--color-primary); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.link-button:hover { text-decoration: underline; }
+
+/* ---- Mitra: an answer the app gave itself, not the model (REQUIREMENTS §72) ---- */
+.chat-aside { align-self: flex-start; max-width: 95%; display: flex; align-items: center; gap: 5px; margin: -2px 0 6px; padding: 3px 8px; border-radius: var(--radius-sm); font-size: 11px; line-height: 1.35; color: var(--color-text-muted); background: var(--color-surface-alt); border: 1px dashed var(--color-border); }
+.chat-aside svg { flex: 0 0 auto; }
+
 /* ---- F/HR/18 fly catcher register, printed layout (components/records/FlyCatcherRegisterSheet.tsx) ---- */
 .fhr18-month { display: flex; align-items: baseline; gap: 14px; margin-top: 12px; padding: 6px 10px; border: 1px solid #2c3e50; font-size: 12.5px; }
 .fhr18-month .k { font-weight: 700; }

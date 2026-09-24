@@ -268,6 +268,17 @@ const en = {
   // The picture the plant supplied, shown unaltered beside the form it was
   // built from (REQUIREMENTS §71). Only on a document that has one.
   "doc.showOriginal": "Show the supplied original",
+
+  // ---- when Mitra could not reach its model (REQUIREMENTS §72) -----------
+  // Said ON the answer, so nobody has to wonder which of the two replied.
+  // "offline" and "failed" are different things and are not run together: one
+  // is this machine having no network, the other is the assistant not
+  // answering while it has one.
+  "ai.offline.offline": "Answered without the internet, from this system's own records — Mitra could not be reached.",
+  "ai.offline.failed": "Mitra did not answer just now, so this came from this system's own records.",
+  "ai.offline.not-configured": "Mitra has no assistant key set up on this server, so this came from this system's own records.",
+  "ai.offline.noAnswer": "I cannot reach Mitra just now, and this is not something I can answer from the records on this machine. Please try again when the connection is back.",
+  "ai.offline.noFill": "Filling a record in needs Mitra, and I cannot reach it just now. Your work on this record is saved — type into the form, or try again when the connection is back.",
   "doc.hideOriginal": "Hide the supplied original",
   "nav.statementsOfCompliance": "Statements of Compliance",
   // The company name alone — the modules are in the panel underneath (REQUIREMENTS §65).
@@ -782,6 +793,12 @@ const gu: Record<StringKey, string> = {
   "nav.strSharpToolControl": "ધારદાર ઓજાર નિયંત્રણ",
   "nav.strSharpMetalObjects": "ધારદાર ધાતુ વસ્તુઓ ઇશ્યૂ અને પરત",
   "doc.showOriginal": "મળેલું મૂળ બતાવો",
+
+  "ai.offline.offline": "ઇન્ટરનેટ વગર જવાબ આપ્યું — આ સિસ્ટમના પોતાના રેકોર્ડ માંથી; મિત્ર સાથે સંપર્ક થર્યો નહીં.",
+  "ai.offline.failed": "મિત્રે અત્યારે જવાબ ન આપ્યું, અેટલે આ જવાબ આ સિસ્ટમના પોતાના રેકોર્ડ માંથી આવ્યો છે.",
+  "ai.offline.not-configured": "આ સર્વર પર મિત્ર માટે કોઈ કી સેટ કરેલી નથી, અેટલે આ જવાબ સિસ્ટમના રેકોર્ડ માંથી આવ્યો છે.",
+  "ai.offline.noAnswer": "અત્યારે મિત્ર સાથે સંપર્ક થતો નથી, અને આ પ્રશ્નનો જવાબ આ મશીન પરના રેકોર્ડમાં નથી. કનેક્શન પાછું આવે ટ્યારે ફરી પ્રયાસ કરો.",
+  "ai.offline.noFill": "રેકોર્ડ ભરવા માટે મિત્ર જરૂરી છે, અને અત્યારે સંપર્ક થતો નથી. આ રેકોર્ડ પરનું તમારું કામ સાચવાઈ ગયું છે — ફોર્મમાં સીધું લખો, અથવા કનેક્શન પાછું આવે ટ્યારે ફરી પ્રયાસ કરો.",
   "doc.hideOriginal": "મળેલું મૂળ છુપાવો",
   "nav.statementsOfCompliance": "અનુપાલન નિવેદનો",
   "nav.brandSubtitle": "ગુજરાત પ્રિન્ટપેક પબ્લિકેશન પ્રા. લિ.",

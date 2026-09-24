@@ -3,6 +3,7 @@ import { FiUser, FiPlayCircle, FiCheckCircle, FiLogOut, FiZap, FiMenu, FiSidebar
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
 import { confirmLeave, useRouter } from "../../store/router";
+import { LogoutReview } from "../common/LogoutReview";
 import { pressable } from "../../utils/pressable";
 import { useSidebar } from "../../store/sidebar";
 import { demoModeAvailable } from "../../engine/features";
@@ -16,6 +17,7 @@ export function Topbar() {
   const { mode, setMode } = useAppStore();
   const { user, logout } = useAuth();
   const [changingPassword, setChangingPassword] = React.useState(false);
+  const [loggingOut, setLoggingOut] = React.useState(false);
   const { navigate } = useRouter();
   const { visible: sidebarVisible, toggle: toggleSidebar } = useSidebar();
   const t = useT();
@@ -77,9 +79,22 @@ export function Topbar() {
             {user?.role === "admin" && <span className="badge badge-Verified">{t("top.admin")}</span>}
           </button>
           {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
-          <button className="btn btn-ghost btn-sm" onClick={() => confirmLeave(() => logout())} title={t("top.logOut")}>
+          {/* EVERY LOG-OUT ASKS ABOUT TODAY'S WORK FIRST (REQUIREMENTS §72).
+              confirmLeave still runs after it, so a sheet being designed is
+              still asked about too — the two questions are different: one is
+              about a draft on this screen, this one about the day's records. */}
+          <button className="btn btn-ghost btn-sm" data-action="logout" onClick={() => setLoggingOut(true)} title={t("top.logOut")}>
             <FiLogOut size={13} /> {t("top.logOut")}
           </button>
+          {loggingOut && (
+            <LogoutReview
+              onCancel={() => setLoggingOut(false)}
+              onLogout={() => {
+                setLoggingOut(false);
+                confirmLeave(() => void logout());
+              }}
+            />
+          )}
         </div>
       </div>
       {/* The band that says WHICH mode this is — said only where there are two to tell apart. */}

@@ -244,6 +244,11 @@ with sync_playwright() as p:
     a.goto(f"{BASE}/index.html#/calendar")
     a.wait_for_timeout(1500)
     a.locator("button[title='Log Out']").first.click()
+    # Every log-out asks about the day's work first (REQUIREMENTS s72).
+    a.wait_for_timeout(500)
+    _logout_ok = a.locator("[data-action='logout-review-confirm']")
+    if _logout_ok.count():
+        _logout_ok.first.click()
     a.wait_for_selector("#login-email", timeout=20000)
     other_id = f"pg-meanwhile-{stamp}"
     check("(meanwhile, someone else adds a record)", put_records(b, {"id": other_id, "documentId": "daily-pest-monitoring"}) == 200)

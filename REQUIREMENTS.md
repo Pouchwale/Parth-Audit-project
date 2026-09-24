@@ -3757,6 +3757,113 @@ filling with nothing.
   nothing returned filed successfully. The document total moved from **81 to 83** and the sidebar from eight
   modules to nine.
 
+## 72. Mitra really asks the model, and every log-out asks about the day (24-Sep-2026)
+
+```
+REQUESTED            "i have noticed that chatbot might be not using groq api because when my internet is off then
+                      also chatbot is working perfectly without any error so make sure what bot do it will use api
+                      and not fixed question and answer which you have intregrated ... and sometime if any user is
+                      working and suddenly internet has gone or his by mistakely logout then system should save his
+                      work automatically ... and when user logout out every time the pop should also come that have
+                      to reviewed and submitted your todays work and this is applicable to all user of all module."
+BUILT                engine/assistantReach.ts, components/common/LogoutReview.tsx, engine/assistantLocal.ts
+                      (LocalAnswer.kind + answerStaysLocal), pages/AssistantPage.tsx,
+                      components/common/DocumentAssistant.tsx, backend/features.ts, engine/features.ts,
+                      components/common/DatabaseSyncBanner.tsx, pages/RecordPage.tsx,
+                      components/layout/Topbar.tsx, tests/e2e_assistant_and_logout.py
+```
+
+**1. THE PLANT WAS RIGHT, AND THE CAUSE WAS NOT A MISSING KEY.** `GROQ_API_KEY` was set in `backend/.env` all along.
+The app never got that far: `engine/assistantLocal.ts` is a 918-line answerer with some fifty intents, and it was asked
+FIRST — the model was reached only for what it could not handle. Everything a person normally types was handled, so the
+assistant went on working with the internet off and nothing on screen ever said which of the two had replied.
+
+**THE MODEL ANSWERS NOW.** Four things stay local, and each for a reason rather than for convenience:
+- **out-of-scope** messages, declined here and never sent anywhere;
+- **"are you a real person?"** — the honest answer is never the model's to improvise;
+- **the opening greeting** with its buttons (§67) — a round trip to say hello makes an assistant feel slower, not cleverer;
+- **anything that OPENS a screen** — the app carrying out a command is not a canned reply.
+
+Everything else is a question, and a question is what the model is for. `LocalAnswer.kind` says which of these an answer is,
+and `answerStaysLocal()` is the one place that decides.
+
+**2. AND WHEN THE MODEL CANNOT BE REACHED, THE ANSWER SAYS SO.** This is the part that was actually wrong: not that the
+app could answer offline — that is worth having — but that it passed its own answer off as the model's. A reply given
+without the model now carries a line under it naming the reason, and the three reasons are different and are not run
+together: **no internet on this machine**, **Mitra did not answer**, and **no key on this server**. Blaming a person's
+connection for a missing key would be a lie.
+
+`engine/assistantReach.ts` decides whether to ask. `navigator.onLine` is treated as a HINT — it says the machine has a
+network, not that Groq is reachable — so it is used only to skip a request certain to fail, never as proof one will
+succeed. A failure is remembered for twenty seconds so the next few messages are not each made to wait out the same
+timeout, and it is forgotten the moment the browser says it is back online: a network that returns must not need a reload.
+
+**3. WHAT WAS ALREADY THERE, AND WAS NOT BUILT AGAIN.** The plant asked for work to be saved when the internet goes or
+somebody logs out by mistake. That already worked, and it is worth saying plainly rather than claiming credit for it:
+`pages/RecordPage.tsx` autosaves 700ms after the last keystroke, flushes when the page is left and when the tab closes,
+and `data/serverSync.ts` keeps a queue to PostgreSQL that retries. Three real gaps were closed:
+- **`beforeunload` alone is not enough.** It is the event browsers are least willing to fire — a tab discarded under
+  memory pressure, a phone putting the app to sleep. It now also saves on `pagehide`, on the tab being hidden, and on
+  the `offline` event itself.
+- **Losing the connection said nothing** until the NEXT save failed — the very moment a person most wants telling that
+  their work is safe. The banner now appears as soon as the machine goes offline, and says to keep working.
+- **The log-out pop-up names what has not reached the database yet**, and says plainly that logging out then loses
+  nothing.
+
+**4. EVERY LOG-OUT ASKS ABOUT TODAY'S WORK.** Every time, for every account, in every module. A day's paperwork filled in
+but never submitted is, to an auditor, a day with no record — and the one moment worth mentioning it is while the person
+is still there to fix it. It lists what is DUE, today or already late, worst first, by the same rule the daily
+notification uses (§69): their department's documents and the ones Master Data names them on. Something due next week is
+not today's work and saying so would cry wolf every evening until people stopped reading it.
+- **Nobody is held there.** "Log out" always logs out. Being told is the point; being trapped is not.
+- The sheet designer's own question about an unsaved format still follows it (`confirmLeave`), because the two ask
+  different things: one about the day's records, the other about a draft on this screen.
+
+**5. THE SUITES KEEP THEIR WORD.** `TESTING.md` calls these suites network-independent, and they were — but only by
+accident: the local answerer caught everything, so Groq was never called. With the model asked first they WOULD have
+called it, on the real key, which reaches the test server through `process.env`. `scripts/run-e2e.ts` now blanks
+`GROQ_API_KEY` for them, exactly as it already did `CV_READ_WITH_ASSISTANT`, so every scripted message is answered from
+the app's own tables and labelled as such. The real API is exercised by `tests/e2e_assistant_chat.py`, run on its own.
+
+- Covered by `tests/e2e_assistant_and_logout.py` (a thirty-third suite): the server saying WHETHER it has a key and
+  never what it is; a question answered and labelled with the honest reason; a greeting and "are you a real person?"
+  answered locally and NOT labelled, with their buttons intact; and the log-out pop-up counting what is due, listing it
+  worst first, keeping the session on "Stay signed in", asking again the next time, and logging out when told to.
+
+## 73. Every person's work over a day, a month or a year — and the score beside it (24-Sep-2026)
+
+```
+REQUESTED            "as i told told you that what ever user do in system the superadmin can see his logs anything
+                      whatever the work that user has done in whole day, month, year and according to that logs also
+                      score will decide."
+BUILT                backend/db.ts (activitySummary, ActivityFilter), backend/index.ts (/api/activity/summary),
+                      engine/activityWork.ts, pages/ActivityLogPage.tsx, pages/PerformancePage.tsx
+```
+
+**1. A DAY, A MONTH, A YEAR — OR EVERYTHING.** The Activity Log already held every line in PostgreSQL, only ever added
+to, with the super admin reading all of them (§62). It gains the spans a person actually asks for, and a filter to ONE
+person: both go to the server as plain dates and an account id, and both ends of a span are included, which is what
+somebody means by "this month". The scoping rule is untouched — `person` narrows what an account may already read and
+can never widen it.
+
+**2. THE TALLY IS COUNTED IN THE DATABASE**, not by walking every line in the browser: a year of a busy plant is far
+more lines than a page should hold, and the counts are all that is being asked for. Per person: filled in, submitted,
+approved, **days active**, and every action. Days active is counted per person in its own query, because the same day
+appears under each action and adding them would say somebody worked thirty days in a week.
+
+**3. WHAT COUNTS AS WORK** is taken from the log's own words (`engine/recordHistory.ts`, `ACTIVITY_WORDS`) rather than
+guessed at: "Record edited", not "Record saved"; "Record submitted for verification", not "Record submitted". Getting
+this wrong breaks nothing and shows a column of zeros, which is worse, so `engine/activityWork.ts` holds the strings
+once and says why. Filling a record in through Mitra is still filling it in. Opening, printing and downloading are in
+"all actions" but are not what a day is judged on.
+
+**4. THE SCORE IS READ BESIDE THE LOG, NOT REPLACED BY IT.** "according to that logs **also** score will decide" — so
+the Performance Scorecard keeps the arithmetic §64 defined (what fell due, what was submitted on time) and gains a panel
+showing what the log says each person actually did over the same period. The two answer different questions and a plant
+needs both: **a department can be perfectly up to date because one person did all of it, and the score alone would never
+say so.** The panel is an extra — if the log cannot be read the scorecard stands on its own and the panel does not
+appear.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

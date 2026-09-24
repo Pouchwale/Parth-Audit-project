@@ -253,6 +253,11 @@ with sync_playwright() as p:
     flat = [" | ".join(l) for l in log_lines(page, "Password")]
     check("Both are in the log - the refusal and the change - and the password itself is not", any("Password change refused" in l for l in flat) and any("Password changed" in l for l in flat) and not any(NEW_PASSWORD in l or PASSWORD in l for l in flat), flat[:4])
     page.click("button:has-text('Log Out')")
+    # Every log-out asks about the day's work first (REQUIREMENTS s72).
+    page.wait_for_timeout(500)
+    _logout_ok = page.locator("[data-action='logout-review-confirm']")
+    if _logout_ok.count():
+        _logout_ok.first.click()
     page.wait_for_selector("#login-email", timeout=30000)
     page.fill("#login-email", email)
     page.fill("#login-password", NEW_PASSWORD)

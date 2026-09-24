@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FiMessageSquare, FiMic, FiMicOff, FiPlus, FiSend, FiTrash2, FiVolume2, FiVolumeX, FiZap } from "react-icons/fi";
+import { FiMessageSquare, FiMic, FiMicOff, FiPlus, FiSend, FiTrash2, FiVolume2, FiVolumeX, FiWifiOff, FiZap } from "react-icons/fi";
 import { ApiError, assistantApi } from "../api/client";
 import { useAuth } from "../store/AuthContext";
 import { useAppStore } from "../store/AppStore";
 import { isValidAppRoute, useRouter } from "../store/router";
 import { onExternalChange, readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
-import { buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
+import { answerStaysLocal, buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
+import { modelReachable, noteModelAnswered, noteModelFailed, type Unreachable } from "../engine/assistantReach";
 import { parseAssistantCommand } from "../engine/assistantCommands";
 import { hrMasterChatAnswer } from "../engine/hrMasterAssistant";
 import { createRecordForDocument } from "../engine/recordCrud";
@@ -54,6 +55,14 @@ interface StoredMessage {
   text: string;
   at: string; // ISO timestamp
   chips?: Chip[];
+  /**
+   * WHY THIS ANSWER DID NOT COME FROM THE MODEL (REQUIREMENTS §72), when it
+   * did not. The plant could not tell that the assistant was answering from
+   * the app's own tables rather than from the API — it worked with the
+   * internet off, which is exactly how they noticed. An answer given without
+   * the model now says so on its face.
+   */
+  offline?: Unreachable;
 }
 
 interface Conversation {
@@ -286,12 +295,26 @@ export function AssistantPage() {
       }
     }
 
+    // WHO ANSWERS (REQUIREMENTS §72). Scope, identity, the opening greeting and
+    // anything that OPENS a screen are this app's own to answer and are
+    // answered here. Everything else is a question, and the model answers it —
+    // which is the whole point of having one. The app's own tables are still
+    // there, but as a FALLBACK that says it is one.
     const local = localAnswer(text, isDemo, user?.name);
-    if (local) {
+    if (local && answerStaysLocal(local)) {
       append(convId, { id: generateId("msg"), role: "bot", text: local.reply, at: stamp(), chips: local.chips });
       readOut(local.reply);
       // e.g. "pest control documents from 1 to 19 January" opens exactly those files.
       if (local.navigate && isValidAppRoute(local.navigate)) navigate(local.navigate);
+      return;
+    }
+
+    // No model to ask: answered from the app's own tables, marked as such.
+    const reach = modelReachable();
+    if (!reach.ok) {
+      const fallback = local ?? { reply: t("ai.offline.noAnswer"), chips: undefined };
+      append(convId, { id: generateId("msg"), role: "bot", text: fallback.reply, at: stamp(), chips: fallback.chips, offline: reach.why });
+      readOut(fallback.reply);
       return;
     }
 
@@ -319,13 +342,24 @@ export function AssistantPage() {
       }
       append(convId, { id: generateId("msg"), role: "bot", text: result.reply, at: stamp() });
       readOut(result.reply);
+      noteModelAnswered();
     } catch (err) {
-      append(convId, {
-        id: generateId("msg"),
-        role: "bot",
-        text: err instanceof ApiError ? err.message : t("ai.error"),
-        at: stamp(),
-      });
+      // THE MODEL COULD NOT ANSWER (REQUIREMENTS §72). The internet may have
+      // gone mid-sentence, so where the app's own tables have an answer it is
+      // given — marked as the app's, never passed off as the model's.
+      const why = noteModelFailed();
+      if (local) {
+        append(convId, { id: generateId("msg"), role: "bot", text: local.reply, at: stamp(), chips: local.chips, offline: why });
+        readOut(local.reply);
+      } else {
+        append(convId, {
+          id: generateId("msg"),
+          role: "bot",
+          text: err instanceof ApiError ? err.message : t("ai.error"),
+          at: stamp(),
+          offline: why,
+        });
+      }
     } finally {
       setLoading(false);
       setPendingId(null);
@@ -469,6 +503,12 @@ export function AssistantPage() {
               <div className={`chat-msg ${m.role}`} title={timeLabel(m.at)}>
                 {m.text}
               </div>
+              {/* Answered by the app itself, not by the model (REQUIREMENTS §72). */}
+              {m.offline && (
+                <div className="chat-aside" data-offline={m.offline}>
+                  <FiWifiOff size={11} /> {t(`ai.offline.${m.offline}`)}
+                </div>
+              )}
               {m.chips && m.chips.length > 0 && (
                 <div className="chat-chips" style={{ alignSelf: "flex-start", maxWidth: "80%" }}>
                   {m.chips.map((c) => (

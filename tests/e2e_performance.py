@@ -512,6 +512,11 @@ with sync_playwright() as p:
     # ==================================================================
     page.wait_for_timeout(2500)  # what was generated goes to the database before the session ends
     page.locator("button[title='Log Out']").first.click()
+    # Every log-out asks about the day's work first (REQUIREMENTS s72).
+    page.wait_for_timeout(500)
+    _logout_ok = page.locator("[data-action='logout-review-confirm']")
+    if _logout_ok.count():
+        _logout_ok.first.click()
     page.wait_for_selector("#login-email", timeout=30000)
     page.fill("#login-email", QC_EMAIL)
     page.fill("#login-password", PASSWORD)

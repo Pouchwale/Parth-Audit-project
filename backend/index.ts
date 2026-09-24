@@ -20,6 +20,7 @@ import {
   insertUser,
   isDatabaseUnavailable,
   listActivity,
+  activitySummary,
   listUsers,
   markSignedIn,
   openDatabase,
@@ -586,14 +587,49 @@ app.post("/api/activity", requireAuth, async (req: Request, res: Response): Prom
 // The administrator reads every line. An account kept to departments reads its
 // own lines and its departments'; an account with no departments set works
 // across the plant (management, the MR, QA) and reads every line too.
+// A DAY, A MONTH OR A YEAR, AND ONE PERSON'S OWN LINES (REQUIREMENTS §73):
+// `from` / `to` as plain YYYY-MM-DD, both ends included, and `person` as an
+// account id. The scoping rule above still decides WHOSE lines can be asked
+// for at all, so `person` narrows what this account may already read and can
+// never widen it.
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const day = (v: unknown): string | undefined => (typeof v === "string" && DAY_RE.test(v) ? v : undefined);
+const personId = (v: unknown): string | undefined => (typeof v === "string" && v.trim().length > 0 && v.length <= 64 ? v.trim() : undefined);
+
 app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const user = (req as AuthedRequest).user;
   const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
   const before = typeof req.query.before === "string" && /^[0-9]+$/.test(req.query.before) ? req.query.before : undefined;
   const search = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80) : "";
   const departments = user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
-  const lines = await listActivity({ limit, before, departments, userId: user.id, search: search || undefined });
+  const lines = await listActivity({
+    limit,
+    before,
+    departments,
+    userId: user.id,
+    search: search || undefined,
+    person: personId(req.query.person),
+    from: day(req.query.from),
+    to: day(req.query.to),
+  });
   sendCompressedJson(req, res, 200, { lines });
+});
+
+// WHAT EACH PERSON DID OVER THE SPAN, counted (REQUIREMENTS §73) — the tally
+// the Performance Scorecard is read beside. Same scoping: the administrator
+// sees everybody, an account kept to departments sees itself and its
+// departments'. The counts are worked out in PostgreSQL, not here.
+app.get("/api/activity/summary", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const user = (req as AuthedRequest).user;
+  const departments = user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
+  const people = await activitySummary({
+    departments,
+    userId: user.id,
+    person: personId(req.query.person),
+    from: day(req.query.from),
+    to: day(req.query.to),
+  });
+  sendCompressedJson(req, res, 200, { people });
 });
 
 app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {

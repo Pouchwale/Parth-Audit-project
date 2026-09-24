@@ -149,8 +149,16 @@ export function FlyCatcherRegisterSheet({
   useEffect(() => () => flush(), [year, month, isDemo, flush]);
   useEffect(() => {
     if (!dirty) return;
+    // As on the record page (REQUIREMENTS §72): beforeunload alone misses a
+    // tab the browser discards or a phone putting the app to sleep.
     window.addEventListener("beforeunload", flush);
-    return () => window.removeEventListener("beforeunload", flush);
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("offline", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("offline", flush);
+    };
   }, [dirty, flush]);
 
   const doc = documentRepository.getById(FLY_DOC_ID);

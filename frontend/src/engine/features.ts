@@ -20,11 +20,21 @@ let signup = false;
 // Whether the server has answered at all. Hiding Demo Mode needs no answer;
 // REMOVING the demo records an earlier version left behind does (data/bootstrap.ts).
 let told = false;
+// Whether this server has a model for Mitra to ask (REQUIREMENTS §72). Without
+// one the assistant still answers from the app's own tables, but it says that
+// is what it is doing instead of passing the answer off as the model's.
+let assistant = false;
 
-export function setFeatures(f: { demoMode?: boolean; signup?: boolean } | undefined): void {
+export function setFeatures(f: { demoMode?: boolean; signup?: boolean; assistant?: boolean } | undefined): void {
   demoMode = f?.demoMode === true;
   signup = f?.signup === true;
+  assistant = f?.assistant === true;
   told = typeof f?.demoMode === "boolean";
+}
+
+/** Whether Mitra has a model to ask — GROQ_API_KEY is set on the server (REQUIREMENTS §72). */
+export function assistantConfigured(): boolean {
+  return assistant;
 }
 
 /** Whether this server lets somebody create their own account — off in the plant (REQUIREMENTS §66). */

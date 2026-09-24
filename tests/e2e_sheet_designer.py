@@ -713,6 +713,11 @@ with sync_playwright() as p:
     page.wait_for_timeout(250)
     close_assistant(page)
     page.locator(".app-topbar button[title='Log Out']").first.click()
+    # Every log-out asks about the day's work first (REQUIREMENTS s72).
+    page.wait_for_timeout(500)
+    _logout_ok = page.locator("[data-action='logout-review-confirm']")
+    if _logout_ok.count():
+        _logout_ok.first.click()
     page.wait_for_timeout(400)
     asked = page.locator("[data-section='designer-discard-dialog']")
     check("Log out with changes on the sheet asks first", asked.count() == 1 and "Logged out on" in squash(asked.text_content()) and page.locator(DESIGNER).count() == 1)

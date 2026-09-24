@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiDownload, FiPrinter, FiRefreshCw } from "react-icons/fi";
-import { ApiError, usersApi, type DirectoryPerson } from "../api/client";
+import { api, ApiError, usersApi, type DirectoryPerson } from "../api/client";
+import { APPROVED, countOf, FILLED_IN, SUBMITTED, type ActivityTally } from "../engine/activityWork";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -290,6 +291,14 @@ export function PerformancePage() {
 
   // THE ACCOUNTS, from the server. null while they are being read.
   const [people, setPeople] = useState<DirectoryPerson[] | null>(null);
+  // WHAT THE LOG SAYS EACH PERSON ACTUALLY DID over the same period
+  // (REQUIREMENTS §73). "according to that logs also score will decide": the
+  // score here is worked out from the RECORDS — what fell due and what was
+  // submitted on time (§64) — and this is the other half of the same question,
+  // who did the work, counted from the activity log in PostgreSQL. Shown side
+  // by side because a plant needs both: a department can be perfectly up to
+  // date because one person did all of it, and the score alone never says so.
+  const [activity, setActivity] = useState<Record<string, ActivityTally> | null>(null);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const readDirectory = useCallback(() => {
     setDirectoryError(null);
@@ -321,6 +330,28 @@ export function PerformancePage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, version, periodKey, today, people, countedFrom]);
+
+  // Asked of the server once per period, never while drawing (§65). An EXTRA:
+  // the scorecard stands on its own if the log cannot be read, and then the
+  // panel simply does not appear.
+  useEffect(() => {
+    let alive = true;
+    const period = periodFor(periodKey, today);
+    api
+      .get<{ people: ActivityTally[] }>(`/activity/summary?from=${period.from}&to=${period.to}`)
+      .then((res) => {
+        if (!alive) return;
+        const byId: Record<string, ActivityTally> = {};
+        for (const t of res.people ?? []) if (t.userId) byId[t.userId] = t;
+        setActivity(byId);
+      })
+      .catch(() => {
+        if (alive) setActivity(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [periodKey, today]);
 
   // Every document is in exactly one department, so the departments add up to the plant.
   const overall = useMemo(() => {
@@ -469,6 +500,59 @@ export function PerformancePage() {
             was submitted counts for the person who submitted it; one that nobody submitted — or that somebody outside those accounts submitted — counts
             for every account of that department. An account with no departments works across the plant and is listed without a score.
           </p>
+          {/* WHO DID THE WORK, from the activity log, over the same period
+              (REQUIREMENTS §73). Beside the score, never inside it: the score
+              is the records' own arithmetic and stays exactly as §64 set it. */}
+          {activity && Object.keys(activity).length > 0 && (
+            <div className="card mb-3" data-section="performance-activity">
+              <div className="doc-table" style={{ overflowX: "auto" }}>
+                <table className="compact" data-table="performance-activity">
+                  <thead>
+                    <tr>
+                      <th>Who</th>
+                      <th style={{ width: 100 }}>Filled in</th>
+                      <th style={{ width: 110 }}>Submitted</th>
+                      <th style={{ width: 100 }}>Approved</th>
+                      <th style={{ width: 110 }}>Days active</th>
+                      <th style={{ width: 110 }}>All actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(people ?? [])
+                      .map((p) => ({ p, t: activity[p.id] }))
+                      .filter((r): r is { p: DirectoryPerson; t: ActivityTally } => !!r.t)
+                      .sort((a, b) => b.t.total - a.t.total || a.p.name.localeCompare(b.p.name))
+                      .map(({ p, t }) => (
+                        <tr key={p.id} data-person={p.id} data-total={t.total}>
+                          <td className="text-sm notranslate" translate="no">
+                            {p.name}
+                          </td>
+                          <td className="text-sm" data-field="filled">
+                            {countOf(t, FILLED_IN)}
+                          </td>
+                          <td className="text-sm" data-field="submitted">
+                            {countOf(t, SUBMITTED)}
+                          </td>
+                          <td className="text-sm" data-field="approved">
+                            {countOf(t, APPROVED)}
+                          </td>
+                          <td className="text-sm" data-field="days">
+                            {t.activeDays}
+                          </td>
+                          <td className="text-sm text-muted" data-field="total">
+                            {t.total}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="card-pad text-xs text-faint" style={{ paddingTop: 0 }}>
+                From the activity log, for {range}. The scores below are the RECORDS' arithmetic — what fell due and what was submitted on time. This is
+                who did the work. The Activity Log has the lines themselves, for a day, a month or a year.
+              </div>
+            </div>
+          )}
           {directoryError ? (
             <div className="card card-pad text-sm" data-section="performance-people-unavailable">
               <strong>The people's scores cannot be shown:</strong> the list of accounts could not be read ({directoryError}). A person's score needs to

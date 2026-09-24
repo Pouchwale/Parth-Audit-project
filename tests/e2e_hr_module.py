@@ -150,6 +150,11 @@ def sign_in(page, email, name, department):
     page.wait_for_timeout(500)
     if logged_in(page):
         page.locator("button[title='Log Out']").first.click()
+        # Every log-out asks about the day's work first (REQUIREMENTS s72).
+        page.wait_for_timeout(500)
+        _logout_ok = page.locator("[data-action='logout-review-confirm']")
+        if _logout_ok.count():
+            _logout_ok.first.click()
         page.wait_for_timeout(900)
     page.fill("#login-email", email)
     page.fill("#login-password", PASSWORD)

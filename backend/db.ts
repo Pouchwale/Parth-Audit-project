@@ -510,21 +510,139 @@ export async function insertActivity(lines: ActivityInput[]): Promise<void> {
 }
 
 /** Newest first. `departments` null = every line; otherwise the person's own lines and their departments'. */
-export async function listActivity(opts: { limit: number; before?: string; departments: string[] | null; userId: string; search?: string }): Promise<ActivityLine[]> {
+// WHO DID WHAT, OVER A DAY, A MONTH OR A YEAR (REQUIREMENTS §73).
+//
+// "whatever the work that user has done in whole day, month, year and
+// according to that logs also score will decide."
+//
+// The scoping rule does not change — the administrator reads every line, an
+// account kept to departments reads its own and its departments' — and two
+// more ways to narrow it are added: ONE PERSON, and A SPAN OF DAYS. `from` and
+// `to` are plain YYYY-MM-DD and the span INCLUDES both ends, which is what a
+// person means by "this month"; they are compared as a half-open range on `at`
+// so the index on it is still used, rather than wrapping the column in a cast.
+interface ActivityFilter {
+  departments: string[] | null;
+  userId: string;
+  search?: string;
+  /** One person's lines only — their account id. */
+  person?: string;
+  /** Inclusive day bounds, YYYY-MM-DD. */
+  from?: string;
+  to?: string;
+}
+
+/** Appends this filter's conditions to `args` and returns them. */
+function activityWhere(opts: ActivityFilter, args: unknown[]): string[] {
   const where: string[] = [];
-  const args: unknown[] = [];
-  if (opts.before) {
-    args.push(opts.before);
-    where.push(`id < $${args.length}`);
-  }
   if (opts.departments) {
     args.push(opts.userId, opts.departments);
     where.push(`(user_id = $${args.length - 1} OR department = ANY($${args.length}))`);
+  }
+  if (opts.person) {
+    args.push(opts.person);
+    where.push(`user_id = $${args.length}`);
+  }
+  if (opts.from) {
+    args.push(opts.from);
+    where.push(`at >= $${args.length}::date`);
+  }
+  if (opts.to) {
+    args.push(opts.to);
+    where.push(`at < ($${args.length}::date + 1)`);
   }
   if (opts.search) {
     args.push(`%${opts.search.toLowerCase()}%`);
     where.push(`lower(user_name || ' ' || action || ' ' || target || ' ' || detail) LIKE $${args.length}`);
   }
+  return where;
+}
+
+/** One person's tally for the span: how much of each thing they did. */
+export interface ActivityTally {
+  userId: string | null;
+  userName: string;
+  /** Lines, by action. */
+  byAction: Record<string, number>;
+  total: number;
+  /** The first and last thing they did in the span, so a day reads at a glance. */
+  firstAt: string;
+  lastAt: string;
+  /** Separate days they did anything at all — the honest measure of a month. */
+  activeDays: number;
+}
+
+/**
+ * THE TALLY THE SCORE IS READ BESIDE. Grouped in the database, not by walking
+ * every line in the browser: a year of a busy plant is far more lines than a
+ * page should hold, and the counts are all that is being asked for.
+ *
+ * Two queries, because a person's ACTIVE DAYS cannot be added up across
+ * actions — the same day appears under each of them — so the days are counted
+ * once per person and the actions once per person and action.
+ */
+export async function activitySummary(opts: ActivityFilter): Promise<ActivityTally[]> {
+  const perPersonArgs: unknown[] = [];
+  const perPersonWhere = activityWhere(opts, perPersonArgs);
+  const { rows: people } = await database().query<{
+    user_id: string | null;
+    user_name: string;
+    n: string;
+    first_at: Date;
+    last_at: Date;
+    active_days: string;
+  }>(
+    `SELECT user_id, user_name, COUNT(*)::text AS n, MIN(at) AS first_at, MAX(at) AS last_at,
+            COUNT(DISTINCT at::date)::text AS active_days
+       FROM activity_log
+       ${perPersonWhere.length ? "WHERE " + perPersonWhere.join(" AND ") : ""}
+      GROUP BY user_id, user_name`,
+    perPersonArgs
+  );
+  if (people.length === 0) return [];
+
+  const perActionArgs: unknown[] = [];
+  const perActionWhere = activityWhere(opts, perActionArgs);
+  const { rows: actions } = await database().query<{ user_id: string | null; user_name: string; action: string; n: string }>(
+    `SELECT user_id, user_name, action, COUNT(*)::text AS n
+       FROM activity_log
+       ${perActionWhere.length ? "WHERE " + perActionWhere.join(" AND ") : ""}
+      GROUP BY user_id, user_name, action`,
+    perActionArgs
+  );
+
+  // Keyed by the ACCOUNT where there is one. A line whose account has since
+  // been removed keeps the name it was written with, which is the point of a
+  // log: it says what happened, not what is still true.
+  const key = (id: string | null, name: string) => id ?? `name:${name}`;
+  const byAction = new Map<string, Record<string, number>>();
+  for (const r of actions) {
+    const k = key(r.user_id, r.user_name);
+    const into = byAction.get(k) ?? {};
+    into[r.action] = (into[r.action] ?? 0) + (Number(r.n) || 0);
+    byAction.set(k, into);
+  }
+  return people
+    .map((r) => ({
+      userId: r.user_id,
+      userName: r.user_name,
+      byAction: byAction.get(key(r.user_id, r.user_name)) ?? {},
+      total: Number(r.n) || 0,
+      firstAt: r.first_at.toISOString(),
+      lastAt: r.last_at.toISOString(),
+      activeDays: Number(r.active_days) || 0,
+    }))
+    .sort((a, b) => b.total - a.total || a.userName.localeCompare(b.userName));
+}
+
+export async function listActivity(opts: ActivityFilter & { limit: number; before?: string }): Promise<ActivityLine[]> {
+  const args: unknown[] = [];
+  const where: string[] = [];
+  if (opts.before) {
+    args.push(opts.before);
+    where.push(`id < $${args.length}`);
+  }
+  where.push(...activityWhere(opts, args));
   args.push(opts.limit);
   const { rows } = await database().query<{ id: string; at: Date; user_id: string | null; user_name: string; user_email: string; action: string; target: string; detail: string; department: string }>(
     `SELECT id::text, at, user_id, user_name, user_email, action, target, detail, department FROM activity_log

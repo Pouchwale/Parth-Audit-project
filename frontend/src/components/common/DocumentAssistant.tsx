@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FiMessageCircle, FiMic, FiMicOff, FiSend, FiX } from "react-icons/fi";
+import { FiMessageCircle, FiMic, FiMicOff, FiSend, FiWifiOff, FiX } from "react-icons/fi";
 import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
 import { applyAssistantPatch, looksLikeEdit, parseLocalEdit } from "../../engine/recordPatch";
@@ -24,7 +24,8 @@ import {
   type GuidedPrompt,
   type GuidedStep,
 } from "../../engine/guidedChecklist";
-import { buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
+import { answerStaysLocal, buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
+import { modelReachable, noteModelAnswered, noteModelFailed, type Unreachable } from "../../engine/assistantReach";
 import { ASSISTANT_NAME, guide, openingMessage, type WaitingDocument } from "../../engine/assistantPersona";
 import { computeReminders } from "../../engine/reminders";
 import { formatNumberAnswer } from "../../engine/formatNumbers";
@@ -86,6 +87,8 @@ interface ChatMessage {
   role: "bot" | "user";
   text: string;
   chips?: Chip[];
+  /** Why the model did not answer this one, when it did not (REQUIREMENTS §72). */
+  offline?: Unreachable;
 }
 
 // THE DOCUMENT ON A PAGE THAT REGISTERS NO RECORD (REQUIREMENTS §60): a
@@ -220,6 +223,9 @@ export function DocumentAssistant() {
     setMessages((m) => [...(aside ? m : m.map((x) => (x.chips ? { ...x, chips: undefined } : x))), { id: generateId("msg"), role, text, chips }]);
   };
   const bot = (text: string, chips?: Chip[]) => post("bot", text, chips);
+  /** A reply the app gave because the model could not be reached (REQUIREMENTS §72). */
+  const postOffline = (text: string, why: Unreachable, chips?: Chip[]) =>
+    setMessages((m) => [...m, { id: generateId("msg"), role: "bot" as const, text, chips, offline: why }]);
   const me = (text: string) => post("user", text);
 
   // Mitra introduces itself once, when the panel first opens, and asks where
@@ -1687,11 +1693,24 @@ export function DocumentAssistant() {
     // With a record open, free text is normally data to fill in — but an
     // out-of-scope message never is, so it is declined either way.
     const local = !t2 || (looksLikeQuestion && !editIntent) ? localAnswer(text, isDemo, user?.name) : offTopicReply(text);
-    if (local) {
+    // Scope, identity, the greeting and anything that opens a screen are
+    // answered here; a question goes to the model (REQUIREMENTS §72).
+    if (local && answerStaysLocal(local)) {
       bot(local.reply, local.chips);
       readOut(local.reply);
       // e.g. "pest control documents from 1 to 19 January" opens exactly those files.
       if (local.navigate && isValidAppRoute(local.navigate)) navigate(local.navigate);
+      return;
+    }
+    // No model to ask. With a record open there is nothing useful the tables
+    // can say about a change to it, so the person is told plainly that the
+    // filling-in needs the assistant; a question gets the table's answer,
+    // marked as coming from here rather than from the model.
+    const reach = modelReachable();
+    if (!reach.ok) {
+      const fallback = local ?? { reply: t2 ? t("ai.offline.noFill") : t("ai.offline.noAnswer"), chips: undefined };
+      postOffline(fallback.reply, reach.why, fallback.chips);
+      readOut(fallback.reply);
       return;
     }
     setLoading(true);
@@ -1719,8 +1738,20 @@ export function DocumentAssistant() {
       }
       bot(result.reply);
       readOut(result.reply);
+      noteModelAnswered();
     } catch (err) {
-      bot(err instanceof ApiError ? err.message : t("ai.error"));
+      // THE MODEL COULD NOT ANSWER (REQUIREMENTS §72). The internet may have
+      // gone mid-sentence, so rather than only reporting the error the app
+      // answers from its own tables where it can — and says that is what it
+      // did. The failure is remembered briefly (assistantReach.ts) so the next
+      // few messages do not each wait out the same timeout.
+      const why = noteModelFailed();
+      if (local) {
+        postOffline(local.reply, why, local.chips);
+        readOut(local.reply);
+      } else {
+        postOffline(err instanceof ApiError ? err.message : t("ai.error"), why);
+      }
     } finally {
       setLoading(false);
     }
@@ -1864,6 +1895,16 @@ export function DocumentAssistant() {
             {messages.map((m) => (
               <React.Fragment key={m.id}>
                 <div className={`chat-msg ${m.role}`}>{m.text}</div>
+                {/* WHO ANSWERED (REQUIREMENTS §72). Said on the answer itself,
+                    because the plant had no way of telling that the assistant
+                    was working from the app's own tables rather than from the
+                    API — it kept answering with the internet off, which is how
+                    they noticed. */}
+                {m.offline && (
+                  <div className="chat-aside" data-offline={m.offline}>
+                    <FiWifiOff size={11} /> {t(`ai.offline.${m.offline}`)}
+                  </div>
+                )}
                 {m.chips && m.chips.length > 0 && (
                   <div className="chat-chips" style={{ alignSelf: "flex-start", maxWidth: "95%" }}>
                     {m.chips.map((c) => (

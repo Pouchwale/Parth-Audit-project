@@ -43,6 +43,35 @@ export interface LocalAnswer {
   chips?: Chip[];
   /** A screen to open straight away — e.g. the Document Files view for the span asked for. */
   navigate?: string;
+  /**
+   * WHO SHOULD ANSWER THIS (REQUIREMENTS §72). The plant asked why the
+   * assistant still worked with the internet off: because everything here was
+   * tried before the model. Now the MODEL answers the questions, and only
+   * these stay here:
+   *
+   *   "scope"     a message that cannot be about this system. Declined here,
+   *               instantly, and never sent anywhere.
+   *   "identity"  "are you a real person?" — the honest answer is never the
+   *               model's to improvise.
+   *   "greeting"  hello, thank you, what can you do: the opening Mitra asks
+   *               first, with its buttons (§67). A round trip to say hello
+   *               would make the assistant feel slower, not cleverer.
+   *
+   * Anything else is a "reply" (the default): the app CAN answer it from its
+   * own tables, and does when the model cannot be reached — said so plainly,
+   * never passed off as the model's. An answer carrying `navigate` is an
+   * action the app performs and is always kept here.
+   */
+  kind?: "scope" | "identity" | "greeting" | "reply";
+}
+
+/**
+ * Whether this answer must be given here rather than by the model
+ * (REQUIREMENTS §72). An action — anything that opens a screen — counts: the
+ * app doing what it was told is not a canned reply.
+ */
+export function answerStaysLocal(a: LocalAnswer): boolean {
+  return !!a.navigate || a.kind === "scope" || a.kind === "identity" || a.kind === "greeting";
 }
 
 // OUT OF SCOPE — this assistant answers about this record system and nothing
@@ -78,6 +107,7 @@ export function offTopicReply(message: string): LocalAnswer | null {
   const text = message.trim();
   if (!OFF_TOPIC_PATTERNS.some((re) => re.test(text))) return null;
   return {
+    kind: "scope",
     reply: t("ai.offTopic"),
     chips: [
       { label: t("ai.chip.dueToday"), action: { type: "navigate", route: `/day/${todayISO()}` }, tone: "primary" },
@@ -790,18 +820,18 @@ export function localAnswer(message: string, isDemo: boolean, userName?: string)
   // do?" and "are you a real person?" are answered here and now — a buddy
   // shouldn't need a network round trip to say hello, and the honest answer to
   // the last one is never the model's to improvise.
-  if (IDENTITY_RE.test(lower)) return { reply: whoIAm(), chips: guide("home").chips };
+  if (IDENTITY_RE.test(lower)) return { kind: "identity", reply: whoIAm(), chips: guide("home").chips };
   if (GREETING_RE.test(text)) {
     const home = guide("home");
-    return { reply: `${hello(userName)}\n${home.text}`, chips: home.chips };
+    return { kind: "greeting", reply: `${hello(userName)}\n${home.text}`, chips: home.chips };
   }
   if (THANKS_RE.test(text)) {
     const first = (userName ?? "").trim().split(/\s+/)[0];
-    return { reply: t("ai.youreWelcome", { name: first ? `, ${first}` : "" }), chips: guide("home").chips };
+    return { kind: "greeting", reply: t("ai.youreWelcome", { name: first ? `, ${first}` : "" }), chips: guide("home").chips };
   }
   if (CAPABILITY_RE.test(lower)) {
     const about = guide("about");
-    return { reply: about.text, chips: about.chips };
+    return { kind: "greeting", reply: about.text, chips: about.chips };
   }
 
   // "F/HR/05", "what is F-QC-12?", "open hr 5": the document by its format
