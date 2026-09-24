@@ -8,6 +8,7 @@ import type {
   FlyCatcherData,
   GapFinding,
   GapInspectionData,
+  LogSheetData,
   RecordInstance,
   RecordStatus,
   ServiceReportData,
@@ -15,6 +16,7 @@ import type {
 import { documentRepository } from "./repositories/documentRepository";
 import { masterRepository } from "./repositories/masterRepository";
 import { recordRepository } from "./repositories/recordRepository";
+import { getLogSheetLayout } from "./seed/logSheetLayouts";
 import { effectiveDueDatesInMonth } from "../engine/holidays";
 import { periodKeyFor } from "../engine/recordGenerator";
 import { fixedMaterialForServiceArea, normalizeServiceLines } from "../engine/serviceMaterials";
@@ -205,6 +207,42 @@ function buildServiceReportData(doc: DocumentDefinition, dueDate: string, observ
 }
 
 // ---------------------------------------------------------------------------
+// The demo plant keeps its instruments in calibration.
+
+/** How long before a certificate runs out the demo plant has the instrument recalibrated. */
+const RENEW_DAYS_BEFORE_EXPIRY = 30;
+
+/**
+ * The Calibration Expiry on a demo calibration sheet — any log sheet with that
+ * box, F/QC/12 and F/QC/11 today. The auto-fill carries the box forward as
+ * written, which is right for a real sheet: the expiry is a fact about the
+ * instrument, and the Live sheets on file honestly show QC-76 out of
+ * calibration since 27.08.2024 (engine/autoFill.ts says so in its notes). But
+ * carried through a demo year from the supplied pages, every demo sheet named an
+ * expiry long before its own date, so the demo showed a plant weighing on an
+ * instrument out of calibration all year — a finding the generator invented,
+ * not one the plant made (REQUIREMENTS §75). The demo's instruments are
+ * recalibrated a year at a time on the anniversary of the certificate on the
+ * supplied page, a month before it would run out, so a demo sheet always names
+ * a certificate still current on its day.
+ */
+function withDemoCertificate(documentId: string, dueDate: string, data: unknown): unknown {
+  const layout = getLogSheetLayout(documentId);
+  const supplied = layout?.specimenHeader?.calibrationExpiry ?? "";
+  if (!layout?.headerFields.some((f) => f.key === "calibrationExpiry") || !/^\d{4}-\d{2}-\d{2}$/.test(supplied)) return data;
+  const [y, m, d] = supplied.split("-").map(Number);
+  let years = 0;
+  let expiry = supplied;
+  while (compareISO(expiry, addDays(dueDate, RENEW_DAYS_BEFORE_EXPIRY)) <= 0) {
+    years += 1;
+    // Through Date, so a 29-Feb certificate renews on 1-Mar in a common year.
+    expiry = new Date(Date.UTC(y + years, m - 1, d)).toISOString().slice(0, 10);
+  }
+  const sheet = data as LogSheetData;
+  return { ...sheet, header: { ...sheet.header, calibrationExpiry: expiry } };
+}
+
+// ---------------------------------------------------------------------------
 // From what was observed to what was done about it.
 
 const MONTH_END = (year: number, month: number) => new Date(Date.UTC(year, month + 1, 0)).toISOString().slice(0, 10);
@@ -367,7 +405,7 @@ export function generateDemoRecordsForMonth(year: number, month: number): number
         // exactly like the prepared real ones (still isDemo:true below).
         const filled = autoFillRecord(doc, dueDate, master, previous);
         if (!filled) continue;
-        data = filled.data;
+        data = withDemoCertificate(doc.id, dueDate, filled.data);
       } else continue;
 
       // How this record was signed off: who submitted it and when, whether
@@ -375,9 +413,11 @@ export function generateDemoRecordsForMonth(year: number, month: number): number
       // sent back (engine/plantSimulation.ts). Every record submitted at
       // 10:00 and verified at 15:00 was the clearest tell in the old data.
       const submitter = rngFor("submitter", doc.id, dueDate).chance(0.75) ? DEMO_CHECKERS[0] : rngFor("submitter2", doc.id, dueDate).pick(DEMO_CHECKERS);
+      // The record's own data goes in, so a record sent back is sent back for
+      // something it shows (REQUIREMENTS §75).
       const life: LifecycleOutcome | { status: RecordStatus } = inFuture
         ? { status: "Due" as RecordStatus }
-        : lifecycleFor(doc, dueDate, submitter, DEMO_VERIFIER, today);
+        : lifecycleFor(doc, dueDate, submitter, DEMO_VERIFIER, today, data);
 
       const rec: RecordInstance = {
         id: prior?.id ?? generateId("demo"),

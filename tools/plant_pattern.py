@@ -300,7 +300,14 @@ LOT_REASONS = {
 
 # How much a measured observation moves between two lots of the same job —
 # pouch height, seal width, GSM, roll width. Small: these are set-up
-# dimensions checked with a scale, not a drifting process reading.
+# dimensions checked with a scale, not a drifting process reading. Each lot is
+# measured afresh around the job's own figure (the filled specimen), never
+# around the last lot's reading: moving each lot 1.5% from the one before is a
+# random walk, and over a demo year it took Pouch Height from 181 to 218 mm and
+# Repeat Length from 203.2 to 258.5 mm (REQUIREMENTS s75). And an Accepted lot
+# stays inside what the reasons above call a deviation — a pouch 3 mm short is
+# "accepted on deviation" there, so an Accepted lot is never 3 mm short
+# (engine/autoFill.ts).
 MEASUREMENT_VARIATION = 0.015  # +/- 1.5%
 
 # F/QC/13 In Process Quality Control — the grade the QA person writes against
@@ -386,29 +393,56 @@ OUTCOME_MIX = [
     {"value": "In Progress", "weight": 0.03},  # started, never finished — an auditor's favourite find
 ]
 
+# A verifier sends a record back for something the record shows. So each
+# reason names its GROUNDS ("when") — what the record itself must hold for the
+# reason to be true of it — and the app gives a reason only to a record that
+# holds its grounds (engine/plantSimulation.ts, rejectionGroundsFor). Picked
+# regardless of the record, 21 of 22 "out-of-band reading not explained"
+# rejections in a demo year went to sheets with no out-of-band reading on them,
+# and every "check point 8 answered Yes" went to a register whose check point 8
+# said No (REQUIREMENTS s75). A record that holds none of them is sent back
+# with one of the GENERIC reasons below, which speak of nothing the record
+# holds and so can never contradict it.
 REJECTION_REASONS = {
     "daily-pest-monitoring": [
-        "Time of checking left blank — please complete before re-submitting.",
-        "Check point 8 answered Yes but the location was not written in.",
-        "Checker name does not match the person who did the round.",
+        {"reason": "Time of checking left blank — please complete before re-submitting.", "when": "time-of-checking-blank"},
+        {"reason": "Check point 8 answered Yes but the location was not written in.", "when": "checkpoint-8-location-blank"},
+        {"reason": "Checker name does not match the person who did the round.", "when": "checker-written"},
     ],
     "fly-catcher": [
-        "Catch count for PC-05 does not match the board photographed at cleaning.",
-        "Catch counts entered for 11 of 13 units only.",
+        {"reason": "Catch count for PC-05 does not match the board photographed at cleaning.", "when": "pc-05-counted"},
+        {"reason": "Catch counts entered for 11 of 13 units only.", "when": "two-of-13-counts-blank"},
     ],
     "service-report": [
-        "Customer's countersignature missing on the visit report.",
-        "Quantity used not recorded against three areas.",
+        {"reason": "Customer's countersignature missing on the visit report.", "when": "customer-sign-blank"},
+        {"reason": "Quantity used not recorded against three areas.", "when": "three-quantities-blank"},
     ],
     "log-sheet": [
-        "Out-of-band reading not explained in the Remark column.",
-        "Shift and operator name do not match the production plan.",
-        "Batch number of the adhesive drum not updated after the change-over.",
+        {"reason": "Out-of-band reading not explained in the Remark column.", "when": "out-of-band-remark-blank"},
+        # F-QC-30 and F-QC-40.C print no Remark column, so the same finding is
+        # worded without one there.
+        {"reason": "Out-of-band reading with nothing recorded about it — note what was done before re-submitting.", "when": "out-of-band-no-remark-column"},
+        {"reason": "Shift and operator name do not match the production plan.", "when": "shift-and-operator-written"},
+        {"reason": "Batch number of the adhesive drum not updated after the change-over.", "when": "adhesive-batch-written"},
     ],
     "training-record": [
-        "Attendance sheet reference not attached.",
+        {"reason": "Attendance sheet reference not attached.", "when": "certificate-ref-blank"},
     ],
 }
+
+# Sent back to be looked at again, for nothing written on the record itself.
+GENERIC_REJECTION_REASONS = {
+    "daily-pest-monitoring": ["Round to be re-checked with the checker before re-submitting."],
+    "fly-catcher": ["Counts to be re-checked against the boards before re-submitting."],
+    "service-report": ["Visit report to be re-checked with the technician before re-submitting."],
+    "log-sheet": [
+        "Entries to be re-checked against the shop-floor sheet before re-submitting.",
+        "Sheet to be reviewed by the section in-charge before re-submitting.",
+    ],
+    "training-record": ["Attendance to be re-checked against the signed sheet before re-submitting."],
+    "*": ["Entries to be re-checked before re-submitting."],
+}
+REJECTION_GROUNDS = sorted({r["when"] for reasons in REJECTION_REASONS.values() for r in reasons})
 
 # The people who sign. Taken from the specimens: Jeni and Singh sign the QC
 # registers by shift, Gaurav Singh runs Lamination-1, Roshni checks the pest
@@ -586,7 +620,7 @@ export const LOT_DECISIONS: LotDecisionSpec[] = {ts(LOT_DECISIONS)};
 /** documentId -> reason kind -> the wording, in that format's own vocabulary. */
 export const LOT_REASONS: Record<string, Record<string, string[]>> = {ts(LOT_REASONS)};
 
-/** How much a measured observation moves between two lots of the same job. */
+/** How much a measured observation moves around the job's own figure, lot to lot (never compounding). */
 export const MEASUREMENT_VARIATION = {MEASUREMENT_VARIATION};
 
 /** F/QC/13 printing grades, and what the form's own rule says to do about them. */
@@ -629,7 +663,15 @@ export const JOBS_PER_SHIFT: Weighted<number>[] = {ts(JOBS_PER_SHIFT)};
 export const SUBMIT_LAG_DAYS: Weighted<number>[] = {ts(SUBMIT_LAG_DAYS)};
 export const VERIFY_LAG_DAYS: Weighted<number>[] = {ts(VERIFY_LAG_DAYS)};
 export const OUTCOME_MIX: Weighted<string>[] = {ts(OUTCOME_MIX)};
-export const REJECTION_REASONS: Record<string, string[]> = {ts(REJECTION_REASONS)};
+
+/** What a record must itself hold for a verifier to have sent it back with this reason. */
+export type RejectionGround = {' | '.join(json.dumps(g) for g in REJECTION_GROUNDS)};
+export interface RejectionReason {{ reason: string; when: RejectionGround; }}
+/** Given only to a record that holds the reason's grounds (engine/plantSimulation.ts). */
+export const REJECTION_REASONS: Record<string, RejectionReason[]> = {ts(REJECTION_REASONS)};
+/** For a record that holds none of them: nothing written on it, so nothing to contradict. "*" is any other kind. */
+export const GENERIC_REJECTION_REASONS: Record<string, string[]> = {ts(GENERIC_REJECTION_REASONS)};
+
 export const SHIFT_ROSTER = {ts(SHIFT_ROSTER)};
 """)
 

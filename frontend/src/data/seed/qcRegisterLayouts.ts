@@ -194,7 +194,8 @@ const CAMERA_CHALLENGE_METHODOLOGY =
   "Methodology: At the start of every cycle of production (1 st shift), the machine operator must make intentional markings on the loaded roll. Number of markings made must be more than 3, and size of each marking should be more than 0.5 mm.  Also this test will have to be done at post breakdown, Machine stoppage, Power failure etc.  Basis this, the operator must fill the below form and only if every marking has been captured, the challenge test can be considered to be pass. This process must be verified by an IPQC executive.";
 
 const cameraChallengeColumns = (): LogColumn[] => [
-  { key: "date", label: "Date", type: "date", width: 140 },
+  // A daily record: the challenge tests on it are that day's (REQUIREMENTS §75).
+  { key: "date", label: "Date", type: "date", width: 140, autoFill: { dueDate: true } },
   { key: "machineNo", label: "M/C No.", type: "text", width: 120 },
   { key: "operatorName", label: "Operator Name", type: "text", width: 180, autoFill: { carryForward: true } },
   { key: "marksMade", label: "No. Of Marks Made", type: "number", decimals: 0, width: 150 },

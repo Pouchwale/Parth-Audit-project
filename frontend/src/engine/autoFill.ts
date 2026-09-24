@@ -27,14 +27,15 @@ import {
   readingFor,
   rosterPick,
   serviceRemarkFor,
+  type LotOutcome,
 } from "./plantSimulation";
 import { dayInfo } from "./holidays";
 import { isLotAccepted, isOutOfBand, supersededRevisionOf } from "./validation";
 import { withComputedCells } from "./computedCells";
-import { compareISO, formatDisplayDate } from "../utils/date";
+import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
-import { GRADE_ACTIONS, GRADE_DEFECTS, GRADE_MIX, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
+import { GRADE_ACTIONS, GRADE_DEFECTS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
 
 // THE ASSISTANT'S AUTO-FILL. Given a document and a due date, produce the
 // complete data the record would most plausibly contain, plus a short
@@ -45,7 +46,8 @@ import { GRADE_ACTIONS, GRADE_DEFECTS, GRADE_MIX, MEASUREMENT_VARIATION } from "
 //    record of the same document. Operators, machines, batch numbers, tube
 //    light dates, trap counts — all of that repeats day to day. What must NOT
 //    be carried forward verbatim is anything a person observes afresh each
-//    time: the clock time of a round, a reading, a grade, a lot decision.
+//    time: the clock time of a round, a reading, an inspection's observation,
+//    a grade, a lot decision.
 //  * When there is no previous record, fall back to the filled specimen
 //    from the uploaded source document (never a made-up shape).
 //  * Readings follow the plant's own behaviour model
@@ -415,6 +417,13 @@ function signFor(col: LogColumn, time: string | undefined, doc: DocumentDefiniti
   return responsibleName(doc, master, "");
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Whole days from one ISO date to another, counted in UTC so no clock change moves it. */
+function daysFrom(fromISO: string, toISO: string): number {
+  return Math.round((Date.parse(`${toISO}T00:00:00Z`) - Date.parse(`${fromISO}T00:00:00Z`)) / 86400000);
+}
+
 function jittered(value: number, fraction: number, decimals: number, rng: Rng): number {
   const f = Math.pow(10, decimals);
   return Math.round(value * (1 + (rng.next() - 0.5) * 2 * fraction) * f) / f;
@@ -442,6 +451,12 @@ function fillRow(
   const row: LogSheetRow = { id: generateId("row") };
   const timeForSign =
     fixedTime ?? (typeof template?.time === "string" ? (template.time as string) : typeof template?.startTime === "string" ? (template.startTime as string) : undefined);
+  // The line's own date, where the form has one that is the record's day
+  // (autoFill.dueDate), and how far the template line's date is moved to get
+  // there — see the other dates on the line, below.
+  const ownDate = layout.columns.find((c) => c.type === "date" && !c.fixed && c.autoFill?.dueDate);
+  const templateDate = ownDate ? template?.[ownDate.key] : undefined;
+  const moved = typeof templateDate === "string" && ISO_DATE.test(templateDate) ? daysFrom(templateDate, dueDate) : null;
   for (const col of layout.columns) {
     const t = template?.[col.key];
     if (col.fixed && fixedTime !== undefined && layout.rowMode.kind === "timeSlots" && col.key === layout.rowMode.slotKey) {
@@ -457,6 +472,16 @@ function fillRow(
     // (REQUIREMENTS §74).
     if (!col.fixed && col.autoFill?.dueDate) {
       row[col.key] = dueDate;
+      continue;
+    }
+    // Any other date on such a line is written relative to the line's own
+    // date — F/QC/12's Next Due Date after the calibration it follows — so it
+    // moves with it and keeps the template's own interval (REQUIREMENTS §75).
+    // Copied as it stood, every weekly sheet of a demo year gave the
+    // specimen's 2024 due dates beside this year's calibrations. A date with
+    // no line date to count from cannot be placed, so it is left to the person.
+    if (ownDate && col.type === "date" && !col.fixed && !col.autoFill?.carryForward) {
+      row[col.key] = typeof t === "string" && ISO_DATE.test(t) && moved !== null ? addDays(t, moved) : "";
       continue;
     }
     if (col.autoFill?.sign) {
@@ -522,56 +547,190 @@ function explainExcursions(layout: LogSheetLayout, rows: LogSheetRow[], doc: Doc
 }
 
 // ---- the observations on the inspection formats -----------------------------
-// These used to be carried forward from the previous inspection, so the first
-// value ever entered became permanent: F/QC/37's Leak Test read "PASS" on
-// every record the system would ever hold. They are measurements of the lot in
-// front of the inspector, so they move with the lot.
+// An observation is a measurement of the lot in front of the inspector, so it
+// is never inherited from the last inspection (REQUIREMENTS §75). Carried
+// forward, the first value ever entered became permanent — F/QC/37's Leak Test
+// read "PASS" on every record the system would ever hold — and once a lot
+// failed, the FAIL was copied onto every inspection after it: in a demo year
+// 127 pouching and 192 slitting records read FAIL beside a lot marked
+// Accepted. The same carry-forward runs in Live, from the last confirmed
+// record (engine/assistantPrepare.ts), so each observation is worked out
+// afresh for every record:
+//  * a pass/fail test reads the specimen's passing word, and its failing word
+//    only when TODAY's lot was rejected, segregated or taken on deviation for
+//    that very test (plantSimulation.ts lotOutcomeFor, the same decision the
+//    Lot Status box is filled from);
+//  * a measured figure is the job's own figure (the filled specimen's) with
+//    the scatter of one lot's measurement around it — never the last record's
+//    figure moved again, which compounded into a random walk (Pouch Height 181
+//    → 218 mm, Repeat Length 203.2 → 258.5 mm over the year);
+//  * where the lot's reason states the figure ("Pouch height 178 mm against
+//    181 mm specified"), the observation beside it reads that figure.
 
 const PASS_WORDS = /^(pass|passed|ok|no ?leak)$/i;
+const FAIL_WORDS = /^(fail|failed|not ok|leak|leaking)$/i;
+
+// Same casing as the word it answers: "PASS" / "FAIL", "Pass" / "Fail".
+const casedLike = (model: string, word: string): string =>
+  model === model.toUpperCase() ? word.toUpperCase() : model[0] === model[0].toUpperCase() ? word[0].toUpperCase() + word.slice(1) : word.toLowerCase();
+
+/** The word this test reads when it passes — given either the word it passes with or the one it failed with. */
+function passingWord(text: string): string | null {
+  const t = text.trim();
+  if (PASS_WORDS.test(t)) return t;
+  if (!FAIL_WORDS.test(t)) return null;
+  if (/^not ok$/i.test(t)) return casedLike(t, "ok");
+  if (/^leak/i.test(t)) return casedLike(t, "no leak");
+  return casedLike(t, "pass");
+}
+
+function failingWord(pass: string): string {
+  if (/^ok$/i.test(pass)) return casedLike(pass, "not ok");
+  if (/^no ?leak$/i.test(pass)) return casedLike(pass, "leak");
+  return casedLike(pass, "fail");
+}
+
+// Words in a printed parameter that say nothing about WHICH test it is: "Leak
+// Test" is about a leak, not about "test" — a reason that says "re-tested"
+// must not fail every test on the sheet.
+const GENERIC_PARAMETER_WORDS = new Set(["test", "tests", "total", "type", "pouch", "roll", "film", "width", "only", "form", "customer", "requirement", "from", "given", "reference", "card", "specification", "product"]);
 
 /** Does the lot's stated reason concern this printed test parameter? */
 function reasonConcerns(reason: string, parameter: string): boolean {
-  const words = parameter.toLowerCase().match(/[a-z]{4,}/g) ?? [];
+  const words = (parameter.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !GENERIC_PARAMETER_WORDS.has(w));
   const r = reason.toLowerCase();
-  return words.some((w) => r.includes(w));
+  return words.some((w) => new RegExp(`\\b${w}`).test(r));
 }
 
-function varyObservation(doc: DocumentDefinition, row: LogSheetRow, dueDate: string, index: number): LogSheetRow {
-  if (doc.id === "qc-inprocess-printing") return varyGrade(row, dueDate, index);
-  const current = row.observation;
-  if (typeof current !== "string") return row;
-  const text = current.trim();
-  if (text === "" || text === "-") return row;
-  const rng = makeRng(`observation|${doc.id}|${dueDate}|${index}`);
+interface StatedFigure {
+  /** The figure the lot measured, as the reason writes it ("178", "0.240"). */
+  text?: string;
+  value?: number;
+  /** What it was measured against ("against 181 mm specified"). */
+  against?: number;
+  /** A spread rather than a reading ("variation of 0.3 mm on the repeat"). */
+  variation?: number;
+}
 
-  // A measured dimension: moves a little lot to lot.
-  if (/^\d+(\.\d+)?$/.test(text)) {
-    const decimals = (text.split(".")[1] ?? "").length;
-    const varied = Number(text) * (1 + (rng.next() - 0.5) * 2 * MEASUREMENT_VARIATION);
-    row.observation = varied.toFixed(decimals);
+/** The figure a lot reason states for this printed parameter, if it states one. */
+function statedFigure(reason: string, parameter: string): StatedFigure | null {
+  const name = parameter.replace(/\s*\(.*$/, "").trim().toLowerCase();
+  const r = reason.toLowerCase();
+  const at = name ? r.indexOf(name) : -1;
+  if (at >= 0) {
+    const m = r.slice(at + name.length).match(/^\s+(\d+(?:\.\d+)?)\s*[a-zµ]*\s+against\s+(\d+(?:\.\d+)?)/);
+    if (m) return { text: m[1], value: Number(m[1]), against: Number(m[2]) };
+  }
+  const v = r.match(/variation of (\d+(?:\.\d+)?)\s*[a-zµ]*\s+on the ([a-z]+)/);
+  if (v && reasonConcerns(v[2], parameter)) return { variation: Number(v[1]) };
+  return null;
+}
+
+/**
+ * The smallest departure from the job's figure that this format's own lot
+ * reasons call a deviation (a pouch 3 mm short, a slit roll 2 mm narrow, a
+ * 0.3 mm variation on the repeat). An Accepted lot's figure stays well inside
+ * it, or an Accepted lot would read the very figure another day's lot was
+ * taken on deviation for.
+ */
+function deviationLimit(documentId: string, parameter: string): number | null {
+  let limit: number | null = null;
+  for (const reasons of Object.values(LOT_REASONS[documentId] ?? {})) {
+    for (const reason of reasons) {
+      const s = statedFigure(reason, parameter);
+      const gap = s?.variation ?? (s?.value !== undefined && s.against !== undefined ? Math.abs(s.value - s.against) : undefined);
+      if (gap !== undefined && gap > 0) limit = limit === null ? gap : Math.min(limit, gap);
+    }
+  }
+  return limit;
+}
+
+/** "181", "97.0", "260 mm", "25 mic" — a figure, with the unit the inspector wrote after it. */
+function measurementOf(text: string): { value: number; decimals: number; suffix: string } | null {
+  const m = text.trim().match(/^(\d+(?:\.(\d+))?)(\s*[a-zµ]+)?$/i);
+  if (!m) return null;
+  return { value: Number(m[1]), decimals: (m[2] ?? "").length, suffix: m[3] ?? "" };
+}
+
+/** In "L1 = 0.306 kg (BRK); L2 = 0.435 kg (BRK)", the lot's stated 0.240 takes the place of the figure nearest what it was measured against. */
+function withStatedFigure(text: string, stated: StatedFigure): string {
+  const figures = Array.from(text.matchAll(/\d+(?:\.\d+)?/g));
+  if (figures.length === 0 || stated.against === undefined || stated.text === undefined) return stated.text ?? text;
+  const nearest = figures.reduce((best, f) => (Math.abs(Number(f[0]) - stated.against!) < Math.abs(Number(best[0]) - stated.against!) ? f : best));
+  const at = nearest.index ?? 0;
+  return text.slice(0, at) + stated.text + text.slice(at + nearest[0].length);
+}
+
+interface ObservationContext {
+  /** The day's lot decision, on a format with a Lot Status box. */
+  lot: LotOutcome | null;
+  /** The sheet is for the specimen's own job (or names no job), so the specimen's figures are this job's figures. */
+  specimenJob: boolean;
+}
+
+function observeRow(doc: DocumentDefinition, layout: LogSheetLayout, row: LogSheetRow, dueDate: string, index: number, ctx: ObservationContext): LogSheetRow {
+  if (doc.id === "qc-inprocess-printing") return varyGrade(layout, row, dueDate, index);
+  const carried = row.observation;
+  if (typeof carried !== "string") return row;
+  const own = layout.specimenRows?.[index]?.observation;
+  // Another job's figures are not this job's: on a sheet for a job the
+  // specimen was not filled for, the person's own last figures stand in.
+  const specimen = ctx.specimenJob && typeof own === "string" ? own.trim() : undefined;
+  const parameter = String(row.parameter ?? "");
+  const reason = ctx.lot && !isLotAccepted(ctx.lot.status) ? ctx.lot.reason : "";
+
+  // A pass/fail test: its passing word, unless today's lot was held for it.
+  const pass = specimen !== undefined ? passingWord(specimen) : passingWord(carried);
+  if (pass) {
+    row.observation = reason && reasonConcerns(reason, parameter) ? failingWord(pass) : pass;
     return row;
   }
 
-  // A pass/fail test: it fails when the lot was actually held for that
-  // reason, so the observation and the lot status can never contradict.
-  if (PASS_WORDS.test(text)) {
-    const lot = lotOutcomeFor(doc.id, dueDate);
-    if ((lot.status === "Reject / Scrap" || lot.status === "Segregation") && reasonConcerns(lot.reason, String(row.parameter ?? ""))) {
-      row.observation = text === text.toUpperCase() ? "FAIL" : "Fail";
-    }
+  // What the row reads before today's lot has its say. On a Lot Status format
+  // every observation is of the lot, so the job's own words are the base
+  // (the "8" a deviation wrote into Centre Seal Width yesterday is not today's).
+  const base = specimen !== undefined && (ctx.lot !== null || measurementOf(specimen)) ? specimen : carried.trim();
+  const figure = measurementOf(base);
+  // The lot reasons are written against the specimen's job ("against 181 mm
+  // specified"), so their figures are only ever written onto that job's sheet;
+  // on another job's they would be the wrong job's figure, and would then be
+  // carried forward as if the person had measured it.
+  const stated = reason && ctx.specimenJob ? statedFigure(reason, parameter) : null;
+  if (stated?.text !== undefined) {
+    row.observation = figure || base === "" || base === "-" ? stated.text + (figure?.suffix ?? "") : withStatedFigure(base, stated);
+  } else if (stated?.variation !== undefined && figure) {
+    const rng = makeRng(`observation|${doc.id}|${dueDate}|${index}`);
+    row.observation = (figure.value + (rng.chance(0.5) ? 1 : -1) * stated.variation).toFixed(figure.decimals) + figure.suffix;
+  } else if (figure && base === specimen) {
+    // One lot's measurement around the job's figure: two draws make the
+    // scatter bunch near it, as repeated measurements of one set-up do.
+    const rng = makeRng(`observation|${doc.id}|${dueDate}|${index}`);
+    const limit = deviationLimit(doc.id, parameter);
+    const spread = Math.min(Math.abs(figure.value) * MEASUREMENT_VARIATION, limit !== null ? limit / 2 : Infinity);
+    row.observation = (figure.value + (rng.next() + rng.next() - 1) * spread).toFixed(figure.decimals) + figure.suffix;
+  } else {
+    row.observation = base;
   }
   return row;
 }
 
-/** F/QC/13: the grade against one printing parameter, and its defect count. */
-function varyGrade(row: LogSheetRow, dueDate: string, index: number): LogSheetRow {
+/** F/QC/13: the grade against one printing parameter, its defect count, and Pass?. */
+function varyGrade(layout: LogSheetLayout, row: LogSheetRow, dueDate: string, index: number): LogSheetRow {
+  // Pass? follows the day's grade, never the last sheet's: a "No" written
+  // under an F grade once must not follow every sheet after it.
+  const ownPass = layout.specimenRows?.[index]?.pass;
   // "-" on the specimen means the parameter doesn't apply to this product
   // (punching, on a job with no labels to punch) — leave those alone.
-  if (String(row.grade ?? "").trim() === "-") return row;
+  if (String(row.grade ?? "").trim() === "-") {
+    if (ownPass !== undefined) row.pass = ownPass;
+    return row;
+  }
   const rng = makeRng(`grade|${dueDate}|${index}`);
   const grade = weightedPick(rng, GRADE_MIX);
   row.grade = grade;
   row.defectCount = rng.pick(GRADE_DEFECTS[grade] ?? ["-"]);
+  // An F grade stops printing (the form's own rule), so it never passes.
+  row.pass = grade === "F" ? "No" : (ownPass ?? (row.pass === "No" ? "Yes" : row.pass));
   return row;
 }
 
@@ -632,6 +791,11 @@ function fillLogSheet(
     else header[f.key] = f.autoFill?.carryForward ? (layout.specimenHeader?.[f.key] ?? "") : "";
   }
 
+  // How the lot was dispositioned, on the inspection formats that print a Lot
+  // Status box — decided before the observations, which have to agree with it.
+  const lotStatusField = layout.footerFields?.find((f) => f.key === "lotStatus");
+  const lot = lotStatusField ? lotOutcomeFor(doc.id, dueDate) : null;
+
   let rows: LogSheetRow[] = [];
   const ctx: RowFillContext = { outOfBand: [] };
   const mode = layout.rowMode;
@@ -641,15 +805,18 @@ function fillLogSheet(
     rows = [fillRow(layout, layout.specimenRows?.[0], rng, doc, master, dueDate, 0, 1, ctx)];
   } else if (mode.kind === "fixedRows") {
     // The printed parameter list never changes. Observations are the day's
-    // own measurements, so they move with the lot being inspected rather
-    // than being copied from the last record for ever (which used to freeze
-    // "Leak Test: PASS" into every inspection the system would ever hold).
+    // own measurements of the day's lot, worked out afresh (observeRow) rather
+    // than copied from the last record — which froze "Leak Test: PASS" into
+    // every inspection, and later froze a FAIL the same way.
+    const specimenJob = String(layout.specimenHeader?.fgCode ?? "").trim();
+    const job = String(header.fgCode ?? "").trim();
+    const observing: ObservationContext = { lot, specimenJob: !specimenJob || !job || job === specimenJob };
     rows = mode.rows.map((fixed, i) => {
       const source = previous?.data.rows?.[i] ?? layout.specimenRows?.[i] ?? {};
       const { id: _ignored, ...prevValues } = source as Record<string, string | number | null>;
       void _ignored;
       const row = fillRow(layout, { ...prevValues, ...fixed }, rng, doc, master, dueDate, i, mode.rows.length, ctx);
-      return varyObservation(doc, row, dueDate, i);
+      return observeRow(doc, layout, row, dueDate, i, observing);
     });
   } else if (isLaminationSheet(doc.id)) {
     // The jobs that actually ran today (engine/plantSimulation.ts) instead of
@@ -685,11 +852,9 @@ function fillLogSheet(
   }
 
   explainExcursions(layout, rows, doc, dueDate, ctx);
-  // How the lot was dispositioned, on the three inspection formats that print
-  // a Lot Status box. Every one of them used to read "Accepted" for ever.
-  const lotStatusField = layout.footerFields?.find((f) => f.key === "lotStatus");
-  if (lotStatusField) {
-    const lot = lotOutcomeFor(doc.id, dueDate);
+  // The lot's disposition, in the Lot Status box. Every one of them used to
+  // read "Accepted" for ever.
+  if (lotStatusField && lot) {
     // In the form's own words: the incoming material records print their
     // statuses in capitals ("ACCEPTED"), the lamination ones in title case.
     header.lotStatus = lotStatusField.options?.find((o) => o.trim().toLowerCase() === lot.status.trim().toLowerCase()) ?? lot.status;
@@ -713,6 +878,17 @@ function fillLogSheet(
   if (gradeAction) notes.unshift(`Check this before you submit: ${gradeAction}`);
   if (header.lotStatus && !isLotAccepted(header.lotStatus)) {
     notes.unshift(`Check this before you submit: this lot is marked ${header.lotStatus} — ${header.deviationReason} Confirm the disposition with QA.`);
+  }
+  // A Calibration Expiry is a fact about the instrument, so it is carried as
+  // it was written, never moved on to make a sheet look current. When it has
+  // already run out by this sheet's day, the note says so first (REQUIREMENTS
+  // §75): Pass lines on an instrument out of calibration are exactly the quiet
+  // pass the assistant must never give.
+  const expiry = header.calibrationExpiry;
+  if (typeof expiry === "string" && ISO_DATE.test(expiry) && compareISO(expiry, dueDate) < 0) {
+    notes.unshift(
+      `Check this before you submit: the Calibration Expiry carried forward, ${formatDisplayDate(expiry)}, is before this sheet's date — the instrument is out of calibration. Write the new expiry if it has been calibrated since; if not, report it to the QA manager.`
+    );
   }
   return { data, notes, basedOn: basedOnLabel(doc, previous, layout.specimenSource) };
 }
@@ -792,8 +968,10 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
     case "qc-inspection-slitting":
     case "qc-inspection-printed-film": {
       const job = [h.fgCode && `FG ${h.fgCode}`, h.poNumber && `PO ${h.poNumber}`, h.jobName].filter(Boolean).join(" · ");
+      // Not "carried forward": the observations are worked out for today's lot
+      // (observeRow), and the person writes in what was actually measured.
       return [
-        `${previous ? "Carried forward" : "Loaded"} all ${rows.length} test-parameter observations for ${job || "the current job"} (shift ${h.shift}); lot status ${h.lotStatus}.`,
+        `Filled all ${rows.length} test-parameter observations for ${job || "the current job"} (shift ${h.shift}) with this job's usual figures, and every pass / fail test set by today's lot (${h.lotStatus}) rather than copied from the last inspection. Write in what was actually measured.`,
         `Inspected by ${h.inspectedBy}. Update the job / PO if a different lot is being inspected today; "Approved by (QA Manager)" is the Verify step.`,
       ];
     }

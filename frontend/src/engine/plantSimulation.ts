@@ -1,9 +1,18 @@
-import type { DocumentDefinition, LogColumn } from "../types";
+import type {
+  DailyPestMonitoringData,
+  DocumentDefinition,
+  FlyCatcherData,
+  LogColumn,
+  LogSheetData,
+  ServiceReportData,
+  TrainingRecordData,
+} from "../types";
 import {
   CAPA_MODEL,
   CHECKPOINT_ISSUES,
   DEFAULT_READING_MODEL,
   EXCURSION_REMARKS,
+  GENERIC_REJECTION_REASONS,
   JOBS_PER_SHIFT,
   JOB_POOL,
   LOT_DECISIONS,
@@ -20,8 +29,12 @@ import {
   type ExcursionRemark,
   type JobSpec,
   type ReadingModel,
+  type RejectionGround,
   type Weighted,
 } from "../data/seed/plantPattern";
+import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { isOutOfBand } from "./validation";
+import { isQuantityLine } from "./serviceMaterials";
 import { addDays, compareISO, todayISO } from "../utils/date";
 import { makeRng, type Rng } from "../utils/random";
 
@@ -309,14 +322,91 @@ export function stampAt(dateISO: string, hour: number, minute: number): string {
   return new Date(Number(dateISO.slice(0, 4)), Number(dateISO.slice(5, 7)) - 1, Number(dateISO.slice(8, 10)), hour, minute).toISOString();
 }
 
+const isBlank = (v: unknown): boolean => String(v ?? "").trim() === "";
+
+// The Remark column of a log sheet, by the issued key, a plant-added one's key
+// or the heading itself — the same test engine/autoFill.ts writes remarks by.
+const isRemarkColumn = (col: LogColumn): boolean => col.type === "text" && (/^remarks?(?:_|$)/i.test(col.key) || /^remarks?$/i.test(col.label.trim()));
+
+/**
+ * What this record itself shows that a verifier could send it back for — the
+ * grounds each rejection reason in plantPattern.ts names (REQUIREMENTS §75).
+ * Read from the record's own data, so a reason can only ever be given to a
+ * record it is true of: "out-of-band reading not explained" to a sheet that
+ * has one, "check point 8 answered Yes" to a register that answered Yes.
+ */
+export function rejectionGroundsFor(doc: DocumentDefinition, data: unknown): Set<RejectionGround> {
+  const grounds = new Set<RejectionGround>();
+  if (!data || typeof data !== "object") return grounds;
+  switch (doc.kind) {
+    case "daily-pest-monitoring": {
+      const d = data as DailyPestMonitoringData;
+      // A holiday row holds no round at all, so nothing about one can be wrong.
+      if (d.isHoliday) break;
+      if (isBlank(d.timeOfChecking)) grounds.add("time-of-checking-blank");
+      if (d.checkpoints?.[8]?.value === "Yes" && isBlank(d.checkpoints[8].note)) grounds.add("checkpoint-8-location-blank");
+      if (!isBlank(d.checker)) grounds.add("checker-written");
+      break;
+    }
+    case "fly-catcher": {
+      const entries = (data as FlyCatcherData).entries ?? [];
+      const counted = (e: (typeof entries)[number]) => typeof e.catchCountApprox === "number";
+      if (entries.some((e) => e.pcId === "PC-05" && counted(e))) grounds.add("pc-05-counted");
+      if (entries.length === 13 && entries.filter((e) => !counted(e)).length === 2) grounds.add("two-of-13-counts-blank");
+      break;
+    }
+    case "service-report": {
+      const d = data as ServiceReportData;
+      if (isBlank(d.customerSign)) grounds.add("customer-sign-blank");
+      // Only the line that carries each material's quantity is asked for one
+      // (engine/serviceMaterials.ts): the rest are blank by design.
+      const lines = d.lines ?? [];
+      if (lines.filter((l, i) => isQuantityLine(lines, i) && isBlank(l.qtyUsed)).length >= 3) grounds.add("three-quantities-blank");
+      break;
+    }
+    case "training-record":
+      if (isBlank((data as TrainingRecordData).certificateRef)) grounds.add("certificate-ref-blank");
+      break;
+    case "log-sheet": {
+      const d = data as LogSheetData;
+      const header = d.header ?? {};
+      const layout = getLogSheetLayout(doc.id);
+      if (layout) {
+        const remark = layout.columns.find(isRemarkColumn);
+        for (const row of d.rows ?? []) {
+          if (!layout.columns.some((c) => isOutOfBand(c, row[c.key]))) continue;
+          if (!remark) grounds.add("out-of-band-no-remark-column");
+          else if (isBlank(row[remark.key])) grounds.add("out-of-band-remark-blank");
+        }
+      }
+      if (!isBlank(header.shift) && (!isBlank(header.operatorName) || !isBlank(header.operator))) grounds.add("shift-and-operator-written");
+      if (!isBlank(header.adhesiveBatch)) grounds.add("adhesive-batch-written");
+      break;
+    }
+  }
+  return grounds;
+}
+
+/** A reason this record holds the grounds for, or — holding none — one that speaks of nothing on it. */
+function rejectionReasonFor(doc: DocumentDefinition, data: unknown, rng: Rng): string {
+  const grounds = rejectionGroundsFor(doc, data);
+  const supported = (REJECTION_REASONS[doc.kind] ?? []).filter((r) => grounds.has(r.when)).map((r) => r.reason);
+  const generic = GENERIC_REJECTION_REASONS[doc.kind] ?? GENERIC_REJECTION_REASONS["*"];
+  // One draw either way, so the reason never moves the rest of the stream.
+  return rng.pick(supported.length > 0 ? supported : generic);
+}
+
 /**
  * What happened to this record after it fell due: who submitted it and when,
  * whether the verifier got to it the same day or a week later, whether it was
  * sent back. Every record submitted at 10:00 and verified at 15:00 is the
  * clearest tell that a dataset was generated, and a run of records with no
  * rejection anywhere in a year is the second clearest.
+ *
+ * `data` is what the record holds: a rejection reason is chosen from what it
+ * shows (rejectionGroundsFor), never regardless of it.
  */
-export function lifecycleFor(doc: DocumentDefinition, dueDate: string, submitter: string, verifier: string, today = todayISO()): LifecycleOutcome {
+export function lifecycleFor(doc: DocumentDefinition, dueDate: string, submitter: string, verifier: string, today = todayISO(), data?: unknown): LifecycleOutcome {
   const rng = makeRng(`lifecycle|${doc.id}|${dueDate}`);
   const outcome = weighted(rng, OUTCOME_MIX);
   const submitLag = weighted(rng, SUBMIT_LAG_DAYS);
@@ -331,7 +421,6 @@ export function lifecycleFor(doc: DocumentDefinition, dueDate: string, submitter
   };
 
   if (outcome === "Rejected") {
-    const reasons = REJECTION_REASONS[doc.kind] ?? REJECTION_REASONS["log-sheet"];
     const rejectedOn = addDays(submittedOn, weighted(rng, VERIFY_LAG_DAYS));
     if (compareISO(rejectedOn, today) > 0) return { status: "Pending Verification", ...submitted };
     return {
@@ -339,7 +428,7 @@ export function lifecycleFor(doc: DocumentDefinition, dueDate: string, submitter
       ...submitted,
       rejectedBy: verifier,
       rejectedAt: stampAt(rejectedOn, rng.int(10, 17), rng.int(0, 59)),
-      rejectionReason: rng.pick(reasons),
+      rejectionReason: rejectionReasonFor(doc, data, rng),
     };
   }
 

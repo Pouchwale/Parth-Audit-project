@@ -272,7 +272,7 @@ export const LOT_REASONS: Record<string, Record<string, string[]>> = {
   }
 };
 
-/** How much a measured observation moves between two lots of the same job. */
+/** How much a measured observation moves around the job's own figure, lot to lot (never compounding). */
 export const MEASUREMENT_VARIATION = 0.015;
 
 /** F/QC/13 printing grades, and what the form's own rule says to do about them. */
@@ -525,29 +525,94 @@ export const OUTCOME_MIX: Weighted<string>[] = [
     "weight": 0.03
   }
 ];
-export const REJECTION_REASONS: Record<string, string[]> = {
+
+/** What a record must itself hold for a verifier to have sent it back with this reason. */
+export type RejectionGround = "adhesive-batch-written" | "certificate-ref-blank" | "checker-written" | "checkpoint-8-location-blank" | "customer-sign-blank" | "out-of-band-no-remark-column" | "out-of-band-remark-blank" | "pc-05-counted" | "shift-and-operator-written" | "three-quantities-blank" | "time-of-checking-blank" | "two-of-13-counts-blank";
+export interface RejectionReason { reason: string; when: RejectionGround; }
+/** Given only to a record that holds the reason's grounds (engine/plantSimulation.ts). */
+export const REJECTION_REASONS: Record<string, RejectionReason[]> = {
   "daily-pest-monitoring": [
-    "Time of checking left blank — please complete before re-submitting.",
-    "Check point 8 answered Yes but the location was not written in.",
-    "Checker name does not match the person who did the round."
+    {
+      "reason": "Time of checking left blank — please complete before re-submitting.",
+      "when": "time-of-checking-blank"
+    },
+    {
+      "reason": "Check point 8 answered Yes but the location was not written in.",
+      "when": "checkpoint-8-location-blank"
+    },
+    {
+      "reason": "Checker name does not match the person who did the round.",
+      "when": "checker-written"
+    }
   ],
   "fly-catcher": [
-    "Catch count for PC-05 does not match the board photographed at cleaning.",
-    "Catch counts entered for 11 of 13 units only."
+    {
+      "reason": "Catch count for PC-05 does not match the board photographed at cleaning.",
+      "when": "pc-05-counted"
+    },
+    {
+      "reason": "Catch counts entered for 11 of 13 units only.",
+      "when": "two-of-13-counts-blank"
+    }
   ],
   "service-report": [
-    "Customer's countersignature missing on the visit report.",
-    "Quantity used not recorded against three areas."
+    {
+      "reason": "Customer's countersignature missing on the visit report.",
+      "when": "customer-sign-blank"
+    },
+    {
+      "reason": "Quantity used not recorded against three areas.",
+      "when": "three-quantities-blank"
+    }
   ],
   "log-sheet": [
-    "Out-of-band reading not explained in the Remark column.",
-    "Shift and operator name do not match the production plan.",
-    "Batch number of the adhesive drum not updated after the change-over."
+    {
+      "reason": "Out-of-band reading not explained in the Remark column.",
+      "when": "out-of-band-remark-blank"
+    },
+    {
+      "reason": "Out-of-band reading with nothing recorded about it — note what was done before re-submitting.",
+      "when": "out-of-band-no-remark-column"
+    },
+    {
+      "reason": "Shift and operator name do not match the production plan.",
+      "when": "shift-and-operator-written"
+    },
+    {
+      "reason": "Batch number of the adhesive drum not updated after the change-over.",
+      "when": "adhesive-batch-written"
+    }
   ],
   "training-record": [
-    "Attendance sheet reference not attached."
+    {
+      "reason": "Attendance sheet reference not attached.",
+      "when": "certificate-ref-blank"
+    }
   ]
 };
+/** For a record that holds none of them: nothing written on it, so nothing to contradict. "*" is any other kind. */
+export const GENERIC_REJECTION_REASONS: Record<string, string[]> = {
+  "daily-pest-monitoring": [
+    "Round to be re-checked with the checker before re-submitting."
+  ],
+  "fly-catcher": [
+    "Counts to be re-checked against the boards before re-submitting."
+  ],
+  "service-report": [
+    "Visit report to be re-checked with the technician before re-submitting."
+  ],
+  "log-sheet": [
+    "Entries to be re-checked against the shop-floor sheet before re-submitting.",
+    "Sheet to be reviewed by the section in-charge before re-submitting."
+  ],
+  "training-record": [
+    "Attendance to be re-checked against the signed sheet before re-submitting."
+  ],
+  "*": [
+    "Entries to be re-checked before re-submitting."
+  ]
+};
+
 export const SHIFT_ROSTER = {
   "qc": {
     "day": "Jeni",

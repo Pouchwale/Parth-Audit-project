@@ -4049,6 +4049,28 @@ Name / Model No.: DCM Usimeca".
   `updatedAt` or status changed, pauses while the tab is hidden, and at most 200 result lines are drawn before "Show
   all N records". Content search starts at two letters.
 
+**6. THE PRE-FILL AND THE DEMO YEAR READ TRUE** (engine/autoFill.ts, engine/plantSimulation.ts, data/demoGenerator.ts,
+tools/plant_pattern.py). Reading the records together (part 1) is only as good as the records, and four faults in what
+the assistant pre-fills and the demo year generates would have made the insights report the generator, not the plant:
+- **A FAIL carried onto accepted lots.** Each sheet copied the last one's observations, so one failing Leak Test or
+  Odour Test stayed on every later sheet — 127 of 224 pouching and 192 of 224 slitting sheets read FAIL beside an
+  Accepted lot. Each observation is now worked out fresh for its own record: the passing word, or the failing word only
+  when that day's lot decision is a rejection, segregation or deviation whose reason names that test. F/QC/13's Pass?
+  follows the day's grade.
+- **Measured figures that walked.** Pouch height went from 182 to 218 mm over the year, repeat length from 203 to 258.
+  A figure now varies around the job's own figure (the specimen's) by less than half the smallest gap the format's own
+  lot reasons call a deviation, and a deviation reason that states a figure ("178 mm against 181 mm specified") has
+  that figure beside it. On another job's sheet (Live), the person's own last figures are kept as they were.
+- **Rejection reasons that contradicted the record.** 91 of 104 rejected records gave a reason their own content
+  disproved (a batch number said to be missing that was written). Every reason now names what the record must show for
+  it, and a record that shows none of them gets a generic reason instead. The same 104 records are still rejected.
+- **Specimen dates that went stale.** F/QC/12's lines and F/QC/11's Calibration Date now take the record's own day (and
+  the daily camera-challenge register its date). A calibration expiry is a fact about the instrument, so it is still
+  carried as written — in Live the pre-fill now opens with "Check this before you submit" when it has passed; only the
+  demo renews its certificate, a year at a time.
+The demo year is still generated the same way on every run (one fingerprint), and no stored record is rewritten: a demo
+year already in the database keeps its old data until it is cleared and generated again.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

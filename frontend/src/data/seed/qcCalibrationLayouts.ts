@@ -30,7 +30,12 @@ const deviation = (key: string): LogColumn => ({ key, label: "Deviation %", type
 
 /** The five test weights of the weight scale sheet, as the form prints them. */
 export const WEIGHT_SCALE_COLUMNS: LogColumn[] = [
-  { key: "date", label: "Date", type: "date", width: 130 },
+  // A calibration line prepared for a week is that week's calibration, so its
+  // Date is the day the record is for, and the Next Due Date on the line keeps
+  // its own interval after it (engine/autoFill.ts). Copied as written, every
+  // weekly sheet of a demo year read the supplied page's 2024 dates
+  // (REQUIREMENTS §75).
+  { key: "date", label: "Date", type: "date", width: 130, autoFill: { dueDate: true } },
   { key: "testedBy", label: "Tested By", type: "text", width: 130, autoFill: { sign: true } },
 ];
 for (let i = 1; i <= 5; i++) {
@@ -165,7 +170,10 @@ const gsmPlate: LogSheetLayout = {
     { key: "manufacturer", label: "Manufacturer", type: "text", width: 170, autoFill: { carryForward: true } },
     { key: "serialNo", label: "Serial No", type: "text", width: 120, autoFill: { carryForward: true } },
     { key: "calibrationExpiry", label: "Calibration Expiry", type: "date", width: 150, autoFill: { carryForward: true } },
-    { key: "calibrationDate", label: "Calibration Date", type: "date", width: 150 },
+    // The month's calibration is done on the day its record is for; left to the
+    // specimen it was blank on every sheet (REQUIREMENTS §75). The Calibration
+    // Expiry above is the plates' own, carried as written.
+    { key: "calibrationDate", label: "Calibration Date", type: "date", width: 150, autoFill: { dueDate: true } },
     { key: "dueDate", label: "Due Date", type: "date", width: 150 },
   ],
   columns: gsmColumns,
