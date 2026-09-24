@@ -148,5 +148,9 @@ export function departmentFromFormatNo(formatNo: string | undefined): string | n
 
 /** The department code that owns this document, or null when none is assigned. */
 export function departmentOfDocument(documentId: string, formatNo?: string): string | null {
-  return DOCUMENT_DEPARTMENTS[documentId] ?? departmentFromFormatNo(formatNo);
+  // Only the map's OWN entries: an id such as "constructor" or "__proto__"
+  // would otherwise read a member of every object's prototype, not a
+  // department — and the server now takes this answer from what a browser sends.
+  const own = Object.prototype.hasOwnProperty.call(DOCUMENT_DEPARTMENTS, documentId) ? DOCUMENT_DEPARTMENTS[documentId] : undefined;
+  return own ?? departmentFromFormatNo(formatNo);
 }

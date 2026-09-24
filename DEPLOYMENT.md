@@ -88,6 +88,7 @@ Tables:
 |---|---|
 | `users` | accounts: id, name, email, bcrypt hash, role, created_at, departments |
 | `digest_log` | the last date a reminder digest was emailed (one row) |
+| `activity_log` | the Activity Log (REQUIREMENTS §62): one line per thing a person did — `at`, `user_id`, `user_name`, `action`, `target`, `detail`, `department`, `ip`. Indexed by time, by person and time, and by department and time; its search has a trigram index (`activity_log_search_trgm_idx`) when the database account may create the `pg_trgm` extension — without that right the server logs one warning and searches unindexed (REQUIREMENTS §75) |
 | `app_storage` | the app's data, one row per stored item: `scope` (`company`, or a user's id), `key` (`records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `live-start` for the company; `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible` for a person — no other keys are accepted), `value` (the item as JSON text), `version`, `seq`, `updated_at`, `updated_by` |
 
 **Where the database is.**
@@ -212,6 +213,7 @@ just shows a clear "isn't configured yet" message instead of failing silently.
 | `API_PORT` | `4000` | `backend/index.ts`, dev proxy | Auth API port |
 | `JWT_SECRET` | auto-generated, saved to `backend/data/jwt-secret.txt` | `backend/auth.ts` | Session-signing key |
 | `FORCE_HTTPS` | unset (`off`) | `backend/index.ts` | Set to `1` to mark the session cookie `Secure` (only do this if actually served over HTTPS, e.g. behind a reverse proxy) |
+| `PLANT_TIMEZONE` | `Asia/Kolkata` | `backend/db.ts` | The plant's own clock for "today", "this month" and a person's active days in the Activity Log, which PostgreSQL counts by casting a moment to a date in the connection's time zone. A hosted database usually runs in UTC, where everything done before 05:30 would count on the day before (REQUIREMENTS §75). Only a plain zone name is accepted. |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | none (digest disabled) | `backend/email.ts` | The mailbox the daily reminder digest is sent from. Recipients are the employees Master Data assigns to each due record; the server accepts only single, well-formed addresses (at most 50 per digest), so the endpoint can't be used to relay mail. |
 
 In `backend/.env`, one `KEY=value` per line. A value may be wrapped in `"…"` or `'…'`, and an

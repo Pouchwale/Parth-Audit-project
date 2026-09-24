@@ -276,7 +276,68 @@ const SCHEMA = `
     ip TEXT NOT NULL DEFAULT ''
   );
   CREATE INDEX IF NOT EXISTS activity_log_at_idx ON activity_log (at DESC);
+  -- ONE PERSON, AND ONE DEPARTMENT, OVER A SPAN (REQUIREMENTS §73). The
+  -- scorecard asks "what did this person do this month", and an account kept
+  -- to its departments reads "my lines OR my departments' lines". Without these
+  -- two, both are answered by walking the whole log backwards; with them, by
+  -- reading only the lines asked for — at a million lines, 29 ms became 3 ms
+  -- for one person's month and 252 ms became 0.3 ms for a department whose few
+  -- lines are old. at_idx above still serves the plain day/month/year spans.
+  CREATE INDEX IF NOT EXISTS activity_log_user_at_idx ON activity_log (user_id, at);
+  CREATE INDEX IF NOT EXISTS activity_log_department_at_idx ON activity_log (department, at);
 `;
+
+// THE WORDS A SEARCH OF THE ACTIVITY LOG LOOKS IN (REQUIREMENTS §62, §73):
+// who, what, on what, and the detail, lower-cased. Written ONCE, here, because
+// two things must agree on it to the character: the search itself
+// (activityWhere) and the trigram index that makes it fast
+// (ensureActivitySearchIndex). PostgreSQL uses an expression index only when the
+// query spells exactly the same expression, so a later edit to one copy and not
+// the other would not fail — it would silently go back to reading every line.
+const ACTIVITY_SEARCH_TEXT = "lower(user_name || ' ' || action || ' ' || target || ' ' || detail)";
+
+// Held while this server brings the tables up to date, so two servers starting
+// against one database (the test runner starts a second) do not race each
+// other on the same CREATE. 4711 and 4712 are taken (insertUser, writeItem).
+const SCHEMA_LOCK = 4713;
+
+/**
+ * THE SEARCH INDEX, A STEP OF ITS OWN (REQUIREMENTS §75). A trigram index
+ * answers "any line that mentions F/QC/13" without reading every line — at a
+ * million lines a search that finds nothing went from 2.2 s to under 1 ms —
+ * and it keeps the search exactly what it was: a match anywhere in the words,
+ * so a format number with slashes in it is still found.
+ *
+ * It needs the pg_trgm extension, and CREATE EXTENSION is not a right every
+ * database account has (a hosted PostgreSQL may refuse it). That is why this
+ * is NOT part of SCHEMA: SCHEMA failing stops the server, and a server that
+ * cannot have the index must still start — the search then works as before,
+ * only unindexed. One line in the console says so.
+ */
+async function ensureActivitySearchIndex(client: pg.PoolClient): Promise<void> {
+  try {
+    await client.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");
+    await client.query(`CREATE INDEX IF NOT EXISTS activity_log_search_trgm_idx ON activity_log USING gin (${ACTIVITY_SEARCH_TEXT} gin_trgm_ops)`);
+  } catch (err) {
+    console.warn(`[postgres] The activity log's search index was not made (${err instanceof Error ? err.message : String(err)}); searching still works, only more slowly on a long log.`);
+  }
+}
+
+// THE PLANT'S OWN CLOCK FOR "TODAY" (REQUIREMENTS §73). A day, a month and a
+// person's active days are counted in PostgreSQL by casting a moment to a
+// date, and that cast uses the connection's time zone. The app's own database
+// takes India's from the machine, but a hosted server usually runs in UTC — and
+// there, everything done before 05:30 would be counted on the day before.
+// Every connection is therefore set to the plant's zone; PLANT_TIMEZONE is for
+// a plant somewhere else. Only a plain zone name is accepted: the value goes
+// into the connection's start-up options, where a space would split it. Read
+// when the database is opened, not when this file is loaded, so a value from
+// backend/.env is seen whichever file happens to import this one first.
+const TIME_ZONE_RE = /^[A-Za-z][A-Za-z0-9_+\-/]{0,63}$/;
+export function plantTimeZone(): string {
+  const zone = process.env.PLANT_TIMEZONE?.trim() ?? "";
+  return TIME_ZONE_RE.test(zone) ? zone : "Asia/Kolkata";
+}
 
 /**
  * A pooled client for a transaction. A connection that drops while it is
@@ -345,7 +406,7 @@ async function importSqliteOnce(): Promise<void> {
 export async function openDatabase(): Promise<pg.Pool> {
   if (pool) return pool;
   const connectionString = process.env.DATABASE_URL || (await embeddedDatabaseUrl());
-  pool = new pg.Pool({ connectionString, max: Number(process.env.PG_POOL_MAX ?? 10) });
+  pool = new pg.Pool({ connectionString, max: Number(process.env.PG_POOL_MAX ?? 10), options: `-c TimeZone=${plantTimeZone()}` });
   pool.on("error", (err) => console.error("[postgres pool]", err.message));
   // The records are written in English and Gujarati, with dashes and arrows: a
   // database in a Windows or Latin-1 encoding would refuse them one save at a time.
@@ -355,7 +416,17 @@ export async function openDatabase(): Promise<pg.Pool> {
     await closeDatabase();
     throw new Error(`The PostgreSQL database must use UTF8 encoding (it uses ${found}). Create it with: CREATE DATABASE <name> ENCODING 'UTF8' TEMPLATE template0;`);
   }
-  await pool.query(SCHEMA);
+  // SCHEMA and the search index under one lock, on one connection; the lock
+  // goes with the connection if it drops, so it can never be left held.
+  await withClient(async (client) => {
+    await client.query("SELECT pg_advisory_lock($1)", [SCHEMA_LOCK]);
+    try {
+      await client.query(SCHEMA);
+      await ensureActivitySearchIndex(client);
+    } finally {
+      await client.query("SELECT pg_advisory_unlock($1)", [SCHEMA_LOCK]).catch(() => {});
+    }
+  });
   await importSqliteOnce();
   return pool;
 }
@@ -499,17 +570,46 @@ export interface ActivityInput {
   ip?: string;
 }
 
+/**
+ * Writes a batch of lines ALL OR NOTHING, in the order given (REQUIREMENTS
+ * §62). One statement, not one per line: the browser sends its lines several
+ * at a time and sends the whole batch again when the request fails, so a batch
+ * that was half written before a failure would put its first half in the log
+ * twice — an audit trail that says a thing was done twice when it was done once.
+ * A single INSERT is one transaction; it is also fifteen times quicker.
+ */
 export async function insertActivity(lines: ActivityInput[]): Promise<void> {
-  for (const l of lines) {
-    await database().query(
-      `INSERT INTO activity_log (user_id, user_name, user_email, action, target, detail, department, ip)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [l.userId, l.userName, l.userEmail, l.action, l.target ?? "", l.detail ?? "", l.department ?? "", l.ip ?? ""]
-    );
-  }
+  if (lines.length === 0) return;
+  const column = (pick: (l: ActivityInput) => string | null) => lines.map(pick);
+  await database().query(
+    `INSERT INTO activity_log (user_id, user_name, user_email, action, target, detail, department, ip)
+     SELECT user_id, user_name, user_email, action, target, detail, department, ip
+       FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
+            WITH ORDINALITY AS line (user_id, user_name, user_email, action, target, detail, department, ip, n)
+      ORDER BY n`,
+    [
+      column((l) => l.userId),
+      column((l) => l.userName),
+      column((l) => l.userEmail),
+      column((l) => l.action),
+      column((l) => l.target ?? ""),
+      column((l) => l.detail ?? ""),
+      column((l) => l.department ?? ""),
+      column((l) => l.ip ?? ""),
+    ]
+  );
 }
 
-/** Newest first. `departments` null = every line; otherwise the person's own lines and their departments'. */
+/**
+ * A search as typed, made safe to put inside LIKE's %...%: a backslash, a
+ * percent sign or an underscore in the box means that character, not "any
+ * characters" or "any one character" — "F_QC" must not find "F/QC", and "100%"
+ * must not find every line that has "100" in it. Matched with ESCAPE '\'.
+ */
+function likeContaining(search: string): string {
+  return `%${search.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
 // WHO DID WHAT, OVER A DAY, A MONTH OR A YEAR (REQUIREMENTS §73).
 //
 // "whatever the work that user has done in whole day, month, year and
@@ -521,9 +621,13 @@ export async function insertActivity(lines: ActivityInput[]): Promise<void> {
 // `to` are plain YYYY-MM-DD and the span INCLUDES both ends, which is what a
 // person means by "this month"; they are compared as a half-open range on `at`
 // so the index on it is still used, rather than wrapping the column in a cast.
-interface ActivityFilter {
+//
+// The line list and the tally beside it take the SAME filter — scope, person,
+// span and search — so the counts always describe the lines on the screen.
+export interface ActivityFilter {
   departments: string[] | null;
   userId: string;
+  /** Words anywhere in who, what, on what or the detail; matched as typed, not as a pattern. */
   search?: string;
   /** One person's lines only — their account id. */
   person?: string;
@@ -552,8 +656,9 @@ function activityWhere(opts: ActivityFilter, args: unknown[]): string[] {
     where.push(`at < ($${args.length}::date + 1)`);
   }
   if (opts.search) {
-    args.push(`%${opts.search.toLowerCase()}%`);
-    where.push(`lower(user_name || ' ' || action || ' ' || target || ' ' || detail) LIKE $${args.length}`);
+    args.push(likeContaining(opts.search));
+    // E'\\' is one backslash whatever standard_conforming_strings says.
+    where.push(`${ACTIVITY_SEARCH_TEXT} LIKE $${args.length} ESCAPE E'\\\\'`);
   }
   return where;
 }
@@ -580,7 +685,24 @@ export interface ActivityTally {
  * Two queries, because a person's ACTIVE DAYS cannot be added up across
  * actions — the same day appears under each of them — so the days are counted
  * once per person and the actions once per person and action.
+ *
+ * ONE ROW PER ACCOUNT. A line that has an account is counted under the
+ * account alone, not under the account and the name it was written with:
+ * should an account ever be renamed, its month must stay one row, headed by
+ * the name it has now (the name on its latest line), not split into two rows
+ * that each claim the whole. Only a line with no account — somebody refused at
+ * the door — is counted under the name it gives.
+ *
+ * The days are counted by first cutting the span into one row per person, per
+ * name and per day — at most a few thousand rows for a year of the plant — and
+ * counting those, rather than asking PostgreSQL for COUNT(DISTINCT day) over
+ * every line, which sorts the whole span: at a million lines 1.45 s instead of
+ * 5.5 to 9.3 s, and the same counts.
  */
+// The person a line is counted under, as SQL: the account, or, for a line with
+// none, the name — kept apart from any account's id, since both are text.
+const PERSON_GROUP = "user_id, CASE WHEN user_id IS NULL THEN user_name END";
+
 export async function activitySummary(opts: ActivityFilter): Promise<ActivityTally[]> {
   const perPersonArgs: unknown[] = [];
   const perPersonWhere = activityWhere(opts, perPersonArgs);
@@ -592,32 +714,36 @@ export async function activitySummary(opts: ActivityFilter): Promise<ActivityTal
     last_at: Date;
     active_days: string;
   }>(
-    `SELECT user_id, user_name, COUNT(*)::text AS n, MIN(at) AS first_at, MAX(at) AS last_at,
-            COUNT(DISTINCT at::date)::text AS active_days
-       FROM activity_log
-       ${perPersonWhere.length ? "WHERE " + perPersonWhere.join(" AND ") : ""}
-      GROUP BY user_id, user_name`,
+    `SELECT user_id,
+            (array_agg(user_name ORDER BY last_at DESC))[1] AS user_name,
+            SUM(n)::text AS n, MIN(first_at) AS first_at, MAX(last_at) AS last_at,
+            COUNT(DISTINCT d)::text AS active_days
+       FROM (SELECT user_id, user_name, at::date AS d, COUNT(*) AS n, MIN(at) AS first_at, MAX(at) AS last_at
+               FROM activity_log
+               ${perPersonWhere.length ? "WHERE " + perPersonWhere.join(" AND ") : ""}
+              GROUP BY user_id, user_name, at::date) per_day
+      GROUP BY ${PERSON_GROUP}`,
     perPersonArgs
   );
   if (people.length === 0) return [];
 
   const perActionArgs: unknown[] = [];
   const perActionWhere = activityWhere(opts, perActionArgs);
-  const { rows: actions } = await database().query<{ user_id: string | null; user_name: string; action: string; n: string }>(
-    `SELECT user_id, user_name, action, COUNT(*)::text AS n
+  const { rows: actions } = await database().query<{ user_id: string | null; name_key: string | null; action: string; n: string }>(
+    `SELECT user_id, CASE WHEN user_id IS NULL THEN user_name END AS name_key, action, COUNT(*)::text AS n
        FROM activity_log
        ${perActionWhere.length ? "WHERE " + perActionWhere.join(" AND ") : ""}
-      GROUP BY user_id, user_name, action`,
+      GROUP BY ${PERSON_GROUP}, action`,
     perActionArgs
   );
 
   // Keyed by the ACCOUNT where there is one. A line whose account has since
   // been removed keeps the name it was written with, which is the point of a
   // log: it says what happened, not what is still true.
-  const key = (id: string | null, name: string) => id ?? `name:${name}`;
+  const key = (id: string | null, name: string | null) => id ?? `name:${name ?? ""}`;
   const byAction = new Map<string, Record<string, number>>();
   for (const r of actions) {
-    const k = key(r.user_id, r.user_name);
+    const k = key(r.user_id, r.name_key);
     const into = byAction.get(k) ?? {};
     into[r.action] = (into[r.action] ?? 0) + (Number(r.n) || 0);
     byAction.set(k, into);
@@ -635,18 +761,31 @@ export async function activitySummary(opts: ActivityFilter): Promise<ActivityTal
     .sort((a, b) => b.total - a.total || a.userName.localeCompare(b.userName));
 }
 
+/**
+ * NEWEST FIRST, a page at a time. `departments` null = every line; otherwise
+ * the person's own lines and their departments'. `before` is the id of the
+ * last line of the page already shown, and the next page is the lines below it.
+ *
+ * The id is handed out as TEXT (a bigint can outgrow a JavaScript number), so
+ * the ordering and the cursor must both name the TABLE's id: a bare
+ * `ORDER BY id` resolves to the text column of the same name in the SELECT
+ * list, which sorted 99 above 158 — the log was not newest first, "Show older"
+ * skipped and repeated lines, and every page sorted the whole table to find
+ * its hundred. Ordered by activity_log.id it is read straight off the primary
+ * key, backwards, and stops at the hundredth line.
+ */
 export async function listActivity(opts: ActivityFilter & { limit: number; before?: string }): Promise<ActivityLine[]> {
   const args: unknown[] = [];
   const where: string[] = [];
   if (opts.before) {
     args.push(opts.before);
-    where.push(`id < $${args.length}`);
+    where.push(`activity_log.id < $${args.length}::bigint`);
   }
   where.push(...activityWhere(opts, args));
   args.push(opts.limit);
   const { rows } = await database().query<{ id: string; at: Date; user_id: string | null; user_name: string; user_email: string; action: string; target: string; detail: string; department: string }>(
-    `SELECT id::text, at, user_id, user_name, user_email, action, target, detail, department FROM activity_log
-     ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY id DESC LIMIT $${args.length}`,
+    `SELECT id::text AS id, at, user_id, user_name, user_email, action, target, detail, department FROM activity_log
+     ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY activity_log.id DESC LIMIT $${args.length}`,
     args
   );
   return rows.map((r) => ({ id: r.id, at: r.at.toISOString(), userId: r.user_id, userName: r.user_name, userEmail: r.user_email, action: r.action, target: r.target, detail: r.detail, department: r.department }));

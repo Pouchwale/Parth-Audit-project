@@ -564,11 +564,26 @@ app.post("/api/activity", requireAuth, async (req: Request, res: Response): Prom
     res.status(400).json({ error: "Between 1 and 50 events." });
     return;
   }
+  // EVERY LINE FILED UNDER ITS DEPARTMENT (REQUIREMENTS §40, §75). A line that
+  // names its document is given the department HERE, by the same rule the
+  // records are scoped by (departmentOfDocument, with the stored definitions'
+  // format numbers — lineVisibility below), so it cannot disagree with who may
+  // see the record itself. The browser's own guess came only from its fixed
+  // map, and every Purchase, Store and Dispatch line was filed under no
+  // department — invisible to that department's own accounts. The browser's
+  // `department` is still read, for a line with no document or a document no
+  // rule places.
+  const formatNos = (events as Record<string, unknown>[]).some((e) => typeof e?.documentId === "string") ? await documentFormatNos() : null;
   const lines = [];
   for (const e of events as Record<string, unknown>[]) {
     const action = clip(e?.action, 80).trim();
     if (!action) continue;
-    const department = clip(e?.department, 8).toUpperCase();
+    const documentId = clip(e?.documentId, 120).trim();
+    const stated = clip(e?.department, 8).toUpperCase();
+    // Checked for shape as well: the id comes from the browser, and a name such
+    // as "constructor" finds something on any plain object's prototype.
+    const derived: unknown = documentId && formatNos ? departmentOfDocument(documentId, formatNos.get(documentId)) : null;
+    const department = typeof derived === "string" && DEPARTMENT_CODE_RE.test(derived) ? derived : DEPARTMENT_CODE_RE.test(stated) ? stated : "";
     lines.push({
       userId: user.id,
       userName: user.name,
@@ -576,7 +591,7 @@ app.post("/api/activity", requireAuth, async (req: Request, res: Response): Prom
       action,
       target: clip(e?.target, 240),
       detail: clip(e?.detail, 600),
-      department: DEPARTMENT_CODE_RE.test(department) ? department : "",
+      department,
       ip: req.ip ?? "",
     });
   }
@@ -595,40 +610,45 @@ app.post("/api/activity", requireAuth, async (req: Request, res: Response): Prom
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const day = (v: unknown): string | undefined => (typeof v === "string" && DAY_RE.test(v) ? v : undefined);
 const personId = (v: unknown): string | undefined => (typeof v === "string" && v.trim().length > 0 && v.length <= 64 ? v.trim() : undefined);
+// A line's id as the "Show older" cursor: digits only, and no more than 18 of
+// them, so it is always inside PostgreSQL's bigint — a longer one used to fail
+// the whole request instead of simply finding nothing.
+const BEFORE_RE = /^[0-9]{1,18}$/;
 
-app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
+/**
+ * WHAT A READING OF THE LOG IS KEPT TO — one reading of the request for the
+ * lines AND for the tally beside them, so the two can never be filtered
+ * differently: the account's scope, then `person`, `from`, `to` and the search
+ * `q`. (The tally used to ignore the search, so a search showed ten lines
+ * beside a count of the whole day.)
+ */
+function activityFilter(req: Request): Parameters<typeof activitySummary>[0] {
   const user = (req as AuthedRequest).user;
-  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
-  const before = typeof req.query.before === "string" && /^[0-9]+$/.test(req.query.before) ? req.query.before : undefined;
   const search = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80) : "";
-  const departments = user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
-  const lines = await listActivity({
-    limit,
-    before,
-    departments,
+  return {
+    departments: user.role !== "admin" && user.departments.length > 0 ? user.departments : null,
     userId: user.id,
     search: search || undefined,
     person: personId(req.query.person),
     from: day(req.query.from),
     to: day(req.query.to),
-  });
+  };
+}
+
+app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+  const before = typeof req.query.before === "string" && BEFORE_RE.test(req.query.before) ? req.query.before : undefined;
+  const lines = await listActivity({ ...activityFilter(req), limit, before });
   sendCompressedJson(req, res, 200, { lines });
 });
 
 // WHAT EACH PERSON DID OVER THE SPAN, counted (REQUIREMENTS §73) — the tally
 // the Performance Scorecard is read beside. Same scoping: the administrator
 // sees everybody, an account kept to departments sees itself and its
-// departments'. The counts are worked out in PostgreSQL, not here.
+// departments'. The counts are worked out in PostgreSQL, not here, over
+// exactly the lines GET /api/activity would list for the same request.
 app.get("/api/activity/summary", requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const user = (req as AuthedRequest).user;
-  const departments = user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
-  const people = await activitySummary({
-    departments,
-    userId: user.id,
-    person: personId(req.query.person),
-    from: day(req.query.from),
-    to: day(req.query.to),
-  });
+  const people = await activitySummary(activityFilter(req));
   sendCompressedJson(req, res, 200, { people });
 });
 

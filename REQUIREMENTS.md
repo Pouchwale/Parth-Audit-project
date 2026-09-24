@@ -4049,6 +4049,24 @@ Name / Model No.: DCM Usimeca".
   `updatedAt` or status changed, pauses while the tab is hidden, and at most 200 result lines are drawn before "Show
   all N records". Content search starts at two letters.
 
+**5. THE ACTIVITY LOG, CORRECT AND FAST AT ANY SIZE** (backend/db.ts, the /api/activity routes).
+- **A live bug fixed: the log was not newest first.** It was ordered by the text copy of the line number, so line 99
+  came before line 158 and "Show older" could skip or repeat lines. It is now ordered by the number, reading the
+  primary-key index backwards.
+- **Indexes** by person and time and by department and time — at a million lines one person's month went from 29 ms to
+  3 ms, and a small department's lines from 252 ms to 0.3 ms — and a **trigram index for the search box** (2.2 s to
+  under 1 ms for a search that finds nothing), made only when the database account may create the `pg_trgm`
+  extension; without that right the server starts, logs one line, and searches unindexed.
+- **The search means what it says**: `%`, `_` and `\` are escaped, so "F_QC" no longer finds "F/QC" and "100%" no
+  longer finds "1000". The per-person tally beside the lines honours the search too.
+- **A batch of lines is written all or nothing**, in the order given.
+- **Every line carries its department, worked out by the server** from the document's id with the same rule the
+  line's visibility uses — the browser's claim is used only when the server's rule places nothing. Purchase, Store,
+  Dispatch and Maintenance lines had been filed under no department (§74).
+- **The plant's own clock** (`PLANT_TIMEZONE`, default Asia/Kolkata) for "today", "this month" and active days: a
+  hosted PostgreSQL usually runs in UTC, where everything done before 05:30 was counted on the day before.
+- Two servers starting on one database no longer race on creating the tables (an advisory lock).
+
 **6. THE PRE-FILL AND THE DEMO YEAR READ TRUE** (engine/autoFill.ts, engine/plantSimulation.ts, data/demoGenerator.ts,
 tools/plant_pattern.py). Reading the records together (part 1) is only as good as the records, and four faults in what
 the assistant pre-fills and the demo year generates would have made the insights report the generator, not the plant:
