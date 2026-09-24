@@ -4089,6 +4089,60 @@ the assistant pre-fills and the demo year generates would have made the insights
 The demo year is still generated the same way on every run (one fingerprint), and no stored record is rewritten: a demo
 year already in the database keeps its old data until it is cleared and generated again.
 
+**7. MITRA ANSWERS FROM ALL HISTORY** (engine/historyDigest.ts, engine/scopedInsights.ts, the analyst prompt in
+backend/assistant.ts, backend/groq.ts). Mitra saw only today's facts, so "which machine breaks down most?", "how did QC
+do last quarter?", "who is late?", "what stands out in the records?" — and a follow-up, "and the month before?" — could
+not be answered. Now:
+- **The app recognises such a question and works the figures out itself**, from the records this account may see and
+  with the engines the screens use: F/MNT/06's minutes, MTTR and calendar-day time between breakdowns per machine; the
+  two latest lux rounds area by area; F/PUR/05's own grade table; lots not accepted and readings outside the printed
+  band; CAPA findings open, past target and closed, and complaints received; rodents and flies; the Performance
+  Scorecard; and the Insights for the topic. Only records people wrote are read (lateness is the Scorecard's own
+  question). A command, a screen to open, today's work, a machine looked up by its number, the calendar and small talk
+  keep their own answers. "Last quarter" is the previous calendar quarter; with no period named, the last 90 days.
+- **The figures go to the model as evidence**, at most 6,000 characters (1,500 per topic, five lines per list, ten
+  records), under a shorter prompt that drops the full list of screens and says: the only source for numbers; quote
+  them exactly; if the answer is not in it, say so and suggest the screen. Anything a person wrote is quoted and cut to
+  80 characters. An answer names up to five records it was read from, each an Open link; the server keeps only records
+  the evidence named.
+- **The conversation so far goes with every question** (six turns, 800 characters each, 3,000 in all), so a follow-up
+  is understood.
+- **With no model** — no key, no network, or the day's allowance used up — the same figures, said plainly, are the
+  answer, labelled with the reason (§72).
+- **The plant's daily allowance**: every answer's tokens are counted per day on the plant's clock; at 90% of
+  `GROQ_DAILY_TOKEN_BUDGET` (default 200,000, Groq's free tier) the chat stops asking the model and says so, instead of
+  failing on the provider's limit by midday. A call to the model gives up after 30 seconds.
+- Mitra's live facts gain one line of what stands out (the Insights headline) and, when a machine is named by its
+  number, what F/MNT/01 says about it.
+- **Fast on a slow laptop**: nothing is worked out while drawing; it is worked out on send, in 8 ms slices, and kept
+  until the records change.
+
+**8. THE MONTHLY MANAGEMENT SUMMARY — Reports › Management Summary, `/reports/{year}/{month0}/summary`**
+(engine/monthlySummary.ts, components/reports/MonthlySummaryReport.tsx). A month of the plant's records in plain
+English for management, with the month picker every report has, and printable like them. It is **worked out by code,
+not written by a model**: every sentence is a fixed template filled with numbers counted from the records, so it works
+with no network and the same records always give the same words. Three to five sentences come first, then a part each:
+
+| Part | What it reports |
+|---|---|
+| Record-keeping | Due, on time, late and never done, with the score by department and by module, the three documents most behind and the three people most often late — the Performance Scorecard's own rule, which can now score any range of dates |
+| CAPA | Findings raised and closed in the month, open and past target at its end (the oldest named); customer complaints received, approved and open |
+| Quality | Lots not simply accepted per inspection record; readings outside the band the form prints; instruments out of calibration or expiring within 30 days |
+| Maintenance | Breakdowns, minutes down, MTTR, production lost and the machines that broke down most; PM planned against done (late = more than 7 days after the plan); weeks with glass breakage; lux rounds and the areas that lost 25% of their light |
+| Purchase | The latest F/PUR/05's suppliers graded A, B and C, each C named with the form's "Replace / improve" |
+| Pest control | Days recorded, rodents caught as the Rodent Trend counts them, check point findings, flies counted |
+| What the records show | The ten most severe insights |
+
+- **As of the month's end**: a state (CAPA past target, calibration, grades, insights) is read as it stood on the
+  month's last day, over the records dated up to then; for the month still running, as it stands today. A month not
+  begun says so.
+- **Only what people wrote**, except record-keeping, where a sheet nobody handed in is exactly what "never done" counts.
+- **A part with nothing to report says so in one line** rather than disappearing.
+- **Scoped** (§40): a part about documents the account may not see is left out, and the headline says which
+  departments it covers.
+- **Fast on a slow laptop** (§56): the page paints first; the summary is worked out after it in slices of about 8 ms,
+  again two seconds after a save, and kept for the next visit while nothing has changed.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

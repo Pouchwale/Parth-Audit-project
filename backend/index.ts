@@ -37,7 +37,7 @@ import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartme
 import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, SESSION_TTL_MS, type PublicUser } from "./auth.ts";
 import { distDir } from "./paths.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
-import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS } from "./assistant.ts";
+import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 
@@ -702,7 +702,7 @@ const ROUTE_RE = /^\/[a-z0-9/_-]*$/i;
 
 app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
-  const { message, today, currentRoute, documentKind, currentData, context, language, recordStatus } = req.body ?? {};
+  const { message, today, currentRoute, documentKind, currentData, context, language, recordStatus, evidence, history } = req.body ?? {};
 
   if (typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "Message is required." });
@@ -741,8 +741,41 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
     res.status(400).json({ error: "context must be a short string." });
     return;
   }
+  // THE EVIDENCE PACK for a question about history (REQUIREMENTS §75): the
+  // figures the browser worked out from the records this person may see
+  // (frontend/src/engine/historyDigest.ts) — 6,000 characters at most there,
+  // 8,000 here. Same reasoning as the context: it must not pad the prompt.
+  if (evidence !== undefined && (typeof evidence !== "string" || evidence.length > 8000)) {
+    res.status(400).json({ error: "evidence must be a string of at most 8000 characters." });
+    return;
+  }
+  // THE CONVERSATION SO FAR, for a follow-up ("and the month before?"): at
+  // most six turns, each at most 800 characters and 3,000 in all — what the
+  // browser sends (historyDigest.ts historyForModel), and no more.
+  let turns: { role: "user" | "assistant"; text: string }[] | undefined;
+  if (history !== undefined) {
+    const list: unknown[] = Array.isArray(history) ? history : [];
+    const shaped = list.every((h) => {
+      const turn = h as { role?: unknown; text?: unknown } | null;
+      return !!turn && typeof turn === "object" && (turn.role === "user" || turn.role === "assistant") && typeof turn.text === "string" && turn.text.length <= 800;
+    });
+    const total = shaped ? list.reduce<number>((n, h) => n + (h as { text: string }).text.length, 0) : Infinity;
+    if (!Array.isArray(history) || list.length > 6 || !shaped || total > 3000) {
+      res.status(400).json({ error: "history must be at most 6 short turns." });
+      return;
+    }
+    turns = (list as { role: "user" | "assistant"; text: string }[]).filter((h) => h.text.trim()).map((h) => ({ role: h.role, text: h.text }));
+  }
   if (language !== undefined && language !== "en" && language !== "gu") {
     res.status(400).json({ error: "Unsupported language." });
+    return;
+  }
+  // THE PLANT'S DAILY ALLOWANCE (REQUIREMENTS §75, backend/groq.ts): with 90%
+  // of the day's tokens used, the model is not asked at all. The browser shows
+  // its own answer with the reason (engine/assistantReach.ts "allowance"),
+  // which it reads from `code` — the words are for a person.
+  if (assistantAllowanceUsedUp()) {
+    res.status(429).json({ error: "The assistant's allowance for today is used up — answers come from this system's own records until tomorrow.", code: "daily-allowance" });
     return;
   }
   if (isAssistantThrottled(userId)) {
@@ -763,6 +796,8 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
       // Informational only (it tells the model the app will ask before
       // reopening a signed-off record) — anything odd is simply dropped.
       recordStatus: typeof recordStatus === "string" && /^[A-Za-z ]{1,30}$/.test(recordStatus) ? recordStatus : undefined,
+      evidence: typeof evidence === "string" && evidence.trim() ? evidence : undefined,
+      history: turns,
     });
     res.json(result);
   } catch (err) {

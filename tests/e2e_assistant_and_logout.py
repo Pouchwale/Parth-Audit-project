@@ -28,6 +28,7 @@ WHAT THIS PROVES
 
 Against the production build on :8842.
 """
+import json
 import sys
 import time
 
@@ -91,6 +92,12 @@ def say(page, text, wait=2500):
     composer(page).fill(text)
     composer(page).press("Enter")
     page.wait_for_timeout(wait)
+    # A question about history is worked out in slices before it is asked
+    # (REQUIREMENTS s75): wait for the typing bubble to go rather than read it.
+    try:
+        page.wait_for_function("() => !document.querySelector('.chat-typing')", timeout=20000)
+    except Exception:
+        pass
     msgs = page.locator(".chat-msg.bot")
     reply = msgs.last.inner_text() if msgs.count() else ""
     labels = page.locator(ASIDE)
@@ -160,6 +167,50 @@ with sync_playwright() as p:
     who, after, _ = say(page, "are you a real person?")
     check("Whether it is a person is answered here, plainly", "not a person" in who.lower() or "assistant" in who.lower(), who[:200])
     check("...and carries no stand-in label either", after == before, (before, after))
+
+    # ==================================================================
+    # 3b. A question about history (REQUIREMENTS s75): answered from every
+    #     record this account may see, worked out by the app itself
+    # ==================================================================
+    print("\n==== A question about history ====")
+    before = page.locator(ASIDE).count()
+    reply, labels, why = say(page, "which machine breaks down most?", wait=3500)
+    check("A question about history is answered from the records", "Here is what the records you can see show for" in reply and "Maintenance" in reply, reply[:400])
+    check("...with the seeded lux fall: the QC Lab's colour-matching cabinet, 1863 to 1025 lux", "QC Lab - Colour matching cabinet" in reply and "1863" in reply and "1025" in reply, reply[:600])
+    check("...labelled as the app's own answer, since this server has no model key", labels > before and why == "not-configured", (before, labels, why))
+    check("...naming the lux round it was read from as a link", page.locator("[data-cite='seed-mnt-lux-2025']").count() >= 1)
+    say(page, "how many breakdowns last month?", wait=3000)
+    reply2, _, _ = say(page, "and the month before?", wait=3000)
+    check("A follow-up keeps the topic and moves the period back", "the month before (" in reply2 and "Maintenance" in reply2, reply2[:300])
+    reply, _, _ = say(page, "which machine is M-47?")
+    check("A machine looked up by its number keeps its own answer", "Delta 330" in reply and "Here is what the records" not in reply, reply[:200])
+    reply, _, _ = say(page, "how many records are due today?")
+    check("...and so does today's work", "Here is what the records" not in reply, reply[:200])
+
+    # The plant's daily allowance of model answers, used up (stubbed, as
+    # e2e_capa_formats stubs the chat): said so, and still answered.
+    page.route("**/api/assistant/chat", lambda r: r.fulfill(status=429, content_type="application/json", body=json.dumps({"error": "The assistant's allowance for today is used up", "code": "daily-allowance"})))
+    reply, labels, why = say(page, "which machine breaks down most?", wait=3000)
+    page.unroute("**/api/assistant/chat")
+    check("With the day's allowance used up, it says so", why == "allowance" and "allowance" in page.locator(ASIDE).last.inner_text().lower(), (why, reply[:200]))
+    check("...and still answers from the records", "Here is what the records you can see show for" in reply, reply[:200])
+
+    # What goes to the model: the evidence and the conversation so far, and
+    # only the records the evidence named come back as links.
+    seen = {}
+
+    def stub(route):
+        seen["body"] = route.request.post_data_json
+        route.fulfill(status=200, content_type="application/json", body=json.dumps({"action": "reply", "reply": "The QC Lab cabinet stands out.", "cites": ["seed-mnt-lux-2025", "not-in-the-pack"]}))
+
+    page.route("**/api/assistant/chat", stub)
+    say(page, "what stands out in the records?", wait=3000)
+    page.unroute("**/api/assistant/chat")
+    body = seen.get("body") or {}
+    evidence = body.get("evidence") or ""
+    check("The question went to the model with its evidence, at most 6,000 characters", "[rec:" in evidence and len(evidence) <= 6000, str(body)[:300])
+    check("...and at most six earlier turns of the conversation", 0 < len(body.get("history") or []) <= 6, body.get("history"))
+    check("...and only records the evidence named become links", page.locator("[data-cite='seed-mnt-lux-2025']").count() >= 1 and page.locator("[data-cite='not-in-the-pack']").count() == 0)
 
     # ==================================================================
     # 4. Every log-out asks about today's work first

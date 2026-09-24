@@ -27,6 +27,7 @@ import { printDocument } from "../utils/print";
 import { MiniBarChart } from "../components/reports/MiniBarChart";
 import { DemoTag } from "../components/common/DemoTag";
 import { DailyRegisterSheet } from "../components/records/DailyRegisterSheet";
+import { MonthlySummaryReport } from "../components/reports/MonthlySummaryReport";
 import { useT } from "../i18n";
 import { documentTextIn } from "../i18n/documentText";
 import type {
@@ -39,10 +40,13 @@ import type {
   TrainingRecordData,
 } from "../types";
 
-type Tab = "monthly" | "daily" | "rodent" | "lizard" | "flycatcher" | "chemical" | "gap" | "training" | "lamination";
+type Tab = "monthly" | "summary" | "daily" | "rodent" | "lizard" | "flycatcher" | "chemical" | "gap" | "training" | "lamination";
 // The tab key is the route segment (/reports/{y}/{m}/{tab}) and never
-// changes; only the label shown follows the language.
-const TAB_KEYS: Tab[] = ["monthly", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"];
+// changes; only the label shown follows the language. "summary" is the
+// monthly management summary (REQUIREMENTS §75, components/reports/MonthlySummaryReport.tsx).
+const TAB_KEYS: Tab[] = ["monthly", "summary", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"];
+// A tab's English name until i18n/strings.ts carries its key (an unknown key comes back as its last segment).
+const TAB_FALLBACK: Partial<Record<Tab, string>> = { summary: "Management Summary" };
 
 const isTab = (v: string | undefined): v is Tab => !!v && (TAB_KEYS as string[]).includes(v);
 
@@ -57,6 +61,10 @@ export function ReportsPage({
 }) {
   const { mode, version, lang } = useAppStore();
   const t = useT();
+  const tabLabel = (key: Tab): string => {
+    const label = t(`rep.tab.${key}`);
+    return label === key ? TAB_FALLBACK[key] ?? label : label;
+  };
   const isDemo = mode === "demo";
   const now = new Date();
   const [tab, setTab] = useState<Tab>(isTab(initialTab) ? initialTab : "monthly");
@@ -112,7 +120,7 @@ export function ReportsPage({
       <div className="pill-tabs mb-4" style={{ flexWrap: "wrap" }}>
         {TAB_KEYS.map((key) => (
           <div key={key} className={`pill-tab ${tab === key ? "active" : ""}`} {...pressable(() => setTab(key), tab === key)}>
-            {t(`rep.tab.${key}`)}
+            {tabLabel(key)}
           </div>
         ))}
       </div>
@@ -128,11 +136,12 @@ export function ReportsPage({
             {COMPANY.name}
           </div>
           <div className="doc-title">
-            {t(`rep.tab.${tab}`).toUpperCase()} — {MONTH_NAMES[month]} {year}
+            {tabLabel(tab).toUpperCase()} — {MONTH_NAMES[month]} {year}
           </div>
         </div>
       )}
       {tab === "monthly" && <MonthlyReport records={monthRecords} year={year} month={month} />}
+      {tab === "summary" && <MonthlySummaryReport isDemo={isDemo} year={year} month={month} />}
       {tab === "daily" && <DailyMonitoringReport isDemo={isDemo} year={year} month={month} />}
       {tab === "rodent" && <RodentTrendReport isDemo={isDemo} year={year} />}
       {tab === "lizard" && <LizardTrendReport isDemo={isDemo} year={year} />}

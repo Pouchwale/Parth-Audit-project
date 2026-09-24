@@ -131,6 +131,13 @@ The app behaves like a personal assistant rather than a blank form:
   a supplier graded C, a cabinet that lost 45% of its light between two lux rounds, a machine that keeps breaking
   down. Every insight names the records it was read from; the Dashboard shows the three that matter most; and one
   click raises an insight as a CAPA finding — never without that click.
+- **Mitra answers from all history** (REQUIREMENTS §75): "which machine breaks down most?", "how did QC do last
+  quarter?", "what stands out?", and a follow-up — the app works the figures out from every record the account may
+  see and hands them to the model as the only source for numbers, the answer naming the records it was read from.
+  With no model, the same figures are the answer. A daily allowance keeps the plant inside the provider's free tier.
+- **A Management Summary for every month** (Reports, REQUIREMENTS §75): record-keeping, CAPA, quality, maintenance,
+  purchase, pest control and what the records show, in plain English worked out by code — never a model — as of the
+  month's end, scoped to the reader's departments, and printable.
 - **A Maintenance module** (REQUIREMENTS §74): the eight F/MNT formats the department supplied, verbatim to the
   last misspelling ("Equipoment", "Monthaly", "BREKAGE", "VARIFIED"). **F/MNT/01, the list of 43 machines, is the
   equipment master** — the preventive maintenance record, the daily health sheet and the breakdown register fetch a

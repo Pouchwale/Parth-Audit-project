@@ -129,7 +129,7 @@ export function guide(step: string): GuideStep {
   }
 
   if (step === "reports") {
-    const tabs = ["monthly", "daily", "rodent", "flycatcher", "training", "lamination"];
+    const tabs = ["monthly", "summary", "daily", "rodent", "flycatcher", "training", "lamination"];
     const now = new Date();
     const chips: Chip[] = tabs.map((tab) => ({
       label: t(`rep.tab.${tab}`),

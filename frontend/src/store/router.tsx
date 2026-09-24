@@ -229,7 +229,8 @@ const SIMPLE_ROUTES = new Set([
   // /performance — the scorecard: who did their documents on time (REQUIREMENTS §64).
   "performance",
 ]);
-const REPORT_TABS = new Set(["monthly", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"]);
+// "summary" — the monthly management summary, /reports/{y}/{m0}/summary (REQUIREMENTS §75).
+const REPORT_TABS = new Set(["monthly", "summary", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"]);
 // Pest Control module pages (src/pages/PestControlPages.tsx):
 // /pest/daily[/{year}/{month0}], /pest/service/{slug}[/{year}], /pest/trend/{slug}[/{year}]
 const PEST_SERVICE_SLUGS = new Set(["rodent", "general", "fly"]);

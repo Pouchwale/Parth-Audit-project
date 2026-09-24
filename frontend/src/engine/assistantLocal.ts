@@ -12,7 +12,9 @@ import { t } from "../i18n";
 import { guide, hello, whoIAm } from "./assistantPersona";
 import { documentsByFormatNumber, formatNumberAnswer } from "./formatNumbers";
 import { hrMasterChatAnswer } from "./hrMasterAssistant";
-import { equipmentChatAnswer } from "./equipmentMasterAssistant";
+import { equipmentChatAnswer, equipmentFactsForModel } from "./equipmentMasterAssistant";
+import { machineNumbersIn } from "./equipmentMaster";
+import { scopedInsightsHeadline } from "./scopedInsights";
 import { demoModeAvailable } from "./features";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
 
@@ -240,7 +242,9 @@ function listAdjustmentDays(today: string): string {
 // ones (all via word-boundary regex against the whole message) — a message
 // can name more than one, e.g. "rat and mice", which is fine: their ids just
 // both go into the result set.
-const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
+// Exported for engine/historyDigest.ts, which reads a question about history
+// (REQUIREMENTS §75) with the very words this table knows.
+export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "daily-pest-monitoring", aliases: ["daily pest control monitoring", "daily pest monitoring", "daily monitoring record", "daily monitoring", "f/hr/17", "daily report"] },
   { id: "fly-catcher", aliases: ["fly catcher", "flycatcher", "f/hr/18"] },
   { id: "service-report-rodent", aliases: ["rat / mice", "rat and mice", "rat & mice", "rodent control service", "rodent service", "rat report", "mice report", "rat", "mice", "rodent"] },
@@ -955,7 +959,15 @@ export function localAnswer(message: string, isDemo: boolean, userName?: string)
   return null;
 }
 
-export function buildAssistantContext(isDemo: boolean, userName?: string): string {
+// WHAT STANDS OUT, AND THE MACHINE ASKED ABOUT (REQUIREMENTS §75). With the
+// message being sent, two lines are added AFTER the essential ones, so the
+// 3800-character cap can only ever cut these: the Insights headline — counts
+// and the most severe titles, from the very insights the Insights page shows
+// (engine/scopedInsights.ts, kept until the records change, and warmed in
+// slices by the sender before it asks) — and, when the message names a
+// machine, what the equipment list says about it (F/MNT/01), so the model does
+// not have to guess what M-47 is. Without a message nothing extra is worked out.
+export function buildAssistantContext(isDemo: boolean, userName?: string, message?: string): string {
   const master = masterRepository.get();
   const today = todayISO();
   const t = dayInfo(today, master);
@@ -971,6 +983,19 @@ export function buildAssistantContext(isDemo: boolean, userName?: string): strin
     const b = computeBriefing(userName);
     workload += ` Prepared by the assistant and waiting for review: ${b.ready.length + b.needsInput.length}. Awaiting verification: ${b.awaitingVerification.length}. Overdue: ${b.overdue.length}.`;
   }
+  const extra: string[] = [];
+  if (message !== undefined) {
+    try {
+      extra.push(scopedInsightsHeadline(isDemo, 400));
+    } catch (err) {
+      // An extra: the live facts go without it rather than not at all.
+      console.error("The insights headline could not be worked out", err);
+    }
+    if (machineNumbersIn(message).length > 0) {
+      const machine = equipmentFactsForModel(message);
+      if (machine) extra.push(machine);
+    }
+  }
   return [
     `Today: ${describeDay(t)}.`,
     `Tomorrow: ${describeDay(tomorrow)}.`,
@@ -981,6 +1006,7 @@ export function buildAssistantContext(isDemo: boolean, userName?: string): strin
     // The model is told which mode this is only where there are two (engine/features.ts,
     // REQUIREMENTS §65): the product has one, and Mitra has no "Live mode" to speak of.
     `${demoModeAvailable() ? `Mode: ${isDemo ? "Demo (synthetic data)" : "Live"}. ` : ""}User: ${userName ?? "unknown"}.`,
+    ...extra,
   ]
     .join("\n")
     .slice(0, 3800);

@@ -120,6 +120,35 @@ def search(page, words):
     return page.locator("[data-search-record]").evaluate_all("els => els.map((e) => ({ id: e.getAttribute('data-search-record'), text: e.innerText }))")
 
 
+SUMMARY = "[data-section='monthly-summary']"
+PARTS = ["headline", "records", "capa", "quality", "maintenance", "purchase", "pest", "insights"]
+
+
+def open_summary(page, y, m0):
+    """Opens a month's Management Summary and waits until it is worked out."""
+    open_page(page, f"#/reports/{y}/{m0}/summary", settle=600)
+    try:
+        page.wait_for_selector(f"{SUMMARY}[data-ready='yes']", timeout=30000)
+    except Exception:
+        pass
+    return page.locator(SUMMARY)
+
+
+def part(page, name):
+    return page.locator(f"{SUMMARY} [data-part='{name}']")
+
+
+def table_rows(page, table):
+    """Each line of a scorecard table, read from the cells' own names (as tests/e2e_performance.py reads them)."""
+    return page.locator(f"[data-table='{table}'] tbody tr[data-grade]").evaluate_all(
+        """els => els.map((tr) => {
+             const cell = (name) => (tr.querySelector(`[data-col='${name}']`) || {}).textContent || '';
+             const n = (name) => Number(cell(name).trim());
+             return { key: tr.dataset.row || '', due: n('due'), onTime: n('onTime'), late: n('late'), overdue: n('overdue') };
+           })"""
+    )
+
+
 def records(page):
     return page.evaluate("() => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]')")
 
@@ -282,7 +311,66 @@ with sync_playwright() as p:
     check("Every word must be there: \"m-13 lux\" finds no record", not any(h["id"] == "seed-mnt-equipment-list" for h in hits), hits[:5])
 
     # ==================================================================
-    # 5. A department account reads only its own
+    # 5. The Management Summary: a month in plain English for management
+    # ==================================================================
+    print("\n==== The Management Summary ====")
+    summary = open_summary(page, 2025, 7)
+    check(
+        "August 2025's summary, a month that has ended",
+        (summary.get_attribute("data-year"), summary.get_attribute("data-month0"), summary.get_attribute("data-state")) == ("2025", "7", "past"),
+        (summary.get_attribute("data-year"), summary.get_attribute("data-month0"), summary.get_attribute("data-state")),
+    )
+    missing = [n for n in PARTS if part(page, n).count() != 1]
+    check("All eight parts are there", not missing, missing)
+    headline = part(page, "headline")
+    sentences = int(headline.get_attribute("data-sentences") or 0) if headline.count() else 0
+    check("It opens with three to five sentences, across every department", 3 <= sentences <= 5 and "across every department" in headline.inner_text(), headline.inner_text()[:400] if headline.count() else "")
+    mnt = part(page, "maintenance")
+    check("The 12-Aug-2025 lux round is counted as the month's one round", mnt.count() == 1 and mnt.get_attribute("data-lux-rounds") == "1", mnt.inner_text()[:300] if mnt.count() else "")
+    check("...and the colour-matching cabinet's fall is the Insights page's own", mnt.locator(f"[data-insight='{LUX_CABINET}']").count() == 1)
+
+    open_summary(page, 2023, 11)
+    capa = part(page, "capa")
+    check("December 2023: the CAPA report's five findings raised, none yet past a target of the 31st", capa.get_attribute("data-raised") == "5" and capa.get_attribute("data-overdue") == "0", capa.inner_text()[:300])
+    open_summary(page, 2024, 0)
+    capa = part(page, "capa")
+    check("January 2024: all five past their target at the month's end, and the headline says so", capa.get_attribute("data-overdue") == "5" and "past their target date at the month's end" in part(page, "headline").inner_text(), part(page, "headline").inner_text()[:400])
+
+    # ---- the tab, this month ----
+    open_page(page, "#/reports", settle=800)
+    page.locator(".pill-tab", has_text="Management Summary").first.click()
+    try:
+        page.wait_for_selector(f"{SUMMARY}[data-ready='yes']", timeout=30000)
+    except Exception:
+        pass
+    check("The Management Summary tab opens this month's summary", page.locator(SUMMARY).count() == 1 and page.locator(SUMMARY).get_attribute("data-state") == "current")
+
+    # ---- the same record-keeping figures as the Performance Scorecard ----
+    today = time.localtime()
+    ly, lm0 = (today.tm_year, today.tm_mon - 2) if today.tm_mon > 1 else (today.tm_year - 1, 11)
+    open_summary(page, ly, lm0)
+    rec = part(page, "records")
+    mine = [int(rec.get_attribute(a) or -1) for a in ("data-due", "data-on-time", "data-late", "data-never")]
+    open_page(page, "#/performance", settle=1500)
+    page.select_option("[data-field='performance-period']", "last-month")
+    page.wait_for_timeout(1500)
+    rows = table_rows(page, "performance-departments")
+    theirs = [sum(r[k] for r in rows) for k in ("due", "onTime", "late", "overdue")]
+    check("Last month's record-keeping is the Performance Scorecard's, figure for figure", mine == theirs, (mine, theirs))
+
+    # ---- on paper ----
+    open_summary(page, 2025, 7)
+    page.emulate_media(media="print")
+    titles = page.locator("[data-print-doc] .doc-title")
+    check(
+        "On paper: headed MANAGEMENT SUMMARY, without the Print button",
+        titles.count() >= 1 and "MANAGEMENT SUMMARY" in titles.first.inner_text().upper() and not page.locator("[data-action='print-monthly-summary']").is_visible(),
+        titles.first.inner_text() if titles.count() else "",
+    )
+    page.emulate_media(media="screen")
+
+    # ==================================================================
+    # 6. A department account reads only its own
     # ==================================================================
     print("\n==== Scope ====")
     sign_up(page, "Insights MNT QA", "MNT")
@@ -295,6 +383,10 @@ with sync_playwright() as p:
     # The internal CAPA report is Quality Assurance's (documentDepartments.ts):
     # an account that cannot open it is not offered to write on it.
     check("...and is not offered Raise CAPA on a report it cannot open", page.locator("[data-action='raise-capa']").count() == 0 and page.locator("[data-section='insight-suggested-capa']").count() == 0)
+    summary = open_summary(page, 2025, 7)
+    shown = [n for n in ["capa", "quality", "purchase", "pest"] if part(page, n).count()]
+    check("Its Management Summary has Maintenance's parts and no other department's", not shown and part(page, "maintenance").count() == 1, shown)
+    check("...and says whose it is", summary.get_attribute("data-scope") == "Maintenance" and "in Maintenance only" in part(page, "headline").inner_text(), part(page, "headline").inner_text()[:300])
     sign_up(page, "Insights QC QA", "QC")
     open_insights(page)
     all_cards(page)

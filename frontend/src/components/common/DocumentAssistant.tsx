@@ -25,7 +25,9 @@ import {
   type GuidedStep,
 } from "../../engine/guidedChecklist";
 import { answerStaysLocal, buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
-import { modelReachable, noteModelAnswered, noteModelFailed, type Unreachable } from "../../engine/assistantReach";
+import { modelReachable, noteModelAnswered, noteModelFailed, unreachableLabel, type Unreachable } from "../../engine/assistantReach";
+import { analyticIntent, citeLinks, evidenceAnswer, historyForModel, prepareEvidence, type AnalyticIntent, type CiteLink, type EvidencePack } from "../../engine/historyDigest";
+import { prepareScopedInsights } from "../../engine/scopedInsights";
 import { ASSISTANT_NAME, guide, openingMessage, type WaitingDocument } from "../../engine/assistantPersona";
 import { computeReminders } from "../../engine/reminders";
 import { formatNumberAnswer } from "../../engine/formatNumbers";
@@ -89,6 +91,8 @@ interface ChatMessage {
   chips?: Chip[];
   /** Why the model did not answer this one, when it did not (REQUIREMENTS §72). */
   offline?: Unreachable;
+  /** The records an answer about history was read from, as links (REQUIREMENTS §75). */
+  cites?: CiteLink[];
 }
 
 // THE DOCUMENT ON A PAGE THAT REGISTERS NO RECORD (REQUIREMENTS §60): a
@@ -167,6 +171,9 @@ export function DocumentAssistant() {
   const interviewRef = useRef(interview);
   interviewRef.current = interview;
   const askedRef = useRef(new Set<string>());
+  // The last question about history asked here (REQUIREMENTS §75), so "and the
+  // month before?" is read as a follow-up to it.
+  const lastIntentRef = useRef<AnalyticIntent | null>(null);
   const setIv = (v: { recordId: string; q: InterviewQuestion } | null) => {
     interviewRef.current = v;
     setInterview(v);
@@ -214,18 +221,21 @@ export function DocumentAssistant() {
   // ---- message helpers -----------------------------------------------------
   // `aside`: something said in passing (a reaction to a submit) — the question
   // before it keeps its chips, because it is still waiting for its answer.
-  const post = (role: "bot" | "user", text: string, chips?: Chip[], aside = false) => {
+  const post = (role: "bot" | "user", text: string, chips?: Chip[], aside = false, cites?: CiteLink[]) => {
     if (!text && !chips?.length) return;
     // A format change waiting for its "Yes" stands only as long as its chips do:
     // once anything else is said, a "yes" typed later is an answer to THAT, and
     // must never save a change the person has stopped looking at (REQUIREMENTS §64).
     if (!aside) pendingFormatRef.current = null;
-    setMessages((m) => [...(aside ? m : m.map((x) => (x.chips ? { ...x, chips: undefined } : x))), { id: generateId("msg"), role, text, chips }]);
+    setMessages((m) => [
+      ...(aside ? m : m.map((x) => (x.chips ? { ...x, chips: undefined } : x))),
+      { id: generateId("msg"), role, text, chips, ...(cites && cites.length ? { cites } : {}) },
+    ]);
   };
   const bot = (text: string, chips?: Chip[]) => post("bot", text, chips);
   /** A reply the app gave because the model could not be reached (REQUIREMENTS §72). */
-  const postOffline = (text: string, why: Unreachable, chips?: Chip[]) =>
-    setMessages((m) => [...m, { id: generateId("msg"), role: "bot" as const, text, chips, offline: why }]);
+  const postOffline = (text: string, why: Unreachable, chips?: Chip[], cites?: CiteLink[]) =>
+    setMessages((m) => [...m, { id: generateId("msg"), role: "bot" as const, text, chips, offline: why, ...(cites && cites.length ? { cites } : {}) }]);
   const me = (text: string) => post("user", text);
 
   // Mitra introduces itself once, when the panel first opens, and asks where
@@ -1702,55 +1712,91 @@ export function DocumentAssistant() {
       if (local.navigate && isValidAppRoute(local.navigate)) navigate(local.navigate);
       return;
     }
-    // No model to ask. With a record open there is nothing useful the tables
-    // can say about a change to it, so the person is told plainly that the
-    // filling-in needs the assistant; a question gets the table's answer,
-    // marked as coming from here rather than from the model.
-    const reach = modelReachable();
-    if (!reach.ok) {
-      const fallback = local ?? { reply: t2 ? t("ai.offline.noFill") : t("ai.offline.noAnswer"), chips: undefined };
-      postOffline(fallback.reply, reach.why, fallback.chips);
-      readOut(fallback.reply);
-      return;
-    }
+    // A QUESTION ABOUT HISTORY (REQUIREMENTS §75) — "which machine breaks down
+    // most?", "how did QC do last quarter?", "and the month before?". With a
+    // record open only a question counts (the branch above), never data for
+    // it. The app works the figures out from the records this person may see
+    // (engine/historyDigest.ts) — here, on send, in slices of a few
+    // milliseconds, never while drawing — and sends them with the question.
+    const asks = !t2 || (looksLikeQuestion && !editIntent);
+    const read = asks ? analyticIntent(text, todayISO(), lastIntentRef.current) : null;
+    // With a record open, a question only counting something ("how many traps
+    // are provided?") is about the sheet in front of them, and keeps its prompt.
+    const intent = read && (!t2 || read.explicit) ? read : null;
+    if (intent) lastIntentRef.current = intent;
+    // The conversation so far, so the model can read a follow-up (at most six turns).
+    const history = historyForModel(messages.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text })));
     setLoading(true);
     try {
-      const result = await assistantApi.chat({
-        message: text,
-        today: todayISO(),
-        currentRoute: path,
-        documentKind: t2?.documentKind,
-        currentData: t2?.currentData,
-        recordStatus: t2?.status,
-        context: buildAssistantContext(isDemo, user?.name),
-        language: lang,
-      });
-      if (result.action === "fill" && t2) {
-        applyEdit(result.patch ?? {}, text, result.reply);
-        readOut(result.reply);
+      let evidence: EvidencePack | null = null;
+      if (intent) {
+        try {
+          const self = user ? [{ id: user.id, name: user.name, role: user.role, departments: user.departments }] : [];
+          evidence = await prepareEvidence(intent, isDemo, 6000, { people: self });
+        } catch (err) {
+          // The question still goes to the model, without figures, rather than not at all.
+          console.error("The evidence for this question could not be worked out", err);
+        }
+      }
+      // The app's own answer for when the model cannot give one: what its tables
+      // already say, else the same figures said plainly (§72) — with the records
+      // they were read from.
+      const fallback = local ?? (intent && evidence ? evidenceAnswer(intent, evidence) : null);
+      const fallbackCites = !local && evidence ? citeLinks(evidence.recordIds, evidence.recordIds) : undefined;
+      // No model to ask. With a record open there is nothing useful the tables
+      // can say about a change to it, so the person is told plainly that the
+      // filling-in needs the assistant; a question gets the table's answer,
+      // marked as coming from here rather than from the model.
+      const reach = modelReachable();
+      if (!reach.ok) {
+        const answer = fallback ?? { reply: t2 ? t("ai.offline.noFill") : t("ai.offline.noAnswer"), chips: undefined };
+        postOffline(answer.reply, reach.why, answer.chips, fallback ? fallbackCites : undefined);
+        readOut(answer.reply);
         return;
       }
-      if (result.action === "navigate" && result.route && isValidAppRoute(result.route)) {
-        bot(result.reply);
+      try {
+        // What stands out, for the live facts: worked out in slices before it is read.
+        await prepareScopedInsights(isDemo).catch((err) => console.error("The insights could not be worked out", err));
+        const result = await assistantApi.chat({
+          message: text,
+          today: todayISO(),
+          currentRoute: path,
+          documentKind: t2?.documentKind,
+          currentData: t2?.currentData,
+          recordStatus: t2?.status,
+          context: buildAssistantContext(isDemo, user?.name, text),
+          language: lang,
+          ...(evidence ? { evidence: evidence.text } : {}),
+          ...(history.length ? { history } : {}),
+        });
+        if (result.action === "fill" && t2) {
+          applyEdit(result.patch ?? {}, text, result.reply);
+          readOut(result.reply);
+          return;
+        }
+        if (result.action === "navigate" && result.route && isValidAppRoute(result.route)) {
+          bot(result.reply);
+          readOut(result.reply);
+          navigate(result.route);
+          return;
+        }
+        // The records the answer was read from — only those the evidence tagged.
+        post("bot", result.reply, undefined, false, evidence ? citeLinks(result.cites, evidence.recordIds) : undefined);
         readOut(result.reply);
-        navigate(result.route);
-        return;
-      }
-      bot(result.reply);
-      readOut(result.reply);
-      noteModelAnswered();
-    } catch (err) {
-      // THE MODEL COULD NOT ANSWER (REQUIREMENTS §72). The internet may have
-      // gone mid-sentence, so rather than only reporting the error the app
-      // answers from its own tables where it can — and says that is what it
-      // did. The failure is remembered briefly (assistantReach.ts) so the next
-      // few messages do not each wait out the same timeout.
-      const why = noteModelFailed();
-      if (local) {
-        postOffline(local.reply, why, local.chips);
-        readOut(local.reply);
-      } else {
-        postOffline(err instanceof ApiError ? err.message : t("ai.error"), why);
+        noteModelAnswered();
+      } catch (err) {
+        // THE MODEL COULD NOT ANSWER (REQUIREMENTS §72). The internet may have
+        // gone mid-sentence, the server may have no key, or the plant's daily
+        // allowance may be used up (§75) — so rather than only reporting the
+        // error the app answers from its own tables where it can, and says that
+        // is what it did, and why.
+        const why = noteModelFailed(err);
+        if (fallback) {
+          postOffline(fallback.reply, why, fallback.chips, fallbackCites);
+          readOut(fallback.reply);
+        } else {
+          postOffline(err instanceof ApiError ? err.message : t("ai.error"), why);
+        }
       }
     } finally {
       setLoading(false);
@@ -1902,7 +1948,27 @@ export function DocumentAssistant() {
                     they noticed. */}
                 {m.offline && (
                   <div className="chat-aside" data-offline={m.offline}>
-                    <FiWifiOff size={11} /> {t(`ai.offline.${m.offline}`)}
+                    <FiWifiOff size={11} /> {unreachableLabel(m.offline, t)}
+                  </div>
+                )}
+                {/* THE RECORDS AN ANSWER WAS READ FROM (REQUIREMENTS §75): only
+                    ones the evidence named and this account may open. */}
+                {m.cites && m.cites.length > 0 && (
+                  <div className="chat-chips" data-section="cites" style={{ alignSelf: "flex-start", maxWidth: "95%" }}>
+                    {m.cites.map((c) => (
+                      <button
+                        key={c.recordId}
+                        type="button"
+                        className="chat-chip"
+                        data-cite={c.recordId}
+                        style={{ fontSize: 11, padding: "2px 8px" }}
+                        onClick={() => {
+                          if (isValidAppRoute(c.route)) navigate(c.route);
+                        }}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
                   </div>
                 )}
                 {m.chips && m.chips.length > 0 && (

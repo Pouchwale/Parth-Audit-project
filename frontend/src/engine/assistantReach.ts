@@ -32,8 +32,12 @@ import { assistantConfigured } from "./features";
 // circuiting is the one the browser can actually be sure of — no network at
 // all. Everything else is attempted, and the server's answer decides.
 
-/** Why the model could not answer — what the person is told, in the app's own words. */
-export type Unreachable = "offline" | "not-configured" | "failed";
+/**
+ * Why the model could not answer — what the person is told, in the app's own
+ * words. "allowance": the plant's daily allowance of model answers is used up
+ * (backend/groq.ts, REQUIREMENTS §75) — the server says so and does not ask.
+ */
+export type Unreachable = "offline" | "not-configured" | "failed" | "allowance";
 
 /** The machine's own answer. `true` in a non-browser context, where there is nothing to ask. */
 const browserOnline = (): boolean => (typeof navigator === "undefined" || typeof navigator.onLine !== "boolean" ? true : navigator.onLine);
@@ -54,9 +58,23 @@ export function modelReachable(): { ok: true } | { ok: false; why: Unreachable }
  * The distinction matters: telling somebody their internet is down when the
  * server simply has no key set would send them to fix the wrong thing.
  */
-export function noteModelFailed(): Unreachable {
+export function noteModelFailed(err?: unknown): Unreachable {
   if (!browserOnline()) return "offline";
+  // The server's own word for it (api/client.ts ApiError.code), never its prose.
+  if ((err as { code?: unknown } | null | undefined)?.code === "daily-allowance") return "allowance";
   return assistantConfigured() ? "failed" : "not-configured";
+}
+
+// The label's English until i18n/strings.ts has the key (an unknown key comes
+// back as its last segment, e.g. "allowance").
+const LABEL_ENGLISH: Partial<Record<Unreachable, string>> = {
+  allowance: "Mitra's allowance of model answers for today is used up, so this came from this system's own records.",
+};
+
+/** The words under an answer the model did not give (REQUIREMENTS §72), in the interface language. */
+export function unreachableLabel(why: Unreachable, t: (key: string) => string): string {
+  const said = t(`ai.offline.${why}`);
+  return said === why ? (LABEL_ENGLISH[why] ?? said) : said;
 }
 
 /** The model answered. Nothing is remembered either way, so there is nothing to clear. */

@@ -6,10 +6,17 @@ import type { AuthUser, ManagedUser } from "../types/auth";
 // base URL configuration is needed.
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /**
+   * What the server said the failure IS, where it says (a short word such as
+   * "daily-allowance"), so the app can act on it without reading the words
+   * meant for a person. Absent for most errors.
+   */
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    if (code) this.code = code;
   }
 }
 
@@ -34,7 +41,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       body && typeof body === "object" && "error" in body && typeof (body as { error: unknown }).error === "string"
         ? (body as { error: string }).error
         : `Request failed (${res.status})`;
-    throw new ApiError(message, res.status);
+    const code = body && typeof body === "object" && typeof (body as { code?: unknown }).code === "string" ? (body as { code: string }).code : undefined;
+    throw new ApiError(message, res.status, code);
   }
 
   return body as T;
@@ -71,6 +79,16 @@ export interface AssistantChatResult {
   patch?: Record<string, unknown>;
   route?: string;
   reply: string;
+  // The records an answer about history was read from (REQUIREMENTS §75) —
+  // only ids the evidence pack tagged, at most five; shown as "Open" links.
+  // Optional: a server from before it, or a stubbed reply, says nothing.
+  cites?: string[];
+}
+
+/** One earlier turn of the conversation, for a follow-up question (engine/historyDigest.ts historyForModel). */
+export interface AssistantChatTurn {
+  role: "user" | "assistant";
+  text: string;
 }
 
 export interface AssistantChatRequest {
@@ -89,6 +107,14 @@ export interface AssistantChatRequest {
   // Interface language: the reply comes back in this language, so a user
   // working in Gujarati is answered in Gujarati.
   language?: "en" | "gu";
+  // THE EVIDENCE PACK for a question about history (REQUIREMENTS §75): the
+  // figures worked out from the records this user may see
+  // (engine/historyDigest.ts). The server then answers with its analyst prompt.
+  // At most 8,000 characters.
+  evidence?: string;
+  // The last turns of the conversation — at most six, 800 characters each and
+  // 3,000 in all — so a follow-up ("and the month before?") can be understood.
+  history?: AssistantChatTurn[];
 }
 
 export interface ChecklistAnswerResult {

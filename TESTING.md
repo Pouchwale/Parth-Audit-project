@@ -198,6 +198,16 @@ Seven scripts live in `tests/`:
   original on disk, superseded revisions included). **`npm run test:e2e` runs it first** and stops before building
   if it fails - a document that could not be filled used to be found forty minutes into the browser run. New tests
   go in `frontend/tests/*.test.ts` with helpers in `frontend/tests/support/`; `npm run typecheck` covers them.
+- `frontend/tests/mitraHistory.test.ts` and `frontend/tests/monthlySummary.test.ts` - unit checks of §75's Mitra
+  answering from history (which questions read as history and which keep their own answers, "last quarter" and "and
+  the month before?", the evidence's budget and quoting, its cites, the offline answer) and of the Management Summary
+  (the seeded CAPA, lux and calibration records, built breakdowns, late records, lots, suppliers, PM, glass and rodents,
+  an empty month, a department's own summary); `npm run test:unit` now runs 44 checks.
+- `tests/e2e_assistant_and_logout.py` gained **a question about history**: "which machine breaks down most?" answered
+  from the records with the seeded lux fall and labelled as the app's own answer (the test server has no key), the lux
+  round cited as a link, a follow-up that moves the period back, M-47 and today's work keeping their own answers, a
+  used-up daily allowance said so (stubbed), and the request carrying its evidence and at most six earlier turns, with
+  only records the evidence named becoming links. Its `say()` now waits for the typing bubble to go.
 - `tests/e2e_insights.py` - Insights (REQUIREMENTS §75), a thirty-fifth suite, added 24-Sep-2026, run straight
   after the Maintenance suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the
   2024 one** — the QC Lab's colour-matching cabinet down 45%, 1863 to 1025 lux, high, naming both rounds — and row
@@ -208,7 +218,11 @@ Seven scripts live in `tests/`:
   over what records say** — "usimeca" finds the equipment master and shows "M-68 · Machine Name / Model No.", every
   word must be there, and the QC account's search does not reach Maintenance's records. It is anchored on insight ids
   (`data-insight`) and record ids (`data-search-record`), never on counts, because the suites before it add records of
-  their own. `e2e_smoke.py`'s two search checks now count `[data-search-record]` rows, not table rows: a "No
+  their own. **The Management Summary**: August 2025 with all eight parts, a headline of three to five sentences, the
+  one lux round and the cabinet's fall as the Insights page's own; December 2023's five CAPA findings raised and none
+  overdue, January 2024's five overdue; the tab opening this month; last month's record-keeping equal to the
+  Performance Scorecard's, figure for figure; the printed heading; and a Maintenance account's summary with only its
+  own parts, saying whose it is. `e2e_smoke.py`'s two search checks now count `[data-search-record]` rows, not table rows: a "No
   matches." line is a table row too, so they could not fail. The first searched PC-01, which is on no record of a
   fresh account (this month's two fly catcher dates fall before its go-live) — it only ever passed on that line — and
   now searches the checker's name written on the pest round the suite itself submits; the operator search ticks the

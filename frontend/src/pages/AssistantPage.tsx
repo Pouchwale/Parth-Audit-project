@@ -7,7 +7,9 @@ import { isValidAppRoute, useRouter } from "../store/router";
 import { onExternalChange, readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { answerStaysLocal, buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
-import { modelReachable, noteModelAnswered, noteModelFailed, type Unreachable } from "../engine/assistantReach";
+import { modelReachable, noteModelAnswered, noteModelFailed, unreachableLabel, type Unreachable } from "../engine/assistantReach";
+import { analyticIntent, citeLinks, evidenceAnswer, historyForModel, lastAnalyticIntent, looksLikeFollowUp, prepareEvidence, type CiteLink, type EvidencePack } from "../engine/historyDigest";
+import { prepareScopedInsights } from "../engine/scopedInsights";
 import { parseAssistantCommand } from "../engine/assistantCommands";
 import { hrMasterChatAnswer } from "../engine/hrMasterAssistant";
 import { createRecordForDocument } from "../engine/recordCrud";
@@ -63,6 +65,8 @@ interface StoredMessage {
    * the model now says so on its face.
    */
   offline?: Unreachable;
+  /** The records an answer about history was read from, as links (REQUIREMENTS §75). */
+  cites?: CiteLink[];
 }
 
 interface Conversation {
@@ -309,56 +313,99 @@ export function AssistantPage() {
       return;
     }
 
-    // No model to ask: answered from the app's own tables, marked as such.
-    const reach = modelReachable();
-    if (!reach.ok) {
-      const fallback = local ?? { reply: t("ai.offline.noAnswer"), chips: undefined };
-      append(convId, { id: generateId("msg"), role: "bot", text: fallback.reply, at: stamp(), chips: fallback.chips, offline: reach.why });
-      readOut(fallback.reply);
-      return;
-    }
+    // A QUESTION ABOUT HISTORY (REQUIREMENTS §75) — "which machine breaks down
+    // most?", "how did QC do last quarter?", and a follow-up to the last one in
+    // this conversation ("and the month before?"). The figures are worked out
+    // here, on send and in slices, from the records this person may see
+    // (engine/historyDigest.ts), and go with the question.
+    const earlier = active?.messages ?? [];
+    const today = todayISO();
+    // The conversation is looked back through only for what reads as a follow-up.
+    const previous = looksLikeFollowUp(text)
+      ? lastAnalyticIntent(
+          earlier.filter((m) => m.role === "user").map((m) => m.text),
+          today
+        )
+      : null;
+    const intent = analyticIntent(text, today, previous);
+    // The conversation so far, so the model can read a follow-up (at most six turns).
+    const history = historyForModel(earlier.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text })));
 
     setLoading(true);
     setPendingId(convId);
     try {
-      const result = await assistantApi.chat({
-        message: text,
-        today: todayISO(),
-        currentRoute: "/assistant",
-        context: buildAssistantContext(isDemo, user?.name),
-        language: lang,
-      });
-      if (result.action === "navigate" && result.route && isValidAppRoute(result.route)) {
-        append(convId, {
-          id: generateId("msg"),
-          role: "bot",
-          text: result.reply,
-          at: stamp(),
-          chips: [{ label: t("ai.openItAgain"), action: { type: "navigate", route: result.route } }],
-        });
-        readOut(result.reply);
-        navigate(result.route);
+      let evidence: EvidencePack | null = null;
+      if (intent) {
+        try {
+          const self = user ? [{ id: user.id, name: user.name, role: user.role, departments: user.departments }] : [];
+          evidence = await prepareEvidence(intent, isDemo, 6000, { people: self });
+        } catch (err) {
+          // The question still goes to the model, without figures, rather than not at all.
+          console.error("The evidence for this question could not be worked out", err);
+        }
+      }
+      // The app's own answer for when the model cannot give one: what its tables
+      // already say, else the same figures said plainly (§72), with their records.
+      const fallback = local ?? (intent && evidence ? evidenceAnswer(intent, evidence) : null);
+      const fallbackCites = !local && evidence ? citeLinks(evidence.recordIds, evidence.recordIds) : undefined;
+      const citesOf = (cites: CiteLink[] | undefined) => (cites && cites.length ? { cites } : {});
+
+      // No model to ask: answered from the app's own tables, marked as such.
+      const reach = modelReachable();
+      if (!reach.ok) {
+        const answer = fallback ?? { reply: t("ai.offline.noAnswer"), chips: undefined };
+        append(convId, { id: generateId("msg"), role: "bot", text: answer.reply, at: stamp(), chips: answer.chips, offline: reach.why, ...citesOf(fallback ? fallbackCites : undefined) });
+        readOut(answer.reply);
         return;
       }
-      append(convId, { id: generateId("msg"), role: "bot", text: result.reply, at: stamp() });
-      readOut(result.reply);
-      noteModelAnswered();
-    } catch (err) {
-      // THE MODEL COULD NOT ANSWER (REQUIREMENTS §72). The internet may have
-      // gone mid-sentence, so where the app's own tables have an answer it is
-      // given — marked as the app's, never passed off as the model's.
-      const why = noteModelFailed();
-      if (local) {
-        append(convId, { id: generateId("msg"), role: "bot", text: local.reply, at: stamp(), chips: local.chips, offline: why });
-        readOut(local.reply);
-      } else {
-        append(convId, {
-          id: generateId("msg"),
-          role: "bot",
-          text: err instanceof ApiError ? err.message : t("ai.error"),
-          at: stamp(),
-          offline: why,
+
+      try {
+        // What stands out, for the live facts: worked out in slices before it is read.
+        await prepareScopedInsights(isDemo).catch((err) => console.error("The insights could not be worked out", err));
+        const result = await assistantApi.chat({
+          message: text,
+          today,
+          currentRoute: "/assistant",
+          context: buildAssistantContext(isDemo, user?.name, text),
+          language: lang,
+          ...(evidence ? { evidence: evidence.text } : {}),
+          ...(history.length ? { history } : {}),
         });
+        if (result.action === "navigate" && result.route && isValidAppRoute(result.route)) {
+          append(convId, {
+            id: generateId("msg"),
+            role: "bot",
+            text: result.reply,
+            at: stamp(),
+            chips: [{ label: t("ai.openItAgain"), action: { type: "navigate", route: result.route } }],
+          });
+          readOut(result.reply);
+          navigate(result.route);
+          return;
+        }
+        // The records the answer was read from — only those the evidence tagged.
+        append(convId, { id: generateId("msg"), role: "bot", text: result.reply, at: stamp(), ...citesOf(evidence ? citeLinks(result.cites, evidence.recordIds) : undefined) });
+        readOut(result.reply);
+        noteModelAnswered();
+      } catch (err) {
+        // THE MODEL COULD NOT ANSWER (REQUIREMENTS §72). The internet may have
+        // gone mid-sentence, the server may have no key, or the plant's daily
+        // allowance may be used up (§75) — so where the app's own tables have an
+        // answer it is given, marked as the app's and saying why, never passed
+        // off as the model's.
+        const why = noteModelFailed(err);
+        if (fallback) {
+          append(convId, { id: generateId("msg"), role: "bot", text: fallback.reply, at: stamp(), chips: fallback.chips, offline: why, ...citesOf(fallbackCites) });
+          readOut(fallback.reply);
+        } else {
+          append(convId, {
+            id: generateId("msg"),
+            role: "bot",
+            text: err instanceof ApiError ? err.message : t("ai.error"),
+            at: stamp(),
+            offline: why,
+          });
+        }
       }
     } finally {
       setLoading(false);
@@ -506,7 +553,28 @@ export function AssistantPage() {
               {/* Answered by the app itself, not by the model (REQUIREMENTS §72). */}
               {m.offline && (
                 <div className="chat-aside" data-offline={m.offline}>
-                  <FiWifiOff size={11} /> {t(`ai.offline.${m.offline}`)}
+                  <FiWifiOff size={11} /> {unreachableLabel(m.offline, t)}
+                </div>
+              )}
+              {/* THE RECORDS AN ANSWER WAS READ FROM (REQUIREMENTS §75): only ones
+                  the evidence named and this account may open. Kept with the
+                  answer: a record a figure came from does not go stale. */}
+              {m.cites && m.cites.length > 0 && (
+                <div className="chat-chips" data-section="cites" style={{ alignSelf: "flex-start", maxWidth: "80%" }}>
+                  {m.cites.map((c) => (
+                    <button
+                      key={c.recordId}
+                      type="button"
+                      className="chat-chip"
+                      data-cite={c.recordId}
+                      style={{ fontSize: 11, padding: "2px 8px" }}
+                      onClick={() => {
+                        if (isValidAppRoute(c.route)) navigate(c.route);
+                      }}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
                 </div>
               )}
               {m.chips && m.chips.length > 0 && (

@@ -276,11 +276,28 @@ export const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: "this-year", label: "This year" },
 ];
 
+/**
+ * A RANGE OF DUE DATES THE CALLER CHOOSES, instead of one of the four periods
+ * the scorecard's own picker offers — the monthly management summary scores
+ * the month a report is open on (Reports > Management Summary, REQUIREMENTS
+ * §75), which need not be this month or last. Both ends are ISO dates and both
+ * are counted; the rule applied to every record is the same one.
+ */
+export interface PeriodRange {
+  from: string;
+  to: string;
+  /** How the range is named on a page, e.g. "August 2026". */
+  label?: string;
+}
+
 export interface Period {
-  key: PeriodKey;
+  /** One of the picker's periods, or "custom" for a range the caller gave (PeriodRange). */
+  key: PeriodKey | "custom";
   /** First and last due date counted, ISO. */
   from: string;
   to: string;
+  /** The range's own name, when the caller gave one. */
+  label?: string;
 }
 
 const monthStart = (year: number, month0: number): string => toISODate(new Date(year, month0, 1));
@@ -289,8 +306,14 @@ function monthEnd(year: number, month0: number): string {
   return `${first.getFullYear()}-${pad2(first.getMonth() + 1)}-${pad2(daysInMonth(first.getFullYear(), first.getMonth()))}`;
 }
 
-/** The due dates a period covers. "The last 3 months" is this month and the two before it. */
-export function periodFor(key: PeriodKey, today: string): Period {
+/** One calendar month as a range of due dates — month0 is 0 for January. */
+export function monthRange(year: number, month0: number, label?: string): PeriodRange {
+  return { from: monthStart(year, month0), to: monthEnd(year, month0), ...(label ? { label } : {}) };
+}
+
+/** The due dates a period covers. "The last 3 months" is this month and the two before it; a range is taken as given. */
+export function periodFor(key: PeriodKey | PeriodRange, today: string): Period {
+  if (typeof key === "object") return { key: "custom", from: key.from, to: key.to, ...(key.label ? { label: key.label } : {}) };
   const now = fromISODate(today);
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -370,12 +393,17 @@ const calledBy = (doc: DocumentDefinition): string => (doc.formatNo && !doc.form
  * `records` are the side being looked at (Demo or Live) and `docs` the
  * documents the viewer may see; a record of a document not among them is left
  * out, which is what keeps a department's scorecard to its own paperwork.
+ *
+ * `period` is one of the picker's periods, worked out from `today`, or a range
+ * of due dates given outright (PeriodRange) — a report's month. Either way
+ * `today` is still the day each record is judged on: a record of an earlier
+ * month handed in afterwards is late, and one still not handed in is never done.
  */
 export function scorecards(
   records: readonly RecordInstance[],
   docs: readonly DocumentDefinition[],
   people: readonly Person[],
-  periodKey: PeriodKey,
+  periodKey: PeriodKey | PeriodRange,
   today: string,
   calendar: PlantCalendar = ALWAYS_OPEN
 ): Scorecards {
