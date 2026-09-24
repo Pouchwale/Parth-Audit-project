@@ -16,6 +16,12 @@ import time
 from datetime import date, datetime, timedelta
 from playwright.sync_api import sync_playwright, expect
 
+# The app writes "Submitted ✅" and the Gujarati formats are Gujarati, so a
+# failure that prints what it saw must not itself die on Windows' cp1252
+# console. Every other suite here does this; this one did not, and the first
+# failure detail it ever printed crashed on the tick in "Submitted ✅".
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 BASE = "http://localhost:8842"
 FAILURES = []
 
@@ -80,11 +86,17 @@ TEST_EMAIL = f"e2e-{int(time.time() * 1000)}@example.com"
 TEST_PASSWORD = "PlaywrightQA123"
 
 
-def check(label, condition):
+def check(label, condition, detail=None):
+    """`detail` is printed only when the check FAILS, and is what turns "this
+    is False" into something you can act on. This suite had no such argument,
+    and a single failure in it cost two full runs to work out; every other
+    suite here takes one."""
     status = "PASS" if condition else "FAIL"
     print(f"[{status}] {label}")
     if not condition:
         FAILURES.append(label)
+        if detail is not None:
+            print("    ", str(detail)[:600])
 
 
 def main():
@@ -518,7 +530,34 @@ def main():
         check("Form shows all 31 activities done", "31 / 31" in page.locator(".app-content").inner_text())
 
         chat_chip(r"^Submit for approval$")
-        check("Assistant confirms submission", page.locator(".chat-msg.bot", has_text="Submitted").count() == 1)
+        # Every other reply in this walk is worked out locally and lands well
+        # inside chat_chip's 250ms. THIS one does real work - the record is
+        # validated, written and sent to the server - so it is waited FOR
+        # rather than waited out. Caught rather than raised, so a reply that
+        # never comes is reported as this check failing instead of as a
+        # traceback that says nothing about which step it was.
+        try:
+            page.wait_for_selector(".chat-msg.bot:has-text('Submitted')", timeout=15000)
+        except Exception:
+            pass
+        # Reported with what the assistant actually said: a check that can only
+        # print "False" costs a whole run to work out (REQUIREMENTS §68).
+        # THE CONFIRMATION, not the word. has_text matches a SUBSTRING, so
+        # asking for "Submitted" counted every message that merely MENTIONS
+        # submitting - and Mitra's own workload line says "N submitted or
+        # verified" (engine/assistantLocal.ts). That made this read 2 and fail,
+        # while the submission had in fact gone through perfectly. The
+        # confirmation is one distinctive string, written in only two places
+        # (DocumentAssistant.tsx: the checklist's and a record's), so requiring
+        # exactly one of THOSE keeps the original intent - one confirmation,
+        # never two - without counting prose about submitting.
+        hits = page.locator(".chat-msg.bot", has_text="Submitted ✅")
+        mentions = page.locator(".chat-msg.bot", has_text="Submitted")
+        check(
+            "Assistant confirms submission",
+            hits.count() == 1,
+            (f"{hits.count()} confirmations, {mentions.count()} mentions", [mentions.nth(i).inner_text() for i in range(mentions.count())]),
+        )
         check("Checklist status is Pending Verification (awaiting approval)", "Pending Verification" in page.locator(".app-content").inner_text())
         check("Prepared By was stamped with the logged-in user", page.locator("input[value='Playwright QA']").count() >= 1)
 
