@@ -42,7 +42,10 @@ const PRODUCT_PORT = 8843;
 // closed there has to be somebody to sign in as.
 const PRODUCT_SUITE = "tests/e2e_no_demo_mode.py";
 const LOGIN_ONLY_SUITE = "tests/e2e_login_only.py";
-const PRODUCT_SUITES = [PRODUCT_SUITE, LOGIN_ONLY_SUITE];
+// REQUIREMENTS §75: escalation to the super admin and the weekly digest, worked
+// out on the server — with the plant's seeded accounts, so on the product server.
+const ESCALATION_SUITE = "tests/e2e_escalation.py";
+const PRODUCT_SUITES = [PRODUCT_SUITE, LOGIN_ONLY_SUITE, ESCALATION_SUITE];
 /** The first password of the named accounts on the product server, which tests/e2e_login_only.py signs in with. */
 export const PRODUCT_SEED_PASSWORD = "SeedQA@2026";
 const nodeArgs = ["--no-warnings=ExperimentalWarning"];
@@ -206,6 +209,12 @@ async function main(): Promise<void> {
         SEED_ACCOUNT_PASSWORD: PRODUCT_SEED_PASSWORD,
         DEMO_MODE: product ? "0" : "1",
         ALLOW_SIGNUP: product ? "0" : "1",
+        // NO SCHEDULED JOBS (REQUIREMENTS §75, backend/jobs.ts). The suites run on
+        // the real clock and count activity-log lines: an escalation or a weekly
+        // digest that ran by itself at 10:00 in the middle of a suite would add
+        // lines and bell items nobody asked for. A suite that needs one runs it
+        // by hand, as the super admin, with POST /api/jobs/run.
+        JOBS: "0",
       },
     });
   console.log(`Starting server on :${TEST_PORT}...`);
@@ -269,6 +278,8 @@ async function main(): Promise<void> {
   PRODUCT_SUITE,
   // REQUIREMENTS §66: nobody creates their own account — the same second server.
   LOGIN_ONLY_SUITE,
+  // REQUIREMENTS §75: lateness escalated to the super admin, and the weekly digest — the same second server.
+  ESCALATION_SUITE,
   // Last, because of its signups.
   "tests/e2e_performance.py",
     ];

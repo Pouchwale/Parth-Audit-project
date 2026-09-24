@@ -1,4 +1,5 @@
 import type { Department } from "../../types";
+import { PLANT_DEPARTMENTS } from "./documentDepartments";
 
 // THE PLANT'S DEPARTMENTS, AND WHICH DEPARTMENT OWNS WHICH DOCUMENT.
 //
@@ -28,18 +29,9 @@ import type { Department } from "../../types";
 // that nothing has been assigned to them yet rather than be left out of the
 // system.
 
-export const DEPARTMENTS: Department[] = [
-  { id: "dept-sys", code: "SYS", name: "System / Management", formatPrefix: "F-SYS" },
-  { id: "dept-mkt", code: "MKT", name: "Marketing", formatPrefix: "F-MKT" },
-  { id: "dept-pur", code: "PUR", name: "Purchase", formatPrefix: "F-PUR" },
-  { id: "dept-str", code: "STR", name: "Store", formatPrefix: "F-STR" },
-  { id: "dept-qc", code: "QC", name: "Quality Control", formatPrefix: "F-QC" },
-  { id: "dept-qa", code: "QA", name: "Quality Assurance", formatPrefix: "F-QA" },
-  { id: "dept-prd", code: "PRD", name: "Production", formatPrefix: "F-PRD" },
-  { id: "dept-mnt", code: "MNT", name: "Maintenance", formatPrefix: "F-MNT" },
-  { id: "dept-hr", code: "HR", name: "Human Resources", formatPrefix: "F-HR" },
-  { id: "dept-disp", code: "DISP", name: "Dispatch", formatPrefix: "F-DISP" },
-];
+// The list itself lives in data/seed/documentDepartments.ts, with no imports, so
+// the server reads the same one (backend/escalation.ts names departments by it).
+export const DEPARTMENTS: Department[] = PLANT_DEPARTMENTS.map((d) => ({ ...d }));
 
 export const DEPARTMENT_CODES: string[] = DEPARTMENTS.map((d) => d.code);
 

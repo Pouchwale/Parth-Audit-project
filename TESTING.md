@@ -218,6 +218,23 @@ Seven scripts live in `tests/`:
   round cited as a link, a follow-up that moves the period back, M-47 and today's work keeping their own answers, a
   used-up daily allowance said so (stubbed), and the request carrying its evidence and at most six earlier turns, with
   only records the evidence named becoming links. Its `say()` now waits for the typing bubble to go.
+- `tests/e2e_escalation.py` - escalation to the super admin and the weekly digest (REQUIREMENTS §75), a
+  thirty-sixth suite, on the product server (:8843) with the plant's seeded accounts, after `e2e_login_only.py`. The
+  scheduled runs are off in the test servers (`JOBS=0`: the suites run on the real clock), so it runs the jobs by
+  hand, as the super admin can. It puts three late QC sheets by Kapila Barad and two HR rounds never done on file
+  through the storage API (with the go-live date moved back 40 days, since nothing before it counts), then: exactly
+  two escalations — Kapila Barad by name, 3 late, and Human Resources as a department named with its two people, 2
+  never done — each a line in the log under its department; a second run the same week raising nothing new and writing
+  no second line; a job or a day that is not one refused; a department account refused both the list and the jobs;
+  last week's digest; and, signed in as the super admin, the day's notification, the bell's badge and its "Escalated
+  to you" group above the reminders, Acknowledge (held on the server, with a log line), and the Escalated badges and
+  the digest on the Performance page.
+- `tests/e2e_login_only.py` gained **the archive**: the super admin's panel with nothing old enough on a fresh log and
+  its button off, the preview through the API, a move that moves nothing and writes no line, a stale cutoff refused,
+  "Include archived lines" changing nothing when nothing is archived, and a department account refused the archive.
+- `frontend/tests/latenessCore.test.ts` - the one lateness rule the server and the scorecard share, held to identical
+  results against a frozen copy of the old scorecard code over 17,000 judgements and 126 whole scorecards, and the
+  plant's closed days against engine/holidays.ts for every day of three years.
 - `tests/e2e_insights.py` - Insights (REQUIREMENTS §75), a thirty-fifth suite, added 24-Sep-2026, run straight
   after the Maintenance suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the
   2024 one** — the QC Lab's colour-matching cabinet down 45%, 1863 to 1025 lux, high, naming both rounds — and row

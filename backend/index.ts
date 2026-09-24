@@ -40,6 +40,9 @@ import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
+import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
+import { registerEscalationRoutes } from "./escalationRoutes.ts";
+import { startJobs } from "./jobs.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -652,6 +655,11 @@ app.get("/api/activity/summary", requireAuth, async (req: Request, res: Response
   sendCompressedJson(req, res, 200, { people });
 });
 
+// THE LOG'S ARCHIVE (REQUIREMENTS §62, §75): the super admin's count of what is
+// old enough to archive, the move itself, and the log read with its archive —
+// the same filter as the two routes above (archiveRoutes.ts).
+registerActivityArchiveRoutes(app, { requireAuth, activityFilter, sendJson: sendCompressedJson });
+
 app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
   const user = await getSessionUser(req);
   if (!user) {
@@ -946,6 +954,11 @@ app.post("/api/reminders/send-digest", requireAuth, async (req: Request, res: Re
     res.status(502).json({ error: "Failed to send reminder digest." });
   }
 });
+
+// ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75):
+// /api/escalations, /api/digests/latest and /api/jobs/run, the super admin's
+// alone (backend/escalationRoutes.ts).
+registerEscalationRoutes(app, { requireAuth, logActivity });
 
 // THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55). The browser keeps a
 // working copy of each stored item (frontend/src/data/serverSync.ts): it
@@ -1302,4 +1315,6 @@ if (!ALLOW_SIGNUP) {
 
 app.listen(PORT, () => {
   console.log(`API server listening on http://localhost:${PORT}`);
+  // The daily escalation and the weekly digest, on the plant's clock (backend/jobs.ts); JOBS=0 leaves them off.
+  startJobs();
 });

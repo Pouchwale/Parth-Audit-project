@@ -291,15 +291,27 @@ const SCHEMA = `
 // who, what, on what, and the detail, lower-cased. Written ONCE, here, because
 // two things must agree on it to the character: the search itself
 // (activityWhere) and the trigram index that makes it fast
-// (ensureActivitySearchIndex). PostgreSQL uses an expression index only when the
-// query spells exactly the same expression, so a later edit to one copy and not
-// the other would not fail — it would silently go back to reading every line.
-const ACTIVITY_SEARCH_TEXT = "lower(user_name || ' ' || action || ' ' || target || ' ' || detail)";
+// (ensureActivitySearchIndex), and the archive's own (activityArchive.ts).
+// PostgreSQL uses an expression index only when the query spells exactly the
+// same expression, so a later edit to one copy and not the other would not
+// fail — it would silently go back to reading every line.
+export const ACTIVITY_SEARCH_TEXT = "lower(user_name || ' ' || action || ' ' || target || ' ' || detail)";
 
 // Held while this server brings the tables up to date, so two servers starting
 // against one database (the test runner starts a second) do not race each
 // other on the same CREATE. 4711 and 4712 are taken (insertUser, writeItem).
 const SCHEMA_LOCK = 4713;
+
+// TABLES KEPT BY THE MODULE THAT USES THEM (REQUIREMENTS §75). A module with
+// tables of its own — backend/escalation.ts: job_runs, escalations and
+// weekly_digests — hands its CREATE ... IF NOT EXISTS here when it is loaded,
+// and it is run just after SCHEMA, under the same lock, every time the
+// database is opened. Same database, same idempotent DDL; only kept beside
+// the code that reads it.
+const MORE_SCHEMA: string[] = [];
+export function registerSchema(ddl: string): void {
+  MORE_SCHEMA.push(ddl);
+}
 
 /**
  * THE SEARCH INDEX, A STEP OF ITS OWN (REQUIREMENTS §75). A trigram index
@@ -344,7 +356,7 @@ export function plantTimeZone(): string {
  * checked out emits 'error' on the client, and with no listener that would
  * take the whole server down — so one is attached until the client goes back.
  */
-async function withClient<T>(work: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+export async function withClient<T>(work: (client: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await database().connect();
   const onError = (err: Error) => console.error("[postgres client]", err.message);
   client.on("error", onError);
@@ -356,7 +368,7 @@ async function withClient<T>(work: (client: pg.PoolClient) => Promise<T>): Promi
   }
 }
 
-async function transaction<T>(client: pg.PoolClient, work: () => Promise<T>): Promise<T> {
+export async function transaction<T>(client: pg.PoolClient, work: () => Promise<T>): Promise<T> {
   await client.query("BEGIN");
   try {
     const result = await work();
@@ -422,6 +434,7 @@ export async function openDatabase(): Promise<pg.Pool> {
     await client.query("SELECT pg_advisory_lock($1)", [SCHEMA_LOCK]);
     try {
       await client.query(SCHEMA);
+      for (const ddl of MORE_SCHEMA) await client.query(ddl);
       await ensureActivitySearchIndex(client);
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [SCHEMA_LOCK]).catch(() => {});
@@ -636,8 +649,8 @@ export interface ActivityFilter {
   to?: string;
 }
 
-/** Appends this filter's conditions to `args` and returns them. */
-function activityWhere(opts: ActivityFilter, args: unknown[]): string[] {
+/** Appends this filter's conditions to `args` and returns them. Also read by activityArchive.ts, for the log and its archive together. */
+export function activityWhere(opts: ActivityFilter, args: unknown[]): string[] {
   const where: string[] = [];
   if (opts.departments) {
     args.push(opts.userId, opts.departments);
@@ -678,87 +691,21 @@ export interface ActivityTally {
 }
 
 /**
- * THE TALLY THE SCORE IS READ BESIDE. Grouped in the database, not by walking
- * every line in the browser: a year of a busy plant is far more lines than a
- * page should hold, and the counts are all that is being asked for.
+ * THE TALLY THE SCORE IS READ BESIDE (REQUIREMENTS §73, §75): one row per
+ * person for the span — lines by action, the first and the last, and the
+ * separate days — grouped in the database, not by walking lines in the browser.
  *
- * Two queries, because a person's ACTIVE DAYS cannot be added up across
- * actions — the same day appears under each of them — so the days are counted
- * once per person and the actions once per person and action.
- *
- * ONE ROW PER ACCOUNT. A line that has an account is counted under the
- * account alone, not under the account and the name it was written with:
- * should an account ever be renamed, its month must stay one row, headed by
- * the name it has now (the name on its latest line), not split into two rows
- * that each claim the whole. Only a line with no account — somebody refused at
- * the door — is counted under the name it gives.
- *
- * The days are counted by first cutting the span into one row per person, per
- * name and per day — at most a few thousand rows for a year of the plant — and
- * counting those, rather than asking PostgreSQL for COUNT(DISTINCT day) over
- * every line, which sorts the whole span: at a million lines 1.45 s instead of
- * 5.5 to 9.3 s, and the same counts.
+ * Worked out in activityArchive.ts, which also counts the archive for the super
+ * admin: closed days are read from a day-by-day count (activity_daily) and the
+ * last two days from the lines themselves. At a million lines "Everything"
+ * took 2 to 9 seconds counted line by line; from the day rows, 0.2 s on a
+ * plant-shaped log — the same counts, to the line. Reached with a dynamic
+ * import because that module imports this one: it is loaded (and its tables
+ * made) when the server starts, long before a tally is asked for.
  */
-// The person a line is counted under, as SQL: the account, or, for a line with
-// none, the name — kept apart from any account's id, since both are text.
-const PERSON_GROUP = "user_id, CASE WHEN user_id IS NULL THEN user_name END";
-
 export async function activitySummary(opts: ActivityFilter): Promise<ActivityTally[]> {
-  const perPersonArgs: unknown[] = [];
-  const perPersonWhere = activityWhere(opts, perPersonArgs);
-  const { rows: people } = await database().query<{
-    user_id: string | null;
-    user_name: string;
-    n: string;
-    first_at: Date;
-    last_at: Date;
-    active_days: string;
-  }>(
-    `SELECT user_id,
-            (array_agg(user_name ORDER BY last_at DESC))[1] AS user_name,
-            SUM(n)::text AS n, MIN(first_at) AS first_at, MAX(last_at) AS last_at,
-            COUNT(DISTINCT d)::text AS active_days
-       FROM (SELECT user_id, user_name, at::date AS d, COUNT(*) AS n, MIN(at) AS first_at, MAX(at) AS last_at
-               FROM activity_log
-               ${perPersonWhere.length ? "WHERE " + perPersonWhere.join(" AND ") : ""}
-              GROUP BY user_id, user_name, at::date) per_day
-      GROUP BY ${PERSON_GROUP}`,
-    perPersonArgs
-  );
-  if (people.length === 0) return [];
-
-  const perActionArgs: unknown[] = [];
-  const perActionWhere = activityWhere(opts, perActionArgs);
-  const { rows: actions } = await database().query<{ user_id: string | null; name_key: string | null; action: string; n: string }>(
-    `SELECT user_id, CASE WHEN user_id IS NULL THEN user_name END AS name_key, action, COUNT(*)::text AS n
-       FROM activity_log
-       ${perActionWhere.length ? "WHERE " + perActionWhere.join(" AND ") : ""}
-      GROUP BY ${PERSON_GROUP}, action`,
-    perActionArgs
-  );
-
-  // Keyed by the ACCOUNT where there is one. A line whose account has since
-  // been removed keeps the name it was written with, which is the point of a
-  // log: it says what happened, not what is still true.
-  const key = (id: string | null, name: string | null) => id ?? `name:${name ?? ""}`;
-  const byAction = new Map<string, Record<string, number>>();
-  for (const r of actions) {
-    const k = key(r.user_id, r.name_key);
-    const into = byAction.get(k) ?? {};
-    into[r.action] = (into[r.action] ?? 0) + (Number(r.n) || 0);
-    byAction.set(k, into);
-  }
-  return people
-    .map((r) => ({
-      userId: r.user_id,
-      userName: r.user_name,
-      byAction: byAction.get(key(r.user_id, r.user_name)) ?? {},
-      total: Number(r.n) || 0,
-      firstAt: r.first_at.toISOString(),
-      lastAt: r.last_at.toISOString(),
-      activeDays: Number(r.active_days) || 0,
-    }))
-    .sort((a, b) => b.total - a.total || a.userName.localeCompare(b.userName));
+  const { activityTally } = await import("./activityArchive.ts");
+  return activityTally(opts, false);
 }
 
 /**

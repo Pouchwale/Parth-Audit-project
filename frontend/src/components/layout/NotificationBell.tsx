@@ -1,11 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiBell, FiX, FiZap } from "react-icons/fi";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FiAlertTriangle, FiBell, FiCheck, FiX, FiZap } from "react-icons/fi";
 import { useAppStore } from "../../store/AppStore";
+import { useAuth } from "../../store/AuthContext";
+import { useRouter } from "../../store/router";
 import { todayISO } from "../../utils/date";
 import { computeReminders, ensureNearTermRecordsGenerated } from "../../engine/reminders";
 import { ReminderList } from "../common/ReminderList";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { priorityOf, PRIORITY_ORDER, type Priority } from "../../engine/notifications";
+import { escalationLine } from "../../engine/performance";
+import { escalationsApi, ESCALATIONS_CHANGED, forgetEscalationsSeen, type Escalation } from "../../api/client";
 import { openBriefing } from "../common/AssistantBriefingPopup";
 
 // Reminders only ever track Live records, regardless of which mode (Live /
@@ -21,6 +25,8 @@ const MAX_SHOWN = 20;
 
 export function NotificationBell() {
   const { version, bump } = useAppStore();
+  const { user } = useAuth();
+  const { navigate } = useRouter();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +63,51 @@ export function NotificationBell() {
   }, [shown]);
   const highCount = byPriority.get("high")?.length ?? 0;
 
+  // ESCALATED TO YOU (REQUIREMENTS §75) — the super admin's alone. The server
+  // raises a person who keeps handing their records in late, or a department
+  // whose records are not done (backend/escalation.ts); they sit above every
+  // reminder until the super admin acknowledges them, and count in the badge.
+  // Asked of the server when the bell is first drawn and each time it is
+  // opened — in an effect, never while drawing — and again after one is
+  // acknowledged anywhere. A server that cannot say leaves the bell as it was.
+  const isAdmin = user?.role === "admin";
+  const [escalations, setEscalations] = useState<Escalation[]>([]);
+  const [acking, setAcking] = useState<string | null>(null);
+  const readEscalations = useCallback(() => {
+    if (!isAdmin) return;
+    escalationsApi
+      .open()
+      .then((res) => setEscalations(Array.isArray(res?.escalations) ? res.escalations : []))
+      .catch(() => undefined);
+  }, [isAdmin]);
+  useEffect(() => {
+    if (!isAdmin) {
+      setEscalations([]);
+      forgetEscalationsSeen();
+      return;
+    }
+    readEscalations();
+    window.addEventListener(ESCALATIONS_CHANGED, readEscalations);
+    return () => window.removeEventListener(ESCALATIONS_CHANGED, readEscalations);
+  }, [isAdmin, readEscalations]);
+  useEffect(() => {
+    if (open) readEscalations();
+  }, [open, readEscalations]);
+
+  const acknowledge = (id: string) => {
+    setAcking(id);
+    escalationsApi
+      .acknowledge(id)
+      .then(() => {
+        setEscalations((list) => list.filter((e) => e.id !== id));
+        window.dispatchEvent(new Event(ESCALATIONS_CHANGED));
+      })
+      .catch(() => undefined)
+      .finally(() => setAcking(null));
+  };
+
+  const badge = reminders.length + escalations.length;
+
   useEffect(() => {
     if (!open) return;
     const onClickOutside = (e: MouseEvent) => {
@@ -72,11 +123,13 @@ export function NotificationBell() {
         className="btn btn-ghost btn-sm"
         onClick={() => setOpen((o) => !o)}
         aria-label="Reminders"
+        data-escalations={escalations.length}
         style={{ position: "relative" }}
       >
         <FiBell size={15} />
-        {reminders.length > 0 && (
+        {badge > 0 && (
           <span
+            data-field="bell-count"
             style={{
               position: "absolute",
               top: -3,
@@ -87,12 +140,12 @@ export function NotificationBell() {
               fontSize: 10,
               lineHeight: "15px",
               textAlign: "center",
-              background: highCount > 0 ? "var(--color-danger)" : urgentCount > 0 ? "var(--color-warning)" : "var(--color-neutral)",
+              background: escalations.length > 0 || highCount > 0 ? "var(--color-danger)" : urgentCount > 0 ? "var(--color-warning)" : "var(--color-neutral)",
               color: "#fff",
               borderRadius: 999,
             }}
           >
-            {reminders.length > 99 ? "99+" : reminders.length}
+            {badge > 99 ? "99+" : badge}
           </span>
         )}
       </button>
@@ -117,6 +170,48 @@ export function NotificationBell() {
                 <FiX size={14} />
               </button>
             </div>
+            {escalations.length > 0 && (
+              <div className="mb-3" data-section="escalations" data-count={escalations.length}>
+                <div className="text-xs font-semibold mb-1 flex items-center gap-1" style={{ color: "var(--color-danger)" }}>
+                  <FiAlertTriangle size={12} /> Escalated to you ({escalations.length})
+                </div>
+                {escalations.map((e) => (
+                  <div
+                    key={e.id}
+                    data-escalation={e.id}
+                    data-kind={e.kind}
+                    className="flex items-start gap-2"
+                    style={{ padding: "6px 0", borderBottom: "1px solid var(--color-border)" }}
+                  >
+                    <button
+                      type="button"
+                      className="score-open"
+                      style={{ flex: 1, minWidth: 0, textAlign: "left" }}
+                      data-action="open-escalation"
+                      onClick={() => {
+                        setOpen(false);
+                        navigate("/performance");
+                      }}
+                    >
+                      <div className="text-sm font-semibold notranslate" translate="no">
+                        {e.subjectName}
+                      </div>
+                      <div className="text-xs text-muted">{escalationLine(e)}</div>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      data-action="ack-escalation"
+                      disabled={acking === e.id}
+                      onClick={() => acknowledge(e.id)}
+                      title="Mark it as seen — it opens again if more is late or not done this week"
+                    >
+                      <FiCheck size={12} /> Acknowledge
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             {PRIORITY_ORDER.map((p) => {
               const list = byPriority.get(p);
               if (!list || list.length === 0) return null;

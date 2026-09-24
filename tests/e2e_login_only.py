@@ -129,6 +129,17 @@ def post(page, path, body):
     )
 
 
+def get_as(browser, email, password, path):
+    """The status of a GET made by another account's own session."""
+    ctx = browser.new_context()
+    try:
+        if ctx.request.post(f"{BASE}/api/auth/login", data={"email": email, "password": password}).status != 200:
+            return None
+        return ctx.request.get(f"{BASE}{path}").status
+    finally:
+        ctx.close()
+
+
 def get(page, path):
     return page.evaluate(
         """async (path) => {
@@ -353,6 +364,37 @@ with sync_playwright() as p:
     check("...the sign-up somebody tried is recorded too", any("Sign-up refused" in l for l in lines), joined[:400])
     for secret in (MEENA_FIRST, MEENA_OWN, MEENA_RESET, SEED_PASSWORD):
         check(f"No password is anywhere in the log ({secret[:4]}…)", secret not in joined)
+
+    # ---- kept for ever; archived only on purpose (REQUIREMENTS s75) ----
+    print("\n==== The archive ====")
+    try:
+        page.wait_for_selector("[data-section='activity-archive'][data-count]", timeout=15000)
+    except Exception:
+        pass
+    panel = page.locator("[data-section='activity-archive']")
+    check("The super admin sees the archive panel, and on a fresh log nothing is old enough", panel.count() == 1 and panel.get_attribute("data-count") == "0", panel.get_attribute("data-count") if panel.count() else None)
+    check("...so the Archive button is off", page.locator("[data-action='activity-archive']").count() == 1 and page.locator("[data-action='activity-archive']").is_disabled())
+    check("...the archive is empty, and the preview says why", "The archive is empty." in page.inner_text("[data-field='archive-held']") and "nothing to archive" in page.inner_text("[data-field='archive-preview']"))
+    preview = get(page, "/api/activity/archive/preview")
+    pv = preview.get("body") or {}
+    check("The preview: nothing older than three years by default", preview.get("status") == 200 and pv.get("count") == 0 and pv.get("years") == 3 and len(str(pv.get("cutoff") or "")) == 10, preview)
+    moved = post(page, "/api/activity/archive", {"years": 3, "cutoff": pv.get("cutoff")})
+    check("Archiving a fresh log moves nothing", moved.get("status") == 200 and (moved.get("body") or {}).get("moved") == 0, moved)
+    stale = post(page, "/api/activity/archive", {"years": 3, "cutoff": "2001-01-01"})
+    check("...and a cutoff that is not today's is refused", stale.get("status") == 409, stale.get("status"))
+    page.goto(f"{BASE}/index.html#/activity")
+    page.wait_for_selector("[data-table='activity-log']", timeout=30000)
+    page.wait_for_timeout(1200)
+    close_assistant(page)
+    after = page.locator("[data-table='activity-log'] tbody tr").evaluate_all("els => els.map((e) => e.textContent)")
+    check("...writing no 'Activity log archived' line when nothing moved", not any("Activity log archived" in l for l in after))
+    shown = page.locator("[data-table='activity-log'] tbody tr").count()
+    page.check("[data-field='include-archived']")
+    page.wait_for_timeout(1500)
+    check("With nothing archived, 'Include archived lines' shows the same lines", page.locator("[data-table='activity-log'] tbody tr").count() == shown and page.locator("tr[data-archived='1']").count() == 0)
+    page.uncheck("[data-field='include-archived']")
+    page.wait_for_timeout(800)
+    check("A department account may not read the archive", get_as(browser, "kapila.barad@gpp.local", SEED_PASSWORD, "/api/activity/with-archive") == 403)
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

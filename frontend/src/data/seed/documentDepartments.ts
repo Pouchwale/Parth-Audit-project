@@ -4,8 +4,27 @@
 // accounts when it hands out the stored data (backend/index.ts, REQUIREMENTS
 // §40 and §55). One list, so the two can never disagree.
 
-/** The codes of the ten departments on the company's master list (data/seed/departments.ts). */
-export const DEPARTMENT_CODE_LIST: readonly string[] = ["SYS", "MKT", "PUR", "STR", "QC", "QA", "PRD", "MNT", "HR", "DISP"];
+/**
+ * The ten departments on the company's master list, as the app names them —
+ * kept here, with no imports, so the server names them the same way (an
+ * escalation reads "Human Resources (…)", never "HR (…)", REQUIREMENTS §75).
+ * data/seed/departments.ts hands this very list on as DEPARTMENTS.
+ */
+export const PLANT_DEPARTMENTS: readonly { readonly id: string; readonly code: string; readonly name: string; readonly formatPrefix: string }[] = [
+  { id: "dept-sys", code: "SYS", name: "System / Management", formatPrefix: "F-SYS" },
+  { id: "dept-mkt", code: "MKT", name: "Marketing", formatPrefix: "F-MKT" },
+  { id: "dept-pur", code: "PUR", name: "Purchase", formatPrefix: "F-PUR" },
+  { id: "dept-str", code: "STR", name: "Store", formatPrefix: "F-STR" },
+  { id: "dept-qc", code: "QC", name: "Quality Control", formatPrefix: "F-QC" },
+  { id: "dept-qa", code: "QA", name: "Quality Assurance", formatPrefix: "F-QA" },
+  { id: "dept-prd", code: "PRD", name: "Production", formatPrefix: "F-PRD" },
+  { id: "dept-mnt", code: "MNT", name: "Maintenance", formatPrefix: "F-MNT" },
+  { id: "dept-hr", code: "HR", name: "Human Resources", formatPrefix: "F-HR" },
+  { id: "dept-disp", code: "DISP", name: "Dispatch", formatPrefix: "F-DISP" },
+];
+
+/** The codes of the ten departments on the company's master list. */
+export const DEPARTMENT_CODE_LIST: readonly string[] = PLANT_DEPARTMENTS.map((d) => d.code);
 
 // WHICH DEPARTMENT OWNS EACH OF THIS SYSTEM'S DOCUMENTS.
 //

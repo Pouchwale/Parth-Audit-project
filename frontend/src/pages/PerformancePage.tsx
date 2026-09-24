@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiDownload, FiPrinter, FiRefreshCw } from "react-icons/fi";
-import { api, ApiError, usersApi, type DirectoryPerson } from "../api/client";
+import { FiAlertTriangle, FiDownload, FiPrinter, FiRefreshCw } from "react-icons/fi";
+import { api, ApiError, escalationsApi, ESCALATIONS_CHANGED, usersApi, type DirectoryPerson, type Escalation, type WeeklyDigest } from "../api/client";
 import { APPROVED, countOf, FILLED_IN, SUBMITTED, type ActivityTally } from "../engine/activityWork";
 import { useAppStore } from "../store/AppStore";
+import { useAuth } from "../store/AuthContext";
 import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -17,6 +18,7 @@ import {
   PERIODS,
   closedDays,
   decisionText,
+  escalationLine,
   grade,
   periodFor,
   scoreOf,
@@ -154,6 +156,128 @@ const NothingHere = ({ children }: { children: React.ReactNode }) => (
   </tr>
 );
 
+// ESCALATED TO THE SUPER ADMIN (REQUIREMENTS §75). The server raises a person
+// who handed three or more records in late in 30 days, or a department (or its
+// one account) with two or more never done (backend/escalation.ts, on the same
+// rule as this page — engine/latenessCore.ts). The super admin sees it here
+// beside the person or department it names, for the 30 days it covers; the
+// words on hover are the escalation's own. "Seen" once acknowledged in the bell.
+function EscalatedBadge({ list }: { list: Escalation[] }) {
+  const latest = list[0];
+  const open = list.some((e) => !e.acknowledgedAt);
+  return (
+    <span
+      className="badge badge-Overdue"
+      data-escalated="true"
+      data-open={open ? "yes" : "no"}
+      title={`Escalated to the super admin (${latest.period}): ${escalationLine(latest)}${open ? "" : " — acknowledged"}`}
+    >
+      <FiAlertTriangle size={11} /> Escalated{open ? "" : " · seen"}
+    </span>
+  );
+}
+
+// THE WEEK BEFORE, FOR THE SUPER ADMIN (REQUIREMENTS §75): the server writes it
+// on the first working day of each week (backend/escalation.ts runWeeklyDigest)
+// — records due, on time, late and never done by department, CAPA open and past
+// target, the escalations raised and the documents most behind — and it is
+// shown here, above the scorecard it summarises. Read once when the page opens.
+function WeeklyDigestCard({ digest, lang, onOpen }: { digest: WeeklyDigest; lang: Language; onOpen: (doc: DocumentDefinition) => void }) {
+  const b = digest.body;
+  const t = b.totals;
+  const capa = b.capa;
+  const departments = b.departments.filter((d) => d.due > 0 || d.pending > 0);
+  return (
+    <div className="card mb-6 no-print" data-section="weekly-digest" data-period={digest.period}>
+      <div className="card-header">
+        <h3 className="text-lg">Last week at a glance</h3>
+        <span className="text-muted text-sm notranslate" translate="no">
+          {b.period} · {formatDisplayDate(b.from)} to {formatDisplayDate(b.to)}
+        </span>
+      </div>
+      <div className="card-pad" style={{ paddingTop: 0 }}>
+        <p className="text-sm mb-3" data-field="digest-summary">
+          {t.due} record{t.due === 1 ? " was" : "s were"} due: {t.onTime} on time, {t.late} late, {t.neverDone} never done
+          {t.score !== null ? ` — a score of ${t.score}` : ""}. CAPA: {capa.internalOpen} finding{capa.internalOpen === 1 ? "" : "s"} open, {capa.internalOverdue} past target
+          {capa.externalOpen + capa.externalAwaiting > 0 ? `; ${capa.externalOpen} customer complaint${capa.externalOpen === 1 ? "" : "s"} being worked on, ${capa.externalAwaiting} waiting for approval` : ""}.{" "}
+          {b.escalations.raised > 0
+            ? `${b.escalations.raised} escalation${b.escalations.raised === 1 ? "" : "s"} raised that week${b.escalations.open > 0 ? `, ${b.escalations.open} not yet acknowledged` : ""}.`
+            : "No escalation that week."}
+        </p>
+        {departments.length > 0 && (
+          <div className="doc-table mb-3" style={{ border: "none" }}>
+            <table className="compact" data-table="digest-departments">
+              <thead>
+                <tr>
+                  <th>Department</th>
+                  <th className="score-num">Due</th>
+                  <th className="score-num">On time</th>
+                  <th className="score-num">Late</th>
+                  <th className="score-num">Never done</th>
+                  <th className="score-num">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {departments.map((d) => (
+                  <tr key={d.code || "none"} data-row={d.code || "none"}>
+                    <td className="text-sm">{d.code ? departmentName(d.code) : d.name}</td>
+                    <td className="score-num" data-col="due">
+                      {d.due}
+                    </td>
+                    <td className="score-num" data-col="onTime">
+                      {d.onTime}
+                    </td>
+                    <td className={`score-num ${d.late ? "text-warning" : ""}`} data-col="late">
+                      {d.late}
+                    </td>
+                    <td className={`score-num ${d.neverDone ? "text-danger font-semibold" : ""}`} data-col="neverDone">
+                      {d.neverDone}
+                    </td>
+                    <td className="score-num font-bold" data-col="score">
+                      {d.score === null ? "—" : d.score}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {b.worstDocuments.length > 0 && (
+          <div className="text-sm mb-2" data-field="digest-worst">
+            <span className="text-xs uppercase text-muted">Most behind: </span>
+            {b.worstDocuments.map((w, i) => {
+              const doc = documentRepository.getById(w.documentId);
+              const figures = [w.late ? `${w.late} late` : "", w.neverDone ? `${w.neverDone} never done` : ""].filter(Boolean).join(", ");
+              return (
+                <React.Fragment key={w.documentId}>
+                  {i > 0 && "; "}
+                  {doc ? (
+                    <button type="button" className="score-open" data-action="open-digest-document" data-document={w.documentId} onClick={() => onOpen(doc)}>
+                      <DocumentName doc={doc} lang={lang} />
+                    </button>
+                  ) : (
+                    <span className="notranslate" translate="no">
+                      {w.what}
+                    </span>
+                  )}{" "}
+                  ({figures})
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-xs text-faint">
+          Worked out by the server on{" "}
+          <span className="notranslate" translate="no">
+            {formatDisplayDate(b.judgedOn)}
+          </span>{" "}
+          from the records, by the same rule as the scorecard below — made on the first working day of each week.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // A PART OF SOMEBODY'S WORK. An account kept to departments is handed only its
 // own departments' records, so a person it shares one department with — but who
 // answers for another as well — is scored on that screen from part of what they
@@ -163,14 +287,35 @@ function outsideView(p: PersonScore, scope: string[] | null): string[] {
   return scope ? p.departments.filter((code) => !scope.includes(code)) : [];
 }
 
-function PersonCard({ p, lang, scope, onOpen }: { p: PersonScore; lang: Language; scope: string[] | null; onOpen: (doc: DocumentDefinition) => void }) {
+function PersonCard({
+  p,
+  lang,
+  scope,
+  onOpen,
+  escalated,
+}: {
+  p: PersonScore;
+  lang: Language;
+  scope: string[] | null;
+  onOpen: (doc: DocumentDefinition) => void;
+  escalated?: Escalation[];
+}) {
   const unseen = outsideView(p, scope);
   return (
-    <div className="score-card" data-person={p.person.name} data-scored={p.answers ? "yes" : "no"} data-grade={p.answers ? p.grade.key : "not-scored"}>
+    <div
+      className="score-card"
+      data-person={p.person.name}
+      data-scored={p.answers ? "yes" : "no"}
+      data-grade={p.answers ? p.grade.key : "not-scored"}
+      data-escalated={escalated?.length ? "true" : undefined}
+    >
       <div className="score-card-head">
         <div style={{ minWidth: 0 }}>
-          <div className="score-card-name notranslate" translate="no">
-            {p.person.name}
+          <div className="flex items-center gap-2 wrap">
+            <div className="score-card-name notranslate" translate="no">
+              {p.person.name}
+            </div>
+            {escalated && escalated.length > 0 && <EscalatedBadge list={escalated} />}
           </div>
           <div className="text-xs text-muted">{p.answers ? p.departments.map(departmentName).join(" · ") : p.person.role === "admin" ? "Administrator — every department" : "Every department"}</div>
         </div>
@@ -283,6 +428,7 @@ function DocumentsTable({ rows, lang, onOpen }: { rows: DocumentScore[]; lang: L
 export function PerformancePage() {
   const { mode, version, lang } = useAppStore();
   const { navigate } = useRouter();
+  const { user } = useAuth();
   const t = useT();
   const isDemo = mode === "demo";
   const today = todayISO();
@@ -353,6 +499,48 @@ export function PerformancePage() {
     };
   }, [periodKey, today]);
 
+  // THE SUPER ADMIN'S ESCALATIONS AND LAST WEEK'S DIGEST (REQUIREMENTS §75),
+  // from the server — asked once when the page opens (and the escalations again
+  // when one is acknowledged in the bell), never while drawing. Anybody else is
+  // never handed them, so never asks. An extra: without them the page is as it was.
+  const isAdmin = user?.role === "admin";
+  const [escalations, setEscalations] = useState<Escalation[]>([]);
+  const [digest, setDigest] = useState<WeeklyDigest | null>(null);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let alive = true;
+    const readEscalations = () => {
+      escalationsApi
+        .recent()
+        .then((res) => {
+          if (alive) setEscalations(Array.isArray(res?.escalations) ? res.escalations : []);
+        })
+        .catch(() => undefined);
+    };
+    readEscalations();
+    escalationsApi
+      .latestDigest()
+      .then((res) => {
+        if (alive) setDigest(res?.digest ?? null);
+      })
+      .catch(() => undefined);
+    window.addEventListener(ESCALATIONS_CHANGED, readEscalations);
+    return () => {
+      alive = false;
+      window.removeEventListener(ESCALATIONS_CHANGED, readEscalations);
+    };
+  }, [isAdmin]);
+  // By whom they name: an account's id, or "dept:HR" — newest first, as the server sends them.
+  const escalatedBy = useMemo(() => {
+    const by = new Map<string, Escalation[]>();
+    for (const e of escalations) {
+      const list = by.get(e.subjectKey);
+      if (list) list.push(e);
+      else by.set(e.subjectKey, [e]);
+    }
+    return by;
+  }, [escalations]);
+
   // Every document is in exactly one department, so the departments add up to the plant.
   const overall = useMemo(() => {
     const sum = { onTime: 0, late: 0, overdue: 0, pending: 0 };
@@ -422,6 +610,8 @@ export function PerformancePage() {
         Who did their documents on time, who was late, and what was never done — for each person, department, module and document.
         {!seesEveryDepartment() && <span data-section="performance-scope"> You are seeing {departmentScopeLabel()} only.</span>}
       </p>
+
+      {digest && <WeeklyDigestCard digest={digest} lang={lang} onOpen={open} />}
 
       {/* The scorecard is what prints (utils/print.ts) — not the period picker and the buttons above it. */}
       <div data-print-doc data-section="performance-scorecard" ref={scorecardRef}>
@@ -569,7 +759,7 @@ export function PerformancePage() {
           ) : (
             <div className="score-cards">
               {cards.byPerson.map((p) => (
-                <PersonCard key={p.person.id} p={p} lang={lang} scope={scope} onOpen={open} />
+                <PersonCard key={p.person.id} p={p} lang={lang} scope={scope} onOpen={open} escalated={escalatedBy.get(p.person.id)} />
               ))}
             </div>
           )}
@@ -586,9 +776,12 @@ export function PerformancePage() {
               <tbody>
                 {cards.byDepartment.length === 0 && <NothingHere>No departments to score.</NothingHere>}
                 {cards.byDepartment.map((d) => (
-                  <tr key={d.code || "none"} data-row={d.code || "none"} data-grade={d.grade.key}>
+                  <tr key={d.code || "none"} data-row={d.code || "none"} data-grade={d.grade.key} data-escalated={escalatedBy.has(`dept:${d.code}`) ? "true" : undefined}>
                     <td>
-                      <div className="font-semibold text-sm">{d.name}</div>
+                      <div className="flex items-center gap-2 wrap">
+                        <div className="font-semibold text-sm">{d.name}</div>
+                        {d.code && escalatedBy.has(`dept:${d.code}`) && <EscalatedBadge list={escalatedBy.get(`dept:${d.code}`)!} />}
+                      </div>
                       <div className="text-xs text-faint">
                         {d.documents} document{d.documents === 1 ? "" : "s"}
                         {d.people.length > 0 && (

@@ -4170,6 +4170,48 @@ with no network and the same records always give the same words. Three to five s
 - **Fast on a slow laptop** (§56): the page paints first; the summary is worked out after it in slices of about 8 ms,
   again two seconds after a save, and kept for the next visit while nothing has changed.
 
+**9. ESCALATION TO THE SUPER ADMIN, AND A WEEKLY DIGEST — worked out on the server** (backend/escalation.ts,
+backend/jobs.ts, backend/escalationRoutes.ts, engine/latenessCore.ts). Lateness was worked out only in a browser, so
+it reached the super admin only if somebody happened to open the Performance page.
+- **One rule.** On time, late, never done and whom a record counts against now live in one file with no imports
+  (engine/latenessCore.ts): the Performance Scorecard adds it up in the browser, the server adds up the same answers
+  from PostgreSQL, and a unit test holds the two to identical results — over 17,000 judgements and 126 whole
+  scorecards against a frozen copy of the old code.
+- **Every working day at 10:00 plant time** (`ESCALATION_AT`), over the last 30 days: a person with 3 or more late
+  submissions, or 2 or more records never done in a department they answer for alone, is escalated by name; a
+  department with 2 or more never done that several accounts share (or none answers for) is escalated as the
+  department, named with its people — the scorecard counts such a record against every one of them. Only Live
+  records count, and nothing dated before the system went live. One line per person or department per week, brought
+  up to date as it grows, and a line in the activity log, "Escalated to the super admin", when it is new.
+- **The super admin sees it in the app**: an "Escalated to you" group at the top of the bell, counted in its badge,
+  each with Acknowledge (who and when are kept; it opens again if it grows); a line in the day's notification with a
+  way to the scorecard; an "Escalated" badge beside the person or department on the Performance page; and Mitra knows
+  who is escalated. It is emailed too only when the server has a mailbox (`ESCALATION_EMAIL`, or the active
+  administrators) — the seeded super admin's address receives no mail.
+- **On the first working day of each week at 09:00** (`DIGEST_AT`), a digest of the week before is stored and shown on
+  the Performance page: records due, on time, late and never done by department, CAPA open and past target, the
+  escalations raised, and the documents most behind. Worked out by code, no model.
+- **The schedule runs on the plant's clock**, once per day or week however many servers share the database (each run
+  is claimed in PostgreSQL; a failed run is recorded and tried again), and catches up after a server was down.
+  `JOBS=0` switches it off — the test runner does, because the suites run on the real clock. The super admin can run
+  either job at once (`POST /api/jobs/run`), and that is itself a line in the log.
+- **A shared plant computer**: several people sign in on one browser, one after another, and a person's settings
+  (language, working hours) are handed on to the next who has none of their own. What was shown or put off for the
+  first — the day's notification, the briefing, a snoozed reminder — no longer is: the second person's first sign-in
+  used to take on "already shown today", so they never saw theirs (found by `tests/e2e_escalation.py`).
+
+**10. THE ACTIVITY LOG IS KEPT FOR EVER; ARCHIVED ONLY ON PURPOSE** (backend/activityArchive.ts,
+backend/archiveRoutes.ts, the Activity Log page). Nothing removes a line by itself — no purge, no timer — and the
+database itself refuses a change or a removal: a trigger on the log and on its archive refuses UPDATE, DELETE and
+TRUNCATE. When the log has grown long, the super admin may, on purpose, move the lines older than N years (1–10; 3
+unless `ACTIVITY_ARCHIVE_AFTER_YEARS` says otherwise) into `activity_log_archive` in the same database, after seeing how
+many lines that is and the days they run from and to. The move is one transaction, the lines keep their ids, and the
+move is itself a line: "Activity log archived", with the count, the cutoff and who did it. "Include archived lines"
+reads the log and its archive together, with the same filters, paging and search — for the super admin only. The
+per-person tally reads a day-by-day copy of the log (`activity_daily`) for closed days and the lines themselves for the
+last two: at a million lines "Everything" went from 1.7 s to 0.13 s, with identical counts, and the copy is checked
+against the lines before each day is added.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

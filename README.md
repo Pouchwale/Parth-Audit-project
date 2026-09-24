@@ -138,6 +138,11 @@ The app behaves like a personal assistant rather than a blank form:
 - **A Management Summary for every month** (Reports, REQUIREMENTS §75): record-keeping, CAPA, quality, maintenance,
   purchase, pest control and what the records show, in plain English worked out by code — never a model — as of the
   month's end, scoped to the reader's departments, and printable.
+- **Lateness escalated to the super admin, by the server itself** (REQUIREMENTS §75): every working day it applies the
+  Performance Scorecard's own rule to the records in PostgreSQL — 3 late submissions, or 2 records never done, in 30
+  days — and raises it once a week per person or department: in the bell, the day's notification, the Performance
+  page and Mitra, with a digest of each week on the next week's first working day. The **Activity Log is kept for ever**, append-only in the database
+  itself, and archived only when the super admin chooses to.
 - **A Maintenance module** (REQUIREMENTS §74): the eight F/MNT formats the department supplied, verbatim to the
   last misspelling ("Equipoment", "Monthaly", "BREKAGE", "VARIFIED"). **F/MNT/01, the list of 43 machines, is the
   equipment master** — the preventive maintenance record, the daily health sheet and the breakdown register fetch a

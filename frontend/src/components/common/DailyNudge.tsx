@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiAward, FiArrowRight, FiBell, FiX, FiZap } from "react-icons/fi";
+import { FiAlertTriangle, FiAward, FiArrowRight, FiBell, FiX, FiZap } from "react-icons/fi";
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
 import { useRouter } from "../../store/router";
@@ -12,6 +12,7 @@ import { closedDays, scorecards } from "../../engine/performance";
 import { firstNameOf } from "../../engine/assistantPersona";
 import { openBriefing } from "./AssistantBriefingPopup";
 import { todayISO } from "../../utils/date";
+import { escalationsApi } from "../../api/client";
 
 // THE DAY'S NOTIFICATION (REQUIREMENTS §69).
 //
@@ -30,6 +31,12 @@ import { todayISO } from "../../utils/date";
 // must never be asked while drawing (§65) — the day it was last shown is kept
 // with the person's own settings, so the walk happens once a day, not once a
 // render.
+//
+// THE SUPER ADMIN IS ALSO TOLD WHO WAS ESCALATED THIS WEEK (REQUIREMENTS §75):
+// "N people were late repeatedly this week", with a way to the Performance
+// Scorecard. The server works that out every working day (backend/escalation.ts);
+// it is asked once, when the day's notification is, and the line appears when
+// the answer comes — the notification never waits for it.
 export function DailyNudge() {
   const { mode, version } = useAppStore();
   const { user } = useAuth();
@@ -38,6 +45,8 @@ export function DailyNudge() {
   const [dismissed, setDismissed] = useState(false);
   // null until the day's question has been asked; then what it answered.
   const [day, setDay] = useState<{ work: DaysWork; standing: Standing | null } | null>(null);
+  // The super admin's: this week's escalations — people late repeatedly, and those behind with records never done.
+  const [escalated, setEscalated] = useState<{ late: number; neverDone: number } | null>(null);
 
   useEffect(() => {
     if (!user || settingsRepository.nudgeShownOn(today)) return;
@@ -68,6 +77,30 @@ export function DailyNudge() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, today]);
 
+  // Asked once the day's notification is up, and only for the super admin. Its
+  // own effect, keyed on the notification being shown, so an effect run twice
+  // (React's development check) still ends with the answer on the screen.
+  const isAdmin = user?.role === "admin";
+  const shown = day !== null;
+  useEffect(() => {
+    if (!shown || !isAdmin) return;
+    let alive = true;
+    escalationsApi
+      .recent()
+      .then((res) => {
+        if (!alive || !Array.isArray(res?.escalations)) return;
+        const thisWeek = res.escalations.filter((e) => e.period === res.week);
+        const late = new Set(thisWeek.filter((e) => e.kind === "person" && e.late >= res.rule.late).map((e) => e.subjectKey)).size;
+        const neverDone = thisWeek.filter((e) => e.neverDone >= res.rule.neverDone).length;
+        setEscalated(late + neverDone > 0 ? { late, neverDone } : null);
+      })
+      // An extra: the day's notification stands without it.
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [shown, isAdmin]);
+
   const words = useMemo(() => (day ? encourage(day.work, day.standing, firstNameOf(user?.name)) : null), [day, user?.name]);
   // Demo Mode shows synthetic records; the day's real work is not that.
   if (!day || !words || dismissed || mode === "demo") return null;
@@ -93,6 +126,22 @@ export function DailyNudge() {
             {words.standing && (
               <div className="text-xs text-muted mt-1" data-field="nudge-standing">
                 {words.standing}
+              </div>
+            )}
+            {escalated && (
+              <div className="text-xs mt-2 flex items-center gap-2 wrap" data-section="nudge-escalations" data-late={escalated.late} data-never-done={escalated.neverDone}>
+                <FiAlertTriangle size={12} style={{ color: "var(--color-danger)" }} />
+                <span style={{ color: "var(--color-danger)", fontWeight: 600 }} data-field="nudge-escalations-text">
+                  {[
+                    escalated.late > 0 ? `${escalated.late} ${escalated.late === 1 ? "person was" : "people were"} late repeatedly this week` : "",
+                    escalated.neverDone > 0 ? `${escalated.neverDone} escalated for records never done` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                <button className="btn btn-secondary btn-sm" data-action="nudge-escalations-review" onClick={() => navigate("/performance")}>
+                  Review <FiArrowRight size={12} />
+                </button>
               </div>
             )}
             {!nothing && (

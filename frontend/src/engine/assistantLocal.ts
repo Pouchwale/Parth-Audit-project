@@ -16,6 +16,7 @@ import { equipmentChatAnswer, equipmentFactsForModel } from "./equipmentMasterAs
 import { machineNumbersIn } from "./equipmentMaster";
 import { scopedInsightsHeadline } from "./scopedInsights";
 import { demoModeAvailable } from "./features";
+import { escalationsSeen } from "../api/client";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
 
 // WHAT THE ASSISTANT KNOWS WITHOUT ASKING THE MODEL.
@@ -994,6 +995,18 @@ export function buildAssistantContext(isDemo: boolean, userName?: string, messag
     if (machineNumbersIn(message).length > 0) {
       const machine = equipmentFactsForModel(message);
       if (machine) extra.push(machine);
+    }
+    // THE SUPER ADMIN'S OPEN ESCALATIONS (REQUIREMENTS §75), so "who has been
+    // late?" is answered from what the server raised. Read from what the bell
+    // last fetched — never a fetch of its own, and only ever filled for the
+    // super admin (api/client.ts), so no other account's Mitra hears of it.
+    const open = escalationsSeen()?.escalations ?? [];
+    if (open.length > 0) {
+      const named = open
+        .slice(0, 3)
+        .map((e) => `${e.subjectName} (${[e.late ? `${e.late} late` : "", e.neverDone ? `${e.neverDone} never done` : ""].filter(Boolean).join(", ")})`)
+        .join("; ");
+      extra.push(`Escalated to the super admin, not yet acknowledged: ${named}${open.length > 3 ? ` and ${open.length - 3} more` : ""}.`.slice(0, 200));
     }
   }
   return [

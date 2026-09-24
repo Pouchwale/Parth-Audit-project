@@ -1,10 +1,10 @@
 import type { AuthUser } from "../types/auth";
-import type { DailyPestMonitoringData, DocumentDefinition, MasterData, RecordInstance } from "../types";
+import type { Escalation } from "../api/client";
+import type { DocumentDefinition, MasterData, RecordInstance } from "../types";
 import { departmentName, departmentOfDocument } from "../data/seed/departments";
 import { isCompanyHoliday } from "./holidays";
-import { daysLate } from "./reactions";
-import { isOverdue } from "./recordLifecycle";
-import { addDays, daysInMonth, formatDisplayDate, fromISODate, pad2, toISODate } from "../utils/date";
+import { ALWAYS_OPEN, attribute, judge as judgeRecord, keptTo, scoreOf, type Judgement, type Outcome, type PlantCalendar } from "./latenessCore";
+import { daysInMonth, formatDisplayDate, fromISODate, pad2, toISODate } from "../utils/date";
 
 // THE PERFORMANCE SCORECARD (REQUIREMENTS §64).
 //
@@ -30,27 +30,20 @@ import { addDays, daysInMonth, formatDisplayDate, fromISODate, pad2, toISODate }
 // day come in as arguments, nothing is read from storage — so the page works
 // the whole scorecard out once per change (pages/PerformancePage.tsx) and a
 // year of records is one pass, not one pass per person or per document.
+//
+// THE RULE ITSELF — what is on time, late or never done, and whom a record
+// counts against — lives in engine/latenessCore.ts (REQUIREMENTS §75), a file
+// with no imports that the server loads too: the daily escalation to the super
+// admin and the weekly digest (backend/escalation.ts) apply the very same rule
+// to the records in PostgreSQL, so they can never disagree with this page. What
+// stays here is the adding up, the grades and the sentences.
 
-export type Outcome = "onTime" | "late" | "overdue" | "pending" | "notCounted";
-
-/** An as-required record has no schedule to be late against: it gets this many days from the date it is for — and the last of them is never a day the plant was closed. */
-export const AS_REQUIRED_DAYS = 2;
+// The rule's own words, from engine/latenessCore.ts — said again here under the
+// names every screen already imports.
+export { AS_REQUIRED_DAYS, scoreOf, type Judgement, type Outcome, type PlantCalendar } from "./latenessCore";
 
 /** An account as the scorecard needs it — never the email (backend/index.ts, GET /api/users/directory). */
 export type Person = Pick<AuthUser, "id" | "name" | "role" | "departments">;
-
-/**
- * The plant's calendar, as far as the score needs it. `isClosedDay` answers
- * for the weekly off and the leave calendar (closedDays below);
- * `countedFrom` is the day Live records start to count — before it they are
- * the generator's leftovers, not work (engine/backlogCleanup.ts).
- */
-export interface PlantCalendar {
-  isClosedDay: (dateISO: string) => boolean;
-  countedFrom?: string | null;
-}
-
-const ALWAYS_OPEN: PlantCalendar = { isClosedDay: () => false };
 
 /** isCompanyHoliday, asked once per date however many records share it. */
 export function closedDays(master: MasterData): (dateISO: string) => boolean {
@@ -65,74 +58,16 @@ export function closedDays(master: MasterData): (dateISO: string) => boolean {
   };
 }
 
-export interface Judgement {
-  outcome: Outcome;
-  /** Whole days after the day it had to be in; 0 unless late. */
-  daysLate: number;
-  /** Who handed it in, when somebody did. */
-  by?: string;
-}
-
-const NOT_COUNTED: Judgement = { outcome: "notCounted", daysLate: 0 };
-
-// WHEN IT WAS FIRST HANDED IN. A record corrected afterwards is submitted again
-// and its stamp moves to that day (engine/recordLifecycle.ts), which would turn
-// a record that was on time into a late one for having been put right. The
-// history keeps every submission, oldest first, so the first one is the one
-// that is judged — and the person who made it is the one it counts for. A
-// record from before the history existed has only its stamp.
-const PAST_SUBMISSION: readonly string[] = ["Submitted", "Pending Verification", "Verified", "Rejected"];
-
-function firstSubmission(record: RecordInstance): { on: string | null; by: string } | null {
-  const first = record.history?.find((h) => h.action === "submitted");
-  const at = first?.at ?? record.submittedAt;
-  if (at) {
-    const when = new Date(at);
-    return { on: Number.isNaN(when.getTime()) ? null : toISODate(when), by: first?.by ?? record.submittedBy ?? "" };
-  }
-  // Past submission with no stamp to say when: nothing shows it was late.
-  return PAST_SUBMISSION.includes(record.status) ? { on: null, by: record.submittedBy ?? "" } : null;
-}
-
-/** How one record went, with the days late and who handed it in. */
+/** How one record went, with the days late and who handed it in (engine/latenessCore.ts judge). */
 export function judge(record: RecordInstance, doc: DocumentDefinition, today: string, calendar: PlantCalendar = ALWAYS_OPEN): Judgement {
-  if (doc.isReferenceOnly) return NOT_COUNTED;
-  // The daily register's H O L I D A Y line is a closed day written down, not work.
-  if (doc.kind === "daily-pest-monitoring" && (record.data as Partial<DailyPestMonitoringData> | null)?.isHoliday) return NOT_COUNTED;
-  const asRequired = doc.schedule.type === "as-required";
-  // Nobody files paperwork on the weekly off or a festival holiday (engine/reminders.ts
-  // says the same). An as-required record is different: somebody started it that day.
-  if (!asRequired && calendar.isClosedDay(record.dueDate)) return NOT_COUNTED;
-  const handedIn = firstSubmission(record);
-  if (!handedIn && calendar.countedFrom && record.dueDate < calendar.countedFrom) return NOT_COUNTED;
-
-  let deadline = record.dueDate;
-  if (asRequired) {
-    deadline = addDays(record.dueDate, AS_REQUIRED_DAYS);
-    // Nobody can hand paperwork in on the weekly off: the allowance runs to the next day the plant is open.
-    for (let i = 0; i < 14 && calendar.isClosedDay(deadline); i++) deadline = addDays(deadline, 1);
-  }
-  if (handedIn) {
-    // The same count of days Mitra's "submitted N days late" uses (engine/reactions.ts).
-    const late = handedIn.on ? Math.max(0, daysLate(deadline, handedIn.on)) : 0;
-    return { outcome: late > 0 ? "late" : "onTime", daysLate: late, by: handedIn.by };
-  }
-  // Overdue is what it is everywhere else — still open after its day
-  // (engine/recordLifecycle.ts, isOverdue) — asked of the day it had to be in by.
-  const open = deadline === record.dueDate ? record : { ...record, dueDate: deadline };
-  return { outcome: isOverdue(open, today) ? "overdue" : "pending", daysLate: 0 };
+  return judgeRecord(record, doc, today, calendar);
 }
 
 export function classify(record: RecordInstance, doc: DocumentDefinition, today: string, calendar: PlantCalendar = ALWAYS_OPEN): Outcome {
-  return judge(record, doc, today, calendar).outcome;
+  return judgeRecord(record, doc, today, calendar).outcome;
 }
 
 // ---- The score and its grade ------------------------------------------------
-
-export function scoreOf(onTime: number, late: number, overdue: number): number | null {
-  const due = onTime + late + overdue;
-  return due === 0 ? null : Math.round((100 * (onTime + 0.5 * late)) / due);
-}
 
 export type GradeKey = "excellent" | "on-track" | "needs-attention" | "falling-behind" | "nothing-due";
 
@@ -214,6 +149,19 @@ export interface Decision {
 }
 
 export const decisionText = (d: Decision): string => (d.named ? `${d.summary}; ${d.lead} ${d.named}.` : `${d.summary}.`);
+
+/**
+ * AN ESCALATION IN ONE LINE (REQUIREMENTS §75), as the bell and the Performance
+ * page say it — the server's own sentence (backend/escalation.ts
+ * escalationSentence), with the date as the scorecard writes one:
+ * "3 late and 2 never done in the 30 days to 24-Sep — F/QC/30: 3 late, 2 never done".
+ */
+export function escalationLine(e: Pick<Escalation, "late" | "neverDone" | "evidence">): string {
+  const both = (late: number, never: number, join: string) => [late ? `${late} late` : "", never ? `${never} never done` : ""].filter(Boolean).join(join);
+  const to = e.evidence.window.to;
+  const worst = e.evidence.worst.map((w) => `${w.what}: ${both(w.late, w.neverDone, ", ")}`).join("; ");
+  return `${both(e.late, e.neverDone, " and ")} in the ${e.evidence.rule.windowDays} days to ${shortDate(to, to)}${worst ? ` — ${worst}` : ""}`;
+}
 
 export interface ScoreLine {
   /** Records that fell due and are counted: on time + late + never done. */
@@ -365,19 +313,13 @@ export interface Scorecards {
 }
 
 const NO_DEPARTMENT = "";
-const sameName = (s: string): string => s.trim().replace(/\s+/g, " ").toLowerCase();
-
-/** The departments an account is kept to, as the app applies them (store/AuthContext.tsx): the administrator covers every one, so answers for none. */
-function keptTo(person: Person): string[] {
-  if (person.role === "admin") return [];
-  return Array.from(new Set(person.departments.map((c) => c.trim().toUpperCase()).filter(Boolean)));
-}
 
 /** The name a record is called by in a decision. */
 const calledBy = (doc: DocumentDefinition): string => (doc.formatNo && !doc.formatNo.toUpperCase().startsWith("TO BE") ? doc.formatNo : doc.name);
 
 /**
- * Every scorecard for one period, in one pass over the records.
+ * Every scorecard for one period, in one pass over the records — the pass is
+ * engine/latenessCore.ts attribute(), which the server's escalation walks too.
  *
  * WHO ANSWERS FOR A RECORD: the accounts kept to the department that owns its
  * document. Where a department has more than one account (HR has two), a
@@ -408,26 +350,7 @@ export function scorecards(
   calendar: PlantCalendar = ALWAYS_OPEN
 ): Scorecards {
   const period = periodFor(periodKey, today);
-  const docsById = new Map<string, DocumentDefinition>();
-  const departmentOf = new Map<string, string>();
   const called = new Map<string, string>();
-  for (const d of docs) {
-    if (d.isReferenceOnly) continue;
-    docsById.set(d.id, d);
-    departmentOf.set(d.id, departmentOfDocument(d.id, d.formatNo) ?? NO_DEPARTMENT);
-    called.set(d.id, calledBy(d));
-  }
-
-  const accountsOf = new Map<string, Person[]>();
-  const nameOf = new Map<string, string>();
-  for (const p of people) {
-    nameOf.set(p.id, sameName(p.name));
-    for (const code of keptTo(p)) {
-      const list = accountsOf.get(code);
-      if (list) list.push(p);
-      else accountsOf.set(code, [p]);
-    }
-  }
 
   const perDocument = new Map<string, Tally>();
   const perPerson = new Map<string, Map<string, Tally>>();
@@ -440,32 +363,31 @@ export function scorecards(
     return t;
   };
 
-  for (const r of records) {
-    if (r.dueDate < period.from || r.dueDate > period.to) continue;
-    const doc = docsById.get(r.documentId);
-    if (!doc) continue;
-    const j = judge(r, doc, today, calendar);
-    if (j.outcome === "notCounted") continue;
-    const what = called.get(doc.id) ?? doc.name;
-    count(tallyIn(perDocument, doc.id), j, what, r.dueDate);
-
-    const accounts = accountsOf.get(departmentOf.get(doc.id) ?? NO_DEPARTMENT);
-    if (!accounts) continue;
-    let answering = accounts;
-    if (accounts.length > 1 && j.by) {
-      const by = sameName(j.by);
-      const theirs = accounts.filter((a) => nameOf.get(a.id) === by);
-      if (theirs.length > 0) answering = theirs;
-    }
-    for (const a of answering) {
-      let mine = perPerson.get(a.id);
-      if (!mine) {
-        mine = new Map();
-        perPerson.set(a.id, mine);
+  const { docsById, departmentOf, accountsOf } = attribute(
+    records,
+    docs,
+    people,
+    period,
+    today,
+    calendar,
+    (d) => departmentOfDocument(d.id, d.formatNo),
+    ({ record: r, doc, judgement: j, answering }) => {
+      let what = called.get(doc.id);
+      if (what === undefined) {
+        what = calledBy(doc);
+        called.set(doc.id, what);
       }
-      count(tallyIn(mine, doc.id), j, what, r.dueDate);
+      count(tallyIn(perDocument, doc.id), j, what, r.dueDate);
+      for (const a of answering) {
+        let mine = perPerson.get(a.id);
+        if (!mine) {
+          mine = new Map();
+          perPerson.set(a.id, mine);
+        }
+        count(tallyIn(mine, doc.id), j, what, r.dueDate);
+      }
     }
-  }
+  );
 
   const documentScore = (doc: DocumentDefinition, t: Tally): DocumentScore => ({ ...line(t, today), doc, department: departmentOf.get(doc.id) ?? NO_DEPARTMENT });
 

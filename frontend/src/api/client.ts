@@ -1,4 +1,5 @@
 import type { AuthUser, ManagedUser } from "../types/auth";
+import type { ActivityTally } from "../engine/activityWork";
 
 // Thin fetch wrapper for the auth API (backend/index.ts). Requests are
 // same-origin in both dev (proxied, see frontend/scripts/dev-server.ts) and
@@ -197,4 +198,162 @@ export interface DigestReminderInput {
 export const reminderDigestApi = {
   send: (reminders: DigestReminderInput[]) =>
     api.post<{ sent: boolean; reason?: string; recipientCount?: number }>("/reminders/send-digest", { reminders }),
+};
+
+// ESCALATION TO THE SUPER ADMIN AND THE WEEKLY DIGEST (REQUIREMENTS §75),
+// worked out on the server from the records in PostgreSQL (backend/escalation.ts,
+// on the rule engine/latenessCore.ts shares with the Performance Scorecard) and
+// shown to the super admin in the bell, the day's notification and the
+// Performance page. Every route is the super admin's alone (a 403 for anybody
+// else). The shapes mirror backend/escalation.ts.
+
+/** One record behind an escalation. */
+export interface EscalationRecordRef {
+  id: string;
+  documentId: string;
+  /** The format number, or the name while the number is to be confirmed. */
+  what: string;
+  dueDate: string;
+  outcome: "late" | "never done";
+  daysLate: number;
+}
+
+/** The escalation rule's numbers: this many late, or this many never done, in this many days. */
+export interface EscalationRule {
+  late: number;
+  neverDone: number;
+  windowDays: number;
+}
+
+export interface Escalation {
+  id: string;
+  raisedAt: string;
+  updatedAt: string;
+  /** A person by name, or a department (several accounts, or none answering for it). */
+  kind: "person" | "department";
+  /** The account's id, or "dept:HR". */
+  subjectKey: string;
+  subjectName: string;
+  department: string;
+  /** The ISO week it was raised in, "2026-W39". */
+  period: string;
+  late: number;
+  neverDone: number;
+  evidence: {
+    window: { from: string; to: string };
+    rule: EscalationRule;
+    people?: string[];
+    worst: { documentId: string; what: string; late: number; neverDone: number }[];
+    records: EscalationRecordRef[];
+  };
+  acknowledgedBy: string | null;
+  acknowledgedAt: string | null;
+}
+
+interface DigestCounts {
+  due: number;
+  onTime: number;
+  late: number;
+  neverDone: number;
+  pending: number;
+  score: number | null;
+}
+
+/** The super admin's digest of one week (backend/escalation.ts DigestBody). */
+export interface WeeklyDigest {
+  period: string;
+  createdAt: string;
+  body: {
+    period: string;
+    from: string;
+    to: string;
+    judgedOn: string;
+    totals: DigestCounts;
+    departments: (DigestCounts & { code: string; name: string; people: string[] })[];
+    worstDocuments: (DigestCounts & { documentId: string; what: string; department: string })[];
+    capa: { internalOpen: number; internalOverdue: number; oldestOverdue: { finding: string; targetDate: string | null } | null; externalOpen: number; externalAwaiting: number };
+    escalations: { raised: number; open: number; list: { id: string; kind: string; subjectName: string; department: string; late: number; neverDone: number; acknowledged: boolean }[] };
+  };
+}
+
+export interface EscalationList {
+  escalations: Escalation[];
+  rule: EscalationRule;
+  /** The plant's date on the server. */
+  today: string;
+  /** Its ISO week, "2026-W39" — what "this week" means for an escalation's `period`. */
+  week: string;
+}
+
+/** Said on window when an escalation is acknowledged, so every surface showing escalations asks again. */
+export const ESCALATIONS_CHANGED = "dcrs:escalations-changed";
+
+// THE LAST OPEN LIST THIS TAB WAS HANDED — in memory only, never stored — so
+// something drawn without asking the server (Mitra's live facts for the super
+// admin) can say what is escalated without a request of its own. The bell asks
+// when it is first drawn, when it is opened and after an acknowledgement.
+let lastOpen: EscalationList | null = null;
+export const escalationsSeen = (): EscalationList | null => lastOpen;
+/** Forgotten when the account in this tab is not the super admin's (the bell, on a change of account). */
+export const forgetEscalationsSeen = (): void => {
+  lastOpen = null;
+};
+
+export const escalationsApi = {
+  /** The ones not yet acknowledged, newest first (the bell). */
+  open: () =>
+    api.get<EscalationList>("/escalations?open=1").then((list) => {
+      lastOpen = Array.isArray(list?.escalations) ? list : lastOpen;
+      return list;
+    }),
+  /** Every one raised or grown in the last 30 days, acknowledged or not (the Performance page, the day's notification). */
+  recent: () => api.get<EscalationList>("/escalations"),
+  acknowledge: (id: string) => api.post<{ escalation: Escalation }>(`/escalations/${encodeURIComponent(id)}/ack`),
+  latestDigest: () => api.get<{ digest: WeeklyDigest | null }>("/digests/latest"),
+  /** Runs a scheduled job now, whatever the clock says; `today` is for a check that needs a day of its own. */
+  runJob: (job: "escalation" | "weekly-digest", today?: string) => api.post<{ job: string; today: string; outcome: string }>("/jobs/run", today ? { job, today } : { job }),
+};
+
+// THE ACTIVITY LOG'S ARCHIVE (REQUIREMENTS §62, §75) — the super admin's
+// alone: the server answers 403 to anybody else (backend/archiveRoutes.ts).
+// Nothing leaves the log by itself; the admin sees what is old enough, and
+// only a deliberate move takes it to the archive, in the same database, where
+// it stays searchable.
+
+/** What archiving lines older than `years` years would move, and what the archive holds already. */
+export interface ActivityArchivePreview {
+  years: number;
+  /** ACTIVITY_ARCHIVE_AFTER_YEARS on the server, or 3. */
+  defaultYears: number;
+  /** The first day KEPT (YYYY-MM-DD): every line before it would move. Sent back with the move. */
+  cutoff: string;
+  count: number;
+  /** The days the oldest and newest of those lines fall on; null when there are none. */
+  from: string | null;
+  to: string | null;
+  archived: { count: number; from: string | null; to: string | null };
+}
+
+/** A line of the log read with its archive: the log's own fields, and whether it has been archived. */
+export interface ArchivedActivityLine {
+  id: string;
+  at: string;
+  userId: string | null;
+  userName: string;
+  userEmail: string;
+  action: string;
+  target: string;
+  detail: string;
+  department: string;
+  archived: boolean;
+}
+
+export const activityArchiveApi = {
+  /** Without `years`, for the server's own default (ACTIVITY_ARCHIVE_AFTER_YEARS). */
+  preview: (years?: number) => api.get<ActivityArchivePreview>(`/activity/archive/preview${years ? `?years=${years}` : ""}`),
+  /** Moves them. Refused with 409 (and a fresh `preview`) when today has moved on since `cutoff` was shown. */
+  archive: (years: number, cutoff: string) => api.post<{ moved: number; cutoff: string; from: string | null; to: string | null }>("/activity/archive", { years, cutoff }),
+  // The same query GET /activity and /activity/summary take (limit, before, q, person, from, to).
+  lines: (query: string) => api.get<{ lines: ArchivedActivityLine[] }>(`/activity/with-archive${query ? `?${query}` : ""}`),
+  summary: (query: string) => api.get<{ people: ActivityTally[] }>(`/activity/with-archive/summary${query ? `?${query}` : ""}`),
 };

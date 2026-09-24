@@ -49,6 +49,27 @@ const USER_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-
 const SYNC_KEYS = new Set<string>([...COMPANY_KEYS, ...USER_KEYS]);
 /** Never handed on to the next person who signs in on this browser. */
 const PRIVATE_KEYS = new Set(["assistant-conversations"]);
+/**
+ * A person's own settings that ARE handed on (the language, the working hours)
+ * except these: what that person has already been shown or put off today. On a
+ * plant computer several people sign in one after another, and the second one's
+ * first sign-in used to take on the first one's "the day's notification and the
+ * briefing are already shown" — so the second never saw theirs (REQUIREMENTS §75).
+ */
+const SETTINGS_NOT_HANDED_ON = ["nudgeShownOn", "briefingShown", "briefingFirstShownAt", "agreementReminderSnoozedUntil"];
+
+/** Another person's settings, as they are handed on: without what was shown or put off for them. */
+function handedOnSettings(value: string): string {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return value;
+    const own = { ...(parsed as Record<string, unknown>) };
+    for (const k of SETTINGS_NOT_HANDED_ON) delete own[k];
+    return JSON.stringify(own);
+  } catch {
+    return value;
+  }
+}
 /** Items whose lines belong to departments: the server keeps a department's account to its own (backend/index.ts). */
 const LINE_KEYS = new Set(["records", "deletions"]);
 
@@ -1071,7 +1092,14 @@ export function startServerSync(userId: string): Promise<void> {
             // Another person's conversations: not handed on.
             local.remove(key);
             writeMarker(key, null);
-          } else sends.push(key);
+          } else {
+            // Another person's settings: handed on without what was shown or put off for them.
+            if (!ours && marker && key === "settings") {
+              const handed = handedOnSettings(mine);
+              if (handed !== mine && !local.set(key, handed)) throw new SyncError("no-room", `There is no room in this browser for ${key}.`);
+            }
+            sends.push(key);
+          }
         }
       }
     } catch (err) {

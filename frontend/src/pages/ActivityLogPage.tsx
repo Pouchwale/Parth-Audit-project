@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FiDownload, FiRefreshCw, FiSearch, FiX } from "react-icons/fi";
-import { api } from "../api/client";
+import { FiArchive, FiDownload, FiRefreshCw, FiSearch, FiX } from "react-icons/fi";
+import { activityArchiveApi, api, ApiError, type ActivityArchivePreview } from "../api/client";
 import { useAuth } from "../store/AuthContext";
+import { Modal } from "../components/common/Modal";
 import { downloadCSV, toCSV } from "../utils/csv";
+import { formatDisplayDate } from "../utils/date";
 import { APPROVED, countOf, FILLED_IN, SUBMITTED, worked, type ActivityTally } from "../engine/activityWork";
 
 // ACTIVITY LOG — everything anybody has done on the portal, newest first
@@ -13,7 +15,13 @@ import { APPROVED, countOf, FILLED_IN, SUBMITTED, worked, type ActivityTally } f
 //
 // The super admin reads every line. An account kept to departments reads its
 // own lines and its departments'. Nothing here can be edited or removed: the
-// table is only ever added to (backend/db.ts, activity_log).
+// table is only ever added to, and the database itself refuses a change or a
+// removal (backend/activityArchive.ts).
+//
+// KEPT FOR EVER, ARCHIVED ONLY ON PURPOSE (REQUIREMENTS §75). Nothing leaves
+// the log by itself. The super admin alone can move lines older than a few
+// years to the archive — after seeing how many and from when to when — and
+// can still read and search them here by ticking "Include archived lines".
 
 interface Line {
   id: string;
@@ -24,6 +32,8 @@ interface Line {
   target: string;
   detail: string;
   department: string;
+  /** Only on a reading with the archive: true for a line that has been moved there. */
+  archived?: boolean;
 }
 
 const PAGE = 100;
@@ -69,6 +79,10 @@ export function ActivityLogPage() {
   /** Whose lines to show — "" is everybody this account may read. */
   const [person, setPerson] = useState("");
   const [tallies, setTallies] = useState<ActivityTally[]>([]);
+  const admin = user?.role === "admin";
+  /** The super admin's "Include archived lines": the list and the tally read the archive too. */
+  const [withArchive, setWithArchive] = useState(false);
+  const archived = admin && withArchive;
 
   // The span and the person go to the server, which filters and counts there:
   // a year of a busy plant is far more lines than this page should hold.
@@ -85,8 +99,11 @@ export function ActivityLogPage() {
       setLoading(true);
       setError(null);
       const rest = params();
+      const page = `limit=${PAGE}${before ? `&before=${before}` : ""}${rest ? `&${rest}` : ""}`;
       try {
-        const res = await api.get<{ lines: Line[] }>(`/activity?limit=${PAGE}${before ? `&before=${before}` : ""}${rest ? `&${rest}` : ""}`);
+        // With the archive ticked: the same query, read over the log and its
+        // archive together — same filters, same order, same "Show older".
+        const res = archived ? await activityArchiveApi.lines(page) : await api.get<{ lines: Line[] }>(`/activity?${page}`);
         setLines((prev) => (before ? [...prev, ...res.lines] : res.lines));
         setMore(res.lines.length === PAGE);
       } catch (e) {
@@ -96,26 +113,26 @@ export function ActivityLogPage() {
       }
       // The tally is an extra: a page of lines must still show if it fails.
       try {
-        const sum = await api.get<{ people: ActivityTally[] }>(`/activity/summary${rest ? `?${rest}` : ""}`);
+        const sum = archived ? await activityArchiveApi.summary(rest) : await api.get<{ people: ActivityTally[] }>(`/activity/summary${rest ? `?${rest}` : ""}`);
         setTallies(sum.people ?? []);
       } catch {
         setTallies([]);
       }
     },
-    [params]
+    [params, archived]
   );
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [span, person]);
+  }, [span, person, archived]);
 
   const exportCSV = () =>
     downloadCSV(
       "activity-log.csv",
       toCSV(
-        ["When", "Who", "Email", "What", "On", "Detail", "Department"],
-        lines.map((l) => [new Date(l.at).toLocaleString(), l.userName, l.userEmail, l.action, l.target, l.detail, l.department])
+        ["When", "Who", "Email", "What", "On", "Detail", "Department", ...(archived ? ["Archived"] : [])],
+        lines.map((l) => [new Date(l.at).toLocaleString(), l.userName, l.userEmail, l.action, l.target, l.detail, l.department, ...(archived ? [l.archived ? "Yes" : ""] : [])])
       )
     );
 
@@ -153,6 +170,13 @@ export function ActivityLogPage() {
           <button className="btn btn-secondary btn-sm" data-action="activity-all-people" onClick={() => setPerson("")}>
             <FiX size={12} /> {tallies.find((t) => t.userId === person)?.userName ?? "This person"} only — show everybody
           </button>
+        )}
+        {/* THE ARCHIVE, READ BACK (REQUIREMENTS §75): the super admin's only. */}
+        {admin && (
+          <label className="flex items-center gap-2 text-sm text-muted" title="Lines moved to the archive are kept, and are read and searched here with the rest.">
+            <input type="checkbox" data-field="include-archived" checked={withArchive} onChange={(e) => setWithArchive(e.target.checked)} />
+            Include archived lines
+          </label>
         )}
       </div>
 
@@ -245,14 +269,24 @@ export function ActivityLogPage() {
                 </tr>
               )}
               {lines.map((l) => (
-                <tr key={l.id} data-activity={l.action}>
+                <tr key={l.id} data-activity={l.action} data-archived={l.archived ? "1" : undefined}>
                   <td className="text-sm notranslate" translate="no">
                     {new Date(l.at).toLocaleString()}
                   </td>
                   <td className="text-sm notranslate" translate="no" title={l.userEmail}>
                     {l.userName || "—"}
                   </td>
-                  <td className="text-sm font-semibold">{l.action}</td>
+                  <td className="text-sm font-semibold">
+                    {l.action}
+                    {l.archived && (
+                      <>
+                        {" "}
+                        <span className="badge badge-Scheduled" title="Moved to the archive by the super admin — kept, and read here because “Include archived lines” is ticked.">
+                          Archived
+                        </span>
+                      </>
+                    )}
+                  </td>
                   <td className="text-sm notranslate" translate="no">
                     {l.target}
                   </td>
@@ -269,6 +303,165 @@ export function ActivityLogPage() {
         <button className="btn btn-secondary btn-sm mt-3" onClick={() => void load(lines[lines.length - 1]?.id)} disabled={loading}>
           Show older
         </button>
+      )}
+
+      {admin && <ArchivePanel onArchived={() => void load()} />}
+    </div>
+  );
+}
+
+const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
+const YEAR_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+/**
+ * ARCHIVING OLD LINES — THE SUPER ADMIN'S DELIBERATE ACT (REQUIREMENTS §62, §75).
+ * Counted once when the page opens and again only when the number of years is
+ * changed — never while drawing. The count, the days the lines run from and to,
+ * and the day everything before which would go, are all shown before anything
+ * can be pressed; the move itself is behind a question. The server checks the
+ * day again: should the date have moved on since the count, it says so and
+ * shows the new count instead of moving something that was not shown.
+ */
+function ArchivePanel({ onArchived }: { onArchived: () => void }) {
+  /** The years the admin picked; null = the server's default (ACTIVITY_ARCHIVE_AFTER_YEARS). */
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [preview, setPreview] = useState<ActivityArchivePreview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    setPreview(null);
+    setError(null);
+    activityArchiveApi
+      .preview(chosen ?? undefined)
+      .then((p) => {
+        if (live) setPreview(p);
+      })
+      .catch((e) => {
+        if (live) setError(e instanceof Error ? e.message : "The archive could not be read.");
+      });
+    return () => {
+      live = false;
+    };
+  }, [chosen]);
+
+  const years = chosen ?? preview?.years ?? 3;
+  const day = (iso: string | null) => (iso ? formatDisplayDate(iso) : "—");
+
+  const archive = async () => {
+    if (!preview) return;
+    setBusy(true);
+    setError(null);
+    let moved: number | null = null;
+    try {
+      moved = (await activityArchiveApi.archive(preview.years, preview.cutoff)).moved;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The lines could not be archived.");
+      // 409: the date moved on since the count — the new count is shown to look at first.
+      if (!(e instanceof ApiError && e.status === 409)) {
+        setBusy(false);
+        return;
+      }
+    }
+    setAsking(false);
+    if (moved !== null) {
+      setDone(moved === 0 ? "Nothing was old enough to move." : `${plural(moved, "line")} moved to the archive — kept, and found here with “Include archived lines”.`);
+      onArchived();
+    }
+    // The count again, for what is left (and what the archive now holds).
+    setPreview(await activityArchiveApi.preview(preview.years).catch(() => null));
+    setBusy(false);
+  };
+
+  return (
+    <div className="card mt-4" data-section="activity-archive" data-count={preview ? preview.count : undefined}>
+      <div className="card-pad">
+        <h3 className="text-sm uppercase text-muted mb-2">
+          <FiArchive size={13} /> Archive old lines
+        </h3>
+        <p className="text-sm text-muted mb-3">
+          Nothing leaves the log by itself: every line is kept for ever. When the log has grown long, lines older than a few years can be
+          moved, on purpose, to the archive — in the same database, still kept, and still read and searched here with “Include archived
+          lines”. The move is itself a line in the log.
+        </p>
+        <div className="flex items-center gap-2 wrap mb-2">
+          <span className="text-sm">Lines older than</span>
+          <select
+            className="input input-sm"
+            style={{ width: 76 }}
+            data-field="archive-years"
+            value={years}
+            disabled={busy}
+            onChange={(e) => {
+              setChosen(Number(e.target.value));
+              setDone(null);
+            }}
+          >
+            {YEAR_CHOICES.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm">{years === 1 ? "year" : "years"}</span>
+        </div>
+        <div className="text-sm mb-1" data-field="archive-preview">
+          {!preview
+            ? error
+              ? ""
+              : "Counting…"
+            : preview.count === 0
+              ? `No line is older than ${plural(preview.years, "year")} — nothing to archive. (Lines written before ${day(preview.cutoff)} would be moved.)`
+              : `${plural(preview.count, "line")}, written ${day(preview.from)} to ${day(preview.to)} — everything before ${day(preview.cutoff)}.`}
+        </div>
+        {preview && (
+          <div className="text-xs text-faint mb-3" data-field="archive-held">
+            {preview.archived.count === 0
+              ? "The archive is empty."
+              : `The archive holds ${plural(preview.archived.count, "line")}, written ${day(preview.archived.from)} to ${day(preview.archived.to)}.`}
+          </div>
+        )}
+        {done && (
+          <div className="text-sm text-success mb-2" data-field="archive-done">
+            {done}
+          </div>
+        )}
+        {error && <div className="text-sm text-danger mb-2">{error}</div>}
+        <button className="btn btn-danger btn-sm" data-action="activity-archive" disabled={!preview || preview.count === 0 || busy} onClick={() => setAsking(true)}>
+          <FiArchive size={13} /> {preview && preview.count > 0 ? `Archive ${plural(preview.count, "line")}…` : "Archive…"}
+        </button>
+      </div>
+
+      {asking && preview && (
+        <Modal
+          title="Move these lines to the archive?"
+          onClose={() => (busy ? undefined : setAsking(false))}
+          dismissible={!busy}
+          width={500}
+          footer={
+            <div className="flex gap-2 justify-end" style={{ width: "100%" }}>
+              <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setAsking(false)}>
+                No, keep them here
+              </button>
+              <button className="btn btn-danger btn-sm" data-action="activity-archive-confirm" disabled={busy} onClick={() => void archive()}>
+                <FiArchive size={12} /> {busy ? "Moving…" : "Yes, archive them"}
+              </button>
+            </div>
+          }
+        >
+          <p className="text-sm mb-2">
+            {plural(preview.count, "line")} of the activity log, written {day(preview.from)} to {day(preview.to)} — everything before{" "}
+            {day(preview.cutoff)} — will move to the archive.
+          </p>
+          <p className="text-sm text-muted">
+            They are not deleted. They stay in the same database, and you can still read and search them here with “Include archived
+            lines”. The move is written in the log as “Activity log archived”, with the count, the date and your name. A long log can take a
+            minute to move.
+          </p>
+        </Modal>
       )}
     </div>
   );
