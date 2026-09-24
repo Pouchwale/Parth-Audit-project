@@ -32,7 +32,10 @@ BASE = "http://localhost:8843"
 SEED_PASSWORD = "SeedQA@2026"
 ADMIN = "admin@gpp.local"
 KAPILA = "kapila.barad@gpp.local"
-HR_DEPARTMENT = "Human Resources (Vinay Bhojak, Sandeep Parekh)"
+# The seeded accounts that answer for Human Resources. A department escalation
+# names EVERY account that answers for it, so in a full run it also names the HR
+# account an earlier suite signs up (e2e_hr_module's "Dept HR QA").
+HR_PEOPLE = ("Vinay Bhojak", "Sandeep Parekh")
 FAILURES = []
 
 
@@ -179,8 +182,13 @@ with sync_playwright() as p:
     check("Run now, the escalation raises exactly two", r.status == 200 and len(raised) == 2, (r.status, names))
     kapila = next((e for e in raised if e.get("subjectName") == "Kapila Barad"), {})
     check("Kapila Barad, by name: 3 late, in QC", kapila.get("kind") == "person" and kapila.get("late") == 3 and kapila.get("department") == "QC", kapila)
-    hr = next((e for e in raised if e.get("subjectName") == HR_DEPARTMENT), {})
-    check("Human Resources as a department, named with its two people: 2 never done", hr.get("kind") == "department" and hr.get("neverDone") == 2, names)
+    hr = next((e for e in raised if e.get("kind") == "department" and e.get("department") == "HR"), {})
+    hr_name = str(hr.get("subjectName") or "")
+    check(
+        "Human Resources as a department, named with the people who answer for it: 2 never done",
+        hr_name.startswith("Human Resources (") and all(n in hr_name for n in HR_PEOPLE) and hr.get("neverDone") == 2,
+        names,
+    )
     lines = activity_lines(admin, "Escalated to the super admin", today.isoformat())
     check("Each is a line in the activity log, under its department", len(lines) == 2 and sorted(l.get("department") for l in lines) == ["HR", "QC"], lines)
 
@@ -231,7 +239,7 @@ with sync_playwright() as p:
     check("Acknowledged, it leaves the list and the badge", page.locator("[data-section='escalations']").get_attribute("data-count") == "1" and bell.get_attribute("data-escalations") == "1")
     admin, _ = api_session(browser, ADMIN)
     open_now = (admin.request.get(f"{BASE}/api/escalations?open=1").json() or {}).get("escalations") or []
-    check("...and the server holds it acknowledged", [e.get("subjectName") for e in open_now] == [HR_DEPARTMENT], open_now)
+    check("...and the server holds it acknowledged: only Human Resources is still open", [e.get("subjectKey") for e in open_now] == ["dept:HR"], open_now)
     check("...with a line in the log", len(activity_lines(admin, "Escalation acknowledged", today.isoformat())) == 1)
     admin.close()
 

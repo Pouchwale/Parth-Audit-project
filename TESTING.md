@@ -223,8 +223,9 @@ Seven scripts live in `tests/`:
   scheduled runs are off in the test servers (`JOBS=0`: the suites run on the real clock), so it runs the jobs by
   hand, as the super admin can. It puts three late QC sheets by Kapila Barad and two HR rounds never done on file
   through the storage API (with the go-live date moved back 40 days, since nothing before it counts), then: exactly
-  two escalations — Kapila Barad by name, 3 late, and Human Resources as a department named with its two people, 2
-  never done — each a line in the log under its department; a second run the same week raising nothing new and writing
+  two escalations — Kapila Barad by name, 3 late, and Human Resources as a department named with the people who answer
+  for it, 2 never done (in a full run that includes the HR account `e2e_hr_module.py` signs up, so the check asks for
+  the two seeded people, not for exactly two) — each a line in the log under its department; a second run the same week raising nothing new and writing
   no second line; a job or a day that is not one refused; a department account refused both the list and the jobs;
   last week's digest; and, signed in as the super admin, the day's notification, the bell's badge and its "Escalated
   to you" group above the reminders, Acknowledge (held on the server, with a log line), and the Escalated badges and
