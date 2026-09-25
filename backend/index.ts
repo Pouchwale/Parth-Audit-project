@@ -613,7 +613,8 @@ app.post("/api/activity", requireAuth, async (req: Request, res: Response): Prom
 
 // The administrator reads every line. An account kept to departments reads its
 // own lines and its departments'; an account with no departments set works
-// across the plant (management, the MR, QA) and reads every line too.
+// across the plant (management, the MR, QA) and reads every line too — all but
+// the escalations' two, which are the super admin's alone (§75, db.ts).
 // A DAY, A MONTH OR A YEAR, AND ONE PERSON'S OWN LINES (REQUIREMENTS §73):
 // `from` / `to` as plain YYYY-MM-DD, both ends included, and `person` as an
 // account id. The scoping rule above still decides WHOSE lines can be asked
@@ -640,6 +641,8 @@ function activityFilter(req: Request): Parameters<typeof activitySummary>[0] {
   return {
     departments: user.role !== "admin" && user.departments.length > 0 ? user.departments : null,
     userId: user.id,
+    // The escalations' lines are the super admin's alone (db.ts SUPER_ADMIN_ACTIONS, REQUIREMENTS §75).
+    superAdmin: user.role === "admin",
     search: search || undefined,
     person: personId(req.query.person),
     from: day(req.query.from),

@@ -1,7 +1,8 @@
-import type { DocumentDefinition, RecordInstance } from "../types";
+import type { DocumentDefinition, MasterData, RecordInstance } from "../types";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
+import { masterRepository } from "../data/repositories/masterRepository";
 import { departmentScope } from "./departmentScope";
 import { insightsHeadline, startInsights, type Insight } from "./insights";
 import { currentInsightInput } from "./insightsInput";
@@ -25,10 +26,20 @@ import { todayISO } from "../utils/date";
 // new array whenever a record changes). The engine keeps what it read from each
 // record in its own memo, so after the Dashboard or the Insights page has run,
 // Mitra's run only adds up (about 5 ms on a desktop rather than 40).
+//
+// THE PLANT'S CALENDAR IS PART OF THE VERSION. The insights are worked out on
+// the closed days of the master data — holidays, the weekly off, adjustment
+// days (engine/insightsInput.ts closedDays) — so the master data is kept with
+// the answer and compared like the records: masterRepository.get() hands back
+// the same object until what is stored changes. Without it, a holiday added on
+// the Master Data screen left Mitra's insights (and every evidence pack built
+// on them, engine/historyDigest.ts) as they were before it, until a record
+// happened to change.
 
 interface Kept {
   records: readonly RecordInstance[];
   documents: readonly DocumentDefinition[];
+  master: MasterData;
   key: string;
   insights: Insight[];
 }
@@ -45,12 +56,12 @@ function keyOf(isDemo: boolean): string {
 export function cachedScopedInsights(isDemo: boolean): Insight[] | null {
   const k = isDemo ? kept.demo : kept.live;
   if (!k) return null;
-  if (k.records !== recordRepository.snapshot() || k.documents !== documentRepository.getAllUnscoped() || k.key !== keyOf(isDemo)) return null;
+  if (k.records !== recordRepository.snapshot() || k.documents !== documentRepository.getAllUnscoped() || k.master !== masterRepository.get() || k.key !== keyOf(isDemo)) return null;
   return k.insights;
 }
 
-function keep(isDemo: boolean, records: readonly RecordInstance[], documents: readonly DocumentDefinition[], key: string, insights: Insight[]): Insight[] {
-  const k: Kept = { records, documents, key, insights };
+function keep(isDemo: boolean, records: readonly RecordInstance[], documents: readonly DocumentDefinition[], master: MasterData, key: string, insights: Insight[]): Insight[] {
+  const k: Kept = { records, documents, master, key, insights };
   kept = isDemo ? { ...kept, demo: k } : { ...kept, live: k };
   return insights;
 }
@@ -65,11 +76,12 @@ export function scopedInsights(isDemo: boolean): Insight[] {
   if (hit) return hit;
   const records = recordRepository.snapshot();
   const documents = documentRepository.getAllUnscoped();
+  const master = masterRepository.get();
   const key = keyOf(isDemo);
   const run = startInsights(currentInsightInput(isDemo));
   let insights = run.step(Number.POSITIVE_INFINITY);
   while (!insights) insights = run.step(Number.POSITIVE_INFINITY);
-  return keep(isDemo, records, documents, key, insights);
+  return keep(isDemo, records, documents, master, key, insights);
 }
 
 const nextTick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -84,6 +96,7 @@ export async function prepareScopedInsights(isDemo: boolean, sliceMs = 8): Promi
   if (hit) return hit;
   const records = recordRepository.snapshot();
   const documents = documentRepository.getAllUnscoped();
+  const master = masterRepository.get();
   const key = keyOf(isDemo);
   const run = startInsights(currentInsightInput(isDemo));
   let insights = run.step(sliceMs);
@@ -91,7 +104,7 @@ export async function prepareScopedInsights(isDemo: boolean, sliceMs = 8): Promi
     await nextTick();
     insights = run.step(sliceMs);
   }
-  return keep(isDemo, records, documents, key, insights);
+  return keep(isDemo, records, documents, master, key, insights);
 }
 
 /**

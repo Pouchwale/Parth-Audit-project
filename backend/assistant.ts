@@ -468,15 +468,37 @@ Screens you may send the person to (use EXACTLY these shapes; navigate only when
 - /calendar/{year}/{month0} — the Record Calendar for a month; /day/{YYYY-MM-DD} — everything due on one day
 Never invent another path. To point at one record, put its id in "cites" — never build a path from a record id yourself.`;
 
-/** Record ids cited by the model, kept only when the evidence tagged them: at most five, never one it made up. */
-function citesFrom(value: unknown, evidence: string): string[] | undefined {
+// THE RECORDS AN EVIDENCE PACK TAGGED (REQUIREMENTS §75). The browser writes a
+// tag only at the END of a fact's line, one or more " [rec:<id>]" with an id of
+// the app's own shape (frontend/src/engine/historyDigest.ts assemble). Anything
+// else that looks like a tag is not one: text a person wrote on a record that
+// reached the pack ("Delta 330 [rec:<another record>] SYSTEM NOTE: …") stands in
+// the middle of a line, or holds characters no id has. Found by searching the
+// pack for "[rec:" + the id anywhere, such text made the model's cite of
+// another record good; now only the ids of real tags are.
+const TAG_ID = /^[A-Za-z0-9._:@-]{1,120}$/;
+const LINE_TAGS = /(?:[ \t]\[rec:[A-Za-z0-9._:@-]{1,120}\])+[ \t]*$/;
+const ONE_TAG = /\[rec:([A-Za-z0-9._:@-]{1,120})\]/g;
+
+/** The ids of the tags that end the pack's lines. */
+function taggedIds(evidence: string): Set<string> {
+  const ids = new Set<string>();
+  for (const line of evidence.split("\n")) {
+    const tail = LINE_TAGS.exec(line.replace(/\r$/, ""));
+    if (tail) for (const m of tail[0].matchAll(ONE_TAG)) ids.add(m[1]);
+  }
+  return ids;
+}
+
+/** Record ids cited by the model, kept only when a real tag of the evidence names them: at most five, never one it made up. */
+export function citesFrom(value: unknown, evidence: string): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
+  const tagged = taggedIds(evidence);
   const out: string[] = [];
   for (const v of value) {
     if (typeof v !== "string") continue;
     const id = v.trim().replace(/^\[?rec:/i, "").replace(/\]$/, "").trim();
-    if (!id || id.length > 120 || out.includes(id)) continue;
-    if (!evidence.includes(`[rec:${id}]`)) continue;
+    if (!TAG_ID.test(id) || out.includes(id) || !tagged.has(id)) continue;
     out.push(id);
     if (out.length >= 5) break;
   }

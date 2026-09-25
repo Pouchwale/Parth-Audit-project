@@ -682,9 +682,24 @@ function likeContaining(search: string): string {
 //
 // The line list and the tally beside it take the SAME filter — scope, person,
 // span and search — so the counts always describe the lines on the screen.
+//
+// LINES FOR THE SUPER ADMIN ALONE (REQUIREMENTS §75). An escalation names
+// people, and nobody but the super admin is handed one (escalationRoutes.ts),
+// so the log's two lines about escalations are the super admin's as well. They
+// are written under no department and with no figures (escalation.ts), which
+// keeps them from an account kept to departments; activityWhere below keeps
+// them from every other reader too — an account with no departments set reads
+// every other line of the plant — and from the lines written before that,
+// which were filed under the escalated department with its counts and format
+// numbers in the detail and, the log refusing an UPDATE, stay so for ever.
+export const ESCALATION_ACTIONS = { raised: "Escalated to the super admin", acknowledged: "Escalation acknowledged" } as const;
+const SUPER_ADMIN_ACTIONS: string[] = Object.values(ESCALATION_ACTIONS);
+
 export interface ActivityFilter {
   departments: string[] | null;
   userId: string;
+  /** The super admin, who reads every line. Anybody else (false, or left out) never reads the SUPER_ADMIN_ACTIONS lines. */
+  superAdmin?: boolean;
   /** Words anywhere in who, what, on what or the detail; matched as typed, not as a pattern. */
   search?: string;
   /** One person's lines only — their account id. */
@@ -700,6 +715,10 @@ export function activityWhere(opts: ActivityFilter, args: unknown[]): string[] {
   if (opts.departments) {
     args.push(opts.userId, opts.departments);
     where.push(`(user_id = $${args.length - 1} OR department = ANY($${args.length}))`);
+  }
+  if (!opts.superAdmin) {
+    args.push(SUPER_ADMIN_ACTIONS);
+    where.push(`action <> ALL($${args.length}::text[])`);
   }
   if (opts.person) {
     args.push(opts.person);

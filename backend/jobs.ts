@@ -28,7 +28,18 @@
 // kept as the record of the failure, and the period is free to be claimed
 // again — by this server after RETRY_AFTER_MS, or by another sooner. A claim
 // whose server stopped before finishing is given back the same way after half
-// an hour.
+// an hour. A run that WORKED but whose outcome could not be written (the
+// database answered the work and then not the UPDATE) is not a failure: giving
+// the period back would run it twice — a second digest line, a second email —
+// so the outcome is kept and written on the next minute instead.
+//
+// A RUN BY HAND IS THE PERIOD'S RUN (runJobByHand). The super admin can run
+// either job at once (POST /api/jobs/run, backend/escalationRoutes.ts); for the
+// plant's today it claims the period exactly as the timer would, so the
+// schedule does not run it again — the weekly digest made by hand on Monday at
+// 08:30 is Monday's digest, not a first of two. Asked for again once the period
+// is claimed, it still runs (it was asked for), claiming nothing. A day of the
+// caller's own (a suite's) is not the schedule's, and claims nothing either.
 //
 // OFF WITH JOBS=0. The Playwright suites run on the real clock and count
 // activity-log lines, so scripts/run-e2e.ts starts its servers with JOBS=0; a
@@ -132,6 +143,55 @@ async function giveBack(job: JobName, period: string, error: string): Promise<vo
 // failed run may be tried again.
 const settled = new Set<string>();
 const retryAt = new Map<string, number>();
+// Runs that worked but whose outcome is not written yet, by "job|period".
+const unrecorded = new Map<string, { job: JobName; period: string; outcome: string }>();
+
+/**
+ * WRITES A FINISHED RUN'S OUTCOME — and a failure to write it is not the job's
+ * failure. The run is done; were its period given back, it would run again.
+ * The outcome is kept and written on the next minute (writeUnrecorded), well
+ * inside the half hour after which an unfinished claim counts as abandoned.
+ */
+async function record(job: JobName, period: string, outcome: string): Promise<void> {
+  const key = `${job}|${period}`;
+  try {
+    await finish(job, period, outcome);
+    unrecorded.delete(key);
+  } catch (err) {
+    unrecorded.set(key, { job, period, outcome });
+    console.error(`[jobs] ${job} ${period} ran, but its outcome could not be written yet (tried again next minute): ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+async function writeUnrecorded(): Promise<void> {
+  for (const { job, period, outcome } of Array.from(unrecorded.values())) await record(job, period, outcome);
+}
+
+/**
+ * THE SUPER ADMIN'S "RUN IT NOW" (POST /api/jobs/run). For the plant's today it
+ * claims the period the schedule would run it for, runs it, and writes its
+ * outcome — the schedule then leaves that period alone. Already claimed (the
+ * schedule ran it, or an earlier hand run), or for a day of the caller's own,
+ * it runs unclaimed. `claimed` is the period it was the run for, or null.
+ */
+export async function runJobByHand(job: JobName, today: string, by: string): Promise<{ outcome: string; result: unknown; claimed: string | null }> {
+  const spec = jobSpecs().find((s) => s.name === job);
+  const period = spec && today === plantClock().date ? spec.period(today) : null;
+  const claimed = period !== null && (await claim(job, period)) ? period : null;
+  if (claimed === null) return { ...(await runJob(job, today)), claimed };
+  settled.add(`${job}|${claimed}`);
+  let ran: { outcome: string; result: unknown };
+  try {
+    ran = await runJob(job, today);
+  } catch (err) {
+    // Failed: written down, and the period is free for the schedule to try.
+    settled.delete(`${job}|${claimed}`);
+    await giveBack(job, claimed, err instanceof Error ? err.message : String(err)).catch((e) => console.error("[jobs] could not record the failure:", e instanceof Error ? e.message : e));
+    throw err;
+  }
+  await record(job, claimed, `by hand (${by}): ${ran.outcome}`);
+  return { ...ran, claimed };
+}
 
 // The plant's closed days, read from the stored master data at most every ten
 // minutes — a working day's minutes after the hour ask the database nothing.
@@ -143,6 +203,7 @@ async function plantCalendar(nowMs: number): Promise<(d: string) => boolean> {
 }
 
 async function tick(now: Date, specs: readonly JobSpec[]): Promise<void> {
+  if (unrecorded.size > 0) await writeUnrecorded();
   const { date, time } = plantClock(now);
   let closed: ((d: string) => boolean) | null = null;
   for (const job of specs) {
@@ -163,17 +224,20 @@ async function tick(now: Date, specs: readonly JobSpec[]): Promise<void> {
       continue;
     }
     settled.add(key);
+    let outcome: string;
     try {
-      const { outcome } = await runJob(job.name, date);
-      await finish(job.name, period, outcome);
-      console.log(`[jobs] ${job.name} ${period}: ${outcome}`);
+      ({ outcome } = await runJob(job.name, date));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[jobs] ${job.name} ${period} failed: ${message}`);
       settled.delete(key);
       retryAt.set(key, now.getTime() + RETRY_AFTER_MS);
       await giveBack(job.name, period, message).catch((e) => console.error("[jobs] could not record the failure:", e instanceof Error ? e.message : e));
+      continue;
     }
+    // The job is done whatever happens next: its outcome not written is not a failure of the job (record).
+    await record(job.name, period, outcome);
+    console.log(`[jobs] ${job.name} ${period}: ${outcome}`);
   }
 }
 

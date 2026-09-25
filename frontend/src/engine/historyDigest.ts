@@ -6,6 +6,7 @@ import type {
   GapInspectionData,
   LogSheetData,
   LogSheetLayout,
+  MasterData,
   RecordInstance,
 } from "../types";
 import { TBC } from "../types";
@@ -24,10 +25,12 @@ import { prepareScopedInsights, scopedInsights } from "./scopedInsights";
 import { isLotAccepted, isOutOfBand } from "./validation";
 import { actionForGrade, RM_PM_PERFORMANCE_ID, SERVICE_PROVIDER_PERFORMANCE_ID, serviceRatingCells } from "./purchaseRatings";
 import { closedDays, decisionText, scoreOf, scorecards, type Person } from "./performance";
-import { machineNumbersIn } from "./equipmentMaster";
+import { machineKey, machineNumbersIn } from "./equipmentMaster";
+import { keptTo } from "./latenessCore";
 import { totalRodents } from "./rodentPattern";
 import { routeForRecord } from "./reminders";
 import { t } from "../i18n";
+import { usersApi } from "../api/client";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
 
 // MITRA ANSWERS FROM ALL HISTORY (REQUIREMENTS §75).
@@ -76,7 +79,13 @@ import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2,
 // SAFETY. Free text written on a record (a fault, a finding, a supplier's name)
 // is QUOTED and cut to 80 characters, with square brackets taken out, so it
 // reads as data and cannot pose as one of the app's own [rec:<id>] tags; the
-// server keeps only cited ids that appear in the pack (backend/assistant.ts).
+// server keeps only cited ids that stand in a real tag of the pack — the ones
+// at the end of a fact's line, of the app's own id shape (backend/assistant.ts
+// citesFrom). EVERYTHING a person wrote goes in through quoteFree, including
+// what only looks like the app's own words: a breakdown's equipment ID where it
+// is not a machine number, the equipment's name standing in for it, a lot
+// status the form does not offer, a date typed into a box made Text. A machine
+// number is said as machineKey spells it ("M-47"), which nobody can write into.
 //
 // BUDGET. The Groq plan allows 8,000 tokens a minute and 200,000 a day for the
 // whole plant, so a pack is 6,000 characters at most (about 1,500 tokens) —
@@ -90,13 +99,23 @@ import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2,
 // startInsights), and buildEvidence runs the same work in one go for callers
 // already off the drawing path. What each record says is remembered against
 // the record itself, and a whole pack against the store's version (the records
-// snapshot and the documents list, which are new arrays whenever they change)
-// and the question's key.
+// snapshot, the documents list and the master data with the plant's calendar,
+// which are new objects whenever they change) and the question's key. The one
+// step that cannot be sliced — the Performance Scorecard — is kept to twelve
+// months at most (peopleWork).
 
 // ---------------------------------------------------------------------------
 // the question
 
 export type AnalyticTopic = "qc" | "maintenance" | "purchase" | "capa" | "pest" | "hr" | "store" | "dispatch" | "people";
+
+/**
+ * What kind of period was asked about, so "and before that?" steps back by one
+ * of them (REQUIREMENTS §75): the quarter before "this quarter" is the whole
+ * quarter before, even while this one is half gone. Absent for a run of days
+ * ("the last 30 days", the default window), which steps back by as many days.
+ */
+export type PeriodUnit = "day" | "week" | "month" | "quarter" | "year";
 
 export interface AnalyticIntent {
   /** What the question is about, most specific first. */
@@ -108,15 +127,19 @@ export interface AnalyticIntent {
   to: string;
   /** "the last quarter (01-Apr-2026 to 30-Jun-2026)". */
   label: string;
+  /** What kind of period it is; absent for a run of days. */
+  unit?: PeriodUnit;
   /** "What stands out?" — about the records as a whole. */
   general: boolean;
   /**
    * Plainly about history — a word such as "trend" or "most", a period named,
-   * or a follow-up — rather than a counting word alone. With a record open
-   * only such a question is taken from the record's own prompt: "what is the
-   * total rodent traps provided?" there is about the sheet in front of them.
+   * or a follow-up — rather than a counting word alone.
    */
   explicit: boolean;
+  /** The message named its period ("last quarter", "in 2025", "ever"), or carried the one of the question it follows. */
+  periodNamed: boolean;
+  /** A follow-up to the last question about history ("and the month before?"). */
+  followUp: boolean;
   /** What a pack for this question is kept under. */
   key: string;
 }
@@ -203,7 +226,41 @@ interface Period {
   label: string;
   /** Named in the message, rather than the default window. */
   named: boolean;
+  /** A month, a quarter, a year…; absent for a run of days. */
+  unit?: PeriodUnit;
 }
+
+// WHICH PERIOD A MESSAGE NAMES (REQUIREMENTS §75). The period it NAMES comes
+// first, and only then the words that stretch one: "how many breakdowns in
+// September so far?" is 1 September to today — read the other way round, "so
+// far" won and the answer was about everything on file. "Ever", "all time" and
+// "on file" mean everything only when nothing else is named ("how many in
+// August on file?" is August); "so far", "to date" and "since" run a named
+// period on to today.
+const EVERYTHING_RE = /\b(?:ever|all[- ]time|all (?:the )?history|entire history|whole history|since (?:the )?(?:start|beginning)|on file|so far|till date|to date|until now|till now|up to now)\b/;
+const TO_DATE_RE = /\b(?:so far|till date|to date|until now|till now|up to now)\b/;
+const SINCE_RE = /\bsince\b(?!\s+(?:the\s+)?(?:start|beginning)\b)/;
+// A month or a day named without its year is the last one there WAS: "in
+// October", asked in September, is last October — history is never the future,
+// and read as this year's it was, and the question was dropped. So is "last
+// December", and "last September" asked in September. Not when the message
+// says it is about what is to come.
+const YEAR_WRITTEN_RE = /\b(?:19|20)\d{2}\b/;
+const FUTURE_RE = /\b(?:next|coming|upcoming|tomorrow|will|shall|going to|planned|scheduled)\b/;
+const MONTH_NAMES_SRC = "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+const MONTH_NAMED_RE = new RegExp(`\\b${MONTH_NAMES_SRC}\\b`);
+const LAST_MONTH_NAMED_RE = new RegExp(`\\b(?:last|previous)\\s+${MONTH_NAMES_SRC}\\b`);
+const QUARTER_RE = /\bq([1-4])(?:\s*(?:of\s+)?((?:19|20)\d{2}))?\b/;
+// A YEAR NAMED ON ITS OWN ("in 2025", "how did QC do in 2024?", "since 2025")
+// is the whole of that year — read as no period at all, "in 2025" was the last
+// 90 days. Only a number the message plainly says is a year: after "in",
+// "for", "during", "of", "since", "from", "until", "through" or "year", and not
+// followed by a unit — "any lux reading below 2000?" and "of 2000 lux" are
+// readings, never the year 2000 (nor 2100 a year still to come, which would
+// have dropped the question as the future).
+const YEAR_UNIT = "(?!\\s*(?:lux|kgs?|gms?|g|gsm|mm|cm|m|mtrs?|metres?|meters?|cps|sec(?:ond)?s?|°|%|units?|pcs|nos|rolls?|min(?:ute)?s?|h(?:ou)?rs?|times?|rpm|mpa|kpa|psi|ppm)\\b)";
+const BARE_YEAR_RE = new RegExp(`\\b(?:in|for|during|of|since|from|until|till|through(?:out)?|year)\\s+((?:19|20)\\d{2})\\b${YEAR_UNIT}`);
+const YEAR_SPAN_RE = new RegExp(`\\b(?:from|between)\\s+((?:19|20)\\d{2})\\s*(?:to|and|till|until|through|-|–)\\s*((?:19|20)\\d{2})\\b${YEAR_UNIT}`);
 
 function monthEndISO(year: number, month0: number): string {
   const y = year + Math.floor(month0 / 12);
@@ -225,23 +282,73 @@ function shiftMonths(iso: string, k: number): string {
   return `${y}-${pad2(m + 1)}-${pad2(Math.min(d.getDate(), daysInMonth(y, m)))}`;
 }
 
+const earlier = (a: string, b: string): string => (compareISO(a, b) <= 0 ? a : b);
+
 /** The period a message names, "none" when it names none, or null when it is in the future (not history). */
 function periodOf(text: string, today: string): Period | "none" | null {
   const lower = text.toLowerCase();
+  const named = namedPeriod(text, lower, today);
+  if (named === null) return null;
+  if (named === "none") return EVERYTHING_RE.test(lower) ? { from: EVERYTHING_FROM, to: today, label: "everything on file", named: true } : "none";
+  // "in September so far", "since March", "since 2025": from the start of the
+  // period named to today — a run of days, stepped back from by as many.
+  if (compareISO(named.to, today) < 0 && (SINCE_RE.test(lower) || TO_DATE_RE.test(lower))) {
+    const since = SINCE_RE.test(lower);
+    // A label that already says its own dates ("last week (13-Sep-2026 to
+    // 19-Sep-2026)", "05-Aug-2026") would say two periods; it is said from its first day.
+    if (/\d{2}-[A-Z][a-z]{2}-\d{4}/.test(named.label)) {
+      return { from: named.from, to: today, label: since ? `since ${fmt(named.from)} (to ${fmt(today)})` : `${fmt(named.from)} to ${fmt(today)}`, named: true };
+    }
+    return { from: named.from, to: today, label: since ? `since ${named.label}` : `${named.label} to date`, named: true };
+  }
+  return named;
+}
+
+/** The period a message names in so many words, before anything stretches it (see periodOf). */
+function namedPeriod(text: string, lower: string, today: string): Period | "none" | null {
   const d = fromISODate(today);
   const y = d.getFullYear();
   const m = d.getMonth();
   const q = Math.floor(m / 3);
-  const range = (from: string, to: string, label: string): Period => ({ from, to, label, named: true });
+  // Cut at today, a label that says its own dates loses them, so withDates
+  // says the real ones: "this week (20-Sep-2026 to 24-Sep-2026)", not to the 26th.
+  const range = (from: string, to: string, label: string, unit?: PeriodUnit): Period | null =>
+    compareISO(from, today) > 0
+      ? null
+      : {
+          from,
+          to: earlier(to, today),
+          label: compareISO(to, today) > 0 ? label.replace(/\s*\(\d{2}-[A-Z][a-z]{2}-\d{4} to \d{2}-[A-Z][a-z]{2}-\d{4}\)$/, "") : label,
+          named: true,
+          ...(unit ? { unit } : {}),
+        };
 
   if (/\b(?:last|previous|past) quarter\b/.test(lower)) {
     const pq = q === 0 ? 3 : q - 1;
     const py = q === 0 ? y - 1 : y;
-    return range(monthStartISO(py, pq * 3), monthEndISO(py, pq * 3 + 2), `the last quarter, Q${pq + 1} ${py}`);
+    return range(monthStartISO(py, pq * 3), monthEndISO(py, pq * 3 + 2), `the last quarter, Q${pq + 1} ${py}`, "quarter");
   }
-  if (/\bthis quarter\b/.test(lower)) return range(monthStartISO(y, q * 3), today, `this quarter, Q${q + 1} ${y}`);
-  if (/\b(?:last|previous) year\b/.test(lower)) return range(`${y - 1}-01-01`, `${y - 1}-12-31`, `last year, ${y - 1}`);
-  if (/\b(?:this year|so far this year|year to date|ytd)\b/.test(lower)) return range(`${y}-01-01`, today, `this year, ${y}`);
+  if (/\bthis quarter\b/.test(lower)) return range(monthStartISO(y, q * 3), today, `this quarter, Q${q + 1} ${y}`, "quarter");
+  // "Q2", "Q4 2025": a quarter of the year written, else the last Q2 there was.
+  const qn = QUARTER_RE.exec(lower);
+  if (qn) {
+    const k = Number(qn[1]) - 1;
+    let qy = qn[2] ? Number(qn[2]) : y;
+    if (!qn[2] && k > q && !FUTURE_RE.test(lower)) qy -= 1;
+    return range(monthStartISO(qy, k * 3), monthEndISO(qy, k * 3 + 2), `Q${k + 1} ${qy}`, "quarter");
+  }
+  const parsed = parseDateRange(text, today);
+  const yearWritten = YEAR_WRITTEN_RE.test(lower);
+  // "In May last year" is May of last year, not the whole of it; "May this year" is this May.
+  const monthOfYear = parsed && !yearWritten && MONTH_NAMED_RE.test(lower) ? parsed : null;
+  if (/\b(?:last|previous) year\b/.test(lower)) {
+    if (monthOfYear) return range(shiftMonths(monthOfYear.from, -12), shiftMonths(monthOfYear.to, -12), yearBack(monthOfYear.label), unitOfRange(monthOfYear, lower));
+    return range(`${y - 1}-01-01`, `${y - 1}-12-31`, `last year, ${y - 1}`, "year");
+  }
+  if (/\b(?:this year|so far this year|year to date|ytd)\b/.test(lower)) {
+    if (monthOfYear) return range(monthOfYear.from, monthOfYear.to, monthOfYear.label, unitOfRange(monthOfYear, lower));
+    return range(`${y}-01-01`, today, `this year, ${y}`, "year");
+  }
   const n = lower.match(/\b(?:last|past|previous)\s+(\d{1,3})\s+(days?|weeks?|months?|years?)\b/);
   if (n) {
     const k = Number(n[1]);
@@ -259,49 +366,77 @@ function periodOf(text: string, today: string): Period | "none" | null {
   if (/\bpast (?:week|7 days)\b/.test(lower)) return range(addDays(today, -6), today, "the past week");
   if (/\bpast month\b/.test(lower)) return range(addDays(today, -29), today, "the past month");
   if (/\bpast year\b/.test(lower)) return range(addDays(today, -364), today, "the past year");
-  if (/\b(?:ever|all[- ]time|all (?:the )?history|entire history|whole history|since (?:the )?(?:start|beginning)|so far|till date|to date|on file)\b/.test(lower)) {
-    return range(EVERYTHING_FROM, today, "everything on file");
-  }
-  const parsed = parseDateRange(text, today);
   if (parsed) {
-    if (compareISO(parsed.from, today) > 0) return null;
-    return range(parsed.from, compareISO(parsed.to, today) > 0 ? today : parsed.to, parsed.label);
+    const unit = unitOfRange(parsed, lower);
+    if (!yearWritten && !FUTURE_RE.test(lower) && (compareISO(parsed.from, today) > 0 || (LAST_MONTH_NAMED_RE.test(lower) && compareISO(parsed.to, today) >= 0))) {
+      return range(shiftMonths(parsed.from, -12), shiftMonths(parsed.to, -12), yearBack(parsed.label), unit);
+    }
+    return range(parsed.from, parsed.to, parsed.label, unit);
   }
+  // "From 2024 to 2025": both whole years; "in 2025", "how did QC do in 2024?":
+  // the whole year — each to today at most.
+  const years = YEAR_SPAN_RE.exec(lower);
+  if (years && Number(years[1]) <= Number(years[2])) return range(`${years[1]}-01-01`, `${years[2]}-12-31`, `${years[1]} to ${years[2]}`);
+  const bare = BARE_YEAR_RE.exec(lower);
+  if (bare) return range(`${bare[1]}-01-01`, `${bare[1]}-12-31`, bare[1], "year");
   return "none";
 }
+
+/** What kind of period parseDateRange read: a day, a week, a whole month, or a run of days. */
+function unitOfRange(r: { from: string; to: string }, lower: string): PeriodUnit | undefined {
+  if (r.from === r.to) return "day";
+  const f = fromISODate(r.from);
+  if (r.from.endsWith("-01") && r.to === monthEndISO(f.getFullYear(), f.getMonth())) return "month";
+  if (/\b(?:this|last|next) week\b/.test(lower)) return "week";
+  return undefined;
+}
+
+/** A label moved a year back with its dates: "October 2026" → "October 2025". */
+const yearBack = (label: string): string => label.replace(/\b((?:19|20)\d{2})\b/g, (yy) => String(Number(yy) - 1));
 
 function defaultPeriod(today: string): Period {
   return { from: addDays(today, -(DEFAULT_WINDOW_DAYS - 1)), to: today, label: `the last ${DEFAULT_WINDOW_DAYS} days`, named: false };
 }
 
-/** The period before `p`: the month, quarter or year before when p is one, else the same number of days before it. */
-function periodBefore(p: { from: string; to: string }, unit?: string): Period {
+/**
+ * The period before `p`, by `unit` — what the follow-up says ("the month
+ * before") or else the kind of period p is (REQUIREMENTS §75): the month,
+ * quarter, year, week or day before the one p began in; for a run of days, as
+ * many days again. Stepping back from a quarter or a year still under way
+ * ("this quarter", "this year") gives the whole one before it — read from its
+ * dates alone, "this year" asked in September stepped back 267 days, and "this
+ * quarter" in its first month one month. With no unit said or carried (a
+ * question remembered from before units were kept), a period that is exactly
+ * a whole month, quarter or year is taken as one.
+ */
+function periodBefore(p: { from: string; to: string }, said?: PeriodUnit): Period {
   const f = fromISODate(p.from);
   const fy = f.getFullYear();
   const fm = f.getMonth();
-  // "the month / quarter / year before" says which: the one before the period asked about began.
-  if (unit === "month") return { from: monthStartISO(fy, fm - 1), to: monthEndISO(fy, fm - 1), label: "the month before", named: true };
+  const whole = (): PeriodUnit | undefined => {
+    if (!p.from.endsWith("-01")) return undefined;
+    if (p.to === monthEndISO(fy, fm)) return "month";
+    if (fm % 3 === 0 && p.to === monthEndISO(fy, fm + 2)) return "quarter";
+    if (fm === 0 && p.to === `${fy}-12-31`) return "year";
+    return undefined;
+  };
+  const unit = said ?? whole();
+  if (unit === "month") return { from: monthStartISO(fy, fm - 1), to: monthEndISO(fy, fm - 1), label: "the month before", named: true, unit };
   if (unit === "quarter") {
     const q0 = Math.floor(fm / 3) * 3;
-    return { from: monthStartISO(fy, q0 - 3), to: monthEndISO(fy, q0 - 1), label: "the quarter before", named: true };
+    return { from: monthStartISO(fy, q0 - 3), to: monthEndISO(fy, q0 - 1), label: "the quarter before", named: true, unit };
   }
-  if (unit === "year") return { from: `${fy - 1}-01-01`, to: `${fy - 1}-12-31`, label: `${fy - 1}`, named: true };
-  if (unit === "week") return { from: addDays(p.from, -7), to: addDays(p.from, -1), label: "the week before", named: true };
-  if (p.from.endsWith("-01")) {
-    if (p.from.slice(0, 7) === p.to.slice(0, 7)) return { from: monthStartISO(fy, fm - 1), to: monthEndISO(fy, fm - 1), label: "the month before", named: true };
-    if (fm === 0 && p.to.slice(0, 4) === p.from.slice(0, 4) && p.to.slice(5) >= "12-01") return { from: `${fy - 1}-01-01`, to: `${fy - 1}-12-31`, label: `${fy - 1}`, named: true };
-    if (fm % 3 === 0 && compareISO(p.to, monthEndISO(fy, fm + 2)) <= 0 && compareISO(p.to, monthStartISO(fy, fm + 1)) >= 0) {
-      return { from: monthStartISO(fy, fm - 3), to: monthEndISO(fy, fm - 1), label: "the quarter before", named: true };
-    }
-  }
+  if (unit === "year") return { from: `${fy - 1}-01-01`, to: `${fy - 1}-12-31`, label: `${fy - 1}`, named: true, unit };
+  if (unit === "week") return { from: addDays(p.from, -7), to: addDays(p.from, -1), label: "the week before", named: true, unit };
+  if (unit === "day") return { from: addDays(p.from, -1), to: addDays(p.from, -1), label: "the day before", named: true, unit };
   const span = Math.round((fromISODate(p.to).getTime() - f.getTime()) / 86400000) + 1;
   const to = addDays(p.from, -1);
   return { from: addDays(to, -(span - 1)), to, label: `the ${span} days before`, named: true };
 }
 
 function withDates(p: Period): string {
+  if (/\d{2}-[A-Z][a-z]{2}-\d{4}/.test(p.label)) return p.label; // already says its dates (a period carried to a follow-up does)
   if (p.from === EVERYTHING_FROM) return `${p.label} (to ${fmt(p.to)})`;
-  if (/\d{2}-[A-Z][a-z]{2}-\d{4}/.test(p.label)) return p.label; // already says its dates
   return `${p.label} (${fmt(p.from)} to ${fmt(p.to)})`;
 }
 
@@ -369,16 +504,46 @@ export function analyticIntent(message: string, today: string, previous?: Analyt
   // question about breakdowns is still a request for the Reports page.
   const followUp = mayFollow && (FOLLOW_RE.test(text) || named);
   if (previous && followUp) {
-    const unit = lower.match(/\b(month|quarter|year|week)\b/)?.[1];
-    const p = named ? (period as Period) : BEFORE_RE.test(lower) ? periodBefore(previous, unit) : { from: previous.from, to: previous.to, label: previous.label, named: true };
+    // "The month before" says the step; "and before that?" takes the kind of
+    // period the last question was about (REQUIREMENTS §75).
+    const said = lower.match(/\b(day|week|month|quarter|year)\b/)?.[1] as PeriodUnit | undefined;
+    const p = named
+      ? (period as Period)
+      : BEFORE_RE.test(lower)
+        ? periodBefore(previous, said ?? previous.unit)
+        : { from: previous.from, to: previous.to, label: previous.label, named: true, ...(previous.unit ? { unit: previous.unit } : {}) };
     const topics = found.topics.length ? found.topics : previous.topics;
-    return makeIntent(topics, found.documentIds.length ? found.documentIds : previous.documentIds, p, previous.general && found.topics.length === 0, true);
+    return makeIntent(topics, found.documentIds.length ? found.documentIds : previous.documentIds, p, previous.general && found.topics.length === 0, true, true);
   }
 
   const analytic = strong || general || (weak && (question || named));
   if (!analytic) return null;
   if (found.topics.length === 0 && !general) return null;
-  return makeIntent(found.topics.length ? found.topics : ALL_TOPICS, found.documentIds, named ? (period as Period) : defaultPeriod(today), general, strong || general || named);
+  return makeIntent(found.topics.length ? found.topics : ALL_TOPICS, found.documentIds, named ? (period as Period) : defaultPeriod(today), general, strong || general || named, false);
+}
+
+// About the record that is open, not about history: "this sheet", "the
+// current record", "today" — whatever else the question says. "Open" alone is
+// not one of them: "how many open reports last quarter?" asks about CAPA's
+// open findings, not the record on screen ("the open record" still is).
+const ABOUT_OPEN_RECORD_RE =
+  /\b(?:this|the current|current|present)\s+(?:sheet|record|form|page|log(?:\s*sheet)?|register|report|entry|document|shift|batch|lot|roll|job|round|visit|inspection)\b|\bthe open\s+(?:sheet|record|form|page|log(?:\s*sheet)?|register|document|entry)\b|\b(?:today|today'?s|tonight)\b|\bon here\b|\bin here\b/i;
+
+/**
+ * WITH A RECORD OPEN, IS THIS STILL A QUESTION ABOUT HISTORY? (REQUIREMENTS
+ * §75, §72.) The analyst prompt answers from the evidence pack alone and never
+ * sees the open record's data, so a question about the sheet in front of the
+ * person must keep the record's own prompt — "what's the average viscosity on
+ * this sheet?" went to the analyst for its word "average", and the answer was
+ * about the last 90 days of every viscosity sheet. Only a question that names a
+ * period ("the average viscosity last month"), follows one about history ("and
+ * the month before?") or asks what stands out in the records goes to the
+ * analyst; a word such as "average", "worst" or "compare" alone does not, and
+ * nothing that says "this sheet", "this record" or "today" does.
+ */
+export function historyWithRecordOpen(intent: AnalyticIntent, message: string): boolean {
+  if (ABOUT_OPEN_RECORD_RE.test(String(message ?? ""))) return false;
+  return intent.periodNamed || intent.followUp || intent.general;
 }
 
 /**
@@ -391,10 +556,76 @@ export function looksLikeFollowUp(message: string): boolean {
   return FOLLOW_RE.test(text) || (/^(?:in|for|during|over)\b/i.test(text) && text.length <= 40);
 }
 
-function makeIntent(topics: AnalyticTopic[], documentIds: string[], p: Period, general: boolean, explicit: boolean): AnalyticIntent {
+function makeIntent(topics: AnalyticTopic[], documentIds: string[], p: Period, general: boolean, explicit: boolean, followUp: boolean): AnalyticIntent {
   const label = withDates(p);
-  const key = `${general ? "g" : ""}|${topics.join(",")}|${[...documentIds].sort().join(",")}|${p.from}|${p.to}`;
-  return { topics: [...topics], documentIds: [...documentIds], from: p.from, to: p.to, label, general, explicit, key };
+  // The label is in the pack ("Period asked about: …"), so it is in the key too.
+  const key = `${general ? "g" : ""}|${topics.join(",")}|${[...documentIds].sort().join(",")}|${p.from}|${p.to}|${label}`;
+  return {
+    topics: [...topics],
+    documentIds: [...documentIds],
+    from: p.from,
+    to: p.to,
+    label,
+    ...(p.unit ? { unit: p.unit } : {}),
+    general,
+    explicit,
+    periodNamed: p.named,
+    followUp,
+    key,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// the question, remembered with the message that asked it
+
+/**
+ * A QUESTION ABOUT HISTORY AS IT WAS UNDERSTOOD WHEN IT WAS SENT (REQUIREMENTS
+ * §75), kept on the user's message in the Assistant page's conversation. A
+ * follow-up builds on THIS rather than on the words read again: read again,
+ * "last month" asked on 31 August meant September by the time "and the month
+ * before?" came on 1 September, and only the last six messages were read, so a
+ * seventh "and the month before?" had nothing to follow.
+ */
+export interface KeptIntent {
+  topics: AnalyticTopic[];
+  documentIds: string[];
+  from: string;
+  to: string;
+  label: string;
+  unit?: PeriodUnit;
+  general: boolean;
+}
+
+export function keepIntent(intent: AnalyticIntent): KeptIntent {
+  return {
+    topics: [...intent.topics],
+    documentIds: [...intent.documentIds],
+    from: intent.from,
+    to: intent.to,
+    label: intent.label,
+    ...(intent.unit ? { unit: intent.unit } : {}),
+    general: intent.general,
+  };
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const UNITS: readonly PeriodUnit[] = ["day", "week", "month", "quarter", "year"];
+
+/**
+ * A kept question back as one a follow-up can build on — or null when what is
+ * kept is not one: the conversation is read back from this browser's storage
+ * and from the server's copy, so its shape is checked, never assumed.
+ */
+export function intentFromKept(value: unknown): AnalyticIntent | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Partial<KeptIntent>;
+  if (typeof v.from !== "string" || typeof v.to !== "string" || !ISO_DAY.test(v.from) || !ISO_DAY.test(v.to) || compareISO(v.from, v.to) > 0) return null;
+  const topics = Array.isArray(v.topics) ? v.topics.filter((t): t is AnalyticTopic => ALL_TOPICS.includes(t as AnalyticTopic)) : [];
+  if (topics.length === 0) return null;
+  const documentIds = Array.isArray(v.documentIds) ? v.documentIds.filter((id): id is string => typeof id === "string" && isDocumentIdVisible(id)) : [];
+  const unit = UNITS.includes(v.unit as PeriodUnit) ? (v.unit as PeriodUnit) : undefined;
+  const label = typeof v.label === "string" && v.label.trim() ? tidy(v.label, 120) : `${fmt(v.from)} to ${fmt(v.to)}`;
+  return makeIntent(topics, documentIds, { from: v.from, to: v.to, label, named: true, ...(unit ? { unit } : {}) }, v.general === true, true, false);
 }
 
 // ---------------------------------------------------------------------------
@@ -425,8 +656,19 @@ export interface EvidencePack {
 }
 
 export interface EvidenceOptions {
-  /** The accounts to score as people — the one signed in, as the Daily Nudge does. */
-  people?: readonly Person[];
+  /** The account asking. */
+  self?: Person | null;
+  /**
+   * WHOM A PERSON'S SCORE IS WORKED OUT AMONG (REQUIREMENTS §64, §75): every
+   * account that shares a department with `self` — GET /api/users/directory,
+   * the very list the Performance Scorecard scores with. Where a department has
+   * two accounts, a record one of them handed in counts for that one; scored
+   * alone, an account was charged with its colleague's work and credited with
+   * it, and Mitra's score disagreed with the Scorecard's. Null or absent when
+   * the list could not be read: then no person's score is given at all, since
+   * from here there is no telling whether a department is shared.
+   */
+  directory?: readonly Person[] | null;
 }
 
 const SECTION_BUDGET = 1500;
@@ -441,11 +683,34 @@ export function quoteFree(value: unknown, max = QUOTE_MAX): string {
     .replace(/\s+/g, " ")
     .replace(/\[/g, "(")
     .replace(/\]/g, ")")
-    .replace(/"/g, "'")
+    // Every kind of double quote, so nothing inside can seem to close the quote around it.
+    .replace(/["“”„‟«»]/g, "'")
     .trim();
   const room = Math.max(4, max - 2);
   if (s.length > room) s = `${s.slice(0, room - 1).trimEnd()}…`;
   return `"${s}"`;
+}
+
+/**
+ * Text longer than one quote may be — an insight's title, which repeats what
+ * people wrote — made safe as quoteFree makes it (one line, no brackets, every
+ * double quote made single), cut to `max` and then quoted in pieces of at most
+ * QUOTE_MAX, split between words: every word of it inside quotes, so nothing in
+ * it reads as the app's own, and none of it lost to an 80-character cut.
+ */
+function quotedPieces(value: unknown, max: number): string {
+  const whole = quoteFree(value, max + 2).slice(1, -1);
+  const room = QUOTE_MAX - 2;
+  const pieces: string[] = [];
+  let rest = whole;
+  while (rest.length > room) {
+    const cut = rest.lastIndexOf(" ", room);
+    const at = cut > room / 2 ? cut : room;
+    pieces.push(rest.slice(0, at).trimEnd());
+    rest = rest.slice(at).trimStart();
+  }
+  if (rest || pieces.length === 0) pieces.push(rest);
+  return pieces.map((p) => `"${p}"`).join(" ");
 }
 
 /** An app-made line that may carry clipped record text (an insight's title): one line, no brackets, bounded. */
@@ -464,6 +729,43 @@ const round = (n: number, places = 0): string => String(Math.round(n * 10 ** pla
 const text = (v: unknown): string => String(v ?? "").trim();
 const inRange = (iso: string, from: string, to: string): boolean => !!iso && compareISO(iso, from) >= 0 && compareISO(iso, to) <= 0;
 const daysBetween = (from: string, to: string): number => Math.round((fromISODate(to).getTime() - fromISODate(from).getTime()) / 86400000);
+
+/** A real calendar day, ISO — what a date box holds, and not always what a box the Format Editor made Text holds. */
+function isDay(value: string): boolean {
+  if (!ISO_DAY.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
+/**
+ * A date a person wrote on a record (an inspection date, a target date): shown
+ * as a date when it is one, and otherwise QUOTED as written — formatted
+ * regardless, "12.09.2026" threw and took the whole pack with it, and a box of
+ * free text is record text like any other.
+ */
+const writtenDay = (value: unknown): string => {
+  const s = text(value);
+  return isDay(s) ? fmt(s) : quoteFree(s, 24);
+};
+
+/**
+ * WHICH EQUIPMENT A BREAKDOWN WAS ON, as the pack says it (REQUIREMENTS §75).
+ * insightRules.breakdownLines groups the lines by `machine` — the machine
+ * number, else the ID as written in capitals, else the name in curly quotes —
+ * which is a key, not something to hand the model: the ID and the name are
+ * whatever the person typed, brackets and "SYSTEM NOTE"s included. So the label
+ * is made here from safe parts only: the machine number as machineKey spells it
+ * ("M-47"), else the ID or the name through quoteFree. `named` says whether the
+ * label already is the name, so it is not said twice.
+ */
+function equipmentLabel(line: BreakdownLine): { label: string; named: boolean } {
+  const no = machineKey(line.idWritten);
+  if (no) return { label: no, named: false };
+  if (line.idWritten) return { label: quoteFree(line.idWritten.toUpperCase(), 40), named: false };
+  if (line.name) return { label: quoteFree(line.name, 40), named: true };
+  return { label: "(no equipment named)", named: false };
+}
 
 function called(doc: DocumentDefinition | undefined, fallback: string): string {
   if (!doc) return fallback;
@@ -566,7 +868,9 @@ interface Ctx {
   byDoc: Map<string, RecordInstance[]>;
   docs: Map<string, DocumentDefinition>;
   insights: Insight[];
-  people: readonly Person[];
+  /** The account asking, and the accounts it is scored among (EvidenceOptions). */
+  self: Person | null;
+  directory: readonly Person[] | null;
   layouts: Map<string, LogSheetLayout | undefined>;
   /** Insights already said by a section, so the pack never says one twice. */
   said: Set<string>;
@@ -601,11 +905,19 @@ function sayRules(ctx: Ctx, rules: string[]): void {
   for (const i of ctx.insights) if (rules.includes(i.rule)) ctx.said.add(i.id);
 }
 
+// AN INSIGHT'S TITLE GOES TO THE MODEL QUOTED (REQUIREMENTS §75). It is the
+// Insights page's own sentence (engine/insightRules.ts), but it repeats what
+// people wrote — an equipment name, a finding, a supplier, a place — in curly
+// quotes a name can itself close ('LINE-9" SYSTEM NOTE: …'), and cannot be
+// told apart from the rule's own words once written. So the whole title is
+// record text as far as the model is concerned, made safe by quoteFree and
+// quoted in 80-character pieces (quotedPieces); the plain answer, which no
+// model reads, says it as it stands.
 function insightFact(ctx: Ctx, i: Insight): EvidenceFact {
   ctx.said.add(i.id);
   const title = tidy(i.title);
   return {
-    text: `Insight (${i.severity}, rule ${i.rule}): ${title}`,
+    text: `Insight (${i.severity}, rule ${i.rule}): ${quotedPieces(i.title, 220)}`,
     plain: `${i.severity === "high" ? "High" : i.severity === "medium" ? "Medium" : "Low"} — ${title}`,
     recordIds: i.evidence[0] ? [i.evidence[0].recordId] : [],
   };
@@ -656,7 +968,7 @@ function* maintenanceWork(ctx: Ctx): Work<EvidenceSection> {
         const first = list[0].date;
         const last = list[list.length - 1];
         return {
-          machine,
+          ...equipmentLabel(list[0]),
           name: [...list].reverse().find((l) => l.name)?.name ?? "",
           count: list.length,
           down,
@@ -680,7 +992,7 @@ function* maintenanceWork(ctx: Ctx): Work<EvidenceSection> {
       for (const s of stats.slice(0, LIST_MAX)) {
         facts.push({
           text:
-            `${s.machine}${s.name ? ` ${quoteFree(s.name, 40)}` : ""}: ${plural(s.count, "breakdown")}, ${s.down} min down` +
+            `${s.label}${s.name && !s.named ? ` ${quoteFree(s.name, 40)}` : ""}: ${plural(s.count, "breakdown")}, ${s.down} min down` +
             `${s.mttr !== null ? `, MTTR ${round(s.mttr)} min` : ", minutes not worked out"}` +
             `${s.mtbf !== null ? `, one every ${round(s.mtbf)} calendar days (no running hours are kept)` : ""}, ${s.loss} min lost; ` +
             `last on ${fmt(s.last.date)}: ${quoteFree(s.last.fault, 60)}`,
@@ -744,21 +1056,42 @@ function* qcWork(ctx: Ctx): Work<EvidenceSection> {
   const facts: EvidenceFact[] = [];
 
   // Lots: the inspection records whose footer gives a lot's status.
-  const lots: { doc: DocumentDefinition; total: number; accepted: number; statuses: Map<string, number>; reasons: Map<string, { text: string; n: number }>; latestNot: RecordInstance | null }[] = [];
+  // A status is said as it stands only when it is one the form offers
+  // ("Reject / Scrap", "Segregation"); anything else was typed by a person, and
+  // is quoted like any other record text.
+  const lots: {
+    doc: DocumentDefinition;
+    total: number;
+    accepted: number;
+    statuses: Map<string, number>;
+    offered: Set<string>;
+    reasons: Map<string, { text: string; n: number }>;
+    latestNot: RecordInstance | null;
+  }[] = [];
   // Readings outside the band the form prints.
   const bands: { doc: DocumentDefinition; count: number; sheets: number; withOut: number; worst: RecordInstance | null; worstN: number }[] = [];
   let n = 0;
   for (const doc of docs) {
     const records = inPeriod(ctx, humanOf(ctx, doc.id));
     if (records.length === 0) continue;
-    const lot = { doc, total: 0, accepted: 0, statuses: new Map<string, number>(), reasons: new Map<string, { text: string; n: number }>(), latestNot: null as RecordInstance | null };
+    const lot = {
+      doc,
+      total: 0,
+      accepted: 0,
+      statuses: new Map<string, number>(),
+      offered: new Set<string>(),
+      reasons: new Map<string, { text: string; n: number }>(),
+      latestNot: null as RecordInstance | null,
+    };
     const band = { doc, count: 0, sheets: 0, withOut: 0, worst: null as RecordInstance | null, worstN: 0 };
     for (const r of records) {
       const layout = layoutOf(ctx, r);
       if (!layout) continue;
       const header = (r.data as LogSheetData | undefined)?.header ?? {};
       const status = text(header.lotStatus);
-      if (status && [...layout.headerFields, ...(layout.footerFields ?? [])].some((f) => f.key === "lotStatus")) {
+      const field = status ? [...layout.headerFields, ...(layout.footerFields ?? [])].find((f) => f.key === "lotStatus") : undefined;
+      if (status && field) {
+        for (const option of field.options ?? []) lot.offered.add(option);
         lot.total += 1;
         if (isLotAccepted(status)) lot.accepted += 1;
         else {
@@ -791,7 +1124,7 @@ function* qcWork(ctx: Ctx): Work<EvidenceSection> {
   lots.sort((a, b) => notAccepted(b) - notAccepted(a) || b.total - a.total);
   for (const l of lots.slice(0, LIST_MAX)) {
     const top = [...l.reasons.values()].sort((a, b) => b.n - a.n)[0];
-    const statuses = [...l.statuses].map(([s, k]) => `${k} ${s}`).join(", ");
+    const statuses = [...l.statuses].map(([s, k]) => `${k} ${l.offered.has(s) ? s : quoteFree(s, 30)}`).join(", ");
     facts.push({
       text:
         `${called(l.doc, l.doc.name)} lots, ${label}: ${l.total} with a status, ${l.accepted} accepted, ${notAccepted(l)} not${statuses ? ` (${statuses})` : ""}` +
@@ -897,8 +1230,9 @@ function* capaWork(ctx: Ctx): Work<EvidenceSection> {
       recordIds: [],
     });
     for (const f of late.slice(0, 3)) {
+      const target = text(f.finding.targetDate);
       facts.push({
-        text: `Past target: ${quoteFree(f.finding.findingOfInspection, 70)}${f.finding.targetDate ? `, target ${fmt(f.finding.targetDate)} (${plural(daysBetween(f.finding.targetDate, ctx.today), "day")} ago)` : ""}, report of ${fmt(f.on)}`,
+        text: `Past target: ${quoteFree(f.finding.findingOfInspection, 70)}${target ? `, target ${writtenDay(target)}${isDay(target) ? ` (${plural(daysBetween(target, ctx.today), "day")} ago)` : ""}` : ""}, report of ${writtenDay(f.on)}`,
         recordIds: [f.record.id],
       });
     }
@@ -914,7 +1248,7 @@ function* capaWork(ctx: Ctx): Work<EvidenceSection> {
     });
     for (const r of received.slice(-3).reverse()) {
       facts.push({
-        text: `Complaint ${quoteFree(r.data?.complaintNo || "(no number)", 20)}${text(r.data?.customerName) ? ` from ${quoteFree(r.data.customerName, 40)}` : ""}, received ${fmt(text(r.data?.complaintReceivedDate) || r.dueDate)}, ${r.status}`,
+        text: `Complaint ${quoteFree(r.data?.complaintNo || "(no number)", 20)}${text(r.data?.customerName) ? ` from ${quoteFree(r.data.customerName, 40)}` : ""}, received ${writtenDay(text(r.data?.complaintReceivedDate) || r.dueDate)}, ${r.status}`,
         recordIds: [r.id],
       });
     }
@@ -1025,19 +1359,46 @@ function* filedWork(ctx: Ctx, topic: "hr" | "store" | "dispatch"): Work<Evidence
 
 // ---- on time and late: the Performance Scorecard itself ----
 
+// THE LONGEST PERIOD THE SCORECARD IS WORKED OUT OVER FOR ONE QUESTION
+// (REQUIREMENTS §56, §75): twelve months, the Performance page's own longest
+// ("This year"). The Scorecard is one pass over the records that cannot be
+// stopped half way (engine/performance.ts), so "who was late ever?" judged
+// every record on file in one step — 64 ms on a desktop over three years of
+// records, about 400 ms of a frozen page on the plant's laptops. A longer
+// period is scored over its last twelve months, and the pack says so in the
+// line itself, so the model can never pass it off as the whole period.
+const PEOPLE_MAX_MONTHS = 12;
+
 function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
-  const { from, to, label } = ctx.intent;
   const facts: EvidenceFact[] = [];
   yield;
+  const { to } = ctx.intent;
+  const earliest = addDays(shiftMonths(to, -PEOPLE_MAX_MONTHS), 1);
+  const capped = compareISO(ctx.intent.from, earliest) < 0;
+  const from = capped ? earliest : ctx.intent.from;
+  const label = capped
+    ? `the 12 months ${fmt(from)} to ${fmt(to)} only — the longest period the Scorecard is worked out over for one question, not all of ${ctx.intent.label}`
+    : ctx.intent.label;
   // Exactly the Performance page's question (pages/PerformancePage.tsx): the
   // records due in the period, read through the scoped repository, judged by
   // engine/performance.ts on the plant's calendar.
   const records = recordRepository.query({ isDemo: ctx.isDemo, fromDate: from, toDate: to });
+  // DOCUMENTS NAMED ("was the pest monitoring record late last month?"): the
+  // figures are those documents' alone, and every line says so. A department's
+  // and a person's scores are over ALL of a department's documents on the
+  // Performance Scorecard; worked out over the named ones they were presented
+  // as the department's score and disagreed with the page, so they are left
+  // out, and the pack says where they are.
   const named = ctx.intent.documentIds;
-  const docs = documentRepository.getAll().filter((d) => named.length === 0 || named.includes(d.id));
+  const all = documentRepository.getAll();
+  const docs = named.length ? all.filter((d) => named.includes(d.id)) : all;
+  const only = named.length ? `, for ${docs.map((d) => called(d, d.name)).join(", ") || "the documents named"} only (not a department's or the plant's score)` : "";
+  // WHO IS SCORED: the accounts the Scorecard scores (see EvidenceOptions).
+  const people: Person[] = ctx.directory ? [...ctx.directory] : [];
+  if (ctx.directory && ctx.self && !people.some((p) => p.id === ctx.self?.id)) people.push(ctx.self);
   // The question's own dates, whatever they are ("last quarter", 2025): the
   // Scorecard scores any range the same way it scores its own periods.
-  const cards = scorecards(records, docs, ctx.people, { from, to, label }, ctx.today, {
+  const cards = scorecards(records, docs, people, { from, to, label }, ctx.today, {
     isClosedDay: closedDays(masterRepository.get()),
     countedFrom: ctx.isDemo ? null : settingsRepository.get().liveStartDate,
   });
@@ -1048,15 +1409,32 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
   facts.push({
     text:
       due === 0
-        ? `Performance Scorecard: no record ${named.length ? "of these documents " : ""}that is counted fell due in ${label}${cards.byDocument.some((d) => d.pending > 0) ? " (some are not due yet)" : ""}.`
-        : `Performance Scorecard (on time counts 1, late ½, never done 0), records due in ${label}: ${sum.onTime} of ${due} on time, ${sum.late} late, ${sum.overdue} never done${score !== null ? ` — score ${score}` : ""}.`,
+        ? `Performance Scorecard${only}: no record that is counted fell due in ${label}${cards.byDocument.some((d) => d.pending > 0) ? " (some are not due yet)" : ""}.`
+        : `Performance Scorecard (on time counts 1, late ½, never done 0)${only}, records due in ${label}: ${sum.onTime} of ${due} on time, ${sum.late} late, ${sum.overdue} never done${score !== null ? ` — score ${score}` : ""}.`,
     recordIds: [],
   });
-  for (const p of cards.byPerson.filter((p) => p.answers && p.due > 0).slice(0, 2)) {
-    facts.push({ text: `${quoteFree(p.person.name, 40)}: score ${p.score}, ${tidy(decisionText(p.decision), 200)}`, recordIds: [] });
-  }
-  for (const d of cards.byDepartment.filter((d) => d.due > 0).slice(0, 3)) {
-    facts.push({ text: `${d.name}${d.code ? ` (${d.code})` : ""}: score ${d.score}, ${tidy(decisionText(d.decision), 200)}`, recordIds: [] });
+  if (named.length) {
+    facts.push({
+      text: "Department and personal scores cover every document of a department; they are on the Performance Scorecard and are not worked out here for the documents named alone.",
+      recordIds: [],
+    });
+  } else {
+    if (ctx.directory) {
+      // Worst first, as the Scorecard lists them; the one asking among them when scored.
+      const scored = cards.byPerson.filter((p) => p.answers && p.due > 0);
+      const shown = scored.slice(0, 3);
+      const mine = scored.find((p) => p.person.id === ctx.self?.id);
+      if (mine && !shown.includes(mine)) shown.splice(2, 1, mine);
+      for (const p of shown) facts.push({ text: `${quoteFree(p.person.name, 40)}: score ${p.score}, ${tidy(decisionText(p.decision), 200)}`, recordIds: [] });
+    } else if (ctx.self && keptTo(ctx.self).length > 0) {
+      facts.push({
+        text: "No personal score here: whose work a record was needs the list of accounts that share a department, and it could not be read just now — the Performance Scorecard shows each person's score.",
+        recordIds: [],
+      });
+    }
+    for (const d of cards.byDepartment.filter((d) => d.due > 0).slice(0, 3)) {
+      facts.push({ text: `${d.name}${d.code ? ` (${d.code})` : ""}: score ${d.score}, ${tidy(decisionText(d.decision), 200)}`, recordIds: [] });
+    }
   }
   const worst = cards.byDocument.filter((d) => d.late + d.overdue > 0).slice(0, LIST_MAX);
   if (worst.length) {
@@ -1112,14 +1490,17 @@ function* evidenceWork(intent: AnalyticIntent, isDemo: boolean, insights: Insigh
   const byDoc = yield* humanRecordsWork(isDemo);
   const docs = new Map<string, DocumentDefinition>();
   for (const d of documentRepository.getAll()) docs.set(d.id, d); // scoped (REQUIREMENTS §40)
-  const ctx: Ctx = { intent, isDemo, today: todayISO(), byDoc, docs, insights, people: opts.people ?? [], layouts: new Map(), said: new Set() };
+  const ctx: Ctx = { intent, isDemo, today: todayISO(), byDoc, docs, insights, self: opts.self ?? null, directory: opts.directory ?? null, layouts: new Map(), said: new Set() };
 
   const header: EvidenceSection = {
     topic: "scope",
     heading: "About this evidence",
     facts: [
       {
-        text: `Period asked about: ${intent.label}. Today: ${fmt(ctx.today)}. Counted from the records of ${departmentScopeLabel()} that people wrote (submitted, verified, sent back or edited by a person); blank sheets and drafts only the assistant filled are left out.${isDemo ? " Demo Mode records." : ""}`,
+        text:
+          `Period asked about: ${intent.label}. Today: ${fmt(ctx.today)}. Counted from the records of ${departmentScopeLabel()} that people wrote (submitted, verified, sent back or edited by a person); blank sheets and drafts only the assistant filled are left out.${isDemo ? " Demo Mode records." : ""}` +
+          // Why an insight's own words are in quotes (insightFact), so the model still reports them.
+          " An insight's title is quoted, in pieces when long, because it repeats what people wrote on records; report it as the Insights page's finding.",
         recordIds: [],
       },
     ],
@@ -1181,30 +1562,46 @@ function assemble(sections: EvidenceSection[], budgetChars: number): EvidencePac
 
 // ---- kept per store version ----
 
-interface KeptPack {
+// WHAT A KEPT PACK WAS WORKED OUT FROM (REQUIREMENTS §75): the records, the
+// documents and the MASTER DATA — the plant's calendar of holidays, weekly off
+// and adjustment days, by which the Scorecard decides what fell due and when
+// (engine/performance.ts closedDays). Each repository hands back the same
+// object until what it holds changes, so the objects themselves are the
+// version. Without the master data here, a pack worked out before a holiday
+// was added went on being given after it, the Scorecard's figures with it.
+interface StoreVersion {
   snapshot: readonly RecordInstance[];
   documents: readonly DocumentDefinition[];
+  master: MasterData;
+}
+
+interface KeptPack extends StoreVersion {
   key: string;
   pack: EvidencePack;
 }
 const packs: KeptPack[] = [];
 const MAX_KEPT_PACKS = 12;
 
+const storeVersion = (): StoreVersion => ({ snapshot: recordRepository.snapshot(), documents: documentRepository.getAllUnscoped(), master: masterRepository.get() });
+
+/** An account as the key holds it: who, which departments, and the name its records are matched by. */
+const personKey = (p: Person): string => `${p.id}:${p.role}:${[...p.departments].sort().join("+")}:${p.name}`;
+
 function packKey(intent: AnalyticIntent, isDemo: boolean, budgetChars: number, opts: EvidenceOptions): string {
-  return `${intent.key}|${budgetChars}|${scopeKey(isDemo)}|${todayISO()}|${(opts.people ?? []).map((p) => p.id).join(",")}`;
+  const people = `${opts.self ? personKey(opts.self) : "-"}|${opts.directory ? opts.directory.map(personKey).join(",") : "no directory"}`;
+  return `${intent.key}|${budgetChars}|${scopeKey(isDemo)}|${todayISO()}|${people}`;
 }
 
 function keptPack(key: string): EvidencePack | null {
-  const snapshot = recordRepository.snapshot();
-  const documents = documentRepository.getAllUnscoped();
-  const hit = packs.find((p) => p.key === key && p.snapshot === snapshot && p.documents === documents);
+  const now = storeVersion();
+  const hit = packs.find((p) => p.key === key && p.snapshot === now.snapshot && p.documents === now.documents && p.master === now.master);
   return hit ? hit.pack : null;
 }
 
-function keepPack(key: string, snapshot: readonly RecordInstance[], documents: readonly DocumentDefinition[], pack: EvidencePack): EvidencePack {
+function keepPack(key: string, version: StoreVersion, pack: EvidencePack): EvidencePack {
   const at = packs.findIndex((p) => p.key === key);
   if (at >= 0) packs.splice(at, 1);
-  packs.unshift({ key, snapshot, documents, pack });
+  packs.unshift({ key, ...version, pack });
   packs.length = Math.min(packs.length, MAX_KEPT_PACKS);
   return pack;
 }
@@ -1217,10 +1614,9 @@ export function buildEvidence(intent: AnalyticIntent, isDemo: boolean, budgetCha
   const key = packKey(intent, isDemo, budgetChars, opts);
   const hit = keptPack(key);
   if (hit) return hit;
-  const snapshot = recordRepository.snapshot();
-  const documents = documentRepository.getAllUnscoped();
+  const version = storeVersion();
   const pack = runNow(evidenceWork(intent, isDemo, scopedInsights(isDemo), budgetChars, opts));
-  return keepPack(key, snapshot, documents, pack);
+  return keepPack(key, version, pack);
 }
 
 /** The same pack, worked out in slices of about 8 ms with the browser free between them (REQUIREMENTS §56). */
@@ -1228,11 +1624,59 @@ export async function prepareEvidence(intent: AnalyticIntent, isDemo: boolean, b
   const key = packKey(intent, isDemo, budgetChars, opts);
   const hit = keptPack(key);
   if (hit) return hit;
-  const snapshot = recordRepository.snapshot();
-  const documents = documentRepository.getAllUnscoped();
+  const version = storeVersion();
   const insights = await prepareScopedInsights(isDemo);
   const pack = await runSliced(evidenceWork(intent, isDemo, insights, budgetChars, opts));
-  return keepPack(key, snapshot, documents, pack);
+  return keepPack(key, version, pack);
+}
+
+// ---- whom a question about lateness scores ----
+
+let directoryKept: { userId: string; at: number; people: Person[] } | null = null;
+/** How long the list of accounts is kept before it is asked for again: accounts change rarely, questions come in runs. */
+const DIRECTORY_KEEP_MS = 5 * 60 * 1000;
+/** How long a question waits for the list; after that it is answered without a person's score. */
+const DIRECTORY_WAIT_MS = 3000;
+
+/** Does this pack say anything about people's scores — so is the list of accounts worth asking for? */
+const scoresPeople = (intent: AnalyticIntent): boolean => (intent.general || intent.topics.includes("people")) && intent.documentIds.length === 0;
+
+/**
+ * THE OPTIONS A SENDER PASSES FOR A QUESTION ABOUT HISTORY (REQUIREMENTS §64,
+ * §75): the account asking and, when the pack will hold people's scores, the
+ * accounts the Performance Scorecard scores it among — GET /api/users/directory,
+ * asked here on send (never while drawing), kept for a few minutes, and given
+ * up on after three seconds or when the browser is offline, so a question is
+ * never held up for long by it. Without the list no person's score is given
+ * (EvidenceOptions.directory). `read` is the request itself, replaceable in a test.
+ */
+export async function evidenceOptionsFor(
+  intent: AnalyticIntent,
+  user: Person | null | undefined,
+  read: () => Promise<{ people: Person[] }> = () => usersApi.directory()
+): Promise<EvidenceOptions> {
+  const self: Person | null = user ? { id: user.id, name: user.name, role: user.role, departments: [...(user.departments ?? [])] } : null;
+  if (!self || !scoresPeople(intent)) return { self };
+  if (directoryKept && directoryKept.userId === self.id && Date.now() - directoryKept.at < DIRECTORY_KEEP_MS) return { self, directory: directoryKept.people };
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return { self, directory: null };
+  try {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const res = await Promise.race([
+      read(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("the list of accounts took too long")), DIRECTORY_WAIT_MS);
+      }),
+    ]).finally(() => clearTimeout(timer));
+    if (!Array.isArray(res?.people)) return { self, directory: null };
+    const people = res.people
+      .filter((p) => p && typeof p.id === "string" && typeof p.name === "string" && Array.isArray(p.departments))
+      .map((p) => ({ id: p.id, name: p.name, role: p.role, departments: p.departments.filter((c): c is string => typeof c === "string") }));
+    directoryKept = { userId: self.id, at: Date.now(), people };
+    return { self, directory: people };
+  } catch (err) {
+    console.error("The list of accounts could not be read; a person's score is left out of this answer", err);
+    return { self, directory: null };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1292,11 +1736,39 @@ export function historyForModel(turns: readonly ChatTurn[], maxTurns = 6, maxEac
   return out;
 }
 
-/** The last question about history in a conversation, for a follow-up to build on. */
+/** The last question about history among a conversation's last six messages, read again today — for a conversation kept before questions were (previousIntentIn). */
 export function lastAnalyticIntent(userTexts: readonly string[], today: string): AnalyticIntent | null {
   let found: AnalyticIntent | null = null;
   for (const text of userTexts.slice(-6)) found = analyticIntent(text, today, found) ?? found;
   return found;
+}
+
+/** A message of a kept conversation, as far as a follow-up reads it. */
+export interface AskedMessage {
+  role: string;
+  text: string;
+  /** The question about history it asked, as understood when it was sent (keepIntent). */
+  intent?: unknown;
+}
+
+/**
+ * THE QUESTION A FOLLOW-UP BUILDS ON (REQUIREMENTS §75): the last question
+ * about history in the conversation, as it was kept on the message that asked
+ * it — however many messages back, with its dates as they were understood
+ * then. A conversation kept before questions were has its last six messages
+ * read again, as before (lastAnalyticIntent).
+ */
+export function previousIntentIn(messages: readonly AskedMessage[], today: string): AnalyticIntent | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "user" || m.intent === undefined) continue;
+    const kept = intentFromKept(m.intent);
+    if (kept) return kept;
+  }
+  return lastAnalyticIntent(
+    messages.filter((m) => m.role === "user").map((m) => m.text),
+    today
+  );
 }
 
 export interface CiteLink {

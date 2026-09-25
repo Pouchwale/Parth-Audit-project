@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FiAlertTriangle, FiAward, FiArrowRight, FiBell, FiX, FiZap } from "react-icons/fi";
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
@@ -7,12 +7,15 @@ import { settingsRepository } from "../../data/repositories/settingsRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { masterRepository } from "../../data/repositories/masterRepository";
+import { departmentOfDocument } from "../../data/seed/departments";
 import { notificationsFor, encourage, type DaysWork, type Standing } from "../../engine/notifications";
-import { closedDays, scorecards } from "../../engine/performance";
+import { closedDays, periodFor, scorecards, type Person, type PlantCalendar } from "../../engine/performance";
+import { attribute, keptTo, sameName } from "../../engine/latenessCore";
 import { firstNameOf } from "../../engine/assistantPersona";
 import { openBriefing } from "./AssistantBriefingPopup";
 import { todayISO } from "../../utils/date";
-import { escalationsApi } from "../../api/client";
+import { escalationsApi, usersApi } from "../../api/client";
+import type { DocumentDefinition, RecordInstance } from "../../types";
 
 // THE DAY'S NOTIFICATION (REQUIREMENTS §69).
 //
@@ -37,6 +40,64 @@ import { escalationsApi } from "../../api/client";
 // Scorecard. The server works that out every working day (backend/escalation.ts);
 // it is asked once, when the day's notification is, and the line appears when
 // the answer comes — the notification never waits for it.
+//
+// THEIR OWN SCORE IS THE SCORECARD'S OWN FIGURE (REQUIREMENTS §75). Worked out
+// with every account in the list, as the Performance page works it out — see
+// ownStanding below for why the person alone gives a different number in a
+// department two accounts share. The list is the page's own question (GET
+// /api/users/directory), asked here once per showing, after the notification
+// is up; the score line appears when it has come, and is left out when the
+// list cannot be read and the score alone might be wrong.
+
+/**
+ * THE PERSON'S OWN LINE ON THE PERFORMANCE SCORECARD THIS MONTH — the figure
+ * the page shows them, never another (REQUIREMENTS §64, §75).
+ *
+ * The scorecard is worked out over EVERY account (`directory`, the list GET
+ * /api/users/directory gives, which pages/PerformancePage.tsx reads), then the
+ * person's own line is read out of it. Not over the person alone: where a
+ * department has more than one account (HR has two), a record one of them
+ * handed in counts for that one only (engine/latenessCore.ts attribute), and
+ * worked out with nobody else in the list, a colleague's on-time record would
+ * count for this person as well — a score the scorecard never shows them.
+ *
+ * `directory` null means the list could not be read. The person's line is then
+ * worked out alone, and given only when it cannot differ from the scorecard's:
+ * nobody but them handed in a record of their departments this month, so there
+ * is nothing that could have counted for a colleague instead. Otherwise the
+ * score is left out — the notification still sends them to the scorecard —
+ * rather than a wrong one said.
+ *
+ * Pure, and a walk over the month's records: asked from an effect, never while
+ * drawing (§65).
+ */
+export function ownStanding(
+  me: Person,
+  directory: readonly Person[] | null,
+  records: readonly RecordInstance[],
+  docs: readonly DocumentDefinition[],
+  today: string,
+  calendar: PlantCalendar
+): Standing | null {
+  let people: readonly Person[];
+  if (directory) {
+    // The page's own list; the person themself is on it, and is added in the odd case they are not.
+    people = directory.some((p) => p.id === me.id) ? directory : [...directory, me];
+  } else {
+    const mine = sameName(me.name);
+    let handedInByAnother = false;
+    attribute(records, docs, [me], periodFor("this-month", today), today, calendar, (d) => departmentOfDocument(d.id, d.formatNo), ({ judgement, answering }) => {
+      if (answering.length > 0 && judgement.by && sameName(judgement.by) !== mine) handedInByAnother = true;
+    });
+    if (handedInByAnother) return null;
+    people = [me];
+  }
+  const cards = scorecards(records, docs, people, "this-month", today, calendar);
+  const line = cards.byPerson.find((p) => p.person.id === me.id);
+  if (!line || !line.answers || line.score === null) return null;
+  return { score: line.score, grade: line.grade.label, rank: null, outOf: 1, best: null };
+}
+
 export function DailyNudge() {
   const { mode, version } = useAppStore();
   const { user } = useAuth();
@@ -44,7 +105,11 @@ export function DailyNudge() {
   const today = todayISO();
   const [dismissed, setDismissed] = useState(false);
   // null until the day's question has been asked; then what it answered.
-  const [day, setDay] = useState<{ work: DaysWork; standing: Standing | null } | null>(null);
+  const [day, setDay] = useState<{ work: DaysWork } | null>(null);
+  // Their own score on the scorecard, once the list of accounts has come; null until then, and when there is none to say.
+  const [standing, setStanding] = useState<Standing | null>(null);
+  // The list of accounts, asked once per showing (below): the showing it was asked for, and the answer to come.
+  const directoryAsked = useRef<{ showing: object; answer: Promise<Person[] | null> } | null>(null);
   // The super admin's: this week's escalations — people late repeatedly, and those behind with records never done.
   const [escalated, setEscalated] = useState<{ late: number; neverDone: number } | null>(null);
 
@@ -52,30 +117,58 @@ export function DailyNudge() {
     if (!user || settingsRepository.nudgeShownOn(today)) return;
     // Live work only: demo records are synthetic and nobody is behind on them.
     const work = notificationsFor(user, false);
-    // THEIR OWN SCORE, from what this browser already holds. Where they stand
-    // against everybody else needs the directory of accounts, which is the
-    // Performance Scorecard's own question (§64) — so the line says what is
-    // true here and sends them there for the rest.
-    let standing: Standing | null = null;
-    try {
-      const me = { id: user.id, name: user.name, role: user.role, departments: user.departments };
-      const cards = scorecards(
-        recordRepository.queryUnscoped({ isDemo: false }),
-        documentRepository.getAll(),
-        [me],
-        "this-month",
-        today,
-        { isClosedDay: closedDays(masterRepository.get()), countedFrom: settingsRepository.get().liveStartDate }
-      );
-      const mine = cards.byPerson.find((p) => p.person.id === user.id);
-      if (mine && mine.score !== null) standing = { score: mine.score, grade: mine.grade.label, rank: null, outOf: 1, best: null };
-    } catch {
-      /* the scorecard is an extra: never let it stop the notification */
-    }
     settingsRepository.markNudgeShown(today);
-    setDay({ work, standing });
+    setDay({ work });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, today]);
+
+  // THEIR OWN SCORE, once the notification is up: the list of accounts is
+  // asked for once per showing — the question is kept with the showing it was
+  // asked for, so an effect run twice (React's development check) waits on the
+  // same answer instead of asking again — and the scorecard is worked out when
+  // the answer comes, in its callback, never while drawing. A new day's showing
+  // (the tab left open past midnight) asks afresh and scores the new month.
+  const userId = user?.id;
+  useEffect(() => {
+    // The administrator and an account kept to no department answer for no document: there is no score to ask for.
+    if (!day || !user || keptTo(user).length === 0) return;
+    let alive = true;
+    if (directoryAsked.current?.showing !== day) {
+      setStanding(null);
+      directoryAsked.current = {
+        showing: day,
+        answer: usersApi.directory().then(
+          // A server from before the directory answers with something else: that is "cannot be read", not an empty plant.
+          (res) => (Array.isArray(res?.people) ? res.people : null),
+          () => null
+        ),
+      };
+    }
+    const me: Person = { id: user.id, name: user.name, role: user.role, departments: user.departments };
+    directoryAsked.current.answer.then((directory) => {
+      if (!alive) return;
+      let mine: Standing | null = null;
+      try {
+        // The Performance page's own question: this month's live records of the documents this account may see.
+        const period = periodFor("this-month", today);
+        mine = ownStanding(
+          me,
+          directory,
+          recordRepository.query({ isDemo: false, fromDate: period.from, toDate: period.to }),
+          documentRepository.getAll(),
+          today,
+          { isClosedDay: closedDays(masterRepository.get()), countedFrom: settingsRepository.get().liveStartDate }
+        );
+      } catch {
+        /* the scorecard is an extra: never let it stop the notification */
+      }
+      setStanding(mine);
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day, userId]);
 
   // Asked once the day's notification is up, and only for the super admin. Its
   // own effect, keyed on the notification being shown, so an effect run twice
@@ -101,7 +194,7 @@ export function DailyNudge() {
     };
   }, [shown, isAdmin]);
 
-  const words = useMemo(() => (day ? encourage(day.work, day.standing, firstNameOf(user?.name)) : null), [day, user?.name]);
+  const words = useMemo(() => (day ? encourage(day.work, standing, firstNameOf(user?.name)) : null), [day, standing, user?.name]);
   // Demo Mode shows synthetic records; the day's real work is not that.
   if (!day || !words || dismissed || mode === "demo") return null;
   const { work } = day;

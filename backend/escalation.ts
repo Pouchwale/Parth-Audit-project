@@ -32,10 +32,18 @@
 // floor, as on the scorecard). Worked out by code — no model is asked.
 //
 // ONE LINE PER SUBJECT PER WEEK. Each escalation is stored against its ISO week
-// (2026-W39) and upserted: the daily check updates this week's line as the
-// figures grow, and writes an activity-log line ("Escalated to the super
-// admin") and an email only when the line is new. A line the super admin has
-// acknowledged opens again if its figures grow.
+// (2026-W39) and upserted: the daily check writes this week's line with the
+// figures and the records as they stand that day, and writes an activity-log
+// line ("Escalated to the super admin") and an email only when the line is new.
+// A line the super admin has acknowledged opens again only when a record is
+// behind it that they have not seen — not when a figure merely moves (a record
+// never done that is handed in late moves from one count to the other; an old
+// late leaves the 30 days).
+//
+// THE SUPER ADMIN'S ALONE. The activity-log lines about escalations are filed
+// under no department and carry no figures, and only the super admin reads
+// them (db.ts SUPER_ADMIN_ACTIONS): a department's account must not read
+// another department's counts, nor that somebody was escalated.
 //
 // THE APP IS THE CHANNEL. The seeded super admin is admin@gpp.local, an address
 // that receives no mail (REQUIREMENTS §62), so escalations and digests are
@@ -43,7 +51,7 @@
 // Performance page. Email is sent as well only when the server has a mailbox
 // (GMAIL_USER / GMAIL_APP_PASSWORD), to ESCALATION_EMAIL or else the active
 // administrators, never to a ".local" address.
-import { database, insertActivity, listUsers, plantTimeZone, readItem, registerSchema, type StoredItem } from "./db.ts";
+import { database, ESCALATION_ACTIONS, insertActivity, listUsers, plantTimeZone, readItem, registerSchema, transaction, withClient, type StoredItem } from "./db.ts";
 import { isEmailConfigured, sendMail } from "./email.ts";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 import {
@@ -68,6 +76,13 @@ import {
 //                   the records behind them, and who acknowledged it when.
 //                   subject_key is never NULL ('dept:HR' for a department):
 //                   NULLs never collide in a UNIQUE constraint.
+//                   record_ids: the id of EVERY record behind the counts that
+//                   day (evidence lists ten at most); seen_ids: every one the
+//                   super admin had in front of them when they acknowledged
+//                   it. A line acknowledged opens again only for a record
+//                   outside seen_ids. Added to a table already in use: a line
+//                   from before them takes its record ids from its evidence,
+//                   and one acknowledged then takes them as seen — once, here.
 //   weekly_digests  the super admin's digest of each week, as JSON.
 registerSchema(`
   CREATE TABLE IF NOT EXISTS job_runs (
@@ -96,6 +111,12 @@ registerSchema(`
   );
   CREATE INDEX IF NOT EXISTS escalations_open_idx ON escalations (raised_at DESC) WHERE acknowledged_at IS NULL;
   CREATE INDEX IF NOT EXISTS escalations_updated_idx ON escalations (updated_at DESC);
+  ALTER TABLE escalations ADD COLUMN IF NOT EXISTS record_ids TEXT[] NOT NULL DEFAULT '{}';
+  ALTER TABLE escalations ADD COLUMN IF NOT EXISTS seen_ids TEXT[];
+  UPDATE escalations
+     SET record_ids = ARRAY(SELECT r->>'id' FROM jsonb_array_elements(CASE WHEN jsonb_typeof(evidence->'records') = 'array' THEN evidence->'records' ELSE '[]'::jsonb END) AS r WHERE r->>'id' IS NOT NULL)
+   WHERE cardinality(record_ids) = 0;
+  UPDATE escalations SET seen_ids = record_ids WHERE acknowledged_at IS NOT NULL AND seen_ids IS NULL;
   CREATE TABLE IF NOT EXISTS weekly_digests (
     period TEXT PRIMARY KEY,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -336,6 +357,8 @@ export interface Subject {
   late: number;
   neverDone: number;
   evidence: EscalationEvidence;
+  /** The id of every record behind the counts, sorted — the evidence lists ten at most. */
+  recordIds: string[];
 }
 
 interface Tally {
@@ -430,6 +453,7 @@ export function findEscalations(plant: Plant, today: string): { window: { from: 
     for (const m of t.misses) if (m.department) counts.set(m.department, (counts.get(m.department) ?? 0) + 1);
     return Array.from(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? "";
   };
+  const recordIdsOf = (t: Tally): string[] => Array.from(new Set(t.misses.map((m) => m.id))).sort();
 
   const subjects: Subject[] = [];
   for (const t of persons.values()) {
@@ -437,14 +461,23 @@ export function findEscalations(plant: Plant, today: string): { window: { from: 
     const account = accountById.get(t.key);
     // Somebody whose account is switched off has left: there is nobody to speak to.
     if (!account || !account.active) continue;
-    subjects.push({ kind: "person", key: t.key, name: account.name, department: mainDepartment(t), late: t.late, neverDone: t.neverDone, evidence: evidenceOf(t) });
+    subjects.push({
+      kind: "person",
+      key: t.key,
+      name: account.name,
+      department: mainDepartment(t),
+      late: t.late,
+      neverDone: t.neverDone,
+      evidence: evidenceOf(t),
+      recordIds: recordIdsOf(t),
+    });
   }
   for (const t of departments.values()) {
     if (t.neverDone < ESCALATION_RULE.neverDone) continue;
     const code = t.key.slice("dept:".length);
     const people = (accountsOf.get(code) ?? []).map((p) => (p.active ? p.name : `${p.name} (switched off)`));
     const name = people.length ? `${deptName(code)} (${people.join(", ")})` : `${deptName(code)} (no account answers for it)`;
-    subjects.push({ kind: "department", key: t.key, name, department: code, late: t.late, neverDone: t.neverDone, evidence: evidenceOf(t, people) });
+    subjects.push({ kind: "department", key: t.key, name, department: code, late: t.late, neverDone: t.neverDone, evidence: evidenceOf(t, people), recordIds: recordIdsOf(t) });
   }
   subjects.sort((a, b) => b.neverDone + b.late - (a.neverDone + a.late) || a.name.localeCompare(b.name));
   return { window, subjects };
@@ -520,10 +553,17 @@ export async function listEscalations(open: boolean): Promise<EscalationRow[]> {
   return rows.map(toEscalationRow);
 }
 
-/** Marks one as seen by the super admin. null when there is no such escalation; `already` when somebody had. */
+/**
+ * Marks one as seen by the super admin. null when there is no such escalation; `already` when somebody had.
+ * The records behind it are kept as seen (seen_ids, with any seen before it opened again): the daily
+ * check opens it again only for a record outside them.
+ */
 export async function acknowledgeEscalation(id: string, by: string): Promise<{ row: EscalationRow; already: boolean } | null> {
   const done = await database().query<EscalationDbRow>(
-    `UPDATE escalations SET acknowledged_by = $2, acknowledged_at = now() WHERE id = $1::bigint AND acknowledged_at IS NULL RETURNING ${ESCALATION_COLUMNS}`,
+    `UPDATE escalations
+        SET acknowledged_by = $2, acknowledged_at = now(),
+            seen_ids = ARRAY(SELECT DISTINCT unnest(COALESCE(seen_ids, '{}') || record_ids) ORDER BY 1)
+      WHERE id = $1::bigint AND acknowledged_at IS NULL RETURNING ${ESCALATION_COLUMNS}`,
     [id, by]
   );
   if (done.rows[0]) return { row: toEscalationRow(done.rows[0]), already: false };
@@ -591,42 +631,74 @@ export async function runEscalation(today: string): Promise<EscalationResult> {
   const plant = await loadPlant();
   const { window, subjects } = findEscalations(plant, today);
   const period = isoWeek(today);
-  const raised: EscalationRow[] = [];
-  let updated = 0;
-  for (const s of subjects) {
-    // UPDATED AS IT GROWS: the counts only go up within a week (a record done late
-    // after it was never done moves from one to the other; the line keeps the most
-    // it reached), the evidence is replaced when they do, and an acknowledged line
-    // whose counts grew is open again — there is more to see than was seen.
-    const { rows } = await database().query<EscalationDbRow & { inserted: boolean }>(
-      `INSERT INTO escalations (kind, subject_key, subject_name, department, period, late, never_done, evidence)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
-       ON CONFLICT (kind, subject_key, period) DO UPDATE SET
-         subject_name = EXCLUDED.subject_name,
-         department = EXCLUDED.department,
-         late = GREATEST(escalations.late, EXCLUDED.late),
-         never_done = GREATEST(escalations.never_done, EXCLUDED.never_done),
-         evidence = CASE WHEN EXCLUDED.late > escalations.late OR EXCLUDED.never_done > escalations.never_done THEN EXCLUDED.evidence ELSE escalations.evidence END,
-         acknowledged_by = CASE WHEN EXCLUDED.late > escalations.late OR EXCLUDED.never_done > escalations.never_done THEN NULL ELSE escalations.acknowledged_by END,
-         acknowledged_at = CASE WHEN EXCLUDED.late > escalations.late OR EXCLUDED.never_done > escalations.never_done THEN NULL ELSE escalations.acknowledged_at END,
-         updated_at = now()
-       RETURNING ${ESCALATION_COLUMNS}, (xmax = 0) AS inserted`,
-      [s.kind, s.key, s.name, s.department, period, s.late, s.neverDone, JSON.stringify(s.evidence)]
-    );
-    const row = rows[0];
-    if (!row) continue;
-    if (row.inserted) raised.push(toEscalationRow(row));
-    else updated += 1;
-  }
+  // Stored in the order of their keys, so two runs at once (a hand run beside
+  // the schedule's) take the rows' locks in the same order and never deadlock;
+  // handed back in the rule's order, the most behind first.
+  const order = new Map(subjects.map((s, i) => [`${s.kind}|${s.key}`, i]));
+  const byKey = subjects.slice().sort((a, b) => a.kind.localeCompare(b.kind) || a.key.localeCompare(b.key));
 
-  // One line in the activity log for each NEW escalation (REQUIREMENTS §62), filed
-  // under its department so that department's accounts see it was raised.
-  if (raised.length > 0) {
-    await insertActivity(
-      raised.map((e) => ({ userId: null, userName: "System", userEmail: "", action: "Escalated to the super admin", target: e.subjectName, detail: escalationSentence(e), department: e.department }))
-    );
-  }
+  // ONE TRANSACTION: the lines stored AND the activity-log lines for the new
+  // ones. A new line is known by being inserted rather than updated, so were the
+  // activity-log line to fail after the lines were stored — a dropped
+  // connection — the retry would find them "already on file" and the super
+  // admin would never be told. Now the lines go back with it, and the retry
+  // raises them afresh.
+  const { raised, updated } = await withClient((client) =>
+    transaction(client, async () => {
+      const raised: EscalationRow[] = [];
+      let updated = 0;
+      for (const s of byKey) {
+        // THE DAY'S FIGURES, NOT THE MOST THEY EVER REACHED: the 30 days roll
+        // forward, so a late leaves them as a new one comes in, and a record never
+        // done that is handed in late moves from one count to the other. The
+        // counts, the evidence and the records behind them are the day's own,
+        // every run. An acknowledged line opens again only when a record is behind
+        // it that the super admin has not seen (record_ids outside seen_ids) — a
+        // new late whatever the counts say, and never for a figure that fell. A
+        // line whose subject no longer meets the rule is not in this list and is
+        // left as it stood: the figures of the last day it did (evidence.window.to).
+        const { rows } = await client.query<EscalationDbRow & { inserted: boolean }>(
+          `INSERT INTO escalations (kind, subject_key, subject_name, department, period, late, never_done, evidence, record_ids)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::text[])
+           ON CONFLICT (kind, subject_key, period) DO UPDATE SET
+             subject_name = EXCLUDED.subject_name,
+             department = EXCLUDED.department,
+             late = EXCLUDED.late,
+             never_done = EXCLUDED.never_done,
+             evidence = EXCLUDED.evidence,
+             record_ids = EXCLUDED.record_ids,
+             acknowledged_by = CASE WHEN EXCLUDED.record_ids <@ COALESCE(escalations.seen_ids, '{}') THEN escalations.acknowledged_by END,
+             acknowledged_at = CASE WHEN EXCLUDED.record_ids <@ COALESCE(escalations.seen_ids, '{}') THEN escalations.acknowledged_at END,
+             updated_at = now()
+           RETURNING ${ESCALATION_COLUMNS}, (xmax = 0) AS inserted`,
+          [s.kind, s.key, s.name, s.department, period, s.late, s.neverDone, JSON.stringify(s.evidence), s.recordIds]
+        );
+        const row = rows[0];
+        if (!row) continue;
+        if (row.inserted) raised.push(toEscalationRow(row));
+        else updated += 1;
+      }
+      raised.sort((a, b) => (order.get(`${a.kind}|${a.subjectKey}`) ?? 0) - (order.get(`${b.kind}|${b.subjectKey}`) ?? 0));
 
+      // One line in the activity log for each NEW escalation (REQUIREMENTS §62),
+      // for the super admin alone: under no department, and with no figures —
+      // the counts and the format numbers are on the escalation itself, which
+      // only the super admin is handed (db.ts SUPER_ADMIN_ACTIONS).
+      if (raised.length > 0) {
+        await client.query(
+          `INSERT INTO activity_log (user_id, user_name, user_email, action, target, detail, department)
+           SELECT NULL, 'System', '', $1, target, detail, ''
+             FROM unnest($2::text[], $3::text[]) WITH ORDINALITY AS line (target, detail, n)
+            ORDER BY n`,
+          [ESCALATION_ACTIONS.raised, raised.map((e) => e.subjectName), raised.map((e) => `${e.period} — the figures and the records are with the escalation`)]
+        );
+      }
+      return { raised, updated };
+    })
+  );
+
+  // The email after the lines are in: the app is the channel, and a message
+  // sent for lines that then failed to be stored would be about nothing.
   const email = raised.length
     ? await mailOut(
         `Escalated to you: ${raised.length} ${raised.length === 1 ? "person or department" : "people or departments"} behind with their records`,

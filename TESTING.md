@@ -225,7 +225,8 @@ Seven scripts live in `tests/`:
   through the storage API (with the go-live date moved back 40 days, since nothing before it counts), then: exactly
   two escalations — Kapila Barad by name, 3 late, and Human Resources as a department named with the people who answer
   for it, 2 never done (in a full run that includes the HR account `e2e_hr_module.py` signs up, so the check asks for
-  the two seeded people, not for exactly two) — each a line in the log under its department; a second run the same week raising nothing new and writing
+  the two seeded people, not for exactly two) — each a line in the log for the super admin alone, under no department
+  and with no figures, and none of them readable by a department's account; a second run the same week raising nothing new and writing
   no second line; a job or a day that is not one refused; a department account refused both the list and the jobs;
   last week's digest; and, signed in as the super admin, the day's notification, the bell's badge and its "Escalated
   to you" group above the reminders, Acknowledge (held on the server, with a log line), and the Escalated badges and
@@ -238,6 +239,16 @@ Seven scripts live in `tests/`:
   neither the Activity Log nor the Dashboard scrolls sideways, and the top bar's Log Out, bell and language are still
   there to press. `frontend/tests/activityLog.test.ts` checks the browser's half: every line gets a UUID, on a
   plain-http page too, and a batch sent again carries the very same ids.
+- `frontend/tests/mitraHistoryReview.test.ts`, `monthlySummaryMemory.test.ts`, `monthlySummaryDates.test.ts` and
+  `dailyNudgeStanding.test.ts` - the fixes the second adversarial review of §75 confirmed, each proven to fail on the
+  code before it: record text reaching the model only quoted; a question about the open sheet keeping its prompt; the
+  named period winning over "so far" and "ever"; past months, bare years and "may" the verb; stepping back by the
+  period's unit; follow-ups kept on the messages; Scorecard lines for named documents said to be theirs only; the
+  12-month limit; packs worked out again after a calendar change; the Management Summary kept per account; the PM
+  grace and the plant's date for an approval; and the day's notification scoring a person among their department's
+  accounts. The server's half (the escalation lines kept from department accounts, the day's figures and the re-open
+  rule, the line written in the escalation's own transaction, a hand run claiming its period) is proven by probes on
+  a throwaway PostgreSQL, and by `tests/e2e_escalation.py`.
 - `frontend/tests/latenessCore.test.ts` - the one lateness rule the server and the scorecard share, held to identical
   results against a frozen copy of the old scorecard code over 17,000 judgements and 126 whole scorecards, and the
   plant's closed days against engine/holidays.ts for every day of three years.

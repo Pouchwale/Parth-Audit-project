@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FiPrinter } from "react-icons/fi";
 import { ApiError, usersApi, type DirectoryPerson } from "../../api/client";
 import { useAppStore } from "../../store/AppStore";
+import { useAuth } from "../../store/AuthContext";
 import { useRouter } from "../../store/router";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { departmentName } from "../../data/seed/departments";
+import { departmentScope } from "../../engine/departmentScope";
 import { documentOpenRoute } from "../../engine/documentRoutes";
 import { currentInsightInput } from "../../engine/insightsInput";
 import { startMonthlySummary, type MonthlySummary, type MonthlySummaryInput } from "../../engine/monthlySummary";
@@ -88,8 +90,25 @@ interface Computed {
 // another tab and back, with nothing saved in between, shows the summary at
 // once instead of working it out again. Module level, like the insights' own
 // memo, and nothing is stored anywhere: it is gone with the page.
-let lastDirectory: DirectoryPerson[] | null = null;
-let lastSummary: (Computed & { version: number; today: string }) | null = null;
+//
+// FOR ONE ACCOUNT ONLY (REQUIREMENTS §75). A summary is worked out from what the
+// signed-in account may see (its department scope, §40), and the server hands
+// each account the list of accounts that share its departments — so what is
+// remembered is marked with whose it was: the account's id and its scope. The
+// next person to sign in on the same tab starts with nothing remembered, never
+// with the last one's summary or their list of accounts, even when the store's
+// version, the month and the mode are all the same.
+interface Memory {
+  account: string;
+  directory: DirectoryPerson[] | null;
+  summary: (Computed & { version: number; today: string }) | null;
+}
+let memory: Memory = { account: "", directory: null, summary: null };
+
+/** Whose the page is: the signed-in account and the departments it is kept to (null = every department). */
+export function summaryAccount(userId: string | null | undefined, scope: readonly string[] | null): string {
+  return `${userId ?? ""}|${scope ? [...scope].sort().join(",") : "every"}`;
+}
 
 /** The same accounts as before — then the summary need not be worked out again for them. */
 function samePeople(a: DirectoryPerson[] | null, b: DirectoryPerson[]): boolean {
@@ -100,12 +119,58 @@ function samePeople(a: DirectoryPerson[] | null, b: DirectoryPerson[]): boolean 
   );
 }
 
-function remembered(version: number, key: string, people: DirectoryPerson[] | null): Computed | null {
-  const hit = lastSummary;
-  return hit && hit.version === version && hit.key === key && hit.people === people && hit.today === todayISO() ? hit : null;
+/**
+ * What this tab remembers, asked and kept for one account at a time. Reading
+ * for an account that is not the one remembered finds nothing; opening the page
+ * for it, or keeping anything for it, forgets the other account's first.
+ * Exported for the unit tests
+ * (frontend/tests/monthlySummaryMemory.test.ts).
+ */
+export const summaryMemory = {
+  /**
+   * The page has opened for this account: whatever another account left is
+   * forgotten there and then — not kept until this one's list or summary
+   * arrives, and not kept at all when neither ever does.
+   */
+  claim(account: string): void {
+    mine(account);
+  },
+  /** The list of accounts last read for this account; null when none has been, or it was another account's. */
+  directory(account: string): DirectoryPerson[] | null {
+    return memory.account === account ? memory.directory : null;
+  },
+  /** Keeps a list just read; the list already kept when it names the same accounts, so the summary is not worked out again for nothing. */
+  keepDirectory(account: string, people: DirectoryPerson[]): DirectoryPerson[] {
+    const m = mine(account);
+    if (!samePeople(m.directory, people)) m.directory = people;
+    return m.directory as DirectoryPerson[];
+  },
+  /** The summary worked out for this account, month and mode, on this version of the store, today, with this list — or null. */
+  summary(account: string, version: number, key: string, people: DirectoryPerson[] | null): Computed | null {
+    const hit = memory.account === account ? memory.summary : null;
+    return hit && hit.version === version && hit.key === key && hit.people === people && hit.today === todayISO() ? hit : null;
+  },
+  keepSummary(account: string, done: Computed, version: number): void {
+    mine(account).summary = { ...done, version, today: todayISO() };
+  },
+};
+
+/** The memory for this account, emptied first when it held another account's. */
+function mine(account: string): Memory {
+  if (memory.account !== account) memory = { account, directory: null, summary: null };
+  return memory;
 }
 
 export function MonthlySummaryReport({ isDemo, year, month }: { isDemo: boolean; year: number; month: number }) {
+  const { user } = useAuth();
+  const account = summaryAccount(user?.id, departmentScope());
+  // Keyed by the account: another person signing in on this tab gets a page of
+  // their own, whose state starts from what is remembered for them — nothing of
+  // the last person's, not even for a moment.
+  return <AccountSummary key={account} account={account} isDemo={isDemo} year={year} month={month} />;
+}
+
+function AccountSummary({ account, isDemo, year, month }: { account: string; isDemo: boolean; year: number; month: number }) {
   const { version } = useAppStore();
   const { navigate } = useRouter();
   const say = useSay();
@@ -113,18 +178,18 @@ export function MonthlySummaryReport({ isDemo, year, month }: { isDemo: boolean;
   const key = `${isDemo}|${year}|${month}`;
 
   // THE ACCOUNTS, read once a visit, as the Performance Scorecard reads them.
-  const [people, setPeople] = useState<DirectoryPerson[] | null>(lastDirectory);
+  const [people, setPeople] = useState<DirectoryPerson[] | null>(() => summaryMemory.directory(account));
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
+    // Another person's summary and list go the moment this account's page opens.
+    summaryMemory.claim(account);
     usersApi
       .directory()
       .then((res) => {
         if (!alive) return;
         if (!Array.isArray(res?.people)) throw new ApiError("the server did not send the accounts", 0);
-        // The same accounts as last time keep the same list, so the summary is not worked out again for nothing.
-        if (!samePeople(lastDirectory, res.people)) lastDirectory = res.people;
-        setPeople(lastDirectory);
+        setPeople(summaryMemory.keepDirectory(account, res.people));
       })
       .catch((e) => {
         if (!alive) return;
@@ -134,13 +199,13 @@ export function MonthlySummaryReport({ isDemo, year, month }: { isDemo: boolean;
     return () => {
       alive = false;
     };
-  }, []);
+  }, [account]);
 
-  const [computed, setComputed] = useState<Computed | null>(() => remembered(version, key, people));
+  const [computed, setComputed] = useState<Computed | null>(() => summaryMemory.summary(account, version, key, people));
   const lastRun = useRef<{ key: string; people: DirectoryPerson[] | null } | null>(null);
 
   useEffect(() => {
-    const hit = remembered(version, key, people);
+    const hit = summaryMemory.summary(account, version, key, people);
     if (hit) {
       lastRun.current = { key, people };
       setComputed(hit);
@@ -176,7 +241,7 @@ export function MonthlySummaryReport({ isDemo, year, month }: { isDemo: boolean;
         }
         const done: Computed = { key, people, summary, ms: performance.now() - started };
         lastRun.current = { key, people };
-        lastSummary = { ...done, version, today: todayISO() };
+        summaryMemory.keepSummary(account, done, version);
         setComputed(done);
       };
       slice();
@@ -190,7 +255,7 @@ export function MonthlySummaryReport({ isDemo, year, month }: { isDemo: boolean;
       window.clearTimeout(timer);
       if (onVisible) document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [key, isDemo, year, month, version, people]);
+  }, [account, key, isDemo, year, month, version, people]);
 
   const current = computed && computed.key === key ? computed : null;
   const s = current?.summary ?? null;

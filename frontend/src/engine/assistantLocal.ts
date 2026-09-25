@@ -176,7 +176,10 @@ function parseDateRef(text: string, today: string): { date: string; phrase: stri
     const date = `${dmy[3]}-${pad2(Number(dmy[2]))}-${pad2(Number(dmy[1]))}`;
     return { date, phrase: formatDisplayDate(date) };
   }
-  const dMon = lower.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+(\d{4}))?\b/);
+  const dMonHit = lower.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+(\d{4}))?\b/);
+  // "Which 2 may break down first?" is not 2 May (see MAY_AS_MONTH).
+  const verbMay = !!dMonHit && !dMonHit[3] && dMonHit[0].endsWith("may") && MAY_VERB_AFTER.test(lower.slice((dMonHit.index ?? 0) + dMonHit[0].length));
+  const dMon = verbMay ? null : dMonHit;
   if (dMon) {
     const year = dMon[3] ? Number(dMon[3]) : fromISODate(today).getFullYear();
     if (!isValidYMD(year, MONTHS.indexOf(dMon[2]) + 1, Number(dMon[1]))) return null;
@@ -576,6 +579,8 @@ function extractExplicitDates(text: string, yearFallback: number): ExplicitDate[
   for (const m of text.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) push(Number(m[1]), Number(m[2]), Number(m[3]), m.index, true);
   for (const m of text.matchAll(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b/g)) push(Number(m[3]), Number(m[2]), Number(m[1]), m.index, true);
   for (const m of text.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+(\d{4}))?\b/gi)) {
+    // "The top 3 may break down" is not 3 May (see MAY_AS_MONTH).
+    if (!m[3] && m[0].toLowerCase().endsWith("may") && MAY_VERB_AFTER.test(text.slice(m.index + m[0].length))) continue;
     push(m[3] ? Number(m[3]) : yearFallback, MONTHS.indexOf(m[2].toLowerCase()) + 1, Number(m[1]), m.index, !!m[3]);
   }
   for (const m of text.matchAll(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/gi)) {
@@ -587,8 +592,28 @@ function extractExplicitDates(text: string, yearFallback: number): ExplicitDate[
 // A month as people write it — "jan", "January", "sept." — and nothing that
 // merely starts like one: "marked", "decided", "augment" and "may I" are not
 // months. Capture group 1 is the word; its first three letters index MONTHS.
-const MONTH_WORD =
-  "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may(?!\\s+(?:i|we|you)\\b)|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+const MONTHS_BUT_MAY = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+// "MAY" IS MOSTLY NOT A MONTH (REQUIREMENTS §75). "Which machine may break
+// down most?", "what may be the reason?" — read as the month, the question was
+// answered about May alone. It is the month only where it cannot be the verb:
+// beside a day or a year ("May 5", "May 2026", "5 May"), after a word that
+// leads to a month ("in May", "for May", "during May", "of May", "since May",
+// "from May", "until May"), or after "last", "this" or "next" when nothing
+// follows it that the verb would need ("last May?", "this May and June" — not
+// "this may be late").
+// The words the verb "may" goes on with ("3 may break down", "5 may be late"),
+// after which a day and "may" are not a date.
+const MAY_VERBS = "be|have|not|also|need|take|help|cause|want|break|fail|get|go|run|stop|come|happen|occur|show|mean|well|still|never|already|soon";
+const MAY_VERB_AFTER = new RegExp(`^\\s+(?:${MAY_VERBS})\\b`, "i");
+const MAY_AS_MONTH =
+  "(?<=\\b(?:in|for|during|of|since|from|until|till|through|between)\\s+)may\\b" +
+  "|(?<=\\b(?:last|this|next)\\s+)may(?=\\s*(?:$|[?.!,;:)]|['’]s\\b|\\d|(?:and|or|to|till|until|vs|versus|compared|so far|to date)\\b))" +
+  "|may(?=\\s*,?\\s*(?:\\d{1,2}(?:st|nd|rd|th)?|'\\d{2}|(?:19|20)\\d{2})\\b)" +
+  `|(?<=\\b\\d{1,2}(?:st|nd|rd|th)?\\s+)may(?!\\s+(?:${MAY_VERBS})\\b)`;
+const MONTH_WORD = `(${MONTHS_BUT_MAY}|${MAY_AS_MONTH})`;
+// Between two months ("April to May", "May to July") either may be May, since
+// the other month beside it says which "may" it is.
+const MONTH_WORD_IN_SPAN = `(${MONTHS_BUT_MAY}|may(?!\\s+(?:i|we|you)\\b))`;
 
 function monthRange(year: number, month: number, label: string): DateRange {
   return { from: `${year}-${pad2(month + 1)}-01`, to: `${year}-${pad2(month + 1)}-${pad2(daysInMonth(year, month))}`, label };
@@ -655,7 +680,7 @@ export function parseDateRange(text: string, today: string): DateRange | null {
   // last day of the second. With no year on the second month and it coming
   // earlier in the year than the first ("November to February"), it means
   // the following year.
-  const span = lower.match(new RegExp(`\\b${MONTH_WORD}\\.?(?:\\s+(20\\d{2}))?\\s*(?:to|till|until|through|thru|and|-|–|—)\\s*${MONTH_WORD}\\.?(?:\\s+(20\\d{2}))?\\b`));
+  const span = lower.match(new RegExp(`\\b${MONTH_WORD_IN_SPAN}\\.?(?:\\s+(20\\d{2}))?\\s*(?:to|till|until|through|thru|and|-|–|—)\\s*${MONTH_WORD_IN_SPAN}\\.?(?:\\s+(20\\d{2}))?\\b`));
   if (span) {
     const m1 = MONTHS.indexOf(span[1].slice(0, 3));
     const m2 = MONTHS.indexOf(span[3].slice(0, 3));

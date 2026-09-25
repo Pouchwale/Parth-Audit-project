@@ -4150,7 +4150,19 @@ not be answered. Now:
 - Mitra's live facts gain one line of what stands out (the Insights headline) and, when a machine is named by its
   number, what F/MNT/01 says about it.
 - **Fast on a slow laptop**: nothing is worked out while drawing; it is worked out on send, in 8 ms slices, and kept
-  until the records change.
+  until the records change — or the plant's calendar does (a holiday added changes what was late).
+- **Hardened by review** (the second adversarial review of §75): nothing a person wrote reaches the model except
+  quoted — a machine's written ID or name, a typed lot status, a date typed into a text box, and an insight's title
+  (quoted in pieces of at most 80 characters) — and the server keeps a cited record only from a real `[rec:id]` tag
+  at the end of an evidence line, never from text that merely contains one. A question about the sheet that is open
+  ("what's the average viscosity on this sheet?") keeps the record's own prompt; only a named period, a follow-up or
+  "what stands out" goes to the analyst. The period asked about wins: "September so far" is September to today, not
+  everything on file; "last December", "in October" (asked in September) and "in 2025" are the past months and year
+  they mean; "may" the verb is not May; "and before that?" steps back by the period's own unit; a follow-up chain is
+  kept on the messages, not re-read against today. A question naming documents gets the Scorecard's figures for those
+  documents only, said so, never presented as a department's or the plant's score; lateness is scored for at most the
+  last 12 months, the Performance page's longest period, and a person is scored among everyone who shares their
+  department, as the Performance page does.
 
 **8. THE MONTHLY MANAGEMENT SUMMARY — Reports › Management Summary, `/reports/{year}/{month0}/summary`**
 (engine/monthlySummary.ts, components/reports/MonthlySummaryReport.tsx). A month of the plant's records in plain
@@ -4176,7 +4188,12 @@ with no network and the same records always give the same words. Three to five s
 - **Scoped** (§40): a part about documents the account may not see is left out, and the headline says which
   departments it covers.
 - **Fast on a slow laptop** (§56): the page paints first; the summary is worked out after it in slices of about 8 ms,
-  again two seconds after a save, and kept for the next visit while nothing has changed.
+  again two seconds after a save, and kept for the next visit while nothing has changed — kept per signed-in account,
+  so the next person signing in on the same tab never sees the last one's summary.
+- A preventive maintenance job is "not done" only past the same 7 days' grace insight M6 gives it; a complaint's
+  approval counts on the plant's date, not the UTC one (an approval before 05:30 was counted on the day before).
+- **The day's notification** gives a person's own score as the Performance Scorecard does — among everyone who shares
+  their department — and leaves the score out rather than show a different one when the list of accounts cannot be read.
 
 **9. ESCALATION TO THE SUPER ADMIN, AND A WEEKLY DIGEST — worked out on the server** (backend/escalation.ts,
 backend/jobs.ts, backend/escalationRoutes.ts, engine/latenessCore.ts). Lateness was worked out only in a browser, so
@@ -4189,8 +4206,13 @@ it reached the super admin only if somebody happened to open the Performance pag
   submissions, or 2 or more records never done in a department they answer for alone, is escalated by name; a
   department with 2 or more never done that several accounts share (or none answers for) is escalated as the
   department, named with its people — the scorecard counts such a record against every one of them. Only Live
-  records count, and nothing dated before the system went live. One line per person or department per week, brought
-  up to date as it grows, and a line in the activity log, "Escalated to the super admin", when it is new.
+  records count, and nothing dated before the system went live. One line per person or department per week, holding
+  the day's figures and every record behind them; acknowledged, it opens again only when a record is behind it that
+  was not there when it was acknowledged — not when a figure merely moves. The line in the activity log, "Escalated to
+  the super admin", is written in the same transaction as the escalation, so a failed run leaves neither and its retry
+  writes both; and it is **the super admin's alone** — filed under no department and saying no figures (they are with
+  the escalation), so no department account reads another department's numbers in the log, nor anyone but the super
+  admin that there was an escalation at all.
 - **The super admin sees it in the app**: an "Escalated to you" group at the top of the bell, counted in its badge,
   each with Acknowledge (who and when are kept; it opens again if it grows); a line in the day's notification with a
   way to the scorecard; an "Escalated" badge beside the person or department on the Performance page; and Mitra knows
@@ -4202,7 +4224,8 @@ it reached the super admin only if somebody happened to open the Performance pag
 - **The schedule runs on the plant's clock**, once per day or week however many servers share the database (each run
   is claimed in PostgreSQL; a failed run is recorded and tried again), and catches up after a server was down.
   `JOBS=0` switches it off — the test runner does, because the suites run on the real clock. The super admin can run
-  either job at once (`POST /api/jobs/run`), and that is itself a line in the log.
+  either job at once (`POST /api/jobs/run`), and that is itself a line in the log; run for the plant's today it IS that
+  period's run, so the schedule does not repeat it (a hand-run digest used to be prepared, logged and emailed twice).
 - **A shared plant computer**: several people sign in on one browser, one after another, and a person's settings
   (language, working hours) are handed on to the next who has none of their own. What was shown or put off for the
   first — the day's notification, the briefing, a snoozed reminder — no longer is: the second person's first sign-in

@@ -21,6 +21,7 @@ plant's seeded accounts.
 """
 import datetime
 import json
+import re
 import sys
 
 from playwright.sync_api import sync_playwright
@@ -190,7 +191,17 @@ with sync_playwright() as p:
         names,
     )
     lines = activity_lines(admin, "Escalated to the super admin", today.isoformat())
-    check("Each is a line in the activity log, under its department", len(lines) == 2 and sorted(l.get("department") for l in lines) == ["HR", "QC"], lines)
+    # The lines are the super admin's alone: filed under no department, and
+    # saying no figures and no format numbers - those are with the escalation.
+    check(
+        "Each is a line in the activity log, for the super admin alone: no department, no figures",
+        len(lines) == 2
+        and all(l.get("department") == "" for l in lines)
+        and any(l.get("target") == "Kapila Barad" for l in lines)
+        and any(str(l.get("target") or "").startswith("Human Resources (") for l in lines)
+        and not any(re.search(r"\blate\b|never done|F/[A-Z]+/\d", l.get("detail") or "") for l in lines),
+        lines,
+    )
 
     r = admin.request.post(f"{BASE}/api/jobs/run", data={"job": "escalation"})
     again = (r.json().get("result") or {}) if r.status == 200 else {}
@@ -202,6 +213,7 @@ with sync_playwright() as p:
     staff, status = api_session(browser, KAPILA)
     check("Nobody but the super admin reads the escalations", staff.request.get(f"{BASE}/api/escalations").status == 403)
     check("...or runs a job", staff.request.post(f"{BASE}/api/jobs/run", data={"job": "escalation"}).status == 403)
+    check("...and a department's account reads none of the escalation lines in the log", activity_lines(staff, "Escalated to the super admin", today.isoformat()) == [])
     staff.close()
 
     # ---- the weekly digest ----

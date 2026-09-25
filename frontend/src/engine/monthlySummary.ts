@@ -14,7 +14,7 @@ import type {
 import { TBC } from "../types";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { COMPLAINT_DOC_ID } from "../data/seed/complaintChecklist";
-import { daysInMonth, formatDisplayDate, MONTH_NAMES, pad2 } from "../utils/date";
+import { daysInMonth, formatDisplayDate, MONTH_NAMES, pad2, toISODate } from "../utils/date";
 import { countFindings } from "./checkpoints";
 import { departmentScopeLabel, isDocumentIdVisible, seesEveryDepartment } from "./departmentScope";
 import { insightCounts, isHumanRecord, startInsights, type Insight, type InsightInput, type InsightRun } from "./insights";
@@ -104,6 +104,23 @@ export interface MonthlySummaryInput extends InsightInput {
   people?: readonly Person[] | null;
   /** The daily pest control register's check points (MasterData.checkpoints), for its findings. */
   checkpoints?: DailyCheckpointDef[];
+  /**
+   * The plant's date of a moment (an ISO timestamp), as engine/latenessCore.ts
+   * PlantCalendar.dateOf is: left out, it is this computer's own date
+   * (utils/date.ts toISODate(new Date(stamp))), which in the plant's browsers IS
+   * the plant's; a caller on a clock that runs in another zone passes
+   * latenessCore's dateInZone for the plant's zone. Never the timestamp's first
+   * ten characters — those are the date in UTC, where a complaint approved
+   * between midnight and 05:30 in the plant falls on the day, and at a month's
+   * turn in the month, before (REQUIREMENTS §75).
+   */
+  dateOf?: (stamp: string) => string | null;
+}
+
+/** A moment as a date on this computer's own clock; null when it is not a moment at all. */
+function localDateOf(stamp: string): string | null {
+  const when = new Date(stamp);
+  return Number.isNaN(when.getTime()) ? null : toISODate(when);
 }
 
 /** Where the month stands against today. */
@@ -214,7 +231,13 @@ export interface MaintenancePart extends Part {
     lossMinutes: number;
     machines: MachineLine[];
   } | null;
-  /** F/MNT/03 for the month; null when not the person's. */
+  /**
+   * F/MNT/03 for the month; null when not the person's. planned = done +
+   * notDone + notYetDue. notDone is a PM with no Actual more than seven days
+   * after its plan — rule M6's "not done"; notYetDue is one not yet counted
+   * against anybody: planned after today, or planned within the last seven days
+   * and not written yet, which M6 does not call a slip either.
+   */
   pm: { scheduleWritten: boolean; planned: number; done: number; doneLate: number; notDone: number; notYetDue: number } | null;
   /** F/MNT/09; null when not the person's. */
   glass: { sheets: number; breakages: Insight[] } | null;
@@ -478,9 +501,9 @@ function assemble(
   const monthHuman = (documentId: string): RecordInstance[] => human(documentId).filter((r) => inMonth(r.dueDate));
 
   const records = recordsPart(input, frame, seen, cards);
-  const capa = capaPart(frame, seen, human, inMonth);
+  const capa = capaPart(frame, seen, human, inMonth, input.dateOf ?? localDateOf);
   const quality = qualityPart(frame, seen, humanByDoc, inMonth, insights);
-  const maintenance = maintenancePart(frame, seen, human, monthHuman, inMonth, insights);
+  const maintenance = maintenancePart(frame, seen, human, monthHuman, inMonth, insights, input.today);
   const purchase = purchasePart(frame, seen, human, inMonth);
   const pest = pestPart(input, frame, seen, monthHuman);
   const insightsSummary = insightsPart(frame, insights);
@@ -598,7 +621,8 @@ function capaPart(
   frame: Frame,
   seen: Seen,
   human: (documentId: string) => RecordInstance[],
-  inMonth: (iso: string) => boolean
+  inMonth: (iso: string) => boolean,
+  dateOf: (stamp: string) => string | null
 ): CapaPart | null {
   const internalSeen = seen.visible(GAP_ID);
   const externalSeen = seen.visible(COMPLAINT_DOC_ID);
@@ -657,7 +681,10 @@ function capaPart(
     let openAtEnd = 0;
     for (const r of human(COMPLAINT_DOC_ID) as RecordInstance<ComplaintChecklistData>[]) {
       const on = isISO(r.data?.complaintReceivedDate) ? r.data.complaintReceivedDate : r.dueDate;
-      const approvedOn = r.status === "Verified" ? (r.verifiedAt ? r.verifiedAt.slice(0, 10) : on) : null;
+      // Approved on the plant's date of the moment it was verified — a checklist
+      // verified at 01:30 on 1-Aug in the plant is 20:00 on 31-Jul in UTC, and
+      // was August's approval and still open at July's end (REQUIREMENTS §75).
+      const approvedOn = r.status === "Verified" ? (r.verifiedAt ? dateOf(r.verifiedAt) ?? on : on) : null;
       if (approvedOn && inMonth(approvedOn)) approved += 1;
       if (on > frame.asOf) continue;
       if (inMonth(on)) {
@@ -820,7 +847,8 @@ function maintenancePart(
   human: (documentId: string) => RecordInstance[],
   monthHuman: (documentId: string) => RecordInstance[],
   inMonth: (iso: string) => boolean,
-  insights: Insight[]
+  insights: Insight[],
+  today: string
 ): MaintenancePart | null {
   if (![...seen.docs.keys()].some((id) => id.startsWith("mnt-"))) return null;
   if (frame.state === "future") return { sentences: [notBegun(frame)], empty: true, breakdown: null, pm: null, glass: null, lux: null };
@@ -868,6 +896,15 @@ function maintenancePart(
   }
 
   // ---- F/MNT/03: the PM planned for this month against what was done ----
+  // NOT DONE IS M6'S "NOT DONE" (REQUIREMENTS §75): a PM with no Actual counts
+  // as not done only once more than PM_SLIP_DAYS have passed since its plan,
+  // the week engine/insightRules.ts pmSlipRule allows before it calls a PM
+  // missed — so a job planned for today, or three days ago, is not reported
+  // "not done" here while the Insights page says nothing about it. The week is
+  // counted to today, the day the Actual column is read on: the schedule is one
+  // sheet for the year, so an Actual written after the month's end is read as
+  // done like any other, and a PM planned for the 28th of a month that ended
+  // weeks ago and still blank is not done, not "within its week".
   let pm: MaintenancePart["pm"] = null;
   if (seen.visible(YEARLY_PM_ID)) {
     const year = Number(frame.from.slice(0, 4));
@@ -876,7 +913,9 @@ function maintenancePart(
     let done = 0;
     let doneLate = 0;
     let notDone = 0;
-    let notYetDue = 0;
+    // Not yet counted against anybody, told apart in the sentence: planned after today, and planned within the last week.
+    let ahead = 0;
+    let withinWeek = 0;
     for (const r of schedules) {
       for (const row of (r.data as LogSheetData | undefined)?.rows ?? []) {
         for (const m of PM_MONTHS) {
@@ -889,11 +928,13 @@ function maintenancePart(
             // Written but not as a date: taken as done, as M6 takes it.
             const actual = dayMonth(actualRaw, year);
             if (actual && daysBetween(plan, actual) > PM_SLIP_DAYS) doneLate += 1;
-          } else if (plan > frame.asOf) notYetDue += 1;
-          else notDone += 1;
+          } else if (plan > today) ahead += 1;
+          else if (daysBetween(plan, today) > PM_SLIP_DAYS) notDone += 1;
+          else withinWeek += 1;
         }
       }
     }
+    const notYetDue = ahead + withinWeek;
     pm = { scheduleWritten: schedules.length > 0, planned, done, doneLate, notDone, notYetDue };
     const fno = name(YEARLY_PM_ID, "F/MNT/03");
     if (schedules.length === 0) sentences.push(`The ${year} preventive maintenance schedule (${fno}) has not been written, so there is no plan to compare with.`);
@@ -902,7 +943,10 @@ function maintenancePart(
       sentences.push(
         `Preventive maintenance (${fno}): ${grouped(planned)} planned for ${frame.label}, ${grouped(done)} done` +
           (doneLate > 0 ? ` (${grouped(doneLate)} more than ${PM_SLIP_DAYS} days after the plan)` : "") +
-          `, ${grouped(notDone)} not done${notYetDue > 0 ? `, ${grouped(notYetDue)} not due yet` : ""}.`
+          `, ${grouped(notDone)} not done` +
+          (withinWeek > 0 ? `, ${grouped(withinWeek)} not written yet but still within ${PM_SLIP_DAYS} days of the plan` : "") +
+          (ahead > 0 ? `, ${grouped(ahead)} not due yet` : "") +
+          "."
       );
   }
 

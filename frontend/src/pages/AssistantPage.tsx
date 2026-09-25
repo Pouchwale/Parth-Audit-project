@@ -8,7 +8,20 @@ import { onExternalChange, readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { answerStaysLocal, buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
 import { modelReachable, noteModelAnswered, noteModelFailed, unreachableLabel, type Unreachable } from "../engine/assistantReach";
-import { analyticIntent, citeLinks, evidenceAnswer, historyForModel, lastAnalyticIntent, looksLikeFollowUp, prepareEvidence, type CiteLink, type EvidencePack } from "../engine/historyDigest";
+import {
+  analyticIntent,
+  citeLinks,
+  evidenceAnswer,
+  evidenceOptionsFor,
+  historyForModel,
+  keepIntent,
+  looksLikeFollowUp,
+  prepareEvidence,
+  previousIntentIn,
+  type CiteLink,
+  type EvidencePack,
+  type KeptIntent,
+} from "../engine/historyDigest";
 import { prepareScopedInsights } from "../engine/scopedInsights";
 import { parseAssistantCommand } from "../engine/assistantCommands";
 import { hrMasterChatAnswer } from "../engine/hrMasterAssistant";
@@ -67,6 +80,12 @@ interface StoredMessage {
   offline?: Unreachable;
   /** The records an answer about history was read from, as links (REQUIREMENTS §75). */
   cites?: CiteLink[];
+  /**
+   * A question about history as it was understood when it was sent — its
+   * topics, documents and dates (REQUIREMENTS §75) — so a follow-up, however
+   * many messages later and on whatever day, builds on exactly that.
+   */
+  intent?: KeptIntent;
 }
 
 interface Conversation {
@@ -205,6 +224,14 @@ export function AssistantPage() {
 
   const stamp = () => new Date().toISOString();
 
+  /** Keeps what a question about history was understood as on the message that asked it. */
+  const keepOnMessage = (convId: string, messageId: string, kept: KeptIntent) => {
+    setState((s) => ({
+      ...s,
+      conversations: s.conversations.map((c) => (c.id !== convId ? c : { ...c, messages: c.messages.map((m) => (m.id === messageId ? { ...m, intent: kept } : m)) })),
+    }));
+  };
+
   // "Generate an external CAPA for me", "I want to fill the daily monitoring
   // record", "create a new fly catcher record" — said here, where no record
   // is open. The record is started (or today's found) and opened; sample data
@@ -261,7 +288,8 @@ export function AssistantPage() {
     const readOut = (reply: string) => {
       if (spoken || speakReplies) speak(reply, speechLocale);
     };
-    append(convId, { id: generateId("msg"), role: "user", text, at: stamp() });
+    const askedId = generateId("msg");
+    append(convId, { id: askedId, role: "user", text, at: stamp() });
 
     // HR Master Data (REQUIREMENTS §53) — "open HR master data"; a fetch said
     // here is told which record to open first.
@@ -320,14 +348,13 @@ export function AssistantPage() {
     // (engine/historyDigest.ts), and go with the question.
     const earlier = active?.messages ?? [];
     const today = todayISO();
-    // The conversation is looked back through only for what reads as a follow-up.
-    const previous = looksLikeFollowUp(text)
-      ? lastAnalyticIntent(
-          earlier.filter((m) => m.role === "user").map((m) => m.text),
-          today
-        )
-      : null;
+    // The conversation is looked back through only for what reads as a
+    // follow-up, and for the question about history last understood in it —
+    // kept on the message that asked it, with its dates as they were then. A
+    // conversation from before questions were kept is read again as before.
+    const previous = looksLikeFollowUp(text) ? previousIntentIn(earlier, today) : null;
     const intent = analyticIntent(text, today, previous);
+    if (intent) keepOnMessage(convId, askedId, keepIntent(intent));
     // The conversation so far, so the model can read a follow-up (at most six turns).
     const history = historyForModel(earlier.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text })));
 
@@ -337,8 +364,8 @@ export function AssistantPage() {
       let evidence: EvidencePack | null = null;
       if (intent) {
         try {
-          const self = user ? [{ id: user.id, name: user.name, role: user.role, departments: user.departments }] : [];
-          evidence = await prepareEvidence(intent, isDemo, 6000, { people: self });
+          // A person's score among the accounts the Performance Scorecard scores them with.
+          evidence = await prepareEvidence(intent, isDemo, 6000, await evidenceOptionsFor(intent, user));
         } catch (err) {
           // The question still goes to the model, without figures, rather than not at all.
           console.error("The evidence for this question could not be worked out", err);

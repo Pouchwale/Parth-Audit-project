@@ -13,16 +13,22 @@
 //                                    today?: "YYYY-MM-DD" } — runs it NOW,
 //                                  whatever the clock says: for an administrator
 //                                  who wants it now, and for the test suites,
-//                                  whose servers run with JOBS=0
+//                                  whose servers run with JOBS=0. For the
+//                                  plant's today it is that period's run, and
+//                                  the schedule does not repeat it (jobs.ts
+//                                  runJobByHand); `claimed` says which period.
 //
 // EVERY ONE IS THE SUPER ADMIN'S. The session is checked by index.ts's own
 // requireAuth — the one every other route uses, which also holds back an
 // account still on the password the administrator gave it (§66) — and then the
-// role, here. An escalation names people, so nobody else is handed one.
+// role, here. An escalation names people, so nobody else is handed one — and
+// the activity log's lines about them are the super admin's too (db.ts
+// SUPER_ADMIN_ACTIONS): filed under no department, with no figures.
 import type { Express, NextFunction, Request, RequestHandler, Response } from "express";
 import type { PublicUser } from "./auth.ts";
-import { ESCALATION_RULE, acknowledgeEscalation, escalationSentence, isDay, isoWeek, latestDigest, listEscalations, plantClock } from "./escalation.ts";
-import { JOB_NAMES, runJob, type JobName } from "./jobs.ts";
+import { ESCALATION_ACTIONS } from "./db.ts";
+import { ESCALATION_RULE, acknowledgeEscalation, isDay, isoWeek, latestDigest, listEscalations, plantClock } from "./escalation.ts";
+import { JOB_NAMES, runJobByHand, type JobName } from "./jobs.ts";
 
 type AuthedRequest = Request & { user: PublicUser };
 type LogActivity = (req: Request, who: PublicUser | null, action: string, target?: string, detail?: string, department?: string) => void;
@@ -60,7 +66,8 @@ export function registerEscalationRoutes(app: Express, { requireAuth, logActivit
       return;
     }
     // Acknowledged once; asked again, it stays as it was and nothing more is written.
-    if (!done.already) logActivity(req, user, "Escalation acknowledged", done.row.subjectName, `${done.row.period}: ${escalationSentence(done.row)}`, done.row.department);
+    // The line is the super admin's alone: under no department, and no figures in it.
+    if (!done.already) logActivity(req, user, ESCALATION_ACTIONS.acknowledged, done.row.subjectName, done.row.period, "");
     res.json({ escalation: done.row });
   });
 
@@ -80,8 +87,9 @@ export function registerEscalationRoutes(app: Express, { requireAuth, logActivit
       return;
     }
     const day = typeof today === "string" ? today : plantClock().date;
-    const { outcome, result } = await runJob(job as JobName, day);
-    logActivity(req, (req as AuthedRequest).user, "Ran a scheduled job by hand", job, `${day}: ${outcome}`.slice(0, 600));
-    res.json({ job, today: day, outcome, result });
+    const user = (req as AuthedRequest).user;
+    const { outcome, result, claimed } = await runJobByHand(job as JobName, day, user.name);
+    logActivity(req, user, "Ran a scheduled job by hand", job, `${day}: ${outcome}`.slice(0, 600));
+    res.json({ job, today: day, outcome, result, claimed });
   });
 }

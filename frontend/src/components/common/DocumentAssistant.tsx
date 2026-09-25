@@ -26,7 +26,18 @@ import {
 } from "../../engine/guidedChecklist";
 import { answerStaysLocal, buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
 import { modelReachable, noteModelAnswered, noteModelFailed, unreachableLabel, type Unreachable } from "../../engine/assistantReach";
-import { analyticIntent, citeLinks, evidenceAnswer, historyForModel, prepareEvidence, type AnalyticIntent, type CiteLink, type EvidencePack } from "../../engine/historyDigest";
+import {
+  analyticIntent,
+  citeLinks,
+  evidenceAnswer,
+  evidenceOptionsFor,
+  historyForModel,
+  historyWithRecordOpen,
+  prepareEvidence,
+  type AnalyticIntent,
+  type CiteLink,
+  type EvidencePack,
+} from "../../engine/historyDigest";
 import { prepareScopedInsights } from "../../engine/scopedInsights";
 import { ASSISTANT_NAME, guide, openingMessage, type WaitingDocument } from "../../engine/assistantPersona";
 import { computeReminders } from "../../engine/reminders";
@@ -1720,9 +1731,12 @@ export function DocumentAssistant() {
     // milliseconds, never while drawing — and sends them with the question.
     const asks = !t2 || (looksLikeQuestion && !editIntent);
     const read = asks ? analyticIntent(text, todayISO(), lastIntentRef.current) : null;
-    // With a record open, a question only counting something ("how many traps
-    // are provided?") is about the sheet in front of them, and keeps its prompt.
-    const intent = read && (!t2 || read.explicit) ? read : null;
+    // With a record open, the analyst — which never sees the open record — takes
+    // only a question that names a period, follows one about history or asks
+    // what stands out; "what's the average viscosity on this sheet?" and "how
+    // many traps are provided?" are about the sheet in front of them, and keep
+    // its prompt (historyWithRecordOpen).
+    const intent = read && (!t2 || historyWithRecordOpen(read, text)) ? read : null;
     if (intent) lastIntentRef.current = intent;
     // The conversation so far, so the model can read a follow-up (at most six turns).
     const history = historyForModel(messages.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text })));
@@ -1731,8 +1745,8 @@ export function DocumentAssistant() {
       let evidence: EvidencePack | null = null;
       if (intent) {
         try {
-          const self = user ? [{ id: user.id, name: user.name, role: user.role, departments: user.departments }] : [];
-          evidence = await prepareEvidence(intent, isDemo, 6000, { people: self });
+          // A person's score among the accounts the Performance Scorecard scores them with.
+          evidence = await prepareEvidence(intent, isDemo, 6000, await evidenceOptionsFor(intent, user));
         } catch (err) {
           // The question still goes to the model, without figures, rather than not at all.
           console.error("The evidence for this question could not be worked out", err);
