@@ -472,6 +472,21 @@ def main():
         page.click("text=Live Mode")
         page.wait_for_timeout(300)
         check("Live mode banner visible after switch", "LIVE MODE" in page.content())
+        # Done with Demo Mode: its year of made-up records is cleared, as anyone
+        # would after trying it. Left in, it filled this browser's working copy to
+        # within a few thousand characters of the browser's limit (REQUIREMENTS
+        # §65), and next month's live registers — opened below whenever the next
+        # weekly off falls in it — could not be written.
+        page.goto(f"{BASE}/index.html#/demo")
+        page.wait_for_timeout(400)
+        count_js = "(demo) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').filter((r) => !!r.isDemo === demo).length"
+        live_before = page.evaluate(count_js, False)
+        clear_demo = page.locator("button:has-text('Clear All Demo Data')")
+        if clear_demo.count() and clear_demo.first.is_enabled():
+            clear_demo.first.click()
+            page.wait_for_timeout(600)
+        left, live_after = page.evaluate(count_js, True), page.evaluate(count_js, False)
+        check("Clear All Demo Data removes every demo record, and no live one", left == 0 and live_after == live_before, (left, live_before, live_after))
 
         # ---- 7. CAPA module: Internal / External chooser, then Internal list ----
         page.goto(f"{BASE}/index.html#/gap")
@@ -857,8 +872,26 @@ def main():
         while next_off.weekday() != 3 or next_off.isoformat() in ADJUSTMENT_DAYS_2026:
             next_off += timedelta(days=1)
         page.goto(f"{BASE}/index.html#/pest/daily/{next_off.year}/{next_off.month - 1}")
-        page.wait_for_timeout(500)
-        check("Daily Report register pre-marks the next weekly-off Thursday as a HOLIDAY row", "HOLIDAY" in page.locator(f".register-grid tr[data-day='{next_off.day}']").inner_text())
+        # Next month's days are made when the month is first opened; on a busy
+        # machine that is more than half a second, so wait for the row itself.
+        holiday_row = f".register-grid tr[data-day='{next_off.day}']"
+        try:
+            page.wait_for_function("(sel) => { const r = document.querySelector(sel); return !!r && r.innerText.includes('HOLIDAY'); }", arg=holiday_row, timeout=8000)
+        except Exception:
+            pass
+        check(
+            "Daily Report register pre-marks the next weekly-off Thursday as a HOLIDAY row",
+            "HOLIDAY" in page.locator(holiday_row).inner_text(),
+            {
+                "day": next_off.isoformat(),
+                "url": page.url,
+                "row": page.locator(holiday_row).inner_text()[:120] if page.locator(holiday_row).count() else None,
+                "stored": page.evaluate(
+                    "(d) => JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').filter((r) => r.documentId === 'daily-pest-monitoring' && r.dueDate === d).map((r) => ({ id: r.id, status: r.status, isDemo: r.isDemo, holiday: !!(r.data && r.data.isHoliday) }))",
+                    next_off.isoformat(),
+                ),
+            },
+        )
         page.goto(f"{BASE}/index.html#/master-data")
         page.wait_for_timeout(300)
         page.click(".pill-tab:has-text('Holidays')")

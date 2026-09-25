@@ -6,7 +6,11 @@ Seven scripts live in `tests/`:
 
 - `tests/e2e_smoke.py` — the core acceptance walkthrough (calendar → day → record →
   save/submit/verify → dashboard update → persistence → demo isolation → every module page
-  loads → sidebar accordion → module-filtered library deep link), network-independent.
+  loads → sidebar accordion → module-filtered library deep link), network-independent. Its demo
+  year is cleared (Clear All Demo Data) once the isolation checks are done: left in, it filled the
+  working copy to within a few thousand characters of the browser's limit, and in the last days of
+  a month — when the next weekly-off Thursday is in the next month — that month's live register
+  could not be written (found 25-Sep-2026).
 - `tests/e2e_backlog_regression.py` — injects a simulated pre-fix record backlog straight into
   `localStorage` before the first post-fix boot and proves the launch-date-floor fix actually holds
   (not silently promoted to "ready", cleanup banner accurate, a human-verified record with the same
@@ -253,7 +257,7 @@ Seven scripts live in `tests/`:
   results against a frozen copy of the old scorecard code over 17,000 judgements and 126 whole scorecards, and the
   plant's closed days against engine/holidays.ts for every day of three years.
 - `tests/e2e_insights.py` - Insights (REQUIREMENTS §75), a thirty-fifth suite, added 24-Sep-2026, run straight
-  after the Maintenance suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the
+  after the System / Management suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the
   2024 one** — the QC Lab's colour-matching cabinet down 45%, 1863 to 1025 lux, high, naming both rounds — and row
   M-68 pointed out; the module and severity filters; the Dashboard's card of at most three, none low, linking to the
   page; **Raise CAPA** showing the finding before the click, landing on the CAPA report with a finding that remembers
@@ -272,10 +276,10 @@ Seven scripts live in `tests/`:
   now searches the checker's name written on the pest round the suite itself submits; the operator search ticks the
   box that also looks in sheets the assistant prepared, which is where that name is.
 - `tests/e2e_sys_module.py` - the System / Management module and its eighteen F/SYS formats (REQUIREMENTS §76), a
-  thirty-fifth suite, added 25-Sep-2026: the module **first** in the sidebar, named "System / Management (SYS)", with
+  thirty-seventh suite, added 25-Sep-2026 and run straight after the Maintenance suite: the module **first** in the sidebar, named "System / Management (SYS)", with
   all eighteen formats linked; the library filtered to it with every F/SYS number the papers print (F/SYS/04-A
   included) under its six groups; the pages supplied filled in on file as the pages printed them — F/SYS/01's 173
-  documents, F/SYS/02's 141 formats (the workbook as last updated, every one kept three years), the management review
+  documents, F/SYS/02's 141 formats (the workbook as last updated, nearly every one kept three years), the management review
   of 21.07.2025 with its 19 objectives, its notice with line 08 printed with its two cells swapped, the audit of
   17.02.2025 with NC - 01 at 4.2.1 and NC - 02 at 4.7.6, the NC report Feb -25/02, the 24 answers of April 2024's HARA
   verification, the site security assessment's 26 points, the three mock withdrawals and the two traceability tests,

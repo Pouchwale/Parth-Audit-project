@@ -89,6 +89,11 @@ test("a new monthly HARA verification carries the questions and the team, never 
     assert.ok(lines.every((r) => r[key] === "" || r[key] === null || r[key] === undefined), `no ${key} carried from April 2024`);
   }
   assert.ok(Object.values(data.header).some((v) => /Kapila Barad/.test(String(v))), "the HARA team is carried");
+  // Carried from the LAST meeting, not merely the specimen's team: a member the
+  // specimen does not have comes across too.
+  const changed = { ...previous!, data: { ...(previous!.data as LogSheetData), header: { ...(previous!.data as LogSheetData).header, team1Name: "A New Member" } } };
+  const next = autoFillRecord(doc!, "2026-09-22", masterRepository.get(), changed as RecordInstance<LogSheetData>);
+  assert.equal((next!.data as LogSheetData).header.team1Name, "A New Member", "the last meeting's team, as it was");
 });
 
 test("the supplied pages are on file whole", () => {
@@ -240,4 +245,11 @@ test("Mitra: F/SYS/13 asked for by name is walked through, not filled with made-
 
 test("S6: the April 2024 verification answered every question C — no NC to report", () => {
   assert.equal(byRule(insightsAsOf("2024-05-01"), "S6").length, 0);
+  // Had it answered one NC, that is raised — high, naming the question — while the verification is within the year.
+  const withNc = edited("seed-sys-hara-monthly-2024-04", (d) => (d.rows[3].verification = "NC"));
+  const s6 = byRule(insightsWith("2024-05-01", withNc), "S6");
+  assert.equal(s6.length, 1, s6.map((i) => i.title).join(" | "));
+  assert.equal(s6[0].severity, "high");
+  assert.ok(s6[0].title.includes(String(withNc.data && (withNc.data as LogSheetData).rows[3].attribute).slice(0, 20)), s6[0].title);
+  assert.equal(byRule(insightsWith("2025-06-01", withNc), "S6").length, 0, "a year on, it is no longer raised");
 });

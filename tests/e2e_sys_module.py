@@ -369,7 +369,12 @@ with sync_playwright() as p:
     print("\n==== F/SYS/07 Internal Audit Risk Assessment ====")
     risk = record(page, "seed-sys-audit-risk-2024")
     worked = [(r.get("sum"), r.get("frequency")) for r in rows_of(risk) if r.get("sum")]
-    check("The 2024 assessment's sums and frequencies are the page's: Site Standards 7, Twice / Year", ("7", "Twice / Year") in worked, worked)
+    check("The 2024 assessment is on file as the page wrote it: Site Standards 7, Twice / Year", ("7", "Twice / Year") in worked, worked)
+    # As drawn, the Sum and frequency are the engine's (engine/auditRisk.ts), not the stored ones.
+    open_page(page, "#/record/seed-sys-audit-risk-2024", settle=1500)
+    drawn = page.locator("table.log-sheet tbody tr").evaluate_all("trs => trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => (td.textContent || '').trim()))")
+    site = next((r for r in drawn if len(r) > 1 and r[1] == "4.1"), None)
+    check("...and drawn with its Sum and frequency worked out: 4.1 Site Standards 3 + 4 = 7, Twice / Year", bool(site) and "7" in site and "Twice / Year" in site, site)
     rid7 = start_record(page, "sys-audit-risk")
     line = page.locator("table.log-sheet tbody tr").first
     boxes = line.locator("input")
@@ -453,6 +458,10 @@ with sync_playwright() as p:
     cdp = page.context.new_cdp_session(page)
     cdp.send("Emulation.setCPUThrottlingRate", {"rate": 6})
     for rid, what in (("seed-sys-document-list", "F/SYS/01's 173 documents"), ("seed-sys-audit-findings-2025-02", "F/SYS/08's audit checklist")):
+        # From a page with no sheet on it, so the lines counted are this sheet's
+        # and not the last one's still on the screen.
+        page.evaluate("() => { location.hash = '#/dashboard'; }")
+        page.wait_for_function("() => !document.querySelector('table.log-sheet')", timeout=30000)
         started = time.time()
         page.evaluate(f"() => {{ location.hash = '#/record/{rid}'; }}")
         try:

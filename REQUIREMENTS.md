@@ -4338,8 +4338,10 @@ are plainly made up and say so.
 **5. F/SYS/02 IS THE LIST AS LAST UPDATED.** The PDF supplied is an earlier print of the master list (135 formats). The
 company's own workbook of it (R-2025, updated to 01.09.2026) holds 141: it adds F-MKT-05 and F-MKT-06 — which this system
 already holds — F-PRD-27 to 30 and a third revision of F-QC-40. A. The record on file is the workbook, "Maintain as
-updated"; the print is shown beside it. It settles one question left open in §75: **every format the plant keeps is
-retained three years and then shredded** — which is the activity log archive's default of three years.
+updated"; the print is shown beside it. It settles one question left open in §75: **the plant keeps its formats three years** — 133 of the 141
+are retained three years and then shredded, the two master lists (F-SYS-01, F-SYS-02) three years and maintained as
+updated — which is the activity log archive's default of three years. Eight lines give no retention period or
+disposition at all: F-MKT-05, F-MKT-06, F-PRD-27 to 30 (newer) and F-QC-39, F-QC-41 (obsolete) — TBC item 28.
 
 **6. F/SYS/07 WORKS OUT ITS OWN SUM AND AUDIT FREQUENCY** (engine/auditRisk.ts, in the one computed-cells pass of §74):
 IQA NC + External NCs, and the frequency the printed criteria give — up to 4 Once / Year, 5 to 15 Twice / Year, 16 or more
@@ -4357,7 +4359,7 @@ corrective action (3.5.4).
 
 | Rule | What it finds | On the supplied pages |
 |---|---|---|
-| S1 | a product's mock withdrawal more than a year old (due again on the same date a year on, a leap day between or not; a date still to come is no test done), or none on file for it (high) | LABEL (10.01.2025), Pouch (28.01.2025) and SHRINK SLEEVE (05.02.2025) all overdue |
+| S1 | a product's mock withdrawal more than a year old (due again on the same date a year on, a leap day between or not; a date still to come is no test done) (high), or none on file for it (medium) | LABEL (10.01.2025), Pouch (28.01.2025) and SHRINK SLEEVE (05.02.2025) all overdue |
 | S2 | a backward or forward traceability test more than a year old, counted as S1 (high) | both, of December 2024 |
 | S3 | an internal audit NC report not verified closed past its planned date, or a month after it with none (high after 90 days), saying so when the audit plan's summary marks the clause Closed | Feb -25/02 (4.7.6): its closing verification is empty, while F/SYS/06 marks 4.7.6 Closed |
 | S4 | an NC on the audit checklist — "NC - 01", or in the column's own words, "Non compliance" — with no NC report for its clause | NC - 01 at 4.2.1 (wall painting peeling) has no F/SYS/10 |
@@ -4530,6 +4532,9 @@ prints; and every discrepancy on the pages listed below.
     date 21.07.2027 and sales order date 12.07.2023; the Pouch mock withdrawal's response text; the unticked
     "effective?" boxes; the MRM's item 7 action and item 3 complaint count; F/SYS/16's totals and #DIV/0!;
     POUCH/SOP/01's date of 15.12.2025.
+28. **The formats F/SYS/02 gives no retention period** (§76 part 5): F-MKT-05, F-MKT-06 and F-PRD-27 to 30 (the
+    newer lines) and F-QC-39, F-QC-41 (obsolete) have a blank Retention Period and Method of Disposition in the
+    workbook — three years and shredded, as every other format, or something else?
 
 ## How the assistant pre-fills records (and what it never does)
 

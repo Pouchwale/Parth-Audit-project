@@ -149,7 +149,8 @@ The app behaves like a personal assistant rather than a blank form:
   audit from its yearly schedule, plan and risk assessment to the clause-by-clause checklist and the NC report, the
   NC & corrective action report, the monthly and annual HARA verifications, the site security risk assessment, and
   the backward and forward traceability tests and mock product withdrawals. Verbatim to the last misspelling, with
-  every supplied page on file as a record and shown beside its form. **Every one is editable** — Edit reopens a
+  every page supplied filled in on file as a record, and every supplied page shown beside its form (the blank
+  F/SYS/03 and F/SYS/11 as they came; F/SYS/02's earlier print beside the workbook that is its record). **Every one is editable** — Edit reopens a
   verified record, Edit format changes the format itself. F/SYS/07 works out its own audit frequency; Mitra prepares a
   new checklist without last time's findings; and the Insights read the PSTL's records together — the mock withdrawals
   and traceability tests more than a year old, an audit NC never verified closed or never reported, a traceability test
