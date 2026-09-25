@@ -375,6 +375,78 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
     aliases: ["glass breakage", "glass articles", "list of glass articles", "glass breakage monitoring", "brittle plastic", "glass monitoring", "glass and brittle plastic", "f/mnt/09"],
   },
   { id: "mnt-lux-level", aliases: ["lux level", "lux levels", "lux measurement", "lux meter", "light level", "lighting level", "lux", "f/mnt/11"] },
+  // System / Management — the PSTL's eighteen F/SYS formats (REQUIREMENTS §76),
+  // by the words the product safety team uses. Kept specific: a bare "master
+  // list" is the calibration master list's and a bare "audit report" the
+  // supplier audit's (F/PUR/02) — "internal audit report" is longer and wins
+  // (matchDocuments). "traceability" alone names both traceability tests.
+  {
+    id: "sys-document-list",
+    aliases: ["master list of documents", "master list of document", "controlled documents list", "document master list", "f/sys/01"],
+  },
+  {
+    id: "sys-format-list",
+    aliases: ["master list of formats", "master list of formats & records", "master list of formats and records", "retention period", "f/sys/02"],
+  },
+  {
+    id: "sys-document-change",
+    aliases: ["document change request", "document change", "change request", "change request note", "approval note", "document change note", "f/sys/03"],
+  },
+  {
+    id: "sys-mrm-record",
+    aliases: ["management review meeting", "management review record", "management review", "mrm record", "mrm meeting", "mrm", "f/sys/04"],
+  },
+  {
+    id: "sys-mrm-agenda",
+    aliases: ["mrm agenda", "mrm notification", "mrm notice", "management review agenda", "agenda for mrm", "management review notification", "f/sys/04-a"],
+  },
+  {
+    id: "sys-objectives",
+    aliases: ["quality & product safety objectives", "quality and product safety objectives", "product safety objectives", "quality objectives", "objectives sheet", "objectives", "f/sys/16"],
+  },
+  {
+    id: "sys-audit-schedule",
+    aliases: ["internal audit schedule", "yearly internal audit schedule", "audit schedule", "iqa schedule", "f/sys/05"],
+  },
+  { id: "sys-audit-plan", aliases: ["internal audit plan", "internal audit schedule & plan", "audit plan", "iqa plan", "f/sys/06"] },
+  {
+    id: "sys-audit-risk",
+    aliases: ["internal audit risk assessment", "audit risk assessment", "internal audit risk", "audit risk", "audit frequency", "f/sys/07"],
+  },
+  {
+    id: "sys-audit-findings",
+    aliases: [
+      "internal audit findings",
+      "internal audit report",
+      "audit findings",
+      "audit checklist",
+      "audit checklist & compliance report",
+      "compliance report",
+      "observation report",
+      "brcgs checklist",
+      "f/sys/08",
+    ],
+  },
+  { id: "sys-audit-nc", aliases: ["internal audit nc report", "internal audit nc", "audit nc report", "audit nc", "f/sys/10"] },
+  {
+    id: "sys-nc-car",
+    aliases: ["non conformance & corrective action report", "non-conformance report", "non conformance report", "corrective action report", "non conformance", "non-conformance", "nc & car", "ncr", "f/sys/11"],
+  },
+  {
+    id: "sys-hara-monthly",
+    aliases: ["monthly hara verification", "monthly hara", "monthly hara review", "hara verification", "monthly review & hara verification", "hara verification meeting", "f/sys/12"],
+  },
+  {
+    id: "sys-hara-annual",
+    aliases: ["annual hara review", "annual hara", "yearly hara review", "yearly hara verification", "yearly hara", "annual hara review & verification", "annual hara review and verification", "hara review", "annual hara verification", "f/sys/20"],
+  },
+  {
+    id: "sys-site-security",
+    aliases: ["site security risk assessment", "site security", "security risk assessment", "product defence", "product defense", "food defence", "food defense", "f/sys/17"],
+  },
+  { id: "sys-mock-recall", aliases: ["mock product withdrawal", "mock withdrawal", "mock recall", "product withdrawal", "recall test", "f/sys/13"] },
+  { id: "sys-backward-trace", aliases: ["backward traceability", "backward trace", "customer to supplier", "traceability", "f/sys/14"] },
+  { id: "sys-forward-trace", aliases: ["forward traceability", "forward trace", "supplier to customer", "traceability", "f/sys/15"] },
   // Store (REQUIREMENTS §71): the stamp put on incoming material paperwork,
   // and the sharp tool register. The store says "blade" and "cutter" far more
   // often than it says the format's own name, so both are aliases, and
@@ -461,6 +533,9 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
 const PEST_FILE_ALIASES = ["pest control", "pest"];
 
 const MODULE_KEYWORDS: { module: string; aliases: string[] }[] = [
+  // System / Management as a whole (REQUIREMENTS §76) — reached only when no
+  // single F/SYS format was named.
+  { module: "System / Management", aliases: ["system module", "sys module", "sys documents", "sys records", "sys formats", "system documents", "system records", "pstl documents", "sys"] },
   { module: "Human Resources", aliases: ["human resources", "hr module", "hr records", "hr documents", "hr"] },
   { module: "Lamination — Quality Control", aliases: ["lamination qc", "lamination quality control", "lamination quality"] },
   { module: "Lamination — Production", aliases: ["lamination production"] },

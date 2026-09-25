@@ -467,6 +467,13 @@ function fillRow(
       row[col.key] = t;
       continue;
     }
+    // A judgement made afresh each time (REQUIREMENTS §76) — an audit's
+    // compliance, a verification's C / NC, a month's actual — is never copied
+    // from the last sheet or the specimen: it is the person's to write.
+    if (!col.fixed && col.autoFill?.fresh) {
+      row[col.key] = col.type === "number" ? null : "";
+      continue;
+    }
     // "Date of Measurement" on a round walked in one day: the date the record
     // is for, on every line, never the date the last sheet was for
     // (REQUIREMENTS §74).

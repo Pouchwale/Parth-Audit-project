@@ -435,8 +435,15 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     if (!saved || !saved.correction) return void movedOn(saved);
     persistLocal(cancelCorrection(saved, currentUser, labels));
   };
-  // Counted against what is on screen, including an edit not yet autosaved.
-  const undoneChanges = record.correction ? correctionChanges({ ...record, data }, labels).length : 0;
+  // Counted against what is on screen, including an edit not yet autosaved —
+  // and only when somebody presses Cancel edit, the one moment it is shown. It
+  // is a comparison of every cell with what the record said when it was
+  // reopened, and worked out on every render it cost each keystroke into a long
+  // register a walk of the whole sheet (REQUIREMENTS §76).
+  const countUndoneChanges = (): number => {
+    const { record: r, data: d, labels: l } = latest.current;
+    return r?.correction ? correctionChanges({ ...r, data: d }, l).length : 0;
+  };
 
   // Delete is offered whatever the status now; a signed-off record takes a
   // reason, and every deletion is recorded (engine/recordCrud.ts).
@@ -573,7 +580,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
         onCorrect={superseded ? undefined : handleCorrect}
         onCancelCorrection={record.correction && canWrite ? handleCancelCorrection : undefined}
         correctionFromStatus={record.correction?.fromStatus}
-        correctionChangeCount={undoneChanges}
+        correctionChangeCount={countUndoneChanges}
         onPrint={() => printDocument()}
         download={<DownloadDocumentButton doc={doc} dateISO={record.dueDate} />}
         onDelete={handleDelete}

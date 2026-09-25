@@ -44,6 +44,13 @@ import {
   FiTool,
   FiSun,
   FiAlertTriangle,
+  FiCompass,
+  FiEdit,
+  FiLock,
+  FiRotateCcw,
+  FiArrowLeftCircle,
+  FiArrowRightCircle,
+  FiCheckCircle,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
@@ -104,6 +111,11 @@ const NAV_MAIN: NavItem[] = [
 // inspections feed back into. Put anywhere else it would separate the supplier
 // from its material; put above HR it would move the modules people already use.
 const MODULE_ORDER = [
+  // System / Management comes first, where the company's own Master List of
+  // Formats & Records puts F/SYS: it is the PSTL's system — the master lists,
+  // the management review, the internal audit, HARA, traceability — that every
+  // other module is controlled and audited through (REQUIREMENTS §76).
+  "System / Management",
   "Human Resources",
   "CAPA (Corrective & Preventive Action)",
   "Lamination — Quality Control",
@@ -130,6 +142,8 @@ type ModuleName = (typeof MODULE_ORDER)[number];
 // A face for each module, so a closed panel of six headers is still scannable
 // at a glance rather than six identical rows of text.
 const MODULE_ICONS: Record<ModuleName, IconType> = {
+  // The system everything else is steered by.
+  "System / Management": FiCompass,
   "Human Resources": FiUsers,
   "CAPA (Corrective & Preventive Action)": FiAlertCircle,
   "Lamination — Quality Control": FiLayers,
@@ -146,6 +160,36 @@ const MODULE_ICONS: Record<ModuleName, IconType> = {
 };
 
 const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
+  // System / Management — the PSTL's eighteen F/SYS formats (REQUIREMENTS §76):
+  // the collection in the Document Library first, then the six groups the
+  // product safety system runs in, each format on its own document page.
+  "System / Management": [
+    { to: "/library/system-management", labelKey: "nav.sysDocs", icon: FiBookOpen },
+    { headingKey: "nav.sysDocumentControl" },
+    { to: "/document/sys-document-list", labelKey: "nav.sysDocumentList", icon: FiFileText },
+    { to: "/document/sys-format-list", labelKey: "nav.sysFormatList", icon: FiList },
+    { to: "/document/sys-document-change", labelKey: "nav.sysDocumentChange", icon: FiEdit },
+    { headingKey: "nav.sysManagementReview" },
+    { to: "/document/sys-mrm-agenda", labelKey: "nav.sysMrmAgenda", icon: FiCalendar },
+    { to: "/document/sys-mrm-record", labelKey: "nav.sysMrmRecord", icon: FiUsers },
+    { to: "/document/sys-objectives", labelKey: "nav.sysObjectives", icon: FiTarget },
+    { headingKey: "nav.sysInternalAudit" },
+    { to: "/document/sys-audit-schedule", labelKey: "nav.sysAuditSchedule", icon: FiCalendar },
+    { to: "/document/sys-audit-plan", labelKey: "nav.sysAuditPlan", icon: FiClipboard },
+    { to: "/document/sys-audit-risk", labelKey: "nav.sysAuditRisk", icon: FiBarChart2 },
+    { to: "/document/sys-audit-findings", labelKey: "nav.sysAuditFindings", icon: FiCheckSquare },
+    { to: "/document/sys-audit-nc", labelKey: "nav.sysAuditNc", icon: FiAlertTriangle },
+    { headingKey: "nav.sysCorrectiveAction" },
+    { to: "/document/sys-nc-car", labelKey: "nav.sysNcCar", icon: FiAlertCircle },
+    { headingKey: "nav.sysHaraSecurity" },
+    { to: "/document/sys-hara-monthly", labelKey: "nav.sysHaraMonthly", icon: FiShield },
+    { to: "/document/sys-hara-annual", labelKey: "nav.sysHaraAnnual", icon: FiCheckCircle },
+    { to: "/document/sys-site-security", labelKey: "nav.sysSiteSecurity", icon: FiLock },
+    { headingKey: "nav.sysTraceabilityRecall" },
+    { to: "/document/sys-backward-trace", labelKey: "nav.sysBackwardTrace", icon: FiArrowLeftCircle },
+    { to: "/document/sys-forward-trace", labelKey: "nav.sysForwardTrace", icon: FiArrowRightCircle },
+    { to: "/document/sys-mock-recall", labelKey: "nav.sysMockRecall", icon: FiRotateCcw },
+  ],
   // The Human Resources module holds two things (REQUIREMENTS §46): HR's own
   // sixteen F/HR formats — personnel, training, induction and health, hygiene
   // and GMP, the product safety culture survey — which open in the Document
@@ -351,6 +395,29 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/mnt-breakdown-record": ["mnt-breakdown-record"],
   "/document/mnt-glass-breakage": ["mnt-glass-breakage"],
   "/document/mnt-lux-level": ["mnt-lux-level"],
+  // System / Management (REQUIREMENTS §76): one page per F/SYS format.
+  ...Object.fromEntries(
+    [
+      "sys-document-list",
+      "sys-format-list",
+      "sys-document-change",
+      "sys-mrm-agenda",
+      "sys-mrm-record",
+      "sys-objectives",
+      "sys-audit-schedule",
+      "sys-audit-plan",
+      "sys-audit-risk",
+      "sys-audit-findings",
+      "sys-audit-nc",
+      "sys-nc-car",
+      "sys-hara-monthly",
+      "sys-hara-annual",
+      "sys-site-security",
+      "sys-backward-trace",
+      "sys-forward-trace",
+      "sys-mock-recall",
+    ].map((id) => [`/document/${id}`, [id]])
+  ),
 };
 
 // One module's entries with the other departments' links taken out, and then

@@ -61,6 +61,14 @@ const WORD_FORMS = new Set([
   // two-page report of boxes, a Y/N checklist and a hand-over, so it reads as a
   // document. The other seven F/MNT formats are grids and stay spreadsheets.
   "mnt-new-equipment",
+  // System / Management (REQUIREMENTS §76): the two F/SYS formats supplied
+  // with no original of their own to say what they are — the management
+  // review's notice and the annual HARA review — are a notice and a report,
+  // so they read as documents. The rest follow the company's own originals
+  // (sourceFile): the .doc reports and notes as Word, the .xls/.xlsx lists,
+  // schedules and registers as spreadsheets.
+  "sys-mrm-agenda",
+  "sys-hara-annual",
 ]);
 const EXCEL_KINDS = new Set(["log-sheet", "daily-pest-monitoring", "fly-catcher", "service-report", "gap-inspection"]);
 const WORD_KINDS = new Set(["complaint-checklist", "complaint-ack", "training-record", "compliance-statement", "chemical-master", "service-agreement", "pest-responsibilities"]);
@@ -96,7 +104,10 @@ function skipped(el: Element): boolean {
   if (el.matches(SKIP)) return true;
   if (el.classList.contains("print-only")) return false;
   const style = getComputedStyle(el);
-  return style.display === "none" || style.visibility === "hidden";
+  // A line of a long register that is only not drawn while it is off the
+  // screen (tr.is-far, components/records/LogSheetRecordView.tsx) is a line of
+  // the record all the same, and is downloaded with the rest (REQUIREMENTS §76).
+  return style.display === "none" || (style.visibility === "hidden" && !el.closest("tr.is-far"));
 }
 
 const blockish = (el: Element): boolean => {

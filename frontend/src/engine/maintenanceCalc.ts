@@ -80,9 +80,14 @@ export function withMaintenanceCalc<T>(documentId: string | undefined, data: T):
   if (documentId !== BREAKDOWN_RECORD_ID) return data;
   const d = data as unknown as LogSheetData | undefined;
   if (!d || !Array.isArray(d.rows)) return data;
-  const rows: LogSheetRow[] = d.rows.map((r) => ({ ...r, ...breakdownCells(r) }));
+  // A line whose figures are unchanged is handed back as it was, so the sheet
+  // redraws only the line that changed (components/records/LogSheetRecordView.tsx SheetRow).
+  const rows: LogSheetRow[] = d.rows.map((r) => {
+    const next = { ...r, ...breakdownCells(r) };
+    return Object.keys(next).every((k) => next[k] === r[k]) ? r : next;
+  });
   // Nothing changed is nothing to re-render: the same object goes back, so a
   // long register does not rebuild on every keystroke elsewhere.
-  const same = rows.every((r, i) => Object.keys(r).every((k) => r[k] === d.rows[i][k]));
+  const same = rows.every((r, i) => r === d.rows[i]);
   return same ? data : ({ ...d, rows } as unknown as T);
 }

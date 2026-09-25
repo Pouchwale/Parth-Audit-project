@@ -30,6 +30,10 @@ import { compareISO, formatDisplayDate, MONTH_NAMES } from "../utils/date";
 //   SUP a supplier graded C on F/PUR/05
 //   M1–M7 Maintenance (REQUIREMENTS §74): lux, the equipment list, breakdowns,
 //       glass breakage, daily health gaps, PM slippage, unknown machines.
+//   S1–S6 System / Management (REQUIREMENTS §76): a mock withdrawal or a
+//       traceability test more than a year old, an internal audit NC not verified
+//       closed or with no NC report, a traceability test dated out of its own
+//       order, and an NC at the monthly HARA verification.
 // Left out on purpose: the other three Western Electric rules and EWMA (on
 // 5,376 hourly viscosity points they raised 13–18 false-alarm days against
 // WE2's 8), and least-squares "projected to reach the limit" (the demo's shifts
@@ -2033,6 +2037,387 @@ const pmSlipRule: InsightRule = (ctx) => {
 };
 
 // ===========================================================================
+// S1–S6  System / Management (REQUIREMENTS §76): the PSTL's own tests,
+// audits and non-conformities, read together.
+//
+// Every limit here is the standard's own, printed on the plant's internal audit
+// checklist (F/SYS/08): the withdrawal procedure "shall be tested, at least
+// annually" (3.13.7), the traceability system "tested at a predetermined
+// frequency, at least annually" (3.11.4), and an internal audit's
+// non-conformities are reported with their root cause and corrective action
+// (3.5.4). Nothing is decided here that the paper does not already say.
+//
+// The boxes are found by the words the form prints (boxKey), not by a key
+// alone, so a box renamed on the sheet (Edit format) is still read.
+// ===========================================================================
+
+const MOCK_RECALL_ID = "sys-mock-recall";
+const BACKWARD_TRACE_ID = "sys-backward-trace";
+const FORWARD_TRACE_ID = "sys-forward-trace";
+const AUDIT_FINDINGS_ID = "sys-audit-findings";
+const AUDIT_NC_ID = "sys-audit-nc";
+const AUDIT_PLAN_ID = "sys-audit-plan";
+const HARA_MONTHLY_ID = "sys-hara-monthly";
+
+/**
+ * The day a test done on this date is due again, "at least annually": the same
+ * date a year on — 29 February's falls on 1 March — so a test is never called
+ * overdue on its own anniversary because a leap day came between.
+ */
+function yearAfter(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y + 1, m - 1, d)).toISOString().slice(0, 10);
+}
+
+/** The key of the box (above or below the grid) whose printed label matches — or the given fallback key. */
+function boxKey(layout: LogSheetLayout | undefined, label: RegExp, fallback: string): string {
+  return [...(layout?.headerFields ?? []), ...(layout?.footerFields ?? [])].find((f) => label.test(f.label))?.key ?? fallback;
+}
+
+/** The key of the grid column whose printed heading matches — or the given fallback key. */
+function columnKey(layout: LogSheetLayout | undefined, label: RegExp, fallback: string): string {
+  return layout?.columns.find((c) => label.test(c.label))?.key ?? fallback;
+}
+
+/** A written ISO date on a box, or null. */
+function boxDate(record: RecordInstance, key: string): string | null {
+  const v = headerOf(record)[key];
+  return isRealISO(v) ? v : null;
+}
+
+/** A clause as the paper writes it, compared without its spaces: "4.7.6", "4.7.6 " and " 4.7.6" are one clause. */
+const clauseKey = (v: unknown): string => text(v).replace(/\s+/g, "").replace(/\.$/, "");
+
+// S1 — a product whose mock withdrawal is more than a year old, or has none.
+const mockRecallRule: InsightRule = (ctx) => {
+  const records = ctx.records(MOCK_RECALL_ID);
+  if (records.length === 0) return [];
+  const fno = ctx.formatNo(MOCK_RECALL_ID);
+  const latest = new Map<string, { record: RecordInstance; date: string; product: string }>();
+  let products: string[] = [];
+  for (const record of records) {
+    const layout = ctx.layout(record);
+    const productKey = boxKey(layout, /Mock Product Withdrawal Record/i, "product");
+    const options = [...(layout?.headerFields ?? []), ...(layout?.footerFields ?? [])].find((f) => f.key === productKey)?.options ?? [];
+    if (options.length > products.length) products = options;
+    const product = text(headerOf(record)[productKey]);
+    if (!product) continue;
+    // The date written on the page; the record's own date where none is.
+    const date = boxDate(record, boxKey(layout, /^Date\s*:?$/i, "date")) ?? record.dueDate;
+    // A date still to come — a withdrawal drafted ahead, or a year written wrong
+    // (S5's mistake) — is no test done, and must not hide one that has lapsed.
+    if (date > ctx.today) continue;
+    const k = product.toLowerCase();
+    const current = latest.get(k);
+    if (!current || date > current.date) latest.set(k, { record, date, product });
+  }
+  const out: Insight[] = [];
+  for (const { record, date, product } of latest.values()) {
+    const due = yearAfter(date);
+    if (ctx.today <= due) continue;
+    const age = daysBetween(date, ctx.today);
+    const overdue = daysBetween(due, ctx.today);
+    out.push(
+      insight(ctx, MOCK_RECALL_ID, {
+        id: `s1|${product.toLowerCase()}`,
+        rule: "S1",
+        // HIGH: the standard asks for the test at least once a year, and an
+        // auditor reads a lapsed one as a non-conformity against the recall system.
+        severity: "high",
+        title: `Mock product withdrawal for ${product} is ${plural(overdue, "day")} overdue — last tested ${fmt(date)} (${fno})`,
+        detail:
+          `The product withdrawal procedure is to be tested at least once a year (BRCGS Packaging 3.13.7, on the internal audit checklist F/SYS/08), for each product the plant makes. ` +
+          `The last mock withdrawal of ${product} on file was ${fmt(date)}, ${plural(age, "day")} ago. Plan the next one for ${product} and record it on ${fno}, with its timings.`,
+        evidence: [ev(record, "date", fmt(date))],
+        route: ctx.recordRoute(record),
+        metric: { label: "Days overdue", value: grouped(overdue) },
+      })
+    );
+  }
+  // A product the form names with no withdrawal on file at all.
+  for (const product of products) {
+    if (latest.has(product.toLowerCase())) continue;
+    out.push(
+      insight(ctx, MOCK_RECALL_ID, {
+        id: `s1|${product.toLowerCase()}|none`,
+        rule: "S1",
+        severity: "medium",
+        title: `No mock product withdrawal on file for ${product} (${fno})`,
+        detail: `${fno} is made for each product, and at least once a year (BRCGS Packaging 3.13.7). There is one on file for ${[...latest.values()].map((l) => l.product).join(", ")}, and none for ${product}.`,
+        evidence: [...latest.values()].map((l) => ev(l.record, "product", l.product)),
+        route: ctx.documentRoute(MOCK_RECALL_ID),
+      })
+    );
+  }
+  return out;
+};
+
+// S2 — a traceability test, backward or forward, more than a year old.
+const traceabilityDueRule: InsightRule = (ctx) => {
+  const out: Insight[] = [];
+  const tests: [string, RegExp, string][] = [
+    [BACKWARD_TRACE_ID, /B\/W Traceability date/i, "Backward traceability (customer to supplier)"],
+    [FORWARD_TRACE_ID, /Date of Forward Traceability/i, "Forward traceability (supplier to customer)"],
+  ];
+  for (const [id, dateLabel, what] of tests) {
+    const records = ctx.records(id);
+    if (records.length === 0) continue;
+    let newest: { record: RecordInstance; date: string } | null = null;
+    for (const record of records) {
+      const date = boxDate(record, boxKey(ctx.layout(record), dateLabel, "date")) ?? record.dueDate;
+      // As S1: a date still to come is no test done.
+      if (date > ctx.today) continue;
+      if (!newest || date > newest.date) newest = { record, date };
+    }
+    if (!newest) continue;
+    const due = yearAfter(newest.date);
+    if (ctx.today <= due) continue;
+    const age = daysBetween(newest.date, ctx.today);
+    const fno = ctx.formatNo(id);
+    out.push(
+      insight(ctx, id, {
+        id: `s2|${id}`,
+        rule: "S2",
+        // HIGH: as S1 — the standard asks for the test at least once a year.
+        severity: "high",
+        title: `${what} test is ${plural(daysBetween(due, ctx.today), "day")} overdue — last done ${fmt(newest.date)} (${fno})`,
+        detail:
+          `The traceability system is to be tested at least once a year (BRCGS Packaging 3.11.4, on the internal audit checklist F/SYS/08), and the result kept. ` +
+          `The last ${what.toLowerCase()} test on file is ${fmt(newest.date)}, ${plural(age, "day")} ago. Run the next one on a recent dispatch and record it on ${fno}.`,
+        evidence: [ev(newest.record, "date", fmt(newest.date))],
+        route: ctx.recordRoute(newest.record),
+        metric: { label: "Days since", value: grouped(age) },
+      })
+    );
+  }
+  return out;
+};
+
+/** F/SYS/10's own report: its number, date, clause, planned closing and whether the CAR is closed. */
+function ncReport(ctx: RuleContext, record: RecordInstance) {
+  const layout = ctx.layout(record);
+  const h = headerOf(record);
+  // "CAR - Closed / Not Closed" — the one box whose choices are those; the
+  // closing verification's own Date / Verified By boxes also begin "CAR".
+  const carKey = [...(layout?.headerFields ?? []), ...(layout?.footerFields ?? [])].find((f) => /^CAR\b/i.test(f.label) && (f.options ?? []).some((o) => /^closed$/i.test(o)))?.key ?? "carStatus";
+  return {
+    record,
+    reportNo: text(h[boxKey(layout, /^Report No/i, "reportNo")]),
+    date: boxDate(record, boxKey(layout, /^Report Date/i, "reportDate")) ?? record.dueDate,
+    clause: clauseKey(h[boxKey(layout, /^Clause No/i, "clauseNo")]),
+    planned: boxDate(record, boxKey(layout, /Planned Closing Date/i, "plannedClosingDate")),
+    closed: /^closed$/i.test(text(h[carKey])),
+    carKey,
+    finding: text(h[boxKey(layout, /NC FINDING STATEMENT/i, "ncFindingStatement")]),
+  };
+}
+
+// S3 — an internal audit NC report never verified closed.
+const auditNcOpenRule: InsightRule = (ctx) => {
+  const out: Insight[] = [];
+  const fno = ctx.formatNo(AUDIT_NC_ID);
+  // What the audit plans' summaries say about each clause (F/SYS/06).
+  // Each "No. of … NC" column is followed by its own "Status" column, as printed.
+  const summaries = ctx.records(AUDIT_PLAN_ID).flatMap((plan) => {
+    const cols = ctx.layout(plan)?.columns ?? [];
+    const pairs = cols.flatMap((c, i) => (/^No\. of (Critical|Major|Minor) NC/i.test(c.label) && cols[i + 1] ? [[c.key, cols[i + 1].key] as const] : []));
+    return rowsOf(plan).flatMap((row) =>
+      pairs.flatMap(([ncKey, statusKey]) => {
+        const clauses = text(row[ncKey]).split(/[,/\n]+/).map(clauseKey).filter((c) => /^\d+(\.\d+)+$/.test(c));
+        const statuses = text(row[statusKey]).split(/[,/\n]+/).map((x) => x.trim());
+        return clauses.map((clause, i) => ({ plan, statusKey, clause, status: statuses[i] ?? statuses[0] ?? "" }));
+      })
+    );
+  });
+  for (const record of ctx.records(AUDIT_NC_ID)) {
+    const nc = ncReport(ctx, record);
+    if (nc.closed) continue;
+    const age = daysBetween(nc.date, ctx.today);
+    const pastPlan = nc.planned !== null && nc.planned < ctx.today;
+    // With no planned closing date written, a month is allowed before it is raised.
+    if (!pastPlan && !(nc.planned === null && age > 30)) continue;
+    // Only a clause the plan calls Closed contradicts the open report — "Not Closed" agrees with it.
+    const summary = nc.clause ? summaries.find((s) => s.clause === nc.clause && /^closed$/i.test(s.status)) : undefined;
+    const name = `${nc.reportNo || "NC report"}${nc.clause ? ` (clause ${nc.clause})` : ""}`;
+    out.push(
+      insight(ctx, AUDIT_NC_ID, {
+        id: `s3|${record.id}`,
+        rule: "S3",
+        // HIGH after three months: an audit NC left unverified that long is
+        // itself what the next external audit finds.
+        severity: age > 90 ? "high" : "medium",
+        title: `Internal audit ${name} is not verified closed — raised ${fmt(nc.date)}, ${plural(age, "day")} ago (${fno})`,
+        detail:
+          `${nc.finding ? `${quote(nc.finding, 120)}. ` : ""}` +
+          `${nc.planned ? `Its planned closing date, ${fmt(nc.planned)}, has passed` : "No planned closing date is written on it"}, and its CAR closing verification is not complete — no one has recorded the actions as satisfactory and the CAR as closed. ` +
+          `${summary ? `The audit plan's summary (${ctx.formatNo(AUDIT_PLAN_ID)}) marks clause ${nc.clause} "${summary.status}", which the NC report does not yet show. ` : ""}` +
+          `Verify the corrective action's effectiveness and complete the closing verification on ${fno} (BRCGS Packaging 3.5.4, 3.6.2).`,
+        evidence: [ev(record, nc.carKey, "not closed"), ...(summary ? [ev(summary.plan, summary.statusKey, `${summary.clause}: ${summary.status}`)] : [])],
+        route: ctx.recordRoute(record),
+        metric: { label: "Days open", value: grouped(age) },
+      })
+    );
+  }
+  return out;
+};
+
+/**
+ * A checklist verdict that is a non-conformity: the plant's "NC - 01", and the
+ * column's own printed words, "Non compliance" — or "Non-conformance", "Not
+ * complied", "Minor NC", "N/C". "Compliance" and "Complied" are not.
+ */
+const NON_COMPLIANCE = /^(?:NC\b|N\/C\b|non[\s-]*(?:compl|conform)|not\s+compl|(?:minor|major|critical)\s+(?:NC\b|non[\s-]*(?:compl|conform)))/i;
+
+// S4 — a non-conformity on the audit checklist with no NC report for it.
+const auditNcUnreportedRule: InsightRule = (ctx) => {
+  const out: Insight[] = [];
+  const reports = ctx.records(AUDIT_NC_ID).map((r) => ncReport(ctx, r));
+  const fno = ctx.formatNo(AUDIT_FINDINGS_ID);
+  for (const audit of ctx.records(AUDIT_FINDINGS_ID)) {
+    const layout = ctx.layout(audit);
+    const clauseCol = columnKey(layout, /^Clause$/i, "clause");
+    const complianceCol = columnKey(layout, /^Compliance/i, "compliance");
+    const commentsCol = columnKey(layout, /^Comments/i, "comments");
+    const auditDate = boxDate(audit, boxKey(layout, /Audit Date/i, "auditDate1")) ?? audit.dueDate;
+    for (const row of rowsOf(audit)) {
+      const verdict = text(row[complianceCol]);
+      if (!NON_COMPLIANCE.test(verdict)) continue;
+      const clause = clauseKey(row[clauseCol]);
+      if (!clause) continue;
+      // A report for the clause dated on or after the audit answers it.
+      if (reports.some((r) => r.clause === clause && r.date >= auditDate)) continue;
+      out.push(
+        insight(ctx, AUDIT_FINDINGS_ID, {
+          id: `s4|${audit.id}|${clause}`,
+          rule: "S4",
+          severity: "medium",
+          title: `Internal audit ${verdict} at clause ${clause} (${fmt(auditDate)}) has no NC report on file`,
+          detail:
+            `The audit of ${fmt(auditDate)} (${fno}) found ${verdict} at ${clause}: ${quote(row[commentsCol], 120)}. ` +
+            `Every non-conformity an internal audit finds gets its own report — the finding, its root cause, the corrective action and its closing verification (${ctx.formatNo(AUDIT_NC_ID)}; BRCGS Packaging 3.5.4) — and none for clause ${clause} is on file.`,
+          evidence: [ev(audit, clauseCol, `${clause}: ${verdict}`)],
+          route: ctx.recordRoute(audit),
+        })
+      );
+    }
+  }
+  return out;
+};
+
+// S5 — a traceability test whose dates are out of their own order.
+const traceabilityDatesRule: InsightRule = (ctx) => {
+  const out: Insight[] = [];
+  for (const record of ctx.records(BACKWARD_TRACE_ID)) {
+    const layout = ctx.layout(record);
+    const own = boxDate(record, boxKey(layout, /B\/W Traceability date/i, "bwTraceabilityDate")) ?? record.dueDate;
+    const dispatchKey = boxKey(layout, /Date of Dispatch/i, "dateOfDispatch");
+    const dispatch = boxDate(record, dispatchKey);
+    const steps: [string, RegExp][] = [
+      ["Printing production date", /Printing production date/i],
+      ["QC Inspection dated", /QC Inspection dated/i],
+      ["Slitting & packing date", /Slitting & packing date/i],
+    ];
+    const wrong: { label: string; key: string; date: string; why: string }[] = [];
+    // The steps written, in the order the job goes through them.
+    const written = steps.flatMap(([label, re]) => {
+      const key = boxKey(layout, re, "");
+      const date = key ? boxDate(record, key) : null;
+      return date ? [{ label, key, date }] : [];
+    });
+    written.forEach((step, i) => {
+      if (dispatch && step.date > dispatch) wrong.push({ ...step, why: `after the dispatch of ${fmt(dispatch)}` });
+      else if (step.date > own) wrong.push({ ...step, why: `after the test itself, ${fmt(own)}` });
+      // A step dated after the one that follows it: inspected before it was printed, packed before it was inspected.
+      else if (written[i + 1] && step.date > written[i + 1].date) wrong.push({ ...step, why: `after the ${written[i + 1].label} ${fmt(written[i + 1].date)}` });
+    });
+    if (dispatch && dispatch > own) wrong.push({ label: "Date of Dispatch", key: dispatchKey, date: dispatch, why: `after the test itself, ${fmt(own)}` });
+    if (wrong.length === 0) continue;
+    const fno = ctx.formatNo(BACKWARD_TRACE_ID);
+    out.push(
+      insight(ctx, BACKWARD_TRACE_ID, {
+        id: `s5|${record.id}`,
+        rule: "S5",
+        // MEDIUM: the product was traced; it is the record of the trace that is wrong.
+        severity: "medium",
+        title: `${fno} of ${fmt(own)}: ${wrong.map((w) => `${w.label} ${fmt(w.date)} is ${w.why}`).join("; ")}`,
+        detail:
+          `A job is printed, inspected, slit and packed before it is dispatched, and a traceability test is written after all of them — so a date out of that order is a mistake in what was written, most often the year. ` +
+          `A test with a step dated after the dispatch does not prove the chain it is meant to prove. Correct it on the record (Edit), with the reason.`,
+        evidence: wrong.map((w) => ev(record, w.key, `${w.label}: ${fmt(w.date)}`)),
+        route: ctx.recordRoute(record),
+      })
+    );
+  }
+  // F/SYS/15, the other way round: the material is received at the store, each
+  // issue of it is dispatched after it was issued, and the test comes after all.
+  for (const record of ctx.records(FORWARD_TRACE_ID)) {
+    const layout = ctx.layout(record);
+    const own = boxDate(record, boxKey(layout, /Date of Forward Traceability/i, "dateOfForwardTraceability")) ?? record.dueDate;
+    const receiptKey = boxKey(layout, /Date of receipt at store/i, "dateOfReceiptAtStore");
+    const receipt = boxDate(record, receiptKey);
+    const issueCol = columnKey(layout, /^Issue dated/i, "issueDated");
+    const dispatchCol = columnKey(layout, /^Dispatch dated/i, "dispatchDated");
+    const wrong: { label: string; key: string; date: string; why: string }[] = [];
+    if (receipt && receipt > own) wrong.push({ label: "Date of receipt at store", key: receiptKey, date: receipt, why: `after the test itself, ${fmt(own)}` });
+    rowsOf(record).forEach((row, i) => {
+      const issued = isRealISO(row[issueCol]) ? (row[issueCol] as string) : null;
+      const dispatched = isRealISO(row[dispatchCol]) ? (row[dispatchCol] as string) : null;
+      const line = rowsOf(record).length > 1 ? `line ${i + 1}'s ` : "";
+      if (issued && receipt && issued < receipt) wrong.push({ label: `${line}Issue dated`, key: issueCol, date: issued, why: `before the material's receipt at store, ${fmt(receipt)}` });
+      else if (issued && issued > own) wrong.push({ label: `${line}Issue dated`, key: issueCol, date: issued, why: `after the test itself, ${fmt(own)}` });
+      if (dispatched && issued && dispatched < issued) wrong.push({ label: `${line}Dispatch dated`, key: dispatchCol, date: dispatched, why: `before its issue, ${fmt(issued)}` });
+      else if (dispatched && dispatched > own) wrong.push({ label: `${line}Dispatch dated`, key: dispatchCol, date: dispatched, why: `after the test itself, ${fmt(own)}` });
+    });
+    if (wrong.length === 0) continue;
+    const fno = ctx.formatNo(FORWARD_TRACE_ID);
+    out.push(
+      insight(ctx, FORWARD_TRACE_ID, {
+        id: `s5|${record.id}`,
+        rule: "S5",
+        severity: "medium",
+        title: `${fno} of ${fmt(own)}: ${wrong.map((w) => `${w.label} ${fmt(w.date)} is ${w.why}`).join("; ")}`,
+        detail:
+          `Material is received at the store, issued to a job and dispatched in that order, and a forward traceability test is written after all of them — so a date out of that order is a mistake in what was written, most often the year. ` +
+          `A trace with its dates out of order does not prove the chain it is meant to prove. Correct it on the record (Edit), with the reason.`,
+        evidence: wrong.map((w) => ev(record, w.key, `${w.label}: ${fmt(w.date)}`)),
+        route: ctx.recordRoute(record),
+      })
+    );
+  }
+  return out;
+};
+
+// S6 — a monthly HARA verification answered NC.
+const haraNcRule: InsightRule = (ctx) => {
+  const out: Insight[] = [];
+  const fno = ctx.formatNo(HARA_MONTHLY_ID);
+  for (const record of ctx.records(HARA_MONTHLY_ID)) {
+    if (!within(record.dueDate, ctx.today, 365)) continue;
+    const layout = ctx.layout(record);
+    const verdictCol = columnKey(layout, /Verification status/i, "verification");
+    const attributeCol = columnKey(layout, /Verification attributes/i, "attribute");
+    const commentsCol = columnKey(layout, /Review comments/i, "comments");
+    const ncs = rowsOf(record).filter((row) => /^NC$/i.test(text(row[verdictCol])));
+    if (ncs.length === 0) continue;
+    out.push(
+      insight(ctx, HARA_MONTHLY_ID, {
+        id: `s6|${record.id}`,
+        rule: "S6",
+        // HIGH: an NC at the HARA verification is a gap in the product safety plan itself.
+        severity: "high",
+        title: `The HARA verification of ${fmt(record.dueDate)} found ${plural(ncs.length, "NC")}: ${ncs.slice(0, 3).map((r) => quote(r[attributeCol], 60)).join(", ")}`,
+        detail:
+          `${ncs.map((r) => `${quote(r[attributeCol], 80)} — ${text(r[commentsCol]) ? quote(r[commentsCol], 80) : "no comment written"}`).join("; ")}. ` +
+          `An NC at the HARA team's verification means the product safety plan no longer matches the plant; review the hazard analysis for it and raise a corrective action.`,
+        evidence: ncs.map((r) => ev(record, verdictCol, text(r[attributeCol]).slice(0, 60))),
+        route: ctx.recordRoute(record),
+      })
+    );
+  }
+  return out;
+};
+
+// ===========================================================================
 // what is remembered per record, and the warm-up that fills it in slices
 // ===========================================================================
 
@@ -2109,4 +2494,10 @@ export const INSIGHT_RULES: InsightRule[] = [
   glassRule,
   dailyHealthRule,
   pmSlipRule,
+  mockRecallRule,
+  traceabilityDueRule,
+  auditNcOpenRule,
+  auditNcUnreportedRule,
+  traceabilityDatesRule,
+  haraNcRule,
 ];

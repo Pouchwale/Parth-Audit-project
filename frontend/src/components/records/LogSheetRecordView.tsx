@@ -18,6 +18,11 @@ import { formatDisplayDate } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { useProgressiveCount } from "../../utils/useProgressive";
 
+/** A sheet open for writing with more lines than this draws only those near the screen (REQUIREMENTS §76). */
+const DRAW_NEAR_FROM = 60;
+/** How far above and below the screen a line is still drawn: some thirty lines, so a line is drawn before it can be seen. */
+const DRAW_NEAR_MARGIN = "1500px 0px";
+
 // One renderer for every grid-shaped log sheet. The shape of the form —
 // header fields, columns, how rows are created — comes entirely from the
 // document's LogSheetLayout, so a new register is configuration, not code.
@@ -44,7 +49,7 @@ export function LogSheetRecordView({
   // department issues in Gujarati reads in English while English is chosen
   // (REQUIREMENTS §58, i18n/documentText.ts). The KEYS never change, so what a
   // record holds is untouched either way.
-  const { lang } = useAppStore();
+  const { lang, version } = useAppStore();
   // The layout THIS RECORD was filled on: the format as it stands, or — for a
   // page kept on a revision the format has since replaced — that revision's
   // own boxes and columns (REQUIREMENTS §74).
@@ -64,9 +69,31 @@ export function LogSheetRecordView({
   // walked again for a render that changed nothing in it.
   const stored = record.data;
   const data = React.useMemo(() => withComputedCells(doc.id, stored ?? { header: {}, rows: [] }), [doc.id, stored]);
-  const employees = masterRepository.get().employees;
-  // Once per render, not once per cell (a 58 x 25 sheet asked for it 1,450 times).
+  // Read when the store moves on, not on every render: a keystroke is a render,
+  // and typing into F/SYS/01's 173 lines read the master data from storage on
+  // every key (REQUIREMENTS §76). The store's version moves with every change
+  // made here or pulled from the server, so a name added to Master Data on
+  // another computer is offered here too. One array for the whole sheet also
+  // lets each line skip a render it does not need.
+  const employees = React.useMemo(() => masterRepository.get().employees, [doc.id, version]);
   const employeeNames = React.useMemo(() => employees.map((e) => e.name), [employees]);
+  // THE SAME HANDLERS ON EVERY RENDER (REQUIREMENTS §76). A line or a box is
+  // drawn again only when what it shows changes (SheetRow, SheetBox below): a
+  // keystroke in one cell of a 173-line register redraws that line, not 1,557
+  // boxes — every one of which the browser then laid out again. These forward to
+  // the latest handlers, which are set further down on every render.
+  const handlers = React.useRef<{
+    setCell: (rowId: string, key: string, value: string | number | null) => void;
+    setHeader: (key: string, value: string) => void;
+    fillFromName: (rowId: string | null, value: string) => void;
+    fillFromMachine: (rowId: string | null, value: string) => void;
+    removeRow: (rowId: string) => void;
+  } | null>(null);
+  const onCell = React.useCallback((rowId: string, key: string, value: string | number | null) => handlers.current?.setCell(rowId, key, value), []);
+  const onBox = React.useCallback((key: string, value: string) => handlers.current?.setHeader(key, value), []);
+  const onPersonBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromName(rowId, value), []);
+  const onMachineBlur = React.useCallback((rowId: string | null, value: string) => handlers.current?.fillFromMachine(rowId, value), []);
+  const onRemoveRow = React.useCallback((rowId: string) => handlers.current?.removeRow(rowId), []);
   // Before the early return below: a hook called only on some renders breaks
   // React ("rendered fewer hooks than expected") the moment this component is
   // reused for a document without a layout.
@@ -76,6 +103,36 @@ export function LogSheetRecordView({
   const [showReference, setShowReference] = React.useState(false);
   // A long sheet shows its first lines at once and the rest a batch at a time (utils/useProgressive.ts).
   const rowsShown = useProgressiveCount(data.rows.length, 25, 40);
+  // A LONG REGISTER OPEN FOR WRITING DRAWS ONLY THE LINES NEAR THE SCREEN
+  // (REQUIREMENTS §76). Every box the browser draws is work on every keystroke,
+  // wherever it is: typing into F/SYS/01's 173 lines of nine boxes cost a slow
+  // laptop a fifth of a second a key with all of them drawn. A line more than
+  // about thirty lines off the screen is marked is-far and not drawn
+  // (styles.css); it keeps its place, its boxes and what they hold, and is
+  // drawn again before it scrolls into sight. Printing and the downloads
+  // (utils/documentExport.ts) take every line.
+  const bodyRef = React.useRef<HTMLTableSectionElement | null>(null);
+  const drawNear = editable && rowsShown > DRAW_NEAR_FROM;
+  // Which lines there are — a new line, or a sheet whose lines were all
+  // replaced, is watched afresh. Not the rows themselves: a keystroke makes
+  // new ones.
+  const lineIds = React.useMemo(() => data.rows.map((r) => r.id).join("\u0001"), [data.rows]);
+  React.useEffect(() => {
+    const body = bodyRef.current;
+    if (!drawNear || !body || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) e.target.classList.toggle("is-far", !e.isIntersecting);
+      },
+      { rootMargin: DRAW_NEAR_MARGIN }
+    );
+    const lines = Array.from(body.rows);
+    for (const tr of lines) io.observe(tr);
+    return () => {
+      io.disconnect();
+      for (const tr of lines) tr.classList.remove("is-far");
+    };
+  }, [drawNear, rowsShown, lineIds]);
 
   if (!layout) {
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
@@ -143,6 +200,8 @@ export function LogSheetRecordView({
     if (!eqLink || eqLink.where !== "header" || !eqLink.fields.some((x) => x.key === key)) return undefined;
     return eqFetching && eqLink.idField === key ? "equipment-machines" : "";
   };
+  // What the stable handlers above forward to: this render's, which hold this render's data.
+  handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, removeRow };
 
   const mode = layout.rowMode;
   const qcForm = departmentOfDocument(doc.id, doc.formatNo) === "QC";
@@ -224,16 +283,16 @@ export function LogSheetRecordView({
                   const machineList = machineHeaderList(f.key);
                   const machineIdBox = eqFetching && eqLink?.where === "header" && eqLink.idField === f.key;
                   return (
-                    <HeaderFieldInput
+                    <SheetBox
                       key={f.key}
                       field={f}
                       issuedLabel={issued?.headerFields[fi]?.label ?? f.label}
                       value={data.header?.[f.key] ?? ""}
                       editable={editable}
-                      onChange={(v) => setHeader(f.key, v)}
+                      onBox={onBox}
                       employees={employeeNames}
                       list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : (lists?.[f.key] ?? f.list)}
-                      onBlur={personBox ? (v) => fillFromName(null, v) : machineIdBox ? (v) => fillFromMachine(null, v) : undefined}
+                      onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : undefined}
                     />
                   );
                 })}
@@ -257,7 +316,7 @@ export function LogSheetRecordView({
 
       {hasGrid && (
       <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
-        <table className="compact log-sheet">
+        <table className={editable ? "compact log-sheet is-editing" : "compact log-sheet"}>
           <thead>
             <tr>
               <th style={{ width: 44 }} rowSpan={headRows}>
@@ -287,7 +346,7 @@ export function LogSheetRecordView({
               </tr>
             )}
           </thead>
-          <tbody>
+          <tbody ref={bodyRef}>
             {data.rows.length === 0 && (
               <tr>
                 <td colSpan={layout.columns.length + 2} className="text-muted text-center" style={{ padding: 16 }}>
@@ -296,51 +355,25 @@ export function LogSheetRecordView({
               </tr>
             )}
             {data.rows.slice(0, rowsShown).map((row, i) => (
-              <tr key={row.id}>
-                <td className="text-muted">{i + 1}</td>
-                {layout.columns.map((c, ci) => {
-                  // A line the form prints blank (F/HR/05's two spare topic lines)
-                  // has nothing fixed in it, so it is written in like any cell.
-                  const printedBlank = c.fixed && mode.kind === "fixedRows" && mode.rows[i] !== undefined && String(mode.rows[i][c.key] ?? "") === "";
-                  const col = printedBlank ? { ...c, fixed: false } : c;
-                  return (
-                    <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
-                      <CellInput
-                        col={col}
-                        issuedLabel={issued?.columns[ci]?.label ?? c.label}
-                        // A printed cell — the parameter, the material, the specification
-                        // the form prints down its side — reads in the chosen language;
-                        // a written one reads exactly as it was written.
-                        value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
-                        editable={editable && !col.fixed && !col.computed}
-                        onChange={(v) => setCell(row.id, c.key, v)}
-                        employees={employeeNames}
-                        list={
-                          fetching && link?.where === "rows" && link.nameField === c.key
-                            ? "hr-master-people"
-                            : eqFetching && eqLink?.where === "rows" && eqLink.idField === c.key
-                              ? "equipment-machines"
-                              : (lists?.[c.key] ?? c.list)
-                        }
-                        onBlur={
-                          fetching && link?.where === "rows" && link.nameField === c.key
-                            ? (v) => fillFromName(row.id, v)
-                            : eqFetching && eqLink?.where === "rows" && eqLink.idField === c.key
-                              ? (v) => fillFromMachine(row.id, v)
-                              : undefined
-                        }
-                      />
-                    </td>
-                  );
-                })}
-                {canRemoveRows && (
-                  <td>
-                    <button className="btn btn-ghost btn-sm btn-icon" onClick={() => removeRow(row.id)} title="Remove row">
-                      <FiTrash2 size={13} />
-                    </button>
-                  </td>
-                )}
-              </tr>
+              <SheetRow
+                key={row.id}
+                row={row}
+                index={i}
+                columns={layout.columns}
+                issuedColumns={issued?.columns}
+                fixedRow={mode.kind === "fixedRows" ? mode.rows[i] : undefined}
+                editable={editable}
+                lang={lang}
+                employees={employeeNames}
+                lists={lists}
+                personKey={fetching && link?.where === "rows" ? link.nameField : undefined}
+                machineKey={eqFetching && eqLink?.where === "rows" ? eqLink.idField : undefined}
+                canRemove={canRemoveRows}
+                onCell={onCell}
+                onPersonBlur={onPersonBlur}
+                onMachineBlur={onMachineBlur}
+                onRemove={onRemoveRow}
+              />
             ))}
           </tbody>
         </table>
@@ -357,13 +390,13 @@ export function LogSheetRecordView({
           <div className="card-pad">
             <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 16px" }}>
               {layout.footerFields.map((f, fi) => (
-                <HeaderFieldInput
+                <SheetBox
                   key={f.key}
                   field={f}
                   issuedLabel={issued?.footerFields?.[fi]?.label ?? f.label}
                   value={data.header?.[f.key] ?? ""}
                   editable={editable}
-                  onChange={(v) => setHeader(f.key, v)}
+                  onBox={onBox}
                   employees={employeeNames}
                   list={lists?.[f.key] ?? f.list}
                 />
@@ -417,6 +450,130 @@ function ColumnHead({ col, rowSpan }: { col: LogColumn; rowSpan?: number }) {
   );
 }
 
+/**
+ * ONE LINE OF THE GRID, drawn again only when that line changes (REQUIREMENTS
+ * §76). Everything it is handed is either the line itself — a new object only
+ * when one of its cells was written — or the same on every render: the layout's
+ * columns, the handlers (which carry the line's id when they are called), the
+ * employee names. So a keystroke in one cell of F/SYS/01's 173 lines redraws one
+ * line, where it used to redraw every box on the sheet and the browser then laid
+ * all 1,557 of them out again: 900 ms a keystroke on a slow laptop.
+ */
+const SheetRow = React.memo(function SheetRow({
+  row,
+  index,
+  columns,
+  issuedColumns,
+  fixedRow,
+  editable,
+  lang,
+  employees,
+  lists,
+  personKey,
+  machineKey,
+  canRemove,
+  onCell,
+  onPersonBlur,
+  onMachineBlur,
+  onRemove,
+}: {
+  row: LogSheetRow;
+  index: number;
+  columns: LogColumn[];
+  issuedColumns: LogColumn[] | undefined;
+  /** The line the form prints here, on a form that prints its lines. */
+  fixedRow: Record<string, string | number | null> | undefined;
+  editable: boolean;
+  lang: Parameters<typeof documentTextIn>[1];
+  employees: string[];
+  lists?: Record<string, string>;
+  /** The column that names a person HR Master Data can fill a line from (REQUIREMENTS §53). */
+  personKey?: string;
+  /** The column that names a machine the equipment master can fill a line from (REQUIREMENTS §74). */
+  machineKey?: string;
+  canRemove: boolean;
+  onCell: (rowId: string, key: string, value: string | number | null) => void;
+  onPersonBlur: (rowId: string | null, value: string) => void;
+  onMachineBlur: (rowId: string | null, value: string) => void;
+  onRemove: (rowId: string) => void;
+}) {
+  return (
+    <tr>
+      <td className="text-muted">{index + 1}</td>
+      {columns.map((c, ci) => {
+        // A line the form prints blank (F/HR/05's two spare topic lines)
+        // has nothing fixed in it, so it is written in like any cell.
+        const printedBlank = c.fixed && fixedRow !== undefined && String(fixedRow[c.key] ?? "") === "";
+        const col = printedBlank ? { ...c, fixed: false } : c;
+        return (
+          <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
+            <CellInput
+              col={col}
+              issuedLabel={issuedColumns?.[ci]?.label ?? c.label}
+              // A printed cell — the parameter, the material, the specification
+              // the form prints down its side — reads in the chosen language;
+              // a written one reads exactly as it was written.
+              value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
+              editable={editable && !col.fixed && !col.computed}
+              onChange={(v) => onCell(row.id, c.key, v)}
+              employees={employees}
+              list={personKey === c.key ? "hr-master-people" : machineKey === c.key ? "equipment-machines" : (lists?.[c.key] ?? c.list)}
+              onBlur={personKey === c.key ? (v) => onPersonBlur(row.id, v) : machineKey === c.key ? (v) => onMachineBlur(row.id, v) : undefined}
+            />
+          </td>
+        );
+      })}
+      {canRemove && (
+        <td>
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => onRemove(row.id)} title="Remove row">
+            <FiTrash2 size={13} />
+          </button>
+        </td>
+      )}
+    </tr>
+  );
+});
+
+/**
+ * One box above or below the grid, drawn again only when its own value changes
+ * (REQUIREMENTS §76) — F/SYS/04's eighty boxes are not redrawn for a keystroke in
+ * its objectives table. The handlers are the sheet's stable ones and are handed
+ * the box's key when they are called.
+ */
+const SheetBox = React.memo(function SheetBox({
+  field,
+  issuedLabel,
+  value,
+  editable,
+  onBox,
+  employees,
+  list,
+  onBoxBlur,
+}: {
+  field: LogHeaderField;
+  issuedLabel: string;
+  value: string;
+  editable: boolean;
+  onBox: (key: string, value: string) => void;
+  employees: string[];
+  list?: string;
+  /** The person or machine fetch a box offers when it is left (REQUIREMENTS §53, §74); called with no line. */
+  onBoxBlur?: (rowId: string | null, value: string) => void;
+}) {
+  return (
+    <HeaderFieldInput
+      field={field}
+      issuedLabel={issuedLabel}
+      value={value}
+      editable={editable}
+      onChange={(v) => onBox(field.key, v)}
+      employees={employees}
+      list={list}
+      onBlur={onBoxBlur ? (v) => onBoxBlur(null, v) : undefined}
+    />
+  );
+});
+
 function HeaderFieldInput({
   field,
   issuedLabel,
@@ -441,9 +598,10 @@ function HeaderFieldInput({
   // A box that names a PERSON offers the employee names. "Machine Name:",
   // "Name of Equipment:" and "EQUIPMENT NAME" name a machine (REQUIREMENTS §74),
   // and offering them the people on the payroll put a person's name one tap
-  // away from a machine's box.
+  // away from a machine's box. "Sign" is a word of its own: "Designation" holds
+  // a post, not a person (REQUIREMENTS §76).
   const isName =
-    /operator|name|inspected|person|sign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name|machine|equipment|equipoment/i.test(issuedLabel);
+    /operator|name|inspected|person|\bsign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name|machine|equipment|equipoment/i.test(issuedLabel);
   // A block of prose is its own kind of box: it takes the width of the row it
   // sits in and grows with what is written (REQUIREMENTS §68).
   if (field.type === "paragraph") {
@@ -502,9 +660,15 @@ function HeaderFieldInput({
  * block is on the paper with no scrollbar cutting it off. A record that cannot
  * be written on shows the block as text, exactly as it was written.
  */
+const SIZES_ITSELF = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("field-sizing", "content");
+
 function ParagraphInput({ value, editable, onChange }: { value: string; editable: boolean; onChange: (v: string) => void }) {
   const box = React.useRef<HTMLTextAreaElement | null>(null);
   React.useLayoutEffect(() => {
+    // A browser that sizes the box to its words by itself (styles.css,
+    // field-sizing) is left to: measuring every box in turn made opening a form
+    // of 37 of them for Edit wait on 37 layouts (REQUIREMENTS §76).
+    if (SIZES_ITSELF) return;
     const el = box.current;
     if (!el) return;
     el.style.height = "auto";
@@ -582,7 +746,24 @@ function CellInput({
       </select>
     );
   }
-  const isSign = !!col.autoFill?.sign || /sign|by$/i.test(issuedLabel);
+  // A cell of several lines — a bulleted observation, a requirement's text —
+  // is written in a box that keeps its line breaks (REQUIREMENTS §76). It is
+  // sized by the stylesheet (field-sizing) and its line count, never measured
+  // in a layout effect: a checklist of 150 such cells would otherwise force 150
+  // reflows as it opened on a slow laptop.
+  if (col.multiline && col.type === "text") {
+    const written = typeof value === "string" ? value : value === null || value === undefined ? "" : String(value);
+    return (
+      <textarea
+        className="input input-sm input-cell-multiline"
+        rows={Math.min(8, Math.max(2, written.split("\n").length))}
+        value={written}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
+      />
+    );
+  }
+  const isSign = !!col.autoFill?.sign || /\bsign|by$/i.test(issuedLabel);
   return (
     <input
       type={col.type === "time" ? "time" : col.type === "date" ? "date" : "text"}

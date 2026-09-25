@@ -12,6 +12,10 @@ import { SEED_QC_REGISTER_RECORDS } from "./qcRegisterRecords";
 import { SEED_QC_COA_RECORDS } from "./qcCoaRecords";
 import { SEED_QC_REPORT_RECORDS } from "./qcReportRecords";
 import { SEED_MNT_RECORDS } from "./maintenanceRecords";
+import { SEED_SYS_DOCUMENT_CONTROL_RECORDS } from "./sysDocumentControlRecords";
+import { SEED_SYS_MANAGEMENT_REVIEW_RECORDS } from "./sysManagementReviewRecords";
+import { SEED_SYS_INTERNAL_AUDIT_RECORDS } from "./sysInternalAuditRecords";
+import { SEED_SYS_HARA_TRACEABILITY_RECORDS } from "./sysHaraTraceabilityRecords";
 
 const now = new Date().toISOString();
 
@@ -222,4 +226,12 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   // Maintenance's pages supplied filled in on 24-Sep-2026 (REQUIREMENTS §74): the
   // equipment list, and the two lux rounds — the older kept on its own revision.
   ...(SEED_MNT_RECORDS as RecordInstance[]),
+  // The PSTL's own pages, supplied filled in on 25-Sep-2026 (REQUIREMENTS §76):
+  // the two master lists, the July 2025 management review, the internal audit
+  // of February 2025, the HARA verifications, the site security assessment, the
+  // three mock product withdrawals and the two traceability tests.
+  ...(SEED_SYS_DOCUMENT_CONTROL_RECORDS as RecordInstance[]),
+  ...(SEED_SYS_MANAGEMENT_REVIEW_RECORDS as RecordInstance[]),
+  ...(SEED_SYS_INTERNAL_AUDIT_RECORDS as RecordInstance[]),
+  ...(SEED_SYS_HARA_TRACEABILITY_RECORDS as RecordInstance[]),
 ];

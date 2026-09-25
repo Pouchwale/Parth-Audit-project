@@ -153,6 +153,28 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "mnt-new-equipment": "MNT", // F/MNT/08
   "mnt-glass-breakage": "MNT", // F/MNT/09
   "mnt-lux-level": "MNT", // F/MNT/11
+
+  // --- System / Management (REQUIREMENTS §76). Their numbers give the
+  // department already; listed so the activity log, which names a document by
+  // its id alone, files their lines under SYS as well.
+  "sys-document-list": "SYS", // F/SYS/01
+  "sys-format-list": "SYS", // F/SYS/02
+  "sys-document-change": "SYS", // F/SYS/03
+  "sys-mrm-record": "SYS", // F/SYS/04
+  "sys-mrm-agenda": "SYS", // F/SYS/04-A
+  "sys-audit-schedule": "SYS", // F/SYS/05
+  "sys-audit-plan": "SYS", // F/SYS/06
+  "sys-audit-risk": "SYS", // F/SYS/07
+  "sys-audit-findings": "SYS", // F/SYS/08
+  "sys-audit-nc": "SYS", // F/SYS/10
+  "sys-nc-car": "SYS", // F/SYS/11
+  "sys-hara-monthly": "SYS", // F/SYS/12
+  "sys-mock-recall": "SYS", // F/SYS/13
+  "sys-backward-trace": "SYS", // F/SYS/14
+  "sys-forward-trace": "SYS", // F/SYS/15
+  "sys-objectives": "SYS", // F/SYS/16
+  "sys-site-security": "SYS", // F/SYS/17
+  "sys-hara-annual": "SYS", // F/SYS/20
 };
 
 /**

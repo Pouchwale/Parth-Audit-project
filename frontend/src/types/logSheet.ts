@@ -64,6 +64,13 @@ export interface LogColumn {
   decimals?: number;
   /** As on a header box: the id of the <datalist> this column's cells offer (REQUIREMENTS §74). */
   list?: string;
+  /**
+   * A cell that holds SEVERAL LINES — a bulleted observation, a requirement's
+   * full text (REQUIREMENTS §76). It is written in a box that keeps its line
+   * breaks and grows with what it holds; a one-line box would join the lines
+   * the moment somebody typed into it.
+   */
+  multiline?: boolean;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
   //   dueDate → sign → nominal (random reading inside the band) → carryForward
   //   (copy the template value exactly) → jitter (template value ± jitter%) →
@@ -92,6 +99,12 @@ export interface LogColumn {
     // on one day (REQUIREMENTS §74). Copying the previous sheet's date instead
     // would put last year's date on this year's readings.
     dueDate?: boolean;
+    // A JUDGEMENT MADE AFRESH EACH TIME — an audit's Compliance / NC, a
+    // verification's C / NC, an assessment's observation, a month's actual
+    // (REQUIREMENTS §76). It is never copied from the last sheet or from the
+    // specimen: carried forward, the assistant would write last year's audit
+    // findings into an audit that has not happened yet. Left for the person.
+    fresh?: boolean;
   };
 }
 

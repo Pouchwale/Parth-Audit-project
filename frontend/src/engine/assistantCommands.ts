@@ -57,7 +57,7 @@ const PRINT_RE = /\b(print|printout|take a print)\b/i;
 // ---- filling a whole document -------------------------------------------------
 // Words that ask for invented-but-realistic values. "test" on its own is not
 // one — "leak test is fail" is a real reading — so only "test data" counts.
-const SAMPLE_WORDS_RE = /\b(sample|dummy|fake|demo|example|random|realistic|made[- ]up|placeholder|mock|synthetic|fictitious|test (?:data|values|entries|record|records))\b/i;
+const SAMPLE_WORDS_RE = /\b(sample|dummy|fake|demo|example|random|realistic|made[- ]up|placeholder|mock(?!\s+(?:product\s+)?(?:recall|withdrawal))|synthetic|fictitious|test (?:data|values|entries|record|records))\b/i;
 const FILL_VERB_RE = /\b(fill|filled|complete|populate|generate|prepare|draft|auto-?fill|autofill)\b/i;
 // "generate" / "auto-fill" mean "produce it for me" even without a sample word.
 const GENERATE_RE = /\b(generate|auto-?fill|autofill)\b/i;

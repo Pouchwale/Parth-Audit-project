@@ -143,6 +143,17 @@ The app behaves like a personal assistant rather than a blank form:
   days — and raises it once a week per person or department: in the bell, the day's notification, the Performance
   page and Mitra, with a digest of each week on the next week's first working day. The **Activity Log is kept for ever**, append-only in the database
   itself, and archived only when the super admin chooses to.
+- **A System / Management (SYS) module** (REQUIREMENTS §76), first in the sidebar where the company's master list puts
+  F/SYS: the Product Safety Team Leader's eighteen formats — the Master Lists of Documents and of Formats & Records,
+  document change, the management review with its agenda and the quality & product safety objectives, the internal
+  audit from its yearly schedule, plan and risk assessment to the clause-by-clause checklist and the NC report, the
+  NC & corrective action report, the monthly and annual HARA verifications, the site security risk assessment, and
+  the backward and forward traceability tests and mock product withdrawals. Verbatim to the last misspelling, with
+  every supplied page on file as a record and shown beside its form. **Every one is editable** — Edit reopens a
+  verified record, Edit format changes the format itself. F/SYS/07 works out its own audit frequency; Mitra prepares a
+  new checklist without last time's findings; and the Insights read the PSTL's records together — the mock withdrawals
+  and traceability tests more than a year old, an audit NC never verified closed or never reported, a traceability test
+  dated out of its own order.
 - **A Maintenance module** (REQUIREMENTS §74): the eight F/MNT formats the department supplied, verbatim to the
   last misspelling ("Equipoment", "Monthaly", "BREKAGE", "VARIFIED"). **F/MNT/01, the list of 43 machines, is the
   equipment master** — the preventive maintenance record, the daily health sheet and the breakdown register fetch a

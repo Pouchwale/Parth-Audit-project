@@ -236,7 +236,10 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
 - /dashboard — the home/overview screen
 - /library — Document Library, every controlled document
 - /library/{moduleSlug} — Document Library filtered to one module. moduleSlug is the module name,
-  lowercased, non-letters/digits turned into single hyphens: "human-resources" (the Human Resources module — HR's
+  lowercased, non-letters/digits turned into single hyphens: "system-management" (the System / Management module —
+  the PSTL's eighteen F/SYS formats: the master lists, document change, the management review and the objectives,
+  the internal audit, corrective action, HARA verification, site security, traceability and mock withdrawals),
+  "human-resources" (the Human Resources module — HR's
   sixteen F/HR formats and the pest control file), "lamination-quality-control",
   "lamination-production", "maintenance" (the Maintenance module — the eight F/MNT formats: the equipment list,
   preventive maintenance, daily machine health, breakdowns, glass breakage and lux levels), "purchase" (the Purchase
@@ -265,7 +268,10 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   pur-supplier-audit-report, pur-approved-suppliers, pur-supplier-performance,
   pur-service-provider-performance, str-incoming-material-vehicle, str-sharp-metal-objects,
   disp-safe-transporter-agreement, disp-container-stuffing, mnt-equipment-list, mnt-new-equipment, mnt-pm-record,
-  mnt-yearly-pm-schedule, mnt-daily-health, mnt-breakdown-record, mnt-glass-breakage, mnt-lux-level).
+  mnt-yearly-pm-schedule, mnt-daily-health, mnt-breakdown-record, mnt-glass-breakage, mnt-lux-level,
+  sys-document-list, sys-format-list, sys-document-change, sys-mrm-agenda, sys-mrm-record, sys-objectives,
+  sys-audit-schedule, sys-audit-plan, sys-audit-risk, sys-audit-findings, sys-audit-nc, sys-nc-car,
+  sys-hara-monthly, sys-hara-annual, sys-site-security, sys-backward-trace, sys-forward-trace, sys-mock-recall).
   Use it whenever the user asks for the documents / records /
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
@@ -297,7 +303,18 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   Breakage Monitoring) and mnt-lux-level (F/MNT/11 Lux Level Measurement Record); for "the maintenance documents" as a
   whole use /library/maintenance. The Store formats are str-incoming-material-vehicle (F/STR/01) and
   str-sharp-metal-objects (F/STR/02); the Dispatch formats are disp-safe-transporter-agreement (F/DISP/01) and
-  disp-container-stuffing (F/DISP/02)
+  disp-container-stuffing (F/DISP/02). The System / Management formats open here as well: sys-document-list
+  (F/SYS/01 Master List of Documents), sys-format-list (F/SYS/02 Master List of Formats & Records),
+  sys-document-change (F/SYS/03 Document Change Request & Approval Note), sys-mrm-agenda (F/SYS/04-A the management
+  review's agenda and notice), sys-mrm-record (F/SYS/04 Management Review Meeting Record), sys-objectives (F/SYS/16
+  Quality & Product Safety Objectives), sys-audit-schedule (F/SYS/05 Yearly Internal Audit Schedule), sys-audit-plan
+  (F/SYS/06 Internal Audit Schedule & Plan), sys-audit-risk (F/SYS/07 Internal Audit Risk Assessment),
+  sys-audit-findings (F/SYS/08 Internal Audit Findings / Observation Report — the audit checklist), sys-audit-nc
+  (F/SYS/10 Internal Audit NC Report), sys-nc-car (F/SYS/11 Non-Conformance & Corrective Action Report),
+  sys-hara-monthly (F/SYS/12 Monthly Review & HARA Verification), sys-hara-annual (F/SYS/20 Annual HARA Review),
+  sys-site-security (F/SYS/17 Site Security Risk Assessment), sys-backward-trace (F/SYS/14 Backward Traceability),
+  sys-forward-trace (F/SYS/15 Forward Traceability) and sys-mock-recall (F/SYS/13 Mock Product Withdrawal Record);
+  for "the system documents" as a whole use /library/system-management
 - /insights — Insights: what the plant's records show when read together (readings out of band or drifting, the
   same lot deviation again, CAPA not effective or overdue, expired calibration, a supplier graded C, lux falls,
   breakdowns per machine, glass breakage, missed daily health checks, PM slipping). Use it for "anything unusual",
@@ -460,7 +477,7 @@ Screens you may send the person to (use EXACTLY these shapes; navigate only when
 - /performance — the Performance Scorecard: on time, late and never done, by person, department, module and document
 - /reports/{year}/{month0}/{tab} — a month's Reports; month0 is 0-based (January=0); tab is monthly, summary (the Management Summary: the month in plain English for management), daily, rodent, lizard, flycatcher, training or lamination
 - /qc — Quality Control's overview of its formats; /hr — Human Resources' formats
-- /library/{moduleSlug} — one module's documents: human-resources, lamination-quality-control, lamination-production, maintenance, purchase, store, dispatch, quality-control-inspection-records, quality-compliance
+- /library/{moduleSlug} — one module's documents: system-management, human-resources, lamination-quality-control, lamination-production, maintenance, purchase, store, dispatch, quality-control-inspection-records, quality-compliance
 - /document/{documentId} — one format's page, e.g. mnt-breakdown-record (F/MNT/06), mnt-lux-level (F/MNT/11), mnt-yearly-pm-schedule (F/MNT/03), mnt-glass-breakage (F/MNT/09), mnt-equipment-list (F/MNT/01), pur-supplier-performance (F/PUR/05), pur-service-provider-performance (F/PUR/06), qc-viscosity (F-QC-30)
 - /files/{scope}/{from}/{to} — every record of "all", a moduleSlug or comma-separated document ids, filed between two ISO dates
 - /gap/internal — internal CAPA findings; /gap/external — customer complaints

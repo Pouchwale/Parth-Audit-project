@@ -47,8 +47,12 @@ export function RecordActionBar({
   onCancelCorrection?: () => void;
   /** The status it will go back to (what it was reopened from). */
   correctionFromStatus?: RecordStatus;
-  /** How much has been changed since Edit — 0 asks nothing, anything else confirms first. */
-  correctionChangeCount?: number;
+  /**
+   * How much has been changed since Edit — 0 asks nothing, anything else
+   * confirms first. A function is asked only when Cancel edit is pressed, so a
+   * long register is not compared cell by cell on every keystroke (REQUIREMENTS §76).
+   */
+  correctionChangeCount?: number | (() => number);
   onPrint: () => void;
   /** Download Excel / Word beside Print (components/common/DownloadDocumentButton.tsx). */
   download?: React.ReactNode;
@@ -64,7 +68,8 @@ export function RecordActionBar({
   const [deleteReason, setDeleteReason] = useState("");
   const [correcting, setCorrecting] = useState(false);
   const [correctionReason, setCorrectionReason] = useState("");
-  const [cancellingCorrection, setCancellingCorrection] = useState(false);
+  // The count of changes the Cancel edit question names, taken when it was pressed; null while it is not asked.
+  const [cancellingCorrection, setCancellingCorrection] = useState<number | null>(null);
 
   const editableStatuses: RecordStatus[] = ["Scheduled", "Due", "In Progress"];
   const verifiableStatuses: RecordStatus[] = ["Submitted", "Pending Verification"];
@@ -97,7 +102,11 @@ export function RecordActionBar({
           className="btn btn-secondary"
           data-action="cancel-correction"
           title={t("record.cancelCorrectionTitle")}
-          onClick={() => (correctionChangeCount > 0 ? setCancellingCorrection(true) : onCancelCorrection())}
+          onClick={() => {
+            const changed = typeof correctionChangeCount === "function" ? correctionChangeCount() : correctionChangeCount;
+            if (changed > 0) setCancellingCorrection(changed);
+            else onCancelCorrection();
+          }}
         >
           <FiX size={14} /> {t("record.cancelCorrection")}
         </button>
@@ -197,20 +206,20 @@ export function RecordActionBar({
         </Modal>
       )}
 
-      {cancellingCorrection && onCancelCorrection && (
+      {cancellingCorrection !== null && onCancelCorrection && (
         <Modal
           title={t("record.cancelCorrectionTitle")}
-          onClose={() => setCancellingCorrection(false)}
+          onClose={() => setCancellingCorrection(null)}
           footer={
             <div className="flex justify-end gap-2 w-full">
-              <button className="btn btn-secondary" onClick={() => setCancellingCorrection(false)}>
+              <button className="btn btn-secondary" onClick={() => setCancellingCorrection(null)}>
                 {t("record.keepEditing")}
               </button>
               <button
                 className="btn btn-primary"
                 data-action="confirm-cancel-correction"
                 onClick={() => {
-                  setCancellingCorrection(false);
+                  setCancellingCorrection(null);
                   onCancelCorrection();
                 }}
               >
@@ -220,7 +229,7 @@ export function RecordActionBar({
           }
         >
           <p className="text-sm">
-            {t("record.cancelCorrectionBody", { count: String(correctionChangeCount), status: correctionFromStatus ?? "" })}
+            {t("record.cancelCorrectionBody", { count: String(cancellingCorrection), status: correctionFromStatus ?? "" })}
           </p>
         </Modal>
       )}

@@ -4246,6 +4246,187 @@ per-person tally reads a day-by-day copy of the log (`activity_daily`) for close
 last two: at a million lines "Everything" went from 1.7 s to 0.13 s, with identical counts, and the copy is checked
 against the lines before each day is added.
 
+## 76. The System / Management module — the PSTL's own formats, every one editable, and read together (25-Sep-2026)
+
+```
+REQUESTED            "You have to create new module called SYS so always keep Edit option fast, perfectly without any
+                      error" — with twenty-one PDFs of the F/SYS formats attached
+SUPPLIED             source-documents/F-SYS-*.pdf (and "Copy of F-SYS-07…"): F/SYS/01, 02, 03, 04, 04-A, 05 (2024 and
+                      2025), 06, 07, 08, 10, 11, 12, 13 (label, sleeve, pouch), 14, 15, 16, 17 and 20 — and the company's
+                      own workbooks of the two master lists, F-SYS-01 and F-SYS-02 (R-2025).xlsx; every page that carries
+                      anything rendered unaltered to frontend/public/source/fsys*.jpg (77 pages)
+DIGITAL TEMPLATE     data/seed/sysDocumentControlLayouts.ts, sysManagementReviewLayouts.ts, sysInternalAuditLayouts.ts,
+                      sysHaraTraceabilityLayouts.ts and their sys*Records.ts; the eighteen definitions in
+                      data/seed/documentDefinitions.ts (SYS_SECTIONS); engine/auditRisk.ts; engine/computedCells.ts;
+                      engine/autoFill.ts (autoFill.fresh); engine/insightRules.ts (S1–S6); components/layout/Sidebar.tsx;
+                      tests/e2e_sys_module.py, frontend/tests/sysModule.test.ts
+```
+
+**1. SYSTEM / MANAGEMENT (SYS) IS A MODULE OF ITS OWN, FIRST IN THE SIDEBAR** — where the company's own Master List of
+Formats & Records puts F/SYS, and because it is the system every other module is controlled and audited through: the
+master lists that say which formats exist, the management review, the internal audit, HARA, traceability. They are the
+Product Safety Team Leader's (PSTL, Ms. Kapila Barad, Manager – QA) — "Reviewed & approved by : PSTL", the master lists
+say — so every one names her role for its signature. The format numbers resolve to the **SYS** department; a Quality
+Control or Maintenance account sees none of them. Its six groups, each format on a page of its own:
+
+| Group | Formats |
+|---|---|
+| Document Control | F/SYS/01 Master List of Documents · F/SYS/02 Master List of Formats & Records · F/SYS/03 Document Change Request & Approval Note |
+| Management Review | F/SYS/04-A the review's Agenda (its notice) · F/SYS/04 Management Review Meeting Record · F/SYS/16 Quality & Product Safety Objectives |
+| Internal Audit | F/SYS/05 Yearly Internal Audit Schedule · F/SYS/06 Internal Audit Schedule & Plan · F/SYS/07 Internal Audit Risk Assessment · F/SYS/08 Internal Audit Findings / Observation Report · F/SYS/10 Internal Audit NC Report |
+| Corrective Action | F/SYS/11 Non-Conformance & Corrective Action Report (CAR) |
+| HARA & Site Security | F/SYS/12 Monthly Review & HARA Verification · F/SYS/20 Annual HARA Review & Verification · F/SYS/17 Site Security Risk Assessment |
+| Traceability & Recall | F/SYS/14 Backward Traceability · F/SYS/15 Forward Traceability · F/SYS/13 Mock Product Withdrawal Record |
+
+F/SYS/09 is not on the master list and was not supplied. F/SYS/04-A and F/SYS/20 print numbers of their own that the
+master list does not hold yet. F/SYS/03 and F/SYS/11 print an empty "Format No.:" box — their numbers are the master
+list's. How often: F/SYS/05, 07, 17 and 20 once a year (1 January — F/SYS/20 prints "Next scheduled review: 1st January
+2027"), F/SYS/12 monthly on the 22nd (the supplied meeting's day; the paper prints none — for the MR to confirm), and the
+rest when they are needed.
+
+**2. EVERY ONE IS EDITABLE — "always keep Edit option".** Each F/SYS format is a log sheet, so each has both Edits the
+portal offers: **Edit** on a record (a verified one is reopened with a reason, changed and handed in again, and its
+history keeps what it said before — §27), and **Edit format** on the format itself, which turns the page into the sheet
+and lets its words, boxes, columns and lines be changed like a spreadsheet (§64). The pages supplied filled in are on
+file as Verified live records, so they open read-only and are corrected with Edit, never typed over. The big sheets
+stay quick on a slow laptop: a verified sheet is drawn as text, not disabled boxes, and a long one — the 173 documents
+of F/SYS/01, the checklist of F/SYS/08 — shows its first lines at once and the rest a batch at a time (§56).
+
+**EDIT IS FAST — "always keep Edit option fast".** Typing into F/SYS/01 reopened with Edit (173 lines of nine boxes,
+some 1,560 boxes) took **900 ms a keystroke** at 6× CPU throttle; it now takes **about 80–110 ms**, near the 63–81 ms
+of a small form, and nothing on the sheet looks or prints any differently. Measured, then mended, one cause at a time:
+- **Only the line typed in is drawn again** (`components/records/LogSheetRecordView.tsx`): each line and each box above
+  and below the grid is a memoised component with the same handlers on every render, the master data is read once per
+  sheet, and the worked-out cells (`engine/computedCells.ts`, `purchaseRatings`, `calibration`, `maintenanceCalc`,
+  `auditRisk`) hand back a line that did not change as the same line — so a keystroke redraws one line, not 173.
+  Counting the changes Cancel edit would throw away is done when Cancel edit is pressed, not on every key.
+- **Only the line typed in is painted again**: each line of a sheet open for writing is a paint layer of its own
+  (`position: relative` on the line, `styles.css`), where the whole sheet was repainted on every key.
+- **Only the lines near the screen are drawn**: on a sheet of more than 60 lines open for writing, a line more than
+  about thirty lines off the screen is not drawn (`visibility: hidden`, set by an IntersectionObserver) — every box the
+  browser draws was work on every keystroke, wherever it was. The line keeps its place, its boxes and what they hold,
+  so nothing moves when it comes back before it scrolls into sight; printing draws every line, and the Excel and Word
+  downloads (`utils/documentExport.ts`) take every line.
+- **The writing stays as sharp as before**: the sidebar is painted above the page's content (`z-index: 1`); without
+  it a sheet wide enough to scroll sideways had all its lines lifted onto a layer of their own and drawn fainter.
+- **Mitra's pill waves without repainting the page**: the ring fades in and out (opacity, on the graphics card),
+  where an animated shadow repainted the whole page every frame for the first five seconds of every page.
+- **A box of prose sizes itself** (`field-sizing: content`) instead of each one being measured in turn: F/SYS/04's 37
+  such boxes opened for Edit after 37 layouts. Browsers without it are measured as before.
+
+**3. VERBATIM, TO THE LAST MISSPELLING** — "Document discription", "Format  discription", "Obsolate", "Was the Mock
+Recall efecctive?", "satisafactory", "Hardner", "ingridents", "PTSL", "Pant Head", "coursed", "Minuts", "Offier" — and
+nothing invented: a value the page does not hold is blank. F/SYS/03 and F/SYS/11 were supplied blank, and their samples
+are plainly made up and say so.
+
+**4. WHERE THE DIGITAL FORM DIFFERS FROM THE PAPER, AND WHY** — one grid per format, the rest boxes above and below it:
+- **F/SYS/16 and F/SYS/05 are turned**: the paper prints two lines per objective or area (Plan / Actual); here each
+  objective or area is ONE line with Plan and Actual side by side under each month, so the grid's own Sr. No. is the
+  paper's, a plan is carried to the next sheet and an actual never is. F/SYS/16's third line for objective 8,
+  "Actual - meters", is a group of its own. A value the sheet writes once across several months (a merged cell) is held
+  in its first month, as Excel itself keeps a merged cell.
+- **F/SYS/06's plan and its AUDIT SUMMARY** are one line per audited function each, so they are one grid, the summary
+  under its own spanning heading.
+- **F/SYS/07's merged section figures** sit on each section's first line, as Excel keeps them.
+- **F/SYS/08's checklist** is a register whose lines the auditor may change — a later audit covers other clauses — carried
+  forward from the last audit without its findings.
+- **F/SYS/15's "1st Issue"** block is one issue: issues are the grid's lines.
+- **F/SYS/04's objectives table** (agenda item 8) is its grid; the eleven agenda items, the attendance and the action
+  items are boxes. F/SYS/14's Description / Observation table is label and value, so each Description is a box.
+- The handwritten Sign columns of attendance and team tables are not typed; the portal's own sign-off is the Verify step.
+
+**5. F/SYS/02 IS THE LIST AS LAST UPDATED.** The PDF supplied is an earlier print of the master list (135 formats). The
+company's own workbook of it (R-2025, updated to 01.09.2026) holds 141: it adds F-MKT-05 and F-MKT-06 — which this system
+already holds — F-PRD-27 to 30 and a third revision of F-QC-40. A. The record on file is the workbook, "Maintain as
+updated"; the print is shown beside it. It settles one question left open in §75: **every format the plant keeps is
+retained three years and then shredded** — which is the activity log archive's default of three years.
+
+**6. F/SYS/07 WORKS OUT ITS OWN SUM AND AUDIT FREQUENCY** (engine/auditRisk.ts, in the one computed-cells pass of §74):
+IQA NC + External NCs, and the frequency the printed criteria give — up to 4 Once / Year, 5 to 15 Twice / Year, 16 or more
+3 times / Year. On the 2024 page it gives back exactly what the page printed, section by section.
+
+**7. A JUDGEMENT IS MADE AFRESH — `autoFill.fresh`.** Until now the assistant copied every cell of a printed checklist from
+the last sheet, so a new audit would have been prepared with the last audit's findings. A column can now be marked
+fresh: an audit's Compliance / NC and comments, a verification's Yes / No and C / NC, an assessment's observation, a
+month's actual. Mitra prepares the printed points, the team and the plans, and leaves every judgement to the person.
+
+**8. THE INSIGHTS READ THE PSTL'S RECORDS TOGETHER — S1 to S6** (engine/insightRules.ts, §75's engine). Every limit is the
+standard's own, printed on the plant's audit checklist (F/SYS/08): the withdrawal procedure tested at least annually
+(3.13.7), traceability tested at least annually (3.11.4), an audit's non-conformities reported with their root cause and
+corrective action (3.5.4).
+
+| Rule | What it finds | On the supplied pages |
+|---|---|---|
+| S1 | a product's mock withdrawal more than a year old (due again on the same date a year on, a leap day between or not; a date still to come is no test done), or none on file for it (high) | LABEL (10.01.2025), Pouch (28.01.2025) and SHRINK SLEEVE (05.02.2025) all overdue |
+| S2 | a backward or forward traceability test more than a year old, counted as S1 (high) | both, of December 2024 |
+| S3 | an internal audit NC report not verified closed past its planned date, or a month after it with none (high after 90 days), saying so when the audit plan's summary marks the clause Closed | Feb -25/02 (4.7.6): its closing verification is empty, while F/SYS/06 marks 4.7.6 Closed |
+| S4 | an NC on the audit checklist — "NC - 01", or in the column's own words, "Non compliance" — with no NC report for its clause | NC - 01 at 4.2.1 (wall painting peeling) has no F/SYS/10 |
+| S5 | a traceability test dated out of its own order: on F/SYS/14 printed, inspected, slit and packed, dispatched, then tested; on F/SYS/15 received, issued, dispatched, then tested | F/SYS/14's printing production date 21.07.2027 — after its dispatch of 23.07.2024 |
+| S6 | an NC at the monthly HARA verification (high) | none — April 2024 answered every question C |
+
+The boxes are found by the words the form prints, so a box renamed with Edit format is still read.
+
+**9. MITRA KNOWS THEM** — by number (F/SYS/04-A included) and by the words the team uses ("mock recall", "backward
+traceability", "management review", "internal audit report" — which, being longer, wins over the supplier audit's
+"audit report"), and the model's route guide lists them.
+
+**Still to confirm with the PSTL / MR:** F/SYS/10's revision date (the paper prints 01.05.2013, the master list
+01.03.23); F/SYS/03's revision (the paper Rev 01, the master list only revision 0); the Rev 01 of F/SYS/14 and 15 dated
+01.04.2025 on the master list, which was not supplied; F/SYS/04-A and F/SYS/20 to be added to the master list; the day
+of the month for F/SYS/12; the note "Not added in project" printed beside F-HR-11 Training Evaluation Record on the print
+of F/SYS/02 — the HR module holds F/HR/11 as the Training Effectiveness Evaluation Record, the number its own paper
+prints; and every discrepancy on the pages listed below.
+
+**10. WHAT THE PAGES THEMSELVES SAY, KEPT AS WRITTEN AND REPORTED** — found while every value was compared with its page:
+- **The internal audit of February 2025 is not closed out on paper.** F/SYS/06's summary marks both minor NCs, 4.2.1 and
+  4.7.6, "Closed"; the only NC report supplied, Feb -25/02 for 4.7.6, has an empty closing verification (no date,
+  verifier, Satisfactory/Unsatisfactory or Closed/Not Closed) and no planned closing date; there is no report at all for
+  NC - 01 at 4.2.1. Neither F/SYS/05 schedule is dated or approved; F/SYS/06's Acknowledge and Verified By are blank.
+  (S3 and S4 say so on the Insights page.)
+- **F/SYS/14 prints a printing production date of 21.07.2027** — after the QC inspection it precedes (21.07.2024) and the
+  dispatch (23.07.2024); and a sales order dated 12.07.2023, a year before its own customer order. Both are kept as
+  printed (S5 flags the first). Its quantities add up: 12000 − 11100 = 900, 11100 − 10330 = 770, and 11 boxes × 10,500 +
+  10,000 + 9,500 = 135,000 in 13 boxes, matching the order and the box number. F/SYS/15's 1970 − 986 = 984 holds too.
+- **F/SYS/13's Pouch page reuses the Sleeve page's response**: its scenario is "smudged printing on the product name",
+  but its Response from Customer describes "missing print on the EAN code in some of the sleeves" — for a pouch roll
+  job. On all three pages **neither Yes nor No is ticked** for "Was the Mock Recall efecctive?" (left blank), and the
+  Signature column is empty. Each Total time agrees with its start and end (1.02 hours, 1 hour 12 minutes, 12 minutes).
+- **F/SYS/20's conclusion** says "Action items noted are minor and already being addressed" while the record notes none
+  (every corrective action "Not required", "No other recommendations"); its new Plant Head and Pouching In charge are not
+  on the review team. It writes the company "PUBLICATIONS" where every other page writes "PUBLICATION", and "GUAJRAT".
+- **F/SYS/17's point 8** is clipped on the page; its full text is taken from the PDF's text layer. Every point is checked
+  on the same day, 01.01.2026.
+- **F/SYS/07's section 4** prints no auditee where 3, 5 and 6 print "Not applicable"; its title says YEAR 2024 while the
+  NC table is headed (2023). Its totals are right (6 internal, 6 external), and the worked-out frequencies are the page's.
+- **F/SYS/08** marks 3.4.4 "Compliance" beside "Not Applicable…"; gives 4.10.5 and 4.10.6 the same unfinished comment
+  ("Such material is shredded & then given to concerned"); and answers 4.11.5 (pest proofing) with "Trend analysis records
+  verified". Its clause shading and bold NC lines are not reproduced.
+- **F/SYS/12's** team table prints 7 lines, **F/SYS/20's** 6; both teams' Sign cells are empty (8 lines are offered).
+- **The management review of 21.07.2025 (F/SYS/04)**: item 7 (resources) is marked "Action required" with no discussion,
+  and the New Action Item Detail is blank, so the action is recorded nowhere; item 1's result is unmarked; item 3 counts 1
+  label complaint for January–June while objective 10 shows 2; item 6 says the sleeve and pouch mock recalls are "planned
+  before 15.02.2025" in a July meeting, though F/SYS/13 shows both done (28.01 and 05.02.2025); item 8 counts 19 of 19
+  objectives achieved above 90% although two are "NA" (new); item 9 names "PSTL (Mr. Vivek)" where every other line names
+  Kapila Barad; item 10 reviews the Issue 6 manual at an Issue 7 review; nobody signed the attendance. Every □ on its nine
+  pages is printed empty, with the result typed beside it.
+- **F/SYS/04-A** prints line 08 with its two cells swapped ("Manager – Store" under Name, "Nalin Darji" under
+  Designation) — kept so; no participant signed; Ajay Vaghela is "Manager – Production & Maintenance" there and
+  "Manager – Production" on F/SYS/04.
+- **F/SYS/16 (2026)**: its own totals do not add up — Breakdown 175 a month but Total 700 (four months), Wastage 7.5 a month
+  but 8.0, Store 0.15 but 0.25, Training 15 and GMP 10 with a Total Plan of 0 — and it prints #DIV/0! for every month of
+  label wastage; the supplier rating's actual still reads "To be collected in December 2024"; only January carries
+  actuals. The file is named 2024-25, the sheet Year 2026. All kept as printed.
+- **F/SYS/01** agrees with its workbook in every cell of all 173 rows. It writes GPPPL/PSMS/M/01 (three Ps) beside
+  GPPL/PSMS/M/02; gives two different documents the number GPPL/PSMS/M/02 - SECTION G; lists "WORK PROCEDURE FOR DCMF
+  MACHINE" twice (WP/18 and WP/20); dates POUCH/SOP/01 15.12.2025 beside its 2024 siblings (for the PSTL to confirm);
+  and holds no date of its own — its latest revision is 15.07.2026, so it is filed under the day it was supplied.
+- **F/SYS/02 — the print against the workbook**, line by line in data/seed/sysDocumentControlLayouts.ts: besides the six
+  formats the print lacks, the workbook has later revisions for F-SYS-14 and 15 (01.04.2025), F-PRD-06 and 07
+  (01.09.2026), F-PRD-26 (23.07.2025), F-QC-40. A (01.07.2026) and F-MNT-11 (15.12.2024); F-PRD-09 and F-PRD-13 swap
+  names between the two; F-HR-20 is "Product Safety Culture Survey" in the workbook and "HARA pri" on the print; F-QC-15 A
+  to G are 16.02.22 in one and 01.12.21 in the other; and F-MNT-09's revisions agree with its own page (Rev 02,
+  01.09.2025) only in the workbook. Both list F-SYS-03, F-SYS-04 and F-MNT-02 at revision 0 while their pages print Rev 01.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -4332,6 +4513,23 @@ against the lines before each day is added.
     follows the forms, which are the controlled copies. The list also names formats not supplied yet:
     F-HR-02 Personnel competence criteria, F-HR-10 Training Imparted Record, F-HR-15 / F-HR-16 the
     cleaning records.
+24. **F/SYS format numbers and revisions** (§76). F/SYS/04-A and F/SYS/20 print numbers the Master List of
+    Formats does not hold yet; F/SYS/03 and F/SYS/11 print an empty "Format No.:" box; F/SYS/03, F/SYS/04 and
+    F-MNT-02 print Rev 01 where the list has revision 0 only; F/SYS/10 prints its revision date as 01.05.2013 where
+    the list gives 01.03.23; the list gives F/SYS/14 and 15 a revision 1 of 01.04.2025, which was not supplied (the
+    pages supplied are on Rev 00).
+25. **Which master list of formats is current** (§76). The PDF of F/SYS/02 supplied on 25-Sep-2026 is an earlier
+    print (135 formats) than the company's own workbook (141, to 01.09.2026). The record on file is the workbook;
+    every difference is listed line by line in `sysDocumentControlLayouts.ts`. The print also carries the note "Not
+    added in project" beside F-HR-11 (see item 23).
+26. **How often the SYS formats fall due** (§76): F/SYS/12 monthly on the 22nd (the supplied meeting's day — the
+    paper prints none); F/SYS/05, 07, 17 and 20 on 1 January; the management review, its notice and the objectives
+    sheet when the PSTL calls them; each product's mock withdrawal and both traceability tests at least yearly (the
+    Insights S1 and S2 watch the twelve months).
+27. **The open points on the SYS pages** (§76 part 10): NC - 01 (4.2.1) and Feb -25/02's closing; F/SYS/14's printing
+    date 21.07.2027 and sales order date 12.07.2023; the Pouch mock withdrawal's response text; the unticked
+    "effective?" boxes; the MRM's item 7 action and item 3 complaint count; F/SYS/16's totals and #DIV/0!;
+    POUCH/SOP/01's date of 15.12.2025.
 
 ## How the assistant pre-fills records (and what it never does)
 

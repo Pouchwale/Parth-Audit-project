@@ -11,6 +11,10 @@ import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
 import { STORE_LAYOUTS } from "./storeLayouts";
 import { MAINTENANCE_LAYOUTS } from "./maintenanceLayouts";
+import { SYS_DOCUMENT_CONTROL_LAYOUTS } from "./sysDocumentControlLayouts";
+import { SYS_MANAGEMENT_REVIEW_LAYOUTS } from "./sysManagementReviewLayouts";
+import { SYS_INTERNAL_AUDIT_LAYOUTS } from "./sysInternalAuditLayouts";
+import { SYS_HARA_TRACEABILITY_LAYOUTS } from "./sysHaraTraceabilityLayouts";
 import { formatEditFor } from "../formatEdits";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
@@ -420,6 +424,14 @@ Object.assign(LOG_SHEET_LAYOUTS, STORE_LAYOUTS);
 // Maintenance's eight formats, supplied 24-Sep-2026 (REQUIREMENTS §74): the
 // equipment master and the seven formats that name a machine or an area.
 Object.assign(LOG_SHEET_LAYOUTS, MAINTENANCE_LAYOUTS);
+// System / Management — the PSTL's own F/SYS formats, supplied 25-Sep-2026
+// (REQUIREMENTS §76): document control, the management review and the
+// objectives, the internal audit and corrective action, HARA verification and
+// site security, and traceability and the mock product withdrawal.
+Object.assign(LOG_SHEET_LAYOUTS, SYS_DOCUMENT_CONTROL_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, SYS_MANAGEMENT_REVIEW_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, SYS_INTERNAL_AUDIT_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, SYS_HARA_TRACEABILITY_LAYOUTS);
 
 // The layout as it stands now: the plant's own change to the format where
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout

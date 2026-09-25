@@ -93,7 +93,12 @@ export function withCalibration<T>(documentId: string | undefined, data: T): T {
   const d = data as unknown as LogSheetData | undefined;
   if (!d || !Array.isArray(d.rows)) return data;
   const tolerance = tolerancePercent(d.header?.acceptableTolerance);
-  const rows = d.rows.map((r) => (documentId === "qc-weight-scale-calibration" ? weightScaleRow(r, tolerance) : gsmRow(r)));
-  const same = rows.every((r, i) => Object.keys(r).every((k) => r[k] === d.rows[i][k]));
+  // A line whose figures are unchanged is handed back as it was, so the sheet
+  // redraws only the line that changed (components/records/LogSheetRecordView.tsx SheetRow).
+  const rows = d.rows.map((r) => {
+    const next = documentId === "qc-weight-scale-calibration" ? weightScaleRow(r, tolerance) : gsmRow(r);
+    return Object.keys(next).every((k) => next[k] === r[k]) ? r : next;
+  });
+  const same = rows.every((r, i) => r === d.rows[i]);
   return same ? data : ({ ...d, rows } as unknown as T);
 }

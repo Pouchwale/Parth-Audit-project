@@ -61,7 +61,23 @@ export const STORE_SECTIONS = ["Incoming Material", "Sharp Tool Control"] as con
 // product. The master list of formats (F/SYS/02) lists F/MNT after the
 // production formats.
 export const MAINTENANCE_SECTIONS = ["Equipment", "Preventive Maintenance", "Equipment Health & Breakdowns", "Glass & Lighting"] as const;
+// System / Management (REQUIREMENTS §76): the PSTL's own F/SYS formats, in the
+// groups the product safety system itself runs in — the documents and formats
+// under control and how one is changed; the management review and the
+// objectives it reviews; the internal audit from its schedule to its NC
+// reports; the corrective action report used for any other non-conformance;
+// the HARA verifications and the site security assessment; and the
+// traceability tests and mock product withdrawals.
+export const SYS_SECTIONS = [
+  "Document Control",
+  "Management Review",
+  "Internal Audit",
+  "Corrective Action",
+  "HARA & Site Security",
+  "Traceability & Recall",
+] as const;
 export const MODULE_SECTIONS: readonly string[] = [
+  ...SYS_SECTIONS,
   ...HR_SECTIONS,
   ...PEST_CONTROL_SECTIONS,
   ...QC_SECTIONS,
@@ -1725,6 +1741,336 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     description:
       "The check made on the container and the vehicle before the plant's product is loaded into it, printed in Gujarati: the seven things to do when the container arrives, the consignment's own details — the customer, the invoice, both purchase order numbers, the driver, the transporter and the vehicle — and the nine-point checklist, each point answered હા or નાં with NA struck out, and any other observation written beside it. It is authorised by the Dispatch In charge for product release and checked and approved by QC. The paper numbers its points 1, 2, 3, 4, 6, 7, 8, 9 — there is no 5.",
     sourceFile: "F-DISP-02_Container stuffing & Vehicle Inspection record.pdf (the blank format, both pages)",
+    schedule: { type: "as-required" },
+  },
+  // ---------------------------------------------------------------------
+  // System / Management — the Product Safety Team Leader's own formats,
+  // F/SYS/01 to F/SYS/20, supplied on 25-Sep-2026 (REQUIREMENTS §76) and
+  // built in data/seed/sys*Layouts.ts. The company's Master List of Formats
+  // & Records puts F/SYS first. F/SYS/09 is not on that list; F/SYS/04-A and
+  // F/SYS/20 print numbers of their own that the list does not hold yet.
+  // ---------------------------------------------------------------------
+  {
+    id: "sys-document-list",
+    kind: "log-sheet",
+    name: "Master List of Documents",
+    formatNo: "F/SYS/01",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Document Control",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The master list of every controlled document the plant holds — the BRCGS Packaging manual and its annexures (the policies), the product safety procedures (PSMS / SOP), the management system procedures (IMS / PRO), the HARA manual's sections, the machine and test work procedures (FLE/PR0/WP, QC/WP), the material specifications (QC/ICM/SPEC), the reference documents (RD) and the department procedures (FLX/SOP, FLX/PRO, POUCH) — each with its document number, its description, how it is controlled (hard copy, SAP or both) and the date of each revision, 0 to 5. It is maintained as updated: a new list starts as a copy of the last one. On file: the list as supplied (R-2025), 173 documents, reviewed and approved by the PSTL.",
+    sourceFile: "F-SYS-01-Master List of Documents. (R-2025)..pdf (as supplied, 5 pages); the company's own original is F-SYS-01-Master List of Documents. (R-2025)..xlsx",
+    // "Maintain as updated" (F/SYS/02): changed whenever a document is, not on a calendar.
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-format-list",
+    kind: "log-sheet",
+    name: "Master List of Formats & Records",
+    formatNo: "F/SYS/02",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Document Control",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The master list of every format and record the plant keeps, department by department — F/SYS, F/MKT, F/PUR, F/STR, F/QC, F/QA, F/PRD, F/MNT, F/HR, F/DISP and the camera challenge test — with each format's number and description, the date of each revision (0 to 3), how it is recorded (hard copy or SAP), how long it is retained and how it is disposed of. Nearly every record is kept three years and then shredded; the two master lists are maintained as updated. On file: the company's workbook as last updated, 141 formats to 01.09.2026. The PDF supplied with it is an earlier print of the same list (135 formats) and is shown beside it.",
+    sourceFile: "F-SYS-02-Master List of Formats. (R-2025)..xlsx (the company's workbook, as last updated); the print supplied with it is F-SYS-02-Master List of Formats. (R-2025)..pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-document-change",
+    kind: "log-sheet",
+    name: "Document Change Request & Approval Note",
+    // The paper's own "Format No.:" box is empty; the number is the master
+    // list's (F-SYS-03) and the file's.
+    formatNo: "F/SYS/03",
+    revisionNo: "01",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Document Control",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The request that has to be approved before a controlled document is changed, a new one introduced or an existing one removed: which of the three it is, the date, the current document's number, revision and date, the document's title, number, new revision and effective date, what changes and why, and who asks for it. The PSTL verifies the request, adds any comments, approves it or not and records the date of approval and implementation — when the master lists (F/SYS/01, F/SYS/02) take the new revision. The paper prints no format number of its own; the number is the master list's. Supplied blank.",
+    sourceFile: "F-SYS-03-Document change request & approval note.pdf (the blank format); the company's own original is F-SYS-03-Document change request & approval note.doc",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-mrm-agenda",
+    kind: "log-sheet",
+    name: "Agenda for BRCGS Packaging (Issue 7) Management Review Meeting Record",
+    formatNo: "F/SYS/04-A",
+    revisionNo: "01",
+    revisionDate: "2025-04-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Management Review",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The notice that calls the management review: the date of notification, the planned date of the meeting, where and when it is held, the participants who sign it, and the eleven agenda points the meeting reviews (F/SYS/04 records the meeting itself). On file: the notice of 07.07.2025 for the meeting of 21.07.2025. The master list does not list this format yet.",
+    sourceFile: "F-SYS-04A-BRCGS MRM Notification Record_July2025.pdf (as supplied, filled)",
+    // Called when the PSTL calls the review — the plant held it for each half-year.
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-mrm-record",
+    kind: "log-sheet",
+    name: "Management Review Meeting Record – BRCGS Packaging (Issue 7)",
+    formatNo: "F/SYS/04",
+    revisionNo: "01",
+    revisionDate: "2025-04-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Management Review",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The record of the management review of the product safety and quality management system under BRCGS Packaging Issue 7: when it met, its purpose and who attended, then its eleven agenda points — the last meeting's action items; internal, second-party and third-party audits; customer feedback and complaints; the HARA system; legislative and certification scheme changes; product safety incidents and non-conforming product; resources; the quality and product safety objectives, with the table of what was achieved, the revised targets and why; product defence and fraud prevention; the policies; and the use of the BRCGS logo — each with who reports it, what was reviewed, the discussion and its result, and the new action items. On file: the meeting of 21.07.2025, reviewing January to June 2025.",
+    sourceFile: "F-SYS-04-Management review meeting agenda & Record_July 2025.pdf (9 pages, filled); the company's own earlier original of the format is F-SYS-04-Management review meeting agenda & Record_R01_09.12.2020.doc",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-objectives",
+    kind: "log-sheet",
+    name: "Quality & Product Safety Objectives",
+    formatNo: "F/SYS/16",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Management Review",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The quality and product safety objectives, department by department — Sales (new customers, and customer feedback for labels, sleeves and pouches), Production (labels produced and label wastage), QC (customer complaints on product quality), Maintenance (breakdown minutes), HR & admin (training programmes and GMP non-compliances), Dispatch (transport and pest complaints), Purchase (supplier rating, and receipts infested or in an improper vehicle) and Store (material wasted in storage) — each with its unit, the plan and the actual for each month from January to June, the total and the percentage achieved. The management review (F/SYS/04) reviews them and revises the targets. On file: the sheet for 2026.",
+    sourceFile: "F-SYS-16-Quality & Product Safety objectives 2024-25.pdf (the 2026 sheet as supplied); the company's own original is XXXXX_Quality & Product Safety objectives.xls",
+    // A sheet per review period, started when the management review sets the
+    // targets — the supplied one covers January to June.
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-audit-schedule",
+    kind: "log-sheet",
+    name: "Yearly Internal Audit Schedule (BRCGS Packaging – Issue 06)",
+    formatNo: "F/SYS/05",
+    revisionNo: "01",
+    revisionDate: "2023-03-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Internal Audit",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The year's internal audit programme: the six parts of the standard — senior management commitment, hazard and risk management, the product safety and quality management system, site standards, product and process control, and personnel — against the twelve months, with an X where an audit is planned and the date it was actually done, approved by the PSTL. On file: 2024, every part audited twice, and 2025, February only, with the note that the next schedule is to be planned for Issue 7.",
+    sourceFile: "F-SYS-05-Internal_Audit_Schedule _2024.pdf and F-SYS-05-Internal_Audit_Schedule _2025.pdf (filled); the company's own original is F-SYS-05-Internal_Audit_Schedule.xlsx",
+    // "for the Year:" — one schedule a year, made at its start.
+    schedule: { type: "yearly", month: 0, dayOfMonth: 1 },
+  },
+  {
+    id: "sys-audit-plan",
+    kind: "log-sheet",
+    name: "Internal Audit Schedule & Plan",
+    formatNo: "F/SYS/06",
+    revisionNo: "01",
+    revisionDate: "2023-03-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Internal Audit",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The plan of one internal audit: its number and date, the audit team leader and the auditors, the functions to be audited with the date, time, auditors and auditee of each (the auditee acknowledges it), and afterwards the audit summary — the critical, major and minor non-conformities found in each function and their status — verified by the PSTL. On file: audit 01/2025 of 17.02.2025, of the product safety and quality management system and of site standards, which found two minor NCs, 4.2.1 and 4.7.6.",
+    sourceFile: "F-SYS-06-Internal Audit Plan (R).pdf (filled); the company's own original is F-SYS-06-Internal Audit Plan.doc",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-audit-risk",
+    kind: "log-sheet",
+    name: "Internal Audit Risk Assessment",
+    formatNo: "F/SYS/07",
+    revisionNo: "01",
+    revisionDate: "2023-03-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Internal Audit",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The yearly assessment that sets how often each section of the standard is audited: every clause with its auditee, and for each section the non-conformities the internal audits and the last external audit found, their sum and the audit frequency it gives — up to 4, once a year; 5 to 15, twice; 16 or more, three times — while every clause is still audited at least twice a year whatever the rating. The sum and the frequency are worked out here, never typed. On file: the assessment for 2024 (6 internal and 6 external NCs; site standards audited twice).",
+    sourceFile: "Copy of F-SYS-07-Internal Audit Risk assessment(R-2024).pdf (filled); the company's own original is F-SYS-07-Internal Audit Risk assessment.xlsx",
+    schedule: { type: "yearly", month: 0, dayOfMonth: 1 },
+  },
+  {
+    id: "sys-audit-findings",
+    kind: "log-sheet",
+    name: "Internal Audit Findings / Observation Report",
+    formatNo: "F/SYS/08",
+    revisionNo: "01",
+    revisionDate: "2023-03-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Internal Audit",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The internal auditor's checklist and compliance report against the BRCGS Packaging Materials standard: the functions audited with their date, time and auditors, then each clause audited with its requirement, whether it complies or is a non-conformity (numbered NC - 01, NC - 02 …) and what was seen. On file: the audit of 17.02.2025 against Issue 6 — section 3 (product safety and quality management) and section 4 (site standards), clause by clause, with two NCs: 4.2.1, wall painting peeling near the old plant's worker entry, and 4.7.6, a temporary repair with thread and cloth on the lamination machine.",
+    sourceFile: "F-SYS-08 Audit Checklist Compliance Report.pdf (25 pages, filled); the company's own original is F-SYS-08-Internal Audit Findings & observation Report.doc",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-audit-nc",
+    kind: "log-sheet",
+    name: "BRCGS Packaging (Issue 06) - Internal Audit NC Report",
+    formatNo: "F/SYS/10",
+    revisionNo: "01",
+    // As the paper prints it: "Date: 01.05.2013". The master list gives
+    // revision 1 of F-SYS-10 as 01.03.23 — for the MR to confirm.
+    revisionDate: "2013-05-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Internal Audit",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The report raised for each non-conformity an internal audit finds: its number and date, the auditor, the area, the finding and its objective evidence (records, procedure, clause), the planned closing date, the root cause, the correction and corrective action taken, the follow-up audit of its effectiveness, and the closing verification — actions satisfactory or not, the CAR closed or not. On file: Feb -25/02 of 17.02.2025, clause 4.7.6 — a temporary repair with thread and cloth on the lamination machine, removed, with the operators made aware; its closing verification is not filled in.",
+    sourceFile: "F-SYS-10.pdf (filled); the company's own original is F-SYS-10-Internal audit NC report.DOC",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-nc-car",
+    kind: "log-sheet",
+    name: "Non-Conformance & Corrective Action Report (CAR)",
+    // The paper's "Format No.:" box is empty; the number is the master list's.
+    formatNo: "F/SYS/11",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Corrective Action",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The report for a non-conformance or an observation anywhere in the plant — a process, a product, a complaint: its number and date, the observer, the area, the finding and its evidence, the planned closing date, the auditee's root cause analysis, the correction done and the corrective action that prevents it happening again, and the closing verification — actions satisfactory or not, closed or not, and the follow-up date where not. The paper prints no format number of its own; the number is the master list's. Supplied blank.",
+    sourceFile: "F-SYS-11-Non Confirmance & Corrective Action Report.pdf (the blank format); the company's own original is F-SYS-11-Non Confirmance & Corrective Action Report.DOC",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-hara-monthly",
+    kind: "log-sheet",
+    name: "Monthly Review & HARA Verification Meeting Record",
+    formatNo: "F/SYS/12",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "HARA & Site Security",
+    frequency: "Monthly",
+    status: "Configured",
+    description:
+      "The HARA team's monthly check that the product safety plan still holds: twenty-four questions — changes to the policy, the team, the premises, the layout, the equipment, the products, the materials, the process and its control norms; the training of new employees; cleaning and pest control as planned; new hazards; process non-compliance; recalls; suppliers; customer complaints; product safety incidents; injuries; site security; CCP deviations; and regulatory changes — each answered Yes or No against its reference documents, verified C or NC, with the review's comments, and the team who met. On file: the meeting of 22 April 2024.",
+    sourceFile: "F-SYS-12-Monthly HARA Verification_April 2024.pdf (3 pages, filled); the company's own original is F-SYS-12-Monthly HARA Verification.doc",
+    // The paper prints no day; the April 2024 meeting sat on the 22nd — for the MR to confirm.
+    schedule: { type: "monthly", dayOfMonth: 22 },
+  },
+  {
+    id: "sys-hara-annual",
+    kind: "log-sheet",
+    name: "Annual HARA Review & Verification Record",
+    formatNo: "F/SYS/20",
+    revisionNo: "00",
+    revisionDate: "2025-04-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "HARA & Site Security",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The HARA team's yearly review of the whole hazard and risk analysis: the site and its products, the date and the team leader; the changes reviewed — raw materials and suppliers, the process, new hazards (product fraud and defence included), equipment, formulation, new products, key staff, site standards, pest control, customer complaints, recalls and regulatory updates; the CCMs and PRPs verified, with any deviation and its correction; the validation and verification summary; recommendations; the conclusion with the next scheduled review; and the team. On file: the first review under BRCGS Packaging Issue 7, of 27 January 2026. The master list does not list this format yet.",
+    sourceFile: "F-SYS-20_Annual HARA Verification Record_Jan 2026.pdf (4 pages, filled)",
+    // "Next scheduled review: 1st January 2027".
+    schedule: { type: "yearly", month: 0, dayOfMonth: 1 },
+  },
+  {
+    id: "sys-site-security",
+    kind: "log-sheet",
+    name: "Site Security Risk Assessment",
+    formatNo: "F/SYS/17",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "HARA & Site Security",
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "The yearly site security (product defence) risk assessment: twenty-six points — the product security committee, awareness, emergency preparedness, the recall system, perimeter protection, securing openings and accesses, access control and the checks at the main gate, lighting, chemicals, hazardous chemicals and pesticides, the laboratory, people, access levels, personal items, vehicles and packages, contractors, suppliers and deliveries, ingredients and packaging, dispatch, finished goods, utilities and the IT systems — each with what the assessment observed, who checked it and when. On file: the assessment of 01.01.2026.",
+    sourceFile: "F-SYS-17-Site security risk assessment record(R-2026).pdf (4 pages, filled); the company's own original is XXXXX_Site security risk assessment record.xls",
+    schedule: { type: "yearly", month: 0, dayOfMonth: 1 },
+  },
+  {
+    id: "sys-backward-trace",
+    kind: "log-sheet",
+    name: "Backward Traceability Record (Customer to Supplier)",
+    formatNo: "F/SYS/14",
+    // The page is on Rev 00; the master list gives revision 1 of 01.04.2025,
+    // which was not supplied.
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Traceability & Recall",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "A traceability test from a dispatched product back to the supplier of its key raw material: the customer, the dispatch and its invoice, then every step back — the customer's order, the FG code, the sales and production orders, the key raw material's receipt (GRN and internal batch) and its supplier, the quantity issued, printed and returned, the QC inspection and what it scrapped, slitting and packing, the boxes, and who verified it. On file: the test of 12.12.2024 on 135,000 NS BP 1L labels dispatched to Aculife Healthcare / Nirma. The master list gives this format a revision 1 of 01.04.2025, which was not supplied; the page is on revision 00.",
+    sourceFile: "F-SYS-14-Backward Traceability Record - Label- Aculife - Copy.pdf (2 pages, filled); the company's own original is XXXXX_Backward Traceability Record.docx",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-forward-trace",
+    kind: "log-sheet",
+    name: "Forward Traceability Check List (Supplier to Customer)",
+    formatNo: "F/SYS/15",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Traceability & Recall",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "A traceability test from a raw material received forward to the customers it went to: the supplier, the material, its invoice, internal batch, date of receipt and quantity, then each issue of it to production — the date, the quantity issued and printed, the slitted roll batch, the customer, the job, the production order, the quantity and date dispatched, the invoice and the balance left — and who verified it. On file: the test of 18.12.2024 on Avery PE Clear top coated VA4216NF, issued to a Nivea India front label. The master list gives this format a revision 1 of 01.04.2025, which was not supplied; the page is on revision 00.",
+    sourceFile: "F-SYS-15-Forward Traceability Record - Label.pdf (filled); the company's own original is XXXXX_Forward Traceability Record.docx",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "sys-mock-recall",
+    kind: "log-sheet",
+    name: "Mock Product Withdrawal Record",
+    formatNo: "F/SYS/13",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "System / Management",
+    module: "System / Management",
+    section: "Traceability & Recall",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The test of the product withdrawal procedure, made for each product the plant makes — labels, shrink sleeves and pouches: when it started and ended and how long it took, the customer and the contact person, the product traced (FG code, production and sales orders, job, dispatch date, invoice and quantity) and the scenario considered, the customer's response, the product recall team, the percentage of product traced, whether the mock recall was effective and why. On file: the three withdrawals of 2025 — the label for Yates Steels (10.01.2025), the pouch for V P Bedekar (28.01.2025) and the sleeve for 3 Sisters (05.02.2025), each 100% traced.",
+    sourceFile: "F-SYS-13-Mock Product Withdrawal record label.pdf, F-SYS-13-Mock Product Withdrawal record Pouch.pdf and F-SYS-13-Mock Product Withdrawal record label Sleeve.pdf (filled); the company's own original is F-SYS-13-Mock Product Withdrawal record.xlsx",
+    // Yearly for each product (the management review of 21.07.2025) — three a
+    // year, so each is made when due rather than on one calendar date; the
+    // insights watch the twelve months for each product.
     schedule: { type: "as-required" },
   },
 ];

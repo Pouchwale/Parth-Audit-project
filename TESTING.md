@@ -271,6 +271,37 @@ Seven scripts live in `tests/`:
   fresh account (this month's two fly catcher dates fall before its go-live) — it only ever passed on that line — and
   now searches the checker's name written on the pest round the suite itself submits; the operator search ticks the
   box that also looks in sheets the assistant prepared, which is where that name is.
+- `tests/e2e_sys_module.py` - the System / Management module and its eighteen F/SYS formats (REQUIREMENTS §76), a
+  thirty-fifth suite, added 25-Sep-2026: the module **first** in the sidebar, named "System / Management (SYS)", with
+  all eighteen formats linked; the library filtered to it with every F/SYS number the papers print (F/SYS/04-A
+  included) under its six groups; the pages supplied filled in on file as the pages printed them — F/SYS/01's 173
+  documents, F/SYS/02's 141 formats (the workbook as last updated, every one kept three years), the management review
+  of 21.07.2025 with its 19 objectives, its notice with line 08 printed with its two cells swapped, the audit of
+  17.02.2025 with NC - 01 at 4.2.1 and NC - 02 at 4.7.6, the NC report Feb -25/02, the 24 answers of April 2024's HARA
+  verification, the site security assessment's 26 points, the three mock withdrawals and the two traceability tests,
+  the 2026 objectives with the sheet's own #DIV/0!; the paper's own spellings ("Document discription", "efecctive");
+  **every supplied page of every format shown as it came and really LOADING** (77 pages, the audit report's 25
+  included); **EDIT** — a verified SYS record reopened with a reason, a comment changed, handed in again, its history
+  keeping both — and Edit format opening the SYS sheet in the designer; F/SYS/07's Sum and Audit frequency **worked
+  out** (IQA NC 10 + External NCs 7 = 17, "3 times / Year", shown as text with no box) and the 2024 page's own figures
+  given back; a new monthly HARA verification prepared by "fill it with sample data" with the 24 questions and the team
+  but **none of last time's answers**; the Insights S1 to S5 on the plant's own pages, each in the System / Management
+  module; Mitra opening F/SYS/13 by its number and naming F/SYS/04-A; and **Edit fast on a slow laptop** (6× CPU
+  throttle): F/SYS/01 and F/SYS/08 show their first lines within 6 s, typing into F/SYS/01 reopened with Edit keeps
+  under 150 ms a keystroke (80–110 ms measured; 900 ms before), its lines far off the screen are not drawn yet come
+  back when scrolled to, and every one of the 173 prints. Eighteen more documents moved the totals:
+  **91 → 109** in `e2e_smoke.py` and `e2e_hr_module.py`, and the sidebar's modules **10 → 11** in `e2e_smoke.py` and
+  `tests/visual_qa.py`.
+- `frontend/tests/sysModule.test.ts` - the SYS module's promises without a browser: F/SYS/07's printed criteria and the
+  2024 page's own sums given back section by section; a new monthly HARA verification carrying the questions and the
+  team and none of April 2024's answers (`autoFill.fresh`); the supplied pages on file whole (173, 141, 19, 8, 24, 26,
+  18, and every clause of the audit); and the Insights S1 to S6 on the plant's pages, as of 25-Sep-2026 and — where the
+  answer was different then — as of 1-Mar-2025; and what an adversarial review found in them, pinned: a test is not
+  overdue on its own anniversary with a 29 February between, a withdrawal dated still to come does not hide one that
+  lapsed, an audit plan saying "Not Closed" is not called a contradiction, "Non compliance" is a non-conformity, a job
+  inspected before it was printed and a forward trace dispatched before it was issued are out of order — and Mitra
+  walks F/SYS/13 through when asked to "fill the mock recall record" (the word "mock" is its name, not a request for
+  made-up data), and "list of documents" asks for a module's listing, not F/SYS/01.
 - `tests/e2e_maintenance_module.py` - the Maintenance module and its eight formats (REQUIREMENTS §74), a
   thirty-fourth suite, added 24-Sep-2026: the module placed after the production modules and before Purchase (the
   Store suite still finds Purchase, Store and Dispatch together); the library filtered to it with all eight F/MNT

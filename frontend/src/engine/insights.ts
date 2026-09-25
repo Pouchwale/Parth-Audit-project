@@ -91,7 +91,7 @@ export interface SuggestedCapa {
 export interface Insight {
   /** Stable across runs, e.g. "a1|qc-viscosity|viscosity|2026-08-14" — a raised CAPA remembers it (GapFinding.insightKey). */
   id: string;
-  /** Which rule found it: A1, A2, A4, B1…B5, C1…C3, SUP, M1…M7. */
+  /** Which rule found it: A1, A2, A4, B1…B5, C1…C3, SUP, M1…M7, S1…S6. */
   rule: string;
   severity: InsightSeverity;
   /** The module of the document it is about, as the Document Library names it. */

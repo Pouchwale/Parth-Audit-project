@@ -336,6 +336,29 @@ export const SEED_MASTER_DATA: MasterData = {
     "mnt-breakdown-record": "Maintenance",
     "mnt-glass-breakage": "Maintenance",
     "mnt-lux-level": "Maintenance",
+    // System / Management (REQUIREMENTS §76) — every F/SYS format is the
+    // Product Safety Team Leader's: she keeps the master lists, calls and
+    // records the management review, leads the internal audit and the HARA
+    // team, and runs the traceability tests and mock withdrawals. The
+    // master lists say so themselves: "Reviewed & approved by : PSTL".
+    "sys-document-list": "PSTL",
+    "sys-format-list": "PSTL",
+    "sys-document-change": "PSTL",
+    "sys-mrm-record": "PSTL",
+    "sys-mrm-agenda": "PSTL",
+    "sys-audit-schedule": "PSTL",
+    "sys-audit-plan": "PSTL",
+    "sys-audit-risk": "PSTL",
+    "sys-audit-findings": "PSTL",
+    "sys-audit-nc": "PSTL",
+    "sys-nc-car": "PSTL",
+    "sys-hara-monthly": "PSTL",
+    "sys-mock-recall": "PSTL",
+    "sys-backward-trace": "PSTL",
+    "sys-forward-trace": "PSTL",
+    "sys-objectives": "PSTL",
+    "sys-site-security": "PSTL",
+    "sys-hara-annual": "PSTL",
   },
 
   // "Gujarat Print Pack Leave Calendar 2026" (WhatsApp Image 2026-08-11 at

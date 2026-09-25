@@ -85,6 +85,11 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   border-right: 1px solid var(--color-border);
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
   overflow-y: auto; overflow-x: hidden;
+  /* Painted above the page's own content, as it always looks. Without a level
+     of its own it was painted before a sheet's lines, and a wide sheet that
+     scrolls sideways (whose lines might pass under it) had all its lines lifted
+     onto a layer of their own, their writing drawn fainter (REQUIREMENTS §76). */
+  z-index: 1;
   transition: width 0.22s ease, visibility 0.22s;
   scrollbar-width: thin; scrollbar-color: #cbd5de transparent;
 }
@@ -702,10 +707,13 @@ textarea.input { resize: vertical; min-height: 60px; }
    Form's RANGE OF PRODUCTS / SERVICES OFFERED, the Supplier Audit Report's
    COMMENTS and its SUMMARY OF OBSERVATIONS (REQUIREMENTS §68). It takes the
    whole width of the row of boxes it sits in, because that is how the paper
-   draws it, and its height follows what is written (LogSheetRecordView sets it)
-   so the whole block is on the printout with nothing scrolled out of sight. */
+   draws it, and its height follows what is written (field-sizing, or where a
+   browser cannot, LogSheetRecordView measures it) so the whole block is on the
+   printout with nothing scrolled out of sight. */
 .field-paragraph { grid-column: 1 / -1; }
-textarea.input.input-paragraph { resize: none; overflow: hidden; min-height: 44px; line-height: 1.45; }
+textarea.input.input-paragraph { resize: none; overflow: hidden; min-height: 44px; line-height: 1.45; field-sizing: content; }
+/* A grid cell of several lines (REQUIREMENTS §76): it keeps its line breaks and grows with what it holds. */
+textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; max-height: 320px; resize: vertical; line-height: 1.35; white-space: pre-wrap; min-width: 180px; }
 /* The same block on a record that cannot be written on: the words, kept as
    they were typed, line breaks and all. */
 .paragraph-text { margin: 0; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; min-height: 19px; }
@@ -925,15 +933,24 @@ textarea.input.input-paragraph { resize: none; overflow: hidden; min-height: 44p
 /* THE PILL THAT CALLS MITRA. It lifts under the pointer; and when something of
    this person's is waiting it waves once or twice on arrival — a few seconds,
    not for ever, because a thing that never stops moving is a thing people
-   learn to ignore. */
+   learn to ignore. The wave is a ring of its own that fades in and out:
+   opacity and transform are animated by the graphics card, where a moving
+   box-shadow had the page painted again on every frame — on a register of 173
+   lines open for Edit, most of what a keystroke cost for as long as it waved
+   (REQUIREMENTS §76). */
 .assistant-pill { transition: transform 140ms ease, box-shadow 140ms ease; }
 .assistant-pill:hover { transform: translateY(-2px); }
 .assistant-pill:active { transform: translateY(0); }
-.assistant-pill.has-waiting { animation: assistant-pill-wave 1.8s ease-in-out 3; }
-@keyframes assistant-pill-wave {
-  0%, 60%, 100% { box-shadow: var(--shadow-lg); }
+.assistant-pill.has-waiting { position: relative; }
+.assistant-pill.has-waiting::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   /* A plain colour, not color-mix(): an older browser on an old laptop would drop the whole line. */
-  30% { box-shadow: var(--shadow-lg), 0 0 0 7px rgba(15, 92, 122, 0.18); }
+  box-shadow: 0 0 0 7px rgba(15, 92, 122, 0.18);
+  opacity: 0; animation: assistant-pill-wave 1.8s ease-in-out 3;
+}
+@keyframes assistant-pill-wave {
+  0%, 60%, 100% { opacity: 0; transform: scale(0.92); }
+  30% { opacity: 1; transform: none; }
 }
 /* How many of their documents are waiting, on the pill itself. */
 .assistant-pill-count {
@@ -964,6 +981,16 @@ textarea.input.input-paragraph { resize: none; overflow: hidden; min-height: 44p
 }
 
 /* ---- Log sheets ---- */
+/* WRITING IN A LONG REGISTER STAYS QUICK (REQUIREMENTS §76). Each line of a
+   sheet open for writing is painted on its own (a positioned line is a paint
+   layer of its own), so a keystroke repaints its line and not all 173 of
+   F/SYS/01's; and a line far off the screen — LogSheetRecordView marks it
+   is-far on a sheet of more than 60 lines — is not drawn until it comes near.
+   Its boxes and what they hold stay where they are, so nothing moves as it
+   comes back. Printing draws every line. */
+.doc-table table.log-sheet.is-editing tbody tr { position: relative; }
+.doc-table table.log-sheet.is-editing tbody tr.is-far { visibility: hidden; }
+@media print { .doc-table table.log-sheet.is-editing tbody tr.is-far { visibility: visible; } }
 .doc-table table.log-sheet th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
 .doc-table table.log-sheet td .input-sm { min-width: 64px; }
 /* A sheet that cannot be written on shows its values as text (LogSheetRecordView). */
@@ -1194,7 +1221,7 @@ body { top: 0 !important; }
    and what reading the browser's own computed style caught. Mitra still says
    everything it says; it just stops moving. */
 @media (prefers-reduced-motion: reduce) {
-  .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .assistant-pill.has-waiting, .chat-typing span, .mitra-reaction { animation: none !important; }
+  .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction { animation: none !important; }
   .chat-chip, .assistant-pill { transition: none; }
   .chat-chip:hover, .chat-chip:active, .assistant-pill:hover, .assistant-pill:active { transform: none; }
 }
