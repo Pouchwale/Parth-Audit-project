@@ -233,7 +233,7 @@ def main():
         page.wait_for_timeout(300)
         check(
             "Every module collapses to one row, with the current one still marked",
-            page.locator(".nav-module.closed").count() == 11 and page.locator(".nav-module.current .nav-module-dot").count() == 1,
+            page.locator(".nav-module.closed").count() == 12 and page.locator(".nav-module.current .nav-module-dot").count() == 1,
         )
         page.screenshot(path="tests/shots/24_sidebar_modules_collapsed.png")
         page.click("button[data-action='toggle-all-modules']")

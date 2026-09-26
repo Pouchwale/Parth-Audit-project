@@ -2,8 +2,9 @@ import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSh
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { SEED_DOCUMENTS } from "../data/seed/documentDefinitions";
 import { dropFormatEdit, formatEditFor, nextRevisionNo, saveFormatEdit, type FormatRevision } from "../data/formatEdits";
+import { COMPANY } from "../data/seed/masterData";
 import { logActivity } from "../utils/activityLog";
-import { todayISO } from "../utils/date";
+import { formatDisplayDate, todayISO } from "../utils/date";
 
 // WHAT CAN BE DONE TO A FORMAT, AND THE ONE WAY A CHANGE IS SAVED
 // (REQUIREMENTS §62, §64, §68).
@@ -30,12 +31,30 @@ import { todayISO } from "../utils/date";
 // gets a key nothing else has ever had on this layout, and renaming changes the
 // label only.
 
-/** A format being changed: its name, and its layout when the layout is what draws it. */
+/**
+ * A format being changed: its name, its layout when the layout is what draws
+ * it, and — since REQUIREMENTS §77 — the rest of what its header prints: the
+ * company's name, the format number, the revision the change is saved as and
+ * the date that revision carries. Each of those is absent where it is not
+ * being changed.
+ */
 export interface FormatDraft {
   name: string;
   /** Absent for a form the program draws by hand — its name and revision are all that can change here. */
   layout?: LogSheetLayout;
+  /** The company name the header prints; absent, the registered name (COMPANY.name). */
+  companyName?: string;
+  formatNo?: string;
+  /** The revision number on the header: the format's own until it is typed over, when it is the number the change is saved as. */
+  revisionNo?: string;
+  /** The date the header prints for that revision (ISO); today when absent. */
+  revisionDate?: string;
 }
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The company name a format's header prints: the one set on it, else the registered name. */
+export const printedCompanyName = (doc: Pick<DocumentDefinition, "companyName">): string => doc.companyName ?? COMPANY.name;
 
 export type BoxArea = "header" | "footer";
 
@@ -53,7 +72,14 @@ export function canDesignGrid(doc: Pick<DocumentDefinition, "id" | "kind">): boo
 
 /** The format as it stands now, ready to be changed. */
 export function draftOf(doc: DocumentDefinition): FormatDraft {
-  return { name: doc.name, layout: doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined };
+  return {
+    name: doc.name,
+    layout: doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined,
+    companyName: doc.companyName,
+    formatNo: doc.formatNo,
+    revisionNo: doc.revisionNo,
+    revisionDate: doc.revisionDate ?? undefined,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -467,6 +493,16 @@ function describeItems(what: string, before: Item[], after: Item[]): string[] {
 export function describeFormatChange(before: FormatDraft, after: FormatDraft): string[] {
   const out: string[] = [];
   if (after.name.trim() !== before.name) out.push(`renamed the format from “${before.name}” to “${after.name.trim()}”`);
+  // THE REST OF THE HEADER (REQUIREMENTS §77): each is a change only when it
+  // is written and differs. The revision number is the save's own — the next
+  // number is what every save is numbered, so only another number is a change.
+  const company = (after.companyName ?? before.companyName ?? COMPANY.name).trim();
+  if (company !== (before.companyName ?? COMPANY.name)) out.push(`changed the company name to “${company}”`);
+  if (after.formatNo !== undefined && after.formatNo.trim() !== (before.formatNo ?? "")) out.push(`changed the format number from “${before.formatNo ?? ""}” to “${after.formatNo.trim()}”`);
+  if (after.revisionNo !== undefined && after.revisionNo.trim() !== (before.revisionNo ?? "") && after.revisionNo.trim() !== nextRevisionNo(before.revisionNo)) {
+    out.push(`numbered the revision ${after.revisionNo.trim()}`);
+  }
+  if (after.revisionDate !== undefined && after.revisionDate !== (before.revisionDate ?? "")) out.push(`dated the revision ${formatDisplayDate(after.revisionDate)}`);
   const a = before.layout;
   const b = after.layout;
   if (!a || !b) return out;
@@ -491,6 +527,9 @@ export type CommitResult = { ok: true; revision: FormatRevision } | { ok: false;
 /** `now` is the format as it stands, which says whether it has a grid at all to keep. */
 export function validateDraft(draft: FormatDraft, now?: FormatDraft): string | null {
   if (!draft.name.trim()) return "The format needs a name.";
+  if (draft.formatNo !== undefined && !draft.formatNo.trim()) return "The format needs its number.";
+  if (draft.companyName !== undefined && !draft.companyName.trim()) return "The header needs the company's name.";
+  if (draft.revisionDate !== undefined && !ISO_DATE.test(draft.revisionDate)) return "The revision needs a real date.";
   const l = draft.layout;
   if (!l) return null;
   if ([...l.headerFields, ...l.columns, ...(l.footerFields ?? [])].some((x) => !x.label.trim())) return "Every box and column needs a name.";
@@ -518,25 +557,36 @@ export function commitFormatChange(doc: DocumentDefinition, draft: FormatDraft, 
   if (!opts.reason.trim()) return { ok: false, error: "Say why the format is changing — it goes in its change history." };
   const summary = describeFormatChange(before, draft);
   if (summary.length === 0) return { ok: false, error: "Nothing about the format has been changed yet." };
-  const revisionNo = (opts.revisionNo ?? nextRevisionNo(doc.revisionNo)).trim();
+  // The number typed over on the header, when it was; the next number otherwise.
+  const typed = draft.revisionNo?.trim();
+  const revisionNo = (opts.revisionNo ?? (typed && typed !== doc.revisionNo ? typed : nextRevisionNo(doc.revisionNo))).trim();
   if (!revisionNo) return { ok: false, error: "Give the new revision number." };
 
   const existing = formatEditFor(doc.id);
   const issued = SEED_DOCUMENTS.find((d) => d.id === doc.id);
-  const today = todayISO();
+  // Dated today, unless the header's date was itself changed (REQUIREMENTS §77).
+  const revisionDate = draft.revisionDate && ISO_DATE.test(draft.revisionDate) ? draft.revisionDate : todayISO();
   const at = new Date().toISOString();
-  const revision: FormatRevision = { id: revisionId({ at, by: opts.actor, revisionNo }), revisionNo, revisionDate: today, by: opts.actor, at, reason: opts.reason.trim(), summary: summary.join("; ") };
+  const revision: FormatRevision = { id: revisionId({ at, by: opts.actor, revisionNo }), revisionNo, revisionDate, by: opts.actor, at, reason: opts.reason.trim(), summary: summary.join("; ") };
+  // The header's company name and format number are kept only where they
+  // differ from the issued format's, so "Restore the issued format" and a
+  // name typed back to the registered one both print the paper's own again.
+  const company = draft.companyName?.trim();
+  const formatNo = draft.formatNo?.trim();
   const stored = saveFormatEdit(doc.id, {
     revisionNo,
-    revisionDate: today,
+    revisionDate,
     name: draft.name.trim() !== (issued?.name ?? doc.name) ? draft.name.trim() : undefined,
+    companyName: company && company !== (issued?.companyName ?? COMPANY.name) ? company : undefined,
+    formatNo: formatNo && formatNo !== (issued?.formatNo ?? doc.formatNo) ? formatNo : undefined,
     layout: draft.layout ?? existing?.layout,
     // Every entry carries an id, so two people's saves MERGE into one history
     // (data/serverSync.ts merges a list by id) instead of one list replacing the other.
     revisions: [revision, ...(existing?.revisions ?? []).map((r) => (r.id ? r : { ...r, id: revisionId(r) }))],
   });
   if (!stored) return { ok: false, error: "The change could not be stored." };
-  const number = doc.formatNo.startsWith("TO BE") ? "" : `${doc.formatNo} `;
+  const printedNo = formatNo || doc.formatNo;
+  const number = printedNo.startsWith("TO BE") ? "" : `${printedNo} `;
   logActivity("Format changed", `${number}${draft.name.trim()}`, `Rev ${doc.revisionNo} → ${revisionNo}: ${revision.summary}. Reason: ${revision.reason}`, doc.id);
   return { ok: true, revision };
 }

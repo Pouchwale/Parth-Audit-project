@@ -28,7 +28,8 @@ function loadAll(): DocumentDefinition[] {
   if (overlaid && overlaid.issued === issued && overlaid.edits === edits) return overlaid.value;
   const value = issued.map((d) => {
     const e = edits[d.id];
-    return e ? { ...d, name: e.name ?? d.name, revisionNo: e.revisionNo, revisionDate: e.revisionDate } : d;
+    // The header's company name and format number too, when the plant changed them (REQUIREMENTS §77).
+    return e ? { ...d, name: e.name ?? d.name, companyName: e.companyName ?? d.companyName, formatNo: e.formatNo ?? d.formatNo, revisionNo: e.revisionNo, revisionDate: e.revisionDate } : d;
   });
   overlaid = { issued, edits, value };
   return value;

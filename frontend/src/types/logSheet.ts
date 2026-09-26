@@ -26,6 +26,13 @@ export interface LogHeaderField {
   // such as "Date of Inspection" — answer it with the date the record is for.
   autoFill?: { carryForward?: boolean; default?: string; sign?: boolean; dueDate?: boolean };
   width?: number;
+  /**
+   * A box WORKED OUT from what is written on the sheet, never typed — F/MKT/02's
+   * Average Rating, Ideal Rating and % Satisfaction Index (REQUIREMENTS §77),
+   * as a computed column is for a cell (engine/computedCells.ts). Shown as
+   * text, skipped by validation and by the assistant's fill.
+   */
+  computed?: boolean;
   // THE SUGGESTION LIST THIS BOX OFFERS, by the id of a <datalist> on the page —
   // "equipment-machines" on a Machine No. box (REQUIREMENTS §74). Without it a
   // box whose label names a person offers the employee names, and any other box
@@ -169,7 +176,37 @@ export interface LogSheetLayout {
   specimenHeader?: Record<string, string>;
   // Which source file the specimen values came from (shown for traceability).
   specimenSource: string;
+  // THE CHARTS THE FORM PRINTS FROM ITS OWN FIGURES (REQUIREMENTS §77): the
+  // complaint trend's bar chart of the years and its Pareto of the causes are
+  // drawn from the record's boxes and lines by components/charts/SheetChart.tsx,
+  // exactly as the paper prints them beside the figures — never a picture
+  // pasted in. Nothing here is filled in or stored.
+  charts?: LogSheetChart[];
 }
+
+/** One chart a form prints, and where on the sheet its figures are. */
+export type LogSheetChart =
+  | {
+      kind: "bars";
+      title: string;
+      /** Each bar is a pair of boxes above or below the grid: the bar's name and its height. A pair with no name written draws no bar. */
+      bars: { labelKey: string; valueKey: string }[];
+      yAxisLabel?: string;
+      xAxisLabel?: string;
+    }
+  | {
+      kind: "pareto";
+      title: string;
+      /** A box whose value is written after the title — the period the Pareto covers. */
+      titleKey?: string;
+      /** The grid columns holding each cause and how many defects it caused. */
+      labelColumn: string;
+      valueColumn: string;
+      /** The box holding the cumulative-percentage cutoff (a whole number of per cent); 80 when it is blank or absent. */
+      cutoffKey?: string;
+      yAxisLabel?: string;
+      xAxisLabel?: string;
+    };
 
 /** One revision a format has replaced: when it was issued, how it was printed, and why it matters. */
 export interface SupersededRevision {

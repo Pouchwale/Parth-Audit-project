@@ -4429,6 +4429,107 @@ prints; and every discrepancy on the pages listed below.
   to G are 16.02.22 in one and 01.12.21 in the other; and F-MNT-09's revisions agree with its own page (Rev 02,
   01.09.2025) only in the workbook. Both list F-SYS-03, F-SYS-04 and F-MNT-02 at revision 0 while their pages print Rev 01.
 
+## 77. The Marketing module — the customer's word, worked out and drawn; and the header block of every format the plant's to change (26-Sep-2026)
+
+```
+REQUESTED            "for each and every document i need to also make this part editable" — the header block: company,
+                      title, Format No., Rev No., Date — "... you need to add new module called Marketing in which i give
+                      you four pdfs so add those document and ... that editable thing is apply to each and every document
+                      of each and every module"
+SUPPLIED             F-MKT-01 (Pidilite's feedback of 22.01.2025); F-MKT-02 (the LABELS analysis of 2025 as a PDF, and the
+                      company's own workbooks for LABELS, POUCHES and SLEEVES); F-MKT-04 (six pages — the 2025 trends of
+                      LABELS, SHRINK SLEEVE and LAMINATED POUCH and their Paretos to January 2026 — and the company's own
+                      workbook); every page rendered unaltered to frontend/public/source/fmkt*.jpg
+DIGITAL TEMPLATE     data/seed/mktLayouts.ts, data/seed/mktRecords.ts, engine/marketingCalc.ts (in engine/computedCells.ts),
+                      components/charts/SheetChart.tsx; components/documents/DocumentHeader.tsx, SheetDesigner.tsx,
+                      FormatEditor.tsx, engine/formatOps.ts, data/formatEdits.ts, data/repositories/documentRepository.ts;
+                      tests/e2e_marketing_module.py, frontend/tests/marketingModule.test.ts, frontend/tests/headerEdit.test.ts
+```
+
+**1. MARKETING (MKT) IS A MODULE OF ITS OWN, SECOND IN THE SIDEBAR** — right after System / Management, where the
+company's own Master List of Formats & Records (F/SYS/02) puts F/MKT: the customer's word on the product comes before
+everything done to make it. Three formats in two groups — **Customer Feedback** (F/MKT/01, F/MKT/02) and **Customer
+Complaints** (F/MKT/04) — each editable as every format is (§27's Edit on a record, §64's Edit format on the sheet), each
+with its supplied pages beside it (§71), each known to Mitra by its number and its words. The format numbers resolve to
+the **MKT** department. F/MKT/03 was not supplied and nothing stands in for it; F/MKT/05 and F/MKT/06 — the complaint
+checklist and its acknowledgement — stay in the CAPA module's External side, where the complaints themselves are handled
+(TBC 29). The company's name on these three papers is printed in two words, "GUJARAT PRINT PACK PUBLICATION PRIVATE
+LIMITED", and their headers print it so (`DocumentDefinition.companyName`, part 5).
+
+**2. F/MKT/01 CUSTOMER VALUE ADDED FEEDBACK** — one form per customer, as and when it comes back: the customer's details,
+six attributes rated, the comments, the overall satisfaction level, whether they would work with the plant again, the
+seal and sign. Verbatim to the letter — "deliverbales", "Attributes↓ / Rating→", "- 5 Poor". **Where the digital form
+differs:** the paper prints the five ratings as columns with "Yes □" in every cell and the customer ticks one per line;
+here each line is ONE choice among the five, worded as the headings are. On file: Pidilite's feedback of 22.01.2025 on
+Tenax wraparound labels — Product Quality 3 Good, packaging 5 Excellent, delivery 2 Average, documents 5 Excellent,
+response 4 Very Good, competency 3 Good; "Quality check needs to be more robust"; Satisfactory; Yes.
+
+**3. F/MKT/02 CUSTOMER FEEDBACK ANALYSIS WORKS ITSELF OUT** (engine/marketingCalc.ts, in the one computed-cells pass of
+§74). The year's forms for one product, counted: how many customers gave each attribute each rating. From the counts,
+and as the company's own workbook has it: a line's **Average Rating** = 5·Excellent + 4·Very Good + 3·Good + 2·Average
+− 5·Poor, its **Ideal Rating** = customers × 5, its **Satisfied % average** = the one over the other (97.78%); the tallies
+of each rating and each tally × its weight (35, 17, 2 / 175, 68, 6); the total Average Rating (249), the total Ideal
+Rating (270) and the **% Satisfaction Index** (92%). Everything worked out is blank until a count is written, and is
+worked out the moment one is. On file: 01.01.2025–31.12.2025 for **LABELS 92%** (the page supplied), **POUCHES 89%** and
+**SLEEVES 83%** (the company's own workbooks; the sleeves' delivery, 73.33%, "Not needed due to fewer order qty").
+- **A box worked out from the sheet** is new (`LogHeaderField.computed`): the box counterpart of §61's computed column —
+  shown as text, never typed, skipped by validation and by the assistant's fill. F/MKT/02's thirteen totals are such
+  boxes, so the Index sits where the paper prints it, under the grid.
+- **The three columns the page does not head** (44 | 45 | 97.78%, beyond the print area on the paper) are headed here with
+  the words the paper uses for the same figures below the grid: Average Rating, Ideal Rating, Satisfied % average.
+- **The workbook's formulas exist for the 5, 4 and 3 columns only** (F13 = F12*5, G13 = G12*4, H13 = H12*3; the total sums
+  F13+G13+H13+I13 with I13 and J13 empty). The weights of "2 Average" and "- 5 Poor" are taken from the headings as
+  printed — 2, and minus five. No customer has given either, so every printed figure is the same either way (TBC 30).
+
+**4. F/MKT/04 CUSTOMER COMPLAINTS TREND ANALYSIS — THE TREND AND ITS PARETO, DRAWN.** One a year for each product:
+the complaints of each year since December 2021 and of each month of the calendar year, and the Pareto analysis of the
+causes. **Where the digital form differs:** the paper is a trend sheet and a Pareto sheet of the company's workbook (a
+Vertex42 template — the "[42]" and "Insert new rows above this line" on the pages are the template's own); here one
+record: the years and the months are boxes above the grid, the grid is the Pareto's table of causes, and the Pareto's
+title and cut-off are boxes below it. Each cause's **Cumulative%** and whether it is **Vital Few** (within the cut-off)
+or **Useful Many** are worked out, in the order the causes are written — the paper's Paretos are the analyst's order,
+not always descending, and the order is kept — and the line the template prints, "The first N Causes cover X% of the
+Total Defects", is worked out too. On file: 2025 for **LABELS** (1, 7, 6, 4, 2 complaints; 14 causes, 21 defects, the
+first 9 within 80%), **SHRINK SLEEVE** (2, 3, 4, 3, 1; 7 causes, the first 4 within 80%) and **LAMINATED POUCH** (0, 2;
+2 causes), their Paretos to January 2026.
+- **The charts a form prints are drawn from the record** — `LogSheetLayout.charts`, components/charts/SheetChart.tsx:
+  the trend's bar chart (a bar per year written) and the Pareto (a bar per cause, the Vital Few darker, the cumulative
+  line, the dashed cut-off), in the style of the rodent trend sheet's chart and printed with the sheet. Nothing is
+  pasted in and nothing is stored; a record with no figures draws no chart.
+
+**5. THE HEADER BLOCK OF EVERY FORMAT IS THE PLANT'S TO CHANGE** — "this part", on every document of every module. The
+company's name, the title, the format number, the revision number and the revision's date:
+- **On a sheet designed in place** (§64) each is **clicked and typed over where it stands** on the header, as a column
+  heading is (components/documents/DocumentHeader.tsx `edit`, SheetDesigner's `header` rename target); the date opens
+  as a date box; the revision box starts from the number the save will be given. The save says what changed in words —
+  "changed the company name to …", "changed the format number from … to …", "dated the revision 01-Sep-2026", "numbered
+  the revision 07" — and the revision is dated as the header was dated, or today.
+- **On a form the program draws** (the Daily Report, the fly catcher register, the service reports, CAPA, training) the
+  same boxes are in the **Edit format dialog** beside the name and the new revision number.
+- **However it was changed it is one change** (engine/formatOps.ts `FormatDraft.companyName / formatNo / revisionNo /
+  revisionDate`, `commitFormatChange`): kept beside the issued format (data/formatEdits.ts `companyName`, `formatNo`) and
+  laid over it wherever the definition is read (documentRepository), so every record's header, the library, Mitra and
+  the master list read the changed header; **Restore the issued format** drops it and the paper's own header is back. A
+  name typed back to the paper's own spelling stores nothing. A blank company, number or an impossible date is refused.
+- **What is not the format's**: the Date cell on a record is the record's own date and stays so; the page number is the
+  program's. Mitra does not yet change the header by words — a follow-up.
+
+**6. WHAT THE PAGES THEMSELVES SAY, KEPT AS WRITTEN AND REPORTED** — found while every value was compared with its page:
+F/MKT/02's evaluation period prints a stray ")" after the end date; "Calender Year", "Prinint issue", "deliverbales" are
+the papers' own; the Pidilite form's printed box cuts "Manager Procurement" to "Manager Proc" (the text layer holds the
+word); the LAMINATED POUCH trend heads its row "LAMINATES"; the Paretos cover longer periods than the calendar year
+("Jan 2021 to JANUARY 2026", "UP TO 31.01.2026"); the Sleeve Pareto prints "The first 3 Causes cover 64.29%" although four
+causes are within its 80% cut-off (78.57%), and its Vital Few marks skip causes 2 and 4 — the workbook's rows were
+re-sorted by hand (its "#" column reads 1, 2, 3, 3, 5, 4, 7, 5, 9 … and one Vital Few cell holds 2 where its Defects is 1),
+so its own classification is not consistent and this system applies the cut-off rule to every line the same way (TBC 31);
+the template's stray 8th line "Packing related" with no count is left out; the workbook also holds the running sheets
+for 2026 (LABELS and SHRINK SLEEVE one complaint each in January 2026), not on file as records.
+
+**7. TESTS** — `tests/e2e_marketing_module.py` (the module, the pages on file, the worked-out boxes as text, the charts,
+a new analysis working itself out, the header typed over on a sheet and changed in the dialog of a program-drawn form,
+saved, shown on the records and restored, Mitra by number), `frontend/tests/marketingModule.test.ts` (the arithmetic) and
+`frontend/tests/headerEdit.test.ts` (the header as a change). Three more documents: **109 → 112**; a twelfth module.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -4535,6 +4636,20 @@ prints; and every discrepancy on the pages listed below.
 28. **The formats F/SYS/02 gives no retention period** (§76 part 5): F-MKT-05, F-MKT-06 and F-PRD-27 to 30 (the
     newer lines) and F-QC-39, F-QC-41 (obsolete) have a blank Retention Period and Method of Disposition in the
     workbook — three years and shredded, as every other format, or something else?
+29. **The Marketing formats not supplied, and where the complaint formats belong** (§77). F/MKT/03 was not supplied
+    and nothing stands in for it. F/MKT/05 (the complaint handling checklist) and F/MKT/06 (its acknowledgement) are
+    Marketing's on the master list but live in the CAPA module's External side, where the complaints are handled —
+    leave them there, or list them under Marketing as well?
+30. **F/MKT/02's weights and cadence** (§77 part 3). The workbook has formulas for the 5, 4 and 3 columns only; the
+    weights of "2 Average" (2) and "- 5 Poor" (minus five) are taken from the headings as printed — confirm, since a
+    Poor rating would then subtract from the Average Rating. And how often F/MKT/02 and F/MKT/04 are made: this
+    system assumes one per product per calendar year, made when the year's forms are in (as required), not on one
+    calendar date.
+31. **F/MKT/04's Pareto marks** (§77 part 6). The Sleeve page prints "The first 3 Causes cover 64.29% of the Total
+    Defects" while four of its causes are within the 80% cut-off (78.57%), and its Vital Few marks skip causes 2 and 4;
+    this system marks every cause within the cut-off Vital Few and says "the first 4 … 78.57%". The template's stray
+    8th line "Packing related" with no count is left out. The 2026 running sheets (LABELS and SHRINK SLEEVE, one
+    complaint each in January 2026) are not on file as records.
 
 ## How the assistant pre-fills records (and what it never does)
 

@@ -244,7 +244,9 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   "lamination-production", "maintenance" (the Maintenance module — the eight F/MNT formats: the equipment list,
   preventive maintenance, daily machine health, breakdowns, glass breakage and lux levels), "purchase" (the Purchase
   module — the five F/PUR supplier and service-provider formats), "store" (the two F/STR formats), "dispatch" (the
-  two F/DISP formats), "quality-control-inspection-records", "quality-compliance"
+  two F/DISP formats), "marketing" (the Marketing module — the three F/MKT formats: the customer's feedback form,
+  the yearly analysis of those forms per product with its % Satisfaction Index, and the customer complaints trend
+  analysis per product with its Pareto of the causes), "quality-control-inspection-records", "quality-compliance"
 - /files/{scope}/{from}/{to} — Document Files: every record filed by module → document → month, for EXACTLY the
   dates from..to (ISO YYYY-MM-DD). scope is "all", a moduleSlug (as above), "pest-control" (the pest control
   file — the shelf of the Human Resources module holding the daily monitoring record, the fly catcher register,
@@ -314,7 +316,10 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   sys-hara-monthly (F/SYS/12 Monthly Review & HARA Verification), sys-hara-annual (F/SYS/20 Annual HARA Review),
   sys-site-security (F/SYS/17 Site Security Risk Assessment), sys-backward-trace (F/SYS/14 Backward Traceability),
   sys-forward-trace (F/SYS/15 Forward Traceability) and sys-mock-recall (F/SYS/13 Mock Product Withdrawal Record);
-  for "the system documents" as a whole use /library/system-management
+  for "the system documents" as a whole use /library/system-management. The Marketing formats open here as well:
+  mkt-customer-feedback (F/MKT/01 Customer Value added Feedback), mkt-feedback-analysis (F/MKT/02 Customer Feedback
+  analysis) and mkt-complaint-trend (F/MKT/04 Customer Complaints Trend Analysis, with its Pareto); for "the
+  marketing documents" as a whole use /library/marketing
 - /insights — Insights: what the plant's records show when read together (readings out of band or drifting, the
   same lot deviation again, CAPA not effective or overdue, expired calibration, a supplier graded C, lux falls,
   breakdowns per machine, glass breakage, missed daily health checks, PM slipping). Use it for "anything unusual",
@@ -442,7 +447,8 @@ const PERSONA = [
 // "stay on topic" instruction leaks answers with a disclaimer.
 const SCOPE = [
   "SCOPE — the rule you must never break. You help ONLY with this system: its records, documents and formats, its",
-  "modules (Human Resources — its HR formats and the pest control file — CAPA, Lamination QC & Production,",
+  "modules (Marketing — the customer's feedback, its analysis and the complaint trends — Human Resources — its HR",
+  "formats and the pest control file — CAPA, Lamination QC & Production,",
   "Purchase — supplier registration, supplier audits, the approved supplier list and the two performance",
   "monitoring registers — Maintenance — the equipment list and every machine on it, preventive maintenance,",
   "daily machine health, breakdowns, glass breakage and lux levels — Store, Dispatch, QC",
@@ -477,7 +483,7 @@ Screens you may send the person to (use EXACTLY these shapes; navigate only when
 - /performance — the Performance Scorecard: on time, late and never done, by person, department, module and document
 - /reports/{year}/{month0}/{tab} — a month's Reports; month0 is 0-based (January=0); tab is monthly, summary (the Management Summary: the month in plain English for management), daily, rodent, lizard, flycatcher, training or lamination
 - /qc — Quality Control's overview of its formats; /hr — Human Resources' formats
-- /library/{moduleSlug} — one module's documents: system-management, human-resources, lamination-quality-control, lamination-production, maintenance, purchase, store, dispatch, quality-control-inspection-records, quality-compliance
+- /library/{moduleSlug} — one module's documents: system-management, marketing, human-resources, lamination-quality-control, lamination-production, maintenance, purchase, store, dispatch, quality-control-inspection-records, quality-compliance
 - /document/{documentId} — one format's page, e.g. mnt-breakdown-record (F/MNT/06), mnt-lux-level (F/MNT/11), mnt-yearly-pm-schedule (F/MNT/03), mnt-glass-breakage (F/MNT/09), mnt-equipment-list (F/MNT/01), pur-supplier-performance (F/PUR/05), pur-service-provider-performance (F/PUR/06), qc-viscosity (F-QC-30)
 - /files/{scope}/{from}/{to} — every record of "all", a moduleSlug or comma-separated document ids, filed between two ISO dates
 - /gap/internal — internal CAPA findings; /gap/external — customer complaints

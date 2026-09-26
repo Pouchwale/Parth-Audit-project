@@ -1,4 +1,5 @@
 import { withAuditRisk } from "./auditRisk";
+import { withMarketingCalc } from "./marketingCalc";
 import { withCalibration } from "./calibration";
 import { withMaintenanceCalc } from "./maintenanceCalc";
 import { withPurchaseRatings } from "./purchaseRatings";
@@ -24,5 +25,6 @@ import { withPurchaseRatings } from "./purchaseRatings";
 // and passes any other document's data straight through, so calling it on
 // every render costs nothing for the forms without such a cell.
 export function withComputedCells<T>(documentId: string | undefined, data: T): T {
-  return withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, data))));
+  // F/MKT/02's satisfaction index and F/MKT/04's Pareto (REQUIREMENTS §77) join the pass the same way.
+  return withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, data)))));
 }

@@ -143,6 +143,16 @@ The app behaves like a personal assistant rather than a blank form:
   days — and raises it once a week per person or department: in the bell, the day's notification, the Performance
   page and Mitra, with a digest of each week on the next week's first working day. The **Activity Log is kept for ever**, append-only in the database
   itself, and archived only when the super admin chooses to.
+- **A Marketing (MKT) module** (REQUIREMENTS §77), second in the sidebar where the company's master list puts F/MKT:
+  the customer's own word on the plant's product — the Customer Value added Feedback each customer fills, the yearly
+  Customer Feedback analysis per product with its % Satisfaction Index **worked out, never typed** (LABELS 92%, POUCHES
+  89%, SLEEVES 83% for 2025), and the Customer Complaints Trend Analysis per product with the **bar chart of the years
+  and the Pareto of the causes drawn from the figures**, as the paper draws them. Every supplied page is on file as a
+  record and shown beside its form. And **the header block of every format is the plant's to change**: on a sheet
+  designed in place the company's name, the title, the format number, the revision and its date are clicked and typed
+  over where they stand; on a form the program draws the same boxes are in the Edit format dialog — saved as a
+  revision, said in words in the change history, shown on every record's header, and undone by restoring the issued
+  format.
 - **A System / Management (SYS) module** (REQUIREMENTS §76), first in the sidebar where the company's master list puts
   F/SYS: the Product Safety Team Leader's eighteen formats — the Master Lists of Documents and of Formats & Records,
   document change, the management review with its agenda and the quality & product safety objectives, the internal

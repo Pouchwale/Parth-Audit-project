@@ -237,7 +237,7 @@ with sync_playwright() as p:
     # 1. The Document Library: one hundred and nine documents, twenty-six of them HR's
     # ==================================================================
     open_library(page)
-    check("The Document Library lists one hundred and nine documents", library_rows(page).count() == 109, library_rows(page).count())
+    check("The Document Library lists one hundred and twelve documents", library_rows(page).count() == 112, library_rows(page).count())
     group = hr_group(page)
     check("The Human Resources module is one group of the library", group.count() == 1)
     check("...and there is no Pest Control module any more", page.locator(".app-content h3:has-text('Pest Control')").count() == 0)
@@ -448,7 +448,7 @@ with sync_playwright() as p:
     # ==================================================================
     open_library(page)
     all_ids = page.eval_on_selector_all("[data-action='open-document']", "els => els.map((e) => e.getAttribute('data-document'))")
-    check("Every document in the library has Open Document", len(all_ids) == 109, len(all_ids))
+    check("Every document in the library has Open Document", len(all_ids) == 112, len(all_ids))
     landed = {}
     for doc_id in all_ids:
         open_library(page)

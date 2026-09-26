@@ -632,7 +632,7 @@ def main():
         page.click("text=Document Library")
         page.wait_for_timeout(300)
         rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-        check("Document Library lists all 109 documents", rows.count() == 109, rows.count())
+        check("Document Library lists all 112 documents", rows.count() == 112, rows.count())
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)
@@ -680,7 +680,7 @@ def main():
         page.wait_for_timeout(200)
         check(
             "Collapse-all closes every module at once",
-            page.locator(".nav-module.closed").count() == 11 and page.locator(".nav-module.open").count() == 0,
+            page.locator(".nav-module.closed").count() == 12 and page.locator(".nav-module.open").count() == 0,
         )
         check(
             "A collapsed module still marks the one holding the current page",
@@ -688,7 +688,7 @@ def main():
         )
         page.click("button[data-action='toggle-all-modules']")
         page.wait_for_timeout(200)
-        check("Expand-all opens them again", page.locator(".nav-module.open").count() == 11)
+        check("Expand-all opens them again", page.locator(".nav-module.open").count() == 12)
 
         page.click("a:has-text('Lamination QC Documents')")
         page.wait_for_timeout(300)

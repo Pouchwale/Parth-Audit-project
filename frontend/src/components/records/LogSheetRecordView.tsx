@@ -17,6 +17,7 @@ import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { useProgressiveCount } from "../../utils/useProgressive";
+import { SheetChart } from "../charts/SheetChart";
 
 /** A sheet open for writing with more lines than this draws only those near the screen (REQUIREMENTS §76). */
 const DRAW_NEAR_FROM = 60;
@@ -385,6 +386,11 @@ export function LogSheetRecordView({
         </button>
       )}
 
+      {/* The charts the form prints from its own figures (REQUIREMENTS §77). */}
+      {layout.charts?.map((chart, i) => (
+        <SheetChart key={i} chart={chart} data={data} />
+      ))}
+
       {layout.footerFields && layout.footerFields.length > 0 && (
         <div className="card mt-4">
           <div className="card-pad">
@@ -602,6 +608,18 @@ function HeaderFieldInput({
   // a post, not a person (REQUIREMENTS §76).
   const isName =
     /operator|name|inspected|person|\bsign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name|machine|equipment|equipoment/i.test(issuedLabel);
+  // A box WORKED OUT from the sheet — F/MKT/02's totals and its % Satisfaction
+  // Index (REQUIREMENTS §77) — reads as text, as a worked-out cell does.
+  if (field.computed) {
+    return (
+      <div className="field">
+        <label>{field.label}</label>
+        <span className="cell-text notranslate" translate="no" data-computed={field.key}>
+          {value}
+        </span>
+      </div>
+    );
+  }
   // A block of prose is its own kind of box: it takes the width of the row it
   // sits in and grows with what is written (REQUIREMENTS §68).
   if (field.type === "paragraph") {

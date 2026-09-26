@@ -6,7 +6,8 @@ import { getIssuedLogSheetLayout, getLogSheetLayout } from "../../data/seed/logS
 import { formatEditFor, nextRevisionNo } from "../../data/formatEdits";
 import { BOX_TYPES, COLUMN_TYPES, FIELD_TYPE_LABELS, commitFormatChange, newKey, restoreIssuedFormat, setInstructions as withInstructions } from "../../engine/formatOps";
 import { SEED_DOCUMENTS } from "../../data/seed/documentDefinitions";
-import { formatDisplayDate } from "../../utils/date";
+import { COMPANY } from "../../data/seed/masterData";
+import { formatDisplayDate, todayISO } from "../../utils/date";
 
 // EDIT FORMAT — any document's format can be changed by the plant
 // (REQUIREMENTS §62): rename it; on a log sheet add, rename, retype, reorder
@@ -114,6 +115,10 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
 
   const [name, setName] = useState(doc.name);
   const [revisionNo, setRevisionNo] = useState(nextRevisionNo(doc.revisionNo));
+  // The rest of the header — every format's, whatever draws it (REQUIREMENTS §77).
+  const [companyName, setCompanyName] = useState(doc.companyName ?? COMPANY.name);
+  const [formatNo, setFormatNo] = useState(doc.formatNo);
+  const [revisionDate, setRevisionDate] = useState(todayISO());
   const [reason, setReason] = useState("");
   const [instructions, setInstructions] = useState((current?.instructions ?? []).join("\n"));
   const [headerFields, setHeaderFields] = useState<Item[]>(current?.headerFields ?? []);
@@ -162,7 +167,7 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
         };
       }
     }
-    const result = commitFormatChange(doc, { name, layout }, { actor, reason, revisionNo });
+    const result = commitFormatChange(doc, { name, layout, companyName, formatNo, revisionDate }, { actor, reason, revisionNo });
     if (!result.ok) return setError(result.error);
     onSaved();
   };
@@ -212,6 +217,19 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
           <div className="field">
             <label>New revision number</label>
             <input className="input input-sm" value={revisionNo} onChange={(e) => setRevisionNo(e.target.value)} data-field="format-revision" />
+          </div>
+          {/* The rest of the header block (REQUIREMENTS §77): the company's name as the form prints it, its number, and the date this revision carries. */}
+          <div className="field">
+            <label>Company name (as the header prints it)</label>
+            <input className="input input-sm notranslate" translate="no" value={companyName} onChange={(e) => setCompanyName(e.target.value)} data-field="format-company" />
+          </div>
+          <div className="field">
+            <label>Format No.</label>
+            <input className="input input-sm notranslate" translate="no" value={formatNo} onChange={(e) => setFormatNo(e.target.value)} data-field="format-number" />
+          </div>
+          <div className="field">
+            <label>Date of this revision</label>
+            <input className="input input-sm notranslate" translate="no" type="date" value={revisionDate} onChange={(e) => setRevisionDate(e.target.value)} data-field="format-revision-date" />
           </div>
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <label>Why is the format changing? *</label>

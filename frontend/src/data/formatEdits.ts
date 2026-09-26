@@ -39,6 +39,10 @@ export interface FormatEdit {
   revisionDate: string;
   /** The format's name, when it was changed. */
   name?: string;
+  /** The company name the header prints, when it was changed (REQUIREMENTS §77). */
+  companyName?: string;
+  /** The format number the header prints, when it was changed (REQUIREMENTS §77). */
+  formatNo?: string;
   /** The whole layout as it now stands, when it was changed (log sheets only). */
   layout?: LogSheetLayout;
   /** Newest first. */

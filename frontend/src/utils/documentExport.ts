@@ -33,6 +33,8 @@ export type DocumentFileKind = "xlsx" | "docx" | "pdf";
 // the three Certificates of Analysis, the analysis report, the minutes of a
 // meeting and the customer's tolerance card download as Word (REQUIREMENTS §57).
 const WORD_FORMS = new Set([
+  // The customer's feedback form (F/MKT/01) is a form of boxes and one small grid, a Word document on the paper (REQUIREMENTS §77).
+  "mkt-customer-feedback",
   "hr-pre-employment-health",
   "hr-induction-staff",
   "hr-job-responsibility",

@@ -71,6 +71,10 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   // --- Marketing: customer complaints
   "capa-customer-complaint": "MKT", // F/MKT/05 on the list
   "capa-complaint-ack": "MKT", // F-MKT-06 "Complaint Acknowldgement form" on the list (the form itself is headed QA-CAF-00)
+  // --- Marketing's own module (REQUIREMENTS §77)
+  "mkt-customer-feedback": "MKT", // F/MKT/01
+  "mkt-feedback-analysis": "MKT", // F/MKT/02
+  "mkt-complaint-trend": "MKT", // F/MKT/04
 
   // --- Quality Assurance: the internal inspection findings
   "gap-inspection": "QA", // TBC — an internal findings/corrective-action report, QA's to close out

@@ -76,8 +76,14 @@ export const SYS_SECTIONS = [
   "HARA & Site Security",
   "Traceability & Recall",
 ] as const;
+// Marketing (REQUIREMENTS §77): what the customer says of the plant's product —
+// the feedback each customer gives and its yearly analysis per product, and
+// the customer complaints, their trend over the years and the Pareto of their
+// causes. The master list of formats (F/SYS/02) lists F/MKT right after F/SYS.
+export const MKT_SECTIONS = ["Customer Feedback", "Customer Complaints"] as const;
 export const MODULE_SECTIONS: readonly string[] = [
   ...SYS_SECTIONS,
+  ...MKT_SECTIONS,
   ...HR_SECTIONS,
   ...PEST_CONTROL_SECTIONS,
   ...QC_SECTIONS,
@@ -2071,6 +2077,77 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     // Yearly for each product (the management review of 21.07.2025) — three a
     // year, so each is made when due rather than on one calendar date; the
     // insights watch the twelve months for each product.
+    schedule: { type: "as-required" },
+  },
+
+  // ---------------------------------------------------------------------
+  // Marketing (REQUIREMENTS §77): the customer's own word on the plant's
+  // product and service, and what the plant makes of it — one feedback form
+  // per customer, one analysis of those forms per product and year, and one
+  // trend analysis of the complaints per product and year, with its Pareto of
+  // the causes. Layouts in data/seed/mktLayouts.ts, the supplied pages on file
+  // in data/seed/mktRecords.ts. F/MKT/03 was not supplied; F/MKT/05 and 06 are
+  // the customer complaint checklist and its acknowledgement, in the CAPA
+  // module's External side, where the complaints themselves are handled.
+  // ---------------------------------------------------------------------
+  {
+    id: "mkt-customer-feedback",
+    kind: "log-sheet",
+    name: "Customer Value added Feedback",
+    formatNo: "F/MKT/01",
+    revisionNo: "01",
+    revisionDate: "2021-12-01",
+    // The Marketing papers print the company's name in two words, "PRINT PACK", as the paper does.
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "Marketing",
+    module: "Marketing",
+    section: "Customer Feedback",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The feedback a customer gives on the plant's product and service: six attributes each rated from 5 Excellent to - 5 Poor — product quality, the condition of the packaging on receipt, delivery as required, the completeness of the documents (invoice, test certificate, packing list), the response to queries and the technical competency — the customer's comments and suggestions, the overall satisfaction level, whether they would work with the plant again, and their seal and sign. One form per customer, as and when it comes back. On file: Pidilite's feedback of 22.01.2025 on Tenax wraparound labels.",
+    sourceFile: "F-MKT-01_Customer Feedback Form- Tenax.pdf (filled, as supplied)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mkt-feedback-analysis",
+    kind: "log-sheet",
+    name: "Customer Feedback analysis",
+    formatNo: "F/MKT/02",
+    revisionNo: "01",
+    revisionDate: "2021-12-01",
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "Marketing",
+    module: "Marketing",
+    section: "Customer Feedback",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The year's customer feedback forms for one product, counted: how many customers gave each attribute each rating, and from those the Average Rating, the Ideal Rating and the Satisfied % of each attribute, the tallies of each rating, the product's % Satisfaction Index and any further action — the figures worked out here, never typed. One analysis per product for each evaluation period. On file: the analyses for 01.01.2025 to 31.12.2025 of LABELS (92%), POUCHES (89%) and SLEEVES (83%).",
+    sourceFile:
+      "F-MKT-02_Customer Feedback analysis - Labels-2026.pdf (filled, as supplied); the company's own workbooks are F-MKT-02_Customer Feedback analysis - Labels-2026.xlsx, F-MKT-02_Customer Feedback analysis - Pouches -2025.xlsx and F-MKT-02_Customer Feedback analysis - Sleeve-2025.xlsx",
+    // One a year for each product, made when the year's forms are in rather
+    // than on one calendar date (TBC 30).
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mkt-complaint-trend",
+    kind: "log-sheet",
+    name: "Customer Complaints Trend Analysis",
+    formatNo: "F/MKT/04",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "Marketing",
+    module: "Marketing",
+    section: "Customer Complaints",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The customer complaints of one product: how many each year since December 2021 and how many each month of the calendar year, with the bar chart of the years, and the Pareto analysis of their causes — each cause's defects, its cumulative percentage against the 80% cut-off, the Vital Few within it and the Useful Many after it — drawn from the figures as the paper draws it. One a year for each product. On file: the 2025 analyses of LABELS, SHRINK SLEEVE and LAMINATED POUCH, with their Paretos of the complaints to January 2026.",
+    sourceFile:
+      "F-MKT-04_Complaint trend analysis(R-2026)-Label.pdf, F-MKT-04_Complaint trend analysis(R-2026) SHRINK SLEEVE.pdf, F-MKT-04_Complaint trend analysis(R-2026) Pouch.pdf, F-MKT-04_Complaint trend analysis(R-2026) LABELS.pdf, F-MKT-04_Complaint trend analysis(R-2026) Sleeve.pdf and F-MKT-04_Complaint trend analysis(R-2026) POUCHES.pdf (as supplied); the company's own workbook is F-MKT-04_Complaint trend analysis(R-2026).xls",
+    // One a year for each product (TBC 30).
     schedule: { type: "as-required" },
   },
 ];

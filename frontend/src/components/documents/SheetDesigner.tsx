@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { FiAlignLeft, FiArrowDown, FiArrowLeft, FiArrowRight, FiArrowUp, FiCheckCircle, FiChevronDown, FiCopy, FiCornerUpLeft, FiCornerUpRight, FiEdit3, FiPlus, FiSave, FiSliders, FiTrash2, FiX } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSheetLayout } from "../../types";
 import { Modal } from "../common/Modal";
-import { DocumentHeader } from "./DocumentHeader";
+import { DocumentHeader, type HeaderField } from "./DocumentHeader";
 import { FormatEditor } from "./FormatEditor";
+import { COMPANY } from "../../data/seed/masterData";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { nextRevisionNo, type FormatRevision } from "../../data/formatEdits";
 import { closeDesignSession, openDesignSession } from "../../engine/designSession";
@@ -124,6 +125,8 @@ type ItemTarget = { kind: "column"; key: string } | { kind: "box"; area: BoxArea
  */
 type RenameTarget =
   | { kind: "name" }
+  // The header block itself — company, title, format number, revision, date (REQUIREMENTS §77).
+  | { kind: "header"; field: HeaderField }
   | { kind: "instructions" }
   | { kind: "instruction"; index: number }
   | { kind: "column"; key: string }
@@ -445,6 +448,29 @@ export function SheetDesigner({
     const target = renaming;
     setRenaming(null);
     const d = live.current.present;
+    // THE HEADER, TYPED OVER IN PLACE (REQUIREMENTS §77). The company's name,
+    // the number and the revision rubbed out stay what they were, as any name
+    // does; the date takes only a real one.
+    if (target?.kind === "header") {
+      const text = value.trim();
+      switch (target.field) {
+        case "title":
+          if (text && text !== d.name) put({ ...d, name: text });
+          return;
+        case "companyName":
+          if (text && text !== (d.companyName ?? doc.companyName ?? COMPANY.name)) put({ ...d, companyName: text });
+          return;
+        case "formatNo":
+          if (text && text !== (d.formatNo ?? doc.formatNo)) put({ ...d, formatNo: text });
+          return;
+        case "revisionNo":
+          if (text && text !== (d.revisionNo ?? doc.revisionNo)) put({ ...d, revisionNo: text });
+          return;
+        case "revisionDate":
+          if (/^\d{4}-\d{2}-\d{2}$/.test(text) && text !== (d.revisionDate ?? doc.revisionDate ?? "")) put({ ...d, revisionDate: text });
+          return;
+      }
+    }
     if (!target || !d.layout) return;
     if (target.kind === "instructions") {
       const next = setInstructions(d.layout, value.split(/\r?\n/));
@@ -834,7 +860,44 @@ export function SheetDesigner({
 
       {/* The sheet as it will print: everything that is a control on it is .no-print (utils/print.ts). */}
       <div className="designer-sheet mt-2" data-print-doc>
-        <DocumentHeader doc={doc} title={draft.name} pageLabel="1 of 1 (digital)" />
+        {/* The header block is designed in place too (REQUIREMENTS §77): each
+            of its values is clicked and typed over where it stands. The
+            revision box starts from the number the save will be given. */}
+        <DocumentHeader
+          doc={doc}
+          title={draft.name}
+          pageLabel="1 of 1 (digital)"
+          edit={{
+            editing: renaming?.kind === "header" ? renaming.field : null,
+            onEdit: (field) => {
+              setMenu(null);
+              setRenaming({ kind: "header", field });
+            },
+            values: { companyName: draft.companyName, formatNo: draft.formatNo, revisionNo: draft.revisionNo, revisionDate: draft.revisionDate },
+            box: (field) => (
+              <RenameBox
+                field={`designer-${field}`}
+                label={{ companyName: "Company name", title: "Name of the format", formatNo: "Format No.", revisionNo: "Revision number", revisionDate: "Date of the revision" }[field]}
+                inputType={field === "revisionDate" ? "date" : undefined}
+                initial={
+                  field === "companyName"
+                    ? (draft.companyName ?? doc.companyName ?? COMPANY.name)
+                    : field === "title"
+                      ? draft.name
+                      : field === "formatNo"
+                        ? (draft.formatNo ?? doc.formatNo)
+                        : field === "revisionNo"
+                          ? draft.revisionNo && draft.revisionNo !== doc.revisionNo
+                            ? draft.revisionNo
+                            : nextRevisionNo(doc.revisionNo)
+                          : (draft.revisionDate ?? doc.revisionDate ?? "")
+                }
+                onCommit={commitRename}
+                onCancel={cancelRename}
+              />
+            ),
+          }}
+        />
 
         {/* A sheet with no instructions and no boxes above prints no card there (LogSheetRecordView); here the card is where they are added, so it is a control. */}
         <div className={`card mt-4${prose.length || layout.headerFields.length ? "" : " no-print"}`}>
@@ -1201,7 +1264,24 @@ function ChangeList({ changes }: { changes: string[] }) {
  * what was typed; Escape leaves the name as it was. The instructions take
  * several lines, so there Enter is a new line and Ctrl+Enter keeps them.
  */
-function RenameBox({ field, label, initial, multiline, onCommit, onCancel }: { field: string; label: string; initial: string; multiline?: boolean; onCommit: (value: string) => void; onCancel: () => void }) {
+function RenameBox({
+  field,
+  label,
+  initial,
+  multiline,
+  inputType,
+  onCommit,
+  onCancel,
+}: {
+  field: string;
+  label: string;
+  initial: string;
+  multiline?: boolean;
+  /** "date" for the header's revision date (REQUIREMENTS §77); text otherwise. */
+  inputType?: string;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}) {
   const [text, setText] = useState(initial);
   const line = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
@@ -1242,7 +1322,18 @@ function RenameBox({ field, label, initial, multiline, onCommit, onCancel }: { f
       onBlur={() => finish(true)}
     />
   ) : (
-    <input ref={line} className="input input-sm designer-rename notranslate" translate="no" value={text} aria-label={label} data-field={field} onChange={(e) => setText(e.target.value)} onKeyDown={onKeyDown} onBlur={() => finish(true)} />
+    <input
+      ref={line}
+      type={inputType ?? "text"}
+      className="input input-sm designer-rename notranslate"
+      translate="no"
+      value={text}
+      aria-label={label}
+      data-field={field}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={onKeyDown}
+      onBlur={() => finish(true)}
+    />
   );
 }
 
@@ -1577,7 +1668,8 @@ function DesignerMenu({ root, selector, watch, onClose, children }: { root: Reac
  * are its own, so typing the reason does not rebuild the sheet underneath.
  */
 function SaveDialog({ doc, draft, changes, actor, onClose, onSaved }: { doc: DocumentDefinition; draft: FormatDraft; changes: string[]; actor: string; onClose: () => void; onSaved: (revision: FormatRevision) => void }) {
-  const [revisionNo, setRevisionNo] = useState(nextRevisionNo(doc.revisionNo));
+  // The number typed over on the header, when there is one (REQUIREMENTS §77); the next number otherwise.
+  const [revisionNo, setRevisionNo] = useState(draft.revisionNo && draft.revisionNo !== doc.revisionNo ? draft.revisionNo : nextRevisionNo(doc.revisionNo));
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const save = () => {

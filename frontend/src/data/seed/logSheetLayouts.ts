@@ -15,6 +15,7 @@ import { SYS_DOCUMENT_CONTROL_LAYOUTS } from "./sysDocumentControlLayouts";
 import { SYS_MANAGEMENT_REVIEW_LAYOUTS } from "./sysManagementReviewLayouts";
 import { SYS_INTERNAL_AUDIT_LAYOUTS } from "./sysInternalAuditLayouts";
 import { SYS_HARA_TRACEABILITY_LAYOUTS } from "./sysHaraTraceabilityLayouts";
+import { MKT_LAYOUTS } from "./mktLayouts";
 import { formatEditFor } from "../formatEdits";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
@@ -432,6 +433,8 @@ Object.assign(LOG_SHEET_LAYOUTS, SYS_DOCUMENT_CONTROL_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, SYS_MANAGEMENT_REVIEW_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, SYS_INTERNAL_AUDIT_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, SYS_HARA_TRACEABILITY_LAYOUTS);
+// Marketing (REQUIREMENTS §77): the customer's feedback and its analysis, the complaint trend and its Pareto.
+Object.assign(LOG_SHEET_LAYOUTS, MKT_LAYOUTS);
 
 // The layout as it stands now: the plant's own change to the format where
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout

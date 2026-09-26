@@ -447,6 +447,15 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "sys-mock-recall", aliases: ["mock product withdrawal", "mock withdrawal", "mock recall", "product withdrawal", "recall test", "f/sys/13"] },
   { id: "sys-backward-trace", aliases: ["backward traceability", "backward trace", "customer to supplier", "traceability", "f/sys/14"] },
   { id: "sys-forward-trace", aliases: ["forward traceability", "forward trace", "supplier to customer", "traceability", "f/sys/15"] },
+  // Marketing (REQUIREMENTS §77). "customer feedback" alone is the form and the
+  // analysis needs its word; "complaint" alone stays the complaint checklist
+  // (F/MKT/05), so the trend needs "trend" or "pareto".
+  { id: "mkt-customer-feedback", aliases: ["customer value added feedback", "customer feedback form", "customer feedback", "value added feedback", "feedback form", "f/mkt/01"] },
+  { id: "mkt-feedback-analysis", aliases: ["customer feedback analysis", "feedback analysis", "customer satisfaction index", "satisfaction index", "f/mkt/02"] },
+  {
+    id: "mkt-complaint-trend",
+    aliases: ["customer complaints trend analysis", "customer complaint trend analysis", "complaints trend analysis", "complaint trend analysis", "complaints trend", "complaint trend", "pareto analysis", "pareto", "f/mkt/04"],
+  },
   // Store (REQUIREMENTS §71): the stamp put on incoming material paperwork,
   // and the sharp tool register. The store says "blade" and "cutter" far more
   // often than it says the format's own name, so both are aliases, and
@@ -553,6 +562,8 @@ const MODULE_KEYWORDS: { module: string; aliases: string[] }[] = [
   { module: "Maintenance", aliases: ["maintenance module", "maintenance documents", "maintenance records", "maintenance formats", "maintenance"] },
   { module: "Store", aliases: ["store module", "store documents", "store records", "store formats"] },
   { module: "Dispatch", aliases: ["dispatch module", "dispatch documents", "dispatch records", "dispatch formats", "dispatch"] },
+  // Marketing as a whole (REQUIREMENTS §77) — reached only when no single F/MKT format was named.
+  { module: "Marketing", aliases: ["marketing module", "marketing documents", "marketing records", "marketing formats", "marketing"] },
 ];
 
 function escapeReg(s: string): string {

@@ -13,6 +13,13 @@ export interface DocumentDefinition {
   formatNo: string; // e.g. "F/HR/17" or "TO BE CONFIRMED"
   revisionNo: string; // e.g. "00" or "TO BE CONFIRMED"
   revisionDate: string | null; // ISO date, or null if TBC
+  /**
+   * The company's name as THIS format's header prints it, when the plant has
+   * changed it on the format (Edit format, REQUIREMENTS §77) — laid over the
+   * issued definition from data/formatEdits.ts. Absent, the header prints the
+   * company's registered name (data/seed/masterData.ts COMPANY.name).
+   */
+  companyName?: string;
   department: string;
   module: string; // grouping shown on dashboard, e.g. "Pest Control"
   frequency: Frequency;

@@ -160,6 +160,7 @@ const en = {
   "module.Store": "Store",
   "module.Dispatch": "Dispatch",
   "module.System / Management": "System / Management (SYS)",
+  "module.Marketing": "Marketing (MKT)",
 
   // ---- navigation --------------------------------------------------------
   "nav.dashboard": "Dashboard",
@@ -321,6 +322,12 @@ const en = {
   "nav.sysBackwardTrace": "Backward Traceability",
   "nav.sysForwardTrace": "Forward Traceability",
   "nav.sysMockRecall": "Mock Product Withdrawal",
+  "nav.mktDocs": "Marketing Documents",
+  "nav.mktCustomerFeedback": "Customer Feedback",
+  "nav.mktFeedbackForm": "Customer Value added Feedback",
+  "nav.mktFeedbackAnalysis": "Customer Feedback analysis",
+  "nav.mktCustomerComplaints": "Customer Complaints",
+  "nav.mktComplaintTrend": "Complaints Trend Analysis",
   "nav.storeDocs": "Store Documents",
   "nav.strIncomingMaterial": "Incoming Material",
   "nav.strIncomingMaterialVehicle": "Incoming Material Vehicle & Condition",
@@ -804,6 +811,7 @@ const gu: Record<StringKey, string> = {
   "module.Store": "સ્ટોર",
   "module.Dispatch": "ડિસ્પેચ",
   "module.System / Management": "સિસ્ટમ / મેનેજમેન્ટ (SYS)",
+  "module.Marketing": "માર્કેટિંગ (MKT)",
 
   // ---- navigation --------------------------------------------------------
   "nav.dashboard": "ડેશબોર્ડ",
@@ -958,6 +966,12 @@ const gu: Record<StringKey, string> = {
   "nav.sysBackwardTrace": "બેકવર્ડ ટ્રેસેબિલિટી",
   "nav.sysForwardTrace": "ફોરવર્ડ ટ્રેસેબિલિટી",
   "nav.sysMockRecall": "મોક પ્રોડક્ટ વિથડ્રોઅલ",
+  "nav.mktDocs": "માર્કેટિંગ દસ્તાવેજો",
+  "nav.mktCustomerFeedback": "ગ્રાહક પ્રતિસાદ",
+  "nav.mktFeedbackForm": "ગ્રાહક વેલ્યુ એડેડ ફીડબેક",
+  "nav.mktFeedbackAnalysis": "ગ્રાહક પ્રતિસાદ વિશ્લેષણ",
+  "nav.mktCustomerComplaints": "ગ્રાહક ફરિયાદો",
+  "nav.mktComplaintTrend": "ફરિયાદ વલણ વિશ્લેષણ",
   "nav.storeDocs": "સ્ટોર દસ્તાવેજો",
   "nav.strIncomingMaterial": "આવતું મટીરિયલ",
   "nav.strIncomingMaterialVehicle": "આવતા મટીરિયલનું વાહન અને સ્થિતિ",

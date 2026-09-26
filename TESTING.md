@@ -296,6 +296,32 @@ Seven scripts live in `tests/`:
   back when scrolled to, and every one of the 173 prints. Eighteen more documents moved the totals:
   **91 → 109** in `e2e_smoke.py` and `e2e_hr_module.py`, and the sidebar's modules **10 → 11** in `e2e_smoke.py` and
   `tests/visual_qa.py`.
+- `tests/e2e_marketing_module.py` - the Marketing module and its three F/MKT formats, and the header block of every
+  format designed in place (REQUIREMENTS §77), a thirty-eighth suite, added 26-Sep-2026 and run straight after the
+  System / Management suite: the module **second** in the sidebar, named "Marketing (MKT)", with its three formats
+  under two groups; the pages supplied filled in on file as printed — Pidilite's feedback of 22.01.2025 with its six
+  ratings as ticked, the LABELS analysis of 2025 **worked out** to 249 of 270 and a 92% Satisfaction Index (POUCHES 89%,
+  SLEEVES 83%, from the company's own workbooks), the LABELS complaint trend (1, 7, 6, 4, 2, its Total row repeating them) with its
+  Pareto of 14 causes, the first 9 within the 80% cut-off; the worked-out boxes shown as **text**, the trend's **bar
+  chart** with a bar per year and the **Pareto** with a bar per cause, the Vital Few darker and the cut-off line drawn;
+  every supplied page loading (1 + 1 + 6); a new analysis working itself out the moment a count is typed (8 and 1 →
+  44 of 45, 97.78%, a 98% index); **the header typed over where it stands** on a sheet designed in place — the company's
+  name and the revision date changed, saved as Rev 02 with the change said in words, Pidilite's record headed with the
+  new name, then the issued format restored (PRINT PACK, Rev 01 of 01-Dec-2021); the same boxes in the **Edit format
+  dialog** of a form the program draws (the Daily Report), saved, shown on a record's header, restored; and Mitra
+  opening F/MKT/04 by its number and naming F/MKT/02. Three more documents moved the totals: **109 → 112** in
+  `e2e_smoke.py` and `e2e_hr_module.py`, and the sidebar's modules **11 → 12** in `e2e_smoke.py` and `tests/visual_qa.py`.
+- `frontend/tests/marketingModule.test.ts` - the Marketing module's arithmetic without a browser: F/MKT/02's line
+  (8 Excellent and 1 Very Good → 44 of 45, 97.78%), its tallies and totals (LABELS 249 of 270 → 92%; POUCHES 107 of
+  120 → 89%; SLEEVES 75 of 90 → 83%), the "- 5 Poor" weight read as minus five, everything blank while nothing is
+  counted; F/MKT/04's Pareto in the order written (the sleeve's 28.6, 50.0, 64.3, 78.6, 85.7, 92.9, 100.0%, the first
+  four within the cut-off), a blank line left out; the seeded records holding exactly what the engine works out.
+- `frontend/tests/headerEdit.test.ts` - the header block of every format as the plant's to change (REQUIREMENTS §77):
+  a draft carries the company's name, the number, the revision and its date (the Marketing papers' own "PRINT PACK"
+  spelling where a format prints one); each changed is a change in words — the next revision number alone is not; a
+  blank is refused; saved, the change is laid over the format for every reader and dated as the header was dated; a
+  second change keeps the first; typed back to the paper's own spelling nothing is stored; "Restore the issued format"
+  brings the paper's own header back; and a form the program draws changes its header the same way.
 - `frontend/tests/sysModule.test.ts` - the SYS module's promises without a browser: F/SYS/07's printed criteria and the
   2024 page's own sums given back section by section; a new monthly HARA verification carrying the questions and the
   team and none of April 2024's answers (`autoFill.fresh`); the supplied pages on file whole (173, 141, 19, 8, 24, 26,

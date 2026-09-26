@@ -116,6 +116,9 @@ const MODULE_ORDER = [
   // the management review, the internal audit, HARA, traceability — that every
   // other module is controlled and audited through (REQUIREMENTS §76).
   "System / Management",
+  // Marketing second, where the master list puts F/MKT — the customer's word on
+  // the product comes before everything done to make it (REQUIREMENTS §77).
+  "Marketing",
   "Human Resources",
   "CAPA (Corrective & Preventive Action)",
   "Lamination — Quality Control",
@@ -144,6 +147,8 @@ type ModuleName = (typeof MODULE_ORDER)[number];
 const MODULE_ICONS: Record<ModuleName, IconType> = {
   // The system everything else is steered by.
   "System / Management": FiCompass,
+  // What the customer says: feedback, and the trend of complaints.
+  Marketing: FiTrendingUp,
   "Human Resources": FiUsers,
   "CAPA (Corrective & Preventive Action)": FiAlertCircle,
   "Lamination — Quality Control": FiLayers,
@@ -189,6 +194,16 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/document/sys-backward-trace", labelKey: "nav.sysBackwardTrace", icon: FiArrowLeftCircle },
     { to: "/document/sys-forward-trace", labelKey: "nav.sysForwardTrace", icon: FiArrowRightCircle },
     { to: "/document/sys-mock-recall", labelKey: "nav.sysMockRecall", icon: FiRotateCcw },
+  ],
+  // Marketing (REQUIREMENTS §77): the customer's feedback and its yearly
+  // analysis, and the trend and Pareto of the customer complaints.
+  Marketing: [
+    { to: "/library/marketing", labelKey: "nav.mktDocs", icon: FiBookOpen },
+    { headingKey: "nav.mktCustomerFeedback" },
+    { to: "/document/mkt-customer-feedback", labelKey: "nav.mktFeedbackForm", icon: FiMessageSquare },
+    { to: "/document/mkt-feedback-analysis", labelKey: "nav.mktFeedbackAnalysis", icon: FiList },
+    { headingKey: "nav.mktCustomerComplaints" },
+    { to: "/document/mkt-complaint-trend", labelKey: "nav.mktComplaintTrend", icon: FiTrendingUp },
   ],
   // The Human Resources module holds two things (REQUIREMENTS §46): HR's own
   // sixteen F/HR formats — personnel, training, induction and health, hygiene
@@ -395,6 +410,8 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/mnt-breakdown-record": ["mnt-breakdown-record"],
   "/document/mnt-glass-breakage": ["mnt-glass-breakage"],
   "/document/mnt-lux-level": ["mnt-lux-level"],
+  // Marketing (REQUIREMENTS §77): one page per F/MKT format.
+  ...Object.fromEntries(["mkt-customer-feedback", "mkt-feedback-analysis", "mkt-complaint-trend"].map((id) => [`/document/${id}`, [id]])),
   // System / Management (REQUIREMENTS §76): one page per F/SYS format.
   ...Object.fromEntries(
     [

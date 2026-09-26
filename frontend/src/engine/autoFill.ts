@@ -789,6 +789,12 @@ function fillLogSheet(
   // fixed default, else the specimen.
   const header: Record<string, string> = {};
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+    // A box worked out from the sheet is never filled: the computed-cells pass
+    // writes it from what the person writes (REQUIREMENTS §77).
+    if (f.computed) {
+      header[f.key] = "";
+      continue;
+    }
     const prev = previous?.data.header?.[f.key];
     if (f.autoFill?.sign) header[f.key] = prev?.trim() || responsibleName(doc, master, layout.specimenHeader?.[f.key] ?? "");
     // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.

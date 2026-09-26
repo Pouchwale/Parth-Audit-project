@@ -16,6 +16,7 @@ import { SEED_SYS_DOCUMENT_CONTROL_RECORDS } from "./sysDocumentControlRecords";
 import { SEED_SYS_MANAGEMENT_REVIEW_RECORDS } from "./sysManagementReviewRecords";
 import { SEED_SYS_INTERNAL_AUDIT_RECORDS } from "./sysInternalAuditRecords";
 import { SEED_SYS_HARA_TRACEABILITY_RECORDS } from "./sysHaraTraceabilityRecords";
+import { SEED_MKT_RECORDS } from "./mktRecords";
 
 const now = new Date().toISOString();
 
@@ -234,4 +235,8 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   ...(SEED_SYS_MANAGEMENT_REVIEW_RECORDS as RecordInstance[]),
   ...(SEED_SYS_INTERNAL_AUDIT_RECORDS as RecordInstance[]),
   ...(SEED_SYS_HARA_TRACEABILITY_RECORDS as RecordInstance[]),
+  // Marketing's pages, supplied on 26-Sep-2026 (REQUIREMENTS §77): Pidilite's
+  // feedback, the three feedback analyses of 2025 and the three complaint
+  // trend analyses of 2025 with their Paretos.
+  ...(SEED_MKT_RECORDS as RecordInstance[]),
 ];

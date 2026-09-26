@@ -232,6 +232,10 @@ export const SEED_MASTER_DATA: MasterData = {
     "service-report-fly": "Technician",
     "gap-inspection": "Signatory",
     "capa-customer-complaint": "QA",
+    // Marketing's formats (REQUIREMENTS §77) are the sales desk's.
+    "mkt-customer-feedback": "Sales",
+    "mkt-feedback-analysis": "Sales",
+    "mkt-complaint-trend": "Sales",
     "training-record": "Training Coordinator",
     "qc-viscosity": "QC Tester",
     "qc-adhesive-mixing": "QC Tester",
