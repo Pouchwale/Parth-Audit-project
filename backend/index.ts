@@ -243,6 +243,14 @@ app.get("/api/auth/config", (_req: Request, res: Response): void => {
   res.json({ features: FEATURES });
 });
 
+// IS THE SITE UP? (REQUIREMENTS §78). The top bar's connection badge asks this
+// every few seconds and times the answer; nothing about the server or anybody's
+// account is said — only that it answered, and when. Never cached.
+app.get("/api/health", (_req: Request, res: Response): void => {
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, at: new Date().toISOString() });
+});
+
 app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> => {
   // ACCOUNTS ARE MADE BY THE ADMINISTRATOR (REQUIREMENTS §66). Refused here,
   // whatever is sent and whoever sends it — an empty users table included, so a

@@ -53,6 +53,9 @@ export interface FormatDraft {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** The parts of the header block a format's designer — or Mitra, told in words — can change (REQUIREMENTS §77). */
+export type HeaderField = "companyName" | "title" | "formatNo" | "revisionNo" | "revisionDate";
+
 /** The company name a format's header prints: the one set on it, else the registered name. */
 export const printedCompanyName = (doc: Pick<DocumentDefinition, "companyName">): string => doc.companyName ?? COMPANY.name;
 

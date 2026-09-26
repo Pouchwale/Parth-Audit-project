@@ -1,5 +1,6 @@
 import React from "react";
 import type { DocumentDefinition } from "../../types";
+import type { HeaderField } from "../../engine/formatOps";
 import { COMPANY } from "../../data/seed/masterData";
 import { documentTextIn } from "../../i18n/documentText";
 import { useAppStore } from "../../store/AppStore";
@@ -32,8 +33,8 @@ import { formatDisplayDate } from "../../utils/date";
 // draft's values, and the box to draw in the cell being typed. A record's own
 // date (`dateLabel`) is never one of them — it is the record's, not the form's.
 
-/** The parts of the header a format's designer can change. */
-export type HeaderField = "companyName" | "title" | "formatNo" | "revisionNo" | "revisionDate";
+/** The parts of the header a format's designer can change — one type with the engine's (engine/formatOps.ts). */
+export type { HeaderField } from "../../engine/formatOps";
 
 export interface HeaderEdit {
   /** The field being typed over, or null. */

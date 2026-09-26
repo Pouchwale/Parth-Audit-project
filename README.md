@@ -143,6 +143,13 @@ The app behaves like a personal assistant rather than a blank form:
   days — and raises it once a week per person or department: in the bell, the day's notification, the Performance
   page and Mitra, with a digest of each week on the next week's first working day. The **Activity Log is kept for ever**, append-only in the database
   itself, and archived only when the super admin chooses to.
+- **The top bar tells the time and whether the site is there** (REQUIREMENTS §78): a clock in hours, minutes and
+  seconds, 12-hour, and a connection badge coloured at a glance — green Online with the speed beside it, amber Slow,
+  orange Very slow, grey No internet, red Site down when the network is there but the site's server does not answer —
+  judged from the browser's own word on the network, the site's server asked and timed every few seconds, and the
+  browser's estimate of the line. And **the header block is Mitra's to change by words**: from a record, "change the
+  format number to F/MKT/01-A and the revision to 02" is read with no network, said back, saved on "Yes" and shown on the
+  record's header at once — nobody leaves the page.
 - **A Marketing (MKT) module** (REQUIREMENTS §77), second in the sidebar where the company's master list puts F/MKT:
   the customer's own word on the plant's product — the Customer Value added Feedback each customer fills, the yearly
   Customer Feedback analysis per product with its % Satisfaction Index **worked out, never typed** (LABELS 92%, POUCHES

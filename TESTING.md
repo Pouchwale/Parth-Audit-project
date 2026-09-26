@@ -322,6 +322,22 @@ Seven scripts live in `tests/`:
   blank is refused; saved, the change is laid over the format for every reader and dated as the header was dated; a
   second change keeps the first; typed back to the paper's own spelling nothing is stored; "Restore the issued format"
   brings the paper's own header back; and a form the program draws changes its header the same way.
+- `tests/e2e_topbar_status.py` - the top bar's connection badge and clock (REQUIREMENTS §78), a thirty-ninth suite,
+  added 26-Sep-2026 and run straight after the Marketing suite: the clock in hours, minutes and seconds, 12-hour,
+  **ticking**, beside the language control and Today's briefing; the badge soon **Online** (green) with its figures
+  ("… Mbps · … ms"); the network cut (`context.set_offline`) showing **No internet** at once and Online again within
+  seconds of its return; the site's server blocked (`/api/health` aborted) showing **Site down** on a click, and Online
+  again when it answers; the badge's word in Gujarati with the figures and the clock as they were. The Marketing suite's
+  §8 (same date) tells Mitra, from Pidilite's record, "i need to change format number and revision number" — asked for
+  the values, with an example — then "change the format number to F/MKT/01-A and the revision to 02" — said back, saved
+  on "Yes" as Rev 02, read on the record's header without leaving it — then the date and the company name by words,
+  declined with "No, leave it", and the issued format restored.
+- `frontend/tests/topbarStatus.test.ts` - the badge's judgement without a browser (offline is certain, a server that does
+  not answer is down, the slower of speed and latency decides), the figures beside the word, the 12-hour clock at
+  midnight and noon; and the header sentences Mitra reads: the refused request's own words asking for values, the
+  combined sentence applied (F/MKT/01-A, Rev 02), "rev 2" → 02, "f/mkt/1" in capitals, a date read from words and an
+  unreadable one said so, an unchanged value refused, and what is not a header change (a bare Date, a box called
+  Company, a column's type, the format's own rename).
 - `frontend/tests/sysModule.test.ts` - the SYS module's promises without a browser: F/SYS/07's printed criteria and the
   2024 page's own sums given back section by section; a new monthly HARA verification carrying the questions and the
   team and none of April 2024's answers (`autoFill.fresh`); the supplied pages on file whole (173, 141, 19, 8, 24, 26,

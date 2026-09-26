@@ -35,6 +35,10 @@ import {
   type FormatDraft,
   type PrintedRow,
 } from "./formatOps";
+import type { HeaderField } from "./formatOps";
+import { COMPANY } from "../data/seed/masterData";
+import { parseUserDate } from "./guidedChecklist";
+import { formatDisplayDate } from "../utils/date";
 
 // A FORMAT CHANGED BY SAYING SO (REQUIREMENTS §64).
 //
@@ -104,6 +108,13 @@ export type FormatCommand =
   | { kind: "required"; target: TargetRef; required: boolean }
   | { kind: "type"; target: TargetRef; type: LogFieldType; options?: string[] }
   | { kind: "renameFormat"; name: string }
+  /**
+   * The header block itself (REQUIREMENTS §77): the company's name, the format
+   * number, the revision number, its date, the title — one or several in one
+   * sentence ("change the format number to F/MKT/01-A and the revision to
+   * 02"). A field named with no value ("change the format number") asks for one.
+   */
+  | { kind: "setHeader"; changes: { field: HeaderField; value?: string }[] }
   | { kind: "addInstruction"; text: string }
   | { kind: "removeInstruction"; ref: InstructionRef }
   | { kind: "rewordInstruction"; ref: InstructionRef; to: string }
@@ -506,6 +517,73 @@ function readFormatName(s: string, r: Reading): FormatCommand | null {
   return name ? { kind: "renameFormat", name } : null;
 }
 
+// ---------------------------------------------------------------------------
+// the header block, told in words (REQUIREMENTS §77)
+//
+// "change the format number to F/MKT/01-A", "set the revision to 02", "the
+// company name should be …", "change the revision date to 1 Sep 2026", "change
+// the format number and the revision number" (no values: Mitra asks). Several
+// in one breath are read as one change. Only the header's own words are read —
+// "date" alone is a record's Date box, not the format's, so the revision's date
+// has to be called that; a bare "name" belongs to renameFormat or to a box.
+
+const HEADER_VERB = "(?:change|set|update|make|correct|edit|fix|amend|alter|put|renumber|redate|retitle)";
+const HEADER_FIELDS: [RegExp, HeaderField][] = [
+  [/^(?:the\s+)?(?:revision|rev\.?|issue|format|header)\s+date(?:\s+of\s+(?:the\s+|this\s+)?(?:revision|format|issue|document))?\b/i, "revisionDate"],
+  [/^(?:the\s+)?date\s+of\s+(?:the\s+|this\s+)?(?:revision|issue|format)\b/i, "revisionDate"],
+  [/^(?:the\s+)?(?:format|document|doc|form)\s*(?:number|no\.?|num\.?|#)\b\.?/i, "formatNo"],
+  [/^(?:the\s+)?(?:number|no\.?)\s+of\s+(?:the\s+|this\s+)?(?:format|document|form)\b/i, "formatNo"],
+  [/^(?:the\s+)?(?:revision|rev\.?)(?:\s*(?:number|no\.?|num\.?|#|level))?\b\.?/i, "revisionNo"],
+  [/^(?:the\s+)?company(?:'s|’s)?\s+name\b/i, "companyName"],
+  [/^(?:the\s+)?company\b(?!\s+(?:box|column|field|seal|sign))/i, "companyName"],
+  [/^(?:the\s+)?(?:format|document|doc|form)(?:'s|’s)?\s+(?:name|title)\b/i, "title"],
+  [/^(?:the\s+)?(?:name|title)\s+of\s+(?:the\s+|this\s+)?(?:format|document|form)\b/i, "title"],
+];
+const HEADER_CONNECTOR = /^\s*(?:to|as|=|:|is|should\s+be|becomes?|must\s+be|->|→|into)\s+/i;
+/** A value that needs no "to" to be read as one: a revision "02", a format number "F/MKT/01-A". */
+const BARE_VALUE: Partial<Record<HeaderField, RegExp>> = {
+  revisionNo: /^\d{1,3}[a-z]?$/i,
+  formatNo: /^[a-z]{1,5}[\/-][a-z0-9]{1,8}(?:[\/-][a-z0-9.-]+)*$/i,
+};
+
+/** A value's end tidied — the full stop of "Pvt. Ltd." or "No." is the value's own and stays. */
+const headerValue = (v: string): string => {
+  const t = v.trim();
+  return ABBREVIATION_END.test(t) ? t : t.replace(/[.;,]+$/, "").trim();
+};
+
+function readHeader(s: string, r: Reading): FormatCommand | null {
+  // The verb once, at the start; then each clause names a field and, mostly, a value.
+  const m = s.match(new RegExp(`^${HEADER_VERB}\\s+(.+)$`, "i"));
+  if (!m) return null;
+  const clauses = m[1].split(/\s*(?:,|;|\band\b)\s*(?=(?:the\s+|this\s+)?(?:format|document|doc|form|revision|rev\b|issue|header|company|date|name|title|number|no\.)\b)/i).filter(Boolean);
+  const changes: { field: HeaderField; value?: string }[] = [];
+  for (const clause of clauses) {
+    const hit = HEADER_FIELDS.map((f) => [f[0].exec(clause), f[1]] as const).find(([x]) => x);
+    if (!hit || !hit[0]) return null;
+    const field = hit[1];
+    let rest = clause.slice(hit[0][0].length);
+    const connector = rest.match(HEADER_CONNECTOR);
+    if (connector) {
+      const value = headerValue(r.unq(rest.slice(connector[0].length)));
+      if (!value) return null;
+      changes.push({ field, value });
+      continue;
+    }
+    rest = r.unq(rest).trim();
+    // "revision 02", "format number F/MKT/01-A" — the value follows directly.
+    const bare = BARE_VALUE[field];
+    if (rest && bare && bare.test(headerValue(rest))) {
+      changes.push({ field, value: headerValue(rest) });
+      continue;
+    }
+    // Words after the field that are not a value ("… so help me out") are let go; the field is asked about.
+    if (rest && !/^(?:so|please|pls|for\s+me|now|too|as\s+well|also)\b/i.test(rest) && !/^(?:number|no\.?)$/i.test(rest)) return null;
+    changes.push({ field });
+  }
+  return changes.length ? { kind: "setHeader", changes } : null;
+}
+
 const REQUIRED_OFF = "not\\s+required|not\\s+mandatory|not\\s+compulsory|optional|no\\s+longer\\s+required|non[- ]mandatory";
 const REQUIRED_ON = "required|mandatory|compulsory|a\\s+must";
 
@@ -687,6 +765,7 @@ export function parseFormatCommand(text: string, layout: LogSheetLayout | undefi
   return (
     readInstruction(s, r) ??
     readFormatName(s, r) ??
+    readHeader(s, r) ??
     readRequired(s, r) ??
     readType(s, r) ??
     readDuplicate(s, r) ??
@@ -753,6 +832,8 @@ export function sentenceFor(cmd: FormatCommand): string {
       return `change the type of ${refWords(cmd.target)} to ${TYPE_WORDS[cmd.type]}${cmd.options?.length ? ` of ${cmd.options.join(", ")}` : ""}`;
     case "renameFormat":
       return `rename this format to ${quote(cmd.name)}`;
+    case "setHeader":
+      return cmd.changes.map((c) => headerWords(c.field, c.value, "plan")).join(" and ");
     case "addInstruction":
       return `add the instruction: ${cmd.text}`;
     case "removeInstruction":
@@ -774,6 +855,81 @@ type Verb = "add" | "remove" | "rename" | "copy" | "move" | "make" | "reword" | 
 const DONE: Record<Verb, string> = { add: "added", remove: "removed", rename: "renamed", copy: "copied", move: "moved", make: "made", reword: "reworded", put: "put", take: "took" };
 
 const refuse = (ask: string): Failure => ({ ok: false, ask, refused: true });
+
+// ---------------------------------------------------------------------------
+// the header block, changed (REQUIREMENTS §77)
+
+const HEADER_NAMES: Record<HeaderField, string> = { companyName: "company name", title: "name", formatNo: "format number", revisionNo: "revision number", revisionDate: "revision date" };
+const HEADER_EXAMPLES: Record<HeaderField, string> = {
+  companyName: "change the company name to “Gujarat Print Pack Publications Pvt. Ltd.”",
+  title: "rename this format to “Customer Feedback Form”",
+  formatNo: "change the format number to F/MKT/01-A",
+  revisionNo: "change the revision to 02",
+  revisionDate: "change the revision date to 01.09.2026",
+};
+
+/** One header change in words: the plan ("change the format number to …") or the same once done. */
+function headerWords(field: HeaderField, value: string | undefined, tense: "plan" | "done"): string {
+  const done = tense === "done";
+  switch (field) {
+    case "revisionNo":
+      return value === undefined ? `${done ? "renumbered" : "renumber"} the revision` : `${done ? "numbered" : "number"} the revision ${value}`;
+    case "revisionDate":
+      return value === undefined ? `${done ? "redated" : "redate"} the revision` : `${done ? "dated" : "date"} the revision ${/^\d{4}-\d{2}-\d{2}$/.test(value) ? formatDisplayDate(value) : value}`;
+    case "title":
+      return value === undefined ? `${done ? "renamed" : "rename"} this format` : `${done ? "renamed" : "rename"} this format to ${quote(value)}`;
+    default:
+      return value === undefined ? `${done ? "changed" : "change"} the ${HEADER_NAMES[field]}` : `${done ? "changed" : "change"} the ${HEADER_NAMES[field]} to ${quote(value)}`;
+  }
+}
+
+function applyHeader(draft: FormatDraft, cmd: Extract<FormatCommand, { kind: "setHeader" }>): FormatCommandResult {
+  const missing = cmd.changes.filter((c) => c.value === undefined);
+  if (missing.length) {
+    const what = missing.map((c) => HEADER_NAMES[c.field]).join(" and ");
+    return { ok: false, ask: `What should the ${what} be? Say it with the value — for example: ${missing.map((c) => `“${HEADER_EXAMPLES[c.field]}”`).join(", or ")}.` };
+  }
+  let next: FormatDraft = { ...draft };
+  const done: string[] = [];
+  const plan: string[] = [];
+  for (const c of cmd.changes) {
+    const value = c.value!.trim();
+    switch (c.field) {
+      case "title":
+        if (value === draft.name.trim()) return refuse(`The format is already called “${draft.name}”.`);
+        next = { ...next, name: value };
+        break;
+      case "companyName":
+        if (value === (draft.companyName ?? COMPANY.name)) return refuse(`The header already says “${value}”.`);
+        next = { ...next, companyName: value };
+        break;
+      case "formatNo": {
+        // Format numbers are printed in capitals: F/MKT/01, never f/mkt/01.
+        const number = value.toUpperCase();
+        if (number === (draft.formatNo ?? "")) return refuse(`The format number is already ${number}.`);
+        next = { ...next, formatNo: number };
+        break;
+      }
+      case "revisionNo": {
+        // "2" means Rev 02, as every revision is printed with two figures.
+        const rev = /^\d$/.test(value) ? `0${value}` : value;
+        if (rev === (draft.revisionNo ?? "")) return refuse(`The format is at Rev ${rev} already — a change is saved as the next revision, or as the number you give.`);
+        next = { ...next, revisionNo: rev };
+        break;
+      }
+      case "revisionDate": {
+        const iso = parseUserDate(value);
+        if (!iso) return refuse(`I could not read “${value}” as a date — say it like 01.09.2026, 1 Sep 2026 or 2026-09-01.`);
+        if (iso === (draft.revisionDate ?? "")) return refuse(`The revision is dated ${formatDisplayDate(iso)} already.`);
+        next = { ...next, revisionDate: iso };
+        break;
+      }
+    }
+    plan.push(headerWords(c.field, c.field === "revisionDate" ? next.revisionDate : c.field === "formatNo" ? next.formatNo : c.field === "revisionNo" ? next.revisionNo : value, "plan"));
+    done.push(headerWords(c.field, c.field === "revisionDate" ? next.revisionDate : c.field === "formatNo" ? next.formatNo : c.field === "revisionNo" ? next.revisionNo : value, "done"));
+  }
+  return { ok: true, draft: next, plan: plan.join(" and "), what: done.join(" and ") };
+}
 function isFailure<T extends object>(x: T | Failure): x is Failure {
   return "ok" in x;
 }
@@ -1015,6 +1171,7 @@ export function applyFormatCommand(draft: FormatDraft, cmd: FormatCommand, lang:
     const rest = `the format from “${draft.name}” to “${cmd.name}”`;
     return { ok: true, draft: { ...draft, name: cmd.name }, plan: `rename ${rest}`, what: `renamed ${rest}` };
   }
+  if (cmd.kind === "setHeader") return applyHeader(draft, cmd);
   const layout = draft.layout;
   if (!layout) return refuse("This form is drawn by the program itself rather than from a layout, so its grid cannot be changed from here — only its name and its revision.");
   const a = sheetOf(layout, lang);

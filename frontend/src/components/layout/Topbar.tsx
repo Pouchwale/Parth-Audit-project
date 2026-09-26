@@ -12,6 +12,7 @@ import { NotificationBell } from "./NotificationBell";
 import { LanguageSwitcher } from "../common/LanguageSwitcher";
 import { openBriefing } from "../common/AssistantBriefingPopup";
 import { ChangePasswordDialog } from "../common/ChangePasswordDialog";
+import { Clock, ConnectionStatus } from "./TopbarStatus";
 
 export function Topbar() {
   const { mode, setMode } = useAppStore();
@@ -68,6 +69,10 @@ export function Topbar() {
           )}
         </div>
         <div className="app-topbar-end flex items-center gap-3">
+          {/* Whether the site can be reached and how fast, as a colour; and the
+              time of day, ticking (REQUIREMENTS §78). */}
+          <ConnectionStatus />
+          <Clock />
           {/* The one language control for the whole app, reachable from every
               screen; beside it, a word on which translation is showing. */}
           <LanguageSwitcher />

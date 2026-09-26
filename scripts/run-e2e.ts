@@ -6,7 +6,7 @@
 // tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py,
 // tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_qc_formats.py,
 // tests/e2e_purchase_module.py, tests/e2e_store_module.py, tests/e2e_assistant_and_logout.py,
-// tests/e2e_maintenance_module.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
+// tests/e2e_maintenance_module.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
 // tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py):
 // a fresh PostgreSQL for the run, build,
 // single-process server (dist/ + auth API) on the port the tests expect,
@@ -224,7 +224,10 @@ async function main(): Promise<void> {
 
   let exitCode = 1;
   try {
-    const ready = await waitForServer(`http://localhost:${TEST_PORT}/api/auth/me`, 15000);
+    // A minute, not fifteen seconds: on a busy machine the server's first start
+    // against a fresh database took 20 s (26-Sep-2026) and the run died before
+    // a single suite ran. The wait ends the moment the server answers.
+    const ready = await waitForServer(`http://localhost:${TEST_PORT}/api/auth/me`, 60000);
     if (!ready) throw new Error(`Server did not come up on :${TEST_PORT} in time.`);
 
     const python = findPython();
@@ -270,6 +273,8 @@ async function main(): Promise<void> {
       // worked-out analysis, the complaint trend with its charts — and the
       // header block of every format designed in place.
       "tests/e2e_marketing_module.py",
+      // REQUIREMENTS §78: the top bar's connection badge and clock.
+      "tests/e2e_topbar_status.py",
       // REQUIREMENTS §75: Insights — what the records show when read together, the
       // Dashboard's three, a CAPA raised from one on a click, and each account's own.
       "tests/e2e_insights.py",
@@ -307,7 +312,7 @@ async function main(): Promise<void> {
         if (await answers(`http://localhost:${PRODUCT_PORT}/api/auth/me`)) throw new Error(`Something is already listening on :${PRODUCT_PORT} — stop it first, so ${suite} runs against this build.`);
         console.log(`Starting the product's own server (no Demo Mode, no sign-up) on :${PRODUCT_PORT}...`);
         productServer = startServer(PRODUCT_PORT, true);
-        if (!(await waitForServer(`http://localhost:${PRODUCT_PORT}/api/auth/me`, 15000))) throw new Error(`Server did not come up on :${PRODUCT_PORT} in time.`);
+        if (!(await waitForServer(`http://localhost:${PRODUCT_PORT}/api/auth/me`, 60000))) throw new Error(`Server did not come up on :${PRODUCT_PORT} in time.`);
       }
       console.log(`Running ${suite}...`);
       const test = spawnSync(python, [suite], { cwd: root, stdio: "inherit", shell: process.platform === "win32" });

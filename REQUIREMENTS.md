@@ -4537,6 +4537,67 @@ a new analysis working itself out, the header typed over on a sheet and changed 
 saved, shown on the records and restored, Mitra by number), `frontend/tests/marketingModule.test.ts` (the arithmetic) and
 `frontend/tests/headerEdit.test.ts` (the header as a change). Three more documents: **109 → 112**; a twelfth module.
 
+## 78. The top bar tells the time and whether the site is there; and the header block is Mitra's to change by words (26-Sep-2026)
+
+```
+REQUESTED            "the user can see the wifi/lan connected or not with data speed so it will be coloured like example
+                      full green when internet speed is very good ... when site is down it will show error problem and
+                      time is also showing in 12 hour format like hour, minute, seconds so add in navbar where today
+                      briefing and language translation is present ... bot and user can edit this part [the header
+                      block] ... i want user don't need to go any where out from system"
+DIGITAL TEMPLATE     components/layout/TopbarStatus.tsx, engine/connectionQuality.ts, backend/index.ts (GET /api/health),
+                      components/layout/Topbar.tsx; engine/formatCommands.ts (setHeader), components/common/
+                      DocumentAssistant.tsx; tests/e2e_topbar_status.py, frontend/tests/topbarStatus.test.ts,
+                      tests/e2e_marketing_module.py (§8)
+```
+
+**1. THE CONNECTION BADGE**, beside Today's briefing and the language control on every screen — a colour anyone reads
+at a glance, a word, and the speed beside it:
+
+| Badge | Colour | When |
+|---|---|---|
+| **Online** | green | the site's server answers within 400 ms and the line is 5 Mbps or better |
+| **Slow** | amber | it answers within 1.2 s, or the line is 1.5 Mbps or better |
+| **Very slow** | orange | slower than that |
+| **No internet** | grey, Wi‑Fi struck through | the browser says the network is gone (a cable out, the Wi‑Fi off) |
+| **Site down** | red, a warning sign | the network is there but the site's own server does not answer |
+
+- **What it is judged from** (engine/connectionQuality.ts, pure and tested): the browser's own word on the network
+  (`navigator.onLine`, and its online / offline events — false is certain, true only "not certainly off"); the site's
+  own server, asked with a small `GET /api/health` and **timed**, every 10 seconds, every 4 while the answer is bad, at
+  once when the network comes or goes, and at once when the badge is clicked; and, where the browser offers one, its
+  estimate of the line (`navigator.connection` — Chromium does, most others do not), shown as the speed figure. The
+  slower of speed and latency decides, so a fast line to a slow server and a slow line to a fast server both read Slow.
+- **The figures**: "13 Mbps · 85 ms" — or "85 ms" alone where the browser estimates nothing. The tooltip says what
+  kind of line where the browser knows (Wi‑Fi, LAN, mobile data — few desktop browsers say, so it reads "Wi‑Fi/LAN"),
+  what is wrong when something is, and that a click checks again. The words follow the language chosen; the figures
+  and the clock do not.
+- **Quiet while the tab is hidden**; the health route says nothing about the server or anybody — only that it answered,
+  and when; never cached.
+
+**2. THE CLOCK** — the time of day in hours, minutes and seconds, 12-hour ("02:05:09 PM"; midnight 12:00:00 AM),
+ticking every second in a component of its own, so the tick redraws those few characters and nothing else on the bar
+(§56). The browser's own clock, which on the plant's computers is the plant's. Its tooltip is the day's date in full.
+
+**3. THE HEADER BLOCK, TOLD TO MITRA** — the other half of §77's "this part editable": nobody leaves the record to change
+it. From a record or a document's page, a sentence such as "change the format number to F/MKT/01-A and the revision to
+02", "set revision 2", "the company name should be …", "change the revision date to 1 Sep 2026" is **read here, with no
+network, before the model is asked** (engine/formatCommands.ts `setHeader`, read after the format's own name). Mitra says
+what it will do and the revision it becomes — the number and the date typed, or the next number dated today — asks, and
+on "Yes" saves it the one way a format change is saved, with the person's words as the reason; the record's header reads
+the change at once. A field named with no value — "i need to change format number and revision number. so help me out",
+the very words that were refused before — is **asked for, with an example to say**. "rev 2" is Rev 02, as every revision
+is printed; "f/mkt/1" prints in capitals; a date is read the everyday ways (01.09.2026, 1 Sep 2026, 2026-09-01) and an
+unreadable one is said so. A form the program draws changes its header this way too. **What is not read as the header's**:
+"date" alone (a record's own Date box — the revision's date has to be called that), "name" alone (a box, or the format's
+own rename), a box called Company, a column's type.
+
+**4. TESTS** — `tests/e2e_topbar_status.py` (the clock ticking 12-hour beside the language control; the badge Online with
+its figures; the network cut and restored; the server's answer blocked and unblocked; the words in Gujarati),
+`frontend/tests/topbarStatus.test.ts` (the judgement, the figures, the clock; the header sentences read and applied, the
+questions asked, what is not a header change), and `tests/e2e_marketing_module.py` §8 (the header changed by telling
+Mitra from Pidilite's record, saved as Rev 02, then restored).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -554,6 +554,29 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   height: 58px; flex-shrink: 0; background: var(--color-surface); border-bottom: 1px solid var(--color-border);
   display: flex; align-items: center; justify-content: space-between; padding: 0 22px; gap: 16px; position: sticky; top: 0; z-index: 20;
 }
+/* THE CONNECTION BADGE AND THE CLOCK (REQUIREMENTS §78, components/layout/
+   TopbarStatus.tsx): a colour anyone reads at a glance — green good, amber
+   slow, orange very slow, grey no internet, red the site is down — with the
+   speed beside it; and the time of day in hours, minutes and seconds. */
+.conn-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  font-size: 12px; font-weight: 600; white-space: nowrap; border: 1px solid var(--color-border); background: var(--color-surface-alt); color: var(--color-text-muted);
+}
+.conn-badge .conn-icon { display: inline-flex; }
+.conn-badge .conn-speed { font-weight: 500; opacity: 0.85; }
+.conn-badge.conn-good { background: #e3f5e8; color: #14622b; border-color: #8fd0a4; }
+.conn-badge.conn-fair { background: #fff4d6; color: #7a5200; border-color: #efcf6f; }
+.conn-badge.conn-poor { background: #ffe7d3; color: #963900; border-color: #f0b385; }
+.conn-badge.conn-offline { background: #eef1f4; color: #55606b; border-color: #c4ccd4; }
+.conn-badge.conn-down { background: #fde5e5; color: #a01818; border-color: #ee9d9d; }
+.conn-badge:hover, .conn-badge:focus-visible { filter: brightness(0.97); outline: none; }
+.conn-spin { animation: conn-spin 1s linear infinite; }
+@keyframes conn-spin { to { transform: rotate(360deg); } }
+.topbar-clock {
+  font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 600; color: var(--color-text); white-space: nowrap;
+  padding: 4px 9px; border-radius: var(--radius-sm); background: var(--color-surface-alt); border: 1px solid var(--color-border);
+}
+@media (prefers-reduced-motion: reduce) { .conn-spin { animation: none; } }
 /* THE TOP BAR ON A PHONE (REQUIREMENTS §75). At 390 px it was 629 px wide:
    the account name and Log Out sat past the right-hand edge, and the whole
    app scrolled sideways to reach them. In a narrow window every control stays
@@ -572,6 +595,8 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   .app-topbar .topbar-label { display: none; }
   .app-topbar .btn-sm { padding: 5px 7px; }
   .app-topbar .lang-select { min-width: 0; }
+  .app-topbar .conn-badge .conn-speed { display: none; }
+  .app-topbar .topbar-clock { font-size: 11.5px; padding: 4px 6px; }
   .app-topbar .topbar-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 @media (max-width: 420px) {

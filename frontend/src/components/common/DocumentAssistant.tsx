@@ -93,7 +93,7 @@ const PLACEHOLDER_BY_KIND: Record<string, string> = {
 };
 
 // What "Change this format…" shows in the box: two sentences of the kind engine/formatCommands.ts reads.
-const FORMAT_HINT = "e.g. add a column Batch No. after Remarks — or: delete the box Serial No";
+const FORMAT_HINT = "e.g. add a column Batch No. after Remarks — or: change the format number to F/MKT/01-A";
 
 interface ChatMessage {
   id: string;
@@ -1390,7 +1390,10 @@ export function DocumentAssistant() {
       formatQuestion(res);
       return;
     }
-    const rev = nextRevisionNo(doc.revisionNo);
+    // The revision the save is numbered, and dated: the next number and today,
+    // unless the header itself was told otherwise (REQUIREMENTS §77).
+    const rev = res.draft.revisionNo && res.draft.revisionNo !== doc.revisionNo ? res.draft.revisionNo : nextRevisionNo(doc.revisionNo);
+    const dated = res.draft.revisionDate && res.draft.revisionDate !== (doc.revisionDate ?? "") && res.draft.revisionDate !== todayISO() ? formatDisplayDate(res.draft.revisionDate) : "today";
     if (session) {
       // The designer shows this as its own notice, so it says who did it.
       session.apply(res.draft, `${ASSISTANT_NAME} ${res.what}`);
@@ -1399,7 +1402,7 @@ export function DocumentAssistant() {
     }
     if (!confirmed) {
       bot(
-        `I will ${res.plan} on ${formatAndName(doc)}.\n\nThat makes it Rev ${rev}, dated today, in your name, with your words as the reason. Records already on file are not touched — each keeps everything written on it.\n\nShall I save it?`,
+        `I will ${res.plan} on ${formatAndName(doc)}.\n\nThat makes it Rev ${rev}, dated ${dated}, in your name, with your words as the reason. Records already on file are not touched — each keeps everything written on it.\n\nShall I save it?`,
         [
           { label: `Yes, save as Rev ${rev}`, action: { type: "confirmFormatChange" }, tone: "primary" },
           { label: "No, leave it", action: { type: "cancelFormatChange" } },
@@ -1416,7 +1419,7 @@ export function DocumentAssistant() {
     }
     bump();
     bot(
-      `✅ Saved — ${formatAndName({ formatNo: doc.formatNo, name: res.draft.name })} is now Rev ${saved.revision.revisionNo}, dated today: ${saved.revision.summary}. Records on file are untouched. To go back to the format as issued, use Edit format → Restore the issued format.`
+      `✅ Saved — ${formatAndName({ formatNo: res.draft.formatNo ?? doc.formatNo, name: res.draft.name })} is now Rev ${saved.revision.revisionNo}, dated ${saved.revision.revisionDate === todayISO() ? "today" : formatDisplayDate(saved.revision.revisionDate)}: ${saved.revision.summary}. Records on file are untouched. To go back to the format as issued, use Edit format → Restore the issued format.`
     );
   };
 
@@ -1431,7 +1434,8 @@ export function DocumentAssistant() {
       ]);
       return;
     }
-    if (!canDesignGrid(doc) && cmd.kind !== "renameFormat") {
+    // A form the program draws still has a header of its own to change (REQUIREMENTS §77).
+    if (!canDesignGrid(doc) && cmd.kind !== "renameFormat" && cmd.kind !== "setHeader") {
       bot(
         `🚫 ${formatAndName(doc)} is drawn by the program itself rather than from a layout, so its grid is not mine to change — that is a change to the program, which its keeper issues as the next revision. Its name and its revision can be changed with Edit format, in the Document Library.`,
         [{ label: "Library page", action: { type: "navigate", route: `/library/${moduleSlug(doc.module)}` } }]

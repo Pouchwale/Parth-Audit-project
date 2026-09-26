@@ -20,6 +20,11 @@ apply to each and every document of each and every module".
     boxes are in the Edit format dialog - and either way the change is saved
     as a revision, shows on every record's header, and "Restore the issued
     format" brings the paper's own back;
+  * THE HEADER IS CHANGED BY TELLING MITRA, from the record, without leaving
+    it: "change the format number to F/MKT/01-A and the revision to 02" is
+    read with no network, said back, saved on "Yes" as that revision, and
+    shows on the record's header at once; a field named with no value is
+    asked for, with an example to say;
   * Mitra opens an F/MKT format by its number.
 
 Network-independent (Google Translate is blocked; the server has no model key).
@@ -398,7 +403,47 @@ with sync_playwright() as p:
     check("...and restored, the issued header is back", stored_doc(page, "daily-pest-monitoring").get("edited") is False and not stored_doc(page, "daily-pest-monitoring").get("companyName"), stored_doc(page, "daily-pest-monitoring"))
 
     # ==================================================================
-    # 8. Mitra knows the formats by their numbers
+    # 8. THE HEADER, CHANGED BY TELLING MITRA — from the record, without leaving it
+    # ==================================================================
+    print("\n==== The header, told to Mitra ====")
+    open_page(page, "#/record/seed-mkt-feedback-pidilite-2025-01", settle=1500)
+    reply = say(page, "i need to change format number and revision number. so help me out")
+    check("Told 'change format number and revision number' with no values, Mitra asks for them, with an example to say", "format number" in reply.lower() and "revision" in reply.lower() and "F/MKT/01-A" in reply, reply[:400])
+    reply = say(page, "change the format number to F/MKT/01-A and the revision to 02")
+    check("Told the values, Mitra says what it will do and asks before saving", "F/MKT/01-A" in reply and "Rev 02" in reply and "Shall I save it" in reply, reply[:400])
+    yes = page.locator(".chat-chip", has_text="Yes, save as Rev 02")
+    check("...offering to save it as Rev 02", yes.count() == 1)
+    if yes.count():
+        yes.first.click()
+        page.wait_for_timeout(1500)
+    saved_reply = page.locator(".chat-msg.bot").last.inner_text() if page.locator(".chat-msg.bot").count() else ""
+    check("...and saves it, saying so", "Saved" in saved_reply and "F/MKT/01-A" in saved_reply and "Rev 02" in saved_reply, saved_reply[:300])
+    dm = stored_doc(page, "mkt-customer-feedback")
+    check("The format now carries F/MKT/01-A at Rev 02, with Mitra's words as the reason", dm.get("formatNo") == "F/MKT/01-A" and dm.get("revisionNo") == "02", dm)
+    close_assistant(page)
+    page.wait_for_timeout(400)
+    check("Pidilite's record on screen is headed F/MKT/01-A, Rev 02 — nobody left the page", "F/MKT/01-A" in page.locator(".doc-header").inner_text() and "02" in page.locator(".doc-header").inner_text(), page.locator(".doc-header").inner_text())
+    reply = say(page, "change the revision date to 1 sep 2026 and the company name to Gujarat Print Pack Publications Pvt. Ltd.")
+    check("The date and the company name go the same way — the date read from words, 1 sep 2026", "01-Sep-2026" in reply and "Gujarat Print Pack Publications Pvt. Ltd." in reply and "Shall I save it" in reply, reply[:400])
+    no = page.locator(".chat-chip", has_text="No, leave it")
+    if no.count():
+        no.first.click()
+        page.wait_for_timeout(500)
+    check("...and 'No, leave it' leaves the format as it was", stored_doc(page, "mkt-customer-feedback").get("revisionNo") == "02" and not stored_doc(page, "mkt-customer-feedback").get("companyName", "").startswith("Gujarat Print Pack Publications"), stored_doc(page, "mkt-customer-feedback"))
+    close_assistant(page)
+    # Back to the paper's own, through the format's dialog.
+    open_page(page, "#/document/mkt-customer-feedback", settle=1200)
+    page.click("[data-action='edit-format']")
+    page.wait_for_timeout(600)
+    page.click("[data-action='designer-more']")
+    page.wait_for_timeout(500)
+    if page.locator("[data-action='restore-format']").count():
+        page.click("[data-action='restore-format']")
+        page.wait_for_timeout(800)
+    check("Restored, the header is the paper's again: F/MKT/01, Rev 01", stored_doc(page, "mkt-customer-feedback").get("formatNo") == "F/MKT/01" and stored_doc(page, "mkt-customer-feedback").get("revisionNo") == "01", stored_doc(page, "mkt-customer-feedback"))
+
+    # ==================================================================
+    # 9. Mitra knows the formats by their numbers
     # ==================================================================
     print("\n==== Mitra ====")
     open_page(page, "#/dashboard", settle=800)
