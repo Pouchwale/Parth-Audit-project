@@ -4598,6 +4598,58 @@ its figures; the network cut and restored; the server's answer blocked and unblo
 questions asked, what is not a header change), and `tests/e2e_marketing_module.py` §8 (the header changed by telling
 Mitra from Pidilite's record, saved as Rev 02, then restored).
 
+## 79. The browser nearly full: what takes the room is named and cleared in a click, and Demo Mode stops short of the wall (26-Sep-2026)
+
+```
+REQUESTED            "this below warning is coming again in dashboard: This browser is nearly as full as it is allowed to
+                      be ... ask your administrator to back up and archive the older records ... so do that fix"
+DIGITAL TEMPLATE     engine/storageRoom.ts, components/common/StorageFullBanner.tsx, data/demoGenerator.ts
+                      (ensureDemoRecordsGeneratedForYear), pages/DemoModePage.tsx, data/storageAdapter.ts;
+                      tests/e2e_storage_room.py, frontend/tests/storageRoom.test.ts
+```
+
+**1. WHAT WAS TAKING THE ROOM.** The plant's own seeded records are 0.34 MB; a fresh browser holds about 0.5 MB of the
+5 MB or so a browser allows. What filled a browser to 5.0 MB was the **demo year**: opening Demo Mode generated the
+whole year so far — some 2,700 made-up records, about 4 MB — in one go, and the warning stood on every dashboard from
+that moment, saying only "ask your administrator", who had nothing to archive.
+
+**2. THE WARNING NAMES THE CAUSE AND OFFERS THE BUTTON** (engine/storageRoom.ts, StorageFullBanner). Once it is on
+screen — off the paint, so a full browser draws its dashboard first — the working copy is added up by kind: **demo
+data** (Demo Mode's made-up records), **blank sheets from before the system went live** that nobody wrote on
+(engine/backlogCleanup.ts's leftovers), and **the plant's own records**. The banner says how much is used of the
+browser's room ("takes 4.9 MB of the 5.0 MB or so"), how much each kind takes and how many records, and offers
+**Clear the demo data** and **Remove them** where those exist — each clears exactly that kind, measures again, redraws
+every screen, and says what was freed; back under the mark the warning goes by itself and a green line stays until
+dismissed saying what was cleared and freed. Pressed in Demo Mode, **Clear the demo data** also returns the app to
+Live Mode and says so: the dashboard fills the demo year again the moment it redraws in Demo Mode
+(DashboardPage → ensureDemoRecordsGeneratedForYear on every change), which undid the clearing at once in the first
+cut — 1,515 demo records back before the person had read the message. Only when the plant's own records alone fill
+the browser does it say what the administrator does (DEPLOYMENT.md → Backup). Demo data is never touched unless the
+button is pressed, and a live record never by either button.
+
+**3. DEMO MODE STOPS SHORT OF THE WALL** (demoGenerator.ensureDemoRecordsGeneratedForYear). A demo month is some
+480,000 characters, and **five sixths of it is the eleven daily log sheets** — the lamination and QC registers of 24
+lines a day; the pest register, the service visits and their CAPA, the training and the monthly sheets — everything
+the trend reports, the scorecard and the realism checks read across the year — are the other sixth. So the year is
+generated in two passes: **the light records of every month first**, January onwards, then **the daily log sheets of
+the month in hand, the three months before it and the month ahead** (`DAILY_SHEET_MONTHS_BACK`; the month ahead is
+blank Due shells, which weigh nothing), oldest first so each month carries forward from the one before. A **fixed**
+count, not "as many as fit under the mark": the first cut measured the room to the character, and two browsers a few
+kilobytes apart drew a different number of months — the same day then read differently on another machine, which the
+realism suite's second browser caught. The room is only a guard now — a browser already holding much else gets fewer
+months back, never fewer than the month in hand — and the page says so when it happens. A fresh browser gets every
+month's register and visits, four months of daily sheets — 3 MB or so with the plant's seeded records, under the
+4,000,000-character mark with room left for the plant's own work — and no warning; the months left without their daily
+sheets are counted, and the Demo Mode page says which months have them and that any other can be made there by hand.
+
+**4. TESTS** — `tests/e2e_storage_room.py`: a fresh browser under the mark with no warning; Demo Mode generating the
+year — every month's light records, the daily sheets of the month in hand and the three before it, the working copy
+under the mark, the Demo Mode page saying how many earlier months' daily sheets were left out (worked out from the
+real clock, as the generator does: none in January); the working copy pushed past the mark, the dashboard warning with
+the figures, the demo count and the button; one click clearing every demo record and no live one, the warning gone by
+itself. `tests/e2e_realism.py`'s second browser now passes again — the same months, the same days, the same readings.
+`frontend/tests/storageRoom.test.ts`: the three kinds told apart and sized, the sizes as people say them, the marks.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

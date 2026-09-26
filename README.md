@@ -143,6 +143,12 @@ The app behaves like a personal assistant rather than a blank form:
   days — and raises it once a week per person or department: in the bell, the day's notification, the Performance
   page and Mitra, with a digest of each week on the next week's first working day. The **Activity Log is kept for ever**, append-only in the database
   itself, and archived only when the super admin chooses to.
+- **"This browser is nearly full" names the cause and clears it in a click** (REQUIREMENTS §79): the warning says how
+  much of the browser's room is used and how much of it is demo data, blank sheets from before go-live, or the plant's
+  own records — with a button for the first two that clears exactly that and lets the warning go by itself (pressed in
+  Demo Mode it also returns the app to Live Mode, or the dashboard would fill the demo year again at once). Demo Mode
+  now generates every month's light records and the heavy daily sheets of the month in hand and the three before it
+  only — a fixed window, the same in every browser — so opening it no longer fills the browser.
 - **The top bar tells the time and whether the site is there** (REQUIREMENTS §78): a clock in hours, minutes and
   seconds, 12-hour, and a connection badge coloured at a glance — green Online with the speed beside it, amber Slow,
   orange Very slow, grey No internet, red Site down when the network is there but the site's server does not answer —

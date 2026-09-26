@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { FiPlayCircle, FiTrash2, FiCalendar, FiAlertTriangle } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
-import { generateDemoRecordsForMonth, clearAllDemoData } from "../data/demoGenerator";
+import { generateDemoRecordsForMonth, clearAllDemoData, demoDailySheetWindow, DAILY_SHEET_MONTHS_BACK } from "../data/demoGenerator";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { MONTH_NAMES } from "../utils/date";
 import { useT } from "../i18n";
@@ -17,6 +17,9 @@ export function DemoModePage() {
   const [lastResult, setLastResult] = useState<number | null>(null);
 
   const demoCount = recordRepository.query({ isDemo: true }).length;
+  // Which months got their daily log sheets when the year was filled (REQUIREMENTS §79).
+  const sheets = demoDailySheetWindow();
+  const monthsBack = ["", "one", "two", "three", "four", "five", "six"][DAILY_SHEET_MONTHS_BACK] ?? String(DAILY_SHEET_MONTHS_BACK);
 
   const handleGenerate = () => {
     if (mode !== "demo") setMode("demo");
@@ -39,6 +42,20 @@ export function DemoModePage() {
         record is stamped <strong>isDemo = true</strong> and rendered with a DEMO / SYNTHETIC watermark — it is never
         mixed with or mistaken for real company records (section 38, Data Integrity).
       </p>
+      {/* The year's daily log sheets were drawn for the recent months only, so the browser is not filled (REQUIREMENTS §79). */}
+      {sheets.leftOut > 0 && (
+        <div className="card mb-6 no-print" role="status" data-section="demo-room" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
+          <div className="card-pad text-sm">
+            <FiAlertTriangle size={13} style={{ verticalAlign: -1 }} /> The daily log sheets of {sheets.leftOut} earlier month{sheets.leftOut === 1 ? "" : "s"} of the demo year were not
+            generated: Demo Mode draws them for {MONTH_NAMES[sheets.from]} to {MONTH_NAMES[sheets.to]} only —{" "}
+            {sheets.shortOfRoom
+              ? "as many months before the month in hand as this browser, nearly as full as it is allowed to be, has room for"
+              : `the month in hand and the ${monthsBack} months before it`}{" "}
+            — not the whole year, so the browser is not filled (a year of them is most of the room a browser allows). Every month has its pest register, its service visits and its monthly
+            sheets; any other month can be made below{sheets.shortOfRoom ? " once the demo data is cleared and generated again" : ""}.
+          </div>
+        </div>
+      )}
 
       <div className="card mb-6" style={{ borderColor: mode === "demo" ? "var(--color-demo)" : undefined }}>
         <div className="card-header">

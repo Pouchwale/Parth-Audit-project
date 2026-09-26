@@ -127,7 +127,14 @@ def main():
         # On first arrival the assistant pops up with what it has already
         # prepared (every Live record due today or earlier is pre-filled at
         # bootstrap -- see engine/assistantPrepare.ts). It is a blocking
-        # overlay, so dismiss it before driving the rest of the app.
+        # overlay, so dismiss it before driving the rest of the app. It comes up
+        # once the assistant has prepared the day's records, which on a busy
+        # machine is more than the half-second waited above: wait for it, up to
+        # fifteen seconds, rather than miss it and then have it block the next click.
+        try:
+            page.wait_for_function("() => /Good (morning|afternoon|evening)/.test(document.body.innerText)", timeout=15000)
+        except Exception:
+            pass
         page.wait_for_timeout(300)
         check("Assistant briefing popup greets the user on login", "Good morning" in page.content() or "Good afternoon" in page.content() or "Good evening" in page.content())
         check("Briefing lists records the assistant filled in", "ready for your OK" in page.content())

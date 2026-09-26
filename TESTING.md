@@ -332,6 +332,19 @@ Seven scripts live in `tests/`:
   the values, with an example — then "change the format number to F/MKT/01-A and the revision to 02" — said back, saved
   on "Yes" as Rev 02, read on the record's header without leaving it — then the date and the company name by words,
   declined with "No, leave it", and the issued format restored.
+- `tests/e2e_storage_room.py` - the browser nearly full (REQUIREMENTS §79), a fortieth suite, added 26-Sep-2026 and
+  run after the top bar suite: a fresh browser under the 4,000,000-character mark with no warning; Demo Mode generating
+  the demo year — **every month's pest register and service visits, the heavy daily sheets of the month in hand and
+  the three before it only** (a fixed window, the same in every browser; under the mark, no warning, the Demo Mode page
+  saying how many earlier months' daily sheets were left out — worked out from the real clock, so none in January —
+  and the viscosity sheets in exactly those months); the working copy pushed past the mark with a filler key, the
+  dashboard's warning naming how much is used of the browser's room, how much is demo data and how many records, and
+  offering **Clear the demo data**; one click clearing every demo record and no live one, the warning gone by itself,
+  a line left saying what was freed and that the app is in Live Mode now — and the demo year NOT filled again by the
+  dashboard (in Demo Mode it would be, the moment it redrew).
+- `frontend/tests/storageRoom.test.ts` - the working copy told apart without a browser: demo records, a blank Due
+  shell from before go-live (a leftover), a verified record (the plant's, whatever its date), their sizes adding up; a
+  size as people say it (4.9 MB, 344 KB); the marks the banner and Demo Mode work to.
 - `frontend/tests/topbarStatus.test.ts` - the badge's judgement without a browser (offline is certain, a server that does
   not answer is down, the slower of speed and latency decides), the figures beside the word, the 12-hour clock at
   midnight and noon; and the header sentences Mitra reads: the refused request's own words asking for values, the

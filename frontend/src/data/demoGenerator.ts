@@ -16,6 +16,7 @@ import type {
 import { documentRepository } from "./repositories/documentRepository";
 import { masterRepository } from "./repositories/masterRepository";
 import { recordRepository } from "./repositories/recordRepository";
+import { NEARLY_FULL_CHARS, measureWorkingCopy } from "./storageAdapter";
 import { getLogSheetLayout } from "./seed/logSheetLayouts";
 import { effectiveDueDatesInMonth } from "../engine/holidays";
 import { periodKeyFor } from "../engine/recordGenerator";
@@ -344,9 +345,18 @@ function buildMonthlyCapaRecord(
   ];
 }
 
-export function generateDemoRecordsForMonth(year: number, month: number): number {
+/**
+ * The daily log sheets — the lamination and QC registers of 24 lines a day —
+ * are five sixths of a demo month (some 400,000 of its 480,000 characters);
+ * everything else, the pest register, the service visits, the CAPA and the
+ * monthly sheets, is the other sixth (REQUIREMENTS §79).
+ */
+export const isHeavyDemoDocument = (doc: Pick<DocumentDefinition, "kind" | "schedule">): boolean => doc.kind === "log-sheet" && doc.schedule.type === "daily";
+
+/** `only` narrows the month to some of the documents (the year fill's two passes); every document otherwise. */
+export function generateDemoRecordsForMonth(year: number, month: number, only?: (doc: DocumentDefinition) => boolean): number {
   // Unscoped: Demo Mode generates a whole synthetic year for the plant.
-  const docs = documentRepository.getRecordableUnscoped();
+  const docs = documentRepository.getRecordableUnscoped().filter((doc) => !only || only(doc));
   const today = todayISO();
   const created: RecordInstance[] = [];
   const now = new Date().toISOString();
@@ -472,6 +482,44 @@ export function clearAllDemoData(): number {
 // blank "Due" shells (nothing to demo) and, with five daily lamination log
 // sheets of 24 rows each, would roughly double localStorage usage for no
 // benefit — they can still be generated explicitly from the Demo Mode page.
+// STOPS SHORT OF FILLING THE BROWSER (REQUIREMENTS §79). A demo year is about
+// 4 MB — most of what a browser allows — and generating it whole put the
+// "nearly full" warning on every dashboard the moment Demo Mode was opened.
+// Two passes: first the LIGHT records of every month of the year — the pest
+// register, the service visits and their CAPA, the monthly sheets: what the
+// trend reports, the scorecard and the realism checks read across the year,
+// a sixth of the whole — then the daily log sheets of the month in hand, the
+// DAILY_SHEET_MONTHS_BACK months before it and the month ahead, oldest first
+// so each month carries forward from the one before. The months whose daily
+// sheets were left out are counted here, and the Demo Mode page says so; any
+// of them can still be made there by hand.
+/**
+ * How many months back from the month in hand the daily log sheets are drawn
+ * for: the month in hand and the three before it. A FIXED count, not "as many
+ * as fit": measured to the character, two browsers a few kilobytes apart drew
+ * a different number of months, and the same day then read differently on
+ * another machine (e2e_realism). A filled month of daily sheets is some
+ * 400,000 characters; four of them, the light records of the whole year and
+ * the plant's seeded records come to 3 MB or so — under the 4 MB warning
+ * mark, with room left for the plant's own work.
+ */
+export const DAILY_SHEET_MONTHS_BACK = 3;
+/** A filled month of daily log sheets, generously: the guard for a browser already holding much else. */
+const DAILY_SHEET_MONTH_CHARS = 480_000;
+
+export interface DailySheetWindow {
+  /** The first and last month (0–11) whose daily sheets were drawn. */
+  from: number;
+  to: number;
+  /** How many earlier months of the year were left without their daily sheets. */
+  leftOut: number;
+  /** Whether the browser's room cut the window shorter than DAILY_SHEET_MONTHS_BACK. */
+  shortOfRoom: boolean;
+}
+let dailySheetWindow: DailySheetWindow = { from: 0, to: -1, leftOut: 0, shortOfRoom: false };
+/** Which months got their daily log sheets the last time Demo Mode filled the year, and how many were left out. */
+export const demoDailySheetWindow = (): DailySheetWindow => dailySheetWindow;
+
 export function ensureDemoRecordsGeneratedForYear(year: number): number {
   const now = new Date();
   const lastMonth = year < now.getFullYear() ? 11 : year > now.getFullYear() ? -1 : Math.min(11, now.getMonth() + 1);
@@ -486,16 +534,41 @@ export function ensureDemoRecordsGeneratedForYear(year: number): number {
   // Unscoped, like the documents above: a department's account sees only its own records, and would take
   // every other department's demo record for missing and write it again on each visit.
   for (const r of recordRepository.queryUnscoped({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
-  let total = 0;
-  for (let month = 0; month <= lastMonth; month++) {
-    const lacking = docs.some((doc) =>
+  const lacking = (month: number, only: (doc: DocumentDefinition) => boolean) =>
+    docs.filter(only).some((doc) =>
       effectiveDueDatesInMonth(doc, year, month, master).some(({ scheduled, holiday }) => {
         if (holiday && doc.kind !== "daily-pest-monitoring") return false;
         const prior = stored.get(`${doc.id}|${periodKeyFor(doc, scheduled)}`);
         return !prior || isUnfilledPastShell(prior, today);
       })
     );
-    if (lacking) total += generateDemoRecordsForMonth(year, month);
+  const light = (doc: DocumentDefinition) => !isHeavyDemoDocument(doc);
+  let total = 0;
+  // Pass one: the light records of every month, January onwards.
+  for (let month = 0; month <= lastMonth; month++) if (lacking(month, light)) total += generateDemoRecordsForMonth(year, month, light);
+  // Pass two: the daily log sheets of the month in hand, the months just before it and the month ahead
+  // (blank Due shells, which weigh nothing), oldest first so each month carries forward from the one before.
+  const current = year === now.getFullYear() ? now.getMonth() : lastMonth;
+  const heavyLacking = (month: number) => lacking(month, isHeavyDemoDocument);
+  let from = Math.max(0, current - DAILY_SHEET_MONTHS_BACK);
+  // A browser already holding much else gets fewer months back — never fewer than the month in hand. Only the
+  // months still to be made need room: the ones already there are part of what was just measured, and counting
+  // them again made a later visit call the window "short of room" that the first visit had drawn whole.
+  const room = NEARLY_FULL_CHARS - measureWorkingCopy();
+  const toMake = () => {
+    let n = 0;
+    for (let month = from; month <= current; month++) if (heavyLacking(month)) n += 1;
+    return n;
+  };
+  let shortOfRoom = false;
+  while (from < current && toMake() * DAILY_SHEET_MONTH_CHARS > room) {
+    from += 1;
+    shortOfRoom = true;
   }
+  for (let month = from; month <= lastMonth; month++) if (heavyLacking(month)) total += generateDemoRecordsForMonth(year, month, isHeavyDemoDocument);
+  // The earlier months without their daily sheets (one made by hand on the Demo Mode page is not counted).
+  let leftOut = 0;
+  for (let month = 0; month < from; month++) if (heavyLacking(month)) leftOut += 1;
+  dailySheetWindow = { from, to: lastMonth, leftOut, shortOfRoom };
   return total;
 }

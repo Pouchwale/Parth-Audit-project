@@ -178,8 +178,14 @@ export function writeText(key: string, text: string): boolean {
 // save says so months before the wall, while there is still time to archive.
 // Everything the browser counts is counted: every item's name and value.
 export const STORAGE_NEARLY_FULL = "dcrs:storage-nearly-full";
-const NEARLY_FULL_CHARS = 4_000_000;
+export const NEARLY_FULL_CHARS = 4_000_000;
+/** About what a browser allows a site: five million characters (REQUIREMENTS §65). */
+export const BROWSER_ROOM_CHARS = 5_000_000;
 let nearlyFull = false;
+let measured = 0;
+
+/** The working copy as last added up (measureWorkingCopy), in characters. */
+export const workingCopyChars = (): number => measured;
 
 /** Whether the last measurement found the working copy close to the browser's limit (components/common/StorageFullBanner.tsx). */
 export const storageNearlyFull = (): boolean => nearlyFull;
@@ -196,6 +202,7 @@ export function measureWorkingCopy(): number {
   } catch {
     return 0; // no localStorage (in-memory fallback): there is no limit to be near
   }
+  measured = chars;
   nearlyFull = chars > NEARLY_FULL_CHARS;
   if (nearlyFull) console.warn(`The working copy in this browser is ${chars.toLocaleString("en-IN")} characters — close to what the browser allows.`);
   // Said either way: measured again after the leftovers are cleared out
