@@ -11,6 +11,7 @@ import { ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/mas
 import { COMPANY } from "../src/data/seed/masterData";
 import { formatEditFor, nextRevisionNo } from "../src/data/formatEdits";
 import { commitFormatChange, describeFormatChange, draftOf, restoreIssuedFormat, validateDraft } from "../src/engine/formatOps";
+import { todayISO } from "../src/utils/date";
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
@@ -69,6 +70,7 @@ test("saved, the header change is laid over the format and every reader sees it;
   assert.equal(doc(id).formatNo, "F/MKT/02-A");
   assert.equal(doc(id).companyName, "GUJARAT PRINT PACK PUBLICATIONS PVT. LTD.");
   assert.equal(doc(id).revisionNo, "03");
+  assert.equal(doc(id).revisionDate, todayISO(), "a date left as the header had it means today — every save is dated the day it is made");
   assert.equal(formatEditFor(id)?.formatNo, "F/MKT/02-A");
   // Typed back to what the paper prints, nothing is stored for it.
   const back = commitFormatChange(doc(id), { ...draftOf(doc(id)), companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED" }, { actor: "Test Desk", reason: "as the paper" });

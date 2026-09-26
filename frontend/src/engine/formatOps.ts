@@ -502,7 +502,10 @@ export function describeFormatChange(before: FormatDraft, after: FormatDraft): s
   if (after.revisionNo !== undefined && after.revisionNo.trim() !== (before.revisionNo ?? "") && after.revisionNo.trim() !== nextRevisionNo(before.revisionNo)) {
     out.push(`numbered the revision ${after.revisionNo.trim()}`);
   }
-  if (after.revisionDate !== undefined && after.revisionDate !== (before.revisionDate ?? "")) out.push(`dated the revision ${formatDisplayDate(after.revisionDate)}`);
+  // Every save is dated today, so today is not a change to describe; another date is.
+  if (after.revisionDate !== undefined && after.revisionDate !== (before.revisionDate ?? "") && after.revisionDate !== todayISO()) {
+    out.push(`dated the revision ${formatDisplayDate(after.revisionDate)}`);
+  }
   const a = before.layout;
   const b = after.layout;
   if (!a || !b) return out;
@@ -564,8 +567,10 @@ export function commitFormatChange(doc: DocumentDefinition, draft: FormatDraft, 
 
   const existing = formatEditFor(doc.id);
   const issued = SEED_DOCUMENTS.find((d) => d.id === doc.id);
-  // Dated today, unless the header's date was itself changed (REQUIREMENTS §77).
-  const revisionDate = draft.revisionDate && ISO_DATE.test(draft.revisionDate) ? draft.revisionDate : todayISO();
+  // Dated today, unless the header's date was itself typed over (REQUIREMENTS
+  // §77): the draft carries the format's own date until then.
+  const dated = draft.revisionDate?.trim();
+  const revisionDate = dated && ISO_DATE.test(dated) && dated !== (doc.revisionDate ?? "") ? dated : todayISO();
   const at = new Date().toISOString();
   const revision: FormatRevision = { id: revisionId({ at, by: opts.actor, revisionNo }), revisionNo, revisionDate, by: opts.actor, at, reason: opts.reason.trim(), summary: summary.join("; ") };
   // The header's company name and format number are kept only where they

@@ -4518,12 +4518,19 @@ company's name, the title, the format number, the revision number and the revisi
 F/MKT/02's evaluation period prints a stray ")" after the end date; "Calender Year", "Prinint issue", "deliverbales" are
 the papers' own; the Pidilite form's printed box cuts "Manager Procurement" to "Manager Proc" (the text layer holds the
 word); the LAMINATED POUCH trend heads its row "LAMINATES"; the Paretos cover longer periods than the calendar year
-("Jan 2021 to JANUARY 2026", "UP TO 31.01.2026"); the Sleeve Pareto prints "The first 3 Causes cover 64.29%" although four
-causes are within its 80% cut-off (78.57%), and its Vital Few marks skip causes 2 and 4 — the workbook's rows were
-re-sorted by hand (its "#" column reads 1, 2, 3, 3, 5, 4, 7, 5, 9 … and one Vital Few cell holds 2 where its Defects is 1),
-so its own classification is not consistent and this system applies the cut-off rule to every line the same way (TBC 31);
-the template's stray 8th line "Packing related" with no count is left out; the workbook also holds the running sheets
-for 2026 (LABELS and SHRINK SLEEVE one complaint each in January 2026), not on file as records.
+("Jan 2021 to JANUARY 2026", "UP TO 31.01.2026"); the Sleeve Pareto prints "The first 3 Causes cover 64.29%" — line 3's own
+cumulative — although four causes are within its 80% cut-off (78.57%), and its Vital Few marks skip causes 2 and 4; the
+LABELS Pareto worksheet's rows were re-sorted by hand (its "#" column reads 1, 2, 3, 3, 5, 4, 7, 5, 9 …, one Vital Few
+cell holds 2 where its Defects is 1, and its chart draws no bar for seven of the fourteen causes) — so the workbook's own
+classification is not consistent, and this system applies the cut-off rule to every line the same way (TBC 31); the
+template's stray 8th line "Packing related" with no count is left out; the SLEEVES analysis workbook sums three weights
+where the other two sum four; the POUCHES and SLEEVES workbooks head their tally rows "Total attributes" and "Average
+Rating for each attributes" where the LABELS page prints "Average Rating" and "Ideal Rating"; the workbook also holds
+the running sheets for 2026 (LABELS and SHRINK SLEEVE one complaint each in January 2026), not on file as records.
+- **Filling them in:** the customer's own block on F/MKT/01 — organization, contact, designation, e-mail, mobile,
+  products — is the customer's and is neither required nor carried forward, as F/SYS/13's customer boxes are; the
+  analysis period and the calendar year are carried from the last analysis (the specimen's, 2025, on the first) to be
+  changed for the year in hand, so a sheet the assistant fills is complete while a blank period still stops a submit.
 
 **7. TESTS** — `tests/e2e_marketing_module.py` (the module, the pages on file, the worked-out boxes as text, the charts,
 a new analysis working itself out, the header typed over on a sheet and changed in the dialog of a program-drawn form,
@@ -4647,9 +4654,10 @@ saved, shown on the records and restored, Mitra by number), `frontend/tests/mark
     calendar date.
 31. **F/MKT/04's Pareto marks** (§77 part 6). The Sleeve page prints "The first 3 Causes cover 64.29% of the Total
     Defects" while four of its causes are within the 80% cut-off (78.57%), and its Vital Few marks skip causes 2 and 4;
-    this system marks every cause within the cut-off Vital Few and says "the first 4 … 78.57%". The template's stray
-    8th line "Packing related" with no count is left out. The 2026 running sheets (LABELS and SHRINK SLEEVE, one
-    complaint each in January 2026) are not on file as records.
+    the LABELS worksheet's rows were re-sorted by hand and its chart leaves seven causes without a bar. This system
+    marks every cause within the cut-off Vital Few and says "the first 4 … 78.57%" (LABELS: the first 9, 76.19%). The
+    template's stray 8th line "Packing related" with no count is left out. The 2026 running sheets (LABELS and SHRINK
+    SLEEVE, one complaint each in January 2026) are not on file as records.
 
 ## How the assistant pre-fills records (and what it never does)
 
