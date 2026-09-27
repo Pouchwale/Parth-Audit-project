@@ -99,13 +99,15 @@ export const xmlText = (s: string) =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-const columnName = (index: number) => {
+/** 0 → "A", 25 → "Z", 26 → "AA". */
+export const columnName = (index: number) => {
   let s = "";
   for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
   return s;
 };
 
-const columnIndex = (ref: string): number => {
+/** "C12" → 2 (0-based). */
+export const columnIndex = (ref: string): number => {
   const letters = /^[A-Z]+/i.exec(ref)?.[0].toUpperCase() ?? "";
   let n = 0;
   for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64);
@@ -219,6 +221,23 @@ export function buildXlsx(sheetName: string, columns: SheetColumn[], rows: strin
   return zipStored(parts.map(([name, xml]) => ({ name, data: encoder.encode(declaration + xml) })));
 }
 
+// Custom document properties (docProps/custom.xml) — small named values a
+// workbook or a Word file keeps through Office's own saves; used by the
+// download to say which document and record a file holds (REQUIREMENTS §81).
+export const CUSTOM_PROPERTIES_PART = "docProps/custom.xml";
+export const CUSTOM_PROPERTIES_TYPE = "application/vnd.openxmlformats-officedocument.custom-properties+xml";
+export const CUSTOM_PROPERTIES_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties";
+
+/** docProps/custom.xml holding the given text properties (each at most 255 characters, Office's own limit). */
+export function customPropertiesXml(props: [name: string, value: string][]): string {
+  const attr = (s: string) => xmlText(s).replace(/"/g, "&quot;");
+  return (
+    `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">` +
+    props.map(([name, value], i) => `<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="${i + 2}" name="${attr(name)}"><vt:lpwstr>${xmlText(value.slice(0, 255))}</vt:lpwstr></property>`).join("") +
+    `</Properties>`
+  );
+}
+
 // ---------------------------------------------------------------------------
 // reading
 
@@ -226,7 +245,7 @@ export class SpreadsheetReadError extends Error {}
 
 const MAX_INFLATED_BYTES = 20 * 1024 * 1024;
 
-async function inflateRaw(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+export async function inflateRaw(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   if (typeof DecompressionStream === "undefined") throw new SpreadsheetReadError("This browser cannot open compressed Excel files — save the sheet as CSV UTF-8 and upload that instead.");
   const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader();
   const chunks: Uint8Array[] = [];
@@ -250,7 +269,8 @@ async function inflateRaw(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<Arr
   return out;
 }
 
-async function unzip(buffer: ArrayBuffer): Promise<Map<string, () => Promise<Uint8Array<ArrayBuffer>>>> {
+/** The entries of a zip by name, each read (and inflated) only when asked for. Throws SpreadsheetReadError on a file that is not a zip or is damaged. */
+export async function unzip(buffer: ArrayBuffer): Promise<Map<string, () => Promise<Uint8Array<ArrayBuffer>>>> {
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
   let end = -1;
@@ -287,8 +307,8 @@ async function unzip(buffer: ArrayBuffer): Promise<Map<string, () => Promise<Uin
   return out;
 }
 
-const BUILTIN_DATE_FORMATS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
-const isDateFormatCode = (code: string) => /[dmy]/i.test(code.replace(/"[^"]*"/g, "").replace(/\\./g, "").replace(/\[[^\]]*\]/g, ""));
+export const BUILTIN_DATE_FORMATS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
+export const isDateFormatCode = (code: string) => /[dmy]/i.test(code.replace(/"[^"]*"/g, "").replace(/\\./g, "").replace(/\[[^\]]*\]/g, ""));
 
 const elements = (el: Element | Document, local: string) => Array.from(el.getElementsByTagNameNS("*", local));
 const textOf = (el: Element) =>

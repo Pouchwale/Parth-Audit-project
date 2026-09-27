@@ -1,0 +1,109 @@
+// The words of one feature of REQUIREMENTS §81, spread into i18n/strings.ts (en and gu).
+// `gu` is typed against `en`: a missing Gujarati string is a compile error.
+//
+// Uploading an edited Word/Excel file back into its record
+// (components/common/UploadChanges.tsx): the button beside Download, the
+// preview of what the file changes, and what was applied.
+const en = {
+  "rt.upload": "Upload changes",
+  "rt.uploadTitle": "Edited the downloaded Excel or Word file? Upload it here — the changes are shown to you before anything is saved",
+  "rt.dialogTitle": "Changes in {file}",
+  "rt.reading": "Reading the file…",
+  "rt.err.tooBig": "The file is larger than 15 MB — this cannot be a document downloaded from here. Choose the file you downloaded and edited.",
+  "rt.err.legacy":
+    "This file is in the old Excel/Word format (.xls or .doc), or it has a password. Open it, save it as an Excel Workbook (.xlsx) or a Word Document (.docx) without a password, and upload that copy.",
+  "rt.err.notOffice": "This is not an Excel (.xlsx) or Word (.docx) file. Upload the document you downloaded from here and edited.",
+  "rt.err.noMap": "This file was not downloaded from this system — download the document again and edit that copy.",
+  "rt.err.mapStripped":
+    "This file was downloaded from this system, but the hidden part that says where each value belongs was removed when it was saved (Google Sheets and some other programs remove it) — download the document again, edit that copy in Excel or Word, and upload it.",
+  "rt.err.damaged": "The file could not be read — it may be damaged. Open it in Excel or Word, save it again, and upload that copy.",
+  "rt.err.nothingBound":
+    "This file came from this system, but it holds no box that can be read back into the record. Make the change on the record here, or download the document again and edit that copy.",
+  "rt.letMitra": "Let Mitra read it",
+  "rt.letMitraHint": "Mitra can read the file and suggest the changes, for you to check before anything is saved.",
+  "rt.otherDocument": "This file is {fileDoc} — a different document from the one on screen ({screenDoc}). Nothing has been changed. Open {fileDoc} and upload the file there.",
+  "rt.otherRecord":
+    "This file was downloaded from another record of this document, not the one on screen. Its changes go into the record it came from ({which}) — the record on screen is not changed.",
+  "rt.recordGone": "This record is no longer here — it may have been deleted. Nothing in the file is applied to it.",
+  "rt.reopenNote": "It is {status}. It will be reopened for correction — it must be submitted and verified again. The reason recorded: “{reason}”.",
+  "rt.locked.superseded": "This record was filled on an earlier revision of the format and cannot be corrected — nothing is applied to it.",
+  "rt.locked.status": "A record that is {status} cannot be changed — nothing is applied to it.",
+  "rt.locked.page": "This record cannot be reopened for correction here — nothing is applied to it.",
+  "rt.col.box": "Box",
+  "rt.col.was": "Was",
+  "rt.col.now": "Now",
+  "rt.empty": "(empty)",
+  "rt.conflict": "changed here after the file was downloaded",
+  "rt.newLines": "New lines",
+  "rt.rejected": "Could not be read",
+  "rt.countUnchanged": "{n} boxes unchanged",
+  "rt.countUnchangedOne": "1 box unchanged",
+  "rt.countMissing": "{n} no longer in the file (lines deleted there are not deleted here)",
+  "rt.nothing": "Nothing in this file is different from the record — there is nothing to apply.",
+  "rt.applyOne": "Apply 1 change",
+  "rt.applyMany": "Apply {n} changes",
+  "rt.applying": "Applying…",
+  "rt.close": "Close",
+  "rt.appliedOne": "1 change applied — the record's history shows it.",
+  "rt.appliedMany": "{n} changes applied — the record's history shows them.",
+  "rt.appliedNone": "Nothing was applied.",
+  "rt.notApplied": "Not applied",
+  "rt.skip.gone": "the record is no longer here",
+  "rt.skip.locked": "the record cannot be changed",
+  "rt.skip.notReopened": "the record could not be reopened for correction",
+  "rt.skip.notSaved": "the record was changed elsewhere meanwhile — download it again and redo the change",
+  "rt.reopened": "Reopened for correction — submit it again when it is right.",
+} as const;
+
+const gu: Record<keyof typeof en, string> = {
+  "rt.upload": "ફેરફાર અપલોડ કરો",
+  "rt.uploadTitle": "ડાઉનલોડ કરેલી Excel કે Word ફાઇલમાં ફેરફાર કર્યો છે? અહીં અપલોડ કરો — કંઈ પણ સાચવતા પહેલાં ફેરફાર તમને બતાવવામાં આવશે",
+  "rt.dialogTitle": "{file} માં ફેરફાર",
+  "rt.reading": "ફાઇલ વાંચી રહ્યા છીએ…",
+  "rt.err.tooBig": "ફાઇલ 15 MB થી મોટી છે — આ અહીંથી ડાઉનલોડ કરેલું દસ્તાવેજ ન હોઈ શકે. તમે ડાઉનલોડ કરીને બદલેલી ફાઇલ પસંદ કરો.",
+  "rt.err.legacy":
+    "આ ફાઇલ જૂના Excel/Word ફોર્મેટ (.xls કે .doc) માં છે, અથવા તેમાં પાસવર્ડ છે. તેને ખોલો, પાસવર્ડ વગર Excel Workbook (.xlsx) કે Word Document (.docx) તરીકે સાચવો, અને તે નકલ અપલોડ કરો.",
+  "rt.err.notOffice": "આ Excel (.xlsx) કે Word (.docx) ફાઇલ નથી. અહીંથી ડાઉનલોડ કરીને બદલેલું દસ્તાવેજ અપલોડ કરો.",
+  "rt.err.noMap": "આ ફાઇલ આ સિસ્ટમમાંથી ડાઉનલોડ થયેલી નથી — દસ્તાવેજ ફરી ડાઉનલોડ કરો અને તે નકલમાં ફેરફાર કરો.",
+  "rt.err.mapStripped":
+    "આ ફાઇલ આ સિસ્ટમમાંથી ડાઉનલોડ થઈ હતી, પણ સાચવતી વખતે દરેક કિંમત ક્યાંની છે તે કહેતો છુપો ભાગ નીકળી ગયો (Google Sheets જેવા પ્રોગ્રામ તેને કાઢી નાખે છે) — દસ્તાવેજ ફરી ડાઉનલોડ કરો, Excel કે Word માં ફેરફાર કરો, અને તે અપલોડ કરો.",
+  "rt.err.damaged": "ફાઇલ વાંચી શકાઈ નહીં — તે બગડેલી હોઈ શકે. તેને Excel કે Word માં ખોલી ફરી સાચવો, અને તે નકલ અપલોડ કરો.",
+  "rt.err.nothingBound":
+    "આ ફાઇલ આ સિસ્ટમમાંથી આવી છે, પણ તેમાં રેકોર્ડમાં પાછું વાંચી શકાય એવું કોઈ ખાનું નથી. ફેરફાર અહીં રેકોર્ડમાં કરો, અથવા દસ્તાવેજ ફરી ડાઉનલોડ કરીને તે નકલમાં ફેરફાર કરો.",
+  "rt.letMitra": "મિત્રાને વાંચવા દો",
+  "rt.letMitraHint": "મિત્રા ફાઇલ વાંચીને ફેરફાર સૂચવી શકે છે — કંઈ સાચવતા પહેલાં તમે તે તપાસી શકશો.",
+  "rt.otherDocument": "આ ફાઇલ {fileDoc} ની છે — સ્ક્રીન પરના દસ્તાવેજ ({screenDoc}) થી અલગ. કંઈ બદલાયું નથી. {fileDoc} ખોલો અને ફાઇલ ત્યાં અપલોડ કરો.",
+  "rt.otherRecord":
+    "આ ફાઇલ આ જ દસ્તાવેજના બીજા રેકોર્ડમાંથી ડાઉનલોડ થઈ હતી, સ્ક્રીન પરના રેકોર્ડમાંથી નહીં. તેના ફેરફાર જે રેકોર્ડમાંથી આવી તેમાં જશે ({which}) — સ્ક્રીન પરનો રેકોર્ડ બદલાશે નહીં.",
+  "rt.recordGone": "આ રેકોર્ડ હવે અહીં નથી — કદાચ તે કાઢી નખાયો છે. ફાઇલમાંથી તેમાં કંઈ લાગુ થશે નહીં.",
+  "rt.reopenNote": "તે {status} છે. તેને સુધારા માટે ફરી ખોલવામાં આવશે — તેને ફરી સબમિટ અને ચકાસવો પડશે. નોંધાયેલું કારણ: “{reason}”.",
+  "rt.locked.superseded": "આ રેકોર્ડ ફોર્મેટના જૂના રિવિઝન પર ભરાયો હતો અને તેમાં સુધારો થઈ શકતો નથી — તેમાં કંઈ લાગુ થશે નહીં.",
+  "rt.locked.status": "{status} રેકોર્ડ બદલી શકાતો નથી — તેમાં કંઈ લાગુ થશે નહીં.",
+  "rt.locked.page": "આ રેકોર્ડ અહીં સુધારા માટે ફરી ખોલી શકાતો નથી — તેમાં કંઈ લાગુ થશે નહીં.",
+  "rt.col.box": "ખાનું",
+  "rt.col.was": "પહેલાં",
+  "rt.col.now": "હવે",
+  "rt.empty": "(ખાલી)",
+  "rt.conflict": "ફાઇલ ડાઉનલોડ થયા પછી અહીં બદલાયું હતું",
+  "rt.newLines": "નવી લાઇનો",
+  "rt.rejected": "વાંચી શકાયું નહીં",
+  "rt.countUnchanged": "{n} ખાનાં બદલાયાં નથી",
+  "rt.countUnchangedOne": "1 ખાનું બદલાયું નથી",
+  "rt.countMissing": "{n} હવે ફાઇલમાં નથી (ત્યાં કાઢેલી લાઇનો અહીં કાઢાતી નથી)",
+  "rt.nothing": "આ ફાઇલમાં રેકોર્ડથી કંઈ અલગ નથી — લાગુ કરવા જેવું કંઈ નથી.",
+  "rt.applyOne": "1 ફેરફાર લાગુ કરો",
+  "rt.applyMany": "{n} ફેરફાર લાગુ કરો",
+  "rt.applying": "લાગુ કરી રહ્યા છીએ…",
+  "rt.close": "બંધ કરો",
+  "rt.appliedOne": "1 ફેરફાર લાગુ થયો — રેકોર્ડના ઇતિહાસમાં તે દેખાય છે.",
+  "rt.appliedMany": "{n} ફેરફાર લાગુ થયા — રેકોર્ડના ઇતિહાસમાં તે દેખાય છે.",
+  "rt.appliedNone": "કંઈ લાગુ થયું નહીં.",
+  "rt.notApplied": "લાગુ ન થયું",
+  "rt.skip.gone": "રેકોર્ડ હવે અહીં નથી",
+  "rt.skip.locked": "રેકોર્ડ બદલી શકાતો નથી",
+  "rt.skip.notReopened": "રેકોર્ડ સુધારા માટે ફરી ખોલી શકાયો નહીં",
+  "rt.skip.notSaved": "તે દરમિયાન રેકોર્ડ બીજે બદલાયો — ફરી ડાઉનલોડ કરીને ફેરફાર ફરી કરો",
+  "rt.reopened": "સુધારા માટે ફરી ખોલ્યો — બરાબર થાય એટલે ફરી સબમિટ કરો.",
+};
+
+export const ROUNDTRIP_STRINGS = { en, gu };

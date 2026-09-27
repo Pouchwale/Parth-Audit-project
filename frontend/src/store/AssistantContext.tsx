@@ -30,7 +30,11 @@ export interface AssistantTarget {
   /** Printed labels (log-sheet columns) for readable change lists. */
   labels?: Record<string, string>;
   /** Saves a checked change now, with an "assistant" entry in the record's history. */
-  commit: (next: unknown, note: string) => void;
+  /**
+   * `action` "imported": the change was read back from an uploaded Word/Excel file
+   * (REQUIREMENTS §81) and is recorded as that, not as Mitra's. Absent: "assistant-edit".
+   */
+  commit: (next: unknown, note: string, action?: "assistant-edit" | "imported") => void;
   /** Reopens a submitted/verified record for correction; absent when that isn't possible. */
   reopen?: (reason: string) => void;
   // The rest of the record's life, so the assistant can do anything the

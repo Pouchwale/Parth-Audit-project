@@ -23,6 +23,7 @@ import { DemoTag } from "../components/common/DemoTag";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
 import { documentTextIn } from "../i18n/documentText";
 import { DashboardInsights } from "../components/insights/DashboardInsights";
+import { MyDayCard } from "../components/common/MyDayCard";
 
 function StatTile({
   icon: Icon,
@@ -151,6 +152,9 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* The person's own day — done, streak, the next thing to do and why it matters (REQUIREMENTS §81). */}
+      {!isDemo && <MyDayCard />}
 
       {!isDemo && !noiseDismissed && (noiseCount > 0 || purged !== null) && (
         <div className="card mb-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>

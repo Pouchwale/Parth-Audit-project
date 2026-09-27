@@ -16,6 +16,7 @@ import { imageFileToDataUrl } from "../../utils/image";
 import { generateId } from "../../utils/id";
 import { FormField as Field } from "./FormField";
 import { FG_CODE_EXAMPLE, fgCodeRule } from "../../engine/documentFormats";
+import { bindProps, complaintAckBind } from "../../engine/roundTrip/bindingsFor";
 
 // The FG code on this report reads like FGSL3877 (engine/documentFormats.ts).
 const FG_RULE = fgCodeRule("FG code");
@@ -107,15 +108,19 @@ export function ComplaintAckRecordView({
   };
   const removePhoto = (id: string) => set({ photos: latest.current.photos.filter((p) => p.id !== id) });
 
-  const f = (key: keyof ComplaintAckData) => ({
+  const f = (key: Exclude<keyof ComplaintAckData, "photos">) => ({
     field: key,
     value: String(data[key] ?? ""),
     editable,
     onChange: (v: string) => set({ [key]: v } as Partial<ComplaintAckData>),
+    // Where the value lives in the record, for an edited Word file read back (REQUIREMENTS §81).
+    bind: complaintAckBind(key),
   });
+  const toName = bindProps(complaintAckBind("toName"));
+  const toDesignation = bindProps(complaintAckBind("toDesignation"));
 
   return (
-    <div className="caf-sheet" data-doc="complaint-ack">
+    <div className="caf-sheet" data-doc="complaint-ack" data-bind-record={record.id}>
       <section className="caf-page">
         <Logo />
         <div className="caf-title">{CAF_TITLE}</div>
@@ -128,10 +133,11 @@ export function ComplaintAckRecordView({
         <div className="caf-row">
           {editable && (
             <>
-              <input className="input caf-input caf-screen-only" data-field="toName" placeholder="Name" value={data.toName} onChange={(e) => set({ toName: e.target.value })} />
+              <input className="input caf-input caf-screen-only" data-field="toName" {...toName} placeholder="Name" value={data.toName} onChange={(e) => set({ toName: e.target.value })} />
               <input
                 className="input caf-input caf-screen-only"
                 data-field="toDesignation"
+                {...toDesignation}
                 placeholder="Designation"
                 value={data.toDesignation}
                 onChange={(e) => set({ toDesignation: e.target.value })}
@@ -139,8 +145,16 @@ export function ComplaintAckRecordView({
             </>
           )}
           <span className={`caf-value notranslate${editable ? " caf-print-only" : ""}`} translate="no">
-            {data.toName}
-            {data.toDesignation ? ` (${data.toDesignation})` : ""}
+            <span {...toName}>{data.toName}</span>
+            {data.toDesignation ? (
+              <>
+                {" ("}
+                <span {...toDesignation}>{data.toDesignation}</span>
+                {")"}
+              </>
+            ) : (
+              ""
+            )}
           </span>
         </div>
         <hr className="caf-rule" />

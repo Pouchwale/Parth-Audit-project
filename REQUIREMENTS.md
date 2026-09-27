@@ -4736,6 +4736,118 @@ the context naming the record. Unit tests: `frontend/tests/mitraTools.test.ts`, 
 own runner, now part of `npm run test:unit`). `tests/e2e_assistant_chat.py` (live Groq, run by hand on :8844) exercises
 the real model.
 
+## §81 — Sound, Mitra's voice, celebrations in every module, the day's score, a 3D introduction, new fonts, and every document's Word/Excel uploaded back (27-Sep-2026)
+
+**The request.** "Add some noise in notification and with that our bot will also remind with voice … it seem to be
+real voice so if user heard it look like some one is telling them to complete task fast for good score and if user
+complete all the task it bot will enthusiasm them … show reactions when user complete the task in given time frame
+and this is applicable to each and every module; also make sure to motivate them not only for score … make starting of
+this system like introduction of project name in 3d and also make use of good engaging fonts and add options for user
+in each and every documents of every module so he can upload the word or excel with whatever changes user has done in
+that document." And the same day: "remove this line and cross button from side bar: Phase 1 Prototype · Local data
+only; also make dashboard score like … 10 tasks for a day and 8 completed, his score will be not 80, it will be −20."
+
+**1. SOUND** (utils/sounds.ts). Short sounds made with Web Audio — no audio files: a chime when something new arrives
+(a reminder the bell did not have, the day's notification, the briefing), three rising notes before a spoken
+reminder, a bright arpeggio for a record submitted on time, verified or an upload applied, a soft two-tone for a late
+one (never a scolding sound), a gentle falling one for a record sent back, a little fanfare with sparkle when everything
+due today is done, two firm notes for an escalation to the super admin. A browser plays nothing before the first click
+or key, so nothing is attempted before it. Anything that wants a sound asks through one bus (engine/engageBus.ts,
+window events `dcrs:cue` / `dcrs:say`); one host owns the speaker (components/common/SoundVoiceHost.tsx).
+
+**2. MITRA'S VOICE** (utils/voice.ts, backend/tts.ts, `POST /api/assistant/speak`). Mitra reads the briefing aloud when
+it opens (greeting with the first name, what is waiting, the first two things by name, why it matters — a 🔊 button
+on the briefing says it again or stops it), says the day's notification, and REMINDS BY VOICE during working hours:
+every 45 minutes by default (30/45/60/90 in Master Data), while something of the person's own is due today or late, the
+most urgent one not mentioned in the last two hours — "Parth, the Viscosity Log is due today. You are at minus 20 today
+— finish 2 more to reach zero. Catching a drift in viscosity today saves a whole batch tomorrow." — with a small card
+that takes no clicks but its own ("Go to it", "Later", 🔇). The bell's "🔊 What should I do next?" says the next thing
+at once (or "nothing is due — well done"). Mitra never talks over a person speaking into the microphone, and says
+nothing twice in a day under the same key (settings.spokenToday, not handed on to the next person on a shared PC).
+*The real voice:* English goes first to Groq's natural voice (`canopylabs/orpheus-v1-english`, voices set by
+`GROQ_TTS_VOICE_FEMALE` / `GROQ_TTS_VOICE_MALE`), split into ≤ 200-character pieces and joined into one WAV, cached in
+memory. On 27-Sep-2026 Groq answered `model_terms_required` for the plant's key: **the Groq organisation's admin must
+accept the model's terms once at console.groq.com (playground → canopylabs/orpheus-v1-english)**; until then the route
+answers 503 `voice-unavailable` and the browser speaks with its own best natural voice — in Microsoft Edge "Neerja
+Online (Natural)" (Indian English) and "ધ્વની Online (Natural)" (Gujarati), which are real-sounding voices; in Chrome the
+installed Windows voices. Gujarati is never read by an English voice: the English line is said instead, or nothing.
+Master Data → Working Hours has the switches (sounds, voice, female/male voice, the interval, "Hear Mitra", "Play a
+sound") and says which voice is in use; the top bar's 🔊 button mutes and unmutes both at once.
+
+**3. REACTIONS AND CELEBRATIONS IN EVERY MODULE** (engine/motivation.ts, components/common/Celebration.tsx). Every
+module's submit, verify and send-back already comes through one place (engine/recordLifecycle.ts `announce`), so every
+module celebrates the same way: on time → confetti burst and the bright sound; late → a gentle line and the soft sound,
+no confetti; the reaction toast gains a cheer line (`reaction-cheer` — "🔥 3 on time today — a 5-day streak", or why the
+module's work matters) under the pinned fields, which are unchanged. When NOTHING of the person's is left due today, the
+big celebration: confetti rain, the fanfare, a spoken "All done for today, Parth!", and a card with today's count, the
+streak 🔥, the month's on-time share, badges earned today and a purpose line. Badges are worked out from the records,
+never stored: first on time today, all done today, 3/5/10/20/50-day streaks, early bird (handed in on its day before
+11:00), a clean week, and a module hero (every one of a module's records this month on time). Everything is
+`pointer-events: none` but its own × button, outside the page's content, gone by itself, and no confetti under
+reduced motion.
+
+**4. MOTIVATION BEYOND THE SCORE** (engine/purpose.ts). Each module has lines, in English and Gujarati, on why its
+records matter — "Every check you record is a customer who never receives a faulty pack", "A machine checked today is a
+breakdown that never happens", "Every action closed is a problem that will not come back" — said in the reminders,
+under the celebrations and on the Dashboard; never a document's name on a shared card.
+
+**5. THE DAY'S SCORE, LOSS-FRAMED** (engine/motivation.ts `dayGapScore`, the Dashboard's "My day" card). A person's
+score for the day is what is MISSING, not what is done: `round(done ÷ due × 100) − 100` — 8 of 10 done is **−20**, all
+done is **0** ("nothing missing"), nothing done of 4 is −100; it never goes above 0. The plant's reasoning: "80%" feels
+finished; "−20" says two things are still owed. The card leads with it (green at 0, amber to −20, orange to −50, red
+below) and says how to reach 0 ("8 of 10 done — finish 2 more to reach 0"); the spoken reminder says it the same way;
+the all-done card shows "Today's score: 0 — nothing missing". The Performance Scorecard's monthly on-time score (§64) is
+unchanged. Beside it the card keeps the ring of today's work, the streak, the month's on-time share, today's badges,
+a purpose line and "Go to the next one".
+
+**6. A 3D INTRODUCTION AND ENGAGING FONTS** (components/auth/IntroSplash.tsx, public/styles/brand.css). On the sign-in
+screen, once a browser session, the company's mark and the project's name — a big extruded 3D "DCRS" wordmark with
+"Digital Controlled Record System" and the company's name — fly in and settle in CSS 3D (perspective, extrusion by
+layered shadows, a light sweep), then fade: 1.6 s, `pointer-events: none` throughout, so the form under it can be used
+at once; never after sign-in, never on a reload, never under reduced motion. The sign-in title stays a 3D wordmark.
+Fonts are self-hosted (OFL, public/fonts, 300 KB in all, about 60 KB for an English page; Gujarati files load only when
+Gujarati text appears): **Baloo Bhai 2** — a friendly display face made for Gujarati and English — for titles, the
+brand, card headers and Mitra; **Plus Jakarta Sans** for the screens' text, with **Noto Sans Gujarati** for Gujarati.
+The PRINTED FORMS keep exactly the old font (`--font-doc`), on screen and on paper: the company's forms are the spec.
+
+**7. EVERY DOCUMENT'S WORD OR EXCEL, UPLOADED BACK** (engine/roundTrip/*, components/common/UploadChanges.tsx). Beside
+every "Download Excel / Download Word" there is now **Upload changes**: download the document, change it in Excel or
+Word, upload it, and the record takes exactly the changes made.
+- *How it knows where a value belongs.* Every value a record view shows — the box being filled AND the words a
+  signed-off record shows in its place — carries a binding: its path in the record's data (`rows/@<row id>/viscosity`,
+  `checkpoints/7/value`, `findings/@id=…/targetDate` …), its kind and choices (engine/roundTrip/bindPath.ts,
+  bindingsFor.ts; checked for all 108 recordable documents — 29,395 values of sample-filled records, 216 rendered pages).
+  The download writes each value with its binding: in Excel a very hidden sheet `_dcrs` with the map and a hidden name
+  per cell (Excel moves the names when rows are inserted; a sorted grid is followed by its Sr. No.), in Word a content
+  control per value (`dcrs:<n>`, locked against deletion but not against typing) and the map as a custom XML part —
+  checked by opening, editing and saving the files in real Excel and Word 16.
+- *What an upload does.* The file is read in the browser; each value is compared with what was downloaded (so a value
+  nobody touched is never rewritten from its printed form), changed values are read as their kind (numbers with
+  "1,234.5" or Excel's float noise, dates typed any common way or as Excel serials, times, Yes/No/✓/x/હા, choices by
+  value or label, ticks), and a preview lists each change — box, what it said, what it will say — with anything that
+  could not be read and why. Lines added under a free-row register's grid become new lines. "Apply" changes the record
+  through the page's own save (history entry "Changed from an uploaded Word/Excel file", action `imported`, with the
+  file's name); a submitted or verified record is first reopened for correction with that reason and must be submitted
+  and verified again. A file of another document is refused; a file of another date of the same document is allowed
+  with a clear note; a file that was not downloaded from this system (no map) is refused in plain words — and, with the
+  assistant configured, "Let Mitra read it" hands it to Mitra (§80), who can read it and fill the record.
+- Also fixed on the way: a long sheet's download no longer leaves out rows not yet drawn on screen.
+
+**8. THE SIDEBAR.** The "Phase 1 Prototype · Local data only" line and the panel's own ✕ are gone; the top bar's menu
+button opens and closes the panel as before (on a phone the drawer also closes on a tap outside it or Escape).
+
+**9. TESTS** — `tests/e2e_intro_and_fonts.py` (the intro plays over a usable form and goes, never after sign-in; the
+fonts load with 200; the printed forms keep the old stack), `tests/e2e_voice_and_sounds.py` (nothing before the first
+click; the briefing chimes and is spoken with the name; the bell's "What should I do next?" names a due document; the
+top-bar mute; the settings stick), `tests/e2e_celebrations.py` (on time / late / all done on a Production account; the
+cheer line; confetti that never blocks a click; the Dashboard card and its −N score equal to round(done/due×100)−100),
+`tests/e2e_upload_changes.py` (every document with a Word/Excel download: sample-filled, downloaded, edited in the file
+the way Excel or Word saves it, uploaded, previewed and applied, the record holding the new value and an `imported`
+history entry; a verified record reopened; a line appended; a date as an Excel serial; another document's file and a
+file with no map refused). Unit tests: `bindPath`, `roundTrip`, `roundTripValues`, `roundTripBindings`,
+`uploadChanges`, `voice`, `sounds`, `motivation`, `intro`; `backend/tests/tts.test.ts` (chunking, joining WAVs, the
+terms error). `tests/e2e_smoke.py` closes the sidebar with the top bar's button now.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

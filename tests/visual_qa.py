@@ -238,7 +238,7 @@ def main():
         page.screenshot(path="tests/shots/24_sidebar_modules_collapsed.png")
         page.click("button[data-action='toggle-all-modules']")
         page.wait_for_timeout(250)
-        page.click("button[data-action='close-sidebar']")
+        page.click("button[data-action='toggle-sidebar']")
         page.wait_for_timeout(450)
         check(
             "Closing the panel gives the register the full window",

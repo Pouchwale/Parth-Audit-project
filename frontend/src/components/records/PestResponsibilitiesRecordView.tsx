@@ -3,6 +3,7 @@ import { FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, PestResponsibilitiesData, ResponsibilitySignatory, RecordInstance } from "../../types";
 import { PR_LETTERHEAD } from "../../data/seed/pestResponsibilities";
 import { FormField } from "./FormField";
+import { clauseBind, emergencyCallBind, responsibilityListLabel, signatoryBind, trainingNoteBind } from "../../engine/roundTrip/bindingsFor";
 
 // RESPONSIBILITIES OF PEST CONTROL — SITE & SERVICE PROVIDER, as the company's
 // three letterhead pages read ("responsibilities of pest control report .pdf"):
@@ -37,12 +38,15 @@ function ListBlock({
   marker,
   editable,
   field,
+  listPath,
   onChange,
 }: {
   items: string[];
   marker: (i: number) => string;
   editable: boolean;
   field: string;
+  /** The list in the record's data, e.g. "siteResponsibilities" — each line is bound to its place in it (REQUIREMENTS §81). */
+  listPath: keyof PestResponsibilitiesData;
   onChange: (next: string[]) => void;
 }) {
   return (
@@ -52,7 +56,15 @@ function ListBlock({
           <span className="pr-marker">{marker(i)}</span>
           <div className="pr-item-text">
             {/* A printed responsibility is the paper's own wording (REQUIREMENTS §58). */}
-            <FormField field={`${field}-${i + 1}`} kind="long" translatable value={text} editable={editable} onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))} />
+            <FormField
+              field={`${field}-${i + 1}`}
+              kind="long"
+              translatable
+              value={text}
+              editable={editable}
+              onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))}
+              bind={clauseBind(listPath, i, responsibilityListLabel(listPath, i))}
+            />
           </div>
           {editable && (
             <button className="btn btn-ghost btn-sm btn-icon no-print" title="Remove this point" aria-label="Remove this point" onClick={() => onChange(items.filter((_, xi) => xi !== i))}>
@@ -73,11 +85,14 @@ function ListBlock({
 function SignatoryCell({
   who,
   label,
+  path,
   editable,
   onChange,
 }: {
   who: ResponsibilitySignatory;
   label: string;
+  /** The signatory's place in the record's data (REQUIREMENTS §81). */
+  path: "client" | "provider";
   editable: boolean;
   onChange: (next: ResponsibilitySignatory) => void;
 }) {
@@ -85,18 +100,28 @@ function SignatoryCell({
   return (
     <td className="pr-signatory">
       <div className="pr-sign-role">{label}</div>
-      <FormField field={`${label}-organisation`} kind="long" value={who.organisation} editable={editable} onChange={(v) => set({ organisation: v })} />
+      <FormField
+        field={`${label}-organisation`}
+        kind="long"
+        value={who.organisation}
+        editable={editable}
+        onChange={(v) => set({ organisation: v })}
+        bind={signatoryBind(path, label, "organisation")}
+      />
       <div className="caf-row">
-        <strong>Name:</strong> <FormField field={`${label}-name`} value={who.name} editable={editable} onChange={(v) => set({ name: v })} />
+        <strong>Name:</strong> <FormField field={`${label}-name`} value={who.name} editable={editable} onChange={(v) => set({ name: v })} bind={signatoryBind(path, label, "name")} />
       </div>
       <div className="caf-row">
-        <strong>Designation:</strong> <FormField field={`${label}-designation`} value={who.designation} editable={editable} onChange={(v) => set({ designation: v })} />
+        <strong>Designation:</strong>{" "}
+        <FormField field={`${label}-designation`} value={who.designation} editable={editable} onChange={(v) => set({ designation: v })} bind={signatoryBind(path, label, "designation")} />
       </div>
       <div className="caf-row">
-        <strong>Department:</strong> <FormField field={`${label}-department`} value={who.department} editable={editable} onChange={(v) => set({ department: v })} />
+        <strong>Department:</strong>{" "}
+        <FormField field={`${label}-department`} value={who.department} editable={editable} onChange={(v) => set({ department: v })} bind={signatoryBind(path, label, "department")} />
       </div>
       <div className="caf-row">
-        <strong>Dated:</strong> <FormField field={`${label}-dated`} kind="date" value={who.dated} editable={editable} onChange={(v) => set({ dated: v })} />
+        <strong>Dated:</strong>{" "}
+        <FormField field={`${label}-dated`} kind="date" value={who.dated} editable={editable} onChange={(v) => set({ dated: v })} bind={signatoryBind(path, label, "dated")} />
       </div>
       <div className="caf-row">
         <strong>Sign &amp; Stamp:</strong> <span className="caf-sign-line" />
@@ -121,18 +146,18 @@ export function PestResponsibilitiesRecordView({
     set({ emergencyCalls: data.emergencyCalls.map((c, ci) => (ci === i ? { ...c, ...patch } : c)) });
 
   return (
-    <div className="caf-sheet pr-sheet" data-doc="pest-responsibilities">
+    <div className="caf-sheet pr-sheet" data-doc="pest-responsibilities" data-bind-record={record.id}>
       <section className="caf-page">
         <Letterhead />
         <div className="caf-title pr-heading">Responsibilities of Site</div>
-        <ListBlock items={data.siteResponsibilities} marker={(i) => `${i + 1}.`} editable={editable} field="site" onChange={(next) => set({ siteResponsibilities: next })} />
+        <ListBlock items={data.siteResponsibilities} marker={(i) => `${i + 1}.`} editable={editable} field="site" listPath="siteResponsibilities" onChange={(next) => set({ siteResponsibilities: next })} />
       </section>
 
       <section className="caf-page">
         <Letterhead />
         <div className="caf-title pr-heading">Responsibilities of Pest control service provider</div>
         <div className="pr-subheading">Equipment &amp; Storage Specifications:</div>
-        <ListBlock items={data.equipmentStorage} marker={() => "•"} editable={editable} field="equipment" onChange={(next) => set({ equipmentStorage: next })} />
+        <ListBlock items={data.equipmentStorage} marker={() => "•"} editable={editable} field="equipment" listPath="equipmentStorage" onChange={(next) => set({ equipmentStorage: next })} />
 
         <div className="pr-subheading mt-3">Emergency call procedures</div>
         <table className="caf-table pr-calls">
@@ -140,13 +165,13 @@ export function PestResponsibilitiesRecordView({
             {data.emergencyCalls.map((c, i) => (
               <tr key={i}>
                 <td>
-                  <FormField field={`call-${i + 1}-issue`} value={c.issue} editable={editable} onChange={(v) => setCall(i, { issue: v })} />
+                  <FormField field={`call-${i + 1}-issue`} value={c.issue} editable={editable} onChange={(v) => setCall(i, { issue: v })} bind={emergencyCallBind(i, "issue")} />
                 </td>
                 <td>
-                  <FormField field={`call-${i + 1}-name`} value={c.name} editable={editable} onChange={(v) => setCall(i, { name: v })} />
+                  <FormField field={`call-${i + 1}-name`} value={c.name} editable={editable} onChange={(v) => setCall(i, { name: v })} bind={emergencyCallBind(i, "name")} />
                 </td>
                 <td>
-                  <FormField field={`call-${i + 1}-phone`} value={c.phone} editable={editable} onChange={(v) => setCall(i, { phone: v })} />
+                  <FormField field={`call-${i + 1}-phone`} value={c.phone} editable={editable} onChange={(v) => setCall(i, { phone: v })} bind={emergencyCallBind(i, "phone")} />
                 </td>
                 {editable && (
                   <td className="no-print" style={{ border: "none", width: 34 }}>
@@ -171,7 +196,15 @@ export function PestResponsibilitiesRecordView({
         )}
 
         <div className="pr-note mt-3">
-          <FormField field="trainingNote" kind="long" translatable value={data.trainingNote} editable={editable} onChange={(v) => set({ trainingNote: v })} />
+          <FormField
+            field="trainingNote"
+            kind="long"
+            translatable
+            value={data.trainingNote}
+            editable={editable}
+            onChange={(v) => set({ trainingNote: v })}
+            bind={trainingNoteBind()}
+          />
         </div>
 
         <div className="pr-subheading mt-3">Environmental, Health &amp; Safety Clauses</div>
@@ -180,6 +213,7 @@ export function PestResponsibilitiesRecordView({
           marker={(i) => `${String.fromCharCode(97 + (i % 26))})`}
           editable={editable}
           field="ehs"
+          listPath="ehsClauses"
           onChange={(next) => set({ ehsClauses: next })}
         />
       </section>
@@ -191,14 +225,15 @@ export function PestResponsibilitiesRecordView({
           marker={(i) => `${String.fromCharCode(104 + (i % 22))}.`}
           editable={editable}
           field="clause"
+          listPath="serviceClauses"
           onChange={(next) => set({ serviceClauses: next })}
         />
 
         <table className="caf-table pr-signatures mt-4">
           <tbody>
             <tr>
-              <SignatoryCell who={data.client} label="Client Representative" editable={editable} onChange={(next) => set({ client: next })} />
-              <SignatoryCell who={data.provider} label="Pest control agency representative" editable={editable} onChange={(next) => set({ provider: next })} />
+              <SignatoryCell who={data.client} label="Client Representative" path="client" editable={editable} onChange={(next) => set({ client: next })} />
+              <SignatoryCell who={data.provider} label="Pest control agency representative" path="provider" editable={editable} onChange={(next) => set({ provider: next })} />
             </tr>
           </tbody>
         </table>

@@ -310,14 +310,16 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           // from an earlier render (REQUIREMENTS §65). Mitra only commits to a
           // record she was told is editable (or has just reopened, a line above
           // in the same breath); one signed off elsewhere since is left alone.
-          commit: (next, note) => {
+          // A change read back from an uploaded Word/Excel file comes the same
+          // way and is recorded as that ("imported", REQUIREMENTS §81).
+          commit: (next, note, action) => {
             const base = flush();
             if (!base) return;
             if (!isEditableStatus(base.status)) {
               setNotice((said) => said ?? changedElsewhere(base, true));
               return;
             }
-            persistLocal(saveDraft(base, withComputedCells(doc?.id, next), currentUser, { action: "assistant-edit", note, labels: latest.current.labels }));
+            persistLocal(saveDraft(base, withComputedCells(doc?.id, next), currentUser, { action: action ?? "assistant-edit", note, labels: latest.current.labels }));
           },
           reopen: isCorrectableStatus(record.status) && !superseded
             ? (reason) => {
@@ -512,8 +514,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
       {/* The form as issued, in the language chosen beside Today's Briefing (REQUIREMENTS §58). */}
-      {/* ...and the part that prints (utils/print.ts): the form, nothing around it. */}
-      <div data-print-doc>
+      {/* ...and the part that prints (utils/print.ts): the form, nothing around it —
+          and whose values a downloaded file binds to this record (REQUIREMENTS §81). */}
+      <div data-print-doc data-bind-record={record.id}>
       {doc.kind === "daily-pest-monitoring" && (
         <DailyPestMonitoringRecordView doc={doc} record={{ ...record, data: data as DailyPestMonitoringData }} editable={editable} onChange={handleChange} />
       )}

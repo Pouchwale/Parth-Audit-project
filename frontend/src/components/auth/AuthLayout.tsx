@@ -7,9 +7,16 @@ import React from "react";
 // in index.html. The company name is shown as written, never machine-translated
 // (REQUIREMENTS §58). Nothing here reaches the forms below: the suites find
 // their inputs by id, name and autocomplete.
-export function AuthLayout({ children }: { children: React.ReactNode }) {
+//
+// The system's name is a 3D wordmark in the display face (REQUIREMENTS §81,
+// public/styles/brand.css): a gradient face over three steps of depth, drawn
+// once, and a single entrance of the TITLE alone as the screen opens — the card
+// and the form never move. `afterIntro`: the introduction is playing over this
+// screen (AuthScreen, IntroSplash.tsx), so the title's entrance waits for its
+// veil to lift. Fixed for the life of the screen, so the entrance never restarts.
+export function AuthLayout({ children, afterIntro = false }: { children: React.ReactNode; afterIntro?: boolean }) {
   return (
-    <div className="auth-shell">
+    <div className="auth-shell" data-intro={afterIntro ? "playing" : undefined}>
       <div className="auth-card">
         <div className="auth-brand">
           <img

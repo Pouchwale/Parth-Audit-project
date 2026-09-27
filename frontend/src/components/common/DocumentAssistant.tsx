@@ -33,6 +33,8 @@ import { historyForAgent, runMitraTurn } from "../../engine/mitraAgent";
 import { MAX_ATTACHMENTS, acceptFile, pickFromFolder, readAttachment } from "../../engine/mitraAttachments";
 import type { MitraAttachment, MitraStep, MitraToolContext } from "../../engine/mitraTypes";
 import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../../utils/recorder";
+// Mitra never talks over a person speaking into the microphone (REQUIREMENTS §81).
+import { setMicBusy } from "../../utils/voice";
 import {
   analyticIntent,
   citeLinks,
@@ -78,6 +80,8 @@ import { openBriefing } from "./AssistantBriefingPopup";
 
 const WIDGET_POSITION_KEY = "dcrs:v1:assistant-widget-pos";
 const START_GUIDED_EVENT = "dcrs:start-guided";
+/** A file handed to Mitra from "Upload changes" (REQUIREMENTS §81): { files: File[], text?: string }. */
+export const MITRA_ATTACH_EVENT = "dcrs:mitra-attach";
 
 // Any page can ask the assistant to open and start walking the user through
 // the checklist it has registered (see ChecklistBinding in AssistantContext).
@@ -263,7 +267,28 @@ export function DocumentAssistant() {
     return () => {
       recordingRef.current?.cancel();
       recordingRef.current = null;
+      setMicBusy(false);
     };
+  }, []);
+
+  // A FILE HANDED OVER FROM "Upload changes" (REQUIREMENTS §81): a Word or Excel file
+  // that was not downloaded from this system carries no map of the record, so it
+  // cannot be read back box by box — the person may ask Mitra to read it instead.
+  // Only ever on their click ("Let Mitra read it"); the dock opens with the file
+  // attached and the words in the box, for them to send.
+  const attachRef = useRef<(files: readonly File[]) => void>(() => {});
+  useEffect(() => {
+    const onHandOver = (e: Event) => {
+      const detail = (e as CustomEvent<{ files?: File[]; text?: string }>).detail;
+      const files = Array.isArray(detail?.files) ? detail.files.filter((f): f is File => f instanceof File) : [];
+      if (files.length === 0) return;
+      autoOpenedRef.current = false;
+      setOpen(true);
+      attachRef.current(files);
+      if (typeof detail?.text === "string" && detail.text.trim()) setInput(detail.text.trim());
+    };
+    window.addEventListener(MITRA_ATTACH_EVENT, onHandOver);
+    return () => window.removeEventListener(MITRA_ATTACH_EVENT, onHandOver);
   }, []);
 
   // ---- message helpers -----------------------------------------------------
@@ -1624,6 +1649,7 @@ export function DocumentAssistant() {
     if (picked.skipped > 0 && picked.reasons.length) bot(picked.reasons.join(" "));
   };
   const removeAttachment = (id: string) => setAttachments((prev) => prev.filter((a) => a.id !== id));
+  attachRef.current = (files) => attach(files);
 
   // ---- the microphone through Whisper (REQUIREMENTS §80) -----------------------------
   // With a key on the server the recording goes to Groq's Whisper, which hears
@@ -1646,6 +1672,7 @@ export function DocumentAssistant() {
     const current = recordingRef.current;
     if (current) {
       recordingRef.current = null;
+      setMicBusy(false);
       await transcribeAndSend(await current.stop());
       return;
     }
@@ -1655,12 +1682,15 @@ export function DocumentAssistant() {
         onSeconds: (seconds) => setRecording({ active: true, seconds, transcribing: false }),
         onAutoStop: (blob) => {
           recordingRef.current = null;
+          setMicBusy(false);
           void transcribeAndSend(blob);
         },
       });
       recordingRef.current = rec;
+      setMicBusy(true);
       setRecording({ active: true, seconds: 0, transcribing: false });
     } catch (err) {
+      setMicBusy(false);
       bot(recorderErrorKind(err) === "denied" ? t("ai.voiceDenied") : t("ai.voiceError"));
     }
   };

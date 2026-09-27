@@ -25,6 +25,11 @@
 // `en` is the source of truth for the key set; `gu` is typed against it, so a
 // missing Gujarati string is a compile error, never a silent English fallback.
 
+import { ROUNDTRIP_STRINGS } from "./strings.roundtrip";
+import { VOICE_STRINGS } from "./strings.voice";
+import { MOTIVATION_STRINGS } from "./strings.motivation";
+import { INTRO_STRINGS } from "./strings.intro";
+
 export type Language = "en" | "gu";
 
 export const LANGUAGE_NAMES: Record<Language, string> = { en: "English", gu: "ગુજરાતી" };
@@ -90,6 +95,7 @@ const en = {
   "history.prepared": "Prepared by the assistant",
   "history.edited": "Edited",
   "history.assistantEdit": "Changed by the assistant",
+  "history.imported": "Changed from an uploaded Word/Excel file",
   "history.submitted": "Submitted",
   "history.verified": "Verified",
   "history.rejected": "Rejected",
@@ -358,7 +364,6 @@ const en = {
   "nav.statementsOfCompliance": "Statements of Compliance",
   // The company name alone — the modules are in the panel underneath (REQUIREMENTS §65).
   "nav.brandSubtitle": "Gujarat Printpack Publication Pvt. Ltd.",
-  "nav.foot": "Phase 1 Prototype · Local data only",
   "nav.menu": "Menu",
   "nav.workspace": "Workspace",
   "nav.modules": "Modules",
@@ -791,6 +796,11 @@ const en = {
   "brief.overdue": "{n} still open from earlier",
   "brief.awaiting": "{n} waiting for verification",
   "brief.allClear": "Everything is up to date — nothing is waiting on you right now.",
+  // Each feature of REQUIREMENTS §81 keeps its words in a file of its own (i18n/strings.*.ts).
+  ...ROUNDTRIP_STRINGS.en,
+  ...VOICE_STRINGS.en,
+  ...MOTIVATION_STRINGS.en,
+  ...INTRO_STRINGS.en,
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -851,6 +861,7 @@ const gu: Record<StringKey, string> = {
   "history.prepared": "સહાયકે ભર્યું",
   "history.edited": "ફેરફાર કર્યો",
   "history.assistantEdit": "સહાયકે ફેરફાર કર્યો",
+  "history.imported": "અપલોડ કરેલી Word/Excel ફાઇલમાંથી ફેરફાર",
   "history.submitted": "સબમિટ કર્યું",
   "history.verified": "ચકાસ્યું",
   "history.rejected": "નકાર્યું",
@@ -1096,7 +1107,6 @@ const gu: Record<StringKey, string> = {
   "doc.hideOriginal": "મળેલું મૂળ છુપાવો",
   "nav.statementsOfCompliance": "અનુપાલન નિવેદનો",
   "nav.brandSubtitle": "ગુજરાત પ્રિન્ટપેક પબ્લિકેશન પ્રા. લિ.",
-  "nav.foot": "તબક્કો ૧ પ્રોટોટાઇપ · ડેટા ફક્ત આ ઉપકરણ પર",
   "nav.menu": "મેનુ",
   "nav.workspace": "કાર્યસ્થળ",
   "nav.modules": "મોડ્યુલ",
@@ -1524,6 +1534,10 @@ const gu: Record<StringKey, string> = {
   "brief.overdue": "{n} અગાઉથી બાકી છે",
   "brief.awaiting": "{n} ચકાસણીની રાહ જુએ છે",
   "brief.allClear": "બધું અદ્યતન છે — હાલ તમારા પર કંઈ બાકી નથી.",
+  ...ROUNDTRIP_STRINGS.gu,
+  ...VOICE_STRINGS.gu,
+  ...MOTIVATION_STRINGS.gu,
+  ...INTRO_STRINGS.gu,
 };
 
 export const STRINGS: Record<Language, Record<StringKey, string>> = { en, gu };

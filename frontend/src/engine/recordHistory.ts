@@ -7,6 +7,7 @@ const ACTIVITY_WORDS: Record<HistoryAction, string> = {
   prepared: "Record prepared",
   edited: "Record edited",
   "assistant-edit": "Record edited through Mitra",
+  imported: "Record changed from an uploaded Word/Excel file",
   submitted: "Record submitted for verification",
   verified: "Record verified",
   rejected: "Record sent back",
@@ -309,7 +310,7 @@ export function withEditHistory<T>(
   record: RecordInstance<T>,
   nextData: T,
   by: string,
-  opts: { action?: "edited" | "assistant-edit"; note?: string; labels?: Record<string, string> } = {}
+  opts: { action?: "edited" | "assistant-edit" | "imported"; note?: string; labels?: Record<string, string> } = {}
 ): RecordInstance<T> {
   const changes = diffRecordData(record.data, nextData, opts.labels);
   const updated: RecordInstance<T> = { ...record, data: nextData };

@@ -38,6 +38,8 @@ import { guide, hello } from "../engine/assistantPersona";
 import { SPEECH_LOCALES } from "../i18n/strings";
 import { isSpeechOutputSupported, isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../utils/speech";
 import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../utils/recorder";
+// Mitra never talks over a person speaking into the microphone (REQUIREMENTS §81).
+import { setMicBusy } from "../utils/voice";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, toISODate, todayISO } from "../utils/date";
 import { historyForAgent, runMitraTurn } from "../engine/mitraAgent";
@@ -297,6 +299,7 @@ export function AssistantPage() {
       sessionRef.current?.cancel();
       recorderRef.current?.cancel();
       recorderRef.current = null;
+      setMicBusy(false);
       stopSpeaking();
     };
   }, []);
@@ -804,6 +807,7 @@ export function AssistantPage() {
     const rec = recorderRef.current;
     if (!rec) return;
     recorderRef.current = null;
+    setMicBusy(false);
     setRecording({ active: false, seconds: 0, transcribing: true });
     try {
       await transcribeClip(await rec.stop());
@@ -822,12 +826,15 @@ export function AssistantPage() {
         // The recorder stopped itself at its limit: the clip goes as if the button had been pressed.
         onAutoStop: (blob) => {
           recorderRef.current = null;
+          setMicBusy(false);
           void transcribeClip(blob);
         },
       });
       recorderRef.current = rec;
+      setMicBusy(true);
       setRecording({ active: true, seconds: 0, transcribing: false });
     } catch (err) {
+      setMicBusy(false);
       const kind = recorderErrorKind(err);
       setVoiceNote(kind === "denied" ? t("ai.voiceDenied") : kind === "unsupported" ? t("ai.voiceUnsupported") : t("ai.voiceError"));
     }

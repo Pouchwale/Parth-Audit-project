@@ -157,6 +157,29 @@ export const assistantApi = {
       },
       body: blob,
     }),
+  // MITRA'S NATURAL VOICE (REQUIREMENTS §81, backend/tts.ts): the line as one WAV.
+  // Not through request(), which reads every answer as JSON. A 503 comes back as
+  // an ApiError whose code is "voice-unavailable" (the speech model's terms are
+  // not accepted for the Groq organisation) or "not-configured" (no key) — the
+  // browser then speaks with its own voice (utils/voice.ts).
+  speak: async (text: string, voice: "female" | "male", signal?: AbortSignal): Promise<Blob> => {
+    const res = await fetch("/api/assistant/speak", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, voice }),
+      signal,
+    });
+    if (res.ok) return res.blob();
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      /* not JSON */
+    }
+    const said = body && typeof body === "object" ? (body as { error?: unknown; code?: unknown }) : {};
+    throw new ApiError(typeof said.error === "string" ? said.error : `Request failed (${res.status})`, res.status, typeof said.code === "string" ? said.code : undefined);
+  },
 };
 
 /** An account as the Performance Scorecard reads it: who it is and which departments it answers for — never the sign-in address. */

@@ -1,3 +1,5 @@
+import { settingsRepository } from "../data/repositories/settingsRepository";
+
 // VOICE FOR THE ASSISTANT — speech-to-text for what the user says, and
 // text-to-speech for the reply, both from the browser's own Web Speech API.
 // Nothing is sent anywhere extra: recognition runs in the browser (Chrome and
@@ -61,6 +63,16 @@ export function isSpeechOutputSupported(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
+// How many listening sessions are open (listenForUtterance, from its start to
+// its end). Mitra never speaks over a person (REQUIREMENTS §81): utils/voice.ts
+// holds its reminders and briefing while this is true.
+let openSessions = 0;
+
+/** Whether the microphone is listening for a spoken sentence right now. */
+export function isListening(): boolean {
+  return openSessions > 0;
+}
+
 export type VoiceErrorKind = "denied" | "other";
 
 export interface VoiceSession {
@@ -115,6 +127,7 @@ export function listenForUtterance({
   const settle = (deliver: boolean) => {
     if (settled) return;
     settled = true;
+    openSessions = Math.max(0, openSessions - 1);
     clearSilenceTimer();
     stopping = true;
     try {
@@ -188,35 +201,318 @@ export function listenForUtterance({
     onEnd?.();
     return null;
   }
+  openSessions += 1;
+  interruptOthers();
   return {
     finish: () => settle(true),
     cancel: () => settle(false),
   };
 }
 
-// Read a reply out loud. Picks a voice matching the requested language when
-// the platform has one (Gujarati is not installed everywhere — the browser
-// then falls back to its default voice rather than staying silent).
+// ---- THE VOICE MITRA SPEAKS WITH (REQUIREMENTS §81) ----------------------------
+//
+// "in today briefing it seem to be real voice". Browsers list their voices in no
+// useful order: in Edge the robotic "Microsoft Heera - English (India)" comes
+// before the natural "Microsoft Neerja Online (Natural)", and the old picker took
+// the first voice of the language — so Mitra sounded like a machine where a
+// natural voice was sitting right there. pickVoice chooses, for the language:
+//   1. a natural voice (Edge's "Online (Natural)", any "Neural") — Neerja or
+//      Prabhat for Indian English, ધ્વની or નિરંજન for Gujarati
+//   2. a Google voice
+//   3. any voice of the language
+// and, within each, the person's choice of a female or male voice (by a small
+// list of names — Gujarati names are in Gujarati script, so the match is on the
+// voice's language and "Natural", never on its name alone). English falls back
+// to any English voice; Gujarati never does — Mitra does not read Gujarati with
+// an English voice (it says the English line instead, or nothing).
+//
+// Both Mitra's spoken replies (speak, below) and the reminders and briefing
+// (utils/voice.ts) choose with it.
+
+export type VoiceKind = "female" | "male";
+
+/** The part of a SpeechSynthesisVoice the picker reads (a test hands in plain objects). */
+export interface VoiceLike {
+  name: string;
+  lang: string;
+}
+
+const FEMALE_NAMES = new Set([
+  "neerja", "heera", "ધ્વની", "dhwani", "swara", "स्वरा", "kajal", "aditi", "raveena", "priya", "ananya", "shruti", "veena", "lekha", "kalpana",
+  "zira", "hazel", "susan", "aria", "jenny", "sonia", "libby", "natasha", "clara", "emma", "ava", "michelle", "samantha", "karen", "moira",
+  "tessa", "sara", "sarah", "linda", "catherine", "elsa", "maisie", "nancy", "female", "woman",
+]);
+const MALE_NAMES = new Set([
+  "prabhat", "ravi", "નિરંજન", "niranjan", "madhur", "मधुर", "hemant", "rishi", "prakash", "kunal", "aarav", "arjun",
+  "david", "mark", "george", "guy", "ryan", "william", "christopher", "eric", "brian", "andrew", "daniel", "alex", "thomas", "james",
+  "liam", "fred", "tom", "oliver", "male", "man",
+]);
+
+/** A voice's gender as far as its name says, or null. Whole words only: "Microsoft ધ્વની Online (Natural) - Gujarati (India)". */
+export function genderOfVoice(name: string): VoiceKind | null {
+  const words = name.toLowerCase().split(/[\s()\-–,_/]+/).filter(Boolean);
+  if (words.some((w) => FEMALE_NAMES.has(w))) return "female";
+  if (words.some((w) => MALE_NAMES.has(w))) return "male";
+  return null;
+}
+
+/** 0 natural, 1 Google, 2 any other voice. */
+export function voiceTier(v: VoiceLike): number {
+  if (/natural|neural|online/i.test(v.name)) return 0;
+  if (/google/i.test(v.name)) return 1;
+  return 2;
+}
+
+const normLang = (lang: string): string => String(lang ?? "").trim().replace(/_/g, "-").toLowerCase();
+
+/**
+ * The best voice of `voices` for `lang` ("en-IN", "gu-IN"), preferring `kind`;
+ * null when the browser has none of that language (for English: none of any
+ * English). Pure — the order the browser lists voices in never decides, except
+ * between two equally good ones.
+ */
+export function pickVoice<V extends VoiceLike>(voices: readonly V[], lang: string, kind: VoiceKind = "female"): V | null {
+  const want = normLang(lang);
+  const base = want.split("-")[0];
+  const genderRank = (v: V) => {
+    const g = genderOfVoice(v.name);
+    return g === kind ? 0 : g === null ? 1 : 2;
+  };
+  const best = (list: V[]): V | null => {
+    let chosen: V | null = null;
+    let chosenRank: number[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const v = list[i];
+      const rank = [voiceTier(v), genderRank(v), i];
+      const k = rank.findIndex((r, j) => r !== chosenRank[j]);
+      if (chosen === null || (k >= 0 && rank[k] < chosenRank[k])) {
+        chosen = v;
+        chosenRank = rank;
+      }
+    }
+    return chosen;
+  };
+  const exact = voices.filter((v) => normLang(v.lang) === want);
+  if (exact.length) return best(exact);
+  const sameLanguage = voices.filter((v) => normLang(v.lang).split("-")[0] === base);
+  return sameLanguage.length ? best(sameLanguage) : null;
+}
+
+function currentVoices(): SpeechSynthesisVoice[] {
+  try {
+    return isSpeechOutputSupported() ? window.speechSynthesis.getVoices() : [];
+  } catch {
+    return [];
+  }
+}
+
+let voicesWait: Promise<SpeechSynthesisVoice[]> | null = null;
+
+/**
+ * The browser's voices. Chrome and Edge fill the list a moment after the page
+ * loads (and Edge's natural voices later still), so the first ask waits for
+ * `voiceschanged` — once, and 1.5 s at most; after that the list is read as it is.
+ */
+export function loadVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
+  const now = currentVoices();
+  if (now.length || !isSpeechOutputSupported()) return Promise.resolve(now);
+  if (!voicesWait) {
+    voicesWait = new Promise((resolve) => {
+      const synth = window.speechSynthesis;
+      let done = false;
+      let timer = 0;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        window.clearTimeout(timer);
+        try {
+          synth.removeEventListener("voiceschanged", finish);
+        } catch {
+          /* an old browser without it */
+        }
+        resolve(currentVoices());
+      };
+      timer = window.setTimeout(finish, timeoutMs);
+      try {
+        synth.addEventListener("voiceschanged", finish);
+      } catch {
+        /* the timeout answers instead */
+      }
+    });
+  }
+  return voicesWait.then((v) => (v.length ? v : currentVoices()));
+}
+
+/** The person's choice of voice (Master Data → Working Hours & Briefing). */
+function preferredKind(): VoiceKind {
+  try {
+    return settingsRepository.get().voiceKind === "male" ? "male" : "female";
+  } catch {
+    return "female";
+  }
+}
+
+// ---- speaking with the browser's voice ----
+
+/** One line being said by the browser; cancel() stops it (and says nothing further of it). */
+export interface BrowserSpeech {
+  cancel: () => void;
+}
+
+/** Cut at sentence ends into pieces of about 200 characters: Chrome stops a long utterance part-way by itself. */
+function utterancePieces(text: string): string[] {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= 220) return clean ? [clean] : [];
+  const out: string[] = [];
+  let current = "";
+  for (const sentence of clean.split(/(?<=[.!?।…])\s+/)) {
+    if (current && current.length + 1 + sentence.length > 220) {
+      out.push(current);
+      current = sentence;
+    } else current = current ? `${current} ${sentence}` : sentence;
+  }
+  if (current) out.push(current);
+  return out;
+}
+
+/**
+ * Says `text` with the browser's speech: at an everyday rate and pitch, in
+ * `voice` when there is one (else the browser's own choice for `lang`). onEnd
+ * is called exactly once — when it has been said, failed, been cancelled, or
+ * (a browser that never says it has finished) after a generous time. Never throws.
+ */
+export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | null, lang: string, onEnd?: () => void): BrowserSpeech | null {
+  if (!isSpeechOutputSupported()) return null;
+  const pieces = utterancePieces(text);
+  if (!pieces.length) return null;
+  let ended = false;
+  let watchdog = 0;
+  const end = () => {
+    if (ended) return;
+    ended = true;
+    window.clearTimeout(watchdog);
+    try {
+      onEnd?.();
+    } catch {
+      /* a caller's slip never reaches the page */
+    }
+  };
+  try {
+    const synth = window.speechSynthesis;
+    pieces.forEach((piece, i) => {
+      const u = new SpeechSynthesisUtterance(piece);
+      u.lang = voice?.lang || lang;
+      try {
+        if (voice) u.voice = voice;
+      } catch {
+        /* not a voice this browser accepts: its own choice for the language */
+      }
+      u.rate = 1;
+      u.pitch = 1;
+      u.volume = 1;
+      u.onerror = end;
+      if (i === pieces.length - 1) u.onend = end;
+      synth.speak(u);
+    });
+    // About 14 characters a second, and some room; a minute and a half at most.
+    watchdog = window.setTimeout(end, Math.min(90_000, 5000 + text.length * 90));
+  } catch {
+    end();
+    return null;
+  }
+  return {
+    cancel: () => {
+      if (ended) return;
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        /* nothing was speaking */
+      }
+      end();
+    },
+  };
+}
+
+// ---- Mitra's spoken replies ----
+
+// Something else that speaks (utils/voice.ts — the reminders and the briefing)
+// is told when a reply starts or speech is stopped, so the two never talk over
+// each other: a reply is what the person just asked for, and goes first.
+const interruptHooks = new Set<() => void>();
+
+/** Called whenever a reply is about to be spoken, or speech is stopped (the microphone about to listen). */
+export function onSpeechInterrupt(fn: () => void): () => void {
+  interruptHooks.add(fn);
+  return () => interruptHooks.delete(fn);
+}
+
+function interruptOthers(): void {
+  for (const fn of interruptHooks) {
+    try {
+      fn();
+    } catch {
+      /* never let one listener stop the rest */
+    }
+  }
+}
+
+let replyGeneration = 0;
+let replyActive = false;
+
+/** Whether one of Mitra's replies is being read out right now. */
+export function isReplySpeaking(): boolean {
+  return replyActive;
+}
+
+// Read a reply out loud, in the best voice the browser has for the language
+// (pickVoice above) — natural where the browser has one.
 //
 // A reply with no Gujarati letters in it is read with the English voice even
 // when Gujarati is chosen: with Google Translate on, the app's own replies are
 // written in English (Google translates them on screen, not for the voice),
-// and a Gujarati voice reading English words is hard to follow.
+// and a Gujarati voice reading English words is hard to follow. A Gujarati
+// reply on a browser with no Gujarati voice is not read at all — an English
+// voice reading Gujarati script is noise.
 const GUJARATI_SCRIPT = /[઀-૿]/;
 
 export function speak(text: string, requested: string): void {
   if (!isSpeechOutputSupported() || !text.trim()) return;
-  const lang = requested.startsWith("gu") && !GUJARATI_SCRIPT.test(text) ? "en-IN" : requested;
-  const synth = window.speechSynthesis;
-  synth.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = lang;
-  const base = lang.split("-")[0];
-  const voice = synth.getVoices().find((v) => v.lang === lang) ?? synth.getVoices().find((v) => v.lang.startsWith(base));
-  if (voice) utterance.voice = voice;
-  synth.speak(utterance);
+  interruptOthers();
+  const generation = ++replyGeneration;
+  try {
+    window.speechSynthesis.cancel();
+  } catch {
+    /* nothing was speaking */
+  }
+  const gujarati = requested.startsWith("gu") && GUJARATI_SCRIPT.test(text);
+  const lang = gujarati ? "gu-IN" : requested.startsWith("gu") ? "en-IN" : requested;
+  replyActive = true;
+  loadVoices()
+    .then((voices) => {
+      if (generation !== replyGeneration) return;
+      const voice = pickVoice(voices, lang, preferredKind());
+      if (gujarati && !voice) {
+        replyActive = false;
+        return;
+      }
+      const spoken = speakWithBrowser(text, voice, lang, () => {
+        if (generation === replyGeneration) replyActive = false;
+      });
+      if (!spoken) replyActive = false;
+    })
+    .catch(() => {
+      replyActive = false;
+    });
 }
 
 export function stopSpeaking(): void {
-  if (isSpeechOutputSupported()) window.speechSynthesis.cancel();
+  replyGeneration += 1;
+  replyActive = false;
+  interruptOthers();
+  if (!isSpeechOutputSupported()) return;
+  try {
+    window.speechSynthesis.cancel();
+  } catch {
+    /* nothing was speaking */
+  }
 }

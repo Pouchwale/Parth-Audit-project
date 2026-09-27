@@ -1,0 +1,56 @@
+/* REQUIREMENTS §81 — the roundtrip feature's own rules, loaded after assets/styles.css (index.html).
+   Upload changes: the dialog that shows what an edited Word/Excel file changes before it is applied
+   (components/common/UploadChanges.tsx). Drawn in <body>, outside the page; never printed. */
+
+/* Above the Mitra dock (50) and the reaction toast (110): the person opened it on purpose. */
+.rt-layer .modal-overlay { z-index: 130; }
+.rt-layer .modal-box { max-height: 88vh; }
+.rt-layer .modal-box .card-header h3 { overflow-wrap: anywhere; }
+
+.rt-dialog { display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.45; color: var(--color-text); min-width: 0; }
+.rt-dialog p { margin: 0; }
+.rt-small { font-size: 12px; }
+
+.rt-note { display: flex; align-items: flex-start; gap: 8px; padding: 9px 11px; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface-alt); overflow-wrap: anywhere; }
+.rt-note > svg { flex: 0 0 auto; margin-top: 2px; }
+.rt-note.rt-danger { background: var(--color-danger-bg); border-color: var(--color-danger); color: var(--color-text); }
+.rt-note.rt-danger > svg { color: var(--color-danger); }
+.rt-note.rt-warn { background: var(--color-warning-bg); border-color: var(--color-warning); }
+.rt-note.rt-warn > svg { color: var(--color-warning); }
+.rt-note.rt-info { background: var(--color-info-bg); border-color: var(--color-info); }
+.rt-note.rt-ok { background: var(--color-success-bg); border-color: var(--color-success); }
+.rt-note.rt-ok > svg { color: var(--color-success); }
+
+.rt-record { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; min-width: 0; }
+.rt-record + .rt-record { border-top: 1px solid var(--color-border); padding-top: 12px; }
+.rt-record-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 13.5px; font-weight: 700; overflow-wrap: anywhere; }
+.rt-status { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--color-neutral-bg); color: var(--color-neutral); white-space: nowrap; }
+
+.rt-table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); max-width: 100%; }
+.rt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rt-table th, .rt-table td { padding: 6px 9px; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: top; }
+.rt-table tbody tr:last-child td { border-bottom: none; }
+.rt-table th { background: var(--color-surface-alt); color: var(--color-text-muted); font-weight: 700; font-size: 11.5px; white-space: nowrap; }
+.rt-table td { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 70px; }
+.rt-table .rt-label { font-weight: 600; min-width: 110px; }
+.rt-table .rt-was { color: var(--color-text-muted); text-decoration: line-through; text-decoration-color: var(--color-border-strong); }
+.rt-table .rt-now { color: var(--color-primary-dark); font-weight: 600; background: var(--color-primary-light); }
+.rt-empty { color: var(--color-text-faint); font-style: italic; font-weight: 400; text-decoration: none; }
+.rt-conflict { display: block; margin-top: 2px; font-size: 11px; font-weight: 600; color: var(--color-warning); }
+
+.rt-subhead { font-size: 11.5px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
+.rt-new-lines ul, .rt-rejected ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
+.rt-rejected li { color: var(--color-text); }
+.rt-rejected li strong { font-weight: 600; }
+
+.rt-footer { width: 100%; }
+
+@media (max-width: 600px) {
+  .rt-layer .modal-overlay { padding: 8px; }
+  .rt-table th, .rt-table td { padding: 5px 6px; }
+  .rt-table .rt-label { min-width: 80px; }
+}
+
+@media print {
+  .rt-layer { display: none !important; }
+}

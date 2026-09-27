@@ -1,0 +1,204 @@
+/* REQUIREMENTS §81 — the motivation feature's own rules, loaded after assets/styles.css (index.html).
+
+   Mitra's cheer line under the reaction toast, the confetti, the all-done card,
+   the badge card (components/common/Celebration.tsx) and the Dashboard's day
+   card (components/common/MyDayCard.tsx).
+
+   Everything that appears over the page is position: fixed, pointer-events:
+   none (only the card's own close button takes a click), inside the viewport,
+   animated with transforms and opacity only, runs once and is gone — no
+   infinite animation anywhere. Reduced motion: no confetti, no movement.
+   Nothing here is ever printed. */
+
+/* ---- The line under Mitra's reaction ---------------------------------------- */
+.mitra-reaction-cheer {
+  margin-top: 4px; font-size: 12.5px; font-weight: 500; line-height: 1.4; color: var(--color-text);
+  animation: cheer-fade-in 0.3s ease-out 1 both;
+}
+@keyframes cheer-fade-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* ---- Confetti ------------------------------------------------------------------ */
+.cheer-confetti {
+  position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 116; contain: strict;
+}
+.cheer-confetti i {
+  position: absolute; display: block; background: var(--c); opacity: 0; pointer-events: none; will-change: transform, opacity;
+}
+/* A burst: from the reaction toast's corner, up and to the right, then falling away. */
+.cheer-confetti[data-kind="burst"] i {
+  left: 48px; bottom: 48px;
+  animation: cheer-burst 1.15s cubic-bezier(0.18, 0.7, 0.35, 1) var(--d) 1 both;
+}
+@keyframes cheer-burst {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg) scale(0.5); }
+  60% { opacity: 1; transform: translate3d(var(--dx), calc(var(--dy) * -1), 0) rotate(var(--r)) scale(1); }
+  100% { opacity: 0; transform: translate3d(calc(var(--dx) * 1.15), calc(var(--dy) * -0.6), 0) rotate(calc(var(--r) * 1.6)) scale(0.9); }
+}
+/* Rain: the whole day done — falling across the screen. */
+.cheer-confetti[data-kind="rain"] i {
+  top: -20px; left: var(--x);
+  animation: cheer-rain var(--t) cubic-bezier(0.35, 0.1, 0.6, 1) var(--d) 1 both;
+}
+@keyframes cheer-rain {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--dx), 105vh, 0) rotate(var(--r)); }
+}
+
+/* ---- Badges (the cards and the day card) ---------------------------------------- */
+.cheer-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.cheer-badge {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+  padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.4;
+  background: linear-gradient(135deg, #fff7d6, #ffe7a3); color: #6b4a00; border: 1px solid #f0cf6a;
+}
+
+/* ---- The all-done card, under the top bar ------------------------------------------ */
+.cheer-card {
+  position: fixed; top: 70px; left: 50%; z-index: 118; box-sizing: border-box;
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px 44px 16px 18px; border-radius: 16px; pointer-events: none;
+  color: var(--color-text);
+  background: linear-gradient(135deg, #fffaf0 0%, #fff3cf 48%, var(--color-success-bg) 100%);
+  border: 1px solid #f0cf6a; box-shadow: 0 18px 40px rgba(15, 30, 45, 0.22);
+  transform: translateX(-50%);
+  animation: cheer-card-in 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) 1 both, cheer-card-out 0.45s ease-in 8.5s 1 forwards;
+}
+@keyframes cheer-card-in {
+  from { opacity: 0; transform: translate(-50%, -14px) scale(0.92); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes cheer-card-out { to { opacity: 0; transform: translate(-50%, -8px) scale(0.98); } }
+.cheer-card-close {
+  pointer-events: auto; position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  border: none; border-radius: 50%; background: rgba(255, 255, 255, 0.75); color: var(--color-text-muted);
+  font-size: 18px; line-height: 1; cursor: pointer;
+}
+.cheer-card-close:hover, .cheer-card-close:focus-visible { background: #fff; color: var(--color-text); outline: none; box-shadow: 0 0 0 2px var(--color-primary-light); }
+.cheer-card-title {
+  font-family: var(--font-display, inherit); font-size: 20px; font-weight: 800; line-height: 1.25; color: #7a4b00;
+  overflow-wrap: anywhere;
+}
+.cheer-card-score {
+  display: inline-block; margin-top: 6px; padding: 3px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 800; line-height: 1.45; font-variant-numeric: tabular-nums;
+  color: var(--color-success); background: var(--color-success-bg); border: 1px solid #b4e0c8;
+}
+.cheer-card-facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cheer-card-fact {
+  padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.4;
+  background: rgba(255, 255, 255, 0.78); border: 1px solid rgba(15, 30, 45, 0.08);
+}
+.cheer-card-streak { background: #fff1e0; color: #8a4a00; border-color: #f5c28a; }
+.cheer-card .cheer-badges { margin-top: 8px; }
+.cheer-card-praise { margin-top: 9px; font-size: 13.5px; font-weight: 600; line-height: 1.45; }
+.cheer-card-purpose { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--color-text-muted); font-style: italic; }
+
+/* ---- A new badge: smaller, and gone by itself ------------------------------------------ */
+.cheer-pop {
+  position: fixed; top: 70px; left: 50%; z-index: 118; box-sizing: border-box;
+  width: max-content; max-width: min(400px, calc(100vw - 32px));
+  padding: 10px 16px 11px; border-radius: 14px; pointer-events: none; text-align: center;
+  color: var(--color-text); background: linear-gradient(135deg, #fffaf0, #fff0c2);
+  border: 1px solid #f0cf6a; box-shadow: var(--shadow-lg);
+  transform: translateX(-50%);
+  animation: cheer-card-in 0.45s cubic-bezier(0.2, 1.3, 0.4, 1) 1 both, cheer-card-out 0.4s ease-in 4.7s 1 forwards;
+}
+.cheer-pop-title { font-family: var(--font-display, inherit); font-size: 15px; font-weight: 800; color: #7a4b00; }
+.cheer-pop .cheer-badges { justify-content: center; margin-top: 6px; }
+.cheer-pop-line { margin-top: 6px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
+
+/* ---- The Dashboard's day card ------------------------------------------------------------ */
+.my-day {
+  overflow: hidden; border-left: 4px solid var(--color-primary);
+  background: linear-gradient(115deg, var(--color-surface) 58%, var(--color-primary-light));
+}
+.my-day.is-all-done, .my-day.is-free {
+  border-left-color: var(--color-success);
+  background: linear-gradient(115deg, var(--color-surface) 52%, var(--color-success-bg));
+}
+.my-day-body { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; padding: 16px 18px; }
+.my-day-ring { position: relative; flex: 0 0 76px; width: 76px; height: 76px; }
+.my-day-ring svg { display: block; }
+.my-day-ring-track { fill: none; stroke: var(--color-border); stroke-width: 7; }
+.my-day-ring-fill { fill: none; stroke: var(--color-accent); stroke-width: 7; stroke-linecap: round; }
+.my-day.is-all-done .my-day-ring-fill, .my-day.is-free .my-day-ring-fill { stroke: var(--color-success); }
+.my-day[data-state="loading"] .my-day-ring-fill { stroke: transparent; }
+.my-day-ring-count {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--color-text);
+}
+.my-day[data-state="loading"] .my-day-ring-count { color: transparent; }
+.my-day-main { flex: 1 1 260px; min-width: 0; }
+.my-day-title {
+  font-family: var(--font-display, inherit); font-size: 19px; font-weight: 700; line-height: 1.25;
+  color: var(--color-primary-dark); overflow-wrap: anywhere;
+}
+.my-day-line { margin-top: 3px; font-size: 13.5px; line-height: 1.45; color: var(--color-text); }
+.my-day[data-state="loading"] .my-day-line { color: var(--color-text-muted); }
+.my-day-chips, .my-day-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.my-day-chip {
+  display: inline-flex; align-items: center; max-width: 100%; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; line-height: 1.4;
+  background: var(--color-surface-alt); border: 1px solid var(--color-border); color: var(--color-text);
+}
+.my-day-streak { background: #fff1e0; border-color: #f5c28a; color: #8a4a00; }
+.my-day-left { background: var(--color-info-bg); border-color: #b7cdef; color: var(--color-info); }
+.my-day-purpose { margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--color-text-muted); font-style: italic; }
+.my-day-next {
+  flex: 0 1 250px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface); border: 1px solid var(--color-border);
+}
+.my-day-next-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-faint); }
+.my-day-next-what {
+  max-width: 100%; font-size: 13px; font-weight: 600; line-height: 1.35;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
+}
+.my-day-next-when { font-size: 12px; color: var(--color-text-muted); }
+.my-day-next-when.is-late { color: var(--color-danger); font-weight: 600; }
+.my-day-next .btn { margin-top: 6px; gap: 6px; }
+
+/* ---- Today's score: the day card's headline, counted from what is missing ---------------
+   0 is perfect (nothing missing); 8 of 10 done is −20. The tone says how far from 0:
+   perfect green, close amber (−1 … −20), behind orange (−21 … −50), far red (below −50). */
+.my-day-score {
+  --tone: var(--color-text-faint); --tone-bg: var(--color-surface-alt); --tone-line: var(--color-border);
+  flex: 0 1 216px; min-width: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 9px 14px 10px; border-radius: var(--radius-md);
+  background: var(--tone-bg); border: 1px solid var(--tone-line); border-left: 4px solid var(--tone);
+}
+.my-day-score[data-tone="perfect"] { --tone: var(--color-success); --tone-bg: var(--color-success-bg); --tone-line: #b4e0c8; }
+.my-day-score[data-tone="close"] { --tone: #946c08; --tone-bg: var(--color-warning-bg); --tone-line: #f0d894; }
+/* The theme has no orange of its own: the one between --color-warning and --color-danger. */
+.my-day-score[data-tone="behind"] { --tone: #b85412; --tone-bg: #fdebdc; --tone-line: #f5c7a0; }
+.my-day-score[data-tone="far"] { --tone: var(--color-danger); --tone-bg: var(--color-danger-bg); --tone-line: #efbcbc; }
+.my-day-score-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-muted);
+}
+.my-day-score-num {
+  font-family: var(--font-display, inherit); font-size: 44px; font-weight: 800; line-height: 1.05;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--tone); white-space: nowrap;
+}
+.my-day-score-line { margin-top: 2px; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--color-text); overflow-wrap: anywhere; }
+.my-day[data-state="loading"] .my-day-score-num { color: var(--color-border-strong); }
+
+@media (max-width: 560px) {
+  .my-day-body { gap: 12px; padding: 14px; }
+  .my-day-score { flex: 1 1 calc(100% - 90px); }
+  .my-day-score-num { font-size: 38px; }
+  .my-day-main { flex-basis: 100%; }
+  .my-day-next { flex-basis: 100%; }
+  .cheer-card { padding: 14px 40px 14px 14px; }
+  .cheer-card-title { font-size: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cheer-confetti { display: none; }
+  .cheer-card, .cheer-pop, .mitra-reaction-cheer { animation: none; }
+}
+
+@media print {
+  .cheer-confetti, .cheer-card, .cheer-pop, .my-day { display: none !important; }
+}

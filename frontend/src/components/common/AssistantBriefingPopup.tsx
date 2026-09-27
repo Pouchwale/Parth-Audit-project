@@ -13,6 +13,12 @@ import { computeReminders } from "../../engine/reminders";
 import type { BriefingSlot } from "../../data/repositories/settingsRepository";
 import { reminderDigestApi } from "../../api/client";
 import { formatDisplayDate, todayISO } from "../../utils/date";
+import { emitCue, emitSay } from "../../engine/engageBus";
+import { firstNameOf } from "../../engine/assistantPersona";
+import { documentRepository } from "../../data/repositories/documentRepository";
+import { briefingLine, cancelPending, isSaying, onVoiceChange, say, stopLine } from "../../utils/voice";
+import { useT } from "../../i18n";
+import type { Language } from "../../i18n/strings";
 
 export const OPEN_BRIEFING_EVENT = "dcrs:open-briefing";
 
@@ -28,17 +34,48 @@ export function openBriefing(): void {
 // dead. "Submit all" still covers every prepared record, not just the shown.
 const MAX_ROWS = 12;
 
+/**
+ * THE BRIEFING, SAID ALOUD (REQUIREMENTS §81): a greeting with the first name,
+ * what is waiting, the first two things by name — late first, then what needs a
+ * detail, then what is ready — and why the work matters (utils/voice.ts).
+ */
+function spokenBriefing(b: Briefing, userName: string | undefined, slot: BriefingSlot | "manual", lang: Language, today: string): string {
+  const first = [...b.overdue, ...b.needsInput, ...b.ready];
+  const top = first.slice(0, 2).map((i) => i.documentName);
+  return briefingLine(
+    {
+      firstName: firstNameOf(userName),
+      slot,
+      hour: new Date().getHours(),
+      ready: b.ready.length,
+      needsInput: b.needsInput.length,
+      overdue: b.overdue.length,
+      awaiting: b.awaitingVerification.length,
+      top,
+      module: first[0] ? documentRepository.getById(first[0].documentId)?.module : undefined,
+      seed: `${today}|${slot}`,
+    },
+    lang
+  );
+}
+
 // THE ASSISTANT'S GREETING. Pops up by itself on the schedule in
 // engine/briefingSchedule.ts (first ever open; first hour of the day; last
 // hour of the day if anything is still unsubmitted) and on demand from the
 // top bar. It runs the preparation step itself first, so a user who logs in
 // at 07:00 still finds today's records ready rather than empty.
 export function AssistantBriefingPopup() {
-  const { version, bump, currentUser } = useAppStore();
+  const { version, bump, currentUser, lang } = useAppStore();
   const { user } = useAuth();
   const { navigate } = useRouter();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [slot, setSlot] = useState<BriefingSlot | "manual">("manual");
+  // Each showing, counted: every one is announced (a chime, and the briefing said aloud).
+  const [showing, setShowing] = useState(0);
+  // What was asked to be said for this showing, and whether it is being said (the 🔊 button's state).
+  const spokenRef = useRef<{ text: string; en: string } | null>(null);
+  const [saying, setSaying] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ submitted: number; failed: number } | null>(null);
   // The records the person has ticked as reviewed and verified, this sitting.
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
@@ -70,6 +107,7 @@ export function AssistantBriefingPopup() {
       setSlot(due);
       setSubmitResult(null);
       setOpen(true);
+      setShowing((n) => n + 1);
     };
     tick();
     const id = window.setInterval(tick, 60_000);
@@ -82,6 +120,7 @@ export function AssistantBriefingPopup() {
       setSlot("manual");
       setSubmitResult(null);
       setOpen(true);
+      setShowing((n) => n + 1);
     };
     window.addEventListener(OPEN_BRIEFING_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_BRIEFING_EVENT, onOpen);
@@ -102,9 +141,42 @@ export function AssistantBriefingPopup() {
       });
   }, [version]);
 
+  // ANNOUNCED WHEN IT OPENS: the chime, and the briefing said aloud — the
+  // automatic showings once a day each (key briefing:<slot>:<date>), one opened
+  // from the top bar every time. In an effect, after the popup is drawn.
+  useEffect(() => {
+    if (!open || !briefing || showing === 0) return;
+    const today = todayISO();
+    const text = spokenBriefing(briefing, user?.name, slot, lang, today);
+    const en = lang === "en" ? text : spokenBriefing(briefing, user?.name, slot, "en", today);
+    spokenRef.current = { text, en };
+    emitCue("chime");
+    emitSay({ text, lang, en, ...(slot === "manual" ? {} : { key: `briefing:${slot}:${today}` }) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showing]);
+
+  useEffect(() => {
+    if (!open) return;
+    const update = () => setSaying(!!spokenRef.current && isSaying(spokenRef.current.text));
+    update();
+    return onVoiceChange(update);
+  }, [open, showing]);
+
   if (!open || !briefing) return null;
 
-  const dismiss = () => setOpen(false);
+  const dismiss = () => {
+    // Closed before it was read out: the line waiting is dropped (one already being said finishes its sentence).
+    if (spokenRef.current) cancelPending(spokenRef.current.text);
+    setOpen(false);
+  };
+  const toggleVoice = () => {
+    const today = todayISO();
+    const line = spokenRef.current ?? { text: spokenBriefing(briefing, user?.name, slot, lang, today), en: spokenBriefing(briefing, user?.name, slot, "en", today) };
+    spokenRef.current = line;
+    if (isSaying(line.text)) stopLine(line.text);
+    // Pressed on purpose: said now, whatever the voice setting.
+    else say({ text: line.text, lang, en: line.en, priority: "high" });
+  };
   const go = (route: string) => {
     dismiss();
     navigate(route);
@@ -163,9 +235,23 @@ export function AssistantBriefingPopup() {
               </div>
             </div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={dismiss} aria-label="Close briefing" style={{ color: "#fff" }}>
-            <FiX size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm briefing-voice"
+              data-action="briefing-voice"
+              aria-pressed={saying}
+              aria-label={saying ? t("voice.briefing.stop") : t("voice.briefing.play")}
+              title={saying ? t("voice.briefing.stop") : t("voice.briefing.play")}
+              onClick={toggleVoice}
+              style={{ color: "#fff" }}
+            >
+              <span aria-hidden="true">{saying ? "⏹" : "🔊"}</span>
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={dismiss} aria-label="Close briefing" style={{ color: "#fff" }}>
+              <FiX size={16} />
+            </button>
+          </div>
         </div>
 
         <div style={{ overflowY: "auto", padding: "16px 20px" }}>

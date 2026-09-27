@@ -5,11 +5,13 @@
 // logic stays separate from the HTTP mechanics of whichever LLM provider is
 // configured.
 //
-// Three calls live here: groqChatJSON (one JSON answer — the chat, the
+// Four calls live here: groqChatJSON (one JSON answer — the chat, the
 // checklist and the CV reader), groqChatWithTools (one round of Mitra's agent
-// loop, REQUIREMENTS §80 — the model answers in words or asks for tool calls)
-// and groqTranscribe (Whisper, for what a person says into the microphone).
+// loop, REQUIREMENTS §80 — the model answers in words or asks for tool calls),
+// groqTranscribe (Whisper, for what a person says into the microphone) and
+// groqSpeak (Mitra's natural voice, REQUIREMENTS §81 — text in, a WAV out).
 import { plantTimeZone } from "./db.ts";
+import { chunkForSpeech, joinWavs, termsRequired, VoiceNotConfiguredError, VoiceUnavailableError, type VoiceKind } from "./tts.ts";
 
 // This account's Groq key only has access to a specific model set (checked
 // against GET /openai/v1/models at integration time) — no meta-llama chat
@@ -367,4 +369,65 @@ export async function groqTranscribe({
     ...(typeof body.language === "string" && body.language ? { language: body.language } : {}),
     ...(typeof body.duration === "number" && Number.isFinite(body.duration) ? { seconds: Math.round(body.duration * 10) / 10 } : {}),
   };
+}
+
+// ---------------------------------------------------------------------------
+// MITRA'S NATURAL VOICE (REQUIREMENTS §81, backend/tts.ts).
+//
+// Groq's text-to-speech model (Orpheus, English only) says at most 200
+// characters a call and answers a WAV, so a line is cut into pieces
+// (chunkForSpeech), each piece is asked for in turn — one call at a time, so a
+// briefing never bursts the account's per-minute allowance — and the clips are
+// joined into one (joinWavs). A 429 waits as the chat does. The model's terms
+// must be accepted once by the Groq organisation's admin; until then every call
+// answers 400 `model_terms_required`, which becomes VoiceUnavailableError — a
+// lasting "not available", not a failure to try again — and the browser uses
+// its own voice. Not metered against the token allowance: speech is billed by
+// the character, apart from it.
+const GROQ_SPEECH_URL = "https://api.groq.com/openai/v1/audio/speech";
+const SPEAK_TIMEOUT_MS = 30000;
+
+/** The speech model: GROQ_TTS_MODEL, or Orpheus English. */
+export function ttsModel(): string {
+  return (process.env.GROQ_TTS_MODEL ?? "").trim() || "canopylabs/orpheus-v1-english";
+}
+
+/** The model's voice for Mitra's female or male voice: GROQ_TTS_VOICE_FEMALE / _MALE, or hannah / daniel. */
+export function ttsVoiceName(kind: VoiceKind): string {
+  const set = kind === "male" ? process.env.GROQ_TTS_VOICE_MALE : process.env.GROQ_TTS_VOICE_FEMALE;
+  return (set ?? "").trim() || (kind === "male" ? "daniel" : "hannah");
+}
+
+/** Says `text` in Mitra's natural voice: one WAV. Throws VoiceNotConfiguredError, VoiceUnavailableError, or an Error for anything else. */
+export async function groqSpeak({ text, voice }: { text: string; voice: VoiceKind }): Promise<Buffer> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new VoiceNotConfiguredError();
+  const pieces = chunkForSpeech(text);
+  if (pieces.length === 0) throw new Error("There is nothing to say.");
+  const model = ttsModel();
+  const voiceName = ttsVoiceName(voice);
+  const clips: Buffer[] = [];
+  for (const input of pieces) {
+    // A fresh body for every attempt (sendWithRateLimitRetry may send it twice).
+    const res = await sendWithRateLimitRetry(() =>
+      fetch(GROQ_SPEECH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model, input, voice: voiceName, response_format: "wav" }),
+        signal: AbortSignal.timeout(SPEAK_TIMEOUT_MS),
+      })
+    );
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "");
+      if (termsRequired(bodyText)) throw new VoiceUnavailableError(model);
+      throw new Error(`Speech request failed (${res.status}): ${bodyText.slice(0, 300)}`);
+    }
+    const type = res.headers.get("content-type") ?? "";
+    if (/json|text\//i.test(type)) {
+      const bodyText = await res.text().catch(() => "");
+      throw new Error(`Speech request answered ${type} instead of audio: ${bodyText.slice(0, 200)}`);
+    }
+    clips.push(Buffer.from(await res.arrayBuffer()));
+  }
+  return joinWavs(clips);
 }

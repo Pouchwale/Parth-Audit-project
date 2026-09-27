@@ -11,6 +11,9 @@ import { priorityOf, PRIORITY_ORDER, type Priority } from "../../engine/notifica
 import { escalationLine } from "../../engine/performance";
 import { escalationsApi, ESCALATIONS_CHANGED, forgetEscalationsSeen, type Escalation } from "../../api/client";
 import { openBriefing } from "../common/AssistantBriefingPopup";
+import { remindNow } from "../common/SoundVoiceHost";
+import { emitCue } from "../../engine/engageBus";
+import { useT } from "../../i18n";
 
 // Reminders only ever track Live records, regardless of which mode (Live /
 // Demo) is currently toggled — same reasoning DashboardPage documents for
@@ -23,12 +26,21 @@ const IS_DEMO = false;
 // in the briefing / Calendar).
 const MAX_SHOWN = 20;
 
+// A SOUND FOR WHAT IS NEW (REQUIREMENTS §81): the soft chime when the bell
+// gains an urgent reminder, two firm notes for a new escalation. What the bell
+// holds when the app starts is only the baseline — the shells made and the
+// records pulled in while it settles are not news — so gains in the first
+// seconds after the bell is drawn are taken in silently.
+const SETTLE_MS = 5000;
+
 export function NotificationBell() {
   const { version, bump } = useAppStore();
   const { user } = useAuth();
   const { navigate } = useRouter();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const mountedAt = useRef(Date.now());
 
   // ONCE A DAY'S WORTH, not on every change of anything (REQUIREMENTS §65): the
   // month being looked at is what decides, and the count below is redrawn only
@@ -42,6 +54,22 @@ export function NotificationBell() {
 
   const reminders = useMemo(() => computeReminders(IS_DEMO), [version]);
   const urgentCount = reminders.filter((r) => r.urgency !== "upcoming").length;
+
+  // The chime, in an effect (never while drawing): only when the set of urgent
+  // reminders GAINS a record since the last look — one gone is not news.
+  const urgentSeen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const now = new Set(reminders.filter((r) => r.urgency !== "upcoming").map((r) => r.recordId));
+    const before = urgentSeen.current;
+    urgentSeen.current = now;
+    if (!before || Date.now() - mountedAt.current < SETTLE_MS) return;
+    for (const id of now) {
+      if (!before.has(id)) {
+        emitCue("chime");
+        return;
+      }
+    }
+  }, [reminders]);
   const shown = useMemo(() => reminders.slice(0, MAX_SHOWN), [reminders]);
 
   // HIGHEST FIRST, AND SAID WHY (REQUIREMENTS §69). A list of twenty documents
@@ -73,11 +101,19 @@ export function NotificationBell() {
   const isAdmin = user?.role === "admin";
   const [escalations, setEscalations] = useState<Escalation[]>([]);
   const [acking, setAcking] = useState<string | null>(null);
+  // The escalations the super admin has already been sounded for; the first answer is the baseline.
+  const escalationsSeen = useRef<Set<string> | null>(null);
   const readEscalations = useCallback(() => {
     if (!isAdmin) return;
     escalationsApi
       .open()
-      .then((res) => setEscalations(Array.isArray(res?.escalations) ? res.escalations : []))
+      .then((res) => {
+        const list = Array.isArray(res?.escalations) ? res.escalations : [];
+        const before = escalationsSeen.current;
+        escalationsSeen.current = new Set([...(before ?? []), ...list.map((e) => e.id)]);
+        if (before && list.some((e) => !before.has(e.id))) emitCue("alert");
+        setEscalations(list);
+      })
       .catch(() => undefined);
   }, [isAdmin]);
   useEffect(() => {
@@ -201,6 +237,19 @@ export function NotificationBell() {
                 ))}
               </div>
             )}
+            {/* MITRA SAYS IT (REQUIREMENTS §81): the most urgent thing of theirs, aloud, now. */}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm mb-2 w-full"
+              data-action="voice-remind-now"
+              title={t("voice.bell.nextTitle")}
+              onClick={() => {
+                setOpen(false);
+                remindNow();
+              }}
+            >
+              {t("voice.bell.next")}
+            </button>
             {PRIORITY_ORDER.map((p) => {
               const list = byPriority.get(p);
               if (!list || list.length === 0) return null;

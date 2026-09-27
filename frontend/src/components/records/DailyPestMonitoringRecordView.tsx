@@ -10,6 +10,7 @@ import { Link } from "../../store/router";
 import { FHR17_INSTRUCTION_1, FHR17_INSTRUCTION_2 } from "./DailyRegisterSheet";
 import { MONTH_NAMES, formatDisplayDate, fromISODate } from "../../utils/date";
 import { generateId } from "../../utils/id";
+import { bindProps, dailyPestBind } from "../../engine/roundTrip/bindingsFor";
 
 const RODENT_AREA_CONTEXT = "service-report:Rodent Control Service";
 
@@ -67,8 +68,10 @@ export function DailyPestMonitoringRecordView({
 
   const due = fromISODate(record.dueDate);
 
+  // Every value below carries where it lives in the record, so an edited Excel
+  // file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
   return (
-    <div>
+    <div data-bind-record={record.id}>
       <DocumentHeader doc={doc} extraTitle={formatDisplayDate(record.dueDate)} pageLabel={`row ${due.getDate()} of the ${MONTH_NAMES[due.getMonth()]} register`} />
       <div className="text-xs text-muted mt-2 no-print">
         This is one date row of the F/HR/17 monthly register (3 pages).{" "}
@@ -83,6 +86,7 @@ export function DailyPestMonitoringRecordView({
           <label className="flex items-center gap-2 mt-4" style={{ cursor: editable ? "pointer" : "default" }}>
             <input
               type="checkbox"
+              {...bindProps(dailyPestBind.holiday())}
               checked={data.isHoliday}
               disabled={!editable}
               onChange={(e) => setField("isHoliday", e.target.checked)}
@@ -126,6 +130,7 @@ export function DailyPestMonitoringRecordView({
                         <input
                           type="number"
                           className="input input-sm"
+                          {...bindProps(dailyPestBind.checkpoint(cp))}
                           disabled={!editable}
                           value={ans.value ?? ""}
                           onChange={(e) => setCheckpoint(cp.no, { value: e.target.value === "" ? null : Number(e.target.value) })}
@@ -133,6 +138,7 @@ export function DailyPestMonitoringRecordView({
                       ) : (
                         <select
                           className="input input-sm"
+                          {...bindProps(dailyPestBind.checkpoint(cp))}
                           disabled={!editable}
                           value={(ans.value as string) ?? ""}
                           onChange={(e) => setCheckpoint(cp.no, { value: e.target.value || null })}
@@ -150,6 +156,7 @@ export function DailyPestMonitoringRecordView({
                       {cp.responseType === "yesno-note" ? (
                         <input
                           className="input input-sm"
+                          {...bindProps(dailyPestBind.checkpointNote(cp))}
                           placeholder={cp.notePrompt}
                           disabled={!editable}
                           value={ans.note ?? ""}
@@ -201,16 +208,16 @@ export function DailyPestMonitoringRecordView({
                     </td>
                   </tr>
                 )}
-                {catches.map((c) => (
+                {catches.map((c, ci) => (
                   <tr key={c.id}>
                     <td>
-                      <input className="input input-sm" placeholder="RB-27" disabled={!editable} value={c.trapBoxNo} onChange={(e) => updateCatch(c.id, { trapBoxNo: e.target.value })} />
+                      <input className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "trapBoxNo"))} placeholder="RB-27" disabled={!editable} value={c.trapBoxNo} onChange={(e) => updateCatch(c.id, { trapBoxNo: e.target.value })} />
                     </td>
                     <td>
-                      <input className="input input-sm" list="rodent-areas" disabled={!editable} value={c.location} onChange={(e) => updateCatch(c.id, { location: e.target.value })} />
+                      <input className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "location"))} list="rodent-areas" disabled={!editable} value={c.location} onChange={(e) => updateCatch(c.id, { location: e.target.value })} />
                     </td>
                     <td>
-                      <input type="number" min={1} className="input input-sm" disabled={!editable} value={c.count} onChange={(e) => updateCatch(c.id, { count: Math.max(0, Number(e.target.value) || 0) })} />
+                      <input type="number" min={1} className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "count"))} disabled={!editable} value={c.count} onChange={(e) => updateCatch(c.id, { count: Math.max(0, Number(e.target.value) || 0) })} />
                     </td>
                     {editable && (
                       <td>
@@ -240,6 +247,7 @@ export function DailyPestMonitoringRecordView({
               <input
                 type="time"
                 className="input"
+                {...bindProps(dailyPestBind.timeOfChecking())}
                 disabled={!editable}
                 value={data.timeOfChecking}
                 onChange={(e) => setField("timeOfChecking", e.target.value)}
@@ -249,6 +257,7 @@ export function DailyPestMonitoringRecordView({
               <label>Checker</label>
               <input
                 className="input"
+                {...bindProps(dailyPestBind.checker())}
                 disabled={!editable}
                 value={data.checker}
                 onChange={(e) => setField("checker", e.target.value)}
@@ -295,12 +304,13 @@ export function DailyPestMonitoringRecordView({
                   </td>
                 </tr>
               )}
-              {data.summaryActions.map((a) => (
+              {data.summaryActions.map((a, ai) => (
                 <tr key={a.id}>
                   <td>
                     <input
                       type="date"
                       className="input input-sm"
+                      {...bindProps(dailyPestBind.action(a, ai, "dateOfObservation"))}
                       disabled={!editable}
                       value={a.dateOfObservation}
                       onChange={(e) =>
@@ -314,6 +324,7 @@ export function DailyPestMonitoringRecordView({
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(dailyPestBind.action(a, ai, "descriptionOfObservation"))}
                       disabled={!editable}
                       value={a.descriptionOfObservation}
                       onChange={(e) =>
@@ -327,6 +338,7 @@ export function DailyPestMonitoringRecordView({
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(dailyPestBind.action(a, ai, "actionTaken"))}
                       disabled={!editable}
                       value={a.actionTaken}
                       onChange={(e) =>
@@ -337,6 +349,7 @@ export function DailyPestMonitoringRecordView({
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(dailyPestBind.action(a, ai, "remarks"))}
                       disabled={!editable}
                       value={a.remarks}
                       onChange={(e) =>

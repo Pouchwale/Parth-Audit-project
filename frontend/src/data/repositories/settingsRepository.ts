@@ -41,6 +41,20 @@ export interface AppSettings {
   // the reminder starts asking again (engine/serviceAgreement.ts). It is only
   // ever a snooze — a week — never a way to switch the reminder off.
   agreementReminderSnoozedUntil: string | null;
+  // SOUND AND VOICE (REQUIREMENTS §81). Short sounds on the bell, the day's
+  // notification, a submit and a celebration; Mitra's spoken reminders and the
+  // spoken briefing — each can be switched off (Master Data → Working Hours,
+  // and the top bar's sound button).
+  soundsOn: boolean;
+  voiceOn: boolean;
+  /** Which voice Mitra speaks with, where there is a choice. */
+  voiceKind: "female" | "male";
+  /** Minutes between spoken reminders during working hours while something is due or overdue. */
+  remindEveryMin: number;
+  /** What was already said aloud today (a reminder per record, the briefing), so nothing is said twice. Not handed on. */
+  spokenToday: { date: string; keys: string[] };
+  /** Which celebrations were already shown today (all done, a streak day, an achievement). Not handed on. */
+  celebratedToday: { date: string; keys: string[] };
 }
 
 const KEY = "settings";
@@ -68,6 +82,12 @@ const DEFAULTS: AppSettings = {
   nudgeShownOn: null,
   liveStartDate: null,
   agreementReminderSnoozedUntil: null,
+  soundsOn: true,
+  voiceOn: true,
+  voiceKind: "female",
+  remindEveryMin: 45,
+  spokenToday: { date: "", keys: [] },
+  celebratedToday: { date: "", keys: [] },
 };
 
 export const settingsRepository = {
@@ -120,5 +140,19 @@ export const settingsRepository = {
       briefingShown: { date: dateISO, slots: slots.includes(slot) ? slots : [...slots, slot] },
       briefingFirstShownAt: s.briefingFirstShownAt ?? new Date().toISOString(),
     });
+  },
+  /** Whether `key` (a record's reminder, "briefing", "all-done" …) was already said or celebrated today (REQUIREMENTS §81). */
+  doneToday(list: "spokenToday" | "celebratedToday", dateISO: string, key: string): boolean {
+    const l = this.get()[list];
+    return l?.date === dateISO && l.keys.includes(key);
+  },
+  /** Marks `key` said or celebrated today; the list starts again each day and keeps at most 200 keys. */
+  markDoneToday(list: "spokenToday" | "celebratedToday", dateISO: string, key: string): void {
+    const s = this.get();
+    const l = s[list];
+    const keys = l?.date === dateISO ? l.keys : [];
+    if (keys.includes(key)) return;
+    const { liveStartDate: _floor, ...own } = s;
+    writeJSON(KEY, { ...own, [list]: { date: dateISO, keys: [...keys, key].slice(-200) } });
   },
 };

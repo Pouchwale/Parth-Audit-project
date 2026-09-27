@@ -278,6 +278,12 @@ async function main(): Promise<void> {
       // REQUIREMENTS §79: the browser nearly full — named, cleared in a click; Demo Mode stops short.
       "tests/e2e_storage_room.py",
   "tests/e2e_mitra_agent.py",
+  // REQUIREMENTS §81: the 3D introduction and the fonts; sound and Mitra's voice; celebrations in every module;
+  // and every document's Word/Excel downloaded, edited and uploaded back.
+  "tests/e2e_intro_and_fonts.py",
+  "tests/e2e_voice_and_sounds.py",
+  "tests/e2e_celebrations.py",
+  "tests/e2e_upload_changes.py",
       // REQUIREMENTS §75: Insights — what the records show when read together, the
       // Dashboard's three, a CAPA raised from one on a click, and each account's own.
       "tests/e2e_insights.py",

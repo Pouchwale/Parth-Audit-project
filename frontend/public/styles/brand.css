@@ -1,0 +1,542 @@
+/* REQUIREMENTS §81 — the brand feature's own rules, loaded after assets/styles.css (index.html).
+
+   "make starting of this system like introduction of project name in 3d and also
+    make use of good engaging fonts" (27-Sep-2026).
+
+   1. The faces, self-hosted (public/fonts, each family's OFL.txt beside its files;
+      nothing is fetched from anywhere else — the suites are network-independent and
+      a failed request is a console error):
+        Baloo Bhai 2 ........ the DISPLAY face, Latin + Gujarati: page titles, card
+                              headers, the brand, Mitra's name, the intro.
+        Plus Jakarta Sans ... the app's text (Latin).
+        Noto Sans Gujarati .. the app's Gujarati text.
+      Each Gujarati file has a unicode-range of Gujarati alone, so a page with no
+      Gujarati on it never downloads one (₹, U+20B9, is left to the Latin faces'
+      fallback for that reason). About 60 KB for an English page, 300 KB in all.
+   2. THE PRINTED FORMS KEEP THEIR FONT. They are the company's specification, so
+      every form, register and sheet is set in --font-doc, the stack the whole app
+      used before (styles.css --font-sans, copied exactly), on screen and on paper;
+      and on paper everything is.
+   3. The sign-in screen's title as a 3D wordmark, and the introduction that plays
+      once per browser session before it (components/auth/IntroSplash.tsx).
+   Animation here is transforms and opacity alone, runs once, and none of it under
+   prefers-reduced-motion. */
+
+/* ---- 1. The faces ------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("../fonts/plus-jakarta-sans/plus-jakarta-sans-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Gujarati text sits on the Latin text's line: the same ascent and descent as Plus
+   Jakarta Sans, so a line that mixes the two is no taller than one that does not
+   (the letters themselves are drawn in full — only the line's measure is set). */
+@font-face {
+  font-family: "Noto Sans Gujarati";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/noto-sans-gujarati/noto-sans-gujarati.woff2") format("woff2");
+  unicode-range: U+0951-0952, U+0964-0965, U+0A80-0AFF, U+200C-200D, U+25CC, U+A830-A839;
+  ascent-override: 104%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+/* Baloo's own measure is very deep below the line (room for Gujarati's lower
+   signs), which would lift a title above the icons beside it; set to a text
+   face's measure, its letters sit where the old ones did. */
+@font-face {
+  font-family: "Baloo Bhai 2";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("../fonts/baloo-bhai-2/baloo-bhai-2-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  ascent-override: 100%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Baloo Bhai 2";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("../fonts/baloo-bhai-2/baloo-bhai-2-gujarati.woff2") format("woff2");
+  unicode-range: U+0951-0952, U+0964-0965, U+0A80-0AFF, U+200C-200D, U+25CC, U+A830-A839;
+  ascent-override: 100%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+
+:root {
+  /* The stack every screen and form used before §81 — styles.css --font-sans, copied exactly. */
+  --font-doc: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-app: "Plus Jakarta Sans", "Noto Sans Gujarati", var(--font-sans);
+  --font-display: "Baloo Bhai 2", var(--font-app);
+}
+
+/* Figures of one width, as the old face drew them: a ticking clock or a count that
+   changes does not make the words beside it move. */
+body {
+  font-family: var(--font-app);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- The display face: titles, headers, the brand, Mitra --------------------- */
+
+h1,
+h2,
+.card-header h3,
+.app-sidebar-brand .title,
+.auth-brand .title,
+.stat-tile .stat-value,
+.briefing-head .text-lg,
+.briefing-avatar,
+.chat-avatar,
+.assistant-pill,
+.assistant-head .font-semibold > span:first-child,
+.assistant-dock-card > :first-child > :first-child .font-semibold {
+  font-family: var(--font-display);
+}
+
+.app-sidebar-brand .title {
+  letter-spacing: 0.005em;
+  text-shadow: 0 1px 0 rgba(4, 36, 49, 0.35), 0 2px 0 rgba(4, 36, 49, 0.2), 0 3px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* ---- 2. The printed forms keep their font ------------------------------------- */
+
+[data-print-doc],
+.doc-table,
+table.log-sheet,
+.register-grid,
+.register-page,
+.doc-header,
+.caf-sheet,
+.caf-page {
+  font-family: var(--font-doc);
+  font-variant-numeric: normal;
+}
+
+/* A heading inside a form stays in the form's face (this outranks every rule above). */
+:is([data-print-doc], .doc-table, table.log-sheet, .register-grid, .register-page, .doc-header, .caf-sheet, .caf-page)
+  :is(h1, h2, h3, h4, h5, h6, .stat-value) {
+  font-family: var(--font-doc);
+}
+
+@media print {
+  :root {
+    --font-app: var(--font-doc);
+    --font-display: var(--font-doc);
+  }
+  body {
+    font-variant-numeric: normal;
+  }
+  .intro-splash {
+    display: none !important;
+  }
+}
+
+/* ---- 3a. The sign-in screen's title: a 3D wordmark ---------------------------- */
+
+/* The face is a gradient; the depth is three one-pixel steps of darker teal under
+   it and a soft shadow on the card — drawn once, never animated. The words are the
+   element's own (no copy in a pseudo-element), so they read and translate as before. */
+.auth-brand .title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.005em;
+  color: var(--color-primary-dark);
+  max-width: 330px;
+  margin: 0 auto;
+  text-wrap: balance;
+  filter: drop-shadow(0 1px 0 #0f6283) drop-shadow(0 1px 0 #0c5270) drop-shadow(0 1px 0 #09435b) drop-shadow(0 4px 3px rgba(4, 40, 55, 0.2));
+  transform-origin: 50% 100%;
+  animation: dcrs-title-in 560ms cubic-bezier(0.2, 0.85, 0.25, 1.12) both;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .auth-brand .title {
+    background: linear-gradient(170deg, #2596c2 0%, #1680a8 45%, #1a9277 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* Once, as the screen opens: the title stands up into place. The card and the
+   form never move. After the introduction it waits for the veil to lift. */
+@keyframes dcrs-title-in {
+  0% {
+    opacity: 0;
+    transform: perspective(520px) rotateX(80deg) translateY(4px);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.auth-shell[data-intro="playing"] .auth-brand .title {
+  animation-delay: 1050ms;
+}
+
+/* ---- 3b. The introduction (IntroSplash.tsx) ----------------------------------- */
+
+/* Over everything, catching nothing: every click and key goes to the sign-in form
+   beneath, which is there from the first frame. 1.6 s, then it leaves the page. */
+.intro-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  background: radial-gradient(ellipse 120% 85% at 50% 42%, #17698a 0%, #0a4258 48%, #041a24 100%);
+  animation: intro-veil 1600ms linear both;
+}
+
+@keyframes intro-veil {
+  0%,
+  62% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The scene: seen in perspective, and gone a little before the veil so the
+   screen beneath comes clear (opacity here, never on the rig — it would flatten it). */
+.intro-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px 9vh;
+  perspective: 900px;
+  animation: intro-scene 1600ms linear both;
+}
+
+@keyframes intro-scene {
+  0%,
+  66% {
+    opacity: 1;
+  }
+  88%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* A grid floor running out to the horizon under the name. */
+.intro-floor {
+  position: absolute;
+  left: -40%;
+  width: 180%;
+  top: 58%;
+  height: 70%;
+  transform-origin: 50% 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 214, 224, 0.2) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(0deg, rgba(255, 214, 224, 0.2) 0 1px, transparent 1px 56px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 55%, transparent 100%);
+  animation: intro-floor 1600ms linear both;
+}
+
+@keyframes intro-floor {
+  0% {
+    opacity: 0;
+    transform: rotateX(76deg) translateY(0);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: rotateX(76deg) translateY(112px);
+  }
+}
+
+.intro-glow {
+  position: absolute;
+  left: 50%;
+  top: 41%;
+  width: 78vmin;
+  height: 78vmin;
+  margin: -39vmin 0 0 -39vmin;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 196, 212, 0.34) 0%, rgba(255, 196, 212, 0.1) 38%, rgba(255, 196, 212, 0) 64%);
+  animation: intro-glow 900ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@keyframes intro-glow {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Everything that flies: from far off and turned away, overshooting a little,
+   settling, then rushing past as the veil lifts. */
+.intro-rig {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  transform-style: preserve-3d;
+  animation: intro-rig 1600ms both;
+}
+
+@keyframes intro-rig {
+  0% {
+    transform: translateZ(-480px) rotateX(24deg) rotateY(-38deg);
+    animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1);
+  }
+  55% {
+    transform: translateZ(30px) rotateX(-5deg) rotateY(8deg);
+    animation-timing-function: ease-in-out;
+  }
+  68% {
+    transform: translateZ(0) rotateX(5deg) rotateY(-4deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.9, 0.6);
+  }
+  100% {
+    transform: translateZ(520px) rotateX(0deg) rotateY(0deg);
+  }
+}
+
+/* The company's mark as a tile with an edge, turning in face first. */
+.intro-logo {
+  display: block;
+  width: clamp(64px, 17vw, 108px);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 24%;
+  margin-bottom: clamp(8px, 2.2vh, 20px);
+  box-shadow:
+    0 1px 0 #6f3439,
+    0 2px 0 #652f34,
+    0 3px 0 #5b2a2f,
+    0 4px 0 #51252a,
+    0 5px 0 #472125,
+    0 14px 24px rgba(0, 0, 0, 0.45);
+  backface-visibility: hidden;
+  animation: intro-logo 700ms cubic-bezier(0.2, 0.85, 0.3, 1.2) both;
+}
+
+@keyframes intro-logo {
+  0% {
+    opacity: 0;
+    transform: translateZ(-260px) rotateY(-150deg);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The wordmark. Each letter is extruded towards the lower right in steps of the
+   logo's maroon, with a face of the logo's pale pink; the letters flip up one
+   after another. */
+.intro-word {
+  position: relative;
+  display: flex;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(72px, 20vw, 168px);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  transform-style: preserve-3d;
+}
+
+.intro-letter {
+  position: relative;
+  display: block;
+  color: #93464d;
+  text-shadow:
+    0.007em 0.007em 0 #8a4148,
+    0.014em 0.014em 0 #803b42,
+    0.021em 0.021em 0 #76363c,
+    0.028em 0.028em 0 #6b3136,
+    0.035em 0.035em 0 #612c31,
+    0.042em 0.042em 0 #56272b,
+    0.049em 0.049em 0 #4b2226,
+    0.056em 0.056em 0 #401d20,
+    0.09em 0.12em 0.16em rgba(0, 0, 0, 0.5);
+  transform-origin: 50% 85%;
+  animation: intro-letter 500ms cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+  animation-delay: calc(140ms + var(--i, 0) * 60ms);
+}
+
+.intro-letter::after {
+  content: attr(data-l);
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #fff4f6;
+  text-shadow: none;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .intro-letter::after {
+    background: linear-gradient(180deg, #fff6f8 8%, #fbdce4 40%, #f0b3c3 70%, #dc8ea3 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+@keyframes intro-letter {
+  0% {
+    opacity: 0;
+    transform: translateZ(-160px) rotateX(-100deg);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A light sweeping across the letters: a window moving right over a bright copy
+   of the word that moves left by as much, so the copy stays on the letters and
+   only the window travels — two transforms, nothing repainted. */
+.intro-shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 58%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 58%, transparent 100%);
+  animation: intro-shine-window 380ms 860ms cubic-bezier(0.45, 0, 0.3, 1) both;
+}
+
+.intro-shine-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: max-content;
+  color: #ffffff;
+  text-shadow: 0 0 0.08em rgba(255, 255, 255, 0.9), 0 0 0.2em rgba(255, 236, 200, 0.6);
+  animation: intro-shine-text 380ms 860ms cubic-bezier(0.45, 0, 0.3, 1) both;
+}
+
+.intro-shine-text > span {
+  display: block;
+}
+
+@keyframes intro-shine-window {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(222.3%);
+  }
+}
+
+@keyframes intro-shine-text {
+  from {
+    transform: translateX(45%);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.intro-name {
+  margin-top: clamp(6px, 1.6vh, 14px);
+  max-width: calc(100vw - 32px);
+  font-family: var(--font-app);
+  font-weight: 700;
+  font-size: clamp(12px, 3.3vw, 19px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #e8f4f8;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  animation: intro-rise 420ms 480ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* Letter-spacing would pull Gujarati's joined letters apart. */
+.intro-name.is-gu {
+  letter-spacing: 0;
+}
+
+.intro-company {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(12.5px, 3.2vw, 17px);
+  letter-spacing: 0.03em;
+  text-align: center;
+  color: #f6c9d3;
+  animation: intro-rise 420ms 600ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.intro-company::before,
+.intro-company::after {
+  content: "";
+  flex: 0 0 auto;
+  width: clamp(16px, 6vw, 44px);
+  height: 1px;
+  background: linear-gradient(90deg, rgba(246, 201, 211, 0), currentColor);
+}
+
+.intro-company::after {
+  transform: scaleX(-1);
+}
+
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) translateZ(-60px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-splash {
+    display: none !important;
+  }
+  .auth-brand .title {
+    animation: none;
+  }
+}

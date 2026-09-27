@@ -354,6 +354,29 @@ Seven scripts live in `tests/`:
   the step shown, the context naming the record. The offline suites that drive the chat (`e2e_smoke`,
   `e2e_assistant_fill`, `e2e_mitra_format`, `e2e_voice`, `e2e_assistant_and_logout`, `e2e_capa_formats` …) run the
   rules-based fallback unchanged, since the test server has no key.
+- `tests/e2e_intro_and_fonts.py`, `tests/e2e_voice_and_sounds.py`, `tests/e2e_celebrations.py`,
+  `tests/e2e_upload_changes.py` - REQUIREMENTS §81, the forty-second to forty-fifth suites, added 27-Sep-2026 and run
+  last. The intro: it plays over a sign-in form that can be typed into and clicked at once, is `pointer-events: none`,
+  holds no "sign up"/"demo", is gone within 2.5 s, and never plays after sign-in, on a reload or under reduced motion;
+  the self-hosted fonts load with 200 and the printed forms keep the old font stack exactly. Sound and voice (an init
+  script records `dcrs:cue`/`dcrs:say` and stubs AudioContext, speechSynthesis and Audio): nothing before the first
+  click; the briefing chimes and is spoken with the person's name, its 🔊 says it again; the bell's "What should I do
+  next?" names a due or late document; the reminder card takes no clicks but its own and goes by itself; the top-bar
+  mute (fourth after connection, clock, language) silences both and unmutes; the Master Data switches stick. The
+  celebrations, on a Production account: on time — the toast exactly as before plus the cheer line, a confetti burst
+  that a click passes through, the "success" cue; late — the gentle line, the "late" cue, no confetti; the last one due
+  — the all-done card with the first name, the streak, "Today's score: 0", the "celebrate" cue and the spoken line; the
+  Dashboard's "My day" card with its loss-framed score equal to round(done ÷ due × 100) − 100 and "Go to the next one".
+  The upload: every document with a Word/Excel download sample-filled, downloaded, edited in the file the way Excel or
+  Word saves it, uploaded, previewed and applied — the stored record holding the new value and an `imported` history
+  entry; a verified record reopened; a line appended under a free-row grid; a date typed as an Excel serial; another
+  document's file and a file with no map refused.
+- Unit tests for §81: `bindPath.test.ts` (the path grammar; a missing check point made on a blank daily sheet; nothing
+  invented), `roundTrip.test.ts` / `roundTripValues.test.ts` (the map written and read back, edits the way Excel and
+  Word save them, every kind of value typed in), `roundTripBindings.test.ts` (every value of all 108 recordable
+  documents' sample-filled records bound to a path that resolves; 216 rendered pages with no unbound box),
+  `uploadChanges.test.ts`, `voice.test.ts`, `sounds.test.ts`, `motivation.test.ts` (streaks, badges, the day's score:
+  8/10 → −20, 10/10 → 0), `intro.test.ts`; `backend/tests/tts.test.ts` (chunking, joining WAVs, the terms error).
 - Unit tests for Mitra as an agent: `frontend/tests/mitraTools.test.ts` (the tools against seeded records — a bad
   route refused, F/HR/17 found, today's record started, a patch applied through a fake open record with the "Asked of
   Mitra" note, records listed and searched, figures for a history question, ask_user ending the turn, the schema set

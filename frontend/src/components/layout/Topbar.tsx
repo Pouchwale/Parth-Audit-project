@@ -13,6 +13,7 @@ import { LanguageSwitcher } from "../common/LanguageSwitcher";
 import { openBriefing } from "../common/AssistantBriefingPopup";
 import { ChangePasswordDialog } from "../common/ChangePasswordDialog";
 import { Clock, ConnectionStatus } from "./TopbarStatus";
+import { SoundToggle } from "./SoundToggle";
 
 export function Topbar() {
   const { mode, setMode } = useAppStore();
@@ -76,6 +77,8 @@ export function Topbar() {
           {/* The one language control for the whole app, reachable from every
               screen; beside it, a word on which translation is showing. */}
           <LanguageSwitcher />
+          {/* Mitra's sounds and voice, muted or brought back in one press (REQUIREMENTS §81). */}
+          <SoundToggle />
           <button className="btn btn-secondary btn-sm" onClick={openBriefing} title={t("top.briefingTitle")} aria-label={t("top.todaysBriefing")}>
             <FiZap size={13} /> <span className="topbar-label">{t("top.todaysBriefing")}</span>
           </button>

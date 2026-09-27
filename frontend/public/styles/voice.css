@@ -1,0 +1,71 @@
+/* REQUIREMENTS §81 — the voice feature's own rules, loaded after assets/styles.css (index.html).
+   Sounds and Mitra's voice: the top bar's speaker, the spoken reminder's card, the
+   briefing's 🔊 and the settings card in Master Data. Theme tokens only. */
+
+/* ---- The top bar's speaker (components/layout/SoundToggle.tsx) ----
+   An icon; the word beside it only where the bar has plenty of room, so the bar
+   never grows wider than it was (at 390 px it must not scroll sideways). */
+.sound-toggle { display: inline-flex; align-items: center; gap: 5px; }
+.sound-toggle.is-off { color: var(--color-text-faint); }
+.sound-toggle-label { display: none; font-size: 12px; }
+@media (min-width: 1440px) {
+  .sound-toggle-label { display: inline; }
+}
+
+/* ---- The spoken reminder's card (components/common/SoundVoiceHost.tsx) ----
+   Bottom left, ABOVE where the reaction toast sits (.mitra-reaction: left 20px,
+   bottom 20px), so the two never cover each other. It takes no clicks but its
+   own three buttons: a click meant for the page beneath goes to the page. */
+.mitra-voice-reminder {
+  position: fixed; left: 20px; bottom: 150px; z-index: 111; box-sizing: border-box;
+  width: min(380px, calc(100vw - 40px)); overflow: hidden; pointer-events: none;
+  background: var(--color-surface); color: var(--color-text);
+  border: 1px solid var(--color-border); border-left: 5px solid var(--color-primary);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  padding: 12px 14px 10px 12px;
+  animation: mitra-voice-in 0.22s ease-out;
+}
+.mitra-voice-reminder-body { display: flex; align-items: flex-start; gap: 10px; }
+.mitra-voice-reminder-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.mitra-voice-reminder-title { font-size: 12px; font-weight: 700; color: var(--color-primary); letter-spacing: 0.02em; }
+.mitra-voice-reminder-text { font-size: 13px; line-height: 1.45; margin-top: 2px; word-break: break-word; }
+.mitra-voice-reminder-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+.mitra-voice-reminder-actions .btn { pointer-events: auto; }
+@keyframes mitra-voice-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 480px) {
+  .mitra-voice-reminder { left: 12px; bottom: 132px; width: calc(100vw - 24px); }
+}
+
+/* ---- The briefing's replay button (components/common/AssistantBriefingPopup.tsx) ---- */
+.briefing-voice { font-size: 15px; line-height: 1; }
+.briefing-voice[aria-pressed="true"] { background: rgba(255, 255, 255, 0.18); }
+
+/* ---- Master Data → Working Hours & Briefing: sounds and voice ---- */
+.voice-switch {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; cursor: pointer;
+  border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface);
+  color: var(--color-text); font: inherit; font-size: 13px;
+}
+.voice-switch:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.voice-switch-track {
+  position: relative; width: 34px; height: 20px; border-radius: 999px; flex-shrink: 0;
+  background: var(--color-border-strong); transition: background 0.15s ease;
+}
+.voice-switch-thumb {
+  position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--color-surface); box-shadow: var(--shadow-sm); transition: transform 0.15s ease;
+}
+.voice-switch.is-on .voice-switch-track { background: var(--color-success); }
+.voice-switch.is-on .voice-switch-thumb { transform: translateX(14px); }
+.voice-switch-label { font-weight: 600; }
+.voice-switch-state { font-size: 12px; color: var(--color-text-muted); }
+.voice-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.voice-choice { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mitra-voice-reminder { animation: none; }
+  .voice-switch-track, .voice-switch-thumb { transition: none; }
+}
+@media print {
+  .mitra-voice-reminder { display: none !important; }
+}

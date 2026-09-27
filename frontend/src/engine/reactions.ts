@@ -35,9 +35,14 @@ export type ReactionEvent =
       again?: boolean;
       /** Nothing of the person's visible documents is left due today or overdue. */
       lastOneDue?: boolean;
+      /** The record's document and the record itself — so a celebration can say why that module's work matters (REQUIREMENTS §81). Absent on an event made by hand. */
+      documentId?: string;
+      recordId?: string;
+      /** The moment it was handed in (ISO timestamp). */
+      submittedAt?: string;
     }
-  | { kind: "verified"; what: string }
-  | { kind: "rejected"; what: string; reason: string };
+  | { kind: "verified"; what: string; documentId?: string; recordId?: string }
+  | { kind: "rejected"; what: string; reason: string; documentId?: string; recordId?: string };
 
 export interface Reaction {
   emoji: string;

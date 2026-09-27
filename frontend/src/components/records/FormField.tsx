@@ -1,4 +1,5 @@
 import React from "react";
+import { bindProps, formFieldType, type Bound } from "../../engine/roundTrip/bindingsFor";
 
 // One value on a letter-style controlled form (the Complaint Acknowledgement
 // Report, the Responsibilities document). While the record is a draft it is an
@@ -31,6 +32,8 @@ export function FormField({
   roomy,
   normalise,
   problem,
+  bind,
+  parts,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -47,6 +50,18 @@ export function FormField({
   normalise?: (v: string) => string;
   /** Why the value doesn't fit its format, shown under the field on screen. */
   problem?: (v: string) => string | null;
+  /**
+   * Where the value lives in the record (REQUIREMENTS §81): put on the box AND
+   * on the words shown in its place, so a downloaded Word file can be read
+   * back. Its type follows `kind`.
+   */
+  bind?: Bound | null;
+  /**
+   * The value shown as several values joined by ", " (an address held as
+   * lines): the words bind each one, the box — holding them joined — only
+   * what `bind` says. Their texts joined are `value`.
+   */
+  parts?: { text: string; bind: Bound }[] | null;
 }) {
   const shown = kind === "date" ? formDate(value) : value;
   const cls = `caf-value${kind === "long" ? " long" : ""}${roomy ? " roomy" : ""}${editable ? " caf-print-only" : ""}`;
@@ -55,14 +70,26 @@ export function FormField({
   // `translatable` follows the chosen language, like every other printed line.
   const keep = translatable ? "" : " notranslate";
   const no = translatable ? undefined : "no";
+  const bound = bindProps(bind ? { ...bind, type: formFieldType(kind) } : null);
+  // Several values joined: each one bound where it is shown, the whole left unbound.
+  const joined = kind !== "date" && !!parts && parts.length > 1 && parts.map((p) => p.text).join(", ") === value;
+  const words = joined
+    ? parts!.map((p, i) => (
+        <React.Fragment key={i}>
+          {i > 0 ? ", " : ""}
+          <span {...bindProps(p.bind)}>{p.text}</span>
+        </React.Fragment>
+      ))
+    : shown;
+  const textBound = joined ? undefined : bound;
   const text =
     kind === "long" ? (
-      <div className={`${cls}${keep}`} translate={no}>
-        {shown}
+      <div className={`${cls}${keep}`} translate={no} {...textBound}>
+        {words}
       </div>
     ) : (
-      <span className={`${cls}${keep}`} translate={no}>
-        {shown}
+      <span className={`${cls}${keep}`} translate={no} {...textBound}>
+        {words}
       </span>
     );
   if (!editable) return text;
@@ -78,6 +105,7 @@ export function FormField({
         <textarea
           className="input caf-input caf-long caf-screen-only"
           data-field={field}
+          {...bound}
           rows={3}
           placeholder={placeholder}
           value={value}
@@ -88,6 +116,7 @@ export function FormField({
         <input
           className={`input caf-input caf-screen-only${says ? " error" : ""}`}
           data-field={field}
+          {...bound}
           type={kind === "date" ? "date" : "text"}
           list={list}
           placeholder={placeholder}

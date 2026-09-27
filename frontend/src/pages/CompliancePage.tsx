@@ -12,6 +12,7 @@ import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { useT } from "../i18n";
+import { bindProps, complianceBind } from "../engine/roundTrip/bindingsFor";
 
 function validityBadge(validUntil: string) {
   const today = todayISO();
@@ -147,9 +148,15 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
   const validUntil = complianceValidUntil(s);
   const patch = (p: Partial<ComplianceStatement>) => setDraft({ ...s, ...p });
   const setSection = (i: number, p: Partial<ComplianceSection>) => patch({ sections: s.sections.map((sec, idx) => (idx === i ? { ...sec, ...p } : sec)) });
+  // Where each value lives in the statement, for an edited Word file read back
+  // (REQUIREMENTS §81) — on the box while Edit is on, and on the words
+  // otherwise. A section's lines are bound one by one where they are shown one
+  // by one; the box that holds them all while Edit is on is not (no binding
+  // holds a list).
+  const bound = (key: Parameters<typeof complianceBind.field>[0]) => bindProps(complianceBind.field(key));
 
   return (
-    <div data-print-doc>
+    <div data-print-doc data-bind-record={documentId}>
       <div className="flex items-center justify-between mb-3 no-print wrap gap-2">
         <button className="btn btn-ghost btn-sm" onClick={() => navigate("/soc")}>
           <FiArrowLeft size={13} /> Back to Statements
@@ -177,15 +184,19 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
           GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED
         </div>
         <div className="doc-title">
-          {editing ? <input className="input input-sm" data-field="soc-title" value={s.headerTitle} onChange={(e) => patch({ headerTitle: e.target.value })} /> : s.headerTitle}
+          {editing ? (
+            <input className="input input-sm" data-field="soc-title" {...bound("headerTitle")} value={s.headerTitle} onChange={(e) => patch({ headerTitle: e.target.value })} />
+          ) : (
+            <span {...bound("headerTitle")}>{s.headerTitle}</span>
+          )}
         </div>
         <div className="meta-row">
           <div className="meta-cell">
             <span className="k">Format / Rev</span>
             {editing ? (
-              <input className="input input-sm" value={s.footerRef} onChange={(e) => patch({ footerRef: e.target.value })} />
+              <input className="input input-sm" {...bound("footerRef")} value={s.footerRef} onChange={(e) => patch({ footerRef: e.target.value })} />
             ) : (
-              <span className="v notranslate" translate="no">
+              <span className="v notranslate" translate="no" {...bound("footerRef")}>
                 {s.footerRef}
               </span>
             )}
@@ -193,9 +204,11 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
           <div className="meta-cell">
             <span className="k">Date of publication</span>
             {editing ? (
-              <input type="date" className="input input-sm" value={s.signedOn} onChange={(e) => e.target.value && patch({ signedOn: e.target.value })} />
+              <input type="date" className="input input-sm" {...bound("signedOn")} value={s.signedOn} onChange={(e) => e.target.value && patch({ signedOn: e.target.value })} />
             ) : (
-              <span className="v">{formatDisplayDate(s.signedOn)}</span>
+              <span className="v" {...bound("signedOn")}>
+                {formatDisplayDate(s.signedOn)}
+              </span>
             )}
           </div>
           <div className="meta-cell">
@@ -206,9 +219,11 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
             <div className="meta-cell" style={{ flex: 2 }}>
               <span className="k">Reference source</span>
               {editing ? (
-                <input className="input input-sm" value={s.referenceSource ?? ""} onChange={(e) => patch({ referenceSource: e.target.value })} />
+                <input className="input input-sm" {...bound("referenceSource")} value={s.referenceSource ?? ""} onChange={(e) => patch({ referenceSource: e.target.value })} />
               ) : (
-                <span className="v">{s.referenceSource}</span>
+                <span className="v" {...bound("referenceSource")}>
+                  {s.referenceSource}
+                </span>
               )}
             </div>
           )}
@@ -220,8 +235,16 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
           <tbody>
             {s.sections.map((sec, i) => (
               <tr key={i}>
-                <td className="font-semibold text-sm" style={{ width: 220, verticalAlign: "top", background: "var(--color-surface-alt)" }}>
-                  {editing ? <input className="input input-sm" value={sec.label} onChange={(e) => setSection(i, { label: e.target.value })} /> : sec.label}
+                <td
+                  className="font-semibold text-sm"
+                  style={{ width: 220, verticalAlign: "top", background: "var(--color-surface-alt)" }}
+                  {...(editing ? undefined : bindProps(complianceBind.sectionLabel(i)))}
+                >
+                  {editing ? (
+                    <input className="input input-sm" {...bindProps(complianceBind.sectionLabel(i))} value={sec.label} onChange={(e) => setSection(i, { label: e.target.value })} />
+                  ) : (
+                    sec.label
+                  )}
                 </td>
                 <td className="text-sm">
                   {editing ? (
@@ -234,7 +257,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
                     />
                   ) : (
                     sec.lines.map((l, li) => (
-                      <div key={li} className={li > 0 ? "mt-1" : ""}>
+                      <div key={li} className={li > 0 ? "mt-1" : ""} {...bindProps(complianceBind.sectionLine(i, li))}>
                         {l}
                       </div>
                     ))
@@ -258,12 +281,13 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
               <textarea
                 key={i}
                 className="input mb-2"
+                {...bindProps(complianceBind.declaration(i))}
                 rows={3}
                 value={d}
                 onChange={(e) => patch({ declarations: s.declarations.map((x, xi) => (xi === i ? e.target.value : x)) })}
               />
             ) : (
-              <p key={i} className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}`}>
+              <p key={i} className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}`} {...bindProps(complianceBind.declaration(i))}>
                 {d}
               </p>
             )
@@ -277,16 +301,22 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
           <div className="mt-3" style={{ borderTop: "1px solid var(--color-border-strong)", width: 220 }} />
           {editing ? (
             <div className="flex gap-2 wrap mt-1">
-              <input className="input input-sm" style={{ maxWidth: 220 }} placeholder="Signed by" value={s.signedBy} onChange={(e) => patch({ signedBy: e.target.value })} />
-              <input className="input input-sm" style={{ maxWidth: 220 }} placeholder="Title" value={s.signedTitle} onChange={(e) => patch({ signedTitle: e.target.value })} />
+              <input className="input input-sm" {...bound("signedBy")} style={{ maxWidth: 220 }} placeholder="Signed by" value={s.signedBy} onChange={(e) => patch({ signedBy: e.target.value })} />
+              <input className="input input-sm" {...bound("signedTitle")} style={{ maxWidth: 220 }} placeholder="Title" value={s.signedTitle} onChange={(e) => patch({ signedTitle: e.target.value })} />
             </div>
           ) : (
             <>
-              <div className="font-semibold mt-1">{s.signedBy}</div>
-              <div className="text-muted">({s.signedTitle})</div>
+              <div className="font-semibold mt-1" {...bound("signedBy")}>
+                {s.signedBy}
+              </div>
+              <div className="text-muted">
+                (<span {...bound("signedTitle")}>{s.signedTitle}</span>)
+              </div>
             </>
           )}
-          <div className="text-muted mt-1">{formatDisplayDate(s.signedOn)}</div>
+          <div className="text-muted mt-1" {...bound("signedOn")}>
+            {formatDisplayDate(s.signedOn)}
+          </div>
         </div>
       </div>
       <div className="text-xs text-faint mt-3 no-print">Source: {doc.sourceFile}</div>

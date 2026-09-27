@@ -9,6 +9,7 @@ import { useAppStore } from "../store/AppStore";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
+import { bindProps, chemicalBind } from "../engine/roundTrip/bindingsFor";
 
 const CHEMICAL_DOC_ID = "chemical-master";
 
@@ -64,8 +65,12 @@ export function ChemicalMasterPage() {
   // between renders.
   if (!doc) return <NotYourDepartment documentId={CHEMICAL_DOC_ID} what="document" />;
 
+  // Each cell carries where it lives in the chart's data ({ rows }, as the
+  // assistant target hands it over), for an edited Word file read back
+  // (REQUIREMENTS §81). The chemicals are bound one by one where they are listed
+  // one by one; the box that holds them all while Edit is on is not.
   return (
-    <div data-print-doc>
+    <div data-print-doc data-bind-record={CHEMICAL_DOC_ID}>
       <div className="mb-3 no-print">
         <ReferenceEditBar
           editing={editing}
@@ -100,32 +105,36 @@ export function ChemicalMasterPage() {
                 {editing ? (
                   <>
                     <td>
-                      <input className="input input-sm" data-field="chem-service" value={r.serviceName} onChange={(e) => setRow(i, { serviceName: e.target.value })} />
+                      <input className="input input-sm" data-field="chem-service" {...bindProps(chemicalBind.field(r, i, "serviceName"))} value={r.serviceName} onChange={(e) => setRow(i, { serviceName: e.target.value })} />
                     </td>
                     <td>
-                      <textarea className="input" rows={2} value={r.pestCovered} onChange={(e) => setRow(i, { pestCovered: e.target.value })} />
+                      <textarea className="input" {...bindProps(chemicalBind.field(r, i, "pestCovered"))} rows={2} value={r.pestCovered} onChange={(e) => setRow(i, { pestCovered: e.target.value })} />
                     </td>
                     <td>
                       <textarea className="input" rows={Math.max(2, r.chemicals.length)} value={r.chemicals.join("\n")} onChange={(e) => setRow(i, { chemicals: e.target.value.split("\n") })} />
                     </td>
                     <td>
-                      <input className="input input-sm" value={r.dilutionRatio} onChange={(e) => setRow(i, { dilutionRatio: e.target.value })} />
+                      <input className="input input-sm" {...bindProps(chemicalBind.field(r, i, "dilutionRatio"))} value={r.dilutionRatio} onChange={(e) => setRow(i, { dilutionRatio: e.target.value })} />
                     </td>
                   </>
                 ) : (
                   <>
-                    <td className="font-semibold">{r.serviceName}</td>
-                    <td>{r.pestCovered}</td>
+                    <td className="font-semibold" {...bindProps(chemicalBind.field(r, i, "serviceName"))}>
+                      {r.serviceName}
+                    </td>
+                    <td {...bindProps(chemicalBind.field(r, i, "pestCovered"))}>{r.pestCovered}</td>
                     <td>
                       <ul style={{ margin: 0, paddingLeft: 18 }}>
-                        {r.chemicals.map((c) => (
-                          <li key={c} className="text-sm">
+                        {r.chemicals.map((c, ci) => (
+                          <li key={c} className="text-sm" {...bindProps(chemicalBind.chemical(r, i, ci))}>
                             {c}
                           </li>
                         ))}
                       </ul>
                     </td>
-                    <td className="text-sm">{r.dilutionRatio}</td>
+                    <td className="text-sm" {...bindProps(chemicalBind.field(r, i, "dilutionRatio"))}>
+                      {r.dilutionRatio}
+                    </td>
                   </>
                 )}
               </tr>

@@ -35,6 +35,7 @@ import { ProviderLetterhead } from "../components/documents/ProviderLetterhead";
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { reprepareRecord } from "../engine/assistantPrepare";
 import { useT } from "../i18n";
+import { bindProps, trainingBind } from "../engine/roundTrip/bindingsFor";
 
 const TRAINING_DOC_ID = "training-record";
 
@@ -152,7 +153,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   const current = () => (recordRepository.getById(recordId) as RecordInstance<TrainingRecordData> | undefined) ?? record;
 
   // Every change is saved as it's made, with a line in the record's history.
-  const applyPatch = (patch: Partial<TrainingRecordData>, opts: { action?: "edited" | "assistant-edit"; note?: string } = {}) => {
+  const applyPatch = (patch: Partial<TrainingRecordData>, opts: { action?: "edited" | "assistant-edit" | "imported"; note?: string } = {}) => {
     const base = current();
     if (!base) return;
     const updated = saveDraft(base, { ...base.data, ...patch }, currentUser, opts) as RecordInstance<TrainingRecordData>;
@@ -182,7 +183,8 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
           editable,
           currentData: record.data,
           getData: () => current()?.data,
-          commit: (next, note) => applyPatch(next as TrainingRecordData, { action: "assistant-edit", note }),
+          // Mitra's change, or one read back from an uploaded Word file ("imported", REQUIREMENTS §81).
+          commit: (next, note, action) => applyPatch(next as TrainingRecordData, { action: action ?? "assistant-edit", note }),
           reopen: isCorrectableStatus(record.status)
             ? (reason) => {
                 const base = current();
@@ -320,8 +322,9 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         />
       )}
 
-      {/* The document itself — the part that prints (utils/print.ts). */}
-      <div data-print-doc>
+      {/* The document itself — the part that prints (utils/print.ts) — and whose
+          values a downloaded file binds to this record (REQUIREMENTS §81). */}
+      <div data-print-doc data-bind-record={record.id}>
       {/* The training is run and issued by Gurudev Pest Control, so the record
           carries their printed letterhead ("Letter head.pdf") — and nothing else
           above the form: the department asked for the title and the Format No. /
@@ -334,19 +337,19 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
         <div className="card-pad flex gap-4 wrap">
           <div className="field" style={{ minWidth: 160 }}>
             <label>Training Date</label>
-            <input type="date" className="input" disabled={!editable} value={data.trainingDate} onChange={(e) => update({ trainingDate: e.target.value })} />
+            <input type="date" className="input" {...bindProps(trainingBind.field("trainingDate"))} disabled={!editable} value={data.trainingDate} onChange={(e) => update({ trainingDate: e.target.value })} />
           </div>
           <div className="field" style={{ minWidth: 220 }}>
             <label>Training Type</label>
-            <input className="input" disabled={!editable} value={data.trainingType} onChange={(e) => update({ trainingType: e.target.value })} />
+            <input className="input" {...bindProps(trainingBind.field("trainingType"))} disabled={!editable} value={data.trainingType} onChange={(e) => update({ trainingType: e.target.value })} />
           </div>
           <div className="field" style={{ minWidth: 220 }}>
             <label>Trainer / Provider</label>
-            <input className="input" disabled={!editable} value={data.trainerProvider} onChange={(e) => update({ trainerProvider: e.target.value })} />
+            <input className="input" {...bindProps(trainingBind.field("trainerProvider"))} disabled={!editable} value={data.trainerProvider} onChange={(e) => update({ trainerProvider: e.target.value })} />
           </div>
           <div className="field" style={{ minWidth: 220 }}>
             <label>Certificate / Reference</label>
-            <input className="input" disabled={!editable} value={data.certificateRef} onChange={(e) => update({ certificateRef: e.target.value })} />
+            <input className="input" {...bindProps(trainingBind.field("certificateRef"))} disabled={!editable} value={data.certificateRef} onChange={(e) => update({ certificateRef: e.target.value })} />
           </div>
         </div>
       </div>
@@ -368,6 +371,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
               </span>
               <input
                 className="input"
+                {...bindProps(trainingBind.topic(i))}
                 disabled={!editable}
                 value={t}
                 onChange={(e) => update({ topics: data.topics.map((x, xi) => (xi === i ? e.target.value : x)) })}
@@ -402,11 +406,12 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
               </tr>
             </thead>
             <tbody>
-              {data.attendees.map((a) => (
+              {data.attendees.map((a, ai) => (
                 <tr key={a.id}>
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(trainingBind.attendee(a, ai, "employeeName"))}
                       list="employee-options"
                       disabled={!editable}
                       value={a.employeeName}
@@ -418,6 +423,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(trainingBind.attendee(a, ai, "department"))}
                       disabled={!editable}
                       value={a.department}
                       onChange={(e) => update({ attendees: data.attendees.map((x) => (x.id === a.id ? { ...x, department: e.target.value } : x)) })}
@@ -455,7 +461,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
       <div className="card mt-4">
         <div className="card-pad field">
           <label>Remarks</label>
-          <textarea className="input" disabled={!editable} value={data.remarks} onChange={(e) => update({ remarks: e.target.value })} />
+          <textarea className="input" {...bindProps(trainingBind.field("remarks"))} disabled={!editable} value={data.remarks} onChange={(e) => update({ remarks: e.target.value })} />
         </div>
       </div>
 

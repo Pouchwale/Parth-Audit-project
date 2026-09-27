@@ -26,7 +26,6 @@ import {
   FiMessageSquare,
   FiPackage,
   FiCheckSquare,
-  FiX,
   FiBriefcase,
   FiTarget,
   FiSmartphone,
@@ -618,18 +617,6 @@ export function Sidebar() {
               {t("nav.brandSubtitle")}
             </div>
           </div>
-          <button
-            type="button"
-            className="sidebar-close"
-            data-action="close-sidebar"
-            onClick={close}
-            title={t("nav.closeMenu")}
-            aria-label={t("nav.closeMenu")}
-            aria-controls="app-sidebar"
-            aria-expanded={visible}
-          >
-            <FiX size={16} />
-          </button>
         </div>
 
         <nav className="app-nav">
@@ -691,7 +678,6 @@ export function Sidebar() {
           <NavGroup items={systemItems} path={path} />
         </nav>
 
-        <div className="app-sidebar-foot">{t("nav.foot")}</div>
       </aside>
     </>
   );

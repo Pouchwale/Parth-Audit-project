@@ -15,6 +15,8 @@ import { firstNameOf } from "../../engine/assistantPersona";
 import { openBriefing } from "./AssistantBriefingPopup";
 import { todayISO } from "../../utils/date";
 import { escalationsApi, usersApi } from "../../api/client";
+import { emitCue, emitSay } from "../../engine/engageBus";
+import { nudgeLine } from "../../utils/voice";
 import type { DocumentDefinition, RecordInstance } from "../../types";
 
 // THE DAY'S NOTIFICATION (REQUIREMENTS §69).
@@ -99,7 +101,7 @@ export function ownStanding(
 }
 
 export function DailyNudge() {
-  const { mode, version } = useAppStore();
+  const { mode, version, lang } = useAppStore();
   const { user } = useAuth();
   const { navigate } = useRouter();
   const today = todayISO();
@@ -193,6 +195,21 @@ export function DailyNudge() {
       alive = false;
     };
   }, [shown, isAdmin]);
+
+  // HEARD AS WELL AS SEEN (REQUIREMENTS §81): when the day's notification shows,
+  // a soft chime and its headline said aloud — once a day (key nudge:<date>), and
+  // "low": it gives way to the briefing when that opens with it.
+  const announced = useRef<object | null>(null);
+  useEffect(() => {
+    if (!day || mode === "demo" || announced.current === day) return;
+    announced.current = day;
+    const first = firstNameOf(user?.name);
+    const headline = encourage(day.work, null, first).headline;
+    const facts = { firstName: first, total: day.work.notifications.length, overdue: day.work.overdue, high: day.work.high, theirOwn: day.work.theirOwn };
+    emitCue("chime");
+    emitSay({ text: lang === "en" ? headline : nudgeLine(facts, lang), lang, en: headline, key: `nudge:${today}`, priority: "low" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
 
   const words = useMemo(() => (day ? encourage(day.work, standing, firstNameOf(user?.name)) : null), [day, standing, user?.name]);
   // Demo Mode shows synthetic records; the day's real work is not that.

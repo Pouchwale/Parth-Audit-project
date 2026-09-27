@@ -12,6 +12,7 @@ const ACTION_KEY: Record<HistoryAction, string> = {
   prepared: "history.prepared",
   edited: "history.edited",
   "assistant-edit": "history.assistantEdit",
+  imported: "history.imported",
   submitted: "history.submitted",
   verified: "history.verified",
   rejected: "history.rejected",
@@ -25,6 +26,7 @@ const TONE: Partial<Record<HistoryAction, string>> = {
   rejected: "bad",
   reopened: "warn",
   "assistant-edit": "ai",
+  imported: "ai",
 };
 
 export function RecordHistoryPanel({ record }: { record: RecordInstance }) {

@@ -56,7 +56,7 @@ const PRIVATE_KEYS = new Set(["assistant-conversations"]);
  * first sign-in used to take on the first one's "the day's notification and the
  * briefing are already shown" — so the second never saw theirs (REQUIREMENTS §75).
  */
-const SETTINGS_NOT_HANDED_ON = ["nudgeShownOn", "briefingShown", "briefingFirstShownAt", "agreementReminderSnoozedUntil"];
+const SETTINGS_NOT_HANDED_ON = ["nudgeShownOn", "briefingShown", "briefingFirstShownAt", "agreementReminderSnoozedUntil", "spokenToday", "celebratedToday"];
 
 /** Another person's settings, as they are handed on: without what was shown or put off for them. */
 function handedOnSettings(value: string): string {

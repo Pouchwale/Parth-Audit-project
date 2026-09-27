@@ -149,6 +149,15 @@ The app behaves like a personal assistant rather than a blank form:
   Demo Mode it also returns the app to Live Mode, or the dashboard would fill the demo year again at once). Demo Mode
   now generates every month's light records and the heavy daily sheets of the month in hand and the three before it
   only — a fixed window, the same in every browser — so opening it no longer fills the browser.
+- **Mitra you can hear, work that celebrates, and every document uploaded back** (REQUIREMENTS §81): short sounds
+  for the bell, the briefing, a submit and a finished day; Mitra reads the briefing aloud and reminds by voice during
+  working hours ("…you are at minus 20 today — finish 2 more to reach zero") in a natural voice (Groq's once its terms
+  are accepted, else Edge's natural Indian English and Gujarati voices); confetti and a cheer line for work on time in
+  every module, a big celebration when the day is done, streaks and badges, and lines on why each module's work matters
+  beyond the score. The Dashboard's day score is loss-framed — 8 of 10 done shows **−20**, all done **0**. A 3D
+  introduction of the project's name on the sign-in screen and self-hosted fonts (Baloo Bhai 2, Plus Jakarta Sans, Noto
+  Sans Gujarati; the printed forms keep their font). And **Upload changes** beside every Download Excel/Word: edit the
+  file in Excel or Word, upload it, check the preview, and the record takes exactly those changes, with its history.
 - **Ask Mitra works as an agent** (REQUIREMENTS §80): with a key on the server, what you tell Mitra — in English,
   Gujarati or a mix, typed or spoken — goes to the model first, with the tools the screen offers (open a document,
   read and fill the open record, submit or verify it, change a format, search and list records, the history figures,
@@ -786,6 +795,9 @@ GROQ_MODEL=...             # optional override; defaults to a model this key act
 GROQ_AGENT_MODEL=...       # optional: the tool-calling model Mitra works with as an agent (REQUIREMENTS §80); defaults to GROQ_MODEL
 MITRA_OCR=1                # set to 0 to stop reading the words in attached pictures (tesseract.js, English + Gujarati)
 MITRA_OCR_LANG_PATH=...    # optional: a folder or URL with eng/guj.traineddata.gz for an offline plant (else downloaded once, ~15 MB)
+GROQ_TTS_MODEL=...         # optional: Mitra's natural voice (default canopylabs/orpheus-v1-english; its terms must be accepted once in the Groq console)
+GROQ_TTS_VOICE_FEMALE=...  # optional: default hannah
+GROQ_TTS_VOICE_MALE=...    # optional: default daniel
                             # (check with GET https://api.groq.com/openai/v1/models if you swap keys —
                             # not every model name commonly seen in Groq docs is enabled per-account)
 ```

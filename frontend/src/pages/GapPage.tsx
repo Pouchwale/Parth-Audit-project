@@ -31,6 +31,7 @@ import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { COMPANY } from "../data/seed/masterData";
+import { FINDING_SOURCES, bindProps, gapBind } from "../engine/roundTrip/bindingsFor";
 
 const GAP_DOC_ID = "gap-inspection";
 
@@ -240,7 +241,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   const current = () => (recordRepository.getById(recordId) as RecordInstance<GapInspectionData> | undefined) ?? record;
 
   // Every change is saved as it's made, with a line in the record's history.
-  const applyPatch = (patch: Partial<GapInspectionData>, opts: { action?: "edited" | "assistant-edit"; note?: string } = {}) => {
+  const applyPatch = (patch: Partial<GapInspectionData>, opts: { action?: "edited" | "assistant-edit" | "imported"; note?: string } = {}) => {
     const base = current();
     if (!base) return;
     const updated = saveDraft(base, { ...base.data, ...patch }, currentUser, opts) as RecordInstance<GapInspectionData>;
@@ -271,7 +272,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
           editable,
           currentData: record.data,
           getData: () => current()?.data,
-          commit: (next, note) => applyPatch(next as GapInspectionData, { action: "assistant-edit", note }),
+          // Mitra's change, or one read back from an uploaded Excel file ("imported", REQUIREMENTS §81).
+          commit: (next, note, action) => applyPatch(next as GapInspectionData, { action: action ?? "assistant-edit", note }),
           reopen: isCorrectableStatus(record.status)
             ? (reason) => {
                 const base = current();
@@ -419,8 +421,9 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
 
       <ErrorList errors={errors} heading={errorsFor === "verify" ? t("record.fixBeforeVerify") : t("record.fixBeforeSubmit")} />
 
-      {/* The document itself — the part that prints (utils/print.ts). */}
-      <div data-print-doc>
+      {/* The document itself — the part that prints (utils/print.ts) — and whose
+          values a downloaded file binds to this record (REQUIREMENTS §81). */}
+      <div data-print-doc data-bind-record={record.id}>
       <div className="doc-header">
         <div className="company-name">CAPA — Internal: Pest Control Inspection Findings Report</div>
         <div className="meta-row">
@@ -429,6 +432,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
             <input
               type="date"
               className="input input-sm"
+              {...bindProps(gapBind.meta("inspectionDate"))}
               disabled={!editable}
               value={data.inspectionDate}
               onChange={(e) => update({ inspectionDate: e.target.value })}
@@ -438,12 +442,14 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
             <span className="k">Name &amp; Address of Premises Inspected</span>
             <input
               className="input input-sm"
+              {...bindProps(gapBind.meta("premisesName"))}
               disabled={!editable}
               value={data.premisesName}
               onChange={(e) => update({ premisesName: e.target.value })}
             />
             <input
               className="input input-sm mt-1"
+              {...bindProps(gapBind.meta("premisesAddress"))}
               disabled={!editable}
               value={data.premisesAddress}
               placeholder="Address"
@@ -454,6 +460,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
             <span className="k">Contact Person</span>
             <input
               className="input input-sm"
+              {...bindProps(gapBind.meta("contactPerson"))}
               disabled={!editable}
               value={data.contactPerson}
               onChange={(e) => update({ contactPerson: e.target.value })}
@@ -484,32 +491,43 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
               <tr key={f.id}>
                 <td>{f.sNo}</td>
                 <td>
-                  <input className="input input-sm" disabled={!editable} value={f.findingOfInspection} onChange={(e) => updateFinding(f.id, { findingOfInspection: e.target.value })} />
+                  <input className="input input-sm" {...bindProps(gapBind.finding(f, "findingOfInspection"))} disabled={!editable} value={f.findingOfInspection} onChange={(e) => updateFinding(f.id, { findingOfInspection: e.target.value })} />
                 </td>
                 <td>
-                  <input className="input input-sm" disabled={!editable} value={f.commentsOnFindings} onChange={(e) => updateFinding(f.id, { commentsOnFindings: e.target.value })} />
+                  <input className="input input-sm" {...bindProps(gapBind.finding(f, "commentsOnFindings"))} disabled={!editable} value={f.commentsOnFindings} onChange={(e) => updateFinding(f.id, { commentsOnFindings: e.target.value })} />
                 </td>
                 <td>
-                  <input className="input input-sm" disabled={!editable} value={f.correctiveActionClient} onChange={(e) => updateFinding(f.id, { correctiveActionClient: e.target.value })} />
+                  <input className="input input-sm" {...bindProps(gapBind.finding(f, "correctiveActionClient"))} disabled={!editable} value={f.correctiveActionClient} onChange={(e) => updateFinding(f.id, { correctiveActionClient: e.target.value })} />
                 </td>
                 <td>
                   <input
                     className="input input-sm"
+                    {...bindProps(gapBind.finding(f, "correctiveActionContractor"))}
                     disabled={!editable}
                     value={f.correctiveActionContractor}
                     onChange={(e) => updateFinding(f.id, { correctiveActionContractor: e.target.value })}
                   />
                 </td>
                 <td>
-                  <select className="input input-sm" disabled={!editable} value={f.source} onChange={(e) => updateFinding(f.id, { source: e.target.value as GapFinding["source"] })}>
-                    <option value="Internal">Internal</option>
-                    <option value="External">External</option>
+                  <select
+                    className="input input-sm"
+                    {...bindProps(gapBind.finding(f, "source"))}
+                    disabled={!editable}
+                    value={f.source}
+                    onChange={(e) => updateFinding(f.id, { source: e.target.value as GapFinding["source"] })}
+                  >
+                    {FINDING_SOURCES.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
                   </select>
                 </td>
                 <td>
                   <input
                     type="date"
                     className="input input-sm"
+                    {...bindProps(gapBind.finding(f, "targetDate"))}
                     disabled={!editable}
                     value={f.targetDate ?? ""}
                     onChange={(e) => updateFinding(f.id, { targetDate: e.target.value || null })}
@@ -519,6 +537,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
                   <input
                     type="date"
                     className="input input-sm"
+                    {...bindProps(gapBind.finding(f, "actualDateOfAction"))}
                     disabled={!editable}
                     value={f.actualDateOfAction ?? ""}
                     onChange={(e) => updateFinding(f.id, { actualDateOfAction: e.target.value || null })}
@@ -527,6 +546,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
                 <td>
                   <input
                     className="input input-sm"
+                    {...bindProps(gapBind.finding(f, "verifiedByServiceProvider"))}
                     disabled={!canClose}
                     value={f.verifiedByServiceProvider}
                     onChange={(e) => updateFinding(f.id, { verifiedByServiceProvider: e.target.value })}
@@ -588,6 +608,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
             <div key={i} className="flex gap-2 mb-2">
               <input
                 className="input"
+                {...bindProps(gapBind.comment(i))}
                 disabled={!editable}
                 value={c}
                 onChange={(e) =>

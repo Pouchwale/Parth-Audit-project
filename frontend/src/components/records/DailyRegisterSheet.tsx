@@ -7,6 +7,8 @@ import { recordRepository } from "../../data/repositories/recordRepository";
 import { isCheckpointFinding } from "../../engine/checkpoints";
 import { totalRodents } from "../../engine/rodentPattern";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
+import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
+import { bindProps, dailyPestBind } from "../../engine/roundTrip/bindingsFor";
 
 // THE DAILY PEST CONTROL MONITORING RECORD IN ITS OWN FORMAT — F/HR/17,
 // exactly as the company prints it ("Daily pest control monitoring record
@@ -103,7 +105,7 @@ export function DailyRegisterSheet({
   notes.sort((a, b) => a.day - b.day || a.no - b.no);
 
   const actions = records
-    .flatMap((r) => r.data.summaryActions.map((a) => ({ ...a, fallbackDate: r.dueDate })))
+    .flatMap((r) => r.data.summaryActions.map((a, index) => ({ ...a, fallbackDate: r.dueDate, recordId: r.id, index })))
     .sort((a, b) => (a.dateOfObservation || a.fallbackDate).localeCompare(b.dateOfObservation || b.fallbackDate));
   const summaryRows = Math.max(3, actions.length); // the paper prints three blank lines
 
@@ -120,6 +122,10 @@ export function DailyRegisterSheet({
           key={d}
           data-day={d}
           className={`register-row${isToday ? " is-today" : ""}${clickable ? " clickable" : ""}${beyond ? " beyond-month" : ""}`}
+          // Which day's record the line is, and where each value on it lives in
+          // that record, so the register downloaded, edited and uploaded
+          // changes the right days (REQUIREMENTS §81).
+          {...(r ? { [BIND_RECORD_ATTR]: r.id } : undefined)}
           onClick={clickable ? () => onOpenDay!(r!) : undefined}
           title={r ? `${formatDisplayDate(r.dueDate)} — ${r.data.isHoliday ? "Holiday" : r.status}${clickable ? " · click to open" : ""}` : undefined}
         >
@@ -131,8 +137,10 @@ export function DailyRegisterSheet({
           ) : (
             checkpoints.map((cp) => {
               const c = cellFor(r, cp);
+              // No. 7 is written as the number of rodents the catch table adds up to — worked out, not bound.
+              const bound = r && cp.no !== 7 ? bindProps(dailyPestBind.checkpoint(cp)) : undefined;
               return (
-                <td key={cp.no} className={c.flagged ? "flagged" : ""} title={c.title}>
+                <td key={cp.no} className={c.flagged ? "flagged" : ""} title={c.title} {...bound}>
                   {c.text}
                 </td>
               );
@@ -141,10 +149,10 @@ export function DailyRegisterSheet({
           {/* What was written in the register reads as it was written, in either
               language; the register's own printed words follow the chosen one
               (REQUIREMENTS §58). */}
-          <td className="time-cell notranslate" translate="no">
+          <td className="time-cell notranslate" translate="no" {...(r && !r.data.isHoliday ? bindProps(dailyPestBind.timeOfChecking()) : undefined)}>
             {r && !r.data.isHoliday ? r.data.timeOfChecking : ""}
           </td>
-          <td className="checker-cell notranslate" translate="no">
+          <td className="checker-cell notranslate" translate="no" {...(r && !r.data.isHoliday ? bindProps(dailyPestBind.checker()) : undefined)}>
             {r && !r.data.isHoliday ? r.data.checker : ""}
           </td>
         </tr>
@@ -223,17 +231,17 @@ export function DailyRegisterSheet({
             </thead>
             <tbody>
               {Array.from({ length: summaryRows }, (_, i) => actions[i]).map((a, i) => (
-                <tr key={a ? a.id : `blank-${i}`}>
-                  <td className="notranslate" translate="no">
+                <tr key={a ? a.id : `blank-${i}`} {...(a ? { [BIND_RECORD_ATTR]: a.recordId } : undefined)}>
+                  <td className="notranslate" translate="no" {...(a ? bindProps(dailyPestBind.action(a, a.index, "dateOfObservation")) : undefined)}>
                     {a ? formatDisplayDate(a.dateOfObservation || a.fallbackDate) : ""}
                   </td>
-                  <td className="notranslate" translate="no">
+                  <td className="notranslate" translate="no" {...(a ? bindProps(dailyPestBind.action(a, a.index, "descriptionOfObservation")) : undefined)}>
                     {a?.descriptionOfObservation ?? ""}
                   </td>
-                  <td className="notranslate" translate="no">
+                  <td className="notranslate" translate="no" {...(a ? bindProps(dailyPestBind.action(a, a.index, "actionTaken")) : undefined)}>
                     {a?.actionTaken ?? ""}
                   </td>
-                  <td className="notranslate" translate="no">
+                  <td className="notranslate" translate="no" {...(a ? bindProps(dailyPestBind.action(a, a.index, "remarks")) : undefined)}>
                     {a?.remarks ?? ""}
                   </td>
                 </tr>

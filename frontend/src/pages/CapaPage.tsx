@@ -36,6 +36,7 @@ import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { useT } from "../i18n";
+import { bindProps, checklistBind, type ChecklistHeaderKey } from "../engine/roundTrip/bindingsFor";
 
 const GAP_DOC_ID = "gap-inspection";
 
@@ -287,7 +288,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
     bump();
   };
   // Every change is saved as it's made, with a line in the record's history.
-  const setData = (data: ComplaintChecklistData, opts: { action?: "edited" | "assistant-edit"; note?: string } = {}) => {
+  const setData = (data: ComplaintChecklistData, opts: { action?: "edited" | "assistant-edit" | "imported"; note?: string } = {}) => {
     const base = current();
     if (!base) return;
     setRecord(saveDraft(base, data, currentUser, opts) as RecordInstance<ComplaintChecklistData>);
@@ -410,7 +411,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
           editable,
           currentData: record.data,
           getData: () => current()?.data,
-          commit: (next, note) => setData(next as ComplaintChecklistData, { action: "assistant-edit", note }),
+          // Mitra's change, or one read back from an uploaded Word file ("imported", REQUIREMENTS §81).
+          commit: (next, note, action) => setData(next as ComplaintChecklistData, { action: action ?? "assistant-edit", note }),
           reopen: isCorrectableStatus(record.status) ? doCorrect : undefined,
           // The rest of what the buttons do, for the assistant (typed or spoken).
           title: `complaint ${record.data.complaintNo || "(no number)"}`,
@@ -476,7 +478,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   // formats: what is typed is tidied when the field is left, and anything that
   // doesn't fit says so under the box and blocks Submit.
   const codeRules = codeRulesFor("complaint-checklist");
-  const headerField = (label: string, key: keyof ComplaintChecklistData, type: "text" | "date" = "text") => {
+  const headerField = (label: string, key: ChecklistHeaderKey, type: "text" | "date" = "text") => {
     const rule = codeRules[key as string];
     const value = (data[key] as string | null) ?? "";
     const says = rule && editable ? rule.problem(String(value)) : null;
@@ -487,6 +489,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
           type={type}
           className={`input input-sm${says ? " error" : ""}`}
           data-field={key}
+          {...bindProps(checklistBind.header(key))}
           placeholder={rule ? rule.example : undefined}
           disabled={!editable}
           value={value}
@@ -533,8 +536,9 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
         </div>
       )}
 
-      {/* The document itself — the part that prints (utils/print.ts). */}
-      <div data-print-doc>
+      {/* The document itself — the part that prints (utils/print.ts) — and whose
+          values a downloaded file binds to this record (REQUIREMENTS §81). */}
+      <div data-print-doc data-bind-record={record.id}>
       <DocumentHeader doc={doc} dateLabel={formatDisplayDate(record.dueDate)} pageLabel="1 of 1 (digital)" />
 
       <div className="card mt-4 no-print" style={{ borderLeft: "4px solid var(--color-accent)" }}>
@@ -651,6 +655,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
                           checked={it.done}
                           disabled={!open}
                           data-field="done"
+                          {...bindProps(checklistBind.item(s, it, "done"))}
                           onChange={(e) => updateItem(si, ii, { done: e.target.checked, notRequired: e.target.checked ? false : it.notRequired, date: e.target.checked ? it.date ?? todayISO() : it.date })}
                         />
                         {/* "Not required" is one of the three valid answers (the
@@ -684,10 +689,23 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
                         )}
                       </td>
                       <td>
-                        <input type="date" className="input input-sm" disabled={!open} value={it.date ?? ""} onChange={(e) => updateItem(si, ii, { date: e.target.value || null })} />
+                        <input
+                          type="date"
+                          className="input input-sm"
+                          {...bindProps(checklistBind.item(s, it, "date"))}
+                          disabled={!open}
+                          value={it.date ?? ""}
+                          onChange={(e) => updateItem(si, ii, { date: e.target.value || null })}
+                        />
                       </td>
                       <td>
-                        <input className="input input-sm" disabled={!open} value={it.comment} onChange={(e) => updateItem(si, ii, { comment: e.target.value })} />
+                        <input
+                          className="input input-sm"
+                          {...bindProps(checklistBind.item(s, it, "comment"))}
+                          disabled={!open}
+                          value={it.comment}
+                          onChange={(e) => updateItem(si, ii, { comment: e.target.value })}
+                        />
                       </td>
                     </tr>
                   );
@@ -708,30 +726,30 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
               <div className="text-xs text-muted font-semibold mb-2">PREPARED BY</div>
               <div className="field mb-2">
                 <label>Name</label>
-                <input className="input input-sm" disabled={!editable} value={data.preparedBy.name} placeholder={currentUser} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, name: e.target.value } })} />
+                <input className="input input-sm" {...bindProps(checklistBind.signoff("preparedBy", "name"))} disabled={!editable} value={data.preparedBy.name} placeholder={currentUser} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, name: e.target.value } })} />
               </div>
               <div className="field mb-2">
                 <label>Designation</label>
-                <input className="input input-sm" disabled={!editable} value={data.preparedBy.designation} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, designation: e.target.value } })} />
+                <input className="input input-sm" {...bindProps(checklistBind.signoff("preparedBy", "designation"))} disabled={!editable} value={data.preparedBy.designation} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, designation: e.target.value } })} />
               </div>
               <div className="field">
                 <label>Sign &amp; Date</label>
-                <input type="date" className="input input-sm" disabled={!editable} value={data.preparedBy.date ?? ""} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, date: e.target.value || null } })} />
+                <input type="date" className="input input-sm" {...bindProps(checklistBind.signoff("preparedBy", "date"))} disabled={!editable} value={data.preparedBy.date ?? ""} onChange={(e) => patch({ preparedBy: { ...data.preparedBy, date: e.target.value || null } })} />
               </div>
             </div>
             <div>
               <div className="text-xs text-muted font-semibold mb-2">APPROVED BY</div>
               <div className="field mb-2">
                 <label>Name</label>
-                <input className="input input-sm" disabled value={data.approvedBy.name} placeholder="Stamped on approval" />
+                <input className="input input-sm" {...bindProps(checklistBind.signoff("approvedBy", "name"))} disabled value={data.approvedBy.name} placeholder="Stamped on approval" />
               </div>
               <div className="field mb-2">
                 <label>Designation</label>
-                <input className="input input-sm" disabled={!canApprove} value={data.approvedBy.designation} placeholder="QA Head" onChange={(e) => patch({ approvedBy: { ...data.approvedBy, designation: e.target.value } })} />
+                <input className="input input-sm" {...bindProps(checklistBind.signoff("approvedBy", "designation"))} disabled={!canApprove} value={data.approvedBy.designation} placeholder="QA Head" onChange={(e) => patch({ approvedBy: { ...data.approvedBy, designation: e.target.value } })} />
               </div>
               <div className="field">
                 <label>Sign &amp; Date</label>
-                <input type="date" className="input input-sm" disabled value={data.approvedBy.date ?? ""} />
+                <input type="date" className="input input-sm" {...bindProps(checklistBind.signoff("approvedBy", "date"))} disabled value={data.approvedBy.date ?? ""} />
               </div>
               <div className="text-xs text-muted mt-2">Approval is the Verify step — the approver's name and date are stamped automatically.</div>
             </div>

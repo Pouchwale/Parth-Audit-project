@@ -14,6 +14,8 @@ import { printDocument } from "../../utils/print";
 import { DownloadDocumentButton } from "../common/DownloadDocumentButton";
 import { MONTH_NAMES, daysInMonth, formatDisplayDate, pad2, todayISO } from "../../utils/date";
 import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "../../engine/flyPattern";
+import { BIND_RECORD_ATTR } from "../../engine/roundTrip/bindPath";
+import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roundTrip/bindingsFor";
 
 // THE FLY CATCHER REGISTER IN ITS OWN FORMAT — F/HR/18 Rev 02, exactly as the
 // company prints it ("Fly catcher reports .pdf", and pages 5-6 of "Kapila mam
@@ -331,11 +333,19 @@ export function FlyCatcherRegisterSheet({
                 const isToday = r?.dueDate === today;
                 const showDate = editing ? !!r : !!e;
                 const label = r ? `${pc.id}, visit of ${formatDisplayDate(r.dueDate)}` : "";
+                // EACH VISIT'S LINE SAYS WHICH RECORD IT IS AND WHERE EACH VALUE
+                // LIVES IN IT (REQUIREMENTS §81), so the register downloaded,
+                // edited in Excel and uploaded changes the right visits. A unit
+                // the visit holds no entry for is not bound: there is no place
+                // in that record for the value until the line is typed on here.
+                const held = !!r && dataOf(r).entries.some((x) => x.pcId === pc.id);
+                const bound = (field: FlyEntryField) => (held ? bindProps(flyCatcherBind.entry(pc.id, field)) : undefined);
                 return (
                   <tr
                     key={r?.id ?? `blank-${i}`}
                     className={`register-row${clickable ? " clickable" : ""}${isToday ? " is-today" : ""}${locked ? " locked" : ""}`}
                     data-visit={r?.dueDate}
+                    {...(r ? { [BIND_RECORD_ATTR]: r.id } : undefined)}
                     onClick={clickable ? () => onOpenVisit!(r!) : undefined}
                     title={
                       r
@@ -358,6 +368,7 @@ export function FlyCatcherRegisterSheet({
                             step={1}
                             className="input input-sm fhr18-input"
                             data-field="count"
+                            {...bound("catchCountApprox")}
                             aria-label={`${label} — flies catch count`}
                             value={e?.catchCountApprox ?? ""}
                             onChange={(ev) => {
@@ -371,6 +382,7 @@ export function FlyCatcherRegisterSheet({
                             type="date"
                             className="input input-sm fhr18-input"
                             data-field="installed"
+                            {...bound("tubeLightInstallDate")}
                             aria-label={`${label} — date of tube light installation`}
                             value={e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED}
                             onChange={(ev) => updateEntry(r!, pc.id, { tubeLightInstallDate: ev.target.value || null })}
@@ -381,6 +393,7 @@ export function FlyCatcherRegisterSheet({
                             type="date"
                             className="input input-sm fhr18-input"
                             data-field="due"
+                            {...bound("tubeLightDueDate")}
                             aria-label={`${label} — due date for tube light replacement`}
                             value={e?.tubeLightDueDate ?? TUBE_LIGHT_DUE}
                             onChange={(ev) => updateEntry(r!, pc.id, { tubeLightDueDate: ev.target.value || null })}
@@ -391,6 +404,7 @@ export function FlyCatcherRegisterSheet({
                             className="input input-sm fhr18-input"
                             list="fhr18-people"
                             data-field="cleaning"
+                            {...bound("cleaningDoneBy")}
                             aria-label={`${label} — cleaning done by`}
                             value={e?.cleaningDoneBy ?? ""}
                             onChange={(ev) => updateEntry(r!, pc.id, { cleaningDoneBy: ev.target.value })}
@@ -401,6 +415,7 @@ export function FlyCatcherRegisterSheet({
                             className="input input-sm fhr18-input"
                             list="fhr18-people"
                             data-field="verified"
+                            {...bound("verifiedBy")}
                             aria-label={`${label} — verified by`}
                             value={e?.verifiedBy ?? ""}
                             onChange={(ev) => updateEntry(r!, pc.id, { verifiedBy: ev.target.value })}
@@ -409,19 +424,21 @@ export function FlyCatcherRegisterSheet({
                       </>
                     ) : (
                       <>
-                        <td className="count-cell">{paperCount(e?.catchCountApprox)}</td>
-                        <td className="notranslate" translate="no">
+                        <td className="count-cell" {...bound("catchCountApprox")}>
+                          {paperCount(e?.catchCountApprox)}
+                        </td>
+                        <td className="notranslate" translate="no" {...bound("tubeLightInstallDate")}>
                           {tube(e?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED, above?.tubeLightInstallDate ?? TUBE_LIGHT_INSTALLED)}
                         </td>
-                        <td className="notranslate" translate="no">
+                        <td className="notranslate" translate="no" {...bound("tubeLightDueDate")}>
                           {tube(e?.tubeLightDueDate ?? TUBE_LIGHT_DUE, above?.tubeLightDueDate ?? TUBE_LIGHT_DUE)}
                         </td>
                         {/* The names signed read exactly as they were written, in
                             either language (REQUIREMENTS §58). */}
-                        <td className="name-cell notranslate" translate="no">
+                        <td className="name-cell notranslate" translate="no" {...bound("cleaningDoneBy")}>
                           {e?.cleaningDoneBy ?? ""}
                         </td>
-                        <td className="name-cell notranslate" translate="no">
+                        <td className="name-cell notranslate" translate="no" {...bound("verifiedBy")}>
                           {e?.verifiedBy ?? ""}
                         </td>
                       </>

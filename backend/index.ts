@@ -40,7 +40,8 @@ import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAgent.ts";
 import { readAttachment, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
-import { groqTranscribe } from "./groq.ts";
+import { groqSpeak, groqTranscribe } from "./groq.ts";
+import { speakFailure, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VoiceUnavailableError } from "./tts.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
@@ -723,6 +724,13 @@ function recordAssistantCall(userId: string): void {
   assistantCalls.set(userId, rec);
 }
 
+// Mitra's spoken lines (POST /api/assistant/speak, REQUIREMENTS §81) have a
+// budget of their own: a reminder or a briefing is not a question to the model,
+// and counted with the chat they would use up a person's twenty questions.
+const speakCalls = new Map<string, AttemptRecord>();
+const MAX_SPEAK_CALLS = 40;
+const SPEAK_THROTTLE_WINDOW_MS = 10 * 60 * 1000;
+
 // Each throttle only forgets a key when that same key comes back after its
 // window, so keys that never return (one-off IPs, users who stopped) would
 // otherwise sit in memory until restart. Sweep them once a minute.
@@ -734,6 +742,7 @@ setInterval(() => {
   sweepExpired(loginAttempts, THROTTLE_WINDOW_MS);
   sweepExpired(signupAttempts, THROTTLE_WINDOW_MS);
   sweepExpired(assistantCalls, ASSISTANT_THROTTLE_WINDOW_MS);
+  sweepExpired(speakCalls, SPEAK_THROTTLE_WINDOW_MS);
 }, 60 * 1000).unref();
 
 const ROUTE_RE = /^\/[a-z0-9/_-]*$/i;
@@ -941,6 +950,77 @@ app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => tru
   } catch (err) {
     console.error(err);
     res.status(502).json({ error: "The recording couldn't be transcribed — try again, or type the message." });
+  }
+});
+
+// MITRA'S NATURAL VOICE (REQUIREMENTS §81, backend/groq.ts groqSpeak, backend/tts.ts).
+// English text of up to 600 characters in, one WAV out. Without a key, or
+// while the Groq organisation has not accepted the speech model's terms, the
+// answer is a 503 with a code, and the browser says the line with its own best
+// voice (frontend/src/utils/voice.ts) and stops asking for the session. The
+// terms answer is remembered here for ten minutes too, so a plant full of
+// browsers does not ask Groq the same question each. Clips are kept in memory
+// (the last 60) — a reminder said again is not made again. Its own throttle,
+// never the chat's; never Groq's words in an answer.
+let voiceUnavailableUntil = 0;
+let voiceUnavailableModel = "";
+const VOICE_UNAVAILABLE_RECHECK_MS = 10 * 60 * 1000;
+
+app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).user.id;
+  if (!process.env.GROQ_API_KEY) {
+    res.status(503).json({ error: "Mitra's natural voice isn't configured on this server.", code: "not-configured" });
+    return;
+  }
+  const { text, voice } = (req.body ?? {}) as { text?: unknown; voice?: unknown };
+  const said = typeof text === "string" ? text.replace(/\s+/g, " ").trim() : "";
+  if (!said) {
+    res.status(400).json({ error: "There is nothing to say." });
+    return;
+  }
+  if (said.length > TTS_MAX_TEXT_CHARS) {
+    res.status(400).json({ error: `A spoken line is at most ${TTS_MAX_TEXT_CHARS} characters.` });
+    return;
+  }
+  if (voice !== undefined && voice !== "female" && voice !== "male") {
+    res.status(400).json({ error: "The voice is female or male." });
+    return;
+  }
+  const kind = voice === "male" ? "male" : "female";
+  const key = speechCacheKey(kind, said);
+  const cached = speechCache.get(key);
+  if (cached) {
+    res.type("audio/wav").send(cached);
+    return;
+  }
+  if (Date.now() < voiceUnavailableUntil) {
+    const { status, body } = speakFailure(new VoiceUnavailableError(voiceUnavailableModel));
+    res.status(status).json(body);
+    return;
+  }
+  const rec = speakCalls.get(userId);
+  if (rec && Date.now() - rec.first > SPEAK_THROTTLE_WINDOW_MS) speakCalls.delete(userId);
+  const current = speakCalls.get(userId) ?? { count: 0, first: Date.now() };
+  if (current.count >= MAX_SPEAK_CALLS) {
+    res.status(429).json({ error: "Too many spoken lines. Try again in a few minutes.", code: "throttled" });
+    return;
+  }
+  current.count += 1;
+  speakCalls.set(userId, current);
+  try {
+    const clip = await groqSpeak({ text: said, voice: kind });
+    speechCache.set(key, clip);
+    res.type("audio/wav").send(clip);
+  } catch (err) {
+    if (err instanceof VoiceUnavailableError) {
+      if (Date.now() >= voiceUnavailableUntil) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
+      voiceUnavailableUntil = Date.now() + VOICE_UNAVAILABLE_RECHECK_MS;
+      voiceUnavailableModel = err.model;
+    } else {
+      console.error(err);
+    }
+    const { status, body } = speakFailure(err);
+    res.status(status).json(body);
   }
 });
 

@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { REACTION_EVENT, reactionFor, summariseReactions, type Reaction, type ReactionEvent } from "../../engine/reactions";
+import { toastCheer } from "../../engine/motivation";
+import { useAppStore } from "../../store/AppStore";
+import { useAuth } from "../../store/AuthContext";
 
 // MITRA'S REACTION TO WORK DONE (REQUIREMENTS §64): a record submitted on time,
 // submitted late, verified or sent back is answered with one emoji and one
@@ -12,6 +15,12 @@ import { REACTION_EVENT, reactionFor, summariseReactions, type Reaction, type Re
 // submitted — 5 on time, 1 late"), because Today's Briefing can submit a
 // morning's records with one press and nobody wants to sit through eight toasts.
 // It never prints.
+//
+// ONE LINE MORE, UNDER IT (REQUIREMENTS §81): `reaction-cheer` — a short word
+// from Mitra about the day ("🔥 3 on time today — a 5-day streak."), why the
+// module's work matters for the first one of the day, a gentle line for a late
+// one (engine/motivation.ts). Worked out in a timeout AFTER the toast is up, so
+// the toast itself is never slower; the fields above it never change.
 
 const SHOW_MS = 6000;
 // Reactions that arrive in the same breath (one press, many records) are gathered before the first is shown.
@@ -20,6 +29,14 @@ const SUMMARISE_OVER = 5;
 
 export function MitraReaction() {
   const [shown, setShown] = useState<Reaction | null>(null);
+  // The line under the toast, for the reaction it was worked out for.
+  const [cheer, setCheer] = useState<{ reaction: Reaction; text: string } | null>(null);
+  // The events the shown reaction was made of.
+  const shownEvents = useRef<ReactionEvent[]>([]);
+  const { uiLang } = useAppStore();
+  const { user } = useAuth();
+  const who = useRef({ user, uiLang });
+  who.current = { user, uiLang };
   const waiting = useRef<ReactionEvent[]>([]);
   const timer = useRef<number | null>(null);
   const busy = useRef(false);
@@ -33,7 +50,9 @@ export function MitraReaction() {
       setShown(null);
       return;
     }
-    const reaction = queue.length > SUMMARISE_OVER ? summariseReactions(queue.splice(0)) : reactionFor(queue.shift() as ReactionEvent);
+    const events = queue.length > SUMMARISE_OVER ? queue.splice(0) : [queue.shift() as ReactionEvent];
+    const reaction = events.length > 1 ? summariseReactions(events) : reactionFor(events[0]);
+    shownEvents.current = events;
     busy.current = true;
     setShown(reaction);
     timer.current = window.setTimeout(next, SHOW_MS);
@@ -61,6 +80,22 @@ export function MitraReaction() {
       waiting.current = [];
     };
   }, []);
+
+  // The cheer line: after the toast has been drawn, never while drawing it.
+  useEffect(() => {
+    if (!shown) return;
+    const events = shownEvents.current;
+    const wait = window.setTimeout(() => {
+      let text: string | null = null;
+      try {
+        text = toastCheer(events, who.current.user, who.current.uiLang);
+      } catch {
+        text = null;
+      }
+      if (text) setCheer({ reaction: shown, text });
+    }, 0);
+    return () => window.clearTimeout(wait);
+  }, [shown]);
 
   if (!shown) return null;
   // What names the record (a format number, a date) and what somebody typed (the
@@ -91,6 +126,11 @@ export function MitraReaction() {
         {shown.bonus && (
           <div className="mitra-reaction-bonus" data-field="reaction-bonus">
             <span aria-hidden="true">{shown.bonus.emoji}</span> {shown.bonus.text}
+          </div>
+        )}
+        {cheer && cheer.reaction === shown && (
+          <div className="mitra-reaction-cheer" data-field="reaction-cheer">
+            {cheer.text}
           </div>
         )}
       </div>

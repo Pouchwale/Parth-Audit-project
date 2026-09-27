@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FiPlus, FiTrash2 } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -14,6 +14,11 @@ import type { AdjustmentDay, CompanyHoliday, Employee } from "../types";
 import { DepartmentsAccess } from "../components/master/DepartmentsAccess";
 import { useT } from "../i18n";
 import { documentTextIn } from "../i18n/documentText";
+import { useAuth } from "../store/AuthContext";
+import { firstNameOf } from "../engine/assistantPersona";
+import { CUE_NAMES, type CueName } from "../engine/engageBus";
+import { playCue } from "../utils/sounds";
+import { onVoiceChange, sampleLine, say, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceSource } from "../utils/voice";
 
 type Tab = "employees" | "departments" | "chemicals" | "pcLocations" | "rodentStations" | "areas" | "checkpoints" | "documents" | "holidays" | "settings";
 
@@ -322,6 +327,7 @@ export function MasterDataPage() {
           </div>
         </div>
       )}
+      {tab === "settings" && <VoiceSettingsCard />}
 
       {tab === "holidays" && (
         <>
@@ -700,6 +706,175 @@ function SimpleTable({
       <button className="btn btn-secondary btn-sm mt-2" onClick={onAdd}>
         <FiPlus size={13} /> Add Row
       </button>
+    </div>
+  );
+}
+
+// SOUNDS AND MITRA'S VOICE (REQUIREMENTS §81) — the person's own settings, kept
+// with their working hours: sounds on or off, the voice on or off, a female or a
+// male voice, how often a spoken reminder may come, a button to hear Mitra and
+// one to hear the sounds — and which voice is actually speaking here, with what
+// the Groq organisation's admin must do when the natural server voice is not
+// available yet. The switches are buttons (role="switch"), not checkboxes.
+const REMIND_EVERY = [30, 45, 60, 90] as const;
+
+function VoiceSettingsCard() {
+  const t = useT();
+  const { lang } = useAppStore();
+  const { user } = useAuth();
+  const [s, setS] = useState(() => settingsRepository.get());
+  const [server, setServer] = useState(serverVoiceState);
+  const [using, setUsing] = useState<{ source: VoiceSource; name: string; gujarati: boolean } | null>(null);
+  const [played, setPlayed] = useState<CueName | null>(null);
+  const nextCue = useRef(0);
+
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      setS(settingsRepository.get());
+      voiceInUse()
+        .then((u) => {
+          if (alive) setUsing(u);
+        })
+        .catch(() => undefined);
+    };
+    refresh();
+    window.addEventListener(VOICE_SETTINGS_EVENT, refresh);
+    const off = onVoiceChange(() => setServer(serverVoiceState()));
+    return () => {
+      alive = false;
+      window.removeEventListener(VOICE_SETTINGS_EVENT, refresh);
+      off();
+    };
+  }, []);
+  // Found out (Hear Mitra asked the server): say which voice it is now.
+  useEffect(() => {
+    let alive = true;
+    voiceInUse()
+      .then((u) => {
+        if (alive) setUsing(u);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [server.state]);
+
+  const change = (patch: Parameters<typeof updateVoiceSettings>[0]) => {
+    updateVoiceSettings(patch);
+    setS(settingsRepository.get());
+  };
+  const usingText = !using
+    ? ""
+    : using.source === "server"
+      ? t("voice.using.server")
+      : using.source === "server-untested"
+        ? t("voice.using.serverUntested")
+        : using.source === "natural"
+          ? t("voice.using.natural", { name: using.name })
+          : using.source === "basic"
+            ? t("voice.using.basic", { name: using.name })
+            : t("voice.using.none");
+
+  const switchButton = (field: "sounds-on" | "voice-on", on: boolean, label: string, flip: () => void) => (
+    <button type="button" role="switch" aria-checked={on} data-field={field} className={`voice-switch ${on ? "is-on" : ""}`} onClick={flip}>
+      <span className="voice-switch-track" aria-hidden="true">
+        <span className="voice-switch-thumb" />
+      </span>
+      <span className="voice-switch-label">{label}</span>
+      <span key={on ? "on" : "off"} className="voice-switch-state">
+        {on ? t("voice.settings.on") : t("voice.settings.off")}
+      </span>
+    </button>
+  );
+
+  return (
+    <div className="card mt-4 voice-settings" style={{ maxWidth: 560 }} data-section="voice-settings">
+      <div className="card-pad">
+        <h3 className="text-base font-semibold mb-1">{t("voice.settings.title")}</h3>
+        <p className="text-muted text-sm mb-3">{t("voice.settings.intro")}</p>
+        <div className="flex gap-4 wrap mb-3">
+          {switchButton("sounds-on", s.soundsOn, t("voice.settings.sounds"), () => change({ soundsOn: !s.soundsOn }))}
+          {switchButton("voice-on", s.voiceOn, t("voice.settings.voice"), () => change({ voiceOn: !s.voiceOn }))}
+        </div>
+        <div className="voice-row mb-3">
+          <span className="text-sm font-semibold">{t("voice.settings.kind")}</span>
+          <div className="voice-choice" role="group" aria-label={t("voice.settings.kind")}>
+            {(["female", "male"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={`btn btn-sm ${s.voiceKind === k ? "btn-primary" : "btn-secondary"}`}
+                data-voice-kind={k}
+                aria-pressed={s.voiceKind === k}
+                onClick={() => change({ voiceKind: k })}
+              >
+                {t(`voice.kind.${k}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="voice-row mb-1">
+          <span className="text-sm font-semibold">{t("voice.settings.every")}</span>
+          <div className="voice-choice" role="group" aria-label={t("voice.settings.every")}>
+            {REMIND_EVERY.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`btn btn-sm ${s.remindEveryMin === n ? "btn-primary" : "btn-secondary"}`}
+                data-remind-every={n}
+                aria-pressed={s.remindEveryMin === n}
+                onClick={() => change({ remindEveryMin: n })}
+              >
+                {t("voice.settings.minutes", { n })}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-faint mb-3">{t("voice.settings.everyHint")}</p>
+        <div className="flex gap-2 wrap items-center mb-2">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            data-action="test-voice"
+            onClick={() => {
+              const first = firstNameOf(user?.name);
+              say({ text: sampleLine(first, lang), lang, en: sampleLine(first, "en"), priority: "high" });
+            }}
+          >
+            <span aria-hidden="true">🗣️</span> {t("voice.settings.test")}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            data-action="test-sound"
+            onClick={() => {
+              const cue = CUE_NAMES[nextCue.current % CUE_NAMES.length];
+              nextCue.current += 1;
+              playCue(cue);
+              setPlayed(cue);
+            }}
+          >
+            <span aria-hidden="true">🔔</span> {t("voice.settings.testSound")}
+          </button>
+          {played && (
+            <span key={played} className="text-xs text-muted" data-field="test-sound-played">
+              {t("voice.settings.played", { name: t(`voice.cue.${played}`) })}
+            </span>
+          )}
+        </div>
+        {usingText && (
+          <p key={using?.source ?? ""} className="text-xs text-muted" data-field="voice-in-use" data-source={using?.source ?? ""}>
+            {usingText}
+          </p>
+        )}
+        {using && !using.gujarati && lang === "gu" && <p className="text-xs text-muted">{t("voice.using.noGujarati")}</p>}
+        {server.state === "voice-unavailable" && (
+          <p className="text-xs mt-1" data-field="voice-server-terms" style={{ color: "var(--color-warning)" }}>
+            {t("voice.serverTerms")}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

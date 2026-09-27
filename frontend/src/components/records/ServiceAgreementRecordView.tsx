@@ -6,6 +6,7 @@ import { ProviderLetterhead } from "../documents/ProviderLetterhead";
 import { imageFileToDataUrl } from "../../utils/image";
 import { generateId } from "../../utils/id";
 import { FormField } from "./FormField";
+import { agreementBind, agreementClauseLabel, clauseBind, partyAddressBinds, partyBind, signatoryBind } from "../../engine/roundTrip/bindingsFor";
 
 // PEST CONTROL SERVICE AGREEMENT, laid out on the service provider's own
 // letterhead exactly as "Letter head.pdf" prints it — the GPC mark, the name,
@@ -27,12 +28,15 @@ function ClauseList({
   marker,
   editable,
   field,
+  listPath,
   onChange,
 }: {
   items: string[];
   marker: (i: number) => string;
   editable: boolean;
   field: string;
+  /** The list in the record's data, e.g. "scopeOfServices" — each line is bound to its place in it (REQUIREMENTS §81). */
+  listPath: keyof ServiceAgreementData;
   onChange: (next: string[]) => void;
 }) {
   return (
@@ -42,7 +46,15 @@ function ClauseList({
           <span className="pr-marker">{marker(i)}</span>
           <div className="pr-item-text">
             {/* A printed clause is the paper's own wording (REQUIREMENTS §58). */}
-            <FormField field={`${field}-${i + 1}`} kind="long" translatable value={text} editable={editable} onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))} />
+            <FormField
+              field={`${field}-${i + 1}`}
+              kind="long"
+              translatable
+              value={text}
+              editable={editable}
+              onChange={(v) => onChange(items.map((x, xi) => (xi === i ? v : x)))}
+              bind={clauseBind(listPath, i, agreementClauseLabel(listPath, i))}
+            />
           </div>
           {editable && (
             <button className="btn btn-ghost btn-sm btn-icon no-print" title="Remove this point" aria-label="Remove this point" onClick={() => onChange(items.filter((_, xi) => xi !== i))}>
@@ -69,27 +81,46 @@ function PartyBlock({
 }: {
   party: ServiceAgreementParty;
   label: string;
-  field: string;
+  /** "client" | "provider" — the box names on the page and the party's place in the record's data. */
+  field: "client" | "provider";
   editable: boolean;
   onChange: (next: ServiceAgreementParty) => void;
 }) {
   const set = (patch: Partial<ServiceAgreementParty>) => onChange({ ...party, ...patch });
+  const address = partyAddressBinds(field, label, party);
   return (
     <td className="pr-signatory">
       <div className="pr-sign-role">{label}</div>
-      <FormField field={`${field}-organisation`} kind="long" value={party.organisation} editable={editable} onChange={(v) => set({ organisation: v })} />
-      <FormField field={`${field}-address`} kind="long" value={party.addressLines.join(", ")} editable={editable} onChange={(v) => set({ addressLines: [v] })} />
+      <FormField
+        field={`${field}-organisation`}
+        kind="long"
+        value={party.organisation}
+        editable={editable}
+        onChange={(v) => set({ organisation: v })}
+        bind={partyBind(field, label, "organisation")}
+      />
+      <FormField
+        field={`${field}-address`}
+        kind="long"
+        value={party.addressLines.join(", ")}
+        editable={editable}
+        onChange={(v) => set({ addressLines: [v] })}
+        bind={address.whole}
+        parts={address.parts?.map((b, i) => ({ text: party.addressLines[i], bind: b }))}
+      />
       <div className="caf-row">
-        <strong>Contact:</strong> <FormField field={`${field}-contact`} value={party.contactName} editable={editable} onChange={(v) => set({ contactName: v })} />
+        <strong>Contact:</strong>{" "}
+        <FormField field={`${field}-contact`} value={party.contactName} editable={editable} onChange={(v) => set({ contactName: v })} bind={partyBind(field, label, "contactName")} />
       </div>
       <div className="caf-row">
-        <strong>Designation:</strong> <FormField field={`${field}-designation`} value={party.designation} editable={editable} onChange={(v) => set({ designation: v })} />
+        <strong>Designation:</strong>{" "}
+        <FormField field={`${field}-designation`} value={party.designation} editable={editable} onChange={(v) => set({ designation: v })} bind={partyBind(field, label, "designation")} />
       </div>
       <div className="caf-row">
-        <strong>Phone:</strong> <FormField field={`${field}-phone`} value={party.phone} editable={editable} onChange={(v) => set({ phone: v })} />
+        <strong>Phone:</strong> <FormField field={`${field}-phone`} value={party.phone} editable={editable} onChange={(v) => set({ phone: v })} bind={partyBind(field, label, "phone")} />
       </div>
       <div className="caf-row">
-        <strong>Email:</strong> <FormField field={`${field}-email`} value={party.email} editable={editable} onChange={(v) => set({ email: v })} />
+        <strong>Email:</strong> <FormField field={`${field}-email`} value={party.email} editable={editable} onChange={(v) => set({ email: v })} bind={partyBind(field, label, "email")} />
       </div>
     </td>
   );
@@ -99,12 +130,15 @@ function SignatoryCell({
   who,
   label,
   field,
+  path,
   editable,
   onChange,
 }: {
   who: ResponsibilitySignatory;
   label: string;
   field: string;
+  /** The signatory's place in the record's data (REQUIREMENTS §81). */
+  path: "clientSignatory" | "providerSignatory";
   editable: boolean;
   onChange: (next: ResponsibilitySignatory) => void;
 }) {
@@ -112,15 +146,24 @@ function SignatoryCell({
   return (
     <td className="pr-signatory">
       <div className="pr-sign-role">{label}</div>
-      <FormField field={`${field}-organisation`} kind="long" value={who.organisation} editable={editable} onChange={(v) => set({ organisation: v })} />
+      <FormField
+        field={`${field}-organisation`}
+        kind="long"
+        value={who.organisation}
+        editable={editable}
+        onChange={(v) => set({ organisation: v })}
+        bind={signatoryBind(path, label, "organisation")}
+      />
       <div className="caf-row">
-        <strong>Name:</strong> <FormField field={`${field}-name`} value={who.name} editable={editable} onChange={(v) => set({ name: v })} />
+        <strong>Name:</strong> <FormField field={`${field}-name`} value={who.name} editable={editable} onChange={(v) => set({ name: v })} bind={signatoryBind(path, label, "name")} />
       </div>
       <div className="caf-row">
-        <strong>Designation:</strong> <FormField field={`${field}-designation`} value={who.designation} editable={editable} onChange={(v) => set({ designation: v })} />
+        <strong>Designation:</strong>{" "}
+        <FormField field={`${field}-designation`} value={who.designation} editable={editable} onChange={(v) => set({ designation: v })} bind={signatoryBind(path, label, "designation")} />
       </div>
       <div className="caf-row">
-        <strong>Dated:</strong> <FormField field={`${field}-dated`} kind="date" value={who.dated} editable={editable} onChange={(v) => set({ dated: v })} />
+        <strong>Dated:</strong>{" "}
+        <FormField field={`${field}-dated`} kind="date" value={who.dated} editable={editable} onChange={(v) => set({ dated: v })} bind={signatoryBind(path, label, "dated")} />
       </div>
       <div className="caf-row">
         <strong>Sign &amp; Stamp:</strong> <span className="caf-sign-line" />
@@ -204,10 +247,12 @@ export function ServiceAgreementRecordView({
     value: String(data[key] ?? ""),
     editable,
     onChange: (v: string) => set({ [key]: v } as Partial<ServiceAgreementData>),
+    // Where the value lives in the record, for an edited Word file read back (REQUIREMENTS §81).
+    bind: agreementBind.field(key),
   });
 
   return (
-    <div className="caf-sheet sa-sheet" data-doc="service-agreement">
+    <div className="caf-sheet sa-sheet" data-doc="service-agreement" data-bind-record={record.id}>
       {/* The signed copy, where there is one: that IS the agreement. */}
       {(data.scans.length > 0 || editable) && (
         <section className="sa-scans" data-section="agreement-scans">
@@ -278,12 +323,12 @@ export function ServiceAgreementRecordView({
 
         <div className="caf-section">
           <div className="caf-label">1. Scope of services</div>
-          <ClauseList items={data.scopeOfServices} marker={(i) => `1.${i + 1}`} editable={editable} field="scope" onChange={(next) => set({ scopeOfServices: next })} />
+          <ClauseList items={data.scopeOfServices} marker={(i) => `1.${i + 1}`} editable={editable} field="scope" listPath="scopeOfServices" onChange={(next) => set({ scopeOfServices: next })} />
         </div>
 
         <div className="caf-section">
           <div className="caf-label">2. Schedule and reporting</div>
-          <ClauseList items={data.serviceSchedule} marker={(i) => `2.${i + 1}`} editable={editable} field="schedule" onChange={(next) => set({ serviceSchedule: next })} />
+          <ClauseList items={data.serviceSchedule} marker={(i) => `2.${i + 1}`} editable={editable} field="schedule" listPath="serviceSchedule" onChange={(next) => set({ serviceSchedule: next })} />
         </div>
       </section>
 
@@ -291,24 +336,24 @@ export function ServiceAgreementRecordView({
         <ProviderLetterhead />
         <div className="caf-section">
           <div className="caf-label">3. Obligations of the parties</div>
-          <ClauseList items={data.obligations} marker={(i) => `3.${i + 1}`} editable={editable} field="obligations" onChange={(next) => set({ obligations: next })} />
+          <ClauseList items={data.obligations} marker={(i) => `3.${i + 1}`} editable={editable} field="obligations" listPath="obligations" onChange={(next) => set({ obligations: next })} />
         </div>
 
         <div className="caf-section">
           <div className="caf-label">4. Commercial terms</div>
-          <ClauseList items={data.commercialTerms} marker={(i) => `4.${i + 1}`} editable={editable} field="commercial" onChange={(next) => set({ commercialTerms: next })} />
+          <ClauseList items={data.commercialTerms} marker={(i) => `4.${i + 1}`} editable={editable} field="commercial" listPath="commercialTerms" onChange={(next) => set({ commercialTerms: next })} />
         </div>
 
         <div className="caf-section">
           <div className="caf-label">5. General</div>
-          <ClauseList items={data.generalTerms} marker={(i) => `5.${i + 1}`} editable={editable} field="general" onChange={(next) => set({ generalTerms: next })} />
+          <ClauseList items={data.generalTerms} marker={(i) => `5.${i + 1}`} editable={editable} field="general" listPath="generalTerms" onChange={(next) => set({ generalTerms: next })} />
         </div>
 
         <table className="caf-table pr-signatories mt-3">
           <tbody>
             <tr>
-              <SignatoryCell who={data.clientSignatory} label="For the client" field="client-sign" editable={editable} onChange={(v) => set({ clientSignatory: v })} />
-              <SignatoryCell who={data.providerSignatory} label="For the service provider" field="provider-sign" editable={editable} onChange={(v) => set({ providerSignatory: v })} />
+              <SignatoryCell who={data.clientSignatory} label="For the client" field="client-sign" path="clientSignatory" editable={editable} onChange={(v) => set({ clientSignatory: v })} />
+              <SignatoryCell who={data.providerSignatory} label="For the service provider" field="provider-sign" path="providerSignatory" editable={editable} onChange={(v) => set({ providerSignatory: v })} />
             </tr>
           </tbody>
         </table>

@@ -4,6 +4,7 @@ import type { DocumentDefinition, RecordInstance, ServiceReportAreaLine, Service
 import { COMPANY } from "../../data/seed/masterData";
 import { fixedMaterialForServiceArea, isQuantityLine, normalizeServiceLines } from "../../engine/serviceMaterials";
 import { formatDisplayDate } from "../../utils/date";
+import { bindProps, serviceReportBind } from "../../engine/roundTrip/bindingsFor";
 
 export function ServiceReportRecordView({
   doc,
@@ -36,8 +37,12 @@ export function ServiceReportRecordView({
   const removeLine = (slNo: number) => setLines(data.lines.filter((l) => l.slNo !== slNo));
   const linesWith = (material: string) => data.lines.filter((l) => l.materialName === material);
 
+  // Every value a person writes carries where it lives in the record, so an
+  // edited Excel file can be read back (REQUIREMENTS §81). Material and method
+  // follow the area and are not bound; the quantity is bound on the one line of
+  // its material it is written on.
   return (
-    <div>
+    <div data-bind-record={record.id}>
       <div className="doc-header">
         <div className="company-name">Pest Control Service Report</div>
         <div className="meta-row">
@@ -79,12 +84,14 @@ export function ServiceReportRecordView({
             {data.lines.map((l, i) => {
               const entersQty = isQuantityLine(data.lines, i);
               const group = linesWith(l.materialName);
+              const qtyBind = bindProps(serviceReportBind.qty(data.lines, i));
               return (
                 <tr key={l.slNo} data-line={l.slNo}>
                   <td>{l.slNo}</td>
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(serviceReportBind.line(l, "areaName"))}
                       disabled={!editable}
                       value={l.areaName}
                       onChange={(e) => updateLine(l.slNo, { areaName: e.target.value })}
@@ -101,6 +108,7 @@ export function ServiceReportRecordView({
                         <input
                           className="input input-sm"
                           data-field="qty"
+                          {...qtyBind}
                           placeholder="Qty used"
                           value={l.qtyUsed}
                           onChange={(e) => updateLine(l.slNo, { qtyUsed: e.target.value })}
@@ -115,6 +123,7 @@ export function ServiceReportRecordView({
                     ) : (
                       <input
                         className="input input-sm"
+                        {...qtyBind}
                         disabled
                         value={l.qtyUsed}
                         title={entersQty ? undefined : `Same as line ${group[0]?.slNo} — the quantity is entered once, on the first ${l.materialName} line`}
@@ -127,6 +136,7 @@ export function ServiceReportRecordView({
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(serviceReportBind.line(l, "remarks"))}
                       disabled={!editable}
                       value={l.remarks}
                       onChange={(e) => updateLine(l.slNo, { remarks: e.target.value })}
@@ -163,6 +173,7 @@ export function ServiceReportRecordView({
             <label>GPC Technician Sign</label>
             <input
               className="input"
+              {...bindProps(serviceReportBind.technicianSign())}
               disabled={!editable}
               value={data.technicianSign}
               onChange={(e) => onChange({ ...data, technicianSign: e.target.value })}
@@ -174,6 +185,7 @@ export function ServiceReportRecordView({
             <input
               className="input"
               data-field="customer-sign"
+              {...bindProps(serviceReportBind.customerSign())}
               disabled={!(editable || countersignEditable)}
               value={data.customerSign}
               onChange={(e) => onChange({ ...data, customerSign: e.target.value })}

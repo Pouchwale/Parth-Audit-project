@@ -18,6 +18,8 @@ import { formatDisplayDate } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
+import { BIND_APPEND_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
+import { bindProps, effectiveColumn, logCellBind, logColumnBind, logHeaderBind, logRowName } from "../../engine/roundTrip/bindingsFor";
 
 /** A sheet open for writing with more lines than this draws only those near the screen (REQUIREMENTS §76). */
 const DRAW_NEAR_FROM = 60;
@@ -218,9 +220,15 @@ export function LogSheetRecordView({
   // one spanning heading, and two rows instead of one where there is such a run.
   const headRuns = headingRuns(layout.columns);
   const headRows = headRuns.some((r) => r.group !== undefined) ? 2 : 1;
+  // A SHEET OF FREE LINES says so on its grid (REQUIREMENTS §81): the list the
+  // lines are, and — wherever a line can be added, now or once a signed-off
+  // sheet is reopened for correction — that lines added to the downloaded
+  // file become new lines here. Each heading names the box of a line it holds.
+  const freeRows = mode.kind === "free";
+  const gridBind = freeRows ? { [BIND_TABLE_ATTR]: "rows", ...(superseded ? {} : { [BIND_APPEND_ATTR]: "1" }) } : undefined;
 
   return (
-    <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined}>
+    <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined} data-bind-record={record.id}>
       <DocumentHeader
         doc={doc}
         dateLabel={formatDisplayDate(record.dueDate)}
@@ -317,7 +325,7 @@ export function LogSheetRecordView({
 
       {hasGrid && (
       <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
-        <table className={editable ? "compact log-sheet is-editing" : "compact log-sheet"}>
+        <table className={editable ? "compact log-sheet is-editing" : "compact log-sheet"} {...gridBind}>
           <thead>
             <tr>
               <th style={{ width: 44 }} rowSpan={headRows}>
@@ -329,7 +337,7 @@ export function LogSheetRecordView({
               {headRuns.map((run, ri) => (
                 <React.Fragment key={run.group ?? `column-${ri}`}>
                   {run.group === undefined ? (
-                    run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={headRows} />)
+                    run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={headRows} bound={freeRows} />)
                   ) : (
                     <th className="col-group" colSpan={run.columns.length}>
                       {run.group}
@@ -342,7 +350,7 @@ export function LogSheetRecordView({
             {headRows === 2 && (
               <tr>
                 {layout.columns.filter((c) => c.group !== undefined).map((c) => (
-                  <ColumnHead key={c.key} col={c} />
+                  <ColumnHead key={c.key} col={c} bound={freeRows} />
                 ))}
               </tr>
             )}
@@ -444,9 +452,11 @@ function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn
   return runs;
 }
 
-function ColumnHead({ col, rowSpan }: { col: LogColumn; rowSpan?: number }) {
+function ColumnHead({ col, rowSpan, bound }: { col: LogColumn; rowSpan?: number; /** A free-row sheet's heading names the box of a line it holds (REQUIREMENTS §81). */ bound?: boolean }) {
+  const b = bound ? logColumnBind(col) : null;
   return (
     <th
+      {...(b ? bindColAttrs(b.key, b.type, b.options) : undefined)}
       style={col.width ? { minWidth: col.width } : undefined}
       rowSpan={rowSpan}
       title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
@@ -503,18 +513,20 @@ const SheetRow = React.memo(function SheetRow({
   onMachineBlur: (rowId: string | null, value: string) => void;
   onRemove: (rowId: string) => void;
 }) {
+  // What the line is called in a downloaded file's list of boxes: its time slot, its parameter (REQUIREMENTS §81).
+  const rowName = logRowName(row, columns);
   return (
     <tr>
       <td className="text-muted">{index + 1}</td>
       {columns.map((c, ci) => {
         // A line the form prints blank (F/HR/05's two spare topic lines)
         // has nothing fixed in it, so it is written in like any cell.
-        const printedBlank = c.fixed && fixedRow !== undefined && String(fixedRow[c.key] ?? "") === "";
-        const col = printedBlank ? { ...c, fixed: false } : c;
+        const col = effectiveColumn(c, fixedRow);
         return (
           <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
             <CellInput
               col={col}
+              bind={bindProps(logCellBind(row, index, col, rowName))}
               issuedLabel={issuedColumns?.[ci]?.label ?? c.label}
               // A printed cell — the parameter, the material, the specification
               // the form prints down its side — reads in the chosen language;
@@ -608,6 +620,10 @@ function HeaderFieldInput({
   // a post, not a person (REQUIREMENTS §76).
   const isName =
     /operator|name|inspected|person|\bsign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name|machine|equipment|equipoment/i.test(issuedLabel);
+  // Where the box's value lives in the record — header and footer boxes alike
+  // live in data.header — for an edited Excel file read back (REQUIREMENTS §81).
+  // A box the sheet works out is not bound.
+  const bound = bindProps(logHeaderBind(field));
   // A box WORKED OUT from the sheet — F/MKT/02's totals and its % Satisfaction
   // Index (REQUIREMENTS §77) — reads as text, as a worked-out cell does.
   if (field.computed) {
@@ -629,7 +645,7 @@ function HeaderFieldInput({
           {field.label}
           {field.required ? " *" : ""}
         </label>
-        <ParagraphInput value={value} editable={editable} onChange={onChange} />
+        <ParagraphInput value={value} editable={editable} onChange={onChange} bind={bound} />
       </div>
     );
   }
@@ -647,7 +663,7 @@ function HeaderFieldInput({
           (REQUIREMENTS §68, found while adding F/STR/01 in §71, whose stamp is
           seven such questions). */}
       {field.type === "select" || field.type === "yesno" ? (
-        <select className="input input-sm" disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
+        <select className="input input-sm" {...bound} disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">Select…</option>
           {(field.type === "yesno" ? ["Yes", "No"] : (field.options ?? [])).map((o) => (
             <option key={o} value={o}>
@@ -658,6 +674,7 @@ function HeaderFieldInput({
       ) : (
         <input
           className="input input-sm"
+          {...bound}
           type={field.type === "date" ? "date" : field.type === "time" ? "time" : "text"}
           list={list ?? (isName ? "log-sheet-employees" : undefined)}
           disabled={!editable}
@@ -680,7 +697,7 @@ function HeaderFieldInput({
  */
 const SIZES_ITSELF = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("field-sizing", "content");
 
-function ParagraphInput({ value, editable, onChange }: { value: string; editable: boolean; onChange: (v: string) => void }) {
+function ParagraphInput({ value, editable, onChange, bind }: { value: string; editable: boolean; onChange: (v: string) => void; bind?: Record<string, string> }) {
   const box = React.useRef<HTMLTextAreaElement | null>(null);
   React.useLayoutEffect(() => {
     // A browser that sizes the box to its words by itself (styles.css,
@@ -694,12 +711,12 @@ function ParagraphInput({ value, editable, onChange }: { value: string; editable
   }, [value, editable]);
   if (!editable) {
     return (
-      <p className="paragraph-text notranslate" translate="no">
+      <p className="paragraph-text notranslate" translate="no" {...bind}>
         {value}
       </p>
     );
   }
-  return <textarea ref={box} className="input input-sm input-paragraph" rows={2} value={value} onChange={(e) => onChange(e.target.value)} />;
+  return <textarea ref={box} className="input input-sm input-paragraph" {...bind} rows={2} value={value} onChange={(e) => onChange(e.target.value)} />;
 }
 
 function CellInput({
@@ -711,6 +728,7 @@ function CellInput({
   employees,
   list,
   onBlur,
+  bind,
 }: {
   col: LogColumn;
   /** As in HeaderFieldInput: the issued label, so a signature column is one in either language. */
@@ -721,6 +739,8 @@ function CellInput({
   employees: string[];
   list?: string;
   onBlur?: (v: string) => void;
+  /** Where the cell's value lives in the record (REQUIREMENTS §81) — on the box, and on the words a locked sheet shows. None on a printed cell. */
+  bind?: Record<string, string>;
 }) {
   if (col.fixed) return <span className={`text-sm ${col.key === "specification" || col.key === "testChart" ? "text-muted" : "font-semibold"}`} style={{ whiteSpace: "pre-line" }}>{value ?? ""}</span>;
   // A sheet that cannot be written on (a preview, a submitted or verified record)
@@ -733,7 +753,7 @@ function CellInput({
     // reads exactly as it was written in either language (REQUIREMENTS §58).
     // The form's own printed cells are above, and those do follow the language.
     return (
-      <span className="cell-text notranslate" translate="no">
+      <span className="cell-text notranslate" translate="no" {...bind}>
         {shown}
       </span>
     );
@@ -744,6 +764,7 @@ function CellInput({
         type="number"
         step={col.decimals === 0 ? 1 : Math.pow(10, -(col.decimals ?? 2))}
         className="input input-sm"
+        {...bind}
         disabled={!editable}
         value={value === null || value === undefined ? "" : value}
         onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
@@ -754,7 +775,7 @@ function CellInput({
   if (col.type === "yesno" || col.type === "select") {
     const opts = col.type === "yesno" ? ["Yes", "No"] : (col.options ?? []);
     return (
-      <select className="input input-sm" disabled={!editable} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)}>
+      <select className="input input-sm" {...bind} disabled={!editable} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)}>
         <option value="">—</option>
         {opts.map((o) => (
           <option key={o} value={o}>
@@ -774,6 +795,7 @@ function CellInput({
     return (
       <textarea
         className="input input-sm input-cell-multiline"
+        {...bind}
         rows={Math.min(8, Math.max(2, written.split("\n").length))}
         value={written}
         onChange={(e) => onChange(e.target.value)}
@@ -786,6 +808,7 @@ function CellInput({
     <input
       type={col.type === "time" ? "time" : col.type === "date" ? "date" : "text"}
       className="input input-sm"
+      {...bind}
       list={list ?? (isSign && employees.length ? "log-sheet-employees" : undefined)}
       disabled={!editable}
       value={(value as string) ?? ""}

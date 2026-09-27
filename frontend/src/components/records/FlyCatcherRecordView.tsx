@@ -3,6 +3,7 @@ import type { DocumentDefinition, FlyCatcherData, RecordInstance } from "../../t
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { formatDisplayDate } from "../../utils/date";
+import { bindProps, flyCatcherBind } from "../../engine/roundTrip/bindingsFor";
 
 export function FlyCatcherRecordView({
   doc,
@@ -25,15 +26,17 @@ export function FlyCatcherRecordView({
     });
   };
 
+  // Every value below carries where it lives in the record, so an edited Excel
+  // file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
   return (
-    <div>
+    <div data-bind-record={record.id}>
       <DocumentHeader doc={doc} dateLabel={formatDisplayDate(record.dueDate)} pageLabel="1 of 1 (digital)" />
 
       <div className="card mt-4">
         <div className="card-pad">
           <div className="field" style={{ maxWidth: 220 }}>
             <label>Month &amp; Year</label>
-            <input className="input" value={data.monthYear} disabled={!editable} onChange={(e) => onChange({ ...data, monthYear: e.target.value })} />
+            <input className="input" {...bindProps(flyCatcherBind.monthYear())} value={data.monthYear} disabled={!editable} onChange={(e) => onChange({ ...data, monthYear: e.target.value })} />
           </div>
           <div className="mt-3 text-xs text-muted no-print">
             PC ID and location are master data, auto-populated from the Fly Catcher master list — not re-entered each visit.
@@ -78,6 +81,7 @@ export function FlyCatcherRecordView({
                       type="number"
                       min={0}
                       className="input input-sm"
+                      {...bindProps(flyCatcherBind.entry(e.pcId, "catchCountApprox"))}
                       disabled={!editable}
                       value={e.catchCountApprox ?? ""}
                       onChange={(ev) => updateEntry(e.pcId, { catchCountApprox: ev.target.value === "" ? null : Number(ev.target.value) })}
@@ -87,6 +91,7 @@ export function FlyCatcherRecordView({
                     <input
                       type="date"
                       className="input input-sm"
+                      {...bindProps(flyCatcherBind.entry(e.pcId, "tubeLightInstallDate"))}
                       disabled={!editable}
                       value={e.tubeLightInstallDate ?? ""}
                       onChange={(ev) => updateEntry(e.pcId, { tubeLightInstallDate: ev.target.value || null })}
@@ -96,6 +101,7 @@ export function FlyCatcherRecordView({
                     <input
                       type="date"
                       className="input input-sm"
+                      {...bindProps(flyCatcherBind.entry(e.pcId, "tubeLightDueDate"))}
                       disabled={!editable}
                       value={e.tubeLightDueDate ?? ""}
                       onChange={(ev) => updateEntry(e.pcId, { tubeLightDueDate: ev.target.value || null })}
@@ -104,6 +110,7 @@ export function FlyCatcherRecordView({
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(flyCatcherBind.entry(e.pcId, "cleaningDoneBy"))}
                       disabled={!editable}
                       value={e.cleaningDoneBy}
                       onChange={(ev) => updateEntry(e.pcId, { cleaningDoneBy: ev.target.value })}
@@ -112,6 +119,7 @@ export function FlyCatcherRecordView({
                   <td>
                     <input
                       className="input input-sm"
+                      {...bindProps(flyCatcherBind.entry(e.pcId, "verifiedBy"))}
                       disabled={!editable}
                       value={e.verifiedBy}
                       onChange={(ev) => updateEntry(e.pcId, { verifiedBy: ev.target.value })}

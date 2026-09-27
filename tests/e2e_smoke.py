@@ -660,14 +660,14 @@ def main():
         check("Expanding it again restores the links", page.locator("a:has-text('Training Records')").count() == 1)
 
         # ---- 12b. Closing and reopening the whole navigation panel ----
-        # The panel's own close button hides the only control that could bring
-        # it back, so the top bar carries the way in; the choice is remembered.
+        # The top bar's button closes the panel and brings it back (the panel's own
+        # close button was taken out on 27-Sep-2026); the choice is remembered.
         # Selectors are data-action hooks, not labels -- the labels translate.
         def sidebar_width():
             return page.evaluate("document.querySelector('.app-sidebar').getBoundingClientRect().width")
 
         check("Navigation panel is a column beside the content by default", sidebar_width() > 200)
-        page.click("button[data-action='close-sidebar']")
+        page.click("button[data-action='toggle-sidebar']")
         page.wait_for_timeout(400)
         check("Closing the panel gives the page the full window", sidebar_width() == 0)
         check(

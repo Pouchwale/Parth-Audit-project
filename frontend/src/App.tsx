@@ -43,6 +43,12 @@ import { ActivityLogPage } from "./pages/ActivityLogPage";
 import { PerformancePage } from "./pages/PerformancePage";
 import { InsightsPage } from "./pages/InsightsPage";
 import { MitraReaction } from "./components/common/MitraReaction";
+// REQUIREMENTS §81: confetti, the all-done card and the badges, after the reaction toast.
+import { Celebration } from "./components/common/Celebration";
+// REQUIREMENTS §81: the one owner of the speaker — sounds, Mitra's voice and the spoken reminders.
+import { SoundVoiceHost } from "./components/common/SoundVoiceHost";
+// REQUIREMENTS §81: the preview of an edited Word/Excel file uploaded back, drawn once for the whole app.
+import { UploadChangesHost } from "./components/common/UploadChanges";
 import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
 import { demoModeAvailable } from "./engine/features";
 
@@ -242,6 +248,9 @@ export function App() {
       <DocumentAssistant />
       {/* Mitra's reaction to work done on time or late — one toast, bottom left (REQUIREMENTS §64). */}
       <MitraReaction />
+      <Celebration />
+      <SoundVoiceHost />
+      <UploadChangesHost />
       <AssistantBriefingPopup />
     </AssistantProvider>
   );

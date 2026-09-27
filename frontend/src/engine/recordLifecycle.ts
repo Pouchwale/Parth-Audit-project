@@ -54,7 +54,7 @@ export function saveDraft<T>(
   record: RecordInstance<T>,
   newData: T,
   actorName = "User",
-  opts: { action?: "edited" | "assistant-edit"; note?: string; labels?: Record<string, string> } = {}
+  opts: { action?: "edited" | "assistant-edit" | "imported"; note?: string; labels?: Record<string, string> } = {}
 ): RecordInstance<T> {
   const nextStatus = record.status === "Due" || record.status === "Scheduled" ? "In Progress" : record.status;
   const withHistory = withEditHistory(record, newData, actorName, opts);
@@ -100,6 +100,9 @@ export function submitRecord(
     asRequired: doc.schedule.type === "as-required",
     again,
     lastOneDue: nothingLeftDue(stored),
+    documentId: stored.documentId,
+    recordId: stored.id,
+    submittedAt: now,
   }));
   return { record: stored, result };
 }
@@ -117,7 +120,7 @@ export function verifyRecord(
     makeEntry("verified", actorName, { fromStatus: record.status })
   );
   const stored = recordRepository.upsert(updated);
-  announce(stored, actorName, () => ({ kind: "verified", what: recordLabel(stored) }));
+  announce(stored, actorName, () => ({ kind: "verified", what: recordLabel(stored), documentId: stored.documentId, recordId: stored.id }));
   return { record: stored, result };
 }
 
@@ -128,7 +131,7 @@ export function rejectRecord(record: RecordInstance, actorName: string, reason: 
     makeEntry("rejected", actorName, { note: reason, fromStatus: record.status })
   );
   const stored = recordRepository.upsert(updated);
-  announce(stored, actorName, () => ({ kind: "rejected", what: recordLabel(stored), reason }));
+  announce(stored, actorName, () => ({ kind: "rejected", what: recordLabel(stored), reason, documentId: stored.documentId, recordId: stored.id }));
   return stored;
 }
 

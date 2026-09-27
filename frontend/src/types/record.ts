@@ -62,6 +62,8 @@ export type HistoryAction =
   | "prepared"
   | "edited"
   | "assistant-edit"
+  // Changes read back from a Word/Excel file the person downloaded, edited and uploaded (REQUIREMENTS §81).
+  | "imported"
   | "submitted"
   | "verified"
   | "rejected"
