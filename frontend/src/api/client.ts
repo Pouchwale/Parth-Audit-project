@@ -1,5 +1,6 @@
 import type { AuthUser, ManagedUser } from "../types/auth";
 import type { ActivityTally } from "../engine/activityWork";
+import type { AgentRequest, AgentResponse, ExtractResult, TranscribeResult } from "../engine/mitraTypes";
 
 // Thin fetch wrapper for the auth API (backend/index.ts). Requests are
 // same-origin in both dev (proxied, see frontend/scripts/dev-server.ts) and
@@ -129,6 +130,33 @@ export const assistantApi = {
   chat: (req: AssistantChatRequest) => api.post<AssistantChatResult>("/assistant/chat", req),
   checklistAnswer: (activity: string, answer: string, today: string) =>
     api.post<ChecklistAnswerResult>("/assistant/checklist-answer", { activity, answer, today }),
+  // MITRA AS AN AGENT (REQUIREMENTS §80, engine/mitraAgent.ts): the conversation
+  // and the tool schemas go up, the model's words or its tool calls come back.
+  agent: (req: AgentRequest) => api.post<AgentResponse>("/assistant/agent", req),
+  // AN ATTACHED FILE, READ ON THE SERVER (backend/attachments.ts) — the raw bytes
+  // as the body, like the CV reader below: the JSON limit is far too small for a
+  // PDF or a photograph. Nothing is kept on the server.
+  extract: (file: File | Blob, name: string) =>
+    request<ExtractResult>("/assistant/extract", {
+      method: "POST",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+        "x-file-name": encodeURIComponent(name),
+        ...(file.type ? { "x-file-type": file.type } : {}),
+      },
+      body: file,
+    }),
+  // WHAT WAS SAID, TRANSCRIBED BY WHISPER on the server; 503 `not-configured` without a key.
+  transcribe: (blob: Blob, language: "en" | "gu" | "auto") =>
+    request<TranscribeResult>("/assistant/transcribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": blob.type || "application/octet-stream",
+        "x-mime": blob.type || "audio/webm",
+        "x-language": language,
+      },
+      body: blob,
+    }),
 };
 
 /** An account as the Performance Scorecard reads it: who it is and which departments it answers for — never the sign-in address. */

@@ -277,6 +277,7 @@ async function main(): Promise<void> {
       "tests/e2e_topbar_status.py",
       // REQUIREMENTS §79: the browser nearly full — named, cleared in a click; Demo Mode stops short.
       "tests/e2e_storage_room.py",
+  "tests/e2e_mitra_agent.py",
       // REQUIREMENTS §75: Insights — what the records show when read together, the
       // Dashboard's three, a CAPA raised from one on a click, and each account's own.
       "tests/e2e_insights.py",

@@ -342,6 +342,29 @@ Seven scripts live in `tests/`:
   offering **Clear the demo data**; one click clearing every demo record and no live one, the warning gone by itself,
   a line left saying what was freed and that the app is in Live Mode now — and the demo year NOT filled again by the
   dashboard (in Demo Mode it would be, the moment it redrew).
+- `tests/e2e_mitra_agent.py` - Ask Mitra as an agent (REQUIREMENTS §80), a forty-first suite, added 26-Sep-2026 and
+  run last. Network-independent: the model is mocked at the browser's network edge (`POST /api/assistant/agent`
+  answers canned tool calls and final words) and the server's assistant flag is switched on in the auth answers, so
+  the agent path runs without a key. Checked: the new interface (composer, attach, microphone, send); "open insights"
+  becoming a `navigate` call carried out and shown as a done step, the request carrying the tools and the words, the
+  result going back to the model, the final words rendered bold; "fill the register" answered with a question and two
+  options, the tap sending the option with the question in the history; a CSV attached to the composer read on the
+  server and its text inside the user's message; Gujarati in, Gujarati out; a 502 from the model still answered by the
+  app; on a new viscosity sheet the dock's `edit_open_record` writing 20.4 at 14:00 through the record's own bindings,
+  the step shown, the context naming the record. The offline suites that drive the chat (`e2e_smoke`,
+  `e2e_assistant_fill`, `e2e_mitra_format`, `e2e_voice`, `e2e_assistant_and_logout`, `e2e_capa_formats` …) run the
+  rules-based fallback unchanged, since the test server has no key.
+- Unit tests for Mitra as an agent: `frontend/tests/mitraTools.test.ts` (the tools against seeded records — a bad
+  route refused, F/HR/17 found, today's record started, a patch applied through a fake open record with the "Asked of
+  Mitra" note, records listed and searched, figures for a history question, ask_user ending the turn, the schema set
+  under its size cap), `mitraAgent.test.ts` (the loop with a mocked fetch: tools → final, events in order, the messages
+  kept; inline attachment text capped; history capped), `mitraAttachments.test.ts` (a 20 MB file and an .exe refused,
+  a folder's hidden files skipped), `mitraMarkdown.test.ts` (bold, bullets, numbered lines, code, `<script>` stays
+  text); `backend/tests/attachments.test.ts` (CSV, BOM'd text, a hand-built .docx and .xlsx, a PDF unpdf reads, a PNG
+  with OCR off answered with a note, old .doc and binaries named for what they are) and `backend/tests/mitraAgent.test.ts`
+  (every request limit refused and a good request accepted, the prompt under 1,900 characters with the language rule,
+  a mocked Groq reply with tool calls mapped to `kind:"tools"`). `npm run test:unit` now runs the backend tests too,
+  with Node's own runner, and fails when either half does.
 - `frontend/tests/storageRoom.test.ts` - the working copy told apart without a browser: demo records, a blank Due
   shell from before go-live (a leftover), a verified record (the plant's, whatever its date), their sizes adding up; a
   size as people say it (4.9 MB, 344 KB); the marks the banner and Demo Mode work to.

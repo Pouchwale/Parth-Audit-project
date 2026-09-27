@@ -1,5 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FiMessageCircle, FiMic, FiMicOff, FiSend, FiWifiOff, FiX } from "react-icons/fi";
+import { FiMessageCircle, FiX } from "react-icons/fi";
+import { MitraComposer } from "../mitra/MitraComposer";
+import { MitraThread } from "../mitra/MitraThread";
 import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
 import { applyAssistantPatch, looksLikeEdit, parseLocalEdit } from "../../engine/recordPatch";
@@ -26,6 +28,11 @@ import {
 } from "../../engine/guidedChecklist";
 import { answerStaysLocal, buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
 import { modelReachable, noteModelAnswered, noteModelFailed, unreachableLabel, type Unreachable } from "../../engine/assistantReach";
+import { assistantConfigured } from "../../engine/features";
+import { historyForAgent, runMitraTurn } from "../../engine/mitraAgent";
+import { MAX_ATTACHMENTS, acceptFile, pickFromFolder, readAttachment } from "../../engine/mitraAttachments";
+import type { MitraAttachment, MitraStep, MitraToolContext } from "../../engine/mitraTypes";
+import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../../utils/recorder";
 import {
   analyticIntent,
   citeLinks,
@@ -93,7 +100,7 @@ const PLACEHOLDER_BY_KIND: Record<string, string> = {
 };
 
 // What "Change this format…" shows in the box: two sentences of the kind engine/formatCommands.ts reads.
-const FORMAT_HINT = "e.g. add a column Batch No. after Remarks — or: change the format number to F/MKT/01-A";
+const FORMAT_HINT = "e.g. add a column Batch No. after Remarks, delete the box Shift — or: change the format number to F/MKT/01-A";
 
 interface ChatMessage {
   id: string;
@@ -104,6 +111,16 @@ interface ChatMessage {
   offline?: Unreachable;
   /** The records an answer about history was read from, as links (REQUIREMENTS §75). */
   cites?: CiteLink[];
+  /** MITRA AS AN AGENT (REQUIREMENTS §80): the tools it ran for this answer, as they ran. */
+  steps?: MitraStep[];
+  /** The files that went with the person's message. */
+  attachments?: { id: string; name: string; kind: MitraAttachment["kind"]; characters: number }[];
+  /** ask_user: the answers offered, tapped as the next message. */
+  options?: string[];
+  /** The model's own words, drawn with the light markdown Mitra writes (bold, bullets). */
+  markdown?: boolean;
+  /** The agent is still working on this answer: the thinking line shows under it. */
+  pending?: boolean;
 }
 
 // THE DOCUMENT ON A PAGE THAT REGISTERS NO RECORD (REQUIREMENTS §60): a
@@ -203,6 +220,18 @@ export function DocumentAssistant() {
   const pendingFormatRef = useRef<{ documentId: string; cmd: FormatCommand; words: string } | null>(null);
   // Example sentences a chip puts in the box ("Change this format…"), until something is sent.
   const [hint, setHint] = useState<string | null>(null);
+  // MITRA AS AN AGENT (REQUIREMENTS §80): the files attached to the next message,
+  // the microphone recording for Whisper, the "thinking…" line, a question of
+  // Mitra's own waiting for yes/no (a tool's confirm), and whether the person's
+  // words are already echoed in the chat (the fallback chain then echoes nothing).
+  const [attachments, setAttachments] = useState<MitraAttachment[]>([]);
+  const [recording, setRecording] = useState<{ active: boolean; seconds: number; transcribing: boolean }>({ active: false, seconds: 0, transcribing: false });
+  const [thinking, setThinking] = useState<string | null>(null);
+  const recordingRef = useRef<Recording | null>(null);
+  const pendingConfirmRef = useRef<{ resolve: (ok: boolean) => void; yes: string; no: string } | null>(null);
+  const echoedRef = useRef(false);
+  const pathRef = useRef(path);
+  pathRef.current = path;
   const openRef = useRef(open);
   openRef.current = open;
   // True while Mitra itself is submitting, verifying or sending back: it answers
@@ -227,7 +256,15 @@ export function DocumentAssistant() {
   useEffect(() => {
     const el = logRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, loading, pickingDate]);
+  }, [messages, loading, pickingDate, thinking, attachments.length]);
+
+  // Leaving the app must not leave the microphone open (REQUIREMENTS §80).
+  useEffect(() => {
+    return () => {
+      recordingRef.current?.cancel();
+      recordingRef.current = null;
+    };
+  }, []);
 
   // ---- message helpers -----------------------------------------------------
   // `aside`: something said in passing (a reaction to a submit) — the question
@@ -239,7 +276,7 @@ export function DocumentAssistant() {
     // must never save a change the person has stopped looking at (REQUIREMENTS §64).
     if (!aside) pendingFormatRef.current = null;
     setMessages((m) => [
-      ...(aside ? m : m.map((x) => (x.chips ? { ...x, chips: undefined } : x))),
+      ...(aside ? m : m.map((x) => (x.chips || x.options ? { ...x, chips: undefined, options: undefined } : x))),
       { id: generateId("msg"), role, text, chips, ...(cites && cites.length ? { cites } : {}) },
     ]);
   };
@@ -247,7 +284,15 @@ export function DocumentAssistant() {
   /** A reply the app gave because the model could not be reached (REQUIREMENTS §72). */
   const postOffline = (text: string, why: Unreachable, chips?: Chip[], cites?: CiteLink[]) =>
     setMessages((m) => [...m, { id: generateId("msg"), role: "bot" as const, text, chips, offline: why, ...(cites && cites.length ? { cites } : {}) }]);
-  const me = (text: string) => post("user", text);
+  // The person's words, once: when the agent has already echoed them (with their
+  // files) and its fallback chain takes over, the chain's own echo is skipped.
+  const me = (text: string) => {
+    if (echoedRef.current) {
+      echoedRef.current = false;
+      return;
+    }
+    post("user", text);
+  };
 
   // Mitra introduces itself once, when the panel first opens, and asks where
   // you would like to go — with the answers as chips (REQUIREMENTS §50).
@@ -1459,6 +1504,167 @@ export function DocumentAssistant() {
     carryOutFormatChange(doc, p.cmd, p.words, true);
   };
 
+  // ---- MITRA AS AN AGENT (REQUIREMENTS §80) ---------------------------------------
+  // With the model there, the person's words go to it with the tools this screen
+  // offers (engine/mitraTools.ts); it reads the instruction — English, Gujarati or
+  // a mix — asks when it is unclear, and works through the tools; each step is
+  // shown as it runs. The chain of rules in send() below is its FALLBACK: without
+  // a key, offline, or when the call fails before anything was changed.
+  const upsertStep = (msgId: string, step: MitraStep) =>
+    setMessages((m) => {
+      const found = m.find((x) => x.id === msgId);
+      if (!found) return [...m, { id: msgId, role: "bot" as const, text: "", steps: [step], pending: true }];
+      return m.map((x) => (x.id !== msgId ? x : { ...x, steps: [...(x.steps ?? []).filter((s) => s.id !== step.id), step] }));
+    });
+  const settleSteps = (msgId: string) => setMessages((m) => m.map((x) => (x.id === msgId && x.pending ? { ...x, pending: false } : x)));
+
+  const runAgent = async (text: string, spoken: boolean): Promise<"done" | Unreachable> => {
+    const ready = attachments.filter((a) => a.status !== "reading");
+    const speakReplies = settingsRepository.get().speakReplies;
+    const readOut = (reply: string) => {
+      if (spoken || speakReplies) speak(reply, speechLocale);
+    };
+    // The person's words, with their files, once — the fallback chain echoes nothing more.
+    setMessages((m) => [
+      ...m.map((x) => (x.chips || x.options ? { ...x, chips: undefined, options: undefined } : x)),
+      { id: generateId("msg"), role: "user" as const, text, attachments: ready.map((a) => ({ id: a.id, name: a.name, kind: a.kind, characters: a.characters })) },
+    ]);
+    echoedRef.current = true;
+    setAttachments([]);
+    pendingFormatRef.current = null;
+    const stepsId = generateId("msg");
+    setLoading(true);
+    setThinking(t("ai.thinking"));
+    try {
+      const ctx: MitraToolContext = {
+        today: todayISO(),
+        isDemo,
+        language: lang,
+        userName: user?.name ?? currentUser,
+        get currentRoute() {
+          return pathRef.current;
+        },
+        navigate,
+        // Live: a record the first round opened is there for the second to fill.
+        get target() {
+          return getTarget();
+        },
+        bump,
+        attachments: ready,
+        userWords: text,
+        // A tool's question — reopen for correction? delete? save as Rev NN? — put as
+        // two chips; a tap, or a typed/spoken yes or no, answers it (send() below).
+        confirm: (question, yes, no) =>
+          new Promise<boolean>((resolve) => {
+            pendingConfirmRef.current = { resolve, yes, no };
+            bot(question, [
+              { label: yes, action: { type: "sendText", text: yes }, tone: "primary" },
+              { label: no, action: { type: "sendText", text: no } },
+            ]);
+          }),
+        runWidgetAction: (action) => runAction({ label: text, action }),
+      };
+      const out = await runMitraTurn({
+        text,
+        attachments: ready,
+        history: historyForAgent(messages.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text }))),
+        ctx,
+        onEvent: (e) => {
+          if (e.type === "thinking") setThinking(t("ai.thinking"));
+          else if (e.type === "step") {
+            setThinking(e.status === "running" ? t("ai.working") : t("ai.thinking"));
+            upsertStep(stepsId, { id: e.id, tool: e.tool, label: e.label, status: e.status });
+          } else if (e.type === "text") {
+            if (e.text.trim()) setMessages((m) => [...m, { id: generateId("msg"), role: "bot", text: e.text.trim(), markdown: true }]);
+          } else if (e.type === "navigated") autoOpenedRef.current = false;
+          else if (e.type === "final") {
+            setThinking(null);
+            settleSteps(stepsId);
+            setMessages((m) => [...m, { id: generateId("msg"), role: "bot", text: e.text, markdown: true }]);
+            readOut(e.text);
+          } else if (e.type === "ask") {
+            setThinking(null);
+            settleSteps(stepsId);
+            setMessages((m) => [...m, { id: generateId("msg"), role: "bot", text: e.question, options: e.options }]);
+            readOut(e.question);
+          }
+        },
+      });
+      noteModelAnswered();
+      echoedRef.current = false;
+      if (out.navigated) autoOpenedRef.current = false;
+      return "done";
+    } catch (err) {
+      // Thrown only while nothing was changed — the chain of rules below answers instead, and says why (§72).
+      return noteModelFailed(err);
+    } finally {
+      settleSteps(stepsId);
+      setLoading(false);
+      setThinking(null);
+    }
+  };
+
+  // ---- files, folders and pictures for the next message (REQUIREMENTS §80) --------
+  // Read on the server as they are attached (engine/mitraAttachments.ts); their
+  // words travel with the message, and the model reads the rest through a tool.
+  const upsertAttachment = (a: MitraAttachment) => setAttachments((prev) => (prev.some((x) => x.id === a.id) ? prev.map((x) => (x.id === a.id ? a : x)) : [...prev, a]));
+  const attach = (files: FileList | readonly File[], fromFolder = false) => {
+    autoOpenedRef.current = false;
+    const picked = fromFolder ? pickFromFolder(files) : { files: Array.from(files), skipped: 0, reasons: [] as string[] };
+    const room = Math.max(0, MAX_ATTACHMENTS - attachments.length);
+    if (picked.files.length > room) bot(phrase("ai.tooMany", { max: String(MAX_ATTACHMENTS) }));
+    for (const file of picked.files.slice(0, room)) {
+      const verdict = acceptFile(file);
+      if (!verdict.ok) {
+        bot(verdict.why);
+        continue;
+      }
+      readAttachment(file, upsertAttachment).then(upsertAttachment, (err) => console.error("The attachment could not be read", err));
+    }
+    if (picked.skipped > 0 && picked.reasons.length) bot(picked.reasons.join(" "));
+  };
+  const removeAttachment = (id: string) => setAttachments((prev) => prev.filter((a) => a.id !== id));
+
+  // ---- the microphone through Whisper (REQUIREMENTS §80) -----------------------------
+  // With a key on the server the recording goes to Groq's Whisper, which hears
+  // Gujarati and English mixed; without one the browser's own recognition listens,
+  // as before (utils/speech.ts).
+  const whisperVoice = assistantConfigured() && isRecorderSupported();
+  const transcribeAndSend = async (blob: Blob) => {
+    setRecording({ active: false, seconds: 0, transcribing: true });
+    try {
+      const heard = await assistantApi.transcribe(blob, lang);
+      if (heard.text.trim()) void send(heard.text.trim(), true);
+      else bot(t("ai.voiceError"));
+    } catch (err) {
+      bot(err instanceof ApiError ? err.message : t("ai.voiceError"));
+    } finally {
+      setRecording({ active: false, seconds: 0, transcribing: false });
+    }
+  };
+  const toggleWhisper = async () => {
+    const current = recordingRef.current;
+    if (current) {
+      recordingRef.current = null;
+      await transcribeAndSend(await current.stop());
+      return;
+    }
+    stopSpeaking();
+    try {
+      const rec = await startRecording({
+        onSeconds: (seconds) => setRecording({ active: true, seconds, transcribing: false }),
+        onAutoStop: (blob) => {
+          recordingRef.current = null;
+          void transcribeAndSend(blob);
+        },
+      });
+      recordingRef.current = rec;
+      setRecording({ active: true, seconds: 0, transcribing: false });
+    } catch (err) {
+      bot(recorderErrorKind(err) === "denied" ? t("ai.voiceDenied") : t("ai.voiceError"));
+    }
+  };
+
   // ---- sending free text ---------------------------------------------------
   // `spoken` = the question came in by voice, so the answer is read back even
   // when "read replies aloud" is off.
@@ -1473,6 +1679,17 @@ export function DocumentAssistant() {
     const readOut = (reply: string) => {
       if (spoken || speakReplies) speak(reply, speechLocale);
     };
+    echoedRef.current = false;
+
+    // A tool's question waiting for its yes or no (REQUIREMENTS §80): the chip's own
+    // words, or a plain yes/no typed or spoken — in English or Gujarati — answer it.
+    if (pendingConfirmRef.current) {
+      const p = pendingConfirmRef.current;
+      pendingConfirmRef.current = null;
+      me(text);
+      p.resolve(text === p.yes || /^(?:yes|yeah|yep|ok|okay|sure|go\s+ahead|do\s+it|save(?:\s+it)?|delete\s+it|correct\s+it|fill\s+it|હા|હાં|ha|haa)\b/i.test(text));
+      return;
+    }
 
     // A delete waiting for its reason: the next thing typed (or said) is it.
     if (pendingDelete?.needsReason && t2?.remove && t2.recordId === pendingDelete.recordId) {
@@ -1592,6 +1809,15 @@ export function DocumentAssistant() {
       }
       answerInterview(text, text);
       return;
+    }
+
+    // MITRA AS AN AGENT (REQUIREMENTS §80): with the model there, the instruction goes
+    // to it first — whatever the language — and the rules below are its fallback.
+    let agentFailed: Unreachable | null = null;
+    if (assistantConfigured() && modelReachable().ok) {
+      const outcome = await runAgent(text, spoken);
+      if (outcome === "done") return;
+      agentFailed = outcome;
     }
 
     // A CHANGE TO THE FORMAT, or to the open record's own lines, told in words
@@ -1765,7 +1991,8 @@ export function DocumentAssistant() {
       // can say about a change to it, so the person is told plainly that the
       // filling-in needs the assistant; a question gets the table's answer,
       // marked as coming from here rather than from the model.
-      const reach = modelReachable();
+      // The agent's own call just failed: not asked twice — the app's answer, marked (§72).
+      const reach = agentFailed ? { ok: false as const, why: agentFailed } : modelReachable();
       if (!reach.ok) {
         const answer = fallback ?? { reply: t2 ? t("ai.offline.noFill") : t("ai.offline.noAnswer"), chips: undefined };
         postOffline(answer.reply, reach.why, answer.chips, fallback ? fallbackCites : undefined);
@@ -1822,6 +2049,12 @@ export function DocumentAssistant() {
   };
 
   const toggleListening = () => {
+    // With a key on the server, the recording goes to Whisper (REQUIREMENTS §80).
+    if (whisperVoice && modelReachable().ok) {
+      autoOpenedRef.current = false;
+      void toggleWhisper();
+      return;
+    }
     // Pressing it while listening means "I've finished" — send what was said.
     if (listening) {
       sessionRef.current?.finish();
@@ -1934,16 +2167,6 @@ export function DocumentAssistant() {
                   ?
                 </button>
               )}
-              <button
-                className={`btn btn-ghost btn-sm btn-icon ${listening ? "voice-on" : ""}`}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={toggleListening}
-                aria-label={listening ? t("ai.stopVoice") : t("ai.startVoice")}
-                title={voiceSupported ? (listening ? t("ai.stopVoice") : t("ai.startVoice")) : t("ai.voiceUnsupported")}
-                aria-pressed={listening}
-              >
-                {listening ? <FiMicOff size={14} /> : <FiMic size={14} />}
-              </button>
               <button className="btn btn-ghost btn-sm" onPointerDown={(e) => e.stopPropagation()} onClick={() => {
                   autoOpenedRef.current = false;
                   setOpen(false);
@@ -1955,51 +2178,20 @@ export function DocumentAssistant() {
             </div>
           </div>
 
-          <div ref={logRef} className="chat-log" style={{ flex: "1 1 auto", minHeight: 120, overflowY: "auto", padding: 14 }}>
-            {messages.map((m) => (
-              <React.Fragment key={m.id}>
-                <div className={`chat-msg ${m.role}`}>{m.text}</div>
-                {/* WHO ANSWERED (REQUIREMENTS §72). Said on the answer itself,
-                    because the plant had no way of telling that the assistant
-                    was working from the app's own tables rather than from the
-                    API — it kept answering with the internet off, which is how
-                    they noticed. */}
-                {m.offline && (
-                  <div className="chat-aside" data-offline={m.offline}>
-                    <FiWifiOff size={11} /> {unreachableLabel(m.offline, t)}
-                  </div>
-                )}
-                {/* THE RECORDS AN ANSWER WAS READ FROM (REQUIREMENTS §75): only
-                    ones the evidence named and this account may open. */}
-                {m.cites && m.cites.length > 0 && (
-                  <div className="chat-chips" data-section="cites" style={{ alignSelf: "flex-start", maxWidth: "95%" }}>
-                    {m.cites.map((c) => (
-                      <button
-                        key={c.recordId}
-                        type="button"
-                        className="chat-chip"
-                        data-cite={c.recordId}
-                        style={{ fontSize: 11, padding: "2px 8px" }}
-                        onClick={() => {
-                          if (isValidAppRoute(c.route)) navigate(c.route);
-                        }}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {m.chips && m.chips.length > 0 && (
-                  <div className="chat-chips" style={{ alignSelf: "flex-start", maxWidth: "95%" }}>
-                    {m.chips.map((c) => (
-                      <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} {...chipAttrs(c)} onClick={() => runAction(c)}>
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
+          {/* THE THREAD (REQUIREMENTS §80): the same components as the full-page
+              Ask Mitra — messages, the agent's steps, a question's options, the
+              records an answer was read from (§75), who answered (§72). */}
+          <MitraThread
+            compact
+            messages={messages}
+            thinking={loading}
+            onChip={runAction}
+            onOption={(text) => void send(text)}
+            onCite={(route) => {
+              if (isValidAppRoute(route)) navigate(route);
+            }}
+            style={{ flex: "1 1 auto", minHeight: 120, overflowY: "auto", padding: 14 }}
+          >
             {pickingDate && (
               <div className="chat-msg bot" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span className="text-xs">Which date?</span>
@@ -2018,47 +2210,35 @@ export function DocumentAssistant() {
                 </button>
               </div>
             )}
-            {loading && (
-              <div className="chat-msg bot">
-                <span className="chat-typing">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-              </div>
-            )}
-          </div>
+          </MitraThread>
 
-          <div style={{ borderTop: "1px solid var(--color-border)", padding: "8px 12px 10px", flexShrink: 0 }}>
-            <div className="chat-chips mb-2">
-              {quickChips.map((c) => (
-                <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} style={{ fontSize: 11, padding: "3px 9px" }} {...chipAttrs(c)} onClick={() => runAction(c)}>
-                  {c.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2 items-start">
-              <textarea
-                ref={inputRef}
-                className="input"
-                rows={2}
-                style={{ flex: 1, resize: "none", fontSize: 13 }}
-                placeholder={placeholder}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-                disabled={loading}
-              />
-              <button className="btn btn-primary btn-sm" style={{ alignSelf: "stretch" }} onClick={() => send()} disabled={loading || !input.trim()} aria-label="Send">
-                <FiSend size={13} />
-              </button>
-            </div>
-          </div>
+          {/* THE COMPOSER (REQUIREMENTS §80): words, files, a folder or a picture, the
+              microphone (Whisper with a key, the browser's own recognition without). */}
+          <MitraComposer
+            compact
+            inputRef={inputRef}
+            value={input}
+            onChange={setInput}
+            onSend={() => void send()}
+            busy={loading}
+            attachments={attachments}
+            onAttach={(files, source) => attach(files, source === "folder")}
+            onRemoveAttachment={removeAttachment}
+            recording={whisperVoice ? recording : { active: listening, seconds: 0, transcribing: false }}
+            onToggleVoice={toggleListening}
+            voiceMode={whisperVoice ? "whisper" : voiceSupported ? "browser" : "none"}
+            placeholder={placeholder}
+            note={!whisperVoice && listening ? { text: t("ai.listening"), listening: true } : null}
+            above={
+              <div className="chat-chips mb-2">
+                {quickChips.map((c) => (
+                  <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} style={{ fontSize: 11, padding: "3px 9px" }} {...chipAttrs(c)} onClick={() => runAction(c)}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            }
+          />
         </div>
       )}
     </div>

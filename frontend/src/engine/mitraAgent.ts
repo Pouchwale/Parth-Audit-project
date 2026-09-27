@@ -1,0 +1,250 @@
+// THE LOOP THAT MAKES MITRA AN AGENT (REQUIREMENTS §80).
+//
+// One turn: the person's words (with the text of any attached files) go to
+// POST /api/assistant/agent with the tool schemas that apply right now
+// (engine/mitraTools.ts). The model answers in words — the turn is over — or
+// asks for tools; the browser runs them, one after another, appends each
+// result as a tool message and asks again, until the model answers in words,
+// asks the person something (ask_user), or eight rounds are up.
+//
+// WHAT THE CALLER SEES while it runs is a stream of events (MitraEvent): a
+// thinking shimmer, one step per tool call (running → done or failed, with its
+// card text), the model's interim words, a navigation, and at the end the
+// final words or the question. Nothing here draws; the interface does.
+//
+// WHAT IT NEVER DOES: lose work. A failure of the model BEFORE any tool has
+// changed anything is thrown, so the caller falls back to the app's own answer
+// (REQUIREMENTS §72). After a page was opened or a record written, the same
+// failure comes back as words — what was done, and that the model could not
+// finish — never as a second, unrelated answer talking over the first.
+//
+// THE BUDGET (SPEC "Hard constraints"): history ≤ 6 pairs / 3,000 characters;
+// attachment text inline ≤ 3,000 a file and 9,000 in all, the rest through the
+// read_attachment tool; tool results ≤ 1,500 each and 12,000 a turn (the oldest
+// replaced by "(result trimmed)" when over); the whole conversation ≤ 40 messages.
+import type { AgentMessage, AgentResponse, MitraAttachment, MitraEvent, MitraStep, MitraToolContext, MitraTurnInput, MitraTurnOutput, ToolCall } from "./mitraTypes";
+import { assistantApi } from "../api/client";
+import { documentRepository } from "../data/repositories/documentRepository";
+import { buildAssistantContext } from "./assistantLocal";
+import { historyForModel } from "./historyDigest";
+import { describeStep, documentOnPath, mitraTools, parseToolArgs, runTool, toolSchemas } from "./mitraTools";
+import { t } from "../i18n";
+import { generateId } from "../utils/id";
+
+export const MAX_ROUNDS = 8;
+export const MAX_TOOL_CHARS_PER_TURN = 12000;
+export const INLINE_ATTACHMENT_CHARS = 3000;
+export const INLINE_TOTAL_CHARS = 9000;
+export const CONTEXT_CHARS = 2500;
+/** The wire's limit on one user message (SPEC "Protocol"). */
+const USER_MESSAGE_CHARS = 12000;
+/** …and on the conversation. */
+const MAX_MESSAGES = 40;
+/** How many tool calls of one round are run; the rest are answered as not run. */
+const MAX_CALLS_PER_ROUND = 8;
+export const TRIMMED_RESULT = "(result trimmed)";
+
+function say(key: string, english: string, vars: Record<string, string | number> = {}): string {
+  const said = t(key, vars);
+  if (said !== key.split(".").pop()) return said;
+  return english.replace(/\{(\w+)\}/g, (whole, name: string) => (name in vars ? String(vars[name]) : whole));
+}
+
+const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+
+// ---------------------------------------------------------------------------
+// what goes up
+
+/**
+ * The person's words with their attachments' text inline: each under a
+ * `[Attachment n: …]` heading the system prompt tells the model is data, the
+ * first 3,000 characters of a file and 9,000 in all, and a line saying the
+ * rest is had through read_attachment. A file that could not be read says so.
+ */
+export function buildUserContent(text: string, attachments: MitraAttachment[]): string {
+  let body = text.trim();
+  const bodyRoom = USER_MESSAGE_CHARS - 1500;
+  if (body.length > bodyRoom) body = `${body.slice(0, bodyRoom - 1)}…`;
+  if (attachments.length === 0) return body;
+  const budget = Math.max(0, Math.min(INLINE_TOTAL_CHARS, USER_MESSAGE_CHARS - body.length - 800));
+  let used = 0;
+  let more = false;
+  const blocks = attachments.map((a, i) => {
+    const head = `[Attachment ${i + 1}: ${a.name} (${a.kind}, ${a.characters} chars; id=${a.id})]`;
+    if (a.status === "failed") return `${head}\n(could not be read${a.note ? `: ${a.note}` : ""})`;
+    if (a.status === "reading") {
+      more = true;
+      return `${head}\n(still being read — use read_attachment for its text)`;
+    }
+    if (!a.text.trim()) return `${head}\n(${a.note ?? "no readable text"})`;
+    const room = Math.max(0, Math.min(INLINE_ATTACHMENT_CHARS, budget - used));
+    const slice = a.text.slice(0, room);
+    used += slice.length;
+    if (slice.length < a.text.length) more = true;
+    return `${head}\n${slice}${slice.length < a.text.length ? "\n…" : ""}`;
+  });
+  const tail = more ? "\n\n(Only the first part of each file is shown above. Use read_attachment(id, from, to) for the rest.)" : "";
+  return `${body}\n\n${blocks.join("\n\n")}${tail}`.trim();
+}
+
+/**
+ * The facts the model relies on: one line about the record or document on
+ * screen, the attachments' ids, then the app's live facts (today, the weekly
+ * off, what is due — engine/assistantLocal.ts). At most 2,500 characters.
+ */
+export function buildContext(ctx: MitraToolContext): string {
+  const lines: string[] = [];
+  const tgt = ctx.target;
+  if (tgt) {
+    const doc = documentRepository.getById(tgt.documentId);
+    const state = tgt.editable ? "editable" : `not editable${tgt.reopen ? " (can be reopened for correction)" : ""}`;
+    lines.push(`Open record: ${tgt.title ?? doc?.name ?? tgt.documentId} — document ${tgt.documentId} (${tgt.documentKind}), status ${tgt.status}, ${state}, id ${tgt.recordId}. Read it with get_open_record before changing it.`);
+  } else {
+    const onPath = documentOnPath(ctx.currentRoute);
+    const doc = onPath ? documentRepository.getById(onPath) : undefined;
+    if (doc) lines.push(`Document page open: ${doc.formatNo} ${doc.name} (id ${doc.id}); no record is open.`);
+  }
+  if (ctx.attachments.length > 0) {
+    const listed = ctx.attachments.map((a, i) => `${i + 1}. ${a.name} (${a.status}, ${a.characters} chars, id=${a.id})`).join("; ");
+    lines.push(`Attachments in this conversation: ${listed}.`.slice(0, 400));
+  }
+  lines.push(buildAssistantContext(ctx.isDemo, ctx.userName));
+  return lines.join("\n").slice(0, CONTEXT_CHARS);
+}
+
+/**
+ * The earlier turns of the conversation for the model — the person's and
+ * Mitra's words only (tool messages are never stored): at most six, 800
+ * characters each, 3,000 in all, the most recent kept (historyDigest.ts).
+ */
+export function historyForAgent(stored: readonly { role: "user" | "assistant"; text: string }[]): AgentMessage[] {
+  return historyForModel(stored).map((x): AgentMessage => ({ role: x.role, content: x.text }));
+}
+
+// ---------------------------------------------------------------------------
+// the turn
+
+/** The oldest tool results replaced by a marker until the turn's results fit the budget. */
+function trimToolResults(results: { content: string }[], budget = MAX_TOOL_CHARS_PER_TURN): void {
+  let total = results.reduce((n, m) => n + m.content.length, 0);
+  for (const m of results) {
+    if (total <= budget) break;
+    if (m.content === TRIMMED_RESULT) continue;
+    total -= m.content.length - TRIMMED_RESULT.length;
+    m.content = TRIMMED_RESULT;
+  }
+}
+
+/** "Done so far: Opened the Dashboard; Filled 3 boxes on …." — what the steps that succeeded did. */
+function soFar(steps: readonly MitraStep[], tail: string): string {
+  const done = steps.filter((s) => s.status === "done" && s.tool !== "ask_user").map((s) => s.label);
+  const lead = done.length ? say("ai.agent.doneSoFar", "Done so far: {what}.", { what: done.slice(0, 4).join("; ") }) : "";
+  return [lead, tail].filter(Boolean).join(" ");
+}
+
+export async function runMitraTurn(input: MitraTurnInput): Promise<MitraTurnOutput> {
+  const { ctx } = input;
+  const turn: AgentMessage[] = [{ role: "user", content: buildUserContent(input.text, input.attachments) }];
+  const toolResults: { content: string }[] = [];
+  const steps: MitraStep[] = [];
+  let navigated: string | undefined;
+  // Something the person can see has been done — a page opened, a record written.
+  let changed = false;
+
+  const emit = (e: MitraEvent): void => {
+    try {
+      input.onEvent(e);
+    } catch (err) {
+      console.error("A Mitra event handler failed", err);
+    }
+  };
+  const finish = (text: string): MitraTurnOutput => {
+    turn.push({ role: "assistant", content: text });
+    emit({ type: "final", text });
+    return { messages: turn, final: text, steps, ...(navigated ? { navigated } : {}) };
+  };
+
+  emit({ type: "thinking" });
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    if (input.signal?.aborted) return finish(soFar(steps, say("ai.agent.stopped", "Stopped.")));
+    // The tools that apply NOW, round by round: a record opened by the last
+    // round's open_document is on screen by this one — when the host hands
+    // `ctx.target` over as a live getter (see the wiring notes) — so "open
+    // today's record and fill in the checker" is one turn, not two.
+    const tools = mitraTools(ctx);
+    const schemas = toolSchemas(tools);
+    // The conversation stays under the wire's 40 messages: this turn's own come first, the history gives way.
+    const room = Math.max(0, MAX_MESSAGES - turn.length - 2);
+    const history = input.history.slice(Math.max(0, input.history.length - room));
+    let res: AgentResponse;
+    try {
+      res = await assistantApi.agent({
+        today: ctx.today,
+        currentRoute: ctx.currentRoute,
+        language: ctx.language,
+        ...(ctx.userName.trim() ? { userName: ctx.userName.trim().slice(0, 40) } : {}),
+        context: buildContext(ctx),
+        tools: schemas,
+        messages: [...history, ...turn],
+      });
+    } catch (err) {
+      // Nothing done yet: the caller falls back to the app's own answer (§72).
+      if (!changed) throw err;
+      console.error("Mitra's model could not finish the turn", err);
+      return finish(soFar(steps, say("ai.agent.couldNotFinish", "The model could not finish the reply — what was done is done.")));
+    }
+
+    const calls: ToolCall[] = res.kind === "tools" && Array.isArray(res.calls) ? res.calls.filter((c) => !!c && typeof c.function?.name === "string") : [];
+    if (res.kind === "final" || calls.length === 0) {
+      const words = (res.kind === "final" ? res.text : res.text ?? "") || "";
+      return finish(words.trim() || say("ai.agent.noWords", "Done."));
+    }
+    if (res.text && res.text.trim()) emit({ type: "text", text: res.text });
+    turn.push({ role: "assistant", content: res.text ?? null, tool_calls: calls });
+
+    let ask: { question: string; options: string[] } | undefined;
+    for (const [index, call] of calls.entries()) {
+      const id = call.id || generateId("call");
+      const name = call.function.name;
+      const tool = tools.find((x) => x.name === name);
+      const answer = (content: string): void => {
+        const m = { role: "tool" as const, tool_call_id: id, content };
+        turn.push(m);
+        toolResults.push(m);
+      };
+      if (!tool) {
+        answer(JSON.stringify({ ok: false, error: "unknown tool" }));
+        const step: MitraStep = { id, tool: name, label: say("ai.agent.unknownTool", "{tool} is not one of Mitra's tools", { tool: name }), status: "failed" };
+        steps.push(step);
+        emit({ type: "step", ...step });
+        continue;
+      }
+      if (ask || index >= MAX_CALLS_PER_ROUND) {
+        answer(JSON.stringify({ ok: false, error: ask ? "not run: the turn ended with ask_user" : "not run: too many calls in one round" }));
+        continue;
+      }
+      const label = describeStep(name, parseToolArgs(call.function.arguments) ?? {});
+      emit({ type: "step", id, tool: name, label, status: "running" });
+      const run = await runTool(tool, call.function.arguments, ctx);
+      if (run.ok && tool.writes) changed = true;
+      const step: MitraStep = { id, tool: name, label: run.card || label, status: run.ok ? "done" : "failed" };
+      steps.push(step);
+      emit({ type: "step", ...step });
+      if (run.navigated) {
+        navigated = run.navigated;
+        emit({ type: "navigated", route: run.navigated });
+      }
+      answer(run.content);
+      if (tool.endsTurn && run.ok) {
+        const r = run.result as { question?: unknown; options?: unknown } | null;
+        ask = { question: str(r?.question) || label, options: Array.isArray(r?.options) ? r.options.map((o) => str(o)).filter(Boolean) : [] };
+      }
+    }
+    trimToolResults(toolResults);
+    if (ask) {
+      emit({ type: "ask", ...ask });
+      return { messages: turn, final: null, ask, steps, ...(navigated ? { navigated } : {}) };
+    }
+  }
+  return finish(soFar(steps, say("ai.agent.roundsUsed", "I stopped there — tell me how to go on.")));
+}

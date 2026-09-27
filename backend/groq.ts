@@ -4,6 +4,11 @@
 // into this file). Kept as its own module so assistant.ts's prompt-building
 // logic stays separate from the HTTP mechanics of whichever LLM provider is
 // configured.
+//
+// Three calls live here: groqChatJSON (one JSON answer — the chat, the
+// checklist and the CV reader), groqChatWithTools (one round of Mitra's agent
+// loop, REQUIREMENTS §80 — the model answers in words or asks for tool calls)
+// and groqTranscribe (Whisper, for what a person says into the microphone).
 import { plantTimeZone } from "./db.ts";
 
 // This account's Groq key only has access to a specific model set (checked
@@ -12,6 +17,11 @@ import { plantTimeZone } from "./db.ts";
 // IS available rather than a commonly-documented Groq default that 404s here.
 const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+// Whisper, for the microphone (REQUIREMENTS §80): the one speech model this
+// key has. Groq bills it by audio seconds, apart from the token allowance below.
+const GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
+const TRANSCRIBE_MODEL = "whisper-large-v3";
 
 // A 429 from Groq is almost always the account's tokens-per-minute allowance
 // being briefly exhausted (a burst of chat messages, each carrying the route
@@ -26,6 +36,9 @@ const MAX_RETRIES = 2;
 // each attempt gives up after 30 seconds, and the browser then answers from
 // the app's own records with the §72 label, as for any other failure.
 const REQUEST_TIMEOUT_MS = 30000;
+// A recording is at most 90 seconds (frontend/src/utils/recorder.ts) and
+// Whisper answers in a few; twice the chat timeout leaves room for a slow upload.
+const TRANSCRIBE_TIMEOUT_MS = 60000;
 
 function retryDelayMs(res: Response, bodyText: string): number {
   const header = Number(res.headers.get("retry-after"));
@@ -45,6 +58,19 @@ async function postChat(apiKey: string, body: string): Promise<Response> {
     body,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
+}
+
+/** Sends a request and, when Groq answers 429, waits as long as it asks (bounded) and sends again — MAX_RETRIES times at most. */
+export async function sendWithRateLimitRetry(send: () => Promise<Response>): Promise<Response> {
+  let res = await send();
+  for (let attempt = 1; attempt <= MAX_RETRIES && res.status === 429; attempt++) {
+    const text = await res.text().catch(() => "");
+    const delay = retryDelayMs(res, text);
+    console.warn(`Groq rate limit (429) — retry ${attempt} of ${MAX_RETRIES} in ${delay} ms`);
+    await new Promise((resolve) => setTimeout(resolve, delay + 250));
+    res = await send();
+  }
+  return res;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +117,8 @@ export function tokensUsedToday(): number {
   return meter.used;
 }
 
-function countTokens(n: unknown): void {
+/** Adds an answer's usage.total_tokens to today's count (anything that isn't a positive number is ignored). */
+export function countTokens(n: unknown): void {
   if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) return;
   tokensUsedToday(); // turns the day over first
   meter.used += Math.round(n);
@@ -152,14 +179,7 @@ export async function groqChatJSON({
     ...(maxTokens && maxTokens > 0 ? { max_completion_tokens: Math.floor(maxTokens) } : {}),
   });
 
-  let res = await postChat(apiKey, payload);
-  for (let attempt = 1; attempt <= MAX_RETRIES && res.status === 429; attempt++) {
-    const text = await res.text().catch(() => "");
-    const delay = retryDelayMs(res, text);
-    console.warn(`Groq rate limit (429) — retry ${attempt} of ${MAX_RETRIES} in ${delay} ms`);
-    await new Promise((resolve) => setTimeout(resolve, delay + 250));
-    res = await postChat(apiKey, payload);
-  }
+  const res = await sendWithRateLimitRetry(() => postChat(apiKey, payload));
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -176,4 +196,175 @@ export async function groqChatJSON({
   } catch {
     throw new Error("The assistant returned invalid JSON.");
   }
+}
+
+// ---------------------------------------------------------------------------
+// ONE ROUND OF MITRA'S AGENT LOOP (REQUIREMENTS §80, backend/mitraAgent.ts).
+//
+// The OpenAI function-calling shapes, as Groq takes and returns them. The
+// browser builds the same shapes (frontend/src/engine/mitraTypes.ts); the
+// server checks them (mitraAgent.ts validateAgentRequest) before they get here.
+
+/** One tool the model may call. */
+export interface ToolSchema {
+  type: "function";
+  function: { name: string; description: string; parameters: Record<string, unknown> };
+}
+
+/** A call the model asked for; `arguments` is JSON text the browser parses. */
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+
+export type ChatMessage =
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: ToolCall[] }
+  | { role: "tool"; tool_call_id: string; content: string };
+
+/** The assistant message the model answered with: words, tool calls, or both. */
+export interface AssistantReply {
+  content: string | null;
+  tool_calls?: ToolCall[];
+}
+
+/** The model the agent asks: GROQ_AGENT_MODEL, else GROQ_MODEL, else the default above. */
+export function agentModel(): string {
+  return process.env.GROQ_AGENT_MODEL || GROQ_MODEL;
+}
+
+// Groq returns `arguments` as JSON text; a provider that returned an object
+// would still be understood. Anything without an id or a name is not a call.
+function shapeToolCall(raw: unknown): ToolCall | null {
+  const c = raw as { id?: unknown; function?: { name?: unknown; arguments?: unknown } } | null;
+  if (!c || typeof c !== "object" || typeof c.id !== "string" || !c.id || !c.function || typeof c.function !== "object") return null;
+  const { name, arguments: args } = c.function;
+  if (typeof name !== "string" || !name) return null;
+  const argumentsText = typeof args === "string" ? args : args && typeof args === "object" ? JSON.stringify(args) : "{}";
+  return { id: c.id, type: "function", function: { name, arguments: argumentsText } };
+}
+
+/**
+ * Sends the system prompt, the conversation and the tool schemas, and returns
+ * the assistant message — the model's words, the tool calls it wants run, or
+ * both. Same retries, timeout and token metering as groqChatJSON. Low
+ * reasoning effort (gpt-oss only) and a small completion cap: a round is one
+ * decision, and the plant's minute allowance is 8,000 tokens in all.
+ */
+export async function groqChatWithTools({
+  system,
+  messages,
+  tools,
+  maxTokens = 1200,
+  temperature = 0.2,
+}: {
+  system: string;
+  messages: readonly ChatMessage[];
+  tools: readonly ToolSchema[];
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<AssistantReply> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("The assistant isn't configured yet (missing GROQ_API_KEY).");
+
+  const model = agentModel();
+  const payload = JSON.stringify({
+    model,
+    messages: [{ role: "system", content: system }, ...messages],
+    ...(tools.length > 0 ? { tools, tool_choice: "auto", parallel_tool_calls: true } : {}),
+    temperature,
+    ...(takesReasoningEffort(model) ? { reasoning_effort: "low" } : {}),
+    max_completion_tokens: Math.max(1, Math.floor(maxTokens)),
+  });
+
+  const res = await sendWithRateLimitRetry(() => postChat(apiKey, payload));
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Assistant request failed (${res.status}): ${text.slice(0, 300)}`);
+  }
+
+  const body = (await res.json()) as { choices?: { message?: { content?: unknown; tool_calls?: unknown } }[]; usage?: { total_tokens?: unknown } };
+  countTokens(body?.usage?.total_tokens);
+  const message = body?.choices?.[0]?.message;
+  if (!message || typeof message !== "object") throw new Error("The assistant returned no message.");
+  const content = typeof message.content === "string" ? message.content : null;
+  const calls = Array.isArray(message.tool_calls) ? message.tool_calls.map(shapeToolCall).filter((c): c is ToolCall => c !== null) : [];
+  return calls.length > 0 ? { content, tool_calls: calls } : { content };
+}
+
+// ---------------------------------------------------------------------------
+// WHAT A PERSON SAID (REQUIREMENTS §80): Whisper turns a recording into text.
+
+// The file name's extension tells Whisper the container; the browser records
+// WebM/Opus where it can, MP4 on Safari (frontend/src/utils/recorder.ts).
+const AUDIO_EXTENSIONS: Record<string, string> = {
+  "audio/webm": "webm",
+  "video/webm": "webm",
+  "audio/mp4": "mp4",
+  "video/mp4": "mp4",
+  "audio/x-m4a": "m4a",
+  "audio/m4a": "m4a",
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/ogg": "ogg",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/wave": "wav",
+  "audio/flac": "flac",
+};
+
+/**
+ * Transcribes a recording with whisper-large-v3. `language` narrows Whisper
+ * to English or Gujarati when the person chose one; left out, Whisper decides
+ * (a mix of the two is common on the shop floor). `prompt` is vocabulary the
+ * plant uses, so format numbers and names come out as written. Nothing is
+ * metered: Whisper is billed by audio seconds, apart from the token allowance.
+ */
+export async function groqTranscribe({
+  audio,
+  mime,
+  language,
+  prompt,
+}: {
+  audio: Buffer;
+  mime: string;
+  language?: "en" | "gu";
+  prompt?: string;
+}): Promise<{ text: string; language?: string; seconds?: number }> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("The assistant isn't configured yet (missing GROQ_API_KEY).");
+
+  const baseMime = (mime.split(";")[0] ?? "").trim().toLowerCase() || "audio/webm";
+  const extension = AUDIO_EXTENSIONS[baseMime] ?? "webm";
+  // A fresh form for every attempt: a body is consumed by the request that sends it.
+  const send = (): Promise<Response> => {
+    const form = new FormData();
+    form.append("file", new Blob([new Uint8Array(audio)], { type: baseMime }), `recording.${extension}`);
+    form.append("model", TRANSCRIBE_MODEL);
+    form.append("response_format", "verbose_json");
+    form.append("temperature", "0");
+    if (prompt) form.append("prompt", prompt);
+    if (language) form.append("language", language);
+    return fetch(GROQ_TRANSCRIBE_URL, {
+      method: "POST",
+      // No Content-Type: fetch writes the multipart boundary itself.
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+      signal: AbortSignal.timeout(TRANSCRIBE_TIMEOUT_MS),
+    });
+  };
+
+  const res = await sendWithRateLimitRetry(send);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Transcription request failed (${res.status}): ${text.slice(0, 300)}`);
+  }
+  const body = (await res.json()) as { text?: unknown; language?: unknown; duration?: unknown } | null;
+  if (!body || typeof body.text !== "string") throw new Error("The transcription returned no text.");
+  return {
+    text: body.text.trim(),
+    ...(typeof body.language === "string" && body.language ? { language: body.language } : {}),
+    ...(typeof body.duration === "number" && Number.isFinite(body.duration) ? { seconds: Math.round(body.duration * 10) / 10 } : {}),
+  };
 }

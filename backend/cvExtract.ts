@@ -22,9 +22,9 @@
 //
 // Nothing here stores the file or the text; it answers and forgets.
 
-import { inflateRawSync } from "node:zlib";
 import { extractText, getDocumentProxy } from "unpdf";
 import { groqChatJSON } from "./groq.ts";
+import { docxText, looksLikeText, readZipEntry, sniffFileKind } from "./zip.ts";
 
 export interface CvProfile {
   name: string;
@@ -65,88 +65,18 @@ const ASSISTANT_TEXT = 12000;
 // ---------------------------------------------------------------------------
 // the file → its text
 
+// The file's bytes first, its name second (backend/zip.ts sniffs the bytes).
+// Any zip is taken for a .docx here — the .docx reader below says when it
+// isn't one — and only a JPEG or PNG is a picture by its bytes; the other
+// picture formats are known by their extension, as they always were.
 function fileKindOf(buf: Buffer, fileName: string): CvFileKind | "doc" | "image" | "unknown" {
-  if (buf.subarray(0, 5).toString("latin1") === "%PDF-") return "pdf";
-  if (buf.length > 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) return "docx";
-  if (buf.length > 4 && buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0) return "doc";
-  if (
-    (buf[0] === 0xff && buf[1] === 0xd8) ||
-    (buf[0] === 0x89 && buf.subarray(1, 4).toString("latin1") === "PNG") ||
-    /\.(png|jpe?g|gif|webp|bmp|tiff?|heic)$/i.test(fileName)
-  ) {
-    return "image";
-  }
+  const magic = sniffFileKind(buf);
+  if (magic === "pdf") return "pdf";
+  if (magic === "zip") return "docx";
+  if (magic === "doc") return "doc";
+  if (magic === "jpeg" || magic === "png" || /\.(png|jpe?g|gif|webp|bmp|tiff?|heic)$/i.test(fileName)) return "image";
   if (/\.(txt|text|md)$/i.test(fileName) || looksLikeText(buf)) return "text";
   return "unknown";
-}
-
-function looksLikeText(buf: Buffer): boolean {
-  const sample = buf.subarray(0, 4096);
-  if (sample.length === 0) return false;
-  let control = 0;
-  for (const b of sample) if (b < 9 || (b > 13 && b < 32)) control += 1;
-  return control / sample.length < 0.01;
-}
-
-/** One file out of a .docx (a zip) — central directory, then the local entry, inflated. */
-function readZipEntry(buf: Buffer, wanted: string): Buffer | null {
-  try {
-    let eocd = -1;
-    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 0xffff); i--) {
-      if (buf.readUInt32LE(i) === 0x06054b50) {
-        eocd = i;
-        break;
-      }
-    }
-    if (eocd < 0) return null;
-    const entries = buf.readUInt16LE(eocd + 10);
-    let p = buf.readUInt32LE(eocd + 16);
-    for (let n = 0; n < entries; n++) {
-      if (buf.readUInt32LE(p) !== 0x02014b50) return null;
-      const method = buf.readUInt16LE(p + 10);
-      const compressedSize = buf.readUInt32LE(p + 20);
-      const nameLen = buf.readUInt16LE(p + 28);
-      const extraLen = buf.readUInt16LE(p + 30);
-      const commentLen = buf.readUInt16LE(p + 32);
-      const localOffset = buf.readUInt32LE(p + 42);
-      const name = buf.subarray(p + 46, p + 46 + nameLen).toString("utf8");
-      if (name === wanted) {
-        if (buf.readUInt32LE(localOffset) !== 0x04034b50) return null;
-        const start = localOffset + 30 + buf.readUInt16LE(localOffset + 26) + buf.readUInt16LE(localOffset + 28);
-        const data = buf.subarray(start, start + compressedSize);
-        if (method === 0) return Buffer.from(data);
-        // A cap on what inflates, so a crafted file can't balloon in memory.
-        if (method === 8) return inflateRawSync(data, { maxOutputLength: 20 * 1024 * 1024 });
-        return null;
-      }
-      p += 46 + nameLen + extraLen + commentLen;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d)))
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
-}
-
-function docxText(xml: string): string {
-  return decodeEntities(
-    xml
-      .replace(/<w:tab\/>/g, "\t")
-      .replace(/<w:(?:br|cr)\b[^>]*\/>/g, "\n")
-      .replace(/<\/w:p>/g, "\n")
-      .replace(/<\/w:tc>/g, "\t")
-      .replace(/<[^>]+>/g, "")
-  );
 }
 
 async function cvText(buf: Buffer, fileName: string): Promise<{ text: string; fileKind: CvFileKind }> {

@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { FiMessageSquare, FiMic, FiMicOff, FiPlus, FiSend, FiTrash2, FiVolume2, FiVolumeX, FiWifiOff, FiZap } from "react-icons/fi";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FiLoader, FiMessageSquare, FiPlus, FiSidebar, FiTrash2, FiVolume2, FiVolumeX, FiZap } from "react-icons/fi";
 import { ApiError, assistantApi } from "../api/client";
 import { useAuth } from "../store/AuthContext";
 import { useAppStore } from "../store/AppStore";
@@ -8,6 +8,7 @@ import { onExternalChange, readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { answerStaysLocal, buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
 import { modelReachable, noteModelAnswered, noteModelFailed, unreachableLabel, type Unreachable } from "../engine/assistantReach";
+import { assistantConfigured } from "../engine/features";
 import {
   analyticIntent,
   citeLinks,
@@ -30,39 +31,67 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { routeForRecord } from "../engine/reminders";
 import { sampleFillStoredRecord } from "../engine/sampleFill";
 import { queueAfterOpen } from "../engine/assistantHandoff";
-import type { Chip } from "../engine/guidedChecklist";
+import type { Chip, ChipAction } from "../engine/guidedChecklist";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
 import { useLanguage, useT } from "../i18n";
 import { guide, hello } from "../engine/assistantPersona";
 import { SPEECH_LOCALES } from "../i18n/strings";
 import { isSpeechOutputSupported, isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../utils/speech";
+import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../utils/recorder";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, toISODate, todayISO } from "../utils/date";
+import { historyForAgent, runMitraTurn } from "../engine/mitraAgent";
+import { acceptFile, MAX_ATTACHMENTS, pickFromFolder, readAttachment } from "../engine/mitraAttachments";
+import type { AttachmentKind, MitraAttachment, MitraStep, MitraToolContext } from "../engine/mitraTypes";
+import { MitraComposer, type AttachSource } from "../components/mitra/MitraComposer";
+import { MitraThread } from "../components/mitra/MitraThread";
+import type { MitraMessageView } from "../components/mitra/MitraMessage";
+import { stripMarkdown } from "../components/mitra/markdown";
 
-// The backend rejects messages over 2000 characters; a locally answered
-// message never reaches it, so the same cap is applied here before storing.
-const MAX_MESSAGE_CHARS = 2000;
-
-// THE ASSISTANT, FULL PAGE — the same assistant as the floating widget, laid
-// out like a chat app: conversations on the left, the thread in the middle, a
+// THE ASSISTANT, FULL PAGE — the same Mitra as the docked widget, laid out
+// like a chat app: conversations on the left, the thread in the middle, a
 // composer at the bottom, suggested questions when a chat is empty.
 // Conversations are kept in this browser (localStorage) so a chat survives
-// navigating away (the assistant will happily take you to another screen
+// navigating away (Mitra will happily take you to another screen
 // mid-conversation) and coming back.
 //
-// Voice: press the microphone and speak — the browser's own speech
-// recognition turns it into text, which then follows exactly the same path as
-// anything typed (nothing is sent anywhere extra). Replies to a spoken
-// question are read back aloud, and the speaker button turns that on for
-// typed questions too. Both listen and speak follow the interface language
-// (English or Gujarati). Where the browser has no speech recognition (Firefox)
-// the microphone explains itself instead of failing silently.
+// WHO ANSWERS (REQUIREMENTS §80, §72). When the server has a model, every
+// message goes first to MITRA AS AN AGENT (engine/mitraAgent.ts): the model
+// reads the message and the files attached to it, calls the app's own tools
+// (engine/mitraTools.ts — open a document, fill the open record, search the
+// records, work out history…) and answers in words; the steps it took are
+// drawn under its answer as it works. When the model cannot be reached — no
+// key on this server, no internet, the plant's daily allowance used up, or
+// the call failed — the message falls through to the app's own chain, exactly
+// as before: a few intents are answered on the client instantly (holidays,
+// what's due, the briefing, out-of-scope questions, starting a document —
+// engine/assistantLocal.ts, engine/assistantCommands.ts) and the rest goes to
+// /api/assistant/chat with a digest of live facts; an answer the model did not
+// give says so on its face (§72).
 //
-// Answers come from two places: a few intents are answered on the client
-// instantly (holidays / weekly off / adjustment days, what's due, the
-// briefing, out-of-scope questions, help — see engine/assistantLocal.ts);
-// everything else goes to /api/assistant/chat with a digest of live facts
-// attached, so the model can answer from the app's own data.
+// Voice: press the microphone and speak. With a key on the server the sound
+// is recorded and written down by the server (Groq Whisper); without one the
+// browser's own speech recognition does it (utils/speech.ts), as it always
+// has. Either way the words follow exactly the same path as anything typed,
+// and a reply to a spoken question is read back aloud.
+//
+// Files: a PDF, a Word or Excel file, a CSV, a text file, a photo — attached
+// with the +, dropped on the composer or pasted into it. The server reads the
+// words out of each (a photo by OCR) and they travel with the message.
+
+// What may be typed in one message. The message the agent sends carries the
+// attachments' text besides (engine/mitraAgent.ts caps that); the older /chat
+// endpoint rejects messages over 2000 characters, so what goes there is cut.
+const MAX_INPUT_CHARS = 4000;
+const MAX_CHAT_CHARS = 2000;
+
+/** What a stored message keeps of a file that went with it. */
+interface StoredAttachment {
+  id: string;
+  name: string;
+  kind: AttachmentKind;
+  characters: number;
+}
 
 interface StoredMessage {
   id: string;
@@ -86,6 +115,16 @@ interface StoredMessage {
    * many messages later and on whatever day, builds on exactly that.
    */
   intent?: KeptIntent;
+  /** The tools the agent called for this answer, in order (REQUIREMENTS §80). */
+  steps?: MitraStep[];
+  /** The files that went with the person's message. */
+  attachments?: StoredAttachment[];
+  /** The answers to a question Mitra asked, as chips; retired once the conversation moves on. */
+  options?: string[];
+  /** The agent is still writing this one. Never true after the page is loaded again. */
+  pending?: boolean;
+  /** A yes/no a tool put to the person (MitraToolContext.confirm); `options` holds the two words. */
+  confirm?: { yes: string; no: string };
 }
 
 interface Conversation {
@@ -105,9 +144,58 @@ const STORE_KEY = "assistant-conversations";
 const MAX_CONVERSATIONS = 30;
 const MAX_MESSAGES = 200;
 
-function loadState(): StoredState {
+// THE CONVERSATIONS LIVE IN THE BROWSER'S STORE, AND ARE WRITTEN THERE AT ONCE.
+// A tool the agent calls may take the person to another screen in the middle
+// of a turn — "open today's daily record" does exactly that — and this page is
+// then gone while the turn is still running. Its answer must still be kept, so
+// every change is written straight to the store here, outside React, and the
+// mounted page (this one or the next) is told. React's own state only mirrors
+// the store.
+const listeners = new Set<(s: StoredState) => void>();
+let turnsInFlight = 0;
+
+function readState(): StoredState {
   const s = readJSON<Partial<StoredState>>(STORE_KEY, {});
   return { activeId: s.activeId ?? null, conversations: Array.isArray(s.conversations) ? s.conversations : [] };
+}
+
+function commitState(next: StoredState): void {
+  writeJSON(STORE_KEY, next);
+  listeners.forEach((tell) => tell(next));
+}
+
+function mutateState(change: (s: StoredState) => StoredState): void {
+  commitState(change(readState()));
+}
+
+// A turn cannot outlive the browser it ran in: a message still "pending" when
+// the app was closed is closed here, and the chips of a yes/no whose promise
+// is gone retire. Returns the same object when there is nothing to settle.
+function settle(c: Conversation): Conversation {
+  if (!c.messages.some((m) => m.pending || m.confirm)) return c;
+  return {
+    ...c,
+    messages: c.messages.map((m) => (m.pending || m.confirm ? { ...m, pending: undefined, confirm: undefined, options: m.confirm ? undefined : m.options, text: m.text || "…" } : m)),
+  };
+}
+
+function settleAll(s: StoredState): StoredState {
+  let changed = false;
+  const conversations = s.conversations.map((c) => {
+    const next = settle(c);
+    if (next !== c) changed = true;
+    return next;
+  });
+  return changed ? { ...s, conversations } : s;
+}
+
+/** The state as the page should show it: settled, unless a turn is still running somewhere. */
+function currentState(): StoredState {
+  const raw = readState();
+  if (turnsInFlight > 0) return raw;
+  const settled = settleAll(raw);
+  if (settled !== raw) writeJSON(STORE_KEY, settled);
+  return settled;
 }
 
 // Timestamps are stored as UTC ISO strings; both the date and the time shown
@@ -126,6 +214,8 @@ function timeLabel(iso: string): string {
   return `${formatDisplayDate(toISODate(d))} ${hh}:${mm}`;
 }
 
+const narrowWindow = (): boolean => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 900px)").matches;
+
 export function AssistantPage() {
   const { user } = useAuth();
   const { mode, currentUser, bump } = useAppStore();
@@ -133,7 +223,7 @@ export function AssistantPage() {
   const { lang } = useLanguage();
   const t = useT();
   const isDemo = mode === "demo";
-  const [state, setState] = useState<StoredState>(loadState);
+  const [state, setState] = useState<StoredState>(currentState);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   // Which conversation the in-flight request belongs to — the typing bubble
@@ -143,43 +233,70 @@ export function AssistantPage() {
   const [listening, setListening] = useState(false);
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
   const [speakReplies, setSpeakReplies] = useState(() => settingsRepository.get().speakReplies);
-  const logRef = useRef<HTMLDivElement>(null);
+  // The files attached to the message being written (REQUIREMENTS §80).
+  const [attachments, setAttachments] = useState<MitraAttachment[]>([]);
+  const [recording, setRecording] = useState({ active: false, seconds: 0, transcribing: false });
+  // The list of conversations folds away on a narrow window, and on request.
+  const [sideCollapsed, setSideCollapsed] = useState(narrowWindow);
+  // Drawn again when the network comes or goes, so the status dot is honest.
+  const [, setNetTick] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sessionRef = useRef<VoiceSession | null>(null);
+  const recorderRef = useRef<Recording | null>(null);
+  const attachmentsRef = useRef<MitraAttachment[]>([]);
+  // The yes/no questions tools have put and not yet had answered, by message id.
+  const confirmsRef = useRef(new Map<string, (yes: boolean) => void>());
   const firstName = (user?.name ?? currentUser).trim().split(/\s+/)[0];
   const active = state.conversations.find((c) => c.id === state.activeId) ?? null;
   const voiceSupported = isVoiceInputSupported();
   const speechSupported = isSpeechOutputSupported();
   const speechLocale = SPEECH_LOCALES[lang];
+  // Whisper when the server has a key and this browser can record; else the
+  // browser's own recognition, exactly as before; else a button that explains.
+  const voiceMode: "whisper" | "browser" | "none" = assistantConfigured() && isRecorderSupported() ? "whisper" : voiceSupported ? "browser" : "none";
+  const reachNow = modelReachable();
+  const ready = assistantConfigured() && reachNow.ok;
+  const notReadyWhy: Unreachable = reachNow.ok ? "not-configured" : reachNow.why;
 
-  // Written only when it changed — and a conversation brought in from another
-  // device (data/serverSync.ts) is taken in, not written over with this page's
-  // older copy.
+  // The store tells this page about every change — its own, and one made by a
+  // turn that outlived an earlier copy of the page. A conversation brought in
+  // from another device (data/serverSync.ts) is taken in the same way.
   useEffect(() => {
-    if (JSON.stringify(loadState()) !== JSON.stringify(state)) writeJSON(STORE_KEY, state);
-  }, [state]);
-  useEffect(
-    () =>
-      onExternalChange((key) => {
-        if (key === null || key === STORE_KEY) setState(loadState());
-      }),
-    []
-  );
+    listeners.add(setState);
+    const off = onExternalChange((key) => {
+      if (key === null || key === STORE_KEY) setState(currentState());
+    });
+    return () => {
+      listeners.delete(setState);
+      off();
+    };
+  }, []);
 
   useEffect(() => {
-    const el = logRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [active?.messages.length, loading]);
+    attachmentsRef.current = attachments;
+  }, [attachments]);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, [state.activeId]);
+
+  useEffect(() => {
+    const tick = () => setNetTick((n) => n + 1);
+    window.addEventListener("online", tick);
+    window.addEventListener("offline", tick);
+    return () => {
+      window.removeEventListener("online", tick);
+      window.removeEventListener("offline", tick);
+    };
+  }, []);
 
   // Leaving the page must not leave the microphone open or a reply still
   // being read out.
   useEffect(() => {
     return () => {
       sessionRef.current?.cancel();
+      recorderRef.current?.cancel();
+      recorderRef.current = null;
       stopSpeaking();
     };
   }, []);
@@ -187,50 +304,58 @@ export function AssistantPage() {
   const createConversation = (): string => {
     const id = generateId("conv");
     const now = new Date().toISOString();
-    setState((s) => ({
+    mutateState((s) => ({
       activeId: id,
       conversations: [{ id, title: t("ai.newChat"), createdAt: now, updatedAt: now, messages: [] }, ...s.conversations].slice(0, MAX_CONVERSATIONS),
     }));
     return id;
   };
 
+  const selectConversation = (id: string) => mutateState((s) => ({ ...s, activeId: id }));
+
   const removeConversation = (id: string) => {
-    setState((s) => {
+    mutateState((s) => {
       const conversations = s.conversations.filter((c) => c.id !== id);
       return { activeId: s.activeId === id ? (conversations[0]?.id ?? null) : s.activeId, conversations };
     });
   };
 
   const append = (convId: string, msg: StoredMessage) => {
-    setState((s) => ({
+    mutateState((s) => ({
+      ...s,
+      conversations: s.conversations.map((c) => {
+        if (c.id !== convId) return c;
+        // A conversation is named after its first real message — in whichever
+        // language that chat was started in; a message that is only files, after them.
+        const first = msg.role === "user" && !c.messages.some((m) => m.role === "user");
+        const title = first ? (msg.text || msg.attachments?.map((a) => a.name).join(", ") || c.title).slice(0, 48) : c.title;
+        return {
+          ...c,
+          updatedAt: msg.at,
+          title,
+          // Older chips and options are retired once the conversation moves on —
+          // the same rule as the widget, so a stale "Open" or "Yes" can't act on
+          // an outdated answer.
+          messages: [...c.messages.map((m) => (m.chips || m.options ? { ...m, chips: undefined, options: undefined } : m)), msg].slice(-MAX_MESSAGES),
+        };
+      }),
+    }));
+  };
+
+  const patchMessage = (convId: string, messageId: string, change: Partial<StoredMessage> | ((m: StoredMessage) => StoredMessage)) => {
+    mutateState((s) => ({
       ...s,
       conversations: s.conversations.map((c) =>
-        c.id !== convId
-          ? c
-          : {
-              ...c,
-              updatedAt: msg.at,
-              // A conversation is named after its first real message — in
-              // whichever language that chat was started in.
-              title: !c.messages.some((m) => m.role === "user") && msg.role === "user" ? msg.text.slice(0, 48) : c.title,
-              // Older chips are retired once the conversation moves on — the
-              // same rule as the widget, so a stale "Open" button can't act
-              // on an outdated answer.
-              messages: [...c.messages.map((m) => (m.chips ? { ...m, chips: undefined } : m)), msg].slice(-MAX_MESSAGES),
-            }
+        c.id !== convId ? c : { ...c, messages: c.messages.map((m) => (m.id !== messageId ? m : typeof change === "function" ? change(m) : { ...m, ...change })) }
       ),
     }));
   };
 
-  const stamp = () => new Date().toISOString();
-
-  /** Keeps what a question about history was understood as on the message that asked it. */
-  const keepOnMessage = (convId: string, messageId: string, kept: KeptIntent) => {
-    setState((s) => ({
-      ...s,
-      conversations: s.conversations.map((c) => (c.id !== convId ? c : { ...c, messages: c.messages.map((m) => (m.id === messageId ? { ...m, intent: kept } : m)) })),
-    }));
+  const removeMessage = (convId: string, messageId: string) => {
+    mutateState((s) => ({ ...s, conversations: s.conversations.map((c) => (c.id !== convId ? c : { ...c, messages: c.messages.filter((m) => m.id !== messageId) })) }));
   };
+
+  const stamp = () => new Date().toISOString();
 
   // "Generate an external CAPA for me", "I want to fill the daily monitoring
   // record", "create a new fly catcher record" — said here, where no record
@@ -276,20 +401,196 @@ export function AssistantPage() {
     } else if (a.type === "createRecord") startDocument("create", a.documentId, a.dateISO, active?.id ?? createConversation());
   };
 
+  // What a tool may ask the page to do on its behalf (engine/mitraTools.ts
+  // start_guided_fill and its kin): the flows this page already runs for a
+  // chip. Anything that needs the widget's open record is left alone here.
+  const runToolAction = (action: ChipAction) => {
+    if (action.type === "navigate" || action.type === "briefing" || action.type === "sampleFill" || action.type === "startInterview" || action.type === "createRecord") {
+      runChip({ label: "", action });
+    }
+  };
+
+  // A YES/NO PUT BY A TOOL before something that cannot be undone — deleting a
+  // record, reopening a verified one — drawn as two chips; the click answers
+  // the promise, the chips retire, and the choice shows as the person's.
+  const askToConfirm = (convId: string, question: string, yes: string, no: string): Promise<boolean> =>
+    new Promise<boolean>((resolve) => {
+      const id = generateId("msg");
+      confirmsRef.current.set(id, resolve);
+      append(convId, { id, role: "bot", text: question, at: stamp(), options: [yes, no], confirm: { yes, no } });
+    });
+
+  /** Every question still waiting is answered this way — typing something else means no. */
+  const settleConfirms = (answer: boolean) => {
+    confirmsRef.current.forEach((resolve) => resolve(answer));
+    confirmsRef.current.clear();
+  };
+
+  const onOption = (choice: string, m: MitraMessageView) => {
+    const convId = active?.id;
+    if (m.confirm && convId) {
+      const resolve = confirmsRef.current.get(m.id);
+      confirmsRef.current.delete(m.id);
+      patchMessage(convId, m.id, { options: undefined });
+      append(convId, { id: generateId("msg"), role: "user", text: choice, at: stamp() });
+      resolve?.(choice === m.confirm.yes);
+      return;
+    }
+    // An answer to ask_user goes as the next message, as if typed.
+    void send(choice);
+  };
+
+  const toolContext = (convId: string, words: string, files: MitraAttachment[]): MitraToolContext => ({
+    today: todayISO(),
+    isDemo,
+    language: lang,
+    userName: user?.name ?? currentUser,
+    currentRoute: "/assistant",
+    navigate: (route) => {
+      if (isValidAppRoute(route)) navigate(route);
+    },
+    // No record is open on this page; the widget is the host for that.
+    target: null,
+    bump,
+    attachments: files,
+    confirm: (question, yes, no) => askToConfirm(convId, question, yes, no),
+    runWidgetAction: runToolAction,
+    userWords: words,
+  });
+
+  // FILES FOR THE MESSAGE BEING WRITTEN (REQUIREMENTS §80). Each is read on the
+  // server as soon as it is chosen (engine/mitraAttachments.ts) so its chip
+  // says what it holds before the message goes; a file that cannot go says why.
+  const upsertAttachment = (a: MitraAttachment) => setAttachments((list) => (list.some((x) => x.id === a.id) ? list.map((x) => (x.id === a.id ? a : x)) : [...list, a]));
+
+  const addFiles = (files: File[], source: AttachSource) => {
+    const notes: string[] = [];
+    let chosen = files;
+    let skipped = 0;
+    if (source === "folder") {
+      const picked = pickFromFolder(files);
+      chosen = picked.files;
+      skipped = picked.skipped;
+      notes.push(...picked.reasons.slice(0, 2));
+    }
+    const room = MAX_ATTACHMENTS - attachmentsRef.current.length;
+    if (chosen.length > room) {
+      notes.push(t("ai.tooMany", { n: MAX_ATTACHMENTS }));
+      chosen = chosen.slice(0, Math.max(0, room));
+    }
+    for (const file of chosen) {
+      // Too big, empty, hidden, or a kind nobody here can read — said in the interface language.
+      const verdict = acceptFile(file);
+      if (!verdict.ok) {
+        notes.push(verdict.why);
+        continue;
+      }
+      void readAttachment(file, upsertAttachment)
+        .then(upsertAttachment)
+        .catch(() => {
+          // The reader says a failure through its own chip; should it throw
+          // instead, the chip must not stay "reading" for ever.
+          setAttachments((list) => list.map((a) => (a.status === "reading" && a.name === file.name && a.size === file.size ? { ...a, status: "failed", note: t("ai.readFailed") } : a)));
+        });
+    }
+    if (skipped > 0) notes.push(t("ai.folderSkipped", { n: skipped, max: MAX_ATTACHMENTS }));
+    if (notes.length) setVoiceNote(notes.join(" "));
+    inputRef.current?.focus();
+  };
+
+  const removeAttachment = (id: string) => setAttachments((list) => list.filter((a) => a.id !== id));
+
   // `spoken` = the question arrived by voice, so the reply is read back even
   // when "read replies aloud" is off — answering out loud is the whole point
   // of having asked out loud.
   const send = async (raw?: string, spoken = false) => {
-    const text = (raw ?? input).trim().slice(0, MAX_MESSAGE_CHARS);
-    if (!text || loading) return;
+    const text = (raw ?? input).trim().slice(0, MAX_INPUT_CHARS);
+    const files = attachmentsRef.current.filter((a) => a.status === "ready");
+    if ((!text && files.length === 0) || loading) return;
+    // A file still being read goes with the next message, not half-read with this one.
+    if (attachmentsRef.current.some((a) => a.status === "reading")) return;
     setInput("");
     setVoiceNote(null);
+    setAttachments([]);
+    // A yes/no still waiting is answered by moving on: no.
+    settleConfirms(false);
     const convId = active?.id ?? createConversation();
     const readOut = (reply: string) => {
-      if (spoken || speakReplies) speak(reply, speechLocale);
+      if (spoken || speakReplies) speak(stripMarkdown(reply), speechLocale);
     };
     const askedId = generateId("msg");
-    append(convId, { id: askedId, role: "user", text, at: stamp() });
+    append(convId, {
+      id: askedId,
+      role: "user",
+      text,
+      at: stamp(),
+      ...(files.length ? { attachments: files.map(({ id, name, kind, characters }) => ({ id, name, kind, characters })) } : {}),
+    });
+
+    // MITRA AS AN AGENT (REQUIREMENTS §80). With a model to ask, the message and
+    // its files go to the agent loop: the model calls the app's tools and the
+    // steps appear under its answer as it works; a question it needs answered
+    // comes back with its options as chips (ask_user). Should the loop fail —
+    // the allowance used up, the server unreachable, the call refused — the
+    // message falls through to the app's own chain below, whose answer then
+    // says the model did not give it (§72).
+    const reach = modelReachable();
+    let agentFailure: Unreachable | null = null;
+    if (assistantConfigured() && reach.ok) {
+      const botId = generateId("msg");
+      append(convId, { id: botId, role: "bot", text: "", at: stamp(), pending: true });
+      setLoading(true);
+      setPendingId(convId);
+      turnsInFlight += 1;
+      let steps: MitraStep[] = [];
+      try {
+        // The conversation so far — whoever answered each turn — is the agent's
+        // memory (engine/mitraAgent.ts keeps at most six turns of it); the
+        // message just sent is not in `active` yet, which is as it should be.
+        const earlier = (active?.messages ?? []).filter((m) => m.text && !m.pending).map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text }));
+        const out = await runMitraTurn({
+          text,
+          attachments: files,
+          history: historyForAgent(earlier),
+          ctx: toolContext(convId, text, files),
+          onEvent: (e) => {
+            if (e.type === "step") {
+              steps = steps.some((s) => s.id === e.id)
+                ? steps.map((s) => (s.id === e.id ? { ...s, label: e.label, status: e.status } : s))
+                : [...steps, { id: e.id, tool: e.tool, label: e.label, status: e.status }];
+              patchMessage(convId, botId, { steps });
+            } else if (e.type === "text" && e.text.trim()) {
+              patchMessage(convId, botId, { text: e.text });
+            }
+          },
+        });
+        const said = (out.final ?? out.ask?.question ?? "").trim();
+        patchMessage(convId, botId, (m) => ({
+          ...m,
+          pending: false,
+          text: said || m.text || t("ai.done"),
+          steps: out.steps.length ? out.steps : m.steps,
+          ...(out.ask ? { options: out.ask.options } : {}),
+        }));
+        readOut(said || t("ai.done"));
+        noteModelAnswered();
+        return;
+      } catch (err) {
+        agentFailure = noteModelFailed(err);
+        removeMessage(convId, botId);
+        // …and on to the app's own chain.
+      } finally {
+        turnsInFlight = Math.max(0, turnsInFlight - 1);
+        setLoading(false);
+        setPendingId(null);
+      }
+    }
+
+    // Files were attached, but nothing could read them: said, never swallowed.
+    if (files.length > 0) {
+      append(convId, { id: generateId("msg"), role: "bot", text: t("ai.attachNeedsMitra"), at: stamp(), offline: agentFailure ?? (reach.ok ? "not-configured" : reach.why) });
+      if (!text) return;
+    }
 
     // HR Master Data (REQUIREMENTS §53) — "open HR master data"; a fetch said
     // here is told which record to open first.
@@ -354,7 +655,7 @@ export function AssistantPage() {
     // conversation from before questions were kept is read again as before.
     const previous = looksLikeFollowUp(text) ? previousIntentIn(earlier, today) : null;
     const intent = analyticIntent(text, today, previous);
-    if (intent) keepOnMessage(convId, askedId, keepIntent(intent));
+    if (intent) patchMessage(convId, askedId, { intent: keepIntent(intent) });
     // The conversation so far, so the model can read a follow-up (at most six turns).
     const history = historyForModel(earlier.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text })));
 
@@ -377,11 +678,12 @@ export function AssistantPage() {
       const fallbackCites = !local && evidence ? citeLinks(evidence.recordIds, evidence.recordIds) : undefined;
       const citesOf = (cites: CiteLink[] | undefined) => (cites && cites.length ? { cites } : {});
 
-      // No model to ask: answered from the app's own tables, marked as such.
-      const reach = modelReachable();
-      if (!reach.ok) {
+      // No model to ask — or the agent was just asked and could not answer, so
+      // it is not asked twice: answered from the app's own tables, marked as such.
+      const unreachable: Unreachable | null = !reach.ok ? reach.why : agentFailure;
+      if (unreachable) {
         const answer = fallback ?? { reply: t("ai.offline.noAnswer"), chips: undefined };
-        append(convId, { id: generateId("msg"), role: "bot", text: answer.reply, at: stamp(), chips: answer.chips, offline: reach.why, ...citesOf(fallback ? fallbackCites : undefined) });
+        append(convId, { id: generateId("msg"), role: "bot", text: answer.reply, at: stamp(), chips: answer.chips, offline: unreachable, ...citesOf(fallback ? fallbackCites : undefined) });
         readOut(answer.reply);
         return;
       }
@@ -390,7 +692,7 @@ export function AssistantPage() {
         // What stands out, for the live facts: worked out in slices before it is read.
         await prepareScopedInsights(isDemo).catch((err) => console.error("The insights could not be worked out", err));
         const result = await assistantApi.chat({
-          message: text,
+          message: text.slice(0, MAX_CHAT_CHARS),
           today,
           currentRoute: "/assistant",
           context: buildAssistantContext(isDemo, user?.name, text),
@@ -440,6 +742,9 @@ export function AssistantPage() {
     }
   };
 
+  // THE BROWSER'S OWN RECOGNITION (utils/speech.ts), when the server has no
+  // key: the sentence appears in the composer as it is spoken and goes as
+  // typed once the speaker has finished (tests/e2e_voice.py).
   const toggleListening = () => {
     // Pressing it while listening means "I've finished" — send what was said
     // rather than throwing it away.
@@ -475,6 +780,65 @@ export function AssistantPage() {
     });
   };
 
+  // VOICE BY THE SERVER (Groq Whisper, REQUIREMENTS §80): record until the
+  // button is pressed again (or the recorder's own limit of 90 s), have the
+  // server write it down, and send the words as spoken. The person's own
+  // language is not forced on the server: with the interface in Gujarati they
+  // will be speaking Gujarati; in English they may be speaking either, and
+  // Whisper hears which.
+  const transcribeClip = async (blob: Blob) => {
+    setRecording({ active: false, seconds: 0, transcribing: true });
+    try {
+      const heard = await assistantApi.transcribe(blob, lang === "gu" ? "gu" : "auto");
+      const said = heard.text.trim();
+      if (said) void send(said, true);
+      else setVoiceNote(t("ai.voiceError"));
+    } catch (err) {
+      setVoiceNote(err instanceof ApiError && err.code === "not-configured" ? t("ai.voiceUnsupported") : t("ai.voiceError"));
+    } finally {
+      setRecording({ active: false, seconds: 0, transcribing: false });
+    }
+  };
+
+  const finishRecording = async () => {
+    const rec = recorderRef.current;
+    if (!rec) return;
+    recorderRef.current = null;
+    setRecording({ active: false, seconds: 0, transcribing: true });
+    try {
+      await transcribeClip(await rec.stop());
+    } catch {
+      setRecording({ active: false, seconds: 0, transcribing: false });
+      setVoiceNote(t("ai.voiceError"));
+    }
+  };
+
+  const startWhisper = async () => {
+    stopSpeaking();
+    setVoiceNote(null);
+    try {
+      const rec = await startRecording({
+        onSeconds: (s) => setRecording((r) => (r.active ? { ...r, seconds: s } : r)),
+        // The recorder stopped itself at its limit: the clip goes as if the button had been pressed.
+        onAutoStop: (blob) => {
+          recorderRef.current = null;
+          void transcribeClip(blob);
+        },
+      });
+      recorderRef.current = rec;
+      setRecording({ active: true, seconds: 0, transcribing: false });
+    } catch (err) {
+      const kind = recorderErrorKind(err);
+      setVoiceNote(kind === "denied" ? t("ai.voiceDenied") : kind === "unsupported" ? t("ai.voiceUnsupported") : t("ai.voiceError"));
+    }
+  };
+
+  const toggleWhisper = () => {
+    if (recording.transcribing) return;
+    if (recorderRef.current) void finishRecording();
+    else void startWhisper();
+  };
+
   const toggleSpeakReplies = () => {
     const next = !speakReplies;
     setSpeakReplies(next);
@@ -482,9 +846,40 @@ export function AssistantPage() {
     if (!next) stopSpeaking();
   };
 
+  const onCite = useCallback(
+    (route: string) => {
+      if (isValidAppRoute(route)) navigate(route);
+    },
+    [navigate]
+  );
+
+  // The line above the composer: listening or recording (red), the words
+  // coming back, or what went wrong with a file or the microphone.
+  const note =
+    listening || recording.active
+      ? {
+          text: (
+            <>
+              <span className="voice-pulse" /> {recording.active ? t("ai.recording") : t("ai.listening")}
+            </>
+          ),
+          listening: true,
+        }
+      : recording.transcribing
+        ? {
+            text: (
+              <>
+                <FiLoader size={12} className="mitra-spin" /> {t("ai.transcribing")}
+              </>
+            ),
+          }
+        : voiceNote
+          ? { text: voiceNote }
+          : null;
+
   return (
     <div className={`assistant-page ${isDemo ? "demo-watermark" : ""}`}>
-      <aside className="assistant-side card">
+      <aside className={`assistant-side card${sideCollapsed ? " is-collapsed" : ""}`}>
         <div className="assistant-side-head">
           <span className="text-sm font-semibold">{t("ai.conversations")}</span>
           <button className="btn btn-primary btn-sm" onClick={() => createConversation()} aria-label={t("ai.newChat")}>
@@ -498,7 +893,7 @@ export function AssistantPage() {
             </div>
           )}
           {state.conversations.map((c) => (
-            <div key={c.id} className={`assistant-conv ${c.id === state.activeId ? "active" : ""}`} onClick={() => setState((s) => ({ ...s, activeId: c.id }))}>
+            <div key={c.id} className={`assistant-conv ${c.id === state.activeId ? "active" : ""}`} onClick={() => selectConversation(c.id)}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="text-sm truncate">{c.title}</div>
                 <div className="text-xs text-faint">{dayLabel(c.updatedAt)}</div>
@@ -522,11 +917,28 @@ export function AssistantPage() {
 
       <section className="assistant-main card">
         <header className="assistant-head">
-          <span className="chat-avatar" style={{ width: 30, height: 30 }}>
+          <button
+            className="btn btn-ghost btn-sm btn-icon"
+            data-action="toggle-conversations"
+            onClick={() => setSideCollapsed((c) => !c)}
+            aria-label={t("ai.toggleConversations")}
+            title={t("ai.toggleConversations")}
+            aria-pressed={!sideCollapsed}
+          >
+            <FiSidebar size={15} />
+          </button>
+          <span className={`chat-avatar${loading ? " is-thinking" : ""}`} style={{ width: 30, height: 30 }} aria-hidden="true">
             <FiZap size={14} />
           </span>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="font-semibold">{t("ai.title")}</div>
+            <div className="font-semibold flex items-center gap-2" style={{ minWidth: 0 }}>
+              <span>{t("ai.title")}</span>
+              {/* Green: a model to ask, and the internet to reach it. Grey: this
+                  system's own records answer, and the tooltip says why (§72). */}
+              <span className="mitra-status" data-state={ready ? "ready" : "offline"} title={ready ? t("ai.ready") : unreachableLabel(notReadyWhy, t)}>
+                {ready ? t("ai.ready") : t("ai.statusOffline")}
+              </span>
+            </div>
             <div className="text-xs text-muted truncate">{t("ai.headerSubtitle")}</div>
           </div>
           {speechSupported && (
@@ -543,8 +955,15 @@ export function AssistantPage() {
           )}
         </header>
 
-        <div ref={logRef} className="assistant-log chat-log">
-          {(!active || active.messages.length === 0) && (
+        <MitraThread
+          className="assistant-log"
+          messages={active?.messages ?? []}
+          thinking={loading && pendingId === active?.id}
+          onChip={runChip}
+          onOption={onOption}
+          onCite={onCite}
+          timeLabel={timeLabel}
+          emptyState={
             <div className="assistant-welcome">
               <h2 className="text-xl mb-1">{hello(user?.name)}</h2>
               <p className="text-muted mb-4" style={{ maxWidth: 560 }}>
@@ -553,13 +972,13 @@ export function AssistantPage() {
               {/* "Where would you like to go?" — the same question the widget
                   opens with, answered right here (REQUIREMENTS §50). */}
               <div className="chat-chips mb-4">
-                <button type="button" className="chat-chip primary" data-action="guide-home" onClick={() => runChip({ label: t("ai.guide.whereToChip"), action: { type: "guide", step: "home" } })}>
+                <button type="button" className="chat-chip primary" data-action="guide-home" data-chip="guide" onClick={() => runChip({ label: t("ai.guide.whereToChip"), action: { type: "guide", step: "home" } })}>
                   {t("ai.whereTo")}
                 </button>
               </div>
               <div className="assistant-suggestions">
                 {suggestedPrompts().map((p) => (
-                  <button key={p.title} type="button" className="assistant-suggestion" onClick={() => send(p.text)}>
+                  <button key={p.title} type="button" className="assistant-suggestion" onClick={() => void send(p.text)}>
                     <FiMessageSquare size={13} className="text-faint" />
                     <span>
                       <strong>{p.title}</strong>
@@ -571,110 +990,27 @@ export function AssistantPage() {
                 ))}
               </div>
             </div>
-          )}
-          {active?.messages.map((m) => (
-            <React.Fragment key={m.id}>
-              <div className={`chat-msg ${m.role}`} title={timeLabel(m.at)}>
-                {m.text}
-              </div>
-              {/* Answered by the app itself, not by the model (REQUIREMENTS §72). */}
-              {m.offline && (
-                <div className="chat-aside" data-offline={m.offline}>
-                  <FiWifiOff size={11} /> {unreachableLabel(m.offline, t)}
-                </div>
-              )}
-              {/* THE RECORDS AN ANSWER WAS READ FROM (REQUIREMENTS §75): only ones
-                  the evidence named and this account may open. Kept with the
-                  answer: a record a figure came from does not go stale. */}
-              {m.cites && m.cites.length > 0 && (
-                <div className="chat-chips" data-section="cites" style={{ alignSelf: "flex-start", maxWidth: "80%" }}>
-                  {m.cites.map((c) => (
-                    <button
-                      key={c.recordId}
-                      type="button"
-                      className="chat-chip"
-                      data-cite={c.recordId}
-                      style={{ fontSize: 11, padding: "2px 8px" }}
-                      onClick={() => {
-                        if (isValidAppRoute(c.route)) navigate(c.route);
-                      }}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {m.chips && m.chips.length > 0 && (
-                <div className="chat-chips" style={{ alignSelf: "flex-start", maxWidth: "80%" }}>
-                  {m.chips.map((c) => (
-                    <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} onClick={() => runChip(c)}>
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </React.Fragment>
-          ))}
-          {loading && pendingId === active?.id && (
-            <div className="chat-msg bot">
-              <span className="chat-typing">
-                <span />
-                <span />
-                <span />
-              </span>
-            </div>
-          )}
-        </div>
+          }
+        />
 
-        {(listening || voiceNote) && (
-          <div className={`assistant-voice-note ${listening ? "listening" : ""}`}>
-            {listening ? (
-              <>
-                <span className="voice-pulse" /> {t("ai.listening")}
-              </>
-            ) : (
-              voiceNote
-            )}
-          </div>
-        )}
-
-        <div className="assistant-composer">
-          <textarea
-            ref={inputRef}
-            className="input assistant-input"
-            rows={2}
-            maxLength={MAX_MESSAGE_CHARS}
-            placeholder={t("ai.composerPlaceholder")}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            disabled={loading}
-          />
-          {/* data-action is a stable hook for tests and shortcuts: the
-              aria-label is translated, so it can't be selected on. */}
-          <button
-            className={`btn ${listening ? "btn-danger" : "btn-secondary"}`}
-            data-action="voice"
-            onClick={toggleListening}
-            disabled={loading}
-            aria-label={listening ? t("ai.stopVoice") : t("ai.startVoice")}
-            title={voiceSupported ? (listening ? t("ai.stopVoice") : t("ai.startVoice")) : t("ai.voiceUnsupported")}
-            aria-pressed={listening}
-          >
-            {listening ? <FiMicOff size={14} /> : <FiMic size={14} />} {listening ? t("ai.done") : t("ai.speak")}
-          </button>
-          <button className="btn btn-primary" data-action="send" onClick={() => send()} disabled={loading || !input.trim()} aria-label={t("ai.send")}>
-            <FiSend size={14} /> {t("ai.send")}
-          </button>
-        </div>
-        <div className="text-xs text-faint" style={{ padding: "0 16px 12px" }}>
-          {t("ai.footer")}
-        </div>
+        <MitraComposer
+          className="assistant-composer"
+          inputRef={inputRef}
+          value={input}
+          onChange={setInput}
+          onSend={() => void send()}
+          busy={loading}
+          attachments={attachments}
+          onAttach={addFiles}
+          onRemoveAttachment={removeAttachment}
+          recording={voiceMode === "whisper" ? recording : { active: listening, seconds: 0, transcribing: false }}
+          onToggleVoice={voiceMode === "whisper" ? toggleWhisper : toggleListening}
+          voiceMode={voiceMode}
+          placeholder={t("ai.composerPlaceholderShort")}
+          maxLength={MAX_INPUT_CHARS}
+          note={note}
+        />
+        <div className="text-xs text-faint mitra-footer">{t("ai.footer")}</div>
       </section>
     </div>
   );

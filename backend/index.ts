@@ -38,6 +38,9 @@ import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COO
 import { distDir } from "./paths.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
+import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAgent.ts";
+import { readAttachment, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
+import { groqTranscribe } from "./groq.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
@@ -51,7 +54,14 @@ const MAX_EMAIL_LENGTH = 254;
 
 const app = express();
 app.disable("x-powered-by");
-app.use(express.json());
+// JSON bodies for every route but the three of Mitra's that read their own:
+// the agent route takes JSON of up to 200 KB (a Gujarati conversation of the
+// permitted 40,000 characters is 120 KB of UTF-8, more than the 100 KB this
+// parser allows), and the attachment and voice routes take the raw file — a
+// .json attachment must reach them as bytes, not as a parsed object.
+const jsonBody = express.json();
+const OWN_BODY_PARSER_ROUTES = new Set(["/api/assistant/agent", "/api/assistant/extract", "/api/assistant/transcribe"]);
+app.use((req: Request, res: Response, next: NextFunction) => (OWN_BODY_PARSER_ROUTES.has(req.path) ? next() : jsonBody(req, res, next)));
 app.use(cookieParser());
 // No CORS middleware: the dev frontend proxies /api/* to this server on the
 // same origin (see frontend/scripts/dev-server.ts) and the production build is
@@ -836,6 +846,101 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
     // it happens to contain something sensitive.
     console.error(err);
     res.status(502).json({ error: "The assistant is having trouble right now — try again in a moment." });
+  }
+});
+
+// ASK MITRA AS AN AGENT (REQUIREMENTS §80, backend/mitraAgent.ts). The browser
+// sends the conversation and the schemas of the tools it can run; the model
+// answers in words or asks for tool calls, which the BROWSER runs — they act
+// on the working copy, the open record and the router, none of which this
+// server can reach — before it calls again with the results. One request is
+// one round of that loop. The same gate as /chat: the shapes and limits
+// (mitraAgent.ts says why each), the plant's daily allowance, then the
+// per-user throttle; and the same generic words for a failure.
+app.post("/api/assistant/agent", requireAuth, express.json({ limit: "200kb" }), async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).user.id;
+  const checked = validateAgentRequest(req.body);
+  if (!checked.ok) {
+    res.status(400).json({ error: checked.error });
+    return;
+  }
+  if (assistantAllowanceUsedUp()) {
+    res.status(429).json({ error: "The assistant's allowance for today is used up — answers come from this system's own records until tomorrow.", code: "daily-allowance" });
+    return;
+  }
+  if (isAssistantThrottled(userId)) {
+    res.status(429).json({ error: "Too many assistant requests. Try again in a few minutes." });
+    return;
+  }
+  recordAssistantCall(userId);
+  try {
+    res.json(await runAgentStep(checked.request));
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: "The assistant is having trouble right now — try again in a moment." });
+  }
+});
+
+// A FILE ATTACHED TO MITRA (REQUIREMENTS §80, backend/attachments.ts): the raw
+// bytes, whatever their content type (a file the browser cannot name arrives
+// with none), read into text — PDF, Word, Excel, CSV/text, or a picture by
+// OCR — and forgotten. No model is asked, so neither the allowance nor the
+// throttle applies; an unreadable file is a 200 with an empty text and a note
+// in plain words, which the browser shows on the attachment.
+app.post("/api/assistant/extract", requireAuth, express.raw({ type: () => true, limit: MAX_ATTACHMENT_BYTES }), async (req: Request, res: Response): Promise<void> => {
+  const body = req.body;
+  if (!Buffer.isBuffer(body) || body.length === 0) {
+    res.status(400).json({ error: "Choose a file to read." });
+    return;
+  }
+  let fileName = "file";
+  try {
+    fileName = decodeURIComponent(String(req.get("x-file-name") ?? "file")).slice(0, 200);
+  } catch {
+    /* a malformed name only loses the extension hint */
+  }
+  const mime = String(req.get("x-file-type") ?? "").slice(0, 100);
+  try {
+    res.json(await readAttachment(body, fileName, mime || undefined));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "The file couldn't be read." });
+  }
+});
+
+// WHAT A PERSON SAID TO MITRA (REQUIREMENTS §80, backend/groq.ts groqTranscribe):
+// a recording of up to 90 seconds, transcribed by Whisper. Without a key there
+// is nothing to transcribe with, and the browser falls back to its own speech
+// recognition on the `code`. Throttled and counted like a chat call; not
+// metered against the token allowance, which Whisper does not draw on.
+const MAX_RECORDING_BYTES = 10 * 1024 * 1024;
+const AUDIO_MIME_RE = /^(?:audio|video)\/[a-z0-9.+-]+(?:;[\w\s=.,-]*)?$/i;
+
+app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => true, limit: MAX_RECORDING_BYTES }), async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).user.id;
+  if (!process.env.GROQ_API_KEY) {
+    res.status(503).json({ error: "Voice transcription isn't configured on this server.", code: "not-configured" });
+    return;
+  }
+  const body = req.body;
+  if (!Buffer.isBuffer(body) || body.length === 0) {
+    res.status(400).json({ error: "No recording was received." });
+    return;
+  }
+  const mimeHeader = String(req.get("x-mime") ?? "").slice(0, 100);
+  const mime = AUDIO_MIME_RE.test(mimeHeader) ? mimeHeader : "audio/webm";
+  const languageHeader = req.get("x-language");
+  const language = languageHeader === "en" || languageHeader === "gu" ? languageHeader : undefined;
+  if (isAssistantThrottled(userId)) {
+    res.status(429).json({ error: "Too many assistant requests. Try again in a few minutes." });
+    return;
+  }
+  recordAssistantCall(userId);
+  try {
+    res.json(await groqTranscribe({ audio: body, mime, language, prompt: TRANSCRIBE_PROMPT }));
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: "The recording couldn't be transcribed — try again, or type the message." });
   }
 });
 

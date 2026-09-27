@@ -149,6 +149,15 @@ The app behaves like a personal assistant rather than a blank form:
   Demo Mode it also returns the app to Live Mode, or the dashboard would fill the demo year again at once). Demo Mode
   now generates every month's light records and the heavy daily sheets of the month in hand and the three before it
   only — a fixed window, the same in every browser — so opening it no longer fills the browser.
+- **Ask Mitra works as an agent** (REQUIREMENTS §80): with a key on the server, what you tell Mitra — in English,
+  Gujarati or a mix, typed or spoken — goes to the model first, with the tools the screen offers (open a document,
+  read and fill the open record, submit or verify it, change a format, search and list records, the history figures,
+  today's facts …); the model decides, the browser does, and every step shows in the chat as it runs. When an
+  instruction could mean two things Mitra asks, with options as chips, instead of guessing. You can attach **files, a
+  folder or a picture** (PDF, Word, Excel, CSV, text; pictures read by OCR in English and Gujarati) and Mitra reads
+  them; the microphone goes through Groq's Whisper, which hears Gujarati and English mixed. The interface is new —
+  one calm chat, Claude-like, on the full page and in the dock — and the old rules stay as the fallback whenever the
+  model cannot be reached, marked as such.
 - **The top bar tells the time and whether the site is there** (REQUIREMENTS §78): a clock in hours, minutes and
   seconds, 12-hour, and a connection badge coloured at a glance — green Online with the speed beside it, amber Slow,
   orange Very slow, grey No internet, red Site down when the network is there but the site's server does not answer —
@@ -774,6 +783,9 @@ unset and `npm start` / `npm run dev` start a local PostgreSQL of their own (dat
 ```
 GROQ_API_KEY=...          # powers the assistant (fill / navigate / reply) — see backend/groq.ts
 GROQ_MODEL=...             # optional override; defaults to a model this key actually has access to
+GROQ_AGENT_MODEL=...       # optional: the tool-calling model Mitra works with as an agent (REQUIREMENTS §80); defaults to GROQ_MODEL
+MITRA_OCR=1                # set to 0 to stop reading the words in attached pictures (tesseract.js, English + Gujarati)
+MITRA_OCR_LANG_PATH=...    # optional: a folder or URL with eng/guj.traineddata.gz for an offline plant (else downloaded once, ~15 MB)
                             # (check with GET https://api.groq.com/openai/v1/models if you swap keys —
                             # not every model name commonly seen in Groq docs is enabled per-account)
 ```
