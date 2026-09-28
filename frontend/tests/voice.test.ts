@@ -17,7 +17,7 @@ import { setFeatures } from "../src/engine/features";
 import { settingsRepository } from "../src/data/repositories/settingsRepository";
 import { todayISO } from "../src/utils/date";
 import { resetSoundsForTests, watchFirstGesture } from "../src/utils/sounds";
-import { genderOfVoice, isListening, listenForUtterance, pickVoice, speak, voiceTier } from "../src/utils/speech";
+import { genderOfVoice, isListening, listenForUtterance, pickVoice, speak, voiceTier, writtenInGujarati } from "../src/utils/speech";
 import {
   briefingLine,
   cancelPending,
@@ -311,6 +311,30 @@ test("Mitra's replies use the same picker: natural, and no Gujarati in an Englis
   speak("Written in English with Gujarati chosen.", "gu-IN");
   await wait(50);
   assert.equal(synth.spoken[0]?.voice?.lang, "en-IN");
+});
+
+test("a reply WRITTEN in Gujarati is Gujarati with English chosen too: a Gujarati voice, or silence — one Gujarati name does not count", async () => {
+  // Mitra answers in the script it was asked in: a question typed in Gujarati with the screens in English.
+  const reply = "આજે તમારે ત્રણ દસ્તાવેજ ભરવાના છે. પહેલાં Line Clearance કરો.";
+  assert.equal(writtenInGujarati(reply), true, "mostly Gujarati letters, a document's English name among them");
+  assert.equal(writtenInGujarati("Heena, your list is ready — હીના."), false, "one Gujarati name in an English reply");
+  assert.equal(writtenInGujarati("Your score is 92%."), false);
+
+  speak(reply, "en-IN");
+  await wait(50);
+  assert.equal(synth.spoken.length, 1);
+  assert.equal(synth.spoken[0]?.voice?.lang, "gu-IN", "read in the Gujarati voice, not the English one");
+  assert.equal(synth.spoken[0]?.lang, "gu-IN");
+
+  synth.voices = CHROME;
+  synth.spoken = [];
+  speak(reply, "en-IN");
+  await wait(50);
+  assert.deepEqual(said(), [], "no Gujarati voice: not read at all — never by the English voice");
+
+  speak("Heena, your list is ready — હીના.", "en-IN");
+  await wait(50);
+  assert.equal(synth.spoken[0]?.voice?.lang, "en-IN", "an English reply with a Gujarati name is still read");
 });
 
 // ---- the server's natural voice ----

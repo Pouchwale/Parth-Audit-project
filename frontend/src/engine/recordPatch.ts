@@ -648,7 +648,7 @@ function applyCodeFormats(kind: string, next: Obj, current: Obj, problems: strin
 // quietly writing an answer the person could not have written themselves.
 // A change that fills everything (the sample-data fill) leaves nothing blank,
 // so nothing is out of order and nothing is refused.
-function keepChecklistOrder(before: Obj, after: Obj, problems: string[]): void {
+export function keepChecklistOrder(before: Obj, after: Obj, problems: string[]): void {
   const afterSections = Array.isArray(after.sections) ? (after.sections as Obj[]) : [];
   const beforeSections = Array.isArray(before.sections) ? (before.sections as Obj[]) : [];
   if (afterSections.length === 0) return;
@@ -683,7 +683,7 @@ function keepChecklistOrder(before: Obj, after: Obj, problems: string[]): void {
 // quantity is entered once per material (engine/serviceMaterials.ts). So a
 // proposed change to a material or a method is refused, and a quantity given
 // for any line becomes the quantity of every line with that material.
-function serviceLinesAfterPatch(documentId: string, before: unknown, after: unknown, problems: string[]): unknown {
+export function serviceLinesAfterPatch(documentId: string, before: unknown, after: unknown, problems: string[]): unknown {
   if (!Array.isArray(after)) return after;
   const was = new Map((Array.isArray(before) ? before : []).filter(isObj).map((l) => [Number(l.slNo), l] as const));
   let refused = false;

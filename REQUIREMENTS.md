@@ -4836,6 +4836,24 @@ Word, upload it, and the record takes exactly the changes made.
 **8. THE SIDEBAR.** The "Phase 1 Prototype · Local data only" line and the panel's own ✕ are gone; the top bar's menu
 button opens and closes the panel as before (on a phone the drawer also closes on a tap outside it or Escape).
 
+**8b. WHAT THE REVIEW OF THIS WORK FOUND AND FIXED (27-Sep-2026).** Four reviewers read the change for data safety,
+fragility, voice and the numbers, a skeptic tried to refute each finding, and eighteen stood. Uploading: a value whose
+line was sorted, renumbered or lost its hidden name in Excel is no longer moved onto another line — the hidden names
+are trusted unless the grid was purely re-sorted, and such a value is marked "check it is the right line" in the
+preview; the same file uploaded twice no longer appends its new lines twice; a service report's quantities and
+materials are normalised after an upload as they are after any edit; a checklist's Approved-by name and date are
+stamped by the approver, never taken from a file, and ticking an activity in the file follows the one-at-a-time order;
+a Statement of Compliance's date of publication cannot be emptied by an upload (it would have crashed its pages);
+two bound values with nothing between them (the GAP premises' name and address) are kept apart in the file; a
+multi-line value of a signed-off record keeps its line breaks; a crafted workbook or document with absurd row, column
+or inflated sizes is refused instead of exhausting memory. Motivation: the day card and the all-done celebration count
+open work however old (the bell already did), decide "theirs" the way the reminders do, and count only the person's
+own submissions (the scorecard's attribution rule), so a colleague's hand-in is not their streak. Voice: "Later"
+stops a reminder that has not started; reminder state is per person, not per tab, and only the visible tab reminds;
+the bell does not chime for the person's own send-back or reopen; spoken replies pick the voice from the words, so
+Gujarati is never read by an English voice; the automatic reminder stays quiet for an administrator not named on any
+document (the whole plant's work is not theirs).
+
 **9. TESTS** — `tests/e2e_intro_and_fonts.py` (the intro plays over a usable form and goes, never after sign-in; the
 fonts load with 200; the printed forms keep the old stack), `tests/e2e_voice_and_sounds.py` (nothing before the first
 click; the briefing chimes and is spoken with the name; the bell's "What should I do next?" names a due document; the

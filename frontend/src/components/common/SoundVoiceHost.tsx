@@ -6,11 +6,11 @@ import { useT } from "../../i18n";
 import type { Language } from "../../i18n/strings";
 import type { AuthUser } from "../../types/auth";
 import { CUE_EVENT, CUE_NAMES, SAY_EVENT, emitCue, emitSay, type CueName, type SayRequest } from "../../engine/engageBus";
-import { notificationsFor, type Notification } from "../../engine/notifications";
+import { notificationsFor, type DaysWork, type Notification } from "../../engine/notifications";
 import { closedDays, periodFor } from "../../engine/performance";
 import { keptTo } from "../../engine/latenessCore";
 import { firstNameOf } from "../../engine/assistantPersona";
-import { settingsRepository } from "../../data/repositories/settingsRepository";
+import { settingsRepository, type AppSettings } from "../../data/repositories/settingsRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { masterRepository } from "../../data/repositories/masterRepository";
@@ -32,18 +32,30 @@ import { motivationFor } from "../../engine/motivation";
 // heard it look like some one is telling them to complete task fast for good
 // score". A cheap check once a minute; a reminder only when ALL of these hold:
 // the voice is on, the page has been clicked (a browser speaks nothing before),
-// it is within the person's working hours, at least `remindEveryMin` minutes
-// have passed since the last spoken reminder AND since the page loaded, the
-// microphone is not listening, Mitra is not already speaking — and the person
-// has something due today or late (engine/notifications.ts notificationsFor,
-// asked only then: it walks every format's records). Then the three rising
-// notes, and ONE line about the most urgent document not reminded in the last
-// two hours: their first name, the document, how late or that it is due today,
-// a nudge to finish it now for the on-time score (their score, worked out at
-// most once an hour), and why the record matters beyond the score
-// (engine/purpose.ts). With it a small card at the bottom left — above the
-// reaction toast's place — that takes no clicks except its own three buttons,
-// and goes after 12 seconds.
+// this tab is the one in view (a tab in the background keeps quiet, so two open
+// tabs do not remind twice as often), it is within the person's working hours,
+// at least `remindEveryMin` minutes have passed since the last spoken reminder
+// — this tab's or another tab's of this browser, which tell each other — AND
+// since this person's session began on this tab, the microphone is not
+// listening, Mitra is not already speaking — and the person has something due
+// today or late (engine/notifications.ts notificationsFor, asked only then: it
+// walks every format's records). Then the three rising notes, and ONE line
+// about the most urgent document not reminded in the last two hours: their
+// first name, the document, how late or that it is due today, a nudge to finish
+// it now for the on-time score (their score, worked out at most once an hour),
+// and why the record matters beyond the score (engine/purpose.ts). With it a
+// small card at the bottom left — above the reaction toast's place — that
+// takes no clicks except its own three buttons, and goes after 12 seconds.
+//
+// Only the person's own work is reminded by itself. An account that answers for
+// the whole plant (the administrator; management, the MR and QA, who have no
+// department of their own) and is named on no document is not told every 45
+// minutes that the plant's work is theirs (§67); it hears what is due when it
+// asks, from the bell, without "you are at minus N today".
+//
+// What the reminders remember (when the last one was said, what was put off,
+// a quiet spell) is ONE PERSON'S: on a shared computer the next person to sign
+// in on the same tab starts afresh.
 //
 // The bell's "What should I do next?" asks for the same line at once
 // (remindNow), whatever the interval — and when nothing is due says so.
@@ -66,14 +78,120 @@ const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 /** After a check that found nothing to say, the records are not walked again for this long. */
 const QUIET_AFTER_NOTHING_MS = 10 * 60_000;
 const SCORE_KEPT_MS = 60 * 60_000;
+/** The tabs of this browser tell each other on this channel when a reminder was said: { userId, at, recordId }. */
+export const OTHER_TABS_CHANNEL = "dcrs:spoken-reminder";
 
-// "Since this page loaded": the bundle is loaded with the page.
-const PAGE_LOADED_AT = Date.now();
-let lastSpokenReminderAt = 0;
-let quietUntil = 0;
-// Records reminded (or put off with "Later") this session, and when.
-const remindedAt = new Map<string, number>();
+// ---- what the reminders remember: one person's ----------------------------------------
+
+interface ReminderMemory {
+  /** Whose memory this is. */
+  userId: string;
+  /** When this person's session began on this tab: the first reminder waits the interval from then. */
+  startedAt: number;
+  /** The last spoken reminder — this tab's, or another tab's of this browser for the same person. */
+  lastSpokenAt: number;
+  /** A check found nothing to say: the records are not walked again before this. */
+  quietUntil: number;
+  /** Records reminded (or put off with "Later"), and when. */
+  remindedAt: Map<string, number>;
+}
+
+const freshMemory = (userId: string, now: number): ReminderMemory => ({ userId, startedAt: now, lastSpokenAt: 0, quietUntil: 0, remindedAt: new Map() });
+
+let memory: ReminderMemory = freshMemory("", Date.now());
 let scoreKept: { userId: string; at: number; score: number | null } | null = null;
+
+/**
+ * The reminders' memory for this person. Someone else signing in on this tab
+ * (a shared plant computer: signing out does not reload the page) starts it
+ * afresh — nothing reminded or put off for the one before, no quiet spell of
+ * theirs, and the interval counted from this sign-in.
+ */
+export function reminderMemoryFor(userId: string, now = Date.now()): ReminderMemory {
+  if (memory.userId !== userId) {
+    cancelDelayedSay();
+    memory = freshMemory(userId, now);
+  }
+  otherTabs();
+  return memory;
+}
+
+// ---- the other tabs of this browser ----------------------------------------------------
+
+let channel: BroadcastChannel | null = null;
+
+/** The channel the tabs tell each other on; null where the browser has none. Opened once, on first use. */
+function otherTabs(): BroadcastChannel | null {
+  if (channel) return channel;
+  try {
+    if (typeof BroadcastChannel === "undefined") return null;
+    const opened = new BroadcastChannel(OTHER_TABS_CHANNEL);
+    // Node (the unit tests) would otherwise wait on an open channel for ever; a browser has no such thing.
+    (opened as unknown as { unref?: () => void }).unref?.();
+    opened.onmessage = (e: MessageEvent) => {
+      try {
+        heardFromAnotherTab(e.data);
+      } catch {
+        /* a word from another tab is never worth an error */
+      }
+    };
+    channel = opened;
+  } catch {
+    channel = null;
+  }
+  return channel;
+}
+
+/** Another tab said a reminder: this one counts its interval from then, and leaves that record alone for two hours. */
+function heardFromAnotherTab(data: unknown): void {
+  const d = data as { userId?: unknown; at?: unknown; recordId?: unknown } | null;
+  if (!d || typeof d.userId !== "string" || !d.userId || d.userId !== memory.userId) return;
+  if (typeof d.at !== "number" || !Number.isFinite(d.at)) return;
+  memory.lastSpokenAt = Math.max(memory.lastSpokenAt, d.at);
+  if (typeof d.recordId === "string" && d.recordId) memory.remindedAt.set(d.recordId, d.at);
+}
+
+function tellOtherTabs(recordId: string): void {
+  try {
+    otherTabs()?.postMessage({ userId: memory.userId, at: memory.lastSpokenAt, recordId });
+  } catch {
+    /* the other tabs keep their own interval */
+  }
+}
+
+function closeOtherTabs(): void {
+  try {
+    channel?.close();
+  } catch {
+    /* already closed */
+  }
+  channel = null;
+}
+
+// ---- the line said after the notes ------------------------------------------------------
+
+// The reminder's line is asked for once its three notes have rung out. Kept, so
+// that "Later" pressed in that moment — or the next reminder, or the person
+// signing out — stops it before it is ever asked for.
+let delayedSay: { timer: number; text: string } | null = null;
+
+function sayAfterTheNotes(request: SayRequest): void {
+  cancelDelayedSay();
+  const timer = window.setTimeout(() => {
+    if (delayedSay?.timer === timer) delayedSay = null;
+    emitSay(request);
+  }, Math.round(cueDuration("reminder") * 1000) + 120);
+  delayedSay = { timer, text: request.text };
+}
+
+/** Drops the line still waiting for its notes — any, or only this one. */
+function cancelDelayedSay(text?: string): void {
+  if (!delayedSay || (text !== undefined && delayedSay.text !== text)) return;
+  window.clearTimeout(delayedSay.timer);
+  delayedSay = null;
+}
+
+// ---- when ------------------------------------------------------------------------------
 
 const minutesOf = (hhmm: string): number | null => {
   const m = /^(\d{1,2}):(\d{2})/.exec(hhmm ?? "");
@@ -96,8 +214,30 @@ export function twoHourWindow(now: Date): number {
 
 const reminderKey = (recordId: string, now: Date): string => `remind:${recordId}:${twoHourWindow(now)}`;
 
+/** Whether this tab is the one the person is looking at (a page with no document to ask counts as in view). */
+function tabInView(): boolean {
+  try {
+    return typeof document === "undefined" || document.visibilityState === "visible";
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * THE ONCE-A-MINUTE CHECK: whether a reminder may be said by itself now (see
+ * the header). Cheap — the records are not walked here.
+ */
+export function reminderMayStart(userId: string, s: Pick<AppSettings, "voiceOn" | "workdayStart" | "workdayEnd" | "remindEveryMin">, now = Date.now()): boolean {
+  if (!userId || !s.voiceOn || !hadUserGesture() || !tabInView()) return false;
+  if (!withinWorkingHours(new Date(now), s.workdayStart, s.workdayEnd)) return false;
+  const every = Math.min(240, Math.max(10, Number(s.remindEveryMin) || 45)) * 60_000;
+  const m = reminderMemoryFor(userId, now);
+  if (now - m.startedAt < every || now - m.lastSpokenAt < every || now < m.quietUntil) return false;
+  return !isMicBusy() && !isSaying();
+}
+
 function recentlyReminded(recordId: string, now: Date): boolean {
-  const at = remindedAt.get(recordId);
+  const at = memory.remindedAt.get(recordId);
   if (at !== undefined && Date.now() - at < TWO_HOURS_MS) return true;
   try {
     return settingsRepository.doneToday("spokenToday", todayISO(), reminderKey(recordId, now));
@@ -105,6 +245,8 @@ function recentlyReminded(recordId: string, now: Date): boolean {
     return false;
   }
 }
+
+// ---- what is said ----------------------------------------------------------------------
 
 /** Their own score on the scorecard this month, when it can be known without asking the server; kept an hour. */
 function ownScore(user: AuthUser): number | null {
@@ -132,15 +274,22 @@ function ownScore(user: AuthUser): number | null {
   return score;
 }
 
-function factsFor(n: Notification, user: AuthUser, score: number | null, today: string): ReminderFacts {
+/**
+ * The reminder's facts. `ownWork` false — the plant's work, for an account
+ * named on none of it — leaves out today's loss-framed score: the plant's day
+ * is not called theirs.
+ */
+export function factsFor(n: Notification, user: AuthUser, score: number | null, today: string, ownWork = true): ReminderFacts {
   const doc = documentRepository.getById(n.documentId);
   // Today's own work for the day's score (engine/motivation.ts, cached) — worked out only when a reminder is said.
   let day: ReminderFacts["day"];
-  try {
-    const d = motivationFor(user).day;
-    day = { done: d.done, total: d.total };
-  } catch {
-    day = undefined;
+  if (ownWork) {
+    try {
+      const d = motivationFor(user).day;
+      day = { done: d.done, total: d.total };
+    } catch {
+      day = undefined;
+    }
   }
   return {
     day,
@@ -153,7 +302,10 @@ function factsFor(n: Notification, user: AuthUser, score: number | null, today: 
   };
 }
 
-interface ReminderToast {
+/** An account that answers for the whole plant: the administrator, and one with no department of its own (management, the MR, QA). */
+const answersForPlant = (p: Pick<AuthUser, "role" | "departments">): boolean => p.role === "admin" || !p.departments?.length;
+
+export interface ReminderToast {
   id: number;
   /** In the language the screens are written in. */
   text: string;
@@ -162,6 +314,96 @@ interface ReminderToast {
   route?: string;
   recordId?: string;
   documentId?: string;
+}
+
+export type ShowReminder = (toast: Omit<ReminderToast, "id">) => void;
+
+/**
+ * THE SPOKEN REMINDER — `manual` from the bell: at once, whatever the
+ * interval, and "nothing is due" when nothing is. `work` is the day's work
+ * when the caller already has it (notificationsFor is asked otherwise).
+ */
+export function speakReminder(person: AuthUser, manual: boolean, spoken: Language, shown: Language, show: ShowReminder, work?: DaysWork): void {
+  const m = reminderMemoryFor(person.id);
+  const now = new Date();
+  const today = todayISO();
+  // A line still waiting for its notes gives way to this one.
+  cancelDelayedSay();
+  let days: DaysWork | null = work ?? null;
+  if (!days) {
+    try {
+      days = notificationsFor(person, false);
+    } catch {
+      days = null;
+    }
+  }
+  // The plant's work, for an account named on none of it: not said by itself as if it were theirs.
+  const plantsNotTheirs = !!days && !days.theirOwn && answersForPlant(person);
+  if (!manual && plantsNotTheirs) {
+    m.quietUntil = Date.now() + QUIET_AFTER_NOTHING_MS;
+    return;
+  }
+  const due = (days?.notifications ?? []).filter((n) => n.daysUntilDue <= 0);
+  const pick = due.find((n) => !recentlyReminded(n.recordId, now)) ?? (manual ? due[0] : undefined);
+  if (!pick) {
+    if (!manual) {
+      m.quietUntil = Date.now() + QUIET_AFTER_NOTHING_MS;
+      return;
+    }
+    const first = firstNameOf(person.name);
+    const seed = `${today}|nothing`;
+    const text = nothingDueLine(first, spoken, seed);
+    emitCue("chime");
+    emitSay({ text, lang: spoken, en: nothingDueLine(first, "en", seed), priority: "high" });
+    show({ text: nothingDueLine(first, shown, seed), spoken: text });
+    return;
+  }
+  m.lastSpokenAt = Date.now();
+  m.remindedAt.set(pick.recordId, m.lastSpokenAt);
+  tellOtherTabs(pick.recordId);
+  const facts = factsFor(pick, person, ownScore(person), today, !plantsNotTheirs);
+  const text = reminderLine(facts, spoken);
+  const key = reminderKey(pick.recordId, now);
+  // Asked for from the bell, it is said at once and carries no key; the automatic one does not come back to it for two hours.
+  if (manual) {
+    try {
+      settingsRepository.markDoneToday("spokenToday", today, key);
+    } catch {
+      /* the session's own memory still holds it */
+    }
+  }
+  emitCue("reminder");
+  const request: SayRequest = { text, lang: spoken, en: reminderLine(facts, "en"), priority: manual ? "high" : "normal", ...(manual ? {} : { key }) };
+  // After the three notes, not over them.
+  sayAfterTheNotes(request);
+  show({ text: reminderLine(facts, shown), spoken: text, route: pick.route, recordId: pick.recordId, documentId: pick.documentId });
+}
+
+/**
+ * "Later" on the card: not this record again for two hours, and its line
+ * stopped — whether it is being said, waiting its turn, or still to be asked
+ * for once the notes have rung out.
+ */
+export function putOffReminder(toast: Pick<ReminderToast, "recordId" | "spoken">): void {
+  const id = toast.recordId;
+  if (id) {
+    memory.remindedAt.set(id, Date.now());
+    try {
+      settingsRepository.markDoneToday("spokenToday", todayISO(), reminderKey(id, new Date()));
+    } catch {
+      /* the session's own memory still holds it */
+    }
+  }
+  cancelDelayedSay(toast.spoken);
+  stopLine(toast.spoken);
+}
+
+/** For the unit tests: nobody's memory, nothing waiting, no channel open — as a new page would have. */
+export function resetRemindersForTests(): void {
+  cancelDelayedSay();
+  closeOtherTabs();
+  memory = freshMemory("", Date.now());
+  scoreKept = null;
 }
 
 let toastSeq = 0;
@@ -187,11 +429,22 @@ export function SoundVoiceHost() {
 
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
+  // Whoever is signed in on this tab: the reminders' memory is theirs from their sign-in.
+  const userId = user?.id ?? "";
+  useEffect(() => {
+    if (userId) reminderMemoryFor(userId);
+  }, [userId]);
+
   // The first click or key: before it a browser plays and says nothing. And
-  // signed out (the host goes with the app), nothing more is said to the next person.
+  // signed out (the host goes with the app), nothing more is said to the next
+  // person — not even a line still waiting for its notes.
   useEffect(() => {
     watchFirstGesture();
-    return () => stopVoice();
+    return () => {
+      cancelDelayedSay();
+      closeOtherTabs();
+      stopVoice();
+    };
   }, []);
 
   // Sounds and spoken lines asked for from anywhere.
@@ -222,51 +475,11 @@ export function SoundVoiceHost() {
     };
   }, []);
 
-  // THE SPOKEN REMINDER — `manual` from the bell: at once, whatever the interval, and "nothing is due" when nothing is.
   const remind = useCallback(
     (manual: boolean) => {
       const { user: person, lang: spoken, uiLang: shown } = live.current;
       if (!person) return;
-      const now = new Date();
-      const today = todayISO();
-      let due: Notification[] = [];
-      try {
-        due = notificationsFor(person, false).notifications.filter((n) => n.daysUntilDue <= 0);
-      } catch {
-        due = [];
-      }
-      const pick = due.find((n) => !recentlyReminded(n.recordId, now)) ?? (manual ? due[0] : undefined);
-      if (!pick) {
-        if (!manual) {
-          quietUntil = Date.now() + QUIET_AFTER_NOTHING_MS;
-          return;
-        }
-        const first = firstNameOf(person.name);
-        const seed = `${today}|nothing`;
-        const text = nothingDueLine(first, spoken, seed);
-        emitCue("chime");
-        emitSay({ text, lang: spoken, en: nothingDueLine(first, "en", seed), priority: "high" });
-        showToast({ text: nothingDueLine(first, shown, seed), spoken: text });
-        return;
-      }
-      lastSpokenReminderAt = Date.now();
-      remindedAt.set(pick.recordId, Date.now());
-      const facts = factsFor(pick, person, ownScore(person), today);
-      const text = reminderLine(facts, spoken);
-      const key = reminderKey(pick.recordId, now);
-      // Asked for from the bell, it is said at once and carries no key; the automatic one does not come back to it for two hours.
-      if (manual) {
-        try {
-          settingsRepository.markDoneToday("spokenToday", today, key);
-        } catch {
-          /* the session's own memory still holds it */
-        }
-      }
-      emitCue("reminder");
-      const request: SayRequest = { text, lang: spoken, en: reminderLine(facts, "en"), priority: manual ? "high" : "normal", ...(manual ? {} : { key }) };
-      // After the three notes, not over them.
-      window.setTimeout(() => emitSay(request), Math.round(cueDuration("reminder") * 1000) + 120);
-      showToast({ text: reminderLine(facts, shown), spoken: text, route: pick.route, recordId: pick.recordId, documentId: pick.documentId });
+      speakReminder(person, manual, spoken, shown, showToast);
     },
     [showToast]
   );
@@ -275,14 +488,8 @@ export function SoundVoiceHost() {
   useEffect(() => {
     const tick = () => {
       try {
-        if (!live.current.user) return;
-        const s = settingsRepository.get();
-        if (!s.voiceOn || !hadUserGesture()) return;
-        if (!withinWorkingHours(new Date(), s.workdayStart, s.workdayEnd)) return;
-        const every = Math.min(240, Math.max(10, Number(s.remindEveryMin) || 45)) * 60_000;
-        const now = Date.now();
-        if (now - PAGE_LOADED_AT < every || now - lastSpokenReminderAt < every || now < quietUntil) return;
-        if (isMicBusy() || isSaying()) return;
+        const person = live.current.user;
+        if (!person || !reminderMayStart(person.id, settingsRepository.get())) return;
         remind(false);
       } catch {
         /* a reminder is never worth an error */
@@ -353,16 +560,7 @@ export function SoundVoiceHost() {
             data-action="voice-reminder-later"
             title={t("voice.toast.laterTitle")}
             onClick={() => {
-              const id = toast.recordId;
-              if (id) {
-                remindedAt.set(id, Date.now());
-                try {
-                  settingsRepository.markDoneToday("spokenToday", todayISO(), reminderKey(id, new Date()));
-                } catch {
-                  /* the session's own memory still holds it */
-                }
-              }
-              stopLine(toast.spoken);
+              putOffReminder(toast);
               close();
             }}
           >
@@ -376,6 +574,7 @@ export function SoundVoiceHost() {
           aria-label={t("voice.toast.mute")}
           title={t("voice.toast.mute")}
           onClick={() => {
+            cancelDelayedSay(toast.spoken);
             updateVoiceSettings({ voiceOn: false });
             close();
           }}

@@ -4,6 +4,7 @@ import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
 import { useRouter } from "../../store/router";
 import {
+  askAccountsFor,
   badgeFor,
   cheerText,
   firstNameOf,
@@ -103,15 +104,30 @@ export function MyDayCard() {
     // The first time just after the page has painted; after that, half a second after the last change.
     const delay = asked.current ? 500 : 60;
     asked.current = true;
-    const timer = window.setTimeout(() => {
+    let alive = true;
+    const show = () => {
+      if (!alive) return;
       try {
         setStats(motivationFor(user, false));
       } catch {
         /* the card keeps what it showed */
       }
+    };
+    const timer = window.setTimeout(() => {
+      show();
+      // The accounts of their departments (kept a few minutes): when a new list comes, a record a colleague
+      // of a shared department handed in is told apart, and the figures are worked out again with it.
+      askAccountsFor(user)
+        .then((fresh) => {
+          if (fresh) show();
+        })
+        .catch(() => undefined);
     }, delay);
-    return () => window.clearTimeout(timer);
-  }, [version, user?.id, user?.name, today]);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [version, user?.id, user?.name, user?.departments?.join(","), today]);
 
   const title = cheerText(uiLang, "cheer.day.title", { name: firstNameOf(user?.name) });
 

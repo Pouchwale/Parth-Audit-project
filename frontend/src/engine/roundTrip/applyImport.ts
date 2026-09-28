@@ -27,20 +27,23 @@
 // be changed is reported, not fatal.
 
 import type { AssistantTarget } from "../../store/AssistantContext";
-import type { RecordInstance, RecordStatus } from "../../types";
+import type { ComplaintChecklistData, RecordInstance, RecordStatus } from "../../types";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { documentRepository } from "../../data/repositories/documentRepository";
-import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
+import { masterRepository } from "../../data/repositories/masterRepository";
+import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
 import { logActivity } from "../../utils/activityLog";
+import { todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { withComputedCells } from "../computedCells";
 import { isDocumentIdVisible } from "../departmentScope";
 import { emitCue } from "../engageBus";
 import { isCorrectableStatus, isEditableStatus, reopenForCorrection, saveDraft } from "../recordLifecycle";
-import { fieldLabels } from "../recordPatch";
+import { fieldLabels, keepChecklistOrder, serviceLinesAfterPatch } from "../recordPatch";
 import { blankRow } from "../recordRowCommands";
 import { supersededRevisionOf } from "../validation";
-import { applyPlanToData, type ImportPlan, type PlanContext } from "./plan";
+import { bindingRules, bindingsForRecord, checklistBind, type BindRule } from "./bindingsFor";
+import { applyPlanToData, isUnder, ruleWhy, type ImportPlan, type PlanContext, type Refusal } from "./plan";
 
 /** What of the open page's AssistantTarget an upload uses. */
 export type UploadTarget = Pick<AssistantTarget, "recordId" | "documentId" | "status" | "editable" | "getData" | "commit" | "reopen">;
@@ -93,21 +96,126 @@ function storedRecord(recordId: string): RecordInstance | undefined {
  * built exactly as its own Add Row builds one.
  */
 export function uploadPlanContext(getTarget: () => UploadTarget | null, today: string): PlanContext {
+  const getRecord = (recordId: string): { data: unknown; documentId: string } | null => {
+    const t = safeTarget(getTarget);
+    if (t && t.recordId === recordId) return { data: t.getData(), documentId: t.documentId };
+    const r = storedRecord(recordId);
+    return r ? { data: r.data, documentId: r.documentId } : null;
+  };
+  // The rules of each record's page, worked out once per upload from the bindings it draws now.
+  const rules = new Map<string, Map<string, BindRule>>();
+  const rulesOf = (recordId: string): Map<string, BindRule> => {
+    let held = rules.get(recordId);
+    if (!held) {
+      held = computeOr(() => {
+        const rec = getRecord(recordId);
+        return rec ? pageRules(recordId, rec.documentId, rec.data) : new Map<string, BindRule>();
+      }, new Map<string, BindRule>());
+      rules.set(recordId, held);
+    }
+    return held;
+  };
   return {
     today,
-    getRecord: (recordId) => {
-      const t = safeTarget(getTarget);
-      if (t && t.recordId === recordId) return { data: t.getData(), documentId: t.documentId };
-      const r = storedRecord(recordId);
-      return r ? { data: r.data, documentId: r.documentId } : null;
-    },
+    getRecord,
     blankItem: (documentId, listPath) => {
       if (listPath !== "rows") return null;
       const layout = getLogSheetLayout(documentId);
       if (!layout || layout.rowMode.kind !== "free") return null;
       return { ...blankRow(layout, generateId("row")) };
     },
+    ruleFor: (recordId, path) => rulesOf(recordId).get(path) ?? null,
+    review: (_recordId, documentId, before, after) => settleImported(kindOf(documentId), documentId, before, after, today).refused,
   };
+}
+
+/** The kind of a document, whatever the viewer's departments (the record itself was already found visible). */
+function kindOf(documentId: string): string | undefined {
+  return computeOr(() => (documentRepository.getByIdUnscoped(documentId) ?? documentRepository.getById(documentId))?.kind, undefined);
+}
+
+/** The rules the record's page holds about its values now (engine/roundTrip/bindingsFor.ts), by path. */
+function pageRules(recordId: string, documentId: string, data: unknown): Map<string, BindRule> {
+  const kind = kindOf(documentId);
+  if (!kind) return new Map();
+  const layout = kind === "log-sheet" ? getLogSheetLayoutForRecord(documentId, recordRepository.getById(recordId)) : undefined;
+  const checkpoints = kind === "daily-pest-monitoring" ? masterRepository.get().checkpoints : undefined;
+  return bindingRules(bindingsForRecord(kind, data, { layout, checkpoints }));
+}
+
+// ---------------------------------------------------------------------------
+// what the record's own page does after its boxes change
+
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
+const listOf = (v: unknown): Obj[] => (Array.isArray(v) ? (v.filter(isObj) as Obj[]) : []);
+const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/**
+ * The record's data after an upload's changes, put the way its own page puts
+ * them — what a person could not have written there is left as it was and
+ * named:
+ *
+ *   service report       the quantity written once per material becomes the
+ *                        quantity of every line of it, and each line's
+ *                        material and method follow its area — as the page's
+ *                        own lines and Mitra's changes do (engine/serviceMaterials.ts)
+ *   complaint checklist  an activity ticked Done is no longer "not required"
+ *                        and is dated today when no date is given — as the
+ *                        page's own tick does; and the checklist is answered
+ *                        one activity at a time (engine/recordPatch.ts
+ *                        keepChecklistOrder, the rule Mitra's changes keep):
+ *                        an activity after the one waited on is put back
+ *
+ * Pure apart from reading the document's variant; never throws.
+ */
+export function settleImported(kind: string | undefined, documentId: string, before: unknown, after: unknown, today: string): { data: unknown; refused: Refusal[] } {
+  try {
+    if (kind === "service-report" && isObj(before) && isObj(after) && Array.isArray(after.lines)) {
+      return { data: { ...after, lines: serviceLinesAfterPatch(documentId, before.lines, after.lines, []) }, refused: [] };
+    }
+    if (kind === "complaint-checklist" && isObj(before) && isObj(after)) return settleChecklist(before, after, today);
+  } catch {
+    /* what the page would do could not be worked out: the changes as they are */
+  }
+  return { data: after, refused: [] };
+}
+
+const answered = (it: Obj | undefined): boolean => !!it && (it.done === true || it.notRequired === true || String(it.comment ?? "").trim() !== "");
+
+function settleChecklist(before: Obj, after: Obj, today: string): { data: unknown; refused: Refusal[] } {
+  const next = copy(after);
+  const beforeSections = listOf(before.sections);
+  const sections = listOf(next.sections);
+  // A tick is the page's tick: not "not required" any more, and dated.
+  sections.forEach((s, si) => {
+    const was = listOf(beforeSections[si]?.items);
+    listOf(s.items).forEach((it, ii) => {
+      if (it.done !== true || was[ii]?.done === true) return;
+      it.notRequired = false;
+      if (!it.date) it.date = today;
+    });
+  });
+  // One activity at a time: what comes after the one waited on is put back (the item from `before`, itself).
+  keepChecklistOrder(before, next, []);
+  const refused: Refusal[] = [];
+  let waiting = "";
+  for (const [si, s] of sections.entries()) {
+    const items = Array.isArray(s.items) ? (s.items as unknown[]) : [];
+    const was = Array.isArray(beforeSections[si]?.items) ? (beforeSections[si].items as unknown[]) : [];
+    items.forEach((it, ii) => {
+      if (!waiting && isObj(it) && !answered(it)) waiting = `${String(s.key ?? "")}${String(it.srNo ?? ii + 1)}`;
+      if (was[ii] === undefined || it !== was[ii] || !isObj(it)) return;
+      const path = checklistBind.item({ key: String(s.key ?? "") as ComplaintChecklistData["sections"][number]["key"] }, { srNo: Number(it.srNo) }, "done").path.replace(/\/done$/, "");
+      refused.push({ path, why: "", whyKey: "rt.rule.outOfOrder" });
+    });
+  }
+  for (const r of refused) {
+    r.whyParams = { waiting: waiting || "the first blank activity" };
+    r.why = ruleWhy("rt.rule.outOfOrder", r.whyParams);
+  }
+  // The items put back are `before`'s own: the data handed on shares nothing with it.
+  return { data: refused.length ? copy(next) : next, refused };
 }
 
 /** How a record in the file can be changed. */
@@ -157,6 +265,8 @@ export interface AppliedRecord {
   applied: number;
   /** Labels of the changes that could not be written (a line no longer in the record …). */
   failed: string[];
+  /** Changes the record's page would not make (engine/roundTrip/applyImport.ts settleImported), left as they were — with why. */
+  refused?: { label: string; why: string; whyKey?: string; whyParams?: Record<string, string | number> }[];
   reopened: boolean;
   /** Why nothing was applied to it. */
   skipped?: "gone" | "locked" | "not-reopened" | "not-saved";
@@ -179,6 +289,29 @@ export interface ApplyOptions {
   onStored?: () => void;
   /** How long to wait for a reopened page to become editable, ms. */
   waitMs?: number;
+  /** Today (ISO) — the date an activity ticked in the file is given when it has none. */
+  today?: string;
+}
+
+/**
+ * The record's data with the plan's changes for it, put the way its page puts
+ * them (settleImported). The changes the page would not make are left out of
+ * the count and named in `refused`.
+ */
+function prepare(plan: ImportPlan, recordId: string, documentId: string, data: unknown, today: string): { data: unknown; applied: number; failed: string[]; refused: NonNullable<AppliedRecord["refused"]> } {
+  const raw = applyPlanToData(data, recordId, plan);
+  if (raw.applied === 0) return { ...raw, refused: [] };
+  const settled = settleImported(kindOf(documentId), documentId, data, raw.data, today);
+  const refused: NonNullable<AppliedRecord["refused"]> = [];
+  let applied = raw.applied;
+  for (const c of plan.changes) {
+    if (c.recordId !== recordId || raw.failed.includes(c.label)) continue;
+    const r = settled.refused.find((x) => isUnder(c.path, x.path));
+    if (!r) continue;
+    applied--;
+    refused.push({ label: c.label, why: r.why, ...(r.whyKey ? { whyKey: r.whyKey } : {}), ...(r.whyParams ? { whyParams: r.whyParams } : {}) });
+  }
+  return { data: settled.data, applied, failed: raw.failed, refused };
 }
 
 const nextFrame = (): Promise<void> =>
@@ -236,9 +369,10 @@ async function throughPage(plan: ImportPlan, recordId: string, opts: ApplyOption
   const out: AppliedRecord = { recordId, via: "page", applied: 0, failed: [], reopened: false };
   let t = safeTarget(opts.getTarget);
   if (!t || t.recordId !== recordId) return { ...out, skipped: "gone" };
+  const today = opts.today ?? todayISO();
   // A dry run first: nothing is reopened for changes that could not be written anyway.
-  const dry = computeOr(() => applyPlanToData(t!.getData(), recordId, plan), null);
-  if (!dry || dry.applied === 0) return { ...out, failed: dry?.failed ?? [], skipped: dry ? undefined : "not-saved" };
+  const dry = computeOr(() => prepare(plan, recordId, t!.documentId, t!.getData(), today), null);
+  if (!dry || dry.applied === 0) return { ...out, failed: dry?.failed ?? [], ...(dry?.refused.length ? { refused: dry.refused } : {}), skipped: dry ? undefined : "not-saved" };
   if (!t.editable) {
     if (!t.reopen) return { ...out, skipped: "locked" };
     try {
@@ -256,9 +390,10 @@ async function throughPage(plan: ImportPlan, recordId: string, opts: ApplyOption
     if (!t) return { ...out, skipped: "not-reopened" };
   }
   const since = new Date(Date.now() - 1).toISOString();
-  const next = computeOr(() => applyPlanToData(t!.getData(), recordId, plan), null);
+  const next = computeOr(() => prepare(plan, recordId, t!.documentId, t!.getData(), today), null);
   if (!next) return { ...out, skipped: "not-saved" };
   out.failed = next.failed;
+  if (next.refused.length) out.refused = next.refused;
   if (next.applied === 0) return out;
   const note = importNote(fileName, next.applied);
   try {
@@ -275,9 +410,10 @@ function throughStore(plan: ImportPlan, recordId: string, opts: ApplyOptions, fi
   const out: AppliedRecord = { recordId, via: "store", applied: 0, failed: [], reopened: false };
   let record = storedRecord(recordId);
   if (!record) return { ...out, skipped: "gone" };
-  const next = computeOr(() => applyPlanToData(record!.data, recordId, plan), null);
+  const next = computeOr(() => prepare(plan, recordId, record!.documentId, record!.data, opts.today ?? todayISO()), null);
   if (!next) return { ...out, skipped: "not-saved" };
   out.failed = next.failed;
+  if (next.refused.length) out.refused = next.refused;
   if (next.applied === 0) return out;
   if (!isEditableStatus(record.status)) {
     if (!isCorrectableStatus(record.status) || supersededRevisionOf(record)) return { ...out, skipped: "locked" };

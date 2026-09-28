@@ -12,7 +12,7 @@ import { escalationLine } from "../../engine/performance";
 import { escalationsApi, ESCALATIONS_CHANGED, forgetEscalationsSeen, type Escalation } from "../../api/client";
 import { openBriefing } from "../common/AssistantBriefingPopup";
 import { remindNow } from "../common/SoundVoiceHost";
-import { emitCue } from "../../engine/engageBus";
+import { chimeForNews, emitCue } from "../../engine/engageBus";
 import { useT } from "../../i18n";
 
 // Reminders only ever track Live records, regardless of which mode (Live /
@@ -30,7 +30,9 @@ const MAX_SHOWN = 20;
 // gains an urgent reminder, two firm notes for a new escalation. What the bell
 // holds when the app starts is only the baseline — the shells made and the
 // records pulled in while it settles are not news — so gains in the first
-// seconds after the bell is drawn are taken in silently.
+// seconds after the bell is drawn are taken in silently. Nor is a gain the
+// person made themselves — a record they sent back or reopened is waiting
+// again, and their own action has its sound (engine/engageBus.ts chimeForNews).
 const SETTLE_MS = 5000;
 
 export function NotificationBell() {
@@ -65,7 +67,7 @@ export function NotificationBell() {
     if (!before || Date.now() - mountedAt.current < SETTLE_MS) return;
     for (const id of now) {
       if (!before.has(id)) {
-        emitCue("chime");
+        chimeForNews();
         return;
       }
     }

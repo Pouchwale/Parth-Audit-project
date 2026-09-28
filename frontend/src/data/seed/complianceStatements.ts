@@ -169,7 +169,31 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
   },
 };
 
+/** A date of publication the statement can be dated by: an ISO date (yyyy-mm-dd). */
+export function isPublicationDate(v: unknown): v is string {
+  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+}
+
+/**
+ * When the statement is due for re-issue — "" when it holds no readable date of
+ * publication (a correction that emptied it, saved before that was refused):
+ * formatDisplayDate("") then says TO BE CONFIRMED instead of the page failing.
+ */
 export function complianceValidUntil(s: ComplianceStatement): string {
+  if (!isPublicationDate(s.signedOn)) return "";
   const [y, m, d] = s.signedOn.split("-").map(Number);
-  return `${y + s.validityYears}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const years = Number.isFinite(s.validityYears) ? s.validityYears : 2;
+  return `${y + years}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/**
+ * A correction as it may be saved: the statement is never left without a date
+ * of publication. One the correction empties or garbles (an uploaded file, a
+ * proposed change) keeps the date the statement has — or, if that is unreadable
+ * too, the date it was issued with.
+ */
+export function keepPublicationDate(next: ComplianceStatement, current: ComplianceStatement | undefined): ComplianceStatement {
+  if (isPublicationDate(next.signedOn)) return next;
+  const kept = [current?.signedOn, COMPLIANCE_STATEMENTS[current?.documentId ?? next.documentId]?.signedOn].find(isPublicationDate);
+  return kept ? { ...next, signedOn: kept } : next;
 }

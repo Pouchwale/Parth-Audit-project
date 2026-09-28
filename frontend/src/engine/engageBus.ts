@@ -12,6 +12,8 @@
 // (a test, a page without it) and nothing breaks, and a test can listen for
 // exactly what was asked for — "dcrs:cue" and "dcrs:say" on window.
 
+import { REACTION_EVENT } from "./reactions";
+
 export type CueName =
   /** Something new to look at: the bell, the day's notification, the briefing. */
   | "chime"
@@ -55,9 +57,57 @@ function emit(name: string, detail: unknown): void {
   }
 }
 
+// WHAT THE PERSON JUST DID HERE. A submit, a verify, a send-back, an upload
+// applied: each is announced (engine/recordLifecycle.ts's reaction) or asks for
+// its own sound (success, late, sent back, a celebration). A change the bell
+// sees right after one of those is that action's own result — a record sent
+// back or reopened becomes waiting again — and has its sound already; the
+// bell's chime is for something new arriving, not an echo of the click.
+
+/** The sounds that answer something the person did here, rather than something arriving. */
+const ACTION_CUES: ReadonlySet<CueName> = new Set<CueName>(["success", "late", "sentBack", "celebrate"]);
+/** How long the bell waits before chiming: an action's sound can come just after the change it made (a send-back's 150 ms after it). */
+export const NEWS_SETTLE_MS = 800;
+/** A change the bell sees within this long after the person's own action is that action's result. */
+export const OWN_ACTION_MS = 2000;
+
+let lastActionAt = 0;
+let newsTimer = 0;
+
+if (typeof window !== "undefined") {
+  try {
+    window.addEventListener(REACTION_EVENT, () => {
+      lastActionAt = Date.now();
+    });
+  } catch {
+    /* no window to listen on: only the action sounds are counted */
+  }
+}
+
 /** Ask for a short sound. Silent when sounds are off or the browser has not been clicked yet. */
 export function emitCue(cue: CueName): void {
+  if (ACTION_CUES.has(cue)) lastActionAt = Date.now();
   emit(CUE_EVENT, { cue });
+}
+
+/**
+ * THE BELL GAINED SOMETHING URGENT: the chime for news — a moment later, and
+ * not at all when it is only the result of the person's own action just
+ * before or just after (a record they sent back or reopened; see above).
+ */
+export function chimeForNews(): void {
+  if (typeof window === "undefined") return;
+  const seenAt = Date.now();
+  try {
+    window.clearTimeout(newsTimer);
+    newsTimer = window.setTimeout(() => {
+      newsTimer = 0;
+      if (lastActionAt >= seenAt - OWN_ACTION_MS) return;
+      emitCue("chime");
+    }, NEWS_SETTLE_MS);
+  } catch {
+    /* a sound is never worth an error */
+  }
 }
 
 /** Ask Mitra to say something aloud. Silent when the voice is off; queued until the first click. */

@@ -467,13 +467,26 @@ export function isReplySpeaking(): boolean {
 // Read a reply out loud, in the best voice the browser has for the language
 // (pickVoice above) — natural where the browser has one.
 //
-// A reply with no Gujarati letters in it is read with the English voice even
-// when Gujarati is chosen: with Google Translate on, the app's own replies are
+// WHICH VOICE IS DECIDED BY THE TEXT, not only by the language chosen. A reply
+// with no Gujarati letters in it is read with the English voice even when
+// Gujarati is chosen: with Google Translate on, the app's own replies are
 // written in English (Google translates them on screen, not for the voice),
-// and a Gujarati voice reading English words is hard to follow. A Gujarati
-// reply on a browser with no Gujarati voice is not read at all — an English
-// voice reading Gujarati script is noise.
+// and a Gujarati voice reading English words is hard to follow. A reply
+// WRITTEN in Gujarati — most of its letters Gujarati — is Gujarati whatever
+// the screens are in: Mitra answers in the script it was asked in, so a
+// question typed in Gujarati with English chosen gets a Gujarati reply. A
+// Gujarati reply on a browser with no Gujarati voice is not read at all — an
+// English voice reading Gujarati script is noise (REQUIREMENTS §81). One
+// Gujarati name in an English reply does not make it Gujarati.
 const GUJARATI_SCRIPT = /[઀-૿]/;
+
+/** Whether `text` is written in Gujarati: Gujarati letters, at least half of all its letters. */
+export function writtenInGujarati(text: string): boolean {
+  const letters = String(text ?? "").match(/\p{L}/gu) ?? [];
+  let gujarati = 0;
+  for (const ch of letters) if (GUJARATI_SCRIPT.test(ch)) gujarati += 1;
+  return gujarati > 0 && gujarati * 2 >= letters.length;
+}
 
 export function speak(text: string, requested: string): void {
   if (!isSpeechOutputSupported() || !text.trim()) return;
@@ -484,8 +497,10 @@ export function speak(text: string, requested: string): void {
   } catch {
     /* nothing was speaking */
   }
-  const gujarati = requested.startsWith("gu") && GUJARATI_SCRIPT.test(text);
-  const lang = gujarati ? "gu-IN" : requested.startsWith("gu") ? "en-IN" : requested;
+  const asksGujarati = requested.startsWith("gu");
+  // Gujarati chosen: any Gujarati letter; otherwise a reply written in Gujarati. Either way a Gujarati voice, or silence.
+  const gujarati = GUJARATI_SCRIPT.test(text) && (asksGujarati || writtenInGujarati(text));
+  const lang = gujarati ? "gu-IN" : asksGujarati ? "en-IN" : requested;
   replyActive = true;
   loadVoices()
     .then((voices) => {

@@ -7,7 +7,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { refreshGapFindingStatuses, openCorrectiveActionsCount } from "../data/selectors";
 import { COMPLAINT_DOC_ID, COMPLAINT_FOOTER_NOTE, COMPLAINT_ACTIVITY_COUNT, isConditionalActivity, newComplaintChecklistData } from "../data/seed/complaintChecklist";
 import { CAF_DOC_ID } from "../data/seed/complaintAck";
-import type { ChecklistItem, ComplaintChecklistData, RecordInstance } from "../types";
+import type { ChecklistItem, ChecklistSignoff, ComplaintChecklistData, RecordInstance } from "../types";
 import {
   cancelCorrection,
   correctionChanges,
@@ -262,6 +262,16 @@ export function ComplaintListPage() {
   );
 }
 
+/**
+ * What approval (Verify) writes in Approved By: the approver's OWN name and
+ * today's date, always — whatever the box held before (a name typed into a
+ * downloaded file, a proposed change) — so the stamp says who approved and
+ * when. Only the designation is the approver's to write.
+ */
+export function approvalSignoff(was: ChecklistSignoff, approver: string, today: string): ChecklistSignoff {
+  return { name: approver, designation: (was.designation ?? "").trim() || "QA Head", date: today };
+}
+
 // ---------------------------------------------------------------------------
 // /gap/complaint/:id — one checklist, the paper form on screen, with the
 // assistant's walk-through wired in.
@@ -337,11 +347,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
     // As in doSubmit: unreachable once the refusal has replaced the form
     // (REQUIREMENTS §40), and verification needs the definition.
     if (!doc) return { ok: false, errors: ["This checklist belongs to another department."] };
-    const approved = {
-      name: current.data.approvedBy.name.trim() || currentUser,
-      designation: current.data.approvedBy.designation.trim() || "QA Head",
-      date: todayISO(),
-    };
+    const approved = approvalSignoff(current.data.approvedBy, currentUser, todayISO());
     const withSignoff = { ...current, data: { ...current.data, approvedBy: approved } };
     recordRepository.upsert(withSignoff as RecordInstance);
     const { record: updated, result } = verifyRecord(doc, withSignoff as RecordInstance, currentUser);

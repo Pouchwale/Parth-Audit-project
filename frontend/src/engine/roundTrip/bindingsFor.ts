@@ -75,6 +75,39 @@ export interface Bound {
    * the place for it is there — the path's parent exists, so it can be set.
    */
   optional?: boolean;
+  /**
+   * The value must not be left empty — why, as a key of i18n/strings.roundtrip.ts.
+   * An uploaded file that empties it is refused with that reason (engine/roundTrip/plan.ts).
+   */
+  required?: string;
+  /**
+   * The page shows the value but the app writes it itself (a stamp) — why, as a
+   * key of i18n/strings.roundtrip.ts. An uploaded file that changes it is refused.
+   */
+  readOnly?: string;
+}
+
+/** Why an upload may not write a value: keys of i18n/strings.roundtrip.ts (engine/roundTrip/plan.ts says them). */
+export const RULE_REQUIRED_DATE = "rt.rule.requiredDate";
+export const RULE_STAMPED_ON_APPROVAL = "rt.rule.stamped";
+
+/** What an upload must respect about a bound value, looked up by its path. */
+export interface BindRule {
+  required?: string;
+  readOnly?: string;
+}
+
+/** The rules among a page's bindings, by path: only the values that carry one. */
+export function bindingRules(bindings: readonly Bound[] | null | undefined): Map<string, BindRule> {
+  const out = new Map<string, BindRule>();
+  for (const b of bindings ?? []) {
+    if (!b.required && !b.readOnly) continue;
+    const rule: BindRule = {};
+    if (b.required) rule.required = b.required;
+    if (b.readOnly) rule.readOnly = b.readOnly;
+    out.set(b.path, rule);
+  }
+  return out;
 }
 
 const NO_ATTRS: Record<string, string> = {};
@@ -515,10 +548,12 @@ export const checklistBind = {
     type: field === "done" ? "bool" : field === "date" ? "date" : "text",
     label: `${section.key}${item.srNo} · ${field === "done" ? "Done" : field === "date" ? "Date" : "Comments"}`,
   }),
+  /** A sign-off box. The approver's name and date are stamped by the approval (Verify) itself, so no file may write them. */
   signoff: (who: "preparedBy" | "approvedBy", field: "name" | "designation" | "date"): Bound => ({
     path: join(who, field),
     type: field === "date" ? "date" : "text",
     label: `${who === "preparedBy" ? "Prepared by" : "Approved by"} · ${field === "name" ? "Name" : field === "designation" ? "Designation" : "Sign & date"}`,
+    ...(who === "approvedBy" && field !== "designation" ? { readOnly: RULE_STAMPED_ON_APPROVAL } : {}),
   }),
 };
 
@@ -621,6 +656,8 @@ export const complianceBind = {
     type: key === "signedOn" ? "date" : "text",
     // Shown (as a box) while Edit is on even when the statement has none yet.
     optional: key === "referenceSource" || undefined,
+    // The statement is valid for two years from it: it is never left without one.
+    ...(key === "signedOn" ? { required: RULE_REQUIRED_DATE } : {}),
     label:
       key === "headerTitle"
         ? "Title"

@@ -4,7 +4,7 @@ import { useRouter } from "../store/router";
 import { useAppStore } from "../store/AppStore";
 import { useSetAssistantTarget } from "../store/AssistantContext";
 import { documentRepository } from "../data/repositories/documentRepository";
-import { complianceValidUntil, type ComplianceSection, type ComplianceStatement } from "../data/seed/complianceStatements";
+import { complianceValidUntil, isPublicationDate, keepPublicationDate, type ComplianceSection, type ComplianceStatement } from "../data/seed/complianceStatements";
 import { allComplianceStatements, complianceStatement, referenceRepository } from "../data/repositories/referenceRepository";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
@@ -15,6 +15,8 @@ import { useT } from "../i18n";
 import { bindProps, complianceBind } from "../engine/roundTrip/bindingsFor";
 
 function validityBadge(validUntil: string) {
+  // No readable date of publication: nothing to count the days from.
+  if (!validUntil) return <span className="badge badge-PendingVerification">Date of publication to be confirmed</span>;
   const today = todayISO();
   const daysLeft = Math.round((Date.parse(validUntil) - Date.parse(today)) / 86400000);
   if (daysLeft < 0) return <span className="badge badge-Overdue">Expired {-daysLeft} days ago</span>;
@@ -65,7 +67,7 @@ export function ComplianceListPage() {
                   <td className="font-semibold">{doc?.name ?? s.headerTitle}</td>
                   <td className="text-sm">{s.footerRef}</td>
                   <td className="text-sm">
-                    {formatDisplayDate(s.signedOn)} — {s.signedBy} ({s.signedTitle})
+                    {formatDisplayDate(isPublicationDate(s.signedOn) ? s.signedOn : "")} — {s.signedBy} ({s.signedTitle})
                   </td>
                   <td className="text-sm">{formatDisplayDate(validUntil)}</td>
                   <td>{validityBadge(validUntil)}</td>
@@ -101,8 +103,11 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
   const editing = draft !== null;
   const s = draft ?? current;
 
+  // A correction never leaves the statement without a date of publication (an
+  // uploaded file or a proposed change that emptied it keeps the date it has):
+  // its re-issue date is worked out from it.
   const save = (next: ComplianceStatement) => {
-    referenceRepository.save(documentId, tidy(next), currentUser);
+    referenceRepository.save(documentId, tidy(keepPublicationDate(next, complianceStatement(documentId))), currentUser);
     setDraft(null);
     bump();
   };
@@ -207,7 +212,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
               <input type="date" className="input input-sm" {...bound("signedOn")} value={s.signedOn} onChange={(e) => e.target.value && patch({ signedOn: e.target.value })} />
             ) : (
               <span className="v" {...bound("signedOn")}>
-                {formatDisplayDate(s.signedOn)}
+                {formatDisplayDate(isPublicationDate(s.signedOn) ? s.signedOn : "")}
               </span>
             )}
           </div>
@@ -315,7 +320,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
             </>
           )}
           <div className="text-muted mt-1" {...bound("signedOn")}>
-            {formatDisplayDate(s.signedOn)}
+            {formatDisplayDate(isPublicationDate(s.signedOn) ? s.signedOn : "")}
           </div>
         </div>
       </div>

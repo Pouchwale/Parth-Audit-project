@@ -229,6 +229,32 @@ test("values are cut out of a cell with words around them — or not at all when
   assert.deepEqual(cutSegments("1020", [e("", ""), e("", "")]), [null, null], "two values that touch cannot be told apart");
 });
 
+test("two values told apart only by the line each is on (the GAP report's premises name and address) are cut line by line — or not at all when the lines no longer say which is which", () => {
+  const LABEL = "Name & Address of Premises Inspected";
+  // As the download writes them: the heading, then each value on a line of its own.
+  const premises = (name: string, address: string) => [
+    { pre: `${LABEL}\n`, post: "\n", text: name },
+    { pre: "\n", text: address },
+  ];
+  const both = premises("Gujarat Printpack", "Plot 12, GIDC");
+  assert.deepEqual(cutSegments(`${LABEL}\nGujarat Printpack\nPlot 12, GIDC`, both), ["Gujarat Printpack", "Plot 12, GIDC"], "untouched");
+  assert.deepEqual(cutSegments(`${LABEL}\r\nGujarat  Printpack Pvt Ltd\r\nPlot 14, GIDC\n`, both), ["Gujarat Printpack Pvt Ltd", "Plot 14, GIDC"], "both edited, Windows line ends");
+  assert.deepEqual(cutSegments(`${LABEL}\n\nPlot 12, GIDC`, both), ["", "Plot 12, GIDC"], "the name cleared, its line left blank");
+  assert.deepEqual(cutSegments(`${LABEL}\nGujarat Printpack\nPlot 12,\nGIDC`, both), [null, null], "a line break typed into a value: which line is whose cannot be told");
+  assert.deepEqual(cutSegments(`${LABEL}\nGujarat Printpack Plot 12, GIDC`, both), [null, null], "the two lines joined");
+  assert.deepEqual(cutSegments(`Premises\nGujarat Printpack\nPlot 12, GIDC`, both), [null, null], "the heading changed");
+  // An empty value's line is not written at all: untouched, and with the other value edited.
+  const noName = premises("", "Plot 12, GIDC");
+  assert.deepEqual(cutSegments(`${LABEL}\nPlot 12, GIDC`, noName), ["", "Plot 12, GIDC"]);
+  assert.deepEqual(cutSegments(`${LABEL}\nPlot 14, GIDC`, noName), ["", "Plot 14, GIDC"]);
+  assert.deepEqual(cutSegments(`${LABEL}\nGujarat Printpack\nPlot 12, GIDC`, noName), ["Gujarat Printpack", "Plot 12, GIDC"], "the empty name filled in on its own line");
+  // A value written on several lines cannot be cut by lines.
+  assert.deepEqual(cutSegments(`${LABEL}\nOne\nTwo\nThree`, premises("One\nTwo", "Three")), ["One\nTwo", "Three"], "untouched it reads as written");
+  assert.deepEqual(cutSegments(`${LABEL}\nOne\nTwo\nFour`, premises("One\nTwo", "Three")), [null, null]);
+  // Without the written texts (an old map) a line break alone is not enough.
+  assert.deepEqual(cutSegments(`${LABEL}\nGujarat Printpack\nPlot 12, GIDC`, [{ pre: `${LABEL}\n`, post: "\n" }, { pre: "\n" }]), [null, null]);
+});
+
 test("the XML reader: prefixes ignored, entities, CDATA, comments, attributes in either quotes", () => {
   const doc = parseXml(
     '﻿<?xml version="1.0"?>\n<!-- a comment --><w:document xmlns:w="urn:w"><w:p a=\'1\' w:val="x &amp; y &#10;z"><w:t>Tom &amp; Jerry &lt;3 &#x2713;</w:t><![CDATA[<raw>]]><x:t/></w:p></w:document>'

@@ -7,12 +7,14 @@
 // Three questions, answered from the records the person already keeps:
 //
 //   1. HOW IS TODAY GOING — what of theirs was on today's plate (due today, still
-//      waiting from an earlier day, handed in today), how much is done, on time
-//      or late, and what is left (dayProgress). "Theirs" is what the day's
-//      notification calls theirs (engine/notifications.ts): the documents
-//      Master Data names them on, or else every document their departments may
-//      see — so the day card, the bell and "that was the last one due today"
-//      never disagree about what is left.
+//      waiting from an earlier day however long ago, handed in today), how much
+//      is done, on time or late, and what is left (dayProgress). "Theirs" is
+//      what the day's notification calls theirs (engine/notifications.ts
+//      daysWork, over engine/reminders.ts computeReminders): the documents
+//      Master Data names them on while some of their work there is due, late
+//      or coming up, or else every document their departments may see — so the
+//      day card, the bell and "that was the last one due today" never disagree
+//      about what is left.
 //   2. HOW HAS IT BEEN GOING — the streak: consecutive working days, ending
 //      yesterday (and today, once today's are all in on time), on which
 //      everything of theirs that fell due was handed in on time. A closed day
@@ -20,7 +22,11 @@
 //      theirs due neither adds nor breaks; the streak never reaches back before
 //      the day the system went live, or more than 60 working days. And the
 //      month's on-time share. On time and late are engine/latenessCore.ts's
-//      judgement — the Performance Scorecard's own rule — never a second one.
+//      judgement — the Performance Scorecard's own rule — never a second one;
+//      and so is WHOSE a handed-in record is (latenessCore attribute): where a
+//      department has more than one account, a record one of the others handed
+//      in is off the shared plate, but it is that colleague's on time, early
+//      bird, streak and month, never this person's.
 //   3. WHAT DID TODAY EARN — achievements, worked out afresh every time and
 //      never stored: the first on time today, all done today, a 3/5/10/20/50-day
 //      streak reached today, an early bird (handed in on its day before 11:00),
@@ -39,12 +45,16 @@
 // never scolded: "Done — a day late this time; the next one is due tomorrow."
 //
 // COST (the low-end standard, REQUIREMENTS §65): one pass over the person's
-// documents' records of the last hundred days, through the per-document index.
-// Remembered against the stored records' identity (recordRepository.snapshot,
-// a new array on every change), the day, the person and the master data — so
-// the toast's line, the celebration and the day card ask it three times and
-// the walk happens once. Asked only from an effect, a timeout or an event
-// handler: never while drawing.
+// documents' records of the last hundred days (and every older one still
+// open), through the per-document index — and, for somebody Master Data names,
+// the reminders' own walk that says whether the named documents are theirs
+// today. Remembered against the stored records' identity
+// (recordRepository.snapshot, a new array on every change), the day, the
+// person, the accounts of their departments and the master data — so the
+// toast's line, the celebration and the day card ask it three times and the
+// walk happens once. Asked only from an effect, a timeout or an event handler:
+// never while drawing. The accounts (GET /api/users/directory) are asked for
+// apart, once and kept a few minutes (askAccountsFor).
 
 import type { DocumentDefinition, RecordInstance } from "../types";
 import { STRINGS, type Language } from "../i18n/strings";
@@ -52,10 +62,12 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
-import { addDaysISO, judge, sameName, type PlantCalendar } from "./latenessCore";
+import { departmentOfDocument } from "../data/seed/departments";
+import { usersApi } from "../api/client";
+import { addDaysISO, attribute, judge, keptTo, sameName, type LatenessPerson, type LatenessRecord, type PlantCalendar } from "./latenessCore";
 import { closedDays } from "./performance";
-import { PRIORITY_ORDER, priorityOf } from "./notifications";
-import { routeForRecord } from "./reminders";
+import { PRIORITY_ORDER, daysWork, priorityOf } from "./notifications";
+import { computeReminders, routeForRecord } from "./reminders";
 import { resolveResponsibleEmployees } from "./documentInfo";
 import { daysLate, type ReactionEvent } from "./reactions";
 import { generalPurposeLine, purposeLine } from "./purpose";
@@ -90,9 +102,11 @@ export type AchievementKey = string;
 export interface DayProgress {
   /** Everything of theirs on today's plate: handed in today plus still waiting (due today or from an earlier day). */
   total: number;
-  /** Handed in today (or earlier, for a record due today). */
+  /** Handed in today (or earlier, for a record due today) — by them, or by a colleague of a shared department: it is off the plate either way. */
   done: number;
+  /** Of what they handed in themselves (the scorecard's attribution): on time … */
   onTime: number;
+  /** … and late. A colleague's record is neither. */
   late: number;
   /** Still waiting — due today, or overdue. */
   remaining: number;
@@ -146,6 +160,16 @@ export interface MotivationInput {
   /** The plant's closed days, and `countedFrom` — the day the system went live. */
   calendar: PlantCalendar;
   firstName?: string;
+  /**
+   * WHOSE A HANDED-IN RECORD IS — the Performance Scorecard's rule
+   * (engine/latenessCore.ts attribute). `self` is the person asking, `people`
+   * the accounts of their departments (GET /api/users/directory) and
+   * `departmentOf` the department that owns a document. Left out, or with
+   * nobody else known, every record counts for them (the person alone).
+   */
+  self?: LatenessPerson | null;
+  people?: readonly LatenessPerson[] | null;
+  departmentOf?: (doc: DocumentDefinition) => string | null;
 }
 
 function firstHandedInAt(r: RecordInstance): string | null {
@@ -227,12 +251,56 @@ export function formatGapScore(score: number): string {
   return score < 0 && n > 0 ? `−${n}` : "0";
 }
 
+// ---- Whose work a handed-in record is ------------------------------------------
+
+/** Every due date there is: whose a record is does not depend on its day. */
+const EVERY_DUE_DATE = { from: "0000-01-01", to: "9999-12-31" };
+
+/**
+ * THE RECORDS A COLLEAGUE HANDED IN — the ids of the handed-in records that
+ * count for another account, not for `self`, by the Performance Scorecard's
+ * own walk (engine/latenessCore.ts attribute): where a department has more
+ * than one account, a record that was handed in counts for the one who handed
+ * it in, matched by name however it was typed; one nobody handed in, or one
+ * somebody outside those accounts handed in (the administrator, an operator),
+ * counts for every one of them. Only a department of `self`'s own is asked
+ * about — a document Master Data names them on elsewhere, and the
+ * administrator's whole plant, stay theirs as the notification has it.
+ *
+ * Who handed a record in does not depend on the day it was due, so the walk is
+ * given the handed-in records alone, as the few fields the rule reads, with no
+ * day closed and no go-live floor: a record the score leaves out (the
+ * register's holiday line, a closed day's) is attributed as well. Nothing is
+ * walked when no department of theirs has another account known.
+ */
+function colleaguesRecords(input: MotivationInput): Set<string> {
+  const found = new Set<string>();
+  const { self, people, departmentOf } = input;
+  if (!self || !people || !departmentOf) return found;
+  const own = new Set(keptTo(self));
+  if (own.size === 0) return found;
+  const everyone = people.some((p) => p.id === self.id) ? people : [...people, self];
+  if (!everyone.some((p) => p.id !== self.id && keptTo(p).some((code) => own.has(code)))) return found;
+  const handedIn: (LatenessRecord & { id: string })[] = [];
+  for (const r of input.records) {
+    if (!HANDED_IN.has(r.status)) continue;
+    handedIn.push({ id: r.id, documentId: r.documentId, dueDate: r.dueDate, status: r.status, submittedAt: r.submittedAt, submittedBy: r.submittedBy, history: r.history });
+  }
+  if (handedIn.length === 0) return found;
+  attribute(handedIn, input.docs, everyone, EVERY_DUE_DATE, input.today, { isClosedDay: () => false, dateOf: input.calendar.dateOf }, departmentOf, ({ record, department, answering }) => {
+    if (own.has(department) && !answering.some((p) => p.id === self.id)) found.add(record.id);
+  });
+  return found;
+}
+
 /** THE WHOLE ANSWER, from records and documents handed in — pure, so a test can hold it to a made-up month. */
 export function computeMotivation(input: MotivationInput): MotivationStats {
   const { docs, records, today, calendar } = input;
   const countedFrom = calendar.countedFrom ?? null;
   const docById = new Map<string, DocumentDefinition>();
   for (const d of docs) if (!d.isReferenceOnly) docById.set(d.id, d);
+  // A colleague's (a department shared with another account): off the plate, but theirs to be praised for.
+  const colleagues = colleaguesRecords(input);
 
   const monthStart = `${today.slice(0, 8)}01`;
   const weekStart = mondayOf(today);
@@ -265,20 +333,22 @@ export function computeMotivation(input: MotivationInput): MotivationStats {
       const at = firstHandedInAt(r);
       const on = localDateOf(at);
       if (on === today || r.dueDate === today) {
-        const j = judge(r, doc, today, calendar);
         day.done += 1;
-        // A record the score does not count (the register's holiday line) is still work done, and never late.
-        if (j.outcome === "late") day.late += 1;
-        else {
-          day.onTime += 1;
-          onTimeToday.push({ module: doc.module, at: at ?? "" });
-          if (r.dueDate === today && on === today && at && new Date(at).getHours() < EARLY_BIRD_HOUR) earlyBird = true;
+        if (!colleagues.has(r.id)) {
+          const j = judge(r, doc, today, calendar);
+          // A record the score does not count (the register's holiday line) is still work done, and never late.
+          if (j.outcome === "late") day.late += 1;
+          else {
+            day.onTime += 1;
+            onTimeToday.push({ module: doc.module, at: at ?? "" });
+            if (r.dueDate === today && on === today && at && new Date(at).getHours() < EARLY_BIRD_HOUR) earlyBird = true;
+          }
         }
       }
     }
 
-    // ---- the days behind (and today), for the streak, the week and the month
-    if (r.dueDate < lookbackFrom || r.dueDate > today) continue;
+    // ---- the days behind (and today), for the streak, the week and the month — their own work only
+    if (r.dueDate < lookbackFrom || r.dueDate > today || colleagues.has(r.id)) continue;
     const j = judge(r, doc, today, calendar);
     if (j.outcome !== "onTime" && j.outcome !== "late" && j.outcome !== "overdue") continue;
     const good = j.outcome === "onTime";
@@ -372,34 +442,125 @@ export function computeMotivation(input: MotivationInput): MotivationStats {
 
 // ---- The signed-in person's, from the repositories (cached) -------------------
 
-let remembered: { key: string; records: readonly RecordInstance[]; master: unknown; stats: MotivationStats } | null = null;
+/** The signed-in person as this file reads them: an AuthUser fits; a name alone works too (the person alone, nobody else's work told apart). */
+export interface MotivationPerson {
+  id?: string;
+  name?: string | null;
+  role?: string;
+  departments?: readonly string[] | null;
+}
+
+/** The person as the scorecard's rule needs them — only with an account id to be told apart by. */
+function selfOf(person: MotivationPerson | null | undefined): LatenessPerson | null {
+  if (!person || typeof person.id !== "string" || !person.id) return null;
+  return { id: person.id, name: person.name ?? "", role: person.role ?? "", departments: Array.isArray(person.departments) ? person.departments : [] };
+}
+
+// ---- The accounts of the person's departments (GET /api/users/directory) ---------------
+
+/** How long the list is kept before it is asked for again: accounts change rarely. */
+const ACCOUNTS_KEEP_MS = 5 * 60 * 1000;
+/** After a list that could not be read, how long before it is asked for again. */
+const ACCOUNTS_RETRY_MS = 60 * 1000;
+
+/** The last list, for one account and the departments it had: `people` null when it could not be read. */
+let accountsKept: { key: string; at: number; people: readonly LatenessPerson[] | null } | null = null;
+let accountsAsked: { key: string; answer: Promise<boolean> } | null = null;
+
+const accountsKeyOf = (self: LatenessPerson): string => `${self.id}|${keptTo(self).join("+")}`;
+
+/** The accounts known for this person, or null (not asked yet, or unreadable): then they are counted alone. */
+function knownAccounts(self: LatenessPerson | null): readonly LatenessPerson[] | null {
+  return self && accountsKept && accountsKept.key === accountsKeyOf(self) ? accountsKept.people : null;
+}
+
+/**
+ * ASK FOR THE ACCOUNTS OF THE PERSON'S DEPARTMENTS — the Performance
+ * Scorecard's own list (GET /api/users/directory) — so a record a colleague of
+ * a shared department handed in is never praised as theirs. Asked once, kept
+ * five minutes (a minute after a failure), one request at a time; never for
+ * the administrator or an account kept to no department (nothing of theirs is
+ * anybody else's), and not while the browser is offline. Resolves true when a
+ * new list came, so the caller works the figures out again; never rejects and
+ * never logs. `read` is the request itself, replaceable in a test.
+ */
+export function askAccountsFor(
+  person: MotivationPerson | null | undefined,
+  read: () => Promise<{ people: readonly LatenessPerson[] }> = () => usersApi.directory()
+): Promise<boolean> {
+  const self = selfOf(person);
+  if (!self || keptTo(self).length === 0) return Promise.resolve(false);
+  const key = accountsKeyOf(self);
+  if (accountsKept && accountsKept.key === key && Date.now() - accountsKept.at < (accountsKept.people ? ACCOUNTS_KEEP_MS : ACCOUNTS_RETRY_MS)) return Promise.resolve(false);
+  if (accountsAsked && accountsAsked.key === key) return accountsAsked.answer;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return Promise.resolve(false);
+  const answer = Promise.resolve()
+    .then(read)
+    .then(
+      (res) => {
+        const list = Array.isArray(res?.people) ? res.people : null;
+        const people = list
+          ? list
+              .filter((p) => p && typeof p.id === "string" && typeof p.name === "string" && Array.isArray(p.departments))
+              .map((p): LatenessPerson => ({
+                id: p.id,
+                name: p.name,
+                role: typeof p.role === "string" ? p.role : "",
+                departments: (p.departments as readonly unknown[]).filter((c): c is string => typeof c === "string"),
+              }))
+          : null;
+        const before = accountsKept && accountsKept.key === key ? accountsKept.people : null;
+        accountsKept = { key, at: Date.now(), people };
+        return people !== null && JSON.stringify(people) !== JSON.stringify(before);
+      },
+      () => {
+        accountsKept = { key, at: Date.now(), people: accountsKept && accountsKept.key === key ? accountsKept.people : null };
+        return false;
+      }
+    )
+    .finally(() => {
+      if (accountsAsked && accountsAsked.answer === answer) accountsAsked = null;
+    });
+  accountsAsked = { key, answer };
+  return answer;
+}
+
+let remembered: { key: string; records: readonly RecordInstance[]; master: unknown; people: readonly LatenessPerson[] | null; stats: MotivationStats } | null = null;
 
 /**
  * THE SIGNED-IN PERSON'S DAY, STREAK AND BADGES. Their documents are
- * engine/notifications.ts's: the ones Master Data names them on, or — when it
- * names them on none — every document their departments may see (the
- * administrator's: all of them). Worked out once per change of the records,
- * the day, the person or the master data; never call it while drawing.
+ * engine/notifications.ts's (daysWork): the ones Master Data names them on
+ * while some of their work there is due, late or coming up, or else every
+ * document their departments may see (the administrator's: all of them). And
+ * a record a colleague of a shared department handed in is that colleague's
+ * (the accounts from askAccountsFor; until they are known, the person is
+ * counted alone). Worked out once per change of the records, the day, the
+ * person, the accounts or the master data; never call it while drawing.
  */
-export function motivationFor(person: { name?: string | null } | null | undefined, isDemo = false): MotivationStats {
+export function motivationFor(person: MotivationPerson | null | undefined, isDemo = false): MotivationStats {
   const today = todayISO();
   const master = masterRepository.get();
   const snapshot = recordRepository.snapshot();
   const visible = documentRepository.getRecordable();
   const liveStart = isDemo ? null : settingsRepository.get().liveStartDate;
   const name = person?.name ?? "";
-  const key = [today, isDemo ? "demo" : "live", sameName(name), liveStart ?? "", visible.map((d) => d.id).join(",")].join("|");
-  if (remembered && remembered.key === key && remembered.records === snapshot && remembered.master === master) return remembered.stats;
+  const self = selfOf(person);
+  const people = knownAccounts(self);
+  const key = [today, isDemo ? "demo" : "live", sameName(name), self ? accountsKeyOf(self) : "", liveStart ?? "", visible.map((d) => d.id).join(",")].join("|");
+  if (remembered && remembered.key === key && remembered.records === snapshot && remembered.master === master && remembered.people === people) return remembered.stats;
 
   const me = sameName(name);
   const named = me ? visible.filter((d) => resolveResponsibleEmployees(d, master).some((e) => sameName(e.name) === me)) : [];
-  const docs = named.length > 0 ? named : visible;
+  // The day's notification's own answer: the named documents are theirs only while a reminder there names them.
+  const theirOwn = named.length > 0 && daysWork(computeReminders(isDemo), { name }).theirOwn;
+  const docs = theirOwn ? named : visible;
   const from = addDaysISO(today, -LOOKBACK_DAYS);
   const records: RecordInstance[] = [];
   for (const d of docs) {
     for (const r of recordRepository.query({ documentId: d.id, isDemo })) {
-      // Older than the look-back: only if it was handed in today (long overdue, finally in).
-      if (r.dueDate >= from || localDateOf(r.submittedAt ?? null) === today) records.push(r);
+      // Older than the look-back: only if it is still open and its day has come
+      // (the bell lists it however old it is), or it was handed in today (long overdue, finally in).
+      if (r.dueDate >= from || (OPEN.has(r.status) && r.dueDate <= today) || localDateOf(r.submittedAt ?? null) === today) records.push(r);
     }
   }
   const stats = computeMotivation({
@@ -408,8 +569,11 @@ export function motivationFor(person: { name?: string | null } | null | undefine
     today,
     calendar: { isClosedDay: closedDays(master), countedFrom: liveStart },
     firstName: firstNameOf(name),
+    self,
+    people,
+    departmentOf: (d) => departmentOfDocument(d.id, d.formatNo),
   });
-  remembered = { key, records: snapshot, master, stats };
+  remembered = { key, records: snapshot, master, people, stats };
   return stats;
 }
 
@@ -687,7 +851,7 @@ export function cheerLine(events: readonly ReactionEvent[], ctx: CheerContext): 
 }
 
 /** The toast's line for the signed-in person, from the repositories — asked in a timeout after the toast is up. */
-export function toastCheer(events: readonly ReactionEvent[], person: { name?: string | null } | null | undefined, lang: Language): string | null {
+export function toastCheer(events: readonly ReactionEvent[], person: MotivationPerson | null | undefined, lang: Language): string | null {
   const today = todayISO();
   let stats: MotivationStats | null = null;
   try {
@@ -809,4 +973,22 @@ export function outcomeOf(events: readonly ReactionEvent[]): BatchOutcome {
     }
   }
   return out;
+}
+
+export type CelebrationKind = "all-done" | "badge" | "everyday";
+
+/**
+ * WHICH CEREMONY A BATCH GETS (components/common/Celebration.tsx). The big one
+ * — the rain, the fanfare, the all-done card, Mitra saying so aloud — only
+ * when the last thing due today went in: `lastOneDue`, the toast's own 🌟
+ * "last one due today" (engine/recordLifecycle.ts, from what the bell still
+ * lists), never the person's own tally alone, which may call the day done
+ * while the bell still lists work. A badge card when work handed in on time
+ * (or as required, or put right) earned a badge worth one; otherwise the
+ * everyday answer.
+ */
+export function celebrationKind(outcome: BatchOutcome, fresh: readonly AchievementKey[]): CelebrationKind {
+  if (outcome.lastOneDue) return "all-done";
+  if (outcome.onTime + outcome.plain + outcome.again > 0 && notableAchievements(fresh).length > 0) return "badge";
+  return "everyday";
 }

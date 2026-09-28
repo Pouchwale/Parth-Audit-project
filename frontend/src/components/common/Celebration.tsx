@@ -3,7 +3,9 @@ import { REACTION_EVENT, type ReactionEvent } from "../../engine/reactions";
 import { emitCue, emitSay } from "../../engine/engageBus";
 import {
   allDoneView,
+  askAccountsFor,
   badgeFor,
+  celebrationKind,
   cheerText,
   markCelebrated,
   motivationFor,
@@ -161,6 +163,14 @@ export function Celebration() {
   const live = useRef({ lang, uiLang, user });
   live.current = { lang, uiLang, user };
 
+  // The accounts of the person's departments, asked once they are signed in (and kept a few minutes), so a
+  // record a colleague of a shared department handed in is never celebrated as theirs (engine/motivation.ts).
+  const accountsKey = user ? `${user.id}|${(user.departments ?? []).join(",")}` : "";
+  useEffect(() => {
+    if (!accountsKey) return;
+    askAccountsFor(live.current.user).catch(() => undefined);
+  }, [accountsKey]);
+
   const [confetti, setConfetti] = useState<{ id: number; kind: "burst" | "rain" } | null>(null);
   const [card, setCard] = useState<(AllDoneView & { id: number }) | null>(null);
   const [pop, setPop] = useState<{ id: number; title: string; line: string; badges: BadgeView[] } | null>(null);
@@ -201,9 +211,10 @@ export function Celebration() {
         }
       }
       const fresh = stats ? newAchievements(stats) : [];
+      const kind = celebrationKind(outcome, fresh);
 
-      // THE BIG ONE: nothing of theirs is left due today.
-      if (outcome.lastOneDue || fresh.includes("all-done-today")) {
+      // THE BIG ONE: the last thing due today went in (the toast's own 🌟 "last one due today").
+      if (kind === "all-done") {
         markCelebrated(fresh, today);
         showConfetti("rain");
         emitCue("celebrate");
@@ -218,7 +229,7 @@ export function Celebration() {
 
       // A badge earned by this work: a streak reached, an early start, a clean week, a whole module on time.
       const notable = notableAchievements(fresh);
-      if (notable.length > 0 && handedIn > 0) {
+      if (kind === "badge") {
         markCelebrated(fresh, today);
         showConfetti("burst");
         emitCue("celebrate");

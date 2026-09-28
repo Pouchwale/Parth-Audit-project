@@ -487,10 +487,11 @@ function UploadChangesDialog({ request }: { request: UploadRequest }) {
                             </thead>
                             <tbody>
                               {changes.map((c) => (
-                                <tr key={c.path} data-change-path={c.path} data-record-id={c.recordId} data-conflict={c.conflict ? "1" : undefined}>
+                                <tr key={c.path} data-change-path={c.path} data-record-id={c.recordId} data-conflict={c.conflict ? "1" : undefined} data-moved={c.moved ? "1" : undefined}>
                                   <td className="rt-label">
                                     <span translate="no">{c.label}</span>
                                     {c.conflict && <span className="rt-conflict">{t("rt.conflict")}</span>}
+                                    {c.moved && <span className="rt-conflict">{t("rt.moved")}</span>}
                                   </td>
                                   <td className="rt-was" translate="no">
                                     {c.before ? c.before : <span className="rt-empty">{t("rt.empty")}</span>}
@@ -534,7 +535,7 @@ function UploadChangesDialog({ request }: { request: UploadRequest }) {
                             </>
                           ) : null}
                           {": "}
-                          <span>{r.why}</span>
+                          <span>{r.whyKey ? t(r.whyKey, r.whyParams) : r.why}</span>
                         </li>
                       ))}
                     </ul>
@@ -560,6 +561,8 @@ function UploadChangesDialog({ request }: { request: UploadRequest }) {
 function AppliedSummary({ result, recordTitle }: { result: ApplyResult; recordTitle: (id: string) => string }) {
   const t = useT();
   const skipped = result.records.filter((r) => r.skipped);
+  // Changes the record's page would not make (a checklist activity out of turn), with why.
+  const refused = result.records.flatMap((r) => (r.refused ?? []).map((f) => ({ ...f, recordId: r.recordId })));
   const reopened = result.records.some((r) => r.reopened && r.applied > 0);
   return (
     <>
@@ -570,13 +573,18 @@ function AppliedSummary({ result, recordTitle }: { result: ApplyResult; recordTi
           {reopened && <p className="rt-small">{t("rt.reopened")}</p>}
         </div>
       </div>
-      {(skipped.length > 0 || result.failed.length > 0) && (
+      {(skipped.length > 0 || result.failed.length > 0 || refused.length > 0) && (
         <div className="rt-rejected">
           <div className="rt-subhead">{t("rt.notApplied")}</div>
           <ul data-section="upload-failed">
             {skipped.map((r) => (
               <li key={r.recordId} data-record-id={r.recordId}>
                 <strong translate="no">{recordTitle(r.recordId)}</strong>: {t(SKIP_KEYS[r.skipped!])}
+              </li>
+            ))}
+            {refused.map((f, i) => (
+              <li key={`r${i}`} data-record-id={f.recordId}>
+                <strong translate="no">{f.label}</strong>: <span>{f.whyKey ? t(f.whyKey, f.whyParams) : f.why}</span>
               </li>
             ))}
             {result.failed.map((label, i) => (

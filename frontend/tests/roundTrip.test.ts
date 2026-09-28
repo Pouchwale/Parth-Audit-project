@@ -9,7 +9,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { deflateRawSync } from "node:zlib";
-import { crc32, isoToSerial, unzip, zipStored } from "../src/utils/xlsx";
+import { columnName, crc32, isoToSerial, unzip, zipStored } from "../src/utils/xlsx";
 import { documentFileBytes, workbookFromBlocks, wordDocumentFromBlocks, type Cell, type ExportBlock } from "../src/utils/documentExport";
 import { makeEnvelope, type ExportBinding, type ExportTableBinding } from "../src/engine/roundTrip/exportMap";
 import { readUploadedFile, READ_MESSAGES, type ReadResult } from "../src/engine/roundTrip/readFile";
@@ -466,13 +466,106 @@ test("a grid sorted in Excel: each line's values are found by its Sr. No., which
   assert.deepEqual(changesBy(edited), { "rows/@r-2/viscosity": 20 });
 });
 
-test("a line whose Sr. No. was typed over cannot be told apart any more: its values are missing, never applied to another line", async () => {
+test("a line whose Sr. No. was typed over (the grid not sorted): its values stay on its own line, by its hidden names — flagged for a check, never moved", async () => {
   const parts = await partsOf(xlsxBytes());
   setCell(parts, "A11", `<c r="A11" s="6"><v>7</v></c>`);
   setCell(parts, "C11", `<c r="C11" s="6"><v>99</v></c>`);
-  const plan = planImport(await read(zipOf(parts)), "upload.xlsx", ctx(sampleData()));
+  const r = await read(zipOf(parts));
+  const plan = planImport(r, "upload.xlsx", ctx(sampleData()));
+  assert.deepEqual(changesBy(plan), { "rows/@r-2/viscosity": 99 }, "the change is line 2's own, where its names point");
+  assert.equal(plan.missing, 0);
+  assert.deepEqual(r.relocated ?? [], [], "nothing is moved to another line");
+  const line2 = r.entries.filter((e) => e.path.startsWith("rows/@r-2/")).map((e) => e.i);
+  assert.deepEqual([...(r.unconfirmed ?? [])].sort((a, b) => a - b), line2, "the line whose own words changed is flagged");
+});
+
+// A grid of five lines, numbered in a column no value is bound to (the GAP
+// report's findings, a free-row log sheet). Sheet rows: 1 heading · 2–6 lines.
+const FIVE = [
+  ["f-1", "1", "08:00", "11", "Yes", "Shift A", "n1"],
+  ["f-2", "2", "09:00", "12", "No", "Shift B", "n2"],
+  ["f-3", "3", "10:00", "13", "Yes", "Shift C", "n3"],
+  ["f-4", "4", "11:00", "14", "No", "Shift A", "n4"],
+  ["f-5", "5", "12:00", "15", "Yes", "Shift B", "n5"],
+] as const;
+const fiveBlocks = (): ExportBlock[] => [
+  {
+    kind: "table",
+    headerRows: 1,
+    bindTable: GRID,
+    rows: [[plain("Sr. No."), plain("Time"), plain("Viscosity"), plain("OK"), plain("Shift"), plain("Note")], ...FIVE.map(([id, sr, t, v, ok, s, n]) => row(id, sr, t, v, ok, s, n))],
+  },
+];
+const fiveData = () => ({ rows: FIVE.map(([id, , time, v, ok, s, note]) => ({ id, time, viscosity: Number(v), ok, shift: s.slice(-1), note })) });
+const fiveBytes = () => documentFileBytes("xlsx", DOC, fiveBlocks(), [REC], EXPORTED_AT);
+const numberCell = (ref: string, n: number) => `<c r="${ref}" s="6"><v>${n}</v></c>`;
+
+test("a line deleted and the lines below renumbered in Excel: no line takes another line's values, none is read twice", async () => {
+  const parts = await partsOf(fiveBytes());
+  deleteRow(parts, 3); // line 2 goes; its hidden names become #REF!
+  setCell(parts, "A3", numberCell("A3", 2)); // lines 3, 4, 5 renumbered 2, 3, 4
+  setCell(parts, "A4", numberCell("A4", 3));
+  setCell(parts, "A5", numberCell("A5", 4));
+  const r = await read(zipOf(parts));
+  const plan = planImport(r, "upload.xlsx", ctx(fiveData()));
+  assert.deepEqual(plan.changes, [], "every line reads its own values");
+  assert.equal(plan.missing, 5, "the deleted line's values are missing");
+  assert.deepEqual(plan.appends, [], "no line is taken for a new one");
+  assert.deepEqual(r.relocated ?? [], [], "a grid that lost a line is not treated as sorted");
+  assert.equal((r.unconfirmed ?? []).length, 15, "the three renumbered lines are flagged for a check");
+  // An edit on a renumbered line is that line's.
+  setCell(parts, "C4", numberCell("C4", 40)); // line 4, now numbered 3
+  const edited = planImport(await read(zipOf(parts)), "upload.xlsx", ctx(fiveData()));
+  assert.deepEqual(changesBy(edited), { "rows/@f-4/viscosity": 40 });
+  assert.deepEqual(edited.appends, []);
+});
+
+test("a line inserted in the middle and the lines below renumbered: the new line is new, the others keep their own values", async () => {
+  const parts = await partsOf(fiveBytes());
+  insertRow(parts, 4, [numberCell("A4", 3), inline("B4", "09:30"), numberCell("C4", 12.5), inline("D4", "Yes")].join(""));
+  setCell(parts, "A5", numberCell("A5", 4)); // lines 3, 4, 5 renumbered 4, 5, 6
+  setCell(parts, "A6", numberCell("A6", 5));
+  setCell(parts, "A7", numberCell("A7", 6));
+  const r = await read(zipOf(parts));
+  const plan = planImport(r, "upload.xlsx", ctx(fiveData()));
+  assert.deepEqual(plan.changes, []);
+  assert.equal(plan.missing, 0);
+  assert.equal(plan.appends.length, 1, "only the inserted line is new");
+  assert.deepEqual({ ...plan.appends[0].item, id: "" }, { id: "", time: "09:30", viscosity: 12.5, ok: "Yes", shift: "", note: "" });
+  assert.deepEqual(r.relocated ?? [], []);
+});
+
+test("a grid sorted in Excel (a pure reordering): values follow their lines, and each value read from another line is reported as moved", async () => {
+  const parts = await partsOf(fiveBytes());
+  swapRows(parts, 2, 6); // lines 1 and 5 change places
+  swapRows(parts, 3, 4); // and lines 2 and 3
+  const r = await read(zipOf(parts));
+  const plan = planImport(r, "upload.xlsx", ctx(fiveData()));
+  assert.deepEqual(plan.changes, [], "sorting alone changes nothing");
+  assert.equal(plan.missing, 0);
+  assert.deepEqual(plan.appends, []);
+  const moved = r.entries.filter((e) => !e.path.startsWith("rows/@f-4/")).map((e) => e.i);
+  assert.deepEqual([...(r.relocated ?? [])].sort((a, b) => a - b), moved, "every value of the four lines that moved");
+  assert.deepEqual(r.unconfirmed ?? [], []);
+  setCell(parts, "C2", numberCell("C2", 50)); // line 5, now the first line of the sheet
+  const edited = planImport(await read(zipOf(parts)), "upload.xlsx", ctx(fiveData()));
+  assert.deepEqual(changesBy(edited), { "rows/@f-5/viscosity": 50 });
+  // A value read from another line is marked for a check in the preview (plan.ts moved ← readFile relocated/unconfirmed).
+  assert.equal(edited.changes[0].moved, true, "the change on a moved line is flagged");
+  const untouched = planImport(await read(zipOf((await partsOf(fiveBytes())))), "upload.xlsx", ctx(fiveData()));
+  assert.ok(untouched.changes.every((c) => !c.moved), "a file nobody sorted flags nothing");
+});
+
+test("without the hidden names (a program that drops them) a deleted line shifts the lines below: each is found by its own words, the deleted one is missing", async () => {
+  const parts = await partsOf(fiveBytes());
+  parts.set("xl/workbook.xml", parts.get("xl/workbook.xml")!.replace(/<definedNames>[\s\S]*<\/definedNames>/, ""));
+  deleteRow(parts, 3); // line 2; the map's references still say where every line was written
+  const r = await read(zipOf(parts));
+  const plan = planImport(r, "upload.xlsx", ctx(fiveData()));
   assert.deepEqual(plan.changes, []);
   assert.equal(plan.missing, 5);
+  assert.deepEqual(plan.appends, []);
+  assert.equal((r.relocated ?? []).length, 15, "lines 3, 4 and 5 were read one row up, and are reported as moved");
 });
 
 test("without the hidden names (a program that drops them) the map's cell references are used", async () => {
@@ -643,6 +736,38 @@ test("files that cannot be read are answered in plain words", async () => {
   assert.equal(r9.ok ? null : r9.reason, "damaged");
 });
 
+test("a crafted workbook: a row numbered past Excel's last row (1,048,576) is not read, and one numbered a hundred million cannot exhaust the tab", async () => {
+  const MAP = "xl/worksheets/sheet2.xml";
+  const parts = await partsOf(xlsxBytes());
+  const texts = ["0", REC, "rows", "", "", "", "", "far", "text", "", "9"];
+  const extra = (r: number) => `<row r="${r}">${texts.map((t, ci) => (t ? `<c r="${columnName(ci)}1" t="inlineStr"><is><t>${t}</t></is></c>` : "")).join("")}</row>`;
+  const map = parts.get(MAP)!;
+  parts.set(MAP, map.replace("</sheetData>", `${extra(2_000_000)}</sheetData>`));
+  const r = await read(zipOf(parts));
+  assert.equal(r.tables[0].columns.length, 5, "a row Excel cannot have is not part of the map");
+  parts.set(MAP, map.replace("</sheetData>", `${extra(100_000_000)}</sheetData>`));
+  setCell(parts, "B4", `<c r="XFE4" t="inlineStr"><is><t>past the last column</t></is></c>${inline("B4", "Rajesh Kumar")}`);
+  const started = Date.now();
+  const r2 = await read(zipOf(parts));
+  assert.ok(Date.now() - started < 3000, "read without building a hundred million rows");
+  assert.equal(r2.tables[0].columns.length, 5);
+  assert.deepEqual(changesBy(planImport(r2, "upload.xlsx", ctx(sampleData()))), { "header/checkedBy": "Rajesh Kumar" });
+});
+
+test("a crafted zip whose parts inflate past what any document holds is refused as damaged, not read part after part", async () => {
+  const zeros = new Uint8Array(19 * 1024 * 1024); // each part just under the 20 MB a part may inflate to
+  const files = [
+    { name: "[Content_Types].xml", data: enc.encode('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>') },
+    { name: "_rels/.rels", data: enc.encode('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>') },
+    { name: "word/document.xml", data: enc.encode('<w:document xmlns:w="urn:w"><w:body/></w:document>') },
+    ...[1, 2, 3, 4].map((n) => ({ name: `customXml/item${n}.xml`, data: zeros })),
+  ];
+  const bytes = zipDeflated(files);
+  assert.ok(bytes.length < 1024 * 1024, "a small upload");
+  const r = await readUploadedFile(bytes.slice().buffer, "bomb.docx");
+  assert.equal(r.ok ? null : r.reason, "damaged");
+});
+
 // ---------------------------------------------------------------------------
 // Word
 
@@ -754,6 +879,28 @@ test("rows added to the captioned grid in Word are new lines — a typed row and
   assert.deepEqual({ ...plan.appends[0].item, id: "" }, { id: "", time: "16:45", viscosity: 14.2, ok: "No", shift: "C", note: "ok" });
   assert.deepEqual({ ...plan.appends[1].item, id: "" }, { id: "", time: "15:15", viscosity: 13, ok: "No", shift: "B", note: "thin" });
   assert.deepEqual({ ...plan.appends[2].item, id: "" }, { id: "", time: "", viscosity: 13.1, ok: "", shift: "", note: "" }, "a cell spanning two columns keeps the next cell in its column");
+});
+
+test("a crafted Word file: a cell pushed past Word's 63 columns is not read, and a span of a hundred million columns cannot freeze the tab", async () => {
+  const parts = await partsOf(docxBytes());
+  const MAP_PART = "customXml/item1.xml";
+  // The map's Note column moved a million columns to the right, and a row whose one cell is pushed there.
+  assert.match(parts.get(MAP_PART)!, /"col":5,"label":"Note"/);
+  parts.set(MAP_PART, parts.get(MAP_PART)!.replace('"col":5,"label":"Note"', '"col":1000000,"label":"Note"'));
+  const cell = (t: string, span = "") => `<w:tc>${span ? `<w:tcPr><w:gridSpan w:val="${span}"/></w:tcPr>` : ""}<w:p><w:r><w:t>${t}</w:t></w:r></w:p></w:tc>`;
+  const addRow = (tr: string) => {
+    const xml = parts.get(DOCUMENT)!;
+    const table = /<w:tbl>(?:(?!<w:tbl>)[\s\S])*?<w:tblCaption w:val="dcrs:t0"\/>[\s\S]*?<\/w:tbl>/.exec(xml)![0];
+    parts.set(DOCUMENT, xml.replace(table, table.replace(/<\/w:tbl>$/, `${tr}</w:tbl>`)));
+  };
+  addRow(`<w:tr><w:trPr><w:gridBefore w:val="1000000"/></w:trPr>${cell("far")}</w:tr>`);
+  const r = await read(zipOf(parts), "upload.docx");
+  assert.deepEqual(r.appended, [], "no cell of a Word table stands a million columns in");
+  addRow(`<w:tr>${cell("6", "100000000")}${cell("16:45")}</w:tr>`);
+  const started = Date.now();
+  const r2 = await read(zipOf(parts), "upload.docx");
+  assert.ok(Date.now() - started < 3000, "read without building a hundred million cells");
+  assert.deepEqual(r2.appended, []);
 });
 
 test("a grid with no lines yet: its 'No rows yet.' line is not read as a new one, a line added under it is", async () => {

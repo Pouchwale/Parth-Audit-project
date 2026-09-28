@@ -75,12 +75,39 @@ export type ReadResult =
       /** Entries whose cell/control is gone from the file (rows deleted …). */
       missing: number[];
       appended: AppendedRow[];
+      /**
+       * xlsx: entries read from another line of their grid than the one their
+       * hidden name points at — the grid was sorted in Excel and the line's own
+       * words (its Sr. No.) moved with it. A preview marks them for a check.
+       */
+      relocated?: number[];
+      /**
+       * xlsx: entries read where their hidden name points although their line no
+       * longer shows its own words there (renumbered after a line was deleted or
+       * inserted, or typed over). Not moved — a preview marks them for a check.
+       */
+      unconfirmed?: number[];
     }
   | { ok: false; reason: "not-office" | "legacy-format" | "no-map" | "damaged" | "too-big"; message: string };
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+/**
+ * How much the parts of one upload may inflate to, all together. Each part is
+ * held to 20 MB (utils/xlsx.ts inflateRaw); a workbook or a Word file made
+ * here, however long, is a fraction of this. A crafted zip — many parts, or
+ * many entries pointing at one — is refused as damaged, never read on until
+ * the tab runs out of memory.
+ */
+const MAX_PACKAGE_BYTES = 64 * 1024 * 1024;
 /** How many lines below a grid are read as new lines at most. */
 const MAX_APPENDED_ROWS = 500;
+/** Excel's own limits: 1,048,576 rows and 16,384 columns (A…XFD). A cell said to be past them is not read. */
+const MAX_SHEET_ROWS = 1_048_576;
+const MAX_SHEET_COLUMNS = 16_384;
+/** The map sheet's rows hold 13 columns; anything further right is not the map's. */
+const MAP_SHEET_COLUMNS = 64;
+/** Word's own limit: a table has at most 63 columns. */
+const MAX_WORD_COLUMNS = 63;
 
 export const READ_MESSAGES = {
   "too-big": "The file is larger than 15 MB — this cannot be a document downloaded from here. Choose the file you downloaded and edited.",
@@ -123,15 +150,21 @@ export async function readUploadedFile(data: Blob | ArrayBuffer, fileName: strin
     const names = new Map<string, string>();
     for (const name of zip.keys()) names.set(name.replace(/\\/g, "/").replace(/^\//, "").toLowerCase(), name);
     const pkg = new Package(zip, names);
-    const main = await pkg.mainPart();
-    if (main && /(^|\/)workbook\d*\.xml$/i.test(main)) return await readXlsx(pkg, main);
-    if (main && /(^|\/)document\d*\.xml$/i.test(main)) return await readDocx(pkg, main);
-    if (pkg.has("xl/workbook.xml")) return await readXlsx(pkg, "xl/workbook.xml");
-    if (pkg.has("word/document.xml")) return await readDocx(pkg, "word/document.xml");
-    return fail("not-office");
+    const result = await readPackage(pkg);
+    // Parts that inflate past any real document: whatever was made of the rest, the file is refused.
+    return pkg.overflowed ? fail("damaged") : result;
   } catch {
     return fail("damaged");
   }
+}
+
+async function readPackage(pkg: Package): Promise<ReadResult> {
+  const main = await pkg.mainPart();
+  if (main && /(^|\/)workbook\d*\.xml$/i.test(main)) return await readXlsx(pkg, main);
+  if (main && /(^|\/)document\d*\.xml$/i.test(main)) return await readDocx(pkg, main);
+  if (pkg.has("xl/workbook.xml")) return await readXlsx(pkg, "xl/workbook.xml");
+  if (pkg.has("word/document.xml")) return await readDocx(pkg, "word/document.xml");
+  return fail("not-office");
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +172,10 @@ export async function readUploadedFile(data: Blob | ArrayBuffer, fileName: strin
 
 class Package {
   private cache = new Map<string, XmlElement | null>();
+  /** Bytes of the parts read so far, inflated. */
+  private total = 0;
+  /** The parts read inflated past MAX_PACKAGE_BYTES: nothing more is read, and the file is refused. */
+  overflowed = false;
   constructor(
     private zip: Zip,
     private names: Map<string, string>
@@ -154,9 +191,17 @@ class Package {
   }
 
   async bytes(path: string): Promise<Uint8Array | null> {
+    if (this.overflowed) throw new Error("The parts of this file inflate past any document's.");
     const real = this.names.get(path.replace(/^\//, "").toLowerCase());
     const get = real ? this.zip.get(real) : undefined;
-    return get ? await get() : null;
+    if (!get) return null;
+    const data = await get();
+    this.total += data.length;
+    if (this.total > MAX_PACKAGE_BYTES) {
+      this.overflowed = true;
+      throw new Error("The parts of this file inflate past any document's.");
+    }
+    return data;
   }
 
   /** A part parsed; null when the package has no such part. Throws on a part that is not XML. */
@@ -299,10 +344,12 @@ interface SheetCells {
 
 const REF_RE = /^\$?([A-Za-z]{1,3})\$?(\d{1,7})$/;
 
+/** An A1 reference — null when it is not one, or names a cell past Excel's last row or column. */
 function parseRef(ref: string): { col: number; row: number } | null {
   const m = REF_RE.exec(ref.trim());
   if (!m) return null;
-  return { col: columnIndex(m[1]), row: Number(m[2]) };
+  const at = { col: columnIndex(m[1]), row: Number(m[2]) };
+  return at.row >= 1 && at.row <= MAX_SHEET_ROWS && at.col >= 0 && at.col < MAX_SHEET_COLUMNS ? at : null;
 }
 
 /** A defined name's formula: "'My Sheet'!$C$12" → { sheet, col, row }; "#REF!" or a range → null. */
@@ -433,13 +480,18 @@ async function readXlsx(pkg: Package, workbookPath: string): Promise<ReadResult>
       for (const row of data ? childElements(data, "row") : []) {
         const r = Number(attr(row, "r") ?? NaN);
         rowNo = Number.isInteger(r) && r > 0 ? r : rowNo + 1;
+        // A row Excel cannot have (a crafted file) is not read.
+        if (rowNo > MAX_SHEET_ROWS) continue;
         const cells = rows.get(rowNo) ?? new Map<number, UploadedValue>();
         let next = 0;
         for (const c of childElements(row, "c")) {
           const ref = attr(c, "r");
           const at = ref ? parseRef(ref) : null;
+          // A cell whose reference is past the last column is not read, nor put in another column.
+          if (ref && !at && REF_RE.test(ref.trim())) continue;
           const col = at ? at.col : next;
           next = col + 1;
+          if (col >= MAX_SHEET_COLUMNS) continue;
           cells.set(col, cellValue(c));
         }
         rows.set(rowNo, cells);
@@ -449,15 +501,18 @@ async function readXlsx(pkg: Package, workbookPath: string): Promise<ReadResult>
     sheetCache.set(sheet.path, out);
     return out;
   };
-  const gridText = (cells: SheetCells): string[][] => {
-    const grid: string[][] = [];
-    for (const [r, row] of cells.rows) {
-      const line: string[] = [];
-      for (const [c, v] of row) line[c] = v.text;
-      grid[r - 1] = Array.from(line, (x) => x ?? "");
-    }
-    return Array.from(grid, (r) => r ?? []);
-  };
+  // The map sheet's rows in order, as text — only the rows that are there and the
+  // columns the map uses (a crafted row numbered a hundred million is one row
+  // here, not a hundred million empty ones).
+  const mapRowsText = (cells: SheetCells): string[][] =>
+    Array.from(cells.rows.keys())
+      .sort((a, b) => a - b)
+      .map((r) => {
+        const line: string[] = [];
+        for (const [c, v] of cells.rows.get(r)!) if (c < MAP_SHEET_COLUMNS) line[c] = v.text;
+        return Array.from(line, (x) => x ?? "");
+      })
+      .filter((line) => line.some(Boolean));
 
   // The map: on the sheet whose first cell says so — a hidden one first.
   let map: ReturnType<typeof parseMapSheetRows> = null;
@@ -468,7 +523,7 @@ async function readXlsx(pkg: Package, workbookPath: string): Promise<ReadResult>
     if (!cells) continue;
     const a1 = cells.rows.get(1)?.get(0)?.text.trim();
     if (a1 !== MAP_SIGNATURE) continue;
-    map = parseMapSheetRows(gridText(cells));
+    map = parseMapSheetRows(mapRowsText(cells));
     if (map) {
       mapSheet = sheet;
       break;
@@ -514,45 +569,102 @@ async function readXlsx(pkg: Package, workbookPath: string): Promise<ReadResult>
   const groups = new Map<string, { sheet: Sheet; col: number; row: number; entries: MapEntry[] }>();
   const occupied = new Map<Sheet, Set<number>>();
   // Where each value is now: by its hidden name, else by the map's reference.
-  const placed: { e: MapEntry; at: { sheet: Sheet; col: number; row: number } }[] = [];
+  type Placed = { e: MapEntry; at: { sheet: Sheet; col: number; row: number }; byName: boolean };
+  const placed: Placed[] = [];
   for (const e of map.entries) {
     let at = whereNamed(entryName(e.i));
+    const byName = at !== undefined;
     if (at === undefined) {
       const ref = e.ref ? parseRef(e.ref) : null;
       at = ref ? { sheet: main, ...ref } : null;
     }
     if (!at) missing.push(e.i);
-    else placed.push({ e, at });
+    else placed.push({ e, at, byName });
   }
   // A grid sorted in Excel: the names stayed where they were while the lines
-  // moved. A line's own fixed words (its Sr. No.) moved with it, so a value whose
-  // line no longer has them beside it is looked for on the grid's line that has.
-  const gridRows = new Map<number, Set<number>>();
-  for (const { e, at } of placed) {
-    if (!e.anchor) continue;
-    const rows = gridRows.get(e.anchor.grid) ?? new Set<number>();
-    rows.add(at.row);
-    gridRows.set(e.anchor.grid, rows);
-  }
-  const anchorIndex = new Map<string, Map<string, number[]>>();
+  // moved, and each line's own fixed words (its Sr. No.) moved with it. Only a
+  // PURE reordering is undone — every line of the grid still named (none
+  // #REF!), each on a row of its own, and the words now on those rows exactly
+  // the lines' own words, each once. Then a value whose line no longer has its
+  // words beside it is read from the grid's row that has them, and reported as
+  // moved. Anything else cannot be told from a sort by the words alone: a line
+  // deleted or inserted and the lines below renumbered, a Sr. No. typed over.
+  // There the names are trusted and nothing is moved (a renumbered line keeps
+  // its own values; a value is never put on another line's), and the values
+  // whose line no longer shows its words are reported as unconfirmed.
+  //   A grid whose names a program dropped has only the map's references —
+  // where the lines were WRITTEN, which a deleted or inserted row shifts — so
+  // there each such line is looked for by its own words among the grid's
+  // lines: found on exactly one it is read there (reported as moved), else
+  // its values are missing.
+  const relocated: number[] = [];
+  const unconfirmed: number[] = [];
+  const anchoredInMap = new Map<number, number>();
+  for (const e of map.entries) if (e.anchor) anchoredInMap.set(e.anchor.grid, (anchoredInMap.get(e.anchor.grid) ?? 0) + 1);
+  const byGrid = new Map<number, { p: Placed; anchor: NonNullable<MapEntry["anchor"]>; own: string }[]>();
   for (const p of placed) {
     const anchor = p.e.anchor;
     if (!anchor) continue;
-    const cells = await readSheet(p.at.sheet);
-    const want = rowSignature([anchor.text]);
-    if (!cells || rowSignature([cells.rows.get(p.at.row)?.get(anchor.col)?.text ?? ""]) === want) continue;
-    const key = `${anchor.grid}:${anchor.col}`;
-    let index = anchorIndex.get(key);
-    if (!index) {
-      index = new Map<string, number[]>();
-      for (const r of gridRows.get(anchor.grid) ?? []) {
-        const text = rowSignature([cells.rows.get(r)?.get(anchor.col)?.text ?? ""]);
-        index.set(text, [...(index.get(text) ?? []), r]);
+    const list = byGrid.get(anchor.grid) ?? [];
+    list.push({ p, anchor, own: rowSignature([anchor.text]) });
+    byGrid.set(anchor.grid, list);
+  }
+  const shownAt = async (sheet: Sheet, row: number, col: number) => rowSignature([(await readSheet(sheet))?.rows.get(row)?.get(col)?.text ?? ""]);
+  for (const [grid, items] of byGrid) {
+    const off: typeof items = [];
+    for (const item of items) if ((await shownAt(item.p.at.sheet, item.p.at.row, item.anchor.col)) !== item.own) off.push(item);
+    if (off.length === 0) continue;
+    if (!items.every((item) => item.p.byName)) {
+      const gridRows = Array.from(new Set(items.map((item) => item.p.at.row)));
+      // By sheet and column: the words each of the grid's rows shows there → those rows.
+      const index = new Map<string, Map<string, number[]>>();
+      for (const { p, anchor, own } of off) {
+        const key = `${p.at.sheet.path}!${anchor.col}`;
+        let words = index.get(key);
+        if (!words) {
+          words = new Map<string, number[]>();
+          for (const r of gridRows) {
+            const shown = await shownAt(p.at.sheet, r, anchor.col);
+            const list = words.get(shown);
+            if (list) list.push(r);
+            else words.set(shown, [r]);
+          }
+          index.set(key, words);
+        }
+        const rows = words.get(own) ?? [];
+        p.at = { ...p.at, row: rows.length === 1 ? rows[0] : -1 };
+        if (rows.length === 1) relocated.push(p.e.i);
       }
-      anchorIndex.set(key, index);
+      continue;
     }
-    const rows = index.get(want) ?? [];
-    p.at = { ...p.at, row: rows.length === 1 ? rows[0] : -1 };
+    // Each line, by its own words: the one place its names point at now.
+    const lines = new Map<string, { sheet: Sheet; row: number; col: number }>();
+    let pure = items.length === anchoredInMap.get(grid);
+    for (const { p, anchor, own } of items) {
+      const line = lines.get(own);
+      if (!line) lines.set(own, { sheet: p.at.sheet, row: p.at.row, col: anchor.col });
+      else if (line.sheet !== p.at.sheet || line.row !== p.at.row || line.col !== anchor.col) pure = false;
+    }
+    // The row each line's words stand on now: among the lines' own rows, each row showing one line's words.
+    const rowOf = new Map<string, number>();
+    const rowsSeen = new Set<number>();
+    const sheet = items[0].p.at.sheet;
+    for (const line of pure ? lines.values() : []) {
+      const shown = await shownAt(line.sheet, line.row, line.col);
+      if (line.sheet !== sheet || rowsSeen.has(line.row) || !lines.has(shown) || rowOf.has(shown)) {
+        pure = false;
+        break;
+      }
+      rowsSeen.add(line.row);
+      rowOf.set(shown, line.row);
+    }
+    for (const { p, own } of off) {
+      const row = pure ? rowOf.get(own) : undefined;
+      if (row !== undefined) {
+        p.at = { ...p.at, row };
+        relocated.push(p.e.i);
+      } else unconfirmed.push(p.e.i);
+    }
   }
   for (const { e, at } of placed) {
     if (at.row < 1) {
@@ -588,14 +700,18 @@ async function readXlsx(pkg: Package, workbookPath: string): Promise<ReadResult>
   const appended: AppendedRow[] = [];
   const mainCells = await readSheet(main);
   if (mainCells) {
+    // A row's texts left to right, the empty cells left out (a line's signature leaves them out too).
     const rowTexts = (r: number): string[] => {
       const row = mainCells.rows.get(r);
       if (!row) return [];
-      const out: string[] = [];
-      for (const [c, v] of row) out[c] = v.text;
-      return Array.from(out, (x) => x ?? "");
+      return Array.from(row)
+        .sort((a, b) => a[0] - b[0])
+        .map(([, v]) => v.text);
     };
     const isEmpty = (r: number) => rowTexts(r).every((t) => !t.trim());
+    // The last row the sheet holds: past it every row is empty, so no grid is read further.
+    let lastSheetRow = 0;
+    for (const r of mainCells.rows.keys()) if (r > lastSheetRow) lastSheetRow = r;
     const taken = occupied.get(main) ?? new Set<number>();
     const namedRow = (name: string, stored: number | undefined): number | undefined => {
       const at = whereNamed(name);
@@ -620,8 +736,9 @@ async function readXlsx(pkg: Package, workbookPath: string): Promise<ReadResult>
         lastRow = best;
       }
       const fixed = new Set(table.fixedRows ?? []);
-      const limit = lastRow + MAX_APPENDED_ROWS;
-      for (let r = firstRow; r <= limit; r++) {
+      // Rows past the sheet's last are empty: within the grid they are skipped, after it they end it.
+      const limit = Math.min(lastRow + MAX_APPENDED_ROWS, lastSheetRow);
+      for (let r = Math.max(1, firstRow); r <= limit; r++) {
         if (nextRow !== undefined && r >= nextRow) break;
         const after = r > lastRow;
         if (after && isEmpty(r)) break;
@@ -644,17 +761,97 @@ async function readXlsx(pkg: Package, workbookPath: string): Promise<ReadResult>
     }
   }
 
-  return { ok: true, kind: "xlsx", envelope, entries: map.entries, tables: map.tables, values, missing, appended };
+  return { ok: true, kind: "xlsx", envelope, entries: map.entries, tables: map.tables, values, missing, appended, relocated, unconfirmed };
 }
+
+type Piece = Pick<MapEntry, "pre" | "post"> & { text?: string };
 
 /**
  * The values cut out of a cell holding fixed words around them: statics are
- * entries[0].pre, then each entry's post. null for a value that cannot be told
- * apart any more (the words around it were changed, or two values touch).
+ * entries[0].pre, then each entry's post (and each entry's text, as the
+ * download wrote it). null for a value that cannot be told apart any more (the
+ * words around it were changed, or two values touch).
  */
-export function cutSegments(cellText: string, entries: readonly Pick<MapEntry, "pre" | "post">[]): (string | null)[] {
+export function cutSegments(cellText: string, entries: readonly Piece[]): (string | null)[] {
+  // The cell as it was written: every value is what was written, however it would be cut.
+  if (entries.length > 0 && entries.every((e) => typeof e.text === "string")) {
+    const shown = (s: string) => cellLines(s).filter(Boolean).join("\n");
+    if (shown(writtenWith(entries, (e) => e.text!)) === shown(cellText)) return entries.map((e) => e.text!);
+  }
+  // Two values with only a line break between them (the GAP report's premises
+  // name and address, one box on the page): each is the line it is on.
+  if (entries.some((e, k) => k < entries.length - 1 && isLineBreak(e.post))) return cutByLines(cellText, entries) ?? entries.map(() => null);
+  return cutLine(cellText.replace(/\r\n?/g, "\n").trim(), entries);
+}
+
+const isLineBreak = (words: string | undefined) => !!words && !words.trim() && words.includes("\n");
+
+/** A cell's text as the lines a person reads: line ends unified, spaces collapsed, blank lines at either end left out (those between kept). */
+function cellLines(text: string): string[] {
+  const lines = text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim());
+  while (lines.length && !lines[0]) lines.shift();
+  while (lines.length && !lines[lines.length - 1]) lines.pop();
+  return lines;
+}
+
+/** The cell's text with each value given by `value`, the fixed words around them as written. */
+const writtenWith = (entries: readonly Piece[], value: (e: Piece) => string) => (entries[0]?.pre ?? "") + entries.map((e) => value(e) + (e.post ?? "")).join("");
+
+// Stands for a value while a cell's lines are laid against the lines it was
+// written with (the cell's own lines are only compared, never split by it).
+const SLOT = "\u0000";
+
+/**
+ * Values told apart by the line each is on, when each was written as one line:
+ * the cell's lines are laid against the lines it was written with, one for one,
+ * and each value cut out of its own line. A value written empty was a line the
+ * download left out, so the cell is also tried without those lines (the value
+ * still empty). null when the lines no longer match one for one (a line break
+ * typed into a value, two lines joined, the heading's words changed).
+ */
+function cutByLines(cellText: string, entries: readonly Piece[]): (string | null)[] | null {
+  if (!entries.every((e) => typeof e.text === "string" && !e.text.includes("\n"))) return null;
+  const actual = cellLines(cellText);
+  const empty = (k: number) => !entries[k].text!.trim();
+  const written = cellLines(writtenWith(entries, () => SLOT));
+  for (const leaveOutEmpty of [false, true]) {
+    if (leaveOutEmpty && !entries.some((_, k) => empty(k))) break;
+    const out: (string | null)[] = entries.map(() => null);
+    const lines: { text: string; slots: number[] }[] = [];
+    let next = 0;
+    for (const text of written) {
+      const slots: number[] = [];
+      for (let at = text.indexOf(SLOT); at !== -1; at = text.indexOf(SLOT, at + 1)) slots.push(next++);
+      // A line that was only an empty value: the download did not write it.
+      if (leaveOutEmpty && text === SLOT && empty(slots[0])) out[slots[0]] = "";
+      else lines.push({ text, slots });
+    }
+    if (lines.length !== actual.length) continue;
+    for (let i = 0; i < lines.length; i++) {
+      const { text, slots } = lines[i];
+      if (slots.length === 0) {
+        if (text !== actual[i]) return null;
+        continue;
+      }
+      const words = text.split(SLOT);
+      const cut = cutLine(
+        actual[i],
+        slots.map((_, j) => ({ pre: j === 0 ? words[0] : undefined, post: words[j + 1] }))
+      );
+      slots.forEach((k, j) => (out[k] = cut[j]));
+    }
+    return out;
+  }
+  return null;
+}
+
+/** Values cut out of one run of text by the fixed words between them. */
+function cutLine(text: string, entries: readonly Pick<MapEntry, "pre" | "post">[]): (string | null)[] {
   const out: (string | null)[] = [];
-  let rest = cellText.replace(/\r\n?/g, "\n").trim();
+  let rest = text;
   const first = (entries[0]?.pre ?? "").trim();
   if (first) {
     if (!rest.startsWith(first)) return entries.map(() => null);
@@ -821,6 +1018,10 @@ async function readDocx(pkg: Package, documentPath: string): Promise<ReadResult>
     const table = m ? tables.get(Number(m[1])) : undefined;
     if (!table || table.columns.length === 0) continue;
     const fixed = new Set(table.fixedRows ?? []);
+    // The table's own columns (Word's grid), never more than Word allows: a cell a
+    // crafted row pushes past them is not read (nor a row of millions built for it).
+    const tblGrid = firstChild(tbl, "tblGrid");
+    const lastCol = Math.max(MAX_WORD_COLUMNS, tblGrid ? childElements(tblGrid, "gridCol").length : 0) - 1;
     unwrap(tbl, "tr").forEach((tr, index) => {
       const trPr = firstChild(tr, "trPr");
       if ((trPr && firstChild(trPr, "tblHeader")) || index < (table.headerRows ?? 0)) return;
@@ -831,11 +1032,12 @@ async function readDocx(pkg: Package, documentPath: string): Promise<ReadResult>
       if (own) return;
       const texts: string[] = [];
       const gridBefore = trPr ? firstChild(trPr, "gridBefore") : null;
-      let col = gridBefore ? Number(attr(gridBefore, "val") ?? 0) || 0 : 0;
+      let col = gridBefore ? Math.max(0, Math.floor(Number(attr(gridBefore, "val") ?? 0)) || 0) : 0;
       for (const tc of unwrap(tr, "tc")) {
+        if (col > lastCol) break;
         const tcPr = firstChild(tc, "tcPr");
         const gridSpan = tcPr ? firstChild(tcPr, "gridSpan") : null;
-        const span = gridSpan ? Number(attr(gridSpan, "val") ?? 1) || 1 : 1;
+        const span = gridSpan ? Math.floor(Number(attr(gridSpan, "val") ?? 1)) || 1 : 1;
         texts[col] = wordText(tc);
         col += Math.max(1, span);
       }

@@ -8,10 +8,15 @@
 // for a celebration, two firm notes for an alert. Then playCue is run against a
 // stand-in AudioContext: nothing before the first click or key, the notes
 // scheduled in order after it, a burst of the same cue played once, and never an
-// error — whatever the browser does. Run: npm run test:unit -- sounds
+// error — whatever the browser does. And the bell's chime is for news only, not
+// for the person's own send-back or reopen (engine/engageBus.ts chimeForNews).
+// Run: npm run test:unit -- sounds
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CUE_NAMES, type CueName } from "../src/engine/engageBus";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { CUE_EVENT, CUE_NAMES, NEWS_SETTLE_MS, OWN_ACTION_MS, chimeForNews, emitCue, type CueName } from "../src/engine/engageBus";
+import { REACTION_EVENT } from "../src/engine/reactions";
 import { CUE_SCHEDULE, MASTER_VOLUME, cueDuration, hadUserGesture, onFirstGesture, playCue, resetSoundsForTests, watchFirstGesture } from "../src/utils/sounds";
 
 // ---- a stand-in AudioContext that records what is scheduled ----
@@ -97,6 +102,7 @@ const firstGesture = () => {
   window.dispatchEvent(new Event("pointerdown"));
 };
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const repoRoot = process.env.DCRS_REPO_ROOT ?? process.cwd();
 
 // ---- the notes ----
 
@@ -214,4 +220,67 @@ test("a cue never throws: an unknown name, a device that fails, no Web Audio at 
   firstGesture();
   assert.doesNotThrow(() => playCue("celebrate"));
   g.AudioContext = FakeAudioContext;
+});
+
+// ---- the bell's chime: news, not an echo of the person's own click ----
+//
+// The bell (components/layout/NotificationBell.tsx) chimes when its urgent set
+// GAINS a record. A record the person sent back, or reopened through Upload
+// changes, is waiting again — a gain — and their action already has its sound
+// (sentBack 150 ms after the reaction; success after the upload). The two used
+// to ring over each other. The tests run in this order: what counts as the
+// person's own action is remembered for OWN_ACTION_MS.
+
+const asked: string[] = [];
+window.addEventListener(CUE_EVENT, (e) => asked.push(String((e as CustomEvent<{ cue?: string }>).detail?.cue)));
+const chimes = () => asked.filter((c) => c === "chime").length;
+const reaction = (detail: Record<string, unknown>) => window.dispatchEvent(new CustomEvent(REACTION_EVENT, { detail }));
+
+test("the bell asks for its chime through chimeForNews — never straight out", () => {
+  const bell = readFileSync(path.join(repoRoot, "frontend", "src", "components", "layout", "NotificationBell.tsx"), "utf8");
+  assert.match(bell, /chimeForNews\(\)/);
+  assert.doesNotMatch(bell, /emitCue\(\s*["']chime["']\s*\)/, "a gain chimes only once it is known not to be the person's own doing");
+});
+
+test("something new in the bell chimes, a moment later", async () => {
+  asked.length = 0;
+  chimeForNews();
+  assert.equal(chimes(), 0, "not at once: the person's own action may be about to sound");
+  await wait(NEWS_SETTLE_MS + 200);
+  assert.equal(chimes(), 1);
+});
+
+test("the person's own send-back: the reaction, the bell's gain, the sentBack sound — and no chime over it", async () => {
+  asked.length = 0;
+  reaction({ kind: "rejected", what: "F/QC/01 Line Clearance Checklist — 27-Sep-2026", reason: "Wrong batch", recordId: "r-1" });
+  chimeForNews(); // the store bump redraws the bell: the record is waiting again
+  await wait(150);
+  emitCue("sentBack"); // Celebration's answer to the reaction
+  await wait(NEWS_SETTLE_MS + 200);
+  assert.deepEqual(asked, ["sentBack"]);
+});
+
+test("a record reopened through the open page: the bell sees it before the upload's success sound — no chime", async () => {
+  await wait(OWN_ACTION_MS + 100); // the send-back above is no longer 'just now'
+  asked.length = 0;
+  chimeForNews(); // reopened: waiting again
+  await wait(300);
+  emitCue("success"); // the changes written, the upload's sound
+  await wait(NEWS_SETTLE_MS + 200);
+  assert.deepEqual(asked, ["success"]);
+});
+
+test("a record reopened through the store: the success sound first, then the bell's gain — no chime; later news chimes again", async () => {
+  await wait(OWN_ACTION_MS + 100);
+  asked.length = 0;
+  emitCue("success");
+  chimeForNews();
+  await wait(NEWS_SETTLE_MS + 200);
+  assert.deepEqual(asked, ["success"]);
+
+  await wait(OWN_ACTION_MS + 100);
+  asked.length = 0;
+  chimeForNews(); // a colleague's work arriving, nothing done here
+  await wait(NEWS_SETTLE_MS + 200);
+  assert.deepEqual(asked, ["chime"]);
 });

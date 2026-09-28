@@ -163,8 +163,26 @@ interface Marks {
   found: { bind: ExportBinding; raw: string }[];
 }
 
-function textOf(node: Node, marks?: Marks): string {
-  if (node.nodeType === Node.TEXT_NODE) return (node.textContent ?? "").replace(/\s+/g, " ");
+/**
+ * Whether an element shows the line breaks written in its text (white-space:
+ * pre, pre-wrap, pre-line, break-spaces) — a signed-off record's remarks shown
+ * as words (FormField "long", LogSheetRecordView's paragraph and cell text).
+ */
+function keepsBreaks(style: CSSStyleDeclaration): boolean {
+  const collapse = (style as { whiteSpaceCollapse?: string }).whiteSpaceCollapse ?? "";
+  return /^(pre|break-spaces)/.test(style.whiteSpace ?? "") || /^(preserve|break-spaces)/.test(collapse);
+}
+
+/**
+ * A node's text as the file shows it. `breaks`: inside a bound value that
+ * shows its line breaks, where they are kept (spaces are still collapsed) — so
+ * a multi-line value is written, and read back, as the lines it is.
+ */
+function textOf(node: Node, marks?: Marks, breaks = false): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const raw = node.textContent ?? "";
+    return breaks ? raw.replace(/\r\n?/g, "\n").replace(/[^\S\n]+/g, " ") : raw.replace(/\s+/g, " ");
+  }
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
   const el = node as Element;
   const style = shownStyle(el);
@@ -172,19 +190,20 @@ function textOf(node: Node, marks?: Marks): string {
   if (marks && el.hasAttribute(BIND_ATTR)) {
     const binding = readBinding(el);
     if (binding?.recordId) {
-      // The bound element's text taken whole: a tick box ☑/☐, a select's label, a date as dd-Mmm-yyyy.
-      const own = ownText(el, style);
+      // The bound element's text taken whole: a tick box ☑/☐, a select's label, a date as dd-Mmm-yyyy —
+      // and a value shown as words with its line breaks, where the page shows them.
+      const own = ownText(el, style, undefined, keepsBreaks(style ?? getComputedStyle(el)));
       const k = marks.found.length;
       marks.found.push({ bind: { ...binding, recordId: binding.recordId, text: clean(own.text) }, raw: own.text });
       return own.block ? `\n${token(k)}\n` : token(k);
     }
   }
-  const own = ownText(el, style, marks);
+  const own = ownText(el, style, marks, breaks && (style === undefined || keepsBreaks(style)));
   return own.block ? `\n${own.text}\n` : own.text;
 }
 
 /** An element's own text, and whether it is a block (its text on lines of its own). Its style is read once. */
-function ownText(el: Element, style: CSSStyleDeclaration | undefined, marks?: Marks): { text: string; block: boolean } {
+function ownText(el: Element, style: CSSStyleDeclaration | undefined, marks?: Marks, breaks = false): { text: string; block: boolean } {
   if (el instanceof HTMLInputElement) {
     if (el.type === "checkbox" || el.type === "radio") return { text: el.checked ? " ☑ " : " ☐ ", block: false };
     if (el.type === "date") return { text: el.value ? formatDisplayDate(el.value) : "", block: false };
@@ -197,7 +216,7 @@ function ownText(el: Element, style: CSSStyleDeclaration | undefined, marks?: Ma
   const display = (style ?? getComputedStyle(el)).display;
   const between = display.includes("flex") || display.includes("grid") ? " " : "";
   const text = Array.from(el.childNodes)
-    .map((n) => textOf(n, marks))
+    .map((n) => textOf(n, marks, breaks))
     .join(between);
   return { text, block: !display.startsWith("inline") && display !== "contents" && el.tagName !== "LABEL" };
 }
@@ -211,12 +230,18 @@ const clean = (s: string) =>
 
 /**
  * Text read with its bound values marked, as the plain text the file shows
- * (exactly what it was before bindings existed) and — when anything in it is
- * bound — the same text in pieces.
+ * (what it was before bindings existed, but for two bound values that touched,
+ * now each on a line of its own) and — when anything in it is bound — the same
+ * text in pieces.
  */
-function piecesOf(marked: string, marks: Marks): { text: string; parts?: ExportSegment[] } {
-  const text = clean(marks.found.length ? marked.replace(TOKEN, (_, k: string) => marks.found[Number(k)]?.raw ?? "") : marked);
-  if (marks.found.length === 0) return { text };
+function piecesOf(read: string, marks: Marks): { text: string; parts?: ExportSegment[] } {
+  if (marks.found.length === 0) return { text: clean(read) };
+  // Two bound values with nothing at all between them (the GAP report's premises
+  // name and address: two boxes in one header box) are put on lines of their
+  // own. Run together, the file showed "NameAddress", and neither could be cut
+  // out of the cell again when it came back (engine/roundTrip/readFile.ts).
+  const marked = read.replace(/\u0002(?=\u0001)/g, "\u0002\n");
+  const text = clean(marked.replace(TOKEN, (_, k: string) => marks.found[Number(k)]?.raw ?? ""));
   const parts: ExportSegment[] = [];
   const tidy = clean(marked);
   let at = 0;

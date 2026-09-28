@@ -13,11 +13,18 @@ import assert from "node:assert/strict";
 import type { DocumentDefinition, RecordInstance } from "../src/types";
 import { STRINGS } from "../src/i18n/strings";
 import { MOTIVATION_STRINGS } from "../src/i18n/strings.motivation";
-import { plantClosedDays, type PlantCalendar } from "../src/engine/latenessCore";
+import { addDaysISO, plantClosedDays, type LatenessPerson, type PlantCalendar } from "../src/engine/latenessCore";
 import { purposeLine } from "../src/engine/purpose";
+import { computeReminders } from "../src/engine/reminders";
+import { daysWork } from "../src/engine/notifications";
+import { todayISO } from "../src/utils/date";
+import { departmentOfDocument } from "../src/data/seed/departments";
 import {
+  LOOKBACK_DAYS,
   allDoneView,
+  askAccountsFor,
   badgeFor,
+  celebrationKind,
   cheerLine,
   computeMotivation,
   dayGapScore,
@@ -74,19 +81,20 @@ const B = doc("b", "Module Beta");
 const DOCS = [A, B];
 
 let n = 0;
-/** A record due `due`; handed in on `on` at `hour`:00 (local time), or still open with `status`. */
-function rec(d: DocumentDefinition, due: string, opts: { on?: string; hour?: number; status?: RecordInstance["status"] } = {}): RecordInstance {
+/** A record due `due`; handed in on `on` at `hour`:00 (local time) by `by` (Asha, unless said), or still open with `status`. */
+function rec(d: DocumentDefinition, due: string, opts: { on?: string; hour?: number; status?: RecordInstance["status"]; by?: string; data?: unknown } = {}): RecordInstance {
   n += 1;
-  const base = { id: `r-${d.id}-${due}-${n}`, documentId: d.id, periodKey: `${d.id}:${due}`, dueDate: due, isDemo: false, data: {}, createdAt: `${due}T00:30:00.000Z`, updatedAt: `${due}T12:00:00.000Z` };
+  const base = { id: `r-${d.id}-${due}-${n}`, documentId: d.id, periodKey: `${d.id}:${due}`, dueDate: due, isDemo: false, data: opts.data ?? {}, createdAt: `${due}T00:30:00.000Z`, updatedAt: `${due}T12:00:00.000Z` };
   if (!opts.on) return { ...base, status: opts.status ?? "Due" } as RecordInstance;
   const [y, m, dd] = opts.on.split("-").map(Number);
   const at = new Date(y, m - 1, dd, opts.hour ?? 15, 5).toISOString();
+  const by = opts.by ?? "Asha Patel";
   return {
     ...base,
     status: opts.status ?? "Pending Verification",
     submittedAt: at,
-    submittedBy: "Asha Patel",
-    history: [{ id: `h-${n}`, at, by: "Asha Patel", action: "submitted" }],
+    submittedBy: by,
+    history: [{ id: `h-${n}`, at, by, action: "submitted" }],
   } as RecordInstance;
 }
 
@@ -435,6 +443,228 @@ test("the signed-in person's figures come from the stored records, and are worke
   assert.notEqual(after, first, "a change to the records is seen at once");
   assert.equal(after.day.done, first.day.done + 1);
   assert.equal(after.firstName, "Asha");
+});
+
+// ---- The day card, the bell and "the last one due today" never disagree ----------------------------
+//
+// The day's plate is what the bell calls due or late (engine/reminders.ts
+// computeReminders, through engine/notifications.ts daysWork): however old the
+// open record is, and whichever documents the notification calls theirs.
+
+/** The first day from `from` (stepping by `step`) the plant is open. */
+function workingDay(from: string, step: 1 | -1, closed: (d: string) => boolean): string {
+  let d = from;
+  for (let i = 0; i < 14 && closed(d); i++) d = addDaysISO(d, step);
+  return d;
+}
+
+const stored = (r: RecordInstance, id: string): RecordInstance => ({ ...r, id, isDemo: true });
+
+/** What the bell lists as due today or late for this person — the notification's own count. */
+const bellDue = (name: string): number => daysWork(computeReminders(true), { name }).notifications.filter((x) => x.daysUntilDue <= 0).length;
+
+test("an open record from more than a hundred days ago is still on today's plate, as the bell has it — never 'all done' while the bell says late", () => {
+  ensureDocumentsSeeded();
+  recordRepository.clearDemoData();
+  try {
+    const closed = closedDays(masterRepository.get());
+    const today = todayISO();
+    const daily = documentRepository.getRecordable().find((d) => d.schedule.type === "daily" && d.kind === "log-sheet");
+    assert.ok(daily, "a daily log sheet in the seeded library");
+    const old = workingDay(addDaysISO(today, -(LOOKBACK_DAYS + 20)), -1, closed);
+    recordRepository.upsertMany([stored(rec(daily!, old), "demo-forgotten"), stored(rec(daily!, today, { on: today, hour: 12 }), "demo-in-today")]);
+
+    const reminders = computeReminders(true);
+    assert.ok(reminders.some((r) => r.recordId === "demo-forgotten" && r.urgency === "overdue"), "the bell lists the forgotten record as late");
+    const s = motivationFor({ name: "Nobody Named Here" }, true);
+    assert.equal(s.day.remaining, bellDue("Nobody Named Here"), "the day card counts what the bell lists");
+    assert.equal(s.day.remaining, 1);
+    assert.equal(s.day.overdue, 1);
+    assert.equal(s.day.done, 1);
+    assert.ok(!s.achievements.includes("all-done-today"), s.achievements.join(", "));
+    assert.equal(s.next?.recordId, "demo-forgotten", "and offers it as the next thing to do");
+    assert.equal(s.gapScore, -50);
+    // Older than the look-back, it is in no month of theirs: only today's sheet is judged.
+    assert.equal(s.judgedThisMonth, closed(today) ? 0 : 1);
+  } finally {
+    recordRepository.clearDemoData();
+  }
+});
+
+test("'theirs' is the notification's: named on a document with nothing of it waiting, the day is every document they may see — so it is not 'all done' while the bell lists the department's work", () => {
+  ensureDocumentsSeeded();
+  recordRepository.clearDemoData();
+  const master0 = masterRepository.get();
+  try {
+    const visible = documentRepository.getRecordable();
+    const monthly = visible.find((d) => d.schedule.type === "monthly" && !d.isReferenceOnly);
+    const daily = visible.find((d) => d.schedule.type === "daily" && d.kind === "log-sheet");
+    assert.ok(monthly && daily, "a monthly and a daily document in the seeded library");
+    // Master Data names Nila on the monthly document only.
+    masterRepository.update({
+      documentRoleKeywords: { [monthly!.id]: "Zzq Motivation" },
+      employees: [...master0.employees, { id: "e-nila", name: "Nila Shah", role: "Zzq Motivation Lead", active: true }],
+    });
+    const closed = closedDays(masterRepository.get());
+    const today = todayISO();
+    // Her monthly record is in; the department's daily sheet is still open.
+    recordRepository.upsertMany([stored(rec(monthly!, today, { on: today, hour: 12, by: "Nila Shah" }), "demo-monthly-in"), stored(rec(daily!, workingDay(today, -1, closed)), "demo-daily-open")]);
+
+    const work = daysWork(computeReminders(true), { name: "Nila Shah" });
+    assert.equal(work.theirOwn, false, "nothing waiting names her: the bell lists every document's work");
+    const s = motivationFor({ name: "Nila Shah" }, true);
+    assert.equal(s.day.remaining, bellDue("Nila Shah"), "the day card counts what the bell lists");
+    assert.equal(s.day.remaining, 1);
+    assert.ok(!s.achievements.includes("all-done-today"), s.achievements.join(", "));
+    assert.equal(s.next?.recordId, "demo-daily-open");
+
+    // Her next monthly record coming up names her again: the bell lists hers alone, and so does the day card.
+    const ahead = workingDay(addDaysISO(today, 1), 1, closed);
+    if (ahead <= addDaysISO(today, 3)) {
+      recordRepository.upsertMany([stored(rec(monthly!, ahead), "demo-monthly-next")]);
+      assert.equal(daysWork(computeReminders(true), { name: "Nila Shah" }).theirOwn, true);
+      const own = motivationFor({ name: "Nila Shah" }, true);
+      assert.equal(own.day.remaining, bellDue("Nila Shah"));
+      assert.equal(own.day.remaining, 0);
+      assert.equal(own.day.done, 1);
+    }
+  } finally {
+    masterRepository.update({ documentRoleKeywords: master0.documentRoleKeywords, employees: master0.employees });
+    recordRepository.clearDemoData();
+  }
+});
+
+// ---- Whose work it is: the scorecard's rule --------------------------------------------------------
+//
+// Where a department has two accounts (HR has two), a record one of them handed
+// in counts for that one (engine/latenessCore.ts attribute). It is off the
+// shared plate for both — but only its maker is praised for it.
+
+const ASHA: LatenessPerson = { id: "u-asha", name: "Asha Patel", role: "staff", departments: ["QC"] };
+const BINA: LatenessPerson = { id: "u-bina", name: "Bina Rao", role: "staff", departments: ["qc"] };
+const sharedStats = (records: RecordInstance[], self: LatenessPerson = ASHA, people: LatenessPerson[] = [ASHA, BINA], docs: DocumentDefinition[] = DOCS): MotivationStats =>
+  computeMotivation({ docs, records, today: TODAY, calendar: CALENDAR, firstName: self.name.split(" ")[0], self, people, departmentOf: () => "QC" });
+
+test("a colleague's record in a shared department is off the plate, but never this person's early bird, first on time, streak or month", () => {
+  // Bina hands in Sheet A at 09:05 — the name typed as it came.
+  const byBina = rec(A, TODAY, { on: TODAY, hour: 9, by: "  bina   RAO " });
+  const s = sharedStats([...fortnight(), byBina, rec(B, TODAY)]);
+  assert.deepEqual(s.day, { total: 2, done: 1, onTime: 0, late: 0, remaining: 1, overdue: 0, dueToday: 2 });
+  for (const k of ["early-bird", "first-on-time-today"]) assert.ok(!s.achievements.includes(k), `${k} is Bina's, not Asha's: ${s.achievements.join(", ")}`);
+  assert.deepEqual(s.modulesToday, []);
+  // Bina's own day: hers.
+  const hers = sharedStats([...fortnight(), byBina, rec(B, TODAY)], BINA);
+  assert.ok(hers.achievements.includes("early-bird") && hers.achievements.includes("first-on-time-today"), hers.achievements.join(", "));
+
+  // Asha hands in Sheet B at 14:05: her first on time, the day done — and still no early bird.
+  const done = sharedStats([...fortnight(), byBina, rec(B, TODAY, { on: TODAY, hour: 14 })]);
+  assert.deepEqual(done.day, { total: 2, done: 2, onTime: 1, late: 0, remaining: 0, overdue: 0, dueToday: 2 });
+  assert.ok(done.achievements.includes("first-on-time-today") && done.achievements.includes("all-done-today"));
+  assert.ok(!done.achievements.includes("early-bird"), done.achievements.join(", "));
+  assert.equal(done.streakDays, 5);
+  // The month is hers alone: the fortnight's 10 and today's 1 — not Bina's.
+  assert.equal(done.judgedThisMonth, 11);
+  assert.equal(done.onTimeThisMonth, Math.round((100 * 10) / 11));
+});
+
+test("a colleague's late record neither breaks this person's streak nor lowers their month; the one who handed it in owns it", () => {
+  const records = [
+    ...fortnight().filter((r) => !(r.documentId === "a" && r.dueDate === "2026-09-25")),
+    rec(A, "2026-09-25", { on: TODAY, hour: 10, by: "Bina Rao" }),
+    rec(A, TODAY, { on: TODAY, hour: 15 }),
+    rec(B, TODAY, { on: TODAY, hour: 15 }),
+  ];
+  const s = sharedStats(records);
+  assert.equal(s.day.late, 0, "Bina's late record is not Asha's");
+  assert.equal(s.day.done, 3, "…but it is off the shared plate");
+  assert.equal(s.streakDays, 5);
+  assert.equal(s.judgedThisMonth, 11);
+  assert.equal(s.onTimeThisMonth, Math.round((100 * 10) / 11));
+  const hers = sharedStats(records, BINA);
+  assert.equal(hers.day.late, 1);
+  assert.equal(hers.streakDays, 0, "Bina's streak stops at her late record");
+});
+
+test("a record somebody outside the department's accounts handed in counts for every one of them, as the scorecard has it — and so does everything with one account, or nobody known", () => {
+  const byAdmin = rec(A, TODAY, { on: TODAY, hour: 9, by: "Plant Administrator" });
+  const s = sharedStats([...fortnight(), byAdmin, rec(B, TODAY, { on: TODAY, hour: 14 })]);
+  assert.equal(s.day.onTime, 2);
+  assert.ok(s.achievements.includes("early-bird"));
+  // One account kept to the department: whoever handed it in, it is that account's.
+  const alone = sharedStats([...fortnight(), rec(A, TODAY, { on: TODAY, hour: 9, by: "Bina Rao" })], ASHA, [ASHA]);
+  assert.ok(alone.achievements.includes("early-bird"));
+  // The administrator answers for no department of their own: the whole plant is theirs to cheer.
+  const admin: LatenessPerson = { id: "u-admin", name: "Plant Administrator", role: "admin", departments: [] };
+  const plant = sharedStats([...fortnight(), rec(A, TODAY, { on: TODAY, hour: 9, by: "Bina Rao" })], admin, [admin, ASHA, BINA]);
+  assert.ok(plant.achievements.includes("early-bird"));
+});
+
+test("the register's holiday line a colleague wrote is off the plate but not this person's first on time", () => {
+  const P = { ...doc("p", "Module Pest"), kind: "daily-pest-monitoring" } as DocumentDefinition;
+  const line = rec(P, TODAY, { on: TODAY, hour: 9, by: "Bina Rao", data: { isHoliday: true } });
+  const s = sharedStats([line], ASHA, [ASHA, BINA], [...DOCS, P]);
+  assert.equal(s.day.done, 1);
+  assert.equal(s.day.onTime, 0);
+  assert.ok(!s.achievements.includes("first-on-time-today") && !s.achievements.includes("early-bird"), s.achievements.join(", "));
+  const hers = sharedStats([line], BINA, [ASHA, BINA], [...DOCS, P]);
+  assert.ok(hers.achievements.includes("first-on-time-today"));
+});
+
+test("from the repositories: the accounts of the person's departments are asked once, and a colleague's record is theirs", async () => {
+  ensureDocumentsSeeded();
+  recordRepository.clearDemoData();
+  try {
+    const today = todayISO();
+    const daily = documentRepository.getRecordable().find((d) => d.schedule.type === "daily" && d.kind === "log-sheet" && departmentOfDocument(d.id, d.formatNo));
+    assert.ok(daily, "a daily log sheet with a department in the seeded library");
+    const dept = departmentOfDocument(daily!.id, daily!.formatNo)!;
+    const kavya = { id: "u-kavya", name: "Kavya Desai", role: "staff", departments: [dept] };
+    const ravi = { id: "u-ravi", name: "Ravi Joshi", role: "staff", departments: [dept] };
+    recordRepository.upsertMany([stored(rec(daily!, today, { on: today, hour: 9, by: "Ravi Joshi" }), "demo-by-ravi")]);
+
+    // Nobody else known yet: the person alone — every record counts.
+    const alone = motivationFor(kavya, true);
+    assert.equal(alone.day.onTime, 1);
+
+    let asked = 0;
+    const read = async () => {
+      asked += 1;
+      return { people: [kavya, ravi] };
+    };
+    assert.equal(await askAccountsFor(kavya, read), true, "a new list: work the figures out again");
+    assert.equal(await askAccountsFor(kavya, read), false, "kept: not asked again");
+    assert.equal(asked, 1);
+    const shared = motivationFor(kavya, true);
+    assert.notEqual(shared, alone, "the accounts are part of what the figures are remembered against");
+    assert.equal(shared.day.done, 1, "Ravi's record is off the shared plate");
+    assert.equal(shared.day.onTime, 0, "…but it is Ravi's");
+    assert.ok(!shared.achievements.includes("first-on-time-today") && !shared.achievements.includes("early-bird"), shared.achievements.join(", "));
+
+    // A list that cannot be read: nothing thrown, nothing logged, the person counted alone.
+    const nila = { id: "u-nila", name: "Nila Shah", role: "staff", departments: [dept] };
+    assert.equal(await askAccountsFor(nila, () => Promise.reject(new Error("offline"))), false);
+    assert.equal(motivationFor(nila, true).day.onTime, 1);
+    // Never asked for the administrator, nor for a name alone.
+    const never = () => Promise.reject(new Error("must not be asked"));
+    assert.equal(await askAccountsFor({ id: "u-admin", name: "Admin", role: "admin", departments: [] }, never), false);
+    assert.equal(await askAccountsFor({ name: "Kavya Desai" }, never), false);
+  } finally {
+    recordRepository.clearDemoData();
+  }
+});
+
+// ---- The big celebration is the last one due today's --------------------------------------------
+
+test("the big celebration is for the last one due today (lastOneDue) — never for the person's own tally alone while the bell still lists work", () => {
+  const onTime = outcomeOf([submitted()]);
+  // Their own list says done, but the bell still lists work: the everyday answer, or a badge card — never the big one.
+  assert.equal(celebrationKind(onTime, ["first-on-time-today", "all-done-today"]), "everyday");
+  assert.equal(celebrationKind(onTime, ["all-done-today", "early-bird"]), "badge");
+  assert.equal(celebrationKind(outcomeOf([submitted({ lastOneDue: true })]), []), "all-done");
+  assert.equal(celebrationKind(outcomeOf([submitted({ lastOneDue: true })]), ["all-done-today", "streak-5"]), "all-done");
+  // A badge card is for work in on time, as required or put right — not for a late one alone.
+  assert.equal(celebrationKind(outcomeOf([submitted({ dueDate: "2026-09-20" })]), ["streak-5"]), "everyday");
+  assert.equal(celebrationKind(outcomeOf([{ kind: "verified", what: "x" }]), ["clean-week"]), "everyday");
 });
 
 // ---- The confetti never widens the page ----------------------------------------------------------

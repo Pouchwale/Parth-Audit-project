@@ -28,7 +28,8 @@ import { nextWorkingDay } from "../src/engine/holidays";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { sampleFillRecord } from "../src/engine/sampleFill";
 import { getAtPath, parseBindPath, pathExists, readBinding, setAtPath } from "../src/engine/roundTrip/bindPath";
-import { bindProps, bindingsForRecord, flyRegisterBindings, propSeg, type Bound, type BindingContext } from "../src/engine/roundTrip/bindingsFor";
+import { bindProps, bindingRules, bindingsForRecord, flyRegisterBindings, propSeg, type Bound, type BindingContext } from "../src/engine/roundTrip/bindingsFor";
+import { newComplaintChecklistData } from "../src/data/seed/complaintChecklist";
 import { todayISO } from "../src/utils/date";
 import { noProblems } from "./support/catalogue";
 import { createElement as h, type ReactElement } from "react";
@@ -512,4 +513,53 @@ test("the monthly registers and the reference pages bind every value they show",
   problems.push(...found.problems);
   if (found.bound === 0) problems.push("chemical-master: nothing on the chart is bound");
   noProblems("Register and reference values without a binding that leads to them", problems);
+});
+
+// ---------------------------------------------------------------------------
+// WHAT AN UPLOAD MUST RESPECT: the rules a page's bindings carry, and the pages
+// that must survive a value an upload once could write.
+
+test("the stamped and the never-empty values carry their rule; the rest carry none", () => {
+  const checklist = bindingsForRecord("complaint-checklist", newComplaintChecklistData("26-27/001")) ?? [];
+  const rules = bindingRules(checklist);
+  assert.deepEqual(Object.fromEntries(rules), {
+    "approvedBy/name": { readOnly: "rt.rule.stamped" },
+    "approvedBy/date": { readOnly: "rt.rule.stamped" },
+  });
+  const statement = Object.values(COMPLIANCE_STATEMENTS)[0];
+  for (const editing of [false, true]) {
+    assert.deepEqual(Object.fromEntries(bindingRules(bindingsForRecord("compliance-statement", statement, { editing }))), { signedOn: { required: "rt.rule.requiredDate" } });
+  }
+});
+
+test("approval stamps the approver's own name and today's date, whatever Approved By held", async () => {
+  const { approvalSignoff } = await import("../src/pages/CapaPage");
+  assert.deepEqual(approvalSignoff({ name: "Mallory (typed in Word)", designation: "", date: "2026-01-01" }, "Anita Shah", "2026-10-01"), {
+    name: "Anita Shah",
+    designation: "QA Head",
+    date: "2026-10-01",
+  });
+  assert.deepEqual(approvalSignoff({ name: "", designation: " QA Manager ", date: null }, "Anita Shah", "2026-10-01"), {
+    name: "Anita Shah",
+    designation: "QA Manager",
+    date: "2026-10-01",
+  });
+});
+
+test("a statement saved without a date of publication still opens — listed and in full", async () => {
+  const P = await loadPages();
+  const { ComplianceListPage } = await import("../src/pages/CompliancePage");
+  const { referenceRepository } = await import("../src/data/repositories/referenceRepository");
+  const s = Object.values(COMPLIANCE_STATEMENTS)[0];
+  // What an upload that emptied the date used to store.
+  referenceRepository.save(s.documentId, { ...s, signedOn: "" }, "Upload QA");
+  try {
+    const list = P.render(h(ComplianceListPage, null));
+    assert.match(list, /TO BE CONFIRMED/);
+    const detail = P.render(h(P.ComplianceDetailPage, { documentId: s.documentId }));
+    assert.match(detail, /TO BE CONFIRMED/);
+    assert.match(detail, /Date of publication to be confirmed/);
+  } finally {
+    referenceRepository.reset(s.documentId);
+  }
 });
