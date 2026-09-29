@@ -24,7 +24,10 @@ import { applyFills, type FieldFill } from "./hrMaster";
 // So a machine is found by its Machine No., or by a Serial No. that only one
 // machine has and that is not a placeholder, and NEVER by its model name
 // alone. A name can suggest a machine for someone to choose, but it never
-// picks one.
+// picks one. The Pouch sheet of 29-Sep-2026 (REQUIREMENTS §82) gives ONE serial
+// to two machines twice — 194 (M-61, M-62) and 231624BO638 (M-73, M-74) — so
+// such a serial offers both to choose from and never picks either
+// (machineBySerial, searchMachines, and Mitra's serialAnswer, which lists both).
 //
 // A fetch COPIES, as HR's does. A maintenance record keeps what was fetched even
 // if the list changes later, as the paper would. Blank boxes are filled
@@ -428,9 +431,10 @@ export interface EquipmentLink {
 // takes "Machine Description". F/MNT/06 is a register of breakdowns and one
 // machine breaks down many times, so, unlike HR's registers of people, it has
 // no rule that a machine has one line. Every fetch there adds a line. The
-// formats not here name machine classes rather than machines (F/MNT/03's
-// "PRINTING MACHINE"), areas (F/MNT/09, 11), or a machine not yet on the list
-// (F/MNT/08, the installation report that comes before it is listed).
+// formats not here print their machines themselves (F/MNT/03's schedule, whose
+// rows are printed lines, not boxes to fetch into), name areas (F/MNT/09, 10,
+// 11), write equipment details in words (F/MNT/07), or name a machine not yet
+// on the list (F/MNT/08, the installation report that comes before it is listed).
 export const EQUIPMENT_LINKS: EquipmentLink[] = [
   {
     docId: "mnt-pm-record",
@@ -450,6 +454,29 @@ export const EQUIPMENT_LINKS: EquipmentLink[] = [
     fields: [
       { key: "machineNo", from: "machineNo" },
       { key: "machineDescription", from: "description" },
+    ],
+  },
+  // The two F/MNT/05 slips (REQUIREMENTS §82): one breakdown, one machine, in
+  // the slip's head — "Machine No.-" / "Machine Name-" on slip (1), "M/c ID
+  // No. :" / "Name of the Machine :" on slip (2).
+  {
+    docId: "mnt-breakdown-memo",
+    formatNo: "F/MNT/05",
+    where: "header",
+    idField: "machineNo",
+    fields: [
+      { key: "machineNo", from: "machineNo" },
+      { key: "machineName", from: "model" },
+    ],
+  },
+  {
+    docId: "mnt-breakdown-clearance",
+    formatNo: "F/MNT/05",
+    where: "header",
+    idField: "machineIdNo",
+    fields: [
+      { key: "machineIdNo", from: "machineNo" },
+      { key: "machineName", from: "model" },
     ],
   },
   {

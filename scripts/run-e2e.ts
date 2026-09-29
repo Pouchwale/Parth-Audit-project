@@ -6,7 +6,7 @@
 // tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py,
 // tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_qc_formats.py,
 // tests/e2e_purchase_module.py, tests/e2e_store_module.py, tests/e2e_assistant_and_logout.py,
-// tests/e2e_maintenance_module.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_storage_room.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
+// tests/e2e_maintenance_module.py, tests/e2e_pm_link.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_storage_room.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
 // tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py):
 // a fresh PostgreSQL for the run, build,
 // single-process server (dist/ + auth API) on the port the tests expect,
@@ -265,6 +265,9 @@ async function main(): Promise<void> {
       // Gujarati health sheet, the worked-out breakdown minutes, and a record read
       // under the revision it was made on.
       "tests/e2e_maintenance_module.py",
+      // REQUIREMENTS §82: F/MNT/03 follows F/MNT/02 — the schedule's Actuals read, never
+      // typed, from the machines' PM sheets, and the sample year of PM dates.
+      "tests/e2e_pm_link.py",
       // REQUIREMENTS §76: the System / Management module — the PSTL's eighteen
       // F/SYS formats, their supplied pages on file, Edit on a verified record,
       // F/SYS/07's worked-out audit frequency and judgements made afresh.

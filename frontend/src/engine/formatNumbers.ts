@@ -168,10 +168,20 @@ export interface FormatAnswer {
  */
 export function formatNumberAnswer(text: string): FormatAnswer | null {
   if (!isFormatNumberQuery(text)) return null;
-  const resolved = references(text).map(resolve);
+  const refs = references(text);
+  const resolved = refs.map(resolve);
   const somewhereElse: Chip = { label: t("ai.guide.whereTo"), action: { type: "guide", step: "home" } };
 
   if (resolved.length === 1) {
+    // ONE NUMBER, SEVERAL FORMS (REQUIREMENTS §82): F/MNT/05 is printed on two different papers. Mitra asks which,
+    // with a chip for each, instead of opening the first it finds.
+    const all = resolveAll(refs[0]);
+    if (all.length > 1) {
+      return {
+        reply: `${t("ai.format.whichOne", { formatNo: all[0].formatNo })}\n${all.map((d) => `• ${d.formatNo} — ${d.name}`).join("\n")}`,
+        chips: all.map((d) => ({ label: `${t("ai.format.open")}: ${d.name}`, action: { type: "navigate", route: documentOpenRoute(d) } })),
+      };
+    }
     const r = resolved[0];
     if (r.doc) {
       if (OPEN_RE.test(text)) {

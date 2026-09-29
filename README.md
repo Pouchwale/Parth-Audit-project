@@ -204,7 +204,14 @@ The app behaves like a personal assistant rather than a blank form:
   reads in English with English chosen. F/MNT/06 **works out** its breakdown minutes. And a record is now **read under
   the revision it was made on**: the 2024 lux round, filled on the superseded Rev 00 with Day and Night columns, is
   still drawn and headed as Rev 00, while the 2025 round reads on Rev 01. Every supplied page can be seen as it came,
-  captioned with its revision. F/MNT/05, 07 and 10 are on the master list but were not supplied.
+  captioned with its revision. F/MNT/05, 07 and 10 came later (REQUIREMENTS §82).
+- **Maintenance from the papers of 29-Sep-2026, and F/MNT/03 driven by F/MNT/02** (REQUIREMENTS §82). F/MNT/01 is now
+  the list of all **68 machines** (Flexo and Pouch) with the old machinery beside it; F/MNT/05's two slips, F/MNT/07,
+  F/MNT/10 and F/MNT/04's back side are built as printed. **The yearly PM schedule's Actual dates are read from each
+  machine's F/MNT/02** — a PM is written once, where it is done, and the schedule follows every correction without ever
+  being written to. F/MNT/02 shows the machine's next planned PM. **Sample PM dates for 2026** (made up, and marked so
+  in each record's history) show the link working on the plant's real 2026 schedule, slips and all; the papers' own
+  conflicts (M-07 printed twice, M-58's name) are said by the Insights, never mended.
 - **Mitra asks the model, and says when it could not** (REQUIREMENTS §72). A question goes to the Groq-backed
   assistant. Only four things are answered without it, each for a reason: an out-of-scope message, "are you a real
   person?", the opening greeting with its buttons, and a command that opens a screen. **When the model cannot be

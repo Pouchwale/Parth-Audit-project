@@ -63,6 +63,13 @@ export interface LogColumn {
    * and it is those the person is asked for (engine/computedCells.ts, §74).
    */
   computed?: boolean;
+  /**
+   * READ LIVE FROM ANOTHER DOCUMENT, never stored on this one (REQUIREMENTS §82):
+   * the id of the document whose records fill this column when the sheet is shown
+   * — F/MNT/03's Actual dates come from F/MNT/02 (engine/pmSchedule.ts). Always
+   * `computed` as well, so nothing types, fills, uploads or validates it.
+   */
+  linkedFrom?: string;
   // Acceptance band for numeric columns. Values outside are highlighted (not
   // blocked — the paper form has no such gate either; a remark is expected).
   nominal?: number;

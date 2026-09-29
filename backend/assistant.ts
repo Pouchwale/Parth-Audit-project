@@ -241,8 +241,9 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   the internal audit, corrective action, HARA verification, site security, traceability and mock withdrawals),
   "human-resources" (the Human Resources module — HR's
   sixteen F/HR formats and the pest control file), "lamination-quality-control",
-  "lamination-production", "maintenance" (the Maintenance module — the eight F/MNT formats: the equipment list,
-  preventive maintenance, daily machine health, breakdowns, glass breakage and lux levels), "purchase" (the Purchase
+  "lamination-production", "maintenance" (the Maintenance module — the twelve F/MNT formats: the equipment list,
+  preventive maintenance, daily machine health, breakdown slips and the breakdown register, temporary engineering,
+  glass breakage, lux levels and wooden articles), "purchase" (the Purchase
   module — the five F/PUR supplier and service-provider formats), "store" (the two F/STR formats), "dispatch" (the
   two F/DISP formats), "marketing" (the Marketing module — the three F/MKT formats: the customer's feedback form,
   the yearly analysis of those forms per product with its % Satisfaction Index, and the customer complaints trend
@@ -270,7 +271,8 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   pur-supplier-audit-report, pur-approved-suppliers, pur-supplier-performance,
   pur-service-provider-performance, str-incoming-material-vehicle, str-sharp-metal-objects,
   disp-safe-transporter-agreement, disp-container-stuffing, mnt-equipment-list, mnt-new-equipment, mnt-pm-record,
-  mnt-yearly-pm-schedule, mnt-daily-health, mnt-breakdown-record, mnt-glass-breakage, mnt-lux-level,
+  mnt-yearly-pm-schedule, mnt-daily-health, mnt-breakdown-memo, mnt-breakdown-clearance, mnt-breakdown-record,
+  mnt-temporary-engineering, mnt-glass-breakage, mnt-lux-level, mnt-wooden-articles,
   sys-document-list, sys-format-list, sys-document-change, sys-mrm-agenda, sys-mrm-record, sys-objectives,
   sys-audit-schedule, sys-audit-plan, sys-audit-risk, sys-audit-findings, sys-audit-nc, sys-nc-car,
   sys-hara-monthly, sys-hara-annual, sys-site-security, sys-backward-trace, sys-forward-trace, sys-mock-recall).
@@ -298,11 +300,16 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   and packing material suppliers' performance monitoring register) and pur-service-provider-performance (F/PUR/06
   the service providers'); for "the purchase documents" as a whole use /library/purchase. The Maintenance formats
   open here too: mnt-equipment-list (F/MNT/01 List of Equipments & Utilities — the equipment master, machines M-01
-  to M-85), mnt-new-equipment (F/MNT/08 New Equipment Installation Report), mnt-pm-record (F/MNT/02 Preventive
-  Maintenance Schedule & Record, one per machine), mnt-yearly-pm-schedule (F/MNT/03 Yearly Preventive Maintenance
-  Schedule), mnt-daily-health (F/MNT/04 Daily Equipment Health Status & Cleaning Record), mnt-breakdown-record
-  (F/MNT/06 Equipments Breakdown Maintenance Record), mnt-glass-breakage (F/MNT/09 Glass Articles & Weekly Glass
-  Breakage Monitoring) and mnt-lux-level (F/MNT/11 Lux Level Measurement Record); for "the maintenance documents" as a
+  to M-86, Flexo and Pouch), mnt-new-equipment (F/MNT/08 New Equipment Installation Report), mnt-pm-record (F/MNT/02
+  Preventive Maintenance Schedule & Record, one per machine), mnt-yearly-pm-schedule (F/MNT/03 Yearly Preventive
+  Maintenance Schedule — its Actual dates are read from each machine's F/MNT/02, so a PM is recorded on F/MNT/02 and
+  never typed on F/MNT/03), mnt-daily-health (F/MNT/04 Daily Equipment Health Status & Cleaning Record),
+  mnt-breakdown-memo and mnt-breakdown-clearance (the two F/MNT/05 slips: Breakdown Maintenance Memo & Post
+  Maintenance Hygiene Record, and Breakdown Maintenance Memo & Hygiene Clearance Record — for "F/MNT/05" ask which
+  one), mnt-breakdown-record (F/MNT/06 Equipments Breakdown Maintenance Record), mnt-temporary-engineering (F/MNT/07
+  Temporary Engineering Log), mnt-glass-breakage (F/MNT/09 Glass Articles & Weekly Glass Breakage Monitoring),
+  mnt-wooden-articles (F/MNT/10 Wooden Articles & Weekly Wooden Article Monitoring) and mnt-lux-level (F/MNT/11 Lux
+  Level Measurement Record); for "the maintenance documents" as a
   whole use /library/maintenance. The Store formats are str-incoming-material-vehicle (F/STR/01) and
   str-sharp-metal-objects (F/STR/02); the Dispatch formats are disp-safe-transporter-agreement (F/DISP/01) and
   disp-container-stuffing (F/DISP/02). The System / Management formats open here as well: sys-document-list

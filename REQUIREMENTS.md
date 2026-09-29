@@ -4869,6 +4869,123 @@ file with no map refused). Unit tests: `bindPath`, `roundTrip`, `roundTripValues
 `uploadChanges`, `voice`, `sounds`, `motivation`, `intro`; `backend/tests/tts.test.ts` (chunking, joining WAVs, the
 terms error). `tests/e2e_smoke.py` closes the sidebar with the top bar's button now.
 
+## §82 — Maintenance completed from the papers of 29-Sep-2026, and F/MNT/03 driven by F/MNT/02 (29-Sep-2026)
+
+**The request.** "You need to add another module called Maintenance, so I have shared documents with you, so add
+those documents in that. In mnt-01 the list of all machines, and in mnt-02 it will be like when maintenance is done
+and all dates are always fake, and mnt-03 is connected to 02, so make the data operate accordingly." Fifteen PDFs,
+workbooks and Word files came with it; they are on file as supplied in `source-documents/` (commit 6b0c21a). The
+Maintenance module (§74) already held F/MNT/01 to F/MNT/11; this section brings it up to the papers and links F/MNT/03
+to F/MNT/02. The papers are the spec, word for word ("varified", "temporay", "Maintanance Room" stay as printed).
+
+**1. F/MNT/01 — the list of all machines.** The 29-Sep-2026 issue is a NEW Verified record of the register
+(`seed-mnt-equipment-list-2026-09-29`, data/seed/maintenanceRecords.ts) beside the 24-Sep-2026 one, which stays as
+history: a seed reaches an installed database only under a new id, and the equipment master (engine/equipmentMaster.ts)
+reads the latest Verified record. It holds 68 numbered machines: the Flexo sheet's 47 (adding M-16, M-17, M-43 and
+M-86 in number order; M-68 kept one column out of step exactly as printed, and read back in step by the fetch) and the
+Pouch sheet's 21 (Department "Pouch", except M-76 whose Department is blank; the Pouch sheet has no Location / Room,
+so none is invented). The workbook's third sheet, "Other Machinery - OLD" (13 items — Item Name / Type / Location, no
+machine numbers, "AkO 520 Chiller" printed twice, "Near Maintanance Room"), is a read-only table under the list, titled
+as the sheet is. Two serials are printed on two machines each — 194 (M-61 and M-62) and 231624BO638 (M-73 and M-74):
+a serial typed into a Machine No. box that more than one machine shares offers both and fills neither, so a shared
+serial never picks a machine silently. The three new PDFs' pages are the list's originals (blank ruled pages left out).
+
+**2. F/MNT/05 — two papers under one number.** The plant supplied two different slips that both print
+"F/MNT/05 (00/01.12.2021)": "Breakdown Maintenance Memo & Post Maintenance Hygiene Record" (slip 1) and "Breakdown
+Maintenance Memo & Hygiene Clearance Record" (slip 2, headed "GUJARAT PRINT PACK PUBLICATION LIMITED"). Both are built,
+each as printed (`mnt-breakdown-memo`, `mnt-breakdown-clearance`), as-required single forms with a Word download, the
+machine fetched from F/MNT/01 by its number, and the hygiene clearance printed on both word for word. Slip 1's
+"Breakdown minutes" is worked out from the intimation and repair dates and times (engine/maintenanceCalc.ts), shown as
+text, never typed. Slip 2's "Yes / No" is a choice of the two. The format-number test that forbids two documents on one
+number carries one commented allowance, for F/MNT/05 only; asked for "F/MNT/05", Mitra says it names two documents and
+offers both.
+
+**3. F/MNT/07 Temporary Engineering Log** (`mnt-temporary-engineering`): free lines under the paper's ten headings
+verbatim, its five numbered notes as the instructions, as required, Excel download.
+
+**4. F/MNT/10 List of Wooden Articles & Weekly Wooden Article Monitoring Record** (`mnt-wooden-articles`, Rev 02,
+15.12.2024), in a new section "Wooden Articles" after "Glass & Lighting": a sheet a month like F/MNT/09, the article list
+(with its printed Total row) and the revision history as read-only tables, five weekly columns under "Monitoring Weeks",
+and the fixed lines as page 2 prints them — "Date of monitoring", the twelve areas ("Qc+Slitting" …), "BREAKAGE – YES /
+NO", "Nos. of Discarded Wooden Pallets (Store & Production)", "CHECKED BY - TECHNICIAN – MAINTENANCE" and "VARIFIED BY –
+HOD MAINTENANCE". Rule M4 keeps reading F/MNT/09 only.
+
+**5. F/MNT/04's back side.** Each day line gains the four columns the back of the page prints, grouped under "If any
+Observation found by operator , details of concerns & actions taken shall be described on back side of this page.":
+"Observation / Concerns reported", "Action Taken", "Maintenance Technician Sign" and "Machine Operator Sign" (the back's
+Date is the line's own). The old observations box stays, so records that hold text keep it. The back page joins the
+originals.
+
+**6. Older copies on file, not made into records.** The supplied F/MNT/09 dated 15.12.2024 is an earlier issue of the
+same Rev 02 as the built 01.09.2025 one: the built one stays current, and the 15.12.2024 pages join the originals
+captioned as the earlier issue. The F/MNT/11 lux round of 15.10.2025 cannot be drawn faithfully on either layout — it
+prints the Rev 00 code "(00/01.12.2021)" over Rev 01's 26-line list, and four of its lines differ from Rev 01's fixed
+rows — so it is NOT made into a record; its page joins the originals with a caption saying why. The four lines:
+
+| Line | Rev 01 list (12.08.2025) | Round of 15.10.2025 |
+|---|---|---|
+| 4 | "Ink store - Ground floor" 500 | "Ink Kitchen" 843 |
+| 11 | "First floor - Ink Kitchen" 843 | "Conference room" 1048 |
+| 14 | "Change room & Locker room - Ground Floor" 1060 | "Change room - Ground Floor" 1060 |
+| 21 | "Ground floor - QC & Packing Area" 560 | "Ground floor - Packing Area" 560 |
+
+Every other reading equals the 12.08.2025 value; only the Conference room is new.
+
+**7. F/MNT/03 becomes Rev 01, 15.07.2026 — "YEARLY PREVENTIVE MAINTENANCE SCHEDULE - 2026".** "M/C No.", "Equipment
+Name" and "Frequency", then a Plan and an Actual under each month as printed ("Jan", "Feb", "Mar.", "Apr", "May",
+"Jun.", "July", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."). Its fixed lines are the 42 frequency lines of the 21 blocks
+in printed order (`YEARLY_PM_2026_ROWS`, data/seed/maintenanceLayouts.ts). Rev 00 ("Equipoment Name", "Monthaly", nine
+generic lines) is kept as the superseded revision, and at start-up every F/MNT/03 record made before Rev 01 is pinned
+to Rev 00 (data/bootstrap.ts), so its typed Actuals stay as they were and it is drawn on its own layout.
+
+**8. F/MNT/03 follows F/MNT/02** (engine/pmSchedule.ts). A PM is written once, on the machine's own F/MNT/02. The
+schedule's Actual is READ from F/MNT/02 each time the schedule is shown and NEVER STORED on F/MNT/03 — so a date
+corrected on F/MNT/02 is corrected on the schedule, the schedule gets no write for a PM, and its sign-off covers what
+is typed on it: the Plan, which stays typed (a plan is a decision). Rules:
+- A line is matched to F/MNT/02 by its M/C No. only, never by the name, and by the frequency exactly: "Half Yearly"
+  reads F/MNT/02's "Six monthly" slots, "Quarterly" its "3 Monthly" ones.
+- Each PM, in date order, counts against the oldest plan still open that is at most one interval before it and at
+  most seven days after it (done late); else the plan still open in its own month (done early); else its own month
+  (unplanned). Plans 10.01 and 10.02 with PMs on 03.02 and 12.02 read Jan "03.02" (late) and Feb "12.02".
+- Only PMs dated in the schedule's own year are read.
+- The Actual is drawn as a link to the F/MNT/02 record, with who did it and when; "*" marks one whose F/MNT/02 is not
+  yet verified. Mitra shows it (never stored) and will not edit it: it points to F/MNT/02.
+- F/MNT/02 shows, above its grid, that machine's next planned PM from the year's schedule ("On the 2026 schedule
+  (F/MNT/03): Monthly planned 10.10 — due in 11 days").
+- Rule M6 and the monthly summary read Rev 01 Actuals this way; Rev 00 records keep their typed Actuals.
+- Rule M8 says, never mends, what stops the schedule following F/MNT/02: a number printed on two blocks, a number
+  F/MNT/01 does not list, a name that shares no word with what F/MNT/01 lists under its number, a scheduled machine with
+  no F/MNT/02 sheet, and PMs on F/MNT/02 for a machine the schedule does not plan.
+- The index is worked out once per change of the F/MNT/02 records, never per render.
+
+**9. "All dates are always fake" — SAMPLE PM data, visible in Live** (data/seed/maintenanceSampleRecords.ts). The
+plant runs without Demo Mode, so the made-up dates are sample records on the Live side, each saying so in its history:
+"Sample data — made-up dates for trying F/MNT/02 → F/MNT/03 (asked for on 29-Sep-2026). Replace with the real PM
+dates."
+- One F/MNT/02 sheet for each machine number on the 2026 schedule (twenty; M-07 once), its header fetched from the
+  29-Sep-2026 F/MNT/01, with PM dates up to 29-Sep-2026: Monthly January to September, Quarterly in March, June and
+  September, Half Yearly in June, no Yearly yet. Most are within a few days of the plan; four are more than a week late
+  and two are missed, so the schedule shows slips as a real year would.
+- No date falls on a Thursday (the weekly off) or a festival holiday of the leave calendar. Done by Rahul Patel,
+  supervised by Mukesh Patel (the maintenance supervisor and manager on the plant's HR papers). In Progress, due
+  31-Dec-2026.
+- The supplied F/MNT/02 for M-68, "DCM Sleeve Seaming Machine", with its check points as printed and no dates.
+- The 2026 schedule on Rev 01 with every Plan written and no Actual, Verified by Mukesh Patel on 15.07.2026.
+- Deterministic: every date comes from a hash of the machine and the month, so every installation gets the same year.
+  A seed is added only where its id is missing, so once on file the records are the plant's to replace.
+
+**What the papers themselves conflict on (for the Maintenance department and the MR).** See the confirmation list,
+items 32 to 36.
+
+**Tests.** frontend/tests/maintenancePm.test.ts: the frequencies and dates, the matching rule, M-07, a corrected or
+deleted F/MNT/02 followed, no write to F/MNT/03, the index built once per change, the start-up pin to Rev 00, the sample
+year's promises, M6 and M8, and Mitra reading but refusing to edit a linked Actual. tests/e2e_maintenance_module.py:
+the new documents open, sample-fill and submit; F/MNT/01's 68 machines and 13 other items; the shared-serial fetch;
+F/MNT/04's back columns; F/MNT/03 Rev 01. tests/e2e_pm_link.py: the sample schedule on Rev 01 with its Actuals drawn as
+links to F/MNT/02, M-07 carrying none, a date corrected on F/MNT/02 shown on the schedule while F/MNT/03 stays Verified
+and unwritten, M6 and M8 in Insights, F/MNT/02's next-plan line, and the sample date put back. The document count in
+e2e_smoke and e2e_hr_module goes from 112 to 116.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -4990,6 +5107,22 @@ terms error). `tests/e2e_smoke.py` closes the sidebar with the top bar's button 
     marks every cause within the cut-off Vital Few and says "the first 4 … 78.57%" (LABELS: the first 9, 76.19%). The
     template's stray 8th line "Packing related" with no count is left out. The 2026 running sheets (LABELS and SHRINK
     SLEEVE, one complaint each in January 2026) are not on file as records.
+32. **F/MNT/05 is printed on two different slips** (§82 part 2): "Breakdown Maintenance Memo & Post Maintenance
+    Hygiene Record" and "Breakdown Maintenance Memo & Hygiene Clearance Record", both "(00/01.12.2021)". Both are in the
+    system; which one is in use, and should the other be withdrawn or given its own number?
+33. **M-07 is printed on two blocks of the 2026 PM schedule** (§82 part 8): "ZHEJIANG MANUAL INSPECTION MACHINE"
+    (which F/MNT/01 lists as M-46) and "DK 450 SLITTING MACHINE" (M-07 on F/MNT/01). Neither block follows F/MNT/02
+    until the number is corrected on the schedule.
+34. **M-58 on the 2026 PM schedule is "DCMF-480 Semi Rotary Die Cutting Machine"**, which F/MNT/01 lists as M-54;
+    F/MNT/01's M-58 is the Orthotec SRC3030 Compact Screen printing machine. The schedule's line is linked by its number
+    (M-58) and rule M8 says so. And M-68, the machine of the supplied F/MNT/02, is not on the 2026 schedule, nor is
+    any Pouch machine — intended?
+35. **F/MNT/01's duplicate serials** (§82 part 1): 194 on M-61 and M-62, and 231624BO638 on M-73 and M-74. M-76 has
+    no Department, and M-68's row is one column out of step, in both the PDF and the workbook.
+36. **The F/MNT/11 round of 15.10.2025** (§82 part 6) prints the Rev 00 code on the Rev 01 list and changes four lines
+    (Ink Kitchen, Conference room, Change room, Packing Area); its readings are otherwise the 12.08.2025 ones. Is it a
+    real round, and is the area list now changed (a Rev 02)? Also: the supplied F/MNT/09 of 15.12.2024 and the built
+    one of 01.09.2025 both print Rev 02 — was a revision number missed?
 
 ## How the assistant pre-fills records (and what it never does)
 

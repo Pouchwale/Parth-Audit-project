@@ -442,6 +442,13 @@ function normRow(layout: LogSheetLayout, row: Obj, set: Obj, problems: string[])
       problems.push(`"${k}" isn't a column on this form, so I left it out.`);
       continue;
     }
+    // READ FROM ANOTHER DOCUMENT, never written here (REQUIREMENTS §82): F/MNT/03's
+    // Actual dates come from each machine's F/MNT/02. A value sent for one is
+    // refused, and the person is pointed to where the PM is recorded.
+    if (col.linkedFrom) {
+      if (String(v ?? "").trim() && String(v ?? "") !== String(row[k] ?? "")) problems.push(linkedRefusal(col, row));
+      continue;
+    }
     // Worked out from the other cells (engine/calibration.ts): whatever is sent is dropped.
     if (col.computed) continue;
     if (col.fixed) {
@@ -452,6 +459,18 @@ function normRow(layout: LogSheetLayout, row: Obj, set: Obj, problems: string[])
     if (n !== INVALID) next[k] = n;
   }
   return next;
+}
+
+/** Why a cell read from another document was not written, and where to write it instead. */
+function linkedRefusal(col: LogColumn, row: Obj): string {
+  const source = documentRepository.getById(col.linkedFrom ?? "");
+  const fno = source?.formatNo || source?.name || col.linkedFrom;
+  const machine = String(row.machineNo ?? "").trim();
+  const where = `${col.group ? `${col.group} ` : ""}${col.label}`;
+  return (
+    `The ${where} date isn't written on this sheet — it is read from ${machine ? `${machine}'s ` : "the machine's "}${fno}${source?.name ? ` (${source.name})` : ""}. ` +
+    `Record the PM there${machine ? ` for ${machine}` : ""} and it shows here; nothing was changed.`
+  );
 }
 
 function normRows(layout: LogSheetLayout, cur: Obj[], value: unknown[], problems: string[]): Obj[] {
@@ -563,8 +582,9 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
   const problems: string[] = [];
   const next = (clone(current) ?? {}) as unknown as Obj;
   const layout = kind === "log-sheet" ? getLogSheetLayoutForRecord(documentId, record) : undefined;
-  const { itemEdits, _layout, ...fields } = isObj(patch) ? patch : ({} as Obj);
+  const { itemEdits, _layout, _linked, ...fields } = isObj(patch) ? patch : ({} as Obj);
   void _layout;
+  void _linked;
 
   for (const [key, value] of Object.entries(fields)) {
     if (!(key in next) && !(OPTIONAL_KEYS[kind] ?? []).includes(key)) {

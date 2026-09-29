@@ -1000,6 +1000,9 @@ function* maintenanceWork(ctx: Ctx): Work<EvidenceSection> {
         });
       }
     }
+    // A breakdown naming a machine the equipment list does not have (rule M7) sits beside the breakdown
+    // figures it breaks (REQUIREMENTS §82): those lines cannot be added up per machine until the IDs agree.
+    for (const i of insightsFor(ctx, ["M7"]).slice(0, 2)) facts.push(insightFact(ctx, i));
   }
 
   // Lux, the two latest rounds (F/MNT/11) — whatever their dates: the form
@@ -1035,6 +1038,7 @@ function* maintenanceWork(ctx: Ctx): Work<EvidenceSection> {
 
   // What the Insights page says about the rest: the equipment list itself, PM
   // slipping, glass breakage and daily health checks (rules M2, M7, M6, M4, M5).
+  // (An M7 not said beside the breakdowns above — none were in the period — may still come here.)
   for (const i of insightsFor(ctx, ["M2", "M7"]).slice(0, 2)) facts.push(insightFact(ctx, i));
   for (const i of insightsFor(ctx, ["M6"]).slice(0, 3)) facts.push(insightFact(ctx, i));
   if (has("mnt-glass-breakage")) {

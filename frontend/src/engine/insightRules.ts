@@ -4,6 +4,7 @@ import { isLotAccepted, isOutOfBand } from "./validation";
 import { actionForGrade, RM_PM_PERFORMANCE_ID, supplierRatingCells } from "./purchaseRatings";
 import { breakdownSpanMinutes } from "./maintenanceCalc";
 import { isPlaceholder, machineKey } from "./equipmentMaster";
+import { dayDotMonth, dayDotMonthYear, isLinkedLine, pmActuals, pmDoneIndex, pmSheetMachine, type PmIndex, type PmPlaced } from "./pmSchedule";
 import { compareISO, formatDisplayDate, MONTH_NAMES } from "../utils/date";
 
 // THE RULES BEHIND THE INSIGHTS (REQUIREMENTS §75) — each one a fixed piece of
@@ -28,8 +29,10 @@ import { compareISO, formatDisplayDate, MONTH_NAMES } from "../utils/date";
 //   C2  a lot's reason stating a figure its own observation does not read
 //   C3  an instrument's calibration expired
 //   SUP a supplier graded C on F/PUR/05
-//   M1–M7 Maintenance (REQUIREMENTS §74): lux, the equipment list, breakdowns,
-//       glass breakage, daily health gaps, PM slippage, unknown machines.
+//   M1–M8 Maintenance (REQUIREMENTS §74, §82): lux, the equipment list,
+//       breakdowns, glass breakage, daily health gaps, PM slippage (a Rev 01
+//       schedule's Actuals read from F/MNT/02), unknown machines, and what keeps
+//       the yearly schedule from following F/MNT/02.
 //   S1–S6 System / Management (REQUIREMENTS §76): a mock withdrawal or a
 //       traceability test more than a year old, an internal audit NC not verified
 //       closed or with no NC report, a traceability test dated out of its own
@@ -1413,6 +1416,7 @@ const BREAKDOWN_ID = "mnt-breakdown-record";
 const GLASS_ID = "mnt-glass-breakage";
 const DAILY_HEALTH_ID = "mnt-daily-health";
 const YEARLY_PM_ID = "mnt-yearly-pm-schedule";
+const PM_RECORD_ID = "mnt-pm-record";
 
 // ---- M1: lux, the two latest rounds compared area by area ----
 
@@ -1989,9 +1993,27 @@ const pmSlipRule: InsightRule = (ctx) => {
   const out: Insight[] = [];
   const fno = ctx.formatNo(YEARLY_PM_ID);
   const thisYear = Number(ctx.today.slice(0, 4));
+  // THE ACTUALS OF A REV 01 SCHEDULE ARE READ FROM F/MNT/02 (REQUIREMENTS §82,
+  // engine/pmSchedule.ts), from the same sheets the schedule shows them from —
+  // built here once per run from the F/MNT/02 records people wrote, never
+  // remembered against F/MNT/03 alone (its own last-change stamp does not move
+  // when a PM is written). A Rev 00 schedule keeps its typed Actuals.
+  let pm: { index: PmIndex; byId: Map<string, RecordInstance> } | null = null;
+  const pmRecords = (): { index: PmIndex; byId: Map<string, RecordInstance> } => {
+    if (!pm) {
+      const sheets = ctx.records(PM_RECORD_ID);
+      pm = { index: pmDoneIndex(sheets), byId: new Map(sheets.map((r) => [r.id, r] as const)) };
+    }
+    return pm;
+  };
+  const pmFno = ctx.formatNo(PM_RECORD_ID);
   for (const record of ctx.records(YEARLY_PM_ID)) {
     const year = Number(record.dueDate.slice(0, 4));
     if (!(year >= thisYear - 1 && year <= thisYear)) continue;
+    if (!record.formatRevision && ctx.layout(record)?.columns.some((c) => c.linkedFrom === PM_RECORD_ID)) {
+      out.push(...pmSlipLinked(ctx, record, year, pmRecords(), fno, pmFno));
+      continue;
+    }
     rowsOf(record).forEach((row, index) => {
       const late: { month: string; plan: string; actual: string; days: number }[] = [];
       const missed: { month: string; plan: string; days: number }[] = [];
@@ -2032,6 +2054,228 @@ const pmSlipRule: InsightRule = (ctx) => {
         })
       );
     });
+  }
+  return out;
+};
+
+/**
+ * M6 on a Rev 01 schedule: each Plan against the F/MNT/02 PM counted against it
+ * (engine/pmSchedule.ts pmActuals, the rule the sheet itself shows). A stored
+ * Actual on such a schedule is not read — it is not the record of the PM. A
+ * line that cannot be linked (a number printed on two blocks) is left to M8:
+ * its PMs cannot be read, so they cannot be called missing.
+ */
+function pmSlipLinked(
+  ctx: RuleContext,
+  record: RecordInstance,
+  year: number,
+  pm: { index: PmIndex; byId: Map<string, RecordInstance> },
+  fno: string,
+  pmFno: string
+): Insight[] {
+  const out: Insight[] = [];
+  const rows = rowsOf(record);
+  const lines = pmActuals(rows, year, pm.index);
+  lines.forEach((line, index) => {
+    if (!isLinkedLine(line)) return;
+    const row = rows[index];
+    const late: { month: string; plan: string; done: PmPlaced; days: number }[] = [];
+    const missed: { month: string; plan: string; days: number }[] = [];
+    const placed = line.months.flat();
+    line.plans.forEach((plan, month0) => {
+      if (!plan || plan > ctx.today || daysBetween(plan, ctx.today) > 365) return;
+      const m = PM_MONTHS[month0];
+      const planRaw = text(row[`${m}Plan`]);
+      const done = placed.find((d) => d.plan === plan);
+      if (done && (done.lateDays ?? 0) > 7) late.push({ month: m, plan: planRaw, done, days: done.lateDays ?? 0 });
+      else if (!done && daysBetween(plan, ctx.today) > 7) missed.push({ month: m, plan: planRaw, days: daysBetween(plan, ctx.today) });
+    });
+    if (late.length === 0 && missed.length === 0) return;
+    const machine = line.machine;
+    const equipment = text(row.equipment);
+    const frequency = text(row.frequency);
+    // As on a Rev 00 schedule: HIGH for a PM more than a month overdue and still not done, MEDIUM otherwise.
+    const severity: InsightSeverity = missed.some((x) => x.days > 30) ? "high" : "medium";
+    const parts = [
+      ...missed.map((x) => `planned ${x.plan}, not done (${plural(x.days, "day")} past the plan)`),
+      ...late.map((x) => `planned ${x.plan}, done ${dayDotMonth(x.done.dateISO)} (${plural(x.days, "day")} late)`),
+    ];
+    // Where the PM is recorded: the machine's latest F/MNT/02, else the schedule.
+    let sheet: RecordInstance | undefined;
+    for (const r of pm.byId.values()) if (pmSheetMachine(headerOf(r).machineIdNo) === machine && (!sheet || r.updatedAt > sheet.updatedAt)) sheet = r;
+    const evidence: InsightEvidence[] = [...missed.map((x) => ev(record, `${x.month}Plan`, `${x.plan} — not done`))];
+    for (const x of late) {
+      evidence.push(ev(record, `${x.month}Plan`, `${x.plan} → ${dayDotMonth(x.done.dateISO)}`));
+      const source = pm.byId.get(x.done.recordId);
+      if (source) evidence.push(ev(source, "date", `${machine}: ${dayDotMonthYear(x.done.dateISO)}`));
+    }
+    out.push(
+      insight(ctx, YEARLY_PM_ID, {
+        id: `m6|${record.id}|${index}`,
+        rule: "M6",
+        severity,
+        title: `${machine}${equipment ? ` ${equipment}` : ""}${frequency ? ` (${frequency})` : ""}: preventive maintenance slipping on ${fno} ${year} — ${missed.length} not done, ${late.length} done late`,
+        detail:
+          `${parts.slice(0, 5).join("; ")}${parts.length > 5 ? ` and ${parts.length - 5} more` : ""}. ` +
+          `A PM done late, or not at all, is what the schedule exists to prevent. Bring the missed PM forward and record it on ${machine}'s ${pmFno} — the schedule's Actual follows.`,
+        evidence,
+        route: sheet ? ctx.recordRoute(sheet) : ctx.recordRoute(record),
+        metric: { label: "Slipped", value: String(missed.length + late.length) },
+      })
+    );
+  });
+  return out;
+}
+
+// ---- M8: the Rev 01 schedule against F/MNT/01 and F/MNT/02 ----
+
+// Words that say nothing about WHICH machine: every line says "machine".
+const QUIET_NAME_WORDS = new Set(["machine", "machines", "unit", "the", "and", "of"]);
+const nameWords = (v: unknown): string[] =>
+  text(v)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .split(" ")
+    .filter((w) => w.length >= 3 && !QUIET_NAME_WORDS.has(w));
+
+/**
+ * M8 (REQUIREMENTS §82): what keeps the year's Rev 01 schedule from following
+ * F/MNT/02 as it should. A schedule line is linked to F/MNT/02 by its M/C No.
+ * alone, so these are said, never mended: a number printed on two blocks
+ * (neither is linked), a number F/MNT/01 does not list, a line whose name
+ * shares no word with what F/MNT/01 lists under its number (still linked, by
+ * the number — but one of the two is probably wrong), a scheduled machine with
+ * no F/MNT/02 sheet, and PMs on F/MNT/02 for a machine the schedule does not
+ * plan.
+ */
+const pmScheduleLinkRule: InsightRule = (ctx) => {
+  const out: Insight[] = [];
+  const thisYear = Number(ctx.today.slice(0, 4));
+  const schedules = ctx.records(YEARLY_PM_ID).filter((r) => !r.formatRevision && Number(r.dueDate.slice(0, 4)) === thisYear && ctx.layout(r)?.columns.some((c) => c.linkedFrom === PM_RECORD_ID));
+  if (schedules.length === 0) return out;
+  const record = schedules[schedules.length - 1];
+  const fno = ctx.formatNo(YEARLY_PM_ID);
+  const pmFno = ctx.formatNo(PM_RECORD_ID);
+  const listFno = ctx.formatNo(EQUIPMENT_LIST_ID);
+  const rows = rowsOf(record);
+  const sheets = ctx.records(PM_RECORD_ID);
+  const index = pmDoneIndex(sheets);
+  const lines = pmActuals(rows, thisYear, index);
+
+  const listRecord = currentEquipmentRecord(ctx);
+  const listed = new Map<string, LogSheetRow>();
+  if (listRecord) for (const r of equipmentRowsMemo(ctx, listRecord)) {
+    const k = machineKey(r.machineNo);
+    if (k && !listed.has(k)) listed.set(k, r);
+  }
+  const listedName = (r: LogSheetRow) => [text(r.manufacturer), text(r.model), text(r.description)].filter((v) => v && !isPlaceholder(v)).join(" ");
+
+  // Numbers printed on more than one block: MEDIUM — their PMs cannot be shown at all.
+  const duplicated = new Map<string, { index: number; name: string }[]>();
+  lines.forEach((line, i) => {
+    if (isLinkedLine(line) || !/printed on \d+ blocks/.test(line.unlinked)) return;
+    const list = duplicated.get(line.machine) ?? [];
+    list.push({ index: i, name: text(rows[i]?.equipment) });
+    duplicated.set(line.machine, list);
+  });
+  for (const [machine, list] of duplicated) {
+    const names = [...new Set(list.map((l) => l.name))];
+    const onList = listed.get(machine);
+    out.push(
+      insight(ctx, YEARLY_PM_ID, {
+        id: `m8|duplicate|${record.id}|${machine}`,
+        rule: "M8",
+        severity: "medium",
+        title: `${fno} ${thisYear}: ${machine} is printed on ${names.length} blocks — neither follows ${pmFno}`,
+        detail:
+          `The schedule gives ${machine} to ${names.map((n) => quote(n, 50)).join(" and ")}. A PM is matched to the schedule by the machine's number alone, so a PM written on ${machine}'s ${pmFno} cannot be placed on either line, and their Actuals stay blank.` +
+          (onList ? ` ${listFno} lists ${machine} as ${quote(listedName(onList), 60)}.` : "") +
+          ` Confirm the right number with the department and correct the line through Edit format.`,
+        evidence: list.map((l) => ev(record, "machineNo", `line ${l.index + 1}: ${machine} ${clip(l.name, 40)}`)),
+        route: ctx.recordRoute(record),
+      })
+    );
+  }
+
+  // One insight per machine for the rest: not on F/MNT/01, or named differently from it. LOW.
+  const seen = new Set<string>();
+  rows.forEach((row, i) => {
+    const machine = machineKey(row.machineNo);
+    if (!machine || seen.has(machine) || duplicated.has(machine) || !listRecord) return;
+    seen.add(machine);
+    const onList = listed.get(machine);
+    if (!onList) {
+      out.push(
+        insight(ctx, YEARLY_PM_ID, {
+          id: `m8|not-listed|${record.id}|${machine}`,
+          rule: "M8",
+          severity: "low",
+          title: `${fno} ${thisYear}: ${machine} ${clip(row.equipment, 40)} is not on the ${ctx.docName(EQUIPMENT_LIST_ID)} (${listFno})`,
+          detail: `The schedule plans PM for ${machine}, which ${listFno} does not list. Either the number is mistyped on the schedule or the machine is missing from the list.`,
+          evidence: [ev(record, "machineNo", `line ${i + 1}: ${machine}`)],
+          route: ctx.recordRoute(record),
+        })
+      );
+      return;
+    }
+    const scheduleWords = nameWords(row.equipment);
+    const listWords = new Set(nameWords(listedName(onList)));
+    if (scheduleWords.length === 0 || scheduleWords.some((w) => listWords.has(w))) return;
+    // A model the schedule's name does print, and the number F/MNT/01 gives it — said, not linked.
+    const elsewhere = [...listed.entries()].find(([k, r]) => k !== machine && !isPlaceholder(r.model) && nameWords(r.model).length > 0 && nameWords(r.model).every((w) => scheduleWords.includes(w)));
+    out.push(
+      insight(ctx, YEARLY_PM_ID, {
+        id: `m8|named|${record.id}|${machine}`,
+        rule: "M8",
+        severity: "low",
+        title: `${fno} ${thisYear}: ${machine} is ${quote(row.equipment, 50)} on the schedule but ${quote(listedName(onList), 50)} on ${listFno}`,
+        detail:
+          `The line still follows ${machine}'s ${pmFno}, because a machine is matched by its number, never by its name. But the two names share no word, so one of the numbers is probably wrong.` +
+          (elsewhere ? ` ${listFno} lists a ${text(elsewhere[1].model)} as ${elsewhere[0]}.` : "") +
+          ` Confirm with the department.`,
+        evidence: [ev(record, "machineNo", `line ${i + 1}: ${machine} ${clip(row.equipment, 40)}`), ...(listRecord ? [ev(listRecord, "machineNo", `${machine}: ${clip(listedName(onList), 50)}`)] : [])],
+        route: ctx.recordRoute(record),
+      })
+    );
+  });
+
+  // Scheduled machines with no F/MNT/02 sheet; F/MNT/02 PMs for machines the schedule does not plan. LOW.
+  const scheduled = new Set(rows.map((r) => machineKey(r.machineNo)).filter(Boolean));
+  const withSheet = new Set(sheets.map((r) => pmSheetMachine(headerOf(r).machineIdNo)).filter(Boolean));
+  const noSheet = [...scheduled].filter((m) => !withSheet.has(m));
+  if (noSheet.length > 0) {
+    out.push(
+      insight(ctx, YEARLY_PM_ID, {
+        id: `m8|no-sheet|${record.id}`,
+        rule: "M8",
+        severity: "low",
+        title: `${fno} ${thisYear}: ${plural(noSheet.length, "scheduled machine")} with no ${pmFno} sheet`,
+        detail: `${noSheet.slice(0, 12).join(", ")}${noSheet.length > 12 ? ` and ${noSheet.length - 12} more` : ""}: the schedule plans their PM, but no ${pmFno} records it yet, so their Actuals stay blank. Start one from the machine's number.`,
+        evidence: [ev(record, "machineNo", noSheet.slice(0, 12).join(", "))],
+        route: ctx.documentRoute(PM_RECORD_ID),
+      })
+    );
+  }
+  const unplanned = new Map<string, number>();
+  for (const [key, dones] of index) {
+    const machine = key.split("|")[0];
+    if (scheduled.has(machine)) continue;
+    const n = dones.filter((d) => d.dateISO.startsWith(`${thisYear}-`)).length;
+    if (n > 0) unplanned.set(machine, (unplanned.get(machine) ?? 0) + n);
+  }
+  if (unplanned.size > 0) {
+    const list = [...unplanned.entries()];
+    out.push(
+      insight(ctx, PM_RECORD_ID, {
+        id: `m8|unplanned|${record.id}`,
+        rule: "M8",
+        severity: "low",
+        title: `${pmFno}: PMs recorded in ${thisYear} for ${plural(list.length, "machine")} the ${fno} schedule does not plan`,
+        detail: `${list.map(([m, n]) => `${m} (${plural(n, "PM")})`).join(", ")}. Either the machine belongs on the schedule, or the sheet names the wrong machine.`,
+        evidence: sheets.filter((r) => unplanned.has(pmSheetMachine(headerOf(r).machineIdNo))).map((r) => ev(r, "machineIdNo", pmSheetMachine(headerOf(r).machineIdNo))),
+        route: ctx.documentRoute(PM_RECORD_ID),
+      })
+    );
   }
   return out;
 };
@@ -2494,6 +2738,7 @@ export const INSIGHT_RULES: InsightRule[] = [
   glassRule,
   dailyHealthRule,
   pmSlipRule,
+  pmScheduleLinkRule,
   mockRecallRule,
   traceabilityDueRule,
   auditNcOpenRule,

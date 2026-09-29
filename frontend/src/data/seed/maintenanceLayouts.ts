@@ -23,9 +23,18 @@ import type { LogColumn, LogSheetLayout } from "../../types";
 //             page of 11.05.2024 keeps its own Day/Night layout (a record is
 //             read under the revision it was made on).
 //
-// NOT SUPPLIED, and so not built — nothing stands in for them: F/MNT/05
-// Breakdown intimation Slip, F/MNT/07 Temporary engineering record, F/MNT/10
-// Weekly Wooden article condition monitoring record.
+// THE PAPERS OF 29-SEP-2026 (REQUIREMENTS §82) complete the module:
+//
+//   F/MNT/01  the full list, Flexo and Pouch, 68 machines — a new issue beside
+//             the 24-Sep one — and the "Other Machinery - OLD" sheet.
+//   F/MNT/03  Rev 01 (15.07.2026), the 2026 schedule by machine number; its
+//             Actual dates are READ from F/MNT/02, never typed. Rev 00 is kept
+//             as the superseded revision.
+//   F/MNT/04  its back side, joined to each day.
+//   F/MNT/05  TWO different slips under one number — both built, each as printed.
+//   F/MNT/07  Temporary Engineering Log.
+//   F/MNT/10  List of Wooden Articles & Weekly Wooden Article Monitoring Record.
+//   F/MNT/09, F/MNT/11  further copies, shown beside the forms as supplied.
 //
 // VERBATIM MEANS VERBATIM. Every label below is the paper's own wording and
 // spelling — "Equipoment Name", "Monthaly", "Machine discription", "BREKAGE",
@@ -50,6 +59,9 @@ const page = (file: string, caption: string) => ({ src: `/source/${file}`, capti
 // ===========================================================================
 
 /**
+ * THE LIST OF 24-SEP-2026 — kept as that day's record (maintenanceRecords.ts);
+ * the current issue is EQUIPMENT_LIST_2026_09_29_ROWS below.
+ *
  * The 43 machines on the page, cell for cell. The numbering has gaps
  * (M-05, M-16/17, M-22..32, M-37..43, M-61..67, M-69..82) — the file name says
  * "Flexo & Pouch" but only the Flexo list and one Common forklift are on it.
@@ -121,6 +133,148 @@ export const EQUIPMENT_LIST_ROWS: Record<string, string>[] = (
   serialNo,
 }));
 
+/** One F/MNT/01 line, as the eleven printed columns. */
+const machineLine = ([machineNo, department, location, manufacturer, model, description, countryOfOrigin, size, month, year, serialNo]: readonly string[]) => ({
+  machineNo,
+  department,
+  location,
+  manufacturer,
+  model,
+  description,
+  countryOfOrigin,
+  size,
+  month,
+  year,
+  serialNo,
+});
+
+/**
+ * THE ISSUE SUPPLIED ON 29-SEP-2026 (REQUIREMENTS §82) — "Master List of
+ * Equipments-Flexo & Pouch.xlsx" and its PDFs, 68 numbered machines on two
+ * sheets, each cell as printed (trailing spaces and the line break inside
+ * "Hyfra Industrukuhalanlagen GmbH" set aside, K29 as the sheet displays it):
+ *
+ *   FLEXO, 47 lines — the 43 of the 24-Sep page plus M-16, M-17 (two manual QC
+ *   inspection machines), M-43 (the Shenzhen JM-420 punching machine) and M-86
+ *   (the Vorey A6 digital label die cutter, printed alone on the PDF's page 2),
+ *   in number order. M-68 is STILL printed one column out of step, exactly as
+ *   before, and is kept so (engine/equipmentMaster.ts reads it back in step).
+ *
+ *   POUCH, 21 lines, M-61 to M-82 — the numbers the Flexo sheet skips. Its
+ *   "Location / Room" and "Room No." columns are hidden on the sheet and hold
+ *   nothing, so every Pouch location is blank; its "Date of Installation" and
+ *   "Maintenance Plan" headings stand outside the table with no values, so they
+ *   are not columns of the list. M-76's Department is blank on the sheet. Two
+ *   pairs of machines print ONE serial between them — 194 (M-61, M-62) and
+ *   231624BO638 (M-73, M-74) — so a serial alone never picks either
+ *   (engine/equipmentMaster.ts). "Printinting", "Standy" and "Nuzen   D-917"
+ *   are the sheet's own.
+ */
+export const EQUIPMENT_LIST_FLEXO_2026_09_29: Record<string, string>[] = (
+  [
+    ["M-01", "Flexo", "Gallus Printing", "Gallus Ferd Reusch Gmbh", "Gallus ECS 340", "UV Flexo Printing Machine", "Germany", "340 mm", "November", "2014", "340-224"],
+    ["M-02", "Flexo", "Gallus Printing", "UV Graphics Pvt Ltd", "UltraFlex Video Plate Mounter", "Flexo Plate Mounter", "India", "370 mm", "December", "2014", "NA"],
+    ["M-03", "Flexo", "Label Stock Store", "C Trivedi Pvt Ltd", "FireSlit 1000", "Jumbo Roll Slitting Machine", "India", "1000 mm", "January", "2012", "NA"],
+    ["M-04", "Flexo", "Packing", "C Trivedi Pvt Ltd", "Corecut", "Core Cutting Machine", "India", "1000 mm", "NA", "2012", "NA"],
+    ["M-06", "Flexo", "Slitting room", "C Trivedi Pvt Ltd", "FireSlit 350", "Label slitting Machine", "India", "350 mm", "NA", "2018", "NA"],
+    ["M-07", "Flexo", "Packing", "Zhejiang Machinery Co Ltd", "DK-450", "Label Slitting Machine", "China", "450 mm", "July", "2015", "153Q721M"],
+    ["M-08", "Flexo", "Sleeve", "HCI Converting Co Ltd", "FK 250 PVC", "Sleeve Seaming Machine", "Taiwan", "500 mm", "March", "2007", "320-206-121"],
+    ["M-09", "Flexo", "Sleeve", "XL Plastics Pvt Ltd", "DynaStar", "Sheet Cutting Machine", "India", "250 mm", "March", "2011", "2706138"],
+    ["M-10", "Flexo", "Sleeve", "Kanara Packaging", "Easy Cut", "Sheet Cutting Machine", "India", "250 mm", "NA", "2016", "NA"],
+    ["M-11", "Flexo", "Punching", "Brison Inc", "Fast Punch", "Die Cutting Machine", "China", "450 mm", "December", "2017", "450-14"],
+    ["M-12", "Flexo", "Punching", "Zonten", "Zonten Diecutting", "Die Cutting Machine", "Spain", "400 mm", "", "-", "-"],
+    ["M-13", "Flexo", "QC", "Brison Inc", "Brison 370", "Label Inspection Machine", "China", "350 mm", "February", "2018", "370-15"],
+    ["M-14", "Flexo", "QC", "Brison Inc", "Brison 370", "Label Inspection Machine", "China", "350 mm", "February", "2018", "370-16"],
+    ["M-15", "Flexo", "QC", "BST Sayona GmBh", "Perfecto Slit 450", "Label Inspection Machine", "Germany", "450 mm", "October", "2014", "NA"],
+    ["M-16", "Flexo", "QC", "-", "-", "Manual QC Inspection machine", "", "", "", "", "-"],
+    ["M-17", "Flexo", "QC", "-", "-", "Manual QC Inspection machine", "", "", "", "", "-"],
+    ["M-18", "Flexo", "Ink Kitchen", "Harper Scientific Technologies", "Roll Kit", "Ink Rollup Kit", "India", "80 mm", "November", "2015", "NA"],
+    ["M-19", "Flexo", "Aquaflex Printing", "Brison Inc", "Anilox Cleaner", "Anilox Cleaner", "China", "450 mm", "April", "2018", "NA"],
+    ["M-20", "Flexo", "Label Stock Store", "Eagle Pvt Ltd", "Crane", "Overhead Crane", "India", "10'x40'", "NA", "2011", "NA"],
+    ["M-21", "Flexo", "Walk Way", "Eagle Pvt Ltd", "Lift", "Materials Lift", "India", "6'x5'x25'", "NA", "2015", "NA"],
+    ["M-33", "Common", "Forklift", "Toyota Industry Co. Ltd.", "FDZN30", "Petrol Powered Forklift", "Japan", "2850 Kg", "NA", "2017", "FDZN30-26489"],
+    ["M-34", "Flexo", "Flexo Utility Room", "Elgi Equipments Limited", "ELLen-7", "Compressor", "India", "1.71 m3/min", "NA", "2014", "GNFC370139"],
+    ["M-35", "Flexo", "Flexo Utility Room", "Elgi Equipments Limited", "ELRD-100", "Dryer", "India", "100 CFM", "NA", "2014", "8788-08-14"],
+    ["M-36", "Flexo", "Flexo Utility Room", "Hyfra Industrukuhalanlagen GmbH", "SVK540-1-S", "Chiller", "India", "60600 / 42 C", "NA", "2014", "13050606"],
+    ["M-43", "Flexo", "Post press", "Shenzhen", "JM-420", "Punching Machine", "China", "420mm", "January", "2025", "250111"],
+    ["M-44", "Flexo", "QC", "Brison Inc", "Brison 300", "Label Inspection Machine", "China", "300 mm", "Febraury", "2018", "16"],
+    ["M-45", "Flexo", "Slitting room", "Brison Inc", "Brison 450", "Label slitting Machine", "China", "450 mm", "April", "2020", "DCGFQ450"],
+    ["M-46", "Flexo", "QC", "Zhejiang Machinery Co Ltd", "NA", "Label Inspection Machine - Manual", "China", "350 mm", "July", "2015", "1435461-M"],
+    ["M-47", "Flexo", "Lombardi Printing", "Lombardi", "Delta 330", "UV Flexo Printing Machine", "Itlay", "330 mm", "November", "2021", "88562"],
+    ["M-48", "Flexo", "Lombardi Printing", "Brison Inc", "UltraFlex Video Plate Mounter", "Flexo Plate Mounter", "India", "370 mm", "November", "2021", "NA"],
+    ["M-49", "Flexo", "Lombardi Printing", "Elgi Equipments Limited", "EGRD-080", "Air cooled dryer", "India", "NA", "November", "2021", "21T003086"],
+    ["M-50", "Flexo", "Lombardi Printing", "Agnes", "NA", "Chiller", "India", "NA", "November", "2021", "NA"],
+    ["M-51", "Flexo", "QC", "Wenhou Denchern Machinery Co. Ltd.", "HSR-550", "Slitting & Rewinding machine", "China", "550mm", "August", "2022", "22080301"],
+    ["M-52", "Flexo", "QC", "-", "-", "Manual QC Inspection machine", "China", "350mm", "August", "2022", "-"],
+    ["M-53", "Flexo", "QC", "-", "-", "Manual QC Inspection machine", "China", "350mm", "August", "2022", "-"],
+    ["M-54", "Flexo", "QC", "Wenhou Denchern Machinery Co. Ltd.", "DCMF-480", "Semi rotary die cutting machine", "China", "480mm", "August", "2022", "22080302"],
+    ["M-55", "Flexo", "QC", "Harmony", "Y-MQ-420", "Die Cutting Machine", "China", "400mm", "May", "2023", "23041503"],
+    ["M-56", "Flexo", "QC", "-", "-", "Manual QC Inspection machine", "China", "350mm", "May", "2023", "-"],
+    ["M-57", "Flexo", "QC", "-", "-", "Manual QC Inspection machine", "China", "350mm", "May", "2023", "-"],
+    ["M-58", "Flexo", "QC", "Orthotec", "SRC3030", "Compact Screen printing machine", "Taiwan", "300*300mm", "April", "2023", "22073"],
+    ["M-59", "Flexo", "QC", "Shenzhen", "450", "Brison QC Inspection machine", "China", "450mm", "June", "2023", "-"],
+    ["M-60", "Flexo", "QC", "Wenhou Denchern Machinery Co. Ltd.", "SR-550", "Slitting & Rewinding machine", "China", "550mm", "June", "2023", "-"],
+    ["M-68", "Flexo", "Sleeve", "", "DCM Usimeca", "1102-31203-SL3", "DCM Sleeve Seaming", "France", "", "December", "2023"],
+    ["M-83", "Flexo", "Lombardi Printing", "Lombardi", "Delta 430", "UV Flexo Printing Machine", "Itlay", "430 mm", "November", "2018", "A0199"],
+    ["M-84", "Flexo", "Lombardi Printing", "Brison Inc", "UltraFlex Video Plate Mounter", "Flexo Plate Mounter", "India", "580 mm", "November", "2021", "NA"],
+    ["M-85", "Flexo", "", "Brotech", "Konika Minolta - DP330", "Digital printing machine", "Japan", "330 mm", "June", "2025", "BTHD2505004"],
+    ["M-86", "Flexo", "", "Vorey Technology Co. Ltd.", "A6", "Digital label die cutter", "China", "500mm", "December", "2025", "A620251210V063S"],
+  ] as const
+).map(machineLine);
+
+export const EQUIPMENT_LIST_POUCH_2026_09_29: Record<string, string>[] = (
+  [
+    ["M-61", "Pouch", "", "C Trivedi & Co.", "650", "Coating & Laminating Machine -1", "India", "650", "May", "2023", "194"],
+    ["M-62", "Pouch", "", "C Trivedi & Co.", "650", "Coating & Laminating Machine -2", "India", "650", "May", "2023", "194"],
+    ["M-63", "Pouch", "", "RE India", "Viscosity unit", "Viscosity machine", "India", "-", "-", "-", "-"],
+    ["M-64", "Pouch", "", "S.T.Engineering", "Core Cutter", "Core Cutter", "India", "-", "-", "-", "-"],
+    ["M-65", "Pouch", "", "Ako Technology Anhui Ltd", "Delta 520", "Gravure Combo Printinting Machine", "China", "520mm", "January", "2024", ""],
+    ["M-66", "Pouch", "", "Kody Equipments Pvt. Ltd.", "D-917", "Slitter Rewinder Machine", "India", "917mm", "August", "2023", "23AU-041"],
+    ["M-67", "Pouch", "", "Kody Equipments Pvt. Ltd.", "NUZEN- DR 179", "Doctoring Rewinder Machine", "India", "179mm", "June", "2023", "23OC-048"],
+    ["M-69", "Pouch", "", "M/S Star Technologies Pvt. Ltd.", "400 TSP", "Star 3 Side Pouching", "India", "400", "October", "2023", "370"],
+    ["M-70", "Pouch", "", "M/S Star Technologies Pvt. Ltd.", "400 ACP", "Star Center Seal Pouching", "India", "400", "July", "2023", "367"],
+    ["M-71", "Pouch", "", "M/S Star Technologies Pvt. Ltd.", "400 AP", "Standy Zipper", "India", "400", "December", "2021", "296"],
+    ["M-72", "Pouch", "", "Shanghai ZhouTai Machinery Co. Ltd.", "AMD600DLMSC", "Gusset Standup Pouching", "China", "600", "October", "2023", "1638"],
+    ["M-73", "Pouch", "", "Yixing Linde Import & Export Co., Ltd./ KING-MO Machinery", "KMM-1624", "Manual Spout Sealing Machine", "China", "", "July", "2023", "231624BO638"],
+    ["M-74", "Pouch", "", "Yixing Linde Import & Export Co., Ltd./ KING-MO Machinery", "KMM-1624", "Manual Spout Sealing Machine", "China", "", "July", "2023", "231624BO638"],
+    ["M-75", "Pouch", "", "Yixing Linde Import & Export Co., Ltd./ KING-MO Machinery", "One Way Valve Inserter", "One Way Valve Inserter", "China", "", "July", "2023", ""],
+    ["M-76", "", "", "Galaxy Packtech Pvt. Ltd.", "", "Manual Spout Sealing Machine", "India", "", "", "", ""],
+    ["M-77", "Pouch", "", "Galaxy Packtech Pvt. Ltd.", "GS 20 HSI", "Automatic Pouch making machine", "India", "", "", "2023", "G035"],
+    ["M-78", "Pouch", "", "Kody Equipments Pvt. Ltd.", "Nuzen   D-917", "Slitter Rewinder Machine", "India", "917mm", "", "2024", "24SP-030"],
+    ["M-79", "Pouch", "", "S.T.Engineering", "", "Wrapping machine", "", "", "", "", ""],
+    ["M-80", "Pouch", "", "Nordmeccanica", "Simplex SL", "SL Lamination Machine", "Italy", "1300", "", "2025", "C-4246"],
+    ["M-81", "Pouch", "", "M/S Star Technologies Pvt. Ltd.", "400 SP", "Standy Zipper", "India", "", "September", "2025", ""],
+    ["M-82", "Pouch", "", "Tianzheng Corporation", "", "Special shape cut unit", "China", "", "May", "2025", "20250506-11114D"],
+  ] as const
+).map(machineLine);
+
+/** The whole list of the 29-Sep-2026 issue: the Flexo sheet, then the Pouch sheet, as the workbook holds them. */
+export const EQUIPMENT_LIST_2026_09_29_ROWS: Record<string, string>[] = [...EQUIPMENT_LIST_FLEXO_2026_09_29, ...EQUIPMENT_LIST_POUCH_2026_09_29];
+
+/**
+ * The workbook's third sheet, "Other Machinery - OLD": thirteen chillers, air
+ * dryers and a compressor with no machine number, no title block and no
+ * format number — so it is not a list of machines the formats can fetch, and
+ * it is shown read-only beside the list under the sheet's own name. "AkO 520
+ * Chiller" is printed twice; "Lombadi" and "Near Maintanance Room" are as
+ * printed.
+ */
+export const OTHER_MACHINERY_OLD: [itemName: string, type: string, location: string][] = [
+  ["AkO 520 Chiller", "Chiller", "AKO 520 Room"],
+  ["AkO 520 Chiller", "Chiller", "AKO 520 Room"],
+  ["AKO 520 Air Dryer", "Air Dryer", "AKO 520 Room"],
+  ["Lombardi Air Dryer", "Air Dryer", "Lombadi"],
+  ["Cosmotec Chiller", "Chiller", "Lombadi"],
+  ["Hexacool Chiller", "Chiller", "Single Colour Machine"],
+  ["Baldwin Chiller", "Chiller", "Lamination Machine"],
+  ["Royse Chiller", "Chiller", "AKO 320 Room"],
+  ["ELGI Air Compressor", "Air Compressor", "AKO 320 Room"],
+  ["ELGI Air Dryer", "Air Dryer", "AKO 320 Room"],
+  ["Galaxy Chiller", "Chiller", "Pouching Room"],
+  ["Zhutai Chiller", "Chiller", "Pouching Room"],
+  ["ELGI Air Dryer", "Air Dryer", "Near Maintanance Room"],
+];
+
 const EQUIPMENT_LIST: LogSheetLayout = {
   documentId: "mnt-equipment-list",
   headerFields: [],
@@ -142,10 +296,26 @@ const EQUIPMENT_LIST: LogSheetLayout = {
     { key: "serialNo", label: "Serial No.", type: "text", width: 130 },
   ],
   // A list, not a period's sheet: a machine is added as a new line.
-  rowMode: { kind: "free", minRows: 1, typicalRows: EQUIPMENT_LIST_ROWS.length },
-  specimenRows: EQUIPMENT_LIST_ROWS,
-  originalPages: [page("fmnt01-equipment-list-p1.jpg", "F/MNT/01 (00/01.12.2021) — List of Equipments & Utilities, as supplied")],
-  specimenSource: "F-MNT- 01_Master List of Equipments-Flexo & Pouch.pdf — F/MNT/01 (00/01.12.2021), 43 machines; row M-68 printed one column out of step",
+  rowMode: { kind: "free", minRows: 1, typicalRows: EQUIPMENT_LIST_2026_09_29_ROWS.length },
+  // The workbook's "Other Machinery - OLD" sheet, read-only, under its own name (REQUIREMENTS §82).
+  referenceTables: [
+    {
+      title: "Other Machinery - OLD",
+      columns: ["Item Name", "Type", "Location"],
+      rows: OTHER_MACHINERY_OLD.map((r) => [...r]),
+    },
+  ],
+  specimenRows: EQUIPMENT_LIST_2026_09_29_ROWS,
+  originalPages: [
+    page("fmnt01-flexo-2026-09-29-p1.jpg", "F/MNT/01 (00/01.12.2021) — the Flexo sheet of 29.09.2026, page 1 (M-01 to M-85), as supplied"),
+    page("fmnt01-flexo-2026-09-29-p2.jpg", "F/MNT/01 — the Flexo sheet of 29.09.2026, page 2 (M-86), as supplied"),
+    page("fmnt01-pouch-2026-09-29-p1.jpg", "F/MNT/01 (00/01.12.2021) — the Pouch sheet of 29.09.2026 (M-61 to M-82), as supplied"),
+    page("fmnt01-pouch-2026-09-29-p4.jpg", "F/MNT/01 — the Pouch sheet's last page: the two headings printed outside the table, \"Date of Installation\" (clipped on the page to \"Date of Instal\") and \"Maintenance Plan\", with no values"),
+    page("fmnt01-other-machinery-old-p1.jpg", "Other Machinery - OLD — the workbook's third sheet (no format number), as supplied"),
+    page("fmnt01-equipment-list-p1.jpg", "F/MNT/01 (00/01.12.2021) — the list of 24.09.2026, 43 machines, as first supplied"),
+  ],
+  specimenSource:
+    "Master List of Equipments-Flexo & Pouch.xlsx (Flexo, Pouch and Other Machinery - OLD sheets) and its PDFs — F/MNT/01 (00/01.12.2021), 68 machines, supplied 29.09.2026; row M-68 printed one column out of step",
 };
 
 // ===========================================================================
@@ -234,9 +404,52 @@ const MONTHS: { key: string; label: string }[] = [
 export const pmScheduleKey = (month: string, which: "Plan" | "Actual") => `${month}${which}`;
 export const PM_SCHEDULE_MONTH_KEYS = MONTHS.map((m) => m.key);
 
-const FREQUENCIES = ["Monthaly", "Half Yearly", "Yearly"];
+/**
+ * REV 01 (01/15.07.2026) — "YEARLY PREVENTIVE MAINTENANCE SCHEDULE - 2026",
+ * the 21 machine blocks of the supplied Sheet2, one line per frequency, in the
+ * printed order (42 lines). Every cell is the paper's: M-07 is printed on TWO
+ * blocks ("ZHEJIANG MANUAL INSPECTION MACHINE" and "DK 450 SLITTING MACHINE");
+ * M-58's name "DCMF-480 Semi Rotary Die Cutting Machine" is kept although
+ * F/MNT/01 lists the DCMF-480 as M-54 — both for the department to confirm,
+ * never corrected here. The frequencies are "Monthly", "Quarterly", "Half
+ * Yearly" and "Yearly" as printed.
+ */
+export const YEARLY_PM_2026_ROWS: { machineNo: string; equipment: string; frequency: string }[] = (
+  [
+    ["M-06", "SHRI TRIVEDI SLITTING MACHINE", ["Monthly", "Half Yearly"]],
+    ["M-08", "HCI GLUING MACHINE", ["Monthly", "Quarterly"]],
+    ["M-13", "BRISON INSPECTION MACHINE - 3", ["Monthly", "Half Yearly"]],
+    ["M-12", "ZONTEN PUNCHING MACHINE", ["Monthly", "Half Yearly"]],
+    ["M-47", "LOMBARDI PRINTING MACHINE", ["Monthly", "Half Yearly"]],
+    ["M-11", "BRISON PUNCHING MACHINE", ["Monthly", "Half Yearly"]],
+    ["M-07", "ZHEJIANG MANUAL INSPECTION MACHINE", ["Monthly"]],
+    ["M-04", "CORE CUTTING MACHINE", ["Monthly", "Quarterly"]],
+    ["M-01", "GALLUS PRINTING MACHINE", ["Monthly", "Half Yearly", "Yearly"]],
+    ["M-03", "SHRI TRIVEDI JUMBO SLITTING MACHINE", ["Monthly", "Half Yearly"]],
+    ["M-10", "CANARA CUTTING MACHINE", ["Monthly", "Quarterly"]],
+    ["M-45", "BRISON SLITTING MACHINE", ["Monthly", "Half Yearly"]],
+    ["M-14", "BRISON INSPECTION MACHINE - 1", ["Monthly", "Half Yearly"]],
+    ["M-36", "HYFRA CHILLER UNIT", ["Monthly", "Quarterly"]],
+    ["M-09", "XI CUTTING MACHINE", ["Monthly", "Quarterly"]],
+    ["M-44", "BRISON INSPECTION MACHINE - 2", ["Monthly", "Half Yearly"]],
+    ["M-07", "DK 450 SLITTING MACHINE", ["Monthly", "Half Yearly"]],
+    ["M-15", "E+L INSPECTION MACHINE", ["Monthly", "Half Yearly"]],
+    ["M-52", "Brison Manual Inspection Machine - 1", ["Monthly", "Half Yearly"]],
+    ["M-53", "Brison Manual Inspection Machine - 2", ["Monthly", "Half Yearly"]],
+    ["M-58", "DCMF-480 Semi Rotary Die Cutting Machine", ["Monthly", "Half Yearly"]],
+  ] as [string, string, string[]][]
+).flatMap(([machineNo, equipment, frequencies]) => frequencies.map((frequency) => ({ machineNo, equipment, frequency })));
 
-const YEARLY_PM_SCHEDULE: LogSheetLayout = {
+// REV 00 (00/01.12.2021), the page first supplied: three machine classes, the
+// frequencies spelt as it prints them ("Monthaly"), and no Quarterly line.
+const FREQUENCIES_REV00 = ["Monthaly", "Half Yearly", "Yearly"];
+
+/**
+ * THE SUPERSEDED REVISION (REQUIREMENTS §82), kept so that a schedule filled on
+ * it reads as it was written: its typed Plans and Actuals, its "Equipoment
+ * Name" heading and its three machine classes. Rev 01 (15.07.2026) replaced it.
+ */
+const YEARLY_PM_SCHEDULE_REV00: LogSheetLayout = {
   documentId: "mnt-yearly-pm-schedule",
   headerFields: [],
   // The paper writes Plan and Actual as two lines under each frequency and the
@@ -257,14 +470,55 @@ const YEARLY_PM_SCHEDULE: LogSheetLayout = {
   // so that name box is left open here too.
   rowMode: {
     kind: "fixedRows",
-    rows: ["PRINTING MACHINE", "SLITTING MACHINE", ""].flatMap((equipment) => FREQUENCIES.map((frequency) => ({ equipment, frequency }))),
+    rows: ["PRINTING MACHINE", "SLITTING MACHINE", ""].flatMap((equipment) => FREQUENCIES_REV00.map((frequency) => ({ equipment, frequency }))),
   },
   // The only marks on the supplied page: PRINTING MACHINE monthly, planned
   // 10.01 and done 28.01; SLITTING MACHINE monthly, planned 12.01. The page
   // prints no year, so they are the specimen, not a record of a year.
   specimenRows: [{ janPlan: "10.01", janActual: "28.01" }, {}, {}, { janPlan: "12.01" }],
-  originalPages: [page("fmnt03-yearly-pm-schedule-p1.jpg", "F/MNT/03 (00/01.12.2021) — Yearly Preventive Maintenance Schedule, as supplied")],
   specimenSource: "F-MNT-03_Yearly PM Schedule .pdf — F/MNT/03 (00/01.12.2021); January marks only, year not printed",
+};
+
+/**
+ * REV 01 (01/15.07.2026) — "YEARLY PREVENTIVE MAINTENANCE SCHEDULE - 2026",
+ * supplied on 29-Sep-2026 (REQUIREMENTS §82). The rows are the plant's own
+ * machines by number, each with the frequencies it is maintained at
+ * (YEARLY_PM_2026_ROWS). The paper prints no mark in any month.
+ *
+ * THE PLAN IS TYPED, THE ACTUAL IS READ. A Plan is a decision and is written
+ * here. The Actual is the date the PM was DONE, and that is recorded once, on
+ * the machine's F/MNT/02 — so every Actual column is `linkedFrom:
+ * "mnt-pm-record"`: shown from the F/MNT/02 records each time the sheet is
+ * drawn (engine/pmSchedule.ts), never typed, filled, uploaded or stored here.
+ */
+const YEARLY_PM_SCHEDULE: LogSheetLayout = {
+  documentId: "mnt-yearly-pm-schedule",
+  headerFields: [],
+  columns: [
+    { key: "machineNo", label: "M/C No.", type: "text", fixed: true, width: 70 },
+    { key: "equipment", label: "Equipment Name", type: "text", fixed: true, width: 190 },
+    { key: "frequency", label: "Frequency", type: "text", fixed: true, width: 100 },
+    ...MONTHS.flatMap((m): LogColumn[] => [
+      // "dd.mm", as the Rev 00 page wrote its plans ("10.01").
+      { key: pmScheduleKey(m.key, "Plan"), label: "Plan", type: "text", width: 62, group: m.label },
+      { key: pmScheduleKey(m.key, "Actual"), label: "Actual", type: "text", width: 62, group: m.label, computed: true, linkedFrom: "mnt-pm-record" },
+    ]),
+  ],
+  rowMode: { kind: "fixedRows", rows: YEARLY_PM_2026_ROWS.map((r) => ({ ...r })) },
+  supersededRevisions: {
+    "00": {
+      revisionDate: "2021-12-01",
+      layout: YEARLY_PM_SCHEDULE_REV00,
+      note: "Rev 00 planned three machine classes (\"Equipoment Name\", \"Monthaly\", Half Yearly, Yearly) with the Actual dates typed on the sheet; Rev 01 (15.07.2026) lists the machines by M/C No., with Monthly, Quarterly, Half Yearly and Yearly lines, and reads each Actual from the machine's F/MNT/02.",
+    },
+  },
+  originalPages: [
+    page("fmnt03-rev01-yearly-pm-schedule-2026-p1.jpg", "F/MNT/03 Rev 01 (01/15.07.2026) — Yearly Preventive Maintenance Schedule - 2026, page 1 of 3, as supplied"),
+    page("fmnt03-rev01-yearly-pm-schedule-2026-p2.jpg", "F/MNT/03 Rev 01 — the 2026 schedule, page 2 of 3, as supplied"),
+    page("fmnt03-rev01-yearly-pm-schedule-2026-p3.jpg", "F/MNT/03 Rev 01 — the 2026 schedule, page 3 of 3, as supplied"),
+    page("fmnt03-yearly-pm-schedule-p1.jpg", "F/MNT/03 Rev 00 (00/01.12.2021), the SUPERSEDED Yearly Preventive Maintenance Schedule, as supplied"),
+  ],
+  specimenSource: "F-MNT-03_Yearly PM Schedule(R).pdf / .xls (Sheet2) — F/MNT/03 (01/15.07.2026), the 2026 schedule; no Plan or Actual marked",
 };
 
 // ===========================================================================
@@ -302,6 +556,9 @@ export const MNT04_FOOTNOTES: [printed: string, english: string][] = [
   ["* ઉપરનાં ચેક પેરામીટર ધ્યાનમાં લઈ મશીનમાં કઇ ખામી હોય તો સુપરવાયઝરને જાણ કરવી.", "* Keeping the above check parameters in mind, inform the supervisor if the machine has any fault."],
 ];
 
+/** The sentence the front prints under each shift strip, beside "PTO" — the heading of the back side's columns. */
+const MNT04_BACK_SIDE = "If any Observation found by operator , details of concerns & actions taken shall be described on back side of this page.";
+
 /** One printed row of the check-parameter table: Hindi | Gujarati. */
 const bilingual = (hindi: string, gujarati: string) => `${hindi}  |  ${gujarati}`;
 
@@ -331,11 +588,23 @@ const DAILY_HEALTH: LogSheetLayout = {
     { key: "dayOperator", label: "Operator", type: "text", width: 170, group: "DAY SHIFT", autoFill: { sign: true } },
     { key: "nightCheck", label: "✓", type: "select", options: ["✓"], width: 70, group: "NIGHT SHIFT" },
     { key: "nightOperator", label: "Operator", type: "text", width: 170, group: "NIGHT SHIFT", autoFill: { sign: true } },
+    // THE BACK OF THE SHEET (REQUIREMENTS §82), joined to the day it describes
+    // the way F/MNT/02's page 2 is joined to its visits. The front prints "PTO"
+    // under both shift strips beside the sentence that heads these columns; the
+    // back, supplied on 29-Sep-2026, prints Date | Observation / Concerns
+    // reported | Action Taken | Maintenance Technician Sign | Machine Operator
+    // Sign. Its Date is the line's own date here, so the two sides can never
+    // disagree. Each is written afresh: last month's concern on day 5 is not
+    // this month's.
+    { key: "backObservation", label: "Observation / Concerns reported", type: "text", width: 240, group: MNT04_BACK_SIDE, autoFill: { fresh: true } },
+    { key: "backActionTaken", label: "Action Taken", type: "text", width: 220, group: MNT04_BACK_SIDE, autoFill: { fresh: true } },
+    { key: "backTechnicianSign", label: "Maintenance Technician Sign", type: "text", width: 160, group: MNT04_BACK_SIDE, autoFill: { fresh: true } },
+    { key: "backOperatorSign", label: "Machine Operator Sign", type: "text", width: 160, group: MNT04_BACK_SIDE, autoFill: { fresh: true } },
   ],
   rowMode: { kind: "fixedRows", rows: Array.from({ length: 31 }, (_, i) => ({ date: String(i + 1) })) },
-  // "PTO": the paper sends observations to the back of the sheet. The back was
-  // not supplied; the box below is where those details go, under the paper's
-  // own sentence.
+  // The front's own sentence and the box that was the only place for those
+  // details before the back was supplied (§74). It stays: records may already
+  // hold what was written in it.
   footerFields: [
     {
       key: "observations",
@@ -345,8 +614,120 @@ const DAILY_HEALTH: LogSheetLayout = {
   ],
   specimenHeader: { machineDescription: "UV Flexo Printing Machine", machineNo: "M-47" },
   specimenRows: Array.from({ length: 31 }, () => ({ dayCheck: "✓", nightCheck: "✓" })),
-  originalPages: [page("fmnt04-daily-equipment-health-p1.jpg", "F/MNT/04 (00/01.12.2021) — Daily Equipment Health Status & Cleaning Record, as supplied (Hindi and Gujarati)")],
-  specimenSource: "F-MNT-04_Daily Equipment Health Status & Cleaning Record.pdf — F/MNT/04 (00/01.12.2021), blank format; Hindi and Gujarati read from the rendered page",
+  originalPages: [
+    page("fmnt04-daily-equipment-health-p1.jpg", "F/MNT/04 (00/01.12.2021) — Daily Equipment Health Status & Cleaning Record, as supplied (Hindi and Gujarati)"),
+    page("fmnt04-daily-equipment-health-back-p2.jpg", "F/MNT/04 — the back side (observations, action taken and signatures), as supplied on 29.09.2026"),
+  ],
+  specimenSource:
+    "F-MNT-04_Daily Equipment Health Status & Cleaning Record.pdf — F/MNT/04 (00/01.12.2021), blank format; Hindi and Gujarati read from the rendered page; the back side is Copy of F-MNT-04_Daily Equipment Health Status & Cleaning Record-2.pdf",
+};
+
+// ===========================================================================
+// F/MNT/05 — BREAKDOWN MAINTENANCE MEMO: TWO PAPERS UNDER ONE NUMBER
+// ===========================================================================
+
+// (REQUIREMENTS §82.) The plant supplied TWO different slips on 29-Sep-2026,
+// both printing "F/MNT/05 (00/01.12.2021)" — which one is in use is for the MR
+// to confirm. Both are built, each exactly as printed, as two documents:
+//
+//   slip (1)  BREAKDOWN MAINTENANCE MEMO & POST MAINTENANCE HYGIENE RECORD —
+//             two copies to a page (the lower one squeezed; the upper one is
+//             the complete slip and is the one transcribed).
+//   slip (2)  BREAKDOWN MAINTENANCE MEMO & HYGIENE CLEARANCE RECORD — one to a
+//             page, headed "GUJARAT PRINT PACK PUBLICATION LIMITED".
+//
+// Each is ONE breakdown's slip: labelled boxes and tall boxes, no grid. The
+// machine is fetched from F/MNT/01 by its number (engine/equipmentMaster.ts).
+// Their hygiene paragraph is word for word the same on both, and differs from
+// F/MNT/02's in three words ("In charge", "equipment", "are") — each form keeps
+// its own.
+
+/** The hygiene clearance both F/MNT/05 slips print, verbatim — "Hygiene clearance:" is its lead, bold on the paper. */
+export const MNT05_HYGIENE_CLEARANCE = "Hygiene clearance: - Prior to start of Maintenance activity, Product & product contact surfaces shall be adequately isolated / protected from maintenance debris, tools, cotton waste, lubricants etc. Maintenance Technician / Production In charge shall ensure that all the Maintenance related tools, lubricants, cotton waste, spares, are removed from the equipment after completion of the maintenance activity. Respective product supervisor/ in charge shall verify & acknowledge that post maintenance activity, equipment & Product contact surface are free from all tools, lubricant, cotton waste etc.";
+
+/** Slip (1)'s "Breakdown minutes" box: worked out from the intimation and the repair, never typed (engine/maintenanceCalc.ts). */
+export const MNT05_MEMO_MINUTES_KEY = "breakdownMinutes";
+
+const BREAKDOWN_MEMO: LogSheetLayout = {
+  documentId: "mnt-breakdown-memo",
+  instructions: [MNT05_HYGIENE_CLEARANCE],
+  // Top to bottom as printed: the machine and the intimation, side by side,
+  // then the four tall boxes under their headings.
+  headerFields: [
+    { key: "machineName", label: "Machine Name-", type: "text", required: true, autoFill: { carryForward: true } },
+    { key: "intimationDate", label: "Date of Breakdown Intimation : -", type: "date", required: true, autoFill: { dueDate: true } },
+    { key: "machineNo", label: "Machine No.-", type: "text", required: true, autoFill: { carryForward: true } },
+    { key: "intimationTime", label: "Time of Breakdown Intimation : -", type: "time", required: true, autoFill: { carryForward: true } },
+    { key: "problem", label: "PROBLEM", type: "paragraph", autoFill: { carryForward: true } },
+    { key: "workCarriedOut", label: "WORK CARRIED OUT", type: "paragraph", autoFill: { carryForward: true } },
+    { key: "sparesUsed", label: "SPARES USED", type: "paragraph", autoFill: { carryForward: true } },
+    { key: "preventiveMeasureTaken", label: "PREVENTIVE MEASURE TAKEN", type: "paragraph", autoFill: { carryForward: true } },
+  ],
+  // No grid: the slip has none.
+  columns: [],
+  rowMode: { kind: "single" },
+  footerFields: [
+    { key: "repairDate", label: "Date of Breakdown repair : -", type: "date", autoFill: { dueDate: true } },
+    { key: "repairTime", label: "Time of Breakdown repair :-", type: "time", autoFill: { carryForward: true } },
+    { key: MNT05_MEMO_MINUTES_KEY, label: "Breakdown minutes : -", type: "text", computed: true },
+    { key: "machineOperator", label: "Machine Operator-", type: "text" },
+    { key: "maintenanceTechnician", label: "Maintenance Technician -", type: "text" },
+    { key: "productionSupervisor", label: "Production Supervisor : -", type: "text" },
+    { key: "maintenanceSupervisor", label: "Maintenance Supervisor : -", type: "text", autoFill: { sign: true } },
+  ],
+  // The slip is blank. This is SAMPLE data to be checked — F/MNT/06's own
+  // sample breakdown on the plant's M-47, never a breakdown that happened.
+  specimenHeader: {
+    machineName: "Delta 330",
+    machineNo: "M-47",
+    intimationTime: "10:15",
+    problem: "Web break at the UV curing station",
+    workCarriedOut: "Web re-threaded, tension roller cleaned and re-set",
+    sparesUsed: "",
+    preventiveMeasureTaken: "Tension roller cleaning added to the shift cleaning",
+    repairTime: "11:40",
+  },
+  originalPages: [page("fmnt05-breakdown-memo-p1.jpg", "F/MNT/05 (00/01.12.2021) — Breakdown Maintenance Memo & Post Maintenance Hygiene Record, slip (1), as supplied (two copies to a page)")],
+  specimenSource: "Copy of F-MNT-05_Breakdown intimation Slip (1).pdf — F/MNT/05 (00/01.12.2021), blank slip; the sample is F/MNT/06's sample breakdown",
+};
+
+const BREAKDOWN_CLEARANCE: LogSheetLayout = {
+  documentId: "mnt-breakdown-clearance",
+  instructions: [MNT05_HYGIENE_CLEARANCE],
+  // The labels keep the paper's spacing ("Name of the User  :"). The box
+  // printed unlabelled beside "Machine Breakdown time :" is that time's own box.
+  headerFields: [
+    { key: "userName", label: "Name of the User  :", type: "text" },
+    { key: "date", label: "DATE :", type: "date", required: true, autoFill: { dueDate: true } },
+    { key: "machineName", label: "Name of the Machine :", type: "text", required: true, autoFill: { carryForward: true } },
+    { key: "machineIdNo", label: "M/c ID No. :", type: "text", required: true, autoFill: { carryForward: true } },
+    { key: "breakdownTime", label: "Machine Breakdown time :", type: "time", required: true, autoFill: { carryForward: true } },
+    { key: "problemReportedByUser", label: "Problem reported by User :", type: "paragraph", autoFill: { carryForward: true } },
+    { key: "problemObservedByMaintenance", label: "Problem observed by Maintenance department  :", type: "paragraph", autoFill: { carryForward: true } },
+    { key: "actionTaken", label: "Action taken :", type: "paragraph", autoFill: { carryForward: true } },
+  ],
+  columns: [],
+  rowMode: { kind: "single" },
+  footerFields: [
+    { key: "handoverTime", label: "Job Completion & Handover time :", type: "time", autoFill: { carryForward: true } },
+    // The paper prints "Yes / No" in the box: one of the two is kept.
+    { key: "trainingOrPmChangeNeeded", label: "Need for training of machine operators or modification of PM check points & frequency : -", type: "select", options: ["Yes", "No"], autoFill: { carryForward: true } },
+    { key: "problemAttendedBy", label: "Problem attended by : -", type: "text", autoFill: { sign: true } },
+    { key: "userDeptSign", label: "Sign of the User dept. : -", type: "text" },
+  ],
+  // SAMPLE data to be checked, on the plant's M-47 — never a breakdown that happened.
+  specimenHeader: {
+    machineName: "Delta 330",
+    machineIdNo: "M-47",
+    breakdownTime: "10:15",
+    problemReportedByUser: "Web break at the UV curing station",
+    problemObservedByMaintenance: "Tension roller fouled with ink",
+    actionTaken: "Web re-threaded, tension roller cleaned and re-set",
+    handoverTime: "11:40",
+    trainingOrPmChangeNeeded: "No",
+  },
+  originalPages: [page("fmnt05-breakdown-clearance-p1.jpg", "F/MNT/05 (00/01.12.2021) — Breakdown Maintenance Memo & Hygiene Clearance Record, slip (2), as supplied")],
+  specimenSource: "Copy of F-MNT-05_Breakdown intimation Slip (2).pdf — F/MNT/05 (00/01.12.2021), blank slip; the sample is F/MNT/06's sample breakdown",
 };
 
 // ===========================================================================
@@ -414,6 +795,55 @@ const BREAKDOWN_RECORD: LogSheetLayout = {
   ],
   originalPages: [page("fmnt06-breakdown-record-p1.jpg", "F/MNT/06 (00/01.12.2021) — Equipments Breakdown Maintenance Record, as supplied")],
   specimenSource: "F-MNT-06_Equipment breakdown record.pdf — F/MNT/06 (00/01.12.2021), blank format; the lines are sample breakdowns to be checked",
+};
+
+// ===========================================================================
+// F/MNT/07 — TEMPORARY ENGINEERING LOG
+// ===========================================================================
+
+// (REQUIREMENTS §82.) A register: one line for each temporary repair, from the
+// day it is done to the day the permanent repair replaces it. The ten headings
+// are the paper's own — "varified", "temporay" and the hyphenated "In-charge"
+// included. A verification column offers the employee names; only the
+// Maintenance In-charge's are signed by the department's own person.
+
+/** The five notes printed above the grid, verbatim (only note 2 ends with a full stop). */
+const TEMPORARY_ENGINEERING_NOTES = ["1. Temporary engineering should only be used where there is no immediate, permanent solution", "2. Temporary engineering must be suitably risk assessed and approved by a department head in conjunction with engineering.", "3. Initial details must be recorded below", "4. The engineering department must ensure a permanent solution is implemented as soon as practicable", "5. Once the permanent solution is implemented the record must be completed"];
+
+const TEMPORARY_ENGINEERING: LogSheetLayout = {
+  documentId: "mnt-temporary-engineering",
+  instructions: TEMPORARY_ENGINEERING_NOTES,
+  headerFields: [],
+  columns: [
+    { key: "date", label: "Date", type: "date", required: true, width: 130, autoFill: { dueDate: true } },
+    { key: "startTime", label: "Start time - Temporary engineering done", type: "time", required: true, width: 120 },
+    { key: "description", label: "Description of Temporary engineering work & Reason for temporary engineering", type: "text", multiline: true, required: true, width: 300 },
+    { key: "equipmentDetails", label: "Equipment Details", type: "text", required: true, width: 180 },
+    { key: "tempVerifiedMaintenance", label: "Temporary engineering varified by (Maintenance In-charge)", type: "text", width: 170, autoFill: { sign: true } },
+    { key: "tempVerifiedProduction", label: "Temporary engineering varified by (Production In-charge)", type: "text", width: 170, list: "log-sheet-employees" },
+    { key: "permanentDate", label: "Date of Permanent repair / Solution or removal of temporay engineering", type: "date", width: 170 },
+    { key: "endTime", label: "End time (Temporary Engineering removed)", type: "time", width: 130 },
+    { key: "permVerifiedMaintenance", label: "Permanent repair varified by (Maintenance In-charge)", type: "text", width: 170, list: "log-sheet-employees" },
+    { key: "permVerifiedProduction", label: "Permanent repair varified by (Production In-charge)", type: "text", width: 170, list: "log-sheet-employees" },
+  ],
+  rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
+  // The page is blank (nine ruled lines). This is a SAMPLE line to be checked,
+  // on the plant's own M-47 from F/MNT/01 — still open, so its permanent-repair
+  // columns are blank.
+  specimenRows: [
+    {
+      startTime: "10:30",
+      description: "Cracked unwind shaft bracket held with a temporary clamp until the new bracket is received",
+      equipmentDetails: "M-47 Delta 330 — unwind shaft bracket",
+      tempVerifiedProduction: "",
+      permanentDate: "",
+      endTime: "",
+      permVerifiedMaintenance: "",
+      permVerifiedProduction: "",
+    },
+  ],
+  originalPages: [page("fmnt07-temporary-engineering-log-p1.jpg", "F/MNT/07 (00/01.12.2021) — Temporary Engineering Log, as supplied")],
+  specimenSource: "Copy of F-MNT-07_Temporary engineering record.pdf — F/MNT/07 (00/01.12.2021), blank format; the line is a sample to be checked",
 };
 
 // ===========================================================================
@@ -603,8 +1033,97 @@ const GLASS_BREAKAGE: LogSheetLayout = {
   originalPages: [
     page("fmnt09-glass-articles-p1.jpg", "F/MNT/09 (02 / 01.09.2025) — List of Glass Articles and revision history, page 1, as supplied"),
     page("fmnt09-glass-articles-p2.jpg", "F/MNT/09 — Weekly Glass Breakage Monitoring Record, page 2, as supplied"),
+    // Supplied on 29-Sep-2026 (REQUIREMENTS §82): an OLDER issue under the same
+    // Rev 02 — its list is the one before the 01.09.2025 change, with a grand
+    // total of 3757 printed. The 01.09.2025 issue above stays the current one.
+    page("fmnt09-glass-articles-2024-12-15-p1.jpg", "F/MNT/09 (02 / 15.12.2024) — the EARLIER ISSUE of Rev 02: List of Glass Articles (grand total 3757) and revision history, page 1, as supplied"),
+    page("fmnt09-glass-articles-2024-12-15-p2.jpg", "F/MNT/09 (02 / 15.12.2024) — the earlier issue of Rev 02, page 2, as supplied"),
   ],
   specimenSource: "F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024 (1) (2).pdf — F/MNT/09 (02 / 01.09.2025)",
+};
+
+// ===========================================================================
+// F/MNT/10 — LIST OF WOODEN ARTICLES & WEEKLY WOODEN ARTICLE MONITORING RECORD
+// ===========================================================================
+
+// (REQUIREMENTS §82.) Rev 02, 15.12.2024, three landscape pages, built the way
+// F/MNT/09 is: the article list and the revision history are the FORMAT
+// (read-only reference tables), and the month's sheet checks each area every
+// week. Page 1 prints the Total row itself (170 / 23 / 21 / 26 / 320 = 560;
+// every row and column adds up). The weekly grid adds, after BREAKAGE, the
+// count of wooden pallets discarded that week. Its dashes are F/MNT/09's, dash
+// for dash; its areas are page 2's ("Qc+Slitting", where page 1 prints
+// "QC+Slitting"). This is not F/MNT/09: the glass rule (M4) reads F/MNT/09 only.
+
+export const WOODEN_ARTICLE_TYPES = ["Cupboard", "Bench", "Inspection Table", "Working Desk", "Wooden sheets"];
+
+export const WOODEN_ARTICLES: [area: string, counts: number[], total: number][] = [
+  ["QC+Slitting", [0, 0, 5, 2, 70], 77],
+  ["AKO 320 Room + outside Area", [12, 0, 1, 1, 38], 52],
+  ["Sleeve Room", [0, 1, 0, 0, 24], 25],
+  ["Utility Room", [4, 0, 0, 2, 0], 6],
+  ["Ink kitchen And Screen Room", [10, 0, 2, 2, 9], 23],
+  ["Pasting Area", [0, 10, 9, 6, 20], 45],
+  ["Gallus Area", [44, 1, 1, 2, 0], 48],
+  ["Pouching Area", [1, 6, 0, 0, 51], 58],
+  ["Lamination Area", [36, 0, 0, 2, 8], 46],
+  ["Old Lab Area", [21, 3, 2, 3, 6], 35],
+  ["AKO 520 + Lombardi Area", [34, 2, 1, 4, 64], 105],
+  ["Warehouse", [8, 0, 0, 2, 30], 40],
+];
+const WOODEN_TOTALS = [170, 23, 21, 26, 320];
+const WOODEN_GRAND_TOTAL = 560;
+
+/** Page 2's area names, as printed. */
+export const WOODEN_MONITORING_AREAS = ["Qc+Slitting", "AKO 320 Room + outside Area", "Sleeve Room", "Utility Room", "Ink kitchen And Screen Room", "Pasting Area", "Gallus Area", "Pouching Area", "Lamination Area", "Old Lab Area", "AKO 520 + Lombardi Area", "Warehouse"];
+export const WOODEN_PALLETS_ROW = "Nos. of Discarded Wooden Pallets (Store & Production)";
+
+const WOODEN_ARTICLES_LAYOUT: LogSheetLayout = {
+  documentId: "mnt-wooden-articles",
+  // The three notes printed under the grid on page 3, verbatim.
+  instructions: ["• If any chipping observed from table, chair or any other wooden articles other than wooden pallets, locate the missing part.", "• Immediately inform to HOD / Manager of the identified area", "• Take further actions as per guidance of HOD"],
+  headerFields: [{ key: "monthYear", label: "Month & Year", type: "text" }],
+  referenceTables: [
+    {
+      title: "Nos. & Type of articles",
+      columns: ["Location / Area of Wooden Articles", ...WOODEN_ARTICLE_TYPES, "Total Qty"],
+      rows: [
+        ...WOODEN_ARTICLES.map(([area, counts, total]) => [area, ...counts.map(String), String(total)]),
+        // "Total" as printed — regular, mixed case — with the grand total the page prints.
+        ["Total", ...WOODEN_TOTALS.map(String), String(WOODEN_GRAND_TOTAL)],
+      ],
+    },
+    {
+      title: "Revision history for update in addition / removal of Wooden articles",
+      columns: ["Rev. no.", "Effective date", "Details of change", "Reason for change"],
+      rows: [["1.", "15.12.2024", "New Wooden articles added", "New warehouse And Pouching Department and Some Of Area Added"], ["2.", "", "", ""], ["3.", "", "", ""]],
+    },
+  ],
+  columns: [
+    { key: "parameter", label: "Monitoring Weeks", type: "text", fixed: true, width: 330 },
+    ...GLASS_WEEKS.map((w): LogColumn => ({ key: w.key, label: w.label, type: "text", width: 115 })),
+  ],
+  rowMode: {
+    kind: "fixedRows",
+    rows: [GLASS_DATE_ROW, ...WOODEN_MONITORING_AREAS, GLASS_BREAKAGE_ROW, WOODEN_PALLETS_ROW, GLASS_CHECKED_ROW, GLASS_VERIFIED_ROW].map((parameter) => ({ parameter })),
+  },
+  // Sample, as F/MNT/09's: four weeks checked with nothing broken and no
+  // pallet discarded; the dates left for the person; the department's own
+  // Rahul Patel and Mukesh Patel signing.
+  specimenRows: [
+    {},
+    ...WOODEN_MONITORING_AREAS.map(() => ({ week1: "✓", week2: "✓", week3: "✓", week4: "✓" })),
+    { week1: "NO", week2: "NO", week3: "NO", week4: "NO" },
+    { week1: "0", week2: "0", week3: "0", week4: "0" },
+    { week1: "Rahul Patel", week2: "Rahul Patel", week3: "Rahul Patel", week4: "Rahul Patel" },
+    { week1: "Mukesh Patel", week2: "Mukesh Patel", week3: "Mukesh Patel", week4: "Mukesh Patel" },
+  ],
+  originalPages: [
+    page("fmnt10-wooden-articles-p1.jpg", "F/MNT/10 (Rev 02, 15.12.2024) — List of Wooden Articles and revision history, page 1 of 3, as supplied"),
+    page("fmnt10-wooden-articles-p2.jpg", "F/MNT/10 — Weekly Wooden Article Monitoring Record, page 2 of 3, as supplied"),
+    page("fmnt10-wooden-articles-p3.jpg", "F/MNT/10 — page 3 of 3 (breakage, discarded pallets, signatures and notes), as supplied"),
+  ],
+  specimenSource: "F-MNT-10_Weekly Wooden article condition monitoring record (1) (1) (1).pdf — F/MNT/10, Rev No: 02, Date: 15.12.2024 (three pages)",
 };
 
 // ===========================================================================
@@ -716,6 +1235,13 @@ const LUX_LEVEL: LogSheetLayout = {
   originalPages: [
     page("fmnt11-rev01-lux-2025-p1.jpg", "F/MNT/11 Rev 01 (01/15.12.2024) — filled 12.08.2025, as supplied"),
     page("fmnt11-rev00-lux-2024-p1.jpg", "F/MNT/11 Rev 00 (00/01.12.2021), the SUPERSEDED revision — filled 11.05.2024, as supplied"),
+    // Supplied on 29-Sep-2026 (REQUIREMENTS §82) and NOT made into a record: it
+    // prints the Rev 00 code on the Rev 01 page and names four of the 26 areas
+    // differently from Rev 01's lines, so it fits neither layout faithfully.
+    page(
+      "fmnt11-lux-2025-10-15-p1.jpg",
+      "F/MNT/11 — the round of 15.10.2025, as supplied. Not on file as a record: it prints \"(00/01.12.2021)\" on the 26-line page, and lines 4, 11, 14 and 21 name areas the Rev 01 list does not (Ink Kitchen, Conference room, Change room, Packing Area) — for the department to confirm"
+    ),
   ],
   specimenSource: "F-MNT-11_LUX LEVEL MEASUREMENT RECORD.pdf — F/MNT/11 (01/15.12.2024), filled 12.08.2025",
 };
@@ -727,8 +1253,12 @@ export const MAINTENANCE_LAYOUTS: Record<string, LogSheetLayout> = {
   [PM_RECORD.documentId]: PM_RECORD,
   [YEARLY_PM_SCHEDULE.documentId]: YEARLY_PM_SCHEDULE,
   [DAILY_HEALTH.documentId]: DAILY_HEALTH,
+  [BREAKDOWN_MEMO.documentId]: BREAKDOWN_MEMO,
+  [BREAKDOWN_CLEARANCE.documentId]: BREAKDOWN_CLEARANCE,
   [BREAKDOWN_RECORD.documentId]: BREAKDOWN_RECORD,
+  [TEMPORARY_ENGINEERING.documentId]: TEMPORARY_ENGINEERING,
   [NEW_EQUIPMENT.documentId]: NEW_EQUIPMENT,
   [GLASS_BREAKAGE.documentId]: GLASS_BREAKAGE,
+  [WOODEN_ARTICLES_LAYOUT.documentId]: WOODEN_ARTICLES_LAYOUT,
   [LUX_LEVEL.documentId]: LUX_LEVEL,
 };

@@ -337,8 +337,15 @@ export const SEED_MASTER_DATA: MasterData = {
     "mnt-pm-record": "Maintenance",
     "mnt-yearly-pm-schedule": "Maintenance",
     "mnt-daily-health": "Operator",
+    // F/MNT/05, 07 and 10 (REQUIREMENTS §82): the breakdown slips, the
+    // temporary engineering log and the wooden article round are written by
+    // the maintenance technician and signed off by its supervisor or HOD.
+    "mnt-breakdown-memo": "Maintenance",
+    "mnt-breakdown-clearance": "Maintenance",
     "mnt-breakdown-record": "Maintenance",
+    "mnt-temporary-engineering": "Maintenance",
     "mnt-glass-breakage": "Maintenance",
+    "mnt-wooden-articles": "Maintenance",
     "mnt-lux-level": "Maintenance",
     // System / Management (REQUIREMENTS §76) — every F/SYS format is the
     // Product Safety Team Leader's: she keeps the master lists, calls and

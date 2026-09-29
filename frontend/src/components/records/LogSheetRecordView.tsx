@@ -8,13 +8,30 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
 import { applyFills, hrMasterLinkFor, personFill, personNamed } from "../../engine/hrMaster";
 import { HrMasterFetch, HrMasterPeopleList } from "./HrMasterFetch";
-import { equipmentLinkFor, equipmentMasterVisible, machineBlankFills } from "../../engine/equipmentMaster";
+import { equipmentLinkFor, equipmentMasterVisible, machineBlankFills, machineByNumber, machineValue } from "../../engine/equipmentMaster";
+import {
+  currentPmIndex,
+  currentSchedules,
+  dayDotMonth,
+  dueWords,
+  isLinkedLine,
+  pmActuals,
+  pmDoneTitle,
+  pmDue,
+  pmSheetMachine,
+  PM_MONTH_KEYS,
+  PM_RECORD_DOC_ID,
+  PM_SCHEDULE_DOC_ID,
+  scheduleForYear,
+  scheduleYear,
+  type PmRowActuals,
+} from "../../engine/pmSchedule";
 import { EquipmentFetch, EquipmentMachineList } from "./EquipmentFetch";
 import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
 import { withComputedCells } from "../../engine/computedCells";
 import { documentLayoutIn, documentTextIn, keepFormAsIssued } from "../../i18n/documentText";
 import { useAppStore } from "../../store/AppStore";
-import { formatDisplayDate } from "../../utils/date";
+import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
@@ -137,6 +154,45 @@ export function LogSheetRecordView({
     };
   }, [drawNear, rowsShown, lineIds]);
 
+  // F/MNT/03 FOLLOWS F/MNT/02 (REQUIREMENTS §82). A column `linkedFrom` another
+  // document is READ from that document's records each time the sheet is drawn
+  // and never stored here: F/MNT/03's Actual dates come from the machines'
+  // F/MNT/02 sheets (engine/pmSchedule.ts). They are worked out apart from
+  // `data` — never through withComputedCells, whose answer is saved, so an
+  // out-of-date copy can never be written into the schedule. F/MNT/02 in turn
+  // shows the machine's next planned PM from the year's schedule. The PMs are
+  // read once per change to the F/MNT/02 records (currentPmIndex), and again
+  // when the store moves on (a PM saved on another computer, pulled here).
+  const readsPm = doc.id === PM_RECORD_DOC_ID || !!layout?.columns.some((c) => c.linkedFrom === PM_RECORD_DOC_ID);
+  const pmIndex = React.useMemo(() => (readsPm ? currentPmIndex(record.isDemo) : null), [readsPm, record.isDemo, version]);
+  const pmLines = React.useMemo(
+    () => (pmIndex && doc.id === PM_SCHEDULE_DOC_ID && layout?.columns.some((c) => c.linkedFrom === PM_RECORD_DOC_ID) ? pmActuals(data.rows, scheduleYear(record), pmIndex, listedAs) : null),
+    [pmIndex, doc.id, layout, data.rows, record.dueDate]
+  );
+  // One unchanging object per line while what it shows is the same, so a
+  // keystroke in a Plan redraws that line and not all forty-two.
+  const linkCache = React.useRef(new Map<string, { sig: string; value: RowLinks }>());
+  const rowLinks = React.useMemo(() => {
+    if (!pmLines || !layout) return null;
+    const out = new Map<string, RowLinks>();
+    const linkedCols = layout.columns.filter((c) => c.linkedFrom);
+    data.rows.forEach((row, i) => {
+      const value = rowLinksOf(pmLines[i], linkedCols);
+      const sig = JSON.stringify(value);
+      const hit = linkCache.current.get(row.id);
+      if (hit && hit.sig === sig) out.set(row.id, hit.value);
+      else {
+        linkCache.current.set(row.id, { sig, value });
+        out.set(row.id, value);
+      }
+    });
+    return out;
+  }, [pmLines, layout, data.rows]);
+  const pmPlanLine = React.useMemo(
+    () => (pmIndex && doc.id === PM_RECORD_DOC_ID ? planLineFor(String(data.header?.machineIdNo ?? ""), record.isDemo, pmIndex) : null),
+    [pmIndex, doc.id, data.header?.machineIdNo, record.isDemo, version]
+  );
+
   if (!layout) {
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
   }
@@ -246,7 +302,7 @@ export function LogSheetRecordView({
         </div>
       )}
 
-      {(layout.instructions?.length || layout.headerFields.length > 0) && (
+      {(layout.instructions?.length || layout.headerFields.length > 0 || layout.referenceTables?.length) && (
         <div className="card mt-4">
           <div className="card-pad">
             {layout.instructions?.map((line, i) => (
@@ -314,6 +370,9 @@ export function LogSheetRecordView({
       {fetching && link && <HrMasterFetch key={record.id} link={link} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
       {eqFetching && eqLink && <EquipmentFetch key={`eq-${record.id}`} link={eqLink} layout={layout} data={data} onChange={save} newRowId={() => generateId("row")} />}
 
+      {pmPlanLine && <PmPlanLine line={pmPlanLine} />}
+      {pmLines && <PmLinkNotice lines={pmLines} />}
+
       {outOfBand > 0 && (
         <div className="card mt-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
           <div className="card-pad text-sm">
@@ -377,6 +436,7 @@ export function LogSheetRecordView({
                 lists={lists}
                 personKey={fetching && link?.where === "rows" ? link.nameField : undefined}
                 machineKey={eqFetching && eqLink?.where === "rows" ? eqLink.idField : undefined}
+                linked={rowLinks?.get(row.id)}
                 canRemove={canRemoveRows}
                 onCell={onCell}
                 onPersonBlur={onPersonBlur}
@@ -387,6 +447,11 @@ export function LogSheetRecordView({
           </tbody>
         </table>
       </div>
+      )}
+      {pmLines && (
+        <div className="text-xs text-muted mt-2" data-section="pm-actuals-note">
+          Actual dates read from F/MNT/02 on {formatDisplayDate(todayISO())}; * marks a PM whose F/MNT/02 is not yet Verified.
+        </div>
       )}
       {hasGrid && canAddRows && (
         <button className="btn btn-secondary btn-sm mt-2" onClick={addRow}>
@@ -440,6 +505,157 @@ export function LogSheetRecordView({
   );
 }
 
+// ---------------------------------------------------------------------------
+// F/MNT/03's Actuals read from F/MNT/02, and F/MNT/02's line from F/MNT/03 (REQUIREMENTS §82)
+
+/** One cell read from another document: each PM as a link to the F/MNT/02 it is written on, or why the line is not linked. */
+interface LinkedCellView {
+  links: { recordId: string; text: string; title: string }[];
+  unlinked?: string;
+}
+type RowLinks = Record<string, LinkedCellView>;
+
+/** What F/MNT/01 says a machine is, for the reason a duplicated number is not linked: "the DK-450 Label Slitting Machine". */
+function listedAs(machine: string): string | null {
+  if (!equipmentMasterVisible()) return null;
+  const m = machineByNumber(machine);
+  if (!m) return null;
+  const words = [machineValue(m, "model"), machineValue(m, "description")].filter(Boolean).join(" ");
+  return words ? `the ${words}` : null;
+}
+
+function rowLinksOf(line: PmRowActuals | undefined, columns: LogColumn[]): RowLinks {
+  const out: RowLinks = {};
+  for (const c of columns) {
+    if (!line) out[c.key] = { links: [] };
+    else if (!isLinkedLine(line)) out[c.key] = { links: [], unlinked: line.unlinked };
+    else {
+      const month = PM_MONTH_KEYS.indexOf(c.key.replace(/Actual$/, "") as (typeof PM_MONTH_KEYS)[number]);
+      const cell = month >= 0 ? line.months[month] : [];
+      out[c.key] = { links: cell.map((d) => ({ recordId: d.recordId, text: `${dayDotMonth(d.dateISO)}${d.status === "Verified" ? "" : "*"}`, title: pmDoneTitle(d) })) };
+    }
+  }
+  return out;
+}
+
+/** A cell read from another document: text, never a box — each value a link to the record it was read from. */
+function LinkedCell({ colKey, from, cell }: { colKey: string; from: string; cell: LinkedCellView | undefined }) {
+  if (!cell || cell.links.length === 0) {
+    return (
+      <span className="cell-text notranslate text-faint" translate="no" data-computed={colKey} data-linked-from={from} data-unlinked={cell?.unlinked ? "1" : undefined} title={cell?.unlinked}>
+        {""}
+      </span>
+    );
+  }
+  return (
+    <span className="cell-text notranslate" translate="no" data-computed={colKey} data-linked-from={from}>
+      {cell.links.map((l, i) => (
+        <React.Fragment key={`${l.recordId}-${l.text}-${i}`}>
+          {i > 0 ? " · " : ""}
+          <a href={`#/record/${l.recordId}`} data-linked-record={l.recordId} title={l.title}>
+            {l.text}
+          </a>
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
+/** Above F/MNT/03's grid: where its Actuals come from, and each line that cannot be linked, with why. */
+function PmLinkNotice({ lines }: { lines: PmRowActuals[] }) {
+  const reasons: { machine: string; reason: string; rows: number[] }[] = [];
+  lines.forEach((l, i) => {
+    if (isLinkedLine(l)) return;
+    const had = reasons.find((r) => r.reason === l.unlinked);
+    if (had) had.rows.push(i + 1);
+    else reasons.push({ machine: l.machine, reason: l.unlinked, rows: [i + 1] });
+  });
+  return (
+    <div className="card mt-4 no-print" data-section="pm-link-notice">
+      <div className="card-pad text-sm">
+        <div>
+          Each <strong>Actual</strong> date is read from the machine&apos;s F/MNT/02 (Preventive Maintenance Schedule &amp; Record) whenever this sheet is shown, and is
+          never written here: record a PM on that sheet and it appears under its plan. Click a date to open the F/MNT/02 it is written on.
+        </div>
+        {reasons.map((r) => (
+          <div key={r.reason} className="mt-2" data-state="pm-unlinked" data-machine={r.machine} style={{ color: "var(--color-warning)" }}>
+            <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> Line{r.rows.length === 1 ? "" : "s"} {r.rows.join(", ")}: {r.reason}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface PmPlanLineView {
+  machine: string;
+  scheduleId: string | null;
+  year: number;
+  /** "Monthly planned 10.10 — due in 11 days", one per frequency; or one sentence saying why there is none. */
+  parts: string[];
+  note?: string;
+}
+
+/** F/MNT/02's line: the machine's next planned PM on the current year's F/MNT/03 — or why there is none. */
+function planLineFor(machineIdNo: string, isDemo: boolean, index: ReturnType<typeof currentPmIndex>): PmPlanLineView | null {
+  const machine = pmSheetMachine(machineIdNo);
+  if (!machine) return null;
+  const today = todayISO();
+  const year = Number(today.slice(0, 4));
+  const schedule = scheduleForYear(currentSchedules(isDemo), year);
+  if (!schedule) return { machine, scheduleId: null, year, parts: [], note: `No ${year} schedule (F/MNT/03) on Rev 01 is written yet, so there is no plan for ${machine} to show.` };
+  const rows = schedule.data?.rows ?? [];
+  const lines = pmActuals(rows, year, index, listedAs);
+  const mine = lines.map((l, i) => ({ l, i })).filter(({ i }) => pmSheetMachine(rows[i]?.machineNo) === machine);
+  if (mine.length === 0) return { machine, scheduleId: schedule.id, year, parts: [], note: `${machine} is not on the ${year} schedule (F/MNT/03).` };
+  const unlinked = mine.find(({ l }) => !isLinkedLine(l));
+  if (unlinked && !isLinkedLine(unlinked.l)) return { machine, scheduleId: schedule.id, year, parts: [], note: unlinked.l.unlinked };
+  const due = pmDue(rows, year, index, today, lines);
+  const parts: string[] = [];
+  for (const { i } of mine) {
+    const label = String(rows[i]?.frequency ?? "").trim();
+    const open = due.filter((d) => d.rowIndex === i);
+    const overdue = open.filter((d) => d.daysPast > 0);
+    const next = open.find((d) => d.daysPast <= 0);
+    // The next plan still to come; failing that, the latest one passed. Plans
+    // passed with no PM recorded against them are named after it, so a missed
+    // PM is not hidden behind the next one.
+    const shown = next ?? overdue[overdue.length - 1];
+    if (!shown) continue;
+    const earlier = overdue.filter((d) => d !== shown);
+    parts.push(
+      `${label} planned ${dayDotMonth(shown.plan)} — ${dueWords(shown.daysPast)}` +
+        (earlier.length ? ` (not recorded yet: ${earlier.slice(-3).map((d) => dayDotMonth(d.plan)).join(", ")}${earlier.length > 3 ? ` and ${earlier.length - 3} more` : ""})` : "")
+    );
+  }
+  return { machine, scheduleId: schedule.id, year, parts, ...(parts.length === 0 ? { note: `Every PM planned for ${machine} on the ${year} schedule is recorded.` } : {}) };
+}
+
+function PmPlanLine({ line }: { line: PmPlanLineView }) {
+  const schedule = line.scheduleId ? (
+    <a href={`#/record/${line.scheduleId}`} data-action="open-pm-schedule">
+      the {line.year} schedule (F/MNT/03)
+    </a>
+  ) : (
+    <>the {line.year} schedule (F/MNT/03)</>
+  );
+  return (
+    <div className="card mt-4 no-print" data-section="pm-plan-line" data-machine={line.machine}>
+      <div className="card-pad text-sm">
+        {line.parts.length > 0 ? (
+          <>
+            On {schedule}: {line.parts.join(" · ")}
+          </>
+        ) : (
+          <>
+            {line.note} {line.scheduleId ? <>See {schedule}.</> : null}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // The columns as the grid heads them: consecutive columns carrying the same
 // `group` become one run, and every other column is a run of its own.
 function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn[] }[] {
@@ -487,6 +703,7 @@ const SheetRow = React.memo(function SheetRow({
   lists,
   personKey,
   machineKey,
+  linked,
   canRemove,
   onCell,
   onPersonBlur,
@@ -507,6 +724,8 @@ const SheetRow = React.memo(function SheetRow({
   personKey?: string;
   /** The column that names a machine the equipment master can fill a line from (REQUIREMENTS §74). */
   machineKey?: string;
+  /** The line's cells read from another document (REQUIREMENTS §82), by column key; never stored on the line. */
+  linked?: RowLinks;
   canRemove: boolean;
   onCell: (rowId: string, key: string, value: string | number | null) => void;
   onPersonBlur: (rowId: string | null, value: string) => void;
@@ -522,6 +741,13 @@ const SheetRow = React.memo(function SheetRow({
         // A line the form prints blank (F/HR/05's two spare topic lines)
         // has nothing fixed in it, so it is written in like any cell.
         const col = effectiveColumn(c, fixedRow);
+        if (c.linkedFrom) {
+          return (
+            <td key={c.key}>
+              <LinkedCell colKey={c.key} from={c.linkedFrom} cell={linked?.[c.key]} />
+            </td>
+          );
+        }
         return (
           <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
             <CellInput

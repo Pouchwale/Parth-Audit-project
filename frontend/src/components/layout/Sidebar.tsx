@@ -286,9 +286,11 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
   // its load as it comes IN, then the register of the sharp tools the store
   // issues out and takes back. The first was supplied as the rubber stamp
   // itself, and the stamp is shown beside the form.
-  // Maintenance — the department's eight F/MNT formats (REQUIREMENTS §74). The
+  // Maintenance — the department's F/MNT formats (REQUIREMENTS §74, §82). The
   // equipment list comes first because it is the MASTER the other formats
-  // fetch a machine from, as HR Master Data leads the HR module (§53).
+  // fetch a machine from, as HR Master Data leads the HR module (§53). The two
+  // F/MNT/05 slips, the F/MNT/07 temporary engineering log and the F/MNT/10
+  // wooden article round came with the papers of 29-Sep-2026 (§82).
   Maintenance: [
     { to: "/library/maintenance", labelKey: "nav.maintenanceDocs", icon: FiBookOpen },
     { headingKey: "nav.mntEquipment" },
@@ -299,10 +301,15 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/document/mnt-pm-record", labelKey: "nav.mntPmRecord", icon: FiClipboard },
     { headingKey: "nav.mntHealthBreakdowns" },
     { to: "/document/mnt-daily-health", labelKey: "nav.mntDailyHealth", icon: FiCheckSquare },
+    { to: "/document/mnt-breakdown-memo", labelKey: "nav.mntBreakdownMemo", icon: FiFileText },
+    { to: "/document/mnt-breakdown-clearance", labelKey: "nav.mntBreakdownClearance", icon: FiCheckCircle },
     { to: "/document/mnt-breakdown-record", labelKey: "nav.mntBreakdown", icon: FiAlertTriangle },
+    { to: "/document/mnt-temporary-engineering", labelKey: "nav.mntTemporaryEngineering", icon: FiTool },
     { headingKey: "nav.mntGlassLighting" },
     { to: "/document/mnt-glass-breakage", labelKey: "nav.mntGlass", icon: FiShield },
     { to: "/document/mnt-lux-level", labelKey: "nav.mntLux", icon: FiSun },
+    { headingKey: "nav.mntWoodenArticlesHeading" },
+    { to: "/document/mnt-wooden-articles", labelKey: "nav.mntWooden", icon: FiArchive },
   ],
   Store: [
     { to: "/library/store", labelKey: "nav.storeDocs", icon: FiBookOpen },
@@ -406,9 +413,13 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/mnt-yearly-pm-schedule": ["mnt-yearly-pm-schedule"],
   "/document/mnt-pm-record": ["mnt-pm-record"],
   "/document/mnt-daily-health": ["mnt-daily-health"],
+  "/document/mnt-breakdown-memo": ["mnt-breakdown-memo"],
+  "/document/mnt-breakdown-clearance": ["mnt-breakdown-clearance"],
   "/document/mnt-breakdown-record": ["mnt-breakdown-record"],
+  "/document/mnt-temporary-engineering": ["mnt-temporary-engineering"],
   "/document/mnt-glass-breakage": ["mnt-glass-breakage"],
   "/document/mnt-lux-level": ["mnt-lux-level"],
+  "/document/mnt-wooden-articles": ["mnt-wooden-articles"],
   // Marketing (REQUIREMENTS §77): one page per F/MKT format.
   ...Object.fromEntries(["mkt-customer-feedback", "mkt-feedback-analysis", "mkt-complaint-trend"].map((id) => [`/document/${id}`, [id]])),
   // System / Management (REQUIREMENTS §76): one page per F/SYS format.

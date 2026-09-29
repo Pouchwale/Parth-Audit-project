@@ -8,6 +8,7 @@ import { prepareDueRecords } from "../engine/assistantPrepare";
 import { alignRecordsToWorkingCalendar } from "../engine/calendarMigration";
 import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
 import { alignTubeLightDates } from "../engine/tubeLightMigration";
+import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -55,6 +56,10 @@ export function bootstrap(): void {
   // stale record cannot keep seeding the next one through carry-forward —
   // drafts only, and logged in their history (REQUIREMENTS §44).
   alignTubeLightDates();
+  // F/MNT/03 schedules written on Rev 00 stay on Rev 00, their typed Actuals
+  // with them, now that Rev 01 reads each Actual from F/MNT/02 (REQUIREMENTS
+  // §82) — before the month's generation and preparation, so both see them so.
+  pinSchedulesWrittenOnRev00();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

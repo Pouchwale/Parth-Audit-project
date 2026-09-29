@@ -159,10 +159,18 @@ const synthetic: RecordInstance[] = [
     { supplierName: "Supplier C", productSafetyRating: 80, qualityRating: 70, deliveryRating: 75 },
   ])),
   // F/MNT/03 — August: one PM done ten days after its plan, one not done; July's is on time.
-  rec("pm", "mnt-yearly-pm-schedule", "2026-01-01", sheet([
-    { equipment: "PRINTING MACHINE", frequency: "Monthaly", julPlan: "05.07", julActual: "06.07", augPlan: "10.08", augActual: "20.08" },
-    { equipment: "SLITTING MACHINE", frequency: "Monthaly", augPlan: "12.08" },
-  ])),
+  // Written on Rev 00, whose Actuals are typed on the sheet (REQUIREMENTS §82: pinned, as the
+  // start-up migration pins every schedule written before Rev 01).
+  rec(
+    "pm",
+    "mnt-yearly-pm-schedule",
+    "2026-01-01",
+    sheet([
+      { equipment: "PRINTING MACHINE", frequency: "Monthaly", julPlan: "05.07", julActual: "06.07", augPlan: "10.08", augActual: "20.08" },
+      { equipment: "SLITTING MACHINE", frequency: "Monthaly", augPlan: "12.08" },
+    ]),
+    { formatRevision: "00" }
+  ),
   // F/MNT/09 — breakage marked YES in week 2 of July.
   rec("glass", "mnt-glass-breakage", `${JULY}-01`, sheet([{ parameter: GLASS_BREAKAGE_ROW, week1: "NO", week2: "YES", week3: "NO" }], { monthYear: "July 2026" })),
   // F/HR/17 — a catch of two rodents on one day, a "Yes" with no details on another (counted as one).
@@ -262,9 +270,37 @@ test("suppliers graded by the form's own table: one A, one B, one C, and the C i
 
 test("preventive maintenance for August: two planned, one done ten days late, one not done", () => {
   const pm = computeMonthlySummary(input(synthetic), 2026, 7).maintenance?.pm;
-  assert.deepEqual(pm, { scheduleWritten: true, planned: 2, done: 1, doneLate: 1, notDone: 1, notYetDue: 0 });
+  assert.deepEqual(pm, { scheduleWritten: true, planned: 2, done: 1, doneLate: 1, notDone: 1, notYetDue: 0, notLinked: 0 });
   const july = computeMonthlySummary(input(synthetic), 2026, 6).maintenance?.pm;
-  assert.deepEqual(july, { scheduleWritten: true, planned: 1, done: 1, doneLate: 0, notDone: 0, notYetDue: 0 });
+  assert.deepEqual(july, { scheduleWritten: true, planned: 1, done: 1, doneLate: 0, notDone: 0, notYetDue: 0, notLinked: 0 });
+});
+
+test("on a Rev 01 schedule the same August is read from F/MNT/02: a stored Actual is not a PM, and a number printed twice is counted apart", () => {
+  // REQUIREMENTS §82: the plans are typed on F/MNT/03, the PMs are the dates on each machine's F/MNT/02.
+  const slots = (dates: Record<number, string>) =>
+    Array.from({ length: 19 }, (_, i) => ({
+      parameter: i < 12 ? "Monthly Preventive maintenance" : i < 16 ? "Quarterly Preventive maintenance" : i < 18 ? "Six monthly Preventive maintenance" : "Yearly Preventive maintenance",
+      date: dates[i] ?? "",
+      maintenance: dates[i] ? "Rahul Patel" : "",
+      supervisor: dates[i] ? "Mukesh Patel" : "",
+    }));
+  const records = [
+    rec("pm01", "mnt-yearly-pm-schedule", "2026-01-02", sheet([
+      { machineNo: "M-47", equipment: "LOMBARDI PRINTING MACHINE", frequency: "Monthly", julPlan: "05.07", augPlan: "10.08" },
+      // A stored Actual on Rev 01 is not read: the PM is not on F/MNT/02, so it is not done.
+      { machineNo: "M-06", equipment: "SHRI TRIVEDI SLITTING MACHINE", frequency: "Monthly", augPlan: "12.08", augActual: "13.08" },
+      // M-07 on two blocks: neither is linked, and its plan is counted apart.
+      { machineNo: "M-07", equipment: "ZHEJIANG MANUAL INSPECTION MACHINE", frequency: "Monthly", augPlan: "14.08" },
+      { machineNo: "M-07", equipment: "DK 450 SLITTING MACHINE", frequency: "Monthly", augPlan: "14.08" },
+    ])),
+    rec("pmrec-47", "mnt-pm-record", "2026-01-05", sheet(slots({ 0: "2026-07-06", 1: "2026-08-20" }), { machineName: "Delta 330", machineIdNo: "M-47" })),
+    rec("pmrec-07", "mnt-pm-record", "2026-01-05", sheet(slots({ 0: "2026-08-14" }), { machineName: "DK-450", machineIdNo: "M-07" })),
+  ];
+  const august = computeMonthlySummary(input(records), 2026, 7).maintenance;
+  assert.deepEqual(august?.pm, { scheduleWritten: true, planned: 2, done: 1, doneLate: 1, notDone: 1, notYetDue: 0, notLinked: 2 });
+  assert.match(august!.sentences.join(" "), /2 more are planned on schedule lines not linked to F\/MNT\/02, and not counted\./);
+  const july = computeMonthlySummary(input(records), 2026, 6).maintenance?.pm;
+  assert.deepEqual(july, { scheduleWritten: true, planned: 1, done: 1, doneLate: 0, notDone: 0, notYetDue: 0, notLinked: 0 });
 });
 
 test("glass breakage is M4's week, and rodents are counted as the Rodent Trend counts them", () => {

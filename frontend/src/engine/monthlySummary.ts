@@ -19,6 +19,7 @@ import { countFindings } from "./checkpoints";
 import { departmentScopeLabel, isDocumentIdVisible, seesEveryDepartment } from "./departmentScope";
 import { insightCounts, isHumanRecord, startInsights, type Insight, type InsightInput, type InsightRun } from "./insights";
 import { breakdownLines, dayMonth, luxReadings, supplierStandings, type BreakdownLine } from "./insightRules";
+import { isLinkedLine, pmActuals, pmDoneIndex, type PmIndex } from "./pmSchedule";
 import {
   grade as gradeOf,
   monthRange,
@@ -236,9 +237,13 @@ export interface MaintenancePart extends Part {
    * notDone + notYetDue. notDone is a PM with no Actual more than seven days
    * after its plan — rule M6's "not done"; notYetDue is one not yet counted
    * against anybody: planned after today, or planned within the last seven days
-   * and not written yet, which M6 does not call a slip either.
+   * and not written yet, which M6 does not call a slip either. On a Rev 01
+   * schedule "done" is a PM on F/MNT/02 counted against the plan
+   * (engine/pmSchedule.ts); `notLinked` counts the month's plans on lines that
+   * cannot be linked to F/MNT/02 (a number printed on two blocks), which are
+   * in none of the others, as M6 reads none of them.
    */
-  pm: { scheduleWritten: boolean; planned: number; done: number; doneLate: number; notDone: number; notYetDue: number } | null;
+  pm: { scheduleWritten: boolean; planned: number; done: number; doneLate: number; notDone: number; notYetDue: number; notLinked: number } | null;
   /** F/MNT/09; null when not the person's. */
   glass: { sheets: number; breakages: Insight[] } | null;
   /** F/MNT/11; null when not the person's. */
@@ -352,6 +357,7 @@ const DAILY_PEST_ID = "daily-pest-monitoring";
 const FLY_ID = "fly-catcher";
 const BREAKDOWN_ID = "mnt-breakdown-record";
 const YEARLY_PM_ID = "mnt-yearly-pm-schedule";
+const PM_RECORD_ID = "mnt-pm-record";
 const GLASS_ID = "mnt-glass-breakage";
 const LUX_ID = "mnt-lux-level";
 /** M6's rule: a PM done more than this many days after its plan is a slip (engine/insightRules.ts pmSlipRule). */
@@ -916,8 +922,40 @@ function maintenancePart(
     // Not yet counted against anybody, told apart in the sentence: planned after today, and planned within the last week.
     let ahead = 0;
     let withinWeek = 0;
+    let notLinked = 0;
+    // A REV 01 SCHEDULE'S ACTUALS ARE READ FROM F/MNT/02 (REQUIREMENTS §82), as
+    // the sheet shows them and as M6 reads them: the index of the PMs people
+    // wrote there, built once for the month.
+    let pmIndex: PmIndex | null = null;
     for (const r of schedules) {
-      for (const row of (r.data as LogSheetData | undefined)?.rows ?? []) {
+      const rows = (r.data as LogSheetData | undefined)?.rows ?? [];
+      if (!r.formatRevision && getLogSheetLayoutForRecord(YEARLY_PM_ID, r)?.columns.some((c) => c.linkedFrom === PM_RECORD_ID)) {
+        if (!pmIndex) pmIndex = pmDoneIndex(human(PM_RECORD_ID));
+        pmActuals(rows, year, pmIndex).forEach((line, i) => {
+          if (!isLinkedLine(line)) {
+            // Counted apart: the reason is on the sheet and in M8.
+            for (const m of PM_MONTHS) {
+              const plan = dayMonth(rows[i]?.[`${m}Plan`], year);
+              if (plan && inMonth(plan)) notLinked += 1;
+            }
+            return;
+          }
+          const placed = line.months.flat();
+          line.plans.forEach((plan) => {
+            if (!plan || !inMonth(plan)) return;
+            planned += 1;
+            const pmDone = placed.find((d) => d.plan === plan);
+            if (pmDone) {
+              done += 1;
+              if ((pmDone.lateDays ?? 0) > PM_SLIP_DAYS) doneLate += 1;
+            } else if (plan > today) ahead += 1;
+            else if (daysBetween(plan, today) > PM_SLIP_DAYS) notDone += 1;
+            else withinWeek += 1;
+          });
+        });
+        continue;
+      }
+      for (const row of rows) {
         for (const m of PM_MONTHS) {
           const plan = dayMonth(row[`${m}Plan`], year);
           if (!plan || !inMonth(plan)) continue;
@@ -935,7 +973,7 @@ function maintenancePart(
       }
     }
     const notYetDue = ahead + withinWeek;
-    pm = { scheduleWritten: schedules.length > 0, planned, done, doneLate, notDone, notYetDue };
+    pm = { scheduleWritten: schedules.length > 0, planned, done, doneLate, notDone, notYetDue, notLinked };
     const fno = name(YEARLY_PM_ID, "F/MNT/03");
     if (schedules.length === 0) sentences.push(`The ${year} preventive maintenance schedule (${fno}) has not been written, so there is no plan to compare with.`);
     else if (planned === 0) sentences.push(`No preventive maintenance was planned for ${frame.label} on ${fno}.`);
@@ -946,7 +984,8 @@ function maintenancePart(
           `, ${grouped(notDone)} not done` +
           (withinWeek > 0 ? `, ${grouped(withinWeek)} not written yet but still within ${PM_SLIP_DAYS} days of the plan` : "") +
           (ahead > 0 ? `, ${grouped(ahead)} not due yet` : "") +
-          "."
+          "." +
+          (notLinked > 0 ? ` ${grouped(notLinked)} more ${notLinked === 1 ? "is" : "are"} planned on schedule lines not linked to F/MNT/02, and not counted.` : "")
       );
   }
 

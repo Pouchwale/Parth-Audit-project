@@ -12,6 +12,7 @@ import { SEED_QC_REGISTER_RECORDS } from "./qcRegisterRecords";
 import { SEED_QC_COA_RECORDS } from "./qcCoaRecords";
 import { SEED_QC_REPORT_RECORDS } from "./qcReportRecords";
 import { SEED_MNT_RECORDS } from "./maintenanceRecords";
+import { SEED_MNT_SAMPLE_RECORDS } from "./maintenanceSampleRecords";
 import { SEED_SYS_DOCUMENT_CONTROL_RECORDS } from "./sysDocumentControlRecords";
 import { SEED_SYS_MANAGEMENT_REVIEW_RECORDS } from "./sysManagementReviewRecords";
 import { SEED_SYS_INTERNAL_AUDIT_RECORDS } from "./sysInternalAuditRecords";
@@ -227,6 +228,11 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   // Maintenance's pages supplied filled in on 24-Sep-2026 (REQUIREMENTS §74): the
   // equipment list, and the two lux rounds — the older kept on its own revision.
   ...(SEED_MNT_RECORDS as RecordInstance[]),
+  // Maintenance's SAMPLE year of PM dates, asked for on 29-Sep-2026 to try F/MNT/02 →
+  // F/MNT/03 (REQUIREMENTS §82): a made-up F/MNT/02 for each machine on the 2026
+  // schedule, the supplied M-68 sheet, and the 2026 schedule on Rev 01 — each says in
+  // its history that it is sample data (maintenanceSampleRecords.ts).
+  ...(SEED_MNT_SAMPLE_RECORDS as RecordInstance[]),
   // The PSTL's own pages, supplied filled in on 25-Sep-2026 (REQUIREMENTS §76):
   // the two master lists, the July 2025 management review, the internal audit
   // of February 2025, the HARA verifications, the site security assessment, the

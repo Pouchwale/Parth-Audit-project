@@ -88,8 +88,13 @@ const WORD_FORMS = new Set([
   "str-incoming-material-vehicle",
   // Maintenance (REQUIREMENTS §74): the New Equipment Installation Report is a
   // two-page report of boxes, a Y/N checklist and a hand-over, so it reads as a
-  // document. The other seven F/MNT formats are grids and stay spreadsheets.
+  // document. The F/MNT registers and schedules are grids and stay spreadsheets.
   "mnt-new-equipment",
+  // The two F/MNT/05 slips (REQUIREMENTS §82) are one breakdown's memo each —
+  // labelled boxes, four (or three) tall boxes and the hygiene clearance — so
+  // they read as documents too.
+  "mnt-breakdown-memo",
+  "mnt-breakdown-clearance",
   // System / Management (REQUIREMENTS §76): the two F/SYS formats supplied
   // with no original of their own to say what they are — the management
   // review's notice and the annual HARA review — are a notice and a report,

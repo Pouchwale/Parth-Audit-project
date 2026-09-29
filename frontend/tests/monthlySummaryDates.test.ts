@@ -77,7 +77,9 @@ const schedule = rec(
     { equipment: "POUCHING MACHINE", frequency: "Monthaly", sepPlan: "16.09" }, // 8 days ago, never written: not done
     { equipment: "COMPRESSOR", frequency: "Monthaly", sepPlan: "28.09" }, // after today: not due yet
     { equipment: "CHILLER", frequency: "Monthaly", sepPlan: "05.09", sepActual: "06.09" }, // done, a day after the plan
-  ])
+  ]),
+  // Written on Rev 00, whose Actuals are typed (REQUIREMENTS §82): pinned, as every schedule before Rev 01 is.
+  { formatRevision: "00" }
 );
 
 test("a PM planned for today, or up to seven days ago, is not 'not done' — only one past M6's week is", () => {
@@ -113,7 +115,7 @@ test("the summary's 'not done' is the Insights page's M6 'not done', plan for pl
 });
 
 test("a month that has ended counts the week to today: still blank weeks after the plan is not done, six days after it is within its week", () => {
-  const august = rec("pm-aug", "mnt-yearly-pm-schedule", "2026-01-01", sheet([{ equipment: "PRINTING MACHINE", frequency: "Monthaly", augPlan: "28.08" }]));
+  const august = rec("pm-aug", "mnt-yearly-pm-schedule", "2026-01-01", sheet([{ equipment: "PRINTING MACHINE", frequency: "Monthaly", augPlan: "28.08" }]), { formatRevision: "00" });
   // Read on 3-Sep, six days after the plan: still within its week.
   const early = computeMonthlySummary({ ...input([august]), today: "2026-09-03" }, 2026, 7).maintenance?.pm;
   assert.deepEqual([early?.notDone, early?.notYetDue], [0, 1]);

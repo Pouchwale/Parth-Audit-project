@@ -35,8 +35,8 @@ test("every F/ format number parses to a canonical key", () => {
 // (engine/formatNumbers.ts resolveAll; tests/e2e_qc_formats.py "finds both
 // formats the company numbered F/QC/21"). Only these exact pairs are let
 // through: a third document on one of these numbers, or any other number
-// shared — an F/MNT one included — still fails. Remove a pair once the MR
-// renumbers it.
+// shared — any F/MNT one but F/MNT/05 included — still fails. Remove a pair
+// once the MR renumbers it.
 const SHARED_BY_THE_COMPANY: Record<string, string[]> = {
   "QC-19": ["qc-duplex-board", "qc-tolerance-card-nivea"],
   "QC-20": ["qc-kraft-paper", "qc-printing-aids-destruction"],
@@ -45,6 +45,13 @@ const SHARED_BY_THE_COMPANY: Record<string, string[]> = {
   // The minutes of meetings print F/QC/30; the master list gives F-QC-30 to the
   // Lamination Adhesive Viscosity Record.
   "QC-30": ["qc-viscosity", "qc-minutes-of-meetings"],
+  // REQUIREMENTS §82: two papers under one number — for the MR to confirm which
+  // is in use. The plant supplied two different F/MNT/05 slips on 29-Sep-2026,
+  // both printing "F/MNT/05 (00/01.12.2021)": the Breakdown Maintenance Memo &
+  // Post Maintenance Hygiene Record and the Breakdown Maintenance Memo & Hygiene
+  // Clearance Record. Both are built, each verbatim. This is the ONLY F/MNT
+  // number let through.
+  "MNT-5": ["mnt-breakdown-memo", "mnt-breakdown-clearance"],
 };
 
 test("no two documents share a format number", () => {

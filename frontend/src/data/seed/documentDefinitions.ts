@@ -59,8 +59,10 @@ export const STORE_SECTIONS = ["Incoming Material", "Sharp Tool Control"] as con
 // the preventive maintenance planned and done, the machines' daily health and
 // breakdowns, and the plant checks of glass and lighting that protect the
 // product. The master list of formats (F/SYS/02) lists F/MNT after the
-// production formats.
-export const MAINTENANCE_SECTIONS = ["Equipment", "Preventive Maintenance", "Equipment Health & Breakdowns", "Glass & Lighting"] as const;
+// production formats. The wooden articles round came with the papers of
+// 29-Sep-2026 (REQUIREMENTS §82) and has a section of its own, after glass and
+// lighting; the sections before it keep their names (tests read them).
+export const MAINTENANCE_SECTIONS = ["Equipment", "Preventive Maintenance", "Equipment Health & Breakdowns", "Glass & Lighting", "Wooden Articles"] as const;
 // System / Management (REQUIREMENTS §76): the PSTL's own F/SYS formats, in the
 // groups the product safety system itself runs in — the documents and formats
 // under control and how one is changed; the management review and the
@@ -1401,8 +1403,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
   // ---------------------------------------------------------------------
   // Maintenance — the eight formats supplied on 24-Sep-2026 (REQUIREMENTS
   // §74), placed before Purchase as the company's master list of formats
-  // places F/MNT after the production formats. F/MNT/05, 07 and 10 are on that
-  // list but were not supplied, and nothing stands in for them.
+  // places F/MNT after the production formats, and the papers of 29-Sep-2026
+  // (§82): the full equipment list, F/MNT/03 Rev 01, F/MNT/04's back side, the
+  // two F/MNT/05 slips, F/MNT/07 and F/MNT/10 — all eleven F/MNT formats.
   // ---------------------------------------------------------------------
   {
     id: "mnt-equipment-list",
@@ -1417,8 +1420,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "As Required",
     status: "Configured",
     description:
-      "The plant's EQUIPMENT MASTER: every machine and utility with its number, section, room, manufacturer, model, description, country of origin, size or capacity, month and year of manufacture and serial number — 43 machines, M-01 to M-85 with gaps. The other maintenance formats fetch a machine from it by its Machine No. One line on the supplied page, M-68, is printed one column out of step on the paper itself (its size reads \"France\" and its serial number \"2023\"); it is kept exactly as printed for the department to confirm.",
-    sourceFile: "F-MNT- 01_Master List of Equipments-Flexo & Pouch.pdf (the list as supplied)",
+      "The plant's EQUIPMENT MASTER: every machine and utility with its number, section, room, manufacturer, model, description, country of origin, size or capacity, month and year of manufacture and serial number — 68 machines on the list of 29.09.2026, the Flexo sheet (47, M-01 to M-86) and the Pouch sheet (21, M-61 to M-82), with the thirteen old chillers, dryers and compressor of the \"Other Machinery - OLD\" sheet shown beside it. The other maintenance formats fetch a machine from it by its Machine No. One line, M-68, is printed one column out of step on the paper itself (its size reads \"France\" and its serial number \"2023\"); it is kept exactly as printed for the department to confirm. Two pairs of Pouch machines print one serial number between them (194, and 231624BO638), so a serial alone never picks either. The first list, of 24.09.2026 (43 machines), stays on file.",
+    sourceFile:
+      "Master List of Equipments-Flexo & Pouch-Flexo.pdf, Master List of Equipments-Flexo & Pouch-Pouch.pdf and Master List of Equipments-Flexo & Pouch (OLD OTHER MACHINARIES).pdf (29.09.2026, as supplied); the company's own workbook is Master List of Equipments-Flexo & Pouch.xlsx; the first list is F-MNT- 01_Master List of Equipments-Flexo & Pouch.pdf",
     schedule: { type: "as-required" },
   },
   {
@@ -1464,16 +1468,20 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     kind: "log-sheet",
     name: "Yearly Preventive Maintenance Schedule",
     formatNo: "F/MNT/03",
-    revisionNo: "00",
-    revisionDate: "2021-12-01",
+    // Rev 01 of 15.07.2026, supplied on 29-Sep-2026 (REQUIREMENTS §82): the
+    // schedule by machine number. A schedule filled on Rev 00 keeps its own
+    // layout (supersededRevisions in maintenanceLayouts.ts).
+    revisionNo: "01",
+    revisionDate: "2026-07-15",
     department: "Maintenance",
     module: "Maintenance",
     section: "Preventive Maintenance",
     frequency: "Yearly",
     status: "Configured",
     description:
-      "The year's preventive maintenance plan: for each machine, the monthly, half-yearly and yearly PM, with the date planned and the date actually done in each month. The supplied page names the printing machine and the slitting machine and leaves a third block for another; its only marks are January's — printing planned 10.01 and done 28.01, slitting planned 12.01 — and it prints no year. A PM done well after its plan, or a planned date passed with nothing done, is exactly what this sheet is kept to show.",
-    sourceFile: "F-MNT-03_Yearly PM Schedule .pdf (the page as supplied)",
+      "The year's preventive maintenance plan, machine by machine: the 2026 schedule lists 21 machines by M/C No. — 42 lines of Monthly, Quarterly, Half Yearly and Yearly PM — with the date planned and the date actually done in each month. The Plan is written here; the Actual is the date the PM was recorded on the machine's own F/MNT/02, read from it each time the schedule is shown, so a PM is written down once. The schedule prints M-07 on two blocks (the Zhejiang manual inspection machine and the DK 450 slitting machine), and names M-58 as the DCMF-480 die cutter that F/MNT/01 numbers M-54 — both for the department to confirm. A PM done well after its plan, or a planned date passed with nothing done, is exactly what this sheet is kept to show. Schedules filled on Rev 00, which planned three machine classes and had the Actual typed, keep that page.",
+    sourceFile:
+      "F-MNT-03_Yearly PM Schedule(R).pdf (Rev 01, 15.07.2026, the 2026 schedule as supplied); the company's own workbook is F-MNT-03_Yearly PM Schedule(R).xls; the superseded Rev 00 is F-MNT-03_Yearly PM Schedule .pdf",
     schedule: { type: "yearly", month: 0, dayOfMonth: 1 },
   },
   {
@@ -1489,8 +1497,50 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     frequency: "Daily",
     status: "Configured",
     description:
-      "One sheet for each machine for each month, ticked every day in the day shift and the night shift by the operator after checking the seven parameters the form prints in Hindi and Gujarati side by side: clean the machine, check the electrical panels, listen for any unusual sound, check for pipe leakage, test the emergency stop once a week, check the air and water pressures, and clear tools and blades from the floor. Anything wrong goes to the supervisor, and its details to the back of the sheet.",
-    sourceFile: "F-MNT-04_Daily Equipment Health Status & Cleaning Record.pdf (the blank format, Hindi and Gujarati)",
+      "One sheet for each machine for each month, ticked every day in the day shift and the night shift by the operator after checking the seven parameters the form prints in Hindi and Gujarati side by side: clean the machine, check the electrical panels, listen for any unusual sound, check for pipe leakage, test the emergency stop once a week, check the air and water pressures, and clear tools and blades from the floor. Anything wrong goes to the supervisor, and its details to the back of the sheet — the observation or concern reported, the action taken, and the maintenance technician's and machine operator's signatures, written on the day's own line.",
+    sourceFile:
+      "F-MNT-04_Daily Equipment Health Status & Cleaning Record.pdf (the blank format, Hindi and Gujarati); its back side is Copy of F-MNT-04_Daily Equipment Health Status & Cleaning Record-2.pdf",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mnt-breakdown-memo",
+    kind: "log-sheet",
+    name: "Breakdown Maintenance Memo & Post Maintenance Hygiene Record",
+    // TWO PAPERS UNDER ONE NUMBER (REQUIREMENTS §82): the plant supplied two
+    // different slips that both print "F/MNT/05 (00/01.12.2021)". Both are
+    // held, each as printed — which is in use is for the MR to confirm.
+    formatNo: "F/MNT/05",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Equipment Health & Breakdowns",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One slip for each breakdown — slip (1) of the two the plant numbers F/MNT/05: the machine, fetched from the equipment list by its number, the date and time the breakdown was reported, the problem, the work carried out, the spares used and the preventive measure taken, the date and time of the repair and the breakdown minutes between the two — worked out, never typed — the machine operator and the maintenance technician, the hygiene clearance the slip prints, and the production and maintenance supervisors' signatures.",
+    sourceFile: "Copy of F-MNT-05_Breakdown intimation Slip (1).pdf (the blank slip, two to a page)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "mnt-breakdown-clearance",
+    kind: "log-sheet",
+    name: "Breakdown Maintenance Memo & Hygiene Clearance Record",
+    // The second F/MNT/05 paper (REQUIREMENTS §82); its header prints the
+    // company as "GUJARAT PRINT PACK PUBLICATION LIMITED".
+    formatNo: "F/MNT/05",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    companyName: "GUJARAT PRINT PACK PUBLICATION LIMITED",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Equipment Health & Breakdowns",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One slip for each breakdown — slip (2) of the two the plant numbers F/MNT/05: the user who reported it and the date, the machine and its ID number, fetched from the equipment list, the breakdown time, the problem as the user reported it and as the maintenance department observed it, the action taken, the job completion and hand-over time, whether the operators need training or the PM check points and frequency need changing (Yes / No), the hygiene clearance the slip prints, and who attended the problem with the user department's signature.",
+    sourceFile: "Copy of F-MNT-05_Breakdown intimation Slip (2).pdf (the blank slip)",
     schedule: { type: "as-required" },
   },
   {
@@ -1511,6 +1561,24 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     schedule: { type: "as-required" },
   },
   {
+    id: "mnt-temporary-engineering",
+    kind: "log-sheet",
+    name: "Temporary Engineering Log",
+    formatNo: "F/MNT/07",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Equipment Health & Breakdowns",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The log of every temporary repair — used only where there is no immediate, permanent solution, risk-assessed and approved by a department head with engineering: the date and start time, what was done and why, the equipment, and its verification by the Maintenance and Production In-charges; then, once the permanent repair or solution is in, its date, the end time and its verification by both In-charges again, which completes the line. A line still open is a temporary repair still standing.",
+    sourceFile: "Copy of F-MNT-07_Temporary engineering record.pdf (the blank format)",
+    schedule: { type: "as-required" },
+  },
+  {
     id: "mnt-glass-breakage",
     kind: "log-sheet",
     // The title as the page prints it — "BREKAGE" is the paper's spelling, and
@@ -1527,7 +1595,26 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description:
       "The list of every glass and brittle-plastic article in the plant by area — windows and doors, false-ceiling acrylic, tube lights, CCTV cameras, LED lights, monitors and insect killers, 3,980 articles in twelve areas at Rev 02 — with its revision history, and the month's sheet on which each area is checked every week for any crack or breakage, with the breakage answered YES or NO, checked by the maintenance technician and verified by the head of maintenance. A breakage or crack calls for the CA / Incident record with its root cause, correction and corrective action.",
-    sourceFile: "F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024 (1) (2).pdf (Rev 02, two pages)",
+    sourceFile:
+      "F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024 (1) (2).pdf (Rev 02, 01.09.2025, two pages); the earlier issue of Rev 02, 15.12.2024, is F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024(3).pdf",
+    schedule: { type: "monthly", dayOfMonth: 1 },
+  },
+  {
+    id: "mnt-wooden-articles",
+    kind: "log-sheet",
+    name: "List of Wooden Articles & Weekly Wooden Article Monitoring Record",
+    formatNo: "F/MNT/10",
+    revisionNo: "02",
+    revisionDate: "2024-12-15",
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "Maintenance",
+    module: "Maintenance",
+    section: "Wooden Articles",
+    frequency: "Monthly",
+    status: "Configured",
+    description:
+      "The list of every wooden article in the plant by area — cupboards, benches, inspection tables, working desks and wooden sheets, 560 articles in twelve areas at Rev 02 — with its revision history, and the month's sheet on which each area is checked every week for chipping or breakage, with the breakage answered YES or NO, the number of wooden pallets discarded in the store and production, checked by the maintenance technician and verified by the head of maintenance. Chipping from any wooden article other than a pallet means finding the missing part and telling the area's HOD at once.",
+    sourceFile: "F-MNT-10_Weekly Wooden article condition monitoring record (1) (1) (1).pdf (Rev 02, three pages); the company's own original is F-MNT-10_Weekly Wooden article condition monitoring record (1) (1) (1).doc",
     schedule: { type: "monthly", dayOfMonth: 1 },
   },
   {
@@ -1544,7 +1631,8 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description:
       "The light level measured in every area of the plant with the Kusam-Meco KM-LUX-99 lux meter (Sr.No. S1135510). Two rounds were supplied: 12.08.2025 on the current Rev 01, one reading in each of 26 areas, and 11.05.2024 on the superseded Rev 00, which measured 19 areas by day and by night — that record keeps its own layout. Comparing the two shows where the light has fallen, which matters most at the colour-matching cabinets.",
-    sourceFile: "F-MNT-11_LUX LEVEL MEASUREMENT RECORD.pdf (Rev 01, filled 12.08.2025); the Rev 00 page of 11.05.2024 is F-MNT-11_LUX LEVEL MEASUREMENT RECORD-2.pdf",
+    sourceFile:
+      "F-MNT-11_LUX LEVEL MEASUREMENT RECORD.pdf (Rev 01, filled 12.08.2025); the Rev 00 page of 11.05.2024 is F-MNT-11_LUX LEVEL MEASUREMENT RECORD-2.pdf; the round of 15.10.2025, shown as supplied, is F-MNT-11_LUX LEVEL MEASUREMENT RECORD-1.pdf",
     schedule: { type: "as-required" },
   },
 

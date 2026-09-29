@@ -366,13 +366,30 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
     id: "mnt-daily-health",
     aliases: ["daily equipment health", "equipment health status", "equipment health", "machine health", "daily machine health", "machine cleaning record", "daily equipment health status & cleaning record", "f/mnt/04"],
   },
+  // The two F/MNT/05 slips (REQUIREMENTS §82) print one number between them, so
+  // what names either — "breakdown memo", "breakdown slip", F/MNT/05 — names
+  // both, and the answer lists the two for the person to choose; each slip's
+  // own title names it alone.
+  {
+    id: "mnt-breakdown-memo",
+    aliases: ["breakdown maintenance memo & post maintenance hygiene record", "post maintenance hygiene record", "post maintenance hygiene", "breakdown maintenance memo", "breakdown memo", "breakdown intimation slip", "breakdown slip", "f/mnt/05"],
+  },
+  {
+    id: "mnt-breakdown-clearance",
+    aliases: ["breakdown maintenance memo & hygiene clearance record", "hygiene clearance record", "breakdown maintenance memo", "breakdown memo", "breakdown intimation slip", "breakdown slip", "f/mnt/05"],
+  },
   {
     id: "mnt-breakdown-record",
     aliases: ["breakdown record", "equipment breakdown", "equipments breakdown", "breakdown maintenance record", "machine breakdown", "breakdown register", "breakdowns", "breakdown", "f/mnt/06"],
   },
+  { id: "mnt-temporary-engineering", aliases: ["temporary engineering log", "temporary engineering record", "temporary engineering", "temp engineering", "f/mnt/07"] },
   {
     id: "mnt-glass-breakage",
     aliases: ["glass breakage", "glass articles", "list of glass articles", "glass breakage monitoring", "brittle plastic", "glass monitoring", "glass and brittle plastic", "f/mnt/09"],
+  },
+  {
+    id: "mnt-wooden-articles",
+    aliases: ["list of wooden articles", "wooden article monitoring", "wooden articles", "wooden article", "wooden pallets", "wooden pallet", "f/mnt/10"],
   },
   { id: "mnt-lux-level", aliases: ["lux level", "lux levels", "lux measurement", "lux meter", "light level", "lighting level", "lux", "f/mnt/11"] },
   // System / Management — the PSTL's eighteen F/SYS formats (REQUIREMENTS §76),

@@ -153,9 +153,13 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "mnt-pm-record": "MNT", // F/MNT/02
   "mnt-yearly-pm-schedule": "MNT", // F/MNT/03
   "mnt-daily-health": "MNT", // F/MNT/04
+  "mnt-breakdown-memo": "MNT", // F/MNT/05 — slip (1), REQUIREMENTS §82
+  "mnt-breakdown-clearance": "MNT", // F/MNT/05 — slip (2), REQUIREMENTS §82
   "mnt-breakdown-record": "MNT", // F/MNT/06
+  "mnt-temporary-engineering": "MNT", // F/MNT/07 (REQUIREMENTS §82)
   "mnt-new-equipment": "MNT", // F/MNT/08
   "mnt-glass-breakage": "MNT", // F/MNT/09
+  "mnt-wooden-articles": "MNT", // F/MNT/10 (REQUIREMENTS §82)
   "mnt-lux-level": "MNT", // F/MNT/11
 
   // --- System / Management (REQUIREMENTS §76). Their numbers give the

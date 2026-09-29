@@ -379,6 +379,20 @@ Seven scripts live in `tests/`:
   documents' sample-filled records bound to a path that resolves; 216 rendered pages with no unbound box),
   `uploadChanges.test.ts`, `voice.test.ts`, `sounds.test.ts`, `motivation.test.ts` (streaks, badges, the day's score:
   8/10 → −20, 10/10 → 0), `intro.test.ts`; `backend/tests/tts.test.ts` (chunking, joining WAVs, the terms error).
+- `tests/e2e_pm_link.py` and the extended `tests/e2e_maintenance_module.py` - REQUIREMENTS §82, added 29-Sep-2026;
+  the PM link suite runs right after the Maintenance suite. The Maintenance suite: F/MNT/01's 29-Sep-2026 issue with
+  its 68 machines and the 13 "Other Machinery - OLD" items; a serial two machines share (194) offering both and filling
+  neither; both F/MNT/05 slips opened, sample-filled and submitted, slip 1's breakdown minutes worked out (10:15 to
+  11:40 is 85) and shown as text; F/MNT/07's ten headings; F/MNT/10's month sheet; F/MNT/04's back-side columns;
+  F/MNT/03 on Rev 01 with Rev 00 only as the superseded original. The PM link suite, on the sample year: the 2026
+  schedule on Rev 01, no Actual a box to type in, Actuals drawn as links to their F/MNT/02 with who did it, January to
+  August filled, M-07 carrying no Actual; clicking a date opens the F/MNT/02; M-47's F/MNT/02 shows its next planned
+  PM; a date corrected on F/MNT/02 lands on the schedule while F/MNT/03 stays Verified and unwritten; M6 and M8 in
+  Insights; M-68's supplied sheet; the sample date put back and the schedule following it. Unit tests:
+  `maintenancePm.test.ts` (the matching rule, the frequencies, a corrected or deleted F/MNT/02 followed, the index
+  built once per change, the start-up pin to Rev 00, the sample year — no Thursday, holiday or future date, nothing
+  random — and Mitra refusing to edit a linked Actual); `formats.test.ts` allows F/MNT/05's two papers, and no other
+  shared number. The sample PM dates are fixed in 2026, so these checks do not move with the clock.
 - Unit tests for Mitra as an agent: `frontend/tests/mitraTools.test.ts` (the tools against seeded records — a bad
   route refused, F/HR/17 found, today's record started, a patch applied through a fake open record with the "Asked of
   Mitra" note, records listed and searched, figures for a history question, ask_user ending the turn, the schema set

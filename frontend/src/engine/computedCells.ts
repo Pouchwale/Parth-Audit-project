@@ -8,7 +8,8 @@ import { withPurchaseRatings } from "./purchaseRatings";
 // §68). Four families of form print a cell that is arithmetic on the cells
 // beside it: the calibration records' deviations (engine/calibration.ts), the
 // purchase registers' weighted ratings (engine/purchaseRatings.ts), the
-// breakdown register's total minutes (engine/maintenanceCalc.ts) and the
+// breakdown register's total minutes and F/MNT/05 slip (1)'s breakdown minutes
+// (engine/maintenanceCalc.ts, §82) and the
 // internal audit risk assessment's sum and audit frequency (engine/auditRisk.ts,
 // §76). Each used to
 // be applied wherever somebody remembered it — the ratings only as a sheet was

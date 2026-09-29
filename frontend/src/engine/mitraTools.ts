@@ -18,7 +18,7 @@
 //     ctx.confirm (two chips in the chat), never the model twice;
 //   * every result is compact JSON capped at 1,500 characters — the wire's own
 //     limit, and the plant's token allowance (SPEC "Hard constraints").
-import type { DocumentDefinition, FieldChange, LogColumn, LogFieldType, LogHeaderField, LogSheetLayout } from "../types";
+import type { DocumentDefinition, FieldChange, LogColumn, LogFieldType, LogHeaderField, LogSheetData, LogSheetLayout, RecordInstance } from "../types";
 import type { MitraTool, MitraToolContext, MitraToolResult, MitraToolRun, ToolSchema } from "./mitraTypes";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
@@ -43,6 +43,7 @@ import { analyticIntent, buildEvidence } from "./historyDigest";
 import { describePerson, searchPeople } from "./hrMaster";
 import { hrMasterVisible } from "./hrMasterAssistant";
 import { isDocumentIdVisible } from "./departmentScope";
+import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "./pmSchedule";
 import { ASSISTANT_NAME } from "./assistantPersona";
 import { t } from "../i18n";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
@@ -58,7 +59,8 @@ const TRUNCATED = "…(truncated)";
 const EVIDENCE_CHARS = 1300;
 export const ATTACHMENT_SLICE_CHARS = 1300;
 /** How long a search waits for the record index to finish before answering with what it has. */
-const INDEX_WAIT_MS = 1500;
+// Long enough for a large register on a slow laptop: a search that answers before the index is built says nothing was found.
+const INDEX_WAIT_MS = 5000;
 
 // ---------------------------------------------------------------------------
 // small helpers
@@ -317,11 +319,46 @@ function layoutSummary(layout: LogSheetLayout, data: Obj): Obj {
   };
 }
 
-/** The record's data without the `_layout` a log sheet's target adds for the model. */
+/** The record's data without the `_layout` a log sheet's target adds for the model, or the `_linked` Actuals added below. */
 function dataOf(raw: unknown): { data: Obj; layout: LogSheetLayout | undefined } {
   if (!isObj(raw)) return { data: { value: raw }, layout: undefined };
-  const { _layout, ...data } = raw;
+  const { _layout, _linked, ...data } = raw;
+  void _linked;
   return { data, layout: isLayout(_layout) ? _layout : undefined };
+}
+
+/**
+ * F/MNT/03's ACTUAL DATES AS F/MNT/02 GIVES THEM (REQUIREMENTS §82): a Rev 01
+ * schedule stores none — each is read from the machine's F/MNT/02 when the
+ * sheet is shown (engine/pmSchedule.ts). So the model is shown them beside the
+ * data as `_linked`, line by line with the F/MNT/02 record and who did the PM,
+ * exactly as the sheet shows them. Never stored: dataOf strips it, and a patch
+ * that tries to write an Actual is refused (engine/recordPatch.ts).
+ */
+function linkedActuals(record: RecordInstance | undefined): Obj | undefined {
+  if (!record || !schedulesLinked(record)) return undefined;
+  const layout = getLogSheetLayoutForRecord(record.documentId, record);
+  if (!layout?.columns.some((c) => c.linkedFrom)) return undefined;
+  const rows = (record.data as LogSheetData | undefined)?.rows ?? [];
+  const lines = pmActuals(rows, scheduleYear(record), currentPmIndex(record.isDemo));
+  const actuals: string[] = [];
+  const notLinked: string[] = [];
+  lines.forEach((line, i) => {
+    if (!isLinkedLine(line)) {
+      const why = `${line.machine || `row ${i + 1}`}: ${line.unlinked.split(". ")[0].replace(/^Not linked: /, "")} — not linked`;
+      if (!notLinked.includes(why)) notLinked.push(why);
+      return;
+    }
+    const months = line.months.map((cell, m) => (cell.length ? `${PM_MONTH_KEYS[m]} ${pmCellText(cell)}` : "")).filter(Boolean);
+    if (months.length === 0) return;
+    const sources = [...new Set(line.months.flat().map((d) => `${d.recordId}${d.maintenance ? ` by ${d.maintenance}` : ""}`))];
+    actuals.push(`row ${i + 1} ${line.machine} ${String(rows[i]?.frequency ?? "")}: ${months.join(", ")} (F/MNT/02 ${sources.join("; ")})`);
+  });
+  return {
+    note: "Actual dates are read from each machine's F/MNT/02 and are not stored on this sheet; * = that F/MNT/02 is not yet Verified. To change one, change the date on the machine's F/MNT/02.",
+    actuals,
+    ...(notLinked.length ? { notLinked } : {}),
+  };
 }
 
 const changeOf = (c: FieldChange): Obj => ({ field: short(c.label, 60), from: short(c.before, 40), to: short(c.after, 40) });
@@ -528,7 +565,10 @@ const GET_OPEN_RECORD: MitraTool = {
     if (!tgt) return no("no record is open — open one first");
     const doc = documentRepository.getById(tgt.documentId);
     const { data, layout: carried } = dataOf(tgt.currentData ?? tgt.getData());
-    const layout = tgt.documentKind === "log-sheet" ? carried ?? getLogSheetLayoutForRecord(tgt.documentId, recordRepository.getById(tgt.recordId)) : undefined;
+    const stored = recordRepository.getById(tgt.recordId);
+    const layout = tgt.documentKind === "log-sheet" ? carried ?? getLogSheetLayoutForRecord(tgt.documentId, stored) : undefined;
+    // What is on screen, with the Actuals a schedule reads from F/MNT/02 beside it (never stored).
+    const linked = stored ? linkedActuals({ ...stored, data }) : undefined;
     const head: Obj = {
       recordId: tgt.recordId,
       documentId: tgt.documentId,
@@ -540,7 +580,7 @@ const GET_OPEN_RECORD: MitraTool = {
       ...(layout ? { layout: layoutSummary(layout, data) } : {}),
     };
     const budget = MAX_TOOL_RESULT_CHARS - (JSON.stringify({ ok: true, ...head }) ?? "").length - 40;
-    const fitted = fitValue(data, Math.max(200, budget));
+    const fitted = fitValue(linked ? { _linked: linked, ...data } : data, Math.max(200, budget));
     return ok({ ...head, data: fitted.value, ...(fitted.truncated ? { truncated: true } : {}) }, say("ai.step.readRecord", "Read {what}", { what: String(head.title) }));
   },
 };
@@ -770,7 +810,10 @@ const SEARCH_RECORDS: MitraTool = {
       const hits = records.slice(0, limit).map((r) => ({ recordId: r.id, documentId: r.documentId, name: nameOf(r.documentId), dueDate: r.dueDate, status: r.status, route: routeForRecord(documentRepository.getById(r.documentId), r.id) }));
       return ok({ hits, total: records.length }, say("ai.step.listed", "Listed {n} records", { n: records.length }));
     }
-    await settleIndex({ isDemo });
+    // Never "nothing found" from an index still being built: that is a false answer Mitra would pass on as fact.
+    if (!(await settleIndex({ isDemo }))) {
+      return { ok: false, result: { error: "The search index is still being built — try the search again in a moment." }, card: say("ai.step.searching", "Searching the records…") };
+    }
     const res = searchRecords(reading.words, { isDemo, limit: 60, documentIds: docIds });
     const hits = res.hits
       .filter(inRange)
@@ -836,7 +879,8 @@ const GET_RECORD: MitraTool = {
     const doc = documentRepository.getById(record.documentId);
     const head = { recordId: record.id, documentId: record.documentId, name: doc?.name ?? record.documentId, dueDate: record.dueDate, status: record.status, route: routeForRecord(doc, record.id) };
     const { data } = dataOf(record.data);
-    const fitted = fitValue(data, MAX_TOOL_RESULT_CHARS - (JSON.stringify({ ok: true, ...head }) ?? "").length - 40);
+    const linked = linkedActuals(record);
+    const fitted = fitValue(linked ? { _linked: linked, ...data } : data, MAX_TOOL_RESULT_CHARS - (JSON.stringify({ ok: true, ...head }) ?? "").length - 40);
     return ok({ ...head, data: fitted.value, ...(fitted.truncated ? { truncated: true } : {}) }, say("ai.step.readRecordOf", "Read the {doc} of {date}", { doc: head.name, date: formatDisplayDate(record.dueDate) }));
   },
 };

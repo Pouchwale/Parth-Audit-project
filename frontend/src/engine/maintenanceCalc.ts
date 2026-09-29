@@ -75,8 +75,46 @@ export function breakdownCells(row: Record<string, string | number | null>): Rec
   return { totalBreakdownMinutes: breakdownMinutes(row.failureDate, row.failureTime, row.repairedDate, row.repairedTime) };
 }
 
+// F/MNT/05 SLIP (1) — THE BREAKDOWN MINUTES ON ONE SLIP (REQUIREMENTS §82). The
+// Breakdown Maintenance Memo & Post Maintenance Hygiene Record prints the
+// "Date / Time of Breakdown Intimation" at its head and the "Date / Time of
+// Breakdown repair" at its foot, then "Breakdown minutes : -". The same
+// arithmetic as the register's, on the slip's four boxes: whole minutes as
+// text, "" while any of the four is missing or the repair is written before
+// the intimation. (Slip (2) prints no minutes box, so nothing is worked out on it.)
+
+/** The document id of F/MNT/05 slip (1). */
+export const BREAKDOWN_MEMO_ID = "mnt-breakdown-memo";
+
+/** Slip (1)'s worked-out box and the four boxes it is worked out from. */
+export const BREAKDOWN_MEMO_FIELDS = {
+  minutes: "breakdownMinutes",
+  intimationDate: "intimationDate",
+  intimationTime: "intimationTime",
+  repairDate: "repairDate",
+  repairTime: "repairTime",
+} as const;
+
+/** The slip's "Breakdown minutes" for what its header holds. */
+export function breakdownMemoMinutes(header: Record<string, unknown> | undefined): string {
+  const h = header ?? {};
+  const f = BREAKDOWN_MEMO_FIELDS;
+  return breakdownMinutes(h[f.intimationDate], h[f.intimationTime], h[f.repairDate], h[f.repairTime]);
+}
+
+function withMemoMinutes<T>(data: T): T {
+  const d = data as unknown as LogSheetData | undefined;
+  if (!d || typeof d !== "object") return data;
+  const header = (d.header ?? {}) as Record<string, string>;
+  const minutes = breakdownMemoMinutes(header);
+  // Unchanged is handed back as it was, so the slip is not redrawn for nothing.
+  if ((header[BREAKDOWN_MEMO_FIELDS.minutes] ?? "") === minutes) return data;
+  return { ...d, header: { ...header, [BREAKDOWN_MEMO_FIELDS.minutes]: minutes } } as unknown as T;
+}
+
 /** The record's data with every formula cell worked out; any other document's data is returned as it is. */
 export function withMaintenanceCalc<T>(documentId: string | undefined, data: T): T {
+  if (documentId === BREAKDOWN_MEMO_ID) return withMemoMinutes(data);
   if (documentId !== BREAKDOWN_RECORD_ID) return data;
   const d = data as unknown as LogSheetData | undefined;
   if (!d || !Array.isArray(d.rows)) return data;
