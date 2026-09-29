@@ -357,7 +357,9 @@ Seven scripts live in `tests/`:
 - `tests/e2e_intro_and_fonts.py`, `tests/e2e_voice_and_sounds.py`, `tests/e2e_celebrations.py`,
   `tests/e2e_upload_changes.py` - REQUIREMENTS §81, the forty-second to forty-fifth suites, added 27-Sep-2026 and run
   last. The intro: it plays over a sign-in form that can be typed into and clicked at once, is `pointer-events: none`,
-  holds no "sign up"/"demo", is gone within 2.5 s, and never plays after sign-in, on a reload or under reduced motion;
+  holds no "sign up"/"demo", is gone within 2.5 s, and never plays right after sign-in, on a reload or under reduced
+  motion; a signed-in page opened in a new tab — a session's opening — plays it over the app, catching nothing, and the
+  same tab reloaded does not;
   the self-hosted fonts load with 200 and the printed forms keep the old font stack exactly. Sound and voice (an init
   script records `dcrs:cue`/`dcrs:say` and stubs AudioContext, speechSynthesis and Audio): nothing before the first
   click; the briefing chimes and is spoken with the person's name, its 🔊 says it again; the bell's "What should I do

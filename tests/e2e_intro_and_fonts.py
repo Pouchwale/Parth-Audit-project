@@ -7,8 +7,10 @@ project name in 3d and also make use of good engaging fonts".
     company's names beneath - a layer that catches nothing: the email and
     password boxes take typing and Log In can be pressed while it plays, and
     it has left the page within 2.5 s;
-  * it plays once a session, never after signing in, never when a signed-in
-    page is opened, and never for somebody whose system asks for less motion;
+  * it plays once a session, at the system's opening: on the sign-in screen, or
+    - since a session lasts seven days - over the app when a signed-in browser
+    session opens it (27-Sep-2026); never right after signing in, never on a
+    reload, and never for somebody whose system asks for less motion;
   * the sign-in title is a 3D wordmark in the display face, whose one entrance
     lasts no more than 0.6 s and moves nothing else;
   * the app's text is in Plus Jakarta Sans and its titles in Baloo Bhai 2, the
@@ -258,18 +260,30 @@ with sync_playwright() as p:
         page.wait_for_selector(".app-sidebar", timeout=60000)
         dismiss(page)
 
+    # THE OPENING OF A SIGNED-IN SESSION (27-Sep-2026): a session lasts seven days, so most mornings the system
+    # opens straight into the app. A new tab is a browser session of its own - the system's opening - and plays
+    # the introduction over the app, catching nothing; a reload of that tab does not play it again.
     fresh = context.new_page()
     fresh.add_init_script(
-        """(() => { window.__introSeen = false; new MutationObserver(() => { if (document.querySelector("[data-section='intro-splash']")) window.__introSeen = true; })
+        """(() => { window.__introSeen = false; window.__introPE = null;
+                   new MutationObserver(() => { const el = document.querySelector("[data-section='intro-splash']");
+                     if (el && !window.__introSeen) { window.__introSeen = true; window.__introPE = getComputedStyle(el).pointerEvents; } })
                    .observe(document, { childList: true, subtree: true }); })()"""
     )
     fresh_errors = []
     fresh.on("pageerror", lambda e: fresh_errors.append(str(e)))
     fresh.goto(f"{BASE}/index.html")
     fresh.wait_for_selector(".app-sidebar", timeout=60000)
+    fresh.wait_for_timeout(2500)
+    opened = fresh.evaluate("() => ({ seen: window.__introSeen, pe: window.__introPE })")
+    check("A signed-in page opened in a new tab (the opening of a session) plays the introduction", opened["seen"] is True, opened)
+    check("...catching nothing while it plays", opened["pe"] == "none", opened)
+    check("...and it goes by itself", fresh.locator(INTRO).count() == 0)
+    fresh.reload()
+    fresh.wait_for_selector(".app-sidebar", timeout=60000)
     fresh.wait_for_timeout(1800)
     check(
-        "A signed-in page opened in a new tab (a session of its own) never shows it either",
+        "Reloaded, the same tab does not play it again",
         fresh.evaluate("() => window.__introSeen") is False and fresh.locator(INTRO).count() == 0,
     )
     check("...with no JavaScript errors", not fresh_errors, fresh_errors[:3])

@@ -12,11 +12,13 @@ import { t } from "../../i18n";
 //     (pointer-events: none throughout); the sign-in form is in the page and in
 //     place from the first frame, so an address typed or a click made while it
 //     plays lands in the form;
-//   * play after signing in, or when a signed-in page is reloaded — it lives on
-//     the sign-in screen alone (AuthScreen), not in AuthLayout, which the
-//     choose-your-password step after sign-in also uses;
-//   * play twice in one browser session (sessionStorage), or on a sign-in screen
-//     reached long after the page opened (a sign-out, an expired session);
+//   * play anywhere but at the OPENING of the system: on the sign-in screen
+//     (AuthScreen), or — since a session lasts seven days, so most mornings start
+//     signed in — when the signed-in app first draws in a new browser session
+//     (SessionIntro, main.tsx). Never right after signing in, never when a page is
+//     reloaded, never on the choose-your-password step (AuthLayout);
+//   * play twice in one browser session (sessionStorage), or on a screen reached
+//     long after the page opened (a sign-out, an expired session);
 //   * play for somebody whose system asks for less motion;
 //   * use anything but CSS transforms and opacity (public/styles/brand.css): no
 //     WebGL, no library, nothing fetched but the logo and the display face.
@@ -104,6 +106,21 @@ function introName(): string {
   } catch {
     return "Digital Controlled Record System";
   }
+}
+
+/**
+ * THE OPENING OF A SIGNED-IN SESSION (REQUIREMENTS §81). A session lasts seven
+ * days (backend/auth.ts SESSION_TTL_MS), so on most mornings the system opens
+ * straight into the app, never showing the sign-in screen — and "the starting of
+ * this system" had no introduction. Mounted once above the app (main.tsx), it
+ * plays the same introduction when the signed-in app is the first thing a browser
+ * session draws; the same rules decide (introWanted): once a session, within the
+ * opening moments, never under reduced motion. Signing in within the session, or
+ * a reload, finds it already seen.
+ */
+export function SessionIntro() {
+  const [intro] = useState(introWanted);
+  return intro ? <IntroSplash /> : null;
 }
 
 /** The introduction. Mount it only where introWanted() said so; it removes itself. */

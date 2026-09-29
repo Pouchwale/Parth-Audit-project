@@ -4804,7 +4804,10 @@ a purpose line and "Go to the next one".
 screen, once a browser session, the company's mark and the project's name — a big extruded 3D "DCRS" wordmark with
 "Digital Controlled Record System" and the company's name — fly in and settle in CSS 3D (perspective, extrusion by
 layered shadows, a light sweep), then fade: 1.6 s, `pointer-events: none` throughout, so the form under it can be used
-at once; never after sign-in, never on a reload, never under reduced motion. The sign-in title stays a 3D wordmark.
+at once; never right after signing in, never on a reload, never under reduced motion. A session lasts seven days, so
+most mornings the system opens straight into the app without a sign-in screen: the same introduction then plays over
+the app when a signed-in browser session opens it (main.tsx `SessionIntro`), once a session. The sign-in title stays a
+3D wordmark.
 Fonts are self-hosted (OFL, public/fonts, 300 KB in all, about 60 KB for an English page; Gujarati files load only when
 Gujarati text appears): **Baloo Bhai 2** — a friendly display face made for Gujarati and English — for titles, the
 brand, card headers and Mitra; **Plus Jakarta Sans** for the screens' text, with **Noto Sans Gujarati** for Gujarati.

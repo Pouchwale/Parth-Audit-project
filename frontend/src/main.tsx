@@ -7,6 +7,8 @@ import { RouterProvider } from "./store/router";
 import { AuthScreen } from "./components/auth/AuthScreen";
 import { ChangePasswordDialog } from "./components/common/ChangePasswordDialog";
 import { AuthLayout } from "./components/auth/AuthLayout";
+// REQUIREMENTS §81: the 3D introduction when the system opens straight into the app (a 7-day session).
+import { SessionIntro } from "./components/auth/IntroSplash";
 import { App } from "./App";
 import { installPrintScoping } from "./utils/print";
 import { startServerSync, SyncError, type SyncErrorKind } from "./data/serverSync";
@@ -113,13 +115,17 @@ function Root() {
     );
   }
   return (
-    <DataGate key={user.id} userId={user.id}>
-      <AppStoreProvider>
-        <RouterProvider>
-          <App />
-        </RouterProvider>
-      </AppStoreProvider>
-    </DataGate>
+    <>
+      {/* Over the loading screen and the app, catching nothing; once a browser session (IntroSplash.tsx). */}
+      <SessionIntro />
+      <DataGate key={user.id} userId={user.id}>
+        <AppStoreProvider>
+          <RouterProvider>
+            <App />
+          </RouterProvider>
+        </AppStoreProvider>
+      </DataGate>
+    </>
   );
 }
 
