@@ -1,7 +1,7 @@
 import type { ServiceReportAreaLine } from "../types";
 
 // Fixed material/method-of-application defaults per Service Report variant
-// (see REQUIREMENTS.md §5 for provenance — the two real April-2026 service
+// (see docs/REQUIREMENTS.md §5 for provenance — the two real April-2026 service
 // report specimens and the SOP's chemical charts). The chemical used and how
 // it's applied don't change visit to visit; only quantity and remarks do —
 // so these are treated as fixed reference values pre-filled onto every line,

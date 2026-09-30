@@ -40,6 +40,7 @@ import { HrMasterDataPage } from "./pages/HrMasterDataPage";
 import { QcOverviewPage } from "./pages/QcPages";
 import { UsersPage } from "./pages/UsersPage";
 import { ActivityLogPage } from "./pages/ActivityLogPage";
+import { DatabaseOverviewPage } from "./pages/DatabaseOverviewPage";
 import { PerformancePage } from "./pages/PerformancePage";
 import { InsightsPage } from "./pages/InsightsPage";
 import { MitraReaction } from "./components/common/MitraReaction";
@@ -151,6 +152,9 @@ function RouteSwitch() {
     // Users & Access — the administrator makes the accounts (REQUIREMENTS §66).
     case "users":
       return <UsersPage />;
+    // The shared database's plain-English views, read-only — the super admin's (REQUIREMENTS §83).
+    case "database-overview":
+      return <DatabaseOverviewPage />;
     case "activity":
       // Everything anybody has done on the portal (REQUIREMENTS §62).
       return <ActivityLogPage />;

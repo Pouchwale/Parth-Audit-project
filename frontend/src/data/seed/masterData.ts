@@ -1,5 +1,5 @@
 // Master data seeded strictly from the uploaded source documents.
-// Provenance of every row is documented in REQUIREMENTS.md.
+// Provenance of every row is documented in docs/REQUIREMENTS.md.
 import type { MasterData } from "../../types";
 
 export const SEED_MASTER_DATA: MasterData = {
@@ -378,7 +378,7 @@ export const SEED_MASTER_DATA: MasterData = {
   // holidays and five "Adjustment Date … Thursday" entries. (The bottom copy
   // is the same calendar for a Sunday-off roster — it adds Thursday
   // 15-01-2026 Uttarayan, which is simply the weekly off here, and puts the
-  // adjustment days on Sundays.) Transcribed verbatim; see REQUIREMENTS.md §16.
+  // adjustment days on Sundays.) Transcribed verbatim; see docs/REQUIREMENTS.md §16.
   holidays: [
     { id: "hol-2026-01-14", date: "2026-01-14", name: "Uttarayan" },
     { id: "hol-2026-01-26", date: "2026-01-26", name: "Republic Day" },

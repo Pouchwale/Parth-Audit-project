@@ -1,5 +1,5 @@
 // Minimal dependency-free CSV export (no papaparse/xlsx-writer available
-// offline — see DEPLOYMENT.md).
+// offline — see docs/DEPLOYMENT.md).
 export function toCSV(headers: string[], rows: (string | number)[][]): string {
   const escape = (v: string | number) => {
     let s = String(v ?? "");

@@ -22,7 +22,7 @@ import { formatEditFor } from "../formatEdits";
 // photographed specimens in the uploaded "Audit documents.zip" (WhatsApp
 // images dated 2026-09-07). Column headings and instruction text are kept
 // verbatim; specimen rows are the actual handwritten values (best-effort
-// reads of handwriting are flagged in REQUIREMENTS.md).
+// reads of handwriting are flagged in docs/REQUIREMENTS.md).
 
 const HOURLY_SLOTS = [
   "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",

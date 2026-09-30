@@ -26,7 +26,7 @@ and the same action against it.
 Nothing here is invented out of thin air. Every rate and every wording is
 either measured from the company's own specimens in source-documents/ or
 taken verbatim from its own GAP Analysis Report. The provenance of each is
-written above it, and repeated in REQUIREMENTS.md.
+written above it, and repeated in docs/REQUIREMENTS.md.
 
 Only the Python standard library and numpy are used, with fixed seeds, so
 re-running this is a no-op unless the inputs below change.

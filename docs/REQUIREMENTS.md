@@ -4986,6 +4986,131 @@ links to F/MNT/02, M-07 carrying none, a date corrected on F/MNT/02 shown on the
 and unwritten, M6 and M8 in Insights, F/MNT/02's next-plan line, and the sample date put back. The document count in
 e2e_smoke and e2e_hr_module goes from 112 to 116.
 
+## §83 — DCRS and the Audit Assistant share one PostgreSQL database; the DCRS API for the assistant; the Database overview (29–30 Sep 2026)
+
+**The request.** Connect DCRS to the Audit Assistant (a separate chat and voice app, github.com/Pouchwale/Parth-Audit-chatbot)
+and make one PostgreSQL database hold the data of both, in a form a non-technical person can browse. People sign in to the
+assistant with their DCRS account; its server carries out a short list of allowed actions by calling the DCRS API as that
+person. The owner's rules, which nothing here breaks:
+1. DCRS stays the only writer of DCRS data. Its records are the source of truth.
+2. The assistant changes DCRS data only through the DCRS API, so validation, permissions and DCRS's own audit trail keep
+   working. It never reads or writes DCRS tables directly.
+3. Each application owns its own schema. Neither migrates the other's tables.
+4. Change nothing that already exists in DCRS. Everything added is new. Build and test on a copy first; touch nothing real
+   before the owner has seen the plan.
+5. Do not edit the Audit Assistant's code; what it must change goes in the hand-off document.
+And: the views never expose password hashes, tokens, connector credentials, chat text or file bytes.
+
+**Assumptions taken (the defaults offered with the questions on 29-Sep-2026, accepted with "yes you can work on this").**
+Everything was built and proven on a throwaway COPY of the development database (PostgreSQL 18.4); nothing was applied to
+the PostgreSQL service on :5432 or to the development database, apart from the test account the brief asks for. The findings
+are the internal CAPA findings (closeable) and the external customer complaints (readable). The report PDF is DCRS's own page
+printed by a headless Chrome or Edge. The viewer is a read-only page in DCRS's admin area. The factory's time zone is
+Asia/Kolkata. Backups: a daily dump kept 14 days, scheduled only on the owner's go-ahead.
+
+**1. The shared database** (`database/sql/`, applied in order by `npm run db:shared -- setup`, in one transaction that is
+rolled back whole on any error; docs/database/README.md).
+- DCRS's tables stay in `public`, exactly as they are: no table, column, index, trigger, owner or grant of DCRS's is changed
+  (a test compares a catalog snapshot of `public` before and after the set-up, on a fresh copy).
+- New schema `chatbot` for the assistant's own tables, owned by the new role `audit_assistant`; new schema `overview` for the
+  plain-English views.
+- `audit_assistant`: a plain login, nothing more; owns `chatbot`; granted nothing on `public` or `overview`; CONNECTION LIMIT
+  20, statement_timeout 30 s, idle_in_transaction_session_timeout 60 s, search_path `chatbot`. PUBLIC holds no privilege on
+  any DCRS table, so the role cannot read DCRS data — proved by a test that is refused every table in `public`.
+- CREATE on the database for `audit_assistant`: the assistant's migration tool runs `CREATE SCHEMA IF NOT EXISTS "chatbot"`
+  at every start, and PostgreSQL checks CREATE on the DATABASE before it sees that the schema exists — on the copy, without
+  the grant, the line failed with "permission denied for database", with it the schema was skipped. It is the least that works.
+- `overview_viewer`: a read-only login that can read the overview views and nothing else (every transaction read-only by
+  default, five connections, 60 s per statement).
+- `overview_owner`: no login; owns the views over the assistant's tables and may read only their harmless columns (column
+  privileges), so no such view can reach a connector credential, a token, chat text, file bytes, exported content or the
+  person's words — the database itself refuses. The views over DCRS data belong to the role that already owns DCRS's tables,
+  so nothing on those tables had to be granted.
+
+**2. The overview views** — one row per real-world thing, readable statuses, every moment in factory time and in UTC,
+a plain-English comment on every view and column; plain views, so a change in DCRS shows at once (a test changes a finding
+inside a transaction and sees it in `overview.findings` before rolling back):
+DCRS (`02-overview-dcrs.sql`) — `dcrs_accounts`, `records`, `findings`, `customer_complaints`,
+`pest_control_reports_by_day` (every day, "Not started" where no report was made), `dcrs_activity` (the activity log and its
+archive, with the category and the client a change came through), `dcrs_downloads` (downloads, prints and uploads).
+The assistant (`03-overview-chatbot.sql`, DRAFT until the owner hands over the assistant's updated migration files; built and
+tested against the tables the assistant made on the copy) — `people` (each DCRS account with its assistant sign-ins and
+devices, joined on `chatbot.users.external_id` = the DCRS account id — a logical link, never a foreign key),
+`assistant_sessions`, `assistant_sign_ins`, `assistant_activity` (who asked what, which DCRS action ran, what happened, and the
+DCRS record it was about — read from the action's input by the one function `overview.assistant_action_targets`),
+`file_handouts` (the breach trail: who opened, downloaded or shared which file, when, from which IP and device) and
+`downloads` (both systems together).
+
+**3. The DCRS API for the assistant** (`backend/apiV1.ts`, `backend/findingsCore.ts`, described in
+docs/api/dcrs-api.openapi.json and served at `/api/v1/openapi.json`; hand-off in docs/chatbot-integration.md). New routes
+only. The person signs in with DCRS's own, unchanged `POST /api/auth/login`; the session token (the `dcrs_session` cookie,
+7 days) is accepted by every `/api/v1` route as the cookie or as `Authorization: Bearer`; the account is read again on every
+call, so one switched off stops at once, and one still on the administrator's password is refused. Routes:
+`GET /api/v1/me`; `GET /api/v1/findings` (list and search: open/closed/all, words, dates, paging); `GET /api/v1/findings/{id}`;
+`POST /api/v1/findings/{id}/close` (CHANGE, with a note); `GET /api/v1/complaints`;
+`GET /api/v1/pest-control/daily-report?date=` (the PDF); `GET /api/v1/pest-control/daily-report/summary?date=` (the same as
+data). Department permissions are the server's own: QA for the findings, Marketing for complaints, Human Resources for the
+pest control report; the super admin and accounts with no departments see all.
+- **A finding's id.** DCRS's findings have no number of their own, so one readable id is made from the report's date and the
+  finding's S.No — `CAPA-2023-12-13-2`; a second report of the same date takes `b` (`CAPA-2023-12-13b-1`), a repeated S.No
+  takes `.2` — and a stable reference `<record id>:<finding id>` that never changes. The same rule is written once in
+  TypeScript and once in SQL, and a test holds the two equal over every finding of the copy.
+- **Closing is DCRS's own Close.** The finding becomes Closed with the factory's date of action; the report is saved the way
+  its page saves it (Due or Scheduled become In Progress), with the version it was read at, and read again and retried when
+  someone else saved in between; DCRS refuses what its page refuses (already closed; a verified report must be reopened for
+  correction; a report sent back must be resumed). A unit test runs DCRS's own save and history code and the API's close on
+  the same report and finds the same change and the same history lines.
+
+**4. The audit trails tied together.** The calling server names itself in the header `X-Client-Name` (the assistant:
+"Audit Assistant"). A change through the API is written in the record's history in the person's name with the note
+"Through Audit Assistant: <note>", and in DCRS's activity log as "Record edited" by the person with the same words — so the
+Performance scorecard counts it as that person's work. The PDF is logged as "Document downloaded as PDF", through the
+assistant. `overview.dcrs_activity.through_client` reads the name back; `overview.assistant_activity` joins each of the
+assistant's actions to the DCRS record it was about. No DCRS table gained a column: the name is in the words DCRS already
+keeps.
+
+**5. The report as a PDF** (`backend/pdfReport.ts`). DCRS's own F/HR/17 page for the date, printed exactly as its Print
+button prints it: a headless Google Chrome or Microsoft Edge on the DCRS server (no new package — driven over the browser's
+DevTools protocol), signed in as the person, with every write the page tries blocked twice over — by the browser, and by the
+page itself before the app's first line runs — so printing a report changes nothing in DCRS. It takes about 4 to 5 seconds;
+two print at a time at most, a minute at most. Checked against DCRS's own Print of four different days with Chrome and Edge:
+the same pages, the same text, no pixel different.
+
+**6. The Database overview** (DCRS → admin area, super admin only; `backend/overviewRoutes.ts`,
+`frontend/src/pages/DatabaseOverviewPage.tsx`). Reads the database only through `overview_viewer` (env
+`OVERVIEW_DATABASE_URL`), so it cannot write even by mistake. Ready-made questions first — "Who downloaded or printed what
+last week?" (this week too), "Which CAPA findings are open?", "Which pest control reports are missing this month?", "What
+changed in DCRS through the Audit Assistant?", and, once the assistant's views exist, what the assistant did and who signed
+in to it from which device — then "Browse everything": any view, dates, search, CSV. No SQL anywhere.
+
+**7. Backups** (`scripts/database/backup.ts`, `restore-test.ts`, `schedule-backup.ps1`; docs/DEPLOYMENT.md "Backups of the
+shared database"). A dump of the whole database — both applications' schemas — and a roles file (a dump carries no roles, and
+the shared database's grants need them), kept 14 days; a restore is the roles file first, then `pg_restore --create` (a plain
+`pg_restore` into a new database leaves out the database's own grants, and the assistant could not start on it), then the
+login passwords again; a restore test that restores into a throwaway database, checks every
+table's rows and the views, and drops it. Proved on the copy and on a second, empty cluster where the roles file had to bring
+the roles. The daily schedule is written and checked but NOT registered: it backs up the real database, which waits on the
+owner's go-ahead.
+
+**8. The hand-off** (docs/chatbot-integration.md): the base URL, sign-in and its errors mapped onto the connector's, every
+call with sample requests and answers, the actions to offer, PostgreSQL 18.4, the `DATABASE_URL` format for
+`audit_assistant` without the password, the privileges and limits, and what the assistant must change — `pgSchema('chatbot')`
+for its ten tables, `schemaFilter` and `migrations.schema` in drizzle.config.ts, `migrationsSchema: 'chatbot'`, regenerated
+migrations, and one edit: the generated first line `CREATE SCHEMA "chatbot";` must read `CREATE SCHEMA IF NOT EXISTS`, since
+drizzle's migrator makes the schema first (without it, the first start failed on the copy with `schema "chatbot" already
+exists`). With these changes a throwaway copy of the assistant's server started on the empty `chatbot` schema, made its ten
+tables and its migration ledger there, and restarted cleanly.
+
+**9. The repository's layout** (asked for on 30-Sep-2026: "make folder structure professionally"). README.md stays at the root;
+every other document moved into `docs/` (REQUIREMENTS, TESTING, DEPLOYMENT, DATA_MODEL, FUTURE_ROADMAP) with an index,
+docs/README.md; the shared database's SQL is in `database/sql/` and its tests in `database/tests/`; its scripts in
+`scripts/database/`; the API description in `docs/api/`. Every mention of a moved file was updated; nothing reads them at
+run time.
+
+**What waits on the owner.** Confirmation items 37 to 41.
+
+**Tests.** See docs/TESTING.md "The shared database and the Audit Assistant's API".
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -5123,6 +5248,24 @@ e2e_smoke and e2e_hr_module goes from 112 to 116.
     (Ink Kitchen, Conference room, Change room, Packing Area); its readings are otherwise the 12.08.2025 ones. Is it a
     real round, and is the area list now changed (a Rev 02)? Also: the supplied F/MNT/09 of 15.12.2024 and the built
     one of 01.09.2025 both print Rev 02 — was a revision number missed?
+37. **Which database is DCRS's real one, and the go-ahead to set it up** (§83). Everything was proven on a copy. To apply it:
+    `npm run db:shared -- setup` with a superuser's URL for that database (parts 1 and 2), the two login passwords given
+    then, and the daily backup registered with `scripts/database/schedule-backup.ps1`. Is it the PostgreSQL service on :5432
+    (which database?) or the development one on :5433?
+38. **The Audit Assistant's updated migration files** (§83 part 8): its tables in `chatbot` (pgSchema), the ledger in
+    `chatbot`, and `CREATE SCHEMA IF NOT EXISTS` on the first line. Part 3 (`database/sql/03-overview-chatbot.sql`, the views
+    over the assistant's tables) is written and tested against the tables the assistant made on the copy, and is applied only
+    once it is checked against the real files.
+39. **The CAPA page's stale copy** (§83). The internal CAPA report page keeps the report it loaded when it opened
+    (pages/GapPage.tsx), so an edit made on a page left open can put back a finding that was closed elsewhere in the meantime
+    — by the Audit Assistant, or by another person in another browser. The fix is small (build the list of findings from the
+    stored report, not the page's copy), but it changes DCRS's behaviour, which §83's rules leave to the owner. Fix it?
+40. **Comments on DCRS's own tables** (§83). `database/sql/optional/dcrs-table-comments.sql` describes every DCRS table and
+    column in plain English for the data dictionary. It is metadata only, but "change nothing that already exists in DCRS"
+    leaves it to the owner. Apply it?
+41. **DCRS's own database login** (§83). In development DCRS connects as the PostgreSQL superuser, so DCRS's own connection
+    could read the assistant's tables, though it never does. For production, DCRS should connect as a role of its own that
+    owns DCRS's tables and is not a superuser (docs/DEPLOYMENT.md already shows `postgres://dcrs:…`). Agreed?
 
 ## How the assistant pre-fills records (and what it never does)
 

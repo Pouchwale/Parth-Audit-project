@@ -174,6 +174,10 @@ stored item may be up to 25 MB (`STORAGE_MAX_BYTES` in `backend/index.ts`).
 
 ## Backup instructions
 
+> **Once DCRS shares its database with the Audit Assistant** (REQUIREMENTS §83), back up and restore with
+> [Backups of the shared database](#backups-of-the-shared-database) below instead: a plain `pg_restore` into a new database
+> leaves out the database's own grants and the roles, and the assistant could not start on the result.
+
 Back up the PostgreSQL database with PostgreSQL's own tools:
 
 ```bash
@@ -231,6 +235,12 @@ just shows a clear "isn't configured yet" message instead of failing silently.
 | `ESCALATION_EMAIL` | none (the active administrators) | `backend/escalation.ts` | Where escalations and the weekly digest are emailed, when `GMAIL_USER`/`GMAIL_APP_PASSWORD` are set: one address or several separated by commas. `.local` addresses are skipped — the seeded super admin's is one, so the app (bell, day's notification, Performance page) is the channel. |
 | `ACTIVITY_ARCHIVE_AFTER_YEARS` | `3` | `backend/activityArchive.ts` | How old (whole years, 1–10) a line of the Activity Log must be before the page OFFERS to archive it. Nothing is ever archived by itself: the super admin picks 1–10 years, sees how many lines and from when to when, and confirms (REQUIREMENTS §75). Three years is the plant's own: the Master List of Formats & Records (F/SYS/02) retains its records three years — 133 of its 141 formats are then shredded, the master lists maintained as updated (§76). |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | none (digest disabled) | `backend/email.ts` | The mailbox the daily reminder digest is sent from. Recipients are the employees Master Data assigns to each due record; the server accepts only single, well-formed addresses (at most 50 per digest), so the endpoint can't be used to relay mail. |
+| `OVERVIEW_DATABASE_URL` | none (the page says how to set it up) | `backend/overviewRoutes.ts` | The super admin's read-only **Database overview** (REQUIREMENTS §83): the address of the shared database signed in as the role `overview_viewer`, e.g. `postgres://overview_viewer:<password>@127.0.0.1:5433/dcrs`. The page can only read the `overview` views through it. See docs/database/README.md. |
+| `DCRS_APP_URL` | the request's own address | `backend/apiV1.ts` | The app's address as people reach it, for the links the DCRS API hands the Audit Assistant (e.g. `http://dcrs-host:4000`). |
+| `DCRS_PDF_BROWSER` | Chrome, then Edge, in their usual places | `backend/pdfReport.ts` | The browser that prints the daily pest control report as a PDF for the Audit Assistant (`GET /api/v1/pest-control/daily-report`). Set it only when Chrome or Edge is installed somewhere unusual. The app must be built (`npm run build`). |
+| `BACKUP_DATABASE_URL` | `DATABASE_URL`, else the built-in local database | `scripts/database/backup.ts` | The database `npm run db:backup` saves. When DCRS signs in with a role of its own that is not a superuser, point this at a separate backup role (see "Backups of the shared database"). |
+| `BACKUP_DIR` | `backend/data/backups` | `scripts/database/backup.ts` | Where the backups go; best on another disk or a network share. |
+| `PG_BIN` | on `PATH`, then `C:\Program Files\PostgreSQL\<newest>\bin` | `scripts/database/*.ts` | Where PostgreSQL's own tools (`pg_dump`, `pg_restore`, `pg_dumpall`) are. |
 
 In `backend/.env`, one `KEY=value` per line. A value may be wrapped in `"…"` or `'…'`, and an
 unquoted value ends at a ` # comment` — so the commented layout README.md shows works as written.
@@ -270,3 +280,126 @@ bumped from `ES2020` to `ES2022` to match `Array.prototype.at()` calls already p
 `ServiceReportRecordView.tsx` and `GapPage.tsx` (harmless at runtime under the old setting since
 `.at()` is a method call esbuild doesn't need to transpile, but `tsc` correctly flagged it as
 missing from the declared `lib`).
+
+## Backups of the shared database
+
+(REQUIREMENTS §83.) DCRS and the Audit Assistant keep their data in one PostgreSQL database: DCRS's
+tables in the schema `public`, the Audit Assistant's in `chatbot`, and the readable views in
+`overview` (see docs/database/README.md). One backup holds all three.
+
+**What a backup is.** `npm run db:backup` (`scripts/database/backup.ts`) writes two files. The two
+together are one backup:
+
+- `dcrs-<date>-<time>.dump`, for example `dcrs-2026-09-30-2030.dump`: the whole database, made with
+  `pg_dump --format=custom`. Every schema, table, row and view of both applications, who owns each,
+  and who may read what. It also holds the database's own grants, such as the Audit Assistant's right
+  to create its schema.
+- `roles-<date>-<time>.sql`: the server's roles (its sign-ins and groups) with their settings:
+  `audit_assistant`, `overview_viewer`, `overview_owner`, the one DCRS signs in with, and any others.
+  It is made with `pg_dumpall --roles-only --no-role-passwords`. A dump holds no roles, but its owners
+  and grants name them, so on a new server the roles must be made first. This file holds **no
+  passwords**.
+
+The dump holds everything, including the accounts' password hashes, people's chats with the Audit
+Assistant and the files it handed out. Keep backups as private as the database itself.
+
+**Which database.** The backup takes, in this order: `BACKUP_DATABASE_URL`; else `DATABASE_URL` (the
+database DCRS uses); else this computer's own local database (port 5433, found the way DCRS finds
+it). Each may be set in `backend/.env`. The role it signs in with must be able to read both
+applications' tables. A superuser can; the local database's `postgres` is one. DCRS's own role
+cannot, when DCRS signs in with a role of its own: it has no access to the Audit Assistant's tables,
+and the backup stops with "permission denied for schema chatbot". Then make a role for backups only,
+and set `BACKUP_DATABASE_URL` to it:
+
+```sql
+CREATE ROLE dcrs_backup LOGIN PASSWORD '<a new password>';
+GRANT pg_read_all_data TO dcrs_backup;   -- may read everything, may change nothing
+```
+
+Do not give `pg_read_all_data` to DCRS's own role: DCRS could then read the Audit Assistant's chats.
+
+**The tools.** PostgreSQL's own `pg_dump`, `pg_dumpall` and `pg_restore`, version 18 (never older than
+the server). The backup takes them from the folder `PG_BIN` names, else from `PATH`, else from
+`C:\Program Files\PostgreSQL\<version>\bin`, the newest version first. The database DCRS starts by
+itself does not include them: on a computer without them, install PostgreSQL 18's "Command Line
+Tools" (a part of the PostgreSQL installer for Windows). The password goes to the tools in
+`PGPASSWORD`, never on their command line, and is never printed.
+
+**Where, and for how long.** In `backend/data/backups`, or the folder `BACKUP_DIR` names. Every
+backup that works deletes its own files older than 14 days. It deletes only files named like the two
+above: nothing else in the folder, and nothing at all when the backup failed. Every run adds a line
+to `backup-log.txt` in the same folder: when, what, how big, and whether it worked. A backup on the
+same disk as the database is lost with that disk: set `BACKUP_DIR` to another disk or a network
+folder, or copy the folder somewhere else every week.
+
+**Every evening, by itself.** On Windows, `scripts/database/schedule-backup.ps1` registers a
+Scheduled Task that runs the backup every day at 20:30. Run it in the DCRS folder, as the Windows
+user the backup should run as:
+
+```powershell
+# see what it would register; registers nothing
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\database\schedule-backup.ps1 -WhatIf
+# register it (run it again to change it; add -At 21:00 for another time)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\database\schedule-backup.ps1
+```
+
+The task runs whether or not anyone is signed in to Windows, without storing a password and without
+opening a window. It runs on battery too, and if the computer was off at 20:30 it runs as soon as the
+computer is on again. It reads its settings from `backend/.env`. If Windows refuses to register it
+("access is denied"), run PowerShell as an administrator, or add `-OnlyWhenSignedIn`. Look at
+`backup-log.txt` now and then. To remove the task: `Unregister-ScheduledTask -TaskName "DCRS database
+backup"`.
+
+**Restoring**, on a new server or after the database was lost. Each step as a superuser (add
+`-h <server>` when the server is another computer):
+
+1. Stop DCRS and the Audit Assistant.
+2. The roles first: `psql -U postgres -d postgres -f roles-2026-09-30-2030.sql`. For a role the
+   server already has, psql says so ("role "postgres" already exists") and sets its options back to
+   what they were at the backup. That is expected.
+3. Then the database: `pg_restore -U postgres --create --dbname=postgres dcrs-2026-09-30-2030.dump`.
+   `--create` makes the database with its original name AND its own grants. Without `--create`, the
+   Audit Assistant loses its right to create its schema and does not start ("permission denied for
+   database"; tried on a copy on 30-Sep-2026). A database of that name must not exist yet. If the old
+   one is still there, rename it out of the way first (`ALTER DATABASE dcrs RENAME TO
+   dcrs_before_restore;`), and drop it once all is well.
+4. Set the passwords again. The roles file carries none, so the login roles it made cannot sign in
+   yet:
+   ```sql
+   ALTER ROLE audit_assistant PASSWORD '<its password>';
+   ALTER ROLE overview_viewer PASSWORD '<its password>';
+   ```
+   (or `\password audit_assistant` in psql). If DCRS signs in with a role of its own, or backups with
+   `dcrs_backup`, and the roles file made those, set their passwords too.
+5. Start DCRS, then the Audit Assistant.
+
+On the same server, with the roles still there, step 2 may be left out. The "Backup instructions"
+further up are for a database without the Audit Assistant; with its schema in the database, restore
+as described here.
+
+**Testing a restore.** `npm run db:restore-test` restores the newest backup (or
+`npm run db:restore-test -- <dump file>`), checks it, and removes it again. It needs:
+
+- `RESTORE_TEST_SERVER_URL`: a superuser's address on the server to restore into, for example
+  `postgres://postgres:<password>@127.0.0.1:5432/postgres`. It may be the live server. The test makes
+  a database of its own there, named `restore_test_<date>_<time>_<four characters>`, drops it at the
+  end, and never touches any other database.
+- `SOURCE_DATABASE_URL` (may be left out): the database the backup came from, to compare the number
+  of rows in every table. Run the test straight after a backup: later, people will have added rows,
+  and the numbers will differ.
+
+Before it restores, the test makes the roles the server lacks from the roles file beside the dump,
+and drops them again at the end. A role the server already has is left exactly as it is. The test
+gives its database the dump's own grants, as `--create` would. It then checks, and says OK or FAILED
+for each:
+
+- the restore ran without an error;
+- the schemas `public`, `chatbot` and `overview` are there;
+- every table is there, with as many rows as in the source;
+- every overview view answers when read as `overview_viewer`;
+- `audit_assistant` still cannot read any of DCRS's tables, nor the overview views;
+- `audit_assistant` can still create its schema, as the Audit Assistant does at every start.
+
+It ends with `RESULT: PASSED` or `RESULT: FAILED`. Run it once when the backups are set up, and again
+after any change to the database's setup. (On 30-Sep-2026 it passed on throwaway copies: restoring
+into the same server, and into a new server that had none of the three shared-database roles.)

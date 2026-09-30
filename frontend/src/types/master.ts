@@ -1,5 +1,5 @@
 // Master / reference data. All seeded strictly from the uploaded source
-// documents (see REQUIREMENTS.md for provenance of every row). The admin can
+// documents (see docs/REQUIREMENTS.md for provenance of every row). The admin can
 // add more rows later from the Master Data screen; nothing here is invented
 // historical data.
 

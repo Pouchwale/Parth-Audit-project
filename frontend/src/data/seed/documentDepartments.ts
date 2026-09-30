@@ -34,7 +34,7 @@ export const DEPARTMENT_CODE_LIST: readonly string[] = PLANT_DEPARTMENTS.map((d)
 // the reason is that number. The formats this system holds that are still
 // "TO BE CONFIRMED" on the master list are assigned to the department that
 // owns the process, with the reason stated — to be confirmed with the MR like
-// every other TBC in REQUIREMENTS.md.
+// every other TBC in docs/REQUIREMENTS.md.
 export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   // --- Human Resources: the pest control file (F-HR-15..19 on the master list)
   "daily-pest-monitoring": "HR", // F/HR/17 on the list

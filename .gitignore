@@ -13,3 +13,7 @@ Audit documents.zip
 
 # Claude Code project/session state, not part of the app.
 .claude/
+
+# Editor settings and Python caches: each person's own, never the project's.
+.vscode/
+__pycache__/

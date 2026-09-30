@@ -9,7 +9,7 @@ export type Frequency =
   | "Yearly"
   | "As Required";
 
-// Record lifecycle. See section 16 of REQUIREMENTS.md.
+// Record lifecycle. See section 16 of docs/REQUIREMENTS.md.
 export type RecordStatus =
   | "Scheduled"
   | "Due"

@@ -1,5 +1,5 @@
 // Minimal, dependency-free date helpers (no date-fns / dayjs available in
-// this offline build environment — see DEPLOYMENT.md). All dates are stored
+// this offline build environment — see docs/DEPLOYMENT.md). All dates are stored
 // and compared as "YYYY-MM-DD" strings in local time.
 
 export const MONTH_NAMES = [

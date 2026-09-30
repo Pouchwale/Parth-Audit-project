@@ -143,7 +143,7 @@ function buildFlyCatcherData(dueDate: string): FlyCatcherData {
 }
 
 // Realistic quantity range/unit per fixed material, matching the ranges
-// actually observed in the source specimens (REQUIREMENTS.md §5) rather than
+// actually observed in the source specimens (docs/REQUIREMENTS.md §5) rather than
 // one generic "ml" range for every material (glue boards are counted in
 // pieces, not millilitres).
 function randomQtyFor(materialName: string, rng: ReturnType<typeof makeRng>): string {

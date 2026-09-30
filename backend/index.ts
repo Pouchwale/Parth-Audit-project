@@ -2,7 +2,7 @@
 // cookies) and ALL of the app's data, kept in PostgreSQL (db.ts, REQUIREMENTS
 // §55): the records, documents, master data, HR Master Data and the rest are
 // loaded from here when a person signs in and written back as they work, over
-// /api/storage below. See DEPLOYMENT.md.
+// /api/storage below. See docs/DEPLOYMENT.md.
 import "./env.ts";
 import express, { type CookieOptions, type NextFunction, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
@@ -46,6 +46,8 @@ import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
 import { registerEscalationRoutes } from "./escalationRoutes.ts";
+import { registerApiV1 } from "./apiV1.ts";
+import { registerOverviewRoutes } from "./overviewRoutes.ts";
 import { startJobs } from "./jobs.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
@@ -1389,9 +1391,17 @@ app.delete("/api/storage/:key", requireAuth, async (req: Request, res: Response)
   res.status(204).end();
 });
 
+// THE AUDIT ASSISTANT'S API AND THE DATABASE OVERVIEW (REQUIREMENTS §83). New
+// routes only, each in a file of its own: /api/v1/* lets another server act as
+// the signed-in person through DCRS's own rules (backend/apiV1.ts), and
+// /api/overview/* is the super admin's read-only view of the shared database
+// (backend/overviewRoutes.ts). Nothing above them changes.
+registerApiV1(app, { requireAuth, logActivity });
+registerOverviewRoutes(app, { requireAuth, logActivity });
+
 // Single-process production deployment: serve the built frontend (dist/)
 // from the same server as the API, so there's one process and one origin to
-// run/expose for a pilot (see DEPLOYMENT.md). In dev, the frontend is served
+// run/expose for a pilot (see docs/DEPLOYMENT.md). In dev, the frontend is served
 // separately by frontend/scripts/dev-server.ts, which proxies /api/* here instead.
 if (existsSync(distDir)) {
   // The app's script and styles are compressed when it is built

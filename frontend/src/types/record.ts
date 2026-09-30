@@ -185,7 +185,7 @@ export interface ServiceReportData {
 // ---- 4. CAPA (Corrective and Preventive Action) ---------------------------
 // Internal type/field names kept as "Gap*" — this module was originally
 // digitized from a "GAP Analysis Report" source document (see
-// REQUIREMENTS.md) and is now presented to users as "CAPA"; renaming the
+// docs/REQUIREMENTS.md) and is now presented to users as "CAPA"; renaming the
 // internal identifiers has no user-facing benefit and touches validation
 // logic keyed on the old names, so only the display layer changed.
 export interface GapFinding {

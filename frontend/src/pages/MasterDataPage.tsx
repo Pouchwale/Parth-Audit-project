@@ -46,7 +46,7 @@ export function MasterDataPage() {
       <h1 className="text-2xl mb-1">{t("master.title")}</h1>
       <p className="text-muted mb-4">
         Administrator-managed reference data. Everything here was seeded from the uploaded source documents — see
-        REQUIREMENTS.md for provenance. Add rows as the company confirms additional locations, chemicals or staff.
+        docs/REQUIREMENTS.md for provenance. Add rows as the company confirms additional locations, chemicals or staff.
       </p>
 
       <div className="pill-tabs mb-4 wrap" style={{ flexWrap: "wrap" }}>

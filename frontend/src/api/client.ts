@@ -408,3 +408,98 @@ export const activityArchiveApi = {
   lines: (query: string) => api.get<{ lines: ArchivedActivityLine[] }>(`/activity/with-archive${query ? `?${query}` : ""}`),
   summary: (query: string) => api.get<{ people: ActivityTally[] }>(`/activity/with-archive/summary${query ? `?${query}` : ""}`),
 };
+
+// THE DATABASE OVERVIEW (REQUIREMENTS §83) — the super admin's alone: the
+// server answers 403 to anybody else (backend/overviewRoutes.ts). It reads the
+// plain-English views of the shared database, read-only, through a role that
+// can read nothing else. A 503 with the code "overview-not-set-up" means this
+// server has not been given the database's views yet.
+
+/** One column of an answer: its name in the database, its heading in plain words, and the view's own comment on it. */
+export interface OverviewColumn {
+  name: string;
+  label: string;
+  comment: string | null;
+}
+
+/** A view of the overview schema, as the catalog describes it. */
+export interface OverviewView {
+  name: string;
+  label: string;
+  comment: string | null;
+  /** The column its from/to dates filter on; null when it has none. */
+  dayColumn: string | null;
+  columns: OverviewColumn[];
+}
+
+export interface OverviewStatus {
+  setUp: true;
+  database: string | null;
+  role: string | null;
+  readOnly: boolean;
+  views: string[];
+}
+
+export interface OverviewQuestion {
+  key: string;
+  title: string;
+  description: string;
+  /** "week": asked of last week or this week; "month": this month so far; null: no dates. */
+  span: "week" | "month" | null;
+  view: string;
+}
+
+/** The days an answer covers, and the same in words ("Monday 21 September 2026 to Sunday 27 September 2026"). */
+export interface OverviewRange {
+  from: string;
+  to: string;
+  label: string;
+  week?: "this" | "last";
+}
+
+/** A page of rows: of a question's answer, or of a view. */
+export interface OverviewAnswer {
+  title: string;
+  description?: string;
+  view: string;
+  comment: string | null;
+  /** A question's days. */
+  range?: OverviewRange | null;
+  /** A view's filter, as the rows were read with it. */
+  filter?: { from: string | null; to: string | null; q: string | null };
+  columns: OverviewColumn[];
+  rows: (string | null)[][];
+  offset: number;
+  limit: number;
+  more: boolean;
+}
+
+/** A file the server hands over, with the name it gives it. */
+async function fetchFile(path: string): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(`/api${path}`, { credentials: "include" });
+  if (!res.ok) {
+    let body: { error?: unknown; code?: unknown } = {};
+    try {
+      body = (await res.json()) as typeof body;
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError(typeof body.error === "string" ? body.error : `Request failed (${res.status})`, res.status, typeof body.code === "string" ? body.code : undefined);
+  }
+  const named = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "");
+  return { blob: await res.blob(), filename: named ? named[1] : "overview.csv" };
+}
+
+export const overviewApi = {
+  /** Set up or not, and which views there are. The server logs "Database overview opened". */
+  status: () => api.get<OverviewStatus>("/overview/status"),
+  views: () => api.get<{ views: OverviewView[] }>("/overview/views"),
+  /** `query`: from, to (YYYY-MM-DD), q, limit (at most 500), offset. */
+  rows: (view: string, query: string) => api.get<OverviewAnswer>(`/overview/views/${encodeURIComponent(view)}${query ? `?${query}` : ""}`),
+  /** The same rows, up to 20,000, as a CSV file. The server logs "Database overview exported". */
+  rowsCsv: (view: string, query: string) => fetchFile(`/overview/views/${encodeURIComponent(view)}.csv${query ? `?${query}` : ""}`),
+  questions: () => api.get<{ questions: OverviewQuestion[] }>("/overview/questions"),
+  /** `query`: week (this or last), limit, offset. */
+  ask: (key: string, query: string) => api.get<OverviewAnswer>(`/overview/questions/${encodeURIComponent(key)}${query ? `?${query}` : ""}`),
+  askCsv: (key: string, query: string) => fetchFile(`/overview/questions/${encodeURIComponent(key)}.csv${query ? `?${query}` : ""}`),
+};

@@ -10,7 +10,7 @@ import { compareISO, todayISO } from "../utils/date";
 //                                        \-> Rejected -> (edit) -> Pending Verification
 // Any Submitted / Pending Verification / Verified / Rejected record can be
 // REOPENED FOR CORRECTION (with a reason) -> In Progress -> Submit -> verify
-// again. See DATA_MODEL.md for the full state diagram. A record can never
+// again. See docs/DATA_MODEL.md for the full state diagram. A record can never
 // reach "Verified" without passing validateForVerify (section 16
 // requirement), and every transition and every edit is appended to the
 // record's history (engine/recordHistory.ts) — nothing is overwritten

@@ -3,7 +3,7 @@
 // REST directly. The data itself lives in PostgreSQL (backend/db.ts,
 // REQUIREMENTS §55): what is read here is this browser's working copy, loaded
 // from the database at sign-in, and every write is sent on to the database by
-// data/serverSync.ts. See DATA_MODEL.md.
+// data/serverSync.ts. See docs/DATA_MODEL.md.
 import { NAMESPACE, noteLocalRemove, noteLocalWrite, onServerChange } from "./serverSync";
 export interface IStorageAdapter {
   getItem(key: string): string | null;

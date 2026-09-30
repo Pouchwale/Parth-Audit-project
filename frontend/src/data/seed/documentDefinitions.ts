@@ -96,7 +96,7 @@ export const MODULE_SECTIONS: readonly string[] = [
 ];
 
 // Every controlled document / form actually identified in the uploaded
-// source files. See REQUIREMENTS.md for full source-to-digital traceability.
+// source files. See docs/REQUIREMENTS.md for full source-to-digital traceability.
 export const SEED_DOCUMENTS: DocumentDefinition[] = [
   // ---------------------------------------------------------------------
   // Human Resources — the pest control file, organised the way the

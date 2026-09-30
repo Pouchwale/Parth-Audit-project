@@ -31,7 +31,7 @@ interface AppStoreValue {
   setLang: (l: Language) => void;
   // The name recorded against submit/verify/reject actions. Sourced from the
   // logged-in account (see AuthContext) — previously a free-text "Acting as"
-  // dropdown with no real identity behind it (see FUTURE_ROADMAP.md).
+  // dropdown with no real identity behind it (see docs/FUTURE_ROADMAP.md).
   currentUser: string;
   version: number;
   bump: () => void;

@@ -118,7 +118,7 @@ export function StorageFullBanner() {
             {written && (
               <li data-room="written">
                 <strong>{roomLabel(written.chars)}</strong> is the plant's own records — {written.records} of them.
-                {!hasClearable && " When these alone fill the browser, the administrator backs up and archives the older ones (DEPLOYMENT.md → Backup)."}
+                {!hasClearable && " When these alone fill the browser, the administrator backs up and archives the older ones (docs/DEPLOYMENT.md → Backup)."}
               </li>
             )}
           </ul>

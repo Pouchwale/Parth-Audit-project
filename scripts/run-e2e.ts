@@ -7,16 +7,19 @@
 // tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_qc_formats.py,
 // tests/e2e_purchase_module.py, tests/e2e_store_module.py, tests/e2e_assistant_and_logout.py,
 // tests/e2e_maintenance_module.py, tests/e2e_pm_link.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_storage_room.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
-// tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py):
+// tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py,
+// and last the two of the database DCRS shares with the Audit Assistant (REQUIREMENTS §83):
+// tests/e2e_audit_assistant_api.py and tests/e2e_database_overview.py):
 // a fresh PostgreSQL for the run, build,
 // single-process server (dist/ + auth API) on the port the tests expect,
-// wait for it to answer, run each suite in turn against the same server,
+// wait for it to answer, set up the shared database's overview on it (below),
+// run each suite in turn against the same server,
 // then always tear the server down again -- regardless of pass/fail -- so
 // `npm run test:e2e` doesn't leak a background process. (tests/visual_qa.py
 // and tests/e2e_assistant_chat.py are NOT run here -- they're slower/make
-// real network calls to Groq -- see TESTING.md for running those manually.)
+// real network calls to Groq -- see docs/TESTING.md for running those manually.)
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -45,7 +48,20 @@ const LOGIN_ONLY_SUITE = "tests/e2e_login_only.py";
 // REQUIREMENTS §75: escalation to the super admin and the weekly digest, worked
 // out on the server — with the plant's seeded accounts, so on the product server.
 const ESCALATION_SUITE = "tests/e2e_escalation.py";
-const PRODUCT_SUITES = [PRODUCT_SUITE, LOGIN_ONLY_SUITE, ESCALATION_SUITE];
+// REQUIREMENTS §83: the DCRS API another server (the Audit Assistant) calls as
+// the signed-in person, and the super admin's "Database overview" — both with
+// the plant's seeded super admin, so on the product server.
+const AUDIT_ASSISTANT_API_SUITE = "tests/e2e_audit_assistant_api.py";
+const DATABASE_OVERVIEW_SUITE = "tests/e2e_database_overview.py";
+const PRODUCT_SUITES = [PRODUCT_SUITE, LOGIN_ONLY_SUITE, ESCALATION_SUITE, AUDIT_ASSISTANT_API_SUITE, DATABASE_OVERVIEW_SUITE];
+// THE SHARED DATABASE'S OVERVIEW (REQUIREMENTS §83), set up on this run's
+// database exactly as a DBA sets it up on the plant's: its two new schemas and
+// roles (part 1) and the plain-English views over DCRS's data (part 2), applied
+// as the superuser once DCRS has made its own tables — nothing of DCRS's is
+// changed by them, which every suite of this run then proves again. Both servers
+// read the views as the role overview_viewer, whose password is set here.
+const SHARED_DATABASE_PARTS = ["01-schemas-and-roles.sql", "02-overview-dcrs.sql"];
+const OVERVIEW_VIEWER_PASSWORD = "e2e-viewer";
 /** The first password of the named accounts on the product server, which tests/e2e_login_only.py signs in with. */
 export const PRODUCT_SEED_PASSWORD = "SeedQA@2026";
 const nodeArgs = ["--no-warnings=ExperimentalWarning"];
@@ -176,6 +192,9 @@ async function main(): Promise<void> {
     );
   }
   const DATABASE_URL = `postgres://postgres:e2e@127.0.0.1:${pgPort}/dcrs_e2e`;
+  // Nothing connects with it until a suite opens the Database overview, by which
+  // time the role and its password are there (set up below, once :8842 has made DCRS's tables).
+  const OVERVIEW_DATABASE_URL = `postgres://overview_viewer:${OVERVIEW_VIEWER_PASSWORD}@127.0.0.1:${pgPort}/dcrs_e2e`;
 
   // product = the server a plant runs: no Demo Mode, no self-registration, and
   // the named accounts seeded so there is somebody to sign in as. Otherwise the
@@ -201,9 +220,11 @@ async function main(): Promise<void> {
         // suite would become a live, paid, flaky API call. Blanked here, the
         // server reports the assistant as not configured and the suites get
         // the app's own answers, labelled as such. The REAL API is exercised
-        // by tests/e2e_assistant_chat.py, which is run on its own (TESTING.md).
+        // by tests/e2e_assistant_chat.py, which is run on its own (docs/TESTING.md).
         GROQ_API_KEY: "",
         DATABASE_URL,
+        // The Database overview's own read-only connection (backend/overviewRoutes.ts), on this run's database.
+        OVERVIEW_DATABASE_URL,
         SQLITE_IMPORT: "0",
         SEED_ACCOUNTS: product ? "1" : "0",
         SEED_ACCOUNT_PASSWORD: PRODUCT_SEED_PASSWORD,
@@ -229,6 +250,15 @@ async function main(): Promise<void> {
     // a single suite ran. The wait ends the moment the server answers.
     const ready = await waitForServer(`http://localhost:${TEST_PORT}/api/auth/me`, 60000);
     if (!ready) throw new Error(`Server did not come up on :${TEST_PORT} in time.`);
+
+    // The server has made DCRS's tables by now (it answers only once its schema
+    // is in place), so the overview can be laid over them. Each part is safe to
+    // run again; the server needs no restart, as it connects for the overview
+    // only when a page asks.
+    await sql.connect();
+    console.log("Setting up the shared database's overview (database/sql)...");
+    for (const part of SHARED_DATABASE_PARTS) await sql.query(readFileSync(path.join(root, "database", "sql", part), "utf-8"));
+    await sql.query(`ALTER ROLE overview_viewer PASSWORD ${sql.escapeLiteral(OVERVIEW_VIEWER_PASSWORD)}`);
 
     const python = findPython();
     const suites = [
@@ -305,15 +335,19 @@ async function main(): Promise<void> {
   LOGIN_ONLY_SUITE,
   // REQUIREMENTS §75: lateness escalated to the super admin, and the weekly digest — the same second server.
   ESCALATION_SUITE,
-  // Last, because of its signups.
+  // Last of the suites on :8842, because of its signups.
   "tests/e2e_performance.py",
+  // REQUIREMENTS §83, the database DCRS shares with the Audit Assistant — the product server, the plant's seeded super admin:
+  // the API another server calls as the signed-in person ("Through Audit Assistant" in the record's history and the log),
+  AUDIT_ASSISTANT_API_SUITE,
+  // and the super admin's read-only Database overview of the shared database's views.
+  DATABASE_OVERVIEW_SUITE,
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));
     const unknown = only.filter((a) => !suites.includes(a));
     if (unknown.length) throw new Error(`Not suites of this run: ${unknown.join(", ")}`);
     exitCode = 0;
-    await sql.connect();
     for (const suite of only.length ? suites.filter((s) => only.includes(s)) : suites) {
       // Each suite starts from an empty store, as each used to start from a
       // fresh browser: the app seeds it again on the first sign-in. The

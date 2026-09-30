@@ -25,10 +25,10 @@ import { departmentName, departmentOfDocument } from "../data/seed/departments";
 //
 // WHAT THIS IS AND IS NOT. It decides what a person is shown and what they can
 // open. It is not a server-side authorisation boundary: every record still
-// lives in that browser's own localStorage (DATA_MODEL.md), so this keeps
+// lives in that browser's own localStorage (docs/DATA_MODEL.md), so this keeps
 // departments out of each other's paperwork in the plant's shared, logged-in
 // app — it cannot defend one browser's storage against its own owner. When the
-// records move to the server (FUTURE_ROADMAP.md) this same assignment is what
+// records move to the server (docs/FUTURE_ROADMAP.md) this same assignment is what
 // the API must enforce.
 //
 // This module deliberately imports NO repository: the repositories import it,

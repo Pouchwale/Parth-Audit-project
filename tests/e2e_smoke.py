@@ -1,7 +1,7 @@
 """
 End-to-end smoke test driven by Playwright (Python), against the production
 build served on http://localhost:8842. Exercises the core walkthroughs
-described in TESTING.md: signup/login gate, Dashboard load, Calendar -> Day
+described in docs/TESTING.md: signup/login gate, Dashboard load, Calendar -> Day
 -> Record -> Save/Submit/Verify, Fly Catcher, GAP, Training, Demo Mode
 generation, persistence across reload, and print.
 
@@ -26,7 +26,7 @@ BASE = "http://localhost:8842"
 FAILURES = []
 
 # The company's working calendar (Master Data → Holidays, seeded from the
-# Gujarat Print Pack Leave Calendar 2026 — see REQUIREMENTS.md §16): Thursday
+# Gujarat Print Pack Leave Calendar 2026 — see docs/REQUIREMENTS.md §16): Thursday
 # is the weekly off, except on adjustment days; plus the festival holidays.
 # Used to pick a WORKING day for the sections that open a day's records, so
 # the suite passes on a Thursday too.

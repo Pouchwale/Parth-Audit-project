@@ -7,9 +7,10 @@ chemical charts, GAP findings, training certificates, photographed lamination re
 digital record looks and behaves like the paper one it replaces. The uploaded sources are kept in
 `source-documents/`.
 
-See **REQUIREMENTS.md** for the full source-document inventory and traceability, **DATA_MODEL.md**
-for architecture, **TESTING.md** for what was tested, **DEPLOYMENT.md** for how to run/deploy it,
-and **FUTURE_ROADMAP.md** for how to extend this to the remaining ~141 controlled formats.
+See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for the full source-document inventory and traceability,
+[docs/DATA_MODEL.md](docs/DATA_MODEL.md) for architecture, [docs/TESTING.md](docs/TESTING.md) for what was tested,
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for how to run/deploy it, and [docs/FUTURE_ROADMAP.md](docs/FUTURE_ROADMAP.md)
+for how to extend this to the remaining ~141 controlled formats. [docs/README.md](docs/README.md) lists every document.
 
 ## The assistant: records are ready before you arrive
 
@@ -58,7 +59,7 @@ The app behaves like a personal assistant rather than a blank form:
   click ("Submit all" for the lot); each record page shows a "Your assistant has filled this in"
   banner with the exact notes. The briefing can be reopened from the top bar at any time.
 - Prepared records stay **In Progress** — nothing is recorded as a person's until they press Submit,
-  and verification is still a separate human step. See REQUIREMENTS.md "How the assistant pre-fills
+  and verification is still a separate human step. See docs/REQUIREMENTS.md "How the assistant pre-fills
   records" for the full rules.
 - **When the briefing shows itself** (working day 09:00–18:00 by default, Master Data → Working Hours
   & Briefing): the very first time a browser opens the app; once in the **first hour** of the day
@@ -212,6 +213,15 @@ The app behaves like a personal assistant rather than a blank form:
   being written to. F/MNT/02 shows the machine's next planned PM. **Sample PM dates for 2026** (made up, and marked so
   in each record's history) show the link working on the plant's real 2026 schedule, slips and all; the papers' own
   conflicts (M-07 printed twice, M-58's name) are said by the Insights, never mended.
+- **DCRS and the Audit Assistant share one database** (REQUIREMENTS §83). The Audit Assistant - the plant's chat and
+  voice app - signs people in with their DCRS accounts and acts **through a new DCRS API, as that person**: it lists and
+  searches the CAPA findings, closes one with a note (exactly what DCRS's own Close button does, written in the report's
+  history and the activity log as "Through Audit Assistant"), lists customer complaints, and hands over the day's pest
+  control report as a PDF of DCRS's own page. Both applications keep their data in DCRS's PostgreSQL, each in a schema of
+  its own; plain-English **overview views** show both, and the super admin reads them on the new **Database overview**
+  page - "Who downloaded or printed what last week?" and more, without SQL. Nothing of DCRS's own was changed, and it was
+  all proven on a copy first. See [docs/database/README.md](docs/database/README.md) and
+  [docs/chatbot-integration.md](docs/chatbot-integration.md).
 - **Mitra asks the model, and says when it could not** (REQUIREMENTS §72). A question goes to the Groq-backed
   assistant. Only four things are answered without it, each for a reason: an out-of-scope message, "are you a real
   person?", the opening greeting with its buttons, and a command that opens a screen. **When the model cannot be
@@ -763,12 +773,12 @@ row, no new component.
   documents, master data, HR Master Data, settings — are stored in PostgreSQL; the browser keeps a
   working copy that is loaded at sign-in, written back as people work, and refreshed from the database
   every few seconds, so everyone sees everyone else's work. With no `DATABASE_URL` the server starts a
-  PostgreSQL of its own. See DEPLOYMENT.md.
+  PostgreSQL of its own. See docs/DEPLOYMENT.md.
 - **Accounts**: real signup/login (`backend/`, a small Express service on PostgreSQL) gates the app —
   no more free-text "Acting as" dropdown. Passwords are bcrypt-hashed, sessions are a signed JWT
   in an httpOnly cookie, and every submit/verify/reject action now records the actual logged-in
   user. The first account created on a fresh install becomes `admin`; every later signup is
-  `staff`. See DEPLOYMENT.md for how this is deployed alongside the static frontend.
+  `staff`. See docs/DEPLOYMENT.md for how this is deployed alongside the static frontend.
 
 ## Quick start
 
@@ -790,7 +800,7 @@ npm start         # builds frontend/dist/ then serves it + the API from one Expr
 
 The data is in PostgreSQL: set `DATABASE_URL` in `backend/.env` to use your own server, or leave it
 unset and `npm start` / `npm run dev` start a local PostgreSQL of their own (data in
-`backend/data/postgres`). See DEPLOYMENT.md for LAN pilot instructions, backups and resets.
+`backend/data/postgres`). See docs/DEPLOYMENT.md for LAN pilot instructions, backups and resets.
 
 ## Configuration
 
@@ -816,11 +826,11 @@ Without `GROQ_API_KEY` set, every screen still works — only the assistant widg
 
 This prototype was built in a sandboxed environment with **no access to the npm/PyPI package
 registries or any CDN** (an infrastructure constraint of the build environment, discovered at
-the start of this build — see DEPLOYMENT.md for the full explanation). React, TypeScript and
+the start of this build — see docs/DEPLOYMENT.md for the full explanation). React, TypeScript and
 Playwright were available locally; Vite, Tailwind CLI and react-router-dom were not and could
 not be installed. The app is therefore built with **esbuild** (already present on disk) instead
 of Vite, and styled with a small hand-written CSS design system instead of Tailwind, with a
 minimal hand-rolled router instead of react-router-dom. None of this affects the architecture
 the master prompt asked for — component structure, the data layer, and the document-template
 approach are unchanged — and every substitution is a mechanical, later swap (documented in
-DEPLOYMENT.md) once this project is built somewhere with normal registry access.
+docs/DEPLOYMENT.md) once this project is built somewhere with normal registry access.

@@ -1,7 +1,7 @@
 import React from "react";
 
 // Dependency-free bar chart (no charting library available offline — see
-// DEPLOYMENT.md). Good enough for month-over-month trend reports.
+// docs/DEPLOYMENT.md). Good enough for month-over-month trend reports.
 export function MiniBarChart({ labels, values, color = "var(--color-primary)" }: { labels: string[]; values: number[]; color?: string }) {
   const max = Math.max(1, ...values);
   return (

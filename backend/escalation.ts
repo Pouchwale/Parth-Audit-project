@@ -67,7 +67,7 @@ import {
   type PlantCalendar,
 } from "../frontend/src/engine/latenessCore.ts";
 
-// THE TABLES (DEPLOYMENT.md). Run with the rest of the schema when the database
+// THE TABLES (docs/DEPLOYMENT.md). Run with the rest of the schema when the database
 // is opened (db.ts registerSchema).
 //   job_runs        one row per scheduled run a server has claimed: which job,
 //                   for which period (a day, or an ISO week), when and how it

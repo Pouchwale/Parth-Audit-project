@@ -393,6 +393,37 @@ Seven scripts live in `tests/`:
   built once per change, the start-up pin to Rev 00, the sample year — no Thursday, holiday or future date, nothing
   random — and Mitra refusing to edit a linked Actual); `formats.test.ts` allows F/MNT/05's two papers, and no other
   shared number. The sample PM dates are fixed in 2026, so these checks do not move with the clock.
+- **The shared database and the Audit Assistant's API** (REQUIREMENTS §83, added 29-30 Sep 2026). The browser suites
+  `tests/e2e_audit_assistant_api.py` and `tests/e2e_database_overview.py` run last, on the product server with the plant's
+  seeded super admin, and the runner first applies `database/sql/01` and `02` to its throwaway database, so EVERY suite of
+  the run also proves that DCRS behaves the same with the shared database set up. The API suite plays the assistant's
+  server: DCRS's own sign-in and the token as a Bearer header or the cookie (none or a forged one: 401); CAPA findings
+  listed, searched in any case, read by readable id and by stable ref; one closed with a note and `X-Client-Name: Audit
+  Assistant` - Closed with the factory's date, the record's history entry and the activity line "Record edited" in the
+  person's name saying "Through Audit Assistant: ...", an open DCRS page taking the change on its next pull; closing it
+  again 409, no note 400; a Quality Control account refused (403); the day's F/HR/17 as a real A4 PDF (and logged as
+  "Document downloaded as PDF") and as data; a day with no report 404, an impossible date 400; the OpenAPI description
+  without sign-in; an unknown route JSON 404. The overview suite: the page for the super admin only (no sidebar entry and
+  403 for staff), a download made in DCRS listed by "Who downloaded or printed what - this week", the findings browsed,
+  CSV downloads, no JavaScript errors.
+  Unit tests: `backend/tests/findingsCore.test.ts` (19: the readable ids with shared dates and repeated numbers, the
+  statuses, the refusals, the close change), `backend/tests/apiV1.test.ts` (27: every route with a stand-in store -
+  department refusals, the retried write when someone else saved in between, report verified or sent back, the PDF's
+  refusals, every documented path registered), `frontend/tests/findingsCloseEquivalence.test.ts` (4: DCRS's own saveDraft
+  and record history closing a finding the way the page does, against the API's close on the same report - the same
+  status, fields and history lines), `backend/tests/pdfReport.test.ts` (33: finding the browser, the queue of two, which
+  requests are held back, the page's own lock), `backend/tests/overviewRoutes.test.ts` (38: super admin only, nothing a
+  person sends reaching the SQL text, paging, CSV, the weeks, questions offered only when their views exist),
+  `backend/tests/databaseBackup.test.ts` (10: retention, passwords never shown, the roles file, the rename guard).
+  The database's own checks, `database/tests/sharedDatabase.test.ts` (37, run with `npm run db:shared -- test` against a
+  COPY): the assistant's role refused every DCRS table and sequence and every overview view, its limits in effect in a real
+  login, and the CREATE-on-the-database finding proved both ways; PUBLIC holding nothing on DCRS's tables; the viewer
+  reading every view and nothing else, read-only; `overview_owner` refused every secret column; no view depending on a
+  secret column, a whole secret row or any `app_storage` row but the company's records, documents and master; a catalog
+  snapshot of `public` identical before and after the set-up; a finding closed inside a transaction seen at once in
+  `overview.findings`; the SQL and TypeScript finding ids equal over every finding; the SQL department map equal to
+  documentDepartments.ts; every view under 5 s. Backups: `npm run db:backup` and `npm run db:restore-test` were run on the
+  copy and on a second, empty cluster where only the roles file could bring the roles.
 - Unit tests for Mitra as an agent: `frontend/tests/mitraTools.test.ts` (the tools against seeded records — a bad
   route refused, F/HR/17 found, today's record started, a patch applied through a fake open record with the "Asked of
   Mitra" note, records listed and searched, figures for a history question, ask_user ending the turn, the schema set

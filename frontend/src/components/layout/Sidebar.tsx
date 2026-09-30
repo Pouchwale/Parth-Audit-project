@@ -50,6 +50,7 @@ import {
   FiArrowLeftCircle,
   FiArrowRightCircle,
   FiCheckCircle,
+  FiServer,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { Link, useRouter } from "../../store/router";
@@ -491,6 +492,9 @@ const NAV_SYSTEM_WITH_DEMO: NavItem[] = [...NAV_SYSTEM, { to: "/demo", labelKey:
 // USERS & ACCESS is the administrator's (REQUIREMENTS §66): everybody else is
 // not shown it, and the server refuses them the accounts whatever they reach for.
 const USERS_ITEM: NavItem = { to: "/users", labelKey: "nav.users", icon: FiUsers };
+// THE DATABASE OVERVIEW is the super admin's too (REQUIREMENTS §83): the shared
+// database's plain-English views, read-only; the server refuses everybody else.
+const DATABASE_OVERVIEW_ITEM: NavItem = { to: "/database-overview", labelKey: "nav.databaseOverview", icon: FiServer };
 
 const SIDEBAR_STATE_KEY = "sidebar-open-modules";
 
@@ -542,7 +546,7 @@ export function Sidebar() {
   // administrator, whose own it is (§66).
   const systemItems = useMemo(() => {
     const items = demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM;
-    return user?.role === "admin" ? [...items, USERS_ITEM] : items;
+    return user?.role === "admin" ? [...items, USERS_ITEM, DATABASE_OVERVIEW_ITEM] : items;
   }, [user?.role]);
   const { visible, narrow, close } = useSidebar();
   const [openState, setOpenState] = useState<Record<string, boolean>>(loadOpenState);

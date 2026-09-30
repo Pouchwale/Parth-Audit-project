@@ -1,7 +1,7 @@
 // Production build script.
 // Bundles the React/TypeScript app with esbuild and copies static assets to dist/.
 // (No Vite/Tailwind toolchain is available in this build sandbox — esbuild is used
-// directly. See DEPLOYMENT.md for details. The output is static, but the app needs the
+// directly. See docs/DEPLOYMENT.md for details. The output is static, but the app needs the
 // backend's API for login and the assistant — `npm start` serves both from one process.)
 import * as esbuild from "esbuild";
 import { promises as fs } from "node:fs";

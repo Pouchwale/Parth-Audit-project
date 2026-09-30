@@ -1,0 +1,1486 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DCRS API for the Audit Assistant",
+    "version": "1.0.0",
+    "summary": "Read and change DCRS data as a signed-in person, through DCRS's own rules.",
+    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. See docs/chatbot-integration.md."
+  },
+  "servers": [
+    {
+      "url": "http://{host}:{port}",
+      "description": "The DCRS server on the factory network (API_PORT, 4000 unless set).",
+      "variables": {
+        "host": {
+          "default": "localhost",
+          "description": "The DCRS computer's name or address."
+        },
+        "port": {
+          "default": "4000"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "cookieAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sign-in",
+      "description": "DCRS's own sign-in, unchanged."
+    },
+    {
+      "name": "Read",
+      "description": "READ: changes nothing."
+    },
+    {
+      "name": "Change",
+      "description": "CHANGE: changes DCRS data, as the person, with a line in the record's history and in the activity log."
+    }
+  ],
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Sign-in"
+        ],
+        "operationId": "login",
+        "summary": "Sign in as a person (DCRS's own sign-in, unchanged)",
+        "description": "The session token is the value of the `dcrs_session` cookie in the `Set-Cookie` header of the answer. It lasts 7 days. Send it back as `Authorization: Bearer <token>` (or as the cookie). Eight wrong passwords for one email in 10 minutes are refused with 429 for the rest of those 10 minutes.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "person@gpp.local",
+                "password": "their password"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "dcrs_session=<token>; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                },
+                "example": {
+                  "user": {
+                    "id": "3f1c2d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f",
+                    "name": "Kajal Shah",
+                    "email": "kajal.shah@gpp.local",
+                    "role": "staff",
+                    "departments": [
+                      "QA"
+                    ]
+                  },
+                  "features": {
+                    "demoMode": false,
+                    "signup": false,
+                    "assistant": true
+                  },
+                  "mustChangePassword": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Email or password missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Email and password are required."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong email or password.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Invalid email or password."
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The account is switched off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "This account has been switched off. Ask the administrator."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many wrong passwords for this email in 10 minutes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too many failed attempts. Try again in a few minutes."
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "sign-in"
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Sign-in"
+        ],
+        "operationId": "logout",
+        "summary": "Sign out (DCRS's own, unchanged)",
+        "description": "Writes \"Signed out\" in DCRS's activity log when the session is valid. The token itself stays valid until it expires; the assistant should simply forget it.",
+        "responses": {
+          "204": {
+            "description": "Signed out."
+          }
+        },
+        "x-dcrs-kind": "sign-in"
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "tags": [
+          "Read"
+        ],
+        "operationId": "openApi",
+        "summary": "This description",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI 3.1 document.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "read"
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "Read"
+        ],
+        "operationId": "me",
+        "summary": "READ — who is signed in",
+        "description": "The person's stable id (keep it as users.external_id in the assistant), name, email, role and departments.",
+        "responses": {
+          "200": {
+            "description": "The signed-in person.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                },
+                "example": {
+                  "id": "3f1c2d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f",
+                  "name": "Kajal Shah",
+                  "email": "kajal.shah@gpp.local",
+                  "role": "staff",
+                  "departments": [
+                    "QA"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        },
+        "x-dcrs-kind": "read"
+      }
+    },
+    "/api/v1/findings": {
+      "get": {
+        "tags": [
+          "Read"
+        ],
+        "operationId": "listFindings",
+        "summary": "READ — list and search the internal CAPA findings",
+        "description": "Newest reports first. Quality Assurance's: an account kept to other departments is refused (403). Only live records.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "Reports dated on or after this day.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Reports dated on or before this day.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "At most this many (1 to 200; more is read as 200).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matching findings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingList"
+                },
+                "example": {
+                  "findings": [
+                    {
+                      "id": "CAPA-2023-12-13-2",
+                      "ref": "gap-2023-12-13:finding-mu5el1mw-2-wjv91h",
+                      "recordId": "gap-2023-12-13",
+                      "number": 2,
+                      "reportDate": "2023-12-13",
+                      "inspectionDate": "2023-12-13",
+                      "finding": "Rodent box numbering was missing at few locations inside the plant but Rodent box was already placed",
+                      "comments": "Pest may enter if location misplaced",
+                      "correctiveActionByContractor": "NA",
+                      "correctiveActionByPlant": "Numbering to be done on walls for RBS number as per Pest control Layout",
+                      "targetDate": "2023-12-31",
+                      "actionDate": null,
+                      "verifiedByServiceProvider": "",
+                      "status": "Overdue",
+                      "source": "External",
+                      "reportStatus": "Submitted",
+                      "department": "Quality Assurance",
+                      "link": "http://dcrs-host:4000/index.html#/gap/gap-2023-12-13"
+                    }
+                  ],
+                  "total": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          }
+        },
+        "x-dcrs-kind": "read"
+      }
+    },
+    "/api/v1/findings/{id}": {
+      "get": {
+        "tags": [
+          "Read"
+        ],
+        "operationId": "getFinding",
+        "summary": "READ — one finding",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FindingId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The finding.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finding"
+                },
+                "example": {
+                  "id": "CAPA-2023-12-13-2",
+                  "ref": "gap-2023-12-13:finding-mu5el1mw-2-wjv91h",
+                  "recordId": "gap-2023-12-13",
+                  "number": 2,
+                  "reportDate": "2023-12-13",
+                  "inspectionDate": "2023-12-13",
+                  "finding": "Rodent box numbering was missing at few locations inside the plant but Rodent box was already placed",
+                  "comments": "Pest may enter if location misplaced",
+                  "correctiveActionByContractor": "NA",
+                  "correctiveActionByPlant": "Numbering to be done on walls for RBS number as per Pest control Layout",
+                  "targetDate": "2023-12-31",
+                  "actionDate": null,
+                  "verifiedByServiceProvider": "",
+                  "status": "Overdue",
+                  "source": "External",
+                  "reportStatus": "Submitted",
+                  "department": "Quality Assurance",
+                  "link": "http://dcrs-host:4000/index.html#/gap/gap-2023-12-13"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No live finding has that id or ref.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-found": {
+                    "value": {
+                      "error": "There is no CAPA finding \"CAPA-2023-12-13-9\".",
+                      "code": "not-found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          }
+        },
+        "x-dcrs-kind": "read"
+      }
+    },
+    "/api/v1/findings/{id}/close": {
+      "post": {
+        "tags": [
+          "Change"
+        ],
+        "operationId": "closeFinding",
+        "summary": "CHANGE — close a finding with a note",
+        "description": "Exactly what DCRS's own Close button does: the finding becomes Closed with today's date (the factory's) as its date of action, and the report is saved as the page saves it (a report still Due becomes In Progress; any other keeps its status). The report's history gets an entry in the person's name with the note \"Through <X-Client-Name>: <note>\", and DCRS's activity log gets a \"Record edited\" line saying the same. Refused when the finding is already closed, when its report is verified (reopen it in DCRS with Edit first) or sent back (Resume it in DCRS first).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FindingId"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseRequest"
+              },
+              "example": {
+                "note": "Rodent box numbers painted on the walls as per the layout."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseResponse"
+                },
+                "example": {
+                  "finding": {
+                    "id": "CAPA-2023-12-13-2",
+                    "ref": "gap-2023-12-13:finding-mu5el1mw-2-wjv91h",
+                    "recordId": "gap-2023-12-13",
+                    "number": 2,
+                    "reportDate": "2023-12-13",
+                    "inspectionDate": "2023-12-13",
+                    "finding": "Rodent box numbering was missing at few locations inside the plant but Rodent box was already placed",
+                    "comments": "Pest may enter if location misplaced",
+                    "correctiveActionByContractor": "NA",
+                    "correctiveActionByPlant": "Numbering to be done on walls for RBS number as per Pest control Layout",
+                    "targetDate": "2023-12-31",
+                    "actionDate": "2026-09-29",
+                    "verifiedByServiceProvider": "",
+                    "status": "Closed",
+                    "source": "External",
+                    "reportStatus": "Submitted",
+                    "department": "Quality Assurance",
+                    "link": "http://dcrs-host:4000/index.html#/gap/gap-2023-12-13"
+                  },
+                  "record": {
+                    "id": "gap-2023-12-13",
+                    "status": "Submitted"
+                  },
+                  "history": {
+                    "at": "2026-09-29T12:17:07.380Z",
+                    "by": "Kajal Shah",
+                    "note": "Through Audit Assistant: Rodent box numbers painted on the walls as per the layout."
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The note is missing, empty or longer than 1000 characters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-note": {
+                    "value": {
+                      "error": "A note of 1 to 1000 characters is required: say how the finding was resolved.",
+                      "code": "bad-note"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No live finding has that id or ref.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-found": {
+                    "value": {
+                      "error": "There is no CAPA finding \"CAPA-2023-12-13-9\".",
+                      "code": "not-found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Refused by DCRS's own rules, or the records kept changing (try again).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "already-closed": {
+                    "value": {
+                      "error": "Finding CAPA-2023-12-13-2 is already closed.",
+                      "code": "already-closed"
+                    }
+                  },
+                  "report-verified": {
+                    "value": {
+                      "error": "The report of finding CAPA-2023-12-13-2 is verified. In DCRS, open it and use \"Edit\" to reopen it for correction first.",
+                      "code": "report-verified"
+                    }
+                  },
+                  "report-sent-back": {
+                    "value": {
+                      "error": "The report of finding CAPA-2023-12-13-2 was sent back. In DCRS, open it and use \"Resume\" first.",
+                      "code": "report-sent-back"
+                    }
+                  },
+                  "busy": {
+                    "value": {
+                      "error": "The records kept changing while this was being saved. Try again in a moment.",
+                      "code": "busy"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          }
+        },
+        "x-dcrs-kind": "change"
+      }
+    },
+    "/api/v1/complaints": {
+      "get": {
+        "tags": [
+          "Read"
+        ],
+        "operationId": "listComplaints",
+        "summary": "READ — list and search the customer complaints (CAPA — External)",
+        "description": "Newest first. Marketing's: an account kept to other departments is refused (403). status open = Open and Awaiting approval; closed = Closed (approved).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Search"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matching complaints.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintList"
+                },
+                "example": {
+                  "complaints": [
+                    {
+                      "recordId": "rec-mu9x1k2p-4-ab12cd",
+                      "complaintNumber": "26-27/001",
+                      "customerName": "Shree Foods",
+                      "jobName": "Masala pouch 200 g",
+                      "jobCode": "SF-200",
+                      "receivedDate": "2026-09-20",
+                      "activitiesAnswered": 12,
+                      "activitiesTotal": 31,
+                      "status": "Open",
+                      "recordStatus": "In Progress",
+                      "approvedBy": null,
+                      "approvedDate": null,
+                      "link": "http://dcrs-host:4000/index.html#/gap/complaint/rec-mu9x1k2p-4-ab12cd"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          }
+        },
+        "x-dcrs-kind": "read"
+      }
+    },
+    "/api/v1/pest-control/daily-report": {
+      "get": {
+        "tags": [
+          "Read"
+        ],
+        "operationId": "getDailyPestControlReportPdf",
+        "summary": "READ — the daily pest control report (F/HR/17) of a date, as a PDF",
+        "description": "DCRS's own F/HR/17 page for that date, printed exactly as its Print button prints it (A4), as the signed-in person. Human Resources': an account kept to other departments is refused (403). Takes a few seconds. DCRS's activity log gets a \"Document downloaded as PDF\" line: \"Through <X-Client-Name>: <date>\".",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReportDate"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The PDF.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "attachment; filename=\"F-HR-17 Daily Pest Control Monitoring Record 2026-09-28.pdf\""
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/pdf"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadDate"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoReport"
+          },
+          "503": {
+            "description": "This DCRS server cannot print: no Chrome or Edge, or the app is not built.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "pdf-unavailable": {
+                    "value": {
+                      "error": "This DCRS server cannot print a PDF: it needs Google Chrome or Microsoft Edge installed, and the app built (npm run build).",
+                      "code": "pdf-unavailable"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Printing took too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "pdf-timeout": {
+                    "value": {
+                      "error": "Printing the report took too long. Try again in a moment.",
+                      "code": "pdf-timeout"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          }
+        },
+        "x-dcrs-kind": "read"
+      }
+    },
+    "/api/v1/pest-control/daily-report/summary": {
+      "get": {
+        "tags": [
+          "Read"
+        ],
+        "operationId": "getDailyPestControlReportSummary",
+        "summary": "READ — the daily pest control report (F/HR/17) of a date, as data",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReportDate"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PestSummary"
+                },
+                "example": {
+                  "date": "2026-09-28",
+                  "recordId": "rec-mtnvtbes-y-vb9085",
+                  "status": "Pending Verification",
+                  "holiday": false,
+                  "checkedBy": "Roshni",
+                  "timeOfChecking": "09:38",
+                  "checkpoints": [
+                    {
+                      "number": 1,
+                      "question": "Pest proofing of external door (self-closer / PVC Strip curtain) working properly",
+                      "answer": "Yes",
+                      "note": null
+                    },
+                    {
+                      "number": 4,
+                      "question": "Total number of rodent traps provided",
+                      "answer": 100,
+                      "note": null
+                    },
+                    {
+                      "number": 8,
+                      "question": "Any dead rodent observed? If yes, mention the location",
+                      "answer": "No",
+                      "note": null
+                    }
+                  ],
+                  "rodentsCaught": 0,
+                  "observations": [
+                    {
+                      "date": "2026-09-28",
+                      "description": "Gap under the store door",
+                      "actionTaken": "Door sweep fitted",
+                      "remarks": ""
+                    }
+                  ],
+                  "submittedBy": "Roshni",
+                  "verifiedBy": null,
+                  "link": "http://dcrs-host:4000/index.html#/record/rec-mtnvtbes-y-vb9085"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadDate"
+          },
+          "404": {
+            "$ref": "#/components/responses/NoReport"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          }
+        },
+        "x-dcrs-kind": "read"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "The dcrs_session cookie's value from POST /api/auth/login. Valid for 7 days."
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "dcrs_session"
+      }
+    },
+    "parameters": {
+      "ClientName": {
+        "name": "X-Client-Name",
+        "in": "header",
+        "required": false,
+        "description": "The calling server's name, written in DCRS's record history and activity log (\"Through Audit Assistant: ...\"). Printable characters, at most 40; a colon is dropped. Absent: \"DCRS API\".",
+        "schema": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "example": "Audit Assistant"
+      },
+      "FindingId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The readable id (CAPA-2023-12-13-1, any case) or the stable ref (<record id>:<finding id>).",
+        "schema": {
+          "type": "string"
+        },
+        "example": "CAPA-2023-12-13-2"
+      },
+      "ReportDate": {
+        "name": "date",
+        "in": "query",
+        "required": true,
+        "description": "The report's date, YYYY-MM-DD.",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "example": "2026-09-28"
+      },
+      "Status": {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "open",
+            "closed",
+            "all"
+          ],
+          "default": "open"
+        }
+      },
+      "Search": {
+        "name": "q",
+        "in": "query",
+        "required": false,
+        "description": "Text to look for (any case), at most 200 characters.",
+        "schema": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "responses": {
+      "NotSignedIn": {
+        "description": "No session, a session that has ended (7 days), or an account switched off. Sign in again.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "not-signed-in": {
+                "value": {
+                  "error": "Not signed in, or the session has ended. Sign in again with POST /api/auth/login.",
+                  "code": "not-signed-in"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PasswordChangeRequired": {
+        "description": "The account is still on the password the administrator gave it. The person must sign in to DCRS in a browser and choose their own.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "password-change-required": {
+                "value": {
+                  "error": "This account is still on the password the administrator gave it. Sign in to DCRS in a browser and choose your own first.",
+                  "code": "password-change-required"
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotYourDepartment": {
+        "description": "The person's departments do not include the one that owns these records.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "not-your-department": {
+                "value": {
+                  "error": "The CAPA findings belong to Quality Assurance, and this account is not kept to it.",
+                  "code": "not-your-department"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "A query value is not one this route accepts.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "bad-request": {
+                "value": {
+                  "error": "status must be \"open\", \"closed\" or \"all\".",
+                  "code": "bad-request"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BadDate": {
+        "description": "The date is missing or not a real date written YYYY-MM-DD.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "bad-date": {
+                "value": {
+                  "error": "date must be a date written YYYY-MM-DD.",
+                  "code": "bad-date"
+                }
+              }
+            }
+          }
+        }
+      },
+      "NoReport": {
+        "description": "DCRS holds no live F/HR/17 record for that date.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "no-report": {
+                "value": {
+                  "error": "There is no daily pest control report (F/HR/17) in DCRS for 2026-09-28.",
+                  "code": "no-report"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "description": "Every refusal. `error` is a sentence to show a person; `code` is for the program.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicUser": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role",
+          "departments"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The account's stable id. Never changes; keep it as the person's id in the other system."
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "staff"
+            ],
+            "description": "admin is the super admin (every department)."
+          },
+          "departments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Department codes (QA, HR, MKT ...). An empty list means every department."
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": [
+          "user",
+          "mustChangePassword"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/PublicUser"
+          },
+          "features": {
+            "type": "object",
+            "description": "What this DCRS server has switched on."
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "description": "True: the person must choose their own password in DCRS before the API will serve them (403 password-change-required)."
+          }
+        }
+      },
+      "Me": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PublicUser"
+          }
+        ],
+        "description": "The signed-in person."
+      },
+      "FindingStatus": {
+        "type": "string",
+        "enum": [
+          "Open",
+          "Overdue",
+          "Closed",
+          "Verified"
+        ],
+        "description": "Closed or Verified as stored; otherwise Overdue when the target date is before the factory's today and no date of action is filled in; otherwise Open."
+      },
+      "Finding": {
+        "type": "object",
+        "description": "One internal CAPA finding (a line of a Pest Control Inspection Findings Report, owned by Quality Assurance).",
+        "required": [
+          "id",
+          "ref",
+          "recordId",
+          "number",
+          "status",
+          "reportStatus",
+          "link"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Readable id: CAPA-<report date, with b, c ... for a second or third report that day>-<number>, and .2, .3 for a repeated number. Accepted in any case.",
+            "examples": [
+              "CAPA-2023-12-13-1",
+              "CAPA-2023-12-13b-2",
+              "CAPA-2023-12-13-3.2"
+            ]
+          },
+          "ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stable reference <record id>:<finding id>. Never changes; accepted wherever an id is."
+          },
+          "recordId": {
+            "type": "string",
+            "description": "The report (record) in DCRS."
+          },
+          "number": {
+            "type": "integer",
+            "description": "The finding's S.No, or its place in the report when it has none."
+          },
+          "reportDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "inspectionDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "finding": {
+            "type": "string",
+            "description": "What was found."
+          },
+          "comments": {
+            "type": "string"
+          },
+          "correctiveActionByContractor": {
+            "type": "string"
+          },
+          "correctiveActionByPlant": {
+            "type": "string"
+          },
+          "targetDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "actionDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "The date the action was taken (set by a close)."
+          },
+          "verifiedByServiceProvider": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FindingStatus"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Internal or External."
+          },
+          "reportStatus": {
+            "type": "string",
+            "description": "The report's own status in DCRS (Due, In Progress, Pending Verification, Verified, Rejected ...)."
+          },
+          "department": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "link": {
+            "type": "string",
+            "format": "uri",
+            "description": "Opens the report in DCRS."
+          }
+        }
+      },
+      "FindingList": {
+        "type": "object",
+        "required": [
+          "findings",
+          "total"
+        ],
+        "properties": {
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "How many match, before limit and offset."
+          }
+        }
+      },
+      "CloseRequest": {
+        "type": "object",
+        "required": [
+          "note"
+        ],
+        "properties": {
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "How the finding was resolved. Kept in the report's history."
+          }
+        }
+      },
+      "CloseResponse": {
+        "type": "object",
+        "required": [
+          "finding",
+          "record",
+          "history"
+        ],
+        "properties": {
+          "finding": {
+            "$ref": "#/components/schemas/Finding"
+          },
+          "record": {
+            "type": "object",
+            "required": [
+              "id",
+              "status"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          },
+          "history": {
+            "type": "object",
+            "required": [
+              "at",
+              "by",
+              "note"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "by": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Complaint": {
+        "type": "object",
+        "description": "One customer complaint (CAPA — External: Customer Complaint Handling Checklist, F/MKT/05, owned by Marketing).",
+        "required": [
+          "recordId",
+          "status",
+          "recordStatus",
+          "activitiesAnswered",
+          "activitiesTotal",
+          "link"
+        ],
+        "properties": {
+          "recordId": {
+            "type": "string"
+          },
+          "complaintNumber": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "jobName": {
+            "type": "string"
+          },
+          "jobCode": {
+            "type": "string"
+          },
+          "receivedDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "activitiesAnswered": {
+            "type": "integer"
+          },
+          "activitiesTotal": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Open",
+              "Awaiting approval",
+              "Closed"
+            ]
+          },
+          "recordStatus": {
+            "type": "string"
+          },
+          "approvedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approvedDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "link": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "ComplaintList": {
+        "type": "object",
+        "required": [
+          "complaints"
+        ],
+        "properties": {
+          "complaints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Complaint"
+            }
+          }
+        }
+      },
+      "Checkpoint": {
+        "type": "object",
+        "required": [
+          "number",
+          "question"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer"
+          },
+          "question": {
+            "type": "string"
+          },
+          "answer": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ],
+            "description": "Yes, No, a number (check point 4), or null when not answered."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Observation": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "description": {
+            "type": "string"
+          },
+          "actionTaken": {
+            "type": "string"
+          },
+          "remarks": {
+            "type": "string"
+          }
+        }
+      },
+      "PestSummary": {
+        "type": "object",
+        "description": "The Daily Pest Control Monitoring Record (F/HR/17) of one date, as data.",
+        "required": [
+          "date",
+          "recordId",
+          "status",
+          "holiday",
+          "checkpoints",
+          "rodentsCaught",
+          "observations",
+          "link"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "recordId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "The record's status in DCRS. Due or Scheduled means nobody has filled it in yet."
+          },
+          "holiday": {
+            "type": "boolean"
+          },
+          "checkedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeOfChecking": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "checkpoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Checkpoint"
+            }
+          },
+          "rodentsCaught": {
+            "type": "number"
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Observation"
+            }
+          },
+          "submittedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verifiedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "link": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    }
+  }
+}

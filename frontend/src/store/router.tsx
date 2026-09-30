@@ -3,7 +3,7 @@ import { HR_MASTER_SLUG, HR_PAGE_SLUGS } from "../data/seed/hrModule";
 import { demoModeAvailable } from "../engine/features";
 
 // Minimal dependency-free hash router (react-router-dom is not available in
-// this offline build — see DEPLOYMENT.md). Hash-based routing also means the
+// this offline build — see docs/DEPLOYMENT.md). Hash-based routing also means the
 // built app works from a plain `file://` or any static file server with zero
 // server-side rewrite configuration, which matters for an "internal LAN
 // pilot" deployment (section 44).
@@ -226,6 +226,8 @@ const SIMPLE_ROUTES = new Set([
   "activity",
   // /users — Users & Access, the administrator's own (REQUIREMENTS §66).
   "users",
+  // /database-overview — the shared database's views, read-only, the super admin's own (REQUIREMENTS §83).
+  "database-overview",
   // /performance — the scorecard: who did their documents on time (REQUIREMENTS §64).
   "performance",
 ]);

@@ -38,7 +38,7 @@ BASE = "http://localhost:8844"
 FAILURES = []
 
 # The company's working calendar (Thursday weekly off, festival holidays,
-# adjustment days — Master Data → Holidays, REQUIREMENTS.md §16): the fill
+# adjustment days — Master Data → Holidays, docs/REQUIREMENTS.md §16): the fill
 # test needs a day with a real, non-holiday Daily Monitoring record.
 ADJUSTMENT_DAYS_2026 = {"2026-01-22", "2026-08-06", "2026-10-22", "2026-11-05", "2026-11-20"}
 FESTIVAL_HOLIDAYS_2026 = {
@@ -80,7 +80,7 @@ def open_widget(page):
 # the route guide, the scope rule and the live-facts context (~2.5k tokens), so
 # the suite paces its model-bound messages rather than firing them back to back
 # — otherwise later calls 429 (backend/groq.ts retries, but the whole minute's
-# budget can already be gone). See TESTING.md.
+# budget can already be gone). See docs/TESTING.md.
 PACE_SECONDS = 22
 _last_model_call = [0.0]
 

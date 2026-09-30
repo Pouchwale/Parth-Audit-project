@@ -15,7 +15,7 @@
 // company's registered name, employee and area names, signatures, readings,
 // dates and typed remarks. Those carry translate="no" where they are shown, so
 // an auditor reads exactly what was written into the record and nothing is
-// sent to a translation service (REQUIREMENTS.md §24, §58).
+// sent to a translation service (docs/REQUIREMENTS.md §24, §58).
 //
 // How Gujarati is shown: choosing ગુજરાતી turns Google Translate on for the
 // whole app (the screens are written in English and Google translates them)
@@ -197,6 +197,7 @@ const en = {
   "nav.masterData": "Master Data",
   "nav.demoMode": "Demo Mode",
   "nav.users": "Users & Access",
+  "nav.databaseOverview": "Database overview",
   "nav.activityLog": "Activity Log",
   "nav.performance": "Performance Scorecard",
   "top.changePassword": "Change password",
@@ -961,6 +962,7 @@ const gu: Record<StringKey, string> = {
   "nav.masterData": "માસ્ટર ડેટા",
   "nav.demoMode": "ડેમો મોડ",
   "nav.users": "વપરાશકર્તાઓ અને ઍક્સેસ",
+  "nav.databaseOverview": "ડેટાબેઝ ઝાંખી",
   "nav.activityLog": "પ્રવૃત્તિ લોગ",
   "nav.performance": "કામગીરી સ્કોરકાર્ડ",
   "top.changePassword": "પાસવર્ડ બદલો",

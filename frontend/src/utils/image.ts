@@ -1,5 +1,5 @@
 // A photo from a phone is several megabytes, and records live in the
-// browser's storage (about 5 MB for everything — see DEPLOYMENT.md), so a
+// browser's storage (about 5 MB for everything — see docs/DEPLOYMENT.md), so a
 // photo is scaled down to at most 1024 px on its longer side and saved as a
 // JPEG before it goes into a record: plenty for a complaint photograph, and
 // roughly 60–150 KB.
