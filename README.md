@@ -213,6 +213,13 @@ The app behaves like a personal assistant rather than a blank form:
   being written to. F/MNT/02 shows the machine's next planned PM. **Sample PM dates for 2026** (made up, and marked so
   in each record's history) show the link working on the plant's real 2026 schedule, slips and all; the papers' own
   conflicts (M-07 printed twice, M-58's name) are said by the Insights, never mended.
+- **Every document findable, and the plant's working hours** (REQUIREMENTS §84). Search and the Document Library find every
+  document for everybody — another department's shown as kept by it, and the formats on the company's Master List not in DCRS
+  yet shown as such (docs/document-coverage.md lists them). The system opens with a **five-second motion-graphics
+  introduction**, and moves gently throughout. The super admin's new **User access** dashboard shows who may use which module
+  (switch a person in or out of any module there), what each can see, and when each signed in and out. **DCRS is open 8:40 am
+  to 6:20 pm on the plant's working days** — Thursday off unless it is an adjustment day, festival holidays closed — for
+  everybody but the super admin, and every morning starts with signing in.
 - **DCRS and the Audit Assistant share one database** (REQUIREMENTS §83). The Audit Assistant - the plant's chat and
   voice app - signs people in with their DCRS accounts and acts **through a new DCRS API, as that person**: it lists and
   searches the CAPA findings, closes one with a note (exactly what DCRS's own Close button does, written in the report's

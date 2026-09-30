@@ -7,13 +7,16 @@ import { RouterProvider } from "./store/router";
 import { AuthScreen } from "./components/auth/AuthScreen";
 import { ChangePasswordDialog } from "./components/common/ChangePasswordDialog";
 import { AuthLayout } from "./components/auth/AuthLayout";
-// REQUIREMENTS §81: the 3D introduction when the system opens straight into the app (a 7-day session).
+// REQUIREMENTS §81: the 3D introduction when the system opens straight into the app (a session still open from earlier in the day).
 import { SessionIntro } from "./components/auth/IntroSplash";
+// REQUIREMENTS §84: the warning ten minutes before the close of the working day, and the sign-out at it.
+import { SessionClock } from "./components/auth/SessionClock";
 import { App } from "./App";
 import { installPrintScoping } from "./utils/print";
 import { startServerSync, SyncError, type SyncErrorKind } from "./data/serverSync";
 import { measureWorkingCopy } from "./data/storageAdapter";
 import { demoModeAvailable } from "./engine/features";
+import { api } from "./api/client";
 
 installPrintScoping();
 
@@ -57,6 +60,10 @@ function DataGate({ userId, children }: { userId: string; children: React.ReactN
       .catch((err) => {
         console.error(err);
         if (!cancelled) setState(err instanceof SyncError ? err.kind : "unreachable");
+        // The records refused because the plant's working hours are over (REQUIREMENTS §84)? The load
+        // cannot tell; asking who is signed in can — and a refusal outside the hours signs the person
+        // out to its reason (api/client.ts, store/AuthContext.tsx) instead of leaving them at this screen.
+        if (!(err instanceof SyncError) || err.kind === "unreachable") void api.get("/auth/me").catch(() => undefined);
       });
     return () => {
       cancelled = true;
@@ -118,6 +125,8 @@ function Root() {
     <>
       {/* Over the loading screen and the app, catching nothing; once a browser session (IntroSplash.tsx). */}
       <SessionIntro />
+      {/* The close of the working day: a warning ten minutes before, then the sign-out (REQUIREMENTS §84). */}
+      <SessionClock />
       <DataGate key={user.id} userId={user.id}>
         <AppStoreProvider>
           <RouterProvider>

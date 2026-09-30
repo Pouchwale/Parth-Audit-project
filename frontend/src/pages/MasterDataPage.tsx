@@ -19,6 +19,23 @@ import { firstNameOf } from "../engine/assistantPersona";
 import { CUE_NAMES, type CueName } from "../engine/engageBus";
 import { playCue } from "../utils/sounds";
 import { onVoiceChange, sampleLine, say, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceSource } from "../utils/voice";
+import { logActivity } from "../utils/activityLog";
+import {
+  addDaysISO,
+  clockText,
+  clockWords,
+  dayWords,
+  DEFAULT_PLANT_TIME_ZONE,
+  hoursProblem,
+  parseClock,
+  plantDay,
+  plantNow,
+  todaySentence,
+  weekdayName,
+  weeklyOffOf,
+  workingHoursOf,
+  type PlantDay,
+} from "../engine/workingHoursCore";
 
 type Tab = "employees" | "departments" | "chemicals" | "pcLocations" | "rodentStations" | "areas" | "checkpoints" | "documents" | "holidays" | "settings";
 
@@ -279,10 +296,11 @@ export function MasterDataPage() {
         </>
       )}
 
+      {tab === "settings" && <PlantHoursCard onOpenHolidays={() => setTab("holidays")} />}
       {tab === "settings" && (
         <div className="card" style={{ maxWidth: 560 }}>
           <div className="card-pad">
-            <h3 className="text-base font-semibold mb-1">Working hours</h3>
+            <h3 className="text-base font-semibold mb-1">Your briefing hours</h3>
             <p className="text-muted text-sm mb-3">
               The assistant's briefing pops up by itself once in the <strong>first hour</strong> of the working day ("here's
               what I've prepared") and once in the <strong>last hour</strong> — only if something is still unsubmitted
@@ -420,6 +438,145 @@ export function MasterDataPage() {
           />
         </>
       )}
+    </div>
+  );
+}
+
+// THE PLANT'S WORKING HOURS (REQUIREMENTS §84) — "The time runs from 8:40 am to
+// 6:20 pm." Every account but the super admin may use DCRS only on a working day
+// of the calendar, between these two times; outside them it cannot sign in, and
+// each session is signed out at the close, with a warning ten minutes before.
+// The super admin changes the two times here (the server keeps them as stored
+// when anybody else writes the master data); everybody else reads them. Beside
+// them, the calendar exactly as the rule reads it (engine/workingHoursCore.ts,
+// the same file the server runs): the weekly off, the festival holidays, the
+// adjustment days, and the next two weeks day by day.
+const PLANT_DAYS_SHOWN = 14;
+
+function PlantHoursCard({ onOpenHolidays }: { onOpenHolidays: () => void }) {
+  const { user, hours: server } = useAuth();
+  const { bump } = useAppStore();
+  const master = masterRepository.get();
+  const current = workingHoursOf(master);
+  const admin = user?.role === "admin";
+  const [start, setStart] = useState(current.start);
+  const [end, setEnd] = useState(current.end);
+  const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
+  // The stored hours changed from elsewhere (another browser, through the sync): the boxes follow.
+  useEffect(() => {
+    setStart(current.start);
+    setEnd(current.end);
+  }, [current.start, current.end]);
+
+  const zone = server?.timeZone ?? DEFAULT_PLANT_TIME_ZONE;
+  const now = plantNow(master, new Date(), zone);
+  const today = now.today.date;
+  const days: PlantDay[] = [];
+  for (let i = 0; i < PLANT_DAYS_SHOWN; i++) days.push(plantDay(addDaysISO(today, i), master));
+  const year = today.slice(0, 4);
+  const nextFestival = (master.holidays ?? []).filter((h) => h.date >= today).sort((a, b) => (a.date < b.date ? -1 : 1))[0];
+  const nextAdjustment = (master.adjustmentDays ?? []).filter((a) => a.date >= today).sort((a, b) => (a.date < b.date ? -1 : 1))[0];
+  const off = weekdayName(weeklyOffOf(master));
+  const changed = start !== current.start || end !== current.end;
+
+  const save = () => {
+    const problem = hoursProblem(start, end);
+    if (problem) {
+      setSaid({ ok: false, text: problem });
+      return;
+    }
+    const next = { start: clockText(parseClock(start) as number), end: clockText(parseClock(end) as number) };
+    const before = `${clockWords(current.startMinute)} to ${clockWords(current.endMinute)}`;
+    const after = `${clockWords(parseClock(next.start) as number)} to ${clockWords(parseClock(next.end) as number)}`;
+    masterRepository.update({ workingHours: next });
+    bump();
+    logActivity("Working hours changed", "Master Data — the plant's working hours", `${before} → ${after}`);
+    setSaid({ ok: true, text: `Saved: DCRS is now open ${after} on working days. Staff signing in from now on are held to these hours.` });
+  };
+
+  return (
+    <div className="card mb-4" style={{ maxWidth: 720 }} data-section="plant-hours">
+      <div className="card-pad">
+        <h3 className="text-base font-semibold mb-1">The plant's working hours</h3>
+        <p className="text-muted text-sm mb-3">
+          Every account but the super admin can use DCRS only on a working day of the calendar, between these two times of the
+          factory's clock ({zone}). Outside them nobody else can sign in; each person is signed out at the close, with a
+          warning ten minutes before, and signs in again the next working morning. The super admin is never held to them.
+        </p>
+        {server && server.enforced === false && (
+          <p className="text-xs mb-3" data-field="plant-hours-off" style={{ color: "var(--color-warning)", fontWeight: 600 }}>
+            This server was started with DCRS_WORKING_HOURS=off, so nobody is held to the hours on it.
+          </p>
+        )}
+        <p className="text-sm mb-3" data-field="plant-hours-now">
+          <strong>
+            {clockWords(current.startMinute)} to {clockWords(current.endMinute)}
+          </strong>{" "}
+          on working days{current.isDefault ? " (the plant's standard hours)" : ""}. Today, {dayWords(today)}: {todaySentence(now)}
+        </p>
+        {admin ? (
+          <div className="flex gap-4 wrap items-end mb-2">
+            <div className="field" style={{ minWidth: 150 }}>
+              <label htmlFor="plant-hours-start">Opens at</label>
+              <input id="plant-hours-start" data-field="plant-hours-start" type="time" className="input" value={start} onChange={(e) => { setStart(e.target.value); setSaid(null); }} />
+            </div>
+            <div className="field" style={{ minWidth: 150 }}>
+              <label htmlFor="plant-hours-end">Closes at</label>
+              <input id="plant-hours-end" data-field="plant-hours-end" type="time" className="input" value={end} onChange={(e) => { setEnd(e.target.value); setSaid(null); }} />
+            </div>
+            <button type="button" className="btn btn-primary btn-sm" data-action="save-plant-hours" disabled={!changed} onClick={save}>
+              Save the hours
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-muted mb-2" data-field="plant-hours-admin-only">
+            Only the super admin changes these.
+          </p>
+        )}
+        {said && (
+          <p className="text-sm mb-2" data-field="plant-hours-said" data-ok={said.ok ? "true" : "false"} style={{ color: said.ok ? "var(--color-success)" : "var(--color-danger)", fontWeight: 600 }}>
+            {said.text}
+          </p>
+        )}
+
+        <h4 className="text-sm font-semibold mt-3 mb-1">The calendar, as the rule reads it</h4>
+        <ul className="text-sm mb-2" data-field="plant-calendar-rule" style={{ paddingLeft: 18, listStyle: "disc" }}>
+          <li>
+            Weekly off: <strong>{off}</strong> — closed, unless it is an adjustment day.
+          </li>
+          <li>
+            Festival holidays: {(master.holidays ?? []).length} on the calendar — closed whatever the day
+            {nextFestival ? `; next: ${nextFestival.name}, ${dayWords(nextFestival.date, year)}` : ""}.
+          </li>
+          <li>
+            Adjustment days: {(master.adjustmentDays ?? []).length} — a weekly off the plant works, so DCRS is open
+            {nextAdjustment ? `; next: ${dayWords(nextAdjustment.date, year)}${nextAdjustment.forHoliday ? `, for ${nextAdjustment.forHoliday}` : ""}` : ""}.
+          </li>
+        </ul>
+        <div className="flex gap-1 wrap mb-2" data-field="plant-next-days">
+          {days.map((d) => (
+            <span
+              key={d.date}
+              data-date={d.date}
+              data-open={d.open ? "true" : "false"}
+              className="text-xs"
+              title={d.name ?? undefined}
+              style={{
+                padding: "3px 8px",
+                borderRadius: 999,
+                background: d.open ? (d.kind === "adjustment" ? "var(--color-info-bg)" : "var(--color-success-bg)") : "var(--color-neutral-bg)",
+                color: d.open ? "var(--color-text)" : "var(--color-text-muted)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {d.weekday.slice(0, 3)} {Number(d.date.slice(8))} · {d.kind === "working" ? "open" : d.kind === "adjustment" ? "adjustment day, open" : d.kind === "weekly-off" ? "weekly off" : d.name}
+            </span>
+          ))}
+        </div>
+        <button type="button" className="btn btn-ghost btn-sm" data-action="open-holidays" onClick={onOpenHolidays}>
+          Change the calendar in Holidays
+        </button>
+      </div>
     </div>
   );
 }

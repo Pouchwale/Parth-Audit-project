@@ -9,6 +9,7 @@ Everything about the Digital Controlled Record System (DCRS) apart from the code
 | [TESTING.md](TESTING.md) | What is tested, how, and how to run the unit and browser suites | You change anything, before you commit |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Running DCRS on a server, PostgreSQL, configuration, backups and restores | You install, move or back up DCRS |
 | [FUTURE_ROADMAP.md](FUTURE_ROADMAP.md) | How the system extends to the remaining controlled formats | You plan the next forms |
+| [document-coverage.md](document-coverage.md) | Every format on the company's Master List of Formats (F/SYS/02), module by module: in DCRS, supplied but not built, or not supplied yet | You want to know which forms are still to come |
 | [database/README.md](database/README.md) | The database DCRS shares with the Audit Assistant: its schemas, roles, the overview views, the set-up and its tests | You work on the shared database or the Database overview page |
 | [database/data-dictionary.md](database/data-dictionary.md) | Every table, view and column in plain English, generated from the database's own comments | You look for where something is kept |
 | [chatbot-integration.md](chatbot-integration.md) | The hand-off to the Audit Assistant's developer: sign-in, the DCRS API, the shared database, what the assistant must change | You build or change the assistant's DCRS connector |

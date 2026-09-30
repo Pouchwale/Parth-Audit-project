@@ -41,6 +41,7 @@ import { QcOverviewPage } from "./pages/QcPages";
 import { UsersPage } from "./pages/UsersPage";
 import { ActivityLogPage } from "./pages/ActivityLogPage";
 import { DatabaseOverviewPage } from "./pages/DatabaseOverviewPage";
+import { AccessDashboardPage } from "./pages/AccessDashboardPage";
 import { PerformancePage } from "./pages/PerformancePage";
 import { InsightsPage } from "./pages/InsightsPage";
 import { MitraReaction } from "./components/common/MitraReaction";
@@ -155,6 +156,9 @@ function RouteSwitch() {
     // The shared database's plain-English views, read-only — the super admin's (REQUIREMENTS §83).
     case "database-overview":
       return <DatabaseOverviewPage />;
+    // Who may use which module, and when each person signed in and out — the super admin's (REQUIREMENTS §84).
+    case "access":
+      return <AccessDashboardPage />;
     case "activity":
       // Everything anybody has done on the portal (REQUIREMENTS §62).
       return <ActivityLogPage />;

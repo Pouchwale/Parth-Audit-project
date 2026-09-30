@@ -42,13 +42,24 @@ interface Reference {
   documentId?: string;
 }
 
+// The documents whose number is of its own shape, worked out once per catalogue
+// (the repository hands back the same list until a document changes): Search
+// reads a query several times a keystroke, and this was a pass of the number
+// pattern over every document each time.
+let ownShaped: { from: DocumentDefinition[]; list: DocumentDefinition[] } | null = null;
+function ownShapedNumbers(): DocumentDefinition[] {
+  const all = documentRepository.getAllUnscoped();
+  if (!ownShaped || ownShaped.from !== all) ownShaped = { from: all, list: all.filter((d) => knownNumber(d) && !formatKey(d.formatNo)) };
+  return ownShaped.list;
+}
+
 function references(text: string): Reference[] {
   const found: Reference[] = [];
   for (const m of text.matchAll(STANDARD)) {
     const key = `${m[1].toUpperCase()}-${Number(m[2])}${m[3] ? m[3].toUpperCase() : ""}`;
     if (!found.some((r) => r.key === key)) found.push({ written: m[0].trim(), key });
   }
-  const unscoped = documentRepository.getAllUnscoped().filter((d) => knownNumber(d) && !formatKey(d.formatNo));
+  const unscoped = ownShapedNumbers();
   for (const word of text.split(/\s+/)) {
     const token = squash(word);
     // A number of its own shape has letters and digits both (QA-CAF-00,
@@ -91,8 +102,7 @@ function resolve(ref: Reference): Resolved {
  * so a number names a list, not one document, and the search and the assistant
  * offer all of them rather than whichever happened to be first.
  */
-function resolveAll(ref: Reference): DocumentDefinition[] {
-  const visible = documentRepository.getAll();
+function resolveAll(ref: Reference, visible: readonly DocumentDefinition[] = documentRepository.getAll()): DocumentDefinition[] {
   if (ref.documentId) {
     const named = visible.find((d) => d.id === ref.documentId);
     return named ? [named] : [];
@@ -112,6 +122,26 @@ function resolveAll(ref: Reference): DocumentDefinition[] {
 export function documentsByFormatNumber(text: string): DocumentDefinition[] {
   const out: DocumentDefinition[] = [];
   for (const ref of references(text)) for (const doc of resolveAll(ref)) if (!out.some((d) => d.id === doc.id)) out.push(doc);
+  return out;
+}
+
+/**
+ * EVERY document of the plant's that the text names by format number — whoever
+ * is looking (REQUIREMENTS §84). The Search page shows another department's
+ * document as kept by that department, so it has to be found first; nothing
+ * here opens it or reads its records.
+ */
+export function documentsByFormatNumberUnscoped(text: string): DocumentDefinition[] {
+  const all = documentRepository.getAllUnscoped();
+  const out: DocumentDefinition[] = [];
+  for (const ref of references(text)) for (const doc of resolveAll(ref, all)) if (!out.some((d) => d.id === doc.id)) out.push(doc);
+  return out;
+}
+
+/** The canonical keys ("HR-5", "QC-40C") of the F/<dept>/<nn> numbers the text names, in the order named. */
+export function formatKeysNamed(text: string): string[] {
+  const out: string[] = [];
+  for (const ref of references(text)) if (ref.key && !out.includes(ref.key)) out.push(ref.key);
   return out;
 }
 

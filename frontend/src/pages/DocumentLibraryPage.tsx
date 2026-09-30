@@ -15,9 +15,11 @@ import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
 import { MODULE_SECTIONS } from "../data/seed/documentDefinitions";
 import { routeForRecord } from "../engine/reminders";
-import { departmentScopeLabel, isDocumentIdVisible } from "../engine/departmentScope";
+import { departmentScopeLabel, documentDepartmentLabel, isDocumentIdVisible, isDocumentVisible, seesEveryDepartment } from "../engine/departmentScope";
 import { documentOpenRoute } from "../engine/documentRoutes";
 import { documentTextIn } from "../i18n/documentText";
+import { documentQuery, keptByLabel, masterListFormatsNotInDcrs, NOT_IN_DCRS_YET, type MasterListFormat } from "../engine/documentFinder";
+import { departmentOfDocument } from "../data/seed/departments";
 
 
 // Which documents hold records at all: the reference ones — the Chemical
@@ -54,6 +56,8 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { mode, bump, version, lang, currentUser } = useAppStore();
   const [editingFormat, setEditingFormat] = useState<DocumentDefinition | null>(null);
+  const [showMaster, setShowMaster] = useState(false);
+  const [showKept, setShowKept] = useState(false);
   const isDemo = mode === "demo";
   const docs = documentRepository.getAll();
   const master = masterRepository.get();
@@ -83,14 +87,41 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
   const activeSlugIsUnknown = !!activeSlug && !activeModule;
 
   const needle = query.trim().toLowerCase();
+  // THE FILTER BOX FINDS AS SEARCH DOES (engine/documentFinder.ts, REQUIREMENTS §84): a format number however it is
+  // written, any word of the name, the module, the department, a word people use for it — and still anything the
+  // line itself shows (who is responsible, how often), as it always has.
+  const asked = React.useMemo(() => documentQuery(query), [query, version]);
   const filtered = docs.filter((d) => {
     if (activeSlugIsUnknown) return false;
     if (activeModule && d.module !== activeModule) return false;
     if (!needle) return true;
     const info = getDocumentInfo(d, master);
     const haystack = [d.name, d.formatNo, d.department, d.module, d.frequency, info.whoLabel].join(" ").toLowerCase();
-    return haystack.includes(needle);
+    return haystack.includes(needle) || asked.matchesDocument(d);
   });
+
+  // THE REST OF THE PLANT'S LIST, ON ASKING (§84). Both are off until ticked, so the library opens as it always has.
+  //  - The formats on the Master List of Formats & Records (F/SYS/02) that DCRS does not have yet.
+  //  - For an account kept to its own departments, the documents other departments keep: named, with whose they
+  //    are, and no way in — nothing of theirs is opened or read.
+  // Kept to the module a module link filtered the library to: that module's documents, and the master-list lines
+  // of the departments that own them.
+  const everyDoc = documentRepository.getAllUnscoped();
+  const slugModule = activeSlug ? everyDoc.find((d) => moduleSlug(d.module) === activeSlug)?.module : undefined;
+  const slugDepartments = React.useMemo(
+    () => (slugModule ? new Set(everyDoc.filter((d) => d.module === slugModule).map((d) => departmentOfDocument(d.id, d.formatNo))) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [slugModule, version]
+  );
+  const notInDcrs = React.useMemo(() => masterListFormatsNotInDcrs(), [version]);
+  const masterShown = notInDcrs.filter((l) => (!activeSlug || (!!slugDepartments && slugDepartments.has(l.department))) && asked.matchesMasterFormat(l));
+  const scoped = !seesEveryDepartment();
+  const keptAll = scoped ? everyDoc.filter((d) => !isDocumentVisible(d)) : [];
+  const keptShown = keptAll.filter((d) => (!activeSlug || d.module === slugModule) && (!needle || asked.matchesDocument(d)));
+  const keptByModule = new Map<string, DocumentDefinition[]>();
+  if (showKept) for (const d of keptShown) keptByModule.set(d.module, [...(keptByModule.get(d.module) ?? []), d]);
+  const masterByDepartment = new Map<string, MasterListFormat[]>();
+  if (showMaster) for (const l of masterShown) masterByDepartment.set(l.departmentName, [...(masterByDepartment.get(l.departmentName) ?? []), l]);
 
   const byModule = new Map<string, typeof docs>();
   for (const d of filtered) {
@@ -139,9 +170,23 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
           className="input"
           style={{ paddingLeft: 32, width: "100%" }}
           placeholder="Search by name, format no., department, or responsible person…"
+          data-field="library-filter"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+      </div>
+
+      <div className="flex gap-4 wrap mb-5 text-sm text-muted no-print">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" data-field="library-show-master" checked={showMaster} onChange={(e) => setShowMaster(e.target.checked)} />
+          Also list the formats on the Master List of Formats &amp; Records (F/SYS/02) not in DCRS yet ({needle || activeSlug ? `${masterShown.length} of ${notInDcrs.length}` : notInDcrs.length})
+        </label>
+        {scoped && keptAll.length > 0 && (
+          <label className="flex items-center gap-2">
+            <input type="checkbox" data-field="library-show-kept" checked={showKept} onChange={(e) => setShowKept(e.target.checked)} />
+            Also list the documents other departments keep ({needle || activeSlug ? `${keptShown.length} of ${keptAll.length}` : keptAll.length})
+          </label>
+        )}
       </div>
 
       {byModule.size === 0 && (
@@ -152,12 +197,12 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
               documents that are simply somebody else's. */}
           {docs.length === 0
             ? `Your account covers ${departmentScopeLabel()}, and no document on the Master List of Formats & Records is assigned to it — ask the system administrator to add a department to your account (Master Data → Departments & access).`
-            : `No documents match "${query || activeSlug}".`}
+            : `No documents ${(showKept && keptShown.length > 0) || (showMaster && masterShown.length > 0) ? "of yours " : ""}match "${query || activeSlug}".`}
         </div>
       )}
 
       {Array.from(byModule.entries()).map(([module, list]) => (
-        <div key={module} className="mb-6">
+        <div key={module} className="mb-6" data-library-module={module}>
           <h3 className="text-sm uppercase text-muted mb-2">{module}</h3>
           <div className="doc-table">
             <table>
@@ -185,7 +230,7 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                           <td colSpan={6}>{d.section}</td>
                         </tr>
                       )}
-                      <tr className="card-clickable" onClick={() => setExpandedId(isOpen ? null : d.id)}>
+                      <tr className="card-clickable" data-library-document={d.id} onClick={() => setExpandedId(isOpen ? null : d.id)}>
                         <td>
                           <div className="flex items-center gap-2 wrap">
                             {isOpen ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
@@ -300,6 +345,79 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
           </div>
         </div>
       ))}
+
+      {/* Other departments' documents, on asking: whose each is, and nothing to open (§84). */}
+      {showKept && (
+        <div className="mb-6 no-print" data-section="library-kept">
+          <h3 className="text-sm uppercase text-muted mb-2">Kept by other departments</h3>
+          {keptByModule.size === 0 && <div className="empty-state">No other department's document matches.</div>}
+          {Array.from(keptByModule.entries()).map(([module, list]) => (
+            <div key={module} className="mb-4">
+              <h4 className="text-sm text-muted mb-1">{module}</h4>
+              <div className="doc-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Document Name</th>
+                      <th>Format No.</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {list.map((d) => (
+                      <tr key={d.id} data-kept-document={d.id}>
+                        <td>
+                          {documentTextIn(d.name, lang)}
+                          {d.section && <span className="text-xs text-faint"> · {d.section}</span>}
+                        </td>
+                        <td>{d.formatNo}</td>
+                        <td className="text-sm text-muted" style={{ textAlign: "right" }}>
+                          {keptByLabel(documentDepartmentLabel(d.id, d.formatNo))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* The plant's master list, where DCRS does not have the format yet (§84). */}
+      {showMaster && (
+        <div className="mb-6 no-print" data-section="library-master-list">
+          <h3 className="text-sm uppercase text-muted mb-2">On the Master List of Formats &amp; Records (F/SYS/02) — not in DCRS yet</h3>
+          {masterByDepartment.size === 0 && <div className="empty-state">Every format on the master list that matches is in DCRS already.</div>}
+          {Array.from(masterByDepartment.entries()).map(([department, lines]) => (
+            <div key={department} className="mb-4">
+              <h4 className="text-sm text-muted mb-1">{department}</h4>
+              <div className="doc-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Format, as the list names it</th>
+                      <th>Format No.</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((l) => (
+                      <tr key={l.formatNo} data-master-format={l.formatNo}>
+                        <td>{l.name}</td>
+                        <td translate="no">{l.formatNo}</td>
+                        <td className="text-sm text-muted" style={{ textAlign: "right" }}>
+                          {NOT_IN_DCRS_YET}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* DELETE leaves a trail: a record can be removed whatever its status,
           and what it was stays here (engine/recordCrud.ts). */}

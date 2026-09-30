@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCheck, FiKey, FiPlus, FiRefreshCw, FiSlash, FiUserPlus } from "react-icons/fi";
+import { FiCheck, FiKey, FiPlus, FiRefreshCw, FiShield, FiSlash, FiUserPlus } from "react-icons/fi";
 import { ApiError, usersApi } from "../api/client";
 import { useAuth } from "../store/AuthContext";
+import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { DEPARTMENTS, departmentOfDocument } from "../data/seed/departments";
 import { Modal } from "../components/common/Modal";
@@ -154,9 +155,15 @@ export function UsersPage() {
             Everybody who may sign in, and which departments' documents each of them sees. Accounts are made here — nobody can create their own.
           </p>
         </div>
-        <button className="btn btn-primary btn-sm" data-action="add-user" onClick={() => setAdding(true)}>
-          <FiUserPlus size={13} /> Add a person
-        </button>
+        <div className="flex gap-2 wrap">
+          {/* WHO MAY USE WHICH MODULE, AND WHEN EACH PERSON SIGNED IN AND OUT (REQUIREMENTS §84): the super admin's own page. */}
+          <Link to="/access" className="btn btn-secondary btn-sm" title="Every account's modules as switches, and today's and past sign-ins and sign-outs">
+            <FiShield size={13} /> User access — modules and sign-ins
+          </Link>
+          <button className="btn btn-primary btn-sm" data-action="add-user" onClick={() => setAdding(true)}>
+            <FiUserPlus size={13} /> Add a person
+          </button>
+        </div>
       </div>
 
       {error && <div className="auth-error mb-3">{error}</div>}
@@ -260,7 +267,7 @@ export function UsersPage() {
       )}
 
       <p className="text-xs text-muted mt-3">
-        Which departments an account sees is changed in <strong>Master Data → Departments &amp; access</strong>. A change takes effect the next time that person
+        Which departments an account sees is changed on <strong>User access</strong>, a switch per module, or in <strong>Master Data → Departments &amp; access</strong>. A change takes effect the next time that person
         loads the app. Switching an account off deletes nothing: their name stays on every record they signed.
       </p>
 

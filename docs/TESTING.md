@@ -424,6 +424,24 @@ Seven scripts live in `tests/`:
   `overview.findings`; the SQL and TypeScript finding ids equal over every finding; the SQL department map equal to
   documentDepartments.ts; every view under 5 s. Backups: `npm run db:backup` and `npm run db:restore-test` were run on the
   copy and on a second, empty cluster where only the roles file could bring the roles.
+- **Every document findable, the opening, User access and the working hours** (REQUIREMENTS §84, added 30-Sep-2026). Three new
+  browser suites run on the product server with the plant's seeded accounts: `tests/e2e_find_every_document.py` (a Quality
+  Control account and the super admin search by number in several spellings, by name and by module; another department's
+  document found as kept by it, with nothing to open; a master-list format not in DCRS yet found as such; the Document Library
+  listing every document and opening one), `tests/e2e_user_access.py` (the page the super admin's alone; a person switched into
+  Human Resources and out again, their next sign-in following each change; sign-ins and sign-outs with their times against the
+  activity log; failed sign-ins; CSV; a phone-width screen) and `tests/e2e_working_hours.py` (the sign-in page stating the hours;
+  the refusal, the end-of-day warning and the automatic sign-out, by faking the server's answers — the run's servers have the rule
+  off; Master Data's hours edited and saved; the super admin unaffected). `tests/e2e_intro_and_fonts.py` covers the new opening
+  (opaque, about five seconds, never catching a click, lifted by a key, gone by six seconds whatever happens, a fade under reduced
+  motion); `tests/e2e_departments.py`'s search check now expects another department's document to be found as kept by it, and
+  `tests/e2e_login_only.py` allows the plant's hours in the sign-in config (nothing about a person). Unit tests:
+  `frontend/tests/documentFinding.test.ts` (every document found by its number in five spellings and by every word of its name;
+  a scoped search reads no record), `frontend/tests/workingHours.test.ts` (the rule against the calendar pages for every day of
+  2026; 08:39, 08:40, 18:19, 18:20; an adjustment Thursday open; a festival closed; the next opening across closed days),
+  `backend/tests/workingHours.test.ts` (the gate with a clock the test sets, the super admin exempt, the off switch, the session's
+  end, the /api/v1 routes), `backend/tests/accessRoutes.test.ts` (38: refusals, pairing sign-ins with sign-outs, "signed in now",
+  paging, CSV), `frontend/tests/intro.test.ts`.
 - Unit tests for Mitra as an agent: `frontend/tests/mitraTools.test.ts` (the tools against seeded records — a bad
   route refused, F/HR/17 found, today's record started, a patch applied through a fake open record with the "Asked of
   Mitra" note, records listed and searched, figures for a history question, ask_user ending the turn, the schema set

@@ -75,7 +75,7 @@ COMMENT ON TABLE chatbot.connector_credentials IS
 COMMENT ON COLUMN chatbot.connector_credentials.session_id IS 'The session it belongs to (chatbot.sessions.id). Deleted with the session.';
 COMMENT ON COLUMN chatbot.connector_credentials.connector_id IS 'The connected system: dcrs.';
 COMMENT ON COLUMN chatbot.connector_credentials.sealed IS 'SECRET. The DCRS session token, encrypted. Never shown anywhere.';
-COMMENT ON COLUMN chatbot.connector_credentials.expires_at IS 'When DCRS stops accepting the token (DCRS sessions last 7 days).';
+COMMENT ON COLUMN chatbot.connector_credentials.expires_at IS 'When DCRS stops accepting the token (a DCRS session ends at the close of the day it began).';
 
 -- ---------------------------------------------------------------- login_events
 COMMENT ON TABLE chatbot.login_events IS

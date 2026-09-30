@@ -228,6 +228,8 @@ const SIMPLE_ROUTES = new Set([
   "users",
   // /database-overview — the shared database's views, read-only, the super admin's own (REQUIREMENTS §83).
   "database-overview",
+  // /access — User access: who may use which module, and their sign-ins and sign-outs, the super admin's own (REQUIREMENTS §84).
+  "access",
   // /performance — the scorecard: who did their documents on time (REQUIREMENTS §64).
   "performance",
 ]);

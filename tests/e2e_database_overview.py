@@ -239,9 +239,13 @@ with sync_playwright() as p:
     goto(page, "#/dashboard")
     link = page.locator(".app-sidebar a[href='#/database-overview']")
     check("Database overview is in the sidebar, next to Users & Access", link.count() == 1 and page.locator(".app-sidebar a[href='#/users']").count() == 1)
+    # The super admin's own entries run Users & Access, User access (REQUIREMENTS s84), Database overview.
     check(
-        "...right after it",
-        page.locator(".app-sidebar a").evaluate_all("els => { const h = els.map((e) => e.getAttribute('href')); return h.indexOf('#/database-overview') === h.indexOf('#/users') + 1; }"),
+        "...right after it and User access",
+        page.locator(".app-sidebar a").evaluate_all(
+            "els => { const h = els.map((e) => e.getAttribute('href')); const u = h.indexOf('#/users');"
+            " return u >= 0 && h[u + 1] === '#/access' && h[u + 2] === '#/database-overview'; }"
+        ),
     )
     link.first.evaluate("el => el.click()")
     page.wait_for_selector("[data-page='database-overview']", timeout=30000)

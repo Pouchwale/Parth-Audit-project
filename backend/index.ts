@@ -34,7 +34,9 @@ import {
   type UserRow,
 } from "./db.ts";
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
-import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, SESSION_TTL_MS, type PublicUser } from "./auth.ts";
+import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, type PublicUser } from "./auth.ts";
+import { createWorkingHoursGate } from "./workingHours.ts";
+import { END_OF_HOURS_REASON, OUTSIDE_HOURS_REASON, type OutsideHoursRefusal } from "../frontend/src/engine/workingHoursCore.ts";
 import { distDir } from "./paths.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
@@ -48,6 +50,7 @@ import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
 import { registerEscalationRoutes } from "./escalationRoutes.ts";
 import { registerApiV1 } from "./apiV1.ts";
 import { registerOverviewRoutes } from "./overviewRoutes.ts";
+import { registerAccessRoutes } from "./accessRoutes.ts";
 import { startJobs } from "./jobs.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
@@ -113,18 +116,36 @@ function toPublicUser(row: UserRow): PublicUser {
   };
 }
 
-function cookieOptions(): CookieOptions {
+// THE PLANT'S WORKING HOURS (REQUIREMENTS §84): every account but the super
+// admin uses DCRS only on a working day of the plant's calendar, from START to
+// END in the factory's time zone, and every session ends at the close of the day
+// it was started (backend/workingHours.ts, on the rule the browser runs too —
+// frontend/src/engine/workingHoursCore.ts). DCRS_WORKING_HOURS=off switches it off.
+const hours = createWorkingHoursGate();
+
+/** `maxAge`: the session's lifetime, so the cookie closes with the day it was made for (C3). Left out when a cookie is cleared. */
+function cookieOptions(maxAgeMs?: number): CookieOptions {
   return {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.FORCE_HTTPS === "1",
     path: "/",
-    maxAge: SESSION_TTL_MS,
+    ...(maxAgeMs === undefined ? {} : { maxAge: Math.max(0, maxAgeMs) }),
   };
 }
 
-function issueSession(res: Response, user: PublicUser): void {
-  res.cookie(COOKIE_NAME, signSessionToken(user), cookieOptions());
+function issueSession(res: Response, user: PublicUser, endsAt: Date): void {
+  res.cookie(COOKIE_NAME, signSessionToken(user, endsAt), cookieOptions(endsAt.getTime() - Date.now()));
+}
+
+/** The session a request carries, with the moment it ends; null for none, one whose day has closed, or an account switched off. */
+async function readSession(req: Request): Promise<{ user: PublicUser; endsAt: Date } | null> {
+  const token = req.cookies?.[COOKIE_NAME];
+  const payload = token ? verifySessionToken(token) : null;
+  if (!payload) return null;
+  const row = await getUserById(payload.sub);
+  if (!row || !row.active) return null;
+  return { user: toPublicUser(row), endsAt: payload.endsAt };
 }
 
 // WHO IS MAKING THIS REQUEST — read from the users table every time, not from
@@ -132,12 +153,26 @@ function issueSession(res: Response, user: PublicUser): void {
 // it stop at its very next request (REQUIREMENTS §66): a session already issued
 // is no use to somebody who has left.
 async function getSessionUser(req: Request): Promise<PublicUser | null> {
-  const token = req.cookies?.[COOKIE_NAME];
-  const payload = token ? verifySessionToken(token) : null;
-  if (!payload) return null;
-  const row = await getUserById(payload.sub);
-  if (!row || !row.active) return null;
-  return toPublicUser(row);
+  return (await readSession(req))?.user ?? null;
+}
+
+/**
+ * OUTSIDE THE PLANT'S HOURS (REQUIREMENTS §84, C2): an account held to them is
+ * refused with 403 `outside-working-hours`, the next opening and the reason in
+ * plain words. Answered, and true, when it was refused.
+ *
+ * One exception, for the work itself: a WRITE to /api/storage is refused with
+ * 401 and the same body. The browser's sync (frontend/src/data/serverSync.ts)
+ * reads a 403 on a write as "this account may not hold that item" and forgets
+ * that it still has to send it — a 401 is "signed out: send it at the next
+ * sign-in", which keeps what was typed before the close for the next morning.
+ */
+async function refuseOutsideHours(req: Request, res: Response, user: PublicUser): Promise<boolean> {
+  const refused: OutsideHoursRefusal | null = await hours.refusal(user);
+  if (!refused) return false;
+  const storageWrite = req.method !== "GET" && req.method !== "HEAD" && req.path.startsWith("/api/storage/");
+  res.status(storageWrite ? 401 : 403).json(refused);
+  return true;
 }
 
 /** Whether this session's account is still on the password the administrator gave it (REQUIREMENTS §66). */
@@ -157,6 +192,7 @@ async function requireSession(req: Request, res: Response, next: NextFunction): 
     res.status(401).json({ error: "Not authenticated." });
     return;
   }
+  if (await refuseOutsideHours(req, res, user)) return;
   (req as AuthedRequest).user = user;
   next();
 }
@@ -167,6 +203,8 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
     res.status(401).json({ error: "Not authenticated." });
     return;
   }
+  // Outside the plant's hours nothing is used at all (§84), so that answer comes first.
+  if (await refuseOutsideHours(req, res, user)) return;
   // STILL ON THE ADMINISTRATOR'S PASSWORD: nothing of the company's is handed
   // over or taken in until they have chosen their own (REQUIREMENTS §66). The
   // dialog on screen is not the lock — this is. /api/auth/* stays open, or they
@@ -252,8 +290,12 @@ function recordSignup(key: string): void {
 // else — no account, no name, no count of accounts (REQUIREMENTS §66). The
 // sign-in screen asks so that it knows whether to offer a way to create an
 // account at all.
-app.get("/api/auth/config", (_req: Request, res: Response): void => {
-  res.json({ features: FEATURES });
+// With it, THE PLANT'S HOURS AND WHERE TODAY STANDS (REQUIREMENTS §84), which the
+// sign-in page states — the plant's, not anybody's. A database that cannot be
+// read leaves them out rather than failing the answer.
+app.get("/api/auth/config", async (_req: Request, res: Response): Promise<void> => {
+  const plant = await hours.publicAnswer().catch(() => null);
+  res.json({ features: FEATURES, hours: plant });
 });
 
 // IS THE SITE UP? (REQUIREMENTS §78). The top bar's connection badge asks this
@@ -306,6 +348,17 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
     res.status(409).json({ error: "An account with that email already exists." });
     return;
   }
+  // OUTSIDE THE PLANT'S HOURS (§84): an account made now would be staff (only
+  // the first account on an empty database is the admin), and staff cannot
+  // start a session — so nothing is made, and the reason is said.
+  if (hours.enforced && (await listUsers()).length > 0) {
+    const refused = await hours.refusal({ role: "staff" });
+    if (refused) {
+      logActivity(req, null, "Sign-up refused", normalizedEmail.slice(0, MAX_EMAIL_LENGTH), "Outside working hours");
+      res.status(403).json(refused);
+      return;
+    }
+  }
 
   const passwordHash = await hashPassword(password);
   // The first account runs the plant's system, so it is the admin and is not
@@ -328,10 +381,12 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
 
   recordSignup(req.ip ?? "unknown");
   const user = toPublicUser(row);
-  issueSession(res, user);
+  const endsAt = await hours.sessionEnd(user);
+  issueSession(res, user, endsAt);
   logActivity(req, user, "Account created", user.email, user.role === "admin" ? "The first account — the system administrator" : user.departments.length ? `Departments: ${user.departments.join(", ")}` : "Every department");
-  // With the account, what this server has switched on (features.ts, REQUIREMENTS §65) — here, at sign-in and in /api/auth/me.
-  res.status(201).json({ user, features: FEATURES });
+  // With the account, what this server has switched on (features.ts, REQUIREMENTS §65) — here, at sign-in and in
+  // /api/auth/me — and when this session ends (§84).
+  res.status(201).json({ user, features: FEATURES, session: await hours.sessionAnswer(user, endsAt), hours: await hours.publicAnswer() });
 });
 
 // WHO SEES WHICH DEPARTMENT'S DOCUMENTS — set by the admin, not by the person
@@ -536,15 +591,46 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
 
   clearAttempts(normalizedEmail);
   const user = toPublicUser(row);
-  issueSession(res, user);
+  // OUTSIDE THE PLANT'S HOURS (REQUIREMENTS §84): only after the password was
+  // right, like the switched-off answer above, and said in plain words with the
+  // next opening. The super admin is never refused.
+  const refused = await hours.refusal(user);
+  if (refused) {
+    logActivity(req, user, "Sign-in refused", normalizedEmail, "Outside working hours");
+    res.status(403).json(refused);
+    return;
+  }
+  // A DAY'S SESSION (§84, C3): it ends at the close of today — END for staff, midnight for the super admin.
+  const endsAt = await hours.sessionEnd(user);
+  issueSession(res, user, endsAt);
   void markSignedIn(row.id, new Date().toISOString()).catch(() => undefined);
   logActivity(req, user, "Signed in", user.email);
-  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password });
+  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt), hours: await hours.publicAnswer() });
 });
 
+// A session the browser ends a moment after its close — its clock, a laptop
+// woken from sleep — still has its "Signed out" line written, for this long.
+const SIGN_OUT_LINE_GRACE_MS = 30 * 60 * 1000;
+const SIGN_OUT_REASONS: Record<string, string> = {
+  // The browser signed a person out by itself at the close of the working day (§84, C4).
+  [END_OF_HOURS_REASON]: "At the close of working hours",
+  // The server refused the session outside the plant's hours, and the browser signed out.
+  [OUTSIDE_HOURS_REASON]: "Outside working hours",
+};
+
 app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> => {
-  const user = await getSessionUser(req).catch(() => null);
-  if (user) logActivity(req, user, "Signed out", user.email);
+  let user = await getSessionUser(req).catch(() => null);
+  if (!user) {
+    const token = req.cookies?.[COOKIE_NAME];
+    const closed = typeof token === "string" && token ? verifySessionToken(token, { ignoreExpiration: true }) : null;
+    if (closed && Date.now() - closed.endsAt.getTime() <= SIGN_OUT_LINE_GRACE_MS) {
+      const row = await getUserById(closed.sub).catch(() => undefined);
+      if (row && row.active) user = toPublicUser(row);
+    }
+  }
+  const reason = (req.body ?? {}).reason;
+  const detail = typeof reason === "string" && Object.hasOwn(SIGN_OUT_REASONS, reason) ? SIGN_OUT_REASONS[reason] : "";
+  if (user) logActivity(req, user, "Signed out", user.email, detail);
   res.clearCookie(COOKIE_NAME, cookieOptions());
   res.status(204).end();
 });
@@ -694,14 +780,23 @@ app.get("/api/activity/summary", requireAuth, async (req: Request, res: Response
 registerActivityArchiveRoutes(app, { requireAuth, activityFilter, sendJson: sendCompressedJson });
 
 app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
-  const user = await getSessionUser(req);
-  if (!user) {
+  const session = await readSession(req);
+  if (!session) {
     // With the features, so the sign-in screen knows what to offer without a
     // second request (REQUIREMENTS §66) — and nothing else whatever.
     res.status(401).json({ error: "Not authenticated.", features: FEATURES });
     return;
   }
-  res.json({ user, features: FEATURES, mustChangePassword: await mustChangePassword(user.id) });
+  const { user } = session;
+  // A session still open outside the plant's hours (the calendar was changed
+  // during the day, say): refused like every other route, so the browser shows
+  // the sign-in page with the reason instead of an app that cannot load (§84).
+  const refused = await hours.refusal(user);
+  if (refused) {
+    res.status(403).json({ ...refused, features: FEATURES });
+    return;
+  }
+  res.json({ user, features: FEATURES, mustChangePassword: await mustChangePassword(user.id), session: await hours.sessionAnswer(user, session.endsAt), hours: await hours.publicAnswer() });
 });
 
 // Same in-memory-per-key throttle shape as loginAttempts above, just keyed
@@ -1262,6 +1357,22 @@ function visibleLines(value: string, visible: (line: unknown) => boolean): strin
   }
 }
 
+/** A master-data write with the working hours put back as they are stored (unchanged, when they already are). */
+function withStoredHours(posted: string, stored: string | null): string {
+  try {
+    const mine = JSON.parse(posted) as Record<string, unknown> | null;
+    if (!mine || typeof mine !== "object" || Array.isArray(mine)) return posted;
+    const theirs = stored ? (JSON.parse(stored) as Record<string, unknown> | null) : null;
+    const kept = theirs && typeof theirs === "object" && !Array.isArray(theirs) ? theirs.workingHours : undefined;
+    if (JSON.stringify(mine.workingHours ?? null) === JSON.stringify(kept ?? null)) return posted;
+    if (kept === undefined) delete mine.workingHours;
+    else mine.workingHours = kept;
+    return JSON.stringify(mine);
+  } catch {
+    return posted;
+  }
+}
+
 // The stored data runs to megabytes; sent compressed it is a fraction of that
 // over the office network, and the browser unpacks it natively.
 function sendCompressedJson(req: Request, res: Response, status: number, body: unknown): void {
@@ -1361,7 +1472,12 @@ app.put(
       res.status(400).json({ error: "A stored value must be JSON." });
       return;
     }
-    const result = await writeItem(storageScope(key, user.id), key, posted, baseVersion, user.email, compose);
+    // THE PLANT'S HOURS ARE THE SUPER ADMIN'S TO CHANGE (REQUIREMENTS §84): the
+    // Master Data page offers them to nobody else, and a write of the master data
+    // by anybody else keeps the hours exactly as they are stored — the screen is
+    // never the lock (§66). Everything else in that write is theirs as before.
+    const keepHours = key === "master" && user.role !== "admin" ? (stored: string | null): string => withStoredHours(posted, stored) : undefined;
+    const result = await writeItem(storageScope(key, user.id), key, posted, baseVersion, user.email, compose ?? keepHours);
     if (result.ok) {
       res.json({ version: result.version, seq: result.seq });
       return;
@@ -1398,6 +1514,8 @@ app.delete("/api/storage/:key", requireAuth, async (req: Request, res: Response)
 // (backend/overviewRoutes.ts). Nothing above them changes.
 registerApiV1(app, { requireAuth, logActivity });
 registerOverviewRoutes(app, { requireAuth, logActivity });
+// USER ACCESS (REQUIREMENTS §84): the super admin's view of who may use which module, and every sign-in and sign-out.
+registerAccessRoutes(app, { requireAuth, logActivity });
 
 // Single-process production deployment: serve the built frontend (dist/)
 // from the same server as the API, so there's one process and one origin to

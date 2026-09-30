@@ -32,6 +32,7 @@ the plant's named accounts there on a password this suite knows.
 
 Network-independent, against the production build on :8843.
 """
+import json
 import sys
 import time
 import uuid
@@ -174,7 +175,18 @@ with sync_playwright() as p:
     )
     cfg = get(page, "/api/auth/config")
     check("The server says so before anybody signs in: signup is false", cfg["status"] == 200 and (cfg["body"] or {}).get("features", {}).get("signup") is False, cfg)
-    check("...and that answer carries nothing about anybody", cfg["status"] == 200 and set((cfg["body"] or {}).keys()) == {"features"}, cfg)
+    # Since REQUIREMENTS s84 it also carries the PLANT's working hours and today's calendar state (so the sign-in page can
+    # say when DCRS is open) - the plant's clock, never anything about a person.
+    body = cfg["body"] or {}
+    plant = body.get("hours") or {}
+    check(
+        "...and that answer carries nothing about anybody: the features, and the plant's hours only",
+        cfg["status"] == 200
+        and set(body.keys()) <= {"features", "hours"}
+        and not ({"id", "name", "email", "user", "users", "departments", "role"} & set(plant.keys()))
+        and "@" not in json.dumps(plant),
+        cfg,
+    )
 
     refused = post(page, "/api/auth/signup", {"name": "Walk In", "email": f"walkin.{STAMP}@example.com", "password": "Walkin@2026"})
     check("Registering is refused by the server, not merely hidden", refused["status"] == 403, refused)

@@ -434,9 +434,16 @@ with sync_playwright() as p:
     if box.count():
         box.fill("pest")
         page.wait_for_timeout(1000)
+        # REQUIREMENTS s84 reverses the s40 rule this used to assert ("finds nothing"): another department's
+        # document is FOUND, shown as kept by that department, with nothing to open and none of its records listed.
+        kept = page.locator("[data-search-kept='daily-pest-monitoring']")
         check(
-            "Searching for another department's document finds nothing",
-            "Daily Pest Control Monitoring" not in page.locator(".app-content").inner_text(),
+            "Searching for another department's document finds it, kept by that department, with nothing to open (REQUIREMENTS s84)",
+            kept.count() == 1
+            and "Kept by Human Resources — ask the super admin for access" in kept.inner_text()
+            and kept.locator("button, a").count() == 0
+            and page.locator("[data-search-document='daily-pest-monitoring']").count() == 0
+            and "Daily Pest Control" not in page.locator("[data-section='search-records']").inner_text(),
             page.locator(".app-content").inner_text()[:300],
         )
 

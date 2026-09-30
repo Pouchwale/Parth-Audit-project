@@ -4,6 +4,7 @@ import type { Express, NextFunction, Request, RequestHandler, Response } from "e
 import { COOKIE_NAME, verifySessionToken, type PublicUser } from "./auth.ts";
 import { database, getUserById, plantTimeZone, readItem, writeItem, type StoredItem, type UserRow, type WriteResult } from "./db.ts";
 import { distDir, repoRoot } from "./paths.ts";
+import { createWorkingHoursGate } from "./workingHours.ts";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 import {
   activityDetail,
@@ -39,8 +40,10 @@ import {
 // documented for the assistant's developer in docs/chatbot-integration.md and
 // described in docs/api/dcrs-api.openapi.json (served at /api/v1/openapi.json).
 //
-// SIGNING IN. With the existing POST /api/auth/login, unchanged: its session
-// token is the value of the dcrs_session cookie it sets, good for 7 days. Every
+// SIGNING IN. With the existing POST /api/auth/login: its session token is the
+// value of the dcrs_session cookie it sets, good until the close of the day it
+// was started (6:20 pm by default for staff, midnight for the super admin —
+// REQUIREMENTS §84; the answer's `session.endsAt` says when). Every
 // route below but openapi.json takes that token as the cookie OR as
 // "Authorization: Bearer <token>" (a server has no cookie jar), and reads the
 // account again on every request, so an account switched off stops at once.
@@ -514,9 +517,21 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     }
   });
 
+  // THE PLANT'S WORKING HOURS (REQUIREMENTS §84): the same gate as DCRS's own
+  // routes (backend/workingHours.ts), on the master data this API reads and on
+  // its clock — so a person the plant's hours shut out of DCRS is shut out of it
+  // through the assistant too. The super admin is never refused.
+  const hours = createWorkingHoursGate({
+    source: { seq: () => store.itemSeq("company", "master"), read: async () => (await store.readItem("company", "master"))?.value ?? null },
+    clock,
+  });
+
   // WHO IS CALLING: the person the session belongs to, read from the database
   // on every request (switched off: refused at once), and not while they are
-  // still on the password the administrator gave them (REQUIREMENTS §66).
+  // still on the password the administrator gave them (REQUIREMENTS §66). A
+  // session ends at the close of the day it was started (§84) — its token's own
+  // end — and outside the plant's hours a person held to them is refused with
+  // 403 outside-working-hours, the next opening and the reason in words.
   const signedIn = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     res.set("Cache-Control", "no-store");
     const token = sessionTokenOf(req);
@@ -524,6 +539,11 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     const row = payload ? await store.userById(payload.sub) : undefined;
     if (!token || !row || !row.active) {
       fail(res, 401, "not-signed-in", "Not signed in, or the session has ended. Sign in again with POST /api/auth/login.");
+      return;
+    }
+    const refused = await hours.refusal(row);
+    if (refused) {
+      res.status(403).json(refused);
       return;
     }
     if (row.must_change_password) {

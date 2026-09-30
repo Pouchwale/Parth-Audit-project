@@ -5044,7 +5044,7 @@ DCRS record it was about — read from the action's input by the one function `o
 **3. The DCRS API for the assistant** (`backend/apiV1.ts`, `backend/findingsCore.ts`, described in
 docs/api/dcrs-api.openapi.json and served at `/api/v1/openapi.json`; hand-off in docs/chatbot-integration.md). New routes
 only. The person signs in with DCRS's own, unchanged `POST /api/auth/login`; the session token (the `dcrs_session` cookie,
-7 days) is accepted by every `/api/v1` route as the cookie or as `Authorization: Bearer`; the account is read again on every
+which ends at the close of its day since §84) is accepted by every `/api/v1` route as the cookie or as `Authorization: Bearer`; the account is read again on every
 call, so one switched off stops at once, and one still on the administrator's password is refused. Routes:
 `GET /api/v1/me`; `GET /api/v1/findings` (list and search: open/closed/all, words, dates, paging); `GET /api/v1/findings/{id}`;
 `POST /api/v1/findings/{id}/close` (CHANGE, with a note); `GET /api/v1/complaints`;
@@ -5110,6 +5110,85 @@ run time.
 **What waits on the owner.** Confirmation items 37 to 41.
 
 **Tests.** See docs/TESTING.md "The shared database and the Audit Assistant's API".
+
+## §84 — Every document findable, a motion-graphics opening, the super admin's User access, and the plant's working hours (30-Sep-2026)
+
+**The request.** "If any user searches for any document, or if the super admin searches for any document, he should find
+it — it should be present. ... This PDF I am sharing with you [the Master List of Formats, F/SYS/02 (R-2025)] — check each
+and every module whether all the documents according to the PDF are present or not; if not, ask me and I will share them.
+If a user wants to list all documents, he can list them out, open one and work on it. The starting animation: use motion
+graphics there too, and it should take its time and only then open — make it really awesome for the user, and make the whole
+site enjoyable to use. Make sure the super admin has every kind of detail: which user can see what, and when each logs in
+and logs out. Every day a user must first log in, and only then can he or she use the software. The super admin has access to
+every module, and can remove or add any user from any module, from a dedicated dashboard for it. Daily working hours: after
+them nobody but the admin can use this software. The time runs from 8:40 am to 6:20 pm. Mostly Thursday is the holiday —
+check the company's calendar properly, because there are adjustment days too, and sometimes a Thursday counts as a working
+day, so the software must run on that day as well."
+
+**1. The documents against the Master List of Formats** (docs/document-coverage.md). The PDF shared on 30-Sep-2026 is the
+same list as the R-2025 master list already on file (135 lines; only re-exported). Of its 135 formats DCRS holds 88; 45 have
+not been supplied yet (most of them Production's), one is obsolete on the list (F-QC-41), and one — F-QC-15-B, the punching
+line clearance — has a paper in the owner's Downloads that was never sent (§57 records it as not supplied). The workbook adds
+four Production lines the PDF does not have (F-PRD-27 to 30). DCRS also holds 26 documents that are not on the list — the pest
+control provider's papers, the CAPA forms, QC papers numbered outside it — each explained in the file. The formats to send are
+confirmation item 42.
+
+**2. Every document findable, and the whole list openable** (engine/documentFinder.ts, SearchPage, DocumentLibraryPage).
+Search finds a document by any spelling of its format number (F/HR/17, F-HR-17, fhr17, HR 17), by any word of its name in
+English or Gujarati, by its module, section or department, or by the words Mitra knows it by — for every account. What the
+search shows depends on who asks:
+- the person's own documents, to open and to start a record in, as before;
+- **another department's document is FOUND** and shown "Kept by <department> — ask the super admin for access", with nothing to
+  open and none of its records read (this replaces §40's rule that another department's documents are not found at all: the
+  owner asked that every document be findable; the records stay the department's own);
+- **a format on the Master List of Formats (F/SYS/02) that DCRS does not have yet** is found too, shown "On the Master List of
+  Formats (F/SYS/02) — not in DCRS yet";
+- the numbers the master list gives documents DCRS files under another number (F-PRD-19, F-MKT-06, QA-PRO-FL-CCT-01) find them.
+The Document Library lists every document by module, each openable to its records to work on; its filter box finds the way
+search does; one switch lists the master-list formats not in DCRS yet, another (for an account kept to departments) the other
+departments' documents as kept by them.
+
+**3. The opening in motion graphics** (components/auth/IntroSplash.tsx, public/styles/delight.css). About five seconds,
+opaque from the first frame: light, rays, a moving grid and particles out of the dark; the logo turning in with rings of light;
+"DCRS" flipping up in 3D and the system's name rising; the company's name, "Gujarat Print Pack Publication", assembling letter
+by letter from six directions; the twelve modules' marks; a flare and a progress line; then a line of light splits the screen and
+the two halves open onto the sign-in page or the app. Once per browser session; a plain fade under reduced motion; a first key,
+click or tap lifts it at once (it never catches the click); it cannot stay longer than six seconds even if a script fails.
+CSS transforms and opacity only — at 6x CPU throttle no long task over 100 ms. Across the site, small and fast: a page's content
+fades and rises in (180 ms), buttons respond to a press, tiles and cards lift a little under the pointer, the sidebar's active
+mark glides; none of it in print or under reduced motion.
+
+**4. User access — the super admin's dashboard** (#/access; backend/accessRoutes.ts, pages/AccessDashboardPage.tsx; linked from
+Users & Access). For the super admin only (the server refuses everybody else):
+- every account against the plant's ten modules, each a switch — the super admin adds a person to a module or removes them
+  (removing asks first; the super admin's own row is locked; "Every module" where none is set);
+- which documents each person can see, per module, the list on opening them;
+- today: who is signed in now, each person's first sign-in and last sign-out, refused and failed sign-ins. "Signed in now" rests on
+  the log: signed in today, not signed out since, and a line in the activity log within 30 minutes — the page says so;
+- each person's sign-ins and sign-outs over any span of days, paired into sessions (a session never runs past its day), the
+  archive included, with a CSV file;
+- the working hours and today's calendar state at the top.
+
+**5. The plant's working hours, and a day's session** (engine/workingHoursCore.ts — one rule for the server and the browser;
+backend/workingHours.ts). Every account but the super admin may use DCRS only on a working day of the company calendar — Thursday
+is the weekly off, but an adjustment day is a working day and a festival holiday is not (the calendar already in master data,
+§16) — from 8:40 am to 6:20 pm factory time (Master Data → Working Hours, where the super admin can change the two times; the
+rule matches the calendar pages for every day of 2026 and 2027). Outside them:
+- a non-admin cannot sign in (logged "Sign-in refused — Outside working hours") or use anything: the server answers 403
+  `outside-working-hours` with the next opening, and the page says it in words — "DCRS is open 8:40 am to 6:20 pm on working days.
+  Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.";
+- a save a browser sends outside the hours is answered 401 (not 403), so the browser keeps the unsent work for the next sign-in
+  rather than forgetting it;
+- the sign-in page states the hours and today's state.
+Every session ends at the close of the day it began — at 6:20 pm for staff, at midnight for the super admin — so every morning
+starts with signing in (this replaces the seven-day session of §81 and §83). At 6:10 pm the browser warns; just before 6:20 it
+signs the person out by itself, after sending any unsent work, and the activity log says "At the close of working hours". The
+super admin is never held to the hours. `DCRS_WORKING_HOURS=off` switches the rule off (the test servers of the e2e run use it, as
+the suites run at any hour). The Audit Assistant's DCRS token ends the same way (docs/chatbot-integration.md).
+
+**What waits on the owner.** Confirmation items 42 to 44.
+
+**Tests.** See docs/TESTING.md "Every document findable, the opening, User access and the working hours".
 
 ## Master data provenance summary
 
@@ -5266,6 +5345,20 @@ run time.
 41. **DCRS's own database login** (§83). In development DCRS connects as the PostgreSQL superuser, so DCRS's own connection
     could read the assistant's tables, though it never does. For production, DCRS should connect as a role of its own that
     owns DCRS's tables and is not a superuser (docs/DEPLOYMENT.md already shows `postgres://dcrs:…`). Agreed?
+42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 49 in all:
+    MKT — F-MKT-03 Customer complaint Form. PUR — F-PUR-04 Purchase Order. QC — F-QC-10 SOC Sleeve, F-QC-14 Test Reliability
+    Record, F-QC-17 Scale/Ruler internal calibration, F-QC-31 COA Pouch, F-QC-33 Incoming lamination grade film inspection,
+    F-QC-36 Solvent base lamination film, F-QC-39 FGPO Specification, F-QC-40.A Temperature (printing machine / ink kitchen /
+    warehouse), F-QC-40.B Temperature (Sleeve Division). QA — F-QA-01 Traceability Report. PRD — F-PRD-01 to 13, 14.A, 14.B, 14.E,
+    15, 16, 17.A, 17.B, 17.C, 20 to 26, and the workbook's 27 to 30. HR — F-HR-02 Personnel competence criteria, F-HR-10 Training
+    Imparted Record, F-HR-15 Daily cleaning record, F-HR-16 Monthly cleaning record. DISP — F-DISP-04 Vehicle cleaning Protocol &
+    Record. Until they come, search and the Document Library show them as "on the Master List — not in DCRS yet".
+43. **F-QC-15-B, the punching line clearance** (§84). A paper printing "F/QC/15-B, Rev 00, 16.02.2022" is in the owner's Downloads
+    (`F-QC-15-A-G Line Clearance Punching - Printing.pdf`, 18-Sep-2026) but was never sent (§57 records it as not supplied). Send
+    it to be built?
+44. **The company's name as the system writes it** (§84). The opening spells it "Gujarat Print Pack Publication", as the plant's
+    papers print it; the sign-in card, the page title and the sidebar say "Gujarat Printpack Publication Pvt. Ltd.". Which one,
+    everywhere?
 
 ## How the assistant pre-fills records (and what it never does)
 

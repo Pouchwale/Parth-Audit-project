@@ -17,10 +17,11 @@
       every form, register and sheet is set in --font-doc, the stack the whole app
       used before (styles.css --font-sans, copied exactly), on screen and on paper;
       and on paper everything is.
-   3. The sign-in screen's title as a 3D wordmark, and the introduction that plays
-      once per browser session before it (components/auth/IntroSplash.tsx).
-   Animation here is transforms and opacity alone, runs once, and none of it under
-   prefers-reduced-motion. */
+   3. The sign-in screen's title as a 3D wordmark, and the opening that plays once
+      per browser session before it (components/auth/IntroSplash.tsx) — since
+      REQUIREMENTS §84 a 4.8 s motion-graphics sequence.
+   Animation here is transforms and opacity alone and runs once; under
+   prefers-reduced-motion nothing moves (the opening is a plain fade). */
 
 /* ---- 1. The faces ------------------------------------------------------------- */
 
@@ -175,7 +176,9 @@ table.log-sheet,
 }
 
 /* Once, as the screen opens: the title stands up into place. The card and the
-   form never move. After the introduction it waits for the veil to lift. */
+   form never move. Behind the introduction it waits for the veil to open, and
+   stands up as it does (IntroSplash.tsx sets data-intro-playing on <html> while it
+   plays; a key or a click that lifts the veil early takes the wait away at once). */
 @keyframes dcrs-title-in {
   0% {
     opacity: 0;
@@ -190,14 +193,35 @@ table.log-sheet,
   }
 }
 
-.auth-shell[data-intro="playing"] .auth-brand .title {
-  animation-delay: 1050ms;
+:root[data-intro-playing] .auth-brand .title {
+  animation-delay: 4250ms;
 }
 
-/* ---- 3b. The introduction (IntroSplash.tsx) ----------------------------------- */
+/* ---- 3b. The opening (IntroSplash.tsx) ---------------------------------------- */
 
-/* Over everything, catching nothing: every click and key goes to the sign-in form
-   beneath, which is there from the first frame. 1.6 s, then it leaves the page. */
+/* REQUIREMENTS §84 (30-Sep-2026): "the starting animation: use motion graphics there
+   too, and it should take its time and only then open — make it really awesome".
+   A 4.8 s sequence over the sign-in screen, or over the app at a session's opening,
+   OPAQUE while it plays:
+     0.00 s  the veil; light blooms, rays turn, particles stream out of the dark
+     0.15    the company's mark turns in; two rings of light leave it
+     0.65    DCRS flips up letter by letter, extruded; a light sweeps across it (1.56)
+     1.35    the system's name rises into place, word by word
+     1.85    the company's name assembles from letters flying in from every side
+     2.35    the modules' marks turn in, one after another
+     3.46    a flare crosses the whole of it; the progress line fills (4.15)
+     3.98    it all rushes past and is gone (4.32)
+     4.08    a line of light splits the veil, which opens top and bottom (4.25)
+     4.80    gone — and the sign-in title stands up as the veil opens (3a).
+   Over everything and catching nothing (pointer-events: none throughout): what is
+   typed or clicked while it plays lands in the page beneath, and the first key,
+   click, tap or wheel lifts the veil at once (.is-leaving, 0.38 s).
+   Transforms and opacity alone, so every movement runs on the graphics card and a
+   busy page does not stutter it; no canvas, no library. It ends by itself three ways:
+   the component's timer at 4.8 s, a hard stop at 6 s, and this sheet, which leaves
+   it transparent at 4.8 s (intro-failsafe) even if no script ran at all.
+   Under reduced motion: a plain 0.9 s fade, nothing moving (the last block). */
+
 .intro-splash {
   position: fixed;
   inset: 0;
@@ -205,13 +229,20 @@ table.log-sheet,
   pointer-events: none;
   overflow: hidden;
   contain: strict;
-  background: radial-gradient(ellipse 120% 85% at 50% 42%, #17698a 0%, #0a4258 48%, #041a24 100%);
-  animation: intro-veil 1600ms linear both;
+  animation: intro-failsafe 4800ms linear both;
 }
 
-@keyframes intro-veil {
+.intro-splash.is-plain {
+  animation: intro-plain 900ms linear both;
+}
+
+.intro-splash.is-leaving {
+  animation: intro-leave 380ms ease-out both;
+}
+
+@keyframes intro-failsafe {
   0%,
-  62% {
+  99% {
     opacity: 1;
   }
   100% {
@@ -219,36 +250,128 @@ table.log-sheet,
   }
 }
 
-/* The scene: seen in perspective, and gone a little before the veil so the
-   screen beneath comes clear (opacity here, never on the rig — it would flatten it). */
+@keyframes intro-plain {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes intro-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The veil: two halves of one dark-teal sky that part at the end. Each half is
+   drawn at half the window's height (half the work for the graphics card) with
+   its half of one window-sized sky; they overlap by 2 px, so no hairline shows. */
+.intro-door {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(50% + 1px);
+  background: radial-gradient(ellipse 120% 85% at 50% 42%, #17698a 0%, #0a4258 48%, #041a24 100%) 0 0 / 100% 200% no-repeat;
+  animation: intro-door-top 4800ms both;
+}
+
+.intro-door.is-top {
+  top: 0;
+}
+
+.intro-door.is-bottom {
+  bottom: 0;
+  background-position: 0 100%;
+  animation-name: intro-door-bottom;
+}
+
+@keyframes intro-door-top {
+  0%,
+  88.5% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.7, 0, 0.25, 1);
+  }
+  100% {
+    transform: translateY(-102%);
+  }
+}
+
+@keyframes intro-door-bottom {
+  0%,
+  88.5% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.7, 0, 0.25, 1);
+  }
+  100% {
+    transform: translateY(102%);
+  }
+}
+
+/* The line of light the veil splits along. */
+.intro-seam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: linear-gradient(90deg, rgba(255, 228, 236, 0), #ffe4ec 28%, #ffffff 50%, #ffe4ec 72%, rgba(255, 228, 236, 0));
+  box-shadow: 0 0 16px 3px rgba(255, 205, 220, 0.55);
+  opacity: 0;
+  animation: intro-seam 4800ms both;
+}
+
+@keyframes intro-seam {
+  0%,
+  85% {
+    opacity: 0;
+    transform: scaleX(0);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  90% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+/* The scene: seen in perspective, and gone as the veil opens (opacity here, never
+   on the rig — it would flatten it). */
 .intro-stage {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 16px 9vh;
+  padding: 0 16px 10vh;
   perspective: 900px;
-  animation: intro-scene 1600ms linear both;
+  animation: intro-stage 4800ms linear both;
 }
 
-@keyframes intro-scene {
+@keyframes intro-stage {
   0%,
-  66% {
+  83% {
     opacity: 1;
   }
-  88%,
+  90%,
   100% {
     opacity: 0;
   }
 }
 
-/* A grid floor running out to the horizon under the name. */
+/* A grid floor running out to the horizon under the names, moving all the while. */
 .intro-floor {
   position: absolute;
-  left: -40%;
-  width: 180%;
-  top: 58%;
+  left: -20%;
+  width: 140%;
+  top: 60%;
   height: 70%;
   transform-origin: 50% 0;
   background:
@@ -256,7 +379,7 @@ table.log-sheet,
     repeating-linear-gradient(0deg, rgba(255, 214, 224, 0.2) 0 1px, transparent 1px 56px);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 55%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 55%, transparent 100%);
-  animation: intro-floor 1600ms linear both;
+  animation: intro-floor 4800ms linear both;
 }
 
 @keyframes intro-floor {
@@ -264,15 +387,48 @@ table.log-sheet,
     opacity: 0;
     transform: rotateX(76deg) translateY(0);
   }
-  25% {
+  12% {
     opacity: 1;
   }
   100% {
     opacity: 1;
-    transform: rotateX(76deg) translateY(112px);
+    transform: rotateX(76deg) translateY(336px);
   }
 }
 
+/* Rays of light turning slowly behind the mark. */
+.intro-rays {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 100vmin;
+  height: 100vmin;
+  margin: -50vmin 0 0 -50vmin;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 222, 232, 0.12) 0deg 3deg, rgba(255, 222, 232, 0) 3deg 15deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.55) 30%, transparent 68%);
+  mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.55) 30%, transparent 68%);
+  animation: intro-rays 4800ms cubic-bezier(0.3, 0, 0.7, 1) both;
+}
+
+@keyframes intro-rays {
+  0% {
+    opacity: 0;
+    transform: rotate(-24deg) scale(0.6);
+  }
+  22% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(20deg) scale(1.2);
+  }
+}
+
+/* The light the mark stands in. */
 .intro-glow {
   position: absolute;
   left: 50%;
@@ -282,7 +438,7 @@ table.log-sheet,
   margin: -39vmin 0 0 -39vmin;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 196, 212, 0.34) 0%, rgba(255, 196, 212, 0.1) 38%, rgba(255, 196, 212, 0) 64%);
-  animation: intro-glow 900ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  animation: intro-glow 1200ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
 @keyframes intro-glow {
@@ -296,8 +452,63 @@ table.log-sheet,
   }
 }
 
-/* Everything that flies: from far off and turned away, overshooting a little,
-   settling, then rushing past as the veil lifts. */
+/* Particles streaming out of the dark towards the viewer: each sits still at its
+   place on the screen and only comes nearer (translateZ), so the perspective alone
+   carries it outwards, faster and faster. Twenty-eight of them, each once. */
+.intro-particles {
+  position: absolute;
+  inset: 0;
+  perspective: 800px;
+  perspective-origin: 50% 44%;
+}
+
+.intro-p {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: #ffe9ef;
+  box-shadow: 0 0 6px 1px rgba(255, 196, 212, 0.75);
+  opacity: 0;
+  animation: intro-warp 1900ms cubic-bezier(0.5, 0, 0.9, 0.55) both;
+}
+
+.intro-p.v1 {
+  background: #e3f6ff;
+  box-shadow: 0 0 6px 1px rgba(170, 225, 250, 0.7);
+  animation-duration: 2200ms;
+}
+
+.intro-p.v2 {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: #fff4d6;
+  box-shadow: 0 0 9px 2px rgba(255, 226, 170, 0.6);
+  animation-duration: 1700ms;
+}
+
+@keyframes intro-warp {
+  0% {
+    opacity: 0;
+    transform: translateZ(-1500px);
+  }
+  14% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateZ(320px);
+  }
+}
+
+/* Everything that flies together: from far off and turned away, overshooting a
+   little, settling, turning slowly while the names assemble, then rushing past as
+   the veil opens. */
 .intro-rig {
   position: relative;
   display: flex;
@@ -305,35 +516,45 @@ table.log-sheet,
   align-items: center;
   max-width: 100%;
   transform-style: preserve-3d;
-  animation: intro-rig 1600ms both;
+  animation: intro-rig 4800ms both;
 }
 
 @keyframes intro-rig {
   0% {
-    transform: translateZ(-480px) rotateX(24deg) rotateY(-38deg);
+    transform: translateZ(-520px) rotateX(26deg) rotateY(-40deg);
     animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1);
   }
-  55% {
-    transform: translateZ(30px) rotateX(-5deg) rotateY(8deg);
+  22% {
+    transform: translateZ(26px) rotateX(-4deg) rotateY(7deg);
     animation-timing-function: ease-in-out;
   }
-  68% {
-    transform: translateZ(0) rotateX(5deg) rotateY(-4deg);
-    animation-timing-function: cubic-bezier(0.4, 0, 0.9, 0.6);
+  32% {
+    transform: translateZ(0) rotateX(3deg) rotateY(-4deg);
+    animation-timing-function: ease-in-out;
+  }
+  83% {
+    transform: translateZ(0) rotateX(-2deg) rotateY(4deg);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
   }
   100% {
-    transform: translateZ(520px) rotateX(0deg) rotateY(0deg);
+    transform: translateZ(560px) rotateX(0deg) rotateY(0deg);
   }
 }
 
-/* The company's mark as a tile with an edge, turning in face first. */
+/* The company's mark as a tile with an edge, turning in face first, with two rings
+   of light leaving it. */
+.intro-mark {
+  position: relative;
+  margin-bottom: clamp(8px, 2vh, 18px);
+  transform-style: preserve-3d;
+}
+
 .intro-logo {
   display: block;
-  width: clamp(64px, 17vw, 108px);
+  width: clamp(52px, min(16vw, 13vh), 100px);
   height: auto;
   aspect-ratio: 1;
   border-radius: 24%;
-  margin-bottom: clamp(8px, 2.2vh, 20px);
   box-shadow:
     0 1px 0 #6f3439,
     0 2px 0 #652f34,
@@ -342,13 +563,13 @@ table.log-sheet,
     0 5px 0 #472125,
     0 14px 24px rgba(0, 0, 0, 0.45);
   backface-visibility: hidden;
-  animation: intro-logo 700ms cubic-bezier(0.2, 0.85, 0.3, 1.2) both;
+  animation: intro-logo 900ms cubic-bezier(0.2, 0.85, 0.3, 1.2) 150ms both;
 }
 
 @keyframes intro-logo {
   0% {
     opacity: 0;
-    transform: translateZ(-260px) rotateY(-150deg);
+    transform: translateZ(-260px) rotateY(-180deg);
   }
   30% {
     opacity: 1;
@@ -356,6 +577,34 @@ table.log-sheet,
   100% {
     opacity: 1;
     transform: none;
+  }
+}
+
+.intro-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 30%;
+  border: 2px solid rgba(255, 214, 226, 0.85);
+  box-shadow: 0 0 20px rgba(255, 196, 212, 0.55), inset 0 0 12px rgba(255, 196, 212, 0.35);
+  opacity: 0;
+  animation: intro-ring 1300ms cubic-bezier(0.2, 0.7, 0.3, 1) 450ms both;
+}
+
+.intro-ring.is-late {
+  animation-delay: 760ms;
+}
+
+@keyframes intro-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  22% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
   }
 }
 
@@ -368,7 +617,7 @@ table.log-sheet,
   white-space: nowrap;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(72px, 20vw, 168px);
+  font-size: clamp(56px, min(17vw, 19vh), 150px);
   line-height: 1;
   letter-spacing: 0.01em;
   transform-style: preserve-3d;
@@ -389,8 +638,8 @@ table.log-sheet,
     0.056em 0.056em 0 #401d20,
     0.09em 0.12em 0.16em rgba(0, 0, 0, 0.5);
   transform-origin: 50% 85%;
-  animation: intro-letter 500ms cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
-  animation-delay: calc(140ms + var(--i, 0) * 60ms);
+  animation: intro-letter 560ms cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+  animation-delay: calc(650ms + var(--i, 0) * 90ms);
 }
 
 .intro-letter::after {
@@ -438,7 +687,7 @@ table.log-sheet,
   overflow: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 58%, transparent 100%);
   mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 58%, transparent 100%);
-  animation: intro-shine-window 380ms 860ms cubic-bezier(0.45, 0, 0.3, 1) both;
+  animation: intro-shine-window 420ms 1560ms cubic-bezier(0.45, 0, 0.3, 1) both;
 }
 
 .intro-shine-text {
@@ -449,7 +698,7 @@ table.log-sheet,
   width: max-content;
   color: #ffffff;
   text-shadow: 0 0 0.08em rgba(255, 255, 255, 0.9), 0 0 0.2em rgba(255, 236, 200, 0.6);
-  animation: intro-shine-text 380ms 860ms cubic-bezier(0.45, 0, 0.3, 1) both;
+  animation: intro-shine-text 420ms 1560ms cubic-bezier(0.45, 0, 0.3, 1) both;
 }
 
 .intro-shine-text > span {
@@ -474,18 +723,36 @@ table.log-sheet,
   }
 }
 
+/* The names. Each word stays on one line and a long name breaks between words;
+   each letter is a piece of its own that moves in 3D (the name gives the depth). */
+.intro-w {
+  display: inline-block;
+  white-space: nowrap;
+  transform-style: preserve-3d;
+}
+
+.intro-ch {
+  display: inline-block;
+}
+
+/* The system's name rises into place word by word, each word standing up. */
 .intro-name {
-  margin-top: clamp(6px, 1.6vh, 14px);
+  margin-top: clamp(6px, 1.4vh, 12px);
   max-width: calc(100vw - 32px);
   font-family: var(--font-app);
   font-weight: 700;
-  font-size: clamp(12px, 3.3vw, 19px);
+  font-size: clamp(12px, 3.2vw, 19px);
+  line-height: 1.3;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   text-align: center;
   color: #e8f4f8;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-  animation: intro-rise 420ms 480ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  perspective: 600px;
+}
+
+.intro-name .intro-w {
+  animation: intro-rise-3d 560ms cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
 }
 
 /* Letter-spacing would pull Gujarati's joined letters apart. */
@@ -493,48 +760,316 @@ table.log-sheet,
   letter-spacing: 0;
 }
 
-.intro-company {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: calc(100vw - 32px);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: clamp(12.5px, 3.2vw, 17px);
-  letter-spacing: 0.03em;
-  text-align: center;
-  color: #f6c9d3;
-  animation: intro-rise 420ms 600ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
-}
-
-.intro-company::before,
-.intro-company::after {
-  content: "";
-  flex: 0 0 auto;
-  width: clamp(16px, 6vw, 44px);
-  height: 1px;
-  background: linear-gradient(90deg, rgba(246, 201, 211, 0), currentColor);
-}
-
-.intro-company::after {
-  transform: scaleX(-1);
-}
-
-@keyframes intro-rise {
-  from {
+@keyframes intro-rise-3d {
+  0% {
     opacity: 0;
-    transform: translateY(14px) translateZ(-60px);
+    transform: translateY(0.9em) rotateX(-95deg);
   }
-  to {
+  45% {
+    opacity: 1;
+  }
+  100% {
     opacity: 1;
     transform: none;
   }
 }
 
+/* The company's name assembles: its letters fly in from every side and every
+   depth, out of order, and lock into place. Six ways in, taken in turn. */
+.intro-company {
+  margin-top: clamp(8px, 1.8vh, 14px);
+  max-width: calc(100vw - 32px);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(17px, 4.6vw, 34px);
+  line-height: 1.15;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #f7cfd8;
+  text-shadow: 0.03em 0.03em 0 #8a4148, 0.06em 0.06em 0 #6b3136, 0 0.12em 0.3em rgba(0, 0, 0, 0.45);
+  perspective: 700px;
+}
+
+.intro-company .intro-ch {
+  animation: intro-asm-0 900ms cubic-bezier(0.18, 0.85, 0.25, 1.08) both;
+}
+
+.intro-company .intro-ch.a1 {
+  animation-name: intro-asm-1;
+}
+
+.intro-company .intro-ch.a2 {
+  animation-name: intro-asm-2;
+}
+
+.intro-company .intro-ch.a3 {
+  animation-name: intro-asm-3;
+}
+
+.intro-company .intro-ch.a4 {
+  animation-name: intro-asm-4;
+}
+
+.intro-company .intro-ch.a5 {
+  animation-name: intro-asm-5;
+}
+
+@keyframes intro-asm-0 {
+  0% {
+    opacity: 0;
+    transform: translate3d(-2.2em, -1.6em, 260px) rotateY(-120deg) rotateZ(-30deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-asm-1 {
+  0% {
+    opacity: 0;
+    transform: translate3d(1.8em, 1.9em, -320px) rotateX(140deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-asm-2 {
+  0% {
+    opacity: 0;
+    transform: translate3d(-1.2em, 2.4em, 180px) rotateX(-160deg) rotateZ(40deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-asm-3 {
+  0% {
+    opacity: 0;
+    transform: translate3d(2.6em, -2em, -260px) rotateY(150deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-asm-4 {
+  0% {
+    opacity: 0;
+    transform: translate3d(0.4em, -2.8em, 320px) rotateX(-120deg) rotateY(60deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes intro-asm-5 {
+  0% {
+    opacity: 0;
+    transform: translate3d(-2.8em, 0.8em, -200px) rotateZ(-90deg) rotateY(-80deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The modules' marks — the sidebar's own — turning in one after another. */
+.intro-modules {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(6px, 1.3vw, 12px);
+  margin-top: clamp(14px, 3vh, 26px);
+  max-width: min(640px, calc(100vw - 32px));
+  perspective: 700px;
+}
+
+.intro-mod {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(28px, 7.2vw, 42px);
+  height: clamp(28px, 7.2vw, 42px);
+  border-radius: 30%;
+  color: #fff4f6;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 220, 230, 0.5);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  animation: intro-mod 620ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+.intro-mod svg {
+  width: 56%;
+  height: 56%;
+}
+
+@keyframes intro-mod {
+  0% {
+    opacity: 0;
+    transform: translateZ(-220px) rotateY(-200deg) scale(0.5);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Six to a row on a phone, two even rows. */
+@media (max-width: 560px) {
+  .intro-modules {
+    max-width: 224px;
+  }
+}
+
+/* A flare crossing the whole of it once everything has arrived. */
+.intro-flare {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(100deg, rgba(255, 240, 245, 0) 0%, rgba(255, 240, 245, 0.12) 44%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 240, 245, 0.12) 56%, rgba(255, 240, 245, 0) 100%);
+  opacity: 0;
+  animation: intro-flare 4800ms both;
+}
+
+@keyframes intro-flare {
+  0%,
+  72% {
+    opacity: 0;
+    transform: translateX(-110%);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1);
+  }
+  74% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+    transform: translateX(260%);
+  }
+  84%,
+  100% {
+    opacity: 0;
+    transform: translateX(260%);
+  }
+}
+
+/* The progress line, filling until the veil opens; a spark rides its end. */
+.intro-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(26px, 7vh);
+  width: min(360px, 62vw);
+  height: 2px;
+  margin: 0 auto;
+  border-radius: 2px;
+  background: rgba(255, 228, 236, 0.16);
+  animation: intro-progress 4800ms linear both;
+}
+
+.intro-progress-fill,
+.intro-progress-head {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: intro-progress-fill 4150ms cubic-bezier(0.45, 0.05, 0.25, 1) both;
+}
+
+.intro-progress-fill {
+  background: linear-gradient(90deg, #8fd3ee, #ffe0e8);
+  transform-origin: 0 50%;
+}
+
+.intro-progress-head {
+  animation-name: intro-progress-head;
+}
+
+.intro-progress-head::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px 3px rgba(255, 226, 234, 0.8);
+}
+
+@keyframes intro-progress {
+  0% {
+    opacity: 0;
+  }
+  6%,
+  86% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes intro-progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes intro-progress-head {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* Less motion: the veil and the names, still, fading out in 0.9 s — and the sign-in
+   title simply there. */
 @media (prefers-reduced-motion: reduce) {
-  .intro-splash {
-    display: none !important;
+  .intro-splash,
+  .intro-splash.is-leaving {
+    animation: intro-plain 900ms linear both;
+  }
+  .intro-splash * {
+    animation: none !important;
+  }
+  .intro-splash :is(.intro-floor, .intro-rays, .intro-glow, .intro-particles, .intro-ring, .intro-shine, .intro-flare, .intro-seam, .intro-progress) {
+    display: none;
   }
   .auth-brand .title {
     animation: none;

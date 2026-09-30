@@ -77,6 +77,16 @@ export interface AdjustmentDay {
   note?: string;
 }
 
+// THE PLANT'S WORKING HOURS (REQUIREMENTS §84): "The time runs from 8:40 am to
+// 6:20 pm." Every account but the super admin may use DCRS only on a working day
+// of the calendar below, between these two times of the factory's clock —
+// engine/workingHoursCore.ts is the rule, for the server and the browser alike.
+// "HH:MM", 24-hour; the end after the start.
+export interface PlantWorkingHours {
+  start: string;
+  end: string;
+}
+
 export interface MasterData {
   employees: Employee[];
   areas: AreaLocation[];
@@ -104,6 +114,11 @@ export interface MasterData {
   holidays: CompanyHoliday[];
   weeklyOffDay?: number;
   adjustmentDays?: AdjustmentDay[];
+  // The plant's opening hours (above). Absent in data stored before §84, and
+  // then 08:40–18:20 — read through workingHoursOf(), never directly. Changed
+  // only by the super admin (Master Data → Working Hours & Briefing); the
+  // server keeps them as stored when anybody else writes the master data.
+  workingHours?: PlantWorkingHours;
   // The plant's departments (F/SYS/02). Read defensively for the same reason
   // as the fields above: a browser that used the app before this existed has
   // no `departments` key, and falls back to the seed list.

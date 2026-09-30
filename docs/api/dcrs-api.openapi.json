@@ -4,7 +4,7 @@
     "title": "DCRS API for the Audit Assistant",
     "version": "1.0.0",
     "summary": "Read and change DCRS data as a signed-in person, through DCRS's own rules.",
-    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. See docs/chatbot-integration.md."
+    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. A session lasts until the close of the day it was started — the end of the plant's working hours (6:20 pm unless the super admin changes them) for everybody but the super admin, whose session lasts until midnight, factory time (REQUIREMENTS §84); `session.endsAt` in the sign-in answer says when. Outside the plant's working hours — before the opening, after the close, on the weekly off or a festival holiday — anybody but the super admin is refused with 403 `outside-working-hours`. See docs/chatbot-integration.md."
   },
   "servers": [
     {
@@ -50,8 +50,8 @@
           "Sign-in"
         ],
         "operationId": "login",
-        "summary": "Sign in as a person (DCRS's own sign-in, unchanged)",
-        "description": "The session token is the value of the `dcrs_session` cookie in the `Set-Cookie` header of the answer. It lasts 7 days. Send it back as `Authorization: Bearer <token>` (or as the cookie). Eight wrong passwords for one email in 10 minutes are refused with 429 for the rest of those 10 minutes.",
+        "summary": "Sign in as a person (DCRS's own sign-in)",
+        "description": "The session token is the value of the `dcrs_session` cookie in the `Set-Cookie` header of the answer. It lasts until the close of the day it was started — the end of the plant's working hours for everybody but the super admin, midnight (factory time) for the super admin — and `session.endsAt` says when. Send it back as `Authorization: Bearer <token>` (or as the cookie). Outside the plant's working hours anybody but the super admin is refused with 403 `outside-working-hours`, after the password was found right. Eight wrong passwords for one email in 10 minutes are refused with 429 for the rest of those 10 minutes.",
         "security": [],
         "requestBody": {
           "required": true,
@@ -72,7 +72,7 @@
             "description": "Signed in.",
             "headers": {
               "Set-Cookie": {
-                "description": "dcrs_session=<token>; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax",
+                "description": "dcrs_session=<token>; Max-Age=<seconds to the close of the day>; Path=/; HttpOnly; SameSite=Lax",
                 "schema": {
                   "type": "string"
                 }
@@ -98,7 +98,12 @@
                     "signup": false,
                     "assistant": true
                   },
-                  "mustChangePassword": false
+                  "mustChangePassword": false,
+                  "session": {
+                    "endsAt": "2026-09-30T12:50:00.000Z",
+                    "signOutAtEnd": true,
+                    "now": "2026-09-30T04:15:00.000Z"
+                  }
                 }
               }
             }
@@ -130,14 +135,25 @@
             }
           },
           "403": {
-            "description": "The account is switched off.",
+            "description": "The account is switched off; or, for anybody but the super admin, it is outside the plant's working hours (code outside-working-hours, with the next opening).",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "error": "This account has been switched off. Ask the administrator."
+                "examples": {
+                  "switched-off": {
+                    "value": {
+                      "error": "This account has been switched off. Ask the administrator."
+                    }
+                  },
+                  "outside-working-hours": {
+                    "value": {
+                      "error": "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.",
+                      "code": "outside-working-hours",
+                      "opensAt": "2026-10-02T03:10:00.000Z"
+                    }
+                  }
                 }
               }
             }
@@ -165,8 +181,28 @@
           "Sign-in"
         ],
         "operationId": "logout",
-        "summary": "Sign out (DCRS's own, unchanged)",
-        "description": "Writes \"Signed out\" in DCRS's activity log when the session is valid. The token itself stays valid until it expires; the assistant should simply forget it.",
+        "summary": "Sign out (DCRS's own)",
+        "description": "Writes \"Signed out\" in DCRS's activity log when the session is valid. The token itself stays valid until the close of its day; the assistant should simply forget it. The body is optional: DCRS's own pages send `{\"reason\": \"end-of-working-hours\"}` when they sign a person out by themselves at the close of the working day, and the line then says \"At the close of working hours\".",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "end-of-working-hours",
+                      "outside-working-hours"
+                    ],
+                    "description": "Why the browser signed the person out by itself; anything else is an ordinary sign-out."
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "Signed out."
@@ -800,7 +836,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "The dcrs_session cookie's value from POST /api/auth/login. Valid for 7 days."
+        "description": "The dcrs_session cookie's value from POST /api/auth/login. Valid until the close of the day it was started (the sign-in answer's session.endsAt)."
       },
       "cookieAuth": {
         "type": "apiKey",
@@ -868,7 +904,7 @@
     },
     "responses": {
       "NotSignedIn": {
-        "description": "No session, a session that has ended (7 days), or an account switched off. Sign in again.",
+        "description": "No session, a session whose day has closed (a session ends at the close of the day it was started: the end of the working hours, or midnight for the super admin), or an account switched off. Sign in again.",
         "content": {
           "application/json": {
             "schema": {
@@ -886,7 +922,7 @@
         }
       },
       "PasswordChangeRequired": {
-        "description": "The account is still on the password the administrator gave it. The person must sign in to DCRS in a browser and choose their own.",
+        "description": "The account is still on the password the administrator gave it (password-change-required): the person must sign in to DCRS in a browser and choose their own. Or it is outside the plant's working hours (outside-working-hours) — refused to everybody but the super admin; `opensAt` says when DCRS opens again.",
         "content": {
           "application/json": {
             "schema": {
@@ -898,13 +934,20 @@
                   "error": "This account is still on the password the administrator gave it. Sign in to DCRS in a browser and choose your own first.",
                   "code": "password-change-required"
                 }
+              },
+              "outside-working-hours": {
+                "value": {
+                  "error": "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.",
+                  "code": "outside-working-hours",
+                  "opensAt": "2026-10-02T03:10:00.000Z"
+                }
               }
             }
           }
         }
       },
       "NotYourDepartment": {
-        "description": "The person's departments do not include the one that owns these records.",
+        "description": "The person's departments do not include the one that owns these records (not-your-department). Also, as on every /api/v1 route: outside-working-hours outside the plant's working hours, and password-change-required.",
         "content": {
           "application/json": {
             "schema": {
@@ -915,6 +958,13 @@
                 "value": {
                   "error": "The CAPA findings belong to Quality Assurance, and this account is not kept to it.",
                   "code": "not-your-department"
+                }
+              },
+              "outside-working-hours": {
+                "value": {
+                  "error": "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.",
+                  "code": "outside-working-hours",
+                  "opensAt": "2026-10-02T03:10:00.000Z"
                 }
               }
             }
@@ -979,7 +1029,7 @@
     "schemas": {
       "Error": {
         "type": "object",
-        "description": "Every refusal. `error` is a sentence to show a person; `code` is for the program.",
+        "description": "Every refusal. `error` is a sentence to show a person; `code` is for the program. A refusal outside the plant's working hours also says when DCRS opens again (`opensAt`).",
         "required": [
           "error"
         ],
@@ -989,6 +1039,14 @@
           },
           "code": {
             "type": "string"
+          },
+          "opensAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Only with the code `outside-working-hours`: the next moment DCRS opens (the start of the next working day), or null when the plant's calendar has no working day in the year ahead."
           }
         }
       },
@@ -1063,6 +1121,12 @@
           "mustChangePassword": {
             "type": "boolean",
             "description": "True: the person must choose their own password in DCRS before the API will serve them (403 password-change-required)."
+          },
+          "session": {
+            "$ref": "#/components/schemas/SessionEnd"
+          },
+          "hours": {
+            "$ref": "#/components/schemas/PlantHours"
           }
         }
       },
@@ -1478,6 +1542,78 @@
           "link": {
             "type": "string",
             "format": "uri"
+          }
+        }
+      },
+      "SessionEnd": {
+        "type": "object",
+        "description": "When this session ends (REQUIREMENTS §84): at the close of the day it was started. Keep `endsAt` as the assistant's own session expiry.",
+        "required": [
+          "endsAt",
+          "signOutAtEnd",
+          "now"
+        ],
+        "properties": {
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The end of today's working hours for anybody but the super admin; midnight, factory time, for the super admin (and for everybody on a server that does not enforce the hours). The dcrs_session cookie's Max-Age runs to the same moment; after it every /api/v1 call answers 401 not-signed-in."
+          },
+          "signOutAtEnd": {
+            "type": "boolean",
+            "description": "True for an account held to the plant's working hours: DCRS's own pages warn ten minutes before `endsAt` and sign the person out at it."
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DCRS's clock when it answered."
+          }
+        }
+      },
+      "PlantHours": {
+        "type": "object",
+        "description": "The plant's working hours and where today stands — the plant's, nothing about any person.",
+        "properties": {
+          "enforced": {
+            "type": "boolean",
+            "description": "False on a server started with DCRS_WORKING_HOURS=off: nobody is held to the hours."
+          },
+          "start": {
+            "type": "string",
+            "description": "HH:MM, factory time."
+          },
+          "end": {
+            "type": "string",
+            "description": "HH:MM, factory time."
+          },
+          "timeZone": {
+            "type": "string",
+            "description": "The factory's time zone, such as Asia/Kolkata."
+          },
+          "openNow": {
+            "type": "boolean"
+          },
+          "opensAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "closesAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "hoursText": {
+            "type": "string",
+            "description": "The hours in words: \"DCRS is open 8:40 am to 6:20 pm on working days.\""
+          },
+          "todayText": {
+            "type": "string",
+            "description": "Where today stands, in words."
           }
         }
       }

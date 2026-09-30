@@ -398,6 +398,11 @@ export const SEED_MASTER_DATA: MasterData = {
   // Thursday is the weekly off (0 = Sunday … 6 = Saturday).
   weeklyOffDay: 4,
 
+  // The plant's working hours, in the owner's words of 30-Sep-2026: "The time
+  // runs from 8:40 am to 6:20 pm." Outside them, and on a closed day, nobody but
+  // the super admin can use DCRS (REQUIREMENTS §84, engine/workingHoursCore.ts).
+  workingHours: { start: "08:40", end: "18:20" },
+
   // "Everyone must report to the company on adjustment Day is written next to
   // this holiday" — the Thursdays the plant WORKS, exactly as printed on the
   // Thursday copy of the notice, each with the holiday it sits next to.

@@ -4,6 +4,8 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dataDir } from "./paths.ts";
+import { plantTimeZone } from "./db.ts";
+import { nextMidnight } from "../frontend/src/engine/workingHoursCore.ts";
 
 export interface PublicUser {
   id: string;
@@ -36,7 +38,17 @@ function loadOrCreateSecret(): string {
 
 export const JWT_SECRET: string = process.env.JWT_SECRET || loadOrCreateSecret();
 export const COOKIE_NAME = "dcrs_session";
-export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+// A DAY'S SESSION (REQUIREMENTS §84, C3). A session ends at the close of the day
+// it was started — END of that working day for an account held to the plant's
+// hours, the factory's midnight for the super admin (backend/workingHours.ts
+// works out which) — so every morning starts with signing in. The end is the
+// token's own `exp`, and the cookie is given the same lifetime.
+//
+// `v` marks a token made under that rule. Every token made before it (they
+// lasted seven days) is refused, so nobody carries a session over from the week
+// before the rule came in.
+const SESSION_VERSION = 2;
 
 export function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
@@ -46,17 +58,27 @@ export function verifyPassword(password: string, hash: string): Promise<boolean>
   return bcrypt.compare(password, hash);
 }
 
-export function signSessionToken(user: PublicUser): string {
-  return jwt.sign({ sub: user.id, email: user.email, role: user.role }, JWT_SECRET, {
-    expiresIn: Math.floor(SESSION_TTL_MS / 1000),
-  });
+/**
+ * A session token for this account, good until `endsAt`. Left out, the session
+ * ends at the factory's next midnight — the latest any day's session may run.
+ */
+export function signSessionToken(user: PublicUser, endsAt?: Date): string {
+  const end = endsAt && Number.isFinite(endsAt.getTime()) ? endsAt : nextMidnight(new Date(), plantTimeZone());
+  return jwt.sign({ sub: user.id, email: user.email, role: user.role, v: SESSION_VERSION, exp: Math.floor(end.getTime() / 1000) }, JWT_SECRET);
 }
 
-export function verifySessionToken(token: string): { sub: string } | null {
+/**
+ * The account a token names and when its session ends; null for a token this
+ * server did not sign, one made before sessions ended with their day, or one
+ * whose day has closed. `ignoreExpiration` reads a closed session too — only
+ * for writing the "Signed out" line of a session the browser ends a moment
+ * after its close (backend/index.ts, POST /api/auth/logout).
+ */
+export function verifySessionToken(token: string, opts: { ignoreExpiration?: boolean } = {}): { sub: string; endsAt: Date } | null {
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    if (typeof payload === "string" || typeof payload.sub !== "string") return null;
-    return { sub: payload.sub };
+    const payload = jwt.verify(token, JWT_SECRET, { ignoreExpiration: opts.ignoreExpiration === true });
+    if (typeof payload === "string" || typeof payload.sub !== "string" || payload.v !== SESSION_VERSION || typeof payload.exp !== "number") return null;
+    return { sub: payload.sub, endsAt: new Date(payload.exp * 1000) };
   } catch {
     return null;
   }

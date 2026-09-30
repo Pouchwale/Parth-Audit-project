@@ -420,7 +420,7 @@ The Audit Assistant's own tables: its users, sessions, sign-ins, chats, actions,
 | `session_id` | UUID | The session it belongs to (chatbot.sessions.id). Deleted with the session. |
 | `connector_id` | text | The connected system: dcrs. |
 | `sealed` | text | SECRET. The DCRS session token, encrypted. Never shown anywhere. |
-| `expires_at` | moment | When DCRS stops accepting the token (DCRS sessions last 7 days). |
+| `expires_at` | moment | When DCRS stops accepting the token (a DCRS session ends at the close of the day it began). |
 
 ### chatbot.conversation_exports
 

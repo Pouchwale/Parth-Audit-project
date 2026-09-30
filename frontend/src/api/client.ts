@@ -1,6 +1,29 @@
 import type { AuthUser, ManagedUser } from "../types/auth";
 import type { ActivityTally } from "../engine/activityWork";
 import type { AgentRequest, AgentResponse, ExtractResult, TranscribeResult } from "../engine/mitraTypes";
+import { OUTSIDE_HOURS_CODE, type PublicHours } from "../engine/workingHoursCore";
+
+export type { PublicHours };
+
+// OUTSIDE THE PLANT'S WORKING HOURS (REQUIREMENTS §84). The server refuses an
+// account held to the hours with 403 `outside-working-hours` on any route, the
+// reason in plain words and the next opening. Wherever that comes back, it is
+// said on window, and the sign-in state (store/AuthContext.tsx) signs the person
+// out to those words — whichever screen asked.
+export const OUTSIDE_HOURS_EVENT = "dcrs:outside-working-hours";
+
+export interface OutsideHoursDetail {
+  message: string;
+  opensAt: string | null;
+}
+
+function sayOutsideHours(detail: OutsideHoursDetail): void {
+  try {
+    window.dispatchEvent(new CustomEvent<OutsideHoursDetail>(OUTSIDE_HOURS_EVENT, { detail }));
+  } catch {
+    /* no window */
+  }
+}
 
 // Thin fetch wrapper for the auth API (backend/index.ts). Requests are
 // same-origin in both dev (proxied, see frontend/scripts/dev-server.ts) and
@@ -44,6 +67,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         ? (body as { error: string }).error
         : `Request failed (${res.status})`;
     const code = body && typeof body === "object" && typeof (body as { code?: unknown }).code === "string" ? (body as { code: string }).code : undefined;
+    // Not for the sign-in itself: that refusal is the sign-in form's to show, and nobody is signed in to sign out.
+    if (res.status === 403 && code === OUTSIDE_HOURS_CODE && path !== "/auth/login" && path !== "/auth/signup") {
+      const opensAt = (body as { opensAt?: unknown }).opensAt;
+      sayOutsideHours({ message, opensAt: typeof opensAt === "string" ? opensAt : null });
+    }
     throw new ApiError(message, res.status, code);
   }
 
@@ -60,6 +88,19 @@ export interface AuthResponse {
   features?: ServerFeatures;
   /** The administrator set this password: they must choose their own before they can work (REQUIREMENTS §66). */
   mustChangePassword?: boolean;
+  /** When this session ends (REQUIREMENTS §84). Optional: a server from before it says nothing, and nothing ends by itself. */
+  session?: SessionEnd;
+  /** The plant's hours and where today stands (§84). */
+  hours?: PublicHours | null;
+}
+
+/** A day's session (backend/workingHours.ts SessionAnswer): when it ends, and whether the browser signs out by itself then. */
+export interface SessionEnd {
+  endsAt: string;
+  /** A non-admin while the hours are enforced: warned ten minutes before `endsAt`, signed out at it. */
+  signOutAtEnd: boolean;
+  /** The server's clock when it answered. */
+  now: string;
 }
 
 /** What the server has switched on. Both optional: a server from before them says nothing, which reads as off. */

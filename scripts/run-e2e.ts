@@ -9,7 +9,8 @@
 // tests/e2e_maintenance_module.py, tests/e2e_pm_link.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_storage_room.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
 // tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py,
 // and last the two of the database DCRS shares with the Audit Assistant (REQUIREMENTS §83):
-// tests/e2e_audit_assistant_api.py and tests/e2e_database_overview.py):
+// tests/e2e_audit_assistant_api.py and tests/e2e_database_overview.py; then REQUIREMENTS §84's
+// tests/e2e_find_every_document.py, tests/e2e_user_access.py and tests/e2e_working_hours.py):
 // a fresh PostgreSQL for the run, build,
 // single-process server (dist/ + auth API) on the port the tests expect,
 // wait for it to answer, set up the shared database's overview on it (below),
@@ -53,7 +54,21 @@ const ESCALATION_SUITE = "tests/e2e_escalation.py";
 // the plant's seeded super admin, so on the product server.
 const AUDIT_ASSISTANT_API_SUITE = "tests/e2e_audit_assistant_api.py";
 const DATABASE_OVERVIEW_SUITE = "tests/e2e_database_overview.py";
-const PRODUCT_SUITES = [PRODUCT_SUITE, LOGIN_ONLY_SUITE, ESCALATION_SUITE, AUDIT_ASSISTANT_API_SUITE, DATABASE_OVERVIEW_SUITE];
+// REQUIREMENTS §84, with the plant's seeded accounts on the product server: every document findable by everybody
+// (another department's shown as kept by it), the super admin's User access dashboard, and the plant's working hours.
+const FIND_EVERY_DOCUMENT_SUITE = "tests/e2e_find_every_document.py";
+const USER_ACCESS_SUITE = "tests/e2e_user_access.py";
+const WORKING_HOURS_SUITE = "tests/e2e_working_hours.py";
+const PRODUCT_SUITES = [
+  PRODUCT_SUITE,
+  LOGIN_ONLY_SUITE,
+  ESCALATION_SUITE,
+  AUDIT_ASSISTANT_API_SUITE,
+  DATABASE_OVERVIEW_SUITE,
+  FIND_EVERY_DOCUMENT_SUITE,
+  USER_ACCESS_SUITE,
+  WORKING_HOURS_SUITE,
+];
 // THE SHARED DATABASE'S OVERVIEW (REQUIREMENTS §83), set up on this run's
 // database exactly as a DBA sets it up on the plant's: its two new schemas and
 // roles (part 1) and the plain-English views over DCRS's data (part 2), applied
@@ -225,6 +240,9 @@ async function main(): Promise<void> {
         DATABASE_URL,
         // The Database overview's own read-only connection (backend/overviewRoutes.ts), on this run's database.
         OVERVIEW_DATABASE_URL,
+        // The plant's opening hours (REQUIREMENTS §84) are not enforced on the test servers: the suites run at any
+        // hour of any day. The gate itself is proved by its own tests, with a clock the test sets.
+        DCRS_WORKING_HOURS: "off",
         SQLITE_IMPORT: "0",
         SEED_ACCOUNTS: product ? "1" : "0",
         SEED_ACCOUNT_PASSWORD: PRODUCT_SEED_PASSWORD,
@@ -342,6 +360,10 @@ async function main(): Promise<void> {
   AUDIT_ASSISTANT_API_SUITE,
   // and the super admin's read-only Database overview of the shared database's views.
   DATABASE_OVERVIEW_SUITE,
+  // REQUIREMENTS §84 — every document findable, the super admin's User access, the plant's working hours.
+  FIND_EVERY_DOCUMENT_SUITE,
+  USER_ACCESS_SUITE,
+  WORKING_HOURS_SUITE,
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));

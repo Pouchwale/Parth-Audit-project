@@ -37,7 +37,7 @@ The full description of every route is in [docs/api/dcrs-api.openapi.json](api/d
 
 ## Signing in
 
-People sign in to the assistant with their DCRS email address and password. The assistant checks them with DCRS's own sign-in route, which is unchanged:
+People sign in to the assistant with their DCRS email address and password. The assistant checks them with DCRS's own sign-in route:
 
 ```http
 POST /api/auth/login
@@ -51,18 +51,20 @@ A correct email and password answer `200`, with the account in the body and the 
 
 ```http
 HTTP/1.1 200 OK
-Set-Cookie: dcrs_session=eyJhbGciOiJIUzI1NiIs...; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax
+Set-Cookie: dcrs_session=eyJhbGciOiJIUzI1NiIs...; Max-Age=30600; Path=/; HttpOnly; SameSite=Lax
 Content-Type: application/json
 
 {
   "user": { "id": "3f1c2d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f", "name": "Kajal Shah", "email": "kajal.shah@gpp.local", "role": "staff", "departments": ["QA"] },
   "features": { "demoMode": false, "signup": false, "assistant": true },
-  "mustChangePassword": false
+  "mustChangePassword": false,
+  "session": { "endsAt": "2026-09-30T12:50:00.000Z", "signOutAtEnd": true, "now": "2026-09-30T04:20:00.000Z" }
 }
 ```
 
 - **The token** is the value of the `dcrs_session` cookie. In Node, read it with `response.headers.getSetCookie()`.
-- **It lasts 7 days.** Take `expiresAt` as the time of sign-in plus 7 days.
+- **It lasts until the close of the day it was started** (REQUIREMENTS §84). For everybody but the super admin that is the end of the plant's working hours, 6:20 pm factory time unless the super admin changes it; for the super admin it is midnight, factory time. Take `expiresAt` from `session.endsAt` in the answer. The cookie's `Max-Age` runs to the same moment. So every morning starts with signing in again.
+- **The plant's working hours.** DCRS is open from 8:40 am to 6:20 pm on a working day of the plant's calendar: not on the weekly off (Thursday), unless it is an adjustment day, and not on a festival holiday. Outside those hours anybody but the super admin is refused, at sign-in and on every `/api/v1` call, with `403` and the code `outside-working-hours`. The answer's `error` says why in words the person can read, and `opensAt` says when DCRS opens again.
 - **Send it on every `/api/v1` call** as `Authorization: Bearer <token>`. DCRS also accepts it as the `dcrs_session` cookie.
 - **DCRS reads the account again on every call.** An account switched off by the administrator stops working at its very next call.
 
@@ -74,6 +76,7 @@ Map DCRS's answers onto the connector's errors like this:
 | `400` | Email or password missing | `invalid_credentials` |
 | `401` | Wrong email or password | `invalid_credentials` |
 | `403` | The account is switched off | `forbidden`, with DCRS's message |
+| `403` with `code: "outside-working-hours"` | Outside the plant's working hours. Only the super admin may sign in then. | `forbidden`, with DCRS's message, for example "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am." |
 | `429` | Eight wrong passwords for that email in ten minutes | `forbidden`, with DCRS's message "Too many failed attempts. Try again in a few minutes." |
 | Anything else, or no answer | DCRS is not reachable | `unavailable` |
 
@@ -93,9 +96,11 @@ X-Client-Name: Audit Assistant
 
 `role` is `admin` (DCRS's super admin) or `staff`. `departments` holds department codes such as `QA` and `HR`. An empty list means every department. The super admin also sees every department.
 
-**Signing out.** `POST /api/auth/logout` with the token as the `dcrs_session` cookie writes "Signed out" in DCRS's activity log. That route reads the cookie only, not the Bearer header. DCRS sessions are signed tokens, not stored sessions, so signing out does not cancel the token. When the assistant's own session ends, it must delete its stored copy of the token.
+**Signing out.** `POST /api/auth/logout` with the token as the `dcrs_session` cookie writes "Signed out" in DCRS's activity log. That route reads the cookie only, not the Bearer header. DCRS sessions are signed tokens, not stored sessions, so signing out does not cancel the token before the close of its day. When the assistant's own session ends, it must delete its stored copy of the token. The body is optional. DCRS's own pages send `{"reason": "end-of-working-hours"}` when they sign a person out by themselves at the close of the working day.
 
-**When a stored token stops working**, any `/api/v1` call answers `401 {"code": "not-signed-in"}`. Throw `unauthorized`, and the assistant ends that session as `upstream_signed_out`.
+**When a stored token stops working**, any `/api/v1` call answers `401 {"code": "not-signed-in"}`. That happens every day at the close of the session's day. Throw `unauthorized`, and the assistant ends that session as `upstream_signed_out`.
+
+**Outside the plant's working hours** a session can still be open, for example when the super admin declares today a holiday during the day. Then any `/api/v1` call for anybody but the super admin answers `403 {"code": "outside-working-hours"}`, with the reason in `error` and the next opening in `opensAt`. Throw `forbidden` with DCRS's message. Do not retry before `opensAt`.
 
 ## The calls
 
@@ -123,7 +128,7 @@ Every refusal has the same shape: a sentence that is safe to show the person, an
 |---|---|---|
 | 400 | `bad-request`, `bad-note`, `bad-date` | `invalid_request` |
 | 401 | `not-signed-in` | `unauthorized` |
-| 403 | `password-change-required`, `not-your-department` | `forbidden` |
+| 403 | `outside-working-hours`, `password-change-required`, `not-your-department` | `forbidden` |
 | 404 | `not-found`, `no-report`, `no-such-route` | `not_found` |
 | 409 | `already-closed`, `report-verified`, `report-sent-back`, `report-locked`, `busy` | `conflict` |
 | 503, 504 | `pdf-unavailable`, `pdf-timeout`, or the database unavailable | `unavailable` |
@@ -340,7 +345,7 @@ async authenticate(username, password) {
     body: JSON.stringify({ email: username, password }),
   }).catch(() => null);
   if (!res) throw new ConnectorError('unavailable', 'DCRS could not be reached.');
-  const body = (await res.json().catch(() => ({}))) as { error?: string; mustChangePassword?: boolean };
+  const body = (await res.json().catch(() => ({}))) as { error?: string; mustChangePassword?: boolean; session?: { endsAt?: string } };
   if (res.status === 400 || res.status === 401) throw new ConnectorError('invalid_credentials', 'Wrong email or password.');
   if (res.status === 403 || res.status === 429) throw new ConnectorError('forbidden', body.error ?? 'DCRS refused the sign-in.');
   if (!res.ok) throw new ConnectorError('unavailable', 'DCRS could not be reached.');
@@ -348,7 +353,9 @@ async authenticate(username, password) {
   const token = res.headers.getSetCookie().map((c) => /^dcrs_session=([^;]+)/.exec(c)?.[1]).find(Boolean);
   if (!token) throw new ConnectorError('unavailable', 'DCRS did not start a session.');
   const me = (await (await call(baseUrl, token, '/api/v1/me')).json()) as { id: string; name: string; email: string };
-  return { externalId: me.id, username: me.email, displayName: me.name, credentials: { token }, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) };
+  // The session ends at the close of its day (6:20 pm for staff, midnight for the super admin), not after a fixed span.
+  const endsAt = body.session?.endsAt ? new Date(body.session.endsAt) : null;
+  return { externalId: me.id, username: me.email, displayName: me.name, credentials: { token }, expiresAt: endsAt && !Number.isNaN(endsAt.getTime()) ? endsAt : new Date(Date.now() + 8 * 60 * 60 * 1000) };
 }
 ```
 

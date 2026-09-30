@@ -9,7 +9,8 @@ import { formatDisplayDate } from "../utils/date";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { routeForRecord } from "../engine/reminders";
-import { documentsByFormatNumber, namesFormatNumber } from "../engine/formatNumbers";
+import { namesFormatNumber } from "../engine/formatNumbers";
+import { findDocuments, keptByLabel, NOT_IN_DCRS_YET, prepareDocumentFinder, type FoundDocument } from "../engine/documentFinder";
 import { documentOpenRoute } from "../engine/documentRoutes";
 import { hrMasterRepository } from "../data/repositories/hrMasterRepository";
 import { searchPeople } from "../engine/hrMaster";
@@ -25,13 +26,18 @@ import { useProgressiveCount } from "../utils/useProgressive";
 import { ensureRecordIndex, readSearchQuery, recordCells, recordIndexGeneration, searchRecords, subscribeRecordIndex, type RecordHit } from "../engine/recordSearch";
 import { clipSnippet, recordSummaryParts, searchTerms, snippetParts, snippetText } from "../engine/recordText";
 
-// ONE SEARCH BOX (REQUIREMENTS §75, §52, §53).
+// ONE SEARCH BOX (REQUIREMENTS §75, §52, §53, §84).
 //
 // Three answers to what is typed, and they arrive differently on purpose:
 //   - DOCUMENTS the words name (by format number however it is written, else by
-//     name) and PEOPLE on HR Master Data are worked out as the key is pressed.
-//     They are a lookup over a few dozen formats and a few hundred people, and
-//     a person typing a format number expects the form at once.
+//     any word of the name, the module, the department or a word people use
+//     for it — engine/documentFinder.ts) and PEOPLE on HR Master Data are
+//     worked out as the key is pressed. They are a lookup over a few hundred
+//     formats and people, and a person typing a format number expects the form
+//     at once. Every document is found by everybody (§84): the person's own
+//     with Open and New record; another department's shown as kept by it, with
+//     no way in and none of its records read; a format on the Master List of
+//     Formats (F/SYS/02) that DCRS does not hold yet, said so.
 //   - The RECORDS of a format number are its register, listed straight from
 //     the document's own records, blank sheets included: asking for F/HR/17 is
 //     asking for every day's sheet. Only when the number is ALL that was typed
@@ -43,17 +49,6 @@ import { clipSnippet, recordSummaryParts, searchTerms, snippetParts, snippetText
 //     in idle time and kept up to date record by record, and is drawn a batch
 //     of lines at a time (§56), so "2026" on a year of records is as quick to
 //     type as a name.
-
-/** Documents the query names — by format number however it is written, else by name or number as typed. */
-function documentsFor(query: string): DocumentDefinition[] {
-  const q = query.trim();
-  if (!q) return [];
-  const byNumber = documentsByFormatNumber(q);
-  if (byNumber.length > 0) return byNumber;
-  if (q.length < 3) return [];
-  const lower = q.toLowerCase();
-  return documentRepository.getAll().filter((d) => d.name.toLowerCase().includes(lower) || d.formatNo.toLowerCase().includes(lower));
-}
 
 /** People on HR Master Data the query names by GP3 No. or name (REQUIREMENTS §53) — only for a viewer with the HR formats. */
 function peopleFor(query: string): HrMasterPerson[] {
@@ -75,6 +70,10 @@ const holdsRecords = (d: DocumentDefinition) => !d.isReferenceOnly && !["chemica
 
 /** How many lines of results are drawn at once; the rest follow a batch at a time. */
 const FIRST_LINES = 40;
+// How many lines of each list of documents are drawn before the person is asked:
+// two letters ("re") can name most of the catalogue, and a keystroke must not
+// wait for a few hundred table rows to be laid out on a low-end laptop (§56).
+const DOCUMENT_LINES = 50;
 // How many lines are drawn before the person is asked. A table is laid out
 // again, whole, each time lines are added to it, so a list of a thousand costs
 // a low-end laptop seconds of work that nobody reads: the newest two hundred
@@ -126,14 +125,27 @@ export function SearchPage() {
     ensureRecordIndex({ isDemo, includeDrafts: withDrafts, account });
   }, [isDemo, withDrafts, version, account]);
 
+  // Every document the words name, whoever is looking (engine/documentFinder.ts, §84): the person's own, then
+  // other departments' (kept by them), then the master-list formats DCRS does not hold yet. No record is read.
+  // The words of the catalogue are worked out in idle time once the page is up, not on the first keystroke.
+  useEffect(() => prepareDocumentFinder(), []);
+  const found = useMemo(() => findDocuments(q), [q, version, account]);
+  const docs = useMemo(() => found.flatMap((f) => (f.kind === "yours" ? [f.doc] : [])), [found]);
+  const kept = useMemo(() => found.filter((f): f is Extract<FoundDocument, { kind: "kept" }> => f.kind === "kept"), [found]);
+  const onMasterList = useMemo(() => found.filter((f): f is Extract<FoundDocument, { kind: "master" }> => f.kind === "master"), [found]);
+  const asListed = useMemo(() => new Map(found.flatMap((f) => (f.kind === "yours" && f.asListed ? [[f.doc.id, f.asListed] as const] : []))), [found]);
+  const [allDocumentsFor, setAllDocumentsFor] = useState<string | null>(null);
+  const everyDocumentLine = allDocumentsFor === q.trim();
+
   // A format number finds the document's records however it is written
   // (F/HR/05, F-HR-05, hr 5 — engine/formatNumbers.ts, REQUIREMENTS §52);
   // anything else is matched as typed. Typed alone, the number lists its
   // register; typed with other words, it keeps the search for those words to
   // its own records (readSearchQuery).
-  const docs = documentsFor(q);
   const reading = useMemo(() => readSearchQuery(q), [q, version]);
-  const numberIds = reading.kind === "register" ? reading.documentIds : null;
+  // A number the master list gives a document DCRS files under another (F-PRD-19 is the process parameter
+  // record, whose own number is still to be confirmed) lists that document's register, as its own number would.
+  const numberIds = reading.kind === "register" ? (reading.documentIds.length > 0 ? reading.documentIds : docs.map((d) => d.id)) : null;
   const people = peopleFor(q);
   const namesSheet = SHEET_QUERY.test(q) && hrMasterVisible();
 
@@ -218,7 +230,7 @@ export function SearchPage() {
     <div>
       <h1 className="text-2xl mb-1">{t("search.title")}</h1>
       <p className="text-muted mb-4">
-        Search by format number (F/HR/05, F-QC-30 — any way it is written), document, or anything written on a record: record ID, date (14-Aug-2026, 14.08.2026 or
+        Search by format number (F/HR/05, F-QC-30 — any way it is written), document, module or department, or anything written on a record: record ID, date (14-Aug-2026, 14.08.2026 or
         2026-08-14), area, employee, checker, PC ID, machine number, job name, PO number, batch number, a remark or status. Type several words to find the records that
         have every one of them — with a format number among them (F/HR/17 RB-27), in that document's records only.
       </p>
@@ -291,9 +303,10 @@ export function SearchPage() {
         </div>
       )}
 
-      {docs.length > 0 && (
+      {found.length > 0 && (
         <div className="mb-5" data-section="search-documents">
           <h3 className="text-sm uppercase text-muted mb-2">Documents</h3>
+          {docs.length > 0 && (
           <div className="doc-table">
             <table>
               <thead>
@@ -305,10 +318,11 @@ export function SearchPage() {
                 </tr>
               </thead>
               <tbody>
-                {docs.map((d) => (
+                {(everyDocumentLine ? docs : docs.slice(0, DOCUMENT_LINES)).map((d) => (
                   <tr key={d.id} data-search-document={d.id}>
                     <td className="font-semibold" translate="no">
                       {d.formatNo}
+                      {asListed.has(d.id) && <div className="text-xs text-faint font-normal">{asListed.get(d.id)} on the Master List of Formats</div>}
                     </td>
                     <td>{d.name}</td>
                     <td className="text-sm text-muted">
@@ -332,6 +346,87 @@ export function SearchPage() {
               </tbody>
             </table>
           </div>
+          )}
+
+          {/* ANOTHER DEPARTMENT'S DOCUMENT IS FOUND, and says whose it is (§84). No button and no click: it is
+              not opened, and none of its records is read — this person's store does not even hold them. */}
+          {kept.length > 0 && (
+            <div className="mt-3" data-section="search-documents-kept">
+              <div className="text-sm text-muted mb-1">Other departments' documents</div>
+              <div className="doc-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Format No.</th>
+                      <th>Document</th>
+                      <th>Module</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(everyDocumentLine ? kept : kept.slice(0, DOCUMENT_LINES)).map((f) => (
+                      <tr key={f.doc.id} data-search-kept={f.doc.id} data-department={f.department}>
+                        <td className="font-semibold" translate="no">
+                          {f.doc.formatNo}
+                          {f.asListed && <div className="text-xs text-faint font-normal">{f.asListed} on the Master List of Formats</div>}
+                        </td>
+                        <td>{f.doc.name}</td>
+                        <td className="text-sm text-muted">
+                          {t(`module.${f.doc.module}`)}
+                          {f.doc.section ? ` · ${f.doc.section}` : ""}
+                        </td>
+                        <td className="text-sm text-muted" style={{ textAlign: "right" }} data-state="kept-by-department">
+                          {keptByLabel(f.department)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* A FORMAT ON THE PLANT'S OWN MASTER LIST THAT DCRS DOES NOT HAVE YET is found too, and said so (§84). */}
+          {onMasterList.length > 0 && (
+            <div className="mt-3" data-section="search-documents-master-list">
+              <div className="text-sm text-muted mb-1">On the Master List of Formats &amp; Records (F/SYS/02), not in DCRS yet</div>
+              <div className="doc-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Format No.</th>
+                      <th>Format, as the list names it</th>
+                      <th>Department</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(everyDocumentLine ? onMasterList : onMasterList.slice(0, DOCUMENT_LINES)).map(({ format }) => (
+                      <tr key={format.formatNo} data-search-master-format={format.formatNo} data-department={format.departmentName}>
+                        <td className="font-semibold" translate="no">
+                          {format.formatNo}
+                        </td>
+                        <td>{format.name}</td>
+                        <td className="text-sm text-muted">{format.departmentName}</td>
+                        <td className="text-sm text-muted" style={{ textAlign: "right" }} data-state="not-in-dcrs-yet">
+                          {NOT_IN_DCRS_YET}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {!everyDocumentLine && (docs.length > DOCUMENT_LINES || kept.length > DOCUMENT_LINES || onMasterList.length > DOCUMENT_LINES) && (
+            <div className="flex items-center gap-2 wrap mt-2 text-sm text-muted">
+              The first {DOCUMENT_LINES} of each list are shown.
+              <button className="btn btn-secondary btn-sm" data-action="search-show-all-documents" onClick={() => setAllDocumentsFor(q.trim())}>
+                Show all {plural(found.length, "document")}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
