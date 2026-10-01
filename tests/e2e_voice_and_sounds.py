@@ -22,14 +22,32 @@ So this suite checks, as a person of one department (Production):
     Play a sound work;
   * no JavaScript errors.
 
+REQUIREMENTS s85 ("it should sound like a human only") adds, on pages of their own:
+
+  * with Chrome's real voice list stood in (Windows' desktop voices, then Google's
+    online ones), Mitra speaks in Google's UK English voice (female or male as
+    chosen), not the robotic Indian English one; at a warm rate; one sentence at
+    a time with a breath between; the words made for the ear ("form F H R 17",
+    "30th September at 2:30 PM", "92 percent", no symbol read out); the Master
+    Data card names that voice and plays a sample in it;
+  * GET /api/assistant/speak answers 200 (here: not-configured) and, with no
+    key, no line is ever asked of the server;
+  * with the assistant configured (the auth answer switched, as
+    e2e_mitra_agent.py does): the Groq terms not accepted - the server is asked
+    once, never for a line, both lines are said by the browser and the card says
+    what the Groq admin must do; Groq's voice available - the line is fetched,
+    made for the ear, and played as a clip.
+
 Audio is never really heard: an init script records every "dcrs:cue" and
 "dcrs:say" event (engine/engageBus.ts), counts the AudioContexts made and the
 notes started, stubs speechSynthesis.speak (recording what would be said, in
 which voice) and HTMLMediaElement.play. The server has no Groq key here, so every
 line goes to the browser's own voice.
 
-Network-independent, against the production build on :8842.
+Network-independent, against the production build on :8842 (DCRS_BASE overrides it).
 """
+import os
+import struct
 import sys
 import time
 from datetime import date
@@ -38,7 +56,7 @@ from playwright.sync_api import sync_playwright
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-BASE = "http://localhost:8842"
+BASE = os.environ.get("DCRS_BASE", "http://localhost:8842").rstrip("/")
 PASSWORD = "PlaywrightQA123"
 # No word of the name is a button's label.
 ACCOUNT = "Kavya Trivedi"
@@ -96,6 +114,73 @@ RECORDER = r"""
   };
 })();
 """
+
+
+# REQUIREMENTS s85: Chrome on Windows as it really lists its voices - the desktop
+# ones (Heera and Ravi are Indian English, and robotic), then Google's online
+# ones. The utterance is a plain object here, so the voice the app chose is
+# recorded as it was given (a real utterance refuses a voice not the browser's).
+CHROME_VOICES = r"""
+(() => {
+  const V = (name, lang, local) => ({ name, lang, localService: local, default: false, voiceURI: name });
+  const list = [
+    V('Microsoft David - English (United States)', 'en-US', true),
+    V('Microsoft Heera - English (India)', 'en-IN', true),
+    V('Microsoft Ravi - English (India)', 'en-IN', true),
+    V('Microsoft Zira - English (United States)', 'en-US', true),
+    V('Google US English', 'en-US', false),
+    V('Google UK English Female', 'en-GB', false),
+    V('Google UK English Male', 'en-GB', false),
+    V('Google हिन्दी', 'hi-IN', false),
+  ];
+  window.__utter = [];
+  window.SpeechSynthesisUtterance = class {
+    constructor(text) { this.text = text; this.lang = ''; this.voice = null; this.rate = 1; this.pitch = 1; this.volume = 1; this.onend = null; this.onerror = null; }
+  };
+  try {
+    const synth = window.speechSynthesis;
+    synth.getVoices = () => list;
+    synth.speak = function (u) {
+      const said = { text: u.text, lang: u.lang, voice: u.voice ? u.voice.name : '', rate: u.rate, pitch: u.pitch, at: Date.now() };
+      window.__utter.push(said);
+      window.__spoken.push(said);
+      setTimeout(() => { try { if (u.onend) u.onend(new Event('end')); } catch (err) {} }, 60);
+    };
+  } catch (err) {}
+})();
+"""
+
+# Every request to the voice route, from every page of the suite: (method, url).
+speak_requests = []
+
+
+def note_speak(request):
+    if "/api/assistant/speak" in request.url:
+        speak_requests.append((request.method, request.url))
+
+
+def auth_with_assistant(route):
+    """The server's auth answers with the assistant switched on (as with a Groq key), so the server voice is asked about."""
+    response = route.fetch()
+    try:
+        body = response.json()
+    except Exception:
+        route.fulfill(response=response)
+        return
+    if isinstance(body, dict) and isinstance(body.get("features"), dict):
+        body["features"]["assistant"] = True
+    route.fulfill(response=response, json=body)
+
+
+def tiny_wav(seconds=0.2, rate=24000):
+    """A real WAV clip of silence: what the server's voice answers."""
+    frames = int(seconds * rate)
+    data = b"\x00\x00" * frames
+    return (
+        b"RIFF" + struct.pack("<I", 36 + len(data)) + b"WAVE"
+        + b"fmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16)
+        + b"data" + struct.pack("<I", len(data)) + data
+    )
 
 
 def check(label, cond, detail=None):
@@ -208,6 +293,7 @@ with sync_playwright() as p:
     console_errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
+    page.on("request", note_speak)
 
     page.goto(f"{BASE}/index.html")
     page.wait_for_selector("text=Sign up", timeout=60000)
@@ -392,7 +478,12 @@ with sync_playwright() as p:
         check("The line names the document", bool(doc) and doc.get("name", "@@") in line, (doc and doc.get("name"), line))
         check("...and the person, and when it was due", line.startswith(FIRST_NAME + ",") and ("due today" in line or "late" in line), line)
         check("The reminder's three notes were asked for first", any(c.get("cue") == "reminder" for c in rec["cues"][len(before["cues"]):]), rec["cues"][-3:])
-        check("...and the line was said", any(line and line == (s.get("text") or "") for s in new_spoken), new_spoken)
+        spoken_now = " ".join((s.get("text") or "") for s in new_spoken)
+        check(
+            "...and the line was said (a sentence at a time, made for the ear)",
+            bool(line) and spoken_now.startswith(FIRST_NAME + ",") and ("due today" in spoken_now or "late" in spoken_now) and doc.get("name", "@@").split(" ")[0] in spoken_now,
+            new_spoken,
+        )
     else:
         check("Nothing is due: Mitra says so", "Nothing is due" in line and any("Nothing is due" in (s.get("text") or "") for s in new_spoken), (line, new_spoken))
         if working:
@@ -472,6 +563,152 @@ with sync_playwright() as p:
     check("...a cue plays and a line is said again", rec["audio"]["starts"] > before["audio"]["starts"] and any(x.get("text") == "Back again." for x in rec["spoken"]))
 
     # ==================================================================
+    # 4b. REQUIREMENTS s85: the voice Mitra chooses, and how it says a line
+    # ==================================================================
+    print("\n==== s85: the voice chosen, and a line made for the ear ====")
+    kind = settings(page).get("voiceKind") or "female"
+    voice_page = context.new_page()
+    voice_page.on("pageerror", lambda e: errors.append(str(e)))
+    voice_page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
+    voice_page.on("request", note_speak)
+    voice_page.route("**/translate_a/**", lambda route: route.abort())
+    voice_page.add_init_script(CHROME_VOICES)
+    voice_page.goto(f"{BASE}/index.html#/dashboard")
+    voice_page.wait_for_selector(".app-sidebar", timeout=60000)
+    voice_page.wait_for_timeout(1200)
+    dismiss(voice_page)
+    close_assistant(voice_page)
+    voice_page.locator("[data-clock]").first.click()
+    voice_page.evaluate("() => { window.__utter.length = 0; }")
+    voice_page.evaluate(
+        """(name) => window.dispatchEvent(new CustomEvent('dcrs:say', { detail: {
+             text: name + ', F/HR/17 is due on 30-Sep-2026 at 14:30. Your score is 92% ✅ — keep going!', lang: 'en', priority: 'high' } }))""",
+        FIRST_NAME,
+    )
+    wait_for(voice_page, "() => window.__utter.length >= 2", 6000)
+    utter = voice_page.evaluate("() => window.__utter.slice()")
+    want_voice = "Google UK English Male" if kind == "male" else "Google UK English Female"
+    check(
+        f"Chrome's voices: Google's online {kind} voice, not Windows' robotic Indian English one",
+        bool(utter) and all(u.get("voice") == want_voice for u in utter),
+        [(u.get("voice"), u.get("text")) for u in utter],
+    )
+    check("...at a warm rate (0.94) and its natural pitch", bool(utter) and all(abs((u.get("rate") or 0) - 0.94) < 1e-6 and u.get("pitch") == 1 for u in utter), [(u.get("rate"), u.get("pitch")) for u in utter])
+    texts = [u.get("text") or "" for u in utter]
+    check("...one sentence at a time", len(utter) == 2 and texts[0].startswith(FIRST_NAME + ",") and texts[1].startswith("Your score"), texts)
+    gap = (utter[1]["at"] - utter[0]["at"]) if len(utter) >= 2 else 0
+    check("...with a breath between the sentences (the voice ends, then about 280 ms)", gap >= 300, gap)
+    joined = " ".join(texts)
+    check("The format number is read as a person reads it: 'form F H R 17'", "form F H R 17" in joined and "F/HR/17" not in joined, joined)
+    check("...the date and time as a person says them", ("30th September" in joined) and ("at 2:30 PM" in joined), joined)
+    check("...92 percent, and no symbol read out (no %, /, the tick or the dash)", "92 percent" in joined and not any(ch in joined for ch in ("%", "/", "✅", "—")), joined)
+
+    # The Master Data card names the voice in use here.
+    voice_page.goto(f"{BASE}/index.html#/master-data")
+    voice_page.wait_for_timeout(1200)
+    dismiss(voice_page)
+    voice_page.locator(".pill-tab", has_text="Working Hours & Briefing").first.click()
+    in_use = voice_page.locator("[data-section='voice-settings'] [data-field='voice-in-use']")
+    try:
+        in_use.first.wait_for(timeout=5000)
+    except Exception:
+        pass
+    check(
+        "The voice card says which voice is in use here - by name, as an online voice, with where a more human one is (Edge)",
+        in_use.count() == 1 and in_use.first.get_attribute("data-source") == "online" and want_voice in in_use.first.inner_text() and "Microsoft Edge" in in_use.first.inner_text(),
+        in_use.first.inner_text() if in_use.count() else "no line",
+    )
+    before_sample = voice_page.evaluate("() => window.__utter.length")
+    voice_page.locator("[data-section='voice-settings'] [data-action='test-voice']").click()
+    sampled = wait_for(voice_page, "(n) => window.__utter.slice(n).map((u) => u.text).join(' ').includes('Mitra')", 6000, before_sample)
+    sample = voice_page.evaluate("(n) => window.__utter.slice(n)", before_sample)
+    check("...and 'Hear Mitra' plays a sample in that voice", sampled and bool(sample) and all(u.get("voice") == want_voice for u in sample), [(u.get("voice"), u.get("text")) for u in sample])
+    voice_page.close()
+
+    # ==================================================================
+    # 4c. s85: the server's natural voice - asked once, remembered, never an error
+    # ==================================================================
+    print("\n==== s85: the server's voice, asked once ====")
+    real = page.evaluate("() => fetch('/api/assistant/speak', { credentials: 'include' }).then(async (r) => ({ status: r.status, body: await r.json() }))")
+    check(
+        "GET /api/assistant/speak answers 200 - here no key: not-configured, not available, in plain words",
+        real.get("status") == 200 and (real.get("body") or {}).get("code") == "not-configured" and (real.get("body") or {}).get("available") is False and "GROQ_API_KEY" in ((real.get("body") or {}).get("message") or ""),
+        real,
+    )
+    check("With no key, the browser never asked the server for a line (all lines went to the browser's voice)", not [r for r in speak_requests if r[0] == "POST"], speak_requests[:5])
+
+    def with_key_page(status_body, clip=None):
+        """A page on which the server reports the assistant configured, and answers the voice routes as given."""
+        asked = {"GET": 0, "POST": []}
+
+        def speak_route(route):
+            req = route.request
+            if req.method == "GET":
+                asked["GET"] += 1
+                route.fulfill(json=status_body)
+            else:
+                asked["POST"].append(req.post_data_json)
+                if clip is None:
+                    route.fulfill(status=503, json={"error": "not expected", "code": "voice-unavailable"})
+                else:
+                    route.fulfill(status=200, body=clip, headers={"content-type": "audio/wav"})
+
+        pg = context.new_page()
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
+        pg.route("**/translate_a/**", lambda route: route.abort())
+        pg.route("**/api/auth/**", auth_with_assistant)
+        pg.route("**/api/assistant/speak", speak_route)
+        pg.goto(f"{BASE}/index.html#/dashboard")
+        pg.wait_for_selector(".app-sidebar", timeout=60000)
+        pg.wait_for_timeout(1200)
+        dismiss(pg)
+        close_assistant(pg)
+        pg.locator("[data-clock]").first.click()
+        pg.wait_for_timeout(400)
+        return pg, asked
+
+    terms = "Mitra's natural voice needs the Groq organisation's admin to accept the model's terms at console.groq.com (canopylabs/orpheus-v1-english)."
+    pg, asked = with_key_page({"available": False, "code": "voice-unavailable", "message": terms, "engine": None, "model": "canopylabs/orpheus-v1-english", "voices": {"female": "hannah", "male": "daniel"}, "recheckAfterMs": 600000})
+    n0 = len(recorded(pg)["spoken"])
+    for line in ("The first line with a key.", "The second line with a key."):
+        pg.evaluate("(t) => window.dispatchEvent(new CustomEvent('dcrs:say', { detail: { text: t, lang: 'en', priority: 'high' } }))", line)
+        wait_for(pg, "(t) => window.__spoken.some((s) => s.text === t)", 5000, line)
+    rec = recorded(pg)
+    check("The Groq terms not accepted: both lines said by the browser", all(any(s.get("text") == line for s in rec["spoken"][n0:]) for line in ("The first line with a key.", "The second line with a key.")), rec["spoken"][n0:])
+    check("...the server asked ONCE (a 200), and never for a line - no failed request", asked["GET"] == 1 and asked["POST"] == [], asked)
+    pg.goto(f"{BASE}/index.html#/master-data")
+    pg.wait_for_timeout(1000)
+    dismiss(pg)
+    pg.locator(".pill-tab", has_text="Working Hours & Briefing").first.click()
+    note_el = pg.locator("[data-field='voice-server-terms']")
+    try:
+        note_el.first.wait_for(timeout=4000)
+    except Exception:
+        pass
+    check(
+        "...and the voice card says what the Groq organisation's admin must do",
+        note_el.count() == 1 and note_el.first.get_attribute("data-state") == "voice-unavailable" and "console.groq.com" in note_el.first.inner_text(),
+        note_el.first.inner_text() if note_el.count() else "no note",
+    )
+    check("...the answer remembered: not asked again for the card", asked["GET"] == 1, asked)
+    pg.close()
+
+    pg, asked = with_key_page(
+        {"available": True, "code": "available", "message": "Mitra speaks with Groq's natural voice, made on this server.", "engine": "groq", "model": "canopylabs/orpheus-v1-english", "voices": {"female": "hannah", "male": "daniel"}, "recheckAfterMs": 3600000},
+        clip=tiny_wav(),
+    )
+    before = recorded(pg)
+    pg.evaluate("() => window.dispatchEvent(new CustomEvent('dcrs:say', { detail: { text: 'Your F/HR/17 is at 92%.', lang: 'en', priority: 'high' } }))")
+    wait_for(pg, "(n) => window.__audio.plays > n", 5000, before["audio"]["plays"])
+    rec = recorded(pg)
+    check("Groq's voice available: the line is fetched and played as a clip", asked["GET"] == 1 and len(asked["POST"]) == 1 and rec["audio"]["plays"] > before["audio"]["plays"], (asked, rec["audio"]))
+    posted = (asked["POST"][0] or {}) if asked["POST"] else {}
+    check("...the words it is given made for the ear", posted.get("text") == "Your form F H R 17 is at 92 percent." and posted.get("voice") in ("female", "male"), posted)
+    check("...and the browser's own voice kept quiet", not any("F H R" in (s.get("text") or "") or "F/HR" in (s.get("text") or "") for s in rec["spoken"][len(before["spoken"]):]), rec["spoken"][len(before["spoken"]):])
+    pg.close()
+
+    # ==================================================================
     # 5. The settings in Master Data
     # ==================================================================
     print("\n==== Master Data: sounds and Mitra's voice ====")
@@ -502,7 +739,7 @@ with sync_playwright() as p:
     check("...and shown as chosen", card.locator("[data-voice-kind='male']").get_attribute("aria-pressed") == "true" and card.locator("[data-remind-every='60']").get_attribute("aria-pressed") == "true")
     before = recorded(page)
     card.locator("[data-action='test-voice']").click()
-    heard = wait_for(page, "([n, name]) => window.__spoken.slice(n).some((s) => (s.text || '').includes(name) && (s.text || '').includes('Mitra'))", 5000, [len(before["spoken"]), FIRST_NAME])
+    heard = wait_for(page, "([n, name]) => { const t = window.__spoken.slice(n).map((s) => s.text || '').join(' '); return t.includes(name) && t.includes('Mitra'); }", 5000, [len(before["spoken"]), FIRST_NAME])
     check("Hear Mitra says hello, by name", heard, recorded(page)["spoken"][-2:])
     card.locator("[data-action='test-sound']").click()
     page.wait_for_timeout(400)

@@ -1,10 +1,10 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "DCRS API for the Audit Assistant",
-    "version": "1.0.0",
+    "title": "DCRS API for the Mitra mobile app (the Audit Assistant)",
+    "version": "1.1.0",
     "summary": "Read and change DCRS data as a signed-in person, through DCRS's own rules.",
-    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. A session lasts until the close of the day it was started — the end of the plant's working hours (6:20 pm unless the super admin changes them) for everybody but the super admin, whose session lasts until midnight, factory time (REQUIREMENTS §84); `session.endsAt` in the sign-in answer says when. Outside the plant's working hours — before the opening, after the close, on the weekly off or a festival holiday — anybody but the super admin is refused with 403 `outside-working-hours`. See docs/chatbot-integration.md."
+    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. A session lasts until the close of the day it was started — the end of the plant's working hours (6:20 pm unless the super admin changes them) for everybody but the super admin, whose session lasts until midnight, factory time (REQUIREMENTS §84); `session.endsAt` in the sign-in answer says when. Outside the plant's working hours — before the opening, after the close, on the weekly off or a festival holiday — anybody but the super admin is refused with 403 `outside-working-hours`. WHAT MITRA DOES, FROM THE MOBILE APP (REQUIREMENTS §85): the routes tagged Mitra — documents, today's facts, records found, read, searched and printed, and records opened, changed and acted on — are answered by DCRS's own engine run on the server, so every change goes through DCRS's own checks, history and activity log, exactly as Mitra's own tools in the browser; each one maps to one of Mitra's tools (docs/chatbot-integration.md has the table). A CHANGE must be confirmed by the person first. See docs/chatbot-integration.md."
   },
   "servers": [
     {
@@ -41,6 +41,10 @@
     {
       "name": "Change",
       "description": "CHANGE: changes DCRS data, as the person, with a line in the record's history and in the activity log."
+    },
+    {
+      "name": "Mitra",
+      "description": "What Mitra does in DCRS, for the Mitra mobile app (REQUIREMENTS §85): each route is one of Mitra's tools, answered by DCRS's own engine on the server."
     }
   ],
   "paths": {
@@ -828,6 +832,1929 @@
         },
         "x-dcrs-kind": "read"
       }
+    },
+    "/api/v1/documents": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "findDocuments",
+        "summary": "READ — find documents (Mitra's find_documents)",
+        "description": "Any word of a document's name in any case, its format number however it is written (F/QC/30, F-QC-30, fqc30), its module or department, or a word the plant uses for it. Answers the person's own documents that match, another department's as `kept` (found, never opened — REQUIREMENTS §84), and the Master List's formats DCRS does not hold yet as `notInDcrs`. Without q: every document of the person's.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Search"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "The documents.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentList"
+                },
+                "examples": {
+                  "viscosity": {
+                    "value": {
+                      "query": "viscosity",
+                      "documents": [
+                        {
+                          "id": "qc-viscosity",
+                          "formatNo": "F-QC-30",
+                          "name": "Lamination Adhesive Viscosity Record",
+                          "module": "Lamination — Quality Control",
+                          "section": null,
+                          "kind": "log-sheet",
+                          "schedule": {
+                            "frequency": "Daily",
+                            "rule": "Every day"
+                          },
+                          "department": {
+                            "code": "QC",
+                            "name": "Quality Control"
+                          },
+                          "revisionNo": "00",
+                          "referenceOnly": false,
+                          "route": "/document/qc-viscosity",
+                          "link": "http://dcrs-host:4000/index.html#/document/qc-viscosity"
+                        }
+                      ],
+                      "total": 1,
+                      "kept": [],
+                      "notInDcrs": []
+                    }
+                  },
+                  "kept": {
+                    "value": {
+                      "query": "F/HR/17",
+                      "documents": [],
+                      "total": 0,
+                      "kept": [
+                        {
+                          "id": "daily-pest-monitoring",
+                          "formatNo": "F/HR/17",
+                          "name": "Daily Pest Control Monitoring Record",
+                          "module": "Human Resources",
+                          "department": "Human Resources",
+                          "note": "Kept by Human Resources — ask the super admin for access"
+                        }
+                      ],
+                      "notInDcrs": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-tool": "find_documents"
+      }
+    },
+    "/api/v1/documents/{id}": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "getDocument",
+        "summary": "READ — one document: what it is, who fills it, when, how, its format",
+        "description": "The document named by its id, its format number, or words that name exactly one of the person's documents: its description (what), the people Master Data assigns to it (who), its schedule (when), how it is filled, its layout — the keys a patch names — and its latest records. Another department's is refused (403 not-your-department, saying whose); a format on the Master List that DCRS does not hold is 404 not-in-dcrs; words that name several are 400 ambiguous, with the candidates.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DocumentRef"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Another department's document (not-your-department); as on every /api/v1 route, also outside-working-hours and password-change-required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "F/HR/17 Daily Pest Control Monitoring Record is kept by Human Resources, and this account is not kept to it. Ask the super admin for access.",
+                      "code": "not-your-department",
+                      "document": {
+                        "id": "daily-pest-monitoring",
+                        "formatNo": "F/HR/17",
+                        "name": "Daily Pest Control Monitoring Record"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "The document.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetail"
+                },
+                "example": {
+                  "id": "qc-viscosity",
+                  "formatNo": "F-QC-30",
+                  "name": "Lamination Adhesive Viscosity Record",
+                  "module": "Lamination — Quality Control",
+                  "section": null,
+                  "kind": "log-sheet",
+                  "schedule": {
+                    "frequency": "Daily",
+                    "rule": "Every day"
+                  },
+                  "department": {
+                    "code": "QC",
+                    "name": "Quality Control"
+                  },
+                  "revisionNo": "00",
+                  "referenceOnly": false,
+                  "route": "/document/qc-viscosity",
+                  "link": "http://dcrs-host:4000/index.html#/document/qc-viscosity",
+                  "description": "Hourly viscosity check of the lamination adhesive mix (specification 20.0 ± 1.0 Sec.), round the clock — 24 readings per day, each signed by the tester.",
+                  "revisionDate": "2024-12-15",
+                  "companyName": null,
+                  "sourceFile": "WhatsApp Image 2026-09-07 at 2.15.18 PM.jpeg (photographed F-QC-30 register)",
+                  "formatChangedInDcrs": false,
+                  "what": "Hourly viscosity check of the lamination adhesive mix (specification 20.0 ± 1.0 Sec.), round the clock — 24 readings per day, each signed by the tester.",
+                  "who": {
+                    "label": "Jeni, Singh",
+                    "people": [
+                      {
+                        "name": "Jeni",
+                        "role": "QC Tester — day shift (Lamination QC)"
+                      },
+                      {
+                        "name": "Singh",
+                        "role": "QC Tester — night shift (Lamination QC)"
+                      }
+                    ]
+                  },
+                  "when": "Daily — Every day",
+                  "how": "Format F-QC-30 (Rev 00) — filled digitally in the app, then Submitted and Verified through the approval workflow.",
+                  "layout": {
+                    "kind": "log-sheet",
+                    "header": [],
+                    "footer": [],
+                    "columns": [
+                      {
+                        "key": "time",
+                        "label": "Date/Time",
+                        "type": "time",
+                        "printed": true
+                      },
+                      {
+                        "key": "viscosity",
+                        "label": "Viscosity (20.0 ± 1.0 Sec.)",
+                        "type": "number",
+                        "required": true,
+                        "unit": "Sec.",
+                        "min": 19,
+                        "max": 21
+                      },
+                      {
+                        "key": "testedBy",
+                        "label": "Tested By",
+                        "type": "text",
+                        "required": true
+                      }
+                    ],
+                    "rows": {
+                      "mode": "timeSlots",
+                      "slotKey": "time",
+                      "slots": [
+                        "09:00",
+                        "10:00",
+                        "11:00",
+                        "…",
+                        "08:00"
+                      ],
+                      "count": 24
+                    }
+                  },
+                  "patchShape": "A box: {\"header\": {\"<box key>\": value}}. One line: {\"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}. Printed and computed columns cannot be written.",
+                  "records": {
+                    "count": 2,
+                    "latest": [
+                      {
+                        "recordId": "rec-munyt2ti-14-azkgv0",
+                        "dueDate": "2026-09-30",
+                        "status": "Verified",
+                        "started": true
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Several of the person's documents answer the words.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "ambiguous": {
+                    "value": {
+                      "error": "Several documents answer \"log sheet\" — say which one, by its id or its format number.",
+                      "code": "ambiguous",
+                      "candidates": [
+                        {
+                          "id": "qc-viscosity",
+                          "formatNo": "F-QC-30",
+                          "name": "Lamination Adhesive Viscosity Record"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No document answers it (not-found), or it is on the Master List but not in DCRS yet (not-in-dcrs).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-found": {
+                    "value": {
+                      "error": "No document matches \"boiler\". Find it with GET /api/v1/documents?q=… first.",
+                      "code": "not-found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "read"
+      }
+    },
+    "/api/v1/today": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "todaysFacts",
+        "summary": "READ — today's facts (Mitra's todays_facts)",
+        "description": "Whether today is a working day, the weekly off and the next holidays and adjustment days, the plant's hours, and what is overdue, due today, coming in three days, ready to submit, needing input and awaiting verification — for the person's own departments. The day is the server's (the plant's).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "Today.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Today"
+                },
+                "example": {
+                  "date": "2026-09-30",
+                  "day": {
+                    "date": "2026-09-30",
+                    "weekday": "Wednesday",
+                    "kind": "working",
+                    "closed": false,
+                    "label": "Working day"
+                  },
+                  "tomorrow": {
+                    "date": "2026-10-01",
+                    "weekday": "Thursday",
+                    "kind": "weekly-off",
+                    "closed": true,
+                    "label": "Thursday — weekly off"
+                  },
+                  "weeklyOff": {
+                    "day": "Thursday",
+                    "next": "2026-10-01"
+                  },
+                  "nextHolidays": [
+                    {
+                      "date": "2026-10-19",
+                      "weekday": "Monday",
+                      "kind": "holiday",
+                      "closed": true,
+                      "name": "Navratri Atham",
+                      "label": "Navratri Atham — company holiday"
+                    }
+                  ],
+                  "overdue": [],
+                  "due": [
+                    {
+                      "documentId": "qc-adhesive-mixing",
+                      "formatNo": "F-QC-32",
+                      "document": "Adhesive Mixing Ratio Record",
+                      "dueDate": "2026-09-30",
+                      "status": "In Progress",
+                      "recordId": "rec-munyt9an-14-7g7ku2",
+                      "started": true,
+                      "route": "/record/rec-munyt9an-14-7g7ku2",
+                      "link": "http://dcrs-host:4000/index.html#/record/rec-munyt9an-14-7g7ku2"
+                    }
+                  ],
+                  "upcoming": [
+                    {
+                      "documentId": "qc-viscosity",
+                      "formatNo": "F-QC-30",
+                      "document": "Lamination Adhesive Viscosity Record",
+                      "dueDate": "2026-10-02",
+                      "status": null,
+                      "recordId": null,
+                      "started": false
+                    }
+                  ],
+                  "readyToSubmit": [],
+                  "needsInput": [],
+                  "awaitingVerification": [],
+                  "facts": "Today: Wednesday, 30-Sep-2026 — Working day.\nTomorrow: Thursday, 01-Oct-2026 — Thursday — weekly off.\n…\nRecords due today: 9 (1 submitted or verified, 8 still open). Prepared by the assistant and waiting for review: 8. Awaiting verification: 0. Overdue: 0.\nUser: Kapila Barad.",
+                  "workingHours": {
+                    "enforced": true,
+                    "start": "08:40",
+                    "end": "18:20",
+                    "timeZone": "Asia/Kolkata",
+                    "phase": "open",
+                    "openNow": true,
+                    "opensAt": null,
+                    "closesAt": "2026-09-30T12:50:00.000Z",
+                    "hoursText": "DCRS is open 8:40 am to 6:20 pm on working days.",
+                    "todayText": "Today is a working day — open now, until 6:20 pm."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-tool": "todays_facts"
+      }
+    },
+    "/api/v1/records": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "listRecords",
+        "summary": "READ — one document's records between two dates (Mitra's list_records)",
+        "description": "Newest first; from and to default to the last 31 days up to today. Without documentId: every document of the person's. A sheet the calendar has made but not stored yet is listed with recordId null (started: false).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DocumentQuery"
+          },
+          {
+            "$ref": "#/components/parameters/From"
+          },
+          {
+            "$ref": "#/components/parameters/To"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Scheduled",
+                "Due",
+                "In Progress",
+                "Submitted",
+                "Pending Verification",
+                "Verified",
+                "Rejected"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "The records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordList"
+                },
+                "example": {
+                  "document": {
+                    "id": "qc-viscosity",
+                    "formatNo": "F-QC-30",
+                    "name": "Lamination Adhesive Viscosity Record",
+                    "module": "Lamination — Quality Control",
+                    "section": null,
+                    "kind": "log-sheet",
+                    "schedule": {
+                      "frequency": "Daily",
+                      "rule": "Every day"
+                    },
+                    "department": {
+                      "code": "QC",
+                      "name": "Quality Control"
+                    },
+                    "revisionNo": "00",
+                    "referenceOnly": false,
+                    "route": "/document/qc-viscosity",
+                    "link": "http://dcrs-host:4000/index.html#/document/qc-viscosity"
+                  },
+                  "from": "2026-09-28",
+                  "to": "2026-09-30",
+                  "total": 2,
+                  "records": [
+                    {
+                      "recordId": "rec-munyt2ti-14-azkgv0",
+                      "started": true,
+                      "documentId": "qc-viscosity",
+                      "formatNo": "F-QC-30",
+                      "document": "Lamination Adhesive Viscosity Record",
+                      "dueDate": "2026-09-30",
+                      "status": "Verified",
+                      "submittedBy": "Kapila Barad",
+                      "verifiedBy": "Super Admin",
+                      "updatedAt": "2026-09-30T10:31:06.137Z",
+                      "route": "/record/rec-munyt2ti-14-azkgv0",
+                      "link": "http://dcrs-host:4000/index.html#/record/rec-munyt2ti-14-azkgv0"
+                    },
+                    {
+                      "recordId": "rec-munyy41g-97-e22nuo",
+                      "started": true,
+                      "documentId": "qc-viscosity",
+                      "formatNo": "F-QC-30",
+                      "document": "Lamination Adhesive Viscosity Record",
+                      "dueDate": "2026-09-29",
+                      "status": "In Progress",
+                      "updatedAt": "2026-09-30T10:35:00.815Z",
+                      "route": "/record/rec-munyy41g-97-e22nuo",
+                      "link": "http://dcrs-host:4000/index.html#/record/rec-munyy41g-97-e22nuo"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "description": "No document answers documentId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-found": {
+                    "value": {
+                      "error": "No document matches \"boiler\". Find it with GET /api/v1/documents?q=… first.",
+                      "code": "not-found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-tool": "list_records"
+      },
+      "post": {
+        "tags": [
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "openRecord",
+        "summary": "CHANGE — the record of a date: started if there is none (Mitra's open_document with create)",
+        "description": "The document's record for that date (today by default). A scheduled document has one record per period: the one on file is answered (200, created false). Otherwise it is started (201) — for a date due today or earlier, prepared by the assistant exactly as DCRS's start-up prepares a record (values carried forward, what to check in `prepared.notes`); an as-required document (a complaint, an inspection report) starts a new record each time. The activity log says \"Record opened\" (and \"Record started\" for a new one) through the app. Ask the person first.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenRequest"
+              },
+              "example": {
+                "documentId": "F-QC-30",
+                "date": "2026-09-29"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "The record on file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Started now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenResponse"
+                },
+                "example": {
+                  "created": true,
+                  "record": {
+                    "recordId": "rec-munyy41g-97-e22nuo",
+                    "documentId": "qc-viscosity",
+                    "document": {
+                      "id": "qc-viscosity",
+                      "formatNo": "F-QC-30",
+                      "name": "Lamination Adhesive Viscosity Record",
+                      "kind": "log-sheet",
+                      "module": "Lamination — Quality Control",
+                      "department": {
+                        "code": "QC",
+                        "name": "Quality Control"
+                      }
+                    },
+                    "date": "2026-09-29",
+                    "status": "In Progress",
+                    "editable": true,
+                    "canReopen": false,
+                    "actions": [
+                      "submit",
+                      "delete"
+                    ],
+                    "correction": null,
+                    "prepared": null,
+                    "photos": null,
+                    "layout": {
+                      "kind": "log-sheet",
+                      "header": [],
+                      "footer": [],
+                      "columns": [
+                        {
+                          "key": "time",
+                          "label": "Date/Time",
+                          "type": "time",
+                          "printed": true
+                        },
+                        {
+                          "key": "viscosity",
+                          "label": "Viscosity (20.0 ± 1.0 Sec.)",
+                          "type": "number",
+                          "required": true,
+                          "unit": "Sec.",
+                          "min": 19,
+                          "max": 21
+                        },
+                        {
+                          "key": "testedBy",
+                          "label": "Tested By",
+                          "type": "text",
+                          "required": true
+                        }
+                      ],
+                      "rows": {
+                        "mode": "timeSlots",
+                        "slotKey": "time",
+                        "slots": [
+                          "09:00",
+                          "10:00",
+                          "11:00",
+                          "…",
+                          "08:00"
+                        ],
+                        "count": 24
+                      }
+                    },
+                    "patchShape": "A box: {\"header\": {\"<box key>\": value}}. One line: {\"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}. Printed and computed columns cannot be written.",
+                    "inWords": [],
+                    "data": {
+                      "header": {},
+                      "rows": [
+                        {
+                          "id": "row-munyy41g-1",
+                          "time": "09:00",
+                          "viscosity": null,
+                          "testedBy": ""
+                        }
+                      ]
+                    },
+                    "history": [],
+                    "historyTotal": 0,
+                    "route": "/record/rec-munyy41g-97-e22nuo",
+                    "link": "http://dcrs-host:4000/index.html#/record/rec-munyy41g-97-e22nuo",
+                    "createdAt": "2026-09-30T10:35:00.600Z",
+                    "updatedAt": "2026-09-30T10:35:00.815Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "documentId missing, or the date not a date.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-date": {
+                    "value": {
+                      "error": "date must be a date written YYYY-MM-DD (or today, yesterday, tomorrow).",
+                      "code": "bad-date"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No document answers documentId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-found": {
+                    "value": {
+                      "error": "No document matches \"boiler\". Find it with GET /api/v1/documents?q=… first.",
+                      "code": "not-found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The document has no records (reference-only) or the records kept changing (busy).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "reference-only": {
+                    "value": {
+                      "error": "Chemical Master is kept as issued; it has no records to fill.",
+                      "code": "reference-only"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "change",
+        "x-mitra-tool": "open_document"
+      }
+    },
+    "/api/v1/records/search": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "searchRecords",
+        "summary": "READ — search the words written on records (Mitra's search_records)",
+        "description": "DCRS's own record search (REQUIREMENTS §75): every word of q, in what PEOPLE wrote on records, newest first, with a snippet. A format number with the words keeps the search to that document; a format number alone lists its latest records (kind register). Blank and prepared sheets are not searched: list them with GET /api/v1/records.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "example": "floor"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentQuery"
+          },
+          {
+            "$ref": "#/components/parameters/From"
+          },
+          {
+            "$ref": "#/components/parameters/To"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "The records found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                },
+                "example": {
+                  "query": "floor",
+                  "kind": "words",
+                  "total": 1,
+                  "complete": true,
+                  "hits": [
+                    {
+                      "recordId": "rec-munyy41g-97-e22nuo",
+                      "started": true,
+                      "documentId": "qc-viscosity",
+                      "formatNo": "F-QC-30",
+                      "document": "Lamination Adhesive Viscosity Record",
+                      "dueDate": "2026-09-29",
+                      "status": "In Progress",
+                      "updatedAt": "2026-09-30T10:35:00.815Z",
+                      "route": "/record/rec-munyy41g-97-e22nuo",
+                      "link": "http://dcrs-host:4000/index.html#/record/rec-munyy41g-97-e22nuo",
+                      "snippet": "Note: Through Mitra mobile app: 10 o'clock reading from the floor"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-tool": "search_records"
+      }
+    },
+    "/api/v1/records/{id}": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "getRecord",
+        "summary": "READ — one record: its layout, its data in words and as stored, its history (Mitra's get_record, get_open_record)",
+        "description": "Everything a change needs: whether it can be changed now (editable) and what can be done to it (actions), its layout — the keys a patch names — and patchShape, its data in words (inWords) and as stored (data), and its history. Another department's record is refused (403, saying whose), as DCRS's own page refuses it.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RecordId"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Another department's record; also outside-working-hours and password-change-required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
+                      "code": "not-your-department"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "The record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordDetail"
+                },
+                "example": {
+                  "recordId": "rec-munyy41g-97-e22nuo",
+                  "documentId": "qc-viscosity",
+                  "document": {
+                    "id": "qc-viscosity",
+                    "formatNo": "F-QC-30",
+                    "name": "Lamination Adhesive Viscosity Record",
+                    "kind": "log-sheet",
+                    "module": "Lamination — Quality Control",
+                    "department": {
+                      "code": "QC",
+                      "name": "Quality Control"
+                    }
+                  },
+                  "date": "2026-09-29",
+                  "status": "In Progress",
+                  "editable": true,
+                  "canReopen": false,
+                  "actions": [
+                    "submit",
+                    "delete"
+                  ],
+                  "correction": null,
+                  "prepared": null,
+                  "photos": null,
+                  "layout": {
+                    "kind": "log-sheet",
+                    "header": [],
+                    "footer": [],
+                    "columns": [
+                      {
+                        "key": "time",
+                        "label": "Date/Time",
+                        "type": "time",
+                        "printed": true
+                      },
+                      {
+                        "key": "viscosity",
+                        "label": "Viscosity (20.0 ± 1.0 Sec.)",
+                        "type": "number",
+                        "required": true,
+                        "unit": "Sec.",
+                        "min": 19,
+                        "max": 21
+                      },
+                      {
+                        "key": "testedBy",
+                        "label": "Tested By",
+                        "type": "text",
+                        "required": true
+                      }
+                    ],
+                    "rows": {
+                      "mode": "timeSlots",
+                      "slotKey": "time",
+                      "slots": [
+                        "09:00",
+                        "10:00",
+                        "11:00",
+                        "…",
+                        "08:00"
+                      ],
+                      "count": 24
+                    }
+                  },
+                  "patchShape": "A box: {\"header\": {\"<box key>\": value}}. One line: {\"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}. Printed and computed columns cannot be written.",
+                  "inWords": [
+                    {
+                      "where": "10:00",
+                      "label": "Viscosity (20.0 ± 1.0 Sec.)",
+                      "value": "20.4 Sec."
+                    },
+                    {
+                      "where": "10:00",
+                      "label": "Tested By",
+                      "value": "Jeni"
+                    }
+                  ],
+                  "data": {
+                    "header": {},
+                    "rows": [
+                      {
+                        "id": "row-munyy41g-1",
+                        "time": "09:00",
+                        "viscosity": null,
+                        "testedBy": ""
+                      },
+                      {
+                        "id": "row-munyy41g-2",
+                        "time": "10:00",
+                        "viscosity": 20.4,
+                        "testedBy": "Jeni"
+                      }
+                    ]
+                  },
+                  "history": [
+                    {
+                      "at": "2026-09-30T10:35:00.815Z",
+                      "by": "Kapila Barad",
+                      "action": "assistant-edit",
+                      "note": "Through Mitra mobile app: 10 o'clock reading from the floor",
+                      "changes": [
+                        {
+                          "label": "Row 2 (10:00) · Viscosity (20.0 ± 1.0 Sec.)",
+                          "before": "",
+                          "after": "20.4"
+                        },
+                        {
+                          "label": "Row 2 (10:00) · Tested By",
+                          "before": "",
+                          "after": "Jeni"
+                        }
+                      ]
+                    }
+                  ],
+                  "historyTotal": 1,
+                  "route": "/record/rec-munyy41g-97-e22nuo",
+                  "link": "http://dcrs-host:4000/index.html#/record/rec-munyy41g-97-e22nuo",
+                  "createdAt": "2026-09-30T10:35:00.600Z",
+                  "updatedAt": "2026-09-30T10:35:00.815Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/RecordNotFound"
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-tool": "get_record"
+      }
+    },
+    "/api/v1/records/{id}/pdf": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "recordPdf",
+        "summary": "READ — the record's own page as a PDF (Mitra's print)",
+        "description": "DCRS's record page, printed by a headless Chrome or Edge on the DCRS server exactly as its Print button prints it, signed in as the person, the page allowed to write nothing (backend/pdfReport.ts). About 4–6 seconds; at most two print at once. Logged as \"Document downloaded as PDF\" through the app. A CAPA inspection report, a training record and a complaint checklist print from pages of their own in DCRS, which this route does not open (409 pdf-not-offered).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RecordId"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Another department's record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
+                      "code": "not-your-department"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No Chrome or Edge on the server, the app not built, or the engine not running.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "pdf-unavailable": {
+                    "value": {
+                      "error": "This DCRS server cannot print a PDF: it needs Google Chrome or Microsoft Edge installed, and the app built (npm run build).",
+                      "code": "pdf-unavailable"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The PDF.",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "attachment; filename=\"F-QC-32 Adhesive Mixing Ratio Record 2026-09-30.pdf\""
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/RecordNotFound"
+          },
+          "409": {
+            "description": "The record prints from its own page in DCRS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "pdf-not-offered": {
+                    "value": {
+                      "error": "CAPA — Internal: Pest Control Inspection Findings Report prints from its own page in DCRS (Print there); this route prints the records that open on DCRS's record page.",
+                      "code": "pdf-not-offered"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Printing took more than a minute.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "pdf-timeout": {
+                    "value": {
+                      "error": "Printing the record took too long. Try again in a moment.",
+                      "code": "pdf-timeout"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-tool": "record_action print"
+      }
+    },
+    "/api/v1/figures": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "historyFigures",
+        "summary": "READ — figures for a question about history (Mitra's history_figures)",
+        "description": "DCRS's own evidence for a question about what the records say over time — a trend, the most or least, counts, on time or late: the facts, one per line, with the records they come from, for the person's departments. documentId, from and to narrow what the question itself names. A question that is not about history is 400 not-history.",
+        "parameters": [
+          {
+            "name": "question",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "example": "which machine broke down most this year?"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentQuery"
+          },
+          {
+            "$ref": "#/components/parameters/From"
+          },
+          {
+            "$ref": "#/components/parameters/To"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/NotYourDepartment"
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "The evidence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Figures"
+                },
+                "example": {
+                  "question": "which machine broke down most this year?",
+                  "period": "this year, 2026 (01-Jan-2026 to 30-Sep-2026)",
+                  "from": "2026-01-01",
+                  "to": "2026-09-30",
+                  "topics": [
+                    "maintenance"
+                  ],
+                  "evidence": [
+                    "ABOUT THIS EVIDENCE:",
+                    "- Period asked about: this year, 2026 (01-Jan-2026 to 30-Sep-2026). Today: 30-Sep-2026.",
+                    "MAINTENANCE:",
+                    "- No breakdown memo (F/MNT/05) in the period."
+                  ],
+                  "sections": [],
+                  "recordIds": []
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No question, or not a question about history.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-history": {
+                    "value": {
+                      "error": "That is not a question about history. Say what is asked and for which period, for example: which machine broke down most this year.",
+                      "code": "not-history"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-tool": "history_figures"
+      }
+    },
+    "/api/v1/people": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "hrMasterLookup",
+        "summary": "READ — a person on HR Master Data (Mitra's hr_master_lookup)",
+        "description": "Up to five people by name or GP3 No., with department, designation and joining date. Human Resources only (and the super admin, and an account with no departments): DCRS hands HR Master Data to nobody else, so anybody else is refused 403 not-your-department.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "example": "Roshni"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Not Human Resources.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "HR Master Data is kept by Human Resources, and this account is not kept to it.",
+                      "code": "not-your-department"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "The people.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/People"
+                },
+                "example": {
+                  "query": "Roshni",
+                  "people": [
+                    {
+                      "gp3": "",
+                      "name": "Roshni Senma",
+                      "department": "Lab",
+                      "designation": "Lab Executive",
+                      "joiningDate": "2023-05-17"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-tool": "hr_master_lookup"
+      }
+    },
+    "/api/v1/records/{id}/changes": {
+      "post": {
+        "tags": [
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "changeRecord",
+        "summary": "CHANGE — change a record with Mitra's patch (Mitra's edit_open_record)",
+        "description": "The patch is applied by DCRS's own engine exactly as Mitra applies it (engine/recordPatch.ts): every field checked against the form, every value normalised to what the form stores, printed and computed columns never written, one line changed only when the match names exactly one. The change is saved as the record's page saves it (a Due record becomes In Progress, computed cells worked out), with its own entry in the record's history — in the person's name, the note \"Through <client>: <note>\" — and the activity line \"Record edited through Mitra\" with the same words. What was left out is in `problems`; a patch that changes nothing is 400 nothing-changed. A record that is not open for writing (submitted, verified, sent back) is 409 needs-reopen: reopen it with a reason first (POST .../actions reopen). Ask the person first.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RecordId"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              },
+              "examples": {
+                "log-sheet": {
+                  "value": {
+                    "patch": {
+                      "itemEdits": [
+                        {
+                          "collection": "rows",
+                          "match": {
+                            "time": "10:00"
+                          },
+                          "set": {
+                            "viscosity": "20.4",
+                            "testedBy": "Jeni"
+                          }
+                        }
+                      ]
+                    },
+                    "note": "10 o'clock reading from the floor"
+                  }
+                },
+                "F/HR/17": {
+                  "value": {
+                    "patch": {
+                      "checkpoints": {
+                        "1": "Yes",
+                        "4": 100,
+                        "8": {
+                          "value": "Yes",
+                          "note": "near the store"
+                        }
+                      },
+                      "checker": "Roshni",
+                      "timeOfChecking": "09:30"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Another department's record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
+                      "code": "not-your-department"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "Changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeResponse"
+                },
+                "example": {
+                  "recordId": "rec-munyy41g-97-e22nuo",
+                  "status": "In Progress",
+                  "editable": true,
+                  "actions": [
+                    "submit",
+                    "delete"
+                  ],
+                  "route": "/record/rec-munyy41g-97-e22nuo",
+                  "link": "http://dcrs-host:4000/index.html#/record/rec-munyy41g-97-e22nuo",
+                  "history": [
+                    {
+                      "at": "2026-09-30T10:35:00.815Z",
+                      "by": "Kapila Barad",
+                      "action": "assistant-edit",
+                      "note": "Through Mitra mobile app: 10 o'clock reading from the floor",
+                      "changes": [
+                        {
+                          "label": "Row 2 (10:00) · Viscosity (20.0 ± 1.0 Sec.)",
+                          "before": "",
+                          "after": "20.4"
+                        },
+                        {
+                          "label": "Row 2 (10:00) · Tested By",
+                          "before": "",
+                          "after": "Jeni"
+                        }
+                      ]
+                    }
+                  ],
+                  "changes": [
+                    {
+                      "label": "Row 2 (10:00) · Viscosity (20.0 ± 1.0 Sec.)",
+                      "before": "",
+                      "after": "20.4"
+                    },
+                    {
+                      "label": "Row 2 (10:00) · Tested By",
+                      "before": "",
+                      "after": "Jeni"
+                    }
+                  ],
+                  "problems": []
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No patch, a note too long, or nothing on the form changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "nothing-changed": {
+                    "value": {
+                      "error": "Nothing on the form changed.",
+                      "code": "nothing-changed",
+                      "problems": [
+                        "\"remarks\" isn't a field on this form, so I left it out."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/RecordNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/ChangeRefused"
+          }
+        },
+        "x-dcrs-kind": "change",
+        "x-mitra-tool": "edit_open_record"
+      }
+    },
+    "/api/v1/records/{id}/actions": {
+      "post": {
+        "tags": [
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "recordAction",
+        "summary": "CHANGE — submit, verify, send back, resume, reopen, cancel a correction, delete (Mitra's record_action)",
+        "description": "What the record page's buttons do, through DCRS's own lifecycle and validation (engine/recordLifecycle.ts): submit (a record being filled in; DCRS's validation must pass, 409 invalid with the problems otherwise), verify or approve (a submitted record; a complaint checklist's approval stamps Approved By), send_back with a reason (a submitted record), resume (one sent back), reopen with a reason (submitted, verified or sent back — it must then be submitted and verified again), cancel_correction (puts a reopened record back exactly as it was), delete with a reason (recorded on the deletions log). Each writes its entry in the record's history in the person's name with the note \"Through <client>: <reason or the action>\", and the activity line the browser writes for it (Record submitted for verification, Record verified, Record sent back, Record resumed, Record reopened for correction, Correction cancelled, Record deleted) with the detail \"Through <client>: …\". Ask the person first.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RecordId"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              },
+              "examples": {
+                "submit": {
+                  "value": {
+                    "action": "submit"
+                  }
+                },
+                "reopen": {
+                  "value": {
+                    "action": "reopen",
+                    "reason": "A reading was written against the wrong hour"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Another department's record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
+                      "code": "not-your-department"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "Done.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                },
+                "example": {
+                  "done": "verify",
+                  "did": "Verified",
+                  "recordId": "rec-munyt9an-14-7g7ku2",
+                  "status": "Verified",
+                  "editable": false,
+                  "actions": [
+                    "reopen",
+                    "delete"
+                  ],
+                  "history": [
+                    {
+                      "at": "2026-09-30T10:32:13.959Z",
+                      "by": "Super Admin",
+                      "action": "verified",
+                      "note": "Through Mitra mobile app: verified",
+                      "fromStatus": "Pending Verification"
+                    }
+                  ],
+                  "route": "/record/rec-munyt9an-14-7g7ku2",
+                  "link": "http://dcrs-host:4000/index.html#/record/rec-munyt9an-14-7g7ku2"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown action, or a reason missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "needs-reason": {
+                    "value": {
+                      "error": "reason is needed: say why the record is being corrected.",
+                      "code": "needs-reason"
+                    }
+                  },
+                  "bad-action": {
+                    "value": {
+                      "error": "action must be one of: submit, verify (approve), send_back, resume, reopen, cancel_correction, delete.",
+                      "code": "bad-action"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/RecordNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/ChangeRefused"
+          }
+        },
+        "x-dcrs-kind": "change",
+        "x-mitra-tool": "record_action"
+      }
+    },
+    "/api/v1/records/{id}/photos": {
+      "post": {
+        "tags": [
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "addPhoto",
+        "summary": "CHANGE — add a photo to a record's photo or scan list (Mitra's add_photo_to_open_record)",
+        "description": "For a record with a photo list (the complaint acknowledgement) or a scan list (the service agreement): the picture is added as Mitra adds one, with its own history entry \"Through <client>: photo <fileName> added\" (or the note). A JPEG, PNG or WebP of at most 512 KB, its bytes checked to be what mimeType says. The server does not scale pictures (the browser scales with a canvas, which a server has not): scale to at most 1024 px on the longer side, as JPEG at 70% (about 60-150 KB), before sending. Ask the person first.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RecordId"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoRequest"
+              },
+              "example": {
+                "fileName": "seal.jpg",
+                "mimeType": "image/jpeg",
+                "dataBase64": "/9j/4AAQSkZJRgABAQ…"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Another department's record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
+                      "code": "not-your-department"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "Added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoResponse"
+                },
+                "example": {
+                  "recordId": "rec-munyuni1-n1p-vikm8y",
+                  "status": "In Progress",
+                  "editable": true,
+                  "actions": [
+                    "submit",
+                    "delete"
+                  ],
+                  "history": [
+                    {
+                      "at": "2026-09-30T10:32:19.449Z",
+                      "by": "Super Admin",
+                      "action": "assistant-edit",
+                      "note": "Through Mitra mobile app: photo seal.png added",
+                      "changes": [
+                        {
+                          "label": "Photo 1",
+                          "before": "(no row)",
+                          "after": "(row added)"
+                        }
+                      ]
+                    }
+                  ],
+                  "added": "seal.png",
+                  "list": "photos",
+                  "count": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "fileName or the bytes missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-picture": {
+                    "value": {
+                      "error": "dataBase64 is needed: the picture's bytes in base64.",
+                      "code": "bad-picture"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/RecordNotFound"
+          },
+          "409": {
+            "description": "The record has no photo or scan list, or is not open for writing (needs-reopen).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "no-photo-list": {
+                    "value": {
+                      "error": "Lamination Adhesive Viscosity Record has no photo or scan list.",
+                      "code": "no-photo-list"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Larger than 512 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "too-large": {
+                    "value": {
+                      "error": "The picture is larger than 512 KB. Scale it to at most 1024 pixels on its longer side, as JPEG at 70%, as DCRS does before it keeps a photo.",
+                      "code": "too-large"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Not a JPEG, PNG or WebP, or not what mimeType says.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-picture": {
+                    "value": {
+                      "error": "The bytes are not the picture mimeType says they are.",
+                      "code": "bad-picture"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "change",
+        "x-mitra-tool": "add_photo_to_open_record"
+      }
+    },
+    "/api/v1/records/{id}/sample-fill": {
+      "post": {
+        "tags": [
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "sampleFill",
+        "summary": "CHANGE — fill a record with sample data, marked as made up (Mitra's fill_open_record_with_sample_data)",
+        "description": "Realistic but made-up values for the whole record, exactly as Mitra fills them (engine/sampleFill.ts): a draft, never submitted. The history says \"Through <client>: Filled with sample data by the assistant, on request — realistic, but made up\"; `summary` says what to check. For a form kept as issued there is no sample data (409 no-sample). Ask the person first, and tell them every value is made up.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RecordId"
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Another department's record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
+                      "code": "not-your-department"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          },
+          "200": {
+            "description": "Filled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleFillResponse"
+                },
+                "example": {
+                  "recordId": "rec-munyt9ay-os-tgt79x",
+                  "status": "In Progress",
+                  "editable": true,
+                  "actions": [
+                    "submit",
+                    "delete"
+                  ],
+                  "history": [
+                    {
+                      "at": "2026-09-30T10:35:01.080Z",
+                      "by": "Kapila Barad",
+                      "action": "assistant-edit",
+                      "note": "Through Mitra mobile app: Filled with sample data by the assistant, on request — realistic, but made up",
+                      "changes": [
+                        {
+                          "label": "Row 1",
+                          "before": "(no row)",
+                          "after": "(row added)"
+                        }
+                      ]
+                    }
+                  ],
+                  "summary": [
+                    "Logged all 6 hot-room readings: 42–46 °C (recommended 45 ± 2 °C).",
+                    "Signed Singh."
+                  ],
+                  "changed": 2,
+                  "madeUp": true,
+                  "note": "Sample values — realistic but made up. The person must check every one before submitting; nothing was submitted."
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/RecordNotFound"
+          },
+          "409": {
+            "description": "No sample data for this form (no-sample), already filled (nothing-changed), or not open for writing (needs-reopen).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "no-sample": {
+                    "value": {
+                      "error": "Chemical Master is kept as issued — there is no sample data for it.",
+                      "code": "no-sample"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "change",
+        "x-mitra-tool": "fill_open_record_with_sample_data"
+      }
     }
   },
   "components": {
@@ -900,6 +2827,61 @@
           "type": "string",
           "maxLength": 200
         }
+      },
+      "RecordId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "A record's id, as the other routes give it (recordId).",
+        "schema": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "example": "rec-munyy41g-97-e22nuo"
+      },
+      "DocumentRef": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "A document's id (qc-viscosity), its format number however it is written (F-QC-30, F/QC/30), or words that name exactly one of the person's documents.",
+        "schema": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "example": "qc-viscosity"
+      },
+      "DocumentQuery": {
+        "name": "documentId",
+        "in": "query",
+        "required": false,
+        "description": "Keep to one document: its id or its format number.",
+        "schema": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "example": "qc-viscosity"
+      },
+      "From": {
+        "name": "from",
+        "in": "query",
+        "required": false,
+        "description": "The first date, YYYY-MM-DD (today and yesterday are read too).",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "example": "2026-09-01"
+      },
+      "To": {
+        "name": "to",
+        "in": "query",
+        "required": false,
+        "description": "The last date, YYYY-MM-DD.",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        },
+        "example": "2026-09-30"
       }
     },
     "responses": {
@@ -1019,6 +3001,91 @@
                 "value": {
                   "error": "There is no daily pest control report (F/HR/17) in DCRS for 2026-09-28.",
                   "code": "no-report"
+                }
+              }
+            }
+          }
+        }
+      },
+      "EngineUnavailable": {
+        "description": "DCRS's engine is not running on the server (engine-unavailable: it is being bundled, or could not be) or failed on this request (engine-failed). Try again in a moment.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "engine-unavailable": {
+                "value": {
+                  "error": "DCRS cannot work this out just now: its engine is not running on the server. Try again in a minute.",
+                  "code": "engine-unavailable"
+                }
+              }
+            }
+          }
+        }
+      },
+      "RecordNotFound": {
+        "description": "No such record (not-found), or it is another department's (403 not-your-department).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "not-found": {
+                "value": {
+                  "error": "There is no record \"rec-nothing\" in DCRS.",
+                  "code": "not-found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ChangeRefused": {
+        "description": "Refused by DCRS's own rules. needs-reopen: the record is submitted or verified — reopen it with a reason first (action reopen). wrong-status: that action does not apply to it now (`actions` says what does). invalid: DCRS's validation stopped it (`problems`). busy: the records kept changing while this was saved — try again.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "examples": {
+              "needs-reopen": {
+                "value": {
+                  "error": "the Adhesive Mixing Ratio Record of 30-Sep-2026 is Pending Verification and cannot be changed as it stands. Reopen it for correction first, with a reason (action \"reopen\"); it will then need submitting and verifying again.",
+                  "code": "needs-reopen",
+                  "status": "Pending Verification",
+                  "canReopen": true
+                }
+              },
+              "wrong-status": {
+                "value": {
+                  "error": "the Adhesive Mixing Ratio Record of 30-Sep-2026 is Pending Verification: only a record being filled in can be submitted.",
+                  "code": "wrong-status",
+                  "status": "Pending Verification",
+                  "actions": [
+                    "verify",
+                    "send_back",
+                    "reopen",
+                    "delete"
+                  ]
+                }
+              },
+              "invalid": {
+                "value": {
+                  "error": "Submitting it cannot be done yet: 09:00: Viscosity (20.0 ± 1.0 Sec.) is required. 09:00: Tested By is required.",
+                  "code": "invalid",
+                  "problems": [
+                    "09:00: Viscosity (20.0 ± 1.0 Sec.) is required.",
+                    "09:00: Tested By is required."
+                  ]
+                }
+              },
+              "busy": {
+                "value": {
+                  "error": "The records kept changing while this was being saved. Try again in a moment.",
+                  "code": "busy"
                 }
               }
             }
@@ -1614,6 +3681,1065 @@
           "todayText": {
             "type": "string",
             "description": "Where today stands, in words."
+          }
+        }
+      },
+      "Department": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "QC"
+          },
+          "name": {
+            "type": "string",
+            "example": "Quality Control"
+          }
+        }
+      },
+      "DocumentBrief": {
+        "type": "object",
+        "description": "One document (a controlled format). `route` is its page in DCRS and `link` opens it.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "formatNo": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "module": {
+            "type": "string"
+          },
+          "section": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "description": "log-sheet, daily-pest-monitoring, fly-catcher, service-report, gap-inspection, training-record, complaint-checklist, complaint-ack, service-agreement, pest-responsibilities, or a reference kind."
+          },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "frequency": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              }
+            }
+          },
+          "department": {
+            "$ref": "#/components/schemas/Department"
+          },
+          "revisionNo": {
+            "type": "string"
+          },
+          "referenceOnly": {
+            "type": "boolean",
+            "description": "Kept as issued: no records to fill."
+          },
+          "route": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          }
+        }
+      },
+      "DocumentList": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentBrief"
+            },
+            "description": "The person's own documents that match (all of them when there is no q), best first."
+          },
+          "total": {
+            "type": "integer"
+          },
+          "kept": {
+            "type": "array",
+            "description": "Another department's documents that match: found, never opened (REQUIREMENTS §84).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "formatNo": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "module": {
+                  "type": "string"
+                },
+                "department": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "notInDcrs": {
+            "type": "array",
+            "description": "Lines of the Master List of Formats (F/SYS/02) that match and DCRS does not hold yet.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "formatNo": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "department": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Layout": {
+        "type": "object",
+        "description": "What the form is made of, in the keys a patch names. A log sheet: `header`, `footer` (boxes) and `columns`, each {key, label, type, options?, required?, unit?, min?, max?, printed?, computed?, readFrom?}, and `rows` {mode: timeSlots|fixedRows|free|single, slotKey?, slots?, count?}. F/HR/17: `checkpoints` {number, question, answer, noteAsks?, findingWhen?}, `fields`, `lists`. Any other form: `fields` {key, label, type, items?, parts?}. A printed or computed column, or one read from another document (readFrom), cannot be written.",
+        "additionalProperties": true
+      },
+      "DocumentDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DocumentBrief"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "revisionDate": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "companyName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourceFile": {
+                "type": "string"
+              },
+              "formatChangedInDcrs": {
+                "type": "boolean"
+              },
+              "what": {
+                "type": "string"
+              },
+              "who": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "people": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "when": {
+                "type": "string"
+              },
+              "how": {
+                "type": "string"
+              },
+              "layout": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Layout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "patchShape": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "How a change to this kind of form is written (POST /api/v1/records/{id}/changes)."
+              },
+              "records": {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer"
+                  },
+                  "latest": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "DueItem": {
+        "type": "object",
+        "description": "One record due, overdue, coming, or waiting. `recordId` is null (and `started` false) for a sheet the calendar has not stored yet: POST /api/v1/records {documentId, date} starts it.",
+        "properties": {
+          "documentId": {
+            "type": "string"
+          },
+          "formatNo": {
+            "type": "string"
+          },
+          "document": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started": {
+            "type": "boolean"
+          },
+          "route": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "needsInput only: what still stops a submit."
+          }
+        }
+      },
+      "Day": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "weekday": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "working",
+              "weekly-off",
+              "holiday",
+              "adjustment"
+            ]
+          },
+          "closed": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "Today": {
+        "type": "object",
+        "description": "Mitra's todays_facts: the plant's day and what is due for this person (their departments' documents).",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "day": {
+            "$ref": "#/components/schemas/Day"
+          },
+          "tomorrow": {
+            "$ref": "#/components/schemas/Day"
+          },
+          "weeklyOff": {
+            "type": "object",
+            "properties": {
+              "day": {
+                "type": "string"
+              },
+              "next": {
+                "type": "string"
+              }
+            }
+          },
+          "nextHolidays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Day"
+            }
+          },
+          "overdue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueItem"
+            }
+          },
+          "due": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueItem"
+            }
+          },
+          "upcoming": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueItem"
+            },
+            "description": "Due in the next three days."
+          },
+          "readyToSubmit": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueItem"
+            },
+            "description": "Prepared by the assistant and passing validation."
+          },
+          "needsInput": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueItem"
+            }
+          },
+          "awaitingVerification": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueItem"
+            }
+          },
+          "facts": {
+            "type": "string",
+            "description": "The same facts in words, as Mitra is given them."
+          },
+          "workingHours": {
+            "$ref": "#/components/schemas/PlantHours"
+          }
+        }
+      },
+      "RecordItem": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Null for a sheet the calendar has not stored yet (started: false)."
+          },
+          "started": {
+            "type": "boolean"
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "formatNo": {
+            "type": "string"
+          },
+          "document": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string"
+          },
+          "submittedBy": {
+            "type": "string"
+          },
+          "verifiedBy": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "route": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": "string",
+            "description": "Search only: the words around what was found."
+          }
+        }
+      },
+      "RecordList": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/DocumentBrief"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordItem"
+            }
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "words",
+              "register"
+            ],
+            "description": "register: only a format number was given, so its latest records are listed."
+          },
+          "total": {
+            "type": "integer"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordItem"
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "by": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "prepared",
+              "edited",
+              "assistant-edit",
+              "imported",
+              "submitted",
+              "verified",
+              "rejected",
+              "resumed",
+              "reopened",
+              "correction-cancelled"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "description": "For a change through an app: \"Through <X-Client-Name>: <note or the action>\"."
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "before": {
+                  "type": "string"
+                },
+                "after": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "moreChanges": {
+            "type": "integer"
+          },
+          "fromStatus": {
+            "type": "string"
+          }
+        }
+      },
+      "RecordDetail": {
+        "type": "object",
+        "description": "Mitra's get_record and get_open_record in one: the record, whether it can be changed now and what can be done to it, its layout (the keys a patch names), its data in words and as stored, and its history (the last 50 entries).",
+        "properties": {
+          "recordId": {
+            "type": "string"
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "document": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "formatNo": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              },
+              "department": {
+                "$ref": "#/components/schemas/Department"
+              }
+            }
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Scheduled",
+              "Due",
+              "In Progress",
+              "Submitted",
+              "Pending Verification",
+              "Verified",
+              "Rejected"
+            ]
+          },
+          "editable": {
+            "type": "boolean",
+            "description": "Its data can be changed now (Scheduled, Due or In Progress). Otherwise a change needs `reopen` first."
+          },
+          "canReopen": {
+            "type": "boolean"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What POST .../actions can do to it now."
+          },
+          "submittedBy": {
+            "type": "string"
+          },
+          "verifiedBy": {
+            "type": "string"
+          },
+          "sentBackBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sentBackBecause": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correction": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Set while it is reopened for correction: reason, by, at, fromStatus."
+          },
+          "prepared": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Filled by the assistant: at, notes (what to check), basedOn."
+          },
+          "photos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "photos",
+              "scans",
+              null
+            ],
+            "description": "Which picture list it has, if any (POST .../photos)."
+          },
+          "layout": {
+            "$ref": "#/components/schemas/Layout"
+          },
+          "patchShape": {
+            "type": "string"
+          },
+          "inWords": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "where": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "data": {
+            "type": "object",
+            "description": "As stored."
+          },
+          "linked": {
+            "type": "object",
+            "description": "F/MNT/03 only: the Actual dates read from each machine's F/MNT/02 (not stored on the sheet)."
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryEntry"
+            }
+          },
+          "historyTotal": {
+            "type": "integer"
+          },
+          "route": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          }
+        }
+      },
+      "OpenRequest": {
+        "type": "object",
+        "required": [
+          "documentId"
+        ],
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "description": "The document's id or its format number."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "The record's date; today (the server's) when left out."
+          }
+        }
+      },
+      "OpenResponse": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "boolean",
+            "description": "True when this call stored the record (201); false when it was already on file (200)."
+          },
+          "record": {
+            "$ref": "#/components/schemas/RecordDetail"
+          }
+        }
+      },
+      "ChangeSummary": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "editable": {
+            "type": "boolean"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryEntry"
+            },
+            "description": "The entries this call added."
+          },
+          "route": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangeRequest": {
+        "type": "object",
+        "required": [
+          "patch"
+        ],
+        "properties": {
+          "patch": {
+            "type": "object",
+            "description": "Mitra's patch (engine/recordPatch.ts applyAssistantPatch). A field: {\"<key>\": value}. A log sheet: {\"header\": {\"<box key>\": value}, \"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}, or \"rows\" given in full. F/HR/17: {\"checkpoints\": {\"<n>\": value or {value, note}}}. Values are read as the form stores them (\"yes\" -> Yes, \"9.15 am\" -> 09:15, \"20.4\" -> 20.4, a select's option however it is cased); a field the form does not have, a printed or computed column, or a value it cannot hold is left out and said in `problems`.",
+            "additionalProperties": true
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Why, in the person's words: the history says \"Through <client>: <note>\"."
+          }
+        }
+      },
+      "ChangeResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "changes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "before": {
+                      "type": "string"
+                    },
+                    "after": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "moreChanges": {
+                "type": "integer"
+              },
+              "problems": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "What was left out, and why."
+              }
+            }
+          }
+        ]
+      },
+      "ActionRequest": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "submit",
+              "verify",
+              "approve",
+              "send_back",
+              "resume",
+              "reopen",
+              "cancel_correction",
+              "delete"
+            ],
+            "description": "approve is verify (a complaint checklist's approval stamps Approved By)."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Needed for send_back, reopen and delete."
+          }
+        }
+      },
+      "ActionResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "done": {
+                "type": "string"
+              },
+              "did": {
+                "type": "string"
+              },
+              "deleted": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "PhotoRequest": {
+        "type": "object",
+        "required": [
+          "fileName",
+          "mimeType",
+          "dataBase64"
+        ],
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "mimeType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ]
+          },
+          "dataBase64": {
+            "type": "string",
+            "description": "The picture's bytes in base64 (a data: prefix is allowed), at most 512 KB decoded. DCRS keeps photos scaled to at most 1024 px on the longer side, as JPEG at 70% — scale before sending, as the server does not."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "PhotoResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "added": {
+                "type": "string"
+              },
+              "list": {
+                "type": "string",
+                "enum": [
+                  "photos",
+                  "scans"
+                ]
+              },
+              "count": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "SampleFillResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "summary": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "changed": {
+                "type": "integer"
+              },
+              "madeUp": {
+                "type": "boolean",
+                "const": true
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "Figures": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "One fact per line, records tagged [rec:<id>] — what Mitra's model is given to answer from."
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "type": "string"
+                },
+                "facts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "recordIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "recordIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "People": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gp3": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "department": {
+                  "type": "string"
+                },
+                "designation": {
+                  "type": "string"
+                },
+                "joiningDate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "exact": {
+            "type": "string"
           }
         }
       }

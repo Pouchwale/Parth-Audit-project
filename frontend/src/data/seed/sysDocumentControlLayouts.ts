@@ -408,7 +408,7 @@ type FormatLine = [
  *     workbook's numbers run two ahead of the print's.
  *   F-QC-15 - A to G (WB 46 to 52, print 44 to 50) — revision 0 "16.02.22";
  *     the print: "01.12.21". The workbook agrees with the forms' own pages:
- *     F/QC/15-A and C to G print "(00 / 16.02.2022)" (15-B was not supplied).
+ *     F/QC/15-A and C to G print "(00 / 16.02.2022)" (15-B, supplied on 30-Sep-2026, is Rev 00 of 16.02.2022 too — REQUIREMENTS §85).
  *   F-QC-39 (WB 65, print 63) — Method of Recording "SAP"; the print leaves it
  *     blank. Both leave its Retention Period and Method of Disposition blank.
  *   F-QC-40. A (WB 66, print 64) — a third revision, "01.07.2026", and "Hard

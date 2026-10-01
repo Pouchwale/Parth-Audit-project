@@ -163,7 +163,7 @@ function RouteSwitch() {
       // Everything anybody has done on the portal (REQUIREMENTS §62).
       return <ActivityLogPage />;
     case "qc":
-      // QC Records — Quality Control's overview of its thirty-eight formats in
+      // QC Records — Quality Control's overview of its formats (thirty-eight with §57, more since) in
       // their seven sections, and of its three log sheets kept with the
       // lamination line's paperwork (REQUIREMENTS §58). Each row opens the
       // format's own page, which is where "Open Document" lands too.

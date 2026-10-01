@@ -2689,7 +2689,8 @@ of 02-Dec-2022; and the Gangwal Healthcare meeting of 07-Jun-2022 with its seven
    the analysis report and the Nivea utility test report (the latter typed on the Minutes of Meetings form).
    F/QC/30 — the minutes of meetings, while the company's master list gives F-QC-30 to the Lamination
    Adhesive Viscosity Record already on file. Both of each pair are held as supplied.
-2. **F/QC/15-B was not supplied** — the area line clearance series here runs A, C, D, E, F and G.
+2. ~~**F/QC/15-B was not supplied** — the area line clearance series here runs A, C, D, E, F and G.~~ — **RESOLVED (§85)**:
+   built from the owner's paper of 30-Sep-2026.
 3. **The two Gujarati clearance checklists print no format number** and no revision.
 4. **The three certificates of analysis print no revision number**; the corrugated one carries an older
    document number instead, QA-IP-TRFCBA-011-00-01-09-18 (2009 edition).
@@ -5190,6 +5191,141 @@ the suites run at any hour). The Audit Assistant's DCRS token ends the same way 
 
 **Tests.** See docs/TESTING.md "Every document findable, the opening, User access and the working hours".
 
+## §85 — Copy and Edit in Mitra's chat; the Mitra mobile app does what Mitra does; a more human voice; the opening before every sign-in; a guided tour (30-Sep and 1-Oct-2026)
+
+**The request.** "Add two features in the assistant: copy, and the prompt — edit it — the same as Claude. I want to connect
+this project to the chatbot which I have already built; it has a separate folder; it is a mobile application which is
+connected to this software, and whatever our AI assistant (Mitra) can do, the same can be done from that mobile chatbot. Improve
+and fix the voice of this software's AI assistant: it should sound like a human only. Remove the errors from the system, and
+make sure each and every thing is present in the system. Till now you have not added motion graphics before the login. And
+whenever a user comes to the dashboard, including the super admin, the software gives a tour of the whole software, and the
+user can skip it too."
+
+**1. Copy and Edit in Mitra's chat, as in Claude** (components/mitra/*, AssistantPage, DocumentAssistant). On the Ask Mitra page
+and in the dock, with and without a Groq key:
+- **Copy** on every message with words, Mitra's and the person's: the words as written (a reply keeps its markdown as text),
+  a tick "Copied" for a moment; it works without the browser's newer clipboard too (the plant serves DCRS over plain http).
+- **Edit** on the person's own messages: the message becomes a box in place, with that turn's files and Save / Cancel (Enter
+  saves, Shift+Enter a new line, Escape cancels). Save cuts the conversation back to just before it and sends the new words
+  as that turn again; the new answer replaces everything after it, and the stored conversation is cut back the same way. The
+  model is given only what came before. Changes a replaced turn already made to records stay, as in Claude.
+- **Stop**: while an answer is on its way, Stop stands where Send was; an answer or a tool call that arrives after Stop is
+  never shown or carried out. A turn being answered cannot be edited until it is stopped or done.
+The dock keeps no stored conversation (it never did); there an edit is a new instruction.
+
+**2. The Mitra mobile app does what Mitra does** (DCRS: backend/engineHost.ts, backend/apiV1Records.ts,
+frontend/src/engineHost/*; the app: its repository's server/src/connectors/dcrs/*, commit 94fe2f8 of
+Pouchwale/Parth-Audit-chatbot; the owner renamed that app "Mitra" on 30-Sep-2026). The app signs a person in with their DCRS
+email and password and acts AS THEM through the DCRS API (§83), so DCRS's department permissions, working hours, validation,
+record history and activity log all apply; it never touches DCRS's tables.
+- **DCRS's own engine runs on the server.** The browser engine's rules — the patch Mitra applies, validation, submit / verify
+  / send back / reopen, record history, search, figures, today's work, sample fill, photos — are bundled for Node (as the unit
+  tests bundle them) and run in a worker thread, on the stored items loaded per request (only those that changed) and scoped
+  to the person's departments exactly as the server scopes a browser's copy. A change is written with the version it was
+  worked out on and worked out again if someone else saved in between. So a change made from the phone is the very change
+  Mitra would make in the browser.
+- **New routes** (all in docs/api/dcrs-api.openapi.json and docs/chatbot-integration.md, with a table from Mitra's tools to
+  the app's actions to the routes): find documents, one document, today's work, list records, search records, one record (with
+  its fields, so the app's model can fill it), a record's PDF (its own page, printed as Print prints it), figures from
+  history, an HR Master Data lookup (Human Resources only); and to change: start (or open) a record for a day, fill it with
+  Mitra's patch, submit / verify / send back / resume / reopen / cancel a correction / delete, add a photo, fill with sample
+  data. Not offered, and why: moving between screens, the guided question-by-question fill and asking back (the app has its
+  own), reading attachments (the app has its own), and changing a format (a desktop design task).
+- **The audit trail.** The app sends `X-Client-Name: Mitra mobile app`: every history entry reads "Through Mitra mobile app:
+  …" in the person's name, and every activity line uses the browser's own words with the same detail — so the Performance
+  scorecard counts the work as the person's.
+- **The app's side** (the connector): sign-in and sign-out through DCRS's own routes, the session ending when DCRS's does,
+  DCRS's refusals in its own words, read actions run at once and changes only after the person confirms them, PDFs handed over
+  as files, photos from the conversation's files. Checked live: a QC account in the app asked what was due, started today's
+  F/QC/32 sheet and set a viscosity after confirming; DCRS's history and activity log say "Through Mitra mobile app".
+- **Limits.** A photo must reach DCRS at most 512 KB — scaled as the browser scales one, 1024 px JPEG at 70% (the server
+  cannot shrink pictures, and every picture lives in the records item each browser must hold); PDFs are offered for
+  records that open on the record page (the CAPA inspection report, training records and complaint checklists have pages of
+  their own and answer `pdf-not-offered`); the engine's "today" is the server's clock, so the DCRS server must run on factory
+  time (it says so in its log otherwise); the free Groq key's 8,000 tokens a minute makes some of the app's answers slow.
+- **On this computer** the app's server is pointed at DCRS (`DCRS_BASE_URL=http://127.0.0.1:4000`,
+  `REPORT_TIME_ZONE=Asia/Kolkata` in its own server/.env, which is never committed). The move of the app's tables into the shared
+  database still waits on the owner's choice of database (§83, confirmation items 37 and 38).
+
+**3. A more human voice** (backend/tts.ts, utils/voice.ts, utils/speech.ts, utils/earText.ts, the Master Data voice card).
+- Groq's natural voice still needs its terms accepted by the Groq organisation's admin (checked again on 30-Sep-2026:
+  `model_terms_required`). Once accepted, DCRS uses it within ten minutes, with no change or restart.
+- A neural voice running on the DCRS server was measured on the plant's kind of laptop (4-thread i3): Kokoro needed 4 to 10 s
+  for a 20-word reminder (the bar was 3 s) and 15 to 31 s for the briefing, using every core — not adopted. Piper met the bar
+  (0.7–1.6 s) but its phonemiser (espeak-ng) is GPL-3.0 licensed — the owner's decision (confirmation item 45).
+- So the browser speaks, as humanly as it can: Microsoft Edge's Online (Natural) voices first (Neerja, Prabhat), then Google's
+  online voices, the Windows desktop voices only when nothing better exists — Chrome no longer picks the robotic "Microsoft
+  Heera" just because it is Indian English; a warm, slightly slow rate; one sentence at a time with a natural pause for voices
+  that are not natural ones; and the text rewritten for the ear before any voice gets it: "F/QC/15-B" is "form F Q C 15 B",
+  "30-Sep-2026 at 14:30" is "30th September at 2:30 PM", "92%" is "92 percent", and no markdown, emoji or symbol is read out.
+  Gujarati is spoken by the browser's Gujarati voice as before.
+- No error in the browser's console when a voice is unavailable: `GET /api/assistant/speak` says once whether Groq's voice is
+  there (remembered), and no line is sent when it is not.
+- Master Data's voice card names the voice in use, says when Edge would sound more human, and "Hear Mitra" plays a sample.
+- **The most human voice today is DCRS opened in Microsoft Edge.**
+
+**4. The opening before every sign-in** (IntroSplash, AuthScreen). It did play since §84, but only once per browser tab,
+only in the first seconds after a page opened, and any click lifted it — so a reload or signing out showed nothing. Now it
+plays EVERY time the sign-in screen is shown — a fresh load, a reload, after signing out, after the day's session ended — in
+full (about five seconds), before the form can be used; a clear "Skip" button (and Escape) ends it; a stray click does not.
+Richer too: streaks of light, sparks circling the mark, a shock ring behind "DCRS". Under reduced motion a calmer version that
+still shows the motion graphics gently (twinkling, breathing light, letters fading in). A signed-in tab's opening plays as
+before. Under automation (`navigator.webdriver`, never a person's browser) the form is not held and the opening yields to the
+first key or click, so the test suites keep typing at once; the intro suite tests a person's path by switching that off.
+
+**5. The guided tour** (components/tour/*, DashboardPage). On the first Dashboard visit of each day, for everyone including the
+super admin, a tour of the whole software starts by itself (after the briefing or any pop-up closes): 13 steps for staff, 18 for
+the super admin, each spotlighting the real part of the screen as that person sees it — the sidebar and their own modules, the
+day on the Dashboard, search, the calendar, the Document Library, a record's Submit and Verify, Mitra, the bell, the
+voice/sound switch, the reports, and for the super admin Users & Access, User access, Database overview, Master Data and the
+Activity Log — two lines each; Next, Back, the arrow keys, Skip tour, Escape, a step counter. "Don't show this again" stops it
+for that person (kept with their own settings, on every computer); "Take the tour" on the Dashboard runs it any time. When it
+is not running it is not on the page at all. It does not start by itself under automation (the suites do not know it), and
+its own suite tests the real start.
+
+**6. Everything present, nothing broken.**
+- **F/QC/15-B "Area Line Clearance Report - Punching"** is built from the owner's paper (`F-QC-15-A-G Line Clearance Punching -
+  Printing.pdf`, one page, now in source-documents/): Rev 00 of 16.02.2022, the same twelve columns and three example lines as
+  15-A and C to G, with its own four-point checklist ("(1) Die of Previous Job removed ? (2) Die of Current / New Job changed ?
+  (3) Matrix Roll (Wastage) of previous job removed ? (4) Finished Punching Rolls of Previous Production order shifted to
+  designated place ?") and its "PUNCHING MACHINE NAME : -" box, verbatim; its page shown beside the form; QC's, as a QA
+  Inspector's; found by Mitra as "punching line clearance" or "F/QC/15-B"; downloaded as Excel. It is listed under QC Records and
+  in the Document Library (QC has no link per format in the sidebar). DCRS now holds 117 documents, 89 of the Master List's 135
+  formats, and none supplied but not built (docs/document-coverage.md).
+- Reading the seven F/QC/15 papers again: they print "11.00 AM" and "Done" on the first example line only, with dates alone on
+  lines 2 and 3 — the six sheets built before now read so too.
+- **Every route opens.** Every sidebar link, every Document Library entry and every document's page and latest record were
+  opened as the super admin (329), a Quality Control account (118) and a Human Resources account (91): no JavaScript error, no
+  failed request, no "not found", no crashed screen.
+- **Errors removed.** The browser's console no longer shows an error each time Mitra's voice was asked for (part 3); a Mitra
+  answer that arrives after Stop is no longer shown (part 1); the Mitra mobile app's tests no longer depend on the weekday they
+  run on (they had failed on the weekly off).
+- **Found in review (1-Oct-2026)** — the §85 work read again by four reviewers, each finding checked by three others, and
+  fixed:
+  - *The opening stuttered.* When the server's public answer (`/api/auth/config`) arrived a moment after the opening
+    appeared, the sign-in screen was drawn again and with it all ~150 pieces of the art, mid-play: a task of 115-460 ms at
+    6x CPU throttle, for a person as much as for the suites. The opening is now drawn once (IntroSplash memoised).
+  - *Photos from the mobile app* are at most 512 KB, scaled as the browser scales one: every picture lives in the records
+    item each browser must hold, and a 2 MB one would push it past a browser's room. A larger picture, however large (an
+    unscaled phone photo), gets the route's own "too-large" answer with the advice to scale it; its body is read only
+    after sign-in, and at most 1 MB of it. The engine's worker is stopped if it fails to load, never left behind.
+  - *Mitra's voice.* A sentence full of figures ("1,248 of 1,312") is no longer cut off with the rest of the reply: a
+    sentence the browser is still saying is given longer, and one that never ends gives way to the next. A comparison is
+    said ("<25% = C" is "less than 25 percent is C"), a rate is "per" (1.3 gm per ccm, kg per cm²), a score "out
+    of" (45 out of 50), a frequency "a" (Once a Year), "Yes/No" "Yes or No" — and a code such as QC/WP/38 stays one
+    code. The voice card's lines are in Gujarati too.
+  - *Mitra's words.* A record that cannot be submitted is named as it is — already verified, waiting for verification,
+    or sent back ("press Edit on the record first") — never "open the record" when it is open. After Stop, the next
+    chip shows its own words; after an edit in the dock, a follow-up builds only on a question about history the dock
+    really took. The tour started by hand is not started again by itself the same visit.
+  - *Tests that assumed the date* — 1-Oct-2026 is a Thursday (the weekly off), a month's first day and F/HR/01's yearly
+    due date, whose seeded review is signed off — now work it out: the month's visits on F/HR/18, the latest month the
+    rodent register holds, the period's record New opens on its own due date.
+
+**What waits on the owner.** Confirmation items 45 and 46; item 43 is answered (built).
+
+**Tests.** See docs/TESTING.md "Copy and Edit, the mobile app's API, the voice, the opening and the tour".
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -5355,10 +5491,17 @@ the suites run at any hour). The Audit Assistant's DCRS token ends the same way 
     Record. Until they come, search and the Document Library show them as "on the Master List — not in DCRS yet".
 43. **F-QC-15-B, the punching line clearance** (§84). A paper printing "F/QC/15-B, Rev 00, 16.02.2022" is in the owner's Downloads
     (`F-QC-15-A-G Line Clearance Punching - Printing.pdf`, 18-Sep-2026) but was never sent (§57 records it as not supplied). Send
-    it to be built?
+    it to be built? — **ANSWERED (§85)**: built from that paper.
 44. **The company's name as the system writes it** (§84). The opening spells it "Gujarat Print Pack Publication", as the plant's
     papers print it; the sign-in card, the page title and the sidebar say "Gujarat Printpack Publication Pvt. Ltd.". Which one,
     everywhere?
+45. **A neural voice on the DCRS server** (§85 part 3). Piper speaks a reminder in about a second on the plant's kind of laptop
+    and sounds human, but the phonemiser it needs (espeak-ng) is licensed GPL-3.0, and the voice's own data licence must be
+    checked. Adopt it, or wait for Groq's voice (its terms accepted once by the Groq organisation's admin)? Until then, DCRS
+    opened in Microsoft Edge has the most human voice.
+46. **Who verifies a record** (§85). DCRS lets the person who submitted a record verify it too — no rule says the verifier must
+    be somebody else (it was so before §85; the mobile app's live check showed a QC account doing both). Should the verifier
+    always be a different person, or the department head?
 
 ## How the assistant pre-fills records (and what it never does)
 

@@ -1058,6 +1058,27 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     sourceFile: "F-QC-15-A-G Line Clearance Printing Printing.pdf",
     schedule: { type: "as-required" },
   },
+  // F/QC/15-B — the punching line clearance (REQUIREMENTS §85). Its paper was
+  // saved with the other QC papers on 18-Sep-2026 but never sent (§57 listed
+  // 15-B as not supplied); §84's check against the Master List of Formats found
+  // it, and it was built from that paper on 30-Sep-2026.
+  {
+    id: "qc-line-clearance-punching",
+    kind: "log-sheet",
+    section: "Line Clearance",
+    name: "Area Line Clearance Report - Punching",
+    formatNo: "F/QC/15-B",
+    revisionNo: "00",
+    revisionDate: "2022-02-16",
+    department: "Quality Control",
+    module: "Quality Control — Inspection Records",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "One line per job change on a punching machine: when the previous job finished, its PO and customer, whether the line was cleared — the previous job's die removed, the current / new job's die changed, the previous job's matrix roll (wastage) removed and its finished punching rolls shifted to their designated place — and when the new job started, signed by the operator and verified by the IPQC executive.",
+    sourceFile: "F-QC-15-A-G Line Clearance Punching - Printing.pdf",
+    schedule: { type: "as-required" },
+  },
   {
     id: "qc-line-clearance-qc-machine",
     kind: "log-sheet",

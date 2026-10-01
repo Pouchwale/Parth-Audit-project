@@ -49,8 +49,9 @@ FAILURES = []
 
 ALL_DEPARTMENT_CODES = ["SYS", "MKT", "PUR", "STR", "QC", "QA", "PRD", "MNT", "HR", "DISP"]
 # The documents whose format number is F-QC-... on the company's master list:
-# the eleven the plant started with and the thirty-two Quality Control formats
-# supplied on 18-Sep-2026 (REQUIREMENTS s57).
+# the eleven the plant started with, the thirty-two Quality Control formats
+# supplied on 18-Sep-2026 (REQUIREMENTS s57) and F/QC/15-B, built on
+# 30-Sep-2026 (REQUIREMENTS s85).
 QC_DOCUMENT_IDS = {
     "qc-viscosity",
     "qc-weight-scale-calibration",
@@ -77,6 +78,7 @@ QC_DOCUMENT_IDS = {
     "qc-starch-powder",
     "qc-sheet-pasting-powder",
     "qc-line-clearance-printing",
+    "qc-line-clearance-punching",
     "qc-line-clearance-qc-machine",
     "qc-line-clearance-qc-manual",
     "qc-line-clearance-slitting",
@@ -347,7 +349,8 @@ with sync_playwright() as p:
     # COUNTED THE WAY THE APP COUNTS IT. A format number is not the whole story:
     # three of Quality Control's documents carry no F/QC number of their own and
     # are assigned to the department by name (data/seed/documentDepartments.ts),
-    # so counting on the number alone said 40 where the page rightly said 43 —
+    # so counting on the number alone said 40 where the page rightly said 43
+    # (44 since F/QC/15-B, REQUIREMENTS s85) —
     # which is the number the Document Library check below reads as well.
     qc_documents = len(QC_DOCUMENT_IDS)
     check(
@@ -366,8 +369,8 @@ with sync_playwright() as p:
 
     qc_docs = library_documents(page)
     check(
-        "Its Document Library holds only Quality Control's forty-three documents",
-        len(qc_docs) == 43 and len(qc_docs) < len(all_docs),
+        "Its Document Library holds only Quality Control's forty-four documents",
+        len(qc_docs) == 44 and len(qc_docs) < len(all_docs),
         {"count": len(qc_docs), "docs": qc_docs},
     )
     ids = page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.dataset.document)")

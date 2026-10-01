@@ -4,7 +4,7 @@ Asked for on 14-Sep-2026, with sixteen F/HR PDFs attached: "make HR module ...
 add those in HR Module only ... also added that Pest Control module and
 everything in HR Module". So this suite checks that:
 
-  * the Document Library holds one hundred and sixteen documents, and the Human Resources module
+  * the Document Library holds one hundred and seventeen documents, and the Human Resources module
     groups twenty-six of them - the sixteen formats under HR's five sections,
     then the pest control file's ten under its own four;
   * the sidebar has a Human Resources module and no Pest Control module: "HR
@@ -13,11 +13,11 @@ everything in HR Module". So this suite checks that:
   * "Open Document" opens every document on a page of its own, never the Record
     Calendar - an HR format its HR page, with the register on it in full, and
     any other log sheet its document page (REQUIREMENTS s47);
-  * the library holds one hundred and sixteen documents (REQUIREMENTS s51 added
+  * the library holds one hundred and seventeen documents (REQUIREMENTS s51 added
     Quality Control's two internal calibration records, s57 its thirty-two more,
     s68 the Purchase module's five, s70 and s71 Dispatch's and Store's two each,
     s74 Maintenance's eight, s76 System / Management's eighteen, s77 Marketing's
-    three and s82 Maintenance's four more);
+    three, s82 Maintenance's four more and s85 Quality Control's F/QC/15-B);
   * the filled registers among the PDFs are on file as LIVE records, line for
     line - F/HR/01 (80 staff, reviewed as on 01.10.2026), F/HR/03 (58
     operators, status as on 01.09.2026), F/HR/06 (28 inductions), F/HR/07
@@ -34,6 +34,7 @@ everything in HR Module". So this suite checks that:
 Network-independent, against the production build on :8842.
 """
 import sys
+from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
 
 
@@ -235,10 +236,10 @@ with sync_playwright() as p:
     sign_in(page, *UNSCOPED)
 
     # ==================================================================
-    # 1. The Document Library: one hundred and sixteen documents, twenty-six of them HR's
+    # 1. The Document Library: one hundred and seventeen documents, twenty-six of them HR's
     # ==================================================================
     open_library(page)
-    check("The Document Library lists one hundred and sixteen documents", library_rows(page).count() == 116, library_rows(page).count())
+    check("The Document Library lists one hundred and seventeen documents", library_rows(page).count() == 117, library_rows(page).count())
     group = hr_group(page)
     check("The Human Resources module is one group of the library", group.count() == 1)
     check("...and there is no Pest Control module any more", page.locator(".app-content h3:has-text('Pest Control')").count() == 0)
@@ -449,7 +450,7 @@ with sync_playwright() as p:
     # ==================================================================
     open_library(page)
     all_ids = page.eval_on_selector_all("[data-action='open-document']", "els => els.map((e) => e.getAttribute('data-document'))")
-    check("Every document in the library has Open Document", len(all_ids) == 116, len(all_ids))
+    check("Every document in the library has Open Document", len(all_ids) == 117, len(all_ids))
     landed = {}
     for doc_id in all_ids:
         open_library(page)
@@ -555,7 +556,23 @@ with sync_playwright() as p:
     page.locator("[data-action='new-record'][data-document='hr-competence']").first.evaluate("el => el.click()")
     page.wait_for_timeout(1300)
     close_assistant(page)
-    check("A new competence register starts with a blank line to add staff to, and an Add Row button", sheet_rows(page).count() >= 1 and page.locator("button:has-text('Add Row')").count() == 1)
+    opened = next((r for r in records(page) if r["id"] == page.url.rstrip("/").split("/")[-1]), {})
+    day = date.today().isoformat()
+    if (opened.get("dueDate") == day or str(opened.get("periodKey", "")).endswith(day)) and opened.get("status") in ("Verified", "Submitted", "Pending Verification"):
+        # New opens the period's record when one is on file: on 1 October, F/HR/01's yearly due date, that is the
+        # seeded review "as on 01.10.2026", signed off (and read below). The blank register is started for the day
+        # before instead, through Mitra's "create a new ... for <date>" - the dated start a person has.
+        before = date.today() - timedelta(days=1)
+        page.locator("button:has-text('Ask Mitra')").first.click()
+        page.wait_for_timeout(300)
+        box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+        box.fill(f"create a new competence record for {before.day} {before.strftime('%B')}")
+        box.press("Enter")
+        page.wait_for_timeout(1800)
+        close_assistant(page)
+    check("A new competence register starts with a blank line to add staff to, and an Add Row button",
+          sheet_rows(page).count() >= 1 and page.locator("button:has-text('Add Row')").count() == 1,
+          (page.url, opened.get("status"), sheet_rows(page).count()))
     check("The last month's hygiene sheet and the GMP walk are the month's own: the hygiene report is due at the month's end",
           any(r["documentId"] == "hr-hygiene-report" for r in records(page)))
 

@@ -213,6 +213,14 @@ The app behaves like a personal assistant rather than a blank form:
   being written to. F/MNT/02 shows the machine's next planned PM. **Sample PM dates for 2026** (made up, and marked so
   in each record's history) show the link working on the plant's real 2026 schedule, slips and all; the papers' own
   conflicts (M-07 printed twice, M-58's name) are said by the Insights, never mended.
+- **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
+  signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
+  starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,
+  so every change follows DCRS's rules and is written in its history as "Through Mitra mobile app". In the browser, every
+  Mitra message has **Copy**, your own messages have **Edit** (the answer after it is replaced, as in Claude), and **Stop**
+  stops an answer. Mitra **sounds more human** (the most natural voice the browser has, text read the way a person says it).
+  The **motion-graphics opening** plays every time the sign-in page opens, and a **guided tour** shows each person the whole
+  software on their first Dashboard visit of the day — skip it, or turn it off.
 - **Every document findable, and the plant's working hours** (REQUIREMENTS §84). Search and the Document Library find every
   document for everybody — another department's shown as kept by it, and the formats on the company's Master List not in DCRS
   yet shown as such (docs/document-coverage.md lists them). The system opens with a **five-second motion-graphics

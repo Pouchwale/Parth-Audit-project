@@ -1358,6 +1358,38 @@ body { top: 0 !important; }
 .mitra-status { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-size: 11px; font-weight: 500; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mitra-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-faint); flex-shrink: 0; }
 .mitra-status[data-state="ready"]::before { background: var(--color-success); box-shadow: 0 0 0 3px var(--color-success-bg); }
+/* COPY, EDIT AND STOP (REQUIREMENTS §85, MitraMessage.tsx / MitraComposer.tsx).
+   The small row under a message: faint until the message is pointed at or the
+   row has the keyboard's focus (always there, so nothing jumps on hover), full
+   on the last message, and plain on a touch screen, which has no hover. Only
+   opacity moves. */
+.mitra-msg-actions { display: flex; align-items: center; gap: 2px; margin-top: -3px; opacity: 0.45; transition: opacity 120ms ease; }
+.mitra-turn:hover .mitra-msg-actions, .mitra-msg-actions:focus-within, .mitra-turn:last-child .mitra-msg-actions { opacity: 1; }
+@media (hover: none) { .mitra-msg-actions { opacity: 0.85; } }
+.mitra-msg-action { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 24px; min-width: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; color: var(--color-text-muted); font: inherit; font-size: 11.5px; line-height: 1; cursor: pointer; }
+.mitra-msg-action:hover:not(:disabled) { background: var(--color-surface-alt); color: var(--color-text); }
+.mitra-msg-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.mitra-msg-action:disabled { cursor: not-allowed; opacity: 0.4; }
+.mitra-msg-action[data-copied="yes"] { color: var(--color-success); }
+.mitra-msg-action[data-copied="no"] { color: var(--color-danger); }
+.mitra-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* The person's message open for editing: a box in place of the bubble, as wide as the turn may be. */
+.mitra-turn.user.is-editing { width: 78%; }
+.is-compact .mitra-turn.user.is-editing { width: 100%; max-width: 100%; }
+.mitra-turn.user.is-editing .mitra-turn-body { width: 100%; align-items: stretch; }
+.mitra-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 8px 10px; border: 1px solid var(--color-primary); border-radius: 14px; background: var(--color-surface); box-shadow: 0 0 0 3px var(--color-primary-light); }
+.mitra-edit-input { width: 100%; min-height: 1.5em; max-height: calc(12 * 1.5em); padding: 2px 2px; border: 0; outline: none; background: transparent; color: var(--color-text); font: inherit; font-size: 13.5px; line-height: 1.5; resize: none; overflow-y: auto; }
+.is-compact .mitra-edit-input { font-size: 13px; max-height: calc(8 * 1.5em); }
+.mitra-edit .mitra-msg-attachments .mitra-attachments { justify-content: flex-start; }
+.mitra-edit-bar { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.mitra-edit-note { margin-right: auto; font-size: 11.5px; line-height: 1.35; color: var(--color-text-muted); }
+/* Stop, where the arrow was, while an answer is on its way. */
+.mitra-composer.is-stoppable > .mitra-send { display: none; }
+.mitra-composer > .mitra-stop { grid-area: send; }
+.mitra-composer .mitra-stop { width: 32px; padding: 0; border-radius: 50%; background: var(--color-text); color: #fff; border: 0; }
+.mitra-composer .mitra-stop:hover { opacity: 0.85; }
+.mitra-composer .mitra-stop:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .mitra-msg-actions { transition: none; } }
 /* ---- end of Ask Mitra as an agent ---- */
 
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).

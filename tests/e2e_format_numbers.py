@@ -25,6 +25,7 @@ REQUIREMENTS s52. This suite checks that:
 Network-independent, against the production build on :8842.
 """
 import sys
+from datetime import date
 from playwright.sync_api import sync_playwright
 
 
@@ -219,11 +220,19 @@ with sync_playwright() as p:
     check("Open document goes to the document's own page", page.url.endswith("#/hr/induction-staff"), page.url)
     goto(page, "#/search")
     search(page, "F/QC/11")
-    before = len([r for r in records(page) if r["documentId"] == "qc-gsm-plate-calibration"])
+    on_file = [r for r in records(page) if r["documentId"] == "qc-gsm-plate-calibration"]
+    before = len(on_file)
+    # F/QC/11 is monthly, due on the 1st: on that day its record for the day is on file already, and New opens
+    # THAT one (one sheet a period, engine/recordCrud.ts) - on any other day it starts one. Checked either way.
+    day = date.today().isoformat()
+    todays = next((r for r in on_file if not r.get("isDemo") and (r.get("dueDate") == day or str(r.get("periodKey", "")).endswith(day))), None)
     page.locator("[data-search-document='qc-gsm-plate-calibration'] [data-action='search-new-record']").click()
     page.wait_for_timeout(1200)
     after = [r for r in records(page) if r["documentId"] == "qc-gsm-plate-calibration"]
-    check("New record starts one for that document, only when pressed, and opens it", "#/record/" in page.url and len(after) == before + 1, (page.url, before, len(after)))
+    if todays:
+        check("New record opens the document's record for today, already on file, rather than a second one", page.url.endswith(f"#/record/{todays['id']}") and len(after) == before, (page.url, todays["id"], before, len(after)))
+    else:
+        check("New record starts one for that document, only when pressed, and opens it", "#/record/" in page.url and len(after) == before + 1, (page.url, before, len(after)))
 
     # ==================================================================
     # 3. Mitra and a format number

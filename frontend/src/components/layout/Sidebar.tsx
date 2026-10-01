@@ -328,9 +328,12 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { headingKey: "nav.dispInspection" },
     { to: "/document/disp-container-stuffing", labelKey: "nav.dispContainerStuffing", icon: FiClipboard },
   ],
-  // QC Records — the department's own overview of its thirty-eight formats in
-  // their seven sections (REQUIREMENTS §58), and then the Document Library
-  // filtered to the module, which is how the collection was reached before.
+  // QC Records — the department's own overview of its thirty-nine formats in
+  // their seven sections (REQUIREMENTS §58; F/QC/15-B joined them in §85), and
+  // then the Document Library filtered to the module, which is how the
+  // collection was reached before. The module has no link per format: QC
+  // Records lists every one of them (data/seed/qcModule.ts reads the
+  // definitions), so a format added to the module is reached from there.
   "Quality Control — Inspection Records": [
     { to: "/qc", labelKey: "nav.qcOverview", icon: FiHome },
     { to: "/library/quality-control-inspection-records", labelKey: "nav.inspectionRecordDocs", icon: FiBookOpen },

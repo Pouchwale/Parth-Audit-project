@@ -5,10 +5,10 @@ give you all documents which you have put in QC Module and make sure each and
 every document will be editable and bot will perform task according to user
 query". REQUIREMENTS s57. So this suite checks that:
 
-  * the Quality Control module holds all thirty-eight documents, shelved in the
+  * the Quality Control module holds all thirty-nine documents, shelved in the
     department's seven sections;
-  * every one of the thirty-two new formats opens on a page of its own, headed
-    by its own format number;
+  * every one of the thirty-two new formats, and F/QC/15-B, opens on a page of
+    its own, headed by its own format number;
   * an incoming material inspection record prints its test parameters and
     specifications and takes the reading beside each - one observation on most,
     three samples on the corrugated box and the paper core - with the form's own
@@ -16,6 +16,11 @@ query". REQUIREMENTS s57. So this suite checks that:
   * a line clearance register takes a line per job change, with the area's own
     clearance checklist printed above it, and the two Gujarati clearance
     checklists print their processes and lines;
+  * F/QC/15-B, the punching line clearance built on 30-Sep-2026 from the paper
+    the plant saved with the others (REQUIREMENTS s85), prints its own title,
+    checklist and machine box as the paper does, shows the paper beside it, and
+    a record of it is started, filled with sample data by Mitra, submitted,
+    printed and downloaded;
   * the master list of calibration instruments takes its sixteen columns;
   * the pages supplied filled in are on file, line for line: the thirteen
     obsolete artworks, the printing aids destroyed, the label and sleeve
@@ -39,11 +44,15 @@ query". REQUIREMENTS s57. So this suite checks that:
 Every figure below is typed from the supplied PDFs, so this is a transcription
 check as much as a behaviour one.
 
-Network-independent, against the production build on :8842.
+Network-independent, against the production build on :8842 (DCRS_BASE
+overrides it).
 """
 import json
+import os
 import re
 import sys
+import tempfile
+import zipfile
 
 from playwright.sync_api import sync_playwright
 
@@ -51,7 +60,7 @@ from playwright.sync_api import sync_playwright
 # Windows console's default code page cannot encode.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-BASE = "http://localhost:8842"
+BASE = os.environ.get("DCRS_BASE", "http://localhost:8842").rstrip("/")
 PASSWORD = "PlaywrightQA123"
 FAILURES = []
 
@@ -81,6 +90,8 @@ NEW_FORMATS = {
     "qc-starch-powder": "F/QC/23",
     "qc-sheet-pasting-powder": "F/QC/24",
     "qc-line-clearance-printing": "F/QC/15-A",
+    # Built on 30-Sep-2026 from the paper saved with the others (s85).
+    "qc-line-clearance-punching": "F/QC/15-B",
     "qc-line-clearance-qc-machine": "F/QC/15-C",
     "qc-line-clearance-qc-manual": "F/QC/15-D",
     "qc-line-clearance-slitting": "F/QC/15-E",
@@ -182,6 +193,15 @@ CLEARANCE_HEADINGS = [
     "Line Clearance* (Done/Not Done)", "Verified by IPQC executive", "Starting Date", "Starting Time",
     "PO No. of New Job", "New PO Customer name", "Operator sign", "Verified by IPQC executive",
 ]
+
+# F/QC/15-B as its paper prints it ("F-QC-15-A-G Line Clearance Punching -
+# Printing.pdf"), the paper's own spacing included.
+PUNCHING_TITLE = "AREA LINE CLEARANCE REPORT -  PUNCHING"
+PUNCHING_CHECKLIST = (
+    "(1) Die of Previous Job removed ? (2) Die of Current / New Job changed ? (3) Matrix Roll (Wastage) of previous job removed ? "
+    "(4) Finished Punching Rolls of Previous Production order shifted to designated place ?"
+)
+PUNCHING_MACHINE_BOX = "PUNCHING MACHINE NAME : - ____________________"
 
 
 def check(label, cond, detail=None):
@@ -291,11 +311,11 @@ with sync_playwright() as p:
     sign_in(page)
 
     # ==================================================================
-    # 1. The module holds all thirty-eight, in the department's seven sections
+    # 1. The module holds all thirty-nine, in the department's seven sections
     # ==================================================================
     open_page(page, "#/library/quality-control-inspection-records")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-    check("Quality Control - Inspection Records holds thirty-eight documents", rows.count() == 38, rows.count())
+    check("Quality Control - Inspection Records holds thirty-nine documents", rows.count() == 39, rows.count())
     sections = page.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved in the department's seven sections, in order", sections == QC_SECTIONS, sections)
     text = page.locator(".app-content").inner_text()
@@ -307,7 +327,7 @@ with sync_playwright() as p:
     )
 
     # ==================================================================
-    # 2. Every one of the thirty-two opens on its own page, with its number
+    # 2. Every one of the thirty-two (and F/QC/15-B) opens on its own page, with its number
     # ==================================================================
     wrong = {}
     for doc_id, format_no in NEW_FORMATS.items():
@@ -315,7 +335,7 @@ with sync_playwright() as p:
         body = page.locator(".app-content").inner_text()
         if page.locator(f"[data-page='document-records'][data-document='{doc_id}']").count() != 1 or format_no not in body:
             wrong[doc_id] = body[:120]
-    check("Each of the thirty-two new formats opens on a page of its own, headed by its format number", not wrong, wrong)
+    check("Each of the thirty-two new formats and F/QC/15-B opens on a page of its own, headed by its format number", not wrong, wrong)
 
     # ==================================================================
     # 3. An incoming material inspection record: F/QC/01 BOPP Film
@@ -407,6 +427,120 @@ with sync_playwright() as p:
     page.locator("button:has-text('Add Row')").first.click()
     page.wait_for_timeout(900)
     check("...and another line can be added, as a register must allow", page.locator("table.log-sheet tbody tr").count() >= 2, page.locator("table.log-sheet tbody tr").count())
+
+    # ==================================================================
+    # 5b. F/QC/15-B, the punching line clearance (REQUIREMENTS s85)
+    # ==================================================================
+    open_page(page, "#/document/qc-line-clearance-punching")
+    headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    check("The punching line clearance takes the register's twelve columns", headings[1:] == CLEARANCE_HEADINGS, headings)
+    written_out = printed_text(page)
+    check(
+        "...under its own title and the four-point punching checklist, as the paper prints them",
+        PUNCHING_TITLE in written_out and PUNCHING_CHECKLIST in written_out and "Activity to make sure a production line & its processing area are completely cleared" in written_out,
+        written_out[:600],
+    )
+    labels = page.locator("[data-section='document-preview'] .field label").all_inner_texts()
+    check("...with the punching machine box the paper prints", any(PUNCHING_MACHINE_BOX in l for l in labels), labels)
+    body = page.locator(".app-content").inner_text()
+    check("...headed F/QC/15-B, Rev 00", "F/QC/15-B" in body and "PUNCHING" in body.upper(), body[:300])
+    check(
+        "...and says where its example lines come from: the paper's own, without its filler PO number and customer",
+        "F-QC-15-A-G Line Clearance Punching - Printing.pdf" in written_out and "36633" not in written_out,
+        written_out[-400:],
+    )
+    page.locator("[data-action='show-supplied-original']").first.click()
+    page.wait_for_timeout(900)
+    original = page.evaluate(
+        """() => {
+             const img = document.querySelector("[data-section='supplied-original'] img");
+             return img ? { src: img.getAttribute('src'), loaded: img.complete && img.naturalWidth > 0, alt: img.alt } : null;
+           }"""
+    )
+    check(
+        "The supplied page is shown beside it, unaltered",
+        bool(original) and original["src"] == "/source/fqc15b-line-clearance-punching-p1.jpg" and original["loaded"] and "F/QC/15-B" in original["alt"],
+        original,
+    )
+
+    rid = start_record(page, "qc-line-clearance-punching")
+    check("A record of it is started from its own page", bool(rid) and bool(record(page, rid)), page.url)
+    opener = page.locator("button:has-text('Ask Mitra')")
+    if opener.count():
+        opener.first.click()
+        page.wait_for_timeout(400)
+    composer = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+    composer.fill("fill it with sample data")
+    composer.press("Enter")
+    page.wait_for_timeout(2500)
+    replies = page.locator(".chat-msg.bot")
+    reply = replies.last.inner_text() if replies.count() else ""
+    filled = record(page, rid)
+    filled_rows = (filled or {}).get("data", {}).get("rows", [])
+    check(
+        "Mitra fills it with sample data when asked, and says it is sample data",
+        "sample data" in reply.lower() and len(filled_rows) >= 1 and filled_rows[0].get("lineClearance") == "Done" and bool(filled_rows[0].get("operatorSign")),
+        (reply[:200], filled_rows[:1]),
+    )
+    check(
+        "...never writing the template's own PO number or customer onto the sheet",
+        all(r.get("previousJobPoNo") != "36633" and r.get("previousPoCustomerName") != "xyz" for r in filled_rows),
+        filled_rows,
+    )
+    close_assistant(page)
+    page.locator("[data-action='submit']").first.click()
+    page.wait_for_timeout(1600)
+    submitted = record(page, rid)
+    check(
+        "...and it submits, for the IPQC executive's verification",
+        submitted is not None and submitted["status"] in ("Submitted", "Pending Verification"),
+        ((submitted or {}).get("status"), page.locator(".app-content").inner_text()[:300]),
+    )
+
+    page.evaluate("() => { window.__printed = 0; window.print = () => { window.__printed += 1; }; }")
+    page.locator("button:has-text('Print Original-Style Record')").first.click()
+    page.wait_for_timeout(300)
+    page.emulate_media(media="print")
+    try:
+        seen = page.evaluate(
+            """() => {
+                 const shown = (el) => !!el && el.getClientRects().length > 0;
+                 const doc = document.querySelector('[data-print-doc]');
+                 return {
+                   printed: window.__printed,
+                   form: shown(doc),
+                   lines: doc ? doc.querySelectorAll('table.log-sheet tbody tr').length : 0,
+                   text: doc ? doc.textContent : '',
+                   sidebar: shown(document.querySelector('.app-sidebar')),
+                 };
+               }"""
+        )
+    finally:
+        page.emulate_media(media="screen")
+        page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
+    check(
+        "Printing it prints the form, the lines Mitra wrote and the paper's own words",
+        seen["printed"] == 1 and seen["form"] and seen["lines"] == len(filled_rows) and "F/QC/15-B" in seen["text"] and PUNCHING_CHECKLIST in seen["text"] and not seen["sidebar"],
+        {k: (v[:300] if isinstance(v, str) else v) for k, v in seen.items()},
+    )
+
+    button = page.locator("[data-action='download-document']").first
+    kind = button.get_attribute("data-format") if button.count() else None
+    book = {}
+    if kind:
+        with page.expect_download() as dl:
+            button.click()
+        saved_to = os.path.join(tempfile.gettempdir(), "dcrs-fqc15b.xlsx")
+        dl.value.save_as(saved_to)
+        book["name"] = dl.value.suggested_filename
+        with zipfile.ZipFile(saved_to) as z:
+            book["sheet"] = z.read("xl/worksheets/sheet1.xml").decode("utf-8")
+    check(
+        "...and it downloads as an Excel workbook, as the register it is, named for its format",
+        kind == "xlsx" and book.get("name", "").startswith("F-QC-15-B") and book.get("name", "").endswith(".xlsx")
+        and "Matrix Roll (Wastage)" in book.get("sheet", "") and "Completion Date" in book.get("sheet", ""),
+        (kind, book.get("name"), book.get("sheet", "")[:300]),
+    )
 
     # ==================================================================
     # 6. The two Gujarati clearance checklists
@@ -759,6 +893,8 @@ with sync_playwright() as p:
     check("Searching F/QC/01 finds the BOPP film inspection record", "Inspection Record - BOPP Film" in found, found[:300])
     found = search_documents("F/QC/15-E")
     check("Searching F/QC/15-E finds the slitting line clearance", "Area Line Clearance Report - Slitting" in found, found[:300])
+    found = search_documents("F/QC/15-B")
+    check("Searching F/QC/15-B finds the punching line clearance", "Area Line Clearance Report - Punching" in found and "not in DCRS yet" not in found, found[:300])
     found = search_documents("F/QC/21")
     check(
         "Searching F/QC/21 finds both formats the company numbered F/QC/21",
@@ -777,6 +913,19 @@ with sync_playwright() as p:
         opened.startswith("record/") and (record(page, opened.split("record/")[-1]) or {}).get("documentId") == "qc-obsolete-artwork"
     )
     check("Mitra opens a new format asked for by name", landed, page.url)
+
+    # Without a model (these suites have none) a request is read by Mitra's own
+    # rules, which open a document named with a record word or by its number.
+    for asked in ("open the punching line clearance report", "open F/QC/15-B"):
+        open_page(page, "#/assistant")
+        page.fill("textarea.assistant-input", asked)
+        page.click("[data-action='send']")
+        page.wait_for_timeout(2500)
+        opened = page.url.split("#/")[-1]
+        landed = opened == "document/qc-line-clearance-punching" or (
+            opened.startswith("record/") and (record(page, opened.split("record/")[-1]) or {}).get("documentId") == "qc-line-clearance-punching"
+        )
+        check(f"...and the punching line clearance, asked for as '{asked}'", landed, page.url)
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

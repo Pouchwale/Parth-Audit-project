@@ -42,8 +42,8 @@ import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAgent.ts";
 import { readAttachment, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
-import { groqSpeak, groqTranscribe } from "./groq.ts";
-import { speakFailure, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VoiceUnavailableError } from "./tts.ts";
+import { groqSpeak, groqTranscribe, ttsModel, ttsVoiceName } from "./groq.ts";
+import { speakFailure, speakStatus, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PROBE_TEXT, VoiceAvailability, VoiceUnavailableError } from "./tts.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
@@ -52,6 +52,7 @@ import { registerApiV1 } from "./apiV1.ts";
 import { registerOverviewRoutes } from "./overviewRoutes.ts";
 import { registerAccessRoutes } from "./accessRoutes.ts";
 import { startJobs } from "./jobs.ts";
+import { PHOTO_ROUTE } from "./apiV1Records.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -67,7 +68,10 @@ app.disable("x-powered-by");
 // .json attachment must reach them as bytes, not as a parsed object.
 const jsonBody = express.json();
 const OWN_BODY_PARSER_ROUTES = new Set(["/api/assistant/agent", "/api/assistant/extract", "/api/assistant/transcribe"]);
-app.use((req: Request, res: Response, next: NextFunction) => (OWN_BODY_PARSER_ROUTES.has(req.path) ? next() : jsonBody(req, res, next)));
+// The Mitra mobile app's photo route reads its own, larger JSON after the sign-in check (backend/apiV1Records.ts).
+app.use((req: Request, res: Response, next: NextFunction) =>
+  OWN_BODY_PARSER_ROUTES.has(req.path) || (req.method === "POST" && PHOTO_ROUTE.test(req.path)) ? next() : jsonBody(req, res, next)
+);
 app.use(cookieParser());
 // No CORS middleware: the dev frontend proxies /api/* to this server on the
 // same origin (see frontend/scripts/dev-server.ts) and the production build is
@@ -1050,18 +1054,59 @@ app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => tru
   }
 });
 
-// MITRA'S NATURAL VOICE (REQUIREMENTS §81, backend/groq.ts groqSpeak, backend/tts.ts).
-// English text of up to 600 characters in, one WAV out. Without a key, or
+// MITRA'S NATURAL VOICE (REQUIREMENTS §81 and §85, backend/groq.ts groqSpeak, backend/tts.ts).
+//
+// GET: whether the server can speak — ALWAYS a 200, so a browser finds out
+// without an error in its console (§85: "ask once, remember"). Without a key:
+// not-configured. Otherwise what the server has learnt of Groq (VoiceAvailability):
+// when nothing is known yet it asks Groq ONCE — one short line, shared by every
+// browser asking meanwhile, and kept as a clip — and remembers the answer (the
+// terms not accepted: ten minutes; a failure: two; a working voice: an hour).
+// The browser keeps the answer for recheckAfterMs and asks for lines only when
+// the voice is available (frontend/src/utils/voice.ts).
+//
+// POST: English text of up to 600 characters in, one WAV out. Without a key, or
 // while the Groq organisation has not accepted the speech model's terms, the
 // answer is a 503 with a code, and the browser says the line with its own best
-// voice (frontend/src/utils/voice.ts) and stops asking for the session. The
-// terms answer is remembered here for ten minutes too, so a plant full of
-// browsers does not ask Groq the same question each. Clips are kept in memory
-// (the last 60) — a reminder said again is not made again. Its own throttle,
-// never the chat's; never Groq's words in an answer.
-let voiceUnavailableUntil = 0;
-let voiceUnavailableModel = "";
-const VOICE_UNAVAILABLE_RECHECK_MS = 10 * 60 * 1000;
+// voice. Clips are kept in memory (the last 60) — a reminder said again is not
+// made again. Its own throttle, never the chat's; never Groq's words in an answer.
+const voiceAvailability = new VoiceAvailability();
+let voiceProbe: Promise<void> | null = null;
+
+/** Learns once whether Groq will speak, by asking it for VOICE_PROBE_TEXT; every caller meanwhile waits on the same ask. */
+function probeGroqVoice(): Promise<void> {
+  if (voiceProbe) return voiceProbe;
+  const model = ttsModel();
+  voiceProbe = groqSpeak({ text: VOICE_PROBE_TEXT, voice: "female" })
+    .then((clip) => {
+      speechCache.set(speechCacheKey("female", VOICE_PROBE_TEXT), clip);
+      voiceAvailability.markAvailable(model);
+    })
+    .catch((err: unknown) => {
+      if (err instanceof VoiceUnavailableError) {
+        if (voiceAvailability.markUnavailable(err.model)) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
+      } else {
+        voiceAvailability.markFailed(model);
+        console.warn(`Mitra's natural voice could not be reached: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
+      }
+    })
+    .finally(() => {
+      voiceProbe = null;
+    });
+  return voiceProbe;
+}
+
+app.get("/api/assistant/speak", requireAuth, async (_req: Request, res: Response): Promise<void> => {
+  const voices = { female: ttsVoiceName("female"), male: ttsVoiceName("male") };
+  if (!process.env.GROQ_API_KEY) {
+    res.json(speakStatus("not-configured", ttsModel(), voices));
+    return;
+  }
+  if (!voiceAvailability.current()) await probeGroqVoice();
+  const known = voiceAvailability.current();
+  const now = Date.now();
+  res.json(known ? speakStatus(known.code, known.model, voices, now, known.until) : speakStatus("failed", ttsModel(), voices, now));
+});
 
 app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
@@ -1090,8 +1135,9 @@ app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response
     res.type("audio/wav").send(cached);
     return;
   }
-  if (Date.now() < voiceUnavailableUntil) {
-    const { status, body } = speakFailure(new VoiceUnavailableError(voiceUnavailableModel));
+  const refusing = voiceAvailability.current();
+  if (refusing?.code === "voice-unavailable") {
+    const { status, body } = speakFailure(new VoiceUnavailableError(refusing.model));
     res.status(status).json(body);
     return;
   }
@@ -1107,12 +1153,11 @@ app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response
   try {
     const clip = await groqSpeak({ text: said, voice: kind });
     speechCache.set(key, clip);
+    if (voiceAvailability.current()?.code !== "available") voiceAvailability.markAvailable(ttsModel());
     res.type("audio/wav").send(clip);
   } catch (err) {
     if (err instanceof VoiceUnavailableError) {
-      if (Date.now() >= voiceUnavailableUntil) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
-      voiceUnavailableUntil = Date.now() + VOICE_UNAVAILABLE_RECHECK_MS;
-      voiceUnavailableModel = err.model;
+      if (voiceAvailability.markUnavailable(err.model)) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
     } else {
       console.error(err);
     }

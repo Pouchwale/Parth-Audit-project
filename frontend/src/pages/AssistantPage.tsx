@@ -49,6 +49,7 @@ import { MitraComposer, type AttachSource } from "../components/mitra/MitraCompo
 import { MitraThread } from "../components/mitra/MitraThread";
 import type { MitraMessageView } from "../components/mitra/MitraMessage";
 import { stripMarkdown } from "../components/mitra/markdown";
+import { attachmentNotes, attachmentsForResend, rememberAttachments, startTurn, stoppableContext, threadBefore } from "../components/mitra/messageActions";
 
 // THE ASSISTANT, FULL PAGE — the same Mitra as the docked widget, laid out
 // like a chat app: conversations on the left, the thread in the middle, a
@@ -80,6 +81,15 @@ import { stripMarkdown } from "../components/mitra/markdown";
 // Files: a PDF, a Word or Excel file, a CSV, a text file, a photo — attached
 // with the +, dropped on the composer or pasted into it. The server reads the
 // words out of each (a photo by OCR) and they travel with the message.
+//
+// Copy, Edit and Stop (REQUIREMENTS §85), as in Claude: every message can be
+// copied; the person's own can be edited in place, and saving it cuts the
+// conversation back to just before that message — in the stored conversation
+// too — and sends the edited words as that turn again, with the same files, so
+// the new answer replaces everything that came after. A turn being answered is
+// stopped first: Stop marks its answer "Stopped.", answers no to any yes/no a
+// tool is waiting on, and whatever the model sends back afterwards is never
+// carried out (components/mitra/messageActions.ts).
 
 // What may be typed in one message. The message the agent sends carries the
 // attachments' text besides (engine/mitraAgent.ts caps that); the older /chat
@@ -248,6 +258,8 @@ export function AssistantPage() {
   const attachmentsRef = useRef<MitraAttachment[]>([]);
   // The yes/no questions tools have put and not yet had answered, by message id.
   const confirmsRef = useRef(new Map<string, (yes: boolean) => void>());
+  // What Stop does for the answer being waited for, while there is one (REQUIREMENTS §85).
+  const stopRef = useRef<(() => void) | null>(null);
   const firstName = (user?.name ?? currentUser).trim().split(/\s+/)[0];
   const active = state.conversations.find((c) => c.id === state.activeId) ?? null;
   const voiceSupported = isVoiceInputSupported();
@@ -429,6 +441,36 @@ export function AssistantPage() {
     confirmsRef.current.clear();
   };
 
+  // ONE ANSWER BEING WAITED FOR (REQUIREMENTS §85): the typing dots or the
+  // thinking line in its conversation, the busy composer, and Stop. `end` is
+  // safe to call twice — a stopped turn's own ending, arriving later, must not
+  // end the next turn's wait.
+  const beginWait = (convId: string, onStopped: () => void, agent: boolean) => {
+    const turn = startTurn();
+    let over = false;
+    if (agent) turnsInFlight += 1;
+    const end = () => {
+      if (over) return;
+      over = true;
+      if (agent) turnsInFlight = Math.max(0, turnsInFlight - 1);
+      if (stopRef.current === stop) stopRef.current = null;
+      setLoading(false);
+      setPendingId(null);
+    };
+    const stop = () => {
+      if (over) return;
+      turn.stop();
+      // A yes/no a tool is waiting on is answered no: nothing it would have done is done.
+      settleConfirms(false);
+      onStopped();
+      end();
+    };
+    stopRef.current = stop;
+    setLoading(true);
+    setPendingId(convId);
+    return { turn, end };
+  };
+
   const onOption = (choice: string, m: MitraMessageView) => {
     const convId = active?.id;
     if (m.confirm && convId) {
@@ -506,28 +548,39 @@ export function AssistantPage() {
   // `spoken` = the question arrived by voice, so the reply is read back even
   // when "read replies aloud" is off — answering out loud is the whole point
   // of having asked out loud.
-  const send = async (raw?: string, spoken = false) => {
+  //
+  // `edit` = an edited message sent as its turn again (REQUIREMENTS §85): its
+  // own files, and the conversation as it stood before it (the thread is
+  // already cut back in the store). The composer — what is being typed there,
+  // the files waiting in it — is not touched.
+  const send = async (raw?: string, spoken = false, edit?: { files: MitraAttachment[]; earlier: StoredMessage[] }) => {
     const text = (raw ?? input).trim().slice(0, MAX_INPUT_CHARS);
-    const files = attachmentsRef.current.filter((a) => a.status === "ready");
+    const files = edit ? edit.files : attachmentsRef.current.filter((a) => a.status === "ready");
     if ((!text && files.length === 0) || loading) return;
     // A file still being read goes with the next message, not half-read with this one.
-    if (attachmentsRef.current.some((a) => a.status === "reading")) return;
-    setInput("");
+    if (!edit && attachmentsRef.current.some((a) => a.status === "reading")) return;
+    if (!edit) {
+      setInput("");
+      setAttachments([]);
+    }
     setVoiceNote(null);
-    setAttachments([]);
     // A yes/no still waiting is answered by moving on: no.
     settleConfirms(false);
     const convId = active?.id ?? createConversation();
+    // The conversation before this message (the message itself is not in it).
+    const before = edit ? edit.earlier : (active?.messages ?? []);
     const readOut = (reply: string) => {
       if (spoken || speakReplies) speak(stripMarkdown(reply), speechLocale);
     };
+    // Kept in this tab, so an edit of this message goes with the same files' words.
+    rememberAttachments(files);
     const askedId = generateId("msg");
     append(convId, {
       id: askedId,
       role: "user",
       text,
       at: stamp(),
-      ...(files.length ? { attachments: files.map(({ id, name, kind, characters }) => ({ id, name, kind, characters })) } : {}),
+      ...(files.length ? { attachments: attachmentNotes(files) } : {}),
     });
 
     // MITRA AS AN AGENT (REQUIREMENTS §80). With a model to ask, the message and
@@ -542,21 +595,39 @@ export function AssistantPage() {
     if (assistantConfigured() && reach.ok) {
       const botId = generateId("msg");
       append(convId, { id: botId, role: "bot", text: "", at: stamp(), pending: true });
-      setLoading(true);
-      setPendingId(convId);
-      turnsInFlight += 1;
+      // Stopped: what was said so far stays, the rest reads "Stopped."; a step
+      // cut off mid-way is not left spinning, and a yes/no's chips retire.
+      const { turn, end } = beginWait(
+        convId,
+        () => {
+          patchMessage(convId, botId, (m) => ({
+            ...m,
+            pending: false,
+            text: m.text || t("ai.agent.stopped"),
+            ...(m.steps ? { steps: m.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" as const } : s)) } : {}),
+          }));
+          mutateState((s) => ({
+            ...s,
+            conversations: s.conversations.map((c) => (c.id !== convId ? c : { ...c, messages: c.messages.map((m) => (m.confirm ? { ...m, confirm: undefined, options: undefined } : m)) })),
+          }));
+        },
+        true
+      );
       let steps: MitraStep[] = [];
       try {
         // The conversation so far — whoever answered each turn — is the agent's
         // memory (engine/mitraAgent.ts keeps at most six turns of it); the
-        // message just sent is not in `active` yet, which is as it should be.
-        const earlier = (active?.messages ?? []).filter((m) => m.text && !m.pending).map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text }));
+        // message just sent is not in `before`, which is as it should be.
+        const earlier = before.filter((m) => m.text && !m.pending).map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text }));
         const out = await runMitraTurn({
           text,
           attachments: files,
           history: historyForAgent(earlier),
-          ctx: toolContext(convId, text, files),
+          // Once stopped, a tool call the model still sends back fails at its first step.
+          ctx: stoppableContext(toolContext(convId, text, files), () => turn.stopped),
+          signal: turn.signal,
           onEvent: (e) => {
+            if (turn.stopped) return;
             if (e.type === "step") {
               steps = steps.some((s) => s.id === e.id)
                 ? steps.map((s) => (s.id === e.id ? { ...s, label: e.label, status: e.status } : s))
@@ -567,6 +638,7 @@ export function AssistantPage() {
             }
           },
         });
+        if (turn.stopped) return;
         const said = (out.final ?? out.ask?.question ?? "").trim();
         patchMessage(convId, botId, (m) => ({
           ...m,
@@ -579,13 +651,13 @@ export function AssistantPage() {
         noteModelAnswered();
         return;
       } catch (err) {
+        // Stopped: the person has moved on, and nothing answers in its place.
+        if (turn.stopped) return;
         agentFailure = noteModelFailed(err);
         removeMessage(convId, botId);
         // …and on to the app's own chain.
       } finally {
-        turnsInFlight = Math.max(0, turnsInFlight - 1);
-        setLoading(false);
-        setPendingId(null);
+        end();
       }
     }
 
@@ -650,7 +722,7 @@ export function AssistantPage() {
     // this conversation ("and the month before?"). The figures are worked out
     // here, on send and in slices, from the records this person may see
     // (engine/historyDigest.ts), and go with the question.
-    const earlier = active?.messages ?? [];
+    const earlier = before;
     const today = todayISO();
     // The conversation is looked back through only for what reads as a
     // follow-up, and for the question about history last understood in it —
@@ -662,8 +734,8 @@ export function AssistantPage() {
     // The conversation so far, so the model can read a follow-up (at most six turns).
     const history = historyForModel(earlier.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text })));
 
-    setLoading(true);
-    setPendingId(convId);
+    // Stopped (REQUIREMENTS §85): said in one word, and the answer, when it comes, is not shown.
+    const { turn, end } = beginWait(convId, () => append(convId, { id: generateId("msg"), role: "bot", text: t("ai.agent.stopped"), at: stamp() }), false);
     try {
       let evidence: EvidencePack | null = null;
       if (intent) {
@@ -675,6 +747,7 @@ export function AssistantPage() {
           console.error("The evidence for this question could not be worked out", err);
         }
       }
+      if (turn.stopped) return;
       // The app's own answer for when the model cannot give one: what its tables
       // already say, else the same figures said plainly (§72), with their records.
       const fallback = local ?? (intent && evidence ? evidenceAnswer(intent, evidence) : null);
@@ -694,6 +767,7 @@ export function AssistantPage() {
       try {
         // What stands out, for the live facts: worked out in slices before it is read.
         await prepareScopedInsights(isDemo).catch((err) => console.error("The insights could not be worked out", err));
+        if (turn.stopped) return;
         const result = await assistantApi.chat({
           message: text.slice(0, MAX_CHAT_CHARS),
           today,
@@ -703,6 +777,7 @@ export function AssistantPage() {
           ...(evidence ? { evidence: evidence.text } : {}),
           ...(history.length ? { history } : {}),
         });
+        if (turn.stopped) return;
         if (result.action === "navigate" && result.route && isValidAppRoute(result.route)) {
           append(convId, {
             id: generateId("msg"),
@@ -725,6 +800,7 @@ export function AssistantPage() {
         // allowance may be used up (§75) — so where the app's own tables have an
         // answer it is given, marked as the app's and saying why, never passed
         // off as the model's.
+        if (turn.stopped) return;
         const why = noteModelFailed(err);
         if (fallback) {
           append(convId, { id: generateId("msg"), role: "bot", text: fallback.reply, at: stamp(), chips: fallback.chips, offline: why, ...citesOf(fallbackCites) });
@@ -740,9 +816,33 @@ export function AssistantPage() {
         }
       }
     } finally {
-      setLoading(false);
-      setPendingId(null);
+      end();
     }
+  };
+
+  // EDIT (REQUIREMENTS §85). The person's message, changed and saved, is sent
+  // as that turn again: the conversation is cut back to just before it — in
+  // the store, so the kept conversation holds the edited thread — and the new
+  // words go with the same files; the answer to them replaces everything that
+  // came after. Refused while an answer is on its way (Stop first).
+  const editMessage = (m: MitraMessageView, text: string): boolean => {
+    if (loading || !active || active.messages.some((x) => x.pending)) return false;
+    const earlier = threadBefore(active.messages, m.id);
+    if (!earlier) return false;
+    const files = attachmentsForResend(active.messages[earlier.length].attachments);
+    if (!text && files.length === 0) return false;
+    const convId = active.id;
+    mutateState((s) => ({
+      ...s,
+      conversations: s.conversations.map((c) => {
+        if (c.id !== convId) return c;
+        const at = c.messages.findIndex((x) => x.id === m.id);
+        return at < 0 ? c : { ...c, messages: c.messages.slice(0, at) };
+      }),
+    }));
+    void send(text, false, { files, earlier });
+    inputRef.current?.focus();
+    return true;
   };
 
   // THE BROWSER'S OWN RECOGNITION (utils/speech.ts), when the server has no
@@ -970,6 +1070,10 @@ export function AssistantPage() {
           onOption={onOption}
           onCite={onCite}
           timeLabel={timeLabel}
+          onEdit={editMessage}
+          // A turn begun before this page was opened again (a tool took the
+          // person elsewhere mid-turn) is still being answered too.
+          editLocked={loading || !!active?.messages.some((m) => m.pending)}
           emptyState={
             <div className="assistant-welcome">
               <h2 className="text-xl mb-1">{hello(user?.name)}</h2>
@@ -1007,6 +1111,7 @@ export function AssistantPage() {
           onChange={setInput}
           onSend={() => void send()}
           busy={loading}
+          onStop={loading && stopRef.current ? () => stopRef.current?.() : undefined}
           attachments={attachments}
           onAttach={addFiles}
           onRemoveAttachment={removeAttachment}

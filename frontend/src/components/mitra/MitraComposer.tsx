@@ -23,6 +23,12 @@
 // [data-input='files'|'folder'|'image'], .mitra-attachment[data-status],
 // [data-action='remove-attachment'], .mitra-composer.is-dragging,
 // .mitra-recording and [data-recording-seconds].
+//
+// STOP (REQUIREMENTS §85). While a turn is being answered and the host can
+// stop it (`onStop`), a Stop button [data-action='stop'] stands where the
+// arrow was, as in Claude — the Send button is still there (hidden, and
+// disabled as it always was while busy), so every suite's hook on it holds.
+// A turn being answered cannot be edited; Stop is how the person gets there.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode, type Ref } from "react";
 import { FiArrowUp, FiCamera, FiFolder, FiLoader, FiMic, FiMicOff, FiPaperclip, FiPlus, FiSquare } from "react-icons/fi";
 import type { MitraAttachment } from "../../engine/mitraTypes";
@@ -58,6 +64,8 @@ export interface MitraComposerProps {
   note?: { text: ReactNode; listening?: boolean } | null;
   /** Drawn above the card, inside the area — the widget's quick chips. */
   above?: ReactNode;
+  /** The turn being answered can be stopped: while `busy`, Stop shows in place of Send. */
+  onStop?: () => void;
 }
 
 const DEFAULT_MAX_LENGTH = 4000;
@@ -92,6 +100,7 @@ export function MitraComposer({
   inputRef,
   note,
   above,
+  onStop,
 }: MitraComposerProps) {
   const t = useT();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -149,6 +158,7 @@ export function MitraComposer({
 
   const reading = attachments.some((a) => a.status === "reading");
   const canSend = !disabled && !busy && !reading && (value.trim().length > 0 || attachments.some((a) => a.status === "ready"));
+  const stoppable = busy && !disabled && !!onStop;
 
   const picked = (e: ChangeEvent<HTMLInputElement>, source: AttachSource) => {
     const files = Array.from(e.target.files ?? []);
@@ -201,7 +211,7 @@ export function MitraComposer({
       )}
       <div
         ref={cardRef}
-        className={`mitra-composer${dragging ? " is-dragging" : ""}${busy ? " is-busy" : ""}${disabled ? " is-disabled" : ""}`}
+        className={`mitra-composer${dragging ? " is-dragging" : ""}${busy ? " is-busy" : ""}${disabled ? " is-disabled" : ""}${stoppable ? " is-stoppable" : ""}`}
         onDragEnter={onDragEnter}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -272,6 +282,11 @@ export function MitraComposer({
         <button type="button" className="btn btn-primary mitra-send" data-action="send" aria-label="Send" title={t("ai.send")} disabled={!canSend} onClick={onSend}>
           <FiArrowUp size={16} />
         </button>
+        {stoppable && (
+          <button type="button" className="btn mitra-stop" data-action="stop" aria-label="Stop the answer" title="Stop the answer" onClick={onStop}>
+            <FiSquare size={12} aria-hidden="true" />
+          </button>
+        )}
         {onAttach && menuOpen && (
           <div className="mitra-menu" role="menu">
             <button type="button" role="menuitem" className="mitra-menu-item" data-action="attach-files" onClick={() => openMenuItem(filesRef.current)}>

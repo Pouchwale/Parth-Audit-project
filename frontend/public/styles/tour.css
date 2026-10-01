@@ -1,0 +1,175 @@
+/* REQUIREMENTS §85 — the guided tour of the whole software (components/tour/GuidedTour.tsx).
+
+   "Whenever a user comes to the dashboard, including the super admin, the software
+    gives a tour of the whole software, and the user can skip it too" (30-Sep-2026).
+
+   While it runs: a layer that takes every click (.tour-block), a spotlight over the
+   part of the screen a step speaks of — the rest of the window dimmed by the
+   spotlight's own shadow (.tour-spot), or all of it dimmed when a step points at
+   nothing (.tour-dim) — and the card with the step's words and its buttons. When it
+   is not running none of it is on the page.
+
+   Cheap on a slow laptop: nothing here moves the layout, and the only movement is a
+   card fading in and a ring pulsing twice per step, on transforms and opacity —
+   none of it for somebody whose system asks for less motion, and none on paper. */
+
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.tour-block {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+.tour-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 22, 32, 0.58);
+  pointer-events: none;
+}
+
+.tour-spot {
+  position: fixed;
+  border-radius: 10px;
+  box-shadow: 0 0 0 max(200vw, 200vh) rgba(6, 22, 32, 0.58);
+  pointer-events: none;
+}
+
+/* The ring round the lit part. */
+.tour-spot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 2px solid #ffd7e1;
+  border-radius: 12px;
+  box-shadow: 0 0 0 3px rgba(126, 60, 64, 0.35), 0 0 18px rgba(255, 196, 212, 0.55);
+}
+
+.tour-card {
+  position: fixed;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 24px));
+  padding: 16px 18px 14px;
+  border-radius: 14px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text, #1b2a33);
+  border: 1px solid var(--color-border, #d8e1e7);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32);
+}
+
+.tour-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.tour-count {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-primary, #1680a8);
+}
+
+.tour-bar {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color-surface-alt, #eef3f6);
+}
+
+.tour-bar-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary, #1680a8), #7e3c40);
+  transform-origin: 0 50%;
+}
+
+.tour-title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.tour-text {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-muted, #4b5c66);
+}
+
+.tour-optout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tour-optout input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tour-gap {
+  flex: 1;
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  .tour-card {
+    animation: tour-card-in 200ms cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+  }
+
+  .tour-spot::after {
+    animation: tour-ring 900ms ease-out 2 backwards;
+  }
+
+  @keyframes tour-card-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  @keyframes tour-ring {
+    0% {
+      opacity: 0;
+      transform: scale(1.12);
+    }
+    40% {
+      opacity: 1;
+      transform: none;
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@media print {
+  .tour-layer {
+    display: none !important;
+  }
+}

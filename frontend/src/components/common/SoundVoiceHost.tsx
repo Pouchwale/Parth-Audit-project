@@ -15,8 +15,8 @@ import { recordRepository } from "../../data/repositories/recordRepository";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { todayISO } from "../../utils/date";
-import { cueDuration, hadUserGesture, playCue, watchFirstGesture } from "../../utils/sounds";
-import { isMicBusy, isSaying, nothingDueLine, reminderLine, say, stopLine, stopVoice, updateVoiceSettings, type ReminderFacts } from "../../utils/voice";
+import { cueDuration, hadUserGesture, onFirstGesture, playCue, watchFirstGesture } from "../../utils/sounds";
+import { isMicBusy, isSaying, nothingDueLine, prepareVoice, reminderLine, say, stopLine, stopVoice, updateVoiceSettings, type ReminderFacts } from "../../utils/voice";
 import { ownStanding } from "./DailyNudge";
 import { motivationFor } from "../../engine/motivation";
 
@@ -433,6 +433,20 @@ export function SoundVoiceHost() {
   const userId = user?.id ?? "";
   useEffect(() => {
     if (userId) reminderMemoryFor(userId);
+  }, [userId]);
+
+  // The voice made ready at the first click or key (REQUIREMENTS §85): the
+  // browser's voices listed and the server asked once whether it can speak, so
+  // the first reminder or the briefing does not wait on either.
+  useEffect(() => {
+    if (!userId) return;
+    return onFirstGesture(() => {
+      try {
+        if (settingsRepository.get().voiceOn) prepareVoice();
+      } catch {
+        /* the first line asks for itself */
+      }
+    });
   }, [userId]);
 
   // The first click or key: before it a browser plays and says nothing. And

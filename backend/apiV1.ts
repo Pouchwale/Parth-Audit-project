@@ -5,6 +5,8 @@ import { COOKIE_NAME, verifySessionToken, type PublicUser } from "./auth.ts";
 import { database, getUserById, plantTimeZone, readItem, writeItem, type StoredItem, type UserRow, type WriteResult } from "./db.ts";
 import { distDir, repoRoot } from "./paths.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
+import { createEngineHost, engineBundleIsCurrent, type EngineHost } from "./engineHost.ts";
+import { registerApiV1Records } from "./apiV1Records.ts";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 import {
   activityDetail,
@@ -47,6 +49,13 @@ import {
 // route below but openapi.json takes that token as the cookie OR as
 // "Authorization: Bearer <token>" (a server has no cookie jar), and reads the
 // account again on every request, so an account switched off stops at once.
+//
+// WHAT MITRA DOES, FROM THE MITRA MOBILE APP (REQUIREMENTS §85). The documents,
+// today's facts, the records — found, read, searched, printed, opened, filled,
+// submitted, verified — and history's figures and HR Master Data are routes of
+// backend/apiV1Records.ts, answered by DCRS's own engine run on this server
+// (backend/engineHost.ts). They are registered below, behind the same
+// signed-in check, before the "no such route" answer.
 
 type LogActivity = (req: Request, who: PublicUser | null, action: string, target?: string, detail?: string, department?: string) => void;
 
@@ -74,6 +83,8 @@ export interface ApiV1Deps {
   pdf?: PdfPrinter;
   /** Whether the built app is there to print from; a test may say. */
   appBuilt?: () => boolean;
+  /** DCRS's engine run on the server (backend/engineHost.ts); by default one over `store`, started when first asked. */
+  engine?: EngineHost;
 }
 
 const databaseStore: ApiV1Store = {
@@ -763,6 +774,29 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
         "Content-Length": String(bytes.length),
       })
       .end(bytes);
+  });
+
+  // ---- what Mitra does, for the Mitra mobile app (REQUIREMENTS §85): backend/apiV1Records.ts
+
+  const engine = deps.engine ?? createEngineHost({ store });
+  // On the real server, the engine's worker is started a few seconds after
+  // start-up when its bundle is already built, so the first question from the
+  // app does not wait for it. A bundle that must be built first is built when
+  // first asked for instead: bundling takes all of this computer for seconds,
+  // and a server just started has pages to serve.
+  if (!deps.store && !deps.engine && engineBundleIsCurrent()) {
+    setTimeout(() => void engine.warm().catch((err: unknown) => console.error("[engine host] not started:", err instanceof Error ? err.message : err)), 5000).unref();
+  }
+  registerApiV1Records(app, {
+    signedIn,
+    callerOf,
+    engine,
+    logActivity,
+    departmentOf: (documentId) => departmentOf(store, documentId),
+    printer,
+    appBuilt,
+    hoursAnswer: () => hours.publicAnswer(),
+    appAddress,
   });
 
   // Anything else under /api/v1: said as JSON, never the app's page.

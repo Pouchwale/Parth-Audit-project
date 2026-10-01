@@ -17,11 +17,11 @@
       every form, register and sheet is set in --font-doc, the stack the whole app
       used before (styles.css --font-sans, copied exactly), on screen and on paper;
       and on paper everything is.
-   3. The sign-in screen's title as a 3D wordmark, and the opening that plays once
-      per browser session before it (components/auth/IntroSplash.tsx) — since
-      REQUIREMENTS §84 a 4.8 s motion-graphics sequence.
-   Animation here is transforms and opacity alone and runs once; under
-   prefers-reduced-motion nothing moves (the opening is a plain fade). */
+   3. The sign-in screen's title as a 3D wordmark, and the opening that plays before
+      it (components/auth/IntroSplash.tsx) — since REQUIREMENTS §84 a 4.8 s
+      motion-graphics sequence, and since §85 every time the sign-in screen is shown.
+   Animation here is transforms and opacity alone; under prefers-reduced-motion the
+   opening is a calmer version (delight.css section 6). */
 
 /* ---- 1. The faces ------------------------------------------------------------- */
 

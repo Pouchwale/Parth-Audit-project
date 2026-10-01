@@ -22,9 +22,24 @@
 //                   cache that empties on a restart only costs one more call
 //   speakFailure    what the route answers for each way the voice can fail —
 //                   never Groq's own words, which are not for a person
+//   VoiceAvailability, speakStatus
+//                   whether the server can speak, learnt once from Groq and
+//                   remembered, for GET /api/assistant/speak — the browser asks
+//                   that before it ever asks for a line (REQUIREMENTS §85), so
+//                   a voice that is not available is never an error in its console
 //
 // Gujarati is never sent here: the model speaks English only, and the browser's
 // Gujarati voice (where Edge has one) says Gujarati lines (frontend/src/utils/voice.ts).
+//
+// NOT A LOCAL VOICE (REQUIREMENTS §85, measured 30-Sep-2026). A neural voice
+// made on this server without Groq — Kokoro-82M through kokoro-js/onnxruntime —
+// was tried on the plant's kind of machine (a 4-thread Core i3-1115G4): a
+// 21-word reminder took 4.0 s at best (fp32 model, all four threads, the process
+// at high priority) and 5.4 to 8.7 s at normal priority, the 92 MB q8 model 10 s,
+// with about 1 GB of memory and every core busy while it spoke — against a bar
+// of 3 s, on the machine that also serves every page. It was not adopted: until
+// Groq's terms are accepted, the browser's best natural voice speaks, the words
+// made for the ear first (frontend/src/utils/earText.ts).
 
 /** The model's own limit on one call's input. */
 export const TTS_CHUNK_CHARS = 200;
@@ -282,6 +297,101 @@ export function termsRequired(bodyText: string): boolean {
     /* not JSON — look for the words */
   }
   return /model_terms_required/.test(bodyText);
+}
+
+// ---------------------------------------------------------------------------
+// Whether the server can speak: asked once, remembered (REQUIREMENTS §85)
+//
+// A browser must not find out by trying: a 503 for every page that opens is an
+// error in its console on the plant's normal day (the Groq terms not accepted
+// yet). So it ASKS first — GET /api/assistant/speak, always a 200 — and keeps the
+// answer for as long as the answer says (recheckAfterMs). The server, for its
+// part, asks Groq once — one short line, kept as a clip — and remembers what it
+// learnt: the terms not accepted for ten minutes (the admin may accept them at
+// any time), a failure for two, a working voice for an hour.
+
+export type SpeakStatusCode = "available" | "not-configured" | "voice-unavailable" | "failed";
+
+/** The GET's answer. */
+export interface SpeakStatus {
+  available: boolean;
+  code: SpeakStatusCode;
+  /** In plain words, for the Master Data card. */
+  message: string;
+  /** What speaks when the server does: Groq's speech model. */
+  engine: "groq" | null;
+  model: string;
+  /** The model's voice for Mitra's female and male voice. */
+  voices: { female: string; male: string } | null;
+  /** How long the browser may go by this answer before asking again. */
+  recheckAfterMs: number;
+}
+
+export const VOICE_RECHECK_MS = {
+  available: 60 * 60 * 1000,
+  "voice-unavailable": 10 * 60 * 1000,
+  failed: 2 * 60 * 1000,
+  "not-configured": 60 * 60 * 1000,
+} as const;
+
+/** The line the server asks Groq to say when it has to find out whether it can: short, and kept as a clip. */
+export const VOICE_PROBE_TEXT = "Hello.";
+
+type Learnt = "available" | "voice-unavailable" | "failed";
+
+/** What the server has learnt of Groq's voice, and until when it goes by it. */
+export class VoiceAvailability {
+  private learnt: { code: Learnt; until: number; model: string } | null = null;
+
+  /** What is known now, or null when it must be found out. */
+  current(now = Date.now()): { code: Learnt; model: string; until: number } | null {
+    if (!this.learnt || now >= this.learnt.until) return null;
+    return { ...this.learnt };
+  }
+
+  /** Whether Groq is known, now, to refuse for its terms (the route answers at once without asking). */
+  refusing(now = Date.now()): boolean {
+    return this.current(now)?.code === "voice-unavailable";
+  }
+
+  markAvailable(model: string, now = Date.now()): void {
+    this.learnt = { code: "available", until: now + VOICE_RECHECK_MS.available, model };
+  }
+
+  /** The terms are not accepted. True when this is news (it was not already known), so the server says so once. */
+  markUnavailable(model: string, now = Date.now()): boolean {
+    const news = !this.refusing(now);
+    this.learnt = { code: "voice-unavailable", until: now + VOICE_RECHECK_MS["voice-unavailable"], model };
+    return news;
+  }
+
+  markFailed(model: string, now = Date.now()): void {
+    this.learnt = { code: "failed", until: now + VOICE_RECHECK_MS.failed, model };
+  }
+
+  forget(): void {
+    this.learnt = null;
+  }
+}
+
+/** The GET's answer for what is known. */
+export function speakStatus(code: SpeakStatusCode, model: string, voices: { female: string; male: string } | null, now = Date.now(), until?: number): SpeakStatus {
+  const words: Record<SpeakStatusCode, string> = {
+    available: "Mitra speaks with Groq's natural voice, made on this server.",
+    "not-configured": "Groq's natural voice needs a GROQ_API_KEY on this server; until then this browser's own voice speaks.",
+    "voice-unavailable": voiceUnavailableMessage(model),
+    failed: "Groq's natural voice could not be reached just now; this browser's own voice speaks meanwhile.",
+  };
+  const left = until !== undefined ? Math.max(1000, until - now) : VOICE_RECHECK_MS[code];
+  return {
+    available: code === "available",
+    code,
+    message: words[code],
+    engine: code === "available" ? "groq" : null,
+    model,
+    voices: code === "not-configured" ? null : voices,
+    recheckAfterMs: Math.min(left, VOICE_RECHECK_MS[code]),
+  };
 }
 
 /**

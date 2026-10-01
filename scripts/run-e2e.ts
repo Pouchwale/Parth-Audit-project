@@ -59,6 +59,10 @@ const DATABASE_OVERVIEW_SUITE = "tests/e2e_database_overview.py";
 const FIND_EVERY_DOCUMENT_SUITE = "tests/e2e_find_every_document.py";
 const USER_ACCESS_SUITE = "tests/e2e_user_access.py";
 const WORKING_HOURS_SUITE = "tests/e2e_working_hours.py";
+// REQUIREMENTS §85: the Mitra mobile app does what Mitra does, through DCRS's own engine on the server (product server).
+const MOBILE_MITRA_API_SUITE = "tests/e2e_mobile_mitra_api.py";
+// REQUIREMENTS §85: the guided tour on the Dashboard, for staff and the super admin (product server).
+const TOUR_SUITE = "tests/e2e_tour.py";
 const PRODUCT_SUITES = [
   PRODUCT_SUITE,
   LOGIN_ONLY_SUITE,
@@ -68,6 +72,8 @@ const PRODUCT_SUITES = [
   FIND_EVERY_DOCUMENT_SUITE,
   USER_ACCESS_SUITE,
   WORKING_HOURS_SUITE,
+  MOBILE_MITRA_API_SUITE,
+  TOUR_SUITE,
 ];
 // THE SHARED DATABASE'S OVERVIEW (REQUIREMENTS §83), set up on this run's
 // database exactly as a DBA sets it up on the plant's: its two new schemas and
@@ -353,6 +359,8 @@ async function main(): Promise<void> {
   LOGIN_ONLY_SUITE,
   // REQUIREMENTS §75: lateness escalated to the super admin, and the weekly digest — the same second server.
   ESCALATION_SUITE,
+  // REQUIREMENTS §85: Copy and Edit in Mitra's chat, on the page and in the dock (sign-up, :8842).
+  "tests/e2e_mitra_copy_edit.py",
   // Last of the suites on :8842, because of its signups.
   "tests/e2e_performance.py",
   // REQUIREMENTS §83, the database DCRS shares with the Audit Assistant — the product server, the plant's seeded super admin:
@@ -364,6 +372,9 @@ async function main(): Promise<void> {
   FIND_EVERY_DOCUMENT_SUITE,
   USER_ACCESS_SUITE,
   WORKING_HOURS_SUITE,
+  // REQUIREMENTS §85 — the mobile app's API, DCRS's engine on the server.
+  MOBILE_MITRA_API_SUITE,
+  TOUR_SUITE,
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));

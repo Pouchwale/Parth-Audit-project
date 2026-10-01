@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCalendar, FiCheckCircle, FiClock, FiAlertTriangle, FiBookOpen, FiArrowRight, FiZap, FiTrash2, FiX } from "react-icons/fi";
+import { FiCalendar, FiCheckCircle, FiClock, FiAlertTriangle, FiBookOpen, FiArrowRight, FiZap, FiTrash2, FiX, FiCompass } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useAuth } from "../store/AuthContext";
 import { useRouter } from "../store/router";
@@ -24,6 +24,8 @@ import { openBriefing } from "../components/common/AssistantBriefingPopup";
 import { documentTextIn } from "../i18n/documentText";
 import { DashboardInsights } from "../components/insights/DashboardInsights";
 import { MyDayCard } from "../components/common/MyDayCard";
+// REQUIREMENTS §85: the guided tour of the whole software — by itself once a day, and "Take the tour" any time.
+import { GuidedTour, startTour } from "../components/tour/GuidedTour";
 
 function StatTile({
   icon: Icon,
@@ -147,8 +149,12 @@ export function DashboardPage() {
         </div>
         <div className="flex items-center gap-3 wrap" style={{ justifyContent: "flex-end" }}>
           {/* The language choice lives in the top bar, reachable from every screen. */}
-          <button className="btn btn-primary" onClick={() => navigate("/calendar")}>
+          <button className="btn btn-primary" data-tour="open-calendar" onClick={() => navigate("/calendar")}>
             <FiCalendar size={15} /> {t("dash.openCalendar")}
+          </button>
+          {/* The guided tour, run at any time (REQUIREMENTS §85). After the calendar, so the header's first button stays the one it was. */}
+          <button className="btn btn-secondary" data-action="take-tour" onClick={startTour} title="A one-minute look round the whole system">
+            <FiCompass size={15} /> Take the tour
           </button>
         </div>
       </div>
@@ -228,7 +234,7 @@ export function DashboardPage() {
       <DashboardInsights />
 
       <h3 className="text-sm uppercase text-muted mb-2">{t("dash.today")}</h3>
-      <div className="flex gap-3 wrap mb-6">
+      <div className="flex gap-3 wrap mb-6" data-tour="today-tiles">
         <StatTile icon={FiClock} value={stats.dueToday} label={t("dash.dueToday")} />
         <StatTile icon={FiCheckCircle} value={stats.completedToday} label={t("dash.completedToday")} tone="var(--color-success)" />
         <StatTile icon={FiAlertTriangle} value={stats.pendingVerification} label={t("dash.pendingVerification")} tone="var(--color-warning)" />
@@ -251,7 +257,7 @@ export function DashboardPage() {
             it, the table's own content width can force this card (and the
             whole row, and the page) wider than the viewport instead of the
             table scrolling internally within its flex-basis. */}
-        <div className="card" style={{ flex: "2 1 420px", minWidth: 0 }}>
+        <div className="card" style={{ flex: "2 1 420px", minWidth: 0 }} data-tour="records-due">
           <div className="card-header">
             <h3 className="text-lg">{t("dash.recordsDueToday")}</h3>
             <span className="text-muted text-sm">
@@ -331,6 +337,9 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Not on the page at all unless it is running (drawn at the foot of the document when it is). */}
+      <GuidedTour personId={user?.id ?? ""} personName={user?.name ?? ""} admin={user?.role === "admin"} />
     </div>
   );
 }

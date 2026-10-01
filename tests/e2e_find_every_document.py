@@ -247,7 +247,8 @@ with sync_playwright() as p:
     stated, label = label_count(page, "library-show-master")
     check("Asked, it lists the master-list formats DCRS does not have yet", len(shown) > 0 and "F-HR-10" in shown and "F-PUR-04" in shown, shown[:12])
     check("...as many as the switch says", len(shown) == stated, (len(shown), label))
-    check("...none DCRS has", not any(f in shown for f in ["F-HR-05", "F-HR-17", "F-QC-40. C", "F-SYS-02", "F-MKT-06", "F-PRD-19"]), shown)
+    # F-QC-15 - B, the punching line clearance, has been in DCRS since REQUIREMENTS s85.
+    check("...none DCRS has", not any(f in shown for f in ["F-HR-05", "F-HR-17", "F-QC-40. C", "F-SYS-02", "F-MKT-06", "F-PRD-19", "F-QC-15 - B"]), shown)
     check("...each said to be not in DCRS yet", all(NOT_IN_DCRS_YET in t for _, t in lib["master"]), [t for _, t in lib["master"] if NOT_IN_DCRS_YET not in t][:3])
     got = filter_library(page, "F-HR-10")
     check("The filter box finds a master-list format too", [f for f, _ in got["master"]] == ["F-HR-10"] and not got["documents"], got)

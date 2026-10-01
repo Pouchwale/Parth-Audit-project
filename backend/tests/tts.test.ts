@@ -12,9 +12,12 @@ import {
   parseWav,
   SpeechCache,
   speakFailure,
+  speakStatus,
   speechCacheKey,
   termsRequired,
   TTS_CHUNK_CHARS,
+  VOICE_RECHECK_MS,
+  VoiceAvailability,
   voiceUnavailableMessage,
   VoiceNotConfiguredError,
   VoiceUnavailableError,
@@ -309,5 +312,65 @@ describe("groqSpeak — piece by piece, with Groq stood in for", () => {
     await assert.rejects(groqSpeak({ text: "Hello.", voice: "female" }), /instead of audio/);
     delete process.env.GROQ_API_KEY;
     await assert.rejects(groqSpeak({ text: "Hello.", voice: "female" }), (err: unknown) => err instanceof VoiceNotConfiguredError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// REQUIREMENTS §85: whether the server can speak — learnt once, remembered, and
+// told to a browser with a 200 (GET /api/assistant/speak), never found out by a
+// failed request in its console.
+
+describe("VoiceAvailability and speakStatus — asked once, remembered", () => {
+  const model = "canopylabs/orpheus-v1-english";
+  const voices = { female: "hannah", male: "daniel" };
+
+  it("knows nothing at first: the server must ask Groq once", () => {
+    const a = new VoiceAvailability();
+    assert.equal(a.current(1000), null);
+    assert.equal(a.refusing(1000), false);
+  });
+
+  it("the terms not accepted: remembered for ten minutes, news only the first time (one line in the server's log)", () => {
+    const a = new VoiceAvailability();
+    assert.equal(a.markUnavailable(model, 0), true);
+    assert.equal(a.markUnavailable(model, 1000), false, "already known: not said again");
+    assert.equal(a.refusing(5 * 60 * 1000), true);
+    assert.equal(a.current(1000 + VOICE_RECHECK_MS["voice-unavailable"]), null, "asked again after ten minutes: the admin may have accepted them");
+    assert.equal(a.markUnavailable(model, 20 * 60 * 1000), true, "news again once it had run out");
+  });
+
+  it("a failure is kept two minutes, a working voice an hour", () => {
+    const a = new VoiceAvailability();
+    a.markFailed(model, 0);
+    assert.equal(a.current(1000)?.code, "failed");
+    assert.equal(a.refusing(1000), false, "a failure is not a refusal: a line may still be tried");
+    assert.equal(a.current(VOICE_RECHECK_MS.failed), null);
+    a.markAvailable(model, 0);
+    assert.equal(a.current(59 * 60 * 1000)?.code, "available");
+    assert.equal(a.current(60 * 60 * 1000), null);
+    a.forget();
+    assert.equal(a.current(0), null);
+  });
+
+  it("the GET's answer: available or not, why in plain words, the voices, and how long to keep it", () => {
+    const ok = speakStatus("available", model, voices, 0, VOICE_RECHECK_MS.available);
+    assert.deepEqual(
+      { available: ok.available, code: ok.code, engine: ok.engine, voices: ok.voices, recheck: ok.recheckAfterMs },
+      { available: true, code: "available", engine: "groq", voices, recheck: VOICE_RECHECK_MS.available }
+    );
+    const terms = speakStatus("voice-unavailable", model, voices, 4 * 60 * 1000, 10 * 60 * 1000);
+    assert.equal(terms.available, false);
+    assert.equal(terms.engine, null);
+    assert.equal(terms.message, voiceUnavailableMessage(model), "what the Groq organisation's admin must do");
+    assert.match(terms.message, /accept the model's terms at console\.groq\.com/);
+    assert.equal(terms.recheckAfterMs, 6 * 60 * 1000, "only as long as the server itself goes by it");
+    const none = speakStatus("not-configured", model, voices);
+    assert.equal(none.available, false);
+    assert.equal(none.voices, null);
+    assert.match(none.message, /GROQ_API_KEY/);
+    const failed = speakStatus("failed", model, voices, 0);
+    assert.equal(failed.recheckAfterMs, VOICE_RECHECK_MS.failed);
+    for (const s of [ok, terms, none, failed]) assert.doesNotMatch(s.message, /invalid_request_error|api key|Bearer/i, "never Groq's own words");
+    assert.ok(speakStatus("voice-unavailable", model, voices, 10, 11).recheckAfterMs >= 1000, "never a zero that would have a browser ask at once");
   });
 });

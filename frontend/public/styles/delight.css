@@ -22,7 +22,11 @@
      * run for ever, or longer than 260 ms;
      * reach paper, or somebody whose system asks for less motion: every rule is
        inside @media screen and (prefers-reduced-motion: no-preference).
-   The introduction has its own rules (brand.css, section 3b). */
+   The introduction has its own rules (brand.css, section 3b), and section 6 below
+   adds what REQUIREMENTS §85 brought to it: the opening before every sign-in, its
+   Skip button, the layer that holds a stray click, three more pieces of light, and
+   the calm version for somebody who asks for less motion. Section 6 alone is not
+   in the media block above: the calm version is FOR reduced motion. */
 
 /* ---- 1. A page arriving ---------------------------------------------------------- */
 
@@ -145,5 +149,423 @@
       opacity: 0;
       transform: translateY(8px) scale(0.97);
     }
+  }
+}
+
+/* ---- 6. The opening, before every sign-in (REQUIREMENTS §85) ------------------------- */
+
+/* "Till now you have not added motion graphics before the login" (30-Sep-2026). The
+   opening (IntroSplash.tsx; its timeline is brand.css, section 3b) now plays every
+   time the sign-in screen is shown, in full, before the form can be used. Here:
+     a. the Skip button, and the layer that holds a stray click;
+     b. three more pieces of light in the full sequence: streaks racing across the
+        dark, sparks circling the company's mark, a shock ring behind "DCRS";
+     c. the CALM version, for somebody whose system asks for less motion: the same
+        pieces arriving by fades and glows, nothing travelling, turning or flying.
+   Transforms and opacity alone, as in brand.css; none runs for ever. Not inside the
+   media block of sections 1-5: (c) is for reduced motion, and brand.css's own
+   reduced-motion block stills every piece of the opening with !important — so the
+   calm rules answer with !important and a more particular selector. On paper the
+   whole opening is display: none (brand.css). */
+
+/* a. Skip. Bottom right, over the veil, from the first moments; Enter, Space and
+   Escape work it too (IntroSplash.tsx). It fades with the veil at the end. */
+.intro-skip {
+  position: absolute;
+  right: max(16px, 2.5vw);
+  bottom: max(16px, 4.5vh);
+  z-index: 3;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px 8px 18px;
+  border: 1px solid rgba(255, 228, 236, 0.6);
+  border-radius: 999px;
+  background: rgba(4, 26, 36, 0.62);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  color: #fff4f6;
+  font-family: var(--font-app);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  animation: intro-skip 4800ms linear both;
+}
+
+.intro-skip kbd {
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 228, 236, 0.5);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  font-family: var(--font-app);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.intro-skip:hover {
+  border-color: #ffe4ec;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.intro-skip:focus-visible {
+  outline: 2px solid #ffe4ec;
+  outline-offset: 3px;
+}
+
+@keyframes intro-skip {
+  0% {
+    opacity: 0;
+  }
+  5%,
+  86% {
+    opacity: 1;
+  }
+  90%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The layer that holds a person's stray click while the opening plays (the form
+   beneath is inert as well — AuthScreen.tsx). It is on the page only while the
+   opening plays and only for a person, never under automation; and should no
+   script ever take it away, it steps off the screen by itself at the hard stop. */
+.intro-catch {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: auto;
+  cursor: default;
+  animation: intro-catch-free 6000ms step-end both;
+}
+
+@keyframes intro-catch-free {
+  0% {
+    transform: none;
+  }
+  100% {
+    transform: translateX(-300vw);
+  }
+}
+
+/* b. Streaks of light racing across the dark at the start (their heights, lengths,
+   starts and speeds are IntroSplash.tsx INTRO_STREAKS, set on each). */
+.intro-streaks {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.intro-streak {
+  position: absolute;
+  left: 0;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 228, 236, 0), rgba(255, 228, 236, 0.8) 72%, #ffffff);
+  opacity: 0;
+  animation: intro-streak 800ms cubic-bezier(0.55, 0, 0.35, 1) both;
+}
+
+@keyframes intro-streak {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  15%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(110vw);
+  }
+}
+
+/* Sparks circling the company's mark as its rings leave it. */
+.intro-orbit {
+  position: absolute;
+  inset: -22px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: intro-orbit 2600ms cubic-bezier(0.3, 0.1, 0.3, 1) 600ms both;
+}
+
+.intro-spark {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 10px 3px rgba(255, 214, 226, 0.8);
+}
+
+.intro-spark.is-b {
+  top: auto;
+  bottom: 10%;
+  left: 9%;
+  width: 4px;
+  height: 4px;
+}
+
+.intro-spark.is-c {
+  top: 32%;
+  left: auto;
+  right: -2px;
+  width: 5px;
+  height: 5px;
+  background: #e3f6ff;
+  box-shadow: 0 0 9px 2px rgba(170, 225, 250, 0.8);
+}
+
+@keyframes intro-orbit {
+  0% {
+    opacity: 0;
+    transform: rotate(-60deg) scale(0.7);
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(420deg) scale(1.05);
+  }
+}
+
+/* A shock ring spreading out behind "DCRS" as its letters land. */
+.intro-shock {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2.6em;
+  height: 0.9em;
+  margin: -0.45em 0 0 -1.3em;
+  border: 0.03em solid rgba(255, 220, 230, 0.9);
+  border-radius: 50%;
+  opacity: 0;
+  animation: intro-shock 1000ms cubic-bezier(0.15, 0.7, 0.3, 1) 1150ms both;
+}
+
+@keyframes intro-shock {
+  0% {
+    opacity: 0;
+    transform: scale(0.25);
+  }
+  12% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+/* The halo the calm version's "DCRS" glows in (drawn only in the calm version). */
+.intro-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3.4em;
+  height: 1.6em;
+  margin: -0.8em 0 0 -1.7em;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 214, 226, 0.45), rgba(255, 214, 226, 0.12) 60%, rgba(255, 214, 226, 0));
+  opacity: 0;
+}
+
+/* c. THE CALM VERSION (IntroSplash.tsx kind "calm", INTRO_CALM_TIMELINE): 4.4 s. The
+   veil stays shut and the whole fades away at the end; the light breathes; the
+   particles twinkle where they are; the mark, the letters, the names and the
+   modules' marks appear one after another; a halo glows behind "DCRS"; the
+   progress line fills. Nothing travels, turns or flies. */
+.intro-splash.is-calm {
+  animation: intro-calm 4400ms linear both;
+}
+
+.intro-splash.is-calm.is-leaving {
+  animation: intro-leave 380ms ease-out both;
+}
+
+@keyframes intro-calm {
+  0%,
+  86% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.intro-splash.is-calm :is(.intro-door, .intro-stage, .intro-rig) {
+  animation: none !important;
+}
+
+.intro-splash.is-calm :is(.intro-glow, .intro-rays, .intro-particles, .intro-ring, .intro-progress) {
+  display: block !important;
+}
+
+.intro-splash.is-calm .intro-progress-head {
+  display: none !important;
+}
+
+.intro-splash.is-calm .intro-glow {
+  animation: intro-calm-glow 4400ms ease-in-out both !important;
+}
+
+.intro-splash.is-calm .intro-rays {
+  animation: intro-calm-rays 4400ms ease-in-out both !important;
+}
+
+.intro-splash.is-calm .intro-p {
+  animation: intro-calm-twinkle 1300ms ease-in-out var(--d, 0ms) both !important;
+}
+
+.intro-splash.is-calm .intro-ring {
+  transform: scale(1.25);
+  animation: intro-calm-pulse 1800ms ease-in-out 700ms both !important;
+}
+
+.intro-splash.is-calm .intro-logo {
+  animation: intro-calm-in 800ms ease-out 150ms both !important;
+}
+
+.intro-splash.is-calm .intro-letter {
+  animation: intro-calm-in 700ms ease-out calc(500ms + var(--i, 0) * 160ms) both !important;
+}
+
+.intro-splash.is-calm .intro-halo {
+  animation: intro-calm-halo 2400ms ease-in-out 1300ms both !important;
+}
+
+.intro-splash.is-calm .intro-name .intro-w {
+  animation: intro-calm-in 700ms ease-out var(--d, 0ms) both !important;
+}
+
+.intro-splash.is-calm .intro-company .intro-ch {
+  animation: intro-calm-in 600ms ease-out var(--d, 0ms) both !important;
+}
+
+.intro-splash.is-calm .intro-mod {
+  animation: intro-calm-in 600ms ease-out var(--d, 0ms) both !important;
+}
+
+.intro-splash.is-calm .intro-progress {
+  animation: intro-calm-progress 4400ms linear both !important;
+}
+
+.intro-splash.is-calm .intro-progress-fill {
+  animation: intro-progress-fill 3700ms cubic-bezier(0.45, 0.05, 0.25, 1) both !important;
+}
+
+/* What the reduced-motion block of brand.css would still: Skip's fade and the catch's hard stop. */
+.intro-splash .intro-skip {
+  animation: intro-skip 4800ms linear both !important;
+}
+
+.intro-splash.is-calm .intro-skip {
+  animation: intro-skip 4400ms linear both !important;
+}
+
+.intro-splash .intro-catch {
+  animation: intro-catch-free 6000ms step-end both !important;
+}
+
+@keyframes intro-calm-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes intro-calm-glow {
+  0% {
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes intro-calm-rays {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.6;
+  }
+  60% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes intro-calm-twinkle {
+  0% {
+    opacity: 0;
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes intro-calm-pulse {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes intro-calm-halo {
+  0% {
+    opacity: 0;
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes intro-calm-progress {
+  0% {
+    opacity: 0;
+  }
+  6%,
+  84% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
   }
 }

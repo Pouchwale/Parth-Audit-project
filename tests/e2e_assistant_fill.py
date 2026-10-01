@@ -26,6 +26,7 @@ Checked here, against the production build on :8842, with no network
 """
 import re
 import sys
+from datetime import date
 from playwright.sync_api import sync_playwright
 
 # A failure detail can carry the plant's own Gujarati or a typographic dash,
@@ -369,6 +370,24 @@ with sync_playwright() as p:
         page.locator(f"[data-action='new-record'][data-document='{doc_id}']").first.evaluate("el => el.click()")
         page.wait_for_timeout(1300)
         rid = open_record_id(page)
+        opened = record_by_id(page, rid) or {}
+        # Only the record New must return for TODAY - its period's, due today (this machine's date, as the browser's) -
+        # is exempt from the fill: New opening any other signed-off record is still a failure, below.
+        day = date.today().isoformat()
+        todays = opened.get("dueDate") == day or str(opened.get("periodKey", "")).endswith(day)
+        if todays and opened.get("status") in ("Verified", "Submitted", "Pending Verification"):
+            # New opens the period's record when one is on file already: on 1-Oct-2026, F/HR/01's yearly due
+            # date, that was the seeded review "as on 01.10.2026", Verified. Mitra must then say so - offer to
+            # reopen it rather than fill it, and not pretend it can be submitted.
+            reply = say(page, "fill it with sample data", wait=1500)
+            refused = say(page, "submit this record")
+            check(
+                f"{doc_id}: the period's record is {opened.get('status')} already - Mitra offers to reopen it and says it is signed off, not 'open the record'",
+                "reopen" in reply.lower() and "open the record" not in refused.lower() and ("already" in refused.lower()),
+                (reply[-240:], refused[:240]),
+            )
+            close_assistant(page)
+            continue
         reply = say(page, "fill it with sample data", wait=1500)
         said = "sample data" in reply.lower() or "already filled" in reply.lower()
         ok, outcome = submit_via_assistant(page, rid)

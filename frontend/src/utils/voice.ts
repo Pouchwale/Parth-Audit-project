@@ -10,16 +10,26 @@
 // by components/common/SoundVoiceHost.tsx (which checks the person has the
 // voice switched on) and said here:
 //
-//   ENGLISH, when the server has a Groq key: Mitra's natural voice, made on
-//     the server (POST /api/assistant/speak → one WAV, played with an <audio>).
-//     A 503 "voice-unavailable" (the Groq organisation has not accepted the
-//     speech model's terms) or "not-configured" is remembered for the browser
-//     session and the browser's voice is used from then on; any other failure
-//     uses the browser's voice for five minutes.
+//   ENGLISH, when the server has a Groq key AND says its voice is available:
+//     Mitra's natural voice, made on the server (POST /api/assistant/speak →
+//     one WAV, played with an <audio>). The browser ASKS FIRST, once
+//     (GET /api/assistant/speak — always a 200, REQUIREMENTS §85), and keeps the
+//     answer for as long as the server says (recheckAfterMs, in the browser
+//     session): a voice that is not available — the Groq organisation has not
+//     accepted the speech model's terms, no key — is never a failed request in
+//     the console. A 503 from a line all the same is remembered the same way;
+//     any other failure uses the browser's voice for five minutes.
 //   OTHERWISE, and for Gujarati: the browser's best voice (utils/speech.ts
-//     pickVoice — Edge's natural Neerja/Prabhat, ધ્વની/નિરંજન). A Gujarati line on
-//     a browser with no Gujarati voice is said in English (`en`), or not at all:
+//     pickVoice — Edge's natural Neerja/Prabhat, ધ્વની/નિરંજન; in Chrome Google's
+//     online voices before Windows' robotic ones), at a warm rate with a pause
+//     between sentences (speech.ts speakWithBrowser). A Gujarati line on a
+//     browser with no Gujarati voice is said in English (`en`), or not at all:
 //     Mitra never reads Gujarati with an English voice.
+//   EITHER WAY the words are made for the ear first (utils/earText.ts): "form
+//     F H R 17", "30th September", "2:30 PM", "92 percent", no symbols read out.
+//
+// A local neural voice on the server (Kokoro) was measured on the plant's kind
+// of machine for §85 and was too slow to adopt — see backend/tts.ts.
 //
 // RULES THE QUEUE KEEPS
 //   - Before the page has been clicked or typed in, a browser plays nothing:
@@ -47,6 +57,7 @@ import { assistantApi, ApiError } from "../api/client";
 import { settingsRepository, type AppSettings } from "../data/repositories/settingsRepository";
 import { STRINGS, type Language } from "../i18n/strings";
 import { todayISO } from "./date";
+import { forTheEar } from "./earText";
 import { hadUserGesture, onFirstGesture } from "./sounds";
 import { isListening, isReplySpeaking, isSpeechOutputSupported, loadVoices, onSpeechInterrupt, pickVoice, speakWithBrowser, voiceTier, type VoiceKind } from "./speech";
 
@@ -54,7 +65,7 @@ import { isListening, isReplySpeaking, isSpeechOutputSupported, loadVoices, onSp
 export const VOICE_SETTINGS_EVENT = "dcrs:voice-settings";
 
 /** What is known of the server's natural voice this browser session. */
-export type ServerVoiceState = "unknown" | "available" | "voice-unavailable" | "not-configured";
+export type ServerVoiceState = "unknown" | "available" | "voice-unavailable" | "not-configured" | "failed";
 
 /** How long lines that arrive together are gathered before the first is said. */
 const GATHER_MS = 250;
@@ -87,32 +98,105 @@ let current: Speaking | null = null;
 let timer = 0;
 let micBusy = false;
 let serverFailedUntil = 0;
-let server: { state: ServerVoiceState; message: string } = readServerState();
+
+/** What the server said of its voice, and until when this browser goes by it. */
+interface ServerKnown {
+  state: ServerVoiceState;
+  message: string;
+  /** The server voice's names for Mitra's female and male voice (Groq's "hannah" / "daniel"). */
+  voices: { female: string; male: string } | null;
+  /** Ask again after this (ms since 1970); 0 = keep for the session. */
+  until: number;
+}
+
+const UNKNOWN: ServerKnown = { state: "unknown", message: "", voices: null, until: 0 };
+/** A server that could not be asked (offline, restarting) is asked again after this long. */
+const ASK_AGAIN_AFTER_FAILURE_MS = 2 * 60_000;
+const KNOWN_STATES: readonly ServerVoiceState[] = ["available", "voice-unavailable", "not-configured", "failed"];
+
+let server: ServerKnown = readServerState();
+let asking: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
-function readServerState(): { state: ServerVoiceState; message: string } {
+function readServerState(): ServerKnown {
   try {
     const raw = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(SESSION_KEY) : null;
-    const parsed = raw ? (JSON.parse(raw) as { state?: unknown; message?: unknown }) : null;
-    if (parsed && (parsed.state === "voice-unavailable" || parsed.state === "not-configured")) {
-      return { state: parsed.state, message: typeof parsed.message === "string" ? parsed.message : "" };
+    const parsed = raw ? (JSON.parse(raw) as Partial<ServerKnown> | null) : null;
+    if (parsed && KNOWN_STATES.includes(parsed.state as ServerVoiceState)) {
+      const until = typeof parsed.until === "number" ? parsed.until : 0;
+      if (until && Date.now() >= until) return UNKNOWN;
+      const v = parsed.voices;
+      return {
+        state: parsed.state as ServerVoiceState,
+        message: typeof parsed.message === "string" ? parsed.message : "",
+        voices: v && typeof v.female === "string" && typeof v.male === "string" ? { female: v.female, male: v.male } : null,
+        until,
+      };
     }
   } catch {
     /* private window, blocked storage: ask the server again */
   }
-  return { state: "unknown", message: "" };
+  return UNKNOWN;
 }
 
-function setServerState(state: ServerVoiceState, message = ""): void {
-  if (server.state === state && server.message === message) return;
-  server = { state, message };
+function setServerState(state: ServerVoiceState, message = "", voices: ServerKnown["voices"] = server.voices, keepMs = 0): void {
+  const until = keepMs > 0 ? Date.now() + keepMs : 0;
+  const changed = server.state !== state || server.message !== message;
+  server = { state, message, voices, until };
   try {
-    if (state === "voice-unavailable" || state === "not-configured") sessionStorage.setItem(SESSION_KEY, JSON.stringify(server));
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (state === "unknown") sessionStorage.removeItem(SESSION_KEY);
+    else sessionStorage.setItem(SESSION_KEY, JSON.stringify(server));
   } catch {
     /* remembered for this page only */
   }
-  notify();
+  if (changed) notify();
+}
+
+/** Whether what is known of the server's voice is still to be gone by. */
+function serverKnown(): boolean {
+  if (server.state === "unknown") return false;
+  if (server.until && Date.now() >= server.until) {
+    server = UNKNOWN;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Finds out, once, whether the server can speak (GET /api/assistant/speak —
+ * always a 200): every caller meanwhile waits on the same question, and the
+ * answer is kept for as long as the server says. Without a key on the server
+ * (features.assistant false) nothing is asked. Never throws.
+ */
+export function knowServerVoice(): Promise<void> {
+  if (!assistantConfigured()) return Promise.resolve();
+  if (serverKnown()) return Promise.resolve();
+  if (asking) return asking;
+  asking = (async () => {
+    try {
+      const res = await fetch("/api/assistant/speak", { method: "GET", credentials: "include", headers: { Accept: "application/json" } });
+      const body = (res.ok ? await res.json() : null) as {
+        code?: unknown;
+        message?: unknown;
+        voices?: { female?: unknown; male?: unknown } | null;
+        recheckAfterMs?: unknown;
+      } | null;
+      const code = body && KNOWN_STATES.includes(body.code as ServerVoiceState) ? (body.code as ServerVoiceState) : null;
+      if (!code) {
+        setServerState("failed", "", null, ASK_AGAIN_AFTER_FAILURE_MS);
+        return;
+      }
+      const v = body?.voices;
+      const voices = v && typeof v.female === "string" && typeof v.male === "string" ? { female: v.female, male: v.male } : null;
+      const keep = typeof body?.recheckAfterMs === "number" && body.recheckAfterMs > 0 ? Math.min(body.recheckAfterMs, 60 * 60_000) : ASK_AGAIN_AFTER_FAILURE_MS;
+      setServerState(code, typeof body?.message === "string" ? body.message : "", voices, keep);
+    } catch {
+      setServerState("failed", "", null, ASK_AGAIN_AFTER_FAILURE_MS);
+    } finally {
+      asking = null;
+    }
+  })();
+  return asking;
 }
 
 function notify(): void {
@@ -132,8 +216,9 @@ export function onVoiceChange(fn: () => void): () => void {
 }
 
 /** What is known of the natural server voice, and — when it is unavailable — the server's words on why. */
-export function serverVoiceState(): { state: ServerVoiceState; message: string } {
-  return server;
+export function serverVoiceState(): { state: ServerVoiceState; message: string; voices: ServerKnown["voices"] } {
+  serverKnown();
+  return { state: server.state, message: server.message, voices: server.voices };
 }
 
 const priorityOf = (req: SayRequest): number => (req.priority === "high" ? 0 : req.priority === "low" ? 2 : 1);
@@ -272,8 +357,9 @@ function onStop(speaking: Speaking, fn: () => void): void {
   else speaking.stops.push(fn);
 }
 
+/** Whether an English line goes to the server's voice: a key there, the server said its voice is available, no failure just now. */
 function useServer(): boolean {
-  return assistantConfigured() && server.state !== "voice-unavailable" && server.state !== "not-configured" && Date.now() >= serverFailedUntil;
+  return assistantConfigured() && serverKnown() && server.state === "available" && Date.now() >= serverFailedUntil;
 }
 
 async function speakItem(speaking: Speaking): Promise<void> {
@@ -289,7 +375,12 @@ async function speakItem(speaking: Speaking): Promise<void> {
     if (!req.en || !req.en.trim()) return;
     text = req.en;
   }
-  if (useServer() && (await speakServer(speaking, text, kind))) return;
+  if (assistantConfigured() && Date.now() >= serverFailedUntil) {
+    // Asked once, then remembered: no line waits on the server twice.
+    await knowServerVoice();
+    if (speaking.stopped) return;
+    if (useServer() && (await speakServer(speaking, text, kind))) return;
+  }
   if (speaking.stopped) return;
   const voices = await loadVoices();
   if (speaking.stopped) return;
@@ -307,9 +398,9 @@ function speakBrowser(speaking: Speaking, text: string, voice: SpeechSynthesisVo
   });
 }
 
-/** The first 600 characters, cut at a sentence's end where there is one. */
-function forServer(text: string): string {
-  const clean = text.replace(/\s+/g, " ").trim();
+/** The line made for the ear, then its first 600 characters, cut at a sentence's end where there is one. */
+export function forServer(text: string): string {
+  const clean = forTheEar(text, "en");
   if (clean.length <= SERVER_MAX_CHARS) return clean;
   const cut = clean.slice(0, SERVER_MAX_CHARS);
   const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
@@ -325,12 +416,12 @@ async function speakServer(speaking: Speaking, text: string, kind: VoiceKind): P
     clip = await assistantApi.speak(forServer(text), kind, controller?.signal);
   } catch (err) {
     if (speaking.stopped) return true;
-    if (err instanceof ApiError && (err.code === "voice-unavailable" || err.code === "not-configured")) setServerState(err.code, err.message);
+    // The server said it could speak, then could not: remembered as the GET's answer would be.
+    if (err instanceof ApiError && (err.code === "voice-unavailable" || err.code === "not-configured")) setServerState(err.code, err.message, server.voices, 10 * 60_000);
     else serverFailedUntil = Date.now() + SERVER_RETRY_AFTER_MS;
     return false;
   }
   if (speaking.stopped) return true;
-  setServerState("available");
   return new Promise<boolean>((resolve) => {
     let done = false;
     let url = "";
@@ -450,14 +541,29 @@ export function updateVoiceSettings(patch: Partial<VoiceSettings>): void {
   notify();
 }
 
-export type VoiceSource = "server" | "server-untested" | "natural" | "basic" | "none";
+/**
+ * Where Mitra's English lines are said from here: the server's natural voice
+ * (Groq's), the browser's natural voice (Edge's "Online (Natural)"), an online
+ * browser voice (Google's), a basic one installed with the computer, or none.
+ */
+export type VoiceSource = "server" | "natural" | "online" | "basic" | "none";
+
+export interface VoiceInUse {
+  source: VoiceSource;
+  /** The voice's name: the browser's ("Microsoft Neerja Online (Natural) - English (India)"), or the server voice's ("hannah"). */
+  name: string;
+  /** Whether this browser has a Gujarati voice, and its name. */
+  gujarati: boolean;
+  gujaratiName: string;
+  /** What the server said of its voice (the card says what the Groq admin must do). */
+  server: ServerVoiceState;
+}
 
 /**
- * Which voice Mitra's English lines are said with here, for the settings card:
- * the server's natural voice, the browser's natural voice (Edge), a basic
- * browser voice, or none. Also whether the browser has a Gujarati voice.
+ * Which voice Mitra's English lines are said with here, for the settings card
+ * (asks the server once, as a line would). Also the Gujarati voice, if any.
  */
-export async function voiceInUse(): Promise<{ source: VoiceSource; name: string; gujarati: boolean }> {
+export async function voiceInUse(): Promise<VoiceInUse> {
   let voices: SpeechSynthesisVoice[] = [];
   try {
     voices = await loadVoices();
@@ -465,12 +571,28 @@ export async function voiceInUse(): Promise<{ source: VoiceSource; name: string;
     voices = [];
   }
   const kind = voiceKind();
-  const gujarati = !!pickVoice(voices, "gu-IN", kind);
-  if (assistantConfigured() && server.state === "available") return { source: "server", name: "", gujarati };
-  if (useServer()) return { source: "server-untested", name: "", gujarati };
+  const gu = pickVoice(voices, "gu-IN", kind);
+  const base = { gujarati: !!gu, gujaratiName: gu?.name ?? "" };
+  if (assistantConfigured()) await knowServerVoice();
+  const known = serverVoiceState();
+  if (useServer()) return { ...base, source: "server", name: known.voices?.[kind] ?? "", server: known.state };
   const english = pickVoice(voices, "en-IN", kind);
-  if (!english) return { source: "none", name: "", gujarati };
-  return { source: voiceTier(english) === 0 ? "natural" : "basic", name: english.name, gujarati };
+  if (!english) return { ...base, source: "none", name: "", server: known.state };
+  const tier = voiceTier(english);
+  return { ...base, source: tier === 0 ? "natural" : tier === 1 ? "online" : "basic", name: english.name, server: known.state };
+}
+
+/**
+ * Gets the voice ready before the first line (the host calls it at the first
+ * click or key): the browser's voices listed, and the server asked once.
+ */
+export function prepareVoice(): void {
+  try {
+    void loadVoices().catch(() => undefined);
+    void knowServerVoice();
+  } catch {
+    /* a line will ask for itself */
+  }
 }
 
 // ---- the words ----------------------------------------------------------------------
@@ -609,5 +731,6 @@ export function resetVoiceForTests(): void {
   stopVoice();
   micBusy = false;
   serverFailedUntil = 0;
-  server = { state: "unknown", message: "" };
+  server = UNKNOWN;
+  asking = null;
 }

@@ -221,6 +221,9 @@ test("the Master List of Formats (F/SYS/02) is read line by line, and each line 
   assert.equal(held("F-MKT-06"), "capa-complaint-ack");
   assert.equal(held("F-PRD-19"), "prd-process-parameter");
   assert.equal(held("QA-PRO-FL-CCT-01"), "qc-camera-challenge-test");
+  // F-QC-15 - B, the punching line clearance, has been in DCRS since REQUIREMENTS §85.
+  assert.equal(held("F-QC-15 - B"), "qc-line-clearance-punching");
+  assert.ok(!masterListFormatsNotInDcrs().some((l) => l.formatNo === "F-QC-15 - B"), "F-QC-15 - B is not listed as not in DCRS yet");
   assert.equal(held("F-HR-10"), null);
   assert.equal(held("F-PUR-04"), null);
   // A line said to be not in DCRS yet carries no number any DCRS document carries.

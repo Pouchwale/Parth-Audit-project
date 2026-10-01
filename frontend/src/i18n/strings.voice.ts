@@ -45,6 +45,10 @@ const en = {
   "voice.using.serverUntested": "Mitra's natural voice from the server is tried first — press Hear Mitra to check it.",
   "voice.using.natural": "In use: this browser's natural voice — {name}.",
   "voice.using.basic": "In use: this browser's basic voice — {name}. Microsoft Edge has natural Indian English and Gujarati voices.",
+  "voice.using.online": "In use: this browser's online voice — {name}. Microsoft Edge has natural Indian English and Gujarati voices, which sound more like a person.",
+  "voice.using.serverName": "Voice: {name} (Groq).",
+  "voice.using.gujarati": "Gujarati lines: {name}.",
+  "voice.serverFailed": "Groq's natural voice could not be reached just now — this browser's own voice speaks meanwhile.",
   "voice.using.none": "This browser has no voice to speak with, so Mitra stays silent here.",
   "voice.using.noGujarati": "This browser has no Gujarati voice: Mitra says its lines in English.",
   "voice.serverTerms":
@@ -138,6 +142,10 @@ const gu: Record<keyof typeof en, string> = {
   "voice.using.serverUntested": "પહેલાં સર્વરથી મિત્રનો કુદરતી અવાજ અજમાવાય છે — તપાસવા \"મિત્રને સાંભળો\" દબાવો.",
   "voice.using.natural": "હાલ: આ બ્રાઉઝરનો કુદરતી અવાજ — {name}.",
   "voice.using.basic": "હાલ: આ બ્રાઉઝરનો સાદો અવાજ — {name}. Microsoft Edge માં ભારતીય અંગ્રેજી અને ગુજરાતીના કુદરતી અવાજ છે.",
+  "voice.using.online": "હાલ: આ બ્રાઉઝરનો ઓનલાઇન અવાજ — {name}. Microsoft Edge માં ભારતીય અંગ્રેજી અને ગુજરાતીના કુદરતી અવાજ છે, જે વધુ માણસ જેવા લાગે છે.",
+  "voice.using.serverName": "અવાજ: {name} (Groq).",
+  "voice.using.gujarati": "ગુજરાતી વાક્યો: {name}.",
+  "voice.serverFailed": "Groq નો કુદરતી અવાજ હમણાં મળી શક્યો નહીં — ત્યાં સુધી આ બ્રાઉઝરનો પોતાનો અવાજ બોલે છે.",
   "voice.using.none": "આ બ્રાઉઝરમાં બોલવા માટે કોઈ અવાજ નથી, એટલે મિત્ર અહીં બોલશે નહીં.",
   "voice.using.noGujarati": "આ બ્રાઉઝરમાં ગુજરાતી અવાજ નથી: મિત્ર અંગ્રેજીમાં બોલશે.",
   "voice.serverTerms":

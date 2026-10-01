@@ -18,7 +18,7 @@ import { useAuth } from "../store/AuthContext";
 import { firstNameOf } from "../engine/assistantPersona";
 import { CUE_NAMES, type CueName } from "../engine/engageBus";
 import { playCue } from "../utils/sounds";
-import { onVoiceChange, sampleLine, say, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceSource } from "../utils/voice";
+import { onVoiceChange, sampleLine, say, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceInUse } from "../utils/voice";
 import { logActivity } from "../utils/activityLog";
 import {
   addDaysISO,
@@ -870,9 +870,13 @@ function SimpleTable({
 // SOUNDS AND MITRA'S VOICE (REQUIREMENTS §81) — the person's own settings, kept
 // with their working hours: sounds on or off, the voice on or off, a female or a
 // male voice, how often a spoken reminder may come, a button to hear Mitra and
-// one to hear the sounds — and which voice is actually speaking here, with what
-// the Groq organisation's admin must do when the natural server voice is not
-// available yet. The switches are buttons (role="switch"), not checkboxes.
+// one to hear the sounds — and which voice is actually speaking here, by name
+// (REQUIREMENTS §85: Groq's natural voice from the server, else this browser's
+// best — natural, online or basic — and its Gujarati voice), with what the Groq
+// organisation's admin must do when the natural server voice is not available
+// yet, and where a more human voice is to be had (Microsoft Edge). "Hear Mitra"
+// plays a sample in the voice in use. The switches are buttons (role="switch"),
+// not checkboxes.
 const REMIND_EVERY = [30, 45, 60, 90] as const;
 
 function VoiceSettingsCard() {
@@ -881,7 +885,7 @@ function VoiceSettingsCard() {
   const { user } = useAuth();
   const [s, setS] = useState(() => settingsRepository.get());
   const [server, setServer] = useState(serverVoiceState);
-  const [using, setUsing] = useState<{ source: VoiceSource; name: string; gujarati: boolean } | null>(null);
+  const [using, setUsing] = useState<VoiceInUse | null>(null);
   const [played, setPlayed] = useState<CueName | null>(null);
   const nextCue = useRef(0);
 
@@ -924,14 +928,21 @@ function VoiceSettingsCard() {
   const usingText = !using
     ? ""
     : using.source === "server"
-      ? t("voice.using.server")
-      : using.source === "server-untested"
-        ? t("voice.using.serverUntested")
-        : using.source === "natural"
-          ? t("voice.using.natural", { name: using.name })
+      ? `${t("voice.using.server")}${using.name ? ` ${t("voice.using.serverName", { name: using.name })}` : ""}`
+      : using.source === "natural"
+        ? t("voice.using.natural", { name: using.name })
+        : using.source === "online"
+          ? t("voice.using.online", { name: using.name })
           : using.source === "basic"
             ? t("voice.using.basic", { name: using.name })
             : t("voice.using.none");
+  // What the server's natural voice is waiting for, when it is not speaking.
+  const serverNote =
+    server.state === "voice-unavailable"
+      ? t("voice.serverTerms")
+      : server.state === "failed" && using?.source !== "server"
+        ? t("voice.serverFailed")
+        : "";
 
   const switchButton = (field: "sounds-on" | "voice-on", on: boolean, label: string, flip: () => void) => (
     <button type="button" role="switch" aria-checked={on} data-field={field} className={`voice-switch ${on ? "is-on" : ""}`} onClick={flip}>
@@ -1025,10 +1036,15 @@ function VoiceSettingsCard() {
             {usingText}
           </p>
         )}
+        {using && using.gujarati && (
+          <p className="text-xs text-muted" data-field="voice-gujarati">
+            {t("voice.using.gujarati", { name: using.gujaratiName })}
+          </p>
+        )}
         {using && !using.gujarati && lang === "gu" && <p className="text-xs text-muted">{t("voice.using.noGujarati")}</p>}
-        {server.state === "voice-unavailable" && (
-          <p className="text-xs mt-1" data-field="voice-server-terms" style={{ color: "var(--color-warning)" }}>
-            {t("voice.serverTerms")}
+        {serverNote && (
+          <p className="text-xs mt-1" data-field="voice-server-terms" data-state={server.state} style={{ color: "var(--color-warning)" }}>
+            {serverNote}
           </p>
         )}
       </div>

@@ -107,6 +107,7 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "qc-starch-powder": "QC", // F/QC/23
   "qc-sheet-pasting-powder": "QC", // F/QC/24
   "qc-line-clearance-printing": "QC", // F/QC/15-A
+  "qc-line-clearance-punching": "QC", // F/QC/15-B
   "qc-line-clearance-qc-machine": "QC", // F/QC/15-C
   "qc-line-clearance-qc-manual": "QC", // F/QC/15-D
   "qc-line-clearance-slitting": "QC", // F/QC/15-E

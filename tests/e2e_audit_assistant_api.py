@@ -269,7 +269,12 @@ with sync_playwright() as p:
         a4 = [(float(w), float(h)) for w, h in boxes]
         check("...of one A4 page or more", len(a4) >= 1 and all(abs(min(w, h) - 595.3) < 2 and abs(max(w, h) - 841.9) < 2 for w, h in a4), a4[:3])
         check("...named for the form and the day", f"F-HR-17 Daily Pest Control Monitoring Record {day}.pdf" in disposition, disposition)
-        after_lines = (as_json(call("GET", "/api/activity?limit=200&q=" + urllib.request.quote("Document downloaded as PDF"), cookie=token)[2]) or {}).get("lines", [])
+        # Written as the file goes out (logActivity does not hold the answer back), so looked for for up to five seconds.
+        for _ in range(25):
+            after_lines = (as_json(call("GET", "/api/activity?limit=200&q=" + urllib.request.quote("Document downloaded as PDF"), cookie=token)[2]) or {}).get("lines", [])
+            if len(after_lines) > before:
+                break
+            time.sleep(0.2)
         check("...and logged: 'Document downloaded as PDF', through the assistant", len(after_lines) == before + 1 and after_lines[0].get("detail", "").startswith(f"Through {CLIENT}"), after_lines[:2])
 
     status, _, raw = call("GET", "/api/v1/pest-control/daily-report?date=2001-01-01", token=token)

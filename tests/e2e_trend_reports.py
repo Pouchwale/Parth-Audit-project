@@ -402,7 +402,28 @@ with sync_playwright() as p:
             ".fhr18-grid tbody.fhr18-unit tr",
             "els => els.map((tr) => Array.from(tr.children).map((td) => (td.textContent || '').trim()))",
         )
-        check("The F/HR/18 register has a two-line block for each of the thirteen units", len(lines) == 26, len(lines))
+        # A line per visit on file in the month shown, two at the least as on the paper (FlyCatcherRegisterSheet:
+        # max(2, visits)). Usually the two fortnightly visits; on 1-Oct-2026 a third - the visit the library's New
+        # added for that day, before the month's first scheduled one - and the check used to assume two.
+        units = page.locator(".fhr18-grid tbody.fhr18-unit").count()
+        shown = page.evaluate(
+            """() => {
+                 const MONTHS = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+                 const bar = (document.querySelector("[data-section='fhr18-toolbar']") || {}).textContent || '';
+                 const m = bar.match(/Month & Year:\\s*([A-Z]+)-(\\d{2})/);
+                 if (!m) return null;
+                 const prefix = `20${m[2]}-${String(MONTHS.indexOf(m[1]) + 1).padStart(2, '0')}-`;
+                 const all = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]');
+                 const visits = all.filter((r) => r.documentId === 'fly-catcher' && !r.isDemo && String(r.dueDate || '').startsWith(prefix));
+                 return { month: prefix, visits: visits.length, days: new Set(visits.map((r) => r.dueDate)).size };
+               }"""
+        )
+        per_unit = max(2, shown["visits"]) if shown else 0
+        check(
+            "The F/HR/18 register has a block for each of the thirteen units, a line for each of the month's visits (two at the least)",
+            units == 13 and shown is not None and shown["days"] == shown["visits"] and len(lines) == 13 * per_unit,
+            (units, len(lines), shown),
+        )
         firsts = [l for l in lines if len(l) == 7]
         seconds = [l for l in lines if len(l) == 6]
         check(
@@ -411,8 +432,8 @@ with sync_playwright() as p:
             [l for l in firsts if not (l[3] == "24/11/25" and l[4] == "23/11/26")][:3] or len(firsts),
         )
         check(
-            "...and every second line dittoes them, as on the paper register",
-            len(seconds) == 13 and all(l[2] == '"' and l[3] == '"' for l in seconds),
+            "...and every later line of a unit dittoes them, as on the paper register",
+            len(seconds) == 13 * (per_unit - 1) and all(l[2] == '"' and l[3] == '"' for l in seconds),
             [l for l in seconds if not (l[2] == '"' and l[3] == '"')][:3] or len(seconds),
         )
         sheet_text = page.locator(".fhr18-sheet").inner_text()

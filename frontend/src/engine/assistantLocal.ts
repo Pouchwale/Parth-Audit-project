@@ -297,6 +297,7 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "qc-starch-powder", aliases: ["corrugation starch powder", "starch powder", "f/qc/23"] },
   { id: "qc-sheet-pasting-powder", aliases: ["sheet pasting powder", "pasting powder", "f/qc/24"] },
   { id: "qc-line-clearance-printing", aliases: ["line clearance printing", "printing line clearance", "f/qc/15-a"] },
+  { id: "qc-line-clearance-punching", aliases: ["line clearance punching", "punching line clearance", "punching clearance", "f/qc/15-b"] },
   { id: "qc-line-clearance-qc-machine", aliases: ["line clearance qc machine", "qc machine inspection clearance", "f/qc/15-c"] },
   { id: "qc-line-clearance-qc-manual", aliases: ["line clearance qc manual", "qc manual inspection clearance", "f/qc/15-d"] },
   { id: "qc-line-clearance-slitting", aliases: ["line clearance slitting", "slitting line clearance", "f/qc/15-e"] },

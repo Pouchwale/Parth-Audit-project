@@ -263,7 +263,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   qc-gsm-plate-calibration, qc-bopp-film, qc-corrugated-box, qc-label-stock, qc-paper-core, qc-pvc-pet-film,
   qc-offset-ink, qc-duplex-board, qc-kraft-paper, qc-flexo-ink, qc-lamination-adhesive-inspection,
   qc-side-pasting-adhesive, qc-starch-powder, qc-sheet-pasting-powder, qc-line-clearance-printing,
-  qc-line-clearance-qc-machine, qc-line-clearance-qc-manual, qc-line-clearance-slitting,
+  qc-line-clearance-punching, qc-line-clearance-qc-machine, qc-line-clearance-qc-manual, qc-line-clearance-slitting,
   qc-line-clearance-sleeve-gluing, qc-line-clearance-sleeve-cutting, qc-line-clearance-materials,
   qc-line-clearance-quality, qc-calibration-master-list, qc-coa-label, qc-coa-sleeve, qc-coa-corrugated,
   qc-obsolete-artwork, qc-printing-aids-destruction, qc-camera-challenge-test, qc-tolerance-card-nivea,
@@ -280,7 +280,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
   NOT the calendar, which would show the whole month.
-- /qc — QC Records: Quality Control's own overview of all forty-three of its formats, by format number, in the
+- /qc — QC Records: Quality Control's own overview of all forty-four of its formats, by format number, in the
   department's seven sections plus the formats the Lamination and Compliance modules keep (use it for "QC
   records / QC module / quality control documents")
 - /hr — HR Records: the overview of the Human Resources module's own sixteen F/HR formats in their five groups

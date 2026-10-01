@@ -1,17 +1,22 @@
-// THE OPENING IN MOTION GRAPHICS AND THE FONTS (REQUIREMENTS §81, §84), judged
-// without a browser: when the opening plays (once a session, at the system's
-// opening; a plain fade for somebody who asks for less motion), that it takes its
-// time — about four to five seconds — and then opens, and that it can never stay
-// (its own timer, a hard stop at 6 s, and its stylesheet); the site-wide movement
-// of delight.css (screen only, never under reduced motion, transforms and opacity
-// only, nothing left moved); and the fonts — self-hosted, licensed, light, the
-// Gujarati files fetched only for Gujarati text, and the printed forms left in the
-// face they have always had.
+// THE OPENING IN MOTION GRAPHICS AND THE FONTS (REQUIREMENTS §81, §84, §85), judged
+// without a browser: where and when the opening plays (EVERY time the sign-in
+// screen is shown, holding the form until it is over or skipped; a signed-in
+// session's opening once a session, catching nothing), what lifts it (Skip and
+// Escape for a person; the first thing typed under automation), that it takes its
+// time — about five seconds — and can never stay (its own timer, a hard stop at
+// 6 s, its stylesheet, and the sign-in screen's own timer), the calm version for
+// somebody who asks for less motion (fades and glows, nothing travelling); the
+// site-wide movement of delight.css (screen only, never under reduced motion,
+// transforms and opacity only, nothing left moved); and the fonts — self-hosted,
+// licensed, light, the Gujarati files fetched only for Gujarati text, and the
+// printed forms left in the face they have always had.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import {
+  INTRO_CALM_MS,
+  INTRO_CALM_TIMELINE,
   INTRO_COMPANY,
   INTRO_HARD_STOP_MS,
   INTRO_MODULE_MARKS,
@@ -20,14 +25,18 @@ import {
   INTRO_REVEAL_MS,
   INTRO_SEEN_KEY,
   INTRO_SKIP_MS,
+  INTRO_STREAKS,
   INTRO_TIMELINE,
   OPENING_WINDOW_MS,
+  introHoldsPage,
   introKindFor,
   introLengthFor,
+  introLiftEvents,
   introWanted,
   introWantedFor,
   markIntroSeen,
   readIntroEnvironment,
+  underAutomation,
 } from "../src/components/auth/IntroSplash";
 import { INTRO_STRINGS } from "../src/i18n/strings.intro";
 import { tr } from "../src/i18n";
@@ -38,6 +47,10 @@ const brandCss = readFileSync(path.join(frontend, "public", "styles", "brand.css
 const delightCss = readFileSync(path.join(frontend, "public", "styles", "delight.css"), "utf8");
 const indexHtml = readFileSync(path.join(frontend, "index.html"), "utf8");
 const appCss = readFileSync(path.join(frontend, "src", "styles.css"), "utf8");
+const authDir = path.join(frontend, "src", "components", "auth");
+const screenSrc = readFileSync(path.join(authDir, "AuthScreen.tsx"), "utf8");
+const layoutSrc = readFileSync(path.join(authDir, "AuthLayout.tsx"), "utf8");
+const splashSrc = readFileSync(path.join(authDir, "IntroSplash.tsx"), "utf8");
 
 /** A stylesheet without its comments. */
 const uncommented = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -87,6 +100,17 @@ const openingCss = (() => {
   assert.ok(from > 0 && to > from, "brand.css has the opening's section, then its reduced-motion block");
   return uncommented(brandCss.slice(from, to));
 })();
+
+/** delight.css in two: the site-wide movement (sections 1-5), and what §85 added to the opening (section 6). */
+const SECTION_6 = "---- 6. The opening";
+const [siteCss, openingPlusCss] = (() => {
+  const at = delightCss.indexOf(SECTION_6);
+  assert.ok(at > 0, "delight.css has the opening's own section, after the site-wide movement");
+  // The section's heading comment starts a few characters before its title.
+  const cut = delightCss.lastIndexOf("/*", at);
+  return [delightCss.slice(0, cut), delightCss.slice(cut)];
+})();
+
 const OLD_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 /** The @font-face blocks of brand.css, each as its descriptors. */
@@ -111,24 +135,71 @@ function covers(range: string, cp: number): boolean {
   });
 }
 
-test("the opening plays at the system's opening, once a session; less motion gets a plain fade instead", () => {
+test("the sign-in screen plays the opening EVERY time it is shown; a session's app, once a session", () => {
+  // REQUIREMENTS §85: the owner never saw it — it played once a tab, in the first seconds, and a
+  // reload, a sign-out or the next morning found it already seen. The sign-in screen asks nothing now:
+  // it draws the opening each time it is drawn itself.
+  assert.match(screenSrc, /<IntroSplash place="signin" onRelease=\{release\} \/>/, "drawn unconditionally, as the sign-in screen's own");
+  assert.doesNotMatch(screenSrc, /introWanted|\{intro &&/, "no 'once a session' question on the sign-in screen");
+  // A signed-in session's opening (SessionIntro) keeps its rule from §81/§84.
   const fresh = { reducedMotion: false, seenThisSession: false, msSinceOpen: 400 };
   assert.equal(introWantedFor(fresh), true);
-  assert.equal(introKindFor(fresh), "motion");
-  assert.equal(introWantedFor({ ...fresh, reducedMotion: true }), true, "prefers-reduced-motion: the opening is still there…");
-  assert.equal(introKindFor({ reducedMotion: true }), "plain", "…as a plain fade, nothing moving");
   assert.equal(introWantedFor({ ...fresh, seenThisSession: true }), false, "already played in this browser session");
-  assert.equal(introWantedFor({ ...fresh, msSinceOpen: OPENING_WINDOW_MS + 1 }), false, "a sign-out long after the page opened is not the opening");
+  assert.equal(introWantedFor({ ...fresh, msSinceOpen: OPENING_WINDOW_MS + 1 }), false, "a session's app reached long after the page opened");
   assert.equal(introWantedFor({ ...fresh, msSinceOpen: OPENING_WINDOW_MS }), true);
+  assert.match(splashSrc, /export function SessionIntro\(\) \{\s*const \[intro\] = useState\(introWanted\);\s*return intro \? <IntroSplash place="session" \/> : null;/);
+  // The kinds: the full sequence; with less motion, the calm version on the sign-in screen, the plain fade over the app.
+  assert.equal(introKindFor({ reducedMotion: false }, "signin"), "motion");
+  assert.equal(introKindFor({ reducedMotion: false }, "session"), "motion");
+  assert.equal(introKindFor({ reducedMotion: true }, "signin"), "calm", "less motion on the sign-in screen: still motion graphics, gently");
+  assert.equal(introKindFor({ reducedMotion: true }, "session"), "plain", "a session's opening: the plain fade, as before");
+  assert.equal(introKindFor({ reducedMotion: true }), "plain", "a session's opening is the default place");
 });
 
-test("it takes its time — about four to five seconds — then opens, and it can never stay", () => {
-  assert.ok(INTRO_MS >= 4000 && INTRO_MS <= 5000, `the sequence lasts ${INTRO_MS} ms`);
+test("before the form can be used: it holds the page for a person, lifts only on Skip or Escape — and yields to automation", () => {
+  assert.equal(introHoldsPage("signin", false), true, "a person: the form waits for the opening");
+  assert.equal(introHoldsPage("signin", true), false, "automation (navigator.webdriver): the form is never held");
+  assert.equal(introHoldsPage("session", false), false, "a session's opening holds nothing");
+  assert.deepEqual([...introLiftEvents("signin", false)], [], "a person: no stray click or key lifts it (only Skip and Escape)");
+  assert.deepEqual([...introLiftEvents("signin", true)].sort(), ["focusin", "keydown", "pointerdown", "touchstart", "wheel"], "automation: the first thing typed, clicked or focused");
+  assert.deepEqual([...introLiftEvents("session", false)].sort(), ["keydown", "pointerdown", "touchstart", "wheel"], "a session's opening: as before");
+  // The sign-in screen: the form inert while held, and let go by a timer of its own at the hard stop.
+  assert.match(screenSrc, /inert=\{holding\}/);
+  assert.match(screenSrc, /style=\{\{ display: "contents" \}\}/, "the holding wrapper has no box of its own: the layout is unchanged");
+  assert.match(screenSrc, /setTimeout\(release, INTRO_HARD_STOP_MS \+ \d+\)/);
+  assert.match(screenSrc, /useState\(\(\) => introHoldsPage\("signin", underAutomation\(\)\)\)/);
+  // The opening: a Skip button, Escape, the catch for a stray click (a person only), release on every way out.
+  assert.match(splashSrc, /data-action="intro-skip"/);
+  assert.match(splashSrc, /e\.key === "Escape"/);
+  assert.match(splashSrc, /\{holds && phase === "playing" && <div className="intro-catch"/);
+  assert.match(splashSrc, /componentDidCatch\(\): void \{[\s\S]*?this\.props\.onRelease\?\.\(\)/, "a failure inside it still lets go of the form");
+  // Its listeners only listen: the key or the click still reaches the page (under automation, the suites' typing).
+  assert.doesNotMatch(splashSrc, /preventDefault|stopPropagation|stopImmediatePropagation/);
+  assert.match(splashSrc, /passive: true/);
+});
+
+test("under automation — navigator.webdriver — and only then", () => {
+  const nav = globalThis.navigator as unknown as Record<string, unknown>;
+  assert.equal(underAutomation(), false, "a browser that does not say so is a person's");
+  try {
+    Object.defineProperty(nav, "webdriver", { value: true, configurable: true });
+    assert.equal(underAutomation(), true);
+    Object.defineProperty(nav, "webdriver", { value: false, configurable: true });
+    assert.equal(underAutomation(), false);
+  } finally {
+    delete nav.webdriver;
+  }
+});
+
+test("it takes its time — about five seconds — then opens, and it can never stay", () => {
+  assert.ok(INTRO_MS >= 4000 && INTRO_MS <= 5500, `the sequence lasts ${INTRO_MS} ms`);
+  assert.ok(INTRO_CALM_MS >= 3500 && INTRO_CALM_MS <= INTRO_MS, `the calm version lasts ${INTRO_CALM_MS} ms`);
   assert.ok(INTRO_REVEAL_MS >= 3500 && INTRO_REVEAL_MS < INTRO_MS && INTRO_MS - INTRO_REVEAL_MS <= 800, "the veil opens at the end, not before");
   assert.equal(INTRO_HARD_STOP_MS, 6000, "a hard stop at 6 s, whatever happens");
   assert.equal(introLengthFor("motion"), INTRO_MS);
-  assert.ok(introLengthFor("plain") === INTRO_PLAIN_MS && INTRO_PLAIN_MS <= 1000, "less motion: a short plain fade");
-  assert.ok(INTRO_SKIP_MS <= 400, "a key or a click lifts it at once");
+  assert.equal(introLengthFor("calm"), INTRO_CALM_MS);
+  assert.ok(introLengthFor("plain") === INTRO_PLAIN_MS && INTRO_PLAIN_MS <= 1000, "a session's opening with less motion: a short plain fade");
+  assert.ok(INTRO_SKIP_MS <= 400, "Skip or Escape lifts it at once");
   // Every piece drawn has arrived before the veil opens.
   const T = INTRO_TIMELINE;
   const nameWords = Math.max(...[tr("en", "intro.name"), tr("gu", "intro.name")].map((n) => n.split(/\s+/).length));
@@ -137,6 +208,19 @@ test("it takes its time — about four to five seconds — then opens, and it ca
   assert.ok(T.companyAt + (companyLetters - 1) * T.companyStep + T.companyTakes <= INTRO_REVEAL_MS, "the company's name");
   assert.ok(T.marksAt + (INTRO_MODULE_MARKS.length - 1) * T.marksStep + T.marksTake <= INTRO_REVEAL_MS, "the modules' marks");
   assert.equal(INTRO_MODULE_MARKS.length, 12, "a mark for each of the sidebar's twelve modules");
+  for (const s of INTRO_STREAKS) assert.ok(s.delay + s.takes <= INTRO_REVEAL_MS, `a streak of light is gone before the veil opens (${s.delay} + ${s.takes})`);
+  // The calm version: every piece has faded in before the whole begins to fade.
+  const C = INTRO_CALM_TIMELINE;
+  assert.equal(C.fadeAt, Math.round(INTRO_CALM_MS * 0.86));
+  assert.ok(C.logoAt + C.logoTakes <= C.fadeAt);
+  assert.ok(C.lettersAt + 3 * C.letterStep + C.letterTakes <= C.fadeAt, "DCRS");
+  assert.ok(C.nameAt + (nameWords - 1) * C.nameWordStep + C.nameTakes <= C.fadeAt, "the system's name");
+  assert.ok(C.companyAt + (companyLetters - 1) * C.companyStep + C.companyTakes <= C.fadeAt, "the company's name");
+  assert.ok(C.marksAt + (INTRO_MODULE_MARKS.length - 1) * C.marksStep + C.marksTake <= C.fadeAt, "the modules' marks");
+  // delight.css agrees: the calm letters' start and step, and the whole's fade at 86%.
+  assert.match(openingPlusCss, new RegExp(`\\.intro-letter \\{\\s*animation: intro-calm-in ${C.letterTakes}ms ease-out calc\\(${C.lettersAt}ms \\+ var\\(--i, 0\\) \\* ${C.letterStep}ms\\) both !important;`));
+  assert.match(openingPlusCss, /@keyframes intro-calm \{\s*0%,\s*86% \{\s*opacity: 1;/);
+  assert.match(openingPlusCss, new RegExp(`\\.intro-splash\\.is-calm \\{\\s*animation: intro-calm ${INTRO_CALM_MS}ms `));
 
   // The stylesheet agrees with the component: the whole in INTRO_MS, the plain fade,
   // the lifted veil, and nothing in the sequence running past its end.
@@ -155,6 +239,17 @@ test("it takes its time — about four to five seconds — then opens, and it ca
     pieces++;
   }
   assert.ok(pieces >= 20, `every moving piece was read (${pieces})`);
+  // What §85 added: everything over by the end of its kind, the catch at the hard stop exactly.
+  let added = 0;
+  for (const m of uncommented(openingPlusCss).matchAll(/animation:\s*([^;]+);/g)) {
+    if (/^none/.test(m[1])) continue;
+    const [duration, delay = 0] = animationTimes(m[1].replace(/calc\([^)]*\)/, "0ms"));
+    if (m[1].startsWith("intro-catch-free")) assert.equal(duration + delay, INTRO_HARD_STOP_MS, "the catch steps off the screen at the hard stop");
+    else assert.ok(duration + delay <= INTRO_MS, `"${m[1]}" ends by ${INTRO_MS} ms`);
+    added++;
+  }
+  assert.ok(added >= 15, `every piece §85 added was read (${added})`);
+  assert.match(openingPlusCss, /\.intro-catch \{[^}]*animation: intro-catch-free 6000ms step-end both;/);
   // The veil's halves hold until INTRO_REVEAL_MS, then open.
   const doors = openingCss.match(/@keyframes intro-door-top\s*\{\s*0%,\s*([\d.]+)%/);
   assert.ok(doors && Math.abs((Number(doors[1]) / 100) * INTRO_MS - INTRO_REVEAL_MS) <= 60, "the doors open at INTRO_REVEAL_MS");
@@ -163,32 +258,33 @@ test("it takes its time — about four to five seconds — then opens, and it ca
   assert.ok(wait && Number(wait[1]) >= INTRO_REVEAL_MS && Number(wait[1]) + 560 <= INTRO_MS + 60, "the title waits for the veil to open");
 });
 
-test("what the browser says decides it, and anything it cannot say counts against moving", () => {
+test("what the browser says decides the kind, and anything it cannot say counts against moving", () => {
   const w = globalThis as unknown as { matchMedia?: (q: string) => { matches: boolean } };
   const before = w.matchMedia;
   try {
     sessionStorage.removeItem(INTRO_SEEN_KEY);
     delete w.matchMedia;
     assert.equal(readIntroEnvironment().reducedMotion, true, "no matchMedia: treated as less motion");
-    assert.equal(introKindFor(readIntroEnvironment()), "plain");
-    assert.equal(introWanted(), true, "…so the plain fade, once");
+    assert.equal(introKindFor(readIntroEnvironment(), "signin"), "calm");
+    assert.equal(introKindFor(readIntroEnvironment(), "session"), "plain");
+    assert.equal(introWanted(), true, "…a session's opening, once");
 
     w.matchMedia = (q: string) => ({ matches: q.includes("reduce") && false });
     assert.equal(readIntroEnvironment().seenThisSession, false);
     assert.equal(introWanted(), true, "motion allowed, not seen, just opened");
-    assert.equal(introKindFor(readIntroEnvironment()), "motion");
+    assert.equal(introKindFor(readIntroEnvironment(), "signin"), "motion");
     markIntroSeen();
     assert.equal(sessionStorage.getItem(INTRO_SEEN_KEY), "1");
-    assert.equal(introWanted(), false, "a second opening in the same session: nothing plays");
+    assert.equal(introWanted(), false, "a session's second opening: nothing plays (the sign-in screen does not ask)");
 
     sessionStorage.removeItem(INTRO_SEEN_KEY);
     w.matchMedia = (q: string) => ({ matches: q.includes("prefers-reduced-motion: reduce") });
-    assert.equal(introKindFor(readIntroEnvironment()), "plain", "asked for less motion");
+    assert.equal(introKindFor(readIntroEnvironment(), "signin"), "calm", "asked for less motion");
 
     w.matchMedia = () => {
       throw new Error("no media queries here");
     };
-    assert.equal(introKindFor(readIntroEnvironment()), "plain", "a browser that throws is not animated at");
+    assert.equal(introKindFor(readIntroEnvironment(), "signin"), "calm", "a browser that throws is not animated at");
   } finally {
     if (before) w.matchMedia = before;
     else delete w.matchMedia;
@@ -196,23 +292,17 @@ test("what the browser says decides it, and anything it cannot say counts agains
   }
 });
 
-test("the introduction lives on the sign-in screen alone, never in the layout the password step after sign-in shares", () => {
-  const screen = readFileSync(path.join(frontend, "src", "components", "auth", "AuthScreen.tsx"), "utf8");
-  const layout = readFileSync(path.join(frontend, "src", "components", "auth", "AuthLayout.tsx"), "utf8");
-  const splash = readFileSync(path.join(frontend, "src", "components", "auth", "IntroSplash.tsx"), "utf8");
-  assert.match(screen, /<IntroSplash\s*\/>/);
-  assert.doesNotMatch(layout, /import[^;]*IntroSplash|<IntroSplash/);
-  assert.match(splash, /aria-hidden="true"/);
-  assert.match(splash, /no-print/);
-  assert.match(splash, /pointerEvents: "none"/, "catching nothing even before its stylesheet has come");
-  assert.doesNotMatch(splash, /role="dialog"|modal-(box|overlay)|Got it/);
-  assert.ok((splash.match(/<canvas/g) ?? []).length <= 1, "one small canvas at most");
-  assert.doesNotMatch(splash, /getContext\(|from "three"|requestAnimationFrame\(/, "CSS transforms and opacity, no drawing loop");
-  // Its listeners only listen: the key or the click still reaches the page.
-  assert.doesNotMatch(splash, /preventDefault|stopPropagation|stopImmediatePropagation/);
-  assert.match(splash, /passive: true/);
+test("the introduction lives on the sign-in screen and over a session's app, never in the layout the password step shares", () => {
+  assert.doesNotMatch(layoutSrc, /import[^;]*IntroSplash|<IntroSplash/);
+  assert.match(splashSrc, /aria-hidden=\{place === "session" \? "true" : undefined\}/, "over the app: hidden from screen readers, as before");
+  assert.match(splashSrc, /className="intro-stage" aria-hidden="true"/, "on the sign-in screen: its art hidden, its Skip button not");
+  assert.match(splashSrc, /no-print/);
+  assert.match(splashSrc, /pointerEvents: "none"/, "the layer itself catches nothing — only its catch and its Skip button do");
+  assert.doesNotMatch(splashSrc, /role="dialog"|modal-(box|overlay)|Got it/);
+  assert.ok((splashSrc.match(/<canvas/g) ?? []).length <= 1, "one small canvas at most");
+  assert.doesNotMatch(splashSrc, /getContext\(|from "three"|requestAnimationFrame\(/, "CSS transforms and opacity, no drawing loop");
   // The suites look for these words on the sign-in screen and require none.
-  const words = [...Object.values(INTRO_STRINGS.en), ...Object.values(INTRO_STRINGS.gu), "DCRS", INTRO_COMPANY];
+  const words = [...Object.values(INTRO_STRINGS.en), ...Object.values(INTRO_STRINGS.gu), "DCRS", INTRO_COMPANY, "Skip", "Esc", "Skip the opening (Escape)"];
   for (const w of words) assert.doesNotMatch(w.toLowerCase(), /sign\s*up|demo|log\s*in/, w);
   assert.equal(INTRO_COMPANY, "Gujarat Print Pack Publication", "the company's name as the owner writes it");
 });
@@ -225,7 +315,7 @@ test("the introduction's words, in English and in Gujarati script", () => {
   }
 });
 
-test("the overlay catches nothing and moves nothing but transforms and opacity", () => {
+test("the overlay moves nothing but transforms and opacity; only its catch and its Skip take a click", () => {
   const rule = (selector: string) => {
     const m = brandCss.match(new RegExp(`(^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`));
     assert.ok(m, `${selector} has a rule`);
@@ -235,20 +325,35 @@ test("the overlay catches nothing and moves nothing but transforms and opacity",
   assert.match(splash, /pointer-events:\s*none/);
   assert.match(splash, /position:\s*fixed/);
   assert.match(splash, /overflow:\s*hidden/);
-  assert.doesNotMatch(brandCss, /pointer-events:\s*(auto|all)/, "nothing inside takes a click back");
-  assert.doesNotMatch(brandCss, /animation[^;]*infinite/, "no animation runs for ever");
-  // Every keyframe changes transform or opacity alone.
-  for (const m of brandCss.matchAll(/@keyframes\s+([\w-]+)\s*\{([\s\S]*?)\n\}/g)) {
-    const props = [...m[2].matchAll(/([a-z-]+)\s*:/g)].map((p) => p[1]).filter((p) => p !== "animation-timing-function");
-    for (const p of props) assert.ok(p === "transform" || p === "opacity", `@keyframes ${m[1]} animates ${p}`);
+  assert.doesNotMatch(brandCss, /pointer-events:\s*(auto|all)/, "nothing in brand.css takes a click back");
+  for (const css of [brandCss, openingPlusCss]) assert.doesNotMatch(css, /animation[^;]*infinite/, "no animation runs for ever");
+  // Every keyframe changes transform or opacity alone — brand.css's and §85's.
+  for (const css of [brandCss, openingPlusCss]) {
+    for (const m of css.matchAll(/@keyframes\s+([\w-]+)\s*\{([\s\S]*?)\n\}/g)) {
+      const props = [...m[2].matchAll(/([a-z-]+)\s*:/g)].map((p) => p[1]).filter((p) => p !== "animation-timing-function");
+      for (const p of props) assert.ok(p === "transform" || p === "opacity", `@keyframes ${m[1]} animates ${p}`);
+    }
   }
+  // The calm version: nothing travels, turns or flies — its own keyframes change opacity alone.
+  for (const m of openingPlusCss.matchAll(/@keyframes\s+(intro-calm[\w-]*)\s*\{([\s\S]*?)\n\}/g)) {
+    assert.doesNotMatch(m[2], /transform/, `@keyframes ${m[1]} is a fade or a glow`);
+  }
+  assert.match(openingPlusCss, /\.intro-splash\.is-calm :is\(\.intro-door, \.intro-stage, \.intro-rig\) \{\s*animation: none !important;/, "the veil stays shut and the rig still");
+  // In the calm version, the rules outrank brand.css's reduced-motion block (.intro-splash * { animation: none !important }).
+  for (const m of uncommented(openingPlusCss).matchAll(/([^{}]+)\{([^{}]*animation:[^;]*!important;[^{}]*)\}/g)) {
+    const selector = m[1].trim();
+    assert.match(selector, /^\.intro-splash(\.is-calm)? /, `${selector}: more particular than ".intro-splash *"`);
+  }
+  // Only two things take a click: the catch that holds a person's stray one, and Skip.
+  const catching = [...uncommented(openingPlusCss).matchAll(/([^{}]+)\{[^{}]*pointer-events:\s*auto[^{}]*\}/g)].map((m) => m[1].trim()).sort();
+  assert.deepEqual(catching, [".intro-catch", ".intro-skip"]);
   // Opaque while it plays: the veil's halves are a sky of solid colours, and nothing
-  // fades the whole before its end but a key or a click.
+  // fades the whole before its end but Skip, Escape or (a session's opening) a key or a click.
   const door = rule(".intro-door");
   const stops = door.match(/background:\s*([^;]+);/)?.[1] ?? "";
   assert.ok(/radial-gradient|linear-gradient/.test(stops) && !/rgba|transparent|hsla/.test(stops), `the veil is opaque: ${stops}`);
   assert.match(openingCss, /@keyframes intro-failsafe\s*\{\s*0%,\s*99%\s*\{\s*opacity:\s*1;/, "the whole stays opaque until its very end");
-  // Less motion: the plain fade, every piece of the sequence still.
+  // A session's opening with less motion: the plain fade, every piece of the sequence still.
   const reduced = brandCss.slice(brandCss.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
   assert.match(reduced, /\.intro-splash,\s*\.intro-splash\.is-leaving\s*\{\s*animation:\s*intro-plain 900ms/);
   assert.match(reduced, /\.intro-splash \*\s*\{\s*animation:\s*none !important;/);
@@ -266,7 +371,7 @@ test("delight.css: small movement across the site — screen only, never under r
 
   const ALLOWED = new Set(["animation", "transition", "transition-duration", "transform", "box-shadow"]);
   const seen = new Set<string>();
-  for (const media of blocks(delightCss)) {
+  for (const media of blocks(siteCss)) {
     // Every rule sits in a block for the screen of somebody who does not ask for less motion.
     assert.match(media.prelude, /^@media screen and \(prefers-reduced-motion: no-preference\)/, media.prelude);
     for (const rule of blocks(media.body)) {
@@ -301,9 +406,14 @@ test("delight.css: small movement across the site — screen only, never under r
   assert.match(all, /\.btn[^\n]*:active/, "a press");
   assert.match(all, /\.stat-tile:hover/, "a tile lifting");
   assert.match(all, /\.app-nav a\.active::before/, "the sidebar's active item gliding");
-  const pageIn = delightCss.match(/\.app-content > \*\s*\{\s*animation:\s*([^;]+);/)?.[1] ?? "";
+  const pageIn = siteCss.match(/\.app-content > \*\s*\{\s*animation:\s*([^;]+);/)?.[1] ?? "";
   assert.ok(animationTimes(pageIn)[0] <= 200, `a page arrives within 200 ms: ${pageIn}`);
-  assert.doesNotMatch(delightCss, /pointer-events/, "nothing here changes what takes a click");
+  assert.doesNotMatch(siteCss, /pointer-events/, "nothing site-wide changes what takes a click");
+  // Section 6 is the opening's alone.
+  for (const b of blocks(openingPlusCss)) {
+    if (b.prelude.startsWith("@keyframes")) continue;
+    assert.match(b.prelude, /intro-/, `section 6 is about the opening: ${b.prelude}`);
+  }
 });
 
 test("the fonts are self-hosted woff2 files with their licences beside them, and light", () => {

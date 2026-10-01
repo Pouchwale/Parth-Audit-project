@@ -2,6 +2,8 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { FiMessageCircle, FiX } from "react-icons/fi";
 import { MitraComposer } from "../mitra/MitraComposer";
 import { MitraThread } from "../mitra/MitraThread";
+import type { MitraMessageView } from "../mitra/MitraMessage";
+import { attachmentNotes, attachmentsForResend, rememberAttachments, startTurn, stoppableContext, threadBefore } from "../mitra/messageActions";
 import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
 import { applyAssistantPatch, looksLikeEdit, parseLocalEdit } from "../../engine/recordPatch";
@@ -42,10 +44,13 @@ import {
   evidenceOptionsFor,
   historyForModel,
   historyWithRecordOpen,
+  keepIntent,
   prepareEvidence,
+  previousIntentIn,
   type AnalyticIntent,
   type CiteLink,
   type EvidencePack,
+  type KeptIntent,
 } from "../../engine/historyDigest";
 import { prepareScopedInsights } from "../../engine/scopedInsights";
 import { ASSISTANT_NAME, guide, openingMessage, type WaitingDocument } from "../../engine/assistantPersona";
@@ -123,6 +128,8 @@ interface ChatMessage {
   options?: string[];
   /** The model's own words, drawn with the light markdown Mitra writes (bold, bullets). */
   markdown?: boolean;
+  /** The question about history this message asked, as the dock took it (REQUIREMENTS §75) — what an edit further up builds on. */
+  intent?: KeptIntent;
   /** The agent is still working on this answer: the thinking line shows under it. */
   pending?: boolean;
 }
@@ -157,6 +164,31 @@ function documentOnPath(path: string): string | null {
 //     an external CAPA for me"). Said where no record is open, the assistant
 //     starts or opens the document first and carries on there
 //     (engine/assistantHandoff.ts). Neither ever submits anything.
+/**
+ * Why the open page offers no Submit (REQUIREMENTS §85): said as it is. A record already signed off,
+ * waiting for verification or sent back IS open — telling the person to "open the record" would send
+ * them looking for something they already have.
+ */
+function cannotSubmitWords(t: { title?: string; status?: string; reopen?: unknown } | null | undefined): string {
+  if (!t) return "This one can't be submitted from here — open the record and try again.";
+  const what = t.title ?? "This record";
+  // The record's own button, named as it is drawn (RecordActionBar: "Edit").
+  const edit = phrase("common.resumeEditing");
+  switch (t.status) {
+    case "Verified":
+      return t.reopen
+        ? `${what} is already verified — it has been signed off, so there is nothing to submit. To change it, reopen it for correction first (${edit}, on the record).`
+        : `${what} is already verified — it has been signed off, so there is nothing to submit, and it is kept as it was signed off.`;
+    case "Submitted":
+    case "Pending Verification":
+      return `${what} is already submitted and is waiting for verification.`;
+    case "Rejected":
+      return `${what} was sent back — press ${edit} on the record first, then submit it again.`;
+    default:
+      return `${what} can't be submitted as it stands${t.status ? ` (${t.status})` : ""}.`;
+  }
+}
+
 export function DocumentAssistant() {
   const { hasTarget, targetKind, targetDocumentId, targetSignature, getTarget } = useAssistantTarget();
   const { elRef, style: dragStyle, dragHandleProps, didJustDrag, reclamp } = useDraggable(WIDGET_POSITION_KEY);
@@ -1066,7 +1098,7 @@ export function DocumentAssistant() {
         me(chip.label);
         const tt = getTarget();
         if (!tt?.submit) {
-          bot("This one can't be submitted from here — open the record and try again.");
+          bot(cannotSubmitWords(tt));
           return;
         }
         bot(
@@ -1082,7 +1114,7 @@ export function DocumentAssistant() {
         me(chip.label);
         const tt = getTarget();
         if (!tt?.submit) {
-          bot("This one can't be submitted from here — open the record and try again.");
+          bot(cannotSubmitWords(tt));
           return;
         }
         const submit = tt.submit;
@@ -1543,22 +1575,74 @@ export function DocumentAssistant() {
     });
   const settleSteps = (msgId: string) => setMessages((m) => m.map((x) => (x.id === msgId && x.pending ? { ...x, pending: false } : x)));
 
-  const runAgent = async (text: string, spoken: boolean): Promise<"done" | Unreachable> => {
-    const ready = attachments.filter((a) => a.status !== "reading");
+  // ONE ANSWER BEING WAITED FOR, AND STOP (REQUIREMENTS §85): the busy
+  // composer shows Stop; pressing it answers no to a yes/no a tool is waiting
+  // on, says so in the chat, and frees the composer at once. `end` is safe to
+  // call twice — a stopped turn's own ending, arriving later, must not end the
+  // next turn's wait.
+  const stopRef = useRef<(() => void) | null>(null);
+  const beginWait = (onStopped: () => void) => {
+    const turn = startTurn();
+    let over = false;
+    const end = () => {
+      if (over) return;
+      over = true;
+      if (stopRef.current === stop) stopRef.current = null;
+      setLoading(false);
+      setThinking(null);
+    };
+    const stop = () => {
+      if (over) return;
+      turn.stop();
+      const waiting = pendingConfirmRef.current;
+      pendingConfirmRef.current = null;
+      waiting?.resolve(false);
+      onStopped();
+      end();
+    };
+    stopRef.current = stop;
+    setLoading(true);
+    return { turn, end };
+  };
+
+  // `edit` (REQUIREMENTS §85): an edited message sent as its turn again — its
+  // own files and the conversation before it; the message itself is already
+  // back in the chat (editMessage below), and the composer is not touched.
+  const runAgent = async (text: string, spoken: boolean, edit?: { files: MitraAttachment[]; earlier: ChatMessage[] }): Promise<"done" | Unreachable> => {
+    const ready = edit ? edit.files : attachments.filter((a) => a.status !== "reading");
     const speakReplies = settingsRepository.get().speakReplies;
     const readOut = (reply: string) => {
       if (spoken || speakReplies) speak(reply, speechLocale);
     };
+    // Kept in this tab, so an edit of this message goes with the same files' words.
+    rememberAttachments(ready);
     // The person's words, with their files, once — the fallback chain echoes nothing more.
-    setMessages((m) => [
-      ...m.map((x) => (x.chips || x.options ? { ...x, chips: undefined, options: undefined } : x)),
-      { id: generateId("msg"), role: "user" as const, text, attachments: ready.map((a) => ({ id: a.id, name: a.name, kind: a.kind, characters: a.characters })) },
-    ]);
+    if (!edit) {
+      setMessages((m) => [
+        ...m.map((x) => (x.chips || x.options ? { ...x, chips: undefined, options: undefined } : x)),
+        { id: generateId("msg"), role: "user" as const, text, attachments: attachmentNotes(ready) },
+      ]);
+      setAttachments([]);
+    }
     echoedRef.current = true;
-    setAttachments([]);
     pendingFormatRef.current = null;
     const stepsId = generateId("msg");
-    setLoading(true);
+    // Stopped: the steps so far stay (none left spinning), and the chat says it stopped. The rules'
+    // chain never runs after a stop, so nobody's words are waiting to be echoed: the next chip or button
+    // the person taps must show its own words (me()).
+    const { turn, end } = beginWait(() => {
+      echoedRef.current = false;
+      setMessages((m) => [
+        ...m.map((x) =>
+          x.id === stepsId
+            ? { ...x, pending: false, ...(x.steps ? { steps: x.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" as const } : s)) } : {}) }
+            : x.chips || x.options
+              ? { ...x, chips: undefined, options: undefined }
+              : x
+        ),
+        { id: generateId("msg"), role: "bot" as const, text: t("ai.agent.stopped") },
+      ]);
+    });
     setThinking(t("ai.thinking"));
     try {
       const ctx: MitraToolContext = {
@@ -1592,9 +1676,12 @@ export function DocumentAssistant() {
       const out = await runMitraTurn({
         text,
         attachments: ready,
-        history: historyForAgent(messages.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text }))),
-        ctx,
+        history: historyForAgent((edit ? edit.earlier : messages).map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text }))),
+        // Once stopped, a tool call the model still sends back fails at its first step.
+        ctx: stoppableContext(ctx, () => turn.stopped),
+        signal: turn.signal,
         onEvent: (e) => {
+          if (turn.stopped) return;
           if (e.type === "thinking") setThinking(t("ai.thinking"));
           else if (e.type === "step") {
             setThinking(e.status === "running" ? t("ai.working") : t("ai.thinking"));
@@ -1615,17 +1702,20 @@ export function DocumentAssistant() {
           }
         },
       });
+      // Stopped: the chat has said so already, and nothing the turn came to is shown.
+      if (turn.stopped) return "done";
       noteModelAnswered();
       echoedRef.current = false;
       if (out.navigated) autoOpenedRef.current = false;
       return "done";
     } catch (err) {
+      // Stopped: the person has moved on, and nothing answers in its place.
+      if (turn.stopped) return "done";
       // Thrown only while nothing was changed — the chain of rules below answers instead, and says why (§72).
       return noteModelFailed(err);
     } finally {
       settleSteps(stepsId);
-      setLoading(false);
-      setThinking(null);
+      end();
     }
   };
 
@@ -1698,22 +1788,30 @@ export function DocumentAssistant() {
   // ---- sending free text ---------------------------------------------------
   // `spoken` = the question came in by voice, so the answer is read back even
   // when "read replies aloud" is off.
-  const send = async (raw?: string, spoken = false) => {
+  //
+  // `edit` = an edited message sent as its turn again (REQUIREMENTS §85; see
+  // editMessage below). It is a NEW INSTRUCTION: nothing that was waiting for
+  // an answer — a yes/no, a reason, a walk-through's question — takes it; the
+  // message is already back in the chat, so the chain's own echo is skipped
+  // once; and the composer is left as it is.
+  const send = async (raw?: string, spoken = false, edit?: { files: MitraAttachment[]; earlier: ChatMessage[] }) => {
     const text = (raw ?? input).trim();
     if (!text || loading) return;
     autoOpenedRef.current = false;
-    setInput("");
-    setHint(null);
+    if (!edit) {
+      setInput("");
+      setHint(null);
+    }
     const t2 = getTarget();
     const speakReplies = settingsRepository.get().speakReplies;
     const readOut = (reply: string) => {
       if (spoken || speakReplies) speak(reply, speechLocale);
     };
-    echoedRef.current = false;
+    echoedRef.current = !!edit;
 
     // A tool's question waiting for its yes or no (REQUIREMENTS §80): the chip's own
     // words, or a plain yes/no typed or spoken — in English or Gujarati — answer it.
-    if (pendingConfirmRef.current) {
+    if (!edit && pendingConfirmRef.current) {
       const p = pendingConfirmRef.current;
       pendingConfirmRef.current = null;
       me(text);
@@ -1722,7 +1820,7 @@ export function DocumentAssistant() {
     }
 
     // A delete waiting for its reason: the next thing typed (or said) is it.
-    if (pendingDelete?.needsReason && t2?.remove && t2.recordId === pendingDelete.recordId) {
+    if (!edit && pendingDelete?.needsReason && t2?.remove && t2.recordId === pendingDelete.recordId) {
       me(text);
       const what = t2.title ?? "The record";
       setPendingDelete(null);
@@ -1733,7 +1831,7 @@ export function DocumentAssistant() {
 
     // A format change waiting for its yes (REQUIREMENTS §64): "yes" and "no" typed
     // or spoken answer it like the chips; anything else sets it aside.
-    if (pendingFormatRef.current) {
+    if (!edit && pendingFormatRef.current) {
       // A BARE yes. "ok, but put it before Remarks" is a new instruction, not a
       // go-ahead for the change as first worded — it sets the question aside below.
       if (/^(?:yes|yeah|yep|ok|okay|sure|go\s+ahead|do\s+it|save(?:\s+it)?)(?:\s+(?:please|pls|mitra))*[\s.!]*$/i.test(text)) {
@@ -1749,7 +1847,7 @@ export function DocumentAssistant() {
 
     // A fetch from HR Master Data waiting for a yes: "yes", "only the blanks" and
     // "no" answer it; anything else sets it aside.
-    const mf = masterFillRef.current;
+    const mf = edit ? null : masterFillRef.current;
     if (mf && t2 && mf.recordId === t2.recordId) {
       if (/^(?:only\b.*\bblank|just\b.*\bblank)/i.test(text)) {
         runAction({ label: text, action: { type: "confirmMasterFill", blanksOnly: true } });
@@ -1766,7 +1864,7 @@ export function DocumentAssistant() {
       masterFillRef.current = null;
     }
     // Asked "whose details?": the answer is the person, unless it is an instruction.
-    if (awaitingPersonRef.current && t2 && awaitingPersonRef.current === t2.recordId) {
+    if (!edit && awaitingPersonRef.current && t2 && awaitingPersonRef.current === t2.recordId) {
       awaitingPersonRef.current = null;
       if (!parseAssistantCommand(text, true, todayISO(), { strict: true }) && !/^(?:stop|cancel|no|never\s*mind|later)\b/i.test(text)) {
         me(text);
@@ -1775,7 +1873,7 @@ export function DocumentAssistant() {
       }
     }
 
-    if (awaitingSendBackReason && t2?.checklist) {
+    if (!edit && awaitingSendBackReason && t2?.checklist) {
       me(text);
       setAwaitingSendBackReason(false);
       const checklist = t2.checklist;
@@ -1784,7 +1882,7 @@ export function DocumentAssistant() {
       return;
     }
 
-    const g = guidedRef.current;
+    const g = edit ? null : guidedRef.current;
     if (g && t2?.checklist) {
       // An outright instruction — "submit this record", "print it", "delete
       // this" — is obeyed even mid-walk-through; anything else typed here is
@@ -1817,7 +1915,7 @@ export function DocumentAssistant() {
 
     // Mid-interview, what is typed is the answer to the question on screen —
     // unless it BEGINS with an instruction (submit, print, stop, skip …).
-    const iv = interviewRef.current;
+    const iv = edit ? null : interviewRef.current;
     if (iv && t2 && t2.recordId === iv.recordId) {
       // "fetch GP3 1024" said mid-interview fetches that person; a bare GP3 No.
       // or name is the answer to the question on screen.
@@ -1845,7 +1943,7 @@ export function DocumentAssistant() {
     // to it first — whatever the language — and the rules below are its fallback.
     let agentFailed: Unreachable | null = null;
     if (assistantConfigured() && modelReachable().ok) {
-      const outcome = await runAgent(text, spoken);
+      const outcome = await runAgent(text, spoken, edit);
       if (outcome === "done") return;
       agentFailed = outcome;
     }
@@ -1997,10 +2095,23 @@ export function DocumentAssistant() {
     // many traps are provided?" are about the sheet in front of them, and keep
     // its prompt (historyWithRecordOpen).
     const intent = read && (!t2 || historyWithRecordOpen(read, text)) ? read : null;
-    if (intent) lastIntentRef.current = intent;
+    if (intent) {
+      lastIntentRef.current = intent;
+      // Kept on the message that asked it, as the Ask Mitra page keeps it: an edit further up builds on the
+      // questions the dock really took, never on words it read as being about the open record.
+      const kept = keepIntent(intent);
+      setMessages((m) => {
+        for (let i = m.length - 1; i >= 0; i--) {
+          if (m[i].role !== "user") continue;
+          return m[i].text === text ? [...m.slice(0, i), { ...m[i], intent: kept }, ...m.slice(i + 1)] : m;
+        }
+        return m;
+      });
+    }
     // The conversation so far, so the model can read a follow-up (at most six turns).
-    const history = historyForModel(messages.map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text })));
-    setLoading(true);
+    const history = historyForModel((edit ? edit.earlier : messages).map((m) => ({ role: m.role === "bot" ? ("assistant" as const) : ("user" as const), text: m.text })));
+    // Stopped (REQUIREMENTS §85): said in one word, and the answer, when it comes, is not shown.
+    const { turn, end } = beginWait(() => bot(t("ai.agent.stopped")));
     try {
       let evidence: EvidencePack | null = null;
       if (intent) {
@@ -2012,6 +2123,7 @@ export function DocumentAssistant() {
           console.error("The evidence for this question could not be worked out", err);
         }
       }
+      if (turn.stopped) return;
       // The app's own answer for when the model cannot give one: what its tables
       // already say, else the same figures said plainly (§72) — with the records
       // they were read from.
@@ -2032,6 +2144,7 @@ export function DocumentAssistant() {
       try {
         // What stands out, for the live facts: worked out in slices before it is read.
         await prepareScopedInsights(isDemo).catch((err) => console.error("The insights could not be worked out", err));
+        if (turn.stopped) return;
         const result = await assistantApi.chat({
           message: text,
           today: todayISO(),
@@ -2044,6 +2157,7 @@ export function DocumentAssistant() {
           ...(evidence ? { evidence: evidence.text } : {}),
           ...(history.length ? { history } : {}),
         });
+        if (turn.stopped) return;
         if (result.action === "fill" && t2) {
           applyEdit(result.patch ?? {}, text, result.reply);
           readOut(result.reply);
@@ -2065,6 +2179,7 @@ export function DocumentAssistant() {
         // allowance may be used up (§75) — so rather than only reporting the
         // error the app answers from its own tables where it can, and says that
         // is what it did, and why.
+        if (turn.stopped) return;
         const why = noteModelFailed(err);
         if (fallback) {
           postOffline(fallback.reply, why, fallback.chips, fallbackCites);
@@ -2074,8 +2189,46 @@ export function DocumentAssistant() {
         }
       }
     } finally {
-      setLoading(false);
+      end();
     }
+  };
+
+  // EDIT (REQUIREMENTS §85). The person's message, changed and saved, is sent
+  // as that turn again: the chat is cut back to just before it, the message
+  // goes back in with its new words and its files, and the answer to it
+  // replaces everything that came after. It is a new instruction — whatever
+  // was waiting for an answer (a yes/no, a reason, a walk-through's next
+  // question) is set aside, as the part of the chat that asked it is gone or
+  // has moved on. Refused while an answer is on its way (Stop first).
+  const editMessage = (m: MitraMessageView, words: string): boolean => {
+    if (loading || !words) return false;
+    const earlier = threadBefore(messages, m.id);
+    if (!earlier) return false;
+    const files = attachmentsForResend(messages[earlier.length].attachments);
+    const waiting = pendingConfirmRef.current;
+    pendingConfirmRef.current = null;
+    waiting?.resolve(false);
+    pendingFormatRef.current = null;
+    masterFillRef.current = null;
+    awaitingPersonRef.current = null;
+    setPendingDelete(null);
+    setAwaitingSendBackReason(false);
+    setPickingDate(false);
+    guidedRef.current = null;
+    setGuided(null);
+    setIv(null);
+    autoOpenedRef.current = false;
+    // The follow-up memory is the last question about history the dock took that is still in the chat - not one
+    // the edit removed, and never words read again that it did not take as one (a question about the open sheet).
+    const asked = [...earlier].reverse().find((x) => x.role === "user" && x.intent !== undefined);
+    lastIntentRef.current = asked ? previousIntentIn([asked], todayISO()) : null;
+    setMessages([
+      ...earlier.map((x) => (x.chips || x.options ? { ...x, chips: undefined, options: undefined } : x)),
+      { id: generateId("msg"), role: "user", text: words, ...(files.length ? { attachments: attachmentNotes(files) } : {}) },
+    ]);
+    void send(words, false, { files, earlier });
+    inputRef.current?.focus();
+    return true;
   };
 
   const toggleListening = () => {
@@ -2220,6 +2373,8 @@ export function DocumentAssistant() {
             onCite={(route) => {
               if (isValidAppRoute(route)) navigate(route);
             }}
+            onEdit={editMessage}
+            editLocked={loading}
             style={{ flex: "1 1 auto", minHeight: 120, overflowY: "auto", padding: 14 }}
           >
             {pickingDate && (
@@ -2251,6 +2406,7 @@ export function DocumentAssistant() {
             onChange={setInput}
             onSend={() => void send()}
             busy={loading}
+            onStop={loading && stopRef.current ? () => stopRef.current?.() : undefined}
             attachments={attachments}
             onAttach={(files, source) => attach(files, source === "folder")}
             onRemoveAttachment={removeAttachment}

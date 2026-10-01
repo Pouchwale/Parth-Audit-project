@@ -442,6 +442,39 @@ Seven scripts live in `tests/`:
   `backend/tests/workingHours.test.ts` (the gate with a clock the test sets, the super admin exempt, the off switch, the session's
   end, the /api/v1 routes), `backend/tests/accessRoutes.test.ts` (38: refusals, pairing sign-ins with sign-outs, "signed in now",
   paging, CSV), `frontend/tests/intro.test.ts`.
+- **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
+  1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
+  Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message
+  replaced and the stored conversation cut back, the turn's files sent again, Stop, a late answer or tool call after Stop
+  ignored — on the agent path with the model mocked at the network edge, and on the rules path),
+  `tests/e2e_mobile_mitra_api.py` (product server: a QC account starts a QC sheet, fills every required box with one patch in
+  Mitra's shape, submits it; a change to the submitted record refused until reopened; the super admin verifies it; the history
+  and the activity log say "Through Mitra mobile app"; department and HR refusals; search, the record's PDF, figures, today's
+  work) and `tests/e2e_tour.py` (product server, with navigator.webdriver switched off so the tour starts by itself: staff and
+  super admin steps on their real targets, Next / Back / Skip / Escape, "Don't show this again" kept on another browser for the
+  same person, "Take the tour"). Changed: `tests/e2e_intro_and_fonts.py` (the opening on a fresh load, a reload and after
+  signing out; held for a person until Skip or Escape; the calm version; the automation path), `tests/e2e_voice_and_sounds.py`
+  (the voice chosen from Chrome's real list, the rate, one sentence at a time, the text made for the ear, the voice card, the
+  GET status), `tests/e2e_qc_formats.py` (F/QC/15-B), and the document counts (117). Unit tests:
+  `frontend/tests/mitraCopyEdit.test.ts`, `frontend/tests/tour.test.ts`, `frontend/tests/intro.test.ts`,
+  `frontend/tests/voice.test.ts`, `backend/tests/apiV1Records.test.ts` (16: every route answered by DCRS's own engine — on a
+  record of the latest working day, or one Mitra's sample fill fills, so they pass on any weekday), `backend/tests/
+  engineHost.test.ts` (the bundle kept fresh, the department scope, other departments' records left byte for byte, a stopped
+  worker started again), `backend/tests/tts.test.ts`. The mobile app's own repository has 191 tests (vitest), 57 of them its DCRS
+  connector against a stand-in DCRS.
+  After the review of 1-Oct-2026 (REQUIREMENTS §85 "Found in review"): `voice.test.ts` holds the comparisons, rates,
+  scores and codes made for the ear, a quote mark against a ">" that starts a line, and the speech watchdog (a sentence
+  still being said is not cut off, one that never ends gives way, only the last ends the reply — mock timers);
+  `apiV1Records.test.ts` sends a photo one byte over 512 KB, one of exactly 512 KB and an unscaled 3 MB one (the route's own
+  "too-large" answer). The browser suites no longer assume the date: `e2e_smoke.py` (the calendar and the rodent register's
+  latest month on a month's first days), `e2e_trend_reports.py` (F/HR/18's lines from the visits on file in the month
+  shown), `e2e_assistant_fill.py` and `e2e_hr_module.py` (New on F/HR/01's due date opens its signed-off review — Mitra
+  says so, and the blank register is started for the day before), `e2e_format_numbers.py` (New on F/QC/11's due date, the
+  1st, opens its record for the day rather than a second one). `e2e_mobile_mitra_api.py` and `e2e_audit_assistant_api.py`
+  look for the download's activity line for up to five seconds: it is written as the file goes out, not before. `e2e_intro_and_fonts.py`'s 6x-throttle check found the
+  opening drawn twice when the server's public answer arrived (a task of up to 290 ms, in every play); it is drawn once now,
+  and the check takes the best of five plays, not three — this 2-core i3's own software drawing at 6x still goes over
+  100 ms in about 2 plays of 5, which failed one full run in eleven.
 - Unit tests for Mitra as an agent: `frontend/tests/mitraTools.test.ts` (the tools against seeded records — a bad
   route refused, F/HR/17 found, today's record started, a patch applied through a fake open record with the "Asked of
   Mitra" note, records listed and searched, figures for a history question, ask_user ending the turn, the schema set

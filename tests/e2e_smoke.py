@@ -298,7 +298,17 @@ def main():
         page.click("text=Record Calendar")
         page.wait_for_timeout(300)
         check("Demo mode banner visible", "DEMO MODE" in page.content())
-        check("Demo calendar shows completed (filled) records, not blank shells", "Completed" in page.content())
+        calendar_html = page.content()
+        if "Completed" not in calendar_html and date.today().day <= 3:
+            # The first days of a month hold nothing finished yet: the demo year so far ends with the days already
+            # past, so on 1-Oct-2026 (also the weekly off) October showed only blank shells. Last month is the
+            # demo data's latest full month - look there (the button just after the month picker goes back one).
+            back = page.locator("select + button.btn-icon").first
+            if back.count():
+                back.click()
+                page.wait_for_timeout(300)
+                calendar_html = page.content()
+        check("Demo calendar shows completed (filled) records, not blank shells", "Completed" in calendar_html)
 
         # ---- 6b. Rodent catch pattern, in the company's own report layout ----
         # The demo year's Daily Pest Control Monitoring Records follow the
@@ -340,9 +350,33 @@ def main():
         )
         this_year = trend_row(date.today().year)
         current_month_index = date.today().month - 1
+        # The latest month the digital register holds is this month as soon as one of its days is filled in
+        # (selectors.ts dailyRecordFilled: not a holiday, a checkpoint answered). Before that - a month's first day,
+        # the weekly off, as on 1-Oct-2026 - it is last month; in January, last year's December.
+        filled_this_month = page.evaluate(
+            """() => {
+                 const now = new Date();
+                 const pad = (n) => String(n).padStart(2, '0');
+                 const prefix = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-`;
+                 const today = `${prefix}${pad(now.getDate())}`;
+                 return JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').some((r) =>
+                   r.documentId === 'daily-pest-monitoring' && r.isDemo && String(r.dueDate || '').startsWith(prefix) && r.dueDate <= today
+                   && r.data && !r.data.isHoliday
+                   && Object.values(r.data.checkpoints || {}).some((c) => c && c.value !== null && c.value !== undefined && c.value !== ''));
+               }"""
+        )
+        tinted_now = (this_year or {}).get("tinted") or []
+        if filled_this_month:
+            held_from_register = current_month_index in tinted_now
+        elif current_month_index == 0 and not tinted_now:
+            last_year = trend_row(date.today().year - 1)
+            held_from_register = last_year is not None and 11 in last_year["tinted"]
+        else:
+            held_from_register = bool(tinted_now) and max(tinted_now) >= current_month_index - 1
         check(
             "This year's months held by the digital register are added up from it (tinted), not copied from paper",
-            this_year is not None and current_month_index in this_year["tinted"],
+            this_year is not None and held_from_register,
+            (tinted_now, "a day of this month is filled in" if filled_this_month else "no day of this month filled in yet"),
         )
         if date.today().month < 12:
             check("A month that hasn't happened yet is left blank, as on the paper report", this_year is not None and this_year["cells"][4 + date.today().month] == "")
@@ -639,7 +673,7 @@ def main():
         page.click("text=Document Library")
         page.wait_for_timeout(300)
         rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-        check("Document Library lists all 116 documents", rows.count() == 116, rows.count())
+        check("Document Library lists all 117 documents", rows.count() == 117, rows.count())
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)

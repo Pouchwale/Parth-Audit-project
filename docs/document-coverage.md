@@ -1,15 +1,16 @@
 # Document coverage: DCRS against the Master List of Formats (F/SYS/02)
 
 Checked on 30-Sep-2026 (REQUIREMENTS §84), from the owner's request: "check each and every module whether all the
-documents according to the PDF are present or not; if not, ask me and I will share them."
+documents according to the PDF are present or not; if not, ask me and I will share them." Updated the same day when
+F-QC-15-B, the punching line clearance, was built from the paper found on your computer (REQUIREMENTS §85).
 
 ## In short
 
-- The master list you shared today lists **135 formats** across ten departments. **DCRS has 88 of them.** One more
-  (F-QC-15-B, the punching line clearance) is already on your computer but was never built. **45 have not been
-  supplied yet**, and one (F-QC-41) is marked obsolete on the list itself.
+- The master list you shared today lists **135 formats** across ten departments. **DCRS has 89 of them**, F-QC-15-B
+  (the punching line clearance) included: its paper was on your computer but never built, and it was built on
+  30-Sep-2026 (§85). **45 have not been supplied yet**, and one (F-QC-41) is marked obsolete on the list itself.
 - **Complete:** System / Management (16 of 16), Store (2 of 2) and Maintenance (11 of 11).
-- **Nearly complete:** Human Resources (18 of 22), Quality Control (29 of 40), Purchase (5 of 6), Marketing (3 of 4),
+- **Nearly complete:** Human Resources (18 of 22), Quality Control (30 of 40), Purchase (5 of 6), Marketing (3 of 4),
   Dispatch (2 of 3).
 - **The big gap is Production:** 2 of its 30 formats are in DCRS (the two lamination registers). Quality Assurance's
   one format (F-QA-01) is not in DCRS either.
@@ -34,9 +35,10 @@ documents according to the PDF are present or not; if not, ask me and I will sha
    differ" below). Its other sheet, "GPPL - Formats list (2)", is an older copy that also has five un-numbered
    lines (F-QC-18, 19, 20, 22 and 25). DCRS keeps the workbook's 141 lines as its F/SYS/02 record (`FORMAT_LINES`
    in `frontend/src/data/seed/sysDocumentControlLayouts.ts`).
-4. **DCRS's documents:** the 116 definitions in `frontend/src/data/seed/documentDefinitions.ts` (id, name, format
+4. **DCRS's documents:** the 117 definitions in `frontend/src/data/seed/documentDefinitions.ts` (id, name, format
    number, revision). Each one's department comes from `frontend/src/data/seed/documentDepartments.ts`.
-5. **What you supplied:** the 91 files in `source-documents/`, and what `docs/REQUIREMENTS.md` records about every
+5. **What you supplied:** the 92 files in `source-documents/` (the 91 of the first check, and the F-QC-15-B paper
+   copied there from your Downloads folder when it was built), and what `docs/REQUIREMENTS.md` records about every
    paper sent and what was built from it (searched for every format number). To make sure nothing sent was
    missed, the format files in your Downloads folder were checked as well. Nothing there was changed.
 
@@ -55,13 +57,13 @@ Format numbers are written in many ways on the papers: F/HR/17, F-HR-17, F/QC-09
 | Marketing (MKT) | 4 | 3 | 0 | 1 | 0 |
 | Purchase (PUR) | 6 | 5 | 0 | 1 | 0 |
 | Store (STR) | 2 | 2 | 0 | 0 | 0 |
-| Quality Control (QC) \* | 40 | 29 | 1 | 9 | 1 |
+| Quality Control (QC) \* | 40 | 30 | 0 | 9 | 1 |
 | Quality Assurance (QA) | 1 | 0 | 0 | 1 | 0 |
 | Production (PRD) | 30 | 2 | 0 | 28 | 0 |
 | Maintenance (MNT) | 11 | 11 | 0 | 0 | 0 |
 | Human Resources (HR) | 22 | 18 | 0 | 4 | 0 |
 | Dispatch (DISP) | 3 | 2 | 0 | 1 | 0 |
-| **Total** | **135** | **88** | **1** | **45** | **1** |
+| **Total** | **135** | **89** | **0** | **45** | **1** |
 
 \* Quality Control includes QA-PRO-FL-CCT-01, the Camera Challenge Test (list line 99). Its number has no
 department code; DCRS files it under Quality Control.
@@ -69,7 +71,7 @@ department code; DCRS files it under Quality Control.
 **Lines only in the workbook** (not on the PDF): Marketing has 2 more (F-MKT-05 and F-MKT-06, both in DCRS) and
 Production has 4 more (F-PRD-27 to F-PRD-30, not supplied yet).
 
-**The other way round:** DCRS holds 116 documents. 90 of them are formats on the list (F-QC-15 and F-MNT-05 each
+**The other way round:** DCRS holds 117 documents. 91 of them are formats on the list (F-QC-15 and F-MNT-05 each
 have two DCRS documents). The other 26 are not on the PDF list; they are explained in "DCRS documents that are not
 on the master list" below.
 
@@ -79,7 +81,8 @@ What the status words mean:
 
 - **In DCRS**: the document's id in DCRS, its name as DCRS shows it, and its revision. DCRS uses the name printed on
   the form itself, which is sometimes worded differently from the list.
-- **Supplied but not built**: the paper exists among what you sent, but no document was made from it.
+- **Supplied but not built**: the paper exists among what you sent, but no document was made from it. (None now:
+  the one there was, F-QC-15-B, was built on 30-Sep-2026.)
 - **Not supplied yet**: there is no paper for it in `source-documents/`, in REQUIREMENTS or in your Downloads folder.
 - **Obsolete on the list**: the list itself marks it obsolete.
 
@@ -153,7 +156,7 @@ What the status words mean:
 | 42 | F-QC-14 | TEST RELIABILITY RECORD | **Not supplied yet.** |
 | 43 | F-QC-15 | Area Line Clearance format | **In DCRS** as `qc-line-clearance-materials` "Line Clearance — Materials (લાઈન કિલયરન્સ)", Rev TO BE CONFIRMED and `qc-line-clearance-quality` "Line Clearance — Quality (ક્વોલીટી શહી)", Rev TO BE CONFIRMED. The Gujarati checklist prints no number, so DCRS still shows "TO BE CONFIRMED" (§57), but its photograph is saved on your computer as "F-QC-15 Line Clearance format (2).jpg", so it is very likely F-QC-15. Please confirm. |
 | 44 | F-QC-15 - A | Area Line Clearance - PRINTING | **In DCRS** as `qc-line-clearance-printing` "Area Line Clearance Report - Printing", Rev 00 |
-| 45 | F-QC-15 - B | Area Line Clearance - PUNCHING | **Supplied but not built.** The paper is on your computer: "F-QC-15-A-G Line Clearance Punching - Printing.pdf" in your Downloads folder, saved on 18-Sep-2026 with the other QC papers. It prints "AREA LINE CLEARANCE REPORT - PUNCHING", Format no. F/QC/15-B, Rev 00, effective 16.02.2022. REQUIREMENTS §57 says 15-B was not supplied, and the file is not in source-documents/, so it was probably never sent. No need to ask for it: just confirm it can be used. |
+| 45 | F-QC-15 - B | Area Line Clearance - PUNCHING | **In DCRS** as `qc-line-clearance-punching` "Area Line Clearance Report - Punching", Rev 00. Built on 30-Sep-2026 (§85) from "F-QC-15-A-G Line Clearance Punching - Printing.pdf", which was in your Downloads folder, saved on 18-Sep-2026 with the other QC papers but never sent (§57 listed 15-B as not supplied); the paper is now in source-documents/ and its page is shown beside the form. It prints "AREA LINE CLEARANCE REPORT - PUNCHING", Format no. F/QC/15-B, Rev 00, effective 16.02.2022. |
 | 46 | F-QC-15 - C | Area Line Clearance - QC MACHINE INSPECTION | **In DCRS** as `qc-line-clearance-qc-machine` "Area Line Clearance Report - QC Machine Inspection", Rev 00 |
 | 47 | F-QC-15 - D | Area Line Clearance - QC MANUAL INSPECTION | **In DCRS** as `qc-line-clearance-qc-manual` "Area Line Clearance Report - QC Manual Inspection", Rev 00 |
 | 48 | F-QC-15 - E | Area Line Clearance - SLITTING | **In DCRS** as `qc-line-clearance-slitting` "Area Line Clearance Report - Slitting", Rev 00 |
@@ -409,8 +412,9 @@ Please send the paper for each of these 49 formats: the blank format, and a fill
 
 ### Not to send, only to confirm
 
-1. **F-QC-15 - B, Area Line Clearance - Punching.** The paper is already in your Downloads folder as
-   "F-QC-15-A-G Line Clearance Punching - Printing.pdf" (F/QC/15-B, Rev 00, 16.02.2022). May it be built from that file?
+1. **F-QC-15 - B, Area Line Clearance - Punching.** Built on 30-Sep-2026 from the paper in your Downloads folder,
+   "F-QC-15-A-G Line Clearance Punching - Printing.pdf" (F/QC/15-B, Rev 00, 16.02.2022). Only say so if that paper is
+   not the one in use.
 2. **F-QC-15, Area Line Clearance format.** Are the two Gujarati line clearance checklists in DCRS (materials and
    quality) this format? Their photograph is saved as "F-QC-15 Line Clearance format (2).jpg", but the paper prints
    no number.

@@ -55,6 +55,22 @@ export interface AppSettings {
   spokenToday: { date: string; keys: string[] };
   /** Which celebrations were already shown today (all done, a streak day, an achievement). Not handed on. */
   celebratedToday: { date: string; keys: string[] };
+  /**
+   * THE GUIDED TOUR (REQUIREMENTS §85, components/tour): per person, under the
+   * account's own id — `off`: "Don't show this again"; `startedOn`: the day it last
+   * started by itself (once a day, on the first Dashboard visit). Keyed by the id
+   * because a plant computer hands one person's settings on to the next person who
+   * signs in there for the first time (data/serverSync.ts): the next person must
+   * still get their tour. Read and written only through tourFor / markTourStarted /
+   * setTourOff, which keep the signed-in person's entry alone.
+   */
+  tour: Record<string, TourFlags>;
+}
+
+/** One person's guided-tour flags (AppSettings.tour). */
+export interface TourFlags {
+  off?: boolean;
+  startedOn?: string;
 }
 
 const KEY = "settings";
@@ -88,7 +104,15 @@ const DEFAULTS: AppSettings = {
   remindEveryMin: 45,
   spokenToday: { date: "", keys: [] },
   celebratedToday: { date: "", keys: [] },
+  tour: {},
 };
+
+/** A person's tour flags as stored — anything malformed reads as nothing set. */
+function tourFlagsOf(tour: unknown, personId: string): { off: boolean; startedOn: string | null } {
+  const own = tour && typeof tour === "object" && !Array.isArray(tour) ? (tour as Record<string, unknown>)[personId] : undefined;
+  const flags = own && typeof own === "object" ? (own as TourFlags) : {};
+  return { off: flags.off === true, startedOn: typeof flags.startedOn === "string" && flags.startedOn ? flags.startedOn : null };
+}
 
 export const settingsRepository = {
   get(): AppSettings {
@@ -154,5 +178,27 @@ export const settingsRepository = {
     if (keys.includes(key)) return;
     const { liveStartDate: _floor, ...own } = s;
     writeJSON(KEY, { ...own, [list]: { date: dateISO, keys: [...keys, key].slice(-200) } });
+  },
+  /** The signed-in person's guided-tour flags (REQUIREMENTS §85). */
+  tourFor(personId: string): { off: boolean; startedOn: string | null } {
+    return tourFlagsOf(this.get().tour, personId);
+  },
+  /** The tour started by itself today for this person — it does not again until tomorrow. */
+  markTourStarted(personId: string, dateISO: string): void {
+    this.writeTour(personId, { startedOn: dateISO });
+  },
+  /** "Don't show this again", ticked (true) or taken back (false). "Take the tour" still runs it either way. */
+  setTourOff(personId: string, off: boolean): void {
+    this.writeTour(personId, { off });
+  },
+  /** Only the person's own entry is kept: one handed on from somebody else's settings is dropped on the first write. */
+  writeTour(personId: string, patch: TourFlags): void {
+    if (!personId) return;
+    const s = this.get();
+    const now = tourFlagsOf(s.tour, personId);
+    const next: TourFlags = { ...(now.off ? { off: true } : {}), ...(now.startedOn ? { startedOn: now.startedOn } : {}), ...patch };
+    if (next.off === false) delete next.off;
+    const { liveStartDate: _floor, ...own } = s;
+    writeJSON(KEY, { ...own, tour: { [personId]: next } });
   },
 };

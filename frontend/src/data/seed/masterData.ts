@@ -266,6 +266,7 @@ export const SEED_MASTER_DATA: MasterData = {
     "qc-starch-powder": "QA Inspector",
     "qc-sheet-pasting-powder": "QA Inspector",
     "qc-line-clearance-printing": "QA Inspector",
+    "qc-line-clearance-punching": "QA Inspector",
     "qc-line-clearance-qc-machine": "QA Inspector",
     "qc-line-clearance-qc-manual": "QA Inspector",
     "qc-line-clearance-slitting": "QA Inspector",

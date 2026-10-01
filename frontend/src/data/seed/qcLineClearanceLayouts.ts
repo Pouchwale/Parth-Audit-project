@@ -6,10 +6,12 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 // Clearance definition and the area's numbered checklist as printed
 // instructions, and the twelve-column register of job changeovers.
 //
-// All six carry "Rev. no. - 00" and "Effective date : 16.02.2022":
+// All seven carry "Rev. no. - 00" and "Effective date : 16.02.2022":
 //
 //   F/QC/15-A (00 / 16.02.2022)  AREA LINE CLEARANCE REPORT -  PRINTING
 //     — "F-QC-15-A-G Line Clearance Printing Printing.pdf"
+//   F/QC/15-B (00 / 16.02.2022)  AREA LINE CLEARANCE REPORT -  PUNCHING
+//     — "F-QC-15-A-G Line Clearance Punching - Printing.pdf" (REQUIREMENTS §85)
 //   F/QC/15-C (00 / 16.02.2022)  AREA LINE CLEARANCE REPORT -  QC MACHINE INSPECTION
 //     — "F-QC-15-A-G Line Clearance Quality inspection - Printing.pdf"
 //   F/QC/15-D (00 / 16.02.2022)  AREA LINE CLEARANCE REPORT -  QC MANUAL INSPECTION
@@ -21,8 +23,12 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 //   F/QC/15-G (00 / 16.02.2022)  AREA LINE CLEARANCE REPORT -  SHRINK SLEEVE CUTTING
 //     — "Copy of F-QC-15-A-G Line Clearance - Printing (2).pdf"
 //
-// F/QC/15-B was NOT supplied with this upload, so there is no layout for it
-// here; the series runs A, C, D, E, F, G.
+// F/QC/15-B was not sent with the upload of 18-Sep-2026 (§57 recorded it as not
+// supplied), although its paper was saved that day with the others; it was
+// built from that paper on 30-Sep-2026 (§84's coverage check, §85), so the
+// series now runs A to G. It is the only one whose page is shown beside it
+// (`originalPages`, frontend/public/source/fqc15b-*.jpg; the paper itself is in
+// source-documents/).
 //
 // Every title, heading, checklist item and printed instruction is the paper's
 // own wording — spacing, punctuation and numbering included. Where the paper
@@ -48,7 +54,7 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 //     label, so the box reads as it does on the form; the value itself is
 //     typed in and carries forward from the previous sheet.
 
-/** Printed above the grid on every one of the six, verbatim (the paper's own spacing). */
+/** Printed above the grid on every one of the seven, verbatim (the paper's own spacing). */
 const LINE_CLEARANCE_NOTE =
   "Line Clearance * :  Activity to make sure a production line & its processing area are completely cleared of any material from the previous process";
 
@@ -96,12 +102,16 @@ const clearanceColumns = (): LogColumn[] => [
  * so they are deliberately left out of the specimen — the assistant must never
  * write them onto a real sheet. Only the dates, the time and the Done are kept,
  * and the signature columns are blank on the template, so they stay blank.
- * The three lines differ only in the starting date (the third starts a day later).
+ * The time and the Done are printed on the FIRST line only — lines two and
+ * three carry nothing but their completion and starting dates (the third
+ * starts a day later). All seven papers print exactly these three lines, and
+ * until 30-Sep-2026 lines two and three here carried the first line's time and
+ * Done as well, which no paper prints; they now read as the papers do.
  */
 const templateExampleLines = (): Record<string, string | number | null>[] => [
   { completionDate: "2022-02-03", completionTime: "11.00 AM", lineClearance: "Done", startingDate: "2022-02-03" },
-  { completionDate: "2022-02-03", completionTime: "11.00 AM", lineClearance: "Done", startingDate: "2022-02-03" },
-  { completionDate: "2022-02-03", completionTime: "11.00 AM", lineClearance: "Done", startingDate: "2022-02-04" },
+  { completionDate: "2022-02-03", startingDate: "2022-02-03" },
+  { completionDate: "2022-02-03", startingDate: "2022-02-04" },
 ];
 
 /** Lines are added as changeovers happen — the form is a register, not a fixed list. */
@@ -125,6 +135,32 @@ export const QC_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
     rowMode: REGISTER,
     specimenRows: templateExampleLines(),
     specimenSource: `F-QC-15-A-G Line Clearance Printing Printing.pdf — F/QC/15-A (00/16.02.2022), ${exampleLinesNote}`,
+  } satisfies LogSheetLayout,
+
+  // ---- F/QC/15-B — AREA LINE CLEARANCE REPORT -  PUNCHING ----
+  // Built on 30-Sep-2026 (REQUIREMENTS §85) from "F-QC-15-A-G Line Clearance
+  // Punching - Printing.pdf" — one page, one sheet, no other lettered sheet in
+  // the file. The same form as its six siblings: the same title line, note,
+  // twelve columns and three example lines; its own checklist of four, which
+  // runs (1) to (4) with no gap and no doubled space, and a machine box with
+  // the full twenty-underscore rule, as 15-A's.
+  "qc-line-clearance-punching": {
+    documentId: "qc-line-clearance-punching",
+    instructions: printedAboveGrid(
+      "PUNCHING",
+      "(1) Die of Previous Job removed ? (2) Die of Current / New Job changed ? (3) Matrix Roll (Wastage) of previous job removed ? (4) Finished Punching Rolls of Previous Production order shifted to designated place ?",
+    ),
+    headerFields: machineBox("PUNCHING MACHINE NAME : - ____________________"),
+    columns: clearanceColumns(),
+    rowMode: REGISTER,
+    specimenRows: templateExampleLines(),
+    specimenSource: `F-QC-15-A-G Line Clearance Punching - Printing.pdf — F/QC/15-B (00/16.02.2022), ${exampleLinesNote}`,
+    originalPages: [
+      {
+        src: "/source/fqc15b-line-clearance-punching-p1.jpg",
+        caption: "F/QC/15-B (Rev. no. - 00, Effective date : 16.02.2022) — Area Line Clearance Report - Punching, the blank format as supplied",
+      },
+    ],
   } satisfies LogSheetLayout,
 
   // ---- F/QC/15-C — AREA LINE CLEARANCE REPORT -  QC MACHINE INSPECTION ----

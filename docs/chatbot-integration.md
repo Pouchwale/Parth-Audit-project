@@ -1,8 +1,10 @@
-# Connecting the Audit Assistant to DCRS
+# Connecting the Mitra mobile app (the Audit Assistant) to DCRS
 
 This is the hand-off for the Audit Assistant's developer. It says how the assistant signs people in with their DCRS accounts, which DCRS calls it may make, and what must change on the assistant's side so both applications can share one PostgreSQL database. Everything here was checked against a working DCRS and a throwaway copy of its database on 29–30 September 2026.
 
-DCRS is the Digital Controlled Record System in this repository. The Audit Assistant is the chat and voice app at `github.com/Pouchwale/Parth-Audit-chatbot`.
+DCRS is the Digital Controlled Record System in this repository. The Audit Assistant is the chat and voice app at `github.com/Pouchwale/Parth-Audit-chatbot`. On 30 September 2026 its owner renamed the app and its server **Mitra**, the Mitra mobile app, after DCRS's own assistant. The parts written before then still say "the assistant".
+
+The mobile app can now do what Mitra does in DCRS: find documents, say what is due today, open today's record, fill it, submit it, verify it, and print it. That part is [What Mitra does, from the mobile app](#what-mitra-does-from-the-mobile-app) (REQUIREMENTS §85).
 
 ## The rules both applications keep
 
@@ -28,10 +30,10 @@ The assistant's server calls DCRS directly. Use the DCRS server's address on the
 Every call the assistant makes must carry this header:
 
 ```http
-X-Client-Name: Audit Assistant
+X-Client-Name: Mitra mobile app
 ```
 
-DCRS writes that name into its own audit trail next to the person. A change made through the API appears in the record's history as "Through Audit Assistant: <the note>", and in DCRS's activity log with the same words. Without the header, DCRS writes "Through DCRS API". The name is cut to 40 printable characters.
+DCRS writes that name into its own audit trail next to the person. A change made through the API appears in the record's history as "Through Mitra mobile app: <the note>", and in DCRS's activity log with the same words. (Before the app was renamed it sent `Audit Assistant`; the sample answers of the CAPA close below still show that name.) Without the header, DCRS writes "Through DCRS API". The name is cut to 40 printable characters.
 
 The full description of every route is in [docs/api/dcrs-api.openapi.json](api/dcrs-api.openapi.json) (OpenAPI 3.1). A running DCRS also serves it, without sign-in, at `GET /api/v1/openapi.json`.
 
@@ -42,7 +44,7 @@ People sign in to the assistant with their DCRS email address and password. The 
 ```http
 POST /api/auth/login
 Content-Type: application/json
-X-Client-Name: Audit Assistant
+X-Client-Name: Mitra mobile app
 
 {"email": "kajal.shah@gpp.local", "password": "..."}
 ```
@@ -87,7 +89,7 @@ Map `429` to `forbidden` so the person sees DCRS's own words. As `unavailable`, 
 ```http
 GET /api/v1/me
 Authorization: Bearer <token>
-X-Client-Name: Audit Assistant
+X-Client-Name: Mitra mobile app
 ```
 
 ```json
@@ -116,6 +118,8 @@ Every call below answers JSON unless it says otherwise. READ calls change nothin
 | READ | `GET /api/v1/pest-control/daily-report?date=` | The daily pest control report as a PDF |
 | READ | `GET /api/v1/pest-control/daily-report/summary?date=` | The same report as data |
 
+The calls for what Mitra does are listed in [What Mitra does, from the mobile app](#what-mitra-does-from-the-mobile-app). They find and read documents and records, and open, change and act on records.
+
 ### Errors
 
 Every refusal has the same shape: a sentence that is safe to show the person, and a code for the program.
@@ -132,6 +136,8 @@ Every refusal has the same shape: a sentence that is safe to show the person, an
 | 404 | `not-found`, `no-report`, `no-such-route` | `not_found` |
 | 409 | `already-closed`, `report-verified`, `report-sent-back`, `report-locked`, `busy` | `conflict` |
 | 503, 504 | `pdf-unavailable`, `pdf-timeout`, or the database unavailable | `unavailable` |
+
+The calls for what Mitra does add a few codes of their own. They are listed in [The new refusals](#the-new-refusals).
 
 ### CAPA findings
 
@@ -193,7 +199,7 @@ Newest reports come first. `total` counts every match before paging.
 ```http
 POST /api/v1/findings/CAPA-2023-12-13-2/close
 Authorization: Bearer <token>
-X-Client-Name: Audit Assistant
+X-Client-Name: Mitra mobile app
 Content-Type: application/json
 
 {"note": "Rodent box numbers painted on the walls as per the layout."}
@@ -315,6 +321,8 @@ Use these names and inputs. The shared database's overview reads them back throu
 | `get_pest_control_report` | read | `{ date: string }` (`YYYY-MM-DD`) | `GET /api/v1/pest-control/daily-report`, handed over as a file |
 | `get_pest_control_report_summary` | read | `{ date: string }` | `GET /api/v1/pest-control/daily-report/summary` |
 
+The actions for what Mitra does are listed in [Mitra's tools and the routes](#mitras-tools-and-the-routes).
+
 A few points on how the actions behave:
 - **Ids.** Put a finding's `ref` in `id` when the assistant has it, from an earlier list or get. Otherwise put the readable id the person said.
 - **Describing a close.** `describe()` for `close_finding` should read like "Close CAPA finding CAPA-2023-12-13-2 with the note: ...".
@@ -323,7 +331,7 @@ A few points on how the actions behave:
 A sketch of the connector, for orientation. It is not code from DCRS.
 
 ```ts
-const client = 'Audit Assistant';
+const client = 'Mitra mobile app';
 
 async function call(baseUrl: string, token: string, path: string, init: RequestInit = {}) {
   const res = await fetch(new URL(path, baseUrl), {
@@ -358,6 +366,349 @@ async authenticate(username, password) {
   return { externalId: me.id, username: me.email, displayName: me.name, credentials: { token }, expiresAt: endsAt && !Number.isNaN(endsAt.getTime()) ? endsAt : new Date(Date.now() + 8 * 60 * 60 * 1000) };
 }
 ```
+
+## What Mitra does, from the mobile app
+
+On 30 September 2026 the owner asked that whatever Mitra, DCRS's assistant, can do in the browser can also be done from the mobile app (REQUIREMENTS §85). The routes below make that possible. Each one is one of Mitra's own tools, so the mobile app can offer the same things.
+
+**DCRS's own engine answers them.** Everything Mitra does in the browser is done by DCRS's engine: the checks on every value, the validation before a submit, the record's history and the activity log. The DCRS server runs that same code for these routes; it is not a second copy of the rules. So a change made from the phone is exactly the change DCRS's own page would make. It is checked the same way, refused for the same reasons, and saved with the version it was read at. If someone else saved in between, DCRS works the change out again on what is stored now, up to three times.
+
+**The same checks as every `/api/v1` call.** The session, the account, the plant's working hours and the forced password change all apply. The person's departments decide what they see, exactly as DCRS decides what their browser holds. Another department's document or record is refused with `403 not-your-department`, and the refusal says whose it is.
+
+**Every change says where it came from.** The mobile app sends `X-Client-Name: Mitra mobile app`. Each change then shows up in two places:
+- **The record's history.** A new entry is written in the person's name with the note "Through Mitra mobile app: \<the person's note, or the action\>". For example: "Through Mitra mobile app: 10 o'clock reading from the floor", or "Through Mitra mobile app: submitted for verification".
+- **The activity log.** DCRS writes the same line its browser writes for that change, so the Performance Scorecard counts it. For example: "Record edited through Mitra", "Record submitted for verification" or "Record verified". The line's detail starts with "Through Mitra mobile app".
+
+Two changes in a row each keep their own history entry. In the browser, two edits by one person within a quarter of an hour are folded into one entry; changes from the app are not.
+
+**Ask the person first.** Every CHANGE call below writes to DCRS. The mobile app must ask the person to confirm each one, as Mitra does.
+
+### Mitra's tools and the routes
+
+| Mitra's tool (browser) | Mobile app action | Kind | Call |
+|---|---|---|---|
+| `find_documents` | `find_documents` `{ q, limit? }` | read | `GET /api/v1/documents?q=&limit=` |
+| (the document's own page) | `get_document` `{ id }` | read | `GET /api/v1/documents/{id}` |
+| `todays_facts` | `todays_facts` `{}` | read | `GET /api/v1/today` |
+| `list_records` | `list_records` `{ documentId?, from?, to?, status? }` | read | `GET /api/v1/records?documentId=&from=&to=&status=&limit=` |
+| `search_records` | `search_records` `{ q, documentId?, from?, to? }` | read | `GET /api/v1/records/search?q=&documentId=&from=&to=&limit=` |
+| `get_record`, `get_open_record` | `get_record` `{ recordId }` | read | `GET /api/v1/records/{id}` |
+| `record_action` print | `record_pdf` `{ recordId }` | read | `GET /api/v1/records/{id}/pdf` |
+| `history_figures` | `history_figures` `{ question, documentId?, from?, to? }` | read | `GET /api/v1/figures?question=&documentId=&from=&to=` |
+| `hr_master_lookup` | `hr_master_lookup` `{ q }` | read | `GET /api/v1/people?q=` |
+| `open_document` with create | `open_record` `{ documentId, date? }` | change | `POST /api/v1/records` |
+| `edit_open_record` | `edit_record` `{ recordId, patch, note? }` | change | `POST /api/v1/records/{id}/changes` |
+| `record_action` | `record_action` `{ recordId, action, reason? }` | change | `POST /api/v1/records/{id}/actions` |
+| `add_photo_to_open_record` | `add_photo_to_record` `{ recordId, … }` | change | `POST /api/v1/records/{id}/photos` |
+| `fill_open_record_with_sample_data` | `fill_record_with_sample_data` `{ recordId }` | change | `POST /api/v1/records/{id}/sample-fill` |
+
+Name a record `recordId` and a date `date` in the actions' inputs. The Database overview reads those names back (`overview.assistant_action_targets`).
+
+Mitra works on the record open on the screen. The mobile app has no screen, so it names the record by its id: `open_record` gives the id, and `get_record` gives the field keys a patch names.
+
+**Not offered, and why:**
+
+| Mitra's tool | Why the mobile app does not have it |
+|---|---|
+| `navigate` | It opens a page of DCRS in the browser. The app has no DCRS pages. Every answer carries a `link` that opens the record or document in DCRS. |
+| `start_guided_fill` | It is the chat widget's question-by-question walk through a form in the browser. The app asks its own questions and sends the answers with `edit_record`. |
+| `ask_user` | It is Mitra's way of asking the person a question in the browser's chat. The app has its own chat. |
+| `read_attachment` | It reads a file attached in the browser's chat. The app reads its own files. |
+| `change_format` | Changing a format (a column, a box, the header) makes a new revision of a controlled form. That is a desktop design task, done in DCRS by the people who own the form. |
+
+### Documents
+
+**Find.** `GET /api/v1/documents?q=viscosity` looks for any word of a document's name, in any case. It also takes a format number however it is written (F/QC/30, F-QC-30, fqc30), a module, a department, or a word the plant uses for the document. Without `q`, it lists every document of the person's.
+
+```json
+{
+  "query": "viscosity",
+  "documents": [
+    {
+      "id": "qc-viscosity", "formatNo": "F-QC-30", "name": "Lamination Adhesive Viscosity Record",
+      "module": "Lamination — Quality Control", "section": null, "kind": "log-sheet",
+      "schedule": { "frequency": "Daily", "rule": "Every day" },
+      "department": { "code": "QC", "name": "Quality Control" },
+      "revisionNo": "00", "referenceOnly": false,
+      "route": "/document/qc-viscosity", "link": "http://dcrs-host:4000/index.html#/document/qc-viscosity"
+    }
+  ],
+  "total": 1,
+  "kept": [],
+  "notInDcrs": []
+}
+```
+
+- **`kept`**: another department's documents that match. They are found but never opened (REQUIREMENTS §84). For a QC account, `q=F/HR/17` answers `"kept": [{ "id": "daily-pest-monitoring", "formatNo": "F/HR/17", "department": "Human Resources", "note": "Kept by Human Resources — ask the super admin for access" }]`.
+- **`notInDcrs`**: formats on the plant's Master List of Formats (F/SYS/02) that DCRS does not hold yet.
+
+**One document.** `GET /api/v1/documents/qc-viscosity`. The id can also be the format number (`F-QC-30`), or words that name exactly one of the person's documents. The answer says:
+- what the document is (`what`), who fills it (`who`, from Master Data), when (`when`) and how (`how`);
+- its `layout`, which lists the keys a patch names;
+- `patchShape`, how a change to this kind of form is written;
+- its latest records.
+
+```json
+{
+  "id": "qc-viscosity", "formatNo": "F-QC-30", "name": "Lamination Adhesive Viscosity Record", "kind": "log-sheet",
+  "what": "Hourly viscosity check of the lamination adhesive mix (specification 20.0 ± 1.0 Sec.), round the clock — 24 readings per day, each signed by the tester.",
+  "who": { "label": "Jeni, Singh", "people": [{ "name": "Jeni", "role": "QC Tester — day shift (Lamination QC)" }] },
+  "when": "Daily — Every day",
+  "how": "Format F-QC-30 (Rev 00) — filled digitally in the app, then Submitted and Verified through the approval workflow.",
+  "layout": {
+    "kind": "log-sheet", "header": [], "footer": [],
+    "columns": [
+      { "key": "time", "label": "Date/Time", "type": "time", "printed": true },
+      { "key": "viscosity", "label": "Viscosity (20.0 ± 1.0 Sec.)", "type": "number", "required": true, "unit": "Sec.", "min": 19, "max": 21 },
+      { "key": "testedBy", "label": "Tested By", "type": "text", "required": true }
+    ],
+    "rows": { "mode": "timeSlots", "slotKey": "time", "slots": ["09:00", "10:00", "…", "08:00"] }
+  },
+  "patchShape": "A box: {\"header\": {\"<box key>\": value}}. One line: {\"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}. Printed and computed columns cannot be written.",
+  "records": { "count": 2, "latest": [{ "recordId": "rec-munyt2ti-14-azkgv0", "dueDate": "2026-09-30", "status": "Verified", "started": true }] }
+}
+```
+
+It can be refused in three ways:
+- another department's document is `403 not-your-department`, and the refusal says whose it is;
+- a format on the Master List that DCRS does not hold is `404 not-in-dcrs`;
+- words that name several documents are `400 ambiguous`, with the `candidates`.
+
+### Today
+
+`GET /api/v1/today` answers what Mitra's `todays_facts` gives, for the person's departments:
+- whether today and tomorrow are working days, the weekly off, and the next holidays and adjustment days;
+- the plant's hours (`workingHours`);
+- what is overdue, due today, and due in the next three days;
+- what is ready to submit, what needs input, and what is awaiting verification;
+- the same facts in words (`facts`).
+
+```json
+{
+  "date": "2026-09-30",
+  "day": { "date": "2026-09-30", "weekday": "Wednesday", "kind": "working", "closed": false, "label": "Working day" },
+  "tomorrow": { "date": "2026-10-01", "weekday": "Thursday", "kind": "weekly-off", "closed": true, "label": "Thursday — weekly off" },
+  "nextHolidays": [{ "date": "2026-10-19", "weekday": "Monday", "kind": "holiday", "closed": true, "name": "Navratri Atham", "label": "Navratri Atham — company holiday" }],
+  "overdue": [],
+  "due": [{ "documentId": "qc-adhesive-mixing", "formatNo": "F-QC-32", "document": "Adhesive Mixing Ratio Record", "dueDate": "2026-09-30", "status": "In Progress", "recordId": "rec-munyt9an-14-7g7ku2", "started": true, "route": "/record/rec-munyt9an-14-7g7ku2", "link": "http://dcrs-host:4000/index.html#/record/rec-munyt9an-14-7g7ku2" }],
+  "upcoming": [{ "documentId": "qc-viscosity", "formatNo": "F-QC-30", "document": "Lamination Adhesive Viscosity Record", "dueDate": "2026-10-02", "status": null, "recordId": null, "started": false }],
+  "readyToSubmit": [], "needsInput": [], "awaitingVerification": [],
+  "facts": "Today: Wednesday, 30-Sep-2026 — Working day.\n…\nRecords due today: 9 (1 submitted or verified, 8 still open). …",
+  "workingHours": { "enforced": true, "start": "08:40", "end": "18:20", "openNow": true, "hoursText": "DCRS is open 8:40 am to 6:20 pm on working days.", "todayText": "Today is a working day — open now, until 6:20 pm." }
+}
+```
+
+**`recordId: null` with `started: false`** means DCRS's calendar has the sheet but no one has opened it yet, so it has no id. Start it with `open_record` (`POST /api/v1/records` with `documentId` and `date`).
+
+### Records
+
+**List.** `GET /api/v1/records?documentId=F-QC-30&from=2026-09-28&to=2026-09-30` lists records newest first. Without `from` and `to`, it lists the last 31 days. Without `documentId`, it lists every document of the person's.
+
+```json
+{
+  "document": { "id": "qc-viscosity", "formatNo": "F-QC-30", "name": "Lamination Adhesive Viscosity Record", "…": "…" },
+  "from": "2026-09-28", "to": "2026-09-30", "total": 2,
+  "records": [
+    { "recordId": "rec-munyt2ti-14-azkgv0", "started": true, "documentId": "qc-viscosity", "formatNo": "F-QC-30", "document": "Lamination Adhesive Viscosity Record", "dueDate": "2026-09-30", "status": "Verified", "submittedBy": "Kapila Barad", "verifiedBy": "Super Admin", "updatedAt": "2026-09-30T10:31:06.137Z", "route": "/record/rec-munyt2ti-14-azkgv0", "link": "http://dcrs-host:4000/index.html#/record/rec-munyt2ti-14-azkgv0" }
+  ]
+}
+```
+
+**Search.** `GET /api/v1/records/search?q=floor` finds every word of `q` in what people wrote on records. Results come newest first, each with a snippet. It is DCRS's own Search.
+- A format number together with words keeps the search to that document.
+- A format number alone lists that document's latest records.
+- Blank and prepared sheets are not searched. List them with `GET /api/v1/records` instead.
+
+```json
+{ "query": "floor", "kind": "words", "total": 1, "complete": true,
+  "hits": [{ "recordId": "rec-munyy41g-97-e22nuo", "documentId": "qc-viscosity", "formatNo": "F-QC-30", "dueDate": "2026-09-29", "status": "In Progress", "snippet": "Note: Through Mitra mobile app: 10 o'clock reading from the floor", "link": "…" }] }
+```
+
+**One record.** `GET /api/v1/records/rec-munyy41g-97-e22nuo` answers everything Mitra reads about a record:
+- its status, and whether it can be changed now (`editable`);
+- what can be done to it now (`actions`);
+- its `layout` and `patchShape`;
+- its data in words (`inWords`) and exactly as stored (`data`);
+- its `history`.
+
+```json
+{
+  "recordId": "rec-munyy41g-97-e22nuo", "documentId": "qc-viscosity",
+  "document": { "id": "qc-viscosity", "formatNo": "F-QC-30", "name": "Lamination Adhesive Viscosity Record", "kind": "log-sheet" },
+  "date": "2026-09-29", "status": "In Progress", "editable": true, "canReopen": false, "actions": ["submit", "delete"],
+  "correction": null, "prepared": null, "photos": null,
+  "layout": { "kind": "log-sheet", "columns": ["… as in the document …"], "rows": { "mode": "timeSlots", "slotKey": "time", "count": 24 } },
+  "inWords": [{ "where": "10:00", "label": "Viscosity (20.0 ± 1.0 Sec.)", "value": "20.4 Sec." }, { "where": "10:00", "label": "Tested By", "value": "Jeni" }],
+  "data": { "header": {}, "rows": [{ "id": "row-…", "time": "10:00", "viscosity": 20.4, "testedBy": "Jeni" }] },
+  "history": [{ "at": "2026-09-30T10:35:00.815Z", "by": "Kapila Barad", "action": "assistant-edit", "note": "Through Mitra mobile app: 10 o'clock reading from the floor", "changes": [{ "label": "Row 2 (10:00) · Viscosity (20.0 ± 1.0 Sec.)", "before": "", "after": "20.4" }] }],
+  "historyTotal": 1, "route": "/record/rec-munyy41g-97-e22nuo", "link": "http://dcrs-host:4000/index.html#/record/rec-munyy41g-97-e22nuo"
+}
+```
+
+**As a PDF (Mitra's "print").** `GET /api/v1/records/{id}/pdf` answers the record's own page as a PDF. The file is named like `F-QC-32 Adhesive Mixing Ratio Record 2026-09-30.pdf`.
+- **How it prints.** DCRS prints it exactly as its Print button does, signed in as the person, with the page allowed to write nothing. It takes about 4 to 6 seconds.
+- **It is logged.** The activity log gets "Document downloaded as PDF", through the app.
+- **Handing it over.** Hand it to the person with `withFiles(...)`.
+- **Records it does not print.** A CAPA inspection report, a training record and a complaint checklist print from their own pages in DCRS. This route refuses them with `409 pdf-not-offered`.
+- **When it cannot print.** The other refusals are the pest control report's: `503 pdf-unavailable` and `504 pdf-timeout`.
+
+### History's figures
+
+`GET /api/v1/figures?question=which machine broke down most this year?` answers the evidence DCRS itself works out for a question about what the records say over time:
+- the period (`period`, `from`, `to`) and the topics (`topics`);
+- one fact per line in `evidence`, with its records tagged `[rec:<id>]`;
+- the same facts grouped under headings in `sections`.
+
+The mobile app's model answers from `evidence`, as Mitra's does. `documentId`, `from` and `to` narrow the question. A question that is not about history is refused with `400 not-history`.
+
+### HR Master Data
+
+`GET /api/v1/people?q=Roshni` answers up to five people:
+
+```json
+{ "query": "Roshni", "people": [{ "gp3": "", "name": "Roshni Senma", "department": "Lab", "designation": "Lab Executive", "joiningDate": "2023-05-17" }] }
+```
+
+It answers only Human Resources, the super admin, and an account with no departments. DCRS gives HR Master Data to nobody else, so anybody else is refused with `403 not-your-department`.
+
+### Starting a record (CHANGE)
+
+`POST /api/v1/records` with `{"documentId": "F-QC-30", "date": "2026-09-29"}` answers the document's record for that date. Leave out `date` for today.
+- **A record already on file** is answered with `200` and `"created": false`. A scheduled document has one record per period.
+- **Otherwise it is started**, and answered with `201` and `"created": true`. If the date is today or earlier, the record comes back prepared, exactly as DCRS's start-up prepares one: values are carried forward, and `prepared.notes` says what to check.
+- **An as-required document** (a complaint, an inspection report) starts a new record every time.
+- **The activity log** says "Record opened", through the app.
+
+The answer is the record, in the shape of `GET /api/v1/records/{id}`.
+
+### Changing a record (CHANGE)
+
+```http
+POST /api/v1/records/rec-munyy41g-97-e22nuo/changes
+Authorization: Bearer <token>
+X-Client-Name: Mitra mobile app
+Content-Type: application/json
+
+{"patch": {"itemEdits": [{"collection": "rows", "match": {"time": "10:00"}, "set": {"viscosity": "20.4", "testedBy": "Jeni"}}]},
+ "note": "10 o'clock reading from the floor"}
+```
+
+The patch is Mitra's own shape. DCRS applies it exactly as Mitra does:
+
+| Form | Patch |
+|---|---|
+| Any form | `{"<field key>": value}` |
+| A log sheet | a box: `{"header": {"<box key>": value}}`; one line: `{"itemEdits": [{"collection": "rows", "match": {"<slot key>": "10:00"}, "set": {"<column key>": value}}]}` (or `"match": {"row": 2}`); or `"rows"` given in full, each row with its `id` |
+| F/HR/17 | `{"checkpoints": {"1": "Yes", "4": 100, "8": {"value": "Yes", "note": "near the store"}}, "checker": "Roshni", "timeOfChecking": "09:30"}` |
+| A list of any other form | `{"itemEdits": [{"collection": "<list key>", "match": {"<key>": value}, "set": {"<key>": value}}]}` |
+
+`GET /api/v1/records/{id}` gives each record's keys (`layout`) and its patch shape (`patchShape`).
+
+**Values are read as the form stores them.**
+- "yes" becomes Yes, "9.15 am" becomes 09:15, and "20.4" becomes the number 20.4.
+- A select takes its option in any case.
+
+**What cannot be written is left out.** DCRS leaves out, and says in `problems`:
+- a field the form does not have;
+- a printed or computed column;
+- a value the box cannot hold;
+- a line the match does not name exactly.
+
+```json
+{
+  "recordId": "rec-munyy41g-97-e22nuo", "status": "In Progress", "editable": true, "actions": ["submit", "delete"],
+  "history": [{ "at": "2026-09-30T10:35:00.815Z", "by": "Kapila Barad", "action": "assistant-edit", "note": "Through Mitra mobile app: 10 o'clock reading from the floor", "changes": [{ "label": "Row 2 (10:00) · Viscosity (20.0 ± 1.0 Sec.)", "before": "", "after": "20.4" }, { "label": "Row 2 (10:00) · Tested By", "before": "", "after": "Jeni" }] }],
+  "changes": [{ "label": "Row 2 (10:00) · Viscosity (20.0 ± 1.0 Sec.)", "before": "", "after": "20.4" }, { "label": "Row 2 (10:00) · Tested By", "before": "", "after": "Jeni" }],
+  "problems": [],
+  "link": "http://dcrs-host:4000/index.html#/record/rec-munyy41g-97-e22nuo"
+}
+```
+
+**When nothing changes.** A patch that changes nothing is `400 nothing-changed`, with the reasons:
+
+```json
+{ "error": "Nothing on the form changed.", "code": "nothing-changed", "problems": ["\"remarks\" isn't a field on this form, so I left it out."] }
+```
+
+**A record not open for writing.** A submitted, verified or sent-back record is `409 needs-reopen`. Mitra asks the person before she reopens a record, and so must the app. Reopen it with a reason first (the `reopen` action below), then change it.
+
+```json
+{ "error": "the Adhesive Mixing Ratio Record of 30-Sep-2026 is Pending Verification and cannot be changed as it stands. Reopen it for correction first, with a reason (action \"reopen\"); it will then need submitting and verifying again.", "code": "needs-reopen", "status": "Pending Verification", "canReopen": true }
+```
+
+### Acting on a record (CHANGE)
+
+`POST /api/v1/records/{id}/actions` with `{"action": "submit"}` does what the record page's buttons do, through DCRS's own lifecycle and validation:
+
+| action | When | What DCRS does | The activity log says |
+|---|---|---|---|
+| `submit` | Scheduled, Due or In Progress | Checks the record as its Submit button does; `409 invalid` with the `problems` when something is missing | Record submitted for verification |
+| `verify` (or `approve`) | Submitted or Pending Verification | Verifies it (a complaint checklist's approval stamps Approved By with the person and today) | Record verified |
+| `send_back` + `reason` | Submitted or Pending Verification | Sends it back with the reason | Record sent back |
+| `resume` | Rejected (sent back) | Back to In Progress | Record resumed |
+| `reopen` + `reason` | Submitted, Pending Verification, Verified or Rejected | Reopens it for correction; it must be submitted and verified again | Record reopened for correction |
+| `cancel_correction` | While reopened for correction | Puts it back exactly as it was, at the status it was reopened from | Correction cancelled |
+| `delete` + `reason` | Any | Deletes it; the deletion, with "Through Mitra mobile app: \<reason\>", stays on the deletions log | Record deleted |
+
+```json
+{ "done": "verify", "did": "Verified", "recordId": "rec-munyt9an-14-7g7ku2", "status": "Verified", "editable": false, "actions": ["reopen", "delete"],
+  "history": [{ "at": "2026-09-30T10:32:13.959Z", "by": "Super Admin", "action": "verified", "note": "Through Mitra mobile app: verified", "fromStatus": "Pending Verification" }] }
+```
+
+An action that does not apply to the record as it stands is refused with `409 wrong-status`. The refusal's `actions` list says what does apply. A missing reason is `400 needs-reason`.
+
+```json
+{ "error": "Submitting it cannot be done yet: 09:00: Viscosity (20.0 ± 1.0 Sec.) is required. 09:00: Tested By is required.", "code": "invalid", "problems": ["09:00: Viscosity (20.0 ± 1.0 Sec.) is required.", "09:00: Tested By is required."] }
+```
+
+### Adding a photo (CHANGE)
+
+`POST /api/v1/records/{id}/photos` with `{"fileName": "seal.jpg", "mimeType": "image/jpeg", "dataBase64": "<the bytes, base64>", "note": "optional"}` adds a picture to a record's picture list. The record must have one: the complaint acknowledgement has photos, the service agreement has scans. The picture is added as Mitra adds one, with the history note "Through Mitra mobile app: photo seal.jpg added".
+
+The picture's rules:
+- **Kinds.** JPEG, PNG or WebP only. Its bytes must be what `mimeType` says.
+- **Size.** At most 512 KB — a 1024 px JPEG at 70% is about 60–150 KB. Every picture is kept inside the records
+  item, which must fit in each browser's storage, so a larger one is refused rather than kept.
+- **Scale it first.** DCRS keeps photos scaled to at most 1024 pixels on the longer side, as JPEG at 70%. The browser does that scaling, but the server cannot (it has no canvas), so the app must scale the picture before it sends it.
+
+The refusals:
+
+| Answer | When |
+|---|---|
+| `413 too-large` | The picture is over 512 KB |
+| `415 bad-picture` | The kind is wrong, or the bytes are not what `mimeType` says |
+| `409 no-photo-list` | The record has no picture list |
+
+### Sample data (CHANGE)
+
+`POST /api/v1/records/{id}/sample-fill` fills the whole record with realistic but made-up values, exactly as Mitra does.
+- **It stays a draft.** Nothing is submitted.
+- **It is marked as made up.** The history says "Through Mitra mobile app: Filled with sample data by the assistant, on request — realistic, but made up". The answer says `"madeUp": true`, and `summary` says what to check.
+- **Tell the person.** The app must tell the person that every value is made up.
+
+A form kept as issued has no sample data, and is refused with `409 no-sample`.
+
+### The new refusals
+
+These are added to the table in [Errors](#errors). Each is shown to the person in DCRS's own words, from `error`.
+
+| Status | Codes | Connector error |
+|---|---|---|
+| 400 | `bad-patch`, `nothing-changed`, `needs-reason`, `bad-action`, `not-history`, `ambiguous`, `bad-picture` | `invalid_request` |
+| 403 | `not-your-department` (a document, a record, HR Master Data) | `forbidden` |
+| 404 | `not-found`, `not-in-dcrs` | `not_found` |
+| 409 | `needs-reopen`, `wrong-status`, `invalid`, `reference-only`, `no-photo-list`, `no-sample`, `pdf-not-offered`, `busy` | `conflict` |
+| 413, 415 | `too-large`, `bad-picture` | `invalid_request` |
+| 500, 503 | `engine-failed`, `engine-unavailable` | `unavailable` |
+
+### Limits
+
+- **The first question after an update is slower.** The DCRS server bundles its engine when it is first asked, if DCRS's code has changed since the last time. That takes a few seconds, and the first answer waits for it. After that the engine stays ready.
+- **"Today" is the DCRS server's day.** DCRS's engine counts the day by the server's clock, as the browser counts it by the plant computer's. The plant's server runs on factory time. A server anywhere else must be started with `TZ=Asia/Kolkata`, and warns in its log if it is not.
+- **Pictures are not scaled on the server** (see [Adding a photo](#adding-a-photo-change)).
+- **Some records have no PDF here.** CAPA inspection reports, training records and complaint checklists print from their own pages in DCRS, which the PDF printer does not open. Their `link` opens the page, which has its own Print button.
+- **Sheets not opened yet have no id.** A sheet DCRS's calendar has made but not stored has `recordId: null` (see [Today](#today)). Start it with `open_record`.
+- **The format is not changed from the app** (see `change_format` in [Not offered](#mitras-tools-and-the-routes)).
 
 ## The shared database
 
