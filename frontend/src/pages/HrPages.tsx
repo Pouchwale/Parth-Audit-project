@@ -32,7 +32,7 @@ const SECTION_NOTES: Record<HrSection, string> = {
   "Personnel & Competence": "Who the plant employs and what each position needs: the competence review, the operators' skills, job responsibilities and mobile authorisations.",
   Training: "The year's training need identification and plan, and how each training landed.",
   "Induction & Health": "Health declarations before employment and at the gate, and the induction of new staff and operators.",
-  "Hygiene & GMP": "The monthly GMP inspection walk and the daily personal hygiene check at frisking.",
+  "Hygiene & GMP": "The plant's daily and monthly cleaning, the monthly GMP inspection walk and the daily personal hygiene check at frisking.",
   "Product Safety Culture": "The survey each employee answers, and the analysis of each round.",
 };
 

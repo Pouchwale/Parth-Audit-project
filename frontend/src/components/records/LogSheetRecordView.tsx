@@ -2,6 +2,8 @@ import React from "react";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
+import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
+import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 import { getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
 import { departmentOfDocument } from "../../data/seed/departments";
 import { masterRepository } from "../../data/repositories/masterRepository";
@@ -52,11 +54,14 @@ export function LogSheetRecordView({
   editable,
   onChange,
   lists,
+  header,
 }: {
   doc: DocumentDefinition;
   record: RecordInstance<LogSheetData>;
   editable: boolean;
   onChange: (data: LogSheetData) => void;
+  /** The record page's: its header typed over in place (REQUIREMENTS §86). None where the sheet is only shown. */
+  header?: RecordHeaderHost;
   /**
    * The suggestion list a box offers, by the box's key — the id of a
    * <datalist> the page draws, e.g. { machineIdNo: "equipment-machines" }
@@ -121,6 +126,14 @@ export function LogSheetRecordView({
   // one: F/PUR/05's four criteria tables are one printed band across the top of
   // the form, so "Show" on any of them shows the criteria (REQUIREMENTS §68).
   const [showReference, setShowReference] = React.useState(false);
+  // THE HEADER BLOCK, TYPED OVER ON THE RECORD (REQUIREMENTS §86): the format's
+  // company, title, number and revision, and this record's own Date and Page No.
+  const headerDefaults = recordHeaderDefaults(record);
+  const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({
+    doc: header ? doc : undefined,
+    enabled: header?.enabled && !superseded,
+    record: recordHeaderEditing(header, record.headerBlock, headerDefaults),
+  });
   // A long sheet shows its first lines at once and the rest a batch at a time (utils/useProgressive.ts).
   const rowsShown = useProgressiveCount(data.rows.length, 25, 40);
   // A LONG REGISTER OPEN FOR WRITING DRAWS ONLY THE LINES NEAR THE SCREEN
@@ -287,10 +300,12 @@ export function LogSheetRecordView({
     <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined} data-bind-record={record.id}>
       <DocumentHeader
         doc={doc}
-        dateLabel={formatDisplayDate(record.dueDate)}
-        pageLabel="1 of 1 (digital)"
+        dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
+        pageLabel={record.headerBlock?.page ?? headerDefaults.page}
         revision={superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined}
+        edit={headerEdit}
       />
+      {headerPanel}
       {/* A page kept on the revision it was written on says so (REQUIREMENTS §74). */}
       {superseded && (
         <div className="card mt-4 no-print" data-superseded-revision={superseded.revisionNo}>

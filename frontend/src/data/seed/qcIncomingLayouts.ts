@@ -1,6 +1,6 @@
 import type { LogColumn, LogHeaderField, LogRowMode, LogSheetLayout } from "../../types";
 
-// THE THIRTEEN INCOMING-MATERIAL INSPECTION RECORDS (REQUIREMENTS §57) — the
+// THE INCOMING-MATERIAL INSPECTION RECORDS (REQUIREMENTS §57, and F/QC/33 in §86) — the
 // Quality Control formats supplied on 18-Sep-2026, reproduced as log-sheet
 // layouts. Every one of the thirteen is printed the same way: a four-line,
 // two-column header box; a grid whose TEST PARAMETERS and SPECIFICATION are
@@ -23,6 +23,8 @@ import type { LogColumn, LogHeaderField, LogRowMode, LogSheetLayout } from "../.
 //   qc-side-pasting-adhesive          F/QC/22 (01 / 16.02.2022)  INSPECTION RECORD – SIDE PASTING ADHESIVE
 //   qc-starch-powder                  F/QC/23 (01 / 16.02.2022)  INSPECTION RECORD – CORRUGATION STARCH POWDER
 //   qc-sheet-pasting-powder           F/QC/24 (01 / 16.02.2022)  INSPECTION RECORD – SHEET PASTING POWDER
+//   qc-incoming-lamination-film       F/QC/33 (00 / 15.12.2024)  INSPECTION RECORD – INCOMING LAMINATION GRADE FILM
+//                                     (the fourteenth, supplied 02-Oct-2026 with its .doc original — REQUIREMENTS §86)
 //
 // SOURCE FILES, all supplied 18-Sep-2026 and all blank forms:
 //   F-QC-01_Inspection record for BOPP Film (2).pdf
@@ -373,5 +375,29 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     ]),
     footerFields: lotStatusFooter(),
     specimenSource: blankForm("F-QC-24_Inspection record for Corru.sheet pasting powder.pdf"),
+  } satisfies LogSheetLayout,
+
+  // ---- F/QC/33 (00 / 15.12.2024) — INSPECTION RECORD – INCOMING LAMINATION GRADE FILM
+  // Supplied 02-Oct-2026 as a PDF with its Word original (REQUIREMENTS §86). The same header box,
+  // grid and lot-status footer as the thirteen above; the specifications are the .doc's own text.
+  "qc-incoming-lamination-film": {
+    documentId: "qc-incoming-lamination-film",
+    headerFields: incomingHeader(),
+    columns: observationColumns(),
+    rowMode: printedRows([
+      // The two spaces before "(+ 2" are the paper's own, as on F/QC/01.
+      ["SIZE (mm)", "Should be as per P.O.  (+ 2/- 0.0)"],
+      ["THICKNESS OF FILM (µm)", "As per P.O. (Max.± 1 micron)"],
+      ["CORONA TREATMENT (Dynes)", "As per Films specification"],
+      ["COF", "As per Films specification"],
+      // The .doc types "Dart IMPACT"; its cell is set in capitals, so the page prints DART IMPACT.
+      ["DART IMPACT", "As per Films specification"],
+      ["ODOUR TEST", "No abnormal odour"],
+    ]),
+    footerFields: lotStatusFooter(),
+    specimenSource: "F-QC-33_Inspection record for Incoming Lamination Film.pdf (blank form supplied 02-Oct-2026 — no filled specimen)",
+    originalPages: [
+      { src: "/source/fqc33-incoming-lamination-film-p1.jpg", caption: "F/QC/33 (00 / 15.12.2024) — Inspection Record – Incoming Lamination Grade Film, the blank format as supplied" },
+    ],
   } satisfies LogSheetLayout,
 };

@@ -2,21 +2,22 @@
 
 Checked on 30-Sep-2026 (REQUIREMENTS §84), from the owner's request: "check each and every module whether all the
 documents according to the PDF are present or not; if not, ask me and I will share them." Updated the same day when
-F-QC-15-B, the punching line clearance, was built from the paper found on your computer (REQUIREMENTS §85).
+F-QC-15-B, the punching line clearance, was built from the paper found on your computer (REQUIREMENTS §85), and again on
+02-Oct-2026 when five more were sent and built: F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04 (REQUIREMENTS §86).
 
 ## In short
 
-- The master list you shared today lists **135 formats** across ten departments. **DCRS has 89 of them**, F-QC-15-B
+- The master list you shared today lists **135 formats** across ten departments. **DCRS has 94 of them**, F-QC-15-B
   (the punching line clearance) included: its paper was on your computer but never built, and it was built on
-  30-Sep-2026 (§85). **45 have not been supplied yet**, and one (F-QC-41) is marked obsolete on the list itself.
-- **Complete:** System / Management (16 of 16), Store (2 of 2) and Maintenance (11 of 11).
-- **Nearly complete:** Human Resources (18 of 22), Quality Control (30 of 40), Purchase (5 of 6), Marketing (3 of 4),
-  Dispatch (2 of 3).
+  30-Sep-2026 (§85); and the five sent on 02-Oct-2026 (§86). **40 have not been supplied yet**, and one (F-QC-41) is
+  marked obsolete on the list itself.
+- **Complete:** System / Management (16 of 16), Store (2 of 2), Maintenance (11 of 11) and Dispatch (3 of 3).
+- **Nearly complete:** Human Resources (20 of 22), Quality Control (32 of 40), Purchase (5 of 6), Marketing (3 of 4).
 - **The big gap is Production:** 2 of its 30 formats are in DCRS (the two lamination registers). Quality Assurance's
   one format (F-QA-01) is not in DCRS either.
 - The company's own workbook of the same list is newer than the PDF and has six more lines. DCRS has two of them
   (F-MKT-05 and F-MKT-06, in the CAPA module); the other four (F-PRD-27 to F-PRD-30) have not been supplied.
-- **49 formats to ask for** are listed at the end, grouped by department, with a few things to confirm.
+- **44 formats to ask for** are listed at the end, grouped by department, with a few things to confirm.
 
 ## What was compared
 
@@ -35,10 +36,10 @@ F-QC-15-B, the punching line clearance, was built from the paper found on your c
    differ" below). Its other sheet, "GPPL - Formats list (2)", is an older copy that also has five un-numbered
    lines (F-QC-18, 19, 20, 22 and 25). DCRS keeps the workbook's 141 lines as its F/SYS/02 record (`FORMAT_LINES`
    in `frontend/src/data/seed/sysDocumentControlLayouts.ts`).
-4. **DCRS's documents:** the 117 definitions in `frontend/src/data/seed/documentDefinitions.ts` (id, name, format
+4. **DCRS's documents:** the 122 definitions in `frontend/src/data/seed/documentDefinitions.ts` (id, name, format
    number, revision). Each one's department comes from `frontend/src/data/seed/documentDepartments.ts`.
-5. **What you supplied:** the 92 files in `source-documents/` (the 91 of the first check, and the F-QC-15-B paper
-   copied there from your Downloads folder when it was built), and what `docs/REQUIREMENTS.md` records about every
+5. **What you supplied:** the 102 files in `source-documents/` (the 91 of the first check, the F-QC-15-B paper
+   copied there from your Downloads folder when it was built, and the ten originals sent on 02-Oct-2026), and what `docs/REQUIREMENTS.md` records about every
    paper sent and what was built from it (searched for every format number). To make sure nothing sent was
    missed, the format files in your Downloads folder were checked as well. Nothing there was changed.
 
@@ -57,13 +58,13 @@ Format numbers are written in many ways on the papers: F/HR/17, F-HR-17, F/QC-09
 | Marketing (MKT) | 4 | 3 | 0 | 1 | 0 |
 | Purchase (PUR) | 6 | 5 | 0 | 1 | 0 |
 | Store (STR) | 2 | 2 | 0 | 0 | 0 |
-| Quality Control (QC) \* | 40 | 30 | 0 | 9 | 1 |
+| Quality Control (QC) \* | 40 | 32 | 0 | 7 | 1 |
 | Quality Assurance (QA) | 1 | 0 | 0 | 1 | 0 |
 | Production (PRD) | 30 | 2 | 0 | 28 | 0 |
 | Maintenance (MNT) | 11 | 11 | 0 | 0 | 0 |
-| Human Resources (HR) | 22 | 18 | 0 | 4 | 0 |
-| Dispatch (DISP) | 3 | 2 | 0 | 1 | 0 |
-| **Total** | **135** | **89** | **0** | **45** | **1** |
+| Human Resources (HR) | 22 | 20 | 0 | 2 | 0 |
+| Dispatch (DISP) | 3 | 3 | 0 | 0 | 0 |
+| **Total** | **135** | **94** | **0** | **40** | **1** |
 
 \* Quality Control includes QA-PRO-FL-CCT-01, the Camera Challenge Test (list line 99). Its number has no
 department code; DCRS files it under Quality Control.
@@ -71,7 +72,7 @@ department code; DCRS files it under Quality Control.
 **Lines only in the workbook** (not on the PDF): Marketing has 2 more (F-MKT-05 and F-MKT-06, both in DCRS) and
 Production has 4 more (F-PRD-27 to F-PRD-30, not supplied yet).
 
-**The other way round:** DCRS holds 117 documents. 91 of them are formats on the list (F-QC-15 and F-MNT-05 each
+**The other way round:** DCRS holds 122 documents. 96 of them are formats on the list (F-QC-15 and F-MNT-05 each
 have two DCRS documents). The other 26 are not on the PDF list; they are explained in "DCRS documents that are not
 on the master list" below.
 
@@ -168,10 +169,10 @@ What the status words mean:
 | 54 | F-QC-30 | Lamination Adhesive Viscosity Record | **In DCRS** as `qc-viscosity` "Lamination Adhesive Viscosity Record", Rev 00. Shown in the "Lamination — Quality Control" module. |
 | 55 | F-QC-31 | COA Pouch | **Not supplied yet.** |
 | 56 | F-QC-32 | Adhesive mixing ratio | **In DCRS** as `qc-adhesive-mixing` "Adhesive Mixing Ratio Record", Rev 00. Shown in the "Lamination — Quality Control" module. |
-| 57 | F-QC-33 | INSPECTION RECORD – INCOMING LAMINATION GRADE FILM | **Not supplied yet.** |
+| 57 | F-QC-33 | INSPECTION RECORD – INCOMING LAMINATION GRADE FILM | **In DCRS** as `qc-incoming-lamination-film` "Inspection Record – Incoming Lamination Grade Film", Rev 00. Sent on 02-Oct-2026 (§86). |
 | 58 | F-QC-34 | INSPECTION RECORD – LAMINATION GRADE PRINTED FILM | **In DCRS** as `qc-inspection-printed-film` "Inspection Record — Lamination Grade Printed Film", Rev 00 |
 | 59 | F-QC-35 | SLITTING - LAMINATION GRADE FILM | **In DCRS** as `qc-inspection-slitting` "Inspection Record — Slitting - Lamination Grade Film", Rev 00 |
-| 60 | F-QC-36 | SOLVENT BASE LAMINATION FILM | **Not supplied yet.** |
+| 60 | F-QC-36 | SOLVENT BASE LAMINATION FILM | **In DCRS** as `qc-inspection-sb-lamination` "Inspection Record – Solvent Base Lamination Film", Rev 00. Sent on 02-Oct-2026 (§86). |
 | 61 | F-QC-37 | INSPECTION RECORD – POUCHING PROCESS | **In DCRS** as `qc-inspection-pouching` "Inspection Record — Pouching Process", Rev 00 |
 | 62 | F-QC-38 | Statement of Compliance (SOC) - Flexible packaging materials (Laminated Pouch & Rolls) | **In DCRS** as `soc-flexible-packaging` "Statement of Compliance (SOC) — Flexible Packaging (Rolls & Pouches)", Rev 00. Shown in the "Quality — Compliance" module. |
 | 63 | F-QC-39 | FGPO Specification | **Not supplied yet.** The workbook says it is kept in SAP. |
@@ -256,8 +257,8 @@ What the status words mean:
 | 122 | F-HR-12 | TRAINING EFFECTIVENESS EVALUATION RECORD | **In DCRS** as `hr-training-feedback` "Training Feedback & Evaluation Record", Rev 00. The form prints "TRAINING FEEDBACK & EVALUATION RECORD" (TBC 23). |
 | 123 | F-HR-13 | Authorization for Mobile Inside Plant | **In DCRS** as `hr-mobile-authorization` "Authorization for Mobile Usage in Plant Area", Rev 00 |
 | 124 | F-HR-14 | Visitor health declaration record | **In DCRS** as `hr-visitor-health` "Visitor Health Status Declaration Record", Rev 00 |
-| 125 | F-HR-15 | Daily cleaning record | **Not supplied yet.** |
-| 126 | F-HR-16 | Monthly Cleaning record | **Not supplied yet.** |
+| 125 | F-HR-15 | Daily cleaning record | **In DCRS** as `hr-daily-cleaning` "Daily Cleaning Record", Rev 01. Sent on 02-Oct-2026 (§86); its title line's "PACA1:AH16K" is printed as "PACK" (TBC 47). |
+| 126 | F-HR-16 | Monthly Cleaning record | **In DCRS** as `hr-monthly-cleaning` "Monthly Cleaning Record", Rev 01. Sent on 02-Oct-2026 (§86). |
 | 127 | F-HR-17 | Daily pest Control monitoring Record | **In DCRS** as `daily-pest-monitoring` "Daily Pest Control Monitoring Record", Rev 00. On the Pest Control shelf of Human Resources. |
 | 128 | F-HR-18 | Fly Catcher Inspection & Cleaning Record | **In DCRS** as `fly-catcher` "Fortnightly — Fly Catcher Inspection & Cleaning Record", Rev 02. On the Pest Control shelf of Human Resources. |
 | 129 | F-HR-19 | Monthly GMP Inspection record | **In DCRS** as `hr-gmp-checklist` "Monthly PRP Check List (GMP Inspection Record)", Rev 00 |
@@ -271,7 +272,7 @@ What the status words mean:
 |---|---|---|---|
 | 133 | F-DISP-01 | Safe transportation agreement | **In DCRS** as `disp-safe-transporter-agreement` "Safe Transporter Agreement", Rev TO BE CONFIRMED |
 | 134 | F-DISP-02 | Container stuffing & Vehicle Inspection Report | **In DCRS** as `disp-container-stuffing` "Container Stuffing & Vehicle Inspection Record — કન્ટેનર સ્ટફિંગ અને વાહન નિરીક્ષણ રેકોર્ડ", Rev 00 |
-| 135 | F-DISP-04 | Vehicle cleaning Protocol & Record | **Not supplied yet.** |
+| 135 | F-DISP-04 | Vehicle cleaning Protocol & Record | **In DCRS** as `disp-vehicle-cleaning` "Vehicle (Company Owned) Cleaning Protocol & Record", Rev 01 of 01-11-2023 — the paper's; the list still has the first issue of 16.02.22 (TBC 48). Sent on 02-Oct-2026 (§86). |
 
 ### Only in the workbook (not on the PDF)
 
@@ -345,7 +346,7 @@ report (withdrawn on 08-Sep-2026; no specimen was ever supplied; §5).
 
 ## Formats to ask for
 
-Please send the paper for each of these 49 formats: the blank format, and a filled page if there is one.
+Please send the paper for each of these 44 formats: the blank format, and a filled page if there is one.
 
 **Marketing (1)**
 - F-MKT-03 Customer complaint Form (the workbook: "Customer complaint Form (CAPA report)")
@@ -353,13 +354,11 @@ Please send the paper for each of these 49 formats: the blank format, and a fill
 **Purchase (1)**
 - F-PUR-04 Purchase Order (the company's own file is F-PUR-04_Purchase order.xlsx)
 
-**Quality Control (9)**
+**Quality Control (7)**
 - F-QC-10 Statement of Compliance (SOC) - Sleeve
 - F-QC-14 TEST RELIABILITY RECORD
 - F-QC-17 Scale / Ruler internal calibration record
 - F-QC-31 COA Pouch
-- F-QC-33 INSPECTION RECORD – INCOMING LAMINATION GRADE FILM
-- F-QC-36 SOLVENT BASE LAMINATION FILM
 - F-QC-39 FGPO Specification (the workbook says it is kept in SAP; say if it should stay out of DCRS)
 - F-QC-40. A Temperature Monitoring record - Printing machine, Ink kitchen, Ware house (the workbook's latest revision is 01.07.2026)
 - F-QC-40. B Temperature Monitoring record - Sleeve Division
@@ -401,14 +400,9 @@ Please send the paper for each of these 49 formats: the blank format, and a fill
 - F-PRD-29 Shrink Sleeve Post press process checklist (workbook only)
 - F-PRD-30 Gluing adhesive mixing ratio (workbook only)
 
-**Human Resources (4)**
+**Human Resources (2)**
 - F-HR-02 Personnel competence criteria
 - F-HR-10 Training Imparted Record
-- F-HR-15 Daily cleaning record
-- F-HR-16 Monthly Cleaning record
-
-**Dispatch (1)**
-- F-DISP-04 Vehicle cleaning Protocol & Record
 
 ### Not to send, only to confirm
 

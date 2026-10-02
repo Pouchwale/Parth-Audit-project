@@ -556,16 +556,33 @@ export function validateDraft(draft: FormatDraft, now?: FormatDraft): string | n
  * the head of its change history, and a line in the activity log. Refused,
  * with the reason, when nothing has changed or something is missing.
  */
-export function commitFormatChange(doc: DocumentDefinition, draft: FormatDraft, opts: { actor: string; reason: string; revisionNo?: string }): CommitResult {
+export function commitFormatChange(
+  doc: DocumentDefinition,
+  draft: FormatDraft,
+  opts: {
+    actor: string;
+    reason: string;
+    revisionNo?: string;
+    /**
+     * A RE-ISSUE: the revision number, or the revision's date, typed over on a
+     * record's header and nothing else (REQUIREMENTS §86). The next number and
+     * today's date alone are never described as a change (every save is numbered
+     * the next one and dated today), so without this a re-issue as Rev 02, or one
+     * dated today, would be refused as "nothing changed".
+     */
+    reissue?: boolean;
+  }
+): CommitResult {
   const before = draftOf(doc);
   const invalid = validateDraft(draft, before);
   if (invalid) return { ok: false, error: invalid };
   if (!opts.reason.trim()) return { ok: false, error: "Say why the format is changing — it goes in its change history." };
-  const summary = describeFormatChange(before, draft);
-  if (summary.length === 0) return { ok: false, error: "Nothing about the format has been changed yet." };
   // The number typed over on the header, when it was; the next number otherwise.
   const typed = draft.revisionNo?.trim();
   const revisionNo = (opts.revisionNo ?? (typed && typed !== doc.revisionNo ? typed : nextRevisionNo(doc.revisionNo))).trim();
+  const described = describeFormatChange(before, draft);
+  const summary = described.length === 0 && opts.reissue && revisionNo && revisionNo !== doc.revisionNo ? [`re-issued as Rev ${revisionNo}`] : described;
+  if (summary.length === 0) return { ok: false, error: "Nothing about the format has been changed yet." };
   if (!revisionNo) return { ok: false, error: "Give the new revision number." };
 
   const existing = formatEditFor(doc.id);

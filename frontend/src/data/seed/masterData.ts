@@ -243,6 +243,7 @@ export const SEED_MASTER_DATA: MasterData = {
     "prd-process-parameter": "Lamination Operator",
     "prd-alc-production": "Lamination Operator",
     "qc-inspection-pouching": "QA Inspector",
+    "qc-inspection-sb-lamination": "QA Inspector",
     "qc-inspection-slitting": "QA Inspector",
     "qc-inspection-printed-film": "QA Inspector",
     "qc-inprocess-printing": "QA Person",
@@ -253,6 +254,7 @@ export const SEED_MASTER_DATA: MasterData = {
     // inspector's, the instrument list is the internal calibration's, and the
     // registers, the tolerance card and the minutes are QA's own.
     "qc-bopp-film": "QA Inspector",
+    "qc-incoming-lamination-film": "QA Inspector",
     "qc-corrugated-box": "QA Inspector",
     "qc-label-stock": "QA Inspector",
     "qc-paper-core": "QA Inspector",
@@ -285,7 +287,7 @@ export const SEED_MASTER_DATA: MasterData = {
     "qc-analysis-report": "QA Inspector",
     "qc-utility-test-report": "QA Inspector",
     "qc-minutes-of-meetings": "QA",
-    // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46): the
+    // Human Resources — the F/HR formats (REQUIREMENTS §46, §86): the
     // registers HR & Admin keeps, the training records the Training
     // Coordinator keeps, and the PSTL's own — mobile authorisation, the HARA
     // team's GMP inspection and the product safety culture survey.
@@ -305,6 +307,9 @@ export const SEED_MASTER_DATA: MasterData = {
     "hr-psc-survey": "PSTL",
     "hr-psc-survey-analysis": "PSTL",
     "hr-hygiene-report": "HR & Admin",
+    // The two cleaning records (REQUIREMENTS §86) are HR & Admin's, as the hygiene report is.
+    "hr-daily-cleaning": "HR & Admin",
+    "hr-monthly-cleaning": "HR & Admin",
     // Purchase — the five F/PUR formats supplied on 23-Sep-2026 (REQUIREMENTS
     // §68). All five are the buyer's: it is Purchase that sends the
     // registration form out, goes on the audit visit, keeps the approved
@@ -321,6 +326,8 @@ export const SEED_MASTER_DATA: MasterData = {
     // the transporter agreement is signed by Purchase, as the company's own
     // signed copy shows ("Chirag Parmar, Purchase Manager").
     "disp-container-stuffing": "Dispatch",
+    // The vehicle cleaning record is verified at random by the Dispatch In-charge (REQUIREMENTS §86).
+    "disp-vehicle-cleaning": "Dispatch",
     "disp-safe-transporter-agreement": "Purchase",
     // Store — the two F/STR formats (REQUIREMENTS §71). Both are the store's
     // own: the incoming material check is stamped and signed by whoever takes

@@ -47,6 +47,20 @@ export interface RecordInstance<TData = unknown> {
   // offered for correction: it is a page of the past, kept exactly as written.
   // Absent on every other record, which reads with the format as it now stands.
   formatRevision?: string;
+  // THE RECORD'S OWN HEADER (REQUIREMENTS §86): the Date and the Page No. its
+  // header block prints, where a person typed them over on the record. Absent,
+  // the header prints the record's due date and the page its view prints. Kept
+  // beside `data`, never in it, so validation, the assistant's fill and patch,
+  // and the downloaded file's boxes never mistake it for a box of the form.
+  headerBlock?: RecordHeaderBlock;
+}
+
+/** What a record's header block says where it differs from what it would print (REQUIREMENTS §86). */
+export interface RecordHeaderBlock {
+  /** The date the header prints (ISO), in place of the record's due date. */
+  date?: string;
+  /** The page number as written — "1 of 2" — in place of the view's own. */
+  page?: string;
 }
 
 export interface FieldChange {
@@ -95,6 +109,11 @@ export interface CorrectionInfo {
    * correction is open — Submit and Cancel both clear the whole correction.
    */
   dataBefore?: unknown;
+  /**
+   * The record's own header as it was when Edit reopened it (REQUIREMENTS §86),
+   * so "Cancel edit" puts the Date and the Page No. back too. null: it had none.
+   */
+  headerBlockBefore?: RecordHeaderBlock | null;
 }
 
 export interface PreparedInfo {

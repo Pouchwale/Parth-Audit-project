@@ -13,8 +13,10 @@ import {
   reopenForCorrection,
   resumeAfterRejection,
   saveDraft,
+  saveHeaderBlock,
   submitRecord,
   verifyRecord,
+  type HeaderDefaults,
 } from "../engine/recordLifecycle";
 import { withEditHistory } from "../engine/recordHistory";
 import { fieldLabels } from "../engine/recordPatch";
@@ -26,6 +28,7 @@ import type {
   FlyCatcherData,
   LogSheetData,
   PestResponsibilitiesData,
+  RecordHeaderBlock,
   RecordInstance,
   ServiceAgreementData,
   ServiceReportData,
@@ -196,6 +199,21 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     persistLocal(updated);
     return updated;
   }, [currentUser, persistLocal, adopt]);
+
+  // THE RECORD'S OWN HEADER (REQUIREMENTS §86): its Date and Page No., typed over
+  // on the header block. What was being typed into the boxes is saved first, and
+  // the one value typed is then laid over the record AS STORED (a colleague's newer
+  // value in the other cell is kept) and saved with its history line — on a record
+  // that can still be written on, and on no other.
+  const saveHeader = useCallback(
+    (change: RecordHeaderBlock, defaults: HeaderDefaults) => {
+      const stored = flush();
+      if (!stored || !isEditableStatus(stored.status)) return;
+      const updated = saveHeaderBlock(stored, { ...stored.headerBlock, ...change }, currentUser, defaults);
+      if (updated !== stored) persistLocal(updated);
+    },
+    [flush, currentUser, persistLocal]
+  );
 
   useEffect(() => {
     flush(); // anything pending on the record we're leaving
@@ -518,9 +536,23 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           and whose values a downloaded file binds to this record (REQUIREMENTS §81). */}
       <div data-print-doc data-bind-record={record.id}>
       {doc.kind === "daily-pest-monitoring" && (
-        <DailyPestMonitoringRecordView doc={doc} record={{ ...record, data: data as DailyPestMonitoringData }} editable={editable} onChange={handleChange} />
+        <DailyPestMonitoringRecordView
+          doc={doc}
+          record={{ ...record, data: data as DailyPestMonitoringData }}
+          editable={editable}
+          onChange={handleChange}
+          header={{ editable, enabled: !superseded, save: saveHeader }}
+        />
       )}
-      {doc.kind === "fly-catcher" && <FlyCatcherRecordView doc={doc} record={{ ...record, data: data as FlyCatcherData }} editable={editable} onChange={handleChange} />}
+      {doc.kind === "fly-catcher" && (
+        <FlyCatcherRecordView
+          doc={doc}
+          record={{ ...record, data: data as FlyCatcherData }}
+          editable={editable}
+          onChange={handleChange}
+          header={{ editable, enabled: !superseded, save: saveHeader }}
+        />
+      )}
       {doc.kind === "service-report" && (
         <ServiceReportRecordView
           doc={doc}
@@ -530,7 +562,15 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           onChange={handleChange}
         />
       )}
-      {doc.kind === "log-sheet" && <LogSheetRecordView doc={doc} record={{ ...record, data: data as LogSheetData }} editable={editable} onChange={handleChange} />}
+      {doc.kind === "log-sheet" && (
+        <LogSheetRecordView
+          doc={doc}
+          record={{ ...record, data: data as LogSheetData }}
+          editable={editable}
+          onChange={handleChange}
+          header={{ editable, enabled: !superseded, save: saveHeader }}
+        />
+      )}
       {doc.kind === "complaint-ack" && (
         <ComplaintAckRecordView doc={doc} record={{ ...record, data: data as ComplaintAckData }} editable={editable} onChange={handleChange} />
       )}

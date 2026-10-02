@@ -647,9 +647,9 @@ const readingRule: InsightRule = (ctx) => {
 // B1 — THE SAME LOT DEVIATION AGAIN AND AGAIN
 // ===========================================================================
 
-// The three inspection records whose footer gives a lot's status and the reason
-// it was not simply accepted (F/QC/37, /35, /34).
-const INSPECTION_DOCS = ["qc-inspection-pouching", "qc-inspection-slitting", "qc-inspection-printed-film"];
+// The inspection records whose footer gives a lot's status and the reason it was
+// not simply accepted (F/QC/37, /36, /35, /34 — F/QC/36 since REQUIREMENTS §86).
+const INSPECTION_DOCS = ["qc-inspection-pouching", "qc-inspection-sb-lamination", "qc-inspection-slitting", "qc-inspection-printed-film"];
 
 const lotDeviationRule: InsightRule = (ctx) => {
   const out: Insight[] = [];

@@ -4,7 +4,7 @@ import { QC_SECTIONS, SEED_DOCUMENTS } from "./documentDefinitions";
 // THE QUALITY CONTROL MODULE'S OWN PAGE (REQUIREMENTS §58).
 //
 // Quality Control's paperwork is the largest collection in the app — the
-// thirty-eight formats the department supplied (§57) and those added since (F/QC/15-B, §85), in its own seven
+// thirty-eight formats the department supplied (§57) and those added since (F/QC/15-B, §85; F/QC/33 and F/QC/36, §86), in its own seven
 // sections, and belonging to two departments: Quality Control keeps most of
 // them and Quality Assurance the in-process records, the certificates of
 // analysis and the camera challenge test. Until now they were only reachable

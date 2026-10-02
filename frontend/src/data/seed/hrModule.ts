@@ -3,7 +3,7 @@ import type { HR_SECTIONS } from "./documentDefinitions";
 // THE HR RECORDS' OWN PAGES (REQUIREMENTS §47).
 //
 // The pest control file inside the Human Resources module has always had pages
-// of its own — an overview and one page per report. HR's own sixteen formats
+// of its own — an overview and one page per report. HR's own formats (sixteen, eighteen since §86)
 // get the same: an overview of the five groups at /hr, and one page per format
 // at /hr/{slug} holding its records on file, the latest one shown in full, and
 // New. The sidebar lists them under their groups the way it lists the pest
@@ -38,6 +38,8 @@ export const HR_RECORD_PAGES: HrRecordPage[] = [
   { docId: "hr-induction-staff", slug: "induction-staff", section: "Induction & Health", navKey: "nav.hrInductionStaff", labelKey: "name", labelTitle: "Employee" },
   { docId: "hr-induction-operators", slug: "induction-operators", section: "Induction & Health", navKey: "nav.hrInductionOperators" },
   { docId: "hr-visitor-health", slug: "visitor-health", section: "Induction & Health", navKey: "nav.hrVisitor", labelKey: "name", labelTitle: "Visitor" },
+  { docId: "hr-daily-cleaning", slug: "daily-cleaning", section: "Hygiene & GMP", navKey: "nav.hrDailyCleaning", labelKey: "monthYear", labelTitle: "Month & Year" },
+  { docId: "hr-monthly-cleaning", slug: "monthly-cleaning", section: "Hygiene & GMP", navKey: "nav.hrMonthlyCleaning", labelKey: "year", labelTitle: "Year" },
   { docId: "hr-gmp-checklist", slug: "gmp-checklist", section: "Hygiene & GMP", navKey: "nav.hrGmp", labelKey: "inspectionDate", labelTitle: "Inspection date" },
   { docId: "hr-hygiene-report", slug: "hygiene-report", section: "Hygiene & GMP", navKey: "nav.hrHygiene", labelKey: "monthYear", labelTitle: "Month & Year" },
   { docId: "hr-psc-survey", slug: "psc-survey", section: "Product Safety Culture", navKey: "nav.hrPscSurvey", labelKey: "employeeName", labelTitle: "Employee" },

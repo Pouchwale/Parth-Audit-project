@@ -41,7 +41,7 @@ const GROUP_ICONS: Record<string, IconType> = {
 };
 
 const GROUP_NOTES: Record<string, string> = {
-  "In-Process & Inspection": "What is checked on the machine while a job runs — the printing record graded A / B / C / F, and the inspection of printed film, slitting and pouching.",
+  "In-Process & Inspection": "What is checked on the machine while a job runs — the printing record graded A / B / C / F, and the inspection of printed film, solvent base lamination film, slitting and pouching.",
   "Incoming Material Inspection": "Every material as it arrives: film, board, paper, cores, inks, adhesives and powders, checked against the specification printed on each form and accepted, rejected, segregated or accepted on deviation.",
   "Line Clearance": "Before a job change: the area reports that register each changeover, and the two checklists a QA person ticks and signs — the previous job's materials off the line, and the new job's parameters right.",
   Calibration: "The instruments themselves: the master list of what is calibrated and when, and the internal calibration records kept between external calibrations.",

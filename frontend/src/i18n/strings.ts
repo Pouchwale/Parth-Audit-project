@@ -231,6 +231,8 @@ const en = {
   "nav.hrVisitor": "Visitor Health Declaration",
   "nav.hrGmp": "Monthly GMP Inspection (PRP)",
   "nav.hrHygiene": "Daily Personal Hygiene Inspection",
+  "nav.hrDailyCleaning": "Daily Cleaning Record",
+  "nav.hrMonthlyCleaning": "Monthly Cleaning Record",
   "nav.hrPscSurvey": "Product Safety Culture Survey",
   "nav.hrPscAnalysis": "Safety Culture Survey Analysis",
   "hr.title": "HR Records",
@@ -271,6 +273,7 @@ const en = {
   "nav.dispInspection": "Dispatch Inspection",
   "nav.dispSafeTransporter": "Safe Transporter Agreement",
   "nav.dispContainerStuffing": "Container Stuffing & Vehicle Inspection",
+  "nav.dispVehicleCleaning": "Vehicle Cleaning Protocol & Record",
   // Maintenance (REQUIREMENTS §74).
   // Insights (REQUIREMENTS §75).
   "nav.insights": "Insights",
@@ -997,6 +1000,8 @@ const gu: Record<StringKey, string> = {
   "nav.hrVisitor": "મુલાકાતી આરોગ્ય ઘોષણા",
   "nav.hrGmp": "માસિક GMP નિરીક્ષણ (PRP)",
   "nav.hrHygiene": "દૈનિક વ્યક્તિગત સ્વચ્છતા નિરીક્ષણ",
+  "nav.hrDailyCleaning": "દૈનિક સફાઈ રેકોર્ડ",
+  "nav.hrMonthlyCleaning": "માસિક સફાઈ રેકોર્ડ",
   "nav.hrPscSurvey": "પ્રોડક્ટ સેફ્ટી કલ્ચર સર્વે",
   "nav.hrPscAnalysis": "સેફ્ટી કલ્ચર સર્વે વિશ્લેષણ",
   "hr.title": "HR રેકોર્ડ",
@@ -1033,6 +1038,7 @@ const gu: Record<StringKey, string> = {
   "nav.dispInspection": "ડિસ્પેચ નિરીક્ષણ",
   "nav.dispSafeTransporter": "સેફ ટ્રાન્સપોર્ટર કરાર",
   "nav.dispContainerStuffing": "કન્ટેનર સ્ટફિંગ અને વાહન નિરીક્ષણ",
+  "nav.dispVehicleCleaning": "વાહન સફાઈ પ્રોટોકોલ અને રેકોર્ડ",
   "nav.insights": "આંતરદૃષ્ટિ",
   "insights.title": "આંતરદૃષ્ટિ",
   "insights.subtitle": "પ્લાન્ટના પોતાના રેકોર્ડ એકસાથે વાંચતાં શું દેખાય છે — આ કમ્પ્યુટર પરના રેકોર્ડમાંથી નક્કી નિયમોથી કાઢેલું, દરેક સાથે તે જે રેકોર્ડમાંથી વાંચ્યું તે. અહીં કંઈ અંદાજેલું કે ઘડી કાઢેલું નથી.",

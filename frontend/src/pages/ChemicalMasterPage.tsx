@@ -3,6 +3,7 @@ import type { ServiceTypeChemical } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
+import { useHeaderEditing } from "../components/documents/HeaderEditing";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { useAppStore } from "../store/AppStore";
@@ -19,6 +20,8 @@ export function ChemicalMasterPage() {
   // departments, so this is undefined for somebody who may not see the chart
   // (engine/departmentScope.ts).
   const doc = documentRepository.getById(CHEMICAL_DOC_ID);
+  // The chart's header block, typed over where it stands (REQUIREMENTS §86): the format's own cells.
+  const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({ doc });
   // The chart being corrected, while Edit is on; null otherwise. Its rows are
   // master data, so a correction is saved there (masterRepository).
   const [draft, setDraft] = useState<ServiceTypeChemical[] | null>(null);
@@ -81,7 +84,8 @@ export function ChemicalMasterPage() {
           download={<DownloadDocumentButton doc={doc} />}
         />
       </div>
-      <DocumentHeader doc={doc} dateLabel="Reference" />
+      <DocumentHeader doc={doc} dateLabel="Reference" edit={headerEdit} />
+      {headerPanel}
       <p className="text-muted mt-3 mb-4 no-print">
         {editing
           ? "Editing — correct any cell that is wrong, then Save. Chemicals: one per line."

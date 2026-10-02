@@ -988,6 +988,13 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
         `Inspected by ${h.inspectedBy}. Update the job / PO if a different lot is being inspected today; "Approved by (QA Manager)" is the Verify step.`,
       ];
     }
+    case "qc-inspection-sb-lamination": {
+      const job = [h.fgCode && `FG ${h.fgCode}`, h.poNumber && `PO ${h.poNumber}`, h.laminatedRoll && `roll ${h.laminatedRoll}`].filter(Boolean).join(" · ");
+      return [
+        `Filled the ${rows.length} test-parameter observations for ${job || "the current job"} (${h.pass || "pass not set"}) with this job's usual figures, and the lot status set by today's lot (${h.lotStatus}) rather than copied from the last inspection. Write in what was actually measured, and the date and shift.`,
+        `Inspected by ${h.inspectedBy}. "Approved by (QA Manager)" is the Verify step.`,
+      ];
+    }
     case "qc-inprocess-printing": {
       const grades = rows.map((r) => `${String(r.parameter).split(" (")[1]?.replace(")", "") ?? r.parameter}: ${r.grade}`).join(", ");
       return [
@@ -995,7 +1002,12 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
         `QA person ${h.qaPerson}. Change any grade that differs on today's sample sheets; an F grade means printing must stop.`,
       ];
     }
-    default:
-      return [`Filled ${rows.length} row(s) with typical values.`];
+    default: {
+      // Said as it is: a sheet whose lines are written on the day (F/HR/15, F/HR/16) gets nothing on its lines.
+      const written = rows.filter((r) =>
+        layout.columns.some((c) => !c.fixed && !c.computed && r[c.key] !== undefined && r[c.key] !== null && String(r[c.key]).trim() !== "")
+      ).length;
+      return [written > 0 ? `Filled ${written} row(s) with typical values.` : "The lines are left for the person: each is written on the day it happens, never copied from the last sheet."];
+    }
   }
 }

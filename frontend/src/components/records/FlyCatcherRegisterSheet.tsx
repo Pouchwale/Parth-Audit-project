@@ -3,6 +3,8 @@ import { flushSync } from "react-dom";
 import { FiCheck, FiEdit3, FiLoader, FiPlus, FiPrinter, FiX } from "react-icons/fi";
 import type { FlyCatcherData, FlyCatcherEntry, PCLocation, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
+import { useHeaderEditing } from "../documents/HeaderEditing";
+import { formatEditFor } from "../../data/formatEdits";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
@@ -117,6 +119,9 @@ export function FlyCatcherRegisterSheet({
 }) {
   const t = useT();
   const { currentUser, bump } = useAppStore();
+  // The register's header, typed over where it stands (REQUIREMENTS §86) — the
+  // format's own cells, on the first page's header; the second repeats it.
+  const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({ doc: allowEdit ? documentRepository.getById(FLY_DOC_ID) : undefined });
   const sheetRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState<{ date: string; problem: string | null } | null>(null);
@@ -263,9 +268,20 @@ export function FlyCatcherRegisterSheet({
   const lastDay = `${year}-${pad2(month + 1)}-${pad2(daysInMonth(year, month))}`;
   const latestAllowed = lastDay < today ? lastDay : today;
 
-  const header = (page: string) => (
+  // The paper's own title and date — until the format itself is changed (§86): a renamed
+  // or re-issued F/HR/18 is headed as it now stands, here as on its records.
+  const formatChanged = formatEditFor(FLY_DOC_ID);
+  const header = (page: string, first: boolean) => (
     <>
-      <DocumentHeader doc={doc} companyName={FHR18_COMPANY} title={FHR18_TITLE} dateLabel={FHR18_DATE} pageLabel={page} />
+      <DocumentHeader
+        doc={doc}
+        companyName={FHR18_COMPANY}
+        title={formatChanged?.name ? undefined : FHR18_TITLE}
+        dateLabel={formatChanged ? formatDisplayDate(doc.revisionDate) : FHR18_DATE}
+        pageLabel={page}
+        edit={first ? headerEdit : undefined}
+      />
+      {first && headerPanel}
       <div className="fhr18-month">
         <span className="k">Month &amp; Year</span>
         <span className="v">{monthYear}</span>
@@ -550,11 +566,11 @@ export function FlyCatcherRegisterSheet({
 
       <div ref={sheetRef} className="register-sheet fhr18-sheet" data-print-doc data-editing={editing ? "true" : undefined}>
         <section className="register-page">
-          {header("1 of 2")}
+          {header("1 of 2", true)}
           {grid(pageOne)}
         </section>
         <section className="register-page">
-          {header("2 of 2")}
+          {header("2 of 2", false)}
           {grid(pageTwo)}
         </section>
       </div>

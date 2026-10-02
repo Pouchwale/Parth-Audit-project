@@ -5,9 +5,9 @@ give you all documents which you have put in QC Module and make sure each and
 every document will be editable and bot will perform task according to user
 query". REQUIREMENTS s57. So this suite checks that:
 
-  * the Quality Control module holds all thirty-nine documents, shelved in the
+  * the Quality Control module holds all forty-one documents, shelved in the
     department's seven sections;
-  * every one of the thirty-two new formats, and F/QC/15-B, opens on a page of
+  * every one of the thirty-two new formats, F/QC/15-B, F/QC/33 and F/QC/36, opens on a page of
     its own, headed by its own format number;
   * an incoming material inspection record prints its test parameters and
     specifications and takes the reading beside each - one observation on most,
@@ -110,6 +110,9 @@ NEW_FORMATS = {
     "qc-analysis-report": "F/QC/29",
     "qc-utility-test-report": "F/QC/29",
     "qc-minutes-of-meetings": "F/QC/30",
+    # Supplied on 02-Oct-2026 (REQUIREMENTS s86).
+    "qc-incoming-lamination-film": "F/QC/33",
+    "qc-inspection-sb-lamination": "F/QC/36",
 }
 
 
@@ -311,11 +314,11 @@ with sync_playwright() as p:
     sign_in(page)
 
     # ==================================================================
-    # 1. The module holds all thirty-nine, in the department's seven sections
+    # 1. The module holds all forty-one, in the department's seven sections
     # ==================================================================
     open_page(page, "#/library/quality-control-inspection-records")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-    check("Quality Control - Inspection Records holds thirty-nine documents", rows.count() == 39, rows.count())
+    check("Quality Control - Inspection Records holds forty-one documents", rows.count() == 41, rows.count())
     sections = page.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved in the department's seven sections, in order", sections == QC_SECTIONS, sections)
     text = page.locator(".app-content").inner_text()
@@ -327,7 +330,7 @@ with sync_playwright() as p:
     )
 
     # ==================================================================
-    # 2. Every one of the thirty-two (and F/QC/15-B) opens on its own page, with its number
+    # 2. Every one of the thirty-two (and F/QC/15-B, F/QC/33, F/QC/36) opens on its own page, with its number
     # ==================================================================
     wrong = {}
     for doc_id, format_no in NEW_FORMATS.items():

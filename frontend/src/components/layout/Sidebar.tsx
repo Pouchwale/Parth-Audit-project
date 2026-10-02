@@ -206,14 +206,14 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/document/mkt-complaint-trend", labelKey: "nav.mktComplaintTrend", icon: FiTrendingUp },
   ],
   // The Human Resources module holds two things (REQUIREMENTS §46): HR's own
-  // sixteen F/HR formats — personnel, training, induction and health, hygiene
+  // eighteen F/HR formats — personnel, training, induction and health, hygiene
   // and GMP, the product safety culture survey — which open in the Document
   // Library filtered to the module, and the pest control file, organised the
   // way that paperwork actually falls (see src/pages/PestControlPages.tsx):
   // the daily report, Gurudev Pest Control's three service reports, the trend
   // analyses drawn from them, and the training / reference material.
   "Human Resources": [
-    // HR Records — HR's own sixteen formats, laid out like the pest control file
+    // HR Records — HR's own eighteen formats, laid out like the pest control file
     // below: an overview, then a page per format under its group (REQUIREMENTS §47).
     { headingKey: "nav.hrRecords", group: true },
     { to: "/hr", labelKey: "nav.hrOverview", icon: FiHome },
@@ -235,6 +235,8 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/hr/induction-operators", labelKey: "nav.hrInductionOperators", icon: FiUserCheck },
     { to: "/hr/visitor-health", labelKey: "nav.hrVisitor", icon: FiLogIn },
     { headingKey: "nav.hrHygieneGmp" },
+    { to: "/hr/daily-cleaning", labelKey: "nav.hrDailyCleaning", icon: FiDroplet },
+    { to: "/hr/monthly-cleaning", labelKey: "nav.hrMonthlyCleaning", icon: FiCalendar },
     { to: "/hr/gmp-checklist", labelKey: "nav.hrGmp", icon: FiCheckSquare },
     { to: "/hr/hygiene-report", labelKey: "nav.hrHygiene", icon: FiDroplet },
     { headingKey: "nav.hrSafetyCulture" },
@@ -327,9 +329,10 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/document/disp-safe-transporter-agreement", labelKey: "nav.dispSafeTransporter", icon: FiTruck },
     { headingKey: "nav.dispInspection" },
     { to: "/document/disp-container-stuffing", labelKey: "nav.dispContainerStuffing", icon: FiClipboard },
+    { to: "/document/disp-vehicle-cleaning", labelKey: "nav.dispVehicleCleaning", icon: FiTruck },
   ],
-  // QC Records — the department's own overview of its thirty-nine formats in
-  // their seven sections (REQUIREMENTS §58; F/QC/15-B joined them in §85), and
+  // QC Records — the department's own overview of its forty-one formats in
+  // their seven sections (REQUIREMENTS §58; F/QC/15-B joined them in §85, F/QC/33 and F/QC/36 in §86), and
   // then the Document Library filtered to the module, which is how the
   // collection was reached before. The module has no link per format: QC
   // Records lists every one of them (data/seed/qcModule.ts reads the
@@ -411,6 +414,7 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/str-sharp-metal-objects": ["str-sharp-metal-objects"],
   "/document/disp-safe-transporter-agreement": ["disp-safe-transporter-agreement"],
   "/document/disp-container-stuffing": ["disp-container-stuffing"],
+  "/document/disp-vehicle-cleaning": ["disp-vehicle-cleaning"],
   // Maintenance (REQUIREMENTS §74): one page per F/MNT format.
   "/document/mnt-equipment-list": ["mnt-equipment-list"],
   "/document/mnt-new-equipment": ["mnt-new-equipment"],

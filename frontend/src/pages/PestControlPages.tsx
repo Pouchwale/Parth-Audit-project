@@ -28,6 +28,7 @@ import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { DailyRegisterSheet, FHR17_ORIGINAL_PAGES } from "../components/records/DailyRegisterSheet";
 import { FlyCatcherRegisterSheet } from "../components/records/FlyCatcherRegisterSheet";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
+import { useHeaderEditing } from "../components/documents/HeaderEditing";
 import { useT } from "../i18n";
 import { MONTH_NAMES, WEEKDAY_NAMES, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
 import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, MasterData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
@@ -448,6 +449,8 @@ export function PestControlOverviewPage() {
 // 1. Daily Report — /pest/daily[/{year}/{month0}]
 
 export function DailyMonitoringListPage({ year: initialYear, month: initialMonth }: { year?: number; month?: number }) {
+  // The list's header block, typed over where it stands (REQUIREMENTS §86): the format's own cells.
+  const dailyHeader = useHeaderEditing({ doc: documentRepository.getById(DAILY_DOC_ID) });
   const { mode } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
@@ -575,7 +578,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
         </div>
       )}
 
-      {view === "register" && <DailyRegisterSheet year={year} month={month} isDemo={isDemo} onOpenDay={(r) => navigate(`/record/${r.id}`)} />}
+      {view === "register" && <DailyRegisterSheet year={year} month={month} isDemo={isDemo} onOpenDay={(r) => navigate(`/record/${r.id}`)} headerEditable />}
 
       {view === "list" && (
       // The list is a document in its own right once it is on paper, so it
@@ -584,7 +587,8 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
       // bare grid with no heading is what made a printout look unfinished.
       <div className="register-sheet" data-print-doc>
         <section className="register-page">
-        {doc && <DocumentHeader doc={doc} extraTitle={`STATUS LIST — ${MONTH_NAMES[month].toUpperCase()} ${year}`} dateLabel={`${MONTH_NAMES[month]} ${year}`} />}
+        {doc && <DocumentHeader doc={doc} extraTitle={`STATUS LIST — ${MONTH_NAMES[month].toUpperCase()} ${year}`} dateLabel={`${MONTH_NAMES[month]} ${year}`} edit={dailyHeader.edit} />}
+        {dailyHeader.panel}
         <div className="doc-table" style={{ border: "none" }}>
         <table>
           <thead>
@@ -638,6 +642,8 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
 // 2. Service Reports — /pest/service/{rodent|general|fly}[/{year}]
 
 export function ServiceReportListPage({ slug, year: initialYear }: { slug: string; year?: number }) {
+  // The visit register's header block, typed over where it stands (REQUIREMENTS §86).
+  const visitHeader = useHeaderEditing({ doc: PEST_SERVICES[slug] ? documentRepository.getById(PEST_SERVICES[slug].docId) : undefined });
   const { mode } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
@@ -746,7 +752,8 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
           so it carries the document's header block (REQUIREMENTS §38). */}
       <div className="register-sheet" data-print-doc>
         <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${year}`} dateLabel={String(year)} />
+        <DocumentHeader doc={doc} extraTitle={`VISIT REGISTER ${year}`} dateLabel={String(year)} edit={visitHeader.edit} />
+        {visitHeader.panel}
         {/* data-table: a stable hook, since this page now also carries the
             company-format sheets, which are tables too. */}
         <div className="doc-table" style={{ border: "none" }}>
@@ -911,6 +918,8 @@ export function LizardTrendPage({ year: initialYear }: { year?: number }) {
 // 3c. Trend Analysis — Fly Catcher Infestation — /pest/trend/fly-catcher[/{year}]
 
 export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
+  // The year's list keeps the F/HR/18 header block, typed over where it stands (REQUIREMENTS §86).
+  const flyHeader = useHeaderEditing({ doc: documentRepository.getById(FLY_DOC_ID) });
   const { mode } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
@@ -1003,7 +1012,8 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
       // the list (REQUIREMENTS §38).
       <div className="register-sheet" data-print-doc>
         <section className="register-page">
-          {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${year}`} dateLabel={String(year)} />}
+          {doc && <DocumentHeader doc={doc} extraTitle={`INSPECTION & CLEANING RECORDS ${year}`} dateLabel={String(year)} edit={flyHeader.edit} />}
+          {flyHeader.panel}
           <h3 className="text-lg no-print" style={{ marginTop: 10 }}>
             <FiActivity size={14} style={{ verticalAlign: -2 }} /> Inspection & cleaning records — {year}
           </h3>

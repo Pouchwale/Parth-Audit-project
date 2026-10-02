@@ -21,7 +21,7 @@ export const RETIRED_DOCUMENT_IDS: string[] = ["service-report-lizard", "sop-ref
 
 // THE HUMAN RESOURCES MODULE'S SUB-GROUPS, in display order — see
 // DocumentDefinition.section. The module holds two things (REQUIREMENTS §46):
-// HR's own sixteen F/HR formats, supplied on 14-Sep-2026, in five groups, and
+// HR's own F/HR formats — sixteen supplied on 14-Sep-2026, two more on 02-Oct-2026 (§86) — in five groups, and
 // the pest control file — F/HR/17, F/HR/18 and what is filed with them, which
 // the company's Master List of Formats also puts under HR — in the four groups
 // the department reads that file in (its pages are organised by them).
@@ -184,6 +184,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/HR/18",
     revisionNo: "02",
     revisionDate: "2024-12-15",
+    // The paper spells the company "PRINT PACK", two words (FlyCatcherRegisterSheet FHR18_COMPANY): its records and
+    // lists print it as the register does, and its header is typed over from it like any other (REQUIREMENTS §86).
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Housekeeping",
     module: "Human Resources",
     section: "Trend Analysis",
@@ -539,6 +542,51 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     sourceFile: "F-HR-14_Visitor health declaration record.pdf",
     schedule: { type: "as-required" },
   },
+  // F/HR/15 and F/HR/16, supplied on 02-Oct-2026 (REQUIREMENTS §86): the plant's
+  // two cleaning records, filed in Hygiene & GMP before F/HR/19 by number.
+  {
+    id: "hr-daily-cleaning",
+    kind: "log-sheet",
+    name: "Daily Cleaning Record",
+    formatNo: "F/HR/15",
+    revisionNo: "01",
+    revisionDate: "2024-12-15",
+    // The paper's own title line reads "GUJARAT PRINT PACA1:AH16K PUBLICATION PRIVATE LIMITED" —
+    // a spreadsheet range (A1:AH16) typed into the title by mistake. It is printed here as its
+    // sister form F/HR/16 (same revision, same date) prints it; confirmation item 47 asks the
+    // MR to correct the original at its next revision.
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Hygiene & GMP",
+    frequency: "Monthly",
+    status: "Configured",
+    description:
+      "One sheet a month: the seventeen areas of the plant, canteen to the drinking water and toilet area, each with what is cleaned — the floor, the hand wash stations or the toilet, dry and wet mopping — against the days of the month, 1 to 31, with who did the day's cleaning and who verified it at the foot of each day. The method, the chemicals and the equipment are in the cleaning schedule. Due at the month's end; a day's column is filled on the day.",
+    sourceFile: "F-HR-15_Daily Cleaning record_01_15.12.2024.pdf (as supplied 02-Oct-2026); the company's own original is F-HR-15_Daily Cleaning record_01_15.12.2024.xls",
+    schedule: { type: "monthly", dayOfMonth: 31 },
+  },
+  {
+    id: "hr-monthly-cleaning",
+    kind: "log-sheet",
+    name: "Monthly Cleaning Record",
+    formatNo: "F/HR/16",
+    revisionNo: "01",
+    revisionDate: "2024-12-15",
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "HR & Admin",
+    module: "Human Resources",
+    section: "Hygiene & GMP",
+    // One sheet a year, filled month by month: due at the year's end, as F/HR/15 and F/HR/22 are
+    // due at the month's end — and filed from the year's first day (engine/recordGenerator.ts),
+    // so the year is written on as it goes and the sheet is never late before the year is over.
+    frequency: "Yearly",
+    status: "Configured",
+    description:
+      "One sheet a year: the walls, ceilings and glass doors of eighteen areas, canteen to the drinking water and toilet area, cleaned once a month — for each month, January to December, the date it was done, who cleaned each area, and who verified the month's cleaning. The method, the chemicals and the equipment are in the cleaning schedule. On file from the year's first day; due at its end.",
+    sourceFile: "F-HR-16_Monthly Cleaning record_01_15.12.2024.pdf (as supplied 02-Oct-2026); the company's own original is F-HR-16_Monthly Cleaning record_01_15.12.2024.xls",
+    schedule: { type: "yearly", month: 11, dayOfMonth: 31 },
+  },
   {
     id: "hr-gmp-checklist",
     kind: "log-sheet",
@@ -714,6 +762,25 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description: "Per-job pouch inspection: 11 test parameters (height, width, seal widths, gusset, thickness, zipper position, GSM, pouch weight, pouch type, leak test) against the FG product specification, lot status and QA inspector sign.",
     sourceFile: "Photographed F/QC/37 register (WhatsApp, 07-Sep-2026)",
+    schedule: { type: "daily" },
+  },
+  // F/QC/36, supplied on 02-Oct-2026 (REQUIREMENTS §86), between F/QC/37 and F/QC/35 — the
+  // fourth of the lamination inspection records, printed as they are.
+  {
+    id: "qc-inspection-sb-lamination",
+    kind: "log-sheet",
+    section: "In-Process & Inspection",
+    name: "Inspection Record – Solvent Base Lamination Film",
+    formatNo: "F/QC/36",
+    revisionNo: "00",
+    revisionDate: "2024-12-15",
+    department: "Quality Assurance",
+    module: "Quality Control — Inspection Records",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "Inspection of a solvent base laminated roll: the job, its purchase order, the date and shift, the roll number, both substrates and which pass it is — then the composite GSM against the FG product specification (NA when the job goes on to a second or third pass), the green bond strength for indication only, and an odour test, with the lot status, the reason for any deviation and the QA inspector's sign.",
+    sourceFile: "F-QC-36_Inspection record for SB Lamination Film.pdf (as supplied 02-Oct-2026); the company's own original is F-QC-36_Inspection record for SB Lamination Film.doc",
     schedule: { type: "daily" },
   },
   {
@@ -1039,6 +1106,25 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     description:
       "Incoming sheet pasting powder: appearance, moisture content, the mixing ratio, viscosity and solid content.",
     sourceFile: "F-QC-24_Inspection record for Corru.sheet pasting powder.pdf",
+    schedule: { type: "as-required" },
+  },
+  // F/QC/33, supplied on 02-Oct-2026 (REQUIREMENTS §86): the fourteenth incoming material
+  // inspection, printed exactly as the thirteen of §57 are.
+  {
+    id: "qc-incoming-lamination-film",
+    kind: "log-sheet",
+    section: "Incoming Material Inspection",
+    name: "Inspection Record – Incoming Lamination Grade Film",
+    formatNo: "F/QC/33",
+    revisionNo: "00",
+    revisionDate: "2024-12-15",
+    department: "Quality Control",
+    module: "Quality Control — Inspection Records",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "Incoming lamination grade film against the purchase order and the film's own specification: the size, the thickness of the film, the corona treatment, the COF, the dart impact and an odour test, with the lot accepted, rejected and sent back to the supplier or scrapped, segregated or accepted on deviation, and the reason written beside it.",
+    sourceFile: "F-QC-33_Inspection record for Incoming Lamination Film.pdf (as supplied 02-Oct-2026); the company's own original is F-QC-33_Inspection record for Incoming Lamination Film.doc",
     schedule: { type: "as-required" },
   },
   {
@@ -1856,6 +1942,26 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     description:
       "The check made on the container and the vehicle before the plant's product is loaded into it, printed in Gujarati: the seven things to do when the container arrives, the consignment's own details — the customer, the invoice, both purchase order numbers, the driver, the transporter and the vehicle — and the nine-point checklist, each point answered હા or નાં with NA struck out, and any other observation written beside it. It is authorised by the Dispatch In charge for product release and checked and approved by QC. The paper numbers its points 1, 2, 3, 4, 6, 7, 8, 9 — there is no 5.",
     sourceFile: "F-DISP-02_Container stuffing & Vehicle Inspection record.pdf (the blank format, both pages)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "disp-vehicle-cleaning",
+    kind: "log-sheet",
+    name: "Vehicle (Company Owned) Cleaning Protocol & Record",
+    formatNo: "F/DISP/04",
+    // The paper: "Rev. no. – 01", "Effective date: - 01-11-2023". The master list of formats
+    // (F/SYS/02) still lists F-DISP-04 at its first issue of 16.02.22 — the paper is the later word.
+    revisionNo: "01",
+    revisionDate: "2023-11-01",
+    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    department: "Dispatch",
+    module: "Dispatch",
+    section: "Dispatch Inspection",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The cleaning of the plant's own four vehicles — the Echo, the Bolero pick-up and the two Eicher trucks — which carry only finished product to customers and transporters: a record for a vehicle, started when it is cleaned and handed in within two days, with a line for each cleaning — its date, whether it was dry (daily) or wet (weekly) mopping, the driver's sign and the Dispatch In-charge's random verification. Each vehicle is also checked for objectionable material, odour, signs of pest and foreign matter, and cleaned until none is left.",
+    sourceFile: "F-DISP-04_Vehicle cleaning Protocol & Record_01.11.2023.pdf (as supplied 02-Oct-2026); the company's own original is F-DISP-04_Vehicle cleaning Protocol & Record_01.11.2023.docx",
     schedule: { type: "as-required" },
   },
   // ---------------------------------------------------------------------

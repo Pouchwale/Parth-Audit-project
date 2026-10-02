@@ -1,6 +1,7 @@
 import React from "react";
 import type { DailyPestMonitoringData, DailyCheckpointDef, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
+import { FORMAT_HEADER_FIELDS, useHeaderEditing } from "../documents/HeaderEditing";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { recordRepository } from "../../data/repositories/recordRepository";
@@ -73,13 +74,22 @@ export function DailyRegisterSheet({
   month,
   isDemo,
   onOpenDay,
+  headerEditable = false,
 }: {
   year: number;
   month: number;
   isDemo: boolean;
   onOpenDay?: (record: RecordInstance<DailyPestMonitoringData>) => void;
+  /** The register's own page offers its header typed over in place (REQUIREMENTS §86); a report shows it only. */
+  headerEditable?: boolean;
 }) {
   const doc = documentRepository.getById(DAILY_DOC_ID);
+  // The first page's header takes the clicks; the other two repeat it. Its Date cell
+  // prints the format's revision date, so that is the format's to change too.
+  const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({
+    doc: headerEditable ? doc : undefined,
+    formatFields: [...FORMAT_HEADER_FIELDS, "revisionDate"],
+  });
   const checkpoints = masterRepository.get().checkpoints;
   const dim = daysInMonth(year, month);
   const records = recordRepository.query({
@@ -189,7 +199,8 @@ export function DailyRegisterSheet({
   return (
     <div className="register-sheet" data-print-doc>
       <section className="register-page">
-        <DocumentHeader doc={doc} extraTitle={monthLabel} pageLabel="1 Of 3" />
+        <DocumentHeader doc={doc} extraTitle={monthLabel} pageLabel="1 Of 3" edit={headerEdit} />
+        {headerPanel}
         <div className="register-instructions">
           <p>{FHR17_INSTRUCTION_1}</p>
           <p className="font-semibold">{FHR17_INSTRUCTION_2}</p>

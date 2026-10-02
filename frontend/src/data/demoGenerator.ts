@@ -19,7 +19,7 @@ import { recordRepository } from "./repositories/recordRepository";
 import { NEARLY_FULL_CHARS, measureWorkingCopy } from "./storageAdapter";
 import { getLogSheetLayout } from "./seed/logSheetLayouts";
 import { effectiveDueDatesInMonth } from "../engine/holidays";
-import { periodKeyFor } from "../engine/recordGenerator";
+import { fillsThroughYear, periodKeyFor } from "../engine/recordGenerator";
 import { fixedMaterialForServiceArea, normalizeServiceLines } from "../engine/serviceMaterials";
 import { autoFillRecord } from "../engine/autoFill";
 import { createDefaultData } from "../engine/recordDefaults";
@@ -382,8 +382,9 @@ export function generateDemoRecordsForMonth(year: number, month: number, only?: 
 
     // Same holiday-aware dates as the Live generator (engine/holidays.ts):
     // Thursday weekly off, festival holidays, adjustment days; fortnightly
-    // visits that land on a closed day move to the next working day.
-    for (const { scheduled, due: dueDate, holiday } of effectiveDueDatesInMonth(doc, year, month, master)) {
+    // visits that land on a closed day move to the next working day. A year's sheet filled month by
+    // month (F/HR/16) is on file from the year's first month, as Live has it (fillsThroughYear).
+    for (const { scheduled, due: dueDate, holiday } of effectiveDueDatesInMonth(doc, year, fillsThroughYear(doc) ? 11 : month, master)) {
       const periodKey = periodKeyFor(doc, scheduled);
       // A period already on file is left alone — except a blank shell made
       // for a day that was still ahead when it was generated, untouched
@@ -536,7 +537,7 @@ export function ensureDemoRecordsGeneratedForYear(year: number): number {
   for (const r of recordRepository.queryUnscoped({ isDemo: true })) stored.set(`${r.documentId}|${r.periodKey}`, r);
   const lacking = (month: number, only: (doc: DocumentDefinition) => boolean) =>
     docs.filter(only).some((doc) =>
-      effectiveDueDatesInMonth(doc, year, month, master).some(({ scheduled, holiday }) => {
+      effectiveDueDatesInMonth(doc, year, fillsThroughYear(doc) ? 11 : month, master).some(({ scheduled, holiday }) => {
         if (holiday && doc.kind !== "daily-pest-monitoring") return false;
         const prior = stored.get(`${doc.id}|${periodKeyFor(doc, scheduled)}`);
         return !prior || isUnfilledPastShell(prior, today);

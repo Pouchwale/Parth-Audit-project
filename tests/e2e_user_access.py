@@ -309,7 +309,11 @@ with sync_playwright() as p:
         ov = overview.get("body") or {}
         emails = [p_.get("email") for p_ in ov.get("people") or []]
         check("The server hands the super admin every account", overview["status"] == 200 and all(e in emails for e in (ADMIN, KAPILA, SANDEEP, "vinay.bhojak@gpp.local")), emails)
-        check("...the super admin first", emails[:1] == [ADMIN], emails)
+        # The admins first, by name — and on this run's database the demo server's first sign-up is an admin too
+        # (insertUser makes the first account one), so "Playwright QA" may stand before "Super Admin".
+        roles = [p_.get("role") for p_ in ov.get("people") or []]
+        admins = roles.count("admin")
+        check("...the super admin first, with any other admin", ADMIN in emails[:admins] and "admin" not in roles[admins:], list(zip(emails, roles)))
         check(
             "...and nothing of anybody's password: no hash, no password",
             "password_hash" not in overview["text"] and "$2a$" not in overview["text"] and "$2b$" not in overview["text"] and SEED_PASSWORD not in overview["text"],

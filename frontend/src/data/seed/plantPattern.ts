@@ -233,6 +233,18 @@ export const LOT_DECISIONS: LotDecisionSpec[] = [
 
 /** documentId -> reason kind -> the wording, in that format's own vocabulary. */
 export const LOT_REASONS: Record<string, Record<string, string[]>> = {
+  // F/QC/36 (REQUIREMENTS §86), in its own form's words: composite GSM, green bond strength, odour.
+  "qc-inspection-sb-lamination": {
+    "DEVIATION": [
+      "Composite GSM 118 gsm against 120 gsm specified — accepted on deviation after QA review."
+    ],
+    "SEGREGATION": [
+      "Solvent odour on the laminated roll — segregated for curing in the hot room and re-tested before slitting."
+    ],
+    "REJECT": [
+      "No green bond: the layers separated by hand across the roll. Roll rejected / scrapped; the adhesive mix checked."
+    ]
+  },
   "qc-inspection-pouching": {
     "DEVIATION": [
       "Centre seal width 8 mm against 10 mm specified — accepted on deviation with customer's verbal approval; seal strength checked OK.",

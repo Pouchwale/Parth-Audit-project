@@ -15,6 +15,7 @@ import {
   isEditableStatus,
   reopenForCorrection,
   saveDraft,
+  saveHeaderBlock,
   submitRecord,
   verifyRecord,
   rejectRecord,
@@ -24,6 +25,7 @@ import { currentActivity, isItemOpen, summarise } from "../engine/guidedChecklis
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
+import { recordHeaderEditing, useHeaderEditing } from "../components/documents/HeaderEditing";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
@@ -308,6 +310,31 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
     const base = current();
     if (base) setData({ ...base.data, ...p });
   };
+  // THE HEADER BLOCK, TYPED OVER ON THE RECORD (REQUIREMENTS §86): the format's own
+  // cells change the format; the record's Date and Page No. are saved on it at once.
+  const headerDefaults = { date: record?.dueDate ?? "", page: "1 of 1 (digital)" };
+  const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({
+    doc,
+    record: record
+      ? recordHeaderEditing(
+          {
+            editable,
+            enabled: true,
+            save: (change, defaults) => {
+              const base = current();
+              if (!base || !isEditableStatus(base.status)) return;
+              const saved = saveHeaderBlock(base as RecordInstance, { ...base.headerBlock, ...change }, currentUser, defaults);
+              if (saved !== base) {
+                setRecord(saved as RecordInstance<ComplaintChecklistData>);
+                bump();
+              }
+            },
+          },
+          record.headerBlock,
+          headerDefaults
+        )
+      : undefined,
+  });
 
   // Submit stamps Prepared By with the logged-in user if they haven't typed
   // a name; approval (Verify) stamps Approved By with the approver. Both
@@ -545,7 +572,13 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
       {/* The document itself — the part that prints (utils/print.ts) — and whose
           values a downloaded file binds to this record (REQUIREMENTS §81). */}
       <div data-print-doc data-bind-record={record.id}>
-      <DocumentHeader doc={doc} dateLabel={formatDisplayDate(record.dueDate)} pageLabel="1 of 1 (digital)" />
+      <DocumentHeader
+        doc={doc}
+        dateLabel={formatDisplayDate(record.headerBlock?.date ?? record.dueDate)}
+        pageLabel={record.headerBlock?.page ?? "1 of 1 (digital)"}
+        edit={headerEdit}
+      />
+      {headerPanel}
 
       <div className="card mt-4 no-print" style={{ borderLeft: "4px solid var(--color-accent)" }}>
         <div className="card-pad flex items-center justify-between gap-4 wrap">

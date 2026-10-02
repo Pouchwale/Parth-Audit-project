@@ -202,7 +202,7 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
 };
 
 // ---------------------------------------------------------------------------
-// QC INSPECTION RECORDS (F/QC/34, /35, /37) and IN-PROCESS QC (F/QC/13).
+// QC INSPECTION RECORDS (F/QC/34, /35, /36, /37) and IN-PROCESS QC (F/QC/13).
 // Shared shape: job header, a fixed list of test parameters with a printed
 // specification and an observation to fill, a lot-status decision, and the
 // QA inspector's sign. "Approved by / QA Manager" on the paper is the app's
@@ -263,6 +263,55 @@ Object.assign(LOG_SHEET_LAYOUTS, {
       { observation: "-" }, { observation: "97.0" }, { observation: "5.84" }, { observation: "Standy + Zipper" }, { observation: "PASS" },
     ],
     specimenSource: "Photographed F/QC/37 register (filled 06/03/26, 1st shift)",
+  } satisfies LogSheetLayout,
+
+  // ---- F/QC/36 — Inspection Record – Solvent Base Lamination Film (00/15.12.2024)
+  // Supplied 02-Oct-2026 as a PDF with its Word original (REQUIREMENTS §86): every label and
+  // line is the .doc's own text, in its own capitals and spacing ("Date / SHIFT", "2nd  SUBSTRATE
+  // DETAILS"), where F/QC/34/35/37 were read off photographs. As on those three, APPROVED BY
+  // (QA MANAGER) is the app's Verify.
+  "qc-inspection-sb-lamination": {
+    documentId: "qc-inspection-sb-lamination",
+    headerFields: [
+      { key: "fgCode", label: "JOB CODE (FG CODE)", type: "text", required: true, autoFill: { carryForward: true } },
+      { key: "poNumber", label: "PO NUMBER", type: "text", required: true, autoFill: { carryForward: true } },
+      // One box on the paper: the date and the shift written together — by the person, never copied from the last sheet.
+      { key: "dateShift", label: "Date / SHIFT", type: "text" },
+      { key: "laminatedRoll", label: "Laminated Roll number", type: "text", autoFill: { carryForward: true } },
+      { key: "substrate1", label: "1st SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true } },
+      // The two spaces after "2nd" are the paper's own.
+      { key: "substrate2", label: "2nd  SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true } },
+      { key: "pass", label: "1st Pass / 2nd Pass / 3rd Pass", type: "select", options: ["1st Pass", "2nd Pass", "3rd Pass"], required: true, autoFill: { default: "1st Pass" } },
+    ],
+    columns: [
+      { key: "parameter", label: "TEST PARAMETERS", type: "text", fixed: true, width: 300 },
+      { key: "specification", label: "SPECIFICATION", type: "text", fixed: true, width: 200 },
+      { key: "observation", label: "OBSERVATION", type: "text", required: true, autoFill: { carryForward: true }, width: 200 },
+    ],
+    rowMode: {
+      kind: "fixedRows",
+      rows: fixedParams([
+        // "(*)NA" with no space, and the (*) marks with no footnote, are the paper's own.
+        ["COMPOSITE GSM (*)NA (IF JOB INVOLVES 2nd Pass / 3rd Pass Lamination process)", "FG Product Specification"],
+        ["GREEN BOND STRENGTH (*) – ONLY FOR INDICATIVE PURPOSE", "NA"],
+        ["ODOUR TEST", "No abnormal odour"],
+      ]),
+    },
+    footerFields: [
+      { key: "lotStatus", label: "LOT STATUS", type: "select", options: ["ACCEPTED", "REJECT / SCRAP", "SEGREGATION", "ACCEPTED ON DEVIATION"], required: true, autoFill: { default: "ACCEPTED" } },
+      { key: "deviationReason", label: "REASON FOR DEVIATION / REJECTION / SEGREGATION", type: "text" },
+      { key: "inspectedBy", label: "INSPECTED BY (QA INSPECTOR)", type: "text", required: true, autoFill: { sign: true } },
+    ],
+    // Nothing was supplied filled in: these are typical values for the assistant, worded as F/QC/35's register words them.
+    specimenHeader: {
+      fgCode: "5703", poNumber: "81857", laminatedRoll: "1",
+      substrate1: "25 mic Matt BOPP", substrate2: "12 mic MetPET", pass: "1st Pass", lotStatus: "ACCEPTED", deviationReason: "",
+    },
+    specimenRows: [{ observation: "As per FG specification" }, { observation: "NA" }, { observation: "Pass" }],
+    specimenSource: "F-QC-36_Inspection record for SB Lamination Film.pdf (blank form supplied 02-Oct-2026 — typical values as on the F/QC/35 register)",
+    originalPages: [
+      { src: "/source/fqc36-sb-lamination-film-p1.jpg", caption: "F/QC/36 (00 / 15.12.2024) — Inspection Record – Solvent Base Lamination Film, the blank format as supplied" },
+    ],
   } satisfies LogSheetLayout,
 
   // ---- F/QC/35 — Inspection Record – Slitting - Lamination Grade Film (00/15.12.2024)

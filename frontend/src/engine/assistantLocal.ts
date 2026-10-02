@@ -275,6 +275,8 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "prd-process-parameter", aliases: ["process parameter record", "process parameter"] },
   { id: "prd-alc-production", aliases: ["alc production", "alc & production", "f-prd-18", "alc report"] },
   { id: "qc-inspection-pouching", aliases: ["pouching inspection", "pouching process", "f/qc/37", "pouching"] },
+  // Never a bare "solvent base lamination": the Lamination module's two records are named that way too.
+  { id: "qc-inspection-sb-lamination", aliases: ["solvent base lamination film", "solvent based lamination film", "sb lamination film", "sb film inspection", "f/qc/36"] },
   { id: "qc-inspection-slitting", aliases: ["slitting inspection", "f/qc/35", "slitting"] },
   { id: "qc-inspection-printed-film", aliases: ["printed film inspection", "printed film", "f/qc/34"] },
   { id: "qc-inprocess-printing", aliases: ["in process quality control", "in-process quality control", "in process printing", "f/qc/13"] },
@@ -284,6 +286,8 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   // one is also found by its format number, which needs no alias at all
   // (engine/formatNumbers.ts) — these are the words people say instead.
   { id: "qc-bopp-film", aliases: ["bopp film", "bopp", "inspection record bopp", "f/qc/01"] },
+  // Never "lamination grade film inspection" (F/QC/35's title says it too) nor "incoming film inspection" (F/QC/01 and /05 are incoming films).
+  { id: "qc-incoming-lamination-film", aliases: ["incoming lamination grade film", "incoming lamination film", "f/qc/33"] },
   { id: "qc-corrugated-box", aliases: ["corrugated box inspection", "corrugated box", "box inspection", "f/qc/02"] },
   { id: "qc-label-stock", aliases: ["label stock", "label stock inspection", "f/qc/03"] },
   { id: "qc-paper-core", aliases: ["paper core", "core inspection", "f/qc/04"] },
@@ -333,6 +337,9 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "hr-psc-survey", aliases: ["product safety culture survey", "culture survey", "psc survey", "safety culture", "f/hr/20"] },
   { id: "hr-psc-survey-analysis", aliases: ["culture survey analysis", "survey analysis", "psc analysis", "f/hr/21"] },
   { id: "hr-hygiene-report", aliases: ["hygiene inspection", "hygiene report", "personal hygiene", "sanitation", "hygiene", "frisking", "f/hr/22"] },
+  // The two cleaning records (REQUIREMENTS §86) — never a bare "cleaning", which F/MNT/04 and the fly catcher record say too.
+  { id: "hr-daily-cleaning", aliases: ["daily cleaning record", "daily cleaning", "floor cleaning", "dry and wet mopping", "dry & wet mopping", "mopping record", "f/hr/15"] },
+  { id: "hr-monthly-cleaning", aliases: ["monthly cleaning record", "monthly cleaning", "walls and ceiling cleaning", "walls & ceiling cleaning", "glass doors cleaning", "f/hr/16"] },
   // Purchase — the five formats supplied on 23-Sep-2026 (REQUIREMENTS §68).
   // Every one is also found by its format number, which needs no alias
   // (engine/formatNumbers.ts) — these are the words the department says
@@ -527,6 +534,11 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
       "stuffing record",
       "f/disp/02",
     ],
+  },
+  // F/DISP/04 (REQUIREMENTS §86): the company's own vehicles, cleaned dry daily and wet weekly.
+  {
+    id: "disp-vehicle-cleaning",
+    aliases: ["vehicle cleaning protocol", "vehicle cleaning record", "vehicle cleaning", "company owned vehicle cleaning", "company vehicle cleaning", "truck cleaning", "f/disp/04"],
   },
   {
     id: "pur-supplier-performance",

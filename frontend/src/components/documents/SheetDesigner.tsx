@@ -3,6 +3,7 @@ import { FiAlignLeft, FiArrowDown, FiArrowLeft, FiArrowRight, FiArrowUp, FiCheck
 import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSheetLayout } from "../../types";
 import { Modal } from "../common/Modal";
 import { DocumentHeader, type HeaderField } from "./DocumentHeader";
+import { RenameBox } from "./RenameBox";
 import { FormatEditor } from "./FormatEditor";
 import { COMPANY } from "../../data/seed/masterData";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
@@ -870,32 +871,35 @@ export function SheetDesigner({
           edit={{
             editing: renaming?.kind === "header" ? renaming.field : null,
             onEdit: (field) => {
+              // A record's own Date and Page No. (REQUIREMENTS §86) are never the format's: the designer offers neither.
+              if (field === "date" || field === "page") return;
               setMenu(null);
               setRenaming({ kind: "header", field });
             },
             values: { companyName: draft.companyName, formatNo: draft.formatNo, revisionNo: draft.revisionNo, revisionDate: draft.revisionDate },
-            box: (field) => (
-              <RenameBox
-                field={`designer-${field}`}
-                label={{ companyName: "Company name", title: "Name of the format", formatNo: "Format No.", revisionNo: "Revision number", revisionDate: "Date of the revision" }[field]}
-                inputType={field === "revisionDate" ? "date" : undefined}
-                initial={
-                  field === "companyName"
-                    ? (draft.companyName ?? doc.companyName ?? COMPANY.name)
-                    : field === "title"
-                      ? draft.name
-                      : field === "formatNo"
-                        ? (draft.formatNo ?? doc.formatNo)
-                        : field === "revisionNo"
-                          ? draft.revisionNo && draft.revisionNo !== doc.revisionNo
-                            ? draft.revisionNo
-                            : nextRevisionNo(doc.revisionNo)
-                          : (draft.revisionDate ?? doc.revisionDate ?? "")
-                }
-                onCommit={commitRename}
-                onCancel={cancelRename}
-              />
-            ),
+            box: (field) =>
+              field === "date" || field === "page" ? null : (
+                <RenameBox
+                  field={`designer-${field}`}
+                  label={{ companyName: "Company name", title: "Name of the format", formatNo: "Format No.", revisionNo: "Revision number", revisionDate: "Date of the revision" }[field]}
+                  inputType={field === "revisionDate" ? "date" : undefined}
+                  initial={
+                    field === "companyName"
+                      ? (draft.companyName ?? doc.companyName ?? COMPANY.name)
+                      : field === "title"
+                        ? draft.name
+                        : field === "formatNo"
+                          ? (draft.formatNo ?? doc.formatNo)
+                          : field === "revisionNo"
+                            ? draft.revisionNo && draft.revisionNo !== doc.revisionNo
+                              ? draft.revisionNo
+                              : nextRevisionNo(doc.revisionNo)
+                            : (draft.revisionDate ?? doc.revisionDate ?? "")
+                  }
+                  onCommit={commitRename}
+                  onCancel={cancelRename}
+                />
+              ),
           }}
         />
 
@@ -1255,85 +1259,6 @@ function ChangeList({ changes }: { changes: string[] }) {
         <li key={i}>{c}</li>
       ))}
     </ul>
-  );
-}
-
-/**
- * A name being typed where it stands. It arrives focused with the old name
- * selected, so typing replaces it. Enter — or clicking anywhere else — keeps
- * what was typed; Escape leaves the name as it was. The instructions take
- * several lines, so there Enter is a new line and Ctrl+Enter keeps them.
- */
-function RenameBox({
-  field,
-  label,
-  initial,
-  multiline,
-  inputType,
-  onCommit,
-  onCancel,
-}: {
-  field: string;
-  label: string;
-  initial: string;
-  multiline?: boolean;
-  /** "date" for the header's revision date (REQUIREMENTS §77); text otherwise. */
-  inputType?: string;
-  onCommit: (value: string) => void;
-  onCancel: () => void;
-}) {
-  const [text, setText] = useState(initial);
-  const line = useRef<HTMLInputElement>(null);
-  const area = useRef<HTMLTextAreaElement>(null);
-  // Enter takes the box off the sheet, and the blur that follows must not keep the name a second time.
-  const done = useRef(false);
-  useEffect(() => {
-    const el = line.current ?? area.current;
-    el?.focus();
-    el?.select();
-  }, []);
-  const finish = (keep: boolean) => {
-    if (done.current) return;
-    done.current = true;
-    if (keep) onCommit(text);
-    else onCancel();
-  };
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (!multiline || e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      finish(true);
-    } else if (e.key === "Escape") {
-      // The Escape is this box's: a menu or a pop-up underneath is not to close on it as well.
-      e.stopPropagation();
-      finish(false);
-    }
-  };
-  return multiline ? (
-    <textarea
-      ref={area}
-      className="input designer-rename notranslate"
-      translate="no"
-      rows={Math.min(10, Math.max(3, text.split("\n").length + 1))}
-      value={text}
-      aria-label={label}
-      data-field={field}
-      onChange={(e) => setText(e.target.value)}
-      onKeyDown={onKeyDown}
-      onBlur={() => finish(true)}
-    />
-  ) : (
-    <input
-      ref={line}
-      type={inputType ?? "text"}
-      className="input input-sm designer-rename notranslate"
-      translate="no"
-      value={text}
-      aria-label={label}
-      data-field={field}
-      onChange={(e) => setText(e.target.value)}
-      onKeyDown={onKeyDown}
-      onBlur={() => finish(true)}
-    />
   );
 }
 

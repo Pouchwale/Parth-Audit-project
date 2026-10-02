@@ -442,6 +442,28 @@ Seven scripts live in `tests/`:
   `backend/tests/workingHours.test.ts` (the gate with a clock the test sets, the super admin exempt, the off switch, the session's
   end, the /api/v1 routes), `backend/tests/accessRoutes.test.ts` (38: refusals, pairing sign-ins with sign-outs, "signed in now",
   paging, CSV), `frontend/tests/intro.test.ts`.
+- **The five formats of 02-Oct-2026 and the header block on every document** (REQUIREMENTS §86). New browser suite:
+  `tests/e2e_header_editing.py` (demo server, the fill suite's account): on an F/QC/33 record the Page No. and the Date are
+  typed over, kept on that record with a history line and after a reload; the format number typed over asks why first,
+  refuses an empty reason, and saves the next revision — the header alone, no copy of the layout; "Keep the header as it
+  is" changes nothing; the revision typed alone is a re-issue; the document's page shows the change and its preview takes
+  no click; a submitted record's own cells take no click while the format's still do, Edit reopens them and Cancel edit
+  puts them back; F/MNT/11's 2024 round on Rev 00 takes none; the daily pest monitoring record (Page No. its own, Date
+  the revision's), the F/HR/17 and F/HR/18 registers (the first page only) and the customer complaint checklist take it
+  too. Unit tests: `frontend/tests/recordHeader.test.ts` (the record's own header saved with history, cleaned, refused on a
+  signed-off record and put back by Cancel edit; a header-only format change keeps no layout copy; a re-issue; the five
+  formats' shapes, departments and download kinds; none left on the master list as not in DCRS). Counts moved: 117 → 122
+  documents (`e2e_smoke.py`, `e2e_hr_module.py`), HR sixteen → eighteen formats and twenty-five → twenty-seven in its
+  library, Quality Control's inspection records thirty-nine → forty-one (`e2e_qc_calibration.py`, `e2e_qc_formats.py`),
+  QC's library forty-four → forty-six (`e2e_departments.py`), Dispatch two → three (`e2e_dispatch_module.py`); the two
+  cleaning records join the HR suite's "a new record opens with the paper's rows" walk, F/QC/33 and F/QC/36 the QC
+  suite's "opens with its number" walk.
+  After the review of 2-Oct-2026 (REQUIREMENTS §86 "Found in review"): `recordHeader.test.ts` also re-issues a format by
+  its revision date typed as today, and keeps the daily register's own Page No. ("row 5 of the October register") through
+  Edit and Cancel edit; `e2e_header_editing.py` reads the document page's preview header cell by cell (Format No.
+  F/QC/33-A, Rev No. 02) instead of searching its text for "02"; `e2e_user_access.py` asks for the admins first, the super
+  admin among them — on the test database the demo server's first sign-up is an admin too, and "Playwright QA" sorts
+  before "Super Admin".
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

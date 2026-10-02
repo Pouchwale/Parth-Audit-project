@@ -30,34 +30,51 @@ import { formatDisplayDate } from "../../utils/date";
 // revision and its date are each clicked and typed over where they stand, the
 // way a column heading is (components/documents/SheetDesigner.tsx). The caller
 // passes `edit` only then: the field being typed, what to do on a click, the
-// draft's values, and the box to draw in the cell being typed. A record's own
-// date (`dateLabel`) is never one of them — it is the record's, not the form's.
+// draft's values, and the box to draw in the cell being typed.
+//
+// AND ON EVERY RECORD (REQUIREMENTS §86): a record page passes `edit` as well,
+// with `fields` naming the cells that take a click there. The format's own
+// cells — the company, the title, the number, the revision — change the FORMAT
+// (a new revision, with a reason: components/documents/HeaderEditing.tsx); the
+// record's own Date and Page No. change that record alone and go in its
+// history. The designer passes no `fields`, so there the format's five do, as
+// before, and a record's date — never the form's — is not among them.
 
 /** The parts of the header a format's designer can change — one type with the engine's (engine/formatOps.ts). */
 export type { HeaderField } from "../../engine/formatOps";
 
+/** The record's own cells of the header block: the date it is headed with and its page number (REQUIREMENTS §86). */
+export type RecordHeaderField = "date" | "page";
+export type AnyHeaderField = HeaderField | RecordHeaderField;
+
+const FORMAT_FIELDS: ReadonlySet<AnyHeaderField> = new Set<AnyHeaderField>(["companyName", "title", "formatNo", "revisionNo", "revisionDate"]);
+
 export interface HeaderEdit {
   /** The field being typed over, or null. */
-  editing: HeaderField | null;
-  onEdit: (field: HeaderField) => void;
+  editing: AnyHeaderField | null;
+  onEdit: (field: AnyHeaderField) => void;
   /** The draft's values, where they differ from the format as it stands. */
   values: { companyName?: string; formatNo?: string; revisionNo?: string; revisionDate?: string };
   /** The box drawn in the cell being typed over. */
-  box: (field: HeaderField) => React.ReactNode;
+  box: (field: AnyHeaderField) => React.ReactNode;
+  /** The cells that take a click — the format's five when absent (the Sheet Designer). */
+  fields?: ReadonlySet<AnyHeaderField>;
 }
 
-const ACTIONS: Record<HeaderField, string> = {
+const ACTIONS: Record<AnyHeaderField, string> = {
   companyName: "rename-company",
   title: "rename-title",
   formatNo: "rename-format-no",
   revisionNo: "rename-revision",
   revisionDate: "rename-revision-date",
+  date: "rename-record-date",
+  page: "rename-page-no",
 };
 
-/** A value of the header: as text, or — while the format is being designed — clickable, or the box it is typed in. */
-function Cell({ field, edit, className, translate: noTranslate, children }: { field: HeaderField; edit?: HeaderEdit; className?: string; translate?: boolean; children: React.ReactNode }) {
+/** A value of the header: as text, or — while the format is being designed, or on a record — clickable, or the box it is typed in. */
+function Cell({ field, edit, className, translate: noTranslate, children }: { field: AnyHeaderField; edit?: HeaderEdit; className?: string; translate?: boolean; children: React.ReactNode }) {
   if (edit?.editing === field) return <>{edit.box(field)}</>;
-  if (!edit) {
+  if (!edit || !(edit.fields ?? FORMAT_FIELDS).has(field)) {
     return (
       <span className={className} translate={noTranslate ? "no" : undefined}>
         {children}
@@ -168,9 +185,10 @@ export function DocumentHeader({
         <div className="meta-cell">
           <span className="k">Date</span>
           {dateLabel !== undefined ? (
-            <span className="v notranslate" translate="no">
+            // The record's own date, typed over on the record (REQUIREMENTS §86).
+            <Cell field="date" edit={edit} className="v notranslate" translate>
               {dateLabel}
-            </span>
+            </Cell>
           ) : (
             <Cell field="revisionDate" edit={edit} className="v notranslate" translate>
               {formatDisplayDate(revisionDate)}
@@ -180,9 +198,9 @@ export function DocumentHeader({
         {pageLabel && (
           <div className="meta-cell">
             <span className="k">Page No.</span>
-            <span className="v notranslate" translate="no">
+            <Cell field="page" edit={edit} className="v notranslate" translate>
               {pageLabel}
-            </span>
+            </Cell>
           </div>
         )}
       </div>

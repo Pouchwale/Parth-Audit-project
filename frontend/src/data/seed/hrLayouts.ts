@@ -1,7 +1,8 @@
 import type { LogColumn, LogSheetLayout } from "../../types";
 
 // THE HUMAN RESOURCES FORMATS — sixteen of the company's F/HR/… formats,
-// supplied as PDFs on 14-Sep-2026 and reproduced here as log-sheet layouts
+// supplied as PDFs on 14-Sep-2026, and the two cleaning records supplied on
+// 02-Oct-2026 (REQUIREMENTS §86), reproduced here as log-sheet layouts
 // (types/logSheet.ts): the header fields printed above the grid, the grid's
 // columns with their types, how rows come about (a fixed printed list, or
 // lines added as people are entered), the reference material printed on the
@@ -780,6 +781,124 @@ const hygieneReport: LogSheetLayout = {
   specimenSource: "F-HR-22_Daily Employee Sanitation & Hygiene record.pdf — F / HR / 22 Rev. 00, blank month sheet",
 };
 
+// ---------------------------------------------------------------------------
+// F/HR/15 — DAILY CLEANING RECORD and F/HR/16 — MONTHLY CLEANING RECORD
+// (01 / 15.12.2024), supplied on 02-Oct-2026 as PDFs with their .xls originals
+// (REQUIREMENTS §86). Every area, every "what is cleaned" and the NOTE are the
+// paper's own words, its spacing and its "Finish Good" included.
+//
+// Where the digital form differs from the paper, and why:
+//   · F/HR/15 prints no heading over its two area columns; F/HR/16 heads the
+//     same columns "Area". A column must be named to be designed with Edit
+//     format, so F/HR/15's are named Area and Cleaning. The area is kept in the
+//     `parameter` column, as every printed line is, so Mitra and the checks name
+//     a line by its area ("Canteen"), not by its number.
+//   · F/HR/16 prints "Walls & Ceiling + Glass doors" and "Cleaning by" in two
+//     cells side by side on each line; here they are the two lines of one
+//     Cleaning cell — every word kept, in its order.
+//   · A day's or a month's box takes a tick or a name as typed: the paper's
+//     boxes are blank squares, and the person writes whatever the plant writes.
+//     Nothing is carried from last month's or last year's sheet.
+
+/** The seventeen areas F/HR/15 prints, each with what is cleaned there — verbatim, double spaces included. */
+export const DAILY_CLEANING_AREAS: [string, string][] = [
+  ["Canteen", "Floor, Hand wash stations - Dry & Wet mopping"],
+  ["Change room & Hand wash area - Ground Floor", "Floor,  Hand wash stations - Dry & Wet mopping"],
+  ["RM Warehouse - New", "Floor - Dry & Wet mopping"],
+  ["Finish Good - Warehouse", "Floor - Dry & Wet mopping"],
+  ["Production hall - Packing area", "Floor - Dry & Wet mopping"],
+  ["Production hall - Pouching process area", "Floor - Dry & Wet mopping"],
+  ["Production hall - Ground Floor - Gallus Printing machine hall", "Floor - Dry & Wet mopping"],
+  ["Production hall - Lamination machine area", "Floor - Dry & Wet mopping"],
+  ["Production hall - Mono cartoon printing area", "Floor - Dry & Wet mopping"],
+  ["Production hall - Single colour printing machine area", "Floor - Dry & Wet mopping"],
+  ["Production hall - Printing, Slitting & Doctoring processing area", "Floor - Dry & Wet mopping"],
+  ["First floor - Printing machine", "Floor - Dry & Wet mopping"],
+  ["First floor - Offline punching & QC Inspection", "Floor - Dry & Wet mopping"],
+  ["First floor - Shrink Sleeve production", "Floor - Dry & Wet mopping"],
+  ["QC Lab", "Floor,  Toilet - Dry & Wet mopping"],
+  ["First floor - Ink Kitchen", "Floor - Dry & Wet mopping"],
+  ["Drinking Water area & Toilet area", "Floor,  Toilet - Dry & Wet mopping"],
+];
+
+/** The eighteen areas F/HR/16 prints — F/HR/15's, with the QC Lab "New" and the Ink store added. */
+export const MONTHLY_CLEANING_AREAS: string[] = [
+  "Canteen",
+  "Change room & Hand wash area - Ground Floor",
+  "RM Warehouse - New",
+  "Finish Good - Warehouse",
+  "Production hall - Packing area",
+  "Production hall - Pouching process area",
+  "Production hall - Ground Floor - Gallus Printing machine hall",
+  "Production hall - Lamination machine area",
+  "Production hall - Mono cartoon printing area",
+  "Production hall - Single colour printing machine area",
+  "Production hall - Printing, Slitting & Doctoring processing area",
+  "First floor - Printing machine",
+  "First floor - Offline punching & QC Inspection",
+  "First floor - Shrink Sleeve production",
+  "QC Lab - New",
+  "First floor - Ink Kitchen",
+  "Ink store - Ground floor",
+  "Drinking Water area & Toilet area",
+];
+
+const CLEANING_NOTE =
+  "NOTE :  Refer Cleaning Schedule for - Area / location to be cleaned, Method of cleaning, Cleaning chemicals to be used, Equipment to be used etc.)";
+
+/** A day's or a month's box: a tick or a name, as the person writes it — never carried forward. */
+const entry = (key: string, label: string, width: number): LogColumn => ({ key, label, type: "text", width, autoFill: { fresh: true } });
+
+const dailyCleaning: LogSheetLayout = {
+  documentId: "hr-daily-cleaning",
+  // The paper's NOTE, its closing bracket with no opening one included.
+  instructions: [CLEANING_NOTE],
+  headerFields: [{ key: "monthYear", label: "Month & Year", type: "text", width: 160 }],
+  columns: [
+    fixedText("no", "#", 34),
+    fixedText("parameter", "Area", 220),
+    fixedText("cleaning", "Cleaning", 200),
+    ...Array.from({ length: 31 }, (_, i) => entry(`d${i + 1}`, String(i + 1), 34)),
+  ],
+  rowMode: {
+    kind: "fixedRows",
+    rows: [
+      ...DAILY_CLEANING_AREAS.map(([area, cleaning], i) => ({ no: String(i + 1), parameter: area, cleaning })),
+      // The paper's two signature lines run across the days, under the areas.
+      { no: "", parameter: "Cleaning done by", cleaning: "" },
+      { no: "", parameter: "Cleaning verified by", cleaning: "" },
+    ],
+  },
+  specimenHeader: { monthYear: "" },
+  specimenSource: "F-HR-15_Daily Cleaning record_01_15.12.2024.pdf — F/HR/15 (01/15.12.2024), a blank month sheet",
+  originalPages: [{ src: "/source/fhr15-daily-cleaning-record-p1.jpg", caption: "F/HR/15 (01/15.12.2024) — Daily Cleaning Record, the blank format as supplied" }],
+};
+
+const monthlyCleaning: LogSheetLayout = {
+  documentId: "hr-monthly-cleaning",
+  instructions: [CLEANING_NOTE],
+  // "MONTHLY CLEANING RECORD ( YEAR :                ) " — the year is written in the title line.
+  headerFields: [{ key: "year", label: "YEAR", type: "text", width: 110 }],
+  columns: [
+    fixedText("no", "#", 34),
+    fixedText("parameter", "Area", 220),
+    { key: "cleaning", label: "Cleaning", type: "text", fixed: true, width: 170, multiline: true },
+    ...["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m) => entry(m.toLowerCase(), m, 80)),
+  ],
+  rowMode: {
+    kind: "fixedRows",
+    rows: [
+      // The paper's first line: the date each month's cleaning was done ("Date" and its arrow).
+      { no: "", parameter: "Date", cleaning: "" },
+      ...MONTHLY_CLEANING_AREAS.map((area, i) => ({ no: String(i + 1), parameter: area, cleaning: "Walls & Ceiling + Glass doors\nCleaning by" })),
+      { no: "", parameter: "Cleaning verified by", cleaning: "" },
+    ],
+  },
+  specimenHeader: { year: "" },
+  specimenSource: "F-HR-16_Monthly Cleaning record_01_15.12.2024.pdf — F/HR/16 (01/15.12.2024), a blank year sheet",
+  originalPages: [{ src: "/source/fhr16-monthly-cleaning-record-p1.jpg", caption: "F/HR/16 (01/15.12.2024) — Monthly Cleaning Record, the blank format as supplied" }],
+};
+
 export const HR_LAYOUTS: Record<string, LogSheetLayout> = {
   "hr-competence": competence,
   "hr-skill-matrix": skillMatrix,
@@ -797,6 +916,8 @@ export const HR_LAYOUTS: Record<string, LogSheetLayout> = {
   "hr-psc-survey": pscSurvey,
   "hr-psc-survey-analysis": pscAnalysis,
   "hr-hygiene-report": hygieneReport,
+  "hr-daily-cleaning": dailyCleaning,
+  "hr-monthly-cleaning": monthlyCleaning,
 };
 
 export const HR_FORMAT_DATE = FORMAT_DATE;

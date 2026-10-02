@@ -88,7 +88,7 @@ The app behaves like a personal assistant rather than a blank form:
   Approved By. Quick-reply answers never need the network; typed answers go through Groq and fall
   back gracefully. See `src/engine/guidedChecklist.ts`.
 - **The sidebar is organized module-by-module, collapsible, and can be closed altogether** — Human
-  Resources (HR's sixteen F/HR formats under **HR Records**, and the whole pest control file under
+  Resources (HR's eighteen F/HR formats under **HR Records**, and the whole pest control file under
   **Pest Control**), CAPA, Lamination — Quality Control, Lamination — Production, Quality Control —
   Inspection Records, and Quality — Compliance each carry their own icon and expand/collapse independently; a
   module you close stays closed until you open it again (remembered per browser), and one control
@@ -103,7 +103,8 @@ The app behaves like a personal assistant rather than a blank form:
   Responsibility & Authority, mobile-usage authorisation, Training Need Identification, Training Plan
   Calender, training effectiveness and feedback, pre-employment and visitor health declarations, the
   two induction records, the Monthly PRP (GMP) check list, the Daily Personal Sanitation & Hygiene
-  sheet, and the Product Safety Culture Survey with its analysis — are laid out like the pest control
+  sheet, and the Product Safety Culture Survey with its analysis — and the daily and monthly cleaning
+  records (F/HR/15, F/HR/16) supplied on 02-Oct-2026 (REQUIREMENTS §86) are laid out like the pest control
   file (REQUIREMENTS §47): **HR Records** in the sidebar reads *HR Overview* (`/hr`) and then the five
   groups with a page per format (`/hr/{slug}`), each page holding the format's records on file with the
   latest shown in full as it prints, and New. In the Document Library they are shelved by section, and
@@ -120,7 +121,7 @@ The app behaves like a personal assistant rather than a blank form:
   editable, printable, downloadable as the kind of file it reads as, and answerable by the assistant. The
   pages the department supplied filled in are on file as records.
 - **QC Records, and the language the documents read in** (REQUIREMENTS §58): Quality Control's own page
-  at `/qc` lists all forty-three of its formats as the department asks for them — format number, then name —
+  at `/qc` lists all forty-six of its formats as the department asks for them — format number, then name —
   in its seven sections plus the formats the Lamination and Compliance modules keep, each opening on the
   format's own page. The language box beside Today's Briefing
   now decides the documents too: Gujarati translates the forms and registers along with the screens, English
@@ -213,6 +214,13 @@ The app behaves like a personal assistant rather than a blank form:
   being written to. F/MNT/02 shows the machine's next planned PM. **Sample PM dates for 2026** (made up, and marked so
   in each record's history) show the link working on the plant's real 2026 schedule, slips and all; the papers' own
   conflicts (M-07 printed twice, M-58's name) are said by the Insights, never mended.
+- **Five more formats, and every header typed over** (REQUIREMENTS §86). The daily and monthly cleaning records (F/HR/15,
+  F/HR/16) are in Human Resources, the incoming lamination grade film and solvent base lamination film inspections (F/QC/33,
+  F/QC/36) in Quality Control, and the company vehicles' cleaning record (F/DISP/04) in Dispatch. On every log sheet's
+  record and the program-drawn forms (the exceptions are in REQUIREMENTS §86), the
+  **header block is clicked and typed over where it stands**: the record's own Date and Page No. change that record (in its
+  history); the company, title, Format No. and Rev No. change the format itself — the page asks why and saves it as the next
+  revision, as Edit format does.
 - **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
   signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
   starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,
@@ -265,7 +273,9 @@ The app behaves like a personal assistant rather than a blank form:
   by clause under the paper's own headings, and the Container Stuffing & Vehicle Inspection Record — the fourth
   form the plant issues in **Gujarati**, so it reads as issued in Gujarati and in the plant's own English when
   English is chosen, with no network either way. Its checklist keeps the paper's own numbering: 1, 2, 3, 4, 6,
-  7, 8, 9, with no 5.
+  7, 8, 9, with no 5. Since 02-Oct-2026 (REQUIREMENTS §86) the Vehicle (Company Owned) Cleaning Protocol & Record
+  too (F/DISP/04): a record per company vehicle, started when it is cleaned and handed in within two days, a line
+  for each dry or wet cleaning.
 - **A Purchase module, and the words a form prints edited on the sheet** (REQUIREMENTS §68): the department's
   five supplied formats — the supplier registration form, the supplier audit report, the approved supplier list
   and the two performance monitoring registers — reproduced from the company's paper, with F/PUR/05's
@@ -696,14 +706,15 @@ The app behaves like a personal assistant rather than a blank form:
 
 **Documents (40 configured):**
 
-- Human Resources — the department's own formats (16), in five groups (REQUIREMENTS §46) — *Personnel &
+- Human Resources — the department's own formats (18), in five groups (REQUIREMENTS §46, §86) — *Personnel &
   Competence*: Personal Competence Records (F/HR/01, yearly), Skill Matrix - Operator (F/HR/03,
   yearly), Job Responsibility & Authority (F/HR/07), Authorization for Mobile Usage in Plant Area
   (F/HR/13). *Training*: Employee Wise Training Need Identification Record (F/HR/08, yearly), Training
   Plan Calender (F/HR/09, yearly), Training Effectiveness Evaluation Record (F/HR/11), Training
   Feedback & Evaluation Record (F/HR/12). *Induction & Health*: Pre-Employment Medical Health
   Declaration (F/HR/04), Induction Training Record — Staff (F/HR/05) and — Operators / Workers
-  (F/HR/06), Visitor Health Status Declaration Record (F/HR/14). *Hygiene & GMP*: Monthly PRP Check
+  (F/HR/06), Visitor Health Status Declaration Record (F/HR/14). *Hygiene & GMP*: Daily Cleaning Record
+  (F/HR/15, a month sheet), Monthly Cleaning Record (F/HR/16, a year sheet), Monthly PRP Check
   List / GMP Inspection Record (F/HR/19, monthly), Daily Personal Sanitation & Hygiene Inspection
   Report (F/HR/22, a month sheet). *Product Safety Culture*: the survey (F/HR/20) and its analysis
   (F/HR/21, yearly). All are log sheets (`src/data/seed/hrLayouts.ts`); the filled registers among
@@ -729,12 +740,13 @@ The app behaves like a personal assistant rather than a blank form:
   (F-QC-32), Temperature Monitoring Record — Hot Room (F-QC-40.C).
 - Lamination — Production (2): Solvent Base Lamination Process Parameter Record, ALC & Production
   Report (F-PRD-18).
-- Quality Control — Inspection Records (6): the two internal calibration records supplied on
+- Quality Control — Inspection Records (7): the two internal calibration records supplied on
   16-Sep-2026 (REQUIREMENTS §51) — **Weekly Internal Calibration Records - Weight Scale** (F/QC/12: the
   five test weights against scale QC-76, with the deviation beside each, four calibrations of Feb–Mar
   2024 on file) and **Monthly Internal Calibration Records – GSM Cutting Plate** (F/QC/11: plates No. 54
   to No. 57 measured four times each, the 31.12.2024 calibration on file). The Deviation % is entered as
-  found — the arithmetic is deliberately not done yet. Plus the four inspection records: Pouching Process (F/QC/37), Slitting - Lamination Grade
+  found — the arithmetic is deliberately not done yet. Plus the five inspection records: Pouching Process (F/QC/37),
+  Solvent Base Lamination Film (F/QC/36, REQUIREMENTS §86), Slitting - Lamination Grade
   Film (F/QC/35), Lamination Grade Printed Film (F/QC/34) and the Gujarati In Process Quality Control
   sheet for printing (F/QC/13). Fixed printed test parameters with read-only specifications; the
   assistant carries observations, grades, lot status and the inspector's sign forward; "Approved by /

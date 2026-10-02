@@ -5326,6 +5326,80 @@ its own suite tests the real start.
 
 **Tests.** See docs/TESTING.md "Copy and Edit, the mobile app's API, the voice, the opening and the tour".
 
+## §86 — Five more formats in their departments, and the header block typed over on every document (02-Oct-2026)
+
+**The request.** The owner sent five of the formats §84 listed as not supplied yet — "add those documents according to their
+departments" — with a picture of a record's header block (GUJARAT PRINTPACK PUBLICATION PRIVATE LIMITED · MASTER LIST OF
+DOCUMENTS · FORMAT NO. F/SYS/01 · REV NO. 00 · DATE 25-Sep-2026 · PAGE NO. 1 of 1 (digital)): "in that image also I need to
+make it editable, and that is applicable to each and every document of every module".
+
+**1. The five formats**, each built from the company's own original (kept in source-documents/, beside the PDF it was sent
+as) and shown beside its form unaltered:
+
+| Department | Format | DCRS id | Where | How it is kept |
+|---|---|---|---|---|
+| HR | F/HR/15 Daily Cleaning Record, Rev 01 of 15.12.2024 | `hr-daily-cleaning` | Human Resources → Hygiene & GMP | One sheet a month (due at the month's end, a day's column filled on the day): the seventeen areas, what is cleaned in each, days 1 to 31, "Cleaning done by" and "Cleaning verified by" under the days |
+| HR | F/HR/16 Monthly Cleaning Record, Rev 01 of 15.12.2024 | `hr-monthly-cleaning` | Human Resources → Hygiene & GMP | One sheet a year, on file from the year's first day and due at its end (as a month sheet is due on the month's last day): the eighteen areas' walls, ceilings and glass doors, January to December — the date, who cleaned each area, who verified the month |
+| QC | F/QC/33 Inspection Record – Incoming Lamination Grade Film, Rev 00 of 15.12.2024 | `qc-incoming-lamination-film` | Quality Control → Incoming Material Inspection | As the thirteen of §57: the header box, six parameters against their specifications, the lot status, the reason and both signatures |
+| QC | F/QC/36 Inspection Record – Solvent Base Lamination Film, Rev 00 of 15.12.2024 | `qc-inspection-sb-lamination` | Quality Control → In-Process & Inspection | As F/QC/34, 35 and 37: the job, PO, date / shift, roll, both substrates and the pass; composite GSM, green bond strength, odour; the QA Manager's approval is Verify |
+| DISP | F/DISP/04 Vehicle (Company Owned) Cleaning Protocol & Record, Rev 01, effective 01-11-2023 | `disp-vehicle-cleaning` | Dispatch → Dispatch Inspection | A record for a vehicle (chosen from the four the protocol names), started with New when it is cleaned and handed in within two days, as every as-required record is (item 49): a line for each cleaning — date, dry or wet, the driver's sign, the Dispatch In-charge's random verification |
+
+Each is in its department's library — the HR and Dispatch ones in the sidebar too, the two QC ones under QC Records — found by
+its number and by the words people use (Mitra: "daily cleaning record", "monthly cleaning", "incoming lamination film",
+"solvent base lamination film", "vehicle cleaning"), filled with sample
+data, printed, downloaded as the company's own kind of file (the cleaning records as spreadsheets, the other three as Word),
+and no longer listed as "not in DCRS yet". DCRS holds 122 documents; 44 of the Master List's formats wait to be sent.
+
+Where the digital form differs from the paper, and why: F/HR/15 prints no heading over its two area columns (F/HR/16 heads
+them "Area"), and a column must be named to be designed with Edit format — so they are headed Area and Cleaning. F/HR/16's
+"Walls & Ceiling + Glass doors" and "Cleaning by", two cells side by side on the paper, are the two lines of one cell. F/DISP/04
+prints its lines in two halves side by side; here they are one list. F/HR/15's own title line reads "GUJARAT PRINT PACA1:AH16K
+PUBLICATION PRIVATE LIMITED" — a spreadsheet range typed into it by mistake — and is printed as its sister F/HR/16 prints it
+(confirmation item 47). F/DISP/04's paper is Rev 01 of 01-11-2023; the master list of formats still lists its first issue of
+16.02.22 (item 48).
+
+**2. The header block, typed over where it stands — on every document.** On a record's page, every value of the header is
+clicked and becomes a box (Enter keeps it, Escape puts it back), as on the Sheet Designer (§77). What a value BELONGS TO
+decides what keeping it does:
+- **The format's own** — the company's name, the title, the Format No., the Rev No. (and the revision date, where the
+  Date cell prints it, as on the F/HR/17 register): changing one changes the FORMAT, under the document control the plant
+  already has (§62). The page says what it will do ("every record of F/QC/33 prints it from now on, and the format becomes
+  Rev 01"), asks why, and saving makes it the next revision — in the format's change history and the activity log, as Edit
+  format would. Only the header is saved, never a copy of the sheet's layout, and it is built from the format as it stands
+  at that moment. A revision number or a revision date typed alone — today's included — is a re-issue ("re-issued as Rev
+  02"). "Keep the header as it is" changes nothing.
+- **The record's own** — its Date and its Page No.: what this page is headed with. Changing one changes this record alone,
+  at once, with a line in its history ("Header · Page No.: 1 of 1 (digital) → 1 of 2"), and only while its boxes can be
+  written on. The one value typed is laid over the record as it is stored, so a colleague's newer value in the other cell
+  is kept. A signed-off record's are changed through Edit, with a reason, and Cancel edit puts them back. The printout,
+  the PDF and the Word and Excel downloads all carry them.
+
+It is on every page that prints the paper header: every log sheet's record (102 formats and the five above), the daily
+pest monitoring record, the fly catcher record, the customer complaint checklist, the F/HR/17 and F/HR/18 registers (the
+first page's header), the pest control status list, visit registers and inspection list, and the Chemical Master. A page
+kept on a superseded revision (§74, F/MNT/11's 2024 round) takes no click: it is a page of the past. The document's own
+page shows the format as changed, and its preview of the latest record is shown only — the record's page is where it is
+typed over. The F/HR/18 register's fixed title and date now give way to a renamed or re-issued format, as its records do.
+F/HR/18 carries its paper's company spelling, PRINT PACK (as the Marketing papers do): its visit records and lists, which
+printed the registered PRINTPACK, now print it as its register always has, and its header is typed over like any other's.
+
+Not part of this: the Training Record, whose header is the provider's letterhead alone at the department's request (§7);
+the licence, kept exactly as issued (§22); the service reports, the CAPA inspection report, the complaint acknowledgement,
+the agreement and the responsibilities, which are printed on their own letterheads and whose dates and details are boxes of
+the form already; the Statements of Compliance, whose header has its own Edit (§60).
+
+**Found in review, and put right.** F/QC/36's sample lot taken on deviation said "bond and odour OK", which made the fill
+write ODOUR TEST "Fail": it now names only what it was taken for, with its figure ("Composite GSM 118 gsm against 120 gsm
+specified"), and the fill writes 118 on that line. Demo Mode files F/HR/16 from the year's first day, as Live does. Mitra's
+model is told the two cleaning pages (/hr/daily-cleaning, /hr/monthly-cleaning) and the counts as they now stand. F/QC/33
+is no longer found by words that name F/QC/35 and the other incoming film inspections too. Cancel edit's history names
+what the daily register's header prints again ("row 5 of the October register"), and two reason panels open on one page
+each have their own box.
+
+**What waits on the owner.** Confirmation items 47, 48 and 49.
+
+**Tests.** See docs/TESTING.md "The five formats of 02-Oct-2026 and the header block on every document".
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -5410,8 +5484,8 @@ its own suite tests the real start.
     EFFECTIVENESS EVALUATION RECORD"; the forms supplied on 14-Sep-2026 print F/HR/11 as "TRAINING
     EFFECTIVENESS EVALUATION RECORD" and F/HR/12 as "TRAINING FEEDBACK & EVALUATION RECORD". The system
     follows the forms, which are the controlled copies. The list also names formats not supplied yet:
-    F-HR-02 Personnel competence criteria, F-HR-10 Training Imparted Record, F-HR-15 / F-HR-16 the
-    cleaning records.
+    F-HR-02 Personnel competence criteria and F-HR-10 Training Imparted Record (F-HR-15 / F-HR-16, the
+    cleaning records, were supplied and built on 02-Oct-2026, §86).
 24. **F/SYS format numbers and revisions** (§76). F/SYS/04-A and F/SYS/20 print numbers the Master List of
     Formats does not hold yet; F/SYS/03 and F/SYS/11 print an empty "Format No.:" box; F/SYS/03, F/SYS/04 and
     F-MNT-02 print Rev 01 where the list has revision 0 only; F/SYS/10 prints its revision date as 01.05.2013 where
@@ -5481,14 +5555,14 @@ its own suite tests the real start.
 41. **DCRS's own database login** (§83). In development DCRS connects as the PostgreSQL superuser, so DCRS's own connection
     could read the assistant's tables, though it never does. For production, DCRS should connect as a role of its own that
     owns DCRS's tables and is not a superuser (docs/DEPLOYMENT.md already shows `postgres://dcrs:…`). Agreed?
-42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 49 in all:
+42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 44 in all,
+    since five came on 02-Oct-2026 (F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04, built in §86):
     MKT — F-MKT-03 Customer complaint Form. PUR — F-PUR-04 Purchase Order. QC — F-QC-10 SOC Sleeve, F-QC-14 Test Reliability
-    Record, F-QC-17 Scale/Ruler internal calibration, F-QC-31 COA Pouch, F-QC-33 Incoming lamination grade film inspection,
-    F-QC-36 Solvent base lamination film, F-QC-39 FGPO Specification, F-QC-40.A Temperature (printing machine / ink kitchen /
-    warehouse), F-QC-40.B Temperature (Sleeve Division). QA — F-QA-01 Traceability Report. PRD — F-PRD-01 to 13, 14.A, 14.B, 14.E,
-    15, 16, 17.A, 17.B, 17.C, 20 to 26, and the workbook's 27 to 30. HR — F-HR-02 Personnel competence criteria, F-HR-10 Training
-    Imparted Record, F-HR-15 Daily cleaning record, F-HR-16 Monthly cleaning record. DISP — F-DISP-04 Vehicle cleaning Protocol &
-    Record. Until they come, search and the Document Library show them as "on the Master List — not in DCRS yet".
+    Record, F-QC-17 Scale/Ruler internal calibration, F-QC-31 COA Pouch, F-QC-39 FGPO Specification, F-QC-40.A Temperature
+    (printing machine / ink kitchen / warehouse), F-QC-40.B Temperature (Sleeve Division). QA — F-QA-01 Traceability Report.
+    PRD — F-PRD-01 to 13, 14.A, 14.B, 14.E, 15, 16, 17.A, 17.B, 17.C, 20 to 26, and the workbook's 27 to 30. HR — F-HR-02
+    Personnel competence criteria, F-HR-10 Training Imparted Record. Until they come, search and the Document Library show them
+    as "on the Master List — not in DCRS yet".
 43. **F-QC-15-B, the punching line clearance** (§84). A paper printing "F/QC/15-B, Rev 00, 16.02.2022" is in the owner's Downloads
     (`F-QC-15-A-G Line Clearance Punching - Printing.pdf`, 18-Sep-2026) but was never sent (§57 records it as not supplied). Send
     it to be built? — **ANSWERED (§85)**: built from that paper.
@@ -5502,6 +5576,17 @@ its own suite tests the real start.
 46. **Who verifies a record** (§85). DCRS lets the person who submitted a record verify it too — no rule says the verifier must
     be somebody else (it was so before §85; the mobile app's live check showed a QC account doing both). Should the verifier
     always be a different person, or the department head?
+47. **F/HR/15's company line** (§86). The paper's title reads "GUJARAT PRINT PACA1:AH16K PUBLICATION PRIVATE LIMITED" — the
+    range A1:AH16 typed into the spreadsheet's title cell by mistake. DCRS prints "GUJARAT PRINT PACK PUBLICATION PRIVATE
+    LIMITED", as the sister form F/HR/16 does. Correct the original at its next revision (the header can now be typed over
+    on the record page if another spelling is wanted)?
+48. **F/DISP/04's revision** (§86). The paper is "Rev. no. – 01, Effective date: - 01-11-2023"; the Master List of Formats
+    (F/SYS/02) lists F-DISP-04 at its first issue, 16.02.22, with no revision. DCRS follows the paper. Update the list?
+49. **What one F/DISP/04 record is** (§86). The paper is a running sheet per vehicle, sixteen lines a page. DCRS keeps it
+    as it keeps every as-required format, the store's F/STR/02 included: a record is started with New when a vehicle is
+    cleaned and handed in within two days, or it counts as late on the Performance Scorecard. Should Dispatch rather keep
+    one record per vehicle open for the month and hand it in at the month's end? That needs a month's allowance, which
+    DCRS gives no as-required format yet — say so and it is added.
 
 ## How the assistant pre-fills records (and what it never does)
 

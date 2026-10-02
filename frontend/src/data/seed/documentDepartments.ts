@@ -36,7 +36,7 @@ export const DEPARTMENT_CODE_LIST: readonly string[] = PLANT_DEPARTMENTS.map((d)
 // owns the process, with the reason stated — to be confirmed with the MR like
 // every other TBC in docs/REQUIREMENTS.md.
 export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
-  // --- Human Resources: the pest control file (F-HR-15..19 on the master list)
+  // --- Human Resources: the pest control file (F-HR-17 and F-HR-18 on the master list, and what is filed with them)
   "daily-pest-monitoring": "HR", // F/HR/17 on the list
   "fly-catcher": "HR", // F/HR/18 on the list
   "service-report-rodent": "HR", // TBC — the provider's visit reports are filed with F-HR-17/18
@@ -64,6 +64,8 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "hr-psc-survey": "HR", // F/HR/20
   "hr-psc-survey-analysis": "HR", // F/HR/21
   "hr-hygiene-report": "HR", // F/HR/22
+  "hr-daily-cleaning": "HR", // F/HR/15 (REQUIREMENTS §86)
+  "hr-monthly-cleaning": "HR", // F/HR/16 (REQUIREMENTS §86)
 
   // --- Purchase: the contract with the service provider
   "service-agreement": "PUR", // TBC — Purchase signs it (Manager, Purchase) and owns F-PUR-06, service provider performance
@@ -84,6 +86,7 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "qc-adhesive-mixing": "QC", // F-QC-32
   "qc-temperature": "QC", // F-QC-40.C
   "qc-inspection-pouching": "QC", // F/QC/37
+  "qc-inspection-sb-lamination": "QC", // F/QC/36 (REQUIREMENTS §86)
   "qc-inspection-slitting": "QC", // F/QC/35
   "qc-inspection-printed-film": "QC", // F/QC/34
   "qc-inprocess-printing": "QC", // F/QC/13
@@ -94,6 +97,7 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   // Gujarati clearance checklists print no number at all, and a number that
   // resolves to nothing would put a document in front of every department.
   "qc-bopp-film": "QC", // F/QC/01
+  "qc-incoming-lamination-film": "QC", // F/QC/33 (REQUIREMENTS §86)
   "qc-corrugated-box": "QC", // F/QC/02
   "qc-label-stock": "QC", // F/QC/03
   "qc-paper-core": "QC", // F/QC/04
@@ -148,6 +152,7 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "str-sharp-metal-objects": "STR", // F/STR/02
   "disp-safe-transporter-agreement": "DISP", // F/DISP/01
   "disp-container-stuffing": "DISP", // F/DISP/02
+  "disp-vehicle-cleaning": "DISP", // F/DISP/04 (REQUIREMENTS §86)
 
   // --- Maintenance (REQUIREMENTS §74)
   "mnt-equipment-list": "MNT", // F/MNT/01

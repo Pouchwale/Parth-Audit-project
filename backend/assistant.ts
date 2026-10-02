@@ -240,12 +240,12 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   the PSTL's eighteen F/SYS formats: the master lists, document change, the management review and the objectives,
   the internal audit, corrective action, HARA verification, site security, traceability and mock withdrawals),
   "human-resources" (the Human Resources module — HR's
-  sixteen F/HR formats and the pest control file), "lamination-quality-control",
+  eighteen F/HR formats and the pest control file), "lamination-quality-control",
   "lamination-production", "maintenance" (the Maintenance module — the twelve F/MNT formats: the equipment list,
   preventive maintenance, daily machine health, breakdown slips and the breakdown register, temporary engineering,
   glass breakage, lux levels and wooden articles), "purchase" (the Purchase
   module — the five F/PUR supplier and service-provider formats), "store" (the two F/STR formats), "dispatch" (the
-  two F/DISP formats), "marketing" (the Marketing module — the three F/MKT formats: the customer's feedback form,
+  three F/DISP formats), "marketing" (the Marketing module — the three F/MKT formats: the customer's feedback form,
   the yearly analysis of those forms per product with its % Satisfaction Index, and the customer complaints trend
   analysis per product with its Pareto of the causes), "quality-control-inspection-records", "quality-compliance"
 - /files/{scope}/{from}/{to} — Document Files: every record filed by module → document → month, for EXACTLY the
@@ -255,12 +255,12 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   comma-separated document ids
   (daily-pest-monitoring, fly-catcher, service-report-rodent, service-report-general, service-report-fly,
   gap-inspection, capa-customer-complaint, training-record, qc-viscosity, qc-adhesive-mixing, qc-temperature,
-  prd-process-parameter, prd-alc-production, qc-inspection-pouching, qc-inspection-slitting,
+  prd-process-parameter, prd-alc-production, qc-inspection-pouching, qc-inspection-sb-lamination, qc-inspection-slitting,
   qc-inspection-printed-film, qc-inprocess-printing, hr-competence, hr-skill-matrix, hr-pre-employment-health,
   hr-induction-staff, hr-induction-operators, hr-job-responsibility, hr-training-needs, hr-training-calendar,
   hr-training-effectiveness, hr-training-feedback, hr-mobile-authorization, hr-visitor-health, hr-gmp-checklist,
-  hr-psc-survey, hr-psc-survey-analysis, hr-hygiene-report, qc-weight-scale-calibration,
-  qc-gsm-plate-calibration, qc-bopp-film, qc-corrugated-box, qc-label-stock, qc-paper-core, qc-pvc-pet-film,
+  hr-psc-survey, hr-psc-survey-analysis, hr-hygiene-report, hr-daily-cleaning, hr-monthly-cleaning, qc-weight-scale-calibration,
+  qc-gsm-plate-calibration, qc-bopp-film, qc-incoming-lamination-film, qc-corrugated-box, qc-label-stock, qc-paper-core, qc-pvc-pet-film,
   qc-offset-ink, qc-duplex-board, qc-kraft-paper, qc-flexo-ink, qc-lamination-adhesive-inspection,
   qc-side-pasting-adhesive, qc-starch-powder, qc-sheet-pasting-powder, qc-line-clearance-printing,
   qc-line-clearance-punching, qc-line-clearance-qc-machine, qc-line-clearance-qc-manual, qc-line-clearance-slitting,
@@ -270,7 +270,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   qc-analysis-report, qc-utility-test-report, qc-minutes-of-meetings, pur-supplier-registration,
   pur-supplier-audit-report, pur-approved-suppliers, pur-supplier-performance,
   pur-service-provider-performance, str-incoming-material-vehicle, str-sharp-metal-objects,
-  disp-safe-transporter-agreement, disp-container-stuffing, mnt-equipment-list, mnt-new-equipment, mnt-pm-record,
+  disp-safe-transporter-agreement, disp-container-stuffing, disp-vehicle-cleaning, mnt-equipment-list, mnt-new-equipment, mnt-pm-record,
   mnt-yearly-pm-schedule, mnt-daily-health, mnt-breakdown-memo, mnt-breakdown-clearance, mnt-breakdown-record,
   mnt-temporary-engineering, mnt-glass-breakage, mnt-lux-level, mnt-wooden-articles,
   sys-document-list, sys-format-list, sys-document-change, sys-mrm-agenda, sys-mrm-record, sys-objectives,
@@ -280,14 +280,15 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   files of a module or document between two dates or two months ("pest control documents from 1 to 19 January",
   "lamination files from June to August" → from = the 1st of the first month, to = the last day of the last) —
   NOT the calendar, which would show the whole month.
-- /qc — QC Records: Quality Control's own overview of all forty-four of its formats, by format number, in the
+- /qc — QC Records: Quality Control's own overview of all forty-six of its formats, by format number, in the
   department's seven sections plus the formats the Lamination and Compliance modules keep (use it for "QC
   records / QC module / quality control documents")
-- /hr — HR Records: the overview of the Human Resources module's own sixteen F/HR formats in their five groups
+- /hr — HR Records: the overview of the Human Resources module's own eighteen F/HR formats in their five groups
 - /hr/{slug} — one HR format's own page: its records on file, the latest shown in full, and New. slug is one of
   competence, skill-matrix, job-responsibility, mobile-authorization, training-needs, training-calendar,
   training-effectiveness, training-feedback, pre-employment-health, induction-staff, induction-operators,
-  visitor-health, gmp-checklist, hygiene-report, psc-survey, psc-survey-analysis. Use it for "open the skill
+  visitor-health, gmp-checklist, hygiene-report, psc-survey, psc-survey-analysis, daily-cleaning, monthly-cleaning.
+  Use it for "open the skill
   matrix", "show the training calendar", "visitor declarations", "the GMP inspection" and the like
 - /hr/master-data — HR Master Data: Human Resources' employee master sheet (GP3 No., joining date, full name,
   department, designation/position, date of birth) that the HR formats fetch a person from. Use it for "HR master

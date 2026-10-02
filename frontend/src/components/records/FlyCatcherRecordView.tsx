@@ -1,6 +1,8 @@
 import React from "react";
 import type { DocumentDefinition, FlyCatcherData, RecordInstance } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
+import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
+import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { formatDisplayDate } from "../../utils/date";
 import { bindProps, flyCatcherBind } from "../../engine/roundTrip/bindingsFor";
@@ -10,13 +12,22 @@ export function FlyCatcherRecordView({
   record,
   editable,
   onChange,
+  header,
 }: {
   doc: DocumentDefinition;
   record: RecordInstance<FlyCatcherData>;
   editable: boolean;
   onChange: (data: FlyCatcherData) => void;
+  /** The record page's: its header typed over in place (REQUIREMENTS §86). */
+  header?: RecordHeaderHost;
 }) {
   const data = record.data;
+  const headerDefaults = recordHeaderDefaults(record);
+  const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({
+    doc: header ? doc : undefined,
+    enabled: header?.enabled,
+    record: recordHeaderEditing(header, record.headerBlock, headerDefaults),
+  });
   const pcLocations = masterRepository.get().pcLocations;
 
   const updateEntry = (pcId: string, patch: Partial<FlyCatcherData["entries"][number]>) => {
@@ -30,7 +41,13 @@ export function FlyCatcherRecordView({
   // file can be read back (REQUIREMENTS §81, engine/roundTrip/bindingsFor.ts).
   return (
     <div data-bind-record={record.id}>
-      <DocumentHeader doc={doc} dateLabel={formatDisplayDate(record.dueDate)} pageLabel="1 of 1 (digital)" />
+      <DocumentHeader
+        doc={doc}
+        dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
+        pageLabel={record.headerBlock?.page ?? headerDefaults.page}
+        edit={headerEdit}
+      />
+      {headerPanel}
 
       <div className="card mt-4">
         <div className="card-pad">

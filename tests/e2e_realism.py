@@ -100,7 +100,8 @@ STATS = """
     }
     if (d.header && d.header.lotStatus) {
       s.lots[d.header.lotStatus] = (s.lots[d.header.lotStatus] || 0) + 1;
-      if (d.header.lotStatus !== 'Accepted') {
+      // Read as the app reads it (engine/validation.ts isLotAccepted): F/QC/36 prints its statuses in capitals (REQUIREMENTS s86).
+      if (d.header.lotStatus.trim().toLowerCase() !== 'accepted') {
         if ((d.header.deviationReason || '').trim()) s.lotsNotAcceptedWithReason++;
         else s.lotsNotAcceptedWithoutReason++;
       }
@@ -197,8 +198,9 @@ with sync_playwright() as p:
     )
 
     # ---- lot dispositions ----
-    accepted = s["lots"].get("Accepted", 0)
-    not_accepted = sum(v for k, v in s["lots"].items() if k != "Accepted")
+    # "Accepted" and F/QC/36's "ACCEPTED" (REQUIREMENTS s86) are the one status, as the app reads it.
+    accepted = sum(v for k, v in s["lots"].items() if k.strip().lower() == "accepted")
+    not_accepted = sum(v for k, v in s["lots"].items() if k.strip().lower() != "accepted")
     print(f"    (lot status: {s['lots']})")
     check("Not every inspected lot is plain Accepted", not_accepted > 0)
     check("...but most are (over 85%)", accepted / max(1, accepted + not_accepted) > 0.85)

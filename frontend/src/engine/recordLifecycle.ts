@@ -1,10 +1,11 @@
-import type { DocumentDefinition, FieldChange, RecordInstance, RecordStatus } from "../types";
+import type { DocumentDefinition, FieldChange, RecordHeaderBlock, RecordInstance, RecordStatus } from "../types";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { validateForSubmit, validateForVerify, ValidationResult } from "./validation";
 import { appendHistory, diffRecordData, makeEntry, recordLabel, withEditHistory } from "./recordHistory";
 import { REACTION_EVENT, type ReactionEvent } from "./reactions";
 import { computeReminders } from "./reminders";
-import { compareISO, todayISO } from "../utils/date";
+import { MONTH_NAMES, compareISO, formatDisplayDate, fromISODate, todayISO } from "../utils/date";
+import { documentRepository } from "../data/repositories/documentRepository";
 
 // Scheduled -> Due -> In Progress -> Submitted -> Pending Verification -> Verified
 //                                        \-> Rejected -> (edit) -> Pending Verification
@@ -60,6 +61,68 @@ export function saveDraft<T>(
   const withHistory = withEditHistory(record, newData, actorName, opts);
   const updated: RecordInstance<T> = { ...withHistory, status: nextStatus };
   return recordRepository.upsert(updated as RecordInstance) as RecordInstance<T>;
+}
+
+// ---------------------------------------------------------------------------
+// THE RECORD'S OWN HEADER (REQUIREMENTS §86)
+
+/** What the record's header block prints where nobody has typed over it: its due date, and the page its view prints. */
+export interface HeaderDefaults {
+  /** ISO date — the record's due date, on most views. */
+  date: string;
+  /** "1 of 1 (digital)", or whatever the view prints. */
+  page: string;
+}
+
+const HEADER_LABELS: Record<keyof RecordHeaderBlock, string> = { date: "Header · Date", page: "Header · Page No." };
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A header block as stored: a real date, a page written as something, and nothing that only repeats what the header prints anyway. */
+export function cleanHeaderBlock(block: RecordHeaderBlock | null | undefined, defaults?: HeaderDefaults): RecordHeaderBlock | undefined {
+  const date = (block?.date ?? "").trim();
+  const page = (block?.page ?? "").trim();
+  const keepDate = ISO_DAY.test(date) && date !== defaults?.date ? date : undefined;
+  const keepPage = page && page !== defaults?.page ? page : undefined;
+  return keepDate || keepPage ? { ...(keepDate ? { date: keepDate } : {}), ...(keepPage ? { page: keepPage } : {}) } : undefined;
+}
+
+/** The header block's lines that differ between two blocks, as the history names them. */
+function headerChanges(before: RecordHeaderBlock | null | undefined, after: RecordHeaderBlock | null | undefined, defaults: HeaderDefaults): FieldChange[] {
+  const shown = (k: keyof RecordHeaderBlock, b: RecordHeaderBlock | null | undefined): string =>
+    k === "date" ? formatDisplayDate(b?.date ?? defaults.date) : (b?.page ?? defaults.page);
+  return (["date", "page"] as const)
+    .filter((k) => (before?.[k] ?? "") !== (after?.[k] ?? ""))
+    .map((k) => ({ field: `headerBlock.${k}`, label: HEADER_LABELS[k], before: shown(k, before), after: shown(k, after) }));
+}
+
+/**
+ * THE DATE AND THE PAGE NO. OF ONE RECORD, TYPED OVER ON ITS HEADER (REQUIREMENTS
+ * §86). Only while the record can be written on — the same as its boxes — and
+ * saved at once with a history line that names what the header said before and
+ * after, as any edit's does. A value typed back to what the header prints anyway
+ * drops the record's own, so the header follows the record again.
+ */
+export function saveHeaderBlock(record: RecordInstance, next: RecordHeaderBlock, actorName: string, defaults: HeaderDefaults): RecordInstance {
+  if (!isEditableStatus(record.status)) return record;
+  const clean = cleanHeaderBlock(next, defaults);
+  const changes = headerChanges(record.headerBlock, clean, defaults);
+  if (changes.length === 0) return record;
+  const nextStatus = record.status === "Due" || record.status === "Scheduled" ? "In Progress" : record.status;
+  const updated = appendHistory({ ...record, headerBlock: clean, status: nextStatus }, makeEntry("edited", actorName, { changes }));
+  return recordRepository.upsert(updated);
+}
+
+/**
+ * What a record's header prints where nothing was typed over (REQUIREMENTS §86): the record's own date, and
+ * "1 of 1 (digital)" — or, on a day of the daily register (F/HR/17), its row of the month's register. One rule
+ * for the views and for the history of a correction, so both say what the header prints.
+ */
+export function recordHeaderDefaults(record: Pick<RecordInstance, "documentId" | "dueDate">): HeaderDefaults {
+  if (documentRepository.getById(record.documentId)?.kind === "daily-pest-monitoring") {
+    const day = fromISODate(record.dueDate);
+    return { date: record.dueDate, page: `row ${day.getDate()} of the ${MONTH_NAMES[day.getMonth()]} register` };
+  }
+  return { date: record.dueDate, page: "1 of 1 (digital)" };
 }
 
 export function submitRecord(
@@ -156,8 +219,8 @@ export function reopenForCorrection(record: RecordInstance, actorName: string, r
     {
       ...record,
       status: "In Progress",
-      // What it says right now is kept, so Cancel can put it back untouched.
-      correction: { reason: why, by: actorName, at: now, fromStatus: record.status, dataBefore: record.data },
+      // What it says right now is kept, so Cancel can put it back untouched — its own header included (§86).
+      correction: { reason: why, by: actorName, at: now, fromStatus: record.status, dataBefore: record.data, headerBlockBefore: record.headerBlock ?? null },
     },
     makeEntry("reopened", actorName, { note: why, fromStatus: record.status })
   );
@@ -167,7 +230,9 @@ export function reopenForCorrection(record: RecordInstance, actorName: string, r
 /** What has been changed since Edit reopened the record — nothing, usually. */
 export function correctionChanges(record: RecordInstance, labels: Record<string, string> = {}): FieldChange[] {
   const before = record.correction?.dataBefore;
-  return before === undefined ? [] : diffRecordData(before, record.data, labels);
+  const header = record.correction?.headerBlockBefore;
+  const headerLines = header === undefined ? [] : headerChanges(header, record.headerBlock, recordHeaderDefaults(record));
+  return before === undefined ? headerLines : [...diffRecordData(before, record.data, labels), ...headerLines];
 }
 
 /**
@@ -182,13 +247,15 @@ export function cancelCorrection<T>(record: RecordInstance<T>, actorName: string
   const correction = record.correction;
   if (!correction) return record;
   const restored = (correction.dataBefore === undefined ? record.data : correction.dataBefore) as T;
-  const undone = diffRecordData(record.data, restored, labels);
+  // The record's own header goes back too (REQUIREMENTS §86) — where the reopening kept it.
+  const headerBack = correction.headerBlockBefore === undefined ? record.headerBlock : (correction.headerBlockBefore ?? undefined);
+  const undone = [...diffRecordData(record.data, restored, labels), ...headerChanges(record.headerBlock, headerBack, recordHeaderDefaults(record as RecordInstance))];
   const note =
     undone.length === 0
       ? `Edit cancelled — nothing had been changed. Back to ${correction.fromStatus}.`
       : `Edit cancelled — ${undone.length} change${undone.length === 1 ? "" : "s"} put back. Back to ${correction.fromStatus}.`;
   const updated: RecordInstance<T> = appendHistory(
-    { ...record, data: restored, status: correction.fromStatus, correction: undefined },
+    { ...record, data: restored, headerBlock: headerBack, status: correction.fromStatus, correction: undefined },
     makeEntry("correction-cancelled", actorName, { note, changes: undone.length ? undone : undefined, fromStatus: record.status })
   );
   return recordRepository.upsert(updated as RecordInstance) as RecordInstance<T>;

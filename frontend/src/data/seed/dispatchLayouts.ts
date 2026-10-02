@@ -1,6 +1,6 @@
 import type { LogSheetLayout } from "../../types";
 
-// DISPATCH — THE TWO FORMATS THE DEPARTMENT SUPPLIED (REQUIREMENTS §70).
+// DISPATCH — THE FORMATS THE DEPARTMENT SUPPLIED (REQUIREMENTS §70, and F/DISP/04 in §86).
 //
 // F/DISP/01  Safe Transporter Agreement — the code of practice a contract
 //            transporter signs. All words: the clauses as the paper prints
@@ -158,7 +158,50 @@ const CONTAINER_STUFFING: LogSheetLayout = {
   specimenSource: "F-DISP-02_Container stuffing & Vehicle Inspection record.pdf (the blank format — the company supplied no filled copy)",
 };
 
+// ---------------------------------------------------------------------------
+// F/DISP/04 — VEHICLE (COMPANY OWNED) CLEANING PROTOCOL & RECORD, Rev. 01,
+// effective 01-11-2023 — supplied on 02-Oct-2026 as a PDF with its .docx
+// original (REQUIREMENTS §86). The protocol is printed above the lines word for
+// word, the four vehicles and the three rules included ("Daily cleaned with dry
+// mopping & wet mopping with on weekly basis" is the paper's own sentence). The
+// paper prints its lines in two halves side by side, one line on the first page
+// and fifteen on the second; here they are one list, a line per cleaning, which
+// is what both halves hold. The vehicle the sheet is for is the title's own blank,
+// "[ Vehicle number: ]", chosen from the four the protocol names. Like every
+// as-required record (F/STR/02's too), one is started with New and handed in
+// within two days — not kept open for a month (REQUIREMENTS §86, item 49).
+
+export const COMPANY_VEHICLES = ["GJ02ZZ6403 – ECHO", "GJ02AT4947 – BOLERO PICK UP", "GJ02AT2070 – EICHER TRUCK", "GJ02AT5340 – EICHER TRUCK"];
+
+const VEHICLE_CLEANING: LogSheetLayout = {
+  documentId: "disp-vehicle-cleaning",
+  instructions: [
+    "Protocol for Cleaning of Company Owned Vehicle as mentioned below.",
+    COMPANY_VEHICLES.join("     "),
+    "Company owned vehicles shall be exclusively used for transportation of Finish products to customers or Transporters.",
+    "Each vehicle shall be Daily cleaned with dry mopping & wet mopping with on weekly basis. Record of cleaning shall be maintained as below.",
+    "Each vehicle shall be checked for any objectionable material, Odour, sign of pest or foreign matter & to be effectively cleaned to remove any sign or trace of such material.",
+  ],
+  headerFields: [{ key: "vehicleNumber", label: "Vehicle number", type: "select", options: COMPANY_VEHICLES, required: true, autoFill: { carryForward: true } }],
+  columns: [
+    { key: "date", label: "Date", type: "date", required: true, width: 130, autoFill: { dueDate: true } },
+    { key: "cleaningType", label: "Type of cleaning (Dry / Wet)", type: "select", options: ["Dry", "Wet"], required: true, width: 150, autoFill: { default: "Dry" } },
+    { key: "driverSign", label: "Driver sign", type: "text", width: 170, autoFill: { carryForward: true } },
+    // "Random verification": the In-charge signs the lines checked, not every line — so never required.
+    { key: "dispatchInCharge", label: "Dispatch In-charge (Random verification)", type: "text", width: 210, autoFill: { sign: true } },
+  ],
+  rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
+  specimenHeader: { vehicleNumber: COMPANY_VEHICLES[0] },
+  specimenRows: [{ cleaningType: "Dry", driverSign: "Rameshbhai Patel" }],
+  specimenSource: "F-DISP-04_Vehicle cleaning Protocol & Record_01.11.2023.pdf (the blank format, both pages — the company supplied no filled copy)",
+  originalPages: [
+    { src: "/source/fdisp04-vehicle-cleaning-record-p1.jpg", caption: "F / DISP / 04 (Rev. no. – 01, Effective date: - 01-11-2023) — page 1, the protocol and the first line, as supplied" },
+    { src: "/source/fdisp04-vehicle-cleaning-record-p2.jpg", caption: "F / DISP / 04 — page 2, the lines continued, as supplied" },
+  ],
+};
+
 export const DISPATCH_LAYOUTS: Record<string, LogSheetLayout> = {
   [SAFE_TRANSPORTER.documentId]: SAFE_TRANSPORTER,
   [CONTAINER_STUFFING.documentId]: CONTAINER_STUFFING,
+  [VEHICLE_CLEANING.documentId]: VEHICLE_CLEANING,
 };

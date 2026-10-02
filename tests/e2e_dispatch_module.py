@@ -177,12 +177,16 @@ with sync_playwright() as p:
     # ==================================================================
     print("\n==== The Dispatch module ====")
     check("Dispatch is a module in the sidebar", page.locator(".app-sidebar a[href='#/library/dispatch']").count() == 1)
-    check("...with both of its formats linked", page.locator(f".app-sidebar a[href='#/document/{AGREEMENT}']").count() == 1 and page.locator(f".app-sidebar a[href='#/document/{CONTAINER}']").count() == 1)
+    # F/DISP/04, the vehicle cleaning record, joined them on 02-Oct-2026 (REQUIREMENTS s86).
+    check(
+        "...with its three formats linked",
+        all(page.locator(f".app-sidebar a[href='#/document/{d}']").count() == 1 for d in (AGREEMENT, CONTAINER, "disp-vehicle-cleaning")),
+    )
     open_page(page, "#/library/dispatch")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-    check("The Document Library, filtered to Dispatch, lists its two documents", rows.count() == 2, rows.count())
+    check("The Document Library, filtered to Dispatch, lists its three documents", rows.count() == 3, rows.count())
     library = page.locator(".doc-table").first.inner_text()
-    check("...by the format numbers the papers print", "F/DISP/01" in library and "F/DISP/02" in library, library[:300])
+    check("...by the format numbers the papers print", all(n in library for n in ("F/DISP/01", "F/DISP/02", "F/DISP/04")), library[:300])
 
     # ==================================================================
     # 2. F/DISP/01 — the agreement, clause by clause

@@ -1,11 +1,12 @@
-"""The Human Resources module: sixteen F/HR formats, and the pest control file inside it.
+"""The Human Resources module: eighteen F/HR formats, and the pest control file inside it.
 
 Asked for on 14-Sep-2026, with sixteen F/HR PDFs attached: "make HR module ...
 add those in HR Module only ... also added that Pest Control module and
 everything in HR Module". So this suite checks that:
 
-  * the Document Library holds one hundred and seventeen documents, and the Human Resources module
-    groups twenty-six of them - the sixteen formats under HR's five sections,
+  * the Document Library holds one hundred and twenty-two documents, and the Human Resources module
+    groups twenty-eight of them - the eighteen formats under HR's five sections
+    (F/HR/15 and F/HR/16, the cleaning records, joined them on 02-Oct-2026, s86),
     then the pest control file's ten under its own four;
   * the sidebar has a Human Resources module and no Pest Control module: "HR
     Records" over its overview and a page per format under the five groups,
@@ -13,11 +14,12 @@ everything in HR Module". So this suite checks that:
   * "Open Document" opens every document on a page of its own, never the Record
     Calendar - an HR format its HR page, with the register on it in full, and
     any other log sheet its document page (REQUIREMENTS s47);
-  * the library holds one hundred and seventeen documents (REQUIREMENTS s51 added
+  * the library holds one hundred and twenty-two documents (REQUIREMENTS s51 added
     Quality Control's two internal calibration records, s57 its thirty-two more,
     s68 the Purchase module's five, s70 and s71 Dispatch's and Store's two each,
     s74 Maintenance's eight, s76 System / Management's eighteen, s77 Marketing's
-    three, s82 Maintenance's four more and s85 Quality Control's F/QC/15-B);
+    three, s82 Maintenance's four more, s85 Quality Control's F/QC/15-B and s86
+    HR's two cleaning records, Quality Control's F/QC/33 and F/QC/36 and Dispatch's F/DISP/04);
   * the filled registers among the PDFs are on file as LIVE records, line for
     line - F/HR/01 (80 staff, reviewed as on 01.10.2026), F/HR/03 (58
     operators, status as on 01.09.2026), F/HR/06 (28 inductions), F/HR/07
@@ -77,6 +79,8 @@ HR_FORMATS = {
     "F/HR/05": ("Induction Training Record — New Employee (Staff: Supervisor & Above)", "Induction & Health"),
     "F/HR/06": ("Induction Training Record — Operators / Workers", "Induction & Health"),
     "F/HR/14": ("Visitor Health Status Declaration Record", "Induction & Health"),
+    "F/HR/15": ("Daily Cleaning Record", "Hygiene & GMP"),
+    "F/HR/16": ("Monthly Cleaning Record", "Hygiene & GMP"),
     "F/HR/19": ("Monthly PRP Check List (GMP Inspection Record)", "Hygiene & GMP"),
     "F/HR/22": ("Daily Personal Sanitation & Hygiene Inspection Report", "Hygiene & GMP"),
     "F/HR/20": ("Product Safety Culture Survey", "Product Safety Culture"),
@@ -87,6 +91,7 @@ HR_DOCUMENT_IDS = {
     "hr-training-needs", "hr-training-calendar", "hr-training-effectiveness", "hr-training-feedback",
     "hr-pre-employment-health", "hr-induction-staff", "hr-induction-operators", "hr-visitor-health",
     "hr-gmp-checklist", "hr-hygiene-report", "hr-psc-survey", "hr-psc-survey-analysis",
+    "hr-daily-cleaning", "hr-monthly-cleaning",
 }
 SECTIONS = [
     "Personnel & Competence", "Training", "Induction & Health", "Hygiene & GMP", "Product Safety Culture",
@@ -103,7 +108,8 @@ HR_PAGES = [
     ("hr-training-calendar", "training-calendar"), ("hr-training-effectiveness", "training-effectiveness"),
     ("hr-training-feedback", "training-feedback"), ("hr-pre-employment-health", "pre-employment-health"),
     ("hr-induction-staff", "induction-staff"), ("hr-induction-operators", "induction-operators"),
-    ("hr-visitor-health", "visitor-health"), ("hr-gmp-checklist", "gmp-checklist"), ("hr-hygiene-report", "hygiene-report"),
+    ("hr-visitor-health", "visitor-health"), ("hr-daily-cleaning", "daily-cleaning"), ("hr-monthly-cleaning", "monthly-cleaning"),
+    ("hr-gmp-checklist", "gmp-checklist"), ("hr-hygiene-report", "hygiene-report"),
     ("hr-psc-survey", "psc-survey"), ("hr-psc-survey-analysis", "psc-survey-analysis"),
 ]
 POSITIONS = {
@@ -236,15 +242,15 @@ with sync_playwright() as p:
     sign_in(page, *UNSCOPED)
 
     # ==================================================================
-    # 1. The Document Library: one hundred and seventeen documents, twenty-six of them HR's
+    # 1. The Document Library: one hundred and twenty-two documents, twenty-eight of them HR's
     # ==================================================================
     open_library(page)
-    check("The Document Library lists one hundred and seventeen documents", library_rows(page).count() == 117, library_rows(page).count())
+    check("The Document Library lists one hundred and twenty-two documents", library_rows(page).count() == 122, library_rows(page).count())
     group = hr_group(page)
     check("The Human Resources module is one group of the library", group.count() == 1)
     check("...and there is no Pest Control module any more", page.locator(".app-content h3:has-text('Pest Control')").count() == 0)
     hr_rows = group.locator("tbody tr:not(.doc-section-row)")
-    check("The Human Resources group holds twenty-six documents - the sixteen HR formats and the pest control file's ten", hr_rows.count() == 26, hr_rows.count())
+    check("The Human Resources group holds twenty-eight documents - the eighteen HR formats and the pest control file's ten", hr_rows.count() == 28, hr_rows.count())
     # textContent, not innerText: the section rows are set in small capitals by CSS.
     sections = group.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved by section: HR's five groups, then the pest control file's four", sections == SECTIONS, sections)
@@ -272,7 +278,7 @@ with sync_playwright() as p:
     for what in ["Pest Control Training Record", "Pesticide Application Chart (Chemical Master)", "Pest Control Service Report — Rat / Mice"]:
         check(f"The pest control file's '{what}' sits inside the Human Resources group", what in text)
     new_ids = set(page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.getAttribute('data-document'))"))
-    check("Every one of the sixteen formats can be started from the library", HR_DOCUMENT_IDS <= new_ids, sorted(HR_DOCUMENT_IDS - new_ids))
+    check("Every one of the eighteen formats can be started from the library", HR_DOCUMENT_IDS <= new_ids, sorted(HR_DOCUMENT_IDS - new_ids))
 
     # The module's deep link
     open_library(page, "#/library/human-resources")
@@ -280,8 +286,8 @@ with sync_playwright() as p:
     # Read the LIBRARY, not the whole screen: the day's notification (REQUIREMENTS
     # §69) names the modules a person's waiting work falls in, and that is not the
     # library saying it.
-    check("...showing the twenty-six documents and nothing of the other modules",
-          library_rows(page).count() == 26 and "Lamination — Quality Control" not in page.locator(".doc-table").first.inner_text(),
+    check("...showing the twenty-eight documents and nothing of the other modules",
+          library_rows(page).count() == 28 and "Lamination — Quality Control" not in page.locator(".doc-table").first.inner_text(),
           library_rows(page).count())
 
     # ==================================================================
@@ -294,8 +300,8 @@ with sync_playwright() as p:
     hr_links = page.eval_on_selector_all(
         ".nav-module:has(.nav-module-header:has-text('Human Resources')) a", "els => els.map((e) => e.getAttribute('href'))"
     )
-    check("HR Records has an overview, HR Master Data (REQUIREMENTS s53) and a page for each of the sixteen formats, like the pest control file",
-          hr_links[:18] == ["#/hr", "#/hr/master-data"] + [f"#/hr/{slug}" for _, slug in HR_PAGES], hr_links[:18])
+    check("HR Records has an overview, HR Master Data (REQUIREMENTS s53) and a page for each of the eighteen formats, like the pest control file",
+          hr_links[:20] == ["#/hr", "#/hr/master-data"] + [f"#/hr/{slug}" for _, slug in HR_PAGES], hr_links[:20])
     check("...and the pest control file's pages are still there, inside the module",
           page.locator("a:has-text('Daily Pest Control Monitoring')").count() == 1 and page.locator("a:has-text('Rat / Mice')").count() == 1
           and page.locator("a:has-text('Training Records')").count() == 1)
@@ -450,7 +456,7 @@ with sync_playwright() as p:
     # ==================================================================
     open_library(page)
     all_ids = page.eval_on_selector_all("[data-action='open-document']", "els => els.map((e) => e.getAttribute('data-document'))")
-    check("Every document in the library has Open Document", len(all_ids) == 117, len(all_ids))
+    check("Every document in the library has Open Document", len(all_ids) == 122, len(all_ids))
     landed = {}
     for doc_id in all_ids:
         open_library(page)
@@ -460,7 +466,7 @@ with sync_playwright() as p:
     check("Open Document never lands on the Record Calendar", not any(u.startswith("/calendar") for u in landed.values()),
           {d: u for d, u in landed.items() if u.startswith("/calendar")})
     wrong = {d: landed.get(d) for d, slug in HR_PAGES if landed.get(d) != f"/hr/{slug}"}
-    check("Each of the sixteen HR formats opens on its own HR page", not wrong, wrong)
+    check("Each of the eighteen HR formats opens on its own HR page", not wrong, wrong)
     check("A log sheet of another module opens on its document page", landed.get("qc-viscosity") == "/document/qc-viscosity", landed.get("qc-viscosity"))
 
     page.goto(f"{BASE}/index.html#/hr/competence")
@@ -519,8 +525,8 @@ with sync_playwright() as p:
     dismiss(page)
     close_assistant(page)
     sections = page.eval_on_selector_all("[data-hr-section]", "els => els.map((e) => e.dataset.hrSection)")
-    check("HR Overview shows the five groups with all sixteen formats",
-          sections == SECTIONS[:5] and page.locator("[data-hr-doc]").count() == 16, (sections, page.locator("[data-hr-doc]").count()))
+    check("HR Overview shows the five groups with all eighteen formats",
+          sections == SECTIONS[:5] and page.locator("[data-hr-doc]").count() == 18, (sections, page.locator("[data-hr-doc]").count()))
     page.locator("[data-hr-doc='hr-gmp-checklist']").click()
     page.wait_for_timeout(900)
     check("...and a format there opens on its own page", page.url.endswith("#/hr/gmp-checklist"), page.url)
@@ -544,6 +550,10 @@ with sync_playwright() as p:
         ("hr-psc-survey", 15, "1. I can freely speak up"),
         ("hr-training-effectiveness", 8, "Structure"),
         ("hr-induction-staff", 7, "Briefing on Company profile"),
+        # The cleaning records of 02-Oct-2026 (REQUIREMENTS s86): seventeen areas and the two signature lines;
+        # the Date line, eighteen areas and the verification line.
+        ("hr-daily-cleaning", 19, "Canteen"),
+        ("hr-monthly-cleaning", 20, "Date"),
     ]:
         open_library(page)
         page.locator(f"[data-action='new-record'][data-document='{doc_id}']").first.evaluate("el => el.click()")
@@ -604,11 +614,11 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/index.html#/hr")
     page.wait_for_timeout(1300)
     dismiss(page)
-    check("...and HR Overview with all sixteen formats", page.locator("[data-hr-doc]").count() == 16, page.locator("[data-hr-doc]").count())
+    check("...and HR Overview with all eighteen formats", page.locator("[data-hr-doc]").count() == 18, page.locator("[data-hr-doc]").count())
     open_library(page)
-    check("Its library holds the sixteen formats and the pest control file's nine HR documents - twenty-five", library_rows(page).count() == 25, library_rows(page).count())
+    check("Its library holds the eighteen formats and the pest control file's nine HR documents - twenty-seven", library_rows(page).count() == 27, library_rows(page).count())
     new_ids = set(page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.getAttribute('data-document'))"))
-    check("...and offers New on every one of the sixteen", HR_DOCUMENT_IDS <= new_ids, sorted(HR_DOCUMENT_IDS - new_ids))
+    check("...and offers New on every one of the eighteen", HR_DOCUMENT_IDS <= new_ids, sorted(HR_DOCUMENT_IDS - new_ids))
     page.goto(f"{BASE}/index.html#/record/hr-competence-2026-10-01")
     page.wait_for_timeout(1300)
     check("The competence register opens for Human Resources", sheet_rows(page).count() == 80, sheet_rows(page).count())
@@ -621,4 +631,4 @@ if FAILURES:
     for f in FAILURES:
         print(" -", f)
     sys.exit(1)
-print("\nThe Human Resources module holds its sixteen formats and the pest control file, as supplied.")
+print("\nThe Human Resources module holds its eighteen formats and the pest control file, as supplied.")

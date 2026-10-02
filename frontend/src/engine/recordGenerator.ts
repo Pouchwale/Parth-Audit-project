@@ -8,6 +8,16 @@ import { createDefaultData } from "./recordDefaults";
 import { generateId } from "../utils/id";
 import { compareISO, todayISO } from "../utils/date";
 
+/**
+ * A SHEET FILLED THROUGH THE YEAR AND DUE AT ITS END (REQUIREMENTS §86): F/HR/16,
+ * the monthly cleaning record — twelve months on one page, due on 31 December as a
+ * month sheet is due on its last day. Its record is filed from the year's first day,
+ * so the months are written on as they come: generating any month of the year files
+ * it. A yearly format due on any other day is generated in its own month, as before.
+ */
+export const fillsThroughYear = (doc: DocumentDefinition): boolean =>
+  doc.schedule.type === "yearly" && doc.schedule.month === 11 && doc.schedule.dayOfMonth === 31;
+
 // AUTOMATIC RECORD GENERATION (section 28). Idempotent: safe to call every
 // time the Calendar/Day View/Dashboard mounts for a given month — existing
 // instances for a (document, date) are never duplicated or overwritten.
@@ -39,7 +49,8 @@ export function ensureRecordsGeneratedForMonth(
     // days. `scheduled` is the date the schedule names and is what the
     // periodKey is built from, so a record is created once whether or not
     // its due date moved; `due` is the day it is actually expected.
-    for (const { scheduled, due, holiday } of effectiveDueDatesInMonth(doc, year, month, master)) {
+    const dates = fillsThroughYear(doc) && month !== 11 ? effectiveDueDatesInMonth(doc, year, 11, master) : effectiveDueDatesInMonth(doc, year, month, master);
+    for (const { scheduled, due, holiday } of dates) {
       // Never manufacture a Live obligation for a date before this system
       // went live on this browser — otherwise simply browsing the Calendar
       // back to, say, last year would silently backfill months of "overdue"

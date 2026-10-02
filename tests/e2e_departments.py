@@ -50,8 +50,9 @@ FAILURES = []
 ALL_DEPARTMENT_CODES = ["SYS", "MKT", "PUR", "STR", "QC", "QA", "PRD", "MNT", "HR", "DISP"]
 # The documents whose format number is F-QC-... on the company's master list:
 # the eleven the plant started with, the thirty-two Quality Control formats
-# supplied on 18-Sep-2026 (REQUIREMENTS s57) and F/QC/15-B, built on
-# 30-Sep-2026 (REQUIREMENTS s85).
+# supplied on 18-Sep-2026 (REQUIREMENTS s57), F/QC/15-B, built on
+# 30-Sep-2026 (REQUIREMENTS s85), and F/QC/33 and F/QC/36, supplied on
+# 02-Oct-2026 (REQUIREMENTS s86).
 QC_DOCUMENT_IDS = {
     "qc-viscosity",
     "qc-weight-scale-calibration",
@@ -97,6 +98,8 @@ QC_DOCUMENT_IDS = {
     "qc-analysis-report",
     "qc-utility-test-report",
     "qc-minutes-of-meetings",
+    "qc-incoming-lamination-film",
+    "qc-inspection-sb-lamination",
 }
 
 UNSCOPED = ("dept-all@example.com", "Dept All QA", "")
@@ -369,8 +372,8 @@ with sync_playwright() as p:
 
     qc_docs = library_documents(page)
     check(
-        "Its Document Library holds only Quality Control's forty-four documents",
-        len(qc_docs) == 44 and len(qc_docs) < len(all_docs),
+        "Its Document Library holds only Quality Control's forty-six documents",
+        len(qc_docs) == 46 and len(qc_docs) < len(all_docs),
         {"count": len(qc_docs), "docs": qc_docs},
     )
     ids = page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.dataset.document)")
