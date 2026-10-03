@@ -990,11 +990,11 @@ function capaSummary(lower: string, isDemo: boolean): LocalAnswer {
 // Gujarati answered; the same for Hindi and English." These answers are given
 // when the model cannot be (no key, no internet, the call failed): written from
 // the string tables, they follow the language of the QUESTION where both tables
-// have the words — a question in Gujarati (script or Latin letters) gets
-// Gujarati, one in English gets English, whatever the screens are in — and the
+// have the words (a question in Gujarati, script or Latin letters, gets
+// Gujarati, one in English gets English, whatever the screens are in), and the
 // screens' language otherwise. Hindi has no table: a question in Hindi gets the
 // answer as it is, with one short Hindi line in front saying the full Hindi
-// answer needs the AI service, which is not there right now (i18n/hindi.ts) —
+// answer needs the AI service, which is not there right now (i18n/hindi.ts),
 // in Devanagari, or in Latin letters for a question asked in Latin letters.
 
 /** The language the app's own answer to `question` is written in: Gujarati or English as asked, else (null) the screens'. */

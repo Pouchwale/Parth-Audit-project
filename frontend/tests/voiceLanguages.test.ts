@@ -1,7 +1,7 @@
 // MITRA IN ENGLISH, HINDI AND GUJARATI, WITH FREE VOICES (REQUIREMENTS §89).
 //
 // "If the user asks in Gujarati or Hindi then the bot should reply in that
-// language: Gujarati asked, Gujarati answered; the same for Hindi and English" —
+// language: Gujarati asked, Gujarati answered; the same for Hindi and English",
 // and "make the voice accent more like a human, like a real person", with no
 // paid voice. These tests hold, without a browser:
 //   - the script of a text decides its language (utils/scripts.ts): a question's,
@@ -77,7 +77,7 @@ const EDGE_LATIN: FakeVoice[] = EDGE.map((v) => ({
   ...v,
   name: v.name.replace("स्वरा", "Swara").replace("मधुर", "Madhur").replace("ધ્વની", "Dhwani").replace("નિરંજન", "Niranjan"),
 }));
-// Google Chrome on Windows: the installed voices, then Google's online ones — Hindi among them, Gujarati not at all.
+// Google Chrome on Windows: the installed voices, then Google's online ones, Hindi among them, Gujarati not at all.
 const CHROME: FakeVoice[] = [
   V("Microsoft David - English (United States)", "en-US", true),
   V("Microsoft Heera - English (India)", "en-IN", true),
@@ -219,6 +219,16 @@ test("a reply is said sentence by sentence in the voice of its script: a Hindi l
     { lang: "gu", text: "આજે તમારે ત્રણ દસ્તાવેજ ભરવાના છે. પહેલાં Line Clearance કરો." },
   ], "a Gujarati reply with a document's English name stays one Gujarati part");
   assert.deepEqual(voiceSegments("Heena, your list is ready — હીના."), [{ lang: "en", text: "Heena, your list is ready — હીના." }]);
+  // Found by the browser suite: Mitra's own Gujarati answer names an English document, so its first sentence is mostly
+  // English words around "એટલે". It is a Gujarati reply - the English voice must not say it with the Gujarati taken out.
+  const formatAnswer = "F/HR/05 એટલે Induction Training Record, New Employee — માનવ સંસાધન · Training & Competence, as required. તેનું શું કરવું છે?";
+  assert.deepEqual(voiceSegments(formatAnswer), [{ lang: "gu", text: formatAnswer }]);
+  assert.equal(sentenceLanguage("F/HR/05 એટલે Induction Training Record."), "gu", "'એટલે' is a Gujarati word of grammar");
+  assert.deepEqual(
+    voiceSegments("Induction Training Record, New Employee — માનવ સંસાધન. તેનું શું કરવું છે?").map((s) => s.lang),
+    ["gu"],
+    "a sentence with Gujarati words in a reply that is plainly Gujarati is Gujarati too",
+  );
   assert.deepEqual(voiceSegments("पहला वाक्य।दूसरा वाक्य। The third is English."), [
     { lang: "hi", text: "पहला वाक्य। दूसरा वाक्य।" },
     { lang: "en", text: "The third is English." },
@@ -298,7 +308,7 @@ test("the danda ends a sentence, with a space after it or not; a decimal point n
 
 // ---- saying it ----
 
-test("a Hindi line then English words: said by the Hindi voice, then the Indian English one — in Edge and in Chrome", async () => {
+test("a Hindi line then English words: said by the Hindi voice, then the Indian English one, in Edge and in Chrome", async () => {
   const reply = `${HINDI.note}\nToday: 3 records due.`;
   speak(reply, "en-IN");
   await wait(700);
@@ -313,7 +323,7 @@ test("a Hindi line then English words: said by the Hindi voice, then the Indian 
   assert.deepEqual(said().map((s) => s.voice), ["Google हिन्दी", "Google UK English Female"]);
 });
 
-test("a Gujarati reply with no Gujarati voice here (Chrome) is shown, not said — and the hint is given once a session", async () => {
+test("a Gujarati reply with no Gujarati voice here (Chrome) is shown, not said, and the hint is given once a session", async () => {
   synth.voices = CHROME;
   const missing: string[] = [];
   speak("આજે ત્રણ દસ્તાવેજ બાકી છે.", "en-IN", { onNoVoice: (l) => missing.push(l) });
@@ -394,7 +404,7 @@ test("the card's voice for each language: Edge's natural three; Chrome's Google 
   assert.equal(inUse.gujarati, false);
 });
 
-test("Edge's online voice stalls (no start, no end): given up after ONLINE_START_MS — English goes on in an installed voice, Gujarati stops cleanly", () => {
+test("Edge's online voice stalls (no start, no end): given up after ONLINE_START_MS: English goes on in an installed voice, Gujarati stops cleanly", () => {
   mock.timers.enable({ apis: ["setTimeout"] });
   synth.hang = true;
   synth.speaking = true;

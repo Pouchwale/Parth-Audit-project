@@ -54,7 +54,7 @@ export interface MitraComposerProps {
   onToggleVoice: () => void;
   voiceMode: "whisper" | "browser" | "none";
   /**
-   * The language the browser's own listening listens for — the screens' (it
+   * The language the browser's own listening listens for: the screens' (it
    * can listen for one only); named in the microphone's hint. Whisper hears
    * any of the three, so it is not named then (REQUIREMENTS §89).
    */

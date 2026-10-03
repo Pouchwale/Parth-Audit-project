@@ -612,7 +612,7 @@ export const ONLINE_START_MS = 6000;
  * within ONLINE_START_MS is a stall: it is cancelled, online voices rest for ten
  * minutes, and the piece is said again in the best installed voice of the same
  * language; with none (Edge installs no Gujarati or Hindi voice) the line stops
- * there, cleanly — never a hang. A Gujarati or Hindi line is never given to the
+ * there, cleanly: never a hang. A Gujarati or Hindi line is never given to the
  * browser without a voice of its own: its default could be an English voice.
  */
 export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | null, lang: string, onEnd?: () => void): BrowserSpeech | null {
@@ -647,7 +647,7 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
     }
   };
   // The online voice failed or stalled: the installed voices from now on, this piece again in the best of
-  // them — or, with no installed voice of this language, the end of the line.
+  // them; or, with no installed voice of this language, the end of the line.
   const fallBack = () => {
     fellBack = true;
     onlineFailedAt = Date.now();
@@ -920,10 +920,10 @@ function endReplyReading(): void {
 
 /**
  * Reads one of Mitra's replies aloud (REQUIREMENTS §89): each part in the voice
- * of its own script (utils/scripts.ts voiceSegments — a Hindi line in the Hindi
+ * of its own script (utils/scripts.ts voiceSegments: a Hindi line in the Hindi
  * voice, then the English words in the Indian English one), one after another.
- * A part in Hindi or Gujarati that this browser has no voice for is not said —
- * never an English voice for it — and `onNoVoice` is told which language that
+ * A part in Hindi or Gujarati that this browser has no voice for is not said,
+ * never by an English voice, and `onNoVoice` is told which language that
  * was, so the page can say once where Mitra can be heard. `requested` (the
  * screens' speech tag) only decides text with no words of its own.
  */

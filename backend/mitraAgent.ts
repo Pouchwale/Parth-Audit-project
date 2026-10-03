@@ -64,7 +64,7 @@ export const ROUTE_RE = /^\/[a-z0-9/_-]*$/i;
 // The prompt must stay small (≈ 550 tokens); this is the ceiling the unit test
 // holds it to, without the context the browser adds. It was 2,000 until Hindi
 // joined the language rule (REQUIREMENTS §89: 1,984 characters before, 2,185
-// after, for the longest everyday case — a named person, Gujarati screens).
+// after, for the longest everyday case: a named person, Gujarati screens).
 export const AGENT_PROMPT_MAX_CHARS = 2200;
 
 /** How long the model may write in one round (its words, or its tool calls). */
@@ -72,7 +72,7 @@ export const AGENT_MAX_COMPLETION_TOKENS = 1200;
 
 /**
  * Whisper's vocabulary hint (backend/groq.ts groqTranscribe): the plant, its
- * three languages and its record words, so they come out as written — the
+ * three languages and its record words, so they come out as written: the
  * company's name, DCRS, Mitra, the format numbers. No language is forced on
  * Whisper (REQUIREMENTS §89): it hears which one is spoken, and a hint naming
  * all three, each in its own script, leans it to none. Whisper reads at most

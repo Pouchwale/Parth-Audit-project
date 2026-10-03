@@ -1,10 +1,10 @@
 // MITRA'S VOICE IN THIS BROWSER, LANGUAGE BY LANGUAGE (REQUIREMENTS §89).
 //
 // Inside the Master Data card "Sounds and Mitra's voice" (pages/MasterDataPage.tsx):
-// for English, Hindi and Gujarati, which voice speaks it in THIS browser — Edge's
+// for English, Hindi and Gujarati, which voice speaks it in THIS browser: Edge's
 // natural Neerja, स्वरा, ધ્વની (or their male voices), Google's or Windows' voices,
 // Groq's from the server for English when the browser has no natural Indian
-// English voice — or that there is none here and DCRS should be opened in
+// English voice; or that there is none here and DCRS should be opened in
 // Microsoft Edge; and for each a "Hear Mitra" button that says one short sentence
 // in that language (utils/voice.ts sampleLine). The female or male choice is the
 // card's own, just above. Built from the card's classes only: the site's look is

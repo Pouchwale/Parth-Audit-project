@@ -1757,7 +1757,7 @@ export function DocumentAssistant() {
 
   // ---- the microphone through Whisper (REQUIREMENTS §80) -----------------------------
   // With a key on the server the recording goes to Groq's Whisper, which hears
-  // English, Hindi and Gujarati, mixed too — no language forced on it, so the
+  // English, Hindi and Gujarati, mixed too, with no language forced on it, so the
   // one spoken is the one answered in (REQUIREMENTS §89); without a key the
   // browser's own recognition listens, as before (utils/speech.ts), for the
   // screens' language.

@@ -615,7 +615,7 @@ export function AssistantPage() {
     const convId = active?.id ?? createConversation();
     // The conversation before this message (the message itself is not in it).
     const before = edit ? edit.earlier : (active?.messages ?? []);
-    // A reply in Hindi or Gujarati this browser has no voice for is shown, not said — and once a
+    // A reply in Hindi or Gujarati this browser has no voice for is shown, not said, and once a
     // session the line above the composer says where Mitra can be heard (REQUIREMENTS §89).
     const readOut = (reply: string) => {
       if (!spoken && !speakReplies) return;
@@ -946,7 +946,7 @@ export function AssistantPage() {
   // button is pressed again (or the recorder's own limit of 90 s), have the
   // server write it down, and send the words as spoken. No language is forced
   // on the server (REQUIREMENTS §89): the screens' language says nothing of the
-  // language spoken — English, Hindi or Gujarati, or a mix — and Whisper hears
+  // language spoken (English, Hindi or Gujarati, or a mix), and Whisper hears
   // which, so Mitra can answer in it.
   const transcribeClip = async (blob: Blob) => {
     setRecording({ active: false, seconds: 0, transcribing: true });

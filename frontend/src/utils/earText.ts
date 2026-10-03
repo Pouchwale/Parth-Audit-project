@@ -298,7 +298,7 @@ function pausesAndTidy(s: string): string {
 
 /**
  * The line as a person would say it (see the header). `lang` is the line's
- * language — "en", "hi" or "gu", or a voice's tag such as "gu-IN": Gujarati and
+ * language ("en", "hi" or "gu", or a voice's tag such as "gu-IN"): Gujarati and
  * Hindi get only the parts that are not English. `now` decides this year (a date
  * of this year is said without it).
  */
@@ -318,7 +318,7 @@ export function forTheEar(text: string, lang = "en", now: Date = new Date()): st
     s = machineNumbers(s);
     s = amountsAndSymbols(s, ear);
     s = pausesAndTidy(s);
-    // Nothing left to say — only pictures, or (for an English voice) only Gujarati or Hindi words: silence, not "dot".
+    // Nothing left to say (only pictures, or for an English voice only Gujarati or Hindi words): silence, not "dot".
     return /[\p{L}\p{N}]/u.test(s) ? s : "";
   } catch {
     return original.replace(/\s+/g, " ").trim();

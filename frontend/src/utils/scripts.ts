@@ -21,7 +21,8 @@
 //                   Gujarati or Hindi sentence well, so a document's English name
 //                   keeps its sentence in that language; an English voice cannot
 //                   read Indic script at all, so a sentence counts as English only
-//                   when its Indic words are few (a name), and those few are left
+//                   when its Indic words are few (a name) and the reply has no
+//                   sentence plainly in that language, and those few are left
 //                   out of what the English voice is given (utils/earText.ts).
 //
 // Words, not letters, are counted: Gujarati and Devanagari write their vowels as
@@ -75,8 +76,14 @@ export const hasDevanagari = (text: string): boolean => /\p{Script=Devanagari}/u
 // The everyday little words of a Gujarati or Hindi sentence: one of them marks the
 // sentence as that language even when most of its words are English names
 // ("Line Clearance Checklist ભરો.").
-const GUJARATI_GRAMMAR = new Set(["છે", "છો", "છું", "અને", "માં", "નું", "ની", "નો", "ના", "ને", "થી", "પર", "કરો", "ભરો", "હતું", "હતી", "હશે", "નથી", "શું", "કયું", "કયો", "કેટલા", "ક્યારે", "આજે", "બાકી"]);
-const HINDI_GRAMMAR = new Set(["है", "हैं", "और", "में", "का", "की", "के", "को", "से", "पर", "करें", "भरें", "था", "थी", "नहीं", "क्या", "कौन", "कितने", "कब", "आज", "बाकी", "यह", "वह"]);
+const GUJARATI_GRAMMAR = new Set([
+  "છે", "છો", "છું", "અને", "માં", "નું", "ની", "નો", "ના", "ને", "થી", "પર", "માટે", "એટલે", "કે", "પણ", "તો", "કરો", "ભરો",
+  "હતું", "હતી", "હશે", "નથી", "શું", "કયું", "કયો", "કેટલા", "ક્યારે", "આજે", "બાકી", "પછી", "પહેલાં", "તેનું", "આ", "એ",
+]);
+const HINDI_GRAMMAR = new Set([
+  "है", "हैं", "और", "में", "का", "की", "के", "को", "से", "पर", "लिए", "यानी", "मतलब", "भी", "तो", "करें", "भरें", "था", "थी",
+  "नहीं", "क्या", "कौन", "कितने", "कब", "आज", "बाकी", "बाद", "पहले", "इसका", "यह", "वह",
+]);
 
 /**
  * The voice a sentence wants: Gujarati or Hindi when a third or more of its words
@@ -117,6 +124,18 @@ export function voiceSegments(text: string, fallback: ScriptLanguage = "en"): Vo
     sentencePieces(line).forEach((piece, i) => pieces.push({ text: piece.trim(), startsLine: i === 0, lang: sentenceLanguage(piece) }));
   }
   if (!pieces.length) return [];
+  // A reply with a sentence plainly in Gujarati (or Hindi) is that language's reply: its other sentences that hold
+  // words of that script are said by that voice too ("F/HR/05 એટલે Induction Training Record, New Employee": a
+  // Gujarati answer naming an English document), never by the English voice with the Gujarati words taken out.
+  const indic = new Set(pieces.map((p) => p.lang).filter((l): l is "hi" | "gu" => l === "hi" || l === "gu"));
+  if (indic.size) {
+    for (const p of pieces) {
+      if (p.lang !== "en") continue;
+      const c = wordCounts(p.text);
+      const own = c.gu >= c.hi ? "gu" : "hi";
+      if (c.gu + c.hi > 0 && indic.has(own)) p.lang = own;
+    }
+  }
   for (let i = 1; i < pieces.length; i++) if (pieces[i].lang === null) pieces[i].lang = pieces[i - 1].lang;
   for (let i = pieces.length - 2; i >= 0; i--) if (pieces[i].lang === null) pieces[i].lang = pieces[i + 1].lang;
   const out: VoiceSegment[] = [];
@@ -146,7 +165,7 @@ const GUJARATI_LATIN = new Set([
   "bharvanu", "kholvanu", "hatu", "hati", "hata", "ane", "etle", "kayu", "sathe", "haju", "aapo", "aapjo", "jovu", "juo",
 ]);
 
-/** A reply with no language of its own: yes, no, okay, thanks — in any of the three, in Latin letters. */
+/** A reply with no language of its own: yes, no, okay, thanks, in any of the three, in Latin letters. */
 const BARE_REPLY = /^(?:yes|yeah|yep|yup|no|nope|ok|okay|sure|done|ha+|haa+n|han|haan\s?ji|ji|ji\s?haan|nahi|nahin|na+|nai|hmm+|thik|theek|thik\s+che|theek\s+hai|thanks?|thank\s+you|thx)[\s.!?]*$/i;
 
 /** Codes are nobody's language: F/QC/30, F-QC-40.C, M-47, FGSL3877, 26-27/001, a record's id. */

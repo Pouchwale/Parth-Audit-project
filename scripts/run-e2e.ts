@@ -363,6 +363,9 @@ async function main(): Promise<void> {
   "tests/e2e_mitra_copy_edit.py",
   // REQUIREMENTS §86: the header block typed over where it stands, on every document (the fill suite's account, :8842).
   "tests/e2e_header_editing.py",
+  // REQUIREMENTS §89: Mitra in English, Hindi and Gujarati - the voice card's three languages, the Hindi line, each
+  // sentence in its own voice, the hint where Chrome has no Gujarati voice (sign-up, :8842).
+  "tests/e2e_voice_languages.py",
   // Last of the suites on :8842, because of its signups.
   "tests/e2e_performance.py",
   // REQUIREMENTS §83, the database DCRS shares with the Audit Assistant — the product server, the plant's seeded super admin:

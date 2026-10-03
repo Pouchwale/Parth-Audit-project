@@ -318,8 +318,8 @@ const AUDIO_EXTENSIONS: Record<string, string> = {
 
 /**
  * Transcribes a recording with whisper-large-v3. `language` narrows Whisper
- * to English, Hindi or Gujarati only when the person chose one; left out — as
- * the browser sends it (REQUIREMENTS §89) — Whisper decides, and the language it
+ * to English, Hindi or Gujarati only when the person chose one; left out, as
+ * the browser sends it (REQUIREMENTS §89), Whisper decides, and the language it
  * heard comes back with the words (a mix is common on the shop floor). `prompt`
  * is vocabulary the plant uses, so format numbers and names come out as written.
  * Nothing is metered: Whisper is billed by audio seconds, apart from the token

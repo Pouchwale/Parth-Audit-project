@@ -477,7 +477,7 @@ export const SCOPE = [
 // message (the agent's LANGUAGE_RULE, backend/mitraAgent.ts, says the same),
 // with the interface language for a message that has none of its own. Until
 // §89 this was a Gujarati rule sent only with Gujarati screens. Only the prose
-// changes — routes, field keys and stored values are identifiers the app
+// changes: routes, field keys and stored values are identifiers the app
 // parses, and must stay exactly as specified.
 export function chatLanguageRule(language?: string): string {
   const fallback = language === "gu" ? "Gujarati (ગુજરાતી)" : "English";
@@ -613,7 +613,7 @@ export async function runAssistant({
   // what's due) — see frontend/src/engine/assistantLocal.ts. Capped by the
   // route handler.
   context?: string;
-  // "en" | "gu" — the interface language the user is working in: the reply's
+  // "en" | "gu", the interface language the user is working in: the reply's
   // language when the message has none of its own (chatLanguageRule; the
   // message's own language comes first, REQUIREMENTS §89). Only the prose in
   // `reply` follows it; routes, field keys and record values are identifiers

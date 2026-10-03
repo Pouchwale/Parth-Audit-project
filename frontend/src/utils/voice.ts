@@ -13,19 +13,19 @@
 //   EACH PART IN THE VOICE OF ITS SCRIPT (REQUIREMENTS §89, utils/scripts.ts
 //     voiceSegments): Gujarati script to the browser's Gujarati voice,
 //     Devanagari to its Hindi voice, the rest to Indian English.
-//   ENGLISH: the browser's natural Indian English voice first — Edge's Neerja or
+//   ENGLISH: the browser's natural Indian English voice first, Edge's Neerja or
 //     Prabhat, the staff's own accent (§89). Only when the browser has none, and
 //     the server has a Groq key AND says its voice is available: Mitra's natural
 //     voice, made on the server (POST /api/assistant/speak → one WAV, played with
-//     an <audio>). The browser ASKS FIRST, once (GET /api/assistant/speak —
+//     an <audio>). The browser ASKS FIRST, once (GET /api/assistant/speak,
 //     always a 200, REQUIREMENTS §85), and keeps the answer for as long as the
 //     server says (recheckAfterMs, in the browser session): a voice that is not
-//     available — the Groq organisation has not accepted the speech model's
-//     terms, no key — is never a failed request in the console. A 503 from a
+//     available (the Groq organisation has not accepted the speech model's
+//     terms, no key) is never a failed request in the console. A 503 from a
 //     line all the same is remembered the same way; any other failure uses the
 //     browser's voice for five minutes.
 //   OTHERWISE, and for Gujarati and Hindi: the browser's best voice of the
-//     language (utils/speech.ts pickVoice — Edge's natural Neerja/Prabhat,
+//     language (utils/speech.ts pickVoice: Edge's natural Neerja/Prabhat,
 //     स्वरा/मधुर, ધ્વની/નિરંજન; in Chrome Google's online voices before Windows'
 //     robotic ones, and Google's Hindi), at a warm rate with a pause between
 //     sentences (speech.ts speakWithBrowser). A Gujarati line on a browser with
@@ -611,7 +611,7 @@ export interface VoiceInUse {
 
 const sourceOfTier = (tier: number): VoiceSource => (tier === 0 ? "natural" : tier === 1 ? "online" : "basic");
 
-/** A browser voice as the card says it: natural, online or basic, by name — or none. */
+/** A browser voice as the card says it: natural, online or basic, by name; or none. */
 function browserVoice(v: SpeechSynthesisVoice | null): LanguageVoice {
   return v ? { source: sourceOfTier(voiceTier(v)), name: String(v.name ?? "") } : { source: "none", name: "" };
 }
@@ -655,8 +655,8 @@ export function noVoiceHintOnce(lang: "hi" | "gu", t: (key: string) => string): 
 
 /**
  * Gets the voice ready before the first line (the host calls it at the first
- * click or key): the browser's voices listed, and — only when they have no
- * natural Indian English voice to speak English with — the server asked once.
+ * click or key): the browser's voices listed, and, only when they have no
+ * natural Indian English voice to speak English with, the server asked once.
  */
 export function prepareVoice(): void {
   try {
@@ -799,7 +799,7 @@ export function nudgeLine(f: NudgeFacts, lang: Language): string {
 /**
  * What "Hear Mitra" says, in English, Gujarati or Hindi (REQUIREMENTS §89).
  * Hindi has no interface table: its sentence is i18n/hindi.ts's, and its verbs
- * follow Mitra's voice — "दिलाऊँगी" for the female voice, "दिलाऊँगा" for the male.
+ * follow Mitra's voice: "दिलाऊँगी" for the female voice, "दिलाऊँगा" for the male.
  */
 export function sampleLine(firstName: string, lang: Language | "hi", kind: VoiceKind = voiceKind()): string {
   if (lang === "hi") return firstName ? HINDI.sampleName[kind].replace("{name}", firstName) : HINDI.sample[kind];
