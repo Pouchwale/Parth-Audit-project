@@ -38,9 +38,13 @@ export const SAY_EVENT = "dcrs:say";
 export interface SayRequest {
   /** What Mitra says, in the language it is written in. */
   text: string;
-  /** The language `text` is in; Gujarati is spoken only where the browser has a Gujarati voice. */
-  lang: "en" | "gu";
-  /** The same words in English, spoken instead when `text` is Gujarati and no Gujarati voice exists. */
+  /**
+   * The language `text` is in; Gujarati and Hindi are spoken only where the
+   * browser has a voice for them (the voice follows each sentence's script:
+   * utils/scripts.ts, REQUIREMENTS §89). Hindi only for "Hear Mitra".
+   */
+  lang: "en" | "gu" | "hi";
+  /** The same words in English, spoken instead when `text` is Gujarati or Hindi and no voice for it exists. */
   en?: string;
   /** Said at most once a day under this key (settings.spokenToday), e.g. "briefing:morning", "remind:<recordId>:<window>". */
   key?: string;

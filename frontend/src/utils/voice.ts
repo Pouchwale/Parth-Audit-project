@@ -10,21 +10,27 @@
 // by components/common/SoundVoiceHost.tsx (which checks the person has the
 // voice switched on) and said here:
 //
-//   ENGLISH, when the server has a Groq key AND says its voice is available:
-//     Mitra's natural voice, made on the server (POST /api/assistant/speak →
-//     one WAV, played with an <audio>). The browser ASKS FIRST, once
-//     (GET /api/assistant/speak — always a 200, REQUIREMENTS §85), and keeps the
-//     answer for as long as the server says (recheckAfterMs, in the browser
-//     session): a voice that is not available — the Groq organisation has not
-//     accepted the speech model's terms, no key — is never a failed request in
-//     the console. A 503 from a line all the same is remembered the same way;
-//     any other failure uses the browser's voice for five minutes.
-//   OTHERWISE, and for Gujarati: the browser's best voice (utils/speech.ts
-//     pickVoice — Edge's natural Neerja/Prabhat, ધ્વની/નિરંજન; in Chrome Google's
-//     online voices before Windows' robotic ones), at a warm rate with a pause
-//     between sentences (speech.ts speakWithBrowser). A Gujarati line on a
-//     browser with no Gujarati voice is said in English (`en`), or not at all:
-//     Mitra never reads Gujarati with an English voice.
+//   EACH PART IN THE VOICE OF ITS SCRIPT (REQUIREMENTS §89, utils/scripts.ts
+//     voiceSegments): Gujarati script to the browser's Gujarati voice,
+//     Devanagari to its Hindi voice, the rest to Indian English.
+//   ENGLISH: the browser's natural Indian English voice first — Edge's Neerja or
+//     Prabhat, the staff's own accent (§89). Only when the browser has none, and
+//     the server has a Groq key AND says its voice is available: Mitra's natural
+//     voice, made on the server (POST /api/assistant/speak → one WAV, played with
+//     an <audio>). The browser ASKS FIRST, once (GET /api/assistant/speak —
+//     always a 200, REQUIREMENTS §85), and keeps the answer for as long as the
+//     server says (recheckAfterMs, in the browser session): a voice that is not
+//     available — the Groq organisation has not accepted the speech model's
+//     terms, no key — is never a failed request in the console. A 503 from a
+//     line all the same is remembered the same way; any other failure uses the
+//     browser's voice for five minutes.
+//   OTHERWISE, and for Gujarati and Hindi: the browser's best voice of the
+//     language (utils/speech.ts pickVoice — Edge's natural Neerja/Prabhat,
+//     स्वरा/मधुर, ધ્વની/નિરંજન; in Chrome Google's online voices before Windows'
+//     robotic ones, and Google's Hindi), at a warm rate with a pause between
+//     sentences (speech.ts speakWithBrowser). A Gujarati line on a browser with
+//     no Gujarati voice (Chrome) is said in English (`en`), or not at all:
+//     Mitra never reads Gujarati or Hindi with an English voice.
 //   EITHER WAY the words are made for the ear first (utils/earText.ts): "form
 //     F H R 17", "30th September", "2:30 PM", "92 percent", no symbols read out.
 //
@@ -56,10 +62,28 @@ import { gapScoreLine } from "../engine/motivation";
 import { assistantApi, ApiError } from "../api/client";
 import { settingsRepository, type AppSettings } from "../data/repositories/settingsRepository";
 import { STRINGS, type Language } from "../i18n/strings";
+import { HINDI } from "../i18n/hindi";
 import { todayISO } from "./date";
 import { forTheEar } from "./earText";
+import { SPEECH_TAGS, voiceSegments, type ScriptLanguage } from "./scripts";
 import { hadUserGesture, onFirstGesture } from "./sounds";
-import { isListening, isReplySpeaking, isSpeechOutputSupported, loadVoices, onSpeechInterrupt, pickVoice, speakWithBrowser, voiceTier, type VoiceKind } from "./speech";
+import {
+  firstTimeWithoutVoice,
+  hasNoWords,
+  isEdgeBrowser,
+  isIndianNatural,
+  isListening,
+  isReplySpeaking,
+  isSpeechOutputSupported,
+  loadVoices,
+  onSpeechInterrupt,
+  pickVoice,
+  speakWithBrowser,
+  voiceFor,
+  voicesForLanguages,
+  voiceTier,
+  type VoiceKind,
+} from "./speech";
 
 /** Fired on window when the sound or voice settings change (the top bar's button, Master Data, the reminder's mute). */
 export const VOICE_SETTINGS_EVENT = "dcrs:voice-settings";
@@ -365,26 +389,41 @@ function useServer(): boolean {
 async function speakItem(speaking: Speaking): Promise<void> {
   const { req } = speaking.item;
   const kind = voiceKind();
-  let text = req.text;
-  if (req.lang === "gu") {
-    const voices = await loadVoices();
-    if (speaking.stopped) return;
-    const gujarati = pickVoice(voices, "gu-IN", kind);
-    if (gujarati) return speakBrowser(speaking, text, gujarati, "gu-IN");
-    // No Gujarati voice: the English line, or nothing.
-    if (!req.en || !req.en.trim()) return;
-    text = req.en;
+  // Each part in the voice of its script (REQUIREMENTS §89).
+  let segments = voiceSegments(req.text, req.lang);
+  const voices = await voicesForLanguages(
+    segments.map((s) => s.lang),
+    kind
+  );
+  if (speaking.stopped) return;
+  // Figures alone ("92%") belong to no language: with no voice for the line's one, English says them.
+  segments = segments.map((s) => (s.lang !== "en" && !voiceFor(voices, s.lang, kind) && hasNoWords(s.text) ? { ...s, lang: "en" as const } : s));
+  if (segments.some((s) => s.lang !== "en" && !voiceFor(voices, s.lang, kind))) {
+    // No voice here for its Gujarati or Hindi: the line's English words, or only what this browser can say.
+    segments = req.en && req.en.trim() ? voiceSegments(req.en, "en") : segments.filter((s) => s.lang === "en" || voiceFor(voices, s.lang, kind));
   }
-  if (assistantConfigured() && Date.now() >= serverFailedUntil) {
+  for (const seg of segments) {
+    if (speaking.stopped) return;
+    if (seg.lang === "en") await speakEnglish(speaking, seg.text, voices, kind);
+    else await speakBrowser(speaking, seg.text, voiceFor(voices, seg.lang, kind), SPEECH_TAGS[seg.lang]);
+  }
+}
+
+/**
+ * English, in the staff's own accent first (REQUIREMENTS §89): the browser's
+ * natural Indian English voice (Edge's Neerja or Prabhat); else Groq's voice
+ * from the server when it says it can speak; else the browser's best English.
+ */
+async function speakEnglish(speaking: Speaking, text: string, voices: SpeechSynthesisVoice[], kind: VoiceKind): Promise<void> {
+  const english = pickVoice(voices, "en-IN", kind);
+  if (!isIndianNatural(english) && assistantConfigured() && Date.now() >= serverFailedUntil) {
     // Asked once, then remembered: no line waits on the server twice.
     await knowServerVoice();
     if (speaking.stopped) return;
     if (useServer() && (await speakServer(speaking, text, kind))) return;
   }
   if (speaking.stopped) return;
-  const voices = await loadVoices();
-  if (speaking.stopped) return;
-  return speakBrowser(speaking, text, pickVoice(voices, "en-IN", kind), "en-IN");
+  return speakBrowser(speaking, text, english, "en-IN");
 }
 
 function speakBrowser(speaking: Speaking, text: string, voice: SpeechSynthesisVoice | null, lang: string): Promise<void> {
@@ -409,11 +448,14 @@ export function forServer(text: string): string {
 
 /** True when the line was said (or stopped) with the server's voice; false to use the browser's. */
 async function speakServer(speaking: Speaking, text: string, kind: VoiceKind): Promise<boolean> {
+  // Nothing an English voice can say (the words were all Gujarati or Hindi script): not the server's to try.
+  const said = forServer(text);
+  if (!said) return false;
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
   onStop(speaking, () => controller?.abort());
   let clip: Blob;
   try {
-    clip = await assistantApi.speak(forServer(text), kind, controller?.signal);
+    clip = await assistantApi.speak(said, kind, controller?.signal);
   } catch (err) {
     if (speaking.stopped) return true;
     // The server said it could speak, then could not: remembered as the GET's answer would be.
@@ -548,6 +590,12 @@ export function updateVoiceSettings(patch: Partial<VoiceSettings>): void {
  */
 export type VoiceSource = "server" | "natural" | "online" | "basic" | "none";
 
+/** One language's voice here: where it comes from, and its name. */
+export interface LanguageVoice {
+  source: VoiceSource;
+  name: string;
+}
+
 export interface VoiceInUse {
   source: VoiceSource;
   /** The voice's name: the browser's ("Microsoft Neerja Online (Natural) - English (India)"), or the server voice's ("hannah"). */
@@ -557,39 +605,66 @@ export interface VoiceInUse {
   gujaratiName: string;
   /** What the server said of its voice (the card says what the Groq admin must do). */
   server: ServerVoiceState;
+  /** Each of Mitra's three languages, the voice it is said in here (REQUIREMENTS §89); `source`/`name` above are English's. */
+  languages: Record<ScriptLanguage, LanguageVoice>;
+}
+
+const sourceOfTier = (tier: number): VoiceSource => (tier === 0 ? "natural" : tier === 1 ? "online" : "basic");
+
+/** A browser voice as the card says it: natural, online or basic, by name — or none. */
+function browserVoice(v: SpeechSynthesisVoice | null): LanguageVoice {
+  return v ? { source: sourceOfTier(voiceTier(v)), name: String(v.name ?? "") } : { source: "none", name: "" };
 }
 
 /**
- * Which voice Mitra's English lines are said with here, for the settings card
- * (asks the server once, as a line would). Also the Gujarati voice, if any.
+ * Which voice says each of Mitra's three languages here, for the settings card
+ * (REQUIREMENTS §89): Hindi and Gujarati by the browser's own voice or none;
+ * English by Edge's natural Indian English voice where there is one, else
+ * Groq's from the server when it can speak (asked once, as a line would), else
+ * the browser's best English.
  */
 export async function voiceInUse(): Promise<VoiceInUse> {
+  const kind = voiceKind();
   let voices: SpeechSynthesisVoice[] = [];
   try {
-    voices = await loadVoices();
+    voices = await voicesForLanguages(["en", "hi", "gu"], kind);
   } catch {
     voices = [];
   }
-  const kind = voiceKind();
-  const gu = pickVoice(voices, "gu-IN", kind);
-  const base = { gujarati: !!gu, gujaratiName: gu?.name ?? "" };
-  if (assistantConfigured()) await knowServerVoice();
-  const known = serverVoiceState();
-  if (useServer()) return { ...base, source: "server", name: known.voices?.[kind] ?? "", server: known.state };
-  const english = pickVoice(voices, "en-IN", kind);
-  if (!english) return { ...base, source: "none", name: "", server: known.state };
-  const tier = voiceTier(english);
-  return { ...base, source: tier === 0 ? "natural" : tier === 1 ? "online" : "basic", name: english.name, server: known.state };
+  const hi = browserVoice(voiceFor(voices, "hi", kind));
+  const gu = browserVoice(voiceFor(voices, "gu", kind));
+  const englishVoice = pickVoice(voices, "en-IN", kind);
+  let en: LanguageVoice;
+  if (isIndianNatural(englishVoice)) en = browserVoice(englishVoice);
+  else {
+    if (assistantConfigured()) await knowServerVoice();
+    en = useServer() ? { source: "server", name: serverVoiceState().voices?.[kind] ?? "" } : browserVoice(englishVoice);
+  }
+  return { source: en.source, name: en.name, gujarati: gu.source !== "none", gujaratiName: gu.name, server: serverVoiceState().state, languages: { en, hi, gu } };
+}
+
+/**
+ * The hint for a reply in Hindi or Gujarati this browser could not say
+ * (REQUIREMENTS §89), once a browser session for each language, else null:
+ * "Mitra speaks Gujarati in Microsoft Edge. Open DCRS in Edge to hear it."; in
+ * Edge itself (its natural voices are online), that the voice needs the internet.
+ */
+export function noVoiceHintOnce(lang: "hi" | "gu", t: (key: string) => string): string | null {
+  return firstTimeWithoutVoice(lang) ? t(isEdgeBrowser() ? `voice.noVoice.edge.${lang}` : `voice.noVoice.${lang}`) : null;
 }
 
 /**
  * Gets the voice ready before the first line (the host calls it at the first
- * click or key): the browser's voices listed, and the server asked once.
+ * click or key): the browser's voices listed, and — only when they have no
+ * natural Indian English voice to speak English with — the server asked once.
  */
 export function prepareVoice(): void {
   try {
-    void loadVoices().catch(() => undefined);
-    void knowServerVoice();
+    void loadVoices()
+      .then((voices) => {
+        if (!voices.some((v) => isIndianNatural(v))) void knowServerVoice();
+      })
+      .catch(() => undefined);
   } catch {
     /* a line will ask for itself */
   }
@@ -721,8 +796,13 @@ export function nudgeLine(f: NudgeFacts, lang: Language): string {
   return addressed(f.firstName, line);
 }
 
-/** What "Hear Mitra" says. */
-export function sampleLine(firstName: string, lang: Language): string {
+/**
+ * What "Hear Mitra" says, in English, Gujarati or Hindi (REQUIREMENTS §89).
+ * Hindi has no interface table: its sentence is i18n/hindi.ts's, and its verbs
+ * follow Mitra's voice — "दिलाऊँगी" for the female voice, "दिलाऊँगा" for the male.
+ */
+export function sampleLine(firstName: string, lang: Language | "hi", kind: VoiceKind = voiceKind()): string {
+  if (lang === "hi") return firstName ? HINDI.sampleName[kind].replace("{name}", firstName) : HINDI.sample[kind];
   return firstName ? words(lang, "voice.sample.name", { name: firstName }) : words(lang, "voice.sample");
 }
 

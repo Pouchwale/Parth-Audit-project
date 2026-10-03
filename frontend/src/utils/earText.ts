@@ -23,10 +23,17 @@
 //     Sr. No. / Qty and units after a number (kg, mm, hrs, mins) in words;
 //   - a spaced dash or brackets become the pauses they stand for (commas).
 //
-// A Gujarati line gets only what is not English: markdown, pictures, format and
-// machine numbers spelled out (without the English word "form"), symbols, and
-// the percent sign. Pure: `now` decides "this year"; any slip returns the text
-// as it was given, never an error.
+// A Gujarati or a Hindi line (REQUIREMENTS §89) gets only what is not English:
+// markdown (a list's lines end in a full stop, or the danda "।" in Hindi, so the
+// voice pauses between them), pictures, format and machine numbers spelled out
+// (without the English word "form"), a date with the month in its own language
+// ("30 સપ્ટેમ્બર", "30 सितंबर"), the percent sign ("ટકા", "प्रतिशत"), rupees and
+// degrees. In every language a record's long id ("rec-mg8x9k2a-1f-abc123", a
+// UUID, a [rec:…] tag) is left out, never spelled letter by letter: the screen
+// shows it, the ear needs only the sentence. An English voice cannot read
+// Gujarati or Hindi script at all, so an English line is given without such
+// words (a name written in Gujarati beside its English form). Pure: `now` decides
+// "this year"; any slip returns the text as it was given, never an error.
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** A month as the plant writes it — "Sep", "Sept", "September", "SEP" — to its index; anything else is not a month. */
@@ -47,11 +54,25 @@ export function ordinal(n: number): string {
   return `${n}${unit === 1 ? "st" : unit === 2 ? "nd" : unit === 3 ? "rd" : "th"}`;
 }
 
-/** "30th September", or "30th September 2025" when the year is not this one. Null for a day that is not a date. */
-function spokenDate(day: number, month: number, year: number | null, thisYear: number): string | null {
+/** The language a line is said in: English, Hindi or Gujarati. */
+type EarLanguage = "en" | "hi" | "gu";
+
+/** The months as a person says them in Gujarati and in Hindi (REQUIREMENTS §89). */
+const MONTHS_IN: Record<"hi" | "gu", string[]> = {
+  gu: ["જાન્યુઆરી", "ફેબ્રુઆરી", "માર્ચ", "એપ્રિલ", "મે", "જૂન", "જુલાઈ", "ઓગસ્ટ", "સપ્ટેમ્બર", "ઓક્ટોબર", "નવેમ્બર", "ડિસેમ્બર"],
+  hi: ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"],
+};
+
+/**
+ * "30th September", or "30th September 2025" when the year is not this one; in
+ * Gujarati and Hindi the day's plain number and the month's own name ("30
+ * સપ્ટેમ્બર", "30 सितंबर"). Null for a day that is not a date.
+ */
+function spokenDate(day: number, month: number, year: number | null, thisYear: number, lang: EarLanguage = "en"): string | null {
   if (!(month >= 0 && month <= 11) || !(day >= 1 && day <= 31)) return null;
   const full = year !== null && year < 100 ? 2000 + year : year;
-  return `${ordinal(day)} ${MONTHS[month]}${full !== null && full !== thisYear ? ` ${full}` : ""}`;
+  const yearSaid = full !== null && full !== thisYear ? ` ${full}` : "";
+  return lang === "en" ? `${ordinal(day)} ${MONTHS[month]}${yearSaid}` : `${day} ${MONTHS_IN[lang][month]}${yearSaid}`;
 }
 
 /** "2:30 PM", "9 AM", "12 PM". */
@@ -63,8 +84,10 @@ function spokenTime(h: number, m: number): string {
 
 const spell = (letters: string): string => letters.toUpperCase().split("").join(" ");
 
-/** Markdown and line breaks: what a reader sees, said as sentences. */
-function unmark(text: string, en: boolean): string {
+/** Markdown and line breaks: what a reader sees, said as sentences (a Hindi line ends in the danda). */
+function unmark(text: string, lang: EarLanguage): string {
+  const en = lang === "en";
+  const stop = lang === "hi" ? "।" : ".";
   let s = text.replace(/\r\n?/g, "\n");
   s = s.replace(/^\s*```[^\n]*$/gm, "");
   s = s.replace(/!?\[([^\]\n]*)\]\((?:[^()\s]|\([^()\s]*\))*\)/g, "$1");
@@ -82,7 +105,7 @@ function unmark(text: string, en: boolean): string {
   // Each line is said as a sentence of its own: one with no stop at its end gets one.
   s = lines
     .filter(Boolean)
-    .map((l) => (/[.!?:;,…।]["'”’)]*$/.test(l) ? l : `${l}.`))
+    .map((l) => (/[.!?:;,…।]["'”’)]*$/.test(l) ? l : `${l}${stop}`))
     .join(" ");
   s = s.replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g, "$2");
   s = s.replace(/(^|[\s(])[*_](?=\S)([^*_\n]*?\S)[*_](?=[\s).,!?:;]|$)/g, "$1$2");
@@ -100,6 +123,32 @@ function unpicture(s: string): string {
   return s
     .replace(/\p{Emoji_Modifier}|\p{Variation_Selector}|\p{Join_Control}/gu, "")
     .replace(/(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[✓✔✗✘☐☑☒★☆])+/gu, ", ");
+}
+
+// A RECORD'S LONG ID is for the screen, not the ear (REQUIREMENTS §89): the
+// app's own ids ("rec-mg8x9k2a-1f-abc123": a prefix, the time and a random part,
+// utils/id.ts), a UUID, an evidence tag [rec:…]. One part mixing letters and
+// figures (the random part) is what marks one, so a lot number such as
+// "LOT-2026-0915-A" or a date is still said. An "id" or "ID:" label before it
+// goes with it ("the record id rec-… is open" is "the record is open"), and so
+// do the brackets it leaves empty.
+const ID_LIKE = /(\bids?\s*[:#]?\s*)?\b([A-Za-z0-9]+(?:[-_.:][A-Za-z0-9]+){2,})\b/gi;
+
+/** Whether a token is a long id: twelve characters or more, and one part of four or more mixing letters and figures. */
+export function isLongId(token: string): boolean {
+  return token.length >= 12 && token.split(/[-_.:]/).some((part) => part.length >= 4 && /[A-Za-z]/.test(part) && /\d/.test(part));
+}
+
+function withoutIds(s: string): string {
+  return s
+    .replace(/\[rec:[^\]\s]{1,120}\]/gi, "")
+    .replace(ID_LIKE, (whole, _label: string | undefined, token: string) => (isLongId(token) ? "" : whole))
+    .replace(/\(\s*\)|\[\s*\]/g, "");
+}
+
+/** Words in Gujarati or Devanagari script: an English voice cannot say them, so an English line is given without them. */
+function withoutIndicWords(s: string): string {
+  return s.replace(/[\p{Script=Gujarati}\p{Script=Devanagari}][\p{L}\p{M}]*/gu, " ").replace(/[।॥]/g, ".");
 }
 
 /** Format numbers, spelled as a person reads them. */
@@ -120,9 +169,9 @@ function machineNumbers(s: string): string {
   return s.replace(/\b([A-Z]{1,3})-(\d{1,4})\b/g, (_w, letters: string, num: string) => `${spell(letters)} ${num}`);
 }
 
-function datesAndTimes(s: string, thisYear: number): string {
+function datesAndTimes(s: string, thisYear: number, lang: EarLanguage = "en"): string {
   // 2026-09-30
-  s = s.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (whole, y: string, m: string, d: string) => spokenDate(Number(d), Number(m) - 1, Number(y), thisYear) ?? whole);
+  s = s.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (whole, y: string, m: string, d: string) => spokenDate(Number(d), Number(m) - 1, Number(y), thisYear, lang) ?? whole);
   // 30-Sep-2026, 30 Sep 2026, 30 September, 30-Sep-26. The month starts with a
   // capital ("3 may be late" is not a date); a two-figure year only after a dash,
   // slash or point ("30 Sep, 12 records" keeps its 12).
@@ -130,10 +179,12 @@ function datesAndTimes(s: string, thisYear: number): string {
     const month = monthOf(mon);
     if (month === null) return whole;
     const y = y4 ?? y2;
-    return spokenDate(Number(d), month, y ? Number(y) : null, thisYear) ?? whole;
+    return spokenDate(Number(d), month, y ? Number(y) : null, thisYear, lang) ?? whole;
   });
   // 30/09/2026, 30.09.2026, 30-09-2026 (day first, as the plant writes them)
-  s = s.replace(/\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b/g, (whole, d: string, m: string, y: string) => spokenDate(Number(d), Number(m) - 1, Number(y), thisYear) ?? whole);
+  s = s.replace(/\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\b/g, (whole, d: string, m: string, y: string) => spokenDate(Number(d), Number(m) - 1, Number(y), thisYear, lang) ?? whole);
+  // A Gujarati or Hindi voice says "14:30" as a person there does: the clock is left to it.
+  if (lang !== "en") return s;
   // 14:30, 09:00, 9:00 am, 17:45:00
   s = s.replace(/\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?(?:\s?([AaPp])\.?\s?[Mm]\.?(?![A-Za-z]))?/g, (_w, h: string, m: string, ap: string | undefined) => {
     let hour = Number(h);
@@ -177,10 +228,22 @@ const UNITS: Record<string, string> = {
   secs: "seconds",
 };
 
-function amountsAndSymbols(s: string, en: boolean): string {
-  s = s.replace(/(\d)\s?%/g, en ? "$1 percent" : "$1 ટકા");
-  if (!en) return s;
-  s = s.replace(/(?:₹|\bRs\.?|\bINR)\s?(\d[\d,]*(?:\.\d+)?)/g, "$1 rupees");
+/** In Gujarati and Hindi: per cent, rupees and degrees in the language's own words. */
+const AMOUNTS_IN: Record<"hi" | "gu", { percent: string; rupees: string; celsius: string }> = {
+  gu: { percent: "ટકા", rupees: "રૂપિયા", celsius: "ડિગ્રી સેલ્સિયસ" },
+  hi: { percent: "प्रतिशत", rupees: "रुपये", celsius: "डिग्री सेल्सियस" },
+};
+
+function amountsAndSymbols(s: string, lang: EarLanguage): string {
+  if (lang !== "en") {
+    const w = AMOUNTS_IN[lang];
+    s = s.replace(/(\d)\s?%/g, `$1 ${w.percent}`);
+    s = s.replace(/(?:₹|\bRs\.?|\bINR)\s?(\d+(?:,\d+)*(?:\.\d+)?)/g, `$1 ${w.rupees}`);
+    return s.replace(/(\d)\s?°\s?C\b/g, `$1 ${w.celsius}`);
+  }
+  s = s.replace(/(\d)\s?%/g, "$1 percent");
+  // The amount's own commas only: "₹1,200, then" is "1,200 rupees, then".
+  s = s.replace(/(?:₹|\bRs\.?|\bINR)\s?(\d+(?:,\d+)*(?:\.\d+)?)/g, "$1 rupees");
   s = s.replace(/(\d)\s?°\s?C\b/g, "$1 degrees Celsius");
   s = s.replace(/(\d)\s?°\s?F\b/g, "$1 degrees Fahrenheit");
   s = s.replace(/(\d)\s?°/g, "$1 degrees");
@@ -220,10 +283,12 @@ function pausesAndTidy(s: string): string {
   s = s.replace(/→|⇒|->/g, " to ");
   s = s.replace(/[*_~^`|\\<>=•·»«]/g, " ");
   s = s.replace(/\s+/g, " ");
-  s = s.replace(/\s+([,.;:!?…])/g, "$1");
+  s = s.replace(/\s+([,.;:!?…।])/g, "$1");
   s = s.replace(/,(?:\s*,)+/g, ",");
-  s = s.replace(/,\s*([.;:!?…])/g, "$1");
-  s = s.replace(/([.;:!?…])\s*,/g, "$1");
+  s = s.replace(/,\s*([.;:!?…।])/g, "$1");
+  s = s.replace(/([.;:!?…।])\s*,/g, "$1");
+  s = s.replace(/([.!?…।])\s*।/g, "$1");
+  s = s.replace(/।\s*\.(?!\.)/g, "।");
   s = s.replace(/^[,\s]+/, "");
   s = s.replace(/[,\s]+$/, "");
   s = s.replace(/\.{3,}/g, "…");
@@ -233,22 +298,28 @@ function pausesAndTidy(s: string): string {
 
 /**
  * The line as a person would say it (see the header). `lang` is the line's
- * language: "gu" gets only the parts that are not English. `now` decides this
- * year (a date of this year is said without it).
+ * language — "en", "hi" or "gu", or a voice's tag such as "gu-IN": Gujarati and
+ * Hindi get only the parts that are not English. `now` decides this year (a date
+ * of this year is said without it).
  */
 export function forTheEar(text: string, lang = "en", now: Date = new Date()): string {
   const original = String(text ?? "");
   if (!original.trim()) return "";
   try {
-    const en = !String(lang).toLowerCase().startsWith("gu");
-    let s = unmark(original, en);
+    const l = String(lang ?? "").toLowerCase();
+    const ear: EarLanguage = l.startsWith("gu") ? "gu" : l.startsWith("hi") ? "hi" : "en";
+    const en = ear === "en";
+    let s = unmark(original, ear);
     s = unpicture(s);
+    s = withoutIds(s);
+    if (en) s = withoutIndicWords(s);
     s = formatNumbers(s, en);
-    if (en) s = datesAndTimes(s, now.getFullYear());
+    s = datesAndTimes(s, now.getFullYear(), ear);
     s = machineNumbers(s);
-    s = amountsAndSymbols(s, en);
+    s = amountsAndSymbols(s, ear);
     s = pausesAndTidy(s);
-    return s || original.replace(/\s+/g, " ").trim();
+    // Nothing left to say — only pictures, or (for an English voice) only Gujarati or Hindi words: silence, not "dot".
+    return /[\p{L}\p{N}]/u.test(s) ? s : "";
   } catch {
     return original.replace(/\s+/g, " ").trim();
   }
@@ -256,11 +327,15 @@ export function forTheEar(text: string, lang = "en", now: Date = new Date()): st
 
 /**
  * The sentences of a line, in order: cut after a full stop, a question or an
- * exclamation mark, the Devanagari danda or an ellipsis, when a space follows
- * (so 92.5 and 2:30 stay whole).
+ * exclamation mark or an ellipsis when a space follows (so 92.5 and 2:30 stay
+ * whole), and after the Devanagari danda (। ॥) always: it only ever ends a
+ * sentence (REQUIREMENTS §89).
  */
 export function sentencesOf(text: string): string[] {
   const clean = String(text ?? "").replace(/\s+/g, " ").trim();
   if (!clean) return [];
-  return clean.split(/(?<=[.!?।…])\s+/).filter(Boolean);
+  return clean
+    .split(/(?<=[.!?…])\s+|(?<=[।॥])\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }

@@ -1,5 +1,6 @@
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { forTheEar, sentencesOf } from "./earText";
+import { SPEECH_TAGS, scriptLanguageOfTag, voiceSegments, wordCounts, type ScriptLanguage } from "./scripts";
 
 // VOICE FOR THE ASSISTANT — speech-to-text for what the user says, and
 // text-to-speech for the reply, both from the browser's own Web Speech API.
@@ -229,6 +230,17 @@ export function listenForUtterance({
 // Gujarati is only ever a Gujarati voice — Mitra does not read Gujarati with an
 // English voice (it says the English line instead, or nothing).
 //
+// THREE LANGUAGES, ONE MITRA (REQUIREMENTS §89). The voice is chosen by the
+// SCRIPT of the words being said (utils/scripts.ts voiceSegments): Gujarati
+// script to a gu-IN voice, Devanagari to a hi-IN voice, the rest to an Indian
+// English one; a reply with a Hindi line in front of English words is said by
+// two voices, one after the other. For each language: Edge's "Online (Natural)"
+// voice of the person's choice (female Neerja, स्वरा, ધ્વની; male Prabhat, मधुर,
+// નિરંજન), then any natural voice of the language, then any voice of it. Hindi
+// and Gujarati are never read by an English voice: a browser with no voice for
+// them (Chrome has no Gujarati voice at all) shows the words and, once, says
+// where Mitra can be heard (speak's onNoVoice; the hint is the host's).
+//
 // Both Mitra's spoken replies (speak, below) and the reminders and briefing
 // (utils/voice.ts) choose with it, and are said the same way (speakWithBrowser:
 // text made for the ear, a warm rate, a pause between sentences).
@@ -243,18 +255,18 @@ export interface VoiceLike {
 
 const FEMALE_NAMES = new Set([
   "neerja", "heera", "ધ્વની", "dhwani", "swara", "स्वरा", "kajal", "aditi", "raveena", "priya", "ananya", "shruti", "veena", "lekha", "kalpana",
-  "zira", "hazel", "susan", "aria", "jenny", "sonia", "libby", "natasha", "clara", "emma", "ava", "michelle", "samantha", "karen", "moira",
-  "tessa", "sara", "sarah", "linda", "catherine", "elsa", "maisie", "nancy", "female", "woman",
+  "aarti", "kavya", "aashi", "zira", "hazel", "susan", "aria", "jenny", "sonia", "libby", "natasha", "clara", "emma", "ava", "michelle",
+  "samantha", "karen", "moira", "tessa", "sara", "sarah", "linda", "catherine", "elsa", "maisie", "nancy", "female", "woman",
 ]);
 const MALE_NAMES = new Set([
-  "prabhat", "ravi", "નિરંજન", "niranjan", "madhur", "मधुर", "hemant", "rishi", "prakash", "kunal", "aarav", "arjun",
+  "prabhat", "ravi", "નિરંજન", "niranjan", "madhur", "मधुर", "hemant", "rishi", "prakash", "kunal", "aarav", "arjun", "rehaan",
   "david", "mark", "george", "guy", "ryan", "william", "christopher", "eric", "brian", "andrew", "daniel", "alex", "thomas", "james",
   "liam", "fred", "tom", "oliver", "male", "man",
 ]);
 
 /** A voice's gender as far as its name says, or null. Whole words only: "Microsoft ધ્વની Online (Natural) - Gujarati (India)". */
 export function genderOfVoice(name: string): VoiceKind | null {
-  const words = name.toLowerCase().split(/[\s()\-–,_/]+/).filter(Boolean);
+  const words = String(name ?? "").toLowerCase().split(/[\s()\-–,_/]+/).filter(Boolean);
   if (words.some((w) => FEMALE_NAMES.has(w))) return "female";
   if (words.some((w) => MALE_NAMES.has(w))) return "male";
   return null;
@@ -263,11 +275,15 @@ export function genderOfVoice(name: string): VoiceKind | null {
 /**
  * 0 natural (Edge's "Online (Natural)", any "Neural"), 1 an online voice that
  * is not called natural (Google's — smoother than the desktop ones), 2 a voice
- * installed with the computer (Windows' Heera, David, Zira: the robotic ones).
+ * installed with the computer (Windows' Heera, David, Zira: the robotic ones),
+ * 3 a voice the browser could not even name (Edge 150 listed some as
+ * "undefined"): the last resort, and the watchdog's to give up on.
  */
 export function voiceTier(v: VoiceLike & { localService?: boolean }): number {
-  if (/natural|neural|online/i.test(v.name)) return 0;
-  if (/google/i.test(v.name) || v.localService === false) return 1;
+  const name = String(v?.name ?? "").trim();
+  if (!name || name === "undefined") return 3;
+  if (/natural|neural|online/i.test(name)) return 0;
+  if (/google/i.test(name) || v.localService === false) return 1;
   return 2;
 }
 
@@ -329,6 +345,32 @@ export function pickVoice<V extends VoiceLike>(voices: readonly V[], lang: strin
   return sameLanguage.length ? best(sameLanguage, byTier) : null;
 }
 
+/**
+ * The voice for one of Mitra's three languages (REQUIREMENTS §89): English may
+ * fall back to any English voice; Hindi and Gujarati only to a voice of their own.
+ */
+export function voiceFor<V extends VoiceLike>(voices: readonly V[], lang: ScriptLanguage, kind: VoiceKind = "female"): V | null {
+  return pickVoice(voices, SPEECH_TAGS[lang], kind);
+}
+
+/**
+ * Edge's natural Indian English voice (Neerja or Prabhat): the staff's own
+ * accent, which speaks Mitra's English before Groq's voice from the server
+ * (REQUIREMENTS §89).
+ */
+export function isIndianNatural(v: (VoiceLike & { localService?: boolean }) | null | undefined): boolean {
+  return !!v && normLang(v.lang) === "en-in" && voiceTier(v) === 0;
+}
+
+/** Whether this page is open in Microsoft Edge ("Edg/" in its user agent): where the natural Indian voices are. */
+export function isEdgeBrowser(): boolean {
+  try {
+    return typeof navigator !== "undefined" && /\bEdg(?:A|iOS)?\//.test(String(navigator.userAgent ?? ""));
+  } catch {
+    return false;
+  }
+}
+
 // An online voice (Edge's natural ones, Google's) needs the internet. When one
 // fails to start, the browser's installed voices are used for ten minutes —
 // asked once, remembered, never an error on the page.
@@ -340,6 +382,9 @@ const onlineResting = (): boolean => onlineFailedAt > 0 && Date.now() - onlineFa
 /** For the unit tests: online voices trusted again, as on a new page. */
 export function resetSpeechForTests(): void {
   onlineFailedAt = 0;
+  voicesChangedSeen = false;
+  moreVoicesAsked = false;
+  noVoiceSaid.clear();
 }
 
 function currentVoices(): SpeechSynthesisVoice[] {
@@ -359,6 +404,7 @@ let voicesWait: Promise<SpeechSynthesisVoice[]> | null = null;
  * `voiceschanged` — once, and 1.5 s at most; after that the list is read as it is.
  */
 export function loadVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
+  watchVoices();
   const now = currentVoices();
   if (now.length || !isSpeechOutputSupported()) return Promise.resolve(now);
   if (!voicesWait) {
@@ -386,6 +432,88 @@ export function loadVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
     });
   }
   return voicesWait.then((v) => (v.length ? v : currentVoices()));
+}
+
+// EDGE'S NATURAL VOICES CAN ARRIVE LATE (REQUIREMENTS §89). They come from
+// Microsoft's service, a moment after the voices installed with Windows, so a
+// language that has no voice yet is looked for once more, after the browser's
+// next `voiceschanged` (2 s at most, once a page). Only in Edge: Chrome's list is
+// whole when it first comes, and Chrome has no Gujarati voice to wait for.
+let voicesChangedSeen = false;
+let moreVoicesAsked = false;
+let watchingVoices = false;
+
+function watchVoices(): void {
+  if (watchingVoices || !isSpeechOutputSupported()) return;
+  watchingVoices = true;
+  try {
+    window.speechSynthesis.addEventListener("voiceschanged", () => {
+      voicesChangedSeen = true;
+    });
+  } catch {
+    /* an old browser without it */
+  }
+}
+
+/** The voices, once the browser has said its list changed (or 2 s have passed): asked when a language seems to have no voice. Never waits twice. */
+export function moreVoices(timeoutMs = 2000): Promise<SpeechSynthesisVoice[]> {
+  watchVoices();
+  if (voicesChangedSeen || moreVoicesAsked || !isSpeechOutputSupported()) return Promise.resolve(currentVoices());
+  moreVoicesAsked = true;
+  return new Promise((resolve) => {
+    const synth = window.speechSynthesis;
+    let done = false;
+    let timer = 0;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      try {
+        synth.removeEventListener("voiceschanged", finish);
+      } catch {
+        /* an old browser without it */
+      }
+      resolve(currentVoices());
+    };
+    timer = window.setTimeout(finish, timeoutMs);
+    try {
+      synth.addEventListener("voiceschanged", finish);
+    } catch {
+      /* the timeout answers instead */
+    }
+  });
+}
+
+/** The voices to choose from for these languages: in Edge, waited for once more when one of them has none yet. */
+export async function voicesForLanguages(langs: readonly ScriptLanguage[], kind: VoiceKind = preferredKind()): Promise<SpeechSynthesisVoice[]> {
+  const voices = await loadVoices();
+  if (!isEdgeBrowser() || langs.every((l) => voiceFor(voices, l, kind))) return voices;
+  return moreVoices();
+}
+
+// THE HINT, ONCE (REQUIREMENTS §89). A reply in Hindi or Gujarati that this
+// browser has no voice for is shown and not said; the person is told once a
+// browser session where Mitra can be heard (the host shows voice.noVoice.*).
+const NO_VOICE_KEY = "dcrs:voice-no-voice-hinted";
+const noVoiceSaid = new Set<string>();
+
+/** True the first time this browser session that `lang` had no voice here: the moment to show the hint. */
+export function firstTimeWithoutVoice(lang: "hi" | "gu"): boolean {
+  let seen: string[] = [...noVoiceSaid];
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(NO_VOICE_KEY) ?? "[]") as unknown;
+    if (Array.isArray(stored)) seen = [...new Set([...seen, ...stored.filter((x): x is string => typeof x === "string")])];
+  } catch {
+    /* a private window: remembered for this page only */
+  }
+  if (seen.includes(lang)) return false;
+  noVoiceSaid.add(lang);
+  try {
+    sessionStorage.setItem(NO_VOICE_KEY, JSON.stringify([...seen, lang]));
+  } catch {
+    /* remembered for this page only */
+  }
+  return true;
 }
 
 /** The person's choice of voice (Master Data → Working Hours & Briefing). */
@@ -449,6 +577,10 @@ export function utterancePieces(text: string, oneSentenceEach = false): string[]
  * a touch under the browser's everyday 1, more so for a desktop voice, which is
  * hard to follow at full speed — at its natural pitch, with a breath between
  * sentences where the voice does not make one itself.
+ * The same in English, Hindi and Gujarati (REQUIREMENTS §89): one Mitra, one
+ * pace. 0.96 for a natural voice is a person explaining something at a desk,
+ * not reading it out; the pitch is never moved, because a neural voice's pitch
+ * is part of its intonation and shifting it is what makes one sound processed.
  */
 export function prosodyFor(voice: (VoiceLike & { localService?: boolean }) | null): { rate: number; pitch: number; pauseMs: number } {
   const tier = voice ? voiceTier(voice) : 2;
@@ -458,7 +590,10 @@ export function prosodyFor(voice: (VoiceLike & { localService?: boolean }) | nul
 }
 
 /** Whether a voice needs the internet (Edge's natural voices, Google's). */
-const isOnlineVoice = (v: SpeechSynthesisVoice | null): boolean => !!v && (v.localService === false || /online|google/i.test(v.name));
+const isOnlineVoice = (v: SpeechSynthesisVoice | null): boolean => !!v && (v.localService === false || /online|google/i.test(String(v.name ?? "")));
+
+/** How long an online voice (Edge's natural ones, Google's) may take to start a piece before it counts as stalled. */
+export const ONLINE_START_MS = 6000;
 
 /**
  * Says `text` with the browser's speech: made for the ear first (utils/earText.ts
@@ -470,9 +605,20 @@ const isOnlineVoice = (v: SpeechSynthesisVoice | null): boolean => !!v && (v.loc
  * voice and online voices rest for ten minutes. onEnd is called exactly once —
  * when it has been said, failed, been cancelled, or (a browser that never says
  * it has finished) after a generous time. Never throws.
+ *
+ * EDGE'S ONLINE VOICES SOMETIMES STALL (REQUIREMENTS §89): neither starting nor
+ * failing, the browser saying it is speaking while nothing is heard. A piece in
+ * an online voice that has not started (no `start`, no word boundary, no end)
+ * within ONLINE_START_MS is a stall: it is cancelled, online voices rest for ten
+ * minutes, and the piece is said again in the best installed voice of the same
+ * language; with none (Edge installs no Gujarati or Hindi voice) the line stops
+ * there, cleanly — never a hang. A Gujarati or Hindi line is never given to the
+ * browser without a voice of its own: its default could be an English voice.
  */
 export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | null, lang: string, onEnd?: () => void): BrowserSpeech | null {
   if (!isSpeechOutputSupported()) return null;
+  const english = scriptLanguageOfTag(lang) === "en";
+  if (!voice && !english) return null;
   const spoken = forTheEar(text, lang);
   let using = voice;
   let shape = prosodyFor(using);
@@ -484,6 +630,7 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
   let saidOne = false;
   let fellBack = false;
   let watchdog = 0;
+  let starting = 0;
   let pause = 0;
   // Held until the end: Chrome forgets an utterance nobody holds and never says it has ended.
   const held: SpeechSynthesisUtterance[] = [];
@@ -491,12 +638,28 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
     if (ended) return;
     ended = true;
     window.clearTimeout(watchdog);
+    window.clearTimeout(starting);
     window.clearTimeout(pause);
     try {
       onEnd?.();
     } catch {
       /* a caller's slip never reaches the page */
     }
+  };
+  // The online voice failed or stalled: the installed voices from now on, this piece again in the best of
+  // them — or, with no installed voice of this language, the end of the line.
+  const fallBack = () => {
+    fellBack = true;
+    onlineFailedAt = Date.now();
+    const installed = pickVoice(currentVoices(), lang, preferredKind());
+    if (!installed && !english) {
+      end();
+      return;
+    }
+    using = installed;
+    shape = prosodyFor(using);
+    next -= 1;
+    pause = window.setTimeout(sayNext, 0);
   };
   const sayNext = () => {
     if (ended || cancelled) return;
@@ -506,6 +669,25 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
     }
     const piece = pieces[next++];
     let over = false;
+    let alive = false;
+    window.clearTimeout(starting);
+    if (isOnlineVoice(using) && !fellBack) {
+      starting = window.setTimeout(() => {
+        if (over || ended || cancelled || alive) return;
+        over = true;
+        window.clearTimeout(watchdog);
+        try {
+          window.speechSynthesis.cancel();
+        } catch {
+          /* nothing was speaking */
+        }
+        fallBack();
+      }, ONLINE_START_MS);
+    }
+    const living = () => {
+      alive = true;
+      window.clearTimeout(starting);
+    };
     // A browser that never says this piece has ended: about 11 characters a second, and some room. Per piece,
     // so a long reply is read to its end however long it is. A sentence full of figures is slower than that
     // ("1,248" is five characters and six words): while the browser still says it is speaking, the piece is
@@ -543,9 +725,12 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
     u.rate = shape.rate;
     u.pitch = shape.pitch;
     u.volume = 1;
+    u.onstart = living;
+    u.onboundary = living;
     u.onend = () => {
       if (over) return;
       over = true;
+      living();
       window.clearTimeout(watchdog);
       saidOne = true;
       if (next >= pieces.length) end();
@@ -555,6 +740,7 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
       if (over) return;
       over = true;
       window.clearTimeout(watchdog);
+      window.clearTimeout(starting);
       const why = e?.error ?? "";
       if (cancelled || why === "canceled" || why === "interrupted") {
         end();
@@ -562,12 +748,7 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
       }
       if (!saidOne && !fellBack && isOnlineVoice(using)) {
         // No internet for the online voice: the installed voices from now on, this line again with the best of them.
-        fellBack = true;
-        onlineFailedAt = Date.now();
-        using = pickVoice(currentVoices(), lang, preferredKind());
-        shape = prosodyFor(using);
-        next -= 1;
-        pause = window.setTimeout(sayNext, 0);
+        fallBack();
         return;
       }
       // One piece the browser could not say: the rest are still said.
@@ -591,12 +772,80 @@ export function speakWithBrowser(text: string, voice: SpeechSynthesisVoice | nul
       if (ended) return;
       cancelled = true;
       window.clearTimeout(pause);
+      window.clearTimeout(starting);
       try {
         window.speechSynthesis.cancel();
       } catch {
         /* nothing was speaking */
       }
       end();
+    },
+  };
+}
+
+/** Whether a piece of text has no words at all (figures, signs, pictures): no language of its own. */
+export function hasNoWords(text: string): boolean {
+  const c = wordCounts(text);
+  return c.en + c.hi + c.gu + c.other === 0;
+}
+
+/** One part of what is said: its words, its voice and its language's tag. */
+export interface SpokenPart {
+  text: string;
+  voice: SpeechSynthesisVoice | null;
+  lang: string;
+}
+
+/** A breath between two parts in different voices (a Hindi line, then the English answer). */
+const BETWEEN_PARTS_MS = 250;
+
+/**
+ * Says the parts one after another, each in its own voice (speakWithBrowser);
+ * cancel() stops the one being said and every one after it. onEnd is called
+ * exactly once, when all are said or it is cancelled.
+ */
+export function speakInTurn(parts: readonly SpokenPart[], onEnd?: () => void): BrowserSpeech {
+  let at = 0;
+  let current: BrowserSpeech | null = null;
+  let stopped = false;
+  let ended = false;
+  let gap = 0;
+  const finish = () => {
+    if (ended) return;
+    ended = true;
+    window.clearTimeout(gap);
+    try {
+      onEnd?.();
+    } catch {
+      /* a caller's slip never reaches the page */
+    }
+  };
+  const next = (): void => {
+    if (stopped || ended) return;
+    if (at >= parts.length) {
+      finish();
+      return;
+    }
+    const part = parts[at++];
+    let done = false;
+    let speech: BrowserSpeech | null = null;
+    speech = speakWithBrowser(part.text, part.voice, part.lang, () => {
+      done = true;
+      if (current === speech) current = null;
+      if (!stopped) gap = window.setTimeout(next, at < parts.length ? BETWEEN_PARTS_MS : 0);
+    });
+    if (!speech) gap = window.setTimeout(next, 0);
+    else if (!done) current = speech;
+  };
+  next();
+  return {
+    cancel: () => {
+      if (ended) return;
+      stopped = true;
+      const speaking = current;
+      current = null;
+      speaking?.cancel();
+      finish();
     },
   };
 }
@@ -645,7 +894,10 @@ export function isReplySpeaking(): boolean {
 // question typed in Gujarati with English chosen gets a Gujarati reply. A
 // Gujarati reply on a browser with no Gujarati voice is not read at all — an
 // English voice reading Gujarati script is noise (REQUIREMENTS §81). One
-// Gujarati name in an English reply does not make it Gujarati.
+// Gujarati name in an English reply does not make it Gujarati. Since
+// REQUIREMENTS §89 the same holds for Hindi, and it is decided sentence by
+// sentence (utils/scripts.ts voiceSegments), so a reply with a Hindi line in
+// front of an English answer is said by both voices in turn.
 const GUJARATI_SCRIPT = /[઀-૿]/;
 
 /** Whether `text` is written in Gujarati: Gujarati letters, at least half of all its letters. */
@@ -666,7 +918,16 @@ function endReplyReading(): void {
   reading?.cancel();
 }
 
-export function speak(text: string, requested: string): void {
+/**
+ * Reads one of Mitra's replies aloud (REQUIREMENTS §89): each part in the voice
+ * of its own script (utils/scripts.ts voiceSegments — a Hindi line in the Hindi
+ * voice, then the English words in the Indian English one), one after another.
+ * A part in Hindi or Gujarati that this browser has no voice for is not said —
+ * never an English voice for it — and `onNoVoice` is told which language that
+ * was, so the page can say once where Mitra can be heard. `requested` (the
+ * screens' speech tag) only decides text with no words of its own.
+ */
+export function speak(text: string, requested: string, opts: { onNoVoice?: (lang: "hi" | "gu") => void } = {}): void {
   if (!isSpeechOutputSupported() || !text.trim()) return;
   interruptOthers();
   const generation = ++replyGeneration;
@@ -676,24 +937,37 @@ export function speak(text: string, requested: string): void {
   } catch {
     /* nothing was speaking */
   }
-  const asksGujarati = requested.startsWith("gu");
-  // Gujarati chosen: any Gujarati letter; otherwise a reply written in Gujarati. Either way a Gujarati voice, or silence.
-  const gujarati = GUJARATI_SCRIPT.test(text) && (asksGujarati || writtenInGujarati(text));
-  const lang = gujarati ? "gu-IN" : asksGujarati ? "en-IN" : requested;
+  const segments = voiceSegments(text, scriptLanguageOfTag(requested));
+  const kind = preferredKind();
   replyActive = true;
-  loadVoices()
+  voicesForLanguages(
+    segments.map((s) => s.lang),
+    kind
+  )
     .then((voices) => {
       if (generation !== replyGeneration) return;
-      const voice = pickVoice(voices, lang, preferredKind());
-      if (gujarati && !voice) {
+      const parts: SpokenPart[] = [];
+      for (const seg of segments) {
+        // Figures alone ("92%") belong to no language: with no voice for the screens' one, English says them.
+        const lang = seg.lang !== "en" && !voiceFor(voices, seg.lang, kind) && hasNoWords(seg.text) ? "en" : seg.lang;
+        const voice = voiceFor(voices, lang, kind);
+        if (!voice && lang !== "en") {
+          try {
+            opts.onNoVoice?.(lang);
+          } catch {
+            /* a host's slip never stops the reading */
+          }
+          continue;
+        }
+        parts.push({ text: seg.text, voice, lang: SPEECH_TAGS[lang] });
+      }
+      if (!parts.length) {
         replyActive = false;
         return;
       }
-      const spoken = speakWithBrowser(text, voice, lang, () => {
+      replyReading = speakInTurn(parts, () => {
         if (generation === replyGeneration) replyActive = false;
       });
-      if (!spoken) replyActive = false;
-      else replyReading = spoken;
     })
     .catch(() => {
       replyActive = false;

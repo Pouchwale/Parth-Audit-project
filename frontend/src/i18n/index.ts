@@ -29,11 +29,28 @@ export function currentLanguage(): Language {
   return settingsRepository.get().language;
 }
 
+// THE LANGUAGE AN ANSWER IS WRITTEN IN (REQUIREMENTS §89). Mitra's own answers
+// (engine/assistantLocal.ts) follow the language the question was asked in where
+// both tables have the words: a question in Gujarati gets Gujarati and one in
+// English gets English, whatever the screens are in. Set for one answer only.
+let answering: Language | null = null;
+
+/** Runs `make` with `t()` writing in `lang`; null keeps the screens' language. */
+export function answerIn<T>(lang: Language | null, make: () => T): T {
+  const before = answering;
+  answering = lang;
+  try {
+    return make();
+  } finally {
+    answering = before;
+  }
+}
+
 // For code outside React (engines, the assistant's canned replies) — reads the
 // stored language at call time. Text is written in English while Google
 // Translate is turning the page into Gujarati (i18n/googleTranslate.ts).
 export function t(key: StringKey | string, vars?: Vars): string {
-  return tr(uiLanguageFor(currentLanguage()), key, vars);
+  return tr(answering ?? uiLanguageFor(currentLanguage()), key, vars);
 }
 
 // For components: identical to `t`, but reading it through the store means the
