@@ -27,7 +27,7 @@ import { useAppStore } from "../store/AppStore";
 import { isValidAppRoute, useRouter } from "../store/router";
 import { onExternalChange, readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
-import { answerStaysLocal, buildAssistantContext, localAnswer, suggestedPrompts } from "../engine/assistantLocal";
+import { answerLanguageFor, answerStaysLocal, buildAssistantContext, localAnswer, suggestedPrompts, withHindiNote } from "../engine/assistantLocal";
 import { modelReachable, noteModelAnswered, noteModelFailed, unreachableLabel, type Unreachable } from "../engine/assistantReach";
 import { assistantConfigured } from "../engine/features";
 import {
@@ -54,13 +54,13 @@ import { sampleFillStoredRecord } from "../engine/sampleFill";
 import { queueAfterOpen } from "../engine/assistantHandoff";
 import type { Chip, ChipAction } from "../engine/guidedChecklist";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
-import { tr, useLanguage, useT } from "../i18n";
+import { answerIn, tr, useLanguage, useT } from "../i18n";
 import { guide, hello } from "../engine/assistantPersona";
 import { SPEECH_LOCALES } from "../i18n/strings";
 import { isSpeechOutputSupported, isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../utils/speech";
 import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../utils/recorder";
 // Mitra never talks over a person speaking into the microphone (REQUIREMENTS §81).
-import { setMicBusy } from "../utils/voice";
+import { noVoiceHintOnce, setMicBusy } from "../utils/voice";
 import { generateId } from "../utils/id";
 import { formatDisplayDate, toISODate, todayISO } from "../utils/date";
 import { historyForAgent, runMitraTurn } from "../engine/mitraAgent";
@@ -615,8 +615,16 @@ export function AssistantPage() {
     const convId = active?.id ?? createConversation();
     // The conversation before this message (the message itself is not in it).
     const before = edit ? edit.earlier : (active?.messages ?? []);
+    // A reply in Hindi or Gujarati this browser has no voice for is shown, not said — and once a
+    // session the line above the composer says where Mitra can be heard (REQUIREMENTS §89).
     const readOut = (reply: string) => {
-      if (spoken || speakReplies) speak(stripMarkdown(reply), speechLocale);
+      if (!spoken && !speakReplies) return;
+      speak(stripMarkdown(reply), speechLocale, {
+        onNoVoice: (l) => {
+          const hint = noVoiceHintOnce(l, t);
+          if (hint) setVoiceNote(hint);
+        },
+      });
     };
     // Kept in this tab, so an edit of this message goes with the same files' words.
     rememberAttachments(files);
@@ -715,10 +723,11 @@ export function AssistantPage() {
 
     // HR Master Data (REQUIREMENTS §53) — "open HR master data"; a fetch said
     // here is told which record to open first.
-    const master = hrMasterChatAnswer(text);
+    const master = answerIn(answerLanguageFor(text), () => hrMasterChatAnswer(text));
     if (master) {
-      append(convId, { id: generateId("msg"), role: "bot", text: master.reply, at: stamp(), chips: master.chips });
-      readOut(master.reply);
+      const reply = withHindiNote(master.reply, text);
+      append(convId, { id: generateId("msg"), role: "bot", text: reply, at: stamp(), chips: master.chips });
+      readOut(reply);
       if (master.navigate && isValidAppRoute(master.navigate)) navigate(master.navigate);
       return;
     }
@@ -804,9 +813,12 @@ export function AssistantPage() {
       // it is not asked twice: answered from the app's own tables, marked as such.
       const unreachable: Unreachable | null = !reach.ok ? reach.why : agentFailure;
       if (unreachable) {
-        const answer = fallback ?? { reply: t("ai.offline.noAnswer"), chips: undefined };
-        append(convId, { id: generateId("msg"), role: "bot", text: answer.reply, at: stamp(), chips: answer.chips, offline: unreachable, ...citesOf(fallback ? fallbackCites : undefined) });
-        readOut(answer.reply);
+        // In the question's language where the tables have it, a Hindi question's with its Hindi line (REQUIREMENTS §89).
+        const asked = answerLanguageFor(text);
+        const answer = fallback ?? { reply: asked ? tr(asked, "ai.offline.noAnswer") : t("ai.offline.noAnswer"), chips: undefined };
+        const reply = withHindiNote(answer.reply, text);
+        append(convId, { id: generateId("msg"), role: "bot", text: reply, at: stamp(), chips: answer.chips, offline: unreachable, ...citesOf(fallback ? fallbackCites : undefined) });
+        readOut(reply);
         return;
       }
 
@@ -849,8 +861,9 @@ export function AssistantPage() {
         if (turn.stopped) return;
         const why = noteModelFailed(err);
         if (fallback) {
-          append(convId, { id: generateId("msg"), role: "bot", text: fallback.reply, at: stamp(), chips: fallback.chips, offline: why, ...citesOf(fallbackCites) });
-          readOut(fallback.reply);
+          const reply = withHindiNote(fallback.reply, text);
+          append(convId, { id: generateId("msg"), role: "bot", text: reply, at: stamp(), chips: fallback.chips, offline: why, ...citesOf(fallbackCites) });
+          readOut(reply);
         } else {
           append(convId, {
             id: generateId("msg"),
@@ -931,14 +944,14 @@ export function AssistantPage() {
 
   // VOICE BY THE SERVER (Groq Whisper, REQUIREMENTS §80): record until the
   // button is pressed again (or the recorder's own limit of 90 s), have the
-  // server write it down, and send the words as spoken. The person's own
-  // language is not forced on the server: with the interface in Gujarati they
-  // will be speaking Gujarati; in English they may be speaking either, and
-  // Whisper hears which.
+  // server write it down, and send the words as spoken. No language is forced
+  // on the server (REQUIREMENTS §89): the screens' language says nothing of the
+  // language spoken — English, Hindi or Gujarati, or a mix — and Whisper hears
+  // which, so Mitra can answer in it.
   const transcribeClip = async (blob: Blob) => {
     setRecording({ active: false, seconds: 0, transcribing: true });
     try {
-      const heard = await assistantApi.transcribe(blob, lang === "gu" ? "gu" : "auto");
+      const heard = await assistantApi.transcribe(blob, "auto");
       const said = heard.text.trim();
       if (said) void send(said, true);
       else setVoiceNote(t("ai.voiceError"));
@@ -1013,7 +1026,7 @@ export function AssistantPage() {
       ? {
           text: (
             <>
-              <span className="voice-pulse" /> {recording.active ? t("ai.recording") : t("ai.listening")}
+              <span className="voice-pulse" /> {recording.active ? t("ai.recording") : t("voice.mic.listening", { lang: t(`voice.mic.lang.${lang}`) })}
             </>
           ),
           listening: true,
@@ -1188,6 +1201,7 @@ export function AssistantPage() {
           recording={voiceMode === "whisper" ? recording : { active: listening, seconds: 0, transcribing: false }}
           onToggleVoice={voiceMode === "whisper" ? toggleWhisper : toggleListening}
           voiceMode={voiceMode}
+          listenIn={t(`voice.mic.lang.${lang}`)}
           placeholder={t("ai.composerPlaceholderShort")}
           maxLength={MAX_INPUT_CHARS}
           note={note}

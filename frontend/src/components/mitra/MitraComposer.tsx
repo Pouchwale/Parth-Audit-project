@@ -53,6 +53,12 @@ export interface MitraComposerProps {
   recording: { active: boolean; seconds: number; transcribing: boolean };
   onToggleVoice: () => void;
   voiceMode: "whisper" | "browser" | "none";
+  /**
+   * The language the browser's own listening listens for — the screens' (it
+   * can listen for one only); named in the microphone's hint. Whisper hears
+   * any of the three, so it is not named then (REQUIREMENTS §89).
+   */
+  listenIn?: string;
   placeholder: string;
   /** The narrow dock: no hint line, a shorter box. */
   compact?: boolean;
@@ -93,6 +99,7 @@ export function MitraComposer({
   recording,
   onToggleVoice,
   voiceMode,
+  listenIn,
   placeholder,
   compact = false,
   maxLength = DEFAULT_MAX_LENGTH,
@@ -198,7 +205,7 @@ export function MitraComposer({
   };
 
   const rec = recording;
-  const micIdleTitle = voiceMode === "none" ? t("ai.voiceUnsupported") : t("ai.startVoice");
+  const micIdleTitle = voiceMode === "none" ? t("ai.voiceUnsupported") : voiceMode === "browser" && listenIn ? t("voice.mic.title", { lang: listenIn }) : t("ai.startVoice");
   const micTitle = rec.transcribing ? t("ai.transcribing") : rec.active ? t("ai.stopVoice") : micIdleTitle;
 
   return (
