@@ -861,7 +861,8 @@ const refuse = (ask: string): Failure => ({ ok: false, ask, refused: true });
 
 const HEADER_NAMES: Record<HeaderField, string> = { companyName: "company name", title: "name", formatNo: "format number", revisionNo: "revision number", revisionDate: "revision date" };
 const HEADER_EXAMPLES: Record<HeaderField, string> = {
-  companyName: "change the company name to “Gujarat Print Pack Publications Pvt. Ltd.”",
+  // A real change to every header, which prints COMPANY.name already: the plant's place added to it.
+  companyName: `change the company name to “${COMPANY.name}, MEHSANA”`,
   title: "rename this format to “Customer Feedback Form”",
   formatNo: "change the format number to F/MKT/01-A",
   revisionNo: "change the revision to 02",

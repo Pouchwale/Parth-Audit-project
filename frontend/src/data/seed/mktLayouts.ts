@@ -29,7 +29,9 @@ import { COMPLAINT_PERIODS, FEEDBACK_RATINGS } from "../../engine/marketingCalc"
 //     Many / Cumulative% / Cut Off % are the template's own.
 //
 // F/MKT/03 was not among the pages supplied. The pages print the company as
-// "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED" — PRINT PACK, two words.
+// "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED" — PRINT PACK, two words;
+// DCRS's headers print the name as the owner gave it on 02-Oct-2026
+// (COMPANY.name), the one word of the pages that is not kept verbatim.
 //
 // VERBATIM MEANS VERBATIM. Every label, heading, printed note and seeded value
 // is the page's own wording, spelling, capitals, punctuation and spacing:

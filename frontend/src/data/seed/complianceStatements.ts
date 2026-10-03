@@ -2,7 +2,10 @@
 // verbatim from the two Word documents in the uploaded zip. These are
 // reference documents with a validity period ("valid for two years from the
 // date of Publication"), so the app tracks when each one is due for
-// re-issue instead of treating them as fillable records.
+// re-issue instead of treating them as fillable records. The company's name
+// is the one exception to verbatim: it is written as the owner gave it on
+// 02-Oct-2026 (COMPANY.name), not as each Word document spelt it.
+import { COMPANY } from "./masterData";
 
 export interface ComplianceSection {
   label: string;
@@ -28,7 +31,7 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
     headerTitle: "STATEMENT OF COMPLIANCE – PRESSURE LABELS",
     footerRef: "F/QC- 09 (Rev – 00 / 01.12.2021)",
     sections: [
-      { label: "Manufacturer", lines: ["GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED"] },
+      { label: "Manufacturer", lines: [COMPANY.name] },
       { label: "Address", lines: ["308,309, G.I.D.C. Estate, At Dediyasan, Mehsana – 384002, Gujarat, India"] },
       { label: "Product", lines: ["Pressure Labels"] },
       {
@@ -57,13 +60,13 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
       { label: "Post-consumer recycling", lines: ["No PCWR waste used"] },
     ],
     declarations: [
-      "GUJARAT PRINT PACK PUBLICATION LIMITED, hereby declares that all raw materials used in the manufacturing of Printed Pressure Labels do not have a concentration of lead, cadmium, Hexavalent chromium and mercury that exceeds 100 PPM, and conform to Council Directive 94/62/EC with amendments 2005/20/EC and 2004/12/EC",
+      `${COMPANY.name}, hereby declares that all raw materials used in the manufacturing of Printed Pressure Labels do not have a concentration of lead, cadmium, Hexavalent chromium and mercury that exceeds 100 PPM, and conform to Council Directive 94/62/EC with amendments 2005/20/EC and 2004/12/EC`,
       "Substances such as 4-methylbenzophenone, benzophenone, hydroxybenzophenone and bisphenol A are not added or used in the manufacturing of Printed Pressure Labels and are therefore not expected to be present in our products",
       "Inks used are suitable for Indirect Food Contact where there is a barrier between the ink and the product. They confirm to the requirement of Heavy Metal Content of CONEG and EN 71 part 3. The inks do not contain any material that is in the negative list of CEPE. The inks do not contain any animal fat",
       "Printed Pressure Labels have to be kept in its original packaging in a cool or ambient temperate and dry place as per product application by packers / customer.",
       "This Declaration is valid for two years from the date of Publication, unless there is a change to the materials used, processing technologies or applicable legislation.",
       "Whilst this Declaration is made using all due diligence, it is the responsibility of the downstream users of these articles to ensure compliance with all relevant legislation in their own applications and technologies",
-      "This Declaration of Compliance is applicable to current and future supplies of Products manufactured by GUJARAT PRINT PACK PUBLICATION LIMITED and are updated only when there are (1) Legislative changes (2) Creation of new scientific data that affects the use of the material & (3) Modified composition of the material or the article that has significance for the application",
+      `This Declaration of Compliance is applicable to current and future supplies of Products manufactured by ${COMPANY.name} and are updated only when there are (1) Legislative changes (2) Creation of new scientific data that affects the use of the material & (3) Modified composition of the material or the article that has significance for the application`,
     ],
     signedBy: "Shail Patel",
     signedTitle: "CEO",
@@ -77,7 +80,7 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
     footerRef: "F/QC- 38 (Rev – 00 / 24.02.2025)",
     referenceSource: "BRC Global Standard for Packaging and Packaging Materials",
     sections: [
-      { label: "Manufacturer", lines: ["GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED"] },
+      { label: "Manufacturer", lines: [COMPANY.name] },
       { label: "Address", lines: ["308,309, G.I.D.C. Estate, At Dediyasan, Mehsana – 384002, Gujarat, India"] },
       {
         label: "Product",

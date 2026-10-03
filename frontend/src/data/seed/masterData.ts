@@ -14,7 +14,9 @@ export const SEED_MASTER_DATA: MasterData = {
     // PSTL (Product Safety Team Leader) and Manager - QA on the F/HR formats of
     // 14-Sep-2026: she signs the mobile authorisations, leads the HARA team's
     // GMP inspection and runs the product safety culture survey.
-    { id: "emp-kapila", name: "Ms. Kapila Barad", role: "Client Contact Person / Training Coordinator / PSTL (Manager - QA)", department: "Gujarat Printpack Publication Pvt. Ltd.", active: true },
+    // Her department is the company itself, as the papers list her: its name as
+    // the owner gave it on 02-Oct-2026 (COMPANY.shortName below).
+    { id: "emp-kapila", name: "Ms. Kapila Barad", role: "Client Contact Person / Training Coordinator / PSTL (Manager - QA)", department: "Gujarat Print Pack Publications Pvt Ltd", active: true },
     // Human Resources — named on the F/HR formats (F/HR/01 competence register:
     // HR & Admin, Manager, joined 05.07.2024; F/HR/13: Hr Manager, 10/07/2024).
     { id: "emp-sandeep", name: "Sandeep Parekh", role: "Manager – HR & Admin (Head – HR & Admin; signs the induction, competence and hygiene registers)", department: "HR & Admin", active: true },
@@ -426,9 +428,20 @@ export const SEED_MASTER_DATA: MasterData = {
   ],
 };
 
+// THE COMPANY'S NAME, as the owner gave it on 02-Oct-2026 (said twice): "Gujarat
+// Print Pack Publications Pvt Ltd", kept everywhere — every document of every
+// module, the opening, the screens — in place of each paper's own spelling.
+//   name       the printed company line: every format's header, the letterheads
+//              and the forms' own capitals text.
+//   shortName  running text: the sign-in card, the sidebar (in Gujarati too: the
+//              registered name is never translated), the opening, the browser's
+//              title, Mitra's words, a value written into a record.
+// Kept free of runtime imports, like the whole of this file: the server reads
+// SEED_MASTER_DATA from it (backend/workingHours.ts). What an installation had
+// already stored is brought in line at start-up (data/companyNameMigration.ts).
 export const COMPANY = {
-  name: "GUJARAT PRINTPACK PUBLICATION PRIVATE LIMITED",
-  shortName: "Gujarat Print Pack Publications Pvt. Ltd.",
+  name: "GUJARAT PRINT PACK PUBLICATIONS PVT LTD",
+  shortName: "Gujarat Print Pack Publications Pvt Ltd",
   address: "308/9, GIDC, Dediyasan, Mehsana, Gujarat, India – 384002",
   serviceProvider: "Gurudev Pest Control",
 };

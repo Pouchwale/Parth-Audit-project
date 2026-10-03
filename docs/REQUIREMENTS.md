@@ -4,8 +4,9 @@ This document records, for every uploaded source file, what was found, how it wa
 and every place the source was unclear (marked **TO BE CONFIRMED**). Nothing below was invented;
 where the source did not say, this document says so explicitly.
 
-Company: **Gujarat Printpack Publication Private Limited**, 308/9, GIDC, Dediyasan, Mehsana,
-Gujarat, India – 384002. Pest control service provider: **Gurudev Pest Control**.
+Company: **Gujarat Print Pack Publications Pvt Ltd** — the name as the owner gave it on 02-Oct-2026, kept on
+every document (§87) — 308/9, GIDC, Dediyasan, Mehsana, Gujarat, India – 384002. Pest control service
+provider: **Gurudev Pest Control**.
 
 ---
 
@@ -5400,6 +5401,184 @@ each have their own box.
 
 **Tests.** See docs/TESTING.md "The five formats of 02-Oct-2026 and the header block on every document".
 
+## §87 - The company's name, everywhere (2-Oct-2026)
+
+**The request.** Asked which spelling of the company's name DCRS should write (item 44), the owner answered, and said it
+twice: "Gujarat Print Pack Publications Pvt Ltd ... keep this name everywhere". That decision stands over every paper's own
+spelling. The plant's forms print the name several ways (GUJARAT PRINTPACK PUBLICATION PRIVATE LIMITED on most headers,
+PRINT PACK on the Marketing papers and the F/HR/18 register, "Gujarat Printpack Publication Pvt. Ltd." on the sign-in card
+and in the page title, "Gujarat Print Pack Publication" in the opening); from today DCRS writes one name, the owner's.
+
+**What changed.** The name lives in one place, `COMPANY` in frontend/src/data/seed/masterData.ts, in two forms:
+`COMPANY.name`, GUJARAT PRINT PACK PUBLICATIONS PVT LTD, in capitals for every printed company line and header, and
+`COMPANY.shortName`, Gujarat Print Pack Publications Pvt Ltd, for running text and the screen.
+- The eleven formats that carried a spelling of their own in the document definitions no longer do, and the F/HR/18
+  register's fixed company constant is gone: every header prints `COMPANY.name`. The header can still be typed over on a
+  record's page (§86) for a format the plant wants headed differently.
+- The forms that name the company in their body read it from `COMPANY` now: F/DISP/01's clause and its four signature
+  labels (their keys unchanged), both Statements of Compliance (the Manufacturer line and the two declarations) and the
+  SOC page's header, F/QC/25's heading (its address and number kept), F/QC/30's location, F/SYS/20's site name, the
+  letterheads of the complaint acknowledgement and the pest responsibilities (GUJARAT PRINT PACK over PUBLICATIONS PVT
+  LTD, the logo marked not to translate), and the client's name on the responsibilities document and the service agreement.
+- The seeds: the GAP report's premises, the seven training attendees' department and emp-kapila's; the demo generator
+  writes `COMPANY.shortName`.
+- The screen and the server: the sign-in card, the sidebar in English and in Gujarati, the page title and description,
+  Mitra's format-command example, and the vocabulary hint given to the voice transcription (backend/mitraAgent.ts). The
+  opening spells the new name, 34 letters where there were 27; its scattered arrival still brings every letter exactly once.
+- The Gujarati sidebar keeps the name in Latin letters: the registered name is never translated (§58).
+
+**The data already stored.** A new start-up step, `alignCompanyName()` in frontend/src/data/companyNameMigration.ts, run by
+bootstrap.ts after the other start-up clean-ups and before the month's records are generated and prepared, so nothing
+carries an old spelling forward. It runs on every page load (about 5 ms in Node for nine months of records; not yet
+measured in a browser), and a second run changes nothing. One pattern matches every spelling of this company's name and
+nobody else's: customers' and machine makers' "Pvt. Ltd." and the title "Gujarat Print Pack Leave Calendar 2026" are
+never touched. Capitals become the capitals form, anything else the mixed form; a full stop that plainly ended a sentence
+after "Pvt. Ltd." is kept. It brings four stores in line:
+- the formats: a company name typed over a header (§86) that is only a spelling of the name, old or new, in any letters,
+  is dropped, so the header prints the owner's name; one with more in it (", MEHSANA") keeps the addition with the name
+  inside it corrected; a stored layout's text is corrected, never its keys or ids; the format's revision history is left
+  as written;
+- the Statements of Compliance: a corrected statement's text, keeping who corrected it and when;
+- the master data: every string, which covers the emp-kapila department;
+- the records: every string in every record's data, drafts and signed-off alike, and the saved original of a record
+  reopened for correction, so Cancel edit cannot bring the old name back. Each changed record gets exactly one history
+  line, by "System": "Company name brought in line: Gujarat Print Pack Publications Pvt Ltd (owner's decision,
+  2-Oct-2026)". Its status, signatures, dates, period and updatedAt are untouched.
+
+A department's browser holds its own departments' records, so each department's records are brought in line the first
+time somebody who can see them opens DCRS (the super admin covers all). The server's engine, which serves the API and the
+mobile app, seeds the new name when it restarts and takes the corrected records as the browsers sync them.
+
+**Kept as it was, on purpose.** Gurudev Pest Control's letterhead, and the names of customers and machine makers (other
+companies' names are theirs); the plant's addresses, with the "GUAJRAT" and "DEDIASAN" the papers print; the CIN; the
+GPPL document numbers and sheet names; the @gpp.local accounts and their first password; the gpp* keys of records (a key
+never changes); the invoice GPP/2026/0418; the title "Gujarat Print Pack Leave Calendar 2026" and its Gujarati form,
+which are the calendar's own; the gujprintpack.com e-mail and web domain; the "Print Packaging" training topic; and the
+supplied originals in frontend/public/source, which are the papers themselves. Comments in the code that only state what
+a paper prints are kept, with a note that DCRS prints the owner's name.
+
+**Found in review.** The full browser suite's result is recorded in TESTING.md. One small thing for the owner's eye: a new
+GAP report takes its premises in capitals (`COMPANY.name`) while the seeded and demo GAP records carry the mixed form;
+both are the owner's name.
+
+**What waits on the owner.** Nothing new: confirmation items 44 and 47 are answered by this decision.
+
+**Tests.** frontend/tests/companyName.test.ts (7), and intro.test.ts, headerEdit.test.ts and recordHeader.test.ts assert
+the new name. Five browser suites changed: e2e_intro_and_fonts (34 letters), e2e_marketing_module, e2e_maintenance_module,
+e2e_dispatch_module and e2e_agreement_and_cancel. See docs/TESTING.md "The company's name everywhere".
+
+## §88 - Mitra's look, Mitra on your phone, and one PC for the whole plant (2-Oct-2026)
+
+**The request.** Three things of the same day: Mitra's chat refreshed so the Ask Mitra page and the dock look like one
+product; the Mitra app on the staff's phones doing everything Mitra does in the browser, and reaching the phones from DCRS
+itself; and the plant running the whole application from one server PC, with a guide IT can follow.
+
+**1. Mitra's look, and "Mitra on your phone".**
+- The Ask Mitra page opens on a welcome: Mitra's face (a teal spark, 56 px), the greeting and a "Where would you like to
+  go?" line, then the nine suggestions as cards, each with its own icon. They arrive in reading order, the face in 200 ms,
+  the words in 180 ms, the cards 22 ms apart, moving by transform and opacity only; under reduced motion nothing moves.
+  The header carries a smaller face and a status label; the conversation list has an empty state ("No chats yet") and
+  calmer rows; the footer a shield.
+- The dock's head wears the same face in place of the "M", and its "?" is an info button named "About this document";
+  its quick chips are calmer tinted pills (the step to take still filled teal, delete red); its geometry is unchanged
+  (right edge 0, top 0, a 380 px page margin). The "Ask Mitra" pill keeps those exact words, on a teal gradient with
+  Mitra's face and the waiting count; its shape, shadow and cursor moved from inline styles into the stylesheet.
+- The shared pieces, visual only: bubbles of 16 px with a 6 px corner on the speaker's side; the chips, the step trail,
+  the composer and the status label refined. Mitra's answers on the full page stay without a bubble, as §80.6 says. The
+  thinking avatar's animated shadow, the one movement that broke the rule of transform and opacity only, is now a
+  separate ring that moves by transform and opacity. The face and pill gradients end on a darker green so white text keeps
+  at least 5.7:1 contrast; small text uses the muted grey (5.48:1 on white), not the faint one.
+- Two bugs already there, put right: the welcome opened scrolled to its bottom, hiding the greeting; and on a phone the
+  page scrolled past the greeting when it focused the composer (it focuses with preventScroll now).
+- **"Mitra on your phone"**, a card at the foot of the conversation list, never printed. Folded, it is one line and a
+  "Show the code" button, and asks and draws nothing. Opened, it asks DCRS `GET /api/phone-app` (part 3) and draws a QR
+  code for `exp://<address>:<port>`: the address is the browser's own host unless that is localhost, else the first
+  address the server gives; the port is the route's, else 8081; when the route is missing (404) or fails, the browser's
+  host and 8081. Beside the code, the address and five steps, from installing Expo Go to signing in with the person's
+  DCRS email and password, the iPhone's step among them (sign in to Expo Go with the plant's Expo account). When the
+  server says Expo is not running, the card says so and to ask the administrator; when the address is localhost, that a
+  phone cannot open it. While open, the list folds and the panel widens to 300 px so everything fits at 1366x768. The
+  code is drawn by lean-qr 2.7.4 (MIT, no dependencies, a few kilobytes).
+
+**2. The phone's Mitra does what DCRS's Mitra does.** Three GET routes join the DCRS API (§83, §85), each behind the same
+sign-in, working hours, department rules and error shape as the rest:
+- `/api/v1/equipment?q=&limit=`: the F/MNT/01 machine lookup through DCRS's engine, Mitra's own answer plus the machines
+  named (by number, or by a serial only one machine has; otherwise, only when Mitra has no answer of her own, the search's
+  results). Anyone outside Maintenance is refused, 403 not-your-department; the super admin sees it.
+- `/api/v1/insights?limit=`: the insights headline Mitra is given with every message and the insights behind it, kept to
+  the person's departments, the most severe first.
+- `/api/v1/escalations?open=1|0`: the super admin's escalations, read by the server itself from their own table, with the
+  line Mitra adds for the super admin in the same words. Anybody else is refused, 403 super-admin-only; a database that
+  cannot be read answers 503 database-unavailable.
+
+The engine's version went from 1 to 2 (backend/engineHost.ts and the engine's entry), the OpenAPI file to 1.2.0 with the
+three paths and six schemas, and docs/chatbot-integration.md has the routes and the tool-to-route table, its examples now
+saying "Through Mitra mobile app". The app has three matching read actions (equipment_lookup, insights, escalations),
+tested against its stand-in DCRS, and the whole was proved end to end against a throwaway DCRS: sign-in, the three
+actions, a record opened, filled, read and submitted, a 77 KB PDF, and a QC account refused in DCRS's own words. The app
+itself carries no spelling of the company's name, so §87 had nothing to change there. The app's side of this work is on
+its branch mitra-expo-go, in its own repository.
+
+**Expo Go, the facts.** The stores' Expo Go opens one Expo SDK, the latest: SDK 57 today (Expo Go 57.0.9, 2 September
+2026). Mitra is on SDK 57, checked with Expo's own tools (expo-doctor 21 of 21, every package current, every native module
+the app uses part of Expo Go 57). Plain http to a computer on the Wi-Fi is allowed on both platforms, and Expo Go asks for
+the microphone, the camera and the local network itself. When Expo releases SDK 58 (in beta now), the stores' Expo Go
+moves to it and stops opening Mitra until the app is upgraded (three commands, docs/phone-app-setup.md step 8), so the
+upgrade must come before the phones update. Since 3 September 2026, Expo Go on an iPhone opens an app from a computer only
+when the iPhone and the computer's Expo CLI are signed in to the same Expo account (Android not yet; Expo says it will
+follow).
+
+**3. One PC for the whole plant: the server kit.**
+- The picture: one server PC on the company network runs DCRS (port 4000), the Mitra server (port 3000) and Expo's server
+  for Expo Go (port 8081). Laptops and desktops open DCRS in a browser at http://<address>:4000; phones open Mitra in Expo
+  Go at exp://<address>:8081, and the app finds its server by itself, on port 3000 of the computer it loaded from. The
+  Mitra app's repository (Pouchwale/Parth-Audit-chatbot) is kept inside the DCRS folder as "Audit project chatbot-mobile",
+  so the whole application is in one place; it stays its own repository, committed and pushed there, and DCRS's
+  .gitignore leaves it out.
+- `GET /api/phone-app` (backend/phoneApp.ts; signed in, never cached) answers the two ports (MITRA_EXPO_PORT, 8081 unless
+  set; MITRA_SERVER_PORT, 3000), whether each server is running (a look of at most a second at Expo's /status and the Mitra
+  server's /health, on this computer only), and this PC's addresses, the best first. backend/lanAddresses.ts holds the
+  rules: IPv4 only, never the loopback or a self-assigned address; a real network card before a virtual one (WSL, Hyper-V,
+  VirtualBox, Docker and the like, which no phone reaches), a private address before a public one, Wi-Fi before a cable,
+  else the system's order.
+- When DCRS starts it prints, under "API server listening on http://localhost:4000", one line per real network card:
+  "On the company network: http://<address>:4000 (Wi-Fi)", or that this computer is not connected to a network.
+- Three Windows scripts in scripts/windows. `open-firewall.ps1`, run as an administrator, adds the three inbound rules
+  (TCP 4000, 3000 and 8081) for Private and Domain networks; -DryRun shows what it would do, -SetPrivate marks the company
+  network Private, -Remove takes the rules away, -AnyProfile would open Public networks too and is to be avoided.
+  `start-plant-servers.ps1`, run as `npm run plant:start`, starts DCRS, then the Mitra server, then Expo for Expo Go
+  pointed at this PC's best address (by the same rules, written again in PowerShell), each hidden and waited for; it
+  starts again any that stops (after 5 seconds, then doubling, up to 5 minutes), leaves alone one already running,
+  refuses a port another program holds, writes each one's output to the logs folder, and stops them all on Ctrl+C or
+  with -Stop; -DryRun checks and starts nothing, -Dev runs Expo in development mode. `install-autostart.ps1` registers a
+  Task Scheduler task, "DCRS plant servers", that runs the start script with no window 30 seconds after the server's
+  standard Windows account signs in, with no time limit and never as administrator; -DryRun, -Remove, and -User for an
+  administrator registering it for the server's account.
+- `npm run phone:check` (scripts/phone-check.ts), on the server PC: ten steps, each PASS or FAIL with what to do: this
+  PC's address; DCRS answering here and on that address; its working hours and settings; the clock and time zone DCRS
+  counts "today" by; the Mitra server answering, and signing people in with DCRS; Expo's status; the manifest Expo Go
+  loads for Android and for iPhone (its SDK, the address it sends the phones to, and the Expo account the PC is signed in
+  to); and, with --email, a real sign-in through the Mitra server, the password from PHONE_CHECK_PASSWORD only and never
+  printed. It ends with the two addresses to hand out. `npm run mitra:setup` installs the app's packages, and
+  `npm run plant:start` starts all three.
+- docs/phone-app-setup.md is the guide, written to be followed in order: the picture; a note to send to IT (a fixed
+  address, the Wi-Fi reaching the PC with client isolation off, the internet over HTTPS, always on, automatic sign-in, the
+  firewall); preparing the PC once (a standard Windows account, India Standard Time, Node.js 24, the folder, both servers'
+  settings, the plant's Expo account); the firewall; starting by hand and at power-on; each phone; who can sign in and
+  when; keeping Expo Go and the app in step; the check; what to do when something is wrong; and keeping it safe.
+  docs/DEPLOYMENT.md points to it and lists the two new settings.
+- The stale lines saying "the first person to sign up becomes the admin" are corrected in docs/DEPLOYMENT.md and
+  README.md: nobody signs up (POST /api/auth/signup answers 403 unless ALLOW_SIGNUP=1, which only the test runner sets);
+  at its first start DCRS seeds the plant's named accounts (the super admin admin@gpp.local, and Quality Control's and
+  Human Resources' people) on the first password SEED_ACCOUNT_PASSWORD names, or the built-in one, which each must change
+  at the first sign-in; the super admin makes everybody else's account on Users & Access (§66).
+
+**Found in review.** The full browser suite's result is recorded in TESTING.md.
+
+**What waits on the owner.** Confirmation items 50, 51 and 52.
+
+**Tests.** See docs/TESTING.md "Mitra's look, Mitra on your phone and the server kit".
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -5566,9 +5745,11 @@ each have their own box.
 43. **F-QC-15-B, the punching line clearance** (§84). A paper printing "F/QC/15-B, Rev 00, 16.02.2022" is in the owner's Downloads
     (`F-QC-15-A-G Line Clearance Punching - Printing.pdf`, 18-Sep-2026) but was never sent (§57 records it as not supplied). Send
     it to be built? — **ANSWERED (§85)**: built from that paper.
-44. **The company's name as the system writes it** (§84). The opening spells it "Gujarat Print Pack Publication", as the plant's
-    papers print it; the sign-in card, the page title and the sidebar say "Gujarat Printpack Publication Pvt. Ltd.". Which one,
-    everywhere?
+44. **The company's name as the system writes it** (§84). The opening spelt it "Gujarat Print Pack Publication", as the plant's
+    papers print it; the sign-in card, the page title and the sidebar said "Gujarat Printpack Publication Pvt. Ltd.". Which one,
+    everywhere? — **ANSWERED by the owner, 02-Oct-2026 (§87)**: "Gujarat Print Pack Publications Pvt Ltd", everywhere: on each
+    and every document of every module (the header's company line in capitals, GUJARAT PRINT PACK PUBLICATIONS PVT LTD), in the
+    opening, on the sign-in card, in the page title and in the sidebar, in Gujarati too.
 45. **A neural voice on the DCRS server** (§85 part 3). Piper speaks a reminder in about a second on the plant's kind of laptop
     and sounds human, but the phonemiser it needs (espeak-ng) is licensed GPL-3.0, and the voice's own data licence must be
     checked. Adopt it, or wait for Groq's voice (its terms accepted once by the Groq organisation's admin)? Until then, DCRS
@@ -5577,9 +5758,11 @@ each have their own box.
     be somebody else (it was so before §85; the mobile app's live check showed a QC account doing both). Should the verifier
     always be a different person, or the department head?
 47. **F/HR/15's company line** (§86). The paper's title reads "GUJARAT PRINT PACA1:AH16K PUBLICATION PRIVATE LIMITED" — the
-    range A1:AH16 typed into the spreadsheet's title cell by mistake. DCRS prints "GUJARAT PRINT PACK PUBLICATION PRIVATE
+    range A1:AH16 typed into the spreadsheet's title cell by mistake. DCRS printed "GUJARAT PRINT PACK PUBLICATION PRIVATE
     LIMITED", as the sister form F/HR/16 does. Correct the original at its next revision (the header can now be typed over
-    on the record page if another spelling is wanted)?
+    on the record page if another spelling is wanted)? — **ANSWERED by the owner, 02-Oct-2026 (§87)**: DCRS prints the
+    company's name as the owner gave it, GUJARAT PRINT PACK PUBLICATIONS PVT LTD, on F/HR/15 as on every format; correcting
+    the paper itself at its next revision stays with the MR.
 48. **F/DISP/04's revision** (§86). The paper is "Rev. no. – 01, Effective date: - 01-11-2023"; the Master List of Formats
     (F/SYS/02) lists F-DISP-04 at its first issue, 16.02.22, with no revision. DCRS follows the paper. Update the list?
 49. **What one F/DISP/04 record is** (§86). The paper is a running sheet per vehicle, sixteen lines a page. DCRS keeps it
@@ -5587,6 +5770,18 @@ each have their own box.
     cleaned and handed in within two days, or it counts as late on the Performance Scorecard. Should Dispatch rather keep
     one record per vehicle open for the month and hand it in at the month's end? That needs a month's allowance, which
     DCRS gives no as-required format yet — say so and it is added.
+50. **The plant's Expo account, for the iPhones** (§88). Since 3 September 2026, Expo Go on an iPhone opens an app from a
+    computer only when the iPhone and the computer's Expo CLI are signed in to the same Expo account, so every iPhone at the
+    plant signs in to the account the server PC uses (Android does not need it yet; Expo says it will follow). A dedicated
+    plant account, made at expo.dev for nothing else, is safer than a personal one, since its password goes to every iPhone
+    user. Which account does the plant use?
+51. **The Groq plan** (§88). Mitra's answers, in the browser and on the phones, come from Groq. The free plan allows about
+    8,000 tokens a minute for the whole plant, so once a few questions have been asked within a minute the next answers
+    wait. A paid plan removes that wait. Stay on the free plan, or move to a paid one?
+52. **The server PC's fixed address and firewall** (§88). The server PC needs a fixed address on the company network (a
+    DHCP reservation by its network card's MAC address) and its three ports (4000, 3000 and 8081) reachable from the staff
+    Wi-Fi, with client isolation off and the network marked Private in Windows. The note to hand to IT is section 2 of
+    docs/phone-app-setup.md, and `scripts\windows\open-firewall.ps1` opens the ports. Who does it, and when?
 
 ## How the assistant pre-fills records (and what it never does)
 

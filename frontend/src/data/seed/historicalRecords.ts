@@ -2,8 +2,10 @@
 // These are LIVE data (isDemo: false) — not synthetic — and are seeded once
 // on first run so the prototype demonstrates real traceability alongside the
 // Demo Mode generator. Nothing here is invented; blank source fields stay
-// blank / null.
+// blank / null. The company's name is written as the owner gave it on
+// 02-Oct-2026 (COMPANY.shortName), not as each paper spelt it.
 import type { GapInspectionData, PestResponsibilitiesData, RecordInstance, TrainingRecordData } from "../../types";
+import { COMPANY } from "./masterData";
 import { newPestResponsibilitiesData } from "./pestResponsibilities";
 import { generateId } from "../../utils/id";
 import { SEED_HR_RECORDS } from "./hrRecords";
@@ -30,7 +32,7 @@ export const SEED_GAP_RECORD: RecordInstance<GapInspectionData> = {
   isDemo: false,
   data: {
     inspectionDate: "2023-12-13",
-    premisesName: "Gujarat Print Pack Publications Pvt. Ltd.",
+    premisesName: COMPANY.shortName,
     premisesAddress: "Dediyasan GIDC, Mehsana",
     contactPerson: "Ms. Kapila Barad",
     findings: [
@@ -171,13 +173,13 @@ export const SEED_AWARENESS_TRAINING_RECORD: RecordInstance<TrainingRecordData> 
       "Different Proofing Measures for Pest Management.",
     ],
     attendees: [
-      { id: "att-2025-12-24-1", employeeName: "Mr. Akash Patel", department: "Gujarat Printpack Publication Pvt. Ltd." },
-      { id: "att-2025-12-24-2", employeeName: "Mr. Ajay Vaghela", department: "Gujarat Printpack Publication Pvt. Ltd." },
-      { id: "att-2025-12-24-3", employeeName: "Ms. Kapila Barad", department: "Gujarat Printpack Publication Pvt. Ltd." },
-      { id: "att-2025-12-24-4", employeeName: "Mr. Meet Patel", department: "Gujarat Printpack Publication Pvt. Ltd." },
-      { id: "att-2025-12-24-5", employeeName: "Mr. Harsh Parmar", department: "Gujarat Printpack Publication Pvt. Ltd." },
-      { id: "att-2025-12-24-6", employeeName: "Mr. Chirag Parmar", department: "Gujarat Printpack Publication Pvt. Ltd." },
-      { id: "att-2025-12-24-7", employeeName: "Mr. Mukesh Patel", department: "Gujarat Printpack Publication Pvt. Ltd." },
+      { id: "att-2025-12-24-1", employeeName: "Mr. Akash Patel", department: COMPANY.shortName },
+      { id: "att-2025-12-24-2", employeeName: "Mr. Ajay Vaghela", department: COMPANY.shortName },
+      { id: "att-2025-12-24-3", employeeName: "Ms. Kapila Barad", department: COMPANY.shortName },
+      { id: "att-2025-12-24-4", employeeName: "Mr. Meet Patel", department: COMPANY.shortName },
+      { id: "att-2025-12-24-5", employeeName: "Mr. Harsh Parmar", department: COMPANY.shortName },
+      { id: "att-2025-12-24-6", employeeName: "Mr. Chirag Parmar", department: COMPANY.shortName },
+      { id: "att-2025-12-24-7", employeeName: "Mr. Mukesh Patel", department: COMPANY.shortName },
     ],
     certificateRef: "Training - Yrl (1).doc — Subject: Pest control awareness Training Program, dated 24.12.2025",
     remarks: "Conducted at 308/9, GIDC, Dediyasan, Mehsana by Gurudev Pest Control; signed Rohit Patel.",

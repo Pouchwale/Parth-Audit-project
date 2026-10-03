@@ -4,13 +4,15 @@ import type { ComplaintAckData } from "../../types";
 // (22.03.26), laid out as on "Foram P. - FGSL3877.pdf" — supplied as the
 // format reference only (its complaint is not loaded as data). The printed
 // wording below is the form's own, verbatim; each is only the starting text
-// of a new report and can be edited on it.
+// of a new report and can be edited on it. The company's mark is the one
+// exception: its two lines spell the name as the owner gave it on 02-Oct-2026
+// (COMPANY.name), and the responsibilities letterhead prints the same two.
 
 export const CAF_DOC_ID = "capa-complaint-ack";
 export const CAF_FORMAT_REF = "QA-CAF-00 (22.03.26)";
 export const CAF_TITLE = "Complaint Acknowledgement Report";
 export const CAF_COMPANY_LINE_1 = "GUJARAT PRINT PACK";
-export const CAF_COMPANY_LINE_2 = "PUBLICATIONS PVT. LTD.";
+export const CAF_COMPANY_LINE_2 = "PUBLICATIONS PVT LTD";
 export const CAF_SUBJECT = "Acknowledgement of Customer Complaint";
 export const CAF_INTRO = "This is to inform that the following complaint has been received from the customer:";
 export const CAF_ACKNOWLEDGEMENT =

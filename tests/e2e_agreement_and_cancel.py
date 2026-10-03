@@ -288,7 +288,7 @@ with sync_playwright() as p:
             and "98244 09997" in head and "98989 68969" in head and "info@gurudevpestcontrol.com" in head and "www.Gurudevpestcontrol.com" in head,
             head,
         )
-        check(f"{which}: the plant's company line is gone from the heading", "GUJARAT PRINTPACK" not in head.upper(), head[:200])
+        check(f"{which}: the plant's company line is gone from the heading", "GUJARAT PRINT PACK" not in head.upper() and "GUJARAT PRINTPACK" not in head.upper(), head[:200])
         # The department asked for the title and the Format No. / Rev No. /
         # Date row to come off this document (12-Sep-2026): the letterhead is
         # the whole heading now.

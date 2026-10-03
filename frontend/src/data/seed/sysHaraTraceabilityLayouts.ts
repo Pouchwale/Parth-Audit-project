@@ -1,4 +1,5 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
+import { COMPANY } from "./masterData";
 
 // SYSTEM / MANAGEMENT — HARA, SITE SECURITY, MOCK WITHDRAWAL AND TRACEABILITY
 // (REQUIREMENTS §76). Six of the Product Safety Team Leader's formats, all six
@@ -136,9 +137,9 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 //             (Plant Head) and Ajaz (Pouching In charge) as new joinees; neither
 //             is on the 7.HARA Review Team list. The third Regulatory bullet
 //             opens "(permitting the use of …" and never closes it. The review
-//             team prints 6 lines and no signatures. SITE NAME prints
-//             "PUBLICATIONS" where the other formats' headers print
-//             "PUBLICATION".
+//             team prints 6 lines and no signatures. SITE NAME spells the
+//             company its own way; it is written as the owner gave the name
+//             on 02-Oct-2026 (COMPANY.name), as every header prints it.
 //   F/SYS/13  "Was the Mock Recall efecctive?" — neither Yes nor No is marked on
 //             any of the three pages, so it is left blank on all three. The
 //             Pouch page's scenario is "smudged printing on the product name"
@@ -422,7 +423,7 @@ const CCM_HEADING = "3. CCMs / PRPs Verified";
 
 /** The review of 27th January 2026: the parts that describe the site and its plan, which a new review starts from. */
 export const HARA_ANNUAL_2026_01_DESCRIBING: Record<string, string> = {
-  siteName: "GUJARAT PRINT PACK PUBLICATIONS PRIVATE LIMITED",
+  siteName: COMPANY.name,
   siteAddress: "308/9, GIDC, DEDIYASAN, MEHSANA, GUAJRAT, INDIA - 384002",
   products:
     "(1) Self-adhesive Pressure Sensitive Labels – Roll & Cut form\n(2) Shrink sleeve – Roll & Cut form\n(3) Printed & Laminated Flexible Packaging materials in Roll &  Pouch form",

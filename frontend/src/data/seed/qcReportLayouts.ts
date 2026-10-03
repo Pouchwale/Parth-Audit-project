@@ -1,4 +1,5 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
+import { COMPANY } from "./masterData";
 
 // THE THREE QUALITY CONTROL ANALYSES AND MINUTES (REQUIREMENTS §57) — the last
 // of the Quality Control formats supplied on 18-Sep-2026, reproduced as
@@ -158,7 +159,8 @@ export const MINUTES_GANGWAL_POINTS: Record<string, string>[] = [
 
 export const MINUTES_GANGWAL_HEADER: Record<string, string> = {
   clientName: "M/s. Gangwal Healthcare Pvt. Ltd.",
-  location: "Gujarat Print Pack Publication Pvt. Ltd.",
+  // The plant, where the meeting was held: the company's name as the owner gave it on 02-Oct-2026.
+  location: COMPANY.shortName,
   // Written on the page as 07.06.2022 and stored as the ISO date a date field holds.
   date: "2022-06-07",
   subject: "Discussion about Quality Issues",
@@ -223,7 +225,7 @@ export const QC_REPORT_LAYOUTS: Record<string, LogSheetLayout> = {
     instructions: ["Participants :", "Key points Discussed:"],
     headerFields: [
       { key: "clientName", label: "Client Name :", type: "text", width: 300, autoFill: { carryForward: true } },
-      { key: "location", label: "Location :", type: "text", width: 300, autoFill: { default: "Gujarat Print Pack Publication Pvt. Ltd." } },
+      { key: "location", label: "Location :", type: "text", width: 300, autoFill: { default: COMPANY.shortName } },
       { key: "date", label: "Date :", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
       { key: "subject", label: "Subject", type: "text", width: 300, autoFill: { carryForward: true } },
       // The form prints a numbered list of who attended. One text box per

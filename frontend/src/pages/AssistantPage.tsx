@@ -1,5 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FiLoader, FiMessageSquare, FiPlus, FiSidebar, FiTrash2, FiVolume2, FiVolumeX, FiZap } from "react-icons/fi";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import type { IconType } from "react-icons";
+import {
+  FiBarChart2,
+  FiCalendar,
+  FiClipboard,
+  FiClock,
+  FiFolder,
+  FiLoader,
+  FiMessageCircle,
+  FiMessageSquare,
+  FiPlus,
+  FiRepeat,
+  FiShield,
+  FiSidebar,
+  FiSun,
+  FiTarget,
+  FiTrash2,
+  FiTrendingUp,
+  FiVolume2,
+  FiVolumeX,
+  FiZap,
+} from "react-icons/fi";
 import { ApiError, assistantApi } from "../api/client";
 import { useAuth } from "../store/AuthContext";
 import { useAppStore } from "../store/AppStore";
@@ -33,7 +54,7 @@ import { sampleFillStoredRecord } from "../engine/sampleFill";
 import { queueAfterOpen } from "../engine/assistantHandoff";
 import type { Chip, ChipAction } from "../engine/guidedChecklist";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
-import { useLanguage, useT } from "../i18n";
+import { tr, useLanguage, useT } from "../i18n";
 import { guide, hello } from "../engine/assistantPersona";
 import { SPEECH_LOCALES } from "../i18n/strings";
 import { isSpeechOutputSupported, isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../utils/speech";
@@ -47,6 +68,7 @@ import { acceptFile, MAX_ATTACHMENTS, pickFromFolder, readAttachment } from "../
 import type { AttachmentKind, MitraAttachment, MitraStep, MitraToolContext } from "../engine/mitraTypes";
 import { MitraComposer, type AttachSource } from "../components/mitra/MitraComposer";
 import { MitraThread } from "../components/mitra/MitraThread";
+import { MitraPhoneCard } from "../components/mitra/MitraPhoneCard";
 import type { MitraMessageView } from "../components/mitra/MitraMessage";
 import { stripMarkdown } from "../components/mitra/markdown";
 import { attachmentNotes, attachmentsForResend, rememberAttachments, startTurn, stoppableContext, threadBefore } from "../components/mitra/messageActions";
@@ -228,6 +250,26 @@ function timeLabel(iso: string): string {
 
 const narrowWindow = (): boolean => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 900px)").matches;
 
+// A picture for each suggested question (engine/assistantLocal.ts SUGGESTION_IDS),
+// found by its title in either language; a question this list does not know
+// keeps the plain speech bubble.
+const SUGGESTION_ICONS: [string, IconType][] = [
+  ["due", FiClock],
+  ["tomorrow", FiCalendar],
+  ["nextHoliday", FiSun],
+  ["adjustment", FiRepeat],
+  ["reports", FiBarChart2],
+  ["rat", FiTarget],
+  ["daily", FiClipboard],
+  ["rodent", FiTrendingUp],
+  ["range", FiFolder],
+];
+
+function suggestionIcon(title: string): IconType {
+  const hit = SUGGESTION_ICONS.find(([id]) => tr("en", `sugg.${id}.title`) === title || tr("gu", `sugg.${id}.title`) === title);
+  return hit ? hit[1] : FiMessageSquare;
+}
+
 export function AssistantPage() {
   const { user } = useAuth();
   const { mode, currentUser, bump } = useAppStore();
@@ -250,6 +292,8 @@ export function AssistantPage() {
   const [recording, setRecording] = useState({ active: false, seconds: 0, transcribing: false });
   // The list of conversations folds away on a narrow window, and on request.
   const [sideCollapsed, setSideCollapsed] = useState(narrowWindow);
+  // While the phone code is shown it has the conversations' room (styles.css .is-phone-open).
+  const [phoneOpen, setPhoneOpen] = useState(false);
   // Drawn again when the network comes or goes, so the status dot is honest.
   const [, setNetTick] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -290,8 +334,10 @@ export function AssistantPage() {
     attachmentsRef.current = attachments;
   }, [attachments]);
 
+  // Ready to type at once — without scrolling the window to the composer, which
+  // on a phone pushed Mitra's greeting off the top of the screen.
   useEffect(() => {
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   }, [state.activeId]);
 
   useEffect(() => {
@@ -986,27 +1032,35 @@ export function AssistantPage() {
 
   return (
     <div className={`assistant-page ${isDemo ? "demo-watermark" : ""}`}>
-      <aside className={`assistant-side card${sideCollapsed ? " is-collapsed" : ""}`}>
+      <aside className={`assistant-side card${sideCollapsed ? " is-collapsed" : ""}${phoneOpen ? " is-phone-open" : ""}`}>
         <div className="assistant-side-head">
-          <span className="text-sm font-semibold">{t("ai.conversations")}</span>
+          <span className="assistant-side-title">{t("ai.conversations")}</span>
           <button className="btn btn-primary btn-sm" onClick={() => createConversation()} aria-label={t("ai.newChat")}>
             <FiPlus size={13} /> {t("ai.newChat")}
           </button>
         </div>
         <div className="assistant-side-list">
+          {/* Nothing kept yet: said kindly, with where the chats will be. */}
           {state.conversations.length === 0 && (
-            <div className="text-xs text-faint" style={{ padding: "10px 12px" }}>
-              {t("ai.noConversations")}
+            <div className="assistant-side-empty">
+              <span className="assistant-side-empty-icon" aria-hidden="true">
+                <FiMessageCircle size={18} />
+              </span>
+              <div className="assistant-side-empty-title">{t("ai.side.emptyTitle")}</div>
+              <div className="assistant-side-empty-text">{t("ai.side.emptyText")}</div>
             </div>
           )}
           {state.conversations.map((c) => (
             <div key={c.id} className={`assistant-conv ${c.id === state.activeId ? "active" : ""}`} onClick={() => selectConversation(c.id)}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="text-sm truncate">{c.title}</div>
-                <div className="text-xs text-faint">{dayLabel(c.updatedAt)}</div>
+              <span className="assistant-conv-icon" aria-hidden="true">
+                <FiMessageSquare size={13} />
+              </span>
+              <div className="assistant-conv-text">
+                <div className="assistant-conv-title">{c.title}</div>
+                <div className="assistant-conv-day">{dayLabel(c.updatedAt)}</div>
               </div>
               <button
-                className="btn btn-ghost btn-sm btn-icon"
+                className="btn btn-ghost btn-sm btn-icon assistant-conv-delete"
                 aria-label={t("ai.deleteConversation")}
                 title={t("ai.deleteConversation")}
                 disabled={c.id === pendingId}
@@ -1020,6 +1074,8 @@ export function AssistantPage() {
             </div>
           ))}
         </div>
+        {/* Mitra on the plant's phones, through Expo Go (2-Oct-2026): asked for and drawn only when opened. */}
+        <MitraPhoneCard onOpenChange={setPhoneOpen} />
       </aside>
 
       <section className="assistant-main card">
@@ -1034,10 +1090,11 @@ export function AssistantPage() {
           >
             <FiSidebar size={15} />
           </button>
-          <span className={`chat-avatar${loading ? " is-thinking" : ""}`} style={{ width: 30, height: 30 }} aria-hidden="true">
-            <FiZap size={14} />
+          {/* Mitra's face: the same spark on every surface of the chat; a ring breathes round it while it answers. */}
+          <span className={`chat-avatar${loading ? " is-thinking" : ""}`} aria-hidden="true">
+            <FiZap size={16} />
           </span>
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="assistant-head-text">
             <div className="font-semibold flex items-center gap-2" style={{ minWidth: 0 }}>
               <span>{t("ai.title")}</span>
               {/* Green: a model to ask, and the internet to reach it. Grey: this
@@ -1075,30 +1132,43 @@ export function AssistantPage() {
           // person elsewhere mid-turn) is still being answered too.
           editLocked={loading || !!active?.messages.some((m) => m.pending)}
           emptyState={
+            // THE WELCOME (2-Oct-2026): Mitra turns to the person — its face, a
+            // greeting by the hour, what it is for — then offers where to go and
+            // what to ask, each question a card with its own picture. The pieces
+            // arrive in that order, a few pixels and a fade each (styles.css),
+            // and stand still for somebody who asks for less motion.
             <div className="assistant-welcome">
-              <h2 className="text-xl mb-1">{hello(user?.name)}</h2>
-              <p className="text-muted mb-4" style={{ maxWidth: 560 }}>
-                {t("ai.welcome")}
-              </p>
-              {/* "Where would you like to go?" — the same question the widget
-                  opens with, answered right here (REQUIREMENTS §50). */}
-              <div className="chat-chips mb-4">
-                <button type="button" className="chat-chip primary" data-action="guide-home" data-chip="guide" onClick={() => runChip({ label: t("ai.guide.whereToChip"), action: { type: "guide", step: "home" } })}>
-                  {t("ai.whereTo")}
-                </button>
+              <div className="mitra-hero">
+                <span className="mitra-hero-face" aria-hidden="true">
+                  <FiZap size={24} />
+                </span>
+                <div className="mitra-hero-text">
+                  <h2 className="mitra-hero-title">{hello(user?.name)}</h2>
+                  <p className="mitra-hero-lead">{t("ai.welcome")}</p>
+                  {/* "Where would you like to go?" — the same question the widget
+                      opens with, answered right here (REQUIREMENTS §50). */}
+                  <div className="chat-chips mitra-hero-chips">
+                    <button type="button" className="chat-chip primary" data-action="guide-home" data-chip="guide" onClick={() => runChip({ label: t("ai.guide.whereToChip"), action: { type: "guide", step: "home" } })}>
+                      {t("ai.whereTo")}
+                    </button>
+                  </div>
+                </div>
               </div>
               <div className="assistant-suggestions">
-                {suggestedPrompts().map((p) => (
-                  <button key={p.title} type="button" className="assistant-suggestion" onClick={() => void send(p.text)}>
-                    <FiMessageSquare size={13} className="text-faint" />
-                    <span>
-                      <strong>{p.title}</strong>
-                      <span className="text-xs text-muted" style={{ display: "block" }}>
-                        {p.text}
+                {suggestedPrompts().map((p, i) => {
+                  const Icon = suggestionIcon(p.title);
+                  return (
+                    <button key={p.title} type="button" className="assistant-suggestion" style={{ "--i": i } as CSSProperties} onClick={() => void send(p.text)}>
+                      <span className="assistant-suggestion-icon" aria-hidden="true">
+                        <Icon size={16} />
                       </span>
-                    </span>
-                  </button>
-                ))}
+                      <span className="assistant-suggestion-words">
+                        <strong>{p.title}</strong>
+                        <span className="assistant-suggestion-ask">{p.text}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           }
@@ -1122,7 +1192,10 @@ export function AssistantPage() {
           maxLength={MAX_INPUT_CHARS}
           note={note}
         />
-        <div className="text-xs text-faint mitra-footer">{t("ai.footer")}</div>
+        <div className="mitra-footer">
+          <FiShield size={11} aria-hidden="true" />
+          <span>{t("ai.footer")}</span>
+        </div>
       </section>
     </div>
   );

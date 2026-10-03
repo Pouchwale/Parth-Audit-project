@@ -36,6 +36,7 @@ import {
   introWantedFor,
   markIntroSeen,
   readIntroEnvironment,
+  scattered,
   underAutomation,
 } from "../src/components/auth/IntroSplash";
 import { INTRO_STRINGS } from "../src/i18n/strings.intro";
@@ -304,7 +305,13 @@ test("the introduction lives on the sign-in screen and over a session's app, nev
   // The suites look for these words on the sign-in screen and require none.
   const words = [...Object.values(INTRO_STRINGS.en), ...Object.values(INTRO_STRINGS.gu), "DCRS", INTRO_COMPANY, "Skip", "Esc", "Skip the opening (Escape)"];
   for (const w of words) assert.doesNotMatch(w.toLowerCase(), /sign\s*up|demo|log\s*in/, w);
-  assert.equal(INTRO_COMPANY, "Gujarat Print Pack Publication", "the company's name as the owner writes it");
+  assert.equal(INTRO_COMPANY, "Gujarat Print Pack Publications Pvt Ltd", "the company's name as the owner gave it on 02-Oct-2026");
+  // Its 34 letters arrive in a scattered order that still brings every one of them, each once.
+  const letters = INTRO_COMPANY.replace(/\s/g, "").length;
+  assert.equal(letters, 34);
+  const arrival = Array.from({ length: letters }, (_, i) => scattered(i, letters));
+  assert.deepEqual([...arrival].sort((a, b) => a - b), Array.from({ length: letters }, (_, i) => i), "every letter has a place of its own in the arrival");
+  assert.notDeepEqual(arrival, [...arrival].sort((a, b) => a - b), "and not left to right");
 });
 
 test("the introduction's words, in English and in Gujarati script", () => {

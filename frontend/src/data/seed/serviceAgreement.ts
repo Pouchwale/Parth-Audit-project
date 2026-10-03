@@ -2,6 +2,7 @@ import type { ServiceAgreementData, ServiceAgreementParty } from "../../types";
 import { TBC } from "../../types";
 import { SERVICE_LICENCE } from "./serviceLicence";
 import { PR_LETTERHEAD } from "./pestResponsibilities";
+import { COMPANY } from "./masterData";
 
 // PEST CONTROL SERVICE AGREEMENT — the contract between the plant and its pest
 // control service provider, renewed every two years (the department's request,
@@ -53,8 +54,9 @@ const PROVIDER: ServiceAgreementParty = {
   email: SA_PROVIDER_LETTERHEAD.email,
 };
 
+// The plant, as the owner named the company on 02-Oct-2026 (COMPANY.name).
 const CLIENT: ServiceAgreementParty = {
-  organisation: "GUJARAT PRINT PACK PUBLICATIONS PVT. LTD.",
+  organisation: COMPANY.name,
   addressLines: [PR_LETTERHEAD[0], PR_LETTERHEAD[1]],
   contactName: "Chirag Parmar",
   designation: "Manager, Purchase",

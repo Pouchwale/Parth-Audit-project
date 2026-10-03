@@ -32,10 +32,11 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 // "COADING" and its three identical MISREGISTRATION panels.
 //
 // WHAT HAD TO BE REPRESENTED DIFFERENTLY FROM THE PAPER, and why:
-//   * F/QC/08 prints the company heading "GUJARAT PRINT PACK PUBLICATION
-//     PRIVATE LIMITED" above the title and the long Note above the table. A
-//     layout has no field for a heading, so both are carried verbatim as
-//     printed instructions, in the printed order.
+//   * F/QC/08 prints the company heading above the title and the long Note
+//     above the table. The heading is the header block's company line, which
+//     prints the name as the owner gave it on 02-Oct-2026 (COMPANY.name); a
+//     layout has no field for the Note, so it is carried verbatim as a printed
+//     instruction.
 //   * F/QC/20's issue and review dates are printed in the form's footer, not in
 //     a box anyone fills; they are carried as a printed instruction rather than
 //     as fields, so nobody can type over them.

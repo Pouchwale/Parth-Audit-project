@@ -103,7 +103,10 @@ h2,
 .chat-avatar,
 .assistant-pill,
 .assistant-head .font-semibold > span:first-child,
-.assistant-dock-card > :first-child > :first-child .font-semibold {
+.assistant-dock-card > :first-child > :first-child .font-semibold,
+.mitra-dock-title,
+.assistant-side-title,
+.mitra-phone-title {
   font-family: var(--font-display);
 }
 

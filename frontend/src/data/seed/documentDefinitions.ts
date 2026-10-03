@@ -184,9 +184,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/HR/18",
     revisionNo: "02",
     revisionDate: "2024-12-15",
-    // The paper spells the company "PRINT PACK", two words (FlyCatcherRegisterSheet FHR18_COMPANY): its records and
-    // lists print it as the register does, and its header is typed over from it like any other (REQUIREMENTS §86).
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Housekeeping",
     module: "Human Resources",
     section: "Trend Analysis",
@@ -552,10 +549,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     revisionNo: "01",
     revisionDate: "2024-12-15",
     // The paper's own title line reads "GUJARAT PRINT PACA1:AH16K PUBLICATION PRIVATE LIMITED" —
-    // a spreadsheet range (A1:AH16) typed into the title by mistake. It is printed here as its
-    // sister form F/HR/16 (same revision, same date) prints it; confirmation item 47 asks the
-    // MR to correct the original at its next revision.
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
+    // a spreadsheet range (A1:AH16) typed into the title by mistake. DCRS prints the company's
+    // name as the owner gave it on 02-Oct-2026 (COMPANY.name), as on every format; correcting
+    // the original at its next revision stays with the MR (confirmation item 47).
     department: "HR & Admin",
     module: "Human Resources",
     section: "Hygiene & GMP",
@@ -573,7 +569,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/HR/16",
     revisionNo: "01",
     revisionDate: "2024-12-15",
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "HR & Admin",
     module: "Human Resources",
     section: "Hygiene & GMP",
@@ -1619,7 +1614,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/MNT/05",
     revisionNo: "00",
     revisionDate: "2021-12-01",
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Maintenance",
     module: "Maintenance",
     section: "Equipment Health & Breakdowns",
@@ -1635,11 +1629,11 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     kind: "log-sheet",
     name: "Breakdown Maintenance Memo & Hygiene Clearance Record",
     // The second F/MNT/05 paper (REQUIREMENTS §82); its header prints the
-    // company as "GUJARAT PRINT PACK PUBLICATION LIMITED".
+    // company as "GUJARAT PRINT PACK PUBLICATION LIMITED". DCRS prints the
+    // company's name as the owner gave it on 02-Oct-2026 (COMPANY.name).
     formatNo: "F/MNT/05",
     revisionNo: "00",
     revisionDate: "2021-12-01",
-    companyName: "GUJARAT PRINT PACK PUBLICATION LIMITED",
     department: "Maintenance",
     module: "Maintenance",
     section: "Equipment Health & Breakdowns",
@@ -1674,7 +1668,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/MNT/07",
     revisionNo: "00",
     revisionDate: "2021-12-01",
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Maintenance",
     module: "Maintenance",
     section: "Equipment Health & Breakdowns",
@@ -1713,7 +1706,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/MNT/10",
     revisionNo: "02",
     revisionDate: "2024-12-15",
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Maintenance",
     module: "Maintenance",
     section: "Wooden Articles",
@@ -1953,7 +1945,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     // (F/SYS/02) still lists F-DISP-04 at its first issue of 16.02.22 — the paper is the later word.
     revisionNo: "01",
     revisionDate: "2023-11-01",
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Dispatch",
     module: "Dispatch",
     section: "Dispatch Inspection",
@@ -2312,8 +2303,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/MKT/01",
     revisionNo: "01",
     revisionDate: "2021-12-01",
-    // The Marketing papers print the company's name in two words, "PRINT PACK", as the paper does.
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Marketing",
     module: "Marketing",
     section: "Customer Feedback",
@@ -2331,7 +2320,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/MKT/02",
     revisionNo: "01",
     revisionDate: "2021-12-01",
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Marketing",
     module: "Marketing",
     section: "Customer Feedback",
@@ -2352,7 +2340,6 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     formatNo: "F/MKT/04",
     revisionNo: "00",
     revisionDate: "2021-12-01",
-    companyName: "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED",
     department: "Marketing",
     module: "Marketing",
     section: "Customer Complaints",

@@ -9,9 +9,9 @@ have not added motion graphics before the login."
   * EVERY time the sign-in screen is shown - a fresh load, a reload, after signing
     out, after the session ended - a 4.8 s motion-graphics sequence plays over it,
     OPAQUE: the company's mark, "DCRS", the system's name and the company's name
-    "Gujarat Print Pack Publication" assembling in CSS 3D, the twelve modules'
-    marks, light, particles, streaks, sparks, a shock ring and a progress line -
-    and then the veil opens on the page. It takes its time (still there after
+    "Gujarat Print Pack Publications Pvt Ltd" (the owner's, 02-Oct-2026) assembling
+    in CSS 3D, the twelve modules' marks, light, particles, streaks, sparks, a
+    shock ring and a progress line - and then the veil opens on the page. It takes its time (still there after
     3.8 s) and goes by itself (gone within 6 s, the hard stop);
   * FOR A PERSON it plays in full before the form can be used: the form is inert
     under it and a layer holds a stray click; a click or a key other than Escape
@@ -294,12 +294,12 @@ with sync_playwright() as p:
         check("...CSS 3D: perspective, preserve-3d and turning pieces, one small canvas at most", now["perspective"] and now["preserve3d"] and now["turning"] >= 3 and now["canvas"] <= 1, now)
         check(
             "...the company's mark, DCRS, the system's name and the company's name",
-            now["logo"] and "DCRS" in now["text"] and "Digital Controlled Record System" in now["text"] and "Gujarat Print Pack Publication" in now["text"],
+            now["logo"] and "DCRS" in now["text"] and "Digital Controlled Record System" in now["text"] and "Gujarat Print Pack Publications Pvt Ltd" in now["text"],
             now["text"],
         )
         check(
             "...the company's name assembling letter by letter, the twelve modules' marks, particles and a progress line",
-            now["letters"] == len("GujaratPrintPackPublication") and now["marks"] == 12 and now["particles"] >= 20 and now["progress"],
+            now["letters"] == len("GujaratPrintPackPublicationsPvtLtd") and now["marks"] == 12 and now["particles"] >= 20 and now["progress"],
             {k: now[k] for k in ("letters", "marks", "particles", "progress")},
         )
         check("...and richer (s85): streaks of light, sparks circling the mark, a shock ring behind DCRS", now["streaks"] >= 8 and now["orbit"] == 3 and now["shock"], {k: now[k] for k in ("streaks", "orbit", "shock")})

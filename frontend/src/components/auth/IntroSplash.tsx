@@ -15,6 +15,7 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import { t } from "../../i18n";
+import { COMPANY } from "../../data/seed/masterData";
 
 // THE OPENING OF THE SYSTEM, IN MOTION GRAPHICS (REQUIREMENTS §81, §84, §85).
 // §81: "make starting of this system like introduction of project name in 3d".
@@ -31,8 +32,8 @@ import { t } from "../../i18n";
 // race across; the company's mark turns in, rings of light leave it and sparks
 // circle it; "DCRS" flips up letter by letter as an extruded 3D wordmark, a shock
 // ring spreads behind it and a light sweeps across it; the system's name rises into
-// place word by word; the company's name — "Gujarat Print Pack Publication", as the
-// owner writes it and the plant's papers print it — assembles out of letters flying
+// place word by word; the company's name — "Gujarat Print Pack Publications Pvt Ltd",
+// as the owner gave it on 02-Oct-2026 — assembles out of letters flying
 // in from every side; the modules' marks (the sidebar's, in its order) turn in one
 // after another; a flare crosses the whole of it while a progress line fills; then
 // a line of light splits the veil, which opens top and bottom.
@@ -94,8 +95,8 @@ export const OPENING_WINDOW_MS = 15000;
 export const INTRO_SEEN_KEY = "dcrs:intro-seen";
 /** On <html> while the introduction plays: the sign-in title waits for the veil to open (brand.css). */
 export const INTRO_PLAYING_ATTR = "data-intro-playing";
-/** The company's name as the owner writes it and the plant's papers print it — a mark, never translated. */
-export const INTRO_COMPANY = "Gujarat Print Pack Publication";
+/** The company's name as the owner gave it on 02-Oct-2026 (its stylesheet sets it in capitals) — a mark, never translated. */
+export const INTRO_COMPANY = COMPANY.shortName;
 /**
  * When the pieces drawn here set off, in ms from the first frame, and how long
  * each takes (the rest of the timeline is in brand.css, section 3b). Every piece
@@ -276,7 +277,7 @@ export function markIntroSeen(): void {
 // face. All are used on every screen anyway; a failure changes nothing.
 try {
   if (typeof document !== "undefined" && document.fonts && typeof document.fonts.load === "function") {
-    document.fonts.load('800 100px "Baloo Bhai 2"', "DCRS GUJARAT PRINT PACK PUBLICATION").catch(() => {});
+    document.fonts.load('800 100px "Baloo Bhai 2"', "DCRS GUJARAT PRINT PACK PUBLICATIONS PVT LTD").catch(() => {});
     document.fonts.load('700 16px "Plus Jakarta Sans"', "DIGITAL CONTROLLED RECORD SYSTEM").catch(() => {});
   }
 } catch {
@@ -370,8 +371,9 @@ function Words({ text, firstDelay, step }: { text: string; firstDelay: number; s
 }
 
 // The company's letters arrive in a scattered order, not left to right: each one's
-// place in the arrival is its position times a number prime to the count.
-const scattered = (i: number, n: number) => (n > 1 ? (i * 7) % n : 0);
+// place in the arrival is its position times a number prime to the count — 7, which
+// the 34 letters of "Gujarat Print Pack Publications Pvt Ltd" are (frontend/tests/intro.test.ts).
+export const scattered = (i: number, n: number) => (n > 1 ? (i * 7) % n : 0);
 
 /**
  * THE OPENING OF A SIGNED-IN SESSION (REQUIREMENTS §81), unchanged by §85.

@@ -1,7 +1,9 @@
 import express, { type Express, type NextFunction, type Request, type RequestHandler, type Response } from "express";
 import type { PublicUser } from "./auth.ts";
+import type { EscalationRow } from "./escalation.ts";
 import { clientName } from "./findingsCore.ts";
 import { EngineUnavailable, type ActivityLine, type EngineAnswer, type EngineCaller, type EngineHost } from "./engineHost.ts";
+import { PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 
 // WHAT MITRA DOES IN THE BROWSER, THROUGH THE DCRS API (REQUIREMENTS §85).
 //
@@ -22,8 +24,26 @@ import { EngineUnavailable, type ActivityLine, type EngineAnswer, type EngineCal
 // session, the account read again, the plant's working hours, the forced
 // password change — and the person's departments, exactly as the server keeps
 // a browser to them. Every route is described in docs/api/dcrs-api.openapi.json.
+//
+// THREE MORE THINGS DCRS'S MITRA ANSWERS (2-Oct-2026): a machine on the
+// equipment list, F/MNT/01 (her rules path); what stands out in the person's
+// records (the insights headline she is given with every message); and, for the
+// super admin only, the escalations the server raised (the line she adds for
+// them). The first two are DCRS's engine at work, like the routes above; the
+// escalations are the server's own (backend/escalation.ts), read here.
 
 type LogActivity = (req: Request, who: PublicUser | null, action: string, target?: string, detail?: string, department?: string) => void;
+
+/** One escalation as backend/escalation.ts keeps it, with its sentence in words (escalationSentence) when the server gives one. */
+export type EscalationItem = EscalationRow & { sentence?: string };
+
+/** The super admin's escalations (backend/escalation.ts listEscalations), with the plant's today and ISO week, as GET /api/escalations answers. */
+export interface EscalationsFound {
+  escalations: EscalationItem[];
+  rule: { late: number; neverDone: number; windowDays: number };
+  today: string;
+  week: string;
+}
 
 /** What backend/apiV1.ts hands over: its signed-in check and what it knows. */
 export interface RecordsRouteDeps {
@@ -42,6 +62,8 @@ export interface RecordsRouteDeps {
   hoursAnswer: () => Promise<unknown>;
   /** The app's address as the caller reaches it (DCRS_APP_URL, else the request's own origin): each answer's `route` gets a `link` beside it. */
   appAddress: (req: Request) => string;
+  /** The super admin's escalations: the ones not yet acknowledged (open), or every one raised or grown in the last 30 days. */
+  escalations: (open: boolean) => Promise<EscalationsFound>;
 }
 
 const MAX_TEXT = 200;
@@ -102,6 +124,51 @@ function fileNameOf(text: string): string {
     .replace(/\s+/g, " ")
     .trim();
   return (clean || "DCRS record").slice(0, 150);
+}
+
+/** "3 late, 2 never done": an escalation's counts, as the bell and Mitra say them. */
+function escalationCounts(e: Pick<EscalationRow, "late" | "neverDone">): string {
+  return [e.late ? `${e.late} late` : "", e.neverDone ? `${e.neverDone} never done` : ""].filter(Boolean).join(", ");
+}
+
+/**
+ * The line DCRS's Mitra adds to her live facts for the super admin (frontend/src/engine/assistantLocal.ts
+ * buildAssistantContext), in the same words — or that nothing is waiting.
+ */
+export function escalationsLine(waiting: readonly Pick<EscalationRow, "subjectName" | "late" | "neverDone">[]): string {
+  if (waiting.length === 0) return "Nothing is escalated to the super admin and waiting to be acknowledged.";
+  const named = waiting
+    .slice(0, 3)
+    .map((e) => `${e.subjectName} (${escalationCounts(e)})`)
+    .join("; ");
+  return `Escalated to the super admin, not yet acknowledged: ${named}${waiting.length > 3 ? ` and ${waiting.length - 3} more` : ""}.`;
+}
+
+const departmentNameOf = (code: string): string | null => (code ? (PLANT_DEPARTMENTS.find((d) => d.code === code)?.name ?? code) : null);
+
+/** One escalation as the API answers it: who, the counts in words, and the records behind them. */
+function escalationJson(e: EscalationItem): Record<string, unknown> {
+  const evidence = (e.evidence ?? {}) as Partial<EscalationRow["evidence"]>;
+  return {
+    id: e.id,
+    kind: e.kind,
+    subjectName: e.subjectName,
+    department: e.department || null,
+    departmentName: departmentNameOf(e.department),
+    period: e.period,
+    late: e.late,
+    neverDone: e.neverDone,
+    sentence: e.sentence ?? escalationCounts(e),
+    raisedAt: e.raisedAt,
+    updatedAt: e.updatedAt,
+    acknowledged: !!e.acknowledgedAt,
+    acknowledgedBy: e.acknowledgedBy,
+    acknowledgedAt: e.acknowledgedAt,
+    ...(evidence.window ? { window: evidence.window } : {}),
+    ...(evidence.people?.length ? { people: evidence.people } : {}),
+    worst: Array.isArray(evidence.worst) ? evidence.worst : [],
+    records: Array.isArray(evidence.records) ? evidence.records : [],
+  };
 }
 
 export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void {
@@ -304,6 +371,62 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     if (!q || !q.trim()) return fail(res, 400, "bad-request", "q is needed: a name or a GP3 No.");
     const answer = await read(req, res, "people", { q });
     if (answer) send(req, res, answer);
+  });
+
+  // The equipment list, F/MNT/01 — Maintenance's (REQUIREMENTS §74): the machines a
+  // Machine No., a serial number, a model, a maker or a place names, with Mitra's own
+  // answer to the words (engine/equipmentMasterAssistant.ts). Anybody outside
+  // Maintenance is refused by the engine, as Mitra refuses them.
+  app.get("/api/v1/equipment", signedIn, async (req: Request, res: Response): Promise<void> => {
+    const q = queryText(req.query.q);
+    const limit = limitOf(req.query.limit, 20, 100);
+    if (q === null) return fail(res, 400, "bad-request", `q must be text of at most ${MAX_TEXT} characters.`);
+    if (limit === null) return fail(res, 400, "bad-request", "limit must be a whole number from 1 to 100.");
+    const answer = await read(req, res, "equipment", { q: q ?? "", limit });
+    if (answer) send(req, res, answer);
+  });
+
+  // What stands out in the records the person can see (REQUIREMENTS §75): the
+  // insights headline Mitra is given with every message, and the insights behind
+  // it, most severe first — the Insights page's own, for the person's departments.
+  app.get("/api/v1/insights", signedIn, async (req: Request, res: Response): Promise<void> => {
+    const limit = limitOf(req.query.limit, 10, 50);
+    if (limit === null) return fail(res, 400, "bad-request", "limit must be a whole number from 1 to 50.");
+    const answer = await read(req, res, "insights", { limit });
+    if (answer) send(req, res, answer);
+  });
+
+  // The super admin's escalations (REQUIREMENTS §75): somebody who keeps handing
+  // records in late, or a department whose records are not done, as the server
+  // raised them (backend/escalation.ts) — what the bell shows. They name people,
+  // so they are the super admin's alone (backend/escalationRoutes.ts): anybody
+  // else is refused. Reading them changes nothing; acknowledging stays in DCRS.
+  app.get("/api/v1/escalations", signedIn, async (req: Request, res: Response): Promise<void> => {
+    const { user } = callerOf(res);
+    if (user.role !== "admin") {
+      return fail(res, 403, "super-admin-only", "Escalations are the super admin's alone: they name people, so no other account is shown them.");
+    }
+    const said = req.query.open;
+    const open = said === undefined || said === "1" || said === "true" ? true : said === "0" || said === "false" ? false : null;
+    if (open === null) return fail(res, 400, "bad-request", "open must be 1 (the ones not yet acknowledged, the default) or 0 (every one raised or grown in the last 30 days).");
+    let found: EscalationsFound;
+    try {
+      found = await deps.escalations(open);
+    } catch (err) {
+      console.error("[api v1] the escalations could not be read:", err instanceof Error ? err.message : err);
+      return fail(res, 503, "database-unavailable", "DCRS could not read the escalations just now. Try again in a moment.");
+    }
+    const waiting = found.escalations.filter((e) => !e.acknowledgedAt);
+    res.json({
+      open,
+      today: found.today,
+      week: found.week,
+      rule: found.rule,
+      summary: escalationsLine(waiting),
+      waiting: waiting.length,
+      total: found.escalations.length,
+      escalations: found.escalations.map(escalationJson),
+    });
   });
 
   // ---- CHANGE (the app asks the person to confirm each first)

@@ -13,7 +13,7 @@ npm run typecheck    # tsc --noEmit (see "TypeScript checking" note below)
 ```
 
 The frontend (`frontend/dist/`) is still a static bundle, but the app now also needs the small auth API
-in `backend/` to be running for signup/login to work — see **Accounts / Authentication** below.
+in `backend/` to be running for sign-in to work — see **Accounts / Authentication** below.
 `npm start` is the simplest way to run both as a single process for a pilot.
 
 **Languages: TypeScript and Python only.** The frontend, the backend (`backend/*.ts`) and every build /
@@ -26,11 +26,17 @@ Node side).
 
 ## Recommended pilot deployment (internal LAN, per section 44)
 
+**The whole application on one server PC** — DCRS, the Mitra server and Mitra for the staff's phones in Expo Go,
+started together and again after a power cut — is set up step by step in [phone-app-setup.md](phone-app-setup.md).
+
 1. On the target machine (needs Node.js 23.6+ — nothing else): `npm install && npm start`. This builds
    `frontend/dist/` and starts one Express process on port 4000 that serves the built frontend *and* the
    auth API from the same origin (no CORS, no second process to manage).
-2. Share the LAN URL (`http://<machine-ip>:4000`) with pilot users. The first person to sign up
-   becomes the `admin` account; everyone else who signs up is `staff`.
+2. Share the LAN URL (`http://<machine-ip>:4000`) with pilot users; DCRS prints it when it starts ("On the
+   company network: http://<address>:4000"). Nobody signs up: at its first start DCRS adds the plant's named
+   accounts (the super admin `admin@gpp.local`, and Quality Control's and Human Resources' accounts) on the first
+   password `SEED_ACCOUNT_PASSWORD` names, or the built-in one, which each person must change at their first
+   sign-in; the super admin makes everybody else's account on Users & Access (REQUIREMENTS §62, §66).
 3. Set `API_PORT` to change the port, and `JWT_SECRET` if you want to pin the session-signing key
    yourself (otherwise one is generated on first run and stored in `backend/data/jwt-secret.txt` —
    see below). **Still recommended not to expose this port to the public internet as-is** — this
@@ -58,9 +64,13 @@ part of the app that is no longer purely client-side:
   at midnight for the super admin (REQUIREMENTS §84). The signing secret is generated once on first run and saved to
   `backend/data/jwt-secret.txt` (gitignored) so restarts keep existing sessions valid; set
   `JWT_SECRET` yourself to control it explicitly (e.g. if you ever run more than one instance).
-- **Roles**: the very first account created in a fresh database becomes `admin`; every account
-  after that is `staff`. Nothing in the UI is currently gated by role — it's issued and displayed
-  (a badge in the top bar) but not yet enforced anywhere (see FUTURE_ROADMAP.md).
+- **Roles**: `admin` (the super admin) and `staff`. The super admin is the seeded `admin@gpp.local`; every
+  account the super admin makes on Users & Access is `staff`, kept to the departments it is given. Signing up is
+  refused (`POST /api/auth/signup` answers 403) unless `ALLOW_SIGNUP=1`; with it (the test runner, or ONE start
+  with `SEED_ACCOUNTS=0` to make a first administrator on an empty database) the first account on an empty
+  database becomes `admin` and every later one `staff`. The server enforces the role: only the super admin
+  reaches Users & Access, the Database overview and the escalations, reads the whole Activity Log, and may use
+  DCRS outside the working hours (REQUIREMENTS §66, §84).
 - **Brute-force throttling**: a simple in-memory counter blocks an email after 8 failed logins for
   10 minutes. Resets on server restart — adequate for an internal pilot, not a substitute for a
   real WAF/rate-limiter if this is ever exposed more broadly.
@@ -239,6 +249,8 @@ just shows a clear "isn't configured yet" message instead of failing silently.
 | `DCRS_WORKING_HOURS` | on | `backend/workingHours.ts` | The plant's working hours (REQUIREMENTS §84): every account but the super admin may use DCRS only on a working day of the company calendar, between the two times in Master Data → Working Hours (8:40 am to 6:20 pm unless changed), and every session ends at the close of its day. Set to `off` to switch the rule off — the e2e runner's test servers do, and so can a developer who must work as a member of staff at night. |
 | `OVERVIEW_DATABASE_URL` | none (the page says how to set it up) | `backend/overviewRoutes.ts` | The super admin's read-only **Database overview** (REQUIREMENTS §83): the address of the shared database signed in as the role `overview_viewer`, e.g. `postgres://overview_viewer:<password>@127.0.0.1:5433/dcrs`. The page can only read the `overview` views through it. See docs/database/README.md. |
 | `DCRS_APP_URL` | the request's own address | `backend/apiV1.ts` | The app's address as people reach it, for the links the DCRS API hands the Audit Assistant (e.g. `http://dcrs-host:4000`). |
+| `MITRA_EXPO_PORT` | `8081` | `backend/phoneApp.ts` | Where Expo's server for Expo Go listens on this PC: the port in the QR code of "Mitra on your phone" on the Ask Mitra page (`GET /api/phone-app`, which also says whether it is running). See [phone-app-setup.md](phone-app-setup.md). |
+| `MITRA_SERVER_PORT` | `3000` | `backend/phoneApp.ts` | Where the Mitra server listens on this PC, for the same card. The app on the phones looks for it on 3000. |
 | `DCRS_PDF_BROWSER` | Chrome, then Edge, in their usual places | `backend/pdfReport.ts` | The browser that prints the daily pest control report as a PDF for the Audit Assistant (`GET /api/v1/pest-control/daily-report`). Set it only when Chrome or Edge is installed somewhere unusual. The app must be built (`npm run build`). |
 | `BACKUP_DATABASE_URL` | `DATABASE_URL`, else the built-in local database | `scripts/database/backup.ts` | The database `npm run db:backup` saves. When DCRS signs in with a role of its own that is not a superuser, point this at a separate backup role (see "Backups of the shared database"). |
 | `BACKUP_DIR` | `backend/data/backups` | `scripts/database/backup.ts` | Where the backups go; best on another disk or a network share. |

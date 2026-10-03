@@ -6,7 +6,7 @@ import { database, getUserById, plantTimeZone, readItem, writeItem, type StoredI
 import { distDir, repoRoot } from "./paths.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
 import { createEngineHost, engineBundleIsCurrent, type EngineHost } from "./engineHost.ts";
-import { registerApiV1Records } from "./apiV1Records.ts";
+import { registerApiV1Records, type EscalationsFound } from "./apiV1Records.ts";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 import {
   activityDetail,
@@ -52,10 +52,12 @@ import {
 //
 // WHAT MITRA DOES, FROM THE MITRA MOBILE APP (REQUIREMENTS §85). The documents,
 // today's facts, the records — found, read, searched, printed, opened, filled,
-// submitted, verified — and history's figures and HR Master Data are routes of
+// submitted, verified — history's figures, HR Master Data, the equipment list
+// (F/MNT/01) and what stands out (the insights) are routes of
 // backend/apiV1Records.ts, answered by DCRS's own engine run on this server
-// (backend/engineHost.ts). They are registered below, behind the same
-// signed-in check, before the "no such route" answer.
+// (backend/engineHost.ts); so are the super admin's escalations, read from
+// backend/escalation.ts. They are registered below, behind the same signed-in
+// check, before the "no such route" answer.
 
 type LogActivity = (req: Request, who: PublicUser | null, action: string, target?: string, detail?: string, department?: string) => void;
 
@@ -85,6 +87,8 @@ export interface ApiV1Deps {
   appBuilt?: () => boolean;
   /** DCRS's engine run on the server (backend/engineHost.ts); by default one over `store`, started when first asked. */
   engine?: EngineHost;
+  /** The super admin's escalations; by default the server's own (backend/escalation.ts). A unit test hands in its own. */
+  escalations?: (open: boolean) => Promise<EscalationsFound>;
 }
 
 const databaseStore: ApiV1Store = {
@@ -113,6 +117,31 @@ function loadPdfModule(): Promise<PdfModule | null> {
     return null;
   });
   return pdfModule;
+}
+
+/**
+ * The super admin's escalations as GET /api/escalations answers them (backend/escalationRoutes.ts): the ones not
+ * yet acknowledged, or every one of the last 30 days, each with its sentence in words. backend/escalation.ts is
+ * loaded when first asked for: the server has it already, and a unit test hands in its own instead.
+ */
+async function storedEscalations(open: boolean): Promise<EscalationsFound> {
+  const escalation = await import("./escalation.ts");
+  const rows = await escalation.listEscalations(open);
+  const today = escalation.plantClock().date;
+  // A line whose evidence is not whole (the column's default is {}) is still answered, with its counts in words.
+  const sentenceOf = (row: (typeof rows)[number]): string | undefined => {
+    try {
+      return escalation.escalationSentence(row);
+    } catch {
+      return undefined;
+    }
+  };
+  return {
+    escalations: rows.map((row) => ({ ...row, sentence: sentenceOf(row) })),
+    rule: { ...escalation.ESCALATION_RULE },
+    today,
+    week: escalation.isoWeek(today),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -797,6 +826,7 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     appBuilt,
     hoursAnswer: () => hours.publicAnswer(),
     appAddress,
+    escalations: deps.escalations ?? storedEscalations,
   });
 
   // Anything else under /api/v1: said as JSON, never the app's page.

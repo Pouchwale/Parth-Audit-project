@@ -90,6 +90,29 @@ import { recordSearchText, snippetFor } from "../engine/recordText";
 import { analyticIntent, buildEvidence, topicOfDocument, type AnalyticIntent } from "../engine/historyDigest";
 import { describePerson, searchPeople } from "../engine/hrMaster";
 import { hrMasterVisible } from "../engine/hrMasterAssistant";
+import {
+  allMachines,
+  currentEquipmentList,
+  describeMachine,
+  EQUIPMENT_LIST_DOC_ID,
+  EQUIPMENT_LIST_FORMAT_NO,
+  EQUIPMENT_LIST_NAME,
+  EQUIPMENT_LIST_ROUTE,
+  equipmentMasterVisible,
+  isPlaceholder,
+  machineAsRead,
+  machineByNumber,
+  machineKey,
+  machineNumbersIn,
+  numberingGaps,
+  outOfStepNote,
+  readsOutOfStep,
+  searchMachines,
+  type Machine,
+} from "../engine/equipmentMaster";
+import { equipmentChatAnswer } from "../engine/equipmentMasterAssistant";
+import { insightCounts, insightsHeadline, type Insight } from "../engine/insights";
+import { scopedInsights } from "../engine/scopedInsights";
 import { canSampleFill, SAMPLE_FILL_NOTE } from "../engine/sampleFill";
 import { ALL_TOOLS } from "../engine/mitraTools";
 import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "../engine/pmSchedule";
@@ -99,8 +122,11 @@ type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : typeof v === "number" && Number.isFinite(v) ? String(v) : "");
 
-/** Bumped when the host and this file must change together (backend/engineHost.ts checks it). */
-export const ENGINE_API_VERSION = 1;
+/**
+ * Bumped when the host and this file must change together (backend/engineHost.ts checks it). 2: the reads
+ * "equipment" (F/MNT/01) and "insights" (what stands out), for the Mitra mobile app (2-Oct-2026).
+ */
+export const ENGINE_API_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // what the host hands in and gets back
@@ -339,6 +365,10 @@ function runOp(op: string, args: Obj, who: Who): Outcome | Promise<Outcome> {
       return figuresOp(args);
     case "people":
       return peopleOp(args);
+    case "equipment":
+      return equipmentOp(args);
+    case "insights":
+      return insightsOp(args);
     case "open":
       return openOp(args, who);
     case "change":
@@ -1019,6 +1049,150 @@ function peopleOp(args: Obj): Outcome {
     query: q,
     people: candidates.map((p) => ({ gp3: p.gp3No, name: p.fullName, department: p.department, designation: p.designation, joiningDate: p.joiningDate || null })),
     ...(exact ? { exact: describePerson(exact) } : {}),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// the equipment list, and what stands out
+
+// THE EQUIPMENT LIST, F/MNT/01 (REQUIREMENTS §74). DCRS's Mitra answers "which
+// machine is M-47?", "where is the Delta 330", "machines in QC" from the list's
+// current record (engine/equipmentMasterAssistant.ts, in her rules path, and the
+// same facts in her live facts). Here is the same: her own words for the
+// question, and the machines the words name — by DCRS's own search, which never
+// picks a machine by a model name alone, because the list repeats them. The list
+// is Maintenance's: anybody else is refused, as Mitra refuses them.
+
+/** The most machines one answer lists. */
+const MACHINES_SHOWN_MAX = 100;
+
+/** A line of F/MNT/01 as Mitra reads it: put back in step where the list prints it one column out, and "NA" or "-" as nothing. */
+function machineJson(m: Machine): Obj {
+  const read = machineAsRead(m);
+  const value = (v: string): string | null => (isPlaceholder(v) ? null : v.trim());
+  return {
+    machineNo: m.machineNo,
+    description: value(read.description),
+    model: value(read.model),
+    manufacturer: value(read.manufacturer),
+    location: value(read.location),
+    // The list's own "Department" column: a section of the plant (Flexo, Common), not one of DCRS's departments.
+    section: value(read.department),
+    size: value(read.size),
+    month: value(read.month),
+    year: value(read.year),
+    serialNo: value(read.serialNo),
+    countryOfOrigin: value(read.countryOfOrigin),
+    summary: describeMachine(m),
+    ...(readsOutOfStep(m) ? { note: outOfStepNote(m).trim() } : {}),
+  };
+}
+
+function equipmentListJson(machines: Machine[]): Obj {
+  const record = currentEquipmentList();
+  const numbers = machines
+    .map((m) => machineKey(m.machineNo))
+    .filter(Boolean)
+    .map((k) => Number(k.slice(2)))
+    .sort((a, b) => a - b);
+  const label = (n: number) => `M-${String(n).padStart(2, "0")}`;
+  return {
+    documentId: EQUIPMENT_LIST_DOC_ID,
+    formatNo: EQUIPMENT_LIST_FORMAT_NO,
+    name: EQUIPMENT_LIST_NAME,
+    recordId: record && storedIds.has(record.id) ? record.id : null,
+    date: record?.dueDate ?? null,
+    status: record?.status ?? null,
+    machines: machines.length,
+    numbered: numbers.length ? { first: label(numbers[0]), last: label(numbers[numbers.length - 1]), count: numbers.length } : null,
+    gaps: numberingGaps(machines),
+    route: EQUIPMENT_LIST_ROUTE,
+  };
+}
+
+function equipmentOp(args: Obj): Outcome {
+  if (!equipmentMasterVisible()) {
+    return refuse(
+      403,
+      "not-your-department",
+      `${EQUIPMENT_LIST_FORMAT_NO} ${EQUIPMENT_LIST_NAME} is kept by ${documentDepartmentLabel(EQUIPMENT_LIST_DOC_ID, EQUIPMENT_LIST_FORMAT_NO)}, and this account is not kept to it. Ask the super admin for access.`
+    );
+  }
+  const q = str(args.q);
+  const limit = Math.max(1, Math.min(MACHINES_SHOWN_MAX, Number(args.limit) || 20));
+  const machines = allMachines();
+  const list = equipmentListJson(machines);
+  if (machines.length === 0) {
+    return done({ query: q, list, answer: `There is no ${EQUIPMENT_LIST_NAME} (${EQUIPMENT_LIST_FORMAT_NO}) on file yet, so there is no machine to look up.`, exact: null, total: 0, machines: [] });
+  }
+  if (!q) return done({ query: "", list, answer: null, exact: null, total: machines.length, machines: machines.slice(0, limit).map(machineJson) });
+  // Mitra's own answer to the words, as her rules path gives it ("open the equipment list" opens a page, which an app cannot).
+  const said = equipmentChatAnswer(q);
+  const answer = said && !said.navigate ? said.reply : null;
+  const found = searchMachines(q, machines, machines.length);
+  // WHICH MACHINES: the ones the words name by number (M-47), or the one a serial only it has names; otherwise, when
+  // Mitra has no answer of her own, the ones DCRS's search finds for the words. A question she answers in words
+  // ("machines in QC", "how many machines") is hers alone: the search, which wants every word of a question, would
+  // list other machines than she names.
+  const named = machineNumbersIn(q).flatMap((n) => machineByNumber(n, machines) ?? []);
+  const shown = named.length > 0 ? named : answer !== null ? (found.exact ? [found.exact] : []) : found.candidates;
+  return done({
+    query: q,
+    list,
+    answer,
+    exact: found.exact ? found.exact.machineNo : null,
+    total: shown.length,
+    machines: shown.slice(0, limit).map(machineJson),
+  });
+}
+
+// WHAT STANDS OUT (REQUIREMENTS §75). With every message, DCRS's Mitra is given
+// one line of what stands out in the records the person can see — the counts by
+// severity and the most severe titles (engine/assistantLocal.ts
+// buildAssistantContext, engine/insights.ts insightsHeadline) — from the very
+// insights the Insights page and the Dashboard's card show (engine/scopedInsights.ts),
+// worked out by the insight rules over the person's departments only. Here is
+// that line, and the insights behind it, most severe first.
+
+const INSIGHTS_SHOWN = 10;
+const INSIGHTS_SHOWN_MAX = 50;
+const EVIDENCE_SHOWN = 5;
+
+function insightJson(i: Insight, docs: Map<string, DocumentDefinition>): Obj {
+  const doc = i.documentId ? docs.get(i.documentId) : undefined;
+  return {
+    id: i.id,
+    rule: i.rule,
+    severity: i.severity,
+    module: i.module,
+    ...(i.documentId ? { documentId: i.documentId, formatNo: doc?.formatNo ?? "", document: doc?.name ?? i.documentId } : {}),
+    title: i.title,
+    detail: i.detail,
+    ...(i.metric ? { metric: i.metric } : {}),
+    evidence: i.evidence.slice(0, EVIDENCE_SHOWN).map((e) => ({
+      // A record the calendar has not stored yet has no id to open it by, as in the lists.
+      recordId: storedIds.has(e.recordId) ? e.recordId : null,
+      documentId: e.documentId,
+      dueDate: e.dueDate,
+      ...(e.field ? { field: e.field } : {}),
+      ...(e.value ? { value: e.value } : {}),
+    })),
+    evidenceTotal: i.evidenceTotal ?? i.evidence.length,
+    ...(i.suggestedCapa ? { suggestedCapa: i.suggestedCapa } : {}),
+    ...(i.route ? { route: i.route } : {}),
+  };
+}
+
+function insightsOp(args: Obj): Outcome {
+  const limit = Math.max(1, Math.min(INSIGHTS_SHOWN_MAX, Number(args.limit) || INSIGHTS_SHOWN));
+  const insights = scopedInsights(false);
+  const docs = new Map(documentRepository.getAll().map((d) => [d.id, d] as const));
+  return done({
+    date: todayISO(),
+    headline: insightsHeadline(insights, 400),
+    counts: insightCounts(insights),
+    total: insights.length,
+    insights: insights.slice(0, limit).map((i) => insightJson(i, docs)),
   });
 }
 

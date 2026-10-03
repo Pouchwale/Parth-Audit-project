@@ -307,7 +307,7 @@ Seven scripts live in `tests/`:
   every supplied page loading (1 + 1 + 6); a new analysis working itself out the moment a count is typed (8 and 1 →
   44 of 45, 97.78%, a 98% index); **the header typed over where it stands** on a sheet designed in place — the company's
   name and the revision date changed, saved as Rev 02 with the change said in words, Pidilite's record headed with the
-  new name, then the issued format restored (PRINT PACK, Rev 01 of 01-Dec-2021); the same boxes in the **Edit format
+  new name, then the issued format restored (the registered name, Rev 01 of 01-Dec-2021); the same boxes in the **Edit format
   dialog** of a form the program draws (the Daily Report), saved, shown on a record's header, restored; and Mitra
   opening F/MKT/04 by its number and naming F/MKT/02. Three more documents moved the totals: **109 → 112** in
   `e2e_smoke.py` and `e2e_hr_module.py`, and the sidebar's modules **11 → 12** in `e2e_smoke.py` and `tests/visual_qa.py`.
@@ -317,11 +317,12 @@ Seven scripts live in `tests/`:
   counted; F/MKT/04's Pareto in the order written (the sleeve's 28.6, 50.0, 64.3, 78.6, 85.7, 92.9, 100.0%, the first
   four within the cut-off), a blank line left out; the seeded records holding exactly what the engine works out.
 - `frontend/tests/headerEdit.test.ts` - the header block of every format as the plant's to change (REQUIREMENTS §77):
-  a draft carries the company's name, the number, the revision and its date (the Marketing papers' own "PRINT PACK"
-  spelling where a format prints one); each changed is a change in words — the next revision number alone is not; a
-  blank is refused; saved, the change is laid over the format for every reader and dated as the header was dated; a
-  second change keeps the first; typed back to the paper's own spelling nothing is stored; "Restore the issued format"
-  brings the paper's own header back; and a form the program draws changes its header the same way.
+  a draft carries the company's name, the number, the revision and its date (no format keeps a spelling of its own:
+  every header prints the registered name, GUJARAT PRINT PACK PUBLICATIONS PVT LTD, until the plant types another); each
+  changed is a change in words — the next revision number alone is not; a blank is refused; saved, the change is laid
+  over the format for every reader and dated as the header was dated; a second change keeps the first; typed back to the
+  registered name nothing is stored; "Restore the issued format" brings the issued header back; and a form the program
+  draws changes its header the same way.
 - `tests/e2e_topbar_status.py` - the top bar's connection badge and clock (REQUIREMENTS §78), a thirty-ninth suite,
   added 26-Sep-2026 and run straight after the Marketing suite: the clock in hours, minutes and seconds, 12-hour,
   **ticking**, beside the language control and Today's briefing; the badge soon **Online** (green) with its figures
@@ -464,6 +465,63 @@ Seven scripts live in `tests/`:
   F/QC/33-A, Rev No. 02) instead of searching its text for "02"; `e2e_user_access.py` asks for the admins first, the super
   admin among them — on the test database the demo server's first sign-up is an admin too, and "Playwright QA" sorts
   before "Super Admin".
+- **The company's name everywhere** (REQUIREMENTS §87, 2-Oct-2026). Unit tests: `frontend/tests/companyName.test.ts` (7:
+  COMPANY.name GUJARAT PRINT PACK PUBLICATIONS PVT LTD and COMPANY.shortName Gujarat Print Pack Publications Pvt Ltd; the
+  sidebar in English and Gujarati, the opening and the page title; no format with a spelling of its own; the papers' own text
+  under their unchanged keys (F/DISP/01's clause and signature labels, F/QC/25's heading, F/QC/30's location, F/SYS/20's site
+  name, the Statements of Compliance, the seeded GAP report, training, responsibilities and agreement); a fresh install with
+  nothing to bring in line; every spelling converted by its casing and nobody else's name touched; an old spelling typed over a
+  header dropped at the next start; `data/companyNameMigration.ts` bringing stored formats, statements, master data and records
+  in line once, one history line per changed record, keys, status, signatures, dates and updatedAt untouched, a second start
+  changing nothing; and the start-up's order read from bootstrap.ts). `intro.test.ts`, `headerEdit.test.ts` and
+  `recordHeader.test.ts` assert the new name. Browser suites changed: `e2e_intro_and_fonts.py` (the opening's letters, 27 to
+  34), `e2e_marketing_module.py` (the typed-over values now end ", MEHSANA PLANT" and ", MEHSANA" after the new name, which
+  the start-up never touches; the restore check asserts no company override; Pidilite's record shows the registered name; the
+  Mitra phrase with "Pvt. Ltd." kept, as it is declined, never stored), `e2e_maintenance_module.py`, `e2e_dispatch_module.py`
+  ("For, GUJARAT PRINT PACK PUBLICATIONS PVT LTD" in the preview's text) and `e2e_agreement_and_cancel.py` (the agreement's
+  heading is Gurudev's letterhead alone: it now rejects "GUJARAT PRINT PACK" there as well as "GUJARAT PRINTPACK").
+  `e2e_smoke.py`'s check of the substring "Gujarat Print Pack Publications" holds.
+- **Mitra's look, Mitra on your phone and the server kit** (REQUIREMENTS §88, 2-Oct-2026). Unit tests:
+  `frontend/tests/mitraLook.test.ts` (7: the Ask Mitra page keeps every hook the suites drive, with a picture on each
+  suggestion and the phone card folded; the pill says "Ask Mitra" alone, wears Mitra's face and leaves its shape to the
+  stylesheet; the agent's own parts keep their hooks: steps, the thinking line, options, cites, who answered, Copy; every
+  animation in styles.css moves transform or opacity alone and Mitra's face no longer pulses a shadow; no new endless
+  animation and each of Mitra's movements 120 to 200 ms; transitions move transform or opacity only, no text transformed,
+  nothing a suite reads hidden; the dock's geometry as the suites measure it, and the reduced-motion block last, stilling
+  every movement), `frontend/tests/mitraPhone.test.ts` (7: a name only this computer answers to is known as one; the address
+  a phone opens is the page's host, else the server's network address, its port, else 8081; the server's answer read
+  defensively; a missing route, a refusal, a failure or no answer in time all mean no answer; the QR code as lean-qr's modules
+  in one path inside the quiet zone; the folded card asks and draws nothing and adds nothing the suites count; its words in
+  English and Gujarati, every step there, no em dash), `backend/tests/apiV1Lookups.test.ts` (10: GET /equipment names a
+  machine by its number with Mitra's words and every column; a repeated model name offers every machine and picks none, a
+  shared serial names both; a question Mitra answers in words is hers alone, a place on its own is searched; M-68 read back in
+  step; the list without words, how many machines and the numbers it skips; Maintenance's alone, the super admin sees it;
+  GET /insights scoped to the person's departments; GET /escalations the super admin's with Mitra's line, anybody else
+  refused, none waiting said in words, the database failing said as that; the same sign-in and first-password checks as every
+  /api/v1 route), `backend/tests/apiV1.test.ts` (now 24 documented routes), `backend/tests/lanAddresses.test.ts` (12: this
+  PC's own table, the cable first and the WSL adapter last; Wi-Fi before a cable; every virtual adapter after every real card
+  whatever its name; loopback, self-assigned, internal, IPv6 and malformed addresses left out and each address said once; the
+  family as a number; private before public, else the system's order; no network; the start-up lines, one per real card, or
+  "no address yet"), `backend/tests/phoneApp.test.ts` (8: refused to somebody not signed in; exactly the agreed shape, both
+  servers running, the addresses best first, never cached; not running when another program answers on the port, answers
+  wrongly or nothing listens; a server that never answers given up on within the time; 8081 and 3000 unless the environment
+  names a real port; no addresses rather than a failure when the network cards cannot be listed; the printed lines) and
+  `backend/tests/phoneCheck.test.ts` (25: every step passing, a sign-in and sign-out through the Mitra server with the
+  password and the token never printed; the sign-in skipped without --email; each server failing with what to do, the
+  dependent steps skipped and the problems counted; the demo told from the real; a virtual adapter, an address not this PC's
+  and a wrong port; Expo answering /status wrongly; the Expo account named, the iPhone failing and Android not when there is
+  none, both fixes when the address is wrong too; the SDK, address and account read from a manifest; a time zone differing
+  only in name passing, another failing with how to set India Standard Time, a DCRS clock minutes out; the factory's time in
+  words; open or closed for staff; warnings about hours switched off, Demo Mode, open sign-up and unreadable hours; a refusal
+  in DCRS's own words; a wrong password and an unreachable DCRS explained; nothing asked of the Mitra server without a
+  password; --email taken and a password on the command line refused; why a request got no answer, in words). `npm run
+  test:unit` now runs 460 frontend and 315 backend tests. The Mitra app's own repository has 203 tests (was 191), among them
+  its new server-address tests and the three new connector actions (equipment_lookup, insights, escalations) against its
+  stand-in DCRS; expo-doctor passes 21 of 21. No browser suite changed for §88: the suites read the same hooks, words and DOM
+  order (checked with a live audit of 75 hooks in the built app); no suite covers the three new routes yet, and
+  `e2e_mobile_mitra_api.py`'s OpenAPI check is a subset check, so the new paths do not break it. Nothing was run on a real
+  phone: the evidence for Expo Go is Expo Go's own package list and manifests, and the two bundles fetched exactly as Expo
+  Go requests them.
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

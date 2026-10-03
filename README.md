@@ -1,6 +1,6 @@
 # Digital Controlled Record System — Human Resources & Pest Control · Lamination QC & Production · Compliance
 
-**Phase 1 prototype.** A digital reproduction of Gujarat Printpack Publication Pvt. Ltd.'s
+**Phase 1 prototype.** A digital reproduction of Gujarat Print Pack Publications Pvt Ltd's
 existing paper-based controlled records — not a generic document manager. Every screen is built
 from the company's actual uploaded documents (Format numbers, checkpoint wording, PC locations,
 chemical charts, GAP findings, training certificates, photographed lamination registers) so the
@@ -9,7 +9,8 @@ digital record looks and behaves like the paper one it replaces. The uploaded so
 
 See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for the full source-document inventory and traceability,
 [docs/DATA_MODEL.md](docs/DATA_MODEL.md) for architecture, [docs/TESTING.md](docs/TESTING.md) for what was tested,
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for how to run/deploy it, and [docs/FUTURE_ROADMAP.md](docs/FUTURE_ROADMAP.md)
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for how to run/deploy it, [docs/phone-app-setup.md](docs/phone-app-setup.md)
+for the plant's server PC and Mitra on the staff's phones, and [docs/FUTURE_ROADMAP.md](docs/FUTURE_ROADMAP.md)
 for how to extend this to the remaining ~141 controlled formats. [docs/README.md](docs/README.md) lists every document.
 
 ## The assistant: records are ready before you arrive
@@ -221,6 +222,20 @@ The app behaves like a personal assistant rather than a blank form:
   **header block is clicked and typed over where it stands**: the record's own Date and Page No. change that record (in its
   history); the company, title, Format No. and Rev No. change the format itself — the page asks why and saves it as the next
   revision, as Edit format does.
+- **The company's name, everywhere** (REQUIREMENTS §87). The owner's decision of 2-Oct-2026: **Gujarat Print Pack
+  Publications Pvt Ltd**, over every paper's own spelling; in capitals on every printed company line and header, in running
+  text on the screen, the sign-in card, the page title, the opening and the sidebar (in Latin letters in Gujarati too, as a
+  registered name is never translated). Records, formats and statements already stored are brought in line when the app
+  starts, each changed record with one history line saying so; other companies' names, the addresses, the document numbers
+  and the Leave Calendar's title are left as they are.
+- **Mitra's look, Mitra on your phone, and one PC for the whole plant** (REQUIREMENTS §88). The Ask Mitra page and the
+  dock share one calmer look (Mitra's face, a welcome with cards, every movement by transform and opacity only, still under
+  reduced motion). A **"Mitra on your phone"** card on the Ask Mitra page shows the QR code a phone scans in Expo Go, with
+  the steps, and says when the app is not running. The phone's Mitra now also answers the equipment list (F/MNT/01), the
+  insights and, for the super admin, the escalations, through three new `/api/v1` routes. One server PC runs DCRS (port
+  4000), the Mitra server (3000) and Mitra for Expo Go (8081): `npm run plant:start` starts and keeps all three running,
+  `npm run phone:check` says what works, `scripts/windows` holds the firewall and autostart scripts, and
+  [docs/phone-app-setup.md](docs/phone-app-setup.md) is the guide.
 - **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
   signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
   starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,
@@ -804,8 +819,12 @@ row, no new component.
 - **Accounts**: real signup/login (`backend/`, a small Express service on PostgreSQL) gates the app —
   no more free-text "Acting as" dropdown. Passwords are bcrypt-hashed, sessions are a signed JWT
   in an httpOnly cookie, and every submit/verify/reject action now records the actual logged-in
-  user. The first account created on a fresh install becomes `admin`; every later signup is
-  `staff`. See docs/DEPLOYMENT.md for how this is deployed alongside the static frontend.
+  user. Nobody signs up: `POST /api/auth/signup` answers 403 unless `ALLOW_SIGNUP=1`, which only the
+  test runner sets. At its first start DCRS seeds the plant's named accounts (the super admin
+  `admin@gpp.local`, and Quality Control's and Human Resources' people) on the first password
+  `SEED_ACCOUNT_PASSWORD` names, or the built-in one, which each person must change at their first
+  sign-in; the super admin makes everybody else's account on Users & Access (REQUIREMENTS §66).
+  See docs/DEPLOYMENT.md for how this is deployed alongside the static frontend.
 
 ## Quick start
 
@@ -818,8 +837,10 @@ npm install
 npm run dev       # frontend (http://localhost:5173) + auth API (http://localhost:4000) together
 ```
 
-Open `http://localhost:5173` and sign up — the first account becomes an administrator. For a
-single-process production build:
+Open `http://localhost:5173` and sign in as one of the plant's named accounts (the super admin is
+`admin@gpp.local`; docs/DEPLOYMENT.md "Accounts / Authentication" has the first password, which must be
+changed at the first sign-in). Nobody signs up: `POST /api/auth/signup` answers 403 unless
+`ALLOW_SIGNUP=1`, which only the test runner sets. For a single-process production build:
 
 ```bash
 npm start         # builds frontend/dist/ then serves it + the API from one Express process
@@ -828,6 +849,16 @@ npm start         # builds frontend/dist/ then serves it + the API from one Expr
 The data is in PostgreSQL: set `DATABASE_URL` in `backend/.env` to use your own server, or leave it
 unset and `npm start` / `npm run dev` start a local PostgreSQL of their own (data in
 `backend/data/postgres`). See docs/DEPLOYMENT.md for LAN pilot instructions, backups and resets.
+
+**Mitra on your phone.** The plant runs the whole application from one server PC: DCRS on port 4000
+for the browsers, and for the staff's phones the Mitra server on port 3000 and Mitra for Expo Go on
+port 8081 (Android and iPhone open it in the Expo Go app; nothing is installed or built for the phones,
+no APK, no TestFlight). The Ask Mitra page shows the QR code a phone scans, under "Mitra on your phone".
+[docs/phone-app-setup.md](docs/phone-app-setup.md) sets the PC up step by step: `npm run mitra:setup`
+installs the app, `npm run plant:start` starts all three servers and keeps them running,
+`npm run phone:check` says what works and what to do about what does not, and `scripts/windows` holds
+the firewall and autostart scripts. The Mitra app is its own repository, kept inside this folder as
+`Audit project chatbot-mobile` (git-ignored here).
 
 ## Configuration
 

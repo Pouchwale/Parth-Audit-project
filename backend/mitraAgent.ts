@@ -69,7 +69,7 @@ export const AGENT_PROMPT_MAX_CHARS = 2000;
 export const AGENT_MAX_COMPLETION_TOKENS = 1200;
 
 /** Whisper's vocabulary hint (backend/groq.ts groqTranscribe): the plant's words, so they come out as written. */
-export const TRANSCRIBE_PROMPT = "Gujarat Print Pack plant records: F/HR/17, F/QC/30, CAPA, lamination, viscosity, Mitra. ગુજરાતી અને English mixed.";
+export const TRANSCRIBE_PROMPT = "Gujarat Print Pack Publications Pvt Ltd plant records: F/HR/17, F/QC/30, CAPA, lamination, viscosity, Mitra. ગુજરાતી અને English mixed.";
 
 // ---------------------------------------------------------------------------
 // THE SYSTEM PROMPT — compact on purpose. assistant.ts's PERSONA and SCOPE say

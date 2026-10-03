@@ -634,7 +634,8 @@ const DAILY_HEALTH: LogSheetLayout = {
 //             two copies to a page (the lower one squeezed; the upper one is
 //             the complete slip and is the one transcribed).
 //   slip (2)  BREAKDOWN MAINTENANCE MEMO & HYGIENE CLEARANCE RECORD — one to a
-//             page, headed "GUJARAT PRINT PACK PUBLICATION LIMITED".
+//             page, headed "GUJARAT PRINT PACK PUBLICATION LIMITED" (DCRS heads
+//             both slips with the name as the owner gave it on 02-Oct-2026).
 //
 // Each is ONE breakdown's slip: labelled boxes and tall boxes, no grid. The
 // machine is fetched from F/MNT/01 by its number (engine/equipmentMaster.ts).

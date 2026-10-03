@@ -2,6 +2,8 @@ import React from "react";
 import { FiPlus, FiTrash2 } from "react-icons/fi";
 import type { DocumentDefinition, PestResponsibilitiesData, ResponsibilitySignatory, RecordInstance } from "../../types";
 import { PR_LETTERHEAD } from "../../data/seed/pestResponsibilities";
+import { CAF_COMPANY_LINE_1, CAF_COMPANY_LINE_2 } from "../../data/seed/complaintAck";
+import { COMPANY } from "../../data/seed/masterData";
 import { FormField } from "./FormField";
 import { clauseBind, emergencyCallBind, responsibilityListLabel, signatoryBind, trainingNoteBind } from "../../engine/roundTrip/bindingsFor";
 
@@ -20,9 +22,10 @@ import { clauseBind, emergencyCallBind, responsibilityListLabel, signatoryBind, 
 function Letterhead() {
   return (
     <div className="pr-letterhead">
-      <div className="caf-logo" aria-label="Gujarat Print Pack Publications Pvt. Ltd.">
-        <div className="l1">GUJARAT PRINT PACK</div>
-        <div className="l2">PUBLICATIONS PVT. LTD.</div>
+      {/* The company's printed mark reads as issued in either language (REQUIREMENTS §58), as on the CAF. */}
+      <div className="caf-logo notranslate" translate="no" aria-label={COMPANY.shortName}>
+        <div className="l1">{CAF_COMPANY_LINE_1}</div>
+        <div className="l2">{CAF_COMPANY_LINE_2}</div>
       </div>
       <div className="pr-address">
         {PR_LETTERHEAD.map((line) => (

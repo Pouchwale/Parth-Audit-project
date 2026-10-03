@@ -1,11 +1,14 @@
 import type { PestResponsibilitiesData } from "../../types";
+import { COMPANY } from "./masterData";
 
 // RESPONSIBILITIES OF PEST CONTROL — SITE & SERVICE PROVIDER, transcribed
 // verbatim from "responsibilities of pest control report .pdf" (three pages on
 // the company's letterhead, signed 01.01.2025 by Chirag Parmar for Gujarat
 // Print Pack Publications and Rohit Patel for Gurudev Pest Control Services).
 // Nothing is invented: the blank "Critical Hazards issues" contact is left
-// blank, as on the paper. Every line is editable on the document itself.
+// blank, as on the paper. Every line is editable on the document itself. The
+// company's name is written as the owner gave it on 02-Oct-2026 (COMPANY.name),
+// on the letterhead and over the client's signature alike.
 
 export const PR_DOC_ID = "pest-responsibilities";
 
@@ -75,7 +78,7 @@ export function newPestResponsibilitiesData(): PestResponsibilitiesData {
     ehsClauses: [...EHS_CLAUSES],
     serviceClauses: [...SERVICE_CLAUSES],
     client: {
-      organisation: "GUJARAT PRINT PACK PUBLICATIONS LIMITED",
+      organisation: COMPANY.name,
       name: "Chirag parmar",
       designation: "Manager",
       department: "Purchase",

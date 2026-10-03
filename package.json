@@ -2,7 +2,7 @@
   "name": "digital-controlled-record-system",
   "version": "1.0.0",
   "private": true,
-  "description": "Digital Controlled Record System - Pest Control / Lamination QC & Production / CAPA / Compliance for Gujarat Printpack Publication Pvt. Ltd.",
+  "description": "Digital Controlled Record System - Pest Control / Lamination QC & Production / CAPA / Compliance for Gujarat Print Pack Publications Pvt Ltd",
   "type": "module",
   "workspaces": [
     "frontend",
@@ -24,7 +24,10 @@
     "db:shared": "node --no-warnings=ExperimentalWarning scripts/database/shared-database.ts",
     "db:dictionary": "node --no-warnings=ExperimentalWarning scripts/database/data-dictionary.ts",
     "db:backup": "node --no-warnings=ExperimentalWarning scripts/database/backup.ts",
-    "db:restore-test": "node --no-warnings=ExperimentalWarning scripts/database/restore-test.ts"
+    "db:restore-test": "node --no-warnings=ExperimentalWarning scripts/database/restore-test.ts",
+    "phone:check": "node --no-warnings=ExperimentalWarning scripts/phone-check.ts",
+    "mitra:setup": "npm --prefix \"Audit project chatbot-mobile\" run setup",
+    "plant:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/start-plant-servers.ps1"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

@@ -1,7 +1,9 @@
 import React from "react";
+import { COMPANY } from "../../data/seed/masterData";
 
 // THE FIRST SCREEN ANYBODY SEES (REQUIREMENTS §65): the company's mark, the
-// system's name, whose system it is, and one plain line saying what it is for.
+// system's name, whose system it is (the company's name as the owner gave it on
+// 02-Oct-2026), and one plain line saying what it is for.
 // The 192px file drawn at 72px stays crisp on a 2× screen; alt is empty because
 // the name is written under it; the address is relative, like assets/styles.css
 // in index.html. The company name is shown as written, never machine-translated
@@ -31,7 +33,7 @@ export function AuthLayout({ children, afterIntro = false }: { children: React.R
           />
           <div className="title">Digital Controlled Record System</div>
           <div className="subtitle notranslate" translate="no">
-            Gujarat Printpack Publication Pvt. Ltd.
+            {COMPANY.shortName}
           </div>
           <div className="purpose">Every controlled record — filled, reviewed, verified and on file.</div>
         </div>

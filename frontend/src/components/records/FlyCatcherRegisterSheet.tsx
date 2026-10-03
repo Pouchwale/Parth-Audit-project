@@ -45,10 +45,9 @@ import { bindProps, flyCatcherBind, type FlyEntryField } from "../../engine/roun
 
 export { FLY_DOC_ID };
 
-// Printed wording, verbatim. This form spells the company "PRINT PACK" (two
-// words); the pest-control trend report spells it "PRINTPACK" — each keeps
-// its own, because the digital record must read as the paper one does.
-export const FHR18_COMPANY = "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED";
+// Printed wording, verbatim: the title and the date as the form prints them.
+// The company's name is not the paper's own spelling: the header prints it as
+// the owner gave it on 02-Oct-2026 (COMPANY.name), as on every format.
 export const FHR18_TITLE = "FORTNIGHTLY – FLY CATCHER INSPECTION & CLEANING RECORD";
 export const FHR18_DATE = "15.12.2024";
 
@@ -275,7 +274,6 @@ export function FlyCatcherRegisterSheet({
     <>
       <DocumentHeader
         doc={doc}
-        companyName={FHR18_COMPANY}
         title={formatChanged?.name ? undefined : FHR18_TITLE}
         dateLabel={formatChanged ? formatDisplayDate(doc.revisionDate) : FHR18_DATE}
         pageLabel={page}

@@ -19,7 +19,9 @@ apply to each and every document of each and every module".
     and typed over where they stand; on a form the program draws the same
     boxes are in the Edit format dialog - and either way the change is saved
     as a revision, shows on every record's header, and "Restore the issued
-    format" brings the paper's own back;
+    format" brings the issued header back - the company's registered name,
+    GUJARAT PRINT PACK PUBLICATIONS PVT LTD, as on every format (the owner,
+    02-Oct-2026);
   * THE HEADER IS CHANGED BY TELLING MITRA, from the record, without leaving
     it: "change the format number to F/MKT/01-A and the revision to 02" is
     read with no network, said back, saved on "Yes" as that revision, and
@@ -42,7 +44,9 @@ PASSWORD = "PlaywrightQA123"
 FAILURES = []
 PREVIEW = "[data-section='document-preview']"
 ORIGINAL = "[data-section='supplied-original']"
-PAPER_COMPANY = "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED"
+# The company's name as the owner gave it on 02-Oct-2026, printed in capitals on
+# every header: the Marketing papers keep no spelling of their own any more.
+REGISTERED_COMPANY = "GUJARAT PRINT PACK PUBLICATIONS PVT LTD"
 
 MKT_DOCS = {
     "mkt-customer-feedback": "F/MKT/01",
@@ -273,7 +277,7 @@ with sync_playwright() as p:
     # ==================================================================
     print("\n==== The sheets on screen ====")
     open_page(page, "#/record/seed-mkt-feedback-analysis-labels-2025", settle=2000)
-    check("The analysis is headed with the company's name as the paper prints it — PRINT PACK, two words", header_company(page) == PAPER_COMPANY, header_company(page))
+    check("The analysis is headed with the company's registered name, as every format is", header_company(page) == REGISTERED_COMPANY, header_company(page))
     index_box = page.locator("[data-computed='satisfactionIndex']")
     check("Its % Satisfaction Index is text, 92%, with no box to type it into", index_box.count() == 1 and index_box.first.inner_text().strip() == "92%" and page.locator("input[data-computed]").count() == 0, index_box.all_inner_texts())
     open_page(page, "#/record/seed-mkt-complaint-trend-labels-2025", settle=2000)
@@ -314,15 +318,17 @@ with sync_playwright() as p:
     # ==================================================================
     print("\n==== The header block, typed over where it stands ====")
     open_page(page, "#/document/mkt-customer-feedback", settle=1500)
-    check("The document page's preview is headed as the paper is", header_company(page, PREVIEW) == PAPER_COMPANY, header_company(page, PREVIEW))
+    check("The document page's preview is headed with the registered name", header_company(page, PREVIEW) == REGISTERED_COMPANY, header_company(page, PREVIEW))
     page.click("[data-action='edit-format']")
     page.wait_for_timeout(800)
     designer = page.locator("[data-section='sheet-designer']")
     check("Edit format opens the sheet itself", designer.count() == 1)
     page.click("[data-action='rename-company']")
     box = page.locator("[data-field='designer-companyName']")
-    check("The company's name on the header is clicked and becomes a box, holding the printed name", box.count() == 1 and box.first.input_value() == PAPER_COMPANY, box.first.input_value() if box.count() else None)
-    NEW_COMPANY = "GUJARAT PRINT PACK PUBLICATIONS PVT. LTD."
+    check("The company's name on the header is clicked and becomes a box, holding the printed name", box.count() == 1 and box.first.input_value() == REGISTERED_COMPANY, box.first.input_value() if box.count() else None)
+    # The plant's place added to the name: not a spelling of the name itself, which
+    # the next start would bring back to the registered one (data/companyNameMigration.ts).
+    NEW_COMPANY = "GUJARAT PRINT PACK PUBLICATIONS PVT LTD, MEHSANA PLANT"
     box.first.fill(NEW_COMPANY)
     box.first.press("Enter")
     page.wait_for_timeout(300)
@@ -345,7 +351,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     dialog = page.locator("[data-section='designer-save-dialog']")
     check("Saving says what changed, in words: the company name and the date", dialog.count() == 1 and "company name" in dialog.inner_text() and "01-Sep-2026" in dialog.inner_text(), dialog.inner_text()[:300] if dialog.count() else None)
-    page.fill("[data-field='designer-reason']", "The registered name is printed in full on the letterhead")
+    page.fill("[data-field='designer-reason']", "The letterhead prints the plant's place after the name")
     page.click("[data-action='designer-confirm-save']")
     page.wait_for_timeout(800)
     saved = page.locator("[data-section='designer-saved']")
@@ -357,7 +363,7 @@ with sync_playwright() as p:
     check("The format now carries the new company name, Rev 02 dated 01-Sep-2026 — its number untouched", d.get("companyName") == NEW_COMPANY and d.get("revisionNo") == "02" and d.get("revisionDate") == "2026-09-01" and d.get("formatNo") == "F/MKT/01", d)
     open_page(page, "#/record/seed-mkt-feedback-pidilite-2025-01", settle=1500)
     check("Pidilite's record is headed with the new name and Rev 02 — its own date kept", header_company(page) == NEW_COMPANY and "02" in page.locator(".doc-header").inner_text() and "22-Jan-2025" in page.locator(".doc-header").inner_text(), page.locator(".doc-header").inner_text())
-    # Back to the paper's own: the designer's dialog restores the issued format.
+    # Back to the issued format: the designer's dialog restores it.
     open_page(page, "#/document/mkt-customer-feedback", settle=1200)
     page.click("[data-action='edit-format']")
     page.wait_for_timeout(600)
@@ -369,7 +375,9 @@ with sync_playwright() as p:
         restore.first.click()
         page.wait_for_timeout(800)
     d2 = stored_doc(page, "mkt-customer-feedback")
-    check("Restored, the header is the paper's again: PRINT PACK, Rev 01 of 01-Dec-2021", d2.get("companyName") == PAPER_COMPANY and d2.get("revisionNo") == "01" and d2.get("revisionDate") == "2021-12-01" and d2.get("edited") is False, d2)
+    check("Restored, the format is the issued one again: no company name of its own, Rev 01 of 01-Dec-2021", not d2.get("companyName") and d2.get("revisionNo") == "01" and d2.get("revisionDate") == "2021-12-01" and d2.get("edited") is False, d2)
+    open_page(page, "#/record/seed-mkt-feedback-pidilite-2025-01", settle=1500)
+    check("...and Pidilite's record is headed with the registered name again", header_company(page) == REGISTERED_COMPANY, header_company(page))
 
     # ==================================================================
     # 7. THE HEADER, IN THE DIALOG on a form the program draws
@@ -381,7 +389,7 @@ with sync_playwright() as p:
     editor = page.locator("[data-section='format-editor']")
     fields = [page.locator(f"[data-field='{f}']").count() for f in ("format-company", "format-number", "format-revision-date")]
     check("Edit format on the Daily Report opens the dialog with the company name, the format number and the revision date", editor.count() == 1 and fields == [1, 1, 1], fields)
-    DAILY_COMPANY = "GUJARAT PRINTPACK PUBLICATION PRIVATE LIMITED, MEHSANA"
+    DAILY_COMPANY = "GUJARAT PRINT PACK PUBLICATIONS PVT LTD, MEHSANA"
     page.fill("[data-field='format-company']", DAILY_COMPANY)
     page.fill("[data-field='format-reason']", "The header is to carry the plant's place")
     page.click("[data-action='save-format']")
@@ -429,9 +437,9 @@ with sync_playwright() as p:
     if no.count():
         no.first.click()
         page.wait_for_timeout(500)
-    check("...and 'No, leave it' leaves the format as it was", stored_doc(page, "mkt-customer-feedback").get("revisionNo") == "02" and not stored_doc(page, "mkt-customer-feedback").get("companyName", "").startswith("Gujarat Print Pack Publications"), stored_doc(page, "mkt-customer-feedback"))
+    check("...and 'No, leave it' leaves the format as it was", stored_doc(page, "mkt-customer-feedback").get("revisionNo") == "02" and not (stored_doc(page, "mkt-customer-feedback").get("companyName") or "").startswith("Gujarat Print Pack Publications"), stored_doc(page, "mkt-customer-feedback"))
     close_assistant(page)
-    # Back to the paper's own, through the format's dialog.
+    # Back to the issued format, through the format's dialog.
     open_page(page, "#/document/mkt-customer-feedback", settle=1200)
     page.click("[data-action='edit-format']")
     page.wait_for_timeout(600)
@@ -440,7 +448,7 @@ with sync_playwright() as p:
     if page.locator("[data-action='restore-format']").count():
         page.click("[data-action='restore-format']")
         page.wait_for_timeout(800)
-    check("Restored, the header is the paper's again: F/MKT/01, Rev 01", stored_doc(page, "mkt-customer-feedback").get("formatNo") == "F/MKT/01" and stored_doc(page, "mkt-customer-feedback").get("revisionNo") == "01", stored_doc(page, "mkt-customer-feedback"))
+    check("Restored, the header is the issued one again: F/MKT/01, Rev 01", stored_doc(page, "mkt-customer-feedback").get("formatNo") == "F/MKT/01" and stored_doc(page, "mkt-customer-feedback").get("revisionNo") == "01", stored_doc(page, "mkt-customer-feedback"))
 
     # ==================================================================
     # 9. Mitra knows the formats by their numbers

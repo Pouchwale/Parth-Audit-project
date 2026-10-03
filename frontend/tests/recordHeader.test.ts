@@ -22,7 +22,7 @@ import { formatEditFor } from "../src/data/formatEdits";
 import { createRecordForDocument } from "../src/engine/recordCrud";
 import { ensureRecordsGeneratedForMonth } from "../src/engine/recordGenerator";
 import { cancelCorrection, cleanHeaderBlock, correctionChanges, recordHeaderDefaults, reopenForCorrection, saveHeaderBlock } from "../src/engine/recordLifecycle";
-import { commitFormatChange, draftOf, restoreIssuedFormat } from "../src/engine/formatOps";
+import { commitFormatChange, draftOf, printedCompanyName, restoreIssuedFormat } from "../src/engine/formatOps";
 import { masterListFormatsNotInDcrs } from "../src/engine/documentFinder";
 import { documentFileKind } from "../src/utils/documentExport";
 import { todayISO } from "../src/utils/date";
@@ -147,7 +147,8 @@ test("F/HR/15 and F/HR/16: the plant's areas, the days and the months, as the pa
   const daily = layout("hr-daily-cleaning");
   assert.equal(doc("hr-daily-cleaning").formatNo, "F/HR/15");
   assert.equal(doc("hr-daily-cleaning").revisionNo, "01");
-  assert.equal(doc("hr-daily-cleaning").companyName, "GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED", "not the paper's PACA1:AH16K");
+  assert.equal(doc("hr-daily-cleaning").companyName, undefined, "no spelling of its own: the paper's PACA1:AH16K is not printed");
+  assert.equal(printedCompanyName(doc("hr-daily-cleaning")), "GUJARAT PRINT PACK PUBLICATIONS PVT LTD", "the company's name as the owner gave it on 02-Oct-2026");
   assert.deepEqual(daily.columns.slice(3).map((c) => c.label), Array.from({ length: 31 }, (_, i) => String(i + 1)));
   const rows = daily.rowMode.kind === "fixedRows" ? daily.rowMode.rows : [];
   assert.equal(rows.length, 19, "seventeen areas and the two signature lines");

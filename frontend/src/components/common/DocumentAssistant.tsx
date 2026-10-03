@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { FiMessageCircle, FiX } from "react-icons/fi";
+import { FiInfo, FiX, FiZap } from "react-icons/fi";
 import { MitraComposer } from "../mitra/MitraComposer";
 import { MitraThread } from "../mitra/MitraThread";
 import type { MitraMessageView } from "../mitra/MitraMessage";
@@ -2308,16 +2308,22 @@ export function DocumentAssistant() {
       style={open ? undefined : { position: "fixed", right: 20, bottom: 20, zIndex: 50, ...dragStyle }}
     >
       {!open && (
+        // THE LAUNCHER (2-Oct-2026): Mitra's face in a round pill, its words
+        // "Ask Mitra" and, when some of this person's work is waiting, how much.
+        // Its shape, colour and grab cursor are the stylesheet's (styles.css
+        // ".assistant-pill"); only where it was dragged to is set here.
         <button
           className={`btn btn-primary assistant-pill${waiting > 0 ? " has-waiting" : ""}`}
-          style={{ borderRadius: 999, boxShadow: "var(--shadow-lg)", cursor: "grab", touchAction: "none" }}
           onClick={() => {
             if (!didJustDrag()) setOpen(true);
           }}
           title={waiting > 0 ? phrase("ai.yours.waiting", { n: String(waiting) }) : t("ai.yours.none")}
           {...dragHandleProps}
         >
-          <FiMessageCircle size={15} /> {t("ai.widgetOpen")}
+          <span className="assistant-pill-face" aria-hidden="true">
+            <FiZap size={14} />
+          </span>
+          {t("ai.widgetOpen")}
           {/* How much of this person's own work is waiting (REQUIREMENTS §67) — a
               figure, not a red dot: "3" says something, a dot only nags. */}
           {waiting > 0 && (
@@ -2328,35 +2334,42 @@ export function DocumentAssistant() {
         </button>
       )}
       {open && (
-        <div className="card assistant-dock-card" style={{ display: "flex", flexDirection: "column" }}>
-          <div className="flex items-center justify-between" style={{ padding: "12px 14px", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
-            <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
-              {/* Mitra's face: its own initial, the way a person's chat avatar reads. */}
-              <span className={`chat-avatar${loading ? " is-thinking" : ""}`} style={{ fontSize: 11, fontWeight: 700 }} aria-hidden="true">
-                {ASSISTANT_NAME.charAt(0)}
+        <div className="card assistant-dock-card">
+          {/* The panel's head: Mitra's face (the same spark as on the Ask Mitra
+              page, a ring breathing round it while it answers), its name and
+              what it can do here; "About this document" and Close. */}
+          <div className="mitra-dock-head">
+            <div className="mitra-dock-who">
+              <span className={`chat-avatar${loading ? " is-thinking" : ""}`} aria-hidden="true">
+                <FiZap size={15} />
               </span>
-              <div style={{ minWidth: 0 }}>
-                <div className="text-sm font-semibold flex items-center gap-1">
-                  {t("ai.title")}
-                </div>
-                <div className="text-xs text-muted truncate" style={{ maxWidth: 250 }}>
-                  {subtitle}
-                </div>
+              <div className="mitra-dock-words">
+                <div className="font-semibold mitra-dock-title">{t("ai.title")}</div>
+                <div className="mitra-dock-subtitle truncate">{subtitle}</div>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="mitra-dock-tools">
               {hasTarget && (
-                <button className="btn btn-ghost btn-sm" style={{ padding: "2px 6px" }} onPointerDown={(e) => e.stopPropagation()} onClick={describeDocument} title="About this document">
-                  ?
+                <button
+                  className="btn btn-ghost btn-sm btn-icon"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={describeDocument}
+                  title="About this document"
+                  aria-label="About this document"
+                >
+                  <FiInfo size={15} />
                 </button>
               )}
-              <button className="btn btn-ghost btn-sm" onPointerDown={(e) => e.stopPropagation()} onClick={() => {
+              <button
+                className="btn btn-ghost btn-sm btn-icon"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => {
                   autoOpenedRef.current = false;
                   setOpen(false);
                 }}
                 aria-label="Close assistant"
               >
-                <FiX size={14} />
+                <FiX size={15} />
               </button>
             </div>
           </div>
@@ -2375,7 +2388,7 @@ export function DocumentAssistant() {
             }}
             onEdit={editMessage}
             editLocked={loading}
-            style={{ flex: "1 1 auto", minHeight: 120, overflowY: "auto", padding: 14 }}
+            className="mitra-dock-log"
           >
             {pickingDate && (
               <div className="chat-msg bot" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2416,9 +2429,11 @@ export function DocumentAssistant() {
             placeholder={placeholder}
             note={!whisperVoice && listening ? { text: t("ai.listening"), listening: true } : null}
             above={
-              <div className="chat-chips mb-2">
+              // The quick chips: after the thread in the page's order (suites
+              // take a thread's chips with .last), sized by the stylesheet.
+              <div className="chat-chips mitra-quick-chips">
                 {quickChips.map((c) => (
-                  <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} style={{ fontSize: 11, padding: "3px 9px" }} {...chipAttrs(c)} onClick={() => runAction(c)}>
+                  <button key={c.label} type="button" className={`chat-chip ${c.tone ?? ""}`} {...chipAttrs(c)} onClick={() => runAction(c)}>
                     {c.label}
                   </button>
                 ))}

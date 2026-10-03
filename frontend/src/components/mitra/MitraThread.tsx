@@ -96,16 +96,22 @@ export function MitraThread({ messages, thinking, onChip, onOption, onCite, empt
   // What makes the last message taller as it grows: its words, its steps, its options.
   const growth = last ? last.text.length + (last.steps?.length ?? 0) * 7 + (last.options?.length ?? 0) + (last.chips?.length ?? 0) : 0;
 
-  // A new message, or the dots: to the bottom, and following again.
+  // A new message, or the dots: to the bottom, and following again. An empty
+  // thread shows its welcome from the top — scrolled to the bottom, a welcome
+  // taller than the log opened with its greeting out of sight.
   useEffect(() => {
     const el = logRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) el.scrollTop = messages.length === 0 && !thinking ? 0 : el.scrollHeight;
     following.current = true;
   }, [messages.length, thinking]);
-  // The last message grew: stay at the bottom only if that is where the person was.
+  // The last message grew: stay at the bottom only if that is where the person
+  // was. With no message there is nothing to follow (this runs on the first draw
+  // too, and would undo the welcome's place at the top).
+  const hasMessages = messages.length > 0;
   useEffect(() => {
     const el = logRef.current;
-    if (el && following.current) el.scrollTop = el.scrollHeight;
+    if (el && hasMessages && following.current) el.scrollTop = el.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [growth]);
 
   const onScroll = () => {
@@ -135,10 +141,10 @@ export function MitraThread({ messages, thinking, onChip, onOption, onCite, empt
         {thinking && !lastPending && (
           <div className="mitra-turn bot">
             <span className="chat-avatar is-thinking" aria-hidden="true">
-              <FiZap size={11} />
+              <FiZap size={12} />
             </span>
             <div className="mitra-turn-body">
-              <div className="chat-msg bot">
+              <div className="chat-msg bot mitra-typing">
                 <span className="chat-typing">
                   <span />
                   <span />

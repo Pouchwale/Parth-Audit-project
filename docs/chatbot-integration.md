@@ -4,7 +4,7 @@ This is the hand-off for the Audit Assistant's developer. It says how the assist
 
 DCRS is the Digital Controlled Record System in this repository. The Audit Assistant is the chat and voice app at `github.com/Pouchwale/Parth-Audit-chatbot`. On 30 September 2026 its owner renamed the app and its server **Mitra**, the Mitra mobile app, after DCRS's own assistant. The parts written before then still say "the assistant".
 
-The mobile app can now do what Mitra does in DCRS: find documents, say what is due today, open today's record, fill it, submit it, verify it, and print it. That part is [What Mitra does, from the mobile app](#what-mitra-does-from-the-mobile-app) (REQUIREMENTS §85).
+The mobile app can now do what Mitra does in DCRS: find documents, say what is due today, open today's record, fill it, submit it, verify it, and print it. Since 2 October 2026 it can also look a machine up on the equipment list (F/MNT/01), say what stands out in the records, and give the super admin the escalations. That part is [What Mitra does, from the mobile app](#what-mitra-does-from-the-mobile-app) (REQUIREMENTS §85).
 
 ## The rules both applications keep
 
@@ -33,7 +33,7 @@ Every call the assistant makes must carry this header:
 X-Client-Name: Mitra mobile app
 ```
 
-DCRS writes that name into its own audit trail next to the person. A change made through the API appears in the record's history as "Through Mitra mobile app: <the note>", and in DCRS's activity log with the same words. (Before the app was renamed it sent `Audit Assistant`; the sample answers of the CAPA close below still show that name.) Without the header, DCRS writes "Through DCRS API". The name is cut to 40 printable characters.
+DCRS writes that name into its own audit trail next to the person. A change made through the API appears in the record's history as "Through Mitra mobile app: <the note>", and in DCRS's activity log with the same words. (Before the app was renamed it sent `Audit Assistant`, so changes made through it before 30 September 2026 read "Through Audit Assistant: …".) Without the header, DCRS writes "Through DCRS API". The name is cut to 40 printable characters.
 
 The full description of every route is in [docs/api/dcrs-api.openapi.json](api/dcrs-api.openapi.json) (OpenAPI 3.1). A running DCRS also serves it, without sign-in, at `GET /api/v1/openapi.json`.
 
@@ -208,7 +208,7 @@ Content-Type: application/json
 The note is required, 1 to 1,000 characters, and says how the finding was resolved. DCRS makes exactly the change its own Close button makes:
 - The finding becomes **Closed**, and its date of action becomes today in the factory's time zone.
 - A report that was Due or Scheduled becomes In Progress. Any other report keeps its status.
-- The report's history gains an entry in the person's name with the note "Through Audit Assistant: <note>".
+- The report's history gains an entry in the person's name with the note "Through Mitra mobile app: <note>".
 - DCRS's activity log gains the line "Record edited", in the person's name, with the same words.
 - It is saved with the version it was read at. If someone else saved in between, DCRS reads again and retries, up to three times.
 
@@ -216,7 +216,7 @@ The note is required, 1 to 1,000 characters, and says how the finding was resolv
 {
   "finding": { "id": "CAPA-2023-12-13-2", "status": "Closed", "actionDate": "2026-09-29", "...": "the rest of the finding" },
   "record": { "id": "gap-2023-12-13", "status": "Submitted" },
-  "history": { "at": "2026-09-29T12:17:07.380Z", "by": "Kajal Shah", "note": "Through Audit Assistant: Rodent box numbers painted on the walls as per the layout." }
+  "history": { "at": "2026-09-29T12:17:07.380Z", "by": "Kajal Shah", "note": "Through Mitra mobile app: Rodent box numbers painted on the walls as per the layout." }
 }
 ```
 
@@ -396,6 +396,9 @@ Two changes in a row each keep their own history entry. In the browser, two edit
 | `record_action` print | `record_pdf` `{ recordId }` | read | `GET /api/v1/records/{id}/pdf` |
 | `history_figures` | `history_figures` `{ question, documentId?, from?, to? }` | read | `GET /api/v1/figures?question=&documentId=&from=&to=` |
 | `hr_master_lookup` | `hr_master_lookup` `{ q }` | read | `GET /api/v1/people?q=` |
+| (her answers about a machine, F/MNT/01) | `equipment_lookup` `{ q? }` | read | `GET /api/v1/equipment?q=&limit=` |
+| (the insights headline in her live facts) | `insights` `{}` | read | `GET /api/v1/insights?limit=` |
+| (the escalations line in her live facts, super admin only) | `escalations` `{ status? }` | read | `GET /api/v1/escalations?open=` |
 | `open_document` with create | `open_record` `{ documentId, date? }` | change | `POST /api/v1/records` |
 | `edit_open_record` | `edit_record` `{ recordId, patch, note? }` | change | `POST /api/v1/records/{id}/changes` |
 | `record_action` | `record_action` `{ recordId, action, reason? }` | change | `POST /api/v1/records/{id}/actions` |
@@ -571,6 +574,57 @@ The mobile app's model answers from `evidence`, as Mitra's does. `documentId`, `
 
 It answers only Human Resources, the super admin, and an account with no departments. DCRS gives HR Master Data to nobody else, so anybody else is refused with `403 not-your-department`.
 
+### The equipment list (F/MNT/01)
+
+In DCRS, Mitra answers "which machine is M-47?", "where is the Delta 330", "machines in QC" and "how many machines" from the equipment list, F/MNT/01, without asking the model. `GET /api/v1/equipment?q=M-47` gives the app the same:
+- `answer`: Mitra's own reply to the words, as she gives it in DCRS. It is null when the words are not a question she answers there.
+- `machines`: the machines the words name by number, or the one a serial only it has names (`exact`). When Mitra has no answer of her own, they are the machines DCRS's search finds for the words. A model name never picks one machine, because the list gives the same model to several (Brison 370 is M-13 and M-14).
+- `list`: the list itself — how many machines, their numbers and the numbers it skips. Without `q` the answer is the list and its first machines.
+
+Each machine has every column of the list. "NA" and "-" come back as null, and the one line the list prints one column out of step (M-68) is read back in step and says so in `note`.
+
+```json
+{
+  "query": "which machine is M-47?",
+  "list": { "formatNo": "F/MNT/01", "name": "List of Equipments & Utilities", "status": "Verified", "machines": 68, "numbered": { "first": "M-01", "last": "M-86", "count": 68 }, "gaps": ["M-05", "M-22 to M-32", "M-37 to M-42"], "…": "…" },
+  "answer": "M-47, as F/MNT/01 (List of Equipments & Utilities) writes it:\n• Machine Description: UV Flexo Printing Machine\n• Machine Name / Model No.: Delta 330\n…",
+  "exact": "M-47", "total": 1,
+  "machines": [{ "machineNo": "M-47", "description": "UV Flexo Printing Machine", "model": "Delta 330", "manufacturer": "Lombardi", "location": "Lombardi Printing", "section": "Flexo", "size": "330 mm", "month": "November", "year": "2021", "serialNo": "88562", "countryOfOrigin": "Itlay", "summary": "M-47 · UV Flexo Printing Machine · Delta 330 · Lombardi Printing" }]
+}
+```
+
+The list is Maintenance's. Anybody else is refused with `403 not-your-department`, as Mitra refuses them.
+
+### What stands out (the insights)
+
+With every message, DCRS gives Mitra one line of what stands out in the records the person can see: the counts by severity and the most severe titles. These are the same insights the Insights page and the Dashboard show, worked out over the person's departments only. `GET /api/v1/insights` gives the app that line as `headline`, and the insights behind it (`insights`, 10 unless `limit` says otherwise, at most 50), most severe first. Each insight has its title, what it means, a few of the records it was read from, and the CAPA DCRS suggests, where it suggests one.
+
+```json
+{ "date": "2026-10-02",
+  "headline": "Insights (2 high, 0 medium, 0 low): [high] Device 1-54, 2-55, 3-56, 4-57 (F/QC/11): calibration expired on 22-Sep-2025, 375 days ago; [high] Device QC-76 (F/QC/12): calibration expired on 27-Aug-2024, 766 days ago;",
+  "counts": { "high": 2, "medium": 0, "low": 0 }, "total": 2,
+  "insights": [{ "rule": "C3", "severity": "high", "module": "Quality Control — Inspection Records", "documentId": "qc-weight-scale-calibration", "formatNo": "F/QC/12",
+    "title": "Device QC-76 (F/QC/12): calibration expired on 27-Aug-2024, 766 days ago",
+    "detail": "The latest F/QC/12 sheet for QC-76 (27-Mar-2024) gives Calibration Expiry 27-Aug-2024. …",
+    "metric": { "label": "Expired", "value": "766 days ago" },
+    "evidence": [{ "recordId": "qc-weight-scale-calibration-2024-03", "documentId": "qc-weight-scale-calibration", "dueDate": "2024-03-27", "field": "calibrationExpiry", "value": "27-Aug-2024" }], "evidenceTotal": 1 }] }
+```
+
+A record the insight was read from that DCRS's calendar has not stored yet has `recordId` null, as in the lists.
+
+### The super admin's escalations
+
+Every working day DCRS's server works out who keeps handing records in late or leaving them undone over the last 30 days (3 late, or 2 never done), names the person or, where several share the work, the department, and raises it with the super admin (the bell in DCRS). Mitra adds a line about the ones not yet acknowledged to what she knows when the super admin asks her something. `GET /api/v1/escalations` gives the app that line as `summary`, in the same words, and each escalation: who, the counts in a sentence, the documents with the most misses and up to ten of the records behind them. `open=0` gives every escalation of the last 30 days, the acknowledged ones too.
+
+```json
+{ "open": true, "today": "2026-10-02", "week": "2026-W40",
+  "summary": "Escalated to the super admin, not yet acknowledged: Kapila Barad (3 late).",
+  "waiting": 1, "total": 1,
+  "escalations": [{ "kind": "person", "subjectName": "Kapila Barad", "departmentName": "Quality Control", "late": 3, "neverDone": 0, "sentence": "3 late in the 30 days to 02-Oct-2026 — F-QC-30: 3 late", "acknowledged": false, "records": [{ "what": "F-QC-30", "dueDate": "2026-09-28", "outcome": "late", "daysLate": 2 }] }] }
+```
+
+Escalations name people, so only the super admin gets them. Anybody else is refused with `403 super-admin-only`. Reading them changes nothing. An escalation is acknowledged in DCRS itself.
+
 ### Starting a record (CHANGE)
 
 `POST /api/v1/records` with `{"documentId": "F-QC-30", "date": "2026-09-29"}` answers the document's record for that date. Leave out `date` for today.
@@ -695,11 +749,11 @@ These are added to the table in [Errors](#errors). Each is shown to the person i
 | Status | Codes | Connector error |
 |---|---|---|
 | 400 | `bad-patch`, `nothing-changed`, `needs-reason`, `bad-action`, `not-history`, `ambiguous`, `bad-picture` | `invalid_request` |
-| 403 | `not-your-department` (a document, a record, HR Master Data) | `forbidden` |
+| 403 | `not-your-department` (a document, a record, HR Master Data, the equipment list); `super-admin-only` (the escalations) | `forbidden` |
 | 404 | `not-found`, `not-in-dcrs` | `not_found` |
 | 409 | `needs-reopen`, `wrong-status`, `invalid`, `reference-only`, `no-photo-list`, `no-sample`, `pdf-not-offered`, `busy` | `conflict` |
 | 413, 415 | `too-large`, `bad-picture` | `invalid_request` |
-| 500, 503 | `engine-failed`, `engine-unavailable` | `unavailable` |
+| 500, 503 | `engine-failed`, `engine-unavailable`; `database-unavailable` (the escalations could not be read) | `unavailable` |
 
 ### Limits
 
@@ -820,7 +874,7 @@ Once those views exist, a later migration of the assistant that changes or drops
 - **The assistant starts on an empty schema.** Start it against the shared database with `DATABASE_URL` as above. It creates its tables in `chatbot`, and stopping and starting it again changes nothing.
 - **The assistant cannot read DCRS's data.** `npm run db:shared -- test` in this repository runs the database checks against a copy. Among them: the assistant's role is refused every DCRS table, and the viewer can read only the overview.
 - **A change shows at once.** Close a finding through the assistant. Then:
-  - DCRS's page for that report shows it Closed, with the history entry "Through Audit Assistant: ...".
+  - DCRS's page for that report shows it Closed, with the history entry "Through Mitra mobile app: ...".
   - DCRS's Activity Log shows "Record edited" by that person.
   - The Database overview (DCRS, admin area) lists it under "What changed in DCRS through the Audit Assistant?".
 

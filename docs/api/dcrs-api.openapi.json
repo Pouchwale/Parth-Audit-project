@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DCRS API for the Mitra mobile app (the Audit Assistant)",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "summary": "Read and change DCRS data as a signed-in person, through DCRS's own rules.",
-    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. A session lasts until the close of the day it was started — the end of the plant's working hours (6:20 pm unless the super admin changes them) for everybody but the super admin, whose session lasts until midnight, factory time (REQUIREMENTS §84); `session.endsAt` in the sign-in answer says when. Outside the plant's working hours — before the opening, after the close, on the weekly off or a festival holiday — anybody but the super admin is refused with 403 `outside-working-hours`. WHAT MITRA DOES, FROM THE MOBILE APP (REQUIREMENTS §85): the routes tagged Mitra — documents, today's facts, records found, read, searched and printed, and records opened, changed and acted on — are answered by DCRS's own engine run on the server, so every change goes through DCRS's own checks, history and activity log, exactly as Mitra's own tools in the browser; each one maps to one of Mitra's tools (docs/chatbot-integration.md has the table). A CHANGE must be confirmed by the person first. See docs/chatbot-integration.md."
+    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. A session lasts until the close of the day it was started — the end of the plant's working hours (6:20 pm unless the super admin changes them) for everybody but the super admin, whose session lasts until midnight, factory time (REQUIREMENTS §84); `session.endsAt` in the sign-in answer says when. Outside the plant's working hours — before the opening, after the close, on the weekly off or a festival holiday — anybody but the super admin is refused with 403 `outside-working-hours`. WHAT MITRA DOES, FROM THE MOBILE APP (REQUIREMENTS §85): the routes tagged Mitra — documents, today's facts, records found, read, searched and printed, records opened, changed and acted on, the equipment list (F/MNT/01) and what stands out (the insights) — are answered by DCRS's own engine run on the server, so every change goes through DCRS's own checks, history and activity log, exactly as Mitra's own tools in the browser; each one maps to one of Mitra's tools (docs/chatbot-integration.md has the table). The super admin's escalations (GET /api/v1/escalations) are read from the server's own, for the super admin only. A CHANGE must be confirmed by the person first. See docs/chatbot-integration.md."
   },
   "servers": [
     {
@@ -2755,6 +2755,367 @@
         "x-dcrs-kind": "change",
         "x-mitra-tool": "fill_open_record_with_sample_data"
       }
+    },
+    "/api/v1/equipment": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "equipmentLookup",
+        "summary": "READ — a machine on the equipment list, F/MNT/01 (what Mitra answers about a machine)",
+        "description": "The machines on F/MNT/01, the List of Equipments & Utilities, that `q` names: a Machine No. (M-47, m47, machine no. 47), a serial number, a model or a maker (Delta 330, Brison), a place (QC, Lombardi Printing), or the person's question as they asked it. `answer` is Mitra's own reply to those words, as her rules path gives it in DCRS (engine/equipmentMasterAssistant.ts), and null when they are not a question she answers there. `machines` are the machines the words name by number, or the one a serial only it has names (`exact`); otherwise, when Mitra has no answer of her own, the machines DCRS's own search finds for the words. A model name never picks one machine, because the list repeats its model names. A line F/MNT/01 prints one column out of step (M-68) is read back in step, and says so in `note`. Without `q`: the list itself — how many machines, their numbers and the numbers it skips. The list is Maintenance's: anybody else is refused 403 not-your-department.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "example": "which machine is M-47?"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "The most machines answered: 20 when left out, 100 at most (a larger number is taken as 100).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The machines, and Mitra's own answer when she has one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquipmentLookup"
+                },
+                "example": {
+                  "query": "which machine is M-47?",
+                  "list": {
+                    "documentId": "mnt-equipment-list",
+                    "formatNo": "F/MNT/01",
+                    "name": "List of Equipments & Utilities",
+                    "recordId": "seed-mnt-equipment-list-2026-09-29",
+                    "date": "2026-09-29",
+                    "status": "Verified",
+                    "machines": 68,
+                    "numbered": {
+                      "first": "M-01",
+                      "last": "M-86",
+                      "count": 68
+                    },
+                    "gaps": [
+                      "M-05",
+                      "M-22 to M-32",
+                      "M-37 to M-42"
+                    ],
+                    "route": "/document/mnt-equipment-list",
+                    "link": "http://dcrs-host:4000/index.html#/document/mnt-equipment-list"
+                  },
+                  "answer": "M-47, as F/MNT/01 (List of Equipments & Utilities) writes it:\n• Machine Description: UV Flexo Printing Machine\n• Machine Name / Model No.: Delta 330\n• Manufacturer: Lombardi\n• Location / Room: Lombardi Printing\n• Section (the list's “Department” column): Flexo\n• Size / Capacity: 330 mm\n• Month & Year of manufacture: November 2021\n• Serial No.: 88562\n• Country of Origin: Itlay",
+                  "exact": "M-47",
+                  "total": 1,
+                  "machines": [
+                    {
+                      "machineNo": "M-47",
+                      "description": "UV Flexo Printing Machine",
+                      "model": "Delta 330",
+                      "manufacturer": "Lombardi",
+                      "location": "Lombardi Printing",
+                      "section": "Flexo",
+                      "size": "330 mm",
+                      "month": "November",
+                      "year": "2021",
+                      "serialNo": "88562",
+                      "countryOfOrigin": "Itlay",
+                      "summary": "M-47 · UV Flexo Printing Machine · Delta 330 · Lombardi Printing"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Not Maintenance (not-your-department). Also, as on every /api/v1 route: outside-working-hours and password-change-required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-your-department": {
+                    "value": {
+                      "error": "F/MNT/01 List of Equipments & Utilities is kept by Maintenance, and this account is not kept to it. Ask the super admin for access.",
+                      "code": "not-your-department"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-answer": "Mitra's rules path in DCRS: engine/equipmentMasterAssistant.ts equipmentChatAnswer (REQUIREMENTS §74)"
+      }
+    },
+    "/api/v1/insights": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "insights",
+        "summary": "READ — what stands out in the records (the insights headline Mitra is given with every message)",
+        "description": "What stands out in the records the person can see, from the very insights DCRS's Insights page and Dashboard card show, worked out by its insight rules over the person's departments only. `headline` is the one line Mitra is given with every message in DCRS (engine/assistantLocal.ts buildAssistantContext: the counts by severity and the most severe titles); `insights` are the insights behind it, most severe first, each with what it says, why it matters, a few of the records it was read from and, where DCRS suggests one, the CAPA to raise. An evidence record DCRS's calendar has not stored yet has `recordId` null.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "The most insights answered: 10 when left out, 50 at most (a larger number is taken as 50).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The headline and the insights.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Insights"
+                },
+                "example": {
+                  "date": "2026-10-02",
+                  "headline": "Insights (2 high, 0 medium, 0 low): [high] Device 1-54, 2-55, 3-56, 4-57 (F/QC/11): calibration expired on 22-Sep-2025, 375 days ago; [high] Device QC-76 (F/QC/12): calibration expired on 27-Aug-2024, 766 days ago;",
+                  "counts": {
+                    "high": 2,
+                    "medium": 0,
+                    "low": 0
+                  },
+                  "total": 2,
+                  "insights": [
+                    {
+                      "id": "m1|qc lab - colour matching cabinet|2025-08-12",
+                      "rule": "M1",
+                      "severity": "high",
+                      "module": "Maintenance",
+                      "documentId": "mnt-lux-level",
+                      "formatNo": "F/MNT/11",
+                      "document": "Lux Level Measurement Record",
+                      "title": "QC Lab - Colour matching cabinet: light fell 45% (1863 → 1025 lux) between 11-May-2024 and 12-Aug-2025",
+                      "detail": "Measured on F/MNT/11: 1863 lux on 11-May-2024, 1025 lux on 12-Aug-2025. … check its lamps before the next colour approval.",
+                      "metric": {
+                        "label": "Change",
+                        "value": "−45%"
+                      },
+                      "evidence": [
+                        {
+                          "recordId": "seed-mnt-lux-2025",
+                          "documentId": "mnt-lux-level",
+                          "dueDate": "2025-08-12",
+                          "field": "luxLevel",
+                          "value": "QC Lab - Colour matching cabinet: 1025 lux"
+                        }
+                      ],
+                      "evidenceTotal": 2,
+                      "suggestedCapa": {
+                        "finding": "Lux level at QC Lab - Colour matching cabinet fell 45% (1863 → 1025 lux) between 11-May-2024 and 12-Aug-2025 (F/MNT/11).",
+                        "comment": "F/MNT/11 of 11-May-2024: 1863 lux; F/MNT/11 of 12-Aug-2025: 1025 lux.",
+                        "action": "Check and replace the cabinet's lamps as its maker specifies, measure again, and confirm colour judgement there before the next approval."
+                      },
+                      "route": "/record/seed-mnt-lux-2025",
+                      "link": "http://dcrs-host:4000/index.html#/record/seed-mnt-lux-2025"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          },
+          "503": {
+            "$ref": "#/components/responses/EngineUnavailable"
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-answer": "Mitra's live facts in DCRS: engine/assistantLocal.ts buildAssistantContext, engine/scopedInsights.ts (REQUIREMENTS §75)"
+      }
+    },
+    "/api/v1/escalations": {
+      "get": {
+        "tags": [
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "escalations",
+        "summary": "READ — the super admin's escalations (the super admin only)",
+        "description": "The escalations DCRS's server raised for the super admin (backend/escalation.ts, REQUIREMENTS §75): somebody with 3 or more late submissions, or 2 or more records never done, in the last 30 days — named by name, or as the department where several share the work — what the bell in DCRS shows. `summary` is the line Mitra adds to her live facts for the super admin in DCRS, in the same words. Each escalation says who, the counts in a sentence, the documents with the most misses and up to ten of the records behind them. They name people, so they are the super admin's alone: anybody else is refused 403 super-admin-only. Reading them changes nothing; acknowledging one stays in DCRS.",
+        "parameters": [
+          {
+            "name": "open",
+            "in": "query",
+            "required": false,
+            "description": "1 (when left out): the ones not yet acknowledged. 0: every one raised or grown in the last 30 days.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "0",
+                "true",
+                "false"
+              ],
+              "default": "1"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The escalations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Escalations"
+                },
+                "example": {
+                  "open": true,
+                  "today": "2026-10-02",
+                  "week": "2026-W40",
+                  "rule": {
+                    "late": 3,
+                    "neverDone": 2,
+                    "windowDays": 30
+                  },
+                  "summary": "Escalated to the super admin, not yet acknowledged: Kapila Barad (3 late).",
+                  "waiting": 1,
+                  "total": 1,
+                  "escalations": [
+                    {
+                      "id": "11",
+                      "kind": "person",
+                      "subjectName": "Kapila Barad",
+                      "department": "QC",
+                      "departmentName": "Quality Control",
+                      "period": "2026-W40",
+                      "late": 3,
+                      "neverDone": 0,
+                      "sentence": "3 late in the 30 days to 02-Oct-2026 — F-QC-30: 3 late",
+                      "raisedAt": "2026-10-01T04:30:00.000Z",
+                      "updatedAt": "2026-10-02T04:30:00.000Z",
+                      "acknowledged": false,
+                      "acknowledgedBy": null,
+                      "acknowledgedAt": null,
+                      "window": {
+                        "from": "2026-09-03",
+                        "to": "2026-10-02"
+                      },
+                      "worst": [
+                        {
+                          "documentId": "qc-viscosity",
+                          "what": "F-QC-30",
+                          "late": 3,
+                          "neverDone": 0
+                        }
+                      ],
+                      "records": [
+                        {
+                          "id": "rec-munyt2ti-14-azkgv0",
+                          "documentId": "qc-viscosity",
+                          "what": "F-QC-30",
+                          "dueDate": "2026-09-28",
+                          "outcome": "late",
+                          "daysLate": 2
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Not the super admin (super-admin-only). Also password-change-required, as on every /api/v1 route.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "super-admin-only": {
+                    "value": {
+                      "error": "Escalations are the super admin's alone: they name people, so no other account is shown them.",
+                      "code": "super-admin-only"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The escalations could not be read from the database (database-unavailable). Try again in a moment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "database-unavailable": {
+                    "value": {
+                      "error": "DCRS could not read the escalations just now. Try again in a moment.",
+                      "code": "database-unavailable"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-dcrs-kind": "read",
+        "x-mitra-answer": "Mitra's live facts for the super admin in DCRS: engine/assistantLocal.ts buildAssistantContext (REQUIREMENTS §75)"
+      }
     }
   },
   "components": {
@@ -2776,12 +3137,12 @@
         "name": "X-Client-Name",
         "in": "header",
         "required": false,
-        "description": "The calling server's name, written in DCRS's record history and activity log (\"Through Audit Assistant: ...\"). Printable characters, at most 40; a colon is dropped. Absent: \"DCRS API\".",
+        "description": "The calling server's name, written in DCRS's record history and activity log (\"Through Mitra mobile app: ...\"). Printable characters, at most 40; a colon is dropped. Absent: \"DCRS API\".",
         "schema": {
           "type": "string",
           "maxLength": 40
         },
-        "example": "Audit Assistant"
+        "example": "Mitra mobile app"
       },
       "FindingId": {
         "name": "id",
@@ -4740,6 +5101,499 @@
           },
           "exact": {
             "type": "string"
+          }
+        }
+      },
+      "Machine": {
+        "type": "object",
+        "description": "One line of F/MNT/01 as Mitra reads it: put back in step where the list prints it one column out (then `note` says so), and the list's \"NA\" and \"-\" as null.",
+        "required": [
+          "machineNo",
+          "summary"
+        ],
+        "properties": {
+          "machineNo": {
+            "type": "string",
+            "description": "M-47: the machine is its number."
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "section": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The list's own \"Department\" column: a section of the plant (Flexo, Common), not one of DCRS's departments."
+          },
+          "size": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "month": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "year": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "serialNo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "countryOfOrigin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "description": "Number, what it is, model, where it stands."
+          },
+          "note": {
+            "type": "string",
+            "description": "Only for a line the list prints one column out of step: what was done, and to confirm it against the plate."
+          }
+        }
+      },
+      "EquipmentLookup": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "list": {
+            "type": "object",
+            "description": "F/MNT/01 itself: the record the machines are read from, how many there are, their numbers and the numbers it skips.",
+            "properties": {
+              "documentId": {
+                "type": "string"
+              },
+              "formatNo": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "recordId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "machines": {
+                "type": "integer"
+              },
+              "numbered": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "first": {
+                    "type": "string"
+                  },
+                  "last": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "gaps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "route": {
+                "type": "string"
+              },
+              "link": {
+                "type": "string"
+              }
+            }
+          },
+          "answer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Mitra's own reply to the words, as her rules path gives it in DCRS; null when they are not a question she answers there."
+          },
+          "exact": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The Machine No. the words name without doubt: a number, or a serial only one machine has."
+          },
+          "total": {
+            "type": "integer"
+          },
+          "machines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Machine"
+            }
+          }
+        }
+      },
+      "Insight": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string",
+            "description": "Which insight rule found it (A1, B2, M6, …)."
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "module": {
+            "type": "string"
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "formatNo": {
+            "type": "string"
+          },
+          "document": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "description": "Up to five of the records it was read from, newest first.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "recordId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "documentId": {
+                  "type": "string"
+                },
+                "dueDate": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "evidenceTotal": {
+            "type": "integer"
+          },
+          "suggestedCapa": {
+            "type": "object",
+            "properties": {
+              "finding": {
+                "type": "string"
+              },
+              "comment": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              }
+            }
+          },
+          "route": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          }
+        }
+      },
+      "Insights": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "headline": {
+            "type": "string",
+            "description": "The line Mitra is given with every message in DCRS: the counts by severity and the most severe titles."
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "high": {
+                "type": "integer"
+              },
+              "medium": {
+                "type": "integer"
+              },
+              "low": {
+                "type": "integer"
+              }
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "insights": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Insight"
+            }
+          }
+        }
+      },
+      "Escalation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "department"
+            ]
+          },
+          "subjectName": {
+            "type": "string"
+          },
+          "department": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "departmentName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "period": {
+            "type": "string",
+            "description": "The ISO week it belongs to, such as 2026-W40."
+          },
+          "late": {
+            "type": "integer"
+          },
+          "neverDone": {
+            "type": "integer"
+          },
+          "sentence": {
+            "type": "string"
+          },
+          "raisedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "acknowledged": {
+            "type": "boolean"
+          },
+          "acknowledgedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "acknowledgedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "window": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "A department's accounts, by name."
+          },
+          "worst": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "documentId": {
+                  "type": "string"
+                },
+                "what": {
+                  "type": "string"
+                },
+                "late": {
+                  "type": "integer"
+                },
+                "neverDone": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "documentId": {
+                  "type": "string"
+                },
+                "what": {
+                  "type": "string"
+                },
+                "dueDate": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "late",
+                    "never done"
+                  ]
+                },
+                "daysLate": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Escalations": {
+        "type": "object",
+        "properties": {
+          "open": {
+            "type": "boolean"
+          },
+          "today": {
+            "type": "string"
+          },
+          "week": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "object",
+            "properties": {
+              "late": {
+                "type": "integer"
+              },
+              "neverDone": {
+                "type": "integer"
+              },
+              "windowDays": {
+                "type": "integer"
+              }
+            }
+          },
+          "summary": {
+            "type": "string",
+            "description": "The line Mitra adds for the super admin in DCRS, or that nothing is waiting."
+          },
+          "waiting": {
+            "type": "integer",
+            "description": "How many are not yet acknowledged."
+          },
+          "total": {
+            "type": "integer"
+          },
+          "escalations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Escalation"
+            }
           }
         }
       }

@@ -272,7 +272,7 @@ export const MitraMessage = memo(function MitraMessage({ message: m, onChip, onO
   return (
     <div className="mitra-turn bot" data-message={m.id}>
       <span className={`chat-avatar${m.pending ? " is-thinking" : ""}`} aria-hidden="true">
-        <FiZap size={11} />
+        <FiZap size={12} />
       </span>
       <div className="mitra-turn-body">
         {m.steps && m.steps.length > 0 && <MitraSteps steps={m.steps} compact={compact} />}

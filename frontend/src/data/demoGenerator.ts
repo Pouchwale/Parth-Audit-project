@@ -18,6 +18,7 @@ import { masterRepository } from "./repositories/masterRepository";
 import { recordRepository } from "./repositories/recordRepository";
 import { NEARLY_FULL_CHARS, measureWorkingCopy } from "./storageAdapter";
 import { getLogSheetLayout } from "./seed/logSheetLayouts";
+import { COMPANY } from "./seed/masterData";
 import { effectiveDueDatesInMonth } from "../engine/holidays";
 import { fillsThroughYear, periodKeyFor } from "../engine/recordGenerator";
 import { fixedMaterialForServiceArea, normalizeServiceLines } from "../engine/serviceMaterials";
@@ -329,7 +330,7 @@ function buildMonthlyCapaRecord(
       isDemo: true,
       data: {
         inspectionDate,
-        premisesName: "Gujarat Print Pack Publications Pvt. Ltd.",
+        premisesName: COMPANY.shortName,
         premisesAddress: "Dediyasan GIDC, Mehsana",
         contactPerson: "Ms. Kapila Barad",
         findings,

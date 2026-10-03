@@ -6,6 +6,7 @@ import { useSetAssistantTarget } from "../store/AssistantContext";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { complianceValidUntil, isPublicationDate, keepPublicationDate, type ComplianceSection, type ComplianceStatement } from "../data/seed/complianceStatements";
 import { allComplianceStatements, complianceStatement, referenceRepository } from "../data/repositories/referenceRepository";
+import { COMPANY } from "../data/seed/masterData";
 import { ReferenceEditBar } from "../components/documents/ReferenceEditBar";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { formatDisplayDate, todayISO } from "../utils/date";
@@ -186,7 +187,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
 
       <div className="doc-header">
         <div className="company-name notranslate" translate="no">
-          GUJARAT PRINT PACK PUBLICATION PRIVATE LIMITED
+          {COMPANY.name}
         </div>
         <div className="doc-title">
           {editing ? (

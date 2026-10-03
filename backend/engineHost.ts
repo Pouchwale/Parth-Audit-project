@@ -66,8 +66,8 @@ export interface EngineStore {
   writeItem(scope: string, key: string, value: string, baseVersion: number, by: string): Promise<WriteResult>;
 }
 
-/** Must equal ENGINE_API_VERSION in frontend/src/engineHost/entry.ts. */
-export const ENGINE_API_VERSION = 1;
+/** Must equal ENGINE_API_VERSION in frontend/src/engineHost/entry.ts (2: the equipment list and the insights, 2-Oct-2026). */
+export const ENGINE_API_VERSION = 2;
 /** The company items a browser holds (backend/index.ts COMPANY_KEYS) — entry.ts ITEM_KEYS. */
 export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start"] as const;
 type ItemKey = (typeof ITEM_KEYS)[number];

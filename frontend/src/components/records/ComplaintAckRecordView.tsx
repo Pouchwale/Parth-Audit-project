@@ -12,6 +12,7 @@ import {
   CAF_MAX_PHOTOS,
   CAF_TITLE,
 } from "../../data/seed/complaintAck";
+import { COMPANY } from "../../data/seed/masterData";
 import { imageFileToDataUrl } from "../../utils/image";
 import { generateId } from "../../utils/id";
 import { FormField as Field } from "./FormField";
@@ -34,7 +35,7 @@ const FG_RULE = fgCodeRule("FG code");
 function Logo() {
   return (
     // The company's printed mark reads as issued in either language (REQUIREMENTS §58).
-    <div className="caf-logo notranslate" translate="no" aria-label="Gujarat Print Pack Publications Pvt. Ltd.">
+    <div className="caf-logo notranslate" translate="no" aria-label={COMPANY.shortName}>
       <div className="l1">{CAF_COMPANY_LINE_1}</div>
       <div className="l2">{CAF_COMPANY_LINE_2}</div>
     </div>

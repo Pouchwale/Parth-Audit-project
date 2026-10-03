@@ -2,6 +2,7 @@ node_modules/
 .devbuild/
 dist/
 *.log
+/logs/
 .DS_Store
 tests/shots/
 backend/data/
@@ -17,3 +18,8 @@ Audit documents.zip
 # Editor settings and Python caches: each person's own, never the project's.
 .vscode/
 __pycache__/
+
+# The Mitra phone app (its server and its Expo app) is kept in this folder so the
+# whole application is in one place, but it is its own repository
+# (Pouchwale/Parth-Audit-chatbot), committed and pushed there, never inside DCRS.
+/Audit project chatbot-mobile/

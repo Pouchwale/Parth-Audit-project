@@ -1,4 +1,5 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
+import { COMPANY } from "./masterData";
 
 // THE THREE CERTIFICATES OF ANALYSIS (REQUIREMENTS §57) — the Quality Control
 // formats supplied on 18-Sep-2026, reproduced as log-sheet layouts:
@@ -462,9 +463,10 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-coa-corrugated": {
     documentId: "qc-coa-corrugated",
     instructions: [
-      // The certificate's own heading block, its own spellings kept ("GUJRAT",
-      // "DEDIASAN", "ASSURENCE").
-      "GUJRAT PRINT PACK PUB.LTD 308/9, GIDC DEDIASAN MEHSANA. GUJARAT. — DEPT:QUALITY ASSURENCE (2009 EDITION) — DOC.NO. QA-IP-TRFCBA-011-00-01-09-18 — FG(CO) =FINISH GOODS (CORRUGATION)",
+      // The certificate's own heading block, its own spellings kept ("DEDIASAN",
+      // "ASSURENCE") — all but the company's name, which is printed as the owner
+      // gave it on 02-Oct-2026 (COMPANY.name), not as the certificate abbreviates it.
+      `${COMPANY.name} 308/9, GIDC DEDIASAN MEHSANA. GUJARAT. — DEPT:QUALITY ASSURENCE (2009 EDITION) — DOC.NO. QA-IP-TRFCBA-011-00-01-09-18 — FG(CO) =FINISH GOODS (CORRUGATION)`,
       "CBA: CORRUGATED BOX ANALYSIS",
       "The certificate's fourteen numbered lines are printed on the form, 7 breaking into 7.1 TOP PAPER, 7.2 PLAIN PAPER and 7.3 FLUTE PAPER. Those three lines are the ones with the four paper columns — Specified  GSM, Tested GSM, BF and Grade of Paper; every other line has the single Observation box.",
     ],

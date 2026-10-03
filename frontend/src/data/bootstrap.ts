@@ -9,6 +9,7 @@ import { alignRecordsToWorkingCalendar } from "../engine/calendarMigration";
 import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
 import { alignTubeLightDates } from "../engine/tubeLightMigration";
 import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
+import { alignCompanyName } from "./companyNameMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -60,6 +61,13 @@ export function bootstrap(): void {
   // with them, now that Rev 01 reads each Actual from F/MNT/02 (REQUIREMENTS
   // §82) — before the month's generation and preparation, so both see them so.
   pinSchedulesWrittenOnRev00();
+  // The company's name as the owner gave it on 02-Oct-2026, in what this
+  // installation had already stored: a header typed over with an old spelling,
+  // a format's stored layout, a corrected statement, the master data and every
+  // record — each changed record with a line in its history. After the clean-ups
+  // above, so none of theirs folds into its line; before the month's generation
+  // and preparation, so nothing carries an old spelling forward.
+  alignCompanyName();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

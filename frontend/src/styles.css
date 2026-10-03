@@ -515,45 +515,34 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   50% { transform: scale(1.15); opacity: 1; }
 }
 
-/* The full-page Assistant (pages/AssistantPage.tsx) — chat-app layout */
+/* ---- Ask Mitra, the full page (pages/AssistantPage.tsx): its layout ----
+   The conversations on the left, the thread in the middle at a reading width,
+   the composer at its foot; on a narrow window the conversations fold away
+   above the thread. How every piece looks is further down, with the rest of
+   Mitra's look ("Ask Mitra's page: how it looks"), after the generic .card,
+   .btn and .input rules it builds on. */
 .assistant-page { display: flex; gap: 16px; height: calc(100vh - 58px - 44px - 60px); min-height: 520px; }
 .assistant-side { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
-.assistant-side-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 10px; border-bottom: 1px solid var(--color-border); }
-.assistant-side-list { flex: 1; overflow-y: auto; padding: 6px; }
-.assistant-conv { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; }
-.assistant-conv:hover { background: var(--color-surface-alt); }
-.assistant-conv.active { background: var(--color-primary-light); }
+.assistant-side-list { flex: 1 1 auto; min-height: 72px; overflow-y: auto; }
+/* The phone card at the foot: it gives way (and scrolls) before the list does. */
+.assistant-side > .mitra-phone { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+/* While its code is shown, the phone card has the panel: the list folds until it is hidden again. */
+.assistant-side.is-phone-open .assistant-side-list { display: none; }
+.assistant-side.is-phone-open > .mitra-phone { flex: 1 1 auto; border-top: 0; }
+.assistant-side.is-phone-open { width: 300px; }
 .assistant-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
-.assistant-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
-.assistant-log { flex: 1; overflow-y: auto; padding: 18px 20px; }
-.assistant-log .chat-msg { font-size: 13.5px; }
-/* On the page Mitra's words sit on the page itself, like a letter; the
-   person's stay a soft bubble. The thread is centred at a reading width. */
-.assistant-log .chat-msg.bot { background: transparent; border: 0; border-radius: 0; padding: 2px 0; }
+.assistant-log { flex: 1; overflow-y: auto; padding: 20px 24px 12px; }
 .assistant-log .mitra-thread { max-width: 860px; margin: 0 auto; }
 .assistant-side.is-collapsed { display: none; }
-.mitra-footer { padding: 0 16px 10px; text-align: center; }
-.assistant-welcome { padding: 8px 4px 16px; }
-.assistant-suggestions { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-.assistant-suggestion {
-  display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 11px 13px; border-radius: var(--radius-md);
-  border: 1px solid var(--color-border); background: var(--color-surface); cursor: pointer; font: inherit; color: var(--color-text);
-}
-.assistant-suggestion:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
-.assistant-suggestion strong { display: block; font-size: 13px; margin-bottom: 2px; }
-/* The composer (components/mitra/MitraComposer.tsx) sits at the foot of the
-   thread, at the same reading width. */
-.assistant-composer { padding: 8px 16px 6px; border-top: 1px solid var(--color-border); background: var(--color-surface); }
 .assistant-composer > .mitra-composer, .assistant-composer > .mitra-hint, .assistant-composer > .assistant-voice-note { max-width: 860px; margin-left: auto; margin-right: auto; }
 @media (max-width: 900px) {
   .assistant-page { flex-direction: column; height: auto; }
-  .assistant-side { width: auto; max-height: 200px; }
+  .assistant-side, .assistant-side.is-phone-open { width: auto; }
+  .assistant-side-list { max-height: 200px; }
   .assistant-main { min-height: 520px; height: calc(100vh - 58px - 44px - 60px); }
 }
 @media (max-width: 600px) {
-  .assistant-log { padding: 12px 10px; }
-  .assistant-composer { padding: 6px 8px; }
-  .assistant-head { padding: 10px 12px; }
+  .assistant-log { padding: 14px 12px 8px; }
 }
 .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .app-topbar {
@@ -629,7 +618,22 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
    so a document and the chat about it sit side by side and nothing on the
    form is covered. On a narrow screen there is no width to give, so the panel
    lies over the page instead. Never on paper. */
-:root { --assistant-dock-width: 380px; }
+:root {
+  --assistant-dock-width: 380px;
+  /* MITRA'S OWN LOOK (2-Oct-2026). Its face is DCRS's teal running into a deep
+     green (the sidebar's band, darkened at its green end so white words on it
+     keep 5.7:1); the chat's hairlines and surfaces are a shade softer than the
+     forms', and its shadows are tinted with the teal, never black. */
+  --mitra-face: linear-gradient(135deg, #0a4258 0%, #0f5c7a 55%, #17735f 100%);
+  --mitra-hairline: #e1e8ee;
+  --mitra-line: #c9d5de;
+  --mitra-surface: #f3f7f9;
+  --mitra-tint: #e9f3f6;
+  --mitra-shadow: 0 1px 2px rgba(10, 66, 88, 0.06), 0 4px 14px rgba(10, 66, 88, 0.07);
+  --mitra-lift: 0 2px 4px rgba(10, 66, 88, 0.06), 0 10px 24px rgba(10, 66, 88, 0.1);
+  --mitra-r-bubble: 16px;
+  --mitra-r-card: 12px;
+}
 .assistant-dock { position: fixed; top: 0; right: 0; bottom: 0; width: var(--assistant-dock-width); z-index: 50; display: flex; }
 /* MITRA ARRIVES, RATHER THAN APPEARING (REQUIREMENTS §67). The panel slides in
    from its own edge and the messages rise into place, so opening the chat feels
@@ -642,7 +646,12 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
    off for somebody who has asked for less movement. */
 .assistant-dock { animation: assistant-dock-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @keyframes assistant-dock-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
-.assistant-dock-card { width: 100%; height: 100%; border-radius: 0 !important; border-width: 0 0 0 1px !important; box-shadow: var(--shadow-lg); }
+/* The card fills the panel: a column of head, thread and composer, its one
+   border the hairline against the page, its shadow cast onto the page. */
+.assistant-dock .assistant-dock-card {
+  width: 100%; height: 100%; display: flex; flex-direction: column; border-radius: 0 !important; border-width: 0 0 0 1px !important;
+  border-color: var(--mitra-hairline); box-shadow: -10px 0 28px rgba(10, 66, 88, 0.1);
+}
 html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 @media (max-width: 900px) {
   html.assistant-docked .app-main { margin-right: 0; }
@@ -927,30 +936,49 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
 .briefing-item { border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 8px 10px; background: var(--color-surface-alt); }
 .briefing-item ul li { margin-bottom: 1px; }
 
-/* ---- Assistant chat widget ---- */
+/* ---- Mitra's chat: the pieces the page and the dock share ----
+   ONE LOOK FOR BOTH (2-Oct-2026), after Intercom's messenger in its rhythm and
+   in nothing else (DCRS keeps its own colours, fonts and Feather icons): the
+   person's words in a teal bubble on the right; Mitra's in a soft grey one on
+   the left — on the full page they sit on the page itself, beside Mitra's face
+   (REQUIREMENTS §80.6, ".assistant-log" below); quick replies as pills; and
+   Mitra's face a round teal spark wherever it speaks.
+   ONE SHAPE SCALE: chips, the launcher and status labels are full pills;
+   bubbles 16px, with a 6px corner on the speaker's side at the top; cards and
+   rows 12px; the composer 16px; icon buttons round. Every word on these
+   surfaces reads at WCAG AA (4.5:1) or better. */
 .chat-log { display: flex; flex-direction: column; gap: 8px; }
-.chat-msg { max-width: 90%; padding: 8px 11px; border-radius: 12px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
-.chat-msg.bot { background: var(--color-surface-alt); border: 1px solid var(--color-border); align-self: flex-start; border-bottom-left-radius: 4px; }
-.chat-msg.user { background: var(--color-primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.chat-msg { max-width: 90%; padding: 9px 13px; border-radius: var(--mitra-r-bubble); font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.chat-msg.bot { background: var(--mitra-surface); border: 1px solid var(--mitra-hairline); color: var(--color-text); align-self: flex-start; border-top-left-radius: 6px; }
+.chat-msg.user { background: var(--color-primary); color: #fff; align-self: flex-end; border-top-right-radius: 6px; box-shadow: 0 1px 2px rgba(10, 66, 88, 0.2); }
 .chat-msg.bot strong { color: var(--color-primary-dark); }
+.is-compact .chat-msg { font-size: 13px; }
 .chat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+/* A chip is a pill with a hairline, its words in teal; filled when it is the
+   step to take; green to approve, red to delete. The colours change at once;
+   only the lift moves. */
 .chat-chip {
-  border: 1px solid var(--color-primary); color: var(--color-primary); background: var(--color-surface); border-radius: 999px;
-  padding: 4px 11px; font-size: 12px; font-weight: 600; cursor: pointer; line-height: 1.3;
+  border: 1px solid var(--mitra-line); color: var(--color-primary); background: var(--color-surface); border-radius: 999px;
+  padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; line-height: 1.3;
 }
-.chat-chip:hover { background: var(--color-primary-light); }
-.chat-chip.success { border-color: var(--color-success); color: var(--color-success); }
-.chat-chip.success:hover { background: var(--color-success-bg); }
-.chat-chip.danger { border-color: var(--color-danger); color: var(--color-danger); }
-.chat-chip.danger:hover { background: var(--color-danger-bg); }
-.chat-chip.primary { background: var(--color-primary); color: #fff; }
-.chat-chip.primary:hover { background: var(--color-primary-dark); }
-.chat-typing { display: inline-flex; gap: 3px; padding: 6px 2px; }
-.chat-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--color-text-faint); animation: chat-bounce 1.1s infinite; }
+.chat-chip:hover { background: var(--color-primary-light); border-color: var(--color-primary); }
+.chat-chip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.chat-chip.success { border-color: #8fcfb0; color: #146e47; }
+.chat-chip.success:hover { background: var(--color-success-bg); border-color: var(--color-success); }
+.chat-chip.danger { border-color: #e9b0b0; color: var(--color-danger); }
+.chat-chip.danger:hover { background: var(--color-danger-bg); border-color: var(--color-danger); }
+.chat-chip.primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.chat-chip.primary:hover { background: var(--color-primary-dark); border-color: var(--color-primary-dark); }
+.chat-typing { display: inline-flex; gap: 4px; padding: 5px 2px; }
+.chat-typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); opacity: 0.5; animation: chat-bounce 1.1s infinite; }
 .chat-typing span:nth-child(2) { animation-delay: 0.15s; }
 .chat-typing span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes chat-bounce { 0%, 70%, 100% { transform: translateY(0); opacity: 0.5; } 35% { transform: translateY(-4px); opacity: 1; } }
-.chat-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+/* Mitra's face: the spark, white on its teal disc. */
+.chat-avatar {
+  position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--mitra-face); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 1px 2px rgba(10, 66, 88, 0.25);
+}
 
 /* Each message rises into place as it is said (REQUIREMENTS §67). Only a new
    message animates: the ones already in the log keep their place in React's
@@ -963,29 +991,48 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
 
 /* An answer worth tapping looks worth tapping: it lifts a little under the
    pointer and presses back down when it is used. */
-.chat-chip { transition: transform 120ms ease, background-color 120ms ease, box-shadow 120ms ease; }
+.chat-chip { transition: transform 120ms ease; }
 .chat-chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .chat-chip:active { transform: translateY(0); box-shadow: none; }
 
-/* Mitra's face while it is thinking: the same three dots the message shows,
-   but on the avatar, so the person can see it is busy without reading. */
-.chat-avatar.is-thinking { animation: chat-avatar-thinking 1.4s ease-in-out infinite; }
+/* Mitra's face while it is answering: a ring breathes out round it, so the
+   person can see it is busy without reading. The ring is an element of its
+   own and only its opacity and size move — the face used to pulse a
+   box-shadow, which had the page painted again on every frame (§76's rule). */
+.chat-avatar.is-thinking::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--color-primary);
+  opacity: 0; pointer-events: none; animation: chat-avatar-thinking 1.4s ease-out infinite;
+}
 @keyframes chat-avatar-thinking {
-  0%, 100% { transform: none; box-shadow: none; }
-  50% { transform: scale(1.08); box-shadow: 0 0 0 4px var(--color-primary-light); }
+  0% { opacity: 0.6; transform: scale(0.86); }
+  70%, 100% { opacity: 0; transform: scale(1.2); }
 }
 
-/* THE PILL THAT CALLS MITRA. It lifts under the pointer; and when something of
-   this person's is waiting it waves once or twice on arrival — a few seconds,
-   not for ever, because a thing that never stops moving is a thing people
-   learn to ignore. The wave is a ring of its own that fades in and out:
-   opacity and transform are animated by the graphics card, where a moving
-   box-shadow had the page painted again on every frame — on a register of 173
-   lines open for Edit, most of what a keystroke cost for as long as it waved
-   (REQUIREMENTS §76). */
-.assistant-pill { transition: transform 140ms ease, box-shadow 140ms ease; }
+/* THE PILL THAT CALLS MITRA (the launcher). Mitra's face on its teal disc,
+   "Ask Mitra", and a count when some of this person's work is waiting. It
+   lifts under the pointer; and when something of this person's is waiting it
+   waves once or twice on arrival — a few seconds, not for ever, because a
+   thing that never stops moving is a thing people learn to ignore. The wave is
+   a ring of its own that fades in and out: opacity and transform are animated
+   by the graphics card, where a moving box-shadow had the page painted again
+   on every frame — on a register of 173 lines open for Edit, most of what a
+   keystroke cost for as long as it waved (REQUIREMENTS §76). Its shadow stands
+   still. Where it was dragged to is the only thing set on the element itself. */
+.assistant-pill {
+  gap: 8px; min-height: 40px; padding: 5px 15px 5px 5px; border: 0; border-radius: 999px;
+  background: var(--mitra-face); color: #fff; font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+  box-shadow: 0 2px 4px rgba(10, 66, 88, 0.18), 0 10px 22px rgba(10, 66, 88, 0.26);
+  cursor: grab; touch-action: none;
+  transition: transform 140ms ease;
+}
+.btn.assistant-pill:hover:not(:disabled) { background: var(--mitra-face); }
 .assistant-pill:hover { transform: translateY(-2px); }
-.assistant-pill:active { transform: translateY(0); }
+.assistant-pill:active { transform: translateY(0); cursor: grabbing; }
+.assistant-pill:focus-visible { outline: 3px solid #8fc6da; outline-offset: 2px; }
+.assistant-pill-face {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
 .assistant-pill.has-waiting { position: relative; }
 .assistant-pill.has-waiting::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
@@ -999,8 +1046,8 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
 }
 /* How many of their documents are waiting, on the pill itself. */
 .assistant-pill-count {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 4px;
-  margin-left: 2px; border-radius: 999px; background: #fff; color: var(--color-primary);
+  display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
+  margin-left: 1px; border-radius: 999px; background: #fff; color: var(--color-primary-dark);
   font-size: 11px; font-weight: 700; line-height: 1;
 }
 
@@ -1265,11 +1312,12 @@ body { top: 0 !important; }
    cheap on an old laptop: every movement is a short transition or one small
    animation of opacity or transform, nothing re-measures the page, and the
    thread follows an answer with a single scroll. */
-.mitra-thread { display: flex; flex-direction: column; gap: 10px; width: 100%; min-height: 0; }
-.mitra-turn { display: flex; align-items: flex-start; gap: 8px; max-width: 100%; min-width: 0; }
+.mitra-thread { display: flex; flex-direction: column; gap: 14px; width: 100%; min-height: 0; }
+.is-compact .mitra-thread { gap: 10px; }
+.mitra-turn { display: flex; align-items: flex-start; gap: 10px; max-width: 100%; min-width: 0; }
 .mitra-turn.bot { align-self: flex-start; max-width: 94%; }
 .mitra-turn.user { align-self: flex-end; max-width: 78%; }
-.mitra-turn > .chat-avatar { margin-top: 3px; }
+.mitra-turn > .chat-avatar { margin-top: 1px; }
 .is-compact .mitra-turn > .chat-avatar { display: none; }
 .is-compact .mitra-turn.user { max-width: 90%; }
 .is-compact .mitra-turn.bot { max-width: 96%; }
@@ -1277,7 +1325,14 @@ body { top: 0 !important; }
 .mitra-turn.user .mitra-turn-body { align-items: flex-end; }
 .mitra-turn .chat-msg { max-width: 100%; }
 .mitra-turn .chat-aside, .mitra-turn .chat-chips { align-self: flex-start; max-width: 100%; margin-top: 0; }
-.mitra-turn .chat-chips[data-section="cites"] .chat-chip { font-size: 11px; padding: 2px 8px; }
+.mitra-turn .chat-chips[data-section="cites"] .chat-chip { font-size: 11px; padding: 3px 9px; }
+/* On the page Mitra's words sit on the page itself, like a letter, beside its
+   face (REQUIREMENTS §80.6); the person's stay a bubble. The dots that say it
+   is writing keep a small bubble of their own, so they read as Mitra's. */
+.assistant-log .chat-msg { font-size: 14px; line-height: 1.6; }
+.assistant-log .chat-msg.user { padding: 9px 14px; line-height: 1.5; }
+.assistant-log .chat-msg.bot { background: transparent; border: 0; border-radius: 0; padding: 2px 0 0; }
+.assistant-log .chat-msg.bot.mitra-typing { background: var(--mitra-surface); border: 1px solid var(--mitra-hairline); border-radius: var(--mitra-r-bubble); border-top-left-radius: 6px; padding: 5px 12px; }
 /* The words, in light markdown (components/mitra/markdown.ts). */
 .mitra-md { white-space: normal; }
 .mitra-md p, .mitra-md ul, .mitra-md ol { margin: 0; }
@@ -1285,28 +1340,32 @@ body { top: 0 !important; }
 .mitra-md > * + * { margin-top: 6px; }
 .mitra-md ul, .mitra-md ol { padding-left: 20px; }
 .mitra-md li + li { margin-top: 2px; }
+.mitra-md li::marker { color: var(--color-primary); }
 .mitra-md .mitra-heading { font-weight: 700; }
-.mitra-code { font-family: var(--font-mono); font-size: 0.92em; padding: 0 4px; border-radius: 3px; background: var(--color-neutral-bg); }
-/* The steps a tool took, one small row each (MitraSteps.tsx). */
-.mitra-steps { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 100%; }
-.mitra-step { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 9px 3px 8px; border-radius: 999px; font-size: 12px; line-height: 1.3; color: var(--color-text-muted); background: var(--color-surface-alt); border: 1px solid var(--color-border); }
+.mitra-code { font-family: var(--font-mono); font-size: 0.92em; padding: 0 4px; border-radius: 4px; background: #e8eff3; }
+/* The steps a tool took: a short trail of rows, one each (MitraSteps.tsx), each
+   rising into place as the tool is called. */
+.mitra-steps { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; max-width: 100%; padding: 2px 0 2px 12px; border-left: 2px solid var(--mitra-hairline); }
+.mitra-step { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 4px 10px 4px 8px; border-radius: 999px; font-size: 12px; line-height: 1.3; color: var(--color-text-muted); background: var(--color-surface); border: 1px solid var(--mitra-hairline); animation: mitra-rise 160ms ease-out backwards; }
 .mitra-step-icon { flex-shrink: 0; color: var(--color-primary); }
 .mitra-step-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mitra-step-state { display: inline-flex; flex-shrink: 0; }
+.mitra-step[data-status="running"] { color: var(--color-primary-dark); background: var(--mitra-tint); border-color: #c5dfe9; }
 .mitra-step[data-status="running"] .mitra-step-state { color: var(--color-primary); }
 .mitra-step[data-status="done"] .mitra-step-state { color: var(--color-success); }
-.mitra-step[data-status="failed"] { color: var(--color-danger); border-color: var(--color-danger); background: var(--color-danger-bg); }
+.mitra-step[data-status="failed"] { color: var(--color-danger); border-color: #e9b0b0; background: var(--color-danger-bg); }
 .mitra-step[data-status="failed"] .mitra-step-icon { color: var(--color-danger); }
+@keyframes mitra-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 /* "Mitra is thinking…" — a line that breathes while an answer is on its way. */
 .mitra-thinking { font-size: 12.5px; color: var(--color-text-muted); padding: 2px 0; animation: mitra-breathe 1.5s ease-in-out infinite; }
 @keyframes mitra-breathe { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 /* The answers to a question Mitra asked (ask_user, or a yes/no before a change). */
 .mitra-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; max-width: 100%; }
-.mitra-options-hint { flex-basis: 100%; font-size: 11px; color: var(--color-text-faint); }
+.mitra-options-hint { flex-basis: 100%; font-size: 11px; color: var(--color-text-muted); }
 /* The files attached: in the composer, and under the person's message (MitraAttachments.tsx). */
 .mitra-attachments { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 4px 2px; }
-.mitra-attachment { display: inline-flex; align-items: center; gap: 7px; max-width: 260px; padding: 5px 6px 5px 8px; border-radius: 10px; border: 1px solid var(--color-border); background: var(--color-surface-alt); font-size: 12px; color: var(--color-text); }
-.mitra-attachment[data-status="reading"] { border-style: dashed; }
+.mitra-attachment { display: inline-flex; align-items: center; gap: 7px; max-width: 260px; padding: 5px 6px 5px 8px; border-radius: 10px; border: 1px solid var(--mitra-hairline); background: var(--mitra-surface); font-size: 12px; color: var(--color-text); }
+.mitra-attachment[data-status="reading"] { border-style: dashed; border-color: var(--mitra-line); }
 .mitra-attachment[data-status="failed"] { border-color: var(--color-danger); background: var(--color-danger-bg); }
 .mitra-attachment-icon { flex-shrink: 0; color: var(--color-primary); }
 .mitra-attachment-thumb { width: 28px; height: 28px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: #fff; }
@@ -1317,47 +1376,55 @@ body { top: 0 !important; }
 .mitra-attachment-remove:hover { color: var(--color-danger); background: var(--color-danger-bg); }
 .mitra-msg-attachments .mitra-attachments { padding: 0; justify-content: flex-end; }
 .mitra-msg-attachments .mitra-attachment { background: var(--color-surface); }
-/* The composer (MitraComposer.tsx): one card. The box and every button are its
-   DIRECT children on a grid, so the send button's preceding sibling is the box
-   (a suite finds it that way) and nothing is nested to lay it out. */
+/* The composer (MitraComposer.tsx): one card, lifted a little off the page. The
+   box and every button are its DIRECT children on a grid, so the send button's
+   preceding sibling is the box (a suite finds it that way) and nothing is
+   nested to lay it out. Its outline and ring change at once when it has the
+   keyboard; nothing about it moves. */
 .mitra-composer-area { flex-shrink: 0; }
 .mitra-composer-area .assistant-voice-note { border-top: 0; background: transparent; padding: 2px 6px 8px; }
 .mitra-composer {
   position: relative; display: grid; grid-template-columns: auto 1fr auto auto; grid-template-areas: "files files files files" "text text text text" "attach . mic send";
-  align-items: center; gap: 2px 4px; padding: 6px 8px; border: 1px solid var(--color-border-strong); border-radius: 16px; background: #fff; box-shadow: var(--shadow-sm);
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  align-items: center; gap: 2px 4px; padding: 6px 8px; border: 1px solid var(--mitra-line); border-radius: 16px; background: #fff; box-shadow: var(--mitra-shadow);
 }
-.mitra-composer:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
+.mitra-composer:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light), var(--mitra-shadow); }
 .mitra-composer.is-dragging { border-color: var(--color-primary); border-style: dashed; background: var(--color-primary-light); }
 .mitra-composer.is-disabled { opacity: 0.7; }
 .mitra-composer > .mitra-attachments { grid-area: files; }
-.mitra-composer > textarea.input.mitra-input { grid-area: text; width: 100%; min-height: 0; max-height: calc(8 * 1.5em + 12px); padding: 8px 8px 4px; border: 0; outline: none; box-shadow: none; background: transparent; resize: none; overflow-y: auto; line-height: 1.5; font-size: 13.5px; }
+.mitra-composer > textarea.input.mitra-input { grid-area: text; width: 100%; min-height: 0; max-height: calc(8 * 1.5em + 12px); padding: 8px 8px 4px; border: 0; outline: none; box-shadow: none; background: transparent; resize: none; overflow-y: auto; line-height: 1.5; font-size: 14px; color: var(--color-text); }
+.mitra-composer > textarea.input.mitra-input::placeholder { color: var(--color-text-muted); }
 .mitra-composer > textarea.input.mitra-input:focus { border: 0; outline: none; }
 .is-compact .mitra-composer > textarea.input.mitra-input { font-size: 13px; max-height: calc(6 * 1.5em + 12px); }
 .mitra-composer > .mitra-attach { grid-area: attach; }
 .mitra-composer > .mitra-mic { grid-area: mic; justify-self: end; }
 .mitra-composer > .mitra-send { grid-area: send; }
-.mitra-composer .btn { min-height: 32px; padding: 0 8px; border-radius: 10px; }
-.mitra-composer .mitra-attach { width: 32px; padding: 0; color: var(--color-text-muted); }
+.mitra-composer .btn { min-height: 34px; min-width: 34px; padding: 0 9px; border-radius: 999px; }
+.mitra-composer .mitra-attach { width: 34px; padding: 0; color: var(--color-text-muted); }
 .mitra-composer .mitra-attach[aria-expanded="true"] { background: var(--color-primary-light); color: var(--color-primary); }
 .mitra-composer .mitra-mic { gap: 6px; color: var(--color-text-muted); }
 .mitra-composer .mitra-mic.mitra-recording { color: #fff; }
-.mitra-composer .mitra-send { width: 32px; padding: 0; border-radius: 50%; }
+.mitra-composer .mitra-send { width: 34px; padding: 0; border-radius: 50%; }
 /* Recording: a red button with a beating dot and the seconds beside it. */
 .mitra-recording::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: voice-pulse 1.1s ease-in-out infinite; }
 .mitra-rec-time { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .mitra-spin { animation: conn-spin 1s linear infinite; }
 /* The + menu: Files / Folder / Photo, above the button. */
-.mitra-menu { position: absolute; left: 8px; bottom: 46px; z-index: 5; min-width: 170px; padding: 4px; border-radius: var(--radius-md); background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: var(--shadow-lg); animation: mitra-menu-in 120ms ease-out; }
+.mitra-menu { position: absolute; left: 8px; bottom: 48px; z-index: 5; min-width: 170px; padding: 4px; border-radius: var(--mitra-r-card); background: var(--color-surface); border: 1px solid var(--mitra-hairline); box-shadow: var(--shadow-lg); animation: mitra-menu-in 120ms ease-out; }
 @keyframes mitra-menu-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.mitra-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.mitra-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--color-text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .mitra-menu-item:hover, .mitra-menu-item:focus-visible { background: var(--color-primary-light); color: var(--color-primary); outline: none; }
 .mitra-drop-hint { position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; border-radius: inherit; background: rgba(228, 240, 245, 0.92); color: var(--color-primary); font-size: 13px; font-weight: 600; pointer-events: none; }
-.mitra-hint { padding: 5px 0 2px; font-size: 11px; color: var(--color-text-faint); text-align: center; }
-/* The status beside Mitra's name on the page: green and ready, or grey with why. */
-.mitra-status { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-size: 11px; font-weight: 500; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mitra-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-faint); flex-shrink: 0; }
-.mitra-status[data-state="ready"]::before { background: var(--color-success); box-shadow: 0 0 0 3px var(--color-success-bg); }
+.mitra-hint { padding: 6px 0 2px; font-size: 11px; color: var(--color-text-muted); text-align: center; }
+/* The status beside Mitra's name on the page: a small label, green and ready,
+   or grey and answering from the system's own records (its tooltip says why). */
+.mitra-status {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 9px 2px 7px; border-radius: 999px;
+  border: 1px solid var(--mitra-hairline); background: var(--color-surface-alt); font-size: 11px; font-weight: 600; color: var(--color-text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mitra-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #8695a3; flex-shrink: 0; }
+.mitra-status[data-state="ready"] { background: #eaf7f0; border-color: #c4e6d3; color: #146e47; }
+.mitra-status[data-state="ready"]::before { background: var(--color-success); box-shadow: 0 0 0 3px rgba(27, 138, 90, 0.18); }
 /* COPY, EDIT AND STOP (REQUIREMENTS §85, MitraMessage.tsx / MitraComposer.tsx).
    The small row under a message: faint until the message is pointed at or the
    row has the keyboard's focus (always there, so nothing jumps on hover), full
@@ -1366,8 +1433,8 @@ body { top: 0 !important; }
 .mitra-msg-actions { display: flex; align-items: center; gap: 2px; margin-top: -3px; opacity: 0.45; transition: opacity 120ms ease; }
 .mitra-turn:hover .mitra-msg-actions, .mitra-msg-actions:focus-within, .mitra-turn:last-child .mitra-msg-actions { opacity: 1; }
 @media (hover: none) { .mitra-msg-actions { opacity: 0.85; } }
-.mitra-msg-action { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 24px; min-width: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; color: var(--color-text-muted); font: inherit; font-size: 11.5px; line-height: 1; cursor: pointer; }
-.mitra-msg-action:hover:not(:disabled) { background: var(--color-surface-alt); color: var(--color-text); }
+.mitra-msg-action { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 26px; min-width: 26px; padding: 0 6px; border: 0; border-radius: 999px; background: transparent; color: var(--color-text-muted); font: inherit; font-size: 11.5px; line-height: 1; cursor: pointer; }
+.mitra-msg-action:hover:not(:disabled) { background: var(--mitra-surface); color: var(--color-primary); }
 .mitra-msg-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 .mitra-msg-action:disabled { cursor: not-allowed; opacity: 0.4; }
 .mitra-msg-action[data-copied="yes"] { color: var(--color-success); }
@@ -1377,7 +1444,7 @@ body { top: 0 !important; }
 .mitra-turn.user.is-editing { width: 78%; }
 .is-compact .mitra-turn.user.is-editing { width: 100%; max-width: 100%; }
 .mitra-turn.user.is-editing .mitra-turn-body { width: 100%; align-items: stretch; }
-.mitra-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 8px 10px; border: 1px solid var(--color-primary); border-radius: 14px; background: var(--color-surface); box-shadow: 0 0 0 3px var(--color-primary-light); }
+.mitra-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 8px 10px; border: 1px solid var(--color-primary); border-radius: var(--mitra-r-bubble); background: var(--color-surface); box-shadow: 0 0 0 3px var(--color-primary-light); }
 .mitra-edit-input { width: 100%; min-height: 1.5em; max-height: calc(12 * 1.5em); padding: 2px 2px; border: 0; outline: none; background: transparent; color: var(--color-text); font: inherit; font-size: 13.5px; line-height: 1.5; resize: none; overflow-y: auto; }
 .is-compact .mitra-edit-input { font-size: 13px; max-height: calc(8 * 1.5em); }
 .mitra-edit .mitra-msg-attachments .mitra-attachments { justify-content: flex-start; }
@@ -1386,10 +1453,140 @@ body { top: 0 !important; }
 /* Stop, where the arrow was, while an answer is on its way. */
 .mitra-composer.is-stoppable > .mitra-send { display: none; }
 .mitra-composer > .mitra-stop { grid-area: send; }
-.mitra-composer .mitra-stop { width: 32px; padding: 0; border-radius: 50%; background: var(--color-text); color: #fff; border: 0; }
+.mitra-composer .mitra-stop { width: 34px; padding: 0; border-radius: 50%; background: var(--color-text); color: #fff; border: 0; }
 .mitra-composer .mitra-stop:hover { opacity: 0.85; }
 .mitra-composer .mitra-stop:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .mitra-msg-actions { transition: none; } }
+
+/* ---- Ask Mitra's page: how it looks (pages/AssistantPage.tsx, 2-Oct-2026) ----
+   Two cards on hairlines with a soft teal shadow: the conversations, with a
+   kind empty state and the phone card at their foot; and the chat, its head
+   washed with the faintest teal, its welcome a greeting from Mitra's face and
+   the questions it can answer as cards, each with its own picture. */
+.assistant-side.card, .assistant-main.card { border-color: var(--mitra-hairline); border-radius: var(--mitra-r-card); box-shadow: var(--mitra-shadow); }
+.assistant-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 11px 14px; border-bottom: 1px solid var(--mitra-hairline); }
+.assistant-side-title { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.assistant-side-list { padding: 8px; }
+.assistant-side-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 26px 14px 18px; text-align: center; }
+.assistant-side-empty-icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-bottom: 6px; border-radius: 50%; background: var(--mitra-tint); color: var(--color-primary); }
+.assistant-side-empty-title { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.assistant-side-empty-text { max-width: 200px; font-size: 12px; line-height: 1.45; color: var(--color-text-muted); }
+.assistant-conv { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 6px 8px 10px; border-radius: 10px; cursor: pointer; }
+.assistant-conv + .assistant-conv { margin-top: 2px; }
+.assistant-conv:hover { background: var(--color-surface-alt); }
+.assistant-conv.active { background: var(--color-primary-light); }
+.assistant-conv.active::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--color-primary); }
+.assistant-conv-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--color-surface-alt); color: var(--color-text-muted); }
+.assistant-conv.active .assistant-conv-icon { background: var(--color-surface); color: var(--color-primary); }
+.assistant-conv-text { flex: 1; min-width: 0; }
+.assistant-conv-title { font-size: 12.5px; font-weight: 600; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assistant-conv.active .assistant-conv-title { color: var(--color-primary-dark); }
+.assistant-conv-day { margin-top: 1px; font-size: 11px; color: var(--color-text-muted); }
+.assistant-conv .assistant-conv-delete { color: var(--color-text-muted); opacity: 0.55; }
+.assistant-conv:hover .assistant-conv-delete, .assistant-conv.active .assistant-conv-delete, .assistant-conv .assistant-conv-delete:focus-visible { opacity: 1; }
+.assistant-conv .assistant-conv-delete:hover:not(:disabled) { color: var(--color-danger); background: var(--color-danger-bg); }
+@media (hover: none) { .assistant-conv .assistant-conv-delete { opacity: 1; } }
+.assistant-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--mitra-hairline); background: linear-gradient(180deg, #f5f9fb 0%, var(--color-surface) 100%); }
+.assistant-head > .chat-avatar { width: 38px; height: 38px; }
+.assistant-head-text { flex: 1; min-width: 0; }
+.assistant-head .font-semibold > span:first-child { font-size: 17px; line-height: 1.2; }
+/* The welcome: Mitra's face and greeting, what it is for, where to go; then
+   the questions as cards. */
+.assistant-welcome { padding: 6px 2px 18px; }
+.mitra-hero { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+.mitra-hero-face {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 56px; height: 56px; border-radius: 50%;
+  background: var(--mitra-face); color: #fff; box-shadow: 0 2px 6px rgba(10, 66, 88, 0.22), 0 0 0 6px var(--mitra-tint);
+}
+.mitra-hero-text { min-width: 0; padding-top: 2px; }
+.mitra-hero-title { font-size: 22px; line-height: 1.25; letter-spacing: -0.01em; color: var(--color-text); }
+.mitra-hero-lead { max-width: 62ch; margin-top: 6px; font-size: 13.5px; line-height: 1.55; color: var(--color-text-muted); }
+.mitra-hero-chips { margin-top: 12px; }
+.assistant-suggestions { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.assistant-suggestion {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--mitra-r-card); border: 1px solid var(--mitra-hairline);
+  background: var(--color-surface); color: var(--color-text); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(10, 66, 88, 0.05);
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.assistant-suggestion:hover { border-color: #9cc5d6; background: #f8fbfc; transform: translateY(-2px); box-shadow: var(--mitra-lift); }
+.assistant-suggestion:active { transform: translateY(0); }
+.assistant-suggestion:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.assistant-suggestion-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 10px; background: var(--mitra-tint); color: var(--color-primary); }
+.assistant-suggestion-words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.assistant-suggestion strong { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.assistant-suggestion-ask { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; line-height: 1.4; color: var(--color-text-muted); }
+/* MITRA TURNS TO YOU. The welcome arrives in the order it reads: the face,
+   then the greeting, then the questions one after another — a few pixels and
+   a fade each, under 200 ms, so a new chat feels like somebody looking up
+   rather than a form appearing. Nothing is left moved (fill backwards). */
+@keyframes mitra-arrive { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: none; } }
+.mitra-hero-face { animation: mitra-arrive 200ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.mitra-hero-text { animation: mitra-rise 180ms ease-out 60ms backwards; }
+.assistant-suggestion { animation: mitra-rise 180ms ease-out backwards; animation-delay: calc(110ms + var(--i, 0) * 22ms); }
+.assistant-composer { padding: 10px 16px 6px; border-top: 1px solid var(--mitra-hairline); background: var(--color-surface); }
+.mitra-footer { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 0 16px 10px; font-size: 11px; color: var(--color-text-muted); text-align: center; }
+.mitra-footer svg { flex-shrink: 0; color: var(--color-primary); }
+@media (max-width: 600px) {
+  .assistant-head { gap: 10px; padding: 10px 12px; }
+  .assistant-head > .chat-avatar { width: 32px; height: 32px; }
+  .assistant-composer { padding: 6px 8px 8px; }
+  .mitra-hero { flex-direction: column; gap: 12px; margin-bottom: 16px; }
+  .mitra-hero-face { width: 46px; height: 46px; }
+  .mitra-hero-title { font-size: 19px; }
+  .assistant-suggestions { grid-template-columns: 1fr; gap: 8px; }
+  .assistant-suggestion { align-items: center; padding: 10px 12px; }
+  .assistant-suggestion-ask { display: none; }
+}
+
+/* ---- The dock: how it looks (components/common/DocumentAssistant.tsx) ----
+   Its head washed with the faintest teal, Mitra's face and name and what it
+   can do here; the thread; then the quick chips and the composer on a
+   lighter shelf. */
+.mitra-dock-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; padding: 12px 10px 12px 14px; border-bottom: 1px solid var(--mitra-hairline); background: linear-gradient(180deg, #f3f8fa 0%, var(--color-surface) 100%); }
+.mitra-dock-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mitra-dock-head .chat-avatar { width: 34px; height: 34px; }
+.mitra-dock-words { min-width: 0; }
+.mitra-dock-title { font-size: 15px; line-height: 1.2; color: var(--color-text); }
+.mitra-dock-subtitle { max-width: 250px; margin-top: 1px; font-size: 11.5px; color: var(--color-text-muted); }
+.mitra-dock-tools { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.mitra-dock-tools .btn { color: var(--color-text-muted); border-radius: 50%; }
+.mitra-dock-tools .btn:hover:not(:disabled) { color: var(--color-primary); }
+.mitra-dock-log { flex: 1 1 auto; min-height: 120px; overflow-y: auto; padding: 16px 14px; }
+.assistant-dock-card > .mitra-composer-area { padding: 10px 12px 12px; border-top: 1px solid var(--mitra-hairline); background: var(--color-surface); }
+/* The quick chips are shortcuts that are always there, so they are quieter than
+   the answers in the thread: soft tinted pills, the step to take filled teal,
+   approve in green, delete in red. */
+.mitra-quick-chips { gap: 5px; margin: 0 0 9px; }
+.mitra-quick-chips .chat-chip { padding: 3px 9px; font-size: 11px; }
+.mitra-quick-chips .chat-chip:not(.primary):not(.success):not(.danger) { background: #edf3f6; border-color: #edf3f6; }
+.mitra-quick-chips .chat-chip:not(.primary):not(.success):not(.danger):hover { background: var(--color-primary-light); border-color: var(--color-primary); }
+
+/* ---- Mitra on your phone (components/mitra/MitraPhoneCard.tsx, 2-Oct-2026) ----
+   At the foot of the conversations: a line and "Show the code"; opened, the QR
+   code that opens Mitra in Expo Go, its address, and the steps on the phone.
+   Screen only (.no-print on the card). */
+.mitra-phone { padding: 12px 14px 14px; border-top: 1px solid var(--mitra-hairline); background: linear-gradient(180deg, #f6fafb 0%, var(--color-surface) 70%); }
+.mitra-phone-head { display: flex; align-items: flex-start; gap: 10px; }
+.mitra-phone-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 10px; background: var(--mitra-face); color: #fff; }
+.mitra-phone-words { min-width: 0; }
+.mitra-phone-title { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.mitra-phone-lead { margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--color-text-muted); }
+.mitra-phone-toggle { margin: 10px 0 0 42px; }
+.mitra-phone-body { margin-top: 10px; animation: mitra-rise 180ms ease-out backwards; }
+.mitra-phone-code { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 0; }
+.mitra-qr { display: block; width: 148px; height: 148px; border: 1px solid var(--mitra-hairline); border-radius: 10px; background: #fff; }
+.mitra-phone-wait { display: flex; align-items: center; justify-content: center; width: 148px; height: 148px; padding: 12px; border: 1px dashed var(--mitra-line); border-radius: 10px; font-size: 11.5px; line-height: 1.4; color: var(--color-text-muted); text-align: center; }
+.mitra-phone-url { max-width: 100%; padding: 2px 10px; border: 1px solid var(--mitra-hairline); border-radius: 999px; background: var(--color-surface-alt); font-family: var(--font-mono); font-size: 11.5px; color: var(--color-text); overflow-wrap: anywhere; text-align: center; user-select: all; }
+.mitra-phone-note { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0; padding: 7px 9px; border: 1px solid var(--mitra-hairline); border-radius: 10px; background: var(--color-surface-alt); font-size: 11.5px; line-height: 1.45; color: var(--color-text); }
+.mitra-phone-note svg { flex-shrink: 0; margin-top: 1px; color: var(--color-primary); }
+.mitra-phone-note.is-warning { border-color: #efcf6f; background: var(--color-warning-bg); color: #6b4800; }
+.mitra-phone-note.is-warning svg { color: #8a5d00; }
+.mitra-phone-steps { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: mitra-phone-step; }
+.mitra-phone-steps li { position: relative; padding-left: 27px; counter-increment: mitra-phone-step; font-size: 11.5px; line-height: 1.42; color: var(--color-text); }
+.mitra-phone-steps li::before {
+  content: counter(mitra-phone-step); position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; background: var(--mitra-tint); color: var(--color-primary-dark); font-size: 11px; font-weight: 700;
+}
 /* ---- end of Ask Mitra as an agent ---- */
 
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
@@ -1397,11 +1594,14 @@ body { top: 0 !important; }
    so this has to come after the rules it switches off or the cascade simply
    ignores it — which is exactly what happened when it was written further up,
    and what reading the browser's own computed style caught. Mitra still says
-   everything it says; it just stops moving. */
+   everything it says; it just stops moving: the ring round its face while it
+   answers stands still, and so does the listening dot. */
 @media (prefers-reduced-motion: reduce) {
-  .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
-  .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu { animation: none !important; }
+  .assistant-dock, .chat-msg, .chat-msg.user, .chat-avatar.is-thinking, .chat-avatar.is-thinking::after, .assistant-pill.has-waiting::after, .chat-typing span, .mitra-reaction,
+  .mitra-thinking, .mitra-spin, .mitra-recording::before, .mitra-menu, .voice-pulse,
+  .mitra-hero-face, .mitra-hero-text, .assistant-suggestion, .mitra-step, .mitra-phone-body { animation: none !important; }
   .mitra-thinking { opacity: 0.8; }
-  .chat-chip, .assistant-pill, .mitra-composer { transition: none; }
-  .chat-chip:hover, .chat-chip:active, .assistant-pill:hover, .assistant-pill:active { transform: none; }
+  .chat-avatar.is-thinking::after { opacity: 0.5; transform: none; }
+  .chat-chip, .assistant-pill, .mitra-composer, .assistant-suggestion { transition: none; }
+  .chat-chip:hover, .chat-chip:active, .assistant-pill:hover, .assistant-pill:active, .assistant-suggestion:hover, .assistant-suggestion:active { transform: none; }
 }

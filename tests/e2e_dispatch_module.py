@@ -198,8 +198,8 @@ with sync_playwright() as p:
     missing = [line for line in AGREEMENT_LINES if line not in sheet]
     check("The clauses the paper prints are on it, under the paper's own headings", not missing, missing)
     check(
-        "...and both sides sign it",
-        "GUJARAT PRINT PACK PUBLICATIONS PRIVATE LIMITED" in sheet and "For Transporter" in sheet and "On dated" in sheet,
+        "...and both sides sign it - the company under its registered name (the owner, 02-Oct-2026)",
+        "For, GUJARAT PRINT PACK PUBLICATIONS PVT LTD" in sheet and "For Transporter" in sheet and "On dated" in sheet,
         sheet[:200],
     )
     check("The agreement has no grid: it is all words", page.locator(f"{PREVIEW} table.log-sheet thead th").count() == 0)

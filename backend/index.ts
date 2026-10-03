@@ -51,6 +51,7 @@ import { registerEscalationRoutes } from "./escalationRoutes.ts";
 import { registerApiV1 } from "./apiV1.ts";
 import { registerOverviewRoutes } from "./overviewRoutes.ts";
 import { registerAccessRoutes } from "./accessRoutes.ts";
+import { printCompanyNetwork, registerPhoneAppRoutes } from "./phoneApp.ts";
 import { startJobs } from "./jobs.ts";
 import { PHOTO_ROUTE } from "./apiV1Records.ts";
 
@@ -1561,6 +1562,8 @@ registerApiV1(app, { requireAuth, logActivity });
 registerOverviewRoutes(app, { requireAuth, logActivity });
 // USER ACCESS (REQUIREMENTS §84): the super admin's view of who may use which module, and every sign-in and sign-out.
 registerAccessRoutes(app, { requireAuth, logActivity });
+// MITRA ON THE PHONES: where Expo Go finds it on this PC, for the QR card on the Ask Mitra page (backend/phoneApp.ts).
+registerPhoneAppRoutes(app, { requireAuth });
 
 // Single-process production deployment: serve the built frontend (dist/)
 // from the same server as the API, so there's one process and one origin to
@@ -1693,6 +1696,8 @@ if (!ALLOW_SIGNUP) {
 
 app.listen(PORT, () => {
   console.log(`API server listening on http://localhost:${PORT}`);
+  // "On the company network: http://<this PC's address>:<port>", the address laptops and desktops open.
+  printCompanyNetwork(PORT);
   // The daily escalation and the weekly digest, on the plant's clock (backend/jobs.ts); JOBS=0 leaves them off.
   startJobs();
 });

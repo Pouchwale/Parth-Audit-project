@@ -446,7 +446,7 @@ with sync_playwright() as p:
     rid5b = start_record(page, "mnt-breakdown-clearance")
     slip2 = written(page, ".app-content")
     check("Slip (2) opens: Breakdown Maintenance Memo & Hygiene Clearance Record", "#/record/" in page.url and "HYGIENE CLEARANCE RECORD" in slip2.upper(), page.url)
-    check("...headed with the company as it prints it", "GUJARAT PRINT PACK PUBLICATION LIMITED" in slip2, slip2[:300])
+    check("...headed with the company's registered name, as every format is (the owner, 02-Oct-2026)", "GUJARAT PRINT PACK PUBLICATIONS PVT LTD" in slip2, slip2[:300])
     check("...its boxes as printed", all(l in slip2 for l in ("M/c ID No. :", "Machine Breakdown time :", "Problem reported by User :", "Action taken :", "Job Completion & Handover time :", "Problem attended by : -", "Sign of the User dept. : -")), slip2[:300])
     # A serial two Pouch machines share is never enough to pick one.
     check("A serial two machines share (194) offers both and picks neither", fetch_machine(page, "194") == "several" and not ((record(page, rid5b) or {}).get("data") or {}).get("header", {}).get("machineIdNo"))

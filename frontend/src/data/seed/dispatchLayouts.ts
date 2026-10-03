@@ -1,4 +1,5 @@
 import type { LogSheetLayout } from "../../types";
+import { COMPANY } from "./masterData";
 
 // DISPATCH — THE FORMATS THE DEPARTMENT SUPPLIED (REQUIREMENTS §70, and F/DISP/04 in §86).
 //
@@ -16,7 +17,10 @@ import type { LogSheetLayout } from "../../types";
 // Both are transcribed from the company's own PDFs, supplied 23-Sep-2026 and
 // kept in source-documents/. Verbatim means verbatim: the checklist runs
 // 1, 2, 3, 4, 6, 7, 8, 9 — the paper has no 5 — and the numbers are declared
-// rather than drawn, so the gap survives.
+// rather than drawn, so the gap survives. The company's name alone is not the
+// paper's: F/DISP/01 names it as the owner gave it on 02-Oct-2026
+// (COMPANY.name), in its clause and over its signature boxes — whose keys,
+// gppName and the rest, stay as they are, since records are kept under them.
 
 const SAFE_TRANSPORTER: LogSheetLayout = {
   documentId: "disp-safe-transporter-agreement",
@@ -24,7 +28,7 @@ const SAFE_TRANSPORTER: LogSheetLayout = {
   instructions: [
     "In order to maintain Quality, Product safety, integrity & legality of the products being supplied by us, following standards & code of practices are required to be followed by contract transport / distribution service providers.",
     "This contract is valid for the period of 01.04.2025 to 31.03.2026, unless any major changes in technical aspects. This contract doesn’t contain any commercial values.",
-    "GUJARAT PRINT PACK PUBLICATIONS PRIVATE LIMITED will inspect the vehicle presented by the transport company to ensure that it complies with this Code of Practice before it is loaded with product.",
+    `${COMPANY.name} will inspect the vehicle presented by the transport company to ensure that it complies with this Code of Practice before it is loaded with product.`,
     "Vehicle drivers shall comply with site hygiene rules & shall not enter any of the restricted area including processing & warehouse",
     "All vehicles shall have valid registration, PUC & driver shall have valid driving license",
     "Vehicle / container shall not have any sharp edges, nails protruded or uneven surface",
@@ -69,10 +73,10 @@ const SAFE_TRANSPORTER: LogSheetLayout = {
   columns: [],
   rowMode: { kind: "single" },
   footerFields: [
-    { key: "gppName", label: "For, GUJARAT PRINT PACK PUBLICATIONS PRIVATE LIMITED — Name of the person", type: "text", autoFill: { sign: true } },
-    { key: "gppDesignation", label: "For, GUJARAT PRINT PACK PUBLICATIONS PRIVATE LIMITED — Designation", type: "text", autoFill: { carryForward: true } },
-    { key: "gppSign", label: "For, GUJARAT PRINT PACK PUBLICATIONS PRIVATE LIMITED — Sign", type: "text" },
-    { key: "gppDated", label: "For, GUJARAT PRINT PACK PUBLICATIONS PRIVATE LIMITED — On dated", type: "date", autoFill: { dueDate: true } },
+    { key: "gppName", label: `For, ${COMPANY.name} — Name of the person`, type: "text", autoFill: { sign: true } },
+    { key: "gppDesignation", label: `For, ${COMPANY.name} — Designation`, type: "text", autoFill: { carryForward: true } },
+    { key: "gppSign", label: `For, ${COMPANY.name} — Sign`, type: "text" },
+    { key: "gppDated", label: `For, ${COMPANY.name} — On dated`, type: "date", autoFill: { dueDate: true } },
     { key: "transporterPerson", label: "For Transporter — Name of the person", type: "text", autoFill: { carryForward: true } },
     { key: "transporterDesignation", label: "For Transporter — Designation", type: "text", autoFill: { carryForward: true } },
     { key: "transporterSign", label: "For Transporter — Sign", type: "text" },

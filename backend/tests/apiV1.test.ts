@@ -281,8 +281,9 @@ describe("the routes and their description", () => {
         checked += 1;
       }
     }
-    // Seven of REQUIREMENTS §83, and fourteen of §85 (the Mitra mobile app, backend/apiV1Records.ts).
-    assert.equal(checked, 21);
+    // Seven of REQUIREMENTS §83, fourteen of §85 (the Mitra mobile app, backend/apiV1Records.ts), and three of
+    // 2-Oct-2026 (the equipment list, the insights and the super admin's escalations, backend/apiV1Records.ts).
+    assert.equal(checked, 24);
     const nothing = await call(s, "GET", "/api/v1/not-a-route", { token: T.admin });
     assert.equal(nothing.status, 404);
     assert.equal(nothing.body.code, "no-such-route");
