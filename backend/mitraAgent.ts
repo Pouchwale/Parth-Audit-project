@@ -61,15 +61,24 @@ export const LIMITS = {
 /** The same shape index.ts checks for /chat — copied, since importing index.ts would start the server. */
 export const ROUTE_RE = /^\/[a-z0-9/_-]*$/i;
 
-// The prompt must stay small (≈ 450 tokens); this is the ceiling the unit test
-// holds it to, without the context the browser adds.
-export const AGENT_PROMPT_MAX_CHARS = 2000;
+// The prompt must stay small (≈ 550 tokens); this is the ceiling the unit test
+// holds it to, without the context the browser adds. It was 2,000 until Hindi
+// joined the language rule (REQUIREMENTS §89: 1,984 characters before, 2,185
+// after, for the longest everyday case — a named person, Gujarati screens).
+export const AGENT_PROMPT_MAX_CHARS = 2200;
 
 /** How long the model may write in one round (its words, or its tool calls). */
 export const AGENT_MAX_COMPLETION_TOKENS = 1200;
 
-/** Whisper's vocabulary hint (backend/groq.ts groqTranscribe): the plant's words, so they come out as written. */
-export const TRANSCRIBE_PROMPT = "Gujarat Print Pack Publications Pvt Ltd plant records: F/HR/17, F/QC/30, CAPA, lamination, viscosity, Mitra. ગુજરાતી અને English mixed.";
+/**
+ * Whisper's vocabulary hint (backend/groq.ts groqTranscribe): the plant, its
+ * three languages and its record words, so they come out as written — the
+ * company's name, DCRS, Mitra, the format numbers. No language is forced on
+ * Whisper (REQUIREMENTS §89): it hears which one is spoken, and a hint naming
+ * all three, each in its own script, leans it to none. Whisper reads at most
+ * 224 tokens of a prompt; this is about 50.
+ */
+export const TRANSCRIBE_PROMPT = "Gujarat Print Pack Publications Pvt Ltd, Mehsana. DCRS records with Mitra: F/QC/30, F/HR/17, CAPA, lamination, viscosity. English, हिंदी, ગુજરાતી.";
 
 // ---------------------------------------------------------------------------
 // THE SYSTEM PROMPT — compact on purpose. assistant.ts's PERSONA and SCOPE say
@@ -92,10 +101,18 @@ const AGENT_SCOPE = [
   "of what you do here. Greetings are in scope.",
 ].join(" ");
 
+// "Gujarati asked, Gujarati answered; the same for Hindi and English" (the owner,
+// REQUIREMENTS §89). Hindi joined English and Gujarati here; the rule grew by
+// about 200 characters (~50 tokens a round), the least that says it: Hindi in
+// both scripts, the LATEST message deciding, a bare yes/no or a picked option
+// keeping the conversation's language, identifiers untouched, and a document's
+// English name allowed once in brackets.
 const LANGUAGE_RULE = [
-  "LANGUAGE: the person may write or speak English, Gujarati in Gujarati script, Gujarati in Latin letters",
-  '("aaje nu daily record kholo") or a mix. Understand first. Reply in the language and script the person used (else the',
-  "interface language). Format numbers, ids, routes, field keys and values stay as the app writes them.",
+  'LANGUAGE: people write or speak English, Hindi (Devanagari or Latin letters: "aaj ka record kholo"), Gujarati in Gujarati',
+  'script or Latin letters ("aaje nu record kholo") or a mix. Understand first. Reply in the language and script the person used',
+  "in their latest message; a bare yes/no or a picked option keeps the conversation's language (else the interface language).",
+  "Format numbers (F/QC/30), record ids, field keys and values stay exactly as the app writes them; a document's English name",
+  "may follow once, in brackets.",
 ].join(" ");
 
 const HOW_TO_WORK = [

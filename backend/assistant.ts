@@ -470,11 +470,19 @@ export const SCOPE = [
   'can do here. Greetings, thanks and "what can you do?" are in scope — answer warmly in one line.',
 ].join(" ");
 
-// The plant is in Mehsana, Gujarat; the shop floor works in Gujarati. Only the
-// prose changes — routes, field keys and stored values are identifiers the app
+// THE LANGUAGE OF THE REPLY (REQUIREMENTS §89). The plant is in Mehsana,
+// Gujarat; the shop floor speaks Gujarati and Hindi as well as English, and the
+// owner's rule is "Gujarati asked, Gujarati answered; the same for Hindi and
+// English". So the reply follows the language and script of the person's own
+// message (the agent's LANGUAGE_RULE, backend/mitraAgent.ts, says the same),
+// with the interface language for a message that has none of its own. Until
+// §89 this was a Gujarati rule sent only with Gujarati screens. Only the prose
+// changes — routes, field keys and stored values are identifiers the app
 // parses, and must stay exactly as specified.
-const GUJARATI_RULE =
-  'The user is working in Gujarati. Write the "reply" text in Gujarati (ગુજરાતી), in simple everyday language. Keep document format numbers (F/HR/17), route paths, JSON field names and any value you put in "patch" exactly as specified in English — translate only the sentence you show the user.';
+export function chatLanguageRule(language?: string): string {
+  const fallback = language === "gu" ? "Gujarati (ગુજરાતી)" : "English";
+  return `LANGUAGE: the user may write English, Hindi or Gujarati (in its own script or Latin letters) or a mix. Write "reply" in the language and script of the user's message, in simple everyday words (a bare yes/no: the conversation's language; else ${fallback}). Format numbers (F/HR/17), route paths, JSON field names and "patch" values stay exactly as specified, in English.`;
+}
 
 // Earlier turns of the conversation come as messages of their own, between
 // this prompt and the new message (backend/groq.ts), so a follow-up can be read.
@@ -550,7 +558,7 @@ function analystPrompt({ today, currentRoute, language, context, evidence, histo
     PERSONA,
     SCOPE,
     `Today's date is ${today} (ISO). The user is currently on the app route "${currentRoute}".`,
-    language === "gu" ? GUJARATI_RULE : "",
+    chatLanguageRule(language),
     context && context.trim()
       ? `Live facts from the app right now — rely on these for anything about dates, holidays, the weekly off, adjustment days or what is due, and never contradict them:\n${context.trim()}`
       : "",
@@ -605,9 +613,11 @@ export async function runAssistant({
   // what's due) — see frontend/src/engine/assistantLocal.ts. Capped by the
   // route handler.
   context?: string;
-  // "en" | "gu" — the interface language the user is working in. Only the
-  // prose in `reply` follows it; routes, field keys and record values are
-  // identifiers and stay exactly as the app defines them.
+  // "en" | "gu" — the interface language the user is working in: the reply's
+  // language when the message has none of its own (chatLanguageRule; the
+  // message's own language comes first, REQUIREMENTS §89). Only the prose in
+  // `reply` follows it; routes, field keys and record values are identifiers
+  // and stay exactly as the app defines them.
   language?: string;
 }): Promise<AssistantResult> {
   if (typeof message !== "string" || !message.trim()) throw new Error("Message is required.");
@@ -626,10 +636,10 @@ export async function runAssistant({
     PERSONA,
     SCOPE,
     `Today's date is ${today} (ISO). The user is currently on the app route "${currentRoute}".`,
-    // The plant is in Mehsana, Gujarat; the shop floor works in Gujarati.
+    // The reply in the language of the person's message (REQUIREMENTS §89).
     // Only the prose changes — routes, field keys and stored values are
     // identifiers the app parses, and must stay exactly as specified.
-    language === "gu" ? GUJARATI_RULE : "",
+    chatLanguageRule(language),
     ROUTE_GUIDE,
     context && context.trim()
       ? `Live facts from the app right now — rely on these for anything about dates, holidays, the weekly off, adjustment days or what is due, and never contradict them:\n${context.trim()}`
