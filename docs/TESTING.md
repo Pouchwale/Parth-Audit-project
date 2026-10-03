@@ -522,6 +522,48 @@ Seven scripts live in `tests/`:
   `e2e_mobile_mitra_api.py`'s OpenAPI check is a subset check, so the new paths do not break it. Nothing was run on a real
   phone: the evidence for Expo Go is Expo Go's own package list and manifests, and the two bundles fetched exactly as Expo
   Go requests them.
+- **Mitra in English, Hindi and Gujarati, with free voices** (REQUIREMENTS §89, 3-Oct-2026). New unit tests:
+  `frontend/tests/voiceLanguages.test.ts` (15: a question's language from its script, words not letters, Hindi and Gujarati
+  in Latin letters by their everyday words, a bare yes or no and a format number with none of their own; a reply cut into
+  parts by script, the Hindi line before the English answer, a Gujarati sentence with English names kept whole, one Gujarati
+  name leaving English English, the danda ending a sentence with or without a space; the voice for each language over the
+  lists Edge (in Devanagari and Gujarati names and in Latin ones), Chrome and a PC with no Gujarati voice give, female and
+  male, never an English voice for Hindi or Gujarati; Edge 150's unnamed voices never a crash and only a last resort; the
+  words for the ear in Hindi and Gujarati (the danda after each list line, dates with the month in the language, per cent,
+  rupees and degrees) and a record's long id never spelled out in any language, a lot number still said; a reply said by
+  the Hindi voice then the English one, in Edge and in Chrome; a Gujarati reply in Chrome not said, the hint given once a
+  session, its Edge wording; figures alone said in English with no hint; Hear Mitra in Hindi in the chosen gender's verbs;
+  Neerja speaking English with a key on the server and the server never asked; the card's voice for each language in Edge
+  and Chrome; a stalled online voice given up after 6 s, English going on in an installed voice and Gujarati stopping
+  cleanly, a voice that starts in time never cut off (mock timers); no Hindi or Gujarati line handed to the browser without
+  a voice; the app's own answers in the question's language, its Gujarati buttons, the Hindi line in Devanagari or in Latin
+  letters and never twice). `backend/tests/mitraAgent.test.ts` (6 more: the language rule's Hindi in both scripts, the
+  latest message deciding, a bare yes or no or a picked option keeping the conversation's language, identifiers untouched
+  and a document's English name once in brackets, the rule at most 530 characters and the prompt under its 2,200-character
+  ceiling, Whisper's hint naming the plant, DCRS, Mitra, F/QC/30 and the three languages in about 50 tokens, and the older
+  chat path's rule for every screen language). Changed: `frontend/tests/voice.test.ts`, whose five checks of Groq's server
+  voice now run on Chrome's list, because with Edge's Neerja in the list the server is no longer asked (the owner's rule:
+  the staff's own accent first). `npm run test:unit` runs 475 frontend and 321 backend tests.
+  New browser suite: `tests/e2e_voice_languages.py` (sign-up, :8842, 28 checks), with speechSynthesis stood in for before
+  the app loads and the voice list of Edge or of Chrome chosen: Master Data's card lists Neerja, स्वरा and ધ્વની as natural
+  voices, each "Hear Mitra" says its own language's sentence in its own voice, and the male choice gives Madhur saying
+  "दिलाऊँगा" and Prabhat for English; on Ask Mitra (no model on the test server, so the app's own answers) a question in
+  Hindi is answered with the Hindi line in front, read by the Hindi voice and then the Indian English one, with no Hindi
+  word given to the English voice; a question in Gujarati on English screens is answered in Gujarati and read wholly by
+  the Gujarati voice; the browser's own microphone names its language; with Chrome's list the card says there is no
+  Gujarati voice and offers no Gujarati sample, a Gujarati answer is shown and not said at all, the hint is given once
+  and not the second time, and a Hindi answer is read by Google हिन्दी then Google UK English. Its first run found a real
+  fault: Mitra's Gujarati answer about a format number is mostly English names around "એટલે", so its first sentence
+  went to the English voice with the Gujarati words taken out; a reply with a sentence plainly in Gujarati or Hindi now
+  gives that voice every sentence holding words of its script, and "એટલે" and "यानी" joined the grammar words
+  (unit-tested in voiceLanguages.test.ts).
+  Browser suites run on the worktree on 3-Oct-2026, all passing: e2e_smoke 165 checks, e2e_voice 13,
+  e2e_assistant_and_logout 32, e2e_mitra_agent 21, e2e_voice_and_sounds 70, e2e_celebrations 48, e2e_mitra_copy_edit 69,
+  and e2e_voice_languages 28, then all eight again on the final code. No earlier suite changed:
+  the voice card keeps the hooks they read on its English row ([data-field='voice-in-use'] with its data-source,
+  [data-action='test-voice']); the Hindi and Gujarati rows have their own. What only a person can judge, on the plant's
+  laptops in Edge: whether each voice sounds like a person, whether 0.96 is the right pace, whether Whisper writes the
+  plant's Gujarati and Hindi right, and whether Edge's real voice names match the ones stood in here.
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

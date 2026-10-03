@@ -236,6 +236,12 @@ The app behaves like a personal assistant rather than a blank form:
   4000), the Mitra server (3000) and Mitra for Expo Go (8081): `npm run plant:start` starts and keeps all three running,
   `npm run phone:check` says what works, `scripts/windows` holds the firewall and autostart scripts, and
   [docs/phone-app-setup.md](docs/phone-app-setup.md) is the guide.
+- **Mitra speaks and answers in English, Hindi and Gujarati, free** (REQUIREMENTS §89). Asked in Gujarati, Mitra answers in
+  Gujarati; in Hindi, in Hindi; in English, in English (in the script it was asked in, Latin letters included), and Whisper
+  hears which language is spoken. Each sentence is said by the browser's voice for its script: in Microsoft Edge the
+  natural Neerja, Swara and Dhwani (or Prabhat, Madhur and Niranjan), free and human-sounding; Chrome has no Gujarati
+  voice, so there a Gujarati reply is shown and the person is told once to use Edge. Master Data's voice card shows the
+  voice for each language in this browser, with a "Hear Mitra" button for each. No paid voice, no card on file.
 - **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
   signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
   starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,
