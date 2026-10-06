@@ -70,8 +70,9 @@ export function LicencePage() {
             </a>
           </span>
         </div>
-        {/* The licence as issued — the scanned pages are what prints (utils/print.ts). */}
-        <div className="card-pad licence-scans" data-print-doc>
+        {/* The licence as issued — the scanned pages are what prints (utils/print.ts). The scans lie on the card,
+            not on a sheet of the screen's own (data-print-doc="ui", REQUIREMENTS §90): each is its own white page. */}
+        <div className="card-pad licence-scans" data-print-doc="ui">
           {L.pages.map((src, i) => (
             <figure key={src} className="licence-scan" style={{ maxWidth: zoom ? 1100 : 760 }}>
               <img src={src} alt={`Insecticide licence — scanned page ${i + 1} of ${L.pages.length}`} />

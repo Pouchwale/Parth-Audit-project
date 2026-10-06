@@ -203,7 +203,7 @@ export function DashboardPage() {
       )}
 
       {!isDemo && (
-        <div className="card mb-6" style={{ borderLeft: "4px solid var(--color-accent)" }}>
+        <div className="card mb-6 card-rail-accent">
           <div className="card-pad flex items-center justify-between gap-4 wrap">
             <div className="flex items-center gap-3">
               <div className="briefing-avatar" style={{ background: "var(--color-primary-light)", color: "var(--color-primary)" }}>

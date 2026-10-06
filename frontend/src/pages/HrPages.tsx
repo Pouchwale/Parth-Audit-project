@@ -109,7 +109,8 @@ export function HrOverviewPage() {
                         const next = doc.schedule.type === "as-required" ? null : nextDueDate(doc, today);
                         return (
                           <tr key={doc.id} className="card-clickable" data-hr-doc={doc.id} onClick={() => navigate(`/hr/${page.slug}`)}>
-                            <td>
+                            {/* The format's name holds a line or two at any width (REQUIREMENTS §90, styles.css AREA 1). */}
+                            <td className="format-name">
                               <div className="font-semibold text-sm">{doc.name}</div>
                               <div className="text-xs text-faint">
                                 {doc.formatNo} · {doc.frequency}
@@ -118,13 +119,17 @@ export function HrOverviewPage() {
                             <td className="text-sm">
                               {latest ? (
                                 <span className="flex items-center gap-2 wrap">
-                                  {records.length} · {formatDisplayDate(latest.dueDate)} <StatusBadge status={latest.status} />
+                                  {/* A date is read whole, never broken at its hyphens (styles.css AREA 4). */}
+                                  <span>
+                                    {records.length} · <span className="overview-date">{formatDisplayDate(latest.dueDate)}</span>
+                                  </span>{" "}
+                                  <StatusBadge status={latest.status} />
                                 </span>
                               ) : (
                                 <span className="text-faint">none yet</span>
                               )}
                             </td>
-                            <td className="text-sm">{next ? formatDisplayDate(next) : "As required"}</td>
+                            <td className="text-sm">{next ? <span className="overview-date">{formatDisplayDate(next)}</span> : "As required"}</td>
                             <td style={{ textAlign: "right" }}>
                               <button className="btn btn-ghost btn-sm">
                                 Open <FiArrowRight size={12} />

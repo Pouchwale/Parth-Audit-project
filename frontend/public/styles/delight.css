@@ -83,7 +83,7 @@
   }
 
   .calendar-cell:not(.empty) {
-    transition: box-shadow 0.12s, transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1);
+    transition: transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1);
   }
 
   .calendar-cell:not(.empty):hover {
@@ -183,7 +183,8 @@
   padding: 8px 10px 8px 18px;
   border: 1px solid rgba(255, 228, 236, 0.6);
   border-radius: 999px;
-  background: rgba(4, 26, 36, 0.62);
+  /* The veil's own darkest burgundy (REQUIREMENTS §90), so Skip sits in the sky it is over. */
+  background: rgba(31, 14, 16, 0.62);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
   color: #fff4f6;
   font-family: var(--font-app);

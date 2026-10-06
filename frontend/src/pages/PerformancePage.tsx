@@ -613,8 +613,9 @@ export function PerformancePage() {
 
       {digest && <WeeklyDigestCard digest={digest} lang={lang} onOpen={open} />}
 
-      {/* The scorecard is what prints (utils/print.ts) — not the period picker and the buttons above it. */}
-      <div data-print-doc data-section="performance-scorecard" ref={scorecardRef}>
+      {/* The scorecard is what prints (utils/print.ts) — not the period picker and the buttons above it. A printable
+          pane of the screen, not a paper form (data-print-doc="ui", REQUIREMENTS §90): on screen it is the theme's. */}
+      <div data-print-doc="ui" data-section="performance-scorecard" ref={scorecardRef}>
         <div className="doc-header print-only mb-4">
           <div className="company-name notranslate" translate="no">
             {COMPANY.name}

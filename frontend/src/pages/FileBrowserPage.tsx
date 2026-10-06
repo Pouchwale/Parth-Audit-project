@@ -299,7 +299,9 @@ export function FileBrowserPage({ scope, from, to }: { scope?: string; from?: st
           })}
         </nav>
 
-        <section className="file-pane" data-print-doc>
+        {/* A printable pane of the screen, not a paper form (data-print-doc="ui", REQUIREMENTS §90): on screen it
+            is the theme's, and it prints as it always did (utils/print.ts reads the attribute being there). */}
+        <section className="file-pane" data-print-doc="ui">
           <div className="file-summary text-sm" data-section="file-summary">
             {t("files.summary", { files: visible.length, docs: docsWithFiles, from: formatDisplayDate(range.from), to: formatDisplayDate(range.to) })}
             {range.capped && <span className="text-muted"> — {t("files.capped")}</span>}

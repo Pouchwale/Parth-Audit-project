@@ -819,65 +819,13 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
 .caf-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 8px 0 4px; }
 .pr-subheading { font-weight: 700; margin-top: 10px; }
 
-/* ---- Document Files (pages/FileBrowserPage.tsx) ---- */
-.file-controls { margin: 12px 0 10px; }
-.file-breadcrumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; margin-bottom: 12px; }
-.file-breadcrumb .crumb { background: none; border: none; padding: 2px 4px; font: inherit; color: var(--color-text); }
-.file-breadcrumb button.crumb { color: var(--color-primary); cursor: pointer; }
-.file-breadcrumb button.crumb:hover { text-decoration: underline; }
-.file-breadcrumb .crumb.range { font-weight: 600; }
-.file-breadcrumb .sep { color: var(--color-text-faint); }
-.file-browser { display: grid; grid-template-columns: minmax(220px, 290px) 1fr; gap: 16px; align-items: start; }
-.file-tree { padding: 8px; position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow-y: auto; }
-.file-node { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: none; background: none; border-radius: var(--radius-sm);
-  font: inherit; font-size: 13px; color: var(--color-text); cursor: pointer; text-align: left; }
-.file-node:hover { background: var(--color-surface-alt); }
-.file-node.active { background: var(--color-primary-light); color: var(--color-primary-dark); font-weight: 600; }
-.file-node svg { flex-shrink: 0; color: var(--color-warning); }
-.file-node.root svg { color: var(--color-primary); }
-.file-node.module { font-weight: 600; margin-top: 4px; }
-.file-node.nested { padding-left: 24px; }
-.file-node.empty { color: var(--color-text-faint); }
-.file-node-name { flex: 1; min-width: 0; line-height: 1.3; }
-.file-count { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--color-text-muted); background: var(--color-surface-alt); border-radius: 999px; padding: 1px 8px; }
-.file-summary { margin-bottom: 10px; color: var(--color-text-muted); }
-.file-month { border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); margin-bottom: 10px; overflow: hidden; }
-.file-month-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: none; background: var(--color-surface-alt);
-  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-align: left; color: var(--color-text); }
-.file-month-head:disabled { cursor: default; }
-.file-month-head svg { color: var(--color-warning); }
-.file-month-head svg:first-child { color: var(--color-text-muted); }
-.file-month.empty .file-month-head { color: var(--color-text-faint); background: var(--color-surface); }
-.file-month-name { flex: 1; }
-.file-browser > * { min-width: 0; }
+/* AREA 4 (REQUIREMENTS §90): Document Files and the licence page are in the AREA 4 section. These
+   three keep their place ahead of the shared .doc-table, .doc-table td and .empty-state rules, which
+   win over them today (a month's table keeps .doc-table's frame, an empty folder .empty-state's room,
+   the licence's terms their middle line): moved after them they would redraw the page and its print. */
 .file-table-wrap { border: none; border-top: 1px solid var(--color-border); border-radius: 0; overflow-x: auto; }
-.file-table td { vertical-align: middle; }
-.file-row { cursor: pointer; }
-.file-row:hover td { background: var(--color-primary-light); }
-.file-when { white-space: nowrap; width: 1%; }
-.file-icon { color: var(--color-primary); vertical-align: -2px; margin-right: 8px; }
-.file-date { font-weight: 600; font-variant-numeric: tabular-nums; }
-.file-name { min-width: 180px; }
-.file-doc { color: var(--color-text); }
-.file-format { display: inline-block; margin-left: 8px; white-space: nowrap; font-size: 11px; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0 5px; }
-.file-status { white-space: nowrap; width: 1%; }
-.file-by { white-space: nowrap; width: 1%; }
-.file-open { text-align: right; width: 1%; }
 .file-empty { padding: 40px 16px; }
-@media (max-width: 900px) {
-  .file-browser { grid-template-columns: 1fr; }
-  .file-tree { position: static; max-height: none; }
-}
-
-/* The licence page (pages/LicencePage.tsx) — scanned pages shown as supplied */
-.licence-scans { display: flex; flex-direction: column; gap: 18px; align-items: center; }
-.licence-scan { margin: 0; width: 100%; }
-.licence-scan img { width: 100%; display: block; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fff; }
-.licence-scan figcaption { text-align: center; margin-top: 4px; }
 .licence-terms td { vertical-align: top; }
-@media print {
-  .licence-scan { break-inside: avoid; }
-}
 
 /* ---- Language switcher (Dashboard + top bar) ---- */
 .lang-select { width: auto; min-width: 104px; }
@@ -1266,26 +1214,7 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
   .demo-watermark::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
-/* ---- CAPA ---- */
-.capa-option { flex: 1 1 280px; min-width: 0; cursor: pointer; border-top: 4px solid var(--color-primary); }
-.capa-option.external { border-top-color: var(--color-accent); }
-.progress-bar { height: 8px; background: var(--color-neutral-bg); border-radius: 999px; overflow: hidden; }
-.progress-bar > div { height: 100%; background: var(--success-fill); transition: width 0.2s; }
-.checklist-section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
-.checklist-done td { background: #f4fbf7; }
-/* One activity at a time (REQUIREMENTS §37): the activity the checklist is
-   waiting on is marked, and everything after it is dimmed and unusable until
-   it is answered. Both are screen-only — the paper form is unchanged. */
-.checklist-current td { background: var(--color-warning-bg); }
-.checklist-current td:first-child { box-shadow: inset 3px 0 0 var(--color-warning); }
-.checklist-locked td { opacity: 0.5; }
-.checklist-locked .input,
-.checklist-locked input[type="checkbox"] { cursor: not-allowed; }
-@media print {
-  .checklist-current td { background: transparent; }
-  .checklist-current td:first-child { box-shadow: none; }
-  .checklist-locked td { opacity: 1; }
-}
+/* ---- CAPA: in the AREA 4 section (REQUIREMENTS §90) ---- */
 
 /* ---- Misc ---- */
 .divider { height: 1px; background: var(--color-border); border: none; margin: 14px 0; }
@@ -1308,15 +1237,8 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
 .tbc { color: var(--color-warning); font-style: italic; font-size: 12px; }
 
 /* ---- Auth (login / signup) ---- */
-.auth-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--color-primary-dark); padding: 24px; }
-.auth-card { width: 100%; max-width: 400px; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 32px 28px; }
-.auth-brand { text-align: center; margin-bottom: 24px; }
-.auth-brand .title { font-size: 16.5px; font-weight: 700; color: var(--color-text); line-height: 1.3; }
-.auth-brand .subtitle { font-size: 12.5px; font-weight: 600; color: var(--color-text-muted); margin-top: 5px; }
-/* The company's mark above the system's name, and one plain line under the
-   company's name saying what the system is for (REQUIREMENTS §65). */
-.auth-brand .auth-logo { display: block; width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 16px; }
-.auth-brand .purpose { font-size: 12px; color: var(--color-text-muted); margin-top: 8px; line-height: 1.45; }
+/* AREA 6 (REQUIREMENTS §90): the sign-in screen itself (its shell, card, mark, title and
+   footer) is in the AREA 6 section. The error line stays here: the admin pages show it too. */
 /* A password box with an eye inside its right-hand end (components/common/
    PasswordInput.tsx, REQUIREMENTS §63). The box keeps room for the eye so a
    long password never runs underneath it. */
@@ -1332,8 +1254,6 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
 /* Edge and old Chromium draw an eye of their own in a password box: one is enough. */
 .password-field input::-ms-reveal, .password-field input::-ms-clear { display: none; }
 .auth-error { background: var(--color-danger-bg); color: var(--color-danger); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 12.5px; margin-bottom: 16px; }
-.auth-footer { text-align: center; margin-top: 20px; font-size: 12.5px; color: var(--color-text-muted); }
-.auth-role-note { text-align: center; margin-top: 14px; font-size: 11.5px; color: var(--color-text-faint); }
 
 /* ---- Gujarati through Google Translate (i18n/googleTranslate.ts) ----
    The widget itself is off-screen (the language buttons drive it); Google's
@@ -1347,45 +1267,7 @@ body { top: 0 !important; }
 .lang-switcher-compact { display: inline-flex; align-items: center; gap: 6px; }
 .lang-note { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ---- Performance Scorecard (REQUIREMENTS §64) ---- */
-/* pages/PerformancePage.tsx. The rule people are judged by, a card per person,
-   and the figures in columns that line up. The grade tints follow the status
-   colours the rest of the app already uses. */
-.score-rule { background: var(--color-surface-alt); border: 1px solid var(--color-border); border-left: 4px solid var(--color-primary); border-radius: var(--radius-md); padding: 12px 14px; font-size: 12.5px; line-height: 1.55; color: var(--color-text-muted); }
-.score-rule strong { color: var(--color-text); }
-.score-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
-.score-card { background: var(--color-surface); border: 1px solid var(--color-border); border-top: 4px solid var(--color-border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 16px 18px; min-width: 0; }
-.score-card[data-grade="excellent"], .score-card[data-grade="on-track"] { border-top-color: var(--color-success); }
-.score-card[data-grade="needs-attention"] { border-top-color: var(--color-warning); }
-.score-card[data-grade="falling-behind"] { border-top-color: var(--color-danger); }
-.score-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.score-card-name { font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
-.score-card-figure { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 8px; }
-.score-big { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
-.score-unscored { font-size: 20px; font-weight: 600; color: var(--color-text-faint); }
-.score-counts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; }
-.score-counts [data-count="late"] strong { color: var(--color-warning); }
-.score-counts [data-count="overdue"] strong { color: var(--color-danger); }
-.score-counts [data-count="onTime"] strong { color: var(--color-success); }
-.score-decision { margin: 10px 0 0; font-size: 13px; line-height: 1.5; }
-.score-worst { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--color-border); }
-.score-worst-line { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 12.5px; }
-.score-worst-name { min-width: 0; overflow-wrap: anywhere; }
-.score-worst-figures { display: inline-flex; gap: 8px; flex-shrink: 0; white-space: nowrap; }
-.score-grade { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; background: var(--color-neutral-bg); color: var(--color-neutral); }
-.score-grade[data-grade="excellent"], .score-grade[data-grade="on-track"] { background: var(--color-success-bg); color: var(--color-success); }
-.score-grade[data-grade="needs-attention"] { background: var(--color-warning-bg); color: var(--color-warning); }
-.score-grade[data-grade="falling-behind"] { background: var(--color-danger-bg); color: var(--color-danger); }
-/* A control that reads as the text it is: a document's name that opens the document. */
-.score-open { border: none; background: transparent; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.score-open:hover { color: var(--color-primary-dark); text-decoration: underline; }
-.score-open:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 2px; }
-.doc-table th.score-num, .doc-table td.score-num { text-align: right; font-variant-numeric: tabular-nums; }
-@media print {
-  .score-rule, .score-grade { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .score-card { box-shadow: none; break-inside: avoid; }
-  .score-cards { grid-template-columns: repeat(2, 1fr); }
-}
+/* ---- Performance Scorecard (REQUIREMENTS §64): in the AREA 4 section (REQUIREMENTS §90) ---- */
 
 /* ==== FOUNDATION: the theme switch, the bell's count, the paper on its canvas, ====
    narrow windows and Gujarati (REQUIREMENTS §90). The shared components themselves
@@ -1913,6 +1795,15 @@ body { top: 0 !important; }
 }
 @media screen {
   .format-name { width: 220px; }
+}
+
+/* A LINK ON THE SHEET IS THE APP'S, NOT THE FORM'S (REQUIREMENTS §90): on screen it takes the
+   theme's burgundy, as the sheet's buttons and focus rings do (inside the paper scope the old
+   --color-primary is today's teal, kept for the register's today-outline and the designer's
+   hover). A link drawn as a button keeps its button's words. On paper nothing here applies: a
+   printed link is in the ink it always had. */
+@media screen {
+  [data-print-doc]:not([data-print-doc="ui"]) a:not(.btn) { color: var(--accent-text); }
 }
 
 /* ==== end of AREA 1 ==== */
@@ -2463,10 +2354,248 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 /* ==== end of AREA 2 ==== */
 
 /* ==== AREA 3: Dashboard, calendar, reports, insights ==== */
+/* The Dashboard, the Record Calendar, a day, Reports and Insights on the theme's tokens
+   (REQUIREMENTS §90, 3-Oct-2026). The day card and Mitra's celebrations are drawn by
+   public/styles/motivation.css; the cards, tiles, tables, badges and pills these pages are
+   built of are the shared components, further up. What is here is theirs alone. Nothing
+   here moves; the sizes are screen only, so a printout is what it always was. */
 
+/* THE DASHBOARD'S RAILS (pages/DashboardPage.tsx, components/insights/DashboardInsights.tsx).
+   Three at most on the page, each meaning something: the greeting's in the accent fill, the
+   insights card's in the tone of the most pressing thing it shows (the day's notice keeps its
+   own, inline in DailyNudge.tsx); the day card carries none, it has its wash. On the app's own
+   names (--color-*), which are the theme's on screen and today's on paper, as the rails were
+   when they were drawn inline. */
+.card-rail-accent { border-left: 4px solid var(--color-accent); }
+.card-rail[data-severity="high"] { border-left: 4px solid var(--color-danger); }
+.card-rail[data-severity="medium"] { border-left: 4px solid var(--color-warning); }
+.card-rail[data-severity="low"] { border-left: 4px solid var(--color-neutral); }
+
+/* THE RECORD CALENDAR (pages/CalendarPage.tsx). A day is a surface on a hairline, today has the
+   accent's border (the rose in dark), a closed day sits on the sunken band (the shared rules,
+   further up). Here its words: the weekdays a touch apart, a date at 12.5 px, every chip at
+   11 px in its status pair (CalendarPage gives the counts the badge classes: Completed the
+   Verified pair, Overdue the danger pair, Due and Scheduled the info pair), the weekly off in
+   the neutral pair. */
+@media screen {
+  .calendar-weekday { color: var(--ink-3); letter-spacing: 0.06em; }
+  .calendar-cell .cal-date { font-size: 12.5px; }
+  .calendar-cell .cal-chip { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+  .cal-chip.cal-day-weekly-off { background: var(--neutral-soft); color: var(--neutral); }
+}
+/* On a phone a month is wider than the screen: the pickers go under the page's words, and the seven
+   columns keep a width that can be read, in a box of their own that scrolls sideways as a wide table
+   does, the weekdays over their days (both grids the same width), so the page itself never grows
+   wider than the screen. A little room at the edges, so a lifted day is not cut by the box. */
+@media screen and (max-width: 760px) {
+  .calendar-head { flex-wrap: wrap; gap: 12px; }
+  .calendar-scroll { overflow-x: auto; overscroll-behavior-x: contain; padding: 3px 2px; margin: -3px -2px 0; }
+  .calendar-scroll > .calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); min-width: 700px; }
+}
+
+/* THE WORDS UNDER A REPORT'S BARS (components/reports/MiniBarChart.tsx): each bar's day or unit in
+   faint ink, 11 px on screen and on paper the 9.5 px it always printed at; under it the figure, at
+   the size it always was, because the figure is what sets a bar's width: a larger one would widen
+   a month of 31 bars past its card. */
+.mini-bar-label { font-size: 9.5px; font-weight: 600; color: var(--color-text-faint); }
+.mini-bar-value { font-size: 10px; font-weight: 700; }
+@media screen {
+  .mini-bar-label:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { font-size: 11px; }
+}
+
+/* A PRINTABLE PANE PRINTS AS IT ALWAYS DID. utils/print.ts fits a document to the paper from how
+   narrow its tables can be laid out, measured ON SCREEN the moment printing begins (html.print-scoped):
+   portrait or landscape, and how far to scale it down. A pane marked data-print-doc="ui" (Reports;
+   and Document Files, the Performance scorecard and the licence scans) is drawn on screen with the
+   theme's roomier cells, so the same report measured wider and printed smaller (Lamination QC: 0.94
+   became 0.894). While printing is under way, the tables of a printable pane and what they hold take
+   today's sizes again, so the measure, and with it the printout, is exactly what it was before the
+   themes. Not inside a paper sheet the pane holds (a trend tab's), which keeps its own; screen only
+   (on paper none of the screen's sizes apply), and gone when printing ends. */
+@media screen {
+  html.print-scoped [data-print-doc="ui"] .doc-table th:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { font-weight: 700; letter-spacing: 0.03em; padding: 9px 10px; }
+  html.print-scoped [data-print-doc="ui"] .doc-table td:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { padding: 8px 10px; }
+  html.print-scoped [data-print-doc="ui"] .doc-table tr.doc-section-row td:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { letter-spacing: 0.04em; padding: 6px 10px; }
+  html.print-scoped [data-print-doc="ui"] .doc-table.compact td:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)), html.print-scoped [data-print-doc="ui"] .doc-table.compact th:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { padding: 6px 8px; }
+  html.print-scoped [data-print-doc="ui"] .text-sm:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { font-size: 12.5px; }
+  html.print-scoped [data-print-doc="ui"] .text-xs:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { font-size: 11px; }
+  html.print-scoped [data-print-doc="ui"] .badge:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+  html.print-scoped [data-print-doc="ui"] .btn-sm:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { font-size: 12px; }
+  html.print-scoped [data-print-doc="ui"] .input-sm:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { font-size: 12.5px; }
+  html.print-scoped [data-print-doc="ui"] .prepared-chip:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)), html.print-scoped [data-print-doc="ui"] .demo-tag:where(:not([data-print-doc]:not([data-print-doc="ui"]) *)) { font-size: 10px; }
+}
 /* ==== end of AREA 3 ==== */
 
 /* ==== AREA 4: Library, files, search, modules ==== */
+/* THE LIBRARY, DOCUMENT FILES, SEARCH AND THE MODULE PAGES on the theme's tokens (REQUIREMENTS §90,
+   3-Oct-2026): Document Files, the licence's scans, CAPA's two ways in and its checklist, and the
+   Performance Scorecard, moved here from where they were; the library's shelves and the Search box.
+   Document Files, the scorecard and the licence's scans are printable panes of the screen, not paper
+   forms (data-print-doc="ui"): on screen they are the theme's. Each token is the one whose printed
+   value is what the old --color-* name printed (the print block at the top), so a printout is what
+   it always was; where the screen's colour and the print's part (CAPA's External), the old name
+   stays. Nothing here moves. */
+
+/* DOCUMENT FILES (pages/FileBrowserPage.tsx): the folders on the left, a month's files on the right.
+   A folder in ink, its count on the sunken band; the open folder in the soft accent, as the sidebar
+   marks the page you are on; folders amber, the root in the accent. A month is a surface on a
+   hairline with its head on the sunken band. */
+.file-controls { margin: 12px 0 10px; }
+.file-breadcrumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; margin-bottom: 12px; }
+.file-breadcrumb .crumb { background: none; border: none; padding: 2px 4px; font: inherit; color: var(--ink); }
+.file-breadcrumb button.crumb { color: var(--accent-text); cursor: pointer; }
+.file-breadcrumb button.crumb:hover { text-decoration: underline; }
+.file-breadcrumb .crumb.range { font-weight: 600; }
+.file-breadcrumb .sep { color: var(--ink-3); }
+.file-browser { display: grid; grid-template-columns: minmax(220px, 290px) 1fr; gap: 16px; align-items: start; }
+.file-tree { padding: 8px; position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow-y: auto; }
+.file-node { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: none; background: none; border-radius: var(--radius-sm);
+  font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-align: left; }
+.file-node:hover { background: var(--nav-hover); }
+.file-node.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
+.file-node svg { flex-shrink: 0; color: var(--warning); }
+.file-node.root svg { color: var(--accent-text); }
+.file-node.module { font-weight: 600; margin-top: 4px; }
+.file-node.nested { padding-left: 24px; }
+.file-node.empty { color: var(--ink-3); }
+.file-node-name { flex: 1; min-width: 0; line-height: 1.3; }
+.file-node:focus-visible, .file-month-head:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.file-breadcrumb button.crumb:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
+.file-count { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--ink-2); background: var(--surface-sunken); border-radius: 999px; padding: 1px 8px; }
+.file-summary { margin-bottom: 10px; color: var(--ink-2); }
+.file-month { border: 1px solid var(--hairline); border-radius: var(--radius-md); background: var(--surface); margin-bottom: 10px; overflow: hidden; }
+.file-month-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: none; background: var(--surface-sunken);
+  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-align: left; color: var(--ink); }
+.file-month-head:disabled { cursor: default; }
+.file-month-head svg { color: var(--warning); }
+.file-month-head svg:first-child { color: var(--ink-2); }
+.file-month.empty .file-month-head { color: var(--ink-3); background: var(--surface); }
+.file-month-name { flex: 1; }
+.file-browser > * { min-width: 0; }
+.file-table td { vertical-align: middle; }
+.file-row { cursor: pointer; }
+.file-row:hover td { background: var(--accent-soft); }
+.file-when { white-space: nowrap; width: 1%; }
+.file-icon { color: var(--accent-text); vertical-align: -2px; margin-right: 8px; }
+.file-date { font-weight: 600; font-variant-numeric: tabular-nums; }
+.file-name { min-width: 180px; }
+.file-doc { color: var(--ink); }
+.file-format { display: inline-block; margin-left: 8px; white-space: nowrap; font-size: 11px; color: var(--ink-2); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 0 5px; }
+.file-status { white-space: nowrap; width: 1%; }
+.file-by { white-space: nowrap; width: 1%; }
+.file-open { text-align: right; width: 1%; }
+@media (max-width: 900px) {
+  .file-browser { grid-template-columns: 1fr; }
+  .file-tree { position: static; max-height: none; }
+}
+
+/* THE LICENCE PAGE (pages/LicencePage.tsx): the scanned pages shown as supplied, each on its white
+   backing (a scan is a photograph of paper) inside a hairline. */
+.licence-scans { display: flex; flex-direction: column; gap: 18px; align-items: center; }
+.licence-scan { margin: 0; width: 100%; }
+.licence-scan img { width: 100%; display: block; border: 1px solid var(--hairline); border-radius: var(--radius-sm); background: #fff; }
+.licence-scan figcaption { text-align: center; margin-top: 4px; }
+@media print {
+  .licence-scan { break-inside: avoid; }
+}
+
+/* CAPA (pages/CapaPage.tsx): the two ways in each carry the accent's rail; the complaint checklist's
+   own rows are the paper's (inside the sheet every name is today's). On paper the two rails print in
+   the teal and the green they always did, so External keeps the old name (on screen it is the same
+   fill as --accent), and so does its icon, in the accent's text colour on screen. */
+.capa-option { flex: 1 1 280px; min-width: 0; cursor: pointer; border-top: 4px solid var(--accent); }
+.capa-option.external { border-top-color: var(--color-accent); }
+.capa-external-icon { color: var(--color-accent); }
+@media screen {
+  .capa-external-icon { color: var(--accent-text); }
+}
+.progress-bar { height: 8px; background: var(--neutral-soft); border-radius: 999px; overflow: hidden; }
+.progress-bar > div { height: 100%; background: var(--success-fill); transition: width 0.2s; }
+.checklist-section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+.checklist-done td { background: #f4fbf7; }
+/* One activity at a time (REQUIREMENTS §37): the activity the checklist is
+   waiting on is marked, and everything after it is dimmed and unusable until
+   it is answered. Both are screen-only — the paper form is unchanged. */
+.checklist-current td { background: var(--color-warning-bg); }
+.checklist-current td:first-child { box-shadow: inset 3px 0 0 var(--color-warning); }
+.checklist-locked td { opacity: 0.5; }
+.checklist-locked .input,
+.checklist-locked input[type="checkbox"] { cursor: not-allowed; }
+@media print {
+  .checklist-current td { background: transparent; }
+  .checklist-current td:first-child { box-shadow: none; }
+  .checklist-locked td { opacity: 1; }
+}
+
+/* THE PERFORMANCE SCORECARD (pages/PerformancePage.tsx, REQUIREMENTS §64): the rule people are judged
+   by on the sunken band with the accent's rail, a card per person with its grade's rail, and the
+   figures in columns that line up. The grades are the status pairs. */
+.score-rule { background: var(--surface-sunken); border: 1px solid var(--hairline); border-left: 4px solid var(--accent); border-radius: var(--radius-md); padding: 12px 14px; font-size: 12.5px; line-height: 1.55; color: var(--ink-2); }
+.score-rule strong { color: var(--ink); }
+.score-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.score-card { background: var(--surface); border: 1px solid var(--hairline); border-top: 4px solid var(--hairline-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 16px 18px; min-width: 0; }
+.score-card[data-grade="excellent"], .score-card[data-grade="on-track"] { border-top-color: var(--success); }
+.score-card[data-grade="needs-attention"] { border-top-color: var(--warning); }
+.score-card[data-grade="falling-behind"] { border-top-color: var(--danger); }
+.score-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.score-card-name { font-size: 16px; font-weight: 700; overflow-wrap: anywhere; color: var(--ink); }
+.score-card-figure { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 8px; }
+.score-big { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+.score-unscored { font-size: 20px; font-weight: 600; color: var(--ink-3); }
+.score-counts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; }
+.score-counts [data-count="late"] strong { color: var(--warning); }
+.score-counts [data-count="overdue"] strong { color: var(--danger); }
+.score-counts [data-count="onTime"] strong { color: var(--success); }
+.score-decision { margin: 10px 0 0; font-size: 13px; line-height: 1.5; }
+.score-worst { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.score-worst-line { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 12.5px; }
+.score-worst-name { min-width: 0; overflow-wrap: anywhere; }
+.score-worst-figures { display: inline-flex; gap: 8px; flex-shrink: 0; white-space: nowrap; }
+.score-grade { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; background: var(--neutral-soft); color: var(--neutral); }
+.score-grade[data-grade="excellent"], .score-grade[data-grade="on-track"] { background: var(--success-soft); color: var(--success); }
+.score-grade[data-grade="needs-attention"] { background: var(--warning-soft); color: var(--warning); }
+.score-grade[data-grade="falling-behind"] { background: var(--danger-soft); color: var(--danger); }
+/* A control that reads as the text it is: a document's name that opens the document. */
+.score-open { border: none; background: transparent; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.score-open:hover { color: var(--accent-text); text-decoration: underline; }
+.score-open:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
+.doc-table th.score-num, .doc-table td.score-num { text-align: right; font-variant-numeric: tabular-nums; }
+@media print {
+  .score-rule, .score-grade { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .score-card { box-shadow: none; break-inside: avoid; }
+  .score-cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* THE PANES' FIT ON PAPER. utils/print.ts measures a pane's tables on screen as printing begins
+   (html.print-scoped), and AREA 3's rules hand .text-sm and .text-xs their old sizes for it. On a
+   table's own cell neither ever applied (the cell's .doc-table td size wins, on screen and on paper),
+   nor on a document's name in the scorecard (.score-open takes its cell's font): there the cell's
+   13 px stays, so Document Files and the scorecard measure, fit and print as they always did. */
+@media screen {
+  html.print-scoped .file-pane .doc-table td:is(.text-xs, .text-sm),
+  html.print-scoped [data-section="performance-scorecard"] .doc-table td:is(.text-xs, .text-sm) { font-size: 13px; }
+  html.print-scoped [data-section="performance-scorecard"] .score-open:is(.text-xs, .text-sm) { font-size: inherit; }
+}
+
+/* THE LIBRARY'S SHELVES (pages/DocumentLibraryPage.tsx): a module's name stands clear of the shelf
+   above it, so the long list reads as shelves. Screen only. */
+@media screen {
+  [data-library-module] > h3.text-sm { margin-top: 22px; }
+}
+
+/* THE SEARCH BOX (pages/SearchPage.tsx): the box is the .input; the words go in an input inside it,
+   drawn in the theme by the shared .input > input (no browser-grey box in dark), and the box takes
+   the focus ring while the input has the focus (.input:focus-within). The input's own border and
+   ring stay off in every medium, as its inline style kept them (a printed page included). */
+.input-group { display: flex; align-items: center; gap: 8px; }
+.input-group > input { border: 0; outline: 0; }
+
+/* QC RECORDS AND HR RECORDS (pages/QcPages.tsx, HrPages.tsx): a date in On file and Next due is read
+   whole, never broken at its hyphens ("31-" over "Oct-" over "2026"); the format's name takes the
+   room that is left (.format-name, AREA 1, asks for 220 px and yields to the card). Screen only. */
+@media screen {
+  .overview-date { white-space: nowrap; }
+}
 
 /* ==== end of AREA 4 ==== */
 
@@ -2475,6 +2604,39 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 /* ==== end of AREA 5 ==== */
 
 /* ==== AREA 6: Sign-in and the opening ==== */
+
+/* THE SIGN-IN SCREEN (REQUIREMENTS §90): the same theme as the app behind it, in either
+   theme. The shell is the canvas with one still burgundy wash at its head (--auth-wash,
+   a deeper one in dark); the card a surface on a hairline, 14 px round, on the large
+   shadow, with room to read (36/32/30 px, at most 420 px wide); the company's mark at
+   72 px with an 18 px corner on a burgundy-tinted shadow; the company's name in ink and
+   the line of purpose muted, as REQUIREMENTS §65 set them out. The title's 3D face is
+   brand.css's (section 3a), on the same theme. The theme switch at the card's foot is
+   the foundation's (.auth-theme), and the error line is shared with the admin pages
+   (it stays with the forms' rules, further up). Nothing here moves. */
+.auth-shell {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: radial-gradient(ellipse 80% 60% at 50% -12%, var(--auth-wash) 0%, transparent 62%), var(--canvas);
+}
+.auth-card {
+  width: 100%; max-width: 420px; background: var(--surface); color: var(--ink); border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 36px 32px 30px;
+}
+.auth-brand { text-align: center; margin-bottom: 26px; }
+.auth-brand .title { font-size: 16.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.auth-brand .subtitle { font-size: 13px; font-weight: 600; color: var(--ink); margin-top: 5px; }
+.auth-brand .auth-logo {
+  display: block; width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(63, 44, 34, 0.2), 0 10px 26px rgba(126, 60, 64, 0.28);
+}
+.auth-brand .purpose { font-size: 12.5px; color: var(--ink-2); margin-top: 8px; line-height: 1.45; }
+.auth-footer { text-align: center; margin-top: 20px; font-size: 12.5px; color: var(--ink-2); }
+.auth-role-note { text-align: center; margin-top: 14px; font-size: 11.5px; color: var(--ink-3); }
+/* A phone: a little less frame around the card and inside it, so the form keeps its width. */
+@media (max-width: 420px) {
+  .auth-shell { padding: 16px; }
+  .auth-card { padding: 30px 22px 24px; }
+}
 
 /* ==== end of AREA 6 ==== */
 

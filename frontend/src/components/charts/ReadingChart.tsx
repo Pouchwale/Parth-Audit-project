@@ -13,7 +13,9 @@ import React, { useId, useMemo, useState } from "react";
 //     a faint line between them, each named at the right-hand end with its value;
 //   - nominal ± 2σ as a pale wash, when the early-warning rule used a σ — the
 //     zone a reading must leave, twice in three, to raise that warning;
-//   - the readings as a 2px line with a dot per reading; a reading outside the
+//   - the readings as a 2px line with a dot per reading, in the theme's first chart
+//     colour (--chart-1, the burgundy; a rose in dark), the base line in the chart
+//     grid's (REQUIREMENTS §90); a reading outside the
 //     band is a larger dot in the same warning colours a sheet uses to
 //     highlight that cell (.cell-out-of-band: --color-warning, --color-warning-bg),
 //     so the chart and the sheet say "out of band" the same way.
@@ -125,7 +127,7 @@ export function ReadingChart({ series, height = H }: { series: ReadingSeries; he
           </g>
         ))}
 
-        <line x1={PAD.left} x2={right} y1={height - PAD.bottom} y2={height - PAD.bottom} style={{ stroke: "var(--color-border)", strokeWidth: 1 }} />
+        <line x1={PAD.left} x2={right} y1={height - PAD.bottom} y2={height - PAD.bottom} style={{ stroke: "var(--chart-grid)", strokeWidth: 1 }} />
         {xLabels.map(({ i, label }) => (
           <text key={i} x={x(i)} y={height - PAD.bottom + 16} textAnchor="middle" style={{ fill: "var(--color-text-muted)", fontSize: 10 }}>
             {label}
@@ -133,7 +135,7 @@ export function ReadingChart({ series, height = H }: { series: ReadingSeries; he
         ))}
 
         {points.length > 1 ? (
-          <polyline points={line} style={{ fill: "none", stroke: "var(--color-primary)", strokeWidth: 2, strokeLinejoin: "round", strokeLinecap: "round" }} />
+          <polyline points={line} style={{ fill: "none", stroke: "var(--chart-1)", strokeWidth: 2, strokeLinejoin: "round", strokeLinecap: "round" }} />
         ) : null}
 
         {points.map((p, i) => {
@@ -145,7 +147,7 @@ export function ReadingChart({ series, height = H }: { series: ReadingSeries; he
                 cx={x(i)}
                 cy={y(p.y)}
                 r={out ? 5 : 4}
-                style={{ fill: out ? "var(--color-warning)" : "var(--color-primary)", stroke: "var(--color-surface)", strokeWidth: 2 }}
+                style={{ fill: out ? "var(--color-warning)" : "var(--chart-1)", stroke: "var(--color-surface)", strokeWidth: 2 }}
               >
                 <title>{`${p.x}: ${fmt(p.y)}${u}${out ? (max !== undefined && p.y > max ? ` — above Max ${fmt(max)}` : ` — below Min ${fmt(min as number)}`) : ""}`}</title>
               </circle>

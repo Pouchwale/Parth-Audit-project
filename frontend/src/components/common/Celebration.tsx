@@ -65,7 +65,8 @@ const BURST_PIECES = 18;
 const RAIN_PIECES = 36;
 /** A burst starts 48 px in from the left and ends 1.15 × this far right: inside a 390 px phone. */
 const MAX_BURST_DX = 280;
-const COLORS = ["#1f8a70", "#0f5c7a", "#f2b705", "#e4572e", "#7a3fb8", "#2464b0", "#f28ab2", "#43b581", "#ffd166"];
+/** The brand's burgundy family and the warm palette (REQUIREMENTS §90): confetti never carries words, so it may be literal colours. */
+const COLORS = ["#7E3C40", "#E0A4A7", "#B07440", "#E2B07E", "#3E7A66", "#7CBFA9", "#FBF0D2", "#9F4E53", "#F4F3EE"];
 
 function reducedMotion(): boolean {
   try {

@@ -235,11 +235,13 @@ export function SearchPage() {
         have every one of them — with a format number among them (F/HR/17 RB-27), in that document's records only.
       </p>
       <div className="field mb-2" style={{ maxWidth: 480 }}>
-        <div className="input flex items-center gap-2" style={{ padding: "4px 10px" }}>
+        {/* The box is the .input; the input inside it is drawn by the shared .input > input, and the box shows the
+            focus ring while it has the focus (REQUIREMENTS §90): no browser-grey field inside it in dark. */}
+        <div className="input input-group" style={{ padding: "4px 10px" }}>
           <FiSearch size={15} className="text-faint" />
           <input
             autoFocus
-            style={{ border: "none", outline: "none", flex: 1, fontSize: 13.5 }}
+            style={{ flex: 1, fontSize: 13.5 }}
             placeholder="e.g. F/HR/05, PC-04, Roshni, 2026-09, Rejected…"
             data-field="search-query"
             value={q}

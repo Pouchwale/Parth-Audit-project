@@ -8,11 +8,16 @@
    none (only the card's own close button takes a click), inside the viewport,
    animated with transforms and opacity only, runs once and is gone — no
    infinite animation anywhere. Reduced motion: no confetti, no movement.
-   Nothing here is ever printed. */
+   Nothing here is ever printed.
+
+   On the theme's tokens (REQUIREMENTS §90, styles.css at the top), light or dark: the cards on
+   the raised surface in the warning pair (no gold gradients), the chips in their status pairs
+   with no outline of their own, the day card washed with the soft accent and no rail (the page
+   keeps the greeting's and the insights card's rails, each meaning something). */
 
 /* ---- The line under Mitra's reaction ---------------------------------------- */
 .mitra-reaction-cheer {
-  margin-top: 4px; font-size: 12.5px; font-weight: 500; line-height: 1.4; color: var(--color-text);
+  margin-top: 4px; font-size: 12.5px; font-weight: 500; line-height: 1.4; color: var(--ink);
   animation: cheer-fade-in 0.3s ease-out 1 both;
 }
 @keyframes cheer-fade-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
@@ -50,7 +55,7 @@
 .cheer-badge {
   display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
   padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.4;
-  background: linear-gradient(135deg, #fff7d6, #ffe7a3); color: #6b4a00; border: 1px solid #f0cf6a;
+  background: var(--warning-soft); color: var(--warning); border: 1px solid transparent;
 }
 
 /* ---- The all-done card, under the top bar ------------------------------------------ */
@@ -58,9 +63,8 @@
   position: fixed; top: 70px; left: 50%; z-index: 118; box-sizing: border-box;
   width: min(420px, calc(100vw - 32px));
   padding: 16px 44px 16px 18px; border-radius: 16px; pointer-events: none;
-  color: var(--color-text);
-  background: linear-gradient(135deg, #fffaf0 0%, #fff3cf 48%, var(--color-success-bg) 100%);
-  border: 1px solid #f0cf6a; box-shadow: 0 18px 40px rgba(15, 30, 45, 0.22);
+  color: var(--ink); background: var(--surface-raised);
+  border: 1px solid var(--warning); box-shadow: var(--shadow-lg);
   transform: translateX(-50%);
   animation: cheer-card-in 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) 1 both, cheer-card-out 0.45s ease-in 8.5s 1 forwards;
 }
@@ -72,117 +76,123 @@
 .cheer-card-close {
   pointer-events: auto; position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
   display: inline-flex; align-items: center; justify-content: center; padding: 0;
-  border: none; border-radius: 50%; background: rgba(255, 255, 255, 0.75); color: var(--color-text-muted);
+  border: none; border-radius: 50%; background: var(--surface-sunken); color: var(--ink-2);
   font-size: 18px; line-height: 1; cursor: pointer;
 }
-.cheer-card-close:hover, .cheer-card-close:focus-visible { background: #fff; color: var(--color-text); outline: none; box-shadow: 0 0 0 2px var(--color-primary-light); }
+.cheer-card-close:hover { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 2px var(--accent-soft); }
+.cheer-card-close:focus-visible { background: var(--surface); color: var(--ink); outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .cheer-card-title {
-  font-family: var(--font-display, inherit); font-size: 20px; font-weight: 800; line-height: 1.25; color: #7a4b00;
+  font-family: var(--font-display, inherit); font-size: 20px; font-weight: 800; line-height: 1.25; color: var(--warning);
   overflow-wrap: anywhere;
 }
 .cheer-card-score {
   display: inline-block; margin-top: 6px; padding: 3px 12px; border-radius: 999px;
   font-size: 13px; font-weight: 800; line-height: 1.45; font-variant-numeric: tabular-nums;
-  color: var(--color-success); background: var(--color-success-bg); border: 1px solid #b4e0c8;
+  color: var(--success); background: var(--success-soft); border: 1px solid transparent;
 }
 .cheer-card-facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .cheer-card-fact {
   padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.4;
-  background: rgba(255, 255, 255, 0.78); border: 1px solid rgba(15, 30, 45, 0.08);
+  background: var(--surface-sunken); border: 1px solid var(--hairline);
 }
-.cheer-card-streak { background: #fff1e0; color: #8a4a00; border-color: #f5c28a; }
+.cheer-card-streak { background: var(--poor-soft); color: var(--poor); border-color: transparent; }
 .cheer-card .cheer-badges { margin-top: 8px; }
 .cheer-card-praise { margin-top: 9px; font-size: 13.5px; font-weight: 600; line-height: 1.45; }
-.cheer-card-purpose { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--color-text-muted); font-style: italic; }
+.cheer-card-purpose { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); font-style: italic; }
 
 /* ---- A new badge: smaller, and gone by itself ------------------------------------------ */
 .cheer-pop {
   position: fixed; top: 70px; left: 50%; z-index: 118; box-sizing: border-box;
   width: max-content; max-width: min(400px, calc(100vw - 32px));
   padding: 10px 16px 11px; border-radius: 14px; pointer-events: none; text-align: center;
-  color: var(--color-text); background: linear-gradient(135deg, #fffaf0, #fff0c2);
-  border: 1px solid #f0cf6a; box-shadow: var(--shadow-lg);
+  color: var(--ink); background: var(--surface-raised);
+  border: 1px solid var(--warning); box-shadow: var(--shadow-lg);
   transform: translateX(-50%);
   animation: cheer-card-in 0.45s cubic-bezier(0.2, 1.3, 0.4, 1) 1 both, cheer-card-out 0.4s ease-in 4.7s 1 forwards;
 }
-.cheer-pop-title { font-family: var(--font-display, inherit); font-size: 15px; font-weight: 800; color: #7a4b00; }
+.cheer-pop-title { font-family: var(--font-display, inherit); font-size: 15px; font-weight: 800; color: var(--warning); }
 .cheer-pop .cheer-badges { justify-content: center; margin-top: 6px; }
 .cheer-pop-line { margin-top: 6px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
 
 /* ---- The Dashboard's day card ------------------------------------------------------------ */
 .my-day {
-  overflow: hidden; border-left: 4px solid var(--color-primary);
-  background: linear-gradient(115deg, var(--color-surface) 58%, var(--color-primary-light));
+  overflow: hidden; border-left: 1px solid var(--hairline);
+  background: linear-gradient(115deg, var(--surface) 58%, var(--accent-soft));
 }
 .my-day.is-all-done, .my-day.is-free {
-  border-left-color: var(--color-success);
-  background: linear-gradient(115deg, var(--color-surface) 52%, var(--color-success-bg));
+  border-left-color: var(--hairline);
+  background: linear-gradient(115deg, var(--surface) 52%, var(--success-soft));
 }
 .my-day-body { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; padding: 16px 18px; }
 .my-day-ring { position: relative; flex: 0 0 76px; width: 76px; height: 76px; }
 .my-day-ring svg { display: block; }
-.my-day-ring-track { fill: none; stroke: var(--color-border); stroke-width: 7; }
-.my-day-ring-fill { fill: none; stroke: var(--color-accent); stroke-width: 7; stroke-linecap: round; }
-.my-day.is-all-done .my-day-ring-fill, .my-day.is-free .my-day-ring-fill { stroke: var(--color-success); }
+.my-day-ring-track { fill: none; stroke: var(--hairline); stroke-width: 7; }
+/* The ring is a chart: the first chart colour (the burgundy; the rose in dark, where the accent's
+   fill would sit at 2:1 on the card), green once the day is done; 3:1 or better in both themes. */
+.my-day-ring-fill { fill: none; stroke: var(--chart-1); stroke-width: 7; stroke-linecap: round; }
+.my-day.is-all-done .my-day-ring-fill, .my-day.is-free .my-day-ring-fill { stroke: var(--success); }
 .my-day[data-state="loading"] .my-day-ring-fill { stroke: transparent; }
 .my-day-ring-count {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--color-text);
+  font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink);
 }
 .my-day[data-state="loading"] .my-day-ring-count { color: transparent; }
 .my-day-main { flex: 1 1 260px; min-width: 0; }
 .my-day-title {
   font-family: var(--font-display, inherit); font-size: 19px; font-weight: 700; line-height: 1.25;
-  color: var(--color-primary-dark); overflow-wrap: anywhere;
+  color: var(--accent-strong-text); overflow-wrap: anywhere;
 }
-.my-day-line { margin-top: 3px; font-size: 13.5px; line-height: 1.45; color: var(--color-text); }
-.my-day[data-state="loading"] .my-day-line { color: var(--color-text-muted); }
+.my-day-line { margin-top: 3px; font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+.my-day[data-state="loading"] .my-day-line { color: var(--ink-2); }
 .my-day-chips, .my-day-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .my-day-chip {
   display: inline-flex; align-items: center; max-width: 100%; padding: 3px 10px; border-radius: 999px;
   font-size: 12px; font-weight: 600; line-height: 1.4;
-  background: var(--color-surface-alt); border: 1px solid var(--color-border); color: var(--color-text);
+  background: var(--surface-sunken); border: 1px solid var(--hairline); color: var(--ink);
 }
-.my-day-streak { background: #fff1e0; border-color: #f5c28a; color: #8a4a00; }
-.my-day-left { background: var(--color-info-bg); border-color: #b7cdef; color: var(--color-info); }
-.my-day-purpose { margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--color-text-muted); font-style: italic; }
+.my-day-streak { background: var(--poor-soft); border-color: transparent; color: var(--poor); }
+.my-day-left { background: var(--info-soft); border-color: transparent; color: var(--info); }
+.my-day-purpose { margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); font-style: italic; }
 .my-day-next {
   flex: 0 1 250px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
-  padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface); border: 1px solid var(--color-border);
+  padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface); border: 1px solid var(--hairline);
 }
-.my-day-next-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-faint); }
+.my-day-next-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
 .my-day-next-what {
   max-width: 100%; font-size: 13px; font-weight: 600; line-height: 1.35;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
 }
-.my-day-next-when { font-size: 12px; color: var(--color-text-muted); }
-.my-day-next-when.is-late { color: var(--color-danger); font-weight: 600; }
+.my-day-next-when { font-size: 12px; color: var(--ink-2); }
+.my-day-next-when.is-late { color: var(--danger); font-weight: 600; }
 .my-day-next .btn { margin-top: 6px; gap: 6px; }
 
 /* ---- Today's score: the day card's headline, counted from what is missing ---------------
    0 is perfect (nothing missing); 8 of 10 done is −20. The tone says how far from 0:
-   perfect green, close amber (−1 … −20), behind orange (−21 … −50), far red (below −50). */
+   perfect green, close amber (−1 … −20), behind orange (−21 … −50), far red (below −50).
+   Each tone is a status pair of the theme, its tint with no outline and its rail on the left. */
 .my-day-score {
-  --tone: var(--color-text-faint); --tone-bg: var(--color-surface-alt); --tone-line: var(--color-border);
+  --tone: var(--ink-3); --tone-bg: var(--surface-sunken); --tone-line: var(--hairline);
   flex: 0 1 216px; min-width: 0; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
   padding: 9px 14px 10px; border-radius: var(--radius-md);
   background: var(--tone-bg); border: 1px solid var(--tone-line); border-left: 4px solid var(--tone);
 }
-.my-day-score[data-tone="perfect"] { --tone: var(--color-success); --tone-bg: var(--color-success-bg); --tone-line: #b4e0c8; }
-.my-day-score[data-tone="close"] { --tone: #946c08; --tone-bg: var(--color-warning-bg); --tone-line: #f0d894; }
-/* The theme has no orange of its own: the one between --color-warning and --color-danger. */
-.my-day-score[data-tone="behind"] { --tone: #b85412; --tone-bg: #fdebdc; --tone-line: #f5c7a0; }
-.my-day-score[data-tone="far"] { --tone: var(--color-danger); --tone-bg: var(--color-danger-bg); --tone-line: #efbcbc; }
+.my-day-score[data-tone="perfect"] { --tone: var(--success); --tone-bg: var(--success-soft); --tone-line: transparent; }
+.my-day-score[data-tone="close"] { --tone: var(--warning); --tone-bg: var(--warning-soft); --tone-line: transparent; }
+/* The orange between the warning and the danger: the theme's "poor" pair (the very slow connection's). */
+.my-day-score[data-tone="behind"] { --tone: var(--poor); --tone-bg: var(--poor-soft); --tone-line: transparent; }
+.my-day-score[data-tone="far"] { --tone: var(--danger); --tone-bg: var(--danger-soft); --tone-line: transparent; }
 .my-day-score-label {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-muted);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2);
 }
+/* Gujarati letters are never spaced apart (REQUIREMENTS §90). */
+:lang(gu) .my-day-score-label { letter-spacing: 0; }
 .my-day-score-num {
   font-family: var(--font-display, inherit); font-size: 44px; font-weight: 800; line-height: 1.05;
   font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--tone); white-space: nowrap;
 }
-.my-day-score-line { margin-top: 2px; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--color-text); overflow-wrap: anywhere; }
-.my-day[data-state="loading"] .my-day-score-num { color: var(--color-border-strong); }
+.my-day-score-line { margin-top: 2px; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere; }
+.my-day[data-state="loading"] .my-day-score-num { color: var(--hairline-strong); }
 
 @media (max-width: 560px) {
   .my-day-body { gap: 12px; padding: 14px; }

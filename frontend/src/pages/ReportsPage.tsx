@@ -126,7 +126,10 @@ export function ReportsPage({
       </div>
 
       {/* The open report is what prints (utils/print.ts) — not the tabs and pickers above it. */}
-      <div data-print-doc>
+      {/* A printable pane of the screen, not a paper form (data-print-doc="ui", REQUIREMENTS §90): on screen it
+          takes the theme, light or dark; printing finds it and fits it to the paper as before (styles.css, AREA 3).
+          A trend tab's sheet inside it is paper of its own (CatchTrendSheet's own data-print-doc). */}
+      <div data-print-doc="ui">
       {/* On paper the report needs to say whose it is and what it covers; on
           screen the page's own title and pickers already do (REQUIREMENTS §38).
           The three trend tabs bring the company's own sheet header with them. */}
@@ -218,7 +221,7 @@ function LaminationQcReport({ isDemo, year, month }: { isDemo: boolean; year: nu
         {chartRows.length === 0 ? (
           <p className="text-muted text-sm mb-3">No viscosity records for this month yet.</p>
         ) : (
-          <MiniBarChart labels={chartRows.map((r) => String(Number(r.date.slice(-2))))} values={chartRows.map((r) => Number(r.viscosityAvg!.toFixed(2)))} color="var(--color-primary)" />
+          <MiniBarChart labels={chartRows.map((r) => String(Number(r.date.slice(-2))))} values={chartRows.map((r) => Number(r.viscosityAvg!.toFixed(2)))} color="var(--chart-1)" />
         )}
       </div>
       <div className="doc-table" style={{ border: "none" }}>

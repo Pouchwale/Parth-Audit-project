@@ -2,7 +2,10 @@ import React from "react";
 
 // Dependency-free bar chart (no charting library available offline — see
 // docs/DEPLOYMENT.md). Good enough for month-over-month trend reports.
-export function MiniBarChart({ labels, values, color = "var(--color-primary)" }: { labels: string[]; values: number[]; color?: string }) {
+// Bars in the theme's first chart colour unless told otherwise; the label and the
+// figure under each bar are sized by styles.css (.mini-bar-label, .mini-bar-value):
+// 11 px on screen, and on paper the sizes they always printed at (REQUIREMENTS §90).
+export function MiniBarChart({ labels, values, color = "var(--chart-1)" }: { labels: string[]; values: number[]; color?: string }) {
   const max = Math.max(1, ...values);
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 140, padding: "8px 4px" }}>
@@ -23,8 +26,8 @@ export function MiniBarChart({ labels, values, color = "var(--color-primary)" }:
                 }}
               />
             </div>
-            <div style={{ fontSize: 9.5, color: "var(--color-text-faint)", fontWeight: 600 }}>{label}</div>
-            <div style={{ fontSize: 10, fontWeight: 700 }}>{v}</div>
+            <div className="mini-bar-label">{label}</div>
+            <div className="mini-bar-value">{v}</div>
           </div>
         );
       })}

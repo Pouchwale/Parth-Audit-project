@@ -72,7 +72,9 @@ export function CalendarPage({ year, month }: { year?: number; month?: number })
       <button className="btn btn-ghost btn-sm mb-3 no-print" data-action="back" onClick={() => back()}>
         <FiArrowLeft size={13} /> {t("common.back")}
       </button>
-      <div className="flex items-center justify-between mb-4">
+      {/* calendar-head and calendar-scroll: on a phone the pickers go under the words, and the month
+          scrolls sideways in a box of its own, its weekdays over their days (styles.css, AREA 3). */}
+      <div className="flex items-center justify-between mb-4 calendar-head">
         <div>
           <h1 className="text-2xl mb-1">{t("cal.title")}</h1>
           <p className="text-muted">
@@ -104,52 +106,55 @@ export function CalendarPage({ year, month }: { year?: number; month?: number })
         </div>
       </div>
 
-      <div className="calendar-grid mb-1">
-        {WEEKDAY_NAMES.map((w) => (
-          <div key={w} className="calendar-weekday">
-            {w}
-          </div>
-        ))}
-      </div>
-      <div className="calendar-grid">
-        {cells.map((d, i) => {
-          if (d === null) return <div key={`e${i}`} className="calendar-cell empty" />;
-          const dateISO = `${y}-${pad2(m + 1)}-${pad2(d)}`;
-          const records = byDate.get(dateISO) ?? [];
-          const completed = records.filter((r) => ["Submitted", "Pending Verification", "Verified"].includes(r.status));
-          const overdue = records.filter((r) => dateISO < today && ["Scheduled", "Due", "In Progress"].includes(r.status));
-          const pending = records.filter((r) => dateISO >= today && ["Scheduled", "Due", "In Progress"].includes(r.status));
-          const isToday = dateISO === today;
-          const day = dayInfo(dateISO, master);
-          return (
-            <div
-              key={dateISO}
-              className={`calendar-cell${isToday ? " today" : ""}${day.kind !== "working" ? ` ${day.kind}` : ""}`}
-              {...pressable(() => navigate(`/day/${dateISO}`))}
-              title={day.kind !== "working" ? day.label : undefined}
-            >
-              <div className="cal-date">{d}</div>
-              <div className="flex flex-col gap-1">
-                {day.kind !== "working" && <span className={`cal-chip cal-day cal-day-${day.kind}`}>{day.short}</span>}
-                {completed.length > 0 && (
-                  <span className="cal-chip" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
-                    {completed.length} Completed
-                  </span>
-                )}
-                {overdue.length > 0 && (
-                  <span className="cal-chip" style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)" }}>
-                    {overdue.length} Overdue
-                  </span>
-                )}
-                {pending.length > 0 && (
-                  <span className="cal-chip" style={{ background: "var(--color-info-bg)", color: "var(--color-info)" }}>
-                    {pending.length} {isToday || dateISO < today ? "Due" : "Scheduled"}
-                  </span>
-                )}
-              </div>
+      <div className="calendar-scroll">
+        <div className="calendar-grid mb-1">
+          {WEEKDAY_NAMES.map((w) => (
+            <div key={w} className="calendar-weekday">
+              {w}
             </div>
-          );
-        })}
+          ))}
+        </div>
+        <div className="calendar-grid">
+          {cells.map((d, i) => {
+            if (d === null) return <div key={`e${i}`} className="calendar-cell empty" />;
+            const dateISO = `${y}-${pad2(m + 1)}-${pad2(d)}`;
+            const records = byDate.get(dateISO) ?? [];
+            const completed = records.filter((r) => ["Submitted", "Pending Verification", "Verified"].includes(r.status));
+            const overdue = records.filter((r) => dateISO < today && ["Scheduled", "Due", "In Progress"].includes(r.status));
+            const pending = records.filter((r) => dateISO >= today && ["Scheduled", "Due", "In Progress"].includes(r.status));
+            const isToday = dateISO === today;
+            const day = dayInfo(dateISO, master);
+            return (
+              <div
+                key={dateISO}
+                className={`calendar-cell${isToday ? " today" : ""}${day.kind !== "working" ? ` ${day.kind}` : ""}`}
+                {...pressable(() => navigate(`/day/${dateISO}`))}
+                title={day.kind !== "working" ? day.label : undefined}
+              >
+                <div className="cal-date">{d}</div>
+                <div className="flex flex-col gap-1">
+                  {day.kind !== "working" && <span className={`cal-chip cal-day cal-day-${day.kind}`}>{day.short}</span>}
+                  {/* The counts in the status pairs of the badges (REQUIREMENTS §90): done the Verified pair, late the Overdue pair, to do the Due pair. */}
+                  {completed.length > 0 && (
+                    <span className="cal-chip badge-Verified">
+                      {completed.length} Completed
+                    </span>
+                  )}
+                  {overdue.length > 0 && (
+                    <span className="cal-chip badge-Overdue">
+                      {overdue.length} Overdue
+                    </span>
+                  )}
+                  {pending.length > 0 && (
+                    <span className="cal-chip badge-Due">
+                      {pending.length} {isToday || dateISO < today ? "Due" : "Scheduled"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

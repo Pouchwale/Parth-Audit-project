@@ -113,7 +113,8 @@ export function CapaHomePage() {
         <div className="card capa-option external" onClick={() => navigate("/gap/external")}>
           <div className="card-pad">
             <div className="flex items-center gap-2 mb-2">
-              <FiUsers size={18} style={{ color: "var(--color-accent)" }} />
+              {/* In the accent's text colour on screen, the green it always printed in on paper (styles.css AREA 4). */}
+              <FiUsers size={18} className="capa-external-icon" />
               <h2 className="text-xl">External</h2>
             </div>
             <p className="text-sm text-muted mb-3">
@@ -580,7 +581,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
       />
       {headerPanel}
 
-      <div className="card mt-4 no-print" style={{ borderLeft: "4px solid var(--color-accent)" }}>
+      {/* The checklist's own panel on the sheet is the app's, so its rail is the theme's accent (REQUIREMENTS §90). */}
+      <div className="card mt-4 no-print" style={{ borderLeft: "4px solid var(--accent)" }}>
         <div className="card-pad flex items-center justify-between gap-4 wrap">
           <div style={{ flex: 1, minWidth: 220 }}>
             <div className="flex items-center gap-2 mb-1">

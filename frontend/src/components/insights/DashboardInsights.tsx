@@ -96,12 +96,12 @@ export function DashboardInsights() {
 
   return (
     <div
-      className="card mb-6"
+      className="card mb-6 card-rail"
       data-section="dashboard-insights"
       data-high={counts.high}
       data-medium={counts.medium}
       data-low={counts.low}
-      style={{ borderLeft: `4px solid ${BADGE[current.top[0].severity].fg}` }}
+      data-severity={current.top[0].severity}
     >
       <div className="card-pad">
         <div className="flex items-center justify-between gap-3 wrap mb-2">

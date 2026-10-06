@@ -92,7 +92,8 @@ export function SessionClock() {
         color: "var(--color-text)",
         border: "1px solid var(--color-warning)",
         borderRadius: 10,
-        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.18)",
+        // The theme's own shadow for what floats over the page (REQUIREMENTS §90): warm in light, deeper in dark.
+        boxShadow: "var(--shadow-lg)",
         padding: "10px 14px",
         fontSize: 13.5,
         lineHeight: 1.45,
