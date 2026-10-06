@@ -11,7 +11,13 @@
 
    Cheap on a slow laptop: nothing here moves the layout, and the only movement is a
    card fading in and a ring pulsing twice per step, on transforms and opacity —
-   none of it for somebody whose system asks for less motion, and none on paper. */
+   none of it for somebody whose system asks for less motion, and none on paper.
+
+   In the theme, light or dark (REQUIREMENTS §90): the dim is the theme's overlay, the
+   card a pop-up like the others (the raised surface on a strong hairline, the large
+   shadow, the theme's inks), the step count in the accent's text colour and the bar
+   in its fill. The spotlight keeps its pink ring, drawn for the company's burgundy,
+   in either theme. Each fallback is the light theme's value of its token. */
 
 .tour-layer {
   position: fixed;
@@ -28,14 +34,14 @@
 .tour-dim {
   position: absolute;
   inset: 0;
-  background: rgba(6, 22, 32, 0.58);
+  background: var(--overlay, rgba(31, 30, 29, 0.48));
   pointer-events: none;
 }
 
 .tour-spot {
   position: fixed;
   border-radius: 10px;
-  box-shadow: 0 0 0 max(200vw, 200vh) rgba(6, 22, 32, 0.58);
+  box-shadow: 0 0 0 max(200vw, 200vh) var(--overlay, rgba(31, 30, 29, 0.48));
   pointer-events: none;
 }
 
@@ -55,10 +61,10 @@
   width: min(360px, calc(100vw - 24px));
   padding: 16px 18px 14px;
   border-radius: 14px;
-  background: var(--color-surface, #ffffff);
-  color: var(--color-text, #1b2a33);
-  border: 1px solid var(--color-border, #d8e1e7);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32);
+  background: var(--surface-raised, #FFFEFC);
+  color: var(--ink, #1F1E1D);
+  border: 1px solid var(--hairline-strong, #CFC9BE);
+  box-shadow: var(--shadow-lg, 0 14px 40px rgba(63, 44, 34, 0.18));
 }
 
 .tour-head {
@@ -74,7 +80,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--color-primary, #1680a8);
+  color: var(--accent-text, #7E3C40);
 }
 
 .tour-bar {
@@ -83,14 +89,14 @@
   height: 4px;
   overflow: hidden;
   border-radius: 4px;
-  background: var(--color-surface-alt, #eef3f6);
+  background: var(--surface-sunken, #F3F1EA);
 }
 
 .tour-bar-fill {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--color-primary, #1680a8), #7e3c40);
+  background: var(--accent, #7E3C40);
   transform-origin: 0 50%;
 }
 
@@ -106,7 +112,7 @@
   margin: 0 0 12px;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--color-text-muted, #4b5c66);
+  color: var(--ink-2, #5A584F);
 }
 
 .tour-optout {

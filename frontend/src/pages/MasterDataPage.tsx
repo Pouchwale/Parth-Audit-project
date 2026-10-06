@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiMonitor, FiMoon, FiPlus, FiSun, FiTrash2 } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -20,6 +20,7 @@ import { playCue } from "../utils/sounds";
 import { onVoiceChange, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceInUse } from "../utils/voice";
 import { VoiceLanguages } from "../components/master/VoiceLanguages";
 import { logActivity } from "../utils/activityLog";
+import { setThemeChoice, THEME_CHOICES, useTheme, type ThemeChoice } from "../store/theme";
 import {
   addDaysISO,
   clockText,
@@ -345,6 +346,7 @@ export function MasterDataPage() {
           </div>
         </div>
       )}
+      {tab === "settings" && <ThemeSettingsCard />}
       {tab === "settings" && <VoiceSettingsCard />}
 
       {tab === "holidays" && (
@@ -863,6 +865,78 @@ function SimpleTable({
       <button className="btn btn-secondary btn-sm mt-2" onClick={onAdd}>
         <FiPlus size={13} /> Add Row
       </button>
+    </div>
+  );
+}
+
+// THE THEME (REQUIREMENTS §90): light, dark, or the same as the computer. The
+// person's own setting, like the language: kept with their settings in the database,
+// so it follows them to any computer in the plant (store/theme.tsx). The same three
+// as the switch in the top bar, here as a row of radio buttons: a click, Enter or
+// Space chooses; the arrow keys move along the row, choosing as they go; Tab reaches
+// the one chosen. Under the row, what this computer is set to now (what "Same as my
+// computer" shows), and that a printout is always the paper form.
+const THEME_ICONS: Record<ThemeChoice, typeof FiSun> = { light: FiSun, dark: FiMoon, system: FiMonitor };
+
+function ThemeSettingsCard() {
+  const t = useT();
+  const { choice, computer } = useTheme();
+  const radios = useRef<Array<HTMLButtonElement | null>>([]);
+  const onKey = (e: React.KeyboardEvent<HTMLButtonElement>, at: number) => {
+    const last = THEME_CHOICES.length - 1;
+    const moves: Record<string, number> = {
+      ArrowRight: at === last ? 0 : at + 1,
+      ArrowDown: at === last ? 0 : at + 1,
+      ArrowLeft: at === 0 ? last : at - 1,
+      ArrowUp: at === 0 ? last : at - 1,
+      Home: 0,
+      End: last,
+    };
+    if (!(e.key in moves)) return;
+    e.preventDefault();
+    const to = moves[e.key];
+    setThemeChoice(THEME_CHOICES[to]);
+    radios.current[to]?.focus();
+  };
+
+  return (
+    <div className="card mt-4" data-section="theme-settings" style={{ maxWidth: 560 }}>
+      <div className="card-pad">
+        <h3 className="text-base font-semibold mb-1">{t("theme.label")}</h3>
+        <p className="text-muted text-sm mb-3">{t("theme.lead")}</p>
+        <div className="pill-tabs theme-choice" role="radiogroup" aria-label={t("theme.label")}>
+          {THEME_CHOICES.map((c, i) => {
+            const Icon = THEME_ICONS[c];
+            const on = choice === c;
+            return (
+              <button
+                key={c}
+                ref={(el) => {
+                  radios.current[i] = el;
+                }}
+                type="button"
+                className="pill-tab"
+                role="radio"
+                aria-checked={on}
+                tabIndex={on ? 0 : -1}
+                data-action="set-theme"
+                data-theme-choice={c}
+                onClick={() => setThemeChoice(c)}
+                onKeyDown={(e) => onKey(e, i)}
+              >
+                <Icon size={14} aria-hidden="true" />
+                <span>{t(`theme.${c}`)}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted mt-3" data-field="theme-computer">
+          {t("theme.computerNow", { theme: t(`theme.now.${computer}`) })}
+        </p>
+        <p className="text-xs text-faint mt-1" data-field="theme-print-note">
+          {t("theme.printNote")}
+        </p>
+      </div>
     </div>
   );
 }

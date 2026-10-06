@@ -2597,9 +2597,38 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
   .overview-date { white-space: nowrap; }
 }
 
+/* THE CV TO READ (components/hr/CvImportDialog.tsx): the browser's own "Choose File" button, a grey
+   of the browser's in either theme, is drawn as the app's secondary button on the dialog's raised
+   surface, and the name of the file beside it in muted ink. Colours change at once; screen only. */
+@media screen {
+  [data-section="cv-choose"] input[type="file"] { max-width: 100%; color: var(--ink-2); font: inherit; font-size: 13px; }
+  [data-section="cv-choose"] input[type="file"]::file-selector-button {
+    margin-right: 10px; padding: 6px 12px; border: 1px solid var(--hairline-strong); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
+  }
+  [data-section="cv-choose"] input[type="file"]::file-selector-button:hover { background: var(--surface-sunken); }
+  [data-section="cv-choose"] input[type="file"]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+}
+
 /* ==== end of AREA 4 ==== */
 
 /* ==== AREA 5: Admin, settings, tour ==== */
+/* THE ADMIN PAGES, MASTER DATA AND THE TOUR (REQUIREMENTS §90). Users & Access, User access, the
+   Activity Log, the database overview, Demo Mode and Master Data, with their dialogs (adding a
+   person, a new password, the review before signing out) and notices (the store is full, the
+   database is behind), are built of the shared components, themed where they are defined
+   further up; their notices' rails and tints are the app's own names, inline, which follow the
+   theme. Master Data's Theme card (pages/MasterDataPage.tsx) is the foundation's
+   .pill-tabs.theme-choice, as the top bar's switch is its .theme-menu; the demo band and tag are
+   themed where they are defined; the guided tour is public/styles/tour.css, on the same tokens. */
+
+/* THE THEME CARD ON A PHONE: the three choices do not fit one row in English, so the row takes the
+   card's width and each choice shares it, centred: Light and Dark side by side and Same as my
+   computer under them, a tidy pair of rows rather than one choice left hanging. */
+@media screen and (max-width: 480px) {
+  [data-section="theme-settings"] .pill-tabs.theme-choice { display: flex; }
+  [data-section="theme-settings"] .pill-tabs.theme-choice .pill-tab[role="radio"] { flex: 1 1 auto; justify-content: center; }
+}
 
 /* ==== end of AREA 5 ==== */
 
