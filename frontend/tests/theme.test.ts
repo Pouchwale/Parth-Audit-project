@@ -165,7 +165,14 @@ test("the paper is a scope of its own on screen: TODAY's values, four inks lifte
   // The sheet on its canvas, screen only; a register's holder goes clear.
   const frame = ruleFor('[data-print-doc]:not([data-print-doc="ui"])', ["@media screen"]);
   assert.ok(frame.some((r) => r.decls.get("background") === "var(--paper)" && r.decls.get("box-shadow") === "var(--paper-shadow)"), "a white sheet with the paper's shadow");
-  assert.ok(ruleFor('[data-print-doc]:not([data-print-doc="ui"]):has(.register-page, .caf-page)', ["@media screen"]).length === 1);
+  // A register's or complaint's holder goes clear (each page is the sheet). AREA 1 adds a second rule for the same
+  // holder, handing the theme's values back to what sits outside the pages; this one must still clear the holder.
+  assert.ok(
+    ruleFor('[data-print-doc]:not([data-print-doc="ui"]):has(.register-page, .caf-page)', ["@media screen"]).some(
+      (r) => r.decls.get("background") === "transparent" && r.decls.get("box-shadow") === "none"
+    ),
+    "a register's holder goes clear"
+  );
   assert.ok(!RULES.some((r) => /data-print-doc="ui"/.test(r.selector) && r.media.some((m) => /print/.test(m))), "nothing of it in print");
 });
 
