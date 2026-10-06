@@ -14,6 +14,7 @@ import { openBriefing } from "../common/AssistantBriefingPopup";
 import { ChangePasswordDialog } from "../common/ChangePasswordDialog";
 import { Clock, ConnectionStatus } from "./TopbarStatus";
 import { SoundToggle } from "./SoundToggle";
+import { ThemeSwitch } from "./ThemeSwitch";
 
 export function Topbar() {
   const { mode, setMode } = useAppStore();
@@ -77,6 +78,9 @@ export function Topbar() {
           {/* The one language control for the whole app, reachable from every
               screen; beside it, a word on which translation is showing. */}
           <LanguageSwitcher />
+          {/* Light, dark, or the same as the computer (REQUIREMENTS §90): after the
+              language, so the bar still begins connection, clock, language. */}
+          <ThemeSwitch />
           {/* Mitra's sounds and voice, muted or brought back in one press (REQUIREMENTS §81). */}
           <SoundToggle />
           <button className="btn btn-secondary btn-sm" onClick={openBriefing} title={t("top.briefingTitle")} aria-label={t("top.todaysBriefing")}>

@@ -325,7 +325,8 @@ export function PestControlOverviewPage() {
                 <tbody>
                   {visibleServices.map((s) => (
                     <tr key={s.slug} className="card-clickable" onClick={() => navigate(`/pest/service/${s.slug}`)}>
-                      <td>
+                      {/* The service's name holds a line or two at any width (REQUIREMENTS §90, styles.css AREA 1). */}
+                      <td className="format-name">
                         <div className="font-semibold text-sm">{s.title}</div>
                         <div className="text-xs text-faint">{s.pests}</div>
                       </td>

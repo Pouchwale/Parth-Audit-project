@@ -221,7 +221,8 @@ export function AssistantBriefingPopup() {
         : "where things stand right now";
 
   return (
-    <div className="no-print" style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.42)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+    // The scrim is the theme's (REQUIREMENTS §90): the same veil as every dialog, light or dark.
+    <div className="no-print" style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div className="card briefing" style={{ width: 640, maxWidth: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "var(--shadow-lg)" }}>
         <div className="briefing-head">
           <div className="flex items-center gap-3">
@@ -230,7 +231,8 @@ export function AssistantBriefingPopup() {
             </div>
             <div>
               <div className="text-lg font-bold">{slot === "evening" ? `Before you go, ${briefing.greeting.replace(/^Good \w+, /, "").replace(/!$/, "")}` : briefing.greeting}</div>
-              <div className="text-xs" style={{ opacity: 0.85 }}>
+              {/* Full strength, not faded: on the lightest end of Mitra's face in dark a faded line fell under AA (REQUIREMENTS §90). */}
+              <div className="text-xs">
                 {formatDisplayDate(todayISO())} · {subtitle}
               </div>
             </div>
@@ -244,11 +246,11 @@ export function AssistantBriefingPopup() {
               aria-label={saying ? t("voice.briefing.stop") : t("voice.briefing.play")}
               title={saying ? t("voice.briefing.stop") : t("voice.briefing.play")}
               onClick={toggleVoice}
-              style={{ color: "#fff" }}
+              style={{ color: "var(--on-brand)" }}
             >
               <span aria-hidden="true">{saying ? "⏹" : "🔊"}</span>
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={dismiss} aria-label="Close briefing" style={{ color: "#fff" }}>
+            <button className="btn btn-ghost btn-sm" onClick={dismiss} aria-label="Close briefing" style={{ color: "var(--on-brand)" }}>
               <FiX size={16} />
             </button>
           </div>

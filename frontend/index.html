@@ -14,6 +14,14 @@
     <link rel="icon" type="image/png" sizes="32x32" href="brand/logo-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="brand/logo-192.png" />
     <link rel="apple-touch-icon" href="brand/logo-192.png" />
+    <!-- REQUIREMENTS §90: the theme this computer showed last (light, dark or the same
+         as the computer), on <html> BEFORE the stylesheet is read, so the first paint is
+         already in it and the page never flashes the other one. The app then paints the
+         signed-in person's own (store/theme.tsx). Nothing chosen yet: light. The server
+         sends no Content-Security-Policy, so an inline script runs; should one ever be
+         added, give this a nonce or move it to a blocking script file. The tab colour
+         (theme-color above) is the company's burgundy in every theme. -->
+    <script>(function(){try{var t=localStorage.getItem("dcrs:theme");if(t==="light"||t==="dark"||t==="system"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();</script>
     <link rel="stylesheet" href="assets/styles.css" />
     <!-- REQUIREMENTS §81: each feature's own rules (fonts and the intro, uploading an
          edited file, sound and voice, celebrations), after the main stylesheet. -->

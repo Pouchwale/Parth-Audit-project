@@ -165,24 +165,10 @@ export function NotificationBell() {
         style={{ position: "relative" }}
       >
         <FiBell size={15} />
+        {/* The count on a FILL of its level (styles.css .bell-count), so its figure
+            reads in either theme (REQUIREMENTS §90). */}
         {badge > 0 && (
-          <span
-            data-field="bell-count"
-            style={{
-              position: "absolute",
-              top: -3,
-              right: -3,
-              minWidth: 15,
-              height: 15,
-              padding: "0 3px",
-              fontSize: 10,
-              lineHeight: "15px",
-              textAlign: "center",
-              background: escalations.length > 0 || highCount > 0 ? "var(--color-danger)" : urgentCount > 0 ? "var(--color-warning)" : "var(--color-neutral)",
-              color: "#fff",
-              borderRadius: 999,
-            }}
-          >
+          <span className="bell-count" data-field="bell-count" data-level={escalations.length > 0 || highCount > 0 ? "danger" : urgentCount > 0 ? "warning" : "neutral"}>
             {badge > 99 ? "99+" : badge}
           </span>
         )}

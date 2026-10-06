@@ -12,6 +12,7 @@ import {
   type TranslateStatus,
 } from "../i18n/googleTranslate";
 import { useAuth } from "./AuthContext";
+import { adoptPersonTheme, reapplyPersonTheme } from "./theme";
 
 interface AppStoreValue {
   mode: AppMode;
@@ -50,8 +51,23 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
   // Another tab of the app saved something: redraw, so this one shows it
-  // (recordRepository has already dropped its stale copy).
-  useEffect(() => onExternalChange(() => bump()), [bump]);
+  // (recordRepository has already dropped its stale copy). The person's
+  // settings among it (from another tab, or another computer through the
+  // database): their theme is painted again if it changed there.
+  useEffect(
+    () =>
+      onExternalChange((key) => {
+        if (key === null || key === "settings") reapplyPersonTheme();
+        bump();
+      }),
+    [bump]
+  );
+
+  // THE THEME (REQUIREMENTS §90): the signed-in person's own, painted as soon as
+  // their settings are here (until now the page wore this computer's last one).
+  useEffect(() => {
+    adoptPersonTheme();
+  }, []);
 
   // Gujarati was chosen before (the choice is remembered): translate as the app opens.
   useEffect(() => {

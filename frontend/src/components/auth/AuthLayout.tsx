@@ -1,5 +1,6 @@
 import React from "react";
 import { COMPANY } from "../../data/seed/masterData";
+import { ThemeSwitch } from "../layout/ThemeSwitch";
 
 // THE FIRST SCREEN ANYBODY SEES (REQUIREMENTS §65): the company's mark, the
 // system's name, whose system it is (the company's name as the owner gave it on
@@ -38,6 +39,11 @@ export function AuthLayout({ children, afterIntro = false }: { children: React.R
           <div className="purpose">Every controlled record — filled, reviewed, verified and on file.</div>
         </div>
         {children}
+        {/* The theme, at the card's foot (REQUIREMENTS §90): this computer's look until
+            somebody signs in, and theirs from then on (store/theme.tsx). */}
+        <div className="auth-theme">
+          <ThemeSwitch mirrorOnly />
+        </div>
       </div>
     </div>
   );

@@ -6,6 +6,11 @@ export type AppMode = "live" | "demo";
 
 export type BriefingSlot = "first" | "morning" | "evening";
 
+/** How DCRS looks for a person (REQUIREMENTS §90): light, dark, or the same as the computer. */
+export type ThemeChoice = "light" | "dark" | "system";
+
+const isThemeChoice = (value: unknown): value is ThemeChoice => value === "light" || value === "dark" || value === "system";
+
 export interface AppSettings {
   mode: AppMode;
   // Working hours (24h "HH:MM"). The assistant's briefing pops up by itself
@@ -65,6 +70,14 @@ export interface AppSettings {
    * setTourOff, which keep the signed-in person's entry alone.
    */
   tour: Record<string, TourFlags>;
+  /**
+   * THE THEME (REQUIREMENTS §90): light, dark, or the same as the computer (its own
+   * light or dark, followed live). Kept with the rest of the person's settings, so it
+   * follows them to any computer in the plant, and handed on like the language to the
+   * next person who first signs in on this one: a plant computer keeps its look. Light
+   * until they choose. Painted by store/theme.tsx.
+   */
+  theme: ThemeChoice;
 }
 
 /** One person's guided-tour flags (AppSettings.tour). */
@@ -105,6 +118,7 @@ const DEFAULTS: AppSettings = {
   spokenToday: { date: "", keys: [] },
   celebratedToday: { date: "", keys: [] },
   tour: {},
+  theme: "light",
 };
 
 /** A person's tour flags as stored — anything malformed reads as nothing set. */
@@ -123,7 +137,9 @@ export const settingsRepository = {
     // A "demo" stored from before Demo Mode was taken out of the product reads
     // as "live" — here, so whatever reads the settings agrees (REQUIREMENTS §65).
     const mode: AppMode = stored.mode === "demo" && demoModeAvailable() ? "demo" : "live";
-    return { ...DEFAULTS, ...stored, mode, liveStartDate: companyLiveStart() ?? stored.liveStartDate ?? null };
+    // A theme that is not one of the three reads as the default, light.
+    const theme: ThemeChoice = isThemeChoice(stored.theme) ? stored.theme : DEFAULTS.theme;
+    return { ...DEFAULTS, ...stored, mode, theme, liveStartDate: companyLiveStart() ?? stored.liveStartDate ?? null };
   },
   update(patch: Partial<AppSettings>): AppSettings {
     const { liveStartDate, ...own } = patch;
