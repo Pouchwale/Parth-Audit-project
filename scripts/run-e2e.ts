@@ -363,6 +363,9 @@ async function main(): Promise<void> {
   "tests/e2e_mitra_copy_edit.py",
   // REQUIREMENTS §86: the header block typed over where it stands, on every document (the fill suite's account, :8842).
   "tests/e2e_header_editing.py",
+  // REQUIREMENTS §89: Mitra in English, Hindi and Gujarati - the voice card's three languages, the Hindi line, each
+  // sentence in its own voice, the hint where Chrome has no Gujarati voice (sign-up, :8842).
+  "tests/e2e_voice_languages.py",
   // REQUIREMENTS §90: light, dark or the same as the computer: the switch, the choice kept for the person, no flash,
   // the paper white in dark, print the same in either theme, every page in dark (one sign-up, :8842).
   "tests/e2e_theme.py",

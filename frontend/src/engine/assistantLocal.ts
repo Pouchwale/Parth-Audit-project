@@ -8,7 +8,9 @@ import { departmentScopeLabel, documentDepartmentLabel, isDocumentIdVisible } fr
 import { routeForRecord } from "./reminders";
 import { filesRoute, isPestFileDocument, recordsInRange, scopeForDocuments } from "./fileScope";
 import { dayInfo, describeDay, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG, type DayInfo } from "./holidays";
-import { t } from "../i18n";
+import { answerIn, t, type Language } from "../i18n";
+import { HINDI } from "../i18n/hindi";
+import { askedLanguage, hasDevanagari } from "../utils/scripts";
 import { guide, hello, whoIAm } from "./assistantPersona";
 import { documentsByFormatNumber, formatNumberAnswer } from "./formatNumbers";
 import { hrMasterChatAnswer } from "./hrMasterAssistant";
@@ -984,7 +986,37 @@ function capaSummary(lower: string, isDemo: boolean): LocalAnswer {
   return { reply: `${isDemo ? "Demo data. " : ""}${parts.join("\n\n")}`, chips };
 }
 
+// THE LANGUAGE OF THE APP'S OWN ANSWERS (REQUIREMENTS §89). "Gujarati asked,
+// Gujarati answered; the same for Hindi and English." These answers are given
+// when the model cannot be (no key, no internet, the call failed): written from
+// the string tables, they follow the language of the QUESTION where both tables
+// have the words (a question in Gujarati, script or Latin letters, gets
+// Gujarati, one in English gets English, whatever the screens are in), and the
+// screens' language otherwise. Hindi has no table: a question in Hindi gets the
+// answer as it is, with one short Hindi line in front saying the full Hindi
+// answer needs the AI service, which is not there right now (i18n/hindi.ts),
+// in Devanagari, or in Latin letters for a question asked in Latin letters.
+
+/** The language the app's own answer to `question` is written in: Gujarati or English as asked, else (null) the screens'. */
+export function answerLanguageFor(question: string): Language | null {
+  const asked = askedLanguage(question);
+  return asked === "gu" || asked === "en" ? asked : null;
+}
+
+/** `reply` with the Hindi line in front when `question` was asked in Hindi (once: a reply that has it already is left alone). */
+export function withHindiNote(reply: string, question: string): string {
+  if (askedLanguage(question) !== "hi") return reply;
+  const note = hasDevanagari(question) ? HINDI.note : HINDI.noteLatin;
+  return reply.startsWith(note) ? reply : `${note}\n${reply}`;
+}
+
+/** The app's own answer (below), in the question's language (see above). */
 export function localAnswer(message: string, isDemo: boolean, userName?: string): LocalAnswer | null {
+  const answer = answerIn(answerLanguageFor(message), () => answerHere(message, isDemo, userName));
+  return answer ? { ...answer, reply: withHindiNote(answer.reply, message) } : null;
+}
+
+function answerHere(message: string, isDemo: boolean, userName?: string): LocalAnswer | null {
   const text = message.trim();
   const lower = text.toLowerCase();
   const today = todayISO();

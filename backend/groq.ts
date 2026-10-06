@@ -318,10 +318,12 @@ const AUDIO_EXTENSIONS: Record<string, string> = {
 
 /**
  * Transcribes a recording with whisper-large-v3. `language` narrows Whisper
- * to English or Gujarati when the person chose one; left out, Whisper decides
- * (a mix of the two is common on the shop floor). `prompt` is vocabulary the
- * plant uses, so format numbers and names come out as written. Nothing is
- * metered: Whisper is billed by audio seconds, apart from the token allowance.
+ * to English, Hindi or Gujarati only when the person chose one; left out, as
+ * the browser sends it (REQUIREMENTS §89), Whisper decides, and the language it
+ * heard comes back with the words (a mix is common on the shop floor). `prompt`
+ * is vocabulary the plant uses, so format numbers and names come out as written.
+ * Nothing is metered: Whisper is billed by audio seconds, apart from the token
+ * allowance.
  */
 export async function groqTranscribe({
   audio,
@@ -331,7 +333,7 @@ export async function groqTranscribe({
 }: {
   audio: Buffer;
   mime: string;
-  language?: "en" | "gu";
+  language?: "en" | "hi" | "gu";
   prompt?: string;
 }): Promise<{ text: string; language?: string; seconds?: number }> {
   const apiKey = process.env.GROQ_API_KEY;

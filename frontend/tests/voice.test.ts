@@ -560,8 +560,13 @@ test("a reply WRITTEN in Gujarati is Gujarati with English chosen too: a Gujarat
 });
 
 // ---- the server's natural voice ----
+// REQUIREMENTS §89: Edge's natural Indian English voice (Neerja, Prabhat) speaks
+// English before Groq's voice, so the server's voice is tested here on Chrome's
+// list (no natural Indian English voice); the Edge case is
+// voiceLanguages.test.ts's "Neerja first, the server never asked".
 
-test("with a key, the server is asked once whether it can speak, and English is said in its natural voice", async () => {
+test("with a key and no natural Indian English voice here, the server is asked once whether it can speak, and English is said in its natural voice", async () => {
+  synth.voices = CHROME;
   setFeatures({ assistant: true });
   answer = wavAnswer;
   click();
@@ -585,6 +590,7 @@ test("with a key, the server is asked once whether it can speak, and English is 
 });
 
 test("§85: the Groq terms not accepted — the server SAYS so with a 200, no line is ever asked for, and it is remembered", async () => {
+  synth.voices = CHROME;
   setFeatures({ assistant: true });
   statusAnswer = () => statusOf("voice-unavailable");
   answer = unavailableAnswer;
@@ -593,8 +599,8 @@ test("§85: the Groq terms not accepted — the server SAYS so with a 200, no li
   await wait(500);
   assert.equal(gets().length, 1);
   assert.equal(posts().length, 0, "no POST that would answer 503 — no failed request in the console");
-  assert.deepEqual(said(), ["First line."], "the browser's natural voice");
-  assert.equal(synth.spoken[0]?.voice?.name, "Microsoft Neerja Online (Natural) - English (India)");
+  assert.deepEqual(said(), ["First line."], "the browser's own voice");
+  assert.equal(synth.spoken[0]?.voice?.name, "Microsoft Heera - English (India)");
   assert.equal(serverVoiceState().state, "voice-unavailable");
   assert.match(serverVoiceState().message, /accept the model's terms/);
   assert.match(sessionStorage.getItem("dcrs:voice-server") ?? "", /voice-unavailable/, "remembered for the session");
@@ -603,7 +609,7 @@ test("§85: the Groq terms not accepted — the server SAYS so with a 200, no li
   assert.equal(fetches.length, 1, "not asked again");
   assert.deepEqual(said(), ["First line.", "Second line."]);
   const inUse = await voiceInUse();
-  assert.equal(inUse.source, "natural");
+  assert.equal(inUse.source, "basic");
   assert.equal(inUse.server, "voice-unavailable");
   assert.equal(fetches.length, 1, "the card does not ask again either");
 });
@@ -623,6 +629,7 @@ test("§85: the answer is kept only as long as the server says — then asked ag
 });
 
 test("§85: without a key nothing is asked; a server that cannot be asked is asked again later, the browser speaking meanwhile", async () => {
+  synth.voices = CHROME;
   click();
   say({ text: "No key here.", lang: "en" });
   await wait(400);
@@ -644,6 +651,7 @@ test("§85: without a key nothing is asked; a server that cannot be asked is ask
 });
 
 test("a 503 all the same (the terms revoked after the server said yes): the browser's voice, remembered", async () => {
+  synth.voices = CHROME;
   setFeatures({ assistant: true });
   answer = unavailableAnswer;
   click();
@@ -658,14 +666,17 @@ test("a 503 all the same (the terms revoked after the server said yes): the brow
 });
 
 test("an audio clip the browser will not play falls back to the browser's voice; Gujarati never goes to the server", async () => {
+  synth.voices = CHROME;
   setFeatures({ assistant: true });
   answer = wavAnswer;
   playFails = true;
   click();
   say({ text: "Blocked clip.", lang: "en" });
   await wait(500);
+  assert.equal(posts().length, 1, "the server's clip was fetched");
   assert.deepEqual(said(), ["Blocked clip."]);
   fetches.length = 0;
+  synth.voices = EDGE;
   say({ text: "ગુજરાતી લાઇન.", lang: "gu", en: "A Gujarati line." });
   await wait(500);
   assert.equal(fetches.length, 0);

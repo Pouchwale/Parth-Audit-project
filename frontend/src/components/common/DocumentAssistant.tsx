@@ -28,7 +28,7 @@ import {
   type GuidedPrompt,
   type GuidedStep,
 } from "../../engine/guidedChecklist";
-import { answerStaysLocal, buildAssistantContext, localAnswer, offTopicReply } from "../../engine/assistantLocal";
+import { answerLanguageFor, answerStaysLocal, buildAssistantContext, localAnswer, offTopicReply, withHindiNote } from "../../engine/assistantLocal";
 import { modelReachable, noteModelAnswered, noteModelFailed, unreachableLabel, type Unreachable } from "../../engine/assistantReach";
 import { assistantConfigured } from "../../engine/features";
 import { historyForAgent, runMitraTurn } from "../../engine/mitraAgent";
@@ -36,7 +36,7 @@ import { MAX_ATTACHMENTS, acceptFile, pickFromFolder, readAttachment } from "../
 import type { MitraAttachment, MitraStep, MitraToolContext } from "../../engine/mitraTypes";
 import { isRecorderSupported, recorderErrorKind, startRecording, type Recording } from "../../utils/recorder";
 // Mitra never talks over a person speaking into the microphone (REQUIREMENTS §81).
-import { setMicBusy } from "../../utils/voice";
+import { noVoiceHintOnce, setMicBusy } from "../../utils/voice";
 import {
   analyticIntent,
   citeLinks,
@@ -75,7 +75,7 @@ import { nextRevisionNo } from "../../data/formatEdits";
 import { moduleSlug } from "../../utils/moduleSlug";
 import { hrPageForSlug } from "../../data/seed/hrModule";
 import { documentTextIn } from "../../i18n/documentText";
-import { useLanguage, useT, t as phrase } from "../../i18n";
+import { answerIn, useLanguage, useT, t as phrase } from "../../i18n";
 import { SPEECH_LOCALES } from "../../i18n/strings";
 import { settingsRepository } from "../../data/repositories/settingsRepository";
 import { isVoiceInputSupported, listenForUtterance, speak, stopSpeaking, type VoiceSession } from "../../utils/speech";
@@ -256,6 +256,9 @@ export function DocumentAssistant() {
   const pendingFormatRef = useRef<{ documentId: string; cmd: FormatCommand; words: string } | null>(null);
   // Example sentences a chip puts in the box ("Change this format…"), until something is sent.
   const [hint, setHint] = useState<string | null>(null);
+  // Where Mitra can be heard, said once a session when a reply in Hindi or Gujarati had no voice here
+  // (REQUIREMENTS §89); shown above the composer until the next message.
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
   // MITRA AS AN AGENT (REQUIREMENTS §80): the files attached to the next message,
   // the microphone recording for Whisper, the "thinking…" line, a question of
   // Mitra's own waiting for yes/no (a tool's confirm), and whether the person's
@@ -1605,6 +1608,17 @@ export function DocumentAssistant() {
     return { turn, end };
   };
 
+  // A reply read aloud, each part in the voice of its script; one in Hindi or Gujarati with no voice
+  // here is shown, not said, and once a session the line above the composer says where Mitra can be
+  // heard (REQUIREMENTS §89).
+  const readAloud = (reply: string) =>
+    speak(reply, speechLocale, {
+      onNoVoice: (l) => {
+        const said = noVoiceHintOnce(l, t);
+        if (said) setVoiceHint(said);
+      },
+    });
+
   // `edit` (REQUIREMENTS §85): an edited message sent as its turn again — its
   // own files and the conversation before it; the message itself is already
   // back in the chat (editMessage below), and the composer is not touched.
@@ -1612,7 +1626,7 @@ export function DocumentAssistant() {
     const ready = edit ? edit.files : attachments.filter((a) => a.status !== "reading");
     const speakReplies = settingsRepository.get().speakReplies;
     const readOut = (reply: string) => {
-      if (spoken || speakReplies) speak(reply, speechLocale);
+      if (spoken || speakReplies) readAloud(reply);
     };
     // Kept in this tab, so an edit of this message goes with the same files' words.
     rememberAttachments(ready);
@@ -1743,13 +1757,15 @@ export function DocumentAssistant() {
 
   // ---- the microphone through Whisper (REQUIREMENTS §80) -----------------------------
   // With a key on the server the recording goes to Groq's Whisper, which hears
-  // Gujarati and English mixed; without one the browser's own recognition listens,
-  // as before (utils/speech.ts).
+  // English, Hindi and Gujarati, mixed too, with no language forced on it, so the
+  // one spoken is the one answered in (REQUIREMENTS §89); without a key the
+  // browser's own recognition listens, as before (utils/speech.ts), for the
+  // screens' language.
   const whisperVoice = assistantConfigured() && isRecorderSupported();
   const transcribeAndSend = async (blob: Blob) => {
     setRecording({ active: false, seconds: 0, transcribing: true });
     try {
-      const heard = await assistantApi.transcribe(blob, lang);
+      const heard = await assistantApi.transcribe(blob, "auto");
       if (heard.text.trim()) void send(heard.text.trim(), true);
       else bot(t("ai.voiceError"));
     } catch (err) {
@@ -1802,10 +1818,11 @@ export function DocumentAssistant() {
       setInput("");
       setHint(null);
     }
+    setVoiceHint(null);
     const t2 = getTarget();
     const speakReplies = settingsRepository.get().speakReplies;
     const readOut = (reply: string) => {
-      if (spoken || speakReplies) speak(reply, speechLocale);
+      if (spoken || speakReplies) readAloud(reply);
     };
     echoedRef.current = !!edit;
 
@@ -1981,11 +1998,14 @@ export function DocumentAssistant() {
     // A document named by its format number and nothing else — "F/HR/05",
     // "open F-QC-12" — is a question about that document even with a record
     // open, never data for the open record (engine/formatNumbers.ts, §52).
-    const byFormat = formatNumberAnswer(text);
+    // In the question's language where the tables have it, a Hindi question's with its Hindi line (REQUIREMENTS §89).
+    const asked = answerLanguageFor(text);
+    const byFormat = answerIn(asked, () => formatNumberAnswer(text));
     if (byFormat) {
       me(text);
-      bot(byFormat.reply, byFormat.chips);
-      readOut(byFormat.reply);
+      const reply = withHindiNote(byFormat.reply, text);
+      bot(reply, byFormat.chips);
+      readOut(reply);
       if (byFormat.navigate && isValidAppRoute(byFormat.navigate)) navigate(byFormat.navigate);
       return;
     }
@@ -2000,11 +2020,12 @@ export function DocumentAssistant() {
       askMasterFill(text, masterIntent.query);
       return;
     }
-    const masterAnswer = masterIntent ? hrMasterChatAnswer(text) : null;
+    const masterAnswer = masterIntent ? answerIn(asked, () => hrMasterChatAnswer(text)) : null;
     if (masterAnswer) {
       me(text);
-      bot(masterAnswer.reply, masterAnswer.chips);
-      readOut(masterAnswer.reply);
+      const reply = withHindiNote(masterAnswer.reply, text);
+      bot(reply, masterAnswer.chips);
+      readOut(reply);
       if (masterAnswer.navigate && isValidAppRoute(masterAnswer.navigate)) navigate(masterAnswer.navigate);
       return;
     }
@@ -2136,9 +2157,10 @@ export function DocumentAssistant() {
       // The agent's own call just failed: not asked twice — the app's answer, marked (§72).
       const reach = agentFailed ? { ok: false as const, why: agentFailed } : modelReachable();
       if (!reach.ok) {
-        const answer = fallback ?? { reply: t2 ? t("ai.offline.noFill") : t("ai.offline.noAnswer"), chips: undefined };
-        postOffline(answer.reply, reach.why, answer.chips, fallback ? fallbackCites : undefined);
-        readOut(answer.reply);
+        const answer = fallback ?? { reply: answerIn(asked, () => phrase(t2 ? "ai.offline.noFill" : "ai.offline.noAnswer")), chips: undefined };
+        const reply = withHindiNote(answer.reply, text);
+        postOffline(reply, reach.why, answer.chips, fallback ? fallbackCites : undefined);
+        readOut(reply);
         return;
       }
       try {
@@ -2182,8 +2204,9 @@ export function DocumentAssistant() {
         if (turn.stopped) return;
         const why = noteModelFailed(err);
         if (fallback) {
-          postOffline(fallback.reply, why, fallback.chips, fallbackCites);
-          readOut(fallback.reply);
+          const reply = withHindiNote(fallback.reply, text);
+          postOffline(reply, why, fallback.chips, fallbackCites);
+          readOut(reply);
         } else {
           postOffline(err instanceof ApiError ? err.message : t("ai.error"), why);
         }
@@ -2426,8 +2449,9 @@ export function DocumentAssistant() {
             recording={whisperVoice ? recording : { active: listening, seconds: 0, transcribing: false }}
             onToggleVoice={toggleListening}
             voiceMode={whisperVoice ? "whisper" : voiceSupported ? "browser" : "none"}
+            listenIn={t(`voice.mic.lang.${lang}`)}
             placeholder={placeholder}
-            note={!whisperVoice && listening ? { text: t("ai.listening"), listening: true } : null}
+            note={!whisperVoice && listening ? { text: t("voice.mic.listening", { lang: t(`voice.mic.lang.${lang}`) }), listening: true } : voiceHint ? { text: voiceHint } : null}
             above={
               // The quick chips: after the thread in the page's order (suites
               // take a thread's chips with .last), sized by the stylesheet.

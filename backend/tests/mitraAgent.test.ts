@@ -8,6 +8,7 @@ import {
   AGENT_PROMPT_MAX_CHARS,
   LIMITS,
   ROUTE_RE,
+  TRANSCRIBE_PROMPT,
   buildAgentSystemPrompt,
   runAgentStep,
   setAgentTransportForTests,
@@ -16,7 +17,7 @@ import {
   type AgentRequest,
   type ToolSchema,
 } from "../mitraAgent.ts";
-import { ASSISTANT_NAME, PERSONA, SCOPE } from "../assistant.ts";
+import { ASSISTANT_NAME, PERSONA, SCOPE, chatLanguageRule } from "../assistant.ts";
 
 const tool = (name: string, description = "Does a thing.", parameters: Record<string, unknown> = { type: "object", properties: {} }): ToolSchema => ({ type: "function", function: { name, description, parameters } });
 
@@ -77,6 +78,56 @@ describe("buildAgentSystemPrompt", () => {
       assert.ok(SCOPE.includes(module), `SCOPE names ${module}`);
       assert.ok(prompt.includes(module), `the agent's scope names ${module}`);
     }
+  });
+});
+
+// REQUIREMENTS §89: "Gujarati asked, Gujarati answered; the same for Hindi and English."
+describe("the language rule in English, Hindi and Gujarati", () => {
+  const prompt = buildAgentSystemPrompt({ today: "2026-10-03", currentRoute: "/assistant", language: "en", userName: "Heena" });
+  const rule = prompt.split("\n\n").find((part) => part.startsWith("LANGUAGE:")) ?? "";
+
+  it("understands Hindi in Devanagari and in Latin letters, beside English and Gujarati in both scripts", () => {
+    assert.match(rule, /English, Hindi \(Devanagari or Latin letters: "aaj ka record kholo"\)/);
+    assert.match(rule, /Gujarati in Gujarati script or Latin letters \("aaje nu record kholo"\)/);
+    assert.match(rule, /or a mix\. Understand first\./);
+  });
+
+  it("replies in the language and script of the LATEST message; a bare yes/no or a picked option keeps the conversation's", () => {
+    assert.match(rule, /Reply in the language and script the person used in their latest message/);
+    assert.match(rule, /a bare yes\/no or a picked option keeps the conversation's language \(else the interface language\)/);
+  });
+
+  it("keeps format numbers, record ids, field keys and values as the app writes them, a document's English name once in brackets", () => {
+    assert.match(rule, /Format numbers \(F\/QC\/30\), record ids, field keys and values stay exactly as the app writes them/);
+    assert.match(rule, /a document's English name\s+may follow once, in brackets/);
+  });
+
+  it("grows the prompt as little as it can: the rule under 530 characters, the whole under the ceiling", () => {
+    assert.ok(rule.length <= 530, `${rule.length} characters`);
+    assert.ok(prompt.length <= AGENT_PROMPT_MAX_CHARS, `${prompt.length} characters`);
+    assert.equal(AGENT_PROMPT_MAX_CHARS, 2200, "raised from 2,000 for Hindi, and no further");
+  });
+
+  it("gives Whisper the plant, the three languages in their own scripts and the record words, and stays short", () => {
+    for (const word of ["Gujarat Print Pack Publications Pvt Ltd", "DCRS", "Mitra", "F/QC/30", "English", "हिंदी", "ગુજરાતી"]) {
+      assert.ok(TRANSCRIBE_PROMPT.includes(word), `the hint names ${word}`);
+    }
+    // Whisper reads at most 224 tokens of a prompt; Latin text runs about four characters a token, Indic script about one.
+    const latin = TRANSCRIBE_PROMPT.replace(/[^\x20-\x7e]/g, "").length;
+    const other = TRANSCRIBE_PROMPT.length - latin;
+    assert.ok(latin / 4 + other <= 100, `about ${Math.round(latin / 4 + other)} tokens`);
+  });
+
+  it("the older chat path says the same, whatever the screens: the message's language first, then the screens'", () => {
+    for (const language of ["en", "gu", undefined]) {
+      const chat = chatLanguageRule(language);
+      assert.match(chat, /English, Hindi or Gujarati \(in its own script or Latin letters\) or a mix/);
+      assert.match(chat, /Write "reply" in the language and script of the user's message/);
+      assert.match(chat, /Format numbers \(F\/HR\/17\), route paths, JSON field names and "patch" values stay exactly as specified, in English/);
+      assert.ok(chat.length <= 400, `${chat.length} characters`);
+    }
+    assert.match(chatLanguageRule("gu"), /else Gujarati \(ગુજરાતી\)\)/);
+    assert.match(chatLanguageRule("en"), /else English\)/);
   });
 });
 

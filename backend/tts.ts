@@ -30,6 +30,9 @@
 //
 // Gujarati is never sent here: the model speaks English only, and the browser's
 // Gujarati voice (where Edge has one) says Gujarati lines (frontend/src/utils/voice.ts).
+// Since REQUIREMENTS §89 the same holds for Hindi, and English comes here only
+// when the browser has no natural Indian English voice (Edge's Neerja and Prabhat
+// speak first: the staff's own accent).
 //
 // NOT A LOCAL VOICE (REQUIREMENTS §85, measured 30-Sep-2026). A neural voice
 // made on this server without Groq — Kokoro-82M through kokoro-js/onnxruntime —

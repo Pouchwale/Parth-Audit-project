@@ -1040,8 +1040,9 @@ app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => tru
   }
   const mimeHeader = String(req.get("x-mime") ?? "").slice(0, 100);
   const mime = AUDIO_MIME_RE.test(mimeHeader) ? mimeHeader : "audio/webm";
+  // A language only when the person chose one; "auto" (what the browser sends) lets Whisper hear which (REQUIREMENTS §89).
   const languageHeader = req.get("x-language");
-  const language = languageHeader === "en" || languageHeader === "gu" ? languageHeader : undefined;
+  const language = languageHeader === "en" || languageHeader === "hi" || languageHeader === "gu" ? languageHeader : undefined;
   if (isAssistantThrottled(userId)) {
     res.status(429).json({ error: "Too many assistant requests. Try again in a few minutes." });
     return;

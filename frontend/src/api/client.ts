@@ -188,7 +188,8 @@ export const assistantApi = {
       body: file,
     }),
   // WHAT WAS SAID, TRANSCRIBED BY WHISPER on the server; 503 `not-configured` without a key.
-  transcribe: (blob: Blob, language: "en" | "gu" | "auto") =>
+  // "auto": Whisper hears which language it is (REQUIREMENTS §89); a language only when the person chose one.
+  transcribe: (blob: Blob, language: "en" | "hi" | "gu" | "auto") =>
     request<TranscribeResult>("/assistant/transcribe", {
       method: "POST",
       headers: {

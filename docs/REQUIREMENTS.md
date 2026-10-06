@@ -5579,6 +5579,125 @@ follow).
 
 **Tests.** See docs/TESTING.md "Mitra's look, Mitra on your phone and the server kit".
 
+## §89 Mitra speaks and answers in English, Hindi and Gujarati, free (3-Oct-2026)
+
+**The request.** The owner, on 2 and 3 October 2026: "make the voice accent more like a human, like a real person. If the
+user asks in Gujarati or Hindi then the bot should reply in that language: Gujarati asked, Gujarati answered; the same for
+Hindi and English." And then, firmly: "I will not use a single rupee for any voice."
+
+**Why nothing paid.** No paid voice service, and none that needs a payment card on file even for a free allowance: not
+Google Cloud Text-to-Speech, Azure Speech, Amazon Polly, Sarvam or ElevenLabs. No unofficial endpoint either (edge-tts,
+gTTS, Google Translate's voice taken from its web page): they work against their providers' terms and can stop without
+notice. And no voice model run on the DCRS server: the plant's 2-core i3 took 13 to 31 seconds a reply with Kokoro (§85).
+What is free and allowed is used: the browser's own voices through the Web Speech API (Microsoft Edge gives any web page
+Microsoft's "Online (Natural)" neural voices at no cost; they need the internet), and the Groq key the plant already has,
+for Whisper's listening and for Groq's English voice, which still waits for its terms to be accepted (§81, §85) and now
+speaks only where the browser has no natural Indian English voice.
+
+**1. Replies in the language asked.**
+- *The model* (backend/mitraAgent.ts LANGUAGE_RULE): it understands English, Hindi in Devanagari or in Latin letters ("aaj
+  ka record kholo"), Gujarati in its script or in Latin letters ("aaje nu record kholo") and mixes of them; it replies in the
+  language and script of the person's latest message; a bare yes or no, or an option it offered and the person picked,
+  keeps the conversation's language (else the interface language); format numbers (F/QC/30), record ids, field keys and
+  values stay exactly as DCRS writes them; a document's English name may follow once, in brackets.
+- *What it costs.* The agent's prompt was 1,939 to 1,984 characters (about 490 to 500 tokens); it is 2,140 to 2,185 now
+  (about 540 to 550), the language rule having grown from 322 to 523 characters: about 50 tokens a round of the free key's
+  8,000 a minute. The ceiling the unit test holds it to went from 2,000 to 2,200 characters, and no further. The older chat
+  path (backend/assistant.ts, used only where the agent is not) had a 291-character Gujarati rule sent with Gujarati screens
+  alone; it now sends the same rule as the agent's, in 365 to 376 characters, with every request.
+- *The app's own answers* (engine/assistantLocal.ts), given when the model cannot be asked (no key, no internet, a failed
+  call): they follow the language of the QUESTION wherever the English and Gujarati string tables both have the words, so
+  a question in Gujarati, in its script or in Latin letters, gets Gujarati and one in English gets English, whatever the
+  screens are in; the screens' language otherwise. A question in Hindi, which these answers cannot give in Hindi, gets the
+  answer as the app can give it with one short Hindi line in front: "हिंदी में पूरा जवाब देने के लिए AI सेवा चाहिए, जो अभी
+  उपलब्ध नहीं है।", or, for a question in Latin letters, "Hindi mein poora jawab dene ke liye AI seva chahiye, jo abhi
+  uplabdh nahi hai." The rules path itself was not translated into Hindi.
+- *Which language a question is in* (frontend/src/utils/scripts.ts): its script decides, words counted rather than letters
+  (Gujarati and Devanagari write their vowels as marks); a Gujarati or Hindi grammar word ("છે", "ભરો", "है", "में") makes a
+  sentence of English document names Gujarati or Hindi, while one name in Gujarati script leaves an English sentence English.
+  Hindi and Gujarati in Latin letters are told apart by their everyday words (two of them needed: "hai", "kya", "mujhe";
+  "che", "nu", "shu"), never by a word English has too ("main", "mate", "have"). A bare yes or no, a format number or a
+  machine number has no language of its own.
+
+**2. Speaking like a person, free.**
+- *The voice follows the script* of the words being said, sentence by sentence: Gujarati script to a gu-IN voice,
+  Devanagari to a hi-IN voice, the rest to an en-IN voice. A reply with the Hindi line in front of an English answer is said
+  by the two voices in turn, with a short breath between them. An Indian voice reads the English words in a Gujarati or
+  Hindi sentence well, so a document's English name keeps its sentence in that language; an English voice cannot read
+  Indic script at all, so the few Indic words of an English sentence (a name) are left out of what it is given.
+- *For each language*, in this order: Edge's "Online (Natural)" voice of the person's choice; any natural or neural voice
+  of the language; any voice of it. One Mitra in all three: female by default (Neerja, Swara or स्वरा, Dhwani or ધ્વની),
+  male when chosen (Prabhat, Madhur or मधुर, Niranjan or નિરંજન). Hindi verbs follow the speaker, so the Hindi "Hear
+  Mitra" sentence says "दिलाऊँगी" in the female voice and "दिलाऊँगा" in the male one.
+- *English in the staff's own accent*: the browser's natural Indian English voice (Neerja or Prabhat) speaks first, before
+  Groq's English voice from the server; Groq's voice is the English fallback only where the browser has no natural Indian
+  English voice and the server says it can speak; then the browser's best English (in Chrome, Google's online voices
+  before Windows' robotic ones, §85). Where Neerja is there, the server is not even asked.
+- *Never Gujarati or Hindi in an English voice.* A browser with no voice for them (Chrome has no Gujarati voice at all)
+  shows the words and, once a browser session for each language, says above the chat's box: "Mitra speaks Gujarati in
+  Microsoft Edge. Open DCRS in Edge to hear it." (and the same for Hindi; in Edge itself, that its voice needs the
+  internet), in English or Gujarati like the rest of the interface. A spoken reminder or briefing written in Gujarati is
+  said in its English words on such a browser, as before. Figures alone ("92%") belong to no language and are said in
+  English there, with no hint.
+- *Rate and pitch.* 0.96 for a natural voice in all three languages: one Mitra, one pace, a person explaining something at
+  a desk rather than reading it out. 0.94 for Google's online voices and 0.9 for the voices installed with Windows, each
+  with a breath between sentences (280 and 320 ms), since those voices run their sentences together. The pitch is never
+  moved: a neural voice's pitch is part of its intonation, and shifting it is what makes one sound processed.
+- *Words made for the ear in all three languages* (utils/earText.ts): markdown dropped; a list read line by line with a
+  pause, a Hindi line ending in the danda "।"; F/QC/30 said as letters and a number; a record's long id (the app's own
+  "rec-mg8x9k2a-1f-abc123", a UUID, a [rec:...] tag) never spelled out, with an "id" label and empty brackets going with
+  it, while a lot number or a date is still said; dates with the month in the line's language ("30th September", "30
+  सितंबर", "30 સપ્ટેમ્બર"); per cent, rupees and degrees in each language's words; long replies split at sentence ends,
+  the danda always ending one, with or without a space after it.
+- *A voice that stalls.* Edge's online voices sometimes neither start nor fail. A piece in an online voice that has not
+  started within 6 seconds (no start, no word boundary, no end) is cancelled and said again in the best installed voice of
+  its language, and online voices rest for ten minutes; with no installed voice of the language (Edge installs no Hindi or
+  Gujarati voice) the line stops there, cleanly. A voice the browser lists without a usable name (Edge 150 listed some as
+  "undefined") is never a crash and only ever a last resort. Edge's natural voices can arrive a moment after the
+  installed ones, so in Edge a language with no voice yet is looked for once more, two seconds at most.
+
+**3. Listening in three languages.** Whisper (whisper-large-v3) is no longer told a language: it hears which one is spoken.
+The Ask Mitra page had forced Gujarati on it with Gujarati screens, and the dock had forced the screens' language, English
+included, so a question asked aloud in Hindi could come back in English or in the wrong script. The server still takes English, Hindi or
+Gujarati from a client that names one (a person's own choice). Whisper's vocabulary hint names the plant, the three
+languages in their own scripts and the record words, in about 50 of its 224 tokens: "Gujarat Print Pack Publications Pvt
+Ltd, Mehsana. DCRS records with Mitra: F/QC/30, F/HR/17, CAPA, lamination, viscosity. English, हिंदी, ગુજરાતી."
+Without a key on the server the browser itself listens, and it can listen for one language only: the screens' language,
+now named in the microphone's hint ("Speak your message in English: this browser listens for one language, the one the
+screens are in.") and in the line shown while it listens.
+
+**4. The voice card.** Master Data, Working Hours & Briefing, "Sounds and Mitra's voice" now has, under the female or male
+choice, "Mitra's voice in this browser": English, हिंदी and ગુજરાતી, each with the voice that will speak it here, by name
+and as natural, online or basic (Groq's voice from the server for English where that is the one), or "No voice for it in
+this browser: open DCRS in Microsoft Edge to hear it", and a "Hear Mitra" button that says one short sentence in that
+language. A line names the six voices of the one Mitra. The card's single "Hear Mitra" and its "in use" lines gave way to
+this block (components/master/VoiceLanguages.tsx); the hooks the browser suites read stay on the English row. Built from
+the card's existing classes, with no stylesheet of its own; its words are in English and Gujarati like the card's.
+
+**The voice each language gets.**
+
+| Browser | English | Hindi | Gujarati |
+|---|---|---|---|
+| Microsoft Edge on Windows, online | Neerja (female) or Prabhat (male), Online (Natural) | Swara or Madhur, Online (Natural) | Dhwani or Niranjan, Online (Natural) |
+| Google Chrome on Windows, online | Google UK English Female or Male (online) | Google हिन्दी (online) | none: the words are shown, and the hint is given once |
+| Either browser without the internet | Microsoft Heera or Ravi (installed with Windows) | none, unless Windows' Hindi speech pack is installed | none |
+
+On this PC on 3-Oct-2026, Edge 154 and Chrome 154 started headless listed only the eight voices installed with Windows
+(Heera and Ravi the Indian English ones): the online voices come to a person's browser window, so the first two rows rest
+on Microsoft's and Google's published voice lists and on §85's checks, and are for the plant's laptops to confirm by ear.
+
+**Found in testing.** The new browser suite's first run found Mitra's own Gujarati answer about a format number ("F/HR/05
+એટલે Induction Training Record, New Employee ...") going half to the English voice: most of its first sentence is the
+document's English name, so the sentence counted as English and was said with its Gujarati words taken out. Now a reply
+that has a sentence plainly in Gujarati or Hindi gives that language's voice every sentence holding words of its script,
+and "એટલે" and "यानी" are among the grammar words; in Chrome that answer is not said at all.
+
+**What waits on the owner.** Open DCRS in Microsoft Edge on the plant's laptops, with the internet on (confirmation item
+53); Chrome will keep showing Gujarati replies without saying them. And one listening session on those laptops (see the
+tests).
+
+**Tests.** See docs/TESTING.md "Mitra in English, Hindi and Gujarati, with free voices".
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -5782,6 +5901,12 @@ follow).
     DHCP reservation by its network card's MAC address) and its three ports (4000, 3000 and 8081) reachable from the staff
     Wi-Fi, with client isolation off and the network marked Private in Windows. The note to hand to IT is section 2 of
     docs/phone-app-setup.md, and `scripts\windows\open-firewall.ps1` opens the ports. Who does it, and when?
+53. **Microsoft Edge on the plant's laptops** (§89). Mitra speaks Gujarati only in Microsoft Edge: Google Chrome has no
+    Gujarati voice, so there it shows a Gujarati reply without saying it. Edge's natural voices (Neerja and Prabhat, Swara
+    and Madhur, Dhwani and Niranjan) are free but come over the internet. Will the plant's laptops open DCRS in Edge (a
+    desktop shortcut to the server's address, opened with Edge), with the internet on? And will somebody at the plant
+    listen once to Mitra in each language on those laptops, Master Data's "Hear Mitra" buttons, and say whether it sounds
+    like a person?
 
 ## How the assistant pre-fills records (and what it never does)
 

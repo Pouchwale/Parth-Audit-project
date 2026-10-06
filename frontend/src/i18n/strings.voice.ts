@@ -5,6 +5,10 @@
 // do next?", the spoken reminder's little card, the briefing's 🔊, the settings
 // card in Master Data — and the lines Mitra says aloud (utils/voice.ts), which are
 // written for the ear: short sentences, no format numbers, no abbreviations.
+// REQUIREMENTS §89 adds the card's three languages (voice.langs.*, voice.row.*),
+// the hint when a reply in Hindi or Gujarati has no voice here (voice.noVoice.*)
+// and the microphone's one language when the browser listens (voice.mic.*). The
+// few Hindi sentences DCRS says itself are i18n/hindi.ts: there is no Hindi table.
 const en = {
   // The top bar's speaker button (components/layout/SoundToggle.tsx).
   "voice.toggle.mute": "Mute Mitra's sounds and voice",
@@ -41,16 +45,29 @@ const en = {
   "voice.settings.test": "Hear Mitra",
   "voice.settings.testSound": "Play a sound",
   "voice.settings.played": "Played: {name}",
-  "voice.using.server": "In use: Mitra's natural voice, from the server.",
-  "voice.using.serverUntested": "Mitra's natural voice from the server is tried first — press Hear Mitra to check it.",
-  "voice.using.natural": "In use: this browser's natural voice — {name}.",
-  "voice.using.basic": "In use: this browser's basic voice — {name}. Microsoft Edge has natural Indian English and Gujarati voices.",
-  "voice.using.online": "In use: this browser's online voice — {name}. Microsoft Edge has natural Indian English and Gujarati voices, which sound more like a person.",
-  "voice.using.serverName": "Voice: {name} (Groq).",
-  "voice.using.gujarati": "Gujarati lines: {name}.",
+  // Mitra's voice in this browser, language by language (components/master/VoiceLanguages.tsx, REQUIREMENTS §89).
+  "voice.langs.title": "Mitra's voice in this browser",
+  "voice.langs.persona":
+    "One Mitra in all three languages, female or male as chosen above. In Microsoft Edge the female voice is Neerja, Swara and Dhwani, and the male voice Prabhat, Madhur and Niranjan.",
+  "voice.row.server": "Groq's natural voice, made on the server ({name}).",
+  "voice.row.natural": "{name}, a natural voice.",
+  "voice.row.online": "{name}, an online voice. Microsoft Edge's natural Indian voices sound more like a person.",
+  "voice.row.basic": "{name}, a basic voice. Microsoft Edge's natural Indian voices sound more like a person.",
+  "voice.row.none": "No voice for it in this browser: open DCRS in Microsoft Edge to hear it.",
+  "voice.row.noneEnglish": "No English voice in this browser, so Mitra is silent here.",
+  "voice.row.noneEdge": "No voice for it right now: Edge's natural voices need the internet.",
+  "voice.row.hearTitle": "Mitra says one short sentence in this language",
+  // A reply in Hindi or Gujarati this browser could not say: said once a session above the composer.
+  "voice.noVoice.gu": "Mitra speaks Gujarati in Microsoft Edge. Open DCRS in Edge to hear it.",
+  "voice.noVoice.hi": "Mitra speaks Hindi in Microsoft Edge. Open DCRS in Edge to hear it.",
+  "voice.noVoice.edge.gu": "Edge's Gujarati voice needs the internet. Until it is back, Mitra shows the words.",
+  "voice.noVoice.edge.hi": "Edge's Hindi voice needs the internet. Until it is back, Mitra shows the words.",
+  // The microphone when the browser itself listens (no key on the server): one language, the screens'.
+  "voice.mic.title": "Speak your message in {lang}: this browser listens for one language, the one the screens are in.",
+  "voice.mic.listening": "Listening in {lang}. Take your time: I'll wait until you've finished speaking.",
+  "voice.mic.lang.en": "English",
+  "voice.mic.lang.gu": "Gujarati",
   "voice.serverFailed": "Groq's natural voice could not be reached just now — this browser's own voice speaks meanwhile.",
-  "voice.using.none": "This browser has no voice to speak with, so Mitra stays silent here.",
-  "voice.using.noGujarati": "This browser has no Gujarati voice: Mitra says its lines in English.",
   "voice.serverTerms":
     "The natural server voice is not available yet. The Groq organisation's admin must accept the terms of the speech model (canopylabs/orpheus-v1-english) at console.groq.com; until then this browser's own voice is used.",
   "voice.cue.chime": "Something new",
@@ -138,16 +155,26 @@ const gu: Record<keyof typeof en, string> = {
   "voice.settings.test": "મિત્રને સાંભળો",
   "voice.settings.testSound": "અવાજ વગાડો",
   "voice.settings.played": "વગાડ્યું: {name}",
-  "voice.using.server": "હાલ: સર્વરથી મિત્રનો કુદરતી અવાજ.",
-  "voice.using.serverUntested": "પહેલાં સર્વરથી મિત્રનો કુદરતી અવાજ અજમાવાય છે — તપાસવા \"મિત્રને સાંભળો\" દબાવો.",
-  "voice.using.natural": "હાલ: આ બ્રાઉઝરનો કુદરતી અવાજ — {name}.",
-  "voice.using.basic": "હાલ: આ બ્રાઉઝરનો સાદો અવાજ — {name}. Microsoft Edge માં ભારતીય અંગ્રેજી અને ગુજરાતીના કુદરતી અવાજ છે.",
-  "voice.using.online": "હાલ: આ બ્રાઉઝરનો ઓનલાઇન અવાજ — {name}. Microsoft Edge માં ભારતીય અંગ્રેજી અને ગુજરાતીના કુદરતી અવાજ છે, જે વધુ માણસ જેવા લાગે છે.",
-  "voice.using.serverName": "અવાજ: {name} (Groq).",
-  "voice.using.gujarati": "ગુજરાતી વાક્યો: {name}.",
+  "voice.langs.title": "આ બ્રાઉઝરમાં મિત્રનો અવાજ",
+  "voice.langs.persona":
+    "ત્રણેય ભાષામાં એક જ મિત્ર, ઉપર પસંદ કર્યા મુજબ સ્ત્રી કે પુરુષ. Microsoft Edge માં સ્ત્રી અવાજ Neerja, Swara અને Dhwani છે, અને પુરુષ અવાજ Prabhat, Madhur અને Niranjan.",
+  "voice.row.server": "Groq નો કુદરતી અવાજ, સર્વર પર બનેલો ({name}).",
+  "voice.row.natural": "{name}, કુદરતી અવાજ.",
+  "voice.row.online": "{name}, ઓનલાઇન અવાજ. Microsoft Edge ના ભારતીય કુદરતી અવાજ વધુ માણસ જેવા લાગે છે.",
+  "voice.row.basic": "{name}, સાદો અવાજ. Microsoft Edge ના ભારતીય કુદરતી અવાજ વધુ માણસ જેવા લાગે છે.",
+  "voice.row.none": "આ બ્રાઉઝરમાં આ ભાષાનો અવાજ નથી: સાંભળવા માટે DCRS ને Microsoft Edge માં ખોલો.",
+  "voice.row.noneEnglish": "આ બ્રાઉઝરમાં અંગ્રેજી અવાજ નથી, એટલે મિત્ર અહીં બોલશે નહીં.",
+  "voice.row.noneEdge": "હાલ આ ભાષાનો અવાજ નથી: Edge ના કુદરતી અવાજ માટે ઇન્ટરનેટ જોઈએ.",
+  "voice.row.hearTitle": "મિત્ર આ ભાષામાં એક નાનું વાક્ય બોલશે",
+  "voice.noVoice.gu": "મિત્ર Microsoft Edge માં ગુજરાતી બોલે છે. સાંભળવા માટે DCRS ને Edge માં ખોલો.",
+  "voice.noVoice.hi": "મિત્ર Microsoft Edge માં હિન્દી બોલે છે. સાંભળવા માટે DCRS ને Edge માં ખોલો.",
+  "voice.noVoice.edge.gu": "Edge ના ગુજરાતી અવાજ માટે ઇન્ટરનેટ જોઈએ. તે પાછું આવે ત્યાં સુધી મિત્ર શબ્દો બતાવે છે.",
+  "voice.noVoice.edge.hi": "Edge ના હિન્દી અવાજ માટે ઇન્ટરનેટ જોઈએ. તે પાછું આવે ત્યાં સુધી મિત્ર શબ્દો બતાવે છે.",
+  "voice.mic.title": "તમારો સંદેશ {lang}માં બોલો: આ બ્રાઉઝર એક જ ભાષા સાંભળે છે, સ્ક્રીનની ભાષા.",
+  "voice.mic.listening": "{lang}માં સાંભળું છું. નિરાંતે બોલો: તમે બોલી રહો ત્યાં સુધી હું રાહ જોઈશ.",
+  "voice.mic.lang.en": "અંગ્રેજી",
+  "voice.mic.lang.gu": "ગુજરાતી",
   "voice.serverFailed": "Groq નો કુદરતી અવાજ હમણાં મળી શક્યો નહીં — ત્યાં સુધી આ બ્રાઉઝરનો પોતાનો અવાજ બોલે છે.",
-  "voice.using.none": "આ બ્રાઉઝરમાં બોલવા માટે કોઈ અવાજ નથી, એટલે મિત્ર અહીં બોલશે નહીં.",
-  "voice.using.noGujarati": "આ બ્રાઉઝરમાં ગુજરાતી અવાજ નથી: મિત્ર અંગ્રેજીમાં બોલશે.",
   "voice.serverTerms":
     "સર્વરનો કુદરતી અવાજ હજી ઉપલબ્ધ નથી. Groq સંસ્થાના એડમિને console.groq.com પર બોલવાના મોડેલ (canopylabs/orpheus-v1-english) ની શરતો સ્વીકારવી પડશે; ત્યાં સુધી આ બ્રાઉઝરનો પોતાનો અવાજ વપરાશે.",
   "voice.cue.chime": "કંઈક નવું",

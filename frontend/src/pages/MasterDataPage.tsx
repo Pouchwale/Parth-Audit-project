@@ -15,10 +15,10 @@ import { DepartmentsAccess } from "../components/master/DepartmentsAccess";
 import { useT } from "../i18n";
 import { documentTextIn } from "../i18n/documentText";
 import { useAuth } from "../store/AuthContext";
-import { firstNameOf } from "../engine/assistantPersona";
 import { CUE_NAMES, type CueName } from "../engine/engageBus";
 import { playCue } from "../utils/sounds";
-import { onVoiceChange, sampleLine, say, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceInUse } from "../utils/voice";
+import { onVoiceChange, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceInUse } from "../utils/voice";
+import { VoiceLanguages } from "../components/master/VoiceLanguages";
 import { logActivity } from "../utils/activityLog";
 import {
   addDaysISO,
@@ -876,13 +876,12 @@ function SimpleTable({
 // organisation's admin must do when the natural server voice is not available
 // yet, and where a more human voice is to be had (Microsoft Edge). "Hear Mitra"
 // plays a sample in the voice in use. The switches are buttons (role="switch"),
-// not checkboxes.
+// not checkboxes. Since REQUIREMENTS §89 the voice of each of the three languages,
+// with a "Hear Mitra" for each, is components/master/VoiceLanguages.tsx.
 const REMIND_EVERY = [30, 45, 60, 90] as const;
 
 function VoiceSettingsCard() {
   const t = useT();
-  const { lang } = useAppStore();
-  const { user } = useAuth();
   const [s, setS] = useState(() => settingsRepository.get());
   const [server, setServer] = useState(serverVoiceState);
   const [using, setUsing] = useState<VoiceInUse | null>(null);
@@ -925,17 +924,6 @@ function VoiceSettingsCard() {
     updateVoiceSettings(patch);
     setS(settingsRepository.get());
   };
-  const usingText = !using
-    ? ""
-    : using.source === "server"
-      ? `${t("voice.using.server")}${using.name ? ` ${t("voice.using.serverName", { name: using.name })}` : ""}`
-      : using.source === "natural"
-        ? t("voice.using.natural", { name: using.name })
-        : using.source === "online"
-          ? t("voice.using.online", { name: using.name })
-          : using.source === "basic"
-            ? t("voice.using.basic", { name: using.name })
-            : t("voice.using.none");
   // What the server's natural voice is waiting for, when it is not speaking.
   const serverNote =
     server.state === "voice-unavailable"
@@ -982,6 +970,7 @@ function VoiceSettingsCard() {
             ))}
           </div>
         </div>
+        <VoiceLanguages using={using} />
         <div className="voice-row mb-1">
           <span className="text-sm font-semibold">{t("voice.settings.every")}</span>
           <div className="voice-choice" role="group" aria-label={t("voice.settings.every")}>
@@ -1004,17 +993,6 @@ function VoiceSettingsCard() {
           <button
             type="button"
             className="btn btn-secondary btn-sm"
-            data-action="test-voice"
-            onClick={() => {
-              const first = firstNameOf(user?.name);
-              say({ text: sampleLine(first, lang), lang, en: sampleLine(first, "en"), priority: "high" });
-            }}
-          >
-            <span aria-hidden="true">🗣️</span> {t("voice.settings.test")}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
             data-action="test-sound"
             onClick={() => {
               const cue = CUE_NAMES[nextCue.current % CUE_NAMES.length];
@@ -1031,17 +1009,6 @@ function VoiceSettingsCard() {
             </span>
           )}
         </div>
-        {usingText && (
-          <p key={using?.source ?? ""} className="text-xs text-muted" data-field="voice-in-use" data-source={using?.source ?? ""}>
-            {usingText}
-          </p>
-        )}
-        {using && using.gujarati && (
-          <p className="text-xs text-muted" data-field="voice-gujarati">
-            {t("voice.using.gujarati", { name: using.gujaratiName })}
-          </p>
-        )}
-        {using && !using.gujarati && lang === "gu" && <p className="text-xs text-muted">{t("voice.using.noGujarati")}</p>}
         {serverNote && (
           <p className="text-xs mt-1" data-field="voice-server-terms" data-state={server.state} style={{ color: "var(--color-warning)" }}>
             {serverNote}
