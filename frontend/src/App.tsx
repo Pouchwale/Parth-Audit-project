@@ -53,6 +53,7 @@ import { SoundVoiceHost } from "./components/common/SoundVoiceHost";
 import { UploadChangesHost } from "./components/common/UploadChanges";
 import { DocumentRecordsPage } from "./pages/DocumentRecordsPage";
 import { demoModeAvailable } from "./engine/features";
+import { currentModuleSlug } from "./utils/moduleSlug";
 
 function NotFoundPage() {
   return (
@@ -89,11 +90,12 @@ function RouteSwitch() {
     case "dashboard":
       return <DashboardPage />;
     case "library":
-      return <DocumentLibraryPage moduleSlug={rest[0]} />;
+      // A renamed module's old address opens it under its new one (utils/moduleSlug.ts, REQUIREMENTS §91).
+      return <DocumentLibraryPage moduleSlug={currentModuleSlug(rest[0])} />;
     case "files":
       // Document Files: the records for exactly one date span, filed by
       // module → document → month. Keyed so a new span remounts cleanly.
-      return <FileBrowserPage key={rest.join("/")} scope={rest[0]} from={rest[1]} to={rest[2]} />;
+      return <FileBrowserPage key={rest.join("/")} scope={currentModuleSlug(rest[0])} from={rest[1]} to={rest[2]} />;
     case "calendar":
       // key forces a full remount on a genuine route change (e.g. the
       // assistant sending you to a specific month while already on this

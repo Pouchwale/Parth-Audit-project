@@ -14,7 +14,7 @@
 //     a record being read;
 //   - a format on the Master List of Formats & Records (F/SYS/02) that DCRS
 //     does not hold yet is found, and said to be not in DCRS yet; one DCRS
-//     holds under another number (F-PRD-19, F-MKT-06) finds that document;
+//     holds under another number (F-MKT-06) finds that document;
 //   - what the Search page's registers and Mitra rest on is unchanged:
 //     documentsByFormatNumber still answers for the person's own departments.
 import test from "node:test";
@@ -217,9 +217,14 @@ test("the Master List of Formats (F/SYS/02) is read line by line, and each line 
   assert.equal(held("F-HR-05"), "hr-induction-staff");
   assert.equal(held("F-QC-40. C"), "qc-temperature");
   assert.equal(held("F-SYS-02"), "sys-format-list");
-  // Held under another number: the acknowledgement form prints QA-CAF-00, and the process parameter record's number is under the clip.
+  // Held under another number: the acknowledgement form prints QA-CAF-00.
   assert.equal(held("F-MKT-06"), "capa-complaint-ack");
+  // F-PRD-19 under its own number since its paper came (REQUIREMENTS §91), as the Production formats of that day are.
   assert.equal(held("F-PRD-19"), "prd-process-parameter");
+  assert.equal(held("F-PRD-20"), "prd-slitting-alc");
+  assert.equal(held("F-PRD-10"), "prd-sharp-object-issue");
+  // F-PRD-25 came as an empty workbook: still on the list only.
+  assert.equal(held("F-PRD-25"), null);
   assert.equal(held("QA-PRO-FL-CCT-01"), "qc-camera-challenge-test");
   // F-QC-15 - B, the punching line clearance, has been in DCRS since REQUIREMENTS §85.
   assert.equal(held("F-QC-15 - B"), "qc-line-clearance-punching");
@@ -260,10 +265,11 @@ test("a format on the master list that DCRS does not have yet is found by its nu
 });
 
 test("a master-list number DCRS holds under another number finds that document, noted as the list numbers it", () => {
-  const prd19 = findDocuments("F-PRD-19");
-  assert.ok(prd19.length === 1 && prd19[0].kind === "yours" && prd19[0].doc.id === "prd-process-parameter" && prd19[0].asListed === "F-PRD-19", describe(prd19));
   const mkt06 = findDocuments("F/MKT/06");
-  assert.ok(mkt06.length === 1 && mkt06[0].kind === "yours" && mkt06[0].doc.id === "capa-complaint-ack", describe(mkt06));
+  assert.ok(mkt06.length === 1 && mkt06[0].kind === "yours" && mkt06[0].doc.id === "capa-complaint-ack" && mkt06[0].asListed === "F-MKT-06", describe(mkt06));
+  // F-PRD-19 is the process parameter record's own number now (REQUIREMENTS §91): found by it, with nothing to note.
+  const prd19 = findDocuments("F-PRD-19");
+  assert.ok(prd19.length === 1 && prd19[0].kind === "yours" && prd19[0].doc.id === "prd-process-parameter" && prd19[0].asListed === undefined, describe(prd19));
   // The lettered family: F/QC/40 is F-QC-40.C in DCRS, and F-QC-40. A and B on the list only.
   const qc40 = findDocuments("F/QC/40").map((f) => (f.kind === "master" ? `master ${f.format.formatNo}` : `${f.kind} ${f.doc.id}`));
   assert.deepEqual(qc40, ["yours qc-temperature", "master F-QC-40. A", "master F-QC-40. B"]);

@@ -150,7 +150,7 @@ export const INTRO_MODULE_MARKS: readonly IconType[] = [
   FiUsers, // Human Resources
   FiAlertCircle, // CAPA
   FiLayers, // Lamination — Quality Control
-  FiPackage, // Lamination — Production
+  FiPackage, // Production (REQUIREMENTS §91)
   FiTool, // Maintenance
   FiShoppingCart, // Purchase
   FiArchive, // Store

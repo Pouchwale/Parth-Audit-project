@@ -564,6 +564,38 @@ Seven scripts live in `tests/`:
   [data-action='test-voice']); the Hindi and Gujarati rows have their own. What only a person can judge, on the plant's
   laptops in Edge: whether each voice sounds like a person, whether 0.96 is the right pace, whether Whisper writes the
   plant's Gujarati and Hindi right, and whether Edge's real voice names match the ones stood in here.
+- **The Production module** (REQUIREMENTS §91, 6-Oct-2026). New unit tests: `frontend/tests/production.test.ts` (18: the
+  module holds the nine formats in the five sections of the floor, Lamination, Slitting, Pouching, Doctoring and Sharp
+  Objects & Blades, in that order; its name in English and Gujarati, a sidebar link for each format and its purpose lines;
+  its address /library/production, with the old /library/lamination-production and /files/lamination-production/...
+  still opening it; each format's number and revision as its paper prints them, its schedule, department PRD, a workbook
+  to download, its source files named and no company name of its own; each found by its number however it is written
+  (F-PRD-20 and F/PRD/20, F/PRD/21 and F-PRD-21) by the format register, the Search page and Mitra; none of the ten sent
+  on 06-Oct-2026 left on the master list as not in DCRS but F-PRD-25, sent empty; F/PRD/10's stock note, eight headings
+  under four and its two filled lines; F-PRD-18 and 19's boxes and headings as their originals print them, and the ALC
+  PROTOCOL; F-PRD-20 and 26's line clearance points and headings; F/PRD/21's machine box, five points and two halves;
+  F/PRD/22, 23 and 24's notes and headings, the specimen blade counts coming to the paper's 20 NOS; every page of every
+  paper shown beside its form with a caption, with no company spelling of the papers' own and no em dash; Mitra finding
+  each by its whole name alone and asking which when the words name more than one ("open the alc report" names three);
+  no word Mitra knows a Production format by taking another document's name; each sample-filled for today and tomorrow
+  and passing the submit checks, every signature left blank and every line dated the record's day; the slitting and
+  doctoring sheets running the lamination line's rolls, input equal to output plus wastage, each day its own jobs; the
+  person who answers for each, Gaurav Singh for the two lamination records and Azaz Bharach for the seven others; Demo
+  Mode drawing the six new daily sheets for the month in hand only). Changed: `frontend/tests/documentFinding.test.ts`
+  (F-PRD-19 held under its own number now, with nothing to note; F-PRD-20 and F-PRD-10 held; F-PRD-25 on the list
+  only; F/MKT/06 still noted as the list numbers it) and `backend/tests/mitraAgent.test.ts` (the agent's scope names
+  Production). `npm run test:unit` runs 507 frontend and 321 backend tests, all passing.
+  Browser suites changed for §91: `e2e_smoke.py` (129 documents in the library; the filtered library checked by its one
+  `[data-library-module]` block; the old address opening the Production module's nine documents with the sidebar's
+  /library/production link lit), `e2e_hr_module.py` (129 documents), `e2e_maintenance_module.py` (the module before
+  Maintenance found as "Production"), `e2e_find_every_document.py` (F-PRD-19 by its own number with no master-list
+  note; F-PRD-20, F/PRD/20, F/PRD/21 and F-PRD-21 found; F-PRD-25 on the master list only; F-PRD-10, 20, 21 and 26 no
+  longer among the numbers DCRS lacks) and `e2e_celebrations.py` (every Production record of the day counted, not only
+  the two lamination sheets, since the module keeps nine). They had not been run when this entry was written: the whole
+  browser run follows the build. The proof was a scratch script on the throwaway preview server (not part of the run): 135
+  of 135 checks passed; each format opened from the Production library, showed its paper's words and its original,
+  took a line, was sample-filled, saved, submitted, verified, printed as its paper and downloaded as a workbook; Mitra
+  opened each by its number in both spellings and by name; no JavaScript error.
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

@@ -355,7 +355,10 @@ with sync_playwright() as p:
         """({ docs, today, liveStart, open, closed, earlier }) => {
              const KEY = 'dcrs:v1:records';
              const rs = JSON.parse(localStorage.getItem(KEY) || '[]');
-             const mine = rs.filter((r) => docs.includes(r.documentId) && !r.isDemo);
+             // Every Production record, not only the two this suite hands in: since REQUIREMENTS s91 the module keeps the
+             // slitting, doctoring, sharp object and blade sheets every working day too, and today's are handed in below
+             // so that the two lamination sheets are what is left of the day.
+             const mine = rs.filter((r) => r.documentId.startsWith('prd-') && !r.isDemo);
              let late = mine
                .filter((r) => r.dueDate < today && open.includes(r.status) && !closed.includes(r.dueDate))
                .sort((a, b) => (a.dueDate < b.dueDate ? 1 : -1))[0] || null;
@@ -369,10 +372,17 @@ with sync_playwright() as p:
                rs.push(late);
              }
              for (const r of mine) {
-               if (r.dueDate === today) {
+               if (r.dueDate === today && docs.includes(r.documentId)) {
                  r.status = 'Due';
                  for (const k of ['submittedAt', 'submittedBy', 'verifiedAt', 'verifiedBy', 'rejectedAt', 'rejectedBy', 'rejectionReason', 'correction']) delete r[k];
                  r.history = [];
+               } else if (r.dueDate === today) {
+                 if (open.includes(r.status) || r.status === 'Rejected') {
+                   const at = new Date().toISOString();
+                   r.status = 'Verified';
+                   r.submittedAt = at; r.submittedBy = 'Heena Joshi'; r.verifiedAt = at; r.verifiedBy = 'QA';
+                   r.history = [...(r.history || []), { id: 'e2e-' + r.id, at, by: 'Heena Joshi', action: 'submitted' }];
+                 }
                } else if (r.dueDate < today && r.dueDate >= liveStart && (open.includes(r.status) || r.status === 'Rejected') && (!late || r.id !== late.id)) {
                  const at = new Date(r.dueDate + 'T12:00:00').toISOString();
                  r.status = 'Verified';

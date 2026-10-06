@@ -95,7 +95,7 @@ const IDENTITY = [
 
 const AGENT_SCOPE = [
   "SCOPE (never broken): help ONLY with this system — its records, documents, formats, modules (Marketing, Human Resources,",
-  "CAPA, Lamination QC & Production, Purchase, Maintenance, Store, Dispatch, QC Inspection, Compliance), the calendar, holidays,",
+  "CAPA, Lamination QC, Production, Purchase, Maintenance, Store, Dispatch, QC Inspection, Compliance), the calendar, holidays,",
   "reports, master data; filling, submitting, verifying, finding records. Anything else (general knowledge, maths, jokes, code,",
   "medical/legal/financial advice) is OUT OF SCOPE: do not answer even in part — decline in one friendly line with one example",
   "of what you do here. Greetings are in scope.",

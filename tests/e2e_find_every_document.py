@@ -10,8 +10,9 @@ on it."
     case, by its module, and by a word people use for it; opens it from there;
   * A FORMAT ON THE MASTER LIST OF FORMATS (F/SYS/02) THAT DCRS DOES NOT HAVE
     YET is found too, and said to be "On the Master List of Formats (F/SYS/02) -
-    not in DCRS yet"; one DCRS files under another number (F-PRD-19) finds that
-    document;
+    not in DCRS yet"; one DCRS files under another number (F-MKT-06) finds that
+    document; the Production formats of 06-Oct-2026 (REQUIREMENTS s91) by
+    either spelling of their numbers (F-PRD-20 and F/PRD/20);
   * THE DOCUMENT LIBRARY lists every document, grouped by module, each with
     Open Document, and one opens to its records and a new record is started
     there; its filter box finds as Search does; a switch lists the master-list
@@ -207,9 +208,16 @@ with sync_playwright() as p:
     check("...and its register says there are no records, as before", "No matches." in records_text(page), records_text(page)[:200])
     got = search(page, "purchase order")
     check("'purchase order' finds F-PUR-04 on the master list", "F-PUR-04" in got["master"], got)
+    # REQUIREMENTS s91: the process parameter record's own paper prints F-PRD-19, the number the photograph hid,
+    # so it is found by it as any document is by its number.
     got = search(page, "F-PRD-19")
-    check("F-PRD-19 - DCRS's process parameter record, whose own number is still to be confirmed - finds that record", got["yours"] == ["prd-process-parameter"] and not got["master"], got)
-    check("...saying that is how the master list numbers it", "F-PRD-19 on the Master List of Formats" in page.locator("[data-search-document='prd-process-parameter']").inner_text())
+    check("F-PRD-19 finds DCRS's process parameter record, by its own number now", got["yours"] == ["prd-process-parameter"] and not got["master"], got)
+    check("...with no note that the master list numbers it otherwise", "on the Master List of Formats" not in page.locator("[data-search-document='prd-process-parameter']").inner_text())
+    for written, doc_id in (("F-PRD-20", "prd-slitting-alc"), ("F/PRD/20", "prd-slitting-alc"), ("F/PRD/21", "prd-pouching-line-clearance"), ("F-PRD-21", "prd-pouching-line-clearance")):
+        got = search(page, written)
+        check(f"{written} finds {doc_id}, the paper's number however it is written", got["yours"] == [doc_id] and not got["master"], got)
+    got = search(page, "F-PRD-25")
+    check("F-PRD-25, sent as an empty workbook, is still a master-list line only", got["master"] == ["F-PRD-25"] and not got["yours"], got)
 
     search(page, "fhr17")
     page.locator("[data-search-document='daily-pest-monitoring'] [data-action='search-open-document']").click()
@@ -248,7 +256,7 @@ with sync_playwright() as p:
     check("Asked, it lists the master-list formats DCRS does not have yet", len(shown) > 0 and "F-HR-10" in shown and "F-PUR-04" in shown, shown[:12])
     check("...as many as the switch says", len(shown) == stated, (len(shown), label))
     # F-QC-15 - B, the punching line clearance, has been in DCRS since REQUIREMENTS s85.
-    check("...none DCRS has", not any(f in shown for f in ["F-HR-05", "F-HR-17", "F-QC-40. C", "F-SYS-02", "F-MKT-06", "F-PRD-19", "F-QC-15 - B"]), shown)
+    check("...none DCRS has", not any(f in shown for f in ["F-HR-05", "F-HR-17", "F-QC-40. C", "F-SYS-02", "F-MKT-06", "F-PRD-19", "F-QC-15 - B", "F-PRD-10", "F-PRD-20", "F-PRD-21", "F-PRD-26"]), shown)
     check("...each said to be not in DCRS yet", all(NOT_IN_DCRS_YET in t for _, t in lib["master"]), [t for _, t in lib["master"] if NOT_IN_DCRS_YET not in t][:3])
     got = filter_library(page, "F-HR-10")
     check("The filter box finds a master-list format too", [f for f, _ in got["master"]] == ["F-HR-10"] and not got["documents"], got)

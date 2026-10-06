@@ -508,6 +508,26 @@ export function clearAllDemoData(): number {
 export const DAILY_SHEET_MONTHS_BACK = 3;
 /** A filled month of daily log sheets, generously: the guard for a browser already holding much else. */
 const DAILY_SHEET_MONTH_CHARS = 480_000;
+/**
+ * THE PRODUCTION PAPERS OF 06-OCT-2026 (REQUIREMENTS §91): the slitting and doctoring reports and the sharp object
+ * and blade records are daily log sheets too, and add some 160,000 characters to a filled month (160,568 measured
+ * for August 2026). Drawn three months back like the others, they took a demo year to 4,141,525 characters
+ * (measured), past the 4,000,000 mark the year is kept under, and a browser that already holds a plant's live
+ * records needs room beside it. So they are drawn for the month in hand (and the month ahead's blank sheets) only:
+ * a demo year comes to 3,671,520 characters (measured, October 2026), some 161,000 more than before them. Every other daily sheet keeps its window, and the suites that read
+ * it are unchanged; an earlier month of them can still be made on the Demo Mode page.
+ */
+export const RECENT_DAILY_SHEETS: ReadonlySet<string> = new Set([
+  "prd-slitting-alc",
+  "prd-doctoring-alc",
+  "prd-sharp-object-issue",
+  "prd-pouching-blade",
+  "prd-pouching-cutter-issue",
+  "prd-slitting-blade",
+]);
+export const RECENT_DAILY_SHEET_MONTHS_BACK = 0;
+/** What those add to a filled month, generously. */
+const RECENT_DAILY_SHEET_MONTH_CHARS = 180_000;
 
 export interface DailySheetWindow {
   /** The first and last month (0–11) whose daily sheets were drawn. */
@@ -551,23 +571,26 @@ export function ensureDemoRecordsGeneratedForYear(year: number): number {
   // Pass two: the daily log sheets of the month in hand, the months just before it and the month ahead
   // (blank Due shells, which weigh nothing), oldest first so each month carries forward from the one before.
   const current = year === now.getFullYear() ? now.getMonth() : lastMonth;
-  const heavyLacking = (month: number) => lacking(month, isHeavyDemoDocument);
+  // A month's daily sheets: all of them, but the Production papers of §91 only near the month in hand (RECENT_DAILY_SHEETS).
+  const recentMonth = (month: number) => month >= current - RECENT_DAILY_SHEET_MONTHS_BACK;
+  const heavyIn = (month: number) => (doc: DocumentDefinition) => isHeavyDemoDocument(doc) && (!RECENT_DAILY_SHEETS.has(doc.id) || recentMonth(month));
+  const heavyLacking = (month: number) => lacking(month, heavyIn(month));
   let from = Math.max(0, current - DAILY_SHEET_MONTHS_BACK);
   // A browser already holding much else gets fewer months back — never fewer than the month in hand. Only the
   // months still to be made need room: the ones already there are part of what was just measured, and counting
   // them again made a later visit call the window "short of room" that the first visit had drawn whole.
   const room = NEARLY_FULL_CHARS - measureWorkingCopy();
-  const toMake = () => {
+  const charsToMake = () => {
     let n = 0;
-    for (let month = from; month <= current; month++) if (heavyLacking(month)) n += 1;
+    for (let month = from; month <= current; month++) if (heavyLacking(month)) n += DAILY_SHEET_MONTH_CHARS + (recentMonth(month) ? RECENT_DAILY_SHEET_MONTH_CHARS : 0);
     return n;
   };
   let shortOfRoom = false;
-  while (from < current && toMake() * DAILY_SHEET_MONTH_CHARS > room) {
+  while (from < current && charsToMake() > room) {
     from += 1;
     shortOfRoom = true;
   }
-  for (let month = from; month <= lastMonth; month++) if (heavyLacking(month)) total += generateDemoRecordsForMonth(year, month, isHeavyDemoDocument);
+  for (let month = from; month <= lastMonth; month++) if (heavyLacking(month)) total += generateDemoRecordsForMonth(year, month, heavyIn(month));
   // The earlier months without their daily sheets (one made by hand on the Demo Mode page is not counted).
   let leftOut = 0;
   for (let month = 0; month < from; month++) if (heavyLacking(month)) leftOut += 1;

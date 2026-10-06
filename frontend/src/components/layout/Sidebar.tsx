@@ -62,6 +62,7 @@ import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
 import { QC_OVERVIEW_DOCUMENT_IDS } from "../../data/seed/qcModule";
 import { demoModeAvailable } from "../../engine/features";
 import { useAuth } from "../../store/AuthContext";
+import { currentAddress } from "../../utils/moduleSlug";
 
 interface NavItem {
   to: string;
@@ -122,7 +123,10 @@ const MODULE_ORDER = [
   "Human Resources",
   "CAPA (Corrective & Preventive Action)",
   "Lamination — Quality Control",
-  "Lamination — Production",
+  // The Production module (REQUIREMENTS §91): the pouch section's lamination,
+  // slitting, pouching and doctoring records and its sharp object and blade
+  // records. It was the lamination production module, and keeps its place.
+  "Production",
   // Maintenance comes after the production formats, which is where the
   // company's own Master List of Formats & Records puts F/MNT (after F/PRD),
   // and outside the Purchase -> Store -> Dispatch run the material moves
@@ -152,7 +156,7 @@ const MODULE_ICONS: Record<ModuleName, IconType> = {
   "Human Resources": FiUsers,
   "CAPA (Corrective & Preventive Action)": FiAlertCircle,
   "Lamination — Quality Control": FiLayers,
-  "Lamination — Production": FiPackage,
+  Production: FiPackage,
   // Buying: the department that places the order and keeps the supplier list.
   Purchase: FiShoppingCart,
   // The machines, and the work that keeps them running.
@@ -265,7 +269,29 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { to: "/gap/external", labelKey: "nav.capaExternal", icon: FiUsers },
   ],
   "Lamination — Quality Control": [{ to: "/library/lamination-quality-control", labelKey: "nav.laminationQcDocs", icon: FiBookOpen }],
-  "Lamination — Production": [{ to: "/library/lamination-production", labelKey: "nav.laminationProductionDocs", icon: FiBookOpen }],
+  // Production (REQUIREMENTS §91): the collection in the Document Library first
+  // (/library/production; the module's old address, /library/lamination-production,
+  // still opens it: utils/moduleSlug.ts), then its five sections the way the
+  // pouch section's floor works, each format on its own document page. F/PRD/21,
+  // the pouching line clearance, is started with New per machine as its job
+  // changes; the rest are kept every working day.
+  Production: [
+    { to: "/library/production", labelKey: "nav.productionDocs", icon: FiBookOpen },
+    { headingKey: "nav.prdLamination" },
+    { to: "/document/prd-alc-production", labelKey: "nav.prdAlcProduction", icon: FiClipboard },
+    { to: "/document/prd-process-parameter", labelKey: "nav.prdProcessParameter", icon: FiActivity },
+    { headingKey: "nav.prdSlitting" },
+    { to: "/document/prd-slitting-alc", labelKey: "nav.prdSlittingAlc", icon: FiClipboard },
+    { headingKey: "nav.prdPouching" },
+    { to: "/document/prd-pouching-line-clearance", labelKey: "nav.prdPouchingLineClearance", icon: FiCheckSquare },
+    { headingKey: "nav.prdDoctoring" },
+    { to: "/document/prd-doctoring-alc", labelKey: "nav.prdDoctoringAlc", icon: FiClipboard },
+    { headingKey: "nav.prdSharpObjects" },
+    { to: "/document/prd-sharp-object-issue", labelKey: "nav.prdSharpObjectIssue", icon: FiScissors },
+    { to: "/document/prd-pouching-blade", labelKey: "nav.prdPouchingBlade", icon: FiTool },
+    { to: "/document/prd-pouching-cutter-issue", labelKey: "nav.prdPouchingCutterIssue", icon: FiScissors },
+    { to: "/document/prd-slitting-blade", labelKey: "nav.prdSlittingBlade", icon: FiTool },
+  ],
   // Purchase — the department's five F/PUR formats (REQUIREMENTS §68): the
   // collection in the Document Library first, then the two groups its paperwork
   // actually falls into. Supplier Approval is how a supplier gets onto the
@@ -430,6 +456,20 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/document/mnt-wooden-articles": ["mnt-wooden-articles"],
   // Marketing (REQUIREMENTS §77): one page per F/MKT format.
   ...Object.fromEntries(["mkt-customer-feedback", "mkt-feedback-analysis", "mkt-complaint-trend"].map((id) => [`/document/${id}`, [id]])),
+  // Production (REQUIREMENTS §91): one page per F/PRD format.
+  ...Object.fromEntries(
+    [
+      "prd-alc-production",
+      "prd-process-parameter",
+      "prd-slitting-alc",
+      "prd-pouching-line-clearance",
+      "prd-doctoring-alc",
+      "prd-sharp-object-issue",
+      "prd-pouching-blade",
+      "prd-pouching-cutter-issue",
+      "prd-slitting-blade",
+    ].map((id) => [`/document/${id}`, [id]])
+  ),
   // System / Management (REQUIREMENTS §76): one page per F/SYS format.
   ...Object.fromEntries(
     [
@@ -548,7 +588,9 @@ function NavGroup({ items, path }: { items: NavEntry[]; path: string }) {
 }
 
 export function Sidebar() {
-  const { path } = useRouter();
+  const { path: address } = useRouter();
+  // A renamed module's old address lights the module's link as its new one does (utils/moduleSlug.ts, REQUIREMENTS §91).
+  const path = currentAddress(address);
   const t = useT();
   const { user } = useAuth();
   // Demo Mode only where the server has it (§65); Users & Access only for the

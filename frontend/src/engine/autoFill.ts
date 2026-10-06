@@ -842,6 +842,20 @@ function fillLogSheet(
       const row = fillRow(layout, { ...base, ...jobRowValues(doc.id, job) }, rng, doc, master, dueDate, i, jobs.length, ctx);
       return row;
     });
+  } else if (isRewindingSheet(doc.id)) {
+    // The slitting and the doctoring machine (F-PRD-20, F-PRD-26, REQUIREMENTS
+    // §91) run the rolls the lamination line made the day before, out of the hot
+    // room, one after another: the same jobs and PO numbers as F-PRD-18's, never
+    // the specimen's two jobs copied onto every day.
+    // The doctoring machine doctors the rolls that need it, not every one the line made: two a day in this simulation.
+    const made = jobsFor(addDays(dueDate, -1));
+    const runs = rewindingRuns(doc.id, doc.id === "prd-doctoring-alc" ? made.slice(0, 2) : made, dueDate);
+    const template = (previous?.data.rows?.[0] ?? layout.specimenRows?.[0] ?? {}) as Record<string, string | number | null>;
+    rows = runs.map((values, i) => {
+      const { id: _ignored, ...base } = template;
+      void _ignored;
+      return fillRow(layout, { ...base, ...values }, rng, doc, master, dueDate, i, runs.length, ctx);
+    });
   } else {
     const source = previous?.data.rows?.length ? previous.data.rows : (layout.specimenRows ?? []);
     const wanted = mode.typicalRows ?? Math.max(mode.minRows ?? 1, 1);
@@ -929,6 +943,46 @@ function jobRowValues(documentId: string, job: ReturnType<typeof jobsFor>[number
   };
 }
 
+/** The slitting and doctoring ALC & production reports (F-PRD-20, F-PRD-26, REQUIREMENTS §91). */
+const isRewindingSheet = (documentId: string): boolean => documentId === "prd-slitting-alc" || documentId === "prd-doctoring-alc";
+
+const minutesOf = (clock: string): number => {
+  const [h, m] = clock.split(":").map(Number);
+  return (Number.isFinite(h) ? h : 9) * 60 + (Number.isFinite(m) ? m : 0);
+};
+const clockOf = (minutes: number): string => {
+  const m = ((minutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+};
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/**
+ * A day on the slitting or the doctoring machine: the rolls the lamination line
+ * made the day before, one after another. A roll leaves the hot room at the
+ * clock time it went in (F-PRD-18's IN TIME (HOTROOM), a day's curing later), and
+ * is slit after it is out; the doctoring machine starts its day at nine. What is
+ * worked out agrees with itself: the output roll and the wastage add up to the
+ * input roll, and the OK metres are the laminated roll's in the same proportion.
+ */
+function rewindingRuns(documentId: string, jobs: ReturnType<typeof jobsFor>, dueDate: string): Record<string, string | number | null>[] {
+  const rng = makeRng(`rewinding|${documentId}|${dueDate}`);
+  const slitting = documentId === "prd-slitting-alc";
+  let clock = slitting ? 0 : 9 * 60 + rng.int(0, 20);
+  return jobs.map((job) => {
+    const start = slitting ? Math.max(minutesOf(job.inTimeHotroom) + rng.int(10, 25), clock + rng.int(5, 15)) : clock + rng.int(5, 15);
+    const end = start + Math.round(job.runMinutes * (0.55 + rng.next() * 0.25));
+    clock = end;
+    const input = job.rollWeight;
+    const wastage = round2(input * (0.015 + rng.next() * 0.015));
+    const output = round2(input - wastage);
+    const ok = Math.round((job.okMeters * output) / input);
+    const common = { fgCode: job.fgCode, poNo: job.poNo, jobName: job.jobName, inputRollKg: input, startTime: clockOf(start), endTime: clockOf(end), outputRollKg: output, wastageKg: wastage };
+    if (slitting) return { ...common, outTimeHotroom: job.inTimeHotroom, filmLayer: `${job.layer1Type} + ${job.layer2Type}`, okMeters: ok };
+    // The job bag's required kilograms: the order's figure, a little under what the roll yields.
+    return { ...common, jobBagRequireKg: Math.floor(output / 5) * 5, okRunningMtr: ok };
+  });
+}
+
 function rangeOf(rows: LogSheetRow[], key: string): { min: number; max: number } | null {
   const vals = rows.map((r) => r[key]).filter((v): v is number => typeof v === "number");
   if (vals.length === 0) return null;
@@ -967,15 +1021,42 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
         `Mix viscosity ${r?.min.toFixed(2)}–${r?.max.toFixed(2)} Sec.; checked by ${Array.from(new Set(rows.map((x) => x.checkedBy).filter(Boolean))).join(", ")}. Add or remove rows to match today's batches.`,
       ];
     }
+    // DATE & SHIFT is written by the person, as on the paper (REQUIREMENTS §91): a sheet filed before then holds a shift.
     case "prd-process-parameter":
       return [
-        `${previous ? "Carried forward" : "Loaded"} ${rows.length} job(s) on ${h.machineName} (operator ${h.operatorName}, shift ${h.shift}) with the same machine settings as ${previous ? "last time" : "the specimen sheet"} — change the job list if today's jobs differ.`,
-        `Adhesive ${h.adhesiveMake} ${h.adhesiveCode} batch ${h.adhesiveBatch}; hardener ${h.hardenerMake} ${h.hardenerCode} batch ${h.hardenerBatch}; mixing ratio ${h.mixingRatio}. Update the batch numbers if a new drum was opened.`,
+        `${previous ? "Carried forward" : "Loaded"} ${rows.length} job(s) on ${h.machineName} (operator ${h.operatorName}${h.shift ? `, ${h.shift}` : ""}) with the same machine settings as ${previous ? "last time" : "the specimen sheet"} — change the job list if today's jobs differ.`,
+        `Adhesive ${h.adhesiveMake} ${h.adhesiveCode} batch ${h.adhesiveBatch}; hardener ${h.hardenerMake} ${h.hardenerCode} batch ${h.hardenerBatch}; mixing ratio ${h.mixingRatio}. Update the batch numbers if a new drum was opened, and write the date and shift.`,
       ];
     case "prd-alc-production":
       return [
-        `${previous ? "Carried forward" : "Loaded"} ${rows.length} job(s) for ${h.machineName}, operator ${h.operatorName}, shift ${h.shift} — ALC marked Yes for each.`,
-        "Check start / end times, roll weights and OK meters against today's actual production before submitting.",
+        `${previous ? "Carried forward" : "Loaded"} ${rows.length} job(s) for ${h.machineName}, operator ${h.operatorName}${h.shift ? `, ${h.shift}` : ""} — ALC marked Yes for each.`,
+        "Check start / end times, roll weights and OK meters against today's actual production, and write the date and shift, before submitting.",
+      ];
+    // The Production formats of 06-Oct-2026 (REQUIREMENTS §91): what was filled, and what is left for the person.
+    case "prd-slitting-alc":
+    case "prd-doctoring-alc": {
+      const jobs = rows.map((r) => r.fgCode).filter(Boolean).join(", ");
+      return [
+        `Loaded ${rows.length} roll(s) the lamination line made the day before${doc.id === "prd-slitting-alc" ? ", out of the hot room" : ""} (FG ${jobs || "none"}), each with its output and wastage adding up to the input roll; ALC marked Yes for each.`,
+        "Write the operator name, the date and shift, and each line's sign; check the weights, times and metres against today's actual production before submitting.",
+      ];
+    }
+    case "prd-pouching-line-clearance":
+      return [
+        `Filled ${rows.length} job change(s) on ${h.machineNo || "the machine"} with typical values: write each one's times, work orders and names as it happens.`,
+        "The operator signs both halves of a line and the shift supervisor verifies it; those are left for them.",
+      ];
+    case "prd-sharp-object-issue":
+    case "prd-pouching-cutter-issue":
+      return [
+        `Filled the day's line with the usual counts issued and returned (${previous ? "as last time" : "as on the specimen"}). Count what was issued and returned, and anything broken or newly issued, before submitting.`,
+        "The supervisor signs each line; that is left for the supervisor.",
+      ];
+    case "prd-pouching-blade":
+    case "prd-slitting-blade":
+      return [
+        `Filled the day's line with ${previous ? "the last sheet's" : "a typical"} blade stock. Count the blades and write today's opening and closing stock, the blades replaced and in which shift.`,
+        "The Production Manager checks and signs the line; that is left for him.",
       ];
     case "qc-inspection-pouching":
     case "qc-inspection-slitting":

@@ -241,7 +241,10 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   the internal audit, corrective action, HARA verification, site security, traceability and mock withdrawals),
   "human-resources" (the Human Resources module — HR's
   eighteen F/HR formats and the pest control file), "lamination-quality-control",
-  "lamination-production", "maintenance" (the Maintenance module — the twelve F/MNT formats: the equipment list,
+  "production" (the Production module: its nine F/PRD formats, the solvent base lamination, slitting and doctoring
+  ALC & production reports, the lamination process parameter record, the pouching area line clearance, and the
+  sharp object and razor blade records; once called "lamination-production", which still opens it),
+  "maintenance" (the Maintenance module — the twelve F/MNT formats: the equipment list,
   preventive maintenance, daily machine health, breakdown slips and the breakdown register, temporary engineering,
   glass breakage, lux levels and wooden articles), "purchase" (the Purchase
   module — the five F/PUR supplier and service-provider formats), "store" (the two F/STR formats), "dispatch" (the
@@ -255,7 +258,9 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   comma-separated document ids
   (daily-pest-monitoring, fly-catcher, service-report-rodent, service-report-general, service-report-fly,
   gap-inspection, capa-customer-complaint, training-record, qc-viscosity, qc-adhesive-mixing, qc-temperature,
-  prd-process-parameter, prd-alc-production, qc-inspection-pouching, qc-inspection-sb-lamination, qc-inspection-slitting,
+  prd-alc-production, prd-process-parameter, prd-slitting-alc, prd-pouching-line-clearance, prd-doctoring-alc,
+  prd-sharp-object-issue, prd-pouching-blade, prd-pouching-cutter-issue, prd-slitting-blade,
+  qc-inspection-pouching, qc-inspection-sb-lamination, qc-inspection-slitting,
   qc-inspection-printed-film, qc-inprocess-printing, hr-competence, hr-skill-matrix, hr-pre-employment-health,
   hr-induction-staff, hr-induction-operators, hr-job-responsibility, hr-training-needs, hr-training-calendar,
   hr-training-effectiveness, hr-training-feedback, hr-mobile-authorization, hr-visitor-health, hr-gmp-checklist,
@@ -327,7 +332,14 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   for "the system documents" as a whole use /library/system-management. The Marketing formats open here as well:
   mkt-customer-feedback (F/MKT/01 Customer Value added Feedback), mkt-feedback-analysis (F/MKT/02 Customer Feedback
   analysis) and mkt-complaint-trend (F/MKT/04 Customer Complaints Trend Analysis, with its Pareto); for "the
-  marketing documents" as a whole use /library/marketing
+  marketing documents" as a whole use /library/marketing. The Production formats open here as well:
+  prd-alc-production (F-PRD-18 Solvent Base Lamination - ALC & Production Report), prd-process-parameter (F-PRD-19
+  Solvent Base Lamination - Process Parameter Record), prd-slitting-alc (F-PRD-20 Slitting - ALC & Production
+  Report), prd-pouching-line-clearance (F/PRD/21 Area Line Clearance Report - Pouching, one per pouching machine),
+  prd-doctoring-alc (F-PRD-26 Doctoring - ALC & Production Report), prd-sharp-object-issue (F/PRD/10 daily issue &
+  return of scissors and manual cutters), prd-pouching-blade (F/PRD/22 razor blades of the pouching machines),
+  prd-pouching-cutter-issue (F/PRD/23 manual cutters of the pouching section) and prd-slitting-blade (F/PRD/24
+  razor blades of the slitting machine); for "the production documents" as a whole use /library/production
 - /insights — Insights: what the plant's records show when read together (readings out of band or drifting, the
   same lot deviation again, CAPA not effective or overdue, expired calibration, a supplier graded C, lux falls,
   breakdowns per machine, glass breakage, missed daily health checks, PM slipping). Use it for "anything unusual",
@@ -457,7 +469,7 @@ export const PERSONA = [
 export const SCOPE = [
   "SCOPE — the rule you must never break. You help ONLY with this system: its records, documents and formats, its",
   "modules (Marketing — the customer's feedback, its analysis and the complaint trends — Human Resources — its HR",
-  "formats and the pest control file — CAPA, Lamination QC & Production,",
+  "formats and the pest control file — CAPA, Lamination QC, Production (lamination, slitting, pouching, doctoring, blades and cutters),",
   "Purchase — supplier registration, supplier audits, the approved supplier list and the two performance",
   "monitoring registers — Maintenance — the equipment list and every machine on it, preventive maintenance,",
   "daily machine health, breakdowns, glass breakage and lux levels — Store, Dispatch, QC",
@@ -500,7 +512,7 @@ Screens you may send the person to (use EXACTLY these shapes; navigate only when
 - /performance — the Performance Scorecard: on time, late and never done, by person, department, module and document
 - /reports/{year}/{month0}/{tab} — a month's Reports; month0 is 0-based (January=0); tab is monthly, summary (the Management Summary: the month in plain English for management), daily, rodent, lizard, flycatcher, training or lamination
 - /qc — Quality Control's overview of its formats; /hr — Human Resources' formats
-- /library/{moduleSlug} — one module's documents: system-management, marketing, human-resources, lamination-quality-control, lamination-production, maintenance, purchase, store, dispatch, quality-control-inspection-records, quality-compliance
+- /library/{moduleSlug} — one module's documents: system-management, marketing, human-resources, lamination-quality-control, production, maintenance, purchase, store, dispatch, quality-control-inspection-records, quality-compliance
 - /document/{documentId} — one format's page, e.g. mnt-breakdown-record (F/MNT/06), mnt-lux-level (F/MNT/11), mnt-yearly-pm-schedule (F/MNT/03), mnt-glass-breakage (F/MNT/09), mnt-equipment-list (F/MNT/01), pur-supplier-performance (F/PUR/05), pur-service-provider-performance (F/PUR/06), qc-viscosity (F-QC-30)
 - /files/{scope}/{from}/{to} — every record of "all", a moduleSlug or comma-separated document ids, filed between two ISO dates
 - /gap/internal — internal CAPA findings; /gap/external — customer complaints

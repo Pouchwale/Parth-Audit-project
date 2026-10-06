@@ -38,9 +38,19 @@ const BY_MODULE: Record<string, Lines> = {
       "આજે વિસ્કોસિટીમાં ફેરફાર પકડશો તો કાલે આખી બેચ બચી જશે.",
     ],
   },
-  "Lamination — Production": {
-    en: ["The process you record today is the batch we can trace tomorrow.", "Right settings, written down, mean the next shift starts right."],
-    gu: ["આજે નોંધેલી પ્રક્રિયા એ જ બેચ છે જેને આપણે કાલે શોધી શકીશું.", "સાચા સેટિંગ નોંધાયેલા હોય તો આગલી શિફ્ટ પણ સાચી શરૂ થાય છે."],
+  // The Production module (REQUIREMENTS §91): the lamination, slitting, pouching and doctoring lines and their
+  // blade and cutter records.
+  Production: {
+    en: [
+      "The process you record today is the batch we can trace tomorrow.",
+      "Right settings, written down, mean the next shift starts right.",
+      "Every blade and cutter counted back is metal that never reaches a customer's pack.",
+    ],
+    gu: [
+      "આજે નોંધેલી પ્રક્રિયા એ જ બેચ છે જેને આપણે કાલે શોધી શકીશું.",
+      "સાચા સેટિંગ નોંધાયેલા હોય તો આગલી શિફ્ટ પણ સાચી શરૂ થાય છે.",
+      "પાછી ગણેલી દરેક બ્લેડ અને કટર એટલે ધાતુ જે ક્યારેય ગ્રાહકના પેક સુધી પહોંચતી નથી.",
+    ],
   },
   "Human Resources": {
     en: [

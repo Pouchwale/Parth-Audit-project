@@ -82,6 +82,16 @@ export const SEED_MASTER_DATA: MasterData = {
     // product-release authorisation box filled with nothing. F/HR/13 has
     // "Parth Chauhan", "Manager - Dispatch", as of 01.12.2023.
     { id: "emp-parth-chauhan", name: "Parth Chauhan", role: "Manager – Dispatch (on F/HR/13 as of 01.12.2023)", department: "Dispatch", active: true },
+    // WHO ANSWERS FOR THE PRODUCTION FORMATS OF 06-OCT-2026 (REQUIREMENTS §91), the
+    // same way: not a new person, the pouch section's manager on the company's own
+    // registers. F/HR/01 has "Azaz Bhaach", Pouch, "Manager-Pouch" (no leaving
+    // date); F/HR/06 "Azaz Bharach", "POUCH-Manager"; F/HR/08 "Azazbhai Bharach",
+    // "Manager-Pouch". The spelling is HR Master Data's, which merges the three
+    // (REQUIREMENTS §53). The lamination, slitting, doctoring and pouching papers
+    // are the pouch section's, and F/PRD/22 and F/PRD/24 are "Varified & Checked by
+    // - Produciton Manager"; the operators and supervisors who sign the lines are on
+    // none of the papers, so their boxes are left for them.
+    { id: "emp-azaz", name: "Azaz Bharach", role: "Manager – Pouch (the pouch section's production manager: \"Manager-Pouch\" on F/HR/01 and F/HR/08, \"POUCH-Manager\" on F/HR/06)", department: "Production", active: true },
   ],
 
   // Areas are kept separate per source document, exactly as filed on paper
@@ -244,6 +254,17 @@ export const SEED_MASTER_DATA: MasterData = {
     "qc-temperature": "QC Tester",
     "prd-process-parameter": "Lamination Operator",
     "prd-alc-production": "Lamination Operator",
+    // The Production formats of 06-Oct-2026 (REQUIREMENTS §91) are the pouch
+    // section's, and its manager answers for them (the line's operators and
+    // supervisors are on no paper supplied yet). Changed in Master Data →
+    // Documents when the plant names who keeps each.
+    "prd-slitting-alc": "Manager – Pouch",
+    "prd-pouching-line-clearance": "Manager – Pouch",
+    "prd-doctoring-alc": "Manager – Pouch",
+    "prd-sharp-object-issue": "Manager – Pouch",
+    "prd-pouching-blade": "Manager – Pouch",
+    "prd-pouching-cutter-issue": "Manager – Pouch",
+    "prd-slitting-blade": "Manager – Pouch",
     "qc-inspection-pouching": "QA Inspector",
     "qc-inspection-sb-lamination": "QA Inspector",
     "qc-inspection-slitting": "QA Inspector",

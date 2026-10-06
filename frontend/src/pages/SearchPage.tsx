@@ -143,8 +143,8 @@ export function SearchPage() {
   // register; typed with other words, it keeps the search for those words to
   // its own records (readSearchQuery).
   const reading = useMemo(() => readSearchQuery(q), [q, version]);
-  // A number the master list gives a document DCRS files under another (F-PRD-19 is the process parameter
-  // record, whose own number is still to be confirmed) lists that document's register, as its own number would.
+  // A number the master list gives a document DCRS files under another (F-MKT-06 is the complaint acknowledgement,
+  // whose form prints QA-CAF-00) lists that document's register, as its own number would.
   const numberIds = reading.kind === "register" ? (reading.documentIds.length > 0 ? reading.documentIds : docs.map((d) => d.id)) : null;
   const people = peopleFor(q);
   const namesSheet = SHEET_QUERY.test(q) && hrMasterVisible();

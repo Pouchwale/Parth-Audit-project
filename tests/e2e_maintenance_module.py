@@ -253,7 +253,8 @@ with sync_playwright() as p:
     missing_links = [d for d in MNT_DOCS if page.locator(f".app-sidebar a[href='#/document/{d}']").count() != 1]
     check("...with all twelve of its documents linked", not missing_links, missing_links)
     names = page.eval_on_selector_all(".app-sidebar .nav-module .nav-module-header", "els => els.map((e) => e.textContent.trim())")
-    prd = next((i for i, n in enumerate(names) if "Lamination — Production" in n), -1)
+    # The production module is "Production" since REQUIREMENTS s91 (it was the lamination production module).
+    prd = next((i for i, n in enumerate(names) if n.startswith("Production")), -1)
     mnt = next((i for i, n in enumerate(names) if n.startswith("Maintenance")), -1)
     pur = next((i for i, n in enumerate(names) if "Purchase" in n), -1)
     check("It sits after the production modules and before Purchase", prd >= 0 and mnt == prd + 1 and pur == mnt + 1, names)

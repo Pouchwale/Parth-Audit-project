@@ -3,21 +3,26 @@
 Checked on 30-Sep-2026 (REQUIREMENTS §84), from the owner's request: "check each and every module whether all the
 documents according to the PDF are present or not; if not, ask me and I will share them." Updated the same day when
 F-QC-15-B, the punching line clearance, was built from the paper found on your computer (REQUIREMENTS §85), and again on
-02-Oct-2026 when five more were sent and built: F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04 (REQUIREMENTS §86).
+02-Oct-2026 when five more were sent and built: F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04 (REQUIREMENTS §86), and on
+06-Oct-2026 when the production formats were sent: F-PRD-10, 20, 21, 22, 23, 24 and 26 built, F-PRD-18 and 19 sent again
+and put right, and F-PRD-25 sent as an empty workbook (REQUIREMENTS §91, the Production module).
 
 ## In short
 
-- The master list you shared today lists **135 formats** across ten departments. **DCRS has 94 of them**, F-QC-15-B
+- The master list you shared today lists **135 formats** across ten departments. **DCRS has 101 of them**, F-QC-15-B
   (the punching line clearance) included: its paper was on your computer but never built, and it was built on
-  30-Sep-2026 (§85); and the five sent on 02-Oct-2026 (§86). **40 have not been supplied yet**, and one (F-QC-41) is
-  marked obsolete on the list itself.
+  30-Sep-2026 (§85); the five sent on 02-Oct-2026 (§86); and the seven production formats sent on 06-Oct-2026 (§91).
+  **32 have not been supplied yet**, one was sent but could not be built (F-PRD-25: the workbook is empty), and one
+  (F-QC-41) is marked obsolete on the list itself.
 - **Complete:** System / Management (16 of 16), Store (2 of 2), Maintenance (11 of 11) and Dispatch (3 of 3).
 - **Nearly complete:** Human Resources (20 of 22), Quality Control (32 of 40), Purchase (5 of 6), Marketing (3 of 4).
-- **The big gap is Production:** 2 of its 30 formats are in DCRS (the two lamination registers). Quality Assurance's
-  one format (F-QA-01) is not in DCRS either.
+- **Production** has 9 of its 30 formats in DCRS since 06-Oct-2026 (the Production module, §91): the lamination,
+  slitting, doctoring and pouching records and the sharp object and blade records. F-PRD-25 was sent as an empty
+  workbook, and 20 have not been supplied. Quality Assurance's one format (F-QA-01) is not in DCRS either.
 - The company's own workbook of the same list is newer than the PDF and has six more lines. DCRS has two of them
   (F-MKT-05 and F-MKT-06, in the CAPA module); the other four (F-PRD-27 to F-PRD-30) have not been supplied.
-- **44 formats to ask for** are listed at the end, grouped by department, with a few things to confirm.
+- **37 formats to ask for** are listed at the end, grouped by department (F-PRD-25 among them again), with a few
+  things to confirm.
 
 ## What was compared
 
@@ -36,10 +41,11 @@ F-QC-15-B, the punching line clearance, was built from the paper found on your c
    differ" below). Its other sheet, "GPPL - Formats list (2)", is an older copy that also has five un-numbered
    lines (F-QC-18, 19, 20, 22 and 25). DCRS keeps the workbook's 141 lines as its F/SYS/02 record (`FORMAT_LINES`
    in `frontend/src/data/seed/sysDocumentControlLayouts.ts`).
-4. **DCRS's documents:** the 122 definitions in `frontend/src/data/seed/documentDefinitions.ts` (id, name, format
+4. **DCRS's documents:** the 129 definitions in `frontend/src/data/seed/documentDefinitions.ts` (id, name, format
    number, revision). Each one's department comes from `frontend/src/data/seed/documentDepartments.ts`.
-5. **What you supplied:** the 102 files in `source-documents/` (the 91 of the first check, the F-QC-15-B paper
-   copied there from your Downloads folder when it was built, and the ten originals sent on 02-Oct-2026), and what `docs/REQUIREMENTS.md` records about every
+5. **What you supplied:** the 120 files in `source-documents/` (the 91 of the first check, the F-QC-15-B paper
+   copied there from your Downloads folder when it was built, the ten originals sent on 02-Oct-2026 and the eighteen
+   production files sent on 06-Oct-2026), and what `docs/REQUIREMENTS.md` records about every
    paper sent and what was built from it (searched for every format number). To make sure nothing sent was
    missed, the format files in your Downloads folder were checked as well. Nothing there was changed.
 
@@ -60,11 +66,11 @@ Format numbers are written in many ways on the papers: F/HR/17, F-HR-17, F/QC-09
 | Store (STR) | 2 | 2 | 0 | 0 | 0 |
 | Quality Control (QC) \* | 40 | 32 | 0 | 7 | 1 |
 | Quality Assurance (QA) | 1 | 0 | 0 | 1 | 0 |
-| Production (PRD) | 30 | 2 | 0 | 28 | 0 |
+| Production (PRD) | 30 | 9 | 1 | 20 | 0 |
 | Maintenance (MNT) | 11 | 11 | 0 | 0 | 0 |
 | Human Resources (HR) | 22 | 20 | 0 | 2 | 0 |
 | Dispatch (DISP) | 3 | 3 | 0 | 0 | 0 |
-| **Total** | **135** | **94** | **0** | **40** | **1** |
+| **Total** | **135** | **101** | **1** | **32** | **1** |
 
 \* Quality Control includes QA-PRO-FL-CCT-01, the Camera Challenge Test (list line 99). Its number has no
 department code; DCRS files it under Quality Control.
@@ -72,7 +78,7 @@ department code; DCRS files it under Quality Control.
 **Lines only in the workbook** (not on the PDF): Marketing has 2 more (F-MKT-05 and F-MKT-06, both in DCRS) and
 Production has 4 more (F-PRD-27 to F-PRD-30, not supplied yet).
 
-**The other way round:** DCRS holds 122 documents. 96 of them are formats on the list (F-QC-15 and F-MNT-05 each
+**The other way round:** DCRS holds 129 documents. 103 of them are formats on the list (F-QC-15 and F-MNT-05 each
 have two DCRS documents). The other 26 are not on the PDF list; they are explained in "DCRS documents that are not
 on the master list" below.
 
@@ -82,8 +88,9 @@ What the status words mean:
 
 - **In DCRS**: the document's id in DCRS, its name as DCRS shows it, and its revision. DCRS uses the name printed on
   the form itself, which is sometimes worded differently from the list.
-- **Supplied but not built**: the paper exists among what you sent, but no document was made from it. (None now:
-  the one there was, F-QC-15-B, was built on 30-Sep-2026.)
+- **Supplied but not built**: the paper exists among what you sent, but no document was made from it. (One now:
+  F-PRD-25, sent on 06-Oct-2026 as a workbook with nothing in it. F-QC-15-B, the one there was before, was built on
+  30-Sep-2026.)
 - **Not supplied yet**: there is no paper for it in `source-documents/`, in REQUIREMENTS or in your Downloads folder.
 - **Obsolete on the list**: the list itself marks it obsolete.
 
@@ -201,7 +208,7 @@ What the status words mean:
 | 75 | F-PRD-07 | Shrink Sleeve cutting Production Register | **Not supplied yet.** The workbook adds revision 1 of 01.09.2026. |
 | 76 | F-PRD-08 | Dispatch Card | **Not supplied yet.** |
 | 77 | F-PRD-09 | Packing Label. | **Not supplied yet.** The workbook gives F-PRD-09 to "Prepress Specification" instead. |
-| 78 | F-PRD-10 | Sharp metal object Daily Issue & Return monitoring record | **Not supplied yet.** |
+| 78 | F-PRD-10 | Sharp metal object Daily Issue & Return monitoring record | **In DCRS** as `prd-sharp-object-issue` "Daily Issue & Return of Sharp Metal Object (Scisssor / Manual Cutter) Monitoring Record", Rev 00 of 01.12.2021, F/PRD/10 as the paper prints it. Sent on 06-Oct-2026 as a PDF (§91); its original is the second sheet of the F-PRD-23 workbook. Production module, Sharp Objects & Blades. Your own folder holds a Rev 01 of 01.01.2026 (Label & Sleeve) and F/PRD/10A to D, not sent (TBC 56). |
 | 79 | F-PRD-11 | Surgical Machine Blade Change Record | **Not supplied yet.** |
 | 80 | F-PRD-12 | Razor Blade Change Record | **Not supplied yet.** |
 | 81 | F-PRD-13 | Prepress Specification | **Not supplied yet.** The workbook gives F-PRD-13 to "Packing Label" instead. |
@@ -213,15 +220,15 @@ What the status words mean:
 | 87 | F-PRD- 17. A | Ink Formulation record- Label | **Not supplied yet.** The workbook marks 17. A, B and C "Merged in one sheet". |
 | 88 | F-PRD- 17. B | Ink Formulation record- Sleeve | **Not supplied yet.** |
 | 89 | F-PRD- 17. C | Ink Formulation record- Pouch | **Not supplied yet.** |
-| 90 | F-PRD-18 | SOLVENT BASE LAMINATION - ALC & PRODUCTION REPORT | **In DCRS** as `prd-alc-production` "Solvent Base Lamination — ALC & Production Report", Rev 01. Shown in the "Lamination — Production" module. |
-| 91 | F-PRD-19 | SOLVENT BASE LAMINATION - PROCESS PARAMETER RECORD | **In DCRS** as `prd-process-parameter` "Solvent Base Lamination — Process Parameter Record", Rev 00. Shown in the "Lamination — Production" module. DCRS still shows its number as "TO BE CONFIRMED" (hidden under the clip in the photograph, §12); the list's F-PRD-19 of 15.12.2024 matches the "(00/15.12.2024)" that is visible. |
-| 92 | F-PRD-20 | SLITTING - ALC & PRODUCTION REPORT | **Not supplied yet.** |
-| 93 | F-PRD-21 | Area Line clearance record - POUCHING | **Not supplied yet.** |
-| 94 | F-PRD-22 | Blade Change Record - All Pouching machine | **Not supplied yet.** |
-| 95 | F-PRD-23 | Manual cutter Daily Issue & Return monitoring record | **Not supplied yet.** |
-| 96 | F-PRD-24 | Razor Blade Change Record - Laminated FIlms Slittig machine | **Not supplied yet.** |
-| 97 | F-PRD-25 | POUCHING - PROCESS PARAMETER RECORD | **Not supplied yet.** |
-| 98 | F-PRD-26 | DOCTORING - ALC & PRODUCTION REPORT | **Not supplied yet.** The workbook adds revision 1 of 23.07.2025 ("Job bag require KG added"). |
+| 90 | F-PRD-18 | SOLVENT BASE LAMINATION - ALC & PRODUCTION REPORT | **In DCRS** as `prd-alc-production` "Solvent Base Lamination - ALC & Production Report", Rev 01 of 25.06.2025. Production module, Lamination section. Its paper and .xls original were sent on 06-Oct-2026, and its boxes and headings now read as the original (§91). |
+| 91 | F-PRD-19 | SOLVENT BASE LAMINATION - PROCESS PARAMETER RECORD | **In DCRS** as `prd-process-parameter` "Solvent Base Lamination - Process Parameter Record", Rev 00 of 15.12.2024. Production module, Lamination section. Its number, hidden under the clip in the photograph (§12), is printed on the paper sent on 06-Oct-2026: F-PRD-19, as the list says (§91). |
+| 92 | F-PRD-20 | SLITTING - ALC & PRODUCTION REPORT | **In DCRS** as `prd-slitting-alc` "Slitting - ALC & Production Report", Rev 01 of 25.06.2025. Sent on 06-Oct-2026 with its .xlsx (§91). Production module, Slitting. |
+| 93 | F-PRD-21 | Area Line clearance record - POUCHING | **In DCRS** as `prd-pouching-line-clearance` "Area Line Clearance Report - Pouching", Rev 00 of 15.12.2024, F/PRD/21 as the paper prints it. Sent on 06-Oct-2026 with its .xlsx (§91). Production module, Pouching; kept as required, a record per machine. |
+| 94 | F-PRD-22 | Blade Change Record - All Pouching machine | **In DCRS** as `prd-pouching-blade` "Razor Blade ( Used On - Laminated Films - Pouching Machine Blade Holder) Monitoring Record", Rev 00 of 15.12.2024, F/PRD/22 as the paper prints it. Sent on 06-Oct-2026 with its .xlsx (§91). Production module, Sharp Objects & Blades. Your own folder holds a Rev 01 of 01.01.2026, "TIo2 COATED TRIMMING BLADE STOCK & MONITORING RECORD", not sent (TBC 56). |
+| 95 | F-PRD-23 | Manual cutter Daily Issue & Return monitoring record | **In DCRS** as `prd-pouching-cutter-issue` "Daily Issue & Return of Sharp Metal Object (Manual Cutter) Monitoring Record - All Pouching Section", Rev 00 of 15.12.2025 as the paper prints it (the list: 15.12.2024, TBC 55), F/PRD/23. Sent on 06-Oct-2026 with its .xls (§91). Production module, Sharp Objects & Blades. |
+| 96 | F-PRD-24 | Razor Blade Change Record - Laminated FIlms Slittig machine | **In DCRS** as `prd-slitting-blade` "Razor Blade ( Used On - Laminated Film's Slitting Machine Blade Holder) Monitoring Record", Rev 00 of 15.12.2024, F/PRD/24 as the paper prints it. Sent on 06-Oct-2026 with its .xlsx (§91). Production module, Sharp Objects & Blades. Your own folder holds a Rev 01 of 01.01.2026, not sent (TBC 56). |
+| 97 | F-PRD-25 | POUCHING - PROCESS PARAMETER RECORD | **Supplied but not built.** Sent on 06-Oct-2026 as an .xlsx alone, and the workbook is empty: three sheets, no cell written (§91, TBC 54). Please send the format itself. |
+| 98 | F-PRD-26 | DOCTORING - ALC & PRODUCTION REPORT | **In DCRS** as `prd-doctoring-alc` "Doctoring - ALC & Production Report", Rev 01 of 23.07.2025 (the workbook's revision, "Job bag require KG added"). Sent on 06-Oct-2026 with its .xlsx (§91). Production module, Doctoring. |
 
 ### Maintenance (MNT)
 
@@ -346,7 +353,7 @@ report (withdrawn on 08-Sep-2026; no specimen was ever supplied; §5).
 
 ## Formats to ask for
 
-Please send the paper for each of these 44 formats: the blank format, and a filled page if there is one.
+Please send the paper for each of these 37 formats: the blank format, and a filled page if there is one.
 
 **Marketing (1)**
 - F-MKT-03 Customer complaint Form (the workbook: "Customer complaint Form (CAPA report)")
@@ -366,7 +373,7 @@ Please send the paper for each of these 44 formats: the blank format, and a fill
 **Quality Assurance (1)**
 - F-QA-01 Traceability Report
 
-**Production (32)**
+**Production (25)**
 - F-PRD-01 Flexo Printing Production Register
 - F-PRD-02 Punching Production Register
 - F-PRD-03 On-line QC Inspection Register
@@ -376,7 +383,6 @@ Please send the paper for each of these 44 formats: the blank format, and a fill
 - F-PRD-07 Shrink Sleeve cutting Production Register (the workbook's latest revision is 01.09.2026)
 - F-PRD-08 Dispatch Card
 - F-PRD-09 Packing Label. (the workbook calls F-PRD-09 "Prepress Specification")
-- F-PRD-10 Sharp metal object Daily Issue & Return monitoring record
 - F-PRD-11 Surgical Machine Blade Change Record
 - F-PRD-12 Razor Blade Change Record
 - F-PRD-13 Prepress Specification (the workbook calls F-PRD-13 "Packing Label")
@@ -388,13 +394,7 @@ Please send the paper for each of these 44 formats: the blank format, and a fill
 - F-PRD- 17. A Ink Formulation record- Label (the workbook says A, B and C are "Merged in one sheet", so one paper may cover all three)
 - F-PRD- 17. B Ink Formulation record- Sleeve
 - F-PRD- 17. C Ink Formulation record- Pouch
-- F-PRD-20 SLITTING - ALC & PRODUCTION REPORT
-- F-PRD-21 Area Line clearance record - POUCHING
-- F-PRD-22 Blade Change Record - All Pouching machine
-- F-PRD-23 Manual cutter Daily Issue & Return monitoring record
-- F-PRD-24 Razor Blade Change Record - Laminated FIlms Slittig machine
-- F-PRD-25 POUCHING - PROCESS PARAMETER RECORD
-- F-PRD-26 DOCTORING - ALC & PRODUCTION REPORT
+- F-PRD-25 POUCHING - PROCESS PARAMETER RECORD (the workbook sent on 06-Oct-2026 is empty: please send the format itself)
 - F-PRD-27 Rewinding with LC- SS (workbook only)
 - F-PRD-28 Slitting with LC- SS (workbook only)
 - F-PRD-29 Shrink Sleeve Post press process checklist (workbook only)
@@ -412,8 +412,7 @@ Please send the paper for each of these 44 formats: the blank format, and a fill
 2. **F-QC-15, Area Line Clearance format.** Are the two Gujarati line clearance checklists in DCRS (materials and
    quality) this format? Their photograph is saved as "F-QC-15 Line Clearance format (2).jpg", but the paper prints
    no number.
-3. **F-PRD-19.** Is the Solvent Base Lamination Process Parameter Record F-PRD-19, as the list says? Its number was
-   hidden under the clip in the photograph (§12).
+3. **F-PRD-19.** Answered: the paper sent on 06-Oct-2026 prints F-PRD-19 (00/15.12.2024), as the list says (§91).
 4. **F-HR-11 and the note "Not added in project".** DCRS does hold F/HR/11: the form headed "TRAINING EFFECTIVENESS
    EVALUATION RECORD". The list calls F-HR-11 "Training Evaluation Record" and gives the "effectiveness" name to
    F-HR-12. Is the note only about the name, or is there another F-HR-11 paper?
@@ -422,6 +421,10 @@ Please send the paper for each of these 44 formats: the blank format, and a fill
 7. **The 26 DCRS documents not on the list:** should F/SYS/04-A, F/SYS/20 and the QC numbers F/QC/18 to 25, 29 and
    30 go onto the master list, and should the pest control provider's papers stay as they are (TBC 24, 29, §57)?
 8. **The formats kept in SAP** (see above): should DCRS hold them as well?
+9. **The newer production papers on your computer** (Desktop\GP3 work\Audit document\Prd, dated 01.01.2026): F/PRD/10
+   Rev 01 and F/PRD/10A to D, F/PRD/12 Rev 01, F/PRD/22 Rev 01 and F/PRD/24 Rev 01. DCRS holds the Rev 00 papers you
+   sent on 06-Oct-2026. Are the 2026 ones in use (TBC 56)?
+10. **F/PRD/23's date.** Its paper prints 15.12.2025; the list has 15.12.2024 (TBC 55).
 
 ## Also found
 

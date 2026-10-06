@@ -418,6 +418,8 @@ REPORT               n/a (searchable by PO / FG / job / batch)
 
 - **Format No. is hidden under the clip in the photograph** — only "(00/15.12.2024)" is visible.
   Format No. left **TO BE CONFIRMED**; Rev 00, Date 15.12.2024.
+- **Confirmed on 06-Oct-2026 (§91):** the format itself, sent with its .xlsx original, prints F-PRD-19 (00/15.12.2024).
+  Its boxes and headings now read as the original does.
 - Header values transcribed: Operator Gaurav Singh, Machine Lamination-1, ratio "10 : 1.1 : 9.5",
   Adhesive DOW 545S, Hardener DOW F-854. Batch numbers are best-effort reads of handwriting
   (`B35007107`, `44000N0301`) — **TO BE CONFIRMED**.
@@ -438,6 +440,8 @@ WORKFLOW             Frequency: Daily, Shift header field
 ```
 
 - Format block reads **F-PRD-18 (01/25.06.2025)** → Rev 01, Date 25.06.2025.
+- The format itself was sent with its .xls original on 06-Oct-2026 (§91): its boxes, headings and ALC PROTOCOL
+  now read as the original does.
 - ALC protocol text transcribed verbatim into the layout's instructions.
 - Layer 2 type reads "MetPET" plus an illegible suffix ("N-1d"?) — kept as **MetPET**, TO BE CONFIRMED.
 
@@ -5698,6 +5702,134 @@ tests).
 
 **Tests.** See docs/TESTING.md "Mitra in English, Hindi and Gujarati, with free voices".
 
+## §91 The Production module (6-Oct-2026)
+
+**The request.** The owner sent the plant's production formats on 6-Oct-2026: "add those documents perfectly without any
+mistake in the module called production module." Ten formats came, each a PDF with the company's own .xls or .xlsx
+beside it, except F-PRD-10 (a PDF alone) and F-PRD-25 (a workbook alone): F-PRD-10, 18, 19, 20, 21, 22, 23, 24, 25 and
+26. Two of them, F-PRD-18 and F-PRD-19, were in DCRS already, built in September from photographed registers (§12, §13).
+
+**1. The module.** The lamination production module, which held those two, is now **Production** (its address
+/library/production), and it holds nine formats in five sections, the way the pouch section's floor works and in the
+order the Master List of Formats numbers its papers: **Lamination** (F-PRD-18, F-PRD-19), **Slitting** (F-PRD-20),
+**Pouching** (F/PRD/21), **Doctoring** (F-PRD-26), then **Sharp Objects & Blades** (F/PRD/10, 22, 23 and 24), the records
+of the scissors, cutters and razor blades every one of those lines uses, which an auditor reads together. The sidebar
+shows the module where the old one was, between Lamination QC and Maintenance: the Document Library filtered to it, then
+the five sections with a link to each format's own page. The module's old address, /library/lamination-production, still
+opens it, with its link lit (a renamed module keeps its old slug, utils/moduleSlug.ts); Document Files' old address too.
+Mitra's route guide names the new slug and says the old one still opens it. The Lamination QC module is unchanged.
+
+**2. The formats.** Each number is written as its paper prints it, F-PRD-20 with dashes and F/PRD/21 with slashes; Search
+and Mitra find each by either spelling.
+
+| Section | Format, as its paper prints it | Rev | DCRS id | How it is kept |
+|---|---|---|---|---|
+| Lamination | F-PRD-18 SOLVENT BASE LAMINATION - ALC & PRODUCTION REPORT | 01 of 25.06.2025 | `prd-alc-production` | A sheet a working day (since §13): operator, machine, date and shift, the ALC protocol's five checks, a line per job |
+| Lamination | F-PRD-19 SOLVENT BASE LAMINATION - PROCESS PARAMETER RECORD | 00 of 15.12.2024 | `prd-process-parameter` | A sheet a working day (since §12): the adhesive's and hardener's boxes, a line per job with its fifteen settings |
+| Slitting | F-PRD-20 SLITTING - ALC & PRODUCTION REPORT | 01 of 25.06.2025 | `prd-slitting-alc` | A sheet a working day: operator, machine, date and shift, the line clearance's seven points, a line per roll slit: out of the hot room, film layer, input and output weight and width, wastage, OK metres |
+| Pouching | F/PRD/21 AREA LINE CLEARANCE REPORT - POUCHING ( MACHINE NO. : ) | 00 of 15.12.2024 | `prd-pouching-line-clearance` | As required: a record per pouching machine (its MACHINE NO.), started with New when its job changes, a line per job change under the paper's two headings |
+| Doctoring | F-PRD-26 DOCTORING - ALC & PRODUCTION REPORT | 01 of 23.07.2025 | `prd-doctoring-alc` | A sheet a working day: operator, date and shift, the line clearance's six points, a line per roll doctored: input, job bag require KG, output, wastage, OK running metres |
+| Sharp Objects & Blades | F/PRD/10 DAILY ISSUE & RETURN OF SHARP METAL OBJECT (SCISSSOR / MANUAL CUTTER) MONITORING RECORD | 00 of 01.12.2021 | `prd-sharp-object-issue` | A sheet a working day, a line a shift: scissors and manual cutters issued and returned, broken or worn out, new issued, under the paper's four two-column headings; its two filled lines are the specimen |
+| Sharp Objects & Blades | F/PRD/22 RAZOR BLADE ( USED ON - LAMINATED FILMS - POUCHING MACHINE BLADE HOLDER) MONITORING RECORD | 00 of 15.12.2024 | `prd-pouching-blade` | A sheet a working day: the opening and closing stock of OK blades, new blades issued, blades replaced on the machines (shift and number), discarded blades kept and returned, the production manager's check |
+| Sharp Objects & Blades | F/PRD/23 DAILY ISSUE & RETURN OF SHARP METAL OBJECT (MANUAL CUTTER) MONITORING RECORD - ALL POUCHING SECTION | 00 of 15.12.2025 | `prd-pouching-cutter-issue` | A sheet a working day, a line a shift: manual cutters issued, returned, broken or damaged, new issued, the supervisor's sign |
+| Sharp Objects & Blades | F/PRD/24 RAZOR BLADE ( USED ON - LAMINATED FILM'S SLITTING MACHINE BLADE HOLDER) MONITORING RECORD | 00 of 15.12.2024 | `prd-slitting-blade` | As F/PRD/22, for the laminated film slitting machine's blade holder |
+
+The layouts are in frontend/src/data/seed/productionLayouts.ts (the seven) and logSheetLayouts.ts (F-PRD-18 and 19). Every
+box, heading, note and checklist item is the company's own original's text, read cell by cell from the .xls or .xlsx:
+its capitals, its spellings (SCISSSOR, LINE SPEET, LAMINATOR NIP PRESSUTE, "Varified & Checked by - Produciton Manager",
+"toll box"), its double spaces ("WORK ORDER  No.", "LAMINATED ROLL WEIGHT -  Kgs.", "LOOSE BLADES IN STOCK  (INSTALLED")
+and its punctuation (the space before each "?"). F/PRD/22's and F/PRD/24's notes are each in its own words: they differ
+on the papers. Every page of every PDF is shown beside its form ("Show original", a caption under each), the originals
+are in source-documents/, and each downloads as the company's kind of file, a workbook. Each holds records under
+Production's own department (PRD).
+
+**3. F-PRD-18 and F-PRD-19, put right against their originals.** F-PRD-19's number, hidden under the clip of the
+photograph, is printed on the paper: **F-PRD-19 (00/15.12.2024)**, as the Master List said (item 5 answered). The two now
+read as their originals: the boxes OPERATOR NAME, MACHINE NAME, DATE & SHIFT and F-PRD-19's ADHESIVE + HARDENER + SOLVENT
+MIXING RATIO and the adhesive's and hardener's make, product code and batch number; every column heading in the
+original's capitals and spellings; the ALC PROTOCOL as its two lines, with the space the paper prints before each
+question mark (the photograph's reading had dropped it). Their names are printed with the paper's hyphen ("Solvent Base
+Lamination - ALC & Production Report"). The keys did not change, so every record on file reads as it did. DATE & SHIFT is
+now one box written by the person, as on the paper; it was a Shift choice (A, B or C), and a record that holds one shows
+it still.
+
+**4. Where the digital form differs from the paper, and why.**
+- *The date.* DATE & SHIFT is one box the person writes, never carried from the last sheet (as F/QC/36's "Date / SHIFT"
+  is); DCRS prints the record's own date in the header block as well.
+- *Headings over headings.* A heading the paper prints over two or more columns (F/PRD/10's four, F/PRD/21's two
+  "Operator shall update ..." halves, F/PRD/22 and 24's "Nos. of new blades replaced on Machine") is drawn the same way,
+  a second heading row. A heading the paper breaks over two lines is one line here; trailing spaces in a cell are dropped.
+- *The notes.* The stock to be maintained, the line clearance definition and its numbered points are printed above the
+  grid; the definition and its points, one paragraph on the slitting, pouching and doctoring papers, are two lines here,
+  as F-PRD-18's own original breaks its protocol, each with its own numbering.
+- *F/PRD/21's machine.* The paper prints the machine number inside its title; here it is a box of its own, carried
+  forward. F-PRD-26 prints an empty cell where its two sister reports print MACHINE NAME: it is no box.
+- *Lines.* The papers' empty lines (18 on F/PRD/10, 26 and 3 on F/PRD/23's two pages, 23 on F/PRD/22 and 24, 11 on
+  F-PRD-20 and 26, 9 on F/PRD/21) are lines added as they are needed. F/PRD/24's PDF prints its last column on a page of
+  its own (the sheet was a column too wide for Excel's page); here it is one grid.
+- *Signatures.* The operator's, the supervisor's and the production manager's signatures on a line are left for them:
+  the assistant never fills them and never carries them from the last sheet. The person who submits and the person who
+  verifies are on every record already.
+- *The schedule.* Eight are kept every working day. F/PRD/21 is as required, as the plant's other area line clearances
+  are (F/QC/15-A to G): the paper is one pouching machine's register, written at each job change, and a daily document
+  holds one record a day, so it could not hold the job changes of the section's several machines.
+- *The company's name* is the owner's on every header (§87); the papers print GUJARAT PRINT PACK PUBLICATION PRIVATE
+  LIMITED and GUJARAT PRINTPACK PUBLICATIONS PRIVATE LIMITED.
+
+**5. What the assistant writes.** F/PRD/10's specimen is the paper's own two filled lines (01.12.2021 shift I and
+02.12.2021, "Cutter blade worn out"). The other six were sent blank, so their specimens are typical values, said to be
+such: the jobs are the F-PRD-18 register's own, the machines the pouch section's own on F/MNT/01 (M-66 Slitter Rewinder
+Machine, M-69 Star 3 Side Pouching), the blade counts add up to the 20 NOS the notes maintain, and F/PRD/23's 13 manual
+cutters are F/PRD/10's figure. Names are never invented: the operator's name and every signature are left for the
+person. The slitting and doctoring sheets are filled with the rolls the lamination line made the day before (out of the
+hot room at the time they went in), each roll's output and wastage adding up to its input, as the lamination sheets are
+filled with the day's jobs (§25): never the specimen's two jobs on every day. The doctoring machine is given two of
+them a day. Who answers for the seven new formats is the pouch section's manager, added to Master Data from the
+company's own registers (Azaz Bharach, "Manager-Pouch" on F/HR/01 and F/HR/08, "POUCH-Manager" on F/HR/06, item 57);
+F-PRD-18 and 19 stay with the lamination operator.
+
+**6. Mitra and Search.** Each is found by its number in both spellings (F-PRD-20 and F/PRD/20, F/PRD/21 and F-PRD-21) and
+by its whole name, which wins over any shorter word inside it ("pouching" is F/QC/37's, "slitting" F/QC/35's, "razor
+blade record" F/STR/02's); words shared by more than one ("the ALC report", "daily issue & return", "manual cutter",
+"blade change record", "lamination production") are never guessed: Mitra asks which (without the model, "fill the
+ALC report with sample data" asks which of the three, and "open" with such words waits for the model). "Production
+files" (or documents, records) means the module; "lamination" alone still means every lamination record, the Lamination section of Production
+with Lamination QC's. F-PRD-19 is found by its own number now, with no note that the master list numbers it otherwise.
+
+**7. Demo Mode and the browser's room (§79).** The six new daily sheets add some 160,000 characters to a filled demo
+month (160,568 measured for August 2026). Drawn three months back as the other daily sheets are, they took a demo year
+to 4,141,525 characters, past the 4,000,000 mark Demo Mode keeps under, and a browser already holding a plant's live
+records needs room beside it. So Demo Mode draws them for the month in hand (and the month ahead's blank sheets) only: a
+demo year comes to 3,671,520 characters (measured, October 2026), some 161,000 more than before them. Every other daily
+sheet keeps its window, three months back. An earlier month of them can still be made on the Demo Mode page.
+
+**8. What was not built: F-PRD-25.** F-PRD-25_POUCHING - PROCESS PARAMETER RECORD.xlsx has three sheets and not one
+cell in them: it is Excel's blank workbook (created 2006-09-16, the template's own date), with no strings, drawings or
+names. There is no form in it to build, and no PDF came with it, so nothing was invented: F-PRD-25 stays on the Master
+List as not in DCRS yet, and no page image was made (LibreOffice is not installed on this PC, and there is nothing to
+render). The pouching procedure that came the same day (POUCH-WP-03) calls it the "Production & Process log book
+(F/PRD/25)", where the input roll numbers are written when a new roll is loaded and at each shift changeover. Item 54.
+
+**9. Found on the way.** F-PRD-10, sent as a PDF alone, has its original after all: the second sheet ("F-SYS-20 (2)")
+of the F-PRD-23 workbook, cell for cell the PDF, its two filled lines included; it is cited as such. F-PRD-23's paper
+prints its revision date as 15.12.2025, where the Master List has 15.12.2024 (item 55). The plant's own folder on this
+PC (Desktop\GP3 work\Audit document\Prd) holds newer revisions of 01.01.2026 that were not sent (item 56).
+
+**The counts.** DCRS holds 129 documents (122 and seven). On the Master List's PDF, Production is 9 of 30 in DCRS, F-PRD-25
+supplied but not built, 20 not supplied yet; the whole list is 101 of 135, and 37 formats are to be asked for
+(docs/document-coverage.md, item 42).
+
+**What waits on the owner.** Items 54 to 58.
+
+**Tests.** frontend/tests/production.test.ts (18): the module, its sections and its names in both languages, the old
+address, each format's number, revision, department and download, the papers' words, the originals shown, Mitra's
+words, the sample fill passing the submit checks with every signature left, the slitting and doctoring weights, who
+answers for each, and Demo Mode's window. documentFinding.test.ts and backend/tests/mitraAgent.test.ts were brought in
+step. The browser suites that count documents or name the module were moved: e2e_smoke (129 documents, the old address),
+e2e_hr_module (129), e2e_maintenance_module (the module's name), e2e_find_every_document (F-PRD-19 by its own number,
+both spellings, F-PRD-25 still on the list) and e2e_celebrations (the Production account's other sheets of the day handed
+in first). See docs/TESTING.md "The Production module".
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -5723,7 +5855,8 @@ tests).
 4. PC‑10's floor designation.
 5. Format No. / Revision No. for: Service Report (all variants), GAP report, Chemical Chart,
    Training Certificate, SOP, and the **Process Parameter Record** (hidden under the clip in the
-   photograph — see §12).
+   photograph — see §12). The Process Parameter Record is **ANSWERED (§91)**: its paper, sent on
+   06-Oct-2026, prints F-PRD-19 (00/15.12.2024).
 6. Whether Mosquito Control needs its own standalone Service Report document.
 7. ~~Whether Service Report material/qty/method is meant to be logged once per visit or per
    area.~~ — **RESOLVED**: Material/Method are fixed per area (pre-filled, not re-entered); Qty is
@@ -5744,7 +5877,8 @@ tests).
     reads `B35007107` / `44000N0301`) and the Layer 2 film type suffix on F-PRD-18 ("MetPET …").
 13. Whether the Process Parameter and ALC reports should be one record per **shift** (as on paper)
     rather than one per day with a Shift field — trivially changed to three daily variants
-    (`variantKey` A/B/C) if so.
+    (`variantKey` A/B/C) if so. Since §91 the box is the paper's own DATE & SHIFT, written by the person; the same
+    question now covers F-PRD-20 and F-PRD-26, and each machine as well (item 58).
 14. Whether the QC inspection records (F/QC/34, /35, /37) and F/QC/13 should be one record per
     **lot / job** rather than one per production day (currently Daily so they are prepared in advance;
     a second lot on the same day is added from the Day View). Also the Rev/date of F/QC/13, and
@@ -5853,12 +5987,14 @@ tests).
 41. **DCRS's own database login** (§83). In development DCRS connects as the PostgreSQL superuser, so DCRS's own connection
     could read the assistant's tables, though it never does. For production, DCRS should connect as a role of its own that
     owns DCRS's tables and is not a superuser (docs/DEPLOYMENT.md already shows `postgres://dcrs:…`). Agreed?
-42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 44 in all,
-    since five came on 02-Oct-2026 (F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04, built in §86):
+42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 37 in all,
+    since five came on 02-Oct-2026 (F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04, built in §86) and seven on 06-Oct-2026
+    (F-PRD-10, 20, 21, 22, 23, 24 and 26, built in §91, with F-PRD-18 and 19 sent again and F-PRD-25 sent empty):
     MKT — F-MKT-03 Customer complaint Form. PUR — F-PUR-04 Purchase Order. QC — F-QC-10 SOC Sleeve, F-QC-14 Test Reliability
     Record, F-QC-17 Scale/Ruler internal calibration, F-QC-31 COA Pouch, F-QC-39 FGPO Specification, F-QC-40.A Temperature
     (printing machine / ink kitchen / warehouse), F-QC-40.B Temperature (Sleeve Division). QA — F-QA-01 Traceability Report.
-    PRD — F-PRD-01 to 13, 14.A, 14.B, 14.E, 15, 16, 17.A, 17.B, 17.C, 20 to 26, and the workbook's 27 to 30. HR — F-HR-02
+    PRD — F-PRD-01 to 09, 11 to 13, 14.A, 14.B, 14.E, 15, 16, 17.A, 17.B, 17.C, 25 (sent on 06-Oct-2026 as an empty
+    workbook, item 54), and the workbook's 27 to 30. HR — F-HR-02
     Personnel competence criteria, F-HR-10 Training Imparted Record. Until they come, search and the Document Library show them
     as "on the Master List — not in DCRS yet".
 43. **F-QC-15-B, the punching line clearance** (§84). A paper printing "F/QC/15-B, Rev 00, 16.02.2022" is in the owner's Downloads
@@ -5907,6 +6043,30 @@ tests).
     desktop shortcut to the server's address, opened with Edge), with the internet on? And will somebody at the plant
     listen once to Mitra in each language on those laptops, Master Data's "Hear Mitra" buttons, and say whether it sounds
     like a person?
+54. **F-PRD-25 came empty** (§91). F-PRD-25_POUCHING - PROCESS PARAMETER RECORD.xlsx, sent on 06-Oct-2026 with no PDF, is
+    Excel's blank workbook: three sheets and not one cell. DCRS built nothing from it and lists it as not in DCRS yet. The
+    pouching procedure POUCH-WP-03 calls it the "Production & Process log book (F/PRD/25)". Please send the format itself:
+    its PDF, or the workbook with the form in it.
+55. **F/PRD/23's revision date** (§91). The paper prints "F/PRD/23 (00/15.12.2025)"; the Master List of Formats gives
+    F-PRD-23 15.12.2024, as it does F-PRD-21, 22 and 24. DCRS follows the paper. A slip on the paper, or a later issue?
+56. **Newer production papers on this PC** (§91). The plant's own folder Desktop\GP3 work\Audit document\Prd holds papers
+    of 01.01.2026 that were not sent: F/PRD/10 Rev 01, "DAILY SCISSOR ISSUE & RETURN INTEGRITY MONITORING RECORD - LABEL &
+    SLEEVE DEPARTMENT (MAX. STOCK - 15 Nos.)", with one column for each count where Rev 00 has two; four numbers of their
+    own, F/PRD/10A (scissors, pouching, MAX. STOCK - 10 Nos.), 10B (safety cutters, pouching, 20), 10C (safety cutters,
+    slitting, 5) and 10D (safety cutters, lamination, 5); F/PRD/12 Rev 01; F/PRD/22 Rev 01, "TIo2 COATED TRIMMING BLADE
+    STOCK & MONITORING RECORD (USED ON - POUCHING MACHINES)"; and F/PRD/24 Rev 01, "RAZOR BLADE STOCK & MONITORING RECORD
+    (USED ON - LAMINATED FILM'S SLITTING MACHINE BLADE HOLDER)", both "SHALL BE ALWAYS MAINTAINED 30 NOS" where the papers
+    sent say 20. The Master List of Formats (the workbook, to 01.09.2026) lists none of them. DCRS holds the papers the
+    owner sent (Rev 00). Which are in use? If the 2026 ones, send them, and DCRS takes them up as the next revisions (the
+    records already written stay on the revision they were written on, as F/MNT/11's do, §74).
+57. **Who keeps the Production formats** (§91). DCRS names the pouch section's manager, Azaz Bharach (written "Azaz
+    Bhaach" on F/HR/01, "Azaz Bharach" on F/HR/06 and "Azazbhai Bharach" on F/HR/08), as the person who answers for the
+    seven new formats; F-PRD-18 and 19 stay with the lamination operator. The operators and supervisors who sign the lines
+    are on no paper sent. Who should each be? And is F/PRD/10 (its 2021 issue names no department) the pouch section's?
+58. **One sheet a day, or one per machine and shift** (§91, item 13). F-PRD-18, 19, 20 and 26 are a sheet per machine and
+    shift on paper; DCRS keeps one a day, with the DATE & SHIFT box written by the person. F/MNT/01 lists three laminators
+    (M-61, M-62, M-80) and two slitters (M-66, M-78) in the pouch section: should each machine and shift be a record of its
+    own? F/PRD/21 is kept per machine already (as required).
 
 ## How the assistant pre-fills records (and what it never does)
 

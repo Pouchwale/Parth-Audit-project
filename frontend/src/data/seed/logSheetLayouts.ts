@@ -16,6 +16,7 @@ import { SYS_MANAGEMENT_REVIEW_LAYOUTS } from "./sysManagementReviewLayouts";
 import { SYS_INTERNAL_AUDIT_LAYOUTS } from "./sysInternalAuditLayouts";
 import { SYS_HARA_TRACEABILITY_LAYOUTS } from "./sysHaraTraceabilityLayouts";
 import { MKT_LAYOUTS } from "./mktLayouts";
+import { PRODUCTION_LAYOUTS } from "./productionLayouts";
 import { formatEditFor } from "../formatEdits";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
@@ -109,43 +110,51 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.19 PM (1).jpeg (F-QC-40.C, filled 21-08-26 to 5-9-26)",
   },
 
-  // ---- Solvent Base Lamination — Process Parameter Record (00/15.12.2024)
+  // ---- F-PRD-19 - SOLVENT BASE LAMINATION - PROCESS PARAMETER RECORD (00/15.12.2024)
+  // Built from the photographed register (§12), whose number was under the clip; the owner sent the format itself on
+  // 06-Oct-2026 (REQUIREMENTS §91), with the company's own .xlsx: it prints F-PRD-19 (00/15.12.2024), and every box
+  // and heading below is now the original's own text, its capitals and its spellings ("LINE SPEET", "LAMINATOR NIP
+  // PRESSUTE") included. The keys are unchanged, so every record already on file reads as it did. DATE & SHIFT is
+  // one box written by the person, as on the paper (productionLayouts.ts says why); it was a Shift choice (A, B, C),
+  // and a record that holds one still shows it.
   "prd-process-parameter": {
     documentId: "prd-process-parameter",
     headerFields: [
-      { key: "operatorName", label: "Operator Name", type: "text", required: true, autoFill: { carryForward: true, default: "Gaurav Singh" } },
-      { key: "machineName", label: "Machine Name", type: "text", required: true, autoFill: { carryForward: true, default: "Lamination-1" } },
-      { key: "shift", label: "Shift", type: "select", options: ["A", "B", "C"], required: true, autoFill: { default: "A" } },
-      { key: "mixingRatio", label: "Adhesive + Hardener + Solvent Mixing Ratio", type: "text", autoFill: { carryForward: true, default: "10 : 1.1 : 9.5" } },
-      { key: "adhesiveMake", label: "Adhesive (Make)", type: "text", autoFill: { carryForward: true, default: "DOW" } },
-      { key: "adhesiveCode", label: "Adhesive (Product Code)", type: "text", autoFill: { carryForward: true, default: "545S" } },
-      { key: "adhesiveBatch", label: "Adhesive (Batch Number)", type: "text", autoFill: { carryForward: true, default: "B35007107" } },
-      { key: "hardenerMake", label: "Hardener (Make)", type: "text", autoFill: { carryForward: true, default: "DOW" } },
-      { key: "hardenerCode", label: "Hardener (Product Code)", type: "text", autoFill: { carryForward: true, default: "F-854" } },
-      { key: "hardenerBatch", label: "Hardener (Batch Number)", type: "text", autoFill: { carryForward: true, default: "44000N0301" } },
+      { key: "operatorName", label: "OPERATOR NAME :", type: "text", required: true, autoFill: { carryForward: true, default: "Gaurav Singh" } },
+      { key: "machineName", label: "MACHINE NAME :", type: "text", required: true, autoFill: { carryForward: true, default: "Lamination-1" } },
+      { key: "shift", label: "DATE & SHIFT :", type: "text" },
+      { key: "mixingRatio", label: "ADHESIVE + HARDENER + SOLVENT MIXING RATIO :", type: "text", autoFill: { carryForward: true, default: "10 : 1.1 : 9.5" } },
+      { key: "adhesiveMake", label: "ADHESIVE (MAKE) :", type: "text", autoFill: { carryForward: true, default: "DOW" } },
+      { key: "adhesiveCode", label: "ADHESIVE (PRODUCT CODE) :", type: "text", autoFill: { carryForward: true, default: "545S" } },
+      { key: "adhesiveBatch", label: "ADHESIVE (BATCH NUMBER) :", type: "text", autoFill: { carryForward: true, default: "B35007107" } },
+      { key: "hardenerMake", label: "HARDENER (MAKE) :", type: "text", autoFill: { carryForward: true, default: "DOW" } },
+      { key: "hardenerCode", label: "HARDENER (PRODUCT CODE) :", type: "text", autoFill: { carryForward: true, default: "F-854" } },
+      { key: "hardenerBatch", label: "HARDENER (BATCH NUMBER) :", type: "text", autoFill: { carryForward: true, default: "44000N0301" } },
     ],
     columns: [
-      { key: "poNo", label: "Internal PO No.", type: "text", required: true, width: 90 },
-      { key: "fgCode", label: "FG Code", type: "text", required: true, width: 70 },
-      { key: "jobName", label: "Job Name", type: "text", required: true, width: 190 },
+      { key: "poNo", label: "INTERNAL PO No.", type: "text", required: true, width: 90 },
+      { key: "fgCode", label: "FG CODE", type: "text", required: true, width: 70 },
+      { key: "jobName", label: "JOB NAME", type: "text", required: true, width: 190 },
       // Machine set-points: repeated verbatim job to job on the specimen, so
       // they are carried forward exactly; min/max only drive highlighting.
-      { key: "coatingNip", label: "Coating Nip Pressure", type: "number", min: 2.5, max: 3.5, decimals: 2, autoFill: { carryForward: true, default: 3.0 }, width: 80 },
-      { key: "doctorBlade", label: "Doctor Blade Pressure", type: "number", min: 1.5, max: 2.5, decimals: 2, autoFill: { carryForward: true, default: 2.0 }, width: 80 },
-      { key: "primaryUw", label: "Primary U/W Tension", type: "number", min: 30, max: 50, decimals: 0, autoFill: { carryForward: true, default: 45 }, width: 80 },
-      { key: "layOnRoll", label: "Lay On Roll Pressure", type: "number", min: 2.5, max: 3.5, decimals: 2, autoFill: { carryForward: true, default: 3.0 }, width: 80 },
-      { key: "hoodA", label: "Hood A Temp.", type: "number", unit: "°C", min: 40, max: 45, decimals: 0, autoFill: { carryForward: true, default: 42 }, width: 70 },
-      { key: "hoodB", label: "Hood B Temp.", type: "number", unit: "°C", min: 50, max: 55, decimals: 0, autoFill: { carryForward: true, default: 52 }, width: 70 },
-      { key: "lineSpeed", label: "Line Speed", type: "number", min: 60, max: 140, decimals: 0, autoFill: { carryForward: true, default: 81 }, width: 70 },
-      { key: "rewinderTension", label: "Rewinder Tension", type: "number", min: 30, max: 60, decimals: 0, autoFill: { carryForward: true, default: 52 }, width: 80 },
-      { key: "secondaryUw", label: "Secondary U/W Tension", type: "number", min: 25, max: 45, decimals: 0, autoFill: { carryForward: true, default: 40 }, width: 80 },
-      { key: "tapperTension", label: "Tapper Tension", type: "text", autoFill: { carryForward: true, default: "15%" }, width: 70 },
-      { key: "laminatorNip", label: "Laminator Nip Pressure", type: "number", min: 5.5, max: 6.5, decimals: 2, autoFill: { carryForward: true, default: 6.0 }, width: 80 },
-      { key: "laminationNipTemp", label: "Lamination Nip Temp.", type: "number", unit: "°C", min: 60, max: 90, decimals: 0, autoFill: { carryForward: true, default: 70 }, width: 80 },
+      { key: "coatingNip", label: "COATING NIP PRESSURE", type: "number", min: 2.5, max: 3.5, decimals: 2, autoFill: { carryForward: true, default: 3.0 }, width: 80 },
+      { key: "doctorBlade", label: "DOCTOR BLADE PRESSURE", type: "number", min: 1.5, max: 2.5, decimals: 2, autoFill: { carryForward: true, default: 2.0 }, width: 80 },
+      { key: "primaryUw", label: "PRIMARY U/W TENSION", type: "number", min: 30, max: 50, decimals: 0, autoFill: { carryForward: true, default: 45 }, width: 80 },
+      { key: "layOnRoll", label: "LAY ON ROLL PRESSURE", type: "number", min: 2.5, max: 3.5, decimals: 2, autoFill: { carryForward: true, default: 3.0 }, width: 80 },
+      { key: "hoodA", label: "HOOD A TEMP.", type: "number", unit: "°C", min: 40, max: 45, decimals: 0, autoFill: { carryForward: true, default: 42 }, width: 70 },
+      { key: "hoodB", label: "HOOD B TEMP.", type: "number", unit: "°C", min: 50, max: 55, decimals: 0, autoFill: { carryForward: true, default: 52 }, width: 70 },
+      // "SPEET" is the original's own spelling.
+      { key: "lineSpeed", label: "LINE SPEET", type: "number", min: 60, max: 140, decimals: 0, autoFill: { carryForward: true, default: 81 }, width: 70 },
+      { key: "rewinderTension", label: "REWINDER TENSION", type: "number", min: 30, max: 60, decimals: 0, autoFill: { carryForward: true, default: 52 }, width: 80 },
+      { key: "secondaryUw", label: "SECONDARY U/W TENSION", type: "number", min: 25, max: 45, decimals: 0, autoFill: { carryForward: true, default: 40 }, width: 80 },
+      { key: "tapperTension", label: "TAPPER TENSION", type: "text", autoFill: { carryForward: true, default: "15%" }, width: 70 },
+      // "PRESSUTE" is the original's own spelling.
+      { key: "laminatorNip", label: "LAMINATOR NIP PRESSUTE", type: "number", min: 5.5, max: 6.5, decimals: 2, autoFill: { carryForward: true, default: 6.0 }, width: 80 },
+      { key: "laminationNipTemp", label: "LAMINATION NIP TEMP.", type: "number", unit: "°C", min: 60, max: 90, decimals: 0, autoFill: { carryForward: true, default: 70 }, width: 80 },
     ],
     rowMode: { kind: "free", minRows: 1, typicalRows: 4 },
     specimenHeader: {
-      operatorName: "Gaurav Singh", machineName: "Lamination-1", shift: "A", mixingRatio: "10 : 1.1 : 9.5",
+      operatorName: "Gaurav Singh", machineName: "Lamination-1", mixingRatio: "10 : 1.1 : 9.5",
       adhesiveMake: "DOW", adhesiveCode: "545S", adhesiveBatch: "B35007107", hardenerMake: "DOW", hardenerCode: "F-854", hardenerBatch: "44000N0301",
     },
     specimenRows: [
@@ -156,40 +165,52 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
       { poNo: "88903", fgCode: "6766", jobName: "Sweet Karam Gusset", coatingNip: 3, doctorBlade: 2, primaryUw: 35, layOnRoll: 3, hoodA: 42, hoodB: 52, lineSpeed: 130, rewinderTension: 32, secondaryUw: 28, tapperTension: "15%", laminatorNip: 6, laminationNipTemp: 60 },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.19 PM.jpeg (Process Parameter Record, filled 07-09-26)",
+    originalPages: [
+      { src: "/source/fprd19-sb-lamination-process-parameter-p1.jpg", caption: "F-PRD-19 (00/15.12.2024) - Solvent Base Lamination - Process Parameter Record, the blank format as supplied on 06-Oct-2026" },
+      { src: "/source/fprd19-sb-lamination-process-parameter-p2.jpg", caption: "F-PRD-19, page 2: the grid's fifteenth line, which Excel printed on a page of its own" },
+    ],
   },
 
-  // ---- F-PRD-18 — Solvent Base Lamination — ALC & Production Report (01/25.06.2025)
+  // ---- F-PRD-18 - SOLVENT BASE LAMINATION - ALC & PRODUCTION REPORT (01/25.06.2025)
+  // Built from the photographed register (§13); the owner sent the format itself on 06-Oct-2026 (REQUIREMENTS §91),
+  // with the company's own .xls, and every box, heading and line of the ALC PROTOCOL is now the original's own text:
+  // its capitals, "OK METERs", "LAMINATED ROLL WEIGHT -  Kgs." with its two spaces, and the space the protocol prints
+  // before each question mark (the photograph's reading had dropped them). The ALC PROTOCOL is the original's two
+  // lines, broken where its cell breaks. The keys are unchanged, so every record already on file reads as it did.
+  // DATE & SHIFT is one box written by the person, as on the paper; it was a Shift choice (A, B, C), and a record
+  // that holds one still shows it.
   "prd-alc-production": {
     documentId: "prd-alc-production",
     instructions: [
       "ALC PROTOCOL : Activity to make sure a production line & its processing area are completely cleared of any material from the previous process",
-      "(1) Balance roll & scrap of Previous Job removed? (2) Film type & Width for Current Job verified as per New Job order? (3) Job change waste removed? (4) Finished Product Rolls of Previous Job shifted to designated place / Finish Goods Warehouse? (5) Tools & Tackles if any, removed from machine & put safely in toll box?",
+      "(1) Balance roll & scrap of Previous Job removed ? (2) Film type & Width for Current Job verified as per New Job order ? (3) Job change waste removed ? (4) Finished Product Rolls of Previous Job shifted to designated place / Finish Goods Warehouse ? (5) Tools & Tackles if any, removed from machine & put safely in toll box ?",
     ],
     headerFields: [
-      { key: "operatorName", label: "Operator Name", type: "text", required: true, autoFill: { carryForward: true, default: "Gaurav Singh" } },
-      { key: "machineName", label: "Machine Name", type: "text", required: true, autoFill: { carryForward: true, default: "Lamination-1" } },
-      { key: "shift", label: "Shift", type: "select", options: ["A", "B", "C"], required: true, autoFill: { default: "A" } },
+      { key: "operatorName", label: "OPERATOR NAME :", type: "text", required: true, autoFill: { carryForward: true, default: "Gaurav Singh" } },
+      { key: "machineName", label: "MACHINE NAME :", type: "text", required: true, autoFill: { carryForward: true, default: "Lamination-1" } },
+      { key: "shift", label: "DATE & SHIFT :", type: "text" },
     ],
     columns: [
-      { key: "fgCode", label: "FG Code", type: "text", required: true, width: 70 },
-      { key: "poNo", label: "Internal PO No.", type: "text", required: true, width: 90 },
-      { key: "jobName", label: "Job Name", type: "text", required: true, width: 190 },
-      { key: "layer1Type", label: "Layer 1 Type", type: "text", autoFill: { carryForward: true, default: "PET" }, width: 80 },
+      { key: "fgCode", label: "FG CODE", type: "text", required: true, width: 70 },
+      { key: "poNo", label: "INTERNAL PO No.", type: "text", required: true, width: 90 },
+      { key: "jobName", label: "JOB NAME", type: "text", required: true, width: 190 },
+      { key: "layer1Type", label: "LAYER 1 TYPE", type: "text", autoFill: { carryForward: true, default: "PET" }, width: 80 },
       // Actual weights / meters differ a little run to run — small jitter on
       // the carried-forward value rather than an exact copy.
-      { key: "layer1Kg", label: "Layer 1 - Kgs.", type: "number", unit: "kg", decimals: 2, autoFill: { jitter: 0.03 }, width: 80 },
-      { key: "layer2Type", label: "Layer 2 Type", type: "text", autoFill: { carryForward: true, default: "MetPET" }, width: 80 },
-      { key: "layer2Kg", label: "Layer 2 - Kgs.", type: "number", unit: "kg", decimals: 2, autoFill: { jitter: 0.03 }, width: 80 },
-      { key: "alcDone", label: "ALC Done As Per Above (Yes/No)", type: "yesno", required: true, autoFill: { carryForward: true, default: "Yes" }, width: 90 },
-      { key: "operatorSign", label: "Operator Sign", type: "text", autoFill: { sign: true }, width: 120 },
-      { key: "startTime", label: "Start Time", type: "time", autoFill: { carryForward: true }, width: 90 },
-      { key: "endTime", label: "End Time", type: "time", autoFill: { carryForward: true }, width: 90 },
-      { key: "rollWeight", label: "Laminated Roll Weight - Kgs.", type: "number", unit: "kg", decimals: 2, autoFill: { jitter: 0.03 }, width: 90 },
-      { key: "okMeters", label: "OK Meters", type: "number", decimals: 0, autoFill: { jitter: 0.02 }, width: 80 },
-      { key: "inTimeHotroom", label: "In Time (Hotroom)", type: "time", autoFill: { carryForward: true }, width: 90 },
+      { key: "layer1Kg", label: "LAYER 1 - Kgs.", type: "number", unit: "kg", decimals: 2, autoFill: { jitter: 0.03 }, width: 80 },
+      { key: "layer2Type", label: "LAYER 2 TYPE", type: "text", autoFill: { carryForward: true, default: "MetPET" }, width: 80 },
+      { key: "layer2Kg", label: "LAYER 2 - Kgs.", type: "number", unit: "kg", decimals: 2, autoFill: { jitter: 0.03 }, width: 80 },
+      { key: "alcDone", label: "ALC DONE AS PER ABOVE (YES/NO)", type: "yesno", required: true, autoFill: { carryForward: true, default: "Yes" }, width: 90 },
+      { key: "operatorSign", label: "OPERATOR SIGN", type: "text", autoFill: { sign: true }, width: 120 },
+      { key: "startTime", label: "START TIME", type: "time", autoFill: { carryForward: true }, width: 90 },
+      { key: "endTime", label: "END TIME", type: "time", autoFill: { carryForward: true }, width: 90 },
+      // The two spaces before "Kgs." are the original's own.
+      { key: "rollWeight", label: "LAMINATED ROLL WEIGHT -  Kgs.", type: "number", unit: "kg", decimals: 2, autoFill: { jitter: 0.03 }, width: 90 },
+      { key: "okMeters", label: "OK METERs", type: "number", decimals: 0, autoFill: { jitter: 0.02 }, width: 80 },
+      { key: "inTimeHotroom", label: "IN TIME (HOTROOM)", type: "time", autoFill: { carryForward: true }, width: 90 },
     ],
     rowMode: { kind: "free", minRows: 1, typicalRows: 4 },
-    specimenHeader: { operatorName: "Gaurav Singh", machineName: "Lamination-1", shift: "A" },
+    specimenHeader: { operatorName: "Gaurav Singh", machineName: "Lamination-1" },
     specimenRows: [
       { fgCode: "7204", poNo: "88825", jobName: "VP Bedekar Fenugreek Powder", layer1Type: "PET", layer1Kg: 12, layer2Type: "MetPET", layer2Kg: 51.5, alcDone: "Yes", operatorSign: "Gaurav Singh", startTime: "09:00", endTime: "09:50", rollWeight: 69.1, okMeters: 1950, inTimeHotroom: "10:00" },
       { fgCode: "7205", poNo: "88826", jobName: "VP Bedekar Cumin Powder", layer1Type: "PET", layer1Kg: 12.5, layer2Type: "MetPET", layer2Kg: 51.1, alcDone: "Yes", operatorSign: "Gaurav Singh", startTime: "09:50", endTime: "10:45", rollWeight: 70.2, okMeters: 1950, inTimeHotroom: "10:50" },
@@ -198,6 +219,10 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
       { fgCode: "6766", poNo: "88903", jobName: "Sweet Karam Gusset", layer1Type: "BOPP", layer1Kg: null, layer2Type: "MetPET", layer2Kg: null, alcDone: "Yes", operatorSign: "Gaurav Singh", startTime: "13:30", endTime: "", rollWeight: null, okMeters: null, inTimeHotroom: "" },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.20 PM.jpeg (F-PRD-18, filled 07-09-26, Shift A)",
+    originalPages: [
+      { src: "/source/fprd18-sb-lamination-alc-production-p1.jpg", caption: "F-PRD-18 (01/25.06.2025) - Solvent Base Lamination - ALC & Production Report, the blank format as supplied on 06-Oct-2026" },
+      { src: "/source/fprd18-sb-lamination-alc-production-p2.jpg", caption: "F-PRD-18, page 2: the grid's twelfth line, which Excel printed on a page of its own" },
+    ],
   },
 };
 
@@ -484,6 +509,9 @@ Object.assign(LOG_SHEET_LAYOUTS, SYS_INTERNAL_AUDIT_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, SYS_HARA_TRACEABILITY_LAYOUTS);
 // Marketing (REQUIREMENTS §77): the customer's feedback and its analysis, the complaint trend and its Pareto.
 Object.assign(LOG_SHEET_LAYOUTS, MKT_LAYOUTS);
+// Production (REQUIREMENTS §91): the slitting, pouching and doctoring records and the sharp object and blade
+// records, supplied 06-Oct-2026 with the company's own originals (the two lamination records are above).
+Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
 
 // The layout as it stands now: the plant's own change to the format where
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout

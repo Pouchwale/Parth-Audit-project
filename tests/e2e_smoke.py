@@ -673,7 +673,7 @@ def main():
         page.click("text=Document Library")
         page.wait_for_timeout(300)
         rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-        check("Document Library lists all 122 documents", rows.count() == 122, rows.count())
+        check("Document Library lists all 129 documents", rows.count() == 129, rows.count())
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)
@@ -737,7 +737,21 @@ def main():
         # Scoped to the main content area, not page.content() as a whole --
         # the sidebar itself always lists every module's name regardless of
         # which page is open, so checking the whole page would always fail.
-        check("Filtered library shows only that module's documents", "Lamination — Production" not in page.locator(".app-content").inner_text())
+        check(
+            "Filtered library shows only that module's documents",
+            page.locator(".app-content [data-library-module]").count() == 1 and page.locator(".app-content [data-library-module='Production']").count() == 0,
+            page.eval_on_selector_all(".app-content [data-library-module]", "els => els.map((e) => e.dataset.libraryModule)"),
+        )
+        # REQUIREMENTS s91: the lamination production module is the Production module now, and its old address
+        # still opens it, with its own sidebar link lit.
+        page.goto(f"{BASE}/index.html#/library/lamination-production")
+        page.wait_for_timeout(500)
+        check(
+            "The module's old address opens the Production module",
+            page.locator(".app-content [data-library-module='Production']").count() == 1 and page.locator(".app-content [data-library-document]").count() == 9,
+            page.locator(".app-content").inner_text()[:300],
+        )
+        check("...and lights the module's own link", page.locator(".app-sidebar a[href='#/library/production'].active").count() == 1)
 
         # ---- 12c. The pest control file inside Human Resources: Daily Report / Service Reports / Trend Analysis ----
         # The file is organised the way the department reads its paperwork

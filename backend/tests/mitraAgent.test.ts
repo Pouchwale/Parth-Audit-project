@@ -74,7 +74,7 @@ describe("buildAgentSystemPrompt", () => {
     assert.ok(PERSONA.includes("not a person") && prompt.includes("not a person"));
     assert.match(prompt, /SCOPE.*help ONLY with this system/);
     assert.match(prompt, /OUT OF SCOPE/);
-    for (const module of ["Marketing", "Human Resources", "CAPA", "Lamination", "Purchase", "Maintenance", "Store", "Dispatch", "QC", "Compliance"]) {
+    for (const module of ["Marketing", "Human Resources", "CAPA", "Lamination", "Production", "Purchase", "Maintenance", "Store", "Dispatch", "QC", "Compliance"]) {
       assert.ok(SCOPE.includes(module), `SCOPE names ${module}`);
       assert.ok(prompt.includes(module), `the agent's scope names ${module}`);
     }

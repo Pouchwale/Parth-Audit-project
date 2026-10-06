@@ -66,7 +66,7 @@ export interface MasterListFormat {
 }
 
 export type FoundDocument =
-  /** A document the person may open and work on. `asListed` is the master list's number when that is how it was found (F-PRD-19). */
+  /** A document the person may open and work on. `asListed` is the master list's number when that is how it was found (F-MKT-06). */
   | { kind: "yours"; doc: DocumentDefinition; asListed?: string }
   /** Another department's document: found, never opened, its records never read. */
   | { kind: "kept"; doc: DocumentDefinition; department: string; asListed?: string }
@@ -83,9 +83,8 @@ export type FoundDocument =
 const MASTER_LIST_EQUIVALENTS: Readonly<Record<string, string>> = {
   // The form is headed QA-CAF-00; the list files it as F-MKT-06 "Complaint Acknowldgement form" (§40, §77).
   "F-MKT-06": "capa-complaint-ack",
-  // The number on the photographed sheet is under the clip (§12); the list's F-PRD-19 is the same form, the same
-  // title and the same issue (00/15.12.2024).
-  "F-PRD-19": "prd-process-parameter",
+  // (F-PRD-19 was here while the process parameter record's number was under the clip of the photograph, §12. The
+  // paper itself, sent on 06-Oct-2026, prints F-PRD-19, and DCRS holds it under that number: REQUIREMENTS §91.)
 };
 
 const squash = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -287,7 +286,7 @@ export function documentQuery(query: string): DocumentQuery {
 
   if (namesFormatNumber(q)) {
     // BY NUMBER. The documents that carry it — every department's — and a
-    // master-list line DCRS holds under another number (F-PRD-19).
+    // master-list line DCRS holds under another number (F-MKT-06).
     const keys = formatKeysNamed(q);
     const ids = new Set(documentsByFormatNumberUnscoped(q).map((d) => d.id));
     for (const line of cat.lines) if (line.heldBy && line.key && keys.includes(line.key)) ids.add(line.heldBy);

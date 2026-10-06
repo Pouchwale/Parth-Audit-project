@@ -90,7 +90,7 @@ The app behaves like a personal assistant rather than a blank form:
   back gracefully. See `src/engine/guidedChecklist.ts`.
 - **The sidebar is organized module-by-module, collapsible, and can be closed altogether** — Human
   Resources (HR's eighteen F/HR formats under **HR Records**, and the whole pest control file under
-  **Pest Control**), CAPA, Lamination — Quality Control, Lamination — Production, Quality Control —
+  **Pest Control**), CAPA, Lamination — Quality Control, Production, Quality Control —
   Inspection Records, and Quality — Compliance each carry their own icon and expand/collapse independently; a
   module you close stays closed until you open it again (remembered per browser), and one control
   collapses or expands all six at once. The module holding the page you're on stays marked with a dot
@@ -242,6 +242,14 @@ The app behaves like a personal assistant rather than a blank form:
   natural Neerja, Swara and Dhwani (or Prabhat, Madhur and Niranjan), free and human-sounding; Chrome has no Gujarati
   voice, so there a Gujarati reply is shown and the person is told once to use Edge. Master Data's voice card shows the
   voice for each language in this browser, with a "Hear Mitra" button for each. No paid voice, no card on file.
+- **The Production module** (REQUIREMENTS §91). The plant's production formats sent on 6-Oct-2026 are one module,
+  **Production**, in five sections the way the pouch section's floor works: Lamination (F-PRD-18, F-PRD-19), Slitting
+  (F-PRD-20), Pouching (F/PRD/21), Doctoring (F-PRD-26), and Sharp Objects & Blades (F/PRD/10, 22, 23 and 24). Each is
+  built from the company's own .xls or .xlsx, word for word (spellings and double spaces included, the company's name
+  the owner's), shown beside its paper, found by its number however it is written (F-PRD-20 or F/PRD/20) and by its
+  name, filled with sample data, printed and downloaded as a workbook. F-PRD-19's number, hidden in the photograph, is
+  confirmed, and F-PRD-18 and 19 now read as their originals. The module's old address, /library/lamination-production,
+  still opens it. F-PRD-25 came as an empty workbook and waits on the owner. DCRS holds 129 documents.
 - **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
   signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
   starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,
@@ -759,8 +767,12 @@ The app behaves like a personal assistant rather than a blank form:
 - Lamination — Quality Control (3, from the photographed registers in "Audit documents.zip"):
   Lamination Adhesive Viscosity Record (F-QC-30, 24 hourly readings), Adhesive Mixing Ratio Record
   (F-QC-32), Temperature Monitoring Record — Hot Room (F-QC-40.C).
-- Lamination — Production (2): Solvent Base Lamination Process Parameter Record, ALC & Production
-  Report (F-PRD-18).
+- Production (9), in five sections (REQUIREMENTS §91). *Lamination*: the Solvent Base Lamination ALC & Production Report
+  (F-PRD-18) and Process Parameter Record (F-PRD-19). *Slitting*: the Slitting ALC & Production Report (F-PRD-20).
+  *Pouching*: the Area Line Clearance Report - Pouching (F/PRD/21, a record per machine, as required). *Doctoring*: the
+  Doctoring ALC & Production Report (F-PRD-26). *Sharp Objects & Blades*: the daily issue and return of scissors and
+  manual cutters (F/PRD/10) and of the pouching section's manual cutters (F/PRD/23), and the razor blade records of the
+  pouching machines (F/PRD/22) and of the slitting machine (F/PRD/24).
 - Quality Control — Inspection Records (7): the two internal calibration records supplied on
   16-Sep-2026 (REQUIREMENTS §51) — **Weekly Internal Calibration Records - Weight Scale** (F/QC/12: the
   five test weights against scale QC-76, with the deviation beside each, four calibrations of Feb–Mar

@@ -83,12 +83,17 @@ export const SYS_SECTIONS = [
 // the customer complaints, their trend over the years and the Pareto of their
 // causes. The master list of formats (F/SYS/02) lists F/MKT right after F/SYS.
 export const MKT_SECTIONS = ["Customer Feedback", "Customer Complaints"] as const;
+// Production (REQUIREMENTS §91): the pouch section's floor, in the order the Master List of Formats numbers its
+// papers (F-PRD-18 and 19 lamination, 20 slitting, 21 pouching, 26 doctoring), then the sharp object and blade
+// records every one of those lines keeps (F/PRD/10, 22, 23 and 24), which an auditor reads together.
+export const PRODUCTION_SECTIONS = ["Lamination", "Slitting", "Pouching", "Doctoring", "Sharp Objects & Blades"] as const;
 export const MODULE_SECTIONS: readonly string[] = [
   ...SYS_SECTIONS,
   ...MKT_SECTIONS,
   ...HR_SECTIONS,
   ...PEST_CONTROL_SECTIONS,
   ...QC_SECTIONS,
+  ...PRODUCTION_SECTIONS,
   ...MAINTENANCE_SECTIONS,
   ...PURCHASE_SECTIONS,
   ...STORE_SECTIONS,
@@ -703,38 +708,180 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
   },
 
   // ---------------------------------------------------------------------
-  // Lamination — Production
+  // Production (REQUIREMENTS §91). The module was the lamination production
+  // one, holding the two solvent base lamination records built from photographed
+  // registers in September; on 06-Oct-2026 the owner sent the formats
+  // themselves with the company's own originals, and seven more, "in the
+  // module called production module". Its sections follow the pouch
+  // section's floor (PRODUCTION_SECTIONS). Each number is written as its paper
+  // prints it, F-PRD-20 with dashes and F/PRD/21 with slashes; both spellings
+  // find each one. Layouts: logSheetLayouts.ts (F-PRD-18, F-PRD-19) and
+  // productionLayouts.ts (the seven). F-PRD-25 was sent as an empty workbook
+  // and waits on the owner.
   // ---------------------------------------------------------------------
-  {
-    id: "prd-process-parameter",
-    kind: "log-sheet",
-    name: "Solvent Base Lamination — Process Parameter Record",
-    formatNo: "TO BE CONFIRMED",
-    revisionNo: "00",
-    revisionDate: "2024-12-15",
-    department: "Production",
-    module: "Lamination — Production",
-    frequency: "Daily",
-    status: "Configured",
-    description:
-      "Per-shift machine settings for each lamination job: nip pressures, unwind / rewind tensions, hood temperatures, line speed, plus adhesive & hardener make / code / batch and the mixing ratio. The Format No. is hidden under the clip in the photograph (revision block reads 00/15.12.2024) — TO BE CONFIRMED.",
-    sourceFile: "WhatsApp Image 2026-09-07 at 2.15.19 PM.jpeg (photographed Process Parameter Record)",
-    schedule: { type: "daily" },
-  },
   {
     id: "prd-alc-production",
     kind: "log-sheet",
-    name: "Solvent Base Lamination — ALC & Production Report",
+    name: "Solvent Base Lamination - ALC & Production Report",
     formatNo: "F-PRD-18",
     revisionNo: "01",
     revisionDate: "2025-06-25",
     department: "Production",
-    module: "Lamination — Production",
+    module: "Production",
+    section: "Lamination",
     frequency: "Daily",
     status: "Configured",
     description:
-      "Per-shift line-clearance (ALC) confirmation and production log for the lamination machine: job, both film layers with weights, ALC done Yes/No, operator sign, start/end time, laminated roll weight, OK meters and hot-room in-time.",
-    sourceFile: "WhatsApp Image 2026-09-07 at 2.15.20 PM.jpeg (photographed F-PRD-18 register)",
+      "The solvent base lamination machine's sheet for a shift: the operator, the machine, the date and shift, and the ALC protocol's five checks before each job; then a line per job: its FG code, internal PO and name, both film layers with their weights, ALC done as per the protocol (yes or no), the operator's sign, the start and end time, the laminated roll's weight, the OK metres and when the roll went into the hot room.",
+    sourceFile:
+      "F-PRD-18_SB LAMINATION Logbook -24.06.25.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-18_SB LAMINATION Logbook -24.06.25.xls; the filled specimen is WhatsApp Image 2026-09-07 at 2.15.20 PM.jpeg (photographed F-PRD-18 register)",
+    schedule: { type: "daily" },
+  },
+  {
+    id: "prd-process-parameter",
+    kind: "log-sheet",
+    name: "Solvent Base Lamination - Process Parameter Record",
+    formatNo: "F-PRD-19",
+    revisionNo: "00",
+    revisionDate: "2024-12-15",
+    department: "Production",
+    module: "Production",
+    section: "Lamination",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "The solvent base lamination machine's settings for a shift: the operator, the machine, the date and shift, the adhesive + hardener + solvent mixing ratio, and the adhesive's and the hardener's make, product code and batch number; then a line per job: its internal PO, FG code and name, the coating nip, doctor blade and lay on roll pressures, the primary unwind, rewinder, secondary unwind and tapper tensions, the hood A and hood B temperatures, the line speed, and the laminator nip's pressure and temperature.",
+    sourceFile:
+      "F-PRD-19_SOLVENT BASE LAMINATION - PROCESS PARAMETER RECORD.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-19_SOLVENT BASE LAMINATION - PROCESS PARAMETER RECORD.xlsx; the filled specimen is WhatsApp Image 2026-09-07 at 2.15.19 PM.jpeg (photographed Process Parameter Record)",
+    schedule: { type: "daily" },
+  },
+  {
+    id: "prd-slitting-alc",
+    kind: "log-sheet",
+    name: "Slitting - ALC & Production Report",
+    formatNo: "F-PRD-20",
+    revisionNo: "01",
+    revisionDate: "2025-06-25",
+    department: "Production",
+    module: "Production",
+    section: "Slitting",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "The slitting machine's sheet for a shift: the operator, the machine, the date and shift, and the line clearance's seven checks before each job; then a line per job: its FG code, internal PO and name, when the laminated roll came out of the hot room, the film layers, the input roll's weight and width, ALC done as per the checks (yes or no), the operator's sign, the start and end time, the output roll's weight and width, the wastage and the OK metres.",
+    sourceFile:
+      "F-PRD-20_SLITTING PRODUCTION LOGBOOK -24.06.25.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-20_SLITTING PRODUCTION LOGBOOK -24.06.25.xlsx",
+    schedule: { type: "daily" },
+  },
+  // As required, as the plant's other area line clearances are (F/QC/15-A to G): the paper is one pouching
+  // machine's register, written at each job change, and a daily document holds one record a day, so it could not
+  // hold the job changes of the section's several machines.
+  {
+    id: "prd-pouching-line-clearance",
+    kind: "log-sheet",
+    name: "Area Line Clearance Report - Pouching",
+    formatNo: "F/PRD/21",
+    revisionNo: "00",
+    revisionDate: "2024-12-15",
+    department: "Production",
+    module: "Production",
+    section: "Pouching",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "The line clearance at each job change on one pouching machine, its number written above the grid: the old job's production completed (the date, the time, its work order number and job name, the operator's sign), the line cleared against the five points printed above (done or not done), and the new job's production started (the date, the time, its work order number and product name, the operator's sign), verified by the shift supervisor. A record is started with New for a machine when its job changes.",
+    sourceFile:
+      "F-PRD-21_Area Line clearance record - POUCHING.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-21_Area Line clearance record - POUCHING.xlsx",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "prd-doctoring-alc",
+    kind: "log-sheet",
+    name: "Doctoring - ALC & Production Report",
+    formatNo: "F-PRD-26",
+    revisionNo: "01",
+    revisionDate: "2025-07-23",
+    department: "Production",
+    module: "Production",
+    section: "Doctoring",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "The doctoring machine's sheet for a shift: the operator, the date and shift, and the line clearance's six checks before each job; then a line per job: its internal PO, FG code and name, the input roll's weight, the kilograms the job bag requires, ALC done as per the checks (yes or no), the operator's sign, the start and end time, the output roll's weight, the wastage and the OK running metres.",
+    sourceFile:
+      "F-PRD-26_Doctoring PRODUCTION LOGBOOK.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-26_Doctoring PRODUCTION LOGBOOK.xlsx",
+    schedule: { type: "daily" },
+  },
+  {
+    id: "prd-sharp-object-issue",
+    kind: "log-sheet",
+    name: "Daily Issue & Return of Sharp Metal Object (Scisssor / Manual Cutter) Monitoring Record",
+    formatNo: "F/PRD/10",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Production",
+    module: "Production",
+    section: "Sharp Objects & Blades",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "The scissors and manual cutters issued to the operators and returned, each day and shift: how many of each were issued and returned, any broken, damaged or worn out (scissors and cutter blades), any new issued, the supervisor's sign and a remark. A scissor stock of 15 and 20 cutter blades are kept, counting those issued to operators and those in the cupboard. The paper's own two filled lines, of 01.12.2021 and 02.12.2021, are on it.",
+    sourceFile:
+      "F-PRD-10.pdf (as supplied 06-Oct-2026); the company's own original is the second sheet, \"F-SYS-20 (2)\", of F-PRD-23_Manual cutter Daily Issue & Return monitoring record.xls",
+    schedule: { type: "daily" },
+  },
+  {
+    id: "prd-pouching-blade",
+    kind: "log-sheet",
+    name: "Razor Blade ( Used On - Laminated Films - Pouching Machine Blade Holder) Monitoring Record",
+    formatNo: "F/PRD/22",
+    revisionNo: "00",
+    revisionDate: "2024-12-15",
+    department: "Production",
+    module: "Production",
+    section: "Sharp Objects & Blades",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "The razor blades of the pouching machines' blade holders, counted each day: the opening stock of OK blades, the new blades issued from the store, the total, how many new blades were put on the machines and in which shift, the closing stock of OK and of discarded blades, and the discarded blades returned to the store, checked by the production manager. The loose blades in stock, those installed on the machines included, are always kept at 20.",
+    sourceFile:
+      "F-PRD-22_Blade Change Record - All Pouching machine.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-22_Blade Change Record - All Pouching machine.xlsx",
+    schedule: { type: "daily" },
+  },
+  {
+    id: "prd-pouching-cutter-issue",
+    kind: "log-sheet",
+    name: "Daily Issue & Return of Sharp Metal Object (Manual Cutter) Monitoring Record - All Pouching Section",
+    formatNo: "F/PRD/23",
+    revisionNo: "00",
+    revisionDate: "2025-12-15",
+    department: "Production",
+    module: "Production",
+    section: "Sharp Objects & Blades",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "The manual cutters of the whole pouching section, issued to the operators and returned, each day and shift: the quantity issued and returned, any broken or damaged, any new issued, the supervisor's sign and a remark. A scissor stock of 15 and 40 cutter blades are kept, counting those issued to operators and those in the cupboard.",
+    sourceFile:
+      "F-PRD-23_Manual cutter Daily Issue & Return monitoring record.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-23_Manual cutter Daily Issue & Return monitoring record.xls",
+    schedule: { type: "daily" },
+  },
+  {
+    id: "prd-slitting-blade",
+    kind: "log-sheet",
+    name: "Razor Blade ( Used On - Laminated Film's Slitting Machine Blade Holder) Monitoring Record",
+    formatNo: "F/PRD/24",
+    revisionNo: "00",
+    revisionDate: "2024-12-15",
+    department: "Production",
+    module: "Production",
+    section: "Sharp Objects & Blades",
+    frequency: "Daily",
+    status: "Configured",
+    description:
+      "The razor blades of the laminated film slitting machine's blade holder, counted each day: the opening stock of OK blades, the new blades issued from the store, the total, how many new blades were put on the machine and in which shift, the closing stock of OK and of discarded blades, and the discarded blades returned to the store, checked by the production manager. The loose blades in stock, those installed on the machine included, are always kept at 20.",
+    sourceFile:
+      "F-PRD-24_Razor Blade Change Record - Laminated FIlms Slittig machine.pdf (as supplied 06-Oct-2026); the company's own original is F-PRD-24_Razor Blade Change Record - Laminated FIlms Slittig machine.xlsx",
     schedule: { type: "daily" },
   },
 

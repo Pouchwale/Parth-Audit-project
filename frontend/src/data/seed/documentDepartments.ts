@@ -134,9 +134,18 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "soc-labels": "QC", // F/QC-09
   "soc-flexible-packaging": "QC", // F/QC-38
 
-  // --- Production: the lamination production registers
-  "prd-process-parameter": "PRD", // F-PRD-19 on the list
+  // --- Production (REQUIREMENTS §91): the two lamination records and the seven papers of 06-Oct-2026. Their
+  // numbers give the department already; listed so the activity log, which names a document by its id alone,
+  // files their lines under PRD as well.
   "prd-alc-production": "PRD", // F-PRD-18
+  "prd-process-parameter": "PRD", // F-PRD-19 (the paper of 06-Oct-2026 confirms the master list's number)
+  "prd-slitting-alc": "PRD", // F-PRD-20
+  "prd-pouching-line-clearance": "PRD", // F/PRD/21
+  "prd-doctoring-alc": "PRD", // F-PRD-26
+  "prd-sharp-object-issue": "PRD", // F/PRD/10
+  "prd-pouching-blade": "PRD", // F/PRD/22
+  "prd-pouching-cutter-issue": "PRD", // F/PRD/23
+  "prd-slitting-blade": "PRD", // F/PRD/24
 
   // --- Purchase, Store and Dispatch (REQUIREMENTS §68, §71, §70). Their format
   // numbers already give the department, but the activity log names a document
