@@ -369,6 +369,16 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(notHistory.body.code, "not-history");
   });
 
+  it("the phone's figures carry the Performance Scorecard's minus score (REQUIREMENTS §92)", async () => {
+    // The HR record on file, due 01-Sep-2026, counts: the plant's line and HR's carry the minus score beside the score.
+    const late = await call(s, "GET", `/api/v1/figures?question=${encodeURIComponent("who was late in September 2026?")}`, T.admin);
+    assert.equal(late.status, 200, JSON.stringify(late.body));
+    const evidence = late.body.evidence as string[];
+    const plant = evidence.find((l) => l.includes("Performance Scorecard")) ?? "";
+    assert.match(plant, /minus score (0|−\d+) \(10 off for each never done\)/, JSON.stringify(evidence));
+    assert.ok(evidence.some((l) => /\(HR\): score \d+, minus score (0|−\d+),/.test(l)), JSON.stringify(evidence));
+  });
+
   it("submit, then a change is refused until the record is reopened; the super admin verifies it", async () => {
     const submitted = await call(s, "POST", `/api/v1/records/${recordId}/actions`, T.qc, { action: "submit" });
     assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
