@@ -40,6 +40,10 @@ export const SYNC_STATE_EVENT = "dcrs:sync-state";
 export const SESSION_ENDED_EVENT = "dcrs:session-ended";
 /** storageAdapter.ts's event for a write that did not fit (components/common/StorageFullBanner.tsx). */
 const STORAGE_WRITE_FAILED = "dcrs:storage-write-failed";
+/** storageAdapter.ts's STORAGE_HELD: a change did not fit, and is held in this page's memory on its way to the database. */
+const STORAGE_HELD = "dcrs:storage-held";
+/** storageAdapter.ts's STORAGE_HELD_SAVED: the database has stored what was held in memory. */
+const STORAGE_HELD_SAVED = "dcrs:storage-held-saved";
 
 /** The company's items. Mirrors backend/index.ts COMPANY_KEYS. */
 const COMPANY_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start"];
@@ -147,10 +151,98 @@ export const syncableKey = (key: string): boolean => SYNC_KEYS.has(key);
 const iso = () => new Date().toISOString();
 
 // ---------------------------------------------------------------------------
+// what did not fit in this browser
+
+// HELD IN THIS PAGE'S MEMORY, NOT DROPPED (REQUIREMENTS §93 — a stopgap inside
+// C-1 of the audit of 7-Oct-2026). The working copy keeps every record of the
+// company in one item of the browser's storage, which has a fixed size. When a
+// save did not fit, the change was dropped on the spot: a record a person had
+// just started was never sent to the database, and its page said "Record not
+// found". Now an item that does not fit is held here, under its name in the
+// browser's storage; everything reads it from here (storageAdapter.ts, and this
+// module's own `raw`), and it is sent to the database from here — PostgreSQL is
+// where it is kept, and nothing new is stored anywhere else.
+//
+// While an item's value is held, its marker is held with it and never written
+// to the browser's storage: what stays there is the older value WITH the
+// marker that belongs to it, so a reload finds an item in step with an older
+// version and takes the database's newer one, instead of sending the older
+// value back over it. Until the database confirms a held change, closing the
+// page asks first (beforeunload); once it has, the page says the change WAS
+// saved (components/common/StorageFullBanner.tsx). The first save that fits
+// again puts the item back in the browser's storage. The lasting fix, a working
+// copy that stays small, waits for the owner's choice of design (C-1).
+const heldInMemory = new Map<string, string>();
+/** The held items whose last change the database has not confirmed yet. */
+const heldUnsent = new Set<string>();
+let leavingGuarded = false;
+
+function dispatch(name: string, detail?: unknown): void {
+  try {
+    window.dispatchEvent(detail === undefined ? new Event(name) : new CustomEvent(name, { detail }));
+  } catch {
+    /* no window */
+  }
+}
+
+/** Closing the page while a held change is still on its way asks first: it is in this page's memory alone. */
+function guardLeaving(): void {
+  if (leavingGuarded) return;
+  leavingGuarded = true;
+  try {
+    window.addEventListener("beforeunload", (e: BeforeUnloadEvent) => {
+      if (heldUnsent.size === 0) return;
+      e.preventDefault();
+      try {
+        // The older way of asking, which some browsers still need.
+        e.returnValue = "";
+      } catch {
+        /* an event that cannot carry it: preventDefault has asked already */
+      }
+    });
+  } catch {
+    /* no window */
+  }
+}
+
+/** Holds a value of the working copy in memory, to be sent to the database from there. False when nothing would send it. */
+function hold(key: string, value: string, unsent: boolean): boolean {
+  const s = session;
+  if (!s || !SYNC_KEYS.has(key) || s.denied.has(key)) return false;
+  heldInMemory.set(NAMESPACE + key, value);
+  if (unsent) {
+    heldUnsent.add(key);
+    guardLeaving();
+    console.warn(`There is no room in this browser for ${key}: the change is kept on this page and sent to the database from here.`);
+    dispatch(STORAGE_HELD, { key });
+  }
+  return true;
+}
+
+/** storageAdapter.ts: what is held in memory for this item, or null when the browser's storage has it. */
+export function heldCopy(key: string): string | null {
+  return heldInMemory.get(NAMESPACE + key) ?? null;
+}
+
+/** storageAdapter.ts: a write that did not fit. True when it is held in memory and will be sent to the database. */
+export function holdChange(key: string, value: string): boolean {
+  return hold(key, value, true);
+}
+
+/** storageAdapter.ts: the item fitted in the browser's storage again; its held marker follows it there. */
+export function releaseHeld(key: string): void {
+  if (!heldInMemory.delete(NAMESPACE + key)) return;
+  const marker = heldInMemory.get(MARKER_PREFIX + key);
+  if (marker !== undefined) raw.set(MARKER_PREFIX + key, marker);
+}
+
+// ---------------------------------------------------------------------------
 // the working copy
 
 const raw = {
   get(name: string): string | null {
+    const held = heldInMemory.get(name);
+    if (held !== undefined) return held;
     try {
       return window.localStorage.getItem(name);
     } catch {
@@ -160,12 +252,14 @@ const raw = {
   set(name: string, value: string): boolean {
     try {
       window.localStorage.setItem(name, value);
+      heldInMemory.delete(name);
       return true;
     } catch {
       return false;
     }
   },
   remove(name: string): void {
+    heldInMemory.delete(name);
     try {
       window.localStorage.removeItem(name);
     } catch {
@@ -182,6 +276,7 @@ const raw = {
     } catch {
       /* none */
     }
+    for (const k of heldInMemory.keys()) if (k.startsWith(prefix) && !out.includes(k)) out.push(k);
     return out;
   },
 };
@@ -192,11 +287,19 @@ const local = {
   set(key: string, value: string): boolean {
     if (raw.set(NAMESPACE + key, value)) return true;
     console.error("There is no room in this browser for the working copy of", key);
-    try {
-      window.dispatchEvent(new Event(STORAGE_WRITE_FAILED));
-    } catch {
-      /* no window */
-    }
+    dispatch(STORAGE_WRITE_FAILED);
+    return false;
+  },
+  /**
+   * As set, but a value that does not fit is held in memory and goes to the
+   * database from there (above) — `unsent` when it carries a change the
+   * database does not have yet. False only when it can be neither stored nor held.
+   */
+  setOrHold(key: string, value: string, unsent: boolean): boolean {
+    if (raw.set(NAMESPACE + key, value)) return true;
+    if (hold(key, value, unsent)) return true;
+    console.error("There is no room in this browser for the working copy of", key);
+    dispatch(STORAGE_WRITE_FAILED);
     return false;
   },
   remove: (key: string) => raw.remove(NAMESPACE + key),
@@ -275,8 +378,13 @@ function readMarker(key: string): Marker | null {
 }
 
 function writeMarker(key: string, marker: Marker | null): void {
-  if (marker) raw.set(MARKER_PREFIX + key, JSON.stringify(marker));
-  else raw.remove(MARKER_PREFIX + key);
+  if (!marker) {
+    raw.remove(MARKER_PREFIX + key);
+    return;
+  }
+  const text = JSON.stringify(marker);
+  // A held item's marker is held with it (see heldInMemory above); one that does not fit is held too.
+  if (heldInMemory.has(NAMESPACE + key) || !raw.set(MARKER_PREFIX + key, text)) heldInMemory.set(MARKER_PREFIX + key, text);
 }
 
 const scopeFor = (key: string, userId: string) => (USER_KEYS.has(key) ? `user:${userId}` : "company");
@@ -657,9 +765,14 @@ async function send(key: string): Promise<void> {
       const { version } = (await res.json()) as { version: number };
       rememberBase(key, version, body);
       const now = local.get(key);
+      // Held in memory for want of room (§93): the database has it now, and the browser's storage takes it back if it has room again.
+      const held = heldInMemory.has(NAMESPACE + key);
+      if (held && now === body) raw.set(NAMESPACE + key, body);
       writeMarkerOf(key, { s: scope, v: version, t: iso(), d: copyScope, ...(now === body ? {} : { p: 1 as const }) }, body);
-      if (now === body) forgetSavedBase(key);
-      else if (now !== null) schedule(key);
+      if (now === body) {
+        forgetSavedBase(key);
+        if (heldUnsent.delete(key)) dispatch(STORAGE_HELD_SAVED, { key, stillHeld: heldInMemory.has(NAMESPACE + key) });
+      } else if (now !== null) schedule(key);
       return;
     }
     if (res.status === 401) {
@@ -696,7 +809,8 @@ async function send(key: string): Promise<void> {
       const mine: string = local.get(key) ?? body;
       const merged = merge(key, baseView, mine, current.value, "mine");
       if (merged !== mine) {
-        if (!local.set(key, merged)) throw new Error(`There is no room in this browser for the merged ${key}; it is sent again shortly.`);
+        // No room for the merged copy: it is held in memory and sent from there, so the change still reaches the database (§93).
+        if (!local.setOrHold(key, merged, true)) throw new Error(`There is no room in this browser for the merged ${key}; it is sent again shortly.`);
         notify(key);
       }
       rememberBase(key, current.version, current.value);
@@ -706,6 +820,8 @@ async function send(key: string): Promise<void> {
       if (merged === current.value) {
         writeMarkerOf(key, { s: scope, v: current.version, t: iso(), d: copyScope }, current.value);
         forgetSavedBase(key);
+        // The database had everything already, the held change included (§93).
+        if (heldUnsent.delete(key)) dispatch(STORAGE_HELD_SAVED, { key, stillHeld: heldInMemory.has(NAMESPACE + key) });
         return;
       }
       writeMarkerOf(key, { s: scope, v: current.version, t: iso(), p: 1, d: copyScope }, current.value);
@@ -880,8 +996,9 @@ async function pull(): Promise<void> {
       schedule(key);
       continue;
     }
-    if (current !== item.value && !local.set(key, item.value)) {
-      // No room for it: the copy stays as it was, marked as the older version, and is asked for again.
+    // No room for it: held in memory like a change made here (§93), so the screens show it and it is not asked for again.
+    if (current !== item.value && !local.setOrHold(key, item.value, false)) {
+      // Not even that (nobody signed in to send it): the copy stays as it was, marked as the older version, and is asked for again.
       cursor = Math.min(cursor, Math.max(s.seq, item.seq - 1));
       continue;
     }

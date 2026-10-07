@@ -112,9 +112,12 @@ function saveAll(records: RecordInstance[]): void {
   }
   const text = serialise(records);
   // The copy is only updated once the array is really stored. When the
-  // browser's storage is full the write fails; a cached copy showing the
-  // change would be lost, silently, on the next reload. Dropping it makes the
-  // screens show what is actually stored, and StorageFullBanner says why.
+  // browser's storage is full, the write is HELD in the page's memory and sent
+  // to the database from there (data/serverSync.ts, REQUIREMENTS §93), which
+  // counts as stored: a record just started opens and is kept. Only when not
+  // even that is possible (nobody signed in) does the write fail; a cached copy
+  // showing the change would then be lost, silently, on the next reload, so it
+  // is dropped, the screens show what is actually stored, and StorageFullBanner says why.
   cache = writeText(KEY, text) ? records : null;
 }
 
