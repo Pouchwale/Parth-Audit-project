@@ -262,7 +262,8 @@ Seven scripts live in `tests/`:
   shared department, the periods, and two demo months judged on every day of a month with every line's still-open-today
   recounted from the records. `latenessCore.test.ts` compares every scorecard with its reference with `minus` and
   `openToday` taken off, and holds both to their rule on every line; `dailyNudgeStanding.test.ts` and
-  `mitraHistoryReview.test.ts` 12b check the notification's and Mitra's words. `tests/e2e_performance.py` gained the
+  `mitraHistoryReview.test.ts` 12b check the notification's and Mitra's words, and
+  `backend/tests/apiV1Records.test.ts` the phone's (GET /api/v1/figures). `tests/e2e_performance.py` gained the
   browser's half (see its entry), and runs against a preview with `DCRS_BASE` set.
 - `tests/e2e_insights.py` - Insights (REQUIREMENTS §75), a thirty-fifth suite, added 24-Sep-2026, run straight
   after the System / Management suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the

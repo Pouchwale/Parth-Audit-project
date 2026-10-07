@@ -5887,7 +5887,8 @@ adjustment day, the as-required 2 days run past the weekly off, the go-live date
 -10, the department -10 once), the periods, and two demo months judged on every day of a month, every line held to
 -10 x never done and its still-open-today recounted from the records. frontend/tests/latenessCore.test.ts holds every
 scorecard to its frozen reference with the two new fields taken off, and the minus rule on every line of all 126.
-dailyNudgeStanding.test.ts (the notification's sentence) and mitraHistoryReview.test.ts 12b (Mitra's lines).
+dailyNudgeStanding.test.ts (the notification's sentence), mitraHistoryReview.test.ts 12b (Mitra's lines) and
+backend/tests/apiV1Records.test.ts (the phone's GET /api/v1/figures, through the engine in the server worker).
 tests/e2e_performance.py: every line, card, tile and CSV row, the rule's words, the print, the QC account and the
 shared department; still open today recounted from the records, never assumed above 0 (the suite runs on the real
 clock). See docs/TESTING.md "The minus score".
