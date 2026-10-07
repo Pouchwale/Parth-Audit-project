@@ -21,7 +21,12 @@
   * where a department has two accounts a submitted record counts for whoever
     submitted it and an unsubmitted one against both, and a person who also
     answers for a department the viewer cannot see is marked as part-scored
-    (the page is handed a made-up directory for this; the records are real).
+    (the page is handed a made-up directory for this; the records are real);
+  * the minus score (REQUIREMENTS s92): every line, card, the plant's tile and
+    the CSV carry -10 for each record never done (0, never -0, when none), with
+    a true minus sign on screen and the plain number in data-minus; "still open
+    today" is recounted from the records on file (never assumed above 0: the
+    suite runs on the real clock and the day may be the weekly off).
 
 Network-independent, against the production build on :8842. The suite signs up
 two accounts: a fresh one with no departments, and one kept to Quality Control
@@ -45,7 +50,9 @@ from playwright.sync_api import sync_playwright
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-BASE = "http://localhost:8842"
+BASE = os.environ.get("DCRS_BASE", "http://localhost:8842").rstrip("/")
+# The minus score is written with a true minus sign (U+2212) on screen.
+MINUS = "\u2212"
 PASSWORD = "PlaywrightQA123"
 # Names with no word in them that is also a button's label.
 VIEWER = "Tally QA"
@@ -129,6 +136,9 @@ def table_rows(page, table):
                grade: tr.dataset.grade,
                due: n('due'), onTime: n('onTime'), late: n('late'), overdue: n('overdue'), pending: n('pending'),
                score: cell('score').trim(),
+               minus: Number((tr.querySelector("[data-col='minus']") || { dataset: {} }).dataset.minus),
+               minusText: cell('minus').trim(),
+               openToday: Number((tr.querySelector("[data-col='minus']") || { dataset: {} }).dataset.openToday),
              };
            })"""
     )
@@ -143,6 +153,20 @@ def adds_up(rows):
         if r["onTime"] + r["late"] + r["overdue"] != r["due"] or shown_score != want:
             wrong.append((r, want))
     return wrong
+
+
+def minus_for(overdue):
+    """The minus score (s92): -10 for each record never done, 0 when none."""
+    return -10 * overdue if overdue > 0 else 0
+
+
+def minus_text(minus):
+    return "0" if minus == 0 else f"{MINUS}{-minus}"
+
+
+def minus_wrong(rows):
+    """The lines whose minus score is not -10 x their never done, or is written wrong, or has more open today than not due yet."""
+    return [r for r in rows if r["minus"] != minus_for(r["overdue"]) or r["minusText"] != minus_text(r["minus"]) or not (0 <= r["openToday"] <= r["pending"])]
 
 
 def grade_for(score):
@@ -242,6 +266,9 @@ def card_figures(card):
                scored: el.dataset.scored, grade: el.dataset.grade,
                score: text("[data-field='person-score']"), onTime: n('onTime'), late: n('late'), overdue: n('overdue'),
                decision: text("[data-section='person-decision']"), partial: text("[data-section='person-partial']"),
+               minus: el.querySelector("[data-field='person-minus']") ? Number(el.querySelector("[data-field='person-minus']").dataset.minus) : null,
+               minusText: text("[data-field='person-minus'] .score-minus-figure"),
+               openToday: el.querySelector("[data-field='person-minus']") ? Number(el.querySelector("[data-field='person-minus']").dataset.openToday) : null,
              };
            }"""
     )
@@ -249,7 +276,7 @@ def card_figures(card):
 
 def recount(records, master, document_id, first, last, today):
     """One scheduled document's records on file, judged the way the page says it judges them."""
-    got = {"onTime": 0, "late": 0, "overdue": 0, "pending": 0}
+    got = {"onTime": 0, "late": 0, "overdue": 0, "pending": 0, "openToday": 0}
     for r in records:
         if r["documentId"] != document_id or not r.get("isDemo") or not (first <= r["dueDate"] <= last):
             continue
@@ -265,6 +292,9 @@ def recount(records, master, document_id, first, last, today):
             got["overdue"] += 1
         else:
             got["pending"] += 1
+            # Its last day is today: never done tomorrow, 10 off (s92).
+            if r["dueDate"] == today and r["status"] in ("Scheduled", "Due", "In Progress"):
+                got["openToday"] += 1
     return got
 
 
@@ -317,6 +347,13 @@ with sync_playwright() as p:
         all(part in rule for part in ("on time 1", "late ½", "never done 0", "as-required record gets 2 days")),
         rule,
     )
+    minus_rule = page.locator("[data-section='performance-minus-rule']")
+    minus_rule_text = minus_rule.evaluate("el => el.textContent") if minus_rule.count() else ""
+    check(
+        "It says how the minus score is counted: 10 off for each record never done, 10 due and 8 done is -20",
+        "Minus score" in minus_rule_text and "takes 10 off" in minus_rule_text and f"{MINUS}20" in minus_rule_text,
+        minus_rule_text,
+    )
     check("It opens on this month", page.locator("[data-field='performance-period']").input_value() == "this-month")
     check("A demo year has no go-live date to leave records out by", page.locator("[data-section='performance-counted-from']").count() == 0)
     if EARLY:
@@ -339,6 +376,15 @@ with sync_playwright() as p:
         int(total["due"]) == sum(r["due"] for r in departments) == sum(r["due"] for r in modules) and int(total["onTime"]) == sum(r["onTime"] for r in departments),
         (total, sum(r["due"] for r in departments), sum(r["due"] for r in modules)),
     )
+    check("Every department and module line's minus score is -10 for each never done, 0 when none, with a true minus sign", not minus_wrong(departments) and not minus_wrong(modules), (minus_wrong(departments) + minus_wrong(modules))[:3])
+    tile = page.locator("[data-overall='minus']")
+    tile_minus = int(tile.get_attribute("data-minus")) if tile.count() else None
+    check(
+        "The plant's minus score is the departments' added up, and -10 for each of the plant's never done",
+        tile_minus == sum(r["minus"] for r in departments) == minus_for(int(total["overdue"])) and total.get("minus") == minus_text(tile_minus or 0)
+        and int(tile.get_attribute("data-open-today")) == sum(r["openToday"] for r in departments),
+        (tile_minus, total, [(r["key"], r["minus"]) for r in departments]),
+    )
 
     # ==================================================================
     # 3. Documents: worst first, each line its own records on file
@@ -348,11 +394,12 @@ with sync_playwright() as p:
     check("The documents table lists every record-holding format", len(documents) >= 40, len(documents))
     check("Every document line adds up, and its score is the formula", not adds_up(documents), adds_up(documents)[:3])
     check("Documents are listed worst first", worst_first(documents), [r["score"] for r in documents][:20])
+    check("Every document line's minus score is -10 for each never done", not minus_wrong(documents), minus_wrong(documents)[:3])
     master = stored(page, "master")
     viscosity = next((r for r in documents if r["key"] == "qc-viscosity"), None)
     mine = recount(records, master, "qc-viscosity", focus_first, month_last, today_iso)
     check(
-        "F-QC-30's line is what its records on file say, recounted here: on time, late, never done and not yet due",
+        "F-QC-30's line is what its records on file say, recounted here: on time, late, never done, not yet due and still open today",
         viscosity is not None and {k: viscosity[k] for k in mine} == mine and (THIN or viscosity["due"] > 0),
         (viscosity, mine),
     )
@@ -364,6 +411,7 @@ with sync_playwright() as p:
     year_total = overall(page)
     year_departments = table_rows(page, "performance-departments")
     check("This year's lines add up as well", not adds_up(year_departments) and not adds_up(table_rows(page, "performance-modules")), adds_up(year_departments)[:3])
+    check("...and this year's minus scores are -10 for each never done", not minus_wrong(year_departments) and not minus_wrong(table_rows(page, "performance-documents")), minus_wrong(year_departments)[:3])
     check(
         "The demo year has the spread a scorecard is for: records on time, late and never done",
         THIN or (int(year_total["onTime"]) > 0 and int(year_total["late"]) > 0 and int(year_total["overdue"]) > 0),
@@ -406,6 +454,7 @@ with sync_playwright() as p:
         card.count() == 1 and card.get_attribute("data-scored") == "no" and card.locator("[data-field='person-score']").count() == 0 and card.locator("[data-field='person-unscored']").count() == 1,
         card.first.evaluate("el => el.textContent") if card.count() else None,
     )
+    check("...and no minus score either: it answers for no record", card.count() == 1 and card.locator("[data-field='person-minus']").count() == 0)
     written = card.locator(".score-card-name.notranslate[translate='no']")
     check("A person's name is shown as written, never translated", card.count() == 1 and written.count() == 1 and written.evaluate("el => el.textContent.trim()") == VIEWER)
     check("The page says how a record counts where a department has more than one account", "counts for the person who submitted it" in page.locator("[data-section='performance-people-rule']").evaluate("el => el.textContent"))
@@ -430,12 +479,19 @@ with sync_playwright() as p:
     scored = page.locator("[data-person][data-scored='yes']").evaluate_all(
         """els => els.map((el) => {
              const n = (name) => Number(((el.querySelector(`[data-count='${name}'] strong`) || {}).textContent || '0').trim());
-             return { name: el.dataset.person, score: el.querySelector("[data-field='person-score']").textContent.trim(), onTime: n('onTime'), late: n('late'), overdue: n('overdue') };
+             const m = el.querySelector("[data-field='person-minus']");
+             return { name: el.dataset.person, score: el.querySelector("[data-field='person-score']").textContent.trim(), onTime: n('onTime'), late: n('late'), overdue: n('overdue'),
+                      minus: m ? Number(m.dataset.minus) : null, minusText: m ? m.querySelector('.score-minus-figure').textContent.trim() : null };
            })"""
     )
     check(
         "Every person who is scored carries the formula's score for their own counts",
         all((None if s["score"] == "—" else int(s["score"])) == expected_score(s["onTime"], s["late"], s["overdue"]) for s in scored),
+        scored,
+    )
+    check(
+        "...and a minus score of -10 for each of their own never done",
+        all(s["minus"] == minus_for(s["overdue"]) and s["minusText"] == minus_text(s["minus"]) for s in scored),
         scored,
     )
 
@@ -466,6 +522,7 @@ with sync_playwright() as p:
         download.suggested_filename,
     )
     check("...headed with what each figure is", lines[0][:9] == ["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score"], lines[0])
+    check("...the minus score and what is still open today after the score, then the grade and the decision", lines[0][9:] == ["Minus score", "Still open today", "Grade", "Decision"], lines[0])
     kinds = [l[0] for l in lines[1:]]
     check("...with the people, the departments, the modules and every document", {"Person", "Department", "Module", "Document"} <= set(kinds) and kinds.count("Document") == len(on_screen), (sorted(set(kinds)), kinds.count("Document"), len(on_screen)))
     exported = next((l for l in lines if l[0] == "Department" and l[2] == "QC"), None)
@@ -475,6 +532,20 @@ with sync_playwright() as p:
         exported is not None and qc_row is not None and [int(x) for x in exported[3:7]] == [qc_row["due"], qc_row["onTime"], qc_row["late"], qc_row["overdue"]],
         (exported, qc_row),
     )
+    check(
+        "...its minus score and open today too, as plain numbers",
+        exported is not None and qc_row is not None and int(exported[9]) == qc_row["minus"] and int(exported[10]) == qc_row["openToday"],
+        (exported, qc_row),
+    )
+    # An account listed without a score has blanks in every figure, "No score" at the grade.
+    scored_rows = [l for l in lines[1:] if l[3] != ""]
+    check(
+        "Every scored line of the export has a minus score of -10 for each never done",
+        bool(scored_rows) and all(int(l[9]) == minus_for(int(l[6])) for l in scored_rows),
+        [l[:11] for l in scored_rows if int(l[9]) != minus_for(int(l[6]))][:3],
+    )
+    unscored_rows = [l for l in lines[1:] if l[0] == "Person" and l[3] == ""]
+    check("...and an account listed without a score has a blank there, and No score at the grade", all(l[3:11] == [""] * 8 and l[11] == "No score" for l in unscored_rows), unscored_rows[:2])
 
     page.evaluate(STUB_PRINT)
     page.click("[data-action='performance-print']")
@@ -489,6 +560,7 @@ with sync_playwright() as p:
                   rule: shown("[data-section='performance-rule']"),
                   heading: shown("[data-section='performance-scorecard'] .doc-header"),
                   departments: shown("[data-table='performance-departments']"),
+                  minus: shown("[data-table='performance-departments'] [data-col='minus']") && shown("[data-overall='minus']") && shown("[data-section='performance-minus-rule']"),
                   rows: document.querySelectorAll("[data-table='performance-documents'] tbody tr[data-grade]").length,
                   sidebar: shown('.app-sidebar'),
                   topbar: shown('.app-topbar'),
@@ -501,8 +573,8 @@ with sync_playwright() as p:
         page.emulate_media(media="screen")
         page.evaluate(END_PRINT)
     check(
-        "Print prints the scorecard - its heading, the rule, every table and every document line",
-        seen["printed"] == 1 and seen["scoped"] and seen["scorecard"] and seen["rule"] and seen["heading"] and seen["departments"] and seen["rows"] == len(on_screen),
+        "Print prints the scorecard - its heading, the rule, every table, the minus score and every document line",
+        seen["printed"] == 1 and seen["scoped"] and seen["scorecard"] and seen["rule"] and seen["heading"] and seen["departments"] and seen["minus"] and seen["rows"] == len(on_screen),
         seen,
     )
     check("...alone: no sidebar, no top bar, no period picker and no buttons on the paper", not any(seen[k] for k in ("sidebar", "topbar", "period", "exportButton", "printButton")), seen)
@@ -557,6 +629,11 @@ with sync_playwright() as p:
             figures["decision"],
         )
         check("...and no warning of a part score: every department it answers for is on its own screen", figures["partial"] == "", figures["partial"])
+        check(
+            "...with QC's minus score and QC's records still open today",
+            figures["minus"] == dept["minus"] == minus_for(dept["overdue"]) and figures["minusText"] == dept["minusText"] and figures["openToday"] == dept["openToday"],
+            (figures, dept),
+        )
     qc_listing = directory(page)
     qc_people = (json.loads(qc_listing["text"]) if qc_listing["status"] == 200 else {}).get("people") or []
     check(
@@ -611,6 +688,11 @@ with sync_playwright() as p:
         check(
             "A record nobody submitted counts against every account of the department",
             hers["overdue"] == theirs["overdue"] == shared_dept["overdue"],
+            (hers, theirs, shared_dept),
+        )
+        check(
+            "...so each of them loses 10 for it: both minus scores are the department's",
+            hers["minus"] == theirs["minus"] == shared_dept["minus"] == minus_for(shared_dept["overdue"]),
             (hers, theirs, shared_dept),
         )
         check(

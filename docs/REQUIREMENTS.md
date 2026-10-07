@@ -5830,6 +5830,68 @@ e2e_hr_module (129), e2e_maintenance_module (the module's name), e2e_find_every_
 both spellings, F-PRD-25 still on the list) and e2e_celebrations (the Production account's other sheets of the day handed
 in first). See docs/TESTING.md "The Production module".
 
+## §92 The minus score on the Performance dashboard (7-Oct-2026)
+
+**The request.** The owner, 7-Oct-2026: "So how to make this application downloadable once it will build perfectly and
+don't every time build whole application again because i need display score in -10 and in subtraction like example
+whenever any user given 10 task and he is completed 8 of them then his score will be -20 so this will be applicable to
+all user and make sure do add this in performance dashboard so do that add and do it perfectly, fast, and error free."
+(How to make DCRS downloadable is answered on its own; this section is the score.)
+
+**1. The rule.** A task is a record the Performance Scorecard already counts as due for that person (§64, §75: the same
+records, the same plant calendar, the same period the page shows). Each record **never done** (never handed in after
+its day, latenessCore's "overdue") takes **10 off**: minus score = -10 x never done. **10 due and 8 handed in is -20.**
+Nothing missed is **0**, never "-0". A record handed in late was still done (the owner said "completed") and costs
+nothing; a record whose day has not ended yet costs nothing yet. On screen the figure has a true minus sign (U+2212) and
+is kept out of translation; the element that holds it carries the plain number (`data-minus`), and the export writes
+it as a plain number too. engine/performance.ts `minusScore`, `formatMinus`, `MINUS_PER_MISSED`.
+
+**2. Still open today.** Beside the minus score, so nobody is surprised the next morning: the records not handed in
+whose **last day is today** (a scheduled record due today; an as-required record on the last of its 2 days, which never
+ends on a closed day). Each takes 10 off tomorrow if it is still not in. It is worked out by asking the same rule as of
+tomorrow (a record not due yet today that is never done tomorrow), so the as-required allowance and the closed days stay
+engine/latenessCore.ts's own; "Not due yet" is not used for it, because it holds every future day's blank sheet of the
+month. On the weekly off a scheduled record dated that day is not counted at all, so nothing is open then.
+
+**3. Everything else is the scorecard's rule.** Closed days, the register's H O L I D A Y line, reference documents,
+the go-live date (Live), the as-required 2 days and the four periods (and a month given as a range) are exactly as
+§64 and §75 set them. So is whom a record counts against: in a department with two accounts, a record nobody handed in
+counts against both, so **each** account loses 10 for it while the department loses 10 once. People's minus scores
+therefore need not add up to their department's; the departments do add up to the plant's. The administrator and an
+account kept to no department answer for no record: they are listed with "No score" and no minus score, as before.
+
+**4. Where it shows.**
+
+| Place | What |
+|---|---|
+| Each person's card | A band under the score out of 100: the minus score, "Minus score", and "2 never done, 10 off each" (or "Nothing missed"); red while anything was missed, green at 0. Under it, when anything is open on its last day: "3 records are still open today: each takes 10 off if it is not submitted today." |
+| Departments, Modules and Documents tables | A **Minus score** column after Score (`data-col="minus"`, with `data-minus` and `data-open-today`). |
+| The plant's figures | A tile after Never done: the plant's minus score, and "N still open today". |
+| The rule box | One line: "Minus score: every record never done takes 10 off, so 10 records due and 8 done is -20 ..." |
+| Export CSV | Two columns after Score, **10 "Minus score" and 11 "Still open today"** (plain numbers, -20); Grade and Decision move two columns right, every column before stays where it was. |
+| Print | Everything above is inside the scorecard that prints. |
+| Gujarati | The words are in i18n/strings.score.ts (English and Gujarati). With Gujarati chosen Google translates the page from the English, as everywhere; the built-in Gujarati shows when Google cannot be reached. |
+| Mitra on the website | The history answers ("who was late last month?", engine/historyDigest.ts) carry it on the plant's line ("minus score -20 (10 off for each never done)"), each person's line and each department's line, with or without the model. The day's notification adds "Minus score this month: -20." (or "0, nothing missed.") after the score's own sentence. |
+| Mitra on the phone | GET /api/v1/figures builds the same evidence, so the plant's and the departments' lines reach the phone with the minus score; nothing in /api/v1 or the phone app changed. |
+
+**5. What did not change.** The score out of 100, its grades, the decision sentences, the order (worst first), the
+escalations to the super admin and the weekly digest (backend/escalation.ts), the spoken reminder, the Management
+Summary report and the Dashboard's "Today's score" (§81, item 5). The two minus figures are not the same thing: the
+Dashboard's Today's score is today's work as a share, round(done / due x 100) - 100; the Performance minus score is
+10 off for each record never done over the period chosen. They agree when exactly 10 are due (8 done: -20 on both);
+4 of 5 done is -20 on the Dashboard and -10 on the Performance page. Item 59 asks the owner which he meant.
+
+**Tests.** frontend/tests/minusScore.test.ts (10): the owner's example (10 due, 8 done: -20, the score still 70 or 80),
+late costs nothing, 0 never -0, not due yet and still open today (and the next day), the plant's closed days and an
+adjustment day, the as-required 2 days run past the weekly off, the go-live date, a shared department (each account
+-10, the department -10 once), the periods, and two demo months judged on every day of a month, every line held to
+-10 x never done and its still-open-today recounted from the records. frontend/tests/latenessCore.test.ts holds every
+scorecard to its frozen reference with the two new fields taken off, and the minus rule on every line of all 126.
+dailyNudgeStanding.test.ts (the notification's sentence) and mitraHistoryReview.test.ts 12b (Mitra's lines).
+tests/e2e_performance.py: every line, card, tile and CSV row, the rule's words, the print, the QC account and the
+shared department; still open today recounted from the records, never assumed above 0 (the suite runs on the real
+clock). See docs/TESTING.md "The minus score".
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -6067,6 +6129,12 @@ in first). See docs/TESTING.md "The Production module".
     shift on paper; DCRS keeps one a day, with the DATE & SHIFT box written by the person. F/MNT/01 lists three laminators
     (M-61, M-62, M-80) and two slitters (M-66, M-78) in the pouch section: should each machine and shift be a record of its
     own? F/PRD/21 is kept per machine already (as required).
+
+59. **Two minus scores** (§92). The Dashboard's "Today's score" (§81) already shows the same example, 10 tasks and 8
+    done as -20, worked out as a share: round(done / due x 100) - 100. The Performance page's new minus score takes 10
+    off for each record never done. They agree only when exactly 10 are due: 4 of 5 done is -20 on the Dashboard and -10
+    on the Performance page; 18 of 20 done is -10 there and -20 here. DCRS keeps both as they are. Did "display score in
+    -10" mean 10 off for each record missed (as built), and should the Dashboard's figure follow it?
 
 ## How the assistant pre-fills records (and what it never does)
 
