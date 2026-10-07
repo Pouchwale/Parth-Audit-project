@@ -57,7 +57,8 @@ export function DemoModePage() {
         </div>
       )}
 
-      <div className="card mb-6" style={{ borderColor: mode === "demo" ? "var(--color-demo)" : undefined }}>
+      {/* data-section names the card for its row of boxes and button (styles.css AREA 5, REQUIREMENTS §90). */}
+      <div className="card mb-6" data-section="demo-generate" style={{ borderColor: mode === "demo" ? "var(--color-demo)" : undefined }}>
         <div className="card-header">
           <h3 className="text-lg">Generate Demo Month</h3>
           {mode === "demo" && <span className="demo-tag">DEMO MODE ACTIVE</span>}

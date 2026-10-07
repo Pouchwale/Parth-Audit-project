@@ -2441,6 +2441,10 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
    marks the page you are on; folders amber, the root in the accent. A month is a surface on a
    hairline with its head on the sunken band. */
 .file-controls { margin: 12px 0 10px; }
+/* The folder, the two dates and the three quick ranges: the buttons stand level with the boxes, at
+   their own height (the row's items-end was never a rule of its own, so they stretched up to the
+   labels). The controls never print. */
+.file-controls .card-pad.items-end { align-items: flex-end; }
 .file-breadcrumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; margin-bottom: 12px; }
 .file-breadcrumb .crumb { background: none; border: none; padding: 2px 4px; font: inherit; color: var(--ink); }
 .file-breadcrumb button.crumb { color: var(--accent-text); cursor: pointer; }
@@ -2462,6 +2466,11 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .file-node:focus-visible, .file-month-head:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .file-breadcrumb button.crumb:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
 .file-count { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--ink-2); background: var(--surface-sunken); border-radius: 999px; padding: 1px 8px; }
+/* On screen a count is the neutral status pair, as the design's counts are; a month's count prints
+   in the tints it always printed in (the print block's values for the two names above). */
+@media screen {
+  .file-count { color: var(--neutral); background: var(--neutral-soft); }
+}
 .file-summary { margin-bottom: 10px; color: var(--ink-2); }
 .file-month { border: 1px solid var(--hairline); border-radius: var(--radius-md); background: var(--surface); margin-bottom: 10px; overflow: hidden; }
 .file-month-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: none; background: var(--surface-sunken);
@@ -2512,6 +2521,7 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .progress-bar { height: 8px; background: var(--neutral-soft); border-radius: 999px; overflow: hidden; }
 .progress-bar > div { height: 100%; background: var(--success-fill); transition: width 0.2s; }
 .checklist-section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+/* A done activity's row is the paper's own pale green: the checklist's rows lie on the sheet. */
 .checklist-done td { background: #f4fbf7; }
 /* One activity at a time (REQUIREMENTS §37): the activity the checklist is
    waiting on is marked, and everything after it is dimmed and unusable until
@@ -2525,6 +2535,10 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
   .checklist-current td { background: transparent; }
   .checklist-current td:first-child { box-shadow: none; }
   .checklist-locked td { opacity: 1; }
+}
+/* Less movement, for anybody who has asked for it (REQUIREMENTS §67): the bar fills at once. */
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar > div { transition: none; }
 }
 
 /* THE PERFORMANCE SCORECARD (pages/PerformancePage.tsx, REQUIREMENTS §64): the rule people are judged
@@ -2628,6 +2642,13 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 @media screen and (max-width: 480px) {
   [data-section="theme-settings"] .pill-tabs.theme-choice { display: flex; }
   [data-section="theme-settings"] .pill-tabs.theme-choice .pill-tab[role="radio"] { flex: 1 1 auto; justify-content: center; }
+}
+
+/* A ROW OF BOXES AND ITS BUTTON (the plant's working hours on Master Data, the month to generate on
+   Demo Mode): the button stands level with the boxes, at its own height, rather than stretched up to
+   the labels (the row's items-end was never a rule of its own). Screen only. */
+@media screen {
+  [data-section="plant-hours"] .flex.items-end, [data-section="demo-generate"] .flex.items-end { align-items: flex-end; }
 }
 
 /* ==== end of AREA 5 ==== */
