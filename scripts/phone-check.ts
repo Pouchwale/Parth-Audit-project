@@ -241,7 +241,7 @@ async function hoursStep(setup: CheckSetup, found: Found): Promise<Step> {
     } else {
       if (words(hours.hoursText)) lines.push(words(hours.hoursText)!);
       if (words(hours.todayText)) lines.push(words(hours.todayText)!);
-      lines.push(hours.openNow === true ? "Right now staff can sign in, on the phone too." : "Right now only the super admin can sign in; staff are turned away until DCRS opens, on the phone too.");
+      lines.push(hours.openNow === true ? "Right now staff can sign in, on the phone too." : "Right now only the super admin can sign in; staff are turned away until their hours start again, on the phone too.");
     }
   }
   if (features.demoMode === true) {

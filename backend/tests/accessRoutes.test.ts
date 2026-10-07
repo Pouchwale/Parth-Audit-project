@@ -403,11 +403,11 @@ describe("today", () => {
 });
 
 describe("the working hours", () => {
-  it("hands on the gate's own answer: the hours and where today stands, in words", async () => {
+  it("hands on the gate's own answer: the staff's hours and where today stands for them, in words", async () => {
     fresh();
     const res = await get("/api/access/overview");
-    assert.equal(res.json.hours.hoursText, "DCRS is open 8:40 am to 6:20 pm on working days.");
-    assert.equal(res.json.hours.todayText, "Today is a working day — open now, until 6:20 pm.");
+    assert.equal(res.json.hours.hoursText, "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.");
+    assert.equal(res.json.hours.todayText, "Today is a working day — staff hours run until 6:20 pm.");
     assert.equal(res.json.hours.phase, "open");
     assert.equal(res.json.hours.enforced, true);
   });
@@ -450,7 +450,7 @@ describe("the working hours", () => {
   it("knows a Thursday for the weekly off", () => {
     const thursday = gateAt("2026-10-01T06:00:00Z", true);
     assert.equal(thursday.phase, "closed-day");
-    assert.match(thursday.todayText, /Thursday, the weekly off/);
+    assert.match(thursday.todayText, /^Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am\.$/);
   });
 });
 

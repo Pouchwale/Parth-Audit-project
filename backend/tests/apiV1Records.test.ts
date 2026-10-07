@@ -255,6 +255,17 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.ok(Array.isArray(r.body.nextHolidays) && Array.isArray(r.body.due) && Array.isArray(r.body.overdue) && Array.isArray(r.body.awaitingVerification));
     assert.ok(r.body.workingHours, "the plant's hours are said too");
     assert.match(r.body.facts, /Today:/);
+    // Worded for the caller (§84 addendum, 6-Oct-2026): the staff's hours; staff are told nothing new.
+    assert.match(r.body.workingHours.hoursText, /^Staff working hours: .* The super admin can sign in at any time\.$/);
+    assert.equal(r.body.workingHours.forYou, null);
+  });
+
+  it("GET /today tells the super admin the hours are the staff's and that he can keep working — what Mitra on the phone is given", async () => {
+    const r = await call(s, "GET", "/api/v1/today", T.admin);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.workingHours.heldToHours, false);
+    assert.equal(r.body.workingHours.forYou, "You are the super admin: these are the staff's hours, and you can keep working at any time.");
+    for (const words of [r.body.workingHours.hoursText, r.body.workingHours.todayText]) assert.doesNotMatch(words, /DCRS is open|opens again|DCRS is closed|not open yet/, words);
   });
 
   it("POST /records starts today's record of a QC log sheet, prepared as the app's start-up prepares it, and says it through the app", async () => {

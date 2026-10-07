@@ -443,6 +443,18 @@ Seven scripts live in `tests/`:
   `backend/tests/workingHours.test.ts` (the gate with a clock the test sets, the super admin exempt, the off switch, the session's
   end, the /api/v1 routes), `backend/tests/accessRoutes.test.ts` (38: refusals, pairing sign-ins with sign-outs, "signed in now",
   paging, CSV), `frontend/tests/intro.test.ts`.
+  *The super admin at any hour (§84 addendum, 6-Oct-2026).* The hours' words are the staff's: `frontend/tests/workingHours.test.ts`
+  holds the owner's sentences word for word, proves no sentence says DCRS opens or closes (English and Gujarati, every kind of
+  moment), the Gujarati, a screen's words rebuilt from the server's answer, the person's answer (`forYou`, `heldToHours`) and the
+  super admin's sign-in in the day's last ten minutes running to the midnight after; `backend/tests/workingHours.test.ts` the
+  gate's words for each person at every closed moment; `backend/tests/apiV1Records.test.ts` /api/v1/today for staff and for the
+  super admin; `frontend/tests/mitraHistory.test.ts` the staff-hours line in Mitra's live facts. `tests/e2e_working_hours.py`
+  now checks the sign-in page's main words, staff's refusal and warning in the new words, the super admin's answers (and, where
+  the server holds the hours, his /api/v1/today while they are closed), and his own end of the day, faked: a warning ten minutes
+  before, the browser's sign-out with "Signed out — At the end of the day (midnight)" in the log, the notice, and signing in
+  again; `tests/e2e_user_access.py` his line on the hours card. The phone server's `dcrs-app.test.ts` and
+  `dcrs-connector.test.ts` prove DCRS's super admin is the app's super admin (and stops being so when DCRS says otherwise at the
+  next sign-in), `forYou` reaching the model, and open_record pinned to the day its card showed.
 - **The five formats of 02-Oct-2026 and the header block on every document** (REQUIREMENTS §86). New browser suite:
   `tests/e2e_header_editing.py` (demo server, the fill suite's account): on an F/QC/33 record the Page No. and the Date are
   typed over, kept on that record with a history line and after a reload; the format number typed over asks why first,

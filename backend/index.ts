@@ -36,7 +36,7 @@ import {
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
 import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, type PublicUser } from "./auth.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
-import { END_OF_HOURS_REASON, OUTSIDE_HOURS_REASON, type OutsideHoursRefusal } from "../frontend/src/engine/workingHoursCore.ts";
+import { END_OF_DAY_REASON, END_OF_HOURS_REASON, OUTSIDE_HOURS_REASON, type OutsideHoursRefusal } from "../frontend/src/engine/workingHoursCore.ts";
 import { distDir } from "./paths.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
@@ -391,7 +391,7 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   logActivity(req, user, "Account created", user.email, user.role === "admin" ? "The first account — the system administrator" : user.departments.length ? `Departments: ${user.departments.join(", ")}` : "Every department");
   // With the account, what this server has switched on (features.ts, REQUIREMENTS §65) — here, at sign-in and in
   // /api/auth/me — and when this session ends (§84).
-  res.status(201).json({ user, features: FEATURES, session: await hours.sessionAnswer(user, endsAt), hours: await hours.publicAnswer() });
+  res.status(201).json({ user, features: FEATURES, session: await hours.sessionAnswer(user, endsAt), hours: await hours.personAnswer(user) });
 });
 
 // WHO SEES WHICH DEPARTMENT'S DOCUMENTS — set by the admin, not by the person
@@ -605,12 +605,14 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
     res.status(403).json(refused);
     return;
   }
-  // A DAY'S SESSION (§84, C3): it ends at the close of today — END for staff, midnight for the super admin.
+  // A DAY'S SESSION (§84, C3): it ends at the close of today — END for staff, midnight for the super admin (the
+  // midnight after, for his sign-in in the day's last ten minutes). The hours in the answer are worded for this
+  // person: the staff's hours, and for the super admin a line saying he can keep working (§84 addendum, 6-Oct-2026).
   const endsAt = await hours.sessionEnd(user);
   issueSession(res, user, endsAt);
   void markSignedIn(row.id, new Date().toISOString()).catch(() => undefined);
   logActivity(req, user, "Signed in", user.email);
-  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt), hours: await hours.publicAnswer() });
+  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt), hours: await hours.personAnswer(user) });
 });
 
 // A session the browser ends a moment after its close — its clock, a laptop
@@ -621,6 +623,9 @@ const SIGN_OUT_REASONS: Record<string, string> = {
   [END_OF_HOURS_REASON]: "At the close of working hours",
   // The server refused the session outside the plant's hours, and the browser signed out.
   [OUTSIDE_HOURS_REASON]: "Outside working hours",
+  // The super admin's session reached the end of its day, the factory's midnight, and the browser signed him out
+  // a moment before, so what was still on its way was sent first (§84 addendum, 6-Oct-2026).
+  [END_OF_DAY_REASON]: "At the end of the day (midnight)",
 };
 
 app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> => {
@@ -801,7 +806,7 @@ app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
     res.status(403).json({ ...refused, features: FEATURES });
     return;
   }
-  res.json({ user, features: FEATURES, mustChangePassword: await mustChangePassword(user.id), session: await hours.sessionAnswer(user, session.endsAt), hours: await hours.publicAnswer() });
+  res.json({ user, features: FEATURES, mustChangePassword: await mustChangePassword(user.id), session: await hours.sessionAnswer(user, session.endsAt), hours: await hours.personAnswer(user) });
 });
 
 // Same in-memory-per-key throttle shape as loginAttempts above, just keyed

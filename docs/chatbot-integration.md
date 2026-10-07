@@ -65,8 +65,8 @@ Content-Type: application/json
 ```
 
 - **The token** is the value of the `dcrs_session` cookie. In Node, read it with `response.headers.getSetCookie()`.
-- **It lasts until the close of the day it was started** (REQUIREMENTS §84). For everybody but the super admin that is the end of the plant's working hours, 6:20 pm factory time unless the super admin changes it; for the super admin it is midnight, factory time. Take `expiresAt` from `session.endsAt` in the answer. The cookie's `Max-Age` runs to the same moment. So every morning starts with signing in again.
-- **The plant's working hours.** DCRS is open from 8:40 am to 6:20 pm on a working day of the plant's calendar: not on the weekly off (Thursday), unless it is an adjustment day, and not on a festival holiday. Outside those hours anybody but the super admin is refused, at sign-in and on every `/api/v1` call, with `403` and the code `outside-working-hours`. The answer's `error` says why in words the person can read, and `opensAt` says when DCRS opens again.
+- **It lasts until the close of the day it was started** (REQUIREMENTS §84). For everybody but the super admin that is the end of the staff's working hours, 6:20 pm factory time unless the super admin changes it; for the super admin it is midnight, factory time (the midnight after, for a sign-in in the day's last ten minutes). Take `expiresAt` from `session.endsAt` in the answer. The cookie's `Max-Age` runs to the same moment. So every day starts with signing in again.
+- **The staff's working hours.** Staff may use DCRS from 8:40 am to 6:20 pm on a working day of the plant's calendar: not on the weekly off (Thursday), unless it is an adjustment day, and not on a festival holiday. The super admin may sign in and work at any hour of any day. Outside those hours anybody but the super admin is refused, at sign-in and on every `/api/v1` call, with `403` and the code `outside-working-hours`. The answer's `error` says why in words the person can read ("Staff working hours: … Today's staff hours ended at 6:20 pm; they start again on …"), and `opensAt` says when their hours start again. DCRS's words never say DCRS itself is open or closed (the owner, 6-Oct-2026): pass them on as they are.
 - **Send it on every `/api/v1` call** as `Authorization: Bearer <token>`. DCRS also accepts it as the `dcrs_session` cookie.
 - **DCRS reads the account again on every call.** An account switched off by the administrator stops working at its very next call.
 
@@ -78,7 +78,7 @@ Map DCRS's answers onto the connector's errors like this:
 | `400` | Email or password missing | `invalid_credentials` |
 | `401` | Wrong email or password | `invalid_credentials` |
 | `403` | The account is switched off | `forbidden`, with DCRS's message |
-| `403` with `code: "outside-working-hours"` | Outside the plant's working hours. Only the super admin may sign in then. | `forbidden`, with DCRS's message, for example "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am." |
+| `403` with `code: "outside-working-hours"` | Outside the staff's working hours. Only the super admin may sign in then. | `forbidden`, with DCRS's message, for example "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am." |
 | `429` | Eight wrong passwords for that email in ten minutes | `forbidden`, with DCRS's message "Too many failed attempts. Try again in a few minutes." |
 | Anything else, or no answer | DCRS is not reachable | `unavailable` |
 
@@ -481,7 +481,7 @@ It can be refused in three ways:
 
 `GET /api/v1/today` answers what Mitra's `todays_facts` gives, for the person's departments:
 - whether today and tomorrow are working days, the weekly off, and the next holidays and adjustment days;
-- the plant's hours (`workingHours`);
+- the staff's working hours (`workingHours`), worded for the person asking: `hoursText` and `todayText` say the staff's hours and where today stands for them, and for the super admin `forYou` says "You are the super admin: these are the staff's hours, and you can keep working at any time." (null for staff). Give the model all three, so it never tells the super admin that DCRS is closed;
 - what is overdue, due today, and due in the next three days;
 - what is ready to submit, what needs input, and what is awaiting verification;
 - the same facts in words (`facts`).
@@ -497,7 +497,7 @@ It can be refused in three ways:
   "upcoming": [{ "documentId": "qc-viscosity", "formatNo": "F-QC-30", "document": "Lamination Adhesive Viscosity Record", "dueDate": "2026-10-02", "status": null, "recordId": null, "started": false }],
   "readyToSubmit": [], "needsInput": [], "awaitingVerification": [],
   "facts": "Today: Wednesday, 30-Sep-2026 — Working day.\n…\nRecords due today: 9 (1 submitted or verified, 8 still open). …",
-  "workingHours": { "enforced": true, "start": "08:40", "end": "18:20", "openNow": true, "hoursText": "DCRS is open 8:40 am to 6:20 pm on working days.", "todayText": "Today is a working day — open now, until 6:20 pm." }
+  "workingHours": { "enforced": true, "start": "08:40", "end": "18:20", "openNow": true, "hoursText": "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.", "todayText": "Today is a working day — staff hours run until 6:20 pm.", "heldToHours": true, "forYou": null }
 }
 ```
 
@@ -858,7 +858,7 @@ These are the changes to the assistant's repository, `server/`, so that everythi
    DATABASE_URL=postgresql://audit_assistant:<password>@<dcrs-db-host>:<port>/<dcrs database>
    DCRS_BASE_URL=http://<dcrs-host>:4000
    REPORT_TIME_ZONE=Asia/Kolkata
-   SUPER_ADMINS=<the DCRS super admin's email, lower case>
+   SUPER_ADMINS=<the DCRS super admin's email, lower case (the Mitra mobile app also counts DCRS's own super admin without it)>
    ```
 
 8. **Optionally, comment the tables.** `database/sql/optional/chatbot-table-comments.sql` in this repository describes every table and column of the assistant in plain English. Add it as a migration of the assistant's own, after `0000_init.sql`, so the assistant's tables explain themselves in the database viewer and the data dictionary. A DBA may instead run it once after the assistant has made its tables.

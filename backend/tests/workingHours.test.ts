@@ -8,7 +8,10 @@
 //     08:40, at 18:20 — with 403's body: the reason in plain words, the code and
 //     the next opening; let in at 08:40 and until 18:19:59; an adjustment
 //     Thursday is open;
-//   * the super admin is never refused, at any hour of any day;
+//   * the super admin is never refused, at any hour of any day, and the
+//     answer worded for him says the hours are the staff's and that he can
+//     keep working (the owner, 6-Oct-2026); his sign-in in the day's last ten
+//     minutes runs to the midnight after;
 //   * DCRS_WORKING_HOURS=off switches the gate off: nobody is refused, and a
 //     session runs to the factory's midnight for everybody;
 //   * a session ends at the close of its day — 18:20 for staff, midnight for the
@@ -96,7 +99,7 @@ describe("the gate, on a clock the test sets", () => {
     const { gate } = gateAt(ist("2026-10-01", 10, 0)); // a Thursday
     const refused = await gate.refusal(STAFF);
     assert.deepEqual(refused, {
-      error: "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.",
+      error: "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.",
       code: "outside-working-hours",
       opensAt: "2026-10-02T03:10:00.000Z",
     });
@@ -105,20 +108,20 @@ describe("the gate, on a clock the test sets", () => {
   it("lets staff in from 08:40 to 18:19:59 on a working day, and not a second either side", async () => {
     const { gate, setClock } = gateAt(ist("2026-09-30", 8, 39, 59));
     assert.equal((await gate.refusal(STAFF))?.code, "outside-working-hours");
-    assert.match((await gate.refusal(STAFF))!.error, /It is not open yet — it opens today at 8:40 am\.$/);
+    assert.match((await gate.refusal(STAFF))!.error, /Today is a working day\. Staff hours start today at 8:40 am\.$/);
     setClock(ist("2026-09-30", 8, 40));
     assert.equal(await gate.refusal(STAFF), null);
     setClock(ist("2026-09-30", 18, 19, 59));
     assert.equal(await gate.refusal(STAFF), null);
     setClock(ist("2026-09-30", 18, 20));
     const late = await gate.refusal(STAFF);
-    assert.equal(late?.error, "DCRS is open 8:40 am to 6:20 pm on working days. Today's working hours ended at 6:20 pm — it opens again on Friday 2 October at 8:40 am.");
+    assert.equal(late?.error, "Staff working hours: 8:40 am to 6:20 pm on working days. Today's staff hours ended at 6:20 pm; they start again on Friday 2 October at 8:40 am.");
     assert.equal(late?.opensAt, "2026-10-02T03:10:00.000Z");
   });
 
   it("closes on a festival and opens on an adjustment Thursday", async () => {
     const { gate, setClock } = gateAt(ist("2026-09-04", 11, 0));
-    assert.match((await gate.refusal(STAFF))!.error, /Today is Janmashtami, a company holiday — it opens again on Saturday 5 September at 8:40 am\./);
+    assert.match((await gate.refusal(STAFF))!.error, /Today is Janmashtami, a company holiday; staff hours start again on Saturday 5 September at 8:40 am\./);
     setClock(ist("2026-10-22", 11, 0));
     assert.equal(await gate.refusal(STAFF), null);
     setClock(ist("2026-10-15", 11, 0));
@@ -131,6 +134,36 @@ describe("the gate, on a clock the test sets", () => {
       setClock(at);
       assert.equal(await gate.refusal(ADMIN), null, at.toISOString());
     }
+  });
+
+  it("words the hours for the person: the super admin is told they are the staff's and that he can keep working, at every closed moment; staff get nothing new", async () => {
+    const { gate, setClock } = gateAt(ist("2026-10-07", 21, 0)); // the owner's evening: staff hours over
+    for (const at of [ist("2026-10-07", 21, 0), ist("2026-10-07", 6, 0), ist("2026-10-08", 10, 0), ist("2026-09-04", 12, 0), ist("2026-10-22", 23, 30)]) {
+      setClock(at);
+      const his = await gate.personAnswer(ADMIN);
+      assert.equal(his.heldToHours, false, at.toISOString());
+      assert.equal(his.forYou, "You are the super admin: these are the staff's hours, and you can keep working at any time.");
+      assert.match(his.hoursText, /^Staff working hours: .* The super admin can sign in at any time\.$/);
+      for (const words of [his.hoursText, his.todayText, his.forYou!]) assert.doesNotMatch(words, /DCRS is open|opens again|DCRS is closed|not open yet/, words);
+    }
+    setClock(ist("2026-10-07", 21, 0));
+    assert.equal((await gate.personAnswer(ADMIN)).todayText, "Today's staff hours ended at 6:20 pm; they start again on Friday 9 October at 8:40 am.");
+    const staff = await gate.personAnswer(STAFF);
+    assert.equal(staff.heldToHours, true);
+    assert.equal(staff.forYou, null);
+    const { heldToHours: _h, forYou: _f, ...rest } = staff;
+    assert.deepEqual(rest, await gate.publicAnswer());
+  });
+
+  it("gives the super admin's sign-in in the day's last ten minutes a session to the midnight after, and changes nobody else's", async () => {
+    const { gate, setClock } = gateAt(ist("2026-10-07", 23, 49));
+    assert.equal((await gate.sessionEnd(ADMIN)).toISOString(), "2026-10-07T18:30:00.000Z");
+    setClock(ist("2026-10-07", 23, 55));
+    assert.equal((await gate.sessionEnd(ADMIN)).toISOString(), "2026-10-08T18:30:00.000Z");
+    assert.equal((await gate.sessionAnswer(ADMIN, new Date("2026-10-08T18:30:00.000Z"))).endsAt, "2026-10-08T18:30:00.000Z");
+    // Staff at that moment: refused, and no session.
+    assert.notEqual(await gate.refusal(STAFF), null);
+    assert.equal((await gate.sessionEnd(STAFF)).getTime(), ist("2026-10-07", 23, 55).getTime());
   });
 
   it("switched off, refuses nobody and ends every session at the factory's midnight", async () => {
@@ -173,7 +206,7 @@ describe("the gate, on a clock the test sets", () => {
     setClock(ist("2026-09-30", 9, 0));
     assert.equal(await gate.refusal(STAFF), null);
     setClock(ist("2026-09-30", 17, 45));
-    assert.match((await gate.refusal(STAFF))!.error, /^DCRS is open 9:00 am to 5:30 pm on working days\. Today's working hours ended at 5:30 pm/);
+    assert.match((await gate.refusal(STAFF))!.error, /^Staff working hours: 9:00 am to 5:30 pm on working days\. Today's staff hours ended at 5:30 pm/);
     assert.equal(master.reads, 1, "read once while it has not changed");
     master.set({ ...CALENDAR, workingHours: { start: "08:40", end: "18:20" } });
     assert.equal(await gate.refusal(STAFF), null);
@@ -181,7 +214,7 @@ describe("the gate, on a clock the test sets", () => {
     const answer = await gate.publicAnswer();
     assert.equal(answer.start, "08:40");
     assert.equal(answer.end, "18:20");
-    assert.equal(answer.hoursText, "DCRS is open 8:40 am to 6:20 pm on working days.");
+    assert.equal(answer.hoursText, "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.");
     assert.equal(master.reads, 2);
   });
 
@@ -304,7 +337,7 @@ describe("the Audit Assistant's routes keep the same hours (backend/apiV1.ts)", 
     assert.equal(r.status, 403);
     assert.equal(r.body.code, "outside-working-hours");
     assert.equal(r.body.opensAt, "2026-10-02T03:10:00.000Z");
-    assert.equal(r.body.error, "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.");
+    assert.equal(r.body.error, "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.");
   });
 
   it("serves the super admin at the same moment", async () => {

@@ -58,8 +58,8 @@ export interface RecordsRouteDeps {
   /** The PDF printer (backend/pdfReport.ts), or null where it cannot print. */
   printer: () => Promise<{ browserPath(): string | null; render(opts: { appUrl: string; sessionToken: string; recordId: string; timeoutMs?: number }): Promise<Buffer> } | null>;
   appBuilt: () => boolean;
-  /** The plant's hours and where today stands (backend/workingHours.ts publicAnswer). */
-  hoursAnswer: () => Promise<unknown>;
+  /** The staff's hours and where today stands, worded for this person (backend/workingHours.ts personAnswer): the super admin is told they do not hold him. */
+  hoursAnswer: (user: PublicUser) => Promise<unknown>;
   /** The app's address as the caller reaches it (DCRS_APP_URL, else the request's own origin): each answer's `route` gets a `link` beside it. */
   appAddress: (req: Request) => string;
   /** The super admin's escalations: the ones not yet acknowledged (open), or every one raised or grown in the last 30 days. */
@@ -271,7 +271,8 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     const answer = await read(req, res, "today", {});
     if (!answer) return;
     if (answer.status === 200 && answer.body && typeof answer.body === "object") {
-      const hours = await deps.hoursAnswer().catch(() => null);
+      // Worded for the caller: the staff's hours, and for the super admin that they do not hold him (§84 addendum).
+      const hours = await deps.hoursAnswer(callerOf(res).user).catch(() => null);
       send(req, res, { status: 200, body: { ...(answer.body as Record<string, unknown>), ...(hours ? { workingHours: hours } : {}) } });
       return;
     }

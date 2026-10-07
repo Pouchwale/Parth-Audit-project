@@ -262,9 +262,10 @@ The app behaves like a personal assistant rather than a blank form:
   document for everybody — another department's shown as kept by it, and the formats on the company's Master List not in DCRS
   yet shown as such (docs/document-coverage.md lists them). The system opens with a **five-second motion-graphics
   introduction**, and moves gently throughout. The super admin's new **User access** dashboard shows who may use which module
-  (switch a person in or out of any module there), what each can see, and when each signed in and out. **DCRS is open 8:40 am
-  to 6:20 pm on the plant's working days** — Thursday off unless it is an adjustment day, festival holidays closed — for
-  everybody but the super admin, and every morning starts with signing in.
+  (switch a person in or out of any module there), what each can see, and when each signed in and out. **Staff working hours
+  are 8:40 am to 6:20 pm on the plant's working days** — Thursday off unless it is an adjustment day, festival holidays off —
+  and **the super admin can sign in and work at any time** (warned ten minutes before his session ends at midnight, then
+  signed in again at once); every day starts with signing in.
 - **DCRS and the Audit Assistant share one database** (REQUIREMENTS §83). The Audit Assistant - the plant's chat and
   voice app - signs people in with their DCRS accounts and acts **through a new DCRS API, as that person**: it lists and
   searches the CAPA findings, closes one with a note (exactly what DCRS's own Close button does, written in the report's

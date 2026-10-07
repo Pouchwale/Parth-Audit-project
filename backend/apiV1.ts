@@ -824,7 +824,7 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     departmentOf: (documentId) => departmentOf(store, documentId),
     printer,
     appBuilt,
-    hoursAnswer: () => hours.publicAnswer(),
+    hoursAnswer: (user) => hours.personAnswer(user),
     appAddress,
     escalations: deps.escalations ?? storedEscalations,
   });

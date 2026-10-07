@@ -7,8 +7,9 @@
 // adjustment days too, and sometimes a Thursday counts as a working day, so the
 // software must run on that day as well."
 //
-// So DCRS is OPEN on a WORKING DAY of the plant's calendar from START to END,
-// in the factory's own time zone, and closed at every other moment:
+// So the STAFF'S HOURS run on a WORKING DAY of the plant's calendar from START
+// to END, in the factory's own time zone, and at no other moment ("open" and
+// "closed" below are the staff's hours, never DCRS itself):
 //   * a working day is a day the leave calendar does not close — a festival
 //     holiday is closed, an adjustment day is open, and otherwise the weekly off
 //     (Thursday unless Master Data says another day) is closed. This is exactly
@@ -23,9 +24,12 @@
 //     server whose own clock runs in another zone reads the same answer.
 //
 // Who is held to it (the server's gate, backend/workingHours.ts): every account
-// but the super admin. A session lasts until the close of the day it was
-// started — END for a non-admin, midnight for the super admin — so every
-// morning starts with signing in.
+// but the super admin, who may sign in and work at any hour of any day — so the
+// hours are the STAFF's, and every sentence below says so (the owner,
+// 6-Oct-2026). A session lasts until the close of the day it was started — END
+// for a non-admin, midnight for the super admin (the midnight after, for his
+// sign-in in the day's last ten minutes) — so every morning starts with
+// signing in.
 //
 // WITH NO IMPORTS AT ALL, like latenessCore.ts and data/seed/documentDepartments.ts:
 // the server runs its .ts files with Node's type stripping, which cannot follow
@@ -50,6 +54,16 @@ export const OUTSIDE_HOURS_CODE = "outside-working-hours";
 export const END_OF_HOURS_REASON = "end-of-working-hours";
 /** Why the browser signed a person out when the server refused a session outside the hours. */
 export const OUTSIDE_HOURS_REASON = "outside-working-hours";
+/** Why the browser signed the super admin out at the end of the day, the factory's midnight — POST /api/auth/logout { reason }. */
+export const END_OF_DAY_REASON = "end-of-day";
+/**
+ * A super admin's sign-in this close to the factory's midnight is a session for
+ * the next day: it runs to the midnight after, so a sign-in at 23:58 is not cut
+ * off two minutes later (and the phone app's last-second sign-in is not
+ * refused as "no session"). The same span as the closing warning: a session
+ * that would start inside its own warning starts the next day's instead.
+ */
+export const LATE_SIGN_IN_MS = CLOSING_WARNING_MS;
 /** How far ahead the next working day is looked for — a whole year, so a calendar that closes every day cannot loop. */
 const LOOKAHEAD_DAYS = 400;
 
@@ -128,10 +142,18 @@ export interface PublicHours {
   openNow: boolean;
   opensAt: string | null;
   closesAt: string | null;
-  /** "DCRS is open 8:40 am to 6:20 pm on working days." */
+  /** "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time." */
   hoursText: string;
-  /** Where today stands, in words ("Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am."). */
+  /** Where today stands for the staff's hours, in words ("Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am."). */
   todayText: string;
+}
+
+/** The answer for one signed-in person: the public one, with whether the hours hold them and a line for the super admin. */
+export interface PersonHours extends PublicHours {
+  /** True for an account held to the hours (anybody but the super admin, while the server enforces them). */
+  heldToHours: boolean;
+  /** For the super admin: "You are the super admin: these are the staff's hours, and you can keep working at any time." Null for staff. */
+  forYou: string | null;
 }
 
 /** The server's refusal outside the hours (C2): 403 with this body. */
@@ -386,49 +408,198 @@ export function nextMidnight(now: Date, timeZone: string): Date {
  * When a session started at `state.now` ends (C3): at END of that working day
  * for an account held to the hours, at the factory's midnight for the super
  * admin — and for everybody while the hours are not enforced. An account held to
- * the hours outside them gets no session at all: its end is now.
+ * the hours outside them gets no session at all: its end is now. The super
+ * admin's sign-in in the day's last LATE_SIGN_IN_MS runs to the midnight after
+ * (6-Oct-2026: he may sign in at any time, so a sign-in at 23:59 must not be a
+ * session of one minute); every session still ends at a midnight, so he still
+ * signs in each day.
  */
 export function sessionEndsAt(opts: { admin: boolean; enforced: boolean; state: PlantNow }): Date {
   const { state } = opts;
-  if (opts.admin || !opts.enforced) return nextMidnight(state.now, state.timeZone);
+  if (opts.admin) {
+    const midnight = nextMidnight(state.now, state.timeZone);
+    return midnight.getTime() - state.now.getTime() <= LATE_SIGN_IN_MS ? nextMidnight(midnight, state.timeZone) : midnight;
+  }
+  if (!opts.enforced) return nextMidnight(state.now, state.timeZone);
   return state.phase === "open" && state.closesAt ? state.closesAt : state.now;
 }
 
 // ---------------------------------------------------------------------------
 // in words
+//
+// THE HOURS ARE THE STAFF'S (the owner, 6-Oct-2026): he quoted the sign-in page
+// — "DCRS is open 8:40 am to 6:20 pm on working days. Today's working hours
+// ended at 6:20 pm — it opens again on Wednesday 7 October at 8:40 am." — and
+// said it "is not valid for superadmin because superadmin can login at any
+// time". DCRS itself never closes: the hours hold every account but the super
+// admin's. So every sentence here says STAFF working hours, and the hours' own
+// sentence says the super admin can sign in at any time; nothing says "DCRS is
+// open", "it opens again" or "DCRS is closed".
+//
+// In English everywhere (the server's answers, the sign-in page, /api/v1, the
+// phone app, which passes DCRS's words through), and in Gujarati on the app's
+// own screens when Gujarati is chosen and Google cannot translate them
+// (i18n/googleTranslate.ts): the same sentences, built from the same parts.
 
-/** "DCRS is open 8:40 am to 6:20 pm on working days." */
-export function hoursSentence(hours: PlantHours): string {
-  return `DCRS is open ${clockWords(hours.startMinute)} to ${clockWords(hours.endMinute)} on working days.`;
+/** The languages the hours are said in. */
+export type HoursLanguage = "en" | "gu";
+
+const GU_WEEKDAYS = ["રવિવાર", "સોમવાર", "મંગળવાર", "બુધવાર", "ગુરુવાર", "શુક્રવાર", "શનિવાર"];
+const GU_MONTHS = ["જાન્યુઆરી", "ફેબ્રુઆરી", "માર્ચ", "એપ્રિલ", "મે", "જૂન", "જુલાઈ", "ઑગસ્ટ", "સપ્ટેમ્બર", "ઑક્ટોબર", "નવેમ્બર", "ડિસેમ્બર"];
+
+/** 520 → "સવારે 8:40", 1100 → "સાંજે 6:20": the part of the day, then the twelve-hour clock. */
+function guClockWords(minute: number): string {
+  const m = ((Math.floor(minute) % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const part = h < 4 ? "રાત્રે" : h < 12 ? "સવારે" : h < 16 ? "બપોરે" : h < 20 ? "સાંજે" : "રાત્રે";
+  return `${part} ${h12}:${pad2(m % 60)}`;
 }
 
-function opensAgain(state: PlantNow): string {
-  if (!state.opensOn) return "the calendar has no working day in the year ahead";
-  return `it opens again on ${dayWords(state.opensOn.date, state.today.date.slice(0, 4))} at ${clockWords(state.hours.startMinute)}`;
+/** "2026-10-02" → "શુક્રવાર, 2 ઑક્ટોબર" (with the year when it is not `thisYear`). */
+function guDayWords(iso: string, thisYear?: string): string {
+  const m = ISO_DATE_RE.exec(iso);
+  if (!m) return iso;
+  const words = `${GU_WEEKDAYS[weekdayOf(iso)]}, ${Number(m[3])} ${GU_MONTHS[Number(m[2]) - 1]}`;
+  return thisYear !== undefined && thisYear !== m[1] ? `${words} ${m[1]}` : words;
 }
 
-/** Where today stands, in one sentence. */
-export function todaySentence(state: PlantNow): string {
-  const { today, hours } = state;
-  const end = clockWords(hours.endMinute);
-  const adjustment = today.kind === "adjustment" ? `Today is ${today.weekday}, an adjustment day${today.name ? ` for ${today.name}` : ""}, so the plant works` : "Today is a working day";
-  switch (state.phase) {
+/** A time of day in words, in either language. */
+export function clockWordsIn(minute: number, lang: HoursLanguage): string {
+  return lang === "gu" ? guClockWords(minute) : clockWords(minute);
+}
+
+/** What the sentences need about today — had from the factory's clock (PlantNow) or from the server's answer (PublicHours). */
+interface DayFacts {
+  startMinute: number;
+  endMinute: number;
+  phase: HoursPhase;
+  today: { date: string; kind: PlantDayKind; name: string | null };
+  /** The date staff hours start again on (today before START); null while open, or with no working day ahead. */
+  opensOnDate: string | null;
+}
+
+const factsOf = (state: PlantNow): DayFacts => ({
+  startMinute: state.hours.startMinute,
+  endMinute: state.hours.endMinute,
+  phase: state.phase,
+  today: state.today,
+  opensOnDate: state.opensOn ? state.opensOn.date : null,
+});
+
+/** The sentences' parts, one table per language; `again` is "they start again …" after-closing and "staff hours start again …" on a closed day. */
+const WORDS: Record<
+  HoursLanguage,
+  {
+    clock: (minute: number) => string;
+    day: (iso: string, thisYear: string) => string;
+    weekday: (iso: string) => string;
+    staffHours: (start: string, end: string) => string;
+    superAdmin: string;
+    workingDay: string;
+    adjustment: (weekday: string, name: string | null) => string;
+    open: (lead: string, end: string) => string;
+    beforeOpening: (lead: string, start: string) => string;
+    afterClosing: (end: string, again: string) => string;
+    holiday: (name: string, again: string) => string;
+    weeklyOff: (weekday: string, again: string) => string;
+    again: (they: boolean, day: string, start: string) => string;
+    noWorkingDay: string;
+    forSuperAdmin: string;
+  }
+> = {
+  en: {
+    clock: clockWords,
+    day: (iso, year) => dayWords(iso, year),
+    weekday: (iso) => WEEKDAYS[weekdayOf(iso)] ?? "",
+    staffHours: (start, end) => `Staff working hours: ${start} to ${end} on working days.`,
+    superAdmin: "The super admin can sign in at any time.",
+    workingDay: "Today is a working day",
+    adjustment: (weekday, name) => `Today is ${weekday}, an adjustment day${name ? ` for ${name}` : ""}, so the plant works`,
+    open: (lead, end) => `${lead} — staff hours run until ${end}.`,
+    beforeOpening: (lead, start) => `${lead}. Staff hours start today at ${start}.`,
+    afterClosing: (end, again) => `Today's staff hours ended at ${end}; ${again}.`,
+    holiday: (name, again) => `Today is ${name}, a company holiday; ${again}.`,
+    weeklyOff: (weekday, again) => `Today is ${weekday}, the weekly off; ${again}.`,
+    again: (they, day, start) => `${they ? "they" : "staff hours"} start again on ${day} at ${start}`,
+    noWorkingDay: "the calendar has no working day in the year ahead",
+    forSuperAdmin: "You are the super admin: these are the staff's hours, and you can keep working at any time.",
+  },
+  gu: {
+    clock: guClockWords,
+    day: (iso, year) => guDayWords(iso, year),
+    weekday: (iso) => GU_WEEKDAYS[weekdayOf(iso)] ?? "",
+    staffHours: (start, end) => `સ્ટાફના કામના કલાકો: કામકાજના દિવસોમાં ${start} થી ${end}.`,
+    superAdmin: "સુપર એડમિન કોઈપણ સમયે સાઇન ઇન કરી શકે છે.",
+    workingDay: "આજે કામકાજનો દિવસ છે",
+    adjustment: (weekday, name) => `આજે ${weekday} છે, ${name ? `${name} માટેનો ` : ""}એડજસ્ટમેન્ટ દિવસ, તેથી પ્લાન્ટ ચાલુ છે`,
+    open: (lead, end) => `${lead} — સ્ટાફના કલાકો ${end} સુધી છે.`,
+    beforeOpening: (lead, start) => `${lead}. સ્ટાફના કલાકો આજે ${start} વાગ્યે શરૂ થશે.`,
+    afterClosing: (end, again) => `આજના સ્ટાફના કલાકો ${end} વાગ્યે પૂરા થયા; ${again}.`,
+    holiday: (name, again) => `આજે ${name} છે, કંપનીની રજા; ${again}.`,
+    weeklyOff: (weekday, again) => `આજે ${weekday} છે, સાપ્તાહિક રજા; ${again}.`,
+    again: (they, day, start) => `${they ? "તે" : "સ્ટાફના કલાકો"} ફરી ${day}ના રોજ ${start} વાગ્યે શરૂ થશે`,
+    noWorkingDay: "કૅલેન્ડરમાં આવતા એક વર્ષમાં કોઈ કામકાજનો દિવસ નથી",
+    forSuperAdmin: "તમે સુપર એડમિન છો: આ સ્ટાફના કલાકો છે, અને તમે કોઈપણ સમયે કામ ચાલુ રાખી શકો છો.",
+  },
+};
+
+/** "Staff working hours: 8:40 am to 6:20 pm on working days." — the hours alone, as staff are told them when refused. */
+export function staffHoursSentence(hours: Pick<PlantHours, "startMinute" | "endMinute">, lang: HoursLanguage = "en"): string {
+  const w = WORDS[lang];
+  return w.staffHours(w.clock(hours.startMinute), w.clock(hours.endMinute));
+}
+
+/** "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time." — the hours' own sentence, said before anybody is known (the sign-in page). */
+export function hoursSentence(hours: Pick<PlantHours, "startMinute" | "endMinute">, lang: HoursLanguage = "en"): string {
+  return `${staffHoursSentence(hours, lang)} ${WORDS[lang].superAdmin}`;
+}
+
+/** The line for a person the hours do not hold (the super admin): "You are the super admin: these are the staff's hours, and you can keep working at any time." */
+export function superAdminHoursLine(lang: HoursLanguage = "en"): string {
+  return WORDS[lang].forSuperAdmin;
+}
+
+function todayWords(f: DayFacts, lang: HoursLanguage): string {
+  const w = WORDS[lang];
+  const { today } = f;
+  const end = w.clock(f.endMinute);
+  const again = (they: boolean) => (f.opensOnDate ? w.again(they, w.day(f.opensOnDate, today.date.slice(0, 4)), w.clock(f.startMinute)) : w.noWorkingDay);
+  const lead = today.kind === "adjustment" ? w.adjustment(w.weekday(today.date), today.name) : w.workingDay;
+  switch (f.phase) {
     case "open":
-      return `${adjustment} — open now, until ${end}.`;
+      return w.open(lead, end);
     case "before-opening":
-      return `${adjustment}. It is not open yet — it opens today at ${clockWords(hours.startMinute)}.`;
+      return w.beforeOpening(lead, w.clock(f.startMinute));
     case "after-closing":
-      return `Today's working hours ended at ${end} — ${opensAgain(state)}.`;
+      return w.afterClosing(end, again(true));
     default:
-      return today.kind === "holiday"
-        ? `Today is ${today.name ?? "a company holiday"}, a company holiday — ${opensAgain(state)}.`
-        : `Today is ${today.weekday}, the weekly off — ${opensAgain(state)}.`;
+      return today.kind === "holiday" ? w.holiday(today.name ?? (lang === "gu" ? "કંપનીની રજા" : "a company holiday"), again(false)) : w.weeklyOff(w.weekday(today.date), again(false));
   }
 }
 
-/** The whole refusal in plain words: the hours, then where today stands. */
+/** Where today stands for the staff's hours, in one sentence. */
+export function todaySentence(state: PlantNow, lang: HoursLanguage = "en"): string {
+  return todayWords(factsOf(state), lang);
+}
+
+/**
+ * The words of the server's answer in another language, built from its own
+ * fields (the hours, the phase, today and the next opening) — the very
+ * sentences `publicHours` wrote, so a screen in Gujarati says what the English
+ * one does. In English they are the answer's own words.
+ */
+export function hoursWordsIn(answer: PublicHours, lang: HoursLanguage): { hoursText: string; todayText: string } {
+  if (lang === "en") return { hoursText: answer.hoursText, todayText: answer.todayText };
+  const hours = workingHoursOf({ workingHours: { start: answer.start, end: answer.end } });
+  const opensOnDate = answer.opensAt ? wallClock(new Date(answer.opensAt), knownTimeZone(answer.timeZone)).date : null;
+  const f: DayFacts = { startMinute: hours.startMinute, endMinute: hours.endMinute, phase: answer.phase, today: answer.today, opensOnDate };
+  return { hoursText: hoursSentence(hours, lang), todayText: todayWords(f, lang) };
+}
+
+/** The whole refusal staff are given outside their hours: their hours, then where today stands and when their hours start again. */
 export function refusalMessage(state: PlantNow): string {
-  return `${hoursSentence(state.hours)} ${todaySentence(state)}`;
+  return `${staffHoursSentence(state.hours)} ${todaySentence(state)}`;
 }
 
 /** The server's 403 body outside the hours (C2). */
@@ -454,7 +625,17 @@ export function publicHours(state: PlantNow, enforced: boolean): PublicHours {
   };
 }
 
+/**
+ * The same answer for one signed-in person (POST /api/auth/login, GET
+ * /api/auth/me, GET /api/v1/today — what Mitra on the phone is told): whether
+ * the hours hold them, and for the super admin a line saying they are the
+ * staff's hours and that he can keep working.
+ */
+export function personHours(state: PlantNow, enforced: boolean, person: { admin: boolean }): PersonHours {
+  return { ...publicHours(state, enforced), heldToHours: enforced && !person.admin, forYou: person.admin ? superAdminHoursLine() : null };
+}
+
 /** A moment as the factory's time of day in words ("6:20 pm") — for the browser's warning and notice. */
-export function momentWords(at: Date, timeZone: string): string {
-  return clockWords(Math.floor(wallClock(at, timeZone).secondOfDay / 60));
+export function momentWords(at: Date, timeZone: string, lang: HoursLanguage = "en"): string {
+  return clockWordsIn(Math.floor(wallClock(at, timeZone).secondOfDay / 60), lang);
 }

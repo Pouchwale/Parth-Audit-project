@@ -28,11 +28,13 @@
 import { database, plantTimeZone } from "./db.ts";
 import {
   outsideHoursRefusal,
+  personHours,
   plantNow,
   publicHours,
   sessionEndsAt,
   type HoursCalendar,
   type OutsideHoursRefusal,
+  type PersonHours,
   type PlantNow,
   type PublicHours,
 } from "../frontend/src/engine/workingHoursCore.ts";
@@ -125,8 +127,10 @@ export interface WorkingHoursGate {
   sessionEnd(user: { role: string }): Promise<Date>;
   /** What a session is told about its end: the earlier of its token's end and the close of today by the calendar as it stands now. */
   sessionAnswer(user: { role: string }, tokenEndsAt: Date): Promise<SessionAnswer>;
-  /** The public answer: the hours and where today stands, in words. */
+  /** The public answer: the staff's hours and where today stands, in words. */
   publicAnswer(): Promise<PublicHours>;
+  /** The answer for one signed-in person: the public one, whether the hours hold them, and the super admin's own line. */
+  personAnswer(user: { role: string }): Promise<PersonHours>;
 }
 
 export function createWorkingHoursGate(opts: WorkingHoursGateOptions = {}): WorkingHoursGate {
@@ -181,6 +185,9 @@ export function createWorkingHoursGate(opts: WorkingHoursGateOptions = {}): Work
     },
     async publicAnswer() {
       return publicHours(await state(), enforced);
+    },
+    async personAnswer(user) {
+      return personHours(await state(), enforced, { admin: user.role === "admin" });
     },
   };
 }

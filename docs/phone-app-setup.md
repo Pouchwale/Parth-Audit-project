@@ -77,7 +77,7 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
    CREDENTIALS_KEY=<32 random bytes, base64: see the command below>
    DCRS_BASE_URL=http://127.0.0.1:4000
    GROQ_API_KEY=<your Groq key, from https://console.groq.com/keys>
-   SUPER_ADMINS=<the DCRS super admin's sign-in email>
+   SUPER_ADMINS=<optional: more sign-in emails for the app's own Accounts and Security views; DCRS's super admin needs no entry>
    REPORT_TIME_ZONE=Asia/Kolkata
    ```
    Make the `CREDENTIALS_KEY` with:
@@ -152,12 +152,13 @@ rules do not apply there: add `-SetPrivate` (only on the company network). `-Rem
   in a browser and choose your own password first."
 - **Staff sign in only during the working hours**: 8:40 am to 6:20 pm, on working days (the super admin can change
   the times on Master Data > Working Hours). **Thursday is the weekly off**, except an adjustment Thursday that is
-  worked in place of a festival; festival holidays are closed. Outside the hours the phone shows DCRS's own words
-  and when it opens.
-- **The super admin** (`admin@gpp.local` on a new DCRS) may sign in at any time.
-- Every sign-in ends at the close of its day (6:20 pm for staff, midnight for the super admin), on the phone too, so
-  each morning starts with signing in. `SUPER_ADMINS` in `server\.env` gives the same people the app's own
-  Accounts and Security views.
+  worked in place of a festival; festival holidays are days off. Outside the hours the phone shows DCRS's own words
+  and when the staff's hours start again.
+- **The super admin** (`admin@gpp.local` on a new DCRS) may sign in and work at any time, and Mitra tells him the hours
+  are the staff's. He is the app's super admin too (its Accounts and Security views), because DCRS says so at each
+  sign-in; `SUPER_ADMINS` in `server\.env` can add more people.
+- Every sign-in ends at the close of its day (6:20 pm for staff, midnight for the super admin; his sign-in in the
+  day's last ten minutes runs to the next midnight), on the phone too, so each day starts with signing in.
 
 ## 8. Keep Expo Go and the app in step
 
@@ -214,7 +215,7 @@ Then, with **one Android phone and one iPhone** on the company Wi-Fi:
 | iPhone: scanning does nothing, or it cannot connect | Local Network is off for Expo Go | Settings > Privacy & Security > Local Network > Expo Go |
 | Expo Go says the project is not compatible | Expo Go moved to a newer SDK | Step 8 |
 | "Mitra can't reach its server" (with an address) | The Mitra server stopped, or port 3000 is blocked | `logs\mitra-server.log`, `npm run phone:check`, step 4 |
-| Sign-in refused, saying DCRS is closed | Outside the working hours | Staff wait for the opening it names; the super admin may sign in |
+| Sign-in refused, giving the staff working hours | Outside the staff's working hours | Staff wait for the start it names; the super admin may sign in at any time |
 | "Sign in to DCRS in a browser and choose your own password first." | The account is still on its first password | Change it once in DCRS in a browser (step 7) |
 | "Wrong username or password." | Not the person's DCRS email and password | Use the DCRS ones; the super admin can reset it on Users & Access |
 | Mitra is slow, or says to wait a minute | Groq's free plan allows about 8,000 tokens a minute for the whole plant | Wait a minute; a paid Groq plan allows more |

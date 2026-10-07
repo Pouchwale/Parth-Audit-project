@@ -13,7 +13,9 @@ import {
   type AccessPerson,
   type AccessSessionEnd,
 } from "../api/accessApi";
-import type { PublicHours } from "../engine/workingHoursCore";
+import { hoursWordsIn, superAdminHoursLine, type PublicHours } from "../engine/workingHoursCore";
+import { hoursWord } from "../i18n/strings.hours";
+import { useAppStore } from "../store/AppStore";
 import { useAuth } from "../store/AuthContext";
 import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -440,24 +442,33 @@ function Figure({ field, value, label }: { field: string; value: number; label: 
 }
 
 /**
- * THE PLANT'S HOURS AND TODAY'S CALENDAR STATE (REQUIREMENTS §84 C1), as the
+ * THE STAFF'S HOURS AND TODAY'S CALENDAR STATE (REQUIREMENTS §84 C1), as the
  * server's own gate reads them from the master data (backend/workingHours.ts,
  * on the one rule the server and the browser share, engine/workingHoursCore.ts)
- * — the very answer that lets people in or keeps them out. Nothing is shown
+ * — the very answer that lets staff in or keeps them out. Nothing is shown
  * when the server could not read them, rather than a guess.
+ *
+ * Said to the super admin, the one person they never hold (§84 addendum,
+ * 6-Oct-2026): the staff's hours and where today stands for them, then his own
+ * line — "You are the super admin: these are the staff's hours, and you can
+ * keep working at any time." — never that DCRS is closed or opens later. In
+ * the app's own Gujarati where it shows, from the same parts.
  */
 function WorkingHoursStrip({ hours }: { hours: PublicHours | null }) {
+  const { uiLang } = useAppStore();
   if (!hours) return null;
+  const words = hoursWordsIn(hours, uiLang);
   return (
     <div className="card mb-3" data-section="access-hours" data-phase={hours.phase} data-enforced={hours.enforced ? "yes" : "no"} data-day-kind={hours.today.kind}>
       <div className="card-pad text-sm flex items-start gap-2">
         <FiClock size={15} style={{ marginTop: 2, flexShrink: 0 }} />
         <div>
-          <strong data-field="hours-text">{hours.hoursText}</strong> <span data-field="today-text">{hours.todayText}</span>
-          <div className="text-xs text-muted mt-1">
-            {hours.enforced
-              ? "Outside them nobody but the super admin can sign in or use DCRS, and every session but the super admin's ends at the close of the working day. The hours and the holidays are set in Master Data."
-              : "This server holds nobody to the hours: it was started with DCRS_WORKING_HOURS=off, as the test servers are. The hours and the holidays are set in Master Data."}
+          <strong data-field="hours-text">{words.hoursText}</strong> <span data-field="today-text">{words.todayText}</span>
+          <div className="mt-1" data-field="hours-for-you" style={{ fontWeight: 600 }}>
+            {superAdminHoursLine(uiLang)}
+          </div>
+          <div className="text-xs text-muted mt-1" data-field="hours-rule">
+            {hours.enforced ? hoursWord(uiLang, "hours.access.held", { zone: hours.timeZone }) : hoursWord(uiLang, "hours.access.notHeld")}
           </div>
         </div>
       </div>
