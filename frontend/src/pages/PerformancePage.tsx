@@ -19,7 +19,9 @@ import {
   closedDays,
   decisionText,
   escalationLine,
+  formatMinus,
   grade,
+  minusScore,
   periodFor,
   scoreOf,
   scorecards,
@@ -102,7 +104,20 @@ function GradeBadge({ line }: { line: ScoreLine }) {
   );
 }
 
-/** The six figures every table shares, each cell named so a reader — or a test — never has to count columns. */
+/**
+ * THE MINUS SCORE AS A FIGURE (REQUIREMENTS §92): "0", or "−20" with a true
+ * minus sign, kept out of translation. The plain number is on the element that
+ * holds it (data-minus), so a reader never has to parse the sign.
+ */
+function MinusFigure({ minus, className = "" }: { minus: number; className?: string }) {
+  return (
+    <span className={`notranslate ${className}`.trim()} translate="no">
+      {formatMinus(minus)}
+    </span>
+  );
+}
+
+/** The figures every table shares, each cell named so a reader — or a test — never has to count columns. */
 function ScoreCells({ line }: { line: ScoreLine }) {
   return (
     <>
@@ -124,6 +139,9 @@ function ScoreCells({ line }: { line: ScoreLine }) {
       <td className="score-num font-bold" data-col="score">
         {line.score === null ? "—" : line.score}
       </td>
+      <td className={`score-num font-bold ${line.minus < 0 ? "text-danger" : ""}`} data-col="minus" data-minus={line.minus} data-open-today={line.openToday}>
+        <MinusFigure minus={line.minus} />
+      </td>
       <td data-col="grade">
         <GradeBadge line={line} />
       </td>
@@ -132,6 +150,7 @@ function ScoreCells({ line }: { line: ScoreLine }) {
 }
 
 function ScoreHeadings({ first }: { first: string }) {
+  const t = useT();
   return (
     <thead>
       <tr>
@@ -142,6 +161,7 @@ function ScoreHeadings({ first }: { first: string }) {
         <th className="score-num">Never done</th>
         <th className="score-num">Not due yet</th>
         <th className="score-num">Score</th>
+        <th className="score-num">{t("perf.minus.label")}</th>
         <th>Grade</th>
       </tr>
     </thead>
@@ -150,7 +170,7 @@ function ScoreHeadings({ first }: { first: string }) {
 
 const NothingHere = ({ children }: { children: React.ReactNode }) => (
   <tr>
-    <td colSpan={8} className="text-muted text-center" style={{ padding: 18 }}>
+    <td colSpan={9} className="text-muted text-center" style={{ padding: 18 }}>
       {children}
     </td>
   </tr>
@@ -300,6 +320,7 @@ function PersonCard({
   onOpen: (doc: DocumentDefinition) => void;
   escalated?: Escalation[];
 }) {
+  const t = useT();
   const unseen = outsideView(p, scope);
   return (
     <div
@@ -330,6 +351,19 @@ function PersonCard({
             </span>
             {p.score !== null && <span className="text-muted text-sm">out of 100</span>}
           </div>
+          {/* THE MINUS SCORE (REQUIREMENTS §92): 10 off for each record never done, beside the score, never instead of it. */}
+          <div className="score-minus" data-field="person-minus" data-minus={p.minus} data-open-today={p.openToday} data-tone={p.minus < 0 ? "minus" : "zero"}>
+            <MinusFigure minus={p.minus} className="score-minus-figure" />
+            <span className="score-minus-label">
+              <strong>{t("perf.minus.label")}</strong>{" "}
+              {p.overdue === 0 ? t("perf.minus.none") : p.overdue === 1 ? t("perf.minus.missedOne") : t("perf.minus.missed", { n: p.overdue })}
+            </span>
+          </div>
+          {p.openToday > 0 && (
+            <p className="score-open-today" data-field="person-open-today" data-open-today={p.openToday}>
+              {p.openToday === 1 ? t("perf.minus.openToday.one") : t("perf.minus.openToday.many", { n: p.openToday })}
+            </p>
+          )}
           <div className="score-counts">
             <span data-count="onTime">
               <strong>{p.onTime}</strong> on time
@@ -543,15 +577,16 @@ export function PerformancePage() {
 
   // Every document is in exactly one department, so the departments add up to the plant.
   const overall = useMemo(() => {
-    const sum = { onTime: 0, late: 0, overdue: 0, pending: 0 };
+    const sum = { onTime: 0, late: 0, overdue: 0, pending: 0, openToday: 0 };
     for (const d of cards.byDepartment) {
       sum.onTime += d.onTime;
       sum.late += d.late;
       sum.overdue += d.overdue;
       sum.pending += d.pending;
+      sum.openToday += d.openToday;
     }
     const score = scoreOf(sum.onTime, sum.late, sum.overdue);
-    return { ...sum, due: sum.onTime + sum.late + sum.overdue, score, grade: grade(score) };
+    return { ...sum, due: sum.onTime + sum.late + sum.overdue, score, grade: grade(score), minus: minusScore(sum.overdue) };
   }, [cards]);
 
   const open = useCallback((doc: DocumentDefinition) => navigate(documentOpenRoute(doc)), [navigate]);
@@ -561,21 +596,22 @@ export function PerformancePage() {
   const scope = departmentScope();
 
   const exportCSV = () => {
-    const figures = (l: ScoreLine, note = "") => [l.due, l.onTime, l.late, l.overdue, l.pending, l.score === null ? "" : l.score, l.grade.label, decisionText(l.decision) + note];
+    // The minus score and what is still open today go after the score (columns 10 and 11): every column before them stays where it was.
+    const figures = (l: ScoreLine, note = "") => [l.due, l.onTime, l.late, l.overdue, l.pending, l.score === null ? "" : l.score, l.minus, l.openToday, l.grade.label, decisionText(l.decision) + note];
     // The same warning the card carries, for a person scored here on part of their work.
     const partly = (p: PersonScore) => {
       const unseen = outsideView(p, scope);
       return unseen.length ? ` Not counted here: ${unseen.map(departmentName).join(" and ")}, outside the departments of whoever exported this.` : "";
     };
     const rows: (string | number)[][] = [
-      ...cards.byPerson.map((p) => ["Person", p.person.name, p.answers ? p.departments.join(" ") : "Every department — not scored", ...(p.answers ? figures(p, partly(p)) : ["", "", "", "", "", "", "No score", decisionText(p.decision)])]),
+      ...cards.byPerson.map((p) => ["Person", p.person.name, p.answers ? p.departments.join(" ") : "Every department — not scored", ...(p.answers ? figures(p, partly(p)) : ["", "", "", "", "", "", "", "", "No score", decisionText(p.decision)])]),
       ...cards.byDepartment.map((d) => ["Department", d.name, d.code, ...figures(d)]),
       ...cards.byModule.map((m) => ["Module", m.module, "", ...figures(m)]),
       ...cards.byDocument.map((d) => ["Document", `${d.doc.formatNo.toUpperCase().startsWith("TO BE") ? "" : `${d.doc.formatNo} `}${d.doc.name}`, d.department, ...figures(d)]),
     ];
     downloadCSV(
       `performance-scorecard-${cards.period.from}-to-${cards.period.to}${isDemo ? "-demo" : ""}.csv`,
-      toCSV(["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score", "Grade", "Decision"], rows)
+      toCSV(["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score", "Minus score", "Still open today", "Grade", "Decision"], rows)
     );
   };
 
@@ -644,6 +680,9 @@ export function PerformancePage() {
               .
             </span>
           )}
+          <p className="mt-2" data-section="performance-minus-rule">
+            <strong>{t("perf.minus.label")}:</strong> {t("perf.minus.rule")}
+          </p>
         </div>
 
         <div className="flex gap-3 wrap mb-6" data-section="performance-overall" data-period={periodKey}>
@@ -681,6 +720,23 @@ export function PerformancePage() {
               {overall.overdue}
             </div>
             <div className="stat-label">Never done</div>
+          </div>
+          <div className="stat-tile">
+            <div
+              className="stat-value"
+              style={{ color: overall.minus < 0 ? "var(--color-danger)" : "var(--color-success)" }}
+              data-overall="minus"
+              data-minus={overall.minus}
+              data-open-today={overall.openToday}
+            >
+              <MinusFigure minus={overall.minus} />
+            </div>
+            <div className="stat-label">{t("perf.minus.label")}</div>
+            {overall.openToday > 0 && (
+              <div className="text-xs text-faint" data-field="overall-open-today" data-open-today={overall.openToday}>
+                {t("perf.minus.openTodayShort", { n: overall.openToday })}
+              </div>
+            )}
           </div>
         </div>
 
