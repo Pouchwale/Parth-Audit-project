@@ -176,6 +176,9 @@ const SHARP_METAL_OBJECTS: LogSheetLayout = {
   // ten blank lines.
   rowMode: { kind: "free", minRows: 1, typicalRows: 6 },
   specimenRows: SHARP_TOOL_SPECIMEN,
+  // The page as supplied, beside the form (REQUIREMENTS §71) — sent again on
+  // 7-Oct-2026 with the company's own Word original (§93).
+  originalPages: [{ src: "/source/fstr02-sharp-metal-objects-p1.jpg", caption: "F/STR/02 (00/01.12.2021) — Sharp Metal Objects Issuance (New) & Return (Old) Record, as supplied" }],
   specimenSource: "F-STR-02_Sharp metal objects issuance & replacement record.pdf — F/STR/02 (00/01.12.2021), the blank format; the lines are sample issues to be checked",
 };
 
