@@ -3,7 +3,7 @@ import type { Escalation } from "../api/client";
 import type { DocumentDefinition, MasterData, RecordInstance } from "../types";
 import { departmentName, departmentOfDocument } from "../data/seed/departments";
 import { isCompanyHoliday } from "./holidays";
-import { ALWAYS_OPEN, attribute, judge as judgeRecord, keptTo, scoreOf, type Judgement, type Outcome, type PlantCalendar } from "./latenessCore";
+import { ALWAYS_OPEN, addDaysISO, attribute, judge as judgeRecord, keptTo, scoreOf, type Judgement, type Outcome, type PlantCalendar } from "./latenessCore";
 import { daysInMonth, formatDisplayDate, fromISODate, pad2, toISODate } from "../utils/date";
 
 // THE PERFORMANCE SCORECARD (REQUIREMENTS §64).
@@ -93,6 +93,33 @@ export function grade(score: number | null): Grade {
   return GRADES["falling-behind"];
 }
 
+// ---- The minus score (REQUIREMENTS §92) -------------------------------------
+//
+// "i need display score in -10 and in subtraction like example whenever any
+// user given 10 task and he is completed 8 of them then his score will be -20
+// so this will be applicable to all user" (the plant, 7-Oct-2026).
+//
+// Beside the score out of 100, never instead of it: every record the scorecard
+// counts as never done (latenessCore's "overdue") takes 10 off. 10 due and 8
+// handed in is -20. A record handed in late was still done, and costs nothing;
+// one whose day has not ended yet costs nothing yet. Nothing missed is 0. The
+// records, the people, the calendar and the period are the scorecard's own, so
+// the minus score can never count a record the score does not.
+
+/** What each record never done takes off the minus score. */
+export const MINUS_PER_MISSED = 10;
+
+/** -10 for each record never done; exactly 0 when nothing was missed (never -0, which Intl writes as "-0"). */
+export function minusScore(neverDone: number): number {
+  return Number.isFinite(neverDone) && neverDone > 0 ? -MINUS_PER_MISSED * Math.round(neverDone) : 0;
+}
+
+/** The minus score as shown: "0", or "−20" with a true minus sign (U+2212), as engine/motivation.ts formatGapScore writes the day's score. */
+export function formatMinus(minus: number): string {
+  const n = Math.round(Math.abs(minus));
+  return minus < 0 && n > 0 ? `−${n}` : "0";
+}
+
 // ---- Adding up ----------------------------------------------------------------
 
 /** One record named in a decision: "F/QC/12 of 09-Sep". */
@@ -108,18 +135,23 @@ interface Tally {
   late: number;
   overdue: number;
   pending: number;
+  /** Part of pending: not handed in, and today is the last day it can be (§92). */
+  openToday: number;
   /** The never-done record that has waited longest. */
   oldestMissed: Miss | null;
   /** The late record that was latest. */
   worstLate: Miss | null;
 }
 
-const emptyTally = (): Tally => ({ onTime: 0, late: 0, overdue: 0, pending: 0, oldestMissed: null, worstLate: null });
+const emptyTally = (): Tally => ({ onTime: 0, late: 0, overdue: 0, pending: 0, openToday: 0, oldestMissed: null, worstLate: null });
 
-function count(t: Tally, j: Judgement, what: string, dueDate: string): void {
+/** `endsToday`: a pending record whose last day is today, so tomorrow it is never done (§92). */
+function count(t: Tally, j: Judgement, what: string, dueDate: string, endsToday = false): void {
   if (j.outcome === "onTime") t.onTime += 1;
-  else if (j.outcome === "pending") t.pending += 1;
-  else if (j.outcome === "late") {
+  else if (j.outcome === "pending") {
+    t.pending += 1;
+    if (endsToday) t.openToday += 1;
+  } else if (j.outcome === "late") {
     t.late += 1;
     if (!t.worstLate || j.daysLate > t.worstLate.days) t.worstLate = { what, dueDate, days: j.daysLate };
   } else if (j.outcome === "overdue") {
@@ -133,6 +165,7 @@ function merge(into: Tally, from: Tally): void {
   into.late += from.late;
   into.overdue += from.overdue;
   into.pending += from.pending;
+  into.openToday += from.openToday;
   if (from.oldestMissed && (!into.oldestMissed || from.oldestMissed.dueDate < into.oldestMissed.dueDate)) into.oldestMissed = from.oldestMissed;
   if (from.worstLate && (!into.worstLate || from.worstLate.days > into.worstLate.days)) into.worstLate = from.worstLate;
 }
@@ -174,6 +207,10 @@ export interface ScoreLine {
   score: number | null;
   grade: Grade;
   decision: Decision;
+  /** The minus score (§92): -10 for each record never done, 0 when nothing was missed. */
+  minus: number;
+  /** Part of `pending`: not handed in, and today is the last day it can be. Each takes 10 more off tomorrow if it is still not in. */
+  openToday: number;
 }
 
 /** "09-Sep" within the year being looked at from, the whole date otherwise. */
@@ -204,7 +241,18 @@ function decide(t: Tally, g: Grade, today: string): Decision {
 function line(t: Tally, today: string): ScoreLine {
   const score = scoreOf(t.onTime, t.late, t.overdue);
   const g = grade(score);
-  return { due: t.onTime + t.late + t.overdue, onTime: t.onTime, late: t.late, overdue: t.overdue, pending: t.pending, score, grade: g, decision: decide(t, g, today) };
+  return {
+    due: t.onTime + t.late + t.overdue,
+    onTime: t.onTime,
+    late: t.late,
+    overdue: t.overdue,
+    pending: t.pending,
+    score,
+    grade: g,
+    decision: decide(t, g, today),
+    minus: minusScore(t.overdue),
+    openToday: t.openToday,
+  };
 }
 
 /** Worst first: the lowest score, then the most never done, then the most due; nothing due goes last. */
@@ -362,6 +410,11 @@ export function scorecards(
     }
     return t;
   };
+  // STILL OPEN TODAY (§92): a record that is not due yet today but never done
+  // tomorrow is one whose last day is today. Asked by the very same rule, judged
+  // as of tomorrow, so an as-required record's two days and the days the plant
+  // is closed stay latenessCore's own, and nothing here can drift from them.
+  const tomorrow = addDaysISO(today, 1);
 
   const { docsById, departmentOf, accountsOf } = attribute(
     records,
@@ -377,14 +430,16 @@ export function scorecards(
         what = calledBy(doc);
         called.set(doc.id, what);
       }
-      count(tallyIn(perDocument, doc.id), j, what, r.dueDate);
+      // Asked only of a record not due yet, so the extra judgement costs next to nothing.
+      const endsToday = j.outcome === "pending" && judgeRecord(r, doc, tomorrow, calendar).outcome === "overdue";
+      count(tallyIn(perDocument, doc.id), j, what, r.dueDate, endsToday);
       for (const a of answering) {
         let mine = perPerson.get(a.id);
         if (!mine) {
           mine = new Map();
           perPerson.set(a.id, mine);
         }
-        count(tallyIn(mine, doc.id), j, what, r.dueDate);
+        count(tallyIn(mine, doc.id), j, what, r.dueDate, endsToday);
       }
     }
   );
