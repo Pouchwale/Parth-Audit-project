@@ -48,7 +48,7 @@ import {
 } from "../src/engine/historyDigest";
 import { parseDateRange } from "../src/engine/assistantLocal";
 import { scopedInsights } from "../src/engine/scopedInsights";
-import { closedDays, scorecards, type Person } from "../src/engine/performance";
+import { closedDays, formatMinus, scorecards, type Person } from "../src/engine/performance";
 import { addDays, fromISODate, todayISO } from "../src/utils/date";
 
 ensureDocumentsSeeded();
@@ -429,6 +429,13 @@ test("12b: in a shared department a person's score is the Scorecard's, and witho
   const aloneScore = alone.byPerson.find((p) => p.person.id === "u-vinay")?.score;
   assert.notEqual(pageScore, aloneScore, "the case is one where scoring alone gives another figure");
   assert.match(pack.text, new RegExp(`"Vinay Bhojak": score ${pageScore},`), pack.text);
+  // ...and his minus score (§92) is the Scorecard's too, beside it; the department's line carries its own.
+  const pageMinus = page.byPerson.find((p) => p.person.id === "u-vinay")?.minus ?? Number.NaN;
+  assert.ok(pack.text.includes(`"Vinay Bhojak": score ${pageScore}, minus score ${formatMinus(pageMinus)},`), pack.text);
+  const departmentLines = page.byDepartment.filter((d) => d.due > 0).slice(0, 3);
+  assert.ok(departmentLines.length > 0);
+  for (const d of departmentLines) assert.ok(pack.text.includes(`${d.code ? ` (${d.code})` : ""}: score ${d.score}, minus score ${formatMinus(d.minus)},`), `${d.code}\n${pack.text}`);
+  assert.match(pack.text, /Performance Scorecard[^\n]*, minus score (0|−\d+) \(10 off for each never done\)/);
 
   // Kavita asks when the list cannot be read: no score for her at all, and the pack says why.
   const failing = await evidenceOptionsFor(intent, kavita, () => Promise.reject(new Error("offline")));
