@@ -34,6 +34,20 @@ export function noteLocalRemove(key: string): void {
   written.add(key);
 }
 
+// What does not fit in a browser is held in its page's memory (data/serverSync.ts, REQUIREMENTS §93). The host's
+// working copy is in memory already, and every write fits, so nothing is ever held here.
+export function heldCopy(_key: string): string | null {
+  return null;
+}
+
+export function holdChange(_key: string, _value: string): boolean {
+  return false;
+}
+
+export function releaseHeld(_key: string): void {
+  /* nothing is held */
+}
+
 export function syncState(): { pending: number; failing: boolean; active: boolean } {
   return { pending: 0, failing: false, active: false };
 }

@@ -4,7 +4,7 @@
 // REQUIREMENTS §55): what is read here is this browser's working copy, loaded
 // from the database at sign-in, and every write is sent on to the database by
 // data/serverSync.ts. See docs/DATA_MODEL.md.
-import { NAMESPACE, noteLocalRemove, noteLocalWrite, onServerChange } from "./serverSync";
+import { NAMESPACE, heldCopy, holdChange, noteLocalRemove, noteLocalWrite, onServerChange, releaseHeld } from "./serverSync";
 export interface IStorageAdapter {
   getItem(key: string): string | null;
   /** False when the value could not be stored (e.g. the browser's quota is full). */
@@ -16,6 +16,13 @@ export interface IStorageAdapter {
 
 /** Fired on window when a write fails — see components/common/StorageFullBanner.tsx. */
 export const STORAGE_WRITE_FAILED = "dcrs:storage-write-failed";
+/**
+ * Fired on window when a write did not fit and is HELD in this page's memory,
+ * on its way to the database (data/serverSync.ts, REQUIREMENTS §93) — detail { key }.
+ */
+export const STORAGE_HELD = "dcrs:storage-held";
+/** Fired on window when the database has stored a change that was held in memory — detail { key, stillHeld }. */
+export const STORAGE_HELD_SAVED = "dcrs:storage-held-saved";
 
 function announceWriteFailure(): void {
   try {
@@ -27,6 +34,9 @@ function announceWriteFailure(): void {
 
 export class LocalStorageAdapter implements IStorageAdapter {
   getItem(key: string): string | null {
+    // What did not fit is read from memory, where it is held (data/serverSync.ts, REQUIREMENTS §93).
+    const held = heldCopy(key);
+    if (held !== null) return held;
     try {
       return window.localStorage.getItem(NAMESPACE + key);
     } catch {
@@ -36,12 +46,22 @@ export class LocalStorageAdapter implements IStorageAdapter {
   setItem(key: string, value: string): boolean {
     try {
       window.localStorage.setItem(NAMESPACE + key, value);
+      releaseHeld(key);
       noteLocalWrite(key);
       return true;
     } catch (err) {
-      // Logging alone left the screen showing a change that was never
-      // stored, and lost it on the next reload with nothing said. The caller
-      // now learns it failed, and the page tells the user.
+      // NOT DROPPED (REQUIREMENTS §93). A change that does not fit in the
+      // browser's storage is held in this page's memory and sent to the
+      // database from there, so a record just started opens, and is kept; the
+      // banner says the browser's copy is full and, once the database has it,
+      // that it WAS saved (components/common/StorageFullBanner.tsx).
+      if (holdChange(key, value)) {
+        noteLocalWrite(key);
+        return true;
+      }
+      // Nothing to send it (nobody signed in): logging alone left the screen
+      // showing a change that was never stored, and lost it on the next reload
+      // with nothing said. The caller learns it failed, and the page tells the user.
       console.error("Storage write failed (quota exceeded?)", err);
       announceWriteFailure();
       return false;
@@ -50,6 +70,7 @@ export class LocalStorageAdapter implements IStorageAdapter {
   removeItem(key: string): void {
     try {
       window.localStorage.removeItem(NAMESPACE + key);
+      releaseHeld(key);
       noteLocalRemove(key);
     } catch {
       /* noop */
