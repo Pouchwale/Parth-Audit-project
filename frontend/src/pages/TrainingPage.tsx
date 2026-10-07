@@ -18,7 +18,7 @@ import {
   rejectRecord,
   resumeAfterRejection,
 } from "../engine/recordLifecycle";
-import { withEditHistory } from "../engine/recordHistory";
+import { logRecordStarted, withEditHistory } from "../engine/recordHistory";
 import { RecordActionBar } from "../components/records/RecordActionBar";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -74,6 +74,8 @@ export function TrainingListPage() {
       createdAt: now,
       updatedAt: now,
     };
+    // In the activity log like any record a person starts (REQUIREMENTS §93).
+    logRecordStarted(rec);
     recordRepository.upsert(rec as RecordInstance);
     bump();
     navigate(`/training/${rec.id}`);

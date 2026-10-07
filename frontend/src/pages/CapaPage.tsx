@@ -3,6 +3,7 @@ import { FiArrowLeft, FiArrowRight, FiPlus, FiZap, FiUsers, FiSearch } from "rea
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
+import { logRecordStarted } from "../engine/recordHistory";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { refreshGapFindingStatuses, openCorrectiveActionsCount } from "../data/selectors";
 import { COMPLAINT_DOC_ID, COMPLAINT_FOOTER_NOTE, COMPLAINT_ACTIVITY_COUNT, isConditionalActivity, newComplaintChecklistData } from "../data/seed/complaintChecklist";
@@ -183,6 +184,8 @@ export function ComplaintListPage() {
       createdAt: now,
       updatedAt: now,
     };
+    // In the activity log like any record a person starts (REQUIREMENTS §93).
+    logRecordStarted(rec);
     recordRepository.upsert(rec as RecordInstance);
     bump();
     navigate(`/gap/complaint/${rec.id}`);

@@ -5,7 +5,7 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { createDefaultData } from "./recordDefaults";
 import { schedulePeriodOf, type SchedulePeriod } from "./frequencyEngine";
 import { periodKeyFor } from "./recordGenerator";
-import { historyOf } from "./recordHistory";
+import { historyOf, logRecordStarted } from "./recordHistory";
 import { readJSON, writeJSON } from "../data/storageAdapter";
 import { generateId } from "../utils/id";
 import { compareISO, todayISO } from "../utils/date";
@@ -145,7 +145,7 @@ export function createRecordForDocument(
     createdAt: now,
     updatedAt: now,
   };
-  if (!isDemo) logActivity("Record started", recordLabel(record), "", doc.id);
+  logRecordStarted(record);
   return { record: recordRepository.upsert(record), existed: false };
 }
 

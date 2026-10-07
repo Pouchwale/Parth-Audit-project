@@ -7,6 +7,7 @@ import { pressable } from "../utils/pressable";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { recordRepository } from "../data/repositories/recordRepository";
+import { logRecordStarted } from "../engine/recordHistory";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { useEnsureMonth } from "../utils/useEnsureMonth";
@@ -239,6 +240,8 @@ export function PestControlOverviewPage() {
       createdAt: now,
       updatedAt: now,
     };
+    // In the activity log like any record a person starts (REQUIREMENTS §93).
+    logRecordStarted(rec);
     recordRepository.upsert(rec as RecordInstance);
     navigate(`/record/${rec.id}`);
   };

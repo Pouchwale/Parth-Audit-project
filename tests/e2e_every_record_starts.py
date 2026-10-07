@@ -23,7 +23,11 @@ product as a plant installs it, on a system live since the first of last month
     ahead for the 31st;
   * WITH THE BROWSER'S STORAGE FULL, Start still opens the record (held in the
     page's memory), the page says this browser's copy is full and then that the
-    record WAS saved, and the record is in the database.
+    record WAS saved, and the record is in the database;
+  * every record started by hand is in the activity log as "Record started" -
+    the pages that build their own record (the CAPA registers, the complaint
+    and its acknowledgement, the training record, the service agreement) wrote
+    nothing before s93.
 
 Against the PRODUCT server on :8843 (DCRS_BASE overrides it), with the plant's
 seeded accounts on SEED_ACCOUNT_PASSWORD SeedQA@2026; the super admin adds the
@@ -437,6 +441,21 @@ def stays(page, started, label):
     check(f"[{label}] ...and each opens on its page", not bad, bad[:6])
 
 
+# The activity log's "Record started" lines, newest first, as the super admin reads them (GET /api/activity).
+STARTED_LINES = """async () => {
+  const res = await fetch('/api/activity?q=' + encodeURIComponent('Record started') + '&limit=500', { credentials: 'same-origin' });
+  if (!res.ok) return null;
+  return (await res.json()).lines.filter((l) => l.action === 'Record started').map((l) => l.target || '');
+}"""
+
+
+def activity_label(doc_id):
+    """How engine/recordHistory.ts recordLabel names a document's record in the log, up to its date."""
+    d = DEFS.get(doc_id, {})
+    number = d.get("formatNo") or ""
+    return (f"{number} " if number and not number.startswith("TO BE") else "") + (d.get("name") or doc_id) + " — "
+
+
 FILL = """() => {
   // A stand-in item outside the app's own names fills what is left, leaving less room than one record needs.
   let lo = 0, hi = 12000000;
@@ -549,6 +568,17 @@ with sync_playwright() as p:
     sign_out(page)
     sign_in(page, ADMIN, SEED_PASSWORD)
     stays(page, admin_started, "super admin")
+
+    # Every Start above that made a NEW record - an as-required document's, the training record's - wrote "Record
+    # started" (s62, s93). The pest responsibilities' button opens the signed copy on file, so it is left out.
+    targets = page.evaluate(STARTED_LINES)
+    made_new = [
+        d
+        for d in admin_started
+        if d != "pest-responsibilities" and (d == "training-record" or (DEFS.get(d, {}).get("schedule") or {}).get("type") == "as-required")
+    ]
+    unlogged = [d for d in made_new if not any(x.startswith(activity_label(d)) for x in (targets or []))]
+    check(f"Every record started by hand is in the activity log as 'Record started' ({len(made_new)} documents)", targets is not None and not unlogged, (targets is None, unlogged[:12]))
     ctx.close()
 
     # ==================================================================

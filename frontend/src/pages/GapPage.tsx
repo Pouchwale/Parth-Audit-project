@@ -3,6 +3,7 @@ import { FiPlus, FiTrash2, FiArrowLeft } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
+import { logRecordStarted } from "../engine/recordHistory";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { refreshGapFindingStatuses } from "../data/selectors";
 import type { ComplaintAckData, GapFinding, GapInspectionData, RecordInstance } from "../types";
@@ -60,6 +61,8 @@ export function GapListPage() {
       createdAt: now,
       updatedAt: now,
     };
+    // In the activity log like any record a person starts (REQUIREMENTS §93).
+    logRecordStarted(rec);
     recordRepository.upsert(rec as RecordInstance);
     bump();
     navigate(`/record/${rec.id}`);
@@ -96,6 +99,8 @@ export function GapListPage() {
       createdAt: now,
       updatedAt: now,
     };
+    // In the activity log like any record a person starts (REQUIREMENTS §93).
+    logRecordStarted(rec);
     recordRepository.upsert(rec as RecordInstance);
     bump();
     navigate(`/gap/${rec.id}`);
