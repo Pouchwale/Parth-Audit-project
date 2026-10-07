@@ -24,7 +24,9 @@ import {
 import { ApiError, assistantApi } from "../api/client";
 import { useAuth } from "../store/AuthContext";
 import { useAppStore } from "../store/AppStore";
-import { isValidAppRoute, useRouter } from "../store/router";
+import { currentRoutePath, isValidAppRoute, useRouter } from "../store/router";
+import { useAssistantTarget } from "../store/AssistantContext";
+import { useMitraFill } from "../components/mitra/useMitraFill";
 import { onExternalChange, readJSON, writeJSON } from "../data/storageAdapter";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { answerLanguageFor, answerStaysLocal, buildAssistantContext, localAnswer, suggestedPrompts, withHindiNote } from "../engine/assistantLocal";
@@ -277,6 +279,9 @@ export function AssistantPage() {
   const { lang } = useLanguage();
   const t = useT();
   const isDemo = mode === "demo";
+  // The record a tool opened is the agent's to fill, and a fill is read by DCRS's own engine first (REQUIREMENTS §94).
+  const { getTarget } = useAssistantTarget();
+  const fill = useMitraFill({ getTarget, currentRoute: currentRoutePath, navigate, bump, userName: user?.name ?? currentUser, isDemo, language: lang });
   const [state, setState] = useState<StoredState>(currentState);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -536,12 +541,17 @@ export function AssistantPage() {
     isDemo,
     language: lang,
     userName: user?.name ?? currentUser,
-    currentRoute: "/assistant",
+    get currentRoute() {
+      return currentRoutePath();
+    },
     navigate: (route) => {
       if (isValidAppRoute(route)) navigate(route);
     },
-    // No record is open on this page; the widget is the host for that.
-    target: null,
+    // Live: a record a tool opened is registered by its page, and the next tool sees it.
+    get target() {
+      return getTarget();
+    },
+    fill: (args) => fill.toolFill({ userWords: words, confirm: (q, yes, no) => askToConfirm(convId, q, yes, no) })(args),
     bump,
     attachments: files,
     confirm: (question, yes, no) => askToConfirm(convId, question, yes, no),
@@ -636,6 +646,8 @@ export function AssistantPage() {
       at: stamp(),
       ...(files.length ? { attachments: attachmentNotes(files) } : {}),
     });
+
+    if (text && files.length === 0 && (await fill.tryFill(text, { post: (m) => append(convId, { id: generateId("msg"), role: "bot", text: m.text, at: stamp(), ...(m.options ? { options: m.options } : {}), ...(m.steps ? { steps: m.steps } : {}) }), thinking: setVoiceNote, busy: setLoading, readOut }))) return;
 
     // MITRA AS AN AGENT (REQUIREMENTS §80). With a model to ask, the message and
     // its files go to the agent loop: the model calls the app's tools and the

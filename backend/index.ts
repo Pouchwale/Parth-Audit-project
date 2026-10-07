@@ -41,6 +41,7 @@ import { distDir } from "./paths.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAgent.ts";
+import { FillRefusal, runFillCall, validateFillRequest } from "./mitraFill.ts";
 import { readAttachment, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
 import { groqSpeak, groqTranscribe, ttsModel, ttsVoiceName } from "./groq.ts";
 import { speakFailure, speakStatus, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PROBE_TEXT, VoiceAvailability, VoiceUnavailableError } from "./tts.ts";
@@ -826,6 +827,40 @@ function recordAssistantCall(userId: string): void {
   assistantCalls.set(userId, rec);
 }
 
+// THE CAP COUNTS REQUESTS, NOT ROUNDS (REQUIREMENTS §94). One message to Mitra
+// may take several rounds of the agent loop (and a fill's one small call); they
+// carry one turn id (the body's turnId, or the X-Mitra-Turn header), and the turn
+// is counted ONCE against the twenty per ten minutes above — the diagnosis of
+// 6-Oct-2026 met the cap part-way through a fill, right after the record had been
+// opened. A turn may ask the model at most ten times. A call without a turn id
+// counts as a turn of its own, as every call did before.
+const turnCalls = new Map<string, { calls: number; first: number }>();
+const MAX_MODEL_CALLS_PER_TURN = 10;
+const TURN_ID_RE = /^[a-z0-9-]{1,64}$/i;
+
+function turnIdOf(req: Request, fromBody?: unknown): string | null {
+  const said = typeof fromBody === "string" ? fromBody : req.get("x-mitra-turn");
+  return typeof said === "string" && TURN_ID_RE.test(said) ? said : null;
+}
+
+/** Why this call may not ask the model now, or null when it may. */
+function assistantTurnRefusal(userId: string, turnId: string | null): string | null {
+  const known = turnId ? turnCalls.get(`${userId}|${turnId}`) : undefined;
+  if (known) return known.calls >= MAX_MODEL_CALLS_PER_TURN ? "This request has asked the model too many times. Send it again as a new message." : null;
+  return isAssistantThrottled(userId) ? "Too many assistant requests. Try again in a few minutes." : null;
+}
+
+function recordAssistantTurn(userId: string, turnId: string | null): void {
+  const key = turnId ? `${userId}|${turnId}` : null;
+  const known = key ? turnCalls.get(key) : undefined;
+  if (known) {
+    known.calls += 1;
+    return;
+  }
+  recordAssistantCall(userId);
+  if (key) turnCalls.set(key, { calls: 1, first: Date.now() });
+}
+
 // Mitra's spoken lines (POST /api/assistant/speak, REQUIREMENTS §81) have a
 // budget of their own: a reminder or a briefing is not a question to the model,
 // and counted with the chat they would use up a person's twenty questions.
@@ -845,6 +880,7 @@ setInterval(() => {
   sweepExpired(signupAttempts, THROTTLE_WINDOW_MS);
   sweepExpired(assistantCalls, ASSISTANT_THROTTLE_WINDOW_MS);
   sweepExpired(speakCalls, SPEAK_THROTTLE_WINDOW_MS);
+  for (const [key, rec] of turnCalls) if (Date.now() - rec.first > ASSISTANT_THROTTLE_WINDOW_MS) turnCalls.delete(key);
 }, 60 * 1000).unref();
 
 const ROUTE_RE = /^\/[a-z0-9/_-]*$/i;
@@ -979,16 +1015,61 @@ app.post("/api/assistant/agent", requireAuth, express.json({ limit: "200kb" }), 
     res.status(429).json({ error: "The assistant's allowance for today is used up — answers come from this system's own records until tomorrow.", code: "daily-allowance" });
     return;
   }
-  if (isAssistantThrottled(userId)) {
-    res.status(429).json({ error: "Too many assistant requests. Try again in a few minutes." });
+  const turnId = turnIdOf(req, checked.request.turnId);
+  const refused = assistantTurnRefusal(userId, turnId);
+  if (refused) {
+    res.status(429).json({ error: refused });
     return;
   }
-  recordAssistantCall(userId);
+  recordAssistantTurn(userId, turnId);
   try {
     res.json(await runAgentStep(checked.request));
   } catch (err) {
     console.error(err);
     res.status(502).json({ error: "The assistant is having trouble right now — try again in a moment." });
+  }
+});
+
+// A FILL'S ONE SMALL CALL (REQUIREMENTS §94, backend/mitraFill.ts): the words
+// DCRS's own rules could not read, read for one form's card into the fixed shape
+// (or, when the form is not certain, the form picked from at most twelve). The
+// same gate as /agent, sharing its turn: the shapes and limits, the plant's daily
+// allowance, the per-person cap by turn. The minute's allowance is never waited
+// for here: "busy" comes back at once with how long, and the browser shows the
+// wait ("Waiting for Mitra... 12 s") and asks once more.
+app.post("/api/assistant/fill", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).user.id;
+  const checked = validateFillRequest(req.body);
+  if (!checked.ok) {
+    res.status(400).json({ error: checked.error });
+    return;
+  }
+  if (!FEATURES.assistant) {
+    res.status(503).json({ error: "Mitra's model is not set up on this server.", code: "not-configured" });
+    return;
+  }
+  if (assistantAllowanceUsedUp()) {
+    res.status(429).json({ error: "The assistant's allowance for today is used up — answers come from this system's own records until tomorrow.", code: "daily-allowance" });
+    return;
+  }
+  const turnId = turnIdOf(req, checked.input.turnId);
+  const refused = assistantTurnRefusal(userId, turnId);
+  if (refused) {
+    res.status(429).json({ error: refused, code: "busy", retryInMs: 60_000 });
+    return;
+  }
+  recordAssistantTurn(userId, turnId);
+  try {
+    res.json(await runFillCall({ ...checked.input, maxWaitMs: 0 }));
+  } catch (err) {
+    if (err instanceof FillRefusal) {
+      if (err.code === "allowance") res.status(429).json({ error: err.message, code: "daily-allowance" });
+      else if (err.code === "busy") res.status(429).json({ error: err.message, code: "busy", ...(err.retryInMs !== null ? { retryInMs: err.retryInMs } : {}) });
+      else res.status(502).json({ error: "The assistant is having trouble right now. Try again in a moment.", code: "unavailable" });
+      return;
+    }
+    console.error(err);
+    res.status(502).json({ error: "The assistant is having trouble right now. Try again in a moment.", code: "unavailable" });
   }
 });
 

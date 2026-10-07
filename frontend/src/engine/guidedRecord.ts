@@ -84,11 +84,33 @@ export interface InterviewQuestion {
   validate?: (value: unknown) => string | null;
   /** What to say once it is saved — default "<label>: <value>." */
   ack?: (value: unknown) => string;
+  /** What the form holds for this question now — on a prepared record, the app's estimate (REQUIREMENTS §94). */
+  current?: (data: Obj) => unknown;
+  /** The answer that keeps what is there, where the current value cannot be typed back (the slots' readings). */
+  keep?: string;
 }
 
 export interface InterviewPlan {
   intro: string;
   questions: InterviewQuestion[];
+  /**
+   * The record holds the app's estimates and nobody has touched it (its only
+   * history is the "prepared" entry): every question is asked, with the estimate
+   * offered first — "The app put Yes here (an estimate). Right?" — instead of
+   * "already answers everything" (REQUIREMENTS §94).
+   */
+  confirm?: boolean;
+}
+
+// A sitting that began in confirm mode stays in it until every question was
+// asked: the first answer adds a history entry, and the record is no longer
+// untouched, but the rest of the estimates still want checking.
+const CONFIRMING = new Set<string>();
+
+/** A record still holding the app's estimates untouched: prepared, open for writing, its only history the "prepared" entry. */
+export function isPreparedUntouched(record: RecordInstance | null | undefined): boolean {
+  if (!record?.prepared || !["Scheduled", "Due", "In Progress"].includes(record.status)) return false;
+  return (record.history ?? []).every((h) => h.action === "prepared");
 }
 
 const YES_NO: Suggestion[] = [
@@ -117,6 +139,15 @@ export function interviewPlan(
   /** The chosen language: a form issued in Gujarati is asked about in English while English is chosen (REQUIREMENTS §58). */
   lang: Language = "en"
 ): InterviewPlan | null {
+  const plan = planFor(doc, record, data, master, today, lang);
+  if (plan && (CONFIRMING.has(record.id) || isPreparedUntouched(record))) {
+    CONFIRMING.add(record.id);
+    return { ...plan, confirm: true, questions: plan.questions.map((q) => ({ ...q, id: q.id })), intro: plan.intro };
+  }
+  return plan;
+}
+
+function planFor(doc: DocumentDefinition, record: RecordInstance, data: unknown, master: MasterData, today: string, lang: Language): InterviewPlan | null {
   const d = (data ?? {}) as Obj;
   switch (doc.kind) {
     case "daily-pest-monitoring":
@@ -142,17 +173,42 @@ export function interviewPlan(
   }
 }
 
-/** The next question worth asking: not answered on the form, not asked in this sitting. */
-export function nextQuestion(plan: InterviewPlan, data: unknown, asked: Set<string>): InterviewQuestion | null {
+/** The question's estimate, when it holds one worth checking. */
+const estimateOf = (q: InterviewQuestion, d: Obj): unknown => {
+  if (!q.current || !q.answered(d)) return undefined;
+  const v = q.current(d);
+  return blank(v) ? undefined : v;
+};
+
+/** The next question worth asking: not answered on the form, not asked in this sitting. In confirm mode, an estimate is asked about too, offered first. */
+export function nextQuestion(plan: InterviewPlan, data: unknown, asked: Set<string>, recordId?: string): InterviewQuestion | null {
   const d = (data ?? {}) as Obj;
+  if (plan.confirm) {
+    const q = plan.questions.find((x) => !asked.has(x.id) && (!x.answered(d) || estimateOf(x, d) !== undefined));
+    if (!q) {
+      if (recordId) CONFIRMING.delete(recordId);
+      else CONFIRMING.clear();
+      return null;
+    }
+    const est = estimateOf(q, d);
+    if (est === undefined) return q;
+    const shown = display(est);
+    const value = q.keep ?? (Array.isArray(est) ? est.join("; ") : String(est));
+    return {
+      ...q,
+      ask: `The app put ${shown} here (an estimate). Right? ${q.ask}`,
+      suggestions: [{ label: `${shown} (keep)`, value }, ...(q.suggestions ?? []).filter((x) => x.value !== value)],
+    };
+  }
   return plan.questions.find((q) => !asked.has(q.id) && !q.answered(d)) ?? null;
 }
 
-/** How many of the plan's questions the form already answers, for the intro. */
+/** How many of the plan's questions the form already answers, for the intro. In confirm mode an estimate is not an answer yet. */
 export function planProgress(plan: InterviewPlan, data: unknown): { answered: number; total: number } {
   const d = (data ?? {}) as Obj;
   const total = plan.questions.length;
-  return { answered: plan.questions.filter((q) => q.answered(d)).length, total };
+  const counts = (q: InterviewQuestion) => q.answered(d) && !(plan.confirm && estimateOf(q, d) !== undefined);
+  return { answered: plan.questions.filter(counts).length, total };
 }
 
 // ---------------------------------------------------------------------------
@@ -248,7 +304,7 @@ export function answerQuestion(q: InterviewQuestion, data: unknown, raw: string,
 // small shared question builders
 
 function textQ(id: string, label: string, ask: string, get: (d: Obj) => unknown, set: (d: Obj, v: string) => Obj, extra: Partial<InterviewQuestion> = {}): InterviewQuestion {
-  return { id, label, ask, type: "text", answered: (d) => !blank(get(d)), apply: (d, v) => set(d, String(v)), ...extra };
+  return { id, label, ask, type: "text", answered: (d) => !blank(get(d)), apply: (d, v) => set(d, String(v)), current: get, ...extra };
 }
 
 function dateQ(id: string, label: string, ask: string, get: (d: Obj) => unknown, set: (d: Obj, v: string) => Obj, extra: Partial<InterviewQuestion> = {}): InterviewQuestion {
@@ -260,6 +316,7 @@ function dateQ(id: string, label: string, ask: string, get: (d: Obj) => unknown,
     suggestions: [{ label: "Today", value: "today" }, { label: "Yesterday", value: "yesterday" }],
     answered: (d) => !blank(get(d)),
     apply: (d, v) => set(d, String(v)),
+    current: get,
     ...extra,
   };
 }
@@ -310,6 +367,7 @@ function dailyPlan(record: RecordInstance, d: DailyPestMonitoringData, master: M
         type: "number",
         suggestions: chips("100"),
         answered: (x) => holiday(x) || !blank(cpValue(x, no)),
+        current: (x) => (holiday(x) ? undefined : cpValue(x, no)),
         apply: (x, v) => setCp(x, no, { value: Number(v) }),
       });
       continue;
@@ -322,6 +380,7 @@ function dailyPlan(record: RecordInstance, d: DailyPestMonitoringData, master: M
       type: "yesno",
       suggestions: YES_NO,
       answered: (x) => holiday(x) || !blank(cpValue(x, no)),
+      current: (x) => (holiday(x) ? undefined : cpValue(x, no)),
       // "OK" means the point is fine — which on a point that asks about a
       // problem ("any gaps?") is "No" (the same rule as recordPatch.ts).
       parse: (raw) => {
@@ -340,7 +399,7 @@ function dailyPlan(record: RecordInstance, d: DailyPestMonitoringData, master: M
           `${cp.notePrompt ?? "Where"}?`,
           (x) => (cpValue(x, no) !== "Yes" ? "n/a" : cpNote(x, no)),
           (x, v) => setCp(x, no, { note: v }),
-          { answered: (x) => holiday(x) || cpValue(x, no) !== "Yes" || !blank(cpNote(x, no)) }
+          { answered: (x) => holiday(x) || cpValue(x, no) !== "Yes" || !blank(cpNote(x, no)), current: (x) => (cpValue(x, no) === "Yes" ? cpNote(x, no) : undefined) }
         )
       );
     }
@@ -382,12 +441,14 @@ function dailyPlan(record: RecordInstance, d: DailyPestMonitoringData, master: M
     type: "time",
     suggestions: [{ label: "Now", value: "now" }, ...chips("09:15", "09:30")],
     answered: (x) => holiday(x) || !blank(x.timeOfChecking),
+    current: (x) => (holiday(x) ? undefined : x.timeOfChecking),
     apply: (x, v) => ({ ...x, timeOfChecking: v }),
   });
   qs.push(
     textQ("checker", "Checker", "Who did the round (checker's name)?", (x) => x.checker, (x, v) => ({ ...x, checker: v }), {
       suggestions: people(master, "checker", "fly catcher cleaning"),
       answered: (x) => holiday(x) || !blank(x.checker),
+      current: (x) => (holiday(x) ? undefined : x.checker),
     })
   );
 
@@ -616,6 +677,7 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
       suggestions: f.type === "select" ? chips(...(f.options ?? [])) : f.autoFill?.sign ? people(master, "qc", "qa", "operator") : suggestion ? chips(suggestion) : undefined,
       optional: !f.required && !isReason,
       answered: (x) => (isReason ? blank(header(x).lotStatus) || isLotAccepted(header(x).lotStatus) || !blank(header(x)[f.key]) : !blank(header(x)[f.key])),
+      current: (x) => header(x)[f.key],
       apply: (x, v) => setHeader(x, f.key, v),
     });
   }
@@ -637,7 +699,13 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
       type: "text",
       suggestions: [{ label: "Fill typical readings for me", value: "__typical__" }],
       answered: (x) => rows(x).length > 0 && rows(x).every((r) => !blank(r[main.key])),
+      current: (x) => {
+        const filled = rows(x).filter((r) => !blank(r[main.key]));
+        return filled.length ? `${filled.length} readings` : undefined;
+      },
+      keep: "__keep__",
       apply: (x, v) => {
+        if (String(v) === "__keep__") return x;
         if (String(v) === "__typical__") return { ...x, rows: typicalRows() };
         const typical = typicalRows();
         const next = rows(x).map((r) => ({ ...r }));
@@ -653,7 +721,7 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
         }
         return { ...x, rows: next };
       },
-      ack: (v) => (String(v) === "__typical__" ? "Filled every slot with a typical reading (check them against the register)." : "Written into the slots you named."),
+      ack: (v) => (String(v) === "__keep__" ? "Kept the readings as they are." : String(v) === "__typical__" ? "Filled every slot with a typical reading (check them against the register)." : "Written into the slots you named."),
     });
   } else if (mode.kind === "fixedRows") {
     const obsCol = editable.find((c) => c.key === "observation" || c.key === "grade") ?? editable[0];
@@ -669,6 +737,7 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
         options: obsCol.options,
         suggestions: obsCol.options ? chips(...obsCol.options) : specimen !== undefined && specimen !== null && specimen !== "" ? chips(String(specimen), "OK") : chips("OK", "PASS"),
         answered: (x) => !blank(rows(x)[i]?.[obsCol.key]),
+        current: (x) => rows(x)[i]?.[obsCol.key],
         apply: (x, v) => {
           const next = rows(x).map((r) => ({ ...r }));
           while (next.length <= i) next.push({ id: generateId("row"), ...mode.rows[next.length] });

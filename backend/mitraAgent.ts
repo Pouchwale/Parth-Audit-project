@@ -11,7 +11,7 @@
 //
 // The wire shapes are frontend/src/engine/mitraTypes.ts, mirrored by hand: the
 // server imports nothing from the frontend at run time.
-import { groqChatWithTools, type AssistantReply, type ChatMessage, type ToolCall, type ToolSchema } from "./groq.ts";
+import { groqChatWithTools, GroqRefusal, type AssistantReply, type ChatMessage, type ToolCall, type ToolSchema } from "./groq.ts";
 import { ASSISTANT_NAME } from "./assistant.ts";
 
 export type AgentMessage = ChatMessage;
@@ -30,6 +30,10 @@ export interface AgentRequest {
   context?: string;
   tools: ToolSchema[];
   messages: AgentMessage[];
+  /** One id for every round of one turn: counted once against the person's allowance (REQUIREMENTS §94). */
+  turnId?: string;
+  /** The language and script of the person's latest message, said last to the model (REQUIREMENTS §94). */
+  answerLanguage?: "en" | "hi" | "gu";
 }
 
 export type AgentResponse = { kind: "final"; text: string } | { kind: "tools"; text: string | null; calls: ToolCall[] };
@@ -116,7 +120,8 @@ const LANGUAGE_RULE = [
 ].join(" ");
 
 const HOW_TO_WORK = [
-  "WORK: act through the tools; never claim what a tool did not confirm. If an instruction could mean two things (which",
+  "WORK: act through the tools; never claim what a tool did not confirm. To fill a record call fill_record with the person's words;",
+  "never ask to confirm values they gave; submit only when asked. If an instruction could mean two things (which",
   "document, date, line, value) or a detail is missing, call ask_user with 2–4 short options — real documents from",
   "find_documents or the person's own words, never invented names; never guess. Before writing",
   "data, say in one line what you are doing. Delete, send back and reopen confirm via their tool — call it, do not ask",
@@ -129,34 +134,56 @@ const ATTACHMENTS_RULE = [
   "read_attachment(id, from, to) gives the rest of a long one.",
 ].join(" ");
 
-/** The agent's system prompt: who Mitra is, the scope, the moment, the rules, and the browser's facts. */
-export function buildAgentSystemPrompt({
+/**
+ * The agent's system prompt: who Mitra is, the scope, the language rule, the way
+ * of working and the attachment rule — THE SAME BYTES ON EVERY CALL (REQUIREMENTS
+ * §94), so Groq can reuse its work on the request's start. What changes from call
+ * to call (the day, the screen, the facts, the language to answer in) goes last,
+ * in the trailing note (buildTrailingNote).
+ */
+export function buildAgentSystemPrompt(): string {
+  return [IDENTITY, AGENT_SCOPE, LANGUAGE_RULE, HOW_TO_WORK, ATTACHMENTS_RULE].join("\n\n");
+}
+
+const LANGUAGE_NAMES: Record<"en" | "hi" | "gu", string> = {
+  en: "Reply in English.",
+  hi: "Reply in Hindi, in Devanagari script.",
+  gu: "Reply in Gujarati, in Gujarati script.",
+};
+
+/**
+ * THE NOTE AFTER THE CONVERSATION (REQUIREMENTS §94): the moment, the browser's
+ * facts (round 1 only; later rounds send just the line about the screen) and,
+ * last, the language of the person's latest message — said after the tool
+ * results, where the model reads it last, so a Gujarati question is not answered
+ * in English after a run of English tool results.
+ */
+export function buildTrailingNote({
   today,
   currentRoute,
   language,
   userName,
   context,
+  answerLanguage,
 }: {
   today: string;
   currentRoute: string;
   language: "en" | "gu";
   userName?: string;
   context?: string;
+  answerLanguage?: "en" | "hi" | "gu";
 }): string {
   const moment = [`Today: ${today}`, `Screen: ${currentRoute}`, userName?.trim() ? `Person: ${userName.trim()}` : "", `Interface language: ${language === "gu" ? "Gujarati" : "English"}`]
     .filter(Boolean)
     .join(" · ");
   return [
-    IDENTITY,
-    AGENT_SCOPE,
+    "(A note from the app, not from the person.)",
     moment,
-    LANGUAGE_RULE,
-    HOW_TO_WORK,
-    ATTACHMENTS_RULE,
     context?.trim() ? `FACTS from the app right now — rely on these and never contradict them:\n${context.trim()}` : "",
+    LANGUAGE_NAMES[answerLanguage ?? (language === "gu" ? "gu" : "en")],
   ]
     .filter(Boolean)
-    .join("\n\n");
+    .join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -224,12 +251,14 @@ export function validateAgentRequest(body: unknown): Checked {
   const b = body as Record<string, unknown> | null;
   if (!b || typeof b !== "object" || Array.isArray(b)) return bad("The request body must be a JSON object.");
 
-  const { today, currentRoute, language, userName, context } = b;
+  const { today, currentRoute, language, userName, context, turnId, answerLanguage } = b;
   if (typeof today !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return bad("today must be an ISO date string.");
   if (typeof currentRoute !== "string" || currentRoute.length > LIMITS.route || !ROUTE_RE.test(currentRoute)) return bad("currentRoute must be an app-relative path.");
   if (language !== "en" && language !== "gu") return bad("Unsupported language.");
   if (userName !== undefined && (typeof userName !== "string" || userName.length > LIMITS.userName)) return bad(`userName must be a short string (at most ${LIMITS.userName} characters).`);
   if (context !== undefined && (typeof context !== "string" || context.length > LIMITS.context)) return bad(`context must be a string of at most ${LIMITS.context} characters.`);
+  if (turnId !== undefined && (typeof turnId !== "string" || !/^[a-z0-9-]{1,64}$/i.test(turnId))) return bad("turnId must be a short id.");
+  if (answerLanguage !== undefined && answerLanguage !== "en" && answerLanguage !== "hi" && answerLanguage !== "gu") return bad("answerLanguage must be en, hi or gu.");
 
   const tools = checkTools(b.tools);
   if (!tools.ok) return bad(tools.error);
@@ -302,6 +331,8 @@ export function validateAgentRequest(body: unknown): Checked {
   const request: AgentRequest = { today, currentRoute, language, tools: tools.tools, messages };
   if (typeof userName === "string" && userName.trim()) request.userName = userName.trim();
   if (typeof context === "string" && context.trim()) request.context = context.trim();
+  if (typeof turnId === "string") request.turnId = turnId;
+  if (answerLanguage === "en" || answerLanguage === "hi" || answerLanguage === "gu") request.answerLanguage = answerLanguage;
   return { ok: true, request };
 }
 
@@ -317,21 +348,44 @@ export function setAgentTransportForTests(fn: AgentTransport | null): void {
   transport = fn ?? groqChatWithTools;
 }
 
+/** What the person sees when the model twice wrote a tool call Groq refused. */
+export const COULD_NOT_WORK_OUT = "I couldn't work that out. Say it another way.";
+
 /**
  * Asks the model once with a checked request. Words → `final`; tool calls (with
  * any words said before them) → `tools`, for the browser to run and report
  * back; a message with neither → "Done.", so the person is never left with
- * nothing. Throws when Groq cannot be reached — the route answers 502.
+ * nothing. A tool call Groq refused as not matching its schema (400
+ * tool_use_failed, the website's 24-reading trial of 6-Oct-2026) is asked again
+ * once at temperature 0, naming the bad call; a second refusal is answered in
+ * words, never as a 502 (REQUIREMENTS §94). Anything else that keeps Groq from
+ * answering is thrown — the route answers 502.
  */
 export async function runAgentStep(request: AgentRequest): Promise<AgentResponse> {
-  const system = buildAgentSystemPrompt({
+  const system = buildAgentSystemPrompt();
+  const note = buildTrailingNote({
     today: request.today,
     currentRoute: request.currentRoute,
     language: request.language,
     userName: request.userName,
     context: request.context,
+    answerLanguage: request.answerLanguage,
   });
-  const reply = await transport({ system, messages: request.messages, tools: request.tools, maxTokens: AGENT_MAX_COMPLETION_TOKENS, temperature: 0.2 });
+  const messages: AgentMessage[] = [...request.messages, { role: "user", content: note }];
+  let reply: AssistantReply;
+  try {
+    reply = await transport({ system, messages, tools: request.tools, maxTokens: AGENT_MAX_COMPLETION_TOKENS, temperature: 0.2 });
+  } catch (err) {
+    if (!(err instanceof GroqRefusal) || err.code !== "tool_use_failed") throw err;
+    const bad = (err.failedGeneration ?? "").replace(/\s+/g, " ").slice(0, 200);
+    const hint = `Your last tool call was refused because its arguments did not match the tool's schema${bad ? ` (${bad})` : ""}. Call one tool with arguments that match its schema, or answer in words.`;
+    try {
+      reply = await transport({ system: `${system}\n\n${hint}`, messages, tools: request.tools, maxTokens: AGENT_MAX_COMPLETION_TOKENS, temperature: 0 });
+    } catch (again) {
+      if (again instanceof GroqRefusal && again.code === "tool_use_failed") return { kind: "final", text: COULD_NOT_WORK_OUT };
+      throw again;
+    }
+  }
   const text = typeof reply.content === "string" ? reply.content.trim() : "";
   if (reply.tool_calls && reply.tool_calls.length > 0) return { kind: "tools", text: text || null, calls: reply.tool_calls };
   return { kind: "final", text: text || "Done." };

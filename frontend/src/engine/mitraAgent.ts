@@ -27,9 +27,10 @@ import { assistantApi } from "../api/client";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { buildAssistantContext } from "./assistantLocal";
 import { historyForModel } from "./historyDigest";
-import { describeStep, documentOnPath, mitraTools, parseToolArgs, runTool, toolSchemas } from "./mitraTools";
+import { describeStep, documentOnPath, mitraTools, parseToolArgs, runTool, toolSchemas, TURN_STATE } from "./mitraTools";
 import { t } from "../i18n";
 import { generateId } from "../utils/id";
+import { askedLanguage } from "../utils/scripts";
 
 export const MAX_ROUNDS = 8;
 export const MAX_TOOL_CHARS_PER_TURN = 12000;
@@ -92,7 +93,7 @@ export function buildUserContent(text: string, attachments: MitraAttachment[]): 
  * screen, the attachments' ids, then the app's live facts (today, the weekly
  * off, what is due — engine/assistantLocal.ts). At most 2,500 characters.
  */
-export function buildContext(ctx: MitraToolContext): string {
+export function buildContext(ctx: MitraToolContext, round = 0): string {
   const lines: string[] = [];
   const tgt = ctx.target;
   if (tgt) {
@@ -104,12 +105,54 @@ export function buildContext(ctx: MitraToolContext): string {
     const doc = onPath ? documentRepository.getById(onPath) : undefined;
     if (doc) lines.push(`Document page open: ${doc.formatNo} ${doc.name} (id ${doc.id}); no record is open.`);
   }
+  // After the first round only the line about the screen goes up: the facts were said once (REQUIREMENTS §94).
+  if (round > 0) return lines.join("\n").slice(0, CONTEXT_CHARS);
   if (ctx.attachments.length > 0) {
     const listed = ctx.attachments.map((a, i) => `${i + 1}. ${a.name} (${a.status}, ${a.characters} chars, id=${a.id})`).join("; ");
     lines.push(`Attachments in this conversation: ${listed}.`.slice(0, 400));
   }
   lines.push(buildAssistantContext(ctx.isDemo, ctx.userName));
   return lines.join("\n").slice(0, CONTEXT_CHARS);
+}
+
+/** How long the loop waits, after a tool opened a page, for that page to be on screen and its record registered. */
+export const SCREEN_WAIT_MS = 2000;
+const SCREEN_POLL_MS = 50;
+
+/**
+ * WAIT FOR THE PAGE A TOOL OPENED (REQUIREMENTS §94). The record page registers
+ * its record in an effect after it is drawn; the round right after open_document
+ * used to be built from the OLD screen, with no record to fill. So after a
+ * navigation the loop waits — every 50 ms, at most 2 s — until the route is the
+ * new one and, for /record/<id>, that record is the one registered.
+ */
+export async function waitForScreen(ctx: Pick<MitraToolContext, "currentRoute" | "target">, route: string, maxMs = SCREEN_WAIT_MS): Promise<boolean> {
+  const want = route.length > 1 ? route.replace(/\/+$/, "") : route;
+  const recordId = /^\/record\/([^/]+)/.exec(want)?.[1] ?? null;
+  const there = (): boolean => {
+    try {
+      const at = ctx.currentRoute.length > 1 ? ctx.currentRoute.replace(/\/+$/, "") : ctx.currentRoute;
+      return at === want && (!recordId || ctx.target?.recordId === recordId);
+    } catch {
+      return true;
+    }
+  };
+  const started = Date.now();
+  while (!there()) {
+    if (Date.now() - started >= maxMs) return false;
+    await new Promise((r) => setTimeout(r, SCREEN_POLL_MS));
+  }
+  return true;
+}
+
+// Words that claim something was filled in (REQUIREMENTS §94): never said when nothing was.
+const CLAIMS_FILL_RE = /\b(?:filled|filling|entered|written|wrote|recorded|updated|saved)\b|भरा|भर दिया|भर दी|लिख दिया|ભર્યું|ભરી દીધું|લખ્યું|નોંધ્યું/i;
+const FILL_ASK_RE = /\b(?:fill|enter|write|put|note|record|sample)\b|भर|लिख|दर्ज|ભર|લખ|નોંધ|\bbhar|\blikh/i;
+const FILL_TOOLS = new Set(["fill_record", "edit_open_record", "fill_open_record_with_sample_data", "add_photo_to_open_record"]);
+
+/** The language of the person's latest message, else the screens'. */
+export function answerLanguageOf(text: string, fallback: "en" | "gu"): "en" | "hi" | "gu" {
+  return askedLanguage(text) ?? fallback;
 }
 
 /**
@@ -145,6 +188,12 @@ function soFar(steps: readonly MitraStep[], tail: string): string {
 export async function runMitraTurn(input: MitraTurnInput): Promise<MitraTurnOutput> {
   const { ctx } = input;
   const turn: AgentMessage[] = [{ role: "user", content: buildUserContent(input.text, input.attachments) }];
+  // One id for every round: the server counts the turn once against the person's allowance (REQUIREMENTS §94).
+  const turnId = generateId("turn");
+  TURN_STATE.set(ctx, {});
+  const answerLanguage = answerLanguageOf(input.text, ctx.language);
+  // The person asked for something to be written (not a question about what was).
+  const askedFill = FILL_ASK_RE.test(input.text) && !/[?？]\s*$/.test(input.text.trim());
   const toolResults: { content: string }[] = [];
   const steps: MitraStep[] = [];
   let navigated: string | undefined;
@@ -158,7 +207,10 @@ export async function runMitraTurn(input: MitraTurnInput): Promise<MitraTurnOutp
       console.error("A Mitra event handler failed", err);
     }
   };
-  const finish = (text: string): MitraTurnOutput => {
+  const finish = (raw: string): MitraTurnOutput => {
+    // Words that claim a fill when nothing was written are not shown: what was done is (REQUIREMENTS §94).
+    const wrote = steps.some((s) => s.status === "done" && FILL_TOOLS.has(s.tool));
+    const text = askedFill && CLAIMS_FILL_RE.test(raw) && !wrote && !steps.some((s) => s.tool === "start_guided_fill" && s.status === "done") ? soFar(steps, say("ai.agent.nothingWritten", "Nothing was written on a record.")) : raw;
     turn.push({ role: "assistant", content: text });
     emit({ type: "final", text });
     return { messages: turn, final: text, steps, ...(navigated ? { navigated } : {}) };
@@ -183,9 +235,11 @@ export async function runMitraTurn(input: MitraTurnInput): Promise<MitraTurnOutp
         currentRoute: ctx.currentRoute,
         language: ctx.language,
         ...(ctx.userName.trim() ? { userName: ctx.userName.trim().slice(0, 40) } : {}),
-        context: buildContext(ctx),
+        context: buildContext(ctx, round),
         tools: schemas,
         messages: [...history, ...turn],
+        turnId,
+        answerLanguage,
       });
     } catch (err) {
       // Nothing done yet: the caller falls back to the app's own answer (§72).
@@ -203,6 +257,7 @@ export async function runMitraTurn(input: MitraTurnInput): Promise<MitraTurnOutp
     turn.push({ role: "assistant", content: res.text ?? null, tool_calls: calls });
 
     let ask: { question: string; options: string[] } | undefined;
+    let ended: string | undefined;
     for (const [index, call] of calls.entries()) {
       const id = call.id || generateId("call");
       const name = call.function.name;
@@ -219,8 +274,8 @@ export async function runMitraTurn(input: MitraTurnInput): Promise<MitraTurnOutp
         emit({ type: "step", ...step });
         continue;
       }
-      if (ask || index >= MAX_CALLS_PER_ROUND) {
-        answer(JSON.stringify({ ok: false, error: ask ? "not run: the turn ended with ask_user" : "not run: too many calls in one round" }));
+      if (ask || ended !== undefined || index >= MAX_CALLS_PER_ROUND) {
+        answer(JSON.stringify({ ok: false, error: ask || ended !== undefined ? "not run: the turn ended" : "not run: too many calls in one round" }));
         continue;
       }
       const label = describeStep(name, parseToolArgs(call.function.arguments) ?? {});
@@ -233,14 +288,20 @@ export async function runMitraTurn(input: MitraTurnInput): Promise<MitraTurnOutp
       if (run.navigated) {
         navigated = run.navigated;
         emit({ type: "navigated", route: run.navigated });
+        // The next tool, and the next round, see the page that was opened.
+        await waitForScreen(ctx, run.navigated);
       }
       answer(run.content);
-      if (tool.endsTurn && run.ok) {
-        const r = run.result as { question?: unknown; options?: unknown } | null;
-        ask = { question: str(r?.question) || label, options: Array.isArray(r?.options) ? r.options.map((o) => str(o)).filter(Boolean) : [] };
+      if (tool.endsTurn) {
+        const r = run.result as { question?: unknown; options?: unknown; say?: unknown } | null;
+        const options = Array.isArray(r?.options) ? r.options.map((o) => str(o)).filter(Boolean) : [];
+        // A fill (or a walk-through) ends with the engine's own words, or with the question it asks.
+        if (str(r?.say) && (options.length === 0 || !str(r?.question))) ended = str(r?.say);
+        else if (run.ok || str(r?.question)) ask = { question: str(r?.question) || label, options };
       }
     }
     trimToolResults(toolResults);
+    if (ended !== undefined) return finish(ended);
     if (ask) {
       emit({ type: "ask", ...ask });
       return { messages: turn, final: null, ask, steps, ...(navigated ? { navigated } : {}) };

@@ -33,7 +33,28 @@ export interface AgentRequest {
   context?: string;
   tools: ToolSchema[];
   messages: AgentMessage[];
+  /** One id for every round of one turn: the server counts the turn once (REQUIREMENTS §94). */
+  turnId?: string;
+  /** The language and script of the person's latest message, for the reply (REQUIREMENTS §89, §94). */
+  answerLanguage?: "en" | "hi" | "gu";
 }
+
+// ---- a fill's one small model call (POST /api/assistant/fill, REQUIREMENTS §94) ----
+
+/** What the browser sends: the person's words, the form's card, and — when the document is not certain — the candidates. */
+export interface FillModelRequest {
+  words: string;
+  card?: string;
+  candidates?: string;
+  today: string;
+  language: "en" | "hi" | "gu";
+  turnId?: string;
+}
+
+/** What comes back: the values in the fixed shape, or the document picked. */
+export type FillModelResponse =
+  | { kind: "values"; values: Record<string, unknown>; usage?: { total: number } }
+  | { kind: "pick"; doc: string | null; date: string | null; unclear: string; usage?: { total: number } };
 
 export type AgentResponse = { kind: "final"; text: string } | { kind: "tools"; text: string | null; calls: ToolCall[] };
 
@@ -104,6 +125,12 @@ export interface MitraToolContext {
   runWidgetAction?: (action: ChipAction) => void;
   /** The person's words this turn, for history notes ("Asked of Mitra: …"). */
   userWords: string;
+  /**
+   * The host's fill (components/mitra/useMitraFill.ts): DCRS's own engine reads
+   * the values from userWords, plans, asks about a finding, writes and answers in
+   * the person's language. The fill_record tool hands a fill here (REQUIREMENTS §94).
+   */
+  fill?: (args: { documentId?: string; dateISO?: string; recordId?: string; sample?: boolean }) => Promise<MitraToolResult>;
 }
 
 export interface MitraToolResult {
@@ -121,7 +148,11 @@ export interface MitraTool {
   description: string;
   parameters: Record<string, unknown>;
   run: (args: Record<string, unknown>, ctx: MitraToolContext) => Promise<MitraToolResult> | MitraToolResult;
-  /** ask_user: the turn ends with a question for the person. */
+  /**
+   * The turn ends with this tool: ask_user with its question; fill_record and
+   * start_guided_fill with the words their result carries (`say`), or the
+   * question they ask (`question` with `options`).
+   */
   endsTurn?: boolean;
   /**
    * The tool changes something the person can see — a page opened, a record

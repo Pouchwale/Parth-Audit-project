@@ -132,6 +132,153 @@ export function dailyAllowanceUsedUp(): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// THE MINUTE'S LEDGER (REQUIREMENTS §94).
+//
+// Groq checks a whole request against the minute's allowance (8,000 tokens on the
+// plant's plan) BEFORE it answers, and gives back cached tokens only afterwards
+// (console.groq.com/docs/prompt-caching), so a request that will not fit is
+// refused with a 429 whatever is cached. Every answer says how many tokens are
+// left this minute and when the minute refills (x-ratelimit-remaining-tokens,
+// x-ratelimit-reset-tokens); they are kept here, and a call that would not fit
+// waits for the refill first (a fill waits up to 20 s, saying so) or is not sent
+// at all ("busy"), instead of being sent to fail.
+
+interface MinuteLedger {
+  remaining: number | null;
+  /** When the minute is full again (ms since the epoch). */
+  resetAt: number;
+}
+let ledger: MinuteLedger = { remaining: null, resetAt: 0 };
+
+/** "6.18s", "1m2.5s", "450ms" → milliseconds; null when it cannot be read. */
+export function groqDurationMs(text: string | null | undefined): number | null {
+  const s = String(text ?? "").trim();
+  if (!s) return null;
+  let ms = 0;
+  let read = false;
+  for (const m of s.matchAll(/(\d+(?:\.\d+)?)(ms|s|m|h)/g)) {
+    read = true;
+    const n = Number(m[1]);
+    ms += m[2] === "ms" ? n : m[2] === "s" ? n * 1000 : m[2] === "m" ? n * 60000 : n * 3600000;
+  }
+  if (!read && /^\d+(?:\.\d+)?$/.test(s)) return Number(s) * 1000;
+  return read ? Math.round(ms) : null;
+}
+
+/** Keeps the minute's tokens left and its refill time from an answer's headers. */
+export function noteRateHeaders(headers: Pick<Headers, "get">): void {
+  const remaining = Number(headers.get("x-ratelimit-remaining-tokens"));
+  if (!Number.isFinite(remaining) || headers.get("x-ratelimit-remaining-tokens") === null) return;
+  const reset = groqDurationMs(headers.get("x-ratelimit-reset-tokens"));
+  ledger = { remaining, resetAt: Date.now() + (reset ?? 60000) };
+}
+
+/** A request's tokens, as Groq counts them before answering: its characters / 3.5, and the completion it may write. */
+export function estimateRequestTokens(promptChars: number, maxCompletionTokens: number): number {
+  return Math.ceil(promptChars / 3.5) + Math.max(0, Math.floor(maxCompletionTokens));
+}
+
+/** Whether a request of `tokens` fits this minute now; else how long until it does. */
+export function minuteRoomFor(tokens: number, now = Date.now()): { ok: true } | { ok: false; waitMs: number } {
+  if (ledger.remaining === null || now >= ledger.resetAt || ledger.remaining >= tokens) return { ok: true };
+  return { ok: false, waitMs: Math.max(0, ledger.resetAt - now) };
+}
+
+/** The unit tests set the ledger as Groq's headers would. */
+export function setMinuteLedgerForTests(remaining: number | null, resetInMs = 0): void {
+  ledger = { remaining, resetAt: Date.now() + resetInMs };
+}
+
+/**
+ * GROQ SAID NO, AND WHY (REQUIREMENTS §94): its status, its `error.code`
+ * ("tool_use_failed" is a tool call that did not match its schema,
+ * "rate_limit_exceeded" a 429), whether it was the DAY's allowance (TPD) and how
+ * long it asked to wait. The message keeps the words callers already log.
+ */
+export class GroqRefusal extends Error {
+  readonly status: number;
+  readonly code: string | null;
+  readonly type: string | null;
+  /** tool_use_failed: the call the model wrote, which Groq refused. */
+  readonly failedGeneration: string | null;
+  readonly retryAfterMs: number | null;
+  /** The day's tokens are gone (tokens per day), not the minute's. */
+  readonly perDay: boolean;
+  constructor(status: number, bodyText: string, retryAfterMs: number | null = null) {
+    super(`Assistant request failed (${status}): ${bodyText.slice(0, 300)}`);
+    this.name = "GroqRefusal";
+    this.status = status;
+    let err: { message?: unknown; type?: unknown; code?: unknown; failed_generation?: unknown } = {};
+    try {
+      const parsed = JSON.parse(bodyText) as { error?: typeof err };
+      err = parsed?.error ?? {};
+    } catch {
+      err = {};
+    }
+    const message = typeof err.message === "string" ? err.message : bodyText;
+    this.code = typeof err.code === "string" ? err.code : null;
+    this.type = typeof err.type === "string" ? err.type : null;
+    this.failedGeneration = typeof err.failed_generation === "string" ? err.failed_generation.slice(0, 2000) : null;
+    this.perDay = /tokens per day|\(TPD\)|\bTPD\b/i.test(message);
+    const said = /try again in ((?:\d+(?:\.\d+)?(?:ms|s|m|h))+)/i.exec(message);
+    this.retryAfterMs = retryAfterMs ?? (said ? groqDurationMs(said[1]) : null);
+  }
+}
+
+/** The refusal of an answer that was not ok (its body read once). */
+async function refusalOf(res: Response): Promise<GroqRefusal> {
+  const text = await res.text().catch(() => "");
+  const header = Number(res.headers.get("retry-after"));
+  return new GroqRefusal(res.status, text, Number.isFinite(header) && header > 0 ? header * 1000 : null);
+}
+
+/**
+ * ONE JSON CALL, SENT ONCE (a fill's Tier 1, backend/mitraFill.ts): no retry
+ * here — the caller has already checked the minute and says "busy" itself. The
+ * answer's text and usage come back; a refusal is thrown as a GroqRefusal.
+ */
+export async function groqJSONOnce({
+  system,
+  user,
+  temperature = 0,
+  reasoningEffort = "low",
+  maxTokens,
+}: {
+  system: string;
+  user: string;
+  temperature?: number;
+  reasoningEffort?: "low" | "medium" | "high";
+  maxTokens: number;
+}): Promise<{ text: string; usage: { prompt: number; completion: number; total: number; cached: number } | null }> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("The assistant isn't configured yet (missing GROQ_API_KEY).");
+  const payload = JSON.stringify({
+    model: GROQ_MODEL,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    temperature,
+    response_format: { type: "json_object" },
+    ...(takesReasoningEffort(GROQ_MODEL) ? { reasoning_effort: reasoningEffort } : {}),
+    max_completion_tokens: Math.max(1, Math.floor(maxTokens)),
+  });
+  const res = await postChat(apiKey, payload);
+  noteRateHeaders(res.headers);
+  if (!res.ok) throw await refusalOf(res);
+  const body = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+    usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown; prompt_tokens_details?: { cached_tokens?: unknown } };
+  };
+  countTokens(body?.usage?.total_tokens);
+  const text = body?.choices?.[0]?.message?.content;
+  if (!text) throw new Error("The assistant returned no content.");
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const usage = body.usage ? { prompt: n(body.usage.prompt_tokens), completion: n(body.usage.completion_tokens), total: n(body.usage.total_tokens), cached: n(body.usage.prompt_tokens_details?.cached_tokens) } : null;
+  return { text, usage };
+}
+
+// ---------------------------------------------------------------------------
 
 /** One earlier turn of the conversation, as the browser sends it (backend/index.ts checks the limits). */
 export interface ChatTurn {
@@ -182,11 +329,9 @@ export async function groqChatJSON({
   });
 
   const res = await sendWithRateLimitRetry(() => postChat(apiKey, payload));
+  noteRateHeaders(res.headers);
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Assistant request failed (${res.status}): ${text.slice(0, 300)}`);
-  }
+  if (!res.ok) throw await refusalOf(res);
 
   const body = (await res.json()) as { choices?: { message?: { content?: string } }[]; usage?: { total_tokens?: unknown } };
   countTokens(body?.usage?.total_tokens);
@@ -281,10 +426,9 @@ export async function groqChatWithTools({
   });
 
   const res = await sendWithRateLimitRetry(() => postChat(apiKey, payload));
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Assistant request failed (${res.status}): ${text.slice(0, 300)}`);
-  }
+  noteRateHeaders(res.headers);
+  // A refused tool call (400 tool_use_failed) is thrown as such: the agent route answers it, never as a 502.
+  if (!res.ok) throw await refusalOf(res);
 
   const body = (await res.json()) as { choices?: { message?: { content?: unknown; tool_calls?: unknown } }[]; usage?: { total_tokens?: unknown } };
   countTokens(body?.usage?.total_tokens);

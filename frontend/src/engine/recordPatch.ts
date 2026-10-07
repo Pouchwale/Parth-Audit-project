@@ -120,6 +120,13 @@ export function normDate(v: unknown, today = todayISO()): string | null {
   if (s === "tomorrow") return addDays(today, 1);
   let m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
   if (m) return isoOf(m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]), Number(m[2]), Number(m[1]));
+  // "06-Oct-2026" — the app's own display date (utils/date.ts formatDisplayDate), as Mitra reads it back.
+  m = s.match(/^(\d{1,2})-([a-z]{3,9})-(\d{2,4})$/);
+  if (m) {
+    const mi = MONTHS.indexOf(m[2].slice(0, 3));
+    if (mi < 0) return null;
+    return isoOf(m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]), mi + 1, Number(m[1]));
+  }
   m = s.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\.?,?\s*(\d{2,4})?$/);
   if (m) {
     const mi = MONTHS.indexOf(m[2].slice(0, 3));
@@ -526,11 +533,34 @@ function describeMatch(match: Obj): string {
   return parts.length ? parts.join(" and ") : "that line";
 }
 
+/** A key as a log sheet's column names it: by its key, or by its printed label ("Viscosity", "Time" = the slot key). */
+function columnKeyOf(layout: LogSheetLayout, key: string): string {
+  const k = key.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (!k) return key;
+  const byKey = layout.columns.find((c) => c.key.toLowerCase() === key.toLowerCase());
+  if (byKey) return byKey.key;
+  const label = (c: LogColumn) => c.label.split(" (")[0].toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const byLabel = layout.columns.filter((c) => label(c) === k || label(c).startsWith(k) || (k.length >= 4 && label(c).includes(k)));
+  if (byLabel.length === 1) return byLabel[0].key;
+  if (layout.rowMode.kind === "timeSlots" && (k === "time" || k === "slot" || k === "datetime")) return layout.rowMode.slotKey;
+  return key;
+}
+
+function rekey(layout: LogSheetLayout, obj: Obj): Obj {
+  const out: Obj = {};
+  for (const [k, v] of Object.entries(obj)) out[k === "row" || k === "__row" ? k : columnKeyOf(layout, k)] = v;
+  return out;
+}
+
 function applyItemEdit(layout: LogSheetLayout | undefined, next: Obj, edit: unknown, problems: string[]): void {
   if (!isObj(edit) || typeof edit.collection !== "string" || !isObj(edit.set)) {
     problems.push("One change didn't say which line to change and what to put in it, so I skipped it.");
     return;
   }
+  // A log sheet has one list, its lines: whatever the change calls it ("Readings", "lines"), it is "rows".
+  if (layout && !Array.isArray(next[edit.collection]) && Array.isArray(next.rows)) edit = { ...edit, collection: "rows" };
+  if (layout && isObj(edit) && edit.collection === "rows") edit = { ...edit, set: rekey(layout, edit.set as Obj), ...(isObj(edit.match) ? { match: rekey(layout, edit.match as Obj) } : {}) };
+  if (!isObj(edit) || typeof edit.collection !== "string" || !isObj(edit.set)) return;
   const coll = next[edit.collection];
   if (!Array.isArray(coll)) {
     problems.push(`There's no list called "${edit.collection}" on this form.`);
@@ -560,6 +590,39 @@ function applyItemEdit(layout: LogSheetLayout | undefined, next: Obj, edit: unkn
   next[edit.collection] = updated;
 }
 
+// ---- new lines on a free-row sheet ------------------------------------------------
+
+/** Whether a line holds nothing a person wrote: every writable cell blank, or what a new line starts with. */
+function blankLine(layout: LogSheetLayout, row: Obj): boolean {
+  return layout.columns
+    .filter((c) => !c.fixed && !c.computed && !c.linkedFrom)
+    .every((c) => isBlank(row[c.key]) || (c.autoFill?.default !== undefined && c.type !== "text" && String(row[c.key]) === String(c.autoFill.default)));
+}
+
+// "addRows": lines for a sheet whose lines are added as things happen (F/DISP/04, a
+// line per cleaning). Each goes on the first line still blank — the one a record
+// starts with — else a new line at the end; a line someone wrote is never written over.
+function addLines(layout: LogSheetLayout | undefined, next: Obj, value: unknown, problems: string[]): void {
+  if (!layout || layout.rowMode.kind !== "free") {
+    problems.push("This form has a fixed set of rows, so no line was added.");
+    return;
+  }
+  if (!Array.isArray(value)) return;
+  const rows = (Array.isArray(next.rows) ? (next.rows as Obj[]) : []).slice();
+  for (const raw of value) {
+    if (!isObj(raw)) continue;
+    const set = rekey(layout, raw);
+    const at = rows.findIndex((r) => isObj(r) && blankLine(layout, r));
+    if (at >= 0) rows[at] = normRow(layout, rows[at], set, problems);
+    else {
+      const fresh: Obj = { id: generateId("row") };
+      for (const c of layout.columns) fresh[c.key] = c.type === "number" ? null : "";
+      rows.push(normRow(layout, fresh, set, problems));
+    }
+  }
+  next.rows = rows;
+}
+
 // ---------------------------------------------------------------------------
 // the entry point
 
@@ -582,9 +645,26 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
   const problems: string[] = [];
   const next = (clone(current) ?? {}) as unknown as Obj;
   const layout = kind === "log-sheet" ? getLogSheetLayoutForRecord(documentId, record) : undefined;
-  const { itemEdits, _layout, _linked, ...fields } = isObj(patch) ? patch : ({} as Obj);
+  const { itemEdits: givenEdits, addRows, _layout, _linked, ...given } = isObj(patch) ? patch : ({} as Obj);
   void _layout;
   void _linked;
+  let itemEdits = givenEdits;
+  const fields: Obj = {};
+  for (const [key, value] of Object.entries(given)) {
+    // "10:00": 18 on a time-slot sheet is that slot's one reading (the shape the model reaches for first).
+    const time = layout && layout.rowMode.kind === "timeSlots" && /^\d{1,2}:\d{2}$/.test(key) ? normTime(key) : null;
+    if (layout && time && layout.rowMode.kind === "timeSlots") {
+      const numberCols = layout.columns.filter((c) => !c.fixed && !c.computed && !c.linkedFrom && c.type === "number");
+      const set = isObj(value) ? value : numberCols.length === 1 ? { [numberCols[0].key]: value } : null;
+      if (!set) {
+        problems.push(`Say which column ${time} is for, so I don't put it in the wrong one.`);
+        continue;
+      }
+      itemEdits = [...(Array.isArray(itemEdits) ? itemEdits : []), { collection: "rows", match: { [layout.rowMode.slotKey]: time }, set }];
+      continue;
+    }
+    fields[key] = value;
+  }
 
   for (const [key, value] of Object.entries(fields)) {
     if (!(key in next) && !(OPTIONAL_KEYS[kind] ?? []).includes(key)) {
@@ -623,6 +703,7 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
   }
 
   if (Array.isArray(itemEdits)) for (const edit of itemEdits) applyItemEdit(layout, next, edit, problems);
+  if (addRows !== undefined) addLines(layout, next, addRows, problems);
   if (kind === "service-report" && isObj(current)) next.lines = serviceLinesAfterPatch(documentId, current.lines, next.lines, problems);
   if (kind === "complaint-checklist" && isObj(current)) keepChecklistOrder(current, next, problems);
   applyCodeFormats(kind, next, isObj(current) ? current : {}, problems);

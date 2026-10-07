@@ -29,3 +29,22 @@ export function takeHandoff(recordId: string): HandoffAction | null {
   pending = null;
   return then;
 }
+
+// THE BOXES A FILL CHANGED (REQUIREMENTS §94), to glow for two seconds once the
+// record they are on is drawn: a fill made from the Ask Mitra page or from another
+// page opens the record afterwards, and the person sees what changed. Keyed to the
+// record, like the action above; a later fill of another record supersedes it.
+let glow: { recordId: string; paths: string[] } | null = null;
+
+/** Park the changed boxes' binding paths (engine/roundTrip/bindingsFor.ts) for this record. */
+export function queueHighlight(recordId: string, paths: string[]): void {
+  glow = paths.length ? { recordId, paths: paths.slice(0, 200) } : null;
+}
+
+/** The parked paths for this record — taken once, or only looked at (`peek`). */
+export function takeHighlight(recordId: string, peek = false): string[] | null {
+  if (!glow || glow.recordId !== recordId) return null;
+  const paths = glow.paths;
+  if (!peek) glow = null;
+  return paths;
+}

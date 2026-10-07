@@ -22,6 +22,8 @@ import { latestConfirmedRecord } from "./assistantPrepare";
 import { nextComplaintNo } from "./documentFormats";
 import { fieldLabels } from "./recordPatch";
 import { saveDraft } from "./recordLifecycle";
+import { diffRecordData } from "./recordHistory";
+import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { addDays, compareISO, formatDisplayDate, todayISO } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
@@ -69,7 +71,12 @@ export function sampleFillRecord(doc: DocumentDefinition, record: RecordInstance
       const previous = latestConfirmedRecord(doc.id, record.dueDate, record.isDemo);
       const filled = autoFillRecord(doc, record.dueDate, master, previous);
       if (!filled) return null;
-      return { data: filled.data, summary: [...filled.notes, `Based on ${filled.basedOn}.`] };
+      // HONEST ON A RECORD ALREADY FILLED (REQUIREMENTS §94): only the blank boxes
+      // are filled, on the lines the record already has (same ids, matched by time
+      // slot or position), and nothing written is changed. On a register the app
+      // prepared this morning, that is nothing at all — and it is said so, never
+      // reported as 48 changes of identical values on new row ids.
+      return { data: fillBlanks(record.data, filled.data, doc), summary: [...filled.notes, `Based on ${filled.basedOn}.`] };
     }
     case "training-record":
       return fillTraining(doc, record, master, rng, today);
@@ -92,15 +99,95 @@ export function sampleFillRecord(doc: DocumentDefinition, record: RecordInstance
  * Fills a stored record in place (for the full-page assistant, where no record
  * page is open to commit through) and returns it with the history line added.
  */
-export function sampleFillStoredRecord(recordId: string, actorName: string): { record: RecordInstance; summary: string[] } | undefined {
+export function sampleFillStoredRecord(recordId: string, actorName: string): { record: RecordInstance; summary: string[]; changed: number } | undefined {
   const record = recordRepository.getById(recordId);
   if (!record) return undefined;
   const doc = documentRepository.getById(record.documentId);
   if (!doc) return undefined;
   const result = sampleFillRecord(doc, record, masterRepository.get(), actorName);
   if (!result) return undefined;
-  const saved = saveDraft(record, result.data, actorName, { action: "assistant-edit", note: SAMPLE_FILL_NOTE, labels: fieldLabels(doc.kind, doc.id) });
-  return { record: saved, summary: result.summary };
+  const labels = fieldLabels(doc.kind, doc.id);
+  const changed = diffRecordData(record.data, result.data, labels).length;
+  // Nothing to fill: said so, and nothing saved (REQUIREMENTS §94).
+  if (changed === 0) return { record, summary: [nothingChangedLine(record)], changed };
+  const saved = saveDraft(record, result.data, actorName, { action: "assistant-edit", note: SAMPLE_FILL_NOTE, labels });
+  return { record: saved, summary: result.summary, changed };
+}
+
+/** "Already filled (prepared 08:12): nothing changed." — what a sample fill that changed nothing says. */
+export function nothingChangedLine(record: RecordInstance): string {
+  const at = record.prepared?.at ? new Date(record.prepared.at) : null;
+  const time = at && !Number.isNaN(at.getTime()) ? `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}` : "";
+  return time ? `Already filled (prepared ${time}): nothing changed.` : "Already filled in: nothing changed.";
+}
+
+// ---------------------------------------------------------------------------
+// the blank boxes only
+
+const isBlankValue = (v: unknown): boolean => v === null || v === undefined || (typeof v === "string" && v.trim() === "") || (Array.isArray(v) && v.length === 0) || (isPlainObject(v) && Object.keys(v).length === 0);
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+const clonePlain = <T>(v: T): T => (v === undefined ? v : (JSON.parse(JSON.stringify(v)) as T));
+
+// What names a line on the paper: its time slot, its unit, its printed number or parameter.
+const LINE_KEYS = ["time", "pcId", "slNo", "srNo", "parameter", "key", "areaName", "machineNo"];
+// Printed on the form, never a person's entry: a line holding only these is still blank.
+const PRINTED_KEYS = new Set(["id", "time", "pcId", "slNo", "srNo", "parameter", "key", "areaName", "materialName", "methodOfApplication", "activity", "specification", "title"]);
+
+function blankItem(item: unknown, defaults: Record<string, unknown>): boolean {
+  if (!isPlainObject(item)) return isBlankValue(item);
+  return Object.entries(item).every(([k, v]) => PRINTED_KEYS.has(k) || isBlankValue(v) || (k in defaults && String(defaults[k]) === String(v)) || (isPlainObject(v) && blankItem(v, {})));
+}
+
+function mergeBlank(cur: unknown, fill: unknown, defaults: Record<string, unknown>): unknown {
+  if (fill === undefined) return cur;
+  if (isBlankValue(cur)) return isBlankValue(fill) ? cur : clonePlain(fill);
+  if (Array.isArray(cur) && Array.isArray(fill)) return mergeLines(cur, fill, defaults);
+  if (isPlainObject(cur) && isPlainObject(fill)) {
+    const out: Record<string, unknown> = { ...cur };
+    for (const [k, v] of Object.entries(fill)) {
+      if (k === "id") continue;
+      out[k] = k in cur ? mergeBlank(cur[k], v, defaults) : clonePlain(v);
+    }
+    return out;
+  }
+  return cur; // a value already there stays
+}
+
+function mergeLines(cur: unknown[], fill: unknown[], defaults: Record<string, unknown>): unknown[] {
+  if (!cur.some(isPlainObject)) return cur;
+  const used = new Set<number>();
+  const out = cur.map((c, i) => {
+    if (!isPlainObject(c)) return c;
+    let j = fill.findIndex((f, jj) => !used.has(jj) && isPlainObject(f) && typeof f.id === "string" && f.id === c.id);
+    if (j < 0) {
+      const key = LINE_KEYS.find((k) => !isBlankValue(c[k]));
+      if (key) j = fill.findIndex((f, jj) => !used.has(jj) && isPlainObject(f) && String(f[key] ?? "") === String(c[key]));
+    }
+    if (j < 0 && i < fill.length && !used.has(i)) j = i;
+    if (j < 0) return c;
+    used.add(j);
+    return mergeBlank(c, fill[j], defaults);
+  });
+  // More lines only on a sheet nobody has written on yet.
+  if (cur.every((c) => blankItem(c, defaults))) fill.forEach((f, j) => !used.has(j) && out.push(clonePlain(f)));
+  return out;
+}
+
+/**
+ * `current` with every blank box filled from `filled`, and nothing already
+ * written changed: lines keep their ids and are matched by id, then by their
+ * time slot (or unit, printed number, parameter), then by position.
+ */
+export function fillBlanks(current: unknown, filled: unknown, doc?: DocumentDefinition): unknown {
+  // What a new line starts with is not a person's entry (F/DISP/04's "Dry").
+  const defaults: Record<string, unknown> = {};
+  if (doc?.kind === "log-sheet") {
+    const layout = getLogSheetLayout(doc.id);
+    for (const c of layout?.columns ?? []) if (c.autoFill?.default !== undefined) defaults[c.key] = c.autoFill.default;
+  }
+  return mergeBlank(current, filled, defaults);
 }
 
 // ---------------------------------------------------------------------------

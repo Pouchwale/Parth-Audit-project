@@ -1,6 +1,6 @@
 import type { AuthUser, ManagedUser } from "../types/auth";
 import type { ActivityTally } from "../engine/activityWork";
-import type { AgentRequest, AgentResponse, ExtractResult, TranscribeResult } from "../engine/mitraTypes";
+import type { AgentRequest, AgentResponse, ExtractResult, FillModelRequest, FillModelResponse, TranscribeResult } from "../engine/mitraTypes";
 import { OUTSIDE_HOURS_CODE, type PublicHours } from "../engine/workingHoursCore";
 
 export type { PublicHours };
@@ -37,11 +37,14 @@ export class ApiError extends Error {
    * meant for a person. Absent for most errors.
    */
   code?: string;
-  constructor(message: string, status: number, code?: string) {
+  /** How long the server says to wait before asking again (a fill's "busy", REQUIREMENTS §94), when it says. */
+  retryInMs?: number;
+  constructor(message: string, status: number, code?: string, retryInMs?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     if (code) this.code = code;
+    if (typeof retryInMs === "number" && Number.isFinite(retryInMs)) this.retryInMs = retryInMs;
   }
 }
 
@@ -72,7 +75,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       const opensAt = (body as { opensAt?: unknown }).opensAt;
       sayOutsideHours({ message, opensAt: typeof opensAt === "string" ? opensAt : null });
     }
-    throw new ApiError(message, res.status, code);
+    const retryInMs = body && typeof body === "object" && typeof (body as { retryInMs?: unknown }).retryInMs === "number" ? (body as { retryInMs: number }).retryInMs : undefined;
+    throw new ApiError(message, res.status, code, retryInMs);
   }
 
   return body as T;
@@ -174,6 +178,10 @@ export const assistantApi = {
   // MITRA AS AN AGENT (REQUIREMENTS §80, engine/mitraAgent.ts): the conversation
   // and the tool schemas go up, the model's words or its tool calls come back.
   agent: (req: AgentRequest) => api.post<AgentResponse>("/assistant/agent", req),
+  // A FILL'S ONE SMALL CALL (REQUIREMENTS §94, components/mitra/useMitraFill.ts): the
+  // words DCRS's rules could not read, with the form's card, read into the fixed shape.
+  // 429 "daily-allowance" or "busy" (with retryInMs) comes back as an ApiError.
+  fill: (req: FillModelRequest) => api.post<FillModelResponse>("/assistant/fill", req),
   // AN ATTACHED FILE, READ ON THE SERVER (backend/attachments.ts) — the raw bytes
   // as the body, like the CV reader below: the JSON limit is far too small for a
   // PDF or a photograph. Nothing is kept on the server.

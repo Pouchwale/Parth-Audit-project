@@ -33,7 +33,7 @@ import { createRecordForDocument } from "./recordCrud";
 import { computeReminders, routeForRecord } from "./reminders";
 import { applyAssistantPatch, normDate } from "./recordPatch";
 import { diffRecordData } from "./recordHistory";
-import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "./sampleFill";
+import { canSampleFill, nothingChangedLine, sampleFillRecord, SAMPLE_FILL_NOTE } from "./sampleFill";
 import { applyFormatCommand, type FormatCommand, type Place, type TargetRef } from "./formatCommands";
 import { canDesignGrid, commitFormatChange, draftOf, type BoxArea, type HeaderField } from "./formatOps";
 import { designSessionFor } from "./designSession";
@@ -45,6 +45,8 @@ import { hrMasterVisible } from "./hrMasterAssistant";
 import { isDocumentIdVisible } from "./departmentScope";
 import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "./pmSchedule";
 import { ASSISTANT_NAME } from "./assistantPersona";
+import { parseFormatCommand } from "./formatCommands";
+import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { t } from "../i18n";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
@@ -97,6 +99,28 @@ const ok = (result: Obj, card: string, navigated?: string): MitraToolResult => (
 const no = (why: string, extra: Obj = {}, card?: string): MitraToolResult => ({ ok: false, result: { ok: false, why, ...extra }, card: card ?? short(why, 90) });
 
 const noteOf = (ctx: MitraToolContext): string => `Asked of ${ASSISTANT_NAME}: ${short(ctx.userWords.trim() || "(spoken)", 200)}`;
+
+/**
+ * What one turn has done so far, kept beside its context (engine/mitraAgent.ts
+ * starts it): a turn that filled sample data never also submits (REQUIREMENTS §94).
+ */
+export interface TurnState {
+  sampled?: boolean;
+  filled?: boolean;
+}
+export const TURN_STATE = new WeakMap<MitraToolContext, TurnState>();
+const turnOf = (ctx: MitraToolContext): TurnState => {
+  let t = TURN_STATE.get(ctx);
+  if (!t) {
+    t = {};
+    TURN_STATE.set(ctx, t);
+  }
+  return t;
+};
+
+// The person's own words asking for a submit or a verify (REQUIREMENTS §94): Mitra never does either on her own.
+const ASKS_SUBMIT_RE = /\bsubmit\b|\bsend (?:it |this )?for (?:verification|approval)\b|सबमिट|जमा कर|જમા કર|સબમિટ|\bjama kar/i;
+const ASKS_VERIFY_RE = /\bverify\b|\bapprove\b|\bsign (?:it |this )?off\b|सत्यापित|वेरिफाई|વેરિફાય|ચકાસ/i;
 
 // THE ROUTER'S OWN CHECK OF A ROUTE (store/router.tsx isValidAppRoute — the one
 // list of pages the app has). That module reads window.location the moment it
@@ -407,6 +431,8 @@ function formatCommandOf(c: Obj): FormatCommand | { why: string } {
     case "add_box":
     case "add": {
       if (!label) return { why: "label needed: what the new column or box is called" };
+      // A value is data for a record, never a new box on the format (the t3 trial of 6-Oct-2026).
+      if (str(c.value)) return { why: "a new column or box holds no value; to write a value into a record call fill_record" };
       const noun = op === "add_box" || str(c.noun) === "box" ? "box" : "column";
       const options = Array.isArray(c.options) ? c.options.map((o) => str(o)).filter(Boolean) : [];
       const type = options.length ? "select" : fieldTypeOf(str(c.type));
@@ -544,8 +570,18 @@ const OPEN_DOCUMENT: MitraTool = {
     if (record) {
       const route = routeForRecord(doc, record.id);
       ctx.navigate(route);
+      const layout = doc.kind === "log-sheet" ? getLogSheetLayoutForRecord(doc.id, record) : undefined;
       return ok(
-        { recordId: record.id, route, existed: true, status: record.status, dueDate: record.dueDate },
+        {
+          recordId: record.id,
+          route,
+          existed: true,
+          status: record.status,
+          dueDate: record.dueDate,
+          ...(layout ? { layout: layoutSummary(layout, isObj(record.data) ? record.data : {}) } : {}),
+          ...(record.prepared ? { prepared: { at: record.prepared.at, note: "the app's estimate until a person confirms it" } } : {}),
+          next: "to write values call fill_record",
+        },
         say("ai.step.openedRecord", "Opened the {doc} of {date}", { doc: doc.name, date: formatDisplayDate(record.dueDate) }),
         route
       );
@@ -585,16 +621,31 @@ const GET_OPEN_RECORD: MitraTool = {
   },
 };
 
+// A REAL SCHEMA, NOTHING REQUIRED (REQUIREMENTS §94): the model's natural calls —
+// itemEdits beside `patch` rather than in it, no `patch` at all — were refused by
+// the tool or by Groq itself ("missing properties: 'patch'" became a 502). Every
+// part is optional, and read at the top level or inside `patch`.
+const ITEM_EDIT_SCHEMA = { type: "object", properties: { collection: S, match: { type: "object" }, set: { type: "object" } } };
 const EDIT_OPEN_RECORD: MitraTool = {
   name: "edit_open_record",
-  description: "Change the open record. patch: {field:value}; log sheet: header{key:value}, itemEdits[{collection,match,set}]; F/HR/17 checkpoints{n:value}.",
-  parameters: objectSchema({ patch: { type: "object" } }, ["patch"]),
+  description: "Change the open record. header{key:value}; itemEdits[{collection:'rows',match:{time:'10:00'},set:{key:value}}]; checkpoints{n:value}; fields{key:value}.",
+  parameters: objectSchema({
+    header: { type: "object" },
+    itemEdits: { type: "array", items: ITEM_EDIT_SCHEMA },
+    checkpoints: { type: "object" },
+    fields: { type: "object" },
+    patch: { type: "object" },
+  }),
   writes: true,
   run: async (args, ctx) => {
     const tgt = ctx.target;
     if (!tgt) return no("no record is open — open one first");
-    const patch = asObject(args.patch);
-    if (!patch || Object.keys(patch).length === 0) return no("patch needed: an object of the fields to change");
+    const inner = asObject(args.patch) ?? {};
+    const top: Obj = {};
+    for (const k of ["header", "itemEdits", "checkpoints"]) if (args[k] !== undefined) top[k] = args[k];
+    const fields = asObject(args.fields) ?? {};
+    const patch: Obj = { ...fields, ...inner, ...top };
+    if (Object.keys(patch).length === 0) return no("nothing to change: give header, itemEdits, checkpoints or fields");
     const before = tgt.getData();
     const record = recordRepository.getById(tgt.recordId);
     const { data: next, problems } = applyAssistantPatch(tgt.documentKind, tgt.documentId, before, patch, record);
@@ -640,7 +691,9 @@ const FILL_WITH_SAMPLE: MitraTool = {
     if (!result) return no("no sample data could be put together for this one");
     const before = tgt.getData();
     const changes = diffRecordData(before, result.data, tgt.labels);
-    if (changes.length === 0) return no("the record was already filled in — nothing changed", { summary: result.summary.slice(0, 4) });
+    // Honest (REQUIREMENTS §94): a record already filled, the app's own morning estimates too, is said to be so.
+    if (changes.length === 0) return no(nothingChangedLine(record).replace(/\.$/, "").toLowerCase(), { prepared: !!record.prepared });
+    turnOf(ctx).sampled = true;
     const title = tgt.title ?? doc.name;
     if (!tgt.editable) {
       if (!tgt.reopen) return no(`${title} is ${tgt.status} and cannot be changed from here`);
@@ -660,11 +713,38 @@ const FILL_WITH_SAMPLE: MitraTool = {
   },
 };
 
+// THE FILL, HANDED TO DCRS'S OWN ENGINE (REQUIREMENTS §94): the model only says
+// that this is a fill and which record; the values are read from the person's
+// words by the rules (engine/fillRequest.ts) or one small JSON call, planned on a
+// copy (engine/fillPlan.ts), and written by the host (components/mitra/
+// useMitraFill.ts), which asks first about a finding. It ends the turn with the
+// engine's own words, so the model can never claim a fill that did not happen.
+const FILL_RECORD: MitraTool = {
+  name: "fill_record",
+  description: "Fill a record from the person's words (the open one, or documentId+dateISO; started if needed). DCRS reads the values. Never submits.",
+  parameters: objectSchema({ documentId: S, dateISO: S, recordId: S, sample: { type: "boolean" } }),
+  endsTurn: true,
+  writes: true,
+  run: async (args, ctx) => {
+    if (!ctx.fill) return no("filling a record is not available here");
+    const out = await ctx.fill({
+      ...(str(args.documentId) ? { documentId: str(args.documentId) } : {}),
+      ...(str(args.dateISO) ? { dateISO: str(args.dateISO) } : {}),
+      ...(str(args.recordId) ? { recordId: str(args.recordId) } : {}),
+      ...(bool(args.sample) ? { sample: true } : {}),
+    });
+    if (out.ok) turnOf(ctx).filled = true;
+    if (out.ok && bool(args.sample)) turnOf(ctx).sampled = true;
+    return out;
+  },
+};
+
 const START_GUIDED_FILL: MitraTool = {
   name: "start_guided_fill",
   description: "Fill a record question by question in the chat: the open one, or documentId (+dateISO) to start one first.",
   parameters: objectSchema({ documentId: S, dateISO: S }),
   writes: true,
+  endsTurn: true,
   run: (args, ctx) => {
     if (!ctx.runWidgetAction) return no("the question-by-question fill is not available on this page");
     const said = str(args.documentId);
@@ -673,7 +753,10 @@ const START_GUIDED_FILL: MitraTool = {
     const dateISO = str(args.dateISO) ? normDate(str(args.dateISO), ctx.today) : null;
     if (str(args.dateISO) && !dateISO) return no(`"${str(args.dateISO)}" is not a date — give YYYY-MM-DD`);
     ctx.runWidgetAction({ type: "startInterview", ...(doc ? { documentId: doc.id } : {}), ...(dateISO ? { dateISO } : {}) });
-    return ok({ started: true, ...(doc ? { documentId: doc.id } : {}) }, say("ai.step.guidedStarted", "Started the question-by-question fill"));
+    return ok(
+      { started: true, ...(doc ? { documentId: doc.id } : {}), say: "Nothing is written yet: I ask one box at a time in the chat.", note: "nothing is written yet; the questions are asked in the chat" },
+      say("ai.step.guidedStarted", "Started the question-by-question fill")
+    );
   },
 };
 
@@ -692,6 +775,11 @@ const RECORD_ACTION: MitraTool = {
     const title = tgt.title ?? documentRepository.getById(tgt.documentId)?.name ?? "the record";
     const outcome = (r: { ok: boolean; errors: string[] }, did: string, couldNot: string): MitraToolResult =>
       r.ok ? ok({ done: action }, `${did} ${title}`) : no(r.errors.join(" ") || `could not ${couldNot} ${title}`, { errors: r.errors.slice(0, 5) });
+    // Nothing is submitted or verified unless the person's words in this request ask for it,
+    // and never in a turn that filled sample data (REQUIREMENTS §94).
+    if ((action === "submit" || action === "verify" || action === "approve") && turnOf(ctx).sampled) return no("not in the same turn as a sample fill: the person must check the made-up values first");
+    if (action === "submit" && !ASKS_SUBMIT_RE.test(ctx.userWords)) return no("the person did not ask to submit; nothing was submitted");
+    if ((action === "verify" || action === "approve") && !ASKS_VERIFY_RE.test(ctx.userWords)) return no("the person did not ask to verify; nothing was verified");
     switch (action) {
       case "submit":
         if (!tgt.submit) return no(`${title} cannot be submitted from here (it is ${tgt.status})`);
@@ -1003,6 +1091,7 @@ export const ALL_TOOLS: readonly MitraTool[] = [
   NAVIGATE,
   FIND_DOCUMENTS,
   OPEN_DOCUMENT,
+  FILL_RECORD,
   GET_OPEN_RECORD,
   EDIT_OPEN_RECORD,
   FILL_WITH_SAMPLE,
@@ -1020,25 +1109,34 @@ export const ALL_TOOLS: readonly MitraTool[] = [
   HR_MASTER_LOOKUP,
 ];
 
+/** Whether the person's words read as a change to the FORMAT (engine/formatCommands.ts), which alone offers change_format. */
+function asksFormatChange(ctx: MitraToolContext): boolean {
+  const docId = documentOnScreen(ctx);
+  const layout = docId ? getLogSheetLayout(docId) : undefined;
+  try {
+    return !!parseFormatCommand(ctx.userWords, layout);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * The tools that make sense right now: a record's own tools only while one is
- * open, the format's while a document is on screen, the attachments' while
- * there are any, HR Master Data's for the departments that may see it.
+ * ONE FIXED LIST, the same every round of a turn (REQUIREMENTS §94): the
+ * request's start stays byte for byte the same, so Groq can reuse its work on
+ * it, and a record opened in round 1 is never missing its tools in round 2
+ * (the diagnoses' "round built from the old screen"). The record's tools refuse
+ * "no record is open" where none is. What depends on this turn alone stays:
+ * the files' tools with files, HR Master Data's for those who may see it, and
+ * change_format only when the words ask for a format change. Writing goes
+ * through fill_record; edit_open_record, fill_open_record_with_sample_data and
+ * start_guided_fill stay in ALL_TOOLS for the phone's API (engineHost/entry.ts)
+ * and the widget, and are not offered to the model.
  */
 export function mitraTools(ctx: MitraToolContext): MitraTool[] {
-  const tools: MitraTool[] = [NAVIGATE, FIND_DOCUMENTS, OPEN_DOCUMENT];
-  const tgt = ctx.target;
-  if (tgt) {
-    tools.push(GET_OPEN_RECORD, EDIT_OPEN_RECORD);
-    const kind = documentRepository.getById(tgt.documentId)?.kind;
-    if (kind && canSampleFill(kind)) tools.push(FILL_WITH_SAMPLE);
-    tools.push(RECORD_ACTION);
-    if (ctx.attachments.length > 0 && photoListOf(safeData(tgt))) tools.push(ADD_PHOTO);
-  }
-  if (ctx.runWidgetAction) tools.push(START_GUIDED_FILL);
-  if (documentOnScreen(ctx)) tools.push(CHANGE_FORMAT);
-  tools.push(SEARCH_RECORDS, LIST_RECORDS, GET_RECORD, HISTORY_FIGURES, TODAYS_FACTS);
+  const tools: MitraTool[] = [NAVIGATE, FIND_DOCUMENTS, OPEN_DOCUMENT, FILL_RECORD, GET_OPEN_RECORD, RECORD_ACTION, SEARCH_RECORDS, LIST_RECORDS, GET_RECORD, HISTORY_FIGURES, TODAYS_FACTS];
   if (ctx.attachments.length > 0) tools.push(READ_ATTACHMENT);
+  if (ctx.attachments.some((a) => a.kind === "image")) tools.push(ADD_PHOTO);
+  if (asksFormatChange(ctx)) tools.push(CHANGE_FORMAT);
   if (hrMasterVisible()) tools.push(HR_MASTER_LOOKUP);
   tools.push(ASK_USER);
   return tools;
@@ -1080,6 +1178,8 @@ export function describeStep(toolName: string, args: Record<string, unknown>): s
       return say("ai.step.sampleFilling", "Filling with sample data…");
     case "start_guided_fill":
       return say("ai.step.guidedStarting", "Starting the question-by-question fill…");
+    case "fill_record":
+      return say("ai.step.fillingRecord", "Reading your values…");
     case "record_action":
       return ACTION_RUNNING[str(args.action).toLowerCase().replace(/[\s-]+/g, "_")] ?? say("ai.step.acting", "Acting on the record…");
     case "change_format":

@@ -13,6 +13,15 @@ function currentPath(): string {
   return h || "/";
 }
 
+/**
+ * The route on screen right now, for code outside React's render (REQUIREMENTS
+ * §94): the Ask Mitra page's agent reads it each round, so a record a tool
+ * opened is the screen the next round is built from.
+ */
+export function currentRoutePath(): string {
+  return currentPath();
+}
+
 interface RouterValue {
   path: string;
   segments: string[];

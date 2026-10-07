@@ -63,7 +63,7 @@ import { parseAssistantCommand, type AssistantCommand } from "../../engine/assis
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { routeForRecord } from "../../engine/reminders";
-import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
+import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE, nothingChangedLine } from "../../engine/sampleFill";
 import { answerQuestion, interviewPlan, nextQuestion, planProgress, type InterviewQuestion } from "../../engine/guidedRecord";
 import { queueAfterOpen, takeHandoff } from "../../engine/assistantHandoff";
 import { applyFormatCommand, parseFormatCommand, type FormatCommand } from "../../engine/formatCommands";
@@ -189,6 +189,8 @@ function cannotSubmitWords(t: { title?: string; status?: string; reopen?: unknow
   }
 }
 
+import { useMitraFill, type FillIO } from "../mitra/useMitraFill";
+
 export function DocumentAssistant() {
   const { hasTarget, targetKind, targetDocumentId, targetSignature, getTarget } = useAssistantTarget();
   const { elRef, style: dragStyle, dragHandleProps, didJustDrag, reclamp } = useDraggable(WIDGET_POSITION_KEY);
@@ -271,6 +273,8 @@ export function DocumentAssistant() {
   const echoedRef = useRef(false);
   const pathRef = useRef(path);
   pathRef.current = path;
+  // MITRA FILLS THE RECORD (REQUIREMENTS §94): a fill is read by DCRS's own engine first, with or without the model.
+  const fill = useMitraFill({ getTarget, currentRoute: () => pathRef.current, navigate, bump, userName: user?.name ?? currentUser, isDemo, language: lang, runWidgetAction: (action) => runAction({ label: "", action }) });
   const openRef = useRef(open);
   openRef.current = open;
   // True while Mitra itself is submitting, verifying or sending back: it answers
@@ -747,7 +751,7 @@ export function DocumentAssistant() {
     const changes = diffRecordData(before, result.data, t.labels);
     const intro = `Sample data for ${t.title ?? "this record"} — realistic, but made up, so check every value:\n${result.summary.map((s) => `• ${s}`).join("\n")}`;
     if (changes.length === 0) {
-      bot(`${intro}\n\nNothing on the form changed — it was already filled in.`);
+      bot(`${intro}\n\n${nothingChangedLine(record)}`);
       return;
     }
     if (!t.editable) {
@@ -1687,6 +1691,7 @@ export function DocumentAssistant() {
           }),
         runWidgetAction: (action) => runAction({ label: text, action }),
       };
+      ctx.fill = fill.toolFill(ctx);
       const out = await runMitraTurn({
         text,
         attachments: ready,
@@ -1955,6 +1960,15 @@ export function DocumentAssistant() {
       answerInterview(text, text);
       return;
     }
+
+    const fillIO: FillIO = {
+      post: (m) => setMessages((x) => [...x.map((y) => (y.chips || y.options ? { ...y, chips: undefined, options: undefined } : y)), { id: generateId("msg"), role: "bot" as const, text: m.text, markdown: true, ...(m.options ? { options: m.options } : {}), ...(m.steps ? { steps: m.steps } : {}) }]),
+      ...(edit ? {} : { echo: me }),
+      thinking: setThinking,
+      busy: setLoading,
+      readOut,
+    };
+    if (await fill.tryFill(text, fillIO)) return;
 
     // MITRA AS AN AGENT (REQUIREMENTS §80): with the model there, the instruction goes
     // to it first — whatever the language — and the rules below are its fallback.

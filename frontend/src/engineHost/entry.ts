@@ -115,6 +115,26 @@ import { insightCounts, insightsHeadline, type Insight } from "../engine/insight
 import { scopedInsights } from "../engine/scopedInsights";
 import { canSampleFill, SAMPLE_FILL_NOTE } from "../engine/sampleFill";
 import { ALL_TOOLS } from "../engine/mitraTools";
+import { candidateLines, exampleFor, formatAndName, formCard, layoutOf } from "../engine/fillCard";
+import { readFillRequest, fillLanguageOf, type FillRequest, type FillValues } from "../engine/fillRequest";
+import {
+  dataAfter,
+  fillConfirmWords,
+  fillDoneWords,
+  fillNote,
+  mergeValues,
+  planCopy,
+  planFill,
+  planFromValues,
+  planSample,
+  preparedUntouched,
+  resolveFillRecord,
+  unsaidInPatch,
+  type FillPlan,
+} from "../engine/fillPlan";
+import { copySourceOf } from "../engine/fillPlan";
+import { interviewPlan, nextQuestion } from "../engine/guidedRecord";
+import { boxesSay, fillSay, type FillLanguage } from "../i18n/fillPhrases";
 import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "../engine/pmSchedule";
 import { addDays, compareISO, formatDisplayDate, todayISO } from "../utils/date";
 
@@ -124,9 +144,11 @@ const str = (v: unknown): string => (typeof v === "string" ? v.trim() : typeof v
 
 /**
  * Bumped when the host and this file must change together (backend/engineHost.ts checks it). 2: the reads
- * "equipment" (F/MNT/01) and "insights" (what stands out), for the Mitra mobile app (2-Oct-2026).
+ * "equipment" (F/MNT/01) and "insights" (what stands out), for the Mitra mobile app (2-Oct-2026). 3: Mitra
+ * fills the record (REQUIREMENTS §94, 7-Oct-2026): the reads "fillRead", "fillPlan" and "questions", the change
+ * "fill" — the /api/v1/fill routes. The Mitra server checks for 3.
  */
-export const ENGINE_API_VERSION = 2;
+export const ENGINE_API_VERSION = 3;
 
 // ---------------------------------------------------------------------------
 // what the host hands in and gets back
@@ -319,7 +341,7 @@ interface Who {
   client: string;
 }
 
-const CHANGE_OPS = new Set(["open", "change", "action", "photo", "sampleFill"]);
+const CHANGE_OPS = new Set(["open", "change", "action", "photo", "sampleFill", "fill"]);
 
 export async function run(op: string, args: Obj): Promise<Outcome> {
   if (viewKey === null) throw new Error("nothing is loaded");
@@ -379,6 +401,14 @@ function runOp(op: string, args: Obj, who: Who): Outcome | Promise<Outcome> {
       return photoOp(args, who);
     case "sampleFill":
       return sampleFillOp(args, who);
+    case "fillRead":
+      return fillReadOp(args);
+    case "fillPlan":
+      return fillPlanOp(args);
+    case "fill":
+      return fillOp(args, who);
+    case "questions":
+      return questionsOp(args);
     default:
       return refuse(400, "bad-request", `There is no such thing to do as "${op}".`);
   }
@@ -572,86 +602,7 @@ function documentNamed(said: string): { doc: DocumentDefinition } | { refusal: O
   return { refusal: refuse(404, "not-found", `No document matches "${s.slice(0, 80)}". Find it with GET /api/v1/documents?q=… first.`) };
 }
 
-const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
-  const c = f as LogColumn;
-  return {
-    key: f.key,
-    label: f.label,
-    type: f.type,
-    ...(f.options?.length ? { options: f.options } : {}),
-    ...(f.required ? { required: true } : {}),
-    ...(c.unit ? { unit: c.unit } : {}),
-    ...(c.group ? { group: c.group } : {}),
-    ...(c.fixed ? { printed: true } : {}),
-    ...(f.computed ? { computed: true } : {}),
-    ...(c.linkedFrom ? { readFrom: c.linkedFrom } : {}),
-    ...(typeof c.min === "number" ? { min: c.min } : {}),
-    ...(typeof c.max === "number" ? { max: c.max } : {}),
-  };
-};
-
-function typeOfValue(key: string, value: unknown): string {
-  if (typeof value === "boolean") return "yesno";
-  if (typeof value === "number") return "number";
-  if (Array.isArray(value)) return "list";
-  if (isObj(value)) return "group";
-  if (/date/i.test(key)) return "date";
-  if (/^time|Time/.test(key)) return "time";
-  return value === null ? "number or blank" : "text";
-}
-
-/** What the form is made of, in the keys a patch names: a log sheet's boxes and columns, F/HR/17's check points, any other form's fields. */
-function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
-  if (doc.kind === "log-sheet") {
-    const l: LogSheetLayout | undefined = getLogSheetLayoutForRecord(doc.id, record);
-    if (l) {
-      const mode = l.rowMode;
-      const rows = record && isObj(record.data) && Array.isArray((record.data as Obj).rows) ? ((record.data as Obj).rows as unknown[]).length : undefined;
-      return {
-        kind: "log-sheet",
-        header: l.headerFields.map(fieldOf),
-        footer: (l.footerFields ?? []).map(fieldOf),
-        columns: l.columns.map(fieldOf),
-        rows: {
-          mode: mode.kind,
-          ...(mode.kind === "timeSlots" ? { slotKey: mode.slotKey, slots: mode.slots } : {}),
-          ...(mode.kind === "fixedRows" ? { fixed: mode.rows.length } : {}),
-          ...(rows !== undefined ? { count: rows } : {}),
-        },
-      };
-    }
-  }
-  const master: MasterData = masterRepository.get();
-  if (doc.kind === "daily-pest-monitoring") {
-    return {
-      kind: doc.kind,
-      checkpoints: master.checkpoints.map((c) => ({ number: Number(c.no), question: c.text, answer: c.responseType, ...(c.notePrompt ? { noteAsks: c.notePrompt } : {}), ...(c.flagWhen ? { findingWhen: c.flagWhen } : {}) })),
-      fields: [
-        { key: "checker", label: "Checker", type: "text" },
-        { key: "timeOfChecking", label: "Time of checking", type: "time" },
-        { key: "isHoliday", label: "Holiday", type: "yesno" },
-      ],
-      lists: [
-        { key: "rodentCatches", label: "Rodent catches", items: ["trapBoxNo", "location", "count"] },
-        { key: "summaryActions", label: "Observations and actions", items: ["dateOfObservation", "descriptionOfObservation", "actionTaken", "remarks"] },
-      ],
-    };
-  }
-  const data = record?.data ?? createDefaultData(doc, todayISO(), master);
-  if (!isObj(data)) return { kind: doc.kind, fields: [] };
-  const fields: Obj[] = [];
-  for (const [key, value] of Object.entries(data)) {
-    const type = typeOfValue(key, value);
-    const field: Obj = { key, label: humanKey(key), type };
-    if (Array.isArray(value)) {
-      const first = value.find(isObj);
-      if (first) field.items = Object.keys(first).filter((k) => k !== "id");
-      field.count = value.length;
-    } else if (isObj(value)) field.parts = Object.keys(value);
-    fields.push(field);
-  }
-  return { kind: doc.kind, fields };
-}
+// What the form is made of, in the keys a patch names: engine/fillCard.ts layoutOf (shared with the browser, REQUIREMENTS §94).
 
 /** How a change to this kind of form is written (engine/recordPatch.ts applyAssistantPatch, Mitra's edit_open_record). */
 function patchShape(doc: DocumentDefinition): string {
@@ -1503,6 +1454,316 @@ function actionOp(args: Obj, who: Who): Outcome {
     default:
       return refuse(400, "bad-action", "Unknown action.");
   }
+}
+
+// ---------------------------------------------------------------------------
+// MITRA FILLS THE RECORD, FROM THE PHONE (REQUIREMENTS §94)
+//
+// The phone's Mitra server does not work out a fill itself: it hands the words
+// here (POST /api/v1/fill/plan, backend/apiV1Fill.ts), and DCRS's own engine —
+// the very functions the website's Mitra runs in the browser (engine/
+// fillRequest.ts, engine/fillPlan.ts) — reads them, settles the document, the
+// day and the record (a vehicle's own), plans the change on a copy and answers
+// the lines for the phone's ONE confirmation card, in DCRS's words. Nothing is
+// written by a read. When the rules cannot read every value, the read says so
+// ("model": the card to send with the words), the route makes the one small
+// call with DCRS's key, and fillPlan plans with what came back. The write
+// (POST /api/v1/fill/apply, the change "fill") checks everything again here:
+// the record (refused when locked), every value against the words, then
+// writes it through the page's own commit — never prepared, never submitted
+// unless the words asked.
+
+const fillLangOf = (v: unknown): FillLanguage | undefined => (v === "en" || v === "hi" || v === "gu" ? v : undefined);
+
+function fillRequestOf(args: Obj, force: boolean): FillRequest {
+  return readFillRequest(str(args.words), {
+    isDemo: false,
+    recordId: str(args.recordId) || null,
+    documentId: str(args.documentId) || null,
+    dateISO: str(args.date) || null,
+    lastRecordId: str(args.lastRecordId) || null,
+    language: fillLangOf(args.language),
+    forceFill: force,
+  });
+}
+
+/** What the phone sends back when the person picks an option: the same words, with the document, day or record now known. */
+interface FillChoice {
+  label: string;
+  send: { words: string; documentId?: string; date?: string; recordId?: string; language: FillLanguage };
+}
+
+const askWith = (text: string, choices: FillChoice[], extra: Obj = {}): Outcome => done({ fill: true, question: { text, options: choices.map((c) => c.label), choices, ...extra } });
+const refuseWith = (code: string, say: string, extra: Obj = {}): Outcome => done({ fill: true, refusal: { code, say, ...extra } });
+
+/** The plan as the phone's card shows it: the record (named by its vehicle and day), every line, what was left out, the patch to send back. */
+function planJson(plan: FillPlan): Obj {
+  const r = plan.record;
+  const stored = !!r && storedIds.has(r.id);
+  return {
+    record: {
+      recordId: stored ? r!.id : null,
+      documentId: plan.doc.id,
+      formatNo: plan.doc.formatNo,
+      document: plan.doc.name,
+      date: plan.dateISO,
+      label: `${formatAndName(plan.doc)}${plan.identity ? ` (${plan.identity.value})` : ""} · ${formatDisplayDate(plan.dateISO)}`,
+      identity: plan.identity ? { key: plan.identity.key, label: plan.identity.label, value: plan.identity.value } : null,
+      status: r?.status ?? null,
+    },
+    willStart: plan.willStart || !stored,
+    mode: plan.mode,
+    lines: plan.lines,
+    moreLines: plan.moreLines,
+    refused: plan.refused,
+    missing: plan.missing,
+    prepared: plan.prepared,
+    flags: plan.lines.filter((l) => l.flag === "finding" || l.flag === "limits").length,
+    submitAsked: plan.submitAsked,
+    patch: plan.patch,
+    ...(plan.copiedFrom ? { copiedFrom: plan.copiedFrom } : {}),
+  };
+}
+
+function planned(plan: FillPlan, lang: FillLanguage, valuesSaid: boolean): Outcome {
+  const names = { doc: formatAndName(plan.doc), date: formatDisplayDate(plan.dateISO) };
+  if (plan.lines.length === 0) {
+    const why = plan.refused.length ? `\n${fillSay(lang, "notWritten")}\n${plan.refused.slice(0, 6).map((x) => `• ${x}`).join("\n")}` : "";
+    if (plan.mode === "sample") return refuseWith("nothing-changed", plan.prepared ? fillSay(lang, "alreadyFilled", { ...names, time: plan.prepared.time }) : fillSay(lang, "alreadyComplete", names));
+    return refuseWith(valuesSaid ? "nothing-changed" : "no-values", `${valuesSaid ? fillSay(lang, "nothingChanged", names) : fillSay(lang, "noValues", { example: exampleFor(plan.doc) })}${why}`);
+  }
+  return done({ fill: true, plan: planJson(plan), say: fillConfirmWords(plan, lang) });
+}
+
+/** "fill it" and nothing more: the three offers — or, on a record the app prepared, its estimates named. */
+function offerOf(req: Extract<FillRequest, { kind: "fill" }>, record: RecordInstance | null): Outcome {
+  const doc = req.doc!;
+  const lang = req.language;
+  const date = record?.dueDate ?? req.dateISO;
+  const names = { doc: formatAndName(doc), date: formatDisplayDate(date) };
+  const base = { documentId: doc.id, date, ...(record && storedIds.has(record.id) ? { recordId: record.id } : {}), language: lang };
+  if (record && preparedUntouched(record)) {
+    const at = new Date(record.prepared!.at);
+    const time = Number.isNaN(at.getTime()) ? "" : `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+    return askWith(fillSay(lang, "preparedOffer", { ...names, time }), [
+      { label: fillSay(lang, "chipCheckEstimates"), send: { words: "check the estimates with me", ...base } },
+      { label: fillSay(lang, "chipTellValues"), send: { words: "tell me how to say the values", ...base } },
+    ]);
+  }
+  const source = copySourceOf(doc, date, false);
+  const choices: FillChoice[] = [{ label: fillSay(lang, "chipAsk"), send: { words: "ask me each box", ...base } }];
+  if (source) choices.push({ label: fillSay(lang, "chipCopy", { date: formatDisplayDate(source.dueDate) }), send: { words: "copy from the last record", ...base } });
+  choices.push({ label: fillSay(lang, "chipSample"), send: { words: "fill it with sample data", ...base } });
+  return askWith(`${fillSay(lang, !record || !record.history?.length ? "blankOffer" : "partOffer", names)}\n${fillSay(lang, "tellValues", { example: exampleFor(doc) })}`, choices);
+}
+
+/** Everything up to the model: the request read, the record settled, Tier 0 planned — or what the model must be asked. */
+function fillReadOp(args: Obj): Outcome {
+  const words = str(args.words);
+  if (!words) return refuse(400, "bad-request", "words is needed: what the person said.");
+  if (words.length > 2000) return refuse(400, "bad-request", "words must be at most 2000 characters.");
+  const req = fillRequestOf(args, args.force === true);
+  if (req.kind !== "fill") return done({ fill: false });
+  return fillDecide(req, null);
+}
+
+/** The values the model read (checked by the route), merged with the rules' and planned. */
+function fillPlanOp(args: Obj): Outcome {
+  const req = fillRequestOf(args, true);
+  if (req.kind !== "fill") return done({ fill: false });
+  const values = isObj(args.values) ? (args.values as FillValues) : null;
+  return fillDecide(req, values);
+}
+
+function fillDecide(req: Extract<FillRequest, { kind: "fill" }>, model: FillValues | null): Outcome {
+  const lang = req.language;
+  const words = req.words;
+  if (req.dayQuestion) {
+    const q = req.dayQuestion;
+    return askWith(fillSay(lang, "whichDay", { word: q.word }), [
+      { label: fillSay(lang, "chipYesterday", { date: formatDisplayDate(q.yesterday) }), send: { words, date: q.yesterday, ...(req.doc ? { documentId: req.doc.id } : {}), language: lang } },
+      { label: fillSay(lang, "chipTomorrow", { date: formatDisplayDate(q.tomorrow) }), send: { words, date: q.tomorrow, ...(req.doc ? { documentId: req.doc.id } : {}), language: lang } },
+    ]);
+  }
+  if (!req.doc) {
+    if (req.candidates.length === 0) return refuseWith("no-document", fillSay(lang, "noDocument", { example: exampleFor(null) }));
+    const choices = req.candidates.slice(0, 6).map((d): FillChoice => ({ label: formatAndName(d), send: { words, documentId: d.id, date: req.dateISO, language: lang } }));
+    if (req.candidates.length === 1) return fillDecide({ ...req, doc: req.candidates[0], candidates: [] }, model);
+    return done({
+      fill: true,
+      model: { kind: "pick", candidates: candidateLines(req.candidates), ids: req.candidates.slice(0, 12).map((d) => d.id), date: req.dateISO, language: lang },
+      question: { text: fillSay(lang, "whichDocument"), options: choices.map((c) => c.label), choices },
+    });
+  }
+  const doc = req.doc;
+  const names = { doc: formatAndName(doc), date: formatDisplayDate(req.dateISO) };
+  const resolved = resolveFillRecord(doc, req.dateISO, req.identity, { isDemo: false, recordId: req.recordId });
+  if (resolved.kind === "locked") {
+    const r = resolved.record;
+    const page = pageOf(doc) ?? "record";
+    return refuseWith("locked", fillSay(lang, "locked", { ...names, date: formatDisplayDate(r.dueDate), status: r.status }), { status: r.status, recordId: storedIds.has(r.id) ? r.id : null, canReopen: actionsFor(r, page).includes("reopen") });
+  }
+  if (resolved.kind === "choose") {
+    return askWith(
+      fillSay(lang, "whichRecord", { ...names, n: resolved.choices.length }),
+      resolved.choices.map((c) => ({ label: c.label, send: { words, documentId: doc.id, date: req.dateISO, recordId: c.recordId, language: lang } }))
+    );
+  }
+  const record = resolved.record;
+  switch (req.mode) {
+    case "bare":
+      return offerOf(req, record);
+    case "guide":
+      // The phone's question-by-question fill is phase 2 (the "questions" read); until then, how to say the values.
+      return askWith(fillSay(lang, "tellValues", { example: exampleFor(doc) }), [], { next: { questions: { documentId: doc.id, date: record?.dueDate ?? req.dateISO, ...(record && storedIds.has(record.id) ? { recordId: record.id } : {}) } } });
+    case "sample": {
+      const plan = planSample(doc, record, req.dateISO, "Mitra", false);
+      if (!plan) return refuseWith("no-sample", fillSay(lang, "noSample", names));
+      return planned(plan, lang, true);
+    }
+    case "copy": {
+      const plan = planCopy(doc, record, req.dateISO, false);
+      if (!plan) return refuseWith("no-copy", fillSay(lang, "noCopySource", names));
+      return planned(plan, lang, true);
+    }
+    case "values": {
+      const rules = req.rules;
+      if (!model && (!rules?.recognised || rules.residual)) {
+        // The rules did not read it all: the route asks the model, with this card.
+        return done({
+          fill: true,
+          model: { kind: "values", card: formCard(doc, record, todayISO()), documentId: doc.id, date: record?.dueDate ?? req.dateISO, ...(record && storedIds.has(record.id) ? { recordId: record.id } : {}), language: lang, example: exampleFor(doc) },
+        });
+      }
+      if (model?.unclear && !rules?.recognised && !Object.keys(mergeValues(null, { ...model, unclear: undefined })).some((k) => k !== "submit")) {
+        return askWith(String(model.unclear), []);
+      }
+      const values = mergeValues(rules?.values, model);
+      const plan = planFromValues(doc, record, values, { words, dateISO: req.dateISO, dateSaid: req.dateSaid, lang, isDemo: false, rules, model, identity: req.identity, submitAsked: req.submitAsked });
+      return planned(plan, lang, true);
+    }
+  }
+  return done({ fill: false });
+}
+
+// What the person's words must say for a submit to go with the fill (engine/mitraTools.ts says the same).
+const FILL_SUBMIT_RE = /\bsubmit\b|\bsend (?:it |this )?for (?:verification|approval)\b|सबमिट|जमा कर|જમા કર|સબમિટ|\bjama kar/i;
+
+/** THE WRITE (POST /api/v1/fill/apply): the record settled again, refused when locked, every value checked against the words, written, never prepared. */
+async function fillOp(args: Obj, who: Who): Promise<Outcome> {
+  const ref = isObj(args.record) ? args.record : {};
+  const named = documentNamed(str(ref.documentId));
+  if ("refusal" in named) return named.refusal;
+  const doc = named.doc;
+  if (isReference(doc)) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no records to fill.`);
+  const today = todayISO();
+  const date = dateArg(ref.date, today);
+  if (date === null) return refuse(400, "bad-date", "record.date must be a date written YYYY-MM-DD.");
+  const words = str(args.words);
+  if (!words) return refuse(400, "bad-request", "words is needed: what the person said, to check every value against.");
+  const lang = fillLangOf(args.language) ?? fillLanguageOf(words);
+  const page = pageOf(doc) ?? "record";
+  const sample = args.sample === true;
+  const copy = args.copy === true;
+  const patch = isObj(args.patch) ? (args.patch as Obj) : null;
+  if (!sample && !copy && (!patch || Object.keys(patch).length === 0)) return refuse(400, "bad-patch", "patch is needed (the plan's patch), or sample: true, or copy: true.");
+
+  let record: RecordInstance | null = null;
+  if (str(ref.recordId)) {
+    const found = recordNamed(str(ref.recordId));
+    if ("refusal" in found) return found.refusal;
+    if (found.record.documentId !== doc.id) return refuse(400, "bad-request", "record.recordId is a record of another document.");
+    record = found.record;
+  } else {
+    const idRaw = isObj(ref.identity) ? ref.identity : null;
+    const identity = idRaw && str(idRaw.key) && str(idRaw.value) ? { key: str(idRaw.key), value: str(idRaw.value) } : null;
+    const res = resolveFillRecord(doc, date ?? today, identity, { isDemo: false });
+    if (res.kind === "choose") return refuse(409, "ambiguous", "Several records of that day fit; send record.recordId from the plan.", { choices: res.choices });
+    if (res.kind === "locked") return needsReopen(res.record, doc, page);
+    record = res.record;
+  }
+  if (record && !isEditableStatus(record.status)) return needsReopen(record, doc, page);
+  if (patch && !sample && !copy) {
+    const unsaid = unsaidInPatch(patch, words, record?.dueDate ?? date ?? today, today);
+    if (unsaid.length) return refuse(400, "not-said", `Not written: these values are not in the words — ${unsaid.slice(0, 6).join(", ")}.`, { problems: unsaid });
+  }
+  // Started when there is none (identity-aware above); never prepared — the values are the person's own.
+  let started = false;
+  if (!record) {
+    record = createRecordForDocument(doc, { dateISO: date ?? today, isDemo: false }).record;
+    touched.add(record.id);
+  }
+  if (!storedIds.has(record.id)) started = true;
+  const h = handlersFor(doc, record);
+  if (!h) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no record to change.`);
+  const before = record;
+  const note = through(who.client, words.length > 300 ? `${words.slice(0, 299)}…` : words);
+  // The plan worked out again on the record as it stands, for the words after.
+  const plan: FillPlan | null = sample ? planSample(doc, record, record.dueDate, who.userName, false) : copy ? planCopy(doc, record, record.dueDate, false) : planFill(doc, record, patch!, { dateISO: record.dueDate, isDemo: false });
+  if (!plan) return refuse(409, sample ? "no-sample" : "no-copy", sample ? fillSay(lang, "noSample", { doc: formatAndName(doc) }) : fillSay(lang, "noCopySource", { doc: formatAndName(doc) }));
+  if (sample) {
+    const target = targetFor(h, record, who.userName, (toolNote) => through(who.client, toolNote || SAMPLE_FILL_NOTE));
+    const result = await tool("fill_open_record_with_sample_data").run({}, toolContext(target, who, words));
+    if (!result.ok) return refuse(409, "nothing-changed", plan.prepared ? fillSay(lang, "alreadyFilled", { doc: formatAndName(doc), date: formatDisplayDate(record.dueDate), time: plan.prepared.time }) : fillSay(lang, "alreadyComplete", { doc: formatAndName(doc), date: formatDisplayDate(record.dueDate) }));
+  } else if (copy) {
+    if (plan.lines.length === 0) return refuse(409, "nothing-changed", fillSay(lang, "nothingChanged", { doc: formatAndName(doc), date: formatDisplayDate(record.dueDate) }));
+    savedApart(record, (b) => saveDraft(b, h.page === "record" ? withComputedCells(doc.id, dataAfter(plan, b, who.userName)) : dataAfter(plan, b, who.userName), who.userName, { action: "assistant-edit", note: through(who.client, fillNote(plan, words)), ...(h.page === "record" ? { labels: h.labels } : {}) }));
+    touched.add(record.id);
+  } else {
+    const target = targetFor(h, record, who.userName, () => note);
+    const result = await tool("edit_open_record").run({ patch }, toolContext(target, who, words));
+    const answer = (result.result ?? {}) as Obj;
+    if (!result.ok) return refuse(400, "nothing-changed", fillSay(lang, "nothingChanged", { doc: formatAndName(doc), date: formatDisplayDate(record.dueDate) }), { problems: Array.isArray(answer.rejected) ? answer.rejected : [] });
+  }
+  let entries = markThrough(record.id, before, who.client);
+  let now = recordRepository.getById(record.id) ?? record;
+  // A submit only when the words in this request asked for it, and never with sample data.
+  let submitted: { ok: boolean; errors: string[] } | undefined;
+  if (args.submit === true && !sample && !copy && FILL_SUBMIT_RE.test(words) && isEditableStatus(now.status)) {
+    const { result } = submitRecord(doc, now, who.userName);
+    submitted = { ok: result.valid, errors: result.errors.slice(0, 3) };
+    touched.add(record.id);
+    entries = markThrough(record.id, before, who.client);
+    now = recordRepository.getById(record.id) ?? now;
+  }
+  const edit = entries.find((e) => e.action === "assistant-edit") ?? entries[0];
+  const changed = edit?.changes?.length ? edit.changes.length + (edit.moreChanges ?? 0) : plan.lines.length;
+  return done({
+    ...changeSummary(now, doc, entries),
+    started,
+    changes: (edit?.changes ?? []).map((c) => ({ label: c.label, before: c.before, after: c.after })),
+    ...(edit?.moreChanges ? { moreChanges: edit.moreChanges } : {}),
+    ...(submitted ? { submitted } : {}),
+    say: fillDoneWords({ ...plan, record: now }, changed, started, lang, submitted),
+    count: boxesSay("en", changed),
+  });
+}
+
+/** The question-by-question fill's next question, for the phone (phase 2). */
+function questionsOp(args: Obj): Outcome {
+  let record: RecordInstance | null = null;
+  let doc: DocumentDefinition | null = null;
+  if (str(args.recordId)) {
+    const found = recordNamed(str(args.recordId));
+    if ("refusal" in found) return found.refusal;
+    record = found.record;
+    doc = found.doc;
+  } else {
+    const named = documentNamed(str(args.documentId));
+    if ("refusal" in named) return named.refusal;
+    doc = named.doc;
+    const date = dateArg(args.date, todayISO()) ?? todayISO();
+    const res = resolveFillRecord(doc, date, null, { isDemo: false });
+    record = res.kind === "record" ? res.record : res.kind === "locked" ? res.record : null;
+  }
+  if (!doc) return refuse(404, "not-found", "No such document.");
+  const data = record?.data ?? createDefaultData(doc, record?.dueDate ?? todayISO(), masterRepository.get());
+  const plan = record ? interviewPlan(doc, record, data, masterRepository.get(), todayISO(), "en") : null;
+  if (!plan) return done({ done: true, question: null });
+  const asked = new Set(Array.isArray(args.asked) ? args.asked.map((x) => str(x)).filter(Boolean) : []);
+  const q = nextQuestion(plan, data, asked, record?.id);
+  if (!q) return done({ done: true, question: null });
+  return done({ done: false, question: { id: q.id, label: q.label, ask: q.ask, type: q.type, ...(q.options ? { options: q.options } : {}), ...(q.suggestions ? { suggestions: q.suggestions.map((x) => x.label) } : {}), ...(q.optional ? { optional: true } : {}) } });
 }
 
 /** For the host's checks: which items the engine wrote since the load (only records and deletions are ever stored from here). */
