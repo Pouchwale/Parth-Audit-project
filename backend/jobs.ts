@@ -14,6 +14,18 @@
 //                  (default 09:00) — or the first working day after it that
 //                  the server is up; its period is the week it digests,
 //                  "2026-W38"
+//   morning-prepare  every working day at PREPARE_AT (default 08:30): the
+//                  day's records prepared on the server, whether or not anybody
+//                  opens the website (backend/notificationJobs.ts, REQUIREMENTS
+//                  §97); its period is the day
+//   notify         every NOTIFY_EVERY_MS (default 5 minutes) from PREPARE_AT
+//                  to the close of the plant's hours on working days: each
+//                  person's notifications brought up to date and pushed
+//                  (backend/notificationJobs.ts). It has no period to claim —
+//                  every run is safe to repeat (the ledger is upserted by key) —
+//                  so two servers sharing the database take turns by a lock
+//                  instead (NOTIFY_LOCK), and a server that cannot take it lets
+//                  the other run
 //
 // Working days come from the master data the app stores (the weekly off, the
 // festival holidays, the adjustment days — engine/latenessCore.ts
@@ -45,12 +57,21 @@
 // activity-log lines, so scripts/run-e2e.ts starts its servers with JOBS=0; a
 // suite that wants a job runs it by hand (POST /api/jobs/run,
 // backend/escalationRoutes.ts), which is also how an administrator asks for one now.
-import { database } from "./db.ts";
+import { database, plantTimeZone, readItem, withClient } from "./db.ts";
 import { isoWeek, mondayOf, plantClock, plantClosedOn, runEscalation, runWeeklyDigest } from "./escalation.ts";
+import { notifyEveryMs, prepareAt, runMorningPrepare, runNotify, type JobDeps } from "./notificationJobs.ts";
 import { addDaysISO } from "../frontend/src/engine/latenessCore.ts";
+import { parseClock, workingHoursOf, zonedMoment } from "../frontend/src/engine/workingHoursCore.ts";
 
-export type JobName = "escalation" | "weekly-digest";
-export const JOB_NAMES: readonly JobName[] = ["escalation", "weekly-digest"];
+export type JobName = "escalation" | "weekly-digest" | "morning-prepare" | "notify";
+export const JOB_NAMES: readonly JobName[] = ["escalation", "weekly-digest", "morning-prepare", "notify"];
+
+/** What the notification jobs run with: the server's own engine and ledger, and the pushes (backend/push.ts). */
+let notificationDeps: () => JobDeps = () => ({});
+/** Sets what the notification jobs run with (backend/index.ts, once the pushes are known). */
+export function setNotificationDeps(make: () => JobDeps): void {
+  notificationDeps = make;
+}
 
 const TICK_MS = 60 * 1000;
 const RETRY_AFTER_MS = 15 * 60 * 1000;
@@ -78,7 +99,14 @@ interface JobSpec {
 function jobSpecs(): JobSpec[] {
   const escalationAt = timeOf("ESCALATION_AT", "10:00");
   const digestAt = timeOf("DIGEST_AT", "09:00");
+  const preparingAt = prepareAt();
   return [
+    {
+      name: "morning-prepare",
+      at: preparingAt,
+      period: (date) => date,
+      due: (date, time, closed) => time >= preparingAt && !closed(date),
+    },
     {
       name: "escalation",
       at: escalationAt,
@@ -101,8 +129,13 @@ function jobSpecs(): JobSpec[] {
   ];
 }
 
-/** Runs one job for one day, whatever the clock says, and says how it went in a line. */
-export async function runJob(job: JobName, today: string): Promise<{ outcome: string; result: unknown }> {
+/**
+ * Runs one job for one day, whatever the clock says, and says how it went in a line. `at`: the moment the notification
+ * jobs are worked out at (a run by hand for a day or a time of the caller's own); left out, the real clock.
+ */
+export async function runJob(job: JobName, today: string, at?: Date): Promise<{ outcome: string; result: unknown }> {
+  if (job === "morning-prepare") return runMorningPrepare(at ? { now: at } : {}, notificationDeps());
+  if (job === "notify") return runNotify(at ? { now: at } : {}, notificationDeps());
   if (job === "escalation") {
     const result = await runEscalation(today);
     return { outcome: result.outcome, result };
@@ -174,15 +207,22 @@ async function writeUnrecorded(): Promise<void> {
  * schedule ran it, or an earlier hand run), or for a day of the caller's own,
  * it runs unclaimed. `claimed` is the period it was the run for, or null.
  */
-export async function runJobByHand(job: JobName, today: string, by: string): Promise<{ outcome: string; result: unknown; claimed: string | null }> {
+export async function runJobByHand(job: JobName, today: string, by: string, time?: string): Promise<{ outcome: string; result: unknown; claimed: string | null }> {
   const spec = jobSpecs().find((s) => s.name === job);
-  const period = spec && today === plantClock().date ? spec.period(today) : null;
+  const now = plantClock();
+  const period = spec && today === now.date ? spec.period(today) : null;
+  // THE MOMENT a notification job is worked out at: now, for the plant's today; a day of the caller's own (a suite's, a
+  // throwaway server's working-day morning) at the time asked, else at PREPARE_AT for the prepare and the plant's time
+  // now for notify. The escalation and the digest count days only.
+  const notification = job === "morning-prepare" || job === "notify";
+  const atTime = time ?? (today !== now.date ? (job === "morning-prepare" ? prepareAt() : now.time) : null);
+  const at = notification && atTime !== null ? zonedMoment(today, parseClock(atTime) ?? 0, plantTimeZone()) : undefined;
   const claimed = period !== null && (await claim(job, period)) ? period : null;
-  if (claimed === null) return { ...(await runJob(job, today)), claimed };
+  if (claimed === null) return { ...(await runJob(job, today, at)), claimed };
   settled.add(`${job}|${claimed}`);
   let ran: { outcome: string; result: unknown };
   try {
-    ran = await runJob(job, today);
+    ran = await runJob(job, today, at);
   } catch (err) {
     // Failed: written down, and the period is free for the schedule to try.
     settled.delete(`${job}|${claimed}`);
@@ -211,8 +251,8 @@ async function tick(now: Date, specs: readonly JobSpec[]): Promise<void> {
     const key = `${job.name}|${period}`;
     if (settled.has(key) || (retryAt.get(key) ?? 0) > now.getTime()) continue;
     // Nothing is read from the database before the job's hour: the escalation's
-    // own time decides first, and only then the plant's calendar.
-    if (job.name === "escalation" && time < job.at) continue;
+    // (and the morning prepare's) own time decides first, and only then the plant's calendar.
+    if ((job.name === "escalation" || job.name === "morning-prepare") && time < job.at) continue;
     closed ??= await plantCalendar(now.getTime());
     if (!job.due(date, time, closed)) continue;
     if (!(await claim(job.name, period))) {
@@ -239,6 +279,53 @@ async function tick(now: Date, specs: readonly JobSpec[]): Promise<void> {
     await record(job.name, period, outcome);
     console.log(`[jobs] ${job.name} ${period}: ${outcome}`);
   }
+  // Every few minutes of the plant's working day, after the morning prepare (which ran above when it was due).
+  if (time >= prepareAt()) {
+    closed ??= await plantCalendar(now.getTime());
+    await maybeNotify(now, date, time, closed);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// notify: every few minutes, one server at a time
+
+/** Held while a server runs notify, so two servers sharing the database never push twice (activityArchive.ts lists the ids in use). */
+const NOTIFY_LOCK = 4730;
+let lastNotifyAt = 0;
+let hoursCache: { at: number; end: string } | null = null;
+
+/** The close of the plant's hours (Master Data, 18:20 by default), read at most every ten minutes. */
+async function closeOfHours(nowMs: number): Promise<string> {
+  if (!hoursCache || nowMs - hoursCache.at > CALENDAR_TTL_MS) {
+    let master: unknown = null;
+    try {
+      master = JSON.parse((await readItem("company", "master"))?.value ?? "null");
+    } catch {
+      master = null;
+    }
+    hoursCache = { at: nowMs, end: workingHoursOf(master && typeof master === "object" ? (master as Parameters<typeof workingHoursOf>[0]) : null).end };
+  }
+  return hoursCache.end;
+}
+
+async function maybeNotify(now: Date, date: string, time: string, closed: (d: string) => boolean): Promise<void> {
+  if (now.getTime() - lastNotifyAt < notifyEveryMs() || closed(date)) return;
+  if (time >= (await closeOfHours(now.getTime()))) return;
+  lastNotifyAt = now.getTime();
+  try {
+    await withClient(async (client) => {
+      const { rows } = await client.query<{ ok: boolean }>("SELECT pg_try_advisory_lock($1) AS ok", [NOTIFY_LOCK]);
+      if (!rows[0]?.ok) return; // another server is running it
+      try {
+        const { outcome, result } = await runNotify({}, notificationDeps());
+        if (result.written > 0 || result.resolved > 0 || !/^nothing|^pushes off/.test(result.push)) console.log(`[jobs] notify ${date} ${time}: ${outcome}`);
+      } finally {
+        await client.query("SELECT pg_advisory_unlock($1)", [NOTIFY_LOCK]).catch(() => undefined);
+      }
+    });
+  } catch (err) {
+    console.error(`[jobs] notify ${date} ${time} failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /** One look at the clock, exactly as the timer takes it — for a check that hands it a moment of its own. */
@@ -256,7 +343,7 @@ let started = false;
 export function startJobs(): void {
   if (started) return;
   if (process.env.JOBS === "0") {
-    console.log("Scheduled jobs are off (JOBS=0): no escalation or weekly digest runs by itself.");
+    console.log("Scheduled jobs are off (JOBS=0): no escalation, weekly digest, morning prepare or notification runs by itself.");
     return;
   }
   started = true;
@@ -274,5 +361,5 @@ export function startJobs(): void {
   setInterval(run, TICK_MS).unref();
   // The first look a few seconds after start, not a minute: a server started after its hour catches up at once.
   setTimeout(run, 5000).unref();
-  console.log(`Scheduled jobs on (plant time): ${specs.map((s) => `${s.name} at ${s.at}`).join(", ")}.`);
+  console.log(`Scheduled jobs on (plant time): ${specs.map((s) => `${s.name} at ${s.at}`).join(", ")}, notify every ${Math.round(notifyEveryMs() / 60000)} minutes from ${prepareAt()} to the close of hours.`);
 }

@@ -9,8 +9,11 @@
 //   POST /api/escalations/:id/ack  "I have seen it" — who and when are kept, and
 //                                  the activity log has a line
 //   GET  /api/digests/latest       the newest weekly digest, or null
-//   POST /api/jobs/run             { job: "escalation" | "weekly-digest",
-//                                    today?: "YYYY-MM-DD" } — runs it NOW,
+//   POST /api/jobs/run             { job: "escalation" | "weekly-digest" |
+//                                    "morning-prepare" | "notify",
+//                                    today?: "YYYY-MM-DD", time?: "HH:MM" } —
+//                                  runs it NOW (time: the moment, plant time,
+//                                  the notification jobs are worked out at),
 //                                  whatever the clock says: for an administrator
 //                                  who wants it now, and for the test suites,
 //                                  whose servers run with JOBS=0. For the
@@ -76,7 +79,7 @@ export function registerEscalationRoutes(app: Express, { requireAuth, logActivit
   });
 
   app.post("/api/jobs/run", ...admin, async (req: Request, res: Response): Promise<void> => {
-    const { job, today } = (req.body ?? {}) as { job?: unknown; today?: unknown };
+    const { job, today, time } = (req.body ?? {}) as { job?: unknown; today?: unknown; time?: unknown };
     if (typeof job !== "string" || !JOB_NAMES.includes(job as JobName)) {
       res.status(400).json({ error: `job must be one of: ${JOB_NAMES.join(", ")}.` });
       return;
@@ -86,9 +89,13 @@ export function registerEscalationRoutes(app: Express, { requireAuth, logActivit
       res.status(400).json({ error: "today must be a date, YYYY-MM-DD." });
       return;
     }
+    if (time !== undefined && (typeof time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
+      res.status(400).json({ error: "time must be a time of day, HH:MM." });
+      return;
+    }
     const day = typeof today === "string" ? today : plantClock().date;
     const user = (req as AuthedRequest).user;
-    const { outcome, result, claimed } = await runJobByHand(job as JobName, day, user.name);
+    const { outcome, result, claimed } = await runJobByHand(job as JobName, day, user.name, typeof time === "string" ? time : undefined);
     logActivity(req, user, "Ran a scheduled job by hand", job, `${day}: ${outcome}`.slice(0, 600));
     res.json({ job, today: day, outcome, result, claimed });
   });
