@@ -266,6 +266,20 @@ describe("a day's session in its token (backend/auth.ts)", () => {
     assert.equal(read!.endsAt.getTime(), Math.floor(nextMidnight(new Date(), plantTimeZone()).getTime() / 1000) * 1000);
   });
 
+  it("carries an id of its own (the one given, or a new one each time), which a tab names when it ends its session by itself", () => {
+    const endsAt = new Date(Date.now() + 60 * 60 * 1000);
+    assert.equal(verifySessionToken(signSessionToken(user, endsAt, "sess-given-1"))?.sessionId, "sess-given-1");
+    const one = verifySessionToken(signSessionToken(user, endsAt))?.sessionId;
+    const two = verifySessionToken(signSessionToken(user, endsAt))?.sessionId;
+    assert.ok(typeof one === "string" && one.length >= 16 && typeof two === "string" && one !== two, `${one} ${two}`);
+    // A closed session is read with its id too, for the sign-out that names it.
+    assert.equal(verifySessionToken(signSessionToken(user, new Date(Date.now() - 60 * 1000), "sess-closed"), { ignoreExpiration: true })?.sessionId, "sess-closed");
+    // A token made before sessions had ids still serves; it simply has none.
+    const before = jwt.sign({ sub: "u-1", email: user.email, role: "staff", v: 2, exp: Math.floor(endsAt.getTime() / 1000) }, JWT_SECRET);
+    assert.equal(verifySessionToken(before)?.sub, "u-1");
+    assert.equal(verifySessionToken(before)?.sessionId, null);
+  });
+
   it("refuses a token made before sessions ended with their day (they lasted seven days) and one it did not sign", () => {
     const old = jwt.sign({ sub: "u-1", email: user.email, role: "staff" }, JWT_SECRET, { expiresIn: 7 * 24 * 60 * 60 });
     assert.equal(verifySessionToken(old), null);

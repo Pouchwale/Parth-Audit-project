@@ -34,9 +34,10 @@ import {
   type UserRow,
 } from "./db.ts";
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
-import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COOKIE_NAME, type PublicUser } from "./auth.ts";
+import { hashPassword, verifyPassword, newSessionId, signSessionToken, verifySessionToken, COOKIE_NAME, type PublicUser } from "./auth.ts";
+import { SIGN_IN_WINDOW_MS, createSignInThrottle, endsThisSession, signOutWords } from "./signInAndOut.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
-import { END_OF_DAY_REASON, END_OF_HOURS_REASON, OUTSIDE_HOURS_REASON, type OutsideHoursRefusal } from "../frontend/src/engine/workingHoursCore.ts";
+import type { OutsideHoursRefusal } from "../frontend/src/engine/workingHoursCore.ts";
 import { distDir } from "./paths.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
@@ -139,18 +140,21 @@ function cookieOptions(maxAgeMs?: number): CookieOptions {
   };
 }
 
-function issueSession(res: Response, user: PublicUser, endsAt: Date): void {
-  res.cookie(COOKIE_NAME, signSessionToken(user, endsAt), cookieOptions(endsAt.getTime() - Date.now()));
+/** Sets the session's cookie, and answers the new session's own id (backend/auth.ts), which the browser is told. */
+function issueSession(res: Response, user: PublicUser, endsAt: Date): string {
+  const sessionId = newSessionId();
+  res.cookie(COOKIE_NAME, signSessionToken(user, endsAt, sessionId), cookieOptions(endsAt.getTime() - Date.now()));
+  return sessionId;
 }
 
-/** The session a request carries, with the moment it ends; null for none, one whose day has closed, or an account switched off. */
-async function readSession(req: Request): Promise<{ user: PublicUser; endsAt: Date } | null> {
+/** The session a request carries, with the moment it ends and its id; null for none, one whose day has closed, or an account switched off. */
+async function readSession(req: Request): Promise<{ user: PublicUser; endsAt: Date; sessionId: string | null } | null> {
   const token = req.cookies?.[COOKIE_NAME];
   const payload = token ? verifySessionToken(token) : null;
   if (!payload) return null;
   const row = await getUserById(payload.sub);
   if (!row || !row.active) return null;
-  return { user: toPublicUser(row), endsAt: payload.endsAt };
+  return { user: toPublicUser(row), endsAt: payload.endsAt, sessionId: payload.sessionId };
 }
 
 // WHO IS MAKING THIS REQUEST — read from the users table every time, not from
@@ -232,34 +236,19 @@ function logActivity(req: Request, who: PublicUser | null, action: string, targe
   );
 }
 
-// Simple in-memory brute-force throttle per email. Resets on server restart;
-// good enough for an internal LAN pilot, not a substitute for a real WAF.
+// The guard against guessing a password: eight wrong ones for an address from
+// one computer hold back that computer, and only it, for ten minutes — so that
+// nobody else's wrong guesses can keep the super admin out (backend/signInAndOut.ts;
+// the review of 8-Oct-2026, audit M-22). In memory: it starts afresh with the
+// server; good enough for the plant's own network, not a substitute for a firewall.
 interface AttemptRecord {
   count: number;
   first: number;
 }
 
-const loginAttempts = new Map<string, AttemptRecord>();
-const MAX_ATTEMPTS = 8;
-const THROTTLE_WINDOW_MS = 10 * 60 * 1000;
-
-function isThrottled(key: string): boolean {
-  const rec = loginAttempts.get(key);
-  if (!rec) return false;
-  if (Date.now() - rec.first > THROTTLE_WINDOW_MS) {
-    loginAttempts.delete(key);
-    return false;
-  }
-  return rec.count >= MAX_ATTEMPTS;
-}
-function recordFailedAttempt(key: string): void {
-  const rec = loginAttempts.get(key) ?? { count: 0, first: Date.now() };
-  rec.count += 1;
-  loginAttempts.set(key, rec);
-}
-function clearAttempts(key: string): void {
-  loginAttempts.delete(key);
-}
+const signInThrottle = createSignInThrottle();
+/** The window the sign-up throttle below counts in: the sign-in's own. */
+const THROTTLE_WINDOW_MS = SIGN_IN_WINDOW_MS;
 
 // Signup itself was unthrottled — anyone could script unlimited account
 // creation. On its own that's just noise, but combined with the
@@ -387,11 +376,11 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   recordSignup(req.ip ?? "unknown");
   const user = toPublicUser(row);
   const endsAt = await hours.sessionEnd(user);
-  issueSession(res, user, endsAt);
+  const sessionId = issueSession(res, user, endsAt);
   logActivity(req, user, "Account created", user.email, user.role === "admin" ? "The first account — the system administrator" : user.departments.length ? `Departments: ${user.departments.join(", ")}` : "Every department");
   // With the account, what this server has switched on (features.ts, REQUIREMENTS §65) — here, at sign-in and in
-  // /api/auth/me — and when this session ends (§84).
-  res.status(201).json({ user, features: FEATURES, session: await hours.sessionAnswer(user, endsAt), hours: await hours.personAnswer(user) });
+  // /api/auth/me — and when this session ends, with its id (§84).
+  res.status(201).json({ user, features: FEATURES, session: await hours.sessionAnswer(user, endsAt, sessionId), hours: await hours.personAnswer(user) });
 });
 
 // WHO SEES WHICH DEPARTMENT'S DOCUMENTS — set by the admin, not by the person
@@ -571,7 +560,9 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
     res.status(401).json({ error: "Invalid email or password." });
     return;
   }
-  if (isThrottled(normalizedEmail)) {
+  // Held back: too many wrong passwords for this address from THIS computer lately. The same address signs in at once
+  // from any other — the super admin's above all, who may sign in at any time (backend/signInAndOut.ts).
+  if (signInThrottle.held(normalizedEmail, req.ip)) {
     res.status(429).json({ error: "Too many failed attempts. Try again in a few minutes." });
     return;
   }
@@ -579,7 +570,7 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
   const row = await getUserByEmail(normalizedEmail);
   const ok = row ? await verifyPassword(password, row.password_hash) : false;
   if (!row || !ok) {
-    recordFailedAttempt(normalizedEmail);
+    signInThrottle.failed(normalizedEmail, req.ip);
     logActivity(req, row ? toPublicUser(row) : null, "Sign-in failed", normalizedEmail, row ? "Wrong password" : "No such account");
     res.status(401).json({ error: "Invalid email or password." });
     return;
@@ -594,7 +585,7 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
-  clearAttempts(normalizedEmail);
+  signInThrottle.succeeded(normalizedEmail, req.ip);
   const user = toPublicUser(row);
   // OUTSIDE THE PLANT'S HOURS (REQUIREMENTS §84): only after the password was
   // right, like the switched-off answer above, and said in plain words with the
@@ -609,38 +600,34 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
   // midnight after, for his sign-in in the day's last ten minutes). The hours in the answer are worded for this
   // person: the staff's hours, and for the super admin a line saying he can keep working (§84 addendum, 6-Oct-2026).
   const endsAt = await hours.sessionEnd(user);
-  issueSession(res, user, endsAt);
+  const sessionId = issueSession(res, user, endsAt);
   void markSignedIn(row.id, new Date().toISOString()).catch(() => undefined);
   logActivity(req, user, "Signed in", user.email);
-  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt), hours: await hours.personAnswer(user) });
+  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt, sessionId), hours: await hours.personAnswer(user) });
 });
 
 // A session the browser ends a moment after its close — its clock, a laptop
 // woken from sleep — still has its "Signed out" line written, for this long.
 const SIGN_OUT_LINE_GRACE_MS = 30 * 60 * 1000;
-const SIGN_OUT_REASONS: Record<string, string> = {
-  // The browser signed a person out by itself at the close of the working day (§84, C4).
-  [END_OF_HOURS_REASON]: "At the close of working hours",
-  // The server refused the session outside the plant's hours, and the browser signed out.
-  [OUTSIDE_HOURS_REASON]: "Outside working hours",
-  // The super admin's session reached the end of its day, the factory's midnight, and the browser signed him out
-  // a moment before, so what was still on its way was sent first (§84 addendum, 6-Oct-2026).
-  [END_OF_DAY_REASON]: "At the end of the day (midnight)",
-};
 
+// SIGNING OUT. `reason` only when the browser signs a person out by itself (§84, C4), and then written only where it
+// fits the account (backend/signInAndOut.ts signOutWords): "At the close of working hours" or "Outside working hours"
+// for staff, "At the end of the day (midnight)" for the super admin. `sessionId` only from a tab ending its own session
+// by itself: when the browser's cookie holds another session by then — he signed in again in another tab while this
+// one's clock ran late — that newer session is left as it is, with no line and its cookie kept (review of 8-Oct-2026).
 app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> => {
-  let user = await getSessionUser(req).catch(() => null);
-  if (!user) {
-    const token = req.cookies?.[COOKIE_NAME];
-    const closed = typeof token === "string" && token ? verifySessionToken(token, { ignoreExpiration: true }) : null;
-    if (closed && Date.now() - closed.endsAt.getTime() <= SIGN_OUT_LINE_GRACE_MS) {
-      const row = await getUserById(closed.sub).catch(() => undefined);
-      if (row && row.active) user = toPublicUser(row);
-    }
+  const token = req.cookies?.[COOKIE_NAME];
+  const held = typeof token === "string" && token ? verifySessionToken(token, { ignoreExpiration: true }) : null;
+  if (!endsThisSession((req.body ?? {}).sessionId, held?.sessionId)) {
+    res.status(204).end();
+    return;
   }
-  const reason = (req.body ?? {}).reason;
-  const detail = typeof reason === "string" && Object.hasOwn(SIGN_OUT_REASONS, reason) ? SIGN_OUT_REASONS[reason] : "";
-  if (user) logActivity(req, user, "Signed out", user.email, detail);
+  let user = await getSessionUser(req).catch(() => null);
+  if (!user && held && Date.now() - held.endsAt.getTime() <= SIGN_OUT_LINE_GRACE_MS) {
+    const row = await getUserById(held.sub).catch(() => undefined);
+    if (row && row.active) user = toPublicUser(row);
+  }
+  if (user) logActivity(req, user, "Signed out", user.email, signOutWords((req.body ?? {}).reason, user.role));
   res.clearCookie(COOKIE_NAME, cookieOptions());
   res.status(204).end();
 });
@@ -806,11 +793,11 @@ app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
     res.status(403).json({ ...refused, features: FEATURES });
     return;
   }
-  res.json({ user, features: FEATURES, mustChangePassword: await mustChangePassword(user.id), session: await hours.sessionAnswer(user, session.endsAt), hours: await hours.personAnswer(user) });
+  res.json({ user, features: FEATURES, mustChangePassword: await mustChangePassword(user.id), session: await hours.sessionAnswer(user, session.endsAt, session.sessionId), hours: await hours.personAnswer(user) });
 });
 
-// Same in-memory-per-key throttle shape as loginAttempts above, just keyed
-// by user id instead of email — caps how many Groq calls one account can
+// Same in-memory-per-key throttle shape as the sign-in throttle above, just keyed
+// by user id — caps how many Groq calls one account can
 // trigger so a stray loop or accidental spam can't run up the API bill.
 const assistantCalls = new Map<string, AttemptRecord>();
 const MAX_ASSISTANT_CALLS = 20;
@@ -846,7 +833,7 @@ function sweepExpired(map: Map<string, AttemptRecord>, windowMs: number): void {
   for (const [key, rec] of map) if (now - rec.first > windowMs) map.delete(key);
 }
 setInterval(() => {
-  sweepExpired(loginAttempts, THROTTLE_WINDOW_MS);
+  signInThrottle.sweep();
   sweepExpired(signupAttempts, THROTTLE_WINDOW_MS);
   sweepExpired(assistantCalls, ASSISTANT_THROTTLE_WINDOW_MS);
   sweepExpired(speakCalls, SPEAK_THROTTLE_WINDOW_MS);

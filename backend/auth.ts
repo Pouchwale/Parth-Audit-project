@@ -50,6 +50,19 @@ export const COOKIE_NAME = "dcrs_session";
 // before the rule came in.
 const SESSION_VERSION = 2;
 
+// EACH SESSION HAS AN ID OF ITS OWN (`sid`), handed to the browser with the
+// session's end (backend/workingHours.ts SessionAnswer `id`). A tab that ends its
+// session by itself — at the close of the hours, at the end of the day — names
+// it, so that its sign-out can never end a newer session of the same browser:
+// one he has started again in another tab while this tab's clock ran late (the
+// review of 8-Oct-2026; backend/signInAndOut.ts endsThisSession). It grants
+// nothing by itself: the token is the signed thing.
+
+/** A new session's id. */
+export function newSessionId(): string {
+  return crypto.randomUUID();
+}
+
 export function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }
@@ -59,26 +72,28 @@ export function verifyPassword(password: string, hash: string): Promise<boolean>
 }
 
 /**
- * A session token for this account, good until `endsAt`. Left out, the session
- * ends at the factory's next midnight — the latest any day's session may run.
+ * A session token for this account, good until `endsAt`, with its own id (a new
+ * one unless given). Left out, the session ends at the factory's next midnight —
+ * the latest any day's session may run.
  */
-export function signSessionToken(user: PublicUser, endsAt?: Date): string {
+export function signSessionToken(user: PublicUser, endsAt?: Date, sessionId: string = newSessionId()): string {
   const end = endsAt && Number.isFinite(endsAt.getTime()) ? endsAt : nextMidnight(new Date(), plantTimeZone());
-  return jwt.sign({ sub: user.id, email: user.email, role: user.role, v: SESSION_VERSION, exp: Math.floor(end.getTime() / 1000) }, JWT_SECRET);
+  return jwt.sign({ sub: user.id, email: user.email, role: user.role, v: SESSION_VERSION, sid: sessionId, exp: Math.floor(end.getTime() / 1000) }, JWT_SECRET);
 }
 
 /**
- * The account a token names and when its session ends; null for a token this
- * server did not sign, one made before sessions ended with their day, or one
- * whose day has closed. `ignoreExpiration` reads a closed session too — only
- * for writing the "Signed out" line of a session the browser ends a moment
- * after its close (backend/index.ts, POST /api/auth/logout).
+ * The account a token names, when its session ends and the session's id (null
+ * for a token made before sessions had ids); null for a token this server did
+ * not sign, one made before sessions ended with their day, or one whose day has
+ * closed. `ignoreExpiration` reads a closed session too — only for the sign-out
+ * of a session the browser ends a moment after its close (backend/index.ts,
+ * POST /api/auth/logout).
  */
-export function verifySessionToken(token: string, opts: { ignoreExpiration?: boolean } = {}): { sub: string; endsAt: Date } | null {
+export function verifySessionToken(token: string, opts: { ignoreExpiration?: boolean } = {}): { sub: string; endsAt: Date; sessionId: string | null } | null {
   try {
     const payload = jwt.verify(token, JWT_SECRET, { ignoreExpiration: opts.ignoreExpiration === true });
     if (typeof payload === "string" || typeof payload.sub !== "string" || payload.v !== SESSION_VERSION || typeof payload.exp !== "number") return null;
-    return { sub: payload.sub, endsAt: new Date(payload.exp * 1000) };
+    return { sub: payload.sub, endsAt: new Date(payload.exp * 1000), sessionId: typeof payload.sid === "string" && payload.sid ? payload.sid : null };
   } catch {
     return null;
   }

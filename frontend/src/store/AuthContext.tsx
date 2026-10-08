@@ -33,6 +33,8 @@ export interface DaySession {
   signOutAtEnd: boolean;
   /** The factory's time zone, for saying the time of the close in words. */
   timeZone: string;
+  /** The session's own id, which this tab names when it ends the session by itself; null from a server that gives none. */
+  id: string | null;
 }
 
 interface AuthContextValue {
@@ -97,7 +99,13 @@ function daySessionOf(res: AuthResponse): DaySession | null {
   if (!Number.isFinite(end)) return null;
   const serverNow = Date.parse(s.now);
   const skew = Number.isFinite(serverNow) ? serverNow - Date.now() : 0;
-  return { endsAt: s.endsAt, endsAtLocal: end - skew, signOutAtEnd: s.signOutAtEnd === true, timeZone: res.hours?.timeZone ?? DEFAULT_PLANT_TIME_ZONE };
+  return {
+    endsAt: s.endsAt,
+    endsAtLocal: end - skew,
+    signOutAtEnd: s.signOutAtEnd === true,
+    timeZone: res.hours?.timeZone ?? DEFAULT_PLANT_TIME_ZONE,
+    id: typeof s.id === "string" && s.id ? s.id : null,
+  };
 }
 
 const isOutsideHours = (err: unknown): err is ApiError => err instanceof ApiError && err.status === 403 && err.code === OUTSIDE_HOURS_CODE;
@@ -120,6 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   statusRef.current = status;
   const userRef = useRef(user);
   userRef.current = user;
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   // WHAT THE SERVER ALLOWS, WITH NOBODY SIGNED IN (REQUIREMENTS §66). Asked
   // whenever this browser ends up at the sign-in screen — on the first look, and
@@ -157,25 +167,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus("unauthenticated");
   }, []);
 
-  // OUT BECAUSE OF THE PLANT'S HOURS (§84): what is still on its way to the
-  // database goes first, the sign-out says why (the activity log keeps it), and
-  // the sign-in page opens with the words. Once, however many things ask.
+  // OUT BECAUSE OF THE PLANT'S HOURS, OR AT THE END OF THE DAY (§84 and its
+  // addendum): what is still on its way to the database goes first, the sign-out
+  // says why (the activity log keeps it), and the sign-in page opens with the
+  // words. Once, however many things ask.
+  //
+  // ONLY THIS TAB'S OWN SESSION (the review of 8-Oct-2026). Every tab of a
+  // browser shares one session, and a tab's clock can run late — Chrome wakes a
+  // tab hidden for five minutes once a minute, a laptop wakes from sleep — so by
+  // the time this tab acts he may have signed in again in another. It asks the
+  // server first: a newer session of the same person is taken up here and nothing
+  // is ended. And the sign-out names this tab's session, which the server ends
+  // only while the browser still holds it (backend/signInAndOut.ts).
   const endingForHours = useRef(false);
   const endForHours = useCallback(
     async (reason: SignOutReason, text: string) => {
       if (endingForHours.current) return;
       endingForHours.current = true;
+      let takenUp = false;
       try {
+        const mine = sessionRef.current;
+        if (mine?.id) {
+          const now = await api.get<AuthResponse>("/auth/me").catch(() => null);
+          const theirs = now ? daySessionOf(now) : null;
+          if (now && theirs?.id && theirs.id !== mine.id && now.user?.id === userRef.current?.id) {
+            applyAnswer(now);
+            takenUp = true;
+            return;
+          }
+        }
         await stopServerSync().catch(() => undefined);
-        await api.post("/auth/logout", { reason }).catch(() => undefined);
+        await api.post("/auth/logout", mine?.id ? { reason, sessionId: mine.id } : { reason }).catch(() => undefined);
       } finally {
-        signedOutState();
-        setNotice(text);
-        readPublicFeatures();
+        if (!takenUp) {
+          signedOutState();
+          setNotice(text);
+          readPublicFeatures();
+        }
         endingForHours.current = false;
       }
     },
-    [readPublicFeatures, signedOutState]
+    [applyAnswer, readPublicFeatures, signedOutState]
   );
 
   useEffect(() => {

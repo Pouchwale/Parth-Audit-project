@@ -101,6 +101,11 @@ export interface SessionEnd {
   signOutAtEnd: boolean;
   /** The server's clock when it answered. */
   now: string;
+  /**
+   * The session's own id: a tab that ends its session by itself names it in POST /api/auth/logout, so it never ends a
+   * newer session of the same browser (store/AuthContext.tsx endForHours). Absent for a session from before ids.
+   */
+  id?: string;
 }
 
 /** What the server has switched on. Both optional: a server from before them says nothing, which reads as off. */

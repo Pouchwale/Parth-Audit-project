@@ -40,6 +40,17 @@ admin's own master data and putting them back:
   * the super admin's own end of the day (faked): a warning ten minutes before,
     then a clean sign-out with the reason, "Signed out" - "At the end of the
     day (midnight)" in the log, and a sign-in again straight away;
+  * a second tab whose clock runs late (held here with the DevTools debugger,
+    as Chrome holds a hidden tab's timers and a sleeping laptop holds every
+    tab's) never ends the session he has just started again in the first: it
+    takes that session up; the server leaves a newer session alone when a tab
+    names an older one it is ending (review of 8-Oct-2026);
+  * a sign-out's reason is written only where it fits the account: the end of
+    the day (midnight) for the super admin, the close of the hours for staff;
+  * nobody else's wrong passwords keep the super admin out: eight from another
+    computer hold back only that computer (audit M-22), and he signs in at once
+    from his own - this PC's two loopback addresses stand in for the two
+    computers, and this runs last, as its hold lasts ten minutes;
   * where the gate is on: staff refused and the super admin let in after the
     close, on the weekly off and on a festival, and let in on an adjustment day;
     an open session refused on every route (403), a write to the records 401.
@@ -51,6 +62,7 @@ import os
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 from playwright.sync_api import sync_playwright
 
@@ -565,6 +577,15 @@ def main():
         super_admin_day_end_checks(browser, admin_ctx, (admin_login.get("user") or {}).get("id"))
 
         # ==================================================================
+        print("\n==== A second tab whose clock runs late leaves the session he started again alone ====")
+        super_admin_second_tab_checks(browser, admin_ctx, (admin_login.get("user") or {}).get("id"))
+        session_id_checks(browser, admin_ctx, (admin_login.get("user") or {}).get("id"))
+
+        # ==================================================================
+        print("\n==== A sign-out says why only where the reason fits the account ====")
+        sign_out_reason_checks(browser, admin_ctx, (admin_login.get("user") or {}).get("id"), can_staff)
+
+        # ==================================================================
         if enforced:
             print("\n==== The real gate, on the real clock ====")
             real_gate(browser, admin_ctx, staff_id)
@@ -577,6 +598,11 @@ def main():
             check("The master data is put back exactly as it was", ok and stored_master(admin_ctx)[0] == original_master)
         elif not restored:
             check("The hours are put back", False)
+
+        # ==================================================================
+        # Last: its hold on the stranger's address lasts ten minutes.
+        print("\n==== Wrong passwords typed for his address on another computer do not keep the super admin out ====")
+        throttle_checks(browser)
 
         check("No JavaScript errors on any page", not PAGE_ERRORS, PAGE_ERRORS[:3])
         browser.close()
@@ -623,6 +649,203 @@ def super_admin_day_end_checks(browser, admin_ctx, admin_id):
         check('...and the log says "Signed out" - "At the end of the day (midnight)"', found, lines)
         page.unroute("**/api/auth/login")
         check("He signs in again at once and carries on", sign_in(page, ADMIN))
+    finally:
+        ctx.close()
+
+
+def faked_end(ending):
+    """A route handler that keeps the server's answer, its session's own id included, but moves the session's end to
+    ending["at"] (ISO) - while that is set."""
+
+    def fake(route):
+        response = route.fetch()
+        try:
+            body = response.json()
+        except Exception:
+            body = None
+        if ending.get("at") and response.status == 200 and isinstance(body, dict) and isinstance(body.get("session"), dict):
+            body["session"] = dict(body["session"], endsAt=ending["at"], signOutAtEnd=False, now=iso_now())
+            route.fulfill(response=response, json=body)
+        else:
+            route.fulfill(response=response)
+
+    return fake
+
+
+def sign_lines(admin_ctx, person_id):
+    """The person's "Signed in" and "Signed out" lines, newest first."""
+    return [l for l in activity(admin_ctx, person_id) if l.get("action") in ("Signed in", "Signed out")]
+
+
+def newest_sign_out_since(admin_ctx, person_id, since, seconds=8):
+    """The person's newest "Signed out" line written at or after `since` (ISO), waited for; None when none comes."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        for l in activity(admin_ctx, person_id):
+            if l.get("action") == "Signed out" and (l.get("at") or "") >= since:
+                return l
+        time.sleep(0.5)
+    return None
+
+
+def super_admin_second_tab_checks(browser, admin_ctx, admin_id):
+    """Two tabs of one browser share its session. Tab B's JavaScript is held (CDP Debugger.pause), as Chrome holds a tab
+    hidden for five minutes to one tick a minute and a sleeping laptop holds every tab, while tab A reaches the end of his
+    day, signs him out by itself, and he signs in again at once. Released, B finds the end it was told has passed: it must
+    take up the new session, never end it (review of 8-Oct-2026: before, B's own sign-out ended it, with a false line)."""
+    ctx = new_context(browser)
+    try:
+        ending = {"at": (datetime.now(timezone.utc) + timedelta(seconds=80)).isoformat(timespec="milliseconds").replace("+00:00", "Z")}
+        fake = faked_end(ending)
+        ctx.route("**/api/auth/login", fake)
+        ctx.route("**/api/auth/me", fake)
+        a = new_page(ctx)
+        check("Tab A: the super admin signs in, his day's session ending in about a minute (faked)", sign_in(a, ADMIN))
+        first = page_fetch(a, "/api/auth/me")
+        first_id = ((first.get("body") or {}).get("session") or {}).get("id")
+        b = new_page(ctx)
+        b.goto(f"{BASE}/index.html#/dashboard")
+        b.wait_for_selector(".app-sidebar", timeout=60000)
+        b.wait_for_timeout(800)
+        dismiss(b)
+        close_assistant(b)
+        cdp = ctx.new_cdp_session(b)
+        cdp.send("Debugger.enable")
+        cdp.send("Debugger.pause")
+        a.wait_for_selector("[data-section='signed-out-notice']", timeout=90000)
+        check("Tab A signs him out by itself at the end of his day, while tab B's clock is held", a.locator("#login-email").count() == 1)
+        # From here on, the server's own answers: the new session runs to the factory's midnight.
+        ending["at"] = None
+        ctx.unroute("**/api/auth/login")
+        ctx.unroute("**/api/auth/me")
+        type_sign_in(a, ADMIN)
+        a.wait_for_selector(".app-sidebar", timeout=60000)
+        a.wait_for_timeout(800)
+        dismiss(a)
+        close_assistant(a)
+        again = page_fetch(a, "/api/auth/me")
+        new_id = ((again.get("body") or {}).get("session") or {}).get("id")
+        check("...and he signs in again at once in tab A", again["status"] == 200, again["status"])
+        cdp.send("Debugger.resume")
+        cdp.detach()
+        # B's clock runs again: its overdue tick finds the end it was told has passed.
+        b.wait_for_timeout(8000)
+        a.wait_for_timeout(3000)
+        still = page_fetch(a, "/api/auth/me")
+        still_id = ((still.get("body") or {}).get("session") or {}).get("id")
+        check("Released, tab B leaves the session he has just started alone: it is still open", still["status"] == 200 and still_id == new_id, (still["status"], new_id, still_id))
+        check("...tab A stays in the app", a.locator(".app-sidebar").count() == 1 and a.locator("#login-email").count() == 0)
+        check("...and tab B takes the new session up and carries on, rather than showing the sign-in page", b.locator(".app-sidebar").count() == 1 and b.locator("#login-email").count() == 0)
+        lines = sign_lines(admin_ctx, admin_id)
+        check('...and no "Signed out" line is written for his new session', bool(lines) and lines[0].get("action") == "Signed in", [(l.get("at"), l.get("action"), l.get("detail")) for l in lines[:4]])
+        check("(the two sessions are told apart by their ids)", bool(first_id) and bool(new_id) and first_id != new_id, (first_id, new_id))
+    finally:
+        ctx.close()
+
+
+def session_id_checks(browser, admin_ctx, admin_id):
+    """The server's side of it: a sign-out that names the session it ends leaves another session of the browser alone."""
+    c = new_context(browser)
+    try:
+        status, body, _ = api_login(c, ADMIN)
+        sid = ((body or {}).get("session") or {}).get("id")
+        check("A session's answer names the session (an id of its own), for a tab to name when it ends it by itself", status == 200 and isinstance(sid, str) and len(sid) >= 16, (status, (body or {}).get("session")))
+        since = iso_now()
+        r = c.request.post(f"{BASE}/api/auth/logout", data={"reason": "end-of-day", "sessionId": "an-older-session-of-this-browser"})
+        me = c.request.get(f"{BASE}/api/auth/me")
+        check("A tab ending an older session by its id leaves the browser's newer one open", r.status == 204 and me.status == 200, (r.status, me.status))
+        check("...and writes no line for it", newest_sign_out_since(admin_ctx, admin_id, since, seconds=3) is None)
+        r = c.request.post(f"{BASE}/api/auth/logout", data={"reason": "end-of-day", "sessionId": sid or "no-id"})
+        me = c.request.get(f"{BASE}/api/auth/me")
+        check("...while a tab ending this very session ends it", r.status == 204 and me.status == 401, (r.status, me.status))
+        line = newest_sign_out_since(admin_ctx, admin_id, since)
+        check('...with its line: "Signed out" - "At the end of the day (midnight)"', line is not None and line.get("detail") == "At the end of the day (midnight)", line)
+    finally:
+        c.close()
+
+
+def sign_out_reason_checks(browser, admin_ctx, admin_id, can_staff):
+    """A sign-out's reason is written only where it fits the account (review of 8-Oct-2026): the end of the day (midnight)
+    is the super admin's, the close of the working hours staff's; anything else is a plain "Signed out"."""
+    c = new_context(browser)
+    try:
+        if api_login(c, ADMIN)[0] == 200:
+            since = iso_now()
+            c.request.post(f"{BASE}/api/auth/logout", data={"reason": "end-of-working-hours"})
+            line = newest_sign_out_since(admin_ctx, admin_id, since)
+            check('The super admin, whom the hours never hold, signing out "at the close of working hours" gets a plain "Signed out"', line is not None and line.get("detail") == "", line)
+        else:
+            check("The super admin signs in, to sign out with staff's reason", False)
+    finally:
+        c.close()
+    if not can_staff:
+        note("Staff cannot be signed in on this server now: a member of staff signing out with the super admin's reason was not tried.")
+        return
+    s = new_context(browser)
+    try:
+        st, body, _ = api_login(s, STAFF)
+        person = ((body or {}).get("user") or {}).get("id")
+        if st == 200 and person:
+            since = iso_now()
+            s.request.post(f"{BASE}/api/auth/logout", data={"reason": "end-of-day"})
+            line = newest_sign_out_since(admin_ctx, person, since)
+            check('A member of staff signing out "at the end of the day (midnight)", the super admin\'s reason alone, gets a plain "Signed out"', line is not None and line.get("detail") == "", line)
+        else:
+            check("A member of staff signs in, to sign out with the super admin's reason", False, (st, body))
+    finally:
+        s.close()
+
+
+def throttle_checks(browser):
+    """Eight wrong passwords for the super admin's address from one computer hold back only that computer (review of
+    8-Oct-2026; audit M-22): he signs in at once from his own, through the API and the sign-in page. This PC's IPv4
+    loopback stands in for the stranger's computer, its IPv6 loopback for his: the server sees two addresses."""
+    parts = urlsplit(BASE)
+    if parts.hostname not in ("localhost", "127.0.0.1", "::1"):
+        note(f"{BASE} is another computer: the check needs this computer's two loopback addresses, and was not run.")
+        return
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    stranger_base = f"{parts.scheme}://127.0.0.1:{port}"
+    his_base = f"{parts.scheme}://[::1]:{port}"
+    probe = browser.new_context()
+    try:
+        try:
+            reachable = probe.request.get(f"{his_base}/api/health").status == 200
+        except Exception:
+            reachable = False
+    finally:
+        probe.close()
+    if not reachable:
+        note("The server does not answer on this computer's IPv6 loopback, so two computers cannot be told apart here: not run.")
+        return
+    stranger = browser.new_context()
+    try:
+        statuses = [stranger.request.post(f"{stranger_base}/api/auth/login", data={"email": ADMIN, "password": f"a-wrong-guess-{n}"}).status for n in range(8)]
+        check("Eight wrong passwords for the super admin's address from another computer are refused", statuses == [401] * 8, statuses)
+        held = stranger.request.post(f"{stranger_base}/api/auth/login", data={"email": ADMIN, "password": SEED_PASSWORD})
+        check("...and that computer is then held back, even with the right password (the guard against guessing stays)", held.status == 429, held.status)
+    finally:
+        stranger.close()
+    his = browser.new_context()
+    try:
+        r = his.request.post(f"{his_base}/api/auth/login", data={"email": ADMIN, "password": SEED_PASSWORD})
+        check("...but the super admin signs in from his own computer at once", r.status == 200, (r.status, r.text()[:200]))
+    finally:
+        his.close()
+    ctx = new_context(browser)
+    page = new_page(ctx)
+    try:
+        page.goto(f"{his_base}/index.html")
+        page.wait_for_selector("#login-email", timeout=60000)
+        page.wait_for_timeout(400)
+        type_sign_in(page, ADMIN)
+        try:
+            page.wait_for_selector(".app-sidebar", timeout=30000)
+            opened = True
+        except Exception:
+            opened = False
+        said = page.locator(".auth-error").inner_text() if page.locator(".auth-error").count() else None
+        check("...and through the sign-in page too", opened, said)
     finally:
         ctx.close()
 
