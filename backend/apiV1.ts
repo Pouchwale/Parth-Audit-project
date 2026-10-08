@@ -7,6 +7,8 @@ import { distDir, repoRoot } from "./paths.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
 import { createEngineHost, engineBundleIsCurrent, type EngineHost } from "./engineHost.ts";
 import { registerApiV1Records, type EscalationsFound } from "./apiV1Records.ts";
+import { registerNotificationRoutesV1 } from "./notificationRoutes.ts";
+import type { NotificationLedger } from "./notifications.ts";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 import {
   activityDetail,
@@ -89,6 +91,8 @@ export interface ApiV1Deps {
   engine?: EngineHost;
   /** The super admin's escalations; by default the server's own (backend/escalation.ts). A unit test hands in its own. */
   escalations?: (open: boolean) => Promise<EscalationsFound>;
+  /** The notification ledger (backend/notifications.ts); by default the server's own. A unit test hands in its own. */
+  notifications?: NotificationLedger;
 }
 
 const databaseStore: ApiV1Store = {
@@ -828,6 +832,8 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     appAddress,
     escalations: deps.escalations ?? storedEscalations,
   });
+  // The person's notifications, phones and choices (REQUIREMENTS §97, backend/notificationRoutes.ts).
+  registerNotificationRoutesV1(app, { signedIn, callerOf, logActivity, ledger: deps.notifications });
 
   // Anything else under /api/v1: said as JSON, never the app's page.
   app.use("/api/v1", (_req: Request, res: Response): void => {
