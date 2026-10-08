@@ -21,6 +21,7 @@
     "test:unit": "node --no-warnings=ExperimentalWarning scripts/unit-tests.ts",
     "test:e2e": "node --no-warnings=ExperimentalWarning scripts/run-e2e.ts",
     "db:stop": "node --no-warnings=ExperimentalWarning scripts/db-stop.ts",
+    "super-admin": "node --no-warnings=ExperimentalWarning scripts/make-super-admin.ts",
     "db:shared": "node --no-warnings=ExperimentalWarning scripts/database/shared-database.ts",
     "db:dictionary": "node --no-warnings=ExperimentalWarning scripts/database/data-dictionary.ts",
     "db:backup": "node --no-warnings=ExperimentalWarning scripts/database/backup.ts",
