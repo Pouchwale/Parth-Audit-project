@@ -158,7 +158,9 @@ rules do not apply there: add `-SetPrivate` (only on the company network). `-Rem
   are the staff's. He is the app's super admin too (its Accounts and Security views), because DCRS says so at each
   sign-in; `SUPER_ADMINS` in `server\.env` can add more people.
 - Every sign-in ends at the close of its day (6:20 pm for staff, midnight for the super admin; his sign-in in the
-  day's last ten minutes runs to the next midnight), on the phone too, so each day starts with signing in.
+  day's last ten minutes runs to the next midnight), on the phone too, so each day starts with signing in. The app says
+  so ten minutes before, above the chat's composer; a message sent just after the end is not lost: it waits in its chat,
+  not sent, for the same person to sign in again and send it.
 
 ## 8. Keep Expo Go and the app in step
 

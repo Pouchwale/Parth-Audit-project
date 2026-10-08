@@ -441,8 +441,8 @@ Seven scripts live in `tests/`:
   a scoped search reads no record), `frontend/tests/workingHours.test.ts` (the rule against the calendar pages for every day of
   2026; 08:39, 08:40, 18:19, 18:20; an adjustment Thursday open; a festival closed; the next opening across closed days),
   `backend/tests/workingHours.test.ts` (the gate with a clock the test sets, the super admin exempt, the off switch, the session's
-  end, the /api/v1 routes), `backend/tests/accessRoutes.test.ts` (38: refusals, pairing sign-ins with sign-outs, "signed in now",
-  paging, CSV), `frontend/tests/intro.test.ts`.
+  end, the /api/v1 routes), `backend/tests/accessRoutes.test.ts` (45: refusals, pairing sign-ins with sign-outs, "signed in now",
+  paging, CSV, the super admin's late sign-in carried past midnight), `frontend/tests/intro.test.ts`.
   *The super admin at any hour (§84 addendum, 6-Oct-2026).* The hours' words are the staff's: `frontend/tests/workingHours.test.ts`
   holds the owner's sentences word for word, proves no sentence says DCRS opens or closes (English and Gujarati, every kind of
   moment), the Gujarati, a screen's words rebuilt from the server's answer, the person's answer (`forYou`, `heldToHours`) and the
@@ -455,6 +455,20 @@ Seven scripts live in `tests/`:
   again; `tests/e2e_user_access.py` his line on the hours card. The phone server's `dcrs-app.test.ts` and
   `dcrs-connector.test.ts` prove DCRS's super admin is the app's super admin (and stops being so when DCRS says otherwise at the
   next sign-in), `forYou` reaching the model, and open_record pinned to the day its card showed.
+  *The review of 8-Oct-2026 (REQUIREMENTS §84 addendum).* New: `backend/tests/signInAndOut.test.ts` (9: the sign-in throttle
+  by address and computer, the words of a sign-out for each account, which session a sign-out ends); in
+  `backend/tests/workingHours.test.ts` the session's own id in its token; in `backend/tests/accessRoutes.test.ts` (7 new) the
+  super admin's late sign-in still "signed in now" after midnight, shown open in the history, and the end of the day closing
+  only its own day's session. `tests/e2e_working_hours.py` adds 19 checks: two tabs of one browser, the second's clock held with
+  the DevTools debugger (Debugger.pause) while the first ends his day and he signs in again — his new session stays open, the
+  second tab takes it up, no false "Signed out" line; a sign-out naming an older session leaves the browser's newer one open;
+  a reason that does not fit the account is a plain "Signed out"; and, last of the suite because its hold lasts ten minutes,
+  eight wrong passwords from this PC's IPv4 loopback (the stranger's computer), then the super admin's own sign-in at once
+  from its IPv6 loopback, through the API and the sign-in page. Twelve of them failed before the fix (the other 70
+  passed, 7 new ones among them) and all pass after it (82 with the hours off, 116 on a server holding them). The phone server adds
+  `session-end.test.ts` (the warning's timing and words) and tests in `chat-session.test.ts` (a message refused because the
+  session ended, kept for the same person's next sign-in in its chat), `dcrs-app.test.ts` (`expiresAt` at sign-in and in
+  /me) and `dcrs-connector.test.ts` (open_record on a day with two records).
 - **The five formats of 02-Oct-2026 and the header block on every document** (REQUIREMENTS §86). New browser suite:
   `tests/e2e_header_editing.py` (demo server, the fill suite's account): on an F/QC/33 record the Page No. and the Date are
   typed over, kept on that record with a history line and after a reload; the format number typed over asks why first,
