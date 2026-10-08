@@ -690,6 +690,10 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   {
     id: "str-sharp-metal-objects",
     aliases: [
+      // The title as printed, its four tools included (REQUIREMENTS §93): the longer phrase is this register,
+      // not F/PRD/10, whose "scissor" sits inside it.
+      "sharp metal objects (razor blade, scissor, cutter blade, surgical blade) issuance (new) & return (old) record",
+      "razor blade, scissor, cutter blade, surgical blade",
       "sharp metal objects",
       "sharp metal object record",
       "sharp tool register",

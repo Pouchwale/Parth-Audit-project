@@ -867,12 +867,15 @@ const INSTALLATION_REQUIREMENTS = [
 ];
 
 const HANDOVER = "Hand over & Take over Protocol";
+// Printed on page 2 between the Risks box and the hand-over signatures: the
+// declaration the three heads sign under, with the company's own Word original's
+// two spaces after "etc." and "photos." (REQUIREMENTS §93).
+const DECLARATION = "The Benefits and Risks have been assessed, PM, Sanitation etc.  Attach any supportive documents, procedures photos.  Approval has been made.";
 
 const NEW_EQUIPMENT: LogSheetLayout = {
   documentId: "mnt-new-equipment",
-  // Printed on page 2 between the Risks box and the hand-over signatures: the
-  // declaration the three heads sign under.
-  instructions: ["The Benefits and Risks have been assessed, PM, Sanitation etc. Attach any supportive documents, procedures photos. Approval has been made."],
+  // The declaration is printed where page 2 prints it, between the Risks box and
+  // the hand-over (printedAbove below), no longer above the grid (REQUIREMENTS §93).
   // A NEW machine is not on the Equipment Master yet — it goes onto F/MNT/01
   // once installed — so these boxes are written, not fetched.
   headerFields: [
@@ -884,20 +887,25 @@ const NEW_EQUIPMENT: LogSheetLayout = {
   ],
   columns: [
     { key: "parameter", label: "Requirement", type: "text", fixed: true, width: 330 },
-    // The paper heads it "Y/N", so the two answers are its own letters.
-    { key: "assessment", label: "Assessment of Equipment Y/N", type: "select", options: ["Y", "N"], required: true, width: 130 },
+    // The paper heads it "Y/N", so the two answers are its own letters. The
+    // heading keeps the three spaces the company's own Word original has (§93).
+    { key: "assessment", label: "Assessment of Equipment   Y/N", type: "select", options: ["Y", "N"], required: true, width: 130 },
     { key: "comments", label: "Comments along with date of action", type: "text", width: 300 },
   ],
   rowMode: { kind: "fixedRows", rows: INSTALLATION_REQUIREMENTS.map((parameter) => ({ parameter })) },
+  // THE HAND-OVER AS PAGE 2 PRINTS IT (REQUIREMENTS §93): the declaration, the
+  // heading "Hand over & Take over Protocol", then each head beside "Date:". The
+  // sheet prints those words (printedLabel); each box is still NAMED in full, so a
+  // history line or Mitra says whose date it is.
   footerFields: [
     { key: "benefits", label: "Benefits:", type: "paragraph" },
     { key: "risks", label: "Risks including deviation accepted conditionally:", type: "paragraph" },
-    { key: "maintenanceHead", label: `${HANDOVER} — Maintenance Head: -`, type: "text", autoFill: { sign: true } },
-    { key: "maintenanceHeadDate", label: `${HANDOVER} — Maintenance Head — Date:`, type: "date", autoFill: { dueDate: true } },
-    { key: "productionHead", label: `${HANDOVER} — Production Head: -`, type: "text" },
-    { key: "productionHeadDate", label: `${HANDOVER} — Production Head — Date:`, type: "date" },
-    { key: "qcHead", label: `${HANDOVER} — QC Head: -`, type: "text" },
-    { key: "qcHeadDate", label: `${HANDOVER} — QC Head — Date:`, type: "date" },
+    { key: "maintenanceHead", label: `${HANDOVER} — Maintenance Head: -`, printedLabel: "Maintenance Head: -", printedAbove: [DECLARATION, HANDOVER], type: "text", autoFill: { sign: true } },
+    { key: "maintenanceHeadDate", label: `${HANDOVER} — Maintenance Head — Date:`, printedLabel: "Date:", type: "date", autoFill: { dueDate: true } },
+    { key: "productionHead", label: `${HANDOVER} — Production Head: -`, printedLabel: "Production Head: -", type: "text" },
+    { key: "productionHeadDate", label: `${HANDOVER} — Production Head — Date:`, printedLabel: "Date:", type: "date" },
+    { key: "qcHead", label: `${HANDOVER} — QC Head: -`, printedLabel: "QC Head: -", type: "text" },
+    { key: "qcHeadDate", label: `${HANDOVER} — QC Head — Date:`, printedLabel: "Date:", type: "date" },
   ],
   // The sample is the plant's newest machine on F/MNT/01 — M-85, the Konika
   // Minolta DP330 digital press of June 2025 — as it would have been written

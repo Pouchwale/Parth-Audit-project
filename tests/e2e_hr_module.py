@@ -568,16 +568,18 @@ with sync_playwright() as p:
     page.wait_for_timeout(1300)
     close_assistant(page)
     opened = next((r for r in records(page) if r["id"] == page.url.rstrip("/").split("/")[-1]), {})
-    day = date.today().isoformat()
-    if (opened.get("dueDate") == day or str(opened.get("periodKey", "")).endswith(day)) and opened.get("status") in ("Verified", "Submitted", "Pending Verification"):
-        # New opens the period's record when one is on file: on 1 October, F/HR/01's yearly due date, that is the
-        # seeded review "as on 01.10.2026", signed off (and read below). The blank register is started for the day
-        # before instead, through Mitra's "create a new ... for <date>" - the dated start a person has.
-        before = date.today() - timedelta(days=1)
+    year = date.today().year
+    if opened.get("status") in ("Verified", "Submitted", "Pending Verification"):
+        # New opens the YEAR's register when one is on file (REQUIREMENTS s93): all of 2026, that is the seeded
+        # review "as on 01.10.2026", signed off (and read below) - never a second register for a year that has one.
+        check("New on F/HR/01 opens the year's own register, not a second one",
+              str(opened.get("periodKey", "")).startswith(f"hr-competence:{year}-"), (opened.get("id"), opened.get("periodKey")))
+        # A blank register is started for a year that has none, through Mitra's "create a new ... for <date>" - the
+        # dated start a person has: 1 January of last year.
         page.locator("button:has-text('Ask Mitra')").first.click()
         page.wait_for_timeout(300)
         box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
-        box.fill(f"create a new competence record for {before.day} {before.strftime('%B')}")
+        box.fill(f"create a new competence record for 1 January {year - 1}")
         box.press("Enter")
         page.wait_for_timeout(1800)
         close_assistant(page)

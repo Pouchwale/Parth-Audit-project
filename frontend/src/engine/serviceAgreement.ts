@@ -1,5 +1,6 @@
 import type { RecordInstance, ServiceAgreementData } from "../types";
 import { recordRepository } from "../data/repositories/recordRepository";
+import { logRecordStarted } from "./recordHistory";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { SA_DOC_ID, SA_REMIND_BEFORE_DAYS, SA_TERM_YEARS, newServiceAgreementData } from "../data/seed/serviceAgreement";
 import { addDays, compareISO, fromISODate, toISODate, todayISO } from "../utils/date";
@@ -101,5 +102,7 @@ export function createAgreement(
     createdAt: now,
     updatedAt: now,
   };
+  // Started by hand, so it is in the activity log like any record a person starts (REQUIREMENTS §93).
+  logRecordStarted(record);
   return recordRepository.upsert(record as RecordInstance) as RecordInstance<ServiceAgreementData>;
 }

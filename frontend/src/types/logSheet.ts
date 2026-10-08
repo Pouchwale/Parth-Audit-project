@@ -38,6 +38,21 @@ export interface LogHeaderField {
   // box whose label names a person offers the employee names, and any other box
   // offers nothing.
   list?: string;
+  /**
+   * THE WORDS THE PAPER PRINTS BESIDE THE BOX, where its name (`label`, which
+   * the record's history, Mitra and the checks go by) has to say more to tell
+   * it apart: F/MNT/08 prints "Date:" beside each of its three heads, and
+   * "Date:" alone would not say whose date a history line changed
+   * (REQUIREMENTS §93). The sheet shows these words; everything else, the name.
+   */
+  printedLabel?: string;
+  /**
+   * Below the grid only: lines the paper prints across the sheet just above this
+   * box — F/MNT/08's declaration and its "Hand over & Take over Protocol"
+   * heading — and the boxes from this one on are drawn under them in the
+   * paper's two columns, a head beside its date (REQUIREMENTS §93).
+   */
+  printedAbove?: string[];
 }
 
 export interface LogColumn {

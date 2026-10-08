@@ -409,6 +409,23 @@ with sync_playwright() as p:
     caps = " | ".join(s["caption"] for s in shown)
     check("...both of its pages can be seen, and the earlier issue of 15.12.2024 beside them", len(shown) == 4 and all(s["loaded"] for s in shown) and "EARLIER ISSUE" in caps, shown)
 
+    # F/MNT/08's page 2, as the paper sent again on 07-Oct-2026 prints it (REQUIREMENTS s93): the declaration, then
+    # "Hand over & Take over Protocol", then each head beside "Date:" - the words the paper prints, not the box's
+    # full name ("... - Maintenance Head - Date:"), which its history and Mitra still go by.
+    open_page(page, "#/document/mnt-new-equipment", settle=1800)
+    group = page.locator(f"{PREVIEW} [data-section='printed-group']")
+    lines = group.locator("p").evaluate_all("els => els.map((e) => e.textContent)") if group.count() else []
+    check(
+        "F/MNT/08 prints its declaration, then 'Hand over & Take over Protocol', where page 2 prints them",
+        group.count() == 1
+        and lines == ["The Benefits and Risks have been assessed, PM, Sanitation etc.  Attach any supportive documents, procedures photos.  Approval has been made.", "Hand over & Take over Protocol"],
+        lines,
+    )
+    words = group.locator(".field > label").evaluate_all("els => els.map((e) => e.textContent.trim())") if group.count() else []
+    check("...then each head beside 'Date:', in the paper's two columns", words == ["Maintenance Head: -", "Date:", "Production Head: -", "Date:", "QC Head: -", "Date:"], words)
+    install = written(page, PREVIEW)
+    check("...and nothing the paper does not print beside a date", "Maintenance Head — Date:" not in install and "Protocol — QC Head" not in install, install[-400:])
+
     open_page(page, "#/document/mnt-pm-record", settle=1800)
     shown = show_originals(page) or []
     caps = " | ".join(s["caption"] for s in shown)

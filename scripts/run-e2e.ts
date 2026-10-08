@@ -63,6 +63,10 @@ const WORKING_HOURS_SUITE = "tests/e2e_working_hours.py";
 const MOBILE_MITRA_API_SUITE = "tests/e2e_mobile_mitra_api.py";
 // REQUIREMENTS §85: the guided tour on the Dashboard, for staff and the super admin (product server).
 const TOUR_SUITE = "tests/e2e_tour.py";
+// REQUIREMENTS §93: every record starts on its own page and stays, for the super admin and for each department's own
+// account, on a system live since the first of last month (product server; it adds the departments' accounts, so it
+// runs last).
+const EVERY_RECORD_STARTS_SUITE = "tests/e2e_every_record_starts.py";
 const PRODUCT_SUITES = [
   PRODUCT_SUITE,
   LOGIN_ONLY_SUITE,
@@ -74,6 +78,7 @@ const PRODUCT_SUITES = [
   WORKING_HOURS_SUITE,
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
+  EVERY_RECORD_STARTS_SUITE,
 ];
 // THE SHARED DATABASE'S OVERVIEW (REQUIREMENTS §83), set up on this run's
 // database exactly as a DBA sets it up on the plant's: its two new schemas and
@@ -383,6 +388,8 @@ async function main(): Promise<void> {
   // REQUIREMENTS §85 — the mobile app's API, DCRS's engine on the server.
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
+  // REQUIREMENTS §93 — every record starts and stays; last, because it adds the departments' accounts.
+  EVERY_RECORD_STARTS_SUITE,
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));

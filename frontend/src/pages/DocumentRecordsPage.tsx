@@ -12,7 +12,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { hrPageForDocument } from "../data/seed/hrModule";
 import { useEnsureMonth } from "../utils/useEnsureMonth";
-import { createRecordForDocument } from "../engine/recordCrud";
+import { createRecordForDocument, recordCoveringDate } from "../engine/recordCrud";
 import { createDefaultData } from "../engine/recordDefaults";
 import { routeForRecord } from "../engine/reminders";
 import { hrMasterLinkFor } from "../engine/hrMaster";
@@ -205,8 +205,19 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const master = masterRepository.get();
   const hr = hrPageForDocument(doc.id);
   const layout = doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined;
-  const records = (recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[]).slice().sort((a, b) => compareISO(b.dueDate, a.dueDate));
-  const shown = records.find((r) => r.id === selectedId) ?? records[0];
+  // Newest first; of two on one day, the one started last (REQUIREMENTS §93).
+  const records = (recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[])
+    .slice()
+    .sort((a, b) => compareISO(b.dueDate, a.dueDate) || (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  // WHAT IS SHOWN BELOW THE TABLE (REQUIREMENTS §93): the record New opens —
+  // today's sheet, or the sheet of the week, month or year today is in — then
+  // the latest one not dated ahead. The month's sheets are made ahead of their
+  // days, so "the newest" was a blank sheet for the 31st, not the record just started.
+  const shown =
+    records.find((r) => r.id === selectedId) ??
+    recordCoveringDate(doc, today, isDemo) ??
+    records.find((r) => compareISO(r.dueDate, today) <= 0) ??
+    records[0];
   const blank: RecordInstance<LogSheetData> | undefined =
     !shown && layout
       ? {

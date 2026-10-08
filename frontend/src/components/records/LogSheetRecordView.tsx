@@ -482,8 +482,13 @@ export function LogSheetRecordView({
       {layout.footerFields && layout.footerFields.length > 0 && (
         <div className="card mt-4">
           <div className="card-pad">
-            <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 16px" }}>
-              {layout.footerFields.map((f, fi) => (
+            {(() => {
+              // Lines the paper prints across the sheet above a box start a group of
+              // their own, drawn in the paper's two columns under them (F/MNT/08's
+              // hand-over, REQUIREMENTS §93); every other form's boxes are as they were.
+              const footer = layout.footerFields;
+              const split = footer.findIndex((f) => (f.printedAbove?.length ?? 0) > 0);
+              const box = (f: LogHeaderField, fi: number) => (
                 <SheetBox
                   key={f.key}
                   field={f}
@@ -494,8 +499,30 @@ export function LogSheetRecordView({
                   employees={employeeNames}
                   list={lists?.[f.key] ?? f.list}
                 />
-              ))}
-            </div>
+              );
+              const flowing = split < 0 ? footer : footer.slice(0, split);
+              return (
+                <>
+                  {flowing.length > 0 && (
+                    <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 16px" }}>
+                      {flowing.map((f, fi) => box(f, fi))}
+                    </div>
+                  )}
+                  {split >= 0 && (
+                    <div className={flowing.length > 0 ? "mt-3" : ""} data-section="printed-group">
+                      {footer[split].printedAbove!.map((line) => (
+                        <p key={line} className="text-sm font-semibold mb-2" style={{ whiteSpace: "pre-wrap" }}>
+                          {line}
+                        </p>
+                      ))}
+                      <div className="grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px 16px" }}>
+                        {footer.slice(split).map((f, gi) => box(f, split + gi))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             {/* The QA Manager's approval is a QC form's own box, so the line
                 about it belongs under QC forms only: under a Maintenance or a
                 Purchase footer it named a signature those forms do not have
@@ -870,7 +897,7 @@ function HeaderFieldInput({
   if (field.computed) {
     return (
       <div className="field">
-        <label>{field.label}</label>
+        <label>{field.printedLabel ?? field.label}</label>
         <span className="cell-text notranslate" translate="no" data-computed={field.key}>
           {value}
         </span>
@@ -883,7 +910,7 @@ function HeaderFieldInput({
     return (
       <div className="field field-paragraph">
         <label>
-          {field.label}
+          {field.printedLabel ?? field.label}
           {field.required ? " *" : ""}
         </label>
         <ParagraphInput value={value} editable={editable} onChange={onChange} bind={bound} />
@@ -893,7 +920,7 @@ function HeaderFieldInput({
   return (
     <div className="field">
       <label>
-        {field.label}
+        {field.printedLabel ?? field.label}
         {field.required ? " *" : ""}
       </label>
       {/* A BOX THE FORM PRINTS AS A CHOICE is offered as one, and "yesno"

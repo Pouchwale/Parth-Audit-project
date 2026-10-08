@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { FiAlertTriangle, FiCheck, FiTrash2 } from "react-icons/fi";
-import { BROWSER_ROOM_CHARS, STORAGE_NEARLY_FULL, STORAGE_WRITE_FAILED, measureWorkingCopy, storageNearlyFull, workingCopyChars } from "../../data/storageAdapter";
+import {
+  BROWSER_ROOM_CHARS,
+  STORAGE_HELD,
+  STORAGE_HELD_SAVED,
+  STORAGE_NEARLY_FULL,
+  STORAGE_WRITE_FAILED,
+  measureWorkingCopy,
+  storageNearlyFull,
+  workingCopyChars,
+} from "../../data/storageAdapter";
 import { clearAllDemoData } from "../../data/demoGenerator";
 import { demoModeAvailable } from "../../engine/features";
 import { purgePreLaunchNoise } from "../../engine/backlogCleanup";
@@ -10,6 +19,9 @@ import { useAppStore } from "../../store/AppStore";
 // Everything the app records lives in this browser's storage, which has a
 // fixed size. When a save doesn't fit, the change is NOT kept — this says so
 // on whatever screen the user is on, instead of letting them believe it was.
+// Since §93 a change that does not fit while somebody is signed in is held in
+// the page's memory and sent to the database from there: this says the
+// browser's copy is full, and that the record WAS saved once the database has it.
 export function StorageFullBanner() {
   const { mode, setMode, bump } = useAppStore();
   const [failed, setFailed] = useState(false);
@@ -23,24 +35,43 @@ export function StorageFullBanner() {
   // draws its dashboard first.
   const [parts, setParts] = useState<StorageBreakdown | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  // A CHANGE THAT DID NOT FIT IS HELD, NOT LOST (REQUIREMENTS §93): kept in this
+  // page's memory and sent to the database from there (data/serverSync.ts).
+  // "sending" until the database has it, then "saved" — said only once it is.
+  const [held, setHeld] = useState<"sending" | "saved" | null>(null);
+  // A record (the records item), or something else of the person's (their settings…).
+  const [heldRecords, setHeldRecords] = useState(true);
 
   useEffect(() => {
     const onFail = () => setFailed(true);
     // Read, not assumed: the same word is sent when the working copy has been cut back down.
     const onNearlyFull = () => setNearlyFull(storageNearlyFull());
+    const keyOf = (e: Event) => ((e as CustomEvent<{ key?: string } | undefined>).detail?.key ?? "records") === "records";
+    const onHeld = (e: Event) => {
+      setHeld("sending");
+      setHeldRecords(keyOf(e));
+    };
+    const onHeldSaved = (e: Event) => {
+      setHeld("saved");
+      setHeldRecords(keyOf(e));
+    };
     window.addEventListener(STORAGE_WRITE_FAILED, onFail);
     window.addEventListener(STORAGE_NEARLY_FULL, onNearlyFull);
+    window.addEventListener(STORAGE_HELD, onHeld);
+    window.addEventListener(STORAGE_HELD_SAVED, onHeldSaved);
     return () => {
       window.removeEventListener(STORAGE_WRITE_FAILED, onFail);
       window.removeEventListener(STORAGE_NEARLY_FULL, onNearlyFull);
+      window.removeEventListener(STORAGE_HELD, onHeld);
+      window.removeEventListener(STORAGE_HELD_SAVED, onHeldSaved);
     };
   }, []);
 
   useEffect(() => {
-    if (!nearlyFull && !failed) return;
+    if (!nearlyFull && !failed && !held) return;
     const id = window.setTimeout(() => setParts(storageBreakdown()), 0);
     return () => window.clearTimeout(id);
-  }, [nearlyFull, failed]);
+  }, [nearlyFull, failed, held]);
 
   // Cleared, measured again, and every screen redrawn: below the mark the
   // banner goes by itself (the measurement says so); above it, the figures update.
@@ -61,7 +92,7 @@ export function StorageFullBanner() {
     bump();
   };
 
-  if (!failed && !nearlyFull) {
+  if (!failed && !nearlyFull && !held) {
     // Back under the mark the warning is gone; what the click did stays until dismissed.
     if (!done) return null;
     return (
@@ -84,18 +115,30 @@ export function StorageFullBanner() {
   return (
     <div
       className="card mb-4 no-print"
-      role={failed ? "alert" : "status"}
-      data-section={failed ? "storage-full" : "storage-nearly-full"}
+      role={failed || held === "sending" ? "alert" : "status"}
+      data-section={held ? "storage-held" : failed ? "storage-full" : "storage-nearly-full"}
+      data-state={held ?? undefined}
       data-used={used}
       style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}
     >
       <div className="card-pad text-sm">
         <strong>
-          <FiAlertTriangle size={13} style={{ verticalAlign: -1 }} /> {failed ? "Your last change could not be saved." : "This browser is nearly full."}
+          <FiAlertTriangle size={13} style={{ verticalAlign: -1 }} />{" "}
+          {held === "sending"
+            ? "This browser's copy is full."
+            : held === "saved"
+              ? `This browser's copy is full — your ${heldRecords ? "record" : "change"} WAS saved.`
+              : failed
+                ? "Your last change could not be saved."
+                : "This browser is nearly full."}
         </strong>{" "}
-        {failed
-          ? "This browser's storage for the app is full, so that change is not kept — everything saved before it is safe."
-          : `The working copy of the records on this computer takes ${roomLabel(used)} of the ${roomLabel(BROWSER_ROOM_CHARS)} or so the browser allows. Everything is safe in the database.`}
+        {held === "sending"
+          ? "It has no room left for the app's working copy, so your change is kept on this page and is being sent to the database (PostgreSQL) now. Keep this page open until this says it was saved."
+          : held === "saved"
+            ? "It is in the database (PostgreSQL), so nothing is lost, and this page goes on working from memory. Make room in this browser before you close or reload the page."
+            : failed
+              ? "This browser's storage for the app is full, so that change is not kept — everything saved before it is safe."
+              : `The working copy of the records on this computer takes ${roomLabel(used)} of the ${roomLabel(BROWSER_ROOM_CHARS)} or so the browser allows. Everything is safe in the database.`}
         {parts && (
           <ul className="mt-2 mb-2" style={{ paddingLeft: 18 }} data-section="storage-room">
             {demo && demo.records > 0 && (
@@ -134,6 +177,7 @@ export function StorageFullBanner() {
           onClick={() => {
             setFailed(false);
             setNearlyFull(false);
+            setHeld(null);
           }}
         >
           Dismiss

@@ -5830,6 +5830,199 @@ e2e_hr_module (129), e2e_maintenance_module (the module's name), e2e_find_every_
 both spellings, F-PRD-25 still on the list) and e2e_celebrations (the Production account's other sheets of the day handed
 in first). See docs/TESTING.md "The Production module".
 
+## §93 Every record starts, and the three papers of 7-Oct-2026 (7-Oct-2026)
+
+**The request.** The owner, 7-Oct-2026: "when i click on start record in many document ... no record found go back this
+message is coming." He wants every record a person starts to start and to stay, on every document of every module. The
+same day he sent F/STR/02, F/MNT/08 and F/MNT/09 again, each PDF with the company's own Word original beside it.
+
+**1. What was tried, and what failed.** Start was tried in a real browser on all 129 documents of the Document Library,
+as the super admin and as an account of the department that owns each, on a fresh test copy and on one live since
+1-Sep. 125 documents hold records (the Chemical Master, the insecticide licence and the two Statements of Compliance are
+kept as issued). On the fresh copy every one of the 125 started and stayed: 561 of 561 records were still there after
+signing out and in. What failed:
+- **"Record not found" with the browser's storage full.** The working copy keeps the whole company's records in one
+  item of the browser's storage (C-1 of the audit of 7-Oct-2026). When a save did not fit, Start wrote the new record
+  nowhere: the records were dropped from the page's memory, nothing was sent to the database, and the record's page said
+  "Record not found" with "Back to Calendar" - the owner's own words for it. The test copy held 1.2 to 1.4 million of the
+  browser's 5.2 million characters, so the fault was proved by filling the rest with a stand-in item; the owner's own
+  browser was not looked at. A browser that has held Demo Mode's year (3.7 million characters, §91) beside the plant's
+  records is close to that wall.
+- **A second sheet for a period that already had one** (H-7 of the audit). On the copy live since 1-Sep, New record and
+  Start this record on F/MNT/09, F/HR/19, F/HR/01 and F/QC/11 did not open the month's or the year's sheet: they made
+  another, dated the day the button was pressed, and the sheet the schedule counts stayed pending and overdue. By the
+  code it was every weekly, fortnightly, monthly, quarterly and yearly document, from every place that starts a record
+  (the document's page, the library's and Search's New, Mitra, the phone): a sheet was found only on its own due date.
+- **Marketing's Complaint Acknowledgement (QA-CAF-00) and Purchase's service provider agreement** opened on another
+  department's page - Quality Assurance's inspection findings register, Human Resources' insecticide licence - which
+  refused them, so their own department could start them only from the library.
+- **The three pest service reports and F/HR/18** had no Start on their pages, only "Open latest visit" once a visit was
+  on file.
+- **A document's page showed a different record** from the one just started: the newest-dated sheet, which is the
+  blank one made ahead for the month's last day ("On file - 31-Oct-2026 · Due").
+- Saves took up to 16 seconds on the test PC at 100% CPU, with its network dropping for moments; every one arrived.
+
+**2. New record opens the sheet of the period** (engine/frequencyEngine.ts `schedulePeriodOf`, engine/recordCrud.ts).
+A scheduled document has one sheet for each date its schedule names, and each date stands for a period: **the week
+(Monday to Sunday), the half month (the 1st to the day before the second visit, then the second visit to the month's
+end), the month, the quarter (three months from the anchor month) or the calendar year**. New record, Start this record,
+the library's and Search's New, Mitra's "create a new ..." and the phone's open now open the sheet of the period the day
+falls in when there is one - the schedule's own sheet first, else the one worked on last - even when it is submitted or
+verified (then the person sees it is done, and Reopen for correction is there as always). Never a second sheet for a
+period that has one. A period with no sheet yet (its date came before the system went live, or its month has not been
+made yet) gets one under the schedule's own key, dated the day it was started as a hand-made record always was, so the
+schedule makes no second sheet beside it when the month comes. **Unchanged:** an as-required document starts a new
+sheet every time; a daily one opens the day's own; and the **training record** stays one per training held (a record for
+the day asked), as its own page's New Training Record has always made them - it is scheduled yearly for the December
+programme, but every training and technician certificate is a record of its own (item 61).
+
+**What the page shows.** A document's page shows below its table the record New would open - today's sheet, or the
+week's, month's or year's - then the latest one not dated ahead; never the blank sheet made ahead for the 31st. Two
+records of one day are listed with the one started last first.
+
+**3. A Start that does not fit in the browser is still saved** (data/serverSync.ts, data/storageAdapter.ts). A stopgap
+inside today's design: when a change does not fit in the browser's storage, it is **held in the page's memory**, read by
+every screen from there, and **sent to the database from there** - the same sending, merging and resending as any other
+change. So the record just started opens, and is kept in PostgreSQL; nothing new is stored anywhere else. A colleague's
+save that arrives in between is merged and sent though the merged copy does not fit either (it used to be tried every
+four seconds for ever), and others' work that does not fit is held the same way. The browser keeps its older copy
+together with the note of which version that copy is, so a reload takes the database's newer copy and never sends the
+older one back over it. Until the database confirms a held change, closing the page asks first. The page says it
+plainly, in the banner at the top (data-section storage-held): **"This browser's copy is full."** while the change is
+on its way, then **"This browser's copy is full - your record WAS saved."** once the database has it, with what is taking
+the room and the buttons that clear it (§79). The old banner, "Your last change could not be saved", remains only for a
+change nothing can send (nobody signed in).
+
+**What waits on C-1.** The lasting fix - a working copy that stays small for good - waits for the owner's choice of
+design (the audit's Decisions, item 1). Until then a browser that is full goes on working from memory, but signing in
+again on it fails with "There is no room in this browser" once the company's records alone do not fit; making room (the
+banner's Clear the demo data, Remove them) is the way back.
+
+**4. Every document starts on its own page, for its own department.**
+- **The Complaint Acknowledgement** (pages/GapPage.tsx): an account that holds it but not Quality Assurance's findings
+  report - Marketing's - sees the acknowledgements on /gap/internal, with New Complaint Acknowledgement, and nothing of
+  the findings register (the CAPA page already offered Marketing the Internal card).
+- **The service provider agreement** (pages/LicencePage.tsx): an account that holds it but not the licence - Purchase's -
+  sees the agreement's card on /licence: where it stands, Draft it for me, Upload the signed agreement, Open the
+  agreement; none of the licence.
+- **The pest service reports and F/HR/18** (pages/PestControlPages.tsx): each page has New record, which opens the
+  fortnight's visit or starts it, as on every document's page.
+- **Who started it.** New record and Start this record have always written "Record started" in the activity log (§62).
+  Six starts build their own record instead and wrote nothing: the internal CAPA findings report and the Complaint
+  Acknowledgement (pages/GapPage.tsx), the customer complaint (pages/CapaPage.tsx), the training record
+  (pages/TrainingPage.tsx), the pest control responsibilities (pages/PestControlPages.tsx) and the service agreement's
+  Draft it for me and its upload (engine/serviceAgreement.ts). Each now writes the line as it stores the record, through
+  the same engine/recordHistory.ts logRecordStarted that New uses; never for a demo record.
+
+**5. The three papers of 7-Oct-2026**, compared word for word with DCRS's copies, the company's one name aside (§87).
+- **F/STR/02** (Rev 00 of 01.12.2021): the PDF sent has the same text as DCRS's. The title now carries the four tools its
+  brackets print - **"Sharp Metal Objects (Razor Blade, Scissor, Cutter blade, Surgical Blade) Issuance (New) & Return
+  (Old) Record"** (the header prints every title in capitals, this one too); the page as supplied is shown beside the
+  form (Show original); the company's own Word original is in source-documents/ and the form downloads as Word, as the
+  original is. Mitra and Search know the whole title as this register's. The two paragraphs and the nine headings were
+  already the paper's; the paper's ten printed lines are lines added as needed, as on every register. The paper prints
+  its number and issue at its foot, "F/STR/02 (00/01.12.2021)"; DCRS prints them in the header block every format has
+  (§77), with the company's one name (§87), as on every format.
+- **F/MNT/08** (Rev 00 of 01.12.2021): the PDF sent has the same text as DCRS's. Page 2 is now printed as the paper prints
+  it: the declaration ("The Benefits and Risks have been assessed, PM, Sanitation etc.  Attach any supportive documents,
+  procedures photos.  Approval has been made.") between the Risks box and the hand-over, no longer above the grid; then
+  the heading **Hand over & Take over Protocol**; then **Maintenance Head: -** beside **Date:**, **Production Head: -**
+  beside **Date:**, **QC Head: -** beside **Date:**, in two columns. Each box keeps its full name ("Hand over & Take over
+  Protocol - QC Head - Date:") for its history lines, the checks and Mitra, where "Date:" alone would not say whose
+  date it is (LogHeaderField.printedLabel and printedAbove). The declaration and "Assessment of Equipment   Y/N" keep the
+  Word original's spacing, as DCRS keeps a paper's double spaces. The .doc is in source-documents/.
+- **F/MNT/09: DCRS keeps the newer issue.** The PDF sent is Rev 02 of **15.12.2024** (3,757 articles), under the same
+  file name as DCRS's copy of Rev 02 of **01.09.2025** (3,980 articles, its revision history's second line "New Glass
+  Articals Added"), which is newer and stays; the company's workbook of formats lists 01.09.2025 as the current issue.
+  The 15.12.2024 issue is on file as "(3).pdf" and shown beside the form as the earlier issue, as before. The source line
+  now says which file is which, and names the company's Word original (of the 15.12.2024 issue, byte for byte the one
+  already on file), so the form downloads as Word. Which issue is in use is the owner's to say (item 62; item 36 asks
+  whether a revision number was missed). **One difference is kept, and said here:** page 2 prints its four instructions
+  in a column to the right of the weekly grid; DCRS draws them above the sheet, with the article list's Show button and
+  Month & Year (as since §82). Their words are the paper's. On the plant's 1366-pixel laptops the weekly grid alone is
+  996 of the 1,102 pixels the page has (measured), so a column beside it would not fit on screen; and printing them
+  beside the grid needs the print's page fit (utils/print.ts), which measures only tables, to make room for a column
+  beside one - a change to how every document prints, which the theme work also touches - so it waits for the owner's
+  word rather than being made here.
+
+**6. What waits on the owner.**
+- C-1's design (above).
+- **F/MNT/09 and F/MNT/10 are due on the 1st**, though each is a month's sheet checked week by week, so it shows overdue
+  from the 2nd while weeks 2 to 5 are still to come. New now opens it instead of starting another; moving its due day to
+  the month's end changes every month's key and needs the owner's word (item 60).
+- One sheet a day, or one per machine, job and shift, for F-PRD-18, 19, 20, 26 and F/QC/13, 34 to 37 (item 58): a second
+  Start on the same day opens the day's sheet.
+- The training record as one per training (item 61).
+- Which issue of F/MNT/09 is in use (item 62), and whether its four instructions should print beside the weekly grid
+  as page 2 prints them (part 5).
+- Mitra's open_document asked without "create" still looks for a record of the exact day and then offers to start one,
+  which opens the period's sheet; engine/mitraTools.ts is being changed by the Mitra fill work, so this is left to it.
+- Found by reading the code and not reproduced, so not changed here: a record started but not yet sent (the day's
+  session ended, or the page was closed without a network) is sent at the next sign-in on that browser by whoever signs
+  in, and if that is another department's account the server keeps only that department's lines (the audit's M-1); and
+  when the administrator resets a person's password while they work, their next save is refused (403) and the browser
+  forgets the unsent change (M-3). Both are in the audit's Group 3, "No change silently lost or overwritten". A double
+  click on New of an as-required document may start two blank records before the page moves on (from the code; not
+  tried).
+- A record started on a closed day, or Mitra's for a date before the live start, is kept but not counted in the
+  reminders or the day's briefing, as those follow the plant's calendar.
+
+**7. The formats still missing, by module** (on the Master List of Formats, not sent; the audit's count is 37).
+- **Production (25: 20 never sent, F-PRD-25 sent empty, 4 only in the company's workbook):** F-PRD-01 Flexo Printing
+  Production Register, 02 Punching Production Register, 03 On-line QC Inspection Register, 04 Off-line QC Inspection
+  Register, 05 Slitting Production Register, 06 Shrink sleeve Gluing Register, 07 Shrink Sleeve cutting Production
+  Register, 08 Dispatch Card, 09 Packing Label / Prepress Specification (the two lists swap 09 and 13), 11 Surgical
+  Machine Blade Change Record, 12 Razor Blade Change Record, 13 Prepress Specification / Packing Label, 14.A Job Card -
+  LABEL, 14.B Job Card - SLEEVE, 14.E Job Card - POUCH, 15 QC wastage tracking record, 16 Production issues Analysis,
+  17.A, 17.B and 17.C Ink Formulation record (Label / Sleeve / Pouch); F-PRD-25 came as an empty workbook (§91); the
+  company's workbook adds F-PRD-27 Rewinding with LC- SS, 28 Slitting with LC- SS, 29 Shrink Sleeve Post press process
+  checklist and 30 Gluing adhesive mixing ratio.
+- **Quality Control (7):** F-QC-10 Statement of Compliance - Sleeve, 14 Test Reliability Record, 17 Scale / Ruler internal
+  calibration record, 31 COA Pouch, 39 FGPO Specification, 40.A and 40.B Temperature Monitoring records (printing, ink
+  kitchen and warehouse; sleeve division). F-QC-15, the general area line clearance, is held as 15-A to 15-G; F-QC-41 is
+  marked obsolete.
+- **Human Resources (2):** F-HR-02 Personnel competence criteria, F-HR-10 Training Imparted Record.
+- **Marketing (1):** F-MKT-03 Customer complaint Form. **Purchase (1):** F-PUR-04 Purchase Order. **Quality Assurance
+  (1):** F-QA-01 Traceability Report.
+- **System / Management, Store, Maintenance and Dispatch:** none missing.
+
+**Tests.** Each file fails on the code before this work and passes after it: run on c615073 with only the names they
+import added, 13 of the 15 unit tests fail on the behaviour they assert, and the other two guard what did not change.
+- frontend/tests/periodSheet.test.ts (7): the periods; New on F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03
+  (yearly, a verified one and one with none) and a fortnightly visit report; one sheet per period with the generator;
+  as-required, daily and the training record unchanged; what a document's page shows.
+- frontend/tests/storageFullStart.test.ts (2): with the browser full, the record started opens, reaches a stand-in
+  database and is announced saved; closing asks first and then does not; a colleague's save in between is merged and
+  sent.
+- frontend/tests/papers07Oct.test.ts (3): the three papers as above.
+- frontend/tests/recordStartedTrail.test.ts (3): the service agreement's Draft it for me sends one "Record started"
+  line naming the agreement, filed under it, and none for a demo one; every page that builds its own new record writes
+  the line (four pages, five records); New still writes one, and opening a sheet already on file writes none. Before
+  the change two of the three failed (the third guards what did not change).
+- tests/e2e_every_record_starts.py (new, on the product server, last): on a system live since the first of last month,
+  the super admin starts every record-holding document from its own page, the library's New opens the same sheet of a
+  scheduled document and a new one of an as-required one, one sheet per period, the browser full, a document's page
+  showing the record started; each department's own account starts every one of its documents; after signing out and
+  in, every record is in the database and opens; every new record the super admin started by hand is read back from the
+  activity log as "Record started". On the code before this work, run on 16 documents of every kind, 15 of its checks
+  failed, one or more on every fault of part 1.
+- The suites brought in step: e2e_assistant_fill (a signed-off record of today's period is New's to open),
+  e2e_hr_module (New on F/HR/01 opens the year's register; a blank one is started for a year that has none),
+  e2e_store_module (F/STR/02's title and page; its "no picture" example is now F/PUR/01) and e2e_maintenance_module
+  (F/MNT/08's hand-over). See docs/TESTING.md "Every record starts".
+
+**Speed** (§56). The pages this work changed were measured on 8-Oct-2026 at 6x CPU throttle in a 1366-pixel window,
+with Demo Mode's year on file (1,943 records, 3.4 million characters): the code before this work and this branch were
+served side by side and each page was opened on the two alternately, five times, so both met the same load on the
+shared PC. In the median every page made its first change on screen within a fifth of a second on both (the first,
+cold visit of the daily page took 0.7 s before and 0.4 s after), and the five runs of the two builds overlapped on
+every page: nothing measurable was added. Medians, before and after, of the first change and of the blocking time in
+the six seconds after it, in milliseconds: a daily document's page (F-QC-30) 132 and 270, then 115 and 226; a monthly
+one's (F/MNT/09) 117 and 129, then 112 and 139; an as-required one's (F/MNT/08) 62 and 38, then 96 and 77; F/STR/02's
+53 and 11, then 66 and 13; CAPA's internal page 52 and 0, then 50 and 0; the licence page 63 and 42, then 52 and 32; a
+pest service report's 68 and 14, then 77 and 81; F/HR/18's 73 and 38, then 54 and 7; New record on F-QC-30 168 and
+67, then 198 and 151; on F/MNT/09 178 and 90, then 144 and 44.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -6067,6 +6260,17 @@ in first). See docs/TESTING.md "The Production module".
     shift on paper; DCRS keeps one a day, with the DATE & SHIFT box written by the person. F/MNT/01 lists three laminators
     (M-61, M-62, M-80) and two slitters (M-66, M-78) in the pouch section: should each machine and shift be a record of its
     own? F/PRD/21 is kept per machine already (as required).
+60. **F/MNT/09 and F/MNT/10 fall due on the 1st** (§93 part 6). Each is a month's sheet checked week by week (Week - 1 to
+    Week - 5), so it shows overdue from the 2nd while most of its weeks are still to come; F/HR/15, a month's sheet filled
+    day by day, is due on the month's last day. New now opens the month's sheet instead of starting another. Should these
+    two fall due at the month's end? (It changes the key of every month's sheet, so the sheets on file move with it.)
+61. **The Pest Control Training Record: one per training, or one a year?** (§93 part 2). It is scheduled yearly (the
+    December programme), but its page's New Training Record starts a record for every training and technician
+    certificate, so New (and Mitra's "create a new training record for <date>") starts one for the day asked, as before,
+    where every other yearly document opens the year's sheet. Is that right?
+62. **Which issue of F/MNT/09 is in use** (§93 part 5). The paper sent on 07-Oct-2026 is Rev 02 of 15.12.2024 (3,757
+    articles); DCRS holds Rev 02 of 01.09.2025 (3,980 articles, "New Glass Articals Added", the new ink kitchen), which the
+    company's workbook of formats lists as current. DCRS keeps the newer one.
 
 ## How the assistant pre-fills records (and what it never does)
 

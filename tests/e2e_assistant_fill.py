@@ -24,9 +24,10 @@ Checked here, against the production build on :8842, with no network
   * and every document that holds records, started from the library, filled
     with sample data and submitted — so the sample data is complete for each.
 """
+import calendar
 import re
 import sys
-from datetime import date
+from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
 
 # A failure detail can carry the plant's own Gujarati or a typographic dash,
@@ -152,6 +153,50 @@ def answer_heuristically(page, question):
         say(page, "09:15")
     else:
         say(page, "Sample answer given by the test")
+
+
+
+def schedules(page):
+    """Each document's schedule, from the definitions the app holds."""
+    return page.evaluate("() => Object.fromEntries(JSON.parse(localStorage.getItem('dcrs:v1:documents') || '[]').map((d) => [d.id, d.schedule]))")
+
+
+def period_of(schedule, day, doc_id):
+    """The stretch of its schedule a day falls in, as engine/frequencyEngine.ts schedulePeriodOf works it out
+    (REQUIREMENTS s93): Monday to Sunday, half a month split at the second visit, the month, the quarter, the
+    year. A daily or as-required document, and the training record (one per training held), have only the day."""
+    t = (schedule or {}).get("type")
+    if doc_id == "training-record" or t not in ("weekly", "fortnightly", "monthly", "quarterly", "yearly"):
+        return day, day
+    if t == "weekly":
+        start = day - timedelta(days=day.weekday())
+        return start, start + timedelta(days=6)
+    dim = calendar.monthrange(day.year, day.month)[1]
+    if t == "fortnightly":
+        second = schedule["anchorDayOfMonth"] + 14
+        if second <= dim and day.day >= second:
+            return day.replace(day=second), day.replace(day=dim)
+        return day.replace(day=1), day.replace(day=second - 1 if second <= dim else dim)
+    if t == "monthly":
+        return day.replace(day=1), day.replace(day=dim)
+    if t == "quarterly":
+        sm, sy = day.month - 1 - (day.month - 1 - schedule["anchorMonth"]) % 3, day.year
+        if sm < 0:
+            sm, sy = sm + 12, sy - 1
+        em, ey = sm + 2, sy
+        if em > 11:
+            em, ey = em - 12, ey + 1
+        return date(sy, sm + 1, 1), date(ey, em + 1, calendar.monthrange(ey, em + 1)[1])
+    return date(day.year, 1, 1), date(day.year, 12, 31)
+
+
+def filed_for(rec):
+    """The date a record was filed for: its period key's date (the schedule's own), else its due date."""
+    m = re.match(r"^(?:[^:]*:)?(\d{4}-\d{2}-\d{2})", str(rec.get("periodKey", "")))
+    try:
+        return date.fromisoformat(m.group(1) if m else str(rec.get("dueDate", "")))
+    except ValueError:
+        return None
 
 
 with sync_playwright() as p:
@@ -359,6 +404,7 @@ with sync_playwright() as p:
     dismiss(page)
     doc_ids = page.eval_on_selector_all("[data-action='new-record']", "els => els.map(e => e.getAttribute('data-document'))")
     check("The library offers a record of every document that holds one", len(doc_ids) >= 10, doc_ids)
+    scheds = schedules(page)
     for doc_id in doc_ids:
         page.goto(f"{BASE}/index.html#/library")
         page.wait_for_timeout(700)
@@ -371,13 +417,15 @@ with sync_playwright() as p:
         page.wait_for_timeout(1300)
         rid = open_record_id(page)
         opened = record_by_id(page, rid) or {}
-        # Only the record New must return for TODAY - its period's, due today (this machine's date, as the browser's) -
-        # is exempt from the fill: New opening any other signed-off record is still a failure, below.
-        day = date.today().isoformat()
-        todays = opened.get("dueDate") == day or str(opened.get("periodKey", "")).endswith(day)
+        # Only the record New must return for TODAY's PERIOD - the day's sheet, or the week's, month's or year's
+        # (REQUIREMENTS s93), by this machine's date, as the browser's - is exempt from the fill: New opening any
+        # other signed-off record is still a failure, below.
+        frm, to = period_of(scheds.get(doc_id), date.today(), doc_id)
+        filed = filed_for(opened)
+        todays = filed is not None and frm <= filed <= to
         if todays and opened.get("status") in ("Verified", "Submitted", "Pending Verification"):
-            # New opens the period's record when one is on file already: on 1-Oct-2026, F/HR/01's yearly due
-            # date, that was the seeded review "as on 01.10.2026", Verified. Mitra must then say so - offer to
+            # New opens the period's record when one is on file already: all of 2026, F/HR/01's year, that is the
+            # seeded review "as on 01.10.2026", Verified. Mitra must then say so - offer to
             # reopen it rather than fill it, and not pretend it can be submitted.
             reply = say(page, "fill it with sample data", wait=1500)
             refused = say(page, "submit this record")
