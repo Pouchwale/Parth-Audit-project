@@ -607,7 +607,8 @@ Seven scripts live in `tests/`:
   title, page and Word original; F/MNT/08's page 2 as printed; F/MNT/09 kept on its newer issue and naming both files)
   and `frontend/tests/recordStartedTrail.test.ts` (3: every page that builds its own new record writes "Record
   started"; the service agreement's Draft it for me writes one, none for a demo; New still writes one and opening a
-  sheet on file none). `npm run test:unit` runs 522 frontend and 321 backend tests, all passing.
+  sheet on file none). `npm run test:unit` runs 522 frontend and 327 backend tests, all passing (321 backend before
+  premium-theme's b6411a9, the super admin from the server PC, was merged in on 8-Oct-2026 with its six).
   New browser suite: `tests/e2e_every_record_starts.py` (product server :8843, last among its suites in
   scripts/run-e2e.ts; E2E_ONLY=id1,id2 runs some documents only). On a system live since the first of last month, the
   super admin starts every one of the 125 documents that hold records from its own page (the library's Open Document,
