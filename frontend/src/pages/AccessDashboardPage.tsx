@@ -219,7 +219,7 @@ function AccessDashboard({ myId }: { myId: string }) {
     for (const p of people) {
       if (p.active) active += 1;
       if (p.now === "signed-in") now += 1;
-      if (p.today.signIns > 0) today += 1;
+      if (p.today.signIns > 0 || p.today.carriedSignIn) today += 1;
     }
     return { active, now, today, attempts: overview?.attempts.length ?? 0 };
   }, [people, overview]);
@@ -336,7 +336,8 @@ function AccessDashboard({ myId }: { myId: string }) {
             <strong>“Signed in now”</strong> means: signed in today ({formatDisplayDate(overview.today)}), not signed out since, and something in the activity log in their
             name in the last {overview.activeMinutes} minutes — the log is written when a person opens a document or a record, saves, submits, prints or downloads. The
             server keeps no other record of a browser's requests, so somebody reading one page for longer, and somebody who closed the browser without signing out, both
-            show as “signed in, quiet”. Times are the factory's clock.
+            show as “signed in, quiet”. The super admin's sign-in in a day's last ten minutes runs to the midnight after, so after midnight he is still signed in in
+            it. Times are the factory's clock.
           </p>
 
           <TodayTable people={people} clock={clock} onOpen={setOpened} />
@@ -521,8 +522,17 @@ const TodayRow = React.memo(function TodayRow({ p, clock, onOpen }: { p: AccessP
       <td data-field="now">
         <span className={NOW_BADGE[p.now]}>{p.now === "quiet" && p.quietMinutes !== null ? `Signed in, quiet for ${duration(p.quietMinutes)}` : NOW_WORDS[p.now]}</span>
       </td>
-      <td className="text-sm" data-field="first-sign-in" data-at={p.today.firstSignIn ?? ""}>
-        {p.today.firstSignIn ? clock(p.today.firstSignIn) : <span className="text-faint">—</span>}
+      <td className="text-sm" data-field="first-sign-in" data-at={p.today.firstSignIn ?? ""} data-carried={p.today.carriedSignIn ?? undefined}>
+        {p.today.firstSignIn ? (
+          clock(p.today.firstSignIn)
+        ) : p.today.carriedSignIn ? (
+          <>
+            {clock(p.today.carriedSignIn)}
+            <div className="text-xs text-muted">yesterday, in its last ten minutes: the session runs to tonight's midnight</div>
+          </>
+        ) : (
+          <span className="text-faint">—</span>
+        )}
       </td>
       <td className="text-sm" data-field="last-sign-out" data-at={p.today.lastSignOut ?? ""}>
         {p.today.lastSignOut ? (

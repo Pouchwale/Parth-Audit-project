@@ -3,7 +3,8 @@ import type { PublicUser } from "./auth.ts";
 import { database, plantTimeZone } from "./db.ts";
 import { csvText } from "./overviewRoutes.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
-import type { PublicHours } from "../frontend/src/engine/workingHoursCore.ts";
+import { SIGN_OUT_WORDS } from "./signInAndOut.ts";
+import { END_OF_DAY_REASON, END_OF_HOURS_REASON, LATE_SIGN_IN_MS, nextMidnight, type PublicHours } from "../frontend/src/engine/workingHoursCore.ts";
 
 // USER ACCESS, FOR THE SUPER ADMIN (REQUIREMENTS §84).
 //
@@ -57,6 +58,12 @@ import type { PublicHours } from "../frontend/src/engine/workingHoursCore.ts";
 // still open (two browsers at once pair as they happened). A day's sessions
 // end with the day (§84 C3), so a sign-in with no sign-out is "no sign-out
 // that day" — or, today, "no sign-out yet" — never a session running for days.
+// One exception, the super admin's LATE SIGN-IN (§84 addendum): his sign-in in
+// a day's last ten minutes runs to the midnight after, so it is a session of
+// the next day too — after midnight he is still "signed in now" in it, and a
+// sign-out the next day closes it. The browser's own sign-out at the end of the
+// day (midnight) closes a session that ends with that day, never this one
+// (review of 8-Oct-2026).
 //
 // SUPER ADMIN ONLY, WHATEVER THE SCREEN SHOWS: every route answers 403 to any
 // other account, after the same sign-in check as every other route
@@ -99,7 +106,9 @@ export const SIGNED_OUT = "Signed out";
 export const SIGN_IN_FAILED = "Sign-in failed";
 export const SIGN_IN_REFUSED = "Sign-in refused";
 /** The detail of the "Signed out" line the browser writes at the close of the working hours (§84 C4). */
-export const CLOSE_OF_HOURS = "At the close of working hours";
+export const CLOSE_OF_HOURS: string = SIGN_OUT_WORDS[END_OF_HOURS_REASON];
+/** The detail of the "Signed out" line the browser writes at the super admin's own end of the day, the factory's midnight. */
+export const END_OF_DAY: string = SIGN_OUT_WORDS[END_OF_DAY_REASON];
 
 const SESSION_ACTIONS = [SIGNED_IN, SIGNED_OUT];
 const ATTEMPT_ACTIONS = [SIGN_IN_FAILED, SIGN_IN_REFUSED];
@@ -146,6 +155,15 @@ export function displayDay(day: string): string {
   return `${String(d).padStart(2, "0")}-${MONTHS[m - 1]}-${y}`;
 }
 
+/**
+ * Whether a sign-in at `at` is the super admin's late sign-in: in the last LATE_SIGN_IN_MS before the factory's
+ * midnight, so that its session runs to the midnight after (engine/workingHoursCore.ts sessionEndsAt, the same rule).
+ */
+export function lateSignIn(at: string, zone: string): boolean {
+  const t = Date.parse(at);
+  return Number.isFinite(t) && nextMidnight(new Date(t), zone).getTime() - t <= LATE_SIGN_IN_MS;
+}
+
 /** A moment's time of day on the plant's clock, "09:02:11". */
 function clockFormatter(zone: string): (iso: string | null) => string {
   const f = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
@@ -181,6 +199,11 @@ export interface TodayFigures {
   refused: number;
   /** Their latest line of anything but a failed or refused sign-in (which anybody could cause by typing their address). */
   lastSeen: string | null;
+  /**
+   * The super admin's sign-in in yesterday's last ten minutes, not signed out since: his late sign-in, whose session
+   * runs to tonight's midnight, so he is still signed in today in it (§84 addendum). Null for everybody else.
+   */
+  carriedSignIn: string | null;
 }
 
 export const NO_DAY: TodayFigures = {
@@ -193,10 +216,12 @@ export const NO_DAY: TodayFigures = {
   failed: 0,
   refused: 0,
   lastSeen: null,
+  carriedSignIn: null,
 };
 
 /**
- * signed-in   signed in today, not signed out since, a line in the last 30 minutes
+ * signed-in   signed in today (or in the super admin's session carried from yesterday's last ten minutes), not
+ *             signed out since, a line in the last 30 minutes
  * quiet       signed in today, not signed out since, but nothing in the log for longer
  * signed-out  signed out since their last sign-in today
  * not-today   no sign-in today
@@ -208,8 +233,10 @@ export type NowState = "signed-in" | "quiet" | "signed-out" | "not-today" | "swi
 
 export function nowState(day: TodayFigures, active: boolean, nowMs: number, windowMinutes = ACTIVE_MINUTES, sessionOver = false): { state: NowState; quietMinutes: number | null } {
   if (!active) return { state: "switched-off", quietMinutes: null };
-  if (!day.lastSignIn) return { state: "not-today", quietMinutes: null };
-  const signedIn = Date.parse(day.lastSignIn);
+  // Today's last sign-in; failing that, the super admin's late sign-in of yesterday that is still open.
+  const lastIn = day.lastSignIn ?? day.carriedSignIn ?? null;
+  if (!lastIn) return { state: "not-today", quietMinutes: null };
+  const signedIn = Date.parse(lastIn);
   if (day.lastSignOut && Date.parse(day.lastSignOut) >= signedIn) return { state: "signed-out", quietMinutes: null };
   if (sessionOver) return { state: "day-closed", quietMinutes: null };
   const seen = Math.max(signedIn, day.lastSeen ? Date.parse(day.lastSeen) : 0);
@@ -218,9 +245,9 @@ export function nowState(day: TodayFigures, active: boolean, nowMs: number, wind
   return { state: "quiet", quietMinutes: Math.floor(quiet / 60_000) };
 }
 
-/** Today's figures from one row of the query below. */
-export function todayFrom(row: Record<string, unknown> | undefined): TodayFigures {
-  if (!row) return { ...NO_DAY };
+/** Today's figures from one row of the query below, with the super admin's late sign-in carried from yesterday. */
+export function todayFrom(row: Record<string, unknown> | undefined, carriedSignIn: string | null = null): TodayFigures {
+  if (!row) return { ...NO_DAY, carriedSignIn };
   return {
     firstSignIn: isoOf(row.first_in),
     lastSignIn: isoOf(row.last_in),
@@ -231,7 +258,26 @@ export function todayFrom(row: Record<string, unknown> | undefined): TodayFigure
     failed: count(row.failed),
     refused: count(row.refused),
     lastSeen: isoOf(row.last_seen),
+    carriedSignIn,
   };
+}
+
+/**
+ * The late sign-ins of yesterday's last ten minutes still open, from the rows of LATE_SQL: user id → when. A sign-in
+ * is still open when no sign-out came after it there — leaving out a sign-out at the end of the day (midnight), which
+ * is another session's own end. Only the super admin's are carried (the route asks only for them): nobody else's
+ * session runs past midnight.
+ */
+export function carriedSignIns(rows: readonly Record<string, unknown>[]): Map<string, string> {
+  const carried = new Map<string, string>();
+  for (const r of rows) {
+    const signedIn = isoOf(r.late_in);
+    if (!signedIn || r.user_id === null || r.user_id === undefined) continue;
+    const signedOut = isoOf(r.late_out);
+    if (signedOut && Date.parse(signedOut) >= Date.parse(signedIn)) continue;
+    carried.set(text(r.user_id), signedIn);
+  }
+  return carried;
 }
 
 // ---------------------------------------------------------------------------
@@ -288,26 +334,44 @@ const compareLines = (a: { at: string; id: string }, b: { at: string; id: string
 
 /**
  * THE LINES AS SESSIONS, newest first. Walked oldest first: a sign-in opens a
- * session for that person and day; a sign-out closes the latest one still open
- * that day (so two browsers at once pair as they happened); a failed or
- * refused sign-in is a row of its own. What is still open at the end is "no
- * sign-out yet" today and "no sign-out that day" on a day now over.
+ * session for that person; a sign-out closes the latest-begun one still open
+ * that it can end — one begun that day (a day's session ends with its day), or
+ * a sign-in of the day before whose session runs on into this one
+ * (`carriesOver`: the super admin's late sign-in, §84 addendum) — so two
+ * browsers at once pair as they happened. A sign-out at the end of the day
+ * (midnight) is a browser's own at its session's end, so it closes a session
+ * that ends with that day, never one carried past it. A failed or refused
+ * sign-in is a row of its own. What is still open at the end is "no sign-out
+ * yet" while its last day is today, and "no sign-out that day" once it is over.
  */
-export function pairSignIns(lines: readonly SignLine[], today: string): HistoryRow[] {
+export function pairSignIns(lines: readonly SignLine[], today: string, carriesOver?: (line: SignLine) => boolean): HistoryRow[] {
   const ordered = [...lines].sort(compareLines);
-  const open = new Map<string, HistoryRow[]>();
+  // Each person's sessions still open, in the order they began, with the last day each can be closed on.
+  const open = new Map<string, { row: HistoryRow; lastDay: string }[]>();
   const rows: HistoryRow[] = [];
   for (const l of ordered) {
     const base = { day: l.day, userId: l.userId, userName: l.userName, userEmail: l.userEmail || l.target, at: l.at, detail: l.detail, archived: l.archived };
     if (l.action === SIGNED_IN && l.userId) {
       const row: HistoryRow = { ...base, kind: "session", signedOutAt: null, ended: null, minutes: null, detail: "" };
       rows.push(row);
-      const key = `${l.userId}|${l.day}`;
-      const stack = open.get(key);
-      if (stack) stack.push(row);
-      else open.set(key, [row]);
+      const mine = open.get(l.userId);
+      const entry = { row, lastDay: carriesOver?.(l) ? addDays(l.day, 1) : l.day };
+      if (mine) mine.push(entry);
+      else open.set(l.userId, [entry]);
     } else if (l.action === SIGNED_OUT && l.userId) {
-      const row = open.get(`${l.userId}|${l.day}`)?.pop();
+      const mine = open.get(l.userId) ?? [];
+      const endOfDay = l.detail === END_OF_DAY;
+      // Newest first, and no further back than the day before: nothing older can still be open on this day.
+      const dayBefore = addDays(l.day, -1);
+      let found = -1;
+      for (let i = mine.length - 1; i >= 0 && mine[i].row.day >= dayBefore; i--) {
+        const s = mine[i];
+        if (s.row.day <= l.day && l.day <= s.lastDay && (!endOfDay || s.lastDay === l.day)) {
+          found = i;
+          break;
+        }
+      }
+      const row = found >= 0 ? mine.splice(found, 1)[0].row : undefined;
       if (row) {
         row.signedOutAt = l.at;
         row.ended = l.detail === CLOSE_OF_HOURS ? "close-of-hours" : "signed-out";
@@ -320,7 +384,7 @@ export function pairSignIns(lines: readonly SignLine[], today: string): HistoryR
       rows.push({ ...base, kind: l.action === SIGN_IN_FAILED ? "failed" : "refused", signedOutAt: null, ended: null, minutes: null });
     }
   }
-  for (const row of rows) if (row.kind === "session" && row.ended === null) row.ended = row.day === today ? "open" : "not-signed-out";
+  for (const mine of open.values()) for (const { row, lastDay } of mine) row.ended = lastDay >= today ? "open" : "not-signed-out";
   // Newest first. Rows were made oldest first, so for two at the same moment
   // the later-made one comes first as well.
   return rows
@@ -485,6 +549,17 @@ function byStanding(a: AccessPerson, b: AccessPerson): number {
 const USERS_SQL = `/* access:users */
 SELECT id, name, email, role, departments, active, must_change_password, last_sign_in, created_at FROM users ORDER BY created_at`;
 
+// THE SUPER ADMIN'S LATE SIGN-IN of yesterday's last LATE_SIGN_IN_MS (§84 addendum): each person's latest sign-in
+// there, and latest sign-out but for one at the end of the day (midnight), another session's own end. Ten minutes of
+// the log, through its index on `at`. $2 is the span, '600 seconds'.
+const LATE_SQL = `/* access:late */
+SELECT user_id,
+       max(at) FILTER (WHERE action = $3) AS late_in,
+       max(at) FILTER (WHERE action = $4 AND detail IS DISTINCT FROM $5) AS late_out
+  FROM activity_log
+ WHERE at >= ($1::date - $2::interval) AND at < $1::date AND action IN ($3, $4) AND user_id IS NOT NULL
+ GROUP BY user_id`;
+
 const TODAY_SQL = `/* access:today */
 SELECT user_id,
        min(at) FILTER (WHERE action = $3) AS first_in,
@@ -552,10 +627,13 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
     const actions = q.which === "sessions" ? SESSION_ACTIONS : q.which === "attempts" ? ATTEMPT_ACTIONS : [...SESSION_ACTIONS, ...ATTEMPT_ACTIONS];
     const values: unknown[] = [actions, q.from, q.to, MAX_LINES + 1];
     if (q.person) values.push(q.person);
-    const { rows } = await db().query(historySql(!!q.person), values);
+    const [{ rows }, accounts] = await Promise.all([db().query(historySql(!!q.person), values), db().query(USERS_SQL)]);
     const truncated = rows.length > MAX_LINES;
     const lines = (truncated ? rows.slice(0, MAX_LINES) : rows).map(signLineFrom).filter((l): l is SignLine => l !== null);
-    return { rows: pairSignIns(lines, today), truncated };
+    // The super admin's late sign-ins run on into the next day (§84 addendum); nobody else's session passes midnight.
+    const admins = new Set(accounts.rows.filter((u) => u.role === "admin").map((u) => text(u.id)));
+    const tz = zone();
+    return { rows: pairSignIns(lines, today, (l) => !!l.userId && admins.has(l.userId) && lateSignIn(l.at, tz)), truncated };
   };
 
   app.get("/api/access/overview", requireAuth, async (req: Request, res: Response): Promise<void> => {
@@ -564,9 +642,10 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
     const nowMs = clock();
     const tz = zone();
     const today = plantDayOf(nowMs, tz);
-    const [users, days, attempts, plant] = await Promise.all([
+    const [users, days, late, attempts, plant] = await Promise.all([
       db().query(USERS_SQL),
       db().query(TODAY_SQL, [today, today, SIGNED_IN, SIGNED_OUT, SIGN_IN_FAILED, SIGN_IN_REFUSED]),
+      db().query(LATE_SQL, [today, `${LATE_SIGN_IN_MS / 1000} seconds`, SIGNED_IN, SIGNED_OUT, END_OF_DAY]),
       db().query(ATTEMPTS_SQL, [today, ATTEMPT_ACTIONS]),
       // The hours are an extra: the accounts are still shown if they cannot be read.
       hours().catch((err: unknown) => {
@@ -577,11 +656,12 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
     // Closed for the day (or not yet open), with the hours held: nobody but the super admin has a session (§84 C3).
     const dayClosed = !!plant && plant.enforced && !plant.openNow;
     const dayOf = new Map(days.rows.map((r) => [text(r.user_id), r] as const));
+    const carried = carriedSignIns(late.rows);
     const people: AccessPerson[] = users.rows
       .map((u) => {
         const id = text(u.id);
         const active = u.active !== false && u.active !== "f";
-        const day = todayFrom(dayOf.get(id));
+        const day = todayFrom(dayOf.get(id), u.role === "admin" ? (carried.get(id) ?? null) : null);
         const now = nowState(day, active, nowMs, ACTIVE_MINUTES, dayClosed && u.role !== "admin");
         return {
           id,

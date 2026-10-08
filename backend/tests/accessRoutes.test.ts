@@ -16,7 +16,11 @@
 //     the byte-order mark, and its line in the activity log;
 //   * the working hours and today's state, the gate's own answer, handed on as
 //     it is; once the working day has closed, nobody but the super admin is
-//     "signed in now"; the page still answers when the hours cannot be read.
+//     "signed in now"; the page still answers when the hours cannot be read;
+//   * the super admin's sign-in in the day's last ten minutes, which runs to the
+//     midnight after (§84 addendum): after midnight he is still "signed in now"
+//     in it, the history shows it open, and his older session's own end of the
+//     day closes that one and not this (review of 8-Oct-2026).
 // The same routes are driven end to end by tests/e2e_user_access.py.
 // Run: npm run test:unit -- accessRoutes
 import assert from "node:assert/strict";
@@ -53,6 +57,10 @@ const ZONE = "Asia/Kolkata";
 /** 14:00 at the factory on Wednesday 30 September 2026. */
 const NOW = Date.parse("2026-09-30T08:30:00Z");
 const TODAY = "2026-09-30";
+/** The detail of the "Signed out" line of the super admin's own end of the day (backend/index.ts). */
+const END_OF_DAY_WORDS = "At the end of the day (midnight)";
+/** A super admin's sign-in this close to midnight runs to the midnight after (engine/workingHoursCore.ts LATE_SIGN_IN_MS). */
+const LATE_MS = 10 * 60 * 1000;
 
 /** A factory time on a day, as ISO (India is UTC+05:30 all year). */
 const at = (day: string, hhmmss: string): string => new Date(`${day}T${hhmmss.length === 5 ? `${hhmmss}:00` : hhmmss}+05:30`).toISOString();
@@ -148,6 +156,23 @@ class FakeDb implements AccessDatabase {
       });
       return { rows };
     }
+    if (text.includes("/* access:late */")) {
+      // The day's first moment, less the late window: the sign-ins and sign-outs of yesterday's last ten minutes.
+      const [day, span, inA, outA, endOfDay] = values as string[];
+      assert.equal(span, `${LATE_MS / 1000} seconds`, "the late window is the late sign-in's own span");
+      const midnight = Date.parse(`${day}T00:00:00+05:30`);
+      const byUser = new Map<string, StoredLine[]>();
+      for (const l of this.lines) {
+        const t = Date.parse(l.at);
+        if (l.archived || !l.user_id || t < midnight - LATE_MS || t >= midnight || (l.action !== inA && l.action !== outA)) continue;
+        byUser.set(l.user_id, [...(byUser.get(l.user_id) ?? []), l]);
+      }
+      const rows = [...byUser.entries()].map(([user_id, ls]) => {
+        const last = (pick: (l: StoredLine) => boolean) => ls.filter(pick).sort((x, y) => (x.at < y.at ? -1 : 1)).at(-1)?.at ?? null;
+        return { user_id, late_in: last((l) => l.action === inA), late_out: last((l) => l.action === outA && l.detail !== endOfDay) };
+      });
+      return { rows };
+    }
     if (text.includes("/* access:attempts */")) {
       const [day, actions] = values as [string, string[]];
       const rows = this.lines
@@ -232,6 +257,8 @@ interface Logged {
 
 let db: FakeDb;
 const logged: Logged[] = [];
+/** The routes' clock; NOW unless a test moves it. */
+let nowMs = NOW;
 /** What the server's gate says about the hours; null = it failed. */
 let hoursNow: () => Promise<PublicHours | null> = async () => null;
 /** The gate's answer at a moment, on the plain calendar (Thursday off, 08:40 to 18:20). */
@@ -245,7 +272,7 @@ before(async () => {
     requireAuth,
     logActivity: (_req, who, action, target = "", detail = "") => logged.push({ who: who?.email, action, target, detail }),
     database: () => db,
-    clock: () => NOW,
+    clock: () => nowMs,
     timeZone: () => ZONE,
     hours: () => hoursNow(),
   });
@@ -261,6 +288,7 @@ after(async () => {
 function fresh(): FakeDb {
   db = plant();
   logged.length = 0;
+  nowMs = NOW;
   hoursNow = async () => gateAt(new Date(NOW).toISOString(), true);
   return db;
 }
@@ -575,12 +603,118 @@ describe("pairing sign-ins with sign-outs", () => {
     );
   });
 
+  it("carries the super admin's late sign-in into the next day when told its session runs on, and closes it there", () => {
+    const lines = () => [L("2026-09-29", "23:55", "a", SIGNED_IN), L(TODAY, "08:00", "a", SIGNED_OUT)];
+    const late = (l: SignLine) => l.userId === "a" && l.at === at("2026-09-29", "23:55");
+    assert.deepEqual(brief(pairSignIns(lines(), TODAY, late)), [["session", "a", "2026-09-29", "18:25", "02:30", "signed-out", 485]]);
+    // Not told, a session still ends with its day, as before.
+    assert.deepEqual(
+      pairSignIns(lines(), TODAY).map((r) => [r.kind, r.ended]),
+      [
+        ["sign-out-alone", "signed-out"],
+        ["session", "not-signed-out"],
+      ]
+    );
+    // Still open on the next day: "no sign-out yet", not "no sign-out that day".
+    assert.equal(pairSignIns([L("2026-09-29", "23:55", "a", SIGNED_IN)], TODAY, late)[0].ended, "open");
+  });
+
+  it("lets the end of the day (midnight) close only a session that ends with that day, never one carried past it", () => {
+    // Tab A's session from 23:44 ends at midnight and signs itself out at 23:59:34; the late sign-in at 23:55 runs on.
+    const late = (l: SignLine) => l.at === at(TODAY, "23:55");
+    const rows = pairSignIns([L(TODAY, "23:44", "a", SIGNED_IN), L(TODAY, "23:55", "a", SIGNED_IN), L(TODAY, "23:59:34", "a", SIGNED_OUT, END_OF_DAY_WORDS)], TODAY, late);
+    assert.deepEqual(
+      rows.map((r) => [r.at.slice(11, 19), r.signedOutAt?.slice(11, 19) ?? null, r.ended]),
+      [
+        ["18:25:00", null, "open"],
+        ["18:14:00", "18:29:34", "signed-out"],
+      ]
+    );
+  });
+
   it("marks a session read from the archive, and pairs lines however they arrive", () => {
     const lines = [L("2025-01-10", "17:00", "k", SIGNED_OUT, "", true), L("2025-01-10", "09:00", "k", SIGNED_IN, "", true)];
     const rows = pairSignIns(lines, TODAY);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].archived, true);
     assert.equal(rows[0].ended, "signed-out");
+  });
+});
+
+describe("the super admin's late sign-in, which runs to the midnight after (§84 addendum, review of 8-Oct-2026)", () => {
+  /** The next day, Thursday 1 October 2026 (the weekly off), five minutes after midnight at the factory. */
+  const NEXT = "2026-10-01";
+  function afterMidnight(): FakeDb {
+    const d = fresh();
+    nowMs = Date.parse(at(NEXT, "00:05"));
+    hoursNow = async () => gateAt(new Date(nowMs).toISOString(), true);
+    return d;
+  }
+  const person = async (email: string) => (await get("/api/access/overview")).json.people.find((p: { email: string }) => p.email === email);
+
+  it("is still signed in after midnight in the session he began in yesterday's last minutes, after his day's own end", async () => {
+    const d = afterMidnight();
+    const admin = d.byEmail("admin@gpp.local");
+    d.line(TODAY, "23:30", admin, SIGNED_IN);
+    d.line(TODAY, "23:59:35", admin, SIGNED_OUT, END_OF_DAY_WORDS);
+    d.line(TODAY, "23:59:40", admin, SIGNED_IN);
+    const res = await get("/api/access/overview");
+    assert.equal(res.json.today, NEXT);
+    const him = res.json.people.find((p: { email: string }) => p.email === "admin@gpp.local");
+    assert.equal(him.now, "signed-in", JSON.stringify(him.today));
+    assert.equal(him.today.carriedSignIn, at(TODAY, "23:59:40"));
+    assert.equal(him.today.firstSignIn, null, "today's own sign-ins are still today's");
+    assert.equal(him.today.signIns, 0);
+  });
+
+  it("...and when another tab's end of the day for his older session comes after the late sign-in (two tabs at midnight)", async () => {
+    const d = afterMidnight();
+    const admin = d.byEmail("admin@gpp.local");
+    d.line(TODAY, "23:44", admin, SIGNED_IN);
+    d.line(TODAY, "23:55", admin, SIGNED_IN);
+    d.line(TODAY, "23:59:34", admin, SIGNED_OUT, END_OF_DAY_WORDS);
+    const him = await person("admin@gpp.local");
+    assert.equal(him.now, "signed-in");
+    assert.equal(him.today.carriedSignIn, at(TODAY, "23:55"));
+  });
+
+  it("carries nothing that was signed out, and nobody's but the super admin's", async () => {
+    const d = afterMidnight();
+    d.line(TODAY, "23:55", d.byEmail("admin@gpp.local"), SIGNED_IN);
+    d.line(TODAY, "23:57", d.byEmail("admin@gpp.local"), SIGNED_OUT);
+    // A member of staff's sign-in at 23:56 (a server that holds nobody to the hours): her session ended at midnight.
+    d.line(TODAY, "23:56", d.byEmail("kapila.barad@gpp.local"), SIGNED_IN);
+    const him = await person("admin@gpp.local");
+    assert.deepEqual([him.now, him.today.carriedSignIn], ["not-today", null]);
+    const her = await person("kapila.barad@gpp.local");
+    assert.deepEqual([her.now, her.today.carriedSignIn], ["not-today", null]);
+  });
+
+  it("is signed out once he signs out after midnight", async () => {
+    const d = afterMidnight();
+    const admin = d.byEmail("admin@gpp.local");
+    d.line(TODAY, "23:59:40", admin, SIGNED_IN);
+    d.line(NEXT, "00:02", admin, SIGNED_OUT);
+    const him = await person("admin@gpp.local");
+    assert.equal(him.now, "signed-out");
+    assert.equal(him.today.lastSignOut, at(NEXT, "00:02"));
+  });
+
+  it("shows that session open in the history, and his older one closed by its own end of the day", async () => {
+    const d = afterMidnight();
+    const admin = d.byEmail("admin@gpp.local");
+    d.line(TODAY, "23:44", admin, SIGNED_IN);
+    d.line(TODAY, "23:55", admin, SIGNED_IN);
+    d.line(TODAY, "23:59:34", admin, SIGNED_OUT, END_OF_DAY_WORDS);
+    const res = await get(`/api/access/history?from=${TODAY}&to=${NEXT}&person=u-admin`);
+    assert.deepEqual(
+      (res.json.rows as HistoryRow[]).map((r) => [r.at, r.signedOutAt, r.ended]),
+      [
+        [at(TODAY, "23:55"), null, "open"],
+        [at(TODAY, "23:44"), at(TODAY, "23:59:34"), "signed-out"],
+        [at(TODAY, "08:40"), null, "not-signed-out"],
+      ]
+    );
   });
 });
 
