@@ -4,7 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
 import type { StoredItem, WriteResult } from "./db.ts";
-import { plantTimeZone } from "./db.ts";
+import { database, plantTimeZone, readItem, writeItem } from "./db.ts";
 import { repoRoot } from "./paths.ts";
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
 
@@ -66,10 +66,13 @@ export interface EngineStore {
   writeItem(scope: string, key: string, value: string, baseVersion: number, by: string): Promise<WriteResult>;
 }
 
-/** Must equal ENGINE_API_VERSION in frontend/src/engineHost/entry.ts (2: the equipment list and the insights, 2-Oct-2026). */
-export const ENGINE_API_VERSION = 2;
-/** The company items a browser holds (backend/index.ts COMPANY_KEYS) — entry.ts ITEM_KEYS. */
-export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start"] as const;
+/**
+ * Must equal ENGINE_API_VERSION in frontend/src/engineHost/entry.ts (2: the equipment list and the insights, 2-Oct-2026;
+ * 3: the access rules, the morning prepare, the notification plan, the engine's clock, 8-Oct-2026).
+ */
+export const ENGINE_API_VERSION = 3;
+/** The company items a browser holds (backend/index.ts COMPANY_KEYS), and the super admin's access rules — entry.ts ITEM_KEYS. */
+export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "access"] as const;
 type ItemKey = (typeof ITEM_KEYS)[number];
 
 /** One activity-log line the engine wrote, its detail already beginning "Through <client>". */
@@ -83,6 +86,8 @@ export interface ActivityLine {
 interface WritePlan {
   records?: { value: string; baseVersion: number };
   deletionsAdded?: unknown[];
+  /** The go-live day the morning prepare set where none was stored: written only while none is. */
+  liveStart?: { value: string };
 }
 
 type Outcome =
@@ -104,6 +109,13 @@ export interface EngineCaller {
   departments: string[] | null;
   /** The calling app, as its X-Client-Name gave it (backend/findingsCore.ts clientName). */
   client: string;
+  /** "admin" for the super admin; the access rules read it (engine/accessRules.ts). Left out: staff. */
+  role?: string;
+}
+
+/** A moment to answer at, other than now (the engine's clock: a job run by hand for a day of the caller's own, a test). */
+export interface EngineCallOptions {
+  now?: Date;
 }
 
 /** What a route answers. */
@@ -372,13 +384,13 @@ export interface EngineHost {
   /** Bundles the engine (if its files changed) and starts the worker: the server calls it at start-up, so the first request does not wait. */
   warm(): Promise<void>;
   /** A read: nothing is written. */
-  read(caller: EngineCaller, op: string, args?: Record<string, unknown>): Promise<EngineAnswer>;
+  read(caller: EngineCaller, op: string, args?: Record<string, unknown>, opts?: EngineCallOptions): Promise<EngineAnswer>;
   /**
    * A change: worked out by the engine, written with the version it was made
    * from (again from the start when somebody else wrote meanwhile), and only
    * then are its activity lines handed to `log`.
    */
-  change(caller: EngineCaller, op: string, args: Record<string, unknown>, log: (line: ActivityLine) => void): Promise<EngineAnswer>;
+  change(caller: EngineCaller, op: string, args: Record<string, unknown>, log: (line: ActivityLine) => void, opts?: EngineCallOptions): Promise<EngineAnswer>;
   /** Stops the worker (a test, or the server ending). */
   close(): Promise<void>;
 }
@@ -488,9 +500,9 @@ export function createEngineHost(opts: EngineHostOptions): EngineHost {
   }
 
   /** Hands the worker what it does not hold yet, and the person's departments. */
-  async function loadFor(w: EngineWorker, caller: EngineCaller): Promise<void> {
+  async function loadFor(w: EngineWorker, caller: EngineCaller, now?: number): Promise<void> {
     await readItems();
-    const key = `${ITEM_KEYS.map((k) => items.get(k)?.seq ?? 0).join(".")}|${scopeKey(caller.departments)}|${localDay()}`;
+    const key = `${ITEM_KEYS.map((k) => items.get(k)?.seq ?? 0).join(".")}|${scopeKey(caller.departments)}|${localDay(now === undefined ? undefined : new Date(now))}`;
     const input = (all: boolean) => ({
       key,
       departments: caller.departments,
@@ -510,14 +522,14 @@ export function createEngineHost(opts: EngineHostOptions): EngineHost {
         if (item) w.held.set(k, item.seq);
       }
     };
-    let answer = (await w.call({ kind: "load", input: input(false) })) as LoadAnswer;
-    if (answer.missing?.length) answer = (await w.call({ kind: "load", input: input(true) })) as LoadAnswer;
+    let answer = (await w.call({ kind: "load", input: input(false), now })) as LoadAnswer;
+    if (answer.missing?.length) answer = (await w.call({ kind: "load", input: input(true), now })) as LoadAnswer;
     remember();
     if (answer.reloaded && answer.ms > 1500) console.log(`[engine host] loaded ${answer.records} records for a request in ${answer.ms} ms.`);
   }
 
   function runArgs(caller: EngineCaller, args: Record<string, unknown>): Record<string, unknown> {
-    return { ...args, userId: caller.userId, userName: caller.userName, client: caller.client };
+    return { ...args, userId: caller.userId, userName: caller.userName, client: caller.client, email: caller.email, role: caller.role ?? "staff" };
   }
 
   /** The deletions log with new lines at its head — a department's account keeps its own lines to the log's length, everyone else's stay (backend/index.ts). */
@@ -562,21 +574,28 @@ export function createEngineHost(opts: EngineHostOptions): EngineHost {
       });
     },
 
-    read(caller, op, args = {}) {
+    read(caller, op, args = {}, opts = {}) {
+      const now = opts.now?.getTime();
       return inTurn(async () => {
         const w = await engine();
-        await loadFor(w, caller);
-        return answerOf((await w.call({ kind: "run", op, args: runArgs(caller, args) })) as Outcome);
+        await loadFor(w, caller, now);
+        return answerOf((await w.call({ kind: "run", op, args: runArgs(caller, args), now })) as Outcome);
       });
     },
 
-    change(caller, op, args, log) {
+    change(caller, op, args, log, opts = {}) {
+      const now = opts.now?.getTime();
       return inTurn(async () => {
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           const w = await engine();
-          await loadFor(w, caller);
-          const out = (await w.call({ kind: "run", op, args: runArgs(caller, args) })) as Outcome;
+          await loadFor(w, caller, now);
+          const out = (await w.call({ kind: "run", op, args: runArgs(caller, args), now })) as Outcome;
           const plan = out.write;
+          // The go-live day first, and only where none is stored: somebody else set one meanwhile, worked out again on it.
+          if (plan?.liveStart) {
+            const written = await store.writeItem("company", "live-start", plan.liveStart.value, 0, caller.email);
+            if (!written.ok) continue;
+          }
           if (plan?.records) {
             const written = await store.writeItem("company", "records", plan.records.value, plan.records.baseVersion, caller.email);
             // Somebody else saved the records in between: worked out again on what is stored now.
@@ -596,4 +615,28 @@ export function createEngineHost(opts: EngineHostOptions): EngineHost {
       await w?.terminate();
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// the server's one engine
+
+/** The stored items in the server's database (backend/db.ts). */
+export const databaseEngineStore: EngineStore = {
+  async itemSeq(scope, key) {
+    const { rows } = await database().query<{ seq: string }>("SELECT seq::text AS seq FROM app_storage WHERE scope = $1 AND key = $2", [scope, key]);
+    return rows[0] ? Number(rows[0].seq) : null;
+  },
+  readItem,
+  writeItem: (scope, key, value, baseVersion, by) => writeItem(scope, key, value, baseVersion, by),
+};
+
+let shared: EngineHost | null = null;
+
+/**
+ * THE SERVER'S ONE ENGINE: one worker and one parsed copy of the plant's records, for the phone's routes
+ * (backend/apiV1.ts) and the morning prepare and the notify job (backend/notificationJobs.ts) alike, so a low-end
+ * server never holds two.
+ */
+export function sharedEngineHost(): EngineHost {
+  return (shared ??= createEngineHost({ store: databaseEngineStore }));
 }

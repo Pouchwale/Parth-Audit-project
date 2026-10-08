@@ -189,7 +189,7 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
   /** Who the engine works for: the person, their departments, the app they came through. */
   const callerFor = (req: Request, res: Response): EngineCaller => {
     const { user } = callerOf(res);
-    return { userId: user.id, userName: user.name, email: user.email, departments: departmentsOf(user), client: clientName(req.get("x-client-name")) };
+    return { userId: user.id, userName: user.name, email: user.email, role: user.role, departments: departmentsOf(user), client: clientName(req.get("x-client-name")) };
   };
 
   // Beside every `route` (a page of the app, "/record/rec-…"), the `link` that opens it in DCRS, as the other /api/v1 answers give.
@@ -458,12 +458,14 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     await change(req, res, "change", { id: idOf(req), patch, note: typeof body.note === "string" ? body.note : "" });
   });
 
-  // record_action: submit, verify (approve), send_back, resume, reopen, cancel_correction, delete.
+  // record_action: submit, verify (approve), send_back, resume, reopen, cancel_correction, delete. A record the
+  // assistant prepared is submitted only with reviewed: true, once the person ticked "Reviewed and correct" (§97).
   app.post("/api/v1/records/:id/actions", signedIn, async (req: Request, res: Response): Promise<void> => {
-    const body = (req.body ?? {}) as { action?: unknown; reason?: unknown };
+    const body = (req.body ?? {}) as { action?: unknown; reason?: unknown; reviewed?: unknown };
     if (typeof body.action !== "string" || !body.action.trim() || body.action.length > 40) return fail(res, 400, "bad-action", "action is needed: submit, verify, send_back, resume, reopen, cancel_correction or delete.");
     if (body.reason !== undefined && body.reason !== null && (typeof body.reason !== "string" || body.reason.length > MAX_REASON)) return fail(res, 400, "bad-request", `reason must be text of at most ${MAX_REASON} characters.`);
-    await change(req, res, "action", { id: idOf(req), action: body.action, reason: typeof body.reason === "string" ? body.reason : "" });
+    if (body.reviewed !== undefined && typeof body.reviewed !== "boolean") return fail(res, 400, "bad-request", "reviewed must be true or false.");
+    await change(req, res, "action", { id: idOf(req), action: body.action, reason: typeof body.reason === "string" ? body.reason : "", reviewed: body.reviewed === true });
   });
 
   // add_photo_to_open_record: a picture onto the record's photo or scan list.

@@ -5,7 +5,7 @@ import { COOKIE_NAME, verifySessionToken, type PublicUser } from "./auth.ts";
 import { database, getUserById, plantTimeZone, readItem, writeItem, type StoredItem, type UserRow, type WriteResult } from "./db.ts";
 import { distDir, repoRoot } from "./paths.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
-import { createEngineHost, engineBundleIsCurrent, type EngineHost } from "./engineHost.ts";
+import { createEngineHost, engineBundleIsCurrent, sharedEngineHost, type EngineHost } from "./engineHost.ts";
 import { registerApiV1Records, type EscalationsFound } from "./apiV1Records.ts";
 import { registerNotificationRoutesV1 } from "./notificationRoutes.ts";
 import type { NotificationLedger } from "./notifications.ts";
@@ -811,7 +811,8 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
 
   // ---- what Mitra does, for the Mitra mobile app (REQUIREMENTS §85): backend/apiV1Records.ts
 
-  const engine = deps.engine ?? createEngineHost({ store });
+  // The server's own (shared with the jobs: one worker); a test's store gets an engine of its own.
+  const engine = deps.engine ?? (deps.store ? createEngineHost({ store }) : sharedEngineHost());
   // On the real server, the engine's worker is started a few seconds after
   // start-up when its bundle is already built, so the first question from the
   // app does not wait for it. A bundle that must be built first is built when

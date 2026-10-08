@@ -9,7 +9,12 @@
 //   * a change is written over every record as stored, other departments'
 //     untouched, and the deletions log keeps their lines too;
 //   * a stopped worker is started again at the next request.
-// The routes over it are tested in backend/tests/apiV1Records.test.ts.
+//   * the engine's clock: a request may be answered at another moment (`now`),
+//     and the next one without it is answered on the real clock again;
+//   * the server's own jobs (REQUIREMENTS §97), "prepare" and "notifications",
+//     run as the system only; a department's account is refused them.
+// The routes over it are tested in backend/tests/apiV1Records.test.ts; the jobs
+// in backend/tests/notificationJobs.test.ts.
 // Run: npm run test:unit -- engineHost
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
@@ -140,6 +145,30 @@ describe("the host, over a stand-in store", { timeout: 300_000 }, () => {
     assert.equal(log[0].reason, "Through Mitra mobile app: Opened by mistake");
     assert.ok(log.some((d) => d.id === "del-hr-old"), "the HR line is kept");
     assert.ok(!store.get<{ id: string }[]>("records").some((r) => r.id === id));
+  });
+
+  it("answers at another moment when asked (the engine's clock), and on the real clock again after", async () => {
+    // Noon, factory time, on Friday 9 October 2026: the same calendar day in every zone from UTC-6 to UTC+14.
+    const at = await host.read(ADMIN, "today", {}, { now: new Date("2026-10-09T06:30:00.000Z") });
+    assert.equal(at.status, 200);
+    assert.equal((at.body as { date: string }).date, "2026-10-09");
+    const real = await host.read(ADMIN, "today", {});
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    assert.equal((real.body as { date: string }).date, today);
+  });
+
+  it("the server's own jobs run as the system only: a department's account is refused them", async () => {
+    const SYSTEM: EngineCaller = { userId: "system", userName: "The assistant", email: "system", departments: null, client: "the server", role: "admin" };
+    const plan = await host.read(SYSTEM, "notifications", { accounts: [{ id: "u-admin", name: "Super Admin", email: "admin@test.local", role: "admin", departments: [], active: true }] });
+    assert.equal(plan.status, 200);
+    assert.ok(Array.isArray((plan.body as { items: unknown[] }).items));
+    assert.deepEqual((plan.body as { users: string[] }).users, ["u-admin"]);
+    const refusedPlan = await host.read(QC, "notifications", { accounts: [] });
+    assert.equal(refusedPlan.status, 403);
+    const refusedPrepare = await host.change(QC, "prepare", {}, () => undefined);
+    assert.equal(refusedPrepare.status, 403);
+    assert.equal((refusedPrepare.body as { code: string }).code, "system-only");
   });
 
   it("a worker that was stopped is started again", async () => {
