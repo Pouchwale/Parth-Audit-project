@@ -139,8 +139,8 @@ describe("the morning prepare and the notify job, at a working-day morning", { t
     assert.equal(lines.length, result.prepared > 0 ? 1 : 0);
     if (result.prepared > 0) {
       assert.equal(lines[0].userName, "System");
-      assert.match(lines[0].target, /^The assistant prepared \d+ records?$/);
-      assert.match(lines[0].detail, /The known parts only/);
+      assert.match(lines[0].target ?? "", /^The assistant prepared \d+ records?$/);
+      assert.match(lines[0].detail ?? "", /The known parts only/);
     }
   });
 
