@@ -251,7 +251,7 @@ The app behaves like a personal assistant rather than a blank form:
   confirmed, and F-PRD-18 and 19 now read as their originals. The module's old address, /library/lamination-production,
   still opens it. F-PRD-25 came as an empty workbook and waits on the owner. DCRS holds 129 documents.
 - **Every record starts, and stays** (REQUIREMENTS §93). Start, New record, the library's New, Mitra and the phone open
-  the sheet of the week, fortnight, month or year the day is in when the schedule has made it, never a second sheet for a
+  the sheet of the week, fortnight, month or year the day is in when one is on file, never a second sheet for a
   period that has one (an as-required document still starts a new one each time). A record started while the browser's
   storage is full is kept on the page and saved to the database all the same, and the page says so ("This browser's copy
   is full - your record WAS saved") instead of "Record not found". Marketing starts its Complaint Acknowledgement,

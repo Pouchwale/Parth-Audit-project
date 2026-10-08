@@ -623,10 +623,25 @@ Seven scripts live in `tests/`:
   `e2e_hr_module.py` (New on F/HR/01 opens the year's register, a blank one for a year with none), `e2e_store_module.py`
   (F/STR/02's title and supplied page; its "no picture" example moved to F/PUR/01) and `e2e_maintenance_module.py`
   (F/MNT/08's hand-over words).
-  Run on the worktree on 7-Oct-2026 at 72f1eb1, with the project's runner (unit tests first, then the build):
-  e2e_maintenance_module 76 checks, e2e_find_every_document 71 and e2e_every_record_starts 297, all passing (no
-  JavaScript error). On the code before this work (c615073) the new suite, run on 16 documents of every kind, failed on
-  every fault §93 part 1 lists; the activity-log check is proved failing before by recordStartedTrail.test.ts.
+  Run on the worktree on 8-Oct-2026, a Thursday (the plant's weekly off; the test servers run with
+  DCRS_WORKING_HOURS=off), at 59267d9, with the project's runner (unit tests first, then the build), 8842 and 8843 free
+  each time: e2e_maintenance_module 76 checks, e2e_find_every_document 71 and e2e_every_record_starts 297, all passing,
+  no JavaScript error (10:51 to 11:19). Then the suites this work reaches, all passing: e2e_editing 20, e2e_capa_formats
+  44, e2e_crud 24, e2e_assistant_fill 156, e2e_departments 38, e2e_hr_module 145, e2e_hr_cv_import 42,
+  e2e_qc_calibration 40, e2e_store_module 39, e2e_sys_module 82, e2e_postgres_storage 34, e2e_mobile_mitra_api 31 and
+  e2e_agreement_and_cancel 37 - the last on its second run: on its first, with the PC under load, "The signed copy
+  uploads onto the agreement" read the record a fixed 1.5 s after the upload, before the picture was converted and
+  saved (the next check found it on the page); this work does not change that upload
+  (components/records/ServiceAgreementRecordView.tsx). e2e_storage_room passed 14 of
+  15: "The Demo Mode page says the daily sheets of 6 earlier months were left out" fails with the same words on the
+  code before this work (c615073, run the same day) - Demo Mode drew October's daily sheets from August, the suite
+  expects July - so it is not this work's. On the code before this work the new suite, run on 16 documents of every
+  kind, failed 15 checks, one or more on every fault REQUIREMENTS §93 part 1 lists; and, with only the names they
+  import added, 13 of the 15 new unit tests fail there on the behaviour they assert (the other two guard what did not
+  change). `frontend/tests/storageFullStart.test.ts` stops its sync session in an `after` hook: without it a failing
+  run never ended (598 s, until a timeout killed it), and the e2e runner, which runs the unit tests first, would have
+  hung with it; now it fails in 3 s. Speed: REQUIREMENTS §93 "Speed" - the changed pages at 6x CPU throttle beside
+  the code before, measured alternately; nothing measurable added.
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

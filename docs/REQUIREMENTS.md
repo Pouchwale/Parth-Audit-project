@@ -5920,7 +5920,9 @@ banner's Clear the demo data, Remove them) is the way back.
   (Old) Record"** (the header prints every title in capitals, this one too); the page as supplied is shown beside the
   form (Show original); the company's own Word original is in source-documents/ and the form downloads as Word, as the
   original is. Mitra and Search know the whole title as this register's. The two paragraphs and the nine headings were
-  already the paper's; the paper's ten printed lines are lines added as needed, as on every register.
+  already the paper's; the paper's ten printed lines are lines added as needed, as on every register. The paper prints
+  its number and issue at its foot, "F/STR/02 (00/01.12.2021)"; DCRS prints them in the header block every format has
+  (§77), with the company's one name (§87), as on every format.
 - **F/MNT/08** (Rev 00 of 01.12.2021): the PDF sent has the same text as DCRS's. Page 2 is now printed as the paper prints
   it: the declaration ("The Benefits and Risks have been assessed, PM, Sanitation etc.  Attach any supportive documents,
   procedures photos.  Approval has been made.") between the Risks box and the hand-over, no longer above the grid; then
@@ -5959,16 +5961,18 @@ banner's Clear the demo data, Remove them) is the way back.
   session ended, or the page was closed without a network) is sent at the next sign-in on that browser by whoever signs
   in, and if that is another department's account the server keeps only that department's lines (the audit's M-1); and
   when the administrator resets a person's password while they work, their next save is refused (403) and the browser
-  forgets the unsent change (M-3). Both are in the audit's Group 3, "No change silently lost or overwritten". A record started on a closed day, or Mitra's for a date
-  before the live start, is kept but not counted in the reminders or the day's briefing, as those follow the plant's
-  calendar.
+  forgets the unsent change (M-3). Both are in the audit's Group 3, "No change silently lost or overwritten". A double
+  click on New of an as-required document may start two blank records before the page moves on (from the code; not
+  tried).
+- A record started on a closed day, or Mitra's for a date before the live start, is kept but not counted in the
+  reminders or the day's briefing, as those follow the plant's calendar.
 
 **7. The formats still missing, by module** (on the Master List of Formats, not sent; the audit's count is 37).
-- **Production (21 + 4):** F-PRD-01 Flexo Printing Production Register, 02 Punching Production Register, 03 On-line QC
-  Inspection Register, 04 Off-line QC Inspection Register, 05 Slitting Production Register, 06 Shrink sleeve Gluing
-  Register, 07 Shrink Sleeve cutting Production Register, 08 Dispatch Card, 09 Packing Label / Prepress Specification (the
-  two lists swap 09 and 13), 11 Surgical Machine Blade Change Record, 12 Razor Blade Change Record, 13 Prepress
-  Specification / Packing Label, 14.A Job Card -
+- **Production (25: 20 never sent, F-PRD-25 sent empty, 4 only in the company's workbook):** F-PRD-01 Flexo Printing
+  Production Register, 02 Punching Production Register, 03 On-line QC Inspection Register, 04 Off-line QC Inspection
+  Register, 05 Slitting Production Register, 06 Shrink sleeve Gluing Register, 07 Shrink Sleeve cutting Production
+  Register, 08 Dispatch Card, 09 Packing Label / Prepress Specification (the two lists swap 09 and 13), 11 Surgical
+  Machine Blade Change Record, 12 Razor Blade Change Record, 13 Prepress Specification / Packing Label, 14.A Job Card -
   LABEL, 14.B Job Card - SLEEVE, 14.E Job Card - POUCH, 15 QC wastage tracking record, 16 Production issues Analysis,
   17.A, 17.B and 17.C Ink Formulation record (Label / Sleeve / Pouch); F-PRD-25 came as an empty workbook (§91); the
   company's workbook adds F-PRD-27 Rewinding with LC- SS, 28 Slitting with LC- SS, 29 Shrink Sleeve Post press process
@@ -5982,7 +5986,8 @@ banner's Clear the demo data, Remove them) is the way back.
   (1):** F-QA-01 Traceability Report.
 - **System / Management, Store, Maintenance and Dispatch:** none missing.
 
-**Tests.** Each fails on the code before this work and passes after it.
+**Tests.** Each file fails on the code before this work and passes after it: run on c615073 with only the names they
+import added, 13 of the 15 unit tests fail on the behaviour they assert, and the other two guard what did not change.
 - frontend/tests/periodSheet.test.ts (7): the periods; New on F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03
   (yearly, a verified one and one with none) and a fortnightly visit report; one sheet per period with the generator;
   as-required, daily and the training record unchanged; what a document's page shows.
@@ -5999,11 +6004,24 @@ banner's Clear the demo data, Remove them) is the way back.
   scheduled document and a new one of an as-required one, one sheet per period, the browser full, a document's page
   showing the record started; each department's own account starts every one of its documents; after signing out and
   in, every record is in the database and opens; every new record the super admin started by hand is read back from the
-  activity log as "Record started". On the code before this work it failed on every fault of part 1.
+  activity log as "Record started". On the code before this work, run on 16 documents of every kind, 15 of its checks
+  failed, one or more on every fault of part 1.
 - The suites brought in step: e2e_assistant_fill (a signed-off record of today's period is New's to open),
   e2e_hr_module (New on F/HR/01 opens the year's register; a blank one is started for a year that has none),
   e2e_store_module (F/STR/02's title and page; its "no picture" example is now F/PUR/01) and e2e_maintenance_module
   (F/MNT/08's hand-over). See docs/TESTING.md "Every record starts".
+
+**Speed** (§56). The pages this work changed were measured on 8-Oct-2026 at 6x CPU throttle in a 1366-pixel window,
+with Demo Mode's year on file (1,943 records, 3.4 million characters): the code before this work and this branch were
+served side by side and each page was opened on the two alternately, five times, so both met the same load on the
+shared PC. In the median every page made its first change on screen within a fifth of a second on both (the first,
+cold visit of the daily page took 0.7 s before and 0.4 s after), and the five runs of the two builds overlapped on
+every page: nothing measurable was added. Medians, before and after, of the first change and of the blocking time in
+the six seconds after it, in milliseconds: a daily document's page (F-QC-30) 132 and 270, then 115 and 226; a monthly
+one's (F/MNT/09) 117 and 129, then 112 and 139; an as-required one's (F/MNT/08) 62 and 38, then 96 and 77; F/STR/02's
+53 and 11, then 66 and 13; CAPA's internal page 52 and 0, then 50 and 0; the licence page 63 and 42, then 52 and 32; a
+pest service report's 68 and 14, then 77 and 81; F/HR/18's 73 and 38, then 54 and 7; New record on F-QC-30 168 and
+67, then 198 and 151; on F/MNT/09 178 and 90, then 144 and 44.
 
 ## Master data provenance summary
 
