@@ -106,7 +106,8 @@
                   "session": {
                     "endsAt": "2026-09-30T12:50:00.000Z",
                     "signOutAtEnd": true,
-                    "now": "2026-09-30T04:15:00.000Z"
+                    "now": "2026-09-30T04:15:00.000Z",
+                    "id": "6f1c2b9e-4d3a-4f7e-9a21-5c8e0d4b7a10"
                   }
                 }
               }
@@ -153,7 +154,7 @@
                   },
                   "outside-working-hours": {
                     "value": {
-                      "error": "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.",
+                      "error": "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.",
                       "code": "outside-working-hours",
                       "opensAt": "2026-10-02T03:10:00.000Z"
                     }
@@ -186,7 +187,7 @@
         ],
         "operationId": "logout",
         "summary": "Sign out (DCRS's own)",
-        "description": "Writes \"Signed out\" in DCRS's activity log when the session is valid. The token itself stays valid until the close of its day; the assistant should simply forget it. The body is optional: DCRS's own pages send `{\"reason\": \"end-of-working-hours\"}` when they sign a person out by themselves at the close of the working day, and the line then says \"At the close of working hours\".",
+        "description": "Writes \"Signed out\" in DCRS's activity log when the session is valid. The token itself stays valid until the close of its day; the assistant should simply forget it. The body is optional, and only DCRS's own pages send it, when they sign a person out by themselves: `reason` is written in the line only where it fits the account (\"end-of-working-hours\" → \"At the close of working hours\" and \"outside-working-hours\" → \"Outside working hours\" for staff, \"end-of-day\" → \"At the end of the day (midnight)\" for the super admin; anything else is a plain sign-out), and `sessionId` names the session the page is ending: when the browser's cookie holds another session by then (signed in again in another tab), that one is left alone, with no line written.",
         "requestBody": {
           "required": false,
           "content": {
@@ -198,9 +199,14 @@
                     "type": "string",
                     "enum": [
                       "end-of-working-hours",
-                      "outside-working-hours"
+                      "outside-working-hours",
+                      "end-of-day"
                     ],
-                    "description": "Why the browser signed the person out by itself; anything else is an ordinary sign-out."
+                    "description": "Why the page signed the person out by itself; written only where it fits the account. Anything else is an ordinary sign-out."
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "description": "The id of the session the page is ending (SessionEnd `id`). Left out, the sign-out ends whatever session the cookie holds."
                   }
                 }
               }
@@ -1235,8 +1241,10 @@
                     "openNow": true,
                     "opensAt": null,
                     "closesAt": "2026-09-30T12:50:00.000Z",
-                    "hoursText": "DCRS is open 8:40 am to 6:20 pm on working days.",
-                    "todayText": "Today is a working day — open now, until 6:20 pm."
+                    "hoursText": "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.",
+                    "todayText": "Today is a working day — staff hours run until 6:20 pm.",
+                    "heldToHours": true,
+                    "forYou": null
                   }
                 }
               }
@@ -3265,7 +3273,7 @@
         }
       },
       "PasswordChangeRequired": {
-        "description": "The account is still on the password the administrator gave it (password-change-required): the person must sign in to DCRS in a browser and choose their own. Or it is outside the plant's working hours (outside-working-hours) — refused to everybody but the super admin; `opensAt` says when DCRS opens again.",
+        "description": "The account is still on the password the administrator gave it (password-change-required): the person must sign in to DCRS in a browser and choose their own. Or it is outside the staff's working hours (outside-working-hours) — refused to everybody but the super admin, who may use DCRS at any time; `opensAt` says when the staff's hours start again.",
         "content": {
           "application/json": {
             "schema": {
@@ -3280,7 +3288,7 @@
               },
               "outside-working-hours": {
                 "value": {
-                  "error": "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.",
+                  "error": "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.",
                   "code": "outside-working-hours",
                   "opensAt": "2026-10-02T03:10:00.000Z"
                 }
@@ -3305,7 +3313,7 @@
               },
               "outside-working-hours": {
                 "value": {
-                  "error": "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.",
+                  "error": "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.",
                   "code": "outside-working-hours",
                   "opensAt": "2026-10-02T03:10:00.000Z"
                 }
@@ -3457,7 +3465,7 @@
     "schemas": {
       "Error": {
         "type": "object",
-        "description": "Every refusal. `error` is a sentence to show a person; `code` is for the program. A refusal outside the plant's working hours also says when DCRS opens again (`opensAt`).",
+        "description": "Every refusal. `error` is a sentence to show a person; `code` is for the program. A refusal outside the staff's working hours also says when they start again (`opensAt`).",
         "required": [
           "error"
         ],
@@ -3995,12 +4003,16 @@
             "type": "string",
             "format": "date-time",
             "description": "DCRS's clock when it answered."
+          },
+          "id": {
+            "type": "string",
+            "description": "This session's own id. A DCRS page that ends its session by itself (at the close of the hours, at the end of the day) names it in POST /api/auth/logout, so that a tab whose clock ran late never ends a newer session of the same browser. It grants nothing by itself; the assistant can ignore it. Absent for a session started before 8-Oct-2026."
           }
         }
       },
       "PlantHours": {
         "type": "object",
-        "description": "The plant's working hours and where today stands — the plant's, nothing about any person.",
+        "description": "The staff's working hours and where today stands for them, worded for the person asking (since 6-Oct-2026 the hours are the STAFF's: the super admin may sign in and work at any time, and nothing here says DCRS itself is open or closed). `heldToHours` and `forYou` are in the answers for a signed-in person (sign-in, /api/auth/me, /api/v1/today), not in GET /api/auth/config.",
         "properties": {
           "enforced": {
             "type": "boolean",
@@ -4037,11 +4049,22 @@
           },
           "hoursText": {
             "type": "string",
-            "description": "The hours in words: \"DCRS is open 8:40 am to 6:20 pm on working days.\""
+            "description": "The hours in words: \"Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.\""
           },
           "todayText": {
             "type": "string",
-            "description": "Where today stands, in words."
+            "description": "Where today stands for the staff's hours, in words, such as \"Today's staff hours ended at 6:20 pm; they start again on Friday 9 October at 8:40 am.\""
+          },
+          "heldToHours": {
+            "type": "boolean",
+            "description": "Whether the hours hold the person asking: true for staff while the server enforces them, false for the super admin."
+          },
+          "forYou": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For the super admin: \"You are the super admin: these are the staff's hours, and you can keep working at any time.\" Null for staff. An assistant passes it on with hoursText and todayText, so it never tells the super admin that DCRS is closed."
           }
         }
       },

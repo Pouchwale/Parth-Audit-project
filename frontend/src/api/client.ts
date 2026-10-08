@@ -90,8 +90,8 @@ export interface AuthResponse {
   mustChangePassword?: boolean;
   /** When this session ends (REQUIREMENTS §84). Optional: a server from before it says nothing, and nothing ends by itself. */
   session?: SessionEnd;
-  /** The plant's hours and where today stands (§84). */
-  hours?: PublicHours | null;
+  /** The staff's hours and where today stands (§84), worded for this person: `forYou` is the super admin's own line. */
+  hours?: (PublicHours & { heldToHours?: boolean; forYou?: string | null }) | null;
 }
 
 /** A day's session (backend/workingHours.ts SessionAnswer): when it ends, and whether the browser signs out by itself then. */
@@ -101,6 +101,11 @@ export interface SessionEnd {
   signOutAtEnd: boolean;
   /** The server's clock when it answered. */
   now: string;
+  /**
+   * The session's own id: a tab that ends its session by itself names it in POST /api/auth/logout, so it never ends a
+   * newer session of the same browser (store/AuthContext.tsx endForHours). Absent for a session from before ids.
+   */
+  id?: string;
 }
 
 /** What the server has switched on. Both optional: a server from before them says nothing, which reads as off. */

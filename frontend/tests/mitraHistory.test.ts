@@ -16,6 +16,7 @@ import { ensureSeeded as ensureHrMasterSeeded } from "../src/data/repositories/h
 import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "../src/data/repositories/recordRepository";
 import { analyticIntent, buildEvidence, evidenceAnswer, historyForModel, quoteFree } from "../src/engine/historyDigest";
 import { buildAssistantContext } from "../src/engine/assistantLocal";
+import { setSuperAdminSignedIn } from "../src/engine/signedInPerson";
 import { addDays, todayISO } from "../src/utils/date";
 
 // What the app does first on every start (data/bootstrap.ts), and the plant's
@@ -223,4 +224,20 @@ test("lateness is scored for any period asked about, not only the Scorecard's ow
   const pack = buildEvidence(intent, false);
   assert.ok(pack.text.includes("Performance Scorecard"), pack.text.slice(0, 600));
   assert.ok(!pack.text.includes("is not given"), pack.text.slice(0, 600));
+});
+
+test("the live facts say the staff's working hours, and tell Mitra the super admin is not held to them (§84 addendum, 6-Oct-2026)", () => {
+  setSuperAdminSignedIn(false);
+  const staff = buildAssistantContext(false, "Unit Test");
+  assert.match(staff, /Staff working hours: 8:40 am to 6:20 pm on working days\. The super admin can sign in at any time\. Outside them staff cannot sign in\./);
+  assert.doesNotMatch(staff, /The person asking is the super admin/);
+  assert.doesNotMatch(staff, /DCRS is open|opens again|DCRS is closed/);
+  setSuperAdminSignedIn(true);
+  try {
+    const his = buildAssistantContext(false, "Super Admin");
+    assert.match(his, /The person asking is the super admin: these hours do not hold him, so he can keep working now, at any hour\./);
+    assert.ok(his.length <= 3800);
+  } finally {
+    setSuperAdminSignedIn(false);
+  }
 });

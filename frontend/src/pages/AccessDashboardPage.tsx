@@ -13,7 +13,9 @@ import {
   type AccessPerson,
   type AccessSessionEnd,
 } from "../api/accessApi";
-import type { PublicHours } from "../engine/workingHoursCore";
+import { hoursWordsIn, superAdminHoursLine, type PublicHours } from "../engine/workingHoursCore";
+import { hoursWord } from "../i18n/strings.hours";
+import { useAppStore } from "../store/AppStore";
 import { useAuth } from "../store/AuthContext";
 import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -217,7 +219,7 @@ function AccessDashboard({ myId }: { myId: string }) {
     for (const p of people) {
       if (p.active) active += 1;
       if (p.now === "signed-in") now += 1;
-      if (p.today.signIns > 0) today += 1;
+      if (p.today.signIns > 0 || p.today.carriedSignIn) today += 1;
     }
     return { active, now, today, attempts: overview?.attempts.length ?? 0 };
   }, [people, overview]);
@@ -334,7 +336,8 @@ function AccessDashboard({ myId }: { myId: string }) {
             <strong>“Signed in now”</strong> means: signed in today ({formatDisplayDate(overview.today)}), not signed out since, and something in the activity log in their
             name in the last {overview.activeMinutes} minutes — the log is written when a person opens a document or a record, saves, submits, prints or downloads. The
             server keeps no other record of a browser's requests, so somebody reading one page for longer, and somebody who closed the browser without signing out, both
-            show as “signed in, quiet”. Times are the factory's clock.
+            show as “signed in, quiet”. The super admin's sign-in in a day's last ten minutes runs to the midnight after, so after midnight he is still signed in in
+            it. Times are the factory's clock.
           </p>
 
           <TodayTable people={people} clock={clock} onOpen={setOpened} />
@@ -440,24 +443,33 @@ function Figure({ field, value, label }: { field: string; value: number; label: 
 }
 
 /**
- * THE PLANT'S HOURS AND TODAY'S CALENDAR STATE (REQUIREMENTS §84 C1), as the
+ * THE STAFF'S HOURS AND TODAY'S CALENDAR STATE (REQUIREMENTS §84 C1), as the
  * server's own gate reads them from the master data (backend/workingHours.ts,
  * on the one rule the server and the browser share, engine/workingHoursCore.ts)
- * — the very answer that lets people in or keeps them out. Nothing is shown
+ * — the very answer that lets staff in or keeps them out. Nothing is shown
  * when the server could not read them, rather than a guess.
+ *
+ * Said to the super admin, the one person they never hold (§84 addendum,
+ * 6-Oct-2026): the staff's hours and where today stands for them, then his own
+ * line — "You are the super admin: these are the staff's hours, and you can
+ * keep working at any time." — never that DCRS is closed or opens later. In
+ * the app's own Gujarati where it shows, from the same parts.
  */
 function WorkingHoursStrip({ hours }: { hours: PublicHours | null }) {
+  const { uiLang } = useAppStore();
   if (!hours) return null;
+  const words = hoursWordsIn(hours, uiLang);
   return (
     <div className="card mb-3" data-section="access-hours" data-phase={hours.phase} data-enforced={hours.enforced ? "yes" : "no"} data-day-kind={hours.today.kind}>
       <div className="card-pad text-sm flex items-start gap-2">
         <FiClock size={15} style={{ marginTop: 2, flexShrink: 0 }} />
         <div>
-          <strong data-field="hours-text">{hours.hoursText}</strong> <span data-field="today-text">{hours.todayText}</span>
-          <div className="text-xs text-muted mt-1">
-            {hours.enforced
-              ? "Outside them nobody but the super admin can sign in or use DCRS, and every session but the super admin's ends at the close of the working day. The hours and the holidays are set in Master Data."
-              : "This server holds nobody to the hours: it was started with DCRS_WORKING_HOURS=off, as the test servers are. The hours and the holidays are set in Master Data."}
+          <strong data-field="hours-text">{words.hoursText}</strong> <span data-field="today-text">{words.todayText}</span>
+          <div className="mt-1" data-field="hours-for-you" style={{ fontWeight: 600 }}>
+            {superAdminHoursLine(uiLang)}
+          </div>
+          <div className="text-xs text-muted mt-1" data-field="hours-rule">
+            {hours.enforced ? hoursWord(uiLang, "hours.access.held", { zone: hours.timeZone }) : hoursWord(uiLang, "hours.access.notHeld")}
           </div>
         </div>
       </div>
@@ -510,8 +522,17 @@ const TodayRow = React.memo(function TodayRow({ p, clock, onOpen }: { p: AccessP
       <td data-field="now">
         <span className={NOW_BADGE[p.now]}>{p.now === "quiet" && p.quietMinutes !== null ? `Signed in, quiet for ${duration(p.quietMinutes)}` : NOW_WORDS[p.now]}</span>
       </td>
-      <td className="text-sm" data-field="first-sign-in" data-at={p.today.firstSignIn ?? ""}>
-        {p.today.firstSignIn ? clock(p.today.firstSignIn) : <span className="text-faint">—</span>}
+      <td className="text-sm" data-field="first-sign-in" data-at={p.today.firstSignIn ?? ""} data-carried={p.today.carriedSignIn ?? undefined}>
+        {p.today.firstSignIn ? (
+          clock(p.today.firstSignIn)
+        ) : p.today.carriedSignIn ? (
+          <>
+            {clock(p.today.carriedSignIn)}
+            <div className="text-xs text-muted">yesterday, in its last ten minutes: the session runs to tonight's midnight</div>
+          </>
+        ) : (
+          <span className="text-faint">—</span>
+        )}
       </td>
       <td className="text-sm" data-field="last-sign-out" data-at={p.today.lastSignOut ?? ""}>
         {p.today.lastSignOut ? (

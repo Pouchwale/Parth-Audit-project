@@ -298,6 +298,13 @@ with sync_playwright() as p:
             (strip_text, plant.get("hoursText"), plant.get("todayText")),
         )
         check(
+            "...said as the staff's hours, with the super admin's own line that he can keep working, never that DCRS is open, closed or opens again",
+            strip.count() == 1
+            and admin.locator("[data-section='access-hours'] [data-field='hours-for-you']").inner_text() == "You are the super admin: these are the staff's hours, and you can keep working at any time."
+            and not any(w in strip_text for w in ("DCRS is open", "opens again", "DCRS is closed", "not open yet")),
+            strip_text,
+        )
+        check(
             "...and whether this server holds anybody to them",
             strip.count() == 1 and strip.get_attribute("data-enforced") == ("yes" if plant.get("enforced") else "no") and (("DCRS_WORKING_HOURS=off" in strip_text) != bool(plant.get("enforced"))),
             (strip.get_attribute("data-enforced") if strip.count() else None, plant.get("enforced")),

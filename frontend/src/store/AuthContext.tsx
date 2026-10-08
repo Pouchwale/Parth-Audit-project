@@ -2,7 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { api, ApiError, OUTSIDE_HOURS_EVENT, type AuthResponse, type OutsideHoursDetail, type PublicHours, type ServerFeatures } from "../api/client";
 import { setDepartmentScope } from "../engine/departmentScope";
 import { setFeatures } from "../engine/features";
-import { DEFAULT_PLANT_TIME_ZONE, END_OF_HOURS_REASON, OUTSIDE_HOURS_CODE, OUTSIDE_HOURS_REASON } from "../engine/workingHoursCore";
+import { setSuperAdminSignedIn } from "../engine/signedInPerson";
+import { DEFAULT_PLANT_TIME_ZONE, END_OF_DAY_REASON, END_OF_HOURS_REASON, OUTSIDE_HOURS_CODE, OUTSIDE_HOURS_REASON } from "../engine/workingHoursCore";
 import { SESSION_ENDED_EVENT, stopServerSync } from "../data/serverSync";
 import type { AuthUser } from "../types/auth";
 
@@ -11,8 +12,11 @@ import type { AuthUser } from "../types/auth";
 // sign-in screen (main.tsx says so, with Try again).
 type AuthStatus = "checking" | "authenticated" | "unauthenticated" | "unreachable";
 
-/** Why the browser ended a session by itself (REQUIREMENTS §84, C4) — sent with the sign-out, and written in the activity log. */
-export type SignOutReason = typeof END_OF_HOURS_REASON | typeof OUTSIDE_HOURS_REASON;
+/**
+ * Why the browser ended a session by itself (REQUIREMENTS §84, C4) — sent with the sign-out, and written in the
+ * activity log: staff at the close of their hours or refused outside them, the super admin at the end of his day.
+ */
+export type SignOutReason = typeof END_OF_HOURS_REASON | typeof OUTSIDE_HOURS_REASON | typeof END_OF_DAY_REASON;
 
 /**
  * A DAY'S SESSION, as this browser keeps time for it (REQUIREMENTS §84, C3/C4):
@@ -29,6 +33,8 @@ export interface DaySession {
   signOutAtEnd: boolean;
   /** The factory's time zone, for saying the time of the close in words. */
   timeZone: string;
+  /** The session's own id, which this tab names when it ends the session by itself; null from a server that gives none. */
+  id: string | null;
 }
 
 interface AuthContextValue {
@@ -73,6 +79,8 @@ interface AuthContextValue {
 // brand-new installation usable.
 function applyScope(user: AuthUser | null): void {
   setDepartmentScope(user && user.role !== "admin" ? user.departments : null);
+  // Mitra's live facts say the staff's hours do not hold the super admin (engine/signedInPerson.ts, §84 addendum).
+  setSuperAdminSignedIn(user?.role === "admin");
 }
 
 // WHAT THE SERVER HAS SWITCHED ON comes with the same answer (REQUIREMENTS §65)
@@ -91,7 +99,13 @@ function daySessionOf(res: AuthResponse): DaySession | null {
   if (!Number.isFinite(end)) return null;
   const serverNow = Date.parse(s.now);
   const skew = Number.isFinite(serverNow) ? serverNow - Date.now() : 0;
-  return { endsAt: s.endsAt, endsAtLocal: end - skew, signOutAtEnd: s.signOutAtEnd === true, timeZone: res.hours?.timeZone ?? DEFAULT_PLANT_TIME_ZONE };
+  return {
+    endsAt: s.endsAt,
+    endsAtLocal: end - skew,
+    signOutAtEnd: s.signOutAtEnd === true,
+    timeZone: res.hours?.timeZone ?? DEFAULT_PLANT_TIME_ZONE,
+    id: typeof s.id === "string" && s.id ? s.id : null,
+  };
 }
 
 const isOutsideHours = (err: unknown): err is ApiError => err instanceof ApiError && err.status === 403 && err.code === OUTSIDE_HOURS_CODE;
@@ -114,6 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   statusRef.current = status;
   const userRef = useRef(user);
   userRef.current = user;
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   // WHAT THE SERVER ALLOWS, WITH NOBODY SIGNED IN (REQUIREMENTS §66). Asked
   // whenever this browser ends up at the sign-in screen — on the first look, and
@@ -151,25 +167,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus("unauthenticated");
   }, []);
 
-  // OUT BECAUSE OF THE PLANT'S HOURS (§84): what is still on its way to the
-  // database goes first, the sign-out says why (the activity log keeps it), and
-  // the sign-in page opens with the words. Once, however many things ask.
+  // OUT BECAUSE OF THE PLANT'S HOURS, OR AT THE END OF THE DAY (§84 and its
+  // addendum): what is still on its way to the database goes first, the sign-out
+  // says why (the activity log keeps it), and the sign-in page opens with the
+  // words. Once, however many things ask.
+  //
+  // ONLY THIS TAB'S OWN SESSION (the review of 8-Oct-2026). Every tab of a
+  // browser shares one session, and a tab's clock can run late — Chrome wakes a
+  // tab hidden for five minutes once a minute, a laptop wakes from sleep — so by
+  // the time this tab acts he may have signed in again in another. It asks the
+  // server first: a newer session of the same person is taken up here and nothing
+  // is ended. And the sign-out names this tab's session, which the server ends
+  // only while the browser still holds it (backend/signInAndOut.ts).
   const endingForHours = useRef(false);
   const endForHours = useCallback(
     async (reason: SignOutReason, text: string) => {
       if (endingForHours.current) return;
       endingForHours.current = true;
+      let takenUp = false;
       try {
+        const mine = sessionRef.current;
+        if (mine?.id) {
+          const now = await api.get<AuthResponse>("/auth/me").catch(() => null);
+          const theirs = now ? daySessionOf(now) : null;
+          if (now && theirs?.id && theirs.id !== mine.id && now.user?.id === userRef.current?.id) {
+            applyAnswer(now);
+            takenUp = true;
+            return;
+          }
+        }
         await stopServerSync().catch(() => undefined);
-        await api.post("/auth/logout", { reason }).catch(() => undefined);
+        await api.post("/auth/logout", mine?.id ? { reason, sessionId: mine.id } : { reason }).catch(() => undefined);
       } finally {
-        signedOutState();
-        setNotice(text);
-        readPublicFeatures();
+        if (!takenUp) {
+          signedOutState();
+          setNotice(text);
+          readPublicFeatures();
+        }
         endingForHours.current = false;
       }
     },
-    [readPublicFeatures, signedOutState]
+    [applyAnswer, readPublicFeatures, signedOutState]
   );
 
   useEffect(() => {
@@ -229,7 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const onOutside = (e: Event) => {
       const detail = (e as CustomEvent<OutsideHoursDetail>).detail;
       if (statusRef.current !== "authenticated" || !userRef.current || userRef.current.role === "admin") return;
-      void endForHours(OUTSIDE_HOURS_REASON, detail?.message || "DCRS is closed now.");
+      void endForHours(OUTSIDE_HOURS_REASON, detail?.message || "You are outside staff working hours now.");
     };
     window.addEventListener(OUTSIDE_HOURS_EVENT, onOutside);
     return () => window.removeEventListener(OUTSIDE_HOURS_EVENT, onOutside);
@@ -263,8 +301,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(
     async (reason?: SignOutReason) => {
-      // Only the two words the server knows; anything else (a click event handed in by mistake) is an ordinary sign-out.
-      const why = reason === END_OF_HOURS_REASON || reason === OUTSIDE_HOURS_REASON ? reason : undefined;
+      // Only the words the server knows; anything else (a click event handed in by mistake) is an ordinary sign-out.
+      const why = reason === END_OF_HOURS_REASON || reason === OUTSIDE_HOURS_REASON || reason === END_OF_DAY_REASON ? reason : undefined;
       try {
         // What is still on its way to the database goes before the session ends.
         await stopServerSync();

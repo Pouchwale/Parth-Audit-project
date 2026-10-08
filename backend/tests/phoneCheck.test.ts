@@ -77,8 +77,8 @@ const OPEN_HOURS = {
   timeZone: "Asia/Kolkata",
   openNow: true,
   opensAt: null,
-  hoursText: "DCRS is open 8:40 am to 6:20 pm on working days.",
-  todayText: "Today is Friday, a working day.",
+  hoursText: "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.",
+  todayText: "Today is a working day — staff hours run until 6:20 pm.",
 };
 
 const dcrsHandler: Handler = (req, _body, res) => {
@@ -419,11 +419,14 @@ describe("DCRS's settings and hours", () => {
     let hoursStep = step(await runChecks(setup()), /working hours/);
     assert.equal(hoursStep.status, "PASS");
     assert.match(hoursStep.lines.join(" "), /Right now staff can sign in/);
-    config = { features: { demoMode: false, signup: false }, hours: { ...OPEN_HOURS, openNow: false, todayText: "Today is Thursday, the weekly off." } };
+    assert.match(hoursStep.lines.join(" "), /^Staff working hours: 8:40 am to 6:20 pm/);
+    config = { features: { demoMode: false, signup: false }, hours: { ...OPEN_HOURS, openNow: false, todayText: "Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am." } };
     hoursStep = step(await runChecks(setup()), /working hours/);
     assert.equal(hoursStep.status, "PASS");
     assert.match(hoursStep.lines.join(" "), /only the super admin can sign in/);
+    assert.match(hoursStep.lines.join(" "), /staff are turned away until their hours start again/);
     assert.match(hoursStep.lines.join(" "), /weekly off/);
+    assert.doesNotMatch(hoursStep.lines.join(" "), /DCRS is open|until DCRS opens|DCRS is closed/);
   });
 
   it("warns about hours switched off, Demo Mode, open sign-up and unreadable hours", async () => {
@@ -443,10 +446,10 @@ describe("DCRS's settings and hours", () => {
 
 describe("a sign-in through Mitra", () => {
   it("shows a refusal in DCRS's own words", async () => {
-    loginAnswer = { status: 403, body: { error: "forbidden", message: "DCRS is closed now. It opens on Saturday 3 October at 8:40 am." } };
+    loginAnswer = { status: 403, body: { error: "forbidden", message: "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am." } };
     const signIn = step(await runChecks(setup({ email: "kapila.barad@gpp.local", password: PASSWORD })), /sign-in through Mitra/);
     assert.equal(signIn.status, "FAIL");
-    assert.match(signIn.lines[0], /refused \(403\): DCRS is closed now/);
+    assert.match(signIn.lines[0], /refused \(403\): Staff working hours: 8:40 am to 6:20 pm/);
     assert.match(signIn.hint ?? "", /DCRS's own words/);
   });
 

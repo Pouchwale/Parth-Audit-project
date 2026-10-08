@@ -21,6 +21,11 @@ export interface AccessToday {
   refused: number;
   /** Their latest line of anything but a failed or refused sign-in. */
   lastSeen: string | null;
+  /**
+   * The super admin's sign-in in yesterday's last ten minutes, not signed out since: a late sign-in, whose session runs
+   * to tonight's midnight, so he is still signed in today in it. Null for everybody else (and from an older server).
+   */
+  carriedSignIn?: string | null;
 }
 
 /**

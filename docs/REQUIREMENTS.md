@@ -5181,8 +5181,9 @@ is the weekly off, but an adjustment day is a working day and a festival holiday
 §16) — from 8:40 am to 6:20 pm factory time (Master Data → Working Hours, where the super admin can change the two times; the
 rule matches the calendar pages for every day of 2026 and 2027). Outside them:
 - a non-admin cannot sign in (logged "Sign-in refused — Outside working hours") or use anything: the server answers 403
-  `outside-working-hours` with the next opening, and the page says it in words — "DCRS is open 8:40 am to 6:20 pm on working days.
-  Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.";
+  `outside-working-hours` with the next opening, and the page says it in words — since 6-Oct-2026 as the staff's hours (see
+  the addendum below): "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours
+  start again on Friday 2 October at 8:40 am.";
 - a save a browser sends outside the hours is answered 401 (not 403), so the browser keeps the unsent work for the next sign-in
   rather than forgetting it;
 - the sign-in page states the hours and today's state.
@@ -5195,6 +5196,131 @@ the suites run at any hour). The Audit Assistant's DCRS token ends the same way 
 **What waits on the owner.** Confirmation items 42 to 44.
 
 **Tests.** See docs/TESTING.md "Every document findable, the opening, User access and the working hours".
+
+### The super admin at any hour (6-Oct-2026)
+
+**What the owner asked, in his words.** About 20:45: "now i want is like superadmin can login any time so that in system."
+About 21:30, quoting the sign-in page word for word: "DCRS is open 8:40 am to 6:20 pm on working days. Today's working
+hours ended at 6:20 pm — it opens again on Wednesday 7 October at 8:40 am." :- "this statement is not valid for superadmin
+because superadmin can login at any time."
+
+**What already held.** The gate never refused an account whose role is "admin" (backend/workingHours.ts `heldToHours`), so
+the super admin could sign in and keep working at every moment — before 8:40, after 6:20, on the weekly off, on a festival,
+on an adjustment day, with the hours changed or left blank, on a server whose clock runs in UTC — on the website (sign-in,
+every /api route, the records' saves, the master data), through /api/v1 (the Audit Assistant and the phone app) and in the
+phone app. This was proved again on a throwaway DCRS with the hours enforced and closed through its own master data (the
+staff refused 403 `outside-working-hours` meanwhile), and it is unchanged. Staff are held to 8:40 am to 6:20 pm on working
+days exactly as before, and are signed out at the close; nobody but the super admin has any new access.
+
+**What changed.**
+1. *The words: the hours are the STAFF's.* DCRS itself never closes, so no sentence says "DCRS is open", "it opens again" or
+   "DCRS is closed". They are made in one place, engine/workingHoursCore.ts:
+   - before anybody signs in (the sign-in page's main words, GET /api/auth/config): "Staff working hours: 8:40 am to 6:20 pm
+     on working days. The super admin can sign in at any time." and "Today's staff hours ended at 6:20 pm; they start again
+     on Wednesday 7 October at 8:40 am." (or "Today is a working day — staff hours run until 6:20 pm.", "… Staff hours start
+     today at 8:40 am.", "Today is Thursday, the weekly off; staff hours start again on …", "Today is Janmashtami, a company
+     holiday; staff hours start again on …"). The muted footnote that alone named the super admin is gone;
+   - staff refused (the sign-in page, every route, /api/v1, the phone app, which passes DCRS's words on): "Staff working
+     hours: 8:40 am to 6:20 pm on working days. Today's staff hours ended at 6:20 pm; they start again on Friday 9 October at
+     8:40 am." Staff's closing warning: "Your working hours end at 6:20 pm, the close of today's staff hours. … They start
+     again on the next working day.";
+   - to the signed-in super admin: the answers worded for a person (POST /api/auth/login, GET /api/auth/me, GET
+     /api/v1/today's `workingHours`) carry `heldToHours` and `forYou` — for him "You are the super admin: these are the
+     staff's hours, and you can keep working at any time." (null for staff). His User access card and Master Data's hours card
+     say it under the staff's hours; Master Data says "Staff working hours:", its days read "working day", "adjustment day,
+     worked", "weekly off", and a save says "Saved: staff working hours are now …". Mitra on the phone is given `forYou` with
+     the two sentences (the phone server's shape.ts); Mitra on the website is given one line of live facts — the staff's
+     hours and, for the super admin, "these hours do not hold him, so he can keep working now, at any hour".
+   - In Gujarati where the app's own Gujarati shows (ગુજરાતી chosen and Google's translator out of reach): the same
+     sentences built from the same parts (workingHoursCore `hoursWordsIn`, i18n/strings.hours.ts) on the User access card,
+     Master Data's hours line and both warnings; with the translator on, the English is translated like every other screen.
+     The sign-in page stays English, as a rule; the server's answers (and so the phone's) are English, and the phone's model
+     answers in the person's language.
+2. *The super admin's day still ends at midnight, now without losing work.* Every session still ends with its day, so he
+   still signs in each day; but before this a session simply ran out at the factory's midnight with no word, the app gave
+   way to the sign-in page, and whatever was only on screen went with it, and a sign-in at 23:59 was a session of one minute
+   (on the phone, a sign-in in the last second was refused as "Couldn't reach DCRS"). Now:
+   - ten minutes before midnight he is warned in his own words — "Your session for today ends at 12:00 am. You will be
+     signed out in 9 minutes — finish what you are typing; everything already saved is kept. Sign in again straight away to
+     keep working: the staff's hours do not hold you.";
+   - just before it the browser signs him out itself, after sending what is still on its way (as staff's close does), the
+     activity log says "Signed out — At the end of the day (midnight)", and the sign-in page says "Your session for today
+     ended at 12:00 am, the end of the day. Sign in again to keep working — the super admin can sign in at any time.";
+   - his sign-in in the day's last ten minutes runs to the midnight after (engine/workingHoursCore.ts `LATE_SIGN_IN_MS`),
+     so a late sign-in is never a session of minutes;
+   - on the phone, a change card shown before midnight and confirmed after it opens the record of the day it showed, the
+     same day its fill step is pinned to (the phone server's open_record now carries DCRS's date).
+3. *The phone app's super admin is DCRS's.* The phone server counted only the emails in its SUPER_ADMINS setting. It now
+   also counts the person DCRS answers as role "admin" at each sign-in (GET /api/v1/me, kept on the person's row and read
+   again at every sign-in, so a role taken away in DCRS stops counting at the next sign-in); SUPER_ADMINS stays an extra list.
+
+**What was left as it is, and why.** The guided tour still starts on the first Dashboard visit of a new day, after
+midnight too. The engine's "today" follows the server's own clock (backend/engineHost.ts warns at start-up when that is not
+factory time); the plant's server runs on factory time. (Until 8-Oct-2026 this paragraph also left the sign-in throttle
+keyed by the email alone; the review below changed it.)
+
+**Tests.** frontend/tests/workingHours.test.ts (the owner's sentences word for word; nothing says DCRS opens or closes, in
+either language; the Gujarati; a screen's words rebuilt from the server's answer; the person's answer; the late sign-in),
+backend/tests/workingHours.test.ts (the gate's words for each person at every closed moment; the late sign-in),
+backend/tests/apiV1Records.test.ts (/api/v1/today for staff and for the super admin), backend/tests/accessRoutes.test.ts,
+backend/tests/phoneCheck.test.ts, frontend/tests/mitraHistory.test.ts (Mitra's live facts); tests/e2e_working_hours.py (the
+sign-in page's main words, staff's refusal and warning, the super admin's answers and /api/v1/today while the hours are
+closed, his own warning, sign-out, log line and sign-in again) and tests/e2e_user_access.py (his line on the hours card); the
+phone server's dcrs-app.test.ts and dcrs-connector.test.ts (DCRS's super admin is the app's super admin, and stops being so at
+the next sign-in when DCRS says otherwise; `forYou` reaches the model; open_record pinned to its day).
+
+### The review of 8-Oct-2026: nothing else ends or blocks the super admin's day
+
+Two reviewers tried to stop the super admin, and to get staff in, on throwaway servers with the hours enforced and at two real
+factory midnights. Staff never got in. What did not hold, and what changed:
+
+1. *A second tab whose clock ran late ended the session he had just started again.* Every tab of a browser shares one
+   session, and a tab's clock can run late: Chrome wakes a tab hidden for five minutes once a minute, and a sleeping laptop
+   wakes every tab late. Such a tab, reaching the end of the day after he had signed in again in another tab, signed the
+   browser out — his new session — with no notice and a false "Signed out — At the end of the day (midnight)" line. Now each
+   session has an id of its own (in its token, and as `session.id` in the answers of POST /api/auth/login and GET
+   /api/auth/me). A tab that ends its session by itself asks the server first: a newer session of the same person is taken
+   up there and nothing is ended. And its sign-out names its own session, which the server ends only while the browser still
+   holds it (backend/signInAndOut.ts `endsThisSession`). The Log Out button still ends whatever session the browser has.
+2. *Anybody could keep him out with eight wrong passwords.* The sign-in throttle was keyed by the address typed alone, so
+   eight wrong passwords for admin@gpp.local, from any computer, refused even his right password for ten minutes, again and
+   again. It is now keyed by the address and the computer it comes from (its IP address; audit M-22's first part). Eight wrong
+   passwords hold back that computer for ten minutes — there the right password waits too, so guessing gets no faster — and
+   he signs in at once from his own. Each computer on the network can try eight times in ten minutes.
+3. *A sign-out's reason is written only where it fits the account.* "At the end of the day (midnight)" is the super admin's
+   alone; "At the close of working hours" and "Outside working hours" are staff's alone. Anything else is a plain "Signed out"
+   (a hand-made request could put the end of the day on a staff member's line).
+4. *User access after midnight.* His sign-in in the day's last ten minutes runs to the midnight after, yet after midnight the
+   page said "Not signed in today" while he worked in it, and the history paired another tab's end-of-day sign-out of his
+   older session with the late one. Now such a session, not signed out, is carried into the next day: "Signed in now", its
+   time shown with "yesterday, in its last ten minutes: the session runs to tonight's midnight", counted among those signed in
+   today. The history shows it "No sign-out yet" and pairs it with a sign-out the next day. A sign-out at the end of the day
+   closes only a session that ends with that day. A session is still listed on the day it began, so a span of today alone
+   does not show one begun in yesterday's last minutes.
+5. *The phone (the Mitra mobile app).* Its session ends with DCRS's: the super admin's at midnight, staff's at the close of
+   their hours. The app now says so ten minutes before, above the chat's composer: "Your session ends at 12:00 am, in 9
+   minutes. Finish what you are typing, then sign in again to keep working." Staff are not asked to sign in again. It takes
+   the end from the phone server, which gives it at sign-in and in GET /me (`expiresAt`). A message sent just after the end
+   was refused with 401 and lost. Now it is kept in the app's memory for the same person's next sign-in, in the chat it was
+   sent in, shown not sent with "Your session ended before this was sent. Send it again." And open_record no longer refuses
+   a third as-required record of a day: F/MKT/05 starts a new record each time a complaint comes in, and the card now asks
+   DCRS only which document and which day.
+
+**Left as it is.** The phone server reads whether DCRS calls a person its super admin at each sign-in, not on every request.
+So a role taken away in DCRS would reach a phone session already open only when it ends, at most a day later. That cannot
+happen today: DCRS has no route that changes an account's role, and the super admin cannot switch his own account off. The
+phone's admin routes would need to ask DCRS's GET /api/v1/me again if that ever changes.
+
+**Tests.** backend/tests/signInAndOut.test.ts (the throttle by address and computer; the words of a sign-out for each
+account; which session a sign-out ends), backend/tests/workingHours.test.ts (the session's own id in its token),
+backend/tests/accessRoutes.test.ts (the late sign-in carried past midnight; the pairing across midnight; the end of the day
+closing only its own day's session); tests/e2e_working_hours.py (two tabs of one browser, the second held with the DevTools
+debugger while the first ends his day and he signs in again: his new session stays open, the second tab takes it up, and no
+false line is written; a sign-out naming an older session leaves the newer one; the reason that fits the account; eight wrong
+passwords from another computer, then his own sign-in at once, through the API and the sign-in page); the phone server's
+dcrs-connector.test.ts (open_record on a day with two records), dcrs-app.test.ts (`expiresAt` at sign-in and in /me),
+chat-session.test.ts (the message kept for the same person's next sign-in) and session-end.test.ts (the warning's timing and
+words).
 
 ## §85 — Copy and Edit in Mitra's chat; the Mitra mobile app does what Mitra does; a more human voice; the opening before every sign-in; a guided tour (30-Sep and 1-Oct-2026)
 
