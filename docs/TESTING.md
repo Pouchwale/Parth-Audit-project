@@ -596,6 +596,37 @@ Seven scripts live in `tests/`:
   of 135 checks passed; each format opened from the Production library, showed its paper's words and its original,
   took a line, was sample-filled, saved, submitted, verified, printed as its paper and downloaded as a workbook; Mitra
   opened each by its number in both spellings and by name; no JavaScript error.
+- **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
+  proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
+  F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for
+  a year with none) and a fortnightly pest visit opens the period's sheet; one sheet per period beside the generator;
+  as-required, daily and the training record unchanged; a document's page shows the record New opens, not the sheet
+  made ahead for the 31st), `frontend/tests/storageFullStart.test.ts` (2: with the browser's storage full, the record
+  started opens from memory, reaches a stand-in database and is announced saved; closing the page asks first and then
+  does not; a colleague's save in between is merged and sent), `frontend/tests/papers07Oct.test.ts` (3: F/STR/02's
+  title, page and Word original; F/MNT/08's page 2 as printed; F/MNT/09 kept on its newer issue and naming both files)
+  and `frontend/tests/recordStartedTrail.test.ts` (3: every page that builds its own new record writes "Record
+  started"; the service agreement's Draft it for me writes one, none for a demo; New still writes one and opening a
+  sheet on file none). `npm run test:unit` runs 522 frontend and 321 backend tests, all passing.
+  New browser suite: `tests/e2e_every_record_starts.py` (product server :8843, last among its suites in
+  scripts/run-e2e.ts; E2E_ONLY=id1,id2 runs some documents only). On a system live since the first of last month, the
+  super admin starts every one of the 125 documents that hold records from its own page (the library's Open Document,
+  then the page's own Start): the record exists, its form is drawn, it reaches the database; the library's New opens the
+  same sheet of a scheduled document and a new one of an as-required one, one sheet per period; qc-viscosity's and
+  F/MNT/09's pages show the record started; with the browser's storage filled by a stand-in item, Start still opens the
+  record, says "This browser's copy is full" and then that it WAS saved, the record is in the database, and with room
+  again it opens after a reload; each department's own account (QC, HR, Store, Maintenance, Production, Dispatch,
+  Purchase, Marketing, System and QA) starts every one of its documents, Marketing its Complaint Acknowledgement and
+  Purchase the service agreement included; after signing out and in every record is still in the database and opens;
+  every new record the super admin started by hand is read back from the activity log as "Record started"; no
+  JavaScript error. Changed for §93: `e2e_assistant_fill.py` (the signed-off record of today's PERIOD is New's to open),
+  `e2e_hr_module.py` (New on F/HR/01 opens the year's register, a blank one for a year with none), `e2e_store_module.py`
+  (F/STR/02's title and supplied page; its "no picture" example moved to F/PUR/01) and `e2e_maintenance_module.py`
+  (F/MNT/08's hand-over words).
+  Run on the worktree on 7-Oct-2026 at 72f1eb1, with the project's runner (unit tests first, then the build):
+  e2e_maintenance_module 76 checks, e2e_find_every_document 71 and e2e_every_record_starts 297, all passing (no
+  JavaScript error). On the code before this work (c615073) the new suite, run on 16 documents of every kind, failed on
+  every fault §93 part 1 lists; the activity-log check is proved failing before by recordStartedTrail.test.ts.
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

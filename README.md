@@ -250,6 +250,15 @@ The app behaves like a personal assistant rather than a blank form:
   name, filled with sample data, printed and downloaded as a workbook. F-PRD-19's number, hidden in the photograph, is
   confirmed, and F-PRD-18 and 19 now read as their originals. The module's old address, /library/lamination-production,
   still opens it. F-PRD-25 came as an empty workbook and waits on the owner. DCRS holds 129 documents.
+- **Every record starts, and stays** (REQUIREMENTS §93). Start, New record, the library's New, Mitra and the phone open
+  the sheet of the week, fortnight, month or year the day is in when the schedule has made it, never a second sheet for a
+  period that has one (an as-required document still starts a new one each time). A record started while the browser's
+  storage is full is kept on the page and saved to the database all the same, and the page says so ("This browser's copy
+  is full - your record WAS saved") instead of "Record not found". Marketing starts its Complaint Acknowledgement,
+  Purchase its service provider agreement and Human Resources its pest service reports and F/HR/18 from their own pages,
+  a document's page shows the record just started, and every record started by hand is in the activity log as "Record
+  started". F/STR/02, F/MNT/08 and F/MNT/09, sent again on 7-Oct-2026, read as their papers (F/MNT/09 stays on its newer
+  issue of 01.09.2025).
 - **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
   signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
   starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,
