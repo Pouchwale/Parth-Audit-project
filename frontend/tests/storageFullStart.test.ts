@@ -16,7 +16,7 @@
 //     sent, though the merged copy does not fit either;
 //   * nothing new is stored in the browser: its full copy is left as it was.
 // Run: npm run test:unit -- storageFullStart
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { gunzipSync } from "node:zlib";
 import type { RecordInstance } from "../src/types";
@@ -134,6 +134,8 @@ const inTheBrowser = (id: string) => (storage.getItem("dcrs:v1:records") ?? "").
 
 ensureDocumentsSeeded();
 ensureMasterSeeded();
+// Stopped whatever happens below: a failing test must end this file, not leave the session's poll running for ever.
+after(() => stopServerSync());
 
 test("Start with the browser's copy full: the record opens, reaches the database, and the page is told it WAS saved", async () => {
   await startServerSync("person-1");
