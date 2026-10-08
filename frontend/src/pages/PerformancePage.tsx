@@ -32,7 +32,7 @@ import {
   type ScoreLine,
 } from "../engine/performance";
 import { documentTextIn } from "../i18n/documentText";
-import { useT, type Language } from "../i18n";
+import { tr, useT, type Language, type StringKey, type Vars } from "../i18n";
 import { downloadCSV, toCSV } from "../utils/csv";
 import { formatDisplayDate, todayISO } from "../utils/date";
 import { printDocument } from "../utils/print";
@@ -117,6 +117,27 @@ function MinusFigure({ minus, className = "" }: { minus: number; className?: str
   );
 }
 
+/**
+ * THE MINUS SCORE'S WORDS (REQUIREMENTS §92), in the language chosen. With
+ * ગુજરાતી chosen the screens are written in English for Google Translate, and
+ * Google made "takes 10 off" into "10 runs" (a cricket score) and "each takes a
+ * 10 discount" (the review of 8-Oct-2026). So these words are never handed to
+ * Google: with Gujarati chosen they are the reviewed Gujarati of
+ * i18n/strings.score.ts, on an element marked translate="no" (`hold`), whether
+ * Google is translating the page or could not be reached. In English nothing
+ * changes.
+ */
+function useMinusWords() {
+  const { lang } = useAppStore();
+  return useMemo(() => {
+    const kept = lang !== "en";
+    return {
+      say: (key: StringKey, vars?: Vars) => tr(lang, key, vars),
+      hold: (className: string) => (kept ? { className: `${className} notranslate`, translate: "no" as const } : { className }),
+    };
+  }, [lang]);
+}
+
 /** The figures every table shares, each cell named so a reader — or a test — never has to count columns. */
 function ScoreCells({ line }: { line: ScoreLine }) {
   return (
@@ -150,7 +171,7 @@ function ScoreCells({ line }: { line: ScoreLine }) {
 }
 
 function ScoreHeadings({ first }: { first: string }) {
-  const t = useT();
+  const minus = useMinusWords();
   return (
     <thead>
       <tr>
@@ -161,7 +182,8 @@ function ScoreHeadings({ first }: { first: string }) {
         <th className="score-num">Never done</th>
         <th className="score-num">Not due yet</th>
         <th className="score-num">Score</th>
-        <th className="score-num">{t("perf.minus.label")}</th>
+        {/* It may wrap on paper (styles.css): the printout is fitted to the narrowest the tables can be. */}
+        <th {...minus.hold("score-num score-minus-head")}>{minus.say("perf.minus.label")}</th>
         <th>Grade</th>
       </tr>
     </thead>
@@ -307,7 +329,7 @@ function outsideView(p: PersonScore, scope: string[] | null): string[] {
   return scope ? p.departments.filter((code) => !scope.includes(code)) : [];
 }
 
-function PersonCard({
+export function PersonCard({
   p,
   lang,
   scope,
@@ -320,7 +342,7 @@ function PersonCard({
   onOpen: (doc: DocumentDefinition) => void;
   escalated?: Escalation[];
 }) {
-  const t = useT();
+  const minus = useMinusWords();
   const unseen = outsideView(p, scope);
   return (
     <div
@@ -354,14 +376,14 @@ function PersonCard({
           {/* THE MINUS SCORE (REQUIREMENTS §92): 10 off for each record never done, beside the score, never instead of it. */}
           <div className="score-minus" data-field="person-minus" data-minus={p.minus} data-open-today={p.openToday} data-tone={p.minus < 0 ? "minus" : "zero"}>
             <MinusFigure minus={p.minus} className="score-minus-figure" />
-            <span className="score-minus-label">
-              <strong>{t("perf.minus.label")}</strong>{" "}
-              {p.overdue === 0 ? t("perf.minus.none") : p.overdue === 1 ? t("perf.minus.missedOne") : t("perf.minus.missed", { n: p.overdue })}
+            <span {...minus.hold("score-minus-label")}>
+              <strong>{minus.say("perf.minus.label")}</strong>{" "}
+              {p.overdue === 0 ? minus.say("perf.minus.none") : p.overdue === 1 ? minus.say("perf.minus.missedOne") : minus.say("perf.minus.missed", { n: p.overdue })}
             </span>
           </div>
           {p.openToday > 0 && (
-            <p className="score-open-today" data-field="person-open-today" data-open-today={p.openToday}>
-              {p.openToday === 1 ? t("perf.minus.openToday.one") : t("perf.minus.openToday.many", { n: p.openToday })}
+            <p {...minus.hold("score-open-today")} data-field="person-open-today" data-open-today={p.openToday}>
+              {p.openToday === 1 ? minus.say("perf.minus.openToday.one") : minus.say("perf.minus.openToday.many", { n: p.openToday })}
             </p>
           )}
           <div className="score-counts">
@@ -464,6 +486,7 @@ export function PerformancePage() {
   const { navigate } = useRouter();
   const { user } = useAuth();
   const t = useT();
+  const minus = useMinusWords();
   const isDemo = mode === "demo";
   const today = todayISO();
   const [periodKey, setPeriodKey] = useState<PeriodKey>("this-month");
@@ -680,8 +703,8 @@ export function PerformancePage() {
               .
             </span>
           )}
-          <p className="mt-2" data-section="performance-minus-rule">
-            <strong>{t("perf.minus.label")}:</strong> {t("perf.minus.rule")}
+          <p {...minus.hold("mt-2")} data-section="performance-minus-rule">
+            <strong>{minus.say("perf.minus.label")}:</strong> {minus.say("perf.minus.rule")}
           </p>
         </div>
 
@@ -731,10 +754,10 @@ export function PerformancePage() {
             >
               <MinusFigure minus={overall.minus} />
             </div>
-            <div className="stat-label">{t("perf.minus.label")}</div>
+            <div {...minus.hold("stat-label")}>{minus.say("perf.minus.label")}</div>
             {overall.openToday > 0 && (
-              <div className="text-xs text-faint" data-field="overall-open-today" data-open-today={overall.openToday}>
-                {t("perf.minus.openTodayShort", { n: overall.openToday })}
+              <div {...minus.hold("text-xs text-faint")} data-field="overall-open-today" data-open-today={overall.openToday}>
+                {minus.say("perf.minus.openTodayShort", { n: overall.openToday })}
               </div>
             )}
           </div>

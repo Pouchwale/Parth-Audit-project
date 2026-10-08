@@ -5,6 +5,13 @@
 // 10 off for each record never done, beside the score out of 100. The figure
 // itself is never in these words: it is written by engine/performance.ts
 // formatMinus, with a true minus sign, and kept out of translation.
+//
+// THE GUJARATI HERE IS WHAT THE PAGE SHOWS IN GUJARATI, ALWAYS. These words are
+// never handed to Google Translate: Google made "takes 10 off" into "10 runs"
+// (a cricket score) and "each takes a 10 discount" (the review of 8-Oct-2026).
+// With Gujarati chosen the page reads them from this table and marks them
+// translate="no" (PerformancePage.tsx useMinusWords), whether Google is
+// translating the rest of the page or could not be reached.
 const en = {
   "perf.minus.label": "Minus score",
   "perf.minus.rule":

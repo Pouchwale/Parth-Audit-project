@@ -2583,6 +2583,10 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .score-minus-label { font-size: 12.5px; color: var(--ink-2); min-width: 0; }
 .score-minus-label strong { color: var(--ink); }
 .score-open-today { margin: 0 0 8px; font-size: 12px; line-height: 1.45; color: var(--warning); }
+/* On paper the Minus score heading may wrap onto two lines: a printout is fitted to the narrowest its tables can be
+   laid out (utils/print.ts), and a heading that never wrapped took the scorecard from 94% down to 83% (the review of
+   8-Oct-2026). On screen it stays on one line, as every heading does. */
+html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-height: 1.25; }
 @media print {
   .score-minus { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

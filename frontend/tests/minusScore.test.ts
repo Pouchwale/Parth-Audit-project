@@ -237,6 +237,32 @@ test("the period chosen is the period counted", () => {
   assert.ok(Object.is(card(score(records, sep(24)), JENI).minus, 0), "not in this month's");
 });
 
+test("a record due after today is judged once: only one whose last day can be today is judged again, as of tomorrow", () => {
+  // The review of 8-Oct-2026: still open today judged every record not due yet a second time, as of tomorrow,
+  // though a record due after today can never end today (its last day is never before its own date). This year,
+  // early in October, is some 800 such records at every switch of the period. The plant's calendar is asked once
+  // each time a scheduled record is judged, so counting what it is asked counts the judgements.
+  let asked = 0;
+  const counting: PlantCalendar = {
+    isClosedDay: () => {
+      asked += 1;
+      return false;
+    },
+  };
+  const later = [25, 26, 27, 28, 29, 30].map((d) => rec(qcDaily, sep(d)));
+  const ahead = card(score(later, sep(24), counting), JENI);
+  assert.deepEqual([ahead.pending, ahead.openToday, ahead.minus], [6, 0, 0]);
+  assert.equal(asked, later.length, "each record due after today is judged once");
+  // Today's own record is judged again, as of tomorrow: it is the one still open today.
+  asked = 0;
+  const withToday = card(score([rec(qcDaily, sep(24)), ...later], sep(24), counting), JENI);
+  assert.deepEqual([withToday.pending, withToday.openToday], [7, 1]);
+  assert.equal(asked, later.length + 2, "today's record twice, every later one once");
+  // The same answers as before on the plant's real calendar: nothing due after today is ever open today.
+  const plant = card(score([rec(qcDaily, sep(23)), ...later], sep(23), PLANT), JENI);
+  assert.deepEqual([plant.pending, plant.openToday], [7, 1], "the 23rd's own and the six after it, past the weekly off; only the 23rd's ends today");
+});
+
 // ---------------------------------------------------------------------------
 // Two demo months: every line of every table, judged on every day of a month.
 

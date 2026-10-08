@@ -26,7 +26,11 @@
     the CSV carry -10 for each record never done (0, never -0, when none), with
     a true minus sign on screen and the plain number in data-minus; "still open
     today" is recounted from the records on file (never assumed above 0: the
-    suite runs on the real clock and the day may be the weekly off).
+    suite runs on the real clock and the day may be the weekly off);
+  * the minus score on paper and in Gujarati (the review of 8-Oct-2026): its
+    heading wraps where the printout is fitted to the paper, and with ગુજરાતી
+    chosen its words are the reviewed Gujarati, never handed to Google (here a
+    stand-in served at Google's address, as tests/e2e_translate.py does).
 
 Network-independent, against the production build on :8842. The suite signs up
 two accounts: a fresh one with no departments, and one kept to Quality Control
@@ -65,6 +69,73 @@ STUB_PRINT = "() => { window.__printed = 0; window.print = () => { window.__prin
 END_PRINT = "() => window.dispatchEvent(new Event('afterprint'))"
 # Whether an element is on the printout: a box in the (print) layout.
 SHOWN = "const shown = (s) => { const el = document.querySelector(s); return !!el && el.getClientRects().length > 0; };"
+# The minus score's name in the reviewed Gujarati (frontend/src/i18n/strings.score.ts), and what Google's stand-in
+# puts before every text it translates.
+MINUS_GU = "માઇનસ સ્કોર"
+MARK = "ગુ:"
+
+# Google's website translator, stood in for at its own address: a copy of tests/e2e_translate.py's stand-in, which
+# swaps every text node outside translate="no" for MARK + the text, as Google swaps it for Gujarati.
+FAKE_GOOGLE = r"""
+(function () {
+  var cb = document.currentScript && new URL(document.currentScript.src).searchParams.get('cb');
+  var on = false, flip = 0, seen = new WeakSet();
+  function skipped(el) {
+    for (var n = el; n && n.nodeType === 1; n = n.parentNode) {
+      if (/^(SCRIPT|STYLE|FONT|TEXTAREA)$/.test(n.nodeName)) return true;
+      if (n.getAttribute('translate') === 'no') return true;
+      if (n.classList && (n.classList.contains('notranslate') || n.classList.contains('skiptranslate'))) return true;
+    }
+    return false;
+  }
+  function tr(node) {
+    var v = node.nodeValue, p = node.parentNode;
+    if (!on || !v || !v.trim() || v.indexOf('ગુ:') === 0 || !p || skipped(p) || seen.has(node)) return;
+    // Like Google: a text node is translated once; changing it later is not noticed.
+    seen.add(node);
+    var outer = document.createElement('font'), inner = document.createElement('font');
+    inner.textContent = 'ગુ:' + v;
+    outer.appendChild(inner);
+    // Both ways Google's code has been seen to swap a node.
+    if ((flip++) % 2) p.replaceChild(outer, node); else { p.insertBefore(outer, node); p.removeChild(node); }
+  }
+  function walk(root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), list = [];
+    while (w.nextNode()) list.push(w.currentNode);
+    list.forEach(tr);
+  }
+  new MutationObserver(function (recs) {
+    if (!on) return;
+    recs.forEach(function (r) {
+      r.addedNodes.forEach(function (n) {
+        if (n.nodeType === 3) tr(n); else if (n.nodeType === 1 && n.nodeName !== 'FONT') walk(n);
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+  function TranslateElement(opts, id) {
+    var box = document.getElementById(id), gadget = document.createElement('div'), sel = document.createElement('select');
+    gadget.className = 'skiptranslate goog-te-gadget';
+    sel.className = 'goog-te-combo';
+    ['', 'gu'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v || 'Select Language'; sel.appendChild(o); });
+    gadget.appendChild(sel); box.appendChild(gadget);
+    sel.addEventListener('change', function () {
+      if (sel.value !== 'gu' || on) return;
+      on = true;
+      var bar = document.createElement('div');
+      bar.className = 'skiptranslate';
+      bar.innerHTML = '<iframe class="skiptranslate" style="height:39px;width:100%;border:0"></iframe>';
+      document.body.insertBefore(bar, document.body.firstChild);
+      document.body.style.position = 'relative';
+      document.body.style.top = '40px';
+      document.documentElement.classList.add('translated-ltr');
+      walk(document.body);
+    });
+  }
+  TranslateElement.InlineLayout = { SIMPLE: 0 };
+  window.google = { translate: { TranslateElement: TranslateElement } };
+  if (cb && window[cb]) window[cb]();
+})();
+"""
 
 
 def check(label, cond, detail=None):
@@ -550,6 +621,36 @@ with sync_playwright() as p:
     page.evaluate(STUB_PRINT)
     page.click("[data-action='performance-print']")
     page.wait_for_timeout(300)
+    # The printout is fitted to the narrowest the scorecard's tables can be laid out, measured as the Print button
+    # scopes the page (utils/print.ts). There the Minus score heading wraps: its column is no wider than its longest
+    # word or figure (the review of 8-Oct-2026: a heading that never wrapped took the printout from 94% to 83%).
+    fit = page.evaluate(
+        """() => {
+             const table = document.querySelector("[data-table='performance-documents']");
+             // The column's heading, found by its cells' own name (data-col), whatever the heading's class.
+             const row = table && table.querySelector('tbody tr[data-grade]');
+             const at = row ? Array.from(row.children).findIndex((td) => td.dataset.col === 'minus') : -1;
+             const th = at >= 0 ? table.querySelectorAll('thead th')[at] : null;
+             if (!th) return null;
+             const box = (el) => el.getBoundingClientRect().width;
+             const width = table.style.width;
+             table.style.width = 'min-content';
+             const cs = getComputedStyle(th);
+             const room = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+             const word = (w) => { const s = document.createElement('span'); s.style.whiteSpace = 'nowrap'; s.textContent = w; th.appendChild(s); const x = box(s); s.remove(); return x; };
+             const words = th.textContent.trim().split(/\\s+/).map(word);
+             const figures = Array.from(table.querySelectorAll("tbody td[data-col='minus'] > span")).map(box);
+             const column = box(th);
+             table.style.width = width;
+             return { column, room, widest: Math.max(...words, ...figures), words, figures: figures.length,
+                      zoom: document.querySelector("[data-section='performance-scorecard']").style.zoom || '1', paper: document.documentElement.dataset.printPage || '' };
+           }"""
+    )
+    check(
+        "On paper the Minus score heading wraps: its column is no wider than its longest word or figure, so the printout keeps its size",
+        fit is not None and fit["figures"] > 0 and fit["column"] <= fit["widest"] + fit["room"] + 1,
+        fit,
+    )
     page.emulate_media(media="print")
     try:
         seen = page.evaluate(
@@ -730,6 +831,73 @@ with sync_playwright() as p:
     page.click("[data-action='performance-retry-directory']")
     page.wait_for_timeout(1500)
     check("Try again reads them once the server answers", page.locator(f"[data-person='{QC_PERSON}']").count() == 1 and unavailable.count() == 0)
+
+    # ==================================================================
+    # 11. In Gujarati the minus score's words are the reviewed ones, never Google's
+    # ==================================================================
+    # Google Translate made "takes 10 off" into "10 runs" and "each takes a 10 discount" (the review of 8-Oct-2026).
+    # With ગુજરાતી chosen, the minus score's words are the built-in Gujarati, marked for Google to leave alone,
+    # while Google (its stand-in) translates the rest of the page from the English.
+    MINE = f"[data-person='{QC_PERSON}'] [data-field='person-minus']"
+    english_minus = page.locator(MINE).get_attribute("data-minus") if page.locator(MINE).count() else None
+    page.unroute("**/translate_a/**")
+    page.route("**/translate_a/**", lambda route: route.fulfill(status=200, content_type="text/javascript", body=FAKE_GOOGLE))
+    page.select_option(".lang-select", "gu")
+    page.wait_for_timeout(1800)
+    dismiss(page)
+    close_assistant(page)
+    seen_gu = page.evaluate(
+        """(mine) => {
+             const words = (el) => (el ? { text: el.textContent.trim(), kept: !!el.closest("[translate='no'], .notranslate") } : null);
+             const one = (sel) => words(document.querySelector(sel));
+             const tile = document.querySelector("[data-overall='minus']");
+             const band = document.querySelector(mine);
+             return {
+               translated: document.documentElement.classList.contains('translated-ltr'),
+               around: (document.querySelector("[data-section='performance-rule'] > strong") || {}).textContent || '',
+               rule: one("[data-section='performance-minus-rule']"),
+               band: words(band && band.querySelector('.score-minus-label')),
+               open: one("[data-field='person-open-today']"),
+               tile: words(tile && tile.parentElement.querySelector('.stat-label')),
+               tileOpen: one("[data-field='overall-open-today']"),
+               headings: Array.from(document.querySelectorAll('thead th.score-minus-head')).map(words),
+               minus: band ? band.dataset.minus : null,
+               figure: band ? band.querySelector('.score-minus-figure').textContent.trim() : null,
+             };
+           }""",
+        MINE,
+    )
+    shown_gu = [seen_gu["rule"], seen_gu["band"], seen_gu["tile"], *seen_gu["headings"], *([seen_gu["open"]] if seen_gu["open"] else []), *([seen_gu["tileOpen"]] if seen_gu["tileOpen"] else [])]
+    check("Choosing ગુજરાતી has Google (its stand-in) translate the page from the English", seen_gu["translated"] and seen_gu["around"].startswith(MARK), seen_gu["around"])
+    check(
+        "...but the minus score's words are never handed to it: every one is marked for Google to leave alone, and none was translated",
+        all(w is not None and w["kept"] and MARK not in w["text"] for w in shown_gu) and len(seen_gu["headings"]) == 3,
+        shown_gu,
+    )
+    check(
+        "...they are the reviewed Gujarati: 10 taken off for each record never done, no English left, and no 'runs' or 'discount'",
+        seen_gu["rule"] is not None and seen_gu["rule"]["text"].startswith(f"{MINUS_GU}:") and "10 ઘટાડે છે" in seen_gu["rule"]["text"] and f"{MINUS}20" in seen_gu["rule"]["text"]
+        and seen_gu["tile"] is not None and seen_gu["tile"]["text"] == MINUS_GU and all(h["text"] == MINUS_GU for h in seen_gu["headings"])
+        and seen_gu["band"] is not None and seen_gu["band"]["text"].startswith(MINUS_GU) and ("10 ઓછા" in seen_gu["band"]["text"] or "કંઈ છૂટ્યું નથી" in seen_gu["band"]["text"])
+        and (seen_gu["open"] is None or "10 ઘટશે" in seen_gu["open"]["text"])
+        and not any(any(c.isascii() and c.isalpha() for c in w["text"]) or "રન" in w["text"] or "ડિસ્કાઉન્ટ" in w["text"] for w in shown_gu if w),
+        shown_gu,
+    )
+    check("...and the figure is the same as in English", english_minus is not None and seen_gu["minus"] == english_minus and seen_gu["figure"] == minus_text(int(english_minus)), (english_minus, seen_gu["minus"], seen_gu["figure"]))
+    # English again: the page reloads in English and Google is not loaded.
+    page.select_option(".lang-select", "en")
+    page.wait_for_timeout(2500)
+    page.wait_for_selector("[data-section='performance-minus-rule']", timeout=30000)
+    dismiss(page)
+    close_assistant(page)
+    back_rule = page.locator("[data-section='performance-minus-rule']").evaluate("el => el.textContent")
+    check(
+        "Choosing English again brings the English words back",
+        "takes 10 off" in back_rule and MARK not in back_rule and not page.evaluate("document.documentElement.classList.contains('translated-ltr')"),
+        back_rule,
+    )
+    page.unroute("**/translate_a/**")
+    page.route("**/translate_a/**", lambda route: route.abort())
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

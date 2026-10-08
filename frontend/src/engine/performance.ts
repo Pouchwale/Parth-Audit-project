@@ -430,8 +430,10 @@ export function scorecards(
         what = calledBy(doc);
         called.set(doc.id, what);
       }
-      // Asked only of a record not due yet, so the extra judgement costs next to nothing.
-      const endsToday = j.outcome === "pending" && judgeRecord(r, doc, tomorrow, calendar).outcome === "overdue";
+      // Asked again only of a record not due yet whose date is today or before: one due after today can never end
+      // today, since its last day is never before its own date (the review of 8-Oct-2026: judging all of them twice
+      // cost some 800 judgements at every switch to This year early in October).
+      const endsToday = j.outcome === "pending" && r.dueDate <= today && judgeRecord(r, doc, tomorrow, calendar).outcome === "overdue";
       count(tallyIn(perDocument, doc.id), j, what, r.dueDate, endsToday);
       for (const a of answering) {
         let mine = perPerson.get(a.id);
