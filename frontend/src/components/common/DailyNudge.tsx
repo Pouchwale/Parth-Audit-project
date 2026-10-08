@@ -97,7 +97,7 @@ export function ownStanding(
   const cards = scorecards(records, docs, people, "this-month", today, calendar);
   const line = cards.byPerson.find((p) => p.person.id === me.id);
   if (!line || !line.answers || line.score === null) return null;
-  return { score: line.score, grade: line.grade.label, rank: null, outOf: 1, best: null };
+  return { score: line.score, grade: line.grade.label, rank: null, outOf: 1, best: null, minus: line.minus };
 }
 
 export function DailyNudge() {

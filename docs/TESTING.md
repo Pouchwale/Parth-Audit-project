@@ -256,6 +256,15 @@ Seven scripts live in `tests/`:
 - `frontend/tests/latenessCore.test.ts` - the one lateness rule the server and the scorecard share, held to identical
   results against a frozen copy of the old scorecard code over 17,000 judgements and 126 whole scorecards, and the
   plant's closed days against engine/holidays.ts for every day of three years.
+- **The minus score** (REQUIREMENTS §92, 7-Oct-2026). `frontend/tests/minusScore.test.ts` (10 tests): the owner's
+  example (10 due, 8 done: -20, the score out of 100 unchanged), late costing nothing, 0 never -0, still open today
+  (and gone the next day), closed and adjustment days, the as-required 2 days past the weekly off, the go-live date, a
+  shared department, the periods, and two demo months judged on every day of a month with every line's still-open-today
+  recounted from the records. `latenessCore.test.ts` compares every scorecard with its reference with `minus` and
+  `openToday` taken off, and holds both to their rule on every line; `dailyNudgeStanding.test.ts` and
+  `mitraHistoryReview.test.ts` 12b check the notification's and Mitra's words, and
+  `backend/tests/apiV1Records.test.ts` the phone's (GET /api/v1/figures). `tests/e2e_performance.py` gained the
+  browser's half (see its entry), and runs against a preview with `DCRS_BASE` set.
 - `tests/e2e_insights.py` - Insights (REQUIREMENTS §75), a thirty-fifth suite, added 24-Sep-2026, run straight
   after the System / Management suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the
   2024 one** — the QC Lab's colour-matching cabinet down 45%, 1863 to 1025 lux, high, naming both rounds — and row
@@ -839,7 +848,10 @@ Seven scripts live in `tests/`:
     is counted; a line opening its format; CSV and print; `/api/users/directory` carrying no email or hash; an
     account with no departments listed unscored, a QC account scored on and shown QC only; a shared
     department's records counted for whoever submitted them. It makes two signups and is last in the run.
-    (62 checks)
+    (62 checks; with the minus score of §92, 7-Oct-2026, 75: every line's, card's, tile's and CSV row's minus
+    score is -10 for each never done with a true minus sign, the rule's words, the two new CSV columns, the print,
+    the QC account's and both shared accounts', and F-QC-30's still open today recounted from its records.
+    `DCRS_BASE` points it at another server, such as a preview.)
   `tests/e2e_portal_controls.py` reaches the §62 dialog through the designer's *More options…* (37 checks,
   unchanged). With them `npm run test:e2e` is green at **1591 checks across twenty-seven suites**, all on
   PostgreSQL, no JavaScript errors.

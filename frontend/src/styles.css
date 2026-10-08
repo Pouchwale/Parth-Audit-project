@@ -2574,6 +2574,22 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .score-open:hover { color: var(--accent-text); text-decoration: underline; }
 .score-open:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
 .doc-table th.score-num, .doc-table td.score-num { text-align: right; font-variant-numeric: tabular-nums; }
+/* THE MINUS SCORE (REQUIREMENTS §92): 10 off for each record never done, on a band of its own under the
+   score out of 100: the danger pair while anything was missed, the success pair at 0. Then, in the
+   warning's colour, how many records are still open on their last day. */
+.score-minus { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 8px; padding: 6px 10px; border-radius: var(--radius-md); background: var(--success-soft); color: var(--success); }
+.score-minus[data-tone="minus"] { background: var(--danger-soft); color: var(--danger); }
+.score-minus-figure { font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.score-minus-label { font-size: 12.5px; color: var(--ink-2); min-width: 0; }
+.score-minus-label strong { color: var(--ink); }
+.score-open-today { margin: 0 0 8px; font-size: 12px; line-height: 1.45; color: var(--warning); }
+/* On paper the Minus score heading may wrap onto two lines: a printout is fitted to the narrowest its tables can be
+   laid out (utils/print.ts), and a heading that never wrapped took the scorecard from 94% down to 83% (the review of
+   8-Oct-2026). On screen it stays on one line, as every heading does. */
+html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-height: 1.25; }
+@media print {
+  .score-minus { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 @media print {
   .score-rule, .score-grade { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .score-card { box-shadow: none; break-inside: avoid; }

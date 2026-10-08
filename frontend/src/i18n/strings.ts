@@ -29,6 +29,7 @@ import { ROUNDTRIP_STRINGS } from "./strings.roundtrip";
 import { VOICE_STRINGS } from "./strings.voice";
 import { MOTIVATION_STRINGS } from "./strings.motivation";
 import { INTRO_STRINGS } from "./strings.intro";
+import { SCORE_STRINGS } from "./strings.score";
 
 export type Language = "en" | "gu";
 
@@ -856,6 +857,7 @@ const en = {
   ...VOICE_STRINGS.en,
   ...MOTIVATION_STRINGS.en,
   ...INTRO_STRINGS.en,
+  ...SCORE_STRINGS.en,
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -1645,6 +1647,7 @@ const gu: Record<StringKey, string> = {
   ...VOICE_STRINGS.gu,
   ...MOTIVATION_STRINGS.gu,
   ...INTRO_STRINGS.gu,
+  ...SCORE_STRINGS.gu,
 };
 
 export const STRINGS: Record<Language, Record<StringKey, string>> = { en, gu };

@@ -96,6 +96,26 @@ test("without the list, a score nobody else's records touch is still said — an
   assert.equal(standing.rank, null, "no place is claimed without the list");
 });
 
+test("the notification says the minus score too, the scorecard's own (REQUIREMENTS §92)", async () => {
+  const { encourage } = await import("../src/engine/notifications");
+  // Asha answers for the sheet nobody handed in: 10 off. So does Bhavna.
+  const standing = ownStanding(ASHA, DIRECTORY, SEPTEMBER, documents, TODAY, CALENDAR);
+  assert.equal(standing?.minus, scorecardLine(ASHA, SEPTEMBER)?.minus);
+  assert.equal(standing?.minus, -10);
+  assert.equal(ownStanding(BHAVNA, DIRECTORY, SEPTEMBER, documents, TODAY, CALENDAR)?.minus, -10);
+  const work = { notifications: [], high: 0, medium: 0, low: 0, overdue: 0, theirOwn: true, modules: [] };
+  const words = encourage(work, standing, "Asha");
+  assert.ok(words.standing.includes(`Minus score this month: ${String.fromCharCode(0x2212)}10.`), words.standing);
+  assert.ok(words.standing.startsWith(`You are at ${standing?.score}% on the scorecard`), "the score's own words stay first");
+  // Nothing missed: said as 0, never -0.
+  const clean = [sheet(1, "Asha Patel"), sheet(2, "Asha Patel")];
+  const cleanStanding = ownStanding(ASHA, DIRECTORY, clean, documents, TODAY, CALENDAR);
+  assert.ok(Object.is(cleanStanding?.minus, 0));
+  assert.ok(encourage(work, cleanStanding, "Asha").standing.includes("Minus score this month: 0, nothing missed."));
+  // A standing without the figure says nothing of it.
+  assert.ok(!encourage(work, { score: 80, grade: "On track", rank: null, outOf: 1, best: null }, "Asha").standing.includes("Minus"));
+});
+
 test("the administrator answers for no document: no score, with or without the list", () => {
   const admin: Person = { id: "admin", name: "Super Admin", role: "admin", departments: [] };
   assert.equal(ownStanding(admin, [...DIRECTORY, admin], SEPTEMBER, documents, TODAY, CALENDAR), null);

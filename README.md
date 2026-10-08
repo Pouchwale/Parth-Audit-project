@@ -364,7 +364,9 @@ The app behaves like a personal assistant rather than a blank form:
   to a record handed in (🎉 on time, ⏰ N days late, ✅ verified, ↩️ sent back, 🌟 the last one due) — Live
   records, on the screen of the person who did it.
   And the **Performance Scorecard** (`/performance`) scores each person, department, module and document on
-  one rule — on time 1, late ½, never done 0 — with the decision written out as a sentence.
+  one rule — on time 1, late ½, never done 0 — with the decision written out as a sentence, and a **minus score**
+  beside it (REQUIREMENTS §92): 10 off for each record never done, so 10 due and 8 done is -20, with what is still
+  open on its last day today.
 - **An eye beside every password box** (REQUIREMENTS §63): signing in, signing up and changing a password all
   let a person see what they have typed, and hide it again, without sending the form.
 - **Reviewed before submitted, formats revised on record, named accounts, the activity log** (REQUIREMENTS §62):

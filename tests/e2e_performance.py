@@ -21,7 +21,16 @@
   * where a department has two accounts a submitted record counts for whoever
     submitted it and an unsubmitted one against both, and a person who also
     answers for a department the viewer cannot see is marked as part-scored
-    (the page is handed a made-up directory for this; the records are real).
+    (the page is handed a made-up directory for this; the records are real);
+  * the minus score (REQUIREMENTS s92): every line, card, the plant's tile and
+    the CSV carry -10 for each record never done (0, never -0, when none), with
+    a true minus sign on screen and the plain number in data-minus; "still open
+    today" is recounted from the records on file (never assumed above 0: the
+    suite runs on the real clock and the day may be the weekly off);
+  * the minus score on paper and in Gujarati (the review of 8-Oct-2026): its
+    heading wraps where the printout is fitted to the paper, and with ગુજરાતી
+    chosen its words are the reviewed Gujarati, never handed to Google (here a
+    stand-in served at Google's address, as tests/e2e_translate.py does).
 
 Network-independent, against the production build on :8842. The suite signs up
 two accounts: a fresh one with no departments, and one kept to Quality Control
@@ -45,7 +54,9 @@ from playwright.sync_api import sync_playwright
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-BASE = "http://localhost:8842"
+BASE = os.environ.get("DCRS_BASE", "http://localhost:8842").rstrip("/")
+# The minus score is written with a true minus sign (U+2212) on screen.
+MINUS = "\u2212"
 PASSWORD = "PlaywrightQA123"
 # Names with no word in them that is also a button's label.
 VIEWER = "Tally QA"
@@ -58,6 +69,73 @@ STUB_PRINT = "() => { window.__printed = 0; window.print = () => { window.__prin
 END_PRINT = "() => window.dispatchEvent(new Event('afterprint'))"
 # Whether an element is on the printout: a box in the (print) layout.
 SHOWN = "const shown = (s) => { const el = document.querySelector(s); return !!el && el.getClientRects().length > 0; };"
+# The minus score's name in the reviewed Gujarati (frontend/src/i18n/strings.score.ts), and what Google's stand-in
+# puts before every text it translates.
+MINUS_GU = "માઇનસ સ્કોર"
+MARK = "ગુ:"
+
+# Google's website translator, stood in for at its own address: a copy of tests/e2e_translate.py's stand-in, which
+# swaps every text node outside translate="no" for MARK + the text, as Google swaps it for Gujarati.
+FAKE_GOOGLE = r"""
+(function () {
+  var cb = document.currentScript && new URL(document.currentScript.src).searchParams.get('cb');
+  var on = false, flip = 0, seen = new WeakSet();
+  function skipped(el) {
+    for (var n = el; n && n.nodeType === 1; n = n.parentNode) {
+      if (/^(SCRIPT|STYLE|FONT|TEXTAREA)$/.test(n.nodeName)) return true;
+      if (n.getAttribute('translate') === 'no') return true;
+      if (n.classList && (n.classList.contains('notranslate') || n.classList.contains('skiptranslate'))) return true;
+    }
+    return false;
+  }
+  function tr(node) {
+    var v = node.nodeValue, p = node.parentNode;
+    if (!on || !v || !v.trim() || v.indexOf('ગુ:') === 0 || !p || skipped(p) || seen.has(node)) return;
+    // Like Google: a text node is translated once; changing it later is not noticed.
+    seen.add(node);
+    var outer = document.createElement('font'), inner = document.createElement('font');
+    inner.textContent = 'ગુ:' + v;
+    outer.appendChild(inner);
+    // Both ways Google's code has been seen to swap a node.
+    if ((flip++) % 2) p.replaceChild(outer, node); else { p.insertBefore(outer, node); p.removeChild(node); }
+  }
+  function walk(root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), list = [];
+    while (w.nextNode()) list.push(w.currentNode);
+    list.forEach(tr);
+  }
+  new MutationObserver(function (recs) {
+    if (!on) return;
+    recs.forEach(function (r) {
+      r.addedNodes.forEach(function (n) {
+        if (n.nodeType === 3) tr(n); else if (n.nodeType === 1 && n.nodeName !== 'FONT') walk(n);
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+  function TranslateElement(opts, id) {
+    var box = document.getElementById(id), gadget = document.createElement('div'), sel = document.createElement('select');
+    gadget.className = 'skiptranslate goog-te-gadget';
+    sel.className = 'goog-te-combo';
+    ['', 'gu'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v || 'Select Language'; sel.appendChild(o); });
+    gadget.appendChild(sel); box.appendChild(gadget);
+    sel.addEventListener('change', function () {
+      if (sel.value !== 'gu' || on) return;
+      on = true;
+      var bar = document.createElement('div');
+      bar.className = 'skiptranslate';
+      bar.innerHTML = '<iframe class="skiptranslate" style="height:39px;width:100%;border:0"></iframe>';
+      document.body.insertBefore(bar, document.body.firstChild);
+      document.body.style.position = 'relative';
+      document.body.style.top = '40px';
+      document.documentElement.classList.add('translated-ltr');
+      walk(document.body);
+    });
+  }
+  TranslateElement.InlineLayout = { SIMPLE: 0 };
+  window.google = { translate: { TranslateElement: TranslateElement } };
+  if (cb && window[cb]) window[cb]();
+})();
+"""
 
 
 def check(label, cond, detail=None):
@@ -129,6 +207,9 @@ def table_rows(page, table):
                grade: tr.dataset.grade,
                due: n('due'), onTime: n('onTime'), late: n('late'), overdue: n('overdue'), pending: n('pending'),
                score: cell('score').trim(),
+               minus: Number((tr.querySelector("[data-col='minus']") || { dataset: {} }).dataset.minus),
+               minusText: cell('minus').trim(),
+               openToday: Number((tr.querySelector("[data-col='minus']") || { dataset: {} }).dataset.openToday),
              };
            })"""
     )
@@ -143,6 +224,20 @@ def adds_up(rows):
         if r["onTime"] + r["late"] + r["overdue"] != r["due"] or shown_score != want:
             wrong.append((r, want))
     return wrong
+
+
+def minus_for(overdue):
+    """The minus score (s92): -10 for each record never done, 0 when none."""
+    return -10 * overdue if overdue > 0 else 0
+
+
+def minus_text(minus):
+    return "0" if minus == 0 else f"{MINUS}{-minus}"
+
+
+def minus_wrong(rows):
+    """The lines whose minus score is not -10 x their never done, or is written wrong, or has more open today than not due yet."""
+    return [r for r in rows if r["minus"] != minus_for(r["overdue"]) or r["minusText"] != minus_text(r["minus"]) or not (0 <= r["openToday"] <= r["pending"])]
 
 
 def grade_for(score):
@@ -242,6 +337,9 @@ def card_figures(card):
                scored: el.dataset.scored, grade: el.dataset.grade,
                score: text("[data-field='person-score']"), onTime: n('onTime'), late: n('late'), overdue: n('overdue'),
                decision: text("[data-section='person-decision']"), partial: text("[data-section='person-partial']"),
+               minus: el.querySelector("[data-field='person-minus']") ? Number(el.querySelector("[data-field='person-minus']").dataset.minus) : null,
+               minusText: text("[data-field='person-minus'] .score-minus-figure"),
+               openToday: el.querySelector("[data-field='person-minus']") ? Number(el.querySelector("[data-field='person-minus']").dataset.openToday) : null,
              };
            }"""
     )
@@ -249,7 +347,7 @@ def card_figures(card):
 
 def recount(records, master, document_id, first, last, today):
     """One scheduled document's records on file, judged the way the page says it judges them."""
-    got = {"onTime": 0, "late": 0, "overdue": 0, "pending": 0}
+    got = {"onTime": 0, "late": 0, "overdue": 0, "pending": 0, "openToday": 0}
     for r in records:
         if r["documentId"] != document_id or not r.get("isDemo") or not (first <= r["dueDate"] <= last):
             continue
@@ -265,6 +363,9 @@ def recount(records, master, document_id, first, last, today):
             got["overdue"] += 1
         else:
             got["pending"] += 1
+            # Its last day is today: never done tomorrow, 10 off (s92).
+            if r["dueDate"] == today and r["status"] in ("Scheduled", "Due", "In Progress"):
+                got["openToday"] += 1
     return got
 
 
@@ -317,6 +418,13 @@ with sync_playwright() as p:
         all(part in rule for part in ("on time 1", "late ½", "never done 0", "as-required record gets 2 days")),
         rule,
     )
+    minus_rule = page.locator("[data-section='performance-minus-rule']")
+    minus_rule_text = minus_rule.evaluate("el => el.textContent") if minus_rule.count() else ""
+    check(
+        "It says how the minus score is counted: 10 off for each record never done, 10 due and 8 done is -20",
+        "Minus score" in minus_rule_text and "takes 10 off" in minus_rule_text and f"{MINUS}20" in minus_rule_text,
+        minus_rule_text,
+    )
     check("It opens on this month", page.locator("[data-field='performance-period']").input_value() == "this-month")
     check("A demo year has no go-live date to leave records out by", page.locator("[data-section='performance-counted-from']").count() == 0)
     if EARLY:
@@ -339,6 +447,15 @@ with sync_playwright() as p:
         int(total["due"]) == sum(r["due"] for r in departments) == sum(r["due"] for r in modules) and int(total["onTime"]) == sum(r["onTime"] for r in departments),
         (total, sum(r["due"] for r in departments), sum(r["due"] for r in modules)),
     )
+    check("Every department and module line's minus score is -10 for each never done, 0 when none, with a true minus sign", not minus_wrong(departments) and not minus_wrong(modules), (minus_wrong(departments) + minus_wrong(modules))[:3])
+    tile = page.locator("[data-overall='minus']")
+    tile_minus = int(tile.get_attribute("data-minus")) if tile.count() else None
+    check(
+        "The plant's minus score is the departments' added up, and -10 for each of the plant's never done",
+        tile_minus == sum(r["minus"] for r in departments) == minus_for(int(total["overdue"])) and total.get("minus") == minus_text(tile_minus or 0)
+        and int(tile.get_attribute("data-open-today")) == sum(r["openToday"] for r in departments),
+        (tile_minus, total, [(r["key"], r["minus"]) for r in departments]),
+    )
 
     # ==================================================================
     # 3. Documents: worst first, each line its own records on file
@@ -348,11 +465,12 @@ with sync_playwright() as p:
     check("The documents table lists every record-holding format", len(documents) >= 40, len(documents))
     check("Every document line adds up, and its score is the formula", not adds_up(documents), adds_up(documents)[:3])
     check("Documents are listed worst first", worst_first(documents), [r["score"] for r in documents][:20])
+    check("Every document line's minus score is -10 for each never done", not minus_wrong(documents), minus_wrong(documents)[:3])
     master = stored(page, "master")
     viscosity = next((r for r in documents if r["key"] == "qc-viscosity"), None)
     mine = recount(records, master, "qc-viscosity", focus_first, month_last, today_iso)
     check(
-        "F-QC-30's line is what its records on file say, recounted here: on time, late, never done and not yet due",
+        "F-QC-30's line is what its records on file say, recounted here: on time, late, never done, not yet due and still open today",
         viscosity is not None and {k: viscosity[k] for k in mine} == mine and (THIN or viscosity["due"] > 0),
         (viscosity, mine),
     )
@@ -364,6 +482,7 @@ with sync_playwright() as p:
     year_total = overall(page)
     year_departments = table_rows(page, "performance-departments")
     check("This year's lines add up as well", not adds_up(year_departments) and not adds_up(table_rows(page, "performance-modules")), adds_up(year_departments)[:3])
+    check("...and this year's minus scores are -10 for each never done", not minus_wrong(year_departments) and not minus_wrong(table_rows(page, "performance-documents")), minus_wrong(year_departments)[:3])
     check(
         "The demo year has the spread a scorecard is for: records on time, late and never done",
         THIN or (int(year_total["onTime"]) > 0 and int(year_total["late"]) > 0 and int(year_total["overdue"]) > 0),
@@ -406,6 +525,7 @@ with sync_playwright() as p:
         card.count() == 1 and card.get_attribute("data-scored") == "no" and card.locator("[data-field='person-score']").count() == 0 and card.locator("[data-field='person-unscored']").count() == 1,
         card.first.evaluate("el => el.textContent") if card.count() else None,
     )
+    check("...and no minus score either: it answers for no record", card.count() == 1 and card.locator("[data-field='person-minus']").count() == 0)
     written = card.locator(".score-card-name.notranslate[translate='no']")
     check("A person's name is shown as written, never translated", card.count() == 1 and written.count() == 1 and written.evaluate("el => el.textContent.trim()") == VIEWER)
     check("The page says how a record counts where a department has more than one account", "counts for the person who submitted it" in page.locator("[data-section='performance-people-rule']").evaluate("el => el.textContent"))
@@ -430,12 +550,19 @@ with sync_playwright() as p:
     scored = page.locator("[data-person][data-scored='yes']").evaluate_all(
         """els => els.map((el) => {
              const n = (name) => Number(((el.querySelector(`[data-count='${name}'] strong`) || {}).textContent || '0').trim());
-             return { name: el.dataset.person, score: el.querySelector("[data-field='person-score']").textContent.trim(), onTime: n('onTime'), late: n('late'), overdue: n('overdue') };
+             const m = el.querySelector("[data-field='person-minus']");
+             return { name: el.dataset.person, score: el.querySelector("[data-field='person-score']").textContent.trim(), onTime: n('onTime'), late: n('late'), overdue: n('overdue'),
+                      minus: m ? Number(m.dataset.minus) : null, minusText: m ? m.querySelector('.score-minus-figure').textContent.trim() : null };
            })"""
     )
     check(
         "Every person who is scored carries the formula's score for their own counts",
         all((None if s["score"] == "—" else int(s["score"])) == expected_score(s["onTime"], s["late"], s["overdue"]) for s in scored),
+        scored,
+    )
+    check(
+        "...and a minus score of -10 for each of their own never done",
+        all(s["minus"] == minus_for(s["overdue"]) and s["minusText"] == minus_text(s["minus"]) for s in scored),
         scored,
     )
 
@@ -466,6 +593,7 @@ with sync_playwright() as p:
         download.suggested_filename,
     )
     check("...headed with what each figure is", lines[0][:9] == ["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score"], lines[0])
+    check("...the minus score and what is still open today after the score, then the grade and the decision", lines[0][9:] == ["Minus score", "Still open today", "Grade", "Decision"], lines[0])
     kinds = [l[0] for l in lines[1:]]
     check("...with the people, the departments, the modules and every document", {"Person", "Department", "Module", "Document"} <= set(kinds) and kinds.count("Document") == len(on_screen), (sorted(set(kinds)), kinds.count("Document"), len(on_screen)))
     exported = next((l for l in lines if l[0] == "Department" and l[2] == "QC"), None)
@@ -475,10 +603,54 @@ with sync_playwright() as p:
         exported is not None and qc_row is not None and [int(x) for x in exported[3:7]] == [qc_row["due"], qc_row["onTime"], qc_row["late"], qc_row["overdue"]],
         (exported, qc_row),
     )
+    check(
+        "...its minus score and open today too, as plain numbers",
+        exported is not None and qc_row is not None and int(exported[9]) == qc_row["minus"] and int(exported[10]) == qc_row["openToday"],
+        (exported, qc_row),
+    )
+    # An account listed without a score has blanks in every figure, "No score" at the grade.
+    scored_rows = [l for l in lines[1:] if l[3] != ""]
+    check(
+        "Every scored line of the export has a minus score of -10 for each never done",
+        bool(scored_rows) and all(int(l[9]) == minus_for(int(l[6])) for l in scored_rows),
+        [l[:11] for l in scored_rows if int(l[9]) != minus_for(int(l[6]))][:3],
+    )
+    unscored_rows = [l for l in lines[1:] if l[0] == "Person" and l[3] == ""]
+    check("...and an account listed without a score has a blank there, and No score at the grade", all(l[3:11] == [""] * 8 and l[11] == "No score" for l in unscored_rows), unscored_rows[:2])
 
     page.evaluate(STUB_PRINT)
     page.click("[data-action='performance-print']")
     page.wait_for_timeout(300)
+    # The printout is fitted to the narrowest the scorecard's tables can be laid out, measured as the Print button
+    # scopes the page (utils/print.ts). There the Minus score heading wraps: its column is no wider than its longest
+    # word or figure (the review of 8-Oct-2026: a heading that never wrapped took the printout from 94% to 83%).
+    fit = page.evaluate(
+        """() => {
+             const table = document.querySelector("[data-table='performance-documents']");
+             // The column's heading, found by its cells' own name (data-col), whatever the heading's class.
+             const row = table && table.querySelector('tbody tr[data-grade]');
+             const at = row ? Array.from(row.children).findIndex((td) => td.dataset.col === 'minus') : -1;
+             const th = at >= 0 ? table.querySelectorAll('thead th')[at] : null;
+             if (!th) return null;
+             const box = (el) => el.getBoundingClientRect().width;
+             const width = table.style.width;
+             table.style.width = 'min-content';
+             const cs = getComputedStyle(th);
+             const room = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+             const word = (w) => { const s = document.createElement('span'); s.style.whiteSpace = 'nowrap'; s.textContent = w; th.appendChild(s); const x = box(s); s.remove(); return x; };
+             const words = th.textContent.trim().split(/\\s+/).map(word);
+             const figures = Array.from(table.querySelectorAll("tbody td[data-col='minus'] > span")).map(box);
+             const column = box(th);
+             table.style.width = width;
+             return { column, room, widest: Math.max(...words, ...figures), words, figures: figures.length,
+                      zoom: document.querySelector("[data-section='performance-scorecard']").style.zoom || '1', paper: document.documentElement.dataset.printPage || '' };
+           }"""
+    )
+    check(
+        "On paper the Minus score heading wraps: its column is no wider than its longest word or figure, so the printout keeps its size",
+        fit is not None and fit["figures"] > 0 and fit["column"] <= fit["widest"] + fit["room"] + 1,
+        fit,
+    )
     page.emulate_media(media="print")
     try:
         seen = page.evaluate(
@@ -489,6 +661,7 @@ with sync_playwright() as p:
                   rule: shown("[data-section='performance-rule']"),
                   heading: shown("[data-section='performance-scorecard'] .doc-header"),
                   departments: shown("[data-table='performance-departments']"),
+                  minus: shown("[data-table='performance-departments'] [data-col='minus']") && shown("[data-overall='minus']") && shown("[data-section='performance-minus-rule']"),
                   rows: document.querySelectorAll("[data-table='performance-documents'] tbody tr[data-grade]").length,
                   sidebar: shown('.app-sidebar'),
                   topbar: shown('.app-topbar'),
@@ -501,8 +674,8 @@ with sync_playwright() as p:
         page.emulate_media(media="screen")
         page.evaluate(END_PRINT)
     check(
-        "Print prints the scorecard - its heading, the rule, every table and every document line",
-        seen["printed"] == 1 and seen["scoped"] and seen["scorecard"] and seen["rule"] and seen["heading"] and seen["departments"] and seen["rows"] == len(on_screen),
+        "Print prints the scorecard - its heading, the rule, every table, the minus score and every document line",
+        seen["printed"] == 1 and seen["scoped"] and seen["scorecard"] and seen["rule"] and seen["heading"] and seen["departments"] and seen["minus"] and seen["rows"] == len(on_screen),
         seen,
     )
     check("...alone: no sidebar, no top bar, no period picker and no buttons on the paper", not any(seen[k] for k in ("sidebar", "topbar", "period", "exportButton", "printButton")), seen)
@@ -557,6 +730,11 @@ with sync_playwright() as p:
             figures["decision"],
         )
         check("...and no warning of a part score: every department it answers for is on its own screen", figures["partial"] == "", figures["partial"])
+        check(
+            "...with QC's minus score and QC's records still open today",
+            figures["minus"] == dept["minus"] == minus_for(dept["overdue"]) and figures["minusText"] == dept["minusText"] and figures["openToday"] == dept["openToday"],
+            (figures, dept),
+        )
     qc_listing = directory(page)
     qc_people = (json.loads(qc_listing["text"]) if qc_listing["status"] == 200 else {}).get("people") or []
     check(
@@ -614,6 +792,11 @@ with sync_playwright() as p:
             (hers, theirs, shared_dept),
         )
         check(
+            "...so each of them loses 10 for it: both minus scores are the department's",
+            hers["minus"] == theirs["minus"] == shared_dept["minus"] == minus_for(shared_dept["overdue"]),
+            (hers, theirs, shared_dept),
+        )
+        check(
             "A submitted record counts for the person who submitted it, however the name was typed: hers are hers alone",
             hers["onTime"] + hers["late"] == shared_dept["onTime"] + shared_dept["late"] and theirs["onTime"] + theirs["late"] == shared_dept["onTime"] + shared_dept["late"] - by_her,
             (hers, theirs, shared_dept, by_her),
@@ -648,6 +831,73 @@ with sync_playwright() as p:
     page.click("[data-action='performance-retry-directory']")
     page.wait_for_timeout(1500)
     check("Try again reads them once the server answers", page.locator(f"[data-person='{QC_PERSON}']").count() == 1 and unavailable.count() == 0)
+
+    # ==================================================================
+    # 11. In Gujarati the minus score's words are the reviewed ones, never Google's
+    # ==================================================================
+    # Google Translate made "takes 10 off" into "10 runs" and "each takes a 10 discount" (the review of 8-Oct-2026).
+    # With ગુજરાતી chosen, the minus score's words are the built-in Gujarati, marked for Google to leave alone,
+    # while Google (its stand-in) translates the rest of the page from the English.
+    MINE = f"[data-person='{QC_PERSON}'] [data-field='person-minus']"
+    english_minus = page.locator(MINE).get_attribute("data-minus") if page.locator(MINE).count() else None
+    page.unroute("**/translate_a/**")
+    page.route("**/translate_a/**", lambda route: route.fulfill(status=200, content_type="text/javascript", body=FAKE_GOOGLE))
+    page.select_option(".lang-select", "gu")
+    page.wait_for_timeout(1800)
+    dismiss(page)
+    close_assistant(page)
+    seen_gu = page.evaluate(
+        """(mine) => {
+             const words = (el) => (el ? { text: el.textContent.trim(), kept: !!el.closest("[translate='no'], .notranslate") } : null);
+             const one = (sel) => words(document.querySelector(sel));
+             const tile = document.querySelector("[data-overall='minus']");
+             const band = document.querySelector(mine);
+             return {
+               translated: document.documentElement.classList.contains('translated-ltr'),
+               around: (document.querySelector("[data-section='performance-rule'] > strong") || {}).textContent || '',
+               rule: one("[data-section='performance-minus-rule']"),
+               band: words(band && band.querySelector('.score-minus-label')),
+               open: one("[data-field='person-open-today']"),
+               tile: words(tile && tile.parentElement.querySelector('.stat-label')),
+               tileOpen: one("[data-field='overall-open-today']"),
+               headings: Array.from(document.querySelectorAll('thead th.score-minus-head')).map(words),
+               minus: band ? band.dataset.minus : null,
+               figure: band ? band.querySelector('.score-minus-figure').textContent.trim() : null,
+             };
+           }""",
+        MINE,
+    )
+    shown_gu = [seen_gu["rule"], seen_gu["band"], seen_gu["tile"], *seen_gu["headings"], *([seen_gu["open"]] if seen_gu["open"] else []), *([seen_gu["tileOpen"]] if seen_gu["tileOpen"] else [])]
+    check("Choosing ગુજરાતી has Google (its stand-in) translate the page from the English", seen_gu["translated"] and seen_gu["around"].startswith(MARK), seen_gu["around"])
+    check(
+        "...but the minus score's words are never handed to it: every one is marked for Google to leave alone, and none was translated",
+        all(w is not None and w["kept"] and MARK not in w["text"] for w in shown_gu) and len(seen_gu["headings"]) == 3,
+        shown_gu,
+    )
+    check(
+        "...they are the reviewed Gujarati: 10 taken off for each record never done, no English left, and no 'runs' or 'discount'",
+        seen_gu["rule"] is not None and seen_gu["rule"]["text"].startswith(f"{MINUS_GU}:") and "10 ઘટાડે છે" in seen_gu["rule"]["text"] and f"{MINUS}20" in seen_gu["rule"]["text"]
+        and seen_gu["tile"] is not None and seen_gu["tile"]["text"] == MINUS_GU and all(h["text"] == MINUS_GU for h in seen_gu["headings"])
+        and seen_gu["band"] is not None and seen_gu["band"]["text"].startswith(MINUS_GU) and ("10 ઓછા" in seen_gu["band"]["text"] or "કંઈ છૂટ્યું નથી" in seen_gu["band"]["text"])
+        and (seen_gu["open"] is None or "10 ઘટશે" in seen_gu["open"]["text"])
+        and not any(any(c.isascii() and c.isalpha() for c in w["text"]) or "રન" in w["text"] or "ડિસ્કાઉન્ટ" in w["text"] for w in shown_gu if w),
+        shown_gu,
+    )
+    check("...and the figure is the same as in English", english_minus is not None and seen_gu["minus"] == english_minus and seen_gu["figure"] == minus_text(int(english_minus)), (english_minus, seen_gu["minus"], seen_gu["figure"]))
+    # English again: the page reloads in English and Google is not loaded.
+    page.select_option(".lang-select", "en")
+    page.wait_for_timeout(2500)
+    page.wait_for_selector("[data-section='performance-minus-rule']", timeout=30000)
+    dismiss(page)
+    close_assistant(page)
+    back_rule = page.locator("[data-section='performance-minus-rule']").evaluate("el => el.textContent")
+    check(
+        "Choosing English again brings the English words back",
+        "takes 10 off" in back_rule and MARK not in back_rule and not page.evaluate("document.documentElement.classList.contains('translated-ltr')"),
+        back_rule,
+    )
+    page.unroute("**/translate_a/**")
+    page.route("**/translate_a/**", lambda route: route.abort())
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

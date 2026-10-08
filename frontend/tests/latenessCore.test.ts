@@ -170,10 +170,11 @@ namespace REFERENCE {
     }
     return { summary };
   }
+  // The line as it stood: the minus score (§92) was added beside it later, and is held to its own rule below.
   function line(t: Tally, today: string): ScoreLine {
     const score = scoreOf(t.onTime, t.late, t.overdue);
     const g = grade(score);
-    return { due: t.onTime + t.late + t.overdue, onTime: t.onTime, late: t.late, overdue: t.overdue, pending: t.pending, score, grade: g, decision: decide(t, g, today) };
+    return { due: t.onTime + t.late + t.overdue, onTime: t.onTime, late: t.late, overdue: t.overdue, pending: t.pending, score, grade: g, decision: decide(t, g, today) } as ScoreLine;
   }
   function worstFirst(a: ScoreLine, b: ScoreLine): number {
     if (a.score === null || b.score === null) return a.score === b.score ? 0 : a.score === null ? 1 : -1;
@@ -430,9 +431,32 @@ test("every record is judged exactly as before: outcome, days late and who hande
   assert.ok(compared > 10000, `${compared} judgements compared`);
 });
 
+// THE SCORECARD AS IT STOOD. §92 adds the minus score beside every line (`minus`
+// and `openToday`) and nothing else changes: those two are taken off before the
+// comparison with the reference, and every line is held to the minus score's own
+// rule on the way, so nothing is loosened.
+type AnyLine = ScoreLine & { worst?: ScoreLine[] };
+const linesOf = (cards: Scorecards): AnyLine[] => [...cards.byPerson, ...cards.byPerson.flatMap((p) => p.worst), ...cards.byDepartment, ...cards.byModule, ...cards.byDocument];
+function asBefore(cards: Scorecards): Scorecards {
+  const strip = <T extends ScoreLine>(l: T): T => {
+    const { minus: _minus, openToday: _openToday, ...rest } = l;
+    void _minus;
+    void _openToday;
+    return rest as T;
+  };
+  return {
+    period: cards.period,
+    byPerson: cards.byPerson.map((p) => ({ ...strip(p), worst: p.worst.map(strip) })),
+    byDepartment: cards.byDepartment.map(strip),
+    byModule: cards.byModule.map(strip),
+    byDocument: cards.byDocument.map(strip),
+  };
+}
+
 test("every scorecard is the same as before — people, departments, modules, documents, grades and sentences", () => {
   const periods: (PeriodKey | PeriodRange)[] = [...PERIODS.map((p) => p.key), monthRange(2026, 8, "September 2026"), monthRange(2026, 6), { from: "2026-07-15", to: "2026-09-20" }];
   let compared = 0;
+  let minusLines = 0;
   for (const today of TODAYS) {
     for (const c of calendars()) {
       for (const period of periods) {
@@ -440,13 +464,21 @@ test("every scorecard is the same as before — people, departments, modules, do
           const side = ALL.filter((r) => r.isDemo === isDemo);
           const now = scorecards(side, documents, PEOPLE, period, today, c.now);
           const before = REFERENCE.scorecardsRef(side, documents, PEOPLE, period, today, c.ref);
-          assert.deepEqual(now, before, `${typeof period === "string" ? period : `${period.from}..${period.to}`} judged on ${today}, ${c.label}, ${isDemo ? "demo" : "live"}`);
+          const where = `${typeof period === "string" ? period : `${period.from}..${period.to}`} judged on ${today}, ${c.label}, ${isDemo ? "demo" : "live"}`;
+          assert.deepEqual(asBefore(now), before, where);
+          // The minus score beside it (§92): -10 for each never done, exactly 0 (never -0) when none.
+          for (const l of linesOf(now)) {
+            assert.ok(Object.is(l.minus, l.overdue > 0 ? -10 * l.overdue : 0), `${where}: minus ${l.minus} for ${l.overdue} never done`);
+            assert.ok(Number.isInteger(l.openToday) && l.openToday >= 0 && l.openToday <= l.pending, `${where}: ${l.openToday} open today of ${l.pending} not due yet`);
+            if (l.minus < 0) minusLines += 1;
+          }
           compared += 1;
         }
       }
     }
   }
   assert.equal(compared, TODAYS.length * 3 * 7 * 2);
+  assert.ok(minusLines > 100, `lines with something never done to take off: ${minusLines}`);
 });
 
 test("the shared-department rule, said outright: who a record counts for", () => {
