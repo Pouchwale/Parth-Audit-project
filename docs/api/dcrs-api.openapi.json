@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DCRS API for the Mitra mobile app (the Audit Assistant)",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "summary": "Read and change DCRS data as a signed-in person, through DCRS's own rules.",
-    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. A session lasts until the close of the day it was started — the end of the plant's working hours (6:20 pm unless the super admin changes them) for everybody but the super admin, whose session lasts until midnight, factory time (REQUIREMENTS §84); `session.endsAt` in the sign-in answer says when. Outside the plant's working hours — before the opening, after the close, on the weekly off or a festival holiday — anybody but the super admin is refused with 403 `outside-working-hours`. WHAT MITRA DOES, FROM THE MOBILE APP (REQUIREMENTS §85): the routes tagged Mitra — documents, today's facts, records found, read, searched and printed, records opened, changed and acted on, the equipment list (F/MNT/01) and what stands out (the insights) — are answered by DCRS's own engine run on the server, so every change goes through DCRS's own checks, history and activity log, exactly as Mitra's own tools in the browser; each one maps to one of Mitra's tools (docs/chatbot-integration.md has the table). The super admin's escalations (GET /api/v1/escalations) are read from the server's own, for the super admin only. A CHANGE must be confirmed by the person first. See docs/chatbot-integration.md."
+    "description": "The Digital Controlled Record System's API for another server acting as a signed-in person (REQUIREMENTS §83). Sign in with POST /api/auth/login; send the session token (the dcrs_session cookie's value) as `Authorization: Bearer <token>` on every /api/v1 call, and name the calling server in `X-Client-Name`. Everything is JSON except the PDF. The person's departments decide what may be read and changed, exactly as in DCRS itself. A session lasts until the close of the day it was started — the end of the plant's working hours (6:20 pm unless the super admin changes them) for everybody but the super admin, whose session lasts until midnight, factory time (REQUIREMENTS §84); `session.endsAt` in the sign-in answer says when. Outside the plant's working hours — before the opening, after the close, on the weekly off or a festival holiday — anybody but the super admin is refused with 403 `outside-working-hours`. WHAT MITRA DOES, FROM THE MOBILE APP (REQUIREMENTS §85): the routes tagged Mitra — documents, today's facts, records found, read, searched and printed, records opened, changed and acted on, the equipment list (F/MNT/01) and what stands out (the insights) — are answered by DCRS's own engine run on the server, so every change goes through DCRS's own checks, history and activity log, exactly as Mitra's own tools in the browser; each one maps to one of Mitra's tools (docs/chatbot-integration.md has the table). The super admin's escalations (GET /api/v1/escalations) are read from the server's own, for the super admin only. A CHANGE must be confirmed by the person first. See docs/chatbot-integration.md. NOTIFICATIONS (REQUIREMENTS §97): each person's notifications, kept by DCRS in PostgreSQL and worded on every read in the language asked (English, Hindi or Gujarati) - GET /api/v1/notifications and POST /api/v1/notifications/read - with the phone's push devices (POST and DELETE /api/v1/devices), the person's choice of what is pushed (/api/v1/notification-preferences) and a test push (POST /api/v1/notifications/test). The website reads the same at /api/notifications by its session cookie."
   },
   "servers": [
     {
@@ -45,6 +45,10 @@
     {
       "name": "Mitra",
       "description": "What Mitra does in DCRS, for the Mitra mobile app (REQUIREMENTS §85): each route is one of Mitra's tools, answered by DCRS's own engine on the server."
+    },
+    {
+      "name": "Notifications",
+      "description": "Each person's notifications (REQUIREMENTS §97): kept by DCRS, worded on every read in the language asked, pushed to the person's phones by DCRS through Expo's push service."
     }
   ],
   "paths": {
@@ -1150,7 +1154,7 @@
         ],
         "operationId": "todaysFacts",
         "summary": "READ — today's facts (Mitra's todays_facts)",
-        "description": "Whether today is a working day, the weekly off and the next holidays and adjustment days, the plant's hours, and what is overdue, due today, coming in three days, ready to submit, needing input and awaiting verification — for the person's own departments. The day is the server's (the plant's).",
+        "description": "Whether today is a working day, the weekly off and the next holidays and adjustment days, the plant's hours, and what is overdue, due today, coming in three days, ready to submit, needing input and awaiting verification. For a person: what they answer for and what they may verify (REQUIREMENTS §96, §97), each item with its `module`, `canSubmit` and `canVerify`. For the super admin: everything, counted by module in `byModule`. The day is the server's (the plant's).",
         "parameters": [
           {
             "$ref": "#/components/parameters/ClientName"
@@ -2357,7 +2361,7 @@
         ],
         "operationId": "recordAction",
         "summary": "CHANGE — submit, verify, send back, resume, reopen, cancel a correction, delete (Mitra's record_action)",
-        "description": "What the record page's buttons do, through DCRS's own lifecycle and validation (engine/recordLifecycle.ts): submit (a record being filled in; DCRS's validation must pass, 409 invalid with the problems otherwise), verify or approve (a submitted record; a complaint checklist's approval stamps Approved By), send_back with a reason (a submitted record), resume (one sent back), reopen with a reason (submitted, verified or sent back — it must then be submitted and verified again), cancel_correction (puts a reopened record back exactly as it was), delete with a reason (recorded on the deletions log). Each writes its entry in the record's history in the person's name with the note \"Through <client>: <reason or the action>\", and the activity line the browser writes for it (Record submitted for verification, Record verified, Record sent back, Record resumed, Record reopened for correction, Correction cancelled, Record deleted) with the detail \"Through <client>: …\". Ask the person first.",
+        "description": "What the record page's buttons do, through DCRS's own lifecycle and validation (engine/recordLifecycle.ts): submit (a record being filled in; DCRS's validation must pass, 409 invalid with the problems otherwise), verify or approve (a submitted record; a complaint checklist's approval stamps Approved By), send_back with a reason (a submitted record), resume (one sent back), reopen with a reason (submitted, verified or sent back — it must then be submitted and verified again), cancel_correction (puts a reopened record back exactly as it was), delete with a reason (recorded on the deletions log). Each writes its entry in the record's history in the person's name with the note \"Through <client>: <reason or the action>\", and the activity line the browser writes for it (Record submitted for verification, Record verified, Record sent back, Record resumed, Record reopened for correction, Correction cancelled, Record deleted) with the detail \"Through <client>: …\". Ask the person first. A record the assistant prepared is submitted only with \"reviewed\": true, sent after the person ticked \"Reviewed and correct\" (409 needs-review otherwise).",
         "parameters": [
           {
             "$ref": "#/components/parameters/RecordId"
@@ -2383,6 +2387,12 @@
                   "value": {
                     "action": "reopen",
                     "reason": "A reading was written against the wrong hour"
+                  }
+                },
+                "submitReviewed": {
+                  "value": {
+                    "action": "submit",
+                    "reviewed": true
                   }
                 }
               }
@@ -3124,6 +3134,933 @@
         "x-dcrs-kind": "read",
         "x-mitra-answer": "Mitra's live facts for the super admin in DCRS: engine/assistantLocal.ts buildAssistantContext (REQUIREMENTS §75)"
       }
+    },
+    "/api/notifications": {
+      "x-dcrs-pending": "A1 (the notification engine): registered by the ledger's commit",
+      "get": {
+        "tags": [
+          "Notifications",
+          "Read"
+        ],
+        "operationId": "webNotifications",
+        "summary": "READ - the person's notifications",
+        "description": "The signed-in person's notifications (REQUIREMENTS §97), each worded in the language asked. Only the person's own: nobody reads another's. The website's own route, by its session cookie (the bell and the Notifications page); the phone uses the /api/v1 twin.",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "open: the items still needing the person; all: every item of the last 60 days.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "all"
+              ],
+              "default": "open"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "description": "The id of the last item already shown: the next page is the items older than it.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "The language the titles and bodies are worded in.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en",
+                "hi",
+                "gu"
+              ],
+              "default": "en"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The person's notifications, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationList"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 412,
+                      "kind": "needs_input",
+                      "priority": "high",
+                      "title": "12 readings to enter: Daily Pest Control Monitoring Record",
+                      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to enter, then submit.",
+                      "data": {
+                        "documentId": "daily-pest-monitoring",
+                        "formatNo": "F/HR/17",
+                        "documentName": "Daily Pest Control Monitoring Record",
+                        "module": "HR",
+                        "recordId": "rec-mgj2k1-7-abcd12",
+                        "dueDate": "2026-10-09",
+                        "count": 12
+                      },
+                      "createdAt": "2026-10-09T03:00:12.000Z",
+                      "readAt": null,
+                      "resolvedAt": null
+                    }
+                  ],
+                  "unread": 1,
+                  "open": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "lang must be en, hi or gu.",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        }
+      }
+    },
+    "/api/notifications/read": {
+      "x-dcrs-pending": "A1 (the notification engine): registered by the ledger's commit",
+      "post": {
+        "tags": [
+          "Notifications",
+          "Change"
+        ],
+        "operationId": "webNotificationsRead",
+        "summary": "CHANGE - mark notifications read",
+        "description": "Marks the person's own notifications read: the ones named, or every one. The website's own route, by its session cookie (the bell and the Notifications page); the phone uses the /api/v1 twin.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadRequest"
+              },
+              "examples": {
+                "some": {
+                  "value": {
+                    "ids": [
+                      412,
+                      409
+                    ]
+                  }
+                },
+                "all": {
+                  "value": {
+                    "all": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Marked; the unread count now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadResponse"
+                },
+                "example": {
+                  "unread": 0
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "Send ids (a list of at most 500 numbers) or all: true.",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "x-dcrs-pending": "A1 (the notification engine): registered by the ledger's commit",
+      "get": {
+        "tags": [
+          "Notifications",
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "notifications",
+        "summary": "READ - the person's notifications",
+        "description": "The signed-in person's notifications (REQUIREMENTS §97): the phone's inbox, each worded in the language asked. Only the person's own: nobody reads another's. The super admin's include the morning and evening summaries and the escalations.",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "open: the items still needing the person; all: every item of the last 60 days.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "all"
+              ],
+              "default": "open"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "description": "The id of the last item already shown: the next page is the items older than it.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "The language the titles and bodies are worded in.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en",
+                "hi",
+                "gu"
+              ],
+              "default": "en"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The person's notifications, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationList"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 412,
+                      "kind": "needs_input",
+                      "priority": "high",
+                      "title": "12 readings to enter: Daily Pest Control Monitoring Record",
+                      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to enter, then submit.",
+                      "data": {
+                        "documentId": "daily-pest-monitoring",
+                        "formatNo": "F/HR/17",
+                        "documentName": "Daily Pest Control Monitoring Record",
+                        "module": "HR",
+                        "recordId": "rec-mgj2k1-7-abcd12",
+                        "dueDate": "2026-10-09",
+                        "count": 12
+                      },
+                      "createdAt": "2026-10-09T03:00:12.000Z",
+                      "readAt": null,
+                      "resolvedAt": null
+                    }
+                  ],
+                  "unread": 1,
+                  "open": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "lang must be en, hi or gu.",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read": {
+      "x-dcrs-pending": "A1 (the notification engine): registered by the ledger's commit",
+      "post": {
+        "tags": [
+          "Notifications",
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "notificationsRead",
+        "summary": "CHANGE - mark notifications read",
+        "description": "Marks the person's own notifications read: the ones named, or every one (\"Mark all read\").",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadRequest"
+              },
+              "examples": {
+                "some": {
+                  "value": {
+                    "ids": [
+                      412,
+                      409
+                    ]
+                  }
+                },
+                "all": {
+                  "value": {
+                    "all": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Marked; the unread count now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadResponse"
+                },
+                "example": {
+                  "unread": 0
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "Send ids (a list of at most 500 numbers) or all: true.",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/test": {
+      "x-dcrs-pending": "A1 (the notification engine): registered by the ledger's commit",
+      "post": {
+        "tags": [
+          "Notifications",
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "notificationsTest",
+        "summary": "CHANGE - send a test push to the caller's own phones",
+        "description": "Sends \"This is a test notification from DCRS\" to every phone the caller registered, in each phone's language. Sends nothing when push is switched off on the server (PUSH_ENABLED=0) or no phone is registered, and says why. At most one test every 20 seconds per person.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "How many phones it was sent to.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestPushResponse"
+                },
+                "examples": {
+                  "sent": {
+                    "value": {
+                      "sent": 1
+                    }
+                  },
+                  "off": {
+                    "value": {
+                      "sent": 0,
+                      "reason": "No phone is registered for notifications on this account yet."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          },
+          "429": {
+            "description": "A test was sent a moment ago.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "too-many": {
+                    "value": {
+                      "error": "A test was sent a moment ago. Wait 20 seconds and try again.",
+                      "code": "too-many"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices": {
+      "x-dcrs-pending": "A1 (the notification engine): registered by the ledger's commit",
+      "post": {
+        "tags": [
+          "Notifications",
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "deviceRegister",
+        "summary": "CHANGE - register this phone for push notifications",
+        "description": "Keeps the phone's Expo push token for the signed-in person, with the language its pushes are worded in. Sent again when the token or the language changes. A token another account registered moves to this one (one phone, one person). The token is never written in a log.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRequest"
+              },
+              "example": {
+                "token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+                "platform": "android",
+                "language": "gu",
+                "appVersion": "1.1.0",
+                "deviceName": "Galaxy A14"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "token must be an Expo push token, ExponentPushToken[...].",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Notifications",
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "deviceRemove",
+        "summary": "CHANGE - stop pushing to this phone (sign-out)",
+        "description": "Forgets the phone's token for the signed-in person. A token that is not theirs, or not known, is answered the same way.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceDeleteRequest"
+              },
+              "example": {
+                "token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Forgotten.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                },
+                "example": {
+                  "ok": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "token is needed.",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        }
+      }
+    },
+    "/api/v1/notification-preferences": {
+      "x-dcrs-pending": "A1 (the notification engine): registered by the ledger's commit",
+      "get": {
+        "tags": [
+          "Notifications",
+          "Mitra",
+          "Read"
+        ],
+        "operationId": "notificationPreferences",
+        "summary": "READ - what is pushed to this person",
+        "description": "Every kind with whether it is pushed (true unless the person switched it off), and the phone's own reminders when the person has chosen.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The person's choices.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                },
+                "example": {
+                  "kinds": {
+                    "ready": true,
+                    "needs_input": true,
+                    "due": true,
+                    "upcoming": false,
+                    "overdue": true,
+                    "verify": true,
+                    "sent_back": true,
+                    "boss_summary": true,
+                    "escalation": true,
+                    "access_changed": true
+                  },
+                  "reminders": false
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Notifications",
+          "Mitra",
+          "Change"
+        ],
+        "operationId": "notificationPreferencesSet",
+        "summary": "CHANGE - choose what is pushed",
+        "description": "A kind set to false is not pushed; it still reaches the inbox. Kinds left out keep their setting. Answers every kind, as GET does.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientName"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferences"
+              },
+              "example": {
+                "kinds": {
+                  "upcoming": false
+                },
+                "reminders": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The person's choices now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                },
+                "example": {
+                  "kinds": {
+                    "ready": true,
+                    "needs_input": true,
+                    "due": true,
+                    "upcoming": false,
+                    "overdue": true,
+                    "verify": true,
+                    "sent_back": true,
+                    "boss_summary": true,
+                    "escalation": true,
+                    "access_changed": true
+                  },
+                  "reminders": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "kinds must name notification kinds, each true or false.",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "$ref": "#/components/responses/PasswordChangeRequired"
+          }
+        }
+      }
+    },
+    "/api/access/rules": {
+      "x-dcrs-pending": "A2 (access levels on the server): documented by the shared contract, registered by A2's build",
+      "get": {
+        "tags": [
+          "Read"
+        ],
+        "operationId": "accessRules",
+        "summary": "READ - who may do what (any signed-in account)",
+        "description": "The access rules the super admin has set (REQUIREMENTS §96), the stored version, and the plant's people as the defaults name them. By the website's session cookie.",
+        "responses": {
+          "200": {
+            "description": "The rules.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRulesAnswer"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Change"
+        ],
+        "operationId": "accessRulesSet",
+        "summary": "CHANGE - set who may do what (the super admin only)",
+        "description": "Replaces the access rules, made from the version the page read (409 when somebody saved in between). Every change is a line of the activity log and an access_changed notification to the person concerned.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessRulesPut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "version"
+                  ],
+                  "properties": {
+                    "version": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Anybody but the super admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "super-admin-only": {
+                    "value": {
+                      "error": "Only the super admin changes who may do what.",
+                      "code": "super-admin-only"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The rules changed since they were read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "stale": {
+                    "value": {
+                      "error": "Somebody saved the access rules after this page read them. Reload and make the change again.",
+                      "code": "stale"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/accounts/create-missing": {
+      "x-dcrs-pending": "A2 (access levels on the server): documented by the shared contract, registered by A2's build",
+      "post": {
+        "tags": [
+          "Change"
+        ],
+        "operationId": "accessCreateMissing",
+        "summary": "CHANGE - create the plant's missing accounts (the super admin only)",
+        "description": "Creates an account for each of the plant's people (name.surname@gpp.local) who has none, on one first password the person changes at the first sign-in.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMissingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Made, and the ones already there.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateMissingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "The first password must be at least 8 characters.",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Anybody but the super admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "super-admin-only": {
+                    "value": {
+                      "error": "Only the super admin creates accounts.",
+                      "code": "super-admin-only"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3413,7 +4350,7 @@
         }
       },
       "ChangeRefused": {
-        "description": "Refused by DCRS's own rules. needs-reopen: the record is submitted or verified — reopen it with a reason first (action reopen). wrong-status: that action does not apply to it now (`actions` says what does). invalid: DCRS's validation stopped it (`problems`). busy: the records kept changing while this was saved — try again.",
+        "description": "Refused by DCRS's own rules. needs-reopen: the record is submitted or verified — reopen it with a reason first (action reopen). wrong-status: that action does not apply to it now (`actions` says what does). invalid: DCRS's validation stopped it (`problems`). busy: the records kept changing while this was saved — try again. needs-review: a record the assistant prepared is submitted only after the person reviewed it - send \"reviewed\": true.",
         "content": {
           "application/json": {
             "schema": {
@@ -3455,6 +4392,12 @@
                 "value": {
                   "error": "The records kept changing while this was being saved. Try again in a moment.",
                   "code": "busy"
+                }
+              },
+              "needs-review": {
+                "value": {
+                  "error": "The assistant prepared the Lamination Adhesive Viscosity Record of 09-Oct-2026. Check every value, tick \"Reviewed and correct\", then submit it.",
+                  "code": "needs-review"
                 }
               }
             }
@@ -4349,6 +5292,21 @@
               "type": "string"
             },
             "description": "needsInput only: what still stops a submit."
+          },
+          "module": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The module's code (QC, HR, ...) of the document; null for one in no module."
+          },
+          "canSubmit": {
+            "type": "boolean",
+            "description": "Whether this person may submit it now (their level on the document is Write or more, and the record is being filled in)."
+          },
+          "canVerify": {
+            "type": "boolean",
+            "description": "Whether this person may verify it now (Write or more, and the record is submitted)."
           }
         }
       },
@@ -4383,7 +5341,7 @@
       },
       "Today": {
         "type": "object",
-        "description": "Mitra's todays_facts: the plant's day and what is due for this person (their departments' documents).",
+        "description": "Mitra's todays_facts: the plant's day and what is due. For a person: the documents they answer for (and, for an account nobody has described yet, every document they may fill) and the records they may verify. For the super admin: everything, with `byModule`.",
         "properties": {
           "date": {
             "type": "string",
@@ -4456,6 +5414,13 @@
           },
           "workingHours": {
             "$ref": "#/components/schemas/PlantHours"
+          },
+          "byModule": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodayModuleCounts"
+            },
+            "description": "The super admin only: the lists above counted by module."
           }
         }
       },
@@ -4919,6 +5884,10 @@
             "type": "string",
             "maxLength": 500,
             "description": "Needed for send_back, reopen and delete."
+          },
+          "reviewed": {
+            "type": "boolean",
+            "description": "submit only: true once the person has ticked \"Reviewed and correct\" on the review screen. A record the assistant prepared (its `prepared` stamp) is refused with 409 needs-review without it (REQUIREMENTS §62, §97); with it, the history says \"Through <client>: Submitted from the phone after review\"."
           }
         }
       },
@@ -5617,6 +6586,522 @@
             "items": {
               "$ref": "#/components/schemas/Escalation"
             }
+          }
+        }
+      },
+      "NotificationKind": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "needs_input",
+          "due",
+          "upcoming",
+          "overdue",
+          "verify",
+          "sent_back",
+          "boss_summary",
+          "escalation",
+          "access_changed"
+        ],
+        "description": "ready: a record the assistant prepared that passes DCRS's checks - review it, then submit. needs_input: a record that is open and waits for a person's readings (`count` says how many things still stop a submit). due: due today and not started. upcoming: a heads-up by the document's frequency (the working day before for weekly and fortnightly, three days before for monthly, quarterly and yearly). overdue: still open after its day (`daysLate`), one item per record, updated daily. verify: a submitted record waiting for verification, for those with Write on the document other than the submitter. sent_back: a record sent back, for the person who submitted it, with the `reason`. boss_summary: the super admin's morning and evening counts by module (`modules`). escalation: one of the super admin's escalations (REQUIREMENTS §75), until it is acknowledged. access_changed: the super admin changed what this person may do."
+      },
+      "NotificationModuleCounts": {
+        "type": "object",
+        "required": [
+          "module",
+          "ready",
+          "needsInput",
+          "awaitingVerification",
+          "notSubmitted",
+          "overdue"
+        ],
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "The module's code: QC, HR, SYS, MNT, PRD, PUR, STR, MKT, DISP or QA."
+          },
+          "ready": {
+            "type": "integer"
+          },
+          "needsInput": {
+            "type": "integer"
+          },
+          "awaitingVerification": {
+            "type": "integer"
+          },
+          "notSubmitted": {
+            "type": "integer",
+            "description": "Due today and not yet submitted."
+          },
+          "overdue": {
+            "type": "integer"
+          }
+        }
+      },
+      "NotificationData": {
+        "type": "object",
+        "description": "What the notification is about, in language-neutral facts: the title and body are worded from these on every read. Never a record's values. `subject`, `late`, `neverDone`, `level`, `by` and `part` were added to the shared contract (docs/chatbot-integration.md, Notification contract changes).",
+        "properties": {
+          "documentId": {
+            "type": "string"
+          },
+          "formatNo": {
+            "type": "string"
+          },
+          "documentName": {
+            "type": "string"
+          },
+          "module": {
+            "type": "string",
+            "description": "The module's code (QC, HR, ...)."
+          },
+          "recordId": {
+            "type": "string",
+            "description": "The record to open (mitra://task/<recordId>); absent for a sheet not started yet."
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "description": "needs_input: how many things still stop a submit (the readings to enter)."
+          },
+          "daysLate": {
+            "type": "integer",
+            "description": "overdue: whole days after the day it had to be in."
+          },
+          "reason": {
+            "type": "string",
+            "description": "sent_back: what must be put right, as the verifier wrote it."
+          },
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationModuleCounts"
+            },
+            "description": "boss_summary: the counts by module."
+          },
+          "subject": {
+            "type": "string",
+            "description": "escalation: the person or the department escalated."
+          },
+          "late": {
+            "type": "integer",
+            "description": "escalation: late submissions in the last 30 days."
+          },
+          "neverDone": {
+            "type": "integer",
+            "description": "escalation: records never done in the last 30 days."
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "none",
+              "read",
+              "write",
+              "edit"
+            ],
+            "description": "access_changed: the level the person now has."
+          },
+          "by": {
+            "type": "string",
+            "description": "verify: who submitted it; sent_back: who sent it back; access_changed: who changed it."
+          },
+          "part": {
+            "type": "string",
+            "enum": [
+              "morning",
+              "evening"
+            ],
+            "description": "boss_summary: which of the day's two summaries."
+          }
+        }
+      },
+      "NotificationItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "priority",
+          "title",
+          "body",
+          "data",
+          "createdAt",
+          "readAt",
+          "resolvedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NotificationKind"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "description": "Worded in the language asked (?lang=en|hi|gu), never from stored text."
+          },
+          "body": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/NotificationData"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "resolvedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the item stopped needing the person (the record moved on); null while it is open."
+          }
+        }
+      },
+      "NotificationList": {
+        "type": "object",
+        "required": [
+          "items",
+          "unread",
+          "open"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationItem"
+            },
+            "description": "Newest first."
+          },
+          "unread": {
+            "type": "integer",
+            "description": "Open items not yet read (the bell's count)."
+          },
+          "open": {
+            "type": "integer",
+            "description": "Open items, read or not (the app's badge)."
+          }
+        }
+      },
+      "ReadRequest": {
+        "type": "object",
+        "description": "Either ids (at most 500) or all: true.",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 500
+          },
+          "all": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "ReadResponse": {
+        "type": "object",
+        "required": [
+          "unread"
+        ],
+        "properties": {
+          "unread": {
+            "type": "integer"
+          }
+        }
+      },
+      "DeviceRequest": {
+        "type": "object",
+        "required": [
+          "token",
+          "platform",
+          "language"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The Expo push token, ExponentPushToken[...] (or ExpoPushToken[...])."
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "android",
+              "ios"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "hi",
+              "gu"
+            ],
+            "description": "The language this phone's pushes are worded in."
+          },
+          "appVersion": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "deviceName": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      },
+      "DeviceDeleteRequest": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "Ok": {
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "NotificationPreferences": {
+        "type": "object",
+        "required": [
+          "kinds"
+        ],
+        "properties": {
+          "kinds": {
+            "type": "object",
+            "description": "A kind set to false is not pushed (it still reaches the inbox). Kinds left out keep their setting; GET answers every kind.",
+            "propertyNames": {
+              "$ref": "#/components/schemas/NotificationKind"
+            },
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "reminders": {
+            "type": "boolean",
+            "description": "The phone's own daily reminders (08:50 and 17:30 on working days). Absent until the person chooses."
+          }
+        }
+      },
+      "TestPushResponse": {
+        "type": "object",
+        "required": [
+          "sent"
+        ],
+        "properties": {
+          "sent": {
+            "type": "integer",
+            "description": "How many of the caller's phones Expo's push service accepted the test for."
+          },
+          "reason": {
+            "type": "string",
+            "description": "When nothing was sent: why, in words (push switched off on this server, no phone registered). Added to the shared contract (Notification contract changes)."
+          }
+        }
+      },
+      "AccessRules": {
+        "type": "object",
+        "description": "What the super admin has set (frontend/src/engine/accessRules.ts AccessRules): `people` by lower-cased email, each with `modules` and `documents` levels; `responsibility` by document id, the emails who answer for it.",
+        "required": [
+          "version",
+          "people",
+          "responsibility"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "people": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "modules": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "read",
+                      "write",
+                      "edit"
+                    ]
+                  }
+                },
+                "documents": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "read",
+                      "write",
+                      "edit"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "responsibility": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "AccessRulesAnswer": {
+        "type": "object",
+        "required": [
+          "rules",
+          "version",
+          "defaults"
+        ],
+        "properties": {
+          "rules": {
+            "$ref": "#/components/schemas/AccessRules"
+          },
+          "version": {
+            "type": "integer",
+            "description": "The stored version; send it back as baseVersion."
+          },
+          "defaults": {
+            "type": "object",
+            "properties": {
+              "people": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "email": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AccessRulesPut": {
+        "type": "object",
+        "required": [
+          "rules",
+          "baseVersion"
+        ],
+        "properties": {
+          "rules": {
+            "$ref": "#/components/schemas/AccessRules"
+          },
+          "baseVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "CreateMissingRequest": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      },
+      "CreateMissingResponse": {
+        "type": "object",
+        "required": [
+          "created",
+          "existing"
+        ],
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "existing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TodayModuleCounts": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "integer"
+          },
+          "due": {
+            "type": "integer"
+          },
+          "upcoming": {
+            "type": "integer"
+          },
+          "readyToSubmit": {
+            "type": "integer"
+          },
+          "needsInput": {
+            "type": "integer"
+          },
+          "awaitingVerification": {
+            "type": "integer"
           }
         }
       }

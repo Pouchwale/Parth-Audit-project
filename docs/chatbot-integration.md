@@ -1,5 +1,18 @@
 # Connecting the Mitra mobile app (the Audit Assistant) to DCRS
 
+## Notification contract changes
+
+The notification routes below are the shared contract of 8 October 2026 (the build brief, section 5.3), exactly as given, with these additions. Each is optional and additive: an app written to the brief's shapes keeps working.
+
+1. **`data` carries six more optional facts**, so that every kind can be worded in English, Hindi and Gujarati from facts rather than stored sentences:
+   - `subject`, `late`, `neverDone` for `escalation` (who, and the counts of the last 30 days);
+   - `level` for `access_changed` (`none`, `read`, `write` or `edit`: the level the person now has);
+   - `by` for `verify` (who submitted it), `sent_back` (who sent it back) and `access_changed` (who changed it);
+   - `part` for `boss_summary` (`morning` or `evening`).
+2. **`POST /api/v1/notifications/test` may also answer `reason`**, a sentence saying why nothing was sent (push switched off on the server, or no phone registered), for the Settings screen's "state of push".
+3. **The push itself is described here** (it is not an HTTP route of DCRS, so the brief's contract has no shape for it): see [What a push carries](#what-a-push-carries).
+4. **Two refusals are added**: `409 needs-review` (a prepared record submitted without `"reviewed": true`) and `429 too-many` (a second test push within 20 seconds).
+
 This is the hand-off for the Audit Assistant's developer. It says how the assistant signs people in with their DCRS accounts, which DCRS calls it may make, and what must change on the assistant's side so both applications can share one PostgreSQL database. Everything here was checked against a working DCRS and a throwaway copy of its database on 29–30 September 2026.
 
 DCRS is the Digital Controlled Record System in this repository. The Audit Assistant is the chat and voice app at `github.com/Pouchwale/Parth-Audit-chatbot`. On 30 September 2026 its owner renamed the app and its server **Mitra**, the Mitra mobile app, after DCRS's own assistant. The parts written before then still say "the assistant".
@@ -501,6 +514,8 @@ It can be refused in three ways:
 }
 ```
 
+Each item also says its `module`, and whether the person may submit or verify it now (`canSubmit`, `canVerify`); see [Today, by person](#today-by-person).
+
 **`recordId: null` with `started: false`** means DCRS's calendar has the sheet but no one has opened it yet, so it has no id. Start it with `open_record` (`POST /api/v1/records` with `documentId` and `date`).
 
 ### Records
@@ -709,6 +724,8 @@ The patch is Mitra's own shape. DCRS applies it exactly as Mitra does:
   "history": [{ "at": "2026-09-30T10:32:13.959Z", "by": "Super Admin", "action": "verified", "note": "Through Mitra mobile app: verified", "fromStatus": "Pending Verification" }] }
 ```
 
+A record the assistant prepared is submitted only with `"reviewed": true`, after the person ticked "Reviewed and correct" (`409 needs-review` otherwise); see [Submitting a prepared record](#submitting-a-prepared-record-reviewed-first).
+
 An action that does not apply to the record as it stands is refused with `409 wrong-status`. The refusal's `actions` list says what does apply. A missing reason is `400 needs-reason`.
 
 ```json
@@ -763,6 +780,112 @@ These are added to the table in [Errors](#errors). Each is shown to the person i
 - **Some records have no PDF here.** CAPA inspection reports, training records and complaint checklists print from their own pages in DCRS, which the PDF printer does not open. Their `link` opens the page, which has its own Print button.
 - **Sheets not opened yet have no id.** A sheet DCRS's calendar has made but not stored has `recordId: null` (see [Today](#today)). Start it with `open_record`.
 - **The format is not changed from the app** (see `change_format` in [Not offered](#mitras-tools-and-the-routes)).
+
+## Notifications and the phone
+
+REQUIREMENTS §97. Every morning DCRS prepares the day's records on its own server, then tells each person what they answer for: in the website (the bell and the Notifications page) and on the phone (the inbox, Tasks and a push that arrives with the app closed). DCRS keeps the notifications in PostgreSQL and words them on every read in the language asked. The phone app talks only to the Mitra server, which relays these routes as the signed-in person; it holds no notification logic of its own.
+
+### Who is told what, and when
+
+| `kind` | Who | `data` | Ends when |
+|---|---|---|---|
+| `ready` | The people who answer for the document (with Write or more on it); nobody named: the super admin | `documentId`, `formatNo`, `documentName`, `module`, `recordId`, `dueDate` | The record leaves In Progress |
+| `needs_input` | As `ready` | as `ready`, and `count`: the things still stopping a submit (the readings to enter) | The record leaves In Progress, or passes the checks (it becomes `ready`) |
+| `due` | As `ready` | `documentId`, `formatNo`, `documentName`, `module`, `dueDate`, `recordId` when the sheet exists | The record is started or submitted, or the day ends (it becomes `overdue`) |
+| `upcoming` | As `ready` | as `due` | The due date arrives, or the record is submitted |
+| `overdue` | As `ready` | as `ready`, and `daysLate` (updated daily) | The record is submitted |
+| `verify` | Everyone with Write on the document other than the submitter; nobody: the super admin | as `ready`, and `by` (the submitter) | The record is verified or sent back |
+| `sent_back` | The person who submitted it | as `ready`, and `reason` and `by` (who sent it back) | The record is submitted again |
+| `boss_summary` | Every active super admin, morning and evening | `modules` (counts by module), `part`, `dueDate` (the day) | The next day |
+| `escalation` | Every active super admin | `subject`, `module`, `late`, `neverDone` | It is acknowledged |
+| `access_changed` | The person whose access changed | `module` or `documentName`, `level`, `by` | It is read |
+
+Frequency decides timing. Daily documents are prepared in the morning and nagged the same day. Weekly and fortnightly documents get a heads-up (`upcoming`) on the working day before. Monthly, quarterly and yearly documents get one three days ahead. As-required documents are told only when started, or when their two-day allowance runs out. Nothing is due on a closed day (the weekly off, a festival holiday).
+
+A record's values are never in a notification: ids, document names and counts only.
+
+### The routes
+
+| Route | What it does |
+|---|---|
+| `GET /api/v1/notifications?state=open\|all&limit=50&before=<id>&lang=en\|hi\|gu` | The person's own notifications, newest first: `{ items, unread, open }`. `state=open` (the default) is what still needs the person; `all` is everything of the last 60 days. `before` pages back. Nobody reads another person's items. |
+| `POST /api/v1/notifications/read` | `{ "ids": [412, 409] }` or `{ "all": true }`: marks the person's own items read. Answers `{ "unread": 0 }`. |
+| `POST /api/v1/devices` | `{ "token": "ExponentPushToken[...]", "platform": "android", "language": "gu", "appVersion": "1.1.0", "deviceName": "Galaxy A14" }`: keeps this phone's Expo push token for the person, with the language its pushes are worded in. Send it again when the token or the language changes. A token another account had moves to this one. Answers `{ "ok": true }`. |
+| `DELETE /api/v1/devices` | `{ "token": "..." }`: forgets the phone (at sign-out). Answers `{ "ok": true }`. |
+| `GET /api/v1/notification-preferences` | `{ "kinds": { "ready": true, ... every kind }, "reminders": false }`. A kind is pushed unless switched off. `reminders` (the phone's own 08:50 and 17:30 reminders) is absent until the person chooses. |
+| `PUT /api/v1/notification-preferences` | The same shape; kinds left out keep their setting. A kind switched off is not pushed, and still reaches the inbox. Answers as GET. |
+| `POST /api/v1/notifications/test` | Sends a test push to the caller's own phones, in each phone's language. Answers `{ "sent": 1 }`, or `{ "sent": 0, "reason": "..." }` when push is off on the server or no phone is registered. One test per 20 seconds. |
+
+The website reads the same through its session cookie: `GET /api/notifications` and `POST /api/notifications/read`.
+
+```json
+{
+  "items": [
+    {
+      "id": 412, "kind": "needs_input", "priority": "high",
+      "title": "12 readings to enter: Daily Pest Control Monitoring Record",
+      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to enter, then submit.",
+      "data": { "documentId": "daily-pest-monitoring", "formatNo": "F/HR/17", "documentName": "Daily Pest Control Monitoring Record", "module": "HR", "recordId": "rec-mgj2k1-7-abcd12", "dueDate": "2026-10-09", "count": 12 },
+      "createdAt": "2026-10-09T03:00:12.000Z", "readAt": null, "resolvedAt": null
+    }
+  ],
+  "unread": 1,
+  "open": 1
+}
+```
+
+`title` and `body` are worded on every read in the language asked (`lang`, English when left out). Show them as they come; open `data.recordId` with `GET /api/v1/records/{id}` (the Review screen), or the Tasks list when there is none.
+
+### What a push carries
+
+DCRS sends the pushes itself, through Expo's push service, to the tokens registered with `POST /api/v1/devices`. At most one push per person each time the server looks (every 5 minutes), worded in the phone's language:
+
+```json
+{
+  "to": "ExponentPushToken[...]",
+  "title": "Ready for you: Lamination Adhesive Viscosity Record",
+  "body": "F-QC-30 Lamination Adhesive Viscosity Record of 09-Oct-2026 is prepared. Review it, then submit.",
+  "data": { "url": "mitra://task/rec-mgj2k1-7-abcd12", "kind": "ready", "notificationId": 413, "recordId": "rec-mgj2k1-7-abcd12", "count": 1 },
+  "channelId": "tasks",
+  "priority": "high",
+  "sound": "default",
+  "badge": 3
+}
+```
+
+- **`data.url`** is the deep link: `mitra://task/<recordId>` for one record, `mitra://inbox` for several ("3 records need you: ...", the top three document names in the body) or for an item with no record.
+- **`data.kind`** is the item's kind, or `group` for several; `data.notificationId` is the item's id when there is one item; `data.count` is how many items the push stands for.
+- **`channelId`** is the Android channel: `tasks` (high importance) for the person's work, `summary` (default importance) for the super admin's summaries and the heads-ups.
+- **`badge`** is the person's open items.
+- **When.** The staff are pushed only inside the plant's working hours on working days (08:40 to 18:20 unless the super admin changes them): their tasks first after the morning prepare (08:30, `PREPARE_AT`), a "still open" reminder at 15:30 and a last call at 17:45; an overdue reminder once a day at 09:30; a heads-up once, the working day before; `verify`, `sent_back` and `access_changed` at once. Anything that comes up outside the hours waits for the next window. The super admin can be pushed at any hour (the summaries and escalations).
+- **Android needs Firebase Cloud Messaging** for pushes to arrive (see DEPLOYMENT.md, "Push notifications"). Until the owner's Firebase project is set up, registration fails on the phone and the app still has its inbox, Tasks and its own reminders. Expo Go on Android cannot receive remote pushes (Expo SDK 53 and later): use the 1.1.0 build. iPhones get the inbox and the app's own reminders; remote pushes need a paid Apple developer account.
+
+### Today, by person
+
+`GET /api/v1/today` (see [Today](#today)) now answers, for a person, what they answer for (REQUIREMENTS §96) and the records they may verify; for an account nobody has described yet, every document it may fill. Every item gains:
+- `module`: the module's code (QC, HR, SYS, MNT, PRD, PUR, STR, MKT, DISP or QA);
+- `canSubmit`: the person's level on the document is Write or more and the record is being filled in;
+- `canVerify`: Write or more and the record is submitted.
+
+The super admin gets everything, and `byModule`: the lists counted by module.
+
+### Submitting a prepared record: reviewed first
+
+A record the assistant prepared carries its `prepared` stamp (`GET /api/v1/records/{id}`). It is submitted only after the person has checked every value and ticked "Reviewed and correct" on the review screen (REQUIREMENTS §62): send
+
+```json
+{ "action": "submit", "reviewed": true }
+```
+
+Without `reviewed`, DCRS refuses it with `409 needs-review`. With it, the record's history says "Through Mitra mobile app: Submitted from the phone after review". Mitra's own submit tool puts the record's values on its confirmation card and sends `reviewed: true` only after the person confirms.
+
+### The refusals of these routes
+
+| Status | Codes | Connector error |
+|---|---|---|
+| 400 | `bad-request` (a value the route does not accept: `lang`, `ids`, `token`, `kinds`) | `invalid_request` |
+| 409 | `needs-review` (a prepared record submitted without `"reviewed": true`) | `conflict` |
+| 429 | `too-many` (a second test push within 20 seconds) | `rate_limited` |
 
 ## The shared database
 

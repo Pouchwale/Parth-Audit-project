@@ -17,7 +17,7 @@
 // The same routes are driven end to end by tests/e2e_audit_assistant_api.py.
 // Run: npm run test:unit -- apiV1
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -262,6 +262,11 @@ describe("the routes and their description", () => {
   before(async () => (s = await start()));
   after(() => s.close());
   const openapi = JSON.parse(readFileSync(path.join(repoRoot, "docs", "api", "dcrs-api.openapi.json"), "utf-8")) as { openapi: string; paths: Record<string, Record<string, unknown>> };
+  // A CONTRACT AHEAD OF ITS ROUTES (the notifications build of 8-Oct-2026): a path the shared contract documents before
+  // its builder registers it carries "x-dcrs-pending" (who registers it). It is not called here, and it must NOT be
+  // registered yet: the builder who registers it takes the mark off in the same change.
+  const pending = (route: string): boolean => typeof openapi.paths[route]?.["x-dcrs-pending"] === "string";
+  const methodsOf = (route: string): string[] => Object.keys(openapi.paths[route]).filter((m) => !m.startsWith("x-"));
 
   it("the description is OpenAPI 3.1 and is served as it is on disk, without signing in", async () => {
     assert.match(openapi.openapi, /^3\.1\./);
@@ -272,9 +277,9 @@ describe("the routes and their description", () => {
 
   it("every documented /api/v1 route is registered: each answers (not signed in: 401), none falls through to 404", async () => {
     let checked = 0;
-    for (const [route, methods] of Object.entries(openapi.paths)) {
-      if (!route.startsWith("/api/v1/") || route === "/api/v1/openapi.json") continue;
-      for (const method of Object.keys(methods)) {
+    for (const route of Object.keys(openapi.paths)) {
+      if (!route.startsWith("/api/v1/") || route === "/api/v1/openapi.json" || pending(route)) continue;
+      for (const method of methodsOf(route)) {
         const r = await call(s, method.toUpperCase(), route.replace("{id}", "CAPA-2023-12-13-1") + (route.includes("pest-control") ? "?date=2026-09-28" : ""));
         assert.equal(r.status, 401, `${method} ${route}`);
         assert.equal(r.body.code, "not-signed-in", `${method} ${route}`);
@@ -296,13 +301,23 @@ describe("the routes and their description", () => {
     for (const r of registered) {
       const [method, route] = r.split(" ");
       assert.ok(openapi.paths[route]?.[method], `${r} is not in docs/api/dcrs-api.openapi.json`);
+      assert.ok(!pending(route), `${r} is registered: take "x-dcrs-pending" off it in docs/api/dcrs-api.openapi.json`);
     }
   });
 
-  it("the sign-in routes it documents are DCRS's own, registered by the server itself", () => {
-    const index = readFileSync(path.join(repoRoot, "backend", "index.ts"), "utf-8");
+  it("the other routes it documents are DCRS's own, registered by the server itself (and a pending one by nobody yet)", () => {
+    // backend/index.ts registers the sign-in; the routes of a later build sit in files of their own beside it
+    // (backend/notificationRoutes.ts), registered by index.ts with one call.
+    const backendDir = path.join(repoRoot, "backend");
+    const server = readdirSync(backendDir)
+      .filter((f) => f.endsWith(".ts"))
+      .map((f) => readFileSync(path.join(backendDir, f), "utf-8"))
+      .join("\n");
     for (const route of Object.keys(openapi.paths).filter((p) => !p.startsWith("/api/v1/"))) {
-      for (const method of Object.keys(openapi.paths[route])) assert.ok(index.includes(`app.${method}("${route}"`), `${method} ${route}`);
+      for (const method of methodsOf(route)) {
+        const registered = server.includes(`app.${method}("${route}"`);
+        assert.ok(pending(route) ? !registered : registered, `${method} ${route}${pending(route) ? " is registered: take x-dcrs-pending off it" : ""}`);
+      }
     }
   });
 });
