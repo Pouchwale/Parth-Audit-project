@@ -1184,6 +1184,18 @@ function actionsFor(record: RecordInstance, page: PageKind): string[] {
   return out;
 }
 
+/**
+ * WHAT THIS PERSON MAY DO TO IT NOW (REQUIREMENTS §96): the steps its state allows (actionsFor) that their level on
+ * the document allows too (ACTION_NEEDS: Write to submit, verify, send back and resume; Edit to reopen, put back and
+ * delete). The phone draws only these buttons. On the old, department-only path (nobody held to levels) every step.
+ */
+function allowedActions(record: RecordInstance, doc: DocumentDefinition, page: PageKind): string[] {
+  return actionsFor(record, page).filter((a) => mayDo(doc.id, ACTION_NEEDS[a] ?? "correct"));
+}
+
+/** May the person write into it now: open for writing, and Write on the document (Edit while it is under correction). */
+const writableNow = (record: RecordInstance, doc: DocumentDefinition): boolean => isEditableStatus(record.status) && mayDo(doc.id, record.correction ? "correct" : "fill");
+
 /** F/MNT/03's Actual dates, read from each machine's F/MNT/02 as the sheet shows them — as Mitra's get_record gives them (engine/mitraTools.ts). */
 function linkedActuals(record: RecordInstance): Obj | undefined {
   if (!schedulesLinked(record)) return undefined;
@@ -1228,15 +1240,24 @@ function recordJson(record: RecordInstance, doc: DocumentDefinition): Obj {
   const cells = recordSearchText(record, doc, layout).cells;
   const history = historyOf(record);
   const linked = linkedActuals(record);
+  // Each button and box at the person's own level (REQUIREMENTS §96), so the phone offers only what DCRS will do.
+  const allowed = allowedActions(record, doc, page);
+  const writable = writableNow(record, doc);
   return {
     recordId: record.id,
     documentId: doc.id,
     document: { id: doc.id, formatNo: doc.formatNo, name: doc.name, kind: doc.kind, module: doc.module, department: departmentOf(doc) },
     date: record.dueDate,
     status: record.status,
-    editable: isEditableStatus(record.status),
-    canReopen: actionsFor(record, page).includes("reopen"),
-    actions: actionsFor(record, page),
+    editable: writable,
+    canReopen: allowed.includes("reopen"),
+    actions: allowed,
+    canSubmit: isEditableStatus(record.status) && mayDo(doc.id, "submit"),
+    canVerify: VERIFIABLE.includes(record.status) && mayDo(doc.id, "verify"),
+    // What still stops a submit, by DCRS's own checks, while the person may write it; and how many entries wait before
+    // it is ready for their OK (engine/knownParts.ts entriesWaiting: a sheet nothing is observed on is never ready).
+    problems: writable ? validateForSubmit(doc, record).errors : [],
+    waiting: writable ? entriesWaiting(doc, record).length : 0,
     ...(record.submittedBy ? { submittedBy: record.submittedBy, submittedAt: record.submittedAt ?? null } : {}),
     ...(record.verifiedBy ? { verifiedBy: record.verifiedBy, verifiedAt: record.verifiedAt ?? null } : {}),
     ...(record.status === "Rejected" ? { sentBackBy: record.rejectedBy ?? null, sentBackBecause: record.rejectionReason ?? null } : {}),
@@ -1569,7 +1590,7 @@ function tool(name: string): MitraTool {
 
 /** A change to a record that is not open for writing: refused, and the person is told to reopen it first — as Mitra asks before changing one. */
 function needsReopen(record: RecordInstance, doc: DocumentDefinition, page: PageKind): Outcome {
-  const canReopen = actionsFor(record, page).includes("reopen");
+  const canReopen = allowedActions(record, doc, page).includes("reopen");
   return refuse(
     409,
     "needs-reopen",
@@ -1585,8 +1606,8 @@ function changeSummary(record: RecordInstance, doc: DocumentDefinition, entries:
   return {
     recordId: record.id,
     status: record.status,
-    editable: isEditableStatus(record.status),
-    actions: actionsFor(record, page),
+    editable: writableNow(record, doc),
+    actions: allowedActions(record, doc, page),
     history: entries.map(historyJson),
     route: routeForRecord(doc, record.id),
   };
@@ -1731,7 +1752,7 @@ function actionOp(args: Obj, who: Who): Outcome {
   const reason = str(args.reason);
   const user = who.userName;
   const title = titleOf(doc, stored);
-  const wrongStatus = (why: string): Outcome => refuse(409, "wrong-status", `${title} is ${stored.status}: ${why}`, { status: stored.status, actions: actionsFor(stored, h.page) });
+  const wrongStatus = (why: string): Outcome => refuse(409, "wrong-status", `${title} is ${stored.status}: ${why}`, { status: stored.status, actions: allowedActions(stored, doc, h.page) });
   const finish = (what: string): Outcome => {
     touched.add(stored.id);
     const entries = markThrough(stored.id, stored, who.client);

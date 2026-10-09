@@ -196,6 +196,9 @@ async function call(s: Server, method: string, route: string, token: string, bod
 
 const storedRecord = (s: Server, id: string): Body => (s.store.get<Body[]>("records") ?? []).find((r: Body) => r.id === id);
 
+// The note the day's readings are entered with when the record is started (the person's own, from the phone).
+const READINGS_NOTE = "The day's hourly readings, entered on the phone";
+
 // A tiny real PNG: one white pixel.
 const PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
 
@@ -322,11 +325,19 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(again.body.record.recordId, recordId, "the day's record, not a second one");
     // DCRS prepares a blank register it generated for a working day with the known parts only, never a reading
     // (engine/assistantPrepare.ts, REQUIREMENTS §98); a record started for a day no register was waiting on is
-    // started empty. Either way the readings are the person's: Mitra's own sample fill (allowed on the test
-    // servers, ALLOW_SAMPLE_FILL) gives them here, so what follows reads, changes and submits a filled record
-    // whatever day the tests run on.
-    const filled = await call(s, "POST", `/api/v1/records/${recordId}/sample-fill`, T.qc);
-    assert.equal(filled.status, 200, JSON.stringify(filled.body).slice(0, 400));
+    // started empty. Either way the readings are the person's: Kapila Barad enters the day's hourly readings from
+    // the phone, through the route the Review screen saves each answer with, so what follows reads, changes and
+    // submits a record a person filled, whatever day the tests run on. Nothing is filled with sample data.
+    const slots = (storedRecord(s, recordId).data.rows as Body[]).map((row: Body) => String(row.time));
+    assert.equal(slots.length, 24, "one line for each hour of the day");
+    const entered = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.qc, {
+      patch: { itemEdits: slots.map((time, i) => ({ collection: "rows", match: { time }, set: { viscosity: (19.6 + (i % 5) * 0.2).toFixed(1), testedBy: "Kapila Barad" } })) },
+      note: READINGS_NOTE,
+    });
+    assert.equal(entered.status, 200, JSON.stringify(entered.body).slice(0, 400));
+    const after = storedRecord(s, recordId);
+    assert.ok(after.data.rows.every((row: Body) => typeof row.viscosity === "number" && row.testedBy === "Kapila Barad"), "every hour's reading is the one entered");
+    assert.ok(!after.history.some((h: Body) => /sample data/i.test(`${h.note ?? ""} ${h.action ?? ""}`)), "nothing was filled with sample data");
   });
 
   it("GET /records/{id} gives the layout, the data in words and as stored, and the history", async () => {
@@ -337,6 +348,37 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.ok(Array.isArray(r.body.data.rows) && r.body.data.rows.length === 24);
     assert.ok(r.body.inWords.length > 0 && r.body.inWords.every((c: Body) => typeof c.label === "string"));
     assert.deepEqual(r.body.actions, ["submit", "delete"]);
+  });
+
+  it("GET /records/{id} offers only what the person's level allows (REQUIREMENTS §96): Read gets no box and no button, Write no delete", async () => {
+    // The people review of 9-Oct-2026: Vinay Bhojak, who reads F/HR/17, was sent editable: true and actions
+    // [submit, delete], so the phone drew input boxes and a Submit button that DCRS then refused.
+    const own = await call(s, "GET", `/api/v1/records/${recordId}`, T.qc);
+    assert.equal(own.status, 200);
+    assert.equal(own.body.editable, true);
+    assert.equal(own.body.canSubmit, true);
+    assert.equal(own.body.canVerify, false, "in progress: nothing to verify yet");
+    assert.ok(Array.isArray(own.body.problems), "what still stops a submit, by DCRS's own checks");
+    // Ajay Zala sees Quality Control, but F-QC-30 is Ankur Raval's: Read only for him.
+    const read = await call(s, "GET", `/api/v1/records/${recordId}`, T.zala);
+    assert.equal(read.status, 200, JSON.stringify(read.body).slice(0, 300));
+    assert.equal(read.body.editable, false);
+    assert.deepEqual(read.body.actions, []);
+    assert.equal(read.body.canSubmit, false);
+    assert.equal(read.body.canVerify, false);
+    assert.equal(read.body.canReopen, false);
+    assert.deepEqual(read.body.problems, []);
+    // Given Write on it (and not Edit): he may fill and submit it, never delete it.
+    s.store.put("access", { version: 1, people: { "ajay.zala@gpp.local": { documents: { "qc-viscosity": "write" } } }, responsibility: {} });
+    try {
+      const write = await call(s, "GET", `/api/v1/records/${recordId}`, T.zala);
+      assert.equal(write.status, 200);
+      assert.equal(write.body.editable, true);
+      assert.equal(write.body.canSubmit, true);
+      assert.deepEqual(write.body.actions, ["submit"]);
+    } finally {
+      s.store.put("access", null);
+    }
   });
 
   it("POST /records/{id}/changes applies Mitra's patch through DCRS's engine, noted as through the app; a second one keeps its own entry", async () => {
@@ -358,11 +400,13 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
 
     const second = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.qc, { patch: { itemEdits: [{ collection: "rows", match: { time: "11:00" }, set: { viscosity: 20.1 } }] } });
     assert.equal(second.status, 200);
+    // The two changes of this test, beside the day's readings entered when the record was started.
+    const ours = (note: string): boolean => !/sample data/.test(note) && !note.includes(READINGS_NOTE);
     const history = storedRecord(s, recordId).history;
-    const edits = history.filter((h: Body) => h.action === "assistant-edit" && !/sample data/.test(h.note ?? ""));
+    const edits = history.filter((h: Body) => h.action === "assistant-edit" && ours(h.note ?? ""));
     assert.equal(edits.length, 2, "the second change is not folded into the first");
     assert.equal(edits[1].note, "Through Mitra mobile app: changes asked for in the chat");
-    assert.equal(s.lines.filter((l) => l.action === "Record edited through Mitra" && !/sample data/.test(l.detail)).length, 2);
+    assert.equal(s.lines.filter((l) => l.action === "Record edited through Mitra" && ours(l.detail)).length, 2);
   });
 
   it("a patch that changes nothing is refused with the reasons; a value the form cannot hold is left out", async () => {
