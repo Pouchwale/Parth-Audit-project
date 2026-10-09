@@ -286,6 +286,41 @@ it('asks every check point of the daily pest control with Yes and No, or 0 1 2 f
   expect(submitState({ ...PEST, canSubmit: false }, filled, true)).toEqual({ shown: false, enabled: false, why: null });
 });
 
+it("asks the note a check point needs when it is Yes, and holds nothing back on a holiday, as DCRS's own checks do", () => {
+  const { entryOf, patchFor, submitState } = entryLogic;
+  const layout = {
+    ...PEST.layout!,
+    checkpoints: [
+      { number: 7, question: 'Any pest trapped in rodent trap box', answer: 'yesno', findingWhen: 'Yes' },
+      { number: 8, question: 'Any dead rodent observed? If yes, mention the location', answer: 'yesno-note', noteAsks: 'Mention the location', findingWhen: 'Yes' },
+      { number: 9, question: 'Any sign of Rodent cake biting in Rodent box?', answer: 'yesno-note', noteAsks: 'Mention the Rodent box number', findingWhen: 'Yes' },
+    ],
+    lists: [],
+  };
+  // Check point 8 is Yes: its note is asked, under the check point; 9 is No: no note.
+  const record: RecordView = {
+    ...PEST,
+    layout,
+    data: { checkpoints: { '7': { value: 'No' }, '8': { value: 'Yes' }, '9': { value: 'No', note: '' } }, checker: 'Roshni', timeOfChecking: '09:30', isHoliday: false },
+  };
+  const items = entryOf(record).groups.flatMap((g: { items: unknown[] }) => g.items) as { id: string; label: string; where: string; value: string; required: boolean; target: unknown }[];
+  expect(items.map((i) => i.id)).toEqual(['checkpoint:7', 'checkpoint:8', 'checkpoint-note:8', 'checkpoint:9', 'field:checker', 'field:timeOfChecking', 'field:isHoliday']);
+  const note = items.find((i) => i.id === 'checkpoint-note:8')!;
+  expect(note).toMatchObject({ label: 'Mention the location', where: 'Check point 8', value: '', required: true });
+  // DCRS takes a check point's note on its own: {"checkpoints": {"8": {"note": "..."}}}.
+  expect(patchFor(note.target, 'Near the store')).toEqual({ checkpoints: { '8': { note: 'Near the store' } } });
+  expect(entryOf(record).requiredEmpty).toBe(1);
+  const noted = { ...record, data: { ...(record.data as object), checkpoints: { '7': { value: 'No' }, '8': { value: 'Yes', note: 'Near the store' }, '9': { value: 'No' } } } };
+  expect(entryOf(noted).groups[0].items.find((i: { id: string }) => i.id === 'checkpoint-note:8').value).toBe('Near the store');
+  expect(entryOf(noted).requiredEmpty).toBe(0);
+
+  // A holiday: DCRS asks nothing on the sheet, so nothing holds Submit back.
+  const holiday: RecordView = { ...PEST, data: { checkpoints: {}, checker: '', timeOfChecking: '', isHoliday: true, rodentCatches: [] } };
+  const entry = entryOf(holiday);
+  expect(entry.requiredEmpty).toBe(0);
+  expect(submitState(holiday, entry, true)).toEqual({ shown: true, enabled: true, why: null });
+});
+
 it('reads any other form by its fields, leaves pictures and forms with pages of their own to DCRS, and notes a reading out of range', () => {
   const { entryOf, patchFor, rangeNote, quickAnswers } = entryLogic;
   const form: RecordView = {

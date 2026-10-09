@@ -20,7 +20,9 @@ export type EntryTarget =
   | { kind: 'row'; collection: string; row: number; key: string }
   | { kind: 'field'; key: string }
   | { kind: 'part'; key: string; part: string }
-  | { kind: 'checkpoint'; number: number };
+  | { kind: 'checkpoint'; number: number }
+  /** The note a check point asks for with its Yes ("Mention the location"). */
+  | { kind: 'checkpoint-note'; number: number };
 
 export interface EntryItem {
   /** Stable while the record is open: the screen keeps what was typed under it. */
@@ -195,24 +197,41 @@ function listGroups(key: string, label: string, keys: readonly string[] | undefi
   return groups;
 }
 
+/**
+ * F/HR/17, as DCRS checks it before a submit (its engine/validation.ts): on a working day every check point, the
+ * checker and the time; a check point that asks for a note with its Yes ("yesno-note": the location, the rodent box's
+ * number) asks for it once it is Yes, under the check point; on a holiday nothing is required.
+ */
 function dailyPest(record: RecordView): EntryGroup[] {
   const layout = record.layout!;
   const data = isObj(record.data) ? record.data : {};
   const answers = isObj(data.checkpoints) ? data.checkpoints : {};
+  const required = data.isHoliday !== true;
   const groups: EntryGroup[] = [];
-  const checks = (layout.checkpoints ?? []).map((point) =>
-    item(
-      `checkpoint:${point.number}`,
-      { key: String(point.number), label: point.question, required: true },
-      `Check point ${point.number}`,
-      answers[String(point.number)],
-      { kind: 'checkpoint', number: point.number },
-      point.answer === 'number' ? 'number' : 'yesno',
-    ),
-  );
+  const checks: EntryItem[] = [];
+  for (const point of layout.checkpoints ?? []) {
+    const stored = answers[String(point.number)];
+    const where = `Check point ${point.number}`;
+    checks.push(
+      item(
+        `checkpoint:${point.number}`,
+        { key: String(point.number), label: point.question, required },
+        where,
+        stored,
+        { kind: 'checkpoint', number: point.number },
+        point.answer === 'number' ? 'number' : 'yesno',
+      ),
+    );
+    if (point.answer === 'yesno-note' && textOf(stored) === 'Yes') {
+      const note = isObj(stored) && typeof stored.note === 'string' ? stored.note : '';
+      checks.push(
+        item(`checkpoint-note:${point.number}`, { key: `${point.number}-note`, label: point.noteAsks?.trim() || 'Note', required }, where, note, { kind: 'checkpoint-note', number: point.number }, 'text'),
+      );
+    }
+  }
   if (checks.length > 0) groups.push({ title: 'Check points', items: checks });
   const fields = (layout.fields ?? []).map((field) =>
-    item(`field:${field.key}`, { ...field, required: field.key !== 'isHoliday' }, null, data[field.key], { kind: 'field', key: field.key }),
+    item(`field:${field.key}`, { ...field, required: required && field.key !== 'isHoliday' }, null, data[field.key], { kind: 'field', key: field.key }),
   );
   if (fields.length > 0) groups.push({ title: 'The check', items: fields });
   for (const list of layout.lists ?? []) groups.push(...listGroups(list.key, list.label, list.items, data[list.key]));
@@ -281,6 +300,9 @@ export function patchFor(target: EntryTarget, value: string): Record<string, unk
       return { [target.key]: { [target.part]: value } };
     case 'checkpoint':
       return { checkpoints: { [String(target.number)]: value } };
+    case 'checkpoint-note':
+      // DCRS keeps the check point's answer and sets its note.
+      return { checkpoints: { [String(target.number)]: { note: value } } };
   }
 }
 
