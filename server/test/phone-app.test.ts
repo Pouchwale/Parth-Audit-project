@@ -249,6 +249,49 @@ it("makes an input of every value of a log sheet a person can write, saved in DC
   expect(patchFor(entry.groups[0].items[0].target, '4')).toEqual({ header: { lineNo: '4' } });
 });
 
+it("names each line with its number once: no line's own number after Row N, and no Row N on a form that numbers its own lines", () => {
+  const { entryOf } = entryLogic;
+  const titles = (layout: Record<string, unknown>, rows: Record<string, unknown>[]) =>
+    entryOf({ ...RECORD, layout: { ...RECORD.layout, header: [], ...layout }, data: { header: {}, rows } } as unknown as RecordView).groups.map(
+      (g: { title: string }) => g.title,
+    );
+  // F/HR/20 as made before DCRS's §102: the printed words still open with the line's own number.
+  const statement = { columns: [{ key: 'statement', label: 'Statement', type: 'text', printed: true }, RECORD.layout.columns[1]] };
+  expect(titles(statement, [{ statement: '1. I can freely speak up', status: '' }, { statement: '2.Anilox line issue', status: '' }, { statement: '5.5% moisture', status: '' }])).toEqual([
+    'Row 1: I can freely speak up',
+    'Row 2: Anilox line issue',
+    'Row 3: 5.5% moisture',
+  ]);
+  // Another line's number is the paper's own, and stays.
+  expect(titles(statement, [{ statement: '7. Pallets', status: '' }])).toEqual(['Row 1: 7. Pallets']);
+  // A bare figure is not the line's words.
+  const figure = { columns: [{ key: 'n', label: 'Item', type: 'text', printed: true }, { key: 'what', label: 'What', type: 'text', printed: true }, RECORD.layout.columns[1]] };
+  expect(titles(figure, [{ n: '1', what: 'Floor clean', status: '' }, { n: '2', what: '', status: '' }])).toEqual(['Row 1: Floor clean', 'Row 2']);
+  // The form numbers its own lines (ownLineNumbers): its Sr. No. once, with the words, and no Row N.
+  const own = {
+    ownLineNumbers: true,
+    columns: [{ key: 'srNo', label: 'Sr. No.', type: 'text', printed: true }, { key: 'question', label: 'Question', type: 'text', printed: true }, RECORD.layout.columns[1]],
+  };
+  expect(titles(own, [{ srNo: '01', question: 'Diabetes', status: '' }, { srNo: '', question: 'a) Since when', status: '' }, { srNo: '', question: '', status: '' }])).toEqual([
+    'Sr. No. 01: Diabetes',
+    'a) Since when',
+    'Line 3',
+  ]);
+});
+
+it("does not ask a list line's own number: the line's name says it", () => {
+  const { entryOf } = entryLogic;
+  const entry = entryOf({
+    ...RECORD,
+    document: { ...RECORD.document, kind: 'training-attendance' },
+    layout: { kind: 'form', fields: [{ key: 'attendees', label: 'Attendees', type: 'list', items: ['sNo', 'name', 'signature'] }] },
+    data: { attendees: [{ id: 'a1', sNo: '1', name: 'Roshni', signature: '' }] },
+  } as unknown as RecordView);
+  const items = entry.groups.flatMap((g: { items: { id: string; where: string | null }[] }) => g.items);
+  expect(items.map((i: { id: string }) => i.id)).toEqual(['list:attendees:0:name', 'list:attendees:0:signature']);
+  expect(items[0]?.where).toBe('Attendees, line 1');
+});
+
 it('asks every check point of the daily pest control with Yes and No, or 0 1 2 for a count, and its lines', () => {
   const { entryOf, patchFor, withValues, submitState } = entryLogic;
   const entry = entryOf(PEST);

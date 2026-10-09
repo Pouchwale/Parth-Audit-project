@@ -63,6 +63,15 @@ const OWN_PAGES = new Set(['gap-inspection', 'complaint-checklist', 'training-re
 /** Lists that hold pictures, not observations. */
 const PICTURE_LISTS = /^(photos?|scans?|attachments?|pictures?)$/i;
 
+// ONE NUMBER PER LINE (DCRS's REQUIREMENTS §102). The owner, 9-Oct-2026: "still in the starting of any question there
+// are number present". A line's name says its number once:
+/** A line's own number at the start of its words ("1. ", "01. ", "(1) ", "1." straight before a word), as DCRS's engine/lineNumbers.ts reads it. */
+const OWN_NUMBER = /^\s*\(?0*(\d{1,3})\s*[.)](?:\s+|(?=\p{L}))/u;
+/** A printed column that numbers a form's lines itself: "#", "No.", "Sr. No.", "S. No.", "Sl. No.", "Serial No.", "Number", "Index". */
+const SERIAL_LABEL = /^(#|no\.?|s\.?\s*no\.?|sr\.?\s*no\.?|sl\.?\s*no\.?|serial(\s*no\.?)?|number|index)$/i;
+/** A list line's own number (sNo, srNo, slNo): the line's name already says it, so it is not asked. */
+const SERIAL_KEY = /^(s|sr|sl)\.?no$/i;
+
 type Obj = Record<string, unknown>;
 const isObj = (value: unknown): value is Obj => !!value && typeof value === 'object' && !Array.isArray(value);
 
@@ -151,11 +160,28 @@ function item(id: string, field: { key: string; label?: string; type?: string; o
   };
 }
 
-/** A line's name: its time slot, else its printed words ("Row 2: Floor clean"), else its number. */
-function rowTitle(row: Obj, index: number, columns: readonly RecordField[], slotKey: string | undefined): string {
+/**
+ * A line's name, with its number said once: its time slot; else its printed words ("Row 2: Floor clean"), without
+ * the line's own number in front ("1. I can freely speak up" is "Row 1: I can freely speak up"); else its number.
+ * A form that numbers its lines itself (DCRS's ownLineNumbers: a "Sr. No." or "#" column of its own, or questions
+ * numbered 01 to 10) has its own number and no "Row N" beside it ("Sr. No. 3: Diabetes").
+ */
+function rowTitle(row: Obj, index: number, columns: readonly RecordField[], slotKey: string | undefined, ownNumbers = false): string {
   if (slotKey && textOf(row[slotKey])) return textOf(row[slotKey]);
-  const printed = columns.find((column) => column.printed && textOf(row[column.key]));
-  return printed ? `Row ${index + 1}: ${textOf(row[printed.key])}` : `Row ${index + 1}`;
+  const printed = columns.filter((column) => column.printed && textOf(row[column.key]));
+  const serial = printed.find((column) => SERIAL_LABEL.test((column.label ?? '').trim()) || SERIAL_KEY.test(column.key));
+  // A bare figure is a number, not the line's words.
+  const named = printed.find((column) => column !== serial && !/^[\d.]+$/.test(textOf(row[column.key])));
+  const words = named ? textOf(row[named.key]) : '';
+  if (ownNumbers) {
+    const own = serial ? `${(serial.label ?? '').trim()} ${textOf(row[serial.key])}`.trim() : '';
+    if (own && words) return `${own}: ${words}`;
+    return own || words || `Line ${index + 1}`;
+  }
+  const line = index + 1;
+  const m = OWN_NUMBER.exec(words);
+  const once = m && Number(m[1]) === line ? words.slice(m[0].length) : words;
+  return once ? `Row ${line}: ${once}` : `Row ${line}`;
 }
 
 function logSheet(record: RecordView): EntryGroup[] {
@@ -172,7 +198,7 @@ function logSheet(record: RecordView): EntryGroup[] {
   boxes(layout.header, 'At the top of the sheet');
   rows.forEach((row, index) => {
     if (!isObj(row)) return;
-    const where = rowTitle(row, index, columns, layout.rows?.slotKey);
+    const where = rowTitle(row, index, columns, layout.rows?.slotKey, layout.ownLineNumbers === true);
     const items = columns
       .filter(writable)
       .map((column) => item(`row:${index}:${column.key}`, column, where, row[column.key], { kind: 'row', collection: 'rows', row: index + 1, key: column.key }));
@@ -188,7 +214,7 @@ function listGroups(key: string, label: string, keys: readonly string[] | undefi
   value.forEach((line, index) => {
     if (!isObj(line) || 'dataUrl' in line) return;
     const where = `${label}, line ${index + 1}`;
-    const names = (keys && keys.length > 0 ? keys : Object.keys(line)).filter((name) => name !== 'id');
+    const names = (keys && keys.length > 0 ? keys : Object.keys(line)).filter((name) => name !== 'id' && !SERIAL_KEY.test(name));
     const items = names.map((name) =>
       item(`list:${key}:${index}:${name}`, { key: name }, where, line[name], { kind: 'row', collection: key, row: index + 1, key: name }, typeOfValue(name, line[name])),
     );

@@ -725,6 +725,8 @@ export interface RecordField {
 /** What a record's form is made of, in the keys a change names (DCRS's layout). */
 export interface RecordLayout {
   kind: string;
+  /** The form numbers its lines itself (a "Sr. No." column of its own): no "Row N" beside them (DCRS's REQUIREMENTS §102). */
+  ownLineNumbers?: boolean;
   header?: RecordField[];
   footer?: RecordField[];
   columns?: RecordField[];

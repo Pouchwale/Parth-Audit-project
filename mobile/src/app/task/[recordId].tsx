@@ -224,7 +224,7 @@ export default function ReviewScreen() {
       {header}
       <FlatList
         data={groups}
-        keyExtractor={(group) => group.title}
+        keyExtractor={(group, index) => `${index}:${group.title}`}
         contentContainerStyle={[styles.list, { paddingBottom: Spacing.xl + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
         initialNumToRender={6}
