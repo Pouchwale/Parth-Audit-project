@@ -54,7 +54,8 @@ import { registerOverviewRoutes } from "./overviewRoutes.ts";
 import { registerAccessRoutes } from "./accessRoutes.ts";
 import { registerNotificationRoutes } from "./notificationRoutes.ts";
 import { printCompanyNetwork, registerPhoneAppRoutes } from "./phoneApp.ts";
-import { startJobs } from "./jobs.ts";
+import { setNotificationDeps, startJobs } from "./jobs.ts";
+import { runPushes } from "./push.ts";
 import { PHOTO_ROUTE } from "./apiV1Records.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
@@ -1558,6 +1559,8 @@ registerOverviewRoutes(app, { requireAuth, logActivity });
 registerAccessRoutes(app, { requireAuth, logActivity });
 // EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the bell and the Notifications page (backend/notificationRoutes.ts).
 registerNotificationRoutes(app, { requireAuth });
+// ...and the notify job ends by pushing them to the phones (backend/push.ts; PUSH_ENABLED=0 sends nothing).
+setNotificationDeps(() => ({ push: (now) => runPushes(now) }));
 // MITRA ON THE PHONES: where Expo Go finds it on this PC, for the QR card on the Ask Mitra page (backend/phoneApp.ts).
 registerPhoneAppRoutes(app, { requireAuth });
 

@@ -10,7 +10,7 @@
 // Run: npm run test:unit -- notificationText
 import test from "node:test";
 import assert from "node:assert/strict";
-import { groupWords, MODULE_NAMES, moduleName, notificationWords, NOTIFICATION_LANGUAGES, testWords, type WordsData } from "../src/engine/notificationText";
+import { groupWords, MODULE_NAMES, moduleName, notificationWords, NOTIFICATION_LANGUAGES, slotWords, testWords, type WordsData } from "../src/engine/notificationText";
 import { NOTIFICATION_KINDS } from "../src/engine/notificationPlan";
 import { ACCESS_MODULES } from "../src/engine/accessRules";
 import { PLANT_DEPARTMENTS } from "../src/data/seed/documentDepartments";
@@ -81,6 +81,19 @@ test("several in one push: N records need you, with the top three names", () => 
   assert.match(groupWords(items, "gu").body, /અને બીજા 2\.$/);
   assert.deepEqual(groupWords(items.slice(0, 1), "en"), notificationWords("due", items[0].data, "en"), "one item says its own words");
   for (const lang of NOTIFICATION_LANGUAGES) assert.match(testWords(lang).body, /DCRS/);
+});
+
+test("the day's two reminders say so, in each language: still open at 15:30, the last call at 17:45", () => {
+  const items = ["A", "B"].map((x) => ({ kind: "ready", data: { ...PEST, documentName: `Record ${x}` } }));
+  assert.deepEqual(slotWords("reminder", groupWords(items, "en"), "en"), { title: "Still open: 2 records need you", body: "Record A, Record B." });
+  assert.equal(slotWords("lastCall", notificationWords("due", PEST, "en"), "en").title, "Last call: Due today: Daily Pest Control Monitoring Record");
+  for (const lang of NOTIFICATION_LANGUAGES) {
+    for (const slot of ["reminder", "lastCall"] as const) {
+      const w = slotWords(slot, groupWords(items, lang), lang);
+      assert.match(w.title, SCRIPT[lang], `${slot} ${lang}`);
+      assert.doesNotMatch(w.title, /undefined|—/, `${slot} ${lang}`);
+    }
+  }
 });
 
 test("the ten modules are the plant's, named in each language; a language not known is English", () => {

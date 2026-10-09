@@ -8,7 +8,9 @@
 //   * the website's routes read the same ledger by the session cookie's person;
 //   * a phone is registered with its language and removed at sign-out; the activity log says which phone, never the
 //     token; a token that is not an Expo push token is refused;
-//   * the choices: every kind pushed until switched off, a change keeps the rest, a kind not known is refused.
+//   * the choices: every kind pushed until switched off, a change keeps the rest, a kind not known is refused;
+//   * the test push: to the caller's own phones (backend/push.ts, over a stand-in for Expo's service), says in words why
+//     nothing was sent, at most one in 20 seconds, and the activity log says how many phones.
 // Run: npm run test:unit -- notificationRoutes
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
@@ -16,6 +18,7 @@ import { after, before, describe, it } from "node:test";
 import express, { type NextFunction, type Request, type Response } from "express";
 import type { PublicUser } from "../auth.ts";
 import { registerNotificationRoutes, registerNotificationRoutesV1 } from "../notificationRoutes.ts";
+import { sendTestPush, type PushMessage, type PushTransport } from "../push.ts";
 import { createMemoryLedger, type MemoryLedger } from "./memoryLedger.ts";
 
 const PEOPLE: Record<string, PublicUser> = {
@@ -34,6 +37,13 @@ let base = "";
 let ledger: MemoryLedger;
 const lines: Logged[] = [];
 let close: () => Promise<void>;
+/** The route's clock (the one test in 20 seconds), and what the stand-in for Expo's push service was sent. */
+let clockMs = Date.parse("2026-10-09T05:30:00.000Z");
+const pushed: PushMessage[] = [];
+const expo: PushTransport = async (_path, body) => {
+  pushed.push(...(body as PushMessage[]));
+  return { status: 200, body: { data: (body as PushMessage[]).map((_m, i) => ({ status: "ok", id: `ticket-${pushed.length + i}` })) } };
+};
 
 // The person comes from the session: here, a stand-in header the guards read.
 const personOf = (req: Request): PublicUser | undefined => PEOPLE[String(req.get("x-test-person") ?? "")];
@@ -60,6 +70,8 @@ before(async () => {
     callerOf: (res) => res.locals.caller as { user: PublicUser },
     logActivity: (_req, who, action, target = "", detail = "") => lines.push({ who: who?.name ?? "", action, target, detail }),
     ledger,
+    testPush: (userId) => sendTestPush(userId, { ledger, transport: expo, env: {}, log: () => undefined }),
+    now: () => clockMs,
   });
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
@@ -190,5 +202,36 @@ describe("the phone's registration and the choices", () => {
       assert.equal((await call("PUT", "/api/v1/notification-preferences", "kapila", body)).status, 400, JSON.stringify(body));
     }
     assert.equal((await call("GET", "/api/v1/notification-preferences", "vinay")).body.kinds.upcoming, true, "one person's choice is theirs alone");
+  });
+});
+
+describe("the test push", () => {
+  it("goes to the caller's own phones, says in words why when nothing went, once in 20 seconds", async () => {
+    const none = await call("POST", "/api/v1/notifications/test", "vinay", {});
+    assert.equal(none.status, 200);
+    assert.deepEqual(none.body, { sent: 0, reason: "No phone is registered for notifications on this account yet." });
+    assert.equal(pushed.length, 0);
+
+    await ledger.registerDevice("u-kapila", { token: "ExponentPushToken[kapila-phone-000001]", platform: "android", language: "hi" });
+    await ledger.registerDevice("u-vinay", { token: "ExponentPushToken[vinay-phone-0000002]", platform: "android", language: "en" });
+    const sent = await call("POST", "/api/v1/notifications/test", "kapila", {});
+    assert.equal(sent.status, 200);
+    assert.deepEqual(sent.body, { sent: 1 });
+    assert.deepEqual(pushed.map((m) => [m.to, m.title]), [["ExponentPushToken[kapila-phone-000001]", "परीक्षण सूचना"]], "Kapila's phone only, in its language");
+    const line = [...lines].reverse().find((l) => l.action === "Test notification sent")!;
+    assert.equal(line.who, "Kapila Barad");
+    assert.match(line.detail, /1 phone$/);
+    assert.ok(!JSON.stringify(lines).includes("kapila-phone"), "the token is never written");
+
+    clockMs += 5_000;
+    const soon = await call("POST", "/api/v1/notifications/test", "kapila", {});
+    assert.equal(soon.status, 429);
+    assert.equal(soon.body.code, "too-many");
+    assert.equal(soon.body.error, "A test was sent a moment ago. Wait 20 seconds and try again.");
+    assert.equal(pushed.length, 1);
+    clockMs += 16_000;
+    assert.equal((await call("POST", "/api/v1/notifications/test", "kapila", {})).status, 200);
+    assert.equal(pushed.length, 2);
+    assert.equal((await call("POST", "/api/v1/notifications/test", null, {})).status, 401);
   });
 });

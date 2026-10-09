@@ -284,6 +284,20 @@ export function groupWords(items: readonly { kind: string; data: WordsData | nul
   }
 }
 
+/** The two reminders of the plant's day (backend/push.ts): the "still open" one at 15:30 and the last call at 17:45. */
+export type ReminderSlot = "reminder" | "lastCall";
+
+const SLOT_TITLES: Record<ReminderSlot, Record<NotificationLanguage, string>> = {
+  reminder: { en: "Still open", hi: "अभी बाकी", gu: "હજી બાકી" },
+  lastCall: { en: "Last call", hi: "आज की आख़िरी याद", gu: "આજની છેલ્લી યાદ" },
+};
+
+/** A push's words as a reminder: "Still open: 3 records need you", "Last call: Ready for you: ..." */
+export function slotWords(slot: ReminderSlot, words: NotificationWords, lang: NotificationLanguage | string = "en"): NotificationWords {
+  const language: NotificationLanguage = isNotificationLanguage(lang) ? lang : "en";
+  return { title: `${SLOT_TITLES[slot][language]}: ${words.title}`, body: words.body };
+}
+
 /** What "Send me a test notification" sends. */
 export function testWords(lang: NotificationLanguage | string = "en"): NotificationWords {
   switch (isNotificationLanguage(lang) ? lang : "en") {

@@ -3543,7 +3543,6 @@
       }
     },
     "/api/v1/notifications/test": {
-      "x-dcrs-pending": "A1 (the notification engine): registered by the ledger's commit",
       "post": {
         "tags": [
           "Notifications",

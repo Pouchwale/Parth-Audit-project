@@ -9,6 +9,7 @@
 //     POST /api/v1/devices  { token, platform, language, appVersion?, deviceName? } -> { ok: true }
 //     DELETE /api/v1/devices { token }                                            -> { ok: true }
 //     GET/PUT /api/v1/notification-preferences  { kinds, reminders? }             -> the same
+//     POST /api/v1/notifications/test                                            -> { sent, reason? }  (backend/push.ts)
 //
 // EVERY ANSWER IS THE CALLER'S OWN: the person comes from the session, never from the request, so nobody reads or marks
 // another person's items. The titles and bodies are worded on every read, in the language asked
@@ -17,6 +18,7 @@ import type { Express, Request, RequestHandler, Response } from "express";
 import type { PublicUser } from "./auth.ts";
 import { clientName } from "./findingsCore.ts";
 import { databaseLedger, type DeviceInput, type NotificationLedger, type PreferencesChange, type StoredNotification } from "./notifications.ts";
+import { sendTestPush, type TestPushResult } from "./push.ts";
 import { isNotificationLanguage, notificationWords, type NotificationLanguage } from "../frontend/src/engine/notificationText.ts";
 import { NOTIFICATION_KINDS, type NotificationKind } from "../frontend/src/engine/notificationPlan.ts";
 
@@ -25,6 +27,8 @@ type LogActivity = (req: Request, who: PublicUser | null, action: string, target
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const MAX_IDS = 500;
+/** One test push per person in this long. */
+export const TEST_PUSH_EVERY_MS = 20_000;
 /** An Expo push token: ExponentPushToken[...] (or ExpoPushToken[...]). */
 export const EXPO_TOKEN_RE = /^Expo(nent)?PushToken\[[^\]\s]{6,180}\]$/;
 
@@ -140,6 +144,10 @@ export interface NotificationRoutesV1Deps {
   callerOf: (res: Response) => { user: PublicUser };
   logActivity: LogActivity;
   ledger?: NotificationLedger;
+  /** Sends the test push to the person's phones (backend/push.ts sendTestPush, by default). */
+  testPush?: (userId: string) => Promise<TestPushResult>;
+  /** The clock the one-test-in-20-seconds rule reads (a test sets it). */
+  now?: () => number;
 }
 
 /** The phone's routes, behind backend/apiV1.ts's signedIn. */
@@ -197,5 +205,25 @@ export function registerNotificationRoutesV1(app: Express, deps: NotificationRou
     const off = NOTIFICATION_KINDS.filter((k) => !now.kinds[k]);
     deps.logActivity(req, user, "Notification choices changed", user.email, `Through ${clientName(req.get("x-client-name"))}: ${off.length ? `not pushed: ${off.join(", ")}` : "every kind pushed"}${typeof now.reminders === "boolean" ? `; the phone's own reminders ${now.reminders ? "on" : "off"}` : ""}`);
     res.json(now);
+  });
+
+  // "Send me a test notification": to the caller's own phones, at most once in 20 seconds.
+  const lastTest = new Map<string, number>();
+  const clock = deps.now ?? (() => Date.now());
+  app.post("/api/v1/notifications/test", signedIn, async (req: Request, res: Response): Promise<void> => {
+    res.set("Cache-Control", "no-store");
+    const { user } = callerOf(res);
+    const at = clock();
+    if (at - (lastTest.get(user.id) ?? -Infinity) < TEST_PUSH_EVERY_MS) return fail(res, 429, "too-many", "A test was sent a moment ago. Wait 20 seconds and try again.");
+    lastTest.set(user.id, at);
+    let result: TestPushResult;
+    try {
+      result = await (deps.testPush ?? ((id: string) => sendTestPush(id, { ledger: ledger() })))(user.id);
+    } catch (err) {
+      console.error("[notifications] test push:", err instanceof Error ? err.message : err);
+      return fail(res, 503, "database-unavailable", "DCRS could not send the test notification just now. Try again in a moment.");
+    }
+    deps.logActivity(req, user, "Test notification sent", user.email, `Through ${clientName(req.get("x-client-name"))}: ${result.sent} phone${result.sent === 1 ? "" : "s"}${result.reason ? `; ${result.reason}` : ""}`);
+    res.json(result);
   });
 }
