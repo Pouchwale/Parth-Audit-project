@@ -710,7 +710,8 @@ Seven scripts live in `tests/`:
   1,332 ms; the briefing showed the readings waiting and the record its known-parts banner; no page error.
   **Known and handed on:** `backend/tests/apiV1Records.test.ts` assumes a prepared qc-viscosity record already holds 24
   readings and skips Mitra's sample fill when the record is prepared; three of its tests fail until it always
-  sample-fills (it is outside this builder's files). Mended in the server's half of §96 (below): it always sample-fills now.
+  sample-fills (it is outside this builder's files). Mended in the server's half of §96 (below), and in the finish of
+  9-Oct-2026 (further below) the record is given its readings as a person gives them, through the phone's change route.
 - **Who may do what, and the notifications, in the website** (REQUIREMENTS §96 "In the website" and §97 "In the
   website", 9-Oct-2026). New unit tests, each failing before the change it proves (the module or the function did not
   exist, or, for the sync, the old code waited 10 seconds for a refusal it never said): `frontend/tests/accessScope.test.ts`
@@ -767,9 +768,9 @@ Seven scripts live in `tests/`:
   before), `backend/tests/escalationAccess.test.ts` (5: a late or missed record counts against who answers for its
   document; 2 failed with the department rule), `backend/tests/seedAccounts.test.ts` (2). Changed:
   `backend/tests/apiV1.test.ts` (three tests of the levels on the phone's own routes; a documented path's {id} read as
-  Express's :id), `backend/tests/apiV1Records.test.ts` (the record its tests use is always given its readings by
-  Mitra's sample fill: since §98 a prepared record has none, and the three record tests the entry above hands on had
-  failed since; they pass now), `frontend/tests/latenessCore.test.ts` ("by the access rules": whom a record counts
+  Express's :id), `backend/tests/apiV1Records.test.ts` (the record its tests use was given its readings by Mitra's
+  sample fill: since §98 a prepared record has none, and the three record tests the entry above hands on had failed
+  since; the finish of 9-Oct-2026 gives them as a person does instead), `frontend/tests/latenessCore.test.ts` ("by the access rules": whom a record counts
   against through attribute's answerersOf). The table of REQUIREMENTS §96 is printed by `scripts/access-table.ts`.
   `npm run test:unit` on 9-Oct-2026 at 977129d: 622 frontend tests and 470 backend tests, all passing but the
   PostgreSQL ledger's, skipped without `DCRS_LEDGER_TEST_URL`; `npm run typecheck` clean.
@@ -794,6 +795,32 @@ Seven scripts live in `tests/`:
   PostgreSQL, the thirteen seeded accounts, removed after) showed, before the fix of 977129d, that Kapila Barad's first
   sign-in stored no records (her browser's write was refused over F/HR/01's supplied papers) and, after it, that her
   first sign-in and Ankur Raval's store their records, the catalogue and HR Master Data with no refusal and no 409.
+- **What the two reviews of 9-Oct-2026 found, put right** (REQUIREMENTS §96 item 10, §97, §98). Each new or changed
+  test fails on the code before its change and passes after: `backend/tests/accessLevels.test.ts` (3 new: a Start in
+  the person's own name refused 403 with the words, the housekeeping still left out; one line per record, a second line
+  with a record's id or one taking the id of a record the person does not see never written; only records; 32 of 35 on
+  the old server code, 35 of 35 now), `backend/tests/apiV1Records.test.ts` (the record answer at each level: Read gets
+  no box and no button, Write no delete; the shared record now gets the day's 24 hourly readings through POST
+  /api/v1/records/:id/changes, as the phone's Review screen saves them, never the sample fill: at 83c8d3d the file gave
+  17 of 20, "09:00: Viscosity (20.0 +/- 1.0 Sec.) is required", now 22 of 22), `backend/tests/apiV1.test.ts` (POST
+  /api/jobs/run and the record answer's level fields in the OpenAPI file), `frontend/tests/knownPartsReady.test.ts` (5:
+  the camera challenge test and every log sheet the checks pass empty wait for their first line, never "ready"),
+  `truthfulPrepare.test.ts` (a prepare's "waiting" held to entriesWaiting), `myDayAccess.test.ts` (4: Dharmik Mistry's
+  day is F/PRD/10 alone, Vinay Bhojak is never told F/HR/17 is next, the super admin's card is the plant's day),
+  `mitraRulesAccess.test.ts` (2), `performanceAnswers.test.ts` (1: "shares" by who answers), `uploadChangesAccess.test.ts`
+  (2), `bellAnswerers.test.ts` (3: the bell names who answers by the owner's table), `notificationView.test.ts` (the job
+  outcome's words, and every bell word with Gujarati of its own). `npm run test:unit` on 9-Oct-2026: frontend 640, 638
+  passing in the full run, truthfulPrepare (then updated, 8 of 8) and voice.test.ts's "never over the microphone" (a
+  607-second hang during a network drop; 28 of 28 when run again alone); backend 475, 474 passing and the PostgreSQL
+  ledger's skipped. `npm run typecheck` clean. Browser suites, each ALONE with the project's runner, 8842 and 8843 free:
+  `tests/e2e_access_levels.py` 148 of 148 (new section 5: the super admin's day card, Dharmik Mistry's day, Chirag
+  Parmar's sidebar and the agreement under Purchase, the bell's names, Escape, another page and its Gujarati with
+  Google Translate kept out, staff shown no job buttons, Mitra's access refusal to Vinay Bhojak, the job buttons; a
+  reader offered no Upload changes and no "press Submit"), `tests/e2e_user_access.py` 95 of 95 (new: a Start in Ankur
+  Raval's own name refused 403), `tests/e2e_escalation.py` 30 of 30, `tests/e2e_mobile_mitra_api.py` 32 of 32. The
+  phone's half (Mitra, branch mitra-notify): `server/test/phone-relay.test.ts` (DCRS asked in the language the app is
+  read in, X-Language; DCRS's 429 reaching the app as 429 "too_many"; both fail on the old server code), its npm test
+  300 of 300 and typecheck clean. Not run here: the full 29-suite browser run, and the suites these changes do not reach.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for
