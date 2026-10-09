@@ -407,6 +407,9 @@ export function scorecards(
   // person's departments are then the ones of what they answer for. Left out (no rule given, nobody signed in): by department.
   const answerersOf = answers ? (d: DocumentDefinition): readonly Person[] => people.filter((p) => answers(p, d)) : undefined;
   const answeredModules = new Map<string, Set<string>>();
+  // The modules where a person answers for a document somebody else answers for too: what they share (§96), never
+  // every account kept to the same department.
+  const sharedModules = new Map<string, Set<string>>();
   const called = new Map<string, string>();
 
   const perDocument = new Map<string, Tally>();
@@ -461,6 +464,11 @@ export function scorecards(
             let set = answeredModules.get(p.id);
             if (!set) answeredModules.set(p.id, (set = new Set()));
             if (code) set.add(code);
+            if (code && list.length > 1) {
+              let shares = sharedModules.get(p.id);
+              if (!shares) sharedModules.set(p.id, (shares = new Set()));
+              shares.add(code);
+            }
           }
           return list;
         }
@@ -519,7 +527,7 @@ export function scorecards(
         person,
         departments: kept,
         answers: kept.length > 0,
-        shared: kept.filter((code) => (accountsOf.get(code)?.length ?? 0) > 1),
+        shared: answers ? Array.from(sharedModules.get(person.id) ?? []).sort() : kept.filter((code) => (accountsOf.get(code)?.length ?? 0) > 1),
         worst: theirs.sort((a, b) => worstFirst(a, b) || a.doc.name.localeCompare(b.doc.name)).slice(0, 3),
       };
     })

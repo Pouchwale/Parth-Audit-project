@@ -416,7 +416,7 @@ export function PersonCard({
       </p>
 
       {p.shared.length > 0 && (
-        <p className="text-xs text-faint mt-2">Shares {p.shared.map(departmentName).join(" and ")} with another account: a record counts for whoever handed it in.</p>
+        <p className="text-xs text-faint mt-2">Shares documents of {p.shared.map(departmentName).join(" and ")} with somebody else who answers for them: a record counts for whoever handed it in.</p>
       )}
 
       {unseen.length > 0 && (
@@ -766,9 +766,10 @@ export function PerformancePage() {
         <h3 className="text-sm uppercase text-muted mb-2">People</h3>
         <div className="mb-6" data-section="performance-people">
           <p className="text-xs text-muted mb-3" data-section="performance-people-rule">
-            A person answers for the documents of the department their account is kept to. Where a department has more than one account, a record that
-            was submitted counts for the person who submitted it; one that nobody submitted — or that somebody outside those accounts submitted — counts
-            for every account of that department. An account with no departments works across the plant and is listed without a score.
+            A record counts against the people who answer for its document, as the super admin sets in Users &amp; Access (the owner&apos;s table of who
+            fills what). Where more than one person answers for a document, a record that was submitted counts for the person who submitted it; one that
+            nobody submitted, or that somebody else submitted, counts for every one of them. An account the table does not name answers for the documents
+            of its departments. The super admin answers for no document and is listed without a score.
           </p>
           {/* WHO DID THE WORK, from the activity log, over the same period
               (REQUIREMENTS §73). Beside the score, never inside it: the score
