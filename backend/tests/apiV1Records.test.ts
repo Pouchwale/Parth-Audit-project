@@ -418,8 +418,8 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(late.status, 200, JSON.stringify(late.body));
     const evidence = late.body.evidence as string[];
     const plant = evidence.find((l) => l.includes("Performance Scorecard")) ?? "";
-    assert.match(plant, /minus score (0|−\d+) \(10 off for each never done\)/, JSON.stringify(evidence));
-    assert.ok(evidence.some((l) => /\(HR\): score \d+, minus score (0|−\d+),/.test(l)), JSON.stringify(evidence));
+    assert.match(plant, /minus score (0%|−\d+%) \(the share of the records due never done, as FMS counts it: 8 of 10 done is −20%\)/, JSON.stringify(evidence));
+    assert.ok(evidence.some((l) => /\(HR\): score \d+, minus score (0%|−\d+%),/.test(l)), JSON.stringify(evidence));
   });
 
   it("submit, then a change is refused until the record is reopened; the super admin verifies it", async () => {

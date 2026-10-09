@@ -265,6 +265,13 @@ Seven scripts live in `tests/`:
   `mitraHistoryReview.test.ts` 12b check the notification's and Mitra's words, and
   `backend/tests/apiV1Records.test.ts` the phone's (GET /api/v1/figures). `tests/e2e_performance.py` gained the
   browser's half (see its entry), and runs against a preview with `DCRS_BASE` set.
+  **9-Oct-2026, the FMS rule** (the owner's answer to item 59): the minus score is the share never done,
+  round(done ÷ due × 100) − 100, written "−20%". Every test above was moved to it (16 of 20 is −20% as well as 8 of
+  10; the shared department's accounts 1 of 2 each, −50%, the department 2 of 3, −33%; the plant's from its own
+  counts), `frontend/tests/teamMinusScore.test.ts` (3) holds the administrator's dashboard card
+  (components/common/TeamScoreCard.tsx) to the scorecard, worst first, and the rule to the day card's for every count
+  up to 60, and `tests/e2e_performance.py` checks a staff account's dashboard has no card and reads the seeded
+  administrator's (the Performance page's own figures, worst first, the plant's line equal to the page's tile).
 - `tests/e2e_insights.py` - Insights (REQUIREMENTS §75), a thirty-fifth suite, added 24-Sep-2026, run straight
   after the System / Management suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the
   2024 one** — the QC Lab's colour-matching cabinet down 45%, 1863 to 1025 lux, high, naming both rounds — and row

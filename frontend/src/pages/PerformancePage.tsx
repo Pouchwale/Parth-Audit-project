@@ -105,7 +105,7 @@ function GradeBadge({ line }: { line: ScoreLine }) {
 }
 
 /**
- * THE MINUS SCORE AS A FIGURE (REQUIREMENTS §92): "0", or "−20" with a true
+ * THE MINUS SCORE AS A FIGURE (REQUIREMENTS §92): "0%", or "−20%" with a true
  * minus sign, kept out of translation. The plain number is on the element that
  * holds it (data-minus), so a reader never has to parse the sign.
  */
@@ -373,12 +373,14 @@ export function PersonCard({
             </span>
             {p.score !== null && <span className="text-muted text-sm">out of 100</span>}
           </div>
-          {/* THE MINUS SCORE (REQUIREMENTS §92): 10 off for each record never done, beside the score, never instead of it. */}
+          {/* THE MINUS SCORE (REQUIREMENTS §92), as FMS counts it: the share of the records due never done, beside the score, never instead of it. */}
           <div className="score-minus" data-field="person-minus" data-minus={p.minus} data-open-today={p.openToday} data-tone={p.minus < 0 ? "minus" : "zero"}>
             <MinusFigure minus={p.minus} className="score-minus-figure" />
             <span {...minus.hold("score-minus-label")}>
               <strong>{minus.say("perf.minus.label")}</strong>{" "}
-              {p.overdue === 0 ? minus.say("perf.minus.none") : p.overdue === 1 ? minus.say("perf.minus.missedOne") : minus.say("perf.minus.missed", { n: p.overdue })}
+              {p.overdue === 0
+                ? minus.say("perf.minus.none")
+                : minus.say(p.overdue === 1 ? "perf.minus.missedOne" : "perf.minus.missed", { n: p.overdue, done: p.due - p.overdue, due: p.due })}
             </span>
           </div>
           {p.openToday > 0 && (
@@ -609,7 +611,9 @@ export function PerformancePage() {
       sum.openToday += d.openToday;
     }
     const score = scoreOf(sum.onTime, sum.late, sum.overdue);
-    return { ...sum, due: sum.onTime + sum.late + sum.overdue, score, grade: grade(score), minus: minusScore(sum.overdue) };
+    // The plant's minus score from its own counts: percentages are never added up.
+    const due = sum.onTime + sum.late + sum.overdue;
+    return { ...sum, due, score, grade: grade(score), minus: minusScore(sum.overdue, due) };
   }, [cards]);
 
   const open = useCallback((doc: DocumentDefinition) => navigate(documentOpenRoute(doc)), [navigate]);
@@ -634,7 +638,7 @@ export function PerformancePage() {
     ];
     downloadCSV(
       `performance-scorecard-${cards.period.from}-to-${cards.period.to}${isDemo ? "-demo" : ""}.csv`,
-      toCSV(["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score", "Minus score", "Still open today", "Grade", "Decision"], rows)
+      toCSV(["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score", "Minus score (%)", "Still open today", "Grade", "Decision"], rows)
     );
   };
 

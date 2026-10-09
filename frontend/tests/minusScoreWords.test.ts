@@ -36,7 +36,8 @@ ensureMasterSeeded();
 
 type Key = keyof typeof SCORE_STRINGS.en;
 /** The words of the minus score in one language, as i18n's tr() fills them in. */
-const say = (lang: "en" | "gu", key: Key, n?: number): string => SCORE_STRINGS[lang][key].replace(/\{n\}/g, String(n));
+const say = (lang: "en" | "gu", key: Key, n?: number, done?: number, due?: number): string =>
+  SCORE_STRINGS[lang][key].replace(/\{n\}/g, String(n)).replace(/\{done\}/g, String(done)).replace(/\{due\}/g, String(due));
 
 // ---------------------------------------------------------------------------
 // what Google is handed
@@ -110,7 +111,8 @@ function rec(dueDate: string): RecordInstance {
 function jeni(missed: number, open: number): PersonScore {
   const records = [...Array.from({ length: missed }, (_, i) => rec(`2026-09-${String(10 + i).padStart(2, "0")}`)), ...Array.from({ length: open }, () => rec(TODAY))];
   const p = scorecards(records, documents, [JENI], "this-month", TODAY, { isClosedDay: () => false }).byPerson[0];
-  assert.deepEqual([p.overdue, p.minus, p.openToday], [missed, missed ? -10 * missed : 0, open]);
+  // Every record counted is one never done: nothing of them was done.
+  assert.deepEqual([p.due, p.overdue, p.minus, p.openToday], [missed, missed, missed ? -100 : 0, open]);
   return p;
 }
 const CARDS: [missed: number, open: number][] = [
@@ -118,7 +120,8 @@ const CARDS: [missed: number, open: number][] = [
   [1, 1],
   [0, 0],
 ];
-const missedWords = (lang: "en" | "gu", missed: number) => (missed === 0 ? say(lang, "perf.minus.none") : missed === 1 ? say(lang, "perf.minus.missedOne") : say(lang, "perf.minus.missed", missed));
+const missedWords = (lang: "en" | "gu", missed: number) =>
+  missed === 0 ? say(lang, "perf.minus.none") : say(lang, missed === 1 ? "perf.minus.missedOne" : "perf.minus.missed", missed, 0, missed);
 const openWords = (lang: "en" | "gu", open: number) => (open === 1 ? say(lang, "perf.minus.openToday.one") : say(lang, "perf.minus.openToday.many", open));
 const occurrences = (text: string, part: string) => text.split(part).length - 1;
 
@@ -134,7 +137,7 @@ test("Gujarati chosen while Google translates the page: the minus score's words 
     assert.ok(page.kept.includes(`${say("gu", "perf.minus.label")}: ${say("gu", "perf.minus.rule")}`), `the rule in the reviewed Gujarati, kept from Google: ${page.kept.slice(0, 400)}`);
     assert.ok(occurrences(page.kept, say("gu", "perf.minus.label")) >= 5, "its name on the rule, the tile and the three tables' heading");
     for (const key of Object.keys(SCORE_STRINGS.en) as Key[]) {
-      const english = say("en", key, 2);
+      const english = say("en", key, 2, 8, 10);
       assert.ok(!page.handed.includes(english.slice(0, 24)), `Google is not handed "${english}"`);
     }
     assert.ok(!page.handed.includes("Minus score") && !page.handed.includes("10 off") && !page.handed.includes(say("gu", "perf.minus.label")), page.handed.slice(0, 300));

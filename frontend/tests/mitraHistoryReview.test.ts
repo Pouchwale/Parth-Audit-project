@@ -435,7 +435,7 @@ test("12b: in a shared department a person's score is the Scorecard's, and witho
   const departmentLines = page.byDepartment.filter((d) => d.due > 0).slice(0, 3);
   assert.ok(departmentLines.length > 0);
   for (const d of departmentLines) assert.ok(pack.text.includes(`${d.code ? ` (${d.code})` : ""}: score ${d.score}, minus score ${formatMinus(d.minus)},`), `${d.code}\n${pack.text}`);
-  assert.match(pack.text, /Performance Scorecard[^\n]*, minus score (0|−\d+) \(10 off for each never done\)/);
+  assert.match(pack.text, /Performance Scorecard[^\n]*, minus score (0%|−\d+%) \(the share of the records due never done, as FMS counts it: 8 of 10 done is −20%\)/);
 
   // Kavita asks when the list cannot be read: no score for her at all, and the pack says why.
   const failing = await evidenceOptionsFor(intent, kavita, () => Promise.reject(new Error("offline")));

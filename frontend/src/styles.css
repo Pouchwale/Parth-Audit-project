@@ -2581,6 +2581,21 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .score-minus[data-tone="minus"] { background: var(--danger-soft); color: var(--danger); }
 .score-minus-figure { font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 .score-minus-label { font-size: 12.5px; color: var(--ink-2); min-width: 0; }
+/* EVERY PERSON'S MINUS SCORE on the administrator's dashboard (REQUIREMENTS §92, components/common/TeamScoreCard.tsx):
+   one row each, the share done as a bar beside the counts, so -20% is never read as 20% done. Stacked on a phone. */
+.team-minus-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.team-minus-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.team-minus-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who figure" "bar bar" "done done"; align-items: baseline; gap: 2px 12px; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: var(--radius-md); background: var(--surface); }
+.team-minus-plant { background: var(--neutral-soft); }
+.team-minus-who { grid-area: who; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; overflow-wrap: anywhere; color: var(--ink); }
+.team-minus-depts { font-size: 12px; color: var(--ink-2); }
+.team-minus-figure { grid-area: figure; font-size: 20px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.team-minus-row[data-tone="minus"] .team-minus-figure { color: var(--danger); }
+.team-minus-row[data-tone="zero"] .team-minus-figure { color: var(--success); }
+.team-minus-bar { grid-area: bar; display: block; height: 4px; margin-top: 4px; border-radius: 999px; background: var(--danger-soft); overflow: hidden; }
+.team-minus-bar > span { display: block; height: 100%; background: var(--success); }
+.team-minus-done { grid-area: done; font-size: 12px; color: var(--ink-2); }
+@media (min-width: 720px) { .team-minus-row { grid-template-columns: minmax(0, 1.4fr) minmax(80px, 1fr) auto 64px; grid-template-areas: "who bar done figure"; align-items: center; } .team-minus-bar { margin-top: 0; } .team-minus-figure { text-align: right; } }
 .score-minus-label strong { color: var(--ink); }
 .score-open-today { margin: 0 0 8px; font-size: 12px; line-height: 1.45; color: var(--warning); }
 /* On paper the Minus score heading may wrap onto two lines: a printout is fitted to the narrowest its tables can be
