@@ -83,6 +83,35 @@ def stored(page, key):
     return page.evaluate("(k) => JSON.parse(localStorage.getItem('dcrs:v1:' + k) || 'null')", key)
 
 
+def enter_todays_pest_round(page):
+    """Today's Daily Pest Control Monitoring Record, answered as the person who walked the round would.
+
+    REQUIREMENTS s98 (8-Oct-2026): the assistant prepares only the known parts of a Live record, so on a working
+    day nothing arrives ready for an OK until a person has entered what they saw. Returns whether there was a
+    prepared, working-day round to answer.
+    """
+    today = date.today().isoformat()
+    rid = page.evaluate(
+        "(d) => (JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find(r => r.documentId === 'daily-pest-monitoring' && !r.isDemo && r.dueDate === d && r.prepared && r.status === 'In Progress' && !(r.data || {}).isHoliday) || {}).id",
+        today,
+    )
+    if not rid:
+        return False
+    open_page(page, f"#/record/{rid}")
+    selects = page.locator("table select.input")
+    for i in range(selects.count()):
+        options = selects.nth(i).locator("option").all_inner_texts()
+        selects.nth(i).select_option(label="No" if "No" in options else options[-1])
+    numbers = page.locator("table input[type=number]")
+    for i in range(numbers.count()):
+        numbers.nth(i).fill("100")
+    if page.locator("input[type=time]").count():
+        page.locator("input[type=time]").first.fill("09:15")
+    page.fill("input[placeholder='Name of checker']", "Portal QA")
+    page.wait_for_timeout(900)
+    return True
+
+
 def log_lines(page, query=""):
     open_page(page, "#/activity", settle=2600)
     if query:
@@ -130,10 +159,16 @@ with sync_playwright() as p:
     # 1. Today's Briefing submits nothing unseen
     # ==================================================================
     dismiss(page)
+    # REQUIREMENTS s98: a prepared Live record holds only the known parts, so on a working day the day's
+    # records wait for their readings and none is ready for an OK. The person answers today's pest round first,
+    # as on the paper; it is then ready, and the briefing still will not submit it unreviewed.
+    entered = enter_todays_pest_round(page)
     open_page(page, "#/dashboard")
     page.click("button:has-text(\"Today's Briefing\")")
     page.wait_for_timeout(900)
     submits = page.locator("[data-action='briefing-submit']")
+    if entered:
+        check("The pest round a person answered is ready for the OK in the briefing", submits.count() >= 1)
     if submits.count() == 0:
         # A closed day (the Thursday weekly off, a holiday) has nothing prepared.
         check("Nothing is ready on a closed day, so there is nothing to gate", page.locator("[data-action='briefing-submit-all']").count() == 0)

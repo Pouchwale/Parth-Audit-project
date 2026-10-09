@@ -25,8 +25,15 @@ import {
 // so never the simulated catches and readings the prepare wrote before
 // 8-Oct-2026. Demo Mode's records are all the simulation's and are shown as
 // such (the watermark), so they are counted as they are.
+export function enteredByPeople(): (r: RecordInstance) => boolean {
+  // The settings are read once for a whole walk, not once a record (a year of registers on a slow laptop).
+  const liveStartDate = settingsRepository.get().liveStartDate;
+  return (r) => r.isDemo || isHumanRecord(r, liveStartDate);
+}
+
+/** One record by the rule above; a walk over many takes enteredByPeople() once. */
 export function countsAsEntered(r: RecordInstance): boolean {
-  return r.isDemo || isHumanRecord(r, settingsRepository.get().liveStartDate);
+  return enteredByPeople()(r);
 }
 
 // Rodents recorded on the Daily Pest Control Monitoring Record (checkpoint 7
@@ -60,7 +67,9 @@ export function rodentStatsForYear(year: number, isDemo: boolean): RodentYearSta
   const byLocation = new Map<string, { rodents: number; catchDays: number }>();
   const byBox = new Map<string, { location: string; rodents: number }>();
   let daysRecorded = 0;
+  const entered = enteredByPeople();
   for (const r of records) {
+    if (!entered(r)) continue;
     // A day counts once it has actually been filled in. Blank shells for the
     // days still to come used to be counted too, so the report could say
     // "from 18 recorded days" on a fresh install with nothing recorded.
@@ -113,7 +122,8 @@ export function rodentsInMonth(year: number, month: number, isDemo: boolean): nu
   const from = `${year}-${pad2(month + 1)}-01`;
   const to = `${year}-${pad2(month + 1)}-31`;
   return (recordRepository.query({ documentId: "daily-pest-monitoring", isDemo, fromDate: from, toDate: to }) as RecordInstance<DailyPestMonitoringData>[])
-    .filter((r) => !r.data.isHoliday && r.data.checkpoints[7]?.value === "Yes" && countsAsEntered(r))
+    .filter(enteredByPeople())
+    .filter((r) => !r.data.isHoliday && r.data.checkpoints[7]?.value === "Yes")
     .reduce((s, r) => s + Math.max(totalRodents(r.data.rodentCatches), r.data.rodentCatches?.length ? 0 : 1), 0);
 }
 
@@ -152,8 +162,9 @@ export function flyStatsForYear(year: number, isDemo: boolean): FlyYearStats {
   }
   const months: number[] = Array(12).fill(0);
   let visits = 0;
+  const entered = enteredByPeople();
   for (const r of records) {
-    if (!countsAsEntered(r)) continue;
+    if (!entered(r)) continue;
     const m = Number(r.dueDate.slice(5, 7)) - 1;
     let counted = false;
     for (const e of r.data.entries) {
@@ -214,15 +225,16 @@ function monthKey(iso: string): string {
 }
 
 function dailyRecordFilled(r: RecordInstance<DailyPestMonitoringData>): boolean {
-  return !r.data.isHoliday && Object.values(r.data.checkpoints ?? {}).some((c) => c && c.value !== null && c.value !== "") && countsAsEntered(r);
+  return !r.data.isHoliday && Object.values(r.data.checkpoints ?? {}).some((c) => c && c.value !== null && c.value !== "");
 }
 
 export function rodentTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[] {
   const records = recordRepository.query({ documentId: "daily-pest-monitoring", isDemo }) as RecordInstance<DailyPestMonitoringData>[];
   const registerMonths = new Set<string>();
   const rodentsByMonth = new Map<string, number>();
+  const entered = enteredByPeople();
   for (const r of records) {
-    if (!dailyRecordFilled(r)) continue;
+    if (!dailyRecordFilled(r) || !entered(r)) continue;
     const key = monthKey(r.dueDate);
     registerMonths.add(key);
     const n = r.data.checkpoints[7]?.value === "Yes" ? Math.max(totalRodents(r.data.rodentCatches), r.data.rodentCatches?.length ? 0 : 1) : 0;
@@ -267,8 +279,9 @@ export function rodentTrendRows(isDemo: boolean, today = todayISO()): TrendYearR
 export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[] {
   const records = recordRepository.query({ documentId: "fly-catcher", isDemo }) as RecordInstance<FlyCatcherData>[];
   const byMonth = new Map<string, number>();
+  const entered = enteredByPeople();
   for (const r of records) {
-    if (!countsAsEntered(r)) continue;
+    if (!entered(r)) continue;
     const counts = r.data.entries.filter((e) => e.catchCountApprox !== null && e.catchCountApprox !== undefined);
     if (counts.length === 0) continue;
     const key = monthKey(r.dueDate);

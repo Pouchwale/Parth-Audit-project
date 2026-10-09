@@ -9,7 +9,7 @@ import { countFindings } from "../engine/checkpoints";
 import { logSheetOutOfBandCount } from "../engine/validation";
 import { summarise } from "../engine/guidedChecklist";
 import { COMPLAINT_DOC_ID } from "../data/seed/complaintChecklist";
-import { countsAsEntered, flyStatsForYear, flyTrendRows, lizardTrendRows, rodentStatsForYear, rodentTrendRows, type TrendYearRow } from "../data/selectors";
+import { enteredByPeople, flyStatsForYear, flyTrendRows, lizardTrendRows, rodentStatsForYear, rodentTrendRows, type TrendYearRow } from "../data/selectors";
 import {
   FLIES_TREND_REPORT,
   LIZARD_TREND_REPORT,
@@ -169,7 +169,8 @@ function LaminationQcReport({ isDemo, year, month }: { isDemo: boolean; year: nu
   const from = `${year}-${pad2(month + 1)}-01`;
   const to = `${year}-${pad2(month + 1)}-${pad2(dim)}`;
   // Only what people entered (REQUIREMENTS §98, H-13): a prepared draft's cells are not the plant's figures.
-  const q = (documentId: string) => (recordRepository.query({ documentId, isDemo, fromDate: from, toDate: to }) as RecordInstance<LogSheetData>[]).filter(countsAsEntered);
+  const entered = enteredByPeople();
+  const q = (documentId: string) => (recordRepository.query({ documentId, isDemo, fromDate: from, toDate: to }) as RecordInstance<LogSheetData>[]).filter(entered);
   const viscosity = new Map(q("qc-viscosity").map((r) => [r.dueDate, r]));
   const temperature = new Map(q("qc-temperature").map((r) => [r.dueDate, r]));
   const mixing = new Map(q("qc-adhesive-mixing").map((r) => [r.dueDate, r]));
@@ -326,7 +327,7 @@ function DailyMonitoringReport({ isDemo, year, month }: { isDemo: boolean; year:
   const byDate = new Map(records.map((r) => [r.dueDate, r]));
   const checkpointDefs = masterRepository.get().checkpoints;
   // The status column shows every day's record; the findings and the rodents only what people entered (REQUIREMENTS §98, H-13).
-  const entered = new Set(records.filter(countsAsEntered).map((r) => r.id));
+  const entered = new Set(records.filter(enteredByPeople()).map((r) => r.id));
 
   const rodentCell = (r: RecordInstance<DailyPestMonitoringData> | undefined): string => {
     if (!r || !entered.has(r.id) || r.data.isHoliday || r.data.checkpoints[7]?.value !== "Yes") return "";

@@ -232,11 +232,14 @@ with sync_playwright() as p:
     close_assistant(page)
     new_id = page.url.split("#/record/")[-1]
     fresh = record(page, new_id)
-    # On its Wednesday the week's sheet is already prepared from the page on
-    # file (engine/assistantPrepare.ts), and New record opens that one. Any
-    # other day New record starts it blank, and Mitra fills it when asked - the
-    # same carry-forward (engine/sampleFill.ts), so this holds whatever the day.
-    if fresh is not None and not fresh.get("prepared"):
+    # On its Wednesday the week's sheet is already prepared, and New record
+    # opens that one; since 8-Oct-2026 the prepare writes only its known parts
+    # (REQUIREMENTS s98: the device's identity carried from the page on file,
+    # one dated line, never a weight or a tested value). Any other day New
+    # record starts it blank. Either way Mitra fills it when asked, carrying the
+    # page on file's four lines forward (engine/sampleFill.ts, allowed in a Live
+    # record on the test server), so this holds whatever the day.
+    if fresh is not None and len(fresh["data"]["rows"]) != 4:
         # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
         if page.locator("button:has-text('Ask Mitra')").count():
             page.click("button:has-text('Ask Mitra')")

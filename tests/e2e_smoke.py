@@ -137,7 +137,14 @@ def main():
             pass
         page.wait_for_timeout(300)
         check("Assistant briefing popup greets the user on login", "Good morning" in page.content() or "Good afternoon" in page.content() or "Good evening" in page.content())
-        check("Briefing lists records the assistant filled in", "ready for your OK" in page.content())
+        # REQUIREMENTS s98 (8-Oct-2026): the assistant prepares only the known parts of a Live record, so on a
+        # working day the day's records arrive needing the readings, and the briefing says how many wait. On a
+        # closed day the pest register arrives marked as a holiday, ready for the OK.
+        briefing_text = page.content()
+        check(
+            "Briefing lists the records the assistant prepared, and the readings that wait for a person",
+            ("readings to enter, then submit" in briefing_text or "reading to enter, then submit" in briefing_text) if PREPARED_EXPECTED else ("ready for your OK" in briefing_text or "to enter, then submit" in briefing_text),
+        )
         dismiss_briefing(page)
 
         check("Dashboard heading renders after signup", "Digital Controlled Record System" in page.content())
@@ -237,8 +244,18 @@ def main():
         if opened_log:
             check("Log sheet shows the F-QC-30 header", "F-QC-30" in page.content())
             check("Log sheet was pre-filled with 24 hourly rows", page.locator("table.log-sheet tbody tr").count() == 24)
-            check("Prepared banner explains what was filled", "hourly readings" in page.content() or not PREPARED_EXPECTED)
+            # REQUIREMENTS s98: the prepare writes the 24 time slots, never a reading or who tested it. The banner
+            # says so, and the person enters each reading and signs it, as on the paper, before it can be submitted.
+            check("Prepared banner says the slots are there and the readings are the person's", "24 time slots are on the sheet" in page.content() or not PREPARED_EXPECTED)
             if PREPARED_EXPECTED:
+                readings = page.locator("[data-bind$='/viscosity']")
+                testers = page.locator("[data-bind$='/testedBy']")
+                check("...and every reading starts empty", readings.count() == 24 and all(readings.nth(i).input_value() == "" for i in range(readings.count())))
+                for i in range(readings.count()):
+                    readings.nth(i).scroll_into_view_if_needed()
+                    readings.nth(i).fill("20.1")
+                    testers.nth(i).fill("Playwright QA")
+                page.wait_for_timeout(400)
                 page.click("button:has-text('Submit')")
                 page.wait_for_timeout(300)
                 check("Log sheet submitted (status Pending Verification)", "Pending Verification" in page.content())
@@ -832,8 +849,19 @@ def main():
         if opened_insp:
             check("Inspection shows the 11 printed test parameters", page.locator("table.log-sheet tbody tr").count() == 11)
         if opened_insp and PREPARED_EXPECTED:
-            check("Inspection observations were pre-filled from the specimen", "Standy + Zipper" in page.content())
-            check("Lot status pre-set to Accepted and inspector signed", "Accepted" in page.content() and "Inspected By" in page.content())
+            # REQUIREMENTS s98: the printed parameters and specifications are on the sheet; every observation, the
+            # lot's identity, its status and the inspector's name are left for the inspector, who writes them.
+            observations = page.locator("[data-bind$='/observation']")
+            check("Inspection observations are left for the inspector (none pre-filled)", observations.count() == 11 and all(observations.nth(i).input_value() == "" for i in range(observations.count())))
+            check("Lot status not pre-set and nobody signed for the inspector", page.locator("[data-bind='header/lotStatus']").input_value() == "" and page.locator("[data-bind='header/inspectedBy']").input_value() == "")
+            for key, value in (("fgCode", "5420"), ("poNumber", "81509"), ("jobName", "California Almonds and Whole Cashews"), ("inspectedBy", "Playwright QA")):
+                page.locator(f"[data-bind='header/{key}']").fill(value)
+            page.locator("[data-bind='header/shift']").select_option(index=1)
+            page.locator("[data-bind='header/lotStatus']").select_option(label="Accepted")
+            for i in range(observations.count()):
+                observations.nth(i).scroll_into_view_if_needed()
+                observations.nth(i).fill("OK")
+            page.wait_for_timeout(400)
             page.click("button:has-text('Submit')")
             page.wait_for_timeout(300)
             check("Inspection record submitted", "Pending Verification" in page.content())
@@ -857,15 +885,17 @@ def main():
             page.locator("[data-search-record]").count() >= 1,
             page.locator("[data-section='search-records']").inner_text()[:300],
         )
-        # The operator's name is on sheets the assistant PREPARED, which a search
-        # of what people wrote looks in only when asked to (REQUIREMENTS s75).
+        # The lamination machine is on sheets the assistant PREPARED, which a search
+        # of what people wrote looks in only when asked to (REQUIREMENTS s75). It was
+        # the operator's name until 8-Oct-2026: a prepared sheet no longer carries
+        # a name nobody wrote (REQUIREMENTS s98), only the plant's standing values.
         page.check("[data-field='search-include-drafts']")
-        page.fill("input[placeholder*='PC-04']", "Gaurav Singh")
+        page.fill("input[placeholder*='PC-04']", "Lamination-1")
         try:
             page.wait_for_selector("[data-search-record]", timeout=15000)
         except Exception:
             pass
-        check("Search finds the lamination operator on the prepared log sheets", page.locator("[data-search-record]").count() >= 1)
+        check("Search finds the lamination machine on the prepared log sheets", page.locator("[data-search-record]").count() >= 1)
 
         # ---- 13b. Back from the Record Calendar (REQUIREMENTS s48) ----
         # Back returns to the page the calendar was opened from; a day opened
