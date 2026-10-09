@@ -6233,8 +6233,8 @@ opened it nothing was ready. Now, on each working day of the plant at `PREPARE_A
 server started later does it at once), DCRS's own engine on the server (backend/engineHost.ts, op `prepare`) makes the
 near-term sheets of every Live document and prepares every blank sheet due by today, by the one rule the browser runs
 (engine/assistantPrepare.ts). It fills the known parts only, never a reading or an observation (§3 of the build brief,
-"No invented observations"): a record a person has started is never touched. (The prepare's own rule is being changed
-to that beside this work; until it is, the server's prepare does exactly what the browser's does, as one rule.) The records are written with the version
+"No invented observations"): a record a person has started is never touched. (That rule is §98, 8-Oct-2026; the server's prepare and the
+browser's are the same code, one rule.) The records are written with the version
 they were worked out on, and worked out again on what is stored when a browser saved meanwhile, so a browser preparing at
 the same moment never makes a second sheet for one document and period (proved both ways: the job's write meeting the
 browser's, backend/tests/notificationJobs.test.ts, and the browser's merge meeting the job's, frontend/tests/
@@ -6321,6 +6321,93 @@ made the day's records (18 for today, in HR, PRD and QC); notify told each of th
 its document by the owner's table, gave the super admin the morning summary by module and nobody else, and pushed ten
 people once each, each in the language of the phone; run again, both did nothing; at 15:30 the seven with tasks still
 open had one "Still open" push each; the test push reached one phone, and a second at once was refused.
+
+## §98 Records that say only what happened (8-Oct-2026)
+
+**The request, and why it is not built.** On 8-Oct-2026 the owner asked for the system to generate pest, cleaning and
+other monitoring data that looks manually entered, so that auditors believe it. That would be falsifying food-safety and
+hygiene records (the Daily Pest Control Monitoring Record, the fly catcher and cleaning registers, the QC and production
+logs are what an auditor relies on to know the plant was checked), and it is not built. The audit of 7-Oct-2026 had
+found the same thing from the other side (docs/AUDIT-2026-10-07.md H-9 to H-13: clearances and ALC answers pre-filled,
+signatures filled or invented, stock counts copied from yesterday, the assistant's drafts counted in reports); those are
+fixed here as part of the rule. What is built instead is the honest version of "the system fills it daily and the person
+reviews and submits it": everything that is known is ready, and the person enters what they actually saw, quickly (on
+the phone, §97, with large buttons for the usual answers).
+
+**1. The rule** (engine/knownParts.ts, engine/observations.ts). The system never writes, into a Live record, a reading,
+a count, a pass or fail, an OK or not OK, a finding, the time of a round, a quantity used, the job or lot in front of
+the person, the shift, a signature, or the name of whoever checked, that a person did not enter or an instrument did not
+measure. When a Live record is prepared it holds only what is known:
+- the record itself and its date (a "Date" box or column that is the record's day);
+- the fixed rows the form prints: the ten check points, the thirteen fly catcher units, the service areas, the time
+  slots, a checklist's questions, a machine's PM lines;
+- the plant's standing values: the machine and the instrument (name, number, maker, serial, capacities, tolerance,
+  calibration expiry), the chemicals in use (make, product code, mixing ratio; never a batch, which is a lot), the
+  material and method fixed for each pest-control area, the contractor, the site and the standing HARA team, a
+  period or a responsibility the format prints as its own;
+- what truly carries forward unchanged from the last record a person confirmed: the tube lights' install and due
+  dates, the people or suppliers on a yearly list (never their rating, skill level or training need, which are
+  assessed afresh), and a stock ledger's opening stock, which is the last sheet's closing stock (H-10).
+Every box and column of the 114 log-sheet layouts is classed by engine/observations.ts as date, worked out, standing or
+observation; anything not plainly a standing value is an observation and is left empty. An As Required document is
+started for one occasion, so nothing of the last occasion is carried into it. The CAPA findings, the complaint papers
+and the agreements are not prepared at all.
+
+**2. One rule in three places.** The browser at start-up, the engine host on the server and the server's morning job
+(§97) all run engine/assistantPrepare.ts `prepareDueRecords`, which runs this rule. The prepared record is In Progress
+and "needs input"; its notes end with "Left for you: N readings to enter before it can be submitted. Nothing you
+observe was filled in for you."; the briefing shows "N readings to enter, then submit." under each such record, and the
+notifications say how many readings wait (§97, "12 readings to enter: the Daily Pest Control Monitoring Record"). N is
+what the submit checks still ask for. The prepared banner says "Your assistant has filled this in as far as it is known:
+the readings are yours to enter".
+
+**3. The record's history says what the assistant did.** Each preparation is a line in the record's own history, by the
+assistant: "Prepared by the assistant: the known parts; the readings are the person's", with every box it wrote, before
+and after; the record is stamped `prepared.knownPartsOnly`. "Fill again" on a Live record prepares the known parts again.
+
+**4. Drafts the simulation filled before 8-Oct-2026.** Until this change the prepare wrote plausible readings into Live
+drafts. A Live draft that still holds them and nobody has touched (In Progress, prepared before the rule, last saved by
+the prepare, no person's line in its history) is prepared again by the rule at the next start-up or morning job: the
+made-up readings are taken out and listed in its history ("Prepared again by the assistant: the known parts only. The
+readings an earlier version filled in were never observed, so they are taken out; the readings are the person's"). A
+draft a person has worked on is never touched.
+
+**5. Reports count only what people entered** (H-13). Every report, tile and trend sheet counts a Live record only when
+a person wrote or confirmed it (data/selectors.ts `countsAsEntered`, the engine/insights.ts `isHumanRecord` rule the
+Management Summary already used): the Rodent Trend and its year, the month's rodents, the fly catcher figures and trend,
+the lamination QC report and the daily monitoring summary. The Live lizard report no longer draws a year the service
+provider has not reported from a seasonal pattern: the row is headed "Not yet reported by the service provider" and stays
+blank until the provider's figures are entered.
+
+**6. The simulation is Demo Mode's** (engine/autoFill.ts, engine/plantSimulation.ts, engine/rodentPattern.ts,
+engine/flyPattern.ts, engine/lizardPattern.ts, each marked DEMO MODE ONLY). It makes Demo Mode's year. Mitra's "fill it
+with sample data" fills a Demo Mode record anywhere, and a Live record only on a test server: `ALLOW_SAMPLE_FILL=1`, which
+scripts/run-e2e.ts sets on both test servers and scripts/unit-tests.ts on the backend tests, off by default (the browser
+is told `features.sampleFill`; until the server says it, a server running Demo Mode, which only test servers do, is taken
+as one; the engine host reads the server's own variable). Anywhere else every way of asking declines in plain words in
+the person's language, "Sample data is for practice in Demo Mode. In a live record, enter what you saw." (English,
+Gujarati, and Hindi when asked in Devanagari): Mitra's tool, which the phone's `/api/v1/records/{id}/sample-fill` runs
+too, the chat's chips and typed command, the full-page assistant, and the formats' chips, which are not offered there.
+The guided interview offers no "Fill typical readings for me" for a Live record and copies no signature beside what the
+person typed.
+
+**7. The audit's items, fixed here.** H-9: a blank form never arrives answered (the pouching Line Clearance, the ALC of
+the lamination, slitting and doctoring reports, the vehicle's type of cleaning, the container compliance, the shift, the
+pass, the operator). H-10: blade and sharp-object counts are never copied; the blade ledgers open with the last closing
+stock. H-11: F-PRD-18's OPERATOR SIGN is the operator's (as F-PRD-20 and F-PRD-26), and the Production test checks every
+signature column. H-12: F/DISP/04's driver signs the line; it is never carried forward, and the invented "Rameshbhai
+Patel" is gone from its specimen. H-13: point 5.
+
+**What stays automatic.** Records whose values come from other real records: the trend analyses and summaries (worked
+out from the registers), the computed cells of every sheet (deviations, totals, ratings, audit frequencies, §61, §77),
+F/MNT/03's Actuals read from F/MNT/02 (§82), master lists that carry their own lines forward, and the opening stock of a
+ledger. Verify-own-record stays as it is (§96).
+
+**Tested** (docs/TESTING.md "Records that say only what happened"): frontend/tests/truthfulPrepare.test.ts walks all 125
+recordable documents, with and without a confirmed record before each (filled with sample data to tempt a carry-forward),
+and fails on any observation a Live prepare writes, by the words and types of each box and column (against the previous
+prepare it found 9,691); frontend/tests/sampleFillLive.test.ts, frontend/tests/reportsCountPeople.test.ts and
+frontend/tests/production.test.ts (every signature column).
 
 ## Master data provenance summary
 
@@ -6577,31 +6664,29 @@ open had one "Still open" push each; the test push reached one phone, and a seco
     on the Performance page; 18 of 20 done is -10 there and -20 here. DCRS keeps both as they are. Did "display score in
     -10" mean 10 off for each record missed (as built), and should the Dashboard's figure follow it?
 
-## How the assistant pre-fills records (and what it never does)
+## How the assistant prepares records (and what it never does)
 
-Every record that falls due is prepared by the in-app assistant before the user sees it
-(`src/engine/autoFill.ts`, run by `prepareDueRecords()` at app start / on the dashboard / on
-login). The rules that keep this honest:
+Since 8-Oct-2026 a Live record that falls due is prepared by ONE rule (§98, `src/engine/knownParts.ts`, run by
+`prepareDueRecords()` at app start, in the engine host on the server and by the server's morning job, §97). The rules
+that keep this honest:
 
-- Values are **carried forward from the user's most recent submitted or verified record** of the
-  same document (operator, machine, batch numbers, job list, trap counts, tube-light dates,
-  checker names). With no history yet, the **filled specimen** from the source file is used.
-- Measured readings (viscosity, hot-room temperature, mix viscosity) follow the plant behaviour
-  model in §25 — mostly in control, with the occasional drift episode that takes a reading outside
-  the printed band and is flagged for the person to confirm. Machine set-points and weighed set
-  quantities are **copied exactly**: the specimen shows the same 3.00 / 2.00 / 45 and the same
-  15 / 1.65 / 19.5 row after row, because they are settings, not measurements.
-- The assistant **never signs, submits, verifies, or ticks an attendance**. It proposes what the
-  plant's own pattern says the day looked like; a person confirms it. Anything the model says went
-  wrong is put in the first line of the record's notes ("Check this before you submit…") rather
-  than left to be discovered, and CAPA records are still never auto-filled in Live mode — a
-  corrective action is a decision, not a routine entry.
-- A **blank form never carries a decision**. The Lot Status box on an inspection that has not
-  happened yet is empty, not "Accepted" (`isDecisionField`, `src/engine/recordDefaults.ts`).
-- Prepared records stay **In Progress** with a visible "Your assistant has filled this in" banner
-  listing exactly what was filled and what it was based on. Nothing is Submitted or Verified until
-  a logged-in person does it; the login briefing offers one-click "Submit" only after the record
-  passes the same validation a manual submit would.
+- Only what is **known** is written: the record and its date, the fixed rows the form prints, the plant's standing
+  values (the machine, the instrument, the chemicals in use, the fixed material and method per pest-control area, the
+  contractor, the standing team), and what truly carries forward unchanged from the last record a person confirmed
+  (tube light dates, a yearly list's people or suppliers, a ledger's opening stock).
+- **Every observation is left for the person**: readings, counts, pass or fail, OK or not OK, findings, the time of a
+  round, quantities used, the lot in front of them, the shift, signatures and the names of whoever checked
+  (`src/engine/observations.ts` classes every box and column). The record is "needs input", and the briefing and the
+  notifications say how many readings wait.
+- The assistant **never signs, submits, verifies, or ticks an attendance**, and a **blank form never carries a
+  decision** (H-9: no Lot Status, Line Clearance, ALC, cleaning type, compliance or shift arrives answered).
+- Prepared records stay **In Progress** with a banner saying the assistant filled them "as far as it is known: the
+  readings are yours to enter", and a line in their history. Nothing is Submitted or Verified until a signed-in person
+  does it; the login briefing offers "Submit" only after the person ticks the record as reviewed and it passes the same
+  checks a manual submit would.
+- The **simulation** that writes plausible readings (`src/engine/autoFill.ts` with the plant behaviour model of §25 and
+  the pest patterns) fills **Demo Mode's records only**, and sample data in a Live record on a test server
+  (`ALLOW_SAMPLE_FILL=1`). It never reaches a Live record in the plant, and no report counts a draft (§98.5).
 
 None of these block the Phase‑1 prototype — each is either handled with a clearly-labeled
 default/fallback in the UI, or left as an empty, addable Master Data list.

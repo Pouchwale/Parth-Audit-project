@@ -673,10 +673,42 @@ Seven scripts live in `tests/`:
   Gujarati); the prepare and notify run again did nothing and pushed nothing; at 15:30 the seven with tasks still open
   had one "Still open" push each, and nothing more at 15:35; the test push reached one phone and a second at once was
   refused (429); `GET /api/v1/today` answered with module, canSubmit and canVerify; no push token in the server's log.
-  On this branch's code the 18 prepared records all passed DCRS's checks and were told as "ready": the prepare still
-  fills more than the known parts here. The change that leaves every reading to the person (the build brief's "No
-  invented observations") is being made beside this work; after it the same run tells them as "needs input" with the
-  number of readings waiting. Nothing in these tests assumes either.
+  On this branch's code at that time the 18 prepared records all passed DCRS's checks and were told as "ready": the
+  prepare still filled more than the known parts. Since §98 (the next entry) it leaves every reading to the person, and
+  the same records are told as "needs input" with the number of readings waiting. Nothing in these tests assumes either.
+- **Records that say only what happened** (REQUIREMENTS §98, 8 and 9-Oct-2026). New unit tests, each failing on the
+  code before the change it proves (run there with a stand-in for the new module where it did not exist):
+  `frontend/tests/truthfulPrepare.test.ts` (8: all 125 recordable documents prepared for today and the next working
+  day, with and without a confirmed record before each filled with sample data to tempt a carry-forward, and no
+  observation written, judged by the words and types of each box and column, not by the module under test; against the
+  previous prepare it found 9,691; what is known IS written (an instrument's identity, the chemicals in use, the printed
+  rows, the tube light dates, a yearly list's people); the pest register waits for 12 readings; H-9 (no decision on a
+  blank form), H-10 (the blade ledgers open with the last closing stock, nothing else copied), H-12 (no invented driver);
+  `prepareDueRecords` stamps every record it prepares and writes its history line),
+  `frontend/tests/sampleFillLive.test.ts` (7: Mitra declines sample data for a live record and changes nothing; the
+  refusal in English, Gujarati and Hindi with no gendered pronoun; a Demo Mode record is filled; a test server's switch,
+  by the server's word or its ALLOW_SAMPLE_FILL; the full-page assistant leaves a live record alone; the guided interview
+  offers no typical readings and copies no signature for a live record; the Live lizard report invents no catch) and
+  `frontend/tests/reportsCountPeople.test.ts` (3: a prepared draft's rodents and flies are not counted and a person's
+  are; a draft the simulation filled before 8-Oct-2026 is prepared again, its made-up values taken out and listed in its
+  history, a person's draft untouched). Changed: `frontend/tests/production.test.ts` (H-11: every signature column
+  checked; it failed before on F-PRD-18's OPERATOR SIGN). Browser suites changed, each with its reason in the suite:
+  `tests/e2e_smoke.py` (the briefing lists the readings that wait; F-QC-30's 24 readings and signatures are entered by
+  the person before it is submitted, and every reading starts empty; F/QC/37's observations, lot status and inspector
+  start empty and are entered; the drafts search finds the machine, no longer an operator nobody wrote),
+  `tests/e2e_portal_controls.py` (the person answers today's pest round, then the briefing gates its submit; the Live
+  lizard year is blank and "Not yet reported"), `tests/e2e_editing.py` (the record is filled with Mitra's sample data
+  first on every day, as it holds only its known parts) and `tests/e2e_qc_calibration.py` (a prepared weekly sheet has
+  one dated line, so Mitra's sample data brings the page on file's four). The test runners set `ALLOW_SAMPLE_FILL=1`.
+  Run on 9-Oct-2026 (a Friday, a working day), each suite ALONE: `e2e_smoke.py` 168 of 168, `e2e_portal_controls.py`
+  38 of 38, `e2e_editing.py` 20 of 20, `e2e_qc_calibration.py` 40 of 40 (the Wednesday path of the last, a prepared
+  weekly sheet, was not reached on a Friday). `npm run test:unit`: frontend 596 of 596. At 6x CPU throttle on a
+  throwaway DCRS from the branch (a fresh embedded PostgreSQL, the super admin, a month of Live records, so not a year
+  of data): Dashboard 1,160 ms, Reports 868 ms, Rodent trend 711 ms, Lizard trend 162 ms, a prepared F-QC-30 record
+  1,332 ms; the briefing showed the readings waiting and the record its known-parts banner; no page error.
+  **Known and handed on:** `backend/tests/apiV1Records.test.ts` assumes a prepared qc-viscosity record already holds 24
+  readings and skips Mitra's sample fill when the record is prepared; three of its tests fail until it always
+  sample-fills (it is outside this builder's files).
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for
