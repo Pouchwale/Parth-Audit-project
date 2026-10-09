@@ -838,6 +838,9 @@ const en = {
   "brief.evening": "Good evening",
   "brief.ready": "{n} filled in and ready for your OK",
   "brief.needsInput": "{n} need a detail only you know",
+  // What a prepared record still waits for (REQUIREMENTS §98): the assistant wrote only the known parts.
+  "brief.toEnter": "{n} readings to enter, then submit.",
+  "brief.toEnterOne": "1 reading to enter, then submit.",
   "brief.overdue": "{n} still open from earlier",
   "brief.awaiting": "{n} waiting for verification",
   "brief.allClear": "Everything is up to date — nothing is waiting on you right now.",
@@ -1629,6 +1632,8 @@ const gu: Record<StringKey, string> = {
   "brief.evening": "શુભ સાંજ",
   "brief.ready": "{n} ભરાઈ ગયા છે અને તમારી મંજૂરીની રાહ જુએ છે",
   "brief.needsInput": "{n} માટે એવી વિગત જોઈએ જે ફક્ત તમે જાણો છો",
+  "brief.toEnter": "{n} રીડિંગ ભરો, પછી સબમિટ કરો.",
+  "brief.toEnterOne": "1 રીડિંગ ભરો, પછી સબમિટ કરો.",
   "brief.overdue": "{n} અગાઉથી બાકી છે",
   "brief.awaiting": "{n} ચકાસણીની રાહ જુએ છે",
   "brief.allClear": "બધું અદ્યતન છે — હાલ તમારા પર કંઈ બાકી નથી.",

@@ -123,6 +123,11 @@ export interface PreparedInfo {
   // Where the values came from, for transparency: the previous real record
   // it carried forward from (if any), otherwise the source-document specimen.
   basedOn: string;
+  // Prepared by the one rule for a Live record (engine/knownParts.ts,
+  // REQUIREMENTS §98): only the known parts, every observation left for the
+  // person. Absent on a Demo Mode record, and on a record prepared before
+  // 8-Oct-2026 by the simulation (engine/autoFill.ts).
+  knownPartsOnly?: true;
 }
 
 // ---- 6. Generic log sheet (lamination QC / production formats) ------------

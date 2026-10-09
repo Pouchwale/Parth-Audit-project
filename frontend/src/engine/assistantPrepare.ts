@@ -4,7 +4,10 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { autoFillRecord } from "./autoFill";
+import { prepareKnownParts, PREPARED_NOTE } from "./knownParts";
 import { ensureNearTermRecordsGenerated } from "./reminders";
+import { diffRecordData, makeEntry } from "./recordHistory";
+import { fieldLabels } from "./recordPatch";
 import { supersededRevisionOf } from "./validation";
 import { compareISO, todayISO } from "../utils/date";
 
@@ -34,12 +37,15 @@ export function latestConfirmedRecord(documentId: string, beforeISO: string, isD
 }
 
 // "PREPARE MY RECORDS." Runs on app start and whenever the user comes back
-// to the app: every Live record that is due today or earlier and still a
-// blank shell gets filled in by the assistant and moved to In Progress,
-// stamped with what was filled and why. Idempotent — a record is prepared
-// at most once (the `prepared` stamp + status check), and a fresh shell for
-// a future date is left blank until its day comes, so the calendar never
-// shows "data" for a day that hasn't happened yet.
+// to the app, in the engine host on the server, and in the server's morning
+// job: every Live record that is due today or earlier and still a blank shell
+// gets its KNOWN PARTS from the assistant (engine/knownParts.ts: the record and
+// its date, the fixed rows, the standing values, what truly carries forward;
+// never a reading, a count, an answer or a signature, REQUIREMENTS §98) and
+// moves to In Progress, stamped with what was filled and why, with a line in
+// its history. Idempotent — a record is prepared at most once (the `prepared`
+// stamp + status check), and a fresh shell for a future date is left blank
+// until its day comes.
 export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   ensureNearTermRecordsGenerated(false);
   const master = masterRepository.get();
@@ -75,21 +81,28 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
 
     for (const record of records) {
       const previous = latestConfirmedRecord(doc.id, record.dueDate, false);
-      const result = autoFillRecord(doc, record.dueDate, master, previous);
+      const result = prepareKnownParts(doc, record.dueDate, master, previous);
       if (!result) continue;
-      prepared.push({
-        ...record,
-        data: result.data,
-        status: "In Progress",
-        // updatedAt is stamped here (matching prepared.at exactly) rather
-        // than left for upsertMany to fill in — upsertMany no longer
-        // re-stamps it (see recordRepository.ts), specifically so this
-        // equality is real and not two independent clock reads that happen
-        // to be close together. findPreLaunchNoise() depends on it holding
-        // for a genuinely untouched, just-prepared record.
-        updatedAt: now,
-        prepared: { at: now, by: "assistant", notes: result.notes, basedOn: result.basedOn },
-      });
+      prepared.push(
+        withPreparedEntry(
+          {
+            ...record,
+            data: result.data,
+            status: "In Progress",
+            // updatedAt is stamped here (matching prepared.at exactly) rather
+            // than left for upsertMany to fill in — upsertMany no longer
+            // re-stamps it (see recordRepository.ts), specifically so this
+            // equality is real and not two independent clock reads that happen
+            // to be close together. findPreLaunchNoise() depends on it holding
+            // for a genuinely untouched, just-prepared record.
+            updatedAt: now,
+            prepared: { at: now, by: "assistant", notes: result.notes, basedOn: result.basedOn, knownPartsOnly: true },
+          },
+          record.data,
+          doc,
+          now
+        )
+      );
     }
   }
 
@@ -97,19 +110,34 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   return prepared;
 }
 
+// THE HISTORY LINE OF A PREPARATION (REQUIREMENTS §98): who prepared it, the
+// rule it was prepared by, and every box it wrote, before and after. Written
+// into the record itself, so it stays when a person's own entries follow it.
+// No activity-log line here: what the start-up does by itself is nobody's act
+// (engine/recordHistory.ts logEntry), and the server's morning job writes its
+// own one line for the day ("The assistant prepared N records").
+function withPreparedEntry(record: RecordInstance, before: unknown, doc: { kind: string; id: string }, at: string): RecordInstance {
+  const entry = { ...makeEntry("prepared", "Assistant", { note: PREPARED_NOTE, changes: diffRecordData(before, record.data, fieldLabels(doc.kind, doc.id)) }), at };
+  if (!entry.changes?.length) delete entry.changes;
+  return { ...record, history: [...(record.history ?? []), entry] };
+}
+
 // Lets the user ask the assistant to redo one record from scratch (e.g.
-// after they cleared it). Only valid while the record is still a draft.
+// after they cleared it). Only valid while the record is still a draft. A
+// Live record gets the known parts again and nothing more (engine/knownParts.ts);
+// a Demo Mode record is the simulation's (engine/autoFill.ts).
 export function reprepareRecord(recordId: string): RecordInstance | undefined {
   const record = recordRepository.getById(recordId);
   if (!record || !["Scheduled", "Due", "In Progress", "Rejected"].includes(record.status)) return undefined;
   const doc = documentRepository.getByIdUnscoped(record.documentId);
   if (!doc) return undefined;
-  const result = autoFillRecord(doc, record.dueDate, masterRepository.get(), latestConfirmedRecord(doc.id, record.dueDate, record.isDemo));
+  const previous = latestConfirmedRecord(doc.id, record.dueDate, record.isDemo);
+  const result = record.isDemo ? autoFillRecord(doc, record.dueDate, masterRepository.get(), previous) : prepareKnownParts(doc, record.dueDate, masterRepository.get(), previous);
   if (!result) return undefined;
   return recordRepository.upsert({
     ...record,
     data: result.data,
     status: "In Progress",
-    prepared: { at: new Date().toISOString(), by: "assistant", notes: result.notes, basedOn: result.basedOn },
+    prepared: { at: new Date().toISOString(), by: "assistant", notes: result.notes, basedOn: result.basedOn, ...(record.isDemo ? {} : { knownPartsOnly: true as const }) },
   });
 }

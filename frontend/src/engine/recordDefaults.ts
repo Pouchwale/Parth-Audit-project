@@ -23,13 +23,15 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { COMPANY } from "../data/seed/masterData";
 import { termEnd } from "./serviceAgreement";
 import { TUBE_LIGHT_DUE, TUBE_LIGHT_INSTALLED } from "./flyPattern";
+import { boxKind } from "./observations";
 
 // Builds the AUTOMATIC / STATIC part of a new record shell (section 11 & 26):
 // header info, checkpoint lists, PC locations, area lists are all
 // pre-populated from master data so the user never re-types them. The
-// ACTUAL OBSERVATION fields are left blank/null here — the assistant's
-// auto-fill (engine/autoFill.ts) is what fills those in, separately and
-// visibly, once a record actually falls due.
+// ACTUAL OBSERVATION fields are left blank/null here, and in a Live record
+// they stay blank until a person writes them: the morning prepare adds only
+// what is known (engine/knownParts.ts, REQUIREMENTS §98). The simulation
+// that writes plausible values (engine/autoFill.ts) is Demo Mode's.
 export function createDefaultData(
   doc: DocumentDefinition,
   dueDateISO: string,
@@ -134,13 +136,14 @@ export function createDefaultData(
       const header: Record<string, string> = {};
       let rows: LogSheetRow[] = [];
       if (layout) {
-        // A blank form may arrive with the routine parts already entered (the
-        // shift, the machine), but never with a DECISION already made: the
-        // Lot Status box of an inspection that has not happened yet must not
-        // read "Accepted". It is filled when the record is prepared, and the
-        // person who signs it is the one who decides.
+        // A blank form may arrive with the plant's standing values already
+        // entered (the machine, the instrument, a printed period), but never
+        // with an OBSERVATION already answered (REQUIREMENTS §98): the Lot
+        // Status of an inspection that has not happened must not read
+        // "Accepted", nor the shift "1st", nor the operator "Gaurav Singh".
+        // Whoever fills the sheet writes those (engine/observations.ts).
         for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
-          header[f.key] = isDecisionField(f.key) ? "" : (f.autoFill?.default ?? "");
+          header[f.key] = isDecisionField(f.key) || boxKind(f, layout) !== "standing" ? "" : (f.autoFill?.default ?? "");
         }
         rows = emptyLogRows(doc.id);
       }
@@ -162,13 +165,17 @@ function existingComplaintNumbers(): string[] {
 const isDecisionField = (key: string): boolean => key === "lotStatus" || key === "deviationReason";
 
 // Blank grid rows for a log sheet: one per fixed time slot, exactly one for
-// single-row layouts, or the minimum number of free rows.
+// single-row layouts, or the minimum number of free rows. Blank means blank:
+// no cell arrives answered (the audit of 7-Oct-2026, H-9). A Line Clearance
+// that starts as "Done", an ALC as "Yes", a cleaning as "Dry" or a compliance
+// as "હા" is a decision nobody made, and the required check could never catch
+// one left unanswered.
 export function emptyLogRows(documentId: string): LogSheetRow[] {
   const layout = getLogSheetLayout(documentId);
   if (!layout) return [];
   const blank = (): LogSheetRow => {
     const row: LogSheetRow = { id: generateId("row") };
-    for (const c of layout.columns) row[c.key] = c.type === "number" ? null : c.fixed ? "" : c.autoFill?.default !== undefined && c.type !== "text" ? String(c.autoFill.default) : "";
+    for (const c of layout.columns) row[c.key] = c.type === "number" ? null : "";
     return row;
   };
   const mode = layout.rowMode;

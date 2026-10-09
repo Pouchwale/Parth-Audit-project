@@ -5,7 +5,9 @@ import { useT } from "../../i18n";
 
 // Shown at the top of any record the assistant pre-filled. Says exactly what
 // was filled in and where the values came from, so "review and confirm" is a
-// real review and not a rubber stamp.
+// real review and not a rubber stamp. A Live record holds only the known parts
+// (engine/knownParts.ts, REQUIREMENTS §98), and the banner says so: the
+// readings are the person's.
 export function PreparedBanner({
   prepared,
   status,
@@ -18,13 +20,21 @@ export function PreparedBanner({
   const t = useT();
   const [confirming, setConfirming] = useState(false);
   const draft = ["Scheduled", "Due", "In Progress", "Rejected"].includes(status);
+  const knownParts = prepared.knownPartsOnly === true;
   const when = new Date(prepared.at);
   return (
     <div className="prepared-banner mb-4">
       <div className="flex items-start justify-between gap-3 wrap">
         <div style={{ flex: 1, minWidth: 240 }}>
           <div className="font-semibold text-sm flex items-center gap-2">
-            <FiZap size={14} /> {draft ? "Your assistant has filled this in for you" : "Filled in by your assistant, then reviewed and submitted"}
+            <FiZap size={14} />{" "}
+            {knownParts
+              ? draft
+                ? "Your assistant has filled this in as far as it is known: the readings are yours to enter"
+                : "The known parts were prepared by your assistant; the readings were entered and submitted by people"
+              : draft
+                ? "Your assistant has filled this in for you"
+                : "Filled in by your assistant, then reviewed and submitted"}
           </div>
           <div className="text-xs text-muted mt-1">
             Prepared {when.toLocaleString()} · based on {prepared.basedOn}
@@ -36,7 +46,8 @@ export function PreparedBanner({
           </ul>
           {draft && (
             <div className="text-xs mt-2 text-muted">
-              Have a look, change anything that was different today, then press <strong>Submit</strong>. Nothing is recorded as yours until you do.
+              {knownParts ? "Enter what you saw, check the rest, then press " : "Have a look, change anything that was different today, then press "}
+              <strong>Submit</strong>. Nothing is recorded as yours until you do.
             </div>
           )}
         </div>
