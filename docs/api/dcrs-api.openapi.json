@@ -2237,9 +2237,9 @@
                       "checkpoints": {
                         "1": "Yes",
                         "4": 100,
-                        "8": {
+                        "9": {
                           "value": "Yes",
-                          "note": "near the store"
+                          "note": "RC-17"
                         }
                       },
                       "checker": "Roshni",
@@ -5416,7 +5416,7 @@
       },
       "Layout": {
         "type": "object",
-        "description": "What the form is made of, in the keys a patch names. A log sheet: `header`, `footer` (boxes) and `columns`, each {key, label, type, options?, required?, unit?, min?, max?, printed?, computed?, readFrom?}, and `rows` {mode: timeSlots|fixedRows|free|single, slotKey?, slots?, count?}. F/HR/17: `checkpoints` {number, question, answer, noteAsks?, findingWhen?}, `fields`, `lists`. Any other form: `fields` {key, label, type, items?, parts?}. A printed or computed column, or one read from another document (readFrom), cannot be written.",
+        "description": "What the form is made of, in the keys a patch names. A log sheet: `header`, `footer` (boxes) and `columns`, each {key, label, type, options?, required?, unit?, min?, max?, printed?, computed?, readFrom?}, and `rows` {mode: timeSlots|fixedRows|free|single, slotKey?, slots?, count?}. F/HR/17: `checkpoints` {number, question, answer, noteAsks?, findingWhen?, noteChoices?, noteChoicesFrom?, noteOther?, noteChoicesSaid?}, `fields`, `lists`. Check points 8 and 9 name rodent boxes (REQUIREMENTS §104): `noteChoices` [{id, area?}] is the list a picker offers, none picked (Master Data's Active stations, else RC-1 to RC-<check point 4's count>), `noteChoicesFrom` where it came from (stations, today, last), `noteChoicesSaid` that in a line of the request's language, and `noteOther` (8 only) that a place in words may be given too. The note stays text: \"RC-3, RC-17\", or \"RC-3; Other: near RM inward shutter\". Any other form: `fields` {key, label, type, items?, parts?}. A printed or computed column, or one read from another document (readFrom), cannot be written.",
         "additionalProperties": true
       },
       "DocumentDetail": {

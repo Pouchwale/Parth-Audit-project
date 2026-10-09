@@ -357,6 +357,12 @@ and re-run it rather than the `.ts`. The same generated module carries the fly-c
 turns into `FlyCatcherEntry.catchCountApprox`; `data/selectors.ts` (`flyStatsForYear`, `fliesInMonth`)
 adds those up per unit / per month for the Fly Catcher Infestation trend.
 
+Checkpoints 8 and 9 keep their answer as `checkpoints[n] = { value, note }`, the note TEXT (REQUIREMENTS §104): the
+rodent box picker writes "RC-3, RC-17", and on 8 "RC-3; Other: near RM inward shutter". The boxes it offers are
+`MasterData.rodentStations` (`RodentStation { id, location, type, status }`, the Active ones; `id` is the number
+painted on the box, unique), else RC-1 to RC-<checkpoint 4's count> worked out by `engine/rodentBoxes.ts` and never
+stored. `RodentCatch.trapBoxNo` takes the same list.
+
 `DocumentDefinition.section?: string` is an optional sub-grouping inside a module. The Human
 Resources module uses nine: its own "Personnel & Competence" / "Training" / "Induction & Health" /
 "Hygiene & GMP" / "Product Safety Culture" (`HR_SECTIONS`) for the sixteen F/HR formats, and the pest

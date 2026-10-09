@@ -34,15 +34,16 @@ option values. The 10 checkpoints, in order: 1) external door pest-proofing
 working, 2) gaps/entry points for pests, 3) fly catchers working & numbered,
 4) total rodent traps provided (number), 5) rodent traps numbered, 6) rodent
 traps placed in recorded location, 7) any pest trapped in rodent trap box,
-8) any dead rodent observed (note = location, if yes), 9) any rodent cake
-biting sign (note = rodent box number, if yes), 10) fly catcher tube lights
+8) any dead rodent observed (note = location, if yes: the rodent boxes, such as
+"RC-3", and/or "Other: <the place>"), 9) any rodent cake biting sign (note =
+the rodent box numbers, if yes, such as "RC-17" or "RC-3, RC-17"), 10) fly catcher tube lights
 within validity. timeOfChecking (24-hour "HH:MM" string). checker (string,
 the technician's name). summaryActions (array of { id, dateOfObservation,
 descriptionOfObservation, actionTaken, remarks }) — dateOfObservation is a
 calendar date; this array is only used when a checkpoint finding needs a
 follow-up action. rodentCatches (array of { id, trapBoxNo, location, count })
 — REQUIRED whenever checkpoint 7 is "Yes": one entry per trap box that caught
-something, trapBoxNo like "RB-27", location one of the plant's Rodent Control
+something, trapBoxNo like "RC-27", location one of the plant's Rodent Control
 areas (e.g. "Canteen", "RM Inward & FG Dispatch room - Ground floor"), count
 a whole number of rodents (>= 1). When the user says a rodent was found, set
 checkpoint 7 to "Yes" AND add the catch entry; give new entries an id like

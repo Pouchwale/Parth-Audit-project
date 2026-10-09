@@ -143,7 +143,9 @@ export interface LogSheetData {
 // ---- 1. Daily Pest Control Monitoring Record (F/HR/17) -------------------
 export interface DailyCheckpointAnswer {
   value: string | number | null; // "OK" | "NOT OK" | "Yes" | "No" | number | null
-  note?: string; // free text, used for checkpoints 8 & 9 when a finding is flagged
+  // Text, used for checkpoints 8 & 9 when a finding is flagged. Since REQUIREMENTS §104 the box picker writes it as
+  // "RC-3, RC-17" (and on 8 "RC-3; Other: near RM inward shutter"); a note written before reads as it was written.
+  note?: string;
 }
 
 export interface SummaryAction {
@@ -160,7 +162,7 @@ export interface SummaryAction {
 // Report counts rodents, not days, so the record has to capture the count.
 export interface RodentCatch {
   id: string;
-  trapBoxNo: string; // e.g. "RB-27"
+  trapBoxNo: string; // e.g. "RC-27": one of the rodent boxes (engine/rodentBoxes.ts, REQUIREMENTS §104)
   location: string; // one of the Rodent Control Service areas (Master Data → Areas)
   count: number;
 }

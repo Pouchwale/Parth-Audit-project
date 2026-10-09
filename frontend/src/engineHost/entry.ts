@@ -95,6 +95,8 @@ import { scheduleLabel } from "../engine/frequencyEngine";
 import { dayInfo, isCompanyHoliday, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG, type DayInfo } from "../engine/holidays";
 import { buildAccess, levelNeeded, type Access, type AccessAccount, type DocumentAction } from "../engine/accessRules";
 import { refusalSentence, type AccessLanguage } from "../engine/accessWords";
+import { isBoxCheckpoint, rodentBoxListFor, takesOtherPlace } from "../engine/rodentBoxes";
+import { boxListSentence } from "../engine/rodentBoxWords";
 import { planNotifications, type PlanPerson, type PlanRecord } from "../engine/notificationPlan";
 import { ensureRecordIndex, readSearchQuery, searchRecords } from "../engine/recordSearch";
 import { recordSearchText, snippetFor } from "../engine/recordText";
@@ -267,6 +269,8 @@ let dirty = true;
 let departments: string[] | null = null;
 /** The person the request is scoped to by the access levels; null on the old, department-only path. */
 let viewer: AccessAccount | null = null;
+/** The language this request is read in (the app's X-Language), for the few words a layout carries (REQUIREMENTS §104). */
+let wordsIn: AccessLanguage = "en";
 /** The records as stored (the person's view of them), by id — what a change is laid over, and what "stored" means. */
 let storedIds = new Set<string>();
 let storedDeletionIds = new Set<string>();
@@ -420,6 +424,7 @@ export async function run(op: string, args: Obj): Promise<Outcome> {
     role: str(args.role) || "staff",
     lang: lang === "hi" || lang === "gu" ? lang : "en",
   };
+  wordsIn = who.lang;
   // THIS REQUEST'S PERSON. The super admin's load is shared with the server's own jobs (both see everything): the
   // levels asked below are this person's own.
   if (viewer && who.email && who.email.toLowerCase() !== viewer.email) {
@@ -768,9 +773,29 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
   }
   const master: MasterData = masterRepository.get();
   if (doc.kind === "daily-pest-monitoring") {
+    // CHECK POINTS 8 AND 9 NAME RODENT BOXES (REQUIREMENTS §104): the boxes the phone's picker offers (`noteChoices`,
+    // Master Data's Active stations, else RC-1 to RC-<check point 4's count>), where they came from in a line of the
+    // person's language, and on 8 a place in words beside them (`noteOther`). None picked: the person picks. With no
+    // list yet there are no noteChoices, and the phone keeps its free-text box, as it does with an older DCRS.
+    const boxes = rodentBoxListFor(record ?? null, master);
+    const choices = boxes.choices.map((b) => (b.area ? { id: b.id, area: b.area } : { id: b.id }));
+    const said = boxListSentence(boxes, wordsIn);
     return {
       kind: doc.kind,
-      checkpoints: master.checkpoints.map((c) => ({ number: Number(c.no), question: c.text, answer: c.responseType, ...(c.notePrompt ? { noteAsks: c.notePrompt } : {}), ...(c.flagWhen ? { findingWhen: c.flagWhen } : {}) })),
+      checkpoints: master.checkpoints.map((c) => {
+        const no = Number(c.no);
+        const picks = c.responseType === "yesno-note" && isBoxCheckpoint(no);
+        return {
+          number: no,
+          question: c.text,
+          answer: c.responseType,
+          ...(c.notePrompt ? { noteAsks: c.notePrompt } : {}),
+          ...(c.flagWhen ? { findingWhen: c.flagWhen } : {}),
+          ...(picks && choices.length ? { noteChoices: choices, noteChoicesFrom: boxes.source } : {}),
+          ...(picks && takesOtherPlace(no) ? { noteOther: true } : {}),
+          ...(picks ? { noteChoicesSaid: said } : {}),
+        };
+      }),
       fields: [
         { key: "checker", label: "Checker", type: "text" },
         { key: "timeOfChecking", label: "Time of checking", type: "time" },
@@ -804,7 +829,7 @@ function patchShape(doc: DocumentDefinition): string {
     case "log-sheet":
       return 'A box: {"header": {"<box key>": value}}. One line: {"itemEdits": [{"collection": "rows", "match": {"<slot key>": "10:00"} or {"row": 2}, "set": {"<column key>": value}}]}. Printed and computed columns cannot be written.';
     case "daily-pest-monitoring":
-      return 'Check points by number: {"checkpoints": {"1": "Yes", "4": 100, "8": {"value": "Yes", "note": "near the store"}}, "checker": "Name", "timeOfChecking": "09:30"}.';
+      return 'Check points by number: {"checkpoints": {"1": "Yes", "4": 100, "9": {"value": "Yes", "note": "RC-17"}}, "checker": "Name", "timeOfChecking": "09:30"}. The notes of 8 and 9 name rodent boxes from the layout\'s noteChoices, several as "RC-3, RC-17"; 8 may name a place in words instead or as well: "RC-3; Other: near RM inward shutter".';
     case "gap-inspection":
       return 'A field: {"inspectionDate": "YYYY-MM-DD"}. One finding: {"itemEdits": [{"collection": "findings", "match": {"sNo": 1}, "set": {"correctiveActionClient": "…", "targetDate": "YYYY-MM-DD"}}]}.';
     case "complaint-checklist":

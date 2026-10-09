@@ -5,6 +5,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { normalizeServiceLines } from "./serviceMaterials";
 import { codeRulesFor, softFgCodeProblem } from "./documentFormats";
+import { boxesNotOnList, boxListFrom, isBoxCheckpoint, tidyBoxNote } from "./rodentBoxes";
 import { addDays, pad2, todayISO } from "../utils/date";
 import { generateId } from "../utils/id";
 import { COMPANY } from "../data/seed/masterData";
@@ -370,6 +371,18 @@ function checkpointAnswer(no: number, raw: unknown): "Yes" | "No" | null {
   return normYesNo(raw);
 }
 
+// THE RODENT BOXES OF CHECK POINTS 8 AND 9 (REQUIREMENTS §104). A note that names only boxes is written in the list's
+// spelling ("rc 17", "box 17" and "17" are RC-17; "3 and 17" is "RC-3, RC-17"); one that names a box not on Master Data
+// → Rodent Stations is refused, once the plant has entered them. A note in any other words is kept exactly as given.
+function boxNoteOf(no: number, note: string, problems: string[]): string | undefined {
+  const list = boxListFrom(masterRepository.get().rodentStations);
+  const tidy = tidyBoxNote(note, list);
+  const unknown = boxesNotOnList(tidy, list);
+  if (!unknown.length) return tidy;
+  problems.push(`${unknown.join(", ")} ${unknown.length === 1 ? "is" : "are"} not on the rodent box list (Master Data → Rodent Stations), so check point ${no}'s note wasn't changed.`);
+  return undefined;
+}
+
 function normCheckpoints(cur: Obj, value: unknown, problems: string[]): Obj {
   const next: Obj = { ...cur };
   if (!isObj(value)) {
@@ -384,7 +397,8 @@ function normCheckpoints(cur: Obj, value: unknown, problems: string[]): Obj {
     }
     const prev = isObj(cur[k]) ? (cur[k] as Obj) : {};
     const raw = isObj(v) ? v.value : v;
-    const note = isObj(v) && typeof v.note === "string" ? v.note.trim() : undefined;
+    let note = isObj(v) && typeof v.note === "string" ? v.note.trim() : undefined;
+    if (note && isBoxCheckpoint(no)) note = boxNoteOf(no, note, problems);
     if (raw === undefined) {
       if (note !== undefined) next[k] = { ...prev, note };
       continue;

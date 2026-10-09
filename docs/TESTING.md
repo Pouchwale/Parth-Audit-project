@@ -843,6 +843,28 @@ Seven scripts live in `tests/`:
   and are refused a change of their own) and `e2e_portal_controls.py` (section 4: the super admin's own change, with
   the eye on its three boxes, when the suite's sign-up is the super admin; the staff side when it is not, as in the
   full run).
+- **The rodent box picker** (REQUIREMENTS §104, 9-Oct-2026). New unit tests, each failing before the change (the
+  modules did not exist, and the phone's layout carried no boxes): `frontend/tests/rodentBoxes.test.ts` (11: the list
+  from Master Data's Active stations, else RC-1 to RC-<check point 4's count on the record>, else the last confirmed
+  record's, else none, capped at 500 and in the stations' own prefix; the last confirmed count passing over drafts,
+  holidays, blank counts, Demo Mode and the day itself; the list read from what is stored and never written to Master
+  Data; the note as text both ways ("RC-3, RC-17", "RC-3; Other: near RM inward shutter", "Other: Canteen"), a note
+  written before read as written, box words in the list's spelling with Gujarati and Devanagari digits; the picker's
+  filter by number, ID and area, and its area groups; validation (note required when Yes kept; a box not on the
+  stations list refused only when there are stations; Inactive boxes and places in words allowed); Mitra's and the
+  phone's patch (the answer kept, an unknown box's note refused in words, "rc 17" written RC-17); "Add RC-1 to RC-N",
+  a Station ID of its own, the next number, stored stations kept by ensureSeeded; the Rodent Stations tab drawn; the
+  words in English, Gujarati and Hindi with no em dash; the F/HR/17 page drawn: Yes on 9 opens the picker with nothing
+  picked, forty boxes then "Show all 100", check point 7's Trap box no. on the same list and no "RB-27", no picker on
+  No or on a signed-off record) and `backend/tests/engineHostRodentBoxes.test.ts` (3, through the engine host's
+  worker: `noteChoices` on 8 and 9 and `noteOther` on 8 only; the record's own count first and `noteChoicesSaid` in
+  Gujarati and Hindi; Master Data's Active stations first with their areas, "RC-140" refused, "rc 17" written RC-17;
+  the patch shape's `{"9": {"value": "Yes", "note": "RC-17"}}`). `npm run typecheck` clean; `npm run test:unit` on
+  9-Oct-2026 in the scan-fill worktree: 668 frontend tests, all passing, and 497 backend tests, 496 passing and the
+  PostgreSQL ledger's skipped without `DCRS_LEDGER_TEST_URL`. The picker and the stations tab were also drawn from the
+  same components into a page of their own and photographed in headless Chromium at 1280 and 390 px (no server). Not
+  run: the browser suites (another session's full run held ports 8842 and 8843); no browser suite covers the picker
+  yet, and the phone's half is the Mitra app's.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

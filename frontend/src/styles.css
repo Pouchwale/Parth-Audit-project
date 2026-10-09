@@ -1806,6 +1806,28 @@ body { top: 0 !important; }
   [data-print-doc]:not([data-print-doc="ui"]) a:not(.btn) { color: var(--accent-text); }
 }
 
+/* THE RODENT BOX PICKER (REQUIREMENTS §104): under F/HR/17's check point 8 or 9 while it is answered Yes, on screen
+   only. The boxes are pills on the theme's tokens; a picked one is filled, as a chosen chip is elsewhere. Nothing
+   moves. */
+.box-picker { display: grid; gap: 8px; padding: 10px 12px; background: var(--surface-sunken); border: 1px solid var(--hairline); border-radius: var(--radius-md); }
+.box-picker-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.box-picker-boxes { display: grid; gap: 6px; }
+.box-picker-area { flex-basis: 100%; font-size: 11px; font-weight: 700; color: var(--ink-2); }
+.box-picker-number { width: 170px; }
+.box-picker-place { min-width: 240px; flex: 1 1 240px; max-width: 420px; }
+.box-chip {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 3px 10px; border: 1px solid var(--hairline-strong);
+  border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600;
+  font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.box-chip:hover { border-color: var(--accent-text); background: var(--accent-soft); }
+.box-chip:focus-visible, .box-chip-off:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.box-chip[aria-pressed="true"], .box-chip.is-picked { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.box-chip.is-picked { cursor: default; padding-right: 4px; }
+.box-chip.is-picked.is-off { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.box-picker-boxes > .btn { justify-self: start; }
+.box-chip-off { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 0; border-radius: 999px; background: transparent; color: inherit; cursor: pointer; }
+
 /* ==== end of AREA 1 ==== */
 
 /* ==== AREA 2: Mitra ==== */

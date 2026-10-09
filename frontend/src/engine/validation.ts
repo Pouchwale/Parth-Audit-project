@@ -19,6 +19,7 @@ import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logS
 import { withoutLineNumber } from "./lineNumbers";
 import { numbersOwnLines } from "./formLineNumbers";
 import { codeRulesFor } from "./documentFormats";
+import { boxesNotOnList, boxListFrom, isBoxCheckpoint } from "./rodentBoxes";
 
 // "Was the lot accepted as it is?" — the one status that needs no reason
 // beside it. Each form prints the words its own way (the incoming material
@@ -98,7 +99,11 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
     case "daily-pest-monitoring": {
       const d = record.data as DailyPestMonitoringData;
       if (d.isHoliday) break;
-      const checkpoints = masterRepository.get().checkpoints;
+      const master = masterRepository.get();
+      const checkpoints = master.checkpoints;
+      // THE PLANT'S RODENT BOXES (REQUIREMENTS §104): a box named on 8 or 9 must be on Master Data → Rodent
+      // Stations (Active or not), once the plant has entered them. A worked-out list (RC-1 to RC-<count>) refuses nothing.
+      const boxes = boxListFrom(master.rodentStations);
       if (!d.checker.trim()) errors.push("Checker name is required.");
       if (!d.timeOfChecking.trim()) errors.push("Time of checking is required.");
       for (const cp of checkpoints) {
@@ -108,6 +113,9 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
         }
         if (cp.responseType === "yesno-note" && ans && ans.value === "Yes" && !ans.note?.trim()) {
           errors.push(`Checkpoint ${cp.no}: ${cp.notePrompt ?? "a note"} is required when the answer is Yes.`);
+        }
+        if (isBoxCheckpoint(Number(cp.no)) && ans?.note) {
+          for (const box of boxesNotOnList(ans.note, boxes)) errors.push(`Checkpoint ${cp.no}: ${box} is not on the rodent box list (Master Data → Rodent Stations).`);
         }
       }
       // A rodent in a trap box is a count, not a tick: box, location and

@@ -40,6 +40,9 @@ export interface ServiceTypeChemical {
   dilutionRatio: string;
 }
 
+// One of the plant's rodent boxes (Master Data → Rodent Stations, REQUIREMENTS §104). `id` is the number painted on
+// the box ("RC-17"), unique on the list; `location` one of the 16 Rodent Control areas. The Active ones are what
+// F/HR/17's check points 8 and 9 and check point 7's Trap box no. offer (engine/rodentBoxes.ts).
 export interface RodentStation {
   id: string;
   location: string;

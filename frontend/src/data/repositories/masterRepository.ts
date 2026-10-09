@@ -60,7 +60,9 @@ export function ensureSeeded(): void {
     areas: mergeById(raw.areas, SEED_MASTER_DATA.areas),
     pcLocations: mergeById(raw.pcLocations, SEED_MASTER_DATA.pcLocations),
     serviceTypeChemicals: mergeById(raw.serviceTypeChemicals, SEED_MASTER_DATA.serviceTypeChemicals),
-    rodentStations: raw.rodentStations ?? [],
+    // The plant's own rodent boxes (REQUIREMENTS §104): every stored station is kept as stored, edits and all; a
+    // station the seed ever gains is added by id like every list above, unless an admin deleted it.
+    rodentStations: mergeById(raw.rodentStations, SEED_MASTER_DATA.rodentStations),
     checkpoints: raw.checkpoints?.length ? raw.checkpoints : SEED_MASTER_DATA.checkpoints,
     documentRoleKeywords: { ...raw.documentRoleKeywords },
     // Working-calendar fields added later: the weekly off defaults from the

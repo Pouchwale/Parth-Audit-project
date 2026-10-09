@@ -668,7 +668,7 @@ The patch is Mitra's own shape. DCRS applies it exactly as Mitra does:
 |---|---|
 | Any form | `{"<field key>": value}` |
 | A log sheet | a box: `{"header": {"<box key>": value}}`; one line: `{"itemEdits": [{"collection": "rows", "match": {"<slot key>": "10:00"}, "set": {"<column key>": value}}]}` (or `"match": {"row": 2}`); or `"rows"` given in full, each row with its `id` |
-| F/HR/17 | `{"checkpoints": {"1": "Yes", "4": 100, "8": {"value": "Yes", "note": "near the store"}}, "checker": "Roshni", "timeOfChecking": "09:30"}` |
+| F/HR/17 | `{"checkpoints": {"1": "Yes", "4": 100, "9": {"value": "Yes", "note": "RC-17"}}, "checker": "Roshni", "timeOfChecking": "09:30"}`; the notes of 8 and 9 name rodent boxes from the layout's `noteChoices` (several: `"RC-3, RC-17"`), and 8 may add a place: `"RC-3; Other: near RM inward shutter"` (REQUIREMENTS §104) |
 | A list of any other form | `{"itemEdits": [{"collection": "<list key>", "match": {"<key>": value}, "set": {"<key>": value}}]}` |
 
 `GET /api/v1/records/{id}` gives each record's keys (`layout`) and its patch shape (`patchShape`).

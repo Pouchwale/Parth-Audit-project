@@ -30,6 +30,7 @@ import { sampleFillSwitchedOn } from "./features";
 import { codeRulesFor, FG_CODE_EXAMPLE } from "./documentFormats";
 import { isLotAccepted } from "./validation";
 import { dayInfo } from "./holidays";
+import { boxesNotOnList, boxIdOf, isBoxCheckpoint, rodentBoxListFor, tidyBoxNote } from "./rodentBoxes";
 import { normDate, normNumber, normOption, normTime, normYesNo } from "./recordPatch";
 import { termEnd } from "./serviceAgreement";
 import { addDays, formatDisplayDate, todayISO } from "../utils/date";
@@ -287,6 +288,13 @@ function dailyPlan(record: RecordInstance, d: DailyPestMonitoringData, master: M
     return { ...x, checkpoints: cps };
   };
 
+  // The rodent boxes of check points 7, 8 and 9 (REQUIREMENTS §104): the stations' own IDs, else RC-1 to RC-<count>.
+  const boxes = rodentBoxListFor(record, master);
+  const boxProblem = (v: unknown): string | null => {
+    const off = boxesNotOnList(String(v ?? ""), boxes);
+    return off.length ? `${off.join(", ")} ${off.length === 1 ? "is" : "are"} not on the rodent box list (Master Data → Rodent Stations).` : null;
+  };
+
   const day = dayInfo(record.dueDate, master);
   if (day.isHoliday && !d.isHoliday) {
     qs.push({
@@ -334,29 +342,39 @@ function dailyPlan(record: RecordInstance, d: DailyPestMonitoringData, master: M
       apply: (x, v) => setCp(x, no, { value: v }),
     });
     if (cp.responseType === "yesno-note") {
+      // 8 and 9 name rodent boxes, in the list's spelling ("17" is RC-17), several at once; 8 may name a place instead.
+      const boxNo = isBoxCheckpoint(no);
+      const example = no === 9 ? ` (e.g. ${boxes.prefix}-17, or several: ${boxes.prefix}-3, ${boxes.prefix}-17)` : boxNo ? ` (a box such as ${boxes.prefix}-3, or the place)` : "";
       qs.push(
         textQ(
           `cp${no}-note`,
           `Check point ${no} — ${cp.notePrompt ?? "note"}`,
-          `${cp.notePrompt ?? "Where"}?`,
+          `${cp.notePrompt ?? "Where"}?${example}`,
           (x) => (cpValue(x, no) !== "Yes" ? "n/a" : cpNote(x, no)),
           (x, v) => setCp(x, no, { note: v }),
-          { answered: (x) => holiday(x) || cpValue(x, no) !== "Yes" || !blank(cpNote(x, no)) }
+          {
+            answered: (x) => holiday(x) || cpValue(x, no) !== "Yes" || !blank(cpNote(x, no)),
+            ...(boxNo ? { parse: (raw: string) => tidyBoxNote(raw, boxes) || null, validate: boxProblem } : {}),
+          }
         )
       );
     }
     if (no === 7) {
       const areas = master.areas.filter((a) => /rodent/i.test(a.context)).map((a) => a.name);
+      // Stations' prefixes are letters only (engine/rodentBoxes.ts), so they go into the pattern as they are.
+      const boxWord = new RegExp(`\\b((?:${[...boxes.prefixes, "RBS", "RB"].join("|")})\\s*-?\\s*\\d+|box\\s*(?:no\\.?\\s*)?\\d+|\\d+)\\b`, "i");
       qs.push({
         id: "rodentCatch",
         label: "Rodent catch",
-        ask: "Which trap box caught it, where is that box, and how many rodents? (e.g. \"RB-27, Canteen, 1\")",
+        ask: `Which trap box caught it, where is that box, and how many rodents? (e.g. "${boxes.prefix}-27, Canteen, 1")`,
         type: "text",
         answered: (x) => holiday(x) || cpValue(x, 7) !== "Yes" || ((x.rodentCatches as unknown[] | undefined)?.length ?? 0) > 0,
         parse: (raw) => {
-          const box = raw.match(/\b(rb\s*-?\s*\d+|box\s*(?:no\.?\s*)?\d+|\d+)\b/i);
+          // The box by the list's own prefix (REQUIREMENTS §104): "RC-27", "rc 27", "box 27" and "27" are RC-27; a box
+          // under another prefix the person names ("RB 27") is kept as they said it.
+          const box = raw.match(boxWord);
           if (!box && !raw.trim()) return null;
-          const trapBoxNo = box ? box[1].toUpperCase().replace(/^BOX\s*(?:NO\.?\s*)?/, "RB-").replace(/^RB\s*-?\s*/, "RB-").replace(/^(\d+)$/, "RB-$1") : "";
+          const trapBoxNo = box ? (boxIdOf(box[1], boxes) ?? box[1].toUpperCase().replace(/^([A-Z]+)\s*-?\s*(\d+)$/, "$1-$2")) : "";
           let rest = box ? raw.replace(box[0], " ") : raw;
           const count = rest.match(/\b(\d{1,2})\b(?!\s*(?:st|nd|rd|th)\b)/);
           const n = count ? Number(count[1]) : 1;

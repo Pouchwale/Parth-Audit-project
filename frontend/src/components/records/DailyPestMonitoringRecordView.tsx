@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { FiPlus, FiTrash2, FiAlertTriangle } from "react-icons/fi";
 import type { DailyPestMonitoringData, DocumentDefinition, RecordInstance, RodentCatch } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
@@ -7,6 +7,10 @@ import { masterRepository } from "../../data/repositories/masterRepository";
 import { isCheckpointFinding } from "../../engine/checkpoints";
 import { dayInfo } from "../../engine/holidays";
 import { totalRodents } from "../../engine/rodentPattern";
+import { isBoxCheckpoint, rodentBoxListFor } from "../../engine/rodentBoxes";
+import { boxListSentence } from "../../engine/rodentBoxWords";
+import { useAppStore } from "../../store/AppStore";
+import { RodentBoxPicker } from "./RodentBoxPicker";
 import { Link } from "../../store/router";
 import { FHR17_INSTRUCTION_1, FHR17_INSTRUCTION_2 } from "./DailyRegisterSheet";
 import { MONTH_NAMES, formatDisplayDate, fromISODate } from "../../utils/date";
@@ -48,6 +52,14 @@ export function DailyPestMonitoringRecordView({
   const anyFinding = checkpoints.some((cp) => isCheckpointFinding(cp, data.checkpoints[cp.no]?.value));
   const rodentTrapped = data.checkpoints[7]?.value === "Yes";
   const catches = data.rodentCatches ?? [];
+  // THE RODENT BOXES (REQUIREMENTS §104): the list the pickers of check points 8 and 9 offer, and check point 7's
+  // Trap box no. Worked out again only when the stations or this record's check point 4 change.
+  const trapsToday = data.checkpoints[4]?.value ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const boxes = useMemo(() => rodentBoxListFor(record, master), [master, record.id, record.dueDate, record.isDemo, trapsToday]);
+  // The check point just answered Yes: its picker takes the focus. Nothing is picked for the person (§98).
+  const [opened, setOpened] = useState<number | null>(null);
+  const { uiLang } = useAppStore();
 
   const setField = <K extends keyof DailyPestMonitoringData>(key: K, value: DailyPestMonitoringData[K]) => {
     onChange({ ...data, [key]: value });
@@ -66,6 +78,8 @@ export function DailyPestMonitoringRecordView({
     if (no === 7 && patch.value === "Yes" && (next.rodentCatches ?? []).length === 0) {
       next.rodentCatches = [{ id: generateId("rc"), trapBoxNo: "", location: rodentAreas[0] ?? "", count: 1 }];
     }
+    // Answering "Yes" to 8 or 9 opens the rodent box picker under it at once, with no box picked (§104).
+    if (isBoxCheckpoint(no) && patch.value === "Yes") setOpened(no);
     onChange(next);
   };
 
@@ -138,56 +152,79 @@ export function DailyPestMonitoringRecordView({
               {checkpoints.map((cp) => {
                 const ans = data.checkpoints[cp.no] ?? { value: null };
                 const flagged = isCheckpointFinding(cp, ans.value);
+                // Check point 8 or 9 answered Yes on a record open for writing: the box picker under its row (§104).
+                const picking = editable && cp.responseType === "yesno-note" && isBoxCheckpoint(Number(cp.no)) && ans.value === "Yes";
                 return (
-                  <tr key={cp.no}>
-                    <td>{cp.no}</td>
-                    <td className="text-sm">{cp.text}</td>
-                    <td>
-                      {cp.responseType === "number" ? (
-                        <input
-                          type="number"
-                          className="input input-sm"
-                          {...bindProps(dailyPestBind.checkpoint(cp))}
-                          disabled={!editable}
-                          value={ans.value ?? ""}
-                          onChange={(e) => setCheckpoint(cp.no, { value: e.target.value === "" ? null : Number(e.target.value) })}
-                        />
-                      ) : (
-                        <select
-                          className="input input-sm"
-                          {...bindProps(dailyPestBind.checkpoint(cp))}
-                          disabled={!editable}
-                          value={(ans.value as string) ?? ""}
-                          onChange={(e) => setCheckpoint(cp.no, { value: e.target.value || null })}
-                        >
-                          <option value="">Select…</option>
-                          {["No", "Yes"].map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </td>
-                    <td>
-                      {cp.responseType === "yesno-note" ? (
-                        <input
-                          className="input input-sm"
-                          {...bindProps(dailyPestBind.checkpointNote(cp))}
-                          placeholder={cp.notePrompt}
-                          disabled={!editable}
-                          value={ans.note ?? ""}
-                          onChange={(e) => setCheckpoint(cp.no, { note: e.target.value })}
-                        />
-                      ) : flagged ? (
-                        <span className="text-danger text-xs">
-                          <FiAlertTriangle size={11} style={{ verticalAlign: -1 }} /> Finding — log below
-                        </span>
-                      ) : (
-                        <span className="text-faint">—</span>
-                      )}
-                    </td>
-                  </tr>
+                  <React.Fragment key={cp.no}>
+                    <tr>
+                      <td>{cp.no}</td>
+                      <td className="text-sm">{cp.text}</td>
+                      <td>
+                        {cp.responseType === "number" ? (
+                          <input
+                            type="number"
+                            className="input input-sm"
+                            {...bindProps(dailyPestBind.checkpoint(cp))}
+                            disabled={!editable}
+                            value={ans.value ?? ""}
+                            onChange={(e) => setCheckpoint(cp.no, { value: e.target.value === "" ? null : Number(e.target.value) })}
+                          />
+                        ) : (
+                          <select
+                            className="input input-sm"
+                            {...bindProps(dailyPestBind.checkpoint(cp))}
+                            disabled={!editable}
+                            value={(ans.value as string) ?? ""}
+                            onChange={(e) => setCheckpoint(cp.no, { value: e.target.value || null })}
+                          >
+                            <option value="">Select…</option>
+                            {["No", "Yes"].map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td>
+                        {cp.responseType === "yesno-note" ? (
+                          <input
+                            className="input input-sm"
+                            {...bindProps(dailyPestBind.checkpointNote(cp))}
+                            placeholder={cp.notePrompt}
+                            disabled={!editable}
+                            value={ans.note ?? ""}
+                            onChange={(e) => setCheckpoint(cp.no, { note: e.target.value })}
+                          />
+                        ) : flagged ? (
+                          <span className="text-danger text-xs">
+                            <FiAlertTriangle size={11} style={{ verticalAlign: -1 }} /> Finding — log below
+                          </span>
+                        ) : (
+                          <span className="text-faint">—</span>
+                        )}
+                      </td>
+                    </tr>
+                    {picking && (
+                      <tr className="no-print" data-box-picker-row={cp.no}>
+                        <td></td>
+                        <td colSpan={3}>
+                          {boxes.choices.length > 0 ? (
+                            <RodentBoxPicker
+                              no={Number(cp.no)}
+                              note={ans.note ?? ""}
+                              list={boxes}
+                              places={rodentAreas}
+                              focus={opened === Number(cp.no)}
+                              onChange={(note) => setCheckpoint(cp.no, { note })}
+                            />
+                          ) : (
+                            <span className="text-xs text-muted">{boxListSentence(boxes, uiLang)}</span>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -228,7 +265,7 @@ export function DailyPestMonitoringRecordView({
                 {catches.map((c, ci) => (
                   <tr key={c.id}>
                     <td>
-                      <input className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "trapBoxNo"))} placeholder="RB-27" disabled={!editable} value={c.trapBoxNo} onChange={(e) => updateCatch(c.id, { trapBoxNo: e.target.value })} />
+                      <input className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "trapBoxNo"))} list="rodent-boxes" placeholder={`${boxes.prefix}-…`} disabled={!editable} value={c.trapBoxNo} onChange={(e) => updateCatch(c.id, { trapBoxNo: e.target.value })} />
                     </td>
                     <td>
                       <input className="input input-sm" {...bindProps(dailyPestBind.rodentCatch(c, ci, "location"))} list="rodent-areas" disabled={!editable} value={c.location} onChange={(e) => updateCatch(c.id, { location: e.target.value })} />
@@ -251,6 +288,14 @@ export function DailyPestMonitoringRecordView({
           <datalist id="rodent-areas">
             {rodentAreas.map((a) => (
               <option key={a} value={a} />
+            ))}
+          </datalist>
+          {/* The trap boxes: the same list as check points 8 and 9 (REQUIREMENTS §104). */}
+          <datalist id="rodent-boxes">
+            {boxes.choices.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.area ?? ""}
+              </option>
             ))}
           </datalist>
         </div>

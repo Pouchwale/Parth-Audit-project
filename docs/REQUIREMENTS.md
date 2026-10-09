@@ -319,7 +319,8 @@ REPORT               Reports > Rodent Trend (see note below)
   (`src/data/seed/pestPattern.ts`, `RODENT_HISTORY_REPORTED`) and shown "(as reported)" in
   **Reports > Rodent Catch Report and Trend Analysis**, above the digital row.
 - **The catch count is now captured on the daily record.** Answering Yes to checkpoint 7 opens a
-  "Rodent catch details" table — trap box no. (RB-01…RB-100), location (one of the 16 Rodent
+  "Rodent catch details" table — trap box no. (from the rodent box list since §104: RC-1…RC-100
+  until the plant enters its own), location (one of the 16 Rodent
   Control Service areas) and number of rodents — and Submit requires it. That is the structured
   count the company's report needs; the report adds it up per month, per location and per box, in
   the company's own Source / Unit / Target Pest / Year / Jan–Dec / Total layout.
@@ -7018,6 +7019,111 @@ e2e_user_access.py and e2e_every_record_starts.py (accounts made by the super ad
 given and are refused a change), e2e_portal_controls.py (the super admin's own change with its three eyes, when the
 suite's account is the super admin; otherwise the staff side above).
 
+## §104 The rodent box picker on F/HR/17's check points 8 and 9 (9-Oct-2026)
+
+**The request.** The owner, 9-Oct-2026, in the scan-fill request (§103): "in daily pest control record if user
+manually select yes for question 8, 9 so user mention yes then it will automatically select location like RC-1 or any
+RC". This section is DCRS's half; the phone's half (a picker on the Review screen) is the Mitra app's, built on the
+layout below.
+
+**What "automatically" means.** Answering Yes on check point 8 ("Any dead rodent observed? If yes, mention the
+location") or 9 ("Any sign of Rodent cake biting in Rodent box? If yes, mention the Rodent box number") opens a picker
+of the plant's rodent boxes at once, under the check point, its number box ready to type in. Nothing is picked for the
+person: which box had the dead rodent or the bitten cake is an observation, and only a person writes one (§98).
+
+**The list** (engine/rodentBoxes.ts), in this order:
+
+1. Master Data → Rodent Stations, the Active ones, once the plant has entered them: each box by its Station ID (the
+   number painted on it), with its area.
+2. Otherwise RC-1 to RC-<check point 4's count on this record> ("Total number of rodent traps provided").
+3. Otherwise RC-1 to RC-<check point 4's count on the last record a person confirmed>: submitted, waiting for
+   verification or verified, before this record's date, not a holiday, Live or Demo as the record is.
+4. Otherwise none: the Note box stays the free-text box it was, with a line saying how to get a list.
+
+A worked-out list is never stored as master data: no station is invented, and the provenance table below still says
+none were supplied. The picker says where its list came from in small words, for example "Box numbers RC-1 to RC-100
+from today's trap count (check point 4); Master Data → Rodent Stations holds the plant's own list". The prefix "RC" is
+the owner's; with stations it is theirs (the letters most of their IDs carry). A worked-out list stops at 500 boxes,
+so a count typed by mistake draws no thousand.
+
+**The picker** (components/records/RodentBoxPicker.tsx). The number typed filters the boxes (1 shows RC-1, RC-10 to
+RC-19 and RC-100), and so do an ID or an area's words; Enter picks the box typed; a tap picks a box or takes it off,
+several allowed; boxes are grouped by area when the stations have areas; forty are drawn at first and the rest on
+"Show all". Check point 8 also has "Other location": one of the 16 Rodent Control areas, or the person's own words. A
+box in the note that the stations list does not have shows in the danger colour, with the reason. The panel is on
+screen only, not on the printout or in the downloaded file. A record not open for writing shows its note as before.
+
+**The note stays text.** The picker writes `checkpoints[n].note` as before: "RC-3, RC-17", and on 8 "RC-3; Other: near
+RM inward shutter" or "Other: Canteen". So the register prints it, search finds it ("F/HR/17 RC-17"), the history
+calls it "Check point 9 note", the downloaded file's box stays text and comes back through Upload changes, and the
+shared database's overview (which reads only the answers) is unchanged. A note written before the picker reads as it
+was written, and the Note box beside the answer stays typeable.
+
+**Words put right, and boxes checked.**
+
+- Through Mitra, the phone and the guided questions (engine/recordPatch.ts, engine/guidedRecord.ts), a note that names
+  only boxes is written in the list's spelling: "rc 17", "box 17", "17" and "૧૭" are RC-17, and "3 and 17" is "RC-3,
+  RC-17". A note in any other words is kept exactly as given.
+- Once the plant has entered stations, a box not on the list is refused. A change through Mitra or the phone keeps
+  the answer, leaves the note unwritten and says "RC-140 is not on the rodent box list (Master Data → Rodent
+  Stations), so check point 9's note wasn't changed."; Submit is refused with "Checkpoint 9: RC-140 is not on the
+  rodent box list (Master Data → Rodent Stations)." A box named among the words ("Other: near RC-77") counts too.
+- A box taken out of use (Inactive) is still allowed on the records that name it. A worked-out list refuses nothing.
+- "Checkpoint 9: Mention the Rodent box number is required when the answer is Yes." stays, and the phone is given all
+  of this as its `problems`, as before.
+
+**Master Data → Rodent Stations** (components/master/RodentStations.tsx):
+
+- The Station ID is typed over in place and kept when the box is left (Enter, or a click elsewhere). An empty one, or
+  one another box has already (RC-05 is RC-5), is refused in words and the box keeps its ID.
+- "Add RC-1 to RC-N", the super admin's: a prefix, the first and last numbers, and the area and type they share if
+  known. The boxes come Active; a box already on the list is left as it is; at most 500 at once.
+- Add Row gives the next number (RC-8 after RC-7), Active, in place of a random "RBS-…" id.
+- Location is a dropdown of the 16 Rodent Control areas (a location typed before stays offered); Type and Status are
+  dropdowns. The Active boxes are what the pickers offer.
+- Fifty rows are drawn at a time.
+- At start-up the stored stations are kept as stored (masterRepository.ensureSeeded); a station the seed ever gains
+  would be added by id, as on every other list. The stored check point definitions are never refreshed from the seed,
+  so the code goes by the numbers 8 and 9, not by a new property on them.
+
+**Check point 7's catch table.** "Trap box no." offers the same list (a datalist), its placeholder "RC-…" in place of
+"RB-27". The guided question reads "rc 27", "box 27" and "27" as RC-27; a box under another prefix the person names
+("RB 27") is kept as they said it.
+
+**For the phone** (engineHost/entry.ts layoutOf; GET /api/v1/records/{id} and GET /api/v1/documents/{id}). Check
+points 8 and 9 carry `noteChoices` [{id, area?}], `noteChoicesFrom` (stations, today or last) and `noteChoicesSaid`,
+the line above in the language the app is read in (English, Hindi or Gujarati); 8 also carries `noteOther: true`.
+With no list there are no `noteChoices`, and the phone keeps its free-text box, as it does with an older DCRS. The
+patch shape's example is `{"9": {"value": "Yes", "note": "RC-17"}}`. ENGINE_API_VERSION is unchanged: fields are only
+added.
+
+**Words.** English and Gujarati on the website, and Hindi too for the phone (engine/rodentBoxWords.ts). Box numbers,
+area names and "Master Data → Rodent Stations" stay as written in every language.
+
+**Speed.** The list is worked out once per record view (again only when the stations or check point 4 change), with
+one walk of F/HR/17's records only when there are no stations and no count today. The picker draws plain buttons, at
+most forty until "Show all" or a number is typed.
+
+**Still asked of the owner** (TO BE CONFIRMED item 9, partly answered). The prefix is the owner's "RC". The Pest
+control Layout (the bait plan the GAP report and F-SYS-08 name): how many boxes, and which box is in which area, is
+still asked for; until the plant enters it in Master Data the pickers offer RC-1 to RC-<check point 4's count>.
+Whether a Yes changed to No should clear its note is the owner's to say: the note is kept, as before.
+
+**Tests.** frontend/tests/rodentBoxes.test.ts (11): the list from the Active stations, today's count, the last
+confirmed record's or none, capped, in the stations' own prefix; the last confirmed count passing over drafts,
+holidays, blank counts, Demo Mode and the day itself; the list read from what is stored and never written to Master
+Data; the note's round trip, a note written before read as written, the list's spelling with Gujarati and Devanagari
+digits and the stations' own spelling; the picker's filter and area groups; validation (note required when Yes; a
+box not on the stations list refused only with stations; Inactive boxes and places in words allowed); Mitra's and
+the phone's patch; the bulk add, a Station ID of its own, the next number, stored stations kept by ensureSeeded and an
+older master data read as none; the Rodent Stations tab drawn (the count, Location from the 16 areas, a location typed
+before kept, no bulk add for anybody but the super admin); the words in three languages with no em dash; and the record
+page drawn: Yes on 9 opens the picker with nothing picked, forty boxes then "Show all 100", check point 7's trap box on
+the same list and no "RB-27", the note's boxes shown picked with 8's other place, no picker on No or on a signed-off
+record. backend/tests/engineHostRodentBoxes.test.ts (3, through the engine host's worker): 8 and 9 carry the boxes
+from the last confirmed record's count and only 8 `noteOther`; the record's own count first, the line in Gujarati and
+Hindi; Master Data's Active stations first with their areas, "RC-140" refused in words and "rc 17" written RC-17.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -7026,7 +7132,7 @@ suite's account is the super admin; otherwise the staff side above).
 | PC Locations (fly catchers) | F/HR/18 specimen | PC‑10 floor TO BE CONFIRMED |
 | Areas (per Service Report variant) | Service ReportApril 2026.xls | Kept separate per variant, as in source |
 | Chemicals | Chemical Chart + SOP + Service Report | |
-| Rodent Stations | — | **None supplied.** The Dec‑2023 GAP report explicitly flags that RBS numbering was *missing* at the time of inspection — left empty by design, not populated with invented IDs |
+| Rodent Stations | — | **None supplied.** The Dec‑2023 GAP report explicitly flags that RBS numbering was *missing* at the time of inspection — left empty by design, not populated with invented IDs. Entered by the plant on Master Data ("Add RC-1 to RC-N", §104); until then F/HR/17's pickers offer RC-1 to RC-<check point 4's count>, worked out and never stored |
 | Checkpoints (Daily Monitoring) | F/HR/17 specimen | Response-type reconciliation noted above |
 | Lamination staff (Gaurav Singh, "Jeni", "Singh") | Photographed QC / production registers | Tester names handwritten — TO BE CONFIRMED |
 | Training attendees (6 names) + Shail Patel (CEO) | Training - Yrl (1).doc; SOC signature | Departments TO BE CONFIRMED |
@@ -7051,7 +7157,9 @@ suite's account is the super admin; otherwise the staff side above).
    entered once per material — on the first line, carried by every line with that material — and
    Remarks per area per visit (see §5 above).
 8. ~~Training cadence (no source-stated recurrence).~~ — **RESOLVED** as Yearly (see §15).
-9. Rodent Bait Station master list / numbering scheme (explicitly missing per the GAP report).
+9. Rodent Bait Station master list / numbering scheme (explicitly missing per the GAP report). **Partly
+   answered (§104, 9-Oct-2026):** the prefix is the owner's "RC" ("RC-1 or any RC"). Still asked: the Pest control
+   Layout (how many boxes, and which box is in which area), to be entered in Master Data → Rodent Stations.
 10. ~~Exact source of the company's existing "Rodent Catch Report" numbers (see section 8
     above).~~ — **RESOLVED** 13-Sep-2026: "GP-3 Trend Analysis - 2025.pdf", which also supplied
     the lizard and flies pages. Transcribed in `src/data/seed/trendReports.ts` (§41). One cell

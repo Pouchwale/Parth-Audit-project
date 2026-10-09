@@ -12,6 +12,7 @@ import { resolveResponsibleEmployees } from "../engine/documentInfo";
 import { weeklyOffDay, WEEKDAY_LONG } from "../engine/holidays";
 import type { AdjustmentDay, CompanyHoliday, Employee } from "../types";
 import { DepartmentsAccess } from "../components/master/DepartmentsAccess";
+import { RodentStations } from "../components/master/RodentStations";
 import { useT } from "../i18n";
 import { documentTextIn } from "../i18n/documentText";
 import { useAuth } from "../store/AuthContext";
@@ -153,42 +154,8 @@ export function MasterDataPage() {
         />
       )}
 
-      {tab === "rodentStations" && (
-        <>
-          {master.rodentStations.length === 0 && (
-            <div className="card mb-3">
-              <div className="card-pad text-sm tbc">
-                No Rodent Bait Station master list was present in the uploaded source files (the Dec-2023 GAP report
-                flags that station numbering was missing at the time of inspection). Add stations below once the
-                company's RBS layout/numbering is confirmed.
-              </div>
-            </div>
-          )}
-          <SimpleTable
-            columns={["Station ID", "Location", "Type", "Status"]}
-            rows={master.rodentStations.map((r) => [r.id, r.location, r.type, r.status])}
-            editableCols={[1, 2, 3]}
-            onEdit={(i, col, value) => {
-              const field = (["id", "location", "type", "status"] as const)[col];
-              masterRepository.update({ rodentStations: master.rodentStations.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)) });
-              bump();
-            }}
-            onAdd={() => {
-              masterRepository.update({
-                rodentStations: [
-                  ...master.rodentStations,
-                  { id: generateId("RBS"), location: "TO BE CONFIRMED", type: "TO BE CONFIRMED", status: "TO BE CONFIRMED" },
-                ],
-              });
-              bump();
-            }}
-            onRemove={(i) => {
-              masterRepository.update({ rodentStations: master.rodentStations.filter((_, idx) => idx !== i) });
-              bump();
-            }}
-          />
-        </>
-      )}
+      {/* The plant's rodent boxes, which F/HR/17's check points 8 and 9 offer (REQUIREMENTS §104). */}
+      {tab === "rodentStations" && <RodentStations />}
 
       {tab === "areas" && (
         <div className="doc-table">

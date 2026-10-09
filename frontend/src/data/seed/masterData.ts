@@ -206,7 +206,9 @@ export const SEED_MASTER_DATA: MasterData = {
   // source files (the GAP report flags that station numbering was *missing*
   // at the time of the Dec-2023 inspection). Left empty by design — populate
   // from the Master Data screen once the company's RBS layout/numbering is
-  // confirmed. TO BE CONFIRMED.
+  // confirmed. TO BE CONFIRMED. Until then F/HR/17's check points 8 and 9
+  // offer RC-1 to RC-<check point 4's count>, worked out and never stored here
+  // (REQUIREMENTS §104, engine/rodentBoxes.ts); the prefix "RC" is the owner's.
   rodentStations: [],
 
   // Daily Pest Control Monitoring Record (F/HR/17) — 10 checkpoints, verbatim
