@@ -5830,6 +5830,32 @@ e2e_hr_module (129), e2e_maintenance_module (the module's name), e2e_find_every_
 both spellings, F-PRD-25 still on the list) and e2e_celebrations (the Production account's other sheets of the day handed
 in first). See docs/TESTING.md "The Production module".
 
+## §101 npm run dev with its ports already taken, and a browser with no room (9-Oct-2026)
+
+**The request.** On 9-Oct-2026 the owner sent the terminal's error when he ran `npm run dev` (Node's `EADDRINUSE` on
+port 5173) and a picture of the screen "This browser has no room for the company's records", and asked: "So fix it any
+how without any loss."
+
+**1. The ports.** The error came from an earlier `npm run dev` still open: its website held 5173, so the second one's
+website died with Node's stack, and took the server it had just started down with it. Now, before `npm run dev` starts
+anything, it asks who holds its two ports (scripts/dev-ports.ts):
+
+- nobody: the part starts as before;
+- DCRS itself (its server answers /api/health, its website's page names the system): that part is not started twice,
+  and when both are already running the terminal says "DCRS is already running: open http://localhost:5173", and how to
+  restart it with new code (Ctrl+C in the other window, then npm run dev again);
+- another program on 5173: the website starts at the next free port, and the terminal names the program and the new
+  address;
+- another program on the server's port (4000): nothing starts, because the website and the phones are told that port.
+  The terminal names the program that holds it (on Windows, from netstat and tasklist: "node.exe (PID 1234)") and how to
+  end it.
+
+`API_PORT` and `PORT` are read as before, and `npm run server` and `npm run dev:frontend` are unchanged.
+
+**Tests.** backend/tests/devPorts.test.ts (9): a free port and a held one; DCRS's server known by its health answer and
+only by it; DCRS's website known by its page; the next free port skips a held one; and the plan for both free, another
+`npm run dev` still open, another program on 5173, another program on the server's port, and the server alone running.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
