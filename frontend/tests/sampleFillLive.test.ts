@@ -142,7 +142,7 @@ test("the guided interview offers no made-up 'typical readings' for a live recor
   const plan = interviewPlan(live.doc, live.record, live.record.data, master, today, "en")!;
   const rows = plan.questions.find((q) => q.id === "rows")!;
   assert.ok(!(rows.suggestions ?? []).some((s) => s.value === "__typical__"), "no typical readings offered");
-  const typed = rows.apply(live.record.data, "09:00 20.1");
+  const typed = rows.apply(live.record.data as Parameters<typeof rows.apply>[0], "09:00 20.1");
   const nine = (typed as { rows: Record<string, unknown>[] }).rows.find((r) => r.time === "09:00")!;
   assert.equal(nine.viscosity, 20.1, "what the person typed is written");
   assert.equal(nine.testedBy, "", "and nobody's name beside it");

@@ -702,7 +702,9 @@ Seven scripts live in `tests/`:
   one dated line, so Mitra's sample data brings the page on file's four). The test runners set `ALLOW_SAMPLE_FILL=1`.
   Run on 9-Oct-2026 (a Friday, a working day), each suite ALONE: `e2e_smoke.py` 168 of 168, `e2e_portal_controls.py`
   38 of 38, `e2e_editing.py` 20 of 20, `e2e_qc_calibration.py` 40 of 40 (the Wednesday path of the last, a prepared
-  weekly sheet, was not reached on a Friday). `npm run test:unit`: frontend 596 of 596. At 6x CPU throttle on a
+  weekly sheet, was not reached on a Friday); two suites the change touches but did not need changing, also alone:
+  `e2e_trend_reports.py` 112 of 112, `e2e_assistant_fill.py` 156 of 156. `npm run test:unit`: frontend 596 of
+  596; `npm run typecheck` clean. At 6x CPU throttle on a
   throwaway DCRS from the branch (a fresh embedded PostgreSQL, the super admin, a month of Live records, so not a year
   of data): Dashboard 1,160 ms, Reports 868 ms, Rodent trend 711 ms, Lizard trend 162 ms, a prepared F-QC-30 record
   1,332 ms; the briefing showed the readings waiting and the record its known-parts banner; no page error.
