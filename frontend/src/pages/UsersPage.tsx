@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCheck, FiKey, FiPlus, FiRefreshCw, FiShield, FiSlash, FiUserPlus } from "react-icons/fi";
-import { ApiError, usersApi } from "../api/client";
+import { FiCheck, FiKey, FiPlus, FiRefreshCw, FiShield, FiSlash, FiStar, FiUser, FiUserPlus } from "react-icons/fi";
+import { accessApi, ApiError, usersApi } from "../api/client";
+import { AccessSection, useAccessDocs, useAccessRules } from "../components/access/AccessSection";
+import { ACCESS_MODULES, buildAccess } from "../engine/accessRules";
+import { accountOf, lastSuperAdmin } from "../engine/accessEditing";
 import { useAuth } from "../store/AuthContext";
 import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -27,6 +30,12 @@ import type { ManagedUser } from "../types/auth";
 // A password is typed here and sent to be stored. It is never shown again, never
 // read back, and never written to the activity log — what the log says is that a
 // password was set, and by whom.
+//
+// WHO MAY DO WHAT (REQUIREMENTS §96): below the accounts, the super admin's grid of
+// people by module (Read, Write or Edit), who answers for each document, the accounts
+// nobody has described, and the plant's people who have no account yet
+// (components/access/AccessSection.tsx). Each account can be made a super admin, or
+// staff again, here too; the server refuses a change that would leave no super admin.
 
 const MIN_PASSWORD = 8;
 
@@ -46,7 +55,12 @@ const accessWords = (u: Pick<ManagedUser, "role" | "departments">): string => {
 };
 
 /** What is being asked about before it is done. */
-type Ask = { kind: "reset"; user: ManagedUser } | { kind: "off"; user: ManagedUser } | { kind: "on"; user: ManagedUser };
+type Ask =
+  | { kind: "reset"; user: ManagedUser }
+  | { kind: "off"; user: ManagedUser }
+  | { kind: "on"; user: ManagedUser }
+  | { kind: "admin"; user: ManagedUser }
+  | { kind: "staff"; user: ManagedUser };
 
 export function UsersPage() {
   const { user: me } = useAuth();
@@ -66,6 +80,19 @@ export function UsersPage() {
   const [picked, setPicked] = useState<string[]>([]);
   // The password the administrator is about to give somebody, for a reset.
   const [resetTo, setResetTo] = useState("");
+
+  // The super admin's stored access rules, and the catalogue they are read against (REQUIREMENTS §96).
+  const accessRules = useAccessRules(isAdmin);
+  const { docs: accessDocs } = useAccessDocs();
+  const access = useMemo(() => (accessRules.loaded ? buildAccess(accessDocs, accessRules.loaded.rules) : null), [accessDocs, accessRules.loaded]);
+  /** What an account sees, in words: by its levels once the rules are read, else by its departments. */
+  const seesWords = (u: ManagedUser): string => {
+    if (!access || u.role === "admin") return accessWords(u);
+    const seen = access.modules(accountOf(u)).map((m) => m.module);
+    if (seen.length === ACCESS_MODULES.length) return "Every module";
+    if (seen.length === 0) return "Nothing yet";
+    return seen.map((c) => DEPARTMENTS.find((d) => d.code === c)?.name ?? c).join(", ");
+  };
 
   const load = () => {
     usersApi
@@ -131,6 +158,15 @@ export function UsersPage() {
       if (ask.kind === "reset") {
         await usersApi.resetPassword(ask.user.id, resetTo);
         setNote(`${ask.user.name}'s password is reset. Give them the new one — they will be asked to choose their own at the next sign-in.`);
+      } else if (ask.kind === "admin" || ask.kind === "staff") {
+        const res = await accessApi.setRole(ask.user.id, ask.kind === "admin" ? "admin" : "staff");
+        if (res?.user) setUsers((list) => (list ?? []).map((u) => (u.id === res.user.id ? { ...u, ...res.user } : u)));
+        else load();
+        setNote(
+          ask.kind === "admin"
+            ? `${ask.user.name} is a super admin now: sees and does everything, and may sign in at any hour.`
+            : `${ask.user.name} is staff now, and may see and do what Who may do what gives.`
+        );
       } else {
         const on = ask.kind === "on";
         const res = await usersApi.setActive(ask.user.id, on);
@@ -209,7 +245,7 @@ export function UsersPage() {
                       <span className={`badge ${u.role === "admin" ? "badge-Verified" : "badge-Due"}`}>{u.role === "admin" ? "admin" : "staff"}</span>
                     </td>
                     <td className="text-sm" data-field="access">
-                      {accessWords(u)}
+                      {seesWords(u)}
                     </td>
                     <td className="text-sm text-muted">{u.lastSignIn ? formatDisplayDate(u.lastSignIn.slice(0, 10)) : "Never"}</td>
                     <td className="text-sm">
@@ -239,6 +275,24 @@ export function UsersPage() {
                         >
                           <FiKey size={12} /> Reset password
                         </button>
+                        {/* SUPER ADMIN OR STAFF (REQUIREMENTS §96): asked in plain words first; never the last super admin. */}
+                        {u.role === "admin" ? (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            data-action="make-staff"
+                            disabled={lastSuperAdmin(users, u.id)}
+                            title={lastSuperAdmin(users, u.id) ? "There must always be a super admin who can sign in" : "Make this account staff again"}
+                            onClick={() => setAsk({ kind: "staff", user: u })}
+                          >
+                            <FiUser size={12} /> Make staff
+                          </button>
+                        ) : (
+                          !off && (
+                            <button className="btn btn-ghost btn-sm" data-action="make-admin" onClick={() => setAsk({ kind: "admin", user: u })}>
+                              <FiStar size={12} /> Make super admin
+                            </button>
+                          )
+                        )}
                         {u.id !== me?.id && (
                           <button
                             className={off ? "btn btn-secondary btn-sm" : "btn btn-danger btn-sm"}
@@ -267,9 +321,21 @@ export function UsersPage() {
       )}
 
       <p className="text-xs text-muted mt-3">
-        Which departments an account sees is changed on <strong>User access</strong>, a switch per module, or in <strong>Master Data → Departments &amp; access</strong>. A change takes effect the next time that person
-        loads the app. Switching an account off deletes nothing: their name stays on every record they signed.
+        What each account may see and do is set below, in <strong>Who may do what</strong>. A change takes effect the next time that person loads the app, and
+        they are told. Switching an account off deletes nothing: their name stays on every record they signed.
       </p>
+
+      {accessRules.error && <div className="auth-error mt-4">{accessRules.error}</div>}
+      {users !== null && accessRules.loaded && (
+        <AccessSection
+          users={users}
+          rules={accessRules.loaded.rules}
+          version={accessRules.loaded.version}
+          onSaved={accessRules.saved}
+          onReload={accessRules.reload}
+          onUsersChanged={load}
+        />
+      )}
 
       {adding && (
         <Modal
@@ -355,7 +421,17 @@ export function UsersPage() {
 
       {ask && (
         <Modal
-          title={ask.kind === "reset" ? "Reset this password?" : ask.kind === "off" ? "Switch this account off?" : "Switch this account on?"}
+          title={
+            ask.kind === "reset"
+              ? "Reset this password?"
+              : ask.kind === "off"
+                ? "Switch this account off?"
+                : ask.kind === "admin"
+                  ? `Make ${ask.user.name} a super admin?`
+                  : ask.kind === "staff"
+                    ? `Make ${ask.user.name} staff?`
+                    : "Switch this account on?"
+          }
           onClose={() => {
             setAsk(null);
             setResetTo("");
@@ -381,6 +457,14 @@ export function UsersPage() {
                 {ask.kind === "reset" ? (
                   <>
                     <FiKey size={12} /> Reset it
+                  </>
+                ) : ask.kind === "admin" ? (
+                  <>
+                    <FiStar size={12} /> Yes, make super admin
+                  </>
+                ) : ask.kind === "staff" ? (
+                  <>
+                    <FiUser size={12} /> Yes, make staff
                   </>
                 ) : ask.kind === "off" ? (
                   <>
@@ -422,6 +506,24 @@ export function UsersPage() {
                 </strong>{" "}
                 will not be able to sign in, and whatever they have open stops working at its next action. <strong>Nothing is deleted</strong> — their name
                 stays on every record they signed, and you can switch the account on again.
+              </p>
+            )}
+            {ask.kind === "admin" && (
+              <p className="text-sm">
+                <strong className="notranslate" translate="no">
+                  {ask.user.name}
+                </strong>{" "}
+                will see and do everything in every module, change who may do what, make and switch off accounts, and may sign in at any hour. The change is
+                written in the activity log.
+              </p>
+            )}
+            {ask.kind === "staff" && (
+              <p className="text-sm">
+                <strong className="notranslate" translate="no">
+                  {ask.user.name}
+                </strong>{" "}
+                will no longer be a super admin: from the next sign-in, only what <strong>Who may do what</strong> gives, and only within the plant's working
+                hours. The change is written in the activity log.
               </p>
             )}
             {ask.kind === "on" && (
