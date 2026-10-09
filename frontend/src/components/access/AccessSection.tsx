@@ -336,13 +336,9 @@ export function AccessSection({
                             disabled={busy}
                             onChange={(e) => askModule(u, m, e.target.value)}
                           >
-                            <option value="">{LEVEL_WORDS[def[m] ?? "none"].name} (as the table)</option>
-                            {ACCESS_LEVELS.map((l) => (
-                              <option key={l} value={l}>
-                                {LEVEL_WORDS[l].name}
-                              </option>
-                            ))}
+                            <LevelOptions tableLevel={def[m] ?? "none"} tableWords="As the owner's table" />
                           </select>
+                          <span className="access-cell-meta">{own ? "Set here" : "As the table"}</span>
                           <button
                             type="button"
                             className="access-cell-note"
@@ -447,6 +443,27 @@ export function AccessSection({
         </Modal>
       )}
     </div>
+  );
+}
+
+/**
+ * A level's choices: what the table (or the module) gives, then the four levels set for this person. Grouped, so the
+ * closed box shows the level's name alone and the open list says which is which.
+ */
+function LevelOptions({ tableLevel, tableWords }: { tableLevel: AccessLevel; tableWords: string }) {
+  return (
+    <>
+      <optgroup label={tableWords}>
+        <option value="">{LEVEL_WORDS[tableLevel].name}</option>
+      </optgroup>
+      <optgroup label="Set for this person">
+        {ACCESS_LEVELS.map((l) => (
+          <option key={l} value={l}>
+            {LEVEL_WORDS[l].name}
+          </option>
+        ))}
+      </optgroup>
+    </>
   );
 }
 
@@ -606,12 +623,7 @@ function AccessDrawer({
                         })
                       }
                     >
-                      <option value="">{LEVEL_WORDS[l.asModule].name} (as the module)</option>
-                      {ACCESS_LEVELS.map((lv) => (
-                        <option key={lv} value={lv}>
-                          {LEVEL_WORDS[lv].name}
-                        </option>
-                      ))}
+                      <LevelOptions tableLevel={l.asModule} tableWords={drawer.kind === "person" ? "As the module" : "As the person's module"} />
                     </select>
                     {!l.reference && (
                       <label className="flex items-center gap-1 text-xs access-answers">

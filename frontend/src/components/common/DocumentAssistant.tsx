@@ -684,6 +684,12 @@ export function DocumentAssistant() {
       if (t.reopen) chips.push({ label: "Correct this record…", action: { type: "focusInput", placeholder: "" }, tone: "primary" });
       if (t.verify) chips.push({ label: "Verify this record", action: { type: "doVerify" }, tone: "success" });
       if (t.print) chips.push({ label: "Print the document", action: { type: "doPrint" } });
+      // Not theirs to fill or correct (REQUIREMENTS §96): said so, in the level's own words.
+      const stop = !t.reopen ? levelStops(t.documentId, ["Scheduled", "Due", "In Progress", "Rejected"].includes(t.status) ? "fill" : "correct") : null;
+      if (stop) {
+        bot(`${title} is open. ${stop}`, chips);
+        return;
+      }
       bot(
         t.reopen
           ? `${title} is ${t.status} — nothing left to fill in. I can correct it for you (it reopens with the reason on record), verify or print it, or answer anything about it.`
@@ -727,13 +733,15 @@ export function DocumentAssistant() {
     const records = recordRepository.query({ documentId, isDemo }).slice().sort((a, b) => compareISO(b.dueDate, a.dueDate));
     const latest = records[0];
     const today = todayISO();
-    const chips: Chip[] = [{ label: "Start today's record and fill it with me", action: { type: "startInterview", documentId, dateISO: today }, tone: "primary" }];
-    if (canSampleFill(doc.kind) && sampleFillOffered(isDemo)) chips.push({ label: "Start today's with sample data", action: { type: "sampleFill", documentId, dateISO: today } });
+    // Starting and filling are offered only to whoever may fill it (REQUIREMENTS §96); a person who may only read it is told why.
+    const fillStop = levelStops(documentId, "fill");
+    const chips: Chip[] = fillStop ? [] : [{ label: "Start today's record and fill it with me", action: { type: "startInterview", documentId, dateISO: today }, tone: "primary" }];
+    if (!fillStop && canSampleFill(doc.kind) && sampleFillOffered(isDemo)) chips.push({ label: "Start today's with sample data", action: { type: "sampleFill", documentId, dateISO: today } });
     if (latest) chips.push({ label: `Open the latest (${formatDisplayDate(latest.dueDate)})`, action: { type: "navigate", route: routeForRecord(doc, latest.id) } });
     // Reached through Mitra's own "where would you like to go?", the way on stays on offer.
     chips.push({ label: phrase("ai.guide.whereTo"), action: { type: "guide", step: "home" } });
     const onFile = latest ? `${records.length} on file — the latest is for ${formatDisplayDate(latest.dueDate)}, ${latest.status}.` : "Nothing is on file for it yet.";
-    bot(`${name} is open. ${onFile} Shall I start today's record and fill it in with you?`, chips);
+    bot(fillStop ? `${name} is open. ${onFile} ${fillStop}` : `${name} is open. ${onFile} Shall I start today's record and fill it in with you?`, chips);
   };
 
   const fillWithSample = () => {

@@ -2712,12 +2712,17 @@ html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-hei
    themes read; nothing animates. */
 .access-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
 .access-legend > div { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 8px 10px; background: var(--color-surface); }
-.access-grid td { min-width: 116px; vertical-align: top; }
+.access-grid td { min-width: 134px; vertical-align: top; }
 .access-grid td.access-name { min-width: 150px; position: sticky; left: 0; background: var(--color-surface); z-index: 1; }
 .access-grid td[data-set="yes"] .access-select { border-color: var(--color-primary); }
-.access-select { padding: 4px 6px; font-size: 12.5px; min-height: 30px; width: 100%; }
+.access-select { padding: 4px 4px; font-size: 12px; min-height: 30px; width: 100%; min-width: 108px; }
 .access-cell-note { display: inline-block; margin-top: 3px; padding: 0; border: 0; background: none; font: inherit; font-size: 11px; color: var(--color-text-muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .access-cell-note:hover { color: var(--color-primary); }
+.access-cell-note:disabled { cursor: not-allowed; opacity: 0.55; text-decoration: none; }
+.access-cell-meta { display: block; font-size: 10.5px; color: var(--color-text-muted); margin-top: 3px; }
+td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight: 600; }
+.notif-filter .pill-tab { border: 0; font: inherit; font-size: 12.5px; font-weight: 600; }
+.notif-filter .pill-tab:not(.active) { background: transparent; }
 .access-cell-note:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .access-drawer-overlay { justify-content: flex-end; align-items: stretch; padding: 0; }
 .access-drawer { max-width: 520px; height: 100%; max-height: none; border-radius: 0; border-width: 0 0 0 1px; }

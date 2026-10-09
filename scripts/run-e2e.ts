@@ -58,6 +58,9 @@ const DATABASE_OVERVIEW_SUITE = "tests/e2e_database_overview.py";
 // (another department's shown as kept by it), the super admin's User access dashboard, and the plant's working hours.
 const FIND_EVERY_DOCUMENT_SUITE = "tests/e2e_find_every_document.py";
 const USER_ACCESS_SUITE = "tests/e2e_user_access.py";
+// REQUIREMENTS §96 and §97, with the plant's twelve seeded people: each sees and may do what the owner's table says,
+// the super admin's Users & Access (levels by module and by document), and the bell and the Notifications page.
+const ACCESS_LEVELS_SUITE = "tests/e2e_access_levels.py";
 const WORKING_HOURS_SUITE = "tests/e2e_working_hours.py";
 // REQUIREMENTS §85: the Mitra mobile app does what Mitra does, through DCRS's own engine on the server (product server).
 const MOBILE_MITRA_API_SUITE = "tests/e2e_mobile_mitra_api.py";
@@ -75,6 +78,7 @@ const PRODUCT_SUITES = [
   DATABASE_OVERVIEW_SUITE,
   FIND_EVERY_DOCUMENT_SUITE,
   USER_ACCESS_SUITE,
+  ACCESS_LEVELS_SUITE,
   WORKING_HOURS_SUITE,
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
@@ -392,6 +396,8 @@ async function main(): Promise<void> {
   // REQUIREMENTS §84 — every document findable, the super admin's User access, the plant's working hours.
   FIND_EVERY_DOCUMENT_SUITE,
   USER_ACCESS_SUITE,
+  // REQUIREMENTS §96 and §97 — who may do what, set by the super admin, and the notifications in the website.
+  ACCESS_LEVELS_SUITE,
   WORKING_HOURS_SUITE,
   // REQUIREMENTS §85 — the mobile app's API, DCRS's engine on the server.
   MOBILE_MITRA_API_SUITE,

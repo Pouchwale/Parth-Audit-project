@@ -221,7 +221,7 @@ export function NotificationsPage() {
         </div>
       </div>
 
-      <div className="pill-tabs mb-3" role="tablist" style={{ display: "inline-flex" }}>
+      <div className="pill-tabs notif-filter mb-3" role="tablist" style={{ display: "inline-flex" }}>
         {(["all", "open"] as const).map((f) => (
           <button key={f} type="button" role="tab" aria-selected={filter === f} className={`pill-tab ${filter === f ? "active" : ""}`} data-filter={f} onClick={() => setFilter(f)}>
             {f === "all" ? t("notif.filterAll") : t("notif.filterOpen")}

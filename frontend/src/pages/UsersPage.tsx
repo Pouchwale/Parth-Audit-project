@@ -188,7 +188,7 @@ export function UsersPage() {
         <div>
           <h1 className="text-2xl mb-1">Users &amp; Access</h1>
           <p className="text-muted">
-            Everybody who may sign in, and which departments' documents each of them sees. Accounts are made here — nobody can create their own.
+            Everybody who may sign in, and what each may see and do. Accounts are made here — nobody can create their own.
           </p>
         </div>
         <div className="flex gap-2 wrap">
@@ -223,7 +223,7 @@ export function UsersPage() {
               <tr>
                 <th>Name</th>
                 <th>Signs in with</th>
-                <th style={{ width: 80 }}>Role</th>
+                <th style={{ width: 120 }}>Role</th>
                 <th style={{ width: 200 }}>Sees</th>
                 <th style={{ width: 110 }}>Last sign-in</th>
                 <th style={{ width: 110 }}>Status</th>
@@ -243,6 +243,26 @@ export function UsersPage() {
                     </td>
                     <td>
                       <span className={`badge ${u.role === "admin" ? "badge-Verified" : "badge-Due"}`}>{u.role === "admin" ? "admin" : "staff"}</span>
+                      {/* SUPER ADMIN OR STAFF (REQUIREMENTS §96): asked in plain words first; never the last super admin. */}
+                      {u.role === "admin" ? (
+                        <button
+                          type="button"
+                          className="access-cell-note"
+                          style={{ display: "block" }}
+                          data-action="make-staff"
+                          disabled={lastSuperAdmin(users, u.id)}
+                          title={lastSuperAdmin(users, u.id) ? "There must always be a super admin who can sign in" : "Make this account staff again"}
+                          onClick={() => setAsk({ kind: "staff", user: u })}
+                        >
+                          Make staff
+                        </button>
+                      ) : (
+                        !off && (
+                          <button type="button" className="access-cell-note" style={{ display: "block" }} data-action="make-admin" onClick={() => setAsk({ kind: "admin", user: u })}>
+                            Make super admin
+                          </button>
+                        )
+                      )}
                     </td>
                     <td className="text-sm" data-field="access">
                       {seesWords(u)}
@@ -275,24 +295,6 @@ export function UsersPage() {
                         >
                           <FiKey size={12} /> Reset password
                         </button>
-                        {/* SUPER ADMIN OR STAFF (REQUIREMENTS §96): asked in plain words first; never the last super admin. */}
-                        {u.role === "admin" ? (
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            data-action="make-staff"
-                            disabled={lastSuperAdmin(users, u.id)}
-                            title={lastSuperAdmin(users, u.id) ? "There must always be a super admin who can sign in" : "Make this account staff again"}
-                            onClick={() => setAsk({ kind: "staff", user: u })}
-                          >
-                            <FiUser size={12} /> Make staff
-                          </button>
-                        ) : (
-                          !off && (
-                            <button className="btn btn-ghost btn-sm" data-action="make-admin" onClick={() => setAsk({ kind: "admin", user: u })}>
-                              <FiStar size={12} /> Make super admin
-                            </button>
-                          )
-                        )}
                         {u.id !== me?.id && (
                           <button
                             className={off ? "btn btn-secondary btn-sm" : "btn btn-danger btn-sm"}
