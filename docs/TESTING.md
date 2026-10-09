@@ -710,7 +710,7 @@ Seven scripts live in `tests/`:
   1,332 ms; the briefing showed the readings waiting and the record its known-parts banner; no page error.
   **Known and handed on:** `backend/tests/apiV1Records.test.ts` assumes a prepared qc-viscosity record already holds 24
   readings and skips Mitra's sample fill when the record is prepared; three of its tests fail until it always
-  sample-fills (it is outside this builder's files).
+  sample-fills (it is outside this builder's files). Mended in the server's half of §96 (below): it always sample-fills now.
 - **Who may do what, and the notifications, in the website** (REQUIREMENTS §96 "In the website" and §97 "In the
   website", 9-Oct-2026). New unit tests, each failing before the change it proves (the module or the function did not
   exist, or, for the sync, the old code waited 10 seconds for a refusal it never said): `frontend/tests/accessScope.test.ts`
@@ -743,6 +743,57 @@ Seven scripts live in `tests/`:
   the super admin and for Vinay Bhojak, F/HR/15 read only for him with the reason, User access by levels, and a phone's
   width (no sideways scroll on /notifications or /users). At 6x CPU throttle: Users & Access drawn in 0.43 s, the
   Notifications page in 0.23 s, the bell opened in 0.23 s, a change asked in 0.12 s, no main-thread task over 140 ms.
+- **Who may do what, held by the server** (REQUIREMENTS §96, 9-Oct-2026: the server's half). New unit tests, each
+  failing before the change it proves (the module or the route did not exist, or, where it did, run with the level
+  checks taken out): `backend/tests/accessLevels.test.ts` (32: each of the owner's people's levels as the server reads
+  them, the super admin and an account nobody has described; what a person holds; what the super admin set; the key of
+  a person's copy, which a change of their levels changes and the catalogue does not; a document a record names that
+  the definitions do not; a new plant with no catalogue yet; the refusal's words, the website's own in English, Gujarati
+  and Hindi; a blank or prepared sheet told from a person's work; every change of a record and what it needs (start,
+  fill, submit, verify, send back, resume, correct, a correction cancelled, delete); a Read person's own act on a stored
+  record refused with nothing written, Write's limits, the housekeeping and a record new to the server (a supplied paper,
+  a Start not allowed) left out without a word, a step folded into an earlier history entry still refused, everyone
+  else's lines kept, the super admin passing; the format edits at Edit, the definitions new from anybody and changed
+  only with Edit; HR Master Data), `backend/tests/storageRoutes.test.ts` (16, the storage routes moved out of
+  backend/index.ts, over a stand-in database: what each person is handed, the records written record by record with the
+  403 words and `kept`, the 409s, the definitions, the format edits, HR Master Data, the access item the super admin's
+  alone; 9 of the 16 failed with the level checks taken out), `backend/tests/accessRulesRoutes.test.ts` (13: the rules
+  read by anybody and changed by the super admin alone, made safe, the 409, each change a line naming who changed what
+  for whom and a notification in the level the person now has, who answers for a document, a write that changes nothing
+  saying nothing; the twelve people's accounts on a first password they must change, a line each; the role, never the
+  last active super admin to staff), `backend/tests/engineHostAccess.test.ts` (7, over the real engine bundle: what a
+  person holds by the levels, a load never another person's, Read refused in the website's words, the language the
+  phone asks for, Edit on what a person answers for, Write's limits, the super admin; 5 of the 7 failed on the engine
+  before), `backend/tests/escalationAccess.test.ts` (5: a late or missed record counts against who answers for its
+  document; 2 failed with the department rule), `backend/tests/seedAccounts.test.ts` (2). Changed:
+  `backend/tests/apiV1.test.ts` (three tests of the levels on the phone's own routes; a documented path's {id} read as
+  Express's :id), `backend/tests/apiV1Records.test.ts` (the record its tests use is always given its readings by
+  Mitra's sample fill: since §98 a prepared record has none, and the three record tests the entry above hands on had
+  failed since; they pass now), `frontend/tests/latenessCore.test.ts` ("by the access rules": whom a record counts
+  against through attribute's answerersOf). The table of REQUIREMENTS §96 is printed by `scripts/access-table.ts`.
+  `npm run test:unit` on 9-Oct-2026 at 977129d: 622 frontend tests and 470 backend tests, all passing but the
+  PostgreSQL ledger's, skipped without `DCRS_LEDGER_TEST_URL`; `npm run typecheck` clean.
+  Browser suites changed, each with its reason written in the suite: `e2e_user_access.py` (the §84 module switches are
+  walked with an account the suite makes, kept to Quality Control, since departments decide only for an account the
+  access rules never name, and Kapila Barad views every module; new: the rules read by anybody and changed by the super
+  admin alone, Kapila Barad's and Ankur Raval's copies, his list of people, a record he starts on a document he reads
+  not stored, his act on a stored sheet refused in words and taken once he has Write, the line and the notification,
+  the twelve accounts, the role and the last super admin; and THE SUPER ADMIN ALWAYS GETS IN: eight wrong passwords for
+  his address from 127.0.0.1, each with another forged X-Forwarded-For, hold back that computer alone, and the right
+  password signs him in at once from ::1), `e2e_escalation.py` (the late QC sheets are F/QC/37's, which Kapila Barad
+  answers for alone; the HR reports never done F/HR/22's, which Vinay Bhojak and Sandeep Parekh answer for),
+  `e2e_mobile_mitra_api.py` (the Quality Control account is Ankur Raval's and fills a sheet he answers for; a sheet he
+  only reads is not started, 403 access-level; the prepared sheet is submitted with `reviewed: true`, as §97 requires),
+  `e2e_audit_assistant_api.py` and `e2e_find_every_document.py` (the account that sees Quality Control alone is Ankur
+  Raval's), `e2e_every_record_starts.py` (Human Resources' account is one the suite makes: Vinay Bhojak answers for
+  F/HR/01-14 and 19-22 only), `e2e_departments.py` (the refusal names the super admin; a QC account's browser holds no
+  HR record at all, so the one tried by its address comes from the unassigned account's copy),
+  `e2e_postgres_storage.py` (the key of a copy is no longer the department's code). Run on 9-Oct-2026 at 977129d with
+  these suites, each ALONE with the project's runner (`E2E_SKIP_UNIT=1 npm run test:e2e -- tests/<suite>`, the unit
+  tests run on their own at the same commit): e2e_escalation.py 30 of 30, e2e_user_access.py 94 of 94, e2e_departments.py 39 of 39, e2e_mobile_mitra_api.py 32 of 32, e2e_audit_assistant_api.py 40 of 40, e2e_find_every_document.py 71 of 71, e2e_every_record_starts.py 336 of 336 (26 minutes), e2e_postgres_storage.py 34 of 34; no JavaScript error in any. A throwaway DCRS of this build (port 5150, a fresh embedded
+  PostgreSQL, the thirteen seeded accounts, removed after) showed, before the fix of 977129d, that Kapila Barad's first
+  sign-in stored no records (her browser's write was refused over F/HR/01's supplied papers) and, after it, that her
+  first sign-in and Ankur Raval's store their records, the catalogue and HR Master Data with no refusal and no 409.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

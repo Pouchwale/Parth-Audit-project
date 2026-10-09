@@ -6,7 +6,12 @@ intelligent": "escalate to superadmin on repeated lateness, daily/weekly digest"
     the Performance Scorecard's own lateness rule (engine/latenessCore.ts):
     3 or more late submissions in 30 days escalate a person by name; 2 or more
     records never done escalate a department several people share, named with
-    its people;
+    its people. Whom a record counts against is who answers for its document by
+    the access rules (REQUIREMENTS §96): the late QC sheets are F/QC/37's, which
+    Kapila Barad answers for alone (until 9-Oct-2026 they were F-QC-30's, which
+    the owner gave to Ankur Raval), and the HR rounds never done are F/HR/22's,
+    which Vinay Bhojak and Sandeep Parekh answer for (F/HR/17, used before, is
+    Kapila Barad's by the owner's table);
   * it is raised once per person or department per week, and every new one is a
     line in the activity log;
   * the super admin sees it in the bell, counted in its badge, and acknowledges
@@ -152,7 +157,7 @@ with sync_playwright() as p:
         iso = d.isoformat()
         submitted = (d + datetime.timedelta(days=2)).isoformat()
         records.append({
-            "id": f"esc-late-{i}", "documentId": "qc-viscosity", "periodKey": f"qc-viscosity:{iso}", "dueDate": iso,
+            "id": f"esc-late-{i}", "documentId": "qc-inspection-pouching", "periodKey": f"qc-inspection-pouching:{iso}", "dueDate": iso,
             "status": "Verified", "isDemo": False, "data": {"header": {}, "rows": []},
             "createdAt": f"{iso}T03:00:00.000Z", "updatedAt": f"{submitted}T06:00:00.000Z",
             "submittedAt": f"{submitted}T06:00:00.000Z", "submittedBy": "Kapila Barad",
@@ -160,9 +165,9 @@ with sync_playwright() as p:
     for i, d in enumerate(days[3:]):
         iso = d.isoformat()
         records.append({
-            "id": f"esc-hr-{i}", "documentId": "daily-pest-monitoring", "periodKey": f"daily-pest-monitoring:{iso}", "dueDate": iso,
+            "id": f"esc-hr-{i}", "documentId": "hr-hygiene-report", "periodKey": f"hr-hygiene-report:{iso}", "dueDate": iso,
             "status": "Due", "isDemo": False,
-            "data": {"isHoliday": False, "checkpoints": {}, "timeOfChecking": "", "checker": "", "summaryActions": []},
+            "data": {"header": {}, "rows": []},
             "createdAt": f"{iso}T03:00:00.000Z", "updatedAt": f"{iso}T03:00:00.000Z",
         })
     r = admin.request.put(
@@ -170,7 +175,7 @@ with sync_playwright() as p:
         data=json.dumps(records),
         headers={"Content-Type": "text/plain", "X-Base-Version": str(items["records"]["version"])},
     )
-    check("(three late QC sheets by Kapila Barad and two HR rounds never done, on file)", r.status in (200, 204), r.status)
+    check("(three late F/QC/37 sheets by Kapila Barad and two F/HR/22 reports never done, on file)", r.status in (200, 204), r.status)
 
     # ==================================================================
     # 2. The escalation, worked out on the server

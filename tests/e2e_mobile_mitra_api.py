@@ -24,7 +24,16 @@ plays the app's server, with the plant's seeded accounts:
   * history's figures (GET /api/v1/figures);
   * department refusals: Human Resources may not read the QC record, Quality
     Control may not open F/HR/17, and HR Master Data (GET /api/v1/people) is
-    refused to Quality Control and answered for Human Resources.
+    refused to Quality Control and answered for Human Resources;
+  * the access levels (REQUIREMENTS §96): the Quality Control account may not
+    start a record of a QC document it only reads (403 access-level, in plain
+    words), nor submit one.
+
+THE QUALITY CONTROL ACCOUNT IS ANKUR RAVAL'S since the owner's access levels
+(9-Oct-2026): Kapila Barad views every module, so she can no longer stand for "an
+account kept to Quality Control"; Ankur Raval views Quality Control alone and
+answers for F-QC-30, F-QC-32 and F-QC-40.C, so the sheet the suite fills is one of
+those.
 
 Against the product server on :8843 (DCRS_BASE overrides it), with the plant's
 seeded accounts (SEED_ACCOUNTS=1, SEED_ACCOUNT_PASSWORD).
@@ -47,7 +56,10 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 BASE = os.environ.get("DCRS_BASE", "http://localhost:8843").rstrip("/")
 SEED_PASSWORD = os.environ.get("DCRS_SEED_PASSWORD", "SeedQA@2026")
 ADMIN = os.environ.get("DCRS_ADMIN_EMAIL", "admin@gpp.local")
-QC = os.environ.get("DCRS_QC_EMAIL", "kapila.barad@gpp.local")  # kept to Quality Control
+QC = os.environ.get("DCRS_QC_EMAIL", "ankur.raval@gpp.local")  # views Quality Control alone (REQUIREMENTS §96)
+QC_NAME = os.environ.get("DCRS_QC_NAME", "Ankur Raval")
+# The QC daily sheets he answers for, and so may start, fill and submit (the owner's table, 7-Oct-2026).
+QC_OWN_SHEETS = ("qc-viscosity", "qc-adhesive-mixing", "qc-temperature")
 HR = os.environ.get("DCRS_HR_EMAIL", "vinay.bhojak@gpp.local")  # kept to Human Resources
 CLIENT = "Mitra mobile app"
 THROUGH = f"Through {CLIENT}"
@@ -187,8 +199,10 @@ with sync_playwright() as p:
     status, mine = api("GET", "/api/v1/documents?limit=200", qc)
     docs = (mine or {}).get("documents", [])
     check("GET /api/v1/documents without q: the QC account's own documents", status == 200 and len(docs) > 3 and all((d.get("department") or {}).get("code") in (None, "QC") for d in docs), [d.get("id") for d in docs][:20])
-    daily_sheets = [d for d in docs if d.get("kind") == "log-sheet" and (d.get("schedule") or {}).get("frequency") == "Daily" and not d.get("referenceOnly")]
-    check("the QC account has daily log sheets", len(daily_sheets) > 0, docs[:5])
+    all_daily = [d for d in docs if d.get("kind") == "log-sheet" and (d.get("schedule") or {}).get("frequency") == "Daily" and not d.get("referenceOnly")]
+    # The ones the account may fill: those it answers for (the rest of Quality Control it reads).
+    daily_sheets = [d for d in all_daily if d.get("id") in QC_OWN_SHEETS] or all_daily
+    check("the QC account has daily log sheets of its own", len(daily_sheets) > 0, docs[:5])
 
     # A QC daily log sheet whose record for today is not yet signed off (another suite may have used one).
     chosen = None
@@ -225,7 +239,9 @@ with sync_playwright() as p:
     entry = ((changed or {}).get("history") or [{}])[-1]
     check("the change is in the record's history in the person's name, 'Through Mitra mobile app: <note>'", entry.get("note") == f"{THROUGH}: Readings given on the phone" and entry.get("action") == "assistant-edit", entry)
 
-    status, submitted = api("POST", f"/api/v1/records/{q(record_id)}/actions", qc, {"action": "submit"})
+    # The day's sheet is prepared by the assistant (the known parts), so it is submitted only once the person has
+    # checked every value and ticked "Reviewed and correct" (REQUIREMENTS §62, §97): the phone then sends reviewed: true.
+    status, submitted = api("POST", f"/api/v1/records/{q(record_id)}/actions", qc, {"action": "submit", "reviewed": True})
     check("POST .../actions submit: DCRS's validation passes and the record waits for verification", status == 200 and (submitted or {}).get("status") == "Pending Verification", (status, submitted))
     status, locked = api("POST", f"/api/v1/records/{q(record_id)}/changes", qc, {"patch": patch})
     check("a change to the submitted record is refused until it is reopened (409 needs-reopen)", status == 409 and (locked or {}).get("code") == "needs-reopen", (status, locked))
@@ -238,7 +254,7 @@ with sync_playwright() as p:
     status, final = api("GET", f"/api/v1/records/{q(record_id)}", admin)
     history = (final or {}).get("history", [])
     by_action = {h.get("action"): h for h in history}
-    check("the history: the edit and the submit by the QC person, the verification by the super admin", (by_action.get("assistant-edit") or {}).get("by") == "Kapila Barad" and (by_action.get("submitted") or {}).get("by") == "Kapila Barad" and (by_action.get("verified") or {}).get("by") not in (None, "Kapila Barad"), history)
+    check("the history: the edit and the submit by the QC person, the verification by the super admin", (by_action.get("assistant-edit") or {}).get("by") == QC_NAME and (by_action.get("submitted") or {}).get("by") == QC_NAME and (by_action.get("verified") or {}).get("by") not in (None, QC_NAME), history)
     check("every entry the app made says 'Through Mitra mobile app'", all(str((by_action.get(a) or {}).get("note", "")).startswith(THROUGH) for a in ("assistant-edit", "submitted", "verified")), history)
 
     # The activity log, as the super admin reads it.
@@ -257,6 +273,24 @@ with sync_playwright() as p:
     check("Human Resources may not read the QC record (403 not-your-department)", status == 403 and (other or {}).get("code") == "not-your-department", (status, other))
     status, other = api("GET", "/api/v1/documents/daily-pest-monitoring", qc)
     check("Quality Control may not open F/HR/17 (403, kept by Human Resources)", status == 403 and "Human Resources" in (other or {}).get("error", ""), (status, other))
+
+    # ------------------------------------------------------------------
+    # the access levels (REQUIREMENTS §96): a QC document the account only reads
+    readonly = next((d for d in all_daily if d.get("id") not in QC_OWN_SHEETS), None)
+    if readonly:
+        status, refused = api("POST", "/api/v1/records", qc, {"documentId": readonly["id"], "date": today})
+        check(
+            f"a record of {readonly.get('formatNo')}, which the QC account only reads, is not started (403 access-level, in plain words)",
+            status == 403 and (refused or {}).get("code") == "access-level" and "is Read only for you" in (refused or {}).get("error", "") and (refused or {}).get("needed") == "write",
+            (status, refused),
+        )
+        status, mine_today = api("GET", f"/api/v1/records?documentId={q(readonly['id'])}&from={today}&to={today}", admin)
+        started_ids = [r_.get("recordId") for r_ in (mine_today or {}).get("records", []) if r_.get("started")]
+        if started_ids:
+            status, refused = api("POST", f"/api/v1/records/{q(started_ids[0])}/actions", qc, {"action": "submit", "reviewed": True})
+            check("...nor one already started submitted (403 access-level)", status == 403 and (refused or {}).get("code") == "access-level", (status, refused))
+    else:
+        check("(a QC daily sheet the account only reads)", False, [d.get("id") for d in all_daily])
     status, people = api("GET", "/api/v1/people?q=" + q("a"), qc)
     check("HR Master Data is refused to Quality Control", status == 403 and (people or {}).get("code") == "not-your-department", (status, people))
     status, people = api("GET", "/api/v1/people?q=" + q("a"), hr)

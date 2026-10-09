@@ -6272,7 +6272,9 @@ the screen is never the lock):
 
 - `GET /api/storage` hands a person the records and deletions-log lines of the documents they see at Read or more
   (everyone else's are not sent), HR Master Data only with Human Resources, the access rules to everybody, and the key of
-  their copy, made of every level they have: a change of their levels makes the browser load again.
+  their copy: what their levels are worked out from (their role, email and departments, whether the rules name them,
+  their own settings, the documents given to them), so any change of their levels by the super admin makes their
+  browser load again, while the catalogue written by a new plant's first browser, or added to by an upgrade, does not.
 - `PUT /api/storage/records` is checked record by record against the version stored:
 
   | The change | Needs |
@@ -6286,16 +6288,23 @@ the screen is never the lock):
   | a signed-off record changed, reopened for correction, a record under correction changed, a correction cancelled | Edit (correct) |
   | a record removed | Edit (delete) |
 
-  A person's own act their level does not allow (it adds to the record's history, or it starts a record) is refused
-  with 403 `access-level` and the website's own words: "F/QC/37 Inspection Record – Pouching Process is Read only for
-  you. Filling in a record needs Write access: ask the super admin for it." (engine/accessWords.ts, also in Hindi and
-  Gujarati.) The app's own housekeeping that a browser does at start-up (the calendar's blank sheets, the prepare of the
-  known parts, a start-up migration that writes no history line, a removal) is left as stored, without a word, when
-  the person's level does not allow it, and named in the answer's `kept`: the server's morning prepare (§97) and the
+  A person's own act on a stored record their level does not allow (it writes the record's history) is refused with
+  403 `access-level` and the website's own words: "F/QC/37 Inspection Record – Pouching Process is Read only for you.
+  Filling in a record needs Write access: ask the super admin for it." (engine/accessWords.ts, also in Hindi and
+  Gujarati.) Everything else the level does not allow is left as stored, without a word, and named in the answer's
+  `kept`: a record new to the server (a sheet the calendar made or the assistant prepared, a filled paper the plant
+  supplied, which every browser adds at start-up, or one started on a screen that should not have offered Start: the
+  website hides Start below Write and says why, and the phone's engine refuses it in words), a sheet changed or cleared,
+  a start-up migration that writes no history line, a record removed. The server's morning prepare (§97) and the
   browser of somebody who may fill the document do that work, and a Read person's browser can never change, add or
   remove a record through it. Everyone else's lines stay as stored.
-- The document definitions and the format edits need Edit on each document changed. HR Master Data is held by an
-  account that sees Human Resources and changed by one with Write on a Human Resources document.
+- The format edits (a format's printed words and layout, a person's act) need Edit on each document changed, refused in
+  words. The document definitions are nobody's to edit on a screen: the first browser of a new plant writes the issued
+  catalogue and an upgrade adds to it, so a definition new to the server is taken from anybody, and a stored one is
+  changed or removed only with Edit on its document (else left as stored). HR Master Data is held by an account that sees
+  Human Resources and changed by one with Write on a Human Resources document. On a new plant, before the first
+  browser has written the catalogue, every line is asked of by its id (no format numbers yet) and HR Master Data follows
+  the module's level and the account's departments.
 - The users directory and the activity log are read by the modules a person sees.
 - The phone's routes (`/api/v1`) and DCRS's engine run on the server (backend/engineHost.ts with
   frontend/src/engineHost/entry.ts) are given the person and the rules: the engine holds only what the person sees, and

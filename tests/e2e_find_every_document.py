@@ -24,7 +24,7 @@ on it."
     on asking, the ones other departments keep.
 
 Against the PRODUCT server on :8843 (DCRS_BASE overrides it), with the plant's
-seeded accounts: admin@gpp.local (the super admin) and kapila.barad@gpp.local
+seeded accounts: admin@gpp.local (the super admin) and ankur.raval@gpp.local
 (Quality Control), on SEED_ACCOUNT_PASSWORD SeedQA@2026. Network-independent.
 """
 import os
@@ -38,7 +38,9 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 BASE = os.environ.get("DCRS_BASE", "http://localhost:8843").rstrip("/")
 SEED_PASSWORD = os.environ.get("DCRS_SEED_PASSWORD", "SeedQA@2026")
 ADMIN = os.environ.get("DCRS_ADMIN_EMAIL", "admin@gpp.local")
-STAFF = os.environ.get("DCRS_QC_EMAIL", "kapila.barad@gpp.local")  # kept to Quality Control
+# Views Quality Control alone (REQUIREMENTS §96): since 9-Oct-2026 Ankur Raval's, as Kapila Barad views every module by the
+# owner's table, so no document is "kept by another department" for her any more.
+STAFF = os.environ.get("DCRS_QC_EMAIL", "ankur.raval@gpp.local")
 KEPT_BY_HR = "Kept by Human Resources — ask the super admin for access"
 NOT_IN_DCRS_YET = "On the Master List of Formats (F/SYS/02) — not in DCRS yet"
 FAILURES = []

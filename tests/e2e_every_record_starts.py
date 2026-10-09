@@ -54,12 +54,15 @@ OWN_PASSWORD = "StartOwn@2026"
 ONLY = [x for x in os.environ.get("E2E_ONLY", "").split(",") if x]
 FAILURES = []
 
-# Each department's account. Quality Control's and Human Resources' are the server's seeded ones; the super admin
-# adds the others (POST /api/users, a first password each changes at once). Their names carry no word a button
-# of this suite is pressed by.
+# Each department's account. Quality Control's is the server's seeded Kapila Barad, who edits every QC document by the
+# owner's table (REQUIREMENTS §96); the super admin adds the others (POST /api/users, a first password each changes at
+# once), accounts the access rules never name, so each has its department at Edit as before. Human Resources' is one
+# of those since 9-Oct-2026: Vinay Bhojak answers for F/HR/01-14 and 19-22 only (F/HR/15-18 and the pest control
+# documents are Kapila Barad's), so he can no longer start every HR document. Their names carry no word a button of
+# this suite is pressed by.
 DEPARTMENTS = {
     "QC": ("kapila.barad@gpp.local", None),
-    "HR": ("vinay.bhojak@gpp.local", None),
+    "HR": ("isha.rao.starts@gpp.local", "Isha Rao"),
     "STR": ("asha.patel.starts@gpp.local", "Asha Patel"),
     "MNT": ("bhavin.shah.starts@gpp.local", "Bhavin Shah"),
     "PRD": ("chirag.mehta.starts@gpp.local", "Chirag Mehta"),
