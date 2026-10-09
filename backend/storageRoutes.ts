@@ -2,7 +2,7 @@ import express, { type Express, type Request, type RequestHandler, type Response
 import zlib from "node:zlib";
 import type { PublicUser } from "./auth.ts";
 import { deleteItem, readItem, storedItems, writeItem, type StoredItem, type StoredItems, type WriteResult } from "./db.ts";
-import { ACCESS_KEY, AccessRefused, checkFormatChange, composeRecords, holdsHrMaster, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
+import { ACCESS_KEY, AccessRefused, checkFormatChange, composeRecords, holdsHrMaster, languageOf, levelRefusal, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
 import { accessAccountOf, catalogueLoader, databaseItemSource } from "./accessStore.ts";
 import type { AccessCatalogue } from "./accessLevels.ts";
 
@@ -199,7 +199,7 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
           return;
         }
         if (!writesHrMaster(view)) {
-          res.status(403).json({ error: "HR Master Data is Read only for you. Ask the super admin for Write access.", code: "access-level", level: "read", needed: "write" });
+          res.status(403).json({ error: levelRefusal("HR Master Data", "read", "write", "fill", languageOf(req.get("x-language"))), code: "access-level", level: "read", needed: "write", action: "fill" });
           return;
         }
       }

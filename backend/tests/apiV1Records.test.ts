@@ -320,14 +320,13 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(again.status, 200);
     assert.equal(again.body.created, false);
     assert.equal(again.body.record.recordId, recordId, "the day's record, not a second one");
-    // DCRS prepares a blank register it generated for a working day (engine/assistantPrepare.ts); a record
-    // started for a day no register was waiting on (the first day of a month falling on the weekly off, as
-    // 1-Oct-2026 did) is started empty. Mitra's own sample fill then gives it values, so what follows reads,
-    // changes and submits a filled record whatever day the tests run on.
-    if (!r.body.record.prepared) {
-      const filled = await call(s, "POST", `/api/v1/records/${recordId}/sample-fill`, T.qc);
-      assert.equal(filled.status, 200, JSON.stringify(filled.body).slice(0, 400));
-    }
+    // DCRS prepares a blank register it generated for a working day with the known parts only, never a reading
+    // (engine/assistantPrepare.ts, REQUIREMENTS §98); a record started for a day no register was waiting on is
+    // started empty. Either way the readings are the person's: Mitra's own sample fill (allowed on the test
+    // servers, ALLOW_SAMPLE_FILL) gives them here, so what follows reads, changes and submits a filled record
+    // whatever day the tests run on.
+    const filled = await call(s, "POST", `/api/v1/records/${recordId}/sample-fill`, T.qc);
+    assert.equal(filled.status, 200, JSON.stringify(filled.body).slice(0, 400));
   });
 
   it("GET /records/{id} gives the layout, the data in words and as stored, and the history", async () => {

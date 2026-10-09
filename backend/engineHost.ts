@@ -6,7 +6,8 @@ import { Worker } from "node:worker_threads";
 import type { StoredItem, WriteResult } from "./db.ts";
 import { database, plantTimeZone, readItem, writeItem } from "./db.ts";
 import { repoRoot } from "./paths.ts";
-import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
+import { catalogueLoader } from "./accessStore.ts";
+import { viewFor, type AccessView } from "./accessLevels.ts";
 
 // THE ENGINE HOST: DCRS'S OWN RULES, RUN ON THE SERVER (REQUIREMENTS §85).
 //
@@ -36,10 +37,13 @@ import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartme
 //   * ONE REQUEST AT A TIME. The engine keeps its working copy in module state,
 //     as the browser does, so requests take turns.
 //   * EACH REQUEST AS ITS PERSON. The stored company items (records, documents,
-//     master, hrMasterData, referenceEdits, formatEdits, deletions, live-start)
-//     are read — only when their seq moved — and handed over with the person's
-//     departments; the entry keeps a department's account to its own lines, as
-//     GET /api/storage does.
+//     master, hrMasterData, referenceEdits, formatEdits, deletions, live-start,
+//     access) are read — only when their seq moved — and handed over with the
+//     person (email, role, departments); the entry keeps the person to the
+//     documents they see at Read or more and checks every change against their
+//     level (REQUIREMENTS §96), as GET and PUT /api/storage do. The server's own
+//     jobs and every super admin share one load (they see everything); anybody
+//     else has one of their own.
 //   * EACH CHANGE WRITTEN WITH THE VERSION IT WAS MADE FROM. The entry answers
 //     with the records item as it should now stand; it is written with
 //     writeItem(..., baseVersion) — the version the change was worked out on.
@@ -68,9 +72,10 @@ export interface EngineStore {
 
 /**
  * Must equal ENGINE_API_VERSION in frontend/src/engineHost/entry.ts (2: the equipment list and the insights, 2-Oct-2026;
- * 3: the access rules, the morning prepare, the notification plan, the engine's clock, 8-Oct-2026).
+ * 3: the access rules, the morning prepare, the notification plan, the engine's clock, 8-Oct-2026; 4: the person on
+ * every load, each request scoped and each change checked by the access levels, 9-Oct-2026).
  */
-export const ENGINE_API_VERSION = 3;
+export const ENGINE_API_VERSION = 4;
 /** The company items a browser holds (backend/index.ts COMPANY_KEYS), and the super admin's access rules — entry.ts ITEM_KEYS. */
 export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "access"] as const;
 type ItemKey = (typeof ITEM_KEYS)[number];
@@ -111,6 +116,8 @@ export interface EngineCaller {
   client: string;
   /** "admin" for the super admin; the access rules read it (engine/accessRules.ts). Left out: staff. */
   role?: string;
+  /** The language a refusal is said in (the phone's X-Language: en, hi or gu); English when left out. */
+  lang?: string;
 }
 
 /** A moment to answer at, other than now (the engine's clock: a job run by hand for a day of the caller's own, a test). */
@@ -395,7 +402,6 @@ export interface EngineHost {
   close(): Promise<void>;
 }
 
-const scopeKey = (departments: string[] | null): string => (departments ? [...departments].map((d) => d.toUpperCase()).sort().join(",") : "*");
 
 /** The day by this server's own clock — the engine's todayISO. */
 function localDay(now = new Date()): string {
@@ -436,6 +442,10 @@ export function createEngineHost(opts: EngineHostOptions): EngineHost {
   let lastStaleCheck = 0;
   const items = new Map<ItemKey, StoredItem | null>();
   let turn: Promise<unknown> = Promise.resolve();
+  // The access rules over the catalogue, as the storage routes read them (backend/accessStore.ts), once per change.
+  const catalogue = catalogueLoader(store);
+  const viewOf = async (caller: EngineCaller): Promise<AccessView> =>
+    viewFor(await catalogue(), { email: caller.email, role: caller.role ?? "staff", departments: caller.departments ?? [] });
 
   /** Requests take turns: the engine holds one working copy. */
   function inTurn<T>(work: () => Promise<T>): Promise<T> {
@@ -499,13 +509,17 @@ export function createEngineHost(opts: EngineHostOptions): EngineHost {
     );
   }
 
-  /** Hands the worker what it does not hold yet, and the person's departments. */
+  /** Hands the worker what it does not hold yet, and the person. */
   async function loadFor(w: EngineWorker, caller: EngineCaller, now?: number): Promise<void> {
     await readItems();
-    const key = `${ITEM_KEYS.map((k) => items.get(k)?.seq ?? 0).join(".")}|${scopeKey(caller.departments)}|${localDay(now === undefined ? undefined : new Date(now))}`;
+    // Whose copy: the super admin's (and the server's own jobs') is everything; anybody else's is their own, by their levels.
+    const view = await viewOf(caller);
+    const whose = view.boss ? "*" : `${caller.email.toLowerCase()}|${caller.role ?? "staff"}|${[...(caller.departments ?? [])].sort().join(",")}`;
+    const key = `${ITEM_KEYS.map((k) => items.get(k)?.seq ?? 0).join(".")}|${whose}|${localDay(now === undefined ? undefined : new Date(now))}`;
     const input = (all: boolean) => ({
       key,
       departments: caller.departments,
+      account: { email: caller.email, role: caller.role ?? "staff", departments: caller.departments ?? [] },
       items: Object.fromEntries(
         ITEM_KEYS.map((k) => {
           const item = items.get(k);
@@ -529,27 +543,14 @@ export function createEngineHost(opts: EngineHostOptions): EngineHost {
   }
 
   function runArgs(caller: EngineCaller, args: Record<string, unknown>): Record<string, unknown> {
-    return { ...args, userId: caller.userId, userName: caller.userName, client: caller.client, email: caller.email, role: caller.role ?? "staff" };
+    return { ...args, userId: caller.userId, userName: caller.userName, client: caller.client, email: caller.email, role: caller.role ?? "staff", departments: caller.departments ?? [], lang: caller.lang ?? "en" };
   }
 
-  /** The deletions log with new lines at its head — a department's account keeps its own lines to the log's length, everyone else's stay (backend/index.ts). */
+  /** The deletions log with new lines at its head — a person keeps their own lines to the log's length, everyone else's stay (backend/storageRoutes.ts). */
   async function writeDeletions(added: unknown[], caller: EngineCaller): Promise<void> {
-    const formatNos = new Map<string, string>();
-    try {
-      for (const d of JSON.parse(items.get("documents")?.value ?? "[]") as { id?: unknown; formatNo?: unknown }[]) {
-        if (typeof d?.id === "string" && typeof d.formatNo === "string") formatNos.set(d.id, d.formatNo);
-      }
-    } catch {
-      /* the fixed list decides */
-    }
-    const scope = caller.departments;
-    const visible = (line: unknown): boolean => {
-      if (!scope) return true;
-      const id = (line as { documentId?: unknown } | null)?.documentId;
-      if (typeof id !== "string" || !id) return true;
-      const code = departmentOfDocument(id, formatNos.get(id));
-      return code === null || scope.includes(code);
-    };
+    const view = await viewOf(caller);
+    const scope = !view.readsAll;
+    const visible = (line: unknown): boolean => view.holds(line);
     for (let attempt = 1; attempt <= 5; attempt++) {
       const item = await store.readItem("company", "deletions");
       let current: unknown[] = [];

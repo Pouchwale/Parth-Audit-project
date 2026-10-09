@@ -195,7 +195,7 @@ describe("a write of the records, record by record", () => {
     const r = await put(s, "ankur", "records", [{ ...POUCHING, data: { v: 2 }, history: [...POUCHING.history, entry("edited")] }, VISCOSITY], { scope });
     assert.equal(r.status, 403);
     assert.equal(r.body.code, "access-level");
-    assert.equal(r.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Ask the super admin for Write access.");
+    assert.equal(r.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Filling in a record needs Write access: ask the super admin for it.");
     assert.equal(r.body.needed, "write");
     assert.equal(r.body.recordId, "p-1");
     assert.equal(s.store.version("records"), version, "nothing written");
@@ -254,7 +254,7 @@ describe("the definitions, the format edits, HR Master Data and the access rules
     const refused = await put(s, "ankur", "formatEdits", { "qc-viscosity": { revisionNo: "01" }, "qc-inspection-pouching": { revisionNo: "01" } });
     assert.equal(refused.status, 403);
     assert.equal(refused.body.action, "format");
-    assert.equal(refused.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Ask the super admin for Edit access.");
+    assert.equal(refused.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Changing the format needs Edit access: ask the super admin for it.");
     const taken = await put(s, "ankur", "formatEdits", { "qc-viscosity": { revisionNo: "02" } });
     assert.equal(taken.status, 200, JSON.stringify(taken.body));
   });
@@ -270,6 +270,7 @@ describe("the definitions, the format edits, HR Master Data and the access rules
   it("HR Master Data: refused to whoever does not see Human Resources, taken from HR", async () => {
     const refused = await put(s, "ankur", "hrMasterData", { people: [{ name: "x" }] });
     assert.equal(refused.status, 403);
+    assert.equal(refused.body.error, "This account's departments do not hold that.");
     assert.equal((await put(s, "vinay", "hrMasterData", { people: [{ name: "x" }] })).status, 200);
   });
 

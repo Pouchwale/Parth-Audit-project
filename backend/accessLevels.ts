@@ -33,7 +33,6 @@
 // imports). backend/tests/accessLevels.test.ts holds every path to it.
 import {
   ACCESS_MODULES,
-  LEVEL_WORDS,
   atLeast,
   buildAccess,
   levelNeeded,
@@ -46,6 +45,18 @@ import {
   type DocumentAction,
 } from "../frontend/src/engine/accessRules.ts";
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
+
+// THE WEBSITE'S OWN WORDS for a refusal (frontend/src/engine/accessWords.ts), so the server, the pages and Mitra never
+// say it differently. Loaded by name rather than by a static import: that file names its two types with an
+// extensionless import, which the browser's bundler reads and the server's type check (NodeNext) refuses; Node erases
+// the import when it runs the file, so it loads here as it is.
+export type AccessLanguage = "en" | "gu" | "hi";
+interface AccessWordsModule {
+  ACCESS_LEVEL_CODE: string;
+  refusalSentence(lang: AccessLanguage, document: string, have: AccessLevel, need: AccessLevel, action: DocumentAction): string;
+}
+const ACCESS_WORDS_MODULE = "../frontend/src/engine/accessWords.ts";
+const { refusalSentence } = (await import(ACCESS_WORDS_MODULE)) as AccessWordsModule;
 
 /** The company item that holds the super admin's rules (REQUIREMENTS §96). */
 export const ACCESS_KEY = "access";
@@ -233,13 +244,18 @@ export function viewFor(catalogue: AccessCatalogue, account: AccessAccount): Acc
 // the words of a refusal
 
 /**
- * "F-QC-30 Lamination Adhesive Viscosity Record is Read only for you. Ask the super admin for Write access." — the
- * level the person has, and the one the action needs, in the owner's words (accessRules.ts LEVEL_WORDS).
+ * THE WORDS OF A REFUSAL, the website's and Mitra's own (frontend/src/engine/accessWords.ts refusalSentence): what the
+ * person has on the document and the level the step needs — "F/QC/37 Inspection Record - Pouching Process is Read only
+ * for you. Filling in a record needs Write access: ask the super admin for it." In English unless asked for Hindi or
+ * Gujarati (the phone's X-Language).
  */
-export function levelRefusal(what: string, have: AccessLevel, need: AccessLevel): string {
-  const subject = what.trim() || "This document";
-  if (have === "none") return `${subject} is not open to you. Ask the super admin for ${LEVEL_WORDS[need === "none" ? "read" : need].name} access.`;
-  return `${subject} is ${LEVEL_WORDS[have].name} only for you. Ask the super admin for ${LEVEL_WORDS[need].name} access.`;
+export function levelRefusal(what: string, have: AccessLevel, need: AccessLevel, action: DocumentAction, lang: AccessLanguage = "en"): string {
+  return refusalSentence(lang, what.trim() || "This document", have, need, action);
+}
+
+/** The language a request asks its words in (X-Language: en, hi or gu), English otherwise. */
+export function languageOf(header: unknown): AccessLanguage {
+  return header === "hi" || header === "gu" ? header : "en";
 }
 
 /** The body of a 403 for an action the level does not allow. */
@@ -253,11 +269,11 @@ export interface LevelRefusalBody {
   recordId?: string;
 }
 
-export function refusalBody(view: AccessView, documentId: string, action: DocumentAction, recordId?: string): LevelRefusalBody {
+export function refusalBody(view: AccessView, documentId: string, action: DocumentAction, recordId?: string, lang: AccessLanguage = "en"): LevelRefusalBody {
   const have = view.level(documentId);
   const needed = levelNeeded(action);
   return {
-    error: levelRefusal(view.catalogue.title(documentId), have, needed),
+    error: levelRefusal(view.catalogue.title(documentId), have, needed, action, lang),
     code: "access-level",
     level: have,
     needed,

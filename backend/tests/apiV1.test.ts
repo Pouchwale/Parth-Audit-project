@@ -543,6 +543,43 @@ describe("closing a finding", () => {
   });
 });
 
+describe("the access levels (REQUIREMENTS §96)", () => {
+  let s: Server;
+  before(async () => {
+    s = await start();
+    // The super admin gave the QA account Read on the CAPA findings report and nothing else, and Kapila Barad's
+    // QC account Write on it: what they may do now follows the rules, not their departments.
+    s.store.put("access", { version: 1, people: { "u-qa@test.local": { documents: { "gap-inspection": "read" } }, "u-qc@test.local": { documents: { "gap-inspection": "write" } } }, responsibility: {} });
+  });
+  after(() => s.close());
+
+  it("Read: the findings are listed, but none may be closed — said in the website's own words, nothing written", async () => {
+    assert.equal((await call(s, "GET", "/api/v1/findings", { token: T.qa })).status, 200);
+    const version = s.store.items.get("records")!.version;
+    const r = await call(s, "POST", "/api/v1/findings/CAPA-2023-12-13-1/close", { token: T.qa, body: { note: "Painted." }, headers: CLIENT });
+    assert.equal(r.status, 403);
+    assert.equal(r.body.code, "access-level");
+    assert.equal(r.body.error, "CAPA — Internal: Pest Control Inspection Findings Report is Read only for you. Filling in a record needs Write access: ask the super admin for it.");
+    assert.deepEqual([r.body.level, r.body.needed, r.body.action], ["read", "write", "fill"]);
+    assert.equal(s.store.items.get("records")!.version, version);
+  });
+
+  it("the same words in Hindi or Gujarati when the app asks (X-Language)", async () => {
+    const r = await call(s, "POST", "/api/v1/findings/CAPA-2023-12-13-1/close", { token: T.qa, body: { note: "Painted." }, headers: { ...CLIENT, "X-Language": "hi" } });
+    assert.equal(r.status, 403);
+    assert.match(r.body.error, /आपके लिए केवल Read है।/);
+  });
+
+  it("Write, given by the super admin outside the person's department, closes one; No access refuses even the list", async () => {
+    const r = await call(s, "POST", "/api/v1/findings/CAPA-2023-12-13-1/close", { token: T.qc, body: { note: "Painted." }, headers: CLIENT });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const complaints = await call(s, "GET", "/api/v1/complaints", { token: T.qa });
+    assert.equal(complaints.status, 403, "the QA account is described now, and the complaints are not its");
+    assert.equal(complaints.body.code, "not-your-department");
+    assert.match(complaints.body.error, /^You do not have access to F\/MKT\/05 .+\(Marketing\)\. Ask the super admin for Read access\.$/);
+  });
+});
+
 describe("the customer complaints", () => {
   let s: Server;
   before(async () => (s = await start()));

@@ -147,10 +147,13 @@ describe("the catalogue and each person's levels", () => {
 
 describe("the words of a refusal", () => {
   it("names the document, the level the person has and the one to ask for", () => {
-    assert.equal(levelRefusal("This document", "read", "write"), "This document is Read only for you. Ask the super admin for Write access.");
-    assert.equal(levelRefusal("F/QC/37 Inspection Record", "write", "edit"), "F/QC/37 Inspection Record is Write only for you. Ask the super admin for Edit access.");
-    assert.equal(levelRefusal("F/HR/01 Personal Competence Records", "none", "write"), "F/HR/01 Personal Competence Records is not open to you. Ask the super admin for Write access.");
-    assert.equal(levelRefusal("", "read", "edit"), "This document is Read only for you. Ask the super admin for Edit access.");
+    // The website's and Mitra's own sentences (frontend/src/engine/accessWords.ts), so the three never say it differently.
+    assert.equal(levelRefusal("This document", "read", "write", "submit"), "This document is Read only for you. Submitting a record needs Write access: ask the super admin for it.");
+    assert.equal(levelRefusal("F/QC/37 Inspection Record", "write", "edit", "delete"), "You have Write access to F/QC/37 Inspection Record. Deleting a record needs Edit access: ask the super admin for it.");
+    assert.equal(levelRefusal("F/HR/01 Personal Competence Records", "none", "write", "start"), "You do not have access to F/HR/01 Personal Competence Records. Ask the super admin for Write access.");
+    assert.equal(levelRefusal("", "read", "edit", "format"), "This document is Read only for you. Changing the format needs Edit access: ask the super admin for it.");
+    assert.equal(levelRefusal("F/HR/17", "read", "write", "submit", "gu"), "F/HR/17 તમારા માટે ફક્ત Read છે. રેકોર્ડ જમા કરવા માટે Write ઍક્સેસ જોઈએ: સુપર એડમિનને કહો.");
+    assert.equal(levelRefusal("F/HR/17", "read", "write", "submit", "hi"), "F/HR/17 आपके लिए केवल Read है। रिकॉर्ड जमा करने के लिए Write ऐक्सेस चाहिए: सुपर एडमिन से कहें।");
   });
 
   it("a document is called by its number and name, or its name while the number is to be confirmed", () => {
@@ -238,7 +241,7 @@ describe("the records a person writes", () => {
     const ankur = view("ankur");
     const err = refusal(() => composeRecords(ankur, stored, [stepped(pouching, { data: { rows: [{ value: 7 }] } }), viscosity]));
     assert.equal(err.body.code, "access-level");
-    assert.equal(err.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Ask the super admin for Write access.");
+    assert.equal(err.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Filling in a record needs Write access: ask the super admin for it.");
     assert.deepEqual([err.body.level, err.body.needed, err.body.action, err.body.documentId, err.body.recordId], ["read", "write", "fill", "qc-inspection-pouching", "p-1"]);
     const started = refusal(() => composeRecords(ankur, stored, [pouching, viscosity, rec("new-1", "qc-inspection-pouching", "In Progress")]));
     assert.equal(started.body.action, "start");
@@ -273,7 +276,7 @@ describe("the records a person writes", () => {
     assert.deepEqual(composeRecords(ankur, s2, [stepped(awaitingNow, { status: "Verified", verifiedBy: "Ankur Raval" }, "verified"), viscosity]).kept, [], "as today, whoever may fill may verify, even their own");
     assert.deepEqual(composeRecords(ankur, s2, [stepped(awaitingNow, { status: "Rejected", rejectionReason: "a reading is missing" }, "rejected"), viscosity]).kept, []);
     const reopen = refusal(() => composeRecords(ankur, s2, [stepped(awaitingNow, { status: "In Progress", correction: { reason: "typo" } }, "reopened"), viscosity]));
-    assert.equal(reopen.body.error, "F/QC/37 Inspection Record - Pouching Process is Write only for you. Ask the super admin for Edit access.");
+    assert.equal(reopen.body.error, "You have Write access to F/QC/37 Inspection Record - Pouching Process. Correcting a signed-off record needs Edit access: ask the super admin for it.");
     assert.equal(reopen.body.action, "correct");
     // A record gone that somebody worked on: Edit's to remove. Without it, it stays as stored.
     const gone = composeRecords(ankur, s2, [viscosity]);

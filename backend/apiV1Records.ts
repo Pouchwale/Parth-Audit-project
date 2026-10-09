@@ -55,6 +55,8 @@ export interface RecordsRouteDeps {
   logActivity: LogActivity;
   /** The department code of a document, by the server's own rule (for the activity log's lines). */
   departmentOf: (documentId: string) => Promise<string | null>;
+  /** Whether the person holds HR Master Data: they see Human Resources by the access levels (backend/accessLevels.ts holdsHrMaster). */
+  holdsHrMaster: (user: PublicUser) => Promise<boolean>;
   /** The PDF printer (backend/pdfReport.ts), or null where it cannot print. */
   printer: () => Promise<{ browserPath(): string | null; render(opts: { appUrl: string; sessionToken: string; recordId: string; timeoutMs?: number }): Promise<Buffer> } | null>;
   appBuilt: () => boolean;
@@ -189,7 +191,17 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
   /** Who the engine works for: the person, their departments, the app they came through. */
   const callerFor = (req: Request, res: Response): EngineCaller => {
     const { user } = callerOf(res);
-    return { userId: user.id, userName: user.name, email: user.email, role: user.role, departments: departmentsOf(user), client: clientName(req.get("x-client-name")) };
+    const lang = req.get("x-language");
+    return {
+      userId: user.id,
+      userName: user.name,
+      email: user.email,
+      role: user.role,
+      departments: departmentsOf(user),
+      client: clientName(req.get("x-client-name")),
+      // A refusal is said in the person's language when the app asks (REQUIREMENTS §96): English, Hindi or Gujarati.
+      lang: lang === "hi" || lang === "gu" ? lang : "en",
+    };
   };
 
   // Beside every `route` (a page of the app, "/record/rec-…"), the `link` that opens it in DCRS, as the other /api/v1 answers give.
@@ -366,8 +378,7 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
   // server hands the sheet to nobody else (backend/index.ts HR_ONLY_KEYS).
   app.get("/api/v1/people", signedIn, async (req: Request, res: Response): Promise<void> => {
     const { user } = callerOf(res);
-    const departments = departmentsOf(user);
-    if (departments && !departments.includes("HR")) return fail(res, 403, "not-your-department", "HR Master Data is kept by Human Resources, and this account is not kept to it.");
+    if (!(await deps.holdsHrMaster(user))) return fail(res, 403, "not-your-department", "HR Master Data is kept by Human Resources, and this account does not see Human Resources. Ask the super admin for access.");
     const q = queryText(req.query.q, 100);
     if (!q || !q.trim()) return fail(res, 400, "bad-request", "q is needed: a name or a GP3 No.");
     const answer = await read(req, res, "people", { q });
