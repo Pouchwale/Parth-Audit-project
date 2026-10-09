@@ -24,7 +24,7 @@ import { breakdownLines, luxReadings, normText, supplierStandings, type Breakdow
 import { prepareScopedInsights, scopedInsights } from "./scopedInsights";
 import { isLotAccepted, isOutOfBand } from "./validation";
 import { actionForGrade, RM_PM_PERFORMANCE_ID, SERVICE_PROVIDER_PERFORMANCE_ID, serviceRatingCells } from "./purchaseRatings";
-import { closedDays, decisionText, scoreOf, scorecards, type Person } from "./performance";
+import { closedDays, decisionText, formatMinus, minusScore, scoreOf, scorecards, type Person } from "./performance";
 import { machineKey, machineNumbersIn } from "./equipmentMaster";
 import { keptTo } from "./latenessCore";
 import { totalRodents } from "./rodentPattern";
@@ -1414,7 +1414,7 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
     text:
       due === 0
         ? `Performance Scorecard${only}: no record that is counted fell due in ${label}${cards.byDocument.some((d) => d.pending > 0) ? " (some are not due yet)" : ""}.`
-        : `Performance Scorecard (on time counts 1, late ½, never done 0)${only}, records due in ${label}: ${sum.onTime} of ${due} on time, ${sum.late} late, ${sum.overdue} never done${score !== null ? ` — score ${score}` : ""}.`,
+        : `Performance Scorecard (on time counts 1, late ½, never done 0)${only}, records due in ${label}: ${sum.onTime} of ${due} on time, ${sum.late} late, ${sum.overdue} never done${score !== null ? ` — score ${score}` : ""}, minus score ${formatMinus(minusScore(sum.overdue))} (10 off for each never done).`,
     recordIds: [],
   });
   if (named.length) {
@@ -1429,7 +1429,7 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
       const shown = scored.slice(0, 3);
       const mine = scored.find((p) => p.person.id === ctx.self?.id);
       if (mine && !shown.includes(mine)) shown.splice(2, 1, mine);
-      for (const p of shown) facts.push({ text: `${quoteFree(p.person.name, 40)}: score ${p.score}, ${tidy(decisionText(p.decision), 200)}`, recordIds: [] });
+      for (const p of shown) facts.push({ text: `${quoteFree(p.person.name, 40)}: score ${p.score}, minus score ${formatMinus(p.minus)}, ${tidy(decisionText(p.decision), 200)}`, recordIds: [] });
     } else if (ctx.self && keptTo(ctx.self).length > 0) {
       facts.push({
         text: "No personal score here: whose work a record was needs the list of accounts that share a department, and it could not be read just now — the Performance Scorecard shows each person's score.",
@@ -1437,7 +1437,7 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
       });
     }
     for (const d of cards.byDepartment.filter((d) => d.due > 0).slice(0, 3)) {
-      facts.push({ text: `${d.name}${d.code ? ` (${d.code})` : ""}: score ${d.score}, ${tidy(decisionText(d.decision), 200)}`, recordIds: [] });
+      facts.push({ text: `${d.name}${d.code ? ` (${d.code})` : ""}: score ${d.score}, minus score ${formatMinus(d.minus)}, ${tidy(decisionText(d.decision), 200)}`, recordIds: [] });
     }
   }
   const worst = cards.byDocument.filter((d) => d.late + d.overdue > 0).slice(0, LIST_MAX);

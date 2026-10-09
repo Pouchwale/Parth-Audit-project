@@ -10,12 +10,15 @@
   * everything done on the portal is a line in the ACTIVITY LOG, stamped by the
     server: the account, documents opened, the format change with its
     revisions, a password changed (and one refused);
-  * a person changes their own password from the top bar;
+  * passwords are the super admin's (REQUIREMENTS §105): the super admin changes
+    their own from the top bar; anybody else's name there is not a button, and
+    the server refuses them a change of their own;
   * every password box - signing up, signing in, changing it - has an eye that
     shows what was typed and hides it again, without sending the form (s63);
-  * the lizard trend carries the years the provider has not reported yet, by
-    the plant's own season, and says which rows those are; the rodent year
-    holds two to four catches in each half.
+  * the lizard trend carries the years the provider has not reported yet,
+    headed so and blank: a Live report makes no catch up (REQUIREMENTS s98;
+    Demo Mode alone draws such a year from the plant's season); the rodent
+    year holds two to four catches in each half.
 
 Network-independent, against the production build on :8842.
 """
@@ -82,6 +85,55 @@ def stored(page, key):
     return page.evaluate("(k) => JSON.parse(localStorage.getItem('dcrs:v1:' + k) || 'null')", key)
 
 
+def enter_todays_pest_round(page):
+    """Today's Daily Pest Control Monitoring Record, answered as the person who walked the round would.
+
+    REQUIREMENTS s98 (8-Oct-2026): the assistant prepares only the known parts of a Live record, so on a working
+    day nothing arrives ready for an OK until a person has entered what they saw. Returns whether there was a
+    prepared, working-day round to answer.
+    """
+    today = date.today().isoformat()
+    rid = page.evaluate(
+        "(d) => (JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').find(r => r.documentId === 'daily-pest-monitoring' && !r.isDemo && r.dueDate === d && r.prepared && r.status === 'In Progress' && !(r.data || {}).isHoliday) || {}).id",
+        today,
+    )
+    if not rid:
+        return False
+    open_page(page, f"#/record/{rid}")
+    selects = page.locator("table select.input")
+    for i in range(selects.count()):
+        options = selects.nth(i).locator("option").all_inner_texts()
+        selects.nth(i).select_option(label="No" if "No" in options else options[-1])
+    numbers = page.locator("table input[type=number]")
+    for i in range(numbers.count()):
+        numbers.nth(i).fill("100")
+    if page.locator("input[type=time]").count():
+        page.locator("input[type=time]").first.fill("09:15")
+    page.fill("input[placeholder='Name of checker']", "Portal QA")
+    page.wait_for_timeout(900)
+    return True
+
+
+def change_own_password(page):
+    """The super admin changes their own password from the top bar: the eye on its three boxes, the wrong current one refused."""
+    page.click("[data-action='change-password']")
+    page.wait_for_timeout(400)
+    page.fill("[data-field='current-password']", "not-the-password")
+    page.fill("[data-field='new-password']", NEW_PASSWORD)
+    page.fill("[data-field='new-password-again']", NEW_PASSWORD)
+    check("Change password has the eye on all three of its boxes", page.locator(".modal-box [data-action='toggle-password']").count() == 3)
+    page.click("[data-action='save-password']")
+    page.wait_for_timeout(900)
+    check("The wrong current password is refused", "current password is not right" in page.locator(".modal-box").inner_text())
+    page.fill("[data-field='current-password']", PASSWORD)
+    page.click("[data-action='save-password']")
+    page.wait_for_timeout(1200)
+    check("The right one changes it", "Your password is changed" in page.locator(".modal-box").inner_text())
+    page.locator(".modal-box button:has-text('Done')").click()
+    flat = [" | ".join(l) for l in log_lines(page, "Password")]
+    check("Both are in the log - the refusal and the change - and the password itself is not", any("Password change refused" in l for l in flat) and any("Password changed" in l for l in flat) and not any(NEW_PASSWORD in l or PASSWORD in l for l in flat), flat[:4])
+
+
 def log_lines(page, query=""):
     open_page(page, "#/activity", settle=2600)
     if query:
@@ -129,10 +181,16 @@ with sync_playwright() as p:
     # 1. Today's Briefing submits nothing unseen
     # ==================================================================
     dismiss(page)
+    # REQUIREMENTS s98: a prepared Live record holds only the known parts, so on a working day the day's
+    # records wait for their readings and none is ready for an OK. The person answers today's pest round first,
+    # as on the paper; it is then ready, and the briefing still will not submit it unreviewed.
+    entered = enter_todays_pest_round(page)
     open_page(page, "#/dashboard")
     page.click("button:has-text(\"Today's Briefing\")")
     page.wait_for_timeout(900)
     submits = page.locator("[data-action='briefing-submit']")
+    if entered:
+        check("The pest round a person answered is ready for the OK in the briefing", submits.count() >= 1)
     if submits.count() == 0:
         # A closed day (the Thursday weekly off, a holiday) has nothing prepared.
         check("Nothing is ready on a closed day, so there is nothing to gate", page.locator("[data-action='briefing-submit-all']").count() == 0)
@@ -234,24 +292,30 @@ with sync_playwright() as p:
     check("Searching the log narrows it to what was asked for", len(found) >= 1 and all("Format changed" in " ".join(l) for l in found), found[:3])
 
     # ==================================================================
-    # 4. A person changes their own password
+    # 4. Passwords are the super admin's (REQUIREMENTS §105)
     # ==================================================================
-    page.click("[data-action='change-password']")
-    page.wait_for_timeout(400)
-    page.fill("[data-field='current-password']", "not-the-password")
-    page.fill("[data-field='new-password']", NEW_PASSWORD)
-    page.fill("[data-field='new-password-again']", NEW_PASSWORD)
-    check("Change password has the eye on all three of its boxes", page.locator(".modal-box [data-action='toggle-password']").count() == 3)
-    page.click("[data-action='save-password']")
-    page.wait_for_timeout(900)
-    check("The wrong current password is refused", "current password is not right" in page.locator(".modal-box").inner_text())
-    page.fill("[data-field='current-password']", PASSWORD)
-    page.click("[data-action='save-password']")
-    page.wait_for_timeout(1200)
-    check("The right one changes it", "Your password is changed" in page.locator(".modal-box").inner_text())
-    page.locator(".modal-box button:has-text('Done')").click()
-    flat = [" | ".join(l) for l in log_lines(page, "Password")]
-    check("Both are in the log - the refusal and the change - and the password itself is not", any("Password change refused" in l for l in flat) and any("Password changed" in l for l in flat) and not any(NEW_PASSWORD in l or PASSWORD in l for l in flat), flat[:4])
+    # The suite's own sign-up is the super admin only on an empty database (run alone); in the full run it is staff.
+    role = page.evaluate("async () => ((await (await fetch('/api/auth/me', { credentials: 'same-origin' })).json()).user || {}).role")
+    if role != "admin":
+        check(
+            "Staff: the name in the top bar does not offer 'Change password'",
+            page.locator("[data-action='change-password']").count() == 0 and page.locator("[data-field='signed-in-as']").count() == 1,
+        )
+        refused = page.evaluate(
+            """async ([current, next]) => {
+                 const res = await fetch('/api/auth/change-password', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: current, newPassword: next }) });
+                 return { status: res.status, body: await res.json().catch(() => null) };
+               }""",
+            [PASSWORD, NEW_PASSWORD],
+        )
+        check(
+            "...and the server refuses them a password of their own, and says who sets it",
+            refused["status"] == 403 and (refused["body"] or {}).get("code") == "password-set-by-super-admin",
+            refused,
+        )
+        NEW_PASSWORD = PASSWORD
+    else:
+        change_own_password(page)
     page.click("button:has-text('Log Out')")
     # Every log-out asks about the day's work first (REQUIREMENTS s72).
     page.wait_for_timeout(500)
@@ -271,7 +335,7 @@ with sync_playwright() as p:
     page.wait_for_selector(".app-sidebar", timeout=60000)
     page.wait_for_timeout(1200)
     dismiss(page)
-    check("The new password signs in", page.locator(".app-sidebar").count() == 1)
+    check("The password signs in again", page.locator(".app-sidebar").count() == 1)
 
     # ==================================================================
     # 5. The trends follow the plant's own season
@@ -281,9 +345,12 @@ with sync_playwright() as p:
     this_year = next((r for r in rows if str(date.today().year) in r), None)
     check("The lizard report carries this year, which the provider has not reported yet", this_year is not None, rows)
     if this_year:
-        check("...headed as the plant's seasonal pattern, so it is never read as the provider's figure", "Seasonal pattern" in this_year[0], this_year[0])
+        # REQUIREMENTS s98 (8-Oct-2026): this suite's records are Live, and a Live report counts only what was
+        # reported or entered. The seasonal plan of an unreported year is Demo Mode's alone (it was shown here
+        # before, headed "Seasonal pattern"); frontend/tests/sampleFillLive.test.ts holds both sides.
+        check("...headed as not yet reported by the service provider, so nothing is read as the provider's figure", "Not yet reported" in this_year[0], this_year[0])
         months = this_year[4:16]
-        check("...filled to the month that has been reached and blank after it", all(c != "" for c in months[: date.today().month]) and all(c == "" for c in months[date.today().month:]), months)
+        check("...and every month blank: no catch is made up", all(c == "" for c in months), months)
     season = page.evaluate(
         """async () => {
              // The weighting itself: the rains and winter above the dry summer.

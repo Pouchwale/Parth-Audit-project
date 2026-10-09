@@ -192,13 +192,15 @@ const VEHICLE_CLEANING: LogSheetLayout = {
   columns: [
     { key: "date", label: "Date", type: "date", required: true, width: 130, autoFill: { dueDate: true } },
     { key: "cleaningType", label: "Type of cleaning (Dry / Wet)", type: "select", options: ["Dry", "Wet"], required: true, width: 150, autoFill: { default: "Dry" } },
-    { key: "driverSign", label: "Driver sign", type: "text", width: 170, autoFill: { carryForward: true } },
+    // The driver signs the line he cleaned: never copied from the last sheet or from a specimen, and no
+    // name is invented for it (the company supplied no filled copy; the audit of 7-Oct-2026, H-12).
+    { key: "driverSign", label: "Driver sign", type: "text", width: 170, autoFill: { fresh: true } },
     // "Random verification": the In-charge signs the lines checked, not every line — so never required.
     { key: "dispatchInCharge", label: "Dispatch In-charge (Random verification)", type: "text", width: 210, autoFill: { sign: true } },
   ],
   rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
   specimenHeader: { vehicleNumber: COMPANY_VEHICLES[0] },
-  specimenRows: [{ cleaningType: "Dry", driverSign: "Rameshbhai Patel" }],
+  specimenRows: [{ cleaningType: "Dry" }],
   specimenSource: "F-DISP-04_Vehicle cleaning Protocol & Record_01.11.2023.pdf (the blank format, both pages — the company supplied no filled copy)",
   originalPages: [
     { src: "/source/fdisp04-vehicle-cleaning-record-p1.jpg", caption: "F / DISP / 04 (Rev. no. – 01, Effective date: - 01-11-2023) — page 1, the protocol and the first line, as supplied" },

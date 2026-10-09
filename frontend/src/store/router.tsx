@@ -232,6 +232,8 @@ const SIMPLE_ROUTES = new Set([
   "access",
   // /performance — the scorecard: who did their documents on time (REQUIREMENTS §64).
   "performance",
+  // /notifications — each person's notifications, by day, from the server's ledger (REQUIREMENTS §97).
+  "notifications",
 ]);
 // "summary" — the monthly management summary, /reports/{y}/{m0}/summary (REQUIREMENTS §75).
 const REPORT_TABS = new Set(["monthly", "summary", "daily", "rodent", "lizard", "flycatcher", "chemical", "gap", "training", "lamination"]);

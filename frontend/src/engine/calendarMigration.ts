@@ -3,6 +3,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { dayInfo, isCompanyHoliday, nextWorkingDay } from "./holidays";
+import { mayWriteRecordsOf } from "./departmentScope";
 
 // ALIGN EXISTING RECORDS WITH THE WORKING CALENDAR. Runs at every boot
 // (idempotent). Records created before the calendar existed — or before an
@@ -58,7 +59,8 @@ export function alignRecordsToWorkingCalendar(): CalendarAlignment {
     if (!isCompanyHoliday(r.dueDate, master)) continue;
     if (!untouchedByPeople(r)) continue;
     const doc = docs.get(r.documentId);
-    if (!doc) continue;
+    // Only a record the signed-in person may fill is changed from this browser (REQUIREMENTS §96).
+    if (!doc || !mayWriteRecordsOf(doc.id)) continue;
 
     if (doc.schedule.type === "daily" || doc.schedule.type === "as-required") {
       if (doc.kind === "daily-pest-monitoring") {

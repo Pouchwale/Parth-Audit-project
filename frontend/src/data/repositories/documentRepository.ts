@@ -1,6 +1,6 @@
 import type { DocumentDefinition } from "../../types";
 import { RETIRED_DOCUMENT_IDS, SEED_DOCUMENTS } from "../seed/documentDefinitions";
-import { isDocumentVisible } from "../../engine/departmentScope";
+import { isDocumentVisible, noteAccessCatalogue, registerAccessCatalogue } from "../../engine/departmentScope";
 import { readJSON, readJSONCached, writeJSON } from "../storageAdapter";
 import { formatEdits } from "../formatEdits";
 
@@ -33,6 +33,16 @@ function loadAll(): DocumentDefinition[] {
   });
   overlaid = { issued, edits, value };
   return value;
+}
+
+// The access rules read the catalogue through this (engine/departmentScope.ts imports no repository).
+registerAccessCatalogue(() => loadAll());
+
+/** The list, with the access rules told which list it is (a renumbered format is worked out again). */
+function loadNoted(): DocumentDefinition[] {
+  const all = loadAll();
+  noteAccessCatalogue(all);
+  return all;
 }
 
 function saveAll(docs: DocumentDefinition[]): void {
@@ -69,14 +79,14 @@ export function ensureSeeded(): void {
 // would vanish for everyone, not just for the person looking.
 export const documentRepository = {
   getAll(): DocumentDefinition[] {
-    return loadAll().filter(isDocumentVisible);
+    return loadNoted().filter(isDocumentVisible);
   },
   getById(id: string): DocumentDefinition | undefined {
-    const doc = loadAll().find((d) => d.id === id);
+    const doc = loadNoted().find((d) => d.id === id);
     return doc && isDocumentVisible(doc) ? doc : undefined;
   },
   getRecordable(): DocumentDefinition[] {
-    return loadAll().filter((d) => !d.isReferenceOnly && isDocumentVisible(d));
+    return loadNoted().filter((d) => !d.isReferenceOnly && isDocumentVisible(d));
   },
 
   /** Every definition, whatever the viewer's department — for generators and migrations. */

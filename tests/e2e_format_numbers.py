@@ -305,7 +305,7 @@ with sync_playwright() as p:
     goto(page, "#/dashboard")
     open_mitra(page)
     reply = say(page, "F/HR/05")
-    check("Mitra tells a Quality Control account F/HR/05 is Human Resources', without naming or opening it", "belongs to Human Resources" in reply and "isn't one of your departments" in reply and "Induction" not in reply, reply)
+    check("Mitra tells a Quality Control account F/HR/05 is Human Resources', without naming or opening it", "belongs to Human Resources" in reply and "which you do not see" in reply and "Induction" not in reply, reply)
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

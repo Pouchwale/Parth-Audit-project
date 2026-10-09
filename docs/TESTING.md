@@ -256,6 +256,15 @@ Seven scripts live in `tests/`:
 - `frontend/tests/latenessCore.test.ts` - the one lateness rule the server and the scorecard share, held to identical
   results against a frozen copy of the old scorecard code over 17,000 judgements and 126 whole scorecards, and the
   plant's closed days against engine/holidays.ts for every day of three years.
+- **The minus score** (REQUIREMENTS §92, 7-Oct-2026). `frontend/tests/minusScore.test.ts` (10 tests): the owner's
+  example (10 due, 8 done: -20, the score out of 100 unchanged), late costing nothing, 0 never -0, still open today
+  (and gone the next day), closed and adjustment days, the as-required 2 days past the weekly off, the go-live date, a
+  shared department, the periods, and two demo months judged on every day of a month with every line's still-open-today
+  recounted from the records. `latenessCore.test.ts` compares every scorecard with its reference with `minus` and
+  `openToday` taken off, and holds both to their rule on every line; `dailyNudgeStanding.test.ts` and
+  `mitraHistoryReview.test.ts` 12b check the notification's and Mitra's words, and
+  `backend/tests/apiV1Records.test.ts` the phone's (GET /api/v1/figures). `tests/e2e_performance.py` gained the
+  browser's half (see its entry), and runs against a preview with `DCRS_BASE` set.
 - `tests/e2e_insights.py` - Insights (REQUIREMENTS §75), a thirty-fifth suite, added 24-Sep-2026, run straight
   after the System / Management suite: the page linked from the sidebar and worked out; **the 2025 lux round read against the
   2024 one** — the QC Lab's colour-matching cabinet down 45%, 1863 to 1025 lux, high, naming both rounds — and row
@@ -441,8 +450,34 @@ Seven scripts live in `tests/`:
   a scoped search reads no record), `frontend/tests/workingHours.test.ts` (the rule against the calendar pages for every day of
   2026; 08:39, 08:40, 18:19, 18:20; an adjustment Thursday open; a festival closed; the next opening across closed days),
   `backend/tests/workingHours.test.ts` (the gate with a clock the test sets, the super admin exempt, the off switch, the session's
-  end, the /api/v1 routes), `backend/tests/accessRoutes.test.ts` (38: refusals, pairing sign-ins with sign-outs, "signed in now",
-  paging, CSV), `frontend/tests/intro.test.ts`.
+  end, the /api/v1 routes), `backend/tests/accessRoutes.test.ts` (45: refusals, pairing sign-ins with sign-outs, "signed in now",
+  paging, CSV, the super admin's late sign-in carried past midnight), `frontend/tests/intro.test.ts`.
+  *The super admin at any hour (§84 addendum, 6-Oct-2026).* The hours' words are the staff's: `frontend/tests/workingHours.test.ts`
+  holds the owner's sentences word for word, proves no sentence says DCRS opens or closes (English and Gujarati, every kind of
+  moment), the Gujarati, a screen's words rebuilt from the server's answer, the person's answer (`forYou`, `heldToHours`) and the
+  super admin's sign-in in the day's last ten minutes running to the midnight after; `backend/tests/workingHours.test.ts` the
+  gate's words for each person at every closed moment; `backend/tests/apiV1Records.test.ts` /api/v1/today for staff and for the
+  super admin; `frontend/tests/mitraHistory.test.ts` the staff-hours line in Mitra's live facts. `tests/e2e_working_hours.py`
+  now checks the sign-in page's main words, staff's refusal and warning in the new words, the super admin's answers (and, where
+  the server holds the hours, his /api/v1/today while they are closed), and his own end of the day, faked: a warning ten minutes
+  before, the browser's sign-out with "Signed out — At the end of the day (midnight)" in the log, the notice, and signing in
+  again; `tests/e2e_user_access.py` his line on the hours card. The phone server's `dcrs-app.test.ts` and
+  `dcrs-connector.test.ts` prove DCRS's super admin is the app's super admin (and stops being so when DCRS says otherwise at the
+  next sign-in), `forYou` reaching the model, and open_record pinned to the day its card showed.
+  *The review of 8-Oct-2026 (REQUIREMENTS §84 addendum).* New: `backend/tests/signInAndOut.test.ts` (9: the sign-in throttle
+  by address and computer, the words of a sign-out for each account, which session a sign-out ends); in
+  `backend/tests/workingHours.test.ts` the session's own id in its token; in `backend/tests/accessRoutes.test.ts` (7 new) the
+  super admin's late sign-in still "signed in now" after midnight, shown open in the history, and the end of the day closing
+  only its own day's session. `tests/e2e_working_hours.py` adds 19 checks: two tabs of one browser, the second's clock held with
+  the DevTools debugger (Debugger.pause) while the first ends his day and he signs in again — his new session stays open, the
+  second tab takes it up, no false "Signed out" line; a sign-out naming an older session leaves the browser's newer one open;
+  a reason that does not fit the account is a plain "Signed out"; and, last of the suite because its hold lasts ten minutes,
+  eight wrong passwords from this PC's IPv4 loopback (the stranger's computer), then the super admin's own sign-in at once
+  from its IPv6 loopback, through the API and the sign-in page. Twelve of them failed before the fix (the other 70
+  passed, 7 new ones among them) and all pass after it (82 with the hours off, 116 on a server holding them). The phone server adds
+  `session-end.test.ts` (the warning's timing and words) and tests in `chat-session.test.ts` (a message refused because the
+  session ended, kept for the same person's next sign-in in its chat), `dcrs-app.test.ts` (`expiresAt` at sign-in and in
+  /me) and `dcrs-connector.test.ts` (open_record on a day with two records).
 - **The five formats of 02-Oct-2026 and the header block on every document** (REQUIREMENTS §86). New browser suite:
   `tests/e2e_header_editing.py` (demo server, the fill suite's account): on an F/QC/33 record the Page No. and the Date are
   typed over, kept on that record with a history line and after a reload; the format number typed over asks why first,
@@ -596,6 +631,259 @@ Seven scripts live in `tests/`:
   of 135 checks passed; each format opened from the Production library, showed its paper's words and its original,
   took a line, was sample-filled, saved, submitted, verified, printed as its paper and downloaded as a workbook; Mitra
   opened each by its number in both spellings and by name; no JavaScript error.
+- **The notification engine on the server** (REQUIREMENTS §97, 8 and 9-Oct-2026). Unit tests, each failing before the
+  change it proves (the module or the route did not exist): `frontend/tests/notificationPlan.test.ts` (13: the rules it
+  shares with the browser held equal to engine/notifications.ts, engine/reminders.ts and engine/latenessCore.ts; daily,
+  weekly, fortnightly, monthly, quarterly, yearly and as-required documents on a fake clock, across the Thursday off, a
+  festival holiday and an adjustment day; a freshly prepared record with empty readings is needs_input with the number
+  of readings waiting, never ready; verify, sent_back, nobody named, a reference document, a sheet not stored, before
+  the go-live; the super admin's two summaries; the same input, the same items), `frontend/tests/notificationText.test.ts`
+  (6: every kind in English, Hindi and Gujarati from facts alone, no gendered pronoun, no em dash; the owner's "12
+  readings to enter"; "N records need you"; the reminders' "Still open" and "Last call"; the modules' names),
+  `frontend/tests/morningPrepareMerge.test.ts` (1: the browser's save meets the job's: one sheet per document and
+  period), `backend/tests/notificationLedger.test.ts` (11, run twice: on the stand-in, and on a real PostgreSQL when
+  `DCRS_LEDGER_TEST_URL` names one: the upsert by person and key, the resolution, reopened as new, the summary written
+  once, nobody reading or marking another person's items, a page at a time, kept 60 days, the phones, the choices,
+  today's pushes and the tickets), `backend/tests/notificationRoutes.test.ts` (7: the inbox in the language asked, a
+  page at a time, mark read, the website's routes, a phone registered and removed with no token in the log, the choices,
+  the test push once in 20 seconds), `backend/tests/notificationJobs.test.ts` (7, over the real engine bundle: the
+  morning prepare stores the day's sheets and prepares the ones due by today, leaves a started sheet alone, run again
+  writes nothing; a browser saving at the same moment makes no second sheet; notify tells each task to the people who
+  answer for it, the super admin the summary and the escalations, run again nothing new, a record that moves on is
+  resolved), `backend/tests/push.test.ts` (15: the morning slot, a task that comes up later waiting for 15:30 and
+  17:45, quiet hours and closed days for the staff and any hour for the super admin, overdue once a day from 09:30, the
+  heads-up on the working day before, verify and sent_back at once, a send-back's reason never in a push, a kind
+  switched off, an account that has left; batches of 100, a failed request tried again after 2 and 8 s, one refused not
+  tried again, a push that never got through left for the next run, receipts after 15 minutes, DeviceNotRegistered by
+  ticket or receipt, no token in any line written; PUSH_ENABLED=0, no phones, the test push's words). Changed:
+  `backend/tests/engineHost.test.ts` (the engine answering at another moment; the jobs' ops refused to a department's
+  account), `backend/tests/apiV1Records.test.ts` (today by person with module, canSubmit and canVerify; 409
+  needs-review, then `reviewed: true`), `backend/tests/apiV1.test.ts` (31 documented /api/v1 routes registered).
+  `npm run test:unit` on 9-Oct-2026 at d9fd712: 578 frontend and 392 backend tests, all passing but the PostgreSQL
+  ledger's, which is skipped without `DCRS_LEDGER_TEST_URL`; with it pointed at a throwaway embedded PostgreSQL (port
+  5150, removed after), its 20 checks pass. No browser suite was run for this part (the website's bell and
+  Notifications page and the phone's screens are the next builders'). **A throwaway DCRS** from the branch (a fresh
+  embedded PostgreSQL, the four seeded accounts and the other nine of the owner's table made by the super admin, each
+  with a phone registered through `POST /api/v1/devices`, JOBS=0, DCRS_WORKING_HOURS=off, `PUSH_SERVICE_URL` pointed at
+  a stand-in for Expo's service), driven by hand through Friday 9-Oct-2026: the morning prepare at 08:35 prepared 18
+  records (HR 1, PRD 8, QC 9) and made 419 sheets ahead; notify at 08:45 wrote 31 notifications for the 13 accounts;
+  every task notification was for a person who answers for its document by the owner's table (engine/accessRules.ts),
+  each of the 18 records prepared for the day was told to exactly those people, the super admin had the morning summary
+  by module and no member of staff did; ten people were pushed once each, in the language of their phone (Gujarati in
+  Gujarati); the prepare and notify run again did nothing and pushed nothing; at 15:30 the seven with tasks still open
+  had one "Still open" push each, and nothing more at 15:35; the test push reached one phone and a second at once was
+  refused (429); `GET /api/v1/today` answered with module, canSubmit and canVerify; no push token in the server's log.
+  On this branch's code at that time the 18 prepared records all passed DCRS's checks and were told as "ready": the
+  prepare still filled more than the known parts. Since §98 (the next entry) it leaves every reading to the person, and
+  the same records are told as "needs input" with the number of readings waiting. Nothing in these tests assumes either.
+- **Records that say only what happened** (REQUIREMENTS §98, 8 and 9-Oct-2026). New unit tests, each failing on the
+  code before the change it proves (run there with a stand-in for the new module where it did not exist):
+  `frontend/tests/truthfulPrepare.test.ts` (8: all 125 recordable documents prepared for today and the next working
+  day, with and without a confirmed record before each filled with sample data to tempt a carry-forward, and no
+  observation written, judged by the words and types of each box and column, not by the module under test; against the
+  previous prepare it found 9,691; what is known IS written (an instrument's identity, the chemicals in use, the printed
+  rows, the tube light dates, a yearly list's people); the pest register waits for 12 readings; H-9 (no decision on a
+  blank form), H-10 (the blade ledgers open with the last closing stock, nothing else copied), H-12 (no invented driver);
+  `prepareDueRecords` stamps every record it prepares and writes its history line),
+  `frontend/tests/sampleFillLive.test.ts` (7: Mitra declines sample data for a live record and changes nothing; the
+  refusal in English, Gujarati and Hindi with no gendered pronoun; a Demo Mode record is filled; a test server's switch,
+  by the server's word or its ALLOW_SAMPLE_FILL; the full-page assistant leaves a live record alone; the guided interview
+  offers no typical readings and copies no signature for a live record; the Live lizard report invents no catch) and
+  `frontend/tests/reportsCountPeople.test.ts` (3: a prepared draft's rodents and flies are not counted and a person's
+  are; a draft the simulation filled before 8-Oct-2026 is prepared again, its made-up values taken out and listed in its
+  history, a person's draft untouched). Changed: `frontend/tests/production.test.ts` (H-11: every signature column
+  checked; it failed before on F-PRD-18's OPERATOR SIGN). Browser suites changed, each with its reason in the suite:
+  `tests/e2e_smoke.py` (the briefing lists the readings that wait; F-QC-30's 24 readings and signatures are entered by
+  the person before it is submitted, and every reading starts empty; F/QC/37's observations, lot status and inspector
+  start empty and are entered; the drafts search finds the machine, no longer an operator nobody wrote),
+  `tests/e2e_portal_controls.py` (the person answers today's pest round, then the briefing gates its submit; the Live
+  lizard year is blank and "Not yet reported"), `tests/e2e_editing.py` (the record is filled with Mitra's sample data
+  first on every day, as it holds only its known parts) and `tests/e2e_qc_calibration.py` (a prepared weekly sheet has
+  one dated line, so Mitra's sample data brings the page on file's four). The test runners set `ALLOW_SAMPLE_FILL=1`.
+  Run on 9-Oct-2026 (a Friday, a working day), each suite ALONE: `e2e_smoke.py` 168 of 168, `e2e_portal_controls.py`
+  38 of 38, `e2e_editing.py` 20 of 20, `e2e_qc_calibration.py` 40 of 40 (the Wednesday path of the last, a prepared
+  weekly sheet, was not reached on a Friday); two suites the change touches but did not need changing, also alone:
+  `e2e_trend_reports.py` 112 of 112, `e2e_assistant_fill.py` 156 of 156. `npm run test:unit`: frontend 596 of
+  596; `npm run typecheck` clean. At 6x CPU throttle on a
+  throwaway DCRS from the branch (a fresh embedded PostgreSQL, the super admin, a month of Live records, so not a year
+  of data): Dashboard 1,160 ms, Reports 868 ms, Rodent trend 711 ms, Lizard trend 162 ms, a prepared F-QC-30 record
+  1,332 ms; the briefing showed the readings waiting and the record its known-parts banner; no page error.
+  **Known and handed on:** `backend/tests/apiV1Records.test.ts` assumes a prepared qc-viscosity record already holds 24
+  readings and skips Mitra's sample fill when the record is prepared; three of its tests fail until it always
+  sample-fills (it is outside this builder's files). Mended in the server's half of §96 (below), and in the finish of
+  9-Oct-2026 (further below) the record is given its readings as a person gives them, through the phone's change route.
+- **Who may do what, and the notifications, in the website** (REQUIREMENTS §96 "In the website" and §97 "In the
+  website", 9-Oct-2026). New unit tests, each failing before the change it proves (the module or the function did not
+  exist, or, for the sync, the old code waited 10 seconds for a refusal it never said): `frontend/tests/accessScope.test.ts`
+  (10: with nobody signed in nothing is held back and the engine host's department scope still works; Vinay Bhojak sees
+  Human Resources only, Edit on what Vinay answers for and Read on Kapila Barad's HR documents; Kapila Barad every module,
+  Edit in QC and SYS; the super admin everything; the super admin's stored settings win, a document taken away on its
+  own; an account nobody described keeps its departments at Edit; the refusal names the level in English, Gujarati and
+  Hindi with no gendered pronoun; the browser's own sheets made only for documents the person may fill; the reminders
+  and the briefing count what the person answers for and may verify; the scorecard counts a record against the people who
+  answer for its document, and by department with nobody signed in), `frontend/tests/mitraToolsAccess.test.ts` (3: a
+  Read person cannot start, fill or submit through Mitra and nothing is written; the refusal in the language asked; Write
+  may submit, deleting and changing the format need Edit), `frontend/tests/accessEditing.test.ts` (6: a setting stored
+  and put back, "answers for it" stored only where it differs from the owner's table, the question's plain words, the
+  flagged accounts, the missing people and the last super admin, the grid's "as the table"),
+  `frontend/tests/syncAccessRefused.test.ts` (1: a change the server refuses with 403 access-level is said, dropped, and
+  the person's records keep reaching the database) and `frontend/tests/notificationView.test.ts` (5: grouped by day, a
+  page appended once, where each opens, marked read, the language and the Gujarati words). `npm run test:unit` on 9-Oct-2026: 622 frontend tests, all passing once the Notifications page's day heading stopped printing in capitals (frontend/tests/theme.test.ts allows no new capitals), and 468 backend tests, 467 passing and the PostgreSQL ledger's skipped without `DCRS_LEDGER_TEST_URL`.
+  New browser suite `tests/e2e_access_levels.py` (product server, in scripts/run-e2e.ts beside e2e_user_access.py): each
+  of the twelve signs in and sees only the modules the owner's table gives them, as many documents as the super admin's
+  User access page counts for them, New record on a document they answer for and none (with the reason) on one they only
+  read, and a module they do not see refused by name; a Read person (Vinay Bhojak on F/HR/15) cannot start, save or
+  submit, has nothing to type in, and the server refuses the submit with 403 access-level in the same words; Users &
+  Access's grid, the level words, a change asked and "No, leave it", saved with the version, in the activity log and told
+  to the person, a stale page told to reload and nothing overwritten, the drawer's document level and "Answers for it",
+  Who fills what, Make super admin and Make staff, Ankur Raval seeing Production at the next sign-in; the bell and the
+  Notifications page after the notify job run by hand (unread marked, See all, an item opened and read, Mark all read,
+  the notifications in Gujarati, the super admin's summary by module). Run with the project's runner on 9-Oct-2026 (E2E_SKIP_UNIT=1 npm run test:e2e -- tests/e2e_access_levels.py, the unit tests run on their own): 134 checks passed, 0 failed, no JavaScript error. The other product-server suites that the owner's model changes (e2e_user_access.py and the rest named in REQUIREMENTS §96) were being updated by the server's builder at the same time and are not counted here.
+  Looked at in a real browser on a throwaway server of this build (port 5150, the thirteen seeded accounts, removed
+  after): screenshots of the grid, the confirmation, the drawer, Who fills what, the bell and the Notifications page for
+  the super admin and for Vinay Bhojak, F/HR/15 read only for him with the reason, User access by levels, and a phone's
+  width (no sideways scroll on /notifications or /users). At 6x CPU throttle: Users & Access drawn in 0.43 s, the
+  Notifications page in 0.23 s, the bell opened in 0.23 s, a change asked in 0.12 s, no main-thread task over 140 ms.
+- **Who may do what, held by the server** (REQUIREMENTS §96, 9-Oct-2026: the server's half). New unit tests, each
+  failing before the change it proves (the module or the route did not exist, or, where it did, run with the level
+  checks taken out): `backend/tests/accessLevels.test.ts` (32: each of the owner's people's levels as the server reads
+  them, the super admin and an account nobody has described; what a person holds; what the super admin set; the key of
+  a person's copy, which a change of their levels changes and the catalogue does not; a document a record names that
+  the definitions do not; a new plant with no catalogue yet; the refusal's words, the website's own in English, Gujarati
+  and Hindi; a blank or prepared sheet told from a person's work; every change of a record and what it needs (start,
+  fill, submit, verify, send back, resume, correct, a correction cancelled, delete); a Read person's own act on a stored
+  record refused with nothing written, Write's limits, the housekeeping and a record new to the server (a supplied paper,
+  a Start not allowed) left out without a word, a step folded into an earlier history entry still refused, everyone
+  else's lines kept, the super admin passing; the format edits at Edit, the definitions new from anybody and changed
+  only with Edit; HR Master Data), `backend/tests/storageRoutes.test.ts` (16, the storage routes moved out of
+  backend/index.ts, over a stand-in database: what each person is handed, the records written record by record with the
+  403 words and `kept`, the 409s, the definitions, the format edits, HR Master Data, the access item the super admin's
+  alone; 9 of the 16 failed with the level checks taken out), `backend/tests/accessRulesRoutes.test.ts` (13: the rules
+  read by anybody and changed by the super admin alone, made safe, the 409, each change a line naming who changed what
+  for whom and a notification in the level the person now has, who answers for a document, a write that changes nothing
+  saying nothing; the twelve people's accounts on a first password they must change, a line each; the role, never the
+  last active super admin to staff), `backend/tests/engineHostAccess.test.ts` (7, over the real engine bundle: what a
+  person holds by the levels, a load never another person's, Read refused in the website's words, the language the
+  phone asks for, Edit on what a person answers for, Write's limits, the super admin; 5 of the 7 failed on the engine
+  before), `backend/tests/escalationAccess.test.ts` (5: a late or missed record counts against who answers for its
+  document; 2 failed with the department rule), `backend/tests/seedAccounts.test.ts` (2). Changed:
+  `backend/tests/apiV1.test.ts` (three tests of the levels on the phone's own routes; a documented path's {id} read as
+  Express's :id), `backend/tests/apiV1Records.test.ts` (the record its tests use was given its readings by Mitra's
+  sample fill: since §98 a prepared record has none, and the three record tests the entry above hands on had failed
+  since; the finish of 9-Oct-2026 gives them as a person does instead), `frontend/tests/latenessCore.test.ts` ("by the access rules": whom a record counts
+  against through attribute's answerersOf). The table of REQUIREMENTS §96 is printed by `scripts/access-table.ts`.
+  `npm run test:unit` on 9-Oct-2026 at 977129d: 622 frontend tests and 470 backend tests, all passing but the
+  PostgreSQL ledger's, skipped without `DCRS_LEDGER_TEST_URL`; `npm run typecheck` clean.
+  Browser suites changed, each with its reason written in the suite: `e2e_user_access.py` (the §84 module switches are
+  walked with an account the suite makes, kept to Quality Control, since departments decide only for an account the
+  access rules never name, and Kapila Barad views every module; new: the rules read by anybody and changed by the super
+  admin alone, Kapila Barad's and Ankur Raval's copies, his list of people, a record he starts on a document he reads
+  not stored, his act on a stored sheet refused in words and taken once he has Write, the line and the notification,
+  the twelve accounts, the role and the last super admin; and THE SUPER ADMIN ALWAYS GETS IN: eight wrong passwords for
+  his address from 127.0.0.1, each with another forged X-Forwarded-For, hold back that computer alone, and the right
+  password signs him in at once from ::1), `e2e_escalation.py` (the late QC sheets are F/QC/37's, which Kapila Barad
+  answers for alone; the HR reports never done F/HR/22's, which Vinay Bhojak and Sandeep Parekh answer for),
+  `e2e_mobile_mitra_api.py` (the Quality Control account is Ankur Raval's and fills a sheet he answers for; a sheet he
+  only reads is not started, 403 access-level; the prepared sheet is submitted with `reviewed: true`, as §97 requires),
+  `e2e_audit_assistant_api.py` and `e2e_find_every_document.py` (the account that sees Quality Control alone is Ankur
+  Raval's), `e2e_every_record_starts.py` (Human Resources' account is one the suite makes: Vinay Bhojak answers for
+  F/HR/01-14 and 19-22 only), `e2e_departments.py` (the refusal names the super admin; a QC account's browser holds no
+  HR record at all, so the one tried by its address comes from the unassigned account's copy),
+  `e2e_postgres_storage.py` (the key of a copy is no longer the department's code). Run on 9-Oct-2026 at 977129d with
+  these suites, each ALONE with the project's runner (`E2E_SKIP_UNIT=1 npm run test:e2e -- tests/<suite>`, the unit
+  tests run on their own at the same commit): e2e_escalation.py 30 of 30, e2e_user_access.py 94 of 94, e2e_departments.py 39 of 39, e2e_mobile_mitra_api.py 32 of 32, e2e_audit_assistant_api.py 40 of 40, e2e_find_every_document.py 71 of 71, e2e_every_record_starts.py 336 of 336 (26 minutes), e2e_postgres_storage.py 34 of 34; no JavaScript error in any. A throwaway DCRS of this build (port 5150, a fresh embedded
+  PostgreSQL, the thirteen seeded accounts, removed after) showed, before the fix of 977129d, that Kapila Barad's first
+  sign-in stored no records (her browser's write was refused over F/HR/01's supplied papers) and, after it, that her
+  first sign-in and Ankur Raval's store their records, the catalogue and HR Master Data with no refusal and no 409.
+- **What the two reviews of 9-Oct-2026 found, put right** (REQUIREMENTS §96 item 10, §97, §98). Each new or changed
+  test fails on the code before its change and passes after: `backend/tests/accessLevels.test.ts` (3 new: a Start in
+  the person's own name refused 403 with the words, the housekeeping still left out; one line per record, a second line
+  with a record's id or one taking the id of a record the person does not see never written; only records; 32 of 35 on
+  the old server code, 35 of 35 now), `backend/tests/apiV1Records.test.ts` (the record answer at each level: Read gets
+  no box and no button, Write no delete; the shared record now gets the day's 24 hourly readings through POST
+  /api/v1/records/:id/changes, as the phone's Review screen saves them, never the sample fill: at 83c8d3d the file gave
+  17 of 20, "09:00: Viscosity (20.0 +/- 1.0 Sec.) is required", now 22 of 22), `backend/tests/apiV1.test.ts` (POST
+  /api/jobs/run and the record answer's level fields in the OpenAPI file), `frontend/tests/knownPartsReady.test.ts` (5:
+  the camera challenge test and every log sheet the checks pass empty wait for their first line, never "ready"),
+  `truthfulPrepare.test.ts` (a prepare's "waiting" held to entriesWaiting), `myDayAccess.test.ts` (4: Dharmik Mistry's
+  day is F/PRD/10 alone, Vinay Bhojak is never told F/HR/17 is next, the super admin's card is the plant's day),
+  `mitraRulesAccess.test.ts` (2), `performanceAnswers.test.ts` (1: "shares" by who answers), `uploadChangesAccess.test.ts`
+  (2), `bellAnswerers.test.ts` (3: the bell names who answers by the owner's table), `notificationView.test.ts` (the job
+  outcome's words, and every bell word with Gujarati of its own). `npm run test:unit` on 9-Oct-2026: frontend 640, 638
+  passing in the full run, truthfulPrepare (then updated, 8 of 8) and voice.test.ts's "never over the microphone" (a
+  607-second hang during a network drop; 28 of 28 when run again alone); backend 475, 474 passing and the PostgreSQL
+  ledger's skipped. `npm run typecheck` clean. Browser suites, each ALONE with the project's runner, 8842 and 8843 free:
+  `tests/e2e_access_levels.py` 148 of 148 (new section 5: the super admin's day card, Dharmik Mistry's day, Chirag
+  Parmar's sidebar and the agreement under Purchase, the bell's names, Escape, another page and its Gujarati with
+  Google Translate kept out, staff shown no job buttons, Mitra's access refusal to Vinay Bhojak, the job buttons; a
+  reader offered no Upload changes and no "press Submit"), `tests/e2e_user_access.py` 95 of 95 (new: a Start in Ankur
+  Raval's own name refused 403), `tests/e2e_escalation.py` 30 of 30, `tests/e2e_mobile_mitra_api.py` 32 of 32. The
+  phone's half (Mitra, branch mitra-notify): `server/test/phone-relay.test.ts` (DCRS asked in the language the app is
+  read in, X-Language; DCRS's 429 reaching the app as 429 "too_many"; both fail on the old server code), its npm test
+  300 of 300 and typecheck clean. Not run here: the full 29-suite browser run, and the suites these changes do not reach.
+
+- **Passwords are the super admin's** (REQUIREMENTS §105, 9-Oct-2026). New unit tests, each failing before the change
+  (the module did not exist): `backend/tests/passwordPolicy.test.ts` (6: only the super admin changes their own; "No
+  password yet" matches no password, the built-in one included, and is told apart from a real hash; the start-up
+  settling keeps a password the super admin typed and lifts the wait, gives an account on the built-in first password
+  "No password yet", leaves the super admin and anybody who chose their own alone, writes no password in the log, and
+  changes nothing the second time). `backend/tests/accessRulesRoutes.test.ts` now expects "Create the missing accounts"
+  to make the twelve on the password they sign in with. Browser suites updated for it: `e2e_login_only.py` (section 3
+  is now "the password the super admin gave her is the one she signs in with": the app opens at once, no pop-up, no
+  "Change password" on her name, the server's 403 `password-set-by-super-admin`, her records open; section 5: after a
+  reset the old password and the one she tried to choose both fail and the new one opens the app with no pop-up),
+  `e2e_user_access.py`, `e2e_every_record_starts.py` (accounts made on Users & Access sign in with what they were given
+  and are refused a change of their own) and `e2e_portal_controls.py` (section 4: the super admin's own change, with
+  the eye on its three boxes, when the suite's sign-up is the super admin; the staff side when it is not, as in the
+  full run).
+- **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
+  proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
+  F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for
+  a year with none) and a fortnightly pest visit opens the period's sheet; one sheet per period beside the generator;
+  as-required, daily and the training record unchanged; a document's page shows the record New opens, not the sheet
+  made ahead for the 31st), `frontend/tests/storageFullStart.test.ts` (2: with the browser's storage full, the record
+  started opens from memory, reaches a stand-in database and is announced saved; closing the page asks first and then
+  does not; a colleague's save in between is merged and sent), `frontend/tests/papers07Oct.test.ts` (3: F/STR/02's
+  title, page and Word original; F/MNT/08's page 2 as printed; F/MNT/09 kept on its newer issue and naming both files)
+  and `frontend/tests/recordStartedTrail.test.ts` (3: every page that builds its own new record writes "Record
+  started"; the service agreement's Draft it for me writes one, none for a demo; New still writes one and opening a
+  sheet on file none). `npm run test:unit` runs 522 frontend and 327 backend tests, all passing (321 backend before
+  premium-theme's b6411a9, the super admin from the server PC, was merged in on 8-Oct-2026 with its six).
+  New browser suite: `tests/e2e_every_record_starts.py` (product server :8843, last among its suites in
+  scripts/run-e2e.ts; E2E_ONLY=id1,id2 runs some documents only). On a system live since the first of last month, the
+  super admin starts every one of the 125 documents that hold records from its own page (the library's Open Document,
+  then the page's own Start): the record exists, its form is drawn, it reaches the database; the library's New opens the
+  same sheet of a scheduled document and a new one of an as-required one, one sheet per period; qc-viscosity's and
+  F/MNT/09's pages show the record started; with the browser's storage filled by a stand-in item, Start still opens the
+  record, says "This browser's copy is full" and then that it WAS saved, the record is in the database, and with room
+  again it opens after a reload; each department's own account (QC, HR, Store, Maintenance, Production, Dispatch,
+  Purchase, Marketing, System and QA) starts every one of its documents, Marketing its Complaint Acknowledgement and
+  Purchase the service agreement included; after signing out and in every record is still in the database and opens;
+  every new record the super admin started by hand is read back from the activity log as "Record started"; no
+  JavaScript error. Changed for §93: `e2e_assistant_fill.py` (the signed-off record of today's PERIOD is New's to open),
+  `e2e_hr_module.py` (New on F/HR/01 opens the year's register, a blank one for a year with none), `e2e_store_module.py`
+  (F/STR/02's title and supplied page; its "no picture" example moved to F/PUR/01) and `e2e_maintenance_module.py`
+  (F/MNT/08's hand-over words).
+  Run on the worktree on 8-Oct-2026, a Thursday (the plant's weekly off; the test servers run with
+  DCRS_WORKING_HOURS=off), at 59267d9, with the project's runner (unit tests first, then the build), 8842 and 8843 free
+  each time: e2e_maintenance_module 76 checks, e2e_find_every_document 71 and e2e_every_record_starts 297, all passing,
+  no JavaScript error (10:51 to 11:19). Then the suites this work reaches, all passing: e2e_editing 20, e2e_capa_formats
+  44, e2e_crud 24, e2e_assistant_fill 156, e2e_departments 38, e2e_hr_module 145, e2e_hr_cv_import 42,
+  e2e_qc_calibration 40, e2e_store_module 39, e2e_sys_module 82, e2e_postgres_storage 34, e2e_mobile_mitra_api 31 and
+  e2e_agreement_and_cancel 37 - the last on its second run: on its first, with the PC under load, "The signed copy
+  uploads onto the agreement" read the record a fixed 1.5 s after the upload, before the picture was converted and
+  saved (the next check found it on the page); this work does not change that upload
+  (components/records/ServiceAgreementRecordView.tsx). e2e_storage_room passed 14 of
+  15: "The Demo Mode page says the daily sheets of 6 earlier months were left out" fails with the same words on the
+  code before this work (c615073, run the same day) - Demo Mode drew October's daily sheets from August, the suite
+  expects July - so it is not this work's. On the code before this work the new suite, run on 16 documents of every
+  kind, failed 15 checks, one or more on every fault REQUIREMENTS §93 part 1 lists; and, with only the names they
+  import added, 13 of the 15 new unit tests fail there on the behaviour they assert (the other two guard what did not
+  change). `frontend/tests/storageFullStart.test.ts` stops its sync session in an `after` hook: without it a failing
+  run never ended (598 s, until a timeout killed it), and the e2e runner, which runs the unit tests first, would have
+  hung with it; now it fails in 3 s. Speed: REQUIREMENTS §93 "Speed" - the changed pages at 6x CPU throttle beside
+  the code before, measured alternately; nothing measurable added.
+
 - **npm run dev with its ports taken, and signing in with the browser full** (REQUIREMENTS §101, 9-Oct-2026). New unit
   tests: `backend/tests/devPorts.test.ts` (9: real servers on ports the system picks; a free port and a held one; DCRS's
   server known by its /api/health answer, its website by its page; the next free port; the start plan for both free,
@@ -789,7 +1077,10 @@ Seven scripts live in `tests/`:
     is counted; a line opening its format; CSV and print; `/api/users/directory` carrying no email or hash; an
     account with no departments listed unscored, a QC account scored on and shown QC only; a shared
     department's records counted for whoever submitted them. It makes two signups and is last in the run.
-    (62 checks)
+    (62 checks; with the minus score of §92, 7-Oct-2026, 75: every line's, card's, tile's and CSV row's minus
+    score is -10 for each never done with a true minus sign, the rule's words, the two new CSV columns, the print,
+    the QC account's and both shared accounts', and F-QC-30's still open today recounted from its records.
+    `DCRS_BASE` points it at another server, such as a preview.)
   `tests/e2e_portal_controls.py` reaches the §62 dialog through the designer's *More options…* (37 checks,
   unchanged). With them `npm run test:e2e` is green at **1591 checks across twenty-seven suites**, all on
   PostgreSQL, no JavaScript errors.

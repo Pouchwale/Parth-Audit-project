@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCheck, FiKey, FiPlus, FiRefreshCw, FiShield, FiSlash, FiUserPlus } from "react-icons/fi";
-import { ApiError, usersApi } from "../api/client";
+import { FiCheck, FiKey, FiPlus, FiRefreshCw, FiShield, FiSlash, FiStar, FiUser, FiUserPlus } from "react-icons/fi";
+import { accessApi, ApiError, usersApi } from "../api/client";
+import { AccessSection, useAccessDocs, useAccessRules } from "../components/access/AccessSection";
+import { ACCESS_MODULES, buildAccess } from "../engine/accessRules";
+import { accountOf, lastSuperAdmin } from "../engine/accessEditing";
 import { useAuth } from "../store/AuthContext";
 import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -27,6 +30,12 @@ import type { ManagedUser } from "../types/auth";
 // A password is typed here and sent to be stored. It is never shown again, never
 // read back, and never written to the activity log — what the log says is that a
 // password was set, and by whom.
+//
+// WHO MAY DO WHAT (REQUIREMENTS §96): below the accounts, the super admin's grid of
+// people by module (Read, Write or Edit), who answers for each document, the accounts
+// nobody has described, and the plant's people who have no account yet
+// (components/access/AccessSection.tsx). Each account can be made a super admin, or
+// staff again, here too; the server refuses a change that would leave no super admin.
 
 const MIN_PASSWORD = 8;
 
@@ -46,7 +55,12 @@ const accessWords = (u: Pick<ManagedUser, "role" | "departments">): string => {
 };
 
 /** What is being asked about before it is done. */
-type Ask = { kind: "reset"; user: ManagedUser } | { kind: "off"; user: ManagedUser } | { kind: "on"; user: ManagedUser };
+type Ask =
+  | { kind: "reset"; user: ManagedUser }
+  | { kind: "off"; user: ManagedUser }
+  | { kind: "on"; user: ManagedUser }
+  | { kind: "admin"; user: ManagedUser }
+  | { kind: "staff"; user: ManagedUser };
 
 export function UsersPage() {
   const { user: me } = useAuth();
@@ -66,6 +80,19 @@ export function UsersPage() {
   const [picked, setPicked] = useState<string[]>([]);
   // The password the administrator is about to give somebody, for a reset.
   const [resetTo, setResetTo] = useState("");
+
+  // The super admin's stored access rules, and the catalogue they are read against (REQUIREMENTS §96).
+  const accessRules = useAccessRules(isAdmin);
+  const { docs: accessDocs } = useAccessDocs();
+  const access = useMemo(() => (accessRules.loaded ? buildAccess(accessDocs, accessRules.loaded.rules) : null), [accessDocs, accessRules.loaded]);
+  /** What an account sees, in words: by its levels once the rules are read, else by its departments. */
+  const seesWords = (u: ManagedUser): string => {
+    if (!access || u.role === "admin") return accessWords(u);
+    const seen = access.modules(accountOf(u)).map((m) => m.module);
+    if (seen.length === ACCESS_MODULES.length) return "Every module";
+    if (seen.length === 0) return "Nothing yet";
+    return seen.map((c) => DEPARTMENTS.find((d) => d.code === c)?.name ?? c).join(", ");
+  };
 
   const load = () => {
     usersApi
@@ -114,7 +141,7 @@ export function UsersPage() {
     try {
       const res = await usersApi.create({ name: name.trim(), email: email.trim(), password, departments: everyModule ? [] : picked });
       setUsers((list) => [...(list ?? []), res.user]);
-      setNote(`${res.user.name} can sign in with ${res.user.email}. Give them the first password you typed — they will be asked to choose their own.`);
+      setNote(`${res.user.name} can sign in with ${res.user.email}. Give them the password you typed: it is the one they sign in with, and only you can change it.`);
       closeAdd();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "The account could not be created.");
@@ -130,7 +157,16 @@ export function UsersPage() {
     try {
       if (ask.kind === "reset") {
         await usersApi.resetPassword(ask.user.id, resetTo);
-        setNote(`${ask.user.name}'s password is reset. Give them the new one — they will be asked to choose their own at the next sign-in.`);
+        setNote(`${ask.user.name}'s password is reset. Give them the new one: it is the one they sign in with from now on.`);
+      } else if (ask.kind === "admin" || ask.kind === "staff") {
+        const res = await accessApi.setRole(ask.user.id, ask.kind === "admin" ? "admin" : "staff");
+        if (res?.user) setUsers((list) => (list ?? []).map((u) => (u.id === res.user.id ? { ...u, ...res.user } : u)));
+        else load();
+        setNote(
+          ask.kind === "admin"
+            ? `${ask.user.name} is a super admin now: sees and does everything, and may sign in at any hour.`
+            : `${ask.user.name} is staff now, and may see and do what Who may do what gives.`
+        );
       } else {
         const on = ask.kind === "on";
         const res = await usersApi.setActive(ask.user.id, on);
@@ -152,7 +188,7 @@ export function UsersPage() {
         <div>
           <h1 className="text-2xl mb-1">Users &amp; Access</h1>
           <p className="text-muted">
-            Everybody who may sign in, and which departments' documents each of them sees. Accounts are made here — nobody can create their own.
+            Everybody who may sign in, and what each may see and do. Accounts are made here — nobody can create their own.
           </p>
         </div>
         <div className="flex gap-2 wrap">
@@ -187,7 +223,7 @@ export function UsersPage() {
               <tr>
                 <th>Name</th>
                 <th>Signs in with</th>
-                <th style={{ width: 80 }}>Role</th>
+                <th style={{ width: 120 }}>Role</th>
                 <th style={{ width: 200 }}>Sees</th>
                 <th style={{ width: 110 }}>Last sign-in</th>
                 <th style={{ width: 110 }}>Status</th>
@@ -207,9 +243,29 @@ export function UsersPage() {
                     </td>
                     <td>
                       <span className={`badge ${u.role === "admin" ? "badge-Verified" : "badge-Due"}`}>{u.role === "admin" ? "admin" : "staff"}</span>
+                      {/* SUPER ADMIN OR STAFF (REQUIREMENTS §96): asked in plain words first; never the last super admin. */}
+                      {u.role === "admin" ? (
+                        <button
+                          type="button"
+                          className="access-cell-note"
+                          style={{ display: "block" }}
+                          data-action="make-staff"
+                          disabled={lastSuperAdmin(users, u.id)}
+                          title={lastSuperAdmin(users, u.id) ? "There must always be a super admin who can sign in" : "Make this account staff again"}
+                          onClick={() => setAsk({ kind: "staff", user: u })}
+                        >
+                          Make staff
+                        </button>
+                      ) : (
+                        !off && (
+                          <button type="button" className="access-cell-note" style={{ display: "block" }} data-action="make-admin" onClick={() => setAsk({ kind: "admin", user: u })}>
+                            Make super admin
+                          </button>
+                        )
+                      )}
                     </td>
                     <td className="text-sm" data-field="access">
-                      {accessWords(u)}
+                      {seesWords(u)}
                     </td>
                     <td className="text-sm text-muted">{u.lastSignIn ? formatDisplayDate(u.lastSignIn.slice(0, 10)) : "Never"}</td>
                     <td className="text-sm">
@@ -217,8 +273,12 @@ export function UsersPage() {
                         <span className="badge badge-Rejected" data-field="status">
                           Switched off
                         </span>
+                      ) : u.noPasswordYet ? (
+                        <span className="badge badge-Rejected" data-field="status" title="Nobody can sign in to it until you give it a password with Reset password">
+                          No password yet
+                        </span>
                       ) : u.mustChangePassword ? (
-                        <span className="badge badge-Scheduled" data-field="status" title="They will choose their own password at their next sign-in">
+                        <span className="badge badge-Scheduled" data-field="status" title="On the built-in first password: chosen anew at the next sign-in">
                           First password
                         </span>
                       ) : (
@@ -267,9 +327,21 @@ export function UsersPage() {
       )}
 
       <p className="text-xs text-muted mt-3">
-        Which departments an account sees is changed on <strong>User access</strong>, a switch per module, or in <strong>Master Data → Departments &amp; access</strong>. A change takes effect the next time that person
-        loads the app. Switching an account off deletes nothing: their name stays on every record they signed.
+        What each account may see and do is set below, in <strong>Who may do what</strong>. A change takes effect the next time that person loads the app, and
+        they are told. Switching an account off deletes nothing: their name stays on every record they signed.
       </p>
+
+      {accessRules.error && <div className="auth-error mt-4">{accessRules.error}</div>}
+      {users !== null && accessRules.loaded && (
+        <AccessSection
+          users={users}
+          rules={accessRules.loaded.rules}
+          version={accessRules.loaded.version}
+          onSaved={accessRules.saved}
+          onReload={accessRules.reload}
+          onUsersChanged={load}
+        />
+      )}
 
       {adding && (
         <Modal
@@ -314,7 +386,7 @@ export function UsersPage() {
                 </button>
               </div>
               <p className="text-xs text-muted mt-1">
-                At least {MIN_PASSWORD} characters. Tell it to them once: they are asked to choose their own the first time they sign in, and it is never shown
+                At least {MIN_PASSWORD} characters. Tell it to them once: it is the password they sign in with, only you can change it, and it is never shown
                 again.
               </p>
             </div>
@@ -355,7 +427,17 @@ export function UsersPage() {
 
       {ask && (
         <Modal
-          title={ask.kind === "reset" ? "Reset this password?" : ask.kind === "off" ? "Switch this account off?" : "Switch this account on?"}
+          title={
+            ask.kind === "reset"
+              ? "Reset this password?"
+              : ask.kind === "off"
+                ? "Switch this account off?"
+                : ask.kind === "admin"
+                  ? `Make ${ask.user.name} a super admin?`
+                  : ask.kind === "staff"
+                    ? `Make ${ask.user.name} staff?`
+                    : "Switch this account on?"
+          }
           onClose={() => {
             setAsk(null);
             setResetTo("");
@@ -382,6 +464,14 @@ export function UsersPage() {
                   <>
                     <FiKey size={12} /> Reset it
                   </>
+                ) : ask.kind === "admin" ? (
+                  <>
+                    <FiStar size={12} /> Yes, make super admin
+                  </>
+                ) : ask.kind === "staff" ? (
+                  <>
+                    <FiUser size={12} /> Yes, make staff
+                  </>
                 ) : ask.kind === "off" ? (
                   <>
                     <FiSlash size={12} /> Switch it off
@@ -402,7 +492,7 @@ export function UsersPage() {
                   <strong className="notranslate" translate="no">
                     {ask.user.name}
                   </strong>{" "}
-                  will sign in with the password you type here, and will be asked to choose their own straight away. Their old password stops working at once.
+                  will sign in with the password you type here, and only you can change it. Their old password stops working at once.
                 </p>
                 <div className="field">
                   <label htmlFor="reset-password">The new password</label>
@@ -422,6 +512,24 @@ export function UsersPage() {
                 </strong>{" "}
                 will not be able to sign in, and whatever they have open stops working at its next action. <strong>Nothing is deleted</strong> — their name
                 stays on every record they signed, and you can switch the account on again.
+              </p>
+            )}
+            {ask.kind === "admin" && (
+              <p className="text-sm">
+                <strong className="notranslate" translate="no">
+                  {ask.user.name}
+                </strong>{" "}
+                will see and do everything in every module, change who may do what, make and switch off accounts, and may sign in at any hour. The change is
+                written in the activity log.
+              </p>
+            )}
+            {ask.kind === "staff" && (
+              <p className="text-sm">
+                <strong className="notranslate" translate="no">
+                  {ask.user.name}
+                </strong>{" "}
+                will no longer be a super admin: from the next sign-in, only what <strong>Who may do what</strong> gives, and only within the plant's working
+                hours. The change is written in the activity log.
               </p>
             )}
             {ask.kind === "on" && (

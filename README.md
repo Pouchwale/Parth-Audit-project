@@ -250,6 +250,15 @@ The app behaves like a personal assistant rather than a blank form:
   name, filled with sample data, printed and downloaded as a workbook. F-PRD-19's number, hidden in the photograph, is
   confirmed, and F-PRD-18 and 19 now read as their originals. The module's old address, /library/lamination-production,
   still opens it. F-PRD-25 came as an empty workbook and waits on the owner. DCRS holds 129 documents.
+- **Every record starts, and stays** (REQUIREMENTS §93). Start, New record, the library's New, Mitra and the phone open
+  the sheet of the week, fortnight, month or year the day is in when one is on file, never a second sheet for a
+  period that has one (an as-required document still starts a new one each time). A record started while the browser's
+  storage is full is kept on the page and saved to the database all the same, and the page says so ("This browser's copy
+  is full - your record WAS saved") instead of "Record not found". Marketing starts its Complaint Acknowledgement,
+  Purchase its service provider agreement and Human Resources its pest service reports and F/HR/18 from their own pages,
+  a document's page shows the record just started, and every record started by hand is in the activity log as "Record
+  started". F/STR/02, F/MNT/08 and F/MNT/09, sent again on 7-Oct-2026, read as their papers (F/MNT/09 stays on its newer
+  issue of 01.09.2025).
 - **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
   signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
   starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,
@@ -262,9 +271,10 @@ The app behaves like a personal assistant rather than a blank form:
   document for everybody — another department's shown as kept by it, and the formats on the company's Master List not in DCRS
   yet shown as such (docs/document-coverage.md lists them). The system opens with a **five-second motion-graphics
   introduction**, and moves gently throughout. The super admin's new **User access** dashboard shows who may use which module
-  (switch a person in or out of any module there), what each can see, and when each signed in and out. **DCRS is open 8:40 am
-  to 6:20 pm on the plant's working days** — Thursday off unless it is an adjustment day, festival holidays closed — for
-  everybody but the super admin, and every morning starts with signing in.
+  (switch a person in or out of any module there), what each can see, and when each signed in and out. **Staff working hours
+  are 8:40 am to 6:20 pm on the plant's working days** — Thursday off unless it is an adjustment day, festival holidays off —
+  and **the super admin can sign in and work at any time** (warned ten minutes before his session ends at midnight, when he
+  simply signs in again); every day starts with signing in.
 - **DCRS and the Audit Assistant share one database** (REQUIREMENTS §83). The Audit Assistant - the plant's chat and
   voice app - signs people in with their DCRS accounts and acts **through a new DCRS API, as that person**: it lists and
   searches the CAPA findings, closes one with a note (exactly what DCRS's own Close button does, written in the report's
@@ -354,7 +364,9 @@ The app behaves like a personal assistant rather than a blank form:
   to a record handed in (🎉 on time, ⏰ N days late, ✅ verified, ↩️ sent back, 🌟 the last one due) — Live
   records, on the screen of the person who did it.
   And the **Performance Scorecard** (`/performance`) scores each person, department, module and document on
-  one rule — on time 1, late ½, never done 0 — with the decision written out as a sentence.
+  one rule — on time 1, late ½, never done 0 — with the decision written out as a sentence, and a **minus score**
+  beside it (REQUIREMENTS §92): 10 off for each record never done, so 10 due and 8 done is -20, with what is still
+  open on its last day today.
 - **An eye beside every password box** (REQUIREMENTS §63): signing in, signing up and changing a password all
   let a person see what they have typed, and hide it again, without sending the form.
 - **Reviewed before submitted, formats revised on record, named accounts, the activity log** (REQUIREMENTS §62):

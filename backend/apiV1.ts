@@ -5,8 +5,13 @@ import { COOKIE_NAME, verifySessionToken, type PublicUser } from "./auth.ts";
 import { database, getUserById, plantTimeZone, readItem, writeItem, type StoredItem, type UserRow, type WriteResult } from "./db.ts";
 import { distDir, repoRoot } from "./paths.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
-import { createEngineHost, engineBundleIsCurrent, type EngineHost } from "./engineHost.ts";
+import { createEngineHost, engineBundleIsCurrent, sharedEngineHost, type EngineHost } from "./engineHost.ts";
 import { registerApiV1Records, type EscalationsFound } from "./apiV1Records.ts";
+import { registerNotificationRoutesV1 } from "./notificationRoutes.ts";
+import type { NotificationLedger } from "./notifications.ts";
+import { catalogueLoader } from "./accessStore.ts";
+import { holdsHrMaster, languageOf, levelRefusal, viewFor, type AccessView } from "./accessLevels.ts";
+import { levelNeeded, type DocumentAction } from "../frontend/src/engine/accessRules.ts";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
 import {
   activityDetail,
@@ -89,6 +94,8 @@ export interface ApiV1Deps {
   engine?: EngineHost;
   /** The super admin's escalations; by default the server's own (backend/escalation.ts). A unit test hands in its own. */
   escalations?: (open: boolean) => Promise<EscalationsFound>;
+  /** The notification ledger (backend/notifications.ts); by default the server's own. A unit test hands in its own. */
+  notifications?: NotificationLedger;
 }
 
 const databaseStore: ApiV1Store = {
@@ -222,11 +229,6 @@ interface Caller {
 }
 const callerOf = (res: Response): Caller => res.locals.apiV1Caller as Caller;
 
-/** The departments an account is kept to, or null for every department (backend/index.ts accountDepartments). */
-function accountDepartments(user: PublicUser): string[] | null {
-  return user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
-}
-
 function departmentName(code: string | null): string | null {
   if (!code) return null;
   return PLANT_DEPARTMENTS.find((d) => d.code === code)?.name ?? code;
@@ -353,18 +355,36 @@ async function departmentOf(store: ApiV1Store, documentId: string): Promise<stri
   return departmentOfDocument(documentId, (await documentInfo(store, documentId)).formatNo);
 }
 
-/** Whether the person may see this document's records: the same rule the server applies to what it hands a browser. */
-async function maySee(store: ApiV1Store, user: PublicUser, documentId: string): Promise<boolean> {
-  const departments = accountDepartments(user);
-  if (!departments) return true;
-  const code = await departmentOf(store, documentId);
-  return code === null || departments.includes(code);
+// WHO MAY SEE AND DO WHAT (REQUIREMENTS §96): the super admin's access rules over the plant's catalogue, read as the
+// storage routes read them (backend/accessStore.ts), once per change of either, for each store.
+const loaders = new WeakMap<ApiV1Store, ReturnType<typeof catalogueLoader>>();
+async function viewOfUser(store: ApiV1Store, user: PublicUser): Promise<AccessView> {
+  let load = loaders.get(store);
+  if (!load) loaders.set(store, (load = catalogueLoader(store)));
+  return viewFor(await load(), { email: user.email, role: user.role, departments: user.departments });
 }
 
-async function refuseOtherDepartment(store: ApiV1Store, res: Response, documentId: string, what: string): Promise<boolean> {
-  if (await maySee(store, callerOf(res).user, documentId)) return false;
-  const name = departmentName(await departmentOf(store, documentId));
-  fail(res, 403, "not-your-department", `${what} belong to ${name ?? "another department"}, and this account is not kept to it.`);
+/** A document the person does not see at all (no Read on it): refused, 403 not-your-department, in the website's words. */
+async function refuseOtherDepartment(store: ApiV1Store, res: Response, documentId: string, what: string, lang = "en"): Promise<boolean> {
+  const view = await viewOfUser(store, callerOf(res).user);
+  if (view.level(documentId) !== "none") return false;
+  void what;
+  const info = await documentInfo(store, documentId);
+  const number = info.formatNo && !info.formatNo.toUpperCase().startsWith("TO BE") ? `${info.formatNo} ` : "";
+  const module = departmentName(departmentOfDocument(documentId, info.formatNo));
+  fail(res, 403, "not-your-department", levelRefusal(`${number}${info.name}${module ? ` (${module})` : ""}`, "none", "read", "view", languageOf(lang)));
+  return true;
+}
+
+/** A step the person's level on the document does not allow: refused, 403 access-level, in the website's words. */
+async function refuseLevel(store: ApiV1Store, res: Response, documentId: string, action: DocumentAction, lang: string | undefined): Promise<boolean> {
+  const view = await viewOfUser(store, callerOf(res).user);
+  if (view.may(documentId, action)) return false;
+  const info = await documentInfo(store, documentId);
+  const number = info.formatNo && !info.formatNo.toUpperCase().startsWith("TO BE") ? `${info.formatNo} ` : "";
+  const level = view.level(documentId);
+  const needed = levelNeeded(action);
+  res.status(403).json({ error: levelRefusal(`${number}${info.name}`, level, needed, action, languageOf(lang)), code: "access-level", level, needed, action, documentId });
   return true;
 }
 
@@ -657,7 +677,9 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     const noteRaw = (req.body as { note?: unknown } | undefined)?.note;
     const note = typeof noteRaw === "string" ? noteRaw.trim() : "";
     if (!note || note.length > MAX_NOTE) return fail(res, 400, "bad-note", `A note of 1 to ${MAX_NOTE} characters is required: say how the finding was resolved.`);
-    if (await refuseOtherDepartment(store, res, CAPA_ROUTE_DOCUMENT, "The CAPA findings")) return;
+    if (await refuseOtherDepartment(store, res, CAPA_ROUTE_DOCUMENT, "The CAPA findings", req.get("x-language"))) return;
+    // Closing a finding changes its report, which is being filled in: Write's (REQUIREMENTS §96).
+    if (await refuseLevel(store, res, CAPA_ROUTE_DOCUMENT, "fill", req.get("x-language"))) return;
     const { user } = callerOf(res);
     const client = clientName(req.get("x-client-name"));
     let wanted = String(req.params.id ?? "");
@@ -807,7 +829,8 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
 
   // ---- what Mitra does, for the Mitra mobile app (REQUIREMENTS §85): backend/apiV1Records.ts
 
-  const engine = deps.engine ?? createEngineHost({ store });
+  // The server's own (shared with the jobs: one worker); a test's store gets an engine of its own.
+  const engine = deps.engine ?? (deps.store ? createEngineHost({ store }) : sharedEngineHost());
   // On the real server, the engine's worker is started a few seconds after
   // start-up when its bundle is already built, so the first question from the
   // app does not wait for it. A bundle that must be built first is built when
@@ -822,12 +845,15 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     engine,
     logActivity,
     departmentOf: (documentId) => departmentOf(store, documentId),
+    holdsHrMaster: async (user) => holdsHrMaster(await viewOfUser(store, user)),
     printer,
     appBuilt,
-    hoursAnswer: () => hours.publicAnswer(),
+    hoursAnswer: (user) => hours.personAnswer(user),
     appAddress,
     escalations: deps.escalations ?? storedEscalations,
   });
+  // The person's notifications, phones and choices (REQUIREMENTS §97, backend/notificationRoutes.ts).
+  registerNotificationRoutesV1(app, { signedIn, callerOf, logActivity, ledger: deps.notifications });
 
   // Anything else under /api/v1: said as JSON, never the app's page.
   app.use("/api/v1", (_req: Request, res: Response): void => {

@@ -105,11 +105,14 @@ with sync_playwright() as p:
     page.wait_for_timeout(900)
     dismiss(page)
 
-    # On a closed day the next working day's record isn't prepared yet (the
-    # assistant prepares what is due today or earlier), so it is filled with the
-    # assistant's sample data first - the state a prepared record is in, and one
-    # that can be submitted and verified below.
-    if today != date.today().isoformat():
+    # The record holds only its known parts (REQUIREMENTS s98: the assistant
+    # prepares the record, its date and the printed check points, never an
+    # answer), and on a closed day the next working day's record is not even
+    # prepared yet. So it is filled with Mitra's sample data first - this suite
+    # is about editing, not about the readings, and the test server allows sample
+    # data in a Live record (ALLOW_SAMPLE_FILL=1) - a state that can be submitted
+    # and verified below.
+    if True:
         # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
         if page.locator("button:has-text('Ask Mitra')").count():
             page.click("button:has-text('Ask Mitra')")

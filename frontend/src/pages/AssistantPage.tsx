@@ -48,9 +48,11 @@ import { prepareScopedInsights } from "../engine/scopedInsights";
 import { parseAssistantCommand } from "../engine/assistantCommands";
 import { hrMasterChatAnswer } from "../engine/hrMasterAssistant";
 import { createRecordForDocument } from "../engine/recordCrud";
+import { refusalFor } from "../engine/accessRefusal";
+import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { routeForRecord } from "../engine/reminders";
-import { sampleFillStoredRecord } from "../engine/sampleFill";
+import { sampleFillDeclined, sampleFillOffered, sampleFillStoredRecord } from "../engine/sampleFill";
 import { queueAfterOpen } from "../engine/assistantHandoff";
 import type { Chip, ChipAction } from "../engine/guidedChecklist";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
@@ -272,7 +274,7 @@ function suggestionIcon(title: string): IconType {
 
 export function AssistantPage() {
   const { user } = useAuth();
-  const { mode, currentUser, bump } = useAppStore();
+  const { mode, currentUser, bump, uiLang } = useAppStore();
   const { navigate } = useRouter();
   const { lang } = useLanguage();
   const t = useT();
@@ -426,6 +428,18 @@ export function AssistantPage() {
   const startDocument = (kind: "create" | "fill" | "guide", documentId: string, dateISO: string, convId: string) => {
     const doc = documentRepository.getById(documentId);
     if (!doc) return;
+    // Sample data never goes into a live record in the plant (REQUIREMENTS §98): say so, and start nothing for it.
+    if (kind === "fill" && !sampleFillOffered(isDemo)) {
+      append(convId, { id: generateId("msg"), role: "bot", text: sampleFillDeclined(), at: stamp() });
+      return;
+    }
+    // Starting a record, or filling one, needs Write on the document (REQUIREMENTS §96): said in the screens' language, and nothing started.
+    const onFile = recordRepository.query({ documentId: doc.id, isDemo, dueDate: dateISO }).length > 0;
+    const stop = (onFile ? null : refusalFor(doc.id, "start", uiLang)) ?? (kind === "create" ? null : refusalFor(doc.id, "fill", uiLang));
+    if (stop) {
+      append(convId, { id: generateId("msg"), role: "bot", text: stop, at: stamp() });
+      return;
+    }
     const { record, existed } = createRecordForDocument(doc, { dateISO, isDemo });
     bump();
     const opened = existed ? `Opening the ${doc.name} for ${formatDisplayDate(dateISO)} that already exists` : `Started a new ${doc.name} for ${formatDisplayDate(dateISO)}`;

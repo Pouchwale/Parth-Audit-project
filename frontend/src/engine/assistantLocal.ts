@@ -18,6 +18,8 @@ import { equipmentChatAnswer, equipmentFactsForModel } from "./equipmentMasterAs
 import { machineNumbersIn } from "./equipmentMaster";
 import { scopedInsightsHeadline } from "./scopedInsights";
 import { demoModeAvailable } from "./features";
+import { superAdminSignedIn } from "./signedInPerson";
+import { hoursSentence, workingHoursOf } from "./workingHoursCore";
 import { escalationsSeen } from "../api/client";
 import { addDays, compareISO, daysInMonth, formatDisplayDate, fromISODate, MONTH_NAMES, pad2, todayISO } from "../utils/date";
 
@@ -690,6 +692,10 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   {
     id: "str-sharp-metal-objects",
     aliases: [
+      // The title as printed, its four tools included (REQUIREMENTS §93): the longer phrase is this register,
+      // not F/PRD/10, whose "scissor" sits inside it.
+      "sharp metal objects (razor blade, scissor, cutter blade, surgical blade) issuance (new) & return (old) record",
+      "razor blade, scissor, cutter blade, surgical blade",
       "sharp metal objects",
       "sharp metal object record",
       "sharp tool register",
@@ -1291,7 +1297,7 @@ function answerHere(message: string, isDemo: boolean, userName?: string): LocalA
     if (isDemo) return { reply: "The briefing covers your Live records — switch to Live Mode to see what I've prepared for you.", chips: [{ label: "Dashboard", action: { type: "navigate", route: "/dashboard" } }] };
     const b = computeBriefing(userName);
     const parts = [
-      b.ready.length ? `${b.ready.length} record${b.ready.length === 1 ? "" : "s"} filled in and ready for your OK` : "",
+      b.ready.length ? `${b.ready.length} record${b.ready.length === 1 ? "" : "s"} prepared and ready for your OK` : "",
       b.needsInput.length ? `${b.needsInput.length} needing a detail only you know` : "",
       b.awaitingVerification.length ? `${b.awaitingVerification.length} waiting for a verifier` : "",
       b.overdue.length ? `${b.overdue.length} overdue` : "",
@@ -1376,6 +1382,9 @@ export function buildAssistantContext(isDemo: boolean, userName?: string, messag
     `Tomorrow: ${describeDay(tomorrow)}.`,
     `Weekly off: every ${off} (next: ${formatDisplayDate(nextWeeklyOff(addDays(today, 1), master))}). An "adjustment day" is a ${off} on which everyone reports to the company — a working day that makes up for a festival holiday. Source: Gujarat Print Pack Leave Calendar 2026 (Master Data → Holidays).`,
     `Upcoming holidays / adjustment days: ${upcoming.length ? upcoming.join("; ") : "none in the next five months"}.`,
+    // THE STAFF'S HOURS (REQUIREMENTS §84 addendum, 6-Oct-2026): the hours are the staff's, never DCRS's opening
+    // hours — and the super admin, who may sign in and work at any time, is told so.
+    `${hoursSentence(workingHoursOf(master))} Outside them staff cannot sign in.${superAdminSignedIn() ? " The person asking is the super admin: these hours do not hold him, so he can keep working now, at any hour." : ""}`,
     "Scheduling rule: a Daily Pest Control Monitoring Record on a closed day is pre-marked as a holiday; other daily registers have no sheet that day; fortnightly / monthly / quarterly / yearly records that land on a closed day move to the next working day.",
     workload,
     // The model is told which mode this is only where there are two (engine/features.ts,

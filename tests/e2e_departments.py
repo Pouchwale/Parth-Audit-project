@@ -238,6 +238,9 @@ with sync_playwright() as p:
     sign_in(page, *UNSCOPED)
     who = me(page)
     check("An account with no department assigned is stored with none", who.get("user", {}).get("departments") == [], who)
+    # A Human Resources record of the plant, for the QC account to try by its address below: since the access levels
+    # (REQUIREMENTS §96, 9-Oct-2026) a QC account's browser holds none at all, so it is taken from here.
+    hr_elsewhere = next((r for r in records(page) if r["documentId"] == "daily-pest-monitoring" and not r["isDemo"]), None)
     all_docs = library_documents(page)
     check("...and its Document Library holds the whole catalogue", len(all_docs) >= 24, len(all_docs))
     all_modules = page.eval_on_selector_all(".app-sidebar .nav-module", "els => els.length")
@@ -398,7 +401,8 @@ with sync_playwright() as p:
     )
     if refusal.count() == 1:
         check("...naming the department that owns it", refusal.get_attribute("data-department") == "Human Resources", refusal.get_attribute("data-department"))
-        check("...and saying who can give them access", "administrator" in refusal.inner_text().lower(), refusal.inner_text()[:300])
+        # "the super admin" since the access levels (REQUIREMENTS §96): the one who gives Read, Write or Edit.
+        check("...and saying who can give them access", any(w in refusal.inner_text().lower() for w in ("super admin", "administrator")), refusal.inner_text()[:300])
 
     page.goto(f"{BASE}/index.html#/gap/external")
     page.wait_for_timeout(1100)
@@ -409,15 +413,18 @@ with sync_playwright() as p:
     )
 
     # A record address typed by hand is refused, and none of its fields shown.
-    hr_record = next((r for r in records(page) if r["documentId"] == "daily-pest-monitoring" and not r["isDemo"]), None)
+    held_here = [r for r in records(page) if r["documentId"] == "daily-pest-monitoring" and not r["isDemo"]]
+    # Since the access levels (REQUIREMENTS §96) the server hands a QC account no HR line and its browser makes none.
+    check("This browser holds no Human Resources record at all", not held_here, [r["id"] for r in held_here][:3])
+    hr_record = (held_here[0] if held_here else None) or hr_elsewhere
     check("There is a Human Resources record on file to try", bool(hr_record))
     if hr_record:
         page.goto(f"{BASE}/index.html#/record/{hr_record['id']}")
         page.wait_for_timeout(1200)
         body = page.locator(".app-content").inner_text()
         check(
-            "A record reached by its own address is refused, not shown",
-            page.locator("[data-state='not-your-department']").count() == 1 and "Time of checking" not in body,
+            "A record reached by its own address is refused, not shown (by name when the browser knows whose it is)",
+            "Time of checking" not in body and (page.locator("[data-state='not-your-department']").count() == 1 or not held_here),
             body[:300],
         )
         check("...and it is not reported as a missing document definition", "definition missing" not in body.lower(), body[:200])

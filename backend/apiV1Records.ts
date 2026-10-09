@@ -55,11 +55,13 @@ export interface RecordsRouteDeps {
   logActivity: LogActivity;
   /** The department code of a document, by the server's own rule (for the activity log's lines). */
   departmentOf: (documentId: string) => Promise<string | null>;
+  /** Whether the person holds HR Master Data: they see Human Resources by the access levels (backend/accessLevels.ts holdsHrMaster). */
+  holdsHrMaster: (user: PublicUser) => Promise<boolean>;
   /** The PDF printer (backend/pdfReport.ts), or null where it cannot print. */
   printer: () => Promise<{ browserPath(): string | null; render(opts: { appUrl: string; sessionToken: string; recordId: string; timeoutMs?: number }): Promise<Buffer> } | null>;
   appBuilt: () => boolean;
-  /** The plant's hours and where today stands (backend/workingHours.ts publicAnswer). */
-  hoursAnswer: () => Promise<unknown>;
+  /** The staff's hours and where today stands, worded for this person (backend/workingHours.ts personAnswer): the super admin is told they do not hold him. */
+  hoursAnswer: (user: PublicUser) => Promise<unknown>;
   /** The app's address as the caller reaches it (DCRS_APP_URL, else the request's own origin): each answer's `route` gets a `link` beside it. */
   appAddress: (req: Request) => string;
   /** The super admin's escalations: the ones not yet acknowledged (open), or every one raised or grown in the last 30 days. */
@@ -189,7 +191,17 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
   /** Who the engine works for: the person, their departments, the app they came through. */
   const callerFor = (req: Request, res: Response): EngineCaller => {
     const { user } = callerOf(res);
-    return { userId: user.id, userName: user.name, email: user.email, departments: departmentsOf(user), client: clientName(req.get("x-client-name")) };
+    const lang = req.get("x-language");
+    return {
+      userId: user.id,
+      userName: user.name,
+      email: user.email,
+      role: user.role,
+      departments: departmentsOf(user),
+      client: clientName(req.get("x-client-name")),
+      // A refusal is said in the person's language when the app asks (REQUIREMENTS §96): English, Hindi or Gujarati.
+      lang: lang === "hi" || lang === "gu" ? lang : "en",
+    };
   };
 
   // Beside every `route` (a page of the app, "/record/rec-…"), the `link` that opens it in DCRS, as the other /api/v1 answers give.
@@ -271,7 +283,8 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     const answer = await read(req, res, "today", {});
     if (!answer) return;
     if (answer.status === 200 && answer.body && typeof answer.body === "object") {
-      const hours = await deps.hoursAnswer().catch(() => null);
+      // Worded for the caller: the staff's hours, and for the super admin that they do not hold him (§84 addendum).
+      const hours = await deps.hoursAnswer(callerOf(res).user).catch(() => null);
       send(req, res, { status: 200, body: { ...(answer.body as Record<string, unknown>), ...(hours ? { workingHours: hours } : {}) } });
       return;
     }
@@ -365,8 +378,7 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
   // server hands the sheet to nobody else (backend/index.ts HR_ONLY_KEYS).
   app.get("/api/v1/people", signedIn, async (req: Request, res: Response): Promise<void> => {
     const { user } = callerOf(res);
-    const departments = departmentsOf(user);
-    if (departments && !departments.includes("HR")) return fail(res, 403, "not-your-department", "HR Master Data is kept by Human Resources, and this account is not kept to it.");
+    if (!(await deps.holdsHrMaster(user))) return fail(res, 403, "not-your-department", "HR Master Data is kept by Human Resources, and this account does not see Human Resources. Ask the super admin for access.");
     const q = queryText(req.query.q, 100);
     if (!q || !q.trim()) return fail(res, 400, "bad-request", "q is needed: a name or a GP3 No.");
     const answer = await read(req, res, "people", { q });
@@ -457,12 +469,14 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     await change(req, res, "change", { id: idOf(req), patch, note: typeof body.note === "string" ? body.note : "" });
   });
 
-  // record_action: submit, verify (approve), send_back, resume, reopen, cancel_correction, delete.
+  // record_action: submit, verify (approve), send_back, resume, reopen, cancel_correction, delete. A record the
+  // assistant prepared is submitted only with reviewed: true, once the person ticked "Reviewed and correct" (§97).
   app.post("/api/v1/records/:id/actions", signedIn, async (req: Request, res: Response): Promise<void> => {
-    const body = (req.body ?? {}) as { action?: unknown; reason?: unknown };
+    const body = (req.body ?? {}) as { action?: unknown; reason?: unknown; reviewed?: unknown };
     if (typeof body.action !== "string" || !body.action.trim() || body.action.length > 40) return fail(res, 400, "bad-action", "action is needed: submit, verify, send_back, resume, reopen, cancel_correction or delete.");
     if (body.reason !== undefined && body.reason !== null && (typeof body.reason !== "string" || body.reason.length > MAX_REASON)) return fail(res, 400, "bad-request", `reason must be text of at most ${MAX_REASON} characters.`);
-    await change(req, res, "action", { id: idOf(req), action: body.action, reason: typeof body.reason === "string" ? body.reason : "" });
+    if (body.reviewed !== undefined && typeof body.reviewed !== "boolean") return fail(res, 400, "bad-request", "reviewed must be true or false.");
+    await change(req, res, "action", { id: idOf(req), action: body.action, reason: typeof body.reason === "string" ? body.reason : "", reviewed: body.reviewed === true });
   });
 
   // add_photo_to_open_record: a picture onto the record's photo or scan list.

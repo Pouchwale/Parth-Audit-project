@@ -103,8 +103,9 @@ function runBackend(chosen: string[]): number {
     {
       cwd: root,
       stdio: "inherit",
-      // No OCR engine and no model in a unit test — the tests stand in for both.
-      env: { ...process.env, MITRA_OCR: process.env.MITRA_OCR ?? "0" },
+      // No OCR engine and no model in a unit test — the tests stand in for both. Sample data may go into a
+      // Live record here, as on any test server (REQUIREMENTS §98): the engine host's tests fill with it.
+      env: { ...process.env, MITRA_OCR: process.env.MITRA_OCR ?? "0", ALLOW_SAMPLE_FILL: process.env.ALLOW_SAMPLE_FILL ?? "1" },
     }
   );
   if (result.error) {

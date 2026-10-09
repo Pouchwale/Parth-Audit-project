@@ -13,7 +13,9 @@ import {
   type AccessPerson,
   type AccessSessionEnd,
 } from "../api/accessApi";
-import type { PublicHours } from "../engine/workingHoursCore";
+import { hoursWordsIn, superAdminHoursLine, type PublicHours } from "../engine/workingHoursCore";
+import { hoursWord } from "../i18n/strings.hours";
+import { useAppStore } from "../store/AppStore";
 import { useAuth } from "../store/AuthContext";
 import { Link } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -23,6 +25,9 @@ import { downloadBlob } from "../utils/csv";
 import { formatDisplayDate } from "../utils/date";
 import { useProgressiveCount } from "../utils/useProgressive";
 import type { DocumentDefinition } from "../types";
+import { accessDocOf, accessRulesNow, currentAccess } from "../engine/departmentScope";
+import { describedEmails } from "../engine/accessEditing";
+import { ACCESS_MODULES, LEVEL_WORDS, buildAccess, type Access, type AccessLevel } from "../engine/accessRules";
 
 // USER ACCESS — /access, the super admin's own (REQUIREMENTS §84).
 //
@@ -43,6 +48,12 @@ import type { DocumentDefinition } from "../types";
 //   * the refused and failed sign-ins of today;
 //   * each person's sign-ins and sign-outs over any span of days, paired into
 //     sessions, the archived lines included, with a CSV file.
+//
+// THE ACCESS LEVELS (REQUIREMENTS §96, 9-Oct-2026). What a person the access rules
+// describe (the owner's twelve, or anyone the super admin has set a level for) may see
+// and do is their level per module and per document, set on Users & Access; their line
+// here shows those levels, and the documents they see by them. The switches stay for an
+// account nobody has described, which still keeps its departments.
 //
 // THE SCREEN IS NEVER THE LOCK: every route behind it answers 403 to anybody
 // but the super admin (backend/accessRoutes.ts, backend/index.ts requireAdmin).
@@ -146,8 +157,40 @@ function buildCatalogue(): Catalogue {
   return { byModule, unassigned, total: docs.length };
 }
 
-/** How many documents a person can see: every one, or their modules' and the ones no module owns. */
-function documentsSeen(p: Pick<AccessPerson, "role" | "departments">, cat: Catalogue): number {
+/** The access rules over the catalogue, and who they describe (REQUIREMENTS §96), worked out once per page. */
+interface Levels {
+  access: Access;
+  described: Set<string>;
+}
+
+function buildLevels(): Levels {
+  const docs = documentRepository.getAllUnscoped().map(accessDocOf);
+  const rules = accessRulesNow();
+  const access = currentAccess() ?? buildAccess(docs, rules);
+  return { access, described: describedEmails(rules, docs, access) };
+}
+
+/** A person's level in each module by the access rules, or null for an account nobody has described (it keeps its departments). */
+function levelsOf(p: Pick<AccessPerson, "email" | "role" | "departments">, lv: Levels): Record<string, AccessLevel> | null {
+  if (p.role === "admin" || !lv.described.has(p.email.toLowerCase())) return null;
+  const top = new Map(lv.access.modules({ email: p.email, role: p.role, departments: p.departments }).map((m) => [m.module, m.level] as const));
+  return Object.fromEntries(ACCESS_MODULES.map((m) => [m, top.get(m) ?? "none"]));
+}
+
+/** The documents a described person sees (Read or more), or null for the department rule. */
+function documentsByLevel(p: Pick<AccessPerson, "email" | "role" | "departments">, lv: Levels, cat: Catalogue): DocumentDefinition[] | null {
+  if (!levelsOf(p, lv)) return null;
+  const account = { email: p.email, role: p.role, departments: p.departments };
+  const out: DocumentDefinition[] = [];
+  for (const list of cat.byModule.values()) for (const d of list) if (lv.access.level(account, d.id) !== "none") out.push(d);
+  for (const d of cat.unassigned) if (lv.access.level(account, d.id) !== "none") out.push(d);
+  return out;
+}
+
+/** How many documents a person can see: by their levels; or every one, or their modules' and the ones no module owns. */
+function documentsSeen(p: Pick<AccessPerson, "email" | "role" | "departments">, cat: Catalogue, lv?: Levels): number {
+  const byLevel = lv ? documentsByLevel(p, lv, cat) : null;
+  if (byLevel) return byLevel.length;
   if (everyModule(p)) return cat.total;
   let n = cat.unassigned.length;
   for (const code of p.departments) n += cat.byModule.get(code)?.length ?? 0;
@@ -185,6 +228,7 @@ function AccessDashboard({ myId }: { myId: string }) {
   const [historyPerson, setHistoryPerson] = useState<{ id: string; at: number } | null>(null);
 
   const catalogue = useMemo(buildCatalogue, []);
+  const levels = useMemo(buildLevels, []);
 
   const load = useCallback((first = false) => {
     const mine = ++reading.current;
@@ -217,7 +261,7 @@ function AccessDashboard({ myId }: { myId: string }) {
     for (const p of people) {
       if (p.active) active += 1;
       if (p.now === "signed-in") now += 1;
-      if (p.today.signIns > 0) today += 1;
+      if (p.today.signIns > 0 || p.today.carriedSignIn) today += 1;
     }
     return { active, now, today, attempts: overview?.attempts.length ?? 0 };
   }, [people, overview]);
@@ -334,12 +378,14 @@ function AccessDashboard({ myId }: { myId: string }) {
             <strong>“Signed in now”</strong> means: signed in today ({formatDisplayDate(overview.today)}), not signed out since, and something in the activity log in their
             name in the last {overview.activeMinutes} minutes — the log is written when a person opens a document or a record, saves, submits, prints or downloads. The
             server keeps no other record of a browser's requests, so somebody reading one page for longer, and somebody who closed the browser without signing out, both
-            show as “signed in, quiet”. Times are the factory's clock.
+            show as “signed in, quiet”. The super admin's sign-in in a day's last ten minutes runs to the midnight after, so after midnight he is still signed in in
+            it. Times are the factory's clock.
           </p>
 
           <TodayTable people={people} clock={clock} onOpen={setOpened} />
 
           <ModulesTable
+            levels={levels}
             people={people}
             catalogue={catalogue}
             saving={saving}
@@ -425,7 +471,7 @@ function AccessDashboard({ myId }: { myId: string }) {
         </Modal>
       )}
 
-      {opened && <PersonDocuments person={people.find((p) => p.id === opened.id) ?? opened} catalogue={catalogue} onClose={() => setOpened(null)} onHistory={showHistoryOf} />}
+      {opened && <PersonDocuments person={people.find((p) => p.id === opened.id) ?? opened} catalogue={catalogue} levels={levels} onClose={() => setOpened(null)} onHistory={showHistoryOf} />}
     </div>
   );
 }
@@ -440,24 +486,33 @@ function Figure({ field, value, label }: { field: string; value: number; label: 
 }
 
 /**
- * THE PLANT'S HOURS AND TODAY'S CALENDAR STATE (REQUIREMENTS §84 C1), as the
+ * THE STAFF'S HOURS AND TODAY'S CALENDAR STATE (REQUIREMENTS §84 C1), as the
  * server's own gate reads them from the master data (backend/workingHours.ts,
  * on the one rule the server and the browser share, engine/workingHoursCore.ts)
- * — the very answer that lets people in or keeps them out. Nothing is shown
+ * — the very answer that lets staff in or keeps them out. Nothing is shown
  * when the server could not read them, rather than a guess.
+ *
+ * Said to the super admin, the one person they never hold (§84 addendum,
+ * 6-Oct-2026): the staff's hours and where today stands for them, then his own
+ * line — "You are the super admin: these are the staff's hours, and you can
+ * keep working at any time." — never that DCRS is closed or opens later. In
+ * the app's own Gujarati where it shows, from the same parts.
  */
 function WorkingHoursStrip({ hours }: { hours: PublicHours | null }) {
+  const { uiLang } = useAppStore();
   if (!hours) return null;
+  const words = hoursWordsIn(hours, uiLang);
   return (
     <div className="card mb-3" data-section="access-hours" data-phase={hours.phase} data-enforced={hours.enforced ? "yes" : "no"} data-day-kind={hours.today.kind}>
       <div className="card-pad text-sm flex items-start gap-2">
         <FiClock size={15} style={{ marginTop: 2, flexShrink: 0 }} />
         <div>
-          <strong data-field="hours-text">{hours.hoursText}</strong> <span data-field="today-text">{hours.todayText}</span>
-          <div className="text-xs text-muted mt-1">
-            {hours.enforced
-              ? "Outside them nobody but the super admin can sign in or use DCRS, and every session but the super admin's ends at the close of the working day. The hours and the holidays are set in Master Data."
-              : "This server holds nobody to the hours: it was started with DCRS_WORKING_HOURS=off, as the test servers are. The hours and the holidays are set in Master Data."}
+          <strong data-field="hours-text">{words.hoursText}</strong> <span data-field="today-text">{words.todayText}</span>
+          <div className="mt-1" data-field="hours-for-you" style={{ fontWeight: 600 }}>
+            {superAdminHoursLine(uiLang)}
+          </div>
+          <div className="text-xs text-muted mt-1" data-field="hours-rule">
+            {hours.enforced ? hoursWord(uiLang, "hours.access.held", { zone: hours.timeZone }) : hoursWord(uiLang, "hours.access.notHeld")}
           </div>
         </div>
       </div>
@@ -510,8 +565,17 @@ const TodayRow = React.memo(function TodayRow({ p, clock, onOpen }: { p: AccessP
       <td data-field="now">
         <span className={NOW_BADGE[p.now]}>{p.now === "quiet" && p.quietMinutes !== null ? `Signed in, quiet for ${duration(p.quietMinutes)}` : NOW_WORDS[p.now]}</span>
       </td>
-      <td className="text-sm" data-field="first-sign-in" data-at={p.today.firstSignIn ?? ""}>
-        {p.today.firstSignIn ? clock(p.today.firstSignIn) : <span className="text-faint">—</span>}
+      <td className="text-sm" data-field="first-sign-in" data-at={p.today.firstSignIn ?? ""} data-carried={p.today.carriedSignIn ?? undefined}>
+        {p.today.firstSignIn ? (
+          clock(p.today.firstSignIn)
+        ) : p.today.carriedSignIn ? (
+          <>
+            {clock(p.today.carriedSignIn)}
+            <div className="text-xs text-muted">yesterday, in its last ten minutes: the session runs to tonight's midnight</div>
+          </>
+        ) : (
+          <span className="text-faint">—</span>
+        )}
       </td>
       <td className="text-sm" data-field="last-sign-out" data-at={p.today.lastSignOut ?? ""}>
         {p.today.lastSignOut ? (
@@ -545,6 +609,7 @@ const TodayRow = React.memo(function TodayRow({ p, clock, onOpen }: { p: AccessP
 });
 
 function ModulesTable({
+  levels,
   people,
   catalogue,
   saving,
@@ -553,6 +618,7 @@ function ModulesTable({
   onEvery,
   onOpen,
 }: {
+  levels: Levels;
   people: AccessPerson[];
   catalogue: Catalogue;
   saving: string | null;
@@ -569,8 +635,9 @@ function ModulesTable({
           <FiShield size={15} style={{ verticalAlign: -2 }} /> Who may use which module
         </h2>
         <p className="text-xs text-muted">
-          A switch per module of the plant's Master List of Formats (F/SYS/02), with the number of documents it holds. Switching one on gives the person that module at
-          once; switching one off asks first. A person with no module set has every module. {catalogue.unassigned.length} document
+          Each person's level in each module of the plant's Master List of Formats (F/SYS/02), with the number of documents it holds. The levels are set on{" "}
+          <Link to="/users">Users &amp; Access</Link> (Who may do what). An account nobody has described there yet keeps its modules as switches: switching one on
+          gives the person that module at once; switching one off asks first; with no module set it has every module. {catalogue.unassigned.length} document
           {catalogue.unassigned.length === 1 ? "" : "s"} belong to no module and are seen by everybody. Click a name for the documents that person can see.
         </p>
       </div>
@@ -595,7 +662,7 @@ function ModulesTable({
           </thead>
           <tbody>
             {people.slice(0, count).map((p) => (
-              <ModulesRow key={p.id} p={p} catalogue={catalogue} busy={saving === p.id} isMe={p.id === myId} onToggle={onToggle} onEvery={onEvery} onOpen={onOpen} />
+              <ModulesRow key={p.id} p={p} levels={levelsOf(p, levels)} seen={documentsSeen(p, catalogue, levels)} busy={saving === p.id} isMe={p.id === myId} onToggle={onToggle} onEvery={onEvery} onOpen={onOpen} />
             ))}
           </tbody>
         </table>
@@ -607,7 +674,8 @@ function ModulesTable({
 /** One person's line of switches — drawn again only when that person, or whether their change is being saved, changes. */
 const ModulesRow = React.memo(function ModulesRow({
   p,
-  catalogue,
+  levels,
+  seen,
   busy,
   isMe,
   onToggle,
@@ -615,7 +683,9 @@ const ModulesRow = React.memo(function ModulesRow({
   onOpen,
 }: {
   p: AccessPerson;
-  catalogue: Catalogue;
+  /** The person's level per module by the access rules; null for an account nobody has described (switches). */
+  levels: Record<string, AccessLevel> | null;
+  seen: number;
   busy: boolean;
   isMe: boolean;
   onToggle: (p: AccessPerson, code: string) => void;
@@ -624,19 +694,38 @@ const ModulesRow = React.memo(function ModulesRow({
 }) {
   const every = everyModule(p);
   const admin = p.role === "admin";
-  const seen = documentsSeen(p, catalogue);
+  const seenModules = levels ? ACCESS_MODULES.filter((m) => levels[m] !== "none") : null;
+  const modulesAttr = seenModules ? (seenModules.length === ACCESS_MODULES.length ? "every" : seenModules.join(",")) : every ? "every" : p.departments.join(",");
   return (
-    <tr data-user={p.email} data-modules={every ? "every" : p.departments.join(",")} data-active={p.active ? "yes" : "no"}>
+    <tr data-user={p.email} data-modules={modulesAttr} data-by={levels ? "levels" : "departments"} data-active={p.active ? "yes" : "no"}>
       <td className="notranslate" translate="no">
         <button className="link-button font-semibold" data-action="open-person" onClick={() => onOpen(p)}>
           {p.name}
         </button>
         <div className="text-xs text-muted">
           {admin ? "super admin" : "staff"}
-          {!p.active ? " · switched off" : p.mustChangePassword ? " · first password" : ""}
+          {!p.active ? " · switched off" : p.noPasswordYet ? " · no password yet" : p.mustChangePassword ? " · first password" : ""}
           {isMe ? " · you" : ""}
         </div>
       </td>
+      {levels ? (
+        <>
+          <td className="text-xs">
+            <Link to="/users" data-action="set-levels">
+              Set on Users &amp; Access
+            </Link>
+          </td>
+          {DEPARTMENTS.map((d) => {
+            const level = levels[d.code] ?? "none";
+            return (
+              <td key={d.code} style={{ textAlign: "center" }} className="text-xs" data-level-cell={d.code} data-level={level} title={`${p.name} in ${d.name}: ${LEVEL_WORDS[level].name}`}>
+                {level === "none" ? <span className="text-faint">—</span> : LEVEL_WORDS[level].name}
+              </td>
+            );
+          })}
+        </>
+      ) : (
+      <>
       <td>
         <Switch
           on={every}
@@ -674,6 +763,8 @@ const ModulesRow = React.memo(function ModulesRow({
           </td>
         );
       })}
+      </>
+      )}
       <td className="text-sm" data-field="documents-seen" data-count={seen}>
         <button className="link-button" data-action="open-person-documents" onClick={() => onOpen(p)}>
           {seen} document{seen === 1 ? "" : "s"}
@@ -1004,18 +1095,37 @@ function HistoryLine({ row, clock }: { row: AccessHistoryRow; clock: (iso: strin
 function PersonDocuments({
   person,
   catalogue,
+  levels,
   onClose,
   onHistory,
 }: {
   person: AccessPerson;
   catalogue: Catalogue;
+  levels: Levels;
   onClose: () => void;
   onHistory: (id: string) => void;
 }) {
   const every = everyModule(person);
+  const byLevel = useMemo(() => documentsByLevel(person, levels, catalogue), [person, levels, catalogue]);
   // One flat list of headings and documents, so a long one is drawn a batch at a time.
   const lines = useMemo(() => {
     const out: ({ heading: string; code: string; n: number } | { doc: DocumentDefinition })[] = [];
+    if (byLevel) {
+      // By the access levels (REQUIREMENTS §96): the documents seen at Read or more, by module.
+      const seenIds = new Set(byLevel.map((d) => d.id));
+      for (const code of DEPARTMENTS.map((d) => d.code)) {
+        const docs = (catalogue.byModule.get(code) ?? []).filter((d) => seenIds.has(d.id));
+        if (docs.length === 0) continue;
+        out.push({ heading: moduleName(code), code, n: docs.length });
+        for (const doc of docs) out.push({ doc });
+      }
+      const loose = catalogue.unassigned.filter((d) => seenIds.has(d.id));
+      if (loose.length) {
+        out.push({ heading: "Belonging to no module", code: "", n: loose.length });
+        for (const doc of loose) out.push({ doc });
+      }
+      return out;
+    }
     const codes = every ? DEPARTMENTS.map((d) => d.code) : DEPARTMENTS.map((d) => d.code).filter((c) => person.departments.includes(c));
     for (const code of codes) {
       const docs = catalogue.byModule.get(code) ?? [];
@@ -1027,9 +1137,9 @@ function PersonDocuments({
       for (const doc of catalogue.unassigned) out.push({ doc });
     }
     return out;
-  }, [every, person.departments, catalogue]);
+  }, [every, person.departments, catalogue, byLevel]);
   const shownCount = useProgressiveCount(lines.length, 60, 80);
-  const seen = documentsSeen(person, catalogue);
+  const seen = documentsSeen(person, catalogue, levels);
 
   return (
     <Modal
@@ -1053,7 +1163,7 @@ function PersonDocuments({
           {!person.active ? " · switched off" : ""}
         </p>
         <p className="text-sm mb-3">
-          <strong>{modulesInWords(person)}</strong> — sees {seen} document{seen === 1 ? "" : "s"}.
+          <strong>{byLevel ? "By the levels set on Users & Access" : modulesInWords(person)}</strong> — sees {seen} document{seen === 1 ? "" : "s"}.
         </p>
         <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
           {lines.slice(0, shownCount).map((l, n) =>

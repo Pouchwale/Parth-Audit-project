@@ -1,16 +1,22 @@
 import React, { useEffect } from "react";
 import { useAuth } from "../../store/AuthContext";
 
-// THE PLANT'S HOURS ON THE SIGN-IN PAGE (REQUIREMENTS §84): "DCRS is open 8:40 am
-// to 6:20 pm on working days." and where today stands — open until the close,
-// not open yet, over for the day, or a closed day with the next opening — in
-// the words the server itself worked out (engine/workingHoursCore.ts), from the
-// public answer GET /api/auth/config gives before anybody signs in. Shown only
-// where the server holds the plant to its hours: a test server started with
-// DCRS_WORKING_HOURS=off says nothing here, as before.
+// THE STAFF'S WORKING HOURS ON THE SIGN-IN PAGE (REQUIREMENTS §84, and its
+// addendum of 6-Oct-2026). Before anybody signs in nobody knows who is signing
+// in, so the page's MAIN words say whose hours these are and who they do not
+// hold: "Staff working hours: 8:40 am to 6:20 pm on working days. The super
+// admin can sign in at any time." — then where today stands for the staff
+// ("Today's staff hours ended at 6:20 pm; they start again on Wednesday
+// 7 October at 8:40 am."), never "DCRS is open" or "it opens again", as if DCRS
+// itself closed: the owner can sign in at any hour. The words are the server's
+// own (engine/workingHoursCore.ts publicHours), from the public answer GET
+// /api/auth/config gives before anybody signs in. Shown only where the server
+// holds staff to the hours: a test server started with DCRS_WORKING_HOURS=off
+// says nothing here, as before. The sign-in page is in English, as a rule.
 //
-// While the page stays open it asks again once a minute, so "not open yet"
-// becomes "open now" at 8:40 without a reload.
+// While the page stays open it asks again once a minute, so "Staff hours start
+// today at 8:40 am" becomes "staff hours run until 6:20 pm" at 8:40 without a
+// reload.
 const REFRESH_MS = 60 * 1000;
 
 export function WorkingHoursNote() {
@@ -51,7 +57,7 @@ export function WorkingHoursNote() {
       </div>
       <div data-field="today-text">{hours.todayText}</div>
       <div data-field="hours-who" style={{ color: "var(--color-text-muted)", fontSize: 11.5, marginTop: 4 }}>
-        {ownZone && ownZone !== hours.timeZone ? `Times are the factory's (${hours.timeZone}). ` : ""}Each session ends at the close of the day, so sign in each morning. The super admin may sign in at any time.
+        {ownZone && ownZone !== hours.timeZone ? `Times are the factory's (${hours.timeZone}). ` : ""}Each session ends at the close of the day, so sign in each day.
       </div>
     </div>
   );

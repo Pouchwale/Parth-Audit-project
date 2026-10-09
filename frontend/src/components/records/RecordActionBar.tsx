@@ -3,6 +3,10 @@ import { FiSave, FiSend, FiCheckCircle, FiXCircle, FiPrinter, FiRotateCcw, FiTra
 import type { RecordStatus } from "../../types";
 import { Modal } from "../common/Modal";
 import { useT } from "../../i18n";
+import { useAppStore } from "../../store/AppStore";
+import { mayDo } from "../../engine/departmentScope";
+import { refusalFor } from "../../engine/accessRefusal";
+import type { DocumentAction } from "../../engine/accessRules";
 
 export type SaveState = "saved" | "saving" | "unsaved";
 
@@ -27,7 +31,14 @@ export function RecordActionBar({
   onPrint,
   download,
   onDelete,
+  documentId,
 }: {
+  /**
+   * The record's document: the buttons follow the signed-in person's level on it (REQUIREMENTS §96). Save, Submit,
+   * Resume, Verify and Reject need Write; Correct and Delete need Edit. A step the level does not allow is not drawn,
+   * and the reason is said under the bar. Left out: every button, as before.
+   */
+  documentId?: string;
   status: RecordStatus;
   dirty: boolean;
   isDemo: boolean;
@@ -82,11 +93,32 @@ export function RecordActionBar({
   // ones that can only be reopened by a deliberate correction.
   const correctableStatuses: RecordStatus[] = ["Submitted", "Pending Verification", "Verified"];
 
-  const editable = editableStatuses.includes(status);
+  // WHAT THIS PERSON MAY DO HERE (REQUIREMENTS §96), and the words for the main step their level stops.
+  const { uiLang } = useAppStore();
+  const can = (action: DocumentAction): boolean => !documentId || mayDo(documentId, action);
+  const mayFill = can("fill");
+  const mayVerify = can("verify");
+  const mayCorrect = can("correct");
+  const mayDelete = can("delete");
+  const stopped: DocumentAction | null = !documentId
+    ? null
+    : (editableStatuses.includes(status) || status === "Rejected") && !mayFill
+      ? "fill"
+      : verifiableStatuses.includes(status) && !mayVerify
+        ? "verify"
+        : onCorrect && correctableStatuses.includes(status) && !mayCorrect
+          ? "correct"
+          : onDelete && !mayDelete && !editableStatuses.includes(status)
+            ? "delete"
+            : null;
+  const accessReason = stopped ? refusalFor(documentId, stopped, uiLang) : null;
+
+  const editable = editableStatuses.includes(status) && mayFill;
 
   return (
+    <>
     <div className="flex items-center justify-end gap-2 wrap no-print" style={{ marginTop: 16 }}>
-      {onDelete && (
+      {onDelete && mayDelete && (
         <button className="btn btn-danger btn-sm" onClick={() => setConfirmingDelete(true)} style={{ marginRight: "auto" }}>
           <FiTrash2 size={13} /> {t("common.delete")}
         </button>
@@ -97,7 +129,7 @@ export function RecordActionBar({
       </button>
 
       {/* Pressed Edit and there was nothing to put right: back as it was. */}
-      {onCancelCorrection && (
+      {onCancelCorrection && mayFill && (
         <button
           className="btn btn-secondary"
           data-action="cancel-correction"
@@ -137,19 +169,19 @@ export function RecordActionBar({
         </>
       )}
 
-      {status === "Rejected" && (
+      {status === "Rejected" && mayFill && (
         <button className="btn btn-primary" data-action="resume" onClick={onResume}>
           <FiRotateCcw size={14} /> {t("common.resumeEditing")}
         </button>
       )}
 
-      {onCorrect && correctableStatuses.includes(status) && (
+      {onCorrect && correctableStatuses.includes(status) && mayCorrect && (
         <button className="btn btn-secondary" data-action="correct" onClick={() => setCorrecting(true)}>
           <FiEdit3 size={14} /> {t("record.correct")}
         </button>
       )}
 
-      {verifiableStatuses.includes(status) && (
+      {verifiableStatuses.includes(status) && mayVerify && (
         <>
           <button className="btn btn-danger" data-action="reject" onClick={() => setRejecting(true)}>
             <FiXCircle size={14} /> {t("common.reject")}
@@ -312,5 +344,11 @@ export function RecordActionBar({
         </Modal>
       )}
     </div>
+    {accessReason && (
+      <p className="text-sm text-muted no-print" data-section="access-reason" data-needs={stopped ?? ""} style={{ textAlign: "right", marginTop: 8 }}>
+        {accessReason}
+      </p>
+    )}
+    </>
   );
 }

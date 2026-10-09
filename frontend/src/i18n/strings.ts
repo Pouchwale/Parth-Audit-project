@@ -29,6 +29,8 @@ import { ROUNDTRIP_STRINGS } from "./strings.roundtrip";
 import { VOICE_STRINGS } from "./strings.voice";
 import { MOTIVATION_STRINGS } from "./strings.motivation";
 import { INTRO_STRINGS } from "./strings.intro";
+import { SCORE_STRINGS } from "./strings.score";
+import { NOTIFICATION_STRINGS } from "./strings.notifications";
 
 export type Language = "en" | "gu";
 
@@ -282,6 +284,7 @@ const en = {
   "nav.purApprovedSuppliers": "List of Approved Suppliers",
   "nav.purRmPmPerformance": "RM & PM Supplier Performance",
   "nav.purServiceProvider": "Service Provider Performance",
+  "nav.purServiceAgreement": "Pest Control Service Agreement",
   "nav.purchaseDocs": "Purchase Documents",
   // Dispatch (REQUIREMENTS §70).
   "nav.dispatchDocs": "Dispatch Documents",
@@ -634,11 +637,11 @@ const en = {
   "ai.guide.whichShelf": "Which shelf shall I open?",
   "ai.format.is": "{formatNo} is {what}. What would you like to do with it?",
   "ai.format.opening": "Opening {formatNo} — {name}.",
-  "ai.format.notYours": "{formatNo} belongs to {department}, which isn't one of your departments — the system administrator can add it to your account if you need it.",
+  "ai.format.notYours": "{formatNo} belongs to {department}, which you do not see. Ask the super admin for access if you need it.",
   "ai.format.unknown": "There's no {formatNo} in this system yet. Every format it holds is in the Document Library.",
   "ai.format.several": "Here's what those format numbers are:",
   "ai.format.whichOne": "{formatNo} is printed on more than one form — which one do you mean?",
-  "ai.format.otherDepartment": "{department}'s, not one of your departments",
+  "ai.format.otherDepartment": "{department}'s, which you do not see",
   "ai.format.notHere": "not in this system yet",
   "ai.format.open": "Open it",
   "ai.format.startNew": "Start a new one",
@@ -751,6 +754,9 @@ const en = {
   "ai.step.leftAsWas": "Left as it was",
   "ai.step.filled": "Filled {n} boxes on {title}",
   "ai.step.sampleFilled": "Filled {title} with sample data",
+  // REQUIREMENTS §98: sample data never goes into a live record in the plant.
+  "ai.sample.liveDeclined": "Sample data is for practice in Demo Mode. In a live record, enter what you saw.",
+  "ai.step.sampleDeclined": "Sample data is for Demo Mode",
   "ai.step.guidedStarted": "Started the question-by-question fill",
   "ai.step.submitted": "Submitted",
   "ai.step.verified": "Verified",
@@ -835,8 +841,11 @@ const en = {
   "brief.morning": "Good morning",
   "brief.afternoon": "Good afternoon",
   "brief.evening": "Good evening",
-  "brief.ready": "{n} filled in and ready for your OK",
+  "brief.ready": "{n} prepared and ready for your OK",
   "brief.needsInput": "{n} need a detail only you know",
+  // What a prepared record still waits for (REQUIREMENTS §98): the assistant wrote only the known parts.
+  "brief.toEnter": "{n} readings to enter, then submit.",
+  "brief.toEnterOne": "1 reading to enter, then submit.",
   "brief.overdue": "{n} still open from earlier",
   "brief.awaiting": "{n} waiting for verification",
   "brief.allClear": "Everything is up to date — nothing is waiting on you right now.",
@@ -856,6 +865,8 @@ const en = {
   ...VOICE_STRINGS.en,
   ...MOTIVATION_STRINGS.en,
   ...INTRO_STRINGS.en,
+  ...SCORE_STRINGS.en,
+  ...NOTIFICATION_STRINGS.en,
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -1090,6 +1101,7 @@ const gu: Record<StringKey, string> = {
   "nav.purApprovedSuppliers": "મંજૂર સપ્લાયરની યાદી",
   "nav.purRmPmPerformance": "RM અને PM સપ્લાયર કામગીરી",
   "nav.purServiceProvider": "સેવા પ્રદાતા કામગીરી",
+  "nav.purServiceAgreement": "પેસ્ટ કંટ્રોલ સેવા કરાર",
   "nav.purchaseDocs": "ખરીદી દસ્તાવેજો",
   "nav.dispatchDocs": "ડિસ્પેચ દસ્તાવેજો",
   "nav.dispTransporterAgreement": "ટ્રાન્સપોર્ટર કરાર",
@@ -1426,11 +1438,11 @@ const gu: Record<StringKey, string> = {
   "ai.guide.whichShelf": "કયો વિભાગ ખોલું?",
   "ai.format.is": "{formatNo} એટલે {what}. તેનું શું કરવું છે?",
   "ai.format.opening": "{formatNo} ખોલી રહ્યો છું — {name}.",
-  "ai.format.notYours": "{formatNo} {department} નો છે, જે તમારા વિભાગોમાં નથી — જરૂર હોય તો સિસ્ટમ એડમિનિસ્ટ્રેટર તેને તમારા ખાતામાં ઉમેરી શકે.",
+  "ai.format.notYours": "{formatNo} {department} નો છે, જે તમે જોઈ શકતા નથી. જરૂર હોય તો સુપર એડમિન પાસે ઍક્સેસ માગો.",
   "ai.format.unknown": "{formatNo} હજી આ સિસ્ટમમાં નથી. સિસ્ટમના બધા ફોર્મેટ દસ્તાવેજ લાઇબ્રેરીમાં છે.",
   "ai.format.several": "આ ફોર્મેટ નંબરો આ છે:",
   "ai.format.whichOne": "{formatNo} એક કરતાં વધુ ફોર્મ પર છપાયેલ છે — તમે કયું ફોર્મ કહો છો?",
-  "ai.format.otherDepartment": "{department} નો, તમારા વિભાગોમાંનો નહીં",
+  "ai.format.otherDepartment": "{department} નો, જે તમે જોઈ શકતા નથી",
   "ai.format.notHere": "હજી આ સિસ્ટમમાં નથી",
   "ai.format.open": "ખોલો",
   "ai.format.startNew": "નવો શરૂ કરો",
@@ -1541,6 +1553,8 @@ const gu: Record<StringKey, string> = {
   "ai.step.leftAsWas": "જેમ હતું તેમ રહેવા દીધું",
   "ai.step.filled": "{title} પર {n} ખાના ભર્યા",
   "ai.step.sampleFilled": "{title} નમૂના ડેટાથી ભર્યું",
+  "ai.sample.liveDeclined": "નમૂના ડેટા ફક્ત ડેમો મોડમાં પ્રેક્ટિસ માટે છે. લાઇવ રેકોર્ડમાં, તમે જે જોયું તે ભરો.",
+  "ai.step.sampleDeclined": "નમૂના ડેટા ફક્ત ડેમો મોડ માટે છે",
   "ai.step.guidedStarted": "પ્રશ્ન પૂછીને ભરવાનું શરૂ કર્યું",
   "ai.step.submitted": "સબમિટ કર્યું",
   "ai.step.verified": "ચકાસ્યું",
@@ -1625,8 +1639,10 @@ const gu: Record<StringKey, string> = {
   "brief.morning": "સુપ્રભાત",
   "brief.afternoon": "નમસ્કાર",
   "brief.evening": "શુભ સાંજ",
-  "brief.ready": "{n} ભરાઈ ગયા છે અને તમારી મંજૂરીની રાહ જુએ છે",
+  "brief.ready": "{n} તૈયાર છે અને તમારી મંજૂરીની રાહ જુએ છે",
   "brief.needsInput": "{n} માટે એવી વિગત જોઈએ જે ફક્ત તમે જાણો છો",
+  "brief.toEnter": "{n} રીડિંગ ભરો, પછી સબમિટ કરો.",
+  "brief.toEnterOne": "1 રીડિંગ ભરો, પછી સબમિટ કરો.",
   "brief.overdue": "{n} અગાઉથી બાકી છે",
   "brief.awaiting": "{n} ચકાસણીની રાહ જુએ છે",
   "brief.allClear": "બધું અદ્યતન છે — હાલ તમારા પર કંઈ બાકી નથી.",
@@ -1645,6 +1661,8 @@ const gu: Record<StringKey, string> = {
   ...VOICE_STRINGS.gu,
   ...MOTIVATION_STRINGS.gu,
   ...INTRO_STRINGS.gu,
+  ...SCORE_STRINGS.gu,
+  ...NOTIFICATION_STRINGS.gu,
 };
 
 export const STRINGS: Record<Language, Record<StringKey, string>> = { en, gu };

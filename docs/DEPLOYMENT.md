@@ -105,7 +105,13 @@ Tables:
 | `job_runs` | one row per scheduled run a server claimed: `job`, `period` (a day or an ISO week), `claimed_at`, `finished_at`, `outcome`; the primary key (job, period) is the claim. A failed or abandoned run is kept under "`<period>` failed/abandoned `<when>`" and the period freed for a retry. A hand run (`POST /api/jobs/run`) for the plant's today claims its period, with the outcome "by hand (`<name>`): …"; a run whose outcome could not be written is written a minute later, not failed |
 | `escalations` | the super admin's escalations: `kind` (person/department), `subject_key` (account id or `dept:HR`), `subject_name`, `department`, `period` (ISO week), `late`, `never_done`, `evidence` (window, rule, worst documents, up to 10 records), `acknowledged_by`/`_at`, `record_ids` (every record behind the day's figures) and `seen_ids` (those behind it when it was acknowledged — it opens again only for a record not among them); one per subject per week |
 | `weekly_digests` | `period` (ISO week), `created_at`, `body` — the weekly digest shown on the Performance page |
+| `notifications` | each person's notifications (REQUIREMENTS §97): `user_id`, `kind`, `key` (unique per person: `ready\|<record>`, `due\|<document>\|<date>` …), `priority`, `data` (the facts, JSON: never a sentence, never a reading; worded on every read in the language asked), `created_at`, `updated_at`, `read_at`, `resolved_at`, `pushed_at`, `push_attempts`. Written by the notify job (upsert by person and key; an item the plan no longer has is resolved); deleted 60 days after it is resolved |
+| `push_devices` | one row per phone registered for pushes (`POST /api/v1/devices`): `token` (the Expo push token, the key), `user_id`, `platform`, `language`, `app_version`, `device_name`, `created_at`, `last_seen_at`. A token Expo says is no longer registered is deleted |
+| `notification_prefs` | one row per person: `kinds` (JSON, the kinds switched off for pushing) and `reminders` (the phone's own reminders) |
+| `push_tickets` | the tickets Expo's push service answered with (`id`, `token`, `created_at`), until their receipts are read about 15 minutes later; deleted after a day |
 | `app_storage` | the app's data, one row per stored item: `scope` (`company`, or a user's id), `key` (`records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `live-start` for the company; `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible` for a person — no other keys are accepted), `value` (the item as JSON text), `version`, `seq`, `updated_at`, `updated_by` |
+
+The four notification tables are DCRS's own: no role of the Audit Assistant is granted them (REQUIREMENTS §83; the shared database's scripts grant nothing in `public`).
 
 **Where the database is.**
 
@@ -240,9 +246,14 @@ just shows a clear "isn't configured yet" message instead of failing silently.
 | `JWT_SECRET` | auto-generated, saved to `backend/data/jwt-secret.txt` | `backend/auth.ts` | Session-signing key |
 | `FORCE_HTTPS` | unset (`off`) | `backend/index.ts` | Set to `1` to mark the session cookie `Secure` (only do this if actually served over HTTPS, e.g. behind a reverse proxy) |
 | `PLANT_TIMEZONE` | `Asia/Kolkata` | `backend/db.ts` | The plant's own clock for "today", "this month" and a person's active days in the Activity Log, which PostgreSQL counts by casting a moment to a date in the connection's time zone. A hosted database usually runs in UTC, where everything done before 05:30 would count on the day before (REQUIREMENTS §75). Only a plain zone name is accepted. |
-| `JOBS` | on | `backend/jobs.ts` | The server's own schedule (REQUIREMENTS §75): the daily escalation to the super admin and the weekly digest, on the plant's clock (`PLANT_TIMEZONE`). Set to `0` to switch it off; `scripts/run-e2e.ts` does, because the suites run on the real clock. Each run is claimed in `job_runs`, so several servers on one database run it once. |
+| `JOBS` | on | `backend/jobs.ts` | The server's own schedule (REQUIREMENTS §75, §97): the daily escalation to the super admin, the weekly digest, the morning prepare and the notify job, on the plant's clock (`PLANT_TIMEZONE`). Set to `0` to switch them all off; `scripts/run-e2e.ts` does, because the suites run on the real clock. Each run of the first three is claimed in `job_runs`, so several servers on one database run it once; notify takes a lock instead (one server at a time). The super admin runs any of them at once with `POST /api/jobs/run`. |
 | `ESCALATION_AT` | `10:00` | `backend/jobs.ts` | Plant time of the daily escalation, working days only (the master data's weekly off and holidays). A server started later catches up the same day. |
 | `DIGEST_AT` | `09:00` | `backend/jobs.ts` | Plant time of the weekly digest on the first working day of each ISO week, covering the week before; a later working day of the same week catches it up. |
+| `PREPARE_AT` | `08:30` | `backend/notificationJobs.ts`, `backend/jobs.ts` | Plant time of the morning prepare (REQUIREMENTS §97) on each working day: the day's records made and prepared on the server (the known parts only, never a reading), whether or not anybody opens the website; a server started later does it at once. Also the first push slot of the day and the super admin's morning summary. |
+| `NOTIFY_EVERY_MS` | `300000` (5 minutes) | `backend/notificationJobs.ts`, `backend/jobs.ts` | How often the notify job runs, from `PREPARE_AT` to the close of the plant's hours on working days: each person's notifications brought up to date and pushed. At least 10 seconds; the jobs' clock looks once a minute. |
+| `PUSH_ENABLED` | on | `backend/push.ts` | Set to `0` to send no pushes to the phones (the notifications still reach the bell and the phone's inbox). With no phone registered nothing is sent anyway. |
+| `EXPO_ACCESS_TOKEN` | none | `backend/push.ts` | Only when "Enhanced Security for Push Notifications" is switched on for the Mitra project at expo.dev: an access token of the Expo account, sent with every push. Never written in a log. |
+| `PUSH_SERVICE_URL` | `https://exp.host/--/api/v2/push` | `backend/push.ts` | Where the pushes are sent. Leave it unset; a test points it at a stand-in of its own. |
 | `ESCALATION_EMAIL` | none (the active administrators) | `backend/escalation.ts` | Where escalations and the weekly digest are emailed, when `GMAIL_USER`/`GMAIL_APP_PASSWORD` are set: one address or several separated by commas. `.local` addresses are skipped — the seeded super admin's is one, so the app (bell, day's notification, Performance page) is the channel. |
 | `ACTIVITY_ARCHIVE_AFTER_YEARS` | `3` | `backend/activityArchive.ts` | How old (whole years, 1–10) a line of the Activity Log must be before the page OFFERS to archive it. Nothing is ever archived by itself: the super admin picks 1–10 years, sees how many lines and from when to when, and confirms (REQUIREMENTS §75). Three years is the plant's own: the Master List of Formats & Records (F/SYS/02) retains its records three years — 133 of its 141 formats are then shredded, the master lists maintained as updated (§76). |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | none (digest disabled) | `backend/email.ts` | The mailbox the daily reminder digest is sent from. Recipients are the employees Master Data assigns to each due record; the server accepts only single, well-formed addresses (at most 50 per digest), so the endpoint can't be used to relay mail. |
@@ -259,6 +270,46 @@ just shows a clear "isn't configured yet" message instead of failing silently.
 In `backend/.env`, one `KEY=value` per line. A value may be wrapped in `"…"` or `'…'`, and an
 unquoted value ends at a ` # comment` — so the commented layout README.md shows works as written.
 A real environment variable always wins over the file.
+
+## Push notifications (REQUIREMENTS §97)
+
+**What runs by itself.** On each working day DCRS prepares the day's records at `PREPARE_AT` (08:30) and then, every five
+minutes until the close of the plant's hours, works out what each person should be told and pushes it to their phones.
+Nothing needs to be switched on: `JOBS` and `PUSH_ENABLED` are on unless set to `0`. The super admin can run either job at
+once from the website: Notifications (the bell's "See all"), "The server's jobs", **Prepare today's records now** or
+**Send the notifications now**; the page says what was done. (Behind the buttons: `POST /api/jobs/run` with
+`{"job": "morning-prepare"}` or `{"job": "notify"}`, the super admin's alone.) The jobs' lines are in
+the activity log ("Records prepared by the assistant", in the system's name) and in the server's own output (`[jobs]`,
+`[push]`: counts only, never a phone's token).
+
+**What the phones need.** Pushes reach a phone that runs the Mitra app build 1.1.0 or later (not Expo Go: it cannot
+receive pushes on Android), whose person allowed notifications. Android phones need Google's Firebase Cloud Messaging,
+which is free. Until the steps below are done, Mitra still works on the phone: its inbox, its Tasks and its own daily
+reminders; only the alerts that arrive with the app closed wait. iPhones need a paid Apple developer account for those
+alerts, which the plant does not have: they get the inbox and the app's own reminders.
+
+**The owner's steps, once (about 15 minutes, in a browser):**
+1. Open https://console.firebase.google.com and sign in with the company's Google account. Choose **Create a project**,
+   name it **Mitra**, and leave Google Analytics off. It is free (the Spark plan).
+2. In the new project, choose **Add app**, then the **Android** icon. For **Android package name** type exactly
+   `com.pouchwale.mitra`; the nickname can be **Mitra**. Choose **Register app**, then **Download google-services.json**.
+   Send that file to the developer: it goes beside the phone app's code, and the next build of the app uses it. It is a
+   setting, not a password.
+3. Still in Firebase: the gear icon, **Project settings**, then the **Service accounts** tab, then **Generate new private
+   key**, and confirm. A file ending in `.json` downloads. **This one IS a key: do not email it, do not put it in a chat
+   or in the code.**
+4. Open https://expo.dev, sign in with the account that owns the Mitra project (`parth2005s-team`), open the project
+   **mitra**, then **Credentials** in the project's menu, then **Android**, then `com.pouchwale.mitra`. Under
+   **FCM V1 service account key** choose **Add a service account key** and upload the file from step 3. Then delete that
+   file from the computer's Downloads folder.
+5. Tell the developer it is done. The Android app 1.1.0 is built with the file from step 2 and installed on the phones.
+   On each phone: open Mitra, sign in, allow notifications when asked, then **Settings, Notifications, Send me a test
+   notification**. "Test notification" should appear within a few seconds, even with Mitra closed.
+
+**If a phone gets nothing.** In Mitra, Settings, Notifications says whether push is on for that phone and why not. "Send
+me a test notification" says in words what went wrong ("The push credentials are not set up yet" means step 4; "This
+phone is no longer registered" means open Mitra on it again). A phone that was reset or had Mitra removed is forgotten
+by DCRS by itself and registers again when Mitra is opened.
 
 ## A note on the build toolchain (why esbuild, not Vite)
 

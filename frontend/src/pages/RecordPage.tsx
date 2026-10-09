@@ -42,6 +42,7 @@ import { ServiceAgreementRecordView } from "../components/records/ServiceAgreeme
 import { PestResponsibilitiesRecordView } from "../components/records/PestResponsibilitiesRecordView";
 import { PreparedBanner } from "../components/records/PreparedBanner";
 import { RecordActionBar } from "../components/records/RecordActionBar";
+import { mayDo } from "../engine/departmentScope";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -98,8 +99,11 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     if (record && !record.isDemo) logActivity("Record opened", recordLabel(record), record.status, record.documentId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordId]);
-  const editable = !!record && isEditableStatus(record.status);
-  const countersign = !!record && doc?.kind === "service-report" && COUNTERSIGN_STATUSES.includes(record.status);
+  // WHAT THIS PERSON MAY DO WITH IT (REQUIREMENTS §96): below Write the sheet is read only and only Print and the
+  // downloads are offered; Edit is needed to correct a signed-off record or delete one (engine/departmentScope.ts).
+  const mayFill = !!record && mayDo(record.documentId, "fill");
+  const editable = !!record && isEditableStatus(record.status) && mayFill;
+  const countersign = !!record && mayFill && doc?.kind === "service-report" && COUNTERSIGN_STATUSES.includes(record.status);
   const canWrite = editable || countersign;
   // A page kept on a revision the format has since replaced (REQUIREMENTS §74):
   // read with its own revision's layout, and never reopened for correction —
@@ -339,7 +343,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
             }
             persistLocal(saveDraft(base, withComputedCells(doc?.id, next), currentUser, { action: action ?? "assistant-edit", note, labels: latest.current.labels }));
           },
-          reopen: isCorrectableStatus(record.status) && !superseded
+          reopen: isCorrectableStatus(record.status) && !superseded && mayDo(record.documentId, "correct")
             ? (reason) => {
                 const base = flush();
                 if (base) persistLocal(reopenForCorrection(base, currentUser, reason));
@@ -349,9 +353,12 @@ export function RecordPage({ recordId }: { recordId?: string }) {
           // typed or spoken (engine/assistantCommands.ts).
           title: `${doc.name} for ${formatDisplayDate(record.dueDate)}`,
           submit: editable ? () => actions.current.submit?.() ?? { ok: false, errors: ["This record can't be submitted."] } : undefined,
-          verify: VERIFIABLE_STATUSES.includes(record.status) ? () => actions.current.verify?.() ?? { ok: false, errors: ["This record can't be verified."] } : undefined,
+          verify:
+            VERIFIABLE_STATUSES.includes(record.status) && mayDo(record.documentId, "verify")
+              ? () => actions.current.verify?.() ?? { ok: false, errors: ["This record can't be verified."] }
+              : undefined,
           cancelCorrection: record.correction && canWrite ? () => actions.current.cancelCorrection?.() : undefined,
-          remove: (reason: string) => actions.current.remove?.(reason),
+          remove: mayDo(record.documentId, "delete") ? (reason: string) => actions.current.remove?.(reason) : undefined,
           print: () => printDocument(),
         }
       : null
@@ -519,7 +526,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
       {record.correction && <CorrectionBanner correction={record.correction} onCancel={canWrite ? handleCancelCorrection : undefined} />}
 
-      {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable && !superseded ? handleReprepare : undefined} />}
+      {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable && !superseded ? handleReprepare : undefined} mayWrite={mayFill} />}
 
       {record.status === "Rejected" && record.rejectionReason && (
         <div className="card mb-4" style={{ borderColor: "var(--color-danger)", background: "var(--color-danger-bg)" }}>
@@ -611,6 +618,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
       <RecordHistoryPanel record={record} />
 
       <RecordActionBar
+        documentId={record.documentId}
         status={record.status}
         dirty={dirty}
         isDemo={record.isDemo}

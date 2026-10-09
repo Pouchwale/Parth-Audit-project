@@ -16,11 +16,16 @@
 //
 // ONE REQUEST, ONE PERSON. The host hands `load` the stored company items
 // (records, documents, master, hrMasterData, referenceEdits, formatEdits,
-// deletions, live-start — only those that changed since last time) and the
-// person's departments. Exactly as the server hands a browser its working copy
-// (backend/index.ts GET /api/storage), a department's account is given only
-// its departments' records and deletions-log lines, and HR Master Data only
-// with Human Resources. Then the engine starts the way the app starts
+// deletions, live-start, access — only those that changed since last time) and
+// the person: their email, role and departments. Exactly as the server hands a
+// browser its working copy (backend/storageRoutes.ts GET /api/storage), the
+// person is given the records and deletions-log lines of the documents they
+// see at Read or more by the super admin's access rules (REQUIREMENTS §96,
+// engine/accessRules.ts through engine/departmentScope.ts setAccessScope), and
+// HR Master Data only with Human Resources; and every change is checked against
+// their level before it is made (start, fill, submit, verify, send back at
+// Write; correct and delete at Edit), refused with 403 "access-level" in the
+// website's own words (engine/accessWords.ts). Then the engine starts the way the app starts
 // (data/bootstrap.ts): the issued definitions, master data and historical
 // records seeded, this month's registers generated — in memory only. Then
 // `run` does one thing: a read, or one change made through the very functions
@@ -49,6 +54,7 @@ import type { MitraAttachment, MitraTool, MitraToolContext } from "../engine/mit
 import { announceLoad, NAMESPACE, writtenSinceLoad } from "./syncStub";
 import { drainActivity, logActivity, type ActivityEvent } from "./activityCollector";
 import { readJSON } from "../data/storageAdapter";
+import { settingsRepository } from "../data/repositories/settingsRepository";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../data/repositories/documentRepository";
 import { ensureSeeded as ensureMasterSeeded, masterRepository } from "../data/repositories/masterRepository";
 import { ensureSeeded as ensureHrMasterSeeded, hrMasterRepository } from "../data/repositories/hrMasterRepository";
@@ -58,7 +64,7 @@ import { departmentName, departmentOfDocument } from "../data/seed/departments";
 import { formatEditFor } from "../data/formatEdits";
 import { setFeatures } from "../engine/features";
 import { numbersOwnLines } from "../engine/formLineNumbers";
-import { documentDepartmentLabel, isDocumentIdVisible, setDepartmentScope } from "../engine/departmentScope";
+import { departmentScope, documentLevel, isDocumentIdVisible, mayDo, setAccessScope, setDepartmentScope } from "../engine/departmentScope";
 import {
   cancelCorrection,
   isCorrectableStatus,
@@ -73,8 +79,9 @@ import {
 import { historyOf, recordLabel } from "../engine/recordHistory";
 import { fieldLabels, humanKey, normDate } from "../engine/recordPatch";
 import { withComputedCells } from "../engine/computedCells";
-import { supersededRevisionOf, type ValidationResult } from "../engine/validation";
-import { createRecordForDocument, deleteRecordWithTrail, type DeletionEntry } from "../engine/recordCrud";
+import { supersededRevisionOf, validateForSubmit, type ValidationResult } from "../engine/validation";
+import { entriesWaiting } from "../engine/knownParts";
+import { createRecordForDocument, deleteRecordWithTrail, recordCoveringDate, type DeletionEntry } from "../engine/recordCrud";
 import { createDefaultData } from "../engine/recordDefaults";
 import { prepareDueRecords } from "../engine/assistantPrepare";
 import { computeReminders, ensureNearTermRecordsGenerated, routeForRecord } from "../engine/reminders";
@@ -85,7 +92,10 @@ import { documentsByFormatNumberUnscoped } from "../engine/formatNumbers";
 import { documentOpenRoute } from "../engine/documentRoutes";
 import { getDocumentInfo } from "../engine/documentInfo";
 import { scheduleLabel } from "../engine/frequencyEngine";
-import { dayInfo, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG, type DayInfo } from "../engine/holidays";
+import { dayInfo, isCompanyHoliday, nextWeeklyOff, upcomingHolidays, weeklyOffDay, WEEKDAY_LONG, type DayInfo } from "../engine/holidays";
+import { buildAccess, levelNeeded, type Access, type AccessAccount, type DocumentAction } from "../engine/accessRules";
+import { refusalSentence, type AccessLanguage } from "../engine/accessWords";
+import { planNotifications, type PlanPerson, type PlanRecord } from "../engine/notificationPlan";
 import { ensureRecordIndex, readSearchQuery, searchRecords } from "../engine/recordSearch";
 import { recordSearchText, snippetFor } from "../engine/recordText";
 import { analyticIntent, buildEvidence, topicOfDocument, type AnalyticIntent } from "../engine/historyDigest";
@@ -125,15 +135,51 @@ const str = (v: unknown): string => (typeof v === "string" ? v.trim() : typeof v
 
 /**
  * Bumped when the host and this file must change together (backend/engineHost.ts checks it). 2: the reads
- * "equipment" (F/MNT/01) and "insights" (what stands out), for the Mitra mobile app (2-Oct-2026).
+ * "equipment" (F/MNT/01) and "insights" (what stands out), for the Mitra mobile app (2-Oct-2026). 3: the access rules
+ * item, the morning prepare ("prepare"), the notification plan ("notifications"), the engine's clock (`now` on a
+ * message), today by person and the reviewed submit (REQUIREMENTS §96, §97, 8-Oct-2026). 4: the person on `load`
+ * (`account`), each request scoped and each change checked by the access levels (REQUIREMENTS §96, 9-Oct-2026).
  */
-export const ENGINE_API_VERSION = 2;
+export const ENGINE_API_VERSION = 4;
+
+// ---------------------------------------------------------------------------
+// the engine's clock
+
+// A RUN FOR ANOTHER MOMENT (REQUIREMENTS §97). The morning prepare and the notify job can be run by hand for a day and
+// a time of the caller's own (POST /api/jobs/run: a suite's, or a throwaway server's "working-day morning"), and the
+// unit tests hold the engine to a fixed moment. So a message may carry `now` (milliseconds): everything the engine
+// dates while it answers (today, a record's stamps, its history) is dated at that moment. The worker is the engine's
+// alone, so Date is replaced here only, and only once a message has asked for another moment; a message without `now`
+// runs on the real clock.
+const RealDate = Date;
+let clockOffset = 0;
+
+function useClock(now: unknown): void {
+  if (typeof now !== "number" || !Number.isFinite(now)) {
+    clockOffset = 0;
+    return;
+  }
+  if (globalThis.Date === RealDate) {
+    class EngineDate extends RealDate {
+      constructor(...args: unknown[]) {
+        if (args.length === 0) super(RealDate.now() + clockOffset);
+        else super(...(args as ConstructorParameters<DateConstructor>));
+      }
+      static now(): number {
+        return RealDate.now() + clockOffset;
+      }
+    }
+    globalThis.Date = EngineDate as unknown as DateConstructor;
+  }
+  clockOffset = now - RealDate.now();
+}
 
 // ---------------------------------------------------------------------------
 // what the host hands in and gets back
 
 /** The company items DCRS's browser holds (backend/index.ts COMPANY_KEYS). */
-export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start"] as const;
+// "access": the super admin's access rules (engine/accessRules.ts AccessRules, REQUIREMENTS §96), read by today and the notification plan.
+export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "access"] as const;
 export type ItemKey = (typeof ITEM_KEYS)[number];
 
 /** One stored item: its seq and version, and its value when it changed since the last load (absent: as before). */
@@ -148,6 +194,11 @@ export interface LoadInput {
   key: string;
   /** The departments the person is kept to, or null for every department (backend/index.ts accountDepartments). */
   departments: string[] | null;
+  /**
+   * The person, whose access levels scope the request (REQUIREMENTS §96): their email, role and departments. Left out
+   * (a host before version 4), the departments alone scope it, as before levels existed.
+   */
+  account?: { email: string; role: string; departments: string[] } | null;
   /** Null for an item that is not stored at all. */
   items: Partial<Record<ItemKey, LoadItem | null>>;
 }
@@ -174,16 +225,19 @@ export interface WritePlan {
   records?: { value: string; baseVersion: number };
   /** Lines to put at the head of the deletions log (engine/recordCrud.ts). */
   deletionsAdded?: DeletionEntry[];
+  /** The day the system went live, when nothing stored had it and the morning prepare set it (written only where none is stored). */
+  liveStart?: { value: string };
 }
 
 export type Outcome =
   | { ok: true; status: number; body: unknown; write?: WritePlan; activity: ActivityLine[] }
   | { ok: false; status: number; code: string; error: string; extra?: Obj; activity: ActivityLine[]; write?: WritePlan };
 
-/** The worker's one entry point (backend/engineHost.ts). */
-export type EngineMessage = { kind: "load"; input: LoadInput } | { kind: "run"; op: string; args: Obj } | { kind: "ping" };
+/** The worker's one entry point (backend/engineHost.ts). `now`: the moment to answer at (the engine's clock), or the real one. */
+export type EngineMessage = { kind: "load"; input: LoadInput; now?: number } | { kind: "run"; op: string; args: Obj; now?: number } | { kind: "ping" };
 
 export async function handle(message: EngineMessage): Promise<unknown> {
+  if (message.kind !== "ping") useClock(message.now);
   switch (message.kind) {
     case "ping":
       return { version: ENGINE_API_VERSION };
@@ -211,6 +265,8 @@ let viewKey: string | null = null;
 /** A change ran since the last load: the engine holds what was not stored, and must start again. */
 let dirty = true;
 let departments: string[] | null = null;
+/** The person the request is scoped to by the access levels; null on the old, department-only path. */
+let viewer: AccessAccount | null = null;
 /** The records as stored (the person's view of them), by id — what a change is laid over, and what "stored" means. */
 let storedIds = new Set<string>();
 let storedDeletionIds = new Set<string>();
@@ -240,8 +296,14 @@ function storedFormatNos(): Map<string, string> {
   return byId;
 }
 
-/** Whether a line of the records or the deletions log is the person's to hold: backend/index.ts lineVisibility. */
+/** Whether a line of the records or the deletions log is the person's to hold (backend/accessLevels.ts AccessView.holds): a document at Read or more. */
 function lineVisibility(): (line: unknown) => boolean {
+  if (viewer) {
+    return (line) => {
+      const id = isObj(line) ? line.documentId : undefined;
+      return typeof id !== "string" || !id || documentLevel(id) !== "none";
+    };
+  }
   const scope = departments;
   if (!scope) return () => true;
   const formatNos = storedFormatNos();
@@ -253,7 +315,14 @@ function lineVisibility(): (line: unknown) => boolean {
   };
 }
 
-const mayHoldHrMaster = (): boolean => !departments || departments.includes("HR");
+/** HR Master Data is held with Human Resources: a person who sees that module (backend/accessLevels.ts holdsHrMaster), or the department as before. */
+const mayHoldHrMaster = (): boolean => {
+  if (viewer) {
+    const seen = departmentScope();
+    return seen === null || seen.includes("HR");
+  }
+  return !departments || departments.includes("HR");
+};
 
 export function load(input: LoadInput): LoadAnswer {
   const started = Date.now();
@@ -271,22 +340,35 @@ export function load(input: LoadInput): LoadAnswer {
   if (input.key === viewKey && !dirty) return { reloaded: false, ms: Date.now() - started, records: storedIds.size };
 
   departments = input.departments && input.departments.length > 0 ? input.departments.map((c) => c.trim().toUpperCase()).filter(Boolean) : null;
-  const visible = lineVisibility();
-  const scoped = (key: ItemKey): string | null => {
-    const h = held.get(key);
-    if (!h || h.value === null) return null;
-    return departments ? JSON.stringify(parsedList(key).filter(visible)) : h.value;
-  };
+  const who = input.account;
+  viewer = who && typeof who.email === "string" ? { email: who.email.trim().toLowerCase(), role: who.role || "staff", departments: Array.isArray(who.departments) ? who.departments : [] } : null;
 
-  // THE WORKING COPY, as the server would hand it to this person's browser.
+  // THE WORKING COPY, as the server would hand it to this person's browser. By the access levels: the catalogue the
+  // rules read is the one the app's start-up makes (the issued definitions and the stored extras), so it is laid
+  // first, the person and the rules set on it, and only then the records and the deletions log kept to what the
+  // person sees. By departments (a host before version 4): as before.
   localStorage.clear();
   for (const key of ITEM_KEYS) {
-    if (key === "hrMasterData" && !mayHoldHrMaster()) continue;
-    const value = key === "records" || key === "deletions" ? scoped(key) : (held.get(key)?.value ?? null);
-    if (value !== null) localStorage.setItem(NAMESPACE + key, value);
+    const value = held.get(key)?.value ?? null;
+    if (value === null) continue;
+    if (!viewer && (key === "records" || key === "deletions") && departments) continue;
+    localStorage.setItem(NAMESPACE + key, value);
   }
+  if (viewer) {
+    ensureDocumentsSeeded();
+    setAccessScope(viewer, readJSON<unknown>("access", null));
+  } else setDepartmentScope(departments);
+  const visible = lineVisibility();
+  for (const key of ["records", "deletions"] as const) {
+    const h = held.get(key);
+    if (!h || h.value === null) continue;
+    const all = parsedList(key);
+    const mine = all.filter(visible);
+    if (mine.length !== all.length) localStorage.setItem(NAMESPACE + key, JSON.stringify(mine));
+    else localStorage.setItem(NAMESPACE + key, h.value);
+  }
+  if (!mayHoldHrMaster()) localStorage.removeItem(NAMESPACE + "hrMasterData");
   announceLoad();
-  setDepartmentScope(departments);
   // The product has no Demo Mode (engine/features.ts): every record here is a Live one.
   setFeatures({ demoMode: false, signup: false, assistant: false });
 
@@ -318,13 +400,32 @@ interface Who {
   userId: string;
   userName: string;
   client: string;
+  /** The account's email and role, for its access level (engine/accessRules.ts). */
+  email: string;
+  role: string;
+  /** The language a refusal is said in (the phone's X-Language): English, Hindi or Gujarati. */
+  lang: AccessLanguage;
 }
 
-const CHANGE_OPS = new Set(["open", "change", "action", "photo", "sampleFill"]);
+const CHANGE_OPS = new Set(["open", "change", "action", "photo", "sampleFill", "prepare"]);
 
 export async function run(op: string, args: Obj): Promise<Outcome> {
   if (viewKey === null) throw new Error("nothing is loaded");
-  const who: Who = { userId: str(args.userId), userName: str(args.userName) || "User", client: str(args.client) || "DCRS API" };
+  const lang = str(args.lang);
+  const who: Who = {
+    userId: str(args.userId),
+    userName: str(args.userName) || "User",
+    client: str(args.client) || "DCRS API",
+    email: str(args.email),
+    role: str(args.role) || "staff",
+    lang: lang === "hi" || lang === "gu" ? lang : "en",
+  };
+  // THIS REQUEST'S PERSON. The super admin's load is shared with the server's own jobs (both see everything): the
+  // levels asked below are this person's own.
+  if (viewer && who.email && who.email.toLowerCase() !== viewer.email) {
+    viewer = { email: who.email.toLowerCase(), role: who.role, departments: Array.isArray(args.departments) ? (args.departments as unknown[]).map((d) => str(d)).filter(Boolean) : [] };
+    setAccessScope(viewer);
+  }
   const changes = CHANGE_OPS.has(op);
   if (changes) {
     dirty = true;
@@ -336,7 +437,7 @@ export async function run(op: string, args: Obj): Promise<Outcome> {
     const outcome = await runOp(op, args, who);
     if (!changes) return outcome;
     const activity = drainActivity().map((line) => throughLine(line, who.client));
-    const write = writePlan(who.client);
+    const write = writePlan(who.client, op === "prepare");
     return { ...outcome, activity: [...outcome.activity, ...activity], ...(write ? { write } : {}) };
   } finally {
     if (changes) {
@@ -380,6 +481,10 @@ function runOp(op: string, args: Obj, who: Who): Outcome | Promise<Outcome> {
       return photoOp(args, who);
     case "sampleFill":
       return sampleFillOp(args, who);
+    case "prepare":
+      return prepareOp();
+    case "notifications":
+      return notificationsOp(args);
     default:
       return refuse(400, "bad-request", `There is no such thing to do as "${op}".`);
   }
@@ -387,6 +492,37 @@ function runOp(op: string, args: Obj, who: Who): Outcome | Promise<Outcome> {
 
 const done = (body: unknown, status = 200): Outcome => ({ ok: true, status, body, activity: [] });
 const refuse = (status: number, code: string, error: string, extra?: Obj): Outcome => ({ ok: false, status, code, error, ...(extra ? { extra } : {}), activity: [] });
+
+/** How a document is called in a sentence: its format number and name, or its name while the number is to be confirmed. */
+function calledBy(documentId: string): string {
+  const doc = documentRepository.getByIdUnscoped(documentId);
+  if (!doc) return documentId;
+  return doc.formatNo && !doc.formatNo.toUpperCase().startsWith("TO BE") ? `${doc.formatNo} ${doc.name}` : doc.name;
+}
+
+/**
+ * THE PERSON'S LEVEL ON THE DOCUMENT, ASKED BEFORE A CHANGE (REQUIREMENTS §96): null when the step is allowed, else the
+ * refusal — 403 "access-level", the website's own sentence in the person's language (engine/accessWords.ts), and the
+ * level they have and the one the step needs. On the old, department-only path there are no levels to ask.
+ */
+function levelRefusal(documentId: string, action: DocumentAction, who: Who, recordId?: string): Outcome | null {
+  if (!viewer || mayDo(documentId, action)) return null;
+  const level = documentLevel(documentId);
+  const needed = levelNeeded(action);
+  return refuse(403, "access-level", refusalSentence(who.lang, calledBy(documentId), level, needed, action), {
+    level,
+    needed,
+    action,
+    documentId,
+    ...(recordId ? { recordId } : {}),
+  });
+}
+
+/** A document the person does not see at all, in the website's words, with the module it is kept in. */
+function notOpenWords(documentId: string, lang: AccessLanguage = "en"): string {
+  const code = departmentOfDocument(documentId, documentRepository.getByIdUnscoped(documentId)?.formatNo);
+  return refusalSentence(lang, `${calledBy(documentId)}${code ? ` (${departmentName(code)})` : ""}`, "none", "read", "view");
+}
 
 // ---------------------------------------------------------------------------
 // what was changed, and how it is stored
@@ -424,7 +560,7 @@ function throughLine(line: ActivityEvent, client: string): ActivityLine {
 }
 
 /** The change as the host stores it: the touched records laid over EVERY record as stored, and the new deletions-log lines. */
-function writePlan(client: string): WritePlan | undefined {
+function writePlan(client: string, withLiveStart = false): WritePlan | undefined {
   const upserts = new Map<string, RecordInstance>();
   for (const id of touched) {
     const r = recordRepository.getById(id);
@@ -446,7 +582,13 @@ function writePlan(client: string): WritePlan | undefined {
   }
   const added = readJSON<DeletionEntry[]>("deletions", []).filter((d) => !storedDeletionIds.has(d.id));
   if (added.length > 0) plan.deletionsAdded = added.map((d) => (saidThrough(client, d.reason) ? d : { ...d, reason: through(client, d.reason || "no reason given") }));
-  return plan.records || plan.deletionsAdded ? plan : undefined;
+  // The go-live day the record generator set, when none was stored: without it the next day's run would take that day
+  // as the go-live, and the records made today would read as leftovers from before it.
+  if (withLiveStart && !held.has("live-start")) {
+    const value = localStorage.getItem(NAMESPACE + "live-start");
+    if (value) plan.liveStart = { value };
+  }
+  return plan.records || plan.deletionsAdded || plan.liveStart ? plan : undefined;
 }
 
 // SAID ONCE, AND KEPT APART. Two edits by one person within a quarter of an hour
@@ -561,7 +703,7 @@ function documentNamed(said: string): { doc: DocumentDefinition } | { refusal: O
   if (doc) return { doc };
   if (other) {
     return {
-      refusal: refuse(403, "not-your-department", `${other.formatNo.startsWith("TO BE") ? "" : `${other.formatNo} `}${other.name} is kept by ${documentDepartmentLabel(other.id, other.formatNo)}, and this account is not kept to it. Ask the super admin for access.`, {
+      refusal: refuse(403, "not-your-department", notOpenWords(other.id), {
         document: { id: other.id, formatNo: other.formatNo, name: other.name },
       }),
     };
@@ -711,43 +853,173 @@ function dayJson(d: DayInfo): Obj {
   return { date: d.date, weekday: d.weekday, kind: d.kind, closed: d.isHoliday, ...(d.name ? { name: d.name } : {}), label: d.label };
 }
 
+/** The access rules as stored (engine/accessRules.ts), over every document: what each account may do, and what it answers for. */
+function accessNow(): Access {
+  const docs = documentRepository.getAllUnscoped().map((d) => ({ id: d.id, formatNo: d.formatNo, department: departmentOfDocument(d.id, d.formatNo), reference: isReference(d) }));
+  return buildAccess(docs, readJSON<unknown>("access", null));
+}
+
+// TODAY BY PERSON (REQUIREMENTS §96, §97). A person is given what they answer for and the records they may verify;
+// an account nobody has described yet (it answers for nothing) keeps what it had: every document it may fill. The
+// super admin is given everything, counted by module. Each item says its module, and whether this person may submit or
+// verify it now, so the phone shows only the buttons the level allows.
 function todayOp(who: Who): Outcome {
   const master = masterRepository.get();
   const today = todayISO();
   const docs = new Map(documentRepository.getRecordable().map((d) => [d.id, d] as const));
+  const access = accessNow();
+  const account: AccessAccount = { email: who.email, role: who.role, departments: departments ?? [] };
+  const boss = access.isBoss(account);
+  const answers = new Set(boss ? [] : access.answersFor(account));
+  const mine = (documentId: string): boolean => boss || answers.has(documentId) || (answers.size === 0 && access.may(account, documentId, "fill"));
+  const mayVerify = (documentId: string): boolean => access.may(account, documentId, "verify");
   const item = (x: { documentId: string; recordId: string; dueDate: string; route: string }, extra: Obj = {}): Obj => {
     const doc = docs.get(x.documentId);
     const stored = storedIds.has(x.recordId);
+    const status = recordRepository.getById(x.recordId)?.status ?? null;
     return {
       documentId: x.documentId,
       formatNo: doc?.formatNo ?? "",
       document: doc?.name ?? x.documentId,
+      module: departmentOfDocument(x.documentId, doc?.formatNo) ?? null,
       dueDate: x.dueDate,
-      status: recordRepository.getById(x.recordId)?.status ?? null,
+      status,
       // A register the calendar has not stored yet: POST /api/v1/records {documentId, date} starts it.
       recordId: stored ? x.recordId : null,
       started: stored,
       ...(stored ? { route: x.route } : {}),
+      canSubmit: (status === null || isEditableStatus(status)) && access.may(account, x.documentId, "submit"),
+      canVerify: status !== null && VERIFIABLE.includes(status) && mayVerify(x.documentId),
       ...extra,
     };
   };
-  const reminders = computeReminders(false);
+  const reminders = computeReminders(false).filter((r) => mine(r.documentId));
   const briefing = computeBriefing(who.userName);
   const brief = (b: BriefingItem): Obj => item(b, b.errors.length ? { problems: b.errors.slice(0, 5) } : {});
+  const lists = {
+    overdue: reminders.filter((r) => r.urgency === "overdue").map((r) => item(r)),
+    due: reminders.filter((r) => r.urgency === "due").map((r) => item(r)),
+    upcoming: reminders.filter((r) => r.urgency === "upcoming").map((r) => item(r)),
+    readyToSubmit: briefing.ready.filter((b) => mine(b.documentId)).map(brief),
+    needsInput: briefing.needsInput.filter((b) => mine(b.documentId)).map(brief),
+    awaitingVerification: briefing.awaitingVerification.filter((b) => boss || mayVerify(b.documentId)).map(brief),
+  };
+  let byModule: Obj[] | undefined;
+  if (boss) {
+    const counts = new Map<string, Record<string, number>>();
+    for (const [list, entries] of Object.entries(lists)) {
+      for (const e of entries) {
+        const module = typeof e.module === "string" ? e.module : "";
+        let c = counts.get(module);
+        if (!c) counts.set(module, (c = { overdue: 0, due: 0, upcoming: 0, readyToSubmit: 0, needsInput: 0, awaitingVerification: 0 }));
+        c[list] += 1;
+      }
+    }
+    byModule = [...counts.entries()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(([module, c]) => ({ module: module || null, ...c }));
+  }
   return done({
     date: today,
     day: dayJson(dayInfo(today, master)),
     tomorrow: dayJson(dayInfo(addDays(today, 1), master)),
     weeklyOff: { day: WEEKDAY_LONG[weeklyOffDay(master)], next: nextWeeklyOff(addDays(today, 1), master) },
     nextHolidays: upcomingHolidays(today, master, 8, 150).map(dayJson),
-    overdue: reminders.filter((r) => r.urgency === "overdue").map((r) => item(r)),
-    due: reminders.filter((r) => r.urgency === "due").map((r) => item(r)),
-    upcoming: reminders.filter((r) => r.urgency === "upcoming").map((r) => item(r)),
-    readyToSubmit: briefing.ready.map(brief),
-    needsInput: briefing.needsInput.map(brief),
-    awaitingVerification: briefing.awaitingVerification.map(brief),
+    ...lists,
+    ...(byModule ? { byModule } : {}),
     facts: buildAssistantContext(false, who.userName),
   });
+}
+
+// ---------------------------------------------------------------------------
+// the server's own jobs (REQUIREMENTS §97): run as the system, over every department
+
+const systemOnly = (): Outcome => refuse(403, "system-only", "This is the server's own job, run over every department.");
+/** The server's own caller (backend/notificationJobs.ts SYSTEM_CALLER, as the super admin): every document, every department. */
+const asTheSystem = (): boolean => (viewer ? viewer.role === "admin" : !departments);
+
+// THE MORNING PREPARE (backend/notificationJobs.ts "morning-prepare"). What a browser does when it opens the app
+// (data/bootstrap.ts, engine/assistantPrepare.ts), done on the server whether or not anybody opens it: the near-term
+// sheets of every Live document made (at the load, engine/reminders.ts ensureNearTermRecordsGenerated), and every
+// blank sheet due by today prepared by the ONE rule the browser runs (prepareDueRecords: the known parts only, never a
+// reading; a sheet a person has started is never touched). Stored as a browser stores them: every Live record the
+// start-up made that is not stored yet, and each one prepared. Run again, it finds them stored and prepares nothing.
+function prepareOp(): Outcome {
+  if (!asTheSystem()) return systemOnly();
+  const today = todayISO();
+  const prepared = prepareDueRecords(today);
+  const preparedIds = new Set(prepared.map((r) => r.id));
+  let made = 0;
+  for (const r of recordRepository.getAll()) {
+    if (r.isDemo !== false || storedIds.has(r.id)) continue;
+    touched.add(r.id);
+    if (!preparedIds.has(r.id)) made += 1;
+  }
+  for (const r of prepared) touched.add(r.id);
+  const byModule = new Map<string, number>();
+  for (const r of prepared) {
+    const code = departmentOfDocument(r.documentId, documentRepository.getByIdUnscoped(r.documentId)?.formatNo) ?? "";
+    byModule.set(code, (byModule.get(code) ?? 0) + 1);
+  }
+  return done({
+    date: today,
+    prepared: prepared.length,
+    sheetsMade: made,
+    modules: [...byModule.entries()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(([module, count]) => ({ module: module || null, count })),
+    records: prepared.map((r) => ({ recordId: r.id, documentId: r.documentId, dueDate: r.dueDate, status: r.status })),
+  });
+}
+
+// THE NOTIFICATION PLAN (backend/notificationJobs.ts "notify"): for every active account the server hands in, in one
+// load, what it should be told now (engine/notificationPlan.ts), from the plant's records, the documents, the calendar
+// and the access rules as stored. Read only: the server keeps the ledger.
+function notificationsOp(args: Obj): Outcome {
+  if (!asTheSystem()) return systemOnly();
+  const access = accessNow();
+  const accounts = Array.isArray(args.accounts) ? args.accounts.filter(isObj) : [];
+  const people: PlanPerson[] = accounts
+    .filter((a) => a.active !== false && str(a.id))
+    .map((a) => {
+      const account: AccessAccount = { email: str(a.email), role: str(a.role) || "staff", departments: Array.isArray(a.departments) ? a.departments.map((d) => str(d)).filter(Boolean) : [] };
+      const boss = access.isBoss(account);
+      return { id: str(a.id), name: str(a.name), boss, answersFor: new Set(boss ? [] : access.answersFor(account)), mayVerify: (id: string) => access.may(account, id, "verify") };
+    });
+  const master = masterRepository.get();
+  const today = todayISO();
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const docs = documentRepository.getRecordableUnscoped();
+  const byId = new Map(docs.map((d) => [d.id, d] as const));
+  const records: PlanRecord[] = [];
+  for (const r of recordRepository.getAll()) {
+    const doc = byId.get(r.documentId);
+    if (r.isDemo !== false || !doc) continue;
+    // What still stops a submit, asked only of an open record whose day has come: the readings waiting.
+    const open = r.status === "In Progress" && compareISO(r.dueDate, today) <= 0;
+    records.push({
+      id: r.id,
+      documentId: r.documentId,
+      dueDate: r.dueDate,
+      status: r.status,
+      stored: storedIds.has(r.id),
+      prepared: !!r.prepared,
+      problems: open ? entriesWaiting(doc, r).length : 0,
+      submittedBy: r.submittedBy ?? null,
+      rejectedBy: r.rejectedBy ?? null,
+      rejectionReason: r.rejectionReason ?? null,
+      rejections: (r.history ?? []).filter((h) => h.action === "rejected").length,
+    });
+  }
+  const times = isObj(args.summaryTimes) && str(args.summaryTimes.morning) && str(args.summaryTimes.evening) ? { morning: str(args.summaryTimes.morning), evening: str(args.summaryTimes.evening) } : undefined;
+  const items = planNotifications({
+    today,
+    time,
+    documents: docs.map((d) => ({ id: d.id, formatNo: d.formatNo, name: d.name, module: departmentOfDocument(d.id, d.formatNo), schedule: d.schedule, reference: isReference(d) })),
+    records,
+    people,
+    isClosedDay: (d) => isCompanyHoliday(d, master),
+    countedFrom: settingsRepository.get().liveStartDate,
+    ...(times ? { summaryTimes: times } : {}),
+  });
+  return done({ date: today, time, users: people.map((p) => p.id), items });
 }
 
 // ---------------------------------------------------------------------------
@@ -871,7 +1143,7 @@ function recordNamed(id: string): { record: RecordInstance; doc: DocumentDefinit
       const docId = elsewhere.documentId;
       const other = documentRepository.getByIdUnscoped(docId);
       return {
-        refusal: refuse(403, "not-your-department", `This record belongs to ${documentDepartmentLabel(docId, other?.formatNo)}${other ? ` (${other.name})` : ""}, and this account is not kept to it.`),
+        refusal: refuse(403, "not-your-department", notOpenWords(docId)),
       };
     }
     return { refusal: refuse(404, "not-found", `There is no record "${wanted.slice(0, 80)}" in DCRS.`) };
@@ -881,7 +1153,7 @@ function recordNamed(id: string): { record: RecordInstance; doc: DocumentDefinit
   if (!doc) {
     const other = documentRepository.getByIdUnscoped(record.documentId);
     if (other && !isDocumentIdVisible(other.id, other.formatNo)) {
-      return { refusal: refuse(403, "not-your-department", `This record belongs to ${documentDepartmentLabel(other.id, other.formatNo)} (${other.name}), and this account is not kept to it.`) };
+      return { refusal: refuse(403, "not-your-department", notOpenWords(other.id)) };
     }
     return { refusal: refuse(404, "not-found", "The document this record was made for is no longer in DCRS.") };
   }
@@ -914,6 +1186,18 @@ function actionsFor(record: RecordInstance, page: PageKind): string[] {
   out.push("delete");
   return out;
 }
+
+/**
+ * WHAT THIS PERSON MAY DO TO IT NOW (REQUIREMENTS §96): the steps its state allows (actionsFor) that their level on
+ * the document allows too (ACTION_NEEDS: Write to submit, verify, send back and resume; Edit to reopen, put back and
+ * delete). The phone draws only these buttons. On the old, department-only path (nobody held to levels) every step.
+ */
+function allowedActions(record: RecordInstance, doc: DocumentDefinition, page: PageKind): string[] {
+  return actionsFor(record, page).filter((a) => mayDo(doc.id, ACTION_NEEDS[a] ?? "correct"));
+}
+
+/** May the person write into it now: open for writing, and Write on the document (Edit while it is under correction). */
+const writableNow = (record: RecordInstance, doc: DocumentDefinition): boolean => isEditableStatus(record.status) && mayDo(doc.id, record.correction ? "correct" : "fill");
 
 /** F/MNT/03's Actual dates, read from each machine's F/MNT/02 as the sheet shows them — as Mitra's get_record gives them (engine/mitraTools.ts). */
 function linkedActuals(record: RecordInstance): Obj | undefined {
@@ -959,15 +1243,24 @@ function recordJson(record: RecordInstance, doc: DocumentDefinition): Obj {
   const cells = recordSearchText(record, doc, layout).cells;
   const history = historyOf(record);
   const linked = linkedActuals(record);
+  // Each button and box at the person's own level (REQUIREMENTS §96), so the phone offers only what DCRS will do.
+  const allowed = allowedActions(record, doc, page);
+  const writable = writableNow(record, doc);
   return {
     recordId: record.id,
     documentId: doc.id,
     document: { id: doc.id, formatNo: doc.formatNo, name: doc.name, kind: doc.kind, module: doc.module, department: departmentOf(doc) },
     date: record.dueDate,
     status: record.status,
-    editable: isEditableStatus(record.status),
-    canReopen: actionsFor(record, page).includes("reopen"),
-    actions: actionsFor(record, page),
+    editable: writable,
+    canReopen: allowed.includes("reopen"),
+    actions: allowed,
+    canSubmit: isEditableStatus(record.status) && mayDo(doc.id, "submit"),
+    canVerify: VERIFIABLE.includes(record.status) && mayDo(doc.id, "verify"),
+    // What still stops a submit, by DCRS's own checks, while the person may write it; and how many entries wait before
+    // it is ready for their OK (engine/knownParts.ts entriesWaiting: a sheet nothing is observed on is never ready).
+    problems: writable ? validateForSubmit(doc, record).errors : [],
+    waiting: writable ? entriesWaiting(doc, record).length : 0,
     ...(record.submittedBy ? { submittedBy: record.submittedBy, submittedAt: record.submittedAt ?? null } : {}),
     ...(record.verifiedBy ? { verifiedBy: record.verifiedBy, verifiedAt: record.verifiedAt ?? null } : {}),
     ...(record.status === "Rejected" ? { sentBackBy: record.rejectedBy ?? null, sentBackBecause: record.rejectionReason ?? null } : {}),
@@ -1118,7 +1411,7 @@ function equipmentOp(args: Obj): Outcome {
     return refuse(
       403,
       "not-your-department",
-      `${EQUIPMENT_LIST_FORMAT_NO} ${EQUIPMENT_LIST_NAME} is kept by ${documentDepartmentLabel(EQUIPMENT_LIST_DOC_ID, EQUIPMENT_LIST_FORMAT_NO)}, and this account is not kept to it. Ask the super admin for access.`
+      notOpenWords(EQUIPMENT_LIST_DOC_ID)
     );
   }
   const q = str(args.q);
@@ -1210,13 +1503,20 @@ function openOp(args: Obj, who: Who): Outcome {
   const today = todayISO();
   const date = dateArg(args.date, today);
   if (date === null) return refuse(400, "bad-date", "date must be a date written YYYY-MM-DD (or today, yesterday, tomorrow).");
+  // A record not stored yet is started by opening it: Write's (REQUIREMENTS §96). One stored already is only opened.
+  const covering = recordCoveringDate(doc, date ?? today, false);
+  if (!covering || !storedIds.has(covering.id)) {
+    const refused = levelRefusal(doc.id, "start", who);
+    if (refused) return refused;
+  }
   const { record: made } = createRecordForDocument(doc, { dateISO: date ?? today, isDemo: false });
   const wasStored = storedIds.has(made.id);
   let record = made;
   // PREPARED, as the app's start-up prepares every blank register due today or
   // earlier before the Dashboard is drawn (engine/assistantPrepare.ts) — so the
-  // record opened here is the record a browser opened now would show.
-  if ((record.status === "Scheduled" || record.status === "Due") && !record.prepared && compareISO(record.dueDate, today) <= 0) {
+  // record opened here is the record a browser opened now would show. Only for a
+  // person who may fill it: the server's morning prepare does the rest.
+  if ((record.status === "Scheduled" || record.status === "Due") && !record.prepared && compareISO(record.dueDate, today) <= 0 && (!viewer || mayDo(doc.id, "fill"))) {
     prepareDueRecords(today);
     record = recordRepository.getById(record.id) ?? record;
   }
@@ -1293,7 +1593,7 @@ function tool(name: string): MitraTool {
 
 /** A change to a record that is not open for writing: refused, and the person is told to reopen it first — as Mitra asks before changing one. */
 function needsReopen(record: RecordInstance, doc: DocumentDefinition, page: PageKind): Outcome {
-  const canReopen = actionsFor(record, page).includes("reopen");
+  const canReopen = allowedActions(record, doc, page).includes("reopen");
   return refuse(
     409,
     "needs-reopen",
@@ -1309,8 +1609,8 @@ function changeSummary(record: RecordInstance, doc: DocumentDefinition, entries:
   return {
     recordId: record.id,
     status: record.status,
-    editable: isEditableStatus(record.status),
-    actions: actionsFor(record, page),
+    editable: writableNow(record, doc),
+    actions: allowedActions(record, doc, page),
     history: entries.map(historyJson),
     route: routeForRecord(doc, record.id),
   };
@@ -1322,6 +1622,8 @@ async function changeOp(args: Obj, who: Who): Promise<Outcome> {
   const { record, doc } = found;
   const h = handlersFor(doc, record);
   if (!h) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no record to change.`);
+  const refused = levelRefusal(doc.id, record.correction ? "correct" : "fill", who, record.id);
+  if (refused) return refused;
   if (!isEditableStatus(record.status)) return needsReopen(record, doc, h.page);
   const patch = args.patch;
   if (!isObj(patch) || Object.keys(patch).length === 0) return refuse(400, "bad-patch", "patch is needed: an object of the fields to change (see patchShape in GET /api/v1/records/{id}).");
@@ -1355,6 +1657,8 @@ async function sampleFillOp(args: Obj, who: Who): Promise<Outcome> {
   const { record, doc } = found;
   const h = handlersFor(doc, record);
   if (!h || !canSampleFill(doc.kind)) return refuse(409, "no-sample", `${doc.name} is kept as issued — there is no sample data for it.`);
+  const refused = levelRefusal(doc.id, record.correction ? "correct" : "fill", who, record.id);
+  if (refused) return refused;
   if (!isEditableStatus(record.status)) return needsReopen(record, doc, h.page);
   const target = targetFor(h, record, who.userName, (toolNote) => through(who.client, toolNote || SAMPLE_FILL_NOTE));
   // MITRA'S OWN fill_open_record_with_sample_data (engine/sampleFill.ts): realistic, made up, marked so, never submitted.
@@ -1385,6 +1689,8 @@ async function photoOp(args: Obj, who: Who): Promise<Outcome> {
   const { record, doc } = found;
   const h = handlersFor(doc, record);
   if (!h || !photoListOf(record.data)) return refuse(409, "no-photo-list", `${doc.name} has no photo or scan list.`);
+  const refused = levelRefusal(doc.id, record.correction ? "correct" : "fill", who, record.id);
+  if (refused) return refused;
   if (!isEditableStatus(record.status)) return needsReopen(record, doc, h.page);
   const name = str(args.fileName) || "photo.jpg";
   const dataUrl = str(args.dataUrl);
@@ -1421,6 +1727,17 @@ const ACTION_NAMES: Record<string, string> = {
   delete: "delete",
 };
 
+/** What each action needs (engine/accessRules.ts): resume is the filler's own; reopen and cancel a correction are a correction. */
+const ACTION_NEEDS: Record<string, DocumentAction> = {
+  submit: "submit",
+  verify: "verify",
+  send_back: "send_back",
+  resume: "fill",
+  reopen: "correct",
+  cancel_correction: "correct",
+  delete: "delete",
+};
+
 const invalid = (errors: string[], what: string): Outcome =>
   refuse(409, "invalid", `${what} cannot be done yet: ${errors.join(" ")}`.slice(0, 1200), { problems: errors });
 
@@ -1433,10 +1750,12 @@ function actionOp(args: Obj, who: Who): Outcome {
   const { record: stored, doc } = found;
   const h = handlersFor(doc, stored);
   if (!h) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no record to act on.`);
+  const levelRefused = levelRefusal(doc.id, ACTION_NEEDS[action] ?? "correct", who, stored.id);
+  if (levelRefused) return levelRefused;
   const reason = str(args.reason);
   const user = who.userName;
   const title = titleOf(doc, stored);
-  const wrongStatus = (why: string): Outcome => refuse(409, "wrong-status", `${title} is ${stored.status}: ${why}`, { status: stored.status, actions: actionsFor(stored, h.page) });
+  const wrongStatus = (why: string): Outcome => refuse(409, "wrong-status", `${title} is ${stored.status}: ${why}`, { status: stored.status, actions: allowedActions(stored, doc, h.page) });
   const finish = (what: string): Outcome => {
     touched.add(stored.id);
     const entries = markThrough(stored.id, stored, who.client);
@@ -1449,6 +1768,11 @@ function actionOp(args: Obj, who: Who): Outcome {
   switch (action) {
     case "submit": {
       if (!isEditableStatus(stored.status)) return wrongStatus("only a record being filled in can be submitted.");
+      // REVIEWED BEFORE SUBMITTED (REQUIREMENTS §62, §97): a record the assistant prepared is submitted only after the
+      // person checked every value and ticked "Reviewed and correct"; the phone then sends reviewed: true.
+      if (stored.prepared && args.reviewed !== true) {
+        return refuse(409, "needs-review", `The assistant prepared ${title}. Check every value, tick "Reviewed and correct", then submit it.`);
+      }
       let base = stored;
       if (h.page === "complaint") {
         // Submit stamps Prepared By with the person when nobody typed a name (pages/CapaPage.tsx doSubmit) — kept even when the submit is refused.
@@ -1458,7 +1782,20 @@ function actionOp(args: Obj, who: Who): Outcome {
         touched.add(stored.id);
       }
       const { result } = submitRecord(doc, base, user);
-      return check(result, "Submitting it") ?? finish("Submitted for verification");
+      const refused = check(result, "Submitting it");
+      if (refused) return refused;
+      if (args.reviewed === true) {
+        // The history says the person reviewed it first: "Through Mitra mobile app: Submitted from the phone after review".
+        const now = recordRepository.getById(stored.id);
+        const had = new Set((stored.history ?? []).map((h) => h.id));
+        if (now) {
+          const history = (now.history ?? []).map((h) =>
+            had.has(h.id) || h.action !== "submitted" ? h : { ...h, note: h.note ? `Submitted from the phone after review. ${h.note}` : "Submitted from the phone after review" }
+          );
+          recordRepository.upsert({ ...now, history });
+        }
+      }
+      return finish("Submitted for verification");
     }
     case "verify": {
       if (!VERIFIABLE.includes(stored.status)) return wrongStatus("only a submitted record can be verified.");

@@ -170,10 +170,11 @@ namespace REFERENCE {
     }
     return { summary };
   }
+  // The line as it stood: the minus score (§92) was added beside it later, and is held to its own rule below.
   function line(t: Tally, today: string): ScoreLine {
     const score = scoreOf(t.onTime, t.late, t.overdue);
     const g = grade(score);
-    return { due: t.onTime + t.late + t.overdue, onTime: t.onTime, late: t.late, overdue: t.overdue, pending: t.pending, score, grade: g, decision: decide(t, g, today) };
+    return { due: t.onTime + t.late + t.overdue, onTime: t.onTime, late: t.late, overdue: t.overdue, pending: t.pending, score, grade: g, decision: decide(t, g, today) } as ScoreLine;
   }
   function worstFirst(a: ScoreLine, b: ScoreLine): number {
     if (a.score === null || b.score === null) return a.score === b.score ? 0 : a.score === null ? 1 : -1;
@@ -430,9 +431,32 @@ test("every record is judged exactly as before: outcome, days late and who hande
   assert.ok(compared > 10000, `${compared} judgements compared`);
 });
 
+// THE SCORECARD AS IT STOOD. §92 adds the minus score beside every line (`minus`
+// and `openToday`) and nothing else changes: those two are taken off before the
+// comparison with the reference, and every line is held to the minus score's own
+// rule on the way, so nothing is loosened.
+type AnyLine = ScoreLine & { worst?: ScoreLine[] };
+const linesOf = (cards: Scorecards): AnyLine[] => [...cards.byPerson, ...cards.byPerson.flatMap((p) => p.worst), ...cards.byDepartment, ...cards.byModule, ...cards.byDocument];
+function asBefore(cards: Scorecards): Scorecards {
+  const strip = <T extends ScoreLine>(l: T): T => {
+    const { minus: _minus, openToday: _openToday, ...rest } = l;
+    void _minus;
+    void _openToday;
+    return rest as T;
+  };
+  return {
+    period: cards.period,
+    byPerson: cards.byPerson.map((p) => ({ ...strip(p), worst: p.worst.map(strip) })),
+    byDepartment: cards.byDepartment.map(strip),
+    byModule: cards.byModule.map(strip),
+    byDocument: cards.byDocument.map(strip),
+  };
+}
+
 test("every scorecard is the same as before — people, departments, modules, documents, grades and sentences", () => {
   const periods: (PeriodKey | PeriodRange)[] = [...PERIODS.map((p) => p.key), monthRange(2026, 8, "September 2026"), monthRange(2026, 6), { from: "2026-07-15", to: "2026-09-20" }];
   let compared = 0;
+  let minusLines = 0;
   for (const today of TODAYS) {
     for (const c of calendars()) {
       for (const period of periods) {
@@ -440,13 +464,21 @@ test("every scorecard is the same as before — people, departments, modules, do
           const side = ALL.filter((r) => r.isDemo === isDemo);
           const now = scorecards(side, documents, PEOPLE, period, today, c.now);
           const before = REFERENCE.scorecardsRef(side, documents, PEOPLE, period, today, c.ref);
-          assert.deepEqual(now, before, `${typeof period === "string" ? period : `${period.from}..${period.to}`} judged on ${today}, ${c.label}, ${isDemo ? "demo" : "live"}`);
+          const where = `${typeof period === "string" ? period : `${period.from}..${period.to}`} judged on ${today}, ${c.label}, ${isDemo ? "demo" : "live"}`;
+          assert.deepEqual(asBefore(now), before, where);
+          // The minus score beside it (§92): -10 for each never done, exactly 0 (never -0) when none.
+          for (const l of linesOf(now)) {
+            assert.ok(Object.is(l.minus, l.overdue > 0 ? -10 * l.overdue : 0), `${where}: minus ${l.minus} for ${l.overdue} never done`);
+            assert.ok(Number.isInteger(l.openToday) && l.openToday >= 0 && l.openToday <= l.pending, `${where}: ${l.openToday} open today of ${l.pending} not due yet`);
+            if (l.minus < 0) minusLines += 1;
+          }
           compared += 1;
         }
       }
     }
   }
   assert.equal(compared, TODAYS.length * 3 * 7 * 2);
+  assert.ok(minusLines > 100, `lines with something never done to take off: ${minusLines}`);
 });
 
 test("the shared-department rule, said outright: who a record counts for", () => {
@@ -477,6 +509,50 @@ test("the shared-department rule, said outright: who a record counts for", () =>
   });
   assert.equal(late.get("u-roshni"), 3);
   assert.equal(late.get("u-vijay"), 2);
+});
+
+test("by the access rules (REQUIREMENTS §96): a record counts against the people who answer for its document", () => {
+  // The owner, 7-Oct-2026: each document has the people who fill it; a late or missed record is theirs, whatever
+  // department their account is kept to (engine/accessRules.ts answersFor; the server's escalation and digest,
+  // backend/escalation.ts, and the scorecard pass who answers for each document as answerersOf).
+  const byId = new Map(PEOPLE.map((p) => [p.id, p] as const));
+  const answerers = new Map<string, REFERENCE.Person[]>([
+    [qcDaily.id, [byId.get("u-priya")!]], // the super admin gave the QC daily to Priya (kept to PRD and MNT)
+    [hrDaily.id, [byId.get("u-roshni")!, byId.get("u-vijay")!]], // two answer for F/HR/17
+  ]);
+  const late = new Map<string, number>();
+  const missed = new Map<string, number>();
+  const nobody: string[] = [];
+  const { accountsOf } = attribute(
+    SYNTHETIC,
+    documents,
+    PEOPLE,
+    { from: "2026-09-01", to: "2026-09-30" },
+    "2026-09-24",
+    { isClosedDay: closedDays(master) },
+    (d) => departmentOfDocument(d.id, d.formatNo),
+    (c) => {
+      if (c.answering.length === 0) nobody.push(c.record.id);
+      const into = c.judgement.outcome === "late" ? late : c.judgement.outcome === "overdue" ? missed : null;
+      if (into) for (const a of c.answering) into.set(a.id, (into.get(a.id) ?? 0) + 1);
+    },
+    (d) => answerers.get(d.id) ?? []
+  );
+  // F-QC daily: Priya's, every late and missed one; Yogesh, whose account is kept to QC, answers for none of it.
+  assert.equal(late.get("u-yogesh"), undefined);
+  assert.equal(missed.get("u-yogesh"), undefined);
+  assert.equal(late.get("u-priya"), 2, "07-Sep, 3 days late, and 19-Sep, handed in on the 22nd");
+  assert.equal(missed.get("u-priya"), 2, "09-Sep and 18-Sep never done");
+  // Where two answer, the one who handed it in; never done, or handed in by somebody else, both.
+  assert.equal(late.get("u-roshni"), 2, "07-Sep, hers, and 11-Sep, the administrator's");
+  assert.equal(late.get("u-vijay"), 1, "11-Sep, the administrator's");
+  assert.equal(missed.get("u-roshni"), 1);
+  assert.equal(missed.get("u-vijay"), 1);
+  // A document nobody answers for counts against nobody: the super admin answers for it (the escalation's department line).
+  assert.ok(nobody.length > 0 && nobody.every((id) => SYNTHETIC.find((r) => r.id === id)!.documentId !== qcDaily.id && SYNTHETIC.find((r) => r.id === id)!.documentId !== hrDaily.id));
+  // A module's people are those who answer for one of its documents.
+  assert.deepEqual((accountsOf.get("QC") ?? []).map((p) => p.id), ["u-priya"]);
+  assert.deepEqual((accountsOf.get("HR") ?? []).map((p) => p.id).sort(), ["u-roshni", "u-vijay"]);
 });
 
 test("the plant's date of a moment: the server's clock need not be the plant's", () => {

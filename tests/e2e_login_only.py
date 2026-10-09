@@ -19,12 +19,13 @@ the plant's named accounts there on a password this suite knows.
     neither the link, nor the page, nor the accounts from the server;
   * the administrator adds "Meena Joshi" with Quality Control ticked, and the
     same address a second time is refused;
-  * she signs in on the password she was given, is made to choose her own
-    before anything opens - the pop-up cannot be dismissed, and the server
-    refuses her the records until she has - and then sees QC's documents and is
-    refused another department's by name;
-  * her password is reset: the one she chose stops working, the new one lets her
-    in and asks her to choose again;
+  * she signs in on the password she was given and the app opens straight
+    away: nothing asks her to choose her own, her name in the top bar does not
+    offer "Change password", and the server refuses her a change of her own
+    (REQUIREMENTS §105, passwords are the super admin's); she sees QC's
+    documents and is refused another department's by name;
+  * her password is reset: the one she was given before stops working, the new
+    one lets her in, and again nothing asks her to choose another;
   * her account is switched off: she cannot sign in and is told why, not that
     her password is wrong; switched on again, she can;
   * every one of those is a line in the activity log, and not one of them holds
@@ -223,10 +224,10 @@ with sync_playwright() as p:
     added = page.locator(f"[data-user='{MEENA}']")
     check("A person is added with one tick for all of Quality Control", added.count() == 1)
     check(
-        "...her line says what she sees, and that she is on a first password",
+        "...her line says what she sees, and that she can sign in with the password she was given",
         added.count() == 1
         and "Quality Control" in (added.locator("[data-field='access']").text_content() or "")
-        and "First password" in (added.locator("[data-field='status']").text_content() or ""),
+        and "Active" in (added.locator("[data-field='status']").text_content() or ""),
         added.first.text_content() if added.count() else None,
     )
     same = post(page, "/api/users", {"name": "Meena Joshi Again", "email": MEENA.upper(), "password": "Another@2026", "departments": ["QC"]})
@@ -240,45 +241,24 @@ with sync_playwright() as p:
     sign_out(page)
 
     # ==================================================================
-    # 3. Her first sign-in: she must choose her own password
+    # 3. Her first sign-in: the password she was given is hers (REQUIREMENTS §105)
     # ==================================================================
-    print("\n==== The first password is hers to choose ====")
-    sign_in(page, MEENA, MEENA_FIRST, expect_password_change=True)
-    check("She is asked for a password of her own before anything opens", page.locator("[data-section='password-required']").count() == 1)
-    check("...and the app is not behind it: no sidebar, nothing loaded", page.locator(".app-sidebar").count() == 0)
-    page.click(".modal-overlay")
-    page.wait_for_timeout(300)
-    check("The pop-up cannot be waved away", page.locator("[data-section='password-required']").count() == 1)
-    page.keyboard.press("Escape")
-    page.wait_for_timeout(300)
-    check("...nor closed with Escape", page.locator("[data-section='password-required']").count() == 1)
-    refused_data = get(page, "/api/storage")
+    print("\n==== The password the super admin gave her is the one she signs in with ====")
+    opened = sign_in(page, MEENA, MEENA_FIRST)
+    check("She signs in with the password she was given, and the app opens straight away", opened and page.locator(".app-sidebar").count() == 1)
+    check("...nothing asks her to choose her own", page.locator("[data-section='password-required']").count() == 0)
     check(
-        "The server refuses her the records until she has, and says why",
-        refused_data["status"] == 403 and (refused_data["body"] or {}).get("code") == "password-change-required",
-        refused_data,
+        "Her name in the top bar does not offer 'Change password'",
+        page.locator("[data-action='change-password']").count() == 0 and page.locator("[data-field='signed-in-as']").count() == 1,
     )
-    check("Signing out is the only other way on", page.locator("[data-action='sign-out-instead']").count() == 1)
-
-    # The one she was given will not do a second time.
-    page.fill("[data-field='current-password']", MEENA_FIRST)
-    page.fill("[data-field='new-password']", MEENA_FIRST)
-    page.fill("[data-field='new-password-again']", MEENA_FIRST)
-    page.click("[data-action='save-password']")
-    page.wait_for_timeout(900)
-    check("The password she was given will not do as her own", page.locator("[data-section='password-required']").count() == 1)
-
-    page.fill("[data-field='current-password']", MEENA_FIRST)
-    page.fill("[data-field='new-password']", MEENA_OWN)
-    page.fill("[data-field='new-password-again']", MEENA_OWN)
-    page.click("[data-action='save-password']")
-    page.wait_for_selector("[data-action='password-done']", timeout=15000)
-    page.click("[data-action='password-done']")
-    page.wait_for_selector(".app-sidebar", timeout=60000)
-    page.wait_for_timeout(1200)
-    dismiss(page)
-    close_assistant(page)
-    check("With her own password chosen, the app opens", page.locator(".app-sidebar").count() == 1)
+    own_change = post(page, "/api/auth/change-password", {"currentPassword": MEENA_FIRST, "newPassword": MEENA_OWN})
+    check(
+        "The server refuses her a password of her own, and says who sets it",
+        own_change["status"] == 403 and (own_change["body"] or {}).get("code") == "password-set-by-super-admin",
+        own_change,
+    )
+    data_now = get(page, "/api/storage")
+    check("...and her records are open to her, with no change of password asked first", data_now["status"] == 200, data_now["status"])
 
     # ==================================================================
     # 4. She sees Quality Control, and nothing else
@@ -320,12 +300,20 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/index.html")
     page.wait_for_selector("#login-email", timeout=30000)
     page.fill("#login-email", MEENA)
+    page.fill("#login-password", MEENA_FIRST)
+    page.click("button:has-text('Log In')")
+    page.wait_for_timeout(1500)
+    check("The password she was given before no longer works", page.locator("#login-email").count() == 1 and page.locator(".app-sidebar").count() == 0)
+    page.fill("#login-email", MEENA)
     page.fill("#login-password", MEENA_OWN)
     page.click("button:has-text('Log In')")
     page.wait_for_timeout(1500)
-    check("The password she chose no longer works", page.locator("#login-email").count() == 1 and page.locator(".app-sidebar").count() == 0)
-    sign_in(page, MEENA, MEENA_RESET, expect_password_change=True)
-    check("The one the administrator set does, and asks her to choose again", page.locator("[data-section='password-required']").count() == 1)
+    check("...nor does the one she tried to choose herself", page.locator("#login-email").count() == 1 and page.locator(".app-sidebar").count() == 0)
+    reopened = sign_in(page, MEENA, MEENA_RESET)
+    check(
+        "The one the administrator set lets her in, and nothing asks her to choose another",
+        reopened and page.locator("[data-section='password-required']").count() == 0 and page.locator(".app-sidebar").count() == 1,
+    )
 
     sign_in(page, ADMIN, SEED_PASSWORD)
     page.goto(f"{BASE}/index.html#/users")
@@ -445,4 +433,4 @@ if FAILURES:
     for f in FAILURES:
         print(" -", f)
     sys.exit(1)
-print("\nThe portal is login-only: the administrator makes every account, says what it sees, and each person chooses their own password.")
+print("\nThe portal is login-only: the administrator makes every account, says what it sees, and gives each person the password they sign in with.")

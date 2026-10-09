@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { bootstrap } from "./data/bootstrap";
 import { AppStoreProvider } from "./store/AppStore";
-import { AuthProvider, useAuth } from "./store/AuthContext";
+import { accessReady, AuthProvider, useAuth } from "./store/AuthContext";
 import { RouterProvider } from "./store/router";
 import { AuthScreen } from "./components/auth/AuthScreen";
 import { ChangePasswordDialog } from "./components/common/ChangePasswordDialog";
@@ -47,7 +47,8 @@ function DataGate({ userId, children }: { userId: string; children: React.ReactN
   useEffect(() => {
     let cancelled = false;
     setState("loading");
-    startServerSync(userId)
+    // The records and the super admin's access rules together (REQUIREMENTS §96): the app draws for what this person may see and do.
+    Promise.all([startServerSync(userId), accessReady()])
       .then(() => {
         if (cancelled) return;
         bootstrap();

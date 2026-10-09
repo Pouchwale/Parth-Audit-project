@@ -17,6 +17,17 @@ const ACTIVITY_WORDS: Record<HistoryAction, string> = {
   "correction-cancelled": "Correction cancelled",
 };
 
+/**
+ * "Record started" in the activity log, for a record a person has just started (REQUIREMENTS §62, §93) -
+ * from New record and Start this record (engine/recordCrud.ts) and from every page that builds its own new
+ * record: the CAPA registers, the complaint and its acknowledgement, the training record, the pest
+ * responsibilities and the service agreement. Never for a demo record, which is made by the hundred.
+ */
+export function logRecordStarted(record: Pick<RecordInstance, "documentId" | "dueDate" | "isDemo">): void {
+  if (record.isDemo) return;
+  logActivity("Record started", recordLabel(record), "", record.documentId);
+}
+
 /** What a record is called in the activity log: its format number, its name and the day it is for. */
 export function recordLabel(record: Pick<RecordInstance, "documentId" | "dueDate">): string {
   const doc = documentRepository.getById(record.documentId);

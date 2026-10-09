@@ -26,6 +26,7 @@ import { CAF_COMPLAINT_SUB_TYPES, CAF_COMPLAINT_TYPES } from "../data/seed/compl
 import { COMPANY } from "../data/seed/masterData";
 import { autoFillRecord } from "./autoFill";
 import { latestConfirmedRecord } from "./assistantPrepare";
+import { sampleFillSwitchedOn } from "./features";
 import { codeRulesFor, FG_CODE_EXAMPLE } from "./documentFormats";
 import { isLotAccepted } from "./validation";
 import { dayInfo } from "./holidays";
@@ -620,7 +621,12 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
     });
   }
 
+  // "Typical readings" are the simulation's (engine/autoFill.ts): made up, so offered for a Demo Mode record
+  // or on a test server only (REQUIREMENTS §98). In a live record the person types what they read, and no
+  // signature is copied in beside it.
+  const typicalAllowed = record.isDemo || sampleFillSwitchedOn();
   const typicalRows = (): LogSheetRow[] => {
+    if (!typicalAllowed) return [];
     const filled = autoFillRecord(doc, record.dueDate, master, latestConfirmedRecord(doc.id, record.dueDate, record.isDemo));
     return ((filled?.data as LogSheetData | undefined)?.rows ?? []).map((r) => ({ ...r }));
   };
@@ -633,12 +639,14 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
     qs.push({
       id: "rows",
       label: "Readings",
-      ask: `The ${mode.slots.length} time slots — tap "Fill typical readings for me", or type the readings as time and value pairs (e.g. "11:00 20.4, 12:00 20.6").`,
+      ask: typicalAllowed
+        ? `The ${mode.slots.length} time slots — tap "Fill typical readings for me", or type the readings as time and value pairs (e.g. "11:00 20.4, 12:00 20.6").`
+        : `The ${mode.slots.length} time slots — type the readings as time and value pairs (e.g. "11:00 20.4, 12:00 20.6").`,
       type: "text",
-      suggestions: [{ label: "Fill typical readings for me", value: "__typical__" }],
+      suggestions: typicalAllowed ? [{ label: "Fill typical readings for me", value: "__typical__" }] : undefined,
       answered: (x) => rows(x).length > 0 && rows(x).every((r) => !blank(r[main.key])),
       apply: (x, v) => {
-        if (String(v) === "__typical__") return { ...x, rows: typicalRows() };
+        if (String(v) === "__typical__") return typicalAllowed ? { ...x, rows: typicalRows() } : x;
         const typical = typicalRows();
         const next = rows(x).map((r) => ({ ...r }));
         for (const m of String(v).matchAll(/(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*[:=\-]?\s*(-?\d+(?:\.\d+)?)/gi)) {
@@ -701,12 +709,12 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
     qs.push({
       id: "rows",
       label: "Rows",
-      ask: `Today's rows — tap "Fill typical rows for me", or type one row per line with the values in this order: ${cols.map((c) => c.label.split(" (")[0]).join(", ")}.`,
+      ask: `Today's rows — ${typicalAllowed ? 'tap "Fill typical rows for me", or ' : ""}type one row per line with the values in this order: ${cols.map((c) => c.label.split(" (")[0]).join(", ")}.`,
       type: "text",
-      suggestions: [{ label: "Fill typical rows for me", value: "__typical__" }],
+      suggestions: typicalAllowed ? [{ label: "Fill typical rows for me", value: "__typical__" }] : undefined,
       answered: (x) => rows(x).length > 0 && rows(x).some((r) => cols.some((c) => !blank(r[c.key]))),
       apply: (x, v) => {
-        if (String(v) === "__typical__") return { ...x, rows: typicalRows() };
+        if (String(v) === "__typical__") return typicalAllowed ? { ...x, rows: typicalRows() } : x;
         const template = typicalRows()[0];
         const added: LogSheetRow[] = String(v)
           .split(/\r?\n/)

@@ -13,7 +13,12 @@
 //   * the next opening across the weekly off and a festival (Thursday 3 and
 //     Friday 4 September), across the Diwali run (five closed days, the weekly
 //     off inside it) and across the new year;
-//   * the owner's own sentence, word for word;
+//   * the owner's own sentences, word for word — since 6-Oct-2026 the STAFF's
+//     hours, with the super admin free to sign in at any time, and never
+//     "DCRS is open" or "it opens again" (§84 addendum) — in English and in
+//     Gujarati, and the Gujarati rebuilt from the server's answer alone;
+//   * the super admin's sign-in in the day's last ten minutes runs to the
+//     midnight after;
 //   * the hours from Master Data (and the standard ones when they do not make a
 //     day), when a session ends, and the moments in a zone with summer time.
 //
@@ -27,16 +32,23 @@ import { plantClosedDays } from "../src/engine/latenessCore";
 import {
   addDaysISO,
   clockWords,
+  clockWordsIn,
   DEFAULT_WORKING_HOURS,
   hoursProblem,
+  hoursSentence,
+  hoursWordsIn,
+  LATE_SIGN_IN_MS,
   nextMidnight,
   OUTSIDE_HOURS_CODE,
   outsideHoursRefusal,
+  personHours,
   plantDay,
   plantNow,
   publicHours,
   refusalMessage,
   sessionEndsAt,
+  staffHoursSentence,
+  superAdminHoursLine,
   todaySentence,
   wallClock,
   workingHoursOf,
@@ -162,7 +174,7 @@ test("an adjustment Thursday is open; a plain Thursday is the weekly off", () =>
   assert.equal(adj.today.kind, "adjustment");
   assert.equal(adj.phase, "open");
   assert.equal(adj.today.name, "Navratri Navam (20-10-2026)");
-  assert.equal(todaySentence(adj), "Today is Thursday, an adjustment day for Navratri Navam (20-10-2026), so the plant works — open now, until 6:20 pm.");
+  assert.equal(todaySentence(adj), "Today is Thursday, an adjustment day for Navratri Navam (20-10-2026), so the plant works — staff hours run until 6:20 pm.");
   for (const d of ["2026-01-22", "2026-08-06", "2026-11-05"]) assert.equal(plantNow(SEED, ist(d, 10, 0), IST).open, true, d);
 
   const plain = plantNow(SEED, ist("2026-10-15", 10, 0), IST);
@@ -171,9 +183,20 @@ test("an adjustment Thursday is open; a plain Thursday is the weekly off", () =>
   assert.equal(plain.opensAt?.toISOString(), "2026-10-16T03:10:00.000Z");
 });
 
-test("the owner's own sentence, word for word, on Thursday 1 October 2026", () => {
+test("the owner's own sentences, word for word: the staff's hours, on Thursday 1 October 2026 and after the close on 6 October", () => {
   const thursday = plantNow(SEED, ist("2026-10-01", 10, 0), IST);
-  assert.equal(refusalMessage(thursday), "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.");
+  // Staff refused: their hours, then when they start again — nothing about DCRS opening or closing.
+  assert.equal(refusalMessage(thursday), "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.");
+  // The sign-in page, before anybody is known (the owner, 6-Oct-2026, 21:30): the staff's hours and the super admin's freedom, first.
+  const tuesday = plantNow(SEED, ist("2026-10-06", 21, 30), IST);
+  assert.equal(hoursSentence(tuesday.hours), "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.");
+  assert.equal(todaySentence(tuesday), "Today's staff hours ended at 6:20 pm; they start again on Wednesday 7 October at 8:40 am.");
+  assert.equal(staffHoursSentence(tuesday.hours), "Staff working hours: 8:40 am to 6:20 pm on working days.");
+  for (const s of [thursday, tuesday]) {
+    for (const words of [refusalMessage(s), hoursSentence(s.hours), todaySentence(s)]) {
+      assert.doesNotMatch(words, /DCRS is open|opens again|DCRS is closed|DCRS closes|not open yet/, words);
+    }
+  }
   const refusal = outsideHoursRefusal(thursday);
   assert.equal(refusal.code, OUTSIDE_HOURS_CODE);
   assert.equal(refusal.code, "outside-working-hours");
@@ -186,7 +209,7 @@ test("a festival is closed, whatever the weekday, and says which festival", () =
   assert.equal(janmashtami.phase, "closed-day");
   assert.equal(janmashtami.today.kind, "holiday");
   assert.equal(janmashtami.today.name, "Janmashtami");
-  assert.equal(todaySentence(janmashtami), "Today is Janmashtami, a company holiday — it opens again on Saturday 5 September at 8:40 am.");
+  assert.equal(todaySentence(janmashtami), "Today is Janmashtami, a company holiday; staff hours start again on Saturday 5 September at 8:40 am.");
   assert.equal(plantNow(SEED, ist("2026-01-26", 9, 0), IST).today.name, "Republic Day");
 });
 
@@ -195,7 +218,7 @@ test("the next opening across a run of closed days: the weekly off and a festiva
   const beforeJanmashtami = plantNow(SEED, ist("2026-09-02", 18, 30), IST);
   assert.equal(beforeJanmashtami.phase, "after-closing");
   assert.equal(beforeJanmashtami.opensAt?.toISOString(), "2026-09-05T03:10:00.000Z");
-  assert.equal(todaySentence(beforeJanmashtami), "Today's working hours ended at 6:20 pm — it opens again on Saturday 5 September at 8:40 am.");
+  assert.equal(todaySentence(beforeJanmashtami), "Today's staff hours ended at 6:20 pm; they start again on Saturday 5 September at 8:40 am.");
 
   // Sunday 8 November after the close: New Year (Mon 9), Bhai Dooj (Tue 10), Padtar Diwas (Wed 11, Thu 12 — the weekly
   // off too — and Fri 13): open again on Saturday 14 November.
@@ -211,7 +234,7 @@ test("the next opening across a run of closed days: the weekly off and a festiva
   // Thursday 31 December 2026, the weekly off: Friday 1 January 2027, the year said because it is another year.
   const newYear = plantNow(SEED, ist("2026-12-31", 12, 0), IST);
   assert.equal(newYear.opensAt?.toISOString(), "2027-01-01T03:10:00.000Z");
-  assert.equal(todaySentence(newYear), "Today is Thursday, the weekly off — it opens again on Friday 1 January 2027 at 8:40 am.");
+  assert.equal(todaySentence(newYear), "Today is Thursday, the weekly off; staff hours start again on Friday 1 January 2027 at 8:40 am.");
 });
 
 test("a calendar with no working day in the year ahead says so and gives no opening", () => {
@@ -232,7 +255,9 @@ test("the hours come from Master Data; hours that do not make a day are the stan
   assert.equal(plantNow(withCustom, ist("2026-09-30", 8, 59), IST).phase, "before-opening");
   assert.equal(plantNow(withCustom, ist("2026-09-30", 9, 0), IST).phase, "open");
   assert.equal(plantNow(withCustom, ist("2026-09-30", 17, 30), IST).phase, "after-closing");
-  assert.equal(refusalMessage(plantNow(withCustom, ist("2026-09-30", 18, 0), IST)), "DCRS is open 9:00 am to 5:30 pm on working days. Today's working hours ended at 5:30 pm — it opens again on Friday 2 October at 9:00 am.");
+  assert.equal(refusalMessage(plantNow(withCustom, ist("2026-09-30", 18, 0), IST)), "Staff working hours: 9:00 am to 5:30 pm on working days. Today's staff hours ended at 5:30 pm; they start again on Friday 2 October at 9:00 am.");
+  assert.equal(todaySentence(plantNow(withCustom, ist("2026-09-30", 8, 0), IST)), "Today is a working day. Staff hours start today at 9:00 am.");
+  assert.equal(todaySentence(plantNow(withCustom, ist("2026-09-30", 12, 0), IST)), "Today is a working day — staff hours run until 5:30 pm.");
 
   for (const bad of [undefined, null, {}, { start: "25:00", end: "18:20" }, { start: "18:20", end: "08:40" }, { start: "08:40", end: "08:40" }, { start: 840, end: 1820 }, { start: "8.40", end: "18.20" }]) {
     const h = workingHoursOf({ workingHours: bad as never });
@@ -264,6 +289,31 @@ test("a session ends at END of its working day for staff, at the factory's midni
   assert.equal(nextMidnight(ist("2026-12-31", 23, 59), IST).toISOString(), "2026-12-31T18:30:00.000Z");
 });
 
+test("the super admin's sign-in in the day's last ten minutes runs to the midnight after — never a session of a minute", () => {
+  assert.equal(LATE_SIGN_IN_MS, 10 * 60 * 1000);
+  const ends = (h: number, m: number, s = 0, admin = true, enforced = true) => sessionEndsAt({ admin, enforced, state: plantNow(SEED, ist("2026-10-07", h, m, s), IST) }).toISOString();
+  // Up to 23:49:59 his session ends at tonight's midnight (18:30 UTC on 7 October)…
+  assert.equal(ends(23, 49, 59), "2026-10-07T18:30:00.000Z");
+  assert.equal(ends(18, 20), "2026-10-07T18:30:00.000Z");
+  // …from 23:50 it runs to the next one, the end of Thursday 8 October.
+  assert.equal(ends(23, 50), "2026-10-08T18:30:00.000Z");
+  assert.equal(ends(23, 59, 30), "2026-10-08T18:30:00.000Z");
+  assert.equal(ends(23, 59, 59), "2026-10-08T18:30:00.000Z");
+  // From midnight a new day's session is a whole day again.
+  assert.equal(ends(0, 0, 1), "2026-10-07T18:30:00.000Z");
+  // Nobody else's session changes: staff outside the hours get none; with the hours off everybody's runs to tonight's midnight.
+  assert.equal(ends(23, 55, 0, false, true), ist("2026-10-07", 23, 55).toISOString());
+  assert.equal(ends(23, 55, 0, false, false), "2026-10-07T18:30:00.000Z");
+  // Every session still ends at a midnight, so he signs in each day: never more than a day and ten minutes.
+  for (let minute = 0; minute < 24 * 60; minute += 7) {
+    const now = ist("2026-10-07", Math.floor(minute / 60), minute % 60);
+    const end = sessionEndsAt({ admin: true, enforced: true, state: plantNow(SEED, now, IST) });
+    assert.equal(wallClock(end, IST).secondOfDay, 0, String(minute));
+    const left = end.getTime() - now.getTime();
+    assert.ok(left > LATE_SIGN_IN_MS && left <= 24 * 3600 * 1000 + LATE_SIGN_IN_MS, `${minute}: ${left}`);
+  }
+});
+
 test("a factory time is the right moment on every day of 2026, and in a zone with summer time", () => {
   for (const d of DAYS_2026) {
     const at = zonedMoment(d, 8 * 60 + 40, IST);
@@ -278,13 +328,83 @@ test("a factory time is the right moment on every day of 2026, and in a zone wit
   assert.equal(zonedMoment("2026-12-01", 8 * 60 + 40, london).toISOString(), "2026-12-01T08:40:00.000Z");
 });
 
-test("the public answer says the hours and today in words, and nothing about anybody", () => {
+test("the public answer says the staff's hours and today in words, and nothing about anybody", () => {
   const answer = publicHours(plantNow(SEED, ist("2026-10-01", 10, 0), IST), true);
   assert.deepEqual(Object.keys(answer).sort(), ["closesAt", "end", "enforced", "hoursText", "now", "openNow", "opensAt", "phase", "start", "timeZone", "today", "todayText"]);
-  assert.equal(answer.hoursText, "DCRS is open 8:40 am to 6:20 pm on working days.");
-  assert.equal(answer.todayText, "Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.");
+  assert.equal(answer.hoursText, "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.");
+  assert.equal(answer.todayText, "Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.");
   assert.equal(answer.openNow, false);
   assert.equal(answer.opensAt, "2026-10-02T03:10:00.000Z");
   assert.deepEqual(answer.today, { date: "2026-10-01", weekday: "Thursday", kind: "weekly-off", name: null });
   assert.equal(publicHours(plantNow(SEED, ist("2026-10-02", 9, 0), IST), false).enforced, false);
+});
+
+test("a signed-in person's answer: the super admin is told the hours are the staff's and that he can keep working; staff are not told anything new", () => {
+  const closed = plantNow(SEED, ist("2026-10-07", 21, 0), IST);
+  const admin = personHours(closed, true, { admin: true });
+  assert.equal(admin.heldToHours, false);
+  assert.equal(admin.forYou, "You are the super admin: these are the staff's hours, and you can keep working at any time.");
+  assert.equal(admin.hoursText, "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.");
+  assert.equal(admin.todayText, "Today's staff hours ended at 6:20 pm; they start again on Friday 9 October at 8:40 am.");
+  const staff = personHours(plantNow(SEED, ist("2026-10-07", 10, 0), IST), true, { admin: false });
+  assert.equal(staff.heldToHours, true);
+  assert.equal(staff.forYou, null);
+  assert.equal(personHours(closed, false, { admin: false }).heldToHours, false, "a server that holds nobody to the hours holds staff to none");
+  // Everything else is the public answer, word for word.
+  const { heldToHours: _h, forYou: _f, ...rest } = admin;
+  assert.deepEqual(rest, publicHours(closed, true));
+});
+
+/** Moments that reach every sentence: open, before the opening, after the close (and across the year's end), the weekly off, a festival, an adjustment day, a calendar with no working day ahead. */
+function everyKindOfMoment() {
+  const closedAlways = { holidays: everyDay("2026-09-30", "2027-12-31").map((d, i) => ({ id: `x${i}`, date: d, name: "Shut" })) };
+  return [
+    plantNow(SEED, ist("2026-10-07", 10, 0), IST),
+    plantNow(SEED, ist("2026-10-07", 6, 30), IST),
+    plantNow(SEED, ist("2026-10-07", 21, 30), IST),
+    plantNow(SEED, ist("2026-12-30", 19, 0), IST),
+    plantNow(SEED, ist("2026-10-01", 10, 0), IST),
+    plantNow(SEED, ist("2026-09-04", 10, 0), IST),
+    plantNow(SEED, ist("2026-10-22", 10, 0), IST),
+    plantNow(SEED, ist("2026-10-22", 7, 0), IST),
+    plantNow({ ...SEED, workingHours: { start: "07:05", end: "15:45" } }, ist("2026-10-07", 16, 0), IST),
+    plantNow(closedAlways, ist("2026-09-30", 10, 0), IST),
+  ];
+}
+
+test("the hours in Gujarati, for the app's own Gujarati screens: the same sentences from the same parts", () => {
+  const tuesday = plantNow(SEED, ist("2026-10-06", 21, 30), IST);
+  assert.equal(hoursSentence(tuesday.hours, "gu"), "સ્ટાફના કામના કલાકો: કામકાજના દિવસોમાં સવારે 8:40 થી સાંજે 6:20. સુપર એડમિન કોઈપણ સમયે સાઇન ઇન કરી શકે છે.");
+  assert.equal(todaySentence(tuesday, "gu"), "આજના સ્ટાફના કલાકો સાંજે 6:20 વાગ્યે પૂરા થયા; તે ફરી બુધવાર, 7 ઑક્ટોબરના રોજ સવારે 8:40 વાગ્યે શરૂ થશે.");
+  assert.equal(todaySentence(plantNow(SEED, ist("2026-10-01", 10, 0), IST), "gu"), "આજે ગુરુવાર છે, સાપ્તાહિક રજા; સ્ટાફના કલાકો ફરી શુક્રવાર, 2 ઑક્ટોબરના રોજ સવારે 8:40 વાગ્યે શરૂ થશે.");
+  assert.equal(todaySentence(plantNow(SEED, ist("2026-10-07", 10, 0), IST), "gu"), "આજે કામકાજનો દિવસ છે — સ્ટાફના કલાકો સાંજે 6:20 સુધી છે.");
+  assert.equal(todaySentence(plantNow(SEED, ist("2026-10-07", 7, 0), IST), "gu"), "આજે કામકાજનો દિવસ છે. સ્ટાફના કલાકો આજે સવારે 8:40 વાગ્યે શરૂ થશે.");
+  assert.equal(superAdminHoursLine("gu"), "તમે સુપર એડમિન છો: આ સ્ટાફના કલાકો છે, અને તમે કોઈપણ સમયે કામ ચાલુ રાખી શકો છો.");
+  assert.equal(clockWordsIn(0, "gu"), "રાત્રે 12:00");
+  assert.equal(clockWordsIn(12 * 60, "gu"), "બપોરે 12:00");
+  assert.equal(clockWordsIn(16 * 60 + 5, "gu"), "સાંજે 4:05");
+  assert.equal(clockWordsIn(21 * 60, "gu"), "રાત્રે 9:00");
+  for (const s of everyKindOfMoment()) {
+    const gu = `${hoursSentence(s.hours, "gu")} ${todaySentence(s, "gu")}`;
+    assert.doesNotMatch(gu, /[A-Za-z]/.test(s.today.name ?? "") ? /\b(am|pm|today|staff)\b/i : /[A-Za-z]/, gu);
+  }
+});
+
+test("a screen rebuilds the server's words from its answer alone: English exactly as the server said them, Gujarati from the same parts", () => {
+  for (const s of everyKindOfMoment()) {
+    const answer = publicHours(s, true);
+    // Through JSON, as the browser has it.
+    const received = JSON.parse(JSON.stringify(answer));
+    assert.deepEqual(hoursWordsIn(received, "en"), { hoursText: answer.hoursText, todayText: answer.todayText });
+    assert.deepEqual(hoursWordsIn(received, "gu"), { hoursText: hoursSentence(s.hours, "gu"), todayText: todaySentence(s, "gu") }, s.now.toISOString());
+  }
+});
+
+test("no sentence the hours make says DCRS itself opens or closes, in either language (the owner, 6-Oct-2026)", () => {
+  for (const s of everyKindOfMoment()) {
+    for (const words of [hoursSentence(s.hours), todaySentence(s), refusalMessage(s), superAdminHoursLine()]) {
+      assert.doesNotMatch(words, /DCRS is open|opens again|it opens|DCRS is closed|DCRS closes|not open yet|open now/, words);
+      assert.match(words, /[Ss]taff|super admin|Today is/, words);
+    }
+  }
 });

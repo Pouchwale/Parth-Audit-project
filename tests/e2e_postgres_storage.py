@@ -318,7 +318,9 @@ with sync_playwright() as p:
     stale_body = stale_scope.json() if stale_scope.status == 409 else {}
     check(
         "A copy made for other departments than the account has now is refused, and comes back as the account sees it now",
-        stale_scope.status == 409 and stale_body.get("scope") == "QC" and not any(hr_like(r) for r in json.loads((stale_body.get("current") or {}).get("value") or "[]")),
+        # The key of the copy is every level the account has (REQUIREMENTS §96, backend/accessLevels.ts AccessView.scope), no longer
+        # the department's code: any change of what the account may see or do refuses a write made from the copy before it.
+        stale_scope.status == 409 and stale_body.get("scope") not in (None, "*") and not any(hr_like(r) for r in json.loads((stale_body.get("current") or {}).get("value") or "[]")),
         (stale_scope.status, stale_body.get("scope")),
     )
     me_qc = qc.get("/api/auth/me").json()["user"]["id"]

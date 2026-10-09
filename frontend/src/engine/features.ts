@@ -10,8 +10,9 @@
 // answer synchronously. Anything else, no answer included, is OFF.
 //
 // Only the SWITCH lives here. A record's isDemo field, the pages' isDemo
-// filters and the behaviour model the generator shares with the Live pre-fill
-// (engine/plantSimulation.ts) stay exactly as they are.
+// filters and the demo year's behaviour model (engine/plantSimulation.ts,
+// which since 8-Oct-2026 never reaches a Live record: REQUIREMENTS §98) stay
+// exactly as they are.
 let demoMode = false;
 // Whether anybody may create their own account. The portal is login-only
 // (REQUIREMENTS §66): the administrator makes each account, so the sign-in
@@ -24,12 +25,31 @@ let told = false;
 // one the assistant still answers from the app's own tables, but it says that
 // is what it is doing instead of passing the answer off as the model's.
 let assistant = false;
+// Whether "fill it with sample data" may fill a LIVE record (REQUIREMENTS §98).
+// Sample data is realistic but made up, so in the plant it is for Demo Mode's
+// records only; a test server switches it on for Live records too, because the
+// suites stand on it (ALLOW_SAMPLE_FILL=1, which scripts/run-e2e.ts and
+// scripts/unit-tests.ts set; off by default). The server says so with who is
+// signed in (`features.sampleFill`); a server that does not say yet is taken at
+// its Demo Mode word, since only a test server runs with DEMO_MODE=1.
+let sampleFill = false;
 
-export function setFeatures(f: { demoMode?: boolean; signup?: boolean; assistant?: boolean } | undefined): void {
+export function setFeatures(f: { demoMode?: boolean; signup?: boolean; assistant?: boolean; sampleFill?: boolean } | undefined): void {
   demoMode = f?.demoMode === true;
   signup = f?.signup === true;
   assistant = f?.assistant === true;
+  sampleFill = typeof f?.sampleFill === "boolean" ? f.sampleFill : demoMode;
   told = typeof f?.demoMode === "boolean";
+}
+
+/**
+ * Whether sample data may go into a Live record here: on a test server only (REQUIREMENTS §98). The engine
+ * host, which runs this engine in a worker on the server, reads the server's own ALLOW_SAMPLE_FILL.
+ */
+export function sampleFillSwitchedOn(): boolean {
+  if (sampleFill) return true;
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  return env?.ALLOW_SAMPLE_FILL === "1";
 }
 
 /** Whether Mitra has a model to ask — GROQ_API_KEY is set on the server (REQUIREMENTS §72). */

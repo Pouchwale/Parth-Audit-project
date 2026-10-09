@@ -289,7 +289,7 @@ export function AssistantBriefingPopup() {
             <Section
               icon={<FiCheck size={13} />}
               tone="success"
-              title={`Filled in and ready for your OK (${briefing.ready.length})`}
+              title={`Prepared and ready for your OK (${briefing.ready.length})`}
               action={
                 <button
                   className="btn btn-success btn-sm"
@@ -313,7 +313,7 @@ export function AssistantBriefingPopup() {
                 />
               ))}
               <div className="text-xs text-muted mt-1" data-section="briefing-review-rule">
-                I filled these in, so check each one — View opens it — and tick <strong>Reviewed &amp; verified</strong>. Only a ticked record can be submitted.
+                Nothing is left to enter on these: I prepared the known parts and the readings are in. Check each one — View opens it — and tick <strong>Reviewed &amp; verified</strong>. Only a ticked record can be submitted.
               </div>
               <More count={briefing.ready.length - MAX_ROWS} hint="Open them from the Dashboard to review them too." />
             </Section>
@@ -322,7 +322,7 @@ export function AssistantBriefingPopup() {
           {briefing.needsInput.length > 0 && (
             <Section icon={<FiAlertCircle size={13} />} tone="warning" title={`Needs a detail only you know (${briefing.needsInput.length})`}>
               {briefing.needsInput.slice(0, MAX_ROWS).map((item) => (
-                <ItemRow key={item.recordId} item={item} onView={() => go(item.route)} showErrors />
+                <ItemRow key={item.recordId} item={item} onView={() => go(item.route)} showErrors showWaiting />
               ))}
               <More count={briefing.needsInput.length - MAX_ROWS} hint="Open the Calendar to work through the rest day by day." onMore={() => go("/calendar")} />
             </Section>
@@ -431,6 +431,7 @@ function ItemRow({
   onView,
   onSubmit,
   showErrors,
+  showWaiting,
   compact,
   reviewed,
   onReviewed,
@@ -439,11 +440,14 @@ function ItemRow({
   onView: () => void;
   onSubmit?: () => void;
   showErrors?: boolean;
+  /** A prepared record's what-is-left: its errors are the submit checks' (engine/assistantBriefing.ts). */
+  showWaiting?: boolean;
   compact?: boolean;
   /** Ticked as reviewed and verified — what makes Submit available (REQUIREMENTS §62). */
   reviewed?: boolean;
   onReviewed?: () => void;
 }) {
+  const t = useT();
   const today = todayISO();
   const late = item.dueDate < today;
   return (
@@ -482,6 +486,12 @@ function ItemRow({
             <li key={i}>{n}</li>
           ))}
         </ul>
+      )}
+      {/* How many readings wait (REQUIREMENTS §98): a prepared record holds only what is known. */}
+      {showWaiting && item.errors.length > 0 && (
+        <div className="text-xs font-semibold mt-1" data-field="briefing-waiting">
+          {item.errors.length === 1 ? t("brief.toEnterOne") : t("brief.toEnter", { n: item.errors.length })}
+        </div>
       )}
       {showErrors && item.errors.length > 0 && (
         <div className="text-xs text-danger mt-1">

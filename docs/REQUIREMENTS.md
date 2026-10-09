@@ -2987,9 +2987,10 @@ puts the paper's own transcription back.
 | Vinay Bhojak | `vinay.bhojak@gpp.local` | Human Resources' documents only |
 | Sandeep Parekh | `sandeep.parekh@gpp.local` | Human Resources' documents only |
 
-They start on one password (`SEED_ACCOUNT_PASSWORD`, otherwise `Gpp@12345` — and on the built-in one the
-system now *requires* the change before the account can be used, §66), so each person's first act is
-**Change password** — their own name in the top bar. The addresses are sign-in names on a domain that does not
+They start on one password (`SEED_ACCOUNT_PASSWORD`; without it, since §105, the super admin's account starts on
+`Gpp@12345` and must change it before it can be used, §66, and everybody else's has no password until the super admin
+gives it one), and only the super admin changes a password — their own from their name in the top bar, anybody else's
+with "Reset password" on Users & Access (§105). The addresses are sign-in names on a domain that does not
 exist, so no mail is ever sent to them. The department rule is the one already in force (§40), enforced by the
 server as well as the screen: a QC account is handed only QC's records, and another department's page refuses
 by name. `SEED_ACCOUNTS=0` leaves them out, which the test runner does because its first signup has to be the
@@ -3351,6 +3352,10 @@ company's own originals.
   the sign-in screen and a record being filled.
 
 ## 66. A login-only portal: the administrator makes every account (23-Sep-2026)
+
+> **Since 9-Oct-2026 (§105):** the password the super admin gives is the one the person signs in with. Only the super
+> admin's own account is ever asked to choose its own (on the built-in first password), and only the super admin
+> changes a password. What follows about each person choosing their own at the first sign-in is history.
 
 ```
 REQUESTED            "keep login portal only for now for superadmin and everyone else also and in superadmin keep
@@ -5181,8 +5186,9 @@ is the weekly off, but an adjustment day is a working day and a festival holiday
 §16) — from 8:40 am to 6:20 pm factory time (Master Data → Working Hours, where the super admin can change the two times; the
 rule matches the calendar pages for every day of 2026 and 2027). Outside them:
 - a non-admin cannot sign in (logged "Sign-in refused — Outside working hours") or use anything: the server answers 403
-  `outside-working-hours` with the next opening, and the page says it in words — "DCRS is open 8:40 am to 6:20 pm on working days.
-  Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am.";
+  `outside-working-hours` with the next opening, and the page says it in words — since 6-Oct-2026 as the staff's hours (see
+  the addendum below): "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours
+  start again on Friday 2 October at 8:40 am.";
 - a save a browser sends outside the hours is answered 401 (not 403), so the browser keeps the unsent work for the next sign-in
   rather than forgetting it;
 - the sign-in page states the hours and today's state.
@@ -5195,6 +5201,131 @@ the suites run at any hour). The Audit Assistant's DCRS token ends the same way 
 **What waits on the owner.** Confirmation items 42 to 44.
 
 **Tests.** See docs/TESTING.md "Every document findable, the opening, User access and the working hours".
+
+### The super admin at any hour (6-Oct-2026)
+
+**What the owner asked, in his words.** About 20:45: "now i want is like superadmin can login any time so that in system."
+About 21:30, quoting the sign-in page word for word: "DCRS is open 8:40 am to 6:20 pm on working days. Today's working
+hours ended at 6:20 pm — it opens again on Wednesday 7 October at 8:40 am." :- "this statement is not valid for superadmin
+because superadmin can login at any time."
+
+**What already held.** The gate never refused an account whose role is "admin" (backend/workingHours.ts `heldToHours`), so
+the super admin could sign in and keep working at every moment — before 8:40, after 6:20, on the weekly off, on a festival,
+on an adjustment day, with the hours changed or left blank, on a server whose clock runs in UTC — on the website (sign-in,
+every /api route, the records' saves, the master data), through /api/v1 (the Audit Assistant and the phone app) and in the
+phone app. This was proved again on a throwaway DCRS with the hours enforced and closed through its own master data (the
+staff refused 403 `outside-working-hours` meanwhile), and it is unchanged. Staff are held to 8:40 am to 6:20 pm on working
+days exactly as before, and are signed out at the close; nobody but the super admin has any new access.
+
+**What changed.**
+1. *The words: the hours are the STAFF's.* DCRS itself never closes, so no sentence says "DCRS is open", "it opens again" or
+   "DCRS is closed". They are made in one place, engine/workingHoursCore.ts:
+   - before anybody signs in (the sign-in page's main words, GET /api/auth/config): "Staff working hours: 8:40 am to 6:20 pm
+     on working days. The super admin can sign in at any time." and "Today's staff hours ended at 6:20 pm; they start again
+     on Wednesday 7 October at 8:40 am." (or "Today is a working day — staff hours run until 6:20 pm.", "… Staff hours start
+     today at 8:40 am.", "Today is Thursday, the weekly off; staff hours start again on …", "Today is Janmashtami, a company
+     holiday; staff hours start again on …"). The muted footnote that alone named the super admin is gone;
+   - staff refused (the sign-in page, every route, /api/v1, the phone app, which passes DCRS's words on): "Staff working
+     hours: 8:40 am to 6:20 pm on working days. Today's staff hours ended at 6:20 pm; they start again on Friday 9 October at
+     8:40 am." Staff's closing warning: "Your working hours end at 6:20 pm, the close of today's staff hours. … They start
+     again on the next working day.";
+   - to the signed-in super admin: the answers worded for a person (POST /api/auth/login, GET /api/auth/me, GET
+     /api/v1/today's `workingHours`) carry `heldToHours` and `forYou` — for him "You are the super admin: these are the
+     staff's hours, and you can keep working at any time." (null for staff). His User access card and Master Data's hours card
+     say it under the staff's hours; Master Data says "Staff working hours:", its days read "working day", "adjustment day,
+     worked", "weekly off", and a save says "Saved: staff working hours are now …". Mitra on the phone is given `forYou` with
+     the two sentences (the phone server's shape.ts); Mitra on the website is given one line of live facts — the staff's
+     hours and, for the super admin, "these hours do not hold him, so he can keep working now, at any hour".
+   - In Gujarati where the app's own Gujarati shows (ગુજરાતી chosen and Google's translator out of reach): the same
+     sentences built from the same parts (workingHoursCore `hoursWordsIn`, i18n/strings.hours.ts) on the User access card,
+     Master Data's hours line and both warnings; with the translator on, the English is translated like every other screen.
+     The sign-in page stays English, as a rule; the server's answers (and so the phone's) are English, and the phone's model
+     answers in the person's language.
+2. *The super admin's day still ends at midnight, now without losing work.* Every session still ends with its day, so he
+   still signs in each day; but before this a session simply ran out at the factory's midnight with no word, the app gave
+   way to the sign-in page, and whatever was only on screen went with it, and a sign-in at 23:59 was a session of one minute
+   (on the phone, a sign-in in the last second was refused as "Couldn't reach DCRS"). Now:
+   - ten minutes before midnight he is warned in his own words — "Your session for today ends at 12:00 am. You will be
+     signed out in 9 minutes — finish what you are typing; everything already saved is kept. Sign in again straight away to
+     keep working: the staff's hours do not hold you.";
+   - just before it the browser signs him out itself, after sending what is still on its way (as staff's close does), the
+     activity log says "Signed out — At the end of the day (midnight)", and the sign-in page says "Your session for today
+     ended at 12:00 am, the end of the day. Sign in again to keep working — the super admin can sign in at any time.";
+   - his sign-in in the day's last ten minutes runs to the midnight after (engine/workingHoursCore.ts `LATE_SIGN_IN_MS`),
+     so a late sign-in is never a session of minutes;
+   - on the phone, a change card shown before midnight and confirmed after it opens the record of the day it showed, the
+     same day its fill step is pinned to (the phone server's open_record now carries DCRS's date).
+3. *The phone app's super admin is DCRS's.* The phone server counted only the emails in its SUPER_ADMINS setting. It now
+   also counts the person DCRS answers as role "admin" at each sign-in (GET /api/v1/me, kept on the person's row and read
+   again at every sign-in, so a role taken away in DCRS stops counting at the next sign-in); SUPER_ADMINS stays an extra list.
+
+**What was left as it is, and why.** The guided tour still starts on the first Dashboard visit of a new day, after
+midnight too. The engine's "today" follows the server's own clock (backend/engineHost.ts warns at start-up when that is not
+factory time); the plant's server runs on factory time. (Until 8-Oct-2026 this paragraph also left the sign-in throttle
+keyed by the email alone; the review below changed it.)
+
+**Tests.** frontend/tests/workingHours.test.ts (the owner's sentences word for word; nothing says DCRS opens or closes, in
+either language; the Gujarati; a screen's words rebuilt from the server's answer; the person's answer; the late sign-in),
+backend/tests/workingHours.test.ts (the gate's words for each person at every closed moment; the late sign-in),
+backend/tests/apiV1Records.test.ts (/api/v1/today for staff and for the super admin), backend/tests/accessRoutes.test.ts,
+backend/tests/phoneCheck.test.ts, frontend/tests/mitraHistory.test.ts (Mitra's live facts); tests/e2e_working_hours.py (the
+sign-in page's main words, staff's refusal and warning, the super admin's answers and /api/v1/today while the hours are
+closed, his own warning, sign-out, log line and sign-in again) and tests/e2e_user_access.py (his line on the hours card); the
+phone server's dcrs-app.test.ts and dcrs-connector.test.ts (DCRS's super admin is the app's super admin, and stops being so at
+the next sign-in when DCRS says otherwise; `forYou` reaches the model; open_record pinned to its day).
+
+### The review of 8-Oct-2026: nothing else ends or blocks the super admin's day
+
+Two reviewers tried to stop the super admin, and to get staff in, on throwaway servers with the hours enforced and at two real
+factory midnights. Staff never got in. What did not hold, and what changed:
+
+1. *A second tab whose clock ran late ended the session he had just started again.* Every tab of a browser shares one
+   session, and a tab's clock can run late: Chrome wakes a tab hidden for five minutes once a minute, and a sleeping laptop
+   wakes every tab late. Such a tab, reaching the end of the day after he had signed in again in another tab, signed the
+   browser out — his new session — with no notice and a false "Signed out — At the end of the day (midnight)" line. Now each
+   session has an id of its own (in its token, and as `session.id` in the answers of POST /api/auth/login and GET
+   /api/auth/me). A tab that ends its session by itself asks the server first: a newer session of the same person is taken
+   up there and nothing is ended. And its sign-out names its own session, which the server ends only while the browser still
+   holds it (backend/signInAndOut.ts `endsThisSession`). The Log Out button still ends whatever session the browser has.
+2. *Anybody could keep him out with eight wrong passwords.* The sign-in throttle was keyed by the address typed alone, so
+   eight wrong passwords for admin@gpp.local, from any computer, refused even his right password for ten minutes, again and
+   again. It is now keyed by the address and the computer it comes from (its IP address; audit M-22's first part). Eight wrong
+   passwords hold back that computer for ten minutes — there the right password waits too, so guessing gets no faster — and
+   he signs in at once from his own. Each computer on the network can try eight times in ten minutes.
+3. *A sign-out's reason is written only where it fits the account.* "At the end of the day (midnight)" is the super admin's
+   alone; "At the close of working hours" and "Outside working hours" are staff's alone. Anything else is a plain "Signed out"
+   (a hand-made request could put the end of the day on a staff member's line).
+4. *User access after midnight.* His sign-in in the day's last ten minutes runs to the midnight after, yet after midnight the
+   page said "Not signed in today" while he worked in it, and the history paired another tab's end-of-day sign-out of his
+   older session with the late one. Now such a session, not signed out, is carried into the next day: "Signed in now", its
+   time shown with "yesterday, in its last ten minutes: the session runs to tonight's midnight", counted among those signed in
+   today. The history shows it "No sign-out yet" and pairs it with a sign-out the next day. A sign-out at the end of the day
+   closes only a session that ends with that day. A session is still listed on the day it began, so a span of today alone
+   does not show one begun in yesterday's last minutes.
+5. *The phone (the Mitra mobile app).* Its session ends with DCRS's: the super admin's at midnight, staff's at the close of
+   their hours. The app now says so ten minutes before, above the chat's composer: "Your session ends at 12:00 am, in 9
+   minutes. Finish what you are typing, then sign in again to keep working." Staff are not asked to sign in again. It takes
+   the end from the phone server, which gives it at sign-in and in GET /me (`expiresAt`). A message sent just after the end
+   was refused with 401 and lost. Now it is kept in the app's memory for the same person's next sign-in, in the chat it was
+   sent in, shown not sent with "Your session ended before this was sent. Send it again." And open_record no longer refuses
+   a third as-required record of a day: F/MKT/05 starts a new record each time a complaint comes in, and the card now asks
+   DCRS only which document and which day.
+
+**Left as it is.** The phone server reads whether DCRS calls a person its super admin at each sign-in, not on every request.
+So a role taken away in DCRS would reach a phone session already open only when it ends, at most a day later. That cannot
+happen today: DCRS has no route that changes an account's role, and the super admin cannot switch his own account off. The
+phone's admin routes would need to ask DCRS's GET /api/v1/me again if that ever changes.
+
+**Tests.** backend/tests/signInAndOut.test.ts (the throttle by address and computer; the words of a sign-out for each
+account; which session a sign-out ends), backend/tests/workingHours.test.ts (the session's own id in its token),
+backend/tests/accessRoutes.test.ts (the late sign-in carried past midnight; the pairing across midnight; the end of the day
+closing only its own day's session); tests/e2e_working_hours.py (two tabs of one browser, the second held with the DevTools
+debugger while the first ends his day and he signs in again: his new session stays open, the second tab takes it up, and no
+false line is written; a sign-out naming an older session leaves the newer one; the reason that fits the account; eight wrong
+passwords from another computer, then his own sign-in at once, through the API and the sign-in page); the phone server's
+dcrs-connector.test.ts (open_record on a day with two records), dcrs-app.test.ts (`expiresAt` at sign-in and in /me),
+chat-session.test.ts (the message kept for the same person's next sign-in) and session-end.test.ts (the warning's timing and
+words).
 
 ## §85 — Copy and Edit in Mitra's chat; the Mitra mobile app does what Mitra does; a more human voice; the opening before every sign-in; a guided tour (30-Sep and 1-Oct-2026)
 
@@ -5830,6 +5961,881 @@ e2e_hr_module (129), e2e_maintenance_module (the module's name), e2e_find_every_
 both spellings, F-PRD-25 still on the list) and e2e_celebrations (the Production account's other sheets of the day handed
 in first). See docs/TESTING.md "The Production module".
 
+## §92 The minus score on the Performance dashboard (7-Oct-2026)
+
+**The request.** The owner, 7-Oct-2026: "So how to make this application downloadable once it will build perfectly and
+don't every time build whole application again because i need display score in -10 and in subtraction like example
+whenever any user given 10 task and he is completed 8 of them then his score will be -20 so this will be applicable to
+all user and make sure do add this in performance dashboard so do that add and do it perfectly, fast, and error free."
+(How to make DCRS downloadable is answered on its own; this section is the score.)
+
+**1. The rule.** A task is a record the Performance Scorecard already counts as due for that person (§64, §75: the same
+records, the same plant calendar, the same period the page shows). Each record **never done** (never handed in after
+its day, latenessCore's "overdue") takes **10 off**: minus score = -10 x never done. **10 due and 8 handed in is -20.**
+Nothing missed is **0**, never "-0". A record handed in late was still done (the owner said "completed") and costs
+nothing; a record whose day has not ended yet costs nothing yet. On screen the figure has a true minus sign (U+2212) and
+is kept out of translation; the element that holds it carries the plain number (`data-minus`), and the export writes
+it as a plain number too. engine/performance.ts `minusScore`, `formatMinus`, `MINUS_PER_MISSED`.
+
+**2. Still open today.** Beside the minus score, so nobody is surprised the next morning: the records not handed in
+whose **last day is today** (a scheduled record due today; an as-required record on the last of its 2 days, which never
+ends on a closed day). Each takes 10 off tomorrow if it is still not in. It is worked out by asking the same rule as of
+tomorrow (a record not due yet today that is never done tomorrow), so the as-required allowance and the closed days stay
+engine/latenessCore.ts's own; "Not due yet" is not used for it, because it holds every future day's blank sheet of the
+month. On the weekly off a scheduled record dated that day is not counted at all, so nothing is open then.
+
+**3. Everything else is the scorecard's rule.** Closed days, the register's H O L I D A Y line, reference documents,
+the go-live date (Live), the as-required 2 days and the four periods (and a month given as a range) are exactly as
+§64 and §75 set them. So is whom a record counts against: in a department with two accounts, a record nobody handed in
+counts against both, so **each** account loses 10 for it while the department loses 10 once. People's minus scores
+therefore need not add up to their department's; the departments do add up to the plant's. The administrator and an
+account kept to no department answer for no record: they are listed with "No score" and no minus score, as before.
+
+**4. Where it shows.**
+
+| Place | What |
+|---|---|
+| Each person's card | A band under the score out of 100: the minus score, "Minus score", and "2 never done, 10 off each" (or "Nothing missed"); red while anything was missed, green at 0. Under it, when anything is open on its last day: "3 records are still open today: each takes 10 off if it is not submitted today." |
+| Departments, Modules and Documents tables | A **Minus score** column after Score (`data-col="minus"`, with `data-minus` and `data-open-today`). |
+| The plant's figures | A tile after Never done: the plant's minus score, and "N still open today". |
+| The rule box | One line: "Minus score: every record never done takes 10 off, so 10 records due and 8 done is -20 ..." |
+| Export CSV | Two columns after Score, **10 "Minus score" and 11 "Still open today"** (plain numbers, -20); Grade and Decision move two columns right, every column before stays where it was. |
+| Print | Everything above is inside the scorecard that prints. |
+| Gujarati | The words are in i18n/strings.score.ts (English and Gujarati). With Gujarati chosen Google translates the page from the English, as everywhere; the built-in Gujarati shows when Google cannot be reached. |
+| Mitra on the website | The history answers ("who was late last month?", engine/historyDigest.ts) carry it on the plant's line ("minus score -20 (10 off for each never done)"), each person's line and each department's line, with or without the model. The day's notification adds "Minus score this month: -20." (or "0, nothing missed.") after the score's own sentence. |
+| Mitra on the phone | GET /api/v1/figures builds the same evidence, so the plant's and the departments' lines reach the phone with the minus score; nothing in /api/v1 or the phone app changed. |
+
+**5. What did not change.** The score out of 100, its grades, the decision sentences, the order (worst first), the
+escalations to the super admin and the weekly digest (backend/escalation.ts), the spoken reminder, the Management
+Summary report and the Dashboard's "Today's score" (§81, item 5). The two minus figures are not the same thing: the
+Dashboard's Today's score is today's work as a share, round(done / due x 100) - 100; the Performance minus score is
+10 off for each record never done over the period chosen. They agree when exactly 10 are due (8 done: -20 on both);
+4 of 5 done is -20 on the Dashboard and -10 on the Performance page. Item 59 asks the owner which he meant.
+
+**Tests.** frontend/tests/minusScore.test.ts (10): the owner's example (10 due, 8 done: -20, the score still 70 or 80),
+late costs nothing, 0 never -0, not due yet and still open today (and the next day), the plant's closed days and an
+adjustment day, the as-required 2 days run past the weekly off, the go-live date, a shared department (each account
+-10, the department -10 once), the periods, and two demo months judged on every day of a month, every line held to
+-10 x never done and its still-open-today recounted from the records. frontend/tests/latenessCore.test.ts holds every
+scorecard to its frozen reference with the two new fields taken off, and the minus rule on every line of all 126.
+dailyNudgeStanding.test.ts (the notification's sentence), mitraHistoryReview.test.ts 12b (Mitra's lines) and
+backend/tests/apiV1Records.test.ts (the phone's GET /api/v1/figures, through the engine in the server worker).
+tests/e2e_performance.py: every line, card, tile and CSV row, the rule's words, the print, the QC account and the
+shared department; still open today recounted from the records, never assumed above 0 (the suite runs on the real
+clock). See docs/TESTING.md "The minus score".
+
+## §93 Every record starts, and the three papers of 7-Oct-2026 (7-Oct-2026)
+
+**The request.** The owner, 7-Oct-2026: "when i click on start record in many document ... no record found go back this
+message is coming." He wants every record a person starts to start and to stay, on every document of every module. The
+same day he sent F/STR/02, F/MNT/08 and F/MNT/09 again, each PDF with the company's own Word original beside it.
+
+**1. What was tried, and what failed.** Start was tried in a real browser on all 129 documents of the Document Library,
+as the super admin and as an account of the department that owns each, on a fresh test copy and on one live since
+1-Sep. 125 documents hold records (the Chemical Master, the insecticide licence and the two Statements of Compliance are
+kept as issued). On the fresh copy every one of the 125 started and stayed: 561 of 561 records were still there after
+signing out and in. What failed:
+- **"Record not found" with the browser's storage full.** The working copy keeps the whole company's records in one
+  item of the browser's storage (C-1 of the audit of 7-Oct-2026). When a save did not fit, Start wrote the new record
+  nowhere: the records were dropped from the page's memory, nothing was sent to the database, and the record's page said
+  "Record not found" with "Back to Calendar" - the owner's own words for it. The test copy held 1.2 to 1.4 million of the
+  browser's 5.2 million characters, so the fault was proved by filling the rest with a stand-in item; the owner's own
+  browser was not looked at. A browser that has held Demo Mode's year (3.7 million characters, §91) beside the plant's
+  records is close to that wall.
+- **A second sheet for a period that already had one** (H-7 of the audit). On the copy live since 1-Sep, New record and
+  Start this record on F/MNT/09, F/HR/19, F/HR/01 and F/QC/11 did not open the month's or the year's sheet: they made
+  another, dated the day the button was pressed, and the sheet the schedule counts stayed pending and overdue. By the
+  code it was every weekly, fortnightly, monthly, quarterly and yearly document, from every place that starts a record
+  (the document's page, the library's and Search's New, Mitra, the phone): a sheet was found only on its own due date.
+- **Marketing's Complaint Acknowledgement (QA-CAF-00) and Purchase's service provider agreement** opened on another
+  department's page - Quality Assurance's inspection findings register, Human Resources' insecticide licence - which
+  refused them, so their own department could start them only from the library.
+- **The three pest service reports and F/HR/18** had no Start on their pages, only "Open latest visit" once a visit was
+  on file.
+- **A document's page showed a different record** from the one just started: the newest-dated sheet, which is the
+  blank one made ahead for the month's last day ("On file - 31-Oct-2026 · Due").
+- Saves took up to 16 seconds on the test PC at 100% CPU, with its network dropping for moments; every one arrived.
+
+**2. New record opens the sheet of the period** (engine/frequencyEngine.ts `schedulePeriodOf`, engine/recordCrud.ts).
+A scheduled document has one sheet for each date its schedule names, and each date stands for a period: **the week
+(Monday to Sunday), the half month (the 1st to the day before the second visit, then the second visit to the month's
+end), the month, the quarter (three months from the anchor month) or the calendar year**. New record, Start this record,
+the library's and Search's New, Mitra's "create a new ..." and the phone's open now open the sheet of the period the day
+falls in when there is one - the schedule's own sheet first, else the one worked on last - even when it is submitted or
+verified (then the person sees it is done, and Reopen for correction is there as always). Never a second sheet for a
+period that has one. A period with no sheet yet (its date came before the system went live, or its month has not been
+made yet) gets one under the schedule's own key, dated the day it was started as a hand-made record always was, so the
+schedule makes no second sheet beside it when the month comes. **Unchanged:** an as-required document starts a new
+sheet every time; a daily one opens the day's own; and the **training record** stays one per training held (a record for
+the day asked), as its own page's New Training Record has always made them - it is scheduled yearly for the December
+programme, but every training and technician certificate is a record of its own (item 61).
+
+**What the page shows.** A document's page shows below its table the record New would open - today's sheet, or the
+week's, month's or year's - then the latest one not dated ahead; never the blank sheet made ahead for the 31st. Two
+records of one day are listed with the one started last first.
+
+**3. A Start that does not fit in the browser is still saved** (data/serverSync.ts, data/storageAdapter.ts). A stopgap
+inside today's design: when a change does not fit in the browser's storage, it is **held in the page's memory**, read by
+every screen from there, and **sent to the database from there** - the same sending, merging and resending as any other
+change. So the record just started opens, and is kept in PostgreSQL; nothing new is stored anywhere else. A colleague's
+save that arrives in between is merged and sent though the merged copy does not fit either (it used to be tried every
+four seconds for ever), and others' work that does not fit is held the same way. The browser keeps its older copy
+together with the note of which version that copy is, so a reload takes the database's newer copy and never sends the
+older one back over it. Until the database confirms a held change, closing the page asks first. The page says it
+plainly, in the banner at the top (data-section storage-held): **"This browser's copy is full."** while the change is
+on its way, then **"This browser's copy is full - your record WAS saved."** once the database has it, with what is taking
+the room and the buttons that clear it (§79). The old banner, "Your last change could not be saved", remains only for a
+change nothing can send (nobody signed in).
+
+**What waits on C-1.** The lasting fix - a working copy that stays small for good - waits for the owner's choice of
+design (the audit's Decisions, item 1). Until then a browser that is full goes on working from memory, but signing in
+again on it fails with "There is no room in this browser" once the company's records alone do not fit; making room (the
+banner's Clear the demo data, Remove them) is the way back.
+
+**4. Every document starts on its own page, for its own department.**
+- **The Complaint Acknowledgement** (pages/GapPage.tsx): an account that holds it but not Quality Assurance's findings
+  report - Marketing's - sees the acknowledgements on /gap/internal, with New Complaint Acknowledgement, and nothing of
+  the findings register (the CAPA page already offered Marketing the Internal card).
+- **The service provider agreement** (pages/LicencePage.tsx): an account that holds it but not the licence - Purchase's -
+  sees the agreement's card on /licence: where it stands, Draft it for me, Upload the signed agreement, Open the
+  agreement; none of the licence.
+- **The pest service reports and F/HR/18** (pages/PestControlPages.tsx): each page has New record, which opens the
+  fortnight's visit or starts it, as on every document's page.
+- **Who started it.** New record and Start this record have always written "Record started" in the activity log (§62).
+  Six starts build their own record instead and wrote nothing: the internal CAPA findings report and the Complaint
+  Acknowledgement (pages/GapPage.tsx), the customer complaint (pages/CapaPage.tsx), the training record
+  (pages/TrainingPage.tsx), the pest control responsibilities (pages/PestControlPages.tsx) and the service agreement's
+  Draft it for me and its upload (engine/serviceAgreement.ts). Each now writes the line as it stores the record, through
+  the same engine/recordHistory.ts logRecordStarted that New uses; never for a demo record.
+
+**5. The three papers of 7-Oct-2026**, compared word for word with DCRS's copies, the company's one name aside (§87).
+- **F/STR/02** (Rev 00 of 01.12.2021): the PDF sent has the same text as DCRS's. The title now carries the four tools its
+  brackets print - **"Sharp Metal Objects (Razor Blade, Scissor, Cutter blade, Surgical Blade) Issuance (New) & Return
+  (Old) Record"** (the header prints every title in capitals, this one too); the page as supplied is shown beside the
+  form (Show original); the company's own Word original is in source-documents/ and the form downloads as Word, as the
+  original is. Mitra and Search know the whole title as this register's. The two paragraphs and the nine headings were
+  already the paper's; the paper's ten printed lines are lines added as needed, as on every register. The paper prints
+  its number and issue at its foot, "F/STR/02 (00/01.12.2021)"; DCRS prints them in the header block every format has
+  (§77), with the company's one name (§87), as on every format.
+- **F/MNT/08** (Rev 00 of 01.12.2021): the PDF sent has the same text as DCRS's. Page 2 is now printed as the paper prints
+  it: the declaration ("The Benefits and Risks have been assessed, PM, Sanitation etc.  Attach any supportive documents,
+  procedures photos.  Approval has been made.") between the Risks box and the hand-over, no longer above the grid; then
+  the heading **Hand over & Take over Protocol**; then **Maintenance Head: -** beside **Date:**, **Production Head: -**
+  beside **Date:**, **QC Head: -** beside **Date:**, in two columns. Each box keeps its full name ("Hand over & Take over
+  Protocol - QC Head - Date:") for its history lines, the checks and Mitra, where "Date:" alone would not say whose
+  date it is (LogHeaderField.printedLabel and printedAbove). The declaration and "Assessment of Equipment   Y/N" keep the
+  Word original's spacing, as DCRS keeps a paper's double spaces. The .doc is in source-documents/.
+- **F/MNT/09: DCRS keeps the newer issue.** The PDF sent is Rev 02 of **15.12.2024** (3,757 articles), under the same
+  file name as DCRS's copy of Rev 02 of **01.09.2025** (3,980 articles, its revision history's second line "New Glass
+  Articals Added"), which is newer and stays; the company's workbook of formats lists 01.09.2025 as the current issue.
+  The 15.12.2024 issue is on file as "(3).pdf" and shown beside the form as the earlier issue, as before. The source line
+  now says which file is which, and names the company's Word original (of the 15.12.2024 issue, byte for byte the one
+  already on file), so the form downloads as Word. Which issue is in use is the owner's to say (item 62; item 36 asks
+  whether a revision number was missed). **One difference is kept, and said here:** page 2 prints its four instructions
+  in a column to the right of the weekly grid; DCRS draws them above the sheet, with the article list's Show button and
+  Month & Year (as since §82). Their words are the paper's. On the plant's 1366-pixel laptops the weekly grid alone is
+  996 of the 1,102 pixels the page has (measured), so a column beside it would not fit on screen; and printing them
+  beside the grid needs the print's page fit (utils/print.ts), which measures only tables, to make room for a column
+  beside one - a change to how every document prints, which the theme work also touches - so it waits for the owner's
+  word rather than being made here.
+
+**6. What waits on the owner.**
+- C-1's design (above).
+- **F/MNT/09 and F/MNT/10 are due on the 1st**, though each is a month's sheet checked week by week, so it shows overdue
+  from the 2nd while weeks 2 to 5 are still to come. New now opens it instead of starting another; moving its due day to
+  the month's end changes every month's key and needs the owner's word (item 60).
+- One sheet a day, or one per machine, job and shift, for F-PRD-18, 19, 20, 26 and F/QC/13, 34 to 37 (item 58): a second
+  Start on the same day opens the day's sheet.
+- The training record as one per training (item 61).
+- Which issue of F/MNT/09 is in use (item 62), and whether its four instructions should print beside the weekly grid
+  as page 2 prints them (part 5).
+- Mitra's open_document asked without "create" still looks for a record of the exact day and then offers to start one,
+  which opens the period's sheet; engine/mitraTools.ts is being changed by the Mitra fill work, so this is left to it.
+- Found by reading the code and not reproduced, so not changed here: a record started but not yet sent (the day's
+  session ended, or the page was closed without a network) is sent at the next sign-in on that browser by whoever signs
+  in, and if that is another department's account the server keeps only that department's lines (the audit's M-1); and
+  when the administrator resets a person's password while they work, their next save is refused (403) and the browser
+  forgets the unsent change (M-3). Both are in the audit's Group 3, "No change silently lost or overwritten". A double
+  click on New of an as-required document may start two blank records before the page moves on (from the code; not
+  tried).
+- A record started on a closed day, or Mitra's for a date before the live start, is kept but not counted in the
+  reminders or the day's briefing, as those follow the plant's calendar.
+
+**7. The formats still missing, by module** (on the Master List of Formats, not sent; the audit's count is 37).
+- **Production (25: 20 never sent, F-PRD-25 sent empty, 4 only in the company's workbook):** F-PRD-01 Flexo Printing
+  Production Register, 02 Punching Production Register, 03 On-line QC Inspection Register, 04 Off-line QC Inspection
+  Register, 05 Slitting Production Register, 06 Shrink sleeve Gluing Register, 07 Shrink Sleeve cutting Production
+  Register, 08 Dispatch Card, 09 Packing Label / Prepress Specification (the two lists swap 09 and 13), 11 Surgical
+  Machine Blade Change Record, 12 Razor Blade Change Record, 13 Prepress Specification / Packing Label, 14.A Job Card -
+  LABEL, 14.B Job Card - SLEEVE, 14.E Job Card - POUCH, 15 QC wastage tracking record, 16 Production issues Analysis,
+  17.A, 17.B and 17.C Ink Formulation record (Label / Sleeve / Pouch); F-PRD-25 came as an empty workbook (§91); the
+  company's workbook adds F-PRD-27 Rewinding with LC- SS, 28 Slitting with LC- SS, 29 Shrink Sleeve Post press process
+  checklist and 30 Gluing adhesive mixing ratio.
+- **Quality Control (7):** F-QC-10 Statement of Compliance - Sleeve, 14 Test Reliability Record, 17 Scale / Ruler internal
+  calibration record, 31 COA Pouch, 39 FGPO Specification, 40.A and 40.B Temperature Monitoring records (printing, ink
+  kitchen and warehouse; sleeve division). F-QC-15, the general area line clearance, is held as 15-A to 15-G; F-QC-41 is
+  marked obsolete.
+- **Human Resources (2):** F-HR-02 Personnel competence criteria, F-HR-10 Training Imparted Record.
+- **Marketing (1):** F-MKT-03 Customer complaint Form. **Purchase (1):** F-PUR-04 Purchase Order. **Quality Assurance
+  (1):** F-QA-01 Traceability Report.
+- **System / Management, Store, Maintenance and Dispatch:** none missing.
+
+**Tests.** Each file fails on the code before this work and passes after it: run on c615073 with only the names they
+import added, 13 of the 15 unit tests fail on the behaviour they assert, and the other two guard what did not change.
+- frontend/tests/periodSheet.test.ts (7): the periods; New on F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03
+  (yearly, a verified one and one with none) and a fortnightly visit report; one sheet per period with the generator;
+  as-required, daily and the training record unchanged; what a document's page shows.
+- frontend/tests/storageFullStart.test.ts (2): with the browser full, the record started opens, reaches a stand-in
+  database and is announced saved; closing asks first and then does not; a colleague's save in between is merged and
+  sent.
+- frontend/tests/papers07Oct.test.ts (3): the three papers as above.
+- frontend/tests/recordStartedTrail.test.ts (3): the service agreement's Draft it for me sends one "Record started"
+  line naming the agreement, filed under it, and none for a demo one; every page that builds its own new record writes
+  the line (four pages, five records); New still writes one, and opening a sheet already on file writes none. Before
+  the change two of the three failed (the third guards what did not change).
+- tests/e2e_every_record_starts.py (new, on the product server, last): on a system live since the first of last month,
+  the super admin starts every record-holding document from its own page, the library's New opens the same sheet of a
+  scheduled document and a new one of an as-required one, one sheet per period, the browser full, a document's page
+  showing the record started; each department's own account starts every one of its documents; after signing out and
+  in, every record is in the database and opens; every new record the super admin started by hand is read back from the
+  activity log as "Record started". On the code before this work, run on 16 documents of every kind, 15 of its checks
+  failed, one or more on every fault of part 1.
+- The suites brought in step: e2e_assistant_fill (a signed-off record of today's period is New's to open),
+  e2e_hr_module (New on F/HR/01 opens the year's register; a blank one is started for a year that has none),
+  e2e_store_module (F/STR/02's title and page; its "no picture" example is now F/PUR/01) and e2e_maintenance_module
+  (F/MNT/08's hand-over). See docs/TESTING.md "Every record starts".
+
+**Speed** (§56). The pages this work changed were measured on 8-Oct-2026 at 6x CPU throttle in a 1366-pixel window,
+with Demo Mode's year on file (1,943 records, 3.4 million characters): the code before this work and this branch were
+served side by side and each page was opened on the two alternately, five times, so both met the same load on the
+shared PC. In the median every page made its first change on screen within a fifth of a second on both (the first,
+cold visit of the daily page took 0.7 s before and 0.4 s after), and the five runs of the two builds overlapped on
+every page: nothing measurable was added. Medians, before and after, of the first change and of the blocking time in
+the six seconds after it, in milliseconds: a daily document's page (F-QC-30) 132 and 270, then 115 and 226; a monthly
+one's (F/MNT/09) 117 and 129, then 112 and 139; an as-required one's (F/MNT/08) 62 and 38, then 96 and 77; F/STR/02's
+53 and 11, then 66 and 13; CAPA's internal page 52 and 0, then 50 and 0; the licence page 63 and 42, then 52 and 32; a
+pest service report's 68 and 14, then 77 and 81; F/HR/18's 73 and 38, then 54 and 7; New record on F-QC-30 168 and
+67, then 198 and 151; on F/MNT/09 178 and 90, then 144 and 44.
+
+## §96 Who fills each document, who only views it, and Read, Write and Edit (7-Oct and 8-Oct-2026)
+
+**The request.** The owner, 7-Oct-2026: "So now i need that mobile chatbot application is sync with all module so i
+need to add user in them so like qc is for Kapila barad HR is for vinay bhojak , SYS = Kapila barad and it sys and qc
+is reponsible person for filling those documents and for all other else document give on view access and for purchase
+:- chirag parmer and for store bharat ahir is repsonsible and and PRD ajay sinh vaghela and till prd-13 and 17 is
+responsible for Dharmik mistry and anil ravad and from 18 to 26 Vishnu jadhev who is HOD of Pouch department and QA
+document for camera one is reponsible person is Ajay sinh vaghela and MNT:- Kapila mam for 01 and from 02 to 08 Ragunath
+mane and 09 to 10 Ajay zala and again kapila barad is also repsonsible for MNT-011 and in HR module 1 to 14 document
+reponsible person is Vinay Bhojak and from 15 to 18 kapila mam and 19 to 22 again vinay bhojak and QA-01 is again kapila
+barad is responsible for that document so make this access and viewer ship accordingly and properly ... kapila barad had
+all access but she can only edit and qc and SYS documents only rather every other module she can only view and qc -13,
+34, 40 A, 40 B Ajay zala is responsible for that and qc- 41,30,32, 40 C is responsible person is Ankur raval." Then,
+answering two rounds of questions: each person views only the modules of the documents they fill, and Kapila Barad and
+the super admin view everything; Ajay Sinh Vaghela, head of Production, fills every PRD document and the camera
+challenge test; Sandeep Parekh fills HR like Vinay Bhojak; Kapila Barad fills all of Marketing and Dispatch; whoever may
+fill a document may also verify it, as before, even their own record; the accounts are name.surname@gpp.local.
+
+The owner, 8-Oct-2026: "Consider superadmin as boss which can see anything ... So keep users according to module, and
+this applies to the mobile application also. And in our dashboard in the audit software I can give access from there
+only, and only the superadmin can do this: make an option for which user can access what, and give read, write and
+edit access accordingly. Add this functionality fast, perfectly."
+
+**1. Who answers for each document.** The owner's table is written once, in `frontend/src/engine/accessRules.ts`
+(`defaultResponsible`, by the format number, so a format supplied later lands with the right person), and held to his
+words document by document by `frontend/tests/accessRules.test.ts`. The people who answer for a document fill it, are
+told when it falls due (§97), have Edit on it, and are the ones a late or missed record counts against. The table at
+the end of this section is printed from that file (`node --no-warnings=ExperimentalWarning scripts/access-table.ts`),
+not typed. The super admin can give any document to other people.
+
+**2. The levels.** Each person has one of four levels on each document, each including the one before:
+
+| Level | What it allows |
+|---|---|
+| No access | the document is not shown at all |
+| Read | see the document and its records, print and download them |
+| Write | also start and fill records, save drafts, submit them, verify them and send them back |
+| Edit | also correct a record that is already signed off, delete a record, and change the format's printed words and layout |
+
+A person's level on a document, the first that applies: the super admin (Edit on everything); the person's own setting
+for that document; their own setting for its module; they answer for it (Edit); the module's default for them (Read on
+the modules of what they fill; Kapila Barad: Read everywhere, Edit in Quality Control and SYS); an account nobody has
+described keeps what it had (every module at Edit with no departments, else its departments at Edit), so nobody is locked
+out; otherwise No access.
+
+**3. Set by the super admin alone.** What the super admin sets is the company item `access` in PostgreSQL, beside
+`master`. Every signed-in account reads it (`GET /api/access/rules`: the rules, their version and the plant's twelve
+people); only the super admin writes it (`PUT /api/access/rules` with the version read: 409 "stale" when somebody saved
+in between), and the rules are made safe before they are stored (anything not a level, a known module or an email is
+dropped). The generic `PUT /api/storage/access` refuses anybody else and sends the super admin's write through the same
+writer, so there is one way to change the rules. Every change is a line of the activity log naming who changed what for
+whom ("Access changed": "Quality Control: Read → Edit"; "Who answers for a document changed": "Kapila Barad → Ankur
+Raval") and an `access_changed` notification (§97) to each person concerned, in the level they now have.
+(backend/accessRulesRoutes.ts.)
+
+**4. Held by the server, whatever a screen shows** (backend/accessLevels.ts, backend/storageRoutes.ts; REQUIREMENTS §66:
+the screen is never the lock):
+
+- `GET /api/storage` hands a person the records and deletions-log lines of the documents they see at Read or more
+  (everyone else's are not sent), HR Master Data only with Human Resources, the access rules to everybody, and the key of
+  their copy: what their levels are worked out from (their role, email and departments, whether the rules name them,
+  their own settings, the documents given to them), so any change of their levels by the super admin makes their
+  browser load again, while the catalogue written by a new plant's first browser, or added to by an upgrade, does not.
+- `PUT /api/storage/records` is checked record by record against the version stored:
+
+  | The change | Needs |
+  |---|---|
+  | a record started | Write (start) |
+  | an unsigned record changed | Write (fill) |
+  | moved to Submitted or Pending Verification | Write (submit) |
+  | moved to Verified | Write (verify) |
+  | sent back | Write (send back) |
+  | resumed after a send back, and filled again | Write (fill) |
+  | a signed-off record changed, reopened for correction, a record under correction changed, a correction cancelled | Edit (correct) |
+  | a record removed | Edit (delete) |
+
+  A person's own act on a stored record their level does not allow (it writes the record's history) is refused with
+  403 `access-level` and the website's own words: "F/QC/37 Inspection Record – Pouching Process is Read only for you.
+  Filling in a record needs Write access: ask the super admin for it." (engine/accessWords.ts, also in Hindi and
+  Gujarati.) So is a record new to the server that carries the person's own entry in its history, a Start of theirs the
+  level does not allow: "... is Read only for you. Starting a record needs Write access: ask the super admin for it."
+  (9-Oct-2026; it used to be left out with 200.) Everything else the level does not allow is left as stored, without a
+  word, and named in the answer's `kept`: a record new to the server that is the app's housekeeping (a sheet the
+  calendar made or the assistant prepared, a filled paper the plant supplied, which every browser adds at start-up), a
+  sheet changed or cleared, a start-up migration that writes no history line, a record removed. The server's morning
+  prepare (§97) and the browser of somebody who may fill the document do that work, and a Read person's browser can
+  never change, add or remove a record through it. Everyone else's lines stay as stored.
+
+  **One line per record, and only records** (the security review of 9-Oct-2026). The first posted line of each record
+  id is the one checked and the one written: a second line with the same id used to be written unchecked beside it,
+  and the browsers keep the last line of an id, so a person who only reads a document could have signed one of its
+  records off. A line taking the id of a record of a document the person does not see is never written beside that
+  record, and a line that is not a record (no id, or no document) is written only as it is already stored.
+- The format edits (a format's printed words and layout, a person's act) need Edit on each document changed, refused in
+  words. The document definitions are nobody's to edit on a screen: the first browser of a new plant writes the issued
+  catalogue and an upgrade adds to it, so a definition new to the server is taken from anybody, and a stored one is
+  changed or removed only with Edit on its document (else left as stored). HR Master Data is held by an account that sees
+  Human Resources and changed by one with Write on a Human Resources document. On a new plant, before the first
+  browser has written the catalogue, every line is asked of by its id (no format numbers yet) and HR Master Data follows
+  the module's level and the account's departments.
+- The users directory and the activity log are read by the modules a person sees.
+- The phone's routes (`/api/v1`) and DCRS's engine run on the server (backend/engineHost.ts with
+  frontend/src/engineHost/entry.ts) are given the person and the rules: the engine holds only what the person sees, and
+  asks their level before every change (open a record not stored yet, change, photo, sample fill, submit, verify, send
+  back, resume, reopen, cancel a correction, delete), with the same 403 and the same words, in the language the phone
+  sends (`X-Language`). The CAPA findings, the complaints and the pest control report are seen at Read; closing a
+  finding needs Write. A record's answer (`GET /api/v1/records/:id`, and the answer to a change or an action) gives
+  `editable` and `actions` at the person's level (Write to fill, submit, verify, send back and resume; Edit to reopen,
+  put back and delete), with `canSubmit`, `canVerify`, `problems` (what DCRS's own checks still ask for, while the
+  person may write it) and `waiting` (the entries before it is ready for their OK, §98), so the phone draws only the
+  boxes and buttons the level allows: a Read person gets the values, no box and no button (9-Oct-2026; they were set by
+  the record's status alone).
+- The assistant's routes (`/api/assistant/*`) read and write nothing of DCRS's: Mitra's tools act in the browser, on its
+  working copy, and what they change reaches the server through `PUT /api/storage`, where it is checked as above; the
+  tools themselves refuse a step the level does not allow, in the person's language (the website's half).
+- The super admin passes everything.
+
+**5. Accounts.** The server seeds the super admin and the twelve people (backend/seedAccounts.ts, name.surname@gpp.local;
+Kapila Barad, Vinay Bhojak and Sandeep Parekh keep the accounts they had). On a plant already running, the super admin
+creates the missing ones in one go, "Create the missing accounts" (`POST /api/access/accounts/create-missing`, one first
+password of at least 8 characters, which each person changes at the first sign-in; a line each). The role: on 8-Oct-2026
+the owner's own account was stuck as staff and refused on the weekly off again and again, because no screen could make
+an account the super admin; `POST /api/users/:id/role` { role: "admin" or "staff" } is the super admin's, switches the
+account on, never leaves the plant without an active super admin (409 `last-super-admin`), writes one line and tells the
+person.
+
+**6. Whom a late or missed record counts against.** The people who answer for its document and may fill it, not the
+department their account is kept to (backend/accessLevels.ts `answerRule`, the website's `scoreAnswerRule`): the
+server's daily escalation and weekly digest (backend/escalation.ts, §75) and the Performance Scorecard and its minus
+score (§64, §92) pass them to `engine/latenessCore.ts attribute`. Where several answer, a record handed in counts for
+the one who handed it in, and one never done against all of them (escalated as the module, named with them). An account
+the rules never name answers for its departments' documents, as before; the super admin answers for none.
+
+**7. The super admin can always sign in** (§84 addendum). The sign-in throttle holds back eight wrong passwords for an
+address from one computer for ten minutes, keyed by the address AND the caller's own network address (commit 9034253,
+audit H-17): anybody else's wrong guesses never keep the super admin out. The caller's address is the connection's own
+(Express's `req.ip`, with no "trust proxy": the plant's server is reached directly on its network), so a forged
+`X-Forwarded-For` header makes no other computer of a caller. Proved by backend/tests/signInAndOut.test.ts and, against a
+real server from two addresses of one computer, by tests/e2e_user_access.py (section 12).
+
+**8. Tests.** backend/tests/accessLevels.test.ts (every level and path of the record-by-record check, the words, the
+housekeeping, the definitions, HR Master Data), storageRoutes.test.ts (the storage routes at each level over a stand-in
+database), accessRulesRoutes.test.ts (the rules, the accounts, the role), engineHostAccess.test.ts (the engine on the
+server at each level, in three languages), apiV1.test.ts (the phone's own routes), escalationAccess.test.ts,
+seedAccounts.test.ts; frontend/tests/accessRules.test.ts (the owner's table) and latenessCore.test.ts (whom a record
+counts against); the browser suites tests/e2e_user_access.py, e2e_mobile_mitra_api.py, e2e_escalation.py and the others
+named in docs/TESTING.md.
+
+**9. In the website** (9-Oct-2026). One rule answers every screen: `engine/departmentScope.ts`, set by
+`store/AuthContext.tsx` the moment the person is known, with the super admin's stored rules (read beside the records;
+`main.tsx` waits for both before the app draws, and a server that cannot say leaves the owner's table). The two
+repositories ask it, so the sidebar, the library, the calendar, the day view, the dashboard, the reports, the files and
+the search show only the documents at Read or more; a document at No access is refused by name ("You do not have access
+to this document ... ask the super admin to give you Read, Write or Edit on it").
+
+- **The buttons follow the level, and say why when they are not there** (components/records/RecordActionBar.tsx,
+  components/common/AccessReason.tsx, engine/accessRefusal.ts). Below Write a record's sheet is read only, with Print and
+  the downloads and no Save, Submit, Resume, Verify or Reject; New record and Start this record need Write; Correct and
+  Delete need Edit; Edit format, the header's format values and a reference document's Edit need Edit. One muted line
+  under the bar says what the person has and what the step needs: "F/HR/15 Daily Cleaning Record is Read only for you.
+  Starting a record needs Write access: ask the super admin for it." In Gujarati and Hindi too (engine/accessWords.ts).
+- **What a browser writes by itself is kept to what the person may fill**: the month's blank sheets, the prepare of the
+  known parts and the start-up clean-ups (engine/recordGenerator.ts, assistantPrepare.ts and the migrations ask
+  `mayWriteRecordsOf`). The server's morning job makes and prepares the rest of the plant's.
+- **A change the server refuses** (a race: the super admin changed the levels while a page was open) is said in the
+  server's words on every screen (data/serverSync.ts, components/common/DatabaseSyncBanner.tsx), the copy goes back to
+  what the database holds, and the person's records keep syncing.
+- **Mitra** (engine/mitraTools.ts, and the rules path in components/common/DocumentAssistant.tsx and
+  pages/AssistantPage.tsx) refuses a step the level does not allow before doing anything, in the language the person
+  asked in, naming the level it needs; the widget offers to start and fill a document only to whoever may fill it.
+- **Reminders, the briefing, the daily nudge and the scorecard** count what the person answers for and may fill
+  (`isMine`, `answersFor`), and the records waiting for verification that they may verify; the super admin's are the
+  plant's. The scorecard counts a record against the people who answer for its document (`scoreAnswerRule`, passed to
+  `engine/latenessCore.ts attribute`); an account the rules never name is scored by its departments, as before.
+- **Users & Access** (pages/UsersPage.tsx with components/access/AccessSection.tsx; the logic is
+  engine/accessEditing.ts), the super admin's alone: the accounts, each with **Make super admin** or **Make staff**
+  (asked in plain words, never the last super admin); **Who may do what**, a grid of the people by the ten modules, each
+  cell the person's level there ("As the owner's table" or set here: No access, Read, Write, Edit) with the words of each
+  level beside the grid, and how many documents of the module the person answers for; a cell opens a drawer of that
+  module's documents for the person, each with its own level and "Answers for it"; **Who fills what**, every document by
+  module and who answers for it, each opening its people; the accounts nobody has described, flagged with what each
+  keeps; and **Create the missing accounts** for the owner's people who have none, on one first password typed once.
+  Every change is asked first in plain words ("Give Ankur Raval Edit in Production? They will be able to see its
+  documents and their records, and print or download them; start and fill records, save drafts, submit them and verify
+  them; and correct records that are already signed off, delete records, and change the format's printed words. Ankur
+  Raval is told of the change, and it is written in the activity log."), saved with the version the page read, and a
+  page left open while somebody else saved is told to reload: nothing is ever overwritten.
+- **User access** (§84, pages/AccessDashboardPage.tsx) shows each person the rules describe by their level per module,
+  set on Users & Access, and the documents they see by it; the department switches stay for an account nobody has
+  described, which still keeps its departments.
+- Measured at 6x CPU throttle on 9-Oct-2026: Users & Access drawn in 0.43 s, the Notifications page in 0.23 s, the bell
+  opened in 0.23 s, a change asked in 0.12 s, no main-thread task over 140 ms.
+- Tested by frontend/tests/accessScope.test.ts, accessEditing.test.ts, mitraToolsAccess.test.ts,
+  syncAccessRefused.test.ts and the browser suite tests/e2e_access_levels.py (each of the twelve people, a Read person
+  unable to start or submit, Users & Access).
+
+**10. What the people review of 9-Oct-2026 found, put right.** A reviewer signed in as each of the thirteen on a
+throwaway server and walked every screen, the phone's routes and the jobs:
+
+- **The Dashboard's day card** (components/common/MyDayCard.tsx over engine/motivation.ts `motivationFor`) counted every
+  record of every document a person can see: Dharmik Mistry, who fills F/PRD/10 alone, read 0/8 with "Next up F-PRD-18"
+  and a red score. It now counts what the bell, the briefing and the scorecard count, the documents the person answers
+  for and may fill (`isMine`). The super admin answers for no document: their card is the plant's day with no score of
+  their own ("The ring is the plant's day"), and nothing of a score of theirs is said aloud. On the Dashboard's
+  "Records Due Today", "Prepared, review & submit" is said only to somebody who may submit the record.
+- **The phone's record answer** follows the level (item 4).
+- **A blank sheet is never "ready"** (§98).
+- **The super admin's job page** (§97).
+- **Mitra's rules path** asks the level first: asked to fill a record the person only reads, it gives the access
+  refusal ("F/HR/15 Daily Cleaning Record is Read only for you. Filling in a record needs Write access ..."), never "I'll
+  reopen it"; it offers to start, fill, correct or change the format only to whoever may; and a document of a module the
+  person does not see is "F/HR/17 belongs to Human Resources, which you do not see. Ask the super admin for access if you
+  need it", not the old department story.
+- **The Performance page** says the rule of §96: a record counts against the people who answer for its document, and
+  a person "shares" a module only where somebody else answers for the same documents (Vinay Bhojak and Sandeep Parekh),
+  never because another account is kept to the department.
+- **The sidebar** shows the pest control file's overview only to whoever sees one of the file's own documents, and the
+  pest control service agreement under Purchase (Purchase signs it): Chirag Parmar's sidebar is Purchase alone.
+- **Upload changes** (an edited Word or Excel written back into records) is offered only with Write, and reopens a
+  signed-off record only with Edit; below that the record is "locked" for the upload with the level as the reason.
+- **Small words**: a prepared record's banner tells a reader nothing to enter or submit; the bell's panel closes on
+  Escape and on another page; its own words have Gujarati of DCRS's own (with Gujarati chosen the screens are written in
+  English for Google Translate, and DCRS's Gujarati is used when Google cannot be reached, i18n/googleTranslate.ts),
+  the daily nudge's headline is the Gujarati sentence Mitra says aloud, and
+  each reminder names who answers for the document by the owner's table ("Answers for it: Kapila Barad",
+  engine/departmentScope.ts `answerersOf`), not Master Data's roles.
+- **The browser suites' servers never push to a real phone service** (`PUSH_ENABLED=0` in scripts/run-e2e.ts).
+- **Left to the owner**: whoever answers for a document has Edit on it by default (correct, delete, change the format);
+  the owner named Edit only for Kapila Barad in QC and SYS. The super admin can lower any of it to Write per module or
+  per document on Users & Access; whether the default should be Write is the owner's question. Hindi on the website (the
+  language list is English and Gujarati; the notifications and the phone have Hindi).
+
+Tested by frontend/tests/myDayAccess.test.ts, knownPartsReady.test.ts, mitraRulesAccess.test.ts,
+performanceAnswers.test.ts, uploadChangesAccess.test.ts, bellAnswerers.test.ts and notificationView.test.ts;
+backend/tests/accessLevels.test.ts (the own Start refused, one line per record, only records), apiV1Records.test.ts
+(the record answer at each level) and apiV1.test.ts (the job route described); and tests/e2e_access_levels.py section 5.
+
+**The table** (printed by scripts/access-table.ts from engine/accessRules.ts; the owner's defaults, before anything the
+super admin changes):
+
+| Module | Format No. | Document | Answers for it (Edit; told when it falls due) | Only views it (Read) |
+|---|---|---|---|---|
+| Quality Control (QC) | F-QC-19 | Tolerance Card for Beiersdorf AG. Germany | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F-QC-30 | Lamination Adhesive Viscosity Record | Ankur Raval | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala |
+| Quality Control (QC) | F-QC-32 | Adhesive Mixing Ratio Record | Ankur Raval | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala |
+| Quality Control (QC) | F-QC-40.C | Temperature Monitoring Record — Hot Room | Ankur Raval | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala |
+| Quality Control (QC) | F: QA/PRO/FL/CCT/01 | Defect Detection System Camera Challenge Test | Ajay Sinh Vaghela | Kapila Barad (Edit), Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC-09 | Statement of Compliance (SOC) — Pressure Labels | Nobody: kept as issued (the super admin) | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC-38 | Statement of Compliance (SOC) — Flexible Packaging (Rolls & Pouches) | Nobody: kept as issued (the super admin) | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/01 | Inspection Record - BOPP Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/02 | Inspection Record - Corrugated Box | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/03 | Inspection Record - Label Stock | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/04 | Inspection Record: Paper Core | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/05 | Inspection Record - PVC / PET Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/06 | Certificate of Analysis [COA] For Label | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/07 | Certificate of Analysis [COA] For Shrink Sleeves | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/08 | Master List of Calibration Instruments | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/11 | Monthly Internal Calibration Records – GSM Cutting Plate | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/12 | Weekly Internal Calibration Records - Weight Scale | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/13 | In Process Quality Control (Printing) — ઇન પ્રોસેસ ક્વોલિટી કંટ્રોલ | Ajay Zala | Kapila Barad (Edit), Ajay Sinh Vaghela, Ankur Raval |
+| Quality Control (QC) | F/QC/15-A | Area Line Clearance Report - Printing | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-B | Area Line Clearance Report - Punching | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-C | Area Line Clearance Report - QC Machine Inspection | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-D | Area Line Clearance Report - QC Manual Inspection | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-E | Area Line Clearance Report - Slitting | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-F | Area Line Clearance Report - Shrink Sleeve Gluing | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-G | Area Line Clearance Report - Shrink Sleeve Cutting | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/16 | Register of Obsolete Artwork | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/18 | Inspection Record – Offset Ink | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/19 | Inspection Record – Duplex Board | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/20 | Destruction Record — Printing Aids | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/20 | Inspection Record – Kraft Paper & White Top Liner | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/21 | Inspection Record – Flexo Ink | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/21 | Inspection Record – Lamination Film Adhesive | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/22 | Inspection Record – Side Pasting Adhesive | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/23 | Inspection Record – Corrugation Starch Powder | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/24 | Inspection Record – Sheet Pasting Powder | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/25 | Certificate of Analysis [COA] For Corrugated Boxes | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/29 | Analysis Report | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/29 | Utility Test Report (Nivea samples) | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/30 | Minutes of Meetings | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/33 | Inspection Record – Incoming Lamination Grade Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/34 | Inspection Record — Lamination Grade Printed Film | Ajay Zala | Kapila Barad (Edit), Ajay Sinh Vaghela, Ankur Raval |
+| Quality Control (QC) | F/QC/35 | Inspection Record — Slitting - Lamination Grade Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/36 | Inspection Record – Solvent Base Lamination Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/37 | Inspection Record — Pouching Process | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | TO BE CONFIRMED | Line Clearance — Materials (લાઈન કિલયરન્સ) | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | TO BE CONFIRMED | Line Clearance — Quality (ક્વોલીટી શહી) | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Human Resources (HR) | F/HR/01 | Personal Competence Records (Staff Members Only) | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/03 | Skill Matrix - Operator | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/04 | Pre-Employment Medical Health Declaration | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/05 | Induction Training Record — New Employee (Staff: Supervisor & Above) | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/06 | Induction Training Record — Operators / Workers | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/07 | Job Responsibility & Authority | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/08 | Employee Wise Training Need Identification Record | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/09 | Training Plan Calender | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/11 | Training Effectiveness Evaluation Record | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/12 | Training Feedback & Evaluation Record | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/13 | Authorization for Mobile Usage in Plant Area | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/14 | Visitor Health Status Declaration Record | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/15 | Daily Cleaning Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | F/HR/16 | Monthly Cleaning Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | F/HR/17 | Daily Pest Control Monitoring Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | F/HR/18 | Fortnightly — Fly Catcher Inspection & Cleaning Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | F/HR/19 | Monthly PRP Check List (GMP Inspection Record) | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/20 | Product Safety Culture Survey | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/21 | Product Safety Culture Survey — Analysis | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/22 | Daily Personal Sanitation & Hygiene Inspection Report | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | FORM III — MEH/FP1230000675/2023-2024 | Insecticide Licence — Gurudev Pesticides (Form III, Govt. of Gujarat) | Nobody: kept as issued (the super admin) | Kapila Barad, Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pest Control Service Report — Ants & Cockroaches (General Pest Control Services) | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pest Control Service Report — Fly Control Services | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pest Control Service Report — Rat / Mice (Rodent Control Service) | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pest Control Training Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pesticide Application Chart (Chemical Master) | Nobody: kept as issued (the super admin) | Kapila Barad, Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Responsibilities of Pest Control — Site & Service Provider | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| System / Management (SYS) | F/SYS/01 | Master List of Documents | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/02 | Master List of Formats & Records | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/03 | Document Change Request & Approval Note | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/04 | Management Review Meeting Record – BRCGS Packaging (Issue 7) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/04-A | Agenda for BRCGS Packaging (Issue 7) Management Review Meeting Record | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/05 | Yearly Internal Audit Schedule (BRCGS Packaging – Issue 06) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/06 | Internal Audit Schedule & Plan | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/07 | Internal Audit Risk Assessment | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/08 | Internal Audit Findings / Observation Report | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/10 | BRCGS Packaging (Issue 06) - Internal Audit NC Report | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/11 | Non-Conformance & Corrective Action Report (CAR) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/12 | Monthly Review & HARA Verification Meeting Record | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/13 | Mock Product Withdrawal Record | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/14 | Backward Traceability Record (Customer to Supplier) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/15 | Forward Traceability Check List (Supplier to Customer) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/16 | Quality & Product Safety Objectives | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/17 | Site Security Risk Assessment | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/20 | Annual HARA Review & Verification Record | Kapila Barad | - |
+| Maintenance (MNT) | F/MNT/01 | List of Equipments & Utilities | Kapila Barad | Raghunath Mane, Ajay Zala |
+| Maintenance (MNT) | F/MNT/02 | Preventive Maintenance Schedule & Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/03 | Yearly Preventive Maintenance Schedule | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/04 | Daily Equipment Health Status & Cleaning Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/05 | Breakdown Maintenance Memo & Hygiene Clearance Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/05 | Breakdown Maintenance Memo & Post Maintenance Hygiene Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/06 | Equipments Breakdown Maintenance Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/07 | Temporary Engineering Log | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/08 | New Equipment Installation Report | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/09 | List of Glass Articles & Weekly Glass Brekage Monitoring Record | Ajay Zala | Kapila Barad, Raghunath Mane |
+| Maintenance (MNT) | F/MNT/10 | List of Wooden Articles & Weekly Wooden Article Monitoring Record | Ajay Zala | Kapila Barad, Raghunath Mane |
+| Maintenance (MNT) | F/MNT/11 | Lux Level Measurement Record | Kapila Barad | Raghunath Mane, Ajay Zala |
+| Production (PRD) | F-PRD-18 | Solvent Base Lamination - ALC & Production Report | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F-PRD-19 | Solvent Base Lamination - Process Parameter Record | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F-PRD-20 | Slitting - ALC & Production Report | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F-PRD-26 | Doctoring - ALC & Production Report | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F/PRD/10 | Daily Issue & Return of Sharp Metal Object (Scisssor / Manual Cutter) Monitoring Record | Dharmik Mistry, Anil Ravad, Ajay Sinh Vaghela | Kapila Barad, Vishnu Jadhav |
+| Production (PRD) | F/PRD/21 | Area Line Clearance Report - Pouching | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F/PRD/22 | Razor Blade ( Used On - Laminated Films - Pouching Machine Blade Holder) Monitoring Record | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F/PRD/23 | Daily Issue & Return of Sharp Metal Object (Manual Cutter) Monitoring Record - All Pouching Section | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F/PRD/24 | Razor Blade ( Used On - Laminated Film's Slitting Machine Blade Holder) Monitoring Record | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Purchase (PUR) | F/PUR/01 | Supplier Registration Form | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | F/PUR/02 | Supplier Audit Report | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | F/PUR/03 | List of Approved Suppliers (RM, PM, Service Provider) | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | F/PUR/05 | Raw Material (Label Stock, Ink, Films etc.) & Packing Materials Supplier (Paper Core, Wooden Pallets etc.) Performance Monitoring Register | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | F/PUR/06 | Service Provider - Performance Monitoring Register | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | TO BE CONFIRMED | Pest Control Service Agreement — Site & Service Provider | Chirag Parmar | Kapila Barad |
+| Store (STR) | F/STR/01 | Incoming Material Vehicle & Condition Monitoring Record | Bharat Ahir | Kapila Barad |
+| Store (STR) | F/STR/02 | Sharp Metal Objects (Razor Blade, Scissor, Cutter blade, Surgical Blade) Issuance (New) & Return (Old) Record | Bharat Ahir | Kapila Barad |
+| Marketing (MKT) | F/MKT/01 | Customer Value added Feedback | Kapila Barad | - |
+| Marketing (MKT) | F/MKT/02 | Customer Feedback analysis | Kapila Barad | - |
+| Marketing (MKT) | F/MKT/04 | Customer Complaints Trend Analysis | Kapila Barad | - |
+| Marketing (MKT) | F/MKT/05 | CAPA — External: Customer Complaint Handling Checklist | Kapila Barad | - |
+| Marketing (MKT) | QA-CAF-00 | CAPA — Internal: Complaint Acknowledgement Report | Kapila Barad | - |
+| Dispatch (DISP) | F/DISP/01 | Safe Transporter Agreement | Kapila Barad | - |
+| Dispatch (DISP) | F/DISP/02 | Container Stuffing & Vehicle Inspection Record — કન્ટેનર સ્ટફિંગ અને વાહન નિરીક્ષણ રેકોર્ડ | Kapila Barad | - |
+| Dispatch (DISP) | F/DISP/04 | Vehicle (Company Owned) Cleaning Protocol & Record | Kapila Barad | - |
+| Quality Assurance (QA) | TO BE CONFIRMED | CAPA — Internal: Pest Control Inspection Findings Report | Kapila Barad | - |
+
+| Person | Sign-in address | Sees (modules) | Answers for (documents) |
+|---|---|---|---|
+| Kapila Barad | kapila.barad@gpp.local | Every module | 76 |
+| Vinay Bhojak | vinay.bhojak@gpp.local | HR | 16 |
+| Sandeep Parekh | sandeep.parekh@gpp.local | HR | 16 |
+| Chirag Parmar | chirag.parmar@gpp.local | PUR | 6 |
+| Bharat Ahir | bharat.ahir@gpp.local | STR | 2 |
+| Ajay Sinh Vaghela | ajaysinh.vaghela@gpp.local | QC, PRD | 10 |
+| Dharmik Mistry | dharmik.mistry@gpp.local | PRD | 1 |
+| Anil Ravad | anil.ravad@gpp.local | PRD | 1 |
+| Vishnu Jadhav | vishnu.jadhav@gpp.local | PRD | 8 |
+| Raghunath Mane | raghunath.mane@gpp.local | MNT | 8 |
+| Ajay Zala | ajay.zala@gpp.local | QC, MNT | 4 |
+| Ankur Raval | ankur.raval@gpp.local | QC | 3 |
+| Super admin | admin@gpp.local | Every module, every document at Edit | None of their own: everything nobody is named for |
+
+## §97 The notifications: each person told what they answer for, on the website and on the phone (8-Oct-2026)
+
+**The request.** The owner, 8-Oct-2026: "Consider superadmin as boss which can see anything and add notification to
+all modules according to that specially in mobile application so the user according to module can see notification
+accordingly and in mobile, like for example the daily pest control record which the system fills daily by itself, so
+at the end the user needs just to review it, verify it and submit it so his task will be complete. Likewise all the
+documents according to the frequency of their date: some documents are filled daily, some weekly, monthly, yearly, or
+in months. Likewise, according to module, the responsible person for that particular document will receive a
+notification in mobile as well as in our audit software. And the bot will perform the task very perfectly always, and
+make the mobile application so powerful that the user, even if they have not opened it, will receive the notification
+and can complete all the tasks perfectly from mobile ..." Who answers for each document is §96 (engine/accessRules.ts,
+the owner's table of 7-Oct-2026). This section is the server's half of the notifications: the morning prepare, the
+ledger, the notify job and the pushes. The website's bell and Notifications page and the phone's inbox, Tasks and Review
+screens read what is described here.
+
+**1. The day's records are prepared on the server every morning** (backend/notificationJobs.ts, job
+`morning-prepare`). Until now records were made and prepared only when a browser opened the app, so on a day nobody
+opened it nothing was ready. Now, on each working day of the plant at `PREPARE_AT` (08:30 plant time unless set; a
+server started later does it at once), DCRS's own engine on the server (backend/engineHost.ts, op `prepare`) makes the
+near-term sheets of every Live document and prepares every blank sheet due by today, by the one rule the browser runs
+(engine/assistantPrepare.ts). It fills the known parts only, never a reading or an observation (§3 of the build brief,
+"No invented observations"): a record a person has started is never touched. (That rule is §98, 8-Oct-2026; the server's prepare and the
+browser's are the same code, one rule.) The records are written with the version
+they were worked out on, and worked out again on what is stored when a browser saved meanwhile, so a browser preparing at
+the same moment never makes a second sheet for one document and period (proved both ways: the job's write meeting the
+browser's, backend/tests/notificationJobs.test.ts, and the browser's merge meeting the job's, frontend/tests/
+morningPrepareMerge.test.ts). One line in the activity log, in the system's name: "The assistant prepared N records"
+with the modules. Run again, it prepares nothing. The super admin runs it, or the notify job below, at once from the
+Notifications page: "The server's jobs", with **Prepare today's records now** and **Send the notifications now**, each
+calling `POST /api/jobs/run` and saying the outcome in words ("Prepared 18 records (Human Resources 1, Production 8,
+Quality Control 9). The known parts only: the readings are left for the people who answer for them."; "31 notifications
+worked out for the people who answer for the records: ..."). Nobody else is shown the card, and the server refuses
+anybody else (403). (9-Oct-2026: the owner is not technical, so never an HTTP call.)
+
+**2. Each person is told what they answer for** (engine/notificationPlan.ts, pure; backend/notificationJobs.ts, job
+`notify`). Every few minutes (`NOTIFY_EVERY_MS`, 5 minutes) from `PREPARE_AT` to the close of the plant's hours on
+working days, DCRS's engine works out, for every active account in one load, what each should be told now; the server
+keeps it in PostgreSQL (backend/notifications.ts) and tells the phones (backend/push.ts). The kinds:
+
+| Kind | Who | Ends when |
+|---|---|---|
+| Ready (`ready`) | the people who answer for the document and may fill it; nobody named: the super admin | the record leaves In Progress |
+| Needs input (`needs_input`), with the number of readings waiting | as Ready | the record leaves In Progress, or holds what the person observed and passes DCRS's checks (it becomes Ready, §98) |
+| Due today (`due`), not started | as Ready | it is started or submitted, or the day ends (it becomes Overdue) |
+| Coming up (`upcoming`), the heads-up | as Ready | the due date arrives |
+| Overdue (`overdue`), with the days late, updated daily | as Ready | it is submitted |
+| To verify (`verify`) | everyone with Write on the document but the person who submitted it; nobody: the super admin | it is verified or sent back |
+| Sent back (`sent_back`), with the reason | the person who submitted it | it is submitted again |
+| The boss's summary (`boss_summary`), morning and evening | every active super admin: by module, ready, needing input, awaiting verification, not yet submitted today, overdue | the next day |
+| Escalated (`escalation`) | every active super admin (backend/escalation.ts, mirrored) | it is acknowledged |
+| Your access has changed (`access_changed`) | the person (§96) | it is read |
+
+**Frequency decides the timing.** Daily documents are prepared in the morning and told the same day. Weekly and
+fortnightly documents get the heads-up on the working day before; monthly, quarterly ("in months") and yearly ones three
+days ahead (engine/reminders.ts `ADVANCE_WARNING_DAYS`). As-required documents are told only when started, or when their
+two-day allowance runs out. Nothing is due on a closed day: the weekly off (Thursday), a festival holiday; an adjustment
+day is a working day. One record is one task: past its day it is Overdue, not also Ready.
+
+**3. In three languages, worded on every read** (engine/notificationText.ts). A notification is kept as facts (the
+document, the date, the counts), never as a sentence, and worded whenever it is read, in English, Hindi or Gujarati as the
+reader asks: the bell, the phone's inbox and the push say the same thing, and a person who changes language reads every
+notification in the new one. Short sentences, no gendered pronoun ("you", or the name): "12 readings to enter: Daily Pest
+Control Monitoring Record", "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to
+enter, then submit."
+
+**4. The pushes to the phones** (backend/push.ts). DCRS sends them itself through Expo's push service to the phones
+registered with Mitra (POST /api/v1/devices). At most one push per person each time it looks; several items are one push,
+"3 records need you" with the top three document names, opening the inbox; one item says its own words and opens its
+record (`mitra://task/<recordId>`). When:
+- **the day's tasks** (ready, needs input, due): at most once in each of three slots: after the morning prepare, the
+  "still open" reminder at 15:30 ("Still open: ..."), the last call at 17:45 ("Last call: ..."). A task that comes up
+  after a slot's push waits for the next slot, so a record a person is filling in is not pushed back at them;
+- **overdue**: once a day, from 09:30;
+- **the heads-up**: once, on the working day before its due date (the inbox has it from the heads-up day);
+- **to verify, sent back, an access change, the boss's summaries and escalations**: at once.
+
+**Quiet.** The staff are pushed only on the plant's working days inside its hours (08:40 to 18:20 unless the super admin
+changes them in Master Data); what comes up outside waits for the next window. The super admin can be pushed at any hour.
+**Choices.** A person may switch any kind off for pushing (the phone's Settings, PUT /api/v1/notification-preferences);
+it still reaches the inbox. "Send me a test notification" sends one to the person's own phones and says in words why it
+could not (push off on the server, no phone registered, Firebase not set up yet), one every 20 seconds.
+**Privacy.** A push passes through Expo's and Google's servers, so it carries ids, document names and counts only:
+never a reading, and never a send-back's reason (that stays in the inbox). A phone's token is never written in a log.
+**Reliability.** Sent in batches of 100; a request that fails is tried again after 2 and 8 seconds, and one that never
+gets through is tried on the next run; Expo's receipts are read about 15 minutes later and a phone Expo says is no
+longer registered is forgotten (it registers again when Mitra is opened). `PUSH_ENABLED=0` sends nothing.
+**Android needs Firebase.** Until the owner's free Firebase project is set up (docs/DEPLOYMENT.md "Push notifications"),
+registration fails quietly on the phone and the app still has its inbox, Tasks and its own reminders. Expo Go cannot
+receive pushes on Android: the Mitra build 1.1.0 can. iPhones get the inbox and the app's own reminders (remote pushes
+need a paid Apple developer account).
+
+**5. On the phone, today by person, and reviewed before submitted** (backend/apiV1*.ts, the engine host). GET
+/api/v1/today now gives a person what they answer for and the records they may verify, each item with its module and
+whether this person may submit or verify it now (`canSubmit`, `canVerify`); the super admin everything, counted by
+module. A record the assistant prepared is submitted from the phone only with `"reviewed": true`, sent after the person
+ticked "Reviewed and correct" (§62); without it DCRS answers 409 `needs-review`, and the record's history says
+"Submitted from the phone after review". The routes are in docs/api/dcrs-api.openapi.json and
+docs/chatbot-integration.md "Notifications and the phone".
+
+**6. In the website: the bell and the Notifications page** (9-Oct-2026). The bell (components/layout/NotificationBell.tsx)
+asks the ledger (`GET /api/notifications`, in the language chosen for the screens) for the person's newest 20: a moment
+after the app opens, each time the bell is opened, when one is marked read anywhere, and every three minutes while the
+tab is shown; nothing walks the records for it. They sit under the super admin's escalations (still first) and above the
+day's reminders, the unread marked, each opening its record (else its document, else the dashboard for a summary, the
+scorecard for an escalation, the library for a change of access) and read as it opens, with **Mark all read** and **See
+all notifications**. The badge adds the unread ones that are not already a reminder or an escalation in the bell. **See
+all** is the Notifications page, `/notifications` (pages/NotificationsPage.tsx): by day (Today, Yesterday, then the
+date), the unread marked, All or Still open, 30 at a time with Show older, Mark all read; the super admin's include the
+morning and evening summaries with their counts by module in a table, and the escalations. The page's own words are in
+English and Gujarati (i18n/strings.notifications.ts); the notifications' titles and bodies are the server's, in the
+language asked, and are never sent to Google Translate. The reminders, the briefing popup and the daily nudge stay, and
+count only what the person answers for and may verify (§96); each reminder names who answers for its document by the
+owner's table. The panel closes on Escape and on another page, and its own words have Gujarati of DCRS's own, used
+when Google Translate cannot be reached (with it, they are translated live like every screen). Tested by
+frontend/tests/notificationView.test.ts, bellAnswerers.test.ts and tests/e2e_access_levels.py (the bell and the page
+after the notify job run by hand, an item opened and read, Mark all read, the notifications in Gujarati, the super
+admin's summary, the job buttons, the panel's Escape and its Gujarati words).
+
+**Kept in PostgreSQL only** (§55): the tables `notifications`, `push_devices`, `notification_prefs` and `push_tickets`
+(docs/DEPLOYMENT.md). They are DCRS's own: no role of the Audit Assistant is granted them (§83). A notification is kept
+60 days after it is resolved.
+
+**Tested** (docs/TESTING.md "The notification engine on the server"): the plan across daily, weekly, fortnightly,
+monthly, quarterly, yearly and as-required documents with a fake clock, the Thursday off, a festival holiday and an
+adjustment day; the three languages for every kind; the ledger (the upsert, the resolution, nobody reading another
+person's items), on the stand-in and on a real PostgreSQL; the morning prepare idempotent and safe beside a browser
+preparing at the same moment; the push planner and sender against a stand-in for Expo; `reviewed: true`; every new route
+in the OpenAPI file. On 9-Oct-2026 a throwaway DCRS from this branch (fresh database, the thirteen accounts, each with a
+phone, the pushes pointed at a stand-in for Expo's service) was run through a working-day morning by hand: the prepare
+made the day's records (18 for today, in HR, PRD and QC); notify told each of them to exactly the people who answer for
+its document by the owner's table, gave the super admin the morning summary by module and nobody else, and pushed ten
+people once each, each in the language of the phone; run again, both did nothing; at 15:30 the seven with tasks still
+open had one "Still open" push each; the test push reached one phone, and a second at once was refused.
+
+## §98 Records that say only what happened (8-Oct-2026)
+
+**The request, and why it is not built.** On 8-Oct-2026 the owner asked for the system to generate pest, cleaning and
+other monitoring data that looks manually entered, so that auditors believe it. That would be falsifying food-safety and
+hygiene records (the Daily Pest Control Monitoring Record, the fly catcher and cleaning registers, the QC and production
+logs are what an auditor relies on to know the plant was checked), and it is not built. The audit of 7-Oct-2026 had
+found the same thing from the other side (docs/AUDIT-2026-10-07.md H-9 to H-13: clearances and ALC answers pre-filled,
+signatures filled or invented, stock counts copied from yesterday, the assistant's drafts counted in reports); those are
+fixed here as part of the rule. What is built instead is the honest version of "the system fills it daily and the person
+reviews and submits it": everything that is known is ready, and the person enters what they actually saw, quickly (on
+the phone, §97, with large buttons for the usual answers).
+
+**1. The rule** (engine/knownParts.ts, engine/observations.ts). The system never writes, into a Live record, a reading,
+a count, a pass or fail, an OK or not OK, a finding, the time of a round, a quantity used, the job or lot in front of
+the person, the shift, a signature, or the name of whoever checked, that a person did not enter or an instrument did not
+measure. When a Live record is prepared it holds only what is known:
+- the record itself and its date (a "Date" box or column that is the record's day);
+- the fixed rows the form prints: the ten check points, the thirteen fly catcher units, the service areas, the time
+  slots, a checklist's questions, a machine's PM lines;
+- the plant's standing values: the machine and the instrument (name, number, maker, serial, capacities, tolerance,
+  calibration expiry), the chemicals in use (make, product code, mixing ratio; never a batch, which is a lot), the
+  material and method fixed for each pest-control area, the contractor, the site and the standing HARA team, a
+  period or a responsibility the format prints as its own;
+- what truly carries forward unchanged from the last record a person confirmed: the tube lights' install and due
+  dates, the people or suppliers on a yearly list (never their rating, skill level or training need, which are
+  assessed afresh), and a stock ledger's opening stock, which is the last sheet's closing stock (H-10).
+Every box and column of the 114 log-sheet layouts is classed by engine/observations.ts as date, worked out, standing or
+observation; anything not plainly a standing value is an observation and is left empty. An As Required document is
+started for one occasion, so nothing of the last occasion is carried into it. The CAPA findings, the complaint papers
+and the agreements are not prepared at all.
+
+**2. One rule in three places.** The browser at start-up, the engine host on the server and the server's morning job
+(§97) all run engine/assistantPrepare.ts `prepareDueRecords`, which runs this rule. The prepared record is In Progress
+and "needs input"; its notes end with "Left for you: N readings to enter before it can be submitted. Nothing you
+observe was filled in for you."; the briefing shows "N readings to enter, then submit." under each such record, and the
+notifications say how many readings wait (§97, "12 readings to enter: the Daily Pest Control Monitoring Record"). N is
+what the submit checks still ask for; and a log sheet the checks pass empty, on which nothing observed is written yet,
+waits for the entries of its first line ("Left for you: 6 entries on the first line. Nothing observed is written yet:
+enter what you saw, then submit it."). The people review of 9-Oct-2026 found the Defect Detection System Camera
+Challenge Test, which marks no box required, announced as "ready" and "filled in" while it held only a line id and the
+date; the same was true of every sheet the checks pass empty (the cleaning records, the glass and wooden article
+monitoring, the incoming inspection records and more). engine/knownParts.ts `entriesWaiting` is now the one answer for
+the prepare's notes, the briefing, the engine host's today, its record answer and the notification plan; the submit
+itself still asks only the checks (a register whose day had no event may be handed in empty, after the person's
+review). The briefing calls the ready ones "prepared and ready for your OK", never "filled in". The prepared banner says
+"Your assistant has filled this in as far as it is known: the readings are yours to enter", and to somebody who only
+reads the document, "The assistant prepared the known parts; the readings are for the people who answer for this
+document", with nothing to enter or submit.
+
+**3. The record's history says what the assistant did.** Each preparation is a line in the record's own history, by the
+assistant: "Prepared by the assistant: the known parts; the readings are the person's", with every box it wrote, before
+and after; the record is stamped `prepared.knownPartsOnly`. "Fill again" on a Live record prepares the known parts again.
+
+**4. Drafts the simulation filled before 8-Oct-2026.** Until this change the prepare wrote plausible readings into Live
+drafts. A Live draft that still holds them and nobody has touched (In Progress, prepared before the rule, last saved by
+the prepare, no person's line in its history) is prepared again by the rule at the next start-up or morning job: the
+made-up readings are taken out and listed in its history ("Prepared again by the assistant: the known parts only. The
+readings an earlier version filled in were never observed, so they are taken out; the readings are the person's"). A
+draft a person has worked on is never touched.
+
+**5. Reports count only what people entered** (H-13). Every report, tile and trend sheet counts a Live record only when
+a person wrote or confirmed it (data/selectors.ts `countsAsEntered`, the engine/insights.ts `isHumanRecord` rule the
+Management Summary already used): the Rodent Trend and its year, the month's rodents, the fly catcher figures and trend,
+the lamination QC report and the daily monitoring summary. The Live lizard report no longer draws a year the service
+provider has not reported from a seasonal pattern: the row is headed "Not yet reported by the service provider" and stays
+blank until the provider's figures are entered.
+
+**6. The simulation is Demo Mode's** (engine/autoFill.ts, engine/plantSimulation.ts, engine/rodentPattern.ts,
+engine/flyPattern.ts, engine/lizardPattern.ts, each marked DEMO MODE ONLY). It makes Demo Mode's year. Mitra's "fill it
+with sample data" fills a Demo Mode record anywhere, and a Live record only on a test server: `ALLOW_SAMPLE_FILL=1`, which
+scripts/run-e2e.ts sets on both test servers and scripts/unit-tests.ts on the backend tests, off by default (the browser
+is told `features.sampleFill`; until the server says it, a server running Demo Mode, which only test servers do, is taken
+as one; the engine host reads the server's own variable). Anywhere else every way of asking declines in plain words in
+the person's language, "Sample data is for practice in Demo Mode. In a live record, enter what you saw." (English,
+Gujarati, and Hindi when asked in Devanagari): Mitra's tool, which the phone's `/api/v1/records/{id}/sample-fill` runs
+too, the chat's chips and typed command, the full-page assistant, and the formats' chips, which are not offered there.
+The guided interview offers no "Fill typical readings for me" for a Live record and copies no signature beside what the
+person typed.
+
+**7. The audit's items, fixed here.** H-9: a blank form never arrives answered (the pouching Line Clearance, the ALC of
+the lamination, slitting and doctoring reports, the vehicle's type of cleaning, the container compliance, the shift, the
+pass, the operator). H-10: blade and sharp-object counts are never copied; the blade ledgers open with the last closing
+stock. H-11: F-PRD-18's OPERATOR SIGN is the operator's (as F-PRD-20 and F-PRD-26), and the Production test checks every
+signature column. H-12: F/DISP/04's driver signs the line; it is never carried forward, and the invented "Rameshbhai
+Patel" is gone from its specimen. H-13: point 5.
+
+**What stays automatic.** Records whose values come from other real records: the trend analyses and summaries (worked
+out from the registers), the computed cells of every sheet (deviations, totals, ratings, audit frequencies, §61, §77),
+F/MNT/03's Actuals read from F/MNT/02 (§82), master lists that carry their own lines forward, and the opening stock of a
+ledger. Verify-own-record stays as it is (§96).
+
+**Tested** (docs/TESTING.md "Records that say only what happened"): frontend/tests/truthfulPrepare.test.ts walks all 125
+recordable documents, with and without a confirmed record before each (filled with sample data to tempt a carry-forward),
+and fails on any observation a Live prepare writes, by the words and types of each box and column (against the previous
+prepare it found 9,691); frontend/tests/sampleFillLive.test.ts, frontend/tests/reportsCountPeople.test.ts and
+frontend/tests/production.test.ts (every signature column).
+
 ## §101 npm run dev with its ports already taken, and a browser with no room (9-Oct-2026)
 
 **The request.** On 9-Oct-2026 the owner sent the terminal's error when he ran `npm run dev` (Node's `EADDRINUSE` on
@@ -5957,6 +6963,43 @@ lines; every stored record and the minutes' copied points aligned once (a typed 
 an edited format read without its numbers, the same object each time; twelve flagged forms. backend/tests/
 websiteBuild.test.ts (5): current, older (rebuilt, naming what changed), never built, dev / test / switched off, a failed
 build.
+
+## §105 Passwords are the super admin's (9-Oct-2026)
+
+The owner, 9-Oct-2026, with a picture of the "Choose your own password" pop-up: "So once Superadmin assign any new
+password then user can login with that only and remove this option from all other users except superadmin".
+
+**What changes** (backend/passwordPolicy.ts, backend/index.ts, the top bar, Users & Access):
+
+1. **The password the super admin gives is the one the person signs in with.** Making an account on Users & Access,
+   "Create the missing accounts" and "Reset password" no longer mark it to be changed: nobody but the super admin is
+   asked to choose their own at the first sign-in (the §66 pop-up stays for the super admin's own account while it is
+   on the built-in first password, which is written in the documentation).
+2. **Only the super admin changes a password.** Their own from their name in the top bar, as before, and anybody
+   else's with "Reset password" on Users & Access. Anybody else's name in the top bar is only their name, not a
+   button, and the server refuses them POST /api/auth/change-password with 403 and the code
+   `password-set-by-super-admin` ("Your password is set by the super admin. Ask the super admin for a new one."),
+   whatever a screen sends. The phone app never had a way to change a password and has none now.
+3. **No account is left on a password anybody can read.** An account the system makes with no password the super
+   admin chose (the plant's named accounts, when SEED_ACCOUNT_PASSWORD is not set) starts with no password at all:
+   `NO_PASSWORD_YET` in place of a hash, which no password matches. Users & Access says "No password yet" against
+   it (and User access "no password yet") until the super admin gives it one with "Reset password".
+4. **The accounts already on file are settled once, at start-up** (`settleFirstPasswords`): each one other than the
+   super admin's that was still waiting to choose its own keeps the password the super admin typed for it, and the
+   wait is lifted; one still on the built-in first password gets "No password yet" instead, said in the server's
+   log by name, never with the password. An account that had already chosen its own keeps it until the super admin
+   resets it. The server's `must_change_password` lock (§66) is kept as a safeguard and is set only for the super
+   admin's own built-in first password.
+
+**Tests:** backend/tests/passwordPolicy.test.ts (who may change their own; no password matches "No password yet";
+the start-up settling keeps a typed password, locks the built-in one, leaves the super admin and anybody who chose
+their own alone, writes no password down, and does nothing the second time); backend/tests/accessRulesRoutes.test.ts
+(the twelve made by "Create the missing accounts" are not asked to change theirs). Browser suites: e2e_login_only.py
+(Meena signs in on the password she was given and the app opens; no "Change password" on her name; the server
+refuses her own change; after a reset the old one fails, her own attempt fails, the new one opens the app),
+e2e_user_access.py and e2e_every_record_starts.py (accounts made by the super admin sign in with what they were
+given and are refused a change), e2e_portal_controls.py (the super admin's own change with its three eyes, when the
+suite's account is the super admin; otherwise the staff side above).
 
 ## Master data provenance summary
 
@@ -6195,32 +7238,47 @@ build.
     shift on paper; DCRS keeps one a day, with the DATE & SHIFT box written by the person. F/MNT/01 lists three laminators
     (M-61, M-62, M-80) and two slitters (M-66, M-78) in the pouch section: should each machine and shift be a record of its
     own? F/PRD/21 is kept per machine already (as required).
+60. **F/MNT/09 and F/MNT/10 fall due on the 1st** (§93 part 6). Each is a month's sheet checked week by week (Week - 1 to
+    Week - 5), so it shows overdue from the 2nd while most of its weeks are still to come; F/HR/15, a month's sheet filled
+    day by day, is due on the month's last day. New now opens the month's sheet instead of starting another. Should these
+    two fall due at the month's end? (It changes the key of every month's sheet, so the sheets on file move with it.)
+61. **The Pest Control Training Record: one per training, or one a year?** (§93 part 2). It is scheduled yearly (the
+    December programme), but its page's New Training Record starts a record for every training and technician
+    certificate, so New (and Mitra's "create a new training record for <date>") starts one for the day asked, as before,
+    where every other yearly document opens the year's sheet. Is that right?
+62. **Which issue of F/MNT/09 is in use** (§93 part 5). The paper sent on 07-Oct-2026 is Rev 02 of 15.12.2024 (3,757
+    articles); DCRS holds Rev 02 of 01.09.2025 (3,980 articles, "New Glass Articals Added", the new ink kitchen), which the
+    company's workbook of formats lists as current. DCRS keeps the newer one.
 
-## How the assistant pre-fills records (and what it never does)
+59. **Two minus scores** (§92). The Dashboard's "Today's score" (§81) already shows the same example, 10 tasks and 8
+    done as -20, worked out as a share: round(done / due x 100) - 100. The Performance page's new minus score takes 10
+    off for each record never done. They agree only when exactly 10 are due: 4 of 5 done is -20 on the Dashboard and -10
+    on the Performance page; 18 of 20 done is -10 there and -20 here. DCRS keeps both as they are. Did "display score in
+    -10" mean 10 off for each record missed (as built), and should the Dashboard's figure follow it?
 
-Every record that falls due is prepared by the in-app assistant before the user sees it
-(`src/engine/autoFill.ts`, run by `prepareDueRecords()` at app start / on the dashboard / on
-login). The rules that keep this honest:
+## How the assistant prepares records (and what it never does)
 
-- Values are **carried forward from the user's most recent submitted or verified record** of the
-  same document (operator, machine, batch numbers, job list, trap counts, tube-light dates,
-  checker names). With no history yet, the **filled specimen** from the source file is used.
-- Measured readings (viscosity, hot-room temperature, mix viscosity) follow the plant behaviour
-  model in §25 — mostly in control, with the occasional drift episode that takes a reading outside
-  the printed band and is flagged for the person to confirm. Machine set-points and weighed set
-  quantities are **copied exactly**: the specimen shows the same 3.00 / 2.00 / 45 and the same
-  15 / 1.65 / 19.5 row after row, because they are settings, not measurements.
-- The assistant **never signs, submits, verifies, or ticks an attendance**. It proposes what the
-  plant's own pattern says the day looked like; a person confirms it. Anything the model says went
-  wrong is put in the first line of the record's notes ("Check this before you submit…") rather
-  than left to be discovered, and CAPA records are still never auto-filled in Live mode — a
-  corrective action is a decision, not a routine entry.
-- A **blank form never carries a decision**. The Lot Status box on an inspection that has not
-  happened yet is empty, not "Accepted" (`isDecisionField`, `src/engine/recordDefaults.ts`).
-- Prepared records stay **In Progress** with a visible "Your assistant has filled this in" banner
-  listing exactly what was filled and what it was based on. Nothing is Submitted or Verified until
-  a logged-in person does it; the login briefing offers one-click "Submit" only after the record
-  passes the same validation a manual submit would.
+Since 8-Oct-2026 a Live record that falls due is prepared by ONE rule (§98, `src/engine/knownParts.ts`, run by
+`prepareDueRecords()` at app start, in the engine host on the server and by the server's morning job, §97). The rules
+that keep this honest:
+
+- Only what is **known** is written: the record and its date, the fixed rows the form prints, the plant's standing
+  values (the machine, the instrument, the chemicals in use, the fixed material and method per pest-control area, the
+  contractor, the standing team), and what truly carries forward unchanged from the last record a person confirmed
+  (tube light dates, a yearly list's people or suppliers, a ledger's opening stock).
+- **Every observation is left for the person**: readings, counts, pass or fail, OK or not OK, findings, the time of a
+  round, quantities used, the lot in front of them, the shift, signatures and the names of whoever checked
+  (`src/engine/observations.ts` classes every box and column). The record is "needs input", and the briefing and the
+  notifications say how many readings wait.
+- The assistant **never signs, submits, verifies, or ticks an attendance**, and a **blank form never carries a
+  decision** (H-9: no Lot Status, Line Clearance, ALC, cleaning type, compliance or shift arrives answered).
+- Prepared records stay **In Progress** with a banner saying the assistant filled them "as far as it is known: the
+  readings are yours to enter", and a line in their history. Nothing is Submitted or Verified until a signed-in person
+  does it; the login briefing offers "Submit" only after the person ticks the record as reviewed and it passes the same
+  checks a manual submit would.
+- The **simulation** that writes plausible readings (`src/engine/autoFill.ts` with the plant behaviour model of §25 and
+  the pest patterns) fills **Demo Mode's records only**, and sample data in a Live record on a test server
+  (`ALLOW_SAMPLE_FILL=1`). It never reaches a Live record in the plant, and no report counts a draft (§98.5).
 
 None of these block the Phase‑1 prototype — each is either handled with a clearly-labeled
 default/fallback in the UI, or left as an empty, addable Master Data list.

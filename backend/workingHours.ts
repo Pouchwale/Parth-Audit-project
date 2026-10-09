@@ -28,11 +28,13 @@
 import { database, plantTimeZone } from "./db.ts";
 import {
   outsideHoursRefusal,
+  personHours,
   plantNow,
   publicHours,
   sessionEndsAt,
   type HoursCalendar,
   type OutsideHoursRefusal,
+  type PersonHours,
   type PlantNow,
   type PublicHours,
 } from "../frontend/src/engine/workingHoursCore.ts";
@@ -109,6 +111,11 @@ export interface SessionAnswer {
   signOutAtEnd: boolean;
   /** The server's clock, so a browser whose own clock is off can allow for it. */
   now: string;
+  /**
+   * The session's own id (backend/auth.ts): a tab that ends its session by itself names it in POST /api/auth/logout,
+   * so it never ends a newer session of the same browser. Left out for a token made before sessions had ids.
+   */
+  id?: string;
 }
 
 export interface WorkingHoursGate {
@@ -123,10 +130,12 @@ export interface WorkingHoursGate {
   refusal(user: { role: string }): Promise<OutsideHoursRefusal | null>;
   /** When a session this account starts now ends (C3). */
   sessionEnd(user: { role: string }): Promise<Date>;
-  /** What a session is told about its end: the earlier of its token's end and the close of today by the calendar as it stands now. */
-  sessionAnswer(user: { role: string }, tokenEndsAt: Date): Promise<SessionAnswer>;
-  /** The public answer: the hours and where today stands, in words. */
+  /** What a session is told about its end: the earlier of its token's end and the close of today by the calendar as it stands now; with its id, when it has one. */
+  sessionAnswer(user: { role: string }, tokenEndsAt: Date, sessionId?: string | null): Promise<SessionAnswer>;
+  /** The public answer: the staff's hours and where today stands, in words. */
   publicAnswer(): Promise<PublicHours>;
+  /** The answer for one signed-in person: the public one, whether the hours hold them, and the super admin's own line. */
+  personAnswer(user: { role: string }): Promise<PersonHours>;
 }
 
 export function createWorkingHoursGate(opts: WorkingHoursGateOptions = {}): WorkingHoursGate {
@@ -172,15 +181,18 @@ export function createWorkingHoursGate(opts: WorkingHoursGateOptions = {}): Work
     async sessionEnd(user) {
       return sessionEndsAt({ admin: user.role === "admin", enforced, state: await state() });
     },
-    async sessionAnswer(user, tokenEndsAt) {
+    async sessionAnswer(user, tokenEndsAt, sessionId) {
       const now = await state();
       const byCalendar = sessionEndsAt({ admin: user.role === "admin", enforced, state: now });
       // The token's own end stands unless the calendar now closes the day sooner (the super admin moved END earlier, say).
       const endsAt = heldToHours(user) && byCalendar.getTime() < tokenEndsAt.getTime() ? byCalendar : tokenEndsAt;
-      return { endsAt: endsAt.toISOString(), signOutAtEnd: heldToHours(user), now: now.now.toISOString() };
+      return { endsAt: endsAt.toISOString(), signOutAtEnd: heldToHours(user), now: now.now.toISOString(), ...(sessionId ? { id: sessionId } : {}) };
     },
     async publicAnswer() {
       return publicHours(await state(), enforced);
+    },
+    async personAnswer(user) {
+      return personHours(await state(), enforced, { admin: user.role === "admin" });
     },
   };
 }

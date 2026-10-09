@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard, FiDroplet, FiFileText, FiPrinter, FiTrendingUp, FiTruck } from "react-icons/fi";
+import { FiActivity, FiArrowRight, FiAward, FiBookOpen, FiCalendar, FiClipboard, FiDroplet, FiFileText, FiPlus, FiPrinter, FiTrendingUp, FiTruck } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { documentTextIn } from "../i18n/documentText";
 import { useRouter } from "../store/router";
@@ -7,6 +7,7 @@ import { pressable } from "../utils/pressable";
 import { printDocument } from "../utils/print";
 import { DownloadDocumentButton } from "../components/common/DownloadDocumentButton";
 import { recordRepository } from "../data/repositories/recordRepository";
+import { logRecordStarted } from "../engine/recordHistory";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { useEnsureMonth } from "../utils/useEnsureMonth";
@@ -18,6 +19,8 @@ import { totalRodents } from "../engine/rodentPattern";
 import { flySeasonLabel } from "../engine/flyPattern";
 import { fixedMaterialForServiceArea } from "../engine/serviceMaterials";
 import { agreementStatus } from "../engine/serviceAgreement";
+import { createRecordForDocument } from "../engine/recordCrud";
+import { routeForRecord } from "../engine/reminders";
 import { PR_DOC_ID, newPestResponsibilitiesData } from "../data/seed/pestResponsibilities";
 import { generateId } from "../utils/id";
 import { fliesInMonth, flyStatsForYear, rodentStatsForYear, rodentsInMonth } from "../data/selectors";
@@ -32,6 +35,7 @@ import { useHeaderEditing } from "../components/documents/HeaderEditing";
 import { useT } from "../i18n";
 import { MONTH_NAMES, WEEKDAY_NAMES, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
 import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, MasterData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
+import { mayDo } from "../engine/departmentScope";
 
 // The Pest Control module, organised the way the department actually talks
 // about its paperwork (and the way the source documents fall):
@@ -237,6 +241,8 @@ export function PestControlOverviewPage() {
       createdAt: now,
       updatedAt: now,
     };
+    // In the activity log like any record a person starts (REQUIREMENTS §93).
+    logRecordStarted(rec);
     recordRepository.upsert(rec as RecordInstance);
     navigate(`/record/${rec.id}`);
   };
@@ -645,7 +651,7 @@ export function DailyMonitoringListPage({ year: initialYear, month: initialMonth
 export function ServiceReportListPage({ slug, year: initialYear }: { slug: string; year?: number }) {
   // The visit register's header block, typed over where it stands (REQUIREMENTS §86).
   const visitHeader = useHeaderEditing({ doc: PEST_SERVICES[slug] ? documentRepository.getById(PEST_SERVICES[slug].docId) : undefined });
-  const { mode } = useAppStore();
+  const { mode, bump } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
@@ -697,6 +703,15 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
     return { mats, remarks: remarks.slice(0, 2).join("; ") + (remarks.length > 2 ? "…" : "") };
   };
 
+  // START ON THE REPORT'S OWN PAGE (REQUIREMENTS §93): the fortnight's visit
+  // report, opened when the schedule has made it, started when it has not —
+  // as New does on every document's page (engine/recordCrud.ts).
+  const startRecord = () => {
+    const { record } = createRecordForDocument(doc, { dateISO: today, isDemo });
+    bump();
+    navigate(routeForRecord(doc, record.id));
+  };
+
   return (
     <div className={isDemo ? "demo-watermark" : ""}>
       <div className="flex items-center justify-between mb-1 wrap gap-3">
@@ -736,6 +751,11 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
       </div>
 
       <div className="flex gap-2 wrap mb-3">
+        {mayDo(doc.id, "start") && (
+          <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
+            <FiPlus size={12} /> New record
+          </button>
+        )}
         {last && (
           <button className="btn btn-primary btn-sm" onClick={() => navigate(`/record/${last.id}`)}>
             {t("pest.openLatestVisit")} <FiArrowRight size={12} />
@@ -921,7 +941,7 @@ export function LizardTrendPage({ year: initialYear }: { year?: number }) {
 export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
   // The year's list keeps the F/HR/18 header block, typed over where it stands (REQUIREMENTS §86).
   const flyHeader = useHeaderEditing({ doc: documentRepository.getById(FLY_DOC_ID) });
-  const { mode } = useAppStore();
+  const { mode, bump } = useAppStore();
   const t = useT();
   const { navigate } = useRouter();
   const isDemo = mode === "demo";
@@ -947,6 +967,12 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
     .sort((a, b) => compareISO(b.dueDate, a.dueDate));
   const next = doc ? nextDueDate(doc, today) : null;
   const latest = latestRecord<FlyCatcherData>(FLY_DOC_ID, isDemo, today);
+  // Start on the register's own page (REQUIREMENTS §93): the fortnight's inspection, as New does everywhere.
+  const startRecord = () => {
+    const { record } = createRecordForDocument(doc, { dateISO: today, isDemo });
+    bump();
+    navigate(routeForRecord(doc, record.id));
+  };
 
   const rowStats = (r: RecordInstance<FlyCatcherData>) => {
     let total = 0;
@@ -976,6 +1002,11 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
         infestation trend — {flySeasonLabel(month)} in {MONTH_NAMES[month]}. Next inspection {next ? formatDisplayDate(next) : "—"}.
       </p>
       <div className="flex gap-2 wrap mb-4">
+        {mayDo(doc.id, "start") && (
+          <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
+            <FiPlus size={12} /> New record
+          </button>
+        )}
         {latest && (
           <button className="btn btn-primary btn-sm" onClick={() => navigate(`/record/${latest.id}`)}>
             Open latest inspection <FiArrowRight size={12} />

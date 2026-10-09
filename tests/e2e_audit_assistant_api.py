@@ -42,7 +42,9 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 BASE = os.environ.get("DCRS_BASE", "http://localhost:8843").rstrip("/")
 SEED_PASSWORD = os.environ.get("DCRS_SEED_PASSWORD", "SeedQA@2026")
 ADMIN = os.environ.get("DCRS_ADMIN_EMAIL", "admin@gpp.local")
-OTHER_DEPARTMENT = os.environ.get("DCRS_QC_EMAIL", "kapila.barad@gpp.local")  # kept to Quality Control, not QA or HR
+# Views Quality Control alone, not QA or HR (REQUIREMENTS §96): since 9-Oct-2026 Ankur Raval's, as Kapila Barad views every
+# module by the owner's table (and answers for the CAPA findings report herself).
+OTHER_DEPARTMENT = os.environ.get("DCRS_QC_EMAIL", "ankur.raval@gpp.local")
 CLIENT = "Audit Assistant"
 FACTORY = datetime.timezone(datetime.timedelta(hours=5, minutes=30))  # Asia/Kolkata, which has no daylight saving
 FAILURES = []

@@ -71,6 +71,7 @@ import { computeReminders, routeForRecord } from "./reminders";
 import { resolveResponsibleEmployees } from "./documentInfo";
 import { daysLate, type ReactionEvent } from "./reactions";
 import { generalPurposeLine, purposeLine } from "./purpose";
+import { isMine } from "./departmentScope";
 import { formatDisplayDate, fromISODate, toISODate, todayISO } from "../utils/date";
 
 // ---- The facts ---------------------------------------------------------------
@@ -149,6 +150,11 @@ export interface MotivationStats {
   next: NextTask | null;
   /** The modules of what was handed in on time today, the latest first — for a purpose line. */
   modulesToday: string[];
+  /**
+   * THE PLANT'S DAY, NOT A PERSON'S (REQUIREMENTS §96): true for the super admin, who answers for no document. The
+   * counts are then every open record of the plant, and there is no score of their own (the card shows none).
+   */
+  plantDay: boolean;
 }
 
 export interface MotivationInput {
@@ -437,6 +443,7 @@ export function computeMotivation(input: MotivationInput): MotivationStats {
     achievements,
     next,
     modulesToday,
+    plantDay: false,
   };
 }
 
@@ -528,10 +535,13 @@ export function askAccountsFor(
 let remembered: { key: string; records: readonly RecordInstance[]; master: unknown; people: readonly LatenessPerson[] | null; stats: MotivationStats } | null = null;
 
 /**
- * THE SIGNED-IN PERSON'S DAY, STREAK AND BADGES. Their documents are
- * engine/notifications.ts's (daysWork): the ones Master Data names them on
- * while some of their work there is due, late or coming up, or else every
- * document their departments may see (the administrator's: all of them). And
+ * THE SIGNED-IN PERSON'S DAY, STREAK AND BADGES. Their documents are the
+ * ones they answer for and may fill (REQUIREMENTS §96, engine/departmentScope.ts
+ * isMine: what the bell, the briefing and the scorecard count), never every
+ * document they may see; among those, engine/notifications.ts's (daysWork): the
+ * ones Master Data names them on while some of their work there is due, late or
+ * coming up. The super admin answers for no document: their card is the plant's
+ * day (every document), with no score of their own (`plantDay`). And
  * a record a colleague of a shared department handed in is that colleague's
  * (the accounts from askAccountsFor; until they are known, the person is
  * counted alone). Worked out once per change of the records, the day, the
@@ -541,12 +551,13 @@ export function motivationFor(person: MotivationPerson | null | undefined, isDem
   const today = todayISO();
   const master = masterRepository.get();
   const snapshot = recordRepository.snapshot();
-  const visible = documentRepository.getRecordable();
+  const visible = documentRepository.getRecordable().filter((d) => isMine(d.id));
+  const plantDay = person?.role === "admin";
   const liveStart = isDemo ? null : settingsRepository.get().liveStartDate;
   const name = person?.name ?? "";
   const self = selfOf(person);
   const people = knownAccounts(self);
-  const key = [today, isDemo ? "demo" : "live", sameName(name), self ? accountsKeyOf(self) : "", liveStart ?? "", visible.map((d) => d.id).join(",")].join("|");
+  const key = [today, isDemo ? "demo" : "live", sameName(name), self ? accountsKeyOf(self) : "", liveStart ?? "", plantDay ? "plant" : "", visible.map((d) => d.id).join(",")].join("|");
   if (remembered && remembered.key === key && remembered.records === snapshot && remembered.master === master && remembered.people === people) return remembered.stats;
 
   const me = sameName(name);
@@ -573,6 +584,7 @@ export function motivationFor(person: MotivationPerson | null | undefined, isDem
     people,
     departmentOf: (d) => departmentOfDocument(d.id, d.formatNo),
   });
+  stats.plantDay = plantDay;
   remembered = { key, records: snapshot, master, people, stats };
   return stats;
 }

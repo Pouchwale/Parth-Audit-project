@@ -2,7 +2,9 @@ import type { AuthUser } from "../types/auth";
 import type { DocumentDefinition, ScheduleConfig } from "../types";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { computeReminders, type DocumentReminder } from "./reminders";
+import { formatMinus } from "./performance";
 import { formatDisplayDate } from "../utils/date";
+import { answersForIds } from "./departmentScope";
 
 // THE DAY'S NOTIFICATIONS, FOR ONE PERSON (REQUIREMENTS §69).
 //
@@ -147,9 +149,12 @@ export interface DaysWork {
  */
 export function daysWork(reminders: readonly DocumentReminder[], person: Pick<AuthUser, "name"> | null | undefined): DaysWork {
   const me = sameName(person?.name ?? "");
-  const named = me ? reminders.filter((r) => r.assignedEmployees.some((e) => sameName(e.name) === me)) : [];
-  const theirOwn = named.length > 0;
-  const mine = theirOwn ? named : reminders;
+  // The access rules say whose work it is (REQUIREMENTS §96): the reminders are already kept to the documents this
+  // person answers for, so they are their own. Otherwise, as before: the names in Master Data, else everything shown.
+  const byRules = answersForIds() !== null;
+  const named = !byRules && me ? reminders.filter((r) => r.assignedEmployees.some((e) => sameName(e.name) === me)) : [];
+  const theirOwn = byRules || named.length > 0;
+  const mine = byRules ? reminders : theirOwn ? named : reminders;
 
   const notifications: Notification[] = [];
   for (const r of mine) {
@@ -204,6 +209,14 @@ export interface Standing {
   outOf: number;
   /** The score of whoever is first, so "two of these and you lead" can be said truthfully. */
   best: number | null;
+  /** Their minus score for the period (§92): -10 for each record never done, 0 when nothing was missed. Left out, nothing is said of it. */
+  minus?: number;
+}
+
+/** The minus score in one sentence (§92), after the score's own: " Minus score this month: −20." */
+function minusSentence(minus: number | undefined): string {
+  if (minus === undefined || !Number.isFinite(minus)) return "";
+  return minus < 0 ? ` Minus score this month: ${formatMinus(minus)}.` : " Minus score this month: 0, nothing missed.";
 }
 
 /**
@@ -240,17 +253,18 @@ export function encourage(work: DaysWork, standing: Standing | null, firstName: 
   if (standing.rank === null) {
     return {
       headline,
-      standing: `You are at ${standing.score}% on the scorecard — ${standing.grade}.${work.notifications.length > 0 ? " Finishing these on time is what holds it there." : ""}`,
+      standing: `You are at ${standing.score}% on the scorecard — ${standing.grade}.${minusSentence(standing.minus)}${work.notifications.length > 0 ? " Finishing these on time is what holds it there." : ""}`,
     };
   }
   const { score, grade, rank, outOf, best } = standing;
   const leading = rank === 1;
   const behind = best !== null && best > score ? best - score : 0;
+  const minus = minusSentence(standing.minus);
   const standingWords = leading
-    ? `You are top of the scorecard at ${score}% — ${grade}. Keeping these on time keeps you there.`
+    ? `You are top of the scorecard at ${score}% — ${grade}.${minus} Keeping these on time keeps you there.`
     : behind > 0
-      ? `You are ${rank} of ${outOf} on the scorecard at ${score}% — ${grade}. The leader is ${best}%; on-time work is what closes ${behind} point${behind === 1 ? "" : "s"}.`
-      : `You are ${rank} of ${outOf} on the scorecard at ${score}% — ${grade}.`;
+      ? `You are ${rank} of ${outOf} on the scorecard at ${score}% — ${grade}.${minus} The leader is ${best}%; on-time work is what closes ${behind} point${behind === 1 ? "" : "s"}.`
+      : `You are ${rank} of ${outOf} on the scorecard at ${score}% — ${grade}.${minus}`;
   return { headline, standing: standingWords };
 }
 

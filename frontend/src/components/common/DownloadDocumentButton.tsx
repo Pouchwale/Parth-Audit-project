@@ -7,7 +7,7 @@ import { documentTextIn } from "../../i18n/documentText";
 import { useAppStore } from "../../store/AppStore";
 import { useT } from "../../i18n";
 import { logActivity } from "../../utils/activityLog";
-import { isDocumentVisible } from "../../engine/departmentScope";
+import { isDocumentVisible, mayDo } from "../../engine/departmentScope";
 import { UploadChangesButton } from "./UploadChanges";
 
 // "Download Excel" / "Download Word" beside Print (REQUIREMENTS §54): the
@@ -54,7 +54,8 @@ export function DownloadDocumentButton({
       <button className={`btn btn-secondary${small ? " btn-sm" : ""}`} data-action="download-document" data-format={kind} onClick={download} title={kind === "xlsx" ? "Download as an Excel workbook" : "Download as a Word document"}>
         <FiDownload size={13} /> {t(kind === "xlsx" ? "common.downloadExcel" : "common.downloadWord")}
       </button>
-      {isDocumentVisible(doc) && <UploadChangesButton doc={doc} roots={roots} small={small} />}
+      {/* Writing a file back into the records needs Write on the document (REQUIREMENTS §96): never offered to a person who reads it. */}
+      {isDocumentVisible(doc) && mayDo(doc.id, "fill") && <UploadChangesButton doc={doc} roots={roots} small={small} />}
     </>
   );
 }

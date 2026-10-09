@@ -1688,7 +1688,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description:
       "Written up when a new machine is installed and commissioned: the equipment, its manufacturer, supplier, model and serial number, where it goes and what it does; ten requirements each assessed Y or N with a comment and a date of action — production needs, cleaning, maintenance access, food-grade lubricants, food-safety controls, manuals, training, spares, the trial production date and productivity; the benefits and the risks accepted; and the hand-over signed by the Maintenance, Production and QC heads.",
-    sourceFile: "F-MNT-08_New Equipment Installation & commissioning record.pdf (the blank format, two pages)",
+    // Sent again on 7-Oct-2026 with the company's own Word original, now on file beside it (REQUIREMENTS §93).
+    sourceFile:
+      "F-MNT-08_New Equipment Installation & commissioning record.pdf (the blank format, two pages); the company's own original is F-MNT-08_New Equipment Installation & commissioning record.doc",
     schedule: { type: "as-required" },
   },
   {
@@ -1842,8 +1844,11 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description:
       "The list of every glass and brittle-plastic article in the plant by area — windows and doors, false-ceiling acrylic, tube lights, CCTV cameras, LED lights, monitors and insect killers, 3,980 articles in twelve areas at Rev 02 — with its revision history, and the month's sheet on which each area is checked every week for any crack or breakage, with the breakage answered YES or NO, checked by the maintenance technician and verified by the head of maintenance. A breakage or crack calls for the CA / Incident record with its root cause, correction and corrective action.",
+    // WHICH FILE IS WHICH ISSUE (REQUIREMENTS §93). The PDF the owner sent on 7-Oct-2026 under the "(1) (2)" name is
+    // the EARLIER issue, 15.12.2024 — the same pages as "(3).pdf" — while the copy of that name on file here is the
+    // 01.09.2025 issue this form is built on, the newer one (open question 36 asks the owner which is current).
     sourceFile:
-      "F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024 (1) (2).pdf (Rev 02, 01.09.2025, two pages); the earlier issue of Rev 02, 15.12.2024, is F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024(3).pdf",
+      "F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024 (1) (2).pdf as kept in source-documents (Rev 02, 01.09.2025, two pages; the file of the same name sent on 7-Oct-2026 is the 15.12.2024 issue); the earlier issue of Rev 02, 15.12.2024, is F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024(3).pdf; the company's own original, of the 15.12.2024 issue, is F-MNT-09_List of Glass articles & weekly Glass Breakage monitoring record Dt.17-01-2024 (1) (2).doc",
     schedule: { type: "monthly", dayOfMonth: 1 },
   },
   {
@@ -2025,7 +2030,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
   {
     id: "str-sharp-metal-objects",
     kind: "log-sheet",
-    name: "Sharp Metal Objects Issuance (New) & Return (Old) Record",
+    // The title as the paper prints it, the four tools in its brackets included
+    // (REQUIREMENTS §93), as F/PRD/10 keeps its "(Scisssor / Manual Cutter)".
+    name: "Sharp Metal Objects (Razor Blade, Scissor, Cutter blade, Surgical Blade) Issuance (New) & Return (Old) Record",
     formatNo: "F/STR/02",
     revisionNo: "00",
     revisionDate: "2021-12-01",
@@ -2036,7 +2043,9 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     status: "Configured",
     description:
       "The register of every sharp metal object the store issues — razor blade, scissor, cutter blade, surgical blade — and of what comes back against it: the date, the tool, the quantity issued, who it went to and for which department, their signature, the quantity returned, the store keeper's signature and any remark. A new tool is issued against the return of the worn-out one intact, or of the complete assembly of a broken one; the format's own second paragraph allows an issue with nothing returned, to a new employee, a new machine or a new requirement, so the return quantity is the one column that may be left empty. In night shift the departmental supervisor issues the tool and makes the entry himself, and the Store In-charge reconciles issued against returned.",
-    sourceFile: "F-STR-02_Sharp metal objects issuance & replacement record.pdf (the blank format)",
+    // Both as supplied; the company's own original is the Word file, so the form downloads as Word (§93).
+    sourceFile:
+      "F-STR-02_Sharp metal objects issuance & replacement record.pdf (the blank format, as supplied); the company's own original is F-STR-02_Sharp metal objects issuance & replacement record.docx",
     schedule: { type: "as-required" },
   },
 

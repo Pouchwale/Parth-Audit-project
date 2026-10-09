@@ -58,11 +58,18 @@ const DATABASE_OVERVIEW_SUITE = "tests/e2e_database_overview.py";
 // (another department's shown as kept by it), the super admin's User access dashboard, and the plant's working hours.
 const FIND_EVERY_DOCUMENT_SUITE = "tests/e2e_find_every_document.py";
 const USER_ACCESS_SUITE = "tests/e2e_user_access.py";
+// REQUIREMENTS §96 and §97, with the plant's twelve seeded people: each sees and may do what the owner's table says,
+// the super admin's Users & Access (levels by module and by document), and the bell and the Notifications page.
+const ACCESS_LEVELS_SUITE = "tests/e2e_access_levels.py";
 const WORKING_HOURS_SUITE = "tests/e2e_working_hours.py";
 // REQUIREMENTS §85: the Mitra mobile app does what Mitra does, through DCRS's own engine on the server (product server).
 const MOBILE_MITRA_API_SUITE = "tests/e2e_mobile_mitra_api.py";
 // REQUIREMENTS §85: the guided tour on the Dashboard, for staff and the super admin (product server).
 const TOUR_SUITE = "tests/e2e_tour.py";
+// REQUIREMENTS §93: every record starts on its own page and stays, for the super admin and for each department's own
+// account, on a system live since the first of last month (product server; it adds the departments' accounts, so it
+// runs last).
+const EVERY_RECORD_STARTS_SUITE = "tests/e2e_every_record_starts.py";
 const PRODUCT_SUITES = [
   PRODUCT_SUITE,
   LOGIN_ONLY_SUITE,
@@ -71,9 +78,11 @@ const PRODUCT_SUITES = [
   DATABASE_OVERVIEW_SUITE,
   FIND_EVERY_DOCUMENT_SUITE,
   USER_ACCESS_SUITE,
+  ACCESS_LEVELS_SUITE,
   WORKING_HOURS_SUITE,
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
+  EVERY_RECORD_STARTS_SUITE,
 ];
 // THE SHARED DATABASE'S OVERVIEW (REQUIREMENTS §83), set up on this run's
 // database exactly as a DBA sets it up on the plant's: its two new schemas and
@@ -154,8 +163,13 @@ async function main(): Promise<void> {
   // module string. A document that cannot be filled used to be found by
   // tests/e2e_assistant_fill.py forty minutes into this run; now the run stops
   // before it builds.
-  console.log("Unit tests...");
-  run(process.execPath, [...nodeArgs, "scripts/unit-tests.ts"]);
+  // E2E_SKIP_UNIT=1 leaves them out, for a run that proves one suite while somebody else's unit test is being mended
+  // (the unit tests are then run on their own, and said to be).
+  if (process.env.E2E_SKIP_UNIT === "1") console.log("Unit tests skipped (E2E_SKIP_UNIT=1): run npm run test:unit on its own.");
+  else {
+    console.log("Unit tests...");
+    run(process.execPath, [...nodeArgs, "scripts/unit-tests.ts"]);
+  }
 
   console.log("Building frontend...");
   run(process.execPath, [...nodeArgs, "frontend/scripts/build.ts"]);
@@ -254,12 +268,20 @@ async function main(): Promise<void> {
         SEED_ACCOUNT_PASSWORD: PRODUCT_SEED_PASSWORD,
         DEMO_MODE: product ? "0" : "1",
         ALLOW_SIGNUP: product ? "0" : "1",
+        // SAMPLE DATA IN A LIVE RECORD (REQUIREMENTS §98): never in the plant, where it is Demo Mode's alone;
+        // on both test servers, because the suites fill the records they check with Mitra's sample data.
+        ALLOW_SAMPLE_FILL: "1",
         // NO SCHEDULED JOBS (REQUIREMENTS §75, backend/jobs.ts). The suites run on
         // the real clock and count activity-log lines: an escalation or a weekly
         // digest that ran by itself at 10:00 in the middle of a suite would add
         // lines and bell items nobody asked for. A suite that needs one runs it
         // by hand, as the super admin, with POST /api/jobs/run.
         JOBS: "0",
+        // NO PUSH TO A REAL PHONE SERVICE (REQUIREMENTS §97, backend/push.ts). The suites run notify by hand; a suite that
+        // registered a phone would otherwise have its pushes sent to Expo's real service. Off here, and said: the
+        // sender is proved against a stand-in (backend/tests/push.test.ts) and, by a reviewer, against Expo's own
+        // endpoint with a fake token.
+        PUSH_ENABLED: "0",
       },
     });
   console.log(`Starting server on :${TEST_PORT}...`);
@@ -379,10 +401,14 @@ async function main(): Promise<void> {
   // REQUIREMENTS §84 — every document findable, the super admin's User access, the plant's working hours.
   FIND_EVERY_DOCUMENT_SUITE,
   USER_ACCESS_SUITE,
+  // REQUIREMENTS §96 and §97 — who may do what, set by the super admin, and the notifications in the website.
+  ACCESS_LEVELS_SUITE,
   WORKING_HOURS_SUITE,
   // REQUIREMENTS §85 — the mobile app's API, DCRS's engine on the server.
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
+  // REQUIREMENTS §93 — every record starts and stays; last, because it adds the departments' accounts.
+  EVERY_RECORD_STARTS_SUITE,
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));

@@ -14,18 +14,23 @@
 // whom a record counts against come from frontend/src/engine/latenessCore.ts —
 // the very file the Performance Scorecard adds up (frontend/tests/
 // latenessCore.test.ts holds the two to the same answers) — so "Kapila was late
-// three times" here is three lates on her scorecard too. Over the last 30 days:
+// three times" here is three lates on her scorecard too. WHOM A RECORD COUNTS
+// AGAINST (REQUIREMENTS §96, 9-Oct-2026): the people who answer for its document
+// by the super admin's access rules (backend/accessLevels.ts answerRule — the
+// owner's table of who fills what, and what the super admin changed), not the
+// department their account is kept to; an account the rules never name answers
+// for its departments' documents, as before. Over the last 30 days:
 //
 //   * a PERSON with 3 or more late submissions counted against them, or with 2
 //     or more records never done in a department they answer for alone, is
 //     escalated by name;
-//   * a DEPARTMENT with 2 or more records never done, where it has several
-//     accounts (HR has two), is escalated as the department, named with its
-//     people — the scorecard counts a record nobody handed in against every one
-//     of them, so no one of them is singled out. A department no account
-//     answers for, or whose one account has been switched off, is escalated the
-//     same way, and says so. Somebody switched off is never escalated by name:
-//     they have left.
+//   * a DEPARTMENT with 2 or more records never done of documents several
+//     people answer for (F/HR/01 has two), is escalated as the department, named
+//     with the people who answer for its documents — the scorecard counts a
+//     record nobody handed in against every one of them, so no one of them is
+//     singled out. A document nobody answers for (the super admin answers), or
+//     whose one person has been switched off, is escalated the same way, and
+//     says so. Somebody switched off is never escalated by name: they have left.
 //
 // Only Live records count: Demo Mode is not part of the product (§65), and a
 // blank shell from before the system went live is not work (the go-live
@@ -54,6 +59,7 @@
 import { database, ESCALATION_ACTIONS, insertActivity, listUsers, plantTimeZone, readItem, registerSchema, transaction, withClient, type StoredItem } from "./db.ts";
 import { isEmailConfigured, sendMail } from "./email.ts";
 import { departmentOfDocument, PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
+import { ACCESS_KEY, AccessCatalogue, answerRule, catalogueDoc } from "./accessLevels.ts";
 import {
   addDaysISO,
   attribute,
@@ -202,6 +208,8 @@ export interface Plant {
   /** The day the system went live; blank sheets before it are not work. */
   liveStart: string | null;
   accounts: Account[];
+  /** The super admin's access rules as stored (the company item "access"): who answers for each document. Left out: the owner's table. */
+  access?: unknown;
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
@@ -260,13 +268,14 @@ function documentDefinitions(value: unknown, edits: unknown): StoredDocument[] {
 
 /** Everything the rule needs, read once for a run. */
 export async function loadPlant(): Promise<Plant> {
-  const [records, documents, master, liveStart, formatEdits, users] = await Promise.all([
+  const [records, documents, master, liveStart, formatEdits, users, access] = await Promise.all([
     readItem("company", "records"),
     readItem("company", "documents"),
     readItem("company", "master"),
     readItem("company", "live-start"),
     readItem("company", "formatEdits"),
     listUsers(),
+    readItem("company", ACCESS_KEY),
   ]);
   const start = parsed(liveStart);
   const masterValue = parsed(master);
@@ -286,6 +295,7 @@ export async function loadPlant(): Promise<Plant> {
       email: u.email,
       active: u.active,
     })),
+    access: parsed(access),
   };
 }
 
@@ -322,6 +332,18 @@ function departmentNamer(plant: Plant): (code: string) => string {
 const calledBy = (doc: StoredDocument): string => (doc.formatNo && !doc.formatNo.toUpperCase().startsWith("TO BE") ? doc.formatNo : doc.name);
 
 const departmentOfDoc = (d: StoredDocument): string | null => departmentOfDocument(d.id, d.formatNo);
+
+/** Who answers for each document by the access rules (REQUIREMENTS §96): the accounts the rules name for it, or its department's for an account they never name. */
+export function answerersOf(plant: Plant): (doc: StoredDocument) => Account[] {
+  const catalogue = new AccessCatalogue(plant.documents.map(catalogueDoc), plant.access ?? null);
+  const answers = answerRule(catalogue);
+  const known = new Map<string, Account[]>();
+  return (doc) => {
+    let list = known.get(doc.id);
+    if (!list) known.set(doc.id, (list = plant.accounts.filter((a) => answers({ email: a.email, role: a.role, departments: a.departments }, doc.id))));
+    return list;
+  };
+}
 
 // ---------------------------------------------------------------------------
 // The escalation: who, and on what evidence
@@ -424,7 +446,7 @@ export function findEscalations(plant: Plant, today: string): { window: { from: 
       t.neverDone += 1;
       t.misses.push(miss);
     }
-  });
+  }, answerersOf(plant));
 
   const deptName = departmentNamer(plant);
   const evidenceOf = (t: Tally, people?: string[]): EscalationEvidence => {
@@ -798,7 +820,7 @@ export async function runWeeklyDigest(today: string): Promise<{ period: string; 
     const byDoc = perDocument.get(doc.id) ?? { ...emptyCounts(), documentId: doc.id, what: calledBy(doc), department };
     add(byDoc, judgement.outcome);
     perDocument.set(doc.id, byDoc);
-  });
+  }, answerersOf(plant));
   const scored = <T extends Counts>(c: T): T & { score: number | null } => ({ ...c, score: scoreOf(c.onTime, c.late, c.neverDone) });
 
   const departments = Array.from(perDepartment, ([code, c]) => ({ ...scored(c), code, name: deptName(code), people: (accountsOf.get(code) ?? []).map((p) => p.name) })).sort(

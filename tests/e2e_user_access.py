@@ -16,33 +16,58 @@ This suite checks, against the product server:
   * every account with its modules as switches: the super admin's own cannot be
     changed, a person's last module cannot be switched off, and the documents a
     person can see are counted and listed on opening them;
-  * a module switched ON for Kapila Barad (Quality Control) - Human Resources -
-    is hers at her next sign-in; switched OFF again (asked first; "No, leave it"
-    changes nothing) it is refused her by name at the sign-in after;
+  * a module switched ON for an account kept to Quality Control - Human
+    Resources - is hers at her next sign-in; switched OFF again (asked first;
+    "No, leave it" changes nothing) it is refused her by name at the sign-in
+    after;
   * each of her sign-ins and sign-outs is on the page with its time: today's
     first sign-in and last sign-out beside her name, and every session in the
     history with the times the activity log holds; the super admin shows as
-    signed in now, Kapila as signed out;
+    signed in now, she as signed out;
   * a failed sign-in (a wrong password, and an address with no account) is
     listed with the address typed and why;
   * the history downloads as a CSV file holding the same sessions and attempts,
     and the download is a line in the activity log, as is every change of
     modules;
+  * WHO MAY DO WHAT (REQUIREMENTS §96, 9-Oct-2026), held by the server: the
+    rules read by anybody and changed by the super admin alone (not through the
+    storage route either), with the version read (409 when stale); Kapila
+    Barad's copy holds every module and Ankur Raval's Quality Control's; a
+    record Ankur starts on a document he only reads is refused in plain words,
+    and taken once the super admin gives him Write, which is a line of the
+    activity log and a notification to him; the plant's twelve people all have
+    accounts; the plant's only super admin cannot be made staff, and an account
+    is made the super admin and staff again, each a line;
+  * THE SUPER ADMIN ALWAYS GETS IN (audit H-17): eight wrong passwords for his
+    address from one computer hold back that computer alone, a forged
+    X-Forwarded-For header making no other computer of it, and the right
+    password signs him in at once from another;
   * no JavaScript errors.
+
+WHY NOT KAPILA BARAD ANY MORE (9-Oct-2026). The module switches of this page are
+an account's departments, and since the owner's access levels (REQUIREMENTS §96)
+departments decide only for an account the access rules never name. Kapila
+Barad is named: she views every module and edits Quality Control and SYS, as the
+owner said on 7-Oct-2026, whatever her departments are. So the switches are
+walked with an account the suite makes for itself, kept to Quality Control, as
+the super admin makes one from Users & Access (on the password she signs in
+with, which only the super admin changes, REQUIREMENTS §105); Kapila's account is
+still used for what the owner's model says of her.
 
 Against the product server on :8843 (DCRS_BASE overrides it) with the plant's
 seeded accounts on SEED_ACCOUNT_PASSWORD (DCRS_SEED_PASSWORD overrides it).
-Kapila's modules are put back to Quality Control alone at the end, whatever
-happened, because the other product-server suites rely on them.
 """
 import csv
 import datetime
 import io
+import json
 import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 
 from playwright.sync_api import sync_playwright
 
@@ -51,10 +76,16 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 BASE = os.environ.get("DCRS_BASE", "http://localhost:8843").rstrip("/")
 SEED_PASSWORD = os.environ.get("DCRS_SEED_PASSWORD", "SeedQA@2026")
 ADMIN = "admin@gpp.local"
-KAPILA = "kapila.barad@gpp.local"  # kept to Quality Control
+KAPILA = "kapila.barad@gpp.local"  # views every module; edits Quality Control and SYS (REQUIREMENTS §96)
+ANKUR = "ankur.raval@gpp.local"  # views Quality Control; answers for F-QC-30, F-QC-32 and F-QC-40.C
 SANDEEP = "sandeep.parekh@gpp.local"  # kept to Human Resources
 STAMP = int(time.time())
-# Kapila's sessions of THIS run: the product server's other suites sign her in too, some without signing out.
+# An account the access rules never name, kept to Quality Control: its departments are what this page's switches change.
+CLERK_NAME = "Nisha Desai"
+CLERK = f"nisha.desai.{STAMP}@gpp.local"
+CLERK_FIRST = "NishaFirst@2026"
+CLERK_PASSWORD = "NishaOwn@2026"
+# Her sessions of THIS run.
 STARTED = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
 NOBODY = f"nobody.{STAMP}@gpp.local"
 FACTORY = datetime.timezone(datetime.timedelta(hours=5, minutes=30))  # Asia/Kolkata, which has no daylight saving
@@ -219,6 +250,35 @@ def switch(page, email, code):
     return page.locator(f"[data-table='access-modules'] tr[data-user='{email}'] [data-action='toggle-module'][data-module='{code}']")
 
 
+def api_session(browser, email, password=SEED_PASSWORD):
+    """A context signed in through the API (its own cookie jar): (context, status)."""
+    ctx = browser.new_context()
+    r = ctx.request.post(f"{BASE}/api/auth/login", data={"email": email, "password": password})
+    return ctx, r.status
+
+
+def json_of(res):
+    try:
+        return res.json()
+    except Exception:
+        return {}
+
+
+def login_from(host, port, email, password, forged=None):
+    """POST /api/auth/login from this computer to `host` (127.0.0.1 or [::1]): the status, or the error in words."""
+    headers = {"Content-Type": "application/json"}
+    if forged:
+        headers["X-Forwarded-For"] = forged
+    req = urllib.request.Request(f"http://{host}:{port}/api/auth/login", data=json.dumps({"email": email, "password": password}).encode(), headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as res:
+            return res.status
+    except urllib.error.HTTPError as e:
+        return e.code
+    except Exception as e:  # not reachable at that address
+        return f"unreachable: {e}"
+
+
 def modules_of(page, email):
     users = get(page, "/api/users")
     for u in (users.get("body") or {}).get("users") or []:
@@ -243,9 +303,26 @@ with sync_playwright() as p:
     staff_ctx.add_init_script(NO_INTRO)
     admin = new_page(admin_ctx)
     staff = new_page(staff_ctx)
-    kapila_id = None
+    clerk_id = None
 
     try:
+        # The account kept to Quality Control whose modules this page switches: made by the super admin, on the
+        # password she signs in with; only the super admin changes it (REQUIREMENTS §105).
+        maker, made_status = api_session(browser, ADMIN)
+        made = maker.request.post(f"{BASE}/api/users", data={"name": CLERK_NAME, "email": CLERK, "password": CLERK_PASSWORD, "departments": ["QC"]})
+        clerk_id = (json_of(made).get("user") or {}).get("id")
+        own, _ = api_session(browser, CLERK, CLERK_PASSWORD)
+        changed_pw = own.request.post(f"{BASE}/api/auth/change-password", data={"currentPassword": CLERK_PASSWORD, "newPassword": CLERK_FIRST})
+        # Signed out again, so her sessions on the page below each pair with a sign-out.
+        signed_out = own.request.post(f"{BASE}/api/auth/logout", data={})
+        check(
+            "(an account kept to Quality Control, on the password the super admin gave her, which she cannot change)",
+            made_status == 200 and made.status == 201 and bool(clerk_id) and changed_pw.status == 403 and json_of(changed_pw).get("code") == "password-set-by-super-admin" and signed_out.status == 204,
+            (made_status, made.status, changed_pw.status, signed_out.status),
+        )
+        own.close()
+        maker.close()
+
         # ==============================================================
         # 1. The door
         # ==============================================================
@@ -257,7 +334,7 @@ with sync_playwright() as p:
             anon.close()
         check("Nobody signed in is refused every route (401)", all(s == 401 for s in statuses), statuses)
 
-        sign_in(staff, KAPILA)
+        sign_in(staff, CLERK, CLERK_PASSWORD)
         check("A member of staff has no User access in the sidebar", staff.locator(".app-sidebar a[href='#/access']").count() == 0)
         staff.goto(f"{BASE}/index.html#/access")
         staff.wait_for_timeout(1200)
@@ -298,6 +375,13 @@ with sync_playwright() as p:
             (strip_text, plant.get("hoursText"), plant.get("todayText")),
         )
         check(
+            "...said as the staff's hours, with the super admin's own line that he can keep working, never that DCRS is open, closed or opens again",
+            strip.count() == 1
+            and admin.locator("[data-section='access-hours'] [data-field='hours-for-you']").inner_text() == "You are the super admin: these are the staff's hours, and you can keep working at any time."
+            and not any(w in strip_text for w in ("DCRS is open", "opens again", "DCRS is closed", "not open yet")),
+            strip_text,
+        )
+        check(
             "...and whether this server holds anybody to them",
             strip.count() == 1 and strip.get_attribute("data-enforced") == ("yes" if plant.get("enforced") else "no") and (("DCRS_WORKING_HOURS=off" in strip_text) != bool(plant.get("enforced"))),
             (strip.get_attribute("data-enforced") if strip.count() else None, plant.get("enforced")),
@@ -308,7 +392,7 @@ with sync_playwright() as p:
         overview = get(admin, "/api/access/overview")
         ov = overview.get("body") or {}
         emails = [p_.get("email") for p_ in ov.get("people") or []]
-        check("The server hands the super admin every account", overview["status"] == 200 and all(e in emails for e in (ADMIN, KAPILA, SANDEEP, "vinay.bhojak@gpp.local")), emails)
+        check("The server hands the super admin every account", overview["status"] == 200 and all(e in emails for e in (ADMIN, KAPILA, ANKUR, SANDEEP, "vinay.bhojak@gpp.local", CLERK)), emails)
         # The admins first, by name — and on this run's database the demo server's first sign-up is an admin too
         # (insertUser makes the first account one), so "Playwright QA" may stand before "Super Admin".
         roles = [p_.get("role") for p_ in ov.get("people") or []]
@@ -322,10 +406,10 @@ with sync_playwright() as p:
         check("The super admin shows as signed in now", me.get("now") == "signed-in" and admin.locator(f"[data-table='access-today'] tr[data-user='{ADMIN}'][data-now='signed-in']").count() == 1, me.get("now"))
 
         # ---- the modules ----
-        kap_row = admin.locator(f"[data-table='access-modules'] tr[data-user='{KAPILA}']")
-        check("Kapila's line holds a switch per module (ten) and one for every module", kap_row.locator("[data-action='toggle-module']").count() == 10 and kap_row.locator("[data-action='toggle-every-module']").count() == 1)
-        check("...Quality Control on, Human Resources off", switch(admin, KAPILA, "QC").get_attribute("aria-checked") == "true" and switch(admin, KAPILA, "HR").get_attribute("aria-checked") == "false")
-        check("...and her only module cannot be switched off (none would mean every module)", switch(admin, KAPILA, "QC").is_disabled())
+        kap_row = admin.locator(f"[data-table='access-modules'] tr[data-user='{CLERK}']")
+        check(f"{CLERK_NAME}'s line holds a switch per module (ten) and one for every module", kap_row.locator("[data-action='toggle-module']").count() == 10 and kap_row.locator("[data-action='toggle-every-module']").count() == 1)
+        check("...Quality Control on, Human Resources off", switch(admin, CLERK, "QC").get_attribute("aria-checked") == "true" and switch(admin, CLERK, "HR").get_attribute("aria-checked") == "false")
+        check("...and her only module cannot be switched off (none would mean every module)", switch(admin, CLERK, "QC").is_disabled())
         admin_row = admin.locator(f"[data-table='access-modules'] tr[data-user='{ADMIN}']")
         check(
             "The super admin's own line is every module, and cannot be changed",
@@ -349,17 +433,17 @@ with sync_playwright() as p:
         # 3. A module switched on
         # ==============================================================
         print("\n==== A module switched on ====")
-        switch(admin, KAPILA, "HR").click()
+        switch(admin, CLERK, "HR").click()
         admin.wait_for_selector("[data-section='access-note']", timeout=15000)
         admin.wait_for_timeout(400)
-        deps, kapila_id = modules_of(admin, KAPILA)
-        check("Switching Human Resources on for Kapila needs no question, and the server has it", sorted(deps or []) == ["HR", "QC"], deps)
-        check("...the switch says so", switch(admin, KAPILA, "HR").get_attribute("aria-checked") == "true")
-        check("...Quality Control can be switched off again now that it is not her only one", not switch(admin, KAPILA, "QC").is_disabled())
+        deps, clerk_id = modules_of(admin, CLERK)
+        check(f"Switching Human Resources on for {CLERK_NAME} needs no question, and the server has it", sorted(deps or []) == ["HR", "QC"], deps)
+        check("...the switch says so", switch(admin, CLERK, "HR").get_attribute("aria-checked") == "true")
+        check("...Quality Control can be switched off again now that it is not her only one", not switch(admin, CLERK, "QC").is_disabled())
         seen_with = int(kap_row.locator("[data-field='documents-seen']").get_attribute("data-count") or "0")
         check("...and she now sees more documents", seen_with > seen_before, (seen_before, seen_with))
 
-        sign_in(staff, KAPILA)
+        sign_in(staff, CLERK, CLERK_PASSWORD)
         staff.goto(f"{BASE}/index.html#/hr")
         staff.wait_for_timeout(1800)
         close_assistant(staff)
@@ -375,24 +459,24 @@ with sync_playwright() as p:
         # ==============================================================
         print("\n==== The module switched off ====")
         open_access(admin)
-        switch(admin, KAPILA, "HR").click()
+        switch(admin, CLERK, "HR").click()
         admin.wait_for_selector("[data-section='confirm-module-change']", timeout=10000)
         asked = admin.locator("[data-section='confirm-module-change']").inner_text()
-        check("Switching a module off asks first, naming the person and the module", "Kapila Barad" in asked and "Human Resources" in asked and "Nothing is deleted" in asked, asked)
+        check("Switching a module off asks first, naming the person and the module", CLERK_NAME in asked and "Human Resources" in asked and "Nothing is deleted" in asked, asked)
         admin.click("[data-action='cancel-module-change']")
         admin.wait_for_timeout(500)
-        deps, _ = modules_of(admin, KAPILA)
-        check("'No, leave it' changes nothing", sorted(deps or []) == ["HR", "QC"] and switch(admin, KAPILA, "HR").get_attribute("aria-checked") == "true", deps)
-        switch(admin, KAPILA, "HR").click()
+        deps, _ = modules_of(admin, CLERK)
+        check("'No, leave it' changes nothing", sorted(deps or []) == ["HR", "QC"] and switch(admin, CLERK, "HR").get_attribute("aria-checked") == "true", deps)
+        switch(admin, CLERK, "HR").click()
         admin.wait_for_selector("[data-action='confirm-module-change']", timeout=10000)
         admin.click("[data-action='confirm-module-change']")
         admin.wait_for_selector("[data-section='access-note']", timeout=15000)
         admin.wait_for_timeout(500)
-        deps, _ = modules_of(admin, KAPILA)
+        deps, _ = modules_of(admin, CLERK)
         check("Confirmed, she is Quality Control's alone again", deps == ["QC"], deps)
-        check("...the switch says so, and her last module is locked again", switch(admin, KAPILA, "HR").get_attribute("aria-checked") == "false" and switch(admin, KAPILA, "QC").is_disabled())
+        check("...the switch says so, and her last module is locked again", switch(admin, CLERK, "HR").get_attribute("aria-checked") == "false" and switch(admin, CLERK, "QC").is_disabled())
 
-        sign_in(staff, KAPILA)
+        sign_in(staff, CLERK, CLERK_PASSWORD)
         staff.goto(f"{BASE}/index.html#/hr")
         staff.wait_for_timeout(1800)
         close_assistant(staff)
@@ -421,11 +505,11 @@ with sync_playwright() as p:
         open_access(admin)
         refresh(admin)
         ov = get(admin, "/api/access/overview").get("body") or {}
-        kap = next((p_ for p_ in ov.get("people") or [] if p_.get("email") == KAPILA), {})
+        kap = next((p_ for p_ in ov.get("people") or [] if p_.get("email") == CLERK), {})
         today = kap.get("today") or {}
         check("The server counts her three sign-ins and three sign-outs today", today.get("signIns", 0) >= 3 and today.get("signOuts", 0) >= 3, today)
         check("...and says she is signed out now", kap.get("now") == "signed-out", kap.get("now"))
-        row = admin.locator(f"[data-table='access-today'] tr[data-user='{KAPILA}']")
+        row = admin.locator(f"[data-table='access-today'] tr[data-user='{CLERK}']")
         first_cell = row.locator("[data-field='first-sign-in']")
         last_cell = row.locator("[data-field='last-sign-out']")
         check(
@@ -458,14 +542,14 @@ with sync_playwright() as p:
         # 7. Her sign-ins and sign-outs over a span
         # ==============================================================
         print("\n==== The history ====")
-        activity = get(admin, f"/api/activity?person={kapila_id}&limit=200").get("body") or {}
+        activity = get(admin, f"/api/activity?person={clerk_id}&limit=200").get("body") or {}
         ins = sorted(l["at"] for l in activity.get("lines") or [] if l.get("action") == "Signed in" and since_start(l["at"]))
         outs = sorted(l["at"] for l in activity.get("lines") or [] if l.get("action") == "Signed out" and since_start(l["at"]))
-        admin.select_option("[data-field='history-person']", kapila_id)
-        wait_shown(admin, "all", kapila_id)
+        admin.select_option("[data-field='history-person']", clerk_id)
+        wait_shown(admin, "all", clerk_id)
         rows = admin.locator("[data-table='access-history'] tbody tr[data-kind='session']")
         every_row = rows.evaluate_all("els => els.map((e) => [e.getAttribute('data-user'), e.getAttribute('data-at'), e.getAttribute('data-signed-out-at'), e.querySelector(\"[data-field='signed-in']\").textContent.trim(), e.querySelector(\"[data-field='signed-out']\").textContent.trim(), e.querySelector(\"[data-field='ended']\").textContent.trim()])")
-        check("Choosing Kapila lists her sessions only", len(every_row) >= 3 and all(s[0] == KAPILA for s in every_row), every_row[:4])
+        check(f"Choosing {CLERK_NAME} lists her sessions only", len(every_row) >= 3 and all(s[0] == CLERK for s in every_row), every_row[:4])
         shown = [s for s in every_row if since_start(s[1])]
         check("...one for every sign-in the activity log holds", sorted(s[1] for s in shown) == ins, (sorted(s[1] for s in shown), ins))
         check("...each paired with its sign-out", sorted(s[2] for s in shown) == outs and all(s[5] == "Signed out" for s in shown), (sorted(s[2] for s in shown), outs))
@@ -496,9 +580,9 @@ with sync_playwright() as p:
         check("...headed in plain words", table and table[0] == CSV_HEADINGS, table[0] if table else None)
         body = table[1:]
         this_run = {factory_hms(i) for i in ins}
-        kap_sessions = [r for r in body if len(r) == 10 and r[3] == KAPILA and r[4] == "Signed in" and r[1] in this_run]
+        kap_sessions = [r for r in body if len(r) == 10 and r[3] == CLERK and r[4] == "Signed in" and r[1] in this_run]
         check(
-            "...holding each of Kapila's sessions with its sign-in and sign-out times",
+            "...holding each of her sessions with its sign-in and sign-out times",
             sorted(r[1] for r in kap_sessions) == sorted(factory_hms(i) for i in ins) and sorted(r[5] for r in kap_sessions) == sorted(factory_hms(o) for o in outs) and all(r[6] == "Signed out" for r in kap_sessions),
             (kap_sessions[:3], [factory_hms(i) for i in ins]),
         )
@@ -515,11 +599,158 @@ with sync_playwright() as p:
         check("Opening the page is a line in the activity log", "User access opened" in actions, actions[:6])
         check("...and so is the CSV taken away", "User access exported" in actions, actions[:6])
         changed = get(admin, "/api/activity?q=Department%20access%20changed&limit=50").get("body") or {}
-        kap_changes = [l for l in changed.get("lines") or [] if l.get("action") == "Department access changed" and "Kapila Barad" in (l.get("target") or "")]
+        kap_changes = [l for l in changed.get("lines") or [] if l.get("action") == "Department access changed" and CLERK_NAME in (l.get("target") or "")]
         check("Each change of her modules is a line, saying from what to what", len(kap_changes) >= 2 and any("QC, HR" in (l.get("detail") or "") for l in kap_changes), [l.get("detail") for l in kap_changes][:3])
 
         # ==============================================================
-        # 10. On a phone, and the errors
+        # 10. Who may do what (REQUIREMENTS §96): the super admin's rules, held by the server
+        # ==============================================================
+        print("\n==== Who may do what ====")
+        # The records written through the API below move the item on while the super admin's page is open: its next
+        # save meets a 409 and merges, as the sync does (frontend/src/data/serverSync.ts), and the browser prints the 409.
+        conflicts_from = len(errors)
+        kap_api, s1 = api_session(browser, KAPILA)
+        ankur_api, s2 = api_session(browser, ANKUR)
+        admin_api, s3 = api_session(browser, ADMIN)
+        check("(Kapila Barad, Ankur Raval and the super admin sign in through the API)", (s1, s2, s3) == (200, 200, 200), (s1, s2, s3))
+        rules_res = kap_api.request.get(f"{BASE}/api/access/rules")
+        rules_now = json_of(rules_res)
+        check(
+            "Anybody signed in reads the access rules, with their version and the plant's twelve people",
+            rules_res.status == 200 and isinstance(rules_now.get("version"), int) and len((rules_now.get("defaults") or {}).get("people") or []) == 12,
+            (rules_res.status, str(rules_now)[:300]),
+        )
+        refused = kap_api.request.put(f"{BASE}/api/access/rules", data={"rules": rules_now.get("rules") or {}, "baseVersion": rules_now.get("version") or 0})
+        check("...and only the super admin changes them (403, said in words)", refused.status == 403 and json_of(refused).get("code") == "super-admin-only", (refused.status, refused.text()[:200]))
+        sneaky = kap_api.request.put(f"{BASE}/api/storage/access", data=json.dumps({"version": 1, "people": {KAPILA: {"modules": {"PRD": "edit"}}}, "responsibility": {}}), headers={"Content-Type": "text/plain", "X-Base-Version": "*"})
+        check("...not even through the storage route", sneaky.status == 403, sneaky.status)
+        kap_store = json_of(kap_api.request.get(f"{BASE}/api/storage"))
+        check("Kapila Barad's copy holds every module: HR Master Data is not held back, though her account is kept to QC", "hrMasterData" not in (kap_store.get("denied") or []), kap_store.get("denied"))
+        ankur_store = json_of(ankur_api.request.get(f"{BASE}/api/storage"))
+        check("Ankur Raval's copy holds Quality Control's: HR Master Data is held back from him", "hrMasterData" in (ankur_store.get("denied") or []), ankur_store.get("denied"))
+        directory = {p_.get("name") for p_ in json_of(ankur_api.request.get(f"{BASE}/api/users/directory")).get("people") or []}
+        check(
+            "His list of people is those who share a module he sees: Kapila Barad and Ajay Zala, not Human Resources' own",
+            {"Kapila Barad", "Ajay Zala", "Ankur Raval"} <= directory and not ({"Vinay Bhojak", "Sandeep Parekh"} & directory),
+            sorted(directory),
+        )
+
+        stamp_now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        started = {
+            "id": f"rec-ua-{STAMP}", "documentId": "qc-inspection-pouching", "periodKey": f"qc-inspection-pouching:ua-{STAMP}",
+            "dueDate": datetime.date.today().isoformat(), "status": "In Progress", "isDemo": False, "data": {}, "createdAt": stamp_now, "updatedAt": stamp_now,
+        }
+
+        def lines_of(store_answer):
+            item = next((i for i in store_answer.get("items") or [] if i.get("key") == "records"), None)
+            return json.loads(item["value"]) if item else []
+
+        def put_records(ctx, store_answer, extra, changed=None):
+            lines = [changed.get(l.get("id"), l) for l in lines_of(store_answer)] if changed else lines_of(store_answer)
+            version = (store_answer.get("versions") or {}).get("records", 0)
+            return ctx.request.put(
+                f"{BASE}/api/storage/records",
+                data=json.dumps(lines + extra),
+                headers={"Content-Type": "text/plain", "X-Base-Version": str(version), "X-Scope": store_answer.get("scope") or "*"},
+            )
+
+        def stored_ids():
+            return {l.get("id") for l in lines_of(json_of(admin_api.request.get(f"{BASE}/api/storage")))}
+
+        # A record started on a document he only reads is never stored: the website offers no Start to him, and the
+        # server keeps it out whatever a browser sends, naming it in `kept`.
+        r = put_records(ankur_api, ankur_store, [started])
+        rb = json_of(r)
+        check(
+            "A record Ankur Raval starts on F/QC/37, which he only reads, is not stored (named in kept)",
+            r.status == 200 and started["id"] in (rb.get("kept") or []) and started["id"] not in stored_ids(),
+            (r.status, rb),
+        )
+        # The same Start in his own name (his entry in its history) is his own act: refused with 403 in the level's words,
+        # as REQUIREMENTS §96 says of a Start (the people review of 9-Oct-2026 found it answered 200 with "kept").
+        ankur_store = json_of(ankur_api.request.get(f"{BASE}/api/storage"))  # the write above made a new version
+        own = dict(started, id=f"rec-ua-own-{STAMP}", periodKey=f"qc-inspection-pouching:ua-own-{STAMP}", history=[{"id": f"hist-ua-own-{STAMP}", "at": stamp_now, "by": "Ankur Raval", "action": "created"}])
+        r = put_records(ankur_api, ankur_store, [own])
+        rb = json_of(r)
+        check(
+            "...and one he starts in his own name is refused (403 access-level), in plain words, and not stored",
+            r.status == 403 and rb.get("code") == "access-level" and rb.get("action") == "start" and "Starting a record needs Write access" in (rb.get("error") or "") and own["id"] not in stored_ids(),
+            (r.status, rb),
+        )
+        # His own act on a record that is stored - the super admin's start-up made this month's F/QC/37 sheets - is
+        # refused in plain words, and nothing is written.
+        ankur_store = json_of(ankur_api.request.get(f"{BASE}/api/storage"))
+        sheet = next((l for l in lines_of(ankur_store) if l.get("documentId") == "qc-inspection-pouching" and l.get("status") in ("Scheduled", "Due", "In Progress") and not l.get("isDemo")), None)
+        filled = None
+        if sheet:
+            filled = dict(sheet)
+            filled["status"] = "In Progress"
+            filled["updatedAt"] = stamp_now
+            filled["history"] = list(sheet.get("history") or []) + [{"id": f"hist-ua-{STAMP}", "at": stamp_now, "by": "Ankur Raval", "action": "edited", "note": "a line typed by a person"}]
+            r = put_records(ankur_api, ankur_store, [], {sheet["id"]: filled})
+            rb = json_of(r)
+            check(
+                "Ankur Raval filling in a stored F/QC/37 sheet, which he only reads, is refused by the server (403 access-level), in plain words",
+                r.status == 403 and rb.get("code") == "access-level" and "is Read only for you" in (rb.get("error") or "") and rb.get("needed") == "write" and rb.get("action") == "fill" and rb.get("recordId") == sheet["id"],
+                (r.status, rb),
+            )
+        else:
+            check("(a stored F/QC/37 sheet of this month to try)", False, sorted({l.get("documentId") for l in lines_of(ankur_store)})[:20])
+        current = json_of(admin_api.request.get(f"{BASE}/api/access/rules"))
+        given = json.loads(json.dumps(current.get("rules") or {"version": 1, "people": {}, "responsibility": {}}))
+        given.setdefault("people", {}).setdefault(ANKUR, {}).setdefault("documents", {})["qc-inspection-pouching"] = "write"
+        saved = admin_api.request.put(f"{BASE}/api/access/rules", data={"rules": given, "baseVersion": current.get("version", 0)})
+        check("The super admin gives Ankur Raval Write on F/QC/37, from the version read", saved.status == 200 and json_of(saved).get("version") == current.get("version", 0) + 1, (saved.status, saved.text()[:200]))
+        stale = admin_api.request.put(f"{BASE}/api/access/rules", data={"rules": given, "baseVersion": current.get("version", 0)})
+        check("...a second save from that old version is refused (409 stale)", stale.status == 409 and json_of(stale).get("code") == "stale", (stale.status, stale.text()[:200]))
+        ankur_again = json_of(ankur_api.request.get(f"{BASE}/api/storage"))
+        check("...his copy's key changes with his levels", ankur_again.get("scope") != ankur_store.get("scope"), (ankur_store.get("scope"), ankur_again.get("scope")))
+        r = put_records(ankur_api, ankur_again, [started], {sheet["id"]: filled} if sheet else None)
+        check("...and the same record, and the same line on the sheet, are taken now", r.status == 200 and not json_of(r).get("kept") and started["id"] in stored_ids(), (r.status, r.text()[:300]))
+        log = json_of(admin_api.request.get(f"{BASE}/api/activity?q=Access%20changed&limit=50")).get("lines") or []
+        check(
+            "The change is a line of the activity log, naming who changed what for whom",
+            any(l.get("action") == "Access changed" and "Ankur Raval" in (l.get("target") or "") and "Write" in (l.get("detail") or "") for l in log),
+            [(l.get("action"), l.get("target"), l.get("detail")) for l in log][:3],
+        )
+        told = json_of(ankur_api.request.get(f"{BASE}/api/notifications?state=all&limit=20")).get("items") or []
+        check("...and Ankur Raval is told, in the level he now has", any(n.get("kind") == "access_changed" and "Write" in (n.get("body") or "") for n in told), [(n.get("kind"), n.get("body")) for n in told][:3])
+        back = json_of(admin_api.request.get(f"{BASE}/api/access/rules"))
+        rules_back = back.get("rules") or {}
+        (rules_back.get("people") or {}).pop(ANKUR, None)
+        put_back = admin_api.request.put(f"{BASE}/api/access/rules", data={"rules": rules_back, "baseVersion": back.get("version", 0)})
+        check("(his own setting taken off again: the owner's table)", put_back.status == 200, put_back.status)
+
+        short = admin_api.request.post(f"{BASE}/api/access/accounts/create-missing", data={"password": "short"})
+        check("'Create the missing accounts' wants a first password of at least 8 characters", short.status == 400, short.status)
+        missing = admin_api.request.post(f"{BASE}/api/access/accounts/create-missing", data={"password": "FirstPass@2026"})
+        mb = json_of(missing)
+        check("...and finds the plant's twelve people all there on this server", missing.status == 200 and mb.get("created") == [] and len(mb.get("existing") or []) == 12, (missing.status, mb))
+        check("...Kapila Barad may not ask for it", kap_api.request.post(f"{BASE}/api/access/accounts/create-missing", data={"password": "FirstPass@2026"}).status == 403)
+
+        users = json_of(admin_api.request.get(f"{BASE}/api/users")).get("users") or []
+        admin_id = next((u.get("id") for u in users if u.get("email") == ADMIN), None)
+        others = [u for u in users if u.get("role") == "admin" and u.get("active") and u.get("email") != ADMIN]
+        # Asked only when the plant's super admin is the only one: with another on the database (a sign-up suite's
+        # first account, run before this one) the request would be granted, and this suite's super admin made staff.
+        if others:
+            print(f"    (another super admin is on this database: {[u.get('email') for u in others]}; the last-super-admin refusal is not asked here)")
+        else:
+            last = admin_api.request.post(f"{BASE}/api/users/{admin_id}/role", data={"role": "staff"})
+            check("The plant's only super admin cannot be made staff (409, said in words)", last.status == 409 and json_of(last).get("code") == "last-super-admin", (last.status, last.text()[:200]))
+        up = admin_api.request.post(f"{BASE}/api/users/{clerk_id}/role", data={"role": "admin"})
+        ub = (json_of(up).get("user") or {})
+        check(f"The super admin makes {CLERK_NAME} the super admin: switched on, every module", up.status == 200 and ub.get("role") == "admin" and ub.get("active") is True and ub.get("departments") == [], (up.status, ub))
+        down = admin_api.request.post(f"{BASE}/api/users/{clerk_id}/role", data={"role": "staff"})
+        check("...and staff again", down.status == 200 and (json_of(down).get("user") or {}).get("role") == "staff", (down.status, down.text()[:200]))
+        roles = json_of(admin_api.request.get(f"{BASE}/api/activity?q=Role%20changed&limit=20")).get("lines") or []
+        check("...each a line of the activity log", len([l for l in roles if l.get("action") == "Role changed" and CLERK_NAME in (l.get("target") or "")]) >= 2, [(l.get("target"), l.get("detail")) for l in roles][:3])
+        check("Kapila Barad may not change a role (403)", kap_api.request.post(f"{BASE}/api/users/{clerk_id}/role", data={"role": "admin"}).status == 403)
+        for c in (kap_api, ankur_api, admin_api):
+            c.close()
+
+        # ==============================================================
+        # 11. On a phone, and the errors
         # ==============================================================
         print("\n==== On a phone ====")
         admin.set_viewport_size({"width": 390, "height": 844})
@@ -547,18 +778,31 @@ with sync_playwright() as p:
         check("At 390 px nothing on the page reaches past the screen (the tables scroll in their own boxes)", not wide, wide[:5])
         admin.set_viewport_size({"width": 1280, "height": 800})
 
+        # ==============================================================
+        # 12. The super admin always gets in (REQUIREMENTS §84 addendum; audit H-17)
+        # ==============================================================
+        # Last, because it holds the super admin's address back on 127.0.0.1 for ten minutes (the next suite has a
+        # server of its own). The server reads the caller's address from the connection itself (Express's req.ip, no
+        # "trust proxy"): a forged X-Forwarded-For header is not a computer of its own.
+        print("\n==== The super admin always gets in ====")
+        port = urllib.parse.urlparse(BASE).port or 80
+        try:
+            with urllib.request.urlopen(f"http://[::1]:{port}/api/health", timeout=10) as res:
+                v6 = res.status
+        except Exception as e:
+            v6 = f"unreachable: {e}"
+        check("(the server answers on both of this computer's addresses, 127.0.0.1 and ::1)", v6 == 200, v6)
+        wrong = [login_from("127.0.0.1", port, ADMIN, f"Not-his-password-{i}", forged=f"10.0.0.{i + 1}") for i in range(8)]
+        check("Eight wrong passwords for the super admin from one computer, each with another forged X-Forwarded-For, are refused", wrong == [401] * 8, wrong)
+        held = login_from("127.0.0.1", port, ADMIN, SEED_PASSWORD, forged="10.9.9.9")
+        check("...that computer is held back, even with the right password (a forged header makes no other computer of it)", held == 429, held)
+        other = login_from("[::1]", port, ADMIN, SEED_PASSWORD)
+        check("...while the right password signs him in at once from another", other == 200, other)
+
+        errors[conflicts_from:] = [e for e in errors[conflicts_from:] if "status of 409" not in e]
         check("No JavaScript errors", len(errors) == 0, errors[:5])
     finally:
-        # Kapila is Quality Control's alone, as the other product-server suites expect.
-        try:
-            if kapila_id is None:
-                _, kapila_id = modules_of(admin, KAPILA)
-            if kapila_id:
-                put_back = post(admin, f"/api/users/{urllib.parse.quote(kapila_id)}/departments", {"departments": ["QC"]})
-                if put_back.get("status") != 200:
-                    print("    could not put Kapila back to QC:", put_back)
-        except Exception as exc:  # the admin page may be signed out after a failure
-            print("    could not put Kapila back to QC:", exc)
+        # Nothing to put back: the account the switches changed is this suite's own.
         browser.close()
 
 print(f"\n{'ALL PASSED' if not FAILURES else f'{len(FAILURES)} FAILED'}")

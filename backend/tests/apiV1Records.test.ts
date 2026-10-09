@@ -19,7 +19,13 @@
 //     refusals in words (409 needs-reopen, invalid, wrong-status), a write
 //     retried when somebody else saved in between and given up after three;
 //   * the PDF through the printer (a stand-in; backend/pdfReport.ts is tested
-//     on its own), and the photo's size and kind checked.
+//     on its own), and the photo's size and kind checked;
+//   * today by person (REQUIREMENTS §96, §97): each item's module, canSubmit and
+//     canVerify; a person the owner's table describes is given only what they
+//     answer for; the super admin everything, counted by module;
+//   * reviewed before submitted (§62, §97): a record the assistant prepared is
+//     refused with 409 needs-review until the phone sends reviewed: true, and
+//     its history then says "Submitted from the phone after review".
 // The same routes are driven end to end by tests/e2e_mobile_mitra_api.py.
 // Run: npm run test:unit -- apiV1Records
 process.env.DCRS_WORKING_HOURS = "off";
@@ -92,6 +98,8 @@ const USERS = {
   qc: account("u-qc", "Kapila Barad", "staff", "QC"),
   hr: account("u-hr", "Vinay Bhojak", "staff", "HR"),
   change: account("u-change", "New Person", "staff", "QC", { must_change_password: true }),
+  // A person the owner's table describes (engine/accessRules.ts): F/QC/13, F/QC/34 (and F/MNT/09, 10) are his.
+  zala: account("u-zala", "Ajay Zala", "staff", "QC", { email: "ajay.zala@gpp.local" }),
 };
 
 const tokenOf = (row: UserRow): string => {
@@ -188,6 +196,9 @@ async function call(s: Server, method: string, route: string, token: string, bod
 
 const storedRecord = (s: Server, id: string): Body => (s.store.get<Body[]>("records") ?? []).find((r: Body) => r.id === id);
 
+// The note the day's readings are entered with when the record is started (the person's own, from the phone).
+const READINGS_NOTE = "The day's hourly readings, entered on the phone";
+
 // A tiny real PNG: one white pixel.
 const PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
 
@@ -255,6 +266,41 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.ok(Array.isArray(r.body.nextHolidays) && Array.isArray(r.body.due) && Array.isArray(r.body.overdue) && Array.isArray(r.body.awaitingVerification));
     assert.ok(r.body.workingHours, "the plant's hours are said too");
     assert.match(r.body.facts, /Today:/);
+    // Worded for the caller (§84 addendum, 6-Oct-2026): the staff's hours; staff are told nothing new.
+    assert.match(r.body.workingHours.hoursText, /^Staff working hours: .* The super admin can sign in at any time\.$/);
+    assert.equal(r.body.workingHours.forYou, null);
+  });
+
+  it("GET /today by person: each item's module and what the person may do with it; a described person gets only what they answer for; the super admin gets the modules' counts", async () => {
+    const qc = await call(s, "GET", "/api/v1/today", T.qc);
+    assert.equal(qc.status, 200);
+    const lists = ["overdue", "due", "upcoming", "readyToSubmit", "needsInput", "awaitingVerification"];
+    const every = (body: Body): Body[] => lists.flatMap((l) => body[l] as Body[]);
+    const all = every(qc.body);
+    assert.ok(all.length > 0, "an account nobody described keeps what it had: its department's work");
+    for (const i of all) {
+      assert.equal(i.module, "QC", JSON.stringify(i));
+      assert.equal(typeof i.canSubmit, "boolean");
+      assert.equal(typeof i.canVerify, "boolean");
+    }
+    assert.ok(all.some((i) => i.canSubmit === true), "Edit in its own department: it may submit");
+    assert.equal(qc.body.byModule, undefined, "the counts by module are the super admin's");
+    const zala = await call(s, "GET", "/api/v1/today", T.zala);
+    assert.equal(zala.status, 200);
+    const his = lists.filter((l) => l !== "awaitingVerification").flatMap((l) => zala.body[l] as Body[]);
+    assert.ok(his.length < all.length, `only what he answers for (${his.length} of ${all.length})`);
+    for (const i of his) assert.match(i.formatNo, /QC\W*(13|34)\b|QC\W*40\W*[AB]\b/, `${i.formatNo} ${i.document} is not his`);
+    const admin = await call(s, "GET", "/api/v1/today", T.admin);
+    assert.ok(Array.isArray(admin.body.byModule) && admin.body.byModule.length > 0, JSON.stringify(admin.body.byModule));
+    for (const m of admin.body.byModule) assert.ok(typeof m.overdue === "number" && typeof m.awaitingVerification === "number");
+  });
+
+  it("GET /today tells the super admin the hours are the staff's and that he can keep working — what Mitra on the phone is given", async () => {
+    const r = await call(s, "GET", "/api/v1/today", T.admin);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.workingHours.heldToHours, false);
+    assert.equal(r.body.workingHours.forYou, "You are the super admin: these are the staff's hours, and you can keep working at any time.");
+    for (const words of [r.body.workingHours.hoursText, r.body.workingHours.todayText]) assert.doesNotMatch(words, /DCRS is open|opens again|DCRS is closed|not open yet/, words);
   });
 
   it("POST /records starts today's record of a QC log sheet, prepared as the app's start-up prepares it, and says it through the app", async () => {
@@ -277,14 +323,21 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(again.status, 200);
     assert.equal(again.body.created, false);
     assert.equal(again.body.record.recordId, recordId, "the day's record, not a second one");
-    // DCRS prepares a blank register it generated for a working day (engine/assistantPrepare.ts); a record
-    // started for a day no register was waiting on (the first day of a month falling on the weekly off, as
-    // 1-Oct-2026 did) is started empty. Mitra's own sample fill then gives it values, so what follows reads,
-    // changes and submits a filled record whatever day the tests run on.
-    if (!r.body.record.prepared) {
-      const filled = await call(s, "POST", `/api/v1/records/${recordId}/sample-fill`, T.qc);
-      assert.equal(filled.status, 200, JSON.stringify(filled.body).slice(0, 400));
-    }
+    // DCRS prepares a blank register it generated for a working day with the known parts only, never a reading
+    // (engine/assistantPrepare.ts, REQUIREMENTS §98); a record started for a day no register was waiting on is
+    // started empty. Either way the readings are the person's: Kapila Barad enters the day's hourly readings from
+    // the phone, through the route the Review screen saves each answer with, so what follows reads, changes and
+    // submits a record a person filled, whatever day the tests run on. Nothing is filled with sample data.
+    const slots = (storedRecord(s, recordId).data.rows as Body[]).map((row: Body) => String(row.time));
+    assert.equal(slots.length, 24, "one line for each hour of the day");
+    const entered = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.qc, {
+      patch: { itemEdits: slots.map((time, i) => ({ collection: "rows", match: { time }, set: { viscosity: (19.6 + (i % 5) * 0.2).toFixed(1), testedBy: "Kapila Barad" } })) },
+      note: READINGS_NOTE,
+    });
+    assert.equal(entered.status, 200, JSON.stringify(entered.body).slice(0, 400));
+    const after = storedRecord(s, recordId);
+    assert.ok(after.data.rows.every((row: Body) => typeof row.viscosity === "number" && row.testedBy === "Kapila Barad"), "every hour's reading is the one entered");
+    assert.ok(!after.history.some((h: Body) => /sample data/i.test(`${h.note ?? ""} ${h.action ?? ""}`)), "nothing was filled with sample data");
   });
 
   it("GET /records/{id} gives the layout, the data in words and as stored, and the history", async () => {
@@ -295,6 +348,37 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.ok(Array.isArray(r.body.data.rows) && r.body.data.rows.length === 24);
     assert.ok(r.body.inWords.length > 0 && r.body.inWords.every((c: Body) => typeof c.label === "string"));
     assert.deepEqual(r.body.actions, ["submit", "delete"]);
+  });
+
+  it("GET /records/{id} offers only what the person's level allows (REQUIREMENTS §96): Read gets no box and no button, Write no delete", async () => {
+    // The people review of 9-Oct-2026: Vinay Bhojak, who reads F/HR/17, was sent editable: true and actions
+    // [submit, delete], so the phone drew input boxes and a Submit button that DCRS then refused.
+    const own = await call(s, "GET", `/api/v1/records/${recordId}`, T.qc);
+    assert.equal(own.status, 200);
+    assert.equal(own.body.editable, true);
+    assert.equal(own.body.canSubmit, true);
+    assert.equal(own.body.canVerify, false, "in progress: nothing to verify yet");
+    assert.ok(Array.isArray(own.body.problems), "what still stops a submit, by DCRS's own checks");
+    // Ajay Zala sees Quality Control, but F-QC-30 is Ankur Raval's: Read only for him.
+    const read = await call(s, "GET", `/api/v1/records/${recordId}`, T.zala);
+    assert.equal(read.status, 200, JSON.stringify(read.body).slice(0, 300));
+    assert.equal(read.body.editable, false);
+    assert.deepEqual(read.body.actions, []);
+    assert.equal(read.body.canSubmit, false);
+    assert.equal(read.body.canVerify, false);
+    assert.equal(read.body.canReopen, false);
+    assert.deepEqual(read.body.problems, []);
+    // Given Write on it (and not Edit): he may fill and submit it, never delete it.
+    s.store.put("access", { version: 1, people: { "ajay.zala@gpp.local": { documents: { "qc-viscosity": "write" } } }, responsibility: {} });
+    try {
+      const write = await call(s, "GET", `/api/v1/records/${recordId}`, T.zala);
+      assert.equal(write.status, 200);
+      assert.equal(write.body.editable, true);
+      assert.equal(write.body.canSubmit, true);
+      assert.deepEqual(write.body.actions, ["submit"]);
+    } finally {
+      s.store.put("access", null);
+    }
   });
 
   it("POST /records/{id}/changes applies Mitra's patch through DCRS's engine, noted as through the app; a second one keeps its own entry", async () => {
@@ -316,11 +400,13 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
 
     const second = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.qc, { patch: { itemEdits: [{ collection: "rows", match: { time: "11:00" }, set: { viscosity: 20.1 } }] } });
     assert.equal(second.status, 200);
+    // The two changes of this test, beside the day's readings entered when the record was started.
+    const ours = (note: string): boolean => !/sample data/.test(note) && !note.includes(READINGS_NOTE);
     const history = storedRecord(s, recordId).history;
-    const edits = history.filter((h: Body) => h.action === "assistant-edit" && !/sample data/.test(h.note ?? ""));
+    const edits = history.filter((h: Body) => h.action === "assistant-edit" && ours(h.note ?? ""));
     assert.equal(edits.length, 2, "the second change is not folded into the first");
     assert.equal(edits[1].note, "Through Mitra mobile app: changes asked for in the chat");
-    assert.equal(s.lines.filter((l) => l.action === "Record edited through Mitra" && !/sample data/.test(l.detail)).length, 2);
+    assert.equal(s.lines.filter((l) => l.action === "Record edited through Mitra" && ours(l.detail)).length, 2);
   });
 
   it("a patch that changes nothing is refused with the reasons; a value the form cannot hold is left out", async () => {
@@ -369,11 +455,22 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(notHistory.body.code, "not-history");
   });
 
+  it("the phone's figures carry the Performance Scorecard's minus score (REQUIREMENTS §92)", async () => {
+    // The HR record on file, due 01-Sep-2026, counts: the plant's line and HR's carry the minus score beside the score.
+    const late = await call(s, "GET", `/api/v1/figures?question=${encodeURIComponent("who was late in September 2026?")}`, T.admin);
+    assert.equal(late.status, 200, JSON.stringify(late.body));
+    const evidence = late.body.evidence as string[];
+    const plant = evidence.find((l) => l.includes("Performance Scorecard")) ?? "";
+    assert.match(plant, /minus score (0|−\d+) \(10 off for each never done\)/, JSON.stringify(evidence));
+    assert.ok(evidence.some((l) => /\(HR\): score \d+, minus score (0|−\d+),/.test(l)), JSON.stringify(evidence));
+  });
+
   it("submit, then a change is refused until the record is reopened; the super admin verifies it", async () => {
-    const submitted = await call(s, "POST", `/api/v1/records/${recordId}/actions`, T.qc, { action: "submit" });
+    // The person reviewed it on the phone first (a record the assistant prepared needs it; any record may say it).
+    const submitted = await call(s, "POST", `/api/v1/records/${recordId}/actions`, T.qc, { action: "submit", reviewed: true });
     assert.equal(submitted.status, 200, JSON.stringify(submitted.body));
     assert.equal(submitted.body.status, "Pending Verification");
-    assert.equal(submitted.body.history.at(-1).note, "Through Mitra mobile app: submitted for verification");
+    assert.equal(submitted.body.history.at(-1).note, "Through Mitra mobile app: Submitted from the phone after review");
     const line = s.lines.find((l) => l.action === "Record submitted for verification");
     assert.ok(line);
     assert.match(line!.detail, /^Through Mitra mobile app/);
@@ -423,6 +520,33 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     const resumed = await call(s, "POST", `/api/v1/records/${id}/actions`, T.qc, { action: "resume" });
     assert.equal(resumed.status, 200);
     assert.equal(resumed.body.status, "In Progress");
+  });
+
+  it("a record the assistant prepared is submitted only after the person reviewed it: 409 needs-review, then reviewed: true", async () => {
+    const opened = await call(s, "POST", "/api/v1/records", T.qc, { documentId: "qc-viscosity", date: "2026-09-05" });
+    assert.ok(opened.status === 201 || opened.status === 200, JSON.stringify(opened.body).slice(0, 300));
+    const id = opened.body.record.recordId;
+    const filled = await call(s, "POST", `/api/v1/records/${id}/sample-fill`, T.qc);
+    assert.equal(filled.status, 200, JSON.stringify(filled.body).slice(0, 300));
+    // As the morning prepare leaves it: stamped as the assistant's, still In Progress.
+    const records = s.store.get<Body[]>("records");
+    s.store.put(
+      "records",
+      records.map((r: Body) => (r.id === id ? { ...r, prepared: { at: "2026-09-05T03:00:00.000Z", by: "assistant", notes: ["Prepared by the assistant"] } } : r))
+    );
+    const unreviewed = await call(s, "POST", `/api/v1/records/${id}/actions`, T.qc, { action: "submit" });
+    assert.equal(unreviewed.status, 409);
+    assert.equal(unreviewed.body.code, "needs-review");
+    assert.match(unreviewed.body.error, /Reviewed and correct/);
+    assert.equal(storedRecord(s, id).status, "In Progress", "nothing was submitted");
+    const notABoolean = await call(s, "POST", `/api/v1/records/${id}/actions`, T.qc, { action: "submit", reviewed: "yes" });
+    assert.equal(notABoolean.status, 400);
+    const reviewed = await call(s, "POST", `/api/v1/records/${id}/actions`, T.qc, { action: "submit", reviewed: true });
+    assert.equal(reviewed.status, 200, JSON.stringify(reviewed.body).slice(0, 400));
+    assert.equal(reviewed.body.status, "Pending Verification");
+    const entry = storedRecord(s, id).history.filter((h: Body) => h.action === "submitted").at(-1);
+    assert.equal(entry.note, "Through Mitra mobile app: Submitted from the phone after review");
+    assert.equal(entry.by, "Kapila Barad");
   });
 
   it("an empty required cell stops a submit with DCRS's own words (409 invalid)", async () => {

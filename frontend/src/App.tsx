@@ -39,6 +39,7 @@ import { HrDocumentPage, HrOverviewPage } from "./pages/HrPages";
 import { HrMasterDataPage } from "./pages/HrMasterDataPage";
 import { QcOverviewPage } from "./pages/QcPages";
 import { UsersPage } from "./pages/UsersPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { ActivityLogPage } from "./pages/ActivityLogPage";
 import { DatabaseOverviewPage } from "./pages/DatabaseOverviewPage";
 import { AccessDashboardPage } from "./pages/AccessDashboardPage";
@@ -149,6 +150,9 @@ function RouteSwitch() {
     case "performance":
       // The scorecard: who did their documents on time, by person, department and module (REQUIREMENTS §64).
       return <PerformancePage />;
+    case "notifications":
+      // Each person's notifications by day, from the server's ledger, under the bell's "See all" (REQUIREMENTS §97).
+      return <NotificationsPage />;
     case "insights":
       // What the plant's records show when read together, worked out by fixed rules from them (REQUIREMENTS §75).
       return <InsightsPage />;

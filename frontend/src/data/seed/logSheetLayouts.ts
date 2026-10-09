@@ -202,7 +202,9 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
       { key: "layer2Type", label: "LAYER 2 TYPE", type: "text", autoFill: { carryForward: true, default: "MetPET" }, width: 80 },
       { key: "layer2Kg", label: "LAYER 2 - Kgs.", type: "number", unit: "kg", decimals: 2, autoFill: { jitter: 0.03 }, width: 80 },
       { key: "alcDone", label: "ALC DONE AS PER ABOVE (YES/NO)", type: "yesno", required: true, autoFill: { carryForward: true, default: "Yes" }, width: 90 },
-      { key: "operatorSign", label: "OPERATOR SIGN", type: "text", autoFill: { sign: true }, width: 120 },
+      // The operator signs each line, as on F-PRD-20 and F-PRD-26: never the assistant, never a name the
+      // role lookup returns (the audit of 7-Oct-2026, H-11; REQUIREMENTS §91.4, §98).
+      { key: "operatorSign", label: "OPERATOR SIGN", type: "text", autoFill: { fresh: true }, width: 120 },
       { key: "startTime", label: "START TIME", type: "time", autoFill: { carryForward: true }, width: 90 },
       { key: "endTime", label: "END TIME", type: "time", autoFill: { carryForward: true }, width: 90 },
       // The two spaces before "Kgs." are the original's own.

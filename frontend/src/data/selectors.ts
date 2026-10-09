@@ -4,6 +4,8 @@ import type { DailyPestMonitoringData, FlyCatcherData, GapFinding, GapInspection
 import { recordRepository } from "./repositories/recordRepository";
 import { documentRepository } from "./repositories/documentRepository";
 import { masterRepository } from "./repositories/masterRepository";
+import { settingsRepository } from "./repositories/settingsRepository";
+import { isHumanRecord } from "../engine/insights";
 import { todayISO, compareISO, pad2 } from "../utils/date";
 import { totalRodents } from "../engine/rodentPattern";
 import { lizardYearPlan } from "../engine/lizardPattern";
@@ -16,10 +18,28 @@ import {
   LIZARD_TREND_REPORT,
 } from "./seed/trendReports";
 
+// ONLY WHAT PEOPLE ENTERED (REQUIREMENTS §98; the audit of 7-Oct-2026, H-13).
+// A report, a tile or a trend sheet adds up a Live record only when a person
+// wrote or confirmed it (engine/insights.ts isHumanRecord, the rule the
+// Management Summary already used): never a draft the assistant prepared, and
+// so never the simulated catches and readings the prepare wrote before
+// 8-Oct-2026. Demo Mode's records are all the simulation's and are shown as
+// such (the watermark), so they are counted as they are.
+export function enteredByPeople(): (r: RecordInstance) => boolean {
+  // The settings are read once for a whole walk, not once a record (a year of registers on a slow laptop).
+  const liveStartDate = settingsRepository.get().liveStartDate;
+  return (r) => r.isDemo || isHumanRecord(r, liveStartDate);
+}
+
+/** One record by the rule above; a walk over many takes enteredByPeople() once. */
+export function countsAsEntered(r: RecordInstance): boolean {
+  return enteredByPeople()(r);
+}
+
 // Rodents recorded on the Daily Pest Control Monitoring Record (checkpoint 7
 // + catch details) — what Reports > Rodent Trend and the Dashboard add up.
-// Only records a person has confirmed or the assistant has prepared count
-// (anything with data); blank shells contribute nothing.
+// Only records people entered count (countsAsEntered); blank shells and the
+// assistant's prepared drafts contribute nothing.
 export interface RodentMonth {
   month: number; // 0-11
   rodents: number;
@@ -47,7 +67,9 @@ export function rodentStatsForYear(year: number, isDemo: boolean): RodentYearSta
   const byLocation = new Map<string, { rodents: number; catchDays: number }>();
   const byBox = new Map<string, { location: string; rodents: number }>();
   let daysRecorded = 0;
+  const entered = enteredByPeople();
   for (const r of records) {
+    if (!entered(r)) continue;
     // A day counts once it has actually been filled in. Blank shells for the
     // days still to come used to be counted too, so the report could say
     // "from 18 recorded days" on a fresh install with nothing recorded.
@@ -100,6 +122,7 @@ export function rodentsInMonth(year: number, month: number, isDemo: boolean): nu
   const from = `${year}-${pad2(month + 1)}-01`;
   const to = `${year}-${pad2(month + 1)}-31`;
   return (recordRepository.query({ documentId: "daily-pest-monitoring", isDemo, fromDate: from, toDate: to }) as RecordInstance<DailyPestMonitoringData>[])
+    .filter(enteredByPeople())
     .filter((r) => !r.data.isHoliday && r.data.checkpoints[7]?.value === "Yes")
     .reduce((s, r) => s + Math.max(totalRodents(r.data.rodentCatches), r.data.rodentCatches?.length ? 0 : 1), 0);
 }
@@ -139,7 +162,9 @@ export function flyStatsForYear(year: number, isDemo: boolean): FlyYearStats {
   }
   const months: number[] = Array(12).fill(0);
   let visits = 0;
+  const entered = enteredByPeople();
   for (const r of records) {
+    if (!entered(r)) continue;
     const m = Number(r.dueDate.slice(5, 7)) - 1;
     let counted = false;
     for (const e of r.data.entries) {
@@ -207,8 +232,9 @@ export function rodentTrendRows(isDemo: boolean, today = todayISO()): TrendYearR
   const records = recordRepository.query({ documentId: "daily-pest-monitoring", isDemo }) as RecordInstance<DailyPestMonitoringData>[];
   const registerMonths = new Set<string>();
   const rodentsByMonth = new Map<string, number>();
+  const entered = enteredByPeople();
   for (const r of records) {
-    if (!dailyRecordFilled(r)) continue;
+    if (!dailyRecordFilled(r) || !entered(r)) continue;
     const key = monthKey(r.dueDate);
     registerMonths.add(key);
     const n = r.data.checkpoints[7]?.value === "Yes" ? Math.max(totalRodents(r.data.rodentCatches), r.data.rodentCatches?.length ? 0 : 1) : 0;
@@ -253,7 +279,9 @@ export function rodentTrendRows(isDemo: boolean, today = todayISO()): TrendYearR
 export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[] {
   const records = recordRepository.query({ documentId: "fly-catcher", isDemo }) as RecordInstance<FlyCatcherData>[];
   const byMonth = new Map<string, number>();
+  const entered = enteredByPeople();
   for (const r of records) {
+    if (!entered(r)) continue;
     const counts = r.data.entries.filter((e) => e.catchCountApprox !== null && e.catchCountApprox !== undefined);
     if (counts.length === 0) continue;
     const key = monthKey(r.dueDate);
@@ -300,13 +328,17 @@ export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[
 // report, transcribed. Nothing is tinted on this sheet for exactly that
 // reason, and its footnote says so. REQUIREMENTS §41.
 //
-// A YEAR THE PROVIDER HAS NOT REPORTED YET follows the plant's own season
-// (engine/lizardPattern.ts, REQUIREMENTS §62): more in the rains and in winter
-// than in the dry summer, to the month that has been reached and no further.
-// Its row says so in its Source, so it is never read as the provider's figure.
+// A YEAR THE PROVIDER HAS NOT REPORTED YET. In Demo Mode it follows the
+// plant's own season (engine/lizardPattern.ts, REQUIREMENTS §62): more in the
+// rains and in winter than in the dry summer, to the month that has been
+// reached and no further, and its Source says so. In the plant (Live) the row
+// is there and blank, and says it is not yet reported: a planned catch is a
+// catch nobody saw, and a report counts only what was reported or entered
+// (REQUIREMENTS §98, 8-Oct-2026).
 export const LIZARD_PATTERN_SOURCE = "Seasonal pattern — not yet reported by the service provider";
+export const LIZARD_NOT_REPORTED_SOURCE = "Not yet reported by the service provider";
 
-export function lizardTrendRows(_isDemo: boolean, today = todayISO()): TrendYearRow[] {
+export function lizardTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[] {
   const currentYear = Number(today.slice(0, 4));
   const currentMonth = Number(today.slice(5, 7)) - 1;
   const reported: TrendYearRow[] = LIZARD_HISTORY_REPORTED.filter((h) => h.year <= currentYear).map((h) => ({
@@ -320,12 +352,12 @@ export function lizardTrendRows(_isDemo: boolean, today = todayISO()): TrendYear
   const lastReported = Math.max(...LIZARD_HISTORY_REPORTED.map((h) => h.year));
   const planned: TrendYearRow[] = [];
   for (let year = lastReported + 1; year <= currentYear; year++) {
-    const plan = lizardYearPlan(year);
+    const plan = isDemo ? lizardYearPlan(year) : Array<number | null>(12).fill(null);
     planned.push({
       year,
       months: plan.map((n, m) => (year < currentYear || m <= currentMonth ? n : null)),
       fromRegister: Array(12).fill(false),
-      source: LIZARD_PATTERN_SOURCE,
+      source: isDemo ? LIZARD_PATTERN_SOURCE : LIZARD_NOT_REPORTED_SOURCE,
       unit: LIZARD_TREND_REPORT.unit,
       targetPest: LIZARD_TREND_REPORT.targetPest,
     });

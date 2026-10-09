@@ -4,6 +4,7 @@ import { settingsRepository } from "../data/repositories/settingsRepository";
 import { machineKey, machineNumbersIn } from "./equipmentMaster";
 import { isHumanRecord } from "./insights";
 import { historyOf, makeEntry } from "./recordHistory";
+import { mayWriteRecordsOf } from "./departmentScope";
 
 // F/MNT/03 FOLLOWS F/MNT/02 (REQUIREMENTS §82).
 //
@@ -529,7 +530,7 @@ export function pinSchedulesWrittenOnRev00(): number {
   // Unscoped on purpose, as every boot-time migration is: the register must be
   // put right whoever is signed in (engine/departmentScope.ts).
   for (const r of recordRepository.queryUnscoped({ documentId: PM_SCHEDULE_DOC_ID })) {
-    if (r.formatRevision) continue;
+    if (r.formatRevision || !mayWriteRecordsOf(r.documentId)) continue;
     const rows = (r.data as LogSheetData | undefined)?.rows;
     if (!Array.isArray(rows) || rows.length === 0) continue;
     if (rows.some((row) => text(row?.machineNo))) continue;

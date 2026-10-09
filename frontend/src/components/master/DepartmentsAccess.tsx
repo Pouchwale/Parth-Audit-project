@@ -74,8 +74,10 @@ export function DepartmentsAccess() {
     <div data-section="departments-access">
       <p className="text-muted text-sm mb-3">
         The plant's departments as its own <strong>Master List of Formats &amp; Records (F/SYS/02)</strong> groups them — the department is
-        the middle segment of every format number it owns, so F-QC-30 is Quality Control's and F-HR-17 is HR's. A person sees the
-        documents of the department they are in, and nothing else; your own account covers {departmentScopeLabel()}.
+        the middle segment of every format number it owns, so F-QC-30 is Quality Control's and F-HR-17 is HR's. Who may see and do
+        what is each person's level (Read, Write or Edit) per module and per document, set by the super admin on Users &amp; Access
+        (REQUIREMENTS §96); the departments below decide only for an account nobody has described there yet. You see{" "}
+        {departmentScopeLabel()}.
       </p>
 
       <div className="doc-table mb-5">

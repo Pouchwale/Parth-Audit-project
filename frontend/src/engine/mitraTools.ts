@@ -33,7 +33,7 @@ import { createRecordForDocument } from "./recordCrud";
 import { computeReminders, routeForRecord } from "./reminders";
 import { applyAssistantPatch, normDate } from "./recordPatch";
 import { diffRecordData } from "./recordHistory";
-import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "./sampleFill";
+import { canSampleFill, sampleFillAllowedFor, sampleFillDeclined, sampleFillRecord, SAMPLE_FILL_NOTE } from "./sampleFill";
 import { applyFormatCommand, type FormatCommand, type Place, type TargetRef } from "./formatCommands";
 import { canDesignGrid, commitFormatChange, draftOf, type BoxArea, type HeaderField } from "./formatOps";
 import { designSessionFor } from "./designSession";
@@ -43,6 +43,9 @@ import { analyticIntent, buildEvidence } from "./historyDigest";
 import { describePerson, searchPeople } from "./hrMaster";
 import { hrMasterVisible } from "./hrMasterAssistant";
 import { isDocumentIdVisible } from "./departmentScope";
+import { refusalForWords } from "./accessRefusal";
+import { ACCESS_LEVEL_CODE } from "./accessWords";
+import { levelNeeded, type DocumentAction } from "./accessRules";
 import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "./pmSchedule";
 import { ASSISTANT_NAME } from "./assistantPersona";
 import { printedWordsOnce } from "./formLineNumbers";
@@ -96,6 +99,19 @@ function asObject(v: unknown): Obj | null {
 
 const ok = (result: Obj, card: string, navigated?: string): MitraToolResult => ({ ok: true, result: { ok: true, ...result }, card, ...(navigated ? { navigated } : {}) });
 const no = (why: string, extra: Obj = {}, card?: string): MitraToolResult => ({ ok: false, result: { ok: false, why, ...extra }, card: card ?? short(why, 90) });
+
+/**
+ * A STEP THE PERSON'S LEVEL DOES NOT ALLOW (REQUIREMENTS §96): refused before anything is done, in the language the
+ * person asked in, naming the level the step needs (engine/accessRefusal.ts). Null when the person may do it.
+ */
+function levelStops(documentId: string | undefined, action: DocumentAction, ctx: MitraToolContext): MitraToolResult | null {
+  const words = refusalForWords(documentId, action, ctx.userWords, ctx.language);
+  return words ? no(words, { code: ACCESS_LEVEL_CODE, needs: levelNeeded(action) }, words) : null;
+}
+
+/** What changing the open record is: filling it while it is still open (a draft, sent back), correcting it once signed off. */
+const stepOn = (tgt: { editable: boolean; status: string }): DocumentAction =>
+  tgt.editable || ["Scheduled", "Due", "In Progress", "Rejected"].includes(tgt.status) ? "fill" : "correct";
 
 const noteOf = (ctx: MitraToolContext): string => `Asked of ${ASSISTANT_NAME}: ${short(ctx.userWords.trim() || "(spoken)", 200)}`;
 
@@ -532,6 +548,12 @@ const OPEN_DOCUMENT: MitraTool = {
     const date = dateISO ? normDate(dateISO, ctx.today) : ctx.today;
     if (!date) return no(`"${dateISO}" is not a date — give YYYY-MM-DD`);
     if (bool(args.create)) {
+      // Opening a sheet already on file is reading it; starting one needs Write (REQUIREMENTS §96).
+      const already = recordRepository.query({ documentId: doc.id, isDemo: ctx.isDemo, dueDate: date }).length > 0;
+      if (!already) {
+        const stop = levelStops(doc.id, "start", ctx);
+        if (stop) return stop;
+      }
       const { record, existed } = createRecordForDocument(doc, { dateISO: date, isDemo: ctx.isDemo });
       ctx.bump();
       const route = routeForRecord(doc, record.id);
@@ -599,6 +621,8 @@ const EDIT_OPEN_RECORD: MitraTool = {
     if (!tgt) return no("no record is open — open one first");
     const patch = asObject(args.patch);
     if (!patch || Object.keys(patch).length === 0) return no("patch needed: an object of the fields to change");
+    const stop = levelStops(tgt.documentId, stepOn(tgt), ctx);
+    if (stop) return stop;
     const before = tgt.getData();
     const record = recordRepository.getById(tgt.recordId);
     const { data: next, problems } = applyAssistantPatch(tgt.documentKind, tgt.documentId, before, patch, record);
@@ -630,7 +654,7 @@ const EDIT_OPEN_RECORD: MitraTool = {
 
 const FILL_WITH_SAMPLE: MitraTool = {
   name: "fill_open_record_with_sample_data",
-  description: "Fill the whole open record with realistic sample data, marked as made up. A draft; never submits.",
+  description: "Fill the open record with realistic sample data, marked made up; never submits. Demo Mode only: a live record is the person's to fill.",
   parameters: objectSchema({}),
   writes: true,
   run: async (_args, ctx) => {
@@ -639,7 +663,11 @@ const FILL_WITH_SAMPLE: MitraTool = {
     const doc = documentRepository.getById(tgt.documentId);
     const record = recordRepository.getById(tgt.recordId);
     if (!doc || !record) return no("the open record could not be read");
+    const stop = levelStops(doc.id, stepOn(tgt), ctx);
+    if (stop) return stop;
     if (!canSampleFill(doc.kind)) return no(`${doc.name} is kept as issued — there is no sample data for it`);
+    // A live record holds only what people saw (REQUIREMENTS §98): sample data is Demo Mode's.
+    if (!sampleFillAllowedFor(record)) return no(sampleFillDeclined(ctx.userWords).replace(/[.।]$/, ""), { live: true }, say("ai.step.sampleDeclined", "Sample data is for Demo Mode"));
     const result = sampleFillRecord(doc, record, masterRepository.get(), ctx.userName);
     if (!result) return no("no sample data could be put together for this one");
     const before = tgt.getData();
@@ -674,6 +702,8 @@ const START_GUIDED_FILL: MitraTool = {
     const said = str(args.documentId);
     const doc = said ? findDocument(said) : undefined;
     if (said && !doc) return no("unknown document — use find_documents first");
+    const stop = levelStops(doc?.id ?? ctx.target?.documentId, "fill", ctx);
+    if (stop) return stop;
     const dateISO = str(args.dateISO) ? normDate(str(args.dateISO), ctx.today) : null;
     if (str(args.dateISO) && !dateISO) return no(`"${str(args.dateISO)}" is not a date — give YYYY-MM-DD`);
     ctx.runWidgetAction({ type: "startInterview", ...(doc ? { documentId: doc.id } : {}), ...(dateISO ? { dateISO } : {}) });
@@ -694,6 +724,10 @@ const RECORD_ACTION: MitraTool = {
     const action = str(args.action).toLowerCase().replace(/[\s-]+/g, "_");
     const reason = str(args.reason);
     const title = tgt.title ?? documentRepository.getById(tgt.documentId)?.name ?? "the record";
+    const needs: Partial<Record<string, DocumentAction>> = { submit: "submit", verify: "verify", cancel_correction: "fill", delete: "delete", approve: "verify", send_back: "send_back" };
+    const step = needs[action];
+    const stop = step ? levelStops(tgt.documentId, step, ctx) : null;
+    if (stop) return stop;
     const outcome = (r: { ok: boolean; errors: string[] }, did: string, couldNot: string): MitraToolResult =>
       r.ok ? ok({ done: action }, `${did} ${title}`) : no(r.errors.join(" ") || `could not ${couldNot} ${title}`, { errors: r.errors.slice(0, 5) });
     switch (action) {
@@ -751,6 +785,8 @@ const CHANGE_FORMAT: MitraTool = {
     const documentId = documentOnScreen(ctx);
     const doc = documentId ? documentRepository.getById(documentId) : undefined;
     if (!doc) return no("open the document first — its own page, or one of its records — then ask again");
+    const stop = levelStops(doc.id, "format", ctx);
+    if (stop) return stop;
     const cmd = formatCommandOf(change);
     if ("why" in cmd) return no(cmd.why);
     if (!canDesignGrid(doc) && cmd.kind !== "setHeader" && cmd.kind !== "renameFormat") {

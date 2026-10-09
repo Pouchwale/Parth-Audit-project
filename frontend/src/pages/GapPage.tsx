@@ -3,6 +3,7 @@ import { FiPlus, FiTrash2, FiArrowLeft } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
+import { logRecordStarted } from "../engine/recordHistory";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { refreshGapFindingStatuses } from "../data/selectors";
 import type { ComplaintAckData, GapFinding, GapInspectionData, RecordInstance } from "../types";
@@ -20,6 +21,7 @@ import {
 } from "../engine/recordLifecycle";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { RecordActionBar } from "../components/records/RecordActionBar";
+import { mayDo } from "../engine/departmentScope";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { useT } from "../i18n";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -60,19 +62,23 @@ export function GapListPage() {
       createdAt: now,
       updatedAt: now,
     };
+    // In the activity log like any record a person starts (REQUIREMENTS §93).
+    logRecordStarted(rec);
     recordRepository.upsert(rec as RecordInstance);
     bump();
     navigate(`/record/${rec.id}`);
   };
   const doc = documentRepository.getById(GAP_DOC_ID);
-  // The inspection findings report belongs to Quality Assurance, so somebody
-  // outside QA reaching this address by bookmark or link is told whose
-  // register it is instead of being shown it (REQUIREMENTS §40).
-  if (!doc) return <NotYourDepartment documentId={GAP_DOC_ID} what="register" />;
   // The Complaint Acknowledgement Report is Marketing's own format, and this
   // list is only its neighbour here: when it is out of the viewer's
   // departments we must not offer to start one (REQUIREMENTS §40).
   const canCreateAck = !!documentRepository.getById(CAF_DOC_ID);
+  // The inspection findings report belongs to Quality Assurance, so somebody
+  // outside QA reaching this address by bookmark or link is told whose
+  // register it is instead of being shown it (REQUIREMENTS §40) — unless the
+  // acknowledgements below are theirs: Marketing's own format opens on this
+  // page, so Marketing is shown it, and starts one here, without QA's register (§93).
+  if (!doc && !canCreateAck) return <NotYourDepartment documentId={GAP_DOC_ID} what="register" />;
 
   const createNew = () => {
     const now = new Date().toISOString();
@@ -94,6 +100,8 @@ export function GapListPage() {
       createdAt: now,
       updatedAt: now,
     };
+    // In the activity log like any record a person starts (REQUIREMENTS §93).
+    logRecordStarted(rec);
     recordRepository.upsert(rec as RecordInstance);
     bump();
     navigate(`/gap/${rec.id}`);
@@ -104,66 +112,71 @@ export function GapListPage() {
       <button className="btn btn-ghost btn-sm mb-3" onClick={() => navigate("/gap")}>
         <FiArrowLeft size={13} /> CAPA
       </button>
-      <div className="flex items-center justify-between mb-4 gap-3 wrap">
-        <div>
-          <h1 className="text-2xl mb-1">Internal — Inspection Findings</h1>
-          <p className="text-muted">{doc.description}</p>
-        </div>
-        <button className="btn btn-primary" onClick={createNew}>
-          <FiPlus size={14} /> New Internal CAPA Record
-        </button>
-      </div>
+      {doc && (
+        <>
+          <div className="flex items-center justify-between mb-4 gap-3 wrap">
+            <div>
+              <h1 className="text-2xl mb-1">Internal — Inspection Findings</h1>
+              <p className="text-muted">{doc.description}</p>
+            </div>
+            <button className="btn btn-primary" onClick={createNew}>
+              <FiPlus size={14} /> New Internal CAPA Record
+            </button>
+          </div>
 
-      <div className="doc-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Inspection Date</th>
-              <th>Premises</th>
-              <th>Findings</th>
-              <th>Open / Overdue</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-muted text-center" style={{ padding: 24 }}>
-                  No CAPA records recorded yet.
-                </td>
-              </tr>
-            )}
-            {records
-              .slice()
-              .sort((a, b) => (a.data.inspectionDate < b.data.inspectionDate ? 1 : -1))
-              .map((r) => {
-                const open = r.data.findings.filter((f) => f.status === "Open" || f.status === "Overdue").length;
-                return (
-                  <tr key={r.id} className="card-clickable" onClick={() => navigate(`/gap/${r.id}`)}>
-                    <td>{formatDisplayDate(r.data.inspectionDate)}</td>
-                    <td>
-                      {r.data.premisesName} {r.isDemo && <DemoTag />}
-                    </td>
-                    <td>{r.data.findings.length}</td>
-                    <td>{open > 0 ? <span className="badge badge-Overdue">{open} open</span> : <span className="badge badge-Verified">0</span>}</td>
-                    <td>
-                      <StatusBadge status={r.status} />
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <button className="btn btn-ghost btn-sm">Open / Edit</button>
+          <div className="doc-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Inspection Date</th>
+                  <th>Premises</th>
+                  <th>Findings</th>
+                  <th>Open / Overdue</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-muted text-center" style={{ padding: 24 }}>
+                      No CAPA records recorded yet.
                     </td>
                   </tr>
-                );
-              })}
-          </tbody>
-        </table>
-      </div>
+                )}
+                {records
+                  .slice()
+                  .sort((a, b) => (a.data.inspectionDate < b.data.inspectionDate ? 1 : -1))
+                  .map((r) => {
+                    const open = r.data.findings.filter((f) => f.status === "Open" || f.status === "Overdue").length;
+                    return (
+                      <tr key={r.id} className="card-clickable" onClick={() => navigate(`/gap/${r.id}`)}>
+                        <td>{formatDisplayDate(r.data.inspectionDate)}</td>
+                        <td>
+                          {r.data.premisesName} {r.isDemo && <DemoTag />}
+                        </td>
+                        <td>{r.data.findings.length}</td>
+                        <td>{open > 0 ? <span className="badge badge-Overdue">{open} open</span> : <span className="badge badge-Verified">0</span>}</td>
+                        <td>
+                          <StatusBadge status={r.status} />
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <button className="btn btn-ghost btn-sm">Open / Edit</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* CAPA — Internal: Complaint Acknowledgement Reports (QA-CAF-00). */}
-      <div className="flex items-center justify-between mt-6 mb-3 gap-3 wrap" data-section="complaint-ack">
+      <div className={`flex items-center justify-between ${doc ? "mt-6" : ""} mb-3 gap-3 wrap`} data-section="complaint-ack">
         <div>
-          <h2 className="text-xl mb-1">Complaint Acknowledgement Reports</h2>
+          {/* The page's own heading when the acknowledgements are all it shows (Marketing). */}
+          {doc ? <h2 className="text-xl mb-1">Complaint Acknowledgement Reports</h2> : <h1 className="text-xl mb-1">Complaint Acknowledgement Reports</h1>}
           <p className="text-muted text-sm">
             Format {CAF_FORMAT_REF} — a customer complaint explained to the employee(s) involved: the complaint, what happened (with photos), root cause,
             corrective and preventive action, and the employee's signed acknowledgement.
@@ -231,7 +244,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
   const doc = documentRepository.getById(GAP_DOC_ID);
 
-  const editable = !!record && isEditableStatus(record.status);
+  // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
+  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill");
   // Closing a finding is a follow-up to a report that has already been
   // filed, so it stays possible while the report awaits verification —
   // otherwise the only way to clear a long-done action would be to reject
@@ -634,6 +648,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
       <RecordHistoryPanel record={record} />
 
       <RecordActionBar
+        documentId={record.documentId}
         status={record.status}
         dirty={false}
         isDemo={record.isDemo}

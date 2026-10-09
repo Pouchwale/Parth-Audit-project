@@ -61,9 +61,12 @@ import { describePerson, hrMasterLinkFor } from "../../engine/hrMaster";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { parseAssistantCommand, type AssistantCommand } from "../../engine/assistantCommands";
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
+import { refusalFor } from "../../engine/accessRefusal";
+import { mayDo } from "../../engine/departmentScope";
+import type { DocumentAction } from "../../engine/accessRules";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { routeForRecord } from "../../engine/reminders";
-import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
+import { canSampleFill, sampleFillAllowedFor, sampleFillDeclined, sampleFillOffered, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
 import { answerQuestion, interviewPlan, nextQuestion, planProgress, type InterviewQuestion } from "../../engine/guidedRecord";
 import { queueAfterOpen, takeHandoff } from "../../engine/assistantHandoff";
 import { applyFormatCommand, parseFormatCommand, type FormatCommand } from "../../engine/formatCommands";
@@ -196,6 +199,8 @@ export function DocumentAssistant() {
   const { version, currentUser, mode, bump } = useAppStore();
   const { path, navigate } = useRouter();
   const { lang } = useLanguage();
+  // A STEP THE PERSON'S LEVEL DOES NOT ALLOW (REQUIREMENTS §96): said in their language, naming the level it needs; null when they may.
+  const levelStops = (documentId: string | undefined, action: DocumentAction): string | null => refusalFor(documentId, action, lang);
   const t = useT();
   const isDemo = mode === "demo";
   const speechLocale = SPEECH_LOCALES[lang];
@@ -561,7 +566,7 @@ export function DocumentAssistant() {
       setIv(null);
       const chips: Chip[] = [];
       if (t.submit) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });
-      if (canSampleFill(doc.kind)) chips.push({ label: "Fill anything left with sample data", action: { type: "sampleFill" } });
+      if (canSampleFill(doc.kind) && sampleFillAllowedFor(record)) chips.push({ label: "Fill anything left with sample data", action: { type: "sampleFill" } });
       bot(`That's everything I need for ${t.title ?? "this record"}. ${REVIEW_LINE}`, chips);
       return;
     }
@@ -577,6 +582,13 @@ export function DocumentAssistant() {
     }
     if (t.checklist) {
       beginGuided();
+      return;
+    }
+    // The person's level first (REQUIREMENTS §96): a record they may not fill is refused in the level's own words, in
+    // their language — never "I'll reopen it", which their level would not allow either.
+    const stop = levelStops(t.documentId, "fill") ?? (!t.editable && !t.reopen ? levelStops(t.documentId, "correct") : null);
+    if (stop) {
+      bot(stop);
       return;
     }
     if (!t.editable) {
@@ -647,6 +659,12 @@ export function DocumentAssistant() {
     const date = dateISO ?? todayISO();
     // Asked about first where a sheet holds an unsaved design (store/router.tsx):
     // "Keep designing" must not leave a record started and a fill waiting for it.
+    const startStop = recordRepository.query({ documentId: doc.id, isDemo, dueDate: date }).length === 0 ? levelStops(doc.id, "start") : null;
+    const fillStop = levelStops(doc.id, "fill");
+    if (startStop || fillStop) {
+      bot((startStop ?? fillStop)!);
+      return;
+    }
     confirmLeave(() => {
       const { record, existed } = createRecordForDocument(doc, { dateISO: date, isDemo });
       bump();
@@ -674,6 +692,12 @@ export function DocumentAssistant() {
       if (t.reopen) chips.push({ label: "Correct this record…", action: { type: "focusInput", placeholder: "" }, tone: "primary" });
       if (t.verify) chips.push({ label: "Verify this record", action: { type: "doVerify" }, tone: "success" });
       if (t.print) chips.push({ label: "Print the document", action: { type: "doPrint" } });
+      // Not theirs to fill or correct (REQUIREMENTS §96): said so, in the level's own words.
+      const stop = !t.reopen ? levelStops(t.documentId, ["Scheduled", "Due", "In Progress", "Rejected"].includes(t.status) ? "fill" : "correct") : null;
+      if (stop) {
+        bot(`${title} is open. ${stop}`, chips);
+        return;
+      }
       bot(
         t.reopen
           ? `${title} is ${t.status} — nothing left to fill in. I can correct it for you (it reopens with the reason on record), verify or print it, or answer anything about it.`
@@ -692,7 +716,7 @@ export function DocumentAssistant() {
     const progress = planProgress(plan, data);
     const left = progress.total - progress.answered;
     if (left > 0) chips.push({ label: progress.answered ? "Carry on filling it with me" : "Fill it in with me", action: { type: "startInterview" }, tone: "primary" });
-    if (canSampleFill(doc.kind)) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
+    if (canSampleFill(doc.kind) && sampleFillAllowedFor(record)) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
     chips.push({ label: progress.answered ? "Tell me what to change…" : "Tell me what to fill…", action: { type: "focusInput", placeholder: "" } });
     if (t.submit && left === 0) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });
     const standing =
@@ -717,13 +741,15 @@ export function DocumentAssistant() {
     const records = recordRepository.query({ documentId, isDemo }).slice().sort((a, b) => compareISO(b.dueDate, a.dueDate));
     const latest = records[0];
     const today = todayISO();
-    const chips: Chip[] = [{ label: "Start today's record and fill it with me", action: { type: "startInterview", documentId, dateISO: today }, tone: "primary" }];
-    if (canSampleFill(doc.kind)) chips.push({ label: "Start today's with sample data", action: { type: "sampleFill", documentId, dateISO: today } });
+    // Starting and filling are offered only to whoever may fill it (REQUIREMENTS §96); a person who may only read it is told why.
+    const fillStop = levelStops(documentId, "fill");
+    const chips: Chip[] = fillStop ? [] : [{ label: "Start today's record and fill it with me", action: { type: "startInterview", documentId, dateISO: today }, tone: "primary" }];
+    if (!fillStop && canSampleFill(doc.kind) && sampleFillOffered(isDemo)) chips.push({ label: "Start today's with sample data", action: { type: "sampleFill", documentId, dateISO: today } });
     if (latest) chips.push({ label: `Open the latest (${formatDisplayDate(latest.dueDate)})`, action: { type: "navigate", route: routeForRecord(doc, latest.id) } });
     // Reached through Mitra's own "where would you like to go?", the way on stays on offer.
     chips.push({ label: phrase("ai.guide.whereTo"), action: { type: "guide", step: "home" } });
     const onFile = latest ? `${records.length} on file — the latest is for ${formatDisplayDate(latest.dueDate)}, ${latest.status}.` : "Nothing is on file for it yet.";
-    bot(`${name} is open. ${onFile} Shall I start today's record and fill it in with you?`, chips);
+    bot(fillStop ? `${name} is open. ${onFile} ${fillStop}` : `${name} is open. ${onFile} Shall I start today's record and fill it in with you?`, chips);
   };
 
   const fillWithSample = () => {
@@ -736,6 +762,10 @@ export function DocumentAssistant() {
     const { doc, record } = openRecordFor(t);
     if (!doc || !record || !canSampleFill(doc.kind)) {
       bot("This document is kept as issued, so there is nothing to fill with sample data — tell me the line to change instead.");
+      return;
+    }
+    if (!sampleFillAllowedFor(record)) {
+      bot(sampleFillDeclined());
       return;
     }
     const result = sampleFillRecord(doc, record, masterRepository.get(), currentUser);
@@ -862,6 +892,11 @@ export function DocumentAssistant() {
         return;
       case "sampleFill": {
         me(chip.label);
+        // A live record holds only what people saw (REQUIREMENTS §98): no record is started for sample data either.
+        if (!sampleFillOffered(isDemo)) {
+          bot(sampleFillDeclined(chip.label));
+          return;
+        }
         if (a.documentId && (!t || t.documentId !== a.documentId)) {
           openThen(a.documentId, a.dateISO, "sample");
           return;
@@ -1039,13 +1074,18 @@ export function DocumentAssistant() {
           bot("I couldn't find that document.");
           return;
         }
+        const startStop = recordRepository.query({ documentId: doc.id, isDemo, dueDate: a.dateISO }).length === 0 ? levelStops(doc.id, "start") : null;
+        if (startStop) {
+          bot(startStop);
+          return;
+        }
         const { record, existed } = createRecordForDocument(doc, { dateISO: a.dateISO, isDemo });
         bump();
         // The two ways to have it filled are offered right away; both act on
         // whatever record is open when tapped — by then, this one.
         const fillChips: Chip[] = [
           { label: "Ask me question by question", action: { type: "startInterview" }, tone: "primary" },
-          { label: "Fill it with sample data", action: { type: "sampleFill" } },
+          ...(sampleFillOffered(isDemo) ? [{ label: "Fill it with sample data", action: { type: "sampleFill" } } as Chip] : []),
         ];
         bot(
           existed
@@ -1059,6 +1099,11 @@ export function DocumentAssistant() {
       case "askDelete": {
         me(chip.label);
         const tt = getTarget();
+        const deleteStop = tt ? levelStops(tt.documentId, "delete") : null;
+        if (deleteStop) {
+          bot(deleteStop);
+          return;
+        }
         if (!tt?.remove) {
           bot("Open the record you want deleted first, then tell me again.");
           return;
@@ -1100,6 +1145,11 @@ export function DocumentAssistant() {
       case "askSubmit": {
         me(chip.label);
         const tt = getTarget();
+        const submitStop = tt ? levelStops(tt.documentId, "submit") : null;
+        if (submitStop) {
+          bot(submitStop);
+          return;
+        }
         if (!tt?.submit) {
           bot(cannotSubmitWords(tt));
           return;
@@ -1128,6 +1178,11 @@ export function DocumentAssistant() {
       case "doVerify": {
         me(chip.label);
         const tt = getTarget();
+        const verifyStop = tt ? levelStops(tt.documentId, "verify") : null;
+        if (verifyStop) {
+          bot(verifyStop);
+          return;
+        }
         if (!tt?.verify) {
           bot("This record isn't waiting for verification — submit it first.");
           return;
@@ -1188,17 +1243,18 @@ export function DocumentAssistant() {
     // Filling the whole document: question by question, or with sample data.
     if (hasTarget && t?.editable && !t.checklist && !interview) chips.push({ label: "Ask me question by question", action: { type: "startInterview" }, tone: "primary" });
     if (interview) chips.push({ label: "Stop the questions", action: { type: "interviewStop" } });
-    if (hasTarget && t?.editable) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
+    if (hasTarget && t?.editable && sampleFillOffered(isDemo)) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
     if (hasTarget && t && hrMasterLinkFor(t.documentId) && (t.editable || t.reopen)) chips.push({ label: "Fetch from HR Master Data", action: { type: "hrMasterFetch" } });
     if (!hasTarget) chips.push({ label: phrase("ai.guide.whereToChip"), action: { type: "guide", step: "home" }, tone: "primary" });
     chips.push({ label: "Today's briefing", action: { type: "briefing" } });
     chips.push({ label: "What's due today?", action: { type: "navigate", route: `/day/${todayISO()}` } });
     chips.push({ label: "This month's reports", action: { type: "navigate", route: "/reports" } });
     if (!path.startsWith("/gap")) chips.push({ label: "Open CAPA", action: { type: "navigate", route: "/gap" } });
-    if (hasTarget && !t?.checklist) chips.push({ label: t && !t.editable ? "Correct this record…" : "Tell me what to fill…", action: { type: "focusInput", placeholder: "" } });
+    // Only what the level allows (REQUIREMENTS §96): "Tell me what to fill" to somebody who may write it, "Correct this record" to somebody who may reopen it.
+    if (hasTarget && t && !t.checklist && (t.editable || t.reopen)) chips.push({ label: !t.editable ? "Correct this record…" : "Tell me what to fill…", action: { type: "focusInput", placeholder: "" } });
     // The format itself can be changed by saying so, wherever its sheet is drawn from a layout (REQUIREMENTS §64).
     const screenDoc = documentRepository.getById(targetDocumentId ?? documentOnPath(path) ?? "");
-    if (screenDoc && canDesignGrid(screenDoc) && !guided && !interview) chips.push({ label: "Change this format…", action: { type: "focusInput", placeholder: FORMAT_HINT } });
+    if (screenDoc && canDesignGrid(screenDoc) && !guided && !interview && mayDo(screenDoc.id, "format")) chips.push({ label: "Change this format…", action: { type: "focusInput", placeholder: FORMAT_HINT } });
     // Everything the record's own buttons can do, in the chat as well.
     if (t?.cancelCorrection) chips.push({ label: "Cancel the edit", action: { type: "doCancelCorrection" } });
     if (t?.submit) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });
@@ -1431,6 +1487,11 @@ export function DocumentAssistant() {
   // is changed only after "Yes, correct it", which reopens it with the reason on
   // record — whether the change is a value (above) or the record's lines (below).
   const changeOrAsk = (target: AssistantTarget, next: unknown, changes: FieldChange[], note: string, problems: string[], intro: string) => {
+    const stop = levelStops(target.documentId, "fill") ?? (!target.editable && !target.reopen ? levelStops(target.documentId, "correct") : null);
+    if (stop) {
+      bot(`${intro}${stop}`);
+      return;
+    }
     if (target.editable) {
       commitEdit(target, next, changes, note, problems, intro);
       return;

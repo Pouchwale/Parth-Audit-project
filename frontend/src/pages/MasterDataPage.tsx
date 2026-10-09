@@ -31,6 +31,8 @@ import {
   parseClock,
   plantDay,
   plantNow,
+  staffHoursSentence,
+  superAdminHoursLine,
   todaySentence,
   weekdayName,
   weeklyOffOf,
@@ -448,6 +450,10 @@ export function MasterDataPage() {
 // 6:20 pm." Every account but the super admin may use DCRS only on a working day
 // of the calendar, between these two times; outside them it cannot sign in, and
 // each session is signed out at the close, with a warning ten minutes before.
+// They are the STAFF's hours (the owner, 6-Oct-2026): the super admin may sign in
+// and work at any time, so nothing here says DCRS is open or closed — the card
+// says staff working hours, working days and days off, and tells the super admin
+// that he can keep working.
 // The super admin changes the two times here (the server keeps them as stored
 // when anybody else writes the master data); everybody else reads them. Beside
 // them, the calendar exactly as the rule reads it (engine/workingHoursCore.ts,
@@ -457,7 +463,7 @@ const PLANT_DAYS_SHOWN = 14;
 
 function PlantHoursCard({ onOpenHolidays }: { onOpenHolidays: () => void }) {
   const { user, hours: server } = useAuth();
-  const { bump } = useAppStore();
+  const { bump, uiLang } = useAppStore();
   const master = masterRepository.get();
   const current = workingHoursOf(master);
   const admin = user?.role === "admin";
@@ -493,7 +499,7 @@ function PlantHoursCard({ onOpenHolidays }: { onOpenHolidays: () => void }) {
     masterRepository.update({ workingHours: next });
     bump();
     logActivity("Working hours changed", "Master Data — the plant's working hours", `${before} → ${after}`);
-    setSaid({ ok: true, text: `Saved: DCRS is now open ${after} on working days. Staff signing in from now on are held to these hours.` });
+    setSaid({ ok: true, text: `Saved: staff working hours are now ${after} on working days. Staff signing in from now on are held to these hours.` });
   };
 
   return (
@@ -501,21 +507,34 @@ function PlantHoursCard({ onOpenHolidays }: { onOpenHolidays: () => void }) {
       <div className="card-pad">
         <h3 className="text-base font-semibold mb-1">The plant's working hours</h3>
         <p className="text-muted text-sm mb-3">
-          Every account but the super admin can use DCRS only on a working day of the calendar, between these two times of the
-          factory's clock ({zone}). Outside them nobody else can sign in; each person is signed out at the close, with a
-          warning ten minutes before, and signs in again the next working morning. The super admin is never held to them.
+          These are the staff's working hours. Every account but the super admin can use DCRS only on a working day of the
+          calendar, between these two times of the factory's clock ({zone}). Outside them nobody else can sign in; each person
+          is signed out at the close, with a warning ten minutes before, and signs in again the next working morning. The super
+          admin is never held to them: he can sign in and work at any time.
         </p>
         {server && server.enforced === false && (
           <p className="text-xs mb-3" data-field="plant-hours-off" style={{ color: "var(--color-warning)", fontWeight: 600 }}>
             This server was started with DCRS_WORKING_HOURS=off, so nobody is held to the hours on it.
           </p>
         )}
-        <p className="text-sm mb-3" data-field="plant-hours-now">
-          <strong>
-            {clockWords(current.startMinute)} to {clockWords(current.endMinute)}
-          </strong>{" "}
-          on working days{current.isDefault ? " (the plant's standard hours)" : ""}. Today, {dayWords(today)}: {todaySentence(now)}
-        </p>
+        {uiLang === "gu" ? (
+          <p className="text-sm mb-3" data-field="plant-hours-now">
+            {staffHoursSentence(current, "gu")} {todaySentence(now, "gu")}
+          </p>
+        ) : (
+          <p className="text-sm mb-3" data-field="plant-hours-now">
+            Staff working hours:{" "}
+            <strong>
+              {clockWords(current.startMinute)} to {clockWords(current.endMinute)}
+            </strong>{" "}
+            on working days{current.isDefault ? " (the plant's standard hours)" : ""}. Today, {dayWords(today)}: {todaySentence(now)}
+          </p>
+        )}
+        {admin && (
+          <p className="text-sm mb-3" data-field="plant-hours-for-you" style={{ fontWeight: 600 }}>
+            {superAdminHoursLine(uiLang)}
+          </p>
+        )}
         {admin ? (
           <div className="flex gap-4 wrap items-end mb-2">
             <div className="field" style={{ minWidth: 150 }}>
@@ -544,14 +563,14 @@ function PlantHoursCard({ onOpenHolidays }: { onOpenHolidays: () => void }) {
         <h4 className="text-sm font-semibold mt-3 mb-1">The calendar, as the rule reads it</h4>
         <ul className="text-sm mb-2" data-field="plant-calendar-rule" style={{ paddingLeft: 18, listStyle: "disc" }}>
           <li>
-            Weekly off: <strong>{off}</strong> — closed, unless it is an adjustment day.
+            Weekly off: <strong>{off}</strong> — a day off for staff, unless it is an adjustment day.
           </li>
           <li>
-            Festival holidays: {(master.holidays ?? []).length} on the calendar — closed whatever the day
+            Festival holidays: {(master.holidays ?? []).length} on the calendar — a day off for staff whatever the weekday
             {nextFestival ? `; next: ${nextFestival.name}, ${dayWords(nextFestival.date, year)}` : ""}.
           </li>
           <li>
-            Adjustment days: {(master.adjustmentDays ?? []).length} — a weekly off the plant works, so DCRS is open
+            Adjustment days: {(master.adjustmentDays ?? []).length} — a weekly off the plant works, so staff hours apply
             {nextAdjustment ? `; next: ${dayWords(nextAdjustment.date, year)}${nextAdjustment.forHoliday ? `, for ${nextAdjustment.forHoliday}` : ""}` : ""}.
           </li>
         </ul>
@@ -571,7 +590,7 @@ function PlantHoursCard({ onOpenHolidays }: { onOpenHolidays: () => void }) {
                 whiteSpace: "nowrap",
               }}
             >
-              {d.weekday.slice(0, 3)} {Number(d.date.slice(8))} · {d.kind === "working" ? "open" : d.kind === "adjustment" ? "adjustment day, open" : d.kind === "weekly-off" ? "weekly off" : d.name}
+              {d.weekday.slice(0, 3)} {Number(d.date.slice(8))} · {d.kind === "working" ? "working day" : d.kind === "adjustment" ? "adjustment day, worked" : d.kind === "weekly-off" ? "weekly off" : d.name}
             </span>
           ))}
         </div>

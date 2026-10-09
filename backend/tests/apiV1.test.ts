@@ -17,7 +17,7 @@
 // The same routes are driven end to end by tests/e2e_audit_assistant_api.py.
 // Run: npm run test:unit -- apiV1
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -262,6 +262,11 @@ describe("the routes and their description", () => {
   before(async () => (s = await start()));
   after(() => s.close());
   const openapi = JSON.parse(readFileSync(path.join(repoRoot, "docs", "api", "dcrs-api.openapi.json"), "utf-8")) as { openapi: string; paths: Record<string, Record<string, unknown>> };
+  // A CONTRACT AHEAD OF ITS ROUTES (the notifications build of 8-Oct-2026): a path the shared contract documents before
+  // its builder registers it carries "x-dcrs-pending" (who registers it). It is not called here, and it must NOT be
+  // registered yet: the builder who registers it takes the mark off in the same change.
+  const pending = (route: string): boolean => typeof openapi.paths[route]?.["x-dcrs-pending"] === "string";
+  const methodsOf = (route: string): string[] => Object.keys(openapi.paths[route]).filter((m) => !m.startsWith("x-"));
 
   it("the description is OpenAPI 3.1 and is served as it is on disk, without signing in", async () => {
     assert.match(openapi.openapi, /^3\.1\./);
@@ -272,18 +277,19 @@ describe("the routes and their description", () => {
 
   it("every documented /api/v1 route is registered: each answers (not signed in: 401), none falls through to 404", async () => {
     let checked = 0;
-    for (const [route, methods] of Object.entries(openapi.paths)) {
-      if (!route.startsWith("/api/v1/") || route === "/api/v1/openapi.json") continue;
-      for (const method of Object.keys(methods)) {
+    for (const route of Object.keys(openapi.paths)) {
+      if (!route.startsWith("/api/v1/") || route === "/api/v1/openapi.json" || pending(route)) continue;
+      for (const method of methodsOf(route)) {
         const r = await call(s, method.toUpperCase(), route.replace("{id}", "CAPA-2023-12-13-1") + (route.includes("pest-control") ? "?date=2026-09-28" : ""));
         assert.equal(r.status, 401, `${method} ${route}`);
         assert.equal(r.body.code, "not-signed-in", `${method} ${route}`);
         checked += 1;
       }
     }
-    // Seven of REQUIREMENTS §83, fourteen of §85 (the Mitra mobile app, backend/apiV1Records.ts), and three of
-    // 2-Oct-2026 (the equipment list, the insights and the super admin's escalations, backend/apiV1Records.ts).
-    assert.equal(checked, 24);
+    // Seven of REQUIREMENTS §83, fourteen of §85 (the Mitra mobile app, backend/apiV1Records.ts), three of
+    // 2-Oct-2026 (the equipment list, the insights and the super admin's escalations, backend/apiV1Records.ts), and
+    // seven of §97 (the notifications, the phone's devices, the preferences and the test push, backend/notificationRoutes.ts).
+    assert.equal(checked, 31);
     const nothing = await call(s, "GET", "/api/v1/not-a-route", { token: T.admin });
     assert.equal(nothing.status, 404);
     assert.equal(nothing.body.code, "no-such-route");
@@ -296,13 +302,33 @@ describe("the routes and their description", () => {
     for (const r of registered) {
       const [method, route] = r.split(" ");
       assert.ok(openapi.paths[route]?.[method], `${r} is not in docs/api/dcrs-api.openapi.json`);
+      assert.ok(!pending(route), `${r} is registered: take "x-dcrs-pending" off it in docs/api/dcrs-api.openapi.json`);
     }
   });
 
-  it("the sign-in routes it documents are DCRS's own, registered by the server itself", () => {
-    const index = readFileSync(path.join(repoRoot, "backend", "index.ts"), "utf-8");
+  it("the super admin's run-it-now (POST /api/jobs/run) is documented with its four jobs, and the record answer with the levels' fields", () => {
+    // The people review of 9-Oct-2026: the route the owner's job page calls was missing from the description.
+    const run = openapi.paths["/api/jobs/run"] as { post?: { requestBody?: unknown } } | undefined;
+    assert.ok(run?.post, "POST /api/jobs/run is not in docs/api/dcrs-api.openapi.json");
+    const schemas = (openapi as unknown as { components: { schemas: Record<string, { properties?: Record<string, { enum?: string[] }> }> } }).components.schemas;
+    assert.deepEqual(schemas.JobRunRequest?.properties?.job?.enum, ["escalation", "weekly-digest", "morning-prepare", "notify"]);
+    for (const field of ["canSubmit", "canVerify", "problems", "waiting"]) assert.ok(schemas.RecordDetail.properties?.[field], `RecordDetail.${field}`);
+  });
+
+  it("the other routes it documents are DCRS's own, registered by the server itself (and a pending one by nobody yet)", () => {
+    // backend/index.ts registers the sign-in; the routes of a later build sit in files of their own beside it
+    // (backend/notificationRoutes.ts), registered by index.ts with one call.
+    const backendDir = path.join(repoRoot, "backend");
+    const server = readdirSync(backendDir)
+      .filter((f) => f.endsWith(".ts"))
+      .map((f) => readFileSync(path.join(backendDir, f), "utf-8"))
+      .join("\n");
     for (const route of Object.keys(openapi.paths).filter((p) => !p.startsWith("/api/v1/"))) {
-      for (const method of Object.keys(openapi.paths[route])) assert.ok(index.includes(`app.${method}("${route}"`), `${method} ${route}`);
+      for (const method of methodsOf(route)) {
+        // Express writes a path's parameter as :id where the description writes {id}.
+        const registered = server.includes(`app.${method}("${route.replace(/\{(\w+)\}/g, ":$1")}"`);
+        assert.ok(pending(route) ? !registered : registered, `${method} ${route}${pending(route) ? " is registered: take x-dcrs-pending off it" : ""}`);
+      }
     }
   });
 });
@@ -523,6 +549,43 @@ describe("closing a finding", () => {
     } finally {
       await t.close();
     }
+  });
+});
+
+describe("the access levels (REQUIREMENTS §96)", () => {
+  let s: Server;
+  before(async () => {
+    s = await start();
+    // The super admin gave the QA account Read on the CAPA findings report and nothing else, and Kapila Barad's
+    // QC account Write on it: what they may do now follows the rules, not their departments.
+    s.store.put("access", { version: 1, people: { "u-qa@test.local": { documents: { "gap-inspection": "read" } }, "u-qc@test.local": { documents: { "gap-inspection": "write" } } }, responsibility: {} });
+  });
+  after(() => s.close());
+
+  it("Read: the findings are listed, but none may be closed — said in the website's own words, nothing written", async () => {
+    assert.equal((await call(s, "GET", "/api/v1/findings", { token: T.qa })).status, 200);
+    const version = s.store.items.get("records")!.version;
+    const r = await call(s, "POST", "/api/v1/findings/CAPA-2023-12-13-1/close", { token: T.qa, body: { note: "Painted." }, headers: CLIENT });
+    assert.equal(r.status, 403);
+    assert.equal(r.body.code, "access-level");
+    assert.equal(r.body.error, "CAPA — Internal: Pest Control Inspection Findings Report is Read only for you. Filling in a record needs Write access: ask the super admin for it.");
+    assert.deepEqual([r.body.level, r.body.needed, r.body.action], ["read", "write", "fill"]);
+    assert.equal(s.store.items.get("records")!.version, version);
+  });
+
+  it("the same words in Hindi or Gujarati when the app asks (X-Language)", async () => {
+    const r = await call(s, "POST", "/api/v1/findings/CAPA-2023-12-13-1/close", { token: T.qa, body: { note: "Painted." }, headers: { ...CLIENT, "X-Language": "hi" } });
+    assert.equal(r.status, 403);
+    assert.match(r.body.error, /आपके लिए केवल Read है।/);
+  });
+
+  it("Write, given by the super admin outside the person's department, closes one; No access refuses even the list", async () => {
+    const r = await call(s, "POST", "/api/v1/findings/CAPA-2023-12-13-1/close", { token: T.qc, body: { note: "Painted." }, headers: CLIENT });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const complaints = await call(s, "GET", "/api/v1/complaints", { token: T.qa });
+    assert.equal(complaints.status, 403, "the QA account is described now, and the complaints are not its");
+    assert.equal(complaints.body.code, "not-your-department");
+    assert.match(complaints.body.error, /^You do not have access to F\/MKT\/05 .+\(Marketing\)\. Ask the super admin for Read access\.$/);
   });
 });
 

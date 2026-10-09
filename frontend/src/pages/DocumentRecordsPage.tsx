@@ -12,7 +12,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { hrPageForDocument } from "../data/seed/hrModule";
 import { useEnsureMonth } from "../utils/useEnsureMonth";
-import { createRecordForDocument } from "../engine/recordCrud";
+import { createRecordForDocument, recordCoveringDate } from "../engine/recordCrud";
 import { createDefaultData } from "../engine/recordDefaults";
 import { routeForRecord } from "../engine/reminders";
 import { hrMasterLinkFor } from "../engine/hrMaster";
@@ -32,6 +32,8 @@ import { logActivity } from "../utils/activityLog";
 import { useProgressiveCount } from "../utils/useProgressive";
 import type { Language } from "../i18n/strings";
 import type { DocumentDefinition, LogSheetData, RecordInstance } from "../types";
+import { mayDo } from "../engine/departmentScope";
+import { AccessReason } from "../components/common/AccessReason";
 
 // ONE DOCUMENT'S OWN PAGE (REQUIREMENTS §47) — /hr/{slug} for the sixteen HR
 // formats, /document/{id} for every other log sheet.
@@ -205,8 +207,19 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
   const master = masterRepository.get();
   const hr = hrPageForDocument(doc.id);
   const layout = doc.kind === "log-sheet" ? getLogSheetLayout(doc.id) : undefined;
-  const records = (recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[]).slice().sort((a, b) => compareISO(b.dueDate, a.dueDate));
-  const shown = records.find((r) => r.id === selectedId) ?? records[0];
+  // Newest first; of two on one day, the one started last (REQUIREMENTS §93).
+  const records = (recordRepository.query({ documentId: doc.id, isDemo }) as RecordInstance[])
+    .slice()
+    .sort((a, b) => compareISO(b.dueDate, a.dueDate) || (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  // WHAT IS SHOWN BELOW THE TABLE (REQUIREMENTS §93): the record New opens —
+  // today's sheet, or the sheet of the week, month or year today is in — then
+  // the latest one not dated ahead. The month's sheets are made ahead of their
+  // days, so "the newest" was a blank sheet for the 31st, not the record just started.
+  const shown =
+    records.find((r) => r.id === selectedId) ??
+    recordCoveringDate(doc, today, isDemo) ??
+    records.find((r) => compareISO(r.dueDate, today) <= 0) ??
+    records[0];
   const blank: RecordInstance<LogSheetData> | undefined =
     !shown && layout
       ? {
@@ -269,17 +282,19 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
           )}
           {/* The format itself can be changed; saving raises its revision (REQUIREMENTS §62).
               A sheet drawn from a layout is designed on the sheet; any other form, in the dialog (§64). */}
-          <button
-            className="btn btn-secondary btn-sm"
-            data-action="edit-format"
-            aria-pressed={designing}
-            onClick={() => (canDesignGrid(doc) ? setDesigningId(doc.id) : setEditingFormat(true))}
-            title={`Now Rev ${doc.revisionNo}`}
-          >
-            <FiEdit3 size={12} /> Edit format
-          </button>
+          {mayDo(doc.id, "format") && (
+            <button
+              className="btn btn-secondary btn-sm"
+              data-action="edit-format"
+              aria-pressed={designing}
+              onClick={() => (canDesignGrid(doc) ? setDesigningId(doc.id) : setEditingFormat(true))}
+              title={`Now Rev ${doc.revisionNo}`}
+            >
+              <FiEdit3 size={12} /> Edit format
+            </button>
+          )}
           {/* Not beside a sheet being designed: it would file a record before the pop-up could ask about leaving. */}
-          {!doc.isReferenceOnly && !designing && (
+          {!doc.isReferenceOnly && !designing && mayDo(doc.id, "start") && (
             <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
               <FiPlus size={12} /> New record
             </button>
@@ -290,6 +305,8 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
         </div>
       </div>
       <p className="text-muted mb-4">{doc.description}</p>
+      {/* Why New record or Edit format is not here, for a person whose level stops it (REQUIREMENTS §96). */}
+      <AccessReason documentId={doc.id} action={doc.isReferenceOnly ? "format" : "start"} className="mb-4" />
 
       {/* THE SUPPLIED ORIGINAL, SHOWN AS IT IS (REQUIREMENTS §71). Only on a
           format whose layout names one, so every other document page is
@@ -419,11 +436,11 @@ export function DocumentRecordsPage({ docId }: { docId: string }) {
                     <button className="btn btn-primary btn-sm" data-action="open-shown-record" onClick={() => navigate(routeForRecord(doc, shown.id))}>
                       Open record <FiExternalLink size={12} />
                     </button>
-                  ) : (
+                  ) : mayDo(doc.id, "start") ? (
                     <button className="btn btn-primary btn-sm" data-action="start-from-blank" onClick={startRecord}>
                       <FiPlus size={12} /> Start this record
                     </button>
-                  )}
+                  ) : null}
                   <DownloadDocumentButton doc={doc} dateISO={preview?.dueDate} />
                   <button className="btn btn-secondary btn-sm" onClick={() => printDocument()}>
                     <FiPrinter size={12} /> Print

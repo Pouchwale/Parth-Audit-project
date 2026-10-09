@@ -1,5 +1,18 @@
 # Connecting the Mitra mobile app (the Audit Assistant) to DCRS
 
+## Notification contract changes
+
+The notification routes below are the shared contract of 8 October 2026 (the build brief, section 5.3), exactly as given, with these additions. Each is optional and additive: an app written to the brief's shapes keeps working.
+
+1. **`data` carries six more optional facts**, so that every kind can be worded in English, Hindi and Gujarati from facts rather than stored sentences:
+   - `subject`, `late`, `neverDone` for `escalation` (who, and the counts of the last 30 days);
+   - `level` for `access_changed` (`none`, `read`, `write` or `edit`: the level the person now has);
+   - `by` for `verify` (who submitted it), `sent_back` (who sent it back) and `access_changed` (who changed it);
+   - `part` for `boss_summary` (`morning` or `evening`).
+2. **`POST /api/v1/notifications/test` may also answer `reason`**, a sentence saying why nothing was sent (push switched off on the server, or no phone registered), for the Settings screen's "state of push".
+3. **The push itself is described here** (it is not an HTTP route of DCRS, so the brief's contract has no shape for it): see [What a push carries](#what-a-push-carries).
+4. **Two refusals are added**: `409 needs-review` (a prepared record submitted without `"reviewed": true`) and `429 too-many` (a second test push within 20 seconds).
+
 This is the hand-off for the Audit Assistant's developer. It says how the assistant signs people in with their DCRS accounts, which DCRS calls it may make, and what must change on the assistant's side so both applications can share one PostgreSQL database. Everything here was checked against a working DCRS and a throwaway copy of its database on 29–30 September 2026.
 
 DCRS is the Digital Controlled Record System in this repository. The Audit Assistant is the chat and voice app at `github.com/Pouchwale/Parth-Audit-chatbot`. On 30 September 2026 its owner renamed the app and its server **Mitra**, the Mitra mobile app, after DCRS's own assistant. The parts written before then still say "the assistant".
@@ -65,8 +78,8 @@ Content-Type: application/json
 ```
 
 - **The token** is the value of the `dcrs_session` cookie. In Node, read it with `response.headers.getSetCookie()`.
-- **It lasts until the close of the day it was started** (REQUIREMENTS §84). For everybody but the super admin that is the end of the plant's working hours, 6:20 pm factory time unless the super admin changes it; for the super admin it is midnight, factory time. Take `expiresAt` from `session.endsAt` in the answer. The cookie's `Max-Age` runs to the same moment. So every morning starts with signing in again.
-- **The plant's working hours.** DCRS is open from 8:40 am to 6:20 pm on a working day of the plant's calendar: not on the weekly off (Thursday), unless it is an adjustment day, and not on a festival holiday. Outside those hours anybody but the super admin is refused, at sign-in and on every `/api/v1` call, with `403` and the code `outside-working-hours`. The answer's `error` says why in words the person can read, and `opensAt` says when DCRS opens again.
+- **It lasts until the close of the day it was started** (REQUIREMENTS §84). For everybody but the super admin that is the end of the staff's working hours, 6:20 pm factory time unless the super admin changes it; for the super admin it is midnight, factory time (the midnight after, for a sign-in in the day's last ten minutes). Take `expiresAt` from `session.endsAt` in the answer. The cookie's `Max-Age` runs to the same moment. So every day starts with signing in again.
+- **The staff's working hours.** Staff may use DCRS from 8:40 am to 6:20 pm on a working day of the plant's calendar: not on the weekly off (Thursday), unless it is an adjustment day, and not on a festival holiday. The super admin may sign in and work at any hour of any day. Outside those hours anybody but the super admin is refused, at sign-in and on every `/api/v1` call, with `403` and the code `outside-working-hours`. The answer's `error` says why in words the person can read ("Staff working hours: … Today's staff hours ended at 6:20 pm; they start again on …"), and `opensAt` says when their hours start again. DCRS's words never say DCRS itself is open or closed (the owner, 6-Oct-2026): pass them on as they are.
 - **Send it on every `/api/v1` call** as `Authorization: Bearer <token>`. DCRS also accepts it as the `dcrs_session` cookie.
 - **DCRS reads the account again on every call.** An account switched off by the administrator stops working at its very next call.
 
@@ -78,7 +91,7 @@ Map DCRS's answers onto the connector's errors like this:
 | `400` | Email or password missing | `invalid_credentials` |
 | `401` | Wrong email or password | `invalid_credentials` |
 | `403` | The account is switched off | `forbidden`, with DCRS's message |
-| `403` with `code: "outside-working-hours"` | Outside the plant's working hours. Only the super admin may sign in then. | `forbidden`, with DCRS's message, for example "DCRS is open 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off — it opens again on Friday 2 October at 8:40 am." |
+| `403` with `code: "outside-working-hours"` | Outside the staff's working hours. Only the super admin may sign in then. | `forbidden`, with DCRS's message, for example "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am." |
 | `429` | Eight wrong passwords for that email in ten minutes | `forbidden`, with DCRS's message "Too many failed attempts. Try again in a few minutes." |
 | Anything else, or no answer | DCRS is not reachable | `unavailable` |
 
@@ -98,7 +111,7 @@ X-Client-Name: Mitra mobile app
 
 `role` is `admin` (DCRS's super admin) or `staff`. `departments` holds department codes such as `QA` and `HR`. An empty list means every department. The super admin also sees every department.
 
-**Signing out.** `POST /api/auth/logout` with the token as the `dcrs_session` cookie writes "Signed out" in DCRS's activity log. That route reads the cookie only, not the Bearer header. DCRS sessions are signed tokens, not stored sessions, so signing out does not cancel the token before the close of its day. When the assistant's own session ends, it must delete its stored copy of the token. The body is optional. DCRS's own pages send `{"reason": "end-of-working-hours"}` when they sign a person out by themselves at the close of the working day.
+**Signing out.** `POST /api/auth/logout` with the token as the `dcrs_session` cookie writes "Signed out" in DCRS's activity log. That route reads the cookie only, not the Bearer header. DCRS sessions are signed tokens, not stored sessions, so signing out does not cancel the token before the close of its day. When the assistant's own session ends, it must delete its stored copy of the token. The body is optional, and the assistant need not send one. DCRS's own pages send `{"reason": "end-of-working-hours"}` when they sign a member of staff out by themselves at the close of the working day, and `{"reason": "end-of-day"}` for the super admin at midnight; a reason is written in the log only where it fits the account. They also name the session they are ending (`sessionId`, the `session.id` of the sign-in answer), so that a tab whose clock ran late never ends a newer session of the same browser.
 
 **When a stored token stops working**, any `/api/v1` call answers `401 {"code": "not-signed-in"}`. That happens every day at the close of the session's day. Throw `unauthorized`, and the assistant ends that session as `upstream_signed_out`.
 
@@ -373,7 +386,7 @@ On 30 September 2026 the owner asked that whatever Mitra, DCRS's assistant, can 
 
 **DCRS's own engine answers them.** Everything Mitra does in the browser is done by DCRS's engine: the checks on every value, the validation before a submit, the record's history and the activity log. The DCRS server runs that same code for these routes; it is not a second copy of the rules. So a change made from the phone is exactly the change DCRS's own page would make. It is checked the same way, refused for the same reasons, and saved with the version it was read at. If someone else saved in between, DCRS works the change out again on what is stored now, up to three times.
 
-**The same checks as every `/api/v1` call.** The session, the account, the plant's working hours and the forced password change all apply. The person's departments decide what they see, exactly as DCRS decides what their browser holds. Another department's document or record is refused with `403 not-your-department`, and the refusal says whose it is.
+**The same checks as every `/api/v1` call.** The session, the account, the plant's working hours and the forced password change all apply. The person's access levels decide what they see and do, exactly as DCRS decides what their browser holds and takes (REQUIREMENTS §96, [Access levels](#access-levels-who-may-do-what)). A document or record the person does not see is refused with `403 not-your-department`, and the refusal says which module keeps it; a step their level does not allow is refused with `403 access-level`.
 
 **Every change says where it came from.** The mobile app sends `X-Client-Name: Mitra mobile app`. Each change then shows up in two places:
 - **The record's history.** A new entry is written in the person's name with the note "Through Mitra mobile app: \<the person's note, or the action\>". For example: "Through Mitra mobile app: 10 o'clock reading from the floor", or "Through Mitra mobile app: submitted for verification".
@@ -481,7 +494,7 @@ It can be refused in three ways:
 
 `GET /api/v1/today` answers what Mitra's `todays_facts` gives, for the person's departments:
 - whether today and tomorrow are working days, the weekly off, and the next holidays and adjustment days;
-- the plant's hours (`workingHours`);
+- the staff's working hours (`workingHours`), worded for the person asking: `hoursText` and `todayText` say the staff's hours and where today stands for them, and for the super admin `forYou` says "You are the super admin: these are the staff's hours, and you can keep working at any time." (null for staff). Give the model all three, so it never tells the super admin that DCRS is closed;
 - what is overdue, due today, and due in the next three days;
 - what is ready to submit, what needs input, and what is awaiting verification;
 - the same facts in words (`facts`).
@@ -497,9 +510,11 @@ It can be refused in three ways:
   "upcoming": [{ "documentId": "qc-viscosity", "formatNo": "F-QC-30", "document": "Lamination Adhesive Viscosity Record", "dueDate": "2026-10-02", "status": null, "recordId": null, "started": false }],
   "readyToSubmit": [], "needsInput": [], "awaitingVerification": [],
   "facts": "Today: Wednesday, 30-Sep-2026 — Working day.\n…\nRecords due today: 9 (1 submitted or verified, 8 still open). …",
-  "workingHours": { "enforced": true, "start": "08:40", "end": "18:20", "openNow": true, "hoursText": "DCRS is open 8:40 am to 6:20 pm on working days.", "todayText": "Today is a working day — open now, until 6:20 pm." }
+  "workingHours": { "enforced": true, "start": "08:40", "end": "18:20", "openNow": true, "hoursText": "Staff working hours: 8:40 am to 6:20 pm on working days. The super admin can sign in at any time.", "todayText": "Today is a working day — staff hours run until 6:20 pm.", "heldToHours": true, "forYou": null }
 }
 ```
+
+Each item also says its `module`, and whether the person may submit or verify it now (`canSubmit`, `canVerify`); see [Today, by person](#today-by-person).
 
 **`recordId: null` with `started: false`** means DCRS's calendar has the sheet but no one has opened it yet, so it has no id. Start it with `open_record` (`POST /api/v1/records` with `documentId` and `date`).
 
@@ -709,6 +724,8 @@ The patch is Mitra's own shape. DCRS applies it exactly as Mitra does:
   "history": [{ "at": "2026-09-30T10:32:13.959Z", "by": "Super Admin", "action": "verified", "note": "Through Mitra mobile app: verified", "fromStatus": "Pending Verification" }] }
 ```
 
+A record the assistant prepared is submitted only with `"reviewed": true`, after the person ticked "Reviewed and correct" (`409 needs-review` otherwise); see [Submitting a prepared record](#submitting-a-prepared-record-reviewed-first).
+
 An action that does not apply to the record as it stands is refused with `409 wrong-status`. The refusal's `actions` list says what does apply. A missing reason is `400 needs-reason`.
 
 ```json
@@ -749,7 +766,7 @@ These are added to the table in [Errors](#errors). Each is shown to the person i
 | Status | Codes | Connector error |
 |---|---|---|
 | 400 | `bad-patch`, `nothing-changed`, `needs-reason`, `bad-action`, `not-history`, `ambiguous`, `bad-picture` | `invalid_request` |
-| 403 | `not-your-department` (a document, a record, HR Master Data, the equipment list); `super-admin-only` (the escalations) | `forbidden` |
+| 403 | `not-your-department` (a document, a record, HR Master Data, the equipment list the person does not see); `access-level` (a step the person's level does not allow, see [Access levels](#access-levels-who-may-do-what)); `super-admin-only` (the escalations) | `forbidden` |
 | 404 | `not-found`, `not-in-dcrs` | `not_found` |
 | 409 | `needs-reopen`, `wrong-status`, `invalid`, `reference-only`, `no-photo-list`, `no-sample`, `pdf-not-offered`, `busy` | `conflict` |
 | 413, 415 | `too-large`, `bad-picture` | `invalid_request` |
@@ -763,6 +780,153 @@ These are added to the table in [Errors](#errors). Each is shown to the person i
 - **Some records have no PDF here.** CAPA inspection reports, training records and complaint checklists print from their own pages in DCRS, which the PDF printer does not open. Their `link` opens the page, which has its own Print button.
 - **Sheets not opened yet have no id.** A sheet DCRS's calendar has made but not stored has `recordId: null` (see [Today](#today)). Start it with `open_record`.
 - **The format is not changed from the app** (see `change_format` in [Not offered](#mitras-tools-and-the-routes)).
+
+## Access levels: who may do what
+
+REQUIREMENTS §96 (9 October 2026). The owner: "keep users according to module, and this applies to the mobile application also ... give read, write and edit access accordingly." What each person may see and do is no longer their departments but their **access level** on each document, set by the owner's table of who fills what and, on top of it, by the super admin from Users & Access. DCRS holds it on the server, for the website and for these routes alike; the app only shows DCRS's answers.
+
+| Level | What it allows |
+|---|---|
+| No access | the document is not shown at all: `403 not-your-department` |
+| Read | see the document and its records, print and download them (every `GET`) |
+| Write | also start a record (`POST /api/v1/records` for a record not stored yet), change it (`/changes`, `/photos`, `/sample-fill`), and `submit`, `verify`, `send_back` and `resume` it (`/actions`); close a CAPA finding |
+| Edit | also `reopen` a signed-off record for correction, change a record under correction, `cancel_correction`, and `delete` a record |
+
+The people who answer for a document have Edit on it. As before, whoever may fill a document may also verify it, even their own record. The super admin passes everything. An account the access rules never name (one made before 9 October 2026 for somebody who is not among the plant's twelve people) keeps what it had: its departments at Edit, or every module when it has none.
+
+**The refusal.** A step the level does not allow is answered `403` with the code `access-level`, the website's own sentence, and the facts:
+
+```json
+{
+  "error": "F/QC/37 Inspection Record – Pouching Process is Read only for you. Submitting a record needs Write access: ask the super admin for it.",
+  "code": "access-level",
+  "level": "read",
+  "needed": "write",
+  "action": "submit",
+  "documentId": "qc-inspection-pouching",
+  "recordId": "rec-..."
+}
+```
+
+Send `X-Language: hi` or `X-Language: gu` and the sentence comes in Hindi or Gujarati (English otherwise). A document the person does not see at all reads: "You do not have access to F/HR/17 Daily Pest Control Monitoring Record (Human Resources). Ask the super admin for Read access." Its code stays `not-your-department`. Show the sentence as it is; do not offer the step again.
+
+**What the app can know before asking.** `GET /api/v1/today` gives each item `canSubmit` and `canVerify` by the person's level, and lists what the person answers for and may verify (the super admin: everything, by module). A record's own answer (`GET /api/v1/records/{id}`, and the answer to a change or an action) is at the person's level too (9-Oct-2026):
+- `editable`: the person may write into it now (open for writing, and Write on the document; Edit while it is reopened for correction);
+- `actions`: the steps its state allows that the level allows too (Write: `submit`, `verify`, `send_back`, `resume`; Edit: `reopen`, `cancel_correction`, `delete`); a person who only reads the document gets none, and `canReopen` follows `actions`;
+- `canSubmit` and `canVerify`, as today's items say;
+- `problems`: while the person may write it, what DCRS's own checks still ask for before a submit (empty when nothing does);
+- `waiting`: while the person may write it, how many entries wait before it is ready for their OK; a log sheet with nothing observed on it waits for its first line's entries even when the checks would pass it (REQUIREMENTS §98).
+
+Offer only what those say: draw boxes only when `editable`, the buttons in `actions`, and hold Submit back while `problems` is not empty.
+
+**What the app does not do.** The rules are changed only by the super admin, in the DCRS website: `GET /api/access/rules` (any signed-in account), `PUT /api/access/rules`, `POST /api/access/accounts/create-missing` and `POST /api/users/{id}/role` are the website's, by its session cookie, and are described in the OpenAPI file. When the super admin changes what a person may do, the person is told with an `access_changed` notification (below).
+
+## Notifications and the phone
+
+REQUIREMENTS §97. Every morning DCRS prepares the day's records on its own server, then tells each person what they answer for: in the website (the bell and the Notifications page) and on the phone (the inbox, Tasks and a push that arrives with the app closed). DCRS keeps the notifications in PostgreSQL and words them on every read in the language asked. The phone app talks only to the Mitra server, which relays these routes as the signed-in person; it holds no notification logic of its own.
+
+### Who is told what, and when
+
+| `kind` | Who | `data` | Ends when |
+|---|---|---|---|
+| `ready` | The people who answer for the document (with Write or more on it); nobody named: the super admin | `documentId`, `formatNo`, `documentName`, `module`, `recordId`, `dueDate` | The record leaves In Progress |
+| `needs_input` | As `ready` | as `ready`, and `count`: the things still stopping a submit (the readings to enter) | The record leaves In Progress, or passes the checks (it becomes `ready`) |
+| `due` | As `ready` | `documentId`, `formatNo`, `documentName`, `module`, `dueDate`, `recordId` when the sheet exists | The record is started or submitted, or the day ends (it becomes `overdue`) |
+| `upcoming` | As `ready` | as `due` | The due date arrives, or the record is submitted |
+| `overdue` | As `ready` | as `ready`, and `daysLate` (updated daily) | The record is submitted |
+| `verify` | Everyone with Write on the document other than the submitter; nobody: the super admin | as `ready`, and `by` (the submitter) | The record is verified or sent back |
+| `sent_back` | The person who submitted it | as `ready`, and `reason` and `by` (who sent it back) | The record is submitted again |
+| `boss_summary` | Every active super admin, morning and evening | `modules` (counts by module), `part`, `dueDate` (the day) | The next day |
+| `escalation` | Every active super admin | `subject`, `module`, `late`, `neverDone` | It is acknowledged |
+| `access_changed` | The person whose access changed | `module` or `documentName`, `level`, `by` | It is read |
+
+Frequency decides timing. Daily documents are prepared in the morning and nagged the same day. Weekly and fortnightly documents get a heads-up (`upcoming`) on the working day before. Monthly, quarterly and yearly documents get one three days ahead. As-required documents are told only when started, or when their two-day allowance runs out. Nothing is due on a closed day (the weekly off, a festival holiday).
+
+A record's values are never in a notification: ids, document names and counts only.
+
+### The routes
+
+| Route | What it does |
+|---|---|
+| `GET /api/v1/notifications?state=open\|all&limit=50&before=<id>&lang=en\|hi\|gu` | The person's own notifications, newest first: `{ items, unread, open }`. `state=open` (the default) is what still needs the person; `all` is everything of the last 60 days. `before` pages back. Nobody reads another person's items. |
+| `POST /api/v1/notifications/read` | `{ "ids": [412, 409] }` or `{ "all": true }`: marks the person's own items read. Answers `{ "unread": 0 }`. |
+| `POST /api/v1/devices` | `{ "token": "ExponentPushToken[...]", "platform": "android", "language": "gu", "appVersion": "1.1.0", "deviceName": "Galaxy A14" }`: keeps this phone's Expo push token for the person, with the language its pushes are worded in. Send it again when the token or the language changes. A token another account had moves to this one. Answers `{ "ok": true }`. |
+| `DELETE /api/v1/devices` | `{ "token": "..." }`: forgets the phone (at sign-out). Answers `{ "ok": true }`. |
+| `GET /api/v1/notification-preferences` | `{ "kinds": { "ready": true, ... every kind }, "reminders": false }`. A kind is pushed unless switched off. `reminders` (the phone's own 08:50 and 17:30 reminders) is absent until the person chooses. |
+| `PUT /api/v1/notification-preferences` | The same shape; kinds left out keep their setting. A kind switched off is not pushed, and still reaches the inbox. Answers as GET. |
+| `POST /api/v1/notifications/test` | Sends a test push to the caller's own phones, in each phone's language. Answers `{ "sent": 1 }`, or `{ "sent": 0, "reason": "..." }` when push is off on the server or no phone is registered. One test per 20 seconds. |
+
+The website reads the same through its session cookie: `GET /api/notifications` and `POST /api/notifications/read`.
+
+```json
+{
+  "items": [
+    {
+      "id": 412, "kind": "needs_input", "priority": "high",
+      "title": "12 readings to enter: Daily Pest Control Monitoring Record",
+      "body": "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to enter, then submit.",
+      "data": { "documentId": "daily-pest-monitoring", "formatNo": "F/HR/17", "documentName": "Daily Pest Control Monitoring Record", "module": "HR", "recordId": "rec-mgj2k1-7-abcd12", "dueDate": "2026-10-09", "count": 12 },
+      "createdAt": "2026-10-09T03:00:12.000Z", "readAt": null, "resolvedAt": null
+    }
+  ],
+  "unread": 1,
+  "open": 1
+}
+```
+
+`title` and `body` are worded on every read in the language asked (`lang`, English when left out). Show them as they come; open `data.recordId` with `GET /api/v1/records/{id}` (the Review screen), or the Tasks list when there is none.
+
+### What a push carries
+
+DCRS sends the pushes itself, through Expo's push service, to the tokens registered with `POST /api/v1/devices`. At most one push per person each time the server looks (every 5 minutes), worded in the phone's language:
+
+```json
+{
+  "to": "ExponentPushToken[...]",
+  "title": "Ready for you: Lamination Adhesive Viscosity Record",
+  "body": "F-QC-30 Lamination Adhesive Viscosity Record of 09-Oct-2026 is ready. Review it, then submit.",
+  "data": { "url": "mitra://task/rec-mgj2k1-7-abcd12", "kind": "ready", "notificationId": 413, "recordId": "rec-mgj2k1-7-abcd12", "count": 1 },
+  "channelId": "tasks",
+  "priority": "high",
+  "sound": "default",
+  "badge": 3
+}
+```
+
+- **`data.url`** is the deep link: `mitra://task/<recordId>` for one record, `mitra://inbox` for several ("3 records need you: ...", the top three document names in the body) or for an item with no record.
+- **`data.kind`** is the item's kind, or `group` for several, or `test` for the test push; `data.notificationId` is the item's id when there is one item; `data.count` is how many items the push stands for.
+- **`channelId`** is the Android channel: `tasks` (high importance) for the person's work, `summary` (default importance) for the super admin's summaries and the heads-ups.
+- **`badge`** is the person's open items.
+- **When.** The staff are pushed only inside the plant's working hours on working days (08:40 to 18:20 unless the super admin changes them): their tasks (`ready`, `needs_input`, `due`) at most once in each of three slots: first after the morning prepare (08:30, `PREPARE_AT`), a "still open" reminder at 15:30 (title "Still open: ...") and a last call at 17:45 ("Last call: ..."); a task that comes up after a slot's push waits for the next slot. An overdue reminder once a day from 09:30; a heads-up once, the working day before its due date; `verify`, `sent_back`, `access_changed`, `boss_summary` and `escalation` at once. Anything that comes up outside the hours waits for the next window. The super admin can be pushed at any hour. A kind the person switched off is not pushed (it is still in the inbox).
+- **Never a record's values.** A push carries ids, document names and counts only; a send-back's reason stays in the inbox.
+- **Android needs Firebase Cloud Messaging** for pushes to arrive (see DEPLOYMENT.md, "Push notifications"). Until the owner's Firebase project is set up, registration fails on the phone and the app still has its inbox, Tasks and its own reminders. Expo Go on Android cannot receive remote pushes (Expo SDK 53 and later): use the 1.1.0 build. iPhones get the inbox and the app's own reminders; remote pushes need a paid Apple developer account.
+
+### Today, by person
+
+`GET /api/v1/today` (see [Today](#today)) now answers, for a person, what they answer for (REQUIREMENTS §96) and the records they may verify; for an account nobody has described yet, every document it may fill. Every item gains:
+- `module`: the module's code (QC, HR, SYS, MNT, PRD, PUR, STR, MKT, DISP or QA);
+- `canSubmit`: the person's level on the document is Write or more and the record is being filled in;
+- `canVerify`: Write or more and the record is submitted.
+
+The super admin gets everything, and `byModule`: the lists counted by module.
+
+### Submitting a prepared record: reviewed first
+
+A record the assistant prepared carries its `prepared` stamp (`GET /api/v1/records/{id}`). It is submitted only after the person has checked every value and ticked "Reviewed and correct" on the review screen (REQUIREMENTS §62): send
+
+```json
+{ "action": "submit", "reviewed": true }
+```
+
+Without `reviewed`, DCRS refuses it with `409 needs-review`. With it, the record's history says "Through Mitra mobile app: Submitted from the phone after review". Mitra's own submit tool puts the record's values on its confirmation card and sends `reviewed: true` only after the person confirms.
+
+### The refusals of these routes
+
+| Status | Codes | Connector error |
+|---|---|---|
+| 400 | `bad-request` (a value the route does not accept: `lang`, `ids`, `token`, `kinds`) | `invalid_request` |
+| 409 | `needs-review` (a prepared record submitted without `"reviewed": true`) | `conflict` |
+| 429 | `too-many` (a second test push within 20 seconds) | `rate_limited` |
 
 ## The shared database
 
@@ -858,7 +1022,7 @@ These are the changes to the assistant's repository, `server/`, so that everythi
    DATABASE_URL=postgresql://audit_assistant:<password>@<dcrs-db-host>:<port>/<dcrs database>
    DCRS_BASE_URL=http://<dcrs-host>:4000
    REPORT_TIME_ZONE=Asia/Kolkata
-   SUPER_ADMINS=<the DCRS super admin's email, lower case>
+   SUPER_ADMINS=<the DCRS super admin's email, lower case (the Mitra mobile app also counts DCRS's own super admin without it)>
    ```
 
 8. **Optionally, comment the tables.** `database/sql/optional/chatbot-table-comments.sql` in this repository describes every table and column of the assistant in plain English. Add it as a migration of the assistant's own, after `0000_init.sql`, so the assistant's tables explain themselves in the database viewer and the data dictionary. A DBA may instead run it once after the assistant has made its tables.

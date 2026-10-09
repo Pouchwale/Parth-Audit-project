@@ -481,7 +481,9 @@ test("each is filled with sample data and passes the submit checks; signatures a
       const data = filled.data as LogSheetData;
       if (data.rows.length === 0) problems.push(`${id}: no lines`);
       for (const c of layout(id).columns) {
-        if (!/sign|Varified|Verified by/i.test(c.label) || c.autoFill?.sign) continue;
+        // EVERY signature column, F-PRD-18's OPERATOR SIGN included: it once said autoFill sign and was
+        // skipped here, so the assistant's "Gaurav Singh" passed (the audit of 7-Oct-2026, H-11).
+        if (!/sign|Varified|Verified by/i.test(c.label)) continue;
         if (data.rows.some((r) => String(r[c.key] ?? "").trim() !== "")) problems.push(`${id}: "${c.label}" filled by the assistant`);
       }
       const dateBox = layout(id).columns.find((c) => c.autoFill?.dueDate);

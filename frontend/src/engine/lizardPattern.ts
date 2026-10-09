@@ -1,7 +1,10 @@
 import { makeRng, type Rng } from "../utils/random";
 
 // THE LIZARD YEAR, FOR YEARS THE SERVICE PROVIDER HAS NOT REPORTED YET
-// (REQUIREMENTS §62).
+// (REQUIREMENTS §62). DEMO MODE ONLY since 8-Oct-2026 (REQUIREMENTS §98): the
+// Live report leaves an unreported year blank and says it is not yet reported
+// (data/selectors.ts lizardTrendRows), because a planned catch is a catch
+// nobody saw.
 //
 // The company's Lizard Catch Report is the provider's monthly count, and the
 // years it covers are transcribed as reported (data/seed/trendReports.ts —

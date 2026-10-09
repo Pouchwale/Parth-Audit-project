@@ -14,8 +14,10 @@ give us should be visible as it is".
     corrected;
   * each point is a Yes / No CHOICE, not a text box (the defect this format
     found in F/PUR/01);
-  * F/STR/02 Sharp Metal Objects Issuance (New) & Return (Old) Record carries
-    both printed paragraphs and its nine headings verbatim, and a line with
+  * F/STR/02 Sharp Metal Objects (Razor Blade, Scissor, Cutter blade,
+    Surgical Blade) Issuance (New) & Return (Old) Record carries its title,
+    both printed paragraphs and its nine headings verbatim, and its page as
+    supplied (sent again on 07-Oct-2026, REQUIREMENTS s93), and a line with
     NOTHING RETURNED can be filed - the format's own second paragraph allows
     an issue against no return, so RETURN QTY. is the one column that may be
     left empty;
@@ -248,8 +250,9 @@ with sync_playwright() as p:
     show.first.click()
     page.wait_for_timeout(500)
     check("It closes again", page.locator(ORIGINAL).count() == 0)
-    # Only where a format has one: no other document page gains a button.
-    open_page(page, f"#/document/{SHARP}")
+    # Only where a format has one: no other document page gains a button. Both Store formats have their pages
+    # now (F/STR/02's since 07-Oct-2026, REQUIREMENTS s93), so the example is F/PUR/01, supplied with none.
+    open_page(page, "#/document/pur-supplier-registration")
     check("A format with no supplied picture offers no such button", page.locator("[data-action='show-supplied-original']").count() == 0)
 
     # ==================================================================
@@ -295,6 +298,25 @@ with sync_playwright() as p:
     print("\n==== F/STR/02 Sharp Metal Objects Issuance & Return ====")
     open_page(page, f"#/document/{SHARP}")
     sheet = written(page, PREVIEW)
+    check(
+        "Its title is the paper's, the four tools in its brackets included (the header prints every title in capitals)",
+        "SHARP METAL OBJECTS (RAZOR BLADE, SCISSOR, CUTTER BLADE, SURGICAL BLADE) ISSUANCE (NEW) & RETURN (OLD) RECORD" in sheet,
+        sheet[:300],
+    )
+    show = page.locator("[data-action='show-supplied-original']")
+    check("Its page as supplied is offered beside it (REQUIREMENTS s93)", show.count() == 1)
+    if show.count():
+        show.first.click()
+        page.wait_for_timeout(1200)
+        shot = page.locator(f"{ORIGINAL} img")
+        loaded = shot.first.evaluate("el => ({ done: el.complete, w: el.naturalWidth, src: el.currentSrc })") if shot.count() else {}
+        check(
+            "...and it really loads, from the page the plant supplied",
+            shot.count() == 1 and bool(loaded.get("done")) and (loaded.get("w") or 0) > 1000 and "fstr02-sharp-metal-objects-p1.jpg" in str(loaded.get("src", "")),
+            loaded,
+        )
+        show.first.click()
+        page.wait_for_timeout(400)
     missing_rules = [r for r in SHARP_RULES if r not in sheet]
     check("Both paragraphs the format prints above the grid are on it, verbatim", not missing_rules, missing_rules)
     heads = page.locator(f"{PREVIEW} table.log-sheet thead th").evaluate_all("els => els.map((e) => (e.textContent || '').trim())")

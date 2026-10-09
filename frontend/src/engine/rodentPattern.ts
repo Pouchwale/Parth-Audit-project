@@ -10,6 +10,9 @@ import {
 import { makeRng, type Rng } from "../utils/random";
 import { generateId } from "../utils/id";
 
+// DEMO MODE ONLY (REQUIREMENTS §98): a simulated catch is never written into a
+// Live record, and no Live report counts one (engine/insights.ts isHumanRecord).
+//
 // What the rodent side of a given day's Daily Pest Control Monitoring Record
 // looks like, from the generated pattern (tools/pest_pattern.py). Seeded
 // by the calendar date, so the same day always gets the same answer — the

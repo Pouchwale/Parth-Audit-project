@@ -7,6 +7,7 @@ import { ensureRecordsGeneratedForMonth } from "./recordGenerator";
 import { resolveResponsibleEmployees } from "./documentInfo";
 import { isCompanyHoliday } from "./holidays";
 import { addDays, compareISO, fromISODate, todayISO } from "../utils/date";
+import { isMine } from "./departmentScope";
 
 // How far ahead an "upcoming" reminder starts firing. Anything due today is
 // "due"; anything with an unresolved due date in the past is "overdue" (and
@@ -70,10 +71,15 @@ export function ensureNearTermRecordsGenerated(isDemo: boolean): number {
   return made;
 }
 
+/**
+ * WHAT IS WAITING FOR THE SIGNED-IN PERSON: the records of the documents they answer for and may fill (REQUIREMENTS
+ * §96, engine/departmentScope.ts isMine). The super admin, everything; an account nobody has described, everything it
+ * may fill, as before the levels.
+ */
 export function computeReminders(isDemo: boolean): DocumentReminder[] {
   const today = todayISO();
   const master = masterRepository.get();
-  const docs = documentRepository.getRecordable();
+  const docs = documentRepository.getRecordable().filter((d) => isMine(d.id));
   const reminders: DocumentReminder[] = [];
   // Live records dated before this browser's launch floor are generator
   // noise (see engine/backlogCleanup.ts), not obligations — never remind

@@ -15,7 +15,7 @@ import { moduleSlug } from "../utils/moduleSlug";
 import { useT } from "../i18n";
 import { MODULE_SECTIONS } from "../data/seed/documentDefinitions";
 import { routeForRecord } from "../engine/reminders";
-import { departmentScopeLabel, documentDepartmentLabel, isDocumentIdVisible, isDocumentVisible, seesEveryDepartment } from "../engine/departmentScope";
+import { departmentScopeLabel, documentDepartmentLabel, isDocumentIdVisible, isDocumentVisible, mayDo, seesEveryDepartment } from "../engine/departmentScope";
 import { documentOpenRoute } from "../engine/documentRoutes";
 import { documentTextIn } from "../i18n/documentText";
 import { documentQuery, keptByLabel, masterListFormatsNotInDcrs, NOT_IN_DCRS_YET, type MasterListFormat } from "../engine/documentFinder";
@@ -255,7 +255,7 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                             {/* CREATE, for every document that holds records —
                                 the same starting data the schedule would give
                                 it (engine/recordCrud.ts). */}
-                            {RECORDABLE_KINDS.has(d.kind) && (
+                            {RECORDABLE_KINDS.has(d.kind) && mayDo(d.id, "start") && (
                               <button
                                 className="btn btn-primary btn-sm"
                                 data-action="new-record"
@@ -269,8 +269,8 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                                 <FiPlus size={12} /> New
                               </button>
                             )}
-                            {/* EDIT FORMAT: every document's, from here (REQUIREMENTS §62). */}
-                            <button
+                            {/* EDIT FORMAT: every document's, from here (REQUIREMENTS §62), for whoever has Edit on it (§96). */}
+                            {mayDo(d.id, "format") && <button
                               className="btn btn-ghost btn-sm"
                               data-action="edit-format"
                               data-document={d.id}
@@ -285,7 +285,7 @@ export function DocumentLibraryPage({ moduleSlug: activeSlug }: { moduleSlug?: s
                               }}
                             >
                               <FiEdit3 size={12} />
-                            </button>
+                            </button>}
                             {/* OPEN: the document's own page — never the Record
                                 Calendar (engine/documentRoutes.ts, REQUIREMENTS §47). */}
                             <button

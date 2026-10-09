@@ -2574,6 +2574,22 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 .score-open:hover { color: var(--accent-text); text-decoration: underline; }
 .score-open:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 2px; }
 .doc-table th.score-num, .doc-table td.score-num { text-align: right; font-variant-numeric: tabular-nums; }
+/* THE MINUS SCORE (REQUIREMENTS §92): 10 off for each record never done, on a band of its own under the
+   score out of 100: the danger pair while anything was missed, the success pair at 0. Then, in the
+   warning's colour, how many records are still open on their last day. */
+.score-minus { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 8px; padding: 6px 10px; border-radius: var(--radius-md); background: var(--success-soft); color: var(--success); }
+.score-minus[data-tone="minus"] { background: var(--danger-soft); color: var(--danger); }
+.score-minus-figure { font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.score-minus-label { font-size: 12.5px; color: var(--ink-2); min-width: 0; }
+.score-minus-label strong { color: var(--ink); }
+.score-open-today { margin: 0 0 8px; font-size: 12px; line-height: 1.45; color: var(--warning); }
+/* On paper the Minus score heading may wrap onto two lines: a printout is fitted to the narrowest its tables can be
+   laid out (utils/print.ts), and a heading that never wrapped took the scorecard from 94% down to 83% (the review of
+   8-Oct-2026). On screen it stays on one line, as every heading does. */
+html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-height: 1.25; }
+@media print {
+  .score-minus { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 @media print {
   .score-rule, .score-grade { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .score-card { box-shadow: none; break-inside: avoid; }
@@ -2689,6 +2705,53 @@ html.assistant-docked .app-main { margin-right: var(--assistant-dock-width); }
 }
 
 /* ==== end of AREA 6 ==== */
+
+/* ==== WHO MAY DO WHAT AND THE NOTIFICATIONS (REQUIREMENTS §96, §97) ====
+   Users & Access's grid of people by module (components/access/AccessSection.tsx), its drawer, and the
+   Notifications page and the bell's list (pages/NotificationsPage.tsx). On the theme's tokens only, so both
+   themes read; nothing animates. */
+.access-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.access-legend > div { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 8px 10px; background: var(--color-surface); }
+.access-grid td { min-width: 134px; vertical-align: top; }
+.access-grid td.access-name { min-width: 150px; position: sticky; left: 0; background: var(--color-surface); z-index: 1; }
+.access-grid td[data-set="yes"] .access-select { border-color: var(--color-primary); }
+.access-select { padding: 4px 4px; font-size: 12px; min-height: 30px; width: 100%; min-width: 108px; }
+.access-cell-note { display: inline-block; margin-top: 3px; padding: 0; border: 0; background: none; font: inherit; font-size: 11px; color: var(--color-text-muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.access-cell-note:hover { color: var(--color-primary); }
+.access-cell-note:disabled { cursor: not-allowed; opacity: 0.55; text-decoration: none; }
+.access-cell-meta { display: block; font-size: 10.5px; color: var(--color-text-muted); margin-top: 3px; }
+td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight: 600; }
+.notif-filter .pill-tab { border: 0; font: inherit; font-size: 12.5px; font-weight: 600; }
+.notif-filter .pill-tab:not(.active) { background: transparent; }
+.access-cell-note:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.access-drawer-overlay { justify-content: flex-end; align-items: stretch; padding: 0; }
+.access-drawer { max-width: 520px; height: 100%; max-height: none; border-radius: 0; border-width: 0 0 0 1px; }
+.access-line { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--color-border); }
+.access-line-name { font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.access-answers { white-space: nowrap; }
+@media (max-width: 560px) {
+  .access-line { grid-template-columns: minmax(0, 1fr); }
+  .access-drawer { max-width: 100%; }
+}
+.notif-title, .notif-body, .notif-when, .access-name .block { display: block; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.notif-day { font-size: 12.5px; font-weight: 600; color: var(--color-text-muted); margin: 14px 0 6px; }
+.notif-item { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: inherit; font: inherit; cursor: pointer; }
+.notif-item + .notif-item { margin-top: 6px; }
+.notif-item:hover { background: var(--row-hover); }
+.notif-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.notif-item[data-unread="yes"] { border-color: var(--color-primary); }
+.notif-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; background: transparent; }
+.notif-item[data-unread="yes"] .notif-dot { background: var(--color-primary); }
+.notif-item[data-priority="high"][data-unread="yes"] .notif-dot { background: var(--color-danger); }
+.notif-title { font-size: 13px; font-weight: 600; }
+.notif-body { font-size: 12.5px; color: var(--color-text-muted); margin-top: 2px; overflow-wrap: anywhere; }
+.notif-when { font-size: 11px; color: var(--color-text-muted); margin-top: 3px; }
+.notif-item[data-resolved="yes"] .notif-title { color: var(--color-text-muted); }
+.bell-ledger { max-height: 320px; overflow-y: auto; padding-right: 2px; }
+.bell-ledger .notif-item { padding: 7px 8px; }
+
+/* ==== end of §96 and §97 ==== */
 
 /* LESS MOVEMENT, FOR ANYBODY WHO HAS ASKED FOR IT (REQUIREMENTS §67).
    At the END of the stylesheet on purpose: a media query adds no specificity,

@@ -2,6 +2,9 @@ import type { AuthUser, ManagedUser } from "../types/auth";
 import type { ActivityTally } from "../engine/activityWork";
 import type { AgentRequest, AgentResponse, ExtractResult, TranscribeResult } from "../engine/mitraTypes";
 import { OUTSIDE_HOURS_CODE, type PublicHours } from "../engine/workingHoursCore";
+import type { AccessRules } from "../engine/accessRules";
+import type { NotificationData, NotificationKind, NotificationPriority } from "../engine/notificationPlan";
+import type { NotificationLanguage } from "../engine/notificationText";
 
 export type { PublicHours };
 
@@ -90,8 +93,8 @@ export interface AuthResponse {
   mustChangePassword?: boolean;
   /** When this session ends (REQUIREMENTS §84). Optional: a server from before it says nothing, and nothing ends by itself. */
   session?: SessionEnd;
-  /** The plant's hours and where today stands (§84). */
-  hours?: PublicHours | null;
+  /** The staff's hours and where today stands (§84), worded for this person: `forYou` is the super admin's own line. */
+  hours?: (PublicHours & { heldToHours?: boolean; forYou?: string | null }) | null;
 }
 
 /** A day's session (backend/workingHours.ts SessionAnswer): when it ends, and whether the browser signs out by itself then. */
@@ -101,6 +104,11 @@ export interface SessionEnd {
   signOutAtEnd: boolean;
   /** The server's clock when it answered. */
   now: string;
+  /**
+   * The session's own id: a tab that ends its session by itself names it in POST /api/auth/logout, so it never ends a
+   * newer session of the same browser (store/AuthContext.tsx endForHours). Absent for a session from before ids.
+   */
+  id?: string;
 }
 
 /** What the server has switched on. Both optional: a server from before them says nothing, which reads as off. */
@@ -113,6 +121,7 @@ export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data) }),
+  put: <T>(path: string, data?: unknown) => request<T>(path, { method: "PUT", body: data === undefined ? undefined : JSON.stringify(data) }),
 };
 
 export type AssistantAction = "fill" | "navigate" | "reply";
@@ -392,6 +401,26 @@ export const forgetEscalationsSeen = (): void => {
   lastOpen = null;
 };
 
+/** The server's jobs the super admin can run now (backend/jobs.ts JOB_NAMES). */
+export type ServerJob = "escalation" | "weekly-digest" | "morning-prepare" | "notify";
+
+/** What a run by hand answers: its line, and the job's own figures (backend/notificationJobs.ts, backend/escalation.ts). */
+export interface JobRun {
+  job: string;
+  today: string;
+  outcome: string;
+  result?: {
+    prepared?: number;
+    sheetsMade?: number;
+    modules?: { module: string | null; count: number }[];
+    planned?: number;
+    written?: number;
+    resolved?: number;
+    push?: string;
+  } | null;
+  claimed?: string | null;
+}
+
 export const escalationsApi = {
   /** The ones not yet acknowledged, newest first (the bell). */
   open: () =>
@@ -403,8 +432,11 @@ export const escalationsApi = {
   recent: () => api.get<EscalationList>("/escalations"),
   acknowledge: (id: string) => api.post<{ escalation: Escalation }>(`/escalations/${encodeURIComponent(id)}/ack`),
   latestDigest: () => api.get<{ digest: WeeklyDigest | null }>("/digests/latest"),
-  /** Runs a scheduled job now, whatever the clock says; `today` is for a check that needs a day of its own. */
-  runJob: (job: "escalation" | "weekly-digest", today?: string) => api.post<{ job: string; today: string; outcome: string }>("/jobs/run", today ? { job, today } : { job }),
+  /**
+   * Runs one of the server's jobs now, whatever the clock says (the super admin's; POST /api/jobs/run): the morning
+   * prepare, the notifications, the escalation or the weekly digest. `today` is for a check that needs a day of its own.
+   */
+  runJob: (job: ServerJob, today?: string) => api.post<JobRun>("/jobs/run", today ? { job, today } : { job }),
 };
 
 // THE ACTIVITY LOG'S ARCHIVE (REQUIREMENTS §62, §75) — the super admin's
@@ -544,4 +576,55 @@ export const overviewApi = {
   /** `query`: week (this or last), limit, offset. */
   ask: (key: string, query: string) => api.get<OverviewAnswer>(`/overview/questions/${encodeURIComponent(key)}${query ? `?${query}` : ""}`),
   askCsv: (key: string, query: string) => fetchFile(`/overview/questions/${encodeURIComponent(key)}.csv${query ? `?${query}` : ""}`),
+};
+
+// WHO MAY DO WHAT, SET BY THE SUPER ADMIN (REQUIREMENTS §96; the contract is docs/api/dcrs-api.openapi.json).
+// Anybody signed in reads the rules (the screens follow them); only the super admin writes them, with the version the
+// page was worked out on: a stale version is refused (409) and the page says to reload, never overwrites. The server
+// checks every write against the same rules, so the screen is never the lock.
+export interface AccessRulesAnswer {
+  rules: AccessRules;
+  version: number;
+  defaults?: { people: { email: string; name: string }[] };
+}
+
+export const accessApi = {
+  rules: () => api.get<AccessRulesAnswer>("/access/rules"),
+  save: (rules: AccessRules, baseVersion: number) => api.put<{ version: number }>("/access/rules", { rules, baseVersion }),
+  /** The owner's twelve people who have no account yet, made with one first password (they choose their own at first sign-in). */
+  createMissing: (password: string) => api.post<{ created: { name: string; email: string }[]; existing: string[] }>("/access/accounts/create-missing", { password }),
+  /** Make an account the super admin, or staff again; refused when it would leave no super admin. */
+  setRole: (userId: string, role: "admin" | "staff") => api.post<{ user: ManagedUser }>(`/users/${encodeURIComponent(userId)}/role`, { role }),
+};
+
+// EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the ledger the server keeps, worded in the language asked. Every
+// answer is the caller's own; the bell asks for 20, the Notifications page a page at a time.
+export interface NotificationItem {
+  id: number;
+  kind: NotificationKind;
+  priority: NotificationPriority;
+  title: string;
+  body: string;
+  data: NotificationData;
+  createdAt: string;
+  readAt: string | null;
+  resolvedAt: string | null;
+}
+
+export interface NotificationList {
+  items: NotificationItem[];
+  unread: number;
+  open: number;
+}
+
+/** Said on window when notifications were marked read here, so the bell and the page agree at once. */
+export const NOTIFICATIONS_CHANGED = "dcrs:notifications-changed";
+
+export const notificationsApi = {
+  list: (q: { state?: "open" | "all"; limit?: number; before?: number; lang?: NotificationLanguage }) => {
+    const parts = [`state=${q.state ?? "all"}`, `limit=${q.limit ?? 50}`, `lang=${q.lang ?? "en"}`];
+    if (q.before !== undefined) parts.push(`before=${q.before}`);
+    return api.get<NotificationList>(`/notifications?${parts.join("&")}`);
+  },
+  markRead: (which: { ids: number[] } | { all: true }) => api.post<{ unread: number }>("/notifications/read", which),
 };

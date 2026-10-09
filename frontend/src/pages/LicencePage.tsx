@@ -7,6 +7,8 @@ import { formatDisplayDate } from "../utils/date";
 import { printDocument } from "../utils/print";
 import { ServiceAgreementReminder } from "../components/documents/ServiceAgreementReminder";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
+import { SA_DOC_ID } from "../data/seed/serviceAgreement";
+import { moduleSlug } from "../utils/moduleSlug";
 
 // The service provider's insecticide licence, on file. The scanned pages
 // ARE the document and are shown first, exactly as supplied (nothing
@@ -24,7 +26,26 @@ export function LicencePage() {
   // Nothing crashes without this guard — the scanned pages below ARE the
   // document, so they would simply be handed over. The return sits below every
   // hook so the order of hooks never changes between renders.
-  if (!doc) return <NotYourDepartment documentId={L.documentId} what="licence" />;
+  if (!doc) {
+    // THE AGREEMENT IS PURCHASE'S OWN (data/seed/documentDepartments.ts) and
+    // opens on this page, so an account that holds the agreement but not the
+    // licence is shown the agreement — where it stands, Draft it for me, the
+    // upload, Open the agreement — and nothing of the licence (REQUIREMENTS §93).
+    const agreement = documentRepository.getById(SA_DOC_ID);
+    if (!agreement) return <NotYourDepartment documentId={L.documentId} what="licence" />;
+    return (
+      <div className="licence-page" data-section="agreement-only">
+        <div className="flex items-center justify-between mb-3 no-print wrap gap-2">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/library/${moduleSlug(agreement.module)}`)}>
+            <FiArrowLeft size={13} /> Document Library
+          </button>
+        </div>
+        <h1 className="text-2xl mb-1">{agreement.name}</h1>
+        <p className="text-muted mb-4">{agreement.description}</p>
+        <ServiceAgreementReminder />
+      </div>
+    );
+  }
 
   return (
     <div className="licence-page">
