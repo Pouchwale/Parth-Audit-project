@@ -57,6 +57,7 @@ import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { departmentName, departmentOfDocument } from "../data/seed/departments";
 import { formatEditFor } from "../data/formatEdits";
 import { setFeatures } from "../engine/features";
+import { numbersOwnLines } from "../engine/formLineNumbers";
 import { documentDepartmentLabel, isDocumentIdVisible, setDepartmentScope } from "../engine/departmentScope";
 import {
   cancelCorrection,
@@ -609,6 +610,8 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
       const rows = record && isObj(record.data) && Array.isArray((record.data as Obj).rows) ? ((record.data as Obj).rows as unknown[]).length : undefined;
       return {
         kind: "log-sheet",
+        // The form numbers its own lines: no "Row N" of the reader's beside them (REQUIREMENTS §102).
+        ...(numbersOwnLines(l) ? { ownLineNumbers: true } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),

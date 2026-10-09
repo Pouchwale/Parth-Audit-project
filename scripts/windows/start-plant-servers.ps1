@@ -6,7 +6,8 @@
 .DESCRIPTION
   In this order, each hidden (no window), each waited for before the next:
     1. DCRS: "npm run server" in the DCRS folder (the built app for browsers and its API; its own
-       PostgreSQL starts with it). Ready when http://127.0.0.1:4000/api/health answers.
+       PostgreSQL starts with it; the app is built again by itself, before the server answers, when it
+       is missing or older than its code). Ready when http://127.0.0.1:4000/api/health answers.
     2. The Mitra server: "npm --prefix server start" in the Mitra app's folder, "Audit project
        chatbot-mobile" inside the DCRS folder. Ready when http://127.0.0.1:3000/health answers.
     3. Mitra for Expo Go: "npx expo start --lan --port 8081 --no-dev --minify" in the app's mobile
@@ -359,7 +360,7 @@ Add-Check 'npm' ([bool]$npm) 'npm is not on PATH: it comes with Node.js; install
 
 if (-not $DcrsCommand) {
   Add-Check "DCRS's packages ($DcrsFolder\node_modules)" (Test-Path -LiteralPath (Join-Path $DcrsFolder 'node_modules')) "Run npm install in $DcrsFolder." @('dcrs')
-  Add-Check "DCRS's built app (frontend\dist)" (Test-Path -LiteralPath (Join-Path $DcrsFolder 'frontend\dist\index.html')) "Build it once, and again after every update: npm run build in $DcrsFolder." @('dcrs')
+  # frontend\dist is not checked here: DCRS builds it itself when it is missing or older than its code (backend\websiteBuild.ts).
 }
 if (-not ($MitraServerCommand -and $ExpoGoCommand)) {
   $appThere = Test-Path -LiteralPath (Join-Path $AppFolder 'package.json')

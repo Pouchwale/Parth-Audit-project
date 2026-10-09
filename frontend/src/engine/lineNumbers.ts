@@ -32,3 +32,14 @@ export function withoutLineNumber(text: string | number | null | undefined, line
   const m = OWN_NUMBER.exec(text);
   return m && Number(m[1]) === lineNumber ? text.slice(m[0].length) : text;
 }
+
+/**
+ * A change's name as a record's history stored it before §102, with the line's number said once:
+ * "Row 1 (1. I can freely…)" is "Row 1 (I can freely…)" and "Finding 1 (1)" is "Finding 1". Another
+ * number in the brackets is the paper's own and stays ("Item 1 (7)", "Row 7 (06. — Diabetes)").
+ */
+export function oneNumberLabel(label: string): string {
+  return label.replace(/\b(\d+) \(\s*0*(\d+)(\)|[.)](?:\s+|(?=\p{L})))/gu, (whole: string, line: string, own: string, tail: string) =>
+    line !== own ? whole : tail === ")" ? line : `${line} (`
+  );
+}

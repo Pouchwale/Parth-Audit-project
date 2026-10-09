@@ -1049,6 +1049,7 @@ export function SheetDesigner({
                     <PrintedLine
                       key={i}
                       index={i}
+                      numbered={!(layout && numbersOwnLines(layout))}
                       row={row}
                       columns={columns}
                       focusKey={focusCell?.index === i ? focusCell.key : null}
@@ -1272,6 +1273,7 @@ function ChangeList({ changes }: { changes: string[] }) {
  */
 const PrintedLine = React.memo(function PrintedLine({
   index,
+  numbered,
   row,
   columns,
   focusKey,
@@ -1281,6 +1283,8 @@ const PrintedLine = React.memo(function PrintedLine({
   onFocused,
 }: {
   index: number;
+  /** The handle shows the line's number, except on a form that numbers its own lines (REQUIREMENTS §102). */
+  numbered: boolean;
   row: PrintedRow;
   columns: LogColumn[];
   /** The printed cell of this line to put the cursor in — a line just added — or null. */
@@ -1293,7 +1297,7 @@ const PrintedLine = React.memo(function PrintedLine({
   return (
     <tr data-designer-item="line" data-index={index}>
       <td className="text-muted designer-line-no">
-        {index + 1}
+        {numbered ? index + 1 : null}
         <button type="button" className="designer-menu-button no-print" data-action="line-menu" data-line={index} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={`What can be done to line ${index + 1}`} onClick={() => onMenu(index)}>
           <FiChevronDown size={13} />
         </button>

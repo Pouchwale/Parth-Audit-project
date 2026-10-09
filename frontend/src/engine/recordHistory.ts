@@ -1,5 +1,6 @@
 import type { FieldChange, HistoryAction, HistoryEntry, RecordInstance } from "../types";
 import { generateId } from "../utils/id";
+import { withoutLineNumber } from "./lineNumbers";
 import { logActivity } from "../utils/activityLog";
 import { documentRepository } from "../data/repositories/documentRepository";
 
@@ -123,16 +124,22 @@ function words(key: string): string {
 // parameter, its area — whatever identifies it on the paper form.
 const ROW_NAME_KEYS = ["time", "startTime", "pcId", "parameter", "areaName", "employeeName", "trapBoxNo", "srNo", "sNo", "activity"];
 
+// ONE NUMBER PER LINE (REQUIREMENTS §102): the line's own number is not said twice
+// ("Row 1 (1. I can freely…)", "Finding 1 (1)"); the paper's other number is ("Item 1 (7)").
 function rowName(row: unknown, index: number): string {
+  const own = String(index + 1);
   if (row && typeof row === "object") {
     const r = row as Record<string, unknown>;
     for (const k of ROW_NAME_KEYS) {
       const v = r[k];
-      if (typeof v === "string" && v.trim()) return `${index + 1} (${v.trim().split(" (")[0]})`;
-      if (typeof v === "number") return `${index + 1} (${v})`;
+      if (typeof v === "string" && v.trim()) {
+        const name = String(withoutLineNumber(v.trim(), index + 1)).split(" (")[0];
+        return name && name !== own ? `${own} (${name})` : own;
+      }
+      if (typeof v === "number") return v === index + 1 ? own : `${own} (${v})`;
     }
   }
-  return String(index + 1);
+  return own;
 }
 
 const COLLECTION_LABELS: Record<string, string> = {

@@ -241,13 +241,25 @@ export function throughNote(client: string, note: string): string {
 const ROW_NAME_KEYS = ["time", "startTime", "pcId", "parameter", "areaName", "employeeName", "trapBoxNo", "srNo", "sNo", "activity"];
 const FIELD_LABELS: Record<string, string> = { status: "Status", actualDateOfAction: "Actual date of action" };
 
+// A line's own number at the start of its words, the rule of frontend/src/engine/lineNumbers.ts (this file imports nothing).
+const OWN_NUMBER = /^\s*\(?0*(\d{1,3})\s*[.)](?:\s+|(?=\p{L}))/u;
+function withoutLineNumber(text: string, lineNumber: number): string {
+  const m = OWN_NUMBER.exec(text);
+  return m && Number(m[1]) === lineNumber ? text.slice(m[0].length) : text;
+}
+
+// The line's own number said once, as engine/recordHistory.ts says it (REQUIREMENTS §102): "Finding 2", never "Finding 2 (2)".
 function rowName(row: Readonly<Record<string, unknown>>, index: number): string {
+  const own = String(index + 1);
   for (const key of ROW_NAME_KEYS) {
     const value = row[key];
-    if (typeof value === "string" && value.trim()) return `${index + 1} (${value.trim().split(" (")[0]})`;
-    if (typeof value === "number") return `${index + 1} (${value})`;
+    if (typeof value === "string" && value.trim()) {
+      const name = String(withoutLineNumber(value.trim(), index + 1)).split(" (")[0];
+      return name && name !== own ? `${own} (${name})` : own;
+    }
+    if (typeof value === "number") return value === index + 1 ? own : `${own} (${value})`;
   }
-  return String(index + 1);
+  return own;
 }
 
 function shown(value: unknown): string {

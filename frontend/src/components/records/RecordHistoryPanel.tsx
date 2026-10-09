@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { FiAlertTriangle, FiClock, FiEdit3, FiX } from "react-icons/fi";
 import type { CorrectionInfo, HistoryAction, RecordInstance } from "../../types";
 import { historyIsDerived, historyOf } from "../../engine/recordHistory";
+import { oneNumberLabel } from "../../engine/lineNumbers";
 import { useT } from "../../i18n";
 
 // What an auditor asks to see first: every change to this record, who made
@@ -68,7 +69,7 @@ export function RecordHistoryPanel({ record }: { record: RecordInstance }) {
                     <tbody className="notranslate" translate="no">
                       {e.changes.map((c) => (
                         <tr key={c.field}>
-                          <td>{c.label}</td>
+                          <td>{oneNumberLabel(c.label)}</td>
                           <td className="before">{c.before || t("record.blank")}</td>
                           <td className="after">{c.after || t("record.blank")}</td>
                         </tr>

@@ -5,6 +5,7 @@ import { useAuth } from "../store/AuthContext";
 import { Modal } from "../components/common/Modal";
 import { downloadCSV, toCSV } from "../utils/csv";
 import { formatDisplayDate } from "../utils/date";
+import { oneNumberLabel } from "../engine/lineNumbers";
 import { APPROVED, countOf, FILLED_IN, SUBMITTED, worked, type ActivityTally } from "../engine/activityWork";
 
 // ACTIVITY LOG — everything anybody has done on the portal, newest first
@@ -151,7 +152,7 @@ export function ActivityLogPage() {
       "activity-log.csv",
       toCSV(
         ["When", "Who", "Email", "What", "On", "Detail", "Department", ...(archived ? ["Archived"] : [])],
-        lines.map((l) => [new Date(l.at).toLocaleString(), l.userName, l.userEmail, l.action, l.target, l.detail, l.department, ...(archived ? [l.archived ? "Yes" : ""] : [])])
+        lines.map((l) => [new Date(l.at).toLocaleString(), l.userName, l.userEmail, l.action, l.target, oneNumberLabel(l.detail), l.department, ...(archived ? [l.archived ? "Yes" : ""] : [])])
       )
     );
 
@@ -310,7 +311,7 @@ export function ActivityLogPage() {
                     {l.target}
                   </td>
                   <td className="text-sm text-muted notranslate" translate="no">
-                    {l.detail}
+                    {oneNumberLabel(l.detail)}
                   </td>
                 </tr>
               ))}

@@ -5903,7 +5903,7 @@ records i found that so fix it also."
   7.3), F/PUR/02 ("No.", 1.1 to 8.x) and F/SYS/07 ("Number", 1.1 to 6.x). Their layouts say so
   (`LogSheetLayout.ownLineNumbers`), and the sheet draws no Sr. No. of its own: the paper's numbering alone. A format
   the plant edited before this keeps it (the issued layout is asked too, engine/formLineNumbers.ts). In the format's
-  designer the lines' handle column of such a form is headed "Line", never "Sr. No.".
+  designer the lines' handle column of such a form is headed "Line" and its handles carry no number (second pass).
 - **Sample words that numbered themselves:** the 07.06.2022 minutes with Gangwal Healthcare (F/QC/30), the points of
   which are also the sample a new minutes sheet is filled from, read "1.Anilox line issue", "2. Printing issue" ... The
   points keep their words without the number.
@@ -5918,6 +5918,32 @@ in it (a date such as 01.12.21, a figure such as 5.5%, 7.1 TOP PAPER) is not a l
 found anywhere: the paper's own checklists outside the grids (the complaint checklist, the licence conditions, the
 training topics) already print one number per line.
 
+**The second pass (9-Oct-2026, afternoon).** The owner: "still there are many records i have found that Sr number is
+already written perfectly but still in the starting of any question there are number present". Four causes, all fixed:
+
+- **The plant's address served an old website.** `npm run server` and `npm run plant:start` serve frontend/dist on port
+  4000, and neither built it: the copy there was of 7-Oct-2026, before this section. Now the server builds the website
+  again before it answers whenever the built copy is missing or older than any file it is built from, and says so in its
+  terminal (backend/websiteBuild.ts); after a `git pull` the next start builds. Not under `npm run dev` (its dev server
+  serves the website on 5173), not in a test run, and not with DCRS_AUTO_BUILD=0. The plant start script no longer
+  refuses to start DCRS without a built copy. The phone test copy on port 4100 runs an older snapshot and is not the
+  plant's website.
+- **Five more forms number their own lines:** F/DISP/02 ("ક્રમ નં.", 1 to 4 then 6 to 9), F/HR/22 and F/MNT/04 (the
+  Date column 1 to 31), F/QC/06 and F/QC/07 (No. of Colors 1 to 10). They are flagged too, twelve in all, and the guard now
+  knows a Gujarati number heading and a first printed column of bare numbers.
+- **Places that read what a record stores, not the sheet as drawn:** the record's History panel and the Activity Log
+  ("Row 1 (1. I can freely…)", "Finding 1 (1)"), the submit checks' words, the names a downloaded file gives its lines
+  (the paper's bare "#" or "Sr.No." is skipped for the line's words), the designer's and the format editor's line numbers on
+  forms that number their own, what Mitra is handed, the phone's layout (it is told `ownLineNumbers`), and a format the
+  plant edited before this section (read without its lines' own numbers). A history name stored before says the number
+  once when shown (engine/lineNumbers.ts `oneNumberLabel`); new names are made that way (engine/recordHistory.ts).
+- **Records already stored.** At start-up every stored record whose printed line is exactly the layout's words with that
+  line's own number in front takes the words (F/HR/19, 20 and 21 made before this section), and so does a minutes record
+  whose point is exactly a sample point with its number in front (copied there before); one line in each record's
+  history, status and updatedAt kept, Demo Mode's records and a record reopened for correction left alone, a point a
+  person typed never touched (data/lineNumbersMigration.ts). The phone and Mitra read the stored words, so they now
+  show them once too.
+
 **Tests.** frontend/tests/lineNumbers.test.ts (7): what comes off and what never does; no printed line or sample line
 of any form, now or added later, repeats the Sr. No. the sheet gives it; every form with a "#", "No.", "Sr.No.",
 "Number" or "Index" column, or its own numbering in its words, says so, and exactly the seven above do; F/HR/20 as
@@ -5925,7 +5951,12 @@ made before shows one Sr. No. column and attributes without their numbers; F/HR/
 numbering and no second Sr. No.; the two seeded records brought in step once, with their history line, status and
 updatedAt kept. frontend/tests/roundTripBindings.test.ts finds a worked-out cell's column after the Sr. No. only on a
 sheet that draws one. tests/e2e_hr_module.py: F/HR/21's attributes on file without their numbers, and its page with
-one Sr. No. column and no "1. I can freely".
+one Sr. No. column and no "1. I can freely". The second pass adds to lineNumbers.test.ts (12 in all): history names said
+once (and the paper's own "Item 1 (7)" kept), new names, the submit checks' words and a downloaded line's name; Mitra's
+lines; every stored record and the minutes' copied points aligned once (a typed point, F/HR/04 and Demo Mode untouched);
+an edited format read without its numbers, the same object each time; twelve flagged forms. backend/tests/
+websiteBuild.test.ts (5): current, older (rebuilt, naming what changed), never built, dev / test / switched off, a failed
+build.
 
 ## Master data provenance summary
 

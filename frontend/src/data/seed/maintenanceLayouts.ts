@@ -574,6 +574,8 @@ export const MNT04_TEXT_EN: Record<string, string> = {
 
 const DAILY_HEALTH: LogSheetLayout = {
   documentId: "mnt-daily-health",
+  // The paper's own Date column (1 to 31) numbers the lines (REQUIREMENTS §102).
+  ownLineNumbers: true,
   instructions: ["Check Parameter", ...MNT04_CHECK_PARAMETERS.map(([h, g]) => bilingual(h, g)), ...MNT04_FOOTNOTES.map(([printed]) => printed)],
   // "Month & Year : -" and the two machine boxes, verbatim with the paper's
   // "discription". The machine comes from the Equipment Master (F/MNT/01).

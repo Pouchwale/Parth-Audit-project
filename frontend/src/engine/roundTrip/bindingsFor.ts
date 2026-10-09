@@ -195,6 +195,8 @@ export function logRowName(row: LogSheetRow, columns: readonly LogColumn[]): str
     const v = row[c.key];
     if (v === null || v === undefined) continue;
     const text = String(v).trim().split("\n")[0].trim();
+    // A bare number is the paper's own count of the line ("#", "Sr.No.", the day): the line is named by its words (§102).
+    if (/^[\d.]+$/.test(text)) continue;
     if (text) return text.length > 40 ? `${text.slice(0, 39)}…` : text;
   }
   return undefined;

@@ -615,6 +615,10 @@ Seven scripts live in `tests/`:
   line and their status and updatedAt kept). Changed: `frontend/tests/roundTripBindings.test.ts` (a worked-out cell's
   column counted after the Sr. No. only where the sheet draws one) and `tests/e2e_hr_module.py` (F/HR/21's words without
   their numbers, one Sr. No. column on its page). `npm run test:unit` on the change: every frontend test passes.
+  The second pass (same day): `lineNumbers.test.ts` grows to 12 (history names, the submit checks' words, a downloaded
+  line's name, Mitra's lines, every stored record and the minutes' copies aligned once, an edited format, twelve flagged
+  forms with a widened guard) and `backend/tests/websiteBuild.test.ts` (5) holds the server building a website older than
+  its code before it answers.
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

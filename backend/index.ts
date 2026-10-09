@@ -38,6 +38,7 @@ import { hashPassword, verifyPassword, signSessionToken, verifySessionToken, COO
 import { createWorkingHoursGate } from "./workingHours.ts";
 import { END_OF_HOURS_REASON, OUTSIDE_HOURS_REASON, type OutsideHoursRefusal } from "../frontend/src/engine/workingHoursCore.ts";
 import { distDir } from "./paths.ts";
+import { ensureWebsiteBuilt } from "./websiteBuild.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAgent.ts";
@@ -1565,6 +1566,11 @@ registerOverviewRoutes(app, { requireAuth, logActivity });
 registerAccessRoutes(app, { requireAuth, logActivity });
 // MITRA ON THE PHONES: where Expo Go finds it on this PC, for the QR card on the Ask Mitra page (backend/phoneApp.ts).
 registerPhoneAppRoutes(app, { requireAuth });
+
+// THE WEBSITE AS THE CODE IS NOW (REQUIREMENTS §102): a built website older than its
+// code is built again here, before the server answers (backend/websiteBuild.ts). Not
+// under `npm run dev`, whose own dev server serves the website on port 5173.
+ensureWebsiteBuilt(path.dirname(distDir));
 
 // Single-process production deployment: serve the built frontend (dist/)
 // from the same server as the API, so there's one process and one origin to

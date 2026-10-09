@@ -3,6 +3,7 @@ import { FiArrowDown, FiArrowUp, FiPlus, FiRotateCcw, FiTrash2 } from "react-ico
 import type { DocumentDefinition, LogColumn, LogFieldType, LogHeaderField, LogSheetLayout } from "../../types";
 import { Modal } from "../common/Modal";
 import { getIssuedLogSheetLayout, getLogSheetLayout } from "../../data/seed/logSheetLayouts";
+import { numbersOwnLines } from "../../engine/formLineNumbers";
 import { formatEditFor, nextRevisionNo } from "../../data/formatEdits";
 import { BOX_TYPES, COLUMN_TYPES, FIELD_TYPE_LABELS, commitFormatChange, newKey, restoreIssuedFormat, setInstructions as withInstructions } from "../../engine/formatOps";
 import { SEED_DOCUMENTS } from "../../data/seed/documentDefinitions";
@@ -256,7 +257,8 @@ export function FormatEditor({ doc, actor, onClose, onSaved }: { doc: DocumentDe
                 {printedRows.map((r, i) => (
                   <div key={i} className="flex items-center gap-2 mb-1">
                     <span className="text-xs text-faint" style={{ width: 22 }}>
-                      {i + 1}.
+                      {/* A form that numbers its own lines shows only its own numbers (REQUIREMENTS §102). */}
+                      {current && numbersOwnLines(current) ? null : `${i + 1}.`}
                     </span>
                     {printedColumns.map((c) => (
                       <input

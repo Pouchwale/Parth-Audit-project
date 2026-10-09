@@ -27,7 +27,8 @@ if (plan.stop) {
 }
 
 const children: ChildProcess[] = [];
-if (plan.startApi) children.push(spawn(process.execPath, [...nodeArgs, "backend/index.ts"], { cwd: root, stdio: "inherit" }));
+// DCRS_DEV: the website comes from the dev server below, so the API does not build frontend/dist (backend/websiteBuild.ts).
+if (plan.startApi) children.push(spawn(process.execPath, [...nodeArgs, "backend/index.ts"], { cwd: root, stdio: "inherit", env: { ...process.env, DCRS_DEV: "1" } }));
 if (plan.webPort !== null) {
   children.push(
     spawn(process.execPath, [...nodeArgs, "frontend/scripts/dev-server.ts"], {

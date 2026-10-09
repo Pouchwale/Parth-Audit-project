@@ -765,6 +765,8 @@ export const HYGIENE_CHECKS: { key: string; label: string }[] = [
 
 const hygieneReport: LogSheetLayout = {
   documentId: "hr-hygiene-report",
+  // The paper's own Date column (1 to 31) numbers the lines (REQUIREMENTS §102).
+  ownLineNumbers: true,
   instructions: [
     "Daily Personal Sanitation & Hygiene Inspection Report — one sheet per month, one line per day of the month, each of the nine checks answered Yes / No as found at frisking, with the observation, the corrective action and who checked.",
     "A day's line is filled on the day; the sheet is not pre-filled for days that have not happened.",

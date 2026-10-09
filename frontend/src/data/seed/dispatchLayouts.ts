@@ -111,6 +111,8 @@ const CONTAINER_CHECKS: { checkNo: string; checklist: string }[] = [
 
 const CONTAINER_STUFFING: LogSheetLayout = {
   documentId: "disp-container-stuffing",
+  // The paper numbers its checks itself, in its "ક્રમ નં." column (1 to 4, then 6 to 9) (REQUIREMENTS §102).
+  ownLineNumbers: true,
   // The seven things to do on the container's arrival, printed above the boxes.
   instructions: [
     "1. તેના આગમન પર કન્ટેનર ખોલો.",

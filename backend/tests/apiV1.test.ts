@@ -460,7 +460,7 @@ describe("closing a finding", () => {
       who: "Kajal Shah",
       action: "Record edited",
       target: "CAPA — Internal: Pest Control Inspection Findings Report — 2023-12-13",
-      detail: "Through Audit Assistant: Rodent box numbers painted. · 2 field(s): Finding 1 (1) · Actual date of action, Finding 1 (1) · Status",
+      detail: "Through Audit Assistant: Rodent box numbers painted. · 2 field(s): Finding 1 · Actual date of action, Finding 1 · Status",
       department: "QA",
     });
   });

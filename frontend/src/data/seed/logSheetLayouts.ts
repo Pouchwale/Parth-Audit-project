@@ -18,6 +18,7 @@ import { SYS_HARA_TRACEABILITY_LAYOUTS } from "./sysHaraTraceabilityLayouts";
 import { MKT_LAYOUTS } from "./mktLayouts";
 import { PRODUCTION_LAYOUTS } from "./productionLayouts";
 import { formatEditFor } from "../formatEdits";
+import { withoutLineNumber } from "../../engine/lineNumbers";
 
 // Grid layouts for every "log-sheet" document, transcribed from the
 // photographed specimens in the uploaded "Audit documents.zip" (WhatsApp
@@ -517,7 +518,38 @@ Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
 // there is one (data/formatEdits.ts, REQUIREMENTS §62), the issued layout
 // otherwise. `getIssuedLogSheetLayout` is the paper's own transcription.
 export function getLogSheetLayout(documentId: string): LogSheetLayout | undefined {
-  return formatEditFor(documentId)?.layout ?? LOG_SHEET_LAYOUTS[documentId];
+  const edited = formatEditFor(documentId)?.layout;
+  return edited ? printedLinesOnce(edited) : LOG_SHEET_LAYOUTS[documentId];
+}
+
+// ONE NUMBER PER LINE IN AN EDITED FORMAT TOO (REQUIREMENTS §102). A format the plant
+// edited before the issued layouts stopped numbering their lines in their words keeps
+// "1. I can freely ..." in its stored lines; it is read without the line's own number, so
+// a new record never takes the number again. The same object until the edit changes.
+const unnumbered = new WeakMap<LogSheetLayout, LogSheetLayout>();
+function printedLinesOnce(layout: LogSheetLayout): LogSheetLayout {
+  const known = unnumbered.get(layout);
+  if (known) return known;
+  let out = layout;
+  const mode = layout.rowMode;
+  const ownNumbers = layout.ownLineNumbers === true || LOG_SHEET_LAYOUTS[layout.documentId]?.ownLineNumbers === true;
+  if (mode.kind === "fixedRows" && !ownNumbers) {
+    let changed = false;
+    const rows = mode.rows.map((row, i) => {
+      let line: typeof row | null = null;
+      for (const [key, value] of Object.entries(row)) {
+        const once = withoutLineNumber(value, i + 1);
+        if (once === value) continue;
+        line = line ?? { ...row };
+        line[key] = once as string;
+      }
+      if (line) changed = true;
+      return line ?? row;
+    });
+    if (changed) out = { ...layout, rowMode: { ...mode, rows } };
+  }
+  unnumbered.set(layout, out);
+  return out;
 }
 
 export function getIssuedLogSheetLayout(documentId: string): LogSheetLayout | undefined {

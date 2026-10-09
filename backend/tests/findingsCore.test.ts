@@ -191,8 +191,8 @@ describe("closing a finding", () => {
       action: "edited",
       note: "Through Audit Assistant: Done",
       changes: [
-        { field: "findings[#f2].actualDateOfAction", label: "Finding 2 (2) · Actual date of action", before: "", after: "2026-09-29" },
-        { field: "findings[#f2].status", label: "Finding 2 (2) · Status", before: "Overdue", after: "Closed" },
+        { field: "findings[#f2].actualDateOfAction", label: "Finding 2 · Actual date of action", before: "", after: "2026-09-29" },
+        { field: "findings[#f2].status", label: "Finding 2 · Status", before: "Overdue", after: "Closed" },
       ],
     });
   });
@@ -214,8 +214,8 @@ describe("closing a finding", () => {
     assert.deepEqual(
       changes.map((c) => [c.field, c.label]),
       [
-        ["findings[#2].status", "Finding 3 (3) · Status"],
-        ["findings[#2].actualDateOfAction", "Finding 3 (3) · Actual date of action"],
+        ["findings[#2].status", "Finding 3 · Status"],
+        ["findings[#2].actualDateOfAction", "Finding 3 · Actual date of action"],
       ]
     );
   });

@@ -16,6 +16,8 @@ import type {
 } from "../types";
 import { masterRepository } from "../data/repositories/masterRepository";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
+import { withoutLineNumber } from "./lineNumbers";
+import { numbersOwnLines } from "./formLineNumbers";
 import { codeRulesFor } from "./documentFormats";
 
 // "Was the lot accepted as it is?" — the one status that needs no reason
@@ -218,8 +220,15 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       }
       if (!d.rows || d.rows.length === 0) errors.push("At least one row is required.");
       const mode = layout.rowMode;
+      // A printed line's words as the sheet shows them: its own number is the Sr. No.'s (REQUIREMENTS §102).
+      const ownNumbers = numbersOwnLines(layout);
       (d.rows ?? []).forEach((row, i) => {
-        const label = mode.kind === "timeSlots" ? `${row[mode.slotKey]}` : mode.kind === "fixedRows" && row.parameter ? `${row.parameter}` : `Row ${i + 1}`;
+        const label =
+          mode.kind === "timeSlots"
+            ? `${row[mode.slotKey]}`
+            : mode.kind === "fixedRows" && row.parameter
+              ? `${ownNumbers ? row.parameter : withoutLineNumber(row.parameter, i + 1)}`
+              : `Row ${i + 1}`;
         for (const col of layout.columns) {
           // A worked-out cell is never asked for: it is blank only while the
           // cells it comes from are, and those carry their own requirement

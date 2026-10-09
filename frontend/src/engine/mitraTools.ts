@@ -45,6 +45,7 @@ import { hrMasterVisible } from "./hrMasterAssistant";
 import { isDocumentIdVisible } from "./departmentScope";
 import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "./pmSchedule";
 import { ASSISTANT_NAME } from "./assistantPersona";
+import { printedWordsOnce } from "./formLineNumbers";
 import { t } from "../i18n";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
@@ -324,7 +325,10 @@ function dataOf(raw: unknown): { data: Obj; layout: LogSheetLayout | undefined }
   if (!isObj(raw)) return { data: { value: raw }, layout: undefined };
   const { _layout, _linked, ...data } = raw;
   void _linked;
-  return { data, layout: isLayout(_layout) ? _layout : undefined };
+  const layout = isLayout(_layout) ? _layout : undefined;
+  // A printed line's words without its own number, as the sheet shows them (REQUIREMENTS §102).
+  if (layout && Array.isArray(data.rows) && data.rows.every(isObj)) data.rows = printedWordsOnce(data.rows as Obj[], layout);
+  return { data, layout };
 }
 
 /**

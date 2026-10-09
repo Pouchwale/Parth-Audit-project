@@ -296,6 +296,8 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/06 — Certificate of Analysis [COA] For Label ----
   "qc-coa-label": {
     documentId: "qc-coa-label",
+    // The certificate prints its own numbers 1 to 10 over the colour table (REQUIREMENTS §102).
+    ownLineNumbers: true,
     instructions: [
       "Certificate of Analysis [COA] For Label. The certificate's own boxes and the LABEL STOCK block are above the grid; the PRINTING block's colours are the grid; the rest of PRINTING, the COATING block, the FINISHING block and the retest date are below it.",
       PRINTING_TURN_NOTE,
@@ -381,6 +383,8 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/07 — Certificate of Analysis [COA] For Shrink Sleeves ----
   "qc-coa-sleeve": {
     documentId: "qc-coa-sleeve",
+    // The certificate prints its own numbers 1 to 10 over the colour table (REQUIREMENTS §102).
+    ownLineNumbers: true,
     instructions: [
       "Certificate of Analysis [COA] For Shrink Sleeves. The certificate's own boxes and the SLEEVE FILM block are above the grid; the PRINTING block's colours are the grid; the rest of PRINTING, the COATING block, the FINISHING block and the retest date are below it.",
       PRINTING_TURN_NOTE,
