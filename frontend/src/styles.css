@@ -2728,6 +2728,8 @@ html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-hei
   .access-line { grid-template-columns: minmax(0, 1fr); }
   .access-drawer { max-width: 100%; }
 }
+.notif-title, .notif-body, .notif-when, .access-name .block { display: block; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .notif-day { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); margin: 14px 0 6px; }
 .notif-item { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: inherit; font: inherit; cursor: pointer; }
 .notif-item + .notif-item { margin-top: 6px; }
@@ -2741,6 +2743,8 @@ html.print-scoped .doc-table th.score-minus-head { white-space: normal; line-hei
 .notif-body { font-size: 12.5px; color: var(--color-text-muted); margin-top: 2px; overflow-wrap: anywhere; }
 .notif-when { font-size: 11px; color: var(--color-text-muted); margin-top: 3px; }
 .notif-item[data-resolved="yes"] .notif-title { color: var(--color-text-muted); }
+.bell-ledger { max-height: 320px; overflow-y: auto; padding-right: 2px; }
+.bell-ledger .notif-item { padding: 7px 8px; }
 
 /* ==== end of §96 and §97 ==== */
 

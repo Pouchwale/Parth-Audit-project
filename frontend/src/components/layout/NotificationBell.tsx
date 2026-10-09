@@ -9,11 +9,13 @@ import { ReminderList } from "../common/ReminderList";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { priorityOf, PRIORITY_ORDER, type Priority } from "../../engine/notifications";
 import { escalationLine } from "../../engine/performance";
-import { escalationsApi, ESCALATIONS_CHANGED, forgetEscalationsSeen, type Escalation } from "../../api/client";
+import { escalationsApi, ESCALATIONS_CHANGED, forgetEscalationsSeen, notificationsApi, NOTIFICATIONS_CHANGED, type Escalation, type NotificationItem } from "../../api/client";
 import { openBriefing } from "../common/AssistantBriefingPopup";
 import { remindNow } from "../common/SoundVoiceHost";
 import { chimeForNews, emitCue } from "../../engine/engageBus";
-import { useT } from "../../i18n";
+import { useLanguage, useT } from "../../i18n";
+import { ledgerLanguage, markedRead } from "../../engine/notificationView";
+import { markNotificationsRead, NotificationRow, routeForNotification } from "../../pages/NotificationsPage";
 
 // Reminders only ever track Live records, regardless of which mode (Live /
 // Demo) is currently toggled — same reasoning DashboardPage documents for
@@ -35,11 +37,20 @@ const MAX_SHOWN = 20;
 // again, and their own action has its sound (engine/engageBus.ts chimeForNews).
 const SETTLE_MS = 5000;
 
+// THE SERVER'S NOTIFICATIONS (REQUIREMENTS §97): the newest 20 of the person's ledger (GET /api/notifications), asked
+// a moment after the app opens, each time the bell is opened, when one is marked read anywhere, and every few minutes
+// while the tab is shown (the server works them out every five). A small answer: nothing here walks the records.
+const LEDGER_SHOWN = 20;
+const LEDGER_EVERY_MS = 3 * 60 * 1000;
+const LEDGER_FIRST_MS = 1500;
+
 export function NotificationBell() {
   const { version, bump } = useAppStore();
   const { user } = useAuth();
   const { navigate } = useRouter();
   const t = useT();
+  const { lang } = useLanguage();
+  const ledgerLang = ledgerLanguage(lang);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const mountedAt = useRef(Date.now());
@@ -144,7 +155,53 @@ export function NotificationBell() {
       .finally(() => setAcking(null));
   };
 
-  const badge = reminders.length + escalations.length;
+  // The ledger: null until the server has answered (or when it cannot: an older server, a hiccup), which leaves the bell as it was.
+  const [ledger, setLedger] = useState<{ items: NotificationItem[]; unread: number } | null>(null);
+  const readLedger = useCallback(() => {
+    if (!user) return;
+    if (typeof document !== "undefined" && document.hidden) return;
+    notificationsApi
+      .list({ state: "all", limit: LEDGER_SHOWN, lang: ledgerLang })
+      .then((res) => setLedger({ items: Array.isArray(res?.items) ? res.items : [], unread: typeof res?.unread === "number" ? res.unread : 0 }))
+      .catch(() => undefined);
+  }, [user, ledgerLang]);
+  useEffect(() => {
+    const first = window.setTimeout(readLedger, LEDGER_FIRST_MS);
+    const every = window.setInterval(readLedger, LEDGER_EVERY_MS);
+    window.addEventListener(NOTIFICATIONS_CHANGED, readLedger);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(every);
+      window.removeEventListener(NOTIFICATIONS_CHANGED, readLedger);
+    };
+  }, [readLedger]);
+  useEffect(() => {
+    if (open) readLedger();
+  }, [open, readLedger]);
+
+  // What the ledger adds to the badge: its unread items that are not already a reminder or an escalation shown here.
+  const reminderIds = useMemo(() => new Set(reminders.map((r) => r.recordId)), [reminders]);
+  const ledgerExtra = useMemo(
+    () =>
+      (ledger?.items ?? []).filter((i) => i.readAt === null && i.resolvedAt === null && i.kind !== "escalation" && !(i.data?.recordId && reminderIds.has(i.data.recordId))).length,
+    [ledger, reminderIds]
+  );
+  const ledgerHigh = (ledger?.items ?? []).some((i) => i.readAt === null && i.resolvedAt === null && i.priority === "high");
+
+  const openLedgerItem = (item: NotificationItem) => {
+    setOpen(false);
+    if (item.readAt === null) {
+      setLedger((was) => (was ? { items: markedRead(was.items, [item.id], new Date().toISOString()), unread: Math.max(0, was.unread - 1) } : was));
+      void markNotificationsRead({ ids: [item.id] });
+    }
+    navigate(routeForNotification(item));
+  };
+  const markLedgerRead = () => {
+    setLedger((was) => (was ? { items: markedRead(was.items, "all", new Date().toISOString()), unread: 0 } : was));
+    void markNotificationsRead({ all: true });
+  };
+
+  const badge = reminders.length + escalations.length + ledgerExtra;
 
   useEffect(() => {
     if (!open) return;
@@ -162,13 +219,14 @@ export function NotificationBell() {
         onClick={() => setOpen((o) => !o)}
         aria-label="Reminders"
         data-escalations={escalations.length}
+        data-unread={ledger ? ledger.unread : undefined}
         style={{ position: "relative" }}
       >
         <FiBell size={15} />
         {/* The count on a FILL of its level (styles.css .bell-count), so its figure
             reads in either theme (REQUIREMENTS §90). */}
         {badge > 0 && (
-          <span className="bell-count" data-field="bell-count" data-level={escalations.length > 0 || highCount > 0 ? "danger" : urgentCount > 0 ? "warning" : "neutral"}>
+          <span className="bell-count" data-field="bell-count" data-level={escalations.length > 0 || highCount > 0 || ledgerHigh ? "danger" : urgentCount > 0 || ledgerExtra > 0 ? "warning" : "neutral"}>
             {badge > 99 ? "99+" : badge}
           </span>
         )}
@@ -223,6 +281,43 @@ export function NotificationBell() {
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+            {/* THE SERVER'S NOTIFICATIONS (REQUIREMENTS §97): the newest 20, unread marked, each opening its record;
+                below the escalations, which stay first. "See all" is the Notifications page. */}
+            {ledger && (
+              <div className="mb-3" data-section="bell-notifications" data-count={ledger.items.length} data-unread={ledger.unread}>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-xs font-semibold">
+                    {t("notif.bell.heading")}
+                    {ledger.unread > 0 ? ` · ${ledger.unread === 1 ? t("notif.unreadOne") : t("notif.unread", { n: ledger.unread })}` : ""}
+                  </span>
+                  {ledger.unread > 0 && (
+                    <button type="button" className="btn btn-ghost btn-sm" data-action="bell-mark-all-read" onClick={markLedgerRead}>
+                      <FiCheck size={12} /> {t("notif.markAllRead")}
+                    </button>
+                  )}
+                </div>
+                {ledger.items.length === 0 ? (
+                  <p className="text-xs text-muted mb-1">{t("notif.bell.none")}</p>
+                ) : (
+                  <div className="bell-ledger">
+                    {ledger.items.map((item) => (
+                      <NotificationRow key={item.id} item={item} onOpen={openLedgerItem} compact lang={ledgerLang} />
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm mt-2 w-full"
+                  data-action="bell-see-all"
+                  onClick={() => {
+                    setOpen(false);
+                    navigate("/notifications");
+                  }}
+                >
+                  {t("notif.seeAll")}
+                </button>
               </div>
             )}
             {/* MITRA SAYS IT (REQUIREMENTS §81): the most urgent thing of theirs, aloud, now. */}
