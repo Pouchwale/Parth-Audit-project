@@ -64,6 +64,9 @@ it('opens what a tapped alert is about: its record, Tasks, or the inbox, also fr
   const several = { url: 'mitra://inbox', kind: 'group', count: 3 };
   expect(linkOf(several)).toEqual({ screen: 'inbox' });
   expect(notificationIdOf(several)).toBeNull();
+  // The test push from Settings ("kind": "test") opens the inbox; a record's id comes encoded in the link.
+  expect(linkOf({ url: 'mitra://inbox', kind: 'test', count: 0 })).toEqual({ screen: 'inbox' });
+  expect(linkOf({ url: `mitra://task/${encodeURIComponent('rec/7 b')}`, kind: 'verify', recordId: 'rec/7 b', count: 1 })).toEqual({ screen: 'task', recordId: 'rec/7 b' });
   expect(itemLink({ kind: 'needs_input', data: { recordId: 'rec-1' } })).toEqual({ screen: 'task', recordId: 'rec-1' });
   expect(itemLink({ kind: 'upcoming', data: { documentId: 'qc-viscosity', dueDate: '2026-10-09' } })).toEqual({ screen: 'tasks' });
   expect(itemLink({ kind: 'access_changed', data: {} })).toBeNull();

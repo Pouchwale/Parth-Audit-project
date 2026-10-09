@@ -563,12 +563,13 @@ export interface NotificationData {
 
 /**
  * What a push alert from DCRS carries in its data (DCRS's docs/chatbot-integration.md, "What a push carries"): the deep
- * link (mitra://task/<recordId> for one record, mitra://inbox for several or none), the item's kind (group for
- * several), its id when there is one item, its record, and how many items it stands for. Never a record's values.
+ * link (mitra://task/<recordId>, the id encoded, for one record; mitra://inbox for several or none), the item's kind
+ * (group for several, test for the test push from Settings), its id when there is one item, its record, and how many
+ * items it stands for. Never a record's values.
  */
 export interface PushData {
   url?: string;
-  kind?: NotificationKind | 'group';
+  kind?: NotificationKind | 'group' | 'test';
   notificationId?: number;
   recordId?: string;
   count?: number;

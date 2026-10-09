@@ -109,7 +109,7 @@ DCRS tells each person what they answer for, and Mitra shows it on the phone: th
 | A person whose access the super admin changed | **Access changes**. |
 | The super admin | The above for documents nobody answers for, a **morning and evening summary** counted by module, and the **escalations**. |
 
-The staff are alerted only during the plant's working hours (8:40 am to 6:20 pm on working days); anything that comes up outside them waits for the next morning. The super admin can be alerted at any hour. An alert names the document and how many readings wait, never a value from a record.
+The staff are alerted only during the plant's working hours (8:40 am to 6:20 pm on working days); anything that comes up outside them waits until the working hours start again. The super admin can be alerted at any hour. An alert names the document and how many readings wait, never a value from a record.
 
 **On the phone.**
 
