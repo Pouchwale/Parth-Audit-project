@@ -5,6 +5,7 @@ import * as Updates from 'expo-updates';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NotificationSettings } from '@/components/notifications/NotificationSettings';
 import { ServerAddressForm } from '@/components/ServerAddressForm';
 import { Avatar, Button, Card, Chip, Notice, SectionTitle, SegmentedControl, Toggle } from '@/components/ui';
 import { MaxContentWidth, Spacing, useTheme } from '@/constants/theme';
@@ -73,6 +74,9 @@ export default function SettingsScreen() {
           You can ask in English, Gujarati or Hindi, in its own letters or in English letters.
         </Text>
       </Card>
+
+      <SectionTitle>Notifications</SectionTitle>
+      <NotificationSettings />
 
       <SectionTitle>Voice</SectionTitle>
       <Card>

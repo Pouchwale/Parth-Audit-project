@@ -8,6 +8,7 @@ import { AppName } from '@/constants/brand';
 import { Colors, navigationTheme, useColorSchemeSetting } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { ConversationsProvider } from '@/lib/conversations';
+import { NotificationRouter, NotificationsProvider } from '@/lib/notifications';
 import { SettingsProvider } from '@/lib/settings';
 
 SplashScreen.preventAutoHideAsync();
@@ -19,9 +20,11 @@ export default function RootLayout() {
   return (
     <SettingsProvider>
       <AuthProvider>
-        <ConversationsProvider>
-          <ThemedApp />
-        </ConversationsProvider>
+        <NotificationsProvider>
+          <ConversationsProvider>
+            <ThemedApp />
+          </ConversationsProvider>
+        </NotificationsProvider>
       </AuthProvider>
     </SettingsProvider>
   );
@@ -55,22 +58,29 @@ function Screens() {
   if (status === 'loading') return null;
 
   return (
-    <Stack screenOptions={{ headerShadowVisible: false }}>
-      <Stack.Protected guard={status === 'signedIn'}>
-        <Stack.Screen name="(app)" options={{ headerShown: false, title: AppName }} />
-        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-        <Stack.Screen name="viewer" options={{ title: 'File' }} />
-        <Stack.Protected guard={user?.role === 'super_admin'}>
-          <Stack.Screen name="admin/index" options={{ title: 'Accounts' }} />
-          <Stack.Screen name="admin/[userId]" options={{ title: 'Account' }} />
-          <Stack.Screen name="admin/security" options={{ title: 'Security' }} />
-          <Stack.Screen name="admin/exports/[exportId]" options={{ title: 'Download' }} />
-          <Stack.Screen name="admin/reports/[weekStart]" options={{ title: 'Weekly report' }} />
+    <>
+      {/* A tapped alert opens its record, Tasks or the inbox; one that opened the app waits for the sign-in. */}
+      {status === 'signedIn' ? <NotificationRouter /> : null}
+      <Stack screenOptions={{ headerShadowVisible: false }}>
+        <Stack.Protected guard={status === 'signedIn'}>
+          <Stack.Screen name="(app)" options={{ headerShown: false, title: AppName }} />
+          <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+          <Stack.Screen name="viewer" options={{ title: 'File' }} />
+          <Stack.Screen name="inbox" options={{ title: 'Inbox' }} />
+          <Stack.Screen name="tasks" options={{ title: 'Tasks' }} />
+          <Stack.Screen name="task/[recordId]" options={{ title: 'Record' }} />
+          <Stack.Protected guard={user?.role === 'super_admin'}>
+            <Stack.Screen name="admin/index" options={{ title: 'Accounts' }} />
+            <Stack.Screen name="admin/[userId]" options={{ title: 'Account' }} />
+            <Stack.Screen name="admin/security" options={{ title: 'Security' }} />
+            <Stack.Screen name="admin/exports/[exportId]" options={{ title: 'Download' }} />
+            <Stack.Screen name="admin/reports/[weekStart]" options={{ title: 'Weekly report' }} />
+          </Stack.Protected>
         </Stack.Protected>
-      </Stack.Protected>
-      <Stack.Protected guard={status === 'signedOut'}>
-        <Stack.Screen name="sign-in" options={{ headerShown: false, title: 'Sign in' }} />
-      </Stack.Protected>
-    </Stack>
+        <Stack.Protected guard={status === 'signedOut'}>
+          <Stack.Screen name="sign-in" options={{ headerShown: false, title: 'Sign in' }} />
+        </Stack.Protected>
+      </Stack>
+    </>
   );
 }

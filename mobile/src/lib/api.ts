@@ -9,6 +9,7 @@ import type {
   ConversationSummary,
   CurrentUser,
   DecisionRequest,
+  DeviceRegistration,
   ExportDetail,
   ExportPage,
   ExportRequest,
@@ -17,8 +18,22 @@ import type {
   LoginRequest,
   LoginResponse,
   MessageRequest,
+  NotificationLanguage,
+  NotificationList,
+  NotificationPreferences,
+  NotificationReadRequest,
+  NotificationReadResponse,
+  OkResponse,
+  RecordActionRequest,
+  RecordChangeRequest,
+  RecordChangeResult,
+  RecordView,
   RenameConversationRequest,
   SignInInfo,
+  StartedRecord,
+  StartRecordRequest,
+  Tasks,
+  TestNotificationResponse,
   TranscriptionResponse,
   WeeklyReport,
   WeeklyReportSummary,
@@ -155,7 +170,7 @@ export async function requestFailed(response: { status: number; json(): Promise<
 export type FileData = Uint8Array<ArrayBuffer> | Blob;
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   token?: string;
   /** Sent as JSON. */
   body?: unknown;
@@ -281,6 +296,31 @@ export const api = {
   weeklyReports: (token: string) => request<WeeklyReportSummary[]>('/admin/reports/weekly', { token }),
   weeklyReport: (token: string, weekStart: string) =>
     request<WeeklyReport>(`/admin/reports/weekly/${encodeURIComponent(weekStart)}`, { token }),
+
+  // The inbox, Tasks and the Review screen: DCRS's, relayed by the Mitra server as the person (shared/api.ts).
+  notifications: (token: string, options: { state?: 'open' | 'all'; limit?: number; before?: number; lang: NotificationLanguage }) =>
+    request<NotificationList>(
+      `/notifications${query({ state: options.state, limit: options.limit?.toString(), before: options.before?.toString(), lang: options.lang })}`,
+      { token },
+    ),
+  markRead: (token: string, body: NotificationReadRequest) => request<NotificationReadResponse>('/notifications/read', { method: 'POST', body, token }),
+  testNotification: (token: string) => request<TestNotificationResponse>('/notifications/test', { method: 'POST', token }),
+  notificationPreferences: (token: string) => request<NotificationPreferences>('/notification-preferences', { token }),
+  saveNotificationPreferences: (token: string, body: NotificationPreferences) =>
+    request<NotificationPreferences>('/notification-preferences', { method: 'PUT', body, token }),
+  /** Waits 10 seconds at most: registering never holds anything else up. */
+  registerDevice: (token: string, body: DeviceRegistration) =>
+    request<OkResponse>('/devices', { method: 'POST', body, token, signal: deadline(10_000) }),
+  /** Waits 5 seconds at most, as signing out does. */
+  removeDevice: (token: string, pushToken: string) =>
+    request<OkResponse>('/devices', { method: 'DELETE', body: { token: pushToken }, token, signal: deadline(5_000) }),
+  tasks: (token: string) => request<Tasks>('/tasks', { token }),
+  startRecord: (token: string, body: StartRecordRequest) => request<StartedRecord>('/records', { method: 'POST', body, token }),
+  record: (token: string, recordId: string) => request<RecordView>(`/records/${encodeURIComponent(recordId)}`, { token }),
+  changeRecord: (token: string, recordId: string, body: RecordChangeRequest) =>
+    request<RecordChangeResult>(`/records/${encodeURIComponent(recordId)}/changes`, { method: 'POST', body, token }),
+  actOnRecord: (token: string, recordId: string, body: RecordActionRequest) =>
+    request<RecordChangeResult>(`/records/${encodeURIComponent(recordId)}/actions`, { method: 'POST', body, token }),
 };
 
 export function errorMessage(error: unknown): string {

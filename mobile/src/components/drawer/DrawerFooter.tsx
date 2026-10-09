@@ -10,10 +10,14 @@ export function DrawerFooter({
   onOpenSettings,
   onOpenAccounts,
   onOpenSecurity,
+  onOpenTasks,
+  onOpenInbox,
 }: {
   onOpenSettings(): void;
   onOpenAccounts(): void;
   onOpenSecurity(): void;
+  onOpenTasks(): void;
+  onOpenInbox(): void;
 }) {
   const theme = useTheme();
   const { user } = useAuth();
@@ -21,6 +25,10 @@ export function DrawerFooter({
 
   return (
     <View style={[styles.footer, { borderTopColor: theme.border }]}>
+      <View style={styles.adminLinks}>
+        <AdminLink icon="checkbox-outline" label="Tasks" onPress={onOpenTasks} />
+        <AdminLink icon="notifications-outline" label="Inbox" onPress={onOpenInbox} />
+      </View>
       {user.role === 'super_admin' ? (
         <View style={styles.adminLinks}>
           <AdminLink icon="people-outline" label="Accounts" onPress={onOpenAccounts} />

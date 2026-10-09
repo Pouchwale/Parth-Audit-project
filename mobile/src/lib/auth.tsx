@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { CurrentUser } from '@shared/api';
 import { api, ApiError, loadServer } from './api';
 import { deviceInfo } from './device';
+import { unregister } from './push';
 import { deleteItem, getItem, setItem } from './storage';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
@@ -70,6 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     current.current = null;
+    // This phone stops getting the person's alerts first, while the sign-in still works; never in the way of signing out.
+    await unregister(token).catch(() => undefined);
     if (token) await api.logout(token).catch(() => undefined);
     await forget(null);
   }, [token, forget]);

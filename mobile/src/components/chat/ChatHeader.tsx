@@ -1,10 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Bell } from '@/components/notifications/Bell';
 import { ICON_BUTTON_SIZE, IconButton } from '@/components/ui';
 import { Spacing, useTheme } from '@/constants/theme';
 
 /**
- * The chat's top bar: the menu that opens the chat list, the chat's title, Share once there is something to
- * share, and New chat.
+ * The chat's top bar: the menu that opens the chat list, the bell that opens the inbox, the chat's title, Share once
+ * there is something to share, and New chat.
  */
 export function ChatHeader({
   title,
@@ -23,6 +24,7 @@ export function ChatHeader({
       {/* Both sides take the same width, so the title stays centred whether or not Share is shown. */}
       <View style={styles.side}>
         <IconButton icon="menu" label="Open chats" onPress={onOpenMenu} />
+        <Bell />
       </View>
       <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]} numberOfLines={1}>
         {title}

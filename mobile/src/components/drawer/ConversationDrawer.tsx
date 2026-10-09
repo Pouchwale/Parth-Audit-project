@@ -54,7 +54,7 @@ export function ConversationDrawer({ navigation }: DrawerContentComponentProps) 
     close();
   }
 
-  function openScreen(href: '/settings' | '/admin' | '/admin/security') {
+  function openScreen(href: '/settings' | '/admin' | '/admin/security' | '/tasks' | '/inbox') {
     close();
     router.push(href);
   }
@@ -96,6 +96,8 @@ export function ConversationDrawer({ navigation }: DrawerContentComponentProps) 
         onOpenSettings={() => openScreen('/settings')}
         onOpenAccounts={() => openScreen('/admin')}
         onOpenSecurity={() => openScreen('/admin/security')}
+        onOpenTasks={() => openScreen('/tasks')}
+        onOpenInbox={() => openScreen('/inbox')}
       />
       {selected ? (
         <ConversationActions

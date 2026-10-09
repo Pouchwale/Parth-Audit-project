@@ -28,8 +28,11 @@ import { ShareNotice } from './ShareNotice';
 import { UnsentRequest } from './UnsentRequest';
 import { Welcome } from './Welcome';
 
-/** A conversation: a new one when `conversationId` is missing, otherwise the saved one. */
-export function ChatScreen({ conversationId }: { conversationId?: string }) {
+/**
+ * A conversation: a new one when `conversationId` is missing, otherwise the saved one. `initialDraft` starts the message
+ * box with words to finish, such as the record the Review screen asks about.
+ */
+export function ChatScreen({ conversationId, initialDraft }: { conversationId?: string; initialDraft?: string | undefined }) {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<ParamListBase>>();
   // The drawer keeps a chat mounted once it has been shown, and so does a screen opened on top of it.
@@ -43,7 +46,7 @@ export function ChatScreen({ conversationId }: { conversationId?: string }) {
   const reading = useReading();
   const voiceNote = useVoiceNote();
   const sharing = useShareConversation();
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(initialDraft ?? '');
   const attachments = useAttachments();
 
   const busy = state.running !== null;
