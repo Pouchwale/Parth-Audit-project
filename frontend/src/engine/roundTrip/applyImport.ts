@@ -36,7 +36,7 @@ import { logActivity } from "../../utils/activityLog";
 import { todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { withComputedCells } from "../computedCells";
-import { isDocumentIdVisible } from "../departmentScope";
+import { isDocumentIdVisible, mayDo } from "../departmentScope";
 import { emitCue } from "../engageBus";
 import { isCorrectableStatus, isEditableStatus, reopenForCorrection, saveDraft } from "../recordLifecycle";
 import { fieldLabels, keepChecklistOrder, serviceLinesAfterPatch } from "../recordPatch";
@@ -222,7 +222,7 @@ function settleChecklist(before: Obj, after: Obj, today: string): { data: unknow
 export type RecordWay =
   | { way: "edit"; via: "page" | "store"; status: RecordStatus }
   | { way: "reopen"; via: "page" | "store"; status: RecordStatus }
-  | { way: "locked"; via: "page" | "store"; status: RecordStatus; why: "superseded" | "status" | "page" }
+  | { way: "locked"; via: "page" | "store"; status: RecordStatus; why: "superseded" | "status" | "page" | "level" }
   | { way: "gone" };
 
 export function howToChange(recordId: string, getTarget: () => UploadTarget | null): RecordWay {
@@ -234,8 +234,10 @@ export function howToChange(recordId: string, getTarget: () => UploadTarget | nu
   }
   const r = storedRecord(recordId);
   if (!r) return { way: "gone" };
-  if (isEditableStatus(r.status)) return { way: "edit", via: "store", status: r.status };
-  if (isCorrectableStatus(r.status) && !supersededRevisionOf(r)) return { way: "reopen", via: "store", status: r.status };
+  // The person's level on the document (REQUIREMENTS §96): filling needs Write (Edit while under correction), and
+  // reopening a signed-off record for correction needs Edit. Below it the record is locked for the upload.
+  if (isEditableStatus(r.status)) return mayDo(r.documentId, r.correction ? "correct" : "fill") ? { way: "edit", via: "store", status: r.status } : { way: "locked", via: "store", status: r.status, why: "level" };
+  if (isCorrectableStatus(r.status) && !supersededRevisionOf(r)) return mayDo(r.documentId, "correct") ? { way: "reopen", via: "store", status: r.status } : { way: "locked", via: "store", status: r.status, why: "level" };
   return { way: "locked", via: "store", status: r.status, why: supersededRevisionOf(r) ? "superseded" : "status" };
 }
 

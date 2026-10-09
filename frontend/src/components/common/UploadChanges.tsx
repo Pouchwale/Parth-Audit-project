@@ -467,7 +467,13 @@ function UploadChangesDialog({ request }: { request: UploadRequest }) {
                       )}
                       {way.way === "locked" && (
                         <p className="rt-note rt-danger" data-section="upload-locked">
-                          {way.why === "superseded" ? t("rt.locked.superseded") : way.why === "page" ? t("rt.locked.page") : t("rt.locked.status", { status: statusWord(way.status) })}
+                          {way.why === "superseded"
+                            ? t("rt.locked.superseded")
+                            : way.why === "page"
+                              ? t("rt.locked.page")
+                              : way.why === "level"
+                                ? t("rt.locked.level")
+                                : t("rt.locked.status", { status: statusWord(way.status) })}
                         </p>
                       )}
                       {way.way === "gone" && (

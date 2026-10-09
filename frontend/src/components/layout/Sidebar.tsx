@@ -309,6 +309,9 @@ const MODULE_LINKS: Record<ModuleName, NavEntry[]> = {
     { headingKey: "nav.purSupplierMonitoring" },
     { to: "/document/pur-supplier-performance", labelKey: "nav.purRmPmPerformance", icon: FiTrendingUp },
     { to: "/document/pur-service-provider-performance", labelKey: "nav.purServiceProvider", icon: FiActivity },
+    // The pest control service agreement is Purchase's (data/seed/documentDepartments.ts: Purchase signs it) though it
+    // is kept with the pest control file: Purchase reaches it here, on the Service Provider page (REQUIREMENTS §96).
+    { to: "/licence/agreement", labelKey: "nav.purServiceAgreement", icon: FiFileText },
   ],
   // Store — the department's two F/STR formats (REQUIREMENTS §71), in the
   // order the material moves through it: the check made on the vehicle and
@@ -399,6 +402,21 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   // QC Records (data/seed/qcModule.ts): shown when any one of the formats it
   // lists is the viewer's — Quality Control's or Quality Assurance's.
   "/qc": QC_OVERVIEW_DOCUMENT_IDS,
+  // The pest control file's overview is shown when one of the file's own documents is the viewer's: not for the service
+  // agreement alone, which is Purchase's (the people review of 9-Oct-2026: Chirag Parmar, who views Purchase only, was
+  // given a Human Resources module holding nothing but this overview).
+  "/pest-control": [
+    "daily-pest-monitoring",
+    "service-report-rodent",
+    "service-report-general",
+    "service-report-fly",
+    "fly-catcher",
+    "training-record",
+    "chemical-master",
+    "gurudev-insecticide-licence",
+    "pest-responsibilities",
+  ],
+  "/licence/agreement": ["service-agreement"],
   "/pest/daily": ["daily-pest-monitoring"],
   "/pest/service/rodent": ["service-report-rodent"],
   "/pest/service/general": ["service-report-general"],
@@ -716,7 +734,7 @@ export function Sidebar() {
             // still tells you the page you're on lives inside it.
             const holdsCurrentPage = entries.some((entry) => !isHeading(entry) && isActivePath(path, entry.to));
             return (
-              <div key={module} className={`nav-module ${open ? "open" : "closed"} ${holdsCurrentPage ? "current" : ""}`}>
+              <div key={module} className={`nav-module ${open ? "open" : "closed"} ${holdsCurrentPage ? "current" : ""}`} data-module={module}>
                 <button
                   type="button"
                   className="nav-module-header"

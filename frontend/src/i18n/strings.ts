@@ -284,6 +284,7 @@ const en = {
   "nav.purApprovedSuppliers": "List of Approved Suppliers",
   "nav.purRmPmPerformance": "RM & PM Supplier Performance",
   "nav.purServiceProvider": "Service Provider Performance",
+  "nav.purServiceAgreement": "Pest Control Service Agreement",
   "nav.purchaseDocs": "Purchase Documents",
   // Dispatch (REQUIREMENTS §70).
   "nav.dispatchDocs": "Dispatch Documents",
@@ -1100,6 +1101,7 @@ const gu: Record<StringKey, string> = {
   "nav.purApprovedSuppliers": "મંજૂર સપ્લાયરની યાદી",
   "nav.purRmPmPerformance": "RM અને PM સપ્લાયર કામગીરી",
   "nav.purServiceProvider": "સેવા પ્રદાતા કામગીરી",
+  "nav.purServiceAgreement": "પેસ્ટ કંટ્રોલ સેવા કરાર",
   "nav.purchaseDocs": "ખરીદી દસ્તાવેજો",
   "nav.dispatchDocs": "ડિસ્પેચ દસ્તાવેજો",
   "nav.dispTransporterAgreement": "ટ્રાન્સપોર્ટર કરાર",
