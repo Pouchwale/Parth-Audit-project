@@ -511,6 +511,50 @@ test("the shared-department rule, said outright: who a record counts for", () =>
   assert.equal(late.get("u-vijay"), 2);
 });
 
+test("by the access rules (REQUIREMENTS §96): a record counts against the people who answer for its document", () => {
+  // The owner, 7-Oct-2026: each document has the people who fill it; a late or missed record is theirs, whatever
+  // department their account is kept to (engine/accessRules.ts answersFor; the server's escalation and digest,
+  // backend/escalation.ts, and the scorecard pass who answers for each document as answerersOf).
+  const byId = new Map(PEOPLE.map((p) => [p.id, p] as const));
+  const answerers = new Map<string, REFERENCE.Person[]>([
+    [qcDaily.id, [byId.get("u-priya")!]], // the super admin gave the QC daily to Priya (kept to PRD and MNT)
+    [hrDaily.id, [byId.get("u-roshni")!, byId.get("u-vijay")!]], // two answer for F/HR/17
+  ]);
+  const late = new Map<string, number>();
+  const missed = new Map<string, number>();
+  const nobody: string[] = [];
+  const { accountsOf } = attribute(
+    SYNTHETIC,
+    documents,
+    PEOPLE,
+    { from: "2026-09-01", to: "2026-09-30" },
+    "2026-09-24",
+    { isClosedDay: closedDays(master) },
+    (d) => departmentOfDocument(d.id, d.formatNo),
+    (c) => {
+      if (c.answering.length === 0) nobody.push(c.record.id);
+      const into = c.judgement.outcome === "late" ? late : c.judgement.outcome === "overdue" ? missed : null;
+      if (into) for (const a of c.answering) into.set(a.id, (into.get(a.id) ?? 0) + 1);
+    },
+    (d) => answerers.get(d.id) ?? []
+  );
+  // F-QC daily: Priya's, every late and missed one; Yogesh, whose account is kept to QC, answers for none of it.
+  assert.equal(late.get("u-yogesh"), undefined);
+  assert.equal(missed.get("u-yogesh"), undefined);
+  assert.equal(late.get("u-priya"), 2, "07-Sep, 3 days late, and 19-Sep, handed in on the 22nd");
+  assert.equal(missed.get("u-priya"), 2, "09-Sep and 18-Sep never done");
+  // Where two answer, the one who handed it in; never done, or handed in by somebody else, both.
+  assert.equal(late.get("u-roshni"), 2, "07-Sep, hers, and 11-Sep, the administrator's");
+  assert.equal(late.get("u-vijay"), 1, "11-Sep, the administrator's");
+  assert.equal(missed.get("u-roshni"), 1);
+  assert.equal(missed.get("u-vijay"), 1);
+  // A document nobody answers for counts against nobody: the super admin answers for it (the escalation's department line).
+  assert.ok(nobody.length > 0 && nobody.every((id) => SYNTHETIC.find((r) => r.id === id)!.documentId !== qcDaily.id && SYNTHETIC.find((r) => r.id === id)!.documentId !== hrDaily.id));
+  // A module's people are those who answer for one of its documents.
+  assert.deepEqual((accountsOf.get("QC") ?? []).map((p) => p.id), ["u-priya"]);
+  assert.deepEqual((accountsOf.get("HR") ?? []).map((p) => p.id).sort(), ["u-roshni", "u-vijay"]);
+});
+
 test("the plant's date of a moment: the server's clock need not be the plant's", () => {
   assert.equal(dateInZone("2026-09-23T20:00:00.000Z", "Asia/Kolkata"), "2026-09-24");
   assert.equal(dateInZone("2026-09-23T20:00:00.000Z", "UTC"), "2026-09-23");

@@ -33,6 +33,7 @@
 // imports). backend/tests/accessLevels.test.ts holds every path to it.
 import {
   ACCESS_MODULES,
+  DEFAULT_PEOPLE,
   atLeast,
   buildAccess,
   levelNeeded,
@@ -85,6 +86,18 @@ export interface CatalogueDoc extends AccessDoc {
   name: string;
 }
 
+/** One document definition (as stored, or as a server module reads it), as the rules read it. */
+export function catalogueDoc(d: { id: string; formatNo?: unknown; name?: unknown; kind?: unknown; isReferenceOnly?: unknown }): CatalogueDoc {
+  const formatNo = text(d.formatNo);
+  return {
+    id: d.id,
+    formatNo,
+    name: text(d.name) || d.id,
+    department: departmentOfDocument(d.id, formatNo),
+    reference: d.isReferenceOnly === true || REFERENCE_KINDS.has(text(d.kind)),
+  };
+}
+
 /** The stored document definitions, as the rules read them. */
 export function catalogueOf(documentsValue: string | null | undefined): CatalogueDoc[] {
   const parsed = parseJson(documentsValue);
@@ -94,14 +107,7 @@ export function catalogueOf(documentsValue: string | null | undefined): Catalogu
   for (const d of parsed) {
     if (!isObj(d) || typeof d.id !== "string" || !d.id || seen.has(d.id)) continue;
     seen.add(d.id);
-    const formatNo = text(d.formatNo);
-    out.push({
-      id: d.id,
-      formatNo,
-      name: text(d.name) || d.id,
-      department: departmentOfDocument(d.id, formatNo),
-      reference: d.isReferenceOnly === true || REFERENCE_KINDS.has(text(d.kind)),
-    });
+    out.push(catalogueDoc(d as { id: string }));
   }
   return out;
 }
@@ -550,6 +556,30 @@ export function checkFormatChange(view: AccessView, key: "documents" | "formatEd
   const changed = changedDocuments(key, storedValue, postedValue);
   view.catalogue.include(changed);
   for (const id of changed) if (!view.may(id, "format")) throw new AccessRefused(refusalBody(view, id, "format"));
+}
+
+// ---------------------------------------------------------------------------
+// whom a late or missed record counts against
+
+/**
+ * WHO ANSWERS FOR A DOCUMENT (REQUIREMENTS §96): the people it names who may fill it (accessRules.ts responsible and
+ * Write or more) — the ones told when it falls due, and whom a late or missed record counts against in the
+ * escalation, the weekly digest and the scorecard. The website's own rule (engine/departmentScope.ts scoreAnswerRule):
+ * an account the rules never name answers for its departments' documents, as before; the super admin, and an account
+ * with no departments, for none.
+ */
+export function answerRule(catalogue: AccessCatalogue): (person: AccessAccount, documentId: string) => boolean {
+  const access = catalogue.access;
+  const described = new Set<string>([...DEFAULT_PEOPLE.map((p) => p.email), ...Object.keys(catalogue.rules.people)]);
+  for (const d of catalogue.docs) for (const e of access.responsible(d.id)) described.add(e);
+  return (person, documentId) => {
+    if (person.role === "admin") return false;
+    const email = person.email.trim().toLowerCase();
+    if (described.has(email)) return access.responsible(documentId).includes(email) && access.may({ ...person, email }, documentId, "fill");
+    const code = catalogue.byId.get(documentId)?.department ?? departmentOfDocument(documentId, undefined);
+    const kept = (person.departments ?? []).map((c) => c.trim().toUpperCase()).filter(Boolean);
+    return !!code && kept.includes(code);
+  };
 }
 
 // ---------------------------------------------------------------------------
