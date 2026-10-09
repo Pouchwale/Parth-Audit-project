@@ -6433,7 +6433,9 @@ throwaway server and walked every screen, the phone's routes and the jobs:
 - **Upload changes** (an edited Word or Excel written back into records) is offered only with Write, and reopens a
   signed-off record only with Edit; below that the record is "locked" for the upload with the level as the reason.
 - **Small words**: a prepared record's banner tells a reader nothing to enter or submit; the bell's panel closes on
-  Escape and on another page, its own words and the daily nudge's headline are in Gujarati when Gujarati is chosen, and
+  Escape and on another page; its own words have Gujarati of DCRS's own (with Gujarati chosen the screens are written in
+  English for Google Translate, and DCRS's Gujarati is used when Google cannot be reached, i18n/googleTranslate.ts),
+  the daily nudge's headline is the Gujarati sentence Mitra says aloud, and
   each reminder names who answers for the document by the owner's table ("Answers for it: Kapila Barad",
   engine/departmentScope.ts `answerersOf`), not Master Data's roles.
 - **The browser suites' servers never push to a real phone service** (`PUSH_ENABLED=0` in scripts/run-e2e.ts).
@@ -6710,7 +6712,8 @@ morning and evening summaries with their counts by module in a table, and the es
 English and Gujarati (i18n/strings.notifications.ts); the notifications' titles and bodies are the server's, in the
 language asked, and are never sent to Google Translate. The reminders, the briefing popup and the daily nudge stay, and
 count only what the person answers for and may verify (§96); each reminder names who answers for its document by the
-owner's table. The panel closes on Escape and on another page, and its own words are in Gujarati too. Tested by
+owner's table. The panel closes on Escape and on another page, and its own words have Gujarati of DCRS's own, used
+when Google Translate cannot be reached (with it, they are translated live like every screen). Tested by
 frontend/tests/notificationView.test.ts, bellAnswerers.test.ts and tests/e2e_access_levels.py (the bell and the page
 after the notify job run by hand, an item opened and read, Mark all read, the notifications in Gujarati, the super
 admin's summary, the job buttons, the panel's Escape and its Gujarati words).
