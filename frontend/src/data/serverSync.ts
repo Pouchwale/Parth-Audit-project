@@ -38,6 +38,11 @@ const HELD_PREFIX = "dcrs:held:";
 export const SYNC_STATE_EVENT = "dcrs:sync-state";
 /** Fired on window when the server says nobody is signed in any more (store/AuthContext.tsx signs out). */
 export const SESSION_ENDED_EVENT = "dcrs:session-ended";
+/**
+ * A change of this person's that their access level does not allow was refused by the server (REQUIREMENTS §96):
+ * detail { key, message }, the server's own words. components/common/DatabaseSyncBanner.tsx says it.
+ */
+export const ACCESS_REFUSED_EVENT = "dcrs:access-refused";
 /** storageAdapter.ts's event for a write that did not fit (components/common/StorageFullBanner.tsx). */
 const STORAGE_WRITE_FAILED = "dcrs:storage-write-failed";
 /** storageAdapter.ts's STORAGE_HELD: a change did not fit, and is held in this page's memory on its way to the database. */
@@ -780,6 +785,31 @@ async function send(key: string): Promise<void> {
       throw new SignedOut(`Signed out; ${key} is sent at the next sign-in.`);
     }
     if (res.status === 403) {
+      let said: { code?: unknown; error?: unknown } | null = null;
+      try {
+        said = (await res.json()) as { code?: unknown; error?: unknown };
+      } catch {
+        /* no words */
+      }
+      if (session !== s) return;
+      // A CHANGE OF THEIR OWN THEIR LEVEL DOES NOT ALLOW (REQUIREMENTS §96; the server checks the records record by
+      // record, backend/accessLevels.ts). The screens offer no such step, so this is a race: the super admin changed the
+      // levels while this page was open. The change is never stored; the copy goes back to what the database holds,
+      // the person is told why in the server's words, and everything else keeps syncing (the item is NOT given up, as
+      // a department's item is below).
+      if (said && said.code === "access-level") {
+        dispatch(ACCESS_REFUSED_EVENT, { key, message: typeof said.error === "string" ? said.error : "Your access level does not allow that change." });
+        const stored = baseView?.value;
+        if (stored !== undefined && local.setOrHold(key, stored, false)) {
+          writeMarkerOf(key, { s: scope, v: base, t: iso(), d: copyScope }, stored);
+          forgetSavedBase(key);
+          notify(key);
+          return;
+        }
+        // No copy of what the database holds: not sent again, and the database's copy replaces this one when it next changes.
+        writeMarkerOf(key, { s: scope, v: base, t: iso(), d: copyScope }, body);
+        return;
+      }
       // Not this account's departments' to hold (backend/index.ts).
       s.denied.add(key);
       writeMarker(key, null);

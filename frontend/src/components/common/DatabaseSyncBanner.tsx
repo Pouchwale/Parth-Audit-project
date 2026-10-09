@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { FiAlertTriangle } from "react-icons/fi";
-import { SYNC_STATE_EVENT, syncState } from "../../data/serverSync";
+import { ACCESS_REFUSED_EVENT, SYNC_STATE_EVENT, syncState } from "../../data/serverSync";
 
 // Said on every screen while changes have not reached the PostgreSQL database
 // (REQUIREMENTS §55): they are on this computer and are being sent again — so
@@ -13,6 +13,13 @@ export function DatabaseSyncBanner() {
   // whose internet had just gone was told nothing at the very moment they most
   // wanted telling that their work was safe.
   const [offline, setOffline] = useState(typeof navigator !== "undefined" && navigator.onLine === false);
+  // A change the person's access level does not allow, refused by the server (REQUIREMENTS §96): said until dismissed.
+  const [refused, setRefused] = useState<string | null>(null);
+  useEffect(() => {
+    const onRefused = (e: Event) => setRefused((e as CustomEvent<{ message?: string }>).detail?.message ?? "Your access level does not allow that change.");
+    window.addEventListener(ACCESS_REFUSED_EVENT, onRefused);
+    return () => window.removeEventListener(ACCESS_REFUSED_EVENT, onRefused);
+  }, []);
   useEffect(() => {
     const update = () => setState(syncState());
     const gone = () => setOffline(true);
@@ -26,6 +33,20 @@ export function DatabaseSyncBanner() {
       window.removeEventListener("online", back);
     };
   }, []);
+  if (refused) {
+    return (
+      <div className="card mb-3 no-print" role="alert" data-state="access-refused" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
+        <div className="card-pad text-sm flex items-center justify-between gap-3">
+          <span>
+            <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> {refused} The change was not saved; the record is as the database holds it.
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={() => setRefused(null)}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!state.failing && !offline) return null;
   return (
     <div
