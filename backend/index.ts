@@ -9,11 +9,9 @@ import cookieParser from "cookie-parser";
 import crypto from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
-import zlib from "node:zlib";
 import {
   createStaffUser,
   database,
-  deleteItem,
   getUserByEmail,
   getUserById,
   insertActivity,
@@ -24,13 +22,10 @@ import {
   listUsers,
   markSignedIn,
   openDatabase,
-  readItem,
   seedUser,
   setUserActive,
   setUserDepartments,
   setUserPassword,
-  storedItems,
-  writeItem,
   type UserRow,
 } from "./db.ts";
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
@@ -57,6 +52,11 @@ import { printCompanyNetwork, registerPhoneAppRoutes } from "./phoneApp.ts";
 import { setNotificationDeps, startJobs } from "./jobs.ts";
 import { runPushes } from "./push.ts";
 import { PHOTO_ROUTE } from "./apiV1Records.ts";
+import { registerStorageRoutes, sendCompressedJson } from "./storageRoutes.ts";
+import { registerAccessRulesRoutes } from "./accessRulesRoutes.ts";
+import { accessAccountOf, sharedCatalogue } from "./accessStore.ts";
+import { viewFor } from "./accessLevels.ts";
+import { SEED_ACCOUNTS } from "./seedAccounts.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -415,15 +415,22 @@ app.get("/api/users", requireAdmin, async (_req: Request, res: Response): Promis
 // so has to know who the accounts are. The list above is the administrator's
 // and carries the sign-in addresses; this one is for anybody signed in and
 // carries only what the scorecard prints: a name, the role and the departments
-// — never the email, never the hash. The administrator and an account with no
-// departments work across the plant and read every account; an account kept to
-// departments reads only the accounts that share one with it (itself among
-// them), the same line the records and the activity log are kept to.
+// — never the email, never the hash. Who reads whom follows the access levels
+// (REQUIREMENTS §96, backend/accessLevels.ts): the administrator, and anybody who
+// sees every module, read every account; anybody else reads the accounts that
+// share a module they see with them (itself among them), the same line the
+// records and the activity log are kept to.
 app.get("/api/users/directory", requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const own = accountDepartments((req as AuthedRequest).user);
+  const catalogue = await sharedCatalogue();
+  const me = (req as AuthedRequest).user;
+  const own = viewFor(catalogue, accessAccountOf(me)).modules();
   const people = (await listUsers())
     .map(toPublicUser)
-    .filter((p) => own === null || p.departments.some((code) => own.includes(code)))
+    .filter((p) => {
+      if (own === null || p.id === me.id) return true;
+      const theirs = viewFor(catalogue, accessAccountOf(p)).modules();
+      return theirs === null || theirs.some((code) => own.includes(code));
+    })
     .map((p) => ({ id: p.id, name: p.name, role: p.role, departments: p.departments }));
   res.json({ people });
 });
@@ -744,8 +751,10 @@ const BEFORE_RE = /^[0-9]{1,18}$/;
 function activityFilter(req: Request): Parameters<typeof activitySummary>[0] {
   const user = (req as AuthedRequest).user;
   const search = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80) : "";
+  // The modules the person sees at Read or more (REQUIREMENTS §96), worked out by requireAuthWithModules below.
+  const modules = (req as Request & { accessModules?: string[] | null }).accessModules;
   return {
-    departments: user.role !== "admin" && user.departments.length > 0 ? user.departments : null,
+    departments: user.role === "admin" ? null : modules === undefined ? (user.departments.length > 0 ? user.departments : null) : modules,
     userId: user.id,
     // The escalations' lines are the super admin's alone (db.ts SUPER_ADMIN_ACTIONS, REQUIREMENTS §75).
     superAdmin: user.role === "admin",
@@ -756,7 +765,24 @@ function activityFilter(req: Request): Parameters<typeof activitySummary>[0] {
   };
 }
 
-app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
+/**
+ * Signed in, with the modules the person sees (REQUIREMENTS §96): the activity log is read by the same line as the
+ * records — a person reads their own lines and those of the modules they see; somebody who sees every module (and an
+ * account nobody has described with no departments) reads every line.
+ */
+const requireAuthWithModules = (req: Request, res: Response, next: NextFunction): void => {
+  void requireAuth(req, res, () => {
+    const user = (req as AuthedRequest).user;
+    sharedCatalogue()
+      .then((catalogue) => {
+        (req as Request & { accessModules?: string[] | null }).accessModules = viewFor(catalogue, accessAccountOf(user)).modules();
+        next();
+      })
+      .catch(next);
+  });
+};
+
+app.get("/api/activity", requireAuthWithModules, async (req: Request, res: Response): Promise<void> => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
   const before = typeof req.query.before === "string" && BEFORE_RE.test(req.query.before) ? req.query.before : undefined;
   const lines = await listActivity({ ...activityFilter(req), limit, before });
@@ -768,7 +794,7 @@ app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promi
 // sees everybody, an account kept to departments sees itself and its
 // departments'. The counts are worked out in PostgreSQL, not here, over
 // exactly the lines GET /api/activity would list for the same request.
-app.get("/api/activity/summary", requireAuth, async (req: Request, res: Response): Promise<void> => {
+app.get("/api/activity/summary", requireAuthWithModules, async (req: Request, res: Response): Promise<void> => {
   const people = await activitySummary(activityFilter(req));
   sendCompressedJson(req, res, 200, { people });
 });
@@ -776,7 +802,7 @@ app.get("/api/activity/summary", requireAuth, async (req: Request, res: Response
 // THE LOG'S ARCHIVE (REQUIREMENTS §62, §75): the super admin's count of what is
 // old enough to archive, the move itself, and the log read with its archive —
 // the same filter as the two routes above (archiveRoutes.ts).
-registerActivityArchiveRoutes(app, { requireAuth, activityFilter, sendJson: sendCompressedJson });
+registerActivityArchiveRoutes(app, { requireAuth: requireAuthWithModules, activityFilter, sendJson: sendCompressedJson });
 
 app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
   const session = await readSession(req);
@@ -1303,60 +1329,6 @@ app.post("/api/reminders/send-digest", requireAuth, async (req: Request, res: Re
 // alone (backend/escalationRoutes.ts).
 registerEscalationRoutes(app, { requireAuth, logActivity });
 
-// THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55). The browser keeps a
-// working copy of each stored item (frontend/src/data/serverSync.ts): it
-// loads them all here when a person signs in, asks every few seconds what
-// has changed since, and writes each item back as it changes. A write says
-// which version it was made from; one made from an out-of-date copy is
-// refused with the current item, which the browser merges and writes again.
-// What the whole plant shares is stored once for the company; a person's
-// settings, assistant conversations and screen layout are stored for them.
-//
-// ONLY THESE ITEMS, AS JSON. The keys are the app's own (mirrored in
-// serverSync.ts); anything else is refused, so nothing stored can make the
-// load fail for everybody.
-//
-// A DEPARTMENT'S ACCOUNT GETS ITS DEPARTMENT'S RECORDS (REQUIREMENTS §40). An
-// account kept to departments (not the administrator, and with departments
-// assigned) is handed only the records and deletions-log lines of documents
-// its departments own (or no department owns), and the HR Master Data sheet
-// only with Human Resources. What such an account writes to the records or
-// the log replaces only its own departments' lines; everyone else's stay as
-// they are stored. The department of a document comes from the same list the
-// app uses (frontend/src/data/seed/documentDepartments.ts).
-const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start"]);
-const USER_SCOPED_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
-const STORAGE_MAX_BYTES = "25mb";
-const MAX_VERSION = 2147483647;
-/** Items whose lines each belong to a document, and so to a department. */
-const DEPARTMENT_LINE_KEYS = new Set(["records", "deletions"]);
-/** Items only Human Resources may hold. */
-const HR_ONLY_KEYS = ["hrMasterData"];
-
-const storageScope = (key: string, userId: string) => (USER_SCOPED_KEYS.has(key) ? userId : "company");
-
-/** The departments an account is kept to, or null for every department — as the app applies it (store/AuthContext.tsx). */
-function accountDepartments(user: PublicUser): string[] | null {
-  return user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
-}
-
-const deniedKeys = (departments: string[] | null): string[] => (departments && !departments.includes("HR") ? HR_ONLY_KEYS : []);
-
-// WHICH DEPARTMENTS A BROWSER'S COPY WAS MADE FOR. The records a browser holds
-// were filtered for the account's departments when it received them; if the
-// administrator has since changed those departments, a write from that copy
-// would replace lines it never had (a department just added) — so the browser
-// says which departments its copy is for (X-Scope), and a copy made for other
-// departments than the account has now is refused and comes back to be merged
-// with what the account sees now.
-const scopeKey = (departments: string[] | null): string => (departments ? [...departments].sort().join(",") : "*");
-
-/** A tab still working for one account while the browser has signed in as another: refused. */
-function otherAccount(req: Request, user: PublicUser): boolean {
-  const claimed = req.get("x-account");
-  return claimed !== undefined && claimed !== user.id;
-}
-
 // The format number of each stored document definition, for a document the
 // fixed list doesn't name (its department follows from the number).
 let formatNoCache: { version: number; byId: Map<string, string> } | null = null;
@@ -1379,174 +1351,11 @@ async function documentFormatNos(): Promise<Map<string, string>> {
   return byId;
 }
 
-async function lineVisibility(departments: string[]): Promise<(line: unknown) => boolean> {
-  const formatNos = await documentFormatNos();
-  return (line) => {
-    const id = (line as { documentId?: unknown } | null)?.documentId;
-    if (typeof id !== "string" || !id) return true;
-    const code = departmentOfDocument(id, formatNos.get(id));
-    return code === null || departments.includes(code);
-  };
-}
-
-function visibleLines(value: string, visible: (line: unknown) => boolean): string {
-  try {
-    const lines = JSON.parse(value);
-    return Array.isArray(lines) ? JSON.stringify(lines.filter(visible)) : value;
-  } catch {
-    return value;
-  }
-}
-
-/** A master-data write with the working hours put back as they are stored (unchanged, when they already are). */
-function withStoredHours(posted: string, stored: string | null): string {
-  try {
-    const mine = JSON.parse(posted) as Record<string, unknown> | null;
-    if (!mine || typeof mine !== "object" || Array.isArray(mine)) return posted;
-    const theirs = stored ? (JSON.parse(stored) as Record<string, unknown> | null) : null;
-    const kept = theirs && typeof theirs === "object" && !Array.isArray(theirs) ? theirs.workingHours : undefined;
-    if (JSON.stringify(mine.workingHours ?? null) === JSON.stringify(kept ?? null)) return posted;
-    if (kept === undefined) delete mine.workingHours;
-    else mine.workingHours = kept;
-    return JSON.stringify(mine);
-  } catch {
-    return posted;
-  }
-}
-
-// The stored data runs to megabytes; sent compressed it is a fraction of that
-// over the office network, and the browser unpacks it natively.
-function sendCompressedJson(req: Request, res: Response, status: number, body: unknown): void {
-  const text = JSON.stringify(body);
-  res.status(status).set("Vary", "Accept-Encoding");
-  if (text.length < 4096 || !/\bgzip\b/.test(req.get("accept-encoding") ?? "")) {
-    res.type("application/json").send(text);
-    return;
-  }
-  zlib.gzip(text, { level: 3 }, (err, packed) => {
-    if (err) {
-      res.type("application/json").send(text);
-      return;
-    }
-    res.set("Content-Encoding", "gzip").type("application/json").send(packed);
-  });
-}
-
-app.get("/api/storage", requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const user = (req as AuthedRequest).user;
-  if (otherAccount(req, user)) {
-    res.status(401).json({ error: "This browser is signed in as another account now." });
-    return;
-  }
-  const since = Number(req.query.since ?? 0);
-  const result = await storedItems(user.id, Number.isSafeInteger(since) && since > 0 ? since : 0);
-  const departments = accountDepartments(user);
-  const denied = deniedKeys(departments);
-  if (departments) {
-    const visible = await lineVisibility(departments);
-    result.items = result.items
-      .filter((item) => !denied.includes(item.key))
-      .map((item) => (DEPARTMENT_LINE_KEYS.has(item.key) && item.scope === "company" ? { ...item, value: visibleLines(item.value, visible) } : item));
-    for (const key of denied) delete result.versions[key];
-  }
-  sendCompressedJson(req, res, 200, { ...result, denied, scope: scopeKey(departments) });
-});
-
-app.put(
-  "/api/storage/:key",
-  requireAuth,
-  express.text({ type: () => true, limit: STORAGE_MAX_BYTES }),
-  async (req: Request, res: Response): Promise<void> => {
-    const key = String(req.params.key ?? "");
-    if (!(COMPANY_KEYS.has(key) || USER_SCOPED_KEYS.has(key)) || typeof req.body !== "string") {
-      res.status(400).json({ error: "Bad storage key or value." });
-      return;
-    }
-    try {
-      JSON.parse(req.body);
-    } catch {
-      res.status(400).json({ error: "A stored value must be JSON." });
-      return;
-    }
-    const base = req.get("x-base-version");
-    const baseVersion = base === undefined || base === "*" ? null : Number(base);
-    if (baseVersion !== null && (!Number.isSafeInteger(baseVersion) || baseVersion < 0 || baseVersion > MAX_VERSION)) {
-      res.status(400).json({ error: "Bad base version." });
-      return;
-    }
-    const user = (req as AuthedRequest).user;
-    if (otherAccount(req, user)) {
-      res.status(401).json({ error: "This browser is signed in as another account now." });
-      return;
-    }
-    const departments = accountDepartments(user);
-    if (deniedKeys(departments).includes(key)) {
-      res.status(403).json({ error: "This account's departments do not hold that." });
-      return;
-    }
-    const scoped = !!departments && DEPARTMENT_LINE_KEYS.has(key);
-    const visible = scoped ? await lineVisibility(departments!) : null;
-    const scopeNow = scopeKey(departments);
-    const claimedScope = req.get("x-scope");
-    if (DEPARTMENT_LINE_KEYS.has(key) && claimedScope !== undefined && claimedScope !== scopeNow) {
-      const stored = await readItem(storageScope(key, user.id), key);
-      const current = stored && visible ? { ...stored, value: visibleLines(stored.value, visible) } : stored;
-      sendCompressedJson(req, res, 409, { current, scope: scopeNow });
-      return;
-    }
-    const posted: string = req.body;
-    // A department's account writes its own departments' lines; everyone else's stay as stored.
-    const compose = visible
-      ? (stored: string | null): string => {
-          const mine = (JSON.parse(posted) as unknown[]).filter(visible);
-          let others: unknown[] = [];
-          try {
-            const all = stored ? JSON.parse(stored) : [];
-            if (Array.isArray(all)) others = all.filter((line) => !visible(line));
-          } catch {
-            /* nothing readable stored */
-          }
-          return JSON.stringify([...mine, ...others]);
-        }
-      : undefined;
-    if (compose && !Array.isArray(JSON.parse(posted))) {
-      res.status(400).json({ error: "A stored value must be JSON." });
-      return;
-    }
-    // THE PLANT'S HOURS ARE THE SUPER ADMIN'S TO CHANGE (REQUIREMENTS §84): the
-    // Master Data page offers them to nobody else, and a write of the master data
-    // by anybody else keeps the hours exactly as they are stored — the screen is
-    // never the lock (§66). Everything else in that write is theirs as before.
-    const keepHours = key === "master" && user.role !== "admin" ? (stored: string | null): string => withStoredHours(posted, stored) : undefined;
-    const result = await writeItem(storageScope(key, user.id), key, posted, baseVersion, user.email, compose ?? keepHours);
-    if (result.ok) {
-      res.json({ version: result.version, seq: result.seq });
-      return;
-    }
-    const current = result.current && visible ? { ...result.current, value: visibleLines(result.current.value, visible) } : result.current;
-    sendCompressedJson(req, res, 409, { current, scope: scopeNow });
-  }
-);
-
-app.delete("/api/storage/:key", requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const key = String(req.params.key ?? "");
-  const user = (req as AuthedRequest).user;
-  if (otherAccount(req, user)) {
-    res.status(401).json({ error: "This browser is signed in as another account now." });
-    return;
-  }
-  if (!(COMPANY_KEYS.has(key) || USER_SCOPED_KEYS.has(key))) {
-    res.status(400).json({ error: "Bad storage key." });
-    return;
-  }
-  // The company's items are removed only by the administrator; a person's own, by them.
-  if (COMPANY_KEYS.has(key) && user.role !== "admin") {
-    res.status(403).json({ error: "Only the administrator may remove the company's data." });
-    return;
-  }
-  await deleteItem(storageScope(key, user.id), key);
-  res.status(204).end();
-});
+// WHO MAY DO WHAT (REQUIREMENTS §96): the super admin's rules, read by everybody, written by the super admin alone
+// (backend/accessRulesRoutes.ts) — and THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55), handed over and taken in at
+// each person's levels (backend/storageRoutes.ts, backend/accessLevels.ts).
+const accessRules = registerAccessRulesRoutes(app, { requireAuth, logActivity });
+registerStorageRoutes(app, { requireAuth, logActivity, accessRules });
 
 // THE AUDIT ASSISTANT'S API AND THE DATABASE OVERVIEW (REQUIREMENTS §83). New
 // routes only, each in a file of its own: /api/v1/* lets another server act as
@@ -1629,20 +1438,16 @@ try {
   process.exit(1);
 }
 
-// THE PLANT'S NAMED ACCOUNTS (REQUIREMENTS §62), added once if they are not
-// there: the super admin, who covers every module and assigns everybody else;
-// Quality Control's own account, kept to QC's documents; and Human Resources'
-// two, kept to HR's. Each is an ordinary account from then on — its password
-// is changed from the top bar, its departments by the administrator — and an
-// account that already exists is never touched. SEED_ACCOUNTS=0 leaves them
-// out (the test runner does, because its first signup has to be the admin).
-const SEED_ACCOUNTS: { name: string; email: string; role: "admin" | "staff"; departments: string }[] = [
-  { name: "Super Admin", email: "admin@gpp.local", role: "admin", departments: "" },
-  { name: "Kapila Barad", email: "kapila.barad@gpp.local", role: "staff", departments: "QC" },
-  { name: "Vinay Bhojak", email: "vinay.bhojak@gpp.local", role: "staff", departments: "HR" },
-  { name: "Sandeep Parekh", email: "sandeep.parekh@gpp.local", role: "staff", departments: "HR" },
-];
-
+// THE PLANT'S NAMED ACCOUNTS (REQUIREMENTS §62, §96), added once if they are not
+// there: the super admin, who covers every module and assigns everybody else,
+// and the twelve people the owner named on 7-Oct-2026 at name.surname@gpp.local
+// (backend/seedAccounts.ts) — what each may do is the access rules' to say. Each
+// is an ordinary account from then on — its password is changed from the top
+// bar, its levels by the super admin — and an account that already exists is
+// never touched. SEED_ACCOUNTS=0 leaves them out (the test runner does, because
+// its first signup has to be the admin). On a plant already running, the super
+// admin adds the missing ones from Users & Access ("Create the missing accounts",
+// POST /api/access/accounts/create-missing) on a first password of their own.
 if (process.env.SEED_ACCOUNTS !== "0") {
   const chosen = process.env.SEED_ACCOUNT_PASSWORD;
   const password = chosen || "Gpp@12345";

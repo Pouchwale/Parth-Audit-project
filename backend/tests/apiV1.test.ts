@@ -316,7 +316,8 @@ describe("the routes and their description", () => {
       .join("\n");
     for (const route of Object.keys(openapi.paths).filter((p) => !p.startsWith("/api/v1/"))) {
       for (const method of methodsOf(route)) {
-        const registered = server.includes(`app.${method}("${route}"`);
+        // Express writes a path's parameter as :id where the description writes {id}.
+        const registered = server.includes(`app.${method}("${route.replace(/\{(\w+)\}/g, ":$1")}"`);
         assert.ok(pending(route) ? !registered : registered, `${method} ${route}${pending(route) ? " is registered: take x-dcrs-pending off it" : ""}`);
       }
     }

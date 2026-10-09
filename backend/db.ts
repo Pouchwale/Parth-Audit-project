@@ -583,6 +583,33 @@ export async function setUserActive(id: string, active: boolean): Promise<UserRo
   return rows[0];
 }
 
+/**
+ * MAKES AN ACCOUNT THE SUPER ADMIN, OR STAFF (REQUIREMENTS §96). On 8-Oct-2026 the owner's own account was stuck as
+ * staff, refused on the weekly off again and again, and no screen could make it the super admin. Switched on as well,
+ * and a super admin covers every department (none are kept). Never the plant's last active super admin to staff:
+ * decided under the lock the first sign-up takes (insertUser), so two changes at once cannot both leave nobody.
+ * Returns null when there is no such account.
+ */
+export async function setUserRole(id: string, role: "admin" | "staff"): Promise<{ row: UserRow; before: UserRow } | { refused: "last-super-admin" } | null> {
+  return withClient((client) =>
+    transaction(client, async () => {
+      await client.query("SELECT pg_advisory_xact_lock(4711)");
+      const found = await client.query<UserRow>("SELECT * FROM users WHERE id = $1", [id]);
+      const before = found.rows[0];
+      if (!before) return null;
+      if (role === "staff" && before.role === "admin") {
+        const others = await client.query("SELECT 1 FROM users WHERE role = 'admin' AND active AND id <> $1 LIMIT 1", [id]);
+        if ((others.rowCount ?? 0) === 0) return { refused: "last-super-admin" as const };
+      }
+      const { rows } = await client.query<UserRow>(
+        "UPDATE users SET role = $2::text, active = true, departments = CASE WHEN $2::text = 'admin' THEN '' ELSE departments END WHERE id = $1 RETURNING *",
+        [id, role]
+      );
+      return { row: rows[0], before };
+    })
+  );
+}
+
 /** Stamped at every sign-in, so the administrator can see who has never used their account. */
 export async function markSignedIn(id: string, atISO: string): Promise<void> {
   await database().query("UPDATE users SET last_sign_in = $1 WHERE id = $2", [atISO, id]);

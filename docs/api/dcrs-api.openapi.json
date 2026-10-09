@@ -3881,14 +3881,13 @@
       }
     },
     "/api/access/rules": {
-      "x-dcrs-pending": "A2 (access levels on the server): documented by the shared contract, registered by A2's build",
       "get": {
         "tags": [
           "Read"
         ],
         "operationId": "accessRules",
         "summary": "READ - who may do what (any signed-in account)",
-        "description": "The access rules the super admin has set (REQUIREMENTS §96), the stored version, and the plant's people as the defaults name them. By the website's session cookie.",
+        "description": "The access rules the super admin has set (REQUIREMENTS §96: per person, a level - none, read, write or edit - for a module and for a document, and who answers for each document), the stored version (0 while none are stored), and the plant's twelve people as the owner's table names them. Everything not set follows the owner's table (frontend/src/engine/accessRules.ts). By the website's session cookie.",
         "responses": {
           "200": {
             "description": "The rules.",
@@ -3911,7 +3910,7 @@
         ],
         "operationId": "accessRulesSet",
         "summary": "CHANGE - set who may do what (the super admin only)",
-        "description": "Replaces the access rules, made from the version the page read (409 when somebody saved in between). Every change is a line of the activity log and an access_changed notification to the person concerned.",
+        "description": "Replaces the access rules, made from the version the page read (409 when somebody saved in between). The rules are made safe before they are stored: anything not a level, a known module or an email is dropped, and emails are kept in small letters. Every change is a line of the activity log naming who changed what for whom (\"Access changed\", \"Who answers for a document changed\") and an access_changed notification to each person concerned, in the level they now have. The same item written through PUT /api/storage/access comes here too; anybody but the super admin is refused it there as well.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3973,7 +3972,33 @@
                   "stale": {
                     "value": {
                       "error": "Somebody saved the access rules after this page read them. Reload and make the change again.",
-                      "code": "stale"
+                      "code": "stale",
+                      "current": {
+                        "rules": {
+                          "version": 1,
+                          "people": {},
+                          "responsibility": {}
+                        },
+                        "version": 3
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not { rules, baseVersion }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "Send the rules as an object: { rules, baseVersion }.",
+                      "code": "bad-request"
                     }
                   }
                 }
@@ -3984,14 +4009,13 @@
       }
     },
     "/api/access/accounts/create-missing": {
-      "x-dcrs-pending": "A2 (access levels on the server): documented by the shared contract, registered by A2's build",
       "post": {
         "tags": [
           "Change"
         ],
         "operationId": "accessCreateMissing",
         "summary": "CHANGE - create the plant's missing accounts (the super admin only)",
-        "description": "Creates an account for each of the plant's people (name.surname@gpp.local) who has none, on one first password the person changes at the first sign-in.",
+        "description": "Creates an account for each of the plant's twelve people (name.surname@gpp.local, REQUIREMENTS §96) who has none: staff, kept to the modules they see by the owner's table, on the one first password typed here, which each changes at the first sign-in. Each account made is a line of the activity log (the password never is). The ones already there are named in `existing`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4046,6 +4070,176 @@
                     "value": {
                       "error": "Only the super admin creates accounts.",
                       "code": "super-admin-only"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}/role": {
+      "post": {
+        "tags": [
+          "Change"
+        ],
+        "operationId": "userRole",
+        "summary": "CHANGE - make an account the super admin, or staff (the super admin only)",
+        "description": "Sets the account's role (REQUIREMENTS §96). The account is switched on as well; a super admin covers every module, so their departments are cleared. Never the plant's last active super admin to staff (409 last-super-admin). One line of the activity log (\"Role changed\") and an access_changed notification to the person. Before 9-Oct-2026 no screen could change a role: the owner's own account was stuck as staff.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The account's id (GET /api/users).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "staff"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The account as it now stands.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "mustChangePassword": {
+                          "type": "boolean"
+                        },
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "departments": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lastSignIn": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A role other than admin or staff.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "Say the role: \"admin\" (the super admin) or \"staff\".",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Anybody but the super admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "super-admin-only": {
+                    "value": {
+                      "error": "Only the super admin can make an account the super admin, or staff.",
+                      "code": "super-admin-only"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not-found": {
+                    "value": {
+                      "error": "No such account.",
+                      "code": "not-found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The plant's only active super admin made staff.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "last-super-admin": {
+                    "value": {
+                      "error": "This is the plant's only active super admin. Make another account the super admin first, so the plant always has one.",
+                      "code": "last-super-admin"
                     }
                   }
                 }
