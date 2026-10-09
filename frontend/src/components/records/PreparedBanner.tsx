@@ -12,10 +12,13 @@ export function PreparedBanner({
   prepared,
   status,
   onReprepare,
+  mayWrite = true,
 }: {
   prepared: PreparedInfo;
   status: RecordStatus;
   onReprepare?: () => void;
+  /** May the viewer fill it (Write or more, REQUIREMENTS §96)? A person who only reads it is never told to enter or submit anything. */
+  mayWrite?: boolean;
 }) {
   const t = useT();
   const [confirming, setConfirming] = useState(false);
@@ -30,7 +33,9 @@ export function PreparedBanner({
             <FiZap size={14} />{" "}
             {knownParts
               ? draft
-                ? "Your assistant has filled this in as far as it is known: the readings are yours to enter"
+                ? mayWrite
+                  ? "Your assistant has filled this in as far as it is known: the readings are yours to enter"
+                  : "The assistant prepared the known parts; the readings are for the people who answer for this document"
                 : "The known parts were prepared by your assistant; the readings were entered and submitted by people"
               : draft
                 ? "Your assistant has filled this in for you"
@@ -44,7 +49,7 @@ export function PreparedBanner({
               <li key={i}>{n}</li>
             ))}
           </ul>
-          {draft && (
+          {draft && mayWrite && (
             <div className="text-xs mt-2 text-muted">
               {knownParts ? "Enter what you saw, check the rest, then press " : "Have a look, change anything that was different today, then press "}
               <strong>Submit</strong>. Nothing is recorded as yours until you do.

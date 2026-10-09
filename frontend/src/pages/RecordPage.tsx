@@ -526,7 +526,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
 
       {record.correction && <CorrectionBanner correction={record.correction} onCancel={canWrite ? handleCancelCorrection : undefined} />}
 
-      {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable && !superseded ? handleReprepare : undefined} />}
+      {record.prepared && <PreparedBanner prepared={record.prepared} status={record.status} onReprepare={editable && !superseded ? handleReprepare : undefined} mayWrite={mayFill} />}
 
       {record.status === "Rejected" && record.rejectionReason && (
         <div className="card mb-4" style={{ borderColor: "var(--color-danger)", background: "var(--color-danger-bg)" }}>

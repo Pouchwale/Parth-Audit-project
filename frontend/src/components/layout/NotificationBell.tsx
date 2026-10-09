@@ -47,11 +47,14 @@ const LEDGER_FIRST_MS = 1500;
 export function NotificationBell() {
   const { version, bump } = useAppStore();
   const { user } = useAuth();
-  const { navigate } = useRouter();
+  const { navigate, path } = useRouter();
   const t = useT();
   const { lang } = useLanguage();
   const ledgerLang = ledgerLanguage(lang);
   const [open, setOpen] = useState(false);
+  // The panel belongs to the page it was opened on: another page closes it (the people review of 9-Oct-2026 found it
+  // still open over the next page).
+  useEffect(() => setOpen(false), [path]);
   const wrapRef = useRef<HTMLDivElement>(null);
   const mountedAt = useRef(Date.now());
 
@@ -208,8 +211,16 @@ export function NotificationBell() {
     const onClickOutside = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
+    // Escape closes it, as every panel and dialog of the app closes.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   return (
@@ -233,10 +244,13 @@ export function NotificationBell() {
       </button>
       {open && (
         // Placed by styles.css (.reminders-panel), which on a phone spans the window instead of running off its left edge.
-        <div className="card reminders-panel">
+        <div className="card reminders-panel" data-section="reminders-panel">
           <div className="card-pad">
             <div className="flex items-center justify-between mb-2">
-              <strong className="text-sm">Reminders{reminders.length > 0 ? ` (${reminders.length})` : ""}</strong>
+              <strong className="text-sm">
+                {t("notif.bell.reminders")}
+                {reminders.length > 0 ? ` (${reminders.length})` : ""}
+              </strong>
               <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)} aria-label="Close reminders">
                 <FiX size={14} />
               </button>
@@ -244,7 +258,7 @@ export function NotificationBell() {
             {escalations.length > 0 && (
               <div className="mb-3" data-section="escalations" data-count={escalations.length}>
                 <div className="text-xs font-semibold mb-1 flex items-center gap-1" style={{ color: "var(--color-danger)" }}>
-                  <FiAlertTriangle size={12} /> Escalated to you ({escalations.length})
+                  <FiAlertTriangle size={12} /> {t("notif.bell.escalated")} ({escalations.length})
                 </div>
                 {escalations.map((e) => (
                   <div
@@ -342,7 +356,7 @@ export function NotificationBell() {
                     className="text-xs font-semibold mb-1"
                     style={{ color: p === "high" ? "var(--color-danger)" : p === "medium" ? "var(--color-warning)" : "var(--color-text-muted)" }}
                   >
-                    {p === "high" ? "High priority" : p === "medium" ? "Medium" : "Low"} ({list.length})
+                    {t(p === "high" ? "notif.bell.high" : p === "medium" ? "notif.bell.medium" : "notif.bell.low")} ({list.length})
                   </div>
                   <ReminderList reminders={list} onNavigate={() => setOpen(false)} />
                 </div>
@@ -357,7 +371,7 @@ export function NotificationBell() {
                   openBriefing();
                 }}
               >
-                <FiZap size={12} /> …and {reminders.length - MAX_SHOWN} more — open today's briefing
+                <FiZap size={12} /> {t("notif.bell.more", { n: reminders.length - MAX_SHOWN })}
               </button>
             )}
           </div>

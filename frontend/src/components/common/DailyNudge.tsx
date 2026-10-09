@@ -231,7 +231,13 @@ export function DailyNudge() {
         <div className="flex items-start justify-between gap-3 wrap">
           <div style={{ minWidth: 0 }}>
             <div className="text-sm font-semibold flex items-center gap-2">
-              <FiBell size={14} /> <span data-field="nudge-headline">{words.headline}</span>
+              <FiBell size={14} />{" "}
+              <span data-field="nudge-headline">
+                {/* In Gujarati, the same words Mitra says aloud (utils/voice.ts nudgeLine): the people review of 9-Oct-2026 found the card English. */}
+                {lang === "en"
+                  ? words.headline
+                  : nudgeLine({ firstName: firstNameOf(user?.name), total: work.notifications.length, overdue: work.overdue, high: work.high, theirOwn: work.theirOwn }, lang)}
+              </span>
             </div>
             {words.standing && (
               <div className="text-xs text-muted mt-1" data-field="nudge-standing">

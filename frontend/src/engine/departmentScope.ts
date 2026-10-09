@@ -235,6 +235,31 @@ export function personDescribed(): boolean {
 }
 
 const EMAIL_BY_NAME = new Map(DEFAULT_PEOPLE.map((p) => [sameName(p.name), p.email] as const));
+const NAME_BY_EMAIL = new Map(DEFAULT_PEOPLE.map((p) => [p.email, p.name] as const));
+
+/** "new.person@gpp.local" as "New Person": an account the owner's twelve do not name, called by its address. */
+const nameFromEmail = (email: string): string =>
+  email
+    .split("@")[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ") || email;
+
+/**
+ * WHO ANSWERS FOR A DOCUMENT, BY NAME (REQUIREMENTS §96): the people the owner's table (or the super admin, on Users &
+ * Access) names for it who may fill it, as the bell's reminders name them. Null when nobody is held to levels (signed
+ * out, the engine host, the tests), where the screens fall back on the roles of Master Data as before; empty when the
+ * table names nobody (the super admin answers for it then).
+ */
+export function answerersOf(documentId: string): string[] | null {
+  const b = current();
+  if (!b) return null;
+  return b.access
+    .responsible(documentId)
+    .filter((email) => b.access.may({ email, role: "staff", departments: [] }, documentId, "fill"))
+    .map((email) => NAME_BY_EMAIL.get(email) ?? nameFromEmail(email));
+}
 
 /**
  * WHO ANSWERS FOR A DOCUMENT, FOR THE SCORES (REQUIREMENTS §96): a record counts against the people who answer for its
