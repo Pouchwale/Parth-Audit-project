@@ -62,6 +62,7 @@ import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { parseAssistantCommand, type AssistantCommand } from "../../engine/assistantCommands";
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
 import { refusalFor } from "../../engine/accessRefusal";
+import { mayDo } from "../../engine/departmentScope";
 import type { DocumentAction } from "../../engine/accessRules";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { routeForRecord } from "../../engine/reminders";
@@ -581,6 +582,13 @@ export function DocumentAssistant() {
     }
     if (t.checklist) {
       beginGuided();
+      return;
+    }
+    // The person's level first (REQUIREMENTS §96): a record they may not fill is refused in the level's own words, in
+    // their language — never "I'll reopen it", which their level would not allow either.
+    const stop = levelStops(t.documentId, "fill") ?? (!t.editable && !t.reopen ? levelStops(t.documentId, "correct") : null);
+    if (stop) {
+      bot(stop);
       return;
     }
     if (!t.editable) {
@@ -1242,10 +1250,11 @@ export function DocumentAssistant() {
     chips.push({ label: "What's due today?", action: { type: "navigate", route: `/day/${todayISO()}` } });
     chips.push({ label: "This month's reports", action: { type: "navigate", route: "/reports" } });
     if (!path.startsWith("/gap")) chips.push({ label: "Open CAPA", action: { type: "navigate", route: "/gap" } });
-    if (hasTarget && !t?.checklist) chips.push({ label: t && !t.editable ? "Correct this record…" : "Tell me what to fill…", action: { type: "focusInput", placeholder: "" } });
+    // Only what the level allows (REQUIREMENTS §96): "Tell me what to fill" to somebody who may write it, "Correct this record" to somebody who may reopen it.
+    if (hasTarget && t && !t.checklist && (t.editable || t.reopen)) chips.push({ label: !t.editable ? "Correct this record…" : "Tell me what to fill…", action: { type: "focusInput", placeholder: "" } });
     // The format itself can be changed by saying so, wherever its sheet is drawn from a layout (REQUIREMENTS §64).
     const screenDoc = documentRepository.getById(targetDocumentId ?? documentOnPath(path) ?? "");
-    if (screenDoc && canDesignGrid(screenDoc) && !guided && !interview) chips.push({ label: "Change this format…", action: { type: "focusInput", placeholder: FORMAT_HINT } });
+    if (screenDoc && canDesignGrid(screenDoc) && !guided && !interview && mayDo(screenDoc.id, "format")) chips.push({ label: "Change this format…", action: { type: "focusInput", placeholder: FORMAT_HINT } });
     // Everything the record's own buttons can do, in the chat as well.
     if (t?.cancelCorrection) chips.push({ label: "Cancel the edit", action: { type: "doCancelCorrection" } });
     if (t?.submit) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });

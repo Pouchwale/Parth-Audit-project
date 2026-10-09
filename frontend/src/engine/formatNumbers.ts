@@ -1,7 +1,7 @@
 import type { DocumentDefinition } from "../types";
 import type { Chip } from "./guidedChecklist";
 import { documentRepository } from "../data/repositories/documentRepository";
-import { documentDepartmentLabel } from "./departmentScope";
+import { documentDepartmentLabel, mayDo } from "./departmentScope";
 import { documentOpenRoute } from "./documentRoutes";
 import { todayISO } from "../utils/date";
 import { sampleFillSwitchedOn } from "./features";
@@ -175,9 +175,11 @@ function describe(doc: DocumentDefinition): string {
 export function formatChips(doc: DocumentDefinition): Chip[] {
   const chips: Chip[] = [{ label: t("ai.format.open"), action: { type: "navigate", route: documentOpenRoute(doc) }, tone: "primary" }];
   const holdsRecords = !doc.isReferenceOnly && !["chemical-master", "licence", "compliance-statement"].includes(doc.kind);
-  if (holdsRecords) {
+  // Only what the person's level allows (REQUIREMENTS §96): starting and filling need Write. A person who reads the
+  // document is offered to open it, never to start one.
+  if (holdsRecords && mayDo(doc.id, "fill")) {
     const today = todayISO();
-    chips.push({ label: t("ai.format.startNew"), action: { type: "createRecord", documentId: doc.id, dateISO: today } });
+    if (mayDo(doc.id, "start")) chips.push({ label: t("ai.format.startNew"), action: { type: "createRecord", documentId: doc.id, dateISO: today } });
     chips.push({ label: t("ai.format.askMe"), action: { type: "startInterview", documentId: doc.id, dateISO: today } });
     // Sample data is for Demo Mode and test servers only (REQUIREMENTS §98, engine/sampleFill.ts).
     if (sampleFillSwitchedOn()) chips.push({ label: t("ai.format.sample"), action: { type: "sampleFill", documentId: doc.id, dateISO: today } });
