@@ -478,6 +478,9 @@
           },
           {
             "$ref": "#/components/parameters/ClientName"
+          },
+          {
+            "$ref": "#/components/parameters/XLanguage"
           }
         ],
         "requestBody": {
@@ -611,7 +614,7 @@
             "$ref": "#/components/responses/NotSignedIn"
           },
           "403": {
-            "$ref": "#/components/responses/NotYourDepartment"
+            "$ref": "#/components/responses/NotOpenOrLevel"
           }
         },
         "x-dcrs-kind": "change"
@@ -1419,6 +1422,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/ClientName"
+          },
+          {
+            "$ref": "#/components/parameters/XLanguage"
           }
         ],
         "requestBody": {
@@ -1440,7 +1446,7 @@
             "$ref": "#/components/responses/NotSignedIn"
           },
           "403": {
-            "$ref": "#/components/responses/NotYourDepartment"
+            "$ref": "#/components/responses/NotOpenOrLevel"
           },
           "503": {
             "$ref": "#/components/responses/EngineUnavailable"
@@ -2193,6 +2199,9 @@
           },
           {
             "$ref": "#/components/parameters/ClientName"
+          },
+          {
+            "$ref": "#/components/parameters/XLanguage"
           }
         ],
         "requestBody": {
@@ -2247,22 +2256,7 @@
             "$ref": "#/components/responses/NotSignedIn"
           },
           "403": {
-            "description": "Another department's record.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not-your-department": {
-                    "value": {
-                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
-                      "code": "not-your-department"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotOpenOrLevel"
           },
           "503": {
             "$ref": "#/components/responses/EngineUnavailable"
@@ -2368,6 +2362,9 @@
           },
           {
             "$ref": "#/components/parameters/ClientName"
+          },
+          {
+            "$ref": "#/components/parameters/XLanguage"
           }
         ],
         "requestBody": {
@@ -2404,22 +2401,7 @@
             "$ref": "#/components/responses/NotSignedIn"
           },
           "403": {
-            "description": "Another department's record.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not-your-department": {
-                    "value": {
-                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
-                      "code": "not-your-department"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotOpenOrLevel"
           },
           "503": {
             "$ref": "#/components/responses/EngineUnavailable"
@@ -2506,6 +2488,9 @@
           },
           {
             "$ref": "#/components/parameters/ClientName"
+          },
+          {
+            "$ref": "#/components/parameters/XLanguage"
           }
         ],
         "requestBody": {
@@ -2528,22 +2513,7 @@
             "$ref": "#/components/responses/NotSignedIn"
           },
           "403": {
-            "description": "Another department's record.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not-your-department": {
-                    "value": {
-                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
-                      "code": "not-your-department"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotOpenOrLevel"
           },
           "503": {
             "$ref": "#/components/responses/EngineUnavailable"
@@ -2680,6 +2650,9 @@
           },
           {
             "$ref": "#/components/parameters/ClientName"
+          },
+          {
+            "$ref": "#/components/parameters/XLanguage"
           }
         ],
         "responses": {
@@ -2687,22 +2660,7 @@
             "$ref": "#/components/responses/NotSignedIn"
           },
           "403": {
-            "description": "Another department's record.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not-your-department": {
-                    "value": {
-                      "error": "This record belongs to Quality Control (Adhesive Mixing Ratio Record), and this account is not kept to it.",
-                      "code": "not-your-department"
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/NotOpenOrLevel"
           },
           "503": {
             "$ref": "#/components/responses/EngineUnavailable"
@@ -4375,6 +4333,20 @@
           "format": "date"
         },
         "example": "2026-09-30"
+      },
+      "XLanguage": {
+        "name": "X-Language",
+        "in": "header",
+        "required": false,
+        "description": "The language of a refusal's sentence: en (the default), hi or gu.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "en",
+            "hi",
+            "gu"
+          ]
+        }
       }
     },
     "responses": {
@@ -4585,6 +4557,42 @@
                 "value": {
                   "error": "The assistant prepared the Lamination Adhesive Viscosity Record of 09-Oct-2026. Check every value, tick \"Reviewed and correct\", then submit it.",
                   "code": "needs-review"
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotOpenOrLevel": {
+        "description": "Refused by the person's access levels (REQUIREMENTS §96): a document or record they do not see at all (not-your-department), or a step their level on it does not allow (access-level: start, fill, submit, verify, send back and resume need Write; reopen, cancel a correction and delete need Edit). As on every /api/v1 route, also outside-working-hours and password-change-required.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Error"
+                },
+                {
+                  "$ref": "#/components/schemas/AccessLevelRefusal"
+                }
+              ]
+            },
+            "examples": {
+              "not-your-department": {
+                "value": {
+                  "error": "You do not have access to F/HR/17 Daily Pest Control Monitoring Record (Human Resources). Ask the super admin for Read access.",
+                  "code": "not-your-department"
+                }
+              },
+              "access-level": {
+                "value": {
+                  "error": "F/QC/37 Inspection Record – Pouching Process is Read only for you. Submitting a record needs Write access: ask the super admin for it.",
+                  "code": "access-level",
+                  "level": "read",
+                  "needed": "write",
+                  "action": "submit",
+                  "documentId": "qc-inspection-pouching",
+                  "recordId": "rec-mfx1a2b3-abcdef"
                 }
               }
             }
@@ -7289,6 +7297,69 @@
           },
           "awaitingVerification": {
             "type": "integer"
+          }
+        }
+      },
+      "AccessLevelRefusal": {
+        "type": "object",
+        "description": "A step the person's access level on the document does not allow (REQUIREMENTS §96). `error` is the website's own sentence, in the language X-Language asks for.",
+        "required": [
+          "error",
+          "code",
+          "level",
+          "needed",
+          "action",
+          "documentId"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "access-level"
+            ]
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "none",
+              "read",
+              "write",
+              "edit"
+            ],
+            "description": "The level the person has on the document."
+          },
+          "needed": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "edit"
+            ],
+            "description": "The level the step needs."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "view",
+              "start",
+              "fill",
+              "submit",
+              "verify",
+              "send_back",
+              "correct",
+              "delete",
+              "format"
+            ]
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "recordId": {
+            "type": "string",
+            "description": "The record, when the step was on one already stored."
           }
         }
       }
