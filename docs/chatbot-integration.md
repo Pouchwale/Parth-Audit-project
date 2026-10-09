@@ -810,7 +810,14 @@ The people who answer for a document have Edit on it. As before, whoever may fil
 
 Send `X-Language: hi` or `X-Language: gu` and the sentence comes in Hindi or Gujarati (English otherwise). A document the person does not see at all reads: "You do not have access to F/HR/17 Daily Pest Control Monitoring Record (Human Resources). Ask the super admin for Read access." Its code stays `not-your-department`. Show the sentence as it is; do not offer the step again.
 
-**What the app can know before asking.** `GET /api/v1/today` gives each item `canSubmit` and `canVerify` by the person's level, and lists what the person answers for and may verify (the super admin: everything, by module). Offer only what those say.
+**What the app can know before asking.** `GET /api/v1/today` gives each item `canSubmit` and `canVerify` by the person's level, and lists what the person answers for and may verify (the super admin: everything, by module). A record's own answer (`GET /api/v1/records/{id}`, and the answer to a change or an action) is at the person's level too (9-Oct-2026):
+- `editable`: the person may write into it now (open for writing, and Write on the document; Edit while it is reopened for correction);
+- `actions`: the steps its state allows that the level allows too (Write: `submit`, `verify`, `send_back`, `resume`; Edit: `reopen`, `cancel_correction`, `delete`); a person who only reads the document gets none, and `canReopen` follows `actions`;
+- `canSubmit` and `canVerify`, as today's items say;
+- `problems`: while the person may write it, what DCRS's own checks still ask for before a submit (empty when nothing does);
+- `waiting`: while the person may write it, how many entries wait before it is ready for their OK; a log sheet with nothing observed on it waits for its first line's entries even when the checks would pass it (REQUIREMENTS §98).
+
+Offer only what those say: draw boxes only when `editable`, the buttons in `actions`, and hold Submit back while `problems` is not empty.
 
 **What the app does not do.** The rules are changed only by the super admin, in the DCRS website: `GET /api/access/rules` (any signed-in account), `PUT /api/access/rules`, `POST /api/access/accounts/create-missing` and `POST /api/users/{id}/role` are the website's, by its session cookie, and are described in the OpenAPI file. When the super admin changes what a person may do, the person is told with an `access_changed` notification (below).
 

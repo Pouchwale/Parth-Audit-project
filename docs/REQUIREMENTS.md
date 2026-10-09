@@ -6291,13 +6291,20 @@ the screen is never the lock):
   A person's own act on a stored record their level does not allow (it writes the record's history) is refused with
   403 `access-level` and the website's own words: "F/QC/37 Inspection Record – Pouching Process is Read only for you.
   Filling in a record needs Write access: ask the super admin for it." (engine/accessWords.ts, also in Hindi and
-  Gujarati.) Everything else the level does not allow is left as stored, without a word, and named in the answer's
-  `kept`: a record new to the server (a sheet the calendar made or the assistant prepared, a filled paper the plant
-  supplied, which every browser adds at start-up, or one started on a screen that should not have offered Start: the
-  website hides Start below Write and says why, and the phone's engine refuses it in words), a sheet changed or cleared,
-  a start-up migration that writes no history line, a record removed. The server's morning prepare (§97) and the
-  browser of somebody who may fill the document do that work, and a Read person's browser can never change, add or
-  remove a record through it. Everyone else's lines stay as stored.
+  Gujarati.) So is a record new to the server that carries the person's own entry in its history, a Start of theirs the
+  level does not allow: "... is Read only for you. Starting a record needs Write access: ask the super admin for it."
+  (9-Oct-2026; it used to be left out with 200.) Everything else the level does not allow is left as stored, without a
+  word, and named in the answer's `kept`: a record new to the server that is the app's housekeeping (a sheet the
+  calendar made or the assistant prepared, a filled paper the plant supplied, which every browser adds at start-up), a
+  sheet changed or cleared, a start-up migration that writes no history line, a record removed. The server's morning
+  prepare (§97) and the browser of somebody who may fill the document do that work, and a Read person's browser can
+  never change, add or remove a record through it. Everyone else's lines stay as stored.
+
+  **One line per record, and only records** (the security review of 9-Oct-2026). The first posted line of each record
+  id is the one checked and the one written: a second line with the same id used to be written unchecked beside it,
+  and the browsers keep the last line of an id, so a person who only reads a document could have signed one of its
+  records off. A line taking the id of a record of a document the person does not see is never written beside that
+  record, and a line that is not a record (no id, or no document) is written only as it is already stored.
 - The format edits (a format's printed words and layout, a person's act) need Edit on each document changed, refused in
   words. The document definitions are nobody's to edit on a screen: the first browser of a new plant writes the issued
   catalogue and an upgrade adds to it, so a definition new to the server is taken from anybody, and a stored one is
@@ -6311,7 +6318,12 @@ the screen is never the lock):
   asks their level before every change (open a record not stored yet, change, photo, sample fill, submit, verify, send
   back, resume, reopen, cancel a correction, delete), with the same 403 and the same words, in the language the phone
   sends (`X-Language`). The CAPA findings, the complaints and the pest control report are seen at Read; closing a
-  finding needs Write.
+  finding needs Write. A record's answer (`GET /api/v1/records/:id`, and the answer to a change or an action) gives
+  `editable` and `actions` at the person's level (Write to fill, submit, verify, send back and resume; Edit to reopen,
+  put back and delete), with `canSubmit`, `canVerify`, `problems` (what DCRS's own checks still ask for, while the
+  person may write it) and `waiting` (the entries before it is ready for their OK, §98), so the phone draws only the
+  boxes and buttons the level allows: a Read person gets the values, no box and no button (9-Oct-2026; they were set by
+  the record's status alone).
 - The assistant's routes (`/api/assistant/*`) read and write nothing of DCRS's: Mitra's tools act in the browser, on its
   working copy, and what they change reaches the server through `PUT /api/storage`, where it is checked as above; the
   tools themselves refuse a step the level does not allow, in the person's language (the website's half).
@@ -6395,6 +6407,45 @@ to this document ... ask the super admin to give you Read, Write or Edit on it")
 - Tested by frontend/tests/accessScope.test.ts, accessEditing.test.ts, mitraToolsAccess.test.ts,
   syncAccessRefused.test.ts and the browser suite tests/e2e_access_levels.py (each of the twelve people, a Read person
   unable to start or submit, Users & Access).
+
+**10. What the people review of 9-Oct-2026 found, put right.** A reviewer signed in as each of the thirteen on a
+throwaway server and walked every screen, the phone's routes and the jobs:
+
+- **The Dashboard's day card** (components/common/MyDayCard.tsx over engine/motivation.ts `motivationFor`) counted every
+  record of every document a person can see: Dharmik Mistry, who fills F/PRD/10 alone, read 0/8 with "Next up F-PRD-18"
+  and a red score. It now counts what the bell, the briefing and the scorecard count, the documents the person answers
+  for and may fill (`isMine`). The super admin answers for no document: their card is the plant's day with no score of
+  their own ("The ring is the plant's day"), and nothing of a score of theirs is said aloud. On the Dashboard's
+  "Records Due Today", "Prepared, review & submit" is said only to somebody who may submit the record.
+- **The phone's record answer** follows the level (item 4).
+- **A blank sheet is never "ready"** (§98).
+- **The super admin's job page** (§97).
+- **Mitra's rules path** asks the level first: asked to fill a record the person only reads, it gives the access
+  refusal ("F/HR/15 Daily Cleaning Record is Read only for you. Filling in a record needs Write access ..."), never "I'll
+  reopen it"; it offers to start, fill, correct or change the format only to whoever may; and a document of a module the
+  person does not see is "F/HR/17 belongs to Human Resources, which you do not see. Ask the super admin for access if you
+  need it", not the old department story.
+- **The Performance page** says the rule of §96: a record counts against the people who answer for its document, and
+  a person "shares" a module only where somebody else answers for the same documents (Vinay Bhojak and Sandeep Parekh),
+  never because another account is kept to the department.
+- **The sidebar** shows the pest control file's overview only to whoever sees one of the file's own documents, and the
+  pest control service agreement under Purchase (Purchase signs it): Chirag Parmar's sidebar is Purchase alone.
+- **Upload changes** (an edited Word or Excel written back into records) is offered only with Write, and reopens a
+  signed-off record only with Edit; below that the record is "locked" for the upload with the level as the reason.
+- **Small words**: a prepared record's banner tells a reader nothing to enter or submit; the bell's panel closes on
+  Escape and on another page, its own words and the daily nudge's headline are in Gujarati when Gujarati is chosen, and
+  each reminder names who answers for the document by the owner's table ("Answers for it: Kapila Barad",
+  engine/departmentScope.ts `answerersOf`), not Master Data's roles.
+- **The browser suites' servers never push to a real phone service** (`PUSH_ENABLED=0` in scripts/run-e2e.ts).
+- **Left to the owner**: whoever answers for a document has Edit on it by default (correct, delete, change the format);
+  the owner named Edit only for Kapila Barad in QC and SYS. The super admin can lower any of it to Write per module or
+  per document on Users & Access; whether the default should be Write is the owner's question. Hindi on the website (the
+  language list is English and Gujarati; the notifications and the phone have Hindi).
+
+Tested by frontend/tests/myDayAccess.test.ts, knownPartsReady.test.ts, mitraRulesAccess.test.ts,
+performanceAnswers.test.ts, uploadChangesAccess.test.ts, bellAnswerers.test.ts and notificationView.test.ts;
+backend/tests/accessLevels.test.ts (the own Start refused, one line per record, only records), apiV1Records.test.ts
+(the record answer at each level) and apiV1.test.ts (the job route described); and tests/e2e_access_levels.py section 5.
 
 **The table** (printed by scripts/access-table.ts from engine/accessRules.ts; the owner's defaults, before anything the
 super admin changes):
@@ -6574,7 +6625,12 @@ they were worked out on, and worked out again on what is stored when a browser s
 the same moment never makes a second sheet for one document and period (proved both ways: the job's write meeting the
 browser's, backend/tests/notificationJobs.test.ts, and the browser's merge meeting the job's, frontend/tests/
 morningPrepareMerge.test.ts). One line in the activity log, in the system's name: "The assistant prepared N records"
-with the modules. Run again, it prepares nothing. The super admin can run it at once (POST /api/jobs/run).
+with the modules. Run again, it prepares nothing. The super admin runs it, or the notify job below, at once from the
+Notifications page: "The server's jobs", with **Prepare today's records now** and **Send the notifications now**, each
+calling `POST /api/jobs/run` and saying the outcome in words ("Prepared 18 records (Human Resources 1, Production 8,
+Quality Control 9). The known parts only: the readings are left for the people who answer for them."; "31 notifications
+worked out for the people who answer for the records: ..."). Nobody else is shown the card, and the server refuses
+anybody else (403). (9-Oct-2026: the owner is not technical, so never an HTTP call.)
 
 **2. Each person is told what they answer for** (engine/notificationPlan.ts, pure; backend/notificationJobs.ts, job
 `notify`). Every few minutes (`NOTIFY_EVERY_MS`, 5 minutes) from `PREPARE_AT` to the close of the plant's hours on
@@ -6584,7 +6640,7 @@ keeps it in PostgreSQL (backend/notifications.ts) and tells the phones (backend/
 | Kind | Who | Ends when |
 |---|---|---|
 | Ready (`ready`) | the people who answer for the document and may fill it; nobody named: the super admin | the record leaves In Progress |
-| Needs input (`needs_input`), with the number of readings waiting | as Ready | the record leaves In Progress, or passes DCRS's checks (it becomes Ready) |
+| Needs input (`needs_input`), with the number of readings waiting | as Ready | the record leaves In Progress, or holds what the person observed and passes DCRS's checks (it becomes Ready, §98) |
 | Due today (`due`), not started | as Ready | it is started or submitted, or the day ends (it becomes Overdue) |
 | Coming up (`upcoming`), the heads-up | as Ready | the due date arrives |
 | Overdue (`overdue`), with the days late, updated daily | as Ready | it is submitted |
@@ -6653,9 +6709,11 @@ date), the unread marked, All or Still open, 30 at a time with Show older, Mark 
 morning and evening summaries with their counts by module in a table, and the escalations. The page's own words are in
 English and Gujarati (i18n/strings.notifications.ts); the notifications' titles and bodies are the server's, in the
 language asked, and are never sent to Google Translate. The reminders, the briefing popup and the daily nudge stay, and
-count only what the person answers for and may verify (§96). Tested by frontend/tests/notificationView.test.ts and
-tests/e2e_access_levels.py (the bell and the page after the notify job run by hand, an item opened and read, Mark all
-read, the notifications in Gujarati, the super admin's summary).
+count only what the person answers for and may verify (§96); each reminder names who answers for its document by the
+owner's table. The panel closes on Escape and on another page, and its own words are in Gujarati too. Tested by
+frontend/tests/notificationView.test.ts, bellAnswerers.test.ts and tests/e2e_access_levels.py (the bell and the page
+after the notify job run by hand, an item opened and read, Mark all read, the notifications in Gujarati, the super
+admin's summary, the job buttons, the panel's Escape and its Gujarati words).
 
 **Kept in PostgreSQL only** (§55): the tables `notifications`, `push_devices`, `notification_prefs` and `push_tickets`
 (docs/DEPLOYMENT.md). They are DCRS's own: no role of the Audit Assistant is granted them (§83). A notification is kept
@@ -6709,8 +6767,18 @@ and the agreements are not prepared at all.
 and "needs input"; its notes end with "Left for you: N readings to enter before it can be submitted. Nothing you
 observe was filled in for you."; the briefing shows "N readings to enter, then submit." under each such record, and the
 notifications say how many readings wait (§97, "12 readings to enter: the Daily Pest Control Monitoring Record"). N is
-what the submit checks still ask for. The prepared banner says "Your assistant has filled this in as far as it is known:
-the readings are yours to enter".
+what the submit checks still ask for; and a log sheet the checks pass empty, on which nothing observed is written yet,
+waits for the entries of its first line ("Left for you: 6 entries on the first line. Nothing observed is written yet:
+enter what you saw, then submit it."). The people review of 9-Oct-2026 found the Defect Detection System Camera
+Challenge Test, which marks no box required, announced as "ready" and "filled in" while it held only a line id and the
+date; the same was true of every sheet the checks pass empty (the cleaning records, the glass and wooden article
+monitoring, the incoming inspection records and more). engine/knownParts.ts `entriesWaiting` is now the one answer for
+the prepare's notes, the briefing, the engine host's today, its record answer and the notification plan; the submit
+itself still asks only the checks (a register whose day had no event may be handed in empty, after the person's
+review). The briefing calls the ready ones "prepared and ready for your OK", never "filled in". The prepared banner says
+"Your assistant has filled this in as far as it is known: the readings are yours to enter", and to somebody who only
+reads the document, "The assistant prepared the known parts; the readings are for the people who answer for this
+document", with nothing to enter or submit.
 
 **3. The record's history says what the assistant did.** Each preparation is a line in the record's own history, by the
 assistant: "Prepared by the assistant: the known parts; the readings are the person's", with every box it wrote, before
