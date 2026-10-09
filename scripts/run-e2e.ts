@@ -159,8 +159,13 @@ async function main(): Promise<void> {
   // module string. A document that cannot be filled used to be found by
   // tests/e2e_assistant_fill.py forty minutes into this run; now the run stops
   // before it builds.
-  console.log("Unit tests...");
-  run(process.execPath, [...nodeArgs, "scripts/unit-tests.ts"]);
+  // E2E_SKIP_UNIT=1 leaves them out, for a run that proves one suite while somebody else's unit test is being mended
+  // (the unit tests are then run on their own, and said to be).
+  if (process.env.E2E_SKIP_UNIT === "1") console.log("Unit tests skipped (E2E_SKIP_UNIT=1): run npm run test:unit on its own.");
+  else {
+    console.log("Unit tests...");
+    run(process.execPath, [...nodeArgs, "scripts/unit-tests.ts"]);
+  }
 
   console.log("Building frontend...");
   run(process.execPath, [...nodeArgs, "frontend/scripts/build.ts"]);

@@ -386,7 +386,7 @@ On 30 September 2026 the owner asked that whatever Mitra, DCRS's assistant, can 
 
 **DCRS's own engine answers them.** Everything Mitra does in the browser is done by DCRS's engine: the checks on every value, the validation before a submit, the record's history and the activity log. The DCRS server runs that same code for these routes; it is not a second copy of the rules. So a change made from the phone is exactly the change DCRS's own page would make. It is checked the same way, refused for the same reasons, and saved with the version it was read at. If someone else saved in between, DCRS works the change out again on what is stored now, up to three times.
 
-**The same checks as every `/api/v1` call.** The session, the account, the plant's working hours and the forced password change all apply. The person's departments decide what they see, exactly as DCRS decides what their browser holds. Another department's document or record is refused with `403 not-your-department`, and the refusal says whose it is.
+**The same checks as every `/api/v1` call.** The session, the account, the plant's working hours and the forced password change all apply. The person's access levels decide what they see and do, exactly as DCRS decides what their browser holds and takes (REQUIREMENTS §96, [Access levels](#access-levels-who-may-do-what)). A document or record the person does not see is refused with `403 not-your-department`, and the refusal says which module keeps it; a step their level does not allow is refused with `403 access-level`.
 
 **Every change says where it came from.** The mobile app sends `X-Client-Name: Mitra mobile app`. Each change then shows up in two places:
 - **The record's history.** A new entry is written in the person's name with the note "Through Mitra mobile app: \<the person's note, or the action\>". For example: "Through Mitra mobile app: 10 o'clock reading from the floor", or "Through Mitra mobile app: submitted for verification".
@@ -766,7 +766,7 @@ These are added to the table in [Errors](#errors). Each is shown to the person i
 | Status | Codes | Connector error |
 |---|---|---|
 | 400 | `bad-patch`, `nothing-changed`, `needs-reason`, `bad-action`, `not-history`, `ambiguous`, `bad-picture` | `invalid_request` |
-| 403 | `not-your-department` (a document, a record, HR Master Data, the equipment list); `super-admin-only` (the escalations) | `forbidden` |
+| 403 | `not-your-department` (a document, a record, HR Master Data, the equipment list the person does not see); `access-level` (a step the person's level does not allow, see [Access levels](#access-levels-who-may-do-what)); `super-admin-only` (the escalations) | `forbidden` |
 | 404 | `not-found`, `not-in-dcrs` | `not_found` |
 | 409 | `needs-reopen`, `wrong-status`, `invalid`, `reference-only`, `no-photo-list`, `no-sample`, `pdf-not-offered`, `busy` | `conflict` |
 | 413, 415 | `too-large`, `bad-picture` | `invalid_request` |
@@ -780,6 +780,39 @@ These are added to the table in [Errors](#errors). Each is shown to the person i
 - **Some records have no PDF here.** CAPA inspection reports, training records and complaint checklists print from their own pages in DCRS, which the PDF printer does not open. Their `link` opens the page, which has its own Print button.
 - **Sheets not opened yet have no id.** A sheet DCRS's calendar has made but not stored has `recordId: null` (see [Today](#today)). Start it with `open_record`.
 - **The format is not changed from the app** (see `change_format` in [Not offered](#mitras-tools-and-the-routes)).
+
+## Access levels: who may do what
+
+REQUIREMENTS §96 (9 October 2026). The owner: "keep users according to module, and this applies to the mobile application also ... give read, write and edit access accordingly." What each person may see and do is no longer their departments but their **access level** on each document, set by the owner's table of who fills what and, on top of it, by the super admin from Users & Access. DCRS holds it on the server, for the website and for these routes alike; the app only shows DCRS's answers.
+
+| Level | What it allows |
+|---|---|
+| No access | the document is not shown at all: `403 not-your-department` |
+| Read | see the document and its records, print and download them (every `GET`) |
+| Write | also start a record (`POST /api/v1/records` for a record not stored yet), change it (`/changes`, `/photos`, `/sample-fill`), and `submit`, `verify`, `send_back` and `resume` it (`/actions`); close a CAPA finding |
+| Edit | also `reopen` a signed-off record for correction, change a record under correction, `cancel_correction`, and `delete` a record |
+
+The people who answer for a document have Edit on it. As before, whoever may fill a document may also verify it, even their own record. The super admin passes everything. An account the access rules never name (one made before 9 October 2026 for somebody who is not among the plant's twelve people) keeps what it had: its departments at Edit, or every module when it has none.
+
+**The refusal.** A step the level does not allow is answered `403` with the code `access-level`, the website's own sentence, and the facts:
+
+```json
+{
+  "error": "F/QC/37 Inspection Record – Pouching Process is Read only for you. Submitting a record needs Write access: ask the super admin for it.",
+  "code": "access-level",
+  "level": "read",
+  "needed": "write",
+  "action": "submit",
+  "documentId": "qc-inspection-pouching",
+  "recordId": "rec-..."
+}
+```
+
+Send `X-Language: hi` or `X-Language: gu` and the sentence comes in Hindi or Gujarati (English otherwise). A document the person does not see at all reads: "You do not have access to F/HR/17 Daily Pest Control Monitoring Record (Human Resources). Ask the super admin for Read access." Its code stays `not-your-department`. Show the sentence as it is; do not offer the step again.
+
+**What the app can know before asking.** `GET /api/v1/today` gives each item `canSubmit` and `canVerify` by the person's level, and lists what the person answers for and may verify (the super admin: everything, by module). Offer only what those say.
+
+**What the app does not do.** The rules are changed only by the super admin, in the DCRS website: `GET /api/access/rules` (any signed-in account), `PUT /api/access/rules`, `POST /api/access/accounts/create-missing` and `POST /api/users/{id}/role` are the website's, by its session cookie, and are described in the OpenAPI file. When the super admin changes what a person may do, the person is told with an `access_changed` notification (below).
 
 ## Notifications and the phone
 

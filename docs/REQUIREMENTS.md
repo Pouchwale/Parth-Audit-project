@@ -6212,6 +6212,284 @@ one's (F/MNT/09) 117 and 129, then 112 and 139; an as-required one's (F/MNT/08) 
 pest service report's 68 and 14, then 77 and 81; F/HR/18's 73 and 38, then 54 and 7; New record on F-QC-30 168 and
 67, then 198 and 151; on F/MNT/09 178 and 90, then 144 and 44.
 
+## §96 Who fills each document, who only views it, and Read, Write and Edit (7-Oct and 8-Oct-2026)
+
+**The request.** The owner, 7-Oct-2026: "So now i need that mobile chatbot application is sync with all module so i
+need to add user in them so like qc is for Kapila barad HR is for vinay bhojak , SYS = Kapila barad and it sys and qc
+is reponsible person for filling those documents and for all other else document give on view access and for purchase
+:- chirag parmer and for store bharat ahir is repsonsible and and PRD ajay sinh vaghela and till prd-13 and 17 is
+responsible for Dharmik mistry and anil ravad and from 18 to 26 Vishnu jadhev who is HOD of Pouch department and QA
+document for camera one is reponsible person is Ajay sinh vaghela and MNT:- Kapila mam for 01 and from 02 to 08 Ragunath
+mane and 09 to 10 Ajay zala and again kapila barad is also repsonsible for MNT-011 and in HR module 1 to 14 document
+reponsible person is Vinay Bhojak and from 15 to 18 kapila mam and 19 to 22 again vinay bhojak and QA-01 is again kapila
+barad is responsible for that document so make this access and viewer ship accordingly and properly ... kapila barad had
+all access but she can only edit and qc and SYS documents only rather every other module she can only view and qc -13,
+34, 40 A, 40 B Ajay zala is responsible for that and qc- 41,30,32, 40 C is responsible person is Ankur raval." Then,
+answering two rounds of questions: each person views only the modules of the documents they fill, and Kapila Barad and
+the super admin view everything; Ajay Sinh Vaghela, head of Production, fills every PRD document and the camera
+challenge test; Sandeep Parekh fills HR like Vinay Bhojak; Kapila Barad fills all of Marketing and Dispatch; whoever may
+fill a document may also verify it, as before, even their own record; the accounts are name.surname@gpp.local.
+
+The owner, 8-Oct-2026: "Consider superadmin as boss which can see anything ... So keep users according to module, and
+this applies to the mobile application also. And in our dashboard in the audit software I can give access from there
+only, and only the superadmin can do this: make an option for which user can access what, and give read, write and
+edit access accordingly. Add this functionality fast, perfectly."
+
+**1. Who answers for each document.** The owner's table is written once, in `frontend/src/engine/accessRules.ts`
+(`defaultResponsible`, by the format number, so a format supplied later lands with the right person), and held to his
+words document by document by `frontend/tests/accessRules.test.ts`. The people who answer for a document fill it, are
+told when it falls due (§97), have Edit on it, and are the ones a late or missed record counts against. The table at
+the end of this section is printed from that file (`node --no-warnings=ExperimentalWarning scripts/access-table.ts`),
+not typed. The super admin can give any document to other people.
+
+**2. The levels.** Each person has one of four levels on each document, each including the one before:
+
+| Level | What it allows |
+|---|---|
+| No access | the document is not shown at all |
+| Read | see the document and its records, print and download them |
+| Write | also start and fill records, save drafts, submit them, verify them and send them back |
+| Edit | also correct a record that is already signed off, delete a record, and change the format's printed words and layout |
+
+A person's level on a document, the first that applies: the super admin (Edit on everything); the person's own setting
+for that document; their own setting for its module; they answer for it (Edit); the module's default for them (Read on
+the modules of what they fill; Kapila Barad: Read everywhere, Edit in Quality Control and SYS); an account nobody has
+described keeps what it had (every module at Edit with no departments, else its departments at Edit), so nobody is locked
+out; otherwise No access.
+
+**3. Set by the super admin alone.** What the super admin sets is the company item `access` in PostgreSQL, beside
+`master`. Every signed-in account reads it (`GET /api/access/rules`: the rules, their version and the plant's twelve
+people); only the super admin writes it (`PUT /api/access/rules` with the version read: 409 "stale" when somebody saved
+in between), and the rules are made safe before they are stored (anything not a level, a known module or an email is
+dropped). The generic `PUT /api/storage/access` refuses anybody else and sends the super admin's write through the same
+writer, so there is one way to change the rules. Every change is a line of the activity log naming who changed what for
+whom ("Access changed": "Quality Control: Read → Edit"; "Who answers for a document changed": "Kapila Barad → Ankur
+Raval") and an `access_changed` notification (§97) to each person concerned, in the level they now have.
+(backend/accessRulesRoutes.ts.)
+
+**4. Held by the server, whatever a screen shows** (backend/accessLevels.ts, backend/storageRoutes.ts; REQUIREMENTS §66:
+the screen is never the lock):
+
+- `GET /api/storage` hands a person the records and deletions-log lines of the documents they see at Read or more
+  (everyone else's are not sent), HR Master Data only with Human Resources, the access rules to everybody, and the key of
+  their copy, made of every level they have: a change of their levels makes the browser load again.
+- `PUT /api/storage/records` is checked record by record against the version stored:
+
+  | The change | Needs |
+  |---|---|
+  | a record started | Write (start) |
+  | an unsigned record changed | Write (fill) |
+  | moved to Submitted or Pending Verification | Write (submit) |
+  | moved to Verified | Write (verify) |
+  | sent back | Write (send back) |
+  | resumed after a send back, and filled again | Write (fill) |
+  | a signed-off record changed, reopened for correction, a record under correction changed, a correction cancelled | Edit (correct) |
+  | a record removed | Edit (delete) |
+
+  A person's own act their level does not allow (it adds to the record's history, or it starts a record) is refused
+  with 403 `access-level` and the website's own words: "F/QC/37 Inspection Record – Pouching Process is Read only for
+  you. Filling in a record needs Write access: ask the super admin for it." (engine/accessWords.ts, also in Hindi and
+  Gujarati.) The app's own housekeeping that a browser does at start-up (the calendar's blank sheets, the prepare of the
+  known parts, a start-up migration that writes no history line, a removal) is left as stored, without a word, when
+  the person's level does not allow it, and named in the answer's `kept`: the server's morning prepare (§97) and the
+  browser of somebody who may fill the document do that work, and a Read person's browser can never change, add or
+  remove a record through it. Everyone else's lines stay as stored.
+- The document definitions and the format edits need Edit on each document changed. HR Master Data is held by an
+  account that sees Human Resources and changed by one with Write on a Human Resources document.
+- The users directory and the activity log are read by the modules a person sees.
+- The phone's routes (`/api/v1`) and DCRS's engine run on the server (backend/engineHost.ts with
+  frontend/src/engineHost/entry.ts) are given the person and the rules: the engine holds only what the person sees, and
+  asks their level before every change (open a record not stored yet, change, photo, sample fill, submit, verify, send
+  back, resume, reopen, cancel a correction, delete), with the same 403 and the same words, in the language the phone
+  sends (`X-Language`). The CAPA findings, the complaints and the pest control report are seen at Read; closing a
+  finding needs Write.
+- The assistant's routes (`/api/assistant/*`) read and write nothing of DCRS's: Mitra's tools act in the browser, on its
+  working copy, and what they change reaches the server through `PUT /api/storage`, where it is checked as above; the
+  tools themselves refuse a step the level does not allow, in the person's language (the website's half).
+- The super admin passes everything.
+
+**5. Accounts.** The server seeds the super admin and the twelve people (backend/seedAccounts.ts, name.surname@gpp.local;
+Kapila Barad, Vinay Bhojak and Sandeep Parekh keep the accounts they had). On a plant already running, the super admin
+creates the missing ones in one go, "Create the missing accounts" (`POST /api/access/accounts/create-missing`, one first
+password of at least 8 characters, which each person changes at the first sign-in; a line each). The role: on 8-Oct-2026
+the owner's own account was stuck as staff and refused on the weekly off again and again, because no screen could make
+an account the super admin; `POST /api/users/:id/role` { role: "admin" or "staff" } is the super admin's, switches the
+account on, never leaves the plant without an active super admin (409 `last-super-admin`), writes one line and tells the
+person.
+
+**6. Whom a late or missed record counts against.** The people who answer for its document and may fill it, not the
+department their account is kept to (backend/accessLevels.ts `answerRule`, the website's `scoreAnswerRule`): the
+server's daily escalation and weekly digest (backend/escalation.ts, §75) and the Performance Scorecard and its minus
+score (§64, §92) pass them to `engine/latenessCore.ts attribute`. Where several answer, a record handed in counts for
+the one who handed it in, and one never done against all of them (escalated as the module, named with them). An account
+the rules never name answers for its departments' documents, as before; the super admin answers for none.
+
+**7. The super admin can always sign in** (§84 addendum). The sign-in throttle holds back eight wrong passwords for an
+address from one computer for ten minutes, keyed by the address AND the caller's own network address (commit 9034253,
+audit H-17): anybody else's wrong guesses never keep the super admin out. The caller's address is the connection's own
+(Express's `req.ip`, with no "trust proxy": the plant's server is reached directly on its network), so a forged
+`X-Forwarded-For` header makes no other computer of a caller. Proved by backend/tests/signInAndOut.test.ts and, against a
+real server from two addresses of one computer, by tests/e2e_user_access.py (section 12).
+
+**8. Tests.** backend/tests/accessLevels.test.ts (every level and path of the record-by-record check, the words, the
+housekeeping, the definitions, HR Master Data), storageRoutes.test.ts (the storage routes at each level over a stand-in
+database), accessRulesRoutes.test.ts (the rules, the accounts, the role), engineHostAccess.test.ts (the engine on the
+server at each level, in three languages), apiV1.test.ts (the phone's own routes), escalationAccess.test.ts,
+seedAccounts.test.ts; frontend/tests/accessRules.test.ts (the owner's table) and latenessCore.test.ts (whom a record
+counts against); the browser suites tests/e2e_user_access.py, e2e_mobile_mitra_api.py, e2e_escalation.py and the others
+named in docs/TESTING.md.
+
+**The table** (printed by scripts/access-table.ts from engine/accessRules.ts; the owner's defaults, before anything the
+super admin changes):
+
+| Module | Format No. | Document | Answers for it (Edit; told when it falls due) | Only views it (Read) |
+|---|---|---|---|---|
+| Quality Control (QC) | F-QC-19 | Tolerance Card for Beiersdorf AG. Germany | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F-QC-30 | Lamination Adhesive Viscosity Record | Ankur Raval | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala |
+| Quality Control (QC) | F-QC-32 | Adhesive Mixing Ratio Record | Ankur Raval | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala |
+| Quality Control (QC) | F-QC-40.C | Temperature Monitoring Record — Hot Room | Ankur Raval | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala |
+| Quality Control (QC) | F: QA/PRO/FL/CCT/01 | Defect Detection System Camera Challenge Test | Ajay Sinh Vaghela | Kapila Barad (Edit), Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC-09 | Statement of Compliance (SOC) — Pressure Labels | Nobody: kept as issued (the super admin) | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC-38 | Statement of Compliance (SOC) — Flexible Packaging (Rolls & Pouches) | Nobody: kept as issued (the super admin) | Kapila Barad (Edit), Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/01 | Inspection Record - BOPP Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/02 | Inspection Record - Corrugated Box | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/03 | Inspection Record - Label Stock | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/04 | Inspection Record: Paper Core | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/05 | Inspection Record - PVC / PET Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/06 | Certificate of Analysis [COA] For Label | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/07 | Certificate of Analysis [COA] For Shrink Sleeves | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/08 | Master List of Calibration Instruments | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/11 | Monthly Internal Calibration Records – GSM Cutting Plate | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/12 | Weekly Internal Calibration Records - Weight Scale | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/13 | In Process Quality Control (Printing) — ઇન પ્રોસેસ ક્વોલિટી કંટ્રોલ | Ajay Zala | Kapila Barad (Edit), Ajay Sinh Vaghela, Ankur Raval |
+| Quality Control (QC) | F/QC/15-A | Area Line Clearance Report - Printing | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-B | Area Line Clearance Report - Punching | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-C | Area Line Clearance Report - QC Machine Inspection | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-D | Area Line Clearance Report - QC Manual Inspection | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-E | Area Line Clearance Report - Slitting | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-F | Area Line Clearance Report - Shrink Sleeve Gluing | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/15-G | Area Line Clearance Report - Shrink Sleeve Cutting | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/16 | Register of Obsolete Artwork | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/18 | Inspection Record – Offset Ink | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/19 | Inspection Record – Duplex Board | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/20 | Destruction Record — Printing Aids | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/20 | Inspection Record – Kraft Paper & White Top Liner | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/21 | Inspection Record – Flexo Ink | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/21 | Inspection Record – Lamination Film Adhesive | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/22 | Inspection Record – Side Pasting Adhesive | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/23 | Inspection Record – Corrugation Starch Powder | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/24 | Inspection Record – Sheet Pasting Powder | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/25 | Certificate of Analysis [COA] For Corrugated Boxes | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/29 | Analysis Report | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/29 | Utility Test Report (Nivea samples) | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/30 | Minutes of Meetings | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/33 | Inspection Record – Incoming Lamination Grade Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/34 | Inspection Record — Lamination Grade Printed Film | Ajay Zala | Kapila Barad (Edit), Ajay Sinh Vaghela, Ankur Raval |
+| Quality Control (QC) | F/QC/35 | Inspection Record — Slitting - Lamination Grade Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/36 | Inspection Record – Solvent Base Lamination Film | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | F/QC/37 | Inspection Record — Pouching Process | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | TO BE CONFIRMED | Line Clearance — Materials (લાઈન કિલયરન્સ) | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Quality Control (QC) | TO BE CONFIRMED | Line Clearance — Quality (ક્વોલીટી શહી) | Kapila Barad | Ajay Sinh Vaghela, Ajay Zala, Ankur Raval |
+| Human Resources (HR) | F/HR/01 | Personal Competence Records (Staff Members Only) | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/03 | Skill Matrix - Operator | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/04 | Pre-Employment Medical Health Declaration | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/05 | Induction Training Record — New Employee (Staff: Supervisor & Above) | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/06 | Induction Training Record — Operators / Workers | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/07 | Job Responsibility & Authority | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/08 | Employee Wise Training Need Identification Record | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/09 | Training Plan Calender | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/11 | Training Effectiveness Evaluation Record | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/12 | Training Feedback & Evaluation Record | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/13 | Authorization for Mobile Usage in Plant Area | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/14 | Visitor Health Status Declaration Record | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/15 | Daily Cleaning Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | F/HR/16 | Monthly Cleaning Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | F/HR/17 | Daily Pest Control Monitoring Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | F/HR/18 | Fortnightly — Fly Catcher Inspection & Cleaning Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | F/HR/19 | Monthly PRP Check List (GMP Inspection Record) | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/20 | Product Safety Culture Survey | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/21 | Product Safety Culture Survey — Analysis | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | F/HR/22 | Daily Personal Sanitation & Hygiene Inspection Report | Vinay Bhojak, Sandeep Parekh | Kapila Barad |
+| Human Resources (HR) | FORM III — MEH/FP1230000675/2023-2024 | Insecticide Licence — Gurudev Pesticides (Form III, Govt. of Gujarat) | Nobody: kept as issued (the super admin) | Kapila Barad, Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pest Control Service Report — Ants & Cockroaches (General Pest Control Services) | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pest Control Service Report — Fly Control Services | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pest Control Service Report — Rat / Mice (Rodent Control Service) | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pest Control Training Record | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Pesticide Application Chart (Chemical Master) | Nobody: kept as issued (the super admin) | Kapila Barad, Vinay Bhojak, Sandeep Parekh |
+| Human Resources (HR) | TO BE CONFIRMED | Responsibilities of Pest Control — Site & Service Provider | Kapila Barad | Vinay Bhojak, Sandeep Parekh |
+| System / Management (SYS) | F/SYS/01 | Master List of Documents | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/02 | Master List of Formats & Records | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/03 | Document Change Request & Approval Note | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/04 | Management Review Meeting Record – BRCGS Packaging (Issue 7) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/04-A | Agenda for BRCGS Packaging (Issue 7) Management Review Meeting Record | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/05 | Yearly Internal Audit Schedule (BRCGS Packaging – Issue 06) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/06 | Internal Audit Schedule & Plan | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/07 | Internal Audit Risk Assessment | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/08 | Internal Audit Findings / Observation Report | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/10 | BRCGS Packaging (Issue 06) - Internal Audit NC Report | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/11 | Non-Conformance & Corrective Action Report (CAR) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/12 | Monthly Review & HARA Verification Meeting Record | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/13 | Mock Product Withdrawal Record | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/14 | Backward Traceability Record (Customer to Supplier) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/15 | Forward Traceability Check List (Supplier to Customer) | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/16 | Quality & Product Safety Objectives | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/17 | Site Security Risk Assessment | Kapila Barad | - |
+| System / Management (SYS) | F/SYS/20 | Annual HARA Review & Verification Record | Kapila Barad | - |
+| Maintenance (MNT) | F/MNT/01 | List of Equipments & Utilities | Kapila Barad | Raghunath Mane, Ajay Zala |
+| Maintenance (MNT) | F/MNT/02 | Preventive Maintenance Schedule & Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/03 | Yearly Preventive Maintenance Schedule | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/04 | Daily Equipment Health Status & Cleaning Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/05 | Breakdown Maintenance Memo & Hygiene Clearance Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/05 | Breakdown Maintenance Memo & Post Maintenance Hygiene Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/06 | Equipments Breakdown Maintenance Record | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/07 | Temporary Engineering Log | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/08 | New Equipment Installation Report | Raghunath Mane | Kapila Barad, Ajay Zala |
+| Maintenance (MNT) | F/MNT/09 | List of Glass Articles & Weekly Glass Brekage Monitoring Record | Ajay Zala | Kapila Barad, Raghunath Mane |
+| Maintenance (MNT) | F/MNT/10 | List of Wooden Articles & Weekly Wooden Article Monitoring Record | Ajay Zala | Kapila Barad, Raghunath Mane |
+| Maintenance (MNT) | F/MNT/11 | Lux Level Measurement Record | Kapila Barad | Raghunath Mane, Ajay Zala |
+| Production (PRD) | F-PRD-18 | Solvent Base Lamination - ALC & Production Report | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F-PRD-19 | Solvent Base Lamination - Process Parameter Record | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F-PRD-20 | Slitting - ALC & Production Report | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F-PRD-26 | Doctoring - ALC & Production Report | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F/PRD/10 | Daily Issue & Return of Sharp Metal Object (Scisssor / Manual Cutter) Monitoring Record | Dharmik Mistry, Anil Ravad, Ajay Sinh Vaghela | Kapila Barad, Vishnu Jadhav |
+| Production (PRD) | F/PRD/21 | Area Line Clearance Report - Pouching | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F/PRD/22 | Razor Blade ( Used On - Laminated Films - Pouching Machine Blade Holder) Monitoring Record | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F/PRD/23 | Daily Issue & Return of Sharp Metal Object (Manual Cutter) Monitoring Record - All Pouching Section | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Production (PRD) | F/PRD/24 | Razor Blade ( Used On - Laminated Film's Slitting Machine Blade Holder) Monitoring Record | Vishnu Jadhav, Ajay Sinh Vaghela | Kapila Barad, Dharmik Mistry, Anil Ravad |
+| Purchase (PUR) | F/PUR/01 | Supplier Registration Form | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | F/PUR/02 | Supplier Audit Report | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | F/PUR/03 | List of Approved Suppliers (RM, PM, Service Provider) | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | F/PUR/05 | Raw Material (Label Stock, Ink, Films etc.) & Packing Materials Supplier (Paper Core, Wooden Pallets etc.) Performance Monitoring Register | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | F/PUR/06 | Service Provider - Performance Monitoring Register | Chirag Parmar | Kapila Barad |
+| Purchase (PUR) | TO BE CONFIRMED | Pest Control Service Agreement — Site & Service Provider | Chirag Parmar | Kapila Barad |
+| Store (STR) | F/STR/01 | Incoming Material Vehicle & Condition Monitoring Record | Bharat Ahir | Kapila Barad |
+| Store (STR) | F/STR/02 | Sharp Metal Objects (Razor Blade, Scissor, Cutter blade, Surgical Blade) Issuance (New) & Return (Old) Record | Bharat Ahir | Kapila Barad |
+| Marketing (MKT) | F/MKT/01 | Customer Value added Feedback | Kapila Barad | - |
+| Marketing (MKT) | F/MKT/02 | Customer Feedback analysis | Kapila Barad | - |
+| Marketing (MKT) | F/MKT/04 | Customer Complaints Trend Analysis | Kapila Barad | - |
+| Marketing (MKT) | F/MKT/05 | CAPA — External: Customer Complaint Handling Checklist | Kapila Barad | - |
+| Marketing (MKT) | QA-CAF-00 | CAPA — Internal: Complaint Acknowledgement Report | Kapila Barad | - |
+| Dispatch (DISP) | F/DISP/01 | Safe Transporter Agreement | Kapila Barad | - |
+| Dispatch (DISP) | F/DISP/02 | Container Stuffing & Vehicle Inspection Record — કન્ટેનર સ્ટફિંગ અને વાહન નિરીક્ષણ રેકોર્ડ | Kapila Barad | - |
+| Dispatch (DISP) | F/DISP/04 | Vehicle (Company Owned) Cleaning Protocol & Record | Kapila Barad | - |
+| Quality Assurance (QA) | TO BE CONFIRMED | CAPA — Internal: Pest Control Inspection Findings Report | Kapila Barad | - |
+
+| Person | Sign-in address | Sees (modules) | Answers for (documents) |
+|---|---|---|---|
+| Kapila Barad | kapila.barad@gpp.local | Every module | 76 |
+| Vinay Bhojak | vinay.bhojak@gpp.local | HR | 16 |
+| Sandeep Parekh | sandeep.parekh@gpp.local | HR | 16 |
+| Chirag Parmar | chirag.parmar@gpp.local | PUR | 6 |
+| Bharat Ahir | bharat.ahir@gpp.local | STR | 2 |
+| Ajay Sinh Vaghela | ajaysinh.vaghela@gpp.local | QC, PRD | 10 |
+| Dharmik Mistry | dharmik.mistry@gpp.local | PRD | 1 |
+| Anil Ravad | anil.ravad@gpp.local | PRD | 1 |
+| Vishnu Jadhav | vishnu.jadhav@gpp.local | PRD | 8 |
+| Raghunath Mane | raghunath.mane@gpp.local | MNT | 8 |
+| Ajay Zala | ajay.zala@gpp.local | QC, MNT | 4 |
+| Ankur Raval | ankur.raval@gpp.local | QC | 3 |
+| Super admin | admin@gpp.local | Every module, every document at Edit | None of their own: everything nobody is named for |
+
 ## §97 The notifications: each person told what they answer for, on the website and on the phone (8-Oct-2026)
 
 **The request.** The owner, 8-Oct-2026: "Consider superadmin as boss which can see anything and add notification to
