@@ -731,10 +731,12 @@ with sync_playwright() as p:
         users = json_of(admin_api.request.get(f"{BASE}/api/users")).get("users") or []
         admin_id = next((u.get("id") for u in users if u.get("email") == ADMIN), None)
         others = [u for u in users if u.get("role") == "admin" and u.get("active") and u.get("email") != ADMIN]
-        last = admin_api.request.post(f"{BASE}/api/users/{admin_id}/role", data={"role": "staff"})
+        # Asked only when the plant's super admin is the only one: with another on the database (a sign-up suite's
+        # first account, run before this one) the request would be granted, and this suite's super admin made staff.
         if others:
             print(f"    (another super admin is on this database: {[u.get('email') for u in others]}; the last-super-admin refusal is not asked here)")
         else:
+            last = admin_api.request.post(f"{BASE}/api/users/{admin_id}/role", data={"role": "staff"})
             check("The plant's only super admin cannot be made staff (409, said in words)", last.status == 409 and json_of(last).get("code") == "last-super-admin", (last.status, last.text()[:200]))
         up = admin_api.request.post(f"{BASE}/api/users/{clerk_id}/role", data={"role": "admin"})
         ub = (json_of(up).get("user") or {})
