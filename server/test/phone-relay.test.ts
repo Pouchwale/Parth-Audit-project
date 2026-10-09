@@ -75,8 +75,8 @@ async function start(routes: Record<string, Route> = {}) {
   });
   const token = login.json<LoginResponse>().token;
   const headers = { authorization: `Bearer ${token}` };
-  const send = (method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: object) =>
-    app.inject({ method, url, headers, ...(payload === undefined ? {} : { payload }) });
+  const send = (method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: object, extra: Record<string, string> = {}) =>
+    app.inject({ method, url, headers: { ...headers, ...extra }, ...(payload === undefined ? {} : { payload }) });
   /** What DCRS was asked, after the sign-in. */
   const asked = () => dcrs.seen.filter((r) => !r.path.startsWith('/api/auth') && r.path !== '/api/v1/me');
   return { app, dcrs, send, asked };
@@ -176,10 +176,11 @@ it("keeps the person's choices of what is pushed in DCRS, and sends a test to th
   expect((await send('PUT', '/notification-preferences', { kinds: {}, reminders: 'yes' })).statusCode).toBe(400);
   expect((await send('POST', '/notifications/test')).json()).toEqual({ sent: 2 });
   expect((await send('POST', '/notifications/test')).json()).toEqual({ sent: 0, reason: 'No phone of yours is registered for notifications yet.' });
-  // A second test within 20 seconds: DCRS's words reach the app.
+  // A second test within 20 seconds: DCRS's 429 reaches the app as 429, in DCRS's words (the people review of
+  // 9-Oct-2026 found it turned into 503 "unavailable").
   const tooSoon = await send('POST', '/notifications/test');
-  expect(tooSoon.statusCode).toBeGreaterThanOrEqual(400);
-  expect(tooSoon.json().message).toBe('A test was sent a moment ago. Wait 20 seconds, then try again.');
+  expect(tooSoon.statusCode).toBe(429);
+  expect(tooSoon.json()).toEqual({ error: 'too_many', message: 'A test was sent a moment ago. Wait 20 seconds, then try again.' });
   expect(asked().map((r) => `${r.method} ${r.path}`)).toEqual([
     'GET /api/v1/notification-preferences',
     'PUT /api/v1/notification-preferences',
@@ -283,6 +284,53 @@ it("passes DCRS's refusals on in its own words, and ends the session when DCRS's
   expect(session).toBeDefined();
   expect((await send('GET', '/notifications')).statusCode).toBe(401);
   void app;
+});
+
+it("asks DCRS in the language the app is read in, so DCRS's refusals reach a Hindi or Gujarati reader in it", async () => {
+  // The people review of 9-Oct-2026: Vinay Bhojak's phone, registered in Hindi, was refused F/HR/17 in English, though
+  // DCRS words its refusals in Hindi and Gujarati when asked (X-Language).
+  const words: Record<string, string> = {
+    en: 'F/HR/17 Daily Pest Control Monitoring Record is Read only for you. Filling in a record needs Write access: ask the super admin for it.',
+    hi: 'F/HR/17 Daily Pest Control Monitoring Record आपके लिए केवल Read है। रिकॉर्ड भरने के लिए Write एक्सेस चाहिए: सुपर एडमिन से माँगें।',
+    gu: 'F/HR/17 Daily Pest Control Monitoring Record તમારા માટે ફક્ત Read છે. રેકોર્ડ ભરવા માટે Write ઍક્સેસ જોઈએ: સુપર એડમિન પાસે માગો.',
+  };
+  const { send, asked } = await start({
+    'POST /api/v1/records/rec-1/actions': (r) => refusal(403, 'access-level', words[r.headers['x-language'] ?? 'en'] ?? words.en!),
+    'POST /api/v1/records/rec-1/changes': (r) => refusal(403, 'access-level', words[r.headers['x-language'] ?? 'en'] ?? words.en!),
+    'GET /api/v1/records/rec-1': () => json(200, RECORD),
+    'GET /api/v1/today': () => json(200, TODAY),
+    'POST /api/v1/notifications/test': () => json(200, { sent: 1 }),
+    'GET /api/v1/notifications': () => json(200, { items: [], unread: 0, open: 0 }),
+  });
+  const submit = (language?: string) =>
+    send('POST', '/records/rec-1/actions', { action: 'submit', reviewed: true }, language === undefined ? {} : { 'x-language': language });
+  for (const language of ['hi', 'gu']) {
+    const refused = await submit(language);
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json()).toEqual({ error: 'forbidden', message: words[language] });
+  }
+  expect((await submit()).json().message).toBe(words.en);
+  // A language DCRS does not write in is not passed on: DCRS answers in English.
+  expect((await submit('fr')).json().message).toBe(words.en);
+  expect((await send('POST', '/records/rec-1/changes', { patch: { remarks: 'OK' } }, { 'x-language': 'gu' })).json().message).toBe(words.gu);
+  await send('GET', '/records/rec-1', undefined, { 'x-language': 'gu' });
+  await send('GET', '/tasks', undefined, { 'x-language': 'hi' });
+  await send('POST', '/notifications/test', undefined, { 'x-language': 'gu' });
+  // The inbox: worded in `lang`, and DCRS's refusal in the app's language, else the inbox's.
+  await send('GET', '/notifications?lang=hi');
+  await send('GET', '/notifications?lang=hi', undefined, { 'x-language': 'gu' });
+  expect(asked().map((r) => [`${r.method} ${r.path}`, r.headers['x-language'] ?? null])).toEqual([
+    ['POST /api/v1/records/rec-1/actions', 'hi'],
+    ['POST /api/v1/records/rec-1/actions', 'gu'],
+    ['POST /api/v1/records/rec-1/actions', null],
+    ['POST /api/v1/records/rec-1/actions', null],
+    ['POST /api/v1/records/rec-1/changes', 'gu'],
+    ['GET /api/v1/records/rec-1', 'gu'],
+    ['GET /api/v1/today', 'hi'],
+    ['POST /api/v1/notifications/test', 'gu'],
+    ['GET /api/v1/notifications', 'hi'],
+    ['GET /api/v1/notifications', 'gu'],
+  ]);
 });
 
 it('says a connected system that keeps no notifications offers none, and that the routes need a sign-in', async () => {

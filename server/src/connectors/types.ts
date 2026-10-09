@@ -33,23 +33,28 @@ export interface Connector {
 
 export type RelayQuery = Record<string, string | number | undefined>;
 
+/** How the person asked: the language the app is read in, so the system's words (a refusal, a reason) come in it. */
+export interface RelayOptions {
+  language?: 'en' | 'hi' | 'gu';
+}
+
 /**
  * Relays the phone's screens to the system as the signed-in person. Each call answers the system's own JSON, or throws
  * a ConnectorError in the system's words. The server keeps no notification or task logic of its own.
  */
 export interface PhoneRelay {
-  notifications(credentials: unknown, query: RelayQuery): Promise<unknown>;
-  markRead(credentials: unknown, body: { ids?: number[]; all?: true }): Promise<unknown>;
-  testNotification(credentials: unknown): Promise<unknown>;
-  preferences(credentials: unknown): Promise<unknown>;
-  savePreferences(credentials: unknown, body: unknown): Promise<unknown>;
-  registerDevice(credentials: unknown, body: unknown): Promise<unknown>;
-  removeDevice(credentials: unknown, body: { token: string }): Promise<unknown>;
-  tasks(credentials: unknown): Promise<unknown>;
-  startRecord(credentials: unknown, body: { documentId: string; date?: string }): Promise<unknown>;
-  record(credentials: unknown, recordId: string): Promise<unknown>;
-  changeRecord(credentials: unknown, recordId: string, body: { patch: Record<string, unknown>; note?: string }): Promise<unknown>;
-  actOnRecord(credentials: unknown, recordId: string, body: { action: string; reason?: string; reviewed?: boolean }): Promise<unknown>;
+  notifications(credentials: unknown, query: RelayQuery, options?: RelayOptions): Promise<unknown>;
+  markRead(credentials: unknown, body: { ids?: number[]; all?: true }, options?: RelayOptions): Promise<unknown>;
+  testNotification(credentials: unknown, options?: RelayOptions): Promise<unknown>;
+  preferences(credentials: unknown, options?: RelayOptions): Promise<unknown>;
+  savePreferences(credentials: unknown, body: unknown, options?: RelayOptions): Promise<unknown>;
+  registerDevice(credentials: unknown, body: unknown, options?: RelayOptions): Promise<unknown>;
+  removeDevice(credentials: unknown, body: { token: string }, options?: RelayOptions): Promise<unknown>;
+  tasks(credentials: unknown, options?: RelayOptions): Promise<unknown>;
+  startRecord(credentials: unknown, body: { documentId: string; date?: string }, options?: RelayOptions): Promise<unknown>;
+  record(credentials: unknown, recordId: string, options?: RelayOptions): Promise<unknown>;
+  changeRecord(credentials: unknown, recordId: string, body: { patch: Record<string, unknown>; note?: string }, options?: RelayOptions): Promise<unknown>;
+  actOnRecord(credentials: unknown, recordId: string, body: { action: string; reason?: string; reviewed?: boolean }, options?: RelayOptions): Promise<unknown>;
 }
 
 export interface ConnectorAccount {
@@ -159,6 +164,8 @@ export type ConnectorErrorKind =
   | 'not_found'
   | 'invalid_request'
   | 'conflict'
+  // The system asks the person to wait before doing that again (DCRS's 429, such as a second test push within 20 seconds).
+  | 'too_many'
   | 'unavailable';
 
 /** Thrown by connectors. The message must be safe and useful to show the person. */

@@ -40,7 +40,7 @@ export default function ReviewScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { call } = useAuth();
-  const { refresh: refreshCounts } = useNotifications();
+  const { refresh: refreshCounts, language } = useNotifications();
   const [record, setRecord] = useState<RecordView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<Record<string, string>>({});
@@ -55,14 +55,14 @@ export default function ReviewScreen() {
 
   const load = useCallback(async () => {
     try {
-      const fresh = await call((token) => api.record(token, recordId));
+      const fresh = await call((token) => api.record(token, recordId, language));
       setRecord(fresh);
       setSaved({});
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
     }
-  }, [call, recordId]);
+  }, [call, recordId, language]);
 
   useEffect(() => {
     void load();
@@ -76,7 +76,7 @@ export default function ReviewScreen() {
     // A value changed after the tick is not reviewed yet.
     setReviewed(false);
     try {
-      const answer = await call((token) => api.changeRecord(token, recordId, { patch: patchFor(item.target, value), note: 'Entered on the phone' }));
+      const answer = await call((token) => api.changeRecord(token, recordId, { patch: patchFor(item.target, value), note: 'Entered on the phone' }, language));
       const problems = (answer.problems ?? []).filter((problem): problem is string => typeof problem === 'string' && problem.trim() !== '');
       if (problems.length === 0) setSaved((current) => ({ ...current, [item.id]: value }));
       setFields((current) => ({ ...current, [item.id]: problems.length > 0 ? { error: problems.join(' ') } : { saved: true } }));
@@ -93,7 +93,7 @@ export default function ReviewScreen() {
     setActionError(null);
     try {
       await call((token) =>
-        api.actOnRecord(token, recordId, { action, ...(action === 'send_back' ? { reason } : {}), ...(action === 'resume' ? {} : { reviewed: true }) }),
+        api.actOnRecord(token, recordId, { action, ...(action === 'send_back' ? { reason } : {}), ...(action === 'resume' ? {} : { reviewed: true }) }, language),
       );
       setSheet(null);
       setDone(ACTION_WORDS[action].done);

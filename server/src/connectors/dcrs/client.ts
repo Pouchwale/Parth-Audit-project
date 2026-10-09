@@ -39,6 +39,8 @@ interface CallOptions {
   timeoutMs?: number;
   accept?: string;
   cookie?: string;
+  /** Sent as X-Language: DCRS then words its refusals and reasons in English, Hindi or Gujarati. */
+  language?: string;
 }
 
 /** A file DCRS answered with, such as a record printed as a PDF. */
@@ -102,6 +104,7 @@ export function dcrsClient(options: DcrsOptions) {
     const headers: Record<string, string> = { 'X-Client-Name': CLIENT_NAME, Accept: init.accept ?? 'application/json' };
     if (init.token) headers.Authorization = `Bearer ${init.token}`;
     if (init.cookie) headers.Cookie = init.cookie;
+    if (init.language) headers['X-Language'] = init.language;
     if (init.body !== undefined) headers['Content-Type'] = 'application/json';
     const url = address(path, init.query);
     try {
@@ -272,7 +275,8 @@ export async function refusalOf(response: Response): Promise<ConnectorError> {
     case 413:
       return new ConnectorError('invalid_request', said ?? 'That is too large for DCRS to take.');
     case 429:
-      return new ConnectorError('unavailable', said ?? 'DCRS is busy. Try again in a minute.');
+      // DCRS asks the person to wait (a second test push within 20 seconds): its words, as "too many", never "unavailable".
+      return new ConnectorError('too_many', said ?? 'DCRS is busy. Try again in a minute.');
     case 503:
     case 504:
       // Such as a PDF that could not be printed: DCRS says why in words.

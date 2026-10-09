@@ -17,7 +17,7 @@ import { LOCAL_POSSIBLE } from '@/lib/push';
 export function NotificationSettings() {
   const theme = useTheme();
   const { call, user } = useAuth();
-  const { push, offered, remindersActive, setReminders, turnOn } = useNotifications();
+  const { push, offered, remindersActive, setReminders, turnOn, language } = useNotifications();
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [prefsError, setPrefsError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
@@ -51,7 +51,7 @@ export function NotificationSettings() {
     setTesting(true);
     setTested(null);
     try {
-      setTested(testResultWords(await call((token) => api.testNotification(token))));
+      setTested(testResultWords(await call((token) => api.testNotification(token, language))));
     } catch (e) {
       setTested({ tone: 'danger', words: errorMessage(e) });
     }

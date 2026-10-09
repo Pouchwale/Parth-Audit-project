@@ -18,7 +18,7 @@ import { signInExpired } from '../agent/agent.ts';
 import type { AppDeps } from '../app.ts';
 import { authOf, endSession, loadCredentials, requireSession } from '../auth/sessions.ts';
 import { patchInWords, spoken } from '../connectors/dcrs/inputs.ts';
-import { ConnectorError, type ConnectorErrorKind, type PhoneRelay } from '../connectors/types.ts';
+import { ConnectorError, type ConnectorErrorKind, type PhoneRelay, type RelayOptions } from '../connectors/types.ts';
 import { actions } from '../db/schema.ts';
 import { HttpError, parseBody } from '../http.ts';
 
@@ -141,8 +141,20 @@ const HTTP: Record<ConnectorErrorKind, [status: number, code: string]> = {
   not_found: [404, 'not_found'],
   invalid_request: [400, 'invalid_request'],
   conflict: [409, 'conflict'],
+  // DCRS asks the person to wait (its 429, such as a second test push within 20 seconds): the app is told so, in DCRS's words.
+  too_many: [429, 'too_many'],
   unavailable: [503, 'upstream_unavailable'],
 };
+
+/**
+ * The language the person reads the app in (the app's X-Language header: en, hi or gu), passed on to DCRS so its words
+ * (a refusal, a reason) come in it. Anything else is left out, and DCRS answers in English.
+ */
+function relayOptions(request: FastifyRequest): RelayOptions {
+  const said = request.headers['x-language'];
+  const language = Language.safeParse(Array.isArray(said) ? said[0] : said);
+  return language.success ? { language: language.data } : {};
+}
 
 export function registerPhoneRoutes(app: FastifyInstance, deps: AppDeps) {
   const session = { preHandler: requireSession(deps) };
@@ -155,15 +167,15 @@ export function registerPhoneRoutes(app: FastifyInstance, deps: AppDeps) {
     return result.data as T;
   }
 
-  /** Runs `ask` as the signed-in person; a sign-in the system no longer accepts ends the session, as in the chat. */
-  async function relay(request: FastifyRequest, ask: (phone: PhoneRelay, credentials: unknown) => Promise<unknown>): Promise<unknown> {
+  /** Runs `ask` as the signed-in person, in their language; a sign-in the system no longer accepts ends the session, as in the chat. */
+  async function relay(request: FastifyRequest, ask: (phone: PhoneRelay, credentials: unknown, options: RelayOptions) => Promise<unknown>): Promise<unknown> {
     const phone = connector.phone;
     if (!phone) throw new HttpError(501, 'not_offered', `${connector.name} keeps no notifications or tasks for the app.`);
     const { session: current } = authOf(request);
     const credentials = await loadCredentials(deps, current.id, connector.id);
     try {
       if (credentials === undefined) throw new ConnectorError('unauthorized', 'No sign-in is kept for this session.');
-      return await ask(phone, credentials);
+      return await ask(phone, credentials, relayOptions(request));
     } catch (error) {
       if (!(error instanceof ConnectorError)) throw error;
       if (error.kind === 'unauthorized') {
@@ -206,59 +218,60 @@ export function registerPhoneRoutes(app: FastifyInstance, deps: AppDeps) {
 
   app.get('/notifications', session, async (request): Promise<NotificationList> => {
     const query = parseBody(ListQuery, request.query);
-    const said = await relay(request, (phone, credentials) => phone.notifications(credentials, query));
+    // The inbox is worded in `lang`; DCRS's refusal in the app's language, else the inbox's.
+    const said = await relay(request, (phone, credentials, options) => phone.notifications(credentials, query, { language: options.language ?? query.lang }));
     return answer<NotificationList>(ListAnswer, said);
   });
 
   app.post('/notifications/read', session, async (request): Promise<NotificationReadResponse> => {
     const body = parseBody(ReadBody, request.body);
-    const said = await relay(request, (phone, credentials) => phone.markRead(credentials, body));
+    const said = await relay(request, (phone, credentials, options) => phone.markRead(credentials, body, options));
     return answer<NotificationReadResponse>(ReadAnswer, said);
   });
 
   app.post('/notifications/test', session, async (request): Promise<TestNotificationResponse> => {
-    const said = await relay(request, (phone, credentials) => phone.testNotification(credentials));
+    const said = await relay(request, (phone, credentials, options) => phone.testNotification(credentials, options));
     return answer<TestNotificationResponse>(TestAnswer, said);
   });
 
   app.get('/notification-preferences', session, async (request): Promise<NotificationPreferences> => {
-    const said = await relay(request, (phone, credentials) => phone.preferences(credentials));
+    const said = await relay(request, (phone, credentials, options) => phone.preferences(credentials, options));
     return answer<NotificationPreferences>(PreferencesAnswer, said);
   });
 
   app.put('/notification-preferences', session, async (request): Promise<NotificationPreferences> => {
     const body = parseBody(Preferences, request.body);
-    const said = await relay(request, (phone, credentials) => phone.savePreferences(credentials, body));
+    const said = await relay(request, (phone, credentials, options) => phone.savePreferences(credentials, body, options));
     return answer<NotificationPreferences>(PreferencesAnswer, said);
   });
 
   app.post('/devices', session, async (request): Promise<OkResponse> => {
     const body = parseBody(Device, request.body);
-    await relay(request, (phone, credentials) => phone.registerDevice(credentials, body));
+    await relay(request, (phone, credentials, options) => phone.registerDevice(credentials, body, options));
     return { ok: true };
   });
 
   app.delete('/devices', session, async (request): Promise<OkResponse> => {
     const body = parseBody(DeviceGone, request.body);
-    await relay(request, (phone, credentials) => phone.removeDevice(credentials, body));
+    await relay(request, (phone, credentials, options) => phone.removeDevice(credentials, body, options));
     return { ok: true };
   });
 
   app.get('/tasks', session, async (request): Promise<Tasks> => {
-    const said = await relay(request, (phone, credentials) => phone.tasks(credentials));
+    const said = await relay(request, (phone, credentials, options) => phone.tasks(credentials, options));
     return answer<Tasks>(TasksAnswer, said);
   });
 
   app.post('/records', session, async (request): Promise<StartedRecord> => {
     const body = parseBody(StartBody, request.body);
     const summary = `Open the record of ${body.documentId} for ${body.date ?? 'today'}, starting it if there is none yet (from the Tasks screen)`;
-    const said = await logged(request, 'open_record', body, summary, () => relay(request, (phone, credentials) => phone.startRecord(credentials, body)));
+    const said = await logged(request, 'open_record', body, summary, () => relay(request, (phone, credentials, options) => phone.startRecord(credentials, body, options)));
     return answer<StartedRecord>(StartAnswer, said);
   });
 
   app.get('/records/:recordId', session, async (request): Promise<RecordView> => {
     const { recordId } = parseBody(RecordParams, request.params);
-    const said = await relay(request, (phone, credentials) => phone.record(credentials, recordId));
+    const said = await relay(request, (phone, credentials, options) => phone.record(credentials, recordId, options));
     return answer<RecordView>(RecordAnswer, said);
   });
 
@@ -267,7 +280,7 @@ export function registerPhoneRoutes(app: FastifyInstance, deps: AppDeps) {
     const body = parseBody(ChangeBody, request.body);
     const summary = `In record ${recordId}, set ${patchInWords(body.patch)} (entered on the Review screen)`;
     const said = await logged(request, 'edit_record', { recordId, ...body }, summary, () =>
-      relay(request, (phone, credentials) => phone.changeRecord(credentials, recordId, body)),
+      relay(request, (phone, credentials, options) => phone.changeRecord(credentials, recordId, body, options)),
     );
     return { recordId, ...answer<Omit<RecordChangeResult, 'recordId'>>(ChangeAnswer, said) };
   });
@@ -276,7 +289,7 @@ export function registerPhoneRoutes(app: FastifyInstance, deps: AppDeps) {
     const { recordId } = parseBody(RecordParams, request.params);
     const body = parseBody(ActionBody, request.body);
     const said = await logged(request, 'record_action', { recordId, ...body }, actionWords(recordId, body), () =>
-      relay(request, (phone, credentials) => phone.actOnRecord(credentials, recordId, body)),
+      relay(request, (phone, credentials, options) => phone.actOnRecord(credentials, recordId, body, options)),
     );
     return { recordId, ...answer<Omit<RecordChangeResult, 'recordId'>>(ChangeAnswer, said) };
   });

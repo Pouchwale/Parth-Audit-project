@@ -496,7 +496,9 @@ export interface WeeklyReport extends WeeklyReportSummary {
 // DCRS keeps the notifications (its ledger in PostgreSQL), sends the push alerts and works out every task. The Mitra
 // server holds none of that: each route below is relayed to DCRS's /api/v1 as the signed-in person (DCRS's
 // docs/chatbot-integration.md, "Notification contract changes"), so DCRS's access levels decide what each person sees
-// and may do, and a refusal reaches the app in DCRS's own words. Routes of the Mitra server:
+// and may do, and a refusal reaches the app in DCRS's own words: in Hindi or Gujarati when the app sends the header
+// X-Language: hi or gu (English otherwise). DCRS asking the person to wait (a second test push within 20 seconds)
+// comes back as 429 "too_many", in DCRS's words. Routes of the Mitra server:
 //
 //   GET    /notifications?state=open|all&limit=50&before=<id>&lang=en|hi|gu  -> NotificationList
 //   POST   /notifications/read             NotificationReadRequest      -> NotificationReadResponse

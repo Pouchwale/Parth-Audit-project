@@ -20,7 +20,7 @@ export default function TasksScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { call, user } = useAuth();
-  const { arrived } = useNotifications();
+  const { arrived, language } = useNotifications();
   const boss = user?.role === 'super_admin';
   const [tasks, setTasks] = useState<Tasks | null>(null);
   const [module, setModule] = useState<string | null>(null);
@@ -30,12 +30,12 @@ export default function TasksScreen() {
 
   const load = useCallback(async () => {
     try {
-      setTasks(await call((token) => api.tasks(token)));
+      setTasks(await call((token) => api.tasks(token, language)));
       setError(null);
     } catch (e) {
       setError(errorMessage(e));
     }
-  }, [call]);
+  }, [call, language]);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,7 +61,7 @@ export default function TasksScreen() {
     // Not started yet: DCRS starts it (prepared as its morning job prepares one), then it opens.
     setStarting(taskKey(item));
     try {
-      const started = await call((token) => api.startRecord(token, { documentId: item.documentId, date: item.dueDate }));
+      const started = await call((token) => api.startRecord(token, { documentId: item.documentId, date: item.dueDate }, language));
       router.push({ pathname: '/task/[recordId]', params: { recordId: started.record.recordId } });
     } catch (e) {
       setError(errorMessage(e));

@@ -852,7 +852,8 @@ group("DCRS's refusals", () => {
   it('413, 429 and 5xx', async () => {
     await refusedWith(() => json(413, { error: 'That photo is too large.' }), 'invalid_request', 'That photo is too large.');
     await refusedWith(() => new Response('too big', { status: 413 }), 'invalid_request', 'That is too large for DCRS to take.');
-    await refusedWith(() => json(429, { error: 'Too many requests. Try again in a minute.' }), 'unavailable', 'Too many requests. Try again in a minute.');
+    // DCRS asking the person to wait is "too many", in its words (the phone's routes answer 429), never "unavailable".
+    await refusedWith(() => json(429, { error: 'Too many requests. Try again in a minute.' }), 'too_many', 'Too many requests. Try again in a minute.');
     await refusedWith(() => refusal(503, 'pdf-unavailable', 'This DCRS server cannot print a PDF.'), 'unavailable', 'This DCRS server cannot print a PDF.');
     await refusedWith(() => refusal(504, 'pdf-timeout', 'Printing the report took too long. Try again in a moment.'), 'unavailable', 'Printing the report took too long. Try again in a moment.');
     await refusedWith(() => json(500, { error: 'TypeError: x is undefined' }), 'unavailable', "DCRS couldn't do that just now. Try again in a moment.");

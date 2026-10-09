@@ -297,14 +297,16 @@ export const api = {
   weeklyReport: (token: string, weekStart: string) =>
     request<WeeklyReport>(`/admin/reports/weekly/${encodeURIComponent(weekStart)}`, { token }),
 
-  // The inbox, Tasks and the Review screen: DCRS's, relayed by the Mitra server as the person (shared/api.ts).
+  // The inbox, Tasks and the Review screen: DCRS's, relayed by the Mitra server as the person (shared/api.ts). `lang`
+  // goes as X-Language, so DCRS's own words (a refusal, a reason) come in the language the person reads the app in.
   notifications: (token: string, options: { state?: 'open' | 'all'; limit?: number; before?: number; lang: NotificationLanguage }) =>
     request<NotificationList>(
       `/notifications${query({ state: options.state, limit: options.limit?.toString(), before: options.before?.toString(), lang: options.lang })}`,
       { token },
     ),
   markRead: (token: string, body: NotificationReadRequest) => request<NotificationReadResponse>('/notifications/read', { method: 'POST', body, token }),
-  testNotification: (token: string) => request<TestNotificationResponse>('/notifications/test', { method: 'POST', token }),
+  testNotification: (token: string, lang?: NotificationLanguage) =>
+    request<TestNotificationResponse>('/notifications/test', { method: 'POST', token, headers: inLanguage(lang) }),
   notificationPreferences: (token: string) => request<NotificationPreferences>('/notification-preferences', { token }),
   saveNotificationPreferences: (token: string, body: NotificationPreferences) =>
     request<NotificationPreferences>('/notification-preferences', { method: 'PUT', body, token }),
@@ -314,14 +316,21 @@ export const api = {
   /** Waits 5 seconds at most, as signing out does. */
   removeDevice: (token: string, pushToken: string) =>
     request<OkResponse>('/devices', { method: 'DELETE', body: { token: pushToken }, token, signal: deadline(5_000) }),
-  tasks: (token: string) => request<Tasks>('/tasks', { token }),
-  startRecord: (token: string, body: StartRecordRequest) => request<StartedRecord>('/records', { method: 'POST', body, token }),
-  record: (token: string, recordId: string) => request<RecordView>(`/records/${encodeURIComponent(recordId)}`, { token }),
-  changeRecord: (token: string, recordId: string, body: RecordChangeRequest) =>
-    request<RecordChangeResult>(`/records/${encodeURIComponent(recordId)}/changes`, { method: 'POST', body, token }),
-  actOnRecord: (token: string, recordId: string, body: RecordActionRequest) =>
-    request<RecordChangeResult>(`/records/${encodeURIComponent(recordId)}/actions`, { method: 'POST', body, token }),
+  tasks: (token: string, lang?: NotificationLanguage) => request<Tasks>('/tasks', { token, headers: inLanguage(lang) }),
+  startRecord: (token: string, body: StartRecordRequest, lang?: NotificationLanguage) =>
+    request<StartedRecord>('/records', { method: 'POST', body, token, headers: inLanguage(lang) }),
+  record: (token: string, recordId: string, lang?: NotificationLanguage) =>
+    request<RecordView>(`/records/${encodeURIComponent(recordId)}`, { token, headers: inLanguage(lang) }),
+  changeRecord: (token: string, recordId: string, body: RecordChangeRequest, lang?: NotificationLanguage) =>
+    request<RecordChangeResult>(`/records/${encodeURIComponent(recordId)}/changes`, { method: 'POST', body, token, headers: inLanguage(lang) }),
+  actOnRecord: (token: string, recordId: string, body: RecordActionRequest, lang?: NotificationLanguage) =>
+    request<RecordChangeResult>(`/records/${encodeURIComponent(recordId)}/actions`, { method: 'POST', body, token, headers: inLanguage(lang) }),
 };
+
+/** The X-Language header the Mitra server passes on to DCRS (shared/api.ts), or none. */
+export function inLanguage(lang: NotificationLanguage | undefined): Record<string, string> | undefined {
+  return lang ? { 'x-language': lang } : undefined;
+}
 
 export function errorMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : 'Something went wrong. Try again.';
