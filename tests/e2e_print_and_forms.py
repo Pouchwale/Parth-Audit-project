@@ -139,10 +139,14 @@ with sync_playwright() as p:
 
     # ---- 1. A service-report draft an older build left behind ----
     # A different quantity on every area, and one material typed over by hand;
-    # then the app starts again.
+    # then the app starts again. A person has worked on it since it was prepared
+    # (saved a minute later): an untouched one the older build filled is prepared
+    # again by the rule instead, its made-up quantities taken out (REQUIREMENTS §98;
+    # the second draft below).
     rid = "rec-legacy-rodent-draft"
+    untouched = "rec-legacy-rodent-untouched"
     page.evaluate(
-        """([rid, today]) => {
+        """([rid, untouched, today]) => {
           const master = JSON.parse(localStorage.getItem('dcrs:v1:master'));
           const areas = master.areas.filter(a => a.context === 'service-report:Rodent Control Service');
           const lines = areas.map((a, i) => {
@@ -156,19 +160,28 @@ with sync_playwright() as p:
               remarks: 'No Rodent Trapped',
             };
           });
+          const fresh = lines.map((l) => ({ ...l }));
           lines[3].materialName = 'Rat poison';
           const now = new Date().toISOString();
+          const later = new Date(Date.parse(now) + 60000).toISOString();
           const records = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]');
           records.push({
             id: rid, documentId: 'service-report-rodent', periodKey: 'service-report-rodent:legacy-test', dueDate: today,
             status: 'In Progress', isDemo: false,
             data: { serviceName: 'Rodent Control Service', lines, technicianSign: 'Yogesh Rathod', customerSign: '' },
+            createdAt: now, updatedAt: later,
+            prepared: { at: now, by: 'assistant', notes: ['Prepared by an older build.'], basedOn: 'test' },
+          });
+          records.push({
+            id: untouched, documentId: 'service-report-rodent', periodKey: 'service-report-rodent:legacy-untouched', dueDate: today,
+            status: 'In Progress', isDemo: false,
+            data: { serviceName: 'Rodent Control Service', lines: fresh, technicianSign: 'Yogesh Rathod', customerSign: '' },
             createdAt: now, updatedAt: now,
             prepared: { at: now, by: 'assistant', notes: ['Prepared by an older build.'], basedOn: 'test' },
           });
           localStorage.setItem('dcrs:v1:records', JSON.stringify(records));
         }""",
-        [rid, TODAY.isoformat()],
+        [rid, untouched, TODAY.isoformat()],
     )
     page.reload()
     page.wait_for_timeout(900)
@@ -189,6 +202,19 @@ with sync_playwright() as p:
         "...and the change is in its history, by System, after the assistant's preparation",
         [h["action"] for h in history] == ["prepared", "edited"] and history[-1]["by"] == "System" and len(history[-1].get("changes") or []) > 0,
         history,
+    )
+    u = stored(page, untouched)
+    u_lines = u["data"]["lines"]
+    u_history = u.get("history") or []
+    check(
+        "An untouched draft the older build filled is prepared again: its made-up quantities are taken out (§98)",
+        len(u_lines) == 16 and all(l["qtyUsed"] == "" for l in u_lines) and all(l["materialName"] in ("Glue Board", "Bromadiolone Cake") for l in u_lines),
+        [l["qtyUsed"] for l in u_lines],
+    )
+    check(
+        "...and says so in its history",
+        any(h.get("action") == "prepared" and "Prepared again" in (h.get("note") or "") for h in u_history),
+        [(h.get("action"), (h.get("note") or "")[:60]) for h in u_history],
     )
 
     # ---- 2. The service report form ----
