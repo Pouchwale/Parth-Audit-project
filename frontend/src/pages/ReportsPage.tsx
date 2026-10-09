@@ -9,7 +9,7 @@ import { countFindings } from "../engine/checkpoints";
 import { logSheetOutOfBandCount } from "../engine/validation";
 import { summarise } from "../engine/guidedChecklist";
 import { COMPLAINT_DOC_ID } from "../data/seed/complaintChecklist";
-import { flyStatsForYear, flyTrendRows, lizardTrendRows, rodentStatsForYear, rodentTrendRows, type TrendYearRow } from "../data/selectors";
+import { countsAsEntered, flyStatsForYear, flyTrendRows, lizardTrendRows, rodentStatsForYear, rodentTrendRows, type TrendYearRow } from "../data/selectors";
 import {
   FLIES_TREND_REPORT,
   LIZARD_TREND_REPORT,
@@ -168,7 +168,8 @@ function LaminationQcReport({ isDemo, year, month }: { isDemo: boolean; year: nu
   const dim = daysInMonth(year, month);
   const from = `${year}-${pad2(month + 1)}-01`;
   const to = `${year}-${pad2(month + 1)}-${pad2(dim)}`;
-  const q = (documentId: string) => recordRepository.query({ documentId, isDemo, fromDate: from, toDate: to }) as RecordInstance<LogSheetData>[];
+  // Only what people entered (REQUIREMENTS §98, H-13): a prepared draft's cells are not the plant's figures.
+  const q = (documentId: string) => (recordRepository.query({ documentId, isDemo, fromDate: from, toDate: to }) as RecordInstance<LogSheetData>[]).filter(countsAsEntered);
   const viscosity = new Map(q("qc-viscosity").map((r) => [r.dueDate, r]));
   const temperature = new Map(q("qc-temperature").map((r) => [r.dueDate, r]));
   const mixing = new Map(q("qc-adhesive-mixing").map((r) => [r.dueDate, r]));
@@ -324,14 +325,16 @@ function DailyMonitoringReport({ isDemo, year, month }: { isDemo: boolean; year:
   const records = recordRepository.query({ documentId: "daily-pest-monitoring", isDemo, fromDate: `${year}-${pad2(month + 1)}-01`, toDate: `${year}-${pad2(month + 1)}-${pad2(dim)}` }) as RecordInstance<DailyPestMonitoringData>[];
   const byDate = new Map(records.map((r) => [r.dueDate, r]));
   const checkpointDefs = masterRepository.get().checkpoints;
+  // The status column shows every day's record; the findings and the rodents only what people entered (REQUIREMENTS §98, H-13).
+  const entered = new Set(records.filter(countsAsEntered).map((r) => r.id));
 
   const rodentCell = (r: RecordInstance<DailyPestMonitoringData> | undefined): string => {
-    if (!r || r.data.isHoliday || r.data.checkpoints[7]?.value !== "Yes") return "";
+    if (!r || !entered.has(r.id) || r.data.isHoliday || r.data.checkpoints[7]?.value !== "Yes") return "";
     const catches = r.data.rodentCatches ?? [];
     if (catches.length === 0) return "Yes (details not recorded)";
     return `${totalRodents(catches)} — ${catches.map((c) => `${c.trapBoxNo || "?"} ${c.location}`).join("; ")}`;
   };
-  const monthRodents = Array.from(byDate.values()).reduce((s, r) => s + (!r.data.isHoliday && r.data.checkpoints[7]?.value === "Yes" ? Math.max(totalRodents(r.data.rodentCatches), r.data.rodentCatches?.length ? 0 : 1) : 0), 0);
+  const monthRodents = Array.from(byDate.values()).reduce((s, r) => s + (entered.has(r.id) && !r.data.isHoliday && r.data.checkpoints[7]?.value === "Yes" ? Math.max(totalRodents(r.data.rodentCatches), r.data.rodentCatches?.length ? 0 : 1) : 0), 0);
 
   const exportCSV = () => {
     const rows: (string | number)[][] = [];
@@ -341,7 +344,7 @@ function DailyMonitoringReport({ isDemo, year, month }: { isDemo: boolean; year:
       rows.push([
         d,
         r?.data.isHoliday ? "HOLIDAY" : r?.status ?? "—",
-        r && !r.data.isHoliday ? countFindings(checkpointDefs, r.data.checkpoints) : "",
+        r && entered.has(r.id) && !r.data.isHoliday ? countFindings(checkpointDefs, r.data.checkpoints) : "",
         rodentCell(r),
         r?.data.checker ?? "",
       ]);
@@ -382,7 +385,7 @@ function DailyMonitoringReport({ isDemo, year, month }: { isDemo: boolean; year:
             {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
               const dateISO = `${year}-${pad2(month + 1)}-${pad2(d)}`;
               const r = byDate.get(dateISO);
-              const findings = r && !r.data.isHoliday ? countFindings(checkpointDefs, r.data.checkpoints) : 0;
+              const findings = r && entered.has(r.id) && !r.data.isHoliday ? countFindings(checkpointDefs, r.data.checkpoints) : 0;
               const rodents = rodentCell(r);
               return (
                 <tr key={d}>

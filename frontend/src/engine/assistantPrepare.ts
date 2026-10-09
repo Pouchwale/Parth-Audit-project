@@ -67,6 +67,27 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   // records for exactly this reason).
   const { liveStartDate } = settingsRepository.get();
 
+  // DRAFTS THE SIMULATION FILLED BEFORE 8-OCT-2026 (REQUIREMENTS §98). Until
+  // then the prepare wrote plausible readings into Live drafts (engine/autoFill.ts).
+  // A draft nobody has touched since still holds them, one click from being
+  // submitted as somebody's observation. Each is prepared again by the rule:
+  // the known parts kept, the made-up readings taken out, the change in its
+  // history. A draft a person has worked on is never touched.
+  for (const record of untouchedSimulatedDrafts()) {
+    const doc = documentRepository.getByIdUnscoped(record.documentId);
+    if (!doc) continue;
+    const result = prepareKnownParts(doc, record.dueDate, master, latestConfirmedRecord(doc.id, record.dueDate, false));
+    if (!result) continue;
+    const entry = makeEntry("prepared", "Assistant", { note: REPREPARED_NOTE, changes: diffRecordData(record.data, result.data, fieldLabels(doc.kind, doc.id)) });
+    prepared.push({
+      ...record,
+      data: result.data,
+      updatedAt: now,
+      prepared: { at: now, by: "assistant", notes: result.notes, basedOn: result.basedOn, knownPartsOnly: true },
+      history: [...(record.history ?? []), { ...entry, at: now }],
+    });
+  }
+
   for (const doc of docs) {
     const records = recordRepository
       .queryUnscoped({ documentId: doc.id, isDemo: false })
@@ -108,6 +129,27 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
 
   if (prepared.length > 0) recordRepository.upsertMany(prepared);
   return prepared;
+}
+
+/** The history line of a draft the simulation filled before 8-Oct-2026, prepared again by the rule. */
+export const REPREPARED_NOTE = "Prepared again by the assistant: the known parts only. The readings an earlier version filled in were never observed, so they are taken out; the readings are the person's";
+
+/**
+ * Live drafts the earlier prepare filled with the simulation and nobody has touched since: In Progress,
+ * prepared but not by the rule, saved last by the prepare itself (updatedAt is prepared.at), and no entry
+ * in the history by a person.
+ */
+function untouchedSimulatedDrafts(): RecordInstance[] {
+  return recordRepository
+    .queryUnscoped({ isDemo: false })
+    .filter(
+      (r) =>
+        r.status === "In Progress" &&
+        !!r.prepared &&
+        !r.prepared.knownPartsOnly &&
+        r.updatedAt === r.prepared.at &&
+        !(r.history ?? []).some((h) => h.action !== "prepared" && h.by !== "Assistant" && h.by !== "System")
+    );
 }
 
 // THE HISTORY LINE OF A PREPARATION (REQUIREMENTS §98): who prepared it, the

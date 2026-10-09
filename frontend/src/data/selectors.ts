@@ -4,6 +4,8 @@ import type { DailyPestMonitoringData, FlyCatcherData, GapFinding, GapInspection
 import { recordRepository } from "./repositories/recordRepository";
 import { documentRepository } from "./repositories/documentRepository";
 import { masterRepository } from "./repositories/masterRepository";
+import { settingsRepository } from "./repositories/settingsRepository";
+import { isHumanRecord } from "../engine/insights";
 import { todayISO, compareISO, pad2 } from "../utils/date";
 import { totalRodents } from "../engine/rodentPattern";
 import { lizardYearPlan } from "../engine/lizardPattern";
@@ -16,10 +18,21 @@ import {
   LIZARD_TREND_REPORT,
 } from "./seed/trendReports";
 
+// ONLY WHAT PEOPLE ENTERED (REQUIREMENTS §98; the audit of 7-Oct-2026, H-13).
+// A report, a tile or a trend sheet adds up a Live record only when a person
+// wrote or confirmed it (engine/insights.ts isHumanRecord, the rule the
+// Management Summary already used): never a draft the assistant prepared, and
+// so never the simulated catches and readings the prepare wrote before
+// 8-Oct-2026. Demo Mode's records are all the simulation's and are shown as
+// such (the watermark), so they are counted as they are.
+export function countsAsEntered(r: RecordInstance): boolean {
+  return r.isDemo || isHumanRecord(r, settingsRepository.get().liveStartDate);
+}
+
 // Rodents recorded on the Daily Pest Control Monitoring Record (checkpoint 7
 // + catch details) — what Reports > Rodent Trend and the Dashboard add up.
-// Only records a person has confirmed or the assistant has prepared count
-// (anything with data); blank shells contribute nothing.
+// Only records people entered count (countsAsEntered); blank shells and the
+// assistant's prepared drafts contribute nothing.
 export interface RodentMonth {
   month: number; // 0-11
   rodents: number;
@@ -100,7 +113,7 @@ export function rodentsInMonth(year: number, month: number, isDemo: boolean): nu
   const from = `${year}-${pad2(month + 1)}-01`;
   const to = `${year}-${pad2(month + 1)}-31`;
   return (recordRepository.query({ documentId: "daily-pest-monitoring", isDemo, fromDate: from, toDate: to }) as RecordInstance<DailyPestMonitoringData>[])
-    .filter((r) => !r.data.isHoliday && r.data.checkpoints[7]?.value === "Yes")
+    .filter((r) => !r.data.isHoliday && r.data.checkpoints[7]?.value === "Yes" && countsAsEntered(r))
     .reduce((s, r) => s + Math.max(totalRodents(r.data.rodentCatches), r.data.rodentCatches?.length ? 0 : 1), 0);
 }
 
@@ -140,6 +153,7 @@ export function flyStatsForYear(year: number, isDemo: boolean): FlyYearStats {
   const months: number[] = Array(12).fill(0);
   let visits = 0;
   for (const r of records) {
+    if (!countsAsEntered(r)) continue;
     const m = Number(r.dueDate.slice(5, 7)) - 1;
     let counted = false;
     for (const e of r.data.entries) {
@@ -200,7 +214,7 @@ function monthKey(iso: string): string {
 }
 
 function dailyRecordFilled(r: RecordInstance<DailyPestMonitoringData>): boolean {
-  return !r.data.isHoliday && Object.values(r.data.checkpoints ?? {}).some((c) => c && c.value !== null && c.value !== "");
+  return !r.data.isHoliday && Object.values(r.data.checkpoints ?? {}).some((c) => c && c.value !== null && c.value !== "") && countsAsEntered(r);
 }
 
 export function rodentTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[] {
@@ -254,6 +268,7 @@ export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[
   const records = recordRepository.query({ documentId: "fly-catcher", isDemo }) as RecordInstance<FlyCatcherData>[];
   const byMonth = new Map<string, number>();
   for (const r of records) {
+    if (!countsAsEntered(r)) continue;
     const counts = r.data.entries.filter((e) => e.catchCountApprox !== null && e.catchCountApprox !== undefined);
     if (counts.length === 0) continue;
     const key = monthKey(r.dueDate);
