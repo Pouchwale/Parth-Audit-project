@@ -22,9 +22,13 @@
     submitted it and an unsubmitted one against both, and a person who also
     answers for a department the viewer cannot see is marked as part-scored
     (the page is handed a made-up directory for this; the records are real);
-  * the minus score (REQUIREMENTS s92): every line, card, the plant's tile and
-    the CSV carry -10 for each record never done (0, never -0, when none), with
-    a true minus sign on screen and the plain number in data-minus; "still open
+  * the minus score (REQUIREMENTS s92), as FMS counts it: every line, card, the
+    plant's tile and the CSV carry the share of the records due never done,
+    round(done / due x 100) - 100 (8 of 10 done is -20%; 0, never -0, when none),
+    with a true minus sign and a % on screen and the plain number in data-minus;
+    the administrator's dashboard lists every person's, the Performance page's
+    own figures, worst first, and a staff account's dashboard has no such list;
+    "still open
     today" is recounted from the records on file (never assumed above 0: the
     suite runs on the real clock and the day may be the weekly off);
   * the minus score on paper and in Gujarati (the review of 8-Oct-2026): its
@@ -58,6 +62,9 @@ BASE = os.environ.get("DCRS_BASE", "http://localhost:8842").rstrip("/")
 # The minus score is written with a true minus sign (U+2212) on screen.
 MINUS = "\u2212"
 PASSWORD = "PlaywrightQA123"
+# The seeded administrator and what scripts/run-e2e.ts gives the server as SEED_ACCOUNT_PASSWORD (tests/e2e_escalation.py).
+ADMIN_EMAIL = "admin@gpp.local"
+SEED_PASSWORD = "SeedQA@2026"
 # Names with no word in them that is also a button's label.
 VIEWER = "Tally QA"
 QC_PERSON = "Meena Tally"
@@ -226,18 +233,25 @@ def adds_up(rows):
     return wrong
 
 
-def minus_for(overdue):
-    """The minus score (s92): -10 for each record never done, 0 when none."""
-    return -10 * overdue if overdue > 0 else 0
+def minus_for(overdue, due):
+    """The minus score (s92), as FMS counts it: round(done / due x 100) - 100, below 0 while anything is missing, 0 when nothing is."""
+    if due <= 0 or overdue <= 0:
+        return 0
+    return min(js_round(100 * (due - overdue) / due) - 100, -1)
 
 
 def minus_text(minus):
-    return "0" if minus == 0 else f"{MINUS}{-minus}"
+    return "0%" if minus == 0 else f"{MINUS}{-minus}%"
 
 
 def minus_wrong(rows):
-    """The lines whose minus score is not -10 x their never done, or is written wrong, or has more open today than not due yet."""
-    return [r for r in rows if r["minus"] != minus_for(r["overdue"]) or r["minusText"] != minus_text(r["minus"]) or not (0 <= r["openToday"] <= r["pending"])]
+    """The lines whose minus score is not the share of their records due never done, or is written wrong, or has more open today than not due yet."""
+    return [r for r in rows if r["minus"] != minus_for(r["overdue"], r["due"]) or r["minusText"] != minus_text(r["minus"]) or not (0 <= r["openToday"] <= r["pending"])]
+
+
+def card_due(c):
+    """A person's records due, from their card's own counts."""
+    return c["onTime"] + c["late"] + c["overdue"]
 
 
 def grade_for(score):
@@ -392,6 +406,8 @@ with sync_playwright() as p:
     records = stored(page, "records") or []
     demo = [r for r in records if r.get("isDemo")]
     check("Demo Mode holds hundreds of records to score", len(demo) >= 300, len(demo))
+    # Every person's minus score is the administrator's and the super admin's to see (s92, 9-Oct-2026): this account is staff.
+    check("A staff account's dashboard has no list of every person's minus score", page.locator("[data-section='team-minus']").count() == 0)
 
     today = date.today()
     today_iso = today.isoformat()
@@ -421,8 +437,8 @@ with sync_playwright() as p:
     minus_rule = page.locator("[data-section='performance-minus-rule']")
     minus_rule_text = minus_rule.evaluate("el => el.textContent") if minus_rule.count() else ""
     check(
-        "It says how the minus score is counted: 10 off for each record never done, 10 due and 8 done is -20",
-        "Minus score" in minus_rule_text and "takes 10 off" in minus_rule_text and f"{MINUS}20" in minus_rule_text,
+        "It says how the minus score is counted, as an FMS sheet does: 10 due and 8 done is -20%, and 20 due and 16 done too",
+        "Minus score" in minus_rule_text and "as an FMS sheet counts it" in minus_rule_text and f"{MINUS}20%" in minus_rule_text and "16 done" in minus_rule_text,
         minus_rule_text,
     )
     check("It opens on this month", page.locator("[data-field='performance-period']").input_value() == "this-month")
@@ -447,12 +463,12 @@ with sync_playwright() as p:
         int(total["due"]) == sum(r["due"] for r in departments) == sum(r["due"] for r in modules) and int(total["onTime"]) == sum(r["onTime"] for r in departments),
         (total, sum(r["due"] for r in departments), sum(r["due"] for r in modules)),
     )
-    check("Every department and module line's minus score is -10 for each never done, 0 when none, with a true minus sign", not minus_wrong(departments) and not minus_wrong(modules), (minus_wrong(departments) + minus_wrong(modules))[:3])
+    check("Every department and module line's minus score is the share of its records due never done, 0% when none, with a true minus sign", not minus_wrong(departments) and not minus_wrong(modules), (minus_wrong(departments) + minus_wrong(modules))[:3])
     tile = page.locator("[data-overall='minus']")
     tile_minus = int(tile.get_attribute("data-minus")) if tile.count() else None
     check(
-        "The plant's minus score is the departments' added up, and -10 for each of the plant's never done",
-        tile_minus == sum(r["minus"] for r in departments) == minus_for(int(total["overdue"])) and total.get("minus") == minus_text(tile_minus or 0)
+        "The plant's minus score is worked out from the plant's own counts, never by adding the departments' percentages",
+        tile_minus == minus_for(int(total["overdue"]), int(total["due"])) and total.get("minus") == minus_text(tile_minus or 0)
         and int(tile.get_attribute("data-open-today")) == sum(r["openToday"] for r in departments),
         (tile_minus, total, [(r["key"], r["minus"]) for r in departments]),
     )
@@ -561,8 +577,8 @@ with sync_playwright() as p:
         scored,
     )
     check(
-        "...and a minus score of -10 for each of their own never done",
-        all(s["minus"] == minus_for(s["overdue"]) and s["minusText"] == minus_text(s["minus"]) for s in scored),
+        "...and a minus score that is the share of their own records due never done",
+        all(s["minus"] == minus_for(s["overdue"], card_due(s)) and s["minusText"] == minus_text(s["minus"]) for s in scored),
         scored,
     )
 
@@ -593,7 +609,7 @@ with sync_playwright() as p:
         download.suggested_filename,
     )
     check("...headed with what each figure is", lines[0][:9] == ["Scored", "Name", "Department", "Records due", "On time", "Late", "Never done", "Not due yet", "Score"], lines[0])
-    check("...the minus score and what is still open today after the score, then the grade and the decision", lines[0][9:] == ["Minus score", "Still open today", "Grade", "Decision"], lines[0])
+    check("...the minus score and what is still open today after the score, then the grade and the decision", lines[0][9:] == ["Minus score (%)", "Still open today", "Grade", "Decision"], lines[0])
     kinds = [l[0] for l in lines[1:]]
     check("...with the people, the departments, the modules and every document", {"Person", "Department", "Module", "Document"} <= set(kinds) and kinds.count("Document") == len(on_screen), (sorted(set(kinds)), kinds.count("Document"), len(on_screen)))
     exported = next((l for l in lines if l[0] == "Department" and l[2] == "QC"), None)
@@ -611,9 +627,9 @@ with sync_playwright() as p:
     # An account listed without a score has blanks in every figure, "No score" at the grade.
     scored_rows = [l for l in lines[1:] if l[3] != ""]
     check(
-        "Every scored line of the export has a minus score of -10 for each never done",
-        bool(scored_rows) and all(int(l[9]) == minus_for(int(l[6])) for l in scored_rows),
-        [l[:11] for l in scored_rows if int(l[9]) != minus_for(int(l[6]))][:3],
+        "Every scored line of the export has the share of its records due never done as its minus score",
+        bool(scored_rows) and all(int(l[9]) == minus_for(int(l[6]), int(l[3])) for l in scored_rows),
+        [l[:11] for l in scored_rows if int(l[9]) != minus_for(int(l[6]), int(l[3]))][:3],
     )
     unscored_rows = [l for l in lines[1:] if l[0] == "Person" and l[3] == ""]
     check("...and an account listed without a score has a blank there, and No score at the grade", all(l[3:11] == [""] * 8 and l[11] == "No score" for l in unscored_rows), unscored_rows[:2])
@@ -732,7 +748,7 @@ with sync_playwright() as p:
         check("...and no warning of a part score: every department it answers for is on its own screen", figures["partial"] == "", figures["partial"])
         check(
             "...with QC's minus score and QC's records still open today",
-            figures["minus"] == dept["minus"] == minus_for(dept["overdue"]) and figures["minusText"] == dept["minusText"] and figures["openToday"] == dept["openToday"],
+            figures["minus"] == dept["minus"] == minus_for(dept["overdue"], dept["due"]) and figures["minusText"] == dept["minusText"] and figures["openToday"] == dept["openToday"],
             (figures, dept),
         )
     qc_listing = directory(page)
@@ -792,8 +808,10 @@ with sync_playwright() as p:
             (hers, theirs, shared_dept),
         )
         check(
-            "...so each of them loses 10 for it: both minus scores are the department's",
-            hers["minus"] == theirs["minus"] == shared_dept["minus"] == minus_for(shared_dept["overdue"]),
+            "...so each of them counts it among their own: each minus score is the share of their own records due never done",
+            hers["minus"] == minus_for(hers["overdue"], card_due(hers))
+            and theirs["minus"] == minus_for(theirs["overdue"], card_due(theirs))
+            and shared_dept["minus"] == minus_for(shared_dept["overdue"], shared_dept["due"]),
             (hers, theirs, shared_dept),
         )
         check(
@@ -875,11 +893,11 @@ with sync_playwright() as p:
         shown_gu,
     )
     check(
-        "...they are the reviewed Gujarati: 10 taken off for each record never done, no English left, and no 'runs' or 'discount'",
-        seen_gu["rule"] is not None and seen_gu["rule"]["text"].startswith(f"{MINUS_GU}:") and "10 ઘટાડે છે" in seen_gu["rule"]["text"] and f"{MINUS}20" in seen_gu["rule"]["text"]
+        "...they are the reviewed Gujarati: the share of the records never done, as FMS counts it, no English left, and no 'runs' or 'discount'",
+        seen_gu["rule"] is not None and seen_gu["rule"]["text"].startswith(f"{MINUS_GU}:") and "કેટલા ટકા ક્યારેય ન થયા" in seen_gu["rule"]["text"] and f"{MINUS}20%" in seen_gu["rule"]["text"]
         and seen_gu["tile"] is not None and seen_gu["tile"]["text"] == MINUS_GU and all(h["text"] == MINUS_GU for h in seen_gu["headings"])
-        and seen_gu["band"] is not None and seen_gu["band"]["text"].startswith(MINUS_GU) and ("10 ઓછા" in seen_gu["band"]["text"] or "કંઈ છૂટ્યું નથી" in seen_gu["band"]["text"])
-        and (seen_gu["open"] is None or "10 ઘટશે" in seen_gu["open"]["text"])
+        and seen_gu["band"] is not None and seen_gu["band"]["text"].startswith(MINUS_GU) and ("ક્યારેય ન" in seen_gu["band"]["text"] or "કંઈ છૂટ્યું નથી" in seen_gu["band"]["text"])
+        and (seen_gu["open"] is None or "ક્યારેય ન થયેલો ગણાશે" in seen_gu["open"]["text"])
         and not any(any(c.isascii() and c.isalpha() for c in w["text"]) or "રન" in w["text"] or "ડિસ્કાઉન્ટ" in w["text"] for w in shown_gu if w),
         shown_gu,
     )
@@ -893,11 +911,81 @@ with sync_playwright() as p:
     back_rule = page.locator("[data-section='performance-minus-rule']").evaluate("el => el.textContent")
     check(
         "Choosing English again brings the English words back",
-        "takes 10 off" in back_rule and MARK not in back_rule and not page.evaluate("document.documentElement.classList.contains('translated-ltr')"),
+        "as an FMS sheet counts it" in back_rule and MARK not in back_rule and not page.evaluate("document.documentElement.classList.contains('translated-ltr')"),
         back_rule,
     )
     page.unroute("**/translate_a/**")
     page.route("**/translate_a/**", lambda route: route.abort())
+
+    # ==================================================================
+    # 12. The administrator's dashboard: every person's minus score (s92, 9-Oct-2026)
+    # ==================================================================
+    # "on superadmin and on admin dashboard he will display -20 ... this applies to all users of all department".
+    # Signed in as the seeded administrator: the dashboard lists every account, worst first, each with the
+    # Performance page's own figure for this month, and the plant's line is the page's tile.
+    page.unroute("**/api/users/directory")
+    log_out = page.locator(".app-topbar button[title='Log Out']")
+    if log_out.count():
+        log_out.first.click()
+    page.goto(f"{BASE}/index.html")
+    page.wait_for_selector("#login-email", timeout=60000)
+    page.wait_for_timeout(400)
+    page.fill("#login-email", ADMIN_EMAIL)
+    page.fill("#login-password", SEED_PASSWORD)
+    page.click("button:has-text('Log In')")
+    page.wait_for_selector(".app-sidebar", timeout=60000)
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    close_assistant(page)
+    # The demo year generated above is what there is to score: the administrator looks at it too.
+    demo_mode(page)
+    open_page(page, "#/performance", settle=2500)
+    on_page = page.evaluate(
+        """() => {
+             const people = {};
+             for (const el of document.querySelectorAll("[data-person][data-scored]")) {
+               const m = el.querySelector("[data-field='person-minus']");
+               people[el.dataset.person] = m ? Number(m.dataset.minus) : null;
+             }
+             const tile = document.querySelector("[data-overall='minus']");
+             return { people, plant: tile ? Number(tile.dataset.minus) : null };
+           }"""
+    )
+    open_page(page, "#/dashboard", settle=1500)
+    ready = True
+    try:
+        page.wait_for_selector("[data-section='team-minus'] [data-state='team-minus-ready']", timeout=30000)
+    except Exception:
+        ready = False
+    check("The administrator's dashboard lists every person's minus score", ready and page.locator("[data-section='team-minus']").count() == 1)
+    rows = page.locator("[data-section='team-minus'] li[data-person]").evaluate_all(
+        """els => els.map((el) => ({ name: el.dataset.person, scored: el.dataset.scored, minus: el.dataset.minus === undefined ? null : Number(el.dataset.minus),
+                                     due: Number(el.dataset.due), done: Number(el.dataset.done),
+                                     figure: (el.querySelector("[data-field='team-minus-figure']") || {}).textContent || '' }))"""
+    ) if ready else []
+    plant_row = page.locator("[data-section='team-minus'] li[data-plant='true']")
+    plant_minus = plant_row.get_attribute("data-minus") if plant_row.count() else None
+    counted = [r for r in rows if r["minus"] is not None]
+    check("...one line for every account the Performance page scores", bool(rows) and {r["name"] for r in rows} == set(on_page["people"]), ([r["name"] for r in rows], sorted(on_page["people"])))
+    check(
+        "...each the Performance page's own figure, written as a percentage",
+        all(r["minus"] == on_page["people"].get(r["name"]) and r["figure"].strip() == minus_text(r["minus"]) for r in counted),
+        [(r["name"], r["minus"], on_page["people"].get(r["name"]), r["figure"]) for r in counted][:6],
+    )
+    check(
+        "...each the share of that person's records due never done, beside the counts it comes from",
+        all(r["minus"] == minus_for(r["due"] - r["done"], r["due"]) for r in counted),
+        [(r["name"], r["done"], r["due"], r["minus"]) for r in counted][:6],
+    )
+    check("...worst first", [r["minus"] for r in counted] == sorted(r["minus"] for r in counted), [(r["name"], r["minus"]) for r in counted])
+    check(
+        "...and the plant's line is the Performance page's tile",
+        plant_minus is not None and on_page["plant"] is not None and int(plant_minus) == on_page["plant"],
+        (plant_minus, on_page["plant"]),
+    )
+    page.click("[data-section='team-minus'] [data-action='open-performance']")
+    page.wait_for_timeout(1200)
+    check("...and it opens the Performance dashboard", page.locator("[data-page='performance']").count() == 1)
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

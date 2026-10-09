@@ -25,6 +25,8 @@ import { openBriefing } from "../components/common/AssistantBriefingPopup";
 import { documentTextIn } from "../i18n/documentText";
 import { DashboardInsights } from "../components/insights/DashboardInsights";
 import { MyDayCard } from "../components/common/MyDayCard";
+// REQUIREMENTS §92 (9-Oct-2026): every person's minus score, as FMS counts it, for the administrator and the super admin.
+import { TeamScoreCard } from "../components/common/TeamScoreCard";
 // REQUIREMENTS §85: the guided tour of the whole software — by itself once a day, and "Take the tour" any time.
 import { GuidedTour, startTour } from "../components/tour/GuidedTour";
 
@@ -162,6 +164,9 @@ export function DashboardPage() {
 
       {/* The person's own day — done, streak, the next thing to do and why it matters (REQUIREMENTS §81). */}
       {!isDemo && <MyDayCard />}
+
+      {/* Every person's minus score, worst first (8 of 10 done is −20%): the administrator's and the super admin's (REQUIREMENTS §92). */}
+      {user?.role === "admin" && <TeamScoreCard />}
 
       {!isDemo && !noiseDismissed && (noiseCount > 0 || purged !== null) && (
         <div className="card mb-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>

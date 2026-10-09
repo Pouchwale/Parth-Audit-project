@@ -466,9 +466,10 @@ test("every scorecard is the same as before — people, departments, modules, do
           const before = REFERENCE.scorecardsRef(side, documents, PEOPLE, period, today, c.ref);
           const where = `${typeof period === "string" ? period : `${period.from}..${period.to}`} judged on ${today}, ${c.label}, ${isDemo ? "demo" : "live"}`;
           assert.deepEqual(asBefore(now), before, where);
-          // The minus score beside it (§92): -10 for each never done, exactly 0 (never -0) when none.
+          // The minus score beside it (§92), as FMS counts it: the share of the records due never done, exactly 0 (never -0) when none.
           for (const l of linesOf(now)) {
-            assert.ok(Object.is(l.minus, l.overdue > 0 ? -10 * l.overdue : 0), `${where}: minus ${l.minus} for ${l.overdue} never done`);
+            const fms = l.due > 0 && l.overdue > 0 ? Math.min(Math.round(((l.due - l.overdue) / l.due) * 100) - 100, -1) : 0;
+            assert.ok(Object.is(l.minus, fms), `${where}: minus ${l.minus} for ${l.overdue} never done of ${l.due}`);
             assert.ok(Number.isInteger(l.openToday) && l.openToday >= 0 && l.openToday <= l.pending, `${where}: ${l.openToday} open today of ${l.pending} not due yet`);
             if (l.minus < 0) minusLines += 1;
           }

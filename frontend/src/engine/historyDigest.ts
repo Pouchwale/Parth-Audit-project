@@ -1414,7 +1414,7 @@ function* peopleWork(ctx: Ctx): Work<EvidenceSection> {
     text:
       due === 0
         ? `Performance Scorecard${only}: no record that is counted fell due in ${label}${cards.byDocument.some((d) => d.pending > 0) ? " (some are not due yet)" : ""}.`
-        : `Performance Scorecard (on time counts 1, late ½, never done 0)${only}, records due in ${label}: ${sum.onTime} of ${due} on time, ${sum.late} late, ${sum.overdue} never done${score !== null ? ` — score ${score}` : ""}, minus score ${formatMinus(minusScore(sum.overdue))} (10 off for each never done).`,
+        : `Performance Scorecard (on time counts 1, late ½, never done 0)${only}, records due in ${label}: ${sum.onTime} of ${due} on time, ${sum.late} late, ${sum.overdue} never done${score !== null ? ` — score ${score}` : ""}, minus score ${formatMinus(minusScore(sum.overdue, due))} (the share of the records due never done, as FMS counts it: 8 of 10 done is −20%).`,
     recordIds: [],
   });
   if (named.length) {

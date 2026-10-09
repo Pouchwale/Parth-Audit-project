@@ -97,31 +97,49 @@ export function grade(score: number | null): Grade {
   return GRADES["falling-behind"];
 }
 
-// ---- The minus score (REQUIREMENTS §92) -------------------------------------
+// ---- The minus score, as FMS counts it (REQUIREMENTS §92) ---------------------
 //
 // "i need display score in -10 and in subtraction like example whenever any
 // user given 10 task and he is completed 8 of them then his score will be -20
-// so this will be applicable to all user" (the plant, 7-Oct-2026).
+// so this will be applicable to all user" (the plant, 7-Oct-2026). Two days on,
+// the owner gave the rule itself: "score system like FMS style ... any user has
+// assign 10 tasks and he has completed 8 of them so his is 80 percent work is
+// done in real but on superadmin and on admin dashboard he will display -20 ...
+// this applies to all users of all department" (9-Oct-2026).
 //
-// Beside the score out of 100, never instead of it: every record the scorecard
-// counts as never done (latenessCore's "overdue") takes 10 off. 10 due and 8
-// handed in is -20. A record handed in late was still done, and costs nothing;
-// one whose day has not ended yet costs nothing yet. Nothing missed is 0. The
-// records, the people, the calendar and the period are the scorecard's own, so
-// the minus score can never count a record the score does not.
+// So the minus score is the SHARE of the work due that was never done, the way
+// an FMS sheet writes it: round(done ÷ due × 100) − 100. 8 of 10 done is −20%,
+// and so is 16 of 20. (Until 9-Oct it was 10 off for each record never done,
+// which agreed with the example only when exactly 10 were due: 16 of 20 was −40.)
+// It is the day card's rule too (engine/motivation.ts dayGapScore), so nobody is
+// shown two answers: while anything is missing it stays below 0 (199 of 200 is
+// −1%), nothing missed is 0, and nothing due is 0. A record handed in late was
+// still done; one whose day has not ended costs nothing yet. It sits beside the
+// score out of 100, never instead of it, and the records, the people, the
+// calendar and the period are the scorecard's own, so it can never count a
+// record the score does not. A total is scored from its counts, never by adding
+// up the lines' percentages.
 
-/** What each record never done takes off the minus score. */
-export const MINUS_PER_MISSED = 10;
-
-/** -10 for each record never done; exactly 0 when nothing was missed (never -0, which Intl writes as "-0"). */
-export function minusScore(neverDone: number): number {
-  return Number.isFinite(neverDone) && neverDone > 0 ? -MINUS_PER_MISSED * Math.round(neverDone) : 0;
+/** The FMS score: round(done ÷ due × 100) − 100, from −100 to 0; below 0 while anything is missing; 0 when nothing is due. */
+export function fmsScore(done: number, due: number): number {
+  if (!Number.isFinite(due) || due <= 0) return 0;
+  const d = Number.isFinite(done) ? Math.min(Math.max(done, 0), due) : 0;
+  let score = Math.round((d / due) * 100) - 100;
+  if (d < due) score = Math.min(score, -1);
+  // Never -0, which Intl writes as "-0".
+  return Math.max(-100, Math.min(0, score)) || 0;
 }
 
-/** The minus score as shown: "0", or "−20" with a true minus sign (U+2212), as engine/motivation.ts formatGapScore writes the day's score. */
+/** A line's minus score: the share of its `due` records never done, as fmsScore writes it. 2 never done of 10 due is −20. */
+export function minusScore(neverDone: number, due: number): number {
+  const missed = Number.isFinite(neverDone) && neverDone > 0 ? Math.round(neverDone) : 0;
+  return fmsScore(due - missed, due);
+}
+
+/** The minus score as shown: "0%", or "−20%" with a true minus sign (U+2212). */
 export function formatMinus(minus: number): string {
   const n = Math.round(Math.abs(minus));
-  return minus < 0 && n > 0 ? `−${n}` : "0";
+  return minus < 0 && n > 0 ? `−${n}%` : "0%";
 }
 
 // ---- Adding up ----------------------------------------------------------------
@@ -211,9 +229,9 @@ export interface ScoreLine {
   score: number | null;
   grade: Grade;
   decision: Decision;
-  /** The minus score (§92): -10 for each record never done, 0 when nothing was missed. */
+  /** The minus score (§92), as FMS counts it: the share of `due` never done, round(done ÷ due × 100) − 100; 0 when nothing was missed. */
   minus: number;
-  /** Part of `pending`: not handed in, and today is the last day it can be. Each takes 10 more off tomorrow if it is still not in. */
+  /** Part of `pending`: not handed in, and today is the last day it can be. Each counts as never done tomorrow if it is still not in. */
   openToday: number;
 }
 
@@ -254,7 +272,7 @@ function line(t: Tally, today: string): ScoreLine {
     score,
     grade: g,
     decision: decide(t, g, today),
-    minus: minusScore(t.overdue),
+    minus: minusScore(t.overdue, t.onTime + t.late + t.overdue),
     openToday: t.openToday,
   };
 }
