@@ -277,6 +277,11 @@ async function main(): Promise<void> {
         // lines and bell items nobody asked for. A suite that needs one runs it
         // by hand, as the super admin, with POST /api/jobs/run.
         JOBS: "0",
+        // NO PUSH TO A REAL PHONE SERVICE (REQUIREMENTS §97, backend/push.ts). The suites run notify by hand; a suite that
+        // registered a phone would otherwise have its pushes sent to Expo's real service. Off here, and said: the
+        // sender is proved against a stand-in (backend/tests/push.test.ts) and, by a reviewer, against Expo's own
+        // endpoint with a fake token.
+        PUSH_ENABLED: "0",
       },
     });
   console.log(`Starting server on :${TEST_PORT}...`);
