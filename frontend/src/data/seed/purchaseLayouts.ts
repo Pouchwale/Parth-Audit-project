@@ -314,6 +314,8 @@ const NC_TABLE_FIELDS: LogHeaderField[] = [1, 2, 3].flatMap((line) => [
 
 const supplierAuditReport: LogSheetLayout = {
   documentId: "pur-supplier-audit-report",
+  // The paper numbers its audit points 1.1 to 8.x in a "No." column of its own (REQUIREMENTS §102).
+  ownLineNumbers: true,
   instructions: [
     "AUDIT CRITERIA:",
     "DEPENDING ON THE TYPE OF SUPPLY CRITERIA MAY BE OMITTED - IF OMITTED PLEASE MARK N/A",

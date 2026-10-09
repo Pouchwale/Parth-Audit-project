@@ -418,7 +418,8 @@ with sync_playwright() as p:
         check("F/HR/21: attribute 8 (shortcuts under pressure) - all 63 strongly disagree - 63 of 58, 92.06%",
               (rows[7]["sa7"], rows[7]["sd1"], rows[7]["actual"], rows[7]["ideal"], rows[7]["achieved"]) == (None, 63, 63, 58, "92.06%"), rows[7])
         check("F/HR/21: attribute 15 - 39 / 24 - 417 of 446, 93.50%", (rows[14]["sa7"], rows[14]["ma6"], rows[14]["actual"], rows[14]["ideal"], rows[14]["achieved"]) == (39, 24, 417, 446, "93.50%"), rows[14])
-        check("F/HR/21: the attributes are printed in the survey's own words", rows[0]["parameter"].startswith("1. I can freely speak up") and rows[7]["parameter"].startswith("8. When there is pressure to finish production"))
+        # Numbered once, by the sheet's Sr. No.: never again in their words (REQUIREMENTS s102).
+        check("F/HR/21: the attributes are printed in the survey's own words, without a number of their own", rows[0]["parameter"].startswith("I can freely speak up") and rows[7]["parameter"].startswith("When there is pressure to finish production"), (rows[0]["parameter"][:30], rows[7]["parameter"][:30]))
 
     # ==================================================================
     # 4. The registers open as sheets, in the format's own layout
@@ -440,7 +441,13 @@ with sync_playwright() as p:
     dismiss(page)
     close_assistant(page)
     body = page.locator(".app-content").inner_text()
-    check("The January-2026 survey analysis opens as fifteen attribute lines headed F/HR/21", sheet_rows(page).count() == 15 and "F/HR/21" in body and "1. I can freely speak up" in body, sheet_rows(page).count())
+    check("The January-2026 survey analysis opens as fifteen attribute lines headed F/HR/21", sheet_rows(page).count() == 15 and "F/HR/21" in body and "I can freely speak up" in body, sheet_rows(page).count())
+    # One number per line (REQUIREMENTS s102): the sheet's Sr. No., never again in the attribute's words.
+    check(
+        "...each attribute numbered once: one Sr. No. column, and no '1. I can freely' in the words",
+        page.locator("table.log-sheet thead th", has_text="Sr. No.").count() == 1 and "1. I can freely speak up" not in body and "8. When there is pressure" not in body,
+        page.locator("table.log-sheet thead th", has_text="Sr. No.").count(),
+    )
     check("...with the overall 93.99% in its footer", header_input(page, "Overall achieved").input_value() == "93.99%")
 
     page.goto(f"{BASE}/index.html#/record/hr-training-calendar-2026-27")

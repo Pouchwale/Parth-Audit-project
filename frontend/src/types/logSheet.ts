@@ -149,6 +149,13 @@ export interface LogSheetLayout {
   headerFields: LogHeaderField[];
   columns: LogColumn[];
   rowMode: LogRowMode;
+  // THE FORM NUMBERS ITS OWN LINES (REQUIREMENTS §102): a "#", "No.", "Sr.No.",
+  // "Number" or "Index" column of the paper's own, or each printed line opening
+  // with the paper's own number (F/HR/04's "06. — Diabetes"). The sheet then
+  // draws no Sr. No. column of its own, so no line is numbered twice. Without
+  // it the sheet numbers the lines, and a printed line never repeats that
+  // number in its words (engine/lineNumbers.ts).
+  ownLineNumbers?: true;
   // Fields printed BELOW the grid (lot status, reason for deviation,
   // inspected-by ...). Stored in LogSheetData.header alongside headerFields.
   footerFields?: LogHeaderField[];

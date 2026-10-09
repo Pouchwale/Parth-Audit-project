@@ -62,6 +62,7 @@ import type {
 } from "../../types";
 import type { ComplianceStatement } from "../../data/seed/complianceStatements";
 import { isQuantityLine } from "../serviceMaterials";
+import { withoutLineNumber } from "../lineNumbers";
 
 /** One bound value: where it lives in the record's data, what kind of value it is, what a person calls it. */
 export interface Bound {
@@ -206,7 +207,8 @@ export function logCellBind(row: LogSheetRow, index: number, col: LogColumn, row
   return {
     path: join("rows", bindPath({ id: row.id }), propSeg(col.key)),
     type,
-    label: `Row ${index + 1}${rowName ? ` (${rowName})` : ""} · ${col.label}`,
+    // The line's own number is the Row's (REQUIREMENTS §102): never "Row 1 (1. I can freely…)".
+    label: `Row ${index + 1}${rowName ? ` (${withoutLineNumber(rowName, index + 1)})` : ""} · ${col.label}`,
     options: type === "select" ? col.options : undefined,
     // A column added to the format after this line was written has no value on it yet.
     optional: true,

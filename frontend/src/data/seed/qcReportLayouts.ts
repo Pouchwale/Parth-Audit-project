@@ -146,15 +146,15 @@ export const UTILITY_TEST_HEADER: Record<string, string> = {
 // The client, where and when the meeting was held, its subject, who attended,
 // and the points discussed — one line per point, as many as the meeting needed.
 
-/** The 07.06.2022 meeting with Gangwal Healthcare, each point exactly as written. */
+/** The 07.06.2022 meeting with Gangwal Healthcare, each point as written; its number is the sheet's Sr. No. (REQUIREMENTS §102). */
 export const MINUTES_GANGWAL_POINTS: Record<string, string>[] = [
-  { keyPointsDiscussed: "1.Anilox line issue in  TSS Avocado restorative Body Butter 200g Side label – We will take precaution during printing so that same issue does not occur in future." },
-  { keyPointsDiscussed: "2. Printing issue in Vitamin C+ 60 Tablets Label – Will take extra care while QC inspection." },
-  { keyPointsDiscussed: "3.  Foil line issue – Will change foil specification (will order foil as per required size only)." },
-  { keyPointsDiscussed: "4. Foil Registration issue – Will take precaution during printing in future supply." },
-  { keyPointsDiscussed: "5. Shade variation issue in TBS deep cleansing beard wash-250ml Label: To avoid shade variation issue will do proofing in 3 options. 1) Gloss UV,  2) Matt UV,  3) Soft Touch. (Shade as per 1st job approval- 2019) As per discussion will do only in standard (LSD not required) and will send the 5 extra sheets for their reference along with shade cards." },
-  { keyPointsDiscussed: "6. Misalignment on two sides of labels:  To avoid the misalignment issue will take trial with new punching die on plain labels and send it for trial." },
-  { keyPointsDiscussed: "7. In future, in case any deviation is there in any job first we will intimate to customer and then will proceed." },
+  { keyPointsDiscussed: "Anilox line issue in  TSS Avocado restorative Body Butter 200g Side label – We will take precaution during printing so that same issue does not occur in future." },
+  { keyPointsDiscussed: "Printing issue in Vitamin C+ 60 Tablets Label – Will take extra care while QC inspection." },
+  { keyPointsDiscussed: "Foil line issue – Will change foil specification (will order foil as per required size only)." },
+  { keyPointsDiscussed: "Foil Registration issue – Will take precaution during printing in future supply." },
+  { keyPointsDiscussed: "Shade variation issue in TBS deep cleansing beard wash-250ml Label: To avoid shade variation issue will do proofing in 3 options. 1) Gloss UV,  2) Matt UV,  3) Soft Touch. (Shade as per 1st job approval- 2019) As per discussion will do only in standard (LSD not required) and will send the 5 extra sheets for their reference along with shade cards." },
+  { keyPointsDiscussed: "Misalignment on two sides of labels:  To avoid the misalignment issue will take trial with new punching die on plain labels and send it for trial." },
+  { keyPointsDiscussed: "In future, in case any deviation is there in any job first we will intimate to customer and then will proceed." },
 ];
 
 export const MINUTES_GANGWAL_HEADER: Record<string, string> = {

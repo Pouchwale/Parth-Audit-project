@@ -158,6 +158,8 @@ export const GSM_HEADER: Record<string, string> = {
 
 const gsmPlate: LogSheetLayout = {
   documentId: "qc-gsm-plate-calibration",
+  // The paper's own Index column (Tasted-1, 2, 3, 4, Pass/Fail, Sign.) numbers the lines (REQUIREMENTS §102).
+  ownLineNumbers: true,
   instructions: [
     "MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE. The four plates — No. 54 (20 x 20cm), No. 55 (10 x 10cm), No. 56 (5 x 5cm), No. 57 (2.5 x 2.5cm) — measured four times each, with the deviation beside every measurement, then Pass / Fail and the tester's sign for each plate.",
     PROCEDURE,

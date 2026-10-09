@@ -10,6 +10,7 @@ import { alignServiceReportDrafts } from "../engine/serviceReportDrafts";
 import { alignTubeLightDates } from "../engine/tubeLightMigration";
 import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
 import { alignCompanyName } from "./companyNameMigration";
+import { alignSeededLineNumbers } from "./lineNumbersMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -68,6 +69,9 @@ export function bootstrap(): void {
   // above, so none of theirs folds into its line; before the month's generation
   // and preparation, so nothing carries an old spelling forward.
   alignCompanyName();
+  // Two seeded records wrote each line's own number in its words beside the sheet's
+  // Sr. No.: their lines take the words without it (REQUIREMENTS §102).
+  alignSeededLineNumbers();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

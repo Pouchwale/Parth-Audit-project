@@ -30,6 +30,8 @@ import {
 } from "../../engine/pmSchedule";
 import { EquipmentFetch, EquipmentMachineList } from "./EquipmentFetch";
 import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
+import { withoutLineNumber } from "../../engine/lineNumbers";
+import { numbersOwnLines } from "../../engine/formLineNumbers";
 import { withComputedCells } from "../../engine/computedCells";
 import { documentLayoutIn, documentTextIn, keepFormAsIssued } from "../../i18n/documentText";
 import { useAppStore } from "../../store/AppStore";
@@ -285,6 +287,10 @@ export function LogSheetRecordView({
   // to the bottom of page 3 (REQUIREMENTS §68). Drawing the empty table would
   // put a Sr. No. column on a form that has none.
   const hasGrid = layout.columns.length > 0;
+  // ONE NUMBER PER LINE (REQUIREMENTS §102): a form that numbers its own lines (a "#" or "Sr.No."
+  // column, F/HR/04's 01 to 10) gets no Sr. No. column of the sheet's, and on every other form a
+  // printed line's words never repeat the Sr. No. beside them.
+  const numbered = !numbersOwnLines(layout);
   // The heading rows: the columns grouped into the runs the paper draws under
   // one spanning heading, and two rows instead of one where there is such a run.
   const headRuns = headingRuns(layout.columns);
@@ -402,9 +408,11 @@ export function LogSheetRecordView({
         <table className={editable ? "compact log-sheet is-editing" : "compact log-sheet"} {...gridBind}>
           <thead>
             <tr>
-              <th style={{ width: 44 }} rowSpan={headRows}>
-                Sr. No.
-              </th>
+              {numbered && (
+                <th style={{ width: 44 }} rowSpan={headRows}>
+                  Sr. No.
+                </th>
+              )}
               {/* A run of columns the paper draws under ONE spanning heading gets
                   that heading here and its own headings on the row below; every
                   other column spans both rows, as it does on the paper. */}
@@ -432,7 +440,7 @@ export function LogSheetRecordView({
           <tbody ref={bodyRef}>
             {data.rows.length === 0 && (
               <tr>
-                <td colSpan={layout.columns.length + 2} className="text-muted text-center" style={{ padding: 16 }}>
+                <td colSpan={layout.columns.length + (numbered ? 2 : 1)} className="text-muted text-center" style={{ padding: 16 }}>
                   No rows yet.
                 </td>
               </tr>
@@ -445,6 +453,7 @@ export function LogSheetRecordView({
                 columns={layout.columns}
                 issuedColumns={issued?.columns}
                 fixedRow={mode.kind === "fixedRows" ? mode.rows[i] : undefined}
+                numbered={numbered}
                 editable={editable}
                 lang={lang}
                 employees={employeeNames}
@@ -712,6 +721,7 @@ const SheetRow = React.memo(function SheetRow({
   columns,
   issuedColumns,
   fixedRow,
+  numbered,
   editable,
   lang,
   employees,
@@ -731,6 +741,8 @@ const SheetRow = React.memo(function SheetRow({
   issuedColumns: LogColumn[] | undefined;
   /** The line the form prints here, on a form that prints its lines. */
   fixedRow: Record<string, string | number | null> | undefined;
+  /** The sheet's own Sr. No. is drawn (the form does not number its lines itself, REQUIREMENTS §102). */
+  numbered: boolean;
   editable: boolean;
   lang: Parameters<typeof documentTextIn>[1];
   employees: string[];
@@ -751,7 +763,7 @@ const SheetRow = React.memo(function SheetRow({
   const rowName = logRowName(row, columns);
   return (
     <tr>
-      <td className="text-muted">{index + 1}</td>
+      {numbered && <td className="text-muted">{index + 1}</td>}
       {columns.map((c, ci) => {
         // A line the form prints blank (F/HR/05's two spare topic lines)
         // has nothing fixed in it, so it is written in like any cell.
@@ -771,8 +783,8 @@ const SheetRow = React.memo(function SheetRow({
               issuedLabel={issuedColumns?.[ci]?.label ?? c.label}
               // A printed cell — the parameter, the material, the specification
               // the form prints down its side — reads in the chosen language;
-              // a written one reads exactly as it was written.
-              value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
+              // a written one reads exactly as it was written. Its own number is the Sr. No.'s (§102).
+              value={col.fixed ? documentTextIn(numbered ? withoutLineNumber(row[c.key], index + 1) : row[c.key], lang) : row[c.key]}
               editable={editable && !col.fixed && !col.computed}
               onChange={(v) => onCell(row.id, c.key, v)}
               employees={employees}

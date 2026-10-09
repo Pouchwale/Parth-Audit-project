@@ -526,7 +526,7 @@ export const SEED_HR_PSC_ANALYSIS: RecordInstance<LogSheetData> = seeded("hr-psc
   rows: rowsOf(
     "hrp",
     PSC_JAN_2026.map(([sa7, ma6, a5, n4, d3, md2, sd1, actual, ideal, achieved], i) => ({
-      parameter: `${i + 1}. ${PSC_ATTRIBUTES[i]}`, sa7, ma6, a5, n4, d3, md2, sd1, actual, ideal, achieved,
+      parameter: PSC_ATTRIBUTES[i], sa7, ma6, a5, n4, d3, md2, sd1, actual, ideal, achieved,
     })),
   ),
 });

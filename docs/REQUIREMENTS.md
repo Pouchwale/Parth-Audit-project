@@ -5882,6 +5882,51 @@ nothing waits to be sent; a record started then reaches the database beside ever
 a browser with no copy at all signs in too. Without the change both stop with the owner's "no room" error.
 frontend/tests/storageFullStart.test.ts (2, §93): a Start with the browser full, and a colleague's save in between.
 
+## §102 One number per line (9-Oct-2026)
+
+**The request.** The owner, 9-Oct-2026, with a picture of F/HR/20 drawn "SR. NO. 1 | 1. I can freely speak up ...":
+"So there is mutiple where sr no written again in document as you can see this image so like wise there are many
+records i found that so fix it also."
+
+**The cause.** A sheet's grid numbers its lines itself, in a Sr. No. column of its own. Every form's layout was checked
+(114 grids, and their superseded revisions):
+
+- **Printed lines that repeat the Sr. No. in their words:** F/HR/19 (55 points, "1. Whether outside land ..."), F/HR/20
+  and F/HR/21 (15 attributes, "1. I can freely speak up ..."). Their layouts no longer carry the number. A record made
+  before keeps the words it was made with, and so does a format the plant has edited, so the sheet leaves a line's own
+  number out of its printed words wherever it is that line's own (engine/lineNumbers.ts `withoutLineNumber`), on screen,
+  on paper, in the downloaded Excel and Word files (they are read from the sheet as drawn), and in the names a downloaded
+  file gives its boxes ("Row 1 (I can freely ...)").
+- **Forms that number their own lines,** beside which the sheet's Sr. No. was a second, different count: F/HR/04 (its
+  questions 01 to 10, question 06 over twelve lines), F/HR/15 and F/HR/16 (a "#" column; F/HR/16's starts under an
+  unnumbered Date line), F/QC/11 (its "Index": Tasted-1, 2, 3, 4, Pass/Fail, Sign.), F/QC/25 ("Sr.No.", with 7.1 to
+  7.3), F/PUR/02 ("No.", 1.1 to 8.x) and F/SYS/07 ("Number", 1.1 to 6.x). Their layouts say so
+  (`LogSheetLayout.ownLineNumbers`), and the sheet draws no Sr. No. of its own: the paper's numbering alone. A format
+  the plant edited before this keeps it (the issued layout is asked too, engine/formLineNumbers.ts). In the format's
+  designer the lines' handle column of such a form is headed "Line", never "Sr. No.".
+- **Sample words that numbered themselves:** the 07.06.2022 minutes with Gangwal Healthcare (F/QC/30), the points of
+  which are also the sample a new minutes sheet is filled from, read "1.Anilox line issue", "2. Printing issue" ... The
+  points keep their words without the number.
+- **Two seeded records** on file carried those numbers in their words: the 2022 minutes and the January-2026 survey
+  analysis (F/HR/21). At start-up a stored copy takes its seed's words again, only where a cell is exactly the seed's
+  words with that line's own number in front, with one line in the record's history ("Each line's own number taken
+  out of its words ..."); status, signatures and updatedAt stay, a record reopened for correction is left alone, and
+  the second start finds nothing to do (data/lineNumbersMigration.ts).
+
+What a person typed is never changed or hidden: only printed words and the seeds are. Everything else with a number
+in it (a date such as 01.12.21, a figure such as 5.5%, 7.1 TOP PAPER) is not a line's number and is left alone. Not
+found anywhere: the paper's own checklists outside the grids (the complaint checklist, the licence conditions, the
+training topics) already print one number per line.
+
+**Tests.** frontend/tests/lineNumbers.test.ts (7): what comes off and what never does; no printed line or sample line
+of any form, now or added later, repeats the Sr. No. the sheet gives it; every form with a "#", "No.", "Sr.No.",
+"Number" or "Index" column, or its own numbering in its words, says so, and exactly the seven above do; F/HR/20 as
+made before shows one Sr. No. column and attributes without their numbers; F/HR/04 and F/QC/25 show the paper's own
+numbering and no second Sr. No.; the two seeded records brought in step once, with their history line, status and
+updatedAt kept. frontend/tests/roundTripBindings.test.ts finds a worked-out cell's column after the Sr. No. only on a
+sheet that draws one. tests/e2e_hr_module.py: F/HR/21's attributes on file without their numbers, and its page with
+one Sr. No. column and no "1. I can freely".
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

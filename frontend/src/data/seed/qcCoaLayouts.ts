@@ -54,8 +54,8 @@ import { COMPANY } from "./masterData";
 // F/QC/25's LINES ARE NOT THE RENDERER'S Sr. No. The certificate numbers its
 // lines 1 to 14 but breaks 7 into 7.1 TOP PAPER, 7.2 PLAIN PAPER and 7.3 FLUTE
 // PAPER, which a running count cannot produce. The printed numbering is
-// therefore a fixed column of its own, "Sr.No.", and the renderer's own Sr. No.
-// runs beside it.
+// therefore a fixed column of its own, "Sr.No.", and the sheet draws no Sr. No.
+// of its own beside it (ownLineNumbers, REQUIREMENTS §102): one number per line.
 //
 // F/QC/25's FOUR PAPER COLUMNS. Three of the fourteen lines (7.1, 7.2, 7.3)
 // carry four columns of their own — Specified  GSM / Tested GSM / BF / Grade of
@@ -462,6 +462,7 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/25 — Certificate of Analysis [COA] For CORRUGATED BOXES ----
   "qc-coa-corrugated": {
     documentId: "qc-coa-corrugated",
+    ownLineNumbers: true,
     instructions: [
       // The certificate's own heading block, its own spellings kept ("DEDIASAN",
       // "ASSURENCE") — all but the company's name, which is printed as the owner

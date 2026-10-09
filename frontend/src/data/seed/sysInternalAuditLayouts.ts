@@ -439,6 +439,8 @@ export const AUDIT_RISK_CLAUSES: [number: string, auditScope: string, auditee: s
 
 const AUDIT_RISK: LogSheetLayout = {
   documentId: "sys-audit-risk",
+  // The paper numbers its clauses 1.1 to 6.x in a "Number" column of its own (REQUIREMENTS §102).
+  ownLineNumbers: true,
   // The rest of the title line, then the two notes printed beside the list.
   instructions: [
     "(based on review of BRCGS audits & findings of Internal audit etc.)",

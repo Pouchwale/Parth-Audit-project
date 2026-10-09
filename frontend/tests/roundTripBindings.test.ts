@@ -23,6 +23,7 @@ import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/dat
 import { ensureSeeded as ensureHrMasterSeeded } from "../src/data/repositories/hrMasterRepository";
 import { recordRepository, ensureSeeded as ensureRecordsSeeded } from "../src/data/repositories/recordRepository";
 import { getLogSheetLayoutForRecord } from "../src/data/seed/logSheetLayouts";
+import { numbersOwnLines } from "../src/engine/formLineNumbers";
 import { COMPLIANCE_STATEMENTS } from "../src/data/seed/complianceStatements";
 import { nextWorkingDay } from "../src/engine/holidays";
 import { createDefaultData } from "../src/engine/recordDefaults";
@@ -468,11 +469,13 @@ test("every value on every record page carries a binding that leads to it — op
         const html = P.render(page);
         // A log sheet's worked-out column reads as words and is not bound: the cell's place in its line says which column it is.
         const layout = doc.kind === "log-sheet" ? getLogSheetLayoutForRecord(doc.id, record) : undefined;
+        // The sheet's own Sr. No. is the line's first cell, except on a form that numbers its own lines (REQUIREMENTS §102).
+        const before = layout && numbersOwnLines(layout) ? 0 : 1;
         const computedCell = (t: Tag): string | null => {
           if (!layout) return null;
           const td = [...t.ancestors].reverse().find((a) => a.name === "td");
           const inGrid = t.ancestors.some((a) => a.name === "table" && classes(a).includes("log-sheet"));
-          return td && inGrid && layout.columns[td.index - 1]?.computed ? "a worked-out cell" : null;
+          return td && inGrid && layout.columns[td.index - before]?.computed ? "a worked-out cell" : null;
         };
         const found = markupProblems(where, html, (id) => (id === record.id ? recordRepository.getById(id)?.data : undefined), computedCell);
         if (found.bound === 0) problems.push(`${where}: nothing on the page is bound`);

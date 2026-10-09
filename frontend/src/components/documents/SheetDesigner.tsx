@@ -7,6 +7,7 @@ import { RenameBox } from "./RenameBox";
 import { FormatEditor } from "./FormatEditor";
 import { COMPANY } from "../../data/seed/masterData";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
+import { numbersOwnLines } from "../../engine/formLineNumbers";
 import { nextRevisionNo, type FormatRevision } from "../../data/formatEdits";
 import { closeDesignSession, openDesignSession } from "../../engine/designSession";
 import { setLeaveGuard } from "../../store/router";
@@ -991,8 +992,10 @@ export function SheetDesigner({
           <table className="compact log-sheet" data-table="designer-grid">
             <thead>
               <tr>
+                {/* The lines' handles. A form that numbers its own lines (REQUIREMENTS §102) is drawn with
+                    no Sr. No. of the sheet's, so here the handles are only "Line", never a second number. */}
                 <th style={{ width: printed ? 64 : 44 }} rowSpan={headRows}>
-                  Sr. No.
+                  {layout && numbersOwnLines(layout) ? "Line" : "Sr. No."}
                 </th>
                 {/* A run of columns the paper draws under ONE spanning heading
                     gets that heading here — typed over like any other name, and

@@ -606,6 +606,15 @@ Seven scripts live in `tests/`:
   waits to be sent, a record started then reaches the database and the next sign-in opens it; a browser with no copy
   signs in too. With the sign-in change undone, both fail with "There is no room in this browser for the company's
   records."). `frontend/tests/storageFullStart.test.ts` (2, the §93 saves held in memory) came with the stopgap.
+- **One number per line** (REQUIREMENTS §102, 9-Oct-2026). New unit tests: `frontend/tests/lineNumbers.test.ts` (7:
+  a line's own number comes off its printed words, and a date, a figure or another line's number never does; no printed
+  line or sample line of any of the 114 grids, their superseded revisions included, repeats the Sr. No. the sheet gives
+  it; the forms that number their own lines say so, exactly F/HR/04, 15, 16, F/QC/11, 25, F/PUR/02 and F/SYS/07; F/HR/20
+  as made before, rendered, shows one Sr. No. column and no "1. I can freely"; F/HR/04 and F/QC/25 show only the paper's
+  numbering; the 2022 minutes and the January-2026 F/HR/21 analysis on file are brought in step once, with a history
+  line and their status and updatedAt kept). Changed: `frontend/tests/roundTripBindings.test.ts` (a worked-out cell's
+  column counted after the Sr. No. only where the sheet draws one) and `tests/e2e_hr_module.py` (F/HR/21's words without
+  their numbers, one Sr. No. column on its page). `npm run test:unit` on the change: every frontend test passes.
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

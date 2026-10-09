@@ -145,6 +145,8 @@ const PRE_EMPLOYMENT_QUESTIONS = [
 
 const preEmployment: LogSheetLayout = {
   documentId: "hr-pre-employment-health",
+  // The paper numbers its questions 01 to 10, question 06 over twelve lines (REQUIREMENTS §102).
+  ownLineNumbers: true,
   instructions: [
     "Only to be completed by applicants prior to employment.",
     "MEDICAL INFORMATION SUPPLIED WILL BE TREATED AS PRIVATE AND CONFIDENTIAL AND WILL NOT BE DISCLOSED TO THIRD PARTIES.",
@@ -666,7 +668,8 @@ const gmpChecklist: LogSheetLayout = {
     { key: "locations", label: "Location Guide — areas covered", type: "text", autoFill: { carryForward: true } },
   ],
   columns: [fixedText("parameter", "Checklist", 520), yesNo("compliance", "Compliance", 90), text("actionIfNc", "Action taken if NC", 220)],
-  rowMode: { kind: "fixedRows", rows: GMP_ITEMS.map(([parameter], i) => ({ parameter: `${i + 1}. ${parameter}` })) },
+  // The sheet's Sr. No. numbers the fifty-five points; their words do not repeat it (REQUIREMENTS §102).
+  rowMode: { kind: "fixedRows", rows: GMP_ITEMS.map(([parameter]) => ({ parameter })) },
   footerFields: [{ key: "team", label: "Inspection team — Name / Department / Process / Designation (one per line)", type: "text" }],
   specimenHeader: { responsibility: "HARA TEAM", inspectionDate: "", locations: GMP_LOCATIONS.join(", ") },
   specimenRows: GMP_ITEMS.map(([, compliant]) => ({ compliance: compliant, actionIfNc: "" })),
@@ -707,7 +710,8 @@ const pscSurvey: LogSheetLayout = {
     { key: "designation", label: "Designation", type: "text", autoFill: { carryForward: true } },
   ],
   columns: [fixedText("parameter", "Attribute", 520), { key: "response", label: "Response", type: "select", options: PSC_SCALE, width: 200 }],
-  rowMode: { kind: "fixedRows", rows: PSC_ATTRIBUTES.map((a, i) => ({ parameter: `${i + 1}. ${a}` })) },
+  // The sheet's Sr. No. numbers the attributes; their words do not repeat it (REQUIREMENTS §102).
+  rowMode: { kind: "fixedRows", rows: PSC_ATTRIBUTES.map((parameter) => ({ parameter })) },
   specimenHeader: { surveyDate: "", employeeName: "", department: "QC", designation: "Manager - QA" },
   // The way the January-2026 round answered (F/HR/21): agreement throughout,
   // and Strongly Disagree to attribute 8, the one about taking shortcuts.
@@ -737,7 +741,8 @@ const pscAnalysis: LogSheetLayout = {
     num("ideal", "Ideal response", 90),
     text("achieved", "Achieved", 90),
   ],
-  rowMode: { kind: "fixedRows", rows: PSC_ATTRIBUTES.map((a, i) => ({ parameter: `${i + 1}. ${a}` })) },
+  // The sheet's Sr. No. numbers the attributes; their words do not repeat it (REQUIREMENTS §102).
+  rowMode: { kind: "fixedRows", rows: PSC_ATTRIBUTES.map((parameter) => ({ parameter })) },
   footerFields: [{ key: "overallAchieved", label: "Overall achieved", type: "text" }],
   specimenHeader: { surveyPeriod: "JANUARY 2026", overallAchieved: "93.99%" },
   specimenSource: "F-HR-21_Product Safety Culture Survey analysis record.pdf — F/HR/21 (00/01.12.2021), January 2026",
@@ -851,6 +856,8 @@ const entry = (key: string, label: string, width: number): LogColumn => ({ key, 
 
 const dailyCleaning: LogSheetLayout = {
   documentId: "hr-daily-cleaning",
+  // The paper numbers its areas in a "#" column of its own (REQUIREMENTS §102).
+  ownLineNumbers: true,
   // The paper's NOTE, its closing bracket with no opening one included.
   instructions: [CLEANING_NOTE],
   headerFields: [{ key: "monthYear", label: "Month & Year", type: "text", width: 160 }],
@@ -876,6 +883,8 @@ const dailyCleaning: LogSheetLayout = {
 
 const monthlyCleaning: LogSheetLayout = {
   documentId: "hr-monthly-cleaning",
+  // The paper numbers its areas in a "#" column of its own, under an unnumbered Date line (REQUIREMENTS §102).
+  ownLineNumbers: true,
   instructions: [CLEANING_NOTE],
   // "MONTHLY CLEANING RECORD ( YEAR :                ) " — the year is written in the title line.
   headerFields: [{ key: "year", label: "YEAR", type: "text", width: 110 }],
