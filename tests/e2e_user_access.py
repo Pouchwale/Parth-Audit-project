@@ -668,6 +668,7 @@ with sync_playwright() as p:
         )
         # The same Start in his own name (his entry in its history) is his own act: refused with 403 in the level's words,
         # as REQUIREMENTS §96 says of a Start (the people review of 9-Oct-2026 found it answered 200 with "kept").
+        ankur_store = json_of(ankur_api.request.get(f"{BASE}/api/storage"))  # the write above made a new version
         own = dict(started, id=f"rec-ua-own-{STAMP}", periodKey=f"qc-inspection-pouching:ua-own-{STAMP}", history=[{"id": f"hist-ua-own-{STAMP}", "at": stamp_now, "by": "Ankur Raval", "action": "created"}])
         r = put_records(ankur_api, ankur_store, [own])
         rb = json_of(r)

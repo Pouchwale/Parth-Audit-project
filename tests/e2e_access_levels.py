@@ -24,6 +24,12 @@ This suite checks, against the product server (the super admin and the owner's t
     notifications under its escalations, unread marked; "See all" opens /notifications by day; an item opens its record
     and is read; "Mark all read" leaves none unread; in Gujarati the notifications are in Gujarati; the super admin's
     include the morning summary by module;
+  * WHAT THE PEOPLE REVIEW OF 9-OCT-2026 FOUND, put right: the super admin's day card is the plant's day with no score of
+    their own; Dharmik Mistry's day is F/PRD/10 alone; Chirag Parmar's sidebar is Purchase alone, the service agreement
+    under it; a reader is offered no Upload changes and no "press Submit"; the bell's panel closes on Escape and on
+    another page, speaks Gujarati in Gujarati and names who answers for each document by the owner's table; Mitra,
+    asked to fill a record the person only reads, gives the access refusal; the super admin prepares today's records and
+    sends the notifications from buttons on the Notifications page, which nobody else is shown;
   * no JavaScript errors.
 
 Against the product server on :8843 (DCRS_BASE overrides it) with the plant's seeded accounts on SEED_ACCOUNT_PASSWORD
@@ -102,6 +108,17 @@ def close_assistant(page):
 
 
 def sign_out(page):
+    before = len(ERRORS)
+    # A pop-up a page opened by itself (the service agreement's reminder for whoever holds it) is closed first.
+    for _ in range(3):
+        cross = page.locator(".modal-overlay .modal-box button[aria-label='Close']")
+        if not cross.count():
+            break
+        try:
+            cross.first.click(timeout=3000)
+        except Exception:
+            break
+        page.wait_for_timeout(300)
     btn = page.locator(".app-topbar button[title='Log Out']")
     if btn.count():
         btn.first.click()
@@ -111,6 +128,8 @@ def sign_out(page):
             ok.first.click()
         page.wait_for_selector("#login-email", timeout=30000)
         page.wait_for_timeout(300)
+    # A request still on its way when the session ended is answered 401: the end of the session, not an error of the app.
+    ERRORS[before:] = [e for e in ERRORS[before:] if "401" not in e]
 
 
 def sign_in(page, email, password=SEED_PASSWORD):
@@ -158,6 +177,29 @@ def api(page, method, path, body=None, headers=None):
     return {"status": res.status, "body": payload, "text": text}
 
 
+def open_mitra(page):
+    opener = page.locator("button:has-text('Ask Mitra')")
+    if opener.count():
+        opener.first.click()
+        page.wait_for_timeout(600)
+
+
+def say(page, text, wait=2500):
+    page.fill("textarea.input", text)
+    page.click("button[aria-label='Send']")
+    page.wait_for_timeout(wait)
+    return page.locator(".chat-log .chat-msg.bot").last.inner_text()
+
+
+def day_card(page):
+    """The Dashboard's day card once it has worked the day out: (count, next-up words, element)."""
+    go(page, "/dashboard", "[data-section='my-day']", 2000)
+    page.wait_for_selector("[data-section='my-day']:not([data-state='loading'])", timeout=30000)
+    count = page.locator("[data-section='my-day'] [data-field='my-day-count']").first.inner_text().strip()
+    nxt = page.locator("[data-section='my-day'] .my-day-next-what")
+    return count, (nxt.first.inner_text() if nxt.count() else ""), page.locator("[data-section='my-day']").first
+
+
 def library_docs(page):
     """The documents the person's library lists: id and format number."""
     go(page, "/library", "[data-library-module]", 1200)
@@ -184,8 +226,12 @@ with sync_playwright() as p:
 
     def new_page(ctx):
         pg = ctx.new_page()
+        # Google Translate kept out, as in the other suites: with Gujarati chosen the screens then use DCRS's own
+        # Gujarati words (i18n/googleTranslate.ts uiLanguageFor), which is what this suite checks.
+        pg.route("**/translate_a/**", lambda route: route.abort())
         pg.on("pageerror", lambda e: ERRORS.append(f"pageerror: {e}"))
-        pg.on("console", lambda m: ERRORS.append(f"console: {m.text}") if m.type == "error" and "translate" not in m.text.lower() else None)
+        # Google Translate's own messages, and its script this suite keeps out ("Failed to load resource"), are not the app's.
+        pg.on("console", lambda m: ERRORS.append(f"console: {m.text}") if m.type == "error" and "translate" not in m.text.lower() and "translate" not in str((m.location or {}).get("url", "")) else None)
         return pg
 
     admin_ctx = browser.new_context(viewport={"width": 1366, "height": 900})
@@ -284,6 +330,11 @@ with sync_playwright() as p:
             check("...the reason under the bar", reason.count() == 1 and "Read only for you" in reason.inner_text(), reason.all_inner_texts())
             typable = staff.locator("[data-print-doc] input:not([disabled]):not([readonly]):not([type='hidden']), [data-print-doc] textarea:not([disabled]):not([readonly]), [data-print-doc] select:not([disabled])").count()
             check("...and nothing on the sheet to type in", typable == 0, typable)
+            check("...and no Upload changes, which writes a file back into the records", staff.locator("[data-action='upload-document-changes']").count() == 0)
+            banner = staff.locator(".prepared-banner")
+            if banner.count():
+                said_banner = banner.first.inner_text()
+                check("...and a prepared banner that never tells a reader to enter or submit anything", "Enter what you saw" not in said_banner and "press Submit" not in said_banner, said_banner)
             # The screen is never the lock: the server refuses the same submit.
             stored = api(staff, "GET", "/api/storage")
             items = (stored.get("body") or {}).get("items") or []
@@ -488,6 +539,88 @@ with sync_playwright() as p:
         go(admin, "/notifications", "[data-page='notifications']", 2000)
         summary = admin.locator("[data-kind='boss_summary']")
         check("The super admin's include the summary by module", summary.count() >= 1 and admin.locator("[data-section='boss-summary-modules'] [data-summary-module]").count() >= 1)
+
+        # ==============================================================
+        # 5. What the people review of 9-Oct-2026 found
+        # ==============================================================
+        print("\n==== The people review of 9-Oct-2026 ====")
+        count, nxt, card = day_card(admin)
+        check(
+            "The super admin's day card is the plant's day, with no score of the super admin's own",
+            card.get_attribute("data-plant-day") == "yes" and admin.locator("[data-section='my-day'] [data-field='my-day-score']").count() == 0,
+            card.inner_text()[:300],
+        )
+
+        sign_in(staff, "dharmik.mistry@gpp.local")
+        count, nxt, card = day_card(staff)
+        total = 0 if count in ("", "\u2713") else int(count.split("/")[-1])
+        # At most F/PRD/10's own records up to today (one a working day; more only after other suites' days): the other
+        # eight Production sheets, which Dharmik only reads, would add theirs.
+        today = time.strftime("%Y-%m-%d")
+        own_lines = [l for l in json.loads(next((i["value"] for i in (api(staff, "GET", "/api/storage").get("body") or {}).get("items") or [] if i.get("key") == "records"), "[]")) if l.get("documentId") == "prd-sharp-object-issue" and not l.get("isDemo") and (l.get("dueDate") or "9999") <= today]
+        check("Dharmik Mistry's day is F/PRD/10 alone, never the Production sheets Dharmik only reads", total <= max(1, len(own_lines)) and (not nxt or "PRD/10" in nxt), (count, nxt, len(own_lines)))
+        sign_out(staff)
+
+        sign_in(staff, "chirag.parmar@gpp.local")
+        modules = staff.evaluate("() => Array.from(document.querySelectorAll('.app-sidebar .nav-module[data-module]')).map((m) => m.getAttribute('data-module'))")
+        check("Chirag Parmar's sidebar is Purchase alone: no Human Resources module for the service agreement", modules == ["Purchase"], modules)
+        check("...with the pest control service agreement under Purchase", staff.locator(".app-sidebar .nav-module[data-module='Purchase'] a[href$='/licence/agreement']").count() == 1)
+        go(staff, "/licence/agreement", "[data-section='agreement-only']", 1500)
+        check("...which opens the agreement on its own page", staff.locator("[data-section='agreement-only']").count() == 1)
+        sign_out(staff)
+
+        sign_in(staff, VINAY)
+        go(staff, "/dashboard", None, 2500)
+        bell = staff.locator("button[aria-label='Reminders']")
+        bell.click()
+        staff.wait_for_selector("[data-section='reminders-panel']", timeout=10000)
+        named = staff.locator("[data-section='reminders-panel'] [data-field='answered-by']").all_inner_texts()
+        check("The bell names who answers for each document by the owner's table, never Master Data's roles", all(n.startswith("Answers for it:") or n.startswith("Nobody is named") for n in named) and not any("Assigned" in n for n in named), named)
+        staff.keyboard.press("Escape")
+        staff.wait_for_timeout(400)
+        check("Escape closes the bell's panel", staff.locator("[data-section='reminders-panel']").count() == 0)
+        bell.click()
+        staff.wait_for_selector("[data-section='reminders-panel']", timeout=10000)
+        staff.evaluate("() => { window.location.hash = '#/library'; }")
+        staff.wait_for_timeout(1500)
+        check("...and so does going to another page", staff.locator("[data-section='reminders-panel']").count() == 0)
+        lang = staff.locator(".app-topbar .lang-select")
+        if lang.count():
+            lang.first.select_option("gu")
+            staff.wait_for_timeout(1500)
+            go(staff, "/dashboard", None, 2500)
+            # The bell by its own attribute: with Gujarati chosen, a button labelled "Reminders" was not found (9-Oct-2026).
+            staff.locator("button[data-escalations]").first.click()
+            staff.wait_for_selector("[data-section='reminders-panel']", timeout=10000)
+            heading = staff.locator("[data-section='reminders-panel'] strong").first.inner_text()
+            check("In Gujarati (Google Translate out of reach), the bell's own words are DCRS's Gujarati", re.search(r"[\u0A80-\u0AFF]", heading) is not None, heading)
+            staff.keyboard.press("Escape")
+            staff.wait_for_timeout(300)
+            nudge = staff.locator("[data-field='nudge-headline']")
+            if nudge.count():
+                check("...and so is the day's nudge", re.search(r"[\u0A80-\u0AFF]", nudge.first.inner_text()) is not None, nudge.first.inner_text())
+            staff.locator(".app-topbar .lang-select").first.select_option("en")
+            staff.wait_for_timeout(1200)
+        go(staff, "/notifications", "[data-page='notifications']", 1500)
+        check("Staff are not shown the super admin's job buttons", staff.locator("[data-section='server-jobs']").count() == 0)
+        go(staff, "/document/hr-daily-cleaning", "[data-page='document-records']", 1500)
+        open_mitra(staff)
+        reply = say(staff, "fill F/HR/15 question by question")
+        check("Mitra, asked by Vinay Bhojak to fill F/HR/15, gives the access refusal in words, never 'I'll reopen it'", "Read only for you" in reply and "Write access" in reply and "reopen it for you" not in reply, reply)
+        close_assistant(staff)
+        sign_out(staff)
+
+        go(admin, "/notifications", "[data-section='server-jobs']", 1500)
+        admin.click("[data-action='run-morning-prepare']")
+        admin.wait_for_selector("[data-field='job-outcome'][data-job='morning-prepare']", timeout=180000)
+        outcome = admin.locator("[data-field='job-outcome']").first
+        said = outcome.inner_text()
+        check("The super admin prepares today's records from a button, told in words", outcome.get_attribute("data-failed") == "no" and re.search(r"Prepared \d+ records?|Nothing was left to prepare", said) is not None, said)
+        admin.click("[data-action='run-notify']")
+        admin.wait_for_selector("[data-field='job-outcome'][data-job='notify']", timeout=180000)
+        outcome = admin.locator("[data-field='job-outcome']").first
+        said = outcome.inner_text()
+        check("...and sends the notifications from a button, told in words", outcome.get_attribute("data-failed") == "no" and "notifications worked out" in said, said)
 
         # A 409 is the server saying "somebody saved first" (the stale page above, a records merge): the protocol, not a fault.
         check("No JavaScript errors", not [e for e in ERRORS if "status of 409" not in e], ERRORS[:5])
