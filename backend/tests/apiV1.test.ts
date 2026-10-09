@@ -306,6 +306,15 @@ describe("the routes and their description", () => {
     }
   });
 
+  it("the super admin's run-it-now (POST /api/jobs/run) is documented with its four jobs, and the record answer with the levels' fields", () => {
+    // The people review of 9-Oct-2026: the route the owner's job page calls was missing from the description.
+    const run = openapi.paths["/api/jobs/run"] as { post?: { requestBody?: unknown } } | undefined;
+    assert.ok(run?.post, "POST /api/jobs/run is not in docs/api/dcrs-api.openapi.json");
+    const schemas = (openapi as unknown as { components: { schemas: Record<string, { properties?: Record<string, { enum?: string[] }> }> } }).components.schemas;
+    assert.deepEqual(schemas.JobRunRequest?.properties?.job?.enum, ["escalation", "weekly-digest", "morning-prepare", "notify"]);
+    for (const field of ["canSubmit", "canVerify", "problems", "waiting"]) assert.ok(schemas.RecordDetail.properties?.[field], `RecordDetail.${field}`);
+  });
+
   it("the other routes it documents are DCRS's own, registered by the server itself (and a pending one by nobody yet)", () => {
     // backend/index.ts registers the sign-in; the routes of a later build sit in files of their own beside it
     // (backend/notificationRoutes.ts), registered by index.ts with one call.

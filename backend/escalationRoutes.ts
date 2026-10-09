@@ -40,7 +40,8 @@ const ID_RE = /^[0-9]{1,18}$/;
 
 function adminOnly(req: Request, res: Response, next: NextFunction): void {
   if ((req as AuthedRequest).user?.role !== "admin") {
-    res.status(403).json({ error: "Only the super admin sees escalations and the weekly digest." });
+    const words = req.path === "/api/jobs/run" ? "Only the super admin runs the server's jobs." : "Only the super admin sees escalations and the weekly digest.";
+    res.status(403).json({ error: words, code: "super-admin-only" });
     return;
   }
   next();
@@ -81,16 +82,16 @@ export function registerEscalationRoutes(app: Express, { requireAuth, logActivit
   app.post("/api/jobs/run", ...admin, async (req: Request, res: Response): Promise<void> => {
     const { job, today, time } = (req.body ?? {}) as { job?: unknown; today?: unknown; time?: unknown };
     if (typeof job !== "string" || !JOB_NAMES.includes(job as JobName)) {
-      res.status(400).json({ error: `job must be one of: ${JOB_NAMES.join(", ")}.` });
+      res.status(400).json({ error: `job must be one of: ${JOB_NAMES.join(", ")}.`, code: "bad-request" });
       return;
     }
     // "today" is for a suite that needs a day of its own; left out, it is the plant's today.
     if (today !== undefined && !(isDay(today) && today >= "2000-01-01" && today <= "2100-12-31")) {
-      res.status(400).json({ error: "today must be a date, YYYY-MM-DD." });
+      res.status(400).json({ error: "today must be a date, YYYY-MM-DD.", code: "bad-request" });
       return;
     }
     if (time !== undefined && (typeof time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
-      res.status(400).json({ error: "time must be a time of day, HH:MM." });
+      res.status(400).json({ error: "time must be a time of day, HH:MM.", code: "bad-request" });
       return;
     }
     const day = typeof today === "string" ? today : plantClock().date;

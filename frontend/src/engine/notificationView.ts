@@ -83,6 +83,34 @@ export function notificationRoute(
   }
 }
 
+/** What a run of the server's jobs answers (api/client.ts JobRun fits): the job's own figures. */
+export interface JobRunView {
+  job: string;
+  outcome: string;
+  result?: { prepared?: number; modules?: { module: string | null; count: number }[]; planned?: number; written?: number; resolved?: number; push?: string } | null;
+}
+
+/**
+ * THE LINE A RUN OF THE SERVER'S JOBS IS TOLD IN (the super admin's Notifications page, REQUIREMENTS §97): how many
+ * records were prepared and in which modules, or how many notifications were worked out, from the job's own figures,
+ * in the words `say` gives (the page's i18n strings). The push's own line is the server's, as the activity log has it.
+ */
+export function jobRunWords(run: JobRunView, say: (key: string, vars?: Record<string, string | number>) => string, moduleWords: (code: string) => string): string[] {
+  const r = run.result ?? {};
+  if (run.job === "morning-prepare") {
+    const n = typeof r.prepared === "number" ? r.prepared : 0;
+    if (n === 0) return [say("jobs.prepared.none")];
+    const modules = (r.modules ?? []).map((m) => `${m.module ? moduleWords(m.module) : "-"} ${m.count}`).join(", ");
+    return [say(n === 1 ? "jobs.prepared.one" : "jobs.prepared.many", { n, modules })];
+  }
+  if (run.job === "notify") {
+    const lines = [say("jobs.notified", { n: r.planned ?? 0, written: r.written ?? 0, resolved: r.resolved ?? 0 })];
+    if (typeof r.push === "string" && r.push) lines.push(say("jobs.phones", { push: r.push }));
+    return lines;
+  }
+  return [run.outcome];
+}
+
 /** The language the ledger is asked for: the one the person chose for the screens (Gujarati or English). */
 export const ledgerLanguage = (chosen: string): "en" | "gu" => (chosen === "gu" ? "gu" : "en");
 

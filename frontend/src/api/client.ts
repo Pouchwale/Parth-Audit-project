@@ -401,6 +401,26 @@ export const forgetEscalationsSeen = (): void => {
   lastOpen = null;
 };
 
+/** The server's jobs the super admin can run now (backend/jobs.ts JOB_NAMES). */
+export type ServerJob = "escalation" | "weekly-digest" | "morning-prepare" | "notify";
+
+/** What a run by hand answers: its line, and the job's own figures (backend/notificationJobs.ts, backend/escalation.ts). */
+export interface JobRun {
+  job: string;
+  today: string;
+  outcome: string;
+  result?: {
+    prepared?: number;
+    sheetsMade?: number;
+    modules?: { module: string | null; count: number }[];
+    planned?: number;
+    written?: number;
+    resolved?: number;
+    push?: string;
+  } | null;
+  claimed?: string | null;
+}
+
 export const escalationsApi = {
   /** The ones not yet acknowledged, newest first (the bell). */
   open: () =>
@@ -412,8 +432,11 @@ export const escalationsApi = {
   recent: () => api.get<EscalationList>("/escalations"),
   acknowledge: (id: string) => api.post<{ escalation: Escalation }>(`/escalations/${encodeURIComponent(id)}/ack`),
   latestDigest: () => api.get<{ digest: WeeklyDigest | null }>("/digests/latest"),
-  /** Runs a scheduled job now, whatever the clock says; `today` is for a check that needs a day of its own. */
-  runJob: (job: "escalation" | "weekly-digest", today?: string) => api.post<{ job: string; today: string; outcome: string }>("/jobs/run", today ? { job, today } : { job }),
+  /**
+   * Runs one of the server's jobs now, whatever the clock says (the super admin's; POST /api/jobs/run): the morning
+   * prepare, the notifications, the escalation or the weekly digest. `today` is for a check that needs a day of its own.
+   */
+  runJob: (job: ServerJob, today?: string) => api.post<JobRun>("/jobs/run", today ? { job, today } : { job }),
 };
 
 // THE ACTIVITY LOG'S ARCHIVE (REQUIREMENTS §62, §75) — the super admin's

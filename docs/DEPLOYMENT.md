@@ -276,7 +276,9 @@ A real environment variable always wins over the file.
 **What runs by itself.** On each working day DCRS prepares the day's records at `PREPARE_AT` (08:30) and then, every five
 minutes until the close of the plant's hours, works out what each person should be told and pushes it to their phones.
 Nothing needs to be switched on: `JOBS` and `PUSH_ENABLED` are on unless set to `0`. The super admin can run either job at
-once from the server (`POST /api/jobs/run` with `{"job": "morning-prepare"}` or `{"job": "notify"}`). The jobs' lines are in
+once from the website: Notifications (the bell's "See all"), "The server's jobs", **Prepare today's records now** or
+**Send the notifications now**; the page says what was done. (Behind the buttons: `POST /api/jobs/run` with
+`{"job": "morning-prepare"}` or `{"job": "notify"}`, the super admin's alone.) The jobs' lines are in
 the activity log ("Records prepared by the assistant", in the system's name) and in the server's own output (`[jobs]`,
 `[push]`: counts only, never a phone's token).
 

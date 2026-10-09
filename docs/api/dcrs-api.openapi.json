@@ -4206,6 +4206,77 @@
           }
         }
       }
+    },
+    "/api/jobs/run": {
+      "post": {
+        "tags": [
+          "Change"
+        ],
+        "operationId": "jobsRun",
+        "summary": "CHANGE - run one of the server's jobs now (the super admin only)",
+        "description": "The super admin's \"run it now\" (REQUIREMENTS §97, the Notifications page's \"The server's jobs\"): morning-prepare prepares the day's records on the server, the known parts only, never a reading; notify works out each person's notifications and pushes their phones. Both are safe to run again (a second prepare finds nothing to prepare, and nobody is pushed twice for the same thing). For the plant's today it is that period's run, and the schedule does not repeat it. Each run is a line of the activity log. The test servers run with JOBS=0 and call this instead.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A job, a day or a time this route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "bad-request": {
+                    "value": {
+                      "error": "job must be one of: escalation, weekly-digest, morning-prepare, notify.",
+                      "code": "bad-request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NotSignedIn"
+          },
+          "403": {
+            "description": "Anybody but the super admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "super-admin-only": {
+                    "value": {
+                      "error": "Only the super admin runs the server's jobs.",
+                      "code": "super-admin-only"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5832,17 +5903,38 @@
           },
           "editable": {
             "type": "boolean",
-            "description": "Its data can be changed now (Scheduled, Due or In Progress). Otherwise a change needs `reopen` first."
+            "description": "The person may write into it now: it is open for writing (Scheduled, Due or In Progress) and they have Write on the document (Edit while it is reopened for correction, REQUIREMENTS §96). Otherwise a change needs `reopen` first, or a higher level."
           },
           "canReopen": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`reopen` is among `actions`: its state allows it and the person has Edit on the document."
           },
           "actions": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "What POST .../actions can do to it now."
+            "description": "What POST .../actions can do to it now, for this person: the steps its state allows that their level allows too (Write: submit, verify, send_back, resume; Edit: reopen, cancel_correction, delete). A person who only reads the document is given none."
+          },
+          "canSubmit": {
+            "type": "boolean",
+            "description": "It is open for writing and the person may submit it (Write or more on the document), as GET /api/v1/today's items say."
+          },
+          "canVerify": {
+            "type": "boolean",
+            "description": "It is waiting for verification and the person may verify or send it back (Write or more on the document)."
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "While the person may write it: what still stops a submit, in DCRS's own words (the submit's own checks). Empty when it may be submitted, and when the person may not write it."
+          },
+          "waiting": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "While the person may write it: how many entries wait before it is ready for their OK. The submit's checks, and for a log sheet nothing has been observed on, each observation of its first line (REQUIREMENTS §98: a record holding only its lines and its date is never ready)."
           },
           "submittedBy": {
             "type": "string"
@@ -5874,7 +5966,7 @@
               "object",
               "null"
             ],
-            "description": "Filled by the assistant: at, notes (what to check), basedOn."
+            "description": "Prepared by the assistant (REQUIREMENTS §98: the known parts only, never a reading): at, notes (what was written in, from where, and what is left for the person), basedOn."
           },
           "photos": {
             "type": [
@@ -5975,13 +6067,15 @@
             "type": "string"
           },
           "editable": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "As RecordDetail.editable: the person may write into it now."
           },
           "actions": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "As RecordDetail.actions: what this person may do to it now."
           },
           "history": {
             "type": "array",
@@ -7360,6 +7454,61 @@
           "recordId": {
             "type": "string",
             "description": "The record, when the step was on one already stored."
+          }
+        }
+      },
+      "JobRunRequest": {
+        "type": "object",
+        "required": [
+          "job"
+        ],
+        "properties": {
+          "job": {
+            "type": "string",
+            "enum": [
+              "escalation",
+              "weekly-digest",
+              "morning-prepare",
+              "notify"
+            ],
+            "description": "morning-prepare: the day's records prepared on the server (the known parts only). notify: each person's notifications worked out and their phones pushed. escalation and weekly-digest: the super admin's (REQUIREMENTS §75)."
+          },
+          "today": {
+            "type": "string",
+            "format": "date",
+            "description": "A day of the caller's own (a test's); left out, the plant's today."
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "description": "The moment, plant time, the notification jobs are worked out at; left out, now."
+          }
+        }
+      },
+      "JobRunResponse": {
+        "type": "object",
+        "properties": {
+          "job": {
+            "type": "string"
+          },
+          "today": {
+            "type": "string",
+            "format": "date"
+          },
+          "outcome": {
+            "type": "string",
+            "description": "How it went, in a line (the activity log has the same)."
+          },
+          "result": {
+            "type": "object",
+            "description": "The job's own figures. morning-prepare: date, prepared, sheetsMade, modules [{module, count}], records. notify: date, time, planned, written, resolved, escalations, cleaned, push."
+          },
+          "claimed": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The period this run stood for (the schedule then leaves it alone), or null for a day of the caller's own or one already run."
           }
         }
       }

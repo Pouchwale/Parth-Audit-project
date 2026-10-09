@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiBell, FiCheck, FiRefreshCw } from "react-icons/fi";
-import { ApiError, notificationsApi, NOTIFICATIONS_CHANGED, type NotificationItem } from "../api/client";
+import { FiBell, FiCheck, FiPlay, FiRefreshCw } from "react-icons/fi";
+import { ApiError, escalationsApi, notificationsApi, NOTIFICATIONS_CHANGED, type NotificationItem, type ServerJob } from "../api/client";
 import { useAuth } from "../store/AuthContext";
 import { useRouter } from "../store/router";
 import { useLanguage, useT } from "../i18n";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { routeForRecord } from "../engine/reminders";
 import { documentOpenRoute } from "../engine/documentRoutes";
-import { appendPage, groupByDay, ledgerLanguage, markedRead, nextBefore, notificationRoute } from "../engine/notificationView";
+import { appendPage, groupByDay, jobRunWords, ledgerLanguage, markedRead, nextBefore, notificationRoute } from "../engine/notificationView";
 import { moduleName } from "../engine/notificationText";
 import { addDays, formatDisplayDate, todayISO } from "../utils/date";
 
@@ -109,6 +109,56 @@ export function NotificationRow({ item, onOpen, compact = false, lang }: { item:
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * THE SERVER'S JOBS, RUN NOW (the super admin's alone; REQUIREMENTS §97). The morning prepare and the notifications run
+ * by themselves (backend/jobs.ts); the owner is not technical, so running one sooner is a button here, never an HTTP
+ * call: POST /api/jobs/run, and the outcome in plain words. Both are safe to run again.
+ */
+function ServerJobsCard({ onNotified }: { onNotified: () => void }) {
+  const t = useT();
+  const { lang } = useLanguage();
+  const words = ledgerLanguage(lang);
+  const [running, setRunning] = useState<ServerJob | null>(null);
+  const [said, setSaid] = useState<{ job: ServerJob; lines: string[]; failed: boolean } | null>(null);
+  const run = (job: ServerJob) => {
+    setRunning(job);
+    setSaid(null);
+    escalationsApi
+      .runJob(job)
+      .then((res) => {
+        setSaid({ job, lines: jobRunWords(res, (k, v) => t(k, v), (code) => moduleName(code, words)), failed: false });
+        if (job === "notify") {
+          window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
+          onNotified();
+        }
+      })
+      .catch((err) => setSaid({ job, lines: [t("jobs.failed", { why: err instanceof Error ? err.message : String(err) })], failed: true }))
+      .finally(() => setRunning(null));
+  };
+  return (
+    <section className="card mb-3" data-section="server-jobs">
+      <div className="card-pad">
+        <h2 className="text-lg mb-1">{t("jobs.title")}</h2>
+        <p className="text-muted text-sm mb-2">{t("jobs.intro")}</p>
+        <div className="flex gap-2 wrap">
+          {(["morning-prepare", "notify"] as const).map((job) => (
+            <button key={job} type="button" className="btn btn-secondary btn-sm" data-action={`run-${job}`} disabled={running !== null} onClick={() => run(job)}>
+              <FiPlay size={12} aria-hidden="true" /> {running === job ? t("jobs.running") : t(job === "morning-prepare" ? "jobs.prepare" : "jobs.notify")}
+            </button>
+          ))}
+        </div>
+        {said && (
+          <div className="text-sm mt-2" role="status" data-field="job-outcome" data-job={said.job} data-failed={said.failed ? "yes" : "no"} style={said.failed ? { color: "var(--color-danger)" } : undefined}>
+            {said.lines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -220,6 +270,8 @@ export function NotificationsPage() {
           </button>
         </div>
       </div>
+
+      {boss && <ServerJobsCard onNotified={load} />}
 
       <div className="pill-tabs notif-filter mb-3" role="tablist" style={{ display: "inline-flex" }}>
         {(["all", "open"] as const).map((f) => (

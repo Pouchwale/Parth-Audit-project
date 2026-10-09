@@ -34,6 +34,17 @@ const en = {
   "notif.summary.awaiting": "Waiting for verification",
   "notif.summary.notSubmitted": "Not yet submitted",
   "notif.summary.overdue": "Late",
+  "jobs.title": "The server's jobs",
+  "jobs.intro": "They run by themselves on working days: today's records are prepared at 08:30, and the notifications go out every few minutes until the plant closes. Run one now when it is needed sooner. Both are safe to run again: nothing is prepared twice, and nobody is told twice.",
+  "jobs.prepare": "Prepare today's records now",
+  "jobs.notify": "Send the notifications now",
+  "jobs.running": "Running…",
+  "jobs.prepared.one": "Prepared 1 record ({modules}). The known parts only: the readings are left for the people who answer for it.",
+  "jobs.prepared.many": "Prepared {n} records ({modules}). The known parts only: the readings are left for the people who answer for them.",
+  "jobs.prepared.none": "Nothing was left to prepare: today's records are already prepared.",
+  "jobs.notified": "{n} notifications worked out for the people who answer for the records: {written} new or changed, {resolved} done.",
+  "jobs.phones": "Phones: {push}",
+  "jobs.failed": "That did not run: {why}",
 };
 
 const gu: Record<keyof typeof en, string> = {
@@ -65,6 +76,17 @@ const gu: Record<keyof typeof en, string> = {
   "notif.summary.awaiting": "ચકાસણીની રાહ",
   "notif.summary.notSubmitted": "હજુ જમા નથી",
   "notif.summary.overdue": "મોડા",
+  "jobs.title": "સર્વરનાં કામ",
+  "jobs.intro": "કામકાજના દિવસે આ કામ જાતે ચાલે છે: આજના રેકોર્ડ 08:30 વાગ્યે તૈયાર થાય છે, અને પ્લાન્ટ બંધ થાય ત્યાં સુધી દર થોડી મિનિટે સૂચનાઓ જાય છે. વહેલું જોઈએ તો કોઈ એક અત્યારે ચલાવો. બંને ફરી ચલાવવાં સલામત છે: કંઈ બે વાર તૈયાર થતું નથી, અને કોઈને બે વાર જાણ થતી નથી.",
+  "jobs.prepare": "આજના રેકોર્ડ અત્યારે તૈયાર કરો",
+  "jobs.notify": "સૂચનાઓ અત્યારે મોકલો",
+  "jobs.running": "ચાલી રહ્યું છે…",
+  "jobs.prepared.one": "1 રેકોર્ડ તૈયાર કર્યો ({modules}). ફક્ત જાણીતા ભાગ: રીડિંગ તેના માટે જવાબદાર લોકો માટે બાકી રાખ્યાં છે.",
+  "jobs.prepared.many": "{n} રેકોર્ડ તૈયાર કર્યા ({modules}). ફક્ત જાણીતા ભાગ: રીડિંગ તેમના માટે જવાબદાર લોકો માટે બાકી રાખ્યાં છે.",
+  "jobs.prepared.none": "તૈયાર કરવાનું કંઈ બાકી નહોતું: આજના રેકોર્ડ પહેલેથી તૈયાર છે.",
+  "jobs.notified": "રેકોર્ડ માટે જવાબદાર લોકો માટે {n} સૂચનાઓ ગણી: {written} નવી અથવા બદલાયેલી, {resolved} પૂરી.",
+  "jobs.phones": "ફોન: {push}",
+  "jobs.failed": "એ ચાલ્યું નહીં: {why}",
 };
 
 export const NOTIFICATION_STRINGS = { en, gu };
