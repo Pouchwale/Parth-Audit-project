@@ -223,7 +223,7 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
       if (key === "records" && !view.editsAll) {
         // Record by record, against the version stored: the person's own lines as their level allows, everyone else's as stored.
         compose = (stored) => {
-          const out = composeRecords(view, stored, parsed as unknown[]);
+          const out = composeRecords(view, stored, parsed as unknown[], user.name);
           kept = out.kept;
           return out.value;
         };

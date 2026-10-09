@@ -661,6 +661,16 @@ with sync_playwright() as p:
             r.status == 200 and started["id"] in (rb.get("kept") or []) and started["id"] not in stored_ids(),
             (r.status, rb),
         )
+        # The same Start in his own name (his entry in its history) is his own act: refused with 403 in the level's words,
+        # as REQUIREMENTS §96 says of a Start (the people review of 9-Oct-2026 found it answered 200 with "kept").
+        own = dict(started, id=f"rec-ua-own-{STAMP}", periodKey=f"qc-inspection-pouching:ua-own-{STAMP}", history=[{"id": f"hist-ua-own-{STAMP}", "at": stamp_now, "by": "Ankur Raval", "action": "created"}])
+        r = put_records(ankur_api, ankur_store, [own])
+        rb = json_of(r)
+        check(
+            "...and one he starts in his own name is refused (403 access-level), in plain words, and not stored",
+            r.status == 403 and rb.get("code") == "access-level" and rb.get("action") == "start" and "Starting a record needs Write access" in (rb.get("error") or "") and own["id"] not in stored_ids(),
+            (r.status, rb),
+        )
         # His own act on a record that is stored - the super admin's start-up made this month's F/QC/37 sheets - is
         # refused in plain words, and nothing is written.
         ankur_store = json_of(ankur_api.request.get(f"{BASE}/api/storage"))

@@ -277,6 +277,49 @@ describe("the records a person writes", () => {
     assert.deepEqual(ids(composeRecords(writer, stored, [pouching, viscosity, started]).value), ["hr-1", "new-1", "p-1", "v-1"]);
   });
 
+  it("refuses a Start in the person's own name that the level does not allow, in words; the app's housekeeping is still left out quietly", () => {
+    // The people review of 9-Oct-2026: Vinay Bhojak's forged new F/HR/15 record was answered 200 with "kept", where the
+    // brief says a Start the level does not allow is refused with 403 in plain words.
+    const ankur = view("ankur");
+    const own = rec("new-2", "qc-inspection-pouching", "In Progress", { history: [entry("created", "Ankur Raval")] });
+    const err = refusal(() => composeRecords(ankur, stored, [pouching, viscosity, own], "Ankur Raval"));
+    assert.equal(err.body.code, "access-level");
+    assert.deepEqual([err.body.action, err.body.documentId, err.body.recordId], ["start", "qc-inspection-pouching", "new-2"]);
+    assert.equal(err.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Starting a record needs Write access: ask the super admin for it.");
+    // The same name written another way is still the person's own.
+    assert.equal(refusal(() => composeRecords(ankur, stored, [pouching, viscosity, own], "  ankur  raval ")).body.action, "start");
+    // A paper the plant supplied (somebody else's history) or a sheet with none: left out without a word, as before.
+    const supplied = rec("hist-qc-2", "qc-inspection-pouching", "Verified", { history: [entry("verified", "Kapila Barad")] });
+    assert.deepEqual(composeRecords(ankur, stored, [pouching, viscosity, supplied], "Ankur Raval").kept, ["hist-qc-2"]);
+    // A caller that does not say who writes: left out quietly, as before.
+    assert.deepEqual(composeRecords(ankur, stored, [pouching, viscosity, own]).kept, ["new-2"]);
+  });
+
+  it("one line per record: a second line with a record's id, or one taking the id of a record the person does not see, is never written", () => {
+    // The security review of 9-Oct-2026: only a record's first posted line was checked, and both were written; the
+    // browsers keep the last line of an id, so a person who only reads F/QC/37 could have signed one off.
+    const ankur = view("ankur");
+    const forged = { ...pouching, status: "Verified", verifiedBy: "Ankur Raval", data: { rows: [{ value: 99 }] } };
+    const out = composeRecords(ankur, stored, [pouching, viscosity, forged], "Ankur Raval");
+    assert.deepEqual(JSON.parse(out.value), [pouching, viscosity, theirs], "one line of p-1, as stored");
+    // Ankur Raval may start F-QC-30: a new F-QC-30 record with the id of Vinay Bhojak's HR record is not written beside it.
+    const shadow = rec("hr-1", "qc-viscosity", "In Progress", { history: [entry("created", "Ankur Raval")] });
+    assert.deepEqual(JSON.parse(composeRecords(ankur, stored, [pouching, viscosity, shadow], "Ankur Raval").value), [pouching, viscosity, theirs]);
+    // A change the level allows is still taken from the first line, whatever follows it.
+    const filled = stepped(viscosity, { data: { rows: [{ value: 21 }] } });
+    const taken = JSON.parse(composeRecords(ankur, stored, [pouching, filled, { ...viscosity, status: "Verified" }], "Ankur Raval").value) as { id: string }[];
+    assert.deepEqual(taken.filter((r) => r.id === "v-1"), [filled]);
+  });
+
+  it("only records: a line that names no record or no document is written only as it is already stored", () => {
+    const ankur = view("ankur");
+    const junk = [{ id: "p-1", status: "Verified" }, { documentId: "qc-inspection-pouching", status: "Verified" }, "a line of text", 42];
+    assert.deepEqual(JSON.parse(composeRecords(ankur, stored, [pouching, viscosity, ...junk], "Ankur Raval").value), [pouching, viscosity, theirs]);
+    const odd = { note: "kept from before" };
+    const withOdd = JSON.stringify([theirs, pouching, viscosity, odd]);
+    assert.deepEqual(JSON.parse(composeRecords(ankur, withOdd, [pouching, viscosity, odd], "Ankur Raval").value), [pouching, viscosity, odd, theirs]);
+  });
+
   it("takes what the level allows, and keeps everyone else's lines as stored", () => {
     const ankur = view("ankur");
     const filled = stepped(viscosity, { data: { rows: [{ value: 42 }] } });

@@ -502,12 +502,21 @@ export interface ComposedRecords {
   kept: string[];
 }
 
+/** Two ways of writing one person's name taken as the same: case and spacing aside. */
+const sameName = (a: string, b: string): boolean => a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** A history entry in this person's own name: the record is their own act, not the app's housekeeping. */
+function carriesOwnEntry(r: unknown, by: string): boolean {
+  return isRecordLike(r) && Array.isArray(r.history) && r.history.some((h) => isObj(h) && typeof h.by === "string" && sameName(h.by, by));
+}
+
 /**
  * THE RECORDS ITEM A PERSON WRITES, worked out from what is stored: their own lines (the documents they see) as they
  * posted them, each change checked against their level; everyone else's lines as stored. Throws AccessRefused for a
- * person's own act their level does not allow (nothing is written then).
+ * person's own act their level does not allow (nothing is written then). `by` is the person's name, as their history
+ * entries carry it: a new record in their own name that their level may not start is their own act, refused in words.
  */
-export function composeRecords(view: AccessView, storedValue: string | null, postedLines: readonly unknown[]): ComposedRecords {
+export function composeRecords(view: AccessView, storedValue: string | null, postedLines: readonly unknown[], by?: string): ComposedRecords {
   const storedParsed = parseJson(storedValue);
   const all: unknown[] = Array.isArray(storedParsed) ? storedParsed : [];
   // Every document a record names is placed before anybody's level is asked.
@@ -516,11 +525,27 @@ export function composeRecords(view: AccessView, storedValue: string | null, pos
   for (const r of postedLines) if (isRecordLike(r)) ids.add(r.documentId);
   view.catalogue.include(ids);
 
-  const mine = postedLines.filter((l) => view.holds(l));
   const theirsStored = all.filter((l) => !view.holds(l));
-  if (view.editsAll) return { value: JSON.stringify([...mine, ...theirsStored]), kept: [] };
+  if (view.editsAll) return { value: JSON.stringify([...postedLines.filter((l) => view.holds(l)), ...theirsStored]), kept: [] };
 
   const storedMine = all.filter((l) => view.holds(l));
+  // ONE LINE PER RECORD, AND ONLY RECORDS (the security review of 9-Oct-2026). Each record's first posted line is the
+  // one checked and the one written: a second line with the same id used to be written unchecked beside it, and the
+  // browsers keep the last line of an id, so a person could have changed a record their level does not allow. A line
+  // taking the id of a record of a document the person does not see is never written beside that record; a line that
+  // is not a record (no id, or no document) is written only as it is already stored.
+  const theirIds = new Set<string>();
+  for (const r of theirsStored) if (isRecordLike(r)) theirIds.add(r.id);
+  const firstOfId = new Set<string>();
+  const mine = postedLines.filter((l) => {
+    if (!view.holds(l)) return false;
+    if (!isRecordLike(l)) return storedMine.some((s) => sameValue(s, l));
+    if (theirIds.has(l.id) || firstOfId.has(l.id)) return false;
+    firstOfId.add(l.id);
+    return true;
+  });
+  const postedById = new Map<string, unknown>();
+  for (const l of mine) if (isRecordLike(l)) postedById.set(l.id, l);
   const changes = recordChanges(storedMine, mine);
   const keepStored = new Set<string>();
   const dropNew = new Set<string>();
@@ -528,6 +553,10 @@ export function composeRecords(view: AccessView, storedValue: string | null, pos
     const missing = missingAction(view, c);
     if (!missing) continue;
     if (c.kind === "new") {
+      // A record the person started in their own name (their entry in its history) is their own act: refused in the
+      // level's words, as the brief says of a Start (the people review of 9-Oct-2026). The app's housekeeping (a sheet
+      // the calendar made, a paper the plant supplied that every browser adds) is left out without a word.
+      if (by && carriesOwnEntry(postedById.get(c.recordId), by)) throw new AccessRefused(refusalBody(view, c.documentId, missing, c.recordId));
       dropNew.add(c.recordId);
       continue;
     }
