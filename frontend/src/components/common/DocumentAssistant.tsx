@@ -63,7 +63,7 @@ import { parseAssistantCommand, type AssistantCommand } from "../../engine/assis
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { routeForRecord } from "../../engine/reminders";
-import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
+import { canSampleFill, sampleFillAllowedFor, sampleFillDeclined, sampleFillOffered, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
 import { answerQuestion, interviewPlan, nextQuestion, planProgress, type InterviewQuestion } from "../../engine/guidedRecord";
 import { queueAfterOpen, takeHandoff } from "../../engine/assistantHandoff";
 import { applyFormatCommand, parseFormatCommand, type FormatCommand } from "../../engine/formatCommands";
@@ -561,7 +561,7 @@ export function DocumentAssistant() {
       setIv(null);
       const chips: Chip[] = [];
       if (t.submit) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });
-      if (canSampleFill(doc.kind)) chips.push({ label: "Fill anything left with sample data", action: { type: "sampleFill" } });
+      if (canSampleFill(doc.kind) && sampleFillAllowedFor(record)) chips.push({ label: "Fill anything left with sample data", action: { type: "sampleFill" } });
       bot(`That's everything I need for ${t.title ?? "this record"}. ${REVIEW_LINE}`, chips);
       return;
     }
@@ -692,7 +692,7 @@ export function DocumentAssistant() {
     const progress = planProgress(plan, data);
     const left = progress.total - progress.answered;
     if (left > 0) chips.push({ label: progress.answered ? "Carry on filling it with me" : "Fill it in with me", action: { type: "startInterview" }, tone: "primary" });
-    if (canSampleFill(doc.kind)) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
+    if (canSampleFill(doc.kind) && sampleFillAllowedFor(record)) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
     chips.push({ label: progress.answered ? "Tell me what to change…" : "Tell me what to fill…", action: { type: "focusInput", placeholder: "" } });
     if (t.submit && left === 0) chips.push({ label: "Submit this record", action: { type: "askSubmit" }, tone: "primary" });
     const standing =
@@ -718,7 +718,7 @@ export function DocumentAssistant() {
     const latest = records[0];
     const today = todayISO();
     const chips: Chip[] = [{ label: "Start today's record and fill it with me", action: { type: "startInterview", documentId, dateISO: today }, tone: "primary" }];
-    if (canSampleFill(doc.kind)) chips.push({ label: "Start today's with sample data", action: { type: "sampleFill", documentId, dateISO: today } });
+    if (canSampleFill(doc.kind) && sampleFillOffered(isDemo)) chips.push({ label: "Start today's with sample data", action: { type: "sampleFill", documentId, dateISO: today } });
     if (latest) chips.push({ label: `Open the latest (${formatDisplayDate(latest.dueDate)})`, action: { type: "navigate", route: routeForRecord(doc, latest.id) } });
     // Reached through Mitra's own "where would you like to go?", the way on stays on offer.
     chips.push({ label: phrase("ai.guide.whereTo"), action: { type: "guide", step: "home" } });
@@ -736,6 +736,10 @@ export function DocumentAssistant() {
     const { doc, record } = openRecordFor(t);
     if (!doc || !record || !canSampleFill(doc.kind)) {
       bot("This document is kept as issued, so there is nothing to fill with sample data — tell me the line to change instead.");
+      return;
+    }
+    if (!sampleFillAllowedFor(record)) {
+      bot(sampleFillDeclined());
       return;
     }
     const result = sampleFillRecord(doc, record, masterRepository.get(), currentUser);
@@ -862,6 +866,11 @@ export function DocumentAssistant() {
         return;
       case "sampleFill": {
         me(chip.label);
+        // A live record holds only what people saw (REQUIREMENTS §98): no record is started for sample data either.
+        if (!sampleFillOffered(isDemo)) {
+          bot(sampleFillDeclined(chip.label));
+          return;
+        }
         if (a.documentId && (!t || t.documentId !== a.documentId)) {
           openThen(a.documentId, a.dateISO, "sample");
           return;
@@ -1045,7 +1054,7 @@ export function DocumentAssistant() {
         // whatever record is open when tapped — by then, this one.
         const fillChips: Chip[] = [
           { label: "Ask me question by question", action: { type: "startInterview" }, tone: "primary" },
-          { label: "Fill it with sample data", action: { type: "sampleFill" } },
+          ...(sampleFillOffered(isDemo) ? [{ label: "Fill it with sample data", action: { type: "sampleFill" } } as Chip] : []),
         ];
         bot(
           existed
@@ -1188,7 +1197,7 @@ export function DocumentAssistant() {
     // Filling the whole document: question by question, or with sample data.
     if (hasTarget && t?.editable && !t.checklist && !interview) chips.push({ label: "Ask me question by question", action: { type: "startInterview" }, tone: "primary" });
     if (interview) chips.push({ label: "Stop the questions", action: { type: "interviewStop" } });
-    if (hasTarget && t?.editable) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
+    if (hasTarget && t?.editable && sampleFillOffered(isDemo)) chips.push({ label: "Fill it with sample data", action: { type: "sampleFill" } });
     if (hasTarget && t && hrMasterLinkFor(t.documentId) && (t.editable || t.reopen)) chips.push({ label: "Fetch from HR Master Data", action: { type: "hrMasterFetch" } });
     if (!hasTarget) chips.push({ label: phrase("ai.guide.whereToChip"), action: { type: "guide", step: "home" }, tone: "primary" });
     chips.push({ label: "Today's briefing", action: { type: "briefing" } });

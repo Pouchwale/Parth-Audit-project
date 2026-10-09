@@ -19,6 +19,9 @@ import { newComplaintChecklistData, COMPLAINT_DOC_ID } from "../data/seed/compla
 import { COMPANY } from "../data/seed/masterData";
 import { autoFillRecord } from "./autoFill";
 import { latestConfirmedRecord } from "./assistantPrepare";
+import { sampleFillSwitchedOn } from "./features";
+import { HINDI } from "../i18n/hindi";
+import { t } from "../i18n";
 import { nextComplaintNo } from "./documentFormats";
 import { fieldLabels } from "./recordPatch";
 import { saveDraft } from "./recordLifecycle";
@@ -50,6 +53,32 @@ import { makeRng, type Rng } from "../utils/random";
 // about a finding, so they are only ever filled when somebody asks.
 
 export const SAMPLE_FILL_NOTE = "Filled with sample data by the assistant, on request — realistic, but made up";
+
+// SAMPLE DATA IS FOR PRACTICE (REQUIREMENTS §98, 8-Oct-2026). A Live record holds only what people saw and
+// entered, so sample data goes into a Demo Mode record, and into a Live record only on a test server
+// (ALLOW_SAMPLE_FILL=1, engine/features.ts sampleFillSwitchedOn). Everywhere else every way of asking (the
+// chat's chip and its typed command, Mitra's tool, the phone's /api/v1 sample-fill, the full-page assistant)
+// declines in plain words, in the person's language.
+
+/** Whether sample data may go into this record: a Demo Mode record always, a Live record only on a test server. */
+export function sampleFillAllowedFor(record: { isDemo: boolean } | null | undefined): boolean {
+  return !!record?.isDemo || sampleFillSwitchedOn();
+}
+
+/** Whether to offer sample data at all, before a record is open: in Demo Mode, or on a test server. */
+export function sampleFillOffered(isDemo: boolean): boolean {
+  return isDemo || sampleFillSwitchedOn();
+}
+
+/** The English of the refusal; Gujarati is i18n/strings.ts "ai.sample.liveDeclined", Hindi i18n/hindi.ts. */
+export const SAMPLE_FILL_LIVE_DECLINED = "Sample data is for practice in Demo Mode. In a live record, enter what you saw.";
+
+/** The refusal, in the person's language: Hindi when they wrote in Devanagari, else the screen's (English or Gujarati). */
+export function sampleFillDeclined(words = ""): string {
+  if (/[\u0900-\u097F]/.test(words)) return HINDI.sampleLiveDeclined;
+  const said = t("ai.sample.liveDeclined");
+  return said === "liveDeclined" ? SAMPLE_FILL_LIVE_DECLINED : said;
+}
 
 export interface SampleFillResult {
   data: unknown;
@@ -94,7 +123,7 @@ export function sampleFillRecord(doc: DocumentDefinition, record: RecordInstance
  */
 export function sampleFillStoredRecord(recordId: string, actorName: string): { record: RecordInstance; summary: string[] } | undefined {
   const record = recordRepository.getById(recordId);
-  if (!record) return undefined;
+  if (!record || !sampleFillAllowedFor(record)) return undefined;
   const doc = documentRepository.getById(record.documentId);
   if (!doc) return undefined;
   const result = sampleFillRecord(doc, record, masterRepository.get(), actorName);

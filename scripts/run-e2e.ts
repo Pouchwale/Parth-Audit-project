@@ -259,6 +259,9 @@ async function main(): Promise<void> {
         SEED_ACCOUNT_PASSWORD: PRODUCT_SEED_PASSWORD,
         DEMO_MODE: product ? "0" : "1",
         ALLOW_SIGNUP: product ? "0" : "1",
+        // SAMPLE DATA IN A LIVE RECORD (REQUIREMENTS §98): never in the plant, where it is Demo Mode's alone;
+        // on both test servers, because the suites fill the records they check with Mitra's sample data.
+        ALLOW_SAMPLE_FILL: "1",
         // NO SCHEDULED JOBS (REQUIREMENTS §75, backend/jobs.ts). The suites run on
         // the real clock and count activity-log lines: an escalation or a weekly
         // digest that ran by itself at 10:00 in the middle of a suite would add

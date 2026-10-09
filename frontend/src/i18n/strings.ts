@@ -752,6 +752,9 @@ const en = {
   "ai.step.leftAsWas": "Left as it was",
   "ai.step.filled": "Filled {n} boxes on {title}",
   "ai.step.sampleFilled": "Filled {title} with sample data",
+  // REQUIREMENTS §98: sample data never goes into a live record in the plant.
+  "ai.sample.liveDeclined": "Sample data is for practice in Demo Mode. In a live record, enter what you saw.",
+  "ai.step.sampleDeclined": "Sample data is for Demo Mode",
   "ai.step.guidedStarted": "Started the question-by-question fill",
   "ai.step.submitted": "Submitted",
   "ai.step.verified": "Verified",
@@ -1546,6 +1549,8 @@ const gu: Record<StringKey, string> = {
   "ai.step.leftAsWas": "જેમ હતું તેમ રહેવા દીધું",
   "ai.step.filled": "{title} પર {n} ખાના ભર્યા",
   "ai.step.sampleFilled": "{title} નમૂના ડેટાથી ભર્યું",
+  "ai.sample.liveDeclined": "નમૂના ડેટા ફક્ત ડેમો મોડમાં પ્રેક્ટિસ માટે છે. લાઇવ રેકોર્ડમાં, તમે જે જોયું તે ભરો.",
+  "ai.step.sampleDeclined": "નમૂના ડેટા ફક્ત ડેમો મોડ માટે છે",
   "ai.step.guidedStarted": "પ્રશ્ન પૂછીને ભરવાનું શરૂ કર્યું",
   "ai.step.submitted": "સબમિટ કર્યું",
   "ai.step.verified": "ચકાસ્યું",

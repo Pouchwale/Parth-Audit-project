@@ -50,7 +50,7 @@ import { hrMasterChatAnswer } from "../engine/hrMasterAssistant";
 import { createRecordForDocument } from "../engine/recordCrud";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { routeForRecord } from "../engine/reminders";
-import { sampleFillStoredRecord } from "../engine/sampleFill";
+import { sampleFillDeclined, sampleFillOffered, sampleFillStoredRecord } from "../engine/sampleFill";
 import { queueAfterOpen } from "../engine/assistantHandoff";
 import type { Chip, ChipAction } from "../engine/guidedChecklist";
 import { openBriefing } from "../components/common/AssistantBriefingPopup";
@@ -426,6 +426,11 @@ export function AssistantPage() {
   const startDocument = (kind: "create" | "fill" | "guide", documentId: string, dateISO: string, convId: string) => {
     const doc = documentRepository.getById(documentId);
     if (!doc) return;
+    // Sample data never goes into a live record in the plant (REQUIREMENTS §98): say so, and start nothing for it.
+    if (kind === "fill" && !sampleFillOffered(isDemo)) {
+      append(convId, { id: generateId("msg"), role: "bot", text: sampleFillDeclined(), at: stamp() });
+      return;
+    }
     const { record, existed } = createRecordForDocument(doc, { dateISO, isDemo });
     bump();
     const opened = existed ? `Opening the ${doc.name} for ${formatDisplayDate(dateISO)} that already exists` : `Started a new ${doc.name} for ${formatDisplayDate(dateISO)}`;

@@ -33,7 +33,7 @@ import { createRecordForDocument } from "./recordCrud";
 import { computeReminders, routeForRecord } from "./reminders";
 import { applyAssistantPatch, normDate } from "./recordPatch";
 import { diffRecordData } from "./recordHistory";
-import { canSampleFill, sampleFillRecord, SAMPLE_FILL_NOTE } from "./sampleFill";
+import { canSampleFill, sampleFillAllowedFor, sampleFillDeclined, sampleFillRecord, SAMPLE_FILL_NOTE } from "./sampleFill";
 import { applyFormatCommand, type FormatCommand, type Place, type TargetRef } from "./formatCommands";
 import { canDesignGrid, commitFormatChange, draftOf, type BoxArea, type HeaderField } from "./formatOps";
 import { designSessionFor } from "./designSession";
@@ -626,7 +626,7 @@ const EDIT_OPEN_RECORD: MitraTool = {
 
 const FILL_WITH_SAMPLE: MitraTool = {
   name: "fill_open_record_with_sample_data",
-  description: "Fill the whole open record with realistic sample data, marked as made up. A draft; never submits.",
+  description: "Fill the open record with realistic sample data, marked made up; never submits. Demo Mode only: a live record is the person's to fill.",
   parameters: objectSchema({}),
   writes: true,
   run: async (_args, ctx) => {
@@ -636,6 +636,8 @@ const FILL_WITH_SAMPLE: MitraTool = {
     const record = recordRepository.getById(tgt.recordId);
     if (!doc || !record) return no("the open record could not be read");
     if (!canSampleFill(doc.kind)) return no(`${doc.name} is kept as issued — there is no sample data for it`);
+    // A live record holds only what people saw (REQUIREMENTS §98): sample data is Demo Mode's.
+    if (!sampleFillAllowedFor(record)) return no(sampleFillDeclined(ctx.userWords).replace(/[.।]$/, ""), { live: true }, say("ai.step.sampleDeclined", "Sample data is for Demo Mode"));
     const result = sampleFillRecord(doc, record, masterRepository.get(), ctx.userName);
     if (!result) return no("no sample data could be put together for this one");
     const before = tgt.getData();

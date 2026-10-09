@@ -300,13 +300,17 @@ export function flyTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[
 // report, transcribed. Nothing is tinted on this sheet for exactly that
 // reason, and its footnote says so. REQUIREMENTS §41.
 //
-// A YEAR THE PROVIDER HAS NOT REPORTED YET follows the plant's own season
-// (engine/lizardPattern.ts, REQUIREMENTS §62): more in the rains and in winter
-// than in the dry summer, to the month that has been reached and no further.
-// Its row says so in its Source, so it is never read as the provider's figure.
+// A YEAR THE PROVIDER HAS NOT REPORTED YET. In Demo Mode it follows the
+// plant's own season (engine/lizardPattern.ts, REQUIREMENTS §62): more in the
+// rains and in winter than in the dry summer, to the month that has been
+// reached and no further, and its Source says so. In the plant (Live) the row
+// is there and blank, and says it is not yet reported: a planned catch is a
+// catch nobody saw, and a report counts only what was reported or entered
+// (REQUIREMENTS §98, 8-Oct-2026).
 export const LIZARD_PATTERN_SOURCE = "Seasonal pattern — not yet reported by the service provider";
+export const LIZARD_NOT_REPORTED_SOURCE = "Not yet reported by the service provider";
 
-export function lizardTrendRows(_isDemo: boolean, today = todayISO()): TrendYearRow[] {
+export function lizardTrendRows(isDemo: boolean, today = todayISO()): TrendYearRow[] {
   const currentYear = Number(today.slice(0, 4));
   const currentMonth = Number(today.slice(5, 7)) - 1;
   const reported: TrendYearRow[] = LIZARD_HISTORY_REPORTED.filter((h) => h.year <= currentYear).map((h) => ({
@@ -320,12 +324,12 @@ export function lizardTrendRows(_isDemo: boolean, today = todayISO()): TrendYear
   const lastReported = Math.max(...LIZARD_HISTORY_REPORTED.map((h) => h.year));
   const planned: TrendYearRow[] = [];
   for (let year = lastReported + 1; year <= currentYear; year++) {
-    const plan = lizardYearPlan(year);
+    const plan = isDemo ? lizardYearPlan(year) : Array<number | null>(12).fill(null);
     planned.push({
       year,
       months: plan.map((n, m) => (year < currentYear || m <= currentMonth ? n : null)),
       fromRegister: Array(12).fill(false),
-      source: LIZARD_PATTERN_SOURCE,
+      source: isDemo ? LIZARD_PATTERN_SOURCE : LIZARD_NOT_REPORTED_SOURCE,
       unit: LIZARD_TREND_REPORT.unit,
       targetPest: LIZARD_TREND_REPORT.targetPest,
     });

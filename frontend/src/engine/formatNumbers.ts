@@ -4,6 +4,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { documentDepartmentLabel } from "./departmentScope";
 import { documentOpenRoute } from "./documentRoutes";
 import { todayISO } from "../utils/date";
+import { sampleFillSwitchedOn } from "./features";
 import { t } from "../i18n";
 
 // A DOCUMENT BY ITS FORMAT NUMBER (REQUIREMENTS §52).
@@ -178,7 +179,8 @@ export function formatChips(doc: DocumentDefinition): Chip[] {
     const today = todayISO();
     chips.push({ label: t("ai.format.startNew"), action: { type: "createRecord", documentId: doc.id, dateISO: today } });
     chips.push({ label: t("ai.format.askMe"), action: { type: "startInterview", documentId: doc.id, dateISO: today } });
-    chips.push({ label: t("ai.format.sample"), action: { type: "sampleFill", documentId: doc.id, dateISO: today } });
+    // Sample data is for Demo Mode and test servers only (REQUIREMENTS §98, engine/sampleFill.ts).
+    if (sampleFillSwitchedOn()) chips.push({ label: t("ai.format.sample"), action: { type: "sampleFill", documentId: doc.id, dateISO: today } });
   }
   return chips;
 }

@@ -13,9 +13,10 @@
   * a person changes their own password from the top bar;
   * every password box - signing up, signing in, changing it - has an eye that
     shows what was typed and hides it again, without sending the form (s63);
-  * the lizard trend carries the years the provider has not reported yet, by
-    the plant's own season, and says which rows those are; the rodent year
-    holds two to four catches in each half.
+  * the lizard trend carries the years the provider has not reported yet,
+    headed so and blank: a Live report makes no catch up (REQUIREMENTS s98;
+    Demo Mode alone draws such a year from the plant's season); the rodent
+    year holds two to four catches in each half.
 
 Network-independent, against the production build on :8842.
 """
@@ -281,9 +282,12 @@ with sync_playwright() as p:
     this_year = next((r for r in rows if str(date.today().year) in r), None)
     check("The lizard report carries this year, which the provider has not reported yet", this_year is not None, rows)
     if this_year:
-        check("...headed as the plant's seasonal pattern, so it is never read as the provider's figure", "Seasonal pattern" in this_year[0], this_year[0])
+        # REQUIREMENTS s98 (8-Oct-2026): this suite's records are Live, and a Live report counts only what was
+        # reported or entered. The seasonal plan of an unreported year is Demo Mode's alone (it was shown here
+        # before, headed "Seasonal pattern"); frontend/tests/sampleFillLive.test.ts holds both sides.
+        check("...headed as not yet reported by the service provider, so nothing is read as the provider's figure", "Not yet reported" in this_year[0], this_year[0])
         months = this_year[4:16]
-        check("...filled to the month that has been reached and blank after it", all(c != "" for c in months[: date.today().month]) and all(c == "" for c in months[date.today().month:]), months)
+        check("...and every month blank: no catch is made up", all(c == "" for c in months), months)
     season = page.evaluate(
         """async () => {
              // The weighting itself: the rains and winter above the dry summer.

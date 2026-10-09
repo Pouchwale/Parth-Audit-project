@@ -1,6 +1,11 @@
 import { FLY_MONTHLY_FACTOR, FLY_UNIT_BASE } from "../data/seed/pestPattern";
 import { makeRng } from "../utils/random";
 
+// DEMO MODE ONLY (REQUIREMENTS §98): a Live fly catcher record's counts are
+// written at the visit; this pattern fills Demo Mode's records and the sample
+// data of a test server. The tube light dates below are the register's own, and
+// a Live record does carry those (engine/knownParts.ts).
+//
 // "Flies Catch Count Approx." for one fly catcher unit on one inspection
 // date, from the generated seasonal pattern (tools/pest_pattern.py). Seeded
 // by unit + date, so the assistant's pre-fill, Demo Mode and a re-run "Fill

@@ -19,6 +19,8 @@
 // Plain, everyday Hindi; never an em dash.
 export const HINDI = {
   note: "हिंदी में पूरा जवाब देने के लिए AI सेवा चाहिए, जो अभी उपलब्ध नहीं है।",
+  // "Fill it with sample data" asked of a live record (REQUIREMENTS §98, engine/sampleFill.ts).
+  sampleLiveDeclined: "नमूना डेटा केवल डेमो मोड में अभ्यास के लिए है। लाइव रिकॉर्ड में वही भरें जो आपने देखा।",
   noteLatin: "Hindi mein poora jawab dene ke liye AI seva chahiye, jo abhi uplabdh nahi hai.",
   sample: {
     female: "नमस्ते! मैं मित्र हूँ। कोई काम बाकी होगा तो मैं याद दिलाऊँगी, और काम पूरा होने पर शाबाशी दूँगी।",

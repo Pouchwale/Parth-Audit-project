@@ -37,6 +37,16 @@ import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
 import { GRADE_ACTIONS, GRADE_DEFECTS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
 
+// DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
+// SIMULATION: it writes readings, counts, answers, findings and signatures that
+// nobody observed. It makes Demo Mode's year (data/demoGenerator.ts), Mitra's
+// "fill it with sample data" for a Demo Mode record or on a test server
+// (engine/sampleFill.ts), and the guided interview's "typical readings" there.
+// It is NEVER used for a Live record in the plant: the morning prepare writes
+// only the known parts (engine/knownParts.ts). On 8-Oct-2026 the owner asked
+// for generated monitoring data that looks manually entered so that auditors
+// believe it; that would be falsifying food-safety records, and it is not built.
+//
 // THE ASSISTANT'S AUTO-FILL. Given a document and a due date, produce the
 // complete data the record would most plausibly contain, plus a short
 // plain-language list of what was filled in and where the values came from.
