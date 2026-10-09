@@ -1,5 +1,5 @@
-// THE PERSON'S DAY ON THE TASKS SCREEN. Plain functions with no imports, so the server's tests can check them
-// (server/test/phone-tasks.test.ts).
+// THE PERSON'S DAY ON THE TASKS SCREEN. Plain functions with no imports but types, so the server's tests can check them
+// (server/test/phone-app.test.ts).
 //
 // DCRS works out the day (its /api/v1/today, relayed by the Mitra server as /tasks): what is ready, what needs input,
 // what is overdue, waiting for verification or coming up, for what the person answers for and may verify (for the

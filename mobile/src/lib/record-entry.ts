@@ -1,5 +1,5 @@
-// THE REVIEW SCREEN'S INPUTS. Plain functions with no imports, so the server's tests can check them
-// (server/test/record-entry.test.ts).
+// THE REVIEW SCREEN'S INPUTS. Plain functions with no imports but types, so the server's tests can check them
+// (server/test/phone-app.test.ts).
 //
 // The record comes from DCRS as its GET /api/v1/records/:id answers it: its layout (a log sheet's boxes, columns and
 // lines; the daily pest control check points; any other form's fields) and its data as stored. Each value a person can

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NotificationItem } from '@shared/api';
@@ -22,7 +22,7 @@ export default function InboxScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { call } = useAuth();
-  const { language, unread, markRead, refresh: refreshCounts } = useNotifications();
+  const { language, unread, arrived, markRead, refresh: refreshCounts } = useNotifications();
   const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [more, setMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -45,6 +45,10 @@ export default function InboxScreen() {
       void load();
     }, [load]),
   );
+  // An alert that arrives while the inbox is open: read again.
+  useEffect(() => {
+    if (arrived > 0) void load();
+  }, [arrived, load]);
 
   async function pullToRefresh() {
     setRefreshing(true);

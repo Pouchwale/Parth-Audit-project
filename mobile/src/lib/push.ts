@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { NotificationLanguage } from '@shared/api';
 import { api, ApiError, currentServer } from './api';
-import { needsRegistering, parseRegistration, reminderSlots, reminderWords, type PushState } from './notification-logic';
+import { deviceLabel, needsRegistering, parseRegistration, reminderSlots, reminderWords, type PushState } from './notification-logic';
 import { deleteItem, getItem, setItem } from './storage';
 
 // ALERTS ON THIS PHONE. DCRS sends the push alerts through Expo's push service to the token this phone registers
@@ -122,6 +122,7 @@ export async function register(call: Call, userId: string, language: Notificatio
   const now = { token, language, server, userId };
   const saved = parseRegistration(await getItem(REGISTRATION_KEY).catch(() => null));
   if (!needsRegistering(saved, now, Date.now())) return { status: 'on' };
+  const deviceName = deviceLabel(Device.deviceName);
   try {
     await call((session) =>
       api.registerDevice(session, {
@@ -129,7 +130,7 @@ export async function register(call: Call, userId: string, language: Notificatio
         platform: Platform.OS === 'ios' ? 'ios' : 'android',
         language,
         ...(Constants.expoConfig?.version ? { appVersion: Constants.expoConfig.version } : {}),
-        ...(Device.deviceName ? { deviceName: Device.deviceName.slice(0, 200) } : {}),
+        ...(deviceName ? { deviceName } : {}),
       }),
     );
   } catch (error) {

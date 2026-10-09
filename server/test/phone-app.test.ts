@@ -57,6 +57,13 @@ it('opens what a tapped alert is about: its record, Tasks, or the inbox, also fr
   for (const nothing of [undefined, null, 'mitra://task/x', {}, { url: 'https://evil.example/task/1' }, { url: 'mitra://task/' }, { url: 'mitra://task/%E0%A4' }]) {
     expect(linkOf(nothing), JSON.stringify(nothing)).toEqual({ screen: 'inbox' });
   }
+  // What DCRS's pushes carry (its "What a push carries"): one record, or several ("group") opening the inbox.
+  const one = { url: 'mitra://task/rec-mgj2k1-7-abcd12', kind: 'ready', notificationId: 413, recordId: 'rec-mgj2k1-7-abcd12', count: 1 };
+  expect(linkOf(one)).toEqual({ screen: 'task', recordId: 'rec-mgj2k1-7-abcd12' });
+  expect(notificationIdOf(one)).toBe(413);
+  const several = { url: 'mitra://inbox', kind: 'group', count: 3 };
+  expect(linkOf(several)).toEqual({ screen: 'inbox' });
+  expect(notificationIdOf(several)).toBeNull();
   expect(itemLink({ kind: 'needs_input', data: { recordId: 'rec-1' } })).toEqual({ screen: 'task', recordId: 'rec-1' });
   expect(itemLink({ kind: 'upcoming', data: { documentId: 'qc-viscosity', dueDate: '2026-10-09' } })).toEqual({ screen: 'tasks' });
   expect(itemLink({ kind: 'access_changed', data: {} })).toBeNull();
@@ -114,6 +121,27 @@ it('says in plain words whether alerts reach the phone, and keeps the daily remi
   expect(reminderWords('gu', 8).title).toMatch(/[઀-૿]/);
   expect(reminderWords('hi', 8).title).toMatch(/[ऀ-ॿ]/);
 
+  // The reminder choice is kept in DCRS too (its preferences' `reminders`), so it follows the person to another phone;
+  // absent until the person chooses, when the phone keeps its own (on by itself while alerts cannot reach it).
+  const { reminderSettingOf, testResultWords, deviceLabel } = notifications;
+  expect(reminderSettingOf(true)).toBe('on');
+  expect(reminderSettingOf(false)).toBe('off');
+  expect(reminderSettingOf(undefined)).toBeNull();
+  expect(reminderSettingOf(null)).toBeNull();
+
+  // "Send me a test notification": how many phones it went to, or why none, in DCRS's words when it says.
+  expect(testResultWords({ sent: 1 })).toEqual({ tone: 'warning', words: 'Sent to your phone. It should arrive within a minute.' });
+  expect(testResultWords({ sent: 2 })).toEqual({ tone: 'warning', words: 'Sent to 2 of your phones. It should arrive within a minute.' });
+  expect(testResultWords({ sent: 0, reason: 'Push is switched off on the server.' })).toEqual({ tone: 'danger', words: 'Push is switched off on the server.' });
+  expect(testResultWords({ sent: 0 })).toEqual({ tone: 'danger', words: 'No phone of yours is registered for alerts yet.' });
+  expect(testResultWords({ sent: 0, reason: '  ' }).words).toBe('No phone of yours is registered for alerts yet.');
+
+  // The phone's name as DCRS keeps it: at most 120 characters, none when there is none.
+  expect(deviceLabel('  Galaxy A14 ')).toBe('Galaxy A14');
+  expect(deviceLabel('P'.repeat(150))).toHaveLength(120);
+  expect(deviceLabel('')).toBeUndefined();
+  expect(deviceLabel(null)).toBeUndefined();
+
   expect(kindsFor('user')).not.toContain('boss_summary');
   expect(kindsFor('user')).not.toContain('escalation');
   expect(kindsFor('super_admin')).toEqual(NOTIFICATION_KINDS);
@@ -155,6 +183,8 @@ it("puts DCRS's day into the Tasks screen's sections, and counts each module for
   expect(taskSections({ date: '2026-10-08', readyToSubmit: [], needsInput: [], due: [], overdue: [], awaitingVerification: [], upcoming: [] })).toEqual([]);
 
   expect(moduleOf({ module: 'HR', formatNo: 'F/QC/30' })).toBe('HR');
+  // DCRS says null when it knows no module: the format number decides.
+  expect(moduleOf({ module: null, formatNo: 'F/MNT/02' })).toBe('MNT');
   expect(moduleOf({ formatNo: 'F-QC-30' })).toBe('QC');
   expect(moduleOf({ formatNo: 'F: QA/PRO/FL/CCT/01' })).toBe('QA');
   expect(moduleOf({ formatNo: 'TO BE CONFIRMED' })).toBe('Other');

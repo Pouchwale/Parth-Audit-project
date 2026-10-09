@@ -5,7 +5,7 @@ import { Button, Card, Notice, Toggle } from '@/components/ui';
 import { Spacing, useTheme } from '@/constants/theme';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { KIND_WORDS, kindsFor, pushStateWords } from '@/lib/notification-logic';
+import { KIND_WORDS, kindsFor, pushStateWords, testResultWords } from '@/lib/notification-logic';
 import { useNotifications } from '@/lib/notifications';
 import { LOCAL_POSSIBLE } from '@/lib/push';
 
@@ -36,10 +36,10 @@ export function NotificationSettings() {
   async function setKind(kind: NotificationKind, on: boolean) {
     if (!prefs) return;
     const before = prefs;
-    const next = { ...prefs, kinds: { ...prefs.kinds, [kind]: on } };
-    setPrefs(next);
+    setPrefs({ ...prefs, kinds: { ...prefs.kinds, [kind]: on } });
     try {
-      setPrefs(await call((token) => api.saveNotificationPreferences(token, next)));
+      // Only the kind switched: DCRS keeps the others, and the reminder choice, as they are.
+      setPrefs(await call((token) => api.saveNotificationPreferences(token, { kinds: { [kind]: on } })));
       setPrefsError(null);
     } catch (e) {
       setPrefs(before);
@@ -51,12 +51,7 @@ export function NotificationSettings() {
     setTesting(true);
     setTested(null);
     try {
-      const { sent } = await call((token) => api.testNotification(token));
-      setTested(
-        sent > 0
-          ? { tone: 'warning', words: `Sent to ${sent === 1 ? 'your phone' : `${sent} of your phones`}. It should arrive within a minute.` }
-          : { tone: 'danger', words: 'No phone of yours is registered for alerts yet.' },
-      );
+      setTested(testResultWords(await call((token) => api.testNotification(token))));
     } catch (e) {
       setTested({ tone: 'danger', words: errorMessage(e) });
     }

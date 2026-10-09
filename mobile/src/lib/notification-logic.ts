@@ -1,5 +1,5 @@
-// NOTIFICATIONS ON THE PHONE. Plain functions with no imports, so the server's tests can check them
-// (server/test/phone-notifications.test.ts).
+// NOTIFICATIONS ON THE PHONE. Plain functions with no imports but types, so the server's tests can check them
+// (server/test/phone-app.test.ts).
 //
 // DCRS works out every notification, keeps them, writes their words in English, Hindi or Gujarati and sends the push
 // alerts (DCRS's docs/chatbot-integration.md, "Notification contract changes"). The app only shows them, opens what one
@@ -216,6 +216,29 @@ export type ReminderSetting = 'auto' | 'on' | 'off';
 
 export function remindersOn(setting: ReminderSetting, pushOn: boolean): boolean {
   return setting === 'on' || (setting === 'auto' && !pushOn);
+}
+
+/**
+ * The reminder setting DCRS keeps for the person (its preferences' `reminders`, so the choice follows them to another
+ * phone): on or off once they chose, or null while they have not, when the phone keeps its own.
+ */
+export function reminderSettingOf(saved: boolean | null | undefined): ReminderSetting | null {
+  return saved === true ? 'on' : saved === false ? 'off' : null;
+}
+
+/** "Send me a test notification": how many of the person's phones it went to, or why none (DCRS's words when it says). */
+export function testResultWords(result: { sent: number; reason?: string | undefined }): { tone: 'warning' | 'danger'; words: string } {
+  if (result.sent > 0) {
+    return { tone: 'warning', words: `Sent to ${result.sent === 1 ? 'your phone' : `${result.sent} of your phones`}. It should arrive within a minute.` };
+  }
+  const reason = typeof result.reason === 'string' ? result.reason.trim() : '';
+  return { tone: 'danger', words: reason || 'No phone of yours is registered for alerts yet.' };
+}
+
+/** The phone's name as DCRS keeps it with the registration: at most 120 characters, or none. */
+export function deviceLabel(name: string | null | undefined): string | undefined {
+  const trimmed = (name ?? '').trim();
+  return trimmed ? trimmed.slice(0, 120) : undefined;
 }
 
 /** The reminder's times on each working day: as the staff's hours start, and before they end. */

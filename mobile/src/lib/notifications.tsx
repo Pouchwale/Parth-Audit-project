@@ -6,7 +6,7 @@ import type { NotificationLanguage } from '@shared/api';
 import { PushIntro } from '@/components/notifications/PushIntro';
 import { api, ApiError } from './api';
 import { useAuth } from './auth';
-import { linkOf, notificationIdOf, pushLanguage, remindersOn, type AppLink, type PushState, type ReminderSetting } from './notification-logic';
+import { linkOf, notificationIdOf, pushLanguage, reminderSettingOf, remindersOn, type AppLink, type PushState, type ReminderSetting } from './notification-logic';
 import { askPermission, configureNotifications, introSeen, LOCAL_POSSIBLE, markIntroSeen, onTokenChange, permission, PUSH_POSSIBLE, register, scheduleReminders, setBadge } from './push';
 import { useSettings } from './settings';
 import { getItem, setItem } from './storage';
@@ -22,6 +22,8 @@ const WEEKLY_OFF_KEY = 'weeklyOff';
 interface NotificationsValue {
   unread: number;
   open: number;
+  /** Goes up by one for each alert that arrives while Mitra is open: an open inbox or Tasks reads its list again. */
+  arrived: number;
   /** null while not known; false when the server keeps no notifications (or DCRS has none yet). */
   offered: boolean | null;
   push: PushState;
@@ -58,6 +60,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [reminders, setRemindersState] = useState<ReminderSetting>('auto');
   const [weeklyOff, setWeeklyOff] = useState<string | null>(null);
   const [intro, setIntro] = useState(false);
+  const [arrived, setArrived] = useState(0);
   const busy = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -130,7 +133,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         void registerNow();
       }
     });
-    const received = LOCAL_POSSIBLE ? Notifications.addNotificationReceivedListener(() => void refresh()) : null;
+    // An alert while Mitra is open shows as a banner (configureNotifications); the counts, and the inbox and Tasks
+    // when one is open, are read again.
+    const received = LOCAL_POSSIBLE
+      ? Notifications.addNotificationReceivedListener(() => {
+          setArrived((n) => n + 1);
+          void refresh();
+        })
+      : null;
     const timer = setInterval(() => {
       if (AppState.currentState === 'active') void refresh();
     }, REFRESH_MS);
@@ -154,7 +164,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       .catch(() => undefined);
   }, []);
 
-  // The weekly off as DCRS says it, read once a sign-in.
+  // Read once a sign-in: the weekly off as DCRS says it, and the reminder choice the person made (kept in DCRS, so it
+  // follows them to another phone; until they choose, the phone keeps its own).
   useEffect(() => {
     if (!signedIn) return;
     call((token) => api.tasks(token))
@@ -163,6 +174,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         if (typeof day === 'string' && day) {
           setWeeklyOff(day);
           void setItem(WEEKLY_OFF_KEY, day).catch(() => undefined);
+        }
+      })
+      .catch(() => undefined);
+    call((token) => api.notificationPreferences(token))
+      .then((prefs) => {
+        const chosen = reminderSettingOf(prefs.reminders);
+        if (chosen) {
+          setRemindersState(chosen);
+          void setItem(REMINDERS_KEY, chosen).catch(() => undefined);
         }
       })
       .catch(() => undefined);
@@ -178,10 +198,17 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     })();
   }, [signedIn, push.status, remindersActive, language, weeklyOff]);
 
-  const setReminders = useCallback((setting: ReminderSetting) => {
-    setRemindersState(setting);
-    void setItem(REMINDERS_KEY, setting).catch(() => undefined);
-  }, []);
+  const setReminders = useCallback(
+    (setting: ReminderSetting) => {
+      setRemindersState(setting);
+      void setItem(REMINDERS_KEY, setting).catch(() => undefined);
+      // The person's choice, kept in DCRS too (no kind changes: DCRS keeps the kinds left out as they are).
+      if (signedIn && setting !== 'auto') {
+        void call((token) => api.saveNotificationPreferences(token, { kinds: {}, reminders: setting === 'on' })).catch(() => undefined);
+      }
+    },
+    [signedIn, call],
+  );
 
   const turnOn = useCallback(() => setIntro(true), []);
 
@@ -197,6 +224,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     () => ({
       unread: counts.unread,
       open: counts.open,
+      arrived,
       offered,
       push,
       language,
@@ -207,7 +235,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       markRead,
       turnOn,
     }),
-    [counts, offered, push, language, reminders, remindersActive, setReminders, refresh, markRead, turnOn],
+    [counts, arrived, offered, push, language, reminders, remindersActive, setReminders, refresh, markRead, turnOn],
   );
 
   return (

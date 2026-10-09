@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TaskItem, Tasks } from '@shared/api';
@@ -8,6 +8,7 @@ import { Card, Notice } from '@/components/ui';
 import { MaxContentWidth, Radius, Spacing, useTheme } from '@/constants/theme';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useNotifications } from '@/lib/notifications';
 import { moduleSummary, modulesOf, taskKey, taskLine, taskSections, taskTitle, type ModuleSummary, type SectionKey } from '@/lib/tasks-logic';
 
 /**
@@ -19,6 +20,7 @@ export default function TasksScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { call, user } = useAuth();
+  const { arrived } = useNotifications();
   const boss = user?.role === 'super_admin';
   const [tasks, setTasks] = useState<Tasks | null>(null);
   const [module, setModule] = useState<string | null>(null);
@@ -40,6 +42,10 @@ export default function TasksScreen() {
       void load();
     }, [load]),
   );
+  // An alert that arrives while Tasks is open: read again.
+  useEffect(() => {
+    if (arrived > 0) void load();
+  }, [arrived, load]);
 
   async function pullToRefresh() {
     setRefreshing(true);

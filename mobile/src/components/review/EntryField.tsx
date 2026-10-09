@@ -67,6 +67,8 @@ export function EntryField({ item, value, state, editable, onSave }: { item: Ent
   }
 
   const buttons = item.type === 'choice' ? item.options : item.quick;
+  // The answer being saved shows as chosen at once; if DCRS turns it down, what DCRS holds shows again.
+  const chosen = state?.saving ? text.trim() : value;
   const typed = item.type !== 'yesno' && item.type !== 'choice';
   // A time or a date can be the moment it is entered.
   const now = item.type === 'time' ? 'Now' : item.type === 'date' ? 'Today' : null;
@@ -96,12 +98,12 @@ export function EntryField({ item, value, state, editable, onSave }: { item: Ent
           {buttons.length > 0 || now ? (
             <View style={styles.buttons}>
               {buttons.map((answer) => {
-                const selected = value === answer;
+                const selected = chosen === answer;
                 return (
                   <Pressable
                     key={answer}
                     accessibilityRole="button"
-                    accessibilityState={{ selected }}
+                    aria-selected={selected}
                     accessibilityLabel={`${item.label}: ${answer}`}
                     onPress={() => pick(answer)}
                     style={({ pressed }) => [
