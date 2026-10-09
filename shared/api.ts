@@ -548,6 +548,30 @@ export interface NotificationData {
   daysLate?: number;
   reason?: string;
   modules?: ModuleCounts[];
+  // DCRS's additions (its docs/chatbot-integration.md, "Notification contract changes", 1):
+  /** escalation: who is escalated, and their counts of the last 30 days. */
+  subject?: string;
+  late?: number;
+  neverDone?: number;
+  /** access_changed: the level the person now has. */
+  level?: 'none' | 'read' | 'write' | 'edit';
+  /** verify: who submitted it; sent_back: who sent it back; access_changed: who changed it. */
+  by?: string;
+  /** boss_summary: the morning or the evening one. */
+  part?: 'morning' | 'evening';
+}
+
+/**
+ * What a push alert from DCRS carries in its data (DCRS's docs/chatbot-integration.md, "What a push carries"): the deep
+ * link (mitra://task/<recordId> for one record, mitra://inbox for several or none), the item's kind (group for
+ * several), its id when there is one item, its record, and how many items it stands for. Never a record's values.
+ */
+export interface PushData {
+  url?: string;
+  kind?: NotificationKind | 'group';
+  notificationId?: number;
+  recordId?: string;
+  count?: number;
 }
 
 export interface NotificationItem {
@@ -582,7 +606,11 @@ export interface NotificationReadResponse {
   unread: number;
 }
 
-/** A phone's Expo push token, so DCRS can send it alerts, in the language chosen in the app. */
+/**
+ * A phone's Expo push token, so DCRS can send it alerts, in the language chosen in the app. DCRS's rules, checked by the
+ * Mitra server before it relays: the token is ExponentPushToken[...] (6 to 180 characters inside, no spaces), the app's
+ * version at most 40 characters and the device's name at most 120.
+ */
 export interface DeviceRegistration {
   token: string;
   platform: 'android' | 'ios';
@@ -608,6 +636,8 @@ export interface NotificationPreferences {
 export interface TestNotificationResponse {
   /** How many of the person's phones the test was sent to. */
   sent: number;
+  /** When none: why, in DCRS's words (push switched off on the server, or no phone registered). */
+  reason?: string;
 }
 
 /** One line of the person's day, as DCRS's /api/v1/today gives it. */
@@ -620,7 +650,8 @@ export interface TaskItem {
   /** null for a sheet DCRS's calendar has but nobody has started: POST /records starts it. */
   recordId: string | null;
   started: boolean;
-  module?: string;
+  /** The module's code (QC, HR, SYS, MNT, PRD, PUR, STR, MKT, DISP or QA), or null when DCRS knows none. */
+  module?: string | null;
   /** Whether the person may submit it, and verify it, at their access level. */
   canSubmit?: boolean;
   canVerify?: boolean;
@@ -652,6 +683,16 @@ export interface Tasks {
   needsInput: TaskItem[];
   awaitingVerification: TaskItem[];
   workingHours?: { hoursText?: string; todayText?: string; forYou?: string | null };
+  /** The super admin's only: the lists counted by module. */
+  byModule?: {
+    module: string | null;
+    overdue: number;
+    due: number;
+    upcoming: number;
+    readyToSubmit: number;
+    needsInput: number;
+    awaitingVerification: number;
+  }[];
 }
 
 /** A box, a column or a field of a record's form, as DCRS describes it. */
@@ -712,7 +753,11 @@ export interface RecordView {
   inWords: { where?: string; label: string; value: string }[];
   data: unknown;
   history?: { at: string; by: string; action: string; note?: string }[];
-  /** What still stops a submit, in DCRS's words, when DCRS says. */
+  /**
+   * What still stops a submit, in DCRS's words, and whether the person may submit or verify it at their level, when
+   * DCRS says. A DCRS that does not say them: the Review screen holds Submit back while a box the form marks required
+   * is empty, and DCRS checks again when Submit is pressed (409 invalid with the problems, 403 for a level too low).
+   */
   problems?: string[];
   canSubmit?: boolean;
   canVerify?: boolean;

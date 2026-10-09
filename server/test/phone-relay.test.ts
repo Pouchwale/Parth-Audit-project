@@ -127,37 +127,65 @@ it("registers the phone's push token with its language, and removes it at sign-o
     { ...device, platform: 'windows' },
     { ...device, language: 'auto' },
     { platform: 'android', language: 'en' },
+    // DCRS's own rules (its readDevice): a token of 6 to 180 characters inside the brackets with no spaces, the app's
+    // version at most 40 characters and the device's name at most 120. Turned down here, before DCRS is asked.
+    { ...device, token: 'ExponentPushToken[abc]' },
+    { ...device, token: 'ExponentPushToken[xxxxxx xxxxxx]' },
+    { ...device, token: `ExponentPushToken[${'x'.repeat(181)}]` },
+    { ...device, appVersion: '1'.repeat(41) },
+    { ...device, deviceName: 'P'.repeat(121) },
   ]) {
     expect((await send('POST', '/devices', wrong)).statusCode, JSON.stringify(wrong)).toBe(400);
   }
+  // The longest DCRS takes are passed on.
+  const longest = { ...device, token: `ExponentPushToken[${'y'.repeat(180)}]`, appVersion: '1'.repeat(40), deviceName: 'P'.repeat(120) };
+  expect((await send('POST', '/devices', longest)).statusCode).toBe(200);
 
   const removed = await send('DELETE', '/devices', { token: PUSH_TOKEN });
   expect(removed.json()).toEqual({ ok: true });
   expect(asked()).toMatchObject([
     { method: 'POST', path: '/api/v1/devices', body: device, headers: { authorization: `Bearer ${TOKEN}` } },
+    { method: 'POST', path: '/api/v1/devices', body: longest },
     { method: 'DELETE', path: '/api/v1/devices', body: { token: PUSH_TOKEN }, headers: { authorization: `Bearer ${TOKEN}` } },
   ]);
 });
 
 it("keeps the person's choices of what is pushed in DCRS, and sends a test to the person's own phones", async () => {
   let saved: unknown = { kinds: { ready: true, upcoming: true }, reminders: false };
+  const tests = [
+    { sent: 2 },
+    // DCRS's addition: why nothing was sent, for Settings.
+    { sent: 0, reason: 'No phone of yours is registered for notifications yet.' },
+  ];
   const { send, asked } = await start({
     'GET /api/v1/notification-preferences': () => json(200, saved),
     'PUT /api/v1/notification-preferences': (r) => {
       saved = r.body;
       return json(200, saved);
     },
-    'POST /api/v1/notifications/test': () => json(200, { sent: 2 }),
+    'POST /api/v1/notifications/test': () =>
+      tests.length > 0 ? json(200, tests.shift()) : refusal(429, 'too-many', 'A test was sent a moment ago. Wait 20 seconds, then try again.'),
   });
   expect((await send('GET', '/notification-preferences')).json()).toEqual({ kinds: { ready: true, upcoming: true }, reminders: false });
   const put = await send('PUT', '/notification-preferences', { kinds: { upcoming: false, boss_summary: true } });
   expect(put.json()).toEqual({ kinds: { upcoming: false, boss_summary: true } });
+  // The phone's own reminders alone: no kind changed (DCRS keeps the kinds left out as they were).
+  expect((await send('PUT', '/notification-preferences', { kinds: {}, reminders: true })).json()).toEqual({ kinds: {}, reminders: true });
   expect((await send('PUT', '/notification-preferences', { kinds: { gossip: true } })).statusCode).toBe(400);
   expect((await send('PUT', '/notification-preferences', { kinds: { ready: 'yes' } })).statusCode).toBe(400);
+  expect((await send('PUT', '/notification-preferences', { kinds: {}, reminders: 'yes' })).statusCode).toBe(400);
   expect((await send('POST', '/notifications/test')).json()).toEqual({ sent: 2 });
+  expect((await send('POST', '/notifications/test')).json()).toEqual({ sent: 0, reason: 'No phone of yours is registered for notifications yet.' });
+  // A second test within 20 seconds: DCRS's words reach the app.
+  const tooSoon = await send('POST', '/notifications/test');
+  expect(tooSoon.statusCode).toBeGreaterThanOrEqual(400);
+  expect(tooSoon.json().message).toBe('A test was sent a moment ago. Wait 20 seconds, then try again.');
   expect(asked().map((r) => `${r.method} ${r.path}`)).toEqual([
     'GET /api/v1/notification-preferences',
     'PUT /api/v1/notification-preferences',
+    'PUT /api/v1/notification-preferences',
+    'POST /api/v1/notifications/test',
+    'POST /api/v1/notifications/test',
     'POST /api/v1/notifications/test',
   ]);
 });
@@ -213,9 +241,11 @@ it('reads the day and a record, saves what the person enters, and submits only o
 
 it("passes DCRS's refusals on in its own words, and ends the session when DCRS's sign-in has ended", async () => {
   const readOnly = 'This document is Read only for you. Ask the super admin for Write access.';
+  const needsReview = 'The assistant prepared the Daily Pest Control Monitoring Record of 09-Oct-2026. Check every value, tick "Reviewed and correct", then submit it.';
   let signedIn = true;
   const { send, app } = await start({
     'POST /api/v1/records/rec-1/actions': () => refusal(403, 'level-needed', readOnly),
+    'POST /api/v1/records/rec-2/actions': () => refusal(409, 'needs-review', needsReview),
     'POST /api/v1/records/rec-1/changes': () => refusal(409, 'needs-reopen', 'The record is Pending Verification and cannot be changed as it stands. Reopen it for correction first.'),
     'GET /api/v1/today': () => (signedIn ? json(200, { date: 'not a list of anything', overdue: 'x' }) : refusal(401, 'not-signed-in', 'Not signed in.')),
   });
@@ -229,6 +259,11 @@ it("passes DCRS's refusals on in its own words, and ends the session when DCRS's
   const reopen = await send('POST', '/records/rec-1/changes', { patch: { remarks: 'OK' } });
   expect(reopen.statusCode).toBe(409);
   expect(reopen.json().message).toContain('Reopen it for correction');
+
+  // DCRS's 409 needs-review (a prepared record submitted without reviewed: true), in its words.
+  const review = await send('POST', '/records/rec-2/actions', { action: 'submit', reviewed: true });
+  expect(review.statusCode).toBe(409);
+  expect(review.json()).toEqual({ error: 'conflict', message: needsReview });
 
   // An older DCRS without the notification routes: said plainly.
   const older = await send('GET', '/notifications');

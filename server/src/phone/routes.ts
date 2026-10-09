@@ -63,15 +63,19 @@ const Kinds = z.record(z.string(), z.boolean()).superRefine((kinds, ctx) => {
 });
 const Preferences = z.object({ kinds: Kinds, reminders: z.boolean().optional() });
 
-/** Expo's push tokens: ExponentPushToken[...] (or ExpoPushToken[...]). Anything else cannot be sent to. */
-const PUSH_TOKEN = /^Expo(nent)?PushToken\[[^\]]{1,200}\]$/;
-const Token = Text(300).refine((token) => PUSH_TOKEN.test(token), 'That is not an Expo push token.');
+/**
+ * Expo's push tokens: ExponentPushToken[...] (or ExpoPushToken[...]), with DCRS's own limits (its EXPO_TOKEN_RE and
+ * readDevice): 6 to 180 characters inside the brackets, no spaces; the app's version at most 40 characters and the
+ * device's name at most 120. What DCRS would turn down is turned down here, in the app's words, before DCRS is asked.
+ */
+const PUSH_TOKEN = /^Expo(nent)?PushToken\[[^\]\s]{6,180}\]$/;
+const Token = Text(200).refine((token) => PUSH_TOKEN.test(token), 'That is not an Expo push token.');
 const Device = z.object({
   token: Token,
   platform: z.enum(['android', 'ios']),
   language: Language,
-  appVersion: Text(50).optional(),
-  deviceName: Text(200).optional(),
+  appVersion: Text(40).optional(),
+  deviceName: Text(120).optional(),
 }) satisfies z.ZodType<DeviceRegistration>;
 const DeviceGone = z.object({ token: Token });
 
