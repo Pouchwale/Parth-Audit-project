@@ -1297,7 +1297,7 @@ function answerHere(message: string, isDemo: boolean, userName?: string): LocalA
     if (isDemo) return { reply: "The briefing covers your Live records — switch to Live Mode to see what I've prepared for you.", chips: [{ label: "Dashboard", action: { type: "navigate", route: "/dashboard" } }] };
     const b = computeBriefing(userName);
     const parts = [
-      b.ready.length ? `${b.ready.length} record${b.ready.length === 1 ? "" : "s"} filled in and ready for your OK` : "",
+      b.ready.length ? `${b.ready.length} record${b.ready.length === 1 ? "" : "s"} prepared and ready for your OK` : "",
       b.needsInput.length ? `${b.needsInput.length} needing a detail only you know` : "",
       b.awaitingVerification.length ? `${b.awaitingVerification.length} waiting for a verifier` : "",
       b.overdue.length ? `${b.overdue.length} overdue` : "",

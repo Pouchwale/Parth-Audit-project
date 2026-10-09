@@ -707,7 +707,7 @@ test("the spoken reminder: the first name, the document, how late or due today, 
 test("the spoken briefing: the greeting and name, what is waiting, the first two things, why it matters", () => {
   const facts = { firstName: "Heena", slot: "morning" as const, hour: 9, ready: 3, needsInput: 1, overdue: 2, awaiting: 0, top: ["Adhesive Mixing Record", "Line Clearance Checklist", "Third"], module: "Lamination — Quality Control", seed: "d" };
   const en = briefingLine(facts, "en");
-  assert.match(en, /^Good morning, Heena\. You have 3 filled in and ready for your OK, 1 needing a detail only you know and 2 still open from earlier\. /);
+  assert.match(en, /^Good morning, Heena\. You have 3 prepared and ready for your OK, 1 needing a detail only you know and 2 still open from earlier\. /);
   assert.match(en, /Start with the Adhesive Mixing Record, then the Line Clearance Checklist\./);
   assert.doesNotMatch(en, /Third/, "two things at most");
   assert.ok(en.endsWith(purposeLine(facts.module, "en", facts.seed)));

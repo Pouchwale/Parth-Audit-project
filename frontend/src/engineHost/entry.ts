@@ -79,6 +79,7 @@ import { historyOf, recordLabel } from "../engine/recordHistory";
 import { fieldLabels, humanKey, normDate } from "../engine/recordPatch";
 import { withComputedCells } from "../engine/computedCells";
 import { supersededRevisionOf, validateForSubmit, type ValidationResult } from "../engine/validation";
+import { entriesWaiting } from "../engine/knownParts";
 import { createRecordForDocument, deleteRecordWithTrail, recordCoveringDate, type DeletionEntry } from "../engine/recordCrud";
 import { createDefaultData } from "../engine/recordDefaults";
 import { prepareDueRecords } from "../engine/assistantPrepare";
@@ -997,7 +998,7 @@ function notificationsOp(args: Obj): Outcome {
       status: r.status,
       stored: storedIds.has(r.id),
       prepared: !!r.prepared,
-      problems: open ? validateForSubmit(doc, r).errors.length : 0,
+      problems: open ? entriesWaiting(doc, r).length : 0,
       submittedBy: r.submittedBy ?? null,
       rejectedBy: r.rejectedBy ?? null,
       rejectionReason: r.rejectionReason ?? null,

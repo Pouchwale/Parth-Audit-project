@@ -39,7 +39,7 @@ import { ensureSeeded as ensureHrMasterSeeded } from "../src/data/repositories/h
 import { recordRepository } from "../src/data/repositories/recordRepository";
 import { getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { createDefaultData } from "../src/engine/recordDefaults";
-import { prepareKnownParts, PREPARED_NOTE } from "../src/engine/knownParts";
+import { entriesWaiting, prepareKnownParts, PREPARED_NOTE } from "../src/engine/knownParts";
 import { latestConfirmedRecord, prepareDueRecords } from "../src/engine/assistantPrepare";
 import { sampleFillRecord } from "../src/engine/sampleFill";
 import { isCompanyHoliday, nextWorkingDay } from "../src/engine/holidays";
@@ -242,9 +242,13 @@ test("a Live prepare writes no observation into any of the documents, with or wi
           continue;
         }
         problems.push(...observationsIn(doc, result.data, dueDate, previous));
-        // What waits is what the submit checks still ask for, and the notes say so.
-        const errors = validateForSubmit(doc, { ...shellOf(doc, dueDate, "unit-now"), data: result.data }).errors.length;
-        if (result.waiting !== errors) problems.push(`${doc.id}: says ${result.waiting} wait, the submit checks ask for ${errors}`);
+        // What waits is what the submit checks still ask for, or, on a sheet nothing observed is written on, the entries
+        // of its first line (engine/knownParts.ts entriesWaiting, the people review of 9-Oct-2026): never fewer than the
+        // checks ask for; and the notes say so.
+        const shell = { ...shellOf(doc, dueDate, "unit-now"), data: result.data };
+        const errors = validateForSubmit(doc, shell).errors.length;
+        const waiting = entriesWaiting(doc, shell).length;
+        if (result.waiting !== waiting || waiting < errors) problems.push(`${doc.id}: says ${result.waiting} wait, the entries waiting are ${waiting}, the submit checks ask for ${errors}`);
         if (!result.notes.some((n) => /Left for you|Nothing is left/.test(n))) problems.push(`${doc.id}: the notes do not say what is left for the person`);
       }
     }

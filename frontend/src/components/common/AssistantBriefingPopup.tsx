@@ -289,7 +289,7 @@ export function AssistantBriefingPopup() {
             <Section
               icon={<FiCheck size={13} />}
               tone="success"
-              title={`Filled in and ready for your OK (${briefing.ready.length})`}
+              title={`Prepared and ready for your OK (${briefing.ready.length})`}
               action={
                 <button
                   className="btn btn-success btn-sm"
@@ -313,7 +313,7 @@ export function AssistantBriefingPopup() {
                 />
               ))}
               <div className="text-xs text-muted mt-1" data-section="briefing-review-rule">
-                I filled these in, so check each one — View opens it — and tick <strong>Reviewed &amp; verified</strong>. Only a ticked record can be submitted.
+                Nothing is left to enter on these: I prepared the known parts and the readings are in. Check each one — View opens it — and tick <strong>Reviewed &amp; verified</strong>. Only a ticked record can be submitted.
               </div>
               <More count={briefing.ready.length - MAX_ROWS} hint="Open them from the Dashboard to review them too." />
             </Section>

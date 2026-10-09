@@ -9,7 +9,7 @@ import type {
   ServiceReportData,
   TrainingRecordData,
 } from "../types";
-import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
+import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { createDefaultData } from "./recordDefaults";
 import { dayInfo } from "./holidays";
@@ -92,7 +92,7 @@ export function prepareKnownParts(doc: DocumentDefinition, dueDate: string, mast
       made = null;
   }
   if (!made) return null;
-  const waiting = validateForSubmit(doc, {
+  const shell: RecordInstance = {
     id: "known-parts",
     documentId: doc.id,
     periodKey: dueDate,
@@ -102,12 +102,46 @@ export function prepareKnownParts(doc: DocumentDefinition, dueDate: string, mast
     data: made.data,
     createdAt: "",
     updatedAt: "",
-  }).errors.length;
+  };
+  const checks = validateForSubmit(doc, shell).errors.length;
+  const waiting = checks > 0 ? checks : entriesWaiting(doc, shell).length;
   const left =
     waiting === 0
       ? "Nothing is left to enter. Check it, then submit it."
-      : `Left for you: ${waiting} ${waiting === 1 ? "reading" : "readings"} to enter before it can be submitted. Nothing you observe was filled in for you.`;
+      : checks > 0
+        ? `Left for you: ${waiting} ${waiting === 1 ? "reading" : "readings"} to enter before it can be submitted. Nothing you observe was filled in for you.`
+        : `Left for you: ${waiting} ${waiting === 1 ? "entry" : "entries"} on the first line. Nothing observed is written yet: enter what you saw, then submit it.`;
   return { ...made, notes: [...made.notes, left], waiting };
+}
+
+/**
+ * WHAT THE PERSON STILL HAS TO WRITE BEFORE A RECORD IS READY FOR THEIR OK (REQUIREMENTS §98): what the submit checks
+ * ask for (engine/validation.ts validateForSubmit), and, for a log sheet that holds no observation at all, each
+ * observation of its first line. A form that marks no box required (the Defect Detection System Camera Challenge
+ * Test) passes the checks empty; holding only its line and its date, it is the person's to fill, never "ready". One
+ * answer for every place that says ready or needs input: the prepare's notes, the briefing, the engine host's today,
+ * its record answer and its notification plan. The submit itself still asks only the checks (a register whose day
+ * had no event may be handed in empty, after the person's review).
+ */
+export function entriesWaiting(doc: DocumentDefinition, record: RecordInstance): string[] {
+  const errors = validateForSubmit(doc, record).errors;
+  if (errors.length > 0 || doc.kind !== "log-sheet") return errors;
+  const layout = getLogSheetLayoutForRecord(doc.id, record);
+  if (!layout) return errors;
+  const data = (record.data ?? {}) as Partial<LogSheetData>;
+  const written = (v: unknown): boolean => v !== null && v !== undefined && `${v}`.trim() !== "";
+  const columns = layout.columns.filter((c) => columnKind(c) === "observation");
+  const boxes = [...layout.headerFields, ...(layout.footerFields ?? [])].filter((f) => boxKind(f, layout) === "observation");
+  if (columns.length === 0 && boxes.length === 0) return errors;
+  const rows = Array.isArray(data.rows) ? data.rows : [];
+  if (rows.some((r) => columns.some((c) => written(r[c.key])))) return errors;
+  if (boxes.some((f) => written(data.header?.[f.key]))) return errors;
+  // Nothing observed anywhere on it: the first line's observations are what wait (or the sheet's own boxes, when its lines hold none).
+  const first = rows[0];
+  const mode = layout.rowMode;
+  const line = !first ? "Line 1" : mode.kind === "timeSlots" && first[mode.slotKey] ? `${first[mode.slotKey]}` : mode.kind === "fixedRows" && first.parameter ? `${first.parameter}` : "Line 1";
+  if (columns.length > 0) return columns.map((c) => `${line}: ${c.label} is not written yet.`);
+  return boxes.map((f) => `${f.label} is not written yet.`);
 }
 
 // ---------------------------------------------------------------------------

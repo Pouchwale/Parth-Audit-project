@@ -840,7 +840,7 @@ const en = {
   "brief.morning": "Good morning",
   "brief.afternoon": "Good afternoon",
   "brief.evening": "Good evening",
-  "brief.ready": "{n} filled in and ready for your OK",
+  "brief.ready": "{n} prepared and ready for your OK",
   "brief.needsInput": "{n} need a detail only you know",
   // What a prepared record still waits for (REQUIREMENTS §98): the assistant wrote only the known parts.
   "brief.toEnter": "{n} readings to enter, then submit.",
@@ -1637,7 +1637,7 @@ const gu: Record<StringKey, string> = {
   "brief.morning": "સુપ્રભાત",
   "brief.afternoon": "નમસ્કાર",
   "brief.evening": "શુભ સાંજ",
-  "brief.ready": "{n} ભરાઈ ગયા છે અને તમારી મંજૂરીની રાહ જુએ છે",
+  "brief.ready": "{n} તૈયાર છે અને તમારી મંજૂરીની રાહ જુએ છે",
   "brief.needsInput": "{n} માટે એવી વિગત જોઈએ જે ફક્ત તમે જાણો છો",
   "brief.toEnter": "{n} રીડિંગ ભરો, પછી સબમિટ કરો.",
   "brief.toEnterOne": "1 રીડિંગ ભરો, પછી સબમિટ કરો.",

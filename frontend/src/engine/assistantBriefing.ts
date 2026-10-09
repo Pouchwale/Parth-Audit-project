@@ -9,7 +9,7 @@ import { findPreLaunchNoise } from "./backlogCleanup";
 import { isCompanyHoliday } from "./holidays";
 import { computeReminders, routeForRecord } from "./reminders";
 import { submitRecord } from "./recordLifecycle";
-import { validateForSubmit } from "./validation";
+import { entriesWaiting } from "./knownParts";
 import { addDays, compareISO, formatDisplayDate, todayISO } from "../utils/date";
 import { t } from "../i18n";
 import { isMine, mayDo } from "./departmentScope";
@@ -101,8 +101,10 @@ export function computeBriefing(userName: string | undefined): Briefing {
       }
       if (!mine) continue;
       if (r.status === "In Progress" && r.prepared) {
-        const v = validateForSubmit(doc, r);
-        (v.valid ? ready : needsInput).push(toItem(doc, r, v.errors));
+        // Ready only when nothing is waiting for the person: the submit checks pass AND something observed is written
+        // (engine/knownParts.ts entriesWaiting). A prepared sheet holding only its lines and its date needs them.
+        const waiting = entriesWaiting(doc, r);
+        (waiting.length === 0 ? ready : needsInput).push(toItem(doc, r, waiting));
         continue;
       }
       // A closed day (weekly off / festival holiday) is never "overdue work".
