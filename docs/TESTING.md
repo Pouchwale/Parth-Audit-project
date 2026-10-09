@@ -596,6 +596,16 @@ Seven scripts live in `tests/`:
   of 135 checks passed; each format opened from the Production library, showed its paper's words and its original,
   took a line, was sample-filled, saved, submitted, verified, printed as its paper and downloaded as a workbook; Mitra
   opened each by its number in both spellings and by name; no JavaScript error.
+- **npm run dev with its ports taken, and signing in with the browser full** (REQUIREMENTS §101, 9-Oct-2026). New unit
+  tests: `backend/tests/devPorts.test.ts` (9: real servers on ports the system picks; a free port and a held one; DCRS's
+  server known by its /api/health answer, its website by its page; the next free port; the start plan for both free,
+  another `npm run dev` still open, another program on 5173 (the website moves and says where), another program on 4000
+  (nothing starts; the program is named), the server alone running) and `frontend/tests/signInBrowserFull.test.ts` (2:
+  the working copy in front of a stand-in database, the browser's storage given a fixed room; signing in when the
+  database's records are larger than the room opens every record and leaves the browser's older copy in place, nothing
+  waits to be sent, a record started then reaches the database and the next sign-in opens it; a browser with no copy
+  signs in too. With the sign-in change undone, both fail with "There is no room in this browser for the company's
+  records."). `frontend/tests/storageFullStart.test.ts` (2, the §93 saves held in memory) came with the stopgap.
 - **Copy and Edit, the mobile app's API, the voice, the opening and the tour** (REQUIREMENTS §85, added 30-Sep and
   1-Oct-2026). New browser suites: `tests/e2e_mitra_copy_edit.py` (demo server: Copy on every message, the copied words,
   Edit in place with Save / Cancel / Enter / Escape on the Ask Mitra page and in the dock, the thread after the edited message

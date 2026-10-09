@@ -32,7 +32,7 @@ const LOAD_FAILURES: Record<Exclude<SyncErrorKind, "signed-out">, { state: strin
   "no-room": {
     state: "database-no-room",
     title: "This browser has no room for the company's records",
-    text: "The records are kept in the company's PostgreSQL database, and this browser keeps a working copy of them, which no longer fits in the space the browser gives the app. Use a browser with more room, or ask your administrator to back up and archive older records, then try again.",
+    text: "Nothing is lost: the records are kept in the company's PostgreSQL database. This browser keeps a working copy of them, and it could not make room for that copy this time. Close the app's other tabs in this browser, then try again.",
   },
   "storage-disabled": {
     state: "database-storage-blocked",

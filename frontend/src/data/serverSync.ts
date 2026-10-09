@@ -1148,8 +1148,14 @@ export function startServerSync(userId: string): Promise<void> {
       .filter((k) => SYNC_KEYS.has(k))
       .sort((a, b) => (a === "deletions" ? -1 : b === "deletions" ? 1 : 0));
     const sends: string[] = [];
+    // SIGNING IN WITH THE BROWSER FULL (REQUIREMENTS §101). The database's copy of an item
+    // that does not fit in the browser's storage is held in this page's memory (§93) and
+    // read from there, so the app opens on everything the database has; sign-in used to
+    // stop at "This browser has no room for the company's records" with nothing to do but
+    // try again. The browser keeps the older copy WITH its marker, so the next sign-in
+    // takes the database's again; held is not unsent: the database has it already.
     const adopt = (key: string, item: StoredItem) => {
-      if (local.get(key) !== item.value && !local.set(key, item.value)) {
+      if (local.get(key) !== item.value && !local.setOrHold(key, item.value, false)) {
         throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
       }
       rememberBase(key, item.version, item.value);
@@ -1189,7 +1195,7 @@ export function startServerSync(userId: string): Promise<void> {
             const merged = merge(key, null, mine, item.value, "theirs");
             if (merged === item.value) adopt(key, item);
             else {
-              if (!local.set(key, merged)) throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
+              if (!local.setOrHold(key, merged, true)) throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
               rememberBase(key, item.version, item.value);
               writeMarkerOf(key, { s: scope, v: item.version, t: iso(), p: 1, d: s.scope }, item.value);
               sends.push(key);
@@ -1213,7 +1219,7 @@ export function startServerSync(userId: string): Promise<void> {
             // Another person's settings: handed on without what was shown or put off for them.
             if (!ours && marker && key === "settings") {
               const handed = handedOnSettings(mine);
-              if (handed !== mine && !local.set(key, handed)) throw new SyncError("no-room", `There is no room in this browser for ${key}.`);
+              if (handed !== mine && !local.setOrHold(key, handed, true)) throw new SyncError("no-room", `There is no room in this browser for ${key}.`);
             }
             sends.push(key);
           }

@@ -5852,9 +5852,35 @@ anything, it asks who holds its two ports (scripts/dev-ports.ts):
 
 `API_PORT` and `PORT` are read as before, and `npm run server` and `npm run dev:frontend` are unchanged.
 
+**2. A browser with no room.** The browser gives the app about five million characters of storage, and a year of the
+plant's records is about as large (§65). Once the database's copy no longer fitted, every sign-in stopped at "This
+browser has no room for the company's records", whose only advice was an archive that does not exist. Nothing was
+lost (PostgreSQL holds every record), but nobody could work in that browser.
+
+- **The saves (§93, brought here from the every-record-starts branch).** A change that does not fit in the browser's
+  storage is held in the page's memory, read from there, and sent to the database from there, with the same merge as
+  any change. Until the database confirms it, closing the page asks first, and the banner says "This browser's copy is
+  full.", then "your record WAS saved." once it is.
+- **The sign-in (new).** The database's copy of an item that does not fit is held the same way, so the app opens on
+  everything the database has. The browser keeps its older copy with the marker that belongs to it, so the next
+  sign-in takes the database's copy again and never sends the older one back over it. A copy from before the database
+  merged in at sign-in, and another person's settings handed on, are held and sent the same way. Nothing new is stored
+  anywhere but PostgreSQL.
+- The "no room" screen stays only for the case nothing can hold the copy (nobody signed in), and its words now say that
+  nothing is lost and to close the app's other tabs and try again, not to archive.
+
+This is a stopgap inside today's design. While the records are held in memory, a change lives only in the open page
+until the database confirms it, usually within a second. The lasting fix is C-1 of the audit of 7-Oct-2026: the browser
+keeps a window of months and PostgreSQL one row per record (the draft for §95).
+
 **Tests.** backend/tests/devPorts.test.ts (9): a free port and a held one; DCRS's server known by its health answer and
 only by it; DCRS's website known by its page; the next free port skips a held one; and the plan for both free, another
 `npm run dev` still open, another program on 5173, another program on the server's port, and the server alone running.
+frontend/tests/signInBrowserFull.test.ts (2): with the database's records larger than the browser's room, signing in
+succeeds and every record opens (a colleague's, the last, the one from before) while the browser keeps its older copy;
+nothing waits to be sent; a record started then reaches the database beside every other; the next sign-in opens it; and
+a browser with no copy at all signs in too. Without the change both stop with the owner's "no room" error.
+frontend/tests/storageFullStart.test.ts (2, §93): a Start with the browser full, and a colleague's save in between.
 
 ## Master data provenance summary
 
