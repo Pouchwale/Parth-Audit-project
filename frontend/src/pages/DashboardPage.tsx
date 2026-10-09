@@ -9,6 +9,7 @@ import { settingsRepository } from "../data/repositories/settingsRepository";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { prepareDueRecords } from "../engine/assistantPrepare";
 import { routeForRecord } from "../engine/reminders";
+import { mayDo } from "../engine/departmentScope";
 import { computeBriefing, briefingHeadline } from "../engine/assistantBriefing";
 import { findPreLaunchNoise, purgePreLaunchNoise } from "../engine/backlogCleanup";
 import { measureWorkingCopy } from "../data/storageAdapter";
@@ -284,7 +285,9 @@ export function DashboardPage() {
                 {dueTodayRecords.map((r) => {
                   const doc = docs.find((d) => d.id === r.documentId);
                   const route = routeForRecord(doc, r.id);
-                  const prepared = !!r.prepared && ["Scheduled", "Due", "In Progress"].includes(r.status);
+                  // "Review & submit" is said only to somebody who may submit it (REQUIREMENTS §96): a person who reads the
+                  // document sees the record and its status, never a call to act on it.
+                  const prepared = !!r.prepared && ["Scheduled", "Due", "In Progress"].includes(r.status) && mayDo(r.documentId, "submit");
                   return (
                     <tr key={r.id}>
                       <td>

@@ -48,7 +48,8 @@ const RING_C = 2 * Math.PI * RING_R;
 
 /** Today's score, the card's headline: the number (its own element, never translated), and how to reach 0. */
 function Score({ stats, lang }: { stats: MotivationStats | null; lang: Language }) {
-  const score = stats ? stats.gapScore : null;
+  // The super admin answers for no document (REQUIREMENTS §96): the plant's day, and no score of their own.
+  const score = stats && !stats.plantDay ? stats.gapScore : null;
   const tone = score === null ? "none" : gapTone(score);
   return (
     <div className="my-day-score" data-tone={tone} title={cheerText(lang, "cheer.score.explain")}>
@@ -63,7 +64,7 @@ function Score({ stats, lang }: { stats: MotivationStats | null; lang: Language 
         {score === null ? "–" : formatGapScore(score)}
       </div>
       <div className="my-day-score-line" data-field={stats ? "my-day-score-line" : undefined}>
-        {stats ? gapScoreNote(stats.day.done, stats.day.total, lang) : " "}
+        {stats ? (stats.plantDay ? cheerText(lang, "cheer.score.plant") : gapScoreNote(stats.day.done, stats.day.total, lang)) : " "}
       </div>
     </div>
   );
@@ -169,7 +170,7 @@ export function MyDayCard() {
   const nextName = next ? `${next.formatNo ? `${next.formatNo} ` : ""}${documentTextIn(next.name, lang)}` : "";
 
   return (
-    <section className={`card mb-4 my-day no-print is-${state}`} data-section="my-day" data-state={state}>
+    <section className={`card mb-4 my-day no-print is-${state}`} data-section="my-day" data-state={state} data-plant-day={stats.plantDay ? "yes" : undefined}>
       <div className="my-day-body">
         <Score stats={stats} lang={uiLang} />
         <Ring done={day.done} total={day.total} label={cheerText(uiLang, "cheer.day.ring", { done: day.done, total: day.total })} />

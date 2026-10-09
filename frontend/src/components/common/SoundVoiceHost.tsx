@@ -285,8 +285,9 @@ export function factsFor(n: Notification, user: AuthUser, score: number | null, 
   let day: ReminderFacts["day"];
   if (ownWork) {
     try {
-      const d = motivationFor(user).day;
-      day = { done: d.done, total: d.total };
+      const m = motivationFor(user);
+      // The super admin's day is the plant's (REQUIREMENTS §96): no score of their own is said aloud.
+      if (!m.plantDay) day = { done: m.day.done, total: m.day.total };
     } catch {
       day = undefined;
     }
