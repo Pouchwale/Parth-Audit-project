@@ -18,6 +18,7 @@ import {
   catalogueOf,
   changedDocuments,
   checkFormatChange,
+  composeDefinitions,
   composeRecords,
   holdsHrMaster,
   levelRefusal,
@@ -115,7 +116,7 @@ describe("the catalogue and each person's levels", () => {
 
   it("holds a line only of a document at Read or more (a line naming no document is everybody's)", () => {
     const ankur = view("ankur");
-    assert.equal(ankur.holds({ documentId: "qc-inspection-pouching" }), true);
+    assert.equal(ankur.holds({ documentId: "qc-viscosity" }), true, "his own, named by its id (the format numbers come with the catalogue)");
     assert.equal(ankur.holds({ documentId: "hr-competence" }), false);
     assert.equal(ankur.holds({ note: "no document" }), true);
     assert.deepEqual(ankur.modules(), ["QC"]);
@@ -129,12 +130,30 @@ describe("the catalogue and each person's levels", () => {
     assert.equal(ankur.level("qc-inspection-pouching"), "write");
   });
 
-  it("keys a person's copy by every level they have, so a change of levels is a new copy", () => {
+  it("keys a person's copy by what their levels are worked out from, so a change of levels is a new copy", () => {
     const before = view("ankur").scope;
     const after = view("ankur", { version: 1, people: { "ankur.raval@gpp.local": { documents: { "qc-inspection-pouching": "write" } } }, responsibility: {} }).scope;
     assert.match(before, /^v:/);
     assert.notEqual(before, after);
     assert.equal(view("ankur").scope, before, "the same levels, the same key");
+    const given = view("ankur", { version: 1, people: {}, responsibility: { "qc-inspection-pouching": ["ankur.raval@gpp.local"] } }).scope;
+    assert.notEqual(given, before, "a document given to him");
+    assert.equal(view("ankur", { version: 1, people: { "vinay.bhojak@gpp.local": { modules: { QC: "read" } } }, responsibility: {} }).scope, before, "somebody else's setting is not his");
+    // Not the catalogue: the first browser of a new plant writes the definitions, and an upgrade adds to them.
+    assert.equal(viewFor(accessCatalogue(null, null), PEOPLE.ankur).scope, before);
+    assert.equal(viewFor(accessCatalogue(JSON.stringify([...DOCS, { id: "qc-new-format", formatNo: "F/QC/99", name: "New" }]), null), PEOPLE.ankur).scope, before);
+    assert.notEqual(viewFor(accessCatalogue(DOCS_JSON, null), { ...PEOPLE.qcClerk, departments: ["QC", "HR"] }).scope, view("qcClerk").scope, "an account's departments, for one the rules never name");
+  });
+
+  it("with no catalogue stored yet (a new plant), asks of each line and still keeps HR Master Data to Human Resources", () => {
+    const empty = accessCatalogue(null, null);
+    const ankur = viewFor(empty, PEOPLE.ankur);
+    assert.equal(ankur.editsAll, false, "nothing is passed unchecked");
+    assert.equal(ankur.holds({ documentId: "hr-competence" }), false);
+    assert.equal(ankur.holds({ documentId: "qc-viscosity" }), true, "his own, named by its id (the format numbers come with the catalogue)");
+    assert.equal(holdsHrMaster(ankur), false);
+    assert.equal(holdsHrMaster(viewFor(accessCatalogue(null, null), PEOPLE.vinay)), true);
+    assert.equal(holdsHrMaster(viewFor(accessCatalogue(null, null), PEOPLE.kapila)), true);
   });
 
   it("places a document a record names that the definitions do not, by its id", () => {
@@ -243,9 +262,19 @@ describe("the records a person writes", () => {
     assert.equal(err.body.code, "access-level");
     assert.equal(err.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Filling in a record needs Write access: ask the super admin for it.");
     assert.deepEqual([err.body.level, err.body.needed, err.body.action, err.body.documentId, err.body.recordId], ["read", "write", "fill", "qc-inspection-pouching", "p-1"]);
-    const started = refusal(() => composeRecords(ankur, stored, [pouching, viscosity, rec("new-1", "qc-inspection-pouching", "In Progress")]));
-    assert.equal(started.body.action, "start");
-    assert.equal(started.body.recordId, undefined, "a record never stored has no id to name");
+  });
+
+  it("never stores a record new to the server that the person may not start: a paper the plant supplied, or a Start the screen should not have offered", () => {
+    const ankur = view("ankur");
+    // The filled papers every browser adds at start-up (data/seed/historicalRecords.ts), some with a history of their own.
+    const supplied = rec("hist-qc-1", "qc-inspection-pouching", "Verified", { submittedBy: "Kapila Barad", history: [entry("submitted", "Kapila Barad"), entry("verified", "Kapila Barad")] });
+    const started = rec("new-1", "qc-inspection-pouching", "In Progress");
+    const out = composeRecords(ankur, stored, [pouching, viscosity, supplied, started]);
+    assert.deepEqual(out.kept.sort(), ["hist-qc-1", "new-1"]);
+    assert.deepEqual(ids(out.value), ["hr-1", "p-1", "v-1"], "neither is stored, and nothing else is lost");
+    // With Write (a Start the level allows), both are stored.
+    const writer = view("ankur", { version: 1, people: { "ankur.raval@gpp.local": { documents: { "qc-inspection-pouching": "write" } } }, responsibility: {} });
+    assert.deepEqual(ids(composeRecords(writer, stored, [pouching, viscosity, started]).value), ["hr-1", "new-1", "p-1", "v-1"]);
   });
 
   it("takes what the level allows, and keeps everyone else's lines as stored", () => {
@@ -334,10 +363,29 @@ describe("the definitions and the format edits", () => {
     const err = refusal(() => checkFormatChange(ankur, "formatEdits", formats, JSON.stringify({ "qc-viscosity": { revisionNo: "01" }, "qc-inspection-pouching": { revisionNo: "01" } })));
     assert.equal(err.body.action, "format");
     assert.equal(err.body.needed, "edit");
-    const defs = refusal(() => checkFormatChange(ankur, "documents", DOCS_JSON, JSON.stringify(DOCS.map((d) => (d.id === "hr-competence" ? { ...d, name: "Renamed" } : d)))));
-    assert.equal(defs.body.documentId, "hr-competence");
-    assert.equal(defs.body.level, "none");
-    checkFormatChange(view("admin"), "documents", DOCS_JSON, "[]");
+    checkFormatChange(view("admin"), "formatEdits", formats, "{}");
+  });
+
+  it("the definitions: new ones are taken from anybody (the issued catalogue reaching a new plant), a stored one changed or removed only with Edit", () => {
+    const ankur = view("ankur");
+    // A new plant: nothing stored, the first browser's catalogue is taken whoever it is.
+    const first = composeDefinitions(viewFor(accessCatalogue(null, null), PEOPLE.ankur), null, DOCS_JSON);
+    assert.deepEqual(first, { value: DOCS_JSON, kept: [] });
+    // An upgrade adds a document: taken.
+    const added = [...DOCS, { id: "qc-new-format", formatNo: "F/QC/99", name: "New format", kind: "log-sheet" }];
+    const up = composeDefinitions(ankur, DOCS_JSON, JSON.stringify(added));
+    assert.deepEqual(up.kept, []);
+    assert.equal((JSON.parse(up.value) as { id: string }[]).length, DOCS.length + 1);
+    // A stored definition renamed or removed by somebody without Edit on it: left as stored.
+    const renamed = DOCS.map((d) => (d.id === "hr-competence" ? { ...d, name: "Renamed" } : d)).filter((d) => d.id !== "prd-alc-production");
+    const out = composeDefinitions(ankur, DOCS_JSON, JSON.stringify(renamed));
+    assert.deepEqual(out.kept.sort(), ["hr-competence", "prd-alc-production"]);
+    const stored = JSON.parse(out.value) as { id: string; name: string }[];
+    assert.equal(stored.find((d) => d.id === "hr-competence")?.name, "Personal Competence Records (Staff Members Only)");
+    assert.ok(stored.some((d) => d.id === "prd-alc-production"));
+    // ...and his own F-QC-30's, which he has Edit on, changed.
+    const own = composeDefinitions(ankur, DOCS_JSON, JSON.stringify(DOCS.map((d) => (d.id === "qc-viscosity" ? { ...d, name: "Viscosity" } : d))));
+    assert.deepEqual(own.kept, []);
   });
 });
 

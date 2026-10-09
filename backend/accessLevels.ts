@@ -18,16 +18,19 @@
 //   * THE SUPER ADMIN PASSES EVERYTHING. An account nobody has described keeps what it had (accessRules.ts level()).
 //
 // A PERSON'S ACT OR THE APP'S HOUSEKEEPING. Every browser does some work of the app's own when it opens: it makes the
-// calendar's blank sheets, prepares the ones due (the known parts only), moves a sheet off a holiday, puts a record
-// right after an upgrade (the company's name, a schedule pinned to its revision) and clears pre-launch leftovers. None
-// of that adds a line to a record's history; everything a person does does (saveDraft, submit, verify, send back,
-// resume, reopen, cancel a correction). So a change the person's level does not allow is
-//   * REFUSED, with 403 and the level in plain words, when it is the person's own act: it adds to the record's history,
-//     or it is a record a person started (not a blank or prepared sheet);
-//   * LEFT AS STORED, without a word, when it is the app's housekeeping (a blank or prepared sheet made, changed or
-//     cleared; a record changed without a history line; a record gone without a trail): the server's own morning
-//     prepare (backend/notificationJobs.ts) and a browser of somebody who may make it do the same work, and a
-//     Read-only person's browser can never change, add or remove a record through it.
+// calendar's blank sheets, prepares the ones due (the known parts only), adds the filled papers the plant supplied
+// (the historical records, data/seed/historicalRecords.ts), moves a sheet off a holiday, puts a record right after an
+// upgrade (the company's name, a schedule pinned to its revision) and clears pre-launch leftovers. None of that is a
+// person acting on a record they hold; everything a person does to one writes its history (saveDraft, submit, verify,
+// send back, resume, reopen, cancel a correction). So a change the person's level does not allow is
+//   * REFUSED, with 403 and the level in plain words, when it is the person's own act on a record stored: it adds to,
+//     or changes, the record's history;
+//   * LEFT AS STORED, without a word, otherwise: a record that is new to the server (a sheet the calendar made or the
+//     assistant prepared, a supplied paper, or one started on a screen that should not have offered Start — the
+//     website hides Start below Write and says why, and the phone's engine refuses it in words), a sheet changed or
+//     cleared, a record changed without a history line, a record gone. The server's own morning prepare
+//     (backend/notificationJobs.ts) and the browser of somebody who may make it do that work, and a Read-only
+//     person's browser can never change, add or remove a record through it.
 //
 // NO IMPORTS BUT THE TWO PURE FILES THE SERVER ALREADY READS (type stripping cannot follow the app's extensionless
 // imports). backend/tests/accessLevels.test.ts holds every path to it.
@@ -169,11 +172,7 @@ export interface AccessView {
   readonly editsAll: boolean;
   /** Read or more on every document. */
   readsAll: boolean;
-  /**
-   * What the person's copy was made for, which a browser sends back with a write (X-Scope): "*" for everything at
-   * Edit, else a short key of every document's level — so any change of the person's levels refuses a write made from
-   * the copy before it, and the browser loads again (frontend/src/data/serverSync.ts).
-   */
+  /** What the person's copy was made for, which a browser sends back with a write (X-Scope): copyKey below. */
   readonly scope: string;
   level(documentId: string): AccessLevel;
   may(documentId: string, action: DocumentAction): boolean;
@@ -193,6 +192,26 @@ function shortHash(s: string): string {
   return (h >>> 0).toString(36);
 }
 
+/**
+ * THE KEY OF A PERSON'S COPY (X-Scope): what their levels are worked out from, apart from the catalogue — their role,
+ * email and departments, whether the rules name them, their own settings, and which documents the super admin gave
+ * to whom where they are among them. Any change of their levels by the super admin, or of their departments, gives a
+ * new key, so a write made from the copy before it is refused (409) and the browser loads again
+ * (frontend/src/data/serverSync.ts). Not the catalogue: the definitions are written by the first browser of a new
+ * plant and again after an upgrade, which must not send everybody's page back to the start. "*" for an account the
+ * rules never name with no departments (every module at Edit, as before).
+ */
+export function copyKey(rules: AccessRules, account: AccessAccount): string {
+  const email = (account.email ?? "").trim().toLowerCase();
+  const departments = [...(account.departments ?? [])].map((d) => d.trim().toUpperCase()).filter(Boolean).sort();
+  const answering = Object.entries(rules.responsibility);
+  const described = DEFAULT_PEOPLE.some((p) => p.email === email) || !!rules.people[email] || answering.some(([, list]) => list.includes(email));
+  if (account.role !== "admin" && !described && departments.length === 0) return "*";
+  const mine = answering.filter(([, list]) => list.includes(email)).map(([id]) => id).sort();
+  const given = answering.map(([id]) => id).sort();
+  return `v:${shortHash(JSON.stringify([account.role, email, departments, described, rules.people[email] ?? null, given, mine]))}`;
+}
+
 export function viewFor(catalogue: AccessCatalogue, account: AccessAccount): AccessView {
   const access = (): Access => catalogue.access;
   const boss = access().isBoss(account);
@@ -207,21 +226,20 @@ export function viewFor(catalogue: AccessCatalogue, account: AccessAccount): Acc
     }
     return l;
   };
+  // Edit or Read on every document of the catalogue: asked of each. With no catalogue stored yet (a new plant, before
+  // a browser has written the definitions) nothing can be said of every document, so each line is asked of.
   let editsAll = boss;
   let readsAll = boss;
-  let scope = "*";
-  if (!boss) {
+  if (!boss && catalogue.docs.length > 0) {
     editsAll = true;
     readsAll = true;
-    const parts: string[] = [];
-    for (const d of [...catalogue.docs].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
+    for (const d of catalogue.docs) {
       const l = level(d.id);
       if (l !== "edit") editsAll = false;
       if (l === "none") readsAll = false;
-      parts.push(`${d.id}=${l[0]}`);
     }
-    scope = editsAll ? "*" : `v:${shortHash(parts.join(","))}`;
   }
+  const scope = boss ? "*" : copyKey(catalogue.rules, account);
   const view: AccessView = {
     catalogue,
     account,
@@ -239,7 +257,11 @@ export function viewFor(catalogue: AccessCatalogue, account: AccessAccount): Acc
     },
     modules: () => {
       if (boss || readsAll) return null;
-      const seen = access().modules(account).map((m) => m.module);
+      // With no catalogue stored yet (a new plant), what the module's level and the account's departments say.
+      const seen =
+        catalogue.docs.length > 0
+          ? access().modules(account).map((m) => m.module)
+          : ACCESS_MODULES.filter((m) => access().moduleLevel(account, m) !== "none" || (account.departments ?? []).some((d) => d.trim().toUpperCase() === m));
       return seen.length >= ACCESS_MODULES.length ? null : seen;
     },
   };
@@ -505,8 +527,11 @@ export function composeRecords(view: AccessView, storedValue: string | null, pos
   for (const c of changes) {
     const missing = missingAction(view, c);
     if (!missing) continue;
-    if (c.personal) throw new AccessRefused(refusalBody(view, c.documentId, missing, c.kind === "new" ? undefined : c.recordId));
-    if (c.kind === "new") dropNew.add(c.recordId);
+    if (c.kind === "new") {
+      dropNew.add(c.recordId);
+      continue;
+    }
+    if (c.personal) throw new AccessRefused(refusalBody(view, c.documentId, missing, c.recordId));
     else keepStored.add(c.recordId);
   }
   if (keepStored.size === 0 && dropNew.size === 0) return { value: JSON.stringify([...mine, ...theirsStored]), kept: [] };
@@ -550,12 +575,52 @@ export function changedDocuments(key: "documents" | "formatEdits", storedValue: 
   return changed;
 }
 
-/** Refuses a write of the definitions or the format edits that changes a document the person has not Edit on. */
+/** Refuses a write of the format edits that changes a document the person has not Edit on: a person's own act (engine/formatOps.ts). */
 export function checkFormatChange(view: AccessView, key: "documents" | "formatEdits", storedValue: string | null, postedValue: string): void {
   if (view.editsAll) return;
   const changed = changedDocuments(key, storedValue, postedValue);
   view.catalogue.include(changed);
   for (const id of changed) if (!view.may(id, "format")) throw new AccessRefused(refusalBody(view, id, "format"));
+}
+
+/**
+ * THE DOCUMENT DEFINITIONS A PERSON'S BROWSER WRITES. Nobody edits a definition on a screen: the browser writes the
+ * issued catalogue the app carries (data/repositories/documentRepository.ts ensureSeeded) on a new plant and after an
+ * upgrade, and the format's printed words are the format edits (checkFormatChange, Edit's). So a definition new to the
+ * server is taken from anybody — that is how the catalogue first reaches it — while a stored definition is changed or
+ * removed only by somebody with Edit on its document, and otherwise left as stored, without a word.
+ */
+export function composeDefinitions(view: AccessView, storedValue: string | null, postedValue: string): { value: string; kept: string[] } {
+  if (view.editsAll) return { value: postedValue, kept: [] };
+  const stored = parseJson(storedValue);
+  const posted = parseJson(postedValue);
+  if (!Array.isArray(posted)) return { value: postedValue, kept: [] };
+  const before = new Map<string, unknown>();
+  if (Array.isArray(stored)) for (const d of stored) if (isObj(d) && typeof d.id === "string") before.set(d.id, d);
+  view.catalogue.include([...before.keys()]);
+  const kept: string[] = [];
+  const out: unknown[] = [];
+  const placed = new Set<string>();
+  for (const d of posted) {
+    const id = isObj(d) && typeof d.id === "string" ? d.id : null;
+    if (!id) {
+      out.push(d);
+      continue;
+    }
+    placed.add(id);
+    const was = before.get(id);
+    if (was === undefined || sameValue(was, d) || view.may(id, "format")) out.push(d);
+    else {
+      out.push(was);
+      kept.push(id);
+    }
+  }
+  for (const [id, was] of before) {
+    if (placed.has(id) || view.may(id, "format")) continue;
+    out.push(was);
+    kept.push(id);
+  }
+  return { value: kept.length ? JSON.stringify(out) : postedValue, kept };
 }
 
 // ---------------------------------------------------------------------------
@@ -594,5 +659,7 @@ export function holdsHrMaster(view: AccessView): boolean {
 /** And changed by one with Write on a Human Resources document. */
 export function writesHrMaster(view: AccessView): boolean {
   if (view.editsAll) return true;
+  // With no catalogue stored yet (a new plant, whose first browser writes HR Master Data's issued list): whoever holds it.
+  if (view.catalogue.docs.length === 0) return holdsHrMaster(view);
   return view.catalogue.docs.some((d) => d.department === "HR" && view.may(d.id, "fill"));
 }

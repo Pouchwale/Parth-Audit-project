@@ -2,7 +2,7 @@ import express, { type Express, type Request, type RequestHandler, type Response
 import zlib from "node:zlib";
 import type { PublicUser } from "./auth.ts";
 import { deleteItem, readItem, storedItems, writeItem, type StoredItem, type StoredItems, type WriteResult } from "./db.ts";
-import { ACCESS_KEY, AccessRefused, checkFormatChange, composeRecords, holdsHrMaster, languageOf, levelRefusal, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
+import { ACCESS_KEY, AccessRefused, checkFormatChange, composeDefinitions, composeRecords, holdsHrMaster, languageOf, levelRefusal, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
 import { accessAccountOf, catalogueLoader, databaseItemSource } from "./accessStore.ts";
 import type { AccessCatalogue } from "./accessLevels.ts";
 
@@ -240,8 +240,15 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
           }
           return JSON.stringify([...mine, ...others]);
         };
-      } else if ((key === "documents" || key === "formatEdits") && !view.editsAll) {
-        // A document's definition and its format's printed words are Edit's alone.
+      } else if (key === "documents" && !view.editsAll) {
+        // The issued definitions reach the server from anybody's browser; a stored one is changed only with Edit on it.
+        compose = (stored) => {
+          const out = composeDefinitions(view, stored, posted);
+          kept = out.kept;
+          return out.value;
+        };
+      } else if (key === "formatEdits" && !view.editsAll) {
+        // A format's printed words and layout are Edit's alone.
         compose = (stored) => {
           checkFormatChange(view, key, stored, posted);
           return posted;

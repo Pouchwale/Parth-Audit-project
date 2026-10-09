@@ -202,10 +202,11 @@ describe("a write of the records, record by record", () => {
     assert.ok(s.lines.some((l) => l.action === "Change refused" && l.who === "Ankur Raval"));
   });
 
-  it("refuses a record started on a document the person only reads", async () => {
+  it("never stores a record started on a document the person only reads, and says so in `kept`", async () => {
     const r = await put(s, "ankur", "records", [POUCHING, VISCOSITY, rec("p-new", "qc-inspection-pouching", "In Progress")]);
-    assert.equal(r.status, 403);
-    assert.equal(r.body.action, "start");
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.kept, ["p-new"]);
+    assert.equal((s.store.value("records") as { id: string }[]).some((x) => x.id === "p-new"), false);
   });
 
   it("takes the change the person's level allows, and keeps everyone else's lines as stored", async () => {
@@ -259,12 +260,15 @@ describe("the definitions, the format edits, HR Master Data and the access rules
     assert.equal(taken.status, 200, JSON.stringify(taken.body));
   });
 
-  it("the definitions: Edit's", async () => {
+  it("the definitions: a stored one is changed only with Edit on it, and otherwise left as stored", async () => {
     const docs = JSON.parse(DOCS_JSON) as { id: string; name: string }[];
     const r = await put(s, "vinay", "documents", docs.map((d) => (d.id === "qc-viscosity" ? { ...d, name: "Renamed" } : d)));
-    assert.equal(r.status, 403);
-    assert.equal(r.body.level, "none");
-    assert.equal((await put(s, "admin", "documents", docs)).status, 200);
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.kept, ["qc-viscosity"]);
+    assert.equal((s.store.value("documents") as { id: string; name: string }[]).find((d) => d.id === "qc-viscosity")?.name, "Lamination Adhesive Viscosity Record");
+    const admin = await put(s, "admin", "documents", docs.map((d) => (d.id === "qc-viscosity" ? { ...d, name: "Renamed" } : d)));
+    assert.equal(admin.status, 200);
+    assert.equal((s.store.value("documents") as { id: string; name: string }[]).find((d) => d.id === "qc-viscosity")?.name, "Renamed");
   });
 
   it("HR Master Data: refused to whoever does not see Human Resources, taken from HR", async () => {
