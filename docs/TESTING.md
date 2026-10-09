@@ -711,6 +711,38 @@ Seven scripts live in `tests/`:
   **Known and handed on:** `backend/tests/apiV1Records.test.ts` assumes a prepared qc-viscosity record already holds 24
   readings and skips Mitra's sample fill when the record is prepared; three of its tests fail until it always
   sample-fills (it is outside this builder's files).
+- **Who may do what, and the notifications, in the website** (REQUIREMENTS §96 "In the website" and §97 "In the
+  website", 9-Oct-2026). New unit tests, each failing before the change it proves (the module or the function did not
+  exist, or, for the sync, the old code waited 10 seconds for a refusal it never said): `frontend/tests/accessScope.test.ts`
+  (10: with nobody signed in nothing is held back and the engine host's department scope still works; Vinay Bhojak sees
+  Human Resources only, Edit on what Vinay answers for and Read on Kapila Barad's HR documents; Kapila Barad every module,
+  Edit in QC and SYS; the super admin everything; the super admin's stored settings win, a document taken away on its
+  own; an account nobody described keeps its departments at Edit; the refusal names the level in English, Gujarati and
+  Hindi with no gendered pronoun; the browser's own sheets made only for documents the person may fill; the reminders
+  and the briefing count what the person answers for and may verify; the scorecard counts a record against the people who
+  answer for its document, and by department with nobody signed in), `frontend/tests/mitraToolsAccess.test.ts` (3: a
+  Read person cannot start, fill or submit through Mitra and nothing is written; the refusal in the language asked; Write
+  may submit, deleting and changing the format need Edit), `frontend/tests/accessEditing.test.ts` (6: a setting stored
+  and put back, "answers for it" stored only where it differs from the owner's table, the question's plain words, the
+  flagged accounts, the missing people and the last super admin, the grid's "as the table"),
+  `frontend/tests/syncAccessRefused.test.ts` (1: a change the server refuses with 403 access-level is said, dropped, and
+  the person's records keep reaching the database) and `frontend/tests/notificationView.test.ts` (5: grouped by day, a
+  page appended once, where each opens, marked read, the language and the Gujarati words). `npm run test:unit` on 9-Oct-2026: 622 frontend tests, all passing once the Notifications page's day heading stopped printing in capitals (frontend/tests/theme.test.ts allows no new capitals), and 468 backend tests, 467 passing and the PostgreSQL ledger's skipped without `DCRS_LEDGER_TEST_URL`.
+  New browser suite `tests/e2e_access_levels.py` (product server, in scripts/run-e2e.ts beside e2e_user_access.py): each
+  of the twelve signs in and sees only the modules the owner's table gives them, as many documents as the super admin's
+  User access page counts for them, New record on a document they answer for and none (with the reason) on one they only
+  read, and a module they do not see refused by name; a Read person (Vinay Bhojak on F/HR/15) cannot start, save or
+  submit, has nothing to type in, and the server refuses the submit with 403 access-level in the same words; Users &
+  Access's grid, the level words, a change asked and "No, leave it", saved with the version, in the activity log and told
+  to the person, a stale page told to reload and nothing overwritten, the drawer's document level and "Answers for it",
+  Who fills what, Make super admin and Make staff, Ankur Raval seeing Production at the next sign-in; the bell and the
+  Notifications page after the notify job run by hand (unread marked, See all, an item opened and read, Mark all read,
+  the notifications in Gujarati, the super admin's summary by module). Run with the project's runner on 9-Oct-2026 (E2E_SKIP_UNIT=1 npm run test:e2e -- tests/e2e_access_levels.py, the unit tests run on their own): 134 checks passed, 0 failed, no JavaScript error. The other product-server suites that the owner's model changes (e2e_user_access.py and the rest named in REQUIREMENTS §96) were being updated by the server's builder at the same time and are not counted here.
+  Looked at in a real browser on a throwaway server of this build (port 5150, the thirteen seeded accounts, removed
+  after): screenshots of the grid, the confirmation, the drawer, Who fills what, the bell and the Notifications page for
+  the super admin and for Vinay Bhojak, F/HR/15 read only for him with the reason, User access by levels, and a phone's
+  width (no sideways scroll on /notifications or /users). At 6x CPU throttle: Users & Access drawn in 0.43 s, the
+  Notifications page in 0.23 s, the bell opened in 0.23 s, a change asked in 0.12 s, no main-thread task over 140 ms.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

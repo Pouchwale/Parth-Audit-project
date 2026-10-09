@@ -2735,7 +2735,7 @@ td[data-set="yes"] .access-cell-meta { color: var(--color-primary); font-weight:
 }
 .notif-title, .notif-body, .notif-when, .access-name .block { display: block; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.notif-day { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); margin: 14px 0 6px; }
+.notif-day { font-size: 12.5px; font-weight: 600; color: var(--color-text-muted); margin: 14px 0 6px; }
 .notif-item { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; padding: 9px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: inherit; font: inherit; cursor: pointer; }
 .notif-item + .notif-item { margin-top: 6px; }
 .notif-item:hover { background: var(--row-hover); }

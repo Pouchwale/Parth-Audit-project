@@ -6339,6 +6339,54 @@ seedAccounts.test.ts; frontend/tests/accessRules.test.ts (the owner's table) and
 counts against); the browser suites tests/e2e_user_access.py, e2e_mobile_mitra_api.py, e2e_escalation.py and the others
 named in docs/TESTING.md.
 
+**9. In the website** (9-Oct-2026). One rule answers every screen: `engine/departmentScope.ts`, set by
+`store/AuthContext.tsx` the moment the person is known, with the super admin's stored rules (read beside the records;
+`main.tsx` waits for both before the app draws, and a server that cannot say leaves the owner's table). The two
+repositories ask it, so the sidebar, the library, the calendar, the day view, the dashboard, the reports, the files and
+the search show only the documents at Read or more; a document at No access is refused by name ("You do not have access
+to this document ... ask the super admin to give you Read, Write or Edit on it").
+
+- **The buttons follow the level, and say why when they are not there** (components/records/RecordActionBar.tsx,
+  components/common/AccessReason.tsx, engine/accessRefusal.ts). Below Write a record's sheet is read only, with Print and
+  the downloads and no Save, Submit, Resume, Verify or Reject; New record and Start this record need Write; Correct and
+  Delete need Edit; Edit format, the header's format values and a reference document's Edit need Edit. One muted line
+  under the bar says what the person has and what the step needs: "F/HR/15 Daily Cleaning Record is Read only for you.
+  Starting a record needs Write access: ask the super admin for it." In Gujarati and Hindi too (engine/accessWords.ts).
+- **What a browser writes by itself is kept to what the person may fill**: the month's blank sheets, the prepare of the
+  known parts and the start-up clean-ups (engine/recordGenerator.ts, assistantPrepare.ts and the migrations ask
+  `mayWriteRecordsOf`). The server's morning job makes and prepares the rest of the plant's.
+- **A change the server refuses** (a race: the super admin changed the levels while a page was open) is said in the
+  server's words on every screen (data/serverSync.ts, components/common/DatabaseSyncBanner.tsx), the copy goes back to
+  what the database holds, and the person's records keep syncing.
+- **Mitra** (engine/mitraTools.ts, and the rules path in components/common/DocumentAssistant.tsx and
+  pages/AssistantPage.tsx) refuses a step the level does not allow before doing anything, in the language the person
+  asked in, naming the level it needs; the widget offers to start and fill a document only to whoever may fill it.
+- **Reminders, the briefing, the daily nudge and the scorecard** count what the person answers for and may fill
+  (`isMine`, `answersFor`), and the records waiting for verification that they may verify; the super admin's are the
+  plant's. The scorecard counts a record against the people who answer for its document (`scoreAnswerRule`, passed to
+  `engine/latenessCore.ts attribute`); an account the rules never name is scored by its departments, as before.
+- **Users & Access** (pages/UsersPage.tsx with components/access/AccessSection.tsx; the logic is
+  engine/accessEditing.ts), the super admin's alone: the accounts, each with **Make super admin** or **Make staff**
+  (asked in plain words, never the last super admin); **Who may do what**, a grid of the people by the ten modules, each
+  cell the person's level there ("As the owner's table" or set here: No access, Read, Write, Edit) with the words of each
+  level beside the grid, and how many documents of the module the person answers for; a cell opens a drawer of that
+  module's documents for the person, each with its own level and "Answers for it"; **Who fills what**, every document by
+  module and who answers for it, each opening its people; the accounts nobody has described, flagged with what each
+  keeps; and **Create the missing accounts** for the owner's people who have none, on one first password typed once.
+  Every change is asked first in plain words ("Give Ankur Raval Edit in Production? They will be able to see its
+  documents and their records, and print or download them; start and fill records, save drafts, submit them and verify
+  them; and correct records that are already signed off, delete records, and change the format's printed words. Ankur
+  Raval is told of the change, and it is written in the activity log."), saved with the version the page read, and a
+  page left open while somebody else saved is told to reload: nothing is ever overwritten.
+- **User access** (§84, pages/AccessDashboardPage.tsx) shows each person the rules describe by their level per module,
+  set on Users & Access, and the documents they see by it; the department switches stay for an account nobody has
+  described, which still keeps its departments.
+- Measured at 6x CPU throttle on 9-Oct-2026: Users & Access drawn in 0.43 s, the Notifications page in 0.23 s, the bell
+  opened in 0.23 s, a change asked in 0.12 s, no main-thread task over 140 ms.
+- Tested by frontend/tests/accessScope.test.ts, accessEditing.test.ts, mitraToolsAccess.test.ts,
+  syncAccessRefused.test.ts and the browser suite tests/e2e_access_levels.py (each of the twelve people, a Read person
+  unable to start or submit, Users & Access).
+
 **The table** (printed by scripts/access-table.ts from engine/accessRules.ts; the owner's defaults, before anything the
 super admin changes):
 
@@ -6583,6 +6631,22 @@ module. A record the assistant prepared is submitted from the phone only with `"
 ticked "Reviewed and correct" (§62); without it DCRS answers 409 `needs-review`, and the record's history says
 "Submitted from the phone after review". The routes are in docs/api/dcrs-api.openapi.json and
 docs/chatbot-integration.md "Notifications and the phone".
+
+**6. In the website: the bell and the Notifications page** (9-Oct-2026). The bell (components/layout/NotificationBell.tsx)
+asks the ledger (`GET /api/notifications`, in the language chosen for the screens) for the person's newest 20: a moment
+after the app opens, each time the bell is opened, when one is marked read anywhere, and every three minutes while the
+tab is shown; nothing walks the records for it. They sit under the super admin's escalations (still first) and above the
+day's reminders, the unread marked, each opening its record (else its document, else the dashboard for a summary, the
+scorecard for an escalation, the library for a change of access) and read as it opens, with **Mark all read** and **See
+all notifications**. The badge adds the unread ones that are not already a reminder or an escalation in the bell. **See
+all** is the Notifications page, `/notifications` (pages/NotificationsPage.tsx): by day (Today, Yesterday, then the
+date), the unread marked, All or Still open, 30 at a time with Show older, Mark all read; the super admin's include the
+morning and evening summaries with their counts by module in a table, and the escalations. The page's own words are in
+English and Gujarati (i18n/strings.notifications.ts); the notifications' titles and bodies are the server's, in the
+language asked, and are never sent to Google Translate. The reminders, the briefing popup and the daily nudge stay, and
+count only what the person answers for and may verify (§96). Tested by frontend/tests/notificationView.test.ts and
+tests/e2e_access_levels.py (the bell and the page after the notify job run by hand, an item opened and read, Mark all
+read, the notifications in Gujarati, the super admin's summary).
 
 **Kept in PostgreSQL only** (§55): the tables `notifications`, `push_devices`, `notification_prefs` and `push_tickets`
 (docs/DEPLOYMENT.md). They are DCRS's own: no role of the Audit Assistant is granted them (§83). A notification is kept

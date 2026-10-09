@@ -19,7 +19,7 @@ This suite checks, against the product server (the super admin and the owner's t
     ("Give Ankur Raval Edit in Production? They will be able to ..."), "No, leave it" changing nothing, saved with the
     stored version, in the activity log, and told to the person; a stale page told to reload and never overwriting; the
     drawer's level per document and "Answers for it"; "Who fills what"; Make super admin and Make staff, never the last
-    super admin; Ankur Raval then sees Production at his next sign-in;
+    super admin; Ankur Raval then sees Production at the next sign-in;
   * THE BELL AND THE NOTIFICATIONS PAGE: after the notify job (run by hand), the bell lists the person's own
     notifications under its escalations, unread marked; "See all" opens /notifications by day; an item opens its record
     and is read; "Mark all read" leaves none unread; in Gujarati the notifications are in Gujarati; the super admin's
@@ -269,7 +269,7 @@ with sync_playwright() as p:
         check("...and is told why, naming the level it needs", staff.locator("[data-section='access-reason'][data-needs='start']").count() == 1)
         opened = staff.locator("[data-action='open-shown-record']")
         if opened.count() == 0:
-            # Nothing on file yet: Kapila Barad's browser makes her sheets when she signs in, which she did above.
+            # Nothing on file yet: Kapila Barad's browser makes the sheets Kapila fills at each sign-in, as above.
             print("    (no F/HR/15 record on file to open)")
             check("An F/HR/15 record is on file to open", False)
         else:
@@ -306,7 +306,7 @@ with sync_playwright() as p:
             else:
                 check("Vinay Bhojak's copy holds the records", False, [i.get("key") for i in items])
         go(staff, "/document/hr-competence", "[data-page='document-records']", 1200)
-        check("Vinay Bhojak may start his own F/HR/01", staff.locator("[data-action='document-new-record']").count() == 1)
+        check("Vinay Bhojak may start F/HR/01, which Vinay answers for", staff.locator("[data-action='document-new-record']").count() == 1)
         sign_out(staff)
 
         # ==============================================================
@@ -423,14 +423,14 @@ with sync_playwright() as p:
         admin.wait_for_timeout(1500)
         users = (api(admin, "GET", "/api/users").get("body") or {}).get("users") or []
         bharat = next((u for u in users if u.get("email") == BHARAT), {})
-        check("Make staff puts him back", bharat.get("role") == "staff", bharat)
+        check("Make staff puts Bharat Ahir back", bharat.get("role") == "staff", bharat)
         if bharat.get("role") == "staff":
             roles_to_restore.remove(BHARAT)
 
-        # The change reaches the person: Ankur Raval sees Production at his next sign-in, and is told.
+        # The change reaches the person: Ankur Raval sees Production at the next sign-in, and is told.
         sign_in(staff, ANKUR)
         ids = {d["id"] for d in library_docs(staff)}
-        check("At his next sign-in Ankur Raval sees Production", "prd-alc-production" in ids, len(ids))
+        check("At the next sign-in Ankur Raval sees Production", "prd-alc-production" in ids, len(ids))
         check("...and no longer F/QC/01, taken away on its own", "qc-bopp-film" not in ids)
         go(staff, "/document/prd-alc-production", "[data-page='document-records']", 1200)
         check("...with Edit there: New record and Edit format", staff.locator("[data-action='document-new-record']").count() == 1 and staff.locator("[data-action='edit-format']").count() == 1)
@@ -447,7 +447,7 @@ with sync_playwright() as p:
         sign_in(staff, KAPILA)
         go(staff, "/dashboard", None, 2500)
         unread, items = unread_of(staff)
-        check("Kapila Barad has notifications of her own, unread", (unread or 0) > 0 and len(items) > 0, (unread, len(items)))
+        check("Kapila Barad has notifications, unread", (unread or 0) > 0 and len(items) > 0, (unread, len(items)))
         bell = staff.locator("button[aria-label='Reminders']")
         staff.wait_for_function("() => { const b = document.querySelector(\"button[aria-label='Reminders']\"); return b && b.getAttribute('data-unread') !== null; }", timeout=20000)
         check("The bell knows how many are unread", int(bell.get_attribute("data-unread") or "-1") == unread, (bell.get_attribute("data-unread"), unread))
