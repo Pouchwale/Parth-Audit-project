@@ -141,7 +141,7 @@ export function UsersPage() {
     try {
       const res = await usersApi.create({ name: name.trim(), email: email.trim(), password, departments: everyModule ? [] : picked });
       setUsers((list) => [...(list ?? []), res.user]);
-      setNote(`${res.user.name} can sign in with ${res.user.email}. Give them the first password you typed — they will be asked to choose their own.`);
+      setNote(`${res.user.name} can sign in with ${res.user.email}. Give them the password you typed: it is the one they sign in with, and only you can change it.`);
       closeAdd();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "The account could not be created.");
@@ -157,7 +157,7 @@ export function UsersPage() {
     try {
       if (ask.kind === "reset") {
         await usersApi.resetPassword(ask.user.id, resetTo);
-        setNote(`${ask.user.name}'s password is reset. Give them the new one — they will be asked to choose their own at the next sign-in.`);
+        setNote(`${ask.user.name}'s password is reset. Give them the new one: it is the one they sign in with from now on.`);
       } else if (ask.kind === "admin" || ask.kind === "staff") {
         const res = await accessApi.setRole(ask.user.id, ask.kind === "admin" ? "admin" : "staff");
         if (res?.user) setUsers((list) => (list ?? []).map((u) => (u.id === res.user.id ? { ...u, ...res.user } : u)));
@@ -273,8 +273,12 @@ export function UsersPage() {
                         <span className="badge badge-Rejected" data-field="status">
                           Switched off
                         </span>
+                      ) : u.noPasswordYet ? (
+                        <span className="badge badge-Rejected" data-field="status" title="Nobody can sign in to it until you give it a password with Reset password">
+                          No password yet
+                        </span>
                       ) : u.mustChangePassword ? (
-                        <span className="badge badge-Scheduled" data-field="status" title="They will choose their own password at their next sign-in">
+                        <span className="badge badge-Scheduled" data-field="status" title="On the built-in first password: chosen anew at the next sign-in">
                           First password
                         </span>
                       ) : (
@@ -382,7 +386,7 @@ export function UsersPage() {
                 </button>
               </div>
               <p className="text-xs text-muted mt-1">
-                At least {MIN_PASSWORD} characters. Tell it to them once: they are asked to choose their own the first time they sign in, and it is never shown
+                At least {MIN_PASSWORD} characters. Tell it to them once: it is the password they sign in with, only you can change it, and it is never shown
                 again.
               </p>
             </div>
@@ -488,7 +492,7 @@ export function UsersPage() {
                   <strong className="notranslate" translate="no">
                     {ask.user.name}
                   </strong>{" "}
-                  will sign in with the password you type here, and will be asked to choose their own straight away. Their old password stops working at once.
+                  will sign in with the password you type here, and only you can change it. Their old password stops working at once.
                 </p>
                 <div className="field">
                   <label htmlFor="reset-password">The new password</label>

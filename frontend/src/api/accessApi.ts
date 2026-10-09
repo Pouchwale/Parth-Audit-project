@@ -46,6 +46,8 @@ export interface AccessPerson {
   departments: string[];
   active: boolean;
   mustChangePassword: boolean;
+  /** Waiting for a password from the super admin: nobody can sign in to it yet (§105). Optional: an older server says nothing. */
+  noPasswordYet?: boolean;
   lastSignIn: string | null;
   createdAt: string;
   today: AccessToday;

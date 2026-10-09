@@ -704,7 +704,7 @@ const ModulesRow = React.memo(function ModulesRow({
         </button>
         <div className="text-xs text-muted">
           {admin ? "super admin" : "staff"}
-          {!p.active ? " · switched off" : p.mustChangePassword ? " · first password" : ""}
+          {!p.active ? " · switched off" : p.noPasswordYet ? " · no password yet" : p.mustChangePassword ? " · first password" : ""}
           {isMe ? " · you" : ""}
         </div>
       </td>

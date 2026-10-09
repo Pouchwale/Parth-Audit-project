@@ -48,7 +48,7 @@ class MemoryAccessStore implements AccessRulesStore {
   }
   async createStaffUser(u: { id: string; name: string; email: string; password_hash: string; created_at: string; departments: string }): Promise<UserRow | null> {
     if (this.users.some((x) => x.email === u.email)) return null;
-    const made = row(u.id, u.name, u.email, "staff", u.departments, { password_hash: u.password_hash, created_at: u.created_at, must_change_password: true });
+    const made = row(u.id, u.name, u.email, "staff", u.departments, { password_hash: u.password_hash, created_at: u.created_at, must_change_password: false });
     this.users.push(made);
     return { ...made };
   }
@@ -213,14 +213,15 @@ describe("the plant's missing accounts, in one go", () => {
     assert.equal(short.body.error, "The first password must be at least 8 characters.");
   });
 
-  it("makes each of the twelve who has none, on a password they must change, a line each; the rest are named", async () => {
+  it("makes each of the twelve who has none, on the password they sign in with, a line each; the rest are named", async () => {
     const r = await call(s, "POST", "/api/access/accounts/create-missing", "u-admin", { password: "FirstPass@1" });
     assert.equal(r.status, 200);
     assert.deepEqual(r.body.existing.sort(), ["ankur.raval@gpp.local", "kapila.barad@gpp.local", "vinay.bhojak@gpp.local"]);
     assert.equal(r.body.created.length, 9);
     assert.ok(r.body.created.some((c: { name: string; email: string }) => c.name === "Ajay Sinh Vaghela" && c.email === "ajaysinh.vaghela@gpp.local"));
     const made = s.store.users.filter((u) => r.body.created.some((c: { email: string }) => c.email === u.email));
-    assert.ok(made.every((u) => u.must_change_password && u.role === "staff" && u.password_hash !== "FirstPass@1"));
+    assert.ok(made.every((u) => !u.must_change_password && u.role === "staff" && u.password_hash !== "FirstPass@1"));
+    assert.ok(s.lines.some((l) => l.detail.includes("they sign in with the password the super admin typed")), "nobody is told to choose their own (§105)");
     assert.equal(s.store.users.find((u) => u.email === "chirag.parmar@gpp.local")?.departments, "PUR", "kept to the modules he sees");
     assert.equal(s.lines.filter((l) => l.action === "Account created by the administrator").length, 9);
     assert.ok(s.lines.every((l) => !l.detail.includes("FirstPass@1")), "the password is never written down");

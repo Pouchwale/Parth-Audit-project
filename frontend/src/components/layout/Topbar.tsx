@@ -87,13 +87,21 @@ export function Topbar() {
             <FiZap size={13} /> <span className="topbar-label">{t("top.todaysBriefing")}</span>
           </button>
           <NotificationBell />
-          {/* The person's own name opens "Change password": the plant's named
-              accounts start on a password somebody else chose (REQUIREMENTS §62). */}
-          <button className="btn btn-ghost btn-sm flex items-center gap-2" data-action="change-password" onClick={() => setChangingPassword(true)} title={`${user?.email ?? ""} — ${t("top.changePassword")}`}>
-            <FiUser size={15} className="text-muted" />
-            <span className="topbar-name text-sm font-semibold notranslate" translate="no">{user?.name}</span>
-            {user?.role === "admin" && <span className="topbar-role badge badge-Verified">{t("top.admin")}</span>}
-          </button>
+          {/* PASSWORDS ARE THE SUPER ADMIN'S (REQUIREMENTS §105): only the super admin's
+              own name opens "Change password"; everybody else signs in with the password
+              the super admin gave them, so their name is only their name. */}
+          {user?.role === "admin" ? (
+            <button className="btn btn-ghost btn-sm flex items-center gap-2" data-action="change-password" onClick={() => setChangingPassword(true)} title={`${user?.email ?? ""} — ${t("top.changePassword")}`}>
+              <FiUser size={15} className="text-muted" />
+              <span className="topbar-name text-sm font-semibold notranslate" translate="no">{user?.name}</span>
+              <span className="topbar-role badge badge-Verified">{t("top.admin")}</span>
+            </button>
+          ) : (
+            <span className="btn btn-ghost btn-sm flex items-center gap-2" data-field="signed-in-as" title={user?.email ?? ""} style={{ cursor: "default" }}>
+              <FiUser size={15} className="text-muted" />
+              <span className="topbar-name text-sm font-semibold notranslate" translate="no">{user?.name}</span>
+            </span>
+          )}
           {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
           {/* EVERY LOG-OUT ASKS ABOUT TODAY'S WORK FIRST (REQUIREMENTS §72).
               confirmLeave still runs after it, so a sheet being designed is

@@ -562,7 +562,7 @@ export async function createStaffUser(u: {
   try {
     const { rows } = await database().query<UserRow>(
       `INSERT INTO users (id, name, email, password_hash, role, created_at, departments, must_change_password)
-       VALUES ($1, $2, $3, $4, 'staff', $5, $6, true) RETURNING *`,
+       VALUES ($1, $2, $3, $4, 'staff', $5, $6, false) RETURNING *`,
       [u.id, u.name, u.email, u.password_hash, u.created_at, u.departments]
     );
     return rows[0] ?? null;

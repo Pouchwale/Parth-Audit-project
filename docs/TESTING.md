@@ -794,6 +794,20 @@ Seven scripts live in `tests/`:
   PostgreSQL, the thirteen seeded accounts, removed after) showed, before the fix of 977129d, that Kapila Barad's first
   sign-in stored no records (her browser's write was refused over F/HR/01's supplied papers) and, after it, that her
   first sign-in and Ankur Raval's store their records, the catalogue and HR Master Data with no refusal and no 409.
+- **Passwords are the super admin's** (REQUIREMENTS §105, 9-Oct-2026). New unit tests, each failing before the change
+  (the module did not exist): `backend/tests/passwordPolicy.test.ts` (6: only the super admin changes their own; "No
+  password yet" matches no password, the built-in one included, and is told apart from a real hash; the start-up
+  settling keeps a password the super admin typed and lifts the wait, gives an account on the built-in first password
+  "No password yet", leaves the super admin and anybody who chose their own alone, writes no password in the log, and
+  changes nothing the second time). `backend/tests/accessRulesRoutes.test.ts` now expects "Create the missing accounts"
+  to make the twelve on the password they sign in with. Browser suites updated for it: `e2e_login_only.py` (section 3
+  is now "the password the super admin gave her is the one she signs in with": the app opens at once, no pop-up, no
+  "Change password" on her name, the server's 403 `password-set-by-super-admin`, her records open; section 5: after a
+  reset the old password and the one she tried to choose both fail and the new one opens the app with no pop-up),
+  `e2e_user_access.py`, `e2e_every_record_starts.py` (accounts made on Users & Access sign in with what they were given
+  and are refused a change of their own) and `e2e_portal_controls.py` (section 4: the super admin's own change, with
+  the eye on its three boxes, when the suite's sign-up is the super admin; the staff side when it is not, as in the
+  full run).
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

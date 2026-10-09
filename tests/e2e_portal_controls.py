@@ -10,7 +10,9 @@
   * everything done on the portal is a line in the ACTIVITY LOG, stamped by the
     server: the account, documents opened, the format change with its
     revisions, a password changed (and one refused);
-  * a person changes their own password from the top bar;
+  * passwords are the super admin's (REQUIREMENTS §105): the super admin changes
+    their own from the top bar; anybody else's name there is not a button, and
+    the server refuses them a change of their own;
   * every password box - signing up, signing in, changing it - has an eye that
     shows what was typed and hides it again, without sending the form (s63);
   * the lizard trend carries the years the provider has not reported yet,
@@ -110,6 +112,26 @@ def enter_todays_pest_round(page):
     page.fill("input[placeholder='Name of checker']", "Portal QA")
     page.wait_for_timeout(900)
     return True
+
+
+def change_own_password(page):
+    """The super admin changes their own password from the top bar: the eye on its three boxes, the wrong current one refused."""
+    page.click("[data-action='change-password']")
+    page.wait_for_timeout(400)
+    page.fill("[data-field='current-password']", "not-the-password")
+    page.fill("[data-field='new-password']", NEW_PASSWORD)
+    page.fill("[data-field='new-password-again']", NEW_PASSWORD)
+    check("Change password has the eye on all three of its boxes", page.locator(".modal-box [data-action='toggle-password']").count() == 3)
+    page.click("[data-action='save-password']")
+    page.wait_for_timeout(900)
+    check("The wrong current password is refused", "current password is not right" in page.locator(".modal-box").inner_text())
+    page.fill("[data-field='current-password']", PASSWORD)
+    page.click("[data-action='save-password']")
+    page.wait_for_timeout(1200)
+    check("The right one changes it", "Your password is changed" in page.locator(".modal-box").inner_text())
+    page.locator(".modal-box button:has-text('Done')").click()
+    flat = [" | ".join(l) for l in log_lines(page, "Password")]
+    check("Both are in the log - the refusal and the change - and the password itself is not", any("Password change refused" in l for l in flat) and any("Password changed" in l for l in flat) and not any(NEW_PASSWORD in l or PASSWORD in l for l in flat), flat[:4])
 
 
 def log_lines(page, query=""):
@@ -270,24 +292,30 @@ with sync_playwright() as p:
     check("Searching the log narrows it to what was asked for", len(found) >= 1 and all("Format changed" in " ".join(l) for l in found), found[:3])
 
     # ==================================================================
-    # 4. A person changes their own password
+    # 4. Passwords are the super admin's (REQUIREMENTS §105)
     # ==================================================================
-    page.click("[data-action='change-password']")
-    page.wait_for_timeout(400)
-    page.fill("[data-field='current-password']", "not-the-password")
-    page.fill("[data-field='new-password']", NEW_PASSWORD)
-    page.fill("[data-field='new-password-again']", NEW_PASSWORD)
-    check("Change password has the eye on all three of its boxes", page.locator(".modal-box [data-action='toggle-password']").count() == 3)
-    page.click("[data-action='save-password']")
-    page.wait_for_timeout(900)
-    check("The wrong current password is refused", "current password is not right" in page.locator(".modal-box").inner_text())
-    page.fill("[data-field='current-password']", PASSWORD)
-    page.click("[data-action='save-password']")
-    page.wait_for_timeout(1200)
-    check("The right one changes it", "Your password is changed" in page.locator(".modal-box").inner_text())
-    page.locator(".modal-box button:has-text('Done')").click()
-    flat = [" | ".join(l) for l in log_lines(page, "Password")]
-    check("Both are in the log - the refusal and the change - and the password itself is not", any("Password change refused" in l for l in flat) and any("Password changed" in l for l in flat) and not any(NEW_PASSWORD in l or PASSWORD in l for l in flat), flat[:4])
+    # The suite's own sign-up is the super admin only on an empty database (run alone); in the full run it is staff.
+    role = page.evaluate("async () => ((await (await fetch('/api/auth/me', { credentials: 'same-origin' })).json()).user || {}).role")
+    if role != "admin":
+        check(
+            "Staff: the name in the top bar does not offer 'Change password'",
+            page.locator("[data-action='change-password']").count() == 0 and page.locator("[data-field='signed-in-as']").count() == 1,
+        )
+        refused = page.evaluate(
+            """async ([current, next]) => {
+                 const res = await fetch('/api/auth/change-password', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: current, newPassword: next }) });
+                 return { status: res.status, body: await res.json().catch(() => null) };
+               }""",
+            [PASSWORD, NEW_PASSWORD],
+        )
+        check(
+            "...and the server refuses them a password of their own, and says who sets it",
+            refused["status"] == 403 and (refused["body"] or {}).get("code") == "password-set-by-super-admin",
+            refused,
+        )
+        NEW_PASSWORD = PASSWORD
+    else:
+        change_own_password(page)
     page.click("button:has-text('Log Out')")
     # Every log-out asks about the day's work first (REQUIREMENTS s72).
     page.wait_for_timeout(500)
@@ -307,7 +335,7 @@ with sync_playwright() as p:
     page.wait_for_selector(".app-sidebar", timeout=60000)
     page.wait_for_timeout(1200)
     dismiss(page)
-    check("The new password signs in", page.locator(".app-sidebar").count() == 1)
+    check("The password signs in again", page.locator(".app-sidebar").count() == 1)
 
     # ==================================================================
     # 5. The trends follow the plant's own season

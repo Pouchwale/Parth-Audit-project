@@ -2987,9 +2987,10 @@ puts the paper's own transcription back.
 | Vinay Bhojak | `vinay.bhojak@gpp.local` | Human Resources' documents only |
 | Sandeep Parekh | `sandeep.parekh@gpp.local` | Human Resources' documents only |
 
-They start on one password (`SEED_ACCOUNT_PASSWORD`, otherwise `Gpp@12345` — and on the built-in one the
-system now *requires* the change before the account can be used, §66), so each person's first act is
-**Change password** — their own name in the top bar. The addresses are sign-in names on a domain that does not
+They start on one password (`SEED_ACCOUNT_PASSWORD`; without it, since §105, the super admin's account starts on
+`Gpp@12345` and must change it before it can be used, §66, and everybody else's has no password until the super admin
+gives it one), and only the super admin changes a password — their own from their name in the top bar, anybody else's
+with "Reset password" on Users & Access (§105). The addresses are sign-in names on a domain that does not
 exist, so no mail is ever sent to them. The department rule is the one already in force (§40), enforced by the
 server as well as the screen: a QC account is handed only QC's records, and another department's page refuses
 by name. `SEED_ACCOUNTS=0` leaves them out, which the test runner does because its first signup has to be the
@@ -3351,6 +3352,10 @@ company's own originals.
   the sign-in screen and a record being filled.
 
 ## 66. A login-only portal: the administrator makes every account (23-Sep-2026)
+
+> **Since 9-Oct-2026 (§105):** the password the super admin gives is the one the person signs in with. Only the super
+> admin's own account is ever asked to choose its own (on the built-in first password), and only the super admin
+> changes a password. What follows about each person choosing their own at the first sign-in is history.
 
 ```
 REQUESTED            "keep login portal only for now for superadmin and everyone else also and in superadmin keep
@@ -6827,6 +6832,43 @@ recordable documents, with and without a confirmed record before each (filled wi
 and fails on any observation a Live prepare writes, by the words and types of each box and column (against the previous
 prepare it found 9,691); frontend/tests/sampleFillLive.test.ts, frontend/tests/reportsCountPeople.test.ts and
 frontend/tests/production.test.ts (every signature column).
+
+## §105 Passwords are the super admin's (9-Oct-2026)
+
+The owner, 9-Oct-2026, with a picture of the "Choose your own password" pop-up: "So once Superadmin assign any new
+password then user can login with that only and remove this option from all other users except superadmin".
+
+**What changes** (backend/passwordPolicy.ts, backend/index.ts, the top bar, Users & Access):
+
+1. **The password the super admin gives is the one the person signs in with.** Making an account on Users & Access,
+   "Create the missing accounts" and "Reset password" no longer mark it to be changed: nobody but the super admin is
+   asked to choose their own at the first sign-in (the §66 pop-up stays for the super admin's own account while it is
+   on the built-in first password, which is written in the documentation).
+2. **Only the super admin changes a password.** Their own from their name in the top bar, as before, and anybody
+   else's with "Reset password" on Users & Access. Anybody else's name in the top bar is only their name, not a
+   button, and the server refuses them POST /api/auth/change-password with 403 and the code
+   `password-set-by-super-admin` ("Your password is set by the super admin. Ask the super admin for a new one."),
+   whatever a screen sends. The phone app never had a way to change a password and has none now.
+3. **No account is left on a password anybody can read.** An account the system makes with no password the super
+   admin chose (the plant's named accounts, when SEED_ACCOUNT_PASSWORD is not set) starts with no password at all:
+   `NO_PASSWORD_YET` in place of a hash, which no password matches. Users & Access says "No password yet" against
+   it (and User access "no password yet") until the super admin gives it one with "Reset password".
+4. **The accounts already on file are settled once, at start-up** (`settleFirstPasswords`): each one other than the
+   super admin's that was still waiting to choose its own keeps the password the super admin typed for it, and the
+   wait is lifted; one still on the built-in first password gets "No password yet" instead, said in the server's
+   log by name, never with the password. An account that had already chosen its own keeps it until the super admin
+   resets it. The server's `must_change_password` lock (§66) is kept as a safeguard and is set only for the super
+   admin's own built-in first password.
+
+**Tests:** backend/tests/passwordPolicy.test.ts (who may change their own; no password matches "No password yet";
+the start-up settling keeps a typed password, locks the built-in one, leaves the super admin and anybody who chose
+their own alone, writes no password down, and does nothing the second time); backend/tests/accessRulesRoutes.test.ts
+(the twelve made by "Create the missing accounts" are not asked to change theirs). Browser suites: e2e_login_only.py
+(Meena signs in on the password she was given and the app opens; no "Change password" on her name; the server
+refuses her own change; after a reset the old one fails, her own attempt fails, the new one opens the app),
+e2e_user_access.py and e2e_every_record_starts.py (accounts made by the super admin sign in with what they were
+given and are refused a change), e2e_portal_controls.py (the super admin's own change with its three eyes, when the
+suite's account is the super admin; otherwise the staff side above).
 
 ## Master data provenance summary
 

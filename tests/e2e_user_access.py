@@ -50,8 +50,9 @@ departments decide only for an account the access rules never name. Kapila
 Barad is named: she views every module and edits Quality Control and SYS, as the
 owner said on 7-Oct-2026, whatever her departments are. So the switches are
 walked with an account the suite makes for itself, kept to Quality Control, as
-the super admin makes one from Users & Access (on a first password she changes
-at once); Kapila's account is still used for what the owner's model says of her.
+the super admin makes one from Users & Access (on the password she signs in
+with, which only the super admin changes, REQUIREMENTS §105); Kapila's account is
+still used for what the owner's model says of her.
 
 Against the product server on :8843 (DCRS_BASE overrides it) with the plant's
 seeded accounts on SEED_ACCOUNT_PASSWORD (DCRS_SEED_PASSWORD overrides it).
@@ -305,16 +306,20 @@ with sync_playwright() as p:
     clerk_id = None
 
     try:
-        # The account kept to Quality Control whose modules this page switches: made by the super admin, on a first
-        # password she makes her own at once (REQUIREMENTS §66).
+        # The account kept to Quality Control whose modules this page switches: made by the super admin, on the
+        # password she signs in with; only the super admin changes it (REQUIREMENTS §105).
         maker, made_status = api_session(browser, ADMIN)
-        made = maker.request.post(f"{BASE}/api/users", data={"name": CLERK_NAME, "email": CLERK, "password": CLERK_FIRST, "departments": ["QC"]})
+        made = maker.request.post(f"{BASE}/api/users", data={"name": CLERK_NAME, "email": CLERK, "password": CLERK_PASSWORD, "departments": ["QC"]})
         clerk_id = (json_of(made).get("user") or {}).get("id")
-        own, _ = api_session(browser, CLERK, CLERK_FIRST)
-        changed_pw = own.request.post(f"{BASE}/api/auth/change-password", data={"currentPassword": CLERK_FIRST, "newPassword": CLERK_PASSWORD})
+        own, _ = api_session(browser, CLERK, CLERK_PASSWORD)
+        changed_pw = own.request.post(f"{BASE}/api/auth/change-password", data={"currentPassword": CLERK_PASSWORD, "newPassword": CLERK_FIRST})
         # Signed out again, so her sessions on the page below each pair with a sign-out.
         signed_out = own.request.post(f"{BASE}/api/auth/logout", data={})
-        check("(an account kept to Quality Control, on a password of her own)", made_status == 200 and made.status == 201 and bool(clerk_id) and changed_pw.status == 204 and signed_out.status == 204, (made_status, made.status, changed_pw.status, signed_out.status))
+        check(
+            "(an account kept to Quality Control, on the password the super admin gave her, which she cannot change)",
+            made_status == 200 and made.status == 201 and bool(clerk_id) and changed_pw.status == 403 and json_of(changed_pw).get("code") == "password-set-by-super-admin" and signed_out.status == 204,
+            (made_status, made.status, changed_pw.status, signed_out.status),
+        )
         own.close()
         maker.close()
 

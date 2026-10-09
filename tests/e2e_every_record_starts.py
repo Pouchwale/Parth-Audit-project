@@ -55,8 +55,8 @@ ONLY = [x for x in os.environ.get("E2E_ONLY", "").split(",") if x]
 FAILURES = []
 
 # Each department's account. Quality Control's is the server's seeded Kapila Barad, who edits every QC document by the
-# owner's table (REQUIREMENTS §96); the super admin adds the others (POST /api/users, a first password each changes at
-# once), accounts the access rules never name, so each has its department at Edit as before. Human Resources' is one
+# owner's table (REQUIREMENTS §96); the super admin adds the others (POST /api/users, on the password each signs in
+# with, §105), accounts the access rules never name, so each has its department at Edit as before. Human Resources' is one
 # of those since 9-Oct-2026: Vinay Bhojak answers for F/HR/01-14 and 19-22 only (F/HR/15-18 and the pest control
 # documents are Kapila Barad's), so he can no longer start every HR document. Their names carry no word a button of
 # this suite is pressed by.
@@ -509,12 +509,13 @@ with sync_playwright() as p:
         if status == 201:
             c = browser.new_context()
             ok = c.request.post(f"{BASE}/api/auth/login", data={"email": email, "password": FIRST_PASSWORD}).status == 200
+            # Passwords are the super admin's (REQUIREMENTS §105): the one given is the one they sign in with.
             changed = c.request.post(f"{BASE}/api/auth/change-password", data={"currentPassword": FIRST_PASSWORD, "newPassword": OWN_PASSWORD}).status
             c.close()
-            check(f"{code}'s account is added and its first password changed", ok and changed in (200, 204), changed)
+            check(f"{code}'s account is added, signs in with the password given, and cannot change it", ok and changed == 403, changed)
         else:
             check(f"{code}'s account is there (already added: {status})", status == 409, status)
-    password_of = {code: (SEED_PASSWORD if name is None else OWN_PASSWORD) for code, (_, name) in DEPARTMENTS.items()}
+    password_of = {code: (SEED_PASSWORD if name is None else FIRST_PASSWORD) for code, (_, name) in DEPARTMENTS.items()}
 
     # ==================================================================
     # 1. The super admin starts every document on its own page

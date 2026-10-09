@@ -265,7 +265,7 @@ export function registerAccessRulesRoutes(app: Express, deps: AccessRulesDeps): 
   });
 
   // THE PLANT'S PEOPLE, ONE BUTTON (REQUIREMENTS §96): an account for each of the twelve the owner named who has none,
-  // at name.surname@gpp.local, on one first password the super admin types; each chooses their own at the first sign-in.
+  // at name.surname@gpp.local, on one first password the super admin types, which they sign in with (§105).
   app.post("/api/access/accounts/create-missing", requireAuth, async (req: Request, res: Response): Promise<void> => {
     const me = superAdmin(req, res, "Only the super admin creates accounts.");
     if (!me) return;
@@ -301,7 +301,7 @@ export function registerAccessRulesRoutes(app: Express, deps: AccessRulesDeps): 
       }
       created.push({ name: person.name, email: person.email });
       // The password is never written down — not here, not in the log.
-      logActivity(req, me, "Account created by the administrator", `${person.name} <${person.email}>`, `From the plant's list of people (REQUIREMENTS §96); ${departments ? `departments: ${departments.split(",").join(", ")}` : "every department"}; they choose their own password at the first sign-in`);
+      logActivity(req, me, "Account created by the administrator", `${person.name} <${person.email}>`, `From the plant's list of people (REQUIREMENTS §96); ${departments ? `departments: ${departments.split(",").join(", ")}` : "every department"}; they sign in with the password the super admin typed`);
     }
     res.json({ created, existing });
   });

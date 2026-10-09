@@ -1,6 +1,7 @@
 import type { Express, Request, RequestHandler, Response } from "express";
 import type { PublicUser } from "./auth.ts";
 import { database, plantTimeZone } from "./db.ts";
+import { NO_PASSWORD_YET } from "./passwordPolicy.ts";
 import { csvText } from "./overviewRoutes.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
 import { SIGN_OUT_WORDS } from "./signInAndOut.ts";
@@ -510,6 +511,8 @@ export interface AccessPerson {
   departments: string[];
   active: boolean;
   mustChangePassword: boolean;
+  /** Waiting for a password from the super admin: nobody can sign in to it yet (§105). */
+  noPasswordYet: boolean;
   lastSignIn: string | null;
   createdAt: string;
   today: TodayFigures;
@@ -547,7 +550,7 @@ function byStanding(a: AccessPerson, b: AccessPerson): number {
 // A marker at the head of each statement, so a stand-in database (the unit
 // test) can tell them apart; PostgreSQL reads it as a comment.
 const USERS_SQL = `/* access:users */
-SELECT id, name, email, role, departments, active, must_change_password, last_sign_in, created_at FROM users ORDER BY created_at`;
+SELECT id, name, email, role, departments, active, must_change_password, password_hash = '${NO_PASSWORD_YET}' AS no_password_yet, last_sign_in, created_at FROM users ORDER BY created_at`;
 
 // THE SUPER ADMIN'S LATE SIGN-IN of yesterday's last LATE_SIGN_IN_MS (§84 addendum): each person's latest sign-in
 // there, and latest sign-out but for one at the end of the day (midnight), another session's own end. Ten minutes of
@@ -671,6 +674,7 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
           departments: splitCodes(u.departments),
           active,
           mustChangePassword: u.must_change_password === true || u.must_change_password === "t",
+          noPasswordYet: u.no_password_yet === true || u.no_password_yet === "t",
           lastSignIn: isoOf(u.last_sign_in),
           createdAt: text(u.created_at),
           today: day,

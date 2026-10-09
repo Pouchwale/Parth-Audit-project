@@ -30,6 +30,7 @@ import {
 } from "./db.ts";
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
 import { hashPassword, verifyPassword, newSessionId, signSessionToken, verifySessionToken, COOKIE_NAME, type PublicUser } from "./auth.ts";
+import { BUILT_IN_FIRST_PASSWORD, NO_PASSWORD_YET, hasNoPasswordYet, mayChangeOwnPassword, settleFirstPasswords } from "./passwordPolicy.ts";
 import { SIGN_IN_WINDOW_MS, createSignInThrottle, endsThisSession, signOutWords } from "./signInAndOut.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
 import type { OutsideHoursRefusal } from "../frontend/src/engine/workingHoursCore.ts";
@@ -406,7 +407,7 @@ app.get("/api/users", requireAdmin, async (_req: Request, res: Response): Promis
   const rows = await listUsers();
   // No hash and nothing of anybody's password, here or anywhere (REQUIREMENTS §66).
   res.json({
-    users: rows.map((r) => ({ ...toPublicUser(r), createdAt: r.created_at, mustChangePassword: r.must_change_password, active: r.active, lastSignIn: r.last_sign_in })),
+    users: rows.map((r) => ({ ...toPublicUser(r), createdAt: r.created_at, mustChangePassword: r.must_change_password, noPasswordYet: hasNoPasswordYet(r), active: r.active, lastSignIn: r.last_sign_in })),
   });
 });
 
@@ -480,7 +481,7 @@ app.post("/api/users", requireAdmin, async (req: Request, res: Response): Promis
   const made = toPublicUser(row);
   // The password is never written down — not here, not in the log.
   logActivity(req, (req as AuthedRequest).user, "Account created by the administrator", `${made.name} <${made.email}>`, made.departments.length ? `Departments: ${made.departments.join(", ")}` : "Every department");
-  res.status(201).json({ user: { ...made, createdAt: row.created_at, mustChangePassword: true, active: true, lastSignIn: null } });
+  res.status(201).json({ user: { ...made, createdAt: row.created_at, mustChangePassword: false, active: true, lastSignIn: null } });
 });
 
 // A PASSWORD THE PERSON HAS FORGOTTEN. The administrator gives them another
@@ -497,8 +498,9 @@ app.post("/api/users/:id/password", requireAdmin, async (req: Request, res: Resp
     res.status(400).json({ error: "The new password must be at least 8 characters." });
     return;
   }
-  await setUserPassword(target.id, await hashPassword(password), true);
-  logActivity(req, (req as AuthedRequest).user, "Password reset by the administrator", `${target.name} <${target.email}>`, "They must choose their own at the next sign-in");
+  // They sign in with it: only the super admin changes passwords (REQUIREMENTS §105).
+  await setUserPassword(target.id, await hashPassword(password), false);
+  logActivity(req, (req as AuthedRequest).user, "Password reset by the administrator", `${target.name} <${target.email}>`, "They sign in with the password the super admin gave them");
   res.json({ ok: true });
 });
 
@@ -528,7 +530,7 @@ app.post("/api/users/:id/active", requireAdmin, async (req: Request, res: Respon
     return;
   }
   logActivity(req, me, active ? "Account switched on" : "Account switched off", `${target.name} <${target.email}>`, active ? "They can sign in again" : "They can no longer sign in; nothing of theirs is deleted");
-  res.json({ user: { ...toPublicUser(row), createdAt: row.created_at, mustChangePassword: row.must_change_password, active: row.active, lastSignIn: row.last_sign_in } });
+  res.json({ user: { ...toPublicUser(row), createdAt: row.created_at, mustChangePassword: row.must_change_password, noPasswordYet: hasNoPasswordYet(row), active: row.active, lastSignIn: row.last_sign_in } });
 });
 
 app.post("/api/users/:id/departments", requireAdmin, async (req: Request, res: Response): Promise<void> => {
@@ -647,6 +649,11 @@ app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> 
 // to be able to change it (REQUIREMENTS §66).
 app.post("/api/auth/change-password", requireSession, async (req: Request, res: Response): Promise<void> => {
   const user = (req as AuthedRequest).user;
+  // PASSWORDS ARE THE SUPER ADMIN'S (REQUIREMENTS §105): everybody else signs in with the one the super admin gave them.
+  if (!mayChangeOwnPassword(user)) {
+    res.status(403).json({ error: "Your password is set by the super admin. Ask the super admin for a new one.", code: "password-set-by-super-admin" });
+    return;
+  }
   const { currentPassword, newPassword } = req.body ?? {};
   if (typeof currentPassword !== "string" || typeof newPassword !== "string" || newPassword.length < 8) {
     res.status(400).json({ error: "The new password must be at least 8 characters." });
@@ -1448,23 +1455,29 @@ try {
 // its first signup has to be the admin). On a plant already running, the super
 // admin adds the missing ones from Users & Access ("Create the missing accounts",
 // POST /api/access/accounts/create-missing) on a first password of their own.
+// THE ACCOUNTS WAITING TO CHOOSE THEIR OWN PASSWORD (REQUIREMENTS §105): passwords are
+// the super admin's now, so the wait is lifted once, and an account still on the built-in
+// first password, which anybody can read, is locked until the super admin gives it one.
+await settleFirstPasswords({ accounts: listUsers, verify: verifyPassword, setPassword: setUserPassword, log: (line) => console.log(line) });
+
 if (process.env.SEED_ACCOUNTS !== "0") {
   const chosen = process.env.SEED_ACCOUNT_PASSWORD;
-  const password = chosen || "Gpp@12345";
-  // A PASSWORD ANYBODY CAN READ IS NOT A PASSWORD (REQUIREMENTS §66). The
-  // built-in one is written in the documentation, so an account created on it
-  // must be given its own before it can be used. One the administrator chose
-  // themselves (SEED_ACCOUNT_PASSWORD) is theirs already, and is left alone.
-  const mustChange = !chosen;
+  // A PASSWORD ANYBODY CAN READ IS NOT A PASSWORD (REQUIREMENTS §66, §105). The
+  // built-in one is written in the documentation. The super admin's account may
+  // start on it and is asked to choose their own; anybody else's starts with no
+  // password at all (NO_PASSWORD_YET), until the super admin gives it one in Users & Access.
+  // One the administrator chose themselves (SEED_ACCOUNT_PASSWORD) is everybody's
+  // first password, and nobody is asked to change it.
   for (const a of SEED_ACCOUNTS) {
-    // must_change_password: they start on a password that is written in the
-    // documentation, so the first thing each person does is choose their own
-    // (REQUIREMENTS §66). Accounts that already exist are not touched.
+    const superAdmin = a.role === "admin";
+    const mustChange = superAdmin && !chosen;
+    const password = chosen || (superAdmin ? BUILT_IN_FIRST_PASSWORD : null);
+    // Accounts that already exist are not touched.
     const added = await seedUser({
       id: crypto.randomUUID(),
       name: a.name,
       email: a.email,
-      password_hash: await hashPassword(password),
+      password_hash: password ? await hashPassword(password) : NO_PASSWORD_YET,
       role: a.role,
       created_at: new Date().toISOString(),
       departments: a.departments,
@@ -1475,7 +1488,11 @@ if (process.env.SEED_ACCOUNTS !== "0") {
     if (added) {
       console.log(
         `Added the account ${a.name} <${a.email}> (${a.role === "admin" ? "every module" : a.departments})` +
-          (mustChange ? " — on the built-in first password, which it must change at its first sign-in." : " — on the password you set in SEED_ACCOUNT_PASSWORD.")
+          (chosen
+            ? " — on the password you set in SEED_ACCOUNT_PASSWORD."
+            : mustChange
+              ? " — on the built-in first password, which it must change at its first sign-in."
+              : " — nobody can sign in to it until the super admin gives it a password (Users & Access).")
       );
       void insertActivity([{ userId: null, userName: "System", userEmail: "", action: "Account created", target: a.email, detail: a.role === "admin" ? "Super admin — every module" : `Departments: ${a.departments}` }]).catch(() => undefined);
     }
