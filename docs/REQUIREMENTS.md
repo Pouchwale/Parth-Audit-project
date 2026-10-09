@@ -6212,6 +6212,116 @@ one's (F/MNT/09) 117 and 129, then 112 and 139; an as-required one's (F/MNT/08) 
 pest service report's 68 and 14, then 77 and 81; F/HR/18's 73 and 38, then 54 and 7; New record on F-QC-30 168 and
 67, then 198 and 151; on F/MNT/09 178 and 90, then 144 and 44.
 
+## §97 The notifications: each person told what they answer for, on the website and on the phone (8-Oct-2026)
+
+**The request.** The owner, 8-Oct-2026: "Consider superadmin as boss which can see anything and add notification to
+all modules according to that specially in mobile application so the user according to module can see notification
+accordingly and in mobile, like for example the daily pest control record which the system fills daily by itself, so
+at the end the user needs just to review it, verify it and submit it so his task will be complete. Likewise all the
+documents according to the frequency of their date: some documents are filled daily, some weekly, monthly, yearly, or
+in months. Likewise, according to module, the responsible person for that particular document will receive a
+notification in mobile as well as in our audit software. And the bot will perform the task very perfectly always, and
+make the mobile application so powerful that the user, even if they have not opened it, will receive the notification
+and can complete all the tasks perfectly from mobile ..." Who answers for each document is §96 (engine/accessRules.ts,
+the owner's table of 7-Oct-2026). This section is the server's half of the notifications: the morning prepare, the
+ledger, the notify job and the pushes. The website's bell and Notifications page and the phone's inbox, Tasks and Review
+screens read what is described here.
+
+**1. The day's records are prepared on the server every morning** (backend/notificationJobs.ts, job
+`morning-prepare`). Until now records were made and prepared only when a browser opened the app, so on a day nobody
+opened it nothing was ready. Now, on each working day of the plant at `PREPARE_AT` (08:30 plant time unless set; a
+server started later does it at once), DCRS's own engine on the server (backend/engineHost.ts, op `prepare`) makes the
+near-term sheets of every Live document and prepares every blank sheet due by today, by the one rule the browser runs
+(engine/assistantPrepare.ts). It fills the known parts only, never a reading or an observation (§3 of the build brief,
+"No invented observations"): a record a person has started is never touched. (The prepare's own rule is being changed
+to that beside this work; until it is, the server's prepare does exactly what the browser's does, as one rule.) The records are written with the version
+they were worked out on, and worked out again on what is stored when a browser saved meanwhile, so a browser preparing at
+the same moment never makes a second sheet for one document and period (proved both ways: the job's write meeting the
+browser's, backend/tests/notificationJobs.test.ts, and the browser's merge meeting the job's, frontend/tests/
+morningPrepareMerge.test.ts). One line in the activity log, in the system's name: "The assistant prepared N records"
+with the modules. Run again, it prepares nothing. The super admin can run it at once (POST /api/jobs/run).
+
+**2. Each person is told what they answer for** (engine/notificationPlan.ts, pure; backend/notificationJobs.ts, job
+`notify`). Every few minutes (`NOTIFY_EVERY_MS`, 5 minutes) from `PREPARE_AT` to the close of the plant's hours on
+working days, DCRS's engine works out, for every active account in one load, what each should be told now; the server
+keeps it in PostgreSQL (backend/notifications.ts) and tells the phones (backend/push.ts). The kinds:
+
+| Kind | Who | Ends when |
+|---|---|---|
+| Ready (`ready`) | the people who answer for the document and may fill it; nobody named: the super admin | the record leaves In Progress |
+| Needs input (`needs_input`), with the number of readings waiting | as Ready | the record leaves In Progress, or passes DCRS's checks (it becomes Ready) |
+| Due today (`due`), not started | as Ready | it is started or submitted, or the day ends (it becomes Overdue) |
+| Coming up (`upcoming`), the heads-up | as Ready | the due date arrives |
+| Overdue (`overdue`), with the days late, updated daily | as Ready | it is submitted |
+| To verify (`verify`) | everyone with Write on the document but the person who submitted it; nobody: the super admin | it is verified or sent back |
+| Sent back (`sent_back`), with the reason | the person who submitted it | it is submitted again |
+| The boss's summary (`boss_summary`), morning and evening | every active super admin: by module, ready, needing input, awaiting verification, not yet submitted today, overdue | the next day |
+| Escalated (`escalation`) | every active super admin (backend/escalation.ts, mirrored) | it is acknowledged |
+| Your access has changed (`access_changed`) | the person (§96) | it is read |
+
+**Frequency decides the timing.** Daily documents are prepared in the morning and told the same day. Weekly and
+fortnightly documents get the heads-up on the working day before; monthly, quarterly ("in months") and yearly ones three
+days ahead (engine/reminders.ts `ADVANCE_WARNING_DAYS`). As-required documents are told only when started, or when their
+two-day allowance runs out. Nothing is due on a closed day: the weekly off (Thursday), a festival holiday; an adjustment
+day is a working day. One record is one task: past its day it is Overdue, not also Ready.
+
+**3. In three languages, worded on every read** (engine/notificationText.ts). A notification is kept as facts (the
+document, the date, the counts), never as a sentence, and worded whenever it is read, in English, Hindi or Gujarati as the
+reader asks: the bell, the phone's inbox and the push say the same thing, and a person who changes language reads every
+notification in the new one. Short sentences, no gendered pronoun ("you", or the name): "12 readings to enter: Daily Pest
+Control Monitoring Record", "F/HR/17 Daily Pest Control Monitoring Record of 09-Oct-2026 is ready for you: 12 readings to
+enter, then submit."
+
+**4. The pushes to the phones** (backend/push.ts). DCRS sends them itself through Expo's push service to the phones
+registered with Mitra (POST /api/v1/devices). At most one push per person each time it looks; several items are one push,
+"3 records need you" with the top three document names, opening the inbox; one item says its own words and opens its
+record (`mitra://task/<recordId>`). When:
+- **the day's tasks** (ready, needs input, due): at most once in each of three slots: after the morning prepare, the
+  "still open" reminder at 15:30 ("Still open: ..."), the last call at 17:45 ("Last call: ..."). A task that comes up
+  after a slot's push waits for the next slot, so a record a person is filling in is not pushed back at them;
+- **overdue**: once a day, from 09:30;
+- **the heads-up**: once, on the working day before its due date (the inbox has it from the heads-up day);
+- **to verify, sent back, an access change, the boss's summaries and escalations**: at once.
+
+**Quiet.** The staff are pushed only on the plant's working days inside its hours (08:40 to 18:20 unless the super admin
+changes them in Master Data); what comes up outside waits for the next window. The super admin can be pushed at any hour.
+**Choices.** A person may switch any kind off for pushing (the phone's Settings, PUT /api/v1/notification-preferences);
+it still reaches the inbox. "Send me a test notification" sends one to the person's own phones and says in words why it
+could not (push off on the server, no phone registered, Firebase not set up yet), one every 20 seconds.
+**Privacy.** A push passes through Expo's and Google's servers, so it carries ids, document names and counts only:
+never a reading, and never a send-back's reason (that stays in the inbox). A phone's token is never written in a log.
+**Reliability.** Sent in batches of 100; a request that fails is tried again after 2 and 8 seconds, and one that never
+gets through is tried on the next run; Expo's receipts are read about 15 minutes later and a phone Expo says is no
+longer registered is forgotten (it registers again when Mitra is opened). `PUSH_ENABLED=0` sends nothing.
+**Android needs Firebase.** Until the owner's free Firebase project is set up (docs/DEPLOYMENT.md "Push notifications"),
+registration fails quietly on the phone and the app still has its inbox, Tasks and its own reminders. Expo Go cannot
+receive pushes on Android: the Mitra build 1.1.0 can. iPhones get the inbox and the app's own reminders (remote pushes
+need a paid Apple developer account).
+
+**5. On the phone, today by person, and reviewed before submitted** (backend/apiV1*.ts, the engine host). GET
+/api/v1/today now gives a person what they answer for and the records they may verify, each item with its module and
+whether this person may submit or verify it now (`canSubmit`, `canVerify`); the super admin everything, counted by
+module. A record the assistant prepared is submitted from the phone only with `"reviewed": true`, sent after the person
+ticked "Reviewed and correct" (§62); without it DCRS answers 409 `needs-review`, and the record's history says
+"Submitted from the phone after review". The routes are in docs/api/dcrs-api.openapi.json and
+docs/chatbot-integration.md "Notifications and the phone".
+
+**Kept in PostgreSQL only** (§55): the tables `notifications`, `push_devices`, `notification_prefs` and `push_tickets`
+(docs/DEPLOYMENT.md). They are DCRS's own: no role of the Audit Assistant is granted them (§83). A notification is kept
+60 days after it is resolved.
+
+**Tested** (docs/TESTING.md "The notification engine on the server"): the plan across daily, weekly, fortnightly,
+monthly, quarterly, yearly and as-required documents with a fake clock, the Thursday off, a festival holiday and an
+adjustment day; the three languages for every kind; the ledger (the upsert, the resolution, nobody reading another
+person's items), on the stand-in and on a real PostgreSQL; the morning prepare idempotent and safe beside a browser
+preparing at the same moment; the push planner and sender against a stand-in for Expo; `reviewed: true`; every new route
+in the OpenAPI file. On 9-Oct-2026 a throwaway DCRS from this branch (fresh database, the thirteen accounts, each with a
+phone, the pushes pointed at a stand-in for Expo's service) was run through a working-day morning by hand: the prepare
+made the day's records (18 for today, in HR, PRD and QC); notify told each of them to exactly the people who answer for
+its document by the owner's table, gave the super admin the morning summary by module and nobody else, and pushed ten
+people once each, each in the language of the phone; run again, both did nothing; at 15:30 the seven with tasks still
+open had one "Still open" push each; the test push reached one phone, and a second at once was refused.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

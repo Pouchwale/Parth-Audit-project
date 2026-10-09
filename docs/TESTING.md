@@ -631,6 +631,52 @@ Seven scripts live in `tests/`:
   of 135 checks passed; each format opened from the Production library, showed its paper's words and its original,
   took a line, was sample-filled, saved, submitted, verified, printed as its paper and downloaded as a workbook; Mitra
   opened each by its number in both spellings and by name; no JavaScript error.
+- **The notification engine on the server** (REQUIREMENTS §97, 8 and 9-Oct-2026). Unit tests, each failing before the
+  change it proves (the module or the route did not exist): `frontend/tests/notificationPlan.test.ts` (13: the rules it
+  shares with the browser held equal to engine/notifications.ts, engine/reminders.ts and engine/latenessCore.ts; daily,
+  weekly, fortnightly, monthly, quarterly, yearly and as-required documents on a fake clock, across the Thursday off, a
+  festival holiday and an adjustment day; a freshly prepared record with empty readings is needs_input with the number
+  of readings waiting, never ready; verify, sent_back, nobody named, a reference document, a sheet not stored, before
+  the go-live; the super admin's two summaries; the same input, the same items), `frontend/tests/notificationText.test.ts`
+  (6: every kind in English, Hindi and Gujarati from facts alone, no gendered pronoun, no em dash; the owner's "12
+  readings to enter"; "N records need you"; the reminders' "Still open" and "Last call"; the modules' names),
+  `frontend/tests/morningPrepareMerge.test.ts` (1: the browser's save meets the job's: one sheet per document and
+  period), `backend/tests/notificationLedger.test.ts` (11, run twice: on the stand-in, and on a real PostgreSQL when
+  `DCRS_LEDGER_TEST_URL` names one: the upsert by person and key, the resolution, reopened as new, the summary written
+  once, nobody reading or marking another person's items, a page at a time, kept 60 days, the phones, the choices,
+  today's pushes and the tickets), `backend/tests/notificationRoutes.test.ts` (7: the inbox in the language asked, a
+  page at a time, mark read, the website's routes, a phone registered and removed with no token in the log, the choices,
+  the test push once in 20 seconds), `backend/tests/notificationJobs.test.ts` (7, over the real engine bundle: the
+  morning prepare stores the day's sheets and prepares the ones due by today, leaves a started sheet alone, run again
+  writes nothing; a browser saving at the same moment makes no second sheet; notify tells each task to the people who
+  answer for it, the super admin the summary and the escalations, run again nothing new, a record that moves on is
+  resolved), `backend/tests/push.test.ts` (15: the morning slot, a task that comes up later waiting for 15:30 and
+  17:45, quiet hours and closed days for the staff and any hour for the super admin, overdue once a day from 09:30, the
+  heads-up on the working day before, verify and sent_back at once, a send-back's reason never in a push, a kind
+  switched off, an account that has left; batches of 100, a failed request tried again after 2 and 8 s, one refused not
+  tried again, a push that never got through left for the next run, receipts after 15 minutes, DeviceNotRegistered by
+  ticket or receipt, no token in any line written; PUSH_ENABLED=0, no phones, the test push's words). Changed:
+  `backend/tests/engineHost.test.ts` (the engine answering at another moment; the jobs' ops refused to a department's
+  account), `backend/tests/apiV1Records.test.ts` (today by person with module, canSubmit and canVerify; 409
+  needs-review, then `reviewed: true`), `backend/tests/apiV1.test.ts` (31 documented /api/v1 routes registered).
+  `npm run test:unit` on 9-Oct-2026 at d9fd712: 578 frontend and 392 backend tests, all passing but the PostgreSQL
+  ledger's, which is skipped without `DCRS_LEDGER_TEST_URL`; with it pointed at a throwaway embedded PostgreSQL (port
+  5150, removed after), its 20 checks pass. No browser suite was run for this part (the website's bell and
+  Notifications page and the phone's screens are the next builders'). **A throwaway DCRS** from the branch (a fresh
+  embedded PostgreSQL, the four seeded accounts and the other nine of the owner's table made by the super admin, each
+  with a phone registered through `POST /api/v1/devices`, JOBS=0, DCRS_WORKING_HOURS=off, `PUSH_SERVICE_URL` pointed at
+  a stand-in for Expo's service), driven by hand through Friday 9-Oct-2026: the morning prepare at 08:35 prepared 18
+  records (HR 1, PRD 8, QC 9) and made 419 sheets ahead; notify at 08:45 wrote 31 notifications for the 13 accounts;
+  every task notification was for a person who answers for its document by the owner's table (engine/accessRules.ts),
+  each of the 18 records prepared for the day was told to exactly those people, the super admin had the morning summary
+  by module and no member of staff did; ten people were pushed once each, in the language of their phone (Gujarati in
+  Gujarati); the prepare and notify run again did nothing and pushed nothing; at 15:30 the seven with tasks still open
+  had one "Still open" push each, and nothing more at 15:35; the test push reached one phone and a second at once was
+  refused (429); `GET /api/v1/today` answered with module, canSubmit and canVerify; no push token in the server's log.
+  On this branch's code the 18 prepared records all passed DCRS's checks and were told as "ready": the prepare still
+  fills more than the known parts here. The change that leaves every reading to the person (the build brief's "No
+  invented observations") is being made beside this work; after it the same run tells them as "needs input" with the
+  number of readings waiting. Nothing in these tests assumes either.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

@@ -844,7 +844,7 @@ DCRS sends the pushes itself, through Expo's push service, to the tokens registe
 {
   "to": "ExponentPushToken[...]",
   "title": "Ready for you: Lamination Adhesive Viscosity Record",
-  "body": "F-QC-30 Lamination Adhesive Viscosity Record of 09-Oct-2026 is prepared. Review it, then submit.",
+  "body": "F-QC-30 Lamination Adhesive Viscosity Record of 09-Oct-2026 is ready. Review it, then submit.",
   "data": { "url": "mitra://task/rec-mgj2k1-7-abcd12", "kind": "ready", "notificationId": 413, "recordId": "rec-mgj2k1-7-abcd12", "count": 1 },
   "channelId": "tasks",
   "priority": "high",
@@ -854,10 +854,11 @@ DCRS sends the pushes itself, through Expo's push service, to the tokens registe
 ```
 
 - **`data.url`** is the deep link: `mitra://task/<recordId>` for one record, `mitra://inbox` for several ("3 records need you: ...", the top three document names in the body) or for an item with no record.
-- **`data.kind`** is the item's kind, or `group` for several; `data.notificationId` is the item's id when there is one item; `data.count` is how many items the push stands for.
+- **`data.kind`** is the item's kind, or `group` for several, or `test` for the test push; `data.notificationId` is the item's id when there is one item; `data.count` is how many items the push stands for.
 - **`channelId`** is the Android channel: `tasks` (high importance) for the person's work, `summary` (default importance) for the super admin's summaries and the heads-ups.
 - **`badge`** is the person's open items.
-- **When.** The staff are pushed only inside the plant's working hours on working days (08:40 to 18:20 unless the super admin changes them): their tasks first after the morning prepare (08:30, `PREPARE_AT`), a "still open" reminder at 15:30 and a last call at 17:45; an overdue reminder once a day at 09:30; a heads-up once, the working day before; `verify`, `sent_back` and `access_changed` at once. Anything that comes up outside the hours waits for the next window. The super admin can be pushed at any hour (the summaries and escalations).
+- **When.** The staff are pushed only inside the plant's working hours on working days (08:40 to 18:20 unless the super admin changes them): their tasks (`ready`, `needs_input`, `due`) at most once in each of three slots: first after the morning prepare (08:30, `PREPARE_AT`), a "still open" reminder at 15:30 (title "Still open: ...") and a last call at 17:45 ("Last call: ..."); a task that comes up after a slot's push waits for the next slot. An overdue reminder once a day from 09:30; a heads-up once, the working day before its due date; `verify`, `sent_back`, `access_changed`, `boss_summary` and `escalation` at once. Anything that comes up outside the hours waits for the next window. The super admin can be pushed at any hour. A kind the person switched off is not pushed (it is still in the inbox).
+- **Never a record's values.** A push carries ids, document names and counts only; a send-back's reason stays in the inbox.
 - **Android needs Firebase Cloud Messaging** for pushes to arrive (see DEPLOYMENT.md, "Push notifications"). Until the owner's Firebase project is set up, registration fails on the phone and the app still has its inbox, Tasks and its own reminders. Expo Go on Android cannot receive remote pushes (Expo SDK 53 and later): use the 1.1.0 build. iPhones get the inbox and the app's own reminders; remote pushes need a paid Apple developer account.
 
 ### Today, by person
