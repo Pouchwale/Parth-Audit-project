@@ -5,7 +5,75 @@ documents according to the PDF are present or not; if not, ask me and I will sha
 F-QC-15-B, the punching line clearance, was built from the paper found on your computer (REQUIREMENTS §85), and again on
 02-Oct-2026 when five more were sent and built: F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04 (REQUIREMENTS §86), and on
 06-Oct-2026 when the production formats were sent: F-PRD-10, 20, 21, 22, 23, 24 and 26 built, F-PRD-18 and 19 sent again
-and put right, and F-PRD-25 sent as an empty workbook (REQUIREMENTS §91, the Production module).
+and put right, and F-PRD-25 sent as an empty workbook (REQUIREMENTS §91, the Production module). Checked again on
+09-Oct-2026 by how each format is kept (Hard copy or SAP), at the owner's request: the next section.
+
+## 9-Oct-2026: the hard copies not yet in DCRS, by module (SAP left out)
+
+The owner, 9-Oct-2026: "check master format list of F-SYS-02 so check it also and tell me rather than sap which hard
+copies are not present in our software of every module."
+
+Checked against the company's workbook of F/SYS/02 (141 lines, the list DCRS keeps), using its own **Method of
+Recording** column: "Hard copy" (117 lines), "SAP" (11), "SAP/ Hard copy" (6), not stated (6, the newest lines), and
+one marked "Obsolate on 25.06.25". DCRS holds 129 documents; nothing new was built since 6-Oct-2026, so the gaps are
+the same as below, now split by how each format is kept.
+
+**Complete:** System / Management, Store, Maintenance and Dispatch: every hard copy on the list is in DCRS.
+
+**Hard copies not in DCRS: 34** (please send the blank format, and a filled page if there is one):
+
+| Module | Format | Name on the list | Kept as | Latest revision on the list |
+|---|---|---|---|---|
+| Marketing | F-MKT-03 | Customer complaint Form (CAPA report) | Hard copy | 01.12.21 |
+| Purchase | F-PUR-04 | Purchase Order | Hard copy | 01.12.21 |
+| Quality Control | F-QC-10 | Statement of Compliance (SOC) - Sleeve | Hard copy | 01.12.21 |
+| Quality Control | F-QC-14 | Test Reliability Record | Hard copy | 01.12.21 |
+| Quality Control | F-QC-17 | Scale / Ruler internal calibration record | Hard copy | 01.12.21 |
+| Quality Control | F-QC-31 | COA Pouch | Hard copy | 15.12.2024 |
+| Quality Control | F-QC-40. A | Temperature Monitoring record - Printing machine, Ink kitchen, Ware house | Hard copy | 01.07.2026 |
+| Quality Control | F-QC-40. B | Temperature Monitoring record - Sleeve Division | Hard copy | 28.02.25 |
+| Quality Assurance | F-QA-01 | Traceability Report | SAP and hard copy | 01.11.22 |
+| Production | F-PRD-01 | Flexo Printing Production Register | Hard copy | 01.12.21 |
+| Production | F-PRD-02 | Punching Production Register | Hard copy | 01.12.21 |
+| Production | F-PRD-03 | On-line QC Inspection Register | Hard copy | 01.12.21 |
+| Production | F-PRD-04 | Off-line QC Inspection Register | Hard copy | 01.12.21 |
+| Production | F-PRD-05 | Slitting Production Register | Hard copy | 01.12.21 |
+| Production | F-PRD-06 | Shrink sleeve Gluing Register | Hard copy | 01.09.2026 |
+| Production | F-PRD-07 | Shrink Sleeve cutting Production Register | Hard copy | 01.09.2026 |
+| Production | F-PRD-08 | Dispatch Card | Hard copy | 01.12.21 |
+| Production | F-PRD-09 | Prepress Specification | SAP and hard copy | 01.10.22 |
+| Production | F-PRD-11 | Surgical Machine Blade Change Record | Hard copy | 01.12.21 |
+| Production | F-PRD-12 | Razor Blade Change Record | Hard copy | 01.12.21 |
+| Production | F-PRD-13 | Packing Label | SAP and hard copy | 01.12.21 |
+| Production | F-PRD-14.A | Job Card - LABEL | SAP and hard copy | 01.10.22 |
+| Production | F-PRD-14.B | Job Card - SLEEVE | SAP and hard copy | 01.10.22 |
+| Production | F-PRD-14.E | Job Card - POUCH | SAP and hard copy | 01.10.24 |
+| Production | F-PRD-17. A | Ink Formulation record - Label | Hard copy | ("Merged in one sheet" with B and C) |
+| Production | F-PRD-17. B | Ink Formulation record - Sleeve | Hard copy | |
+| Production | F-PRD-17. C | Ink Formulation record - Pouch | Hard copy | |
+| Production | F-PRD-25 | POUCHING - PROCESS PARAMETER RECORD | Hard copy | 15.12.2024 (sent 06-Oct-2026 as an empty workbook) |
+| Production | F-PRD-27 | Rewinding with LC - SS | not stated | 01.09.2026 |
+| Production | F-PRD-28 | Slitting with LC - SS | not stated | 01.09.2026 |
+| Production | F-PRD-29 | Shrink Sleeve Post press process checklist | not stated | 10.07.2026 |
+| Production | F-PRD-30 | Gluing adhesive mixing ratio | not stated | 17.08.2026 |
+| Human Resources | F-HR-02 | Personnel competence criteria | Hard copy | 01.12.21 |
+| Human Resources | F-HR-10 | Training Imparted Record | Hard copy | 01.12.21 |
+
+By module: Production 23, Quality Control 6, Human Resources 2, Marketing 1, Purchase 1, Quality Assurance 1. The four
+production lines with no method stated (F-PRD-27 to 30) are the workbook's newest and are counted as hard copies until
+the list says otherwise. F-HR-10, the Training Imparted Record, is the one the training automation needs most (see
+docs/AUTOMATION-PLAN-2026-10-09.md): it is where the date a training was held is written.
+
+**Left out because the list keeps them in SAP only (3):** F-QC-39 FGPO Specification, F-PRD-15 QC - wastage tracking
+record, F-PRD-16 Production issues Analysis.
+
+**Kept in SAP on the list, yet in DCRS already (8):** F-SYS-04 Management review meeting record, F-QC-01 to F-QC-05
+(the inspection records for BOPP film, corrugated box, label stock, paper core, PVC/PET film) and F-QC-06 and F-QC-07
+(the COAs for label and sleeve). Say if these should stay in DCRS or be left to SAP.
+
+**To confirm, not to send:** F-QC-15 "Area Line Clearance format": DCRS holds two Gujarati line clearance checklists
+that print no number; are they this format? F-MKT-06 "Complaint Acknowledgement form" is in DCRS as the paper's own
+QA-CAF-00 (CAPA module). F-QC-41 "Curing time monitoring record" is marked obsolete on the list and is not wanted.
 
 ## In short
 
