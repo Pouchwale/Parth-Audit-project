@@ -7,6 +7,7 @@ import { effectiveDueDatesInMonth } from "./holidays";
 import { createDefaultData } from "./recordDefaults";
 import { generateId } from "../utils/id";
 import { compareISO, todayISO } from "../utils/date";
+import { mayWriteRecordsOf } from "./departmentScope";
 
 /**
  * A SHEET FILLED THROUGH THE YEAR AND DUE AT ITS END (REQUIREMENTS §86): F/HR/16,
@@ -32,7 +33,9 @@ export function ensureRecordsGeneratedForMonth(
     // whoever is logged in, or a department's records would simply never exist
     // (engine/departmentScope.ts).
     .getRecordableUnscoped()
-    .filter((d) => !opts.documentIds || opts.documentIds.includes(d.id));
+    // ...but only the documents the signed-in person may fill (REQUIREMENTS §96): the server refuses a new record
+    // below Write, and its morning job makes the plant's sheets for every document (engine/departmentScope.ts).
+    .filter((d) => (!opts.documentIds || opts.documentIds.includes(d.id)) && (!!opts.isDemo || mayWriteRecordsOf(d.id)));
   const existing = recordRepository.periodKeys(!!opts.isDemo);
   // Demo data is isolated and explicitly opt-in (Demo Mode), so it has no
   // business having a launch-date floor — only real Live obligations do.

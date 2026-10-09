@@ -5,6 +5,7 @@ import { departmentName, departmentOfDocument } from "../data/seed/departments";
 import { isCompanyHoliday } from "./holidays";
 import { ALWAYS_OPEN, addDaysISO, attribute, judge as judgeRecord, keptTo, scoreOf, type Judgement, type Outcome, type PlantCalendar } from "./latenessCore";
 import { daysInMonth, formatDisplayDate, fromISODate, pad2, toISODate } from "../utils/date";
+import { scoreAnswerRule } from "./departmentScope";
 
 // THE PERFORMANCE SCORECARD (REQUIREMENTS §64).
 //
@@ -43,7 +44,10 @@ import { daysInMonth, formatDisplayDate, fromISODate, pad2, toISODate } from "..
 export { AS_REQUIRED_DAYS, scoreOf, type Judgement, type Outcome, type PlantCalendar } from "./latenessCore";
 
 /** An account as the scorecard needs it — never the email (backend/index.ts, GET /api/users/directory). */
-export type Person = Pick<AuthUser, "id" | "name" | "role" | "departments">;
+export type Person = Pick<AuthUser, "id" | "name" | "role" | "departments"> & { email?: string };
+
+/** Does this person answer for this document (REQUIREMENTS §96)? engine/departmentScope.ts scoreAnswerRule gives the signed-in browser's. */
+export type AnswerRule = (person: Person, doc: DocumentDefinition) => boolean;
 
 /** isCompanyHoliday, asked once per date however many records share it. */
 export function closedDays(master: MasterData): (dateISO: string) => boolean {
@@ -395,9 +399,14 @@ export function scorecards(
   people: readonly Person[],
   periodKey: PeriodKey | PeriodRange,
   today: string,
-  calendar: PlantCalendar = ALWAYS_OPEN
+  calendar: PlantCalendar = ALWAYS_OPEN,
+  answers: AnswerRule | null = scoreAnswerRule()
 ): Scorecards {
   const period = periodFor(periodKey, today);
+  // WHO ANSWERS FOR A DOCUMENT, BY THE ACCESS RULES (REQUIREMENTS §96): the people it names, once per document; a
+  // person's departments are then the ones of what they answer for. Left out (no rule given, nobody signed in): by department.
+  const answerersOf = answers ? (d: DocumentDefinition): readonly Person[] => people.filter((p) => answers(p, d)) : undefined;
+  const answeredModules = new Map<string, Set<string>>();
   const called = new Map<string, string>();
 
   const perDocument = new Map<string, Tally>();
@@ -443,7 +452,19 @@ export function scorecards(
         }
         count(tallyIn(mine, doc.id), j, what, r.dueDate, endsToday);
       }
-    }
+    },
+    answerersOf
+      ? (d) => {
+          const list = answerersOf(d);
+          const code = departmentOfDocument(d.id, d.formatNo) ?? "";
+          for (const p of list) {
+            let set = answeredModules.get(p.id);
+            if (!set) answeredModules.set(p.id, (set = new Set()));
+            if (code) set.add(code);
+          }
+          return list;
+        }
+      : undefined
   );
 
   const documentScore = (doc: DocumentDefinition, t: Tally): DocumentScore => ({ ...line(t, today), doc, department: departmentOf.get(doc.id) ?? NO_DEPARTMENT });
@@ -480,7 +501,7 @@ export function scorecards(
 
   const byPerson: PersonScore[] = people
     .map((person): PersonScore => {
-      const kept = keptTo(person);
+      const kept = answers ? Array.from(answeredModules.get(person.id) ?? []).sort() : keptTo(person);
       const total = emptyTally();
       const theirs: DocumentScore[] = [];
       for (const [docId, t] of perPerson.get(person.id) ?? []) {
@@ -491,7 +512,10 @@ export function scorecards(
       const scored = line(total, today);
       return {
         ...scored,
-        decision: kept.length === 0 ? { summary: "Works across every department and answers for no document of their own, so there is no score" } : scored.decision,
+        decision:
+          kept.length === 0
+            ? { summary: answers && person.role !== "admin" ? "Answers for no document in view, so there is no score" : "Works across every department and answers for no document of their own, so there is no score" }
+            : scored.decision,
         person,
         departments: kept,
         answers: kept.length > 0,

@@ -253,6 +253,12 @@ export interface Attribution<D, P> {
  * them did it more than the other. An account with no departments works across
  * the plant and answers for no document of its own.
  *
+ * BY THE ACCESS RULES (REQUIREMENTS §96), when `answerersOf` is given: the
+ * accounts that answer for the record's DOCUMENT (engine/accessRules.ts
+ * responsible, those with Write on it), worked out once per document by the
+ * caller, instead of the accounts of its department. The narrowing to whoever
+ * handed it in, where several answer, is the same.
+ *
  * `records` are the side being looked at (Live, or the demo) and `docs` the
  * documents in view; a record of a document not among them is left out.
  * `range` is a span of DUE dates, both ends counted; `today` is the day every
@@ -267,7 +273,8 @@ export function attribute<R extends LatenessRecord, D extends LatenessDocument, 
   today: string,
   calendar: PlantCalendar,
   departmentOfDocument: (doc: D) => string | null,
-  visit: (counted: Counted<R, D, P>) => void
+  visit: (counted: Counted<R, D, P>) => void,
+  answerersOf?: (doc: D) => readonly P[]
 ): Attribution<D, P> {
   const docsById = new Map<string, D>();
   const departmentOf = new Map<string, string>();
@@ -281,6 +288,7 @@ export function attribute<R extends LatenessRecord, D extends LatenessDocument, 
   const nameOf = new Map<string, string>();
   for (const p of people) {
     nameOf.set(p.id, sameName(p.name));
+    if (answerersOf) continue;
     for (const code of keptTo(p)) {
       const list = accountsOf.get(code);
       if (list) list.push(p);
@@ -289,6 +297,20 @@ export function attribute<R extends LatenessRecord, D extends LatenessDocument, 
   }
 
   const nobody: readonly P[] = [];
+  // By the access rules: who answers for each document, once each; a department's accounts are then those who answer for any of its documents.
+  const byDocument = new Map<string, readonly P[]>();
+  if (answerersOf) {
+    for (const d of docsById.values()) {
+      const list = answerersOf(d);
+      byDocument.set(d.id, list);
+      const code = departmentOf.get(d.id) ?? "";
+      let kept = accountsOf.get(code);
+      for (const p of list) {
+        if (!kept) accountsOf.set(code, (kept = []));
+        if (!kept.includes(p)) kept.push(p);
+      }
+    }
+  }
   for (const r of records) {
     if (r.dueDate < range.from || r.dueDate > range.to) continue;
     const doc = docsById.get(r.documentId);
@@ -296,7 +318,7 @@ export function attribute<R extends LatenessRecord, D extends LatenessDocument, 
     const judgement = judge(r, doc, today, calendar);
     if (judgement.outcome === "notCounted") continue;
     const department = departmentOf.get(doc.id) ?? "";
-    const accounts = accountsOf.get(department);
+    const accounts = answerersOf ? byDocument.get(doc.id) : accountsOf.get(department);
     let answering: readonly P[] = accounts ?? nobody;
     if (accounts && accounts.length > 1 && judgement.by) {
       const by = sameName(judgement.by);

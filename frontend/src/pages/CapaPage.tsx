@@ -24,6 +24,7 @@ import {
 } from "../engine/recordLifecycle";
 import { currentActivity, isItemOpen, summarise } from "../engine/guidedChecklist";
 import { RecordActionBar } from "../components/records/RecordActionBar";
+import { mayDo } from "../engine/departmentScope";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { DocumentHeader } from "../components/documents/DocumentHeader";
 import { recordHeaderEditing, useHeaderEditing } from "../components/documents/HeaderEditing";
@@ -293,7 +294,8 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
 
   const t = useT();
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
-  const editable = !!record && isEditableStatus(record.status);
+  // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
+  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill");
   const canApprove = !!record && ["Submitted", "Pending Verification"].includes(record.status);
 
   const current = () => (recordRepository.getById(recordId) as RecordInstance<ComplaintChecklistData> | undefined) ?? record;
@@ -812,6 +814,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
       <RecordHistoryPanel record={record} />
 
       <RecordActionBar
+        documentId={record.documentId}
         status={record.status}
         dirty={false}
         isDemo={record.isDemo}

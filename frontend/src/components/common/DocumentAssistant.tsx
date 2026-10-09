@@ -61,6 +61,8 @@ import { describePerson, hrMasterLinkFor } from "../../engine/hrMaster";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { parseAssistantCommand, type AssistantCommand } from "../../engine/assistantCommands";
 import { createRecordForDocument, deletionNeedsReason } from "../../engine/recordCrud";
+import { refusalFor } from "../../engine/accessRefusal";
+import type { DocumentAction } from "../../engine/accessRules";
 import { recordRepository } from "../../data/repositories/recordRepository";
 import { routeForRecord } from "../../engine/reminders";
 import { canSampleFill, sampleFillAllowedFor, sampleFillDeclined, sampleFillOffered, sampleFillRecord, SAMPLE_FILL_NOTE } from "../../engine/sampleFill";
@@ -196,6 +198,8 @@ export function DocumentAssistant() {
   const { version, currentUser, mode, bump } = useAppStore();
   const { path, navigate } = useRouter();
   const { lang } = useLanguage();
+  // A STEP THE PERSON'S LEVEL DOES NOT ALLOW (REQUIREMENTS §96): said in their language, naming the level it needs; null when they may.
+  const levelStops = (documentId: string | undefined, action: DocumentAction): string | null => refusalFor(documentId, action, lang);
   const t = useT();
   const isDemo = mode === "demo";
   const speechLocale = SPEECH_LOCALES[lang];
@@ -647,6 +651,12 @@ export function DocumentAssistant() {
     const date = dateISO ?? todayISO();
     // Asked about first where a sheet holds an unsaved design (store/router.tsx):
     // "Keep designing" must not leave a record started and a fill waiting for it.
+    const startStop = recordRepository.query({ documentId: doc.id, isDemo, dueDate: date }).length === 0 ? levelStops(doc.id, "start") : null;
+    const fillStop = levelStops(doc.id, "fill");
+    if (startStop || fillStop) {
+      bot((startStop ?? fillStop)!);
+      return;
+    }
     confirmLeave(() => {
       const { record, existed } = createRecordForDocument(doc, { dateISO: date, isDemo });
       bump();
@@ -1048,6 +1058,11 @@ export function DocumentAssistant() {
           bot("I couldn't find that document.");
           return;
         }
+        const startStop = recordRepository.query({ documentId: doc.id, isDemo, dueDate: a.dateISO }).length === 0 ? levelStops(doc.id, "start") : null;
+        if (startStop) {
+          bot(startStop);
+          return;
+        }
         const { record, existed } = createRecordForDocument(doc, { dateISO: a.dateISO, isDemo });
         bump();
         // The two ways to have it filled are offered right away; both act on
@@ -1068,6 +1083,11 @@ export function DocumentAssistant() {
       case "askDelete": {
         me(chip.label);
         const tt = getTarget();
+        const deleteStop = tt ? levelStops(tt.documentId, "delete") : null;
+        if (deleteStop) {
+          bot(deleteStop);
+          return;
+        }
         if (!tt?.remove) {
           bot("Open the record you want deleted first, then tell me again.");
           return;
@@ -1109,6 +1129,11 @@ export function DocumentAssistant() {
       case "askSubmit": {
         me(chip.label);
         const tt = getTarget();
+        const submitStop = tt ? levelStops(tt.documentId, "submit") : null;
+        if (submitStop) {
+          bot(submitStop);
+          return;
+        }
         if (!tt?.submit) {
           bot(cannotSubmitWords(tt));
           return;
@@ -1137,6 +1162,11 @@ export function DocumentAssistant() {
       case "doVerify": {
         me(chip.label);
         const tt = getTarget();
+        const verifyStop = tt ? levelStops(tt.documentId, "verify") : null;
+        if (verifyStop) {
+          bot(verifyStop);
+          return;
+        }
         if (!tt?.verify) {
           bot("This record isn't waiting for verification — submit it first.");
           return;
@@ -1440,6 +1470,11 @@ export function DocumentAssistant() {
   // is changed only after "Yes, correct it", which reopens it with the reason on
   // record — whether the change is a value (above) or the record's lines (below).
   const changeOrAsk = (target: AssistantTarget, next: unknown, changes: FieldChange[], note: string, problems: string[], intro: string) => {
+    const stop = levelStops(target.documentId, "fill") ?? (!target.editable && !target.reopen ? levelStops(target.documentId, "correct") : null);
+    if (stop) {
+      bot(`${intro}${stop}`);
+      return;
+    }
     if (target.editable) {
       commitEdit(target, next, changes, note, problems, intro);
       return;

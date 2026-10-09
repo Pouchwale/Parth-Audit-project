@@ -3,6 +3,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { settingsRepository } from "../data/repositories/settingsRepository";
 import { SEED_HISTORICAL_RECORDS } from "../data/seed/historicalRecords";
 import { compareISO } from "../utils/date";
+import { accessAccount, mayDo } from "./departmentScope";
 
 const SEED_IDS = new Set(SEED_HISTORICAL_RECORDS.map((r) => r.id));
 
@@ -33,6 +34,8 @@ export function findPreLaunchNoise(): RecordInstance[] {
   // for the department of whoever happens to be looking.
   return recordRepository.queryUnscoped({ isDemo: false }).filter((r) => {
     if (SEED_IDS.has(r.id)) return false;
+    // ...of the documents whose records the signed-in person may delete (Edit, REQUIREMENTS §96): offered and removed from here only then.
+    if (accessAccount() && !mayDo(r.documentId, "delete")) return false;
     if (compareISO(r.dueDate, liveStartDate) >= 0) return false;
     if (r.status === "Due" || r.status === "Scheduled") return true;
     if (r.status === "In Progress" && r.prepared && !r.submittedAt) {

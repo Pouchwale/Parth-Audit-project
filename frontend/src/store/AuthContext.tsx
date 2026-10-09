@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { api, ApiError, OUTSIDE_HOURS_EVENT, type AuthResponse, type OutsideHoursDetail, type PublicHours, type ServerFeatures } from "../api/client";
-import { setDepartmentScope } from "../engine/departmentScope";
+import { setAccessRules, setAccessScope } from "../engine/departmentScope";
 import { setFeatures } from "../engine/features";
 import { setSuperAdminSignedIn } from "../engine/signedInPerson";
 import { DEFAULT_PLANT_TIME_ZONE, END_OF_DAY_REASON, END_OF_HOURS_REASON, OUTSIDE_HOURS_CODE, OUTSIDE_HOURS_REASON } from "../engine/workingHoursCore";
@@ -71,14 +71,19 @@ interface AuthContextValue {
   notice: string | null;
 }
 
-// WHICH DEPARTMENTS THE PERSON MAY SEE is decided by their own account record
-// and applied here, once, the moment we know who they are: the two
-// repositories then answer every screen for that scope
-// (engine/departmentScope.ts, REQUIREMENTS §40). The administrator and any
-// account with no department assigned see everything, which is what keeps a
-// brand-new installation usable.
+// WHAT THE PERSON MAY SEE AND DO is decided by the access rules
+// (engine/accessRules.ts, REQUIREMENTS §96): who answers for each document, and
+// the Read, Write or Edit the super admin set per module and per document. It is
+// applied here, once, the moment we know who they are, with the rules as last
+// read (the owner's table until the stored ones arrive, loadAccessRules below):
+// the two repositories then answer every screen for that person
+// (engine/departmentScope.ts). The super admin sees and does everything; an
+// account nobody has described keeps what it had (its departments, or every
+// module when it has none), so a brand-new installation stays usable.
 function applyScope(user: AuthUser | null): void {
-  setDepartmentScope(user && user.role !== "admin" ? user.departments : null);
+  setAccessScope(user ? { email: user.email, role: user.role, departments: user.departments } : null, user ? undefined : null);
+  if (user) startAccessLoad();
+  else accessLoad = null;
   // Mitra's live facts say the staff's hours do not hold the super admin (engine/signedInPerson.ts, §84 addendum).
   setSuperAdminSignedIn(user?.role === "admin");
 }
@@ -109,6 +114,39 @@ function daySessionOf(res: AuthResponse): DaySession | null {
 }
 
 const isOutsideHours = (err: unknown): err is ApiError => err instanceof ApiError && err.status === 403 && err.code === OUTSIDE_HOURS_CODE;
+
+// THE SUPER ADMIN'S STORED RULES (GET /api/access/rules, any signed-in account). Asked once per sign-in, beside the
+// records (main.tsx DataGate waits for both before the app draws), and again when the person is told their access
+// changed (components/layout/NotificationBell.tsx) or the super admin saves them (pages/UsersPage.tsx). A server that
+// cannot say (an older one, a hiccup) leaves the owner's table as it is: nobody is shown less than the default.
+let accessLoad: Promise<void> | null = null;
+/** The version of the rules last read, for whoever wants to know if they changed. */
+let accessVersion = 0;
+
+function startAccessLoad(): Promise<void> {
+  if (!accessLoad) accessLoad = loadAccessRules();
+  return accessLoad;
+}
+
+/** Reads the stored rules and applies them. Never throws: a rule that cannot be read leaves the owner's table. */
+export async function loadAccessRules(): Promise<void> {
+  try {
+    const res = await api.get<{ rules?: unknown; version?: unknown }>("/access/rules");
+    setAccessRules(res?.rules ?? null);
+    accessVersion = typeof res?.version === "number" ? res.version : 0;
+  } catch {
+    /* the owner's table stands */
+  }
+}
+
+/** Waits (at most a few seconds) for the first read of the rules after signing in; the app draws with them. */
+export function accessReady(): Promise<void> {
+  const load = accessLoad ?? Promise.resolve();
+  return Promise.race([load, new Promise<void>((resolve) => setTimeout(resolve, 4000))]);
+}
+
+/** The version of the stored rules this browser last read (0: none read, or none stored). */
+export const accessRulesVersion = (): number => accessVersion;
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 

@@ -4,6 +4,7 @@ import { recordRepository } from "../data/repositories/recordRepository";
 import { historyOf, withEditHistory } from "./recordHistory";
 import { isEditableStatus } from "./recordLifecycle";
 import { normalizeServiceLines } from "./serviceMaterials";
+import { mayWriteRecordsOf } from "./departmentScope";
 
 // SERVICE-REPORT DRAFTS FOLLOW THE QUANTITY RULE. Drafts written before the
 // rule (engine/serviceMaterials.ts, normalizeServiceLines) carry a different
@@ -27,7 +28,7 @@ export function alignServiceReportDrafts(): number {
   );
   const updates: RecordInstance[] = [];
   for (const r of recordRepository.getAll()) {
-    if (!variants.has(r.documentId) || !isEditableStatus(r.status)) continue;
+    if (!variants.has(r.documentId) || !isEditableStatus(r.status) || !mayWriteRecordsOf(r.documentId)) continue;
     const data = r.data as ServiceReportData;
     if (!Array.isArray(data?.lines) || data.lines.length === 0) continue;
     const lines = normalizeServiceLines(variants.get(r.documentId), data.lines, { fillBlankLead: true });

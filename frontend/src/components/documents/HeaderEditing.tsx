@@ -8,6 +8,8 @@ import { nextRevisionNo } from "../../data/formatEdits";
 import { commitFormatChange, draftOf, type FormatDraft } from "../../engine/formatOps";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate } from "../../utils/date";
+import { mayDo } from "../../engine/departmentScope";
+const NO_FIELDS: readonly HeaderField[] = [];
 
 // THE HEADER BLOCK, TYPED OVER ON EVERY DOCUMENT (REQUIREMENTS §86).
 //
@@ -141,7 +143,8 @@ export function useHeaderEditing(o: HeaderEditingOptions): { edit?: HeaderEdit; 
   const reasonId = useId();
   const { doc, record } = o;
   const enabled = o.enabled !== false && !!doc;
-  const formatFields = o.formatFields ?? FORMAT_HEADER_FIELDS;
+  // The format's own values change the format: Edit on the document (REQUIREMENTS §96). The record's date and page need Write, as the record's boxes do.
+  const formatFields = doc && !mayDo(doc.id, "format") ? NO_FIELDS : (o.formatFields ?? FORMAT_HEADER_FIELDS);
   const recordEditable = !!record?.editable;
 
   const fields = useMemo(() => {

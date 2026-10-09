@@ -25,6 +25,7 @@ import type { Language } from "../i18n/strings";
 import { useProgressiveCount } from "../utils/useProgressive";
 import { ensureRecordIndex, readSearchQuery, recordCells, recordIndexGeneration, searchRecords, subscribeRecordIndex, type RecordHit } from "../engine/recordSearch";
 import { clipSnippet, recordSummaryParts, searchTerms, snippetParts, snippetText } from "../engine/recordText";
+import { mayDo } from "../engine/departmentScope";
 
 // ONE SEARCH BOX (REQUIREMENTS §75, §52, §53, §84).
 //
@@ -336,7 +337,7 @@ export function SearchPage() {
                         <button className="btn btn-secondary btn-sm" data-action="search-open-document" onClick={() => navigate(documentOpenRoute(d))}>
                           Open document
                         </button>
-                        {holdsRecords(d) && (
+                        {holdsRecords(d) && mayDo(d.id, "start") && (
                           <button className="btn btn-primary btn-sm" data-action="search-new-record" onClick={() => startRecord(d)}>
                             New record
                           </button>

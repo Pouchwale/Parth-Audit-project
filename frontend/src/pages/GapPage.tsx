@@ -21,6 +21,7 @@ import {
 } from "../engine/recordLifecycle";
 import { deleteRecordWithTrail } from "../engine/recordCrud";
 import { RecordActionBar } from "../components/records/RecordActionBar";
+import { mayDo } from "../engine/departmentScope";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { useT } from "../i18n";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -243,7 +244,8 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
   const [errorsFor, setErrorsFor] = useState<"submit" | "verify">("submit");
   const doc = documentRepository.getById(GAP_DOC_ID);
 
-  const editable = !!record && isEditableStatus(record.status);
+  // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
+  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill");
   // Closing a finding is a follow-up to a report that has already been
   // filed, so it stays possible while the report awaits verification —
   // otherwise the only way to clear a long-done action would be to reject
@@ -646,6 +648,7 @@ export function GapRecordPage({ recordId }: { recordId: string }) {
       <RecordHistoryPanel record={record} />
 
       <RecordActionBar
+        documentId={record.documentId}
         status={record.status}
         dirty={false}
         isDemo={record.isDemo}

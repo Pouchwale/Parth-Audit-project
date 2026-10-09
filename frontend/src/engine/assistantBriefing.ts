@@ -12,6 +12,7 @@ import { submitRecord } from "./recordLifecycle";
 import { validateForSubmit } from "./validation";
 import { addDays, compareISO, formatDisplayDate, todayISO } from "../utils/date";
 import { t } from "../i18n";
+import { isMine, mayDo } from "./departmentScope";
 
 // THE LOGIN BRIEFING. Everything the assistant tells the user when they
 // arrive: what it prepared for them, what still needs a human, what's
@@ -82,7 +83,12 @@ export function computeBriefing(userName: string | undefined): Briefing {
   const overdue: BriefingItem[] = [];
   const awaitingVerification: BriefingItem[] = [];
 
+  // WHAT IS THIS PERSON'S (REQUIREMENTS §96): the work of the documents they answer for and may fill, and the records
+  // waiting for verification that they may verify. Asked once per document, never per record.
   for (const doc of docs) {
+    const mine = isMine(doc.id);
+    const verifies = mayDo(doc.id, "verify");
+    if (!mine && !verifies) continue;
     const records = recordRepository.query({ documentId: doc.id, isDemo: false });
     for (const r of records) {
       if (compareISO(r.dueDate, today) > 0) continue;
@@ -90,9 +96,10 @@ export function computeBriefing(userName: string | undefined): Briefing {
       // count with a cleanup button, instead of thousands of rows.
       if (liveStartDate && compareISO(r.dueDate, liveStartDate) < 0 && !["Submitted", "Pending Verification", "Verified"].includes(r.status)) continue;
       if (r.status === "Pending Verification" || r.status === "Submitted") {
-        awaitingVerification.push(toItem(doc, r));
+        if (verifies) awaitingVerification.push(toItem(doc, r));
         continue;
       }
+      if (!mine) continue;
       if (r.status === "In Progress" && r.prepared) {
         const v = validateForSubmit(doc, r);
         (v.valid ? ready : needsInput).push(toItem(doc, r, v.errors));
@@ -158,6 +165,8 @@ export function submitPreparedRecords(items: BriefingItem[], actorName: string):
     const record = recordRepository.getById(item.recordId);
     const doc = documentRepository.getById(item.documentId);
     if (!record || !doc || !["Scheduled", "Due", "In Progress", "Rejected"].includes(record.status)) continue;
+    // Submitting needs Write on the document (REQUIREMENTS §96): one this person may only read is left as it is.
+    if (!mayDo(doc.id, "submit")) continue;
     const { result } = submitRecord(doc, record, actorName);
     if (result.valid) submitted += 1;
     else failed.push({ item, errors: result.errors });

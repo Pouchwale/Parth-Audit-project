@@ -76,6 +76,7 @@ export function ChemicalMasterPage() {
     <div data-print-doc data-bind-record={CHEMICAL_DOC_ID}>
       <div className="mb-3 no-print">
         <ReferenceEditBar
+          documentId={doc?.id}
           editing={editing}
           onEdit={() => setDraft(masterRepository.get().serviceTypeChemicals)}
           onSave={() => draft && save(draft)}

@@ -170,6 +170,7 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
         <div className="flex items-center gap-2 wrap">
           {validityBadge(validUntil)}
           <ReferenceEditBar
+            documentId={documentId}
             editing={editing}
             edited={edited}
             onEdit={() => setDraft(current)}

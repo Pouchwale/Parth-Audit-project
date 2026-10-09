@@ -35,6 +35,7 @@ import { useHeaderEditing } from "../components/documents/HeaderEditing";
 import { useT } from "../i18n";
 import { MONTH_NAMES, WEEKDAY_NAMES, compareISO, daysInMonth, formatDisplayDate, fromISODate, pad2, todayISO } from "../utils/date";
 import type { DailyPestMonitoringData, DocumentDefinition, FlyCatcherData, MasterData, PestResponsibilitiesData, RecordInstance, ServiceReportData, TrainingRecordData } from "../types";
+import { mayDo } from "../engine/departmentScope";
 
 // The Pest Control module, organised the way the department actually talks
 // about its paperwork (and the way the source documents fall):
@@ -750,9 +751,11 @@ export function ServiceReportListPage({ slug, year: initialYear }: { slug: strin
       </div>
 
       <div className="flex gap-2 wrap mb-3">
-        <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
-          <FiPlus size={12} /> New record
-        </button>
+        {mayDo(doc.id, "start") && (
+          <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
+            <FiPlus size={12} /> New record
+          </button>
+        )}
         {last && (
           <button className="btn btn-primary btn-sm" onClick={() => navigate(`/record/${last.id}`)}>
             {t("pest.openLatestVisit")} <FiArrowRight size={12} />
@@ -999,9 +1002,11 @@ export function FlyCatcherTrendPage({ year: initialYear }: { year?: number }) {
         infestation trend — {flySeasonLabel(month)} in {MONTH_NAMES[month]}. Next inspection {next ? formatDisplayDate(next) : "—"}.
       </p>
       <div className="flex gap-2 wrap mb-4">
-        <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
-          <FiPlus size={12} /> New record
-        </button>
+        {mayDo(doc.id, "start") && (
+          <button className="btn btn-primary btn-sm" data-action="document-new-record" onClick={startRecord}>
+            <FiPlus size={12} /> New record
+          </button>
+        )}
         {latest && (
           <button className="btn btn-primary btn-sm" onClick={() => navigate(`/record/${latest.id}`)}>
             Open latest inspection <FiArrowRight size={12} />

@@ -4,6 +4,7 @@ import { documentRepository } from "../data/repositories/documentRepository";
 import { computeReminders, type DocumentReminder } from "./reminders";
 import { formatMinus } from "./performance";
 import { formatDisplayDate } from "../utils/date";
+import { answersForIds } from "./departmentScope";
 
 // THE DAY'S NOTIFICATIONS, FOR ONE PERSON (REQUIREMENTS §69).
 //
@@ -148,9 +149,12 @@ export interface DaysWork {
  */
 export function daysWork(reminders: readonly DocumentReminder[], person: Pick<AuthUser, "name"> | null | undefined): DaysWork {
   const me = sameName(person?.name ?? "");
-  const named = me ? reminders.filter((r) => r.assignedEmployees.some((e) => sameName(e.name) === me)) : [];
-  const theirOwn = named.length > 0;
-  const mine = theirOwn ? named : reminders;
+  // The access rules say whose work it is (REQUIREMENTS §96): the reminders are already kept to the documents this
+  // person answers for, so they are their own. Otherwise, as before: the names in Master Data, else everything shown.
+  const byRules = answersForIds() !== null;
+  const named = !byRules && me ? reminders.filter((r) => r.assignedEmployees.some((e) => sameName(e.name) === me)) : [];
+  const theirOwn = byRules || named.length > 0;
+  const mine = byRules ? reminders : theirOwn ? named : reminders;
 
   const notifications: Notification[] = [];
   for (const r of mine) {

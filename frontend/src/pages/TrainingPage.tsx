@@ -20,6 +20,7 @@ import {
 } from "../engine/recordLifecycle";
 import { logRecordStarted, withEditHistory } from "../engine/recordHistory";
 import { RecordActionBar } from "../components/records/RecordActionBar";
+import { mayDo } from "../engine/departmentScope";
 import { CorrectionBanner, ErrorList, RecordHistoryPanel } from "../components/records/RecordHistoryPanel";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DemoTag } from "../components/common/DemoTag";
@@ -150,7 +151,8 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
   const doc = documentRepository.getById(TRAINING_DOC_ID);
   const employees = masterRepository.get().employees;
 
-  const editable = !!record && isEditableStatus(record.status);
+  // Below Write on its document the record is read only (REQUIREMENTS §96, engine/departmentScope.ts).
+  const editable = !!record && isEditableStatus(record.status) && mayDo(record.documentId, "fill");
 
   const current = () => (recordRepository.getById(recordId) as RecordInstance<TrainingRecordData> | undefined) ?? record;
 
@@ -472,6 +474,7 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
       <RecordHistoryPanel record={record} />
 
       <RecordActionBar
+        documentId={record.documentId}
         status={record.status}
         dirty={false}
         isDemo={record.isDemo}

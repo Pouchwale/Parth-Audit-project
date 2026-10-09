@@ -2,6 +2,9 @@ import type { AuthUser, ManagedUser } from "../types/auth";
 import type { ActivityTally } from "../engine/activityWork";
 import type { AgentRequest, AgentResponse, ExtractResult, TranscribeResult } from "../engine/mitraTypes";
 import { OUTSIDE_HOURS_CODE, type PublicHours } from "../engine/workingHoursCore";
+import type { AccessRules } from "../engine/accessRules";
+import type { NotificationData, NotificationKind, NotificationPriority } from "../engine/notificationPlan";
+import type { NotificationLanguage } from "../engine/notificationText";
 
 export type { PublicHours };
 
@@ -118,6 +121,7 @@ export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data) }),
+  put: <T>(path: string, data?: unknown) => request<T>(path, { method: "PUT", body: data === undefined ? undefined : JSON.stringify(data) }),
 };
 
 export type AssistantAction = "fill" | "navigate" | "reply";
@@ -549,4 +553,55 @@ export const overviewApi = {
   /** `query`: week (this or last), limit, offset. */
   ask: (key: string, query: string) => api.get<OverviewAnswer>(`/overview/questions/${encodeURIComponent(key)}${query ? `?${query}` : ""}`),
   askCsv: (key: string, query: string) => fetchFile(`/overview/questions/${encodeURIComponent(key)}.csv${query ? `?${query}` : ""}`),
+};
+
+// WHO MAY DO WHAT, SET BY THE SUPER ADMIN (REQUIREMENTS §96; the contract is docs/api/dcrs-api.openapi.json).
+// Anybody signed in reads the rules (the screens follow them); only the super admin writes them, with the version the
+// page was worked out on: a stale version is refused (409) and the page says to reload, never overwrites. The server
+// checks every write against the same rules, so the screen is never the lock.
+export interface AccessRulesAnswer {
+  rules: AccessRules;
+  version: number;
+  defaults?: { people: { email: string; name: string }[] };
+}
+
+export const accessApi = {
+  rules: () => api.get<AccessRulesAnswer>("/access/rules"),
+  save: (rules: AccessRules, baseVersion: number) => api.put<{ version: number }>("/access/rules", { rules, baseVersion }),
+  /** The owner's twelve people who have no account yet, made with one first password (they choose their own at first sign-in). */
+  createMissing: (password: string) => api.post<{ created: { name: string; email: string }[]; existing: string[] }>("/access/accounts/create-missing", { password }),
+  /** Make an account the super admin, or staff again; refused when it would leave no super admin. */
+  setRole: (userId: string, role: "admin" | "staff") => api.post<{ user: ManagedUser }>(`/users/${encodeURIComponent(userId)}/role`, { role }),
+};
+
+// EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the ledger the server keeps, worded in the language asked. Every
+// answer is the caller's own; the bell asks for 20, the Notifications page a page at a time.
+export interface NotificationItem {
+  id: number;
+  kind: NotificationKind;
+  priority: NotificationPriority;
+  title: string;
+  body: string;
+  data: NotificationData;
+  createdAt: string;
+  readAt: string | null;
+  resolvedAt: string | null;
+}
+
+export interface NotificationList {
+  items: NotificationItem[];
+  unread: number;
+  open: number;
+}
+
+/** Said on window when notifications were marked read here, so the bell and the page agree at once. */
+export const NOTIFICATIONS_CHANGED = "dcrs:notifications-changed";
+
+export const notificationsApi = {
+  list: (q: { state?: "open" | "all"; limit?: number; before?: number; lang?: NotificationLanguage }) => {
+    const parts = [`state=${q.state ?? "all"}`, `limit=${q.limit ?? 50}`, `lang=${q.lang ?? "en"}`];
+    if (q.before !== undefined) parts.push(`before=${q.before}`);
+    return api.get<NotificationList>(`/notifications?${parts.join("&")}`);
+  },
+  markRead: (which: { ids: number[] } | { all: true }) => api.post<{ unread: number }>("/notifications/read", which),
 };

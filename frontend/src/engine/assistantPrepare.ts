@@ -10,6 +10,7 @@ import { diffRecordData, makeEntry } from "./recordHistory";
 import { fieldLabels } from "./recordPatch";
 import { supersededRevisionOf } from "./validation";
 import { compareISO, todayISO } from "../utils/date";
+import { mayWriteRecordsOf } from "./departmentScope";
 
 // Statuses in which a record is still an untouched shell the assistant may
 // fill. "In Progress" is deliberately excluded: that means a person has
@@ -54,7 +55,9 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   // from that department logged in today (engine/departmentScope.ts). The
   // briefing that SHOWS them is scoped, so each person still only sees their
   // own (engine/assistantBriefing.ts).
-  const docs = documentRepository.getRecordableUnscoped();
+  // Of those, the documents the signed-in person may fill (REQUIREMENTS §96): the server's morning job prepares the
+  // rest of the plant's, and refuses a change below Write from a browser (engine/departmentScope.ts).
+  const docs = documentRepository.getRecordableUnscoped().filter((d) => mayWriteRecordsOf(d.id));
   const now = new Date().toISOString();
   const prepared: RecordInstance[] = [];
   // Same launch-date floor as the generator (ensureNearTermRecordsGenerated,
@@ -75,7 +78,7 @@ export function prepareDueRecords(referenceISO = todayISO()): RecordInstance[] {
   // history. A draft a person has worked on is never touched.
   for (const record of untouchedSimulatedDrafts()) {
     const doc = documentRepository.getByIdUnscoped(record.documentId);
-    if (!doc) continue;
+    if (!doc || !mayWriteRecordsOf(doc.id)) continue;
     const result = prepareKnownParts(doc, record.dueDate, master, latestConfirmedRecord(doc.id, record.dueDate, false));
     if (!result) continue;
     const entry = makeEntry("prepared", "Assistant", { note: REPREPARED_NOTE, changes: diffRecordData(record.data, result.data, fieldLabels(doc.kind, doc.id)) });
