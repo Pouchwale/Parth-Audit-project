@@ -209,11 +209,11 @@ export interface Standing {
   outOf: number;
   /** The score of whoever is first, so "two of these and you lead" can be said truthfully. */
   best: number | null;
-  /** Their minus score for the period (§92): -10 for each record never done, 0 when nothing was missed. Left out, nothing is said of it. */
+  /** Their minus score for the period (§92), the FMS way: the share of what fell due that was never done (-20 when one in five was missed), 0 when nothing was missed. Left out, nothing is said of it. */
   minus?: number;
 }
 
-/** The minus score in one sentence (§92), after the score's own: " Minus score this month: −20." */
+/** The minus score in one sentence (§92), after the score's own: " Minus score this month: −20%." */
 function minusSentence(minus: number | undefined): string {
   if (minus === undefined || !Number.isFinite(minus)) return "";
   return minus < 0 ? ` Minus score this month: ${formatMinus(minus)}.` : " Minus score this month: 0, nothing missed.";
