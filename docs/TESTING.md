@@ -829,6 +829,14 @@ Seven scripts live in `tests/`:
   read in, X-Language; DCRS's 429 reaching the app as 429 "too_many"; both fail on the old server code), its npm test
   300 of 300 and typecheck clean. Not run here: the full 29-suite browser run, and the suites these changes do not reach.
 
+- **An excursion's remark, proved on a fixed day** (9-Oct-2026). The full browser run of 9-Oct stopped at
+  `e2e_realism.py`'s "every out-of-band reading on a form with a remark column has the remark filled in": it saw none at
+  all. Demo Mode keeps daily sheets for the last few months only, which move with the real clock, and in October 2026
+  the plant model's one drift on F/QC/32 in that window falls on 1-Oct, the weekly off (the model drifts it on 21-Jul
+  too, out of the window). The same failure on the branch without premium-theme's changes showed it was the calendar,
+  not a change. New `frontend/tests/excursionRemarks.test.ts` (2: 21-Jul-2026's third batch is out of band; a Demo Mode
+  July of F/QC/32 gives every out-of-band viscosity a remark). The browser check now fails only on a reading with no
+  remark, says an empty window in words, and names the first readings it misses.
 - **Passwords are the super admin's** (REQUIREMENTS §105, 9-Oct-2026). New unit tests, each failing before the change
   (the module did not exist): `backend/tests/passwordPolicy.test.ts` (6: only the super admin changes their own; "No
   password yet" matches no password, the built-in one included, and is told apart from a real hash; the start-up

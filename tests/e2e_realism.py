@@ -44,7 +44,7 @@ STATS = """
   const s = {
     total: demo.length, status: {}, lots: {}, grades: {},
     readings: 0, outOfBand: 0, daysWithOutOfBand: 0,
-    excursionsWithRemark: 0, excursionsWithoutRemark: 0,
+    excursionsWithRemark: 0, excursionsWithoutRemark: 0, withoutRemark: [],
     checkpointFindings: 0, findingsWithAction: 0,
     lotsNotAcceptedWithReason: 0, lotsNotAcceptedWithoutReason: 0,
     capaRecords: 0, capaFindings: 0, capaClosed: 0, capaOverdue: 0, capaWithAction: 0,
@@ -91,7 +91,11 @@ STATS = """
             dayHadOut = true;
             if (window.__HAS_REMARK.includes(r.documentId)) {
               if ((row.remark || '').trim()) s.excursionsWithRemark++;
-              else s.excursionsWithoutRemark++;
+              else {
+                s.excursionsWithoutRemark++;
+                // The first few, named, so a failure says where (the date, the document, the reading).
+                if (s.withoutRemark.length < 8) s.withoutRemark.push(`${r.date} ${r.documentId} ${k}=${v} remark=${JSON.stringify(row.remark)}`);
+              }
             }
           }
         }
@@ -192,9 +196,15 @@ with sync_playwright() as p:
     check("Some readings fall outside the printed band, as they do on the real specimen", s["outOfBand"] > 0)
     check("...but they stay exceptional (under 5% of all readings)", out_pct < 5.0)
     check("...and they cluster on some days rather than every day", 0 < s["daysWithOutOfBand"] < s["total"])
+    print(f"    ({s['excursionsWithRemark']} out-of-band readings with a remark, {s['excursionsWithoutRemark']} without: {s['withoutRemark']})")
+    # Demo Mode keeps daily sheets for the last few months only, which move with the real clock: in October 2026 they
+    # held no excursion on F/QC/32 (its one, 1-Oct, fell on the weekly off). The rule is proved on a fixed drift day by
+    # frontend/tests/excursionRemarks.test.ts; here a miss fails, and an empty window is said, not failed.
+    if s["excursionsWithRemark"] == 0 and s["excursionsWithoutRemark"] == 0:
+        print("    (no out-of-band reading fell on a form with a remark column in this demo window: frontend/tests/excursionRemarks.test.ts holds the rule)")
     check(
         "Every out-of-band reading on a form WITH a remark column has the remark filled in",
-        s["excursionsWithoutRemark"] == 0 and s["excursionsWithRemark"] > 0,
+        s["excursionsWithoutRemark"] == 0,
     )
 
     # ---- lot dispositions ----
