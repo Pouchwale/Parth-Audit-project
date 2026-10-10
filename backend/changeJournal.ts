@@ -337,7 +337,59 @@ export async function answerLines(
   const ids = rows ? changedSince(rows, from, stored) : null;
   if (!ids) return null;
   const parsed = lines();
-  return parsed ? { kind: "changes", version: stored.version, seq: stored.seq, lines: parsed, ids } : null;
+  // So much changed since (a quarter of the records, and more than a few hundred) that the whole item is as good.
+  if (!parsed || ids.length > Math.max(MANY_CHANGES, parsed.length / 4)) return null;
+  return { kind: "changes", version: stored.version, seq: stored.seq, lines: parsed, ids };
+}
+
+/** Past this many records changed (and a quarter of them), a browser asking is handed the whole item instead. */
+export const MANY_CHANGES = 500;
+
+// ---------------------------------------------------------------------------
+// two computers making the same blank sheets at once
+
+const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
+/** Last changed by the app's preparation, not by a person (frontend/src/data/serverSync.ts preparedOnly). */
+const preparedOnly = (r: Obj) => isObj(r.prepared) && typeof r.updatedAt === "string" && r.prepared.at === r.updatedAt;
+/** A sheet nobody has worked on: as frontend/src/data/serverSync.ts withoutDuplicateBlanks tells it. */
+const blankSheet = (r: Obj) =>
+  ((r.status === "Due" || r.status === "Scheduled") && typeof r.createdAt === "string" && r.createdAt === r.updatedAt) || (r.status === "In Progress" && preparedOnly(r));
+const sheetOf = (r: Obj): string | null => (typeof r.periodKey === "string" && typeof r.documentId === "string" ? `${r.isDemo ? 1 : 0}|${r.documentId}|${r.periodKey}` : null);
+
+/**
+ * THE SAME SHEET MADE TWICE (the rule two copies of the records have always been merged by,
+ * frontend/src/data/serverSync.ts withoutDuplicateBlanks, kept on the server for a save of some records): two computers
+ * opening a new month at the same moment each make its blank sheets, under different ids. A new record of a document
+ * and period the item already holds gives way to the one stored when nobody has worked on it (`dropped`, with the
+ * stored ones it gave way to in `holders`); a new one somebody worked on takes the place of a blank one stored for the
+ * same (`removed`).
+ */
+export function blanksGiveWay(stored: Lines, changed: readonly Obj[]): { changed: Obj[]; removed: string[]; dropped: string[]; holders: string[] } {
+  const fresh = changed.filter((r) => !stored.index.has(lineId(r) ?? "") && sheetOf(r) !== null);
+  if (!fresh.length) return { changed: changed.slice(), removed: [], dropped: [], holders: [] };
+  const wanted = new Set(fresh.map((r) => sheetOf(r)!));
+  const there = new Map<string, Obj[]>();
+  for (const line of stored.items) {
+    if (!isObj(line)) continue;
+    const sheet = sheetOf(line);
+    if (sheet === null || !wanted.has(sheet)) continue;
+    const list = there.get(sheet);
+    if (list) list.push(line);
+    else there.set(sheet, [line]);
+  }
+  const dropped = new Set<string>();
+  const removed = new Set<string>();
+  const holders = new Set<string>();
+  for (const r of fresh) {
+    const stays = there.get(sheetOf(r)!) ?? [];
+    if (!stays.length) continue;
+    if (blankSheet(r)) {
+      dropped.add(lineId(r)!);
+      for (const s of stays) holders.add(lineId(s) ?? "");
+    } else for (const s of stays) if (blankSheet(s) && lineId(s)) removed.add(lineId(s)!);
+  }
+  holders.delete("");
+  return { changed: changed.filter((r) => !dropped.has(lineId(r) ?? "")), removed: [...removed], dropped: [...dropped], holders: [...holders] };
 }
 
 /** A save's changes as the browser sends them: the records, and the ids removed. */

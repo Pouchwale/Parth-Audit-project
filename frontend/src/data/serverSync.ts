@@ -1157,7 +1157,8 @@ async function sendLines(key: string): Promise<void> {
     const upload = await packed(`{"changed":[${changed.join(",")}],"removed":${JSON.stringify(removed)}}`);
     if (session !== s) return;
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
+      // As text, as a whole item goes: the server's JSON parser of every other route (100 KB) never takes it (backend/index.ts).
+      "Content-Type": "text/plain;charset=utf-8",
       "X-Base-Version": String(base.v),
       ...(base.q ? { "X-Base-Seq": String(base.q) } : {}),
       "X-Scope": copyScope,
@@ -1279,12 +1280,25 @@ function sendLinesAsPageCloses(s: Session, key: string): void {
   }
   if (size > KEEPALIVE_MAX_CHARS) return;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    "Content-Type": "text/plain;charset=utf-8",
     "X-Base-Version": String(m.v),
     ...(m.q ? { "X-Base-Seq": String(m.q) } : {}),
     "X-Scope": m.d ?? s.scope,
   };
   void request("PATCH", `/${encodeURIComponent(key)}`, s.userId, `{"changed":[${changed.join(",")}],"removed":${JSON.stringify(removed)}}`, headers, true).catch(() => undefined);
+}
+
+/**
+ * The records this browser holds when it signs in (§108), said with the first question when the copy is in step with
+ * the database (stored, nothing of its own waiting, unchanged since): its version, the write that made it, and whom it
+ * was made for. Null otherwise: the whole item, as before.
+ */
+function recordsHeldAtSignIn(userId: string): { headers: Record<string, string> } | null {
+  if (!lineSaves) return null;
+  const m = readMarker(RECORDS);
+  const mine = local.get(RECORDS);
+  if (!m || m.s !== scopeFor(RECORDS, userId) || m.p || m.v <= 0 || !m.q || mine === null || changedSince(RECORDS, m, mine)) return null;
+  return { headers: { "X-Records-Version": String(m.v), "X-Records-Seq": String(m.q), "X-Scope": m.d ?? "*" } };
 }
 
 /**
@@ -1630,9 +1644,12 @@ export function startServerSync(userId: string): Promise<void> {
       throw new SyncError("storage-disabled", "This browser does not let the app keep its working copy (site data is blocked), so nothing could be saved to the database.");
     }
     const loadStartedAt = iso();
+    // THE RECORDS THIS BROWSER ALREADY HOLDS (§108): said with the question when its copy is in step with the
+    // database, so a sign-in or a reload is handed only the records changed since (or nothing) instead of every one.
+    const held = recordsHeldAtSignIn(userId);
     let res: Response;
     try {
-      res = await request("GET", "", userId);
+      res = await request("GET", "", userId, undefined, held?.headers ?? {});
     } catch (err) {
       throw new SyncError("unreachable", `The database could not be reached (${err instanceof Error ? err.message : String(err)}).`);
     }
@@ -1641,7 +1658,7 @@ export function startServerSync(userId: string): Promise<void> {
       throw new SyncError("signed-out", "Not signed in.");
     }
     if (!res.ok) throw new SyncError("unreachable", `The database could not be reached (${res.status}).`);
-    const { items, seq, denied, scope: copyScope } = (await res.json()) as StorageResponse;
+    const { items, seq, denied, scope: copyScope, versions } = (await res.json()) as StorageResponse;
     const s: Session = { userId, seq, pollTimer: null, failing: false, denied: new Set(denied ?? []), scope: copyScope ?? "*" };
     session = s;
     bases.clear();
@@ -1686,7 +1703,31 @@ export function startServerSync(userId: string): Promise<void> {
         }
         // Another tab of this browser brought this copy in step while the load was on its way: it is the newer.
         if (mine !== null && ours && !pending && ours.t >= loadStartedAt && (!item || ours.v >= item.version)) {
-          if (item && ours.v === item.version) rememberBase(key, item.version, item.value);
+          if (item && ours.v === item.version && item.changes === undefined) rememberBase(key, item.version, item.value);
+          continue;
+        }
+        if (key === RECORDS && held && mine !== null && ours) {
+          if (!item && !pending && versions?.[key] === ours.v) {
+            // The copy is the database's still: kept as it is, nothing downloaded (§108).
+            rememberBase(key, ours.v, mine);
+            continue;
+          }
+          if (item?.changes) {
+            // The records changed since this copy, laid over it; a change made here goes first, and its answer brings them.
+            if (pending) sends.push(key);
+            else if (ours.v === item.changes.from) {
+              takeLines(key, item.changes, new Map(), []);
+              const text = local.get(key) ?? mine;
+              rememberBase(key, item.version, text);
+              writeMarkerOf(key, { s: scope, v: item.version, q: item.seq, t: iso(), d: s.scope }, text);
+              forgetSavedBase(key);
+            } else wholeRecordsNext = true;
+            continue;
+          }
+        }
+        if (item?.changes) {
+          // Records handed over for a copy this one no longer is: asked for again by the next question.
+          wholeRecordsNext = true;
           continue;
         }
         if (item) {

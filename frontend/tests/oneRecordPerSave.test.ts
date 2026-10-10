@@ -333,6 +333,27 @@ test("a save that touched thousands of records goes in parts, every one stored",
   assert.equal(db.get("records")!.value, JSON.stringify(recordRepository.getAll()));
 });
 
+test("signing in again with a copy in step: the records are not downloaded again, and a colleague's save meanwhile comes as that record", async () => {
+  await settled();
+  await stopServerSync();
+  let mark = calls.length;
+  await startServerSync("person-1");
+  await settled();
+  const signIn = () => calls.slice(mark).find((c) => c.method === "GET" && c.url === "/api/storage")!;
+  assert.ok(signIn().headers["X-Records-Version"], "the sign-in says which records this browser holds");
+  assert.equal(signIn().records, undefined, "and is handed none: the copy is the database's");
+  assert.equal(db.get("records")!.value, JSON.stringify(recordRepository.getAll()), "the app opens on every record, to the character");
+
+  await stopServerSync();
+  await elsewhere({ ...record(50), data: { reading: 5050 }, updatedAt: "2026-10-10T07:00:00.000Z" });
+  mark = calls.length;
+  await startServerSync("person-1");
+  await settled();
+  assert.equal(signIn().records, "changes", "the next sign-in is handed the record changed since, not the whole item");
+  assert.equal((recordRepository.getById("r-50")!.data as { reading: number }).reading, 5050);
+  assert.equal(db.get("records")!.value, JSON.stringify(recordRepository.getAll()));
+});
+
 test("a server older than this (no save of single records): the records go whole, as before", async () => {
   patchAnswered = false;
   calls.length = 0;

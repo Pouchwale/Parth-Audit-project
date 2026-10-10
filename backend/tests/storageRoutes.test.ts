@@ -152,6 +152,8 @@ async function start(): Promise<Server> {
     },
   };
   const app = express();
+  // As backend/index.ts does for every route: a JSON body is parsed before the routes (100 KB at most).
+  app.use(express.json());
   const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
     const user = USERS[String(req.get("x-test-user"))];
     if (!user) {
@@ -353,8 +355,9 @@ interface Answer {
   body: Record<string, any>;
 }
 
-async function patch(s: Server, who: string, changes: { changed?: unknown[]; removed?: string[] }, base: { version: number; seq?: number | null }, scope?: string): Promise<Answer> {
-  const headers: Record<string, string> = { "x-test-user": who, "Content-Type": "application/json", "X-Base-Version": String(base.version) };
+async function patch(s: Server, who: string, changes: { changed?: unknown[]; removed?: string[] }, base: { version: number; seq?: number | null }, scope?: string, type = "text/plain;charset=utf-8"): Promise<Answer> {
+  // As the browser sends it: text, so the server's JSON parser of every route (100 KB) never takes it.
+  const headers: Record<string, string> = { "x-test-user": who, "Content-Type": type, "X-Base-Version": String(base.version) };
   if (base.seq !== undefined && base.seq !== null) headers["X-Base-Seq"] = String(base.seq);
   if (scope !== undefined) headers["X-Scope"] = scope;
   const res = await fetch(`${s.base}/api/storage/records`, { method: "PATCH", headers, body: JSON.stringify(changes) });
@@ -443,6 +446,24 @@ describe("one record per save: the records that changed, laid over the item as s
     assert.deepEqual(later.body.changes.removed, ["v-new"], "told it is gone");
   });
 
+  it("the same blank sheet made on two computers at once: the one stored stays, and the other is told", async () => {
+    const anchor = s.store.anchor();
+    const sheet = (id: string, extra: Record<string, unknown> = {}) =>
+      rec(id, "qc-viscosity", "Due", { periodKey: "qc-viscosity:2026-11-02", createdAt: "2026-11-01T00:00:00.000Z", updatedAt: "2026-11-01T00:00:00.000Z", history: [], ...extra });
+    assert.equal((await patch(s, "admin", { changed: [sheet("sheet-a")] }, anchor)).status, 200);
+    const second = await patch(s, "admin", { changed: [sheet("sheet-b")] }, anchor);
+    assert.equal(second.status, 200, JSON.stringify(second.body));
+    assert.deepEqual(second.body.changes.removed, ["sheet-b"], "its own gives way");
+    assert.deepEqual(second.body.changes.changed.map((x: { id: string }) => x.id), ["sheet-a"], "to the one stored, handed to it");
+    assert.deepEqual(recordsOf(s).filter((x) => x.id.startsWith("sheet-")).map((x) => x.id), ["sheet-a"]);
+    // A sheet somebody worked on, made elsewhere for the same day, takes the place of the blank one stored.
+    const worked = sheet("sheet-c", { status: "In Progress", updatedAt: "2026-11-02T05:00:00.000Z", history: [entry("edited")] });
+    const third = await patch(s, "admin", { changed: [worked] }, s.store.anchor());
+    assert.equal(third.status, 200);
+    assert.deepEqual(third.body.changes.removed, ["sheet-a"]);
+    assert.deepEqual(recordsOf(s).filter((x) => x.id.startsWith("sheet-")).map((x) => x.id), ["sheet-c"]);
+  });
+
   it("the whole item stays writable (a first upload, the phones' engine), and that write is journaled by record", async () => {
     const anchor = s.store.anchor();
     const all = recordsOf(s).filter((x) => x.id !== "hr-1").map((x) => (x.id === "p-1" ? { ...x, data: { v: 8 } } : x));
@@ -455,6 +476,16 @@ describe("one record per save: the records that changed, laid over the item as s
     assert.equal(item.value, undefined, "not the whole item");
     assert.deepEqual(item.changes!.changed.map((x) => x.id), ["p-1"]);
     assert.deepEqual(item.changes!.removed, ["hr-1"]);
+  });
+
+  it("a save of more than the server's JSON parser takes (100 KB) is taken as text; a small one sent as JSON too", async () => {
+    const big = Array.from({ length: 80 }, (_, i) => rec(`bulk-${i}`, "qc-viscosity", "Verified", { note: "z".repeat(2000) }));
+    assert.ok(JSON.stringify({ changed: big }).length > 150_000);
+    const r = await patch(s, "admin", { changed: big }, s.store.anchor());
+    assert.equal(r.status, 200, JSON.stringify(r.body).slice(0, 300));
+    const small = await patch(s, "admin", { removed: big.map((x) => x.id) }, s.store.anchor(), undefined, "application/json");
+    assert.equal(small.status, 200, JSON.stringify(small.body).slice(0, 300));
+    assert.equal(recordsOf(s).some((x) => x.id.startsWith("bulk-")), false);
   });
 
   it("refuses what is not a save of records, and a save with no version", async () => {
@@ -481,6 +512,7 @@ describe("one record per save, at each person's level (§96, §108)", () => {
     assert.equal(r.body.recordId, "p-1");
     assert.equal(r.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Filling in a record needs Write access: ask the super admin for it.");
     assert.equal(s.store.version("records"), version);
+    assert.deepEqual(r.body.changes.changed, [POUCHING], "the record as the database holds it, for the browser to put back");
     assert.ok(s.lines.some((l) => l.action === "Change refused" && l.who === "Ankur Raval"));
   });
 

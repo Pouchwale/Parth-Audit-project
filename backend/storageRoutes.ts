@@ -19,7 +19,7 @@ import {
 import { ACCESS_KEY, AccessRefused, checkFormatChange, composeDefinitions, composeRecordLines, composeRecords, holdsHrMaster, languageOf, levelRefusal, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
 import { accessAccountOf, catalogueLoader, databaseItemSource } from "./accessStore.ts";
 import type { AccessCatalogue } from "./accessLevels.ts";
-import { lineId, postedChanges, type Lines } from "./changeJournal.ts";
+import { blanksGiveWay, lineId, postedChanges, type Lines } from "./changeJournal.ts";
 
 // THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55). The browser keeps a
 // working copy of each stored item (frontend/src/data/serverSync.ts): it
@@ -364,13 +364,15 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
     express.text({ type: () => true, limit: STORAGE_MAX_BYTES }),
     async (req: Request, res: Response): Promise<void> => {
       const key = String(req.params.key ?? "");
-      if (key !== "records" || typeof req.body !== "string") {
+      if (key !== "records") {
         res.status(400).json({ error: "Only the records are saved record by record." });
         return;
       }
+      // Sent as text (the browser's way, read here up to 25 MB); a small one sent as JSON is parsed by the server's own
+      // JSON parser of every route (backend/index.ts) before it arrives.
       let posted: ReturnType<typeof postedChanges> = null;
       try {
-        posted = postedChanges(JSON.parse(req.body));
+        posted = postedChanges(typeof req.body === "string" ? JSON.parse(req.body) : req.body);
       } catch {
         posted = null;
       }
@@ -401,6 +403,7 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
       const sent = posted;
       const ids = [...sent.changed.map((line) => lineId(line)!), ...sent.removed];
       let seen: Lines | null = null;
+      let gaveWay: string[] = [];
       const compose: ComposeLines = (stored, behind) => {
         seen = stored;
         // Somebody else changed one of these records since the browser's copy: theirs comes first, and nothing is written.
@@ -413,12 +416,16 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
           for (const id of sent.removed) if (behind.has(id) && stored.get(id) !== undefined) conflicts.push(id);
           if (conflicts.length) return { conflicts };
         }
-        if (view.editsAll) return { lines: stored.with(sent.changed, sent.removed), touched: ids };
+        // The same blank sheet made on two computers at once: the one stored stays (blanksGiveWay).
+        const way = blanksGiveWay(stored, sent.changed);
+        gaveWay = [...way.dropped, ...way.removed, ...way.holders];
+        const removed = [...sent.removed, ...way.removed];
+        if (view.editsAll) return { lines: stored.with(way.changed, removed), touched: [...ids, ...way.removed] };
         // Record by record, against the version stored (§96): the person's own lines with the save laid over them,
         // checked as a whole write of them is; everyone else's as stored.
-        const mine = stored.derive(stored.items.filter((line) => view.holds(line))).with(sent.changed, sent.removed);
+        const mine = stored.derive(stored.items.filter((line) => view.holds(line))).with(way.changed, removed);
         const out = composeRecordLines(view, stored.items, mine.items, user.name);
-        return { lines: stored.derive(out.lines), touched: [...ids, ...out.kept] };
+        return { lines: stored.derive(out.lines), touched: [...ids, ...way.removed, ...out.kept] };
       };
       let result: LinesWriteResult;
       try {
@@ -457,7 +464,7 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         version: result.version,
         seq: result.seq,
         ...(differ.length ? { kept: differ } : {}),
-        changes: { from: version, ...linesFor(view, lines, [...result.behind, ...differ]) },
+        changes: { from: version, ...linesFor(view, lines, [...result.behind, ...differ, ...gaveWay]) },
       });
     }
   );
