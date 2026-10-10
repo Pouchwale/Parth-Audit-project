@@ -100,6 +100,28 @@ test("the writes reach IndexedDB in order: the latest wins, and a value and its 
   }
 });
 
+test("a save reads back only the value's stamp, never the value: a large copy is not read at every save", async () => {
+  const browser = new FakeBrowser();
+  browser.storage.room = 2000;
+  const room = await openTab(browser, "tab-1");
+  for (let gen = 1; gen <= 3; gen++) {
+    room.set(RECORDS, value(gen, LARGE_CHARS + 50));
+    await room.idle();
+  }
+  assert.equal(genOf(stored(browser, RECORDS)), 3);
+  assert.deepEqual([...new Set(browser.disk.reads)], [`@stamp:${RECORDS}`], "each write read the stamp alone");
+  const stamp = browser.disk.data.get(`@stamp:${RECORDS}`) as { c: number; t: string; v?: unknown };
+  const entry = browser.disk.data.get(RECORDS) as { c: number; t: string };
+  assert.deepEqual({ c: stamp.c, t: stamp.t }, { c: entry.c, t: entry.t }, "the stamp beside the value is the value's own");
+  assert.equal("v" in stamp, false, "and carries nothing of the value");
+
+  // A page opened afterwards reads the value, not the stamp, as a value.
+  browser.closeTab("tab-1");
+  const next = await openTab(browser, "tab-2");
+  assert.equal(genOf(next.get(RECORDS)), 3);
+  assert.deepEqual(next.names("@stamp:"), [], "no stamp is ever read as a value of the working copy");
+});
+
 test("a page closed while its writes are on their way: the next one finds a value and marker that belong together", async () => {
   const browser = new FakeBrowser();
   browser.storage.setItem(RECORDS, value(0, 500));

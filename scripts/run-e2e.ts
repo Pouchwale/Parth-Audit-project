@@ -6,7 +6,7 @@
 // tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py,
 // tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_qc_formats.py,
 // tests/e2e_purchase_module.py, tests/e2e_store_module.py, tests/e2e_assistant_and_logout.py,
-// tests/e2e_maintenance_module.py, tests/e2e_pm_link.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_storage_room.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
+// tests/e2e_maintenance_module.py, tests/e2e_pm_link.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_storage_room.py, tests/e2e_browser_room.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
 // tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py,
 // and last the two of the database DCRS shares with the Audit Assistant (REQUIREMENTS §83):
 // tests/e2e_audit_assistant_api.py and tests/e2e_database_overview.py; then REQUIREMENTS §84's
@@ -356,6 +356,9 @@ async function main(): Promise<void> {
       "tests/e2e_topbar_status.py",
       // REQUIREMENTS §79: the browser nearly full — named, cleared in a click; Demo Mode stops short.
       "tests/e2e_storage_room.py",
+      // REQUIREMENTS §108: what does not fit in localStorage is kept in IndexedDB — records past the room, a reload, the
+      // plant's 7 MB timed at 6x CPU, and the banner's own words when IndexedDB refuses.
+      "tests/e2e_browser_room.py",
   "tests/e2e_mitra_agent.py",
   // REQUIREMENTS §81: the 3D introduction and the fonts; sound and Mitra's voice; celebrations in every module;
   // and every document's Word/Excel downloaded, edited and uploaded back.

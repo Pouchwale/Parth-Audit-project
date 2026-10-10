@@ -21,9 +21,11 @@ product as a plant installs it, on a system live since the first of last month
     F/HR/18 - and every document is started by the department that owns it;
   * a document's page shows the record just started, not the blank sheet made
     ahead for the 31st;
-  * WITH THE BROWSER'S STORAGE FULL, Start still opens the record (held in the
-    page's memory), the page says this browser's copy is full and then that the
-    record WAS saved, and the record is in the database;
+  * WITH THE BROWSER'S STORAGE FULL, Start still opens the record, which is in
+    the database and is kept in the browser's IndexedDB (s108): no banner says
+    the copy is full, and after a reload with the browser still full the record
+    opens (the banner's words when IndexedDB too refuses are
+    tests/e2e_browser_room.py's);
   * every record started by hand is in the activity log as "Record started" -
     the pages that build their own record (the CAPA registers, the complaint
     and its acknowledgement, the training record, the service agreement) wrote
@@ -470,6 +472,28 @@ FILL = """() => {
   return lo;
 }"""
 
+# Whether the browser's copy of the records in IndexedDB (frontend/src/data/browserRoom.ts, s108) holds a record.
+IN_ROOM = """async (rid) => {
+  const db = await new Promise((resolve) => {
+    const req = indexedDB.open('dcrs-room');
+    req.onupgradeneeded = () => { try { req.transaction.abort(); } catch (e) { /* ending */ } };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+  if (!db) return false;
+  try {
+    if (!db.objectStoreNames.contains('items')) return false;
+    const text = await new Promise((resolve) => {
+      const q = db.transaction('items', 'readonly').objectStore('items').get('dcrs:v1:records');
+      q.onsuccess = () => resolve(q.result && typeof q.result.v === 'string' ? q.result.v : '');
+      q.onerror = () => resolve('');
+    });
+    return text.includes('"id":"' + rid + '"');
+  } finally {
+    db.close();
+  }
+}"""
+
 
 DEFS = {}
 
@@ -538,7 +562,7 @@ with sync_playwright() as p:
         check(f"{doc_id}'s page shows the record Start opened", shown.count() == 1 and shown.get_attribute("data-record") == admin_started[doc_id][0], (shown.get_attribute("data-record") if shown.count() else None, admin_started[doc_id][0]))
 
     # ==================================================================
-    # 2. With the browser's storage full, Start still starts - and the record is saved
+    # 2. With the browser's storage full, Start still starts - and the record is saved, and kept (s108)
     # ==================================================================
     if not ONLY or "mnt-new-equipment" in ONLY:
         print("\n==== The browser's storage full ====", flush=True)
@@ -552,20 +576,18 @@ with sync_playwright() as p:
         if rid:
             problems = shown_ok(page, rid)
             check("...on the record: its form is drawn, never 'Record not found'", not problems, problems)
-            banner = page.locator("[data-section='storage-held']")
-            check("...and the page says this browser's copy is full", wait_for(lambda: banner.count() or None, timeout=8) is not None and "This browser's copy is full" in banner.first.inner_text(), banner.first.inner_text() if banner.count() else None)
-            # Read in the same moment it says so: another held change (Mitra's chat, a setting) can put it back to "sending".
-            saved = wait_for(lambda: page.evaluate("() => { const b = document.querySelector(\"[data-section='storage-held'][data-state='saved']\"); return b ? b.innerText : null; }"), timeout=30)
-            check("...then that the record WAS saved", bool(saved) and "WAS saved" in saved, saved or (page.locator("[data-section='storage-held']").first.inner_text() if banner.count() else None))
             st = stored(page, rid, "mnt-new-equipment")
-            check("...and it is in the database", st.get("found"), st.get("status"))
-            check("...while nothing new was written into the browser's full storage", rid not in (page.evaluate("() => localStorage.getItem('dcrs:v1:records') || ''")))
-            page.evaluate("() => localStorage.removeItem('zz-e2e-filler')")
+            check("...it is in the database", st.get("found"), st.get("status"))
+            check("...and in the browser's copy in IndexedDB, nothing new written into its full localStorage", bool(wait_for(lambda: page.evaluate(IN_ROOM, rid), timeout=15)) and rid not in (page.evaluate("() => localStorage.getItem('dcrs:v1:records') || ''")))
+            banner = page.locator("[data-section='storage-held'], [data-section='storage-full'], [data-section='storage-nearly-full']")
+            check("...so no banner says this browser's copy is full (it said so again and again before s108)", banner.count() == 0, banner.first.inner_text() if banner.count() else None)
+            # The browser still full: the record is read from IndexedDB at start-up, and nothing is said.
             page.reload()
             page.wait_for_selector(".app-sidebar", timeout=90000)
             page.wait_for_timeout(1500)
             tidy(page)
-            check("With room again, the record opens after a reload, from the database", not shown_ok(page, rid), page.url)
+            check("After a reload with the browser still full, the record opens", not shown_ok(page, rid), page.url)
+            check("...and still no banner", banner.count() == 0, banner.first.inner_text() if banner.count() else None)
             admin_started.setdefault("mnt-new-equipment", []).append(rid)
         page.evaluate("() => localStorage.removeItem('zz-e2e-filler')")
 

@@ -12,8 +12,9 @@
 //   start-up    everything kept in IndexedDB is read into memory before anything reads the working copy (main.tsx);
 //   a write     goes to localStorage when it fits. One that does not is kept in memory at once and written to
 //               IndexedDB a moment later, behind the page and in order: the writes of a moment go in one transaction,
-//               the next only after it has been stored, and of two writes of one value the later wins. While the page
-//               is being left (pagehide), a write goes to IndexedDB at once, not after a timer that may never run;
+//               the next only after it has been stored, and of two writes of one value the later wins (each value's
+//               stamp is kept beside it, alone, so a write never reads a large value back). While the page is being
+//               left (pagehide), a write goes to IndexedDB at once, not after a timer that may never run;
 //   large       a value kept here is not tried in localStorage again while it is large (over LARGE_CHARS); a smaller
 //               one is, and goes back there when it fits. A value and its marker (serverSync.ts) are kept together:
 //               the browser never keeps a newer marker beside an older value, which would send the older value back
@@ -39,11 +40,20 @@ const MARKER_PREFIX = "dcrs:sync:";
 
 export const ROOM_DB = "dcrs-room";
 const STORE = "items";
+/**
+ * Each value's stamp is stored a second time, alone, under this prefix and its name: a write compares stamps by reading
+ * this small entry, never the value (7 MB of records read back at every save made a 169 ms task at 6x CPU throttle).
+ */
+const STAMP_PREFIX = "@stamp:";
 const CHANNEL = "dcrs-room";
 /** Held, shared, by every open tab of the app for as long as it is open: how a tab knows it is the only one. */
 const TABS_LOCK = "dcrs-room-tabs";
-/** A value kept in IndexedDB is not tried in localStorage again while it is larger than this (a fifth of the room). */
-export const LARGE_CHARS = 1_000_000;
+/**
+ * A value kept in IndexedDB is not tried in localStorage again while it is larger than this (a fiftieth of the room):
+ * the records, the documents, once moved, stay, and never go back and forth at the edge of the room with each save.
+ * A small value (a setting, a marker) goes back to localStorage as soon as it fits.
+ */
+export const LARGE_CHARS = 100_000;
 /** What this tab stored lately is handed to a tab that opens now: its read may have started before it was stored. */
 const RECENT_MS = 30_000;
 /** A browser whose IndexedDB does not open in this time is treated as having none, for this page. */
@@ -193,7 +203,7 @@ function openAndRead(idb: IDBFactory): Promise<{ db: IDBDatabase; entries: [stri
           const stored = values.result as unknown[];
           const entries: [string, Entry][] = [];
           names.forEach((name, i) => {
-            if (typeof name === "string" && isEntry(stored[i])) entries.push([name, stored[i] as Entry]);
+            if (typeof name === "string" && !name.startsWith(STAMP_PREFIX) && isEntry(stored[i])) entries.push([name, stored[i] as Entry]);
           });
           resolve({ db, entries });
         };
@@ -519,12 +529,15 @@ export class BrowserRoom {
     let thrown: unknown = null;
     const store = tx.objectStore(STORE);
     for (const [name, entry] of batch) {
-      const there = store.get(name);
+      // The stamp alone is read (STAMP_PREFIX), never the value: a 7 MB copy is not read back at every save.
+      const there = store.get(STAMP_PREFIX + name);
       there.onsuccess = () => {
         // Another tab stored a newer one of it in the meantime: that one stands, here as in every tab.
-        if (isEntry(there.result) && !newer(entry, there.result)) return;
+        const stamp = there.result as Stamp | undefined;
+        if (stamp && typeof stamp.c === "number" && typeof stamp.t === "string" && !newer(entry, stamp)) return;
         try {
           store.put(entry, name);
+          store.put({ c: entry.c, t: entry.t }, STAMP_PREFIX + name);
         } catch (err) {
           thrown = err;
           try {

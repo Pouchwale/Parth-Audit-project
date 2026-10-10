@@ -15,6 +15,12 @@ came back on the dashboard.
   * one click clears the demo data - the live records untouched - and the
     warning goes by itself.
 
+Since REQUIREMENTS s108 what does not fit in localStorage is kept in the
+browser's IndexedDB (frontend/src/data/browserRoom.ts), so a browser that has
+it is never near a wall and is not warned; tests/e2e_browser_room.py proves
+that. The warning is for a browser without IndexedDB, so the part past the
+mark takes IndexedDB away from the page (an init script) and loads it again.
+
 Network-independent. Against the production build on :8842.
 """
 import re
@@ -65,6 +71,29 @@ def dismiss(page):
     if btn.count():
         btn.first.click()
         page.wait_for_timeout(200)
+
+
+# How many values the app keeps in this origin's IndexedDB (frontend/src/data/browserRoom.ts); never makes the database.
+KEPT_IN_INDEXEDDB = """async () => {
+  const db = await new Promise((resolve) => {
+    const req = indexedDB.open('dcrs-room');
+    req.onupgradeneeded = () => { try { req.transaction.abort(); } catch (e) { /* ending */ } };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+  if (!db) return 0;
+  try {
+    if (!db.objectStoreNames.contains('items')) return 0;
+    const all = await new Promise((resolve) => {
+      const q = db.transaction('items', 'readonly').objectStore('items').getAll();
+      q.onsuccess = () => resolve(q.result || []);
+      q.onerror = () => resolve([]);
+    });
+    return all.filter((e) => e && typeof e.v === 'string').length;
+  } finally {
+    db.close();
+  }
+}"""
 
 
 def used_chars(page):
@@ -151,7 +180,12 @@ with sync_playwright() as p:
     print("\n==== Past the mark: named, and cleared in one click ====")
     filler = MARK + 150_000 - after_demo
     page.evaluate("(n) => localStorage.setItem('dcrs:v1:room-filler', 'x'.repeat(n))", filler)
+    # A browser without IndexedDB (s108). Everything above fitted in localStorage, so nothing was kept there to lose.
+    kept = page.evaluate(KEPT_IN_INDEXEDDB)
+    check("Under the mark nothing was kept in IndexedDB", kept == 0, kept)
+    page.add_init_script("Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true });")
     page.goto(f"{BASE}/index.html#/dashboard")
+    page.reload()
     page.wait_for_selector(".app-sidebar", timeout=60000)
     page.wait_for_timeout(1500)
     dismiss(page)

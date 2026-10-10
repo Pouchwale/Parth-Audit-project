@@ -39,6 +39,8 @@ export class FakeDisk {
   private running: FakeTransaction | null = null;
   /** Writes stored, in all. */
   commits = 0;
+  /** Every name read with get, in order. */
+  readonly reads: string[] = [];
 
   /** Transactions begun and not yet ended: a write handed to IndexedDB. */
   get waiting(): number {
@@ -82,6 +84,7 @@ export class FakeDisk {
 class FakeStore {
   constructor(private readonly tx: FakeTransaction) {}
   get(key: string): FakeRequest {
+    this.tx.disk.reads.push(key);
     return this.tx.op((view) => (view.has(key) ? structuredClone(view.get(key)) : undefined));
   }
   getAll(): FakeRequest {
