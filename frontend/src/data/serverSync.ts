@@ -289,7 +289,9 @@ const raw = {
 
 // INDEXEDDB REFUSED what did not fit in localStorage (data/browserRoom.ts): the item is in this page's memory only, as
 // §93 held it, and is said the same way - "sending" while the database does not have the change, "WAS saved" once it
-// has (components/common/StorageFullBanner.tsx). Only now does the page say the browser's copy is full (§108).
+// has (components/common/StorageFullBanner.tsx). Only now does the page say the browser's copy is full (§108). A copy
+// that came from the database with nothing of this page's waiting in it (a sign-in, a colleague's work) is said as
+// such (`fromDatabase`): nothing is lost, and nothing was saved just now.
 onRoomRefused((names) => {
   const s = session;
   for (const name of names) {
@@ -304,7 +306,7 @@ onRoomRefused((names) => {
       heldUnsent.add(key);
       guardLeaving();
       dispatch(STORAGE_HELD, { key });
-    } else dispatch(STORAGE_HELD_SAVED, { key, stillHeld: true });
+    } else if (!heldUnsent.has(key)) dispatch(STORAGE_HELD_SAVED, { key, stillHeld: true, fromDatabase: true });
   }
 });
 

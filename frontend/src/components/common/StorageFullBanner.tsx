@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FiAlertTriangle, FiCheck, FiTrash2 } from "react-icons/fi";
 import {
   BROWSER_ROOM_CHARS,
@@ -47,19 +47,31 @@ export function StorageFullBanner() {
   const [held, setHeld] = useState<"sending" | "saved" | null>(null);
   // A record (the records item), or something else of the person's (their settings…).
   const [heldRecords, setHeldRecords] = useState(true);
+  // IndexedDB refused a copy that came from the database, with nothing of the person's waiting in it (a sign-in, a
+  // colleague's work: data/serverSync.ts): nothing is lost, and nothing was saved just now (REQUIREMENTS §108).
+  const [heldFromDatabase, setHeldFromDatabase] = useState(false);
+  const heldNow = useRef<"sending" | "saved" | null>(null);
 
   useEffect(() => {
     const onFail = () => setFailed(true);
     // Read, not assumed: the same word is sent when the working copy has been cut back down.
     const onNearlyFull = () => setNearlyFull(storageNearlyFull());
-    const keyOf = (e: Event) => ((e as CustomEvent<{ key?: string } | undefined>).detail?.key ?? "records") === "records";
+    const detailOf = (e: Event) => (e as CustomEvent<{ key?: string; fromDatabase?: boolean } | undefined>).detail;
+    const keyOf = (e: Event) => (detailOf(e)?.key ?? "records") === "records";
     const onHeld = (e: Event) => {
+      heldNow.current = "sending";
       setHeld("sending");
       setHeldRecords(keyOf(e));
+      setHeldFromDatabase(false);
     };
     const onHeldSaved = (e: Event) => {
+      // A change of the person's said saved stays said: a copy from the database refused after it does not take it back.
+      const fromDatabase = detailOf(e)?.fromDatabase === true;
+      if (fromDatabase && heldNow.current === "saved") return;
+      heldNow.current = "saved";
       setHeld("saved");
       setHeldRecords(keyOf(e));
+      setHeldFromDatabase(fromDatabase);
     };
     window.addEventListener(STORAGE_WRITE_FAILED, onFail);
     window.addEventListener(STORAGE_NEARLY_FULL, onNearlyFull);
@@ -124,6 +136,7 @@ export function StorageFullBanner() {
       role={failed || held === "sending" ? "alert" : "status"}
       data-section={held ? "storage-held" : failed ? "storage-full" : "storage-nearly-full"}
       data-state={held ?? undefined}
+      data-from-database={held === "saved" && heldFromDatabase ? "true" : undefined}
       data-used={used}
       style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}
     >
@@ -133,7 +146,7 @@ export function StorageFullBanner() {
           {held === "sending"
             ? t("room.full")
             : held === "saved"
-              ? t(heldRecords ? "room.fullSavedRecord" : "room.fullSavedChange")
+              ? t(heldFromDatabase ? "room.fullNothingLost" : heldRecords ? "room.fullSavedRecord" : "room.fullSavedChange")
               : failed
                 ? "Your last change could not be saved."
                 : "This browser is nearly full."}
@@ -183,6 +196,7 @@ export function StorageFullBanner() {
           onClick={() => {
             setFailed(false);
             setNearlyFull(false);
+            heldNow.current = null;
             setHeld(null);
           }}
         >

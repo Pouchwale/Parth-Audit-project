@@ -12,12 +12,15 @@
 //   * the writes reach IndexedDB in order: the latest of a value wins, and a value and its marker are stored together,
 //     so the browser never holds a newer marker beside an older value - not even when the page is closed mid-way;
 //   * once IndexedDB has stored a value, its old copy in localStorage is removed, with its marker's, to free the room -
-//     only while no other tab of the app is open;
+//     only while no other tab of the app is open, and never once a tab of the app's older version (which reads only
+//     localStorage) has been seen writing a value kept here;
+//   * while the page is being left, a write goes to IndexedDB at once, not after a timer that may never run;
 //   * a value kept in IndexedDB is not tried in localStorage again while it is large; small again, it goes back there;
 //   * another tab learns of a change (BroadcastChannel); two tabs writing at once end with the same value, here and in
 //     IndexedDB; a tab opening while another's write is on its way is handed it;
-//   * when IndexedDB refuses, the value stays in memory, the page is told which, and the next write tries again;
-//     without IndexedDB at all, the caller is told it did not fit, as before (§93 holds it in memory).
+//   * when IndexedDB refuses (when the transaction ends, or at the write itself), the value stays in memory, the page
+//     is told which, and the next write tries again; without IndexedDB at all, the caller is told it did not fit, as
+//     before (§93 holds it in memory).
 // Run: npm run test:unit -- browserRoom
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -148,6 +151,65 @@ test("once IndexedDB has the value, its old copy in localStorage is removed with
   assert.equal(genOf(room.get(RECORDS)), 2);
   assert.equal(genOf(room.get(MARKER)), 0, "the marker is read from IndexedDB's copy");
   assert.ok(browser.storage.used() < 200, "the room is free for the small values");
+});
+
+test("a tab of the app's older version writing a value kept here: from then on no copy in localStorage is removed", async () => {
+  const browser = new FakeBrowser();
+  browser.storage.setItem(RECORDS, value(0, 1500));
+  browser.storage.setItem(MARKER, marker(0));
+  browser.storage.room = browser.storage.used() + 100;
+  const room = await openTab(browser, "tab-1");
+  room.set(RECORDS, value(1));
+  await room.idle();
+  await until("alone, the old copies are removed", () => browser.storage.getItem(RECORDS) === null && browser.storage.getItem(MARKER) === null);
+
+  // A tab left open from before the update knows nothing of IndexedDB: it takes the database's copy into localStorage
+  // (it fits again) and reads only that. This page hears it, and leaves the copies there for that tab.
+  browser.writeFromOlderTab(RECORDS, value(5, 500));
+  browser.writeFromOlderTab(MARKER, marker(5));
+  await turns(5);
+  room.set(RECORDS, value(2));
+  room.set(MARKER, marker(2));
+  await room.idle();
+  await turns(20);
+  assert.equal(genOf(browser.storage.getItem(RECORDS)), 5, "the older tab's copy stays where it reads it");
+  assert.equal(genOf(browser.storage.getItem(MARKER)), 5, "...with its marker");
+  assert.equal(genOf(room.get(RECORDS)), 2, "this page goes on with its own, from IndexedDB");
+  assert.equal(genOf(stored(browser, RECORDS)), 2);
+});
+
+test("while the page is being left, a write goes to IndexedDB at once, not after a timer that may never run", async () => {
+  const browser = new FakeBrowser();
+  browser.storage.room = 1500;
+  const room = await openTab(browser, "tab-1");
+  room.set(RECORDS, value(1));
+  assert.equal(browser.disk.waiting, 0, "an ordinary write waits for the moment's other writes");
+  await room.idle();
+
+  browser.leave("tab-1"); // pagehide: data/serverSync.ts keeps the copy its unsent changes were made from, now
+  room.set("dcrs:base:records", value(2));
+  assert.equal(browser.disk.waiting, 1, "the transaction is begun at once");
+  await room.idle();
+  assert.equal(genOf(stored(browser, "dcrs:base:records")), 2);
+});
+
+test("a browser whose IndexedDB throws at the write itself (as tests/e2e_browser_room.py makes it refuse): the same as a refusal", async () => {
+  const browser = new FakeBrowser();
+  browser.storage.room = 1500;
+  const room = await openTab(browser, "tab-1");
+  const refused: string[][] = [];
+  room.onRefused((names) => refused.push(names));
+  browser.disk.refusePut = true;
+  assert.equal(room.set(RECORDS, value(1)), true, "kept, in memory");
+  await until("the page is told", () => refused.length > 0);
+  assert.deepEqual(refused[0], [RECORDS]);
+  assert.equal(genOf(room.get(RECORDS)), 1);
+  assert.equal(room.busy, false, "nothing is said to be on its way");
+  assert.equal(stored(browser, RECORDS), null);
+  browser.disk.refusePut = false;
+  room.set(RECORDS, value(2));
+  await room.idle();
+  assert.equal(genOf(stored(browser, RECORDS)), 2, "the next write is stored");
 });
 
 test("a value kept in IndexedDB is not tried in localStorage again while it is large; small again, it goes back", async () => {

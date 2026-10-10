@@ -12,14 +12,17 @@
 //   start-up    everything kept in IndexedDB is read into memory before anything reads the working copy (main.tsx);
 //   a write     goes to localStorage when it fits. One that does not is kept in memory at once and written to
 //               IndexedDB a moment later, behind the page and in order: the writes of a moment go in one transaction,
-//               the next only after it has been stored, and of two writes of one value the later wins;
+//               the next only after it has been stored, and of two writes of one value the later wins. While the page
+//               is being left (pagehide), a write goes to IndexedDB at once, not after a timer that may never run;
 //   large       a value kept here is not tried in localStorage again while it is large (over LARGE_CHARS); a smaller
 //               one is, and goes back there when it fits. A value and its marker (serverSync.ts) are kept together:
 //               the browser never keeps a newer marker beside an older value, which would send the older value back
 //               over the database's newer one;
 //   the room    once IndexedDB has stored a value, its old copy in localStorage is removed, with its marker's, to free
 //               the room for the small values - only while no other tab of the app is open (navigator.locks), so no
-//               tab ever finds an empty copy where it had one;
+//               tab ever finds an empty copy where it had one. A tab of the app's older version, still open from
+//               before an update, holds no lock and reads only localStorage: once one is seen writing a value this
+//               page keeps here (the browser's storage event), no copy is removed for as long as this page is open;
 //   other tabs  learn of each change by a BroadcastChannel message, as they learn of a localStorage change by the
 //               browser's storage event. Of two tabs writing one value at once the same one wins in every tab and in
 //               IndexedDB (a Lamport clock), and a tab opening asks the others for what they have not stored yet;
@@ -81,6 +84,10 @@ export interface RoomEnv {
   idb(): IDBFactory | null;
   bus(name: string): Bus | null;
   locks(): Locks | null;
+  /** Another tab wrote this browser's localStorage (the browser's storage event): the name and its new value. */
+  watchLocal(listener: (name: string | null, value: string | null) => void): void;
+  /** The page is being left (pagehide: true), or is shown again from the browser's back-forward cache (false). */
+  watchLeaving(listener: (leaving: boolean) => void): void;
 }
 
 const browserEnv: RoomEnv = {
@@ -114,6 +121,24 @@ const browserEnv: RoomEnv = {
       return (globalThis as unknown as { navigator?: { locks?: Locks } }).navigator?.locks ?? null;
     } catch {
       return null;
+    }
+  },
+  watchLocal: (listener) => {
+    try {
+      globalThis.addEventListener("storage", (event: Event) => {
+        const e = event as StorageEvent;
+        if (e.storageArea === browserEnv.local()) listener(e.key, e.newValue);
+      });
+    } catch {
+      /* no window */
+    }
+  },
+  watchLeaving: (listener) => {
+    try {
+      globalThis.addEventListener("pagehide", () => listener(true));
+      globalThis.addEventListener("pageshow", () => listener(false));
+    } catch {
+      /* no window */
     }
   },
 };
@@ -195,8 +220,6 @@ export class BrowserRoom {
   private inFlight: Map<string, Entry> | null = null;
   /** Kept values whose latest is stored in IndexedDB. */
   private readonly stored = new Set<string>();
-  /** Kept values IndexedDB refused: in this page's memory only. */
-  private readonly refused = new Set<string>();
   /** What was stored lately, and when: handed to a tab that opens now. */
   private readonly recent = new Map<string, number>();
   private readonly changeListeners = new Set<(name: string) => void>();
@@ -216,6 +239,10 @@ export class BrowserRoom {
   private failing = false;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private tidying = false;
+  /** A tab that knows nothing of IndexedDB (the app's older version) wrote a value kept here: it reads localStorage's copies. */
+  private olderTabOpen = false;
+  /** The page is being left: a write is handed to IndexedDB at once. */
+  private leaving = false;
   /** How long the start-up read took, in milliseconds (REQUIREMENTS §108 "Speed"). */
   openMs = 0;
   readonly tab: string;
@@ -272,6 +299,15 @@ export class BrowserRoom {
       this.lost();
     };
     db.onclose = () => this.lost();
+    // A value this page keeps here, written into localStorage by another tab: a tab of the app's older version (a tab
+    // of this version says so on the channel), which reads the copies there. None is removed from now on.
+    this.env.watchLocal((name, value) => {
+      if (name !== null && value !== null && this.kept.has(name)) this.olderTabOpen = true;
+    });
+    this.env.watchLeaving((leaving) => {
+      this.leaving = leaving;
+      if (leaving && this.flushTimer !== null) this.schedule();
+    });
     for (const [name, entry] of entries) {
       this.clock = Math.max(this.clock, entry.c);
       const known = this.stamps.get(name);
@@ -439,7 +475,6 @@ export class BrowserRoom {
     const s = this.stamp(name);
     this.kept.delete(name);
     this.stored.delete(name);
-    this.refused.delete(name);
     this.queue.set(name, { v: null, ...s });
     this.post({ kind: "set", notes: [{ n: name, v: null, ...s }] });
     this.schedule();
@@ -448,7 +483,15 @@ export class BrowserRoom {
   private schedule(): void {
     // A new write is on its way, and takes anything refused before with it.
     this.failing = false;
-    if (this.flushTimer !== null || this.inFlight) return;
+    if (this.inFlight) return;
+    if (this.leaving) {
+      // The page is going: no timer may run after this, so the transaction is begun now.
+      if (this.flushTimer !== null) clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+      this.flush();
+      return;
+    }
+    if (this.flushTimer !== null) return;
     this.flushTimer = setTimeout(() => {
       this.flushTimer = null;
       this.flush();
@@ -503,10 +546,7 @@ export class BrowserRoom {
     for (const [name, entry] of batch) {
       this.recent.set(name, now);
       const latest = this.stamps.get(name);
-      if (latest && latest.c === entry.c && latest.t === entry.t) {
-        this.refused.delete(name);
-        if (entry.v !== null && this.kept.has(name)) this.stored.add(name);
-      }
+      if (latest && latest.c === entry.c && latest.t === entry.t && entry.v !== null && this.kept.has(name)) this.stored.add(name);
     }
     for (const [name, at] of this.recent) if (at < now - RECENT_MS) this.recent.delete(name);
     if (this.queue.size) this.schedule();
@@ -522,11 +562,9 @@ export class BrowserRoom {
     const refusedNow: string[] = [];
     for (const [name, entry] of batch) {
       // Tried again with the next write, unless a newer one of it is waiting already; and stored together with it.
-      if (!this.queue.has(name)) this.queue.set(name, entry);
-      if (entry.v !== null && this.kept.has(name)) {
-        this.refused.add(name);
-        refusedNow.push(name);
-      }
+      const waiting = this.queue.get(name);
+      if (!waiting || newer(entry, waiting)) this.queue.set(name, entry);
+      if (entry.v !== null && this.kept.has(name)) refusedNow.push(name);
     }
     console.warn("This browser's IndexedDB refused the working copy; it is kept in the page's memory and sent to the database from there.", err);
     this.settle();
@@ -593,13 +631,14 @@ export class BrowserRoom {
   /**
    * Once IndexedDB has stored a value, its old copy in localStorage only takes room: it is removed, with its
    * marker's (both or neither, so a tab still running an older version of the app reads them as a pair), while this
-   * is the only tab of the app — another tab could be reading the copy.
+   * is the only tab of the app — another tab could be reading the copy — and never once a tab of the app's older
+   * version has been seen (it reads only localStorage).
    */
   private async tidy(): Promise<void> {
-    if (this.tidying || this.state !== "open") return;
+    if (this.tidying || this.state !== "open" || this.olderTabOpen) return;
     this.tidying = true;
     try {
-      if (!(await this.refreshAlone()) || this.busy || this.state !== "open") return;
+      if (!(await this.refreshAlone()) || this.busy || this.state !== "open" || this.olderTabOpen) return;
       const local = this.env.local();
       if (!local) return;
       const inLocal = new Set<string>();
@@ -676,7 +715,6 @@ export class BrowserRoom {
       this.stamps.set(note.n, { c: note.c, t: note.t });
       // The other tab stores it.
       this.stored.delete(note.n);
-      this.refused.delete(note.n);
       if (note.v === null) this.kept.delete(note.n);
       else this.kept.set(note.n, note.v);
       for (const listener of this.changeListeners) {

@@ -12,7 +12,7 @@
 //   * another account signing in clears what the last one may not keep - another person's conversations, an item
 //     the new account's departments do not hold - from IndexedDB exactly as from localStorage;
 //   * only when IndexedDB too refuses is the page told the copy is full, and then that the record WAS saved; nothing
-//     is lost.
+//     is lost. A copy refused at sign-in, with nothing of the person's in it, is said to have come from the database.
 // Run: npm run test:unit -- browserRoomSync
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
@@ -123,9 +123,12 @@ scope.fetch = async (input: string, init: RequestInit = {}) => {
 
 // ---------------------------------------------------------------------------
 
-const said: { name: string; key?: string }[] = [];
+const said: { name: string; key?: string; fromDatabase?: true }[] = [];
 for (const name of [STORAGE_HELD, STORAGE_HELD_SAVED, STORAGE_WRITE_FAILED]) {
-  window.addEventListener(name, (e) => said.push({ name, key: (e as CustomEvent<{ key?: string } | undefined>).detail?.key }));
+  window.addEventListener(name, (e) => {
+    const detail = (e as CustomEvent<{ key?: string; fromDatabase?: boolean } | undefined>).detail;
+    said.push({ name, key: detail?.key, ...(detail?.fromDatabase ? { fromDatabase: true as const } : {}) });
+  });
 }
 
 /** Whether leaving the page now would be asked about. */
@@ -260,5 +263,20 @@ test("only when IndexedDB too refuses is the page told the copy is full, then th
   const kept = inIndexedDB("dcrs:v1:records") ?? "";
   assert.ok(kept.includes(`"${record.id}"`) && kept.includes(`"${next.id}"`), "IndexedDB has both now");
   assert.equal(roomGet("dcrs:v1:records")?.includes(`"${record.id}"`), true);
+  await stopServerSync();
+});
+
+test("signing in while IndexedDB refuses the database's copy: the copy is full and nothing is lost - never 'your record WAS saved'", async () => {
+  // Colleagues' work reaches the database while this browser is closed; then its disk is full.
+  const theirs = growTheDatabase(template, 40, "rec-later");
+  browser.disk.refuse = true;
+  said.length = 0;
+  await startServerSync("person-1");
+  assert.ok(recordRepository.getById(theirs[0]) && recordRepository.getById(theirs[theirs.length - 1]), "every record opens, from memory");
+  await until("the page is told", () => said.some((s) => s.key === "records"), 15000);
+  const told = said.filter((s) => s.key === "records");
+  assert.ok(told.every((s) => s.name === STORAGE_HELD_SAVED && s.fromDatabase), `the copy came from the database, and is said so: ${JSON.stringify(told)}`);
+  assert.equal(leavingAsks(), false, "leaving asks nothing: the database has every record");
+  browser.disk.refuse = false;
   await stopServerSync();
 });

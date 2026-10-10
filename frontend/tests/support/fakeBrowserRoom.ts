@@ -40,6 +40,11 @@ export class FakeDisk {
   /** Writes stored, in all. */
   commits = 0;
 
+  /** Transactions begun and not yet ended: a write handed to IndexedDB. */
+  get waiting(): number {
+    return this.queue.length + (this.running ? 1 : 0);
+  }
+
   enqueue(tx: FakeTransaction): void {
     this.queue.push(tx);
     later(() => this.pump());
@@ -334,12 +339,27 @@ export class FakeBrowser {
   readonly idb = new FakeIndexedDB(this.disk);
   readonly channels = new FakeChannels();
   readonly locks = new FakeLocks();
+  /** Who hears of another tab's localStorage writes (the browser's storage event), and of the page being left. */
+  private readonly localWatchers: { tab: string; listener: (name: string | null, value: string | null) => void }[] = [];
+  private readonly leavingWatchers: { tab: string; listener: (leaving: boolean) => void }[] = [];
   constructor(readonly storage: RoomedStorage = new RoomedStorage()) {}
 
   /** The tab was closed (or loaded again): it hears nothing more, and lets go of what it held. */
   closeTab(tab: string): void {
     this.channels.closeTab(tab);
     this.locks.close(tab);
+    for (const list of [this.localWatchers, this.leavingWatchers]) for (let i = list.length - 1; i >= 0; i--) if (list[i].tab === tab) list.splice(i, 1);
+  }
+
+  /** A tab of the app's older version writes localStorage, as it always did: no lock, no channel; every tab of the room hears the storage event. */
+  writeFromOlderTab(name: string, value: string): void {
+    this.storage.setItem(name, value);
+    for (const w of [...this.localWatchers]) setTimeout(() => w.listener(name, value), 0);
+  }
+
+  /** The tab's page is being left (pagehide). */
+  leave(tab: string): void {
+    for (const w of this.leavingWatchers) if (w.tab === tab) w.listener(true);
   }
 
   /** What a tab of this browser gives data/browserRoom.ts. */
@@ -349,6 +369,12 @@ export class FakeBrowser {
       idb: () => (withIndexedDB ? (this.idb as unknown as IDBFactory) : null),
       bus: (name: string) => this.channels.make(name, tab) as never,
       locks: () => this.locks.forTab(tab) as never,
+      watchLocal: (listener: (name: string | null, value: string | null) => void) => {
+        this.localWatchers.push({ tab, listener });
+      },
+      watchLeaving: (listener: (leaving: boolean) => void) => {
+        this.leavingWatchers.push({ tab, listener });
+      },
     };
   }
 }
