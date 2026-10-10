@@ -879,7 +879,8 @@ Seven scripts live in `tests/`:
   August to November; nothing was kept in IndexedDB there); `e2e_every_record_starts.py` (with the browser full, Start
   opens the record, kept in IndexedDB and in the database, no banner, and it opens after a reload with the browser still
   full) 30 of 30 at 950345d, run with `E2E_ONLY=mnt-new-equipment` (the super admin's part, the browser full, and
-  Maintenance's account), no JavaScript error. Not run: the full browser run, and every_record_starts over all 125
+  Maintenance's account), no JavaScript error. The sync itself, whose reads and writes now go through the room:
+  `e2e_postgres_storage.py` 34 of 34 at 5a6b3ac. Not run: the full browser run, and every_record_starts over all 125
   documents; the 38 suites that read `dcrs:v1:records` from localStorage keep it there, since nothing of theirs
   passes the room.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
