@@ -32,7 +32,7 @@ Every table, view and column is described in the [data dictionary](data-dictiona
 
 | Schema | Whose | What is in it | Who makes and changes it |
 |---|---|---|---|
-| `public` | DCRS | DCRS's own tables: `users` (sign-in accounts), `app_storage` (every record, form and master list, as JSON), `activity_log` and its archive, and DCRS's smaller tables (escalations, digests, scheduled jobs). | DCRS itself, when it starts. The shared set-up changes nothing here. |
+| `public` | DCRS | DCRS's own tables: `users` (sign-in accounts), `user_sessions` (where each person is signed in, on which device: REQUIREMENTS §106), `app_storage` (every record, form and master list, as JSON), `activity_log` and its archive, and DCRS's smaller tables (escalations, digests, scheduled jobs). | DCRS itself, when it starts. The shared set-up changes nothing here. |
 | `chatbot` | The Audit Assistant | Its ten tables: `users`, `sessions`, `connector_credentials`, `login_events`, `conversations`, `actions`, `message_events`, `files`, `conversation_exports`, `weekly_reports`, and its migration ledger. | The Audit Assistant's own migrations, when it starts. |
 | `overview` | Everyone who reads | 13 views and 12 small helper functions. No data of its own. | `npm run db:shared -- setup`, from the files in `database/sql/`. |
 
@@ -78,7 +78,7 @@ flowchart LR
     p_storage[("app_storage<br/>(views read only the company's<br/>records, documents and master)")]
     p_log[("activity_log")]
     p_archive[("activity_log_archive")]
-    p_rest[("digest_log, job_runs, escalations,<br/>weekly_digests, activity_daily,<br/>activity_daily_state<br/>(no view reads them)")]
+    p_rest[("user_sessions, digest_log, job_runs,<br/>escalations, weekly_digests, activity_daily,<br/>activity_daily_state<br/>(no view reads them)")]
   end
 
   subgraph OV["overview: the views people read"]

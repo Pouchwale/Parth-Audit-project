@@ -35,7 +35,7 @@ BEGIN
   SELECT string_agg(t, ', ') INTO missing
   FROM unnest(ARRAY['public.users', 'public.digest_log', 'public.app_storage', 'public.activity_log',
                     'public.activity_log_archive', 'public.activity_daily', 'public.activity_daily_state',
-                    'public.job_runs', 'public.escalations', 'public.weekly_digests']) AS t
+                    'public.job_runs', 'public.escalations', 'public.weekly_digests', 'public.user_sessions']) AS t
   WHERE to_regclass(t) IS NULL;
   IF missing IS NOT NULL THEN
     RAISE EXCEPTION 'DCRS''s tables are not all here (missing: %). Start DCRS once against this database (it makes and updates its own tables), then run this again.', missing;
@@ -55,6 +55,25 @@ COMMENT ON COLUMN public.users.departments IS 'The codes of the departments whos
 COMMENT ON COLUMN public.users.must_change_password IS 'True while the person still has a password the super admin gave them. They must choose their own before they can do anything else.';
 COMMENT ON COLUMN public.users.active IS 'False for an account the super admin has switched off: it cannot sign in, and a session still open stops at its next request.';
 COMMENT ON COLUMN public.users.last_sign_in IS 'When the person last signed in, as text in ISO form. Empty if never.';
+
+-- ---------------------------------------------------------------- user_sessions
+COMMENT ON TABLE public.user_sessions IS
+  'Where each person is signed in (REQUIREMENTS §106): one row per session, keyed by the id its sign-in token carries, with the device it was signed in on. DCRS reads it on every request, so a sign-out, the super admin''s Sign out this device (User access, Signed in on) and switching an account off end a session at once. An account may be signed in on at most DCRS_MAX_DEVICES devices (2 unless set); the super admin is never held to it. A session is open while ended_at is empty and ends_at is still to come. Rows are never deleted: an ended one says when, why and by whom.';
+COMMENT ON COLUMN public.user_sessions.id IS 'The session''s id, the one its sign-in token carries (a random UUID). For a token made before sessions were kept, pre- and a hash of the token.';
+COMMENT ON COLUMN public.user_sessions.user_id IS 'The account signed in (users.id).';
+COMMENT ON COLUMN public.user_sessions.device_id IS 'The device''s own id: the random id the website keeps in the browser, or the phone''s, sent by the Mitra server. Empty when none was sent (another program, or a session from before devices were recorded).';
+COMMENT ON COLUMN public.user_sessions.device_name IS 'The device in words, as the super admin reads it: Windows computer - Chrome, Android phone - Chrome, iPhone - Safari, iPad - Safari, or the phone''s own name and model. Signed in before devices were recorded for a session taken in from before the change.';
+COMMENT ON COLUMN public.user_sessions.device_category IS 'computer, mobile or tablet.';
+COMMENT ON COLUMN public.user_sessions.place IS 'Where it was signed in: website (DCRS in a browser), phone-app (the Mitra phone app, through the Mitra server) or api (another program through the DCRS API).';
+COMMENT ON COLUMN public.user_sessions.device_client IS 'The browser or the app and its version, for example Chrome 141 or Mitra app 1.1.0.';
+COMMENT ON COLUMN public.user_sessions.device_system IS 'The device''s system, for example Windows, Android 14 or iOS 18.1. Empty when not known.';
+COMMENT ON COLUMN public.user_sessions.address IS 'The network address it signed in from: the phone''s own, as the Mitra server saw it, for the phone app.';
+COMMENT ON COLUMN public.user_sessions.signed_in_at IS 'When it was signed in.';
+COMMENT ON COLUMN public.user_sessions.last_used_at IS 'When it was last used: written at most once a minute.';
+COMMENT ON COLUMN public.user_sessions.ends_at IS 'When it ends by itself: the close of the day it was started (the end of the staff''s working hours, or midnight for the super admin).';
+COMMENT ON COLUMN public.user_sessions.ended_at IS 'When it was ended before that. Empty while it is open, or when it simply ran to its end.';
+COMMENT ON COLUMN public.user_sessions.ended_why IS 'Why it was ended: signed-out (by the person), super-admin (Sign out this device), replaced (signed in again on the same device) or account-off (the account was switched off).';
+COMMENT ON COLUMN public.user_sessions.ended_by IS 'The account that ended it (users.id): the person, or the super admin.';
 
 -- ---------------------------------------------------------------- digest_log
 COMMENT ON TABLE public.digest_log IS
