@@ -28,8 +28,10 @@ export function createDcrsConnector(options: DcrsOptions): Connector {
     examples: ['What is due today?', 'આજનો પેસ્ટ કંટ્રોલ રેકોર્ડ શરૂ કરો', 'खुले CAPA findings दिखाओ', "Print yesterday's pest control report"],
     spokenTerms: ['DCRS', 'Gujarat Print Pack', 'Mehsana', 'F/QC/30', 'F/HR/17', 'CAPA'],
     actions: [...documentActions(dcrs), ...plantActions(dcrs), ...recordActions(dcrs), ...findingActions(dcrs)],
-    authenticate: (username, password) => dcrs.signIn(username.trim(), password),
+    authenticate: (username, password, context) => dcrs.signIn(username.trim(), password, context),
     signOut: async (credentials) => dcrs.signOut(tokenOf(credentials)),
+    // A device DCRS's super admin signed out is signed out here too, at its next request (auth/sessions.ts).
+    checkSignIn: async (credentials, options) => dcrs.stillSignedIn(tokenOf(credentials), options?.language),
     phone: phoneRelay(dcrs),
   };
 }

@@ -23,6 +23,8 @@ const Env = z.object({
   FILE_TEXT_CHARS: z.coerce.number().int().positive().default(16_000),
   HISTORY_CHARS: z.coerce.number().int().positive().default(12_000),
   DCRS_BASE_URL: z.url().optional(),
+  // The secret shared with DCRS, the same on both servers (DCRS REQUIREMENTS §106): at least 16 characters, as DCRS asks.
+  MITRA_SERVER_KEY: z.string().trim().min(16, 'MITRA_SERVER_KEY must be at least 16 characters, the same key as on the DCRS server').optional(),
   TRUST_PROXY: z.string().optional(),
   CORS_ORIGINS: z.string().default('http://localhost:8081,http://127.0.0.1:8081'),
 });
@@ -70,6 +72,17 @@ export interface Config {
    */
   historyChars: number;
   dcrsBaseUrl: string | undefined;
+  /**
+   * MITRA_SERVER_KEY: sent to DCRS as X-Mitra-Key with a phone's sign-in, so DCRS believes which phone it is (its name,
+   * model, system and address) and lists it for its super admin. Set the same key on the DCRS server. Never logged,
+   * never sent to the app. Without it DCRS records the phone's sign-in as this server's request, and says so.
+   */
+  mitraServerKey: string | undefined;
+  /**
+   * How often a session's sign-in with the connected system is checked at most, in milliseconds: a phone signed out in
+   * DCRS (by its super admin) is signed out here at its first request after that (auth/sessions.ts).
+   */
+  upstreamCheckMs: number;
   trustProxy: boolean | string[] | ((address: string, hop: number) => boolean);
   corsOrigins: string[];
 }
@@ -106,6 +119,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     fileTextChars: e.FILE_TEXT_CHARS,
     historyChars: e.HISTORY_CHARS,
     dcrsBaseUrl: e.DCRS_BASE_URL,
+    mitraServerKey: e.MITRA_SERVER_KEY || undefined,
+    upstreamCheckMs: 15_000,
     trustProxy: parseTrustProxy(e.TRUST_PROXY),
     corsOrigins: list(e.CORS_ORIGINS),
   };

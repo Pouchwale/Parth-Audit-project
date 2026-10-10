@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { FileInfo } from '@shared/api.ts';
+import type { DeviceInfo, FileInfo } from '@shared/api.ts';
 
 /**
  * A connector is one external system the assistant can act on, described as a small, explicit
@@ -20,8 +20,18 @@ export interface Connector {
    * name and its kind of format numbers ("DCRS", "F/QC/30"). Whisper is shown them (voice/transcriber.ts).
    */
   spokenTerms?: readonly string[];
-  /** Checks a person's username and password with this system and returns their account and credentials. */
-  authenticate(username: string, password: string): Promise<ConnectorAccount>;
+  /**
+   * Checks a person's username and password with this system and returns their account and credentials. `context`
+   * says which phone is signing in, from where and in which language, so the system can name the device and answer in
+   * the person's words (DCRS: its list of who is signed in where, and its limit of devices per account).
+   */
+  authenticate(username: string, password: string, context?: SignInContext): Promise<ConnectorAccount>;
+  /**
+   * Asks the system whether a stored sign-in still works. Throws an 'unauthorized' ConnectorError, in the system's own
+   * words where it gave some, when it does not (DCRS: a device its super admin signed out). Anything else, such as the
+   * system being out of reach, is not a sign-out and throws nothing.
+   */
+  checkSignIn?(credentials: unknown, options?: RelayOptions): Promise<void>;
   /** Best-effort sign-out with the system when a session ends. */
   signOut?(credentials: unknown): Promise<void>;
   /**
@@ -29,6 +39,18 @@ export interface Connector {
    * screen (shared/api.ts). Only a system that keeps notifications offers it (DCRS); without it those routes say so.
    */
   phone?: PhoneRelay;
+}
+
+/** Who is signing in, beyond the username and password (Connector.authenticate). */
+export interface SignInContext {
+  /** The phone, as the app said it at sign-in. */
+  device?: DeviceInfo;
+  /** The phone's address, as this server saw it. */
+  address?: string;
+  /** The language the app is read in: the system's refusal comes in it. */
+  language?: 'en' | 'hi' | 'gu';
+  /** The credentials of this phone's earlier sign-in still kept, so the system replaces that session rather than counting a second. */
+  previous?: unknown;
 }
 
 export type RelayQuery = Record<string, string | number | undefined>;
@@ -171,10 +193,24 @@ export type ConnectorErrorKind =
 /** Thrown by connectors. The message must be safe and useful to show the person. */
 export class ConnectorError extends Error {
   readonly kind: ConnectorErrorKind;
+  /**
+   * The system's own code for what happened, when it gave one and the message is its own words: DCRS's "device-limit"
+   * (one device too many at sign-in) and "session-ended" (a device its super admin signed out).
+   */
+  readonly code: string | undefined;
 
-  constructor(kind: ConnectorErrorKind, message: string) {
+  constructor(kind: ConnectorErrorKind, message: string, options: { code?: string } = {}) {
     super(message);
     this.name = 'ConnectorError';
     this.kind = kind;
+    this.code = options.code;
   }
+}
+
+/**
+ * The system's own words for why a stored sign-in stopped working, to show the person as they are (DCRS: "The super
+ * admin signed this device out at 14:05. Sign in again to carry on."); undefined when it gave none.
+ */
+export function systemSignOutWords(error: unknown): string | undefined {
+  return error instanceof ConnectorError && error.kind === 'unauthorized' && error.code ? error.message : undefined;
 }

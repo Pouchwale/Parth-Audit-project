@@ -4,7 +4,7 @@ import type { Connector } from './types.ts';
 
 /** Every system the assistant can act on. Adding a system means adding its connector here. */
 export function connectors(config: Config): Connector[] {
-  return [createDcrsConnector({ baseUrl: config.dcrsBaseUrl })];
+  return [createDcrsConnector({ baseUrl: config.dcrsBaseUrl, serverKey: config.mitraServerKey })];
 }
 
 /** The connector people sign in with. */

@@ -6,6 +6,7 @@ import type { NotificationLanguage } from '@shared/api';
 import { PushIntro } from '@/components/notifications/PushIntro';
 import { api, ApiError } from './api';
 import { useAuth } from './auth';
+import { deviceLocale } from './device';
 import { linkOf, notificationIdOf, pushLanguage, reminderSettingOf, remindersOn, type AppLink, type PushState, type ReminderSetting } from './notification-logic';
 import { askPermission, configureNotifications, introSeen, LOCAL_POSSIBLE, markIntroSeen, onTokenChange, permission, PUSH_POSSIBLE, register, scheduleReminders, setBadge } from './push';
 import { useSettings } from './settings';
@@ -40,14 +41,6 @@ interface NotificationsValue {
 }
 
 const NotificationsContext = createContext<NotificationsValue | null>(null);
-
-function deviceLocale(): string | null {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().locale ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { status, user, call } = useAuth();

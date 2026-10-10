@@ -27,7 +27,8 @@ type LastEvent = Extract<StreamEvent, { type: 'done' | 'error' }>;
 
 // Error codes that mean the person's sign-in has ended. A stream can't change its HTTP status once it has
 // started, so these come back as 401s, which sign the person out.
-const SIGNED_OUT = new Set(['unauthenticated', 'session_expired']);
+// session_ended: DCRS's super admin signed this device out, said in DCRS's own words (DCRS REQUIREMENTS §106).
+const SIGNED_OUT = new Set(['unauthenticated', 'session_expired', 'session_ended']);
 
 /**
  * Sends a request and reports the reply as it is written. Resolves with the finished reply. Rejects with an

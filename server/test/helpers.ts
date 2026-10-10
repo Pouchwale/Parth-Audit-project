@@ -35,6 +35,9 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     fileTextChars: 60_000,
     historyChars: 60_000,
     dcrsBaseUrl: undefined,
+    mitraServerKey: undefined,
+    // Checked again only after an hour, so no test sees a check it did not ask for; a test of the check sets 0.
+    upstreamCheckMs: 60 * 60_000,
     trustProxy: false,
     corsOrigins: [],
     ...overrides,

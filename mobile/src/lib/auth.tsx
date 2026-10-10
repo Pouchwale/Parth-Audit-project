@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CurrentUser } from '@shared/api';
 import { api, ApiError, loadServer } from './api';
-import { deviceInfo } from './device';
+import { deviceInfo, deviceLocale } from './device';
+import { pushLanguage } from './notification-logic';
 import { unregister } from './push';
+import { replyLanguage } from './settings';
 import { deleteItem, getItem, setItem } from './storage';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
@@ -48,7 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await setItem('user', JSON.stringify(fresh));
         setUser(fresh);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 401) return forget(null);
+        // Signed out in DCRS by its super admin (DCRS REQUIREMENTS §106): the sign-in screen says so in DCRS's words.
+        if (error instanceof ApiError && error.status === 401) return forget(error.code === 'session_ended' ? error.message : null);
         // Offline or server down: keep the session and let the first request decide.
         if (!savedUser) return forget(null);
         setUser(JSON.parse(savedUser) as CurrentUser);
@@ -60,7 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [forget]);
 
   const signIn = useCallback(async (username: string, password: string) => {
-    const result = await api.login({ username, password, device: await deviceInfo() });
+    // In the person's language, so DCRS's refusal (one device too many, its hours) comes in it, unchanged.
+    const result = await api.login({ username, password, device: await deviceInfo() }, pushLanguage(replyLanguage(), deviceLocale()));
     await Promise.all([setItem('token', result.token), setItem('user', JSON.stringify(result.user))]);
     current.current = result.token;
     setToken(result.token);

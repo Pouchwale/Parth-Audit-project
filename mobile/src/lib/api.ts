@@ -253,7 +253,8 @@ function query(params: Record<string, string | undefined>): string {
 
 export const api = {
   signInInfo: () => request<SignInInfo>('/auth/provider'),
-  login: (body: LoginRequest) => request<LoginResponse>('/auth/login', { method: 'POST', body }),
+  /** `lang` goes as X-Language: DCRS's refusal (one device too many, its hours) comes in the person's language. */
+  login: (body: LoginRequest, lang?: NotificationLanguage) => request<LoginResponse>('/auth/login', { method: 'POST', body, headers: inLanguage(lang) }),
   /** Waits 5 seconds at most: signing out goes ahead on the phone either way, and its server may be gone. */
   logout: (token: string) => request<void>('/auth/logout', { method: 'POST', token, signal: deadline(5_000) }),
   me: (token: string) => request<{ user: CurrentUser }>('/me', { token }),

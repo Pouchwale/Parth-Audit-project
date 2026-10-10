@@ -1,4 +1,4 @@
-import { ConnectorError, type ConnectorAccount } from '../types.ts';
+import { ConnectorError, type ConnectorAccount, type SignInContext } from '../types.ts';
 
 /**
  * The name DCRS writes into its own audit trail beside the person: the record's history reads
@@ -20,6 +20,11 @@ export interface DcrsOptions {
   fetch?: typeof fetch;
   /** The time now, in milliseconds. Tests may fix it. */
   now?: () => number;
+  /**
+   * MITRA_SERVER_KEY, the same on the DCRS server: sent as X-Mitra-Key with a phone's sign-in, and only then, so DCRS
+   * believes the X-Mitra-Device-* headers beside it (DCRS REQUIREMENTS §106). Never logged, never in an answer.
+   */
+  serverKey?: string;
 }
 
 /** What the connector keeps (encrypted, by the server) for each signed-in person. */
@@ -41,6 +46,8 @@ interface CallOptions {
   cookie?: string;
   /** Sent as X-Language: DCRS then words its refusals and reasons in English, Hindi or Gujarati. */
   language?: string;
+  /** More headers, such as the phone's at sign-in. */
+  headers?: Record<string, string>;
 }
 
 /** A file DCRS answered with, such as a record printed as a PDF. */
@@ -75,6 +82,33 @@ interface Me {
 const UNREACHABLE = "DCRS couldn't be reached. Check that the DCRS server is running, then try again.";
 const REDIRECTED = 'DCRS answered from another address. Check DCRS_BASE_URL on the assistant server.';
 const SIGNED_OUT = 'Your DCRS sign-in has ended: DCRS ends every sign-in at the close of its day. Sign in again.';
+/** DCRS's code for a session that was ended (its super admin's "Sign out this device", or a sign-in again on the device). */
+export const SESSION_ENDED = 'session-ended';
+/** DCRS's code for a sign-in refused because the account is signed in on as many devices as it may be. */
+export const DEVICE_LIMIT = 'device-limit';
+
+/**
+ * THE PHONE, FOR DCRS (DCRS REQUIREMENTS §106): the headers that say which phone signs in, with the key that makes DCRS
+ * believe them. Each value percent-encoded, so a name in Gujarati travels as ASCII; none without the key, so a phone's
+ * name is never sent where it would not be believed.
+ */
+export function phoneHeaders(serverKey: string | undefined, context: SignInContext | undefined): Record<string, string> {
+  if (!serverKey || !context?.device) return {};
+  const d = context.device;
+  const put = (headers: Record<string, string>, name: string, value: string | null | undefined) => {
+    const v = (value ?? '').trim();
+    if (v) headers[name] = encodeURIComponent(v.slice(0, 120));
+  };
+  const headers: Record<string, string> = { 'X-Mitra-Key': serverKey };
+  put(headers, 'X-Mitra-Device-Id', d.deviceId);
+  put(headers, 'X-Mitra-Device-Name', d.name);
+  put(headers, 'X-Mitra-Device-Model', d.model);
+  put(headers, 'X-Mitra-Device-System', [d.os, d.osVersion].filter(Boolean).join(' '));
+  put(headers, 'X-Mitra-Device-Type', d.type);
+  put(headers, 'X-Mitra-App-Version', d.appVersion);
+  put(headers, 'X-Mitra-Device-Address', context.address);
+  return headers;
+}
 
 /** The token behind a person's session, or an "unauthorized" error that makes them sign in again. */
 export function tokenOf(credentials: unknown): string {
@@ -101,7 +135,7 @@ export function dcrsClient(options: DcrsOptions) {
   }
 
   async function call(method: Method, path: string, init: CallOptions = {}): Promise<Response> {
-    const headers: Record<string, string> = { 'X-Client-Name': CLIENT_NAME, Accept: init.accept ?? 'application/json' };
+    const headers: Record<string, string> = { ...init.headers, 'X-Client-Name': CLIENT_NAME, Accept: init.accept ?? 'application/json' };
     if (init.token) headers.Authorization = `Bearer ${init.token}`;
     if (init.cookie) headers.Cookie = init.cookie;
     if (init.language) headers['X-Language'] = init.language;
@@ -145,14 +179,31 @@ export function dcrsClient(options: DcrsOptions) {
    * name and role (GET /api/v1/me). The session token is the dcrs_session cookie; it lasts until the close of the day
    * it was started, which is when the connector says the credentials stop working. DCRS's super admin (role "admin",
    * as DCRS answers it at this sign-in, never anything the person typed) is this app's super admin too.
+   *
+   * ONE PASSWORD FOR THE WEBSITE AND THE PHONE (DCRS REQUIREMENTS §105, §106): this is the only way a person signs in
+   * to Mitra with DCRS, and nothing of the password is kept here, so the password DCRS's super admin sets is the one.
+   *
+   * THE PHONE (§106): with MITRA_SERVER_KEY set, the phone's id, name, model, system, kind and address go with it
+   * (phoneHeaders), so DCRS names the device for its super admin; the session this phone's earlier sign-in still holds
+   * goes as the cookie, so DCRS replaces it rather than counting a second device. DCRS's refusal of one device too many
+   * comes back in its own words, in the app's language (X-Language), unchanged.
    */
-  async function signIn(email: string, password: string): Promise<ConnectorAccount> {
-    const response = await call('POST', '/api/auth/login', { body: { email, password } });
+  async function signIn(email: string, password: string, context?: SignInContext): Promise<ConnectorAccount> {
+    const previous = (context?.previous as Partial<DcrsCredentials> | null | undefined)?.token;
+    const response = await call('POST', '/api/auth/login', {
+      body: { email, password },
+      headers: phoneHeaders(options.serverKey, context),
+      language: context?.language,
+      ...(typeof previous === 'string' && previous ? { cookie: `${SESSION_COOKIE}=${previous}` } : {}),
+    });
     const answer = (await readJson(response)) as (LoginAnswer & Refusal) | undefined;
     const said = wordsOf(answer?.error);
     if (response.status === 400 || response.status === 401) throw new ConnectorError('invalid_credentials', 'Wrong email or password.');
-    // Switched off, outside the plant's working hours, or too many wrong passwords: DCRS's own words say which.
-    if (response.status === 403 || response.status === 429) throw new ConnectorError('forbidden', said ?? 'DCRS refused the sign-in.');
+    // Switched off, outside the plant's working hours, one device too many, or too many wrong passwords: DCRS's own
+    // words say which, and its code goes with them.
+    if (response.status === 403 || response.status === 429) {
+      throw new ConnectorError('forbidden', said ?? 'DCRS refused the sign-in.', { code: typeof answer?.code === 'string' ? answer.code : undefined });
+    }
     if (!response.ok) throw new ConnectorError('unavailable', response.status >= 300 && response.status < 400 ? REDIRECTED : UNREACHABLE);
     if (answer?.mustChangePassword === true) {
       throw new ConnectorError('forbidden', 'Sign in to DCRS in a browser and choose your own password first.');
@@ -182,7 +233,21 @@ export function dcrsClient(options: DcrsOptions) {
     await call('POST', '/api/auth/logout', { cookie: `${SESSION_COOKIE}=${token}` });
   }
 
-  return { json, file, signIn, signOut };
+  /**
+   * Whether DCRS still takes this sign-in (GET /api/v1/me): a 401 throws its refusal, in DCRS's words when it gave some
+   * (a device its super admin signed out); DCRS out of reach, or anything else, is not a sign-out and throws nothing.
+   */
+  async function stillSignedIn(token: string, language?: string): Promise<void> {
+    let response: Response;
+    try {
+      response = await call('GET', '/api/v1/me', { token, language, timeoutMs: 10_000 });
+    } catch {
+      return;
+    }
+    if (response.status === 401) throw await refusalOf(response);
+  }
+
+  return { json, file, signIn, signOut, stillSignedIn };
 }
 
 export type DcrsClient = ReturnType<typeof dcrsClient>;
@@ -253,6 +318,8 @@ export async function refusalOf(response: Response): Promise<ConnectorError> {
       return new ConnectorError('invalid_request', withProblems(said ?? 'DCRS turned the request down.'));
     }
     case 401:
+      // A session DCRS ended (its super admin signed the device out): DCRS's own words, as they are (§106).
+      if (code === SESSION_ENDED && said) return new ConnectorError('unauthorized', said, { code });
       return new ConnectorError('unauthorized', SIGNED_OUT);
     case 403:
       // Outside the plant's working hours, another department's records, a password still to change: DCRS says which.

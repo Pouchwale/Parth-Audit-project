@@ -8,7 +8,26 @@ import { getItem, setItem } from './storage';
 /** The model recorded for a browser that doesn't say which device it runs on: a computer's, in practice. */
 export const WEB_BROWSER_MODEL = 'Web browser';
 
-/** What the server records about this device at sign-in. The ID is generated once per install. */
+/** The kind of device as DCRS lists it for its super admin (shared/api.ts DeviceInfo.type): a phone, a tablet or a computer. */
+function kindOf(type: Device.DeviceType | null): DeviceInfo['type'] {
+  switch (type) {
+    case Device.DeviceType.PHONE:
+      return 'phone';
+    case Device.DeviceType.TABLET:
+      return 'tablet';
+    case Device.DeviceType.DESKTOP:
+      return 'desktop';
+    case Device.DeviceType.TV:
+      return 'tv';
+    default:
+      return Platform.OS === 'web' ? 'desktop' : null;
+  }
+}
+
+/**
+ * What the server records about this device at sign-in, and passes on to DCRS so its super admin sees where each
+ * person is signed in (DCRS REQUIREMENTS §106). The ID is generated once per install.
+ */
 export async function deviceInfo(): Promise<DeviceInfo> {
   let deviceId = await getItem('deviceId');
   if (!deviceId) {
@@ -22,7 +41,17 @@ export async function deviceInfo(): Promise<DeviceInfo> {
     os: Device.osName ?? Platform.OS,
     osVersion: Device.osVersion,
     appVersion: Constants.expoConfig?.version ?? null,
+    type: kindOf(Device.deviceType),
   };
+}
+
+/** The phone's own language and region, e.g. "gu-IN", or null when it can't be read. */
+export function deviceLocale(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

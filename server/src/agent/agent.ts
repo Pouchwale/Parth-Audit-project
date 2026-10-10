@@ -17,9 +17,9 @@ import type {
   UserMessage,
 } from '@shared/api.ts';
 import type { AppDeps } from '../app.ts';
-import { loadCredentials } from '../auth/sessions.ts';
+import { loadCredentials, signedOutUpstream } from '../auth/sessions.ts';
 import type { Registry, ToolBinding } from '../connectors/registry.ts';
-import { ConnectorError, splitResult, type ActionFile, type ConversationFiles, type Described } from '../connectors/types.ts';
+import { ConnectorError, splitResult, systemSignOutWords, type ActionFile, type ConversationFiles, type Described } from '../connectors/types.ts';
 import { one, type Db } from '../db/index.ts';
 import { actions, conversations, messageEvents, type PendingCall, type PendingConfirmation } from '../db/schema.ts';
 import { attachedFiles, attachFiles, historyMessage, modelMessages } from '../files/attachments.ts';
@@ -84,12 +84,15 @@ export interface TurnStats {
 export interface TurnResult extends AssistantReply {
   /** The connected system stopped accepting the stored sign-in, so the caller must end the session. */
   signedOut: boolean;
+  /** The system's own words for why, when it gave some (DCRS: its super admin signed the device out). */
+  signedOutWords?: string;
 }
 
 interface Outcome {
   reply: string;
   confirmation: Confirmation | null;
   signedOut?: boolean;
+  signedOutWords?: string;
 }
 
 /** What a request does once it holds the conversation. */
@@ -257,9 +260,12 @@ export async function recoverAfterRestart(db: Db): Promise<number> {
   return interrupted.length;
 }
 
-/** The connected system stopped accepting the person's sign-in. */
-export function signInExpired(registry: Registry): HttpError {
-  return new HttpError(401, 'session_expired', `Your ${registry.signIn.name} sign-in has expired. Sign in again.`);
+/**
+ * The connected system stopped accepting the person's sign-in: in its own words when it gave some (DCRS REQUIREMENTS
+ * §106, a device its super admin signed out), shown as they are.
+ */
+export function signInExpired(registry: Registry, words?: string): HttpError {
+  return signedOutUpstream(registry.signIn.name, words);
 }
 
 /** One row per message a person sent that the assistant took on, without its text: the weekly reports count these. */
@@ -288,6 +294,7 @@ async function confirm(
   const results = [...pending.results];
   const outcomes: string[] = [];
   let stop: 'failed' | 'signed_out' | null = null;
+  let signedOutWords: string | undefined;
   // In the order they were proposed, and no further than the first that fails: a later step often needs an earlier one.
   for (const call of pending.calls) {
     if (stop) {
@@ -303,13 +310,14 @@ async function confirm(
     results.push(run.result);
     outcomes.push(run.ok ? `Done: ${call.summary}.` : `Couldn't ${lowerFirst(call.summary)}: ${run.error}`);
     if (!run.ok) stop = run.signedOut ? 'signed_out' : 'failed';
+    if (run.signedOutWords) signedOutWords ??= run.signedOutWords;
   }
   conv.pending = null;
   conv.messages.push(...results);
   // Saved before asking the model to report back, so a model failure can never run these changes twice.
   await conv.save();
 
-  if (stop === 'signed_out') return { reply: '', confirmation: null, signedOut: true };
+  if (stop === 'signed_out') return { reply: '', confirmation: null, signedOut: true, signedOutWords };
   try {
     return await runModel(turn, conv, reply, pending.request);
   } catch (error) {
@@ -367,11 +375,11 @@ async function runModel(turn: Turn, conv: WorkingConversation, reply: MessageWri
     const text = content?.trim() ?? '';
     if (toolCalls.length === 0) return { reply: text, confirmation: null };
 
-    const { results, proposed, signedOut } = await runToolCalls(turn, conv.id, toolCalls, files, request, reply);
+    const { results, proposed, signedOut, signedOutWords } = await runToolCalls(turn, conv.id, toolCalls, files, request, reply);
     if (signedOut) {
       for (const call of proposed) results.push(await skip(turn, call, SIGNED_OUT));
       conv.messages.push(...results);
-      return { reply: '', confirmation: null, signedOut: true };
+      return { reply: '', confirmation: null, signedOut: true, signedOutWords };
     }
     if (proposed.length > 0) {
       // Every change the response asked for goes on one card, in order, for one answer.
@@ -421,10 +429,11 @@ async function runToolCalls(
   files: ConversationFiles,
   request: string,
   reply: MessageWriter,
-): Promise<{ results: ToolMessage[]; proposed: PendingCall[]; signedOut: boolean }> {
+): Promise<{ results: ToolMessage[]; proposed: PendingCall[]; signedOut: boolean; signedOutWords?: string }> {
   const { deps } = turn;
   const planned: Planned[] = toolCalls.map((call) => check(deps.registry, call));
   let signedOut = false;
+  let signedOutWords: string | undefined;
 
   // Each call's sentence, from the connector, with the input as the connector resolved it.
   const credentials = new Map<string, Promise<unknown>>();
@@ -441,7 +450,10 @@ async function runToolCalls(
     const described = await describe(turn, item.binding, item.input, { credentials: await credentialsOf(item.binding.connector.id), files });
     if (described instanceof ConnectorError) {
       item.result = toolError(item.call.id, described.message);
-      if (described.kind === 'unauthorized' && item.binding.connector.id === deps.registry.signIn.id) signedOut = true;
+      if (described.kind === 'unauthorized' && item.binding.connector.id === deps.registry.signIn.id) {
+        signedOut = true;
+        signedOutWords ??= systemSignOutWords(described);
+      }
       return;
     }
     item.summary = described.summary;
@@ -481,9 +493,10 @@ async function runToolCalls(
     for (const file of run.files) reply.put({ type: 'file', file });
     item.result = run.result;
     signedOut ||= run.signedOut;
+    if (run.signedOutWords) signedOutWords ??= run.signedOutWords;
   });
 
-  return { results: planned.flatMap((item) => (item.result ? [item.result] : [])), proposed, signedOut };
+  return { results: planned.flatMap((item) => (item.result ? [item.result] : [])), proposed, signedOut, signedOutWords };
 }
 
 /** A call as the model made it, checked against the connector list and the action's schema. */
@@ -554,6 +567,8 @@ interface RunResult {
   result: ToolMessage;
   ok: boolean;
   signedOut: boolean;
+  /** The system's own words for why the sign-in stopped working, when it gave some. */
+  signedOutWords?: string;
   error?: string;
   /** Files the action handed the person. */
   files: FileInfo[];
@@ -593,7 +608,7 @@ async function execute(
     await finish(deps.db, actionId, 'failed', message);
     // Losing the sign-in connector's session means the person has to sign in again.
     const signedOut = known?.kind === 'unauthorized' && binding.connector.id === deps.registry.signIn.id;
-    return { ok: false, signedOut, error: message, result: toolError(toolCallId, message), files: [] };
+    return { ok: false, signedOut, signedOutWords: signedOut ? systemSignOutWords(known) : undefined, error: message, result: toolError(toolCallId, message), files: [] };
   }
   // The system did what was asked, so a failure from here on is the server's own, never the action's.
   await finish(deps.db, actionId, 'succeeded', null);
@@ -788,7 +803,7 @@ async function withConversation(
     throw error;
   }
 
-  if (outcome.signedOut) setMessageStatus(message, 'error', signInExpired(turn.deps.registry).message);
+  if (outcome.signedOut) setMessageStatus(message, 'error', signInExpired(turn.deps.registry, outcome.signedOutWords).message);
   else if (message.status === 'streaming') setMessageStatus(message, 'complete');
   await conv.save({ unlock: true });
   logTurn(message.status);
@@ -799,6 +814,7 @@ async function withConversation(
     message,
     title: conv.title,
     signedOut: outcome.signedOut ?? false,
+    signedOutWords: outcome.signedOutWords,
   };
 }
 

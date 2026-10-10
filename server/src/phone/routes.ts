@@ -18,7 +18,7 @@ import { signInExpired } from '../agent/agent.ts';
 import type { AppDeps } from '../app.ts';
 import { authOf, endSession, loadCredentials, requireSession } from '../auth/sessions.ts';
 import { patchInWords, spoken } from '../connectors/dcrs/inputs.ts';
-import { ConnectorError, type ConnectorErrorKind, type PhoneRelay, type RelayOptions } from '../connectors/types.ts';
+import { ConnectorError, systemSignOutWords, type ConnectorErrorKind, type PhoneRelay, type RelayOptions } from '../connectors/types.ts';
 import { actions } from '../db/schema.ts';
 import { HttpError, parseBody } from '../http.ts';
 
@@ -180,7 +180,8 @@ export function registerPhoneRoutes(app: FastifyInstance, deps: AppDeps) {
       if (!(error instanceof ConnectorError)) throw error;
       if (error.kind === 'unauthorized') {
         await endSession(deps, current.id, 'upstream_signed_out', request.log);
-        throw signInExpired(deps.registry);
+        // In DCRS's own words when it said why (its super admin signed this phone out, REQUIREMENTS §106 there).
+        throw signInExpired(deps.registry, systemSignOutWords(error));
       }
       const [status, code] = HTTP[error.kind];
       throw new HttpError(status, code, error.message);

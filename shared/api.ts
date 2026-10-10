@@ -12,6 +12,11 @@ export interface DeviceInfo {
   os?: string | null;
   osVersion?: string | null;
   appVersion?: string | null;
+  /**
+   * What kind of device the phone says it is (expo-device's deviceType): DCRS lists it for its super admin as a
+   * mobile, a tablet or a computer (REQUIREMENTS §106 in DCRS). Left out by an older app: DCRS works it out.
+   */
+  type?: 'phone' | 'tablet' | 'desktop' | 'tv' | 'unknown' | null;
 }
 
 export type Role = 'user' | 'super_admin';

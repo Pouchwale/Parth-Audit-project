@@ -136,7 +136,7 @@ function turnFor(deps: AppDeps, request: FastifyRequest, { timeZone, replyLangua
 async function result(deps: AppDeps, request: FastifyRequest, turn: TurnResult): Promise<AssistantReply> {
   if (turn.signedOut) {
     await endSession(deps, authOf(request).session.id, 'upstream_signed_out', request.log);
-    throw signInExpired(deps.registry);
+    throw signInExpired(deps.registry, turn.signedOutWords);
   }
   return { conversationId: turn.conversationId, reply: turn.reply, confirmation: turn.confirmation, message: turn.message, title: turn.title };
 }
