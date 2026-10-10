@@ -50,6 +50,7 @@ import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
 import { registerEscalationRoutes } from "./escalationRoutes.ts";
 import { registerApiV1 } from "./apiV1.ts";
 import { registerOverviewRoutes } from "./overviewRoutes.ts";
+import { prepareOverview } from "./overviewSetup.ts";
 import { registerAccessRoutes } from "./accessRoutes.ts";
 import { registerNotificationRoutes } from "./notificationRoutes.ts";
 import { printCompanyNetwork, registerPhoneAppRoutes } from "./phoneApp.ts";
@@ -1539,6 +1540,13 @@ try {
   console.error("Could not open the PostgreSQL database:", err instanceof Error ? err.message : err);
   process.exit(1);
 }
+
+// THE SUPER ADMIN'S DATABASE OVERVIEW WITH NO MANUAL STEP (REQUIREMENTS §107, backend/overviewSetup.ts). With
+// OVERVIEW_DATABASE_URL unset, DCRS looks whether the overview's schema, roles and views are there and whether its own
+// role may read them as overview_viewer; what is missing it adds itself, in one transaction, when its role may (a
+// superuser, or CREATEROLE and CREATE on the database), touching nothing of its own tables; otherwise the page says
+// the one step. Never stops the start: anything unexpected is said on the page and in one line here.
+await prepareOverview({ pool: database });
 
 // THE PLANT'S NAMED ACCOUNTS (REQUIREMENTS §62, §96), added once if they are not
 // there: the super admin, who covers every module and assigns everybody else,

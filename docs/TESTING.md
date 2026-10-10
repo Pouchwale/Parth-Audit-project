@@ -837,6 +837,58 @@ Seven scripts live in `tests/`:
   not a change. New `frontend/tests/excursionRemarks.test.ts` (2: 21-Jul-2026's third batch is out of band; a Demo Mode
   July of F/QC/32 gives every out-of-band viscosity a remark). The browser check now fails only on a reading with no
   remark, says an empty window in words, and names the first readings it misses.
+- **The Database overview set up by DCRS itself, and both applications' data in PostgreSQL** (REQUIREMENTS §107,
+  10-Oct-2026). New unit tests, each failing before the change (the module did not exist):
+  `backend/tests/overviewSetup.test.ts` (9 without a database: the seven views the same as `db:shared`'s; ready only
+  with the schema, the three roles, the seven views readable by the viewer and DCRS able to become the viewer; what is
+  missing named in words; set up by DCRS only as a superuser or a role with CREATEROLE and CREATE on the database;
+  why it may not, naming its role, and that nothing was changed; the one step with no address or password; PostgreSQL
+  16 or newer; the page's transaction with the viewer's own limits, as part 1 sets them on the role; with
+  `OVERVIEW_DATABASE_URL` set, DCRS's pool never asked. And 3 more with `DCRS_OVERVIEW_TEST_URL` naming a superuser on
+  a throwaway PostgreSQL: a role with CREATEROLE that owns its database, a superuser, and a plain role. Each starts
+  from DCRS's own tables made by DCRS's own code with rows in them; every DCRS table's definition, rows and sequences
+  are the same before the start-up set-up, after it and after the page was used; the page's routes answer through
+  DCRS's own pool as `overview_viewer`, read-only (status, questions, the open CAPA finding, records, accounts with no
+  password hash, a CSV); inside the overview's transaction every write is refused (insert, update, delete, truncate,
+  create, a temporary table, nextval, dropping or writing a view, reading a DCRS table), and for the superuser its own
+  powers too (a program run through COPY, reading a server file, reloading the settings, making a role). The views
+  belong to the owner of `app_storage`; the role with CREATEROLE may become the viewer and does not inherit it; the
+  superuser is given no membership. The plain role: nothing made, 503 with its reason and the one step and no
+  address or password; after `npm run db:shared -- setup` as the superuser it may become the viewer (no INHERIT, no
+  ADMIN), the tables still the same, and the page reads at its next look with no restart).
+  `backend/tests/overviewRoutes.test.ts` (2 new and 1 changed: the server's own reason and step said apart, with no
+  address; looked at again before it answers, and reading at once when that finds it ready; nothing to read says why
+  and the one step). `backend/tests/databaseBackup.test.ts` (1 new: Mitra's dump named, kept fourteen days and found
+  like DCRS's, with the same roles file). The §83 database tests, `npm run db:shared -- test`, on a throwaway database
+  with the changed parts 1 and 2 applied twice: 34 passed, 3 skipped (the Audit Assistant's tables are not there),
+  "DCRS unchanged" included; they had found two things fixed with it: the views' department map twelve documents
+  behind DCRS's own, and the optional comments missing the four notification tables of §97. The Mitra server
+  (branch mitra-notify): `server/test/db-copy.test.ts` (9, and 11 with `MITRA_PG_TEST_URL` on a throwaway
+  PostgreSQL: production refused in words with no address, by the server and the demo, with no stack trace; every
+  table of the schema after the tables it points to; the copy whole on PGlite to PGlite: every row, ids, moments to the
+  microsecond, a file's 256 byte values, Gujarati, Hindi and emoji, nulls; a target holding Mitra's rows and DCRS's own
+  database refused, changing nothing; a sequence set past the highest id; a folder that is not a database, a folder a
+  server has open and a non-PostgreSQL address refused; into a real PostgreSQL: the whole command, the server's own
+  migrations opening the result with every table the same, the folder untouched, a second copy refused, DCRS's
+  database and a LATIN1 one refused).
+  **The deployment path rehearsed** (docs/DEPLOYMENT.md, "Both applications on one PostgreSQL server") on two throwaway
+  PostgreSQL 18 servers standing for 5433 and 5432, steps 1 to 7 as written: the roles and databases; DCRS's tables
+  dumped without the overview and restored as `dcrs` (15 tables, every table's rows and fingerprint the same, all owned
+  by `dcrs`); DCRS opening it as `dcrs` (nothing changed, the overview not ready, said in words); the superuser's
+  `db:shared -- setup` (the page then reads 400 records and 134 findings as `overview_viewer`, read-only); a Mitra folder
+  copied in as the role `mitra` (the production server then opening it and reading a file's 256 bytes and a Hindi
+  line); `dcrs_backup` with `pg_read_all_data` backing up both (`dcrs-...dump`, `mitra-...dump`, the roles file); and
+  `npm run db:restore-test` and `npm run db:restore-test -- --mitra`, both RESULT: PASSED.
+  **Run on 10-Oct-2026:** `npm run typecheck` clean and `npm run test:unit` passed (663 frontend tests; 532 backend, 529
+  passed and 3 skipped: the PostgreSQL ledger test by design and the two PostgreSQL placeholders, sessions and the
+  overview); `overviewSetup.test.ts` with `DCRS_OVERVIEW_TEST_URL` on a throwaway embedded PostgreSQL 18.4 passed all
+  12; `npm run db:shared -- test` as above. Browser suite, alone with the project's runner, 8842 and 8843 free:
+  `E2E_SKIP_UNIT=1 npm run test:e2e -- tests/e2e_database_overview.py` 42 of 42, and again with
+  `E2E_OVERVIEW_OWN_POOL=1` 42 of 42 (its server said "Database overview: ready ... through DCRS's own connection as
+  overview_viewer, read-only"). Mitra: `npm run typecheck` clean, `npm test` 30 files, 323 passed and 2 skipped (the
+  real-PostgreSQL cases), and `db-copy.test.ts` with `MITRA_PG_TEST_URL` 11 of 11. Not run: the other browser suites
+  (the runner still gives both servers `OVERVIEW_DATABASE_URL`, and part 1 now changes only what differs, which every
+  suite's start applies on a fresh database), and nothing on the owner's own databases.
 - **Where each person is signed in, on two devices at most** (REQUIREMENTS §106, 9 and 10-Oct-2026). New unit tests,
   each failing before the change (the modules and the route did not exist): `backend/tests/deviceSessions.test.ts`
   (20, and 29 with `DCRS_SESSIONS_TEST_URL` on a throwaway PostgreSQL, where the same ten session checks run on

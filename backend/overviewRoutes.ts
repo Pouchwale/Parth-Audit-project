@@ -1,6 +1,7 @@
 import pg from "pg";
 import type { Express, NextFunction, Request, RequestHandler, Response } from "express";
 import type { PublicUser } from "./auth.ts";
+import { SUPERUSER_STEP, lookAgain, overviewFailed, overviewReadiness, ownOverviewDatabase } from "./overviewSetup.ts";
 
 // THE DATABASE OVERVIEW, READ-ONLY, FOR THE SUPER ADMIN (REQUIREMENTS §83).
 //
@@ -19,10 +20,15 @@ import type { PublicUser } from "./auth.ts";
 //   GET /api/overview/questions/:key.csv  the same answer as a CSV file
 //
 // HOW IT IS KEPT SAFE.
-//   * It reads through a pool of its own (at most two connections), signed in
-//     as the role overview_viewer (OVERVIEW_DATABASE_URL): a role that can read
-//     the overview views and nothing else, and cannot write anywhere. DCRS's own
-//     connection is never used here.
+//   * It reads as the role overview_viewer: a role that can read the overview
+//     views and nothing else, and cannot write anywhere. Either through a pool
+//     of its own (at most two connections) signed in as that role, when
+//     OVERVIEW_DATABASE_URL names its login (§83); or, when it is not set,
+//     through DCRS's own pool, each query in a READ ONLY transaction that has
+//     become overview_viewer first, with its limits (REQUIREMENTS §107,
+//     backend/overviewSetup.ts: DCRS sets the overview up itself when its role
+//     may, and says the one step when it may not). Either way it holds exactly
+//     the viewer's rights, never DCRS's own.
 //   * It only ever runs SELECT, and only on a view the database's own catalog
 //     lists in "overview" as readable by that role. A view name somebody sends
 //     is looked up in that list; the name that goes into the SQL is the
@@ -33,9 +39,11 @@ import type { PublicUser } from "./auth.ts";
 //     sign-in check as every other route (requireAuth).
 // Opening the page and every CSV taken away are lines in the activity log.
 //
-// NOT SET UP: when OVERVIEW_DATABASE_URL is unset, or the database has no
-// overview views (docs/database/README.md says how to add them), every route
-// answers 503 with the code "overview-not-set-up" and says so in plain words.
+// NOT SET UP: when there is nothing to read yet (DCRS's role may not set the
+// overview up, or the database has no overview views; docs/database/README.md
+// says how to add them), every route answers 503 with the code
+// "overview-not-set-up", why in plain words (`reason`) and the one step
+// (`steps`), and the whole of it in `error`.
 
 type LogActivity = (req: Request, who: PublicUser | null, action: string, target?: string, detail?: string, department?: string) => void;
 
@@ -60,8 +68,29 @@ export interface OverviewDatabase {
 export interface OverviewDeps {
   requireAuth: RequestHandler;
   logActivity: LogActivity;
-  /** The database to read, or null when OVERVIEW_DATABASE_URL is not set. */
+  /** The database to read: the viewer's login (OVERVIEW_DATABASE_URL), else DCRS's own pool as the viewer; null when neither is ready. */
   database?: () => OverviewDatabase | null;
+  /**
+   * When there is no database to read: why, and the one step, in plain words. It may look again first (§107: a
+   * superuser's set-up run since DCRS started is found then), and the database is asked for once more after it.
+   */
+  notReady?: () => Promise<{ reason: string; step: string }>;
+}
+
+/** How the page reads: the viewer's own login (OVERVIEW_DATABASE_URL, §83), or DCRS's own pool as the viewer (§107). */
+type ReadMode = "viewer-login" | "own";
+const readMode = (): ReadMode => (process.env.OVERVIEW_DATABASE_URL?.trim() ? "viewer-login" : "own");
+
+/** The database the page reads by default: the viewer's login when OVERVIEW_DATABASE_URL is set, else DCRS's own pool as the viewer. */
+function defaultDatabase(): OverviewDatabase | null {
+  return viewerDatabase() ?? ownOverviewDatabase();
+}
+
+/** Why there is nothing to read, after looking again when it may have changed (backend/overviewSetup.ts). */
+async function defaultNotReady(): Promise<{ reason: string; step: string }> {
+  const found = await lookAgain();
+  if (found.state === "not-ready") return { reason: found.reason, step: found.step };
+  return { reason: "The database overview is not set up on this server yet.", step: SUPERUSER_STEP };
 }
 
 // ---------------------------------------------------------------------------
@@ -605,31 +634,45 @@ function filterWords(view: CatalogView, filter: Filter): string {
 // ---------------------------------------------------------------------------
 // when it cannot answer
 
-const SET_UP_WORDS =
-  "To set it up: apply database/sql/01-schemas-and-roles.sql and 02-overview-dcrs.sql to the DCRS database as a PostgreSQL superuser (npm run db:shared -- setup), give the role overview_viewer a password, put OVERVIEW_DATABASE_URL=postgres://overview_viewer:<its password>@<database host>:<port>/<DCRS database> in backend/.env and restart DCRS. docs/database/README.md has the steps.";
+/** The one step for each way of reading (§83's login of the viewer; §107's DCRS's own pool). */
+const SET_UP_STEP: Record<ReadMode, string> = {
+  "viewer-login":
+    "Check OVERVIEW_DATABASE_URL in backend/.env: it must be the DCRS database's address signed in as overview_viewer with that role's password, set once as a PostgreSQL superuser with npm run db:shared -- setup (OVERVIEW_VIEWER_PASSWORD set). Or take OVERVIEW_DATABASE_URL out and restart DCRS: DCRS then reads the overview through its own connection, as overview_viewer, and sets it up itself when its role may (REQUIREMENTS §107). docs/database/README.md has the steps.",
+  own: SUPERUSER_STEP,
+};
 
 interface Failure {
   status: number;
   code: string;
   error: string;
+  /** For "not set up": why, and the one step, apart (the page shows them so). */
+  reason?: string;
+  steps?: string[];
 }
 
-const notSetUp = (why: string): Failure => ({ status: 503, code: "overview-not-set-up", error: `${why} ${SET_UP_WORDS}` });
+const notSetUp = (why: string, step: string): Failure => ({ status: 503, code: "overview-not-set-up", error: `${why} To set it up: ${step}`, reason: why, steps: [step] });
 
 /** What a database error means for the person looking, or null for one that is a fault here. */
-export function describeFailure(err: unknown): Failure | null {
+export function describeFailure(err: unknown, mode: ReadMode = "viewer-login"): Failure | null {
   const code = (err as { code?: unknown })?.code;
   const message = err instanceof Error ? err.message : String(err);
+  const step = SET_UP_STEP[mode];
+  const where = mode === "viewer-login" ? "The database named in OVERVIEW_DATABASE_URL" : "DCRS's database";
+  const unreachable = { status: 503, code: "overview-unreachable", error: `${where} could not be reached, or is too busy to answer. Try again in a moment; if it goes on, tell whoever looks after the server.` };
   switch (code) {
     case "28P01":
     case "28000":
-      return notSetUp("The database refused the viewer's sign-in: check the user name and password in OVERVIEW_DATABASE_URL.");
+      return notSetUp("The database refused the viewer's sign-in: check the user name and password in OVERVIEW_DATABASE_URL.", step);
     case "3D000":
-      return notSetUp("The database named in OVERVIEW_DATABASE_URL does not exist.");
+      return notSetUp("The database named in OVERVIEW_DATABASE_URL does not exist.", step);
     case "42P01":
     case "42501":
+    case "42704":
     case "42883":
-      return notSetUp("The overview views are missing or changed, or the viewer may not read them.");
+      return notSetUp(
+        mode === "viewer-login" ? "The overview views are missing or changed, or the viewer may not read them." : "The overview views are missing or changed, or DCRS may no longer read them as overview_viewer.",
+        step
+      );
     case "53300":
       return { status: 503, code: "overview-busy", error: "The database has too many connections open just now. Try again in a moment." };
     case "57014":
@@ -646,17 +689,15 @@ export function describeFailure(err: unknown): Failure | null {
     case "EAI_AGAIN":
     case "ETIMEDOUT":
     case "EHOSTUNREACH":
-      return { status: 503, code: "overview-unreachable", error: "The database named in OVERVIEW_DATABASE_URL could not be reached, or is too busy to answer. Try again in a moment; if it goes on, tell whoever looks after the server." };
+      return unreachable;
     default:
-      if (/timeout|terminated|connection/i.test(message) && !code) {
-        return { status: 503, code: "overview-unreachable", error: "The database named in OVERVIEW_DATABASE_URL could not be reached, or is too busy to answer. Try again in a moment; if it goes on, tell whoever looks after the server." };
-      }
+      if (/timeout|terminated|connection/i.test(message) && !code) return unreachable;
       return null;
   }
 }
 
-function fail(res: Response, status: number, code: string, error: string): void {
-  res.status(status).json({ error, code });
+function fail(res: Response, status: number, code: string, error: string, more: { reason?: string; steps?: string[] } = {}): void {
+  res.status(status).json({ error, code, ...more });
 }
 
 // ---------------------------------------------------------------------------
@@ -664,7 +705,8 @@ function fail(res: Response, status: number, code: string, error: string): void 
 
 export function registerOverviewRoutes(app: Express, deps: OverviewDeps): void {
   const { requireAuth, logActivity } = deps;
-  const database = deps.database ?? viewerDatabase;
+  const database = deps.database ?? defaultDatabase;
+  const notReady = deps.notReady ?? defaultNotReady;
 
   // THE SUPER ADMIN'S ALONE, after the same sign-in check as every route
   // (which also stops an account still on the administrator's password).
@@ -678,20 +720,28 @@ export function registerOverviewRoutes(app: Express, deps: OverviewDeps): void {
 
   /** Runs `work` on the viewer's database, and says in plain words when it cannot. */
   const answer = async (res: Response, work: (db: OverviewDatabase) => Promise<void>): Promise<void> => {
-    const db = database();
+    const mode = readMode();
+    let db = database();
     if (!db) {
-      const f = notSetUp("The database overview is not set up on this server: OVERVIEW_DATABASE_URL is not set.");
-      return fail(res, f.status, f.code, f.error);
+      // Nothing to read yet: why, and the one step. Looking again may have found it ready (§107).
+      const why = await notReady();
+      db = database();
+      if (!db) {
+        const f = notSetUp(why.reason, why.step);
+        return fail(res, f.status, f.code, f.error, { reason: f.reason, steps: f.steps });
+      }
     }
     try {
       await work(db);
     } catch (err) {
       if (err instanceof BadRequest) return fail(res, 400, "bad-request", err.message);
-      const failure = describeFailure(err);
+      const failure = describeFailure(err, mode);
       if (!failure) throw err;
       catalogCache = null;
+      // Read through DCRS's own pool and found missing or refused: DCRS looks again at the next opening (§107).
+      if (failure.code === "overview-not-set-up" && mode === "own") overviewFailed(failure.reason ?? failure.error);
       if (failure.status >= 500) console.error("[database overview]", err instanceof Error ? err.message : err);
-      fail(res, failure.status, failure.code, failure.error);
+      fail(res, failure.status, failure.code, failure.error, { reason: failure.reason, steps: failure.steps });
     }
   };
 
@@ -699,13 +749,18 @@ export function registerOverviewRoutes(app: Express, deps: OverviewDeps): void {
   const viewsOrRefusal = async (db: OverviewDatabase, res: Response, fresh = false): Promise<CatalogView[] | null> => {
     const views = await readCatalog(db, fresh);
     if (views.length > 0) return views;
+    const mode = readMode();
     const [hasSchema] = (await db.query(SCHEMA_SQL)).rows[0] ?? [];
     const f = notSetUp(
       hasSchema === "t" || hasSchema === true
         ? "The overview schema has no views the viewer may read yet."
-        : "The database named in OVERVIEW_DATABASE_URL has no overview schema yet."
+        : mode === "viewer-login"
+          ? "The database named in OVERVIEW_DATABASE_URL has no overview schema yet."
+          : "DCRS's database has no overview schema yet.",
+      SET_UP_STEP[mode]
     );
-    fail(res, f.status, f.code, f.error);
+    if (mode === "own") overviewFailed(f.reason ?? f.error);
+    fail(res, f.status, f.code, f.error, { reason: f.reason, steps: f.steps });
     return null;
   };
 
@@ -716,7 +771,9 @@ export function registerOverviewRoutes(app: Express, deps: OverviewDeps): void {
       const views = await viewsOrRefusal(db, res, true);
       if (!views) return;
       const [, databaseName, role, readOnly] = (await db.query(SCHEMA_SQL)).rows[0] ?? [];
-      res.json({ setUp: true, database: text(databaseName), role: text(role), readOnly: readOnly === "on" || readOnly === "t", views: views.map((v) => v.name) });
+      // How it reads (§107): through DCRS's own connection as the viewer, or the viewer's own login (OVERVIEW_DATABASE_URL).
+      const through = readMode() === "viewer-login" ? "viewer-login" : overviewReadiness().state === "ready" ? "dcrs-connection" : null;
+      res.json({ setUp: true, database: text(databaseName), role: text(role), readOnly: readOnly === "on" || readOnly === "t", through, views: views.map((v) => v.name) });
     });
   });
 

@@ -35,7 +35,8 @@ BEGIN
   SELECT string_agg(t, ', ') INTO missing
   FROM unnest(ARRAY['public.users', 'public.digest_log', 'public.app_storage', 'public.activity_log',
                     'public.activity_log_archive', 'public.activity_daily', 'public.activity_daily_state',
-                    'public.job_runs', 'public.escalations', 'public.weekly_digests', 'public.user_sessions']) AS t
+                    'public.job_runs', 'public.escalations', 'public.weekly_digests', 'public.user_sessions',
+                    'public.notifications', 'public.push_devices', 'public.notification_prefs', 'public.push_tickets']) AS t
   WHERE to_regclass(t) IS NULL;
   IF missing IS NOT NULL THEN
     RAISE EXCEPTION 'DCRS''s tables are not all here (missing: %). Start DCRS once against this database (it makes and updates its own tables), then run this again.', missing;
@@ -55,6 +56,46 @@ COMMENT ON COLUMN public.users.departments IS 'The codes of the departments whos
 COMMENT ON COLUMN public.users.must_change_password IS 'True while the person still has a password the super admin gave them. They must choose their own before they can do anything else.';
 COMMENT ON COLUMN public.users.active IS 'False for an account the super admin has switched off: it cannot sign in, and a session still open stops at its next request.';
 COMMENT ON COLUMN public.users.last_sign_in IS 'When the person last signed in, as text in ISO form. Empty if never.';
+
+-- ---------------------------------------------------------------- notifications (REQUIREMENTS §97)
+COMMENT ON TABLE public.notifications IS
+  'Each person''s notifications: what they answer for, worked out by the notify job and shown in the bell, on the Notifications page and on the phone. One row per person and key; an item the plan no longer has is resolved, and a resolved one is deleted 60 days later.';
+COMMENT ON COLUMN public.notifications.id IS 'The notification''s number.';
+COMMENT ON COLUMN public.notifications.user_id IS 'The account it is for (users.id).';
+COMMENT ON COLUMN public.notifications.kind IS 'What it is about, as a short word (a record ready, a record due, the access changed ...).';
+COMMENT ON COLUMN public.notifications.key IS 'What makes it one item for its person, for example ready|<record id> or due|<document>|<date>. No two of one person share a key.';
+COMMENT ON COLUMN public.notifications.priority IS 'high, medium or low.';
+COMMENT ON COLUMN public.notifications.data IS 'The facts it names (JSON): never a sentence and never a reading. Worded on every read in the language asked.';
+COMMENT ON COLUMN public.notifications.created_at IS 'When it was first written.';
+COMMENT ON COLUMN public.notifications.updated_at IS 'When it last changed.';
+COMMENT ON COLUMN public.notifications.read_at IS 'When the person read it. Empty while unread.';
+COMMENT ON COLUMN public.notifications.resolved_at IS 'When it stopped being needed (the record was done, the day passed). Empty while open.';
+COMMENT ON COLUMN public.notifications.pushed_at IS 'When it was pushed to the person''s phone. Empty if not (yet).';
+COMMENT ON COLUMN public.notifications.push_attempts IS 'How many times a push of it was tried.';
+
+COMMENT ON TABLE public.push_devices IS
+  'One row per phone registered for pushes by the Mitra app (POST /api/v1/devices). A token Expo says is no longer registered is deleted.';
+COMMENT ON COLUMN public.push_devices.token IS 'The phone''s Expo push token: where its pushes go.';
+COMMENT ON COLUMN public.push_devices.user_id IS 'The account signed in on that phone (users.id).';
+COMMENT ON COLUMN public.push_devices.platform IS 'android or ios.';
+COMMENT ON COLUMN public.push_devices.language IS 'The language its pushes are worded in: en, hi or gu.';
+COMMENT ON COLUMN public.push_devices.app_version IS 'The Mitra app''s version on that phone.';
+COMMENT ON COLUMN public.push_devices.device_name IS 'The phone''s own name, as it gives it.';
+COMMENT ON COLUMN public.push_devices.created_at IS 'When the phone was first registered.';
+COMMENT ON COLUMN public.push_devices.last_seen_at IS 'When the phone last registered or was last heard from.';
+
+COMMENT ON TABLE public.notification_prefs IS
+  'One row per person: which kinds of notification they switched off for pushing, and the phone''s own daily reminders.';
+COMMENT ON COLUMN public.notification_prefs.user_id IS 'The account (users.id).';
+COMMENT ON COLUMN public.notification_prefs.kinds IS 'The kinds switched off for pushing (JSON).';
+COMMENT ON COLUMN public.notification_prefs.reminders IS 'Whether the phone''s own daily reminders are on. Empty: as the app decides.';
+COMMENT ON COLUMN public.notification_prefs.updated_at IS 'When the person last changed them.';
+
+COMMENT ON TABLE public.push_tickets IS
+  'The tickets Expo''s push service answered with, kept until their receipts are read about 15 minutes later; deleted after a day.';
+COMMENT ON COLUMN public.push_tickets.id IS 'The ticket''s id, as Expo gave it.';
+COMMENT ON COLUMN public.push_tickets.token IS 'The phone''s push token the ticket is for (push_devices.token).';
+COMMENT ON COLUMN public.push_tickets.created_at IS 'When the push was sent.';
 
 -- ---------------------------------------------------------------- user_sessions
 COMMENT ON TABLE public.user_sessions IS

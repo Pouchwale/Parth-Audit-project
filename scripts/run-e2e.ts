@@ -92,6 +92,10 @@ const PRODUCT_SUITES = [
 // read the views as the role overview_viewer, whose password is set here.
 const SHARED_DATABASE_PARTS = ["01-schemas-and-roles.sql", "02-overview-dcrs.sql"];
 const OVERVIEW_VIEWER_PASSWORD = "e2e-viewer";
+// THE OVERVIEW THROUGH DCRS'S OWN CONNECTION (REQUIREMENTS §107): with E2E_OVERVIEW_OWN_POOL=1 the product server for
+// tests/e2e_database_overview.py starts WITHOUT OVERVIEW_DATABASE_URL, so the same suite proves the page reading through
+// DCRS's own pool as overview_viewer (backend/overviewSetup.ts); left out, the viewer's own login (§83) as always.
+const OVERVIEW_OWN_POOL = process.env.E2E_OVERVIEW_OWN_POOL === "1";
 /** The first password of the named accounts on the product server, which tests/e2e_login_only.py signs in with. */
 export const PRODUCT_SEED_PASSWORD = "SeedQA@2026";
 const nodeArgs = ["--no-warnings=ExperimentalWarning"];
@@ -236,7 +240,7 @@ async function main(): Promise<void> {
   // server the suites use: Demo Mode on, sign-up open (every suite's first act
   // is to sign itself up) and no seeded accounts, because that first signup has
   // to become the administrator.
-  const startServer = (port: number, product: boolean) =>
+  const startServer = (port: number, product: boolean, more: Record<string, string> = {}) =>
     spawn(process.execPath, [...nodeArgs, "backend/index.ts"], {
       cwd: root,
       stdio: "inherit",
@@ -277,6 +281,8 @@ async function main(): Promise<void> {
         // SAMPLE DATA IN A LIVE RECORD (REQUIREMENTS §98): never in the plant, where it is Demo Mode's alone;
         // on both test servers, because the suites fill the records they check with Mitra's sample data.
         ALLOW_SAMPLE_FILL: "1",
+        // What one suite's server is started with besides (E2E_OVERVIEW_OWN_POOL above).
+        ...more,
         // NO SCHEDULED JOBS (REQUIREMENTS §75, backend/jobs.ts). The suites run on
         // the real clock and count activity-log lines: an escalation or a weekly
         // digest that ran by itself at 10:00 in the middle of a suite would add
@@ -430,7 +436,9 @@ async function main(): Promise<void> {
         // The product as it is installed: started, waited for and stopped like the first server, for this suite alone.
         if (await answers(`http://localhost:${PRODUCT_PORT}/api/auth/me`)) throw new Error(`Something is already listening on :${PRODUCT_PORT} — stop it first, so ${suite} runs against this build.`);
         console.log(`Starting the product's own server (no Demo Mode, no sign-up) on :${PRODUCT_PORT}...`);
-        productServer = startServer(PRODUCT_PORT, true);
+        const own = OVERVIEW_OWN_POOL && suite === DATABASE_OVERVIEW_SUITE;
+        if (own) console.log("The Database overview through DCRS's own connection (E2E_OVERVIEW_OWN_POOL=1): no OVERVIEW_DATABASE_URL on this server.");
+        productServer = startServer(PRODUCT_PORT, true, own ? { OVERVIEW_DATABASE_URL: "" } : {});
         if (!(await waitForServer(`http://localhost:${PRODUCT_PORT}/api/auth/me`, 60000))) throw new Error(`Server did not come up on :${PRODUCT_PORT} in time.`);
       }
       console.log(`Running ${suite}...`);

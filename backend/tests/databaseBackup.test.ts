@@ -213,6 +213,27 @@ test("fourteen days are kept, and only our own files are ever deleted", () => {
   assert.deepEqual(oldBackupFiles(["dcrs-2025-01-01-2030.dump"], now, 14, new Set(["dcrs-2025-01-01-2030.dump"])), []);
 });
 
+test("Mitra's own database (REQUIREMENTS §107): its dump is named, kept fourteen days and found like DCRS's, with the same roles file", () => {
+  const now = new Date(2026, 9, 10, 20, 30);
+  assert.deepEqual(stampTime("mitra-2026-10-10-2030.dump"), new Date(2026, 9, 10, 20, 30));
+  assert.deepEqual(stampTime("mitra-2026-10-10-2030.dump.partial"), new Date(2026, 9, 10, 20, 30));
+  for (const other of ["mitra-notes.dump", "Mitra-2026-10-10-2030.dump", "mitra-2026-10-10-2030.sql", "mitra-2026-02-30-2030.dump"]) assert.equal(stampTime(other), null, other);
+  const names = ["mitra-2026-10-10-2030.dump", "mitra-2026-09-26-2030.dump", "mitra-2026-09-26-2029.dump", "mitra-2026-09-01-2030.dump.partial", "mitra-notes.dump"];
+  assert.deepEqual(oldBackupFiles(names, now, 14, new Set(["mitra-2026-10-10-2030.dump"])).sort(), ["mitra-2026-09-01-2030.dump.partial", "mitra-2026-09-26-2029.dump"]);
+  const dir = mkdtempSync(path.join(os.tmpdir(), "dcrs-backup-test-"));
+  try {
+    for (const name of ["dcrs-2026-10-10-2030.dump", "roles-2026-10-10-2030.sql", "mitra-2026-10-10-2030.dump", "mitra-2026-10-09-2030.dump", "mitra-2026-10-11-0100.dump.partial"]) {
+      writeFileSync(path.join(dir, name), "x");
+    }
+    assert.equal(newestDump(dir, "mitra"), path.join(dir, "mitra-2026-10-10-2030.dump"));
+    assert.equal(newestDump(dir), path.join(dir, "dcrs-2026-10-10-2030.dump"));
+    assert.equal(rolesFileFor(path.join(dir, "mitra-2026-10-10-2030.dump")), path.join(dir, "roles-2026-10-10-2030.sql"));
+    assert.equal(rolesFileFor(path.join(dir, "mitra-2026-10-09-2030.dump")), null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("the newest backup, and the roles file made with it", () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "dcrs-backup-test-"));
   try {

@@ -96,7 +96,11 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
    With it, DCRS's super admin sees each phone by its own name and model on User access ("Signed in on"), and can
    sign one out; without it, a phone shows as "Mitra server's request". At least 16 characters, or the Mitra server
    does not start and says why. Never paste it into the app.
-   Leave `DATABASE_URL` empty (its own database in `server\.data`) and `HOST` out (it listens on every network card).
+   Leave `HOST` out (it listens on every network card). Its data: for the plant, in a PostgreSQL database of its own
+   (REQUIREMENTS §107): once the database `mitra` is made (docs/DEPLOYMENT.md, "Both applications on one PostgreSQL
+   server"), add `DATABASE_URL=postgres://mitra:<its password>@127.0.0.1:5432/mitra` and `NODE_ENV=production`; with
+   `NODE_ENV=production` it refuses to start on anything else, and says why. Left empty (no `NODE_ENV`), it keeps its
+   data in its own folder, `server\.data`, as in development.
 8. **An Expo account, for the iPhones.** Since 3 September 2026, Expo Go on an iPhone opens an app from a computer
    only when that computer and the iPhone are signed in to the **same Expo account** (Expo says Android will follow).
    Make a free account at expo.dev just for the plant (nothing else in it: every iPhone signs in with it). Then, as
@@ -254,7 +258,8 @@ Then, with **one Android phone and one iPhone** on the company Wi-Fi:
 - **The servers run as the standard account** (step 3.1), never as an administrator. Autologon keeps its password
   encrypted, but an administrator of the PC can read it: keep the PC's administrators few.
 - **Backups**: DCRS's database with `npm run db:backup`, every evening by itself (docs/DEPLOYMENT.md, "Backups of the
-  shared database"). The Mitra server's own database is the `Audit project chatbot-mobile\server\.data` folder: copy
-  it while the servers are stopped.
+  shared database"); with `MITRA_DATABASE_URL` in `backend\.env`, the same run takes the Mitra server's own database
+  too (REQUIREMENTS §107). A Mitra server still on its own folder (`Audit project chatbot-mobile\server\.data`): copy
+  the folder while the servers are stopped, or bring it into PostgreSQL once with `npm --prefix server run db:copy`.
 - **A lost phone**: switch the person's DCRS account off on Users & Access (it stops at once); the app's super admin
   can also sign that phone out (Accounts). If it was an iPhone, change the plant's Expo account password.

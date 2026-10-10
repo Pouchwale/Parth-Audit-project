@@ -24,7 +24,9 @@
 -- Needs part 1 (01-schemas-and-roles.sql) first, and DCRS started at least
 -- once, so that its tables exist. Needs PostgreSQL 16 or newer (it uses
 -- pg_input_is_valid to read a stored date safely). Run as a superuser, in the
--- DCRS database. Safe to run again. Run by: npm run db:shared -- setup.
+-- DCRS database. Safe to run again. Run by: npm run db:shared -- setup; and by
+-- DCRS itself at start-up, with part 1, when its own role may (REQUIREMENTS
+-- §107, backend/overviewSetup.ts).
 -- ============================================================================
 
 DO $$
@@ -130,13 +132,16 @@ AS $$
       'qc-line-clearance-materials', 'qc-line-clearance-quality', 'qc-calibration-master-list', 'qc-coa-label',
       'qc-coa-sleeve', 'qc-coa-corrugated', 'qc-obsolete-artwork', 'qc-printing-aids-destruction',
       'qc-camera-challenge-test', 'qc-tolerance-card-nivea', 'qc-analysis-report', 'qc-utility-test-report',
-      'qc-minutes-of-meetings', 'soc-labels', 'soc-flexible-packaging'
+      'qc-minutes-of-meetings', 'soc-labels', 'soc-flexible-packaging', 'qc-inspection-sb-lamination',
+      'qc-incoming-lamination-film'
     ) THEN 'QC'
     WHEN document_id IN (
       'gap-inspection'
     ) THEN 'QA'
     WHEN document_id IN (
-      'prd-process-parameter', 'prd-alc-production'
+      'prd-process-parameter', 'prd-alc-production', 'prd-slitting-alc', 'prd-pouching-line-clearance',
+      'prd-doctoring-alc', 'prd-sharp-object-issue', 'prd-pouching-blade', 'prd-pouching-cutter-issue',
+      'prd-slitting-blade'
     ) THEN 'PRD'
     WHEN document_id IN (
       'mnt-equipment-list', 'mnt-pm-record', 'mnt-yearly-pm-schedule', 'mnt-daily-health', 'mnt-breakdown-memo',
@@ -149,10 +154,11 @@ AS $$
       'gurudev-insecticide-licence', 'hr-competence', 'hr-skill-matrix', 'hr-pre-employment-health',
       'hr-induction-staff', 'hr-induction-operators', 'hr-job-responsibility', 'hr-training-needs',
       'hr-training-calendar', 'hr-training-effectiveness', 'hr-training-feedback', 'hr-mobile-authorization',
-      'hr-visitor-health', 'hr-gmp-checklist', 'hr-psc-survey', 'hr-psc-survey-analysis', 'hr-hygiene-report'
+      'hr-visitor-health', 'hr-gmp-checklist', 'hr-psc-survey', 'hr-psc-survey-analysis', 'hr-hygiene-report',
+      'hr-daily-cleaning', 'hr-monthly-cleaning'
     ) THEN 'HR'
     WHEN document_id IN (
-      'disp-safe-transporter-agreement', 'disp-container-stuffing'
+      'disp-safe-transporter-agreement', 'disp-container-stuffing', 'disp-vehicle-cleaning'
     ) THEN 'DISP'
     -- Otherwise the department the format number names: F-QC-30, F/QC/37 and
     -- F/QC-09 all read as QC. A number that names none gives none.
@@ -736,4 +742,15 @@ BEGIN
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', f);
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO overview_viewer, overview_owner', f);
   END LOOP;
+  -- DCRS'S OWN PAGE READS AS overview_viewer (REQUIREMENTS §107): the super
+  -- admin's Database overview reads through DCRS's own connection, inside a
+  -- read-only transaction that becomes overview_viewer first (SET LOCAL ROLE,
+  -- backend/overviewSetup.ts), so it holds exactly the viewer's rights. A
+  -- superuser may become any role; any other role that owns DCRS's tables is
+  -- given the right to BECOME overview_viewer, and nothing more: it does not
+  -- inherit the viewer's rights (it needs none: it owns the views) and may not
+  -- hand the role on. No table, nothing of DCRS's, is granted on by it.
+  IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = dcrs_owner) AND NOT pg_has_role(dcrs_owner, 'overview_viewer', 'SET') THEN
+    EXECUTE format('GRANT overview_viewer TO %I WITH INHERIT FALSE, SET TRUE', dcrs_owner);
+  END IF;
 END $$;

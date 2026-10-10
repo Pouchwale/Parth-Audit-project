@@ -156,9 +156,9 @@ flowchart LR
 
 | Role | Signs in? | May | May never |
 |---|---|---|---|
-| DCRS's own role (`dcrs`, or `postgres` on the built-in database) | Yes: DCRS | Everything it does today, on its own tables. It also owns the seven views over DCRS's data. | (Unchanged: no new grant, no new power.) |
+| DCRS's own role (`dcrs`, or `postgres` on the built-in database) | Yes: DCRS | Everything it does today, on its own tables. It also owns the seven views over DCRS's data. Since REQUIREMENTS §107 it may also BECOME `overview_viewer` (SET ROLE), which the Database overview page does inside each of its read-only reads: a superuser may anyway; any other role is given just that by part 2 (`WITH INHERIT FALSE, SET TRUE`). | Use the viewer's rights without becoming it (no INHERIT), or hand the role on (no ADMIN). No new grant on any table. |
 | `audit_assistant` | Yes: the Audit Assistant server | Own the schema `chatbot`: make, change and read its own tables there. `CONNECT` and `CREATE` on the database (see below). | Read or write any DCRS table or sequence; read any overview view; create anything in `public` or `overview`. |
-| `overview_viewer` | Yes: the viewer ("Database overview" in DCRS) | `SELECT` on every overview view (7, and 13 once part 3 is applied), and run their helper functions. | Read any table in `public` or `chatbot`; insert, change or delete anywhere; create anything in `overview` or `public`. |
+| `overview_viewer` | Yes, when `OVERVIEW_DATABASE_URL` names its login; otherwise DCRS's "Database overview" becomes it inside each read (§107) | `SELECT` on every overview view (7, and 13 once part 3 is applied), and run their helper functions. | Read any table in `public` or `chatbot`; insert, change or delete anywhere; create anything in `overview` or `public`. |
 | `overview_owner` | **No**: never a person | Own the six views over the assistant's tables; read the harmless columns of six of the assistant's tables, and four of the DCRS views. | Read a secret column (below); read any DCRS table. |
 | `PUBLIC` (every role) | | Nothing on DCRS's tables, nothing in `overview`. | |
 
@@ -183,6 +183,16 @@ and belongs to the assistant. The tests prove both halves on a throwaway role. `
 database lets the role make new, empty schemas of its own; it gives no access to anything of DCRS.
 
 ## 4. Setting it up: on a copy, test it, then the real database
+
+**DCRS sets parts 1 and 2 up itself** (REQUIREMENTS §107) when its own database role may: a superuser (the
+PostgreSQL DCRS starts by itself on 5433 signs it in as one), or a role that may make roles (CREATEROLE) and create in
+the database. At start-up, with `OVERVIEW_DATABASE_URL` not set, it looks whether the schemas, the three roles and the
+seven views are there and whether it may read them as `overview_viewer`, and applies the two files below itself, in
+one transaction, when something is missing; it changes nothing of its own tables (backend/overviewSetup.ts, proved by
+backend/tests/overviewSetup.test.ts). When DCRS signs in with a plain role of its own, as a careful deployment gives
+it, the steps below are still the way, and Step 5 is then the one step the page asks for: it also lets that role
+become `overview_viewer`, so the page reads with no `OVERVIEW_DATABASE_URL` and no restart. The steps for both
+applications on one server: docs/DEPLOYMENT.md, "Both applications on one PostgreSQL server".
 
 Rule 4 of the brief: build and test on a copy first; show the owner the plan and the results before
 touching the real database.
@@ -332,9 +342,13 @@ the page can change anything.
 
 Every time the page is opened, and every CSV taken away, is written in DCRS's activity log.
 
-**For whoever looks after the server.** The page needs the viewer's login: put
-`OVERVIEW_DATABASE_URL=postgres://overview_viewer:<its password>@<database host>:5432/<DCRS database>`
-in `backend/.env` and restart DCRS. Until then the page says it is not set up, and how.
+**For whoever looks after the server** (REQUIREMENTS §107). Nothing, where DCRS's database role may set the overview
+up: DCRS does it at start-up, and the page reads through DCRS's own connection, each read in a read-only transaction
+that becomes `overview_viewer` first, with the viewer's limits; so it can read the views and nothing else, and change
+nothing. Where DCRS's role may not, the page says why and the one step: once, as a PostgreSQL superuser,
+`npm run db:shared -- setup` (section 4, Step 5); it reads at the next opening, with no restart ("Look again").
+`OVERVIEW_DATABASE_URL=postgres://overview_viewer:<its password>@<database host>:5432/<DCRS database>` in
+`backend/.env` still works as before, for reading through a login of the viewer's own.
 
 ## 6. Example questions, with their SQL
 
@@ -484,7 +498,8 @@ with both optional comment files applied.
 ## 9. Backups
 
 One backup holds everything: DCRS's tables, the Audit Assistant's and the overview views are all in
-the one database. `npm run db:backup` writes the database dump and, beside it, a file of the
+the one database (and, with `MITRA_DATABASE_URL` set, the same run takes the Mitra server's own database too,
+REQUIREMENTS §107). `npm run db:backup` writes the database dump and, beside it, a file of the
 server's roles (a dump holds no roles, but its owners and grants name them; the roles file holds no
 passwords). A restore makes the roles first, then restores the database with `--create` so the
 database keeps its own grants, then sets the two passwords again; `npm run db:restore-test` tries a

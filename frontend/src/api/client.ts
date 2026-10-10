@@ -517,7 +517,18 @@ export interface OverviewStatus {
   database: string | null;
   role: string | null;
   readOnly: boolean;
+  /**
+   * How the page reads (REQUIREMENTS §107): "dcrs-connection", through DCRS's own connection as overview_viewer, set up
+   * by DCRS itself or once by a superuser; "viewer-login", through OVERVIEW_DATABASE_URL (§83). Absent from an older server.
+   */
+  through?: "dcrs-connection" | "viewer-login" | null;
   views: string[];
+}
+
+/** What a "not set up" answer (503, code overview-not-set-up) holds beside its words: why, and the one step (§107). */
+export interface OverviewNotSetUp {
+  reason?: string;
+  steps?: string[];
 }
 
 export interface OverviewQuestion {

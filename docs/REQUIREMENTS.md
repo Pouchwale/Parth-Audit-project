@@ -7110,6 +7110,94 @@ categories; "Sign out this device"; the phone's next request back at the sign-in
 still signed in). The test servers run with DCRS_MAX_DEVICES=off (the suites open many sessions per account). The
 Mitra server: test/dcrs-devices.test.ts.
 
+## §107 The Database overview set up by DCRS itself, and both applications' data in PostgreSQL (9-Oct-2026)
+
+The owner, 9-Oct-2026, with a picture of the super admin's Database overview saying "OVERVIEW_DATABASE_URL is not
+set": "also tell me what it is and fix it or add it whatever this image tell you but make sure this does not remove
+any document from anywhere ... make sure data will stored in our postgres database perfectly of both application
+because now i am going towards deployment part so do it properly".
+
+**What the Database overview is, in plain words.** A page for the super admin alone, in the admin area beside Users &
+Access (§83). It answers questions such as "Who downloaded or printed what last week?", "Which CAPA findings are open?"
+and "Which pest control reports are missing this month?" straight from the database, as tables that can be searched
+and downloaded for Excel, with no SQL. It reads ready-made views in the database, one row per real thing: an account,
+a record, a CAPA finding, a day of the pest control register, a line of the activity log, a download. It can only
+read: nothing on it can change, add or delete anything. The picture showed it waiting for a step a database
+administrator had to take by hand: make a read-only login (the role `overview_viewer`) and write its address into
+`backend/.env` as `OVERVIEW_DATABASE_URL`.
+
+**What changes** (backend/overviewSetup.ts, backend/overviewRoutes.ts, database/sql/01 and 02, the page):
+
+1. **No manual step where none is needed.** At start-up, when `OVERVIEW_DATABASE_URL` is not set, DCRS looks whether
+   the overview's schema, its three roles and its seven views over DCRS's data are in its database, whether
+   `overview_viewer` may read each view, and whether DCRS's own role may read as `overview_viewer`. What is missing it
+   adds itself when its own database role may: a superuser (as on the PostgreSQL that DCRS starts by itself on the
+   plant's PC), or a role that may make roles and create in the database. It applies the two files `npm run db:shared --
+   setup` applies (database/sql/01-schemas-and-roles.sql and 02-overview-dcrs.sql) in ONE transaction, all of it or
+   none of it, under a lock of its own so that two servers starting at once do not both do it. Both files now look
+   before each step and change only what differs, so a role that may make roles but is no superuser can apply them too
+   (it makes the three roles so that it may become them, never inheriting their rights).
+2. **The page reads as the viewer, through DCRS's own connection.** Every question the page asks runs in a read-only
+   transaction that first becomes `overview_viewer` (SET LOCAL ROLE), with the viewer's own limits: a minute per
+   question, the views' schema only. So the page holds exactly the viewer's rights: it reads the views and nothing
+   else, and can change nothing, even when DCRS's own role is the database's superuser (the test proves a superuser's
+   own powers, such as running a program on the server, are refused inside it). Two such reads at a time at most, so
+   the people working never wait for it. The page says "through DCRS's own connection".
+3. **When DCRS's role may not** (a plain role of its own, as a careful deployment gives it), nothing is changed, and
+   the page says why and the one step, in plain words, with no address and no password: once, as a PostgreSQL
+   superuser, `npm run db:shared -- setup`. That step now also lets DCRS's role become `overview_viewer` (02's last
+   step), and nothing more: it does not take the viewer's rights, and may not hand the role on. DCRS looks again when
+   the page is opened, at most once a minute, so no restart is needed; the page's "Look again" asks.
+4. **`OVERVIEW_DATABASE_URL`, when set, is used exactly as before** (§83), and DCRS looks at nothing at start-up.
+5. **Why nothing is removed.** The set-up only adds: the schema `overview` with its views and small functions, the
+   schema `chatbot` (empty, for the Audit Assistant), and the roles `overview_viewer`, `overview_owner` and
+   `audit_assistant` (no password, so nobody can sign in as them). Not one of DCRS's own tables is created, altered,
+   moved or regranted (§83's rule); the views over DCRS's data belong to the role that owns DCRS's tables; no record,
+   document or row is touched. Proved on a throwaway PostgreSQL for each kind of role DCRS may sign in with: every DCRS
+   table's definition and rows, and every sequence, the same before the set-up, after it, and after the page was used.
+6. **Along the way.** The views' department map had fallen behind DCRS's own by twelve documents added since §83 (the
+   two HR cleaning records, two QC lamination inspections, seven Production records and the dispatch vehicle
+   cleaning): their records now name their department in the views, as the §83 test asks. The optional comments on
+   DCRS's tables now describe the four notification tables of §97.
+
+**Both applications' data in PostgreSQL** (docs/DEPLOYMENT.md, "Both applications on one PostgreSQL server"; the Mitra
+server, branch mitra-notify):
+
+1. DCRS keeps everything in PostgreSQL already (§55).
+2. **The Mitra server in production keeps its data in PostgreSQL only.** With `NODE_ENV=production` or
+   `MITRA_ENV=production` in its `server\.env` it refuses to start unless `DATABASE_URL` is a `postgres://` address,
+   and says why and what to do in plain words, never the address itself (it may hold a password); the demo refuses
+   production too. In development it keeps its embedded database folder (`server\.data\pglite`) as before.
+3. **`npm --prefix server run db:copy -- --from .data/pglite --to postgres://mitra:<password>@127.0.0.1:5432/mitra`**
+   brings what an embedded folder holds into an EMPTY PostgreSQL database without loss: the folder is only read (it is
+   copied aside first; one still open by a running Mitra server is refused); every table of Mitra's schema in an order
+   its foreign keys allow, every row with its id, each value passed as the exact text PostgreSQL writes for it (a
+   moment keeps its microseconds, a file every byte, the chats their Gujarati, Hindi and emoji); all in one
+   transaction, which commits only after every table's rows are counted and fingerprinted the same on both sides;
+   sequences set past the highest id; the counts printed table by table. A database that already holds Mitra's rows,
+   DCRS's own database and one not in UTF8 are refused, and nothing is changed.
+4. **One PostgreSQL server for both**: the database `dcrs` for DCRS (role `dcrs`) and the database `mitra` for Mitra
+   (role `mitra`), each application with its own `DATABASE_URL`. `npm run db:backup` takes both when
+   `MITRA_DATABASE_URL` is set in DCRS's `backend\.env` (`mitra-<date>-<time>.dump` beside `dcrs-...dump` and the
+   server's roles file, kept the same 14 days; a failure of either fails the run and deletes nothing), and
+   `npm run db:restore-test -- --mitra` restores Mitra's newest backup into a throwaway database and checks every
+   table's rows against Mitra's database.
+5. One password for both is unchanged (§105, §106): the phone signs in only through DCRS's own sign-in, and no table
+   of Mitra's holds a password.
+
+**Tests:** backend/tests/overviewSetup.test.ts (9 without a database: what is missing in words, who may set it up,
+PostgreSQL 16, the one step with no address or password, the viewer's own limits as part 1 sets them,
+OVERVIEW_DATABASE_URL looked at as before; and with `DCRS_OVERVIEW_TEST_URL` on a throwaway PostgreSQL, three cases:
+a role that may make roles, a superuser, and a plain role that may not, then the superuser's `db:shared -- setup` and
+the page reading with no restart; each with DCRS's own tables and rows unchanged, the page's routes answering as
+`overview_viewer`, read-only, and every write refused inside the overview's transaction), backend/tests/
+overviewRoutes.test.ts (the server's reason and step said apart; looked at again before it answers),
+backend/tests/databaseBackup.test.ts (Mitra's dump named, kept and found like DCRS's). The §83 database tests
+(`npm run db:shared -- test`) pass on the changed files. Browser suite: tests/e2e_database_overview.py, also with
+`E2E_OVERVIEW_OWN_POOL=1` (the product server without `OVERVIEW_DATABASE_URL`, reading through DCRS's own
+connection). The Mitra server: test/db-copy.test.ts (production refused in words; the copy whole on PGlite and, with
+`MITRA_PG_TEST_URL`, into a real PostgreSQL).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
