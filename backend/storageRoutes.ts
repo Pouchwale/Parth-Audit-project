@@ -108,14 +108,17 @@ function recordsAnchor(req: Request): LinesAnchor | null {
   return typeof version === "number" && typeof seq === "number" ? { version, seq } : null;
 }
 
-/** The records of `ids` as this person is handed them: each one they may see, as stored; any other, or one gone, by its id as removed. */
+/**
+ * The records of `ids` as this person is handed them: each one they may see, as stored; one gone from the item, by its
+ * id as removed. A record of a document they do not see is not handed over at all, not even by its id (§96).
+ */
 function linesFor(view: AccessView, lines: Lines, ids: Iterable<string>): { changed: unknown[]; removed: string[] } {
   const changed: unknown[] = [];
   const removed: string[] = [];
   for (const id of new Set(ids)) {
     const line = lines.get(id);
-    if (line !== undefined && view.holds(line)) changed.push(line);
-    else removed.push(id);
+    if (line === undefined) removed.push(id);
+    else if (view.holds(line)) changed.push(line);
   }
   return { changed, removed };
 }

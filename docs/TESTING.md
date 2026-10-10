@@ -883,6 +883,29 @@ Seven scripts live in `tests/`:
   `e2e_postgres_storage.py` 34 of 34 at 5a6b3ac. Not run: the full browser run, and every_record_starts over all 125
   documents; the 38 suites that read `dcrs:v1:records` from localStorage keep it there, since nothing of theirs
   passes the room.
+- **One record per save** (REQUIREMENTS §108, its second half, 10-Oct-2026: a save sends the records that changed,
+  `PATCH /api/storage/records`, and a browser asking what changed is handed only those, by the change journal
+  `app_storage_changes`; backend/changeJournal.ts, frontend/src/data/serverSync.ts). New unit tests:
+  `backend/tests/storageRoutes.test.ts` (20 new, 36 in all; 19 of the 20 fail on the route before the change, the 20th
+  is the old whole answer kept where the journal does not reach) and `frontend/tests/oneRecordPerSave.test.ts` (8, all
+  failing on the browser's code before the change), both over stand-ins that run the very steps of
+  backend/changeJournal.ts (`saveLines`, `answerLines`); what each proves is listed in REQUIREMENTS §108 "Tests of part
+  2". The route tests' server now parses JSON before the routes, as backend/index.ts does: the first browser run found
+  every save falling back to the whole item, because a save sent as `application/json` was taken by the server's 100 KB
+  JSON parser before the route; the browser now sends it as text, as a whole item goes, and the route also takes a small
+  one already parsed. New browser suite `tests/e2e_one_record_per_save.py` (:8842, after `e2e_browser_room.py` in
+  scripts/run-e2e.ts), run alone with the project's runner (`E2E_SKIP_UNIT=1 npm run test:e2e --
+  tests/e2e_one_record_per_save.py`, 8842 and 8843 free): 36 of 36 at 1ea8874, no JavaScript error. Measured there: a
+  save of one F/MNT/08 record 1,888 bytes on the wire where the whole records item was 96,651 bytes compressed (796,723
+  characters); a colleague's save reached the other browser in 2,104 bytes; with the records grown to 27,875,948
+  characters (a whole save of them refused, 413) a save of one record 11,005 bytes, stored. The suites the change
+  touches, at 1ea8874 with the project's runner: `e2e_departments.py` 39 of 39, `e2e_browser_room.py` 39 of 39,
+  `e2e_postgres_storage.py` 34 of 34 (the browser's copy still the database's to the character),
+  `e2e_access_levels.py` 148 of 148 and `e2e_mobile_mitra_api.py` 32 of 32 (the phones' whole writes journaled record by
+  record). Run after the :8842 suites in one invocation, `e2e_access_levels.py` failed only "The last super admin
+  cannot be made staff": `e2e_departments.py`'s first sign-up on the fresh database is a second super admin, so the
+  seeded one is no longer the last (an order effect, not this change); run on its own it passes. Changed: scripts/run-e2e.ts
+  empties `app_storage_changes` with `app_storage` before each suite. Not run: the full browser run.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

@@ -586,13 +586,18 @@ describe("what changed, by the journal: GET /api/storage with the records a brow
     assert.ok(other.items.find((i) => i.key === "records")?.value, "the same version from another write: the whole item");
   });
 
-  it("a department's account is handed its own records' changes, and another department's record only as removed", async () => {
+  it("a department's account is handed its own records' changes, and nothing of another department's, not even its id", async () => {
     const anchor = s.store.anchor();
     await patch(s, "admin", { changed: [rec("hr-2", "hr-competence", "In Progress"), filled(VISCOSITY, 9)] }, anchor);
     const given = await getSince(s, "ankur", anchor);
     const item = given.items.find((i) => i.key === "records")!;
     assert.deepEqual(item.changes!.changed.map((x) => x.id), ["v-1"]);
-    assert.deepEqual(item.changes!.removed, ["hr-2"], "not his to hold");
+    assert.deepEqual(item.changes!.removed, [], "Human Resources' record is not his to hold");
+    assert.equal(JSON.stringify(given).includes("hr-2"), false);
+    // A record removed from the item is said by its id, whoever's it was: the copy drops it if it has it.
+    const later = s.store.anchor();
+    await patch(s, "admin", { removed: ["v-1"] }, later);
+    assert.deepEqual((await getSince(s, "ankur", later)).items.find((i) => i.key === "records")!.changes!.removed, ["v-1"]);
   });
 
   it("the whole item again once what the person may see has changed since the copy (the access rules written)", async () => {
