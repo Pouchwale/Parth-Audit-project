@@ -124,7 +124,7 @@ test("a save reads back only the value's stamp, never the value: a large copy is
   assert.deepEqual(next.names("@stamp:"), [], "no stamp is ever read as a value of the working copy");
 });
 
-test("a value over PART_CHARS is kept in parts, each put on its own and read entry by entry, and read back whole after a reload", async () => {
+test("a value over PART_CHARS is kept in parts, each put and read on its own, and read back whole after a reload", async () => {
   const browser = new FakeBrowser();
   browser.storage.room = 2000;
   const room = await openTab(browser, "tab-1");
@@ -140,10 +140,14 @@ test("a value over PART_CHARS is kept in parts, each put on its own and read ent
   assert.equal(browser.disk.puts.filter(([, chars]) => chars > PART_CHARS).length, 0, "nothing put in one piece over PART_CHARS");
 
   browser.closeTab("tab-1");
-  const steps = browser.disk.cursorSteps;
+  const before = browser.disk.reads.length;
   const next = await openTab(browser, "tab-2");
   assert.equal(next.get(RECORDS), big, "read back whole after a reload");
-  assert.ok(browser.disk.cursorSteps - steps >= 5, "read entry by entry: the head, its stamp and three parts, each on its own");
+  assert.deepEqual(
+    browser.disk.reads.slice(before).sort(),
+    [RECORDS, ...[0, 1, 2].map((i) => `@part:${i}:${RECORDS}`)].sort(),
+    "read entry by entry: the head and each part asked for on its own, the stamp not at all"
+  );
 
   next.set(RECORDS, value(2, Math.floor(PART_CHARS * 1.5)));
   await next.idle();

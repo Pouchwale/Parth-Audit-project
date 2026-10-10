@@ -2,8 +2,8 @@
 // (data/browserRoom.ts, REQUIREMENTS §108). Only what the room uses, and the way a browser does it:
 //
 //   * IndexedDB: one database, one store; a transaction's writes are stored together when it ends, or not at all;
-//     transactions run one after another, in the order they were made; each request, and each step of a cursor, is
-//     answered in a turn of its own; values are copied in and out (structuredClone). The test can hold the writes back
+//     transactions run one after another, in the order they were made; each request is answered in a turn of its
+//     own, in the order asked; values are copied in and out (structuredClone). The test can hold the writes back
 //     ("on their way"), drop them as a page that is closed does (part way through a transaction too), or have the disk
 //     refuse them (QuotaExceededError); it reads every state the disk was ever in, and what was read and put;
 //   * BroadcastChannel: a message reaches every other channel of the same name in the same browser, a moment later,
@@ -42,8 +42,6 @@ export class FakeDisk {
   commits = 0;
   /** Every name read with get, in order. */
   readonly reads: string[] = [];
-  /** Entries read one at a time by a cursor, in all. */
-  cursorSteps = 0;
   /** The values put, in order: [name, characters] (a string's length; 0 for anything else). */
   readonly puts: [string, number][] = [];
 
@@ -107,21 +105,6 @@ class FakeStore {
   getAllKeys(): FakeRequest {
     return this.tx.op((view) => [...view.keys()].sort());
   }
-  /** A cursor over every entry in key order: one success per entry (each a turn of its own), then null. */
-  openCursor(): FakeRequest {
-    const req = new FakeRequest();
-    let keys: string[] | null = null;
-    let at = 0;
-    const next = (view: Map<string, unknown>) => {
-      if (keys === null) keys = [...view.keys()].sort();
-      while (at < keys.length && !view.has(keys[at])) at++;
-      if (at >= keys.length) return null;
-      const key = keys[at++];
-      this.tx.disk.cursorSteps += 1;
-      return { key, value: structuredClone(view.get(key)), continue: () => void this.tx.op(next, req) };
-    };
-    return this.tx.op(next, req);
-  }
   put(value: unknown, key: string): FakeRequest {
     if (this.tx.mode !== "readwrite") throw new DOMException("The transaction is read-only.", "ReadOnlyError");
     if (this.tx.disk.refusePut) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
@@ -167,7 +150,8 @@ class FakeTransaction {
     this.aborted = true;
   }
 
-  op(fn: (view: Map<string, unknown>) => unknown, req: FakeRequest = new FakeRequest()): FakeRequest {
+  op(fn: (view: Map<string, unknown>) => unknown): FakeRequest {
+    const req = new FakeRequest();
     this.ops.push({ req, fn });
     return req;
   }

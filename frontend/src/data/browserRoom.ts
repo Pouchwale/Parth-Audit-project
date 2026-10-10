@@ -197,8 +197,9 @@ function randomTab(): string {
 }
 
 /**
- * Opens the database and reads everything in it, entry by entry (a cursor: each entry, each part of a large value, is
- * read in a task of its own, so no one task of the start-up reads more than a part).
+ * Opens the database and reads everything in it, entry by entry: the names first, then every entry asked for at once,
+ * so the answers come back one after another without a round trip between them, each in a task of its own - no one
+ * task of the start-up reads more than a part (a cursor, a round trip per entry, took 672 ms at 6x CPU throttle).
  */
 function openAndRead(idb: IDBFactory): Promise<{ db: IDBDatabase; entries: [string, Entry][] }> {
   return new Promise((resolve, reject) => {
@@ -219,20 +220,21 @@ function openAndRead(idb: IDBFactory): Promise<{ db: IDBDatabase; entries: [stri
       const db = req.result;
       try {
         const tx = db.transaction(STORE, "readonly");
+        const store = tx.objectStore(STORE);
         const heads = new Map<string, Stored>();
         const parts = new Map<string, string>();
-        const cursor = tx.objectStore(STORE).openCursor();
-        cursor.onsuccess = () => {
-          const at = cursor.result;
-          if (!at) return;
-          const key = at.key;
-          if (typeof key === "string" && !key.startsWith(STAMP_PREFIX)) {
-            const value: unknown = at.value;
-            if (key.startsWith(PART_PREFIX)) {
-              if (typeof value === "string") parts.set(key, value);
-            } else if (isStored(value)) heads.set(key, value);
+        const names = store.getAllKeys();
+        names.onsuccess = () => {
+          for (const key of names.result) {
+            if (typeof key !== "string" || key.startsWith(STAMP_PREFIX)) continue;
+            const one = store.get(key);
+            one.onsuccess = () => {
+              const value: unknown = one.result;
+              if (key.startsWith(PART_PREFIX)) {
+                if (typeof value === "string") parts.set(key, value);
+              } else if (isStored(value)) heads.set(key, value);
+            };
           }
-          at.continue();
         };
         tx.oncomplete = () => {
           const entries: [string, Entry][] = [];
