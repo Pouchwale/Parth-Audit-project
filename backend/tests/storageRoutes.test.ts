@@ -13,18 +13,35 @@ import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import express, { type NextFunction, type Request, type Response } from "express";
 import type { PublicUser } from "../auth.ts";
-import type { StoredItem, StoredItems, WriteResult } from "../db.ts";
+import type { ComposeLines, LinesAnchor, LinesAnswer, LinesWriteResult, StoredItem, StoredItems, WriteResult } from "../db.ts";
 import { registerStorageRoutes, type AccessRulesWriter, type StorageStore } from "../storageRoutes.ts";
+import { Lines, answerLines, changesBetween, journalRows, journaled, saveLines, type JournalRow } from "../changeJournal.ts";
 import { DOCS_JSON } from "./accessFixtures.ts";
 
 class MemoryStorage implements StorageStore {
   items = new Map<string, { value: string; version: number; seq: number }>();
+  /** The change journal (backend/db.ts app_storage_changes), each row with its item. */
+  journal: (JournalRow & { scope: string; key: string })[] = [];
   seq = 0;
   private k = (scope: string, key: string) => `${scope}|${key}`;
-  put(key: string, value: unknown, scope = "company"): void {
+  /** Stores the next version as it is, journaling the records' changes as db.ts writeItem does. */
+  put(key: string, value: unknown, scope = "company"): { version: number; seq: number } {
+    const before = this.items.get(this.k(scope, key));
+    const written = this.store(scope, key, typeof value === "string" ? value : JSON.stringify(value));
+    if (journaled(scope, key)) {
+      const was = before ? Lines.parse(before.value) : null;
+      const now = Lines.parse(this.items.get(this.k(scope, key))!.value);
+      const changes = now && (!before || was) ? changesBetween(was, now) : null;
+      if (changes) for (const row of journalRows(written.seq, written.version, changes)) this.journal.push({ ...row, scope, key });
+    }
+    return written;
+  }
+  private store(scope: string, key: string, value: string): { version: number; seq: number } {
     const now = this.items.get(this.k(scope, key));
     this.seq += 1;
-    this.items.set(this.k(scope, key), { value: typeof value === "string" ? value : JSON.stringify(value), version: (now?.version ?? 0) + 1, seq: this.seq });
+    const next = { value, version: (now?.version ?? 0) + 1, seq: this.seq };
+    this.items.set(this.k(scope, key), next);
+    return { version: next.version, seq: next.seq };
   }
   value(key: string): unknown {
     return JSON.parse(this.items.get(this.k("company", key))!.value);
@@ -32,7 +49,12 @@ class MemoryStorage implements StorageStore {
   version(key: string): number {
     return this.items.get(this.k("company", key))?.version ?? 0;
   }
-  async storedItems(userId: string, sinceSeq: number): Promise<StoredItems> {
+  /** The records as a browser holds them: the version and the write that made it. */
+  anchor(): LinesAnchor {
+    const v = this.items.get(this.k("company", "records"))!;
+    return { version: v.version, seq: v.seq };
+  }
+  async storedItems(userId: string, sinceSeq: number, withoutValueOf: readonly string[] = []): Promise<StoredItems> {
     const items: StoredItems["items"] = [];
     const versions: Record<string, number> = {};
     let seq = sinceSeq;
@@ -41,7 +63,7 @@ class MemoryStorage implements StorageStore {
       if (scope !== "company" && scope !== userId) continue;
       versions[key] = v.version;
       seq = Math.max(seq, v.seq);
-      if (v.seq > sinceSeq) items.push({ scope: scope === "company" ? "company" : "user", key, value: v.value, version: v.version, seq: v.seq });
+      if (v.seq > sinceSeq && !(scope === "company" && withoutValueOf.includes(key))) items.push({ scope: scope === "company" ? "company" : "user", key, value: v.value, version: v.version, seq: v.seq });
     }
     return { items, seq, versions };
   }
@@ -54,9 +76,31 @@ class MemoryStorage implements StorageStore {
     const current = now ? { key, ...now } : null;
     if (baseVersion !== null && (now ? now.version !== baseVersion : baseVersion !== 0)) return { ok: false, current };
     const toStore = compose ? compose(now ? now.value : null) : value; // throws: nothing is written
-    this.put(key, toStore, scope);
-    const written = this.items.get(this.k(scope, key))!;
+    const written = this.put(key, toStore, scope);
     return { ok: true, version: written.version, seq: written.seq };
+  }
+  async writeLines(scope: string, key: string, base: { version: number; seq: number | null }, _by: string, compose: ComposeLines): Promise<LinesWriteResult> {
+    const now = this.items.get(this.k(scope, key));
+    return saveLines(
+      {
+        key,
+        stored: now ? { version: now.version, seq: now.seq } : null,
+        lines: () => Lines.parse(now?.value),
+        text: () => now!.value,
+        span: async (from, to) => this.span(scope, key, from, to),
+        write: async (value) => this.store(scope, key, value),
+        journal: async (rows) => void this.journal.push(...rows.map((row) => ({ ...row, scope, key }))),
+      },
+      base,
+      compose
+    );
+  }
+  async lineChanges(scope: string, key: string, from: LinesAnchor): Promise<LinesAnswer | null> {
+    const now = this.items.get(this.k(scope, key));
+    return answerLines(now ? { version: now.version, seq: now.seq } : null, from, async (a, b) => this.span(scope, key, a, b), () => Lines.parse(now?.value));
+  }
+  private span(scope: string, key: string, from: number, to: number): JournalRow[] {
+    return this.journal.filter((row) => row.scope === scope && row.key === key && row.seq >= from && row.seq <= to);
   }
   async deleteItem(scope: string, key: string): Promise<void> {
     this.items.delete(this.k(scope, key));
@@ -297,5 +341,256 @@ describe("the definitions, the format edits, HR Master Data and the access rules
     const ok = await fetch(`${s.base}/api/storage/access`, { method: "DELETE", headers: { "x-test-user": "admin" } });
     assert.equal(ok.status, 204);
     assert.ok(s.lines.some((l) => l.action === "Access changed" && l.target === "Everybody"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ONE RECORD PER SAVE (REQUIREMENTS §108): a save sends the records that changed (PATCH), and a browser asking what
+// changed is handed only those, by the change journal.
+
+interface Answer {
+  status: number;
+  body: Record<string, any>;
+}
+
+async function patch(s: Server, who: string, changes: { changed?: unknown[]; removed?: string[] }, base: { version: number; seq?: number | null }, scope?: string): Promise<Answer> {
+  const headers: Record<string, string> = { "x-test-user": who, "Content-Type": "application/json", "X-Base-Version": String(base.version) };
+  if (base.seq !== undefined && base.seq !== null) headers["X-Base-Seq"] = String(base.seq);
+  if (scope !== undefined) headers["X-Scope"] = scope;
+  const res = await fetch(`${s.base}/api/storage/records`, { method: "PATCH", headers, body: JSON.stringify(changes) });
+  return { status: res.status, body: (await res.json()) as Record<string, any> };
+}
+
+/** GET /api/storage as a browser holding the records at `anchor` asks it. */
+async function getSince(s: Server, who: string, anchor: { version: number; seq: number }, since = 0) {
+  const res = await fetch(`${s.base}/api/storage?since=${since}`, {
+    headers: { "x-test-user": who, "X-Records-Version": String(anchor.version), "X-Records-Seq": String(anchor.seq) },
+  });
+  return (await res.json()) as { items: { key: string; value?: string; version: number; seq: number; changes?: { from: number; changed: { id: string }[]; removed: string[] } }[]; seq: number };
+}
+
+const recordsOf = (s: Server) => s.store.value("records") as { id: string; status: string; data: { v: number }; documentId: string }[];
+const filled = (r: ReturnType<typeof rec>, v: number) => ({ ...r, data: { v }, history: [...r.history, entry("edited")] });
+
+describe("one record per save: the records that changed, laid over the item as stored (§108)", () => {
+  let s: Server;
+  before(async () => (s = await start()));
+  after(() => s.close());
+
+  it("a save of one record is stored beside every other record as it was, and journaled by its id", async () => {
+    const anchor = s.store.anchor();
+    const r = await patch(s, "admin", { changed: [filled(VISCOSITY, 2)] }, anchor);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.version, anchor.version + 1);
+    assert.deepEqual(r.body.changes, { from: anchor.version, changed: [], removed: [] }, "nothing it has not seen");
+    const all = recordsOf(s);
+    assert.deepEqual(all.map((x) => x.id), ["hr-1", "p-1", "v-1"], "in place, the others as they were");
+    assert.equal(all.find((x) => x.id === "v-1")!.data.v, 2);
+    const rows = s.store.journal.filter((row) => row.seq === r.body.seq);
+    assert.deepEqual(rows.map((row) => row.recordId), [null, "v-1"], "the write, and the one record it changed");
+  });
+
+  it("somebody else's save in between, of another record: no 409, both kept, and the answer hands back theirs", async () => {
+    const anchor = s.store.anchor();
+    const theirs = await patch(s, "admin", { changed: [filled(POUCHING, 3)] }, anchor);
+    assert.equal(theirs.status, 200);
+    // The same copy, a moment later, saves another record.
+    const mine = await patch(s, "admin", { changed: [rec("v-new", "qc-viscosity", "In Progress")] }, anchor);
+    assert.equal(mine.status, 200, JSON.stringify(mine.body));
+    assert.equal(mine.body.version, anchor.version + 2);
+    assert.deepEqual(mine.body.changes.changed.map((x: { id: string }) => x.id), ["p-1"], "the record changed since its copy");
+    assert.equal(mine.body.changes.changed[0].data.v, 3);
+    const all = recordsOf(s);
+    assert.equal(all.find((x) => x.id === "p-1")!.data.v, 3, "theirs kept");
+    assert.ok(all.some((x) => x.id === "v-new"), "mine kept");
+  });
+
+  it("a save naming a record somebody else changed first: 409 with the records changed since, nothing written", async () => {
+    const anchor = s.store.anchor();
+    assert.equal((await patch(s, "admin", { changed: [filled(VISCOSITY, 4)] }, anchor)).status, 200);
+    const version = s.store.version("records");
+    const r = await patch(s, "admin", { changed: [filled(VISCOSITY, 5)] }, anchor);
+    assert.equal(r.status, 409);
+    assert.deepEqual(r.body.conflicts, ["v-1"]);
+    assert.equal(r.body.version, version);
+    assert.deepEqual(r.body.changes.changed.map((x: { id: string }) => x.id), ["v-1"]);
+    assert.equal(r.body.changes.changed[0].data.v, 4, "their copy, to merge with");
+    assert.equal(s.store.version("records"), version, "nothing written");
+    // Merged and sent again from the version it was handed: taken.
+    const again = await patch(s, "admin", { changed: [filled(VISCOSITY, 5)] }, { version: r.body.version, seq: r.body.seq });
+    assert.equal(again.status, 200);
+    assert.equal(recordsOf(s).find((x) => x.id === "v-1")!.data.v, 5);
+  });
+
+  it("a save sent twice (its answer lost on the way) is taken once, without a 409", async () => {
+    const anchor = s.store.anchor();
+    const change = { changed: [filled(POUCHING, 6)] };
+    const first = await patch(s, "admin", change, anchor);
+    assert.equal(first.status, 200);
+    const second = await patch(s, "admin", change, anchor);
+    assert.equal(second.status, 200, JSON.stringify(second.body));
+    assert.equal(second.body.version, first.body.version, "nothing written the second time");
+  });
+
+  it("a removal travels; a record removed by somebody else since is no conflict for a save of others", async () => {
+    const anchor = s.store.anchor();
+    const r = await patch(s, "admin", { removed: ["v-new"] }, anchor);
+    assert.equal(r.status, 200);
+    assert.equal(recordsOf(s).some((x) => x.id === "v-new"), false);
+    assert.ok(s.store.journal.some((row) => row.seq === r.body.seq && row.recordId === "v-new" && row.removed));
+    const later = await patch(s, "admin", { changed: [filled(HR_RECORD, 7)] }, anchor);
+    assert.equal(later.status, 200);
+    assert.deepEqual(later.body.changes.removed, ["v-new"], "told it is gone");
+  });
+
+  it("the whole item stays writable (a first upload, the phones' engine), and that write is journaled by record", async () => {
+    const anchor = s.store.anchor();
+    const all = recordsOf(s).filter((x) => x.id !== "hr-1").map((x) => (x.id === "p-1" ? { ...x, data: { v: 8 } } : x));
+    const w = await s.store.writeItem("company", "records", JSON.stringify(all), anchor.version, "engine@server");
+    assert.equal(w.ok, true);
+    const rows = s.store.journal.filter((row) => row.seq === (w as { seq: number }).seq);
+    assert.deepEqual(rows.map((row) => [row.recordId, row.removed]), [[null, false], ["p-1", false], ["hr-1", true]]);
+    const given = await getSince(s, "admin", anchor);
+    const item = given.items.find((i) => i.key === "records")!;
+    assert.equal(item.value, undefined, "not the whole item");
+    assert.deepEqual(item.changes!.changed.map((x) => x.id), ["p-1"]);
+    assert.deepEqual(item.changes!.removed, ["hr-1"]);
+  });
+
+  it("refuses what is not a save of records, and a save with no version", async () => {
+    const anchor = s.store.anchor();
+    const res = await fetch(`${s.base}/api/storage/documents`, { method: "PATCH", headers: { "x-test-user": "admin", "X-Base-Version": "1" }, body: "{}" });
+    assert.equal(res.status, 400);
+    assert.equal((await patch(s, "admin", { changed: [{ data: 1 }] }, anchor)).status, 400, "a record with no id");
+    const bad = await fetch(`${s.base}/api/storage/records`, { method: "PATCH", headers: { "x-test-user": "admin" }, body: JSON.stringify({ changed: [] }) });
+    assert.equal(bad.status, 400);
+  });
+});
+
+describe("one record per save, at each person's level (§96, §108)", () => {
+  let s: Server;
+  before(async () => (s = await start()));
+  after(() => s.close());
+
+  it("a Read-only person's own change is refused with 403 in plain words, record by record, and nothing is written", async () => {
+    const scope = (await get(s, "ankur")).body.scope;
+    const version = s.store.version("records");
+    const r = await patch(s, "ankur", { changed: [filled(POUCHING, 2)] }, s.store.anchor(), scope);
+    assert.equal(r.status, 403);
+    assert.equal(r.body.code, "access-level");
+    assert.equal(r.body.recordId, "p-1");
+    assert.equal(r.body.error, "F/QC/37 Inspection Record - Pouching Process is Read only for you. Filling in a record needs Write access: ask the super admin for it.");
+    assert.equal(s.store.version("records"), version);
+    assert.ok(s.lines.some((l) => l.action === "Change refused" && l.who === "Ankur Raval"));
+  });
+
+  it("the change their level allows is taken, and everyone else's records stay as stored", async () => {
+    const r = await patch(s, "ankur", { changed: [{ ...VISCOSITY, status: "Pending Verification", submittedBy: "Ankur Raval", history: [...VISCOSITY.history, entry("submitted")] }] }, s.store.anchor());
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const all = recordsOf(s);
+    assert.deepEqual(all.map((x) => x.id).sort(), ["hr-1", "p-1", "v-1"]);
+    assert.equal(all.find((x) => x.id === "v-1")!.status, "Pending Verification");
+    assert.equal(all.find((x) => x.id === "hr-1")!.status, "Verified");
+  });
+
+  it("a sheet the app made on a document they only read is kept out, and the answer takes it back from their copy", async () => {
+    const r = await patch(s, "ankur", { changed: [rec("sheet-1", "qc-inspection-pouching", "Due", { history: [] })] }, s.store.anchor());
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.kept, ["sheet-1"]);
+    assert.deepEqual(r.body.changes.removed, ["sheet-1"]);
+    assert.equal(recordsOf(s).some((x) => x.id === "sheet-1"), false);
+  });
+
+  it("a removal travels at Edit; below it the record is kept as stored and handed back", async () => {
+    const kept = await patch(s, "ankur", { removed: ["p-1"] }, s.store.anchor());
+    assert.equal(kept.status, 200);
+    assert.deepEqual(kept.body.kept, ["p-1"]);
+    assert.deepEqual(kept.body.changes.changed.map((x: { id: string }) => x.id), ["p-1"], "their copy gets it back");
+    assert.ok(recordsOf(s).some((x) => x.id === "p-1"));
+    const removed = await patch(s, "ankur", { removed: ["v-1"] }, s.store.anchor());
+    assert.equal(removed.status, 200, "Edit on F-QC-30, the record he answers for");
+    assert.equal(recordsOf(s).some((x) => x.id === "v-1"), false);
+  });
+
+  it("a copy made for other levels (X-Scope) is answered 409 with the person's own records, as a whole write is", async () => {
+    const r = await patch(s, "ankur", { changed: [filled(VISCOSITY, 3)] }, s.store.anchor(), "QC");
+    assert.equal(r.status, 409);
+    assert.match(r.body.scope, /^v:/);
+    assert.deepEqual(idsOf(JSON.parse(r.body.current.value)), ["p-1"]);
+  });
+});
+
+describe("what changed, by the journal: GET /api/storage with the records a browser holds (§108)", () => {
+  let s: Server;
+  before(async () => (s = await start()));
+  after(() => s.close());
+
+  it("nothing for the records when the browser holds the stored version, its own save included (data-9)", async () => {
+    const anchor = s.store.anchor();
+    const w = await patch(s, "admin", { changed: [filled(VISCOSITY, 2)] }, anchor);
+    const given = await getSince(s, "admin", { version: w.body.version, seq: w.body.seq });
+    assert.equal(given.items.some((i) => i.key === "records"), false);
+  });
+
+  it("only the records changed since, and the ids removed, when the journal covers the span", async () => {
+    const anchor = s.store.anchor();
+    await patch(s, "admin", { changed: [filled(POUCHING, 3)] }, anchor);
+    await patch(s, "admin", { removed: ["hr-1"] }, s.store.anchor());
+    const given = await getSince(s, "admin", anchor, 999999);
+    const item = given.items.find((i) => i.key === "records")!;
+    assert.equal(item.value, undefined);
+    assert.equal(item.version, s.store.version("records"));
+    const stored = recordsOf(s).find((x) => x.id === "p-1");
+    assert.deepEqual(item.changes, { from: anchor.version, changed: [stored], removed: ["hr-1"] });
+  });
+
+  it("the whole item when the journal does not cover it: a copy older than the journal, or another write of that version", async () => {
+    const given = await getSince(s, "admin", { version: 1, seq: 1 });
+    const item = given.items.find((i) => i.key === "records")!;
+    assert.ok(item.value, "the whole item, as before");
+    assert.equal(item.changes, undefined);
+    const now = s.store.anchor();
+    const other = await getSince(s, "admin", { version: now.version, seq: now.seq - 1 });
+    assert.ok(other.items.find((i) => i.key === "records")?.value, "the same version from another write: the whole item");
+  });
+
+  it("a department's account is handed its own records' changes, and another department's record only as removed", async () => {
+    const anchor = s.store.anchor();
+    await patch(s, "admin", { changed: [rec("hr-2", "hr-competence", "In Progress"), filled(VISCOSITY, 9)] }, anchor);
+    const given = await getSince(s, "ankur", anchor);
+    const item = given.items.find((i) => i.key === "records")!;
+    assert.deepEqual(item.changes!.changed.map((x) => x.id), ["v-1"]);
+    assert.deepEqual(item.changes!.removed, ["hr-2"], "not his to hold");
+  });
+
+  it("the whole item again once what the person may see has changed since the copy (the access rules written)", async () => {
+    const anchor = s.store.anchor();
+    await patch(s, "admin", { changed: [filled(VISCOSITY, 10)] }, anchor);
+    await put(s, "admin", "access", { version: 1, people: { "ankur.raval@gpp.local": { modules: { HR: "read" } } }, responsibility: {} });
+    const given = await getSince(s, "ankur", anchor);
+    const item = given.items.find((i) => i.key === "records")!;
+    assert.ok(item.value, "the whole item");
+    assert.deepEqual(idsOf(JSON.parse(item.value!)), ["hr-2", "p-1", "v-1"], "with Human Resources' records, now his to read");
+  });
+});
+
+describe("a records item larger than the old body limit still saves one record (§108)", () => {
+  let s: Server;
+  before(async () => (s = await start()));
+  after(() => s.close());
+
+  it("26 million characters stored; a save of one record is a few hundred bytes and is taken", async () => {
+    const padding = "x".repeat(2000);
+    const many = Array.from({ length: 13_000 }, (_, i) => rec(`old-${i}`, "qc-viscosity", "Verified", { note: padding }));
+    s.store.put("records", [HR_RECORD, POUCHING, VISCOSITY, ...many]);
+    const size = s.store.items.get("company|records")!.value.length;
+    assert.ok(size > 26_000_000, `the item is ${size} characters`);
+    const body = JSON.stringify({ changed: [filled(VISCOSITY, 2)] });
+    assert.ok(body.length < 1000, `the save is ${body.length} characters`);
+    const r = await patch(s, "admin", { changed: [filled(VISCOSITY, 2)] }, s.store.anchor());
+    assert.equal(r.status, 200, JSON.stringify(r.body).slice(0, 300));
+    const after = s.store.items.get("company|records")!.value;
+    assert.ok(after.length > 26_000_000);
+    assert.equal((JSON.parse(after) as { id: string; data: { v: number } }[]).find((x) => x.id === "v-1")!.data.v, 2);
   });
 });

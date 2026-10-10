@@ -1,10 +1,25 @@
 import express, { type Express, type Request, type RequestHandler, type Response } from "express";
 import zlib from "node:zlib";
 import type { PublicUser } from "./auth.ts";
-import { deleteItem, readItem, storedItems, writeItem, type StoredItem, type StoredItems, type WriteResult } from "./db.ts";
-import { ACCESS_KEY, AccessRefused, checkFormatChange, composeDefinitions, composeRecords, holdsHrMaster, languageOf, levelRefusal, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
+import {
+  deleteItem,
+  lineChanges,
+  readItem,
+  storedItems,
+  writeItem,
+  writeLines,
+  type ComposeLines,
+  type LinesAnchor,
+  type LinesAnswer,
+  type LinesWriteResult,
+  type StoredItem,
+  type StoredItems,
+  type WriteResult,
+} from "./db.ts";
+import { ACCESS_KEY, AccessRefused, checkFormatChange, composeDefinitions, composeRecordLines, composeRecords, holdsHrMaster, languageOf, levelRefusal, viewFor, writesHrMaster, type AccessView } from "./accessLevels.ts";
 import { accessAccountOf, catalogueLoader, databaseItemSource } from "./accessStore.ts";
 import type { AccessCatalogue } from "./accessLevels.ts";
+import { lineId, postedChanges, type Lines } from "./changeJournal.ts";
 
 // THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55). The browser keeps a
 // working copy of each stored item (frontend/src/data/serverSync.ts): it
@@ -31,6 +46,15 @@ import type { AccessCatalogue } from "./accessLevels.ts";
 //
 // These routes were in backend/index.ts until 9-Oct-2026; they moved here unchanged so that a unit test can drive them
 // over a stand-in for the database (backend/tests/storageRoutes.test.ts).
+//
+// ONE RECORD PER SAVE (REQUIREMENTS §108, backend/changeJournal.ts). The records are still stored as one item, but a
+// browser's save sends only the records it changed and the ids it removed (PATCH /api/storage/records, with the
+// version its copy was made from and the write that made it), checked record by record as a whole write is; and a
+// browser asking what changed, saying which version of the records it holds, is handed only the records changed since
+// when the change journal covers that span and what the person may see has not changed since. Somebody else's save in
+// between is no reason to refuse a save that names none of the same records: it is laid over what is stored, and the
+// answer hands back what the browser has not seen. A save naming a record somebody else changed first is refused with
+// 409 and the records changed since, to be merged as before and sent again. A whole write (PUT) stays, as before.
 
 export const COMPANY_KEYS = new Set(["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", ACCESS_KEY]);
 export const USER_SCOPED_KEYS = new Set(["settings", "assistant-conversations", "sidebar-open-modules", "sidebar-visible"]);
@@ -48,20 +72,53 @@ type LogActivity = (req: Request, who: PublicUser | null, action: string, target
 
 /** Where the items are read and written: the server's database (backend/db.ts) by default, a test's stand-in otherwise. */
 export interface StorageStore {
-  storedItems(userId: string, sinceSeq: number): Promise<StoredItems>;
+  storedItems(userId: string, sinceSeq: number, withoutValueOf?: readonly string[]): Promise<StoredItems>;
   readItem(scope: string, key: string): Promise<StoredItem | null>;
   writeItem(scope: string, key: string, value: string, baseVersion: number | null, by: string, compose?: (stored: string | null) => string): Promise<WriteResult>;
+  /** A save of some records, laid over the item as stored (db.ts writeLines). */
+  writeLines(scope: string, key: string, base: { version: number; seq: number | null }, by: string, compose: ComposeLines): Promise<LinesWriteResult>;
+  /** The records changed since a browser's copy, by the change journal (db.ts lineChanges). */
+  lineChanges(scope: string, key: string, from: LinesAnchor): Promise<LinesAnswer | null>;
   deleteItem(scope: string, key: string): Promise<void>;
   itemSeq(scope: string, key: string): Promise<number | null>;
 }
 
 export const databaseStorageStore: StorageStore = {
-  storedItems: (userId, since) => storedItems(userId, since),
+  storedItems: (userId, since, without) => storedItems(userId, since, without),
   readItem,
   writeItem,
+  writeLines,
+  lineChanges,
   deleteItem,
   itemSeq: databaseItemSource.itemSeq,
 };
+
+/** A whole number in a header, at least `min`; undefined when absent, null when malformed. */
+function headerNumber(req: Request, name: string, min: number): number | null | undefined {
+  const raw = req.get(name);
+  if (raw === undefined || raw === "") return undefined;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n >= min ? n : null;
+}
+
+/** The records a browser holds, as it says with a request (X-Records-Version and X-Records-Seq), or null. */
+function recordsAnchor(req: Request): LinesAnchor | null {
+  const version = headerNumber(req, "x-records-version", 1);
+  const seq = headerNumber(req, "x-records-seq", 1);
+  return typeof version === "number" && typeof seq === "number" ? { version, seq } : null;
+}
+
+/** The records of `ids` as this person is handed them: each one they may see, as stored; any other, or one gone, by its id as removed. */
+function linesFor(view: AccessView, lines: Lines, ids: Iterable<string>): { changed: unknown[]; removed: string[] } {
+  const changed: unknown[] = [];
+  const removed: string[] = [];
+  for (const id of new Set(ids)) {
+    const line = lines.get(id);
+    if (line !== undefined && view.holds(line)) changed.push(line);
+    else removed.push(id);
+  }
+  return { changed, removed };
+}
 
 /** The super admin's write of the access rules, by whichever route it comes (backend/accessRulesRoutes.ts). */
 export interface AccessRulesWriter {
@@ -140,8 +197,19 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
       return;
     }
     const since = Number(req.query.since ?? 0);
-    const result = await store.storedItems(user.id, Number.isSafeInteger(since) && since > 0 ? since : 0);
     const view = await viewOf(user);
+    // THE RECORDS CHANGED SINCE THE BROWSER'S COPY (REQUIREMENTS §108), when it says which it holds, the journal covers
+    // the span, and what this person may see is as it was when the copy was made: the copy's key is today's, and the
+    // catalogue and the access rules have not been written since (either can change which records they see without a
+    // record changing). Otherwise the whole item, as before.
+    const anchor = recordsAnchor(req);
+    let lines: LinesAnswer | null = null;
+    if (anchor && (req.get("x-scope") ?? view.scope) === view.scope) {
+      const unchangedSince = async (key: string) => ((await store.itemSeq("company", key)) ?? 0) <= anchor.seq;
+      const steady = view.readsAll || ((await unchangedSince("documents")) && (await unchangedSince(ACCESS_KEY)));
+      if (steady) lines = await store.lineChanges("company", "records", anchor);
+    }
+    const result = await store.storedItems(user.id, Number.isSafeInteger(since) && since > 0 ? since : 0, lines ? ["records"] : []);
     const denied = holdsHrMaster(view) ? [] : HR_ONLY_KEYS;
     if (!view.readsAll || denied.length) {
       result.items = result.items
@@ -149,7 +217,11 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         .map((item) => (LINE_KEYS.has(item.key) && item.scope === "company" && !view.readsAll ? { ...item, value: visibleLines(item.value, view.holds) } : item));
       for (const key of denied) delete result.versions[key];
     }
-    sendCompressedJson(req, res, 200, { ...result, denied, scope: view.scope });
+    const items: unknown[] = result.items;
+    if (lines?.kind === "changes") {
+      items.push({ scope: "company", key: "records", version: lines.version, seq: lines.seq, changes: { from: anchor!.version, ...linesFor(view, lines.lines, lines.ids) } });
+    }
+    sendCompressedJson(req, res, 200, { ...result, items, denied, scope: view.scope });
   });
 
   app.put(
@@ -277,6 +349,116 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
       }
       const current = result.current && scoped ? { ...result.current, value: visibleLines(result.current.value, view.holds) } : result.current;
       sendCompressedJson(req, res, 409, { current, scope: scopeNow });
+    }
+  );
+
+  // A SAVE OF THE RECORDS THAT CHANGED (REQUIREMENTS §108). The body is { changed: [records], removed: [ids] };
+  // X-Base-Version and X-Base-Seq say which version of the records the browser's copy is, and the write that made it.
+  // Answered with the version written and, under `changes`, the records the browser has not seen: those somebody else
+  // changed since its copy, and any of its own the server kept as stored (the app's housekeeping its level does not
+  // allow, §96). 409 with `changes` and `conflicts`: a record it sends was changed by somebody else first; nothing was
+  // written. 409 with `current`: as a whole write's, when the change cannot be said record by record.
+  app.patch(
+    "/api/storage/:key",
+    requireAuth,
+    express.text({ type: () => true, limit: STORAGE_MAX_BYTES }),
+    async (req: Request, res: Response): Promise<void> => {
+      const key = String(req.params.key ?? "");
+      if (key !== "records" || typeof req.body !== "string") {
+        res.status(400).json({ error: "Only the records are saved record by record." });
+        return;
+      }
+      let posted: ReturnType<typeof postedChanges> = null;
+      try {
+        posted = postedChanges(JSON.parse(req.body));
+      } catch {
+        posted = null;
+      }
+      if (!posted) {
+        res.status(400).json({ error: "A save names the records it changed and the ids it removed, as JSON." });
+        return;
+      }
+      const version = headerNumber(req, "x-base-version", 0);
+      const seq = headerNumber(req, "x-base-seq", 1);
+      if (typeof version !== "number" || seq === null) {
+        res.status(400).json({ error: "Bad base version." });
+        return;
+      }
+      const user = (req as AuthedRequest).user;
+      if (otherAccount(req, user)) {
+        res.status(401).json({ error: "This browser is signed in as another account now." });
+        return;
+      }
+      const view = await viewOf(user);
+      const scoped = !view.readsAll;
+      const claimedScope = req.get("x-scope");
+      if (claimedScope !== undefined && claimedScope !== view.scope) {
+        const stored = await store.readItem("company", key);
+        const current = stored && scoped ? { ...stored, value: visibleLines(stored.value, view.holds) } : stored;
+        sendCompressedJson(req, res, 409, { current, scope: view.scope });
+        return;
+      }
+      const sent = posted;
+      const ids = [...sent.changed.map((line) => lineId(line)!), ...sent.removed];
+      let seen: Lines | null = null;
+      const compose: ComposeLines = (stored, behind) => {
+        seen = stored;
+        // Somebody else changed one of these records since the browser's copy: theirs comes first, and nothing is written.
+        if (behind.size) {
+          const conflicts: string[] = [];
+          for (const line of sent.changed) {
+            const id = lineId(line)!;
+            if (behind.has(id) && stored.textOf(id) !== JSON.stringify(line)) conflicts.push(id);
+          }
+          for (const id of sent.removed) if (behind.has(id) && stored.get(id) !== undefined) conflicts.push(id);
+          if (conflicts.length) return { conflicts };
+        }
+        if (view.editsAll) return { lines: stored.with(sent.changed, sent.removed), touched: ids };
+        // Record by record, against the version stored (§96): the person's own lines with the save laid over them,
+        // checked as a whole write of them is; everyone else's as stored.
+        const mine = stored.derive(stored.items.filter((line) => view.holds(line))).with(sent.changed, sent.removed);
+        const out = composeRecordLines(view, stored.items, mine.items, user.name);
+        return { lines: stored.derive(out.lines), touched: [...ids, ...out.kept] };
+      };
+      let result: LinesWriteResult;
+      try {
+        result = await store.writeLines("company", key, { version, seq: seq ?? null }, user.email, compose);
+      } catch (err) {
+        if (err instanceof AccessRefused) {
+          logActivity(req, user, "Change refused", view.catalogue.title(err.body.documentId).slice(0, 240), err.body.error.slice(0, 600));
+          // With the refused record as stored, so the browser puts it back as the database holds it.
+          const stored: Lines | null = seen;
+          const back = stored ? linesFor(view, stored, err.body.recordId ? [err.body.recordId] : ids) : null;
+          res.status(403).json({ ...err.body, ...(back ? { changes: back } : {}) });
+          return;
+        }
+        throw err;
+      }
+      if (result.kind === "whole") {
+        const current = result.current && scoped ? { ...result.current, value: visibleLines(result.current.value, view.holds) } : result.current;
+        sendCompressedJson(req, res, 409, { current, scope: view.scope });
+        return;
+      }
+      if (result.kind === "conflict") {
+        const changes = { from: version, ...linesFor(view, result.lines, result.behind) };
+        sendCompressedJson(req, res, 409, { changes, version: result.version, seq: result.seq, conflicts: result.conflicts, scope: view.scope });
+        return;
+      }
+      // The browser's own records that are not stored as it sent them (kept as stored, or never taken) go back to it too.
+      // A record of a document the person does not see is left in their copy, as a whole write leaves it (§96).
+      const lines = result.lines;
+      const differ: string[] = [];
+      for (const line of sent.changed) {
+        const id = lineId(line)!;
+        if (view.holds(line) && lines.textOf(id) !== JSON.stringify(line)) differ.push(id);
+      }
+      for (const id of sent.removed) if (lines.get(id) !== undefined) differ.push(id);
+      sendCompressedJson(req, res, 200, {
+        version: result.version,
+        seq: result.seq,
+        ...(differ.length ? { kept: differ } : {}),
+        changes: { from: version, ...linesFor(view, lines, [...result.behind, ...differ]) },
+      });
     }
   );
 

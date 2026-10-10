@@ -10,8 +10,12 @@ import { NAMESPACE, heldCopy, holdChange, noteLocalRemove, noteLocalWrite, onSer
 import { onRoomChange, roomGet, roomNames, roomOpen, roomRemove, roomSet } from "./browserRoom";
 export interface IStorageAdapter {
   getItem(key: string): string | null;
-  /** False when the value could not be stored (e.g. the browser's quota is full). */
-  setItem(key: string, value: string): boolean;
+  /**
+   * False when the value could not be stored (e.g. the browser's quota is full). `lines`: for an item that is a list
+   * of records, the ids of the ones this write changed or removed, so the save sends only those (data/serverSync.ts,
+   * REQUIREMENTS §108); left out, the save works out what changed itself.
+   */
+  setItem(key: string, value: string, lines?: Iterable<string>): boolean;
   removeItem(key: string): void;
   keys(): string[];
 }
@@ -43,11 +47,11 @@ export class LocalStorageAdapter implements IStorageAdapter {
     // localStorage, or IndexedDB's copy in memory for what does not fit there (§108).
     return roomGet(NAMESPACE + key);
   }
-  setItem(key: string, value: string): boolean {
+  setItem(key: string, value: string, lines?: Iterable<string>): boolean {
     // localStorage when it fits; otherwise kept in IndexedDB (data/browserRoom.ts, REQUIREMENTS §108).
     if (roomSet(NAMESPACE + key, value)) {
       releaseHeld(key);
-      noteLocalWrite(key);
+      noteLocalWrite(key, lines);
       return true;
     }
     // NOT DROPPED (REQUIREMENTS §93). A change that does not fit in the
@@ -56,7 +60,7 @@ export class LocalStorageAdapter implements IStorageAdapter {
     // opens, and is kept; the banner says the browser's copy is full and, once
     // the database has it, that it WAS saved (components/common/StorageFullBanner.tsx).
     if (holdChange(key, value)) {
-      noteLocalWrite(key);
+      noteLocalWrite(key, lines);
       return true;
     }
     // Nothing to send it (nobody signed in): logging alone left the screen
@@ -171,9 +175,12 @@ export function writeJSON<T>(key: string, value: T): boolean {
   return storage.setItem(key, JSON.stringify(value));
 }
 
-/** As writeJSON, for a caller that has already made the JSON itself (data/repositories/recordRepository.ts). */
-export function writeText(key: string, text: string): boolean {
-  return storage.setItem(key, text);
+/**
+ * As writeJSON, for a caller that has already made the JSON itself (data/repositories/recordRepository.ts), and that
+ * names the records it changed or removed (`lines`): the save then sends only those (REQUIREMENTS §108).
+ */
+export function writeText(key: string, text: string, lines?: Iterable<string>): boolean {
+  return storage.setItem(key, text, lines);
 }
 
 // THE WORKING COPY IS NEARLY AS LARGE AS THE BROWSER ALLOWS (REQUIREMENTS §65).

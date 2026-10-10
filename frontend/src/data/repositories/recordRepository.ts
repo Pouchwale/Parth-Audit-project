@@ -1,7 +1,8 @@
 import type { RecordInstance, RecordStatus } from "../../types";
 import { isDocumentIdVisible } from "../../engine/departmentScope";
 import { SEED_HISTORICAL_RECORDS } from "../seed/historicalRecords";
-import { onExternalChange, readJSON, writeJSON, writeText } from "../storageAdapter";
+import { onExternalChange, readJSON, storage, writeJSON, writeText } from "../storageAdapter";
+import { serveRecordsCopy } from "../serverSync";
 import { compareISO, todayISO } from "../../utils/date";
 
 const KEY = "records";
@@ -16,9 +17,15 @@ const KEY = "records";
 let cache: RecordInstance[] | null = null;
 
 // Another tab of the app saved records: drop the copy, or the next save here
-// would write this tab's stale array back over what that tab just saved.
+// would write this tab's stale array back over what that tab just saved. A
+// colleague's records laid over the copy by the sync (`splice` below) keep the
+// array it made, once the copy stored is that very text.
+let spliced: { text: string; records: RecordInstance[] } | null = null;
 onExternalChange((key) => {
-  if (key === null || key === KEY) cache = null;
+  if (key !== null && key !== KEY) return;
+  const made = spliced;
+  spliced = null;
+  cache = made && storage.getItem(KEY) === made.text ? made.records : null;
 });
 
 function loadAll(): RecordInstance[] {
@@ -99,7 +106,20 @@ function alteredInPlace(records: RecordInstance[]): RecordInstance | null {
   return record;
 }
 
-function saveAll(records: RecordInstance[]): void {
+/** A record's own text as stored: remembered against the record, so it is worked out once. */
+function textOf(record: RecordInstance): string {
+  let text = writtenOut.get(record);
+  if (text === undefined) {
+    text = JSON.stringify(record);
+    writtenOut.set(record, text);
+  }
+  return text;
+}
+
+// ONE RECORD PER SAVE (REQUIREMENTS §108). Every write below says which records it changed or removed (`lines`), and
+// the save sends only those to the database (data/serverSync.ts). A write that cannot say (the whole array stored
+// after a record was found changed in place) says nothing, and the save works out what changed itself.
+function saveAll(records: RecordInstance[], lines?: Iterable<string>): void {
   const altered = alteredInPlace(records);
   if (altered) {
     console.error(
@@ -118,8 +138,43 @@ function saveAll(records: RecordInstance[]): void {
   // even that is possible (nobody signed in) does the write fail; a cached copy
   // showing the change would then be lost, silently, on the next reload, so it
   // is dropped, the screens show what is actually stored, and StorageFullBanner says why.
-  cache = writeText(KEY, text) ? records : null;
+  cache = writeText(KEY, text, lines) ? records : null;
 }
+
+// THE COPY THE SYNC SENDS FROM AND LAYS A COLLEAGUE'S RECORDS OVER (REQUIREMENTS §108), served from the parsed array
+// above, so a save or a colleague's change never parses or writes out the megabytes the copy runs to.
+serveRecordsCopy({
+  texts(ids) {
+    const out = new Map<string, string | null>();
+    const all = loadAll();
+    if (!ids) {
+      for (const r of all) if (!out.has(r.id)) out.set(r.id, textOf(r));
+      return out;
+    }
+    const wanted = new Set(ids);
+    for (const r of all) if (wanted.has(r.id) && !out.has(r.id)) out.set(r.id, textOf(r));
+    for (const id of wanted) if (!out.has(id)) out.set(id, null);
+    return out;
+  },
+  splice(put, out) {
+    const all = loadAll();
+    const given = new Map<string, RecordInstance>();
+    for (const r of put) given.set(String(r.id), r as unknown as RecordInstance);
+    const gone = new Set(out);
+    const next: RecordInstance[] = [];
+    for (const r of all) {
+      const theirs = given.get(r.id);
+      if (theirs) {
+        next.push(theirs);
+        given.delete(r.id);
+      } else if (!gone.has(r.id)) next.push(r);
+    }
+    for (const r of given.values()) next.push(r);
+    const text = serialise(next);
+    spliced = { text, records: next };
+    return text;
+  },
+});
 
 // Historical (real, source-document) records are added by id if missing —
 // not only on a completely empty store — so an install that already has
@@ -130,7 +185,7 @@ export function ensureSeeded(): void {
   const existing = loadAll();
   const ids = new Set(existing.map((r) => r.id));
   const missing = SEED_HISTORICAL_RECORDS.filter((r) => !ids.has(r.id));
-  if (missing.length > 0) saveAll([...existing, ...missing]);
+  if (missing.length > 0) saveAll([...existing, ...missing], missing.map((r) => r.id));
 }
 
 export interface RecordFilter {
@@ -186,7 +241,7 @@ export const recordRepository = {
     const stamped = { ...record, updatedAt: new Date().toISOString() };
     if (idx >= 0) all[idx] = stamped;
     else all.push(stamped);
-    saveAll(all);
+    saveAll(all, [stamped.id]);
     return stamped;
   },
   // Set of "documentId|periodKey" for one Demo/Live side — lets the record
@@ -208,8 +263,15 @@ export const recordRepository = {
     if (records.length === 0) return;
     const all = loadAll();
     const byId = new Map(all.map((r) => [r.id, r] as const));
-    for (const r of records) byId.set(r.id, r);
-    saveAll(Array.from(byId.values()));
+    // Only the records whose text differs are changed: one handed back exactly as stored writes nothing.
+    const changed: string[] = [];
+    for (const r of records) {
+      const was = byId.get(r.id);
+      if (was !== r && (was === undefined || textOf(was) !== textOf(r))) changed.push(r.id);
+      byId.set(r.id, r);
+    }
+    if (changed.length === 0) return;
+    saveAll(Array.from(byId.values()), changed);
   },
   // The three removals below skip the write when nothing matched: the
   // records array is megabytes, and boot-time clean-ups that find nothing
@@ -217,7 +279,7 @@ export const recordRepository = {
   remove(id: string): void {
     const all = loadAll();
     const keep = all.filter((r) => r.id !== id);
-    if (keep.length !== all.length) saveAll(keep);
+    if (keep.length !== all.length) saveAll(keep, [id]);
   },
   // Bulk variant of remove() — one filter pass and one write, instead of one
   // of each per id. Matters for a backlog cleanup that can touch thousands
@@ -227,13 +289,13 @@ export const recordRepository = {
     if (idSet.size === 0) return 0;
     const all = loadAll();
     const keep = all.filter((r) => !idSet.has(r.id));
-    if (keep.length !== all.length) saveAll(keep);
+    if (keep.length !== all.length) saveAll(keep, all.filter((r) => idSet.has(r.id)).map((r) => r.id));
     return all.length - keep.length;
   },
   removeWhere(filter: RecordFilter): number {
     const all = loadAll();
     const keep = all.filter((r) => !matches(r, filter));
-    if (keep.length !== all.length) saveAll(keep);
+    if (keep.length !== all.length) saveAll(keep, all.filter((r) => matches(r, filter)).map((r) => r.id));
     return all.length - keep.length;
   },
   clearDemoData(): number {

@@ -24,9 +24,14 @@ export function onServerChange(listener: (key: string | null) => void): () => vo
   return () => listeners.delete(listener);
 }
 
-/** storageAdapter.ts: an item was written. Only noted — the host decides what is stored. */
-export function noteLocalWrite(key: string): void {
+/** storageAdapter.ts: an item was written. Only noted — the host decides what is stored (the records whole, journaled by db.ts). */
+export function noteLocalWrite(key: string, _lines?: Iterable<string>): void {
   written.add(key);
+}
+
+/** data/repositories/recordRepository.ts serves the browser's sync its records one by one (REQUIREMENTS §108): nothing here sends them. */
+export function serveRecordsCopy(_copy: unknown): void {
+  /* the host writes the records whole */
 }
 
 /** storageAdapter.ts: an item was removed. Only noted. */
