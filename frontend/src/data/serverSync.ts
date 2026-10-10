@@ -28,6 +28,12 @@
 // conversations and screen layout are their own (backend/index.ts,
 // USER_SCOPED_KEYS). Only the assistant bubble's position on the screen stays
 // in this browser alone.
+//
+// The working copy is the browser's localStorage, and what does not fit there
+// is kept in its IndexedDB (data/browserRoom.ts, REQUIREMENTS §108): `raw` below
+// reads and writes both, and everything here works on either the same way.
+
+import { onRoomRefused, roomBusy, roomGet, roomIdle, roomKept, roomNames, roomRemove, roomSet } from "./browserRoom";
 
 export const NAMESPACE = "dcrs:v1:";
 const MARKER_PREFIX = "dcrs:sync:";
@@ -177,6 +183,13 @@ const iso = () => new Date().toISOString();
 // saved (components/common/StorageFullBanner.tsx). The first save that fits
 // again puts the item back in the browser's storage. The lasting fix, a working
 // copy that stays small, waits for the owner's choice of design (C-1).
+//
+// SINCE §108 ONLY WHERE IndexedDB TOO REFUSES. What does not fit in
+// localStorage is kept in IndexedDB (data/browserRoom.ts), which survives a
+// reload; this map holds an item only when the browser has no IndexedDB to
+// take it. When IndexedDB takes an item and then refuses to store it (the
+// computer's disk full), the room keeps it in memory and says so
+// (onRoomRefused below): the same as a held item, said the same way.
 const heldInMemory = new Map<string, string>();
 /** The held items whose last change the database has not confirmed yet. */
 const heldUnsent = new Set<string>();
@@ -190,13 +203,17 @@ function dispatch(name: string, detail?: unknown): void {
   }
 }
 
-/** Closing the page while a held change is still on its way asks first: it is in this page's memory alone. */
+/**
+ * Closing the page while a held change is still on its way asks first: it is in this page's memory alone. So does
+ * closing it in the moment between a change kept in IndexedDB and IndexedDB storing it, while the database does not
+ * have the change yet either (REQUIREMENTS §108).
+ */
 function guardLeaving(): void {
   if (leavingGuarded) return;
   leavingGuarded = true;
   try {
     window.addEventListener("beforeunload", (e: BeforeUnloadEvent) => {
-      if (heldUnsent.size === 0) return;
+      if (heldUnsent.size === 0 && !(roomBusy() && scheduled.size + sending.size > 0)) return;
       e.preventDefault();
       try {
         // The older way of asking, which some browsers still need.
@@ -244,47 +261,52 @@ export function releaseHeld(key: string): void {
 // ---------------------------------------------------------------------------
 // the working copy
 
+// localStorage, and IndexedDB for what does not fit there (data/browserRoom.ts, REQUIREMENTS §108); then the page's
+// memory, where nothing else would take it (§93).
 const raw = {
   get(name: string): string | null {
     const held = heldInMemory.get(name);
     if (held !== undefined) return held;
-    try {
-      return window.localStorage.getItem(name);
-    } catch {
-      return null;
-    }
+    return roomGet(name);
   },
   set(name: string, value: string): boolean {
-    try {
-      window.localStorage.setItem(name, value);
-      heldInMemory.delete(name);
-      return true;
-    } catch {
-      return false;
-    }
+    if (!roomSet(name, value)) return false;
+    heldInMemory.delete(name);
+    // Kept in IndexedDB: closing the page before it is stored there asks first, while the database has not got it either.
+    if (roomKept(name)) guardLeaving();
+    return true;
   },
   remove(name: string): void {
     heldInMemory.delete(name);
-    try {
-      window.localStorage.removeItem(name);
-    } catch {
-      /* noop */
-    }
+    roomRemove(name);
   },
   names(prefix: string): string[] {
-    const out: string[] = [];
-    try {
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && k.startsWith(prefix)) out.push(k);
-      }
-    } catch {
-      /* none */
-    }
+    const out = roomNames(prefix);
     for (const k of heldInMemory.keys()) if (k.startsWith(prefix) && !out.includes(k)) out.push(k);
     return out;
   },
 };
+
+// INDEXEDDB REFUSED what did not fit in localStorage (data/browserRoom.ts): the item is in this page's memory only, as
+// §93 held it, and is said the same way - "sending" while the database does not have the change, "WAS saved" once it
+// has (components/common/StorageFullBanner.tsx). Only now does the page say the browser's copy is full (§108).
+onRoomRefused((names) => {
+  const s = session;
+  for (const name of names) {
+    if (!name.startsWith(NAMESPACE)) continue;
+    const key = name.slice(NAMESPACE.length);
+    if (!s || !SYNC_KEYS.has(key) || s.denied.has(key)) {
+      dispatch(STORAGE_WRITE_FAILED);
+      continue;
+    }
+    const marker = readMarker(key);
+    if ((marker && marker.p) || scheduled.has(key) || sending.has(key)) {
+      heldUnsent.add(key);
+      guardLeaving();
+      dispatch(STORAGE_HELD, { key });
+    } else dispatch(STORAGE_HELD_SAVED, { key, stillHeld: true });
+  }
+});
 
 const local = {
   get: (key: string) => raw.get(NAMESPACE + key),
@@ -944,11 +966,18 @@ function databaseWasReset(): void {
   bases.clear();
   for (const key of local.keys()) if (SYNC_KEYS.has(key)) local.remove(key);
   for (const name of [...raw.names(MARKER_PREFIX), ...raw.names(BASE_PREFIX), ...raw.names(HELD_PREFIX)]) raw.remove(name);
-  try {
-    window.location.reload();
-  } catch {
-    /* no window */
-  }
+  reloadWhenStored();
+}
+
+/** Loads the page again once what was just written or removed has reached IndexedDB (REQUIREMENTS §108): nothing comes back from there. */
+function reloadWhenStored(): void {
+  void roomIdle(3000).finally(() => {
+    try {
+      window.location.reload();
+    } catch {
+      /* no window */
+    }
+  });
 }
 
 async function pull(): Promise<void> {
@@ -975,11 +1004,7 @@ async function pull(): Promise<void> {
   if (typeof scope === "string" && scope !== s.scope) {
     console.warn("This account's departments changed; loading the app again.");
     saveBasesOfPending();
-    try {
-      window.location.reload();
-    } catch {
-      /* no window */
-    }
+    reloadWhenStored();
     return;
   }
 

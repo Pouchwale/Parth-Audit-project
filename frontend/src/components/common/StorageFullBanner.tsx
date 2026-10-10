@@ -14,6 +14,7 @@ import { clearAllDemoData } from "../../data/demoGenerator";
 import { demoModeAvailable } from "../../engine/features";
 import { purgePreLaunchNoise } from "../../engine/backlogCleanup";
 import { roomLabel, storageBreakdown, type StorageBreakdown } from "../../engine/storageRoom";
+import { useT } from "../../i18n";
 import { useAppStore } from "../../store/AppStore";
 
 // Everything the app records lives in this browser's storage, which has a
@@ -22,8 +23,13 @@ import { useAppStore } from "../../store/AppStore";
 // Since §93 a change that does not fit while somebody is signed in is held in
 // the page's memory and sent to the database from there: this says the
 // browser's copy is full, and that the record WAS saved once the database has it.
+// Since §108 what does not fit in localStorage is kept in IndexedDB
+// (data/browserRoom.ts), so this says the copy is full only when IndexedDB
+// too refused it, and in those words (i18n/strings.room.ts); and there is no
+// "nearly full" to warn of while IndexedDB is there (storageNearlyFull).
 export function StorageFullBanner() {
   const { mode, setMode, bump } = useAppStore();
+  const t = useT();
   const [failed, setFailed] = useState(false);
   // SAID BEFORE THE WALL, NOT AFTER IT (REQUIREMENTS §65). A save that does not
   // fit has already lost that change; the same banner warns while there is still
@@ -125,17 +131,17 @@ export function StorageFullBanner() {
         <strong>
           <FiAlertTriangle size={13} style={{ verticalAlign: -1 }} />{" "}
           {held === "sending"
-            ? "This browser's copy is full."
+            ? t("room.full")
             : held === "saved"
-              ? `This browser's copy is full — your ${heldRecords ? "record" : "change"} WAS saved.`
+              ? t(heldRecords ? "room.fullSavedRecord" : "room.fullSavedChange")
               : failed
                 ? "Your last change could not be saved."
                 : "This browser is nearly full."}
         </strong>{" "}
         {held === "sending"
-          ? "It has no room left for the app's working copy, so your change is kept on this page and is being sent to the database (PostgreSQL) now. Keep this page open until this says it was saved."
+          ? t("room.sending")
           : held === "saved"
-            ? "It is in the database (PostgreSQL), so nothing is lost, and this page goes on working from memory. Make room in this browser before you close or reload the page."
+            ? t("room.saved")
             : failed
               ? "This browser's storage for the app is full, so that change is not kept — everything saved before it is safe."
               : `The working copy of the records on this computer takes ${roomLabel(used)} of the ${roomLabel(BROWSER_ROOM_CHARS)} or so the browser allows. Everything is safe in the database.`}
