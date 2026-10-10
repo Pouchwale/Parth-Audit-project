@@ -905,9 +905,9 @@ Seven scripts live in `tests/`:
   record). Run after the :8842 suites in one invocation, `e2e_access_levels.py` failed only "The last super admin
   cannot be made staff": `e2e_departments.py`'s first sign-up on the fresh database is a second super admin, so the
   seeded one is no longer the last (an order effect, not this change); run on its own it passes. Again at d6b0c83, after
-  a department's account stopped being handed the ids of other departments' records:  36 of
-  36 (a save 1,888 bytes, a colleague's 2,104, past 25 MB 10,982),  34 of 34,
-   148 of 148, and  30 of 30 with  (the
+  a department's account stopped being handed the ids of other departments' records: `e2e_one_record_per_save.py` 36 of
+  36 (a save 1,888 bytes, a colleague's 2,104, past 25 MB 10,982), `e2e_postgres_storage.py` 34 of 34,
+  `e2e_access_levels.py` 148 of 148, and `e2e_every_record_starts.py` 30 of 30 with `E2E_ONLY=mnt-new-equipment` (the
   browser full, a reload, Maintenance's account). Changed: scripts/run-e2e.ts
   empties `app_storage_changes` with `app_storage` before each suite. Not run: the full browser run.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
