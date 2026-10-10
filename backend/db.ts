@@ -299,6 +299,41 @@ const SCHEMA = `
   -- refuses an UPDATE anyway, activityArchive.ts). Never handed out by a read.
   ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS client_id TEXT;
   CREATE UNIQUE INDEX IF NOT EXISTS activity_log_client_id_idx ON activity_log (client_id) WHERE client_id IS NOT NULL;
+
+  -- WHO IS SIGNED IN WHERE (REQUIREMENTS §106): one row per session, keyed by
+  -- the id its token carries (backend/auth.ts \`sid\`), so that a sign-out, the
+  -- super admin's "Sign out this device" and a device signing in again END a
+  -- session, which a signed token alone could not. backend/deviceSessions.ts
+  -- reads and writes it. A session is open while ended_at is null and ends_at
+  -- (the close of its day, §84) is still to come. Nothing deletes a row: an
+  -- ended one says when, why and by whom.
+  --   device_id        the device's own id: the browser's (frontend/src/utils/
+  --                    deviceId.ts) or the phone's; '' when none was sent
+  --   device_name      the device in words: "Windows computer - Chrome"
+  --   device_category  computer, mobile or tablet
+  --   place            website, phone-app or api (another program)
+  --   device_client    the browser or the app: "Chrome 141", "Mitra app 1.1.0"
+  --   device_system    "Windows", "Android 14", "iOS 18.1"
+  --   ended_why        signed-out, super-admin, replaced or account-off
+  --   ended_by         the account that ended it: the person, or the super admin
+  CREATE TABLE IF NOT EXISTS user_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_id TEXT NOT NULL DEFAULT '',
+    device_name TEXT NOT NULL DEFAULT '',
+    device_category TEXT NOT NULL DEFAULT 'computer',
+    place TEXT NOT NULL DEFAULT 'website',
+    device_client TEXT NOT NULL DEFAULT '',
+    device_system TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    signed_in_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ends_at TIMESTAMPTZ NOT NULL,
+    ended_at TIMESTAMPTZ,
+    ended_why TEXT,
+    ended_by TEXT
+  );
+  CREATE INDEX IF NOT EXISTS user_sessions_open_idx ON user_sessions (user_id, ends_at) WHERE ended_at IS NULL;
 `;
 
 // THE WORDS A SEARCH OF THE ACTIVITY LOG LOOKS IN (REQUIREMENTS §62, §73):
@@ -313,7 +348,8 @@ export const ACTIVITY_SEARCH_TEXT = "lower(user_name || ' ' || action || ' ' || 
 
 // Held while this server brings the tables up to date, so two servers starting
 // against one database (the test runner starts a second) do not race each
-// other on the same CREATE. 4711 and 4712 are taken (insertUser, writeItem).
+// other on the same CREATE. 4711 and 4712 are taken (insertUser, writeItem);
+// 4714 heads the two-part lock of one account's sign-in (deviceSessions.ts).
 const SCHEMA_LOCK = 4713;
 
 // TABLES KEPT BY THE MODULE THAT USES THEM (REQUIREMENTS §75). A module with

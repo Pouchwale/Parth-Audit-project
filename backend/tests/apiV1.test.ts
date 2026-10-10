@@ -5,7 +5,9 @@
 //     every route registered is documented;
 //   * the session is taken as a Bearer token or the cookie, the account is read
 //     again on every request, and an account switched off or still on the
-//     administrator's password is refused;
+//     administrator's password is refused; a session ended in DCRS (signed out,
+//     or by the super admin's "Sign out this device", REQUIREMENTS §106) is
+//     refused at its next request, how and when said in the caller's language;
 //   * department scoping, the readable finding ids, the filters;
 //   * a close writes what DCRS's Close button writes, with the version it read,
 //     tries again when somebody wrote meanwhile (and gives up after three), and
@@ -26,6 +28,7 @@ import express, { type Request } from "express";
 import { signSessionToken, type PublicUser } from "../auth.ts";
 import type { StoredItem, UserRow, WriteResult } from "../db.ts";
 import { calendarDate, factoryToday, registerApiV1, type ApiV1Store, type PdfPrinter } from "../apiV1.ts";
+import { createDeviceSessions, memorySessionStore, type DeviceSessions } from "../deviceSessions.ts";
 import { repoRoot } from "../paths.ts";
 
 // ---------------------------------------------------------------------------
@@ -207,6 +210,8 @@ interface Server {
   lines: Logged[];
   printed: { appUrl: string; sessionToken: string; recordId: string; timeoutMs?: number }[];
   app: express.Express;
+  /** The sessions the routes check (§106), kept in memory. */
+  sessions: DeviceSessions;
   close: () => Promise<void>;
 }
 
@@ -227,6 +232,7 @@ async function start(opts: { pdf?: PdfPrinter; appBuilt?: boolean } = {}): Promi
       return Buffer.from("%PDF-1.7\n% a stand-in\n%%EOF\n");
     },
   };
+  const sessions = createDeviceSessions({ store: memorySessionStore(), limit: null, mitraKey: "", timeZone: () => "Asia/Kolkata" });
   registerApiV1(app, {
     requireAuth: (_req, _res, next) => next(),
     logActivity: (_req: Request, who, action, target = "", detail = "", department = "") => lines.push({ who: who?.name ?? null, action, target, detail, department }),
@@ -234,11 +240,12 @@ async function start(opts: { pdf?: PdfPrinter; appBuilt?: boolean } = {}): Promi
     clock: () => NOW,
     pdf: printer,
     appBuilt: () => opts.appBuilt ?? true,
+    sessions,
   });
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
   const { port } = server.address() as AddressInfo;
-  return { base: `http://127.0.0.1:${port}`, store, lines, printed, app, close: () => new Promise((resolve) => server.close(() => resolve())) };
+  return { base: `http://127.0.0.1:${port}`, store, lines, printed, app, sessions, close: () => new Promise((resolve) => server.close(() => resolve())) };
 }
 
 async function call(s: Server, method: string, route: string, opts: { token?: string; cookie?: string; body?: unknown; headers?: Record<string, string> } = {}) {
@@ -370,6 +377,26 @@ describe("signing in", () => {
     s.store.users.get("u-all")!.active = false;
     assert.equal((await call(s, "GET", "/api/v1/me", { token: T.unassigned })).status, 401);
     s.store.users.get("u-all")!.active = true;
+  });
+
+  it("refuses a session ended in DCRS at its next request: the super admin's sign-out, said how and when, in the caller's language (§106)", async () => {
+    // The phone's session, as the Mitra server holds it: a token with its own session id.
+    const row = s.store.users.get("u-qa")!;
+    const phone = signSessionToken({ id: row.id, name: row.name, email: row.email, role: row.role, departments: ["QA"] }, undefined, "phone-session-0001");
+    assert.equal((await call(s, "GET", "/api/v1/me", { token: phone })).status, 200, "open: taken in at its first request");
+    const ended = await s.sessions.end("phone-session-0001", "super-admin", "u-admin");
+    assert.ok(ended);
+    const at = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(ended.endedAt!);
+    const en = await call(s, "GET", "/api/v1/me", { token: phone });
+    assert.equal(en.status, 401);
+    assert.equal(en.body.code, "session-ended");
+    assert.equal(en.body.why, "super-admin");
+    assert.equal(en.body.error, `The super admin signed this device out at ${at}. Sign in again to carry on.`);
+    const gu = await call(s, "GET", "/api/v1/me", { token: phone, headers: { "X-Language": "gu" } });
+    assert.equal(gu.status, 401);
+    assert.equal(gu.body.error, `સુપર એડમિને ${at} વાગ્યે આ ઉપકરણને સાઇન આઉટ કર્યું. ચાલુ રાખવા ફરી સાઇન ઇન કરો.`);
+    // Another session of the same person is untouched.
+    assert.equal((await call(s, "GET", "/api/v1/me", { token: T.qa })).status, 200);
   });
 });
 

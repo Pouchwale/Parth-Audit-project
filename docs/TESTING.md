@@ -837,6 +837,32 @@ Seven scripts live in `tests/`:
   not a change. New `frontend/tests/excursionRemarks.test.ts` (2: 21-Jul-2026's third batch is out of band; a Demo Mode
   July of F/QC/32 gives every out-of-band viscosity a remark). The browser check now fails only on a reading with no
   remark, says an empty window in words, and names the first readings it misses.
+- **Where each person is signed in, on two devices at most** (REQUIREMENTS §106, 9 and 10-Oct-2026). New unit tests,
+  each failing before the change (the modules and the route did not exist): `backend/tests/deviceSessions.test.ts`
+  (20, and 29 with `DCRS_SESSIONS_TEST_URL` on a throwaway PostgreSQL, where the same ten session checks run on
+  `user_sessions` and passed: the limit read from DCRS_MAX_DEVICES; a device counted once; the device named from the
+  browser's own words and the phone's from the Mitra server's headers; two devices signed in and a third refused in
+  words naming them and since when, in English, Gujarati and Hindi; a device signing in again replaced, never counted
+  twice; the super admin exempt and listed; a sign-out ends the session; the super admin signs a device out and it is
+  told so in three languages; an account switched off; the day's end; a token from before taken in once; "last used"
+  at most once a minute; two sign-ins at the same moment; X-Mitra-Key compared through crypto.timingSafeEqual on
+  equal-length hashes, believed only when it matches, and never in a log line or an answer; a key under 16 characters
+  not used), `backend/tests/accessRoutes.test.ts` (4 new: the "Signed in on" list with each device's category, name,
+  place, address and since, the super admin's own marked; "Sign out this device" logged with the person and the
+  device, its next request told so; refused to anybody but the super admin, never his own device, 404 for a session no
+  longer open; the page answering when the devices cannot be read), `backend/tests/apiV1.test.ts` (1 new: a phone's
+  session signed out by the super admin refused at its next /api/v1 call, 401 `session-ended` in the caller's
+  language), `frontend/tests/deviceSignIn.test.ts` (4: the browser's own id kept outside `dcrs:v1:`; the refusal and
+  the ended session rebuilt in the screens' language; every sentence of the view in three languages). Browser suite:
+  `tests/e2e_user_access.py` section 10b (an account signed in from a computer's browser and an Android phone's is
+  listed on two devices, computer and mobile, with their names; each sign-in's line names its device; "Sign out this
+  device" asks first and is a line in the activity log; the phone's next request is back at the sign-in screen with
+  "The super admin signed this device out at ..."; the computer stays signed in). The e2e runner sets
+  DCRS_MAX_DEVICES=off and MITRA_SERVER_KEY empty on both test servers. The phone's half (Mitra, branch mitra-notify):
+  `server/test/dcrs-devices.test.ts` (11: the phone's headers beside the key, percent-encoded, and none without it;
+  the key in no log line; the session a phone still holds sent again; DCRS's device-limit words unchanged; a phone
+  signed out in DCRS signed out of Mitra at its next request in DCRS's words, on the relayed screens too; DCRS out of
+  reach not a sign-out; one password: DCRS's sign-in the only way in, nothing of the password kept).
 - **Passwords are the super admin's** (REQUIREMENTS §105, 9-Oct-2026). New unit tests, each failing before the change
   (the module did not exist): `backend/tests/passwordPolicy.test.ts` (6: only the super admin changes their own; "No
   password yet" matches no password, the built-in one included, and is told apart from a real hash; the start-up

@@ -263,6 +263,12 @@ async function main(): Promise<void> {
         // The plant's opening hours (REQUIREMENTS §84) are not enforced on the test servers: the suites run at any
         // hour of any day. The gate itself is proved by its own tests, with a clock the test sets.
         DCRS_WORKING_HOURS: "off",
+        // NO LIMIT ON DEVICES (REQUIREMENTS §106): the suites open many sessions per account (each a browser context,
+        // or a program's own sign-in), so DCRS_MAX_DEVICES is off on both servers. The limit itself is proved by its
+        // own tests (backend/tests/deviceSessions.test.ts); e2e_user_access.py checks the devices the super admin sees.
+        DCRS_MAX_DEVICES: "off",
+        // No key of a real Mitra server reaches the test servers from backend/.env: no phone is named here.
+        MITRA_SERVER_KEY: "",
         SQLITE_IMPORT: "0",
         SEED_ACCOUNTS: product ? "1" : "0",
         SEED_ACCOUNT_PASSWORD: PRODUCT_SEED_PASSWORD,

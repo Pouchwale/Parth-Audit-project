@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiClock, FiDownload, FiRefreshCw, FiShield, FiUsers } from "react-icons/fi";
+import { FiClock, FiDownload, FiLogOut, FiMonitor, FiRefreshCw, FiShield, FiSmartphone, FiTablet, FiUsers } from "react-icons/fi";
 import { ApiError } from "../api/client";
 import {
   accessApi,
@@ -8,6 +8,7 @@ import {
   type AccessHistoryQuery,
   type AccessHistoryRow,
   type AccessHistoryWhich,
+  type AccessDevice,
   type AccessNow,
   type AccessOverview,
   type AccessPerson,
@@ -28,6 +29,7 @@ import type { DocumentDefinition } from "../types";
 import { accessDocOf, accessRulesNow, currentAccess } from "../engine/departmentScope";
 import { describedEmails } from "../engine/accessEditing";
 import { ACCESS_MODULES, LEVEL_WORDS, buildAccess, type Access, type AccessLevel } from "../engine/accessRules";
+import { CATEGORY_WORDS, PLACE_WORDS, deviceNameIn, deviceViewWord, type DeviceCategory } from "../engine/deviceWords";
 
 // USER ACCESS — /access, the super admin's own (REQUIREMENTS §84).
 //
@@ -45,6 +47,9 @@ import { ACCESS_MODULES, LEVEL_WORDS, buildAccess, type Access, type AccessLevel
 //     existing departments route; removing asks first); "Every module" where
 //     none is set; and how many documents each person can see, the list on
 //     opening them;
+//   * where each person is signed in now (REQUIREMENTS §106): every device, by
+//     name and category, the website or the Mitra phone app, the address, since
+//     and last used, with "Sign out this device" (asked first, logged);
 //   * the refused and failed sign-ins of today;
 //   * each person's sign-ins and sign-outs over any span of days, paired into
 //     sessions, the archived lines included, with a CSV file.
@@ -226,6 +231,10 @@ function AccessDashboard({ myId }: { myId: string }) {
   const reading = useRef(0);
   const historyRef = useRef<HTMLDivElement | null>(null);
   const [historyPerson, setHistoryPerson] = useState<{ id: string; at: number } | null>(null);
+  // "Sign out this device" (§106), asked first.
+  const [endAsk, setEndAsk] = useState<{ person: AccessPerson; device: AccessDevice } | null>(null);
+  const [ending, setEnding] = useState(false);
+  const { uiLang } = useAppStore();
 
   const catalogue = useMemo(buildCatalogue, []);
   const levels = useMemo(buildLevels, []);
@@ -316,6 +325,29 @@ function AccessDashboard({ myId }: { myId: string }) {
     }
   };
 
+  // ONE DEVICE SIGNED OUT (§106): its session ends on the server, which logs it; the line goes from the list at once.
+  const endDevice = async () => {
+    if (!endAsk) return;
+    const { person, device } = endAsk;
+    setEnding(true);
+    setError(null);
+    try {
+      await accessApi.endSession(device.id);
+      setOverview((o) =>
+        o ? { ...o, people: o.people.map((p) => (p.id === person.id ? { ...p, devices: (p.devices ?? []).filter((d) => d.id !== device.id) } : p)) } : o
+      );
+      setNote(deviceViewWord(uiLang, "done", { name: person.name, device: deviceNameIn(uiLang, device.name) }));
+      setEndAsk(null);
+    } catch (err) {
+      setError(messageOf(err, "That device could not be signed out."));
+      setEndAsk(null);
+      // No longer signed in (404): the list as it is now.
+      if (err instanceof ApiError && err.status === 404) load();
+    } finally {
+      setEnding(false);
+    }
+  };
+
   const showHistoryOf = (id: string) => {
     setOpened(null);
     setHistoryPerson({ id, at: Date.now() });
@@ -383,6 +415,8 @@ function AccessDashboard({ myId }: { myId: string }) {
           </p>
 
           <TodayTable people={people} clock={clock} onOpen={setOpened} />
+
+          <DevicesCard overview={overview} clock={clock} onSignOut={(person, device) => setEndAsk({ person, device })} />
 
           <ModulesTable
             levels={levels}
@@ -471,6 +505,29 @@ function AccessDashboard({ myId }: { myId: string }) {
         </Modal>
       )}
 
+      {endAsk && (
+        <Modal
+          title={deviceViewWord(uiLang, "confirmTitle", { name: endAsk.person.name })}
+          onClose={() => (ending ? undefined : setEndAsk(null))}
+          dismissible={!ending}
+          width={520}
+          footer={
+            <div className="flex gap-2 justify-end" style={{ width: "100%" }}>
+              <button className="btn btn-ghost btn-sm" data-action="cancel-sign-out-device" disabled={ending} onClick={() => setEndAsk(null)}>
+                {deviceViewWord(uiLang, "cancel")}
+              </button>
+              <button className="btn btn-danger btn-sm" data-action="confirm-sign-out-device" disabled={ending} onClick={() => void endDevice()}>
+                {ending ? "…" : deviceViewWord(uiLang, "confirm")}
+              </button>
+            </div>
+          }
+        >
+          <p className="text-sm" data-section="confirm-sign-out-device">
+            {deviceViewWord(uiLang, "confirmBody", { device: deviceNameIn(uiLang, endAsk.device.name), place: PLACE_WORDS[uiLang][endAsk.device.place] })}
+          </p>
+        </Modal>
+      )}
+
       {opened && <PersonDocuments person={people.find((p) => p.id === opened.id) ?? opened} catalogue={catalogue} levels={levels} onClose={() => setOpened(null)} onHistory={showHistoryOf} />}
     </div>
   );
@@ -516,6 +573,144 @@ function WorkingHoursStrip({ hours }: { hours: PublicHours | null }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const CATEGORY_ICONS: Record<DeviceCategory, typeof FiMonitor> = { computer: FiMonitor, mobile: FiSmartphone, tablet: FiTablet };
+
+/**
+ * WHERE EACH PERSON IS SIGNED IN NOW (REQUIREMENTS §106), as the server keeps the sessions (backend/deviceSessions.ts):
+ * each device with an icon by its category (computer, mobile phone or tablet), its name, the website or the Mitra
+ * phone app, the address, since when and when last used, and "Sign out this device" (asked first, logged). Only the
+ * people signed in somewhere are listed; the rule the devices are held to is said above them. Times are the factory's:
+ * today's as a time, an earlier day's with its date. In the app's own Gujarati where it shows (engine/deviceWords.ts).
+ */
+function DevicesCard({
+  overview,
+  clock,
+  onSignOut,
+}: {
+  overview: AccessOverview;
+  clock: (iso: string | null) => string;
+  onSignOut: (person: AccessPerson, device: AccessDevice) => void;
+}) {
+  const { uiLang } = useAppStore();
+  const rule = overview.devices;
+  const dayOf = useMemo(() => {
+    let f: Intl.DateTimeFormat;
+    try {
+      f = new Intl.DateTimeFormat("en-CA", { timeZone: overview.timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+    } catch {
+      f = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
+    }
+    return (iso: string) => f.format(new Date(iso));
+  }, [overview.timeZone]);
+  const when = (iso: string): string => {
+    const day = dayOf(iso);
+    return day === overview.today ? clock(iso) : `${formatDisplayDate(day)} ${clock(iso)}`;
+  };
+  const signedIn = overview.people.filter((p) => (p.devices?.length ?? 0) > 0);
+  const total = signedIn.reduce((n, p) => n + (p.devices?.length ?? 0), 0);
+  return (
+    <div className="card mb-4" data-section="access-devices" data-count={total} data-limit={rule ? (rule.limit ?? "off") : "unknown"} data-phones-named={rule ? (rule.phonesNamed ? "yes" : "no") : undefined}>
+      <div className="card-pad" style={{ paddingBottom: 8 }}>
+        <h2 className="text-lg">{deviceViewWord(uiLang, "heading")}</h2>
+        <p className="text-xs text-muted" data-field="devices-rule">
+          {deviceViewWord(uiLang, "intro")} {rule && rule.limit !== null ? deviceViewWord(uiLang, "limit", { limit: rule.limit }) : rule ? deviceViewWord(uiLang, "noLimit") : ""}
+        </p>
+        {rule && !rule.phonesNamed && (
+          <p className="text-xs text-muted mt-1" data-field="phones-not-named">
+            {deviceViewWord(uiLang, "phonesNotNamed")}
+          </p>
+        )}
+        {rule && !rule.known && (
+          <p className="text-xs text-danger mt-1" data-field="devices-unknown">
+            {deviceViewWord(uiLang, "unknown")}
+          </p>
+        )}
+      </div>
+      {signedIn.length === 0 ? (
+        <p className="card-pad text-sm text-muted" data-field="no-devices" style={{ paddingTop: 0 }}>
+          {deviceViewWord(uiLang, "none")}
+        </p>
+      ) : (
+        <div className="doc-table" style={{ overflowX: "auto" }}>
+          <table className="compact" data-table="access-devices">
+            <thead>
+              <tr>
+                <th>{deviceViewWord(uiLang, "colPerson")}</th>
+                <th>{deviceViewWord(uiLang, "colDevice")}</th>
+                <th style={{ width: 190 }}>{deviceViewWord(uiLang, "colWhere")}</th>
+                <th style={{ width: 120 }}>{deviceViewWord(uiLang, "colSince")}</th>
+                <th style={{ width: 120 }}>{deviceViewWord(uiLang, "colLastUsed")}</th>
+                <th style={{ width: 170 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {signedIn.flatMap((p) =>
+                (p.devices ?? []).map((d, n) => {
+                  const Icon = CATEGORY_ICONS[d.category] ?? FiMonitor;
+                  return (
+                    <tr key={d.id} data-user={p.email} data-session={d.id} data-category={d.category} data-place={d.place} data-current={d.current ? "yes" : undefined}>
+                      <td className="notranslate" translate="no">
+                        {n === 0 && (
+                          <>
+                            <span className="font-semibold">{p.name}</span>
+                            <div className="text-xs text-muted">
+                              {p.email} · {(p.devices ?? []).length === 1 ? deviceViewWord(uiLang, "device") : deviceViewWord(uiLang, "devices", { n: (p.devices ?? []).length })}
+                            </div>
+                          </>
+                        )}
+                      </td>
+                      <td data-field="device">
+                        <span className="flex items-center gap-2">
+                          <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                          <span>
+                            <span data-field="device-name" className="notranslate" translate="no">
+                              {deviceNameIn(uiLang, d.name)}
+                            </span>
+                            <div className="text-xs text-muted" data-field="category">
+                              {CATEGORY_WORDS[uiLang][d.category]}
+                              {d.system ? ` · ${d.system}` : ""}
+                              {d.client ? ` · ${d.client}` : ""}
+                            </div>
+                          </span>
+                        </span>
+                      </td>
+                      <td className="text-sm" data-field="place">
+                        {PLACE_WORDS[uiLang][d.place]}
+                        {d.address && (
+                          <div className="text-xs text-muted" data-field="address">
+                            {deviceViewWord(uiLang, "from", { address: d.address })}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-sm" data-field="since" data-at={d.signedInAt}>
+                        {when(d.signedInAt)}
+                      </td>
+                      <td className="text-sm text-muted" data-field="last-used" data-at={d.lastUsedAt}>
+                        {when(d.lastUsedAt)}
+                      </td>
+                      <td>
+                        {d.current ? (
+                          <span className="text-xs text-muted" data-field="this-device">
+                            {deviceViewWord(uiLang, "thisDevice")}
+                          </span>
+                        ) : (
+                          <button className="btn btn-secondary btn-sm" data-action="sign-out-device" onClick={() => onSignOut(p, d)}>
+                            <FiLogOut size={13} /> {deviceViewWord(uiLang, "signOut")}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

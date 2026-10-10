@@ -5,6 +5,7 @@ import { NO_PASSWORD_YET } from "./passwordPolicy.ts";
 import { csvText } from "./overviewRoutes.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
 import { SIGN_OUT_WORDS } from "./signInAndOut.ts";
+import { createDeviceSessions, deviceLine, sessionJson, type DeviceSessionJson, type DeviceSessions } from "./deviceSessions.ts";
 import { END_OF_DAY_REASON, END_OF_HOURS_REASON, LATE_SIGN_IN_MS, nextMidnight, type PublicHours } from "../frontend/src/engine/workingHoursCore.ts";
 
 // USER ACCESS, FOR THE SUPER ADMIN (REQUIREMENTS §84).
@@ -35,6 +36,8 @@ import { END_OF_DAY_REASON, END_OF_HOURS_REASON, LATE_SIGN_IN_MS, nextMidnight, 
 //                                         ones, over a span of days:
 //                                         ?from=&to=&person=&kind=&limit=&offset=
 //   GET /api/access/history.csv           the same rows as a CSV file
+//   POST /api/access/sessions/:id/end     "Sign out this device": ends one
+//                                         device's session (REQUIREMENTS §106)
 //
 // WHERE IT COMES FROM. The activity log (REQUIREMENTS §62) and its archive
 // (§75) — the four lines the server writes at the door: "Signed in",
@@ -65,6 +68,15 @@ import { END_OF_DAY_REASON, END_OF_HOURS_REASON, LATE_SIGN_IN_MS, nextMidnight, 
 // sign-out the next day closes it. The browser's own sign-out at the end of the
 // day (midnight) closes a session that ends with that day, never this one
 // (review of 8-Oct-2026).
+//
+// WHERE EACH PERSON IS SIGNED IN (REQUIREMENTS §106). Beside the log's story,
+// each person's open sessions as the server keeps them (backend/deviceSessions.ts,
+// the table user_sessions): the device by name and category (computer, mobile or
+// tablet), the website or the Mitra phone app, the address, since when and when
+// last used. The super admin signs one out with POST /api/access/sessions/:id/end:
+// its next request is answered 401 with the reason in words, and the line
+// "Device signed out by the super admin" names the person and the device. Never
+// the device he is using himself (the top bar's sign-out is for that).
 //
 // SUPER ADMIN ONLY, WHATEVER THE SCREEN SHOWS: every route answers 403 to any
 // other account, after the same sign-in check as every other route
@@ -97,6 +109,8 @@ export interface AccessDeps {
   timeZone?: () => string;
   /** The working hours and where today stands: the server's own gate (backend/workingHours.ts) by default. */
   hours?: () => Promise<PublicHours | null>;
+  /** The sessions, where each person is signed in (§106): the server's own, in PostgreSQL, by default. */
+  sessions?: DeviceSessions;
 }
 
 // ---------------------------------------------------------------------------
@@ -518,6 +532,14 @@ export interface AccessPerson {
   today: TodayFigures;
   now: NowState;
   quietMinutes: number | null;
+  /** The devices they are signed in on now, oldest sign-in first (§106). */
+  devices: AccessDevice[];
+}
+
+/** One device a person is signed in on (§106): the session as backend/deviceSessions.ts answers it, and whether it is the one asking. */
+export interface AccessDevice extends DeviceSessionJson {
+  /** The super admin's own session, the one this page was asked from. */
+  current: boolean;
 }
 
 export interface AttemptLine {
@@ -614,6 +636,9 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
       const gate = createWorkingHoursGate();
       return () => gate.publicAnswer();
     })();
+  const sessions = deps.sessions ?? createDeviceSessions();
+  /** The session the request came with (backend/index.ts requireAuth), to tell the super admin's own device. */
+  const sessionOf = (req: Request): string => (req as Request & { sessionKey?: string }).sessionKey ?? "";
 
   /** The super admin, or null having answered 403. */
   const superAdmin = (req: Request, res: Response): PublicUser | null => {
@@ -645,7 +670,7 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
     const nowMs = clock();
     const tz = zone();
     const today = plantDayOf(nowMs, tz);
-    const [users, days, late, attempts, plant] = await Promise.all([
+    const [users, days, late, attempts, plant, open] = await Promise.all([
       db().query(USERS_SQL),
       db().query(TODAY_SQL, [today, today, SIGNED_IN, SIGNED_OUT, SIGN_IN_FAILED, SIGN_IN_REFUSED]),
       db().query(LATE_SQL, [today, `${LATE_SIGN_IN_MS / 1000} seconds`, SIGNED_IN, SIGNED_OUT, END_OF_DAY]),
@@ -655,7 +680,19 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
         console.warn("[user access] the working hours could not be read:", err instanceof Error ? err.message : err);
         return null;
       }),
+      // So are the devices (§106): null when they cannot be read, and the page says so.
+      sessions.open().catch((err: unknown) => {
+        console.warn("[user access] the devices could not be read:", err instanceof Error ? err.message : err);
+        return null;
+      }),
     ]);
+    const mine = sessionOf(req);
+    const devicesOf = new Map<string, AccessDevice[]>();
+    for (const s of open ?? []) {
+      const list = devicesOf.get(s.userId) ?? [];
+      list.push({ ...sessionJson(s), current: s.id === mine });
+      devicesOf.set(s.userId, list);
+    }
     // Closed for the day (or not yet open), with the hours held: nobody but the super admin has a session (§84 C3).
     const dayClosed = !!plant && plant.enforced && !plant.openNow;
     const dayOf = new Map(days.rows.map((r) => [text(r.user_id), r] as const));
@@ -680,6 +717,7 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
           today: day,
           now: now.state,
           quietMinutes: now.quietMinutes,
+          devices: devicesOf.get(id) ?? [],
         };
       })
       .sort(byStanding);
@@ -695,7 +733,43 @@ export function registerAccessRoutes(app: Express, deps: AccessDeps): void {
     // Opening the page is a line; a refresh of it is not.
     if (req.query.opened === "1") logActivity(req, me, "User access opened", "", "Who may use which module, and every sign-in and sign-out");
     res.set("Cache-Control", "no-store");
-    res.json({ today, now: new Date(nowMs).toISOString(), timeZone: tz, activeMinutes: ACTIVE_MINUTES, hours: plant, people, attempts: lines });
+    res.json({
+      today,
+      now: new Date(nowMs).toISOString(),
+      timeZone: tz,
+      activeMinutes: ACTIVE_MINUTES,
+      hours: plant,
+      people,
+      attempts: lines,
+      // The rule the devices are held to (§106): DCRS_MAX_DEVICES (null: no limit), and whether the Mitra server can
+      // name the phones (MITRA_SERVER_KEY is set here); `known` is false when the devices could not be read.
+      devices: { limit: sessions.limit, phonesNamed: sessions.phonesNamed, known: open !== null },
+    });
+  });
+
+  // "SIGN OUT THIS DEVICE" (REQUIREMENTS §106): the super admin ends one device's session. Its next request is
+  // answered 401 `session-ended`, "The super admin signed this device out at 14:05", and the website and the phone go
+  // back to the sign-in screen saying it. Nothing of the person's is touched but that one session; the line in the
+  // activity log names the person and the device. A session no longer open is a 404, the super admin's own a 400.
+  app.post("/api/access/sessions/:id/end", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    const me = superAdmin(req, res);
+    if (!me) return;
+    const id = String(req.params.id ?? "");
+    if (id === sessionOf(req)) {
+      res.status(400).json({ error: "This is the device you are using now. Sign out from the top bar instead.", code: "own-device" });
+      return;
+    }
+    const found = id.length > 0 && id.length <= 100 ? await sessions.get(id) : null;
+    const ended = found && found.endedAt === null && found.endsAt.getTime() > clock() ? await sessions.end(id, "super-admin", me.id) : null;
+    if (!found || !ended) {
+      res.status(404).json({ error: "That device is not signed in any more. Refresh the page to see where each person is signed in now.", code: "no-such-session" });
+      return;
+    }
+    const person = (await db().query(USERS_SQL)).rows.find((u) => text(u.id) === ended.userId);
+    const who = person ? `${text(person.name)} <${text(person.email)}>` : ended.userId;
+    logActivity(req, me, "Device signed out by the super admin", who, deviceLine(ended.device));
+    res.set("Cache-Control", "no-store");
+    res.json({ ended: { ...sessionJson(ended), current: false } satisfies AccessDevice });
   });
 
   app.get("/api/access/history", requireAuth, async (req: Request, res: Response): Promise<void> => {

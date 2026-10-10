@@ -7018,6 +7018,95 @@ e2e_user_access.py and e2e_every_record_starts.py (accounts made by the super ad
 given and are refused a change), e2e_portal_controls.py (the super admin's own change with its three eyes, when the
 suite's account is the super admin; otherwise the staff side above).
 
+## §106 Where each person is signed in, on two devices at most, and one password for the website and the phone (9-Oct-2026)
+
+The owner, 9-Oct-2026: "Superadmin can also see that where devices has logged in like one can login up to 2 devices
+and that Superadmin can see easily like where the ids are logged in like with device name and category like it is a
+laptop/computer or mobile. ... once a password is set it is valid same for both mobile as well as our audit software."
+
+**What changes** (backend/deviceSessions.ts, backend/db.ts `user_sessions`, backend/index.ts, backend/apiV1.ts,
+backend/accessRoutes.ts, frontend/src/engine/deviceWords.ts, frontend/src/utils/deviceId.ts, User access):
+
+1. **Every session is kept in PostgreSQL.** Until now a session was only a signed cookie, so a sign-out could not end
+   it. Each sign-in now writes a row of `user_sessions`, keyed by the id its token carries: the account, the device's
+   own id, its name in words ("Windows computer - Chrome", "Android phone - Chrome", "iPhone - Safari", "iPad -
+   Safari", or the phone's own name and model), its category (computer, mobile or tablet), the website, the Mitra
+   phone app or another program (the DCRS API), the browser or the app, the system, the address, when it was signed
+   in, last used and ends, and when, why (signed-out, super-admin, replaced, account-off) and by whom it was ended.
+   Nothing deletes a row. The server reads the session on every request: a sign-out ends it, the super admin's "Sign
+   out this device" ends it, switching an account off ends all of its sessions, and the day's end still ends it (§84:
+   its row ends when its token does). "Last used" is written at most once a minute per session.
+2. **Nobody is signed out by the release.** A token made before this change has no row: at its first request it is
+   taken in once, its device "Signed in before devices were recorded", and is a session like any other from then on.
+3. **At most DCRS_MAX_DEVICES devices per account** (2 unless set; `off` or `0` for no limit; at most 50). A device
+   that signs in again takes its own place (the website sends a random id it keeps in the browser, outside the app's
+   `dcrs:v1:` namespace, so emptying the working copy keeps it; a browser signing in again also sends its own earlier
+   session, which is replaced). One device more is refused with 403 `device-limit` naming the devices and since when,
+   and what to do: "This account is already signed in on 2 devices: Windows computer - Chrome (Website, since 09:02)
+   and Android phone - Chrome (Website, since 10:15). Sign out on one of them, or ask the super admin to sign one
+   out." Two sign-ins at the same moment cannot both pass (one PostgreSQL lock per account). **The super admin is
+   never held to it** (§84: the owner must never be locked out), but his devices are listed too.
+4. **The super admin sees where each person is signed in.** User access has a "Signed in on" card: each person
+   signed in somewhere, each device with an icon by its category, its name, the category, system and browser or app,
+   the website or the Mitra phone app, the address, since when and when last used, and **"Sign out this device"**
+   (asked first; never his own device, which is marked "This device: yours"). The rule is said above the list, and
+   when MITRA_SERVER_KEY is not set, that phones show as the Mitra server's request. The sign-in line of the activity
+   log names the device ("Windows computer - Chrome (Website) from 10.192.193.40"), and a device signed out by the
+   super admin is the line "Device signed out by the super admin" with the person and the device.
+5. **A device signed out is told so at its next request**: 401 `session-ended` with why and when in words, in the
+   language asked (X-Language: English, Hindi or Gujarati): "The super admin signed this device out at 14:05. Sign in
+   again to carry on." The website goes back to the sign-in screen saying it (in the screens' language), and so does
+   the phone.
+6. **The words are in English, Gujarati and Hindi** (engine/deviceWords.ts): the refusal, the ended session, and every
+   sentence of the "Signed in on" card. A device's own name is a name and is kept as it was made.
+
+**The phone** (the Mitra server and app, branch mitra-notify):
+
+- The Mitra server signs in to DCRS for the phone (POST /api/auth/login) with **X-Mitra-Key**, the key from its own
+  environment (MITRA_SERVER_KEY, the same on both servers, at least 16 characters; never from the app), and the
+  phone's id, name, model, system, kind and address in X-Mitra-Device-* headers (percent-encoded). DCRS believes those
+  headers only beside a matching key, compared in constant time; the key is never logged and never in an answer.
+  Without the key the phone's session is recorded as "Mitra server's request - the phone is not named (MITRA_SERVER_KEY
+  is not set on both servers)".
+- A phone signing in again hands DCRS the session it still holds, so DCRS replaces it rather than counting it twice
+  (with the key, its device id does the same).
+- DCRS's refusal words (one device too many, signed out by the super admin) reach the app unchanged, in the app's
+  language. A phone signed out in DCRS is signed out of Mitra at its next request (Mitra asks DCRS at most every 15
+  seconds per session, and at once on any request that reaches DCRS: the inbox, the tasks, the Review screen, the chat),
+  and the app returns to the sign-in screen with DCRS's words. The phone's own device list in Mitra stays as it is.
+
+**One password for both (§105).** In a production setup the phone signs in only through DCRS's own sign-in: the Mitra
+server's only sign-in connector is DCRS's (src/index.ts builds its registry from DCRS's connector alone; the demo
+connector is `npm run demo`'s), it keeps nothing of the password (no column of its tables holds one; what it keeps,
+sealed, is DCRS's session token), and every sign-in is checked by DCRS's POST /api/auth/login. So the password the
+super admin sets in Users & Access is the password for the website and the phone alike, and a reset takes effect on
+both at the next sign-in. Proved by the Mitra server's test/dcrs-devices.test.ts ("ONE PASSWORD").
+
+**Routes and shapes.** `POST /api/auth/login` takes `device: { id, touchPoints }` from the website; 403
+`{ error, code: "device-limit", limit, devices: [{ name, category, place, since, sinceText }] }`. Any signed-in route,
+`/api/auth/me` and every `/api/v1` route answer an ended session with 401 `{ error, code: "session-ended", why,
+endedAt, endedAtText }`. `GET /api/access/overview` gives each person `devices: [{ id, userId, name, category, place,
+client, system, address, signedInAt, lastUsedAt, endsAt, before, current }]` and `devices: { limit, phonesNamed, known }`
+for the rule. `POST /api/access/sessions/:id/end` (the super admin's alone) ends one session: 200 `{ ended }`, 404
+`no-such-session`, 400 `own-device`.
+
+**Next, not in this build (the brief's later parts):** where each person may sign in (website, phone app or both),
+the phone only on the plant's network, one sign-in at a time, tidying the accounts the early tests left, and the
+auditor's account with its audit pack.
+
+**Tests:** backend/tests/deviceSessions.test.ts (the limit; a device signing in again replaced, never counted twice; a
+third refused in words naming the two and since when, in three languages; the super admin exempt and listed; a
+sign-out ends it; the super admin ends a device and it is told so in three languages; an account switched off; the
+day's end; a token from before taken in once; "last used" at most once a minute; two sign-ins at once; X-Mitra-Key
+compared in constant time and never logged; the same checks on PostgreSQL when DCRS_SESSIONS_TEST_URL names a
+throwaway database), backend/tests/accessRoutes.test.ts (the "Signed in on" list, "Sign out this device", its
+refusals), backend/tests/apiV1.test.ts (a session ended in DCRS refused at its next /api/v1 request, in the caller's
+language), frontend/tests/deviceSignIn.test.ts (the browser's own id; the words). Browser suite: e2e_user_access.py
+section 10b (an account signed in from a computer's browser and an Android phone's is listed on two devices with their
+categories; "Sign out this device"; the phone's next request back at the sign-in screen with the words; the computer
+still signed in). The test servers run with DCRS_MAX_DEVICES=off (the suites open many sessions per account). The
+Mitra server: test/dcrs-devices.test.ts.
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

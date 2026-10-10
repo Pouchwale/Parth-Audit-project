@@ -38,6 +38,13 @@ This suite checks, against the product server:
     activity log and a notification to him; the plant's twelve people all have
     accounts; the plant's only super admin cannot be made staff, and an account
     is made the super admin and staff again, each a line;
+  * WHERE EACH PERSON IS SIGNED IN (REQUIREMENTS §106): an account signed in
+    from two browsers - a computer's and an Android phone's - is listed on two
+    devices with their categories and names, each sign-in's line names its
+    device, the super admin's own is marked his; "Sign out this device" asks
+    first, is a line in the activity log, and the phone's next request goes
+    back to the sign-in screen saying the super admin signed it out, while the
+    computer stays signed in;
   * THE SUPER ADMIN ALWAYS GETS IN (audit H-17): eight wrong passwords for his
     address from one computer hold back that computer alone, a forged
     X-Forwarded-For header making no other computer of it, and the right
@@ -93,6 +100,8 @@ FAILURES = []
 ERRORS = []
 ROUTES = ["/api/access/overview", "/api/access/overview?opened=1", "/api/access/history", "/api/access/history.csv"]
 CSV_HEADINGS = ["Day", "Time", "Person", "Sign-in address", "What", "Signed out at", "How it ended", "Minutes signed in", "Detail", "Archived"]
+# A browser that says it is an Android phone (REQUIREMENTS §106): the server names a device from its own words.
+ANDROID_PHONE_UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36"
 # The introduction is its own suite's (tests/e2e_intro_and_fonts.py): here it is marked as seen, so it never covers a click.
 NO_INTRO = "try { sessionStorage.setItem('dcrs:intro-seen', '1'); } catch (e) {}"
 
@@ -748,6 +757,96 @@ with sync_playwright() as p:
         check("Kapila Barad may not change a role (403)", kap_api.request.post(f"{BASE}/api/users/{clerk_id}/role", data={"role": "admin"}).status == 403)
         for c in (kap_api, ankur_api, admin_api):
             c.close()
+
+        # ==============================================================
+        # 10b. Where each person is signed in (REQUIREMENTS §106)
+        # ==============================================================
+        # The owner, 9-Oct-2026: "Superadmin can see easily like where the ids are logged in like with device name and
+        # category like it is a laptop/computer or mobile." Her account signed in from two browsers of its own: a
+        # computer's, and one that says it is an Android phone. The limit of two devices is off on the test servers
+        # (scripts/run-e2e.ts DCRS_MAX_DEVICES=off, the suites open many sessions per account); it is proved by
+        # backend/tests/deviceSessions.test.ts.
+        print("\n==== Where each person is signed in ====")
+        devices_from = len(errors)
+        devices_started = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
+        pc_ctx = browser.new_context()
+        pc_ctx.add_init_script(NO_INTRO)
+        phone_ctx = browser.new_context(user_agent=ANDROID_PHONE_UA)
+        phone_ctx.add_init_script(NO_INTRO)
+        pc = new_page(pc_ctx)
+        phone = new_page(phone_ctx)
+        try:
+            sign_in(pc, CLERK, CLERK_PASSWORD)
+            sign_in(phone, CLERK, CLERK_PASSWORD)
+            open_access(admin)
+            ov = get(admin, "/api/access/overview").get("body") or {}
+            rule = ov.get("devices") or {}
+            check("The server says the rule the devices are held to (no limit on the test server, said as such)", rule.get("limit") is None and rule.get("known") is True, rule)
+            her = next((p_ for p_ in ov.get("people") or [] if p_.get("email") == CLERK), {})
+            fresh_devices = [d for d in her.get("devices") or [] if d.get("place") == "website" and datetime.datetime.fromisoformat(d["signedInAt"].replace("Z", "+00:00")) >= devices_started]
+            check(
+                f"{CLERK_NAME}, signed in from two browsers, is listed on two devices: a computer and a mobile phone",
+                sorted(d.get("category") for d in fresh_devices) == ["computer", "mobile"],
+                [(d.get("name"), d.get("category"), d.get("place")) for d in her.get("devices") or []],
+            )
+            phone_device = next((d for d in fresh_devices if d.get("category") == "mobile"), {})
+            pc_device = next((d for d in fresh_devices if d.get("category") == "computer"), {})
+            check("...named in words: the phone 'Android phone - Chrome', the computer '<system> computer - Chrome'", phone_device.get("name") == "Android phone - Chrome" and re.match(r"^\w+ computer - Chrome$", pc_device.get("name") or "") is not None, (phone_device.get("name"), pc_device.get("name")))
+            card = admin.locator("[data-section='access-devices']")
+            check("The page has a 'Signed in on' card", card.count() == 1 and "Signed in on" in card.inner_text(), card.inner_text()[:200] if card.count() else "")
+            phone_row = admin.locator(f"[data-table='access-devices'] tr[data-session='{phone_device.get('id')}']")
+            pc_row = admin.locator(f"[data-table='access-devices'] tr[data-session='{pc_device.get('id')}']")
+            check(
+                "...her phone's line: its category, its name, the website, since when",
+                phone_row.count() == 1
+                and phone_row.get_attribute("data-category") == "mobile"
+                and "Android phone - Chrome" in phone_row.inner_text()
+                and "Mobile phone" in phone_row.inner_text()
+                and "Website" in phone_row.inner_text()
+                and phone_row.locator("[data-field='since']").inner_text().strip() == factory_hm(phone_device.get("signedInAt")),
+                phone_row.inner_text() if phone_row.count() else None,
+            )
+            check("...and her computer's", pc_row.count() == 1 and pc_row.get_attribute("data-category") == "computer" and "Computer" in pc_row.inner_text(), pc_row.inner_text() if pc_row.count() else None)
+            mine = admin.locator(f"[data-table='access-devices'] tr[data-user='{ADMIN}'][data-current='yes']")
+            check("The super admin's own device is marked his, with no sign-out button", mine.count() == 1 and mine.locator("[data-action='sign-out-device']").count() == 0 and "yours" in mine.inner_text(), mine.count())
+            lines = get(admin, f"/api/activity?person={clerk_id}&limit=50").get("body") or {}
+            ins = [l for l in lines.get("lines") or [] if l.get("action") == "Signed in" and datetime.datetime.fromisoformat(l["at"].replace("Z", "+00:00")) >= devices_started]
+            check("Each sign-in's line in the activity log names its device", any("Android phone - Chrome (Website)" in (l.get("detail") or "") for l in ins) and any(re.search(r"computer - Chrome \(Website\)", l.get("detail") or "") for l in ins), [l.get("detail") for l in ins])
+
+            phone_row.locator("[data-action='sign-out-device']").click()
+            admin.wait_for_selector("[data-section='confirm-sign-out-device']", timeout=10000)
+            asked = admin.locator("[data-section='confirm-sign-out-device']").inner_text()
+            check("'Sign out this device' asks first, naming the device", "Android phone - Chrome" in asked and "activity log" in asked, asked)
+            admin.click("[data-action='confirm-sign-out-device']")
+            admin.wait_for_function(
+                "id => !document.querySelector(`[data-table='access-devices'] tr[data-session='${id}']`)",
+                arg=phone_device.get("id"),
+                timeout=15000,
+            )
+            note = admin.locator("[data-section='access-note']")
+            check("...signed out: the line goes, and the page says so", note.count() == 1 and "is signed out" in note.inner_text(), note.inner_text() if note.count() else None)
+            logged = get(admin, "/api/activity?q=Device%20signed%20out&limit=20").get("body") or {}
+            check("...a line of the activity log, naming her and the device", any(l.get("action") == "Device signed out by the super admin" and CLERK in (l.get("target") or "") and "Android phone - Chrome" in (l.get("detail") or "") for l in logged.get("lines") or []), [(l.get("action"), l.get("target"), l.get("detail")) for l in (logged.get("lines") or [])[:3]])
+
+            phone.reload()
+            phone.wait_for_selector("#login-email", timeout=60000)
+            phone.wait_for_selector("[data-section='signed-out-notice']", timeout=15000)
+            told = phone.locator("[data-section='signed-out-notice']").inner_text()
+            check("Her phone's next request goes back to the sign-in screen, saying the super admin signed it out", "The super admin signed this device out at" in told, told)
+            refused = get(phone, "/api/auth/me")
+            check("...the server answering it 401 session-ended", refused["status"] == 401 and (refused.get("body") or {}).get("code") == "session-ended", (refused["status"], refused.get("body")))
+            pc.reload()
+            pc.wait_for_selector(".app-sidebar", timeout=60000)
+            check("Her computer is still signed in", pc.locator(".app-sidebar").count() == 1 and get(pc, "/api/auth/me")["status"] == 200)
+            sign_out(pc)
+            gone = get(admin, "/api/access/overview").get("body") or {}
+            her_now = next((p_ for p_ in gone.get("people") or [] if p_.get("email") == CLERK), {})
+            check("Signed out on her computer too, neither device is listed any more", not any(d.get("id") in (phone_device.get("id"), pc_device.get("id")) for d in her_now.get("devices") or []), [(d.get("name"), d.get("id")) for d in her_now.get("devices") or []])
+        finally:
+            pc_ctx.close()
+            phone_ctx.close()
+        # The signed-out phone's own 401s are the point of this step, not errors.
+        errors[devices_from:] = [e for e in errors[devices_from:] if "401" not in e]
 
         # ==============================================================
         # 11. On a phone, and the errors

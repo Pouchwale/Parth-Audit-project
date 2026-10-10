@@ -20,7 +20,11 @@
 //   * the super admin's sign-in in the day's last ten minutes, which runs to the
 //     midnight after (§84 addendum): after midnight he is still "signed in now"
 //     in it, the history shows it open, and his older session's own end of the
-//     day closes that one and not this (review of 8-Oct-2026).
+//     day closes that one and not this (review of 8-Oct-2026);
+//   * where each person is signed in (REQUIREMENTS §106): each device by name and
+//     category, the website or the phone app, the address, since and last used,
+//     the super admin's own marked; "Sign out this device" ends that one session,
+//     logged with the person and the device, refused to anybody else, never his own.
 // The same routes are driven end to end by tests/e2e_user_access.py.
 // Run: npm run test:unit -- accessRoutes
 import assert from "node:assert/strict";
@@ -52,6 +56,7 @@ import {
   type HistoryRow,
   type SignLine,
 } from "../accessRoutes.ts";
+import { createDeviceSessions, memorySessionStore } from "../deviceSessions.ts";
 
 const ZONE = "Asia/Kolkata";
 /** 14:00 at the factory on Wednesday 30 September 2026. */
@@ -245,6 +250,8 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
     return;
   }
   (req as Request & { user: PublicUser }).user = user;
+  // The session the request came with, as the server's requireAuth sets it (§106).
+  (req as Request & { sessionKey?: string }).sessionKey = req.get("x-test-session") ?? "";
   next();
 }
 
@@ -265,6 +272,9 @@ let hoursNow: () => Promise<PublicHours | null> = async () => null;
 const gateAt = (iso: string, enforced: boolean): PublicHours => publicHours(plantNow(null, new Date(iso), ZONE), enforced);
 let base = "";
 let close: () => Promise<void> = async () => undefined;
+/** The sessions (§106), kept in memory on the routes' clock; emptied by fresh(). */
+const sessionStore = memorySessionStore();
+const deviceSessions = createDeviceSessions({ store: sessionStore, clock: () => new Date(nowMs), limit: 2, mitraKey: "", timeZone: () => ZONE });
 
 before(async () => {
   const app = express();
@@ -275,6 +285,7 @@ before(async () => {
     clock: () => nowMs,
     timeZone: () => ZONE,
     hours: () => hoursNow(),
+    sessions: deviceSessions,
   });
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
@@ -290,6 +301,7 @@ function fresh(): FakeDb {
   logged.length = 0;
   nowMs = NOW;
   hoursNow = async () => gateAt(new Date(NOW).toISOString(), true);
+  sessionStore.rows.clear();
   return db;
 }
 
@@ -859,5 +871,119 @@ describe("the CSV file", () => {
     db.line(TODAY, "12:00", null, SIGN_IN_FAILED, "No such account", { target: "=HYPERLINK(\"http://x\")@gpp.local" });
     const res = await get("/api/access/history.csv?kind=attempts");
     assert.ok(res.text.includes(`"'=HYPERLINK(""http://x"")@gpp.local"`), res.text);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// where each person is signed in (REQUIREMENTS §106)
+
+/** A device's session as the server starts it at a sign-in (backend/deviceSessions.ts), on the routes' own store. */
+async function signedInOn(userId: string, role: string, ua: string, deviceId: string, at: string, ip = "::ffff:10.192.193.40"): Promise<string> {
+  const sessionId = `sess-${deviceId}`;
+  const before = nowMs;
+  nowMs = Date.parse(at);
+  const device = deviceSessions.deviceOf({ header: (n) => (n.toLowerCase() === "user-agent" ? ua : undefined), ip, body: { device: { id: deviceId, touchPoints: 0 } } });
+  const started = await deviceSessions.signIn({ sessionId, user: { id: userId, role }, device, endsAt: new Date("2026-09-30T12:50:00Z"), replace: [] });
+  nowMs = before;
+  assert.equal(started.ok, true, deviceId);
+  return sessionId;
+}
+
+const WINDOWS_CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
+const ANDROID_PHONE = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36";
+
+async function post(route: string, who: string | null = "admin", session = ""): Promise<{ status: number; json: any }> {
+  const headers: Record<string, string> = {};
+  if (who) headers["x-test-user"] = who;
+  if (session) headers["x-test-session"] = session;
+  const res = await fetch(base + route, { method: "POST", headers });
+  return { status: res.status, json: await res.json().catch(() => null) };
+}
+
+describe("where each person is signed in (§106)", () => {
+  it("lists each person's devices: the category, the name, the website or the phone app, the address, since and last used", async () => {
+    fresh();
+    const pc = await signedInOn("u-kapila", "staff", WINDOWS_CHROME, "kapila-pc-000001", "2026-09-30T03:32:11Z");
+    const phone = await signedInOn("u-kapila", "staff", ANDROID_PHONE, "kapila-phone-0001", "2026-09-30T08:10:00Z", "::ffff:10.192.193.77");
+    const mine = await signedInOn("u-admin", "admin", WINDOWS_CHROME, "admin-pc-0000001", "2026-09-30T03:10:00Z");
+    const res = await get("/api/access/overview");
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.json.devices, { limit: 2, phonesNamed: false, known: true });
+    const kapila = res.json.people.find((p: { id: string }) => p.id === "u-kapila");
+    assert.deepEqual(
+      kapila.devices.map((d: Record<string, unknown>) => [d.id, d.name, d.category, d.place, d.address, d.signedInAt, d.current]),
+      [
+        [pc, "Windows computer - Chrome", "computer", "website", "10.192.193.40", "2026-09-30T03:32:11.000Z", false],
+        [phone, "Android phone - Chrome", "mobile", "website", "10.192.193.77", "2026-09-30T08:10:00.000Z", false],
+      ]
+    );
+    const vinay = res.json.people.find((p: { id: string }) => p.id === "u-vinay");
+    assert.deepEqual(vinay.devices, [], "signed in nowhere");
+    const withSession = (await fetch(base + "/api/access/overview", { headers: { "x-test-user": "admin", "x-test-session": mine } }).then((r) => r.json())) as {
+      people: { id: string; devices: { id: string; current: boolean }[] }[];
+    };
+    const admin = withSession.people.find((p) => p.id === "u-admin");
+    assert.deepEqual(admin?.devices.map((d) => [d.id, d.current]), [[mine, true]], "his own device is marked, so the page offers no sign-out for it");
+  });
+
+  it("signs one device out for the super admin: its next request is told so, the line names it, the list loses it", async () => {
+    fresh();
+    const pc = await signedInOn("u-kapila", "staff", WINDOWS_CHROME, "kapila-pc-000002", "2026-09-30T03:32:11Z");
+    const phone = await signedInOn("u-kapila", "staff", ANDROID_PHONE, "kapila-phone-0002", "2026-09-30T08:10:00Z", "::ffff:10.192.193.77");
+    const res = await post(`/api/access/sessions/${encodeURIComponent(phone)}/end`);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ended.id, phone);
+    assert.equal(res.json.ended.category, "mobile");
+    assert.deepEqual(logged, [
+      { who: "admin@gpp.local", action: "Device signed out by the super admin", target: "Kapila Barad <kapila.barad@gpp.local>", detail: "Android phone - Chrome (Website) from 10.192.193.77" },
+    ]);
+    const next = await deviceSessions.check({ sessionId: phone, userId: "u-kapila", issuedAt: null, endsAt: new Date("2026-09-30T12:50:00Z"), request: { header: () => undefined, ip: "" } });
+    assert.equal(next.ok, false);
+    assert.equal(deviceSessions.endedRefusal(next.session, "en")?.error, "The super admin signed this device out at 14:00. Sign in again to carry on.");
+    const overview = await get("/api/access/overview");
+    const kapila = overview.json.people.find((p: { id: string }) => p.id === "u-kapila");
+    assert.deepEqual(kapila.devices.map((d: { id: string }) => d.id), [pc], "the other device is left as it was");
+    assert.equal((await post(`/api/access/sessions/${encodeURIComponent(phone)}/end`)).status, 404, "a device signed out already is not there to sign out");
+  });
+
+  it("is the super admin's alone, never his own device, and a session not open is a 404", async () => {
+    fresh();
+    const pc = await signedInOn("u-kapila", "staff", WINDOWS_CHROME, "kapila-pc-000003", "2026-09-30T03:32:11Z");
+    const mine = await signedInOn("u-admin", "admin", WINDOWS_CHROME, "admin-pc-0000003", "2026-09-30T03:10:00Z");
+    assert.equal((await post(`/api/access/sessions/${pc}/end`, null)).status, 401);
+    for (const who of ["staff", "every"]) {
+      const refused = await post(`/api/access/sessions/${pc}/end`, who);
+      assert.equal(refused.status, 403, who);
+      assert.equal(refused.json.code, "super-admin-only");
+    }
+    const own = await post(`/api/access/sessions/${mine}/end`, "admin", mine);
+    assert.equal(own.status, 400);
+    assert.equal(own.json.code, "own-device");
+    const unknown = await post("/api/access/sessions/no-such-session/end");
+    assert.equal(unknown.status, 404);
+    assert.equal(unknown.json.code, "no-such-session");
+    nowMs = Date.parse("2026-09-30T13:00:00Z");
+    assert.equal((await post(`/api/access/sessions/${pc}/end`)).status, 404, "past the close of its day it has ended already");
+    assert.deepEqual(logged, [], "nothing is written for a refusal");
+    assert.equal((await deviceSessions.get(pc))?.endedAt, null, "and nothing was ended");
+  });
+
+  it("still answers when the devices cannot be read, and says so", async () => {
+    fresh();
+    const open = sessionStore.open;
+    sessionStore.open = async () => {
+      throw new Error("connection lost");
+    };
+    const warned = console.warn;
+    console.warn = () => undefined;
+    try {
+      const res = await get("/api/access/overview");
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.json.devices, { limit: 2, phonesNamed: false, known: false });
+      assert.ok(res.json.people.every((p: { devices: unknown[] }) => Array.isArray(p.devices) && p.devices.length === 0));
+    } finally {
+      sessionStore.open = open;
+      console.warn = warned;
+    }
   });
 });

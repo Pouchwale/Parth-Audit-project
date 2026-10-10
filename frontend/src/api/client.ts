@@ -40,11 +40,17 @@ export class ApiError extends Error {
    * meant for a person. Absent for most errors.
    */
   code?: string;
-  constructor(message: string, status: number, code?: string) {
+  /**
+   * The whole answer, where the server sent one: what a refusal names beside its words, such as the devices of a
+   * sign-in refused on one device too many (REQUIREMENTS §106), so the words can be said in the screens' language.
+   */
+  data?: Record<string, unknown>;
+  constructor(message: string, status: number, code?: string, data?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     if (code) this.code = code;
+    if (data) this.data = data;
   }
 }
 
@@ -75,7 +81,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       const opensAt = (body as { opensAt?: unknown }).opensAt;
       sayOutsideHours({ message, opensAt: typeof opensAt === "string" ? opensAt : null });
     }
-    throw new ApiError(message, res.status, code);
+    throw new ApiError(message, res.status, code, body && typeof body === "object" ? (body as Record<string, unknown>) : undefined);
   }
 
   return body as T;

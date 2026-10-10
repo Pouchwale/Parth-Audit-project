@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../../store/AuthContext";
+import { signInWordsLanguage, useAuth } from "../../store/AuthContext";
 import { ApiError } from "../../api/client";
+import { DEVICE_LIMIT_CODE, deviceLimitWordsOf } from "../../engine/deviceWords";
 import { PasswordInput } from "../common/PasswordInput";
 import { WorkingHoursNote } from "./WorkingHoursNote";
 
@@ -11,6 +12,9 @@ import { WorkingHoursNote } from "./WorkingHoursNote";
 // the plant to them, the hours and where today stands (WorkingHoursNote); after
 // the browser signed somebody out by itself, why; and a sign-in refused outside
 // the hours says so in the server's own plain words, with the next opening.
+//
+// ONE DEVICE TOO MANY (REQUIREMENTS §106): an account already signed in on as many devices as it may be is
+// refused with the devices named and since when, and what to do, in the screens' language.
 export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup?: () => void }) {
   const { login, notice } = useAuth();
   const [email, setEmail] = useState("");
@@ -29,7 +33,8 @@ export function LoginForm({ onSwitchToSignup }: { onSwitchToSignup?: () => void 
     try {
       await login(email.trim(), password);
     } catch (err) {
-      setError(err instanceof ApiError ? { text: err.message, code: err.code } : { text: "Could not log in. Please try again." });
+      const words = err instanceof ApiError && err.code === DEVICE_LIMIT_CODE ? deviceLimitWordsOf(signInWordsLanguage(), err.data) : null;
+      setError(err instanceof ApiError ? { text: words ?? err.message, code: err.code } : { text: "Could not log in. Please try again." });
     } finally {
       setSubmitting(false);
     }

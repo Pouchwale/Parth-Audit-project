@@ -29,7 +29,9 @@ import {
   type UserRow,
 } from "./db.ts";
 import { departmentOfDocument } from "../frontend/src/data/seed/documentDepartments.ts";
-import { hashPassword, verifyPassword, newSessionId, signSessionToken, verifySessionToken, COOKIE_NAME, type PublicUser } from "./auth.ts";
+import { hashPassword, verifyPassword, newSessionId, sessionKeyOf, signSessionToken, verifySessionToken, COOKIE_NAME, type PublicUser } from "./auth.ts";
+import { createDeviceSessions, deviceLine, type DeviceFacts, type DeviceRequest, type SessionEndedBody } from "./deviceSessions.ts";
+import { deviceLanguageOf } from "../frontend/src/engine/deviceWords.ts";
 import { BUILT_IN_FIRST_PASSWORD, NO_PASSWORD_YET, hasNoPasswordYet, mayChangeOwnPassword, settleFirstPasswords } from "./passwordPolicy.ts";
 import { SIGN_IN_WINDOW_MS, createSignInThrottle, endsThisSession, signOutWords } from "./signInAndOut.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
@@ -86,7 +88,8 @@ app.use(cookieParser());
 // allow. Adding permissive CORS here would only widen the attack surface
 // for no functional benefit.
 
-type AuthedRequest = Request & { user: PublicUser };
+// `sessionKey`: the row of user_sessions the request's session is kept under (REQUIREMENTS §106, backend/auth.ts sessionKeyOf).
+type AuthedRequest = Request & { user: PublicUser; sessionKey?: string };
 
 // The department codes of the company's master list of formats (F/SYS/02) —
 // two to four capitals inside the format number (QC, PRD, HR, MKT, DISP, ...).
@@ -144,29 +147,79 @@ function cookieOptions(maxAgeMs?: number): CookieOptions {
   };
 }
 
-/** Sets the session's cookie, and answers the new session's own id (backend/auth.ts), which the browser is told. */
-function issueSession(res: Response, user: PublicUser, endsAt: Date): string {
-  const sessionId = newSessionId();
-  res.cookie(COOKIE_NAME, signSessionToken(user, endsAt, sessionId), cookieOptions(endsAt.getTime() - Date.now()));
-  return sessionId;
+// WHO IS SIGNED IN WHERE (REQUIREMENTS §106): every session is a row of
+// user_sessions in PostgreSQL, started at the sign-in on the device it came from
+// (at most DCRS_MAX_DEVICES devices an account, the super admin never held to
+// it), read on every request, ended by a sign-out or by the super admin's "Sign
+// out this device" (backend/deviceSessions.ts; the super admin's view is
+// backend/accessRoutes.ts). The Mitra server names the phone only beside
+// X-Mitra-Key matching MITRA_SERVER_KEY.
+const devices = createDeviceSessions();
+
+/** The request as backend/deviceSessions.ts reads it: its headers, its address, and the sign-in's body. */
+function deviceRequest(req: Request): DeviceRequest {
+  return { header: (name) => req.get(name) ?? undefined, ip: req.ip ?? "", body: req.body };
 }
 
-/** The session a request carries, with the moment it ends and its id; null for none, one whose day has closed, or an account switched off. */
-async function readSession(req: Request): Promise<{ user: PublicUser; endsAt: Date; sessionId: string | null } | null> {
+/**
+ * The session this request still carries of the same account — its cookie, which a browser signing in again sends and
+ * the Mitra server sends for the phone's earlier sign-in: replaced by the new one, never counted against the limit.
+ */
+function carriedSessions(req: Request, userId: string): string[] {
   const token = req.cookies?.[COOKIE_NAME];
-  const payload = token ? verifySessionToken(token) : null;
+  const held = typeof token === "string" && token ? verifySessionToken(token) : null;
+  return held && held.sub === userId ? [sessionKeyOf(token, held.sessionId)] : [];
+}
+
+/**
+ * Starts a session on the request's device — its row first (§106), then the cookie — and answers the new session's own
+ * id (backend/auth.ts), which the browser is told, with the device; or, for an account signed in on as many devices as
+ * it may be, the 403 to answer with, in the request's language (X-Language).
+ */
+async function issueSession(req: Request, res: Response, user: PublicUser, endsAt: Date): Promise<{ ok: true; sessionId: string; device: DeviceFacts } | { ok: false; refusal: ReturnType<typeof devices.limitRefusal> }> {
+  const sessionId = newSessionId();
+  const device = devices.deviceOf(deviceRequest(req));
+  const begun = await devices.signIn({ sessionId, user, device, endsAt, replace: carriedSessions(req, user.id) });
+  if (!begun.ok) return { ok: false, refusal: devices.limitRefusal(begun.holding, deviceLanguageOf(req.get("x-language"))) };
+  res.cookie(COOKIE_NAME, signSessionToken(user, endsAt, sessionId), cookieOptions(endsAt.getTime() - Date.now()));
+  return { ok: true, sessionId, device };
+}
+
+type SessionRead = { user: PublicUser; endsAt: Date; sessionId: string | null; key: string };
+
+/**
+ * The session a request carries, with the moment it ends and its id; null for none, one whose day has closed, or an
+ * account switched off; `ended` with the words to answer for a session that was ended — signed out, signed out by the
+ * super admin, or replaced by a sign-in again on its device (§106).
+ */
+async function readSession(req: Request): Promise<SessionRead | { ended: SessionEndedBody } | null> {
+  const token = req.cookies?.[COOKIE_NAME];
+  const payload = typeof token === "string" && token ? verifySessionToken(token) : null;
   if (!payload) return null;
   const row = await getUserById(payload.sub);
   if (!row || !row.active) return null;
-  return { user: toPublicUser(row), endsAt: payload.endsAt, sessionId: payload.sessionId };
+  const key = sessionKeyOf(token, payload.sessionId);
+  const held = await devices.check({ sessionId: key, userId: row.id, issuedAt: payload.issuedAt, endsAt: payload.endsAt, request: deviceRequest(req) });
+  if (!held.ok) {
+    const ended = devices.endedRefusal(held.session, deviceLanguageOf(req.get("x-language")));
+    return ended ? { ended } : null;
+  }
+  return { user: toPublicUser(row), endsAt: payload.endsAt, sessionId: payload.sessionId, key };
+}
+
+/** The 401 of a request with no session it may use: with the words of how it ended, when it was ended (§106). */
+function refuseSignedOut(res: Response, read: { ended: SessionEndedBody } | null, extra: Record<string, unknown> = {}): void {
+  res.status(401).json(read ? { ...read.ended, ...extra } : { error: "Not authenticated.", ...extra });
 }
 
 // WHO IS MAKING THIS REQUEST — read from the users table every time, not from
 // the token. That is what lets the administrator switch an account off and have
 // it stop at its very next request (REQUIREMENTS §66): a session already issued
-// is no use to somebody who has left.
+// is no use to somebody who has left. And the session itself, from its row
+// (§106): one signed out, here or by the super admin, stops at once too.
 async function getSessionUser(req: Request): Promise<PublicUser | null> {
-  return (await readSession(req))?.user ?? null;
+  const read = await readSession(req);
+  return read && !("ended" in read) ? read.user : null;
 }
 
 /**
@@ -200,22 +253,26 @@ async function mustChangePassword(id: string): Promise<boolean> {
  * Everything else goes through requireAuth, which holds the door (REQUIREMENTS §66).
  */
 async function requireSession(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const user = await getSessionUser(req);
-  if (!user) {
-    res.status(401).json({ error: "Not authenticated." });
+  const read = await readSession(req);
+  if (!read || "ended" in read) {
+    refuseSignedOut(res, read);
     return;
   }
+  const user = read.user;
   if (await refuseOutsideHours(req, res, user)) return;
   (req as AuthedRequest).user = user;
+  (req as AuthedRequest).sessionKey = read.key;
   next();
 }
 
 async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const user = await getSessionUser(req);
-  if (!user) {
-    res.status(401).json({ error: "Not authenticated." });
+  const read = await readSession(req);
+  if (!read || "ended" in read) {
+    refuseSignedOut(res, read);
     return;
   }
+  const user = read.user;
+  (req as AuthedRequest).sessionKey = read.key;
   // Outside the plant's hours nothing is used at all (§84), so that answer comes first.
   if (await refuseOutsideHours(req, res, user)) return;
   // STILL ON THE ADMINISTRATOR'S PASSWORD: nothing of the company's is handed
@@ -380,27 +437,34 @@ app.post("/api/auth/signup", async (req: Request, res: Response): Promise<void> 
   recordSignup(req.ip ?? "unknown");
   const user = toPublicUser(row);
   const endsAt = await hours.sessionEnd(user);
-  const sessionId = issueSession(res, user, endsAt);
+  // A new account has no device yet, so its first session always starts (§106).
+  const issued = await issueSession(req, res, user, endsAt);
   logActivity(req, user, "Account created", user.email, user.role === "admin" ? "The first account — the system administrator" : user.departments.length ? `Departments: ${user.departments.join(", ")}` : "Every department");
+  if (!issued.ok) {
+    res.status(403).json(issued.refusal);
+    return;
+  }
   // With the account, what this server has switched on (features.ts, REQUIREMENTS §65) — here, at sign-in and in
   // /api/auth/me — and when this session ends, with its id (§84).
-  res.status(201).json({ user, features: FEATURES, session: await hours.sessionAnswer(user, endsAt, sessionId), hours: await hours.personAnswer(user) });
+  res.status(201).json({ user, features: FEATURES, session: await hours.sessionAnswer(user, endsAt, issued.sessionId), hours: await hours.personAnswer(user) });
 });
 
 // WHO SEES WHICH DEPARTMENT'S DOCUMENTS — set by the admin, not by the person
 // themselves, or the restriction would be a preference rather than a rule.
 // The admin is the first account created (see signup above).
 async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const user = await getSessionUser(req);
-  if (!user) {
-    res.status(401).json({ error: "Not authenticated." });
+  const read = await readSession(req);
+  if (!read || "ended" in read) {
+    refuseSignedOut(res, read);
     return;
   }
+  const user = read.user;
   if (user.role !== "admin") {
     res.status(403).json({ error: "Only the system administrator can change department access." });
     return;
   }
   (req as AuthedRequest).user = user;
+  (req as AuthedRequest).sessionKey = read.key;
   next();
 }
 
@@ -530,6 +594,8 @@ app.post("/api/users/:id/active", requireAdmin, async (req: Request, res: Respon
     res.status(404).json({ error: "No such account." });
     return;
   }
+  // Switched off, the devices it was signed in on are signed out with it: off the super admin's "Signed in on" (§106).
+  if (!active) await devices.endAll(target.id, "account-off", me.id);
   logActivity(req, me, active ? "Account switched on" : "Account switched off", `${target.name} <${target.email}>`, active ? "They can sign in again" : "They can no longer sign in; nothing of theirs is deleted");
   res.json({ user: { ...toPublicUser(row), createdAt: row.created_at, mustChangePassword: row.must_change_password, noPasswordYet: hasNoPasswordYet(row), active: row.active, lastSignIn: row.last_sign_in } });
 });
@@ -612,10 +678,18 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
   // midnight after, for his sign-in in the day's last ten minutes). The hours in the answer are worded for this
   // person: the staff's hours, and for the super admin a line saying he can keep working (§84 addendum, 6-Oct-2026).
   const endsAt = await hours.sessionEnd(user);
-  const sessionId = issueSession(res, user, endsAt);
+  // ON THIS DEVICE, IF THE ACCOUNT HAS ROOM (§106): a device that already has a session replaces it; one device more
+  // than DCRS_MAX_DEVICES is refused in plain words naming the devices and since when (the super admin never is).
+  const issued = await issueSession(req, res, user, endsAt);
+  if (!issued.ok) {
+    logActivity(req, user, "Sign-in refused", normalizedEmail, `Already signed in on ${issued.refusal.devices.length} devices: ${issued.refusal.devices.map((d) => `${d.name} (since ${d.sinceText})`).join(", ")}`);
+    res.status(403).json(issued.refusal);
+    return;
+  }
   void markSignedIn(row.id, new Date().toISOString()).catch(() => undefined);
-  logActivity(req, user, "Signed in", user.email);
-  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt, sessionId), hours: await hours.personAnswer(user) });
+  // The line names the device (§106): "Windows computer - Chrome (Website) from 10.0.0.5".
+  logActivity(req, user, "Signed in", user.email, deviceLine(issued.device));
+  res.json({ user, features: FEATURES, mustChangePassword: row.must_change_password, session: await hours.sessionAnswer(user, endsAt, issued.sessionId), hours: await hours.personAnswer(user) });
 });
 
 // A session the browser ends a moment after its close — its clock, a laptop
@@ -627,6 +701,10 @@ const SIGN_OUT_LINE_GRACE_MS = 30 * 60 * 1000;
 // for staff, "At the end of the day (midnight)" for the super admin. `sessionId` only from a tab ending its own session
 // by itself: when the browser's cookie holds another session by then — he signed in again in another tab while this
 // one's clock ran late — that newer session is left as it is, with no line and its cookie kept (review of 8-Oct-2026).
+//
+// THE SESSION ENDS HERE (REQUIREMENTS §106): its row says when, and that the person signed out, so the token is of no
+// use from now on, wherever a copy of it is (the Mitra server's, for the phone). One the super admin had signed out
+// already, or replaced by a sign-in again on its device, writes no second line.
 app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> => {
   const token = req.cookies?.[COOKIE_NAME];
   const held = typeof token === "string" && token ? verifySessionToken(token, { ignoreExpiration: true }) : null;
@@ -634,10 +712,18 @@ app.post("/api/auth/logout", async (req: Request, res: Response): Promise<void> 
     res.status(204).end();
     return;
   }
-  let user = await getSessionUser(req).catch(() => null);
-  if (!user && held && Date.now() - held.endsAt.getTime() <= SIGN_OUT_LINE_GRACE_MS) {
+  let user: PublicUser | null = null;
+  if (held && typeof token === "string") {
     const row = await getUserById(held.sub).catch(() => undefined);
-    if (row && row.active) user = toPublicUser(row);
+    if (row) {
+      const claim = { sessionId: sessionKeyOf(token, held.sessionId), userId: row.id, issuedAt: held.issuedAt, endsAt: held.endsAt, request: deviceRequest(req) };
+      const was = await devices.signOut(claim).catch((err: unknown) => {
+        console.error("[devices] the sign-out could not be written:", err instanceof Error ? err.message : err);
+        return "ended" as const;
+      });
+      // An open session, or one the browser ends a moment after its close: its "Signed out" line, as before.
+      if (was === "ended" && row.active && Date.now() - held.endsAt.getTime() <= SIGN_OUT_LINE_GRACE_MS) user = toPublicUser(row);
+    }
   }
   if (user) logActivity(req, user, "Signed out", user.email, signOutWords((req.body ?? {}).reason, user.role));
   res.clearCookie(COOKIE_NAME, cookieOptions());
@@ -814,10 +900,11 @@ registerActivityArchiveRoutes(app, { requireAuth: requireAuthWithModules, activi
 
 app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
   const session = await readSession(req);
-  if (!session) {
+  if (!session || "ended" in session) {
     // With the features, so the sign-in screen knows what to offer without a
-    // second request (REQUIREMENTS §66) — and nothing else whatever.
-    res.status(401).json({ error: "Not authenticated.", features: FEATURES });
+    // second request (REQUIREMENTS §66) — and nothing else whatever, but the
+    // words of how this device's session ended, when it was ended (§106).
+    refuseSignedOut(res, session, { features: FEATURES });
     return;
   }
   const { user } = session;
@@ -1370,10 +1457,12 @@ registerStorageRoutes(app, { requireAuth, logActivity, accessRules });
 // the signed-in person through DCRS's own rules (backend/apiV1.ts), and
 // /api/overview/* is the super admin's read-only view of the shared database
 // (backend/overviewRoutes.ts). Nothing above them changes.
-registerApiV1(app, { requireAuth, logActivity });
+// The same sessions as the website's (§106): a phone signed out in DCRS is refused here at its next request.
+registerApiV1(app, { requireAuth, logActivity, sessions: devices });
 registerOverviewRoutes(app, { requireAuth, logActivity });
-// USER ACCESS (REQUIREMENTS §84): the super admin's view of who may use which module, and every sign-in and sign-out.
-registerAccessRoutes(app, { requireAuth, logActivity });
+// USER ACCESS (REQUIREMENTS §84): the super admin's view of who may use which module, and every sign-in and sign-out;
+// and where each person is signed in now, with "Sign out this device" (§106).
+registerAccessRoutes(app, { requireAuth, logActivity, sessions: devices });
 // EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the bell and the Notifications page (backend/notificationRoutes.ts).
 registerNotificationRoutes(app, { requireAuth });
 // ...and the notify job ends by pushing them to the phones (backend/push.ts; PUSH_ENABLED=0 sends nothing).

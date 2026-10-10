@@ -93,6 +93,7 @@ Map DCRS's answers onto the connector's errors like this:
 | `403` | The account is switched off | `forbidden`, with DCRS's message |
 | `403` with `code: "outside-working-hours"` | Outside the staff's working hours. Only the super admin may sign in then. | `forbidden`, with DCRS's message, for example "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am." |
 | `429` | Eight wrong passwords for that email in ten minutes | `forbidden`, with DCRS's message "Too many failed attempts. Try again in a few minutes." |
+| `403` with `code: "device-limit"` | The account is signed in on as many devices as it may be (`DCRS_MAX_DEVICES`, 2 unless set; REQUIREMENTS §106). `devices` names them, with `sinceText`. | `forbidden`, with DCRS's message unchanged, for example "This account is already signed in on 2 devices: Windows computer - Chrome (Website, since 09:02) and Kapila's phone (Pixel 8) (Mitra phone app, since 10:15). Sign out on one of them, or ask the super admin to sign one out." Send `X-Language` (en, hi, gu) for it in the person's language. |
 | Anything else, or no answer | DCRS is not reachable | `unavailable` |
 
 Map `429` to `forbidden` so the person sees DCRS's own words. As `unavailable`, the assistant would wrongly say DCRS could not be reached.
@@ -111,9 +112,31 @@ X-Client-Name: Mitra mobile app
 
 `role` is `admin` (DCRS's super admin) or `staff`. `departments` holds department codes such as `QA` and `HR`. An empty list means every department. The super admin also sees every department.
 
-**Signing out.** `POST /api/auth/logout` with the token as the `dcrs_session` cookie writes "Signed out" in DCRS's activity log. That route reads the cookie only, not the Bearer header. DCRS sessions are signed tokens, not stored sessions, so signing out does not cancel the token before the close of its day. When the assistant's own session ends, it must delete its stored copy of the token. The body is optional, and the assistant need not send one. DCRS's own pages send `{"reason": "end-of-working-hours"}` when they sign a member of staff out by themselves at the close of the working day, and `{"reason": "end-of-day"}` for the super admin at midnight; a reason is written in the log only where it fits the account. They also name the session they are ending (`sessionId`, the `session.id` of the sign-in answer), so that a tab whose clock ran late never ends a newer session of the same browser.
+**Which phone signs in (REQUIREMENTS §106).** DCRS lists every session for its super admin by device, and holds each account to at most two devices. The Mitra server says which phone signs in with headers that DCRS believes only beside `X-Mitra-Key`, the server key set the same on both servers (`MITRA_SERVER_KEY`, at least 16 characters; from the server's own environment, never from the app; compared in constant time, never logged, never in an answer). Send them with `POST /api/auth/login` only, each value percent-encoded (`encodeURIComponent`):
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+X-Client-Name: Mitra mobile app
+X-Language: gu
+X-Mitra-Key: <MITRA_SERVER_KEY>
+X-Mitra-Device-Id: 3f1c2d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f
+X-Mitra-Device-Name: Kapila%27s%20phone
+X-Mitra-Device-Model: Pixel%208
+X-Mitra-Device-System: Android%2014
+X-Mitra-Device-Type: phone
+X-Mitra-App-Version: 1.1.0
+X-Mitra-Device-Address: 10.192.193.77
+Cookie: dcrs_session=<the token this phone's earlier sign-in still holds, if any>
+```
+
+`X-Mitra-Device-Type` is `phone`, `tablet` or `desktop`. The cookie of the phone's earlier sign-in (when the server still keeps one for the same person on the same phone) makes DCRS replace that session instead of counting the phone twice. Without the key, DCRS records the session as "Mitra server's request - the phone is not named".
+
+**Signing out.** `POST /api/auth/logout` with the token as the `dcrs_session` cookie writes "Signed out" in DCRS's activity log and ENDS the session (REQUIREMENTS §106): the token is refused from then on. That route reads the cookie only, not the Bearer header. When the assistant's own session ends, it must also delete its stored copy of the token. The body is optional, and the assistant need not send one. DCRS's own pages send `{"reason": "end-of-working-hours"}` when they sign a member of staff out by themselves at the close of the working day, and `{"reason": "end-of-day"}` for the super admin at midnight; a reason is written in the log only where it fits the account. They also name the session they are ending (`sessionId`, the `session.id` of the sign-in answer), so that a tab whose clock ran late never ends a newer session of the same browser.
 
 **When a stored token stops working**, any `/api/v1` call answers `401 {"code": "not-signed-in"}`. That happens every day at the close of the session's day. Throw `unauthorized`, and the assistant ends that session as `upstream_signed_out`.
+
+**When DCRS ended the session** (its super admin's "Sign out this device", or a sign-in again on the same device), any `/api/v1` call answers `401 {"code": "session-ended", "error": "The super admin signed this device out at 14:05. Sign in again to carry on.", "why": "super-admin", "endedAt": "...", "endedAtText": "14:05"}`, the words in the `X-Language` asked. Throw `unauthorized` WITH DCRS's words, end the assistant's session as `upstream_signed_out`, and show the person those words unchanged on the sign-in screen. `GET /api/v1/me` is the cheapest way to ask whether a stored token still works.
 
 **Outside the plant's working hours** a session can still be open, for example when the super admin declares today a holiday during the day. Then any `/api/v1` call for anybody but the super admin answers `403 {"code": "outside-working-hours"}`, with the reason in `error` and the next opening in `opensAt`. Throw `forbidden` with DCRS's message. Do not retry before `opensAt`.
 
