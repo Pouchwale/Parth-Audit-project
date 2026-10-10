@@ -859,8 +859,9 @@ Seven scripts live in `tests/`:
   device" asks first and is a line in the activity log; the phone's next request is back at the sign-in screen with
   "The super admin signed this device out at ..."; the computer stays signed in). The e2e runner sets
   DCRS_MAX_DEVICES=off and MITRA_SERVER_KEY empty on both test servers. The phone's half (Mitra, branch mitra-notify):
-  `server/test/dcrs-devices.test.ts` (11: the phone's headers beside the key, percent-encoded, and none without it;
-  the key in no log line; the session a phone still holds sent again; DCRS's device-limit words unchanged; a phone
+  `server/test/dcrs-devices.test.ts` (12: the phone's headers beside the key, percent-encoded, and none without it;
+  the key in no log line; the session a phone still holds sent again; DCRS's device-limit words unchanged; a DCRS
+  session Mitra does not take up (the first password, an answer it cannot read) signed out of DCRS at once; a phone
   signed out in DCRS signed out of Mitra at its next request in DCRS's words, on the relayed screens too; DCRS out of
   reach not a sign-out; one password: DCRS's sign-in the only way in, nothing of the password kept).
   **Run on 10-Oct-2026:** `npm run typecheck` and `npm run test:unit` passed (663 frontend tests; 519 backend, 2
@@ -868,7 +869,7 @@ Seven scripts live in `tests/`:
   with `DCRS_SESSIONS_TEST_URL` on a throwaway embedded PostgreSQL passed all 29; `E2E_SKIP_UNIT=1 npm run test:e2e --
   tests/e2e_user_access.py` passed whole (110 checks, ALL PASSED). Its first run found the suite's own mistake, not the
   app's: User access was already open from section 10, so going to its address again drew nothing new; section 10b
-  now presses Refresh, as section 6 does. Mitra: `npm run typecheck` and `npm test` passed (29 files, 313 tests). Not
+  now presses Refresh, as section 6 does. Mitra: `npm run typecheck` and `npm test` passed (29 files, 314 tests). Not
   run: the other browser suites (the e2e runner gives both test servers DCRS_MAX_DEVICES=off, so the many sessions per
   account they open are not refused), and no real phone (the forwarded headers and refusals are proved against the
   stand-in DCRS).

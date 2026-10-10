@@ -7069,7 +7069,9 @@ backend/accessRoutes.ts, frontend/src/engine/deviceWords.ts, frontend/src/utils/
   Without the key the phone's session is recorded as "Mitra server's request - the phone is not named (MITRA_SERVER_KEY
   is not set on both servers)".
 - A phone signing in again hands DCRS the session it still holds, so DCRS replaces it rather than counting it twice
-  (with the key, its device id does the same).
+  (with the key, its device id does the same). A session DCRS started that Mitra does not take up (the super admin
+  still on the first password, an answer about the person it cannot read) is signed out of DCRS at once, so it holds
+  no place.
 - DCRS's refusal words (one device too many, signed out by the super admin) reach the app unchanged, in the app's
   language. A phone signed out in DCRS is signed out of Mitra at its next request (Mitra asks DCRS at most every 15
   seconds per session, and at once on any request that reaches DCRS: the inbox, the tasks, the Review screen, the chat),
