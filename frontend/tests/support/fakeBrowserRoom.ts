@@ -2,9 +2,10 @@
 // (data/browserRoom.ts, REQUIREMENTS §108). Only what the room uses, and the way a browser does it:
 //
 //   * IndexedDB: one database, one store; a transaction's writes are stored together when it ends, or not at all;
-//     transactions run one after another, in the order they were made; values are copied in and out (structuredClone).
-//     The test can hold the writes back ("on their way"), drop them as a page that is closed does, or have the disk
-//     refuse them (QuotaExceededError), and reads every state the disk was ever in;
+//     transactions run one after another, in the order they were made; each request, and each step of a cursor, is
+//     answered in a turn of its own; values are copied in and out (structuredClone). The test can hold the writes back
+//     ("on their way"), drop them as a page that is closed does (part way through a transaction too), or have the disk
+//     refuse them (QuotaExceededError); it reads every state the disk was ever in, and what was read and put;
 //   * BroadcastChannel: a message reaches every other channel of the same name in the same browser, a moment later,
 //     never the one that sent it;
 //   * navigator.locks: who holds what, as query() reports it; a tab that closes lets go.
@@ -41,6 +42,10 @@ export class FakeDisk {
   commits = 0;
   /** Every name read with get, in order. */
   readonly reads: string[] = [];
+  /** Entries read one at a time by a cursor, in all. */
+  cursorSteps = 0;
+  /** The values put, in order: [name, characters] (a string's length; 0 for anything else). */
+  readonly puts: [string, number][] = [];
 
   /** Transactions begun and not yet ended: a write handed to IndexedDB. */
   get waiting(): number {
@@ -75,6 +80,15 @@ export class FakeDisk {
     for (const tx of this.queue.splice(0)) tx.dropped = true;
   }
 
+  /** The page was closed with a transaction part way through: none of it is stored either. */
+  dropAll(): void {
+    this.dropWaiting();
+    if (this.running) this.running.dropped = true;
+  }
+
+  /** Called at each put, as it is made: a test closes the page at a moment of its choosing. */
+  onPut: ((name: string) => void) | null = null;
+
   /** What a page opening now reads: a copy of everything stored. */
   snapshot(): Map<string, unknown> {
     return new Map([...this.data].map(([k, v]) => [k, structuredClone(v)]));
@@ -93,9 +107,26 @@ class FakeStore {
   getAllKeys(): FakeRequest {
     return this.tx.op((view) => [...view.keys()].sort());
   }
+  /** A cursor over every entry in key order: one success per entry (each a turn of its own), then null. */
+  openCursor(): FakeRequest {
+    const req = new FakeRequest();
+    let keys: string[] | null = null;
+    let at = 0;
+    const next = (view: Map<string, unknown>) => {
+      if (keys === null) keys = [...view.keys()].sort();
+      while (at < keys.length && !view.has(keys[at])) at++;
+      if (at >= keys.length) return null;
+      const key = keys[at++];
+      this.tx.disk.cursorSteps += 1;
+      return { key, value: structuredClone(view.get(key)), continue: () => void this.tx.op(next, req) };
+    };
+    return this.tx.op(next, req);
+  }
   put(value: unknown, key: string): FakeRequest {
     if (this.tx.mode !== "readwrite") throw new DOMException("The transaction is read-only.", "ReadOnlyError");
     if (this.tx.disk.refusePut) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    this.tx.disk.puts.push([key, typeof value === "string" ? value.length : 0]);
+    this.tx.disk.onPut?.(key);
     const copy = structuredClone(value);
     return this.tx.op(() => {
       this.tx.staged.set(key, copy);
@@ -136,8 +167,7 @@ class FakeTransaction {
     this.aborted = true;
   }
 
-  op(fn: (view: Map<string, unknown>) => unknown): FakeRequest {
-    const req = new FakeRequest();
+  op(fn: (view: Map<string, unknown>) => unknown, req: FakeRequest = new FakeRequest()): FakeRequest {
     this.ops.push({ req, fn });
     return req;
   }

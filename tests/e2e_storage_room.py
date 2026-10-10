@@ -89,7 +89,8 @@ KEPT_IN_INDEXEDDB = """async () => {
       q.onsuccess = () => resolve(q.result || []);
       q.onerror = () => resolve([]);
     });
-    return all.filter((e) => e && typeof e.v === 'string').length;
+    // A value, or the head of one kept in parts; its parts and its stamp are not counted again.
+    return all.filter((e) => e && typeof e === 'object' && (typeof e.v === 'string' || typeof e.parts === 'number')).length;
   } finally {
     db.close();
   }

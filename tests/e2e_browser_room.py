@@ -175,7 +175,8 @@ FILL = """() => {
   return lo;
 }"""
 
-# What this origin's IndexedDB keeps under a name, as data/browserRoom.ts keeps it; never makes the database.
+# What this origin's IndexedDB keeps under a name, as data/browserRoom.ts keeps it - the value itself, or a value over
+# PART_CHARS put together from its parts, all read in one transaction; never makes the database.
 ROOM_VALUE = """async function roomValue(name) {
   const db = await new Promise((resolve) => {
     let req;
@@ -189,9 +190,25 @@ ROOM_VALUE = """async function roomValue(name) {
   try {
     if (!db.objectStoreNames.contains('items')) return null;
     return await new Promise((resolve) => {
-      const q = db.transaction('items', 'readonly').objectStore('items').get(name);
-      q.onsuccess = () => resolve(q.result && typeof q.result.v === 'string' ? q.result.v : null);
+      const store = db.transaction('items', 'readonly').objectStore('items');
+      const q = store.get(name);
       q.onerror = () => resolve(null);
+      q.onsuccess = () => {
+        const head = q.result;
+        if (head && typeof head.v === 'string') { resolve(head.v); return; }
+        if (!head || typeof head.parts !== 'number') { resolve(null); return; }
+        const pieces = new Array(head.parts);
+        let left = head.parts;
+        for (let i = 0; i < head.parts; i++) {
+          const p = store.get('@part:' + i + ':' + name);
+          p.onerror = () => resolve(null);
+          p.onsuccess = () => {
+            pieces[i] = p.result;
+            left -= 1;
+            if (left === 0) resolve(pieces.every((x) => typeof x === 'string') ? pieces.join('') : null);
+          };
+        }
+      };
     });
   } finally {
     db.close();
@@ -297,43 +314,57 @@ START_UP = """() => {
 }"""
 
 # What one save adds on the page (data/browserRoom.ts flush), done here the same way under a name of the suite's own,
-# removed after: the stamp read back alone, then the 7 MB records as stored put with their stamp. Timed by the long
-# tasks it makes and around the puts, which serialise the value in the call.
+# removed after: the stamp read back alone, then the 7 MB records put in parts of a million characters, each by a call
+# of its own when the last is taken, the head and the stamp last. Timed by the long tasks it makes and around each put,
+# which serialises its part in the call.
 BENCH = (
     "async () => {"
+    + ROOM_VALUE
     + """
+  const value = await roomValue('dcrs:v1:records');
+  if (!value) return null;
   const db = await new Promise((resolve) => { const r = indexedDB.open('dcrs-room'); r.onsuccess = () => resolve(r.result); r.onerror = () => resolve(null); });
   if (!db) return null;
-  const entry = await new Promise((resolve) => {
-    const q = db.transaction('items', 'readonly').objectStore('items').get('dcrs:v1:records');
-    q.onsuccess = () => resolve(q.result);
-    q.onerror = () => resolve(null);
-  });
-  if (!entry) { db.close(); return null; }
+  const PART = 1000000;
+  const name = 'zz-e2e-bench';
+  const parts = Math.ceil(value.length / PART);
   await new Promise((resolve) => setTimeout(resolve, 300));
   const before = (window.__dcrsLongTasks || []).length;
   const began = performance.now();
-  let putMs = -1;
+  let longestCall = 0;
+  const timed = (work) => { const t0 = performance.now(); const out = work(); longestCall = Math.max(longestCall, performance.now() - t0); return out; };
   await new Promise((resolve) => {
     const tx = db.transaction('items', 'readwrite');
     const store = tx.objectStore('items');
-    const there = store.get('@stamp:zz-e2e-bench');
+    const there = store.get('@stamp:' + name);
     there.onsuccess = () => {
-      const t0 = performance.now();
-      store.put(entry, 'zz-e2e-bench');
-      store.put({ c: entry.c, t: entry.t }, '@stamp:zz-e2e-bench');
-      putMs = performance.now() - t0;
+      let i = 0;
+      const finish = () => timed(() => { store.put({ parts, c: 1, t: 'bench' }, name); store.put({ c: 1, t: 'bench', parts }, '@stamp:' + name); });
+      const putNext = () => {
+        const put = timed(() => store.put(value.slice(i * PART, (i + 1) * PART), '@part:' + i + ':' + name));
+        i += 1;
+        put.onsuccess = i < parts ? putNext : finish;
+      };
+      putNext();
     };
     tx.oncomplete = tx.onabort = tx.onerror = () => resolve();
   });
   const stored = performance.now();
-  await new Promise((resolve) => { const tx = db.transaction('items', 'readwrite'); const s = tx.objectStore('items'); s.delete('zz-e2e-bench'); s.delete('@stamp:zz-e2e-bench'); tx.oncomplete = tx.onabort = () => resolve(); });
+  await new Promise((resolve) => {
+    const tx = db.transaction('items', 'readwrite');
+    const s = tx.objectStore('items');
+    s.delete(name);
+    s.delete('@stamp:' + name);
+    for (let i = 0; i < parts; i++) s.delete('@part:' + i + ':' + name);
+    tx.oncomplete = tx.onabort = () => resolve();
+  });
   db.close();
   await new Promise((resolve) => setTimeout(resolve, 300));
   const tasks = (window.__dcrsLongTasks || []).slice(before).filter(([s]) => s >= began && s <= stored);
   return {
-    chars: typeof entry.v === 'string' ? entry.v.length : 0,
-    putCallMs: Math.round(putMs),
+    chars: value.length,
+    parts,
+    longestCallMs: Math.round(longestCall),
     storedMs: Math.round(stored - began),
     longest: Math.round(Math.max(0, ...tasks.map(([, d]) => d))),
     tasks: tasks.length,
@@ -463,8 +494,8 @@ with sync_playwright() as p:
         )
     if bench:
         print(
-            f"    [INFO] at 6x CPU, one save's IndexedDB work on the {bench['chars']:,}-character copy: the puts' call {bench['putCallMs']} ms, "
-            f"stored {bench['storedMs']} ms after it began; {bench['tasks']} long task(s), the longest {bench['longest']} ms",
+            f"    [INFO] at 6x CPU, one save's IndexedDB work on the {bench['chars']:,}-character copy, in {bench['parts']} parts: the longest put's call "
+            f"{bench['longestCallMs']} ms, stored {bench['storedMs']} ms after it began; {bench['tasks']} long task(s), the longest {bench['longest']} ms",
             flush=True,
         )
     check(
@@ -473,10 +504,15 @@ with sync_playwright() as p:
         timing,
     )
     check(
-        "...and one save's IndexedDB work on it no task over 200 ms (the stamp alone is read back, never the 7 MB)",
+        "...and one save's IndexedDB work on it no task over 200 ms (the stamp alone read back, the value put in parts)",
         bool(bench) and bench["longest"] <= 200,
         bench,
     )
+    big_parts = page.evaluate(
+        "async () => { const r = await new Promise((resolve) => { const q = indexedDB.open('dcrs-room'); q.onsuccess = () => resolve(q.result); q.onerror = () => resolve(null); }); if (!r) return null;"
+        " const head = await new Promise((resolve) => { const g = r.transaction('items').objectStore('items').get('dcrs:v1:records'); g.onsuccess = () => resolve(g.result); g.onerror = () => resolve(null); }); r.close(); return head ? head.parts || 0 : null; }"
+    )
+    check("...the 7 MB copy is kept in parts of a million characters, each read and written in a task of its own", (big_parts or 0) >= 7, big_parts)
     page.close()
 
     # ==================================================================

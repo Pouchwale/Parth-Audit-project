@@ -58,6 +58,14 @@ export const LARGE_CHARS = 100_000;
 const RECENT_MS = 30_000;
 /** A browser whose IndexedDB does not open in this time is treated as having none, for this page. */
 const OPEN_TIMEOUT_MS = 10_000;
+/**
+ * A value longer than this is kept in parts of this size, each read and written in a task of its own: 7 MB of records in
+ * one piece made a task of 214 ms at start-up, and one of 167 ms at a save, at 6x CPU throttle (REQUIREMENTS §108 "Speed").
+ */
+export const PART_CHARS = 1_000_000;
+const PART_PREFIX = "@part:";
+/** Where part `i` of a value kept in parts is stored. */
+const partKey = (name: string, i: number): string => `${PART_PREFIX}${i}:${name}`;
 
 /** When it was written: a Lamport clock, and the tab that wrote it to tell two of one moment apart. */
 interface Stamp {
@@ -65,9 +73,19 @@ interface Stamp {
   t: string;
 }
 
-/** One value as IndexedDB keeps it, under its name in the browser's storage. `v` null: removed. */
+/** One value as this tab knows it, under its name in the browser's storage. `v` null: removed. */
 interface Entry extends Stamp {
   v: string | null;
+}
+
+/**
+ * One value as IndexedDB keeps it, under its name: the value itself (`v`, null when removed) or, for one longer than
+ * PART_CHARS, the number of its parts (`parts`), each stored under partKey(name, i). Its stamp is stored a second time,
+ * alone, under STAMP_PREFIX and its name, with the number of its parts.
+ */
+interface Stored extends Stamp {
+  v?: string | null;
+  parts?: number;
 }
 
 /** One value as it travels between tabs. */
@@ -155,8 +173,11 @@ const browserEnv: RoomEnv = {
 
 const newer = (a: Stamp, b: Stamp | undefined): boolean => !b || a.c > b.c || (a.c === b.c && a.t > b.t);
 
-const isEntry = (x: unknown): x is Entry =>
-  !!x && typeof x === "object" && typeof (x as Entry).c === "number" && typeof (x as Entry).t === "string" && ((x as Entry).v === null || typeof (x as Entry).v === "string");
+const isStamp = (x: unknown): x is Stamp => !!x && typeof x === "object" && typeof (x as Stamp).c === "number" && typeof (x as Stamp).t === "string";
+
+const isEntry = (x: unknown): x is Entry => isStamp(x) && ((x as Entry).v === null || typeof (x as Entry).v === "string");
+
+const isStored = (x: unknown): x is Stored => isEntry(x) || (isStamp(x) && typeof (x as Stored).parts === "number" && (x as Stored).parts! > 0);
 
 /** A value's marker, or a marker's value (data/serverSync.ts): kept together, never one without the other. */
 export function companionOf(name: string): string | null {
@@ -175,7 +196,10 @@ function randomTab(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** Opens the database and reads everything in it. */
+/**
+ * Opens the database and reads everything in it, entry by entry (a cursor: each entry, each part of a large value, is
+ * read in a task of its own, so no one task of the start-up reads more than a part).
+ */
 function openAndRead(idb: IDBFactory): Promise<{ db: IDBDatabase; entries: [string, Entry][] }> {
   return new Promise((resolve, reject) => {
     let req: IDBOpenDBRequest;
@@ -195,16 +219,37 @@ function openAndRead(idb: IDBFactory): Promise<{ db: IDBDatabase; entries: [stri
       const db = req.result;
       try {
         const tx = db.transaction(STORE, "readonly");
-        const store = tx.objectStore(STORE);
-        const keys = store.getAllKeys();
-        const values = store.getAll();
+        const heads = new Map<string, Stored>();
+        const parts = new Map<string, string>();
+        const cursor = tx.objectStore(STORE).openCursor();
+        cursor.onsuccess = () => {
+          const at = cursor.result;
+          if (!at) return;
+          const key = at.key;
+          if (typeof key === "string" && !key.startsWith(STAMP_PREFIX)) {
+            const value: unknown = at.value;
+            if (key.startsWith(PART_PREFIX)) {
+              if (typeof value === "string") parts.set(key, value);
+            } else if (isStored(value)) heads.set(key, value);
+          }
+          at.continue();
+        };
         tx.oncomplete = () => {
-          const names = keys.result as IDBValidKey[];
-          const stored = values.result as unknown[];
           const entries: [string, Entry][] = [];
-          names.forEach((name, i) => {
-            if (typeof name === "string" && !name.startsWith(STAMP_PREFIX) && isEntry(stored[i])) entries.push([name, stored[i] as Entry]);
-          });
+          for (const [name, head] of heads) {
+            if (typeof head.parts !== "number") {
+              entries.push([name, { v: head.v ?? null, c: head.c, t: head.t }]);
+              continue;
+            }
+            const pieces: string[] = [];
+            for (let i = 0; i < head.parts; i++) {
+              const piece = parts.get(partKey(name, i));
+              if (piece === undefined) break;
+              pieces.push(piece);
+            }
+            // A head and its parts are stored in one transaction; a value missing one cannot be read whole, and is left out.
+            if (pieces.length === head.parts) entries.push([name, { v: pieces.join(""), c: head.c, t: head.t }]);
+          }
           resolve({ db, entries });
         };
         tx.onerror = tx.onabort = () => {
@@ -528,25 +573,49 @@ export class BrowserRoom {
     }
     let thrown: unknown = null;
     const store = tx.objectStore(STORE);
+    // Refused at the call itself (a full disk, a store gone): the whole transaction ends, and nothing of it is stored.
+    const guard = (work: () => void) => () => {
+      try {
+        work();
+      } catch (err) {
+        thrown = err;
+        try {
+          tx.abort();
+        } catch {
+          /* already ending */
+        }
+      }
+    };
     for (const [name, entry] of batch) {
       // The stamp alone is read (STAMP_PREFIX), never the value: a 7 MB copy is not read back at every save.
       const there = store.get(STAMP_PREFIX + name);
-      there.onsuccess = () => {
+      there.onsuccess = guard(() => {
         // Another tab stored a newer one of it in the meantime: that one stands, here as in every tab.
-        const stamp = there.result as Stamp | undefined;
-        if (stamp && typeof stamp.c === "number" && typeof stamp.t === "string" && !newer(entry, stamp)) return;
-        try {
-          store.put(entry, name);
-          store.put({ c: entry.c, t: entry.t }, STAMP_PREFIX + name);
-        } catch (err) {
-          thrown = err;
-          try {
-            tx.abort();
-          } catch {
-            /* already ending */
-          }
+        const stamp = there.result as Stored | undefined;
+        if (isStamp(stamp) && !newer(entry, stamp)) return;
+        const before = isStamp(stamp) && typeof stamp.parts === "number" ? stamp.parts : 0;
+        const v = entry.v;
+        const parts = v !== null && v.length > PART_CHARS ? Math.ceil(v.length / PART_CHARS) : 0;
+        // The head and the stamp last, the parts a smaller value no longer has removed: one transaction, so a page
+        // closed part way stores none of it and the older value stands whole.
+        const finish = () => {
+          store.put(parts ? { parts, c: entry.c, t: entry.t } : { v, c: entry.c, t: entry.t }, name);
+          store.put(parts ? { c: entry.c, t: entry.t, parts } : { c: entry.c, t: entry.t }, STAMP_PREFIX + name);
+          for (let i = parts; i < before; i++) store.delete(partKey(name, i));
+        };
+        if (!parts) {
+          finish();
+          return;
         }
-      };
+        // Each part is serialised in the call that puts it: one part per task, the next when the last is taken.
+        let i = 0;
+        const putNext = () => {
+          const put = store.put(v!.slice(i * PART_CHARS, (i + 1) * PART_CHARS), partKey(name, i));
+          i += 1;
+          put.onsuccess = guard(i < parts ? putNext : finish);
+        };
+        putNext();
+      });
     }
     tx.oncomplete = () => this.done(batch);
     tx.onabort = () => this.failed(batch, thrown ?? tx.error);

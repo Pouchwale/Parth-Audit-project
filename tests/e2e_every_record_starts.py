@@ -483,10 +483,23 @@ IN_ROOM = """async (rid) => {
   if (!db) return false;
   try {
     if (!db.objectStoreNames.contains('items')) return false;
+    // The value itself, or one over a million characters put together from its parts, in one transaction.
     const text = await new Promise((resolve) => {
-      const q = db.transaction('items', 'readonly').objectStore('items').get('dcrs:v1:records');
-      q.onsuccess = () => resolve(q.result && typeof q.result.v === 'string' ? q.result.v : '');
+      const store = db.transaction('items', 'readonly').objectStore('items');
+      const q = store.get('dcrs:v1:records');
       q.onerror = () => resolve('');
+      q.onsuccess = () => {
+        const head = q.result;
+        if (head && typeof head.v === 'string') { resolve(head.v); return; }
+        if (!head || typeof head.parts !== 'number') { resolve(''); return; }
+        const pieces = new Array(head.parts);
+        let left = head.parts;
+        for (let i = 0; i < head.parts; i++) {
+          const p = store.get('@part:' + i + ':dcrs:v1:records');
+          p.onerror = () => resolve('');
+          p.onsuccess = () => { pieces[i] = typeof p.result === 'string' ? p.result : ''; left -= 1; if (left === 0) resolve(pieces.join('')); };
+        }
+      };
     });
     return text.includes('"id":"' + rid + '"');
   } finally {

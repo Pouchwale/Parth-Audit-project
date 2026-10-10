@@ -8,7 +8,9 @@
 // again. Now:
 //
 //   * a value larger than the room is kept in IndexedDB, read from memory at once, and read back after a reload;
-//     a small one stays in localStorage exactly as before;
+//     a small one stays in localStorage exactly as before; one over PART_CHARS is kept in parts, each put by a call
+//     of its own and read entry by entry (no task of a start-up or a save handles more than a part), and stored
+//     whole or not at all;
 //   * the writes reach IndexedDB in order: the latest of a value wins, and a value and its marker are stored together,
 //     so the browser never holds a newer marker beside an older value - not even when the page is closed mid-way;
 //   * once IndexedDB has stored a value, its old copy in localStorage is removed, with its marker's, to free the room -
@@ -24,7 +26,7 @@
 // Run: npm run test:unit -- browserRoom
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BrowserRoom, LARGE_CHARS } from "../src/data/browserRoom";
+import { BrowserRoom, LARGE_CHARS, PART_CHARS } from "../src/data/browserRoom";
 import { FakeBrowser, RoomedStorage, turns, until } from "./support/fakeBrowserRoom";
 
 const RECORDS = "dcrs:v1:records";
@@ -120,6 +122,56 @@ test("a save reads back only the value's stamp, never the value: a large copy is
   const next = await openTab(browser, "tab-2");
   assert.equal(genOf(next.get(RECORDS)), 3);
   assert.deepEqual(next.names("@stamp:"), [], "no stamp is ever read as a value of the working copy");
+});
+
+test("a value over PART_CHARS is kept in parts, each put on its own and read entry by entry, and read back whole after a reload", async () => {
+  const browser = new FakeBrowser();
+  browser.storage.room = 2000;
+  const room = await openTab(browser, "tab-1");
+  const big = value(1, Math.floor(PART_CHARS * 2.5));
+  room.set(RECORDS, big);
+  await room.idle();
+  const head = browser.disk.data.get(RECORDS) as { parts?: number };
+  assert.equal(head.parts, 3, "kept in three parts");
+  assert.equal("v" in head, false, "the head carries none of the value");
+  const parts = browser.disk.puts.filter(([n]) => n.startsWith("@part:"));
+  assert.deepEqual(parts.map(([n]) => n), [0, 1, 2].map((i) => `@part:${i}:${RECORDS}`), "each part put by a call of its own");
+  assert.ok(parts.every(([, chars]) => chars > 0 && chars <= PART_CHARS), "none longer than PART_CHARS");
+  assert.equal(browser.disk.puts.filter(([, chars]) => chars > PART_CHARS).length, 0, "nothing put in one piece over PART_CHARS");
+
+  browser.closeTab("tab-1");
+  const steps = browser.disk.cursorSteps;
+  const next = await openTab(browser, "tab-2");
+  assert.equal(next.get(RECORDS), big, "read back whole after a reload");
+  assert.ok(browser.disk.cursorSteps - steps >= 5, "read entry by entry: the head, its stamp and three parts, each on its own");
+
+  next.set(RECORDS, value(2, Math.floor(PART_CHARS * 1.5)));
+  await next.idle();
+  assert.equal((browser.disk.data.get(RECORDS) as { parts?: number }).parts, 2, "smaller: two parts");
+  assert.equal(browser.disk.data.has(`@part:2:${RECORDS}`), false, "...and the third is removed");
+  next.set(RECORDS, value(3, LARGE_CHARS + 10));
+  await next.idle();
+  assert.equal(genOf(stored(browser, RECORDS)), 3, "small enough again: stored whole");
+  assert.equal([...browser.disk.data.keys()].some((k) => k.startsWith("@part:")), false, "...and no part is left");
+});
+
+test("a page closed part way through putting a value's parts: none of it is stored, and the older value is read whole", async () => {
+  const browser = new FakeBrowser();
+  browser.storage.room = 2000;
+  const room = await openTab(browser, "tab-1");
+  const first = value(1, Math.floor(PART_CHARS * 2.2));
+  room.set(RECORDS, first);
+  await room.idle();
+  // Closed as the second part of the next value is put.
+  browser.disk.onPut = (name) => {
+    if (name === `@part:1:${RECORDS}` && browser.disk.puts.filter(([n]) => n === name).length === 2) browser.disk.dropAll();
+  };
+  room.set(RECORDS, value(2, Math.floor(PART_CHARS * 3.4)));
+  await turns(40);
+  browser.disk.onPut = null;
+  browser.closeTab("tab-1");
+  const next = await openTab(browser, "tab-2");
+  assert.equal(next.get(RECORDS), first, "the older value, whole");
 });
 
 test("a page closed while its writes are on their way: the next one finds a value and marker that belong together", async () => {
