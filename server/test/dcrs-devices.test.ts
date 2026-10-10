@@ -5,6 +5,8 @@
 //     as ASCII), with the app's language; without the key, none of them; and the key is in no log line and no answer;
 //   * a phone signing in again sends the DCRS session it still holds, so DCRS replaces it rather than counting it twice;
 //   * DCRS's refusal of one device too many reaches the app in DCRS's own words, unchanged, in the app's language;
+//   * a session DCRS started that Mitra does not take up (the first password, an answer it cannot read) is ended in
+//     DCRS at once, so it holds none of the account's devices;
 //   * a phone DCRS's super admin signed out is signed out of Mitra at its next request, saying so in DCRS's words; on
 //     the inbox, tasks and Review screens too; DCRS out of reach is not a sign-out;
 //   * ONE PASSWORD FOR THE WEBSITE AND THE PHONE (DCRS §105): in a production setup the only way in is DCRS's own
@@ -157,6 +159,25 @@ it("passes DCRS's refusal of one device too many to the app unchanged, in the ap
   const [event] = await database.db.select().from(loginEvents);
   expect(event).toMatchObject({ success: false, failureReason: 'forbidden' });
   expect(await database.db.select().from(sessions)).toEqual([]);
+});
+
+it("ends at once in DCRS a session it does not take up, so the session holds none of the account's devices", async () => {
+  // The super admin still on DCRS's first password: DCRS started a session, which the phone does not get.
+  const first = standInDcrs({ 'POST /api/auth/login': () => signedIn({ maxAge: 30_600, mustChangePassword: true }) });
+  await expect(first.connector.authenticate('admin@gpp.local', 'pw')).rejects.toMatchObject({ kind: 'forbidden' });
+  expect(first.seen.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/auth/login', 'POST /api/auth/logout']);
+  expect(first.seen[1]!.headers.cookie).toBe(`dcrs_session=${TOKEN}`);
+  // An answer about the person this app cannot read, or DCRS failing to give it: the same.
+  const odd = standInDcrs({ 'GET /api/v1/me': () => json(200, { name: 'No id' }) });
+  await expect(odd.connector.authenticate('kapila.barad@gpp.local', 'pw')).rejects.toMatchObject({ kind: 'unavailable' });
+  expect(odd.seen.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/auth/login', 'GET /api/v1/me', 'POST /api/auth/logout']);
+  const failing = standInDcrs({ 'GET /api/v1/me': () => json(500, { error: 'boom' }) });
+  await expect(failing.connector.authenticate('kapila.barad@gpp.local', 'pw')).rejects.toBeInstanceOf(Error);
+  expect(failing.seen.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/auth/login', 'GET /api/v1/me', 'POST /api/auth/logout']);
+  // A sign-in taken up is left open, of course.
+  const fine = standInDcrs();
+  await fine.connector.authenticate('kapila.barad@gpp.local', 'pw');
+  expect(fine.seen.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/auth/login', 'GET /api/v1/me']);
 });
 
 it('signs a phone out at its next request once DCRS\'s super admin has signed it out, in DCRS\'s words', async () => {

@@ -205,14 +205,21 @@ export function dcrsClient(options: DcrsOptions) {
       throw new ConnectorError('forbidden', said ?? 'DCRS refused the sign-in.', { code: typeof answer?.code === 'string' ? answer.code : undefined });
     }
     if (!response.ok) throw new ConnectorError('unavailable', response.status >= 300 && response.status < 400 ? REDIRECTED : UNREACHABLE);
-    if (answer?.mustChangePassword === true) {
-      throw new ConnectorError('forbidden', 'Sign in to DCRS in a browser and choose your own password first.');
-    }
     const session = sessionCookie(response.headers, now());
+    // A session DCRS started that this app does not take up is ended there at once, so it holds none of the account's
+    // places on DCRS's list of devices (DCRS REQUIREMENTS §106): an account still on its first password, or an answer
+    // this app cannot read. Best effort: what was refused is said either way.
+    const dropped = async (error: unknown): Promise<never> => {
+      if (session) await signOut(session.token).catch(() => undefined);
+      throw error;
+    };
+    if (answer?.mustChangePassword === true) {
+      return dropped(new ConnectorError('forbidden', 'Sign in to DCRS in a browser and choose your own password first.'));
+    }
     if (!session) throw new ConnectorError('unavailable', 'DCRS did not start a session. Try again in a moment.');
 
-    const me = await json<Me>('GET', '/api/v1/me', { token: session.token });
-    if (typeof me.id !== 'string' || !me.id) throw new ConnectorError('unavailable', 'DCRS answered in a way the assistant does not understand.');
+    const me = await json<Me>('GET', '/api/v1/me', { token: session.token }).catch(dropped);
+    if (typeof me.id !== 'string' || !me.id) return dropped(new ConnectorError('unavailable', 'DCRS answered in a way the assistant does not understand.'));
     const username = typeof me.email === 'string' && me.email ? me.email : email.trim().toLowerCase();
     const endsAt = earliest(session.expiresAt, dateOf(answer?.session?.endsAt));
     return {
@@ -226,8 +233,9 @@ export function dcrsClient(options: DcrsOptions) {
   }
 
   /**
-   * Writes "Signed out" in DCRS's activity log. DCRS's sign-out reads the token from the cookie only, and its
-   * tokens are signed rather than stored, so this cannot cancel one: the server deletes its copy either way.
+   * Signs out with DCRS: DCRS ends the session, so the token is refused from then on and the device leaves its super
+   * admin's list (DCRS REQUIREMENTS §106), and writes "Signed out" in its activity log. DCRS's sign-out reads the token
+   * from the cookie only. The server deletes its own copy either way.
    */
   async function signOut(token: string): Promise<void> {
     await call('POST', '/api/auth/logout', { cookie: `${SESSION_COOKIE}=${token}` });
