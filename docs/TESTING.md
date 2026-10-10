@@ -904,7 +904,11 @@ Seven scripts live in `tests/`:
   `e2e_access_levels.py` 148 of 148 and `e2e_mobile_mitra_api.py` 32 of 32 (the phones' whole writes journaled record by
   record). Run after the :8842 suites in one invocation, `e2e_access_levels.py` failed only "The last super admin
   cannot be made staff": `e2e_departments.py`'s first sign-up on the fresh database is a second super admin, so the
-  seeded one is no longer the last (an order effect, not this change); run on its own it passes. Changed: scripts/run-e2e.ts
+  seeded one is no longer the last (an order effect, not this change); run on its own it passes. Again at d6b0c83, after
+  a department's account stopped being handed the ids of other departments' records:  36 of
+  36 (a save 1,888 bytes, a colleague's 2,104, past 25 MB 10,982),  34 of 34,
+   148 of 148, and  30 of 30 with  (the
+  browser full, a reload, Maintenance's account). Changed: scripts/run-e2e.ts
   empties `app_storage_changes` with `app_storage` before each suite. Not run: the full browser run.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
