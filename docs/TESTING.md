@@ -863,6 +863,15 @@ Seven scripts live in `tests/`:
   the key in no log line; the session a phone still holds sent again; DCRS's device-limit words unchanged; a phone
   signed out in DCRS signed out of Mitra at its next request in DCRS's words, on the relayed screens too; DCRS out of
   reach not a sign-out; one password: DCRS's sign-in the only way in, nothing of the password kept).
+  **Run on 10-Oct-2026:** `npm run typecheck` and `npm run test:unit` passed (663 frontend tests; 519 backend, 2
+  skipped: the PostgreSQL ledger test by design and the PostgreSQL sessions placeholder); `deviceSessions.test.ts`
+  with `DCRS_SESSIONS_TEST_URL` on a throwaway embedded PostgreSQL passed all 29; `E2E_SKIP_UNIT=1 npm run test:e2e --
+  tests/e2e_user_access.py` passed whole (110 checks, ALL PASSED). Its first run found the suite's own mistake, not the
+  app's: User access was already open from section 10, so going to its address again drew nothing new; section 10b
+  now presses Refresh, as section 6 does. Mitra: `npm run typecheck` and `npm test` passed (29 files, 313 tests). Not
+  run: the other browser suites (the e2e runner gives both test servers DCRS_MAX_DEVICES=off, so the many sessions per
+  account they open are not refused), and no real phone (the forwarded headers and refusals are proved against the
+  stand-in DCRS).
 - **Passwords are the super admin's** (REQUIREMENTS §105, 9-Oct-2026). New unit tests, each failing before the change
   (the module did not exist): `backend/tests/passwordPolicy.test.ts` (6: only the super admin changes their own; "No
   password yet" matches no password, the built-in one included, and is told apart from a real hash; the start-up

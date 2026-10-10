@@ -144,7 +144,7 @@
             }
           },
           "403": {
-            "description": "The account is switched off; or, for anybody but the super admin, it is outside the plant's working hours (code outside-working-hours, with the next opening).",
+            "description": "The account is switched off; or, for anybody but the super admin, it is outside the plant's working hours (code outside-working-hours, with the next opening); or the account is already signed in on as many devices as it may be (code device-limit, REQUIREMENTS §106: DCRS_MAX_DEVICES, 2 unless set, never the super admin), with `limit` and the `devices` that hold its places, each with `sinceText` on the factory's clock. The words come in the X-Language asked (en, hi or gu).",
             "content": {
               "application/json": {
                 "schema": {
@@ -161,6 +161,29 @@
                       "error": "Staff working hours: 8:40 am to 6:20 pm on working days. Today is Thursday, the weekly off; staff hours start again on Friday 2 October at 8:40 am.",
                       "code": "outside-working-hours",
                       "opensAt": "2026-10-02T03:10:00.000Z"
+                    }
+                  },
+                  "device-limit": {
+                    "value": {
+                      "error": "This account is already signed in on 2 devices: Windows computer - Chrome (Website, since 09:02) and Kapila's phone (Pixel 8) (Mitra phone app, since 10:15). Sign out on one of them, or ask the super admin to sign one out.",
+                      "code": "device-limit",
+                      "limit": 2,
+                      "devices": [
+                        {
+                          "name": "Windows computer - Chrome",
+                          "category": "computer",
+                          "place": "website",
+                          "since": "2026-10-09T03:32:00.000Z",
+                          "sinceText": "09:02"
+                        },
+                        {
+                          "name": "Kapila's phone (Pixel 8)",
+                          "category": "mobile",
+                          "place": "phone-app",
+                          "since": "2026-10-09T04:45:00.000Z",
+                          "sinceText": "10:15"
+                        }
+                      ]
                     }
                   }
                 }
@@ -191,7 +214,7 @@
         ],
         "operationId": "logout",
         "summary": "Sign out (DCRS's own)",
-        "description": "Writes \"Signed out\" in DCRS's activity log when the session is valid. The token itself stays valid until the close of its day; the assistant should simply forget it. The body is optional, and only DCRS's own pages send it, when they sign a person out by themselves: `reason` is written in the line only where it fits the account (\"end-of-working-hours\" → \"At the close of working hours\" and \"outside-working-hours\" → \"Outside working hours\" for staff, \"end-of-day\" → \"At the end of the day (midnight)\" for the super admin; anything else is a plain sign-out), and `sessionId` names the session the page is ending: when the browser's cookie holds another session by then (signed in again in another tab), that one is left alone, with no line written.",
+        "description": "Ends the session (REQUIREMENTS §106): its row in DCRS's user_sessions says when, and that the person signed out, so the token is refused from then on wherever a copy of it is (401 `session-ended`); and writes \"Signed out\" in DCRS's activity log (no second line for a session already ended, by the super admin or by a sign-in again on its device). The assistant should then forget the token. The body is optional, and only DCRS's own pages send it, when they sign a person out by themselves: `reason` is written in the line only where it fits the account (\"end-of-working-hours\" → \"At the close of working hours\" and \"outside-working-hours\" → \"Outside working hours\" for staff, \"end-of-day\" → \"At the end of the day (midnight)\" for the super admin; anything else is a plain sign-out), and `sessionId` names the session the page is ending: when the browser's cookie holds another session by then (signed in again in another tab), that one is left alone, with no line written.",
         "requestBody": {
           "required": false,
           "content": {
@@ -4422,7 +4445,7 @@
     },
     "responses": {
       "NotSignedIn": {
-        "description": "No session, a session whose day has closed (a session ends at the close of the day it was started: the end of the working hours, or midnight for the super admin), or an account switched off. Sign in again.",
+        "description": "No session, a session whose day has closed (a session ends at the close of the day it was started: the end of the working hours, or midnight for the super admin), or an account switched off: `not-signed-in`. Or a session DCRS ended (REQUIREMENTS §106): signed out, signed out by the super admin's \"Sign out this device\", replaced by a sign-in again on the same device, or its account switched off: `session-ended`, with `why` (signed-out, super-admin, replaced, account-off), `endedAt`, `endedAtText` on the factory's clock, and the words in `error` in the X-Language asked; show them to the person unchanged. Sign in again.",
         "content": {
           "application/json": {
             "schema": {
@@ -4433,6 +4456,15 @@
                 "value": {
                   "error": "Not signed in, or the session has ended. Sign in again with POST /api/auth/login.",
                   "code": "not-signed-in"
+                }
+              },
+              "session-ended": {
+                "value": {
+                  "error": "The super admin signed this device out at 14:05. Sign in again to carry on.",
+                  "code": "session-ended",
+                  "why": "super-admin",
+                  "endedAt": "2026-10-09T08:35:00.000Z",
+                  "endedAtText": "14:05"
                 }
               }
             }
@@ -4692,6 +4724,64 @@
             ],
             "format": "date-time",
             "description": "Only with the code `outside-working-hours`: the next moment DCRS opens (the start of the next working day), or null when the plant's calendar has no working day in the year ahead."
+          },
+          "why": {
+            "type": "string",
+            "enum": [
+              "signed-out",
+              "super-admin",
+              "replaced",
+              "account-off"
+            ],
+            "description": "Only with the code `session-ended` (REQUIREMENTS §106): how the session was ended."
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Only with the code `session-ended`: when it was ended."
+          },
+          "endedAtText": {
+            "type": "string",
+            "description": "Only with the code `session-ended`: the same moment on the factory's clock, as the words say it (\"14:05\", or \"08-Oct 17:40\" for an earlier day)."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Only with the code `device-limit` (REQUIREMENTS §106): the most devices an account may be signed in on."
+          },
+          "devices": {
+            "type": "array",
+            "description": "Only with the code `device-limit`: the devices that hold the account's places, oldest sign-in first.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "computer",
+                    "mobile",
+                    "tablet"
+                  ]
+                },
+                "place": {
+                  "type": "string",
+                  "enum": [
+                    "website",
+                    "phone-app",
+                    "api"
+                  ]
+                },
+                "since": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "sinceText": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -4708,6 +4798,20 @@
           },
           "password": {
             "type": "string"
+          },
+          "device": {
+            "type": "object",
+            "description": "DCRS's own website only (REQUIREMENTS §106): this browser's id, made once and kept in the browser outside the app's working copy, and how many touch points its screen has (an iPad asking for the desktop site says it is a Mac). Signing in again from the same browser then takes its own place instead of a second one. A program leaves it out; the Mitra server names a phone with the X-Mitra-Device-* headers instead.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{8,64}$"
+              },
+              "touchPoints": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
           }
         }
       },

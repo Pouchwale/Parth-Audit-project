@@ -779,6 +779,9 @@ with sync_playwright() as p:
             sign_in(pc, CLERK, CLERK_PASSWORD)
             sign_in(phone, CLERK, CLERK_PASSWORD)
             open_access(admin)
+            # The page is open from section 10 already, so going to it draws nothing new: it reads where each person is
+            # signed in when it opens and at Refresh, as section 6 does.
+            refresh(admin)
             ov = get(admin, "/api/access/overview").get("body") or {}
             rule = ov.get("devices") or {}
             check("The server says the rule the devices are held to (no limit on the test server, said as such)", rule.get("limit") is None and rule.get("known") is True, rule)
@@ -792,6 +795,10 @@ with sync_playwright() as p:
             phone_device = next((d for d in fresh_devices if d.get("category") == "mobile"), {})
             pc_device = next((d for d in fresh_devices if d.get("category") == "computer"), {})
             check("...named in words: the phone 'Android phone - Chrome', the computer '<system> computer - Chrome'", phone_device.get("name") == "Android phone - Chrome" and re.match(r"^\w+ computer - Chrome$", pc_device.get("name") or "") is not None, (phone_device.get("name"), pc_device.get("name")))
+            try:
+                admin.wait_for_selector(f"[data-table='access-devices'] tr[data-session='{phone_device.get('id')}']", timeout=15000)
+            except Exception:
+                pass  # said by the checks below
             card = admin.locator("[data-section='access-devices']")
             check("The page has a 'Signed in on' card", card.count() == 1 and "Signed in on" in card.inner_text(), card.inner_text()[:200] if card.count() else "")
             phone_row = admin.locator(f"[data-table='access-devices'] tr[data-session='{phone_device.get('id')}']")
@@ -813,6 +820,8 @@ with sync_playwright() as p:
             ins = [l for l in lines.get("lines") or [] if l.get("action") == "Signed in" and datetime.datetime.fromisoformat(l["at"].replace("Z", "+00:00")) >= devices_started]
             check("Each sign-in's line in the activity log names its device", any("Android phone - Chrome (Website)" in (l.get("detail") or "") for l in ins) and any(re.search(r"computer - Chrome \(Website\)", l.get("detail") or "") for l in ins), [l.get("detail") for l in ins])
 
+            if phone_row.count() != 1:
+                raise RuntimeError("her phone's line is not on the page, so 'Sign out this device' cannot be tried (see the checks above)")
             phone_row.locator("[data-action='sign-out-device']").click()
             admin.wait_for_selector("[data-section='confirm-sign-out-device']", timeout=10000)
             asked = admin.locator("[data-section='confirm-sign-out-device']").inner_text()

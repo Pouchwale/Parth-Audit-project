@@ -7088,7 +7088,8 @@ both at the next sign-in. Proved by the Mitra server's test/dcrs-devices.test.ts
 endedAt, endedAtText }`. `GET /api/access/overview` gives each person `devices: [{ id, userId, name, category, place,
 client, system, address, signedInAt, lastUsedAt, endsAt, before, current }]` and `devices: { limit, phonesNamed, known }`
 for the rule. `POST /api/access/sessions/:id/end` (the super admin's alone) ends one session: 200 `{ ended }`, 404
-`no-such-session`, 400 `own-device`.
+`no-such-session`, 400 `own-device`. docs/api/dcrs-api.openapi.json says the same: the login's `device`, its 403
+`device-limit`, the 401 `session-ended` with its fields, and `POST /api/auth/logout` ending the session.
 
 **Next, not in this build (the brief's later parts):** where each person may sign in (website, phone app or both),
 the phone only on the plant's network, one sign-in at a time, tidying the accounts the early tests left, and the
