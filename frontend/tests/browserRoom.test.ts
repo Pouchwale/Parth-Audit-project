@@ -231,6 +231,34 @@ test("once IndexedDB has the value, its old copy in localStorage is removed with
   assert.ok(browser.storage.used() < 200, "the room is free for the small values");
 });
 
+test("at the plant's http:// address (no navigator.locks) the tabs ask each other on the channel: a copy is removed only when none answers", async () => {
+  const browser = new FakeBrowser();
+  browser.storage.setItem(RECORDS, value(0, 1500));
+  browser.storage.setItem(MARKER, marker(0));
+  browser.storage.setItem("dcrs:v1:documents", "[]");
+  browser.storage.room = browser.storage.used() + 100;
+  const http = (tab: string, withIndexedDB = true) => new BrowserRoom(browser.env(tab, withIndexedDB, false), tab);
+  // Another tab, whose IndexedDB did not open: it reads localStorage alone, and answers.
+  const reader = http("tab-0", false);
+  await reader.open();
+  assert.equal(reader.isOpen, false);
+  const room = http("tab-1");
+  await room.open();
+  room.set(RECORDS, value(1));
+  await room.idle();
+  await new Promise((r) => setTimeout(r, 1500)); // the question, and the wait for answers
+  assert.equal(genOf(browser.storage.getItem(RECORDS)), 0, "a tab answered: the copy it reads stays");
+  assert.equal(genOf(reader.get(RECORDS)), 0, "...and it still reads it");
+
+  browser.closeTab("tab-0");
+  room.set(RECORDS, value(2));
+  await room.idle();
+  await until("nobody answers: the old copies are removed", () => browser.storage.getItem(RECORDS) === null, 5000);
+  assert.equal(browser.storage.getItem(MARKER), null, "...the marker's with it");
+  assert.equal(browser.storage.getItem("dcrs:v1:documents"), "[]", "...and nothing else");
+  assert.equal(genOf(room.get(RECORDS)), 2);
+});
+
 test("a tab of the app's older version writing a value kept here: from then on no copy in localStorage is removed", async () => {
   const browser = new FakeBrowser();
   browser.storage.setItem(RECORDS, value(0, 1500));

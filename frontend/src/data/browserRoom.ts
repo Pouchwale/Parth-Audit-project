@@ -13,17 +13,20 @@
 //   a write     goes to localStorage when it fits. One that does not is kept in memory at once and written to
 //               IndexedDB a moment later, behind the page and in order: the writes of a moment go in one transaction,
 //               the next only after it has been stored, and of two writes of one value the later wins (each value's
-//               stamp is kept beside it, alone, so a write never reads a large value back). While the page is being
-//               left (pagehide), a write goes to IndexedDB at once, not after a timer that may never run;
+//               stamp is kept beside it, alone, so a write never reads a large value back). A value over PART_CHARS is
+//               kept in parts, each put and read in a task of its own, and stored whole or not at all. While the page
+//               is being left (pagehide), a write goes to IndexedDB at once, not after a timer that may never run;
 //   large       a value kept here is not tried in localStorage again while it is large (over LARGE_CHARS); a smaller
 //               one is, and goes back there when it fits. A value and its marker (serverSync.ts) are kept together:
 //               the browser never keeps a newer marker beside an older value, which would send the older value back
 //               over the database's newer one;
 //   the room    once IndexedDB has stored a value, its old copy in localStorage is removed, with its marker's, to free
-//               the room for the small values - only while no other tab of the app is open (navigator.locks), so no
-//               tab ever finds an empty copy where it had one. A tab of the app's older version, still open from
-//               before an update, holds no lock and reads only localStorage: once one is seen writing a value this
-//               page keeps here (the browser's storage event), no copy is removed for as long as this page is open;
+//               the room for the small values - only while no other tab of the app is open, so no tab ever finds an
+//               empty copy where it had one: navigator.locks says so, or, at the plant's http:// address (not a secure
+//               context, so without locks), the tabs ask each other on the channel and every one answers. A tab of the
+//               app's older version, still open from before an update, neither holds a lock nor answers, and reads
+//               only localStorage: once one is seen writing a value this page keeps here (the browser's storage
+//               event), no copy is removed for as long as this page is open;
 //   other tabs  learn of each change by a BroadcastChannel message, as they learn of a localStorage change by the
 //               browser's storage event. Of two tabs writing one value at once the same one wins in every tab and in
 //               IndexedDB (a Lamport clock), and a tab opening asks the others for what they have not stored yet;
@@ -48,6 +51,11 @@ const STAMP_PREFIX = "@stamp:";
 const CHANNEL = "dcrs-room";
 /** Held, shared, by every open tab of the app for as long as it is open: how a tab knows it is the only one. */
 const TABS_LOCK = "dcrs-room-tabs";
+/**
+ * Without navigator.locks (an http:// address on the company network is not a secure context, and has none) a tab
+ * asks on the channel who is there and waits this long for an answer; every tab of the app answers.
+ */
+const ASK_MS = 500;
 /**
  * A value kept in IndexedDB is not tried in localStorage again while it is larger than this (a fiftieth of the room):
  * the records, the documents, once moved, stay, and never go back and forth at the edge of the room with each save.
@@ -93,7 +101,11 @@ interface Note extends Entry {
   n: string;
 }
 
-type Message = { kind: "set"; notes: Note[] } | { kind: "hello"; from: string };
+type Message =
+  | { kind: "set"; notes: Note[] }
+  | { kind: "hello"; from: string }
+  | { kind: "who"; from: string }
+  | { kind: "here"; to: string };
 
 interface Bus {
   postMessage(message: unknown): void;
@@ -321,6 +333,10 @@ export class BrowserRoom {
     const began = Date.now();
     // Every open tab says so, whether or not its IndexedDB opens: no other tab removes a copy it may be reading.
     this.holdTabLock();
+    // On the channel whether or not IndexedDB opens: a tab that reads only localStorage answers when another asks who
+    // is there (queryAlone), so no copy it reads is removed.
+    this.bus = this.env.bus(CHANNEL);
+    if (this.bus) this.bus.onmessage = (event: MessageEvent) => this.heard(event.data as Message);
     const idb = this.env.idb();
     if (!idb) {
       this.state = "unavailable";
@@ -328,8 +344,6 @@ export class BrowserRoom {
     }
     this.state = "opening";
     // Told first, read second: a value another tab writes while this one reads is not missed.
-    this.bus = this.env.bus(CHANNEL);
-    if (this.bus) this.bus.onmessage = (event: MessageEvent) => this.heard(event.data as Message);
     this.post({ kind: "hello", from: this.tab }, true);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const late = new Promise<null>((resolve) => {
@@ -343,10 +357,8 @@ export class BrowserRoom {
     clearTimeout(timer);
     if (!read) {
       this.state = "unavailable";
-      // Opened after all, too late for this page: closed again, and never written to from it.
+      // Opened after all, too late for this page: closed again, and never written to from it. The channel stays, to answer.
       void reading.then((r) => r?.db.close());
-      this.bus?.close();
-      this.bus = null;
       return;
     }
     const { db, entries } = read;
@@ -381,8 +393,6 @@ export class BrowserRoom {
       this.kept.set(name, entry.v);
       this.stored.add(name);
     }
-    // The only tab of the app: its writes are not passed to tabs that are not there (a tab that opens later says so).
-    await this.refreshAlone();
     this.state = "open";
     this.openMs = Date.now() - began;
     try {
@@ -390,7 +400,9 @@ export class BrowserRoom {
     } catch {
       /* no User Timing here */
     }
-    void this.tidy();
+    // The only tab of the app: its writes are not passed to tabs that are not there (a tab that opens later says so).
+    // Asked behind the start-up, never waited for by it.
+    void this.refreshAlone().then(() => this.tidy());
   }
 
   /** IndexedDB is open and takes what does not fit in localStorage. */
@@ -695,13 +707,21 @@ export class BrowserRoom {
 
   private async queryAlone(): Promise<boolean> {
     const locks = this.env.locks();
-    if (!locks || !this.holdingTabLock) return false;
-    try {
-      const { held = [], pending = [] } = await locks.query();
-      return [...held, ...pending].filter((l) => l.name === TABS_LOCK).length <= 1;
-    } catch {
-      return false;
+    if (locks) {
+      if (!this.holdingTabLock) return false;
+      try {
+        const { held = [], pending = [] } = await locks.query();
+        return [...held, ...pending].filter((l) => l.name === TABS_LOCK).length <= 1;
+      } catch {
+        return false;
+      }
     }
+    // No navigator.locks (the plant's http:// address): asked on the channel; any tab that answers in ASK_MS is heard
+    // (refreshAlone), and the answer then is no. Without a channel either, it cannot be known: never alone.
+    if (!this.bus) return false;
+    this.post({ kind: "who", from: this.tab }, true);
+    await new Promise((resolve) => setTimeout(resolve, ASK_MS));
+    return true;
   }
 
   /** Asks whether this is the only tab of the app; a tab heard from in the meantime has the last word. */
@@ -719,34 +739,47 @@ export class BrowserRoom {
    * version has been seen (it reads only localStorage).
    */
   private async tidy(): Promise<void> {
-    if (this.tidying || this.state !== "open" || this.olderTabOpen) return;
+    if (this.tidying || this.state !== "open" || this.olderTabOpen || this.staleCopies().length === 0) return;
     this.tidying = true;
     try {
       if (!(await this.refreshAlone()) || this.busy || this.state !== "open" || this.olderTabOpen) return;
       const local = this.env.local();
       if (!local) return;
-      const inLocal = new Set<string>();
-      for (let i = 0; i < local.length; i++) {
-        const k = local.key(i);
-        if (k !== null) inLocal.add(k);
-      }
-      const settled = (name: string) => this.kept.has(name) && this.stored.has(name);
-      for (const name of [...this.stored]) {
-        if (!settled(name) || !inLocal.has(name)) continue;
-        const companion = companionOf(name);
-        if (companion && inLocal.has(companion) && !settled(companion)) continue;
-        local.removeItem(name);
-        inLocal.delete(name);
-        if (companion && inLocal.has(companion)) {
-          local.removeItem(companion);
-          inLocal.delete(companion);
-        }
-      }
+      for (const name of this.staleCopies()) local.removeItem(name);
     } catch {
       /* the next tidy tries again */
     } finally {
       this.tidying = false;
     }
+  }
+
+  /** The old copies in localStorage of the values IndexedDB has stored: each with its marker's, or neither. */
+  private staleCopies(): string[] {
+    const local = this.env.local();
+    if (!local) return [];
+    const inLocal = new Set<string>();
+    try {
+      for (let i = 0; i < local.length; i++) {
+        const k = local.key(i);
+        if (k !== null) inLocal.add(k);
+      }
+    } catch {
+      return [];
+    }
+    const settled = (name: string) => this.kept.has(name) && this.stored.has(name);
+    const out: string[] = [];
+    for (const name of this.stored) {
+      if (!settled(name) || !inLocal.has(name)) continue;
+      const companion = companionOf(name);
+      if (companion && inLocal.has(companion) && !settled(companion)) continue;
+      out.push(name);
+      inLocal.delete(name);
+      if (companion && inLocal.has(companion)) {
+        out.push(companion);
+        inLocal.delete(companion);
+      }
+    }
+    return out;
   }
 
   // -------------------------------------------------------------------------
@@ -768,6 +801,21 @@ export class BrowserRoom {
 
   private heard(message: Message): void {
     if (!message || typeof message !== "object") return;
+    if (message.kind === "who") {
+      if (message.from === this.tab) return;
+      this.post({ kind: "here", to: message.from }, true);
+      this.alone = false;
+      this.heardFrom++;
+      return;
+    }
+    if (message.kind === "here") {
+      if (message.to !== this.tab) return;
+      this.alone = false;
+      this.heardFrom++;
+      return;
+    }
+    // Without IndexedDB this tab reads localStorage alone: it answers, and keeps nothing of the others'.
+    if (this.state !== "open" && this.state !== "opening") return;
     if (message.kind === "hello") {
       if (message.from === this.tab) return;
       this.alone = false;

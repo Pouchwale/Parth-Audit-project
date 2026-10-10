@@ -379,13 +379,13 @@ export class FakeBrowser {
     for (const w of this.leavingWatchers) if (w.tab === tab) w.listener(true);
   }
 
-  /** What a tab of this browser gives data/browserRoom.ts. */
-  env(tab: string, withIndexedDB = true) {
+  /** What a tab of this browser gives data/browserRoom.ts. `withLocks` false: an http:// address, not a secure context. */
+  env(tab: string, withIndexedDB = true, withLocks = true) {
     return {
       local: () => this.storage as unknown as Storage,
       idb: () => (withIndexedDB ? (this.idb as unknown as IDBFactory) : null),
       bus: (name: string) => this.channels.make(name, tab) as never,
-      locks: () => this.locks.forTab(tab) as never,
+      locks: () => (withLocks ? (this.locks.forTab(tab) as never) : null),
       watchLocal: (listener: (name: string | null, value: string | null) => void) => {
         this.localWatchers.push({ tab, listener });
       },

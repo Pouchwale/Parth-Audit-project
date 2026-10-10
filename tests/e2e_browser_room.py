@@ -7,7 +7,9 @@ every reload found the browser full again. Now it is kept in IndexedDB (frontend
 
   * with this origin's localStorage filled to the last few hundred characters (a stand-in item outside the app's
     names), records started past the room each open on their page, reach PostgreSQL, are kept in IndexedDB, and no
-    banner says the copy is full; the old copy of the records in localStorage is removed, to free the room;
+    banner says the copy is full; the old copy of the records in localStorage is removed, to free the room - on a page
+    without navigator.locks, as the plant's computers open DCRS at an http:// address, so the tab asks on the
+    channel whether another is open;
   * after a reload, the browser still full, every record is still there - the browser's copy (IndexedDB) and
     PostgreSQL hold the same records, the ones started the same - each started record opens, and no banner;
   * the plant's records grown past the whole room (about 7 MB, as the owner's browser held: blank sheets from before
@@ -372,6 +374,11 @@ BENCH = (
 }"""
 )
 
+# The plant's computers open DCRS at http://<address>:4000, which is not a secure context: there is no navigator.locks,
+# and the tabs ask each other on the channel whether another is open (data/browserRoom.ts). The suite's address,
+# localhost, is a secure context, so the first page has navigator.locks taken away.
+NO_LOCKS = "Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true });"
+
 # IndexedDB refusing, as on a full disk: every put throws QuotaExceededError (data/browserRoom.ts treats it as a refusal).
 REFUSE = """(() => {
   IDBObjectStore.prototype.put = function () {
@@ -407,9 +414,10 @@ with sync_playwright() as p:
             page.add_init_script(script)
         return page
 
-    page = new_page()
+    page = new_page(NO_LOCKS)
     sign_in(page)
     settle_briefing(page)
+    check("The page opens as at the plant's http:// address: no navigator.locks", page.evaluate("() => navigator.locks === undefined"))
 
     # ==================================================================
     # 1. localStorage nearly full: records started past the room
