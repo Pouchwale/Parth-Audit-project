@@ -7018,6 +7018,103 @@ e2e_user_access.py and e2e_every_record_starts.py (accounts made by the super ad
 given and are refused a change), e2e_portal_controls.py (the super admin's own change with its three eyes, when the
 suite's account is the super admin; otherwise the staff side above).
 
+## §108 The browser's room, and one record per save (10-Oct-2026)
+
+**The request.** The owner, 9-Oct-2026, with a picture of the banner "This browser's copy is full - your record WAS
+saved. It is in the database (PostgreSQL), so nothing is lost, and this page goes on working from memory. Make room in
+this browser before you close or reload the page. 4.2 MB is 3457 blank sheets from before the system went live, which
+nobody has written on. [Remove them] 2.9 MB is the plant's own records - 1906 of them.": "i have shared you second image
+which is coming again and again so fix it also without any loss and make sure data will stored in our postgres database
+perfectly".
+
+**The cause.** Every computer keeps a working copy of the company's data (§55) in the browser's localStorage, which
+holds about five million characters; his browser's records alone were 7.1 MB. Since §93 and §101 what does not fit is
+held in the page's memory and sent to PostgreSQL from there, so nothing was lost; but the browser could never keep it,
+so every reload and every save found it full again, and the banner came back each time.
+
+**1. What does not fit in localStorage is kept in IndexedDB** (built 10-Oct-2026, frontend/src/data/browserRoom.ts).
+IndexedDB is the browser's larger store, which the browser sizes by the computer's disk.
+
+- *The same storage, still synchronous.* Everything kept in IndexedDB is read into memory when the page starts, before
+  anything reads the working copy (main.tsx), and every read is served from there. The repositories, the engine and
+  the screens are unchanged.
+- *A write* goes to localStorage when it fits, as before. One that does not is kept in memory at once and written to
+  IndexedDB a moment later, behind the page and in order: the writes of a moment in one transaction, the next only
+  after it is stored, and of two writes of one value the later wins (each value's stamp is kept beside it, alone, so a
+  save never reads a large value back). A value over a million characters is kept in parts, each put and read in a
+  task of its own, and stored whole or not at all. A value and its marker (data/serverSync.ts) are kept and stored
+  together, so the browser never holds a newer marker beside an older value, which would send the older value back
+  over the database's newer one. While the page is being left a write goes to IndexedDB at once; and while a change
+  kept there is neither stored nor in the database, closing the page asks first.
+- *Large values stay.* A value kept there is not tried in localStorage again while it is over 100,000 characters (the
+  records, the documents), so it never goes back and forth at the edge of the room with each save. A small one (a
+  setting, a marker) goes back to localStorage when it fits.
+- *The room.* Once IndexedDB has stored a value, its old copy in localStorage is removed, with its marker's, to free the
+  room for the small values: only while no other tab of the app is open, so no tab finds an empty copy where it had
+  one. navigator.locks says so where the address is a secure context (https, localhost); at the plant's
+  http://<address>:4000, which has no locks, the tab asks on the channel who is there and every tab of the app answers,
+  one whose IndexedDB did not open too. And no copy is removed once a tab of the app's older version has been seen
+  writing a value kept there: such a tab reads only localStorage. After an update, reload the tabs left open
+  (docs/DEPLOYMENT.md, Capacity).
+- *Other tabs* learn of a change by a BroadcastChannel message, as they learn of a localStorage change from the browser.
+  Two tabs writing at once end with the same value in both and in IndexedDB, and a tab that opens is handed what the
+  others have not stored yet.
+- *Clearing* is exactly as for localStorage, through the same calls: another account signing in on the browser
+  (another person's assistant conversations, an item the new account's departments do not hold), and a database reset
+  or restore (every item; the page then loads again once IndexedDB has the removals).
+- *The banner* appears only when IndexedDB too refuses (the computer's disk full, or a browser without it), and says so,
+  in English and Gujarati (i18n/strings.room.ts): first "This browser's copy is full." with "Neither its storage nor its
+  larger store (IndexedDB) has room for the app's working copy, so your change is kept on this page and is being sent to
+  the database (PostgreSQL) now. Keep this page open until this says it was saved."; then "This browser's copy is full —
+  your record WAS saved." with "It is in the database (PostgreSQL), so nothing is lost, and this page goes on working
+  from memory. This browser's larger store (IndexedDB) did not take it either: the computer's disk may be nearly full.
+  Free some space on the disk, then reload the page." A copy refused at sign-in, with nothing of the person's in it, is
+  "This browser's copy is full — nothing is lost." The "nearly full" warning (§65, §79) is for a browser without
+  IndexedDB only.
+- *The blank sheets from before the system went live* stay a tidy-up a person may choose: the banner, the Dashboard and
+  the briefing offer Remove as before (engine/backlogCleanup.ts, unchanged), and nothing removes them by itself.
+- *PostgreSQL stays the only store* (§55). IndexedDB, like localStorage, holds this browser's working copy, loaded from
+  the database at every sign-in and sent to it at every change. Small values, and the records of every browser suite but
+  the one below, stay in localStorage as before. The engine host (the phones' path, §85) has no IndexedDB and works as
+  before.
+
+**Speed** (§56, measured on 10-Oct-2026 by tests/e2e_browser_room.py in headless Chromium at 6x CPU throttle, with the
+plant's records grown to 7,045,635 characters, while another builder kept the PC busy). Kept in one piece, the start-up
+read took 65 to 263 ms, once with a task of 214 ms; a save read the stored value back to compare stamps (one task of
+169 ms) and put it in one call of 47 to 167 ms. Now the stamp alone is read, and the value is kept in eight parts, read
+all asked for at once and put one by one: the start-up read took 116 to 591 ms, its longest task 83 ms (none over 50 ms
+on the quieter run), and a save's IndexedDB work made no task over 50 ms (its longest put 26 to 34 ms). The app's own
+script, which begins the read, ran 1.6 to 4.3 s at 6x, as before this section. Every reload still downloads every item
+from the database (part 2).
+
+**2. One record per save** (the second half; not built in this change). Each save still sends the whole records item,
+and each sign-in downloads every item; the server takes an item of up to 25 MB (`STORAGE_MAX_BYTES`), which the
+records at the measured 7.9 MB a year reach in about three years. A save that sends the one record that changed, and
+PostgreSQL keeping one row per record, are the C-1 design (the draft for §95), for the next change.
+
+**Tests.** frontend/tests/browserRoom.test.ts (16, over a stand-in IndexedDB, BroadcastChannel and navigator.locks,
+frontend/tests/support/fakeBrowserRoom.ts): a value over the room kept, read at once and read back after a reload, a
+small one in localStorage; the writes in order, the latest winning, a value and its marker stored together in every
+state the disk was in; a save reading back only the stamp; a value over a million characters kept in parts, each put
+on its own, read entry by entry and whole after a reload, fewer parts when smaller and none when small; a page closed
+part way through the parts leaving the older value whole; a page closed mid-way leaving a value and marker that belong
+together; the old copy removed with its marker's only while alone, by navigator.locks or, without locks, by asking on
+the channel (a tab whose IndexedDB did not open answering); a tab of the older version stopping that; a write
+while the page is being left begun at once; a put that throws treated as a refusal; a large value not tried in
+localStorage again, a small one going back; another tab told, two tabs at once ending the same; a tab opening handed a
+write on its way; IndexedDB refusing (in memory, the page told, the older copy left, the next write storing it); no
+IndexedDB (refused to the caller, as before). frontend/tests/browserRoomSync.test.ts (4, the working copy and the
+sync in front of a stand-in database): signing in with the records larger than the room (kept in IndexedDB, never
+"full", leaving asks nothing, a record started reaching both, a reload reading every record); another account signing
+in (another person's conversations and an item its departments do not hold removed from IndexedDB, nothing removed
+from the database); IndexedDB refusing a save (said full, then WAS saved, nothing lost, the next save storing both);
+IndexedDB refusing at sign-in ("nothing is lost", never "WAS saved"). tests/e2e_browser_room.py (new, :8842): above,
+with localStorage filled and the first page without navigator.locks (as at the plant's address), a reload, the 7 MB
+copy timed at 6x, and the banner's words with IndexedDB refusing.
+Changed: tests/e2e_storage_room.py (its part past the mark runs in a page without IndexedDB) and
+tests/e2e_every_record_starts.py (with the browser full, Start opens the record, which is in the database and in
+IndexedDB, with no banner, and opens after a reload with the browser still full).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -17,6 +17,13 @@ data/storageAdapter.ts      IStorageAdapter interface + LocalStorageAdapter (+ M
                               fallback). readJSON/writeJSON helpers. Every write is handed to
                               data/serverSync.ts.
         │
+data/browserRoom.ts         Where the working copy is kept (REQUIREMENTS §108): the browser's
+                              localStorage, and its IndexedDB for what does not fit there - read
+                              into memory at start-up (main.tsx), so every read stays synchronous,
+                              and written behind the page in order. Other tabs are told by a
+                              BroadcastChannel. Only when IndexedDB too refuses is a value held in
+                              the page's memory (serverSync.ts, §93).
+        │
 data/serverSync.ts          Keeps the browser's working copy ("dcrs:v1:*") and the database in step:
                               loads everything at sign-in, sends each change, pulls others' changes
                               every 5 s, merges a write refused as out of date against the copy
