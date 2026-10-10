@@ -2,10 +2,17 @@
 // flow can be tried before DCRS is connected. Accounts: demo/demo, and admin/admin as super admin.
 // The database is in memory and everything resets on restart. Never run this in production.
 import { randomBytes } from 'node:crypto';
-import { loadConfig } from './config.ts';
+import { loadConfig, productionSaidBy } from './config.ts';
 import { createDemoConnector } from './connectors/demo/index.ts';
 import { createRegistry } from './connectors/registry.ts';
 import { startServer } from './server.ts';
+
+// Never in production (DCRS REQUIREMENTS §107): its database is in memory, and it lets anyone in as demo/demo.
+const production = productionSaidBy();
+if (production) {
+  console.error(`Demo mode is never run in production (${production}=production): start the real server with npm start instead.`);
+  process.exit(1);
+}
 
 process.env.CREDENTIALS_KEY ||= randomBytes(32).toString('base64');
 const config = loadConfig();

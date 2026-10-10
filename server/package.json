@@ -11,7 +11,8 @@
     "demo": "node --env-file-if-exists=.env src/demo.ts",
     "typecheck": "tsc",
     "test": "vitest run",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:copy": "node --env-file-if-exists=.env src/db/copy.ts"
   },
   "dependencies": {
     "@cantoo/pdf-lib": "^2.11.1",

@@ -27,7 +27,40 @@ const Env = z.object({
   MITRA_SERVER_KEY: z.string().trim().min(16, 'MITRA_SERVER_KEY must be at least 16 characters, the same key as on the DCRS server').optional(),
   TRUST_PROXY: z.string().optional(),
   CORS_ORIGINS: z.string().default('http://localhost:8081,http://127.0.0.1:8081'),
+  // Production (DCRS REQUIREMENTS §107): either says it. Then the data is kept in PostgreSQL only (loadConfig).
+  NODE_ENV: z.string().optional(),
+  MITRA_ENV: z.string().optional(),
 });
+
+/** A PostgreSQL address: what production keeps its data in (src/db/index.ts opens anything else as PGlite). */
+export const POSTGRES_URL = /^postgres(ql)?:\/\//;
+
+/**
+ * Which variable says this server is in production: NODE_ENV=production or MITRA_ENV=production (DCRS REQUIREMENTS
+ * §107), or null. In production every piece of Mitra's data is kept in PostgreSQL, never in an embedded PGlite folder.
+ */
+export function productionSaidBy(env: NodeJS.ProcessEnv = process.env): 'NODE_ENV' | 'MITRA_ENV' | null {
+  if (env.NODE_ENV?.trim().toLowerCase() === 'production') return 'NODE_ENV';
+  if (env.MITRA_ENV?.trim().toLowerCase() === 'production') return 'MITRA_ENV';
+  return null;
+}
+
+/** Why production may not start on this DATABASE_URL, in plain words (never the address itself: it may hold a password). */
+export function productionDatabaseRefusal(saidBy: 'NODE_ENV' | 'MITRA_ENV', databaseUrl: string | undefined): string {
+  const now = !databaseUrl
+    ? 'DATABASE_URL is not set, so the server would keep its data in the embedded database folder .data/pglite'
+    : databaseUrl.includes('://')
+      ? 'DATABASE_URL is not a postgres:// address'
+      : `DATABASE_URL names the embedded database folder ${databaseUrl}`;
+  return (
+    `This Mitra server is set to production (${saidBy}=production), and in production Mitra keeps its data in PostgreSQL only: ${now}. ` +
+    'Set DATABASE_URL in server/.env to the PostgreSQL database for Mitra, for example postgres://mitra:<its password>@127.0.0.1:5432/mitra ' +
+    `(the README says how to make it, under "Deployment: Mitra's data in PostgreSQL"). ` +
+    'To bring over what an embedded database folder already holds, first run, with the server stopped: ' +
+    'npm --prefix server run db:copy -- --from .data/pglite --to postgres://mitra:<its password>@127.0.0.1:5432/mitra. ' +
+    'The server did not start, and nothing was changed.'
+  );
+}
 
 export interface Config {
   port: number;
@@ -97,6 +130,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   const credentialsKey = Buffer.from(e.CREDENTIALS_KEY, 'base64');
   if (credentialsKey.length !== 32) throw new Error('CREDENTIALS_KEY must be 32 random bytes, base64-encoded');
+  // PRODUCTION KEEPS ITS DATA IN POSTGRESQL (DCRS REQUIREMENTS §107): never in a PGlite folder on one disk, which no
+  // backup of the database server holds and two servers cannot share.
+  const saidBy = productionSaidBy({ NODE_ENV: e.NODE_ENV, MITRA_ENV: e.MITRA_ENV });
+  if (saidBy && !POSTGRES_URL.test(e.DATABASE_URL ?? '')) throw new Error(productionDatabaseRefusal(saidBy, e.DATABASE_URL));
 
   return {
     port: e.PORT,
