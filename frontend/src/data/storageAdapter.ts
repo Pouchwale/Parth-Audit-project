@@ -3,12 +3,19 @@
 // REST directly. The data itself lives in PostgreSQL (backend/db.ts,
 // REQUIREMENTS §55): what is read here is this browser's working copy, loaded
 // from the database at sign-in, and every write is sent on to the database by
-// data/serverSync.ts. See docs/DATA_MODEL.md.
+// data/serverSync.ts. See docs/DATA_MODEL.md. What does not fit in the
+// browser's localStorage is kept in its IndexedDB (data/browserRoom.ts,
+// REQUIREMENTS §108), and read from memory like the rest.
 import { NAMESPACE, heldCopy, holdChange, noteLocalRemove, noteLocalWrite, onServerChange, releaseHeld } from "./serverSync";
+import { onRoomChange, roomGet, roomNames, roomOpen, roomRemove, roomSet } from "./browserRoom";
 export interface IStorageAdapter {
   getItem(key: string): string | null;
-  /** False when the value could not be stored (e.g. the browser's quota is full). */
-  setItem(key: string, value: string): boolean;
+  /**
+   * False when the value could not be stored (e.g. the browser's quota is full). `lines`: for an item that is a list
+   * of records, the ids of the ones this write changed or removed, so the save sends only those (data/serverSync.ts,
+   * REQUIREMENTS §108); left out, the save works out what changed itself.
+   */
+  setItem(key: string, value: string, lines?: Iterable<string>): boolean;
   removeItem(key: string): void;
   keys(): string[];
 }
@@ -34,59 +41,42 @@ function announceWriteFailure(): void {
 
 export class LocalStorageAdapter implements IStorageAdapter {
   getItem(key: string): string | null {
-    // What did not fit is read from memory, where it is held (data/serverSync.ts, REQUIREMENTS §93).
+    // What did not fit, and IndexedDB did not take either, is read from memory, where it is held (data/serverSync.ts, REQUIREMENTS §93).
     const held = heldCopy(key);
     if (held !== null) return held;
-    try {
-      return window.localStorage.getItem(NAMESPACE + key);
-    } catch {
-      return null;
-    }
+    // localStorage, or IndexedDB's copy in memory for what does not fit there (§108).
+    return roomGet(NAMESPACE + key);
   }
-  setItem(key: string, value: string): boolean {
-    try {
-      window.localStorage.setItem(NAMESPACE + key, value);
+  setItem(key: string, value: string, lines?: Iterable<string>): boolean {
+    // localStorage when it fits; otherwise kept in IndexedDB (data/browserRoom.ts, REQUIREMENTS §108).
+    if (roomSet(NAMESPACE + key, value)) {
       releaseHeld(key);
-      noteLocalWrite(key);
+      noteLocalWrite(key, lines);
       return true;
-    } catch (err) {
-      // NOT DROPPED (REQUIREMENTS §93). A change that does not fit in the
-      // browser's storage is held in this page's memory and sent to the
-      // database from there, so a record just started opens, and is kept; the
-      // banner says the browser's copy is full and, once the database has it,
-      // that it WAS saved (components/common/StorageFullBanner.tsx).
-      if (holdChange(key, value)) {
-        noteLocalWrite(key);
-        return true;
-      }
-      // Nothing to send it (nobody signed in): logging alone left the screen
-      // showing a change that was never stored, and lost it on the next reload
-      // with nothing said. The caller learns it failed, and the page tells the user.
-      console.error("Storage write failed (quota exceeded?)", err);
-      announceWriteFailure();
-      return false;
     }
+    // NOT DROPPED (REQUIREMENTS §93). A change that does not fit in the
+    // browser's storage, with no IndexedDB to take it, is held in this page's
+    // memory and sent to the database from there, so a record just started
+    // opens, and is kept; the banner says the browser's copy is full and, once
+    // the database has it, that it WAS saved (components/common/StorageFullBanner.tsx).
+    if (holdChange(key, value)) {
+      noteLocalWrite(key, lines);
+      return true;
+    }
+    // Nothing to send it (nobody signed in): logging alone left the screen
+    // showing a change that was never stored, and lost it on the next reload
+    // with nothing said. The caller learns it failed, and the page tells the user.
+    console.error(`Storage write failed (quota exceeded?): ${key}`);
+    announceWriteFailure();
+    return false;
   }
   removeItem(key: string): void {
-    try {
-      window.localStorage.removeItem(NAMESPACE + key);
-      releaseHeld(key);
-      noteLocalRemove(key);
-    } catch {
-      /* noop */
-    }
+    roomRemove(NAMESPACE + key);
+    releaseHeld(key);
+    noteLocalRemove(key);
   }
   keys(): string[] {
-    try {
-      const out: string[] = [];
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const k = window.localStorage.key(i);
-        if (k && k.startsWith(NAMESPACE)) out.push(k.slice(NAMESPACE.length));
-      }
-      return out;
-    } catch {
-      return [];
-    }
+    return roomNames(NAMESPACE).map((k) => k.slice(NAMESPACE.length));
   }
 }
 
@@ -185,9 +175,12 @@ export function writeJSON<T>(key: string, value: T): boolean {
   return storage.setItem(key, JSON.stringify(value));
 }
 
-/** As writeJSON, for a caller that has already made the JSON itself (data/repositories/recordRepository.ts). */
-export function writeText(key: string, text: string): boolean {
-  return storage.setItem(key, text);
+/**
+ * As writeJSON, for a caller that has already made the JSON itself (data/repositories/recordRepository.ts), and that
+ * names the records it changed or removed (`lines`): the save then sends only those (REQUIREMENTS §108).
+ */
+export function writeText(key: string, text: string, lines?: Iterable<string>): boolean {
+  return storage.setItem(key, text, lines);
 }
 
 // THE WORKING COPY IS NEARLY AS LARGE AS THE BROWSER ALLOWS (REQUIREMENTS §65).
@@ -224,7 +217,9 @@ export function measureWorkingCopy(): number {
     return 0; // no localStorage (in-memory fallback): there is no limit to be near
   }
   measured = chars;
-  nearlyFull = chars > NEARLY_FULL_CHARS;
+  // With IndexedDB taking what does not fit (data/browserRoom.ts, REQUIREMENTS §108) there is no wall to warn of: the
+  // warning is for a browser without it.
+  nearlyFull = chars > NEARLY_FULL_CHARS && !roomOpen();
   if (nearlyFull) console.warn(`The working copy in this browser is ${chars.toLocaleString("en-IN")} characters — close to what the browser allows.`);
   // Said either way: measured again after the leftovers are cleared out
   // (engine/backlogCleanup.ts), this is what takes the warning back down.
@@ -239,9 +234,10 @@ export function measureWorkingCopy(): number {
 /**
  * Calls `onChange` when something other than this page changed stored data:
  * ANOTHER tab of the app (the browser only sends `storage` events to the other
- * tabs), or another person's work brought in from the database
- * (data/serverSync.ts). `key` is the app's key without the namespace, or null
- * when everything may have changed.
+ * tabs, and data/browserRoom.ts a message for what is kept in IndexedDB), or
+ * another person's work brought in from the database (data/serverSync.ts).
+ * `key` is the app's key without the namespace, or null when everything may
+ * have changed.
  */
 export function onExternalChange(onChange: (key: string | null) => void): () => void {
   if (typeof window === "undefined") return () => {};
@@ -251,8 +247,12 @@ export function onExternalChange(onChange: (key: string | null) => void): () => 
   };
   window.addEventListener("storage", handler);
   const stopServer = onServerChange(onChange);
+  const stopRoom = onRoomChange((name) => {
+    if (name.startsWith(NAMESPACE)) onChange(name.slice(NAMESPACE.length));
+  });
   return () => {
     window.removeEventListener("storage", handler);
     stopServer();
+    stopRoom();
   };
 }

@@ -31,6 +31,21 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { dataDir } from "./paths.ts";
+import {
+  Lines,
+  MAX_JOURNAL_ROWS,
+  answerLines,
+  changesBetween,
+  journalRows,
+  journaled,
+  saveLines,
+  type ComposeLines,
+  type JournalRow,
+  type LinesAnchor,
+  type LinesAnswer,
+  type LinesWriteResult,
+} from "./changeJournal.ts";
+export type { ComposeLines, LinesAnchor, LinesAnswer, LinesWriteResult } from "./changeJournal.ts";
 
 export interface UserRow {
   id: string;
@@ -256,6 +271,23 @@ const SCHEMA = `
     PRIMARY KEY (scope, key)
   );
   CREATE INDEX IF NOT EXISTS app_storage_seq_idx ON app_storage (seq);
+
+  -- WHAT EACH WRITE OF THE RECORDS CHANGED (REQUIREMENTS §108): one row for the
+  -- write (record_id NULL) and one for each record it changed or removed, made in
+  -- the same transaction as the write (writeItem, writeLines). seq and version
+  -- are the item's after the write. A browser that says which version of the
+  -- records it holds, and which write made it, is handed only the records
+  -- changed since — when this holds every write since (backend/changeJournal.ts).
+  -- app_storage itself is unchanged: the records are still stored as one item.
+  CREATE TABLE IF NOT EXISTS app_storage_changes (
+    seq BIGINT NOT NULL,
+    scope TEXT NOT NULL,
+    key TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    record_id TEXT,
+    removed BOOLEAN NOT NULL DEFAULT false
+  );
+  CREATE INDEX IF NOT EXISTS app_storage_changes_item_seq_idx ON app_storage_changes (scope, key, seq);
 
   -- THE ACTIVITY LOG (REQUIREMENTS §62): one line for everything anybody does
   -- on the portal — signing in and out, opening, writing, submitting,
@@ -921,11 +953,13 @@ export interface StoredItems {
  * moment; and since writes take their seq in commit order (writeItem), no
  * write can later appear below a cursor already handed out.
  */
-export async function storedItems(userId: string, sinceSeq = 0): Promise<StoredItems> {
+export async function storedItems(userId: string, sinceSeq = 0, withoutValueOf: readonly string[] = []): Promise<StoredItems> {
+  // `withoutValueOf`: company items whose changes the caller hands over record by record instead (REQUIREMENTS §108):
+  // their versions are still said, their values not read.
   const { rows } = await database().query<{ scope: string; key: string; value: string | null; version: number; seq: string }>(
-    `SELECT scope, key, CASE WHEN seq > $2 THEN value END AS value, version, seq::text AS seq
+    `SELECT scope, key, CASE WHEN seq > $2 AND NOT (scope = 'company' AND key = ANY($3::text[])) THEN value END AS value, version, seq::text AS seq
        FROM app_storage WHERE scope IN ('company', $1) ORDER BY seq`,
-    [userId, sinceSeq]
+    [userId, sinceSeq, withoutValueOf]
   );
   const items: StoredItems["items"] = [];
   const versions: Record<string, number> = {};
@@ -961,7 +995,7 @@ export async function writeItem(
   by: string,
   compose?: (stored: string | null) => string
 ): Promise<WriteResult> {
-  return withClient((client) =>
+  const result = await withClient((client) =>
     transaction(client, async () => {
       await client.query("SELECT pg_advisory_xact_lock(4712)");
       const found = await client.query<{ value: string; version: number; seq: string }>("SELECT value, version, seq::text AS seq FROM app_storage WHERE scope = $1 AND key = $2", [scope, key]);
@@ -971,17 +1005,134 @@ export async function writeItem(
         if (row ? row.version !== baseVersion : baseVersion !== 0) return { ok: false as const, current };
       }
       const toStore = compose ? compose(row ? row.value : null) : value;
-      const written = await client.query<{ version: number; seq: string }>(
-        `INSERT INTO app_storage (scope, key, value, version, seq, updated_at, updated_by)
-         VALUES ($1, $2, $3, 1, nextval('app_storage_seq'), now(), $4)
-         ON CONFLICT (scope, key) DO UPDATE
-           SET value = EXCLUDED.value, version = app_storage.version + 1, seq = EXCLUDED.seq, updated_at = now(), updated_by = EXCLUDED.updated_by
-         RETURNING version, seq::text AS seq`,
-        [scope, key, toStore, by]
-      );
-      return { ok: true as const, version: written.rows[0].version, seq: Number(written.rows[0].seq) };
+      const written = await upsertItem(client, scope, key, toStore, by);
+      // THE WHOLE ITEM WRITTEN (the phones' engine, a CAPA closed through /api/v1, a browser's first upload or its
+      // fallback): compared with what was stored, record by record, for the journal (REQUIREMENTS §108).
+      let lines: Lines | null = null;
+      if (journaled(scope, key)) {
+        const before = row ? (cachedLines(scope, key, current!.seq) ?? Lines.parse(row.value)) : null;
+        lines = Lines.parse(toStore);
+        const changes = lines && (!row || before) ? changesBetween(before, lines) : null;
+        if (changes) await journal(client, scope, key, journalRows(written.seq, written.version, changes));
+      }
+      return { ok: true as const, version: written.version, seq: written.seq, lines };
     })
   );
+  if (!result.ok) return result;
+  if (result.lines) rememberLines(scope, key, result.seq, result.lines);
+  return { ok: true, version: result.version, seq: result.seq };
+}
+
+async function upsertItem(client: pg.PoolClient, scope: string, key: string, value: string, by: string): Promise<{ version: number; seq: number }> {
+  const written = await client.query<{ version: number; seq: string }>(
+    `INSERT INTO app_storage (scope, key, value, version, seq, updated_at, updated_by)
+     VALUES ($1, $2, $3, 1, nextval('app_storage_seq'), now(), $4)
+     ON CONFLICT (scope, key) DO UPDATE
+       SET value = EXCLUDED.value, version = app_storage.version + 1, seq = EXCLUDED.seq, updated_at = now(), updated_by = EXCLUDED.updated_by
+     RETURNING version, seq::text AS seq`,
+    [scope, key, value, by]
+  );
+  return { version: written.rows[0].version, seq: Number(written.rows[0].seq) };
+}
+
+// ---------------------------------------------------------------------------
+// the records, one record at a time (REQUIREMENTS §108, backend/changeJournal.ts)
+
+/**
+ * THE RECORDS ITEM AS LAST READ OR WRITTEN HERE, PARSED, against the seq it had. A save then lays its records over the
+ * parsed item instead of parsing megabytes again, and a browser asking what changed is handed records from it. It is
+ * used only while the item's seq in the database is still the one it was read at (checked inside the write's
+ * transaction, or in the same statement that reads the item), so a write by another server is never missed; it is set
+ * only after the write has been committed.
+ */
+const linesCache = new Map<string, { seq: number; lines: Lines }>();
+const cacheKey = (scope: string, key: string) => `${scope}|${key}`;
+
+function cachedLines(scope: string, key: string, seq: number): Lines | null {
+  const hit = linesCache.get(cacheKey(scope, key));
+  return hit && hit.seq === seq ? hit.lines : null;
+}
+
+function rememberLines(scope: string, key: string, seq: number, lines: Lines): void {
+  const k = cacheKey(scope, key);
+  const now = linesCache.get(k);
+  if (!now || now.seq <= seq) linesCache.set(k, { seq, lines });
+}
+
+/** The journal's rows for one write, in the write's own transaction. */
+async function journal(client: pg.PoolClient, scope: string, key: string, rows: JournalRow[]): Promise<void> {
+  const [seq, version] = [rows[0].seq, rows[0].version];
+  await client.query(
+    `INSERT INTO app_storage_changes (seq, scope, key, version, record_id, removed)
+     SELECT $1, $2, $3, $4, t.record_id, t.removed FROM unnest($5::text[], $6::boolean[]) AS t (record_id, removed)`,
+    [seq, scope, key, version, rows.map((r) => r.recordId), rows.map((r) => r.removed)]
+  );
+}
+
+/** The journal's rows of an item from one write's seq to another's, both included; more than can be used, and none come. */
+async function journalSpan(q: pg.Pool | pg.PoolClient, scope: string, key: string, fromSeq: number, toSeq: number): Promise<JournalRow[] | null> {
+  const { rows } = await q.query<{ seq: string; version: number; record_id: string | null; removed: boolean }>(
+    `SELECT seq::text AS seq, version, record_id, removed FROM app_storage_changes
+      WHERE scope = $1 AND key = $2 AND seq >= $3 AND seq <= $4 ORDER BY seq LIMIT $5`,
+    [scope, key, fromSeq, toSeq, MAX_JOURNAL_ROWS + 1]
+  );
+  if (rows.length > MAX_JOURNAL_ROWS) return null;
+  return rows.map((r) => ({ seq: Number(r.seq), version: r.version, recordId: r.record_id, removed: r.removed }));
+}
+
+/**
+ * A SAVE OF SOME RECORDS (REQUIREMENTS §108): the steps of backend/changeJournal.ts saveLines, inside one transaction
+ * under the lock every write takes, with the journal's rows written in it. The item is read parsed from linesCache
+ * while its seq is the one cached.
+ */
+export async function writeLines(scope: string, key: string, base: { version: number; seq: number | null }, by: string, compose: ComposeLines): Promise<LinesWriteResult> {
+  const result = await withClient((client) =>
+    transaction(client, async (): Promise<LinesWriteResult> => {
+      await client.query("SELECT pg_advisory_xact_lock(4712)");
+      const cached = linesCache.get(cacheKey(scope, key));
+      const found = await client.query<{ value: string | null; version: number; seq: string }>(
+        "SELECT CASE WHEN seq = $3 THEN NULL ELSE value END AS value, version, seq::text AS seq FROM app_storage WHERE scope = $1 AND key = $2",
+        [scope, key, cached?.seq ?? -1]
+      );
+      const row = found.rows[0];
+      let parsed: Lines | null | undefined;
+      return saveLines(
+        {
+          key,
+          stored: row ? { version: row.version, seq: Number(row.seq) } : null,
+          lines: () => (parsed === undefined ? (parsed = row?.value === null ? cached!.lines : Lines.parse(row?.value)) : parsed),
+          text: () => row?.value ?? cached!.lines.text(),
+          span: (fromSeq, toSeq) => journalSpan(client, scope, key, fromSeq, toSeq),
+          write: (value) => upsertItem(client, scope, key, value, by),
+          journal: (rows) => journal(client, scope, key, rows),
+        },
+        base,
+        compose
+      );
+    })
+  );
+  if (result.kind === "written") rememberLines(scope, key, result.seq, result.lines);
+  return result;
+}
+
+/**
+ * THE RECORDS CHANGED SINCE A BROWSER'S COPY (REQUIREMENTS §108): what GET /api/storage hands a browser that says the
+ * version of the records it holds and the write that made it. Null when the journal does not cover the span: the
+ * browser is then handed the whole item, as before.
+ */
+export async function lineChanges(scope: string, key: string, from: LinesAnchor): Promise<LinesAnswer | null> {
+  const cached = linesCache.get(cacheKey(scope, key));
+  const { rows } = await database().query<{ value: string | null; version: number; seq: string }>(
+    "SELECT CASE WHEN seq = $3 THEN NULL ELSE value END AS value, version, seq::text AS seq FROM app_storage WHERE scope = $1 AND key = $2",
+    [scope, key, cached?.seq ?? -1]
+  );
+  const row = rows[0];
+  const stored = row ? { version: row.version, seq: Number(row.seq) } : null;
+  const answer = await answerLines(stored, from, (fromSeq, toSeq) => journalSpan(database(), scope, key, fromSeq, toSeq), () =>
+    row?.value === null ? cached!.lines : Lines.parse(row?.value)
+  );
+  if (answer?.kind === "changes" && row?.value !== null) rememberLines(scope, key, answer.seq, answer.lines);
+  return answer;
 }
 
 export async function readItem(scope: string, key: string): Promise<StoredItem | null> {

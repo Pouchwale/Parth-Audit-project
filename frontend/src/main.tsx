@@ -15,6 +15,7 @@ import { App } from "./App";
 import { installPrintScoping } from "./utils/print";
 import { startServerSync, SyncError, type SyncErrorKind } from "./data/serverSync";
 import { measureWorkingCopy } from "./data/storageAdapter";
+import { openRoom } from "./data/browserRoom";
 import { demoModeAvailable } from "./engine/features";
 import { api } from "./api/client";
 
@@ -142,10 +143,14 @@ function Root() {
 const el = document.getElementById("root");
 if (!el) throw new Error("Root element not found");
 
-createRoot(el).render(
-  <React.StrictMode>
-    <AuthProvider>
-      <Root />
-    </AuthProvider>
-  </React.StrictMode>
+// What did not fit in this browser's localStorage is kept in its IndexedDB (data/browserRoom.ts, REQUIREMENTS §108):
+// read back into memory before anything reads the working copy. Never refused: without IndexedDB the app starts as before.
+void openRoom().then(() =>
+  createRoot(el).render(
+    <React.StrictMode>
+      <AuthProvider>
+        <Root />
+      </AuthProvider>
+    </React.StrictMode>
+  )
 );

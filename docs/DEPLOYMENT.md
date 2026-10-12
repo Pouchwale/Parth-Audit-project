@@ -115,6 +115,7 @@ Tables:
 | `notification_prefs` | one row per person: `kinds` (JSON, the kinds switched off for pushing) and `reminders` (the phone's own reminders) |
 | `push_tickets` | the tickets Expo's push service answered with (`id`, `token`, `created_at`), until their receipts are read about 15 minutes later; deleted after a day |
 | `app_storage` | the app's data, one row per stored item: `scope` (`company`, or a user's id), `key` (`records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `live-start` for the company; `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible` for a person — no other keys are accepted), `value` (the item as JSON text), `version`, `seq`, `updated_at`, `updated_by` |
+| `app_storage_changes` | which records each write of the company's records changed (REQUIREMENTS §108): `seq` and `version` (the item's, just after the write), `scope`, `key`, `record_id` (NULL on the row that stands for the write itself) and `removed`; written in the same transaction as the write, indexed by item and seq. A browser that says which version of the records it holds is handed only the records changed since; a save made from an older copy is laid over what is stored when none of its records changed since. Rows are only added: about one per save and one per record saved |
 
 The four notification tables are DCRS's own: no role of the Audit Assistant is granted them (REQUIREMENTS §83; the shared database's scripts grant nothing in `public`).
 
@@ -184,15 +185,23 @@ screen.
 
 **API** (all need a signed-in session): `GET /api/storage` (everything for the person: the company's
 items and their own, with every item's `versions` and the items the account may not hold, `denied`),
-`GET /api/storage?since=<seq>` (what changed), `PUT /api/storage/<key>` (body: the value as JSON;
-header `X-Base-Version`), `DELETE /api/storage/<key>` (the company's items: administrator only).
+`GET /api/storage?since=<seq>` (what changed; with headers `X-Records-Version` and `X-Records-Seq`, the records
+as only those changed since that version, when the change journal covers it — REQUIREMENTS §108), `PUT
+/api/storage/<key>` (body: the value as JSON; header `X-Base-Version`), `PATCH /api/storage/records` (a save of
+some records: body `{ "changed": [records], "removed": [ids] }`, headers `X-Base-Version` and `X-Base-Seq`; §108),
+`DELETE /api/storage/<key>` (the company's items: administrator only).
 
-**Capacity.** PostgreSQL holds the data, but each browser still keeps a working copy of the whole
-company's items in its `localStorage`, which browsers limit to about 5 MB of text per site. When a copy
-no longer fits, nothing is overwritten in the database: a save that does not fit says so on screen,
-a change from the database that does not fit is asked for again, and signing in stops with "This
-browser has no room for the company's records". Clearing Demo data frees the most room. A single
-stored item may be up to 25 MB (`STORAGE_MAX_BYTES` in `backend/index.ts`).
+**Capacity.** PostgreSQL holds the data, and each browser keeps a working copy of the company's items:
+in its `localStorage`, which browsers limit to about 5 MB of text per site, and, for what does not fit
+there (a year of the plant's records is larger), in the browser's IndexedDB, which the browser sizes by
+the computer's disk (REQUIREMENTS §108). So a full `localStorage` no longer stops a sign-in or a save,
+and nothing has to be cleared to make room. Only when IndexedDB too refuses (the computer's disk nearly
+full) does a banner say "This browser's copy is full": the change is still sent to the database from
+the page, nothing is lost, and freeing space on the disk ends it. **After an update, reload every tab
+of DCRS left open from before** (or close the browser and open it again): a tab still running the
+older version reads only `localStorage`. A whole write of one item may be up to 25 MB
+(`STORAGE_MAX_BYTES` in `backend/storageRoutes.ts`); the records are saved record by record, so they may
+grow past that (REQUIREMENTS §108).
 
 ## Both applications on one PostgreSQL server (REQUIREMENTS §107)
 
@@ -355,7 +364,7 @@ load the app again from the restored data; nothing they held is written over it.
   record with `isDemo: true` and leaves Live data untouched (see DATA_MODEL.md's Demo/Live
   integrity guarantee).
 - **Full reset** (wipes Live data too — used for a clean pilot start): in PostgreSQL,
-  `TRUNCATE app_storage;` (accounts stay). The app reseeds master/document/historical data the next
+  `TRUNCATE app_storage, app_storage_changes;` (accounts stay). The app reseeds master/document/historical data the next
   time somebody signs in (`frontend/src/data/bootstrap.ts`). Pages left open notice within a few
   seconds and load again from the emptied database; none of them writes its old copy back.
 

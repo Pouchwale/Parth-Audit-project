@@ -970,6 +970,78 @@ Seven scripts live in `tests/`:
   and are refused a change of their own) and `e2e_portal_controls.py` (section 4: the super admin's own change, with
   the eye on its three boxes, when the suite's sign-up is the super admin; the staff side when it is not, as in the
   full run).
+- **The browser's room** (REQUIREMENTS §108, its first half, 10-Oct-2026: what does not fit in localStorage is kept in
+  IndexedDB, frontend/src/data/browserRoom.ts). New unit tests, each failing on the code before it (the module did not
+  exist; each later test on the commit before its change): `frontend/tests/browserRoom.test.ts` (16) and
+  `frontend/tests/browserRoomSync.test.ts` (4), over `frontend/tests/support/fakeBrowserRoom.ts` (a stand-in IndexedDB
+  whose transactions are stored whole or not at all, can be held back, dropped part way or refused, a BroadcastChannel
+  and navigator.locks); what each proves is listed in REQUIREMENTS §108 "Tests". `npm run test:unit` on 10-Oct-2026 at
+  950345d: frontend 679 and backend 494, all passing but the PostgreSQL ledger's, skipped without
+  `DCRS_LEDGER_TEST_URL`; `npm run typecheck` clean. New browser suite `tests/e2e_browser_room.py` (:8842, after
+  `e2e_storage_room.py` in scripts/run-e2e.ts), run ALONE with the project's runner (`E2E_SKIP_UNIT=1 npm run test:e2e
+  -- tests/e2e_browser_room.py`, 8842 and 8843 free): 39 of 39 at 950345d, no JavaScript error. It fills localStorage
+  to the last few hundred characters on a page without navigator.locks (as at the plant's http:// address), starts
+  three F/MNT/08 records past the room (each opens, is in PostgreSQL and IndexedDB, no banner; the old copy of the
+  records leaves localStorage), reloads with the browser still full (IndexedDB and PostgreSQL hold the same 422 records,
+  each started one opens, no banner), grows the plant's records to 7,045,635 characters through the API (blank sheets
+  from before going live, as in the owner's picture; the app opens on all 18,148, kept in IndexedDB in eight parts, none
+  in localStorage, no banner), times the start-up at 6x CPU throttle, and makes IndexedDB refuse (every put throws
+  QuotaExceededError): the record still opens and reaches PostgreSQL, the banner says the copy is full and that
+  IndexedDB has no room either, then "your record WAS saved" and to free space on the disk; with the room back the
+  record opens after a reload and IndexedDB has it. Speed at 6x on the 7 MB copy, the PC kept busy by another builder:
+  the start-up read 116 to 591 ms, its longest task 83 ms, the app's own script 1.6 to 4.3 s as before; a save's
+  IndexedDB work no task over 50 ms (longest put 26 to 34 ms). Earlier runs on the way: before the stamp was kept
+  apart a save read the 7 MB back (a 169 ms task), and before the parts the start-up read once made a 214 ms task and
+  a put took 167 ms in one call. Changed: `e2e_storage_room.py` (the "nearly full" warning is for a browser without
+  IndexedDB: its part past the mark runs in a page without it) 15 of 16 at 950345d - "The Demo Mode page says the daily
+  sheets of 6 earlier months were left out" fails as recorded on 8-Oct-2026 on the code before §93 (the page says 7,
+  August to November; nothing was kept in IndexedDB there); `e2e_every_record_starts.py` (with the browser full, Start
+  opens the record, kept in IndexedDB and in the database, no banner, and it opens after a reload with the browser still
+  full) 30 of 30 at 950345d, run with `E2E_ONLY=mnt-new-equipment` (the super admin's part, the browser full, and
+  Maintenance's account), no JavaScript error. The sync itself, whose reads and writes now go through the room:
+  `e2e_postgres_storage.py` 34 of 34 at 5a6b3ac. Not run: the full browser run, and every_record_starts over all 125
+  documents; the 38 suites that read `dcrs:v1:records` from localStorage keep it there, since nothing of theirs
+  passes the room.
+- **One record per save** (REQUIREMENTS §108, its second half, 10-Oct-2026: a save sends the records that changed,
+  `PATCH /api/storage/records`, and a browser asking what changed is handed only those, by the change journal
+  `app_storage_changes`; backend/changeJournal.ts, frontend/src/data/serverSync.ts). New unit tests:
+  `backend/tests/storageRoutes.test.ts` (20 new, 36 in all; 19 of the 20 fail on the route before the change, the 20th
+  is the old whole answer kept where the journal does not reach) and `frontend/tests/oneRecordPerSave.test.ts` (8, all
+  failing on the browser's code before the change), both over stand-ins that run the very steps of
+  backend/changeJournal.ts (`saveLines`, `answerLines`); what each proves is listed in REQUIREMENTS §108 "Tests of part
+  2". The route tests' server now parses JSON before the routes, as backend/index.ts does: the first browser run found
+  every save falling back to the whole item, because a save sent as `application/json` was taken by the server's 100 KB
+  JSON parser before the route; the browser now sends it as text, as a whole item goes, and the route also takes a small
+  one already parsed. New browser suite `tests/e2e_one_record_per_save.py` (:8842, after `e2e_browser_room.py` in
+  scripts/run-e2e.ts), run alone with the project's runner (`E2E_SKIP_UNIT=1 npm run test:e2e --
+  tests/e2e_one_record_per_save.py`, 8842 and 8843 free): 36 of 36 at 1ea8874, no JavaScript error. Measured there: a
+  save of one F/MNT/08 record 1,888 bytes on the wire where the whole records item was 96,651 bytes compressed (796,723
+  characters); a colleague's save reached the other browser in 2,104 bytes; with the records grown to 27,875,948
+  characters (a whole save of them refused, 413) a save of one record 11,005 bytes, stored. The suites the change
+  touches, at 1ea8874 with the project's runner: `e2e_departments.py` 39 of 39, `e2e_browser_room.py` 39 of 39,
+  `e2e_postgres_storage.py` 34 of 34 (the browser's copy still the database's to the character),
+  `e2e_access_levels.py` 148 of 148 and `e2e_mobile_mitra_api.py` 32 of 32 (the phones' whole writes journaled record by
+  record). Run after the :8842 suites in one invocation, `e2e_access_levels.py` failed only "The last super admin
+  cannot be made staff": `e2e_departments.py`'s first sign-up on the fresh database is a second super admin, so the
+  seeded one is no longer the last (an order effect, not this change); run on its own it passes. Again at d6b0c83, after
+  a department's account stopped being handed the ids of other departments' records: `e2e_one_record_per_save.py` 36 of
+  36 (a save 1,888 bytes, a colleague's 2,104, past 25 MB 10,982), `e2e_postgres_storage.py` 34 of 34,
+  `e2e_access_levels.py` 148 of 148, and `e2e_every_record_starts.py` 30 of 30 with `E2E_ONLY=mnt-new-equipment` (the
+  browser full, a reload, Maintenance's account). Changed: scripts/run-e2e.ts
+  empties `app_storage_changes` with `app_storage` before each suite. Not run: the full browser run.
+- **Two browser suites that failed for reasons of their own, not the app's** (review of 12-Oct-2026).
+  `tests/e2e_storage_room.py` expected Demo Mode's daily log sheets from exactly three months before the month in
+  hand. The generator draws fewer months back when the browser has no room for them all, and the Demo Mode page
+  says so (`data/demoGenerator.ts`, shortOfRoom); from October 2026 a fresh test browser is that full, so it draws
+  August to November and the page says 7 earlier months were left out, not 6 (the failure recorded on 8 and
+  10-Oct-2026). The check now takes the page's own window when the page says the browser had no room, and still
+  holds it to start after the fixed one and no later than the month in hand. `tests/e2e_access_levels.py` expected
+  the super admin's own "Make staff" shut, which it is only while he is the only super admin: a sign-up suite on
+  :8842 run before it in the same run leaves its first account a super admin on the same database. It now asks the
+  accounts first, as e2e_user_access.py section 10 does, and checks the button open when there is another. Run
+  together, so the storage suite's sign-up came first: `E2E_SKIP_UNIT=1 npm run test:e2e --
+  tests/e2e_storage_room.py tests/e2e_access_levels.py` passed 16 of 16 and 148 of 148 ("With another super admin
+  on this database (['room-...@example.com']), his own 'Make staff' is open").
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

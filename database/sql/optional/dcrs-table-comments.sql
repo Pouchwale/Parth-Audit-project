@@ -33,7 +33,7 @@ DECLARE
   missing text;
 BEGIN
   SELECT string_agg(t, ', ') INTO missing
-  FROM unnest(ARRAY['public.users', 'public.digest_log', 'public.app_storage', 'public.activity_log',
+  FROM unnest(ARRAY['public.users', 'public.digest_log', 'public.app_storage', 'public.app_storage_changes', 'public.activity_log',
                     'public.activity_log_archive', 'public.activity_daily', 'public.activity_daily_state',
                     'public.job_runs', 'public.escalations', 'public.weekly_digests', 'public.user_sessions',
                     'public.notifications', 'public.push_devices', 'public.notification_prefs', 'public.push_tickets']) AS t
@@ -133,6 +133,16 @@ COMMENT ON COLUMN public.app_storage.version IS 'How many times the item has bee
 COMMENT ON COLUMN public.app_storage.seq IS 'The order of every write to every item (from the sequence app_storage_seq), so a browser can ask what has changed since it last looked.';
 COMMENT ON COLUMN public.app_storage.updated_at IS 'When the item was last written.';
 COMMENT ON COLUMN public.app_storage.updated_by IS 'The email of the account that last wrote the item.';
+
+-- ---------------------------------------------------------------- app_storage_changes
+COMMENT ON TABLE public.app_storage_changes IS
+  'Which records each write of the company''s records changed (REQUIREMENTS 108): one row for the write itself and one for each record it changed or removed, written in the same transaction as the write. A browser that says which version of the records it holds is handed only the records changed since. The records themselves are in app_storage, as before.';
+COMMENT ON COLUMN public.app_storage_changes.seq IS 'The write''s seq: app_storage.seq of the item just after it.';
+COMMENT ON COLUMN public.app_storage_changes.scope IS 'The item''s scope: company.';
+COMMENT ON COLUMN public.app_storage_changes.key IS 'The item: records.';
+COMMENT ON COLUMN public.app_storage_changes.version IS 'The item''s version just after the write.';
+COMMENT ON COLUMN public.app_storage_changes.record_id IS 'A record the write changed or removed; empty on the row that stands for the write itself.';
+COMMENT ON COLUMN public.app_storage_changes.removed IS 'True when the write removed the record.';
 
 -- ---------------------------------------------------------------- activity_log
 COMMENT ON TABLE public.activity_log IS

@@ -6,7 +6,7 @@
 // tests/e2e_departments.py, tests/e2e_trend_reports.py, tests/e2e_hr_module.py,
 // tests/e2e_hr_cv_import.py, tests/e2e_qc_calibration.py, tests/e2e_qc_formats.py,
 // tests/e2e_purchase_module.py, tests/e2e_store_module.py, tests/e2e_assistant_and_logout.py,
-// tests/e2e_maintenance_module.py, tests/e2e_pm_link.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_storage_room.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
+// tests/e2e_maintenance_module.py, tests/e2e_pm_link.py, tests/e2e_sys_module.py, tests/e2e_marketing_module.py, tests/e2e_topbar_status.py, tests/e2e_storage_room.py, tests/e2e_browser_room.py, tests/e2e_one_record_per_save.py, tests/e2e_insights.py, tests/e2e_format_numbers.py,
 // tests/e2e_hr_master_data.py, tests/e2e_downloads_and_print.py, tests/e2e_postgres_storage.py,
 // and last the two of the database DCRS shares with the Audit Assistant (REQUIREMENTS §83):
 // tests/e2e_audit_assistant_api.py and tests/e2e_database_overview.py; then REQUIREMENTS §84's
@@ -368,6 +368,12 @@ async function main(): Promise<void> {
       "tests/e2e_topbar_status.py",
       // REQUIREMENTS §79: the browser nearly full — named, cleared in a click; Demo Mode stops short.
       "tests/e2e_storage_room.py",
+      // REQUIREMENTS §108: what does not fit in localStorage is kept in IndexedDB — records past the room, a reload, the
+      // plant's 7 MB timed at 6x CPU, and the banner's own words when IndexedDB refuses.
+      "tests/e2e_browser_room.py",
+      // REQUIREMENTS §108, its second half: a save sends the one record that changed and a colleague's save brings only
+      // that record — two browsers at once, the same record in both, a deletion, and a records item past the old 25 MB limit.
+      "tests/e2e_one_record_per_save.py",
   "tests/e2e_mitra_agent.py",
   // REQUIREMENTS §81: the 3D introduction and the fonts; sound and Mitra's voice; celebrations in every module;
   // and every document's Word/Excel downloaded, edited and uploaded back.
@@ -431,7 +437,8 @@ async function main(): Promise<void> {
       // Each suite starts from an empty store, as each used to start from a
       // fresh browser: the app seeds it again on the first sign-in. The
       // accounts stay, as they did in the one account database.
-      await sql.query("TRUNCATE app_storage");
+      // The change journal of the records goes with them (REQUIREMENTS §108): no suite's browser is handed another's writes.
+      await sql.query("TRUNCATE app_storage, app_storage_changes");
       if (PRODUCT_SUITES.includes(suite)) {
         // The product as it is installed: started, waited for and stopped like the first server, for this suite alone.
         if (await answers(`http://localhost:${PRODUCT_PORT}/api/auth/me`)) throw new Error(`Something is already listening on :${PRODUCT_PORT} — stop it first, so ${suite} runs against this build.`);

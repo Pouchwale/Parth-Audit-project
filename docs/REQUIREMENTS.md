@@ -7215,6 +7215,182 @@ backend/tests/databaseBackup.test.ts (Mitra's dump named, kept and found like DC
 connection). The Mitra server: test/db-copy.test.ts (production refused in words; the copy whole on PGlite and, with
 `MITRA_PG_TEST_URL`, into a real PostgreSQL).
 
+## §108 The browser's room, and one record per save (10-Oct-2026)
+
+**The request.** The owner, 9-Oct-2026, with a picture of the banner "This browser's copy is full - your record WAS
+saved. It is in the database (PostgreSQL), so nothing is lost, and this page goes on working from memory. Make room in
+this browser before you close or reload the page. 4.2 MB is 3457 blank sheets from before the system went live, which
+nobody has written on. [Remove them] 2.9 MB is the plant's own records - 1906 of them.": "i have shared you second image
+which is coming again and again so fix it also without any loss and make sure data will stored in our postgres database
+perfectly".
+
+**The cause.** Every computer keeps a working copy of the company's data (§55) in the browser's localStorage, which
+holds about five million characters; his browser's records alone were 7.1 MB. Since §93 and §101 what does not fit is
+held in the page's memory and sent to PostgreSQL from there, so nothing was lost; but the browser could never keep it,
+so every reload and every save found it full again, and the banner came back each time.
+
+**1. What does not fit in localStorage is kept in IndexedDB** (built 10-Oct-2026, frontend/src/data/browserRoom.ts).
+IndexedDB is the browser's larger store, which the browser sizes by the computer's disk.
+
+- *The same storage, still synchronous.* Everything kept in IndexedDB is read into memory when the page starts, before
+  anything reads the working copy (main.tsx), and every read is served from there. The repositories, the engine and
+  the screens are unchanged.
+- *A write* goes to localStorage when it fits, as before. One that does not is kept in memory at once and written to
+  IndexedDB a moment later, behind the page and in order: the writes of a moment in one transaction, the next only
+  after it is stored, and of two writes of one value the later wins (each value's stamp is kept beside it, alone, so a
+  save never reads a large value back). A value over a million characters is kept in parts, each put and read in a
+  task of its own, and stored whole or not at all. A value and its marker (data/serverSync.ts) are kept and stored
+  together, so the browser never holds a newer marker beside an older value, which would send the older value back
+  over the database's newer one. While the page is being left a write goes to IndexedDB at once; and while a change
+  kept there is neither stored nor in the database, closing the page asks first.
+- *Large values stay.* A value kept there is not tried in localStorage again while it is over 100,000 characters (the
+  records, the documents), so it never goes back and forth at the edge of the room with each save. A small one (a
+  setting, a marker) goes back to localStorage when it fits.
+- *The room.* Once IndexedDB has stored a value, its old copy in localStorage is removed, with its marker's, to free the
+  room for the small values: only while no other tab of the app is open, so no tab finds an empty copy where it had
+  one. navigator.locks says so where the address is a secure context (https, localhost); at the plant's
+  http://<address>:4000, which has no locks, the tab asks on the channel who is there and every tab of the app answers,
+  one whose IndexedDB did not open too. And no copy is removed once a tab of the app's older version has been seen
+  writing a value kept there: such a tab reads only localStorage. After an update, reload the tabs left open
+  (docs/DEPLOYMENT.md, Capacity).
+- *Other tabs* learn of a change by a BroadcastChannel message, as they learn of a localStorage change from the browser.
+  Two tabs writing at once end with the same value in both and in IndexedDB, and a tab that opens is handed what the
+  others have not stored yet.
+- *Clearing* is exactly as for localStorage, through the same calls: another account signing in on the browser
+  (another person's assistant conversations, an item the new account's departments do not hold), and a database reset
+  or restore (every item; the page then loads again once IndexedDB has the removals).
+- *The banner* appears only when IndexedDB too refuses (the computer's disk full, or a browser without it), and says so,
+  in English and Gujarati (i18n/strings.room.ts): first "This browser's copy is full." with "Neither its storage nor its
+  larger store (IndexedDB) has room for the app's working copy, so your change is kept on this page and is being sent to
+  the database (PostgreSQL) now. Keep this page open until this says it was saved."; then "This browser's copy is full —
+  your record WAS saved." with "It is in the database (PostgreSQL), so nothing is lost, and this page goes on working
+  from memory. This browser's larger store (IndexedDB) did not take it either: the computer's disk may be nearly full.
+  Free some space on the disk, then reload the page." A copy refused at sign-in, with nothing of the person's in it, is
+  "This browser's copy is full — nothing is lost." The "nearly full" warning (§65, §79) is for a browser without
+  IndexedDB only.
+- *The blank sheets from before the system went live* stay a tidy-up a person may choose: the banner, the Dashboard and
+  the briefing offer Remove as before (engine/backlogCleanup.ts, unchanged), and nothing removes them by itself.
+- *PostgreSQL stays the only store* (§55). IndexedDB, like localStorage, holds this browser's working copy, loaded from
+  the database at every sign-in and sent to it at every change. Small values, and the records of every browser suite but
+  the one below, stay in localStorage as before. The engine host (the phones' path, §85) has no IndexedDB and works as
+  before.
+
+**Speed** (§56, measured on 10-Oct-2026 by tests/e2e_browser_room.py in headless Chromium at 6x CPU throttle, with the
+plant's records grown to 7,045,635 characters, while another builder kept the PC busy). Kept in one piece, the start-up
+read took 65 to 263 ms, once with a task of 214 ms; a save read the stored value back to compare stamps (one task of
+169 ms) and put it in one call of 47 to 167 ms. Now the stamp alone is read, and the value is kept in eight parts, read
+all asked for at once and put one by one: the start-up read took 116 to 591 ms, its longest task 83 ms (none over 50 ms
+on the quieter run), and a save's IndexedDB work made no task over 50 ms (its longest put 26 to 34 ms). The app's own
+script, which begins the read, ran 1.6 to 4.3 s at 6x, as before this section. Every reload still downloaded every item
+from the database; since part 2 a copy of the records in step is not downloaded again.
+
+**2. One record per save** (built 10-Oct-2026: backend/changeJournal.ts, backend/storageRoutes.ts, backend/db.ts,
+frontend/src/data/serverSync.ts, data/repositories/recordRepository.ts). Until now each save sent the whole records
+item (up to the 25 MB body limit, `STORAGE_MAX_BYTES`, which the records at the measured 7.9 MB a year reach in about
+three years), and every open computer downloaded the whole item again after anybody's save. The records stay stored
+exactly as before: one item, `records`, in `app_storage`, which /api/v1, the engine host (the phones' path), the
+escalation job and the Database overview's views read whole. Only what travels changes.
+
+- *A save sends the records that changed.* Each write of the repository names the records it changed or removed (a
+  start, a fill, a submit, a removal, a start-up migration's records), and the marker of the browser's copy keeps them
+  until the database confirms them, so whichever tab sends them, or the next sign-in, sends just those. `PATCH
+  /api/storage/records` takes `{ "changed": [records], "removed": [ids] }` with the version of the copy
+  (`X-Base-Version`) and the write that made it (`X-Base-Seq`), sent as text as a whole item is, a million characters
+  of records at most at a time (a migration that touched every record goes in parts). The server lays them over the
+  item as stored, in the write's transaction and under its lock, checked record by record against the person's level
+  exactly as a whole write is (§96): a Read-only person's own change is refused with 403 in words, and the refused
+  record is handed back as stored for the page to put back; the app's housekeeping is kept as stored and handed back;
+  a record of a document the person does not see is left in their copy, as before.
+- *Somebody else's save in between is no reason to refuse it.* When none of the records the save names changed since
+  its copy, it is laid over what is stored (no 409), and the answer hands back the records the browser had not seen.
+  When one of them did, nothing is written: 409 with the records changed since, which the browser merges as two copies
+  of a record always were (the later stands; a person's change over an automatic preparation) and sends again. A save
+  sent twice (its answer lost on the way) is taken once. The same blank sheet made on two computers at once: the one
+  stored stays and the other is told (the merge's duplicate-blank rule, now kept on the server too).
+- *A colleague's save brings only that record.* A new table, `app_storage_changes` (seq, scope, key, version, record
+  id, removed), journals each write of the records in the same transaction: one row for the write and one for each
+  record it changed or removed. A whole write (the phones' engine, a CAPA closed through /api/v1, a browser's first
+  upload) is compared with what was stored, record by record, to make its rows. A browser asking what changed says
+  which version of the records it holds and the write that made it (`X-Records-Version`, `X-Records-Seq`). When the
+  journal holds that very write and one row for every version since, and what the person may see has not changed
+  since (the copy's key is today's, and neither the catalogue nor the access rules were written since), it is handed
+  only the records changed since that the person may see, and the ids of records gone from the item (a record of a
+  document they do not see is not handed over at all, not even by its id), and nothing at all when its copy is the
+  stored version: the saver no longer downloads its own save again (data-9 of the audit). A sign-in or a reload
+  with a copy in step is answered the same way, so the records are not downloaded again at every reload. Otherwise,
+  or when more than a quarter of the records (and over 500) changed, the whole item, as before.
+- *A whole write stays possible* (`PUT /api/storage/records`, up to the 25 MB body limit as before): the first upload,
+  a copy whose origin is not known, and a server older than this (no PATCH: the browser then sends the item whole).
+  The records saved record by record may grow past 25 MB.
+- *The journal* says which records changed, never what was in them, and only grows: about one row per save and one
+  per record saved. The e2e runner empties it with `app_storage`, and a full reset does both (docs/DEPLOYMENT.md).
+
+**Measured** (10-Oct-2026, tests/e2e_one_record_per_save.py, headless Chromium on the production build against a
+throwaway PostgreSQL). A save of one F/MNT/08 record was 1,888 bytes on the wire, where the whole records item it used
+to send was 96,651 bytes compressed (796,723 characters, a fresh plant's month); a colleague's save of one record
+reached the other browser in 2,104 bytes, where it used to bring the whole item again. With the records grown to
+27,875,948 characters, past the old body limit (a whole save of them is refused, 413), a save of one record was 11,005
+bytes and was stored. At a year of the plant's records the whole item is ten times the fresh plant's, and a save and a
+colleague's save stay the size of the records they carry.
+
+**Tests.** frontend/tests/browserRoom.test.ts (16, over a stand-in IndexedDB, BroadcastChannel and navigator.locks,
+frontend/tests/support/fakeBrowserRoom.ts): a value over the room kept, read at once and read back after a reload, a
+small one in localStorage; the writes in order, the latest winning, a value and its marker stored together in every
+state the disk was in; a save reading back only the stamp; a value over a million characters kept in parts, each put
+on its own, read entry by entry and whole after a reload, fewer parts when smaller and none when small; a page closed
+part way through the parts leaving the older value whole; a page closed mid-way leaving a value and marker that belong
+together; the old copy removed with its marker's only while alone, by navigator.locks or, without locks, by asking on
+the channel (a tab whose IndexedDB did not open answering); a tab of the older version stopping that; a write
+while the page is being left begun at once; a put that throws treated as a refusal; a large value not tried in
+localStorage again, a small one going back; another tab told, two tabs at once ending the same; a tab opening handed a
+write on its way; IndexedDB refusing (in memory, the page told, the older copy left, the next write storing it); no
+IndexedDB (refused to the caller, as before). frontend/tests/browserRoomSync.test.ts (4, the working copy and the
+sync in front of a stand-in database): signing in with the records larger than the room (kept in IndexedDB, never
+"full", leaving asks nothing, a record started reaching both, a reload reading every record); another account signing
+in (another person's conversations and an item its departments do not hold removed from IndexedDB, nothing removed
+from the database); IndexedDB refusing a save (said full, then WAS saved, nothing lost, the next save storing both);
+IndexedDB refusing at sign-in ("nothing is lost", never "WAS saved"). tests/e2e_browser_room.py (new, :8842): above,
+with localStorage filled and the first page without navigator.locks (as at the plant's address), a reload, the 7 MB
+copy timed at 6x, and the banner's words with IndexedDB refusing.
+Changed: tests/e2e_storage_room.py (its part past the mark runs in a page without IndexedDB) and
+tests/e2e_every_record_starts.py (with the browser full, Start opens the record, which is in the database and in
+IndexedDB, with no banner, and opens after a reload with the browser still full).
+
+**Tests of part 2.** backend/tests/storageRoutes.test.ts (20 new, over a stand-in that runs the very steps PostgreSQL's
+writes run, backend/changeJournal.ts saveLines and answerLines, with its journal, behind the server's own JSON parser):
+a save of one record laid over the item in place and journaled by its id; somebody else's save of another record in
+between taken with no 409 and handed back; a save naming a record changed first refused 409 with the records changed
+since and nothing written, then taken from the version it was handed; a save sent twice taken once; a removal
+journaled, and told to a save made before it; the same blank sheet made twice (the one stored stays, the other told; a
+sheet worked on takes the place of a stored blank one); a whole write journaled record by record and answered by
+record; a save of more than the JSON parser's 100 KB taken as text, a small one as JSON; what is not a save of records
+refused. At each person's level: a Read-only person's own change refused 403 in words, with the record handed back as
+stored; a change the level allows taken, everyone else's records as stored; the app's housekeeping kept out and handed
+back; a removal at Edit taken, below it kept and handed back; a copy made for other levels answered 409 as a whole
+write is. Asking what changed: nothing when the copy is the stored version (its own save included); only the records
+changed and the ids removed when the journal covers the span; the whole item for a copy older than the journal and for
+another write of the same version; a department's account handed its own records and nothing of another
+department's, not even its id, and a record gone from the item by its id; the whole item again once the access rules
+were written. A records item of 26 million characters taking a save of one record of under a thousand characters.
+19 of the 20 fail on the route before this change; the 20th, the whole item where the journal does not reach, is the
+old answer kept. frontend/tests/oneRecordPerSave.test.ts (8, the working copy in front
+of a stand-in database running the same steps): a save sends the one record that changed (680 characters, where the
+whole item is 196,774) and the database's copy is the browser's to the character; somebody else's save of another
+record in between, no 409, theirs handed back; the same record changed in both, merged, the later standing (theirs
+later: one 409, nothing sent again; this copy's later: 409, then 200); a removal travels as its id; a colleague's save
+reaches the copy as that record alone (410 characters) and the saver is not handed its own; a save of 2,600 records
+goes in parts of a million characters; signing in again with a copy in step downloads no records, and a colleague's
+save meanwhile comes as that record; a server without PATCH gets the whole item, as before (all 8 fail on the browser's
+code before this change). tests/e2e_one_record_per_save.py
+(new, :8842, after e2e_browser_room.py): two people in two browsers on the production build - a save sends the one
+record that changed, never the whole item; a colleague's save reaches the other browser as that record alone, its
+question saying which records it holds, and the saver is not handed its own save; a browser saving from a copy older
+than the other's save is not refused, both records stored and the other's handed back with the answer, and two
+starting a record at the same moment both kept; the same record written in both, the later standing in the database
+and in both browsers after one 409; a deletion sent as its id, gone from the database and the other browser; the
+records grown past 25 MB by saves of a megabyte, a whole save of them refused 413, and a save of one record taken.
+Changed: scripts/run-e2e.ts (the new suite; `app_storage_changes` emptied with `app_storage` before each suite).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
