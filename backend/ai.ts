@@ -211,7 +211,8 @@ export async function sendWithRateLimitRetry(send: () => Promise<Response>): Pro
 // estimate (speechTokens). At 90% of it the chat and the agent stop asking the model: the browser answers from the
 // app's own records and says why (engine/assistantReach.ts, "allowance"), and the last tenth is left for the
 // checklist's answers, the CV reader, pictures, the microphone and the voice, one short call each. At 100% nothing
-// is asked of the model until the next day (AiAllowanceError). The server's log says each, once, in plain words.
+// is asked of the model until the next day (AiAllowanceError); on a Groq key the microphone and the voice go on, as
+// before §109, since Groq bills them apart from tokens. The server's log says each, once, in plain words.
 //
 // In memory, on purpose: a count that resets when the server restarts can only err towards asking the model once
 // more, and the service's own limits still stand behind it. Nothing about it is plant data, so nothing is stored.
@@ -366,7 +367,7 @@ interface ChatRequest {
 }
 
 type ChatAnswer = {
-  choices?: { message?: { content?: unknown; tool_calls?: unknown } }[];
+  choices?: { message?: { content?: unknown; tool_calls?: unknown; refusal?: unknown } }[];
   usage?: { total_tokens?: unknown };
 };
 
@@ -391,6 +392,13 @@ function apiError(text: string): { code: string; param: string; message: string 
   } catch {
     return { code: "", param: "", message: text };
   }
+}
+
+/** A failed request in a line for the log: the status, the service's code and the parameter it names, and its own message (else the body's start). */
+function failureWords(what: string, status: number, text: string): string {
+  const err = apiError(text);
+  const said = [String(status), err.code, err.param ? `param ${err.param}` : ""].filter(Boolean).join(", ");
+  return `${what} failed (${said}): ${(err.message || text).slice(0, 300)}`;
 }
 
 /** The parameter a 400 says this model does not take, when it is one that can be left out and was sent. */
@@ -448,7 +456,7 @@ async function askModel(provider: Provider, model: string, req: ChatRequest): Pr
     // take), is not on the account (403, 404) or failed on the service's side (5xx). Not a wrong key (401) nor an
     // account out of credit (429): the second model would be refused the same way.
     const next = provider.name === "openai" && (res.status === 400 || res.status === 403 || res.status === 404 || res.status >= 500);
-    return { ok: false, error: new AiRequestError(res.status, `Assistant request failed (${res.status}): ${text.slice(0, 300)}`), next };
+    return { ok: false, error: new AiRequestError(res.status, failureWords("Assistant request", res.status, text)), next };
   }
   return { ok: false, error: new AiRequestError(400, "Assistant request failed: the model refused every setting it was sent."), next: provider.name === "openai" };
 }
@@ -467,7 +475,8 @@ async function chatCompletion(req: ChatRequest): Promise<ChatAnswer> {
     if (attempt.ok) return attempt.answer;
     last = attempt.error;
     if (!attempt.next || i === order.length - 1) break;
-    console.warn(`AI: ${order[i]} could not answer (${attempt.error.status}); ${order[i + 1]} answers instead.`);
+    // Why, in the service's words with any key taken out (AiRequestError), so the log says what to put right.
+    console.warn(`AI: ${order[i]} could not answer (${attempt.error.status}); ${order[i + 1]} answers instead. ${attempt.error.message.slice(0, 240)}`);
   }
   throw last ?? new AiRequestError(0, "Assistant request failed.");
 }
@@ -557,7 +566,8 @@ export async function aiChatWithTools({
   });
   const message = answer?.choices?.[0]?.message;
   if (!message || typeof message !== "object") throw new Error("The assistant returned no message.");
-  const content = typeof message.content === "string" ? message.content : null;
+  // A model that declines says why in `refusal` (OpenAI), with no content: those are its words to the person.
+  const content = typeof message.content === "string" ? message.content : typeof message.refusal === "string" && message.refusal ? message.refusal : null;
   const calls = Array.isArray(message.tool_calls) ? message.tool_calls.map(shapeToolCall).filter((c): c is ToolCall => c !== null) : [];
   return calls.length > 0 ? { content, tool_calls: calls } : { content };
 }
@@ -650,7 +660,10 @@ export async function aiTranscribe({
   language?: "en" | "hi" | "gu";
   prompt?: string;
 }): Promise<{ text: string; language?: string; seconds?: number }> {
-  const provider = readyProvider();
+  const provider = aiProvider();
+  if (!provider) throw new Error(NOT_CONFIGURED);
+  // The cost guard holds the paid key; Groq bills hearing by the audio second, apart from the tokens, as before §109.
+  if (provider.name === "openai" && dailyBudgetSpent()) throw new AiAllowanceError();
   const model = transcribeModel();
   const whisper = /whisper/i.test(model);
   const baseMime = (mime.split(";")[0] ?? "").trim().toLowerCase() || "audio/webm";
@@ -681,7 +694,7 @@ export async function aiTranscribe({
   }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new AiRequestError(res.status, `Transcription request failed (${res.status}): ${text.slice(0, 300)}`);
+    throw new AiRequestError(res.status, failureWords("Transcription request", res.status, text));
   }
   const body = (await res.json()) as { text?: unknown; language?: unknown; duration?: unknown; usage?: { type?: unknown; total_tokens?: unknown } } | null;
   if (body?.usage?.type === "tokens") countTokens(body.usage.total_tokens);
@@ -795,7 +808,7 @@ async function openaiSpeak(provider: Provider, text: string, voice: VoiceKind): 
     if (!res.ok) {
       const bodyText = await res.text().catch(() => "");
       if (res.status === 403 || res.status === 404) throw new VoiceUnavailableError(model, "openai");
-      throw new AiRequestError(res.status, `Speech request failed (${res.status}): ${bodyText.slice(0, 300)}`);
+      throw new AiRequestError(res.status, failureWords("Speech request", res.status, bodyText));
     }
     const clip = await audioOf(res);
     countTokens(speechTokens(input, clip));
@@ -822,7 +835,7 @@ async function groqSpeak(provider: Provider, text: string, voice: VoiceKind): Pr
     if (!res.ok) {
       const bodyText = await res.text().catch(() => "");
       if (termsRequired(bodyText)) throw new VoiceUnavailableError(model, "groq");
-      throw new AiRequestError(res.status, `Speech request failed (${res.status}): ${bodyText.slice(0, 300)}`);
+      throw new AiRequestError(res.status, failureWords("Speech request", res.status, bodyText));
     }
     clips.push(await audioOf(res));
   }
@@ -833,6 +846,7 @@ async function groqSpeak(provider: Provider, text: string, voice: VoiceKind): Pr
 export async function aiSpeak({ text, voice }: { text: string; voice: VoiceKind }): Promise<Buffer> {
   const provider = aiProvider();
   if (!provider) throw new VoiceNotConfiguredError();
+  if (provider.name === "groq") return groqSpeak(provider, text, voice);
   if (dailyBudgetSpent()) throw new AiAllowanceError();
-  return provider.name === "openai" ? openaiSpeak(provider, text, voice) : groqSpeak(provider, text, voice);
+  return openaiSpeak(provider, text, voice);
 }

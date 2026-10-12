@@ -27,6 +27,31 @@ The mobile app can now do what Mitra does in DCRS: find documents, say what is d
 4. Nothing that already exists in DCRS was changed to make this work. Everything is new: the `/api/v1` routes, the `chatbot` and `overview` schemas and three new database roles.
 5. The assistant's code is not edited from the DCRS side. What it must change is listed in [What the assistant must change](#what-the-assistant-must-change).
 
+## One AI key for both apps (REQUIREMENTS §109)
+
+Since 12 October 2026 both applications use the owner's ChatGPT (OpenAI) key, and only it: "i have added new api so make sure from now use that only everywhere for both mobile and audit software". The key is kept in ONE place, DCRS's `backend/.env`, as `CHATGPT_API_KEY` (OpenAI's own name, `OPENAI_API_KEY`, is accepted too). Nobody opens or prints that file; programs load it.
+
+**The Mitra server takes the AI settings from DCRS's file** when its own environment has no OpenAI key: its setting `DCRS_ENV_FILE` is the path of DCRS's `backend/.env`, and defaults to the DCRS folder's `backend/.env` when the Mitra repository sits inside the DCRS folder (as `Audit project chatbot-mobile` does). Only the AI settings are taken from it, never anything else (not DCRS's database, ports or passwords), and the file and the key are never printed or logged.
+
+**The AI settings, the same names in both applications** (defaults in brackets; DCRS reads them in `backend/ai.ts`, and `backend/.env.example` names them):
+
+| Setting | Default | What it is |
+|---|---|---|
+| `CHATGPT_API_KEY` (or `OPENAI_API_KEY`) | none | The key. When it is set, every AI call goes to `https://api.openai.com/v1` and nothing calls Groq. |
+| `AI_CHAT_MODEL` | `gpt-5.4-mini` | Chat answers. |
+| `AI_AGENT_MODEL` | `AI_CHAT_MODEL` | Mitra's agent and its tools. |
+| `AI_SHORT_MODEL` | `gpt-5.4-nano` | Short jobs: a conversation's title, a checklist answer, classifying a question. |
+| `AI_VISION_MODEL` | `gpt-5.4-mini` | Pictures and scans, sent as `image_url` data URLs. |
+| `AI_FALLBACK_MODEL` | `gpt-4.1-mini` | Asked once when the first model cannot answer (it refused the request, is not on the account, or failed on OpenAI's side); `none` for no second model. |
+| `AI_TRANSCRIBE_MODEL` | `gpt-4o-mini-transcribe` | Hearing: Gujarati, Hindi and English. |
+| `AI_TTS_MODEL` | `gpt-4o-mini-tts` | Speech, told the language of the line. |
+| `AI_TTS_VOICE_FEMALE` / `AI_TTS_VOICE_MALE` | `coral` / `ash` | Mitra's female and male voice. |
+| `AI_DAILY_TOKEN_BUDGET` | `3000000` | The cost guard: the tokens a day each server may use (OpenAI is paid by the token). DCRS's chat stops at 90% and every call at 100%, until the next day, and says so in plain words. Each server counts its own calls. |
+
+**How to ask, on `/v1/chat/completions`.** A gpt-5.4 (or later) model is sent `reasoning_effort: "none"`: with any other effort, or none given, it refuses function tools there (400, "use /v1/responses"; measured 12-Oct-2026). gpt-5, gpt-5-mini and gpt-5-nano take `"minimal"` at least; gpt-4.1 and gpt-4o take none. Send `max_completion_tokens`, never `max_tokens`. When a model refuses a parameter by name (`temperature`), leave it out of that model's later requests. Measured on the owner's key: gpt-5.4-mini with `"none"` streams its first words in about 0.65 s (1.1 s in Gujarati), gpt-4.1-mini in 0.6 to 0.7 s; the key allows 5,000 requests and 2,000,000 tokens a minute.
+
+**Groq** stays only for a server that has no OpenAI key (an older setup): `GROQ_API_KEY` and its own settings, as before. **Tests never make a paid call**: DCRS's browser runner (`scripts/run-e2e.ts`) and unit runner blank `CHATGPT_API_KEY`, `OPENAI_API_KEY` and `GROQ_API_KEY`, and the tests stand the model in at the network edge in OpenAI's own shapes at OpenAI's address.
+
 ## Reaching DCRS
 
 The DCRS server serves the app and its API from one port.

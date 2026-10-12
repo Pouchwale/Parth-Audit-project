@@ -74,7 +74,7 @@ The app behaves like a personal assistant rather than a blank form:
   *"what happened on the 15th"* or *"take me to the lamination QC documents"* navigates you straight
   there; on an open record, *"checker is Ramesh, time 9:15"* fills it in. Quick buttons always offer
   today's briefing, what's due today, this month's reports and CAPA. One endpoint,
-  `POST /api/assistant/chat` (`backend/assistant.ts`, calling Groq — see **Configuration** below),
+  `POST /api/assistant/chat` (`backend/assistant.ts`, calling the AI service — ChatGPT since REQUIREMENTS §109, see **Configuration** below),
   classifies each message as `fill` / `navigate` / `reply`; a route the model proposes is re-validated
   against a strict allowlist (`isValidAppRoute`, `src/store/router.tsx`) before the app ever
   navigates to it, so a bad or hallucinated destination just falls back to a plain reply.
@@ -86,7 +86,7 @@ The app behaves like a personal assistant rather than a blank form:
   a date…", "Not required", "Skip", or just type what happened — "got the samples on the 3rd" is
   understood), and finally asks *"Shall I submit it for approval?"*. Prepared By is stamped with the
   logged-in user; the approver then sees it and can approve (Verify) from the same chat, which stamps
-  Approved By. Quick-reply answers never need the network; typed answers go through Groq and fall
+  Approved By. Quick-reply answers never need the network; typed answers go through the model and fall
   back gracefully. See `src/engine/guidedChecklist.ts`.
 - **The sidebar is organized module-by-module, collapsible, and can be closed altogether** — Human
   Resources (HR's eighteen F/HR formats under **HR Records**, and the whole pest control file under
@@ -154,8 +154,8 @@ The app behaves like a personal assistant rather than a blank form:
   only — a fixed window, the same in every browser — so opening it no longer fills the browser.
 - **Mitra you can hear, work that celebrates, and every document uploaded back** (REQUIREMENTS §81): short sounds
   for the bell, the briefing, a submit and a finished day; Mitra reads the briefing aloud and reminds by voice during
-  working hours ("…you are at minus 20 today — finish 2 more to reach zero") in a natural voice (Groq's once its terms
-  are accepted, else Edge's natural Indian English and Gujarati voices); confetti and a cheer line for work on time in
+  working hours ("…you are at minus 20 today — finish 2 more to reach zero") in a natural voice (Edge's natural Indian
+  English, Hindi and Gujarati voices first, else the AI service's from the server: ChatGPT's since §109); confetti and a cheer line for work on time in
   every module, a big celebration when the day is done, streaks and badges, and lines on why each module's work matters
   beyond the score. The Dashboard's day score is loss-framed — 8 of 10 done shows **−20**, all done **0**. A 3D
   introduction of the project's name on the sign-in screen and self-hosted fonts (Baloo Bhai 2, Plus Jakarta Sans, Noto
@@ -167,7 +167,7 @@ The app behaves like a personal assistant rather than a blank form:
   today's facts …); the model decides, the browser does, and every step shows in the chat as it runs. When an
   instruction could mean two things Mitra asks, with options as chips, instead of guessing. You can attach **files, a
   folder or a picture** (PDF, Word, Excel, CSV, text; pictures read by OCR in English and Gujarati) and Mitra reads
-  them; the microphone goes through Groq's Whisper, which hears Gujarati and English mixed. The interface is new —
+  them; the microphone goes through the AI service (ChatGPT's gpt-4o-mini-transcribe since §109), which hears Gujarati, Hindi and English mixed. The interface is new —
   one calm chat, Claude-like, on the full page and in the dock — and the old rules stay as the fallback whenever the
   model cannot be reached, marked as such.
 - **The top bar tells the time and whether the site is there** (REQUIREMENTS §78): a clock in hours, minutes and
@@ -284,8 +284,8 @@ The app behaves like a personal assistant rather than a blank form:
   page - "Who downloaded or printed what last week?" and more, without SQL. Nothing of DCRS's own was changed, and it was
   all proven on a copy first. See [docs/database/README.md](docs/database/README.md) and
   [docs/chatbot-integration.md](docs/chatbot-integration.md).
-- **Mitra asks the model, and says when it could not** (REQUIREMENTS §72). A question goes to the Groq-backed
-  assistant. Only four things are answered without it, each for a reason: an out-of-scope message, "are you a real
+- **Mitra asks the model, and says when it could not** (REQUIREMENTS §72). A question goes to the model (ChatGPT
+  since §109). Only four things are answered without it, each for a reason: an out-of-scope message, "are you a real
   person?", the opening greeting with its buttons, and a command that opens a screen. **When the model cannot be
   reached the reply says so on its face** — no internet on this machine, Mitra did not answer, or no key on this
   server, which are three different things and are never run together. The app can still answer offline from the
@@ -429,7 +429,7 @@ The app behaves like a personal assistant rather than a blank form:
   details: F/HR/01 (staff), F/HR/03 and F/HR/06 (operators), F/HR/08, and a started F/HR/05 induction and
   F/HR/04 declaration, each in its own register's date style. A submitted or verified register is
   reopened for correction to take the line, and nobody is added twice. Text rules read every CV; the
-  assistant fills gaps when Groq is configured (`CV_READ_WITH_ASSISTANT=0` turns that off).
+  assistant fills gaps when an AI key is set (`CV_READ_WITH_ASSISTANT=0` turns that off).
 - **The pest control file inside it is laid out the way the department reads its paperwork** (`/pest-control`
   overview, `src/pages/PestControlPages.tsx`): **Daily Report** — the Daily Pest Control Monitoring
   Record as a month register (`/pest/daily`); **Service Reports** — Gurudev Pest Control's three
@@ -716,7 +716,7 @@ The app behaves like a personal assistant rather than a blank form:
   survives the assistant taking you to another screen. Calendar and workload questions ("is Thursday a
   holiday?", "next company holiday?", "adjustment days?", "what's due today?", "my briefing") are
   answered instantly on the client from the app's own data (`src/engine/assistantLocal.ts`); everything
-  else goes to Groq with a short digest of live facts attached (today's working-day status, the weekly
+  else goes to the model with a short digest of live facts attached (today's working-day status, the weekly
   off, upcoming holidays, what's due), so the model answers from real data.
 - **The company's working calendar is built in** (`src/engine/holidays.ts`, Master Data → Holidays):
   **Thursday is the weekly off**, the 13 festival holidays and the five adjustment (working)
@@ -892,23 +892,29 @@ the firewall and autostart scripts. The Mitra app is its own repository, kept in
 
 ## Configuration
 
-`backend/.env` — one required key:
+`backend/.env` — one required key, the owner's ChatGPT (OpenAI) key, which serves both apps
+(REQUIREMENTS §109; the Mitra server reads the AI settings from this file through its `DCRS_ENV_FILE`).
+`backend/.env.example` names every AI setting; never print, log or commit `backend/.env` itself.
 
 ```
-GROQ_API_KEY=...          # powers the assistant (fill / navigate / reply) — see backend/groq.ts
-GROQ_MODEL=...             # optional override; defaults to a model this key actually has access to
-GROQ_AGENT_MODEL=...       # optional: the tool-calling model Mitra works with as an agent (REQUIREMENTS §80); defaults to GROQ_MODEL
-MITRA_OCR=1                # set to 0 to stop reading the words in attached pictures (tesseract.js, English + Gujarati)
+CHATGPT_API_KEY=...        # powers Mitra: the chat, the agent and its tools, the checklist, CVs, pictures, the microphone, the voice — see backend/ai.ts
+                            # (OPENAI_API_KEY is the same key under OpenAI's own name)
+AI_CHAT_MODEL=...          # optional: default gpt-5.4-mini (sent reasoning_effort "none"); AI_AGENT_MODEL follows it
+AI_SHORT_MODEL=...         # optional: default gpt-5.4-nano (a checklist answer)
+AI_VISION_MODEL=...        # optional: default gpt-5.4-mini (the words in an attached picture)
+AI_FALLBACK_MODEL=...      # optional: default gpt-4.1-mini, asked once when the first model cannot answer ("none": no second)
+AI_TRANSCRIBE_MODEL=...    # optional: default gpt-4o-mini-transcribe (the microphone)
+AI_TTS_MODEL=...           # optional: default gpt-4o-mini-tts (Mitra's voice); AI_TTS_VOICE_FEMALE / _MALE default coral / ash
+AI_DAILY_TOKEN_BUDGET=...  # optional: the cost guard, default 3000000 tokens a day (the chat stops at 90%, every call at 100%)
+PICTURES_READ_WITH_ASSISTANT=1  # set to 0 to read attached pictures by OCR alone
+MITRA_OCR=1                # set to 0 to stop reading the words in attached pictures by OCR (tesseract.js, English + Gujarati)
 MITRA_OCR_LANG_PATH=...    # optional: a folder or URL with eng/guj.traineddata.gz for an offline plant (else downloaded once, ~15 MB)
-GROQ_TTS_MODEL=...         # optional: Mitra's natural voice (default canopylabs/orpheus-v1-english; its terms must be accepted once in the Groq console)
-GROQ_TTS_VOICE_FEMALE=...  # optional: default hannah
-GROQ_TTS_VOICE_MALE=...    # optional: default daniel
-                            # (check with GET https://api.groq.com/openai/v1/models if you swap keys —
-                            # not every model name commonly seen in Groq docs is enabled per-account)
+GROQ_API_KEY=...           # an older setup with no OpenAI key: Groq as before §109 (GROQ_MODEL, GROQ_AGENT_MODEL,
+                            # GROQ_TTS_MODEL, GROQ_TTS_VOICE_FEMALE / _MALE); ignored whenever an OpenAI key is set
 ```
 
-Without `GROQ_API_KEY` set, every screen still works — only the assistant widget's replies fail
-(with a clear "isn't configured yet" message), never silently.
+Without an AI key, every screen still works — Mitra answers from the system's own records and says
+so (REQUIREMENTS §72), never silently.
 
 ## A note on the build toolchain
 

@@ -589,7 +589,16 @@ describe("when a model cannot answer", () => {
         ["gpt-4.1-mini", undefined],
       ]
     );
-    assert.ok(lines.some((l) => /gpt-5\.4-mini could not answer \(400\); gpt-4\.1-mini answers instead/.test(l)));
+    assert.ok(
+      lines.some((l) => /gpt-5\.4-mini could not answer \(400\); gpt-4\.1-mini answers instead\. .*use \/v1\/responses/.test(l)),
+      "the log says why, in the service's words: " + lines.join(" | ")
+    );
+  });
+
+  it("a model that declines says why: its refusal is its words to the person", async () => {
+    onChatGPT();
+    standIn(() => completion(null, { refusal: "I can't help with that." }));
+    assert.deepEqual(await aiChatWithTools({ system: "S", messages: [{ role: "user", content: "x" }], tools: [] }), { content: "I can't help with that." });
   });
 
   it("a model not on the account (404) is skipped for ten minutes: the next question goes straight to the second", async () => {
@@ -666,6 +675,21 @@ describe("the daily cost guard (AI_DAILY_TOKEN_BUDGET)", () => {
     await assert.rejects(aiReadPicture({ image: Buffer.alloc(8), mime: "image/png" }), AiAllowanceError);
     assert.equal(seen.length, 0);
     assert.match(new AiAllowanceError().message, /used up: answers come from this system's own records until tomorrow/);
+  });
+
+  it("on a Groq key the allowance holds the model's answers, while the microphone and the voice go on, as before §109", async () => {
+    onGroq({ GROQ_DAILY_TOKEN_BUDGET: "100" });
+    countTokens(150);
+    assert.equal(dailyBudgetSpent(), true);
+    standIn(() => completion("never"));
+    await assert.rejects(aiChatJSON({ system: "S", user: "U" }), AiAllowanceError);
+    assert.equal(seen.length, 0);
+    standIn(() => json({ text: "hello", language: "en", duration: 1 }));
+    assert.equal((await aiTranscribe({ audio: Buffer.alloc(8), mime: "audio/webm" })).text, "hello");
+    standIn(() => audio(wav(0.5)));
+    await aiSpeak({ text: "Hello.", voice: "female" });
+    assert.equal(seen.length, 1, "Groq billed hearing and speech apart from tokens");
+    assert.equal(seen[0].url, "https://api.groq.com/openai/v1/audio/speech");
   });
 
   it("3,000,000 tokens a day on ChatGPT; the super admin's count says the service, the allowance and where the chat stops", () => {
