@@ -24,8 +24,9 @@
 //
 // THE PHONE. The Mitra server signs in to DCRS on a person's behalf (POST /api/auth/login) and says which phone in
 // X-Mitra-Device-* headers, which DCRS trusts only beside X-Mitra-Key matching MITRA_SERVER_KEY, set on both servers:
-// compared in constant time, never logged, never in an answer. Without it the session is the Mitra server's request,
-// said so in words (MITRA_UNNAMED_NAME).
+// compared in constant time, never logged, never in an answer. Without it the session is still a mobile phone on the
+// Mitra phone app (the Mitra server says it is the app, X-Client-Name, as plainly as a browser says what it is), but
+// not named, said so in words (MITRA_UNNAMED_NAME), at the Mitra server's address, a device of its own at each sign-in.
 //
 // The rules are here, over a store: PostgreSQL's (the server's) or one in memory (the unit tests', and the API's
 // default in a test); backend/tests/deviceSessions.test.ts holds both to them. The routes are backend/index.ts (sign-in,
@@ -624,12 +625,16 @@ export function createDeviceSessions(opts: DeviceSessionsOptions = {}): DeviceSe
     const sent = browserFacts(req.body);
     const seen = describeUserAgent(clip(req.header("user-agent"), 400), { mobile: req.header("sec-ch-ua-mobile"), platform: req.header("sec-ch-ua-platform") }, sent.touchPoints);
     if (seen.browser) return { id: sent.id, name: seen.name, category: seen.category, place: "website", client: seen.client, system: seen.system, address };
-    // Another program signing in for somebody: the Mitra server without the key, or another server (the Audit
-    // Assistant). Its name is only a label (X-Client-Name), said as such; it is a device of its own at each sign-in.
+    // Another program signing in for somebody: the Mitra server without the key (or with one that does not match), or
+    // another server (the Audit Assistant). It is a device of its own at each sign-in, at the address it came from.
+    // The Mitra server signs in only for its phone app, so its sign-in is a mobile phone on the Mitra phone app, not a
+    // computer (the owner asked to see at a glance which devices are mobiles; review of 12-Oct-2026): only which phone
+    // is not known. Any other program's name is only its label (X-Client-Name), said as such.
     const label = clip(req.header("x-client-name"), 60);
+    if (/mitra/i.test(label)) return { id: "", name: MITRA_UNNAMED_NAME, category: "mobile", place: "phone-app", client: label, system: "", address };
     return {
       id: "",
-      name: /mitra/i.test(label) ? MITRA_UNNAMED_NAME : `${label || seen.client || "A program"} - through the DCRS API`,
+      name: `${label || seen.client || "A program"} - through the DCRS API`,
       category: "computer",
       place: "api",
       client: label || seen.client,

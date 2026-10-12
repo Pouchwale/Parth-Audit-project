@@ -7050,9 +7050,10 @@ backend/accessRoutes.ts, frontend/src/engine/deviceWords.ts, frontend/src/utils/
    signed in somewhere, each device with an icon by its category, its name, the category, system and browser or app,
    the website or the Mitra phone app, the address, since when and when last used, and **"Sign out this device"**
    (asked first; never his own device, which is marked "This device: yours"). The rule is said above the list, and
-   when MITRA_SERVER_KEY is not set, that phones show as the Mitra server's request. The sign-in line of the activity
-   log names the device ("Windows computer - Chrome (Website) from 10.192.193.40"), and a device signed out by the
-   super admin is the line "Device signed out by the super admin" with the person and the device.
+   when MITRA_SERVER_KEY is not set, that a phone is listed as a mobile phone but not by its own name, model or
+   address. The sign-in line of the activity log names the device ("Windows computer - Chrome (Website) from
+   10.192.193.40"), and a device signed out by the super admin is the line "Device signed out by the super admin"
+   with the person and the device.
 5. **A device signed out is told so at its next request**: 401 `session-ended` with why and when in words, in the
    language asked (X-Language: English, Hindi or Gujarati): "The super admin signed this device out at 14:05. Sign in
    again to carry on." The website goes back to the sign-in screen saying it (in the screens' language), and so does
@@ -7066,8 +7067,10 @@ backend/accessRoutes.ts, frontend/src/engine/deviceWords.ts, frontend/src/utils/
   environment (MITRA_SERVER_KEY, the same on both servers, at least 16 characters; never from the app), and the
   phone's id, name, model, system, kind and address in X-Mitra-Device-* headers (percent-encoded). DCRS believes those
   headers only beside a matching key, compared in constant time; the key is never logged and never in an answer.
-  Without the key the phone's session is recorded as "Mitra server's request - the phone is not named (MITRA_SERVER_KEY
-  is not set on both servers)".
+  Without the key (or with one that does not match) the phone's session is still a **mobile phone on the Mitra phone
+  app**, only not named: "A phone - its name is not known (set the same MITRA_SERVER_KEY on both servers)", at the
+  Mitra server's address, a device of its own at each sign-in (review of 12-Oct-2026: it was listed as a computer
+  through "another program", so out of the box the super admin could not tell the phones from the computers).
 - A phone signing in again hands DCRS the session it still holds, so DCRS replaces it rather than counting it twice
   (with the key, its device id does the same). A session DCRS started that Mitra does not take up (the super admin
   still on the first password, an answer about the person it cannot read) is signed out of DCRS at once, so it holds

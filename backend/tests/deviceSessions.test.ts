@@ -37,7 +37,7 @@ import {
   type SessionRecord,
   type SessionStore,
 } from "../deviceSessions.ts";
-import { BEFORE_DEVICES_NAME, DEVICE_LIMIT_CODE, MITRA_UNNAMED_NAME, SESSION_ENDED_CODE, deviceLimitWordsOf, sessionEndedWordsOf } from "../../frontend/src/engine/deviceWords.ts";
+import { BEFORE_DEVICES_NAME, DEVICE_LIMIT_CODE, MITRA_UNNAMED_NAME, SESSION_ENDED_CODE, deviceLimitWordsOf, deviceNameIn, sessionEndedWordsOf } from "../../frontend/src/engine/deviceWords.ts";
 
 const ZONE = "Asia/Kolkata";
 /** 14:05 at the factory on Friday 9 October 2026. */
@@ -440,7 +440,7 @@ describe("X-Mitra-Key, the Mitra server's proof (MITRA_SERVER_KEY on both server
     assert.equal(mitraKeyMatches(undefined, KEY), false);
   });
 
-  it("is believed only when it matches: the phone is named; otherwise the session is the Mitra server's request, said so", () => {
+  it("is believed only when it matches: the phone is named; otherwise it is not named, and said so", () => {
     const now = () => new Date(NOW);
     const withKey = createDeviceSessions({ store: memorySessionStore(), clock: now, limit: 2, mitraKey: KEY, timeZone: () => ZONE });
     const phoneHeaders = {
@@ -464,7 +464,7 @@ describe("X-Mitra-Key, the Mitra server's proof (MITRA_SERVER_KEY on both server
     } satisfies DeviceFacts);
     assert.equal(deviceLine(named), "Kapila's phone (Pixel 8) (Mitra phone app) from 10.192.193.77");
     const wrong = withKey.deviceOf(request({ ...phoneHeaders, "x-mitra-key": "a-guess-at-the-key-000000000000" }, "::ffff:127.0.0.1"));
-    assert.equal(wrong.place, "api");
+    assert.equal(wrong.place, "phone-app", "still the Mitra phone app");
     assert.equal(wrong.name, MITRA_UNNAMED_NAME, "a wrong key names no phone");
     assert.equal(wrong.id, "", "and its device id is not believed");
     assert.equal(wrong.address, "127.0.0.1");
@@ -472,6 +472,34 @@ describe("X-Mitra-Key, the Mitra server's proof (MITRA_SERVER_KEY on both server
     assert.equal(noKey.phonesNamed, false);
     assert.equal(noKey.deviceOf(request({ ...phoneHeaders, "x-mitra-key": KEY })).name, MITRA_UNNAMED_NAME, "without a key set here, no header is believed");
     assert.equal(withKey.phonesNamed, true);
+  });
+
+  it("lists a phone signed in through the Mitra app as a mobile phone on the phone app even without the key, only not named (review of 12-Oct-2026)", async () => {
+    // The owner asked to see at a glance whether a device is a computer or a mobile. Out of the box (no key on either
+    // server) every phone signed in through Mitra was listed as a computer, through "another program".
+    const now = () => new Date(NOW);
+    const mitra = { "user-agent": "node", "x-client-name": "Mitra mobile app" };
+    const noKey = createDeviceSessions({ store: memorySessionStore(), clock: now, limit: 2, mitraKey: "", timeZone: () => ZONE });
+    const otherKey = createDeviceSessions({ store: memorySessionStore(), clock: now, limit: 2, mitraKey: KEY, timeZone: () => ZONE });
+    const unnamed = { id: "", name: MITRA_UNNAMED_NAME, category: "mobile", place: "phone-app", client: "Mitra mobile app", system: "", address: "127.0.0.1" } satisfies DeviceFacts;
+    assert.deepEqual(noKey.deviceOf(request(mitra, "::ffff:127.0.0.1")), unnamed, "no key set on this server");
+    assert.deepEqual(otherKey.deviceOf(request({ ...mitra, "x-mitra-key": "a-guess-at-the-key-000000000000" }, "::ffff:127.0.0.1")), unnamed, "a key that does not match");
+    assert.equal(deviceLine(unnamed), "A phone - its name is not known (set the same MITRA_SERVER_KEY on both servers) (Mitra phone app) from 127.0.0.1");
+    assert.equal(deviceNameIn("gu", MITRA_UNNAMED_NAME), "એક ફોન - તેનું નામ ખબર નથી (બંને સર્વર પર એક જ MITRA_SERVER_KEY રાખો)");
+    assert.equal(deviceNameIn("hi", MITRA_UNNAMED_NAME), "एक फ़ोन - उसका नाम पता नहीं (दोनों सर्वर पर एक ही MITRA_SERVER_KEY रखें)");
+    // Another program signing in for somebody is still a computer through the DCRS API, named by its label.
+    const other = noKey.deviceOf(request({ "user-agent": "node", "x-client-name": "Audit Assistant" }, "::ffff:10.192.193.9"));
+    assert.deepEqual([other.name, other.category, other.place, other.address], ["Audit Assistant - through the DCRS API", "computer", "api", "10.192.193.9"]);
+    // On the super admin's list and in a refusal of one device too many, it is the mobile on the Mitra phone app.
+    const pc = await noKey.signIn({ sessionId: newId(), user: STAFF, device: noKey.deviceOf(browser(UA.windowsChrome, "browser-pc-000101")), endsAt: CLOSE });
+    const phone = await noKey.signIn({ sessionId: newId(), user: STAFF, device: noKey.deviceOf(request(mitra, "::ffff:127.0.0.1")), endsAt: CLOSE });
+    assert.equal(pc.ok && phone.ok, true);
+    assert.deepEqual((await noKey.open()).map((s) => [sessionJson(s).category, sessionJson(s).place]), [["computer", "website"], ["mobile", "phone-app"]]);
+    const third = await noKey.signIn({ sessionId: newId(), user: STAFF, device: noKey.deviceOf(browser(UA.iphone, "browser-iphone-101")), endsAt: CLOSE });
+    assert.equal(third.ok, false);
+    const refusal = noKey.limitRefusal(third.ok ? [] : third.holding, "en");
+    assert.deepEqual(refusal.devices.map((d) => [d.category, d.place]), [["computer", "website"], ["mobile", "phone-app"]]);
+    assert.match(refusal.error, /and A phone - its name is not known \(set the same MITRA_SERVER_KEY on both servers\) \(Mitra phone app, since 14:05\)\./);
   });
 
   it("is never written in a log or an answer, and one too short to be safe is not used", async () => {

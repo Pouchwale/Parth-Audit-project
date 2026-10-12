@@ -94,7 +94,8 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
    node -e "console.log(require('node:crypto').randomBytes(24).toString('base64url'))"
    ```
    With it, DCRS's super admin sees each phone by its own name and model on User access ("Signed in on"), and can
-   sign one out; without it, a phone shows as "Mitra server's request". At least 16 characters, or the Mitra server
+   sign one out; without it, a phone is listed as a mobile phone but not by its own name ("A phone - its name is not
+   known"), at the Mitra server's address. At least 16 characters, or the Mitra server
    does not start and says why. Never paste it into the app.
    Leave `HOST` out (it listens on every network card). Its data: for the plant, in a PostgreSQL database of its own
    (REQUIREMENTS §107): once the database `mitra` is made (docs/DEPLOYMENT.md, "Both applications on one PostgreSQL

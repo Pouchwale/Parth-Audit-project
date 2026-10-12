@@ -51,8 +51,11 @@ export const PLACE_WORDS: Record<DeviceLanguage, Record<SessionPlace, string>> =
 /** The name of a device whose session was started before devices were recorded (taken in once, at its first request after the change). */
 export const BEFORE_DEVICES_NAME = "Signed in before devices were recorded";
 
-/** The name of a phone's session when the Mitra server could not say which phone: MITRA_SERVER_KEY is not set on both servers. */
-export const MITRA_UNNAMED_NAME = "Mitra server's request - the phone is not named (MITRA_SERVER_KEY is not set on both servers)";
+/**
+ * The name of a phone's session when the Mitra server could not say which phone: MITRA_SERVER_KEY is not set, or not
+ * the same, on both servers. It is still listed as a mobile phone on the Mitra phone app (review of 12-Oct-2026).
+ */
+export const MITRA_UNNAMED_NAME = "A phone - its name is not known (set the same MITRA_SERVER_KEY on both servers)";
 
 const SPECIAL_NAMES: Record<string, Record<DeviceLanguage, string>> = {
   [BEFORE_DEVICES_NAME]: {
@@ -62,8 +65,8 @@ const SPECIAL_NAMES: Record<string, Record<DeviceLanguage, string>> = {
   },
   [MITRA_UNNAMED_NAME]: {
     en: MITRA_UNNAMED_NAME,
-    gu: "મિત્ર સર્વરની વિનંતી - ફોનનું નામ નથી (બંને સર્વર પર MITRA_SERVER_KEY નથી)",
-    hi: "मित्र सर्वर का अनुरोध - फ़ोन का नाम नहीं (दोनों सर्वर पर MITRA_SERVER_KEY नहीं है)",
+    gu: "એક ફોન - તેનું નામ ખબર નથી (બંને સર્વર પર એક જ MITRA_SERVER_KEY રાખો)",
+    hi: "एक फ़ोन - उसका नाम पता नहीं (दोनों सर्वर पर एक ही MITRA_SERVER_KEY रखें)",
   },
 };
 
@@ -177,7 +180,7 @@ const VIEW_EN = {
   limit: "An account may be signed in on at most {limit} devices at once; one more is refused, naming the devices, until one is signed out. The super admin is not held to it.",
   noLimit: "This server sets no limit on the devices an account is signed in on (DCRS_MAX_DEVICES=off).",
   phonesNotNamed:
-    "MITRA_SERVER_KEY is not set on this server, so a phone signed in through the Mitra phone app shows as the Mitra server's request, not by its own name. Set the same key on both servers.",
+    "MITRA_SERVER_KEY is not set on this server, so a phone signed in through the Mitra phone app is listed as a mobile phone, but not by its own name, model or address: the address shown is the Mitra server's. Set the same key on both servers.",
   none: "Nobody is signed in on any device now.",
   unknown: "The devices could not be read just now. Refresh to try again.",
   colPerson: "Person",
@@ -210,7 +213,7 @@ const VIEW_WORDS: Record<DeviceLanguage, Record<ViewKey, string>> = {
     limit: "એક ખાતું એકસાથે વધુમાં વધુ {limit} ઉપકરણો પર સાઇન ઇન રહી શકે; એક વધુ ઉપકરણ, ઉપકરણોના નામ સાથે, ના પાડવામાં આવે છે, જ્યાં સુધી એક સાઇન આઉટ ન થાય. સુપર એડમિનને આ લાગુ પડતું નથી.",
     noLimit: "આ સર્વર ખાતા દીઠ ઉપકરણોની કોઈ મર્યાદા રાખતું નથી (DCRS_MAX_DEVICES=off).",
     phonesNotNamed:
-      "આ સર્વર પર MITRA_SERVER_KEY નથી, એટલે મિત્ર ફોન એપથી સાઇન ઇન થયેલો ફોન તેના નામથી નહીં, મિત્ર સર્વરની વિનંતી તરીકે દેખાય છે. બંને સર્વર પર એક જ કી રાખો.",
+      "આ સર્વર પર MITRA_SERVER_KEY નથી, એટલે મિત્ર ફોન એપથી સાઇન ઇન થયેલો ફોન મોબાઇલ ફોન તરીકે દેખાય છે, પણ તેના પોતાના નામ, મોડેલ કે સરનામાથી નહીં: દેખાતું સરનામું મિત્ર સર્વરનું છે. બંને સર્વર પર એક જ કી રાખો.",
     none: "અત્યારે કોઈ પણ ઉપકરણ પર કોઈ સાઇન ઇન નથી.",
     unknown: "ઉપકરણો અત્યારે વાંચી શકાયા નથી. ફરી પ્રયાસ કરવા રિફ્રેશ કરો.",
     colPerson: "વ્યક્તિ",
@@ -238,7 +241,7 @@ const VIEW_WORDS: Record<DeviceLanguage, Record<ViewKey, string>> = {
     limit: "एक खाता एक साथ ज़्यादा से ज़्यादा {limit} डिवाइस पर साइन इन रह सकता है; एक और डिवाइस, डिवाइस के नाम के साथ, मना किया जाता है, जब तक एक साइन आउट न हो। सुपर एडमिन पर यह लागू नहीं होता।",
     noLimit: "यह सर्वर खाते के डिवाइस की कोई सीमा नहीं रखता (DCRS_MAX_DEVICES=off)।",
     phonesNotNamed:
-      "इस सर्वर पर MITRA_SERVER_KEY नहीं है, इसलिए मित्र फ़ोन ऐप से साइन इन हुआ फ़ोन अपने नाम से नहीं, मित्र सर्वर के अनुरोध के रूप में दिखता है। दोनों सर्वर पर एक ही की रखें।",
+      "इस सर्वर पर MITRA_SERVER_KEY नहीं है, इसलिए मित्र फ़ोन ऐप से साइन इन हुआ फ़ोन मोबाइल फ़ोन के रूप में दिखता है, पर अपने नाम, मॉडल या पते से नहीं: दिखने वाला पता मित्र सर्वर का है। दोनों सर्वर पर एक ही की रखें।",
     none: "अभी किसी भी डिवाइस पर कोई साइन इन नहीं है।",
     unknown: "डिवाइस अभी पढ़े नहीं जा सके। फिर से कोशिश करने के लिए रिफ़्रेश करें।",
     colPerson: "व्यक्ति",
