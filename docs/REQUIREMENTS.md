@@ -7067,9 +7067,9 @@ backend/accessRoutes.ts, frontend/src/engine/deviceWords.ts, frontend/src/utils/
    there. Until then a phone the super admin had signed out kept getting the person's alerts (a lost phone's lock
    screen), and could not remove its own registration, its session being over. A sign-in again on the same phone
    carries its registration on under the new session; a session that simply runs to its day's end keeps its phone
-   registered, so the next morning's alerts still reach it. The phone registers again at its next sign-in (the Mitra
-   app forgets its saved registration when DCRS signs it out). The super admin's question before "Sign out this
-   device" says that a phone gets no more notifications until it is signed in again.
+   registered, so the next morning's alerts still reach it. The phone registers again at each new sign-in (the Mitra
+   app marks each sign-in and sends its registration again under a new one). The super admin's question before
+   "Sign out this device" says that a phone gets no more notifications until it is signed in again.
 
 **The phone** (the Mitra server and app, branch mitra-notify):
 

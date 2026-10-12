@@ -445,7 +445,7 @@ export function createDatabaseLedger(db: () => Queryable = () => database() as u
  * longer remove its own registration (its session was over). An account switched off loses every phone registered
  * for it. A sign-in again on the same device carries its registration on under the new session. A session that
  * simply runs to its day's end keeps its phone registered: the next morning's alerts still reach it (§97). The phone
- * registers again at its next sign-in (the Mitra app does, once its saved registration is gone).
+ * registers again at each new sign-in (the Mitra app marks each sign-in and registers again under a new one).
  */
 export function pushDevicesFollow(ledger: () => NotificationLedger = databaseLedger): (ended: SessionsEnded) => Promise<void> {
   return async (ended) => {

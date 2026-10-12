@@ -925,6 +925,37 @@ Seven scripts live in `tests/`:
   run: the other browser suites (the e2e runner gives both test servers DCRS_MAX_DEVICES=off, so the many sessions per
   account they open are not refused), and no real phone (the forwarded headers and refusals are proved against the
   stand-in DCRS).
+- **The review of 12-Oct-2026: a phone through Mitra is a mobile without the key, and a phone signed out is told
+  nothing more** (REQUIREMENTS §106). Two of the review's findings, each with tests that fail on the code before
+  its fix. F1: `backend/tests/deviceSessions.test.ts` (1 new, "lists a phone signed in through the Mitra app as a
+  mobile phone on the phone app even without the key, only not named": the device itself, with no key and with a
+  key that does not match, its line in the activity log, its name in Gujarati and Hindi, the Audit Assistant still a
+  computer through the API, the super admin's list and a refusal of one device too many naming it the mobile on
+  the phone app; failing before with computer/api; and the wrong-key check now expects phone-app). F2:
+  `backend/tests/deviceSessions.test.ts` (1 new, in the contract run on memory and on PostgreSQL: what hangs on a
+  session is told once for each way it is ended on purpose, and of a sign-in again on the device with the session
+  that replaced it; an account switched off even with nothing open; nothing at the day's end; a failure to follow
+  logged, never the sign-out's), `backend/tests/notificationLedger.test.ts` (1 new, memory and PostgreSQL: phones
+  forgotten with a session ended on purpose, moved to the one that replaces it, all gone with the account, nobody
+  else's), `backend/tests/apiV1.test.ts` (3 new: a phone registered under the session it signed in with, taken away
+  by the super admin's "Sign out this device" while the phone itself could not have removed it, 401
+  `session-ended`; a sign-in again on the same phone carries it on and the person's own sign-out drops it; an
+  account switched off loses its phones, nobody else's). **Run on 12-Oct-2026:** `npm run typecheck` clean;
+  `npm run test:unit` 663 frontend tests and 538 backend (535 passing, 3 skipped: the PostgreSQL contracts without
+  their database and the overview's); `deviceSessions.test.ts` and `notificationLedger.test.ts` with
+  `DCRS_SESSIONS_TEST_URL` and `DCRS_LEDGER_TEST_URL` on a throwaway embedded PostgreSQL, 54 of 54. A probe of the
+  real server (`backend/index.ts` on a throwaway embedded PostgreSQL, DCRS_MAX_DEVICES=2, no MITRA_SERVER_KEY,
+  PUSH_ENABLED=0): a computer and the Mitra server's sign-in for a phone are listed "Windows computer - Chrome
+  [computer/website]" and "A phone - its name is not known (...) [mobile/phone-app]", and a third device's refusal
+  names them so; the phone's registration is made under its session, moved to the new one when the Mitra server
+  signs the same phone in again with the session it holds, gone after the super admin's "Sign out this device"
+  (the phone's own removal answered 401 `session-ended`), and gone with the account switched off; `push_devices`
+  has its `session_id`. Browser suite: `E2E_SKIP_UNIT=1 npm run test:e2e -- tests/e2e_user_access.py` 110 of 110
+  at d982ca1. The phone's half (Mitra, branch mitra-notify): `server/test/phone-app.test.ts` (1 new: the phone
+  registers again at each new sign-in), `server/test/db-copy.test.ts` (1 new, the review's third finding: a server
+  on its embedded folder says at every start that its data is not in PostgreSQL and how to move it, src/index.ts
+  saying it as it starts); `npm run typecheck` clean, `npm test` 30 files, 325 passing and 2 skipped. Not run: the
+  other browser suites, and no real phone.
 - **Passwords are the super admin's** (REQUIREMENTS §105, 9-Oct-2026). New unit tests, each failing before the change
   (the module did not exist): `backend/tests/passwordPolicy.test.ts` (6: only the super admin changes their own; "No
   password yet" matches no password, the built-in one included, and is told apart from a real hash; the start-up
