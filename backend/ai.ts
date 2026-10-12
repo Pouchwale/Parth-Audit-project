@@ -252,6 +252,9 @@ export function tokensUsedToday(): number {
 
 const thousands = (n: number): string => Math.round(n).toLocaleString("en-US");
 
+/** The setting the day's allowance comes from, to name in the log: AI_DAILY_TOKEN_BUDGET, or GROQ_DAILY_TOKEN_BUDGET on a Groq key without it. */
+const budgetSetting = (): string => (aiProviderName() === "groq" && !(Number(setting("AI_DAILY_TOKEN_BUDGET")) > 0) ? "GROQ_DAILY_TOKEN_BUDGET" : "AI_DAILY_TOKEN_BUDGET");
+
 /** Adds a call's tokens to today's count (anything that isn't a positive number is ignored), and says once when 90% and all of it are used. */
 export function countTokens(n: unknown): void {
   if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) return;
@@ -260,10 +263,10 @@ export function countTokens(n: unknown): void {
   const budget = dailyTokenBudget();
   if (meter.said < 2 && meter.used >= budget) {
     meter.said = 2;
-    console.warn(`The AI allowance for today is used up: ${thousands(meter.used)} of ${thousands(budget)} tokens (AI_DAILY_TOKEN_BUDGET). Nothing more is asked of the model until tomorrow; Mitra answers from this system's own records.`);
+    console.warn(`The AI allowance for today is used up: ${thousands(meter.used)} of ${thousands(budget)} tokens (${budgetSetting()}). Nothing more is asked of the model until tomorrow; Mitra answers from this system's own records.`);
   } else if (meter.said < 1 && meter.used >= budget * ALLOWANCE_SHARE) {
     meter.said = 1;
-    console.warn(`The AI allowance for today is 90% used: ${thousands(meter.used)} of ${thousands(budget)} tokens (AI_DAILY_TOKEN_BUDGET). Mitra's chat answers from this system's own records until tomorrow; the rest is kept for the checklist, CVs, pictures, the microphone and the voice.`);
+    console.warn(`The AI allowance for today is 90% used: ${thousands(meter.used)} of ${thousands(budget)} tokens (${budgetSetting()}). Mitra's chat answers from this system's own records until tomorrow; the rest is kept for the checklist, CVs, pictures, the microphone and the voice.`);
   }
 }
 

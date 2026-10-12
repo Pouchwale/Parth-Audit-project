@@ -949,6 +949,10 @@ function isAssistantThrottled(userId: string): boolean {
 /** The words and code a route answers when the day's AI allowance is spent (backend/ai.ts AiAllowanceError); the browser reads the code. */
 const DAILY_ALLOWANCE_ANSWER = { error: "The assistant's allowance for today is used up — answers come from this system's own records until tomorrow.", code: "daily-allowance" };
 const allowanceSpent = (err: unknown): boolean => (err as { code?: unknown } | null)?.code === "daily-allowance";
+// With no AI key a question is answered at once, in plain words with a code, and nothing goes to the log: the
+// browser asks anyway (engine/assistantReach.ts) and labels its own answer "not configured" (§72), and a server
+// without a key would otherwise write a stack trace for every question asked.
+const NOT_CONFIGURED_ANSWER = { error: "The assistant isn't configured on this server (no AI key).", code: "not-configured" };
 function recordAssistantCall(userId: string): void {
   const rec = assistantCalls.get(userId) ?? { count: 0, first: Date.now() };
   rec.count += 1;
@@ -1048,6 +1052,10 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
     res.status(400).json({ error: "Unsupported language." });
     return;
   }
+  if (!aiConfigured()) {
+    res.status(503).json(NOT_CONFIGURED_ANSWER);
+    return;
+  }
   // THE PLANT'S DAILY ALLOWANCE (REQUIREMENTS §75, §109, backend/ai.ts): with
   // 90% of the day's tokens used, the model is not asked at all. The browser
   // shows its own answer with the reason (engine/assistantReach.ts
@@ -1107,6 +1115,10 @@ app.post("/api/assistant/agent", requireAuth, express.json({ limit: "200kb" }), 
   const checked = validateAgentRequest(req.body);
   if (!checked.ok) {
     res.status(400).json({ error: checked.error });
+    return;
+  }
+  if (!aiConfigured()) {
+    res.status(503).json(NOT_CONFIGURED_ANSWER);
     return;
   }
   if (assistantAllowanceUsedUp()) {
@@ -1378,6 +1390,10 @@ app.post("/api/assistant/checklist-answer", requireAuth, async (req: Request, re
   }
   if (typeof today !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(today)) {
     res.status(400).json({ error: "today must be an ISO date string." });
+    return;
+  }
+  if (!aiConfigured()) {
+    res.status(503).json(NOT_CONFIGURED_ANSWER);
     return;
   }
   if (isAssistantThrottled(userId)) {
