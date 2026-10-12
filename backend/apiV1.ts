@@ -237,6 +237,8 @@ export function sessionTokenOf(req: Request): string | null {
 interface Caller {
   user: PublicUser;
   token: string;
+  /** The session the token belongs to (user_sessions.id): a phone's push registration is made under it (§106). */
+  sessionKey: string;
 }
 const callerOf = (res: Response): Caller => res.locals.apiV1Caller as Caller;
 
@@ -637,7 +639,7 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
       fail(res, 403, "password-change-required", "This account is still on the password the administrator gave it. Sign in to DCRS in a browser and choose your own first.");
       return;
     }
-    res.locals.apiV1Caller = { user: publicUser(row), token } satisfies Caller;
+    res.locals.apiV1Caller = { user: publicUser(row), token, sessionKey: held.session.id } satisfies Caller;
     next();
   };
 

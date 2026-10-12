@@ -35,6 +35,7 @@ import {
   type DeviceFacts,
   type DeviceRequest,
   type SessionRecord,
+  type SessionsEnded,
   type SessionStore,
 } from "../deviceSessions.ts";
 import { BEFORE_DEVICES_NAME, DEVICE_LIMIT_CODE, MITRA_UNNAMED_NAME, SESSION_ENDED_CODE, deviceLimitWordsOf, deviceNameIn, sessionEndedWordsOf } from "../../frontend/src/engine/deviceWords.ts";
@@ -375,6 +376,52 @@ function contract(name: string, make: () => Promise<Harness>): void {
       assert.equal((await s.get(pc.sessionId))?.lastUsedAt.getTime(), NOW + TOUCH_EVERY_MS + 1_000, "after it");
       now = NOW;
       await s.end(pc.sessionId, "signed-out", staff.id);
+    });
+
+    it("tells what hangs on a session that it was ended on purpose, and hands it on when a sign-in again on the device replaces it (review of 12-Oct-2026)", async () => {
+      // A phone's push registration hangs on its session (backend/notifications.ts pushDevicesFollow): a phone the super
+      // admin signed out kept getting the person's alerts.
+      now = NOW;
+      const told: SessionsEnded[] = [];
+      const s = createDeviceSessions({ store: h.store, clock, limit: null, mitraKey: "", timeZone: () => ZONE, onEnded: async (e) => void told.push(e) });
+      const pc = await signIn(s, staff, browser(UA.windowsChrome, "browser-pc-000009"));
+      const again = await signIn(s, staff, browser(UA.windowsChrome, "browser-pc-000009"));
+      const phone = await signIn(s, staff, browser(UA.androidPhone, "browser-phone-0009"));
+      assert.deepEqual(told, [{ why: "replaced", userId: staff.id, ids: [pc.sessionId], replacedBy: again.sessionId }], "the same device signed in again");
+      assert.ok(await s.end(phone.sessionId, "super-admin", admin.id));
+      assert.equal(await s.end(phone.sessionId, "super-admin", admin.id), null);
+      assert.equal(await s.signOut(claim(again.sessionId, staff.id)), "ended");
+      assert.equal(await s.signOut(claim(again.sessionId, staff.id)), "already");
+      const tablet = await signIn(s, staff, browser(UA.ipad, "browser-ipad-00009"));
+      const iphone = await signIn(s, staff, browser(UA.iphone, "browser-iphone-009"));
+      assert.equal(await s.endAll(staff.id, "account-off", admin.id), 2);
+      assert.equal(await s.endAll(staff.id, "account-off", admin.id), 0);
+      assert.deepEqual(told.slice(1), [
+        { why: "super-admin", userId: staff.id, ids: [phone.sessionId] },
+        { why: "signed-out", userId: staff.id, ids: [again.sessionId] },
+        { why: "account-off", userId: staff.id, ids: [tablet.sessionId, iphone.sessionId] },
+        { why: "account-off", userId: staff.id, ids: [] },
+      ], "each once; an account switched off is told even with nothing open, so its phones are forgotten");
+      // A session that runs to its day's end is not ended on purpose: nothing is told of it.
+      const day = await signIn(s, staff, browser(UA.windowsChrome, "browser-pc-000010"));
+      now = CLOSE.getTime() + 60_000;
+      assert.equal((await s.check(claim(day.sessionId, staff.id))).ok, false);
+      assert.equal(told.length, 5);
+      now = NOW;
+      // What hangs on it failing to follow never fails the sign-out itself; it is said in the log.
+      const said: string[] = [];
+      const spy = mock.method(console, "error", (...args: unknown[]) => void said.push(args.map(String).join(" ")));
+      try {
+        const failing = createDeviceSessions({ store: h.store, clock, limit: null, mitraKey: "", timeZone: () => ZONE, onEnded: async () => {
+          throw new Error("the ledger is out of reach");
+        } });
+        const x = await signIn(failing, staff, browser(UA.androidPhone, "browser-phone-0010"));
+        assert.equal(await failing.signOut(claim(x.sessionId, staff.id)), "ended");
+      } finally {
+        spy.mock.restore();
+      }
+      assert.ok(said.some((l) => /what hangs on the ended session \(signed-out\) was not updated: the ledger is out of reach/.test(l)), said.join("\n"));
+      await s.end(day.sessionId, "signed-out", staff.id);
     });
 
     it("lets two sign-ins at the same moment take one place between them, never both past the limit", async () => {

@@ -140,6 +140,28 @@ function contract(name: string, make: () => Promise<Harness>): void {
       assert.equal((await L.devicesOf(B)).length, 0);
     });
 
+    it("phones follow their sign-in: forgotten with a session ended on purpose, moved to the one that replaces it, all gone with the account (§106)", async () => {
+      const t = (n: string) => `ExponentPushToken[follow-${n}-0000000]`;
+      await L.registerDevice(A, { token: t("a1"), platform: "android", language: "en" }, "s-a1");
+      await L.registerDevice(A, { token: t("a2"), platform: "ios", language: "gu" }, "s-a2");
+      await L.registerDevice(B, { token: t("b1"), platform: "android", language: "hi" }, "s-b1");
+      const ofA = async () => (await L.devicesOf(A)).map((d) => [d.token, d.sessionId ?? null]).sort((x, y) => String(x[0]).localeCompare(String(y[0])));
+      assert.deepEqual(await ofA(), [[t("a1"), "s-a1"], [t("a2"), "s-a2"]], "each under the session it registered with");
+      assert.equal(await L.moveSessionDevices(["s-a1"], "s-a1b"), 1, "the same phone signed in again");
+      assert.equal(await L.forgetSessionDevices(["s-a1"]), 0, "the replaced session holds nothing any more");
+      assert.deepEqual(await ofA(), [[t("a1"), "s-a1b"], [t("a2"), "s-a2"]]);
+      assert.equal(await L.forgetSessionDevices(["s-a1b"]), 1, "signed out by the super admin");
+      assert.deepEqual(await ofA(), [[t("a2"), "s-a2"]]);
+      await L.registerDevice(A, { token: t("a2"), platform: "ios", language: "gu" }, "s-a3");
+      assert.equal(await L.forgetSessionDevices(["s-a2"]), 0, "registered again: the new sign-in's");
+      assert.equal(await L.forgetSessionDevices([]), 0);
+      assert.equal(await L.moveSessionDevices([], "s-x"), 0);
+      assert.equal(await L.forgetDevicesOf(A), 1, "the account switched off");
+      assert.deepEqual(await L.devicesOf(A), []);
+      assert.deepEqual((await L.devicesOf(B)).map((d) => d.token), [t("b1")], "nobody else's");
+      await L.forgetToken(t("b1"));
+    });
+
     it("choices: every kind on until switched off; a change keeps the rest", async () => {
       const first = await L.getPreferences(A);
       assert.ok(Object.values(first.kinds).every((v) => v === true));

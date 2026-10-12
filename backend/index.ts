@@ -53,6 +53,7 @@ import { registerOverviewRoutes } from "./overviewRoutes.ts";
 import { prepareOverview } from "./overviewSetup.ts";
 import { registerAccessRoutes } from "./accessRoutes.ts";
 import { registerNotificationRoutes } from "./notificationRoutes.ts";
+import { pushDevicesFollow } from "./notifications.ts";
 import { printCompanyNetwork, registerPhoneAppRoutes } from "./phoneApp.ts";
 import { setNotificationDeps, startJobs } from "./jobs.ts";
 import { runPushes } from "./push.ts";
@@ -154,8 +155,10 @@ function cookieOptions(maxAgeMs?: number): CookieOptions {
 // it), read on every request, ended by a sign-out or by the super admin's "Sign
 // out this device" (backend/deviceSessions.ts; the super admin's view is
 // backend/accessRoutes.ts). The Mitra server names the phone only beside
-// X-Mitra-Key matching MITRA_SERVER_KEY.
-const devices = createDeviceSessions();
+// X-Mitra-Key matching MITRA_SERVER_KEY. A phone's push registration goes
+// with its session when that is ended on purpose (backend/notifications.ts
+// pushDevicesFollow): a phone signed out is told nothing more.
+const devices = createDeviceSessions({ onEnded: pushDevicesFollow() });
 
 /** The request as backend/deviceSessions.ts reads it: its headers, its address, and the sign-in's body. */
 function deviceRequest(req: Request): DeviceRequest {

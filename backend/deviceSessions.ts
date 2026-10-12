@@ -13,6 +13,8 @@
 //     401 `session-ended` with the reason in words (engine/deviceWords.ts), and the website and the phone go back to
 //     the sign-in screen saying it;
 //   * the day's end still ends it (§84): its row ends when its token does;
+//   * what hangs on a session follows it (onEnded): a phone's push registration (backend/notifications.ts) goes with
+//     a session ended on purpose and carries on under the session that replaces it (review of 12-Oct-2026);
 //   * a token made before this change has no row: it is taken in once, its device "signed in before devices were
 //     recorded", so the release signs nobody out;
 //   * "last used" is written at most once a minute per session.
@@ -287,6 +289,20 @@ export interface SessionRecord {
   endedBy: string | null;
 }
 
+/**
+ * SESSIONS THAT ENDED, for what hangs on a session (a phone's push registration, backend/notifications.ts
+ * pushDevicesFollow): ended on purpose (signed out, by the super admin, the account switched off), or replaced by a
+ * sign-in again on the same device, `replacedBy` naming the new session. A session that simply runs to its day's end
+ * is never one of them: a phone registered under it is still told of the person's work, as before (§97).
+ */
+export interface SessionsEnded {
+  why: SessionEndReason;
+  userId: string;
+  /** The sessions ended; none for an account switched off with nothing open. */
+  ids: readonly string[];
+  replacedBy?: string;
+}
+
 /** What a sign-in may do: go ahead, ending the sessions named in `replace`; or not, the account's places being held by `holding`. */
 export type SignInDecision = { ok: true; replace: string[] } | { ok: false; holding: SessionRecord[] };
 
@@ -323,8 +339,8 @@ export interface SessionStore {
   adopt(row: SessionRecord): Promise<SessionRecord>;
   /** Ends a session still open; answers it as ended, or null when it was not open (no such session, or ended already). */
   end(id: string, why: SessionEndReason, by: string | null, at: Date): Promise<SessionRecord | null>;
-  /** Ends every open session of one account; answers how many. */
-  endAll(userId: string, why: SessionEndReason, by: string | null, at: Date): Promise<number>;
+  /** Ends every open session of one account; answers their ids. */
+  endAll(userId: string, why: SessionEndReason, by: string | null, at: Date): Promise<string[]>;
   /** Writes when it was last used. */
   touch(id: string, at: Date): Promise<void>;
   /** Every open session (not ended, not past its end), oldest first. */
@@ -367,14 +383,14 @@ export function memorySessionStore(): SessionStore & { rows: Map<string, Session
       return copyOf(s);
     },
     async endAll(userId, why, by, at) {
-      let n = 0;
+      const ended: SessionRecord[] = [];
       for (const s of rows.values()) {
         if (s.userId === userId && isOpen(s, at)) {
           Object.assign(s, { endedAt: at, endedWhy: why, endedBy: by });
-          n += 1;
+          ended.push(s);
         }
       }
-      return n;
+      return ended.sort(bySignIn).map((s) => s.id);
     },
     async touch(id, at) {
       const s = rows.get(id);
@@ -479,8 +495,13 @@ export function postgresSessionStore(): SessionStore {
       return rows[0] ? recordOf(rows[0]) : null;
     },
     async endAll(userId, why, by, at) {
-      const result = await database().query("UPDATE user_sessions SET ended_at = $2, ended_why = $3, ended_by = $4 WHERE user_id = $1 AND ended_at IS NULL AND ends_at > $2", [userId, at, why, by]);
-      return result.rowCount ?? 0;
+      const { rows } = await database().query<{ id: string; signed_in_at: Date }>(
+        "UPDATE user_sessions SET ended_at = $2, ended_why = $3, ended_by = $4 WHERE user_id = $1 AND ended_at IS NULL AND ends_at > $2 RETURNING id, signed_in_at",
+        [userId, at, why, by]
+      );
+      return rows
+        .sort((a, b) => new Date(a.signed_in_at).getTime() - new Date(b.signed_in_at).getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+        .map((r) => r.id);
     },
     async touch(id, at) {
       await database().query("UPDATE user_sessions SET last_used_at = $2 WHERE id = $1 AND ended_at IS NULL AND last_used_at < $2", [id, at]);
@@ -566,6 +587,12 @@ export interface DeviceSessionsOptions {
   mitraKey?: string;
   /** The factory's time zone, for the times in words: PLANT_TIMEZONE by default. */
   timeZone?: () => string;
+  /**
+   * Told once sessions are ended on purpose, or replaced by a sign-in again on their device, so what hangs on a session
+   * follows it: the phone's push registrations (backend/index.ts hands in notifications.ts pushDevicesFollow). Awaited;
+   * its failure is logged, never the sign-in's or the sign-out's.
+   */
+  onEnded?: (ended: SessionsEnded) => Promise<void>;
 }
 
 export interface DeviceSessions {
@@ -599,6 +626,16 @@ export function createDeviceSessions(opts: DeviceSessionsOptions = {}): DeviceSe
   const zone = opts.timeZone ?? plantTimeZone;
   // When each session was last written as used, by this server: with the row's own, at most once a minute.
   const touched = new Map<string, number>();
+
+  /** What hangs on the sessions just ended is told; an account switched off is told even with nothing open. */
+  const tell = async (ended: SessionsEnded): Promise<void> => {
+    if (!opts.onEnded || (ended.ids.length === 0 && ended.why !== "account-off")) return;
+    try {
+      await opts.onEnded(ended);
+    } catch (err) {
+      console.error(`[devices] what hangs on the ended session (${ended.why}) was not updated:`, err instanceof Error ? err.message : err);
+    }
+  };
 
   /** A moment on the factory's clock: "09:02" today, "08-Oct 17:40" on an earlier day. */
   const timeText = (at: Date): string => {
@@ -669,6 +706,7 @@ export function createDeviceSessions(opts: DeviceSessionsOptions = {}): DeviceSe
       const decision = await store.begin(row, (open) => decideSignIn(open, input.device, { limit, exempt, replace: input.replace ?? [] }));
       if (!decision.ok) return { ok: false, holding: decision.holding };
       touched.set(row.id, now.getTime());
+      if (decision.replace.length > 0) await tell({ why: "replaced", userId: row.userId, ids: decision.replace, replacedBy: row.id });
       return { ok: true, replaced: decision.replace.length };
     },
     async check(claim) {
@@ -694,11 +732,21 @@ export function createDeviceSessions(opts: DeviceSessionsOptions = {}): DeviceSe
       const session = (await store.get(claim.sessionId)) ?? (await store.adopt(adoptRow(claim, now)));
       if (session.userId !== claim.userId || session.endedAt !== null) return "already";
       const ended = await store.end(session.id, "signed-out", claim.userId, now);
-      return ended ? "ended" : "already";
+      if (!ended) return "already";
+      await tell({ why: "signed-out", userId: ended.userId, ids: [ended.id] });
+      return "ended";
     },
     get: (id) => store.get(id),
-    end: (id, why, by) => store.end(id, why, by, clock()),
-    endAll: (userId, why, by) => store.endAll(userId, why, by, clock()),
+    async end(id, why, by) {
+      const ended = await store.end(id, why, by, clock());
+      if (ended) await tell({ why, userId: ended.userId, ids: [ended.id] });
+      return ended;
+    },
+    async endAll(userId, why, by) {
+      const ids = await store.endAll(userId, why, by, clock());
+      await tell({ why, userId, ids });
+      return ids.length;
+    },
     open: () => store.open(clock()),
     limitRefusal(holding, lang) {
       const devices = holding.map((s) => ({ name: s.device.name, category: s.device.category, place: s.device.place, since: s.signedInAt.toISOString(), sinceText: timeText(s.signedInAt) }));

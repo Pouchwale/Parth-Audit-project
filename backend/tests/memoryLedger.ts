@@ -85,9 +85,9 @@ export function createMemoryLedger(clock: () => Date = () => new Date()): Memory
       for (let i = tickets.length - 1; i >= 0; i--) if (tickets[i].createdAt < now.getTime() - 86_400_000) tickets.splice(i, 1);
       return before - rows.length;
     },
-    async registerDevice(userId, d) {
+    async registerDevice(userId, d, sessionId) {
       const i = devices.findIndex((x) => x.token === d.token);
-      const device: Device = { token: d.token, userId, platform: d.platform, language: d.language, appVersion: d.appVersion ?? "", deviceName: d.deviceName ?? "" };
+      const device: Device = { token: d.token, userId, platform: d.platform, language: d.language, appVersion: d.appVersion ?? "", deviceName: d.deviceName ?? "", sessionId: sessionId ?? null };
       if (i >= 0) devices[i] = device;
       else devices.push(device);
     },
@@ -98,6 +98,31 @@ export function createMemoryLedger(clock: () => Date = () => new Date()): Memory
     async forgetToken(token) {
       const i = devices.findIndex((x) => x.token === token);
       if (i >= 0) devices.splice(i, 1);
+    },
+    async forgetSessionDevices(sessionIds) {
+      let n = 0;
+      for (let i = devices.length - 1; i >= 0; i--) {
+        if (devices[i].sessionId && sessionIds.includes(devices[i].sessionId!)) {
+          devices.splice(i, 1);
+          n += 1;
+        }
+      }
+      return n;
+    },
+    async forgetDevicesOf(userId) {
+      const before = devices.length;
+      for (let i = devices.length - 1; i >= 0; i--) if (devices[i].userId === userId) devices.splice(i, 1);
+      return before - devices.length;
+    },
+    async moveSessionDevices(fromSessionIds, toSessionId) {
+      let n = 0;
+      for (const d of devices) {
+        if (d.sessionId && fromSessionIds.includes(d.sessionId)) {
+          d.sessionId = toSessionId;
+          n += 1;
+        }
+      }
+      return n;
     },
     async devicesOf(userId) {
       return devices.filter((d) => d.userId === userId).map((d) => ({ ...d }));

@@ -7060,6 +7060,16 @@ backend/accessRoutes.ts, frontend/src/engine/deviceWords.ts, frontend/src/utils/
    the phone.
 6. **The words are in English, Gujarati and Hindi** (engine/deviceWords.ts): the refusal, the ended session, and every
    sentence of the "Signed in on" card. A device's own name is a name and is kept as it was made.
+7. **A phone signed out is told nothing more** (review of 12-Oct-2026). A phone's registration for pushes (POST
+   /api/v1/devices, §97) is kept under the session it signed in with (`push_devices.session_id`). When that session
+   is ended on purpose (a sign-out, the super admin's "Sign out this device") DCRS forgets the phone at once, and an
+   account switched off loses every phone registered for it: the notify job has nothing of the person's to push
+   there. Until then a phone the super admin had signed out kept getting the person's alerts (a lost phone's lock
+   screen), and could not remove its own registration, its session being over. A sign-in again on the same phone
+   carries its registration on under the new session; a session that simply runs to its day's end keeps its phone
+   registered, so the next morning's alerts still reach it. The phone registers again at its next sign-in (the Mitra
+   app forgets its saved registration when DCRS signs it out). The super admin's question before "Sign out this
+   device" says that a phone gets no more notifications until it is signed in again.
 
 **The phone** (the Mitra server and app, branch mitra-notify):
 
@@ -7104,10 +7114,14 @@ auditor's account with its audit pack.
 third refused in words naming the two and since when, in three languages; the super admin exempt and listed; a
 sign-out ends it; the super admin ends a device and it is told so in three languages; an account switched off; the
 day's end; a token from before taken in once; "last used" at most once a minute; two sign-ins at once; X-Mitra-Key
-compared in constant time and never logged; the same checks on PostgreSQL when DCRS_SESSIONS_TEST_URL names a
-throwaway database), backend/tests/accessRoutes.test.ts (the "Signed in on" list, "Sign out this device", its
-refusals), backend/tests/apiV1.test.ts (a session ended in DCRS refused at its next /api/v1 request, in the caller's
-language), frontend/tests/deviceSignIn.test.ts (the browser's own id; the words). Browser suite: e2e_user_access.py
+compared in constant time and never logged; a phone through the Mitra app without the key a mobile on the phone
+app; what hangs on a session told when it is ended on purpose or replaced; the same checks on PostgreSQL when
+DCRS_SESSIONS_TEST_URL names a throwaway database), backend/tests/accessRoutes.test.ts (the "Signed in on" list,
+"Sign out this device", its refusals), backend/tests/apiV1.test.ts (a session ended in DCRS refused at its next
+/api/v1 request, in the caller's language; a phone's registration for pushes made under its session, gone with the
+super admin's sign-out, the person's own and the account switched off, carried on by a sign-in again),
+backend/tests/notificationLedger.test.ts (the ledger forgets and moves phones by session, in memory and on
+PostgreSQL with DCRS_LEDGER_TEST_URL), frontend/tests/deviceSignIn.test.ts (the browser's own id; the words). Browser suite: e2e_user_access.py
 section 10b (an account signed in from a computer's browser and an Android phone's is listed on two devices with their
 categories; "Sign out this device"; the phone's next request back at the sign-in screen with the words; the computer
 still signed in). The test servers run with DCRS_MAX_DEVICES=off (the suites open many sessions per account). The

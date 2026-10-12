@@ -3598,7 +3598,7 @@
         ],
         "operationId": "deviceRegister",
         "summary": "CHANGE - register this phone for push notifications",
-        "description": "Keeps the phone's Expo push token for the signed-in person, with the language its pushes are worded in. Sent again when the token or the language changes. A token another account registered moves to this one (one phone, one person). The token is never written in a log.",
+        "description": "Keeps the phone's Expo push token for the signed-in person, with the language its pushes are worded in, under the session the request comes with. Sent again when the token or the language changes, and after each sign-in. A token another account registered moves to this one (one phone, one person). When that session is ended on purpose (a sign-out, the super admin's \"Sign out this device\", the account switched off) DCRS forgets the phone and pushes nothing more to it; a sign-in again on the same phone carries it on; a session that simply runs to its day's end keeps it (REQUIREMENTS §106). The token is never written in a log.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ClientName"

@@ -19,10 +19,12 @@
 // is granted them):
 //   notifications       one row per person and key: the kind, the priority, the facts (data), when it was made,
 //                       changed, read, resolved and last pushed, and how many pushes it has been in
-//   push_devices        one row per phone token: whose it is, the platform and the language its pushes are worded in
+//   push_devices        one row per phone token: whose it is, the platform and the language its pushes are worded in,
+//                       and the session it was registered under (pushDevicesFollow: gone when that session is ended)
 //   notification_prefs  one row per person: the kinds they switched off for pushing, and the phone's own reminders
 //   push_tickets        the tickets Expo's push service answered with, until their receipts are read (backend/push.ts)
 import { database, registerSchema } from "./db.ts";
+import type { SessionsEnded } from "./deviceSessions.ts";
 import { NOTIFICATION_KINDS, type NotificationData, type NotificationKind } from "../frontend/src/engine/notificationPlan.ts";
 
 export const NOTIFICATION_SCHEMA = `
@@ -52,8 +54,10 @@ export const NOTIFICATION_SCHEMA = `
     app_version TEXT NOT NULL DEFAULT '',
     device_name TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    session_id TEXT
   );
+  ALTER TABLE push_devices ADD COLUMN IF NOT EXISTS session_id TEXT;
   CREATE INDEX IF NOT EXISTS push_devices_user_idx ON push_devices (user_id);
   CREATE TABLE IF NOT EXISTS notification_prefs (
     user_id TEXT PRIMARY KEY,
@@ -105,6 +109,8 @@ export interface DeviceInput {
 
 export interface Device extends DeviceInput {
   userId: string;
+  /** The session it was registered under (user_sessions.id); null for none. */
+  sessionId?: string | null;
 }
 
 export interface Preferences {
@@ -147,10 +153,17 @@ export interface NotificationLedger {
   markRead(userId: string, which: readonly number[] | "all"): Promise<number>;
   /** Deletes what was resolved more than KEEP_DAYS ago, and tickets a day old. Answers how many notifications went. */
   cleanUp(now: Date): Promise<number>;
-  registerDevice(userId: string, device: DeviceInput): Promise<void>;
+  /** Registers a phone for the person, under the session it signed in with (backend/apiV1.ts signedIn). */
+  registerDevice(userId: string, device: DeviceInput, sessionId?: string | null): Promise<void>;
   removeDevice(userId: string, token: string): Promise<void>;
   /** A token Expo says is no longer registered: forgotten, whoever had it. */
   forgetToken(token: string): Promise<void>;
+  /** The phones registered under these sessions, forgotten (the sessions were ended on purpose). Answers how many. */
+  forgetSessionDevices(sessionIds: readonly string[]): Promise<number>;
+  /** Every phone registered for the person, forgotten (the account was switched off). Answers how many. */
+  forgetDevicesOf(userId: string): Promise<number>;
+  /** The phones registered under these sessions, carried on under the session that replaced them. Answers how many. */
+  moveSessionDevices(fromSessionIds: readonly string[], toSessionId: string): Promise<number>;
   devicesOf(userId: string): Promise<Device[]>;
   getPreferences(userId: string): Promise<Preferences>;
   setPreferences(userId: string, change: PreferencesChange): Promise<Preferences>;
@@ -303,12 +316,12 @@ export function createDatabaseLedger(db: () => Queryable = () => database() as u
       return rowCount ?? 0;
     },
 
-    async registerDevice(userId, d) {
+    async registerDevice(userId, d, sessionId) {
       await db().query(
-        `INSERT INTO push_devices (token, user_id, platform, language, app_version, device_name) VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO push_devices (token, user_id, platform, language, app_version, device_name, session_id) VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (token) DO UPDATE SET user_id = EXCLUDED.user_id, platform = EXCLUDED.platform, language = EXCLUDED.language,
-           app_version = EXCLUDED.app_version, device_name = EXCLUDED.device_name, last_seen_at = now()`,
-        [d.token, userId, d.platform, d.language, d.appVersion ?? "", d.deviceName ?? ""]
+           app_version = EXCLUDED.app_version, device_name = EXCLUDED.device_name, session_id = EXCLUDED.session_id, last_seen_at = now()`,
+        [d.token, userId, d.platform, d.language, d.appVersion ?? "", d.deviceName ?? "", sessionId ?? null]
       );
     },
 
@@ -320,12 +333,37 @@ export function createDatabaseLedger(db: () => Queryable = () => database() as u
       await db().query("DELETE FROM push_devices WHERE token = $1", [token]);
     },
 
+    async forgetSessionDevices(sessionIds) {
+      if (sessionIds.length === 0) return 0;
+      const { rowCount } = await db().query("DELETE FROM push_devices WHERE session_id = ANY($1::text[])", [[...sessionIds]]);
+      return rowCount ?? 0;
+    },
+
+    async forgetDevicesOf(userId) {
+      const { rowCount } = await db().query("DELETE FROM push_devices WHERE user_id = $1", [userId]);
+      return rowCount ?? 0;
+    },
+
+    async moveSessionDevices(fromSessionIds, toSessionId) {
+      if (fromSessionIds.length === 0) return 0;
+      const { rowCount } = await db().query("UPDATE push_devices SET session_id = $2 WHERE session_id = ANY($1::text[])", [[...fromSessionIds], toSessionId]);
+      return rowCount ?? 0;
+    },
+
     async devicesOf(userId) {
-      const { rows } = await db().query<{ token: string; user_id: string; platform: string; language: string; app_version: string; device_name: string }>(
-        "SELECT token, user_id, platform, language, app_version, device_name FROM push_devices WHERE user_id = $1 ORDER BY created_at",
+      const { rows } = await db().query<{ token: string; user_id: string; platform: string; language: string; app_version: string; device_name: string; session_id: string | null }>(
+        "SELECT token, user_id, platform, language, app_version, device_name, session_id FROM push_devices WHERE user_id = $1 ORDER BY created_at, token",
         [userId]
       );
-      return rows.map((r) => ({ token: r.token, userId: r.user_id, platform: r.platform as Device["platform"], language: r.language as NotificationLanguage, appVersion: r.app_version, deviceName: r.device_name }));
+      return rows.map((r) => ({
+        token: r.token,
+        userId: r.user_id,
+        platform: r.platform as Device["platform"],
+        language: r.language as NotificationLanguage,
+        appVersion: r.app_version,
+        deviceName: r.device_name,
+        sessionId: r.session_id,
+      }));
     },
 
     async getPreferences(userId) {
@@ -396,6 +434,24 @@ export function createDatabaseLedger(db: () => Queryable = () => database() as u
       if (ids.length === 0) return;
       await db().query("DELETE FROM push_tickets WHERE id = ANY($1::text[])", [ids]);
     },
+  };
+}
+
+/**
+ * A PHONE'S ALERTS FOLLOW ITS SIGN-IN (REQUIREMENTS §106, review of 12-Oct-2026). A phone is registered for pushes
+ * under the session it signed in with (POST /api/v1/devices). When that session is ended on purpose (signed out, the
+ * super admin's "Sign out this device") the phone is told nothing more of the person's work, wherever it is: a lost
+ * phone's lock screen showed the person's alerts after the super admin had signed it out, and the phone could no
+ * longer remove its own registration (its session was over). An account switched off loses every phone registered
+ * for it. A sign-in again on the same device carries its registration on under the new session. A session that
+ * simply runs to its day's end keeps its phone registered: the next morning's alerts still reach it (§97). The phone
+ * registers again at its next sign-in (the Mitra app does, once its saved registration is gone).
+ */
+export function pushDevicesFollow(ledger: () => NotificationLedger = databaseLedger): (ended: SessionsEnded) => Promise<void> {
+  return async (ended) => {
+    if (ended.replacedBy) await ledger().moveSessionDevices(ended.ids, ended.replacedBy);
+    else if (ended.why === "account-off") await ledger().forgetDevicesOf(ended.userId);
+    else await ledger().forgetSessionDevices(ended.ids);
   };
 }
 

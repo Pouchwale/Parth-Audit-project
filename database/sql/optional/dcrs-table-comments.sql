@@ -74,7 +74,7 @@ COMMENT ON COLUMN public.notifications.pushed_at IS 'When it was pushed to the p
 COMMENT ON COLUMN public.notifications.push_attempts IS 'How many times a push of it was tried.';
 
 COMMENT ON TABLE public.push_devices IS
-  'One row per phone registered for pushes by the Mitra app (POST /api/v1/devices). A token Expo says is no longer registered is deleted.';
+  'One row per phone registered for pushes by the Mitra app (POST /api/v1/devices). A token Expo says is no longer registered is deleted, and so is a phone whose session was ended on purpose (signed out, by the super admin, the account switched off).';
 COMMENT ON COLUMN public.push_devices.token IS 'The phone''s Expo push token: where its pushes go.';
 COMMENT ON COLUMN public.push_devices.user_id IS 'The account signed in on that phone (users.id).';
 COMMENT ON COLUMN public.push_devices.platform IS 'android or ios.';
@@ -83,6 +83,7 @@ COMMENT ON COLUMN public.push_devices.app_version IS 'The Mitra app''s version o
 COMMENT ON COLUMN public.push_devices.device_name IS 'The phone''s own name, as it gives it.';
 COMMENT ON COLUMN public.push_devices.created_at IS 'When the phone was first registered.';
 COMMENT ON COLUMN public.push_devices.last_seen_at IS 'When the phone last registered or was last heard from.';
+COMMENT ON COLUMN public.push_devices.session_id IS 'The session the phone registered under (user_sessions.id): ended on purpose, the phone is forgotten; replaced by a sign-in again on the same phone, it moves to the new one.';
 
 COMMENT ON TABLE public.notification_prefs IS
   'One row per person: which kinds of notification they switched off for pushing, and the phone''s own daily reminders.';

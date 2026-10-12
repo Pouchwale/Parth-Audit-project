@@ -195,7 +195,7 @@ const VIEW_EN = {
   thisDevice: "This device: yours",
   confirmTitle: "Sign out {name}'s device?",
   confirmBody:
-    "{device} ({place}) is signed out at once. Its next request goes back to the sign-in screen, saying the super admin signed it out. Nothing is deleted: everything saved stays. It is written in the activity log.",
+    "{device} ({place}) is signed out at once. Its next request goes back to the sign-in screen, saying the super admin signed it out. A phone gets no more notifications until it is signed in again. Nothing is deleted: everything saved stays. It is written in the activity log.",
   confirm: "Sign out this device",
   cancel: "No, leave it",
   done: "{name}'s device {device} is signed out.",
@@ -228,7 +228,7 @@ const VIEW_WORDS: Record<DeviceLanguage, Record<ViewKey, string>> = {
     thisDevice: "આ ઉપકરણ: તમારું",
     confirmTitle: "{name} નું ઉપકરણ સાઇન આઉટ કરવું છે?",
     confirmBody:
-      "{device} ({place}) તરત સાઇન આઉટ થશે. તેની આગલી વિનંતી સાઇન ઇન સ્ક્રીન પર જશે અને કહેશે કે સુપર એડમિને સાઇન આઉટ કર્યું. કશું ડિલીટ થતું નથી: સાચવેલું બધું રહે છે. તે પ્રવૃત્તિ લોગમાં લખાય છે.",
+      "{device} ({place}) તરત સાઇન આઉટ થશે. તેની આગલી વિનંતી સાઇન ઇન સ્ક્રીન પર જશે અને કહેશે કે સુપર એડમિને સાઇન આઉટ કર્યું. ફરી સાઇન ઇન ન થાય ત્યાં સુધી ફોનને કોઈ સૂચના નહીં મળે. કશું ડિલીટ થતું નથી: સાચવેલું બધું રહે છે. તે પ્રવૃત્તિ લોગમાં લખાય છે.",
     confirm: "આ ઉપકરણ સાઇન આઉટ કરો",
     cancel: "ના, રહેવા દો",
     done: "{name} નું ઉપકરણ {device} સાઇન આઉટ થયું.",
@@ -256,7 +256,7 @@ const VIEW_WORDS: Record<DeviceLanguage, Record<ViewKey, string>> = {
     thisDevice: "यह डिवाइस: आपका",
     confirmTitle: "{name} का डिवाइस साइन आउट करें?",
     confirmBody:
-      "{device} ({place}) तुरंत साइन आउट होगा। उसका अगला अनुरोध साइन इन स्क्रीन पर जाएगा और बताएगा कि सुपर एडमिन ने साइन आउट किया। कुछ भी डिलीट नहीं होता: सहेजा हुआ सब रहता है। यह गतिविधि लॉग में लिखा जाता है।",
+      "{device} ({place}) तुरंत साइन आउट होगा। उसका अगला अनुरोध साइन इन स्क्रीन पर जाएगा और बताएगा कि सुपर एडमिन ने साइन आउट किया। फिर से साइन इन होने तक फ़ोन को कोई सूचना नहीं मिलेगी। कुछ भी डिलीट नहीं होता: सहेजा हुआ सब रहता है। यह गतिविधि लॉग में लिखा जाता है।",
     confirm: "यह डिवाइस साइन आउट करें",
     cancel: "नहीं, रहने दें",
     done: "{name} का डिवाइस {device} साइन आउट हुआ।",
