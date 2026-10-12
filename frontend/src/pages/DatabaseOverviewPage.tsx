@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FiDownload, FiRefreshCw, FiSearch } from "react-icons/fi";
-import { ApiError, overviewApi, type OverviewAnswer, type OverviewQuestion, type OverviewStatus, type OverviewView } from "../api/client";
+import { ApiError, overviewApi, type OverviewAnswer, type OverviewNotSetUp, type OverviewQuestion, type OverviewStatus, type OverviewView } from "../api/client";
 import { useAuth } from "../store/AuthContext";
 import { downloadBlob } from "../utils/csv";
 
@@ -25,6 +25,12 @@ import { downloadBlob } from "../utils/csv";
 // but the super admin (backend/overviewRoutes.ts). The values are the records'
 // own words, so they are never sent to be translated.
 //
+// NO MANUAL STEP WHERE NONE IS NEEDED (REQUIREMENTS §107): DCRS sets the
+// overview up itself when its database role may, and reads it through its own
+// connection as that read-only role (backend/overviewSetup.ts). When its role
+// may not, the page says why and the one step, as the server words them, and
+// "Look again" asks once more (the server looks again at most once a minute).
+//
 // Light on a low-end laptop: the server does the reading and filtering; the
 // page holds only the rows asked for, drawn as plain text, and the table is not
 // drawn again while somebody types in the search box.
@@ -36,7 +42,7 @@ type Week = "this" | "last";
 type Opened =
   | { state: "loading" }
   | { state: "ready"; status: OverviewStatus; questions: OverviewQuestion[]; views: OverviewView[] }
-  | { state: "not-set-up"; message: string }
+  | { state: "not-set-up"; message: string; reason: string | null; steps: string[] }
   | { state: "failed"; message: string };
 
 const messageOf = (err: unknown, fallback: string): string => (err instanceof Error && err.message ? err.message : fallback);
@@ -442,8 +448,15 @@ export function DatabaseOverviewPage() {
       })
       .catch((err) => {
         if (!live) return;
-        if (err instanceof ApiError && err.code === "overview-not-set-up") setOpened({ state: "not-set-up", message: err.message });
-        else setOpened({ state: "failed", message: messageOf(err, "The database overview could not be read.") });
+        if (err instanceof ApiError && err.code === "overview-not-set-up") {
+          const said = (err.data ?? {}) as OverviewNotSetUp;
+          setOpened({
+            state: "not-set-up",
+            message: err.message,
+            reason: typeof said.reason === "string" ? said.reason : null,
+            steps: Array.isArray(said.steps) ? said.steps.filter((x): x is string => typeof x === "string") : [],
+          });
+        } else setOpened({ state: "failed", message: messageOf(err, "The database overview could not be read.") });
       });
     return () => {
       live = false;
@@ -472,7 +485,8 @@ export function DatabaseOverviewPage() {
           <p className="text-xs text-faint mt-1" data-field="connection">
             Reading the database <span className="notranslate" translate="no">{opened.status.database ?? "?"}</span> as{" "}
             <span className="notranslate" translate="no">{opened.status.role ?? "?"}</span>
-            {opened.status.readOnly ? ", read-only" : ""} — {plural(opened.status.views.length, "view")}.
+            {opened.status.readOnly ? ", read-only" : ""}
+            {opened.status.through === "dcrs-connection" ? ", through DCRS's own connection" : ""} — {plural(opened.status.views.length, "view")}.
           </p>
         )}
       </div>
@@ -484,23 +498,26 @@ export function DatabaseOverviewPage() {
           <div className="card-pad">
             <h2 className="text-lg mb-2">The database overview is not set up on this server yet</h2>
             <p className="text-sm mb-3" data-field="reason">
-              {/* The server's reason; its own set-up words follow it, and are said as steps below. */}
-              {opened.message.split(" To set it up:")[0]}
+              {/* The server's reason; its one step follows, said apart below. */}
+              {opened.reason ?? opened.message.split(" To set it up:")[0]}
             </p>
-            <p className="text-sm font-semibold mb-1">To set it up (whoever looks after the server and the database):</p>
-            <ol className="text-sm" style={{ paddingLeft: 22, lineHeight: 1.7, margin: 0 }}>
-              <li>
-                On the DCRS database, as a PostgreSQL superuser, add the overview: <code>npm run db:shared -- setup</code>, with SUPERUSER_DATABASE_URL set to the
-                superuser's address and OVERVIEW_VIEWER_PASSWORD to a new password for the read-only role overview_viewer. It applies
-                database/sql/01-schemas-and-roles.sql and 02-overview-dcrs.sql and changes nothing of DCRS's own tables.
-              </li>
-              <li>
-                On this server, put <code>OVERVIEW_DATABASE_URL=postgres://overview_viewer:&lt;that password&gt;@&lt;database host&gt;:5432/&lt;DCRS database&gt;</code> in
-                backend/.env, and restart DCRS.
-              </li>
-              <li>Open this page again.</li>
-            </ol>
-            <p className="text-sm text-muted mt-3">Every step, and what each database role may and may not do, is in docs/database/README.md.</p>
+            {opened.steps.length > 0 && (
+              <>
+                <p className="text-sm font-semibold mb-1">To set it up (whoever looks after the server and the database):</p>
+                <ol className="text-sm" data-field="steps" style={{ paddingLeft: 22, lineHeight: 1.7, margin: 0 }}>
+                  {opened.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </>
+            )}
+            <p className="text-sm text-muted mt-3">
+              Nothing in DCRS is changed or removed while it is not set up: every record and document stays as it is. What each database role may and may not do is in
+              docs/database/README.md.
+            </p>
+            <button type="button" className="btn btn-secondary btn-sm mt-3" data-action="overview-look-again" onClick={() => setAttempt((n) => n + 1)}>
+              <FiRefreshCw size={13} /> Look again
+            </button>
           </div>
         </div>
       )}

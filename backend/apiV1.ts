@@ -1,7 +1,9 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { Express, NextFunction, Request, RequestHandler, Response } from "express";
-import { COOKIE_NAME, verifySessionToken, type PublicUser } from "./auth.ts";
+import { COOKIE_NAME, sessionKeyOf, verifySessionToken, type PublicUser } from "./auth.ts";
+import { createDeviceSessions, memorySessionStore, type DeviceSessions } from "./deviceSessions.ts";
+import { deviceLanguageOf } from "../frontend/src/engine/deviceWords.ts";
 import { database, getUserById, plantTimeZone, readItem, writeItem, type StoredItem, type UserRow, type WriteResult } from "./db.ts";
 import { distDir, repoRoot } from "./paths.ts";
 import { createWorkingHoursGate } from "./workingHours.ts";
@@ -54,6 +56,10 @@ import {
 // route below but openapi.json takes that token as the cookie OR as
 // "Authorization: Bearer <token>" (a server has no cookie jar), and reads the
 // account again on every request, so an account switched off stops at once.
+// And the session itself (REQUIREMENTS §106, backend/deviceSessions.ts): one
+// signed out, by the person or by the super admin's "Sign out this device", is
+// answered 401 `session-ended` with the reason in words (X-Language), so a phone
+// signed out in DCRS is signed out of Mitra at its next request.
 //
 // WHAT MITRA DOES, FROM THE MITRA MOBILE APP (REQUIREMENTS §85). The documents,
 // today's facts, the records — found, read, searched, printed, opened, filled,
@@ -96,6 +102,11 @@ export interface ApiV1Deps {
   escalations?: (open: boolean) => Promise<EscalationsFound>;
   /** The notification ledger (backend/notifications.ts); by default the server's own. A unit test hands in its own. */
   notifications?: NotificationLedger;
+  /**
+   * The sessions (REQUIREMENTS §106, backend/deviceSessions.ts): the server's own, in PostgreSQL, which backend/index.ts
+   * hands in. Left out (a unit test), sessions are kept in memory, and a token is taken in at its first request.
+   */
+  sessions?: DeviceSessions;
 }
 
 const databaseStore: ApiV1Store = {
@@ -226,6 +237,8 @@ export function sessionTokenOf(req: Request): string | null {
 interface Caller {
   user: PublicUser;
   token: string;
+  /** The session the token belongs to (user_sessions.id): a phone's push registration is made under it (§106). */
+  sessionKey: string;
 }
 const callerOf = (res: Response): Caller => res.locals.apiV1Caller as Caller;
 
@@ -557,6 +570,7 @@ const OPENAPI_FILE = path.join(repoRoot, "docs", "api", "dcrs-api.openapi.json")
 
 export function registerApiV1(app: Express, deps: ApiV1Deps): void {
   const store = deps.store ?? databaseStore;
+  const sessions = deps.sessions ?? createDeviceSessions({ store: memorySessionStore(), limit: null, mitraKey: "" });
   const clock = deps.clock ?? (() => new Date());
   const appBuilt = deps.appBuilt ?? (() => existsSync(path.join(distDir, "index.html")));
   const logActivity = deps.logActivity;
@@ -587,8 +601,10 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
   });
 
   // WHO IS CALLING: the person the session belongs to, read from the database
-  // on every request (switched off: refused at once), and not while they are
-  // still on the password the administrator gave them (REQUIREMENTS §66). A
+  // on every request (switched off: refused at once), and its session from its
+  // row (§106: one signed out, by the person or by the super admin, is refused at
+  // once with the words of how and when); and not while they are still on the
+  // password the administrator gave them (REQUIREMENTS §66). A
   // session ends at the close of the day it was started (§84) — its token's own
   // end — and outside the plant's hours a person held to them is refused with
   // 403 outside-working-hours, the next opening and the reason in words.
@@ -597,8 +613,21 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
     const token = sessionTokenOf(req);
     const payload = token ? verifySessionToken(token) : null;
     const row = payload ? await store.userById(payload.sub) : undefined;
-    if (!token || !row || !row.active) {
+    if (!token || !payload || !row || !row.active) {
       fail(res, 401, "not-signed-in", "Not signed in, or the session has ended. Sign in again with POST /api/auth/login.");
+      return;
+    }
+    const held = await sessions.check({
+      sessionId: sessionKeyOf(token, payload.sessionId),
+      userId: row.id,
+      issuedAt: payload.issuedAt,
+      endsAt: payload.endsAt,
+      request: { header: (name) => req.get(name) ?? undefined, ip: req.ip ?? "" },
+    });
+    if (!held.ok) {
+      const ended = sessions.endedRefusal(held.session, deviceLanguageOf(req.get("x-language")));
+      if (ended) res.status(401).json(ended);
+      else fail(res, 401, "not-signed-in", "Not signed in, or the session has ended. Sign in again with POST /api/auth/login.");
       return;
     }
     const refused = await hours.refusal(row);
@@ -610,7 +639,7 @@ export function registerApiV1(app: Express, deps: ApiV1Deps): void {
       fail(res, 403, "password-change-required", "This account is still on the password the administrator gave it. Sign in to DCRS in a browser and choose your own first.");
       return;
     }
-    res.locals.apiV1Caller = { user: publicUser(row), token } satisfies Caller;
+    res.locals.apiV1Caller = { user: publicUser(row), token, sessionKey: held.session.id } satisfies Caller;
     next();
   };
 

@@ -5,6 +5,10 @@ import { setFeatures } from "../engine/features";
 import { setSuperAdminSignedIn } from "../engine/signedInPerson";
 import { DEFAULT_PLANT_TIME_ZONE, END_OF_DAY_REASON, END_OF_HOURS_REASON, OUTSIDE_HOURS_CODE, OUTSIDE_HOURS_REASON } from "../engine/workingHoursCore";
 import { SESSION_ENDED_EVENT, stopServerSync } from "../data/serverSync";
+import { settingsRepository } from "../data/repositories/settingsRepository";
+import { SESSION_ENDED_CODE, sessionEndedWordsOf } from "../engine/deviceWords";
+import { uiLanguageFor } from "../i18n/googleTranslate";
+import { browserDevice } from "../utils/deviceId";
 import type { AuthUser } from "../types/auth";
 
 // "unreachable": the server (or its database) did not answer whether anyone is
@@ -114,6 +118,28 @@ function daySessionOf(res: AuthResponse): DaySession | null {
 }
 
 const isOutsideHours = (err: unknown): err is ApiError => err instanceof ApiError && err.status === 403 && err.code === OUTSIDE_HOURS_CODE;
+
+/**
+ * The language the sign-in screen says the server's refusals in (REQUIREMENTS §106): the app's own Gujarati where it
+ * shows, English otherwise (which Google's translator turns into Gujarati when it is on, i18n/googleTranslate.ts).
+ */
+export function signInWordsLanguage(): "en" | "gu" {
+  try {
+    return uiLanguageFor(settingsRepository.get().language) === "gu" ? "gu" : "en";
+  } catch {
+    return "en";
+  }
+}
+
+/**
+ * SIGNED OUT ELSEWHERE (REQUIREMENTS §106): the server answers a session that was ended (by the super admin's "Sign out
+ * this device", or by signing in again on the same device) with 401 `session-ended`, how and when. Those words, for
+ * the sign-in screen; null for any other way of being signed out.
+ */
+function endedWords(err: unknown): string | null {
+  if (!(err instanceof ApiError) || err.status !== 401 || err.code !== SESSION_ENDED_CODE) return null;
+  return sessionEndedWordsOf(signInWordsLanguage(), err.data) ?? err.message;
+}
 
 // THE SUPER ADMIN'S STORED RULES (GET /api/access/rules, any signed-in account). Asked once per sign-in, beside the
 // records (main.tsx DataGate waits for both before the app draws), and again when the person is told their access
@@ -267,6 +293,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signedOutState();
         const signedOut = err instanceof ApiError && err.status === 401;
         setStatus(signedOut ? "unauthenticated" : "unreachable");
+        // Signed out by the super admin, or by a sign-in again on this device: the sign-in screen says so (§106).
+        const ended = endedWords(err);
+        if (ended) setNotice(ended);
         if (signedOut) readPublicFeatures();
       });
     return () => {
@@ -314,7 +343,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       try {
-        const res = await api.post<AuthResponse>("/auth/login", { email, password });
+        // With this browser's own id (utils/deviceId.ts), so signing in again here takes this device's place (§106).
+        const res = await api.post<AuthResponse>("/auth/login", { email, password, device: browserDevice() });
         applyAnswer(res);
         setNotice(null);
         setStatus("authenticated");

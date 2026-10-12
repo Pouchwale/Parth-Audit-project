@@ -3,8 +3,11 @@
 // PostgreSQL. What needs no database is proved here:
 //   * the door: not signed in is refused, anybody but the super admin gets 403
 //     and the database is never asked;
-//   * "not set up" (no OVERVIEW_DATABASE_URL, no overview schema, no views, a
-//     refused sign-in) is a 503 that says in words how to set it up;
+//   * "not set up" (nothing to read yet, no overview schema, no views, a
+//     refused sign-in) is a 503 that says in words why, and the one step
+//     (REQUIREMENTS §107: DCRS sets it up itself when its role may, and looks
+//     again before it answers; backend/tests/overviewSetup.test.ts proves that
+//     part on PostgreSQL);
 //   * only views the catalog lists are ever read, by the catalog's own name;
 //     every value a person sends goes in as a parameter, never into the SQL;
 //   * the filters, the paging and "more", the CSV (Excel's formula guard, the
@@ -18,6 +21,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import express, { type NextFunction, type Request, type Response } from "express";
 import type { PublicUser } from "../auth.ts";
+import { SUPERUSER_STEP } from "../overviewSetup.ts";
 import {
   calendarDate,
   cellText,
@@ -239,29 +243,47 @@ interface Server {
   base: string;
   lines: Line[];
   setDb(db: FakeDb | null): void;
+  /** What the server says when there is nothing to read; and what it finds when it looks again (null: still nothing). */
+  setNotReady(said: { reason: string; step: string } | null, foundOnLook?: FakeDb | null): void;
+  looks: number;
   close(): Promise<void>;
 }
 
 async function start(): Promise<Server> {
   let current: FakeDb | null = null;
+  let notReady: { reason: string; step: string } | null = null;
+  let foundOnLook: FakeDb | null = null;
   const lines: Line[] = [];
   const app = express();
+  const server0 = {} as Server;
   registerOverviewRoutes(app, {
     requireAuth,
     logActivity: (_req, who, action, target = "", detail = "") => lines.push({ who: who?.email, action, target, detail }),
     database: () => current,
+    // The server's own (backend/overviewSetup.ts, proved on PostgreSQL by overviewSetup.test.ts) when left out: here a
+    // test says what it finds, and whether looking again found a database to read.
+    notReady: async () => {
+      server0.looks++;
+      if (foundOnLook) current = foundOnLook;
+      return notReady ?? { reason: "The database overview is not set up on this server yet.", step: SUPERUSER_STEP };
+    },
   });
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
   const { port } = server.address() as AddressInfo;
-  return {
+  return Object.assign(server0, {
     base: `http://127.0.0.1:${port}`,
     lines,
-    setDb: (db) => {
+    looks: 0,
+    setDb: (db: FakeDb | null) => {
       current = db;
     },
+    setNotReady: (said: { reason: string; step: string } | null, found: FakeDb | null = null) => {
+      notReady = said;
+      foundOnLook = found;
+    },
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  };
+  });
 }
 
 let s: Server;
@@ -289,6 +311,7 @@ function fresh(withPartThree = false): FakeDb {
   partTwo(db);
   if (withPartThree) partThree(db);
   s.setDb(db);
+  s.setNotReady(null);
   s.lines.length = 0;
   return db;
 }
@@ -417,17 +440,44 @@ describe("the door", () => {
 // not set up
 
 describe("not set up", () => {
-  it("says so, and how to set it up, when OVERVIEW_DATABASE_URL is not set", async () => {
+  it("says so, why, and the one step, when there is nothing to read yet", async () => {
     fresh();
     s.setDb(null);
     for (const route of ROUTES) {
       const r = await get(route);
       assert.equal(r.status, 503, route);
       assert.equal(r.json.code, "overview-not-set-up", route);
-      assert.match(r.json.error, /OVERVIEW_DATABASE_URL is not set/);
-      assert.match(r.json.error, /01-schemas-and-roles\.sql/);
+      assert.equal(r.json.reason, "The database overview is not set up on this server yet.");
+      assert.deepEqual(r.json.steps, [SUPERUSER_STEP]);
+      assert.match(r.json.error, /To set it up: Once, as a PostgreSQL superuser .*npm run db:shared -- setup/);
       assert.match(r.json.error, /docs\/database\/README\.md/);
     }
+  });
+
+  it("says the server's own reason when DCRS's role may not set it up (REQUIREMENTS §107), with no address or password", async () => {
+    fresh();
+    s.setDb(null);
+    const reason = "The database overview is not set up on this server yet, and DCRS cannot set it up by itself: its database role, dcrs, is not a PostgreSQL superuser and may not make roles. Missing: the schema \"overview\". Nothing was changed.";
+    s.setNotReady({ reason, step: SUPERUSER_STEP });
+    const r = await get("/api/overview/status");
+    assert.equal(r.status, 503);
+    assert.equal(r.json.reason, reason);
+    assert.deepEqual(r.json.steps, [SUPERUSER_STEP]);
+    assert.equal(r.json.error, `${reason} To set it up: ${SUPERUSER_STEP}`);
+    assert.ok(!/postgres:\/\//.test(r.text));
+  });
+
+  it("looks again before it answers, and reads at once when looking finds it ready (no restart)", async () => {
+    fresh();
+    s.setDb(null);
+    const ready = new FakeDb();
+    partTwo(ready);
+    const looksBefore = s.looks;
+    s.setNotReady({ reason: "Not yet.", step: SUPERUSER_STEP }, ready);
+    const r = await get("/api/overview/status");
+    assert.equal(r.status, 200, r.text);
+    assert.equal(r.json.role, "overview_viewer");
+    assert.equal(s.looks, looksBefore + 1);
   });
 
   it("logs that the page was opened, set up or not", async () => {

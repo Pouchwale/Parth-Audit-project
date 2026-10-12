@@ -21,6 +21,15 @@
 // assistant's tables, so a deployment where DCRS signs in with a role of its
 // own sets BACKUP_DATABASE_URL.
 //
+// MITRA'S OWN DATABASE TOO (REQUIREMENTS §107), when MITRA_DATABASE_URL names it:
+// the phone app's server keeps its data in a database of its own, "mitra", on
+// the same PostgreSQL server, so the same run writes mitra-YYYY-MM-DD-HHmm.dump
+// beside the two files above, with the same tools, in the same folder, kept the
+// same fourteen days. The roles file is the server's, so it holds Mitra's role
+// too when both databases are on one server (the run says so when they are not).
+// A failure of Mitra's dump fails the run: DCRS's files are kept, and nothing
+// older is deleted.
+//
 // WHERE, AND FOR HOW LONG: backend/data/backups, or the folder BACKUP_DIR names.
 // After a successful backup its own files older than 14 days are deleted: only
 // files named as above, never anything else in the folder, and nothing at all
@@ -67,6 +76,12 @@ interface Source {
   from: string;
   /** This computer's own local database (DATABASE_URL not set). */
   local: boolean;
+}
+
+/** Mitra's own database, when MITRA_DATABASE_URL names it; null otherwise. */
+function mitraToBackUp(): Source | null {
+  const url = process.env.MITRA_DATABASE_URL?.trim();
+  return url ? { address: parseDatabaseUrl(url, "MITRA_DATABASE_URL"), from: "MITRA_DATABASE_URL", local: false } : null;
 }
 
 function databaseToBackUp(): Source {
@@ -167,8 +182,10 @@ async function main(): Promise<number> {
   const when = stampOf(started).replace(/^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})$/, "$1 $2:$3");
   const dir = backupDir();
   let source: Source | null = null;
+  let mitra: Source | null = null;
   try {
     source = databaseToBackUp();
+    mitra = mitraToBackUp();
     const a = source.address;
     const tools = findPgTools(["pg_dump", "pg_dumpall", "pg_restore"]);
     const version = toolVersion(tools.path("pg_dump"));
@@ -227,8 +244,37 @@ async function main(): Promise<number> {
     await moveInto(rolesPartial, rolesPath);
     const roleNames = parseRolesFile(readFileSync(rolesPath, "utf-8")).roles;
 
-    // 4. Fourteen days kept: only now that both files are safely written.
-    const old = oldBackupFiles(readdirSync(dir), started, KEEP_DAYS, new Set([dumpName, rolesName]));
+    // 4. Mitra's own database, when MITRA_DATABASE_URL names it (REQUIREMENTS §107).
+    const mitraName = `mitra-${stamp}.dump`;
+    const mitraPath = path.join(dir, mitraName);
+    let mitraSaid = "";
+    if (mitra) {
+      const m = mitra.address;
+      const mitraPartial = `${mitraPath}.partial`;
+      const mitraDump = await runTool(tools.path("pg_dump"), ["--format=custom", "--no-password", `--file=${mitraPartial}`, `--dbname=${m.forTools}`], toolEnv(m, "DCRS backup (Mitra)"));
+      if (mitraDump.code !== 0) {
+        rmSync(mitraPartial, { force: true });
+        const failure = toolFailure("pg_dump (Mitra's database)", mitraDump, mitra);
+        console.log("");
+        console.log(`DCRS's database and its roles were backed up (${dumpPath}), but Mitra's database "${m.database}" was NOT:`);
+        console.log(failure.message);
+        console.log("No older backup was deleted.");
+        logLine(dir, `${when}  FAILED  ${dumpName} and ${rolesName} written, but not Mitra's database from ${m.shown}: ${failure.message}`);
+        return 1;
+      }
+      await moveInto(mitraPartial, mitraPath);
+      const mitraList = await runTool(tools.path("pg_restore"), ["--list", mitraPath], process.env);
+      const mitraHolds = mitraList.code === 0 ? describeDump(parseToc(mitraList.stdout)) : "(could not be read back)";
+      const sameServer = m.host === a.host && m.port === a.port;
+      mitraSaid = [
+        `  Mitra's:       ${mitraPath}  (${formatBytes(statSync(mitraPath).size)}, ${(mitraDump.ms / 1000).toFixed(1)} s)`,
+        `                 the database "${m.database}" on ${m.host}:${m.port}, as ${m.user || "(default user)"}; it holds the schemas ${mitraHolds}.`,
+        ...(sameServer ? [] : [`                 It is on another server than DCRS's: the roles file above holds only ${a.host}:${a.port}'s roles.`]),
+      ].join("\n");
+    }
+
+    // 5. Fourteen days kept: only now that every file is safely written.
+    const old = oldBackupFiles(readdirSync(dir), started, KEEP_DAYS, new Set([dumpName, rolesName, ...(mitra ? [mitraName] : [])]));
     const deleted: string[] = [];
     const notDeleted: string[] = [];
     for (const name of old) {
@@ -246,6 +292,8 @@ async function main(): Promise<number> {
     console.log(`  The database:  ${dumpPath}  (${dumpSize}, ${(dump.ms / 1000).toFixed(1)} s)`);
     console.log(`                 It holds the schemas ${holds}.`);
     console.log(`  The roles:     ${rolesPath}  (${count(roleNames.length, "role")}: ${plainList(roleNames)}; no passwords)`);
+    if (mitraSaid) console.log(mitraSaid);
+    else console.log("  Mitra's database: not backed up here (MITRA_DATABASE_URL is not set).");
     console.log(
       `  Kept for ${KEEP_DAYS} days: ${deleted.length ? `deleted ${count(deleted.length, "older file")}: ${plainList(deleted)}.` : "no older file to delete."}`
     );
@@ -259,11 +307,12 @@ async function main(): Promise<number> {
     logLine(
       dir,
       `${when}  OK      ${dumpName} (${dumpSize}; ${holds}) and ${rolesName} (${count(roleNames.length, "role")}) from ${a.shown}. ` +
+        (mitra ? `${mitraName} (${formatBytes(statSync(mitraPath).size)}) from ${mitra.address.shown}. ` : "") +
         `Deleted ${count(deleted.length, "older file")}${deleted.length ? `: ${deleted.join(", ")}` : ""}.`
     );
     return 0;
   } catch (err) {
-    const message = hidePassword(err instanceof Error ? err.message : String(err), source?.address);
+    const message = hidePassword(err instanceof Error ? err.message : String(err), source?.address, mitra?.address);
     console.error("");
     console.error(`The backup FAILED. ${message}`);
     console.error("Nothing older was deleted.");

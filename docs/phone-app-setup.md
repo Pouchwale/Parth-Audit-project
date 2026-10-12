@@ -67,6 +67,10 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
    SEED_ACCOUNT_PASSWORD=<a first password of your choosing>
    # Optional: Mitra inside DCRS, in the browsers.
    GROQ_API_KEY=<your Groq key>
+   # The key the Mitra server proves itself with: the SAME value in step 7 (REQUIREMENTS §106).
+   MITRA_SERVER_KEY=<a long random key: see the command in step 7>
+   # Optional: the most devices one account may be signed in on at once (2 unless set; off = no limit).
+   # DCRS_MAX_DEVICES=2
    ```
    Never on the plant: `DEMO_MODE`, `ALLOW_SIGNUP`, `DCRS_WORKING_HOURS=off`. Without `DATABASE_URL`, DCRS keeps its
    records in a PostgreSQL of its own (docs/DEPLOYMENT.md, "Database").
@@ -79,12 +83,25 @@ PowerShell, in the DCRS folder, unless the step says otherwise.
    GROQ_API_KEY=<your Groq key, from https://console.groq.com/keys>
    SUPER_ADMINS=<optional: more sign-in emails for the app's own Accounts and Security views; DCRS's super admin needs no entry>
    REPORT_TIME_ZONE=Asia/Kolkata
+   MITRA_SERVER_KEY=<the same key as in DCRS's backend\.env, step 6>
    ```
    Make the `CREDENTIALS_KEY` with:
    ```powershell
    node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
    ```
-   Leave `DATABASE_URL` empty (its own database in `server\.data`) and `HOST` out (it listens on every network card).
+   and the `MITRA_SERVER_KEY` (once; the same value goes in both files) with:
+   ```powershell
+   node -e "console.log(require('node:crypto').randomBytes(24).toString('base64url'))"
+   ```
+   With it, DCRS's super admin sees each phone by its own name and model on User access ("Signed in on"), and can
+   sign one out; without it, a phone is listed as a mobile phone but not by its own name ("A phone - its name is not
+   known"), at the Mitra server's address. At least 16 characters, or the Mitra server
+   does not start and says why. Never paste it into the app.
+   Leave `HOST` out (it listens on every network card). Its data: for the plant, in a PostgreSQL database of its own
+   (REQUIREMENTS §107): once the database `mitra` is made (docs/DEPLOYMENT.md, "Both applications on one PostgreSQL
+   server"), add `DATABASE_URL=postgres://mitra:<its password>@127.0.0.1:5432/mitra` and `NODE_ENV=production`; with
+   `NODE_ENV=production` it refuses to start on anything else, and says why. Left empty (no `NODE_ENV`), it keeps its
+   data in its own folder, `server\.data`, as in development.
 8. **An Expo account, for the iPhones.** Since 3 September 2026, Expo Go on an iPhone opens an app from a computer
    only when that computer and the iPhone are signed in to the **same Expo account** (Expo says Android will follow).
    Make a free account at expo.dev just for the plant (nothing else in it: every iPhone signs in with it). Then, as
@@ -146,10 +163,17 @@ rules do not apply there: add `-SetPrivate` (only on the company network). `-Rem
 
 ## 7. Who can sign in, and when
 
-- **The first password must be changed once, in DCRS in a browser** (`http://<server address>:4000`). Every account
-  starts on a first password: the built-in one for the named accounts (`Gpp@12345`, unless `SEED_ACCOUNT_PASSWORD`
-  was set), or the one the super admin typed on Users & Access. Until it is changed, the phone says "Sign in to DCRS
-  in a browser and choose your own password first."
+- **One password for the website and the phone** (REQUIREMENTS §105, §106). The phone signs in only through DCRS's
+  own sign-in, and the Mitra server keeps nothing of the password, so the password the super admin gives a person on
+  Users & Access is the one for DCRS in a browser and for the phone alike; a reset takes effect on both at the next
+  sign-in. Only the super admin's own account, while still on the built-in first password, must choose its own once
+  in a browser (`http://<server address>:4000`); until then the phone says "Sign in to DCRS in a browser and choose
+  your own password first."
+- **At most two devices per person** (DCRS_MAX_DEVICES): a browser and a phone, say. Signing in again on the same
+  phone or browser takes its own place. A third device is refused in DCRS's own words, naming the two devices and
+  since when: sign out on one of them, or ask the super admin, who sees where everybody is signed in on User access
+  ("Signed in on") and can sign a device out. A phone signed out there goes back to the sign-in screen at its next
+  request, saying the super admin signed it out. The super admin himself is never held to the limit.
 - **Staff sign in only during the working hours**: 8:40 am to 6:20 pm, on working days (the super admin can change
   the times on Master Data > Working Hours). **Thursday is the weekly off**, except an adjustment Thursday that is
   worked in place of a festival; festival holidays are days off. Outside the hours the phone shows DCRS's own words
@@ -230,11 +254,13 @@ Then, with **one Android phone and one iPhone** on the company Wi-Fi:
   use `-AnyProfile` on a PC that leaves the plant.
 - **Keep these private**: `backend\data\jwt-secret.txt` (anyone holding it can make a DCRS sign-in),
   `backend\data\postgres-password`, `backend\.env`, the Mitra server's `server\.env` (its `CREDENTIALS_KEY` unlocks
-  the DCRS sign-ins it keeps, and its Groq key is the plant's), and the plant's Expo account password.
+  the DCRS sign-ins it keeps, and its Groq key is the plant's), `MITRA_SERVER_KEY` in both (anyone holding it could
+  name a sign-in's device as they liked), and the plant's Expo account password.
 - **The servers run as the standard account** (step 3.1), never as an administrator. Autologon keeps its password
   encrypted, but an administrator of the PC can read it: keep the PC's administrators few.
 - **Backups**: DCRS's database with `npm run db:backup`, every evening by itself (docs/DEPLOYMENT.md, "Backups of the
-  shared database"). The Mitra server's own database is the `Audit project chatbot-mobile\server\.data` folder: copy
-  it while the servers are stopped.
+  shared database"); with `MITRA_DATABASE_URL` in `backend\.env`, the same run takes the Mitra server's own database
+  too (REQUIREMENTS §107). A Mitra server still on its own folder (`Audit project chatbot-mobile\server\.data`): copy
+  the folder while the servers are stopped, or bring it into PostgreSQL once with `npm --prefix server run db:copy`.
 - **A lost phone**: switch the person's DCRS account off on Users & Access (it stops at once); the app's super admin
   can also sign that phone out (Accounts). If it was an iPhone, change the plant's Expo account password.

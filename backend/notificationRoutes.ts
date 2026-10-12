@@ -6,7 +6,8 @@
 //     POST /api/notifications/read  { ids?: number[], all?: true }               -> { unread }
 //   the phone, through the Mitra server as the person (registered by backend/apiV1.ts behind its signedIn):
 //     GET  /api/v1/notifications ...  and  POST /api/v1/notifications/read        the same
-//     POST /api/v1/devices  { token, platform, language, appVersion?, deviceName? } -> { ok: true }
+//     POST /api/v1/devices  { token, platform, language, appVersion?, deviceName? } -> { ok: true }  (under the
+//                           caller's session: an end of that session on purpose ends the phone's alerts, §106)
 //     DELETE /api/v1/devices { token }                                            -> { ok: true }
 //     GET/PUT /api/v1/notification-preferences  { kinds, reminders? }             -> the same
 //     POST /api/v1/notifications/test                                            -> { sent, reason? }  (backend/push.ts)
@@ -141,7 +142,8 @@ export function registerNotificationRoutes(app: Express, deps: { requireAuth: Re
 export interface NotificationRoutesV1Deps {
   /** backend/apiV1.ts signedIn: the session, the account, the hours, the password. */
   signedIn: RequestHandler;
-  callerOf: (res: Response) => { user: PublicUser };
+  /** The person, and the session the request came with (backend/apiV1.ts; a test's stand-in may leave it out). */
+  callerOf: (res: Response) => { user: PublicUser; sessionKey?: string };
   logActivity: LogActivity;
   ledger?: NotificationLedger;
   /** Sends the test push to the person's phones (backend/push.ts sendTestPush, by default). */
@@ -161,9 +163,9 @@ export function registerNotificationRoutesV1(app: Express, deps: NotificationRou
   app.post("/api/v1/devices", signedIn, async (req: Request, res: Response): Promise<void> => {
     const device = readDevice(req.body);
     if ("error" in device) return fail(res, 400, "bad-request", device.error);
-    const { user } = callerOf(res);
+    const { user, sessionKey } = callerOf(res);
     try {
-      await ledger().registerDevice(user.id, device);
+      await ledger().registerDevice(user.id, device, sessionKey ?? null);
     } catch (err) {
       return unavailable(res, err);
     }

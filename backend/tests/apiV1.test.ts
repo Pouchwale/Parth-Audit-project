@@ -5,7 +5,9 @@
 //     every route registered is documented;
 //   * the session is taken as a Bearer token or the cookie, the account is read
 //     again on every request, and an account switched off or still on the
-//     administrator's password is refused;
+//     administrator's password is refused; a session ended in DCRS (signed out,
+//     or by the super admin's "Sign out this device", REQUIREMENTS §106) is
+//     refused at its next request, how and when said in the caller's language;
 //   * department scoping, the readable finding ids, the filters;
 //   * a close writes what DCRS's Close button writes, with the version it read,
 //     tries again when somebody wrote meanwhile (and gives up after three), and
@@ -26,6 +28,9 @@ import express, { type Request } from "express";
 import { signSessionToken, type PublicUser } from "../auth.ts";
 import type { StoredItem, UserRow, WriteResult } from "../db.ts";
 import { calendarDate, factoryToday, registerApiV1, type ApiV1Store, type PdfPrinter } from "../apiV1.ts";
+import { createDeviceSessions, memorySessionStore, type DeviceSessions } from "../deviceSessions.ts";
+import { pushDevicesFollow, type NotificationLedger } from "../notifications.ts";
+import { createMemoryLedger } from "./memoryLedger.ts";
 import { repoRoot } from "../paths.ts";
 
 // ---------------------------------------------------------------------------
@@ -207,12 +212,14 @@ interface Server {
   lines: Logged[];
   printed: { appUrl: string; sessionToken: string; recordId: string; timeoutMs?: number }[];
   app: express.Express;
+  /** The sessions the routes check (§106), kept in memory. */
+  sessions: DeviceSessions;
   close: () => Promise<void>;
 }
 
 const NOW = new Date("2026-09-29T06:30:00.000Z"); // 12:00 at the factory
 
-async function start(opts: { pdf?: PdfPrinter; appBuilt?: boolean } = {}): Promise<Server> {
+async function start(opts: { pdf?: PdfPrinter; appBuilt?: boolean; notifications?: NotificationLedger } = {}): Promise<Server> {
   const store = new MemoryStore();
   seed(store);
   const lines: Logged[] = [];
@@ -227,6 +234,15 @@ async function start(opts: { pdf?: PdfPrinter; appBuilt?: boolean } = {}): Promi
       return Buffer.from("%PDF-1.7\n% a stand-in\n%%EOF\n");
     },
   };
+  // As backend/index.ts makes the server's: a phone's push registration follows its session (§106).
+  const notifications = opts.notifications;
+  const sessions = createDeviceSessions({
+    store: memorySessionStore(),
+    limit: null,
+    mitraKey: "",
+    timeZone: () => "Asia/Kolkata",
+    ...(notifications ? { onEnded: pushDevicesFollow(() => notifications) } : {}),
+  });
   registerApiV1(app, {
     requireAuth: (_req, _res, next) => next(),
     logActivity: (_req: Request, who, action, target = "", detail = "", department = "") => lines.push({ who: who?.name ?? null, action, target, detail, department }),
@@ -234,11 +250,13 @@ async function start(opts: { pdf?: PdfPrinter; appBuilt?: boolean } = {}): Promi
     clock: () => NOW,
     pdf: printer,
     appBuilt: () => opts.appBuilt ?? true,
+    sessions,
+    ...(notifications ? { notifications } : {}),
   });
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
   const { port } = server.address() as AddressInfo;
-  return { base: `http://127.0.0.1:${port}`, store, lines, printed, app, close: () => new Promise((resolve) => server.close(() => resolve())) };
+  return { base: `http://127.0.0.1:${port}`, store, lines, printed, app, sessions, close: () => new Promise((resolve) => server.close(() => resolve())) };
 }
 
 async function call(s: Server, method: string, route: string, opts: { token?: string; cookie?: string; body?: unknown; headers?: Record<string, string> } = {}) {
@@ -370,6 +388,82 @@ describe("signing in", () => {
     s.store.users.get("u-all")!.active = false;
     assert.equal((await call(s, "GET", "/api/v1/me", { token: T.unassigned })).status, 401);
     s.store.users.get("u-all")!.active = true;
+  });
+
+  it("refuses a session ended in DCRS at its next request: the super admin's sign-out, said how and when, in the caller's language (§106)", async () => {
+    // The phone's session, as the Mitra server holds it: a token with its own session id.
+    const row = s.store.users.get("u-qa")!;
+    const phone = signSessionToken({ id: row.id, name: row.name, email: row.email, role: row.role, departments: ["QA"] }, undefined, "phone-session-0001");
+    assert.equal((await call(s, "GET", "/api/v1/me", { token: phone })).status, 200, "open: taken in at its first request");
+    const ended = await s.sessions.end("phone-session-0001", "super-admin", "u-admin");
+    assert.ok(ended);
+    const at = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(ended.endedAt!);
+    const en = await call(s, "GET", "/api/v1/me", { token: phone });
+    assert.equal(en.status, 401);
+    assert.equal(en.body.code, "session-ended");
+    assert.equal(en.body.why, "super-admin");
+    assert.equal(en.body.error, `The super admin signed this device out at ${at}. Sign in again to carry on.`);
+    const gu = await call(s, "GET", "/api/v1/me", { token: phone, headers: { "X-Language": "gu" } });
+    assert.equal(gu.status, 401);
+    assert.equal(gu.body.error, `સુપર એડમિને ${at} વાગ્યે આ ઉપકરણને સાઇન આઉટ કર્યું. ચાલુ રાખવા ફરી સાઇન ઇન કરો.`);
+    // Another session of the same person is untouched.
+    assert.equal((await call(s, "GET", "/api/v1/me", { token: T.qa })).status, 200);
+  });
+});
+
+describe("a phone's alerts follow its sign-in (§106, review of 12-Oct-2026)", () => {
+  // The review's probe: a phone signed out by the super admin kept its push registration, and could no longer remove
+  // it (its session was over), so DCRS went on pushing the person's alerts to it: a lost phone's lock screen.
+  let s: Server;
+  const ledger = createMemoryLedger();
+  before(async () => (s = await start({ notifications: ledger })));
+  after(() => s.close());
+  const PUSH = "ExponentPushToken[kajal-phone-0000001]";
+  const phoneOf = (sessionId: string) => {
+    const row = s.store.users.get("u-qa")!;
+    return signSessionToken({ id: row.id, name: row.name, email: row.email, role: row.role, departments: ["QA"] }, undefined, sessionId);
+  };
+  const register = (token: string) =>
+    call(s, "POST", "/api/v1/devices", { token, body: { token: PUSH, platform: "android", language: "gu", deviceName: "Kajal's phone" }, headers: { "X-Client-Name": "Mitra mobile app" } });
+  const registered = async () => (await ledger.devicesOf("u-qa")).map((d) => [d.token, d.sessionId]);
+
+  it("registers a phone under the session it signed in with; the super admin's sign-out takes it away, and nothing more is pushed there", async () => {
+    const phone = phoneOf("phone-session-0101");
+    assert.equal((await register(phone)).status, 200);
+    assert.deepEqual(await registered(), [[PUSH, "phone-session-0101"]]);
+    assert.ok(await s.sessions.end("phone-session-0101", "super-admin", "u-admin"));
+    assert.deepEqual(await registered(), [], "the notify job has no phone of hers to push to");
+    const stillThere = await call(s, "DELETE", "/api/v1/devices", { token: phone, body: { token: PUSH } });
+    assert.equal(stillThere.status, 401, "the phone itself could not have removed it");
+    assert.equal(stillThere.body.code, "session-ended");
+  });
+
+  it("carries the registration on when a sign-in again on the same phone replaces its session, and drops it at the person's own sign-out", async () => {
+    const first = phoneOf("phone-session-0102");
+    assert.equal((await register(first)).status, 200);
+    // The Mitra server signs the same phone in again, handing DCRS the session it still holds (backend/index.ts).
+    const mitra: Record<string, string> = { "user-agent": "node", "x-client-name": "Mitra mobile app" };
+    const endsAt = new Date(Date.now() + 6 * 3_600_000);
+    const again = await s.sessions.signIn({
+      sessionId: "phone-session-0103",
+      user: { id: "u-qa", role: "staff" },
+      device: s.sessions.deviceOf({ header: (n) => mitra[n.toLowerCase()], ip: "127.0.0.1" }),
+      endsAt,
+      replace: ["phone-session-0102"],
+    });
+    assert.deepEqual(again, { ok: true, replaced: 1 });
+    assert.deepEqual(await registered(), [[PUSH, "phone-session-0103"]], "still pushed to, under the new sign-in");
+    const claim = { sessionId: "phone-session-0103", userId: "u-qa", issuedAt: null, endsAt, request: { header: () => undefined, ip: "" } };
+    assert.equal(await s.sessions.signOut(claim), "ended");
+    assert.deepEqual(await registered(), []);
+  });
+
+  it("forgets every phone of an account switched off, and keeps a phone whose session simply ran to its day's end", async () => {
+    assert.equal((await register(phoneOf("phone-session-0104"))).status, 200);
+    await ledger.registerDevice("u-qc", { token: "ExponentPushToken[qc-phone-00000001]", platform: "android", language: "en" }, "qc-session-0001");
+    assert.equal(await s.sessions.endAll("u-qa", "account-off", "u-admin"), 1);
+    assert.deepEqual(await registered(), []);
+    assert.equal((await ledger.devicesOf("u-qc")).length, 1, "nobody else's");
   });
 });
 

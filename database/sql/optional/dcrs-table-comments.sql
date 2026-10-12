@@ -35,7 +35,8 @@ BEGIN
   SELECT string_agg(t, ', ') INTO missing
   FROM unnest(ARRAY['public.users', 'public.digest_log', 'public.app_storage', 'public.activity_log',
                     'public.activity_log_archive', 'public.activity_daily', 'public.activity_daily_state',
-                    'public.job_runs', 'public.escalations', 'public.weekly_digests']) AS t
+                    'public.job_runs', 'public.escalations', 'public.weekly_digests', 'public.user_sessions',
+                    'public.notifications', 'public.push_devices', 'public.notification_prefs', 'public.push_tickets']) AS t
   WHERE to_regclass(t) IS NULL;
   IF missing IS NOT NULL THEN
     RAISE EXCEPTION 'DCRS''s tables are not all here (missing: %). Start DCRS once against this database (it makes and updates its own tables), then run this again.', missing;
@@ -55,6 +56,66 @@ COMMENT ON COLUMN public.users.departments IS 'The codes of the departments whos
 COMMENT ON COLUMN public.users.must_change_password IS 'True while the person still has a password the super admin gave them. They must choose their own before they can do anything else.';
 COMMENT ON COLUMN public.users.active IS 'False for an account the super admin has switched off: it cannot sign in, and a session still open stops at its next request.';
 COMMENT ON COLUMN public.users.last_sign_in IS 'When the person last signed in, as text in ISO form. Empty if never.';
+
+-- ---------------------------------------------------------------- notifications (REQUIREMENTS §97)
+COMMENT ON TABLE public.notifications IS
+  'Each person''s notifications: what they answer for, worked out by the notify job and shown in the bell, on the Notifications page and on the phone. One row per person and key; an item the plan no longer has is resolved, and a resolved one is deleted 60 days later.';
+COMMENT ON COLUMN public.notifications.id IS 'The notification''s number.';
+COMMENT ON COLUMN public.notifications.user_id IS 'The account it is for (users.id).';
+COMMENT ON COLUMN public.notifications.kind IS 'What it is about, as a short word (a record ready, a record due, the access changed ...).';
+COMMENT ON COLUMN public.notifications.key IS 'What makes it one item for its person, for example ready|<record id> or due|<document>|<date>. No two of one person share a key.';
+COMMENT ON COLUMN public.notifications.priority IS 'high, medium or low.';
+COMMENT ON COLUMN public.notifications.data IS 'The facts it names (JSON): never a sentence and never a reading. Worded on every read in the language asked.';
+COMMENT ON COLUMN public.notifications.created_at IS 'When it was first written.';
+COMMENT ON COLUMN public.notifications.updated_at IS 'When it last changed.';
+COMMENT ON COLUMN public.notifications.read_at IS 'When the person read it. Empty while unread.';
+COMMENT ON COLUMN public.notifications.resolved_at IS 'When it stopped being needed (the record was done, the day passed). Empty while open.';
+COMMENT ON COLUMN public.notifications.pushed_at IS 'When it was pushed to the person''s phone. Empty if not (yet).';
+COMMENT ON COLUMN public.notifications.push_attempts IS 'How many times a push of it was tried.';
+
+COMMENT ON TABLE public.push_devices IS
+  'One row per phone registered for pushes by the Mitra app (POST /api/v1/devices). A token Expo says is no longer registered is deleted, and so is a phone whose session was ended on purpose (signed out, by the super admin, the account switched off).';
+COMMENT ON COLUMN public.push_devices.token IS 'The phone''s Expo push token: where its pushes go.';
+COMMENT ON COLUMN public.push_devices.user_id IS 'The account signed in on that phone (users.id).';
+COMMENT ON COLUMN public.push_devices.platform IS 'android or ios.';
+COMMENT ON COLUMN public.push_devices.language IS 'The language its pushes are worded in: en, hi or gu.';
+COMMENT ON COLUMN public.push_devices.app_version IS 'The Mitra app''s version on that phone.';
+COMMENT ON COLUMN public.push_devices.device_name IS 'The phone''s own name, as it gives it.';
+COMMENT ON COLUMN public.push_devices.created_at IS 'When the phone was first registered.';
+COMMENT ON COLUMN public.push_devices.last_seen_at IS 'When the phone last registered or was last heard from.';
+COMMENT ON COLUMN public.push_devices.session_id IS 'The session the phone registered under (user_sessions.id): ended on purpose, the phone is forgotten; replaced by a sign-in again on the same phone, it moves to the new one.';
+
+COMMENT ON TABLE public.notification_prefs IS
+  'One row per person: which kinds of notification they switched off for pushing, and the phone''s own daily reminders.';
+COMMENT ON COLUMN public.notification_prefs.user_id IS 'The account (users.id).';
+COMMENT ON COLUMN public.notification_prefs.kinds IS 'The kinds switched off for pushing (JSON).';
+COMMENT ON COLUMN public.notification_prefs.reminders IS 'Whether the phone''s own daily reminders are on. Empty: as the app decides.';
+COMMENT ON COLUMN public.notification_prefs.updated_at IS 'When the person last changed them.';
+
+COMMENT ON TABLE public.push_tickets IS
+  'The tickets Expo''s push service answered with, kept until their receipts are read about 15 minutes later; deleted after a day.';
+COMMENT ON COLUMN public.push_tickets.id IS 'The ticket''s id, as Expo gave it.';
+COMMENT ON COLUMN public.push_tickets.token IS 'The phone''s push token the ticket is for (push_devices.token).';
+COMMENT ON COLUMN public.push_tickets.created_at IS 'When the push was sent.';
+
+-- ---------------------------------------------------------------- user_sessions
+COMMENT ON TABLE public.user_sessions IS
+  'Where each person is signed in (REQUIREMENTS §106): one row per session, keyed by the id its sign-in token carries, with the device it was signed in on. DCRS reads it on every request, so a sign-out, the super admin''s Sign out this device (User access, Signed in on) and switching an account off end a session at once. An account may be signed in on at most DCRS_MAX_DEVICES devices (2 unless set); the super admin is never held to it. A session is open while ended_at is empty and ends_at is still to come. Rows are never deleted: an ended one says when, why and by whom.';
+COMMENT ON COLUMN public.user_sessions.id IS 'The session''s id, the one its sign-in token carries (a random UUID). For a token made before sessions were kept, pre- and a hash of the token.';
+COMMENT ON COLUMN public.user_sessions.user_id IS 'The account signed in (users.id).';
+COMMENT ON COLUMN public.user_sessions.device_id IS 'The device''s own id: the random id the website keeps in the browser, or the phone''s, sent by the Mitra server. Empty when none was sent (another program, or a session from before devices were recorded).';
+COMMENT ON COLUMN public.user_sessions.device_name IS 'The device in words, as the super admin reads it: Windows computer - Chrome, Android phone - Chrome, iPhone - Safari, iPad - Safari, or the phone''s own name and model. Signed in before devices were recorded for a session taken in from before the change.';
+COMMENT ON COLUMN public.user_sessions.device_category IS 'computer, mobile or tablet.';
+COMMENT ON COLUMN public.user_sessions.place IS 'Where it was signed in: website (DCRS in a browser), phone-app (the Mitra phone app, through the Mitra server) or api (another program through the DCRS API).';
+COMMENT ON COLUMN public.user_sessions.device_client IS 'The browser or the app and its version, for example Chrome 141 or Mitra app 1.1.0.';
+COMMENT ON COLUMN public.user_sessions.device_system IS 'The device''s system, for example Windows, Android 14 or iOS 18.1. Empty when not known.';
+COMMENT ON COLUMN public.user_sessions.address IS 'The network address it signed in from: the phone''s own, as the Mitra server saw it, for the phone app.';
+COMMENT ON COLUMN public.user_sessions.signed_in_at IS 'When it was signed in.';
+COMMENT ON COLUMN public.user_sessions.last_used_at IS 'When it was last used: written at most once a minute.';
+COMMENT ON COLUMN public.user_sessions.ends_at IS 'When it ends by itself: the close of the day it was started (the end of the staff''s working hours, or midnight for the super admin).';
+COMMENT ON COLUMN public.user_sessions.ended_at IS 'When it was ended before that. Empty while it is open, or when it simply ran to its end.';
+COMMENT ON COLUMN public.user_sessions.ended_why IS 'Why it was ended: signed-out (by the person), super-admin (Sign out this device), replaced (signed in again on the same device) or account-off (the account was switched off).';
+COMMENT ON COLUMN public.user_sessions.ended_by IS 'The account that ended it (users.id): the person, or the super admin.';
 
 -- ---------------------------------------------------------------- digest_log
 COMMENT ON TABLE public.digest_log IS

@@ -87,14 +87,29 @@ export function signSessionToken(user: PublicUser, endsAt?: Date, sessionId: str
  * not sign, one made before sessions ended with their day, or one whose day has
  * closed. `ignoreExpiration` reads a closed session too — only for the sign-out
  * of a session the browser ends a moment after its close (backend/index.ts,
- * POST /api/auth/logout).
+ * POST /api/auth/logout). `issuedAt` is when it was signed, for a session taken
+ * in from before sessions were kept (REQUIREMENTS §106, backend/deviceSessions.ts).
  */
-export function verifySessionToken(token: string, opts: { ignoreExpiration?: boolean } = {}): { sub: string; endsAt: Date; sessionId: string | null } | null {
+export function verifySessionToken(token: string, opts: { ignoreExpiration?: boolean } = {}): { sub: string; endsAt: Date; sessionId: string | null; issuedAt: Date | null } | null {
   try {
     const payload = jwt.verify(token, JWT_SECRET, { ignoreExpiration: opts.ignoreExpiration === true });
     if (typeof payload === "string" || typeof payload.sub !== "string" || payload.v !== SESSION_VERSION || typeof payload.exp !== "number") return null;
-    return { sub: payload.sub, endsAt: new Date(payload.exp * 1000), sessionId: typeof payload.sid === "string" && payload.sid ? payload.sid : null };
+    return {
+      sub: payload.sub,
+      endsAt: new Date(payload.exp * 1000),
+      sessionId: typeof payload.sid === "string" && payload.sid ? payload.sid : null,
+      issuedAt: typeof payload.iat === "number" ? new Date(payload.iat * 1000) : null,
+    };
   } catch {
     return null;
   }
+}
+
+/**
+ * THE ROW A TOKEN'S SESSION IS KEPT UNDER (REQUIREMENTS §106, backend/db.ts user_sessions): the id it carries; for a
+ * token made before sessions had ids (8-Oct-2026), one worked out from the token itself, the same every time — so it
+ * is taken in once and can be ended like any other.
+ */
+export function sessionKeyOf(token: string, sessionId: string | null): string {
+  return sessionId ?? `pre-${crypto.createHash("sha256").update(token).digest("hex").slice(0, 32)}`;
 }

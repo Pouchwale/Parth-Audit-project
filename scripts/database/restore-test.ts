@@ -1,5 +1,10 @@
 // TESTS THAT A BACKUP RESTORES (REQUIREMENTS §83): `npm run db:restore-test`,
-// or `npm run db:restore-test -- <dump file> [--roles <roles file>]`.
+// or `npm run db:restore-test -- <dump file> [--roles <roles file>]`; and
+// `npm run db:restore-test -- --mitra` for the newest backup of Mitra's own
+// database (mitra-….dump, REQUIREMENTS §107: the same steps and checks, with
+// SOURCE_DATABASE_URL naming Mitra's database to compare the rows with; the
+// checks of the shared database's overview and the Audit Assistant's role are
+// DCRS's, and are left out for it).
 //
 // It restores the newest backup in backend/data/backups (or BACKUP_DIR), or the
 // dump named, into a NEW database of its own on the server that
@@ -88,18 +93,20 @@ async function connect(address: DatabaseAddress): Promise<pg.Client> {
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 const codeOf = (err: unknown) => (err as { code?: string }).code ?? "";
 
-function commandLine(): { dump: string | null; roles: string | null } {
+function commandLine(): { dump: string | null; roles: string | null; mitra: boolean } {
   const argv = process.argv.slice(2);
   let dump: string | null = null;
   let roles: string | null = null;
+  let mitra = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--roles") roles = argv[++i] ?? null;
     else if (arg.startsWith("--roles=")) roles = arg.slice("--roles=".length);
-    else if (arg.startsWith("-")) throw new Error(`Unknown option ${arg}. Use: npm run db:restore-test -- [dump file] [--roles roles file]`);
+    else if (arg === "--mitra") mitra = true;
+    else if (arg.startsWith("-")) throw new Error(`Unknown option ${arg}. Use: npm run db:restore-test -- [dump file | --mitra] [--roles roles file]`);
     else dump = arg;
   }
-  return { dump, roles };
+  return { dump, roles, mitra };
 }
 
 /** Runs each query as `role`, one after another, in a transaction that is rolled back; an error in one does not stop the next. */
@@ -146,10 +153,11 @@ async function main(): Promise<number> {
   addresses.push(server, ...(source ? [source] : []));
   const hide = (text: string) => hidePassword(text, ...addresses);
 
-  const dumpPath = options.dump ? path.resolve(options.dump) : newestDump(backupDir());
+  const dumpPath = options.dump ? path.resolve(options.dump) : newestDump(backupDir(), options.mitra ? "mitra" : "dcrs");
   if (!dumpPath) {
     throw new Error(
-      `There is no backup in ${backupDir()} (files named dcrs-YYYY-MM-DD-HHmm.dump). Run npm run db:backup first, or name the dump: npm run db:restore-test -- <file>.`
+      `There is no backup in ${backupDir()} (files named ${options.mitra ? "mitra" : "dcrs"}-YYYY-MM-DD-HHmm.dump). Run npm run db:backup first` +
+        `${options.mitra ? " with MITRA_DATABASE_URL set" : ""}, or name the dump: npm run db:restore-test -- <file>.`
     );
   }
   if (!existsSync(dumpPath)) throw new Error(`There is no file ${dumpPath}.`);
@@ -333,9 +341,10 @@ async function main(): Promise<number> {
 
     db = await connect(target);
 
-    // The schemas.
+    // The schemas. DCRS's database is the one with app_storage; another (Mitra's own, §107) is checked as the dump has it.
     const dumpSchemas = tocSchemas(toc);
-    const wanted = ["public", "chatbot", "overview"];
+    const isDcrs = tocTables(toc).some((t) => t.schema === "public" && t.name === "app_storage");
+    const wanted = isDcrs ? ["public", "chatbot", "overview"] : ["public"];
     const expected = [...wanted.filter((s) => dumpSchemas.includes(s)), ...dumpSchemas.filter((s) => !wanted.includes(s))];
     const notInDump = wanted.filter((s) => !dumpSchemas.includes(s));
     const schemasHere = new Set((await db.query<{ nspname: string }>("SELECT nspname FROM pg_namespace")).rows.map((r) => r.nspname));
@@ -415,7 +424,9 @@ async function main(): Promise<number> {
     ).rows.map((r) => r.relname);
     const lostViews = tocViews(toc, "overview").filter((v) => !views.includes(v));
     const viewerExists = ((await db.query("SELECT 1 FROM pg_roles WHERE rolname = 'overview_viewer'")).rowCount ?? 0) > 0;
-    if (!views.length && !lostViews.length) {
+    if (!isDcrs && !views.length && !lostViews.length) {
+      checks.push({ ok: null, title: `The dump is not DCRS's database (it has no app_storage: Mitra's own, say), so the shared database's overview views are not asked.`, details: [] });
+    } else if (!views.length && !lostViews.length) {
       checks.push({ ok: null, title: "The dump has no overview views (parts 2 and 3 of the shared-database setup were not applied to its database), so there are none to ask.", details: [] });
     } else if (!viewerExists) {
       checks.push({ ok: false, title: "The role overview_viewer is not on this server, so the overview views cannot be read as it.", details: [] });
@@ -445,7 +456,9 @@ async function main(): Promise<number> {
     // The Audit Assistant's role, locked out of DCRS's data, and still able to start.
     const assistantExists = ((await db.query("SELECT 1 FROM pg_roles WHERE rolname = 'audit_assistant'")).rowCount ?? 0) > 0;
     const hasChatbot = dumpSchemas.includes("chatbot");
-    if (!assistantExists) {
+    if (!isDcrs) {
+      checks.push({ ok: null, title: "Not DCRS's database: the Audit Assistant's role is DCRS's database's business, and is not checked here.", details: [] });
+    } else if (!assistantExists) {
       checks.push(
         hasChatbot
           ? { ok: false, title: "The role audit_assistant is not on this server, though the dump has the schema chatbot.", details: [] }

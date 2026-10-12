@@ -30,6 +30,8 @@ export function backupDir(env: NodeJS.ProcessEnv = process.env): string {
 
 /** The database: dcrs-YYYY-MM-DD-HHmm.dump. */
 export const DUMP_NAME = /^dcrs-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})\.dump$/;
+/** Mitra's own database, when MITRA_DATABASE_URL names it (REQUIREMENTS §107): mitra-YYYY-MM-DD-HHmm.dump. */
+export const MITRA_DUMP_NAME = /^mitra-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})\.dump$/;
 /** Its roles: roles-YYYY-MM-DD-HHmm.sql. */
 export const ROLES_NAME = /^roles-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})\.sql$/;
 /** Either of them while it is being written. */
@@ -44,7 +46,7 @@ export function stampOf(at: Date): string {
 /** When a backup file of ours was made, from its name; null for any other file. */
 export function stampTime(name: string): Date | null {
   const base = name.endsWith(PARTIAL_SUFFIX) ? name.slice(0, -PARTIAL_SUFFIX.length) : name;
-  const m = DUMP_NAME.exec(base) ?? ROLES_NAME.exec(base);
+  const m = DUMP_NAME.exec(base) ?? MITRA_DUMP_NAME.exec(base) ?? ROLES_NAME.exec(base);
   if (!m) return null;
   const [year, month, day, hour, minute] = m.slice(1, 6).map(Number);
   if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
@@ -69,11 +71,12 @@ export function oldBackupFiles(names: string[], now: Date, keepDays = KEEP_DAYS,
   });
 }
 
-/** The newest dcrs-….dump in the folder, or null. */
-export function newestDump(dir: string): string | null {
+/** The newest dcrs-….dump in the folder (mitra-….dump for Mitra's database), or null. */
+export function newestDump(dir: string, kind: "dcrs" | "mitra" = "dcrs"): string | null {
+  const named = kind === "mitra" ? MITRA_DUMP_NAME : DUMP_NAME;
   let names: string[] = [];
   try {
-    names = readdirSync(dir).filter((n) => DUMP_NAME.test(n) && stampTime(n));
+    names = readdirSync(dir).filter((n) => named.test(n) && stampTime(n));
   } catch {
     return null;
   }
@@ -82,9 +85,9 @@ export function newestDump(dir: string): string | null {
   return names.length ? path.join(dir, names[names.length - 1]) : null;
 }
 
-/** The roles file made with a dump (roles-<same stamp>.sql beside it), or null. */
+/** The roles file made with a dump, DCRS's or Mitra's (roles-<same stamp>.sql beside it), or null. */
 export function rolesFileFor(dumpPath: string): string | null {
-  const m = DUMP_NAME.exec(path.basename(dumpPath));
+  const m = DUMP_NAME.exec(path.basename(dumpPath)) ?? MITRA_DUMP_NAME.exec(path.basename(dumpPath));
   if (!m) return null;
   const roles = path.join(path.dirname(dumpPath), `roles-${m[1]}-${m[2]}-${m[3]}-${m[4]}${m[5]}.sql`);
   return existsSync(roles) ? roles : null;

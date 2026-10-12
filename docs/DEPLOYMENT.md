@@ -64,6 +64,10 @@ part of the app that is no longer purely client-side:
   at midnight for the super admin (REQUIREMENTS §84). The signing secret is generated once on first run and saved to
   `backend/data/jwt-secret.txt` (gitignored) so restarts keep existing sessions valid; set
   `JWT_SECRET` yourself to control it explicitly (e.g. if you ever run more than one instance).
+- **Where each person is signed in** (REQUIREMENTS §106): every session is also a row of `user_sessions`, read on
+  every request, so signing out ends it and the super admin can sign one device out from User access ("Signed in
+  on"). An account may be signed in on at most `DCRS_MAX_DEVICES` devices (2 unless set); the super admin is never
+  held to it. The Mitra server names the phones only with `MITRA_SERVER_KEY` set the same on both servers.
 - **Roles**: `admin` (the super admin) and `staff`. The super admin is the seeded `admin@gpp.local`; every
   account the super admin makes on Users & Access is `staff`, kept to the departments it is given. Signing up is
   refused (`POST /api/auth/signup` answers 403) unless `ALLOW_SIGNUP=1`; with it (the test runner, or ONE start
@@ -98,6 +102,7 @@ Tables:
 | Table | Holds |
 |---|---|
 | `users` | accounts: id, name, email, bcrypt hash, role, created_at, departments |
+| `user_sessions` | where each person is signed in (REQUIREMENTS §106): one row per session, keyed by the id its token carries — the account, the device's own id, its name in words, its category (computer, mobile or tablet), the website, the Mitra phone app or the API, the browser or app, the system, the address, signed in at, last used (written at most once a minute), ends at, and when, why and by whom it was ended. Read on every request, so a sign-out and the super admin's "Sign out this device" end a session at once. Nothing deletes a row |
 | `digest_log` | the last date a reminder digest was emailed (one row) |
 | `activity_log` | the Activity Log (REQUIREMENTS §62): one line per thing a person did — `at`, `user_id`, `user_name`, `action`, `target`, `detail`, `department`, `ip`. Indexed by time, by person and time, and by department and time; its search has a trigram index (`activity_log_search_trgm_idx`) when the database account may create the `pg_trgm` extension — without that right the server logs one warning and searches unindexed (REQUIREMENTS §75). **Append-only in the database itself**: a trigger refuses UPDATE, DELETE and TRUNCATE on the log and its archive; the one DELETE allowed is the archive step's, in its own transaction. Created with CREATE OR REPLACE TRIGGER at every start, so PostgreSQL 14 or later is needed. `client_id` holds the browser's own id for a line (a UUID), unique where present, so a batch sent again is written once |
 | `activity_log_archive` | lines of the Activity Log the super admin moved out of it on purpose: the log's columns with the same ids, plus `archived_at` and `archived_by`; indexed like the log. Read with the log on the Activity Log page ("Include archived lines"). Refuses UPDATE, DELETE and TRUNCATE |
@@ -106,7 +111,7 @@ Tables:
 | `escalations` | the super admin's escalations: `kind` (person/department), `subject_key` (account id or `dept:HR`), `subject_name`, `department`, `period` (ISO week), `late`, `never_done`, `evidence` (window, rule, worst documents, up to 10 records), `acknowledged_by`/`_at`, `record_ids` (every record behind the day's figures) and `seen_ids` (those behind it when it was acknowledged — it opens again only for a record not among them); one per subject per week |
 | `weekly_digests` | `period` (ISO week), `created_at`, `body` — the weekly digest shown on the Performance page |
 | `notifications` | each person's notifications (REQUIREMENTS §97): `user_id`, `kind`, `key` (unique per person: `ready\|<record>`, `due\|<document>\|<date>` …), `priority`, `data` (the facts, JSON: never a sentence, never a reading; worded on every read in the language asked), `created_at`, `updated_at`, `read_at`, `resolved_at`, `pushed_at`, `push_attempts`. Written by the notify job (upsert by person and key; an item the plan no longer has is resolved); deleted 60 days after it is resolved |
-| `push_devices` | one row per phone registered for pushes (`POST /api/v1/devices`): `token` (the Expo push token, the key), `user_id`, `platform`, `language`, `app_version`, `device_name`, `created_at`, `last_seen_at`. A token Expo says is no longer registered is deleted |
+| `push_devices` | one row per phone registered for pushes (`POST /api/v1/devices`): `token` (the Expo push token, the key), `user_id`, `platform`, `language`, `app_version`, `device_name`, `created_at`, `last_seen_at`, `session_id` (the `user_sessions` row it was registered under). A token Expo says is no longer registered is deleted, and so is a phone whose session was ended on purpose (signed out, by the super admin, the account switched off: REQUIREMENTS §106); a sign-in again on the same phone moves it to the new session |
 | `notification_prefs` | one row per person: `kinds` (JSON, the kinds switched off for pushing) and `reminders` (the phone's own reminders) |
 | `push_tickets` | the tickets Expo's push service answered with (`id`, `token`, `created_at`), until their receipts are read about 15 minutes later; deleted after a day |
 | `app_storage` | the app's data, one row per stored item: `scope` (`company`, or a user's id), `key` (`records`, `documents`, `master`, `hrMasterData`, `referenceEdits`, `deletions`, `live-start` for the company; `settings`, `assistant-conversations`, `sidebar-open-modules`, `sidebar-visible` for a person — no other keys are accepted), `value` (the item as JSON text), `version`, `seq`, `updated_at`, `updated_by` |
@@ -189,6 +194,139 @@ a change from the database that does not fit is asked for again, and signing in 
 browser has no room for the company's records". Clearing Demo data frees the most room. A single
 stored item may be up to 25 MB (`STORAGE_MAX_BYTES` in `backend/index.ts`).
 
+## Both applications on one PostgreSQL server (REQUIREMENTS §107)
+
+For the plant's deployment, DCRS and the Mitra server keep their data on ONE PostgreSQL server (the PostgreSQL 18
+installed as a Windows service, port 5432), each in a database of its own. Until now DCRS used the PostgreSQL it starts
+by itself (port 5433, `backend\data\postgres`) and the Mitra server its embedded folder (`server\.data\pglite`). The
+steps below move both, and lose nothing: each copy is checked row by row, and the old copies are kept until the new
+ones are checked.
+
+| | DCRS | Mitra |
+|---|---|---|
+| Database | `dcrs` | `mitra` |
+| Its own role, which owns the database and every table in it | `dcrs` | `mitra` |
+| Its address | `DATABASE_URL` in DCRS's `backend\.env` | `DATABASE_URL` in `Audit project chatbot-mobile\server\.env`, with `NODE_ENV=production` |
+
+Neither role is a superuser, and neither can read the other's tables: each application's tables are its own role's,
+granted to nobody else. In production the Mitra server refuses to start on anything but a `postgres://` address, and
+says so (REQUIREMENTS §107), so it can never fall back to a folder on one disk by mistake. Every command below runs in
+PowerShell on the server PC, `psql`, `pg_dump` and `pg_restore` from `C:\Program Files\PostgreSQL\18\bin`. A password
+is never written on a command line or in a chat: `\password` in psql asks for it, and `$env:PGPASSWORD` holds it for
+the window's own commands only.
+
+**1. The two roles and the two databases** (once, as the server's superuser `postgres`):
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h 127.0.0.1 -p 5432 -U postgres -d postgres
+```
+
+```sql
+CREATE ROLE dcrs LOGIN;
+\password dcrs
+CREATE DATABASE dcrs OWNER dcrs ENCODING 'UTF8' TEMPLATE template0;
+CREATE ROLE mitra LOGIN;
+\password mitra
+CREATE DATABASE mitra OWNER mitra ENCODING 'UTF8' TEMPLATE template0;
+\q
+```
+
+Use passwords of letters and digits (16 or more): they go into addresses, where other characters must be
+percent-encoded.
+
+**2. DCRS's records, when DCRS already holds real work** in the PostgreSQL it started by itself. Stop DCRS (and the
+Mitra server); the database on 5433 keeps running (start DCRS once if it is not, then stop it). Take DCRS's own tables,
+without the overview (DCRS makes it again in step 4), and put them into the new database as `dcrs`, which then owns
+them:
+
+```powershell
+cd C:\DCRS
+$env:PGPASSWORD = Get-Content backend\data\postgres-password
+& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" --format=custom --exclude-schema=overview --exclude-schema=chatbot --file=dcrs-move.dump "postgres://postgres@127.0.0.1:5433/dcrs"
+$env:PGPASSWORD = Read-Host "DCRS's new password"
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" --no-owner --no-privileges --exit-on-error --single-transaction --dbname="postgres://dcrs@127.0.0.1:5432/dcrs" dcrs-move.dump
+Remove-Item Env:PGPASSWORD
+```
+
+The restore is one transaction: it finishes whole or leaves the new database empty. Check that both hold the same: in
+psql on each (`-p 5433 -U postgres -d dcrs`, then `-p 5432 -U dcrs -d dcrs`), `SELECT count(*) FROM app_storage;
+SELECT count(*) FROM activity_log; SELECT count(*) FROM users;` must give the same numbers. Keep `dcrs-move.dump` and
+`backend\data\postgres` as they are until DCRS has run on the new database for a while. (A plant with nothing in DCRS
+yet leaves this step out: DCRS makes its tables at its first start.)
+
+**3. DCRS on the new database.** In `backend\.env`:
+
+```text
+DATABASE_URL=postgres://dcrs:<DCRS's password>@127.0.0.1:5432/dcrs
+```
+
+Start DCRS. It makes any table it lacks (on an empty database, all of them) and says in its window that the Database
+overview waits for one step: its role may not set it up by itself.
+
+**4. The Database overview, once** (as `postgres`, in the DCRS folder):
+
+```powershell
+$env:SUPERUSER_DATABASE_URL = "postgres://postgres@127.0.0.1:5432/dcrs"
+$env:PGPASSWORD = Read-Host "The postgres password"
+npm run db:shared -- setup
+Remove-Item Env:PGPASSWORD
+```
+
+It adds the overview's views and lets the role `dcrs` read them as `overview_viewer` (docs/database/README.md). Open
+the Database overview: it reads at once, with no restart, and `OVERVIEW_DATABASE_URL` stays unset. (When DCRS signs in
+as a superuser, as on the PostgreSQL it starts by itself, DCRS does this step itself at start-up.)
+
+**5. Mitra's data.** Stop the Mitra server. In `Audit project chatbot-mobile\server\.env`:
+
+```text
+DATABASE_URL=postgres://mitra:<Mitra's password>@127.0.0.1:5432/mitra
+NODE_ENV=production
+```
+
+When the Mitra server has run before on its own folder, bring that over first, from the `Audit project chatbot-mobile`
+folder (`--to` is the `DATABASE_URL` just written when left out):
+
+```powershell
+npm --prefix server run db:copy -- --from .data/pglite
+```
+
+It copies every table into the empty database in one transaction, checks every table's rows against the folder before
+it commits, prints the counts, and refuses a database that already holds Mitra's data; the folder is only read
+(server/src/db/copy.ts). Then start the Mitra server: it opens the database with its own migrations. Keep
+`server\.data\pglite` until the app has been checked on the phones.
+
+**6. Backups of both.** One role that may read everything and change nothing, for the backups only (as `postgres`, in
+psql on 5432): `CREATE ROLE dcrs_backup LOGIN; \password dcrs_backup; GRANT pg_read_all_data TO dcrs_backup;`. Then in
+DCRS's `backend\.env`:
+
+```text
+BACKUP_DATABASE_URL=postgres://dcrs_backup:<its password>@127.0.0.1:5432/dcrs
+MITRA_DATABASE_URL=postgres://dcrs_backup:<its password>@127.0.0.1:5432/mitra
+```
+
+`npm run db:backup` (every evening by itself once `scripts\database\schedule-backup.ps1` is registered) then writes
+`dcrs-<date>-<time>.dump`, `mitra-<date>-<time>.dump` and the server's roles file together, and keeps them 14 days
+(below, "Backups of the shared database").
+
+**7. The restore test of both**, once now and after any change to the set-up:
+
+```powershell
+$env:RESTORE_TEST_SERVER_URL = "postgres://postgres@127.0.0.1:5432/postgres"
+$env:PGPASSWORD = Read-Host "The postgres password"
+$env:SOURCE_DATABASE_URL = "postgres://postgres@127.0.0.1:5432/dcrs"
+npm run db:restore-test
+$env:SOURCE_DATABASE_URL = "postgres://postgres@127.0.0.1:5432/mitra"
+npm run db:restore-test -- --mitra
+Remove-Item Env:PGPASSWORD
+```
+
+Each restores its newest backup into a throwaway database of its own, checks every table's rows against the database
+it came from, and drops it again; each ends with `RESULT: PASSED`.
+
+The whole path was rehearsed on 10-Oct-2026 on two throwaway PostgreSQL 18 servers standing for 5433 and 5432
+(steps 1 to 7, with real rows in both applications' databases): every table's rows the same after each move, the
+Database overview reading as `overview_viewer` after step 4, both backups written and both restore tests passed.
+
 ## Backup instructions
 
 > **Once DCRS shares its database with the Audit Assistant** (REQUIREMENTS §83), back up and restore with
@@ -258,12 +396,15 @@ just shows a clear "isn't configured yet" message instead of failing silently.
 | `ACTIVITY_ARCHIVE_AFTER_YEARS` | `3` | `backend/activityArchive.ts` | How old (whole years, 1–10) a line of the Activity Log must be before the page OFFERS to archive it. Nothing is ever archived by itself: the super admin picks 1–10 years, sees how many lines and from when to when, and confirms (REQUIREMENTS §75). Three years is the plant's own: the Master List of Formats & Records (F/SYS/02) retains its records three years — 133 of its 141 formats are then shredded, the master lists maintained as updated (§76). |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | none (digest disabled) | `backend/email.ts` | The mailbox the daily reminder digest is sent from. Recipients are the employees Master Data assigns to each due record; the server accepts only single, well-formed addresses (at most 50 per digest), so the endpoint can't be used to relay mail. |
 | `DCRS_WORKING_HOURS` | on | `backend/workingHours.ts` | The plant's working hours (REQUIREMENTS §84): every account but the super admin may use DCRS only on a working day of the company calendar, between the two times in Master Data → Working Hours (8:40 am to 6:20 pm unless changed), and every session ends at the close of its day. Set to `off` to switch the rule off — the e2e runner's test servers do, and so can a developer who must work as a member of staff at night. |
-| `OVERVIEW_DATABASE_URL` | none (the page says how to set it up) | `backend/overviewRoutes.ts` | The super admin's read-only **Database overview** (REQUIREMENTS §83): the address of the shared database signed in as the role `overview_viewer`, e.g. `postgres://overview_viewer:<password>@127.0.0.1:5433/dcrs`. The page can only read the `overview` views through it. See docs/database/README.md. |
+| `DCRS_MAX_DEVICES` | `2` | `backend/deviceSessions.ts` | The most devices an account may be signed in on at once (REQUIREMENTS §106): a whole number from 1 to 50, or `off` (or `0`) for no limit. A device that signs in again takes its own place; one more device is refused with the devices named and since when, until one is signed out (by the person, or by the super admin on User access). The super admin is never held to it. The e2e runner's test servers set `off`. |
+| `MITRA_SERVER_KEY` | none | `backend/deviceSessions.ts` | The secret the Mitra server proves itself with (REQUIREMENTS §106): set the SAME value in the Mitra server's `server\.env`. At least 16 characters (make one with `node -e "console.log(require('node:crypto').randomBytes(24).toString('base64url'))"`). With it, a phone's sign-in through Mitra is listed on User access by the phone's own name, model and address; without it, as a mobile phone on the Mitra phone app that is not named ("A phone - its name is not known"), at the Mitra server's address. Compared in constant time; never logged, never in an answer. Keep it private like `JWT_SECRET`. |
+| `OVERVIEW_DATABASE_URL` | none: DCRS's own connection, as `overview_viewer` | `backend/overviewRoutes.ts`, `backend/overviewSetup.ts` | The super admin's read-only **Database overview** (REQUIREMENTS §83, §107). Not needed: without it DCRS reads the overview through its own connection, each read in a read-only transaction that becomes the role `overview_viewer` first, and at start-up sets the overview up itself when its database role may (a superuser, or CREATEROLE with CREATE on the database); when it may not, the page says the one step (`npm run db:shared -- setup` once, as a superuser). Set it only to read through a login of the viewer's own instead, e.g. `postgres://overview_viewer:<password>@127.0.0.1:5433/dcrs`, as before. See docs/database/README.md. |
 | `DCRS_APP_URL` | the request's own address | `backend/apiV1.ts` | The app's address as people reach it, for the links the DCRS API hands the Audit Assistant (e.g. `http://dcrs-host:4000`). |
 | `MITRA_EXPO_PORT` | `8081` | `backend/phoneApp.ts` | Where Expo's server for Expo Go listens on this PC: the port in the QR code of "Mitra on your phone" on the Ask Mitra page (`GET /api/phone-app`, which also says whether it is running). See [phone-app-setup.md](phone-app-setup.md). |
 | `MITRA_SERVER_PORT` | `3000` | `backend/phoneApp.ts` | Where the Mitra server listens on this PC, for the same card. The app on the phones looks for it on 3000. |
 | `DCRS_PDF_BROWSER` | Chrome, then Edge, in their usual places | `backend/pdfReport.ts` | The browser that prints the daily pest control report as a PDF for the Audit Assistant (`GET /api/v1/pest-control/daily-report`). Set it only when Chrome or Edge is installed somewhere unusual. The app must be built (`npm run build`). |
 | `BACKUP_DATABASE_URL` | `DATABASE_URL`, else the built-in local database | `scripts/database/backup.ts` | The database `npm run db:backup` saves. When DCRS signs in with a role of its own that is not a superuser, point this at a separate backup role (see "Backups of the shared database"). |
+| `MITRA_DATABASE_URL` | none (Mitra's database is not backed up here) | `scripts/database/backup.ts` | Mitra's own database (REQUIREMENTS §107), for example `postgres://dcrs_backup:<password>@127.0.0.1:5432/mitra`: `npm run db:backup` then writes `mitra-<date>-<time>.dump` beside DCRS's, kept the same 14 days, and `npm run db:restore-test -- --mitra` tests it. See "Both applications on one PostgreSQL server". |
 | `BACKUP_DIR` | `backend/data/backups` | `scripts/database/backup.ts` | Where the backups go; best on another disk or a network share. |
 | `PG_BIN` | on `PATH`, then `C:\Program Files\PostgreSQL\<newest>\bin` | `scripts/database/*.ts` | Where PostgreSQL's own tools (`pg_dump`, `pg_restore`, `pg_dumpall`) are. |
 
@@ -350,7 +491,8 @@ missing from the declared `lib`).
 
 (REQUIREMENTS §83.) DCRS and the Audit Assistant keep their data in one PostgreSQL database: DCRS's
 tables in the schema `public`, the Audit Assistant's in `chatbot`, and the readable views in
-`overview` (see docs/database/README.md). One backup holds all three.
+`overview` (see docs/database/README.md). One backup holds all three. With `MITRA_DATABASE_URL` set, the same run
+also backs up the Mitra server's own database (REQUIREMENTS §107): see "Mitra's database" below.
 
 **What a backup is.** `npm run db:backup` (`scripts/database/backup.ts`) writes two files. The two
 together are one backup:
@@ -441,6 +583,14 @@ backup"`.
 On the same server, with the roles still there, step 2 may be left out. The "Backup instructions"
 further up are for a database without the Audit Assistant; with its schema in the database, restore
 as described here.
+
+**Mitra's database** (REQUIREMENTS §107). When `MITRA_DATABASE_URL` names it ("Both applications on one PostgreSQL
+server", step 6), each backup is three files: the two above and `mitra-<date>-<time>.dump`, Mitra's whole database
+made with `pg_dump --format=custom`, kept the same 14 days. The roles file is the server's, so it holds Mitra's role
+too. If Mitra's dump fails, the run fails, keeps DCRS's two files and deletes nothing older. To restore it on a new
+server: the roles file first (as above), then `pg_restore -U postgres --create --dbname=postgres
+mitra-2026-10-10-2030.dump`, then `ALTER ROLE mitra PASSWORD '<its password>';` (or `\password mitra`), and start
+the Mitra server. `npm run db:restore-test -- --mitra` tests the newest one, as below.
 
 **Testing a restore.** `npm run db:restore-test` restores the newest backup (or
 `npm run db:restore-test -- <dump file>`), checks it, and removes it again. It needs:

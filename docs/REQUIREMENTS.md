@@ -7018,6 +7018,203 @@ e2e_user_access.py and e2e_every_record_starts.py (accounts made by the super ad
 given and are refused a change), e2e_portal_controls.py (the super admin's own change with its three eyes, when the
 suite's account is the super admin; otherwise the staff side above).
 
+## §106 Where each person is signed in, on two devices at most, and one password for the website and the phone (9-Oct-2026)
+
+The owner, 9-Oct-2026: "Superadmin can also see that where devices has logged in like one can login up to 2 devices
+and that Superadmin can see easily like where the ids are logged in like with device name and category like it is a
+laptop/computer or mobile. ... once a password is set it is valid same for both mobile as well as our audit software."
+
+**What changes** (backend/deviceSessions.ts, backend/db.ts `user_sessions`, backend/index.ts, backend/apiV1.ts,
+backend/accessRoutes.ts, frontend/src/engine/deviceWords.ts, frontend/src/utils/deviceId.ts, User access):
+
+1. **Every session is kept in PostgreSQL.** Until now a session was only a signed cookie, so a sign-out could not end
+   it. Each sign-in now writes a row of `user_sessions`, keyed by the id its token carries: the account, the device's
+   own id, its name in words ("Windows computer - Chrome", "Android phone - Chrome", "iPhone - Safari", "iPad -
+   Safari", or the phone's own name and model), its category (computer, mobile or tablet), the website, the Mitra
+   phone app or another program (the DCRS API), the browser or the app, the system, the address, when it was signed
+   in, last used and ends, and when, why (signed-out, super-admin, replaced, account-off) and by whom it was ended.
+   Nothing deletes a row. The server reads the session on every request: a sign-out ends it, the super admin's "Sign
+   out this device" ends it, switching an account off ends all of its sessions, and the day's end still ends it (§84:
+   its row ends when its token does). "Last used" is written at most once a minute per session.
+2. **Nobody is signed out by the release.** A token made before this change has no row: at its first request it is
+   taken in once, its device "Signed in before devices were recorded", and is a session like any other from then on.
+3. **At most DCRS_MAX_DEVICES devices per account** (2 unless set; `off` or `0` for no limit; at most 50). A device
+   that signs in again takes its own place (the website sends a random id it keeps in the browser, outside the app's
+   `dcrs:v1:` namespace, so emptying the working copy keeps it; a browser signing in again also sends its own earlier
+   session, which is replaced). One device more is refused with 403 `device-limit` naming the devices and since when,
+   and what to do: "This account is already signed in on 2 devices: Windows computer - Chrome (Website, since 09:02)
+   and Android phone - Chrome (Website, since 10:15). Sign out on one of them, or ask the super admin to sign one
+   out." Two sign-ins at the same moment cannot both pass (one PostgreSQL lock per account). **The super admin is
+   never held to it** (§84: the owner must never be locked out), but his devices are listed too.
+4. **The super admin sees where each person is signed in.** User access has a "Signed in on" card: each person
+   signed in somewhere, each device with an icon by its category, its name, the category, system and browser or app,
+   the website or the Mitra phone app, the address, since when and when last used, and **"Sign out this device"**
+   (asked first; never his own device, which is marked "This device: yours"). The rule is said above the list, and
+   when MITRA_SERVER_KEY is not set, that a phone is listed as a mobile phone but not by its own name, model or
+   address. The sign-in line of the activity log names the device ("Windows computer - Chrome (Website) from
+   10.192.193.40"), and a device signed out by the super admin is the line "Device signed out by the super admin"
+   with the person and the device.
+5. **A device signed out is told so at its next request**: 401 `session-ended` with why and when in words, in the
+   language asked (X-Language: English, Hindi or Gujarati): "The super admin signed this device out at 14:05. Sign in
+   again to carry on." The website goes back to the sign-in screen saying it (in the screens' language), and so does
+   the phone.
+6. **The words are in English, Gujarati and Hindi** (engine/deviceWords.ts): the refusal, the ended session, and every
+   sentence of the "Signed in on" card. A device's own name is a name and is kept as it was made.
+7. **A phone signed out is told nothing more** (review of 12-Oct-2026). A phone's registration for pushes (POST
+   /api/v1/devices, §97) is kept under the session it signed in with (`push_devices.session_id`). When that session
+   is ended on purpose (a sign-out, the super admin's "Sign out this device") DCRS forgets the phone at once, and an
+   account switched off loses every phone registered for it: the notify job has nothing of the person's to push
+   there. Until then a phone the super admin had signed out kept getting the person's alerts (a lost phone's lock
+   screen), and could not remove its own registration, its session being over. A sign-in again on the same phone
+   carries its registration on under the new session; a session that simply runs to its day's end keeps its phone
+   registered, so the next morning's alerts still reach it. The phone registers again at each new sign-in (the Mitra
+   app marks each sign-in and sends its registration again under a new one). The super admin's question before
+   "Sign out this device" says that a phone gets no more notifications until it is signed in again.
+
+**The phone** (the Mitra server and app, branch mitra-notify):
+
+- The Mitra server signs in to DCRS for the phone (POST /api/auth/login) with **X-Mitra-Key**, the key from its own
+  environment (MITRA_SERVER_KEY, the same on both servers, at least 16 characters; never from the app), and the
+  phone's id, name, model, system, kind and address in X-Mitra-Device-* headers (percent-encoded). DCRS believes those
+  headers only beside a matching key, compared in constant time; the key is never logged and never in an answer.
+  Without the key (or with one that does not match) the phone's session is still a **mobile phone on the Mitra phone
+  app**, only not named: "A phone - its name is not known (set the same MITRA_SERVER_KEY on both servers)", at the
+  Mitra server's address, a device of its own at each sign-in (review of 12-Oct-2026: it was listed as a computer
+  through "another program", so out of the box the super admin could not tell the phones from the computers).
+- A phone signing in again hands DCRS the session it still holds, so DCRS replaces it rather than counting it twice
+  (with the key, its device id does the same). A session DCRS started that Mitra does not take up (the super admin
+  still on the first password, an answer about the person it cannot read) is signed out of DCRS at once, so it holds
+  no place.
+- DCRS's refusal words (one device too many, signed out by the super admin) reach the app unchanged, in the app's
+  language. A phone signed out in DCRS is signed out of Mitra at its next request (Mitra asks DCRS at most every 15
+  seconds per session, and at once on any request that reaches DCRS: the inbox, the tasks, the Review screen, the chat),
+  and the app returns to the sign-in screen with DCRS's words. The phone's own device list in Mitra stays as it is.
+
+**One password for both (§105).** In a production setup the phone signs in only through DCRS's own sign-in: the Mitra
+server's only sign-in connector is DCRS's (src/index.ts builds its registry from DCRS's connector alone; the demo
+connector is `npm run demo`'s), it keeps nothing of the password (no column of its tables holds one; what it keeps,
+sealed, is DCRS's session token), and every sign-in is checked by DCRS's POST /api/auth/login. So the password the
+super admin sets in Users & Access is the password for the website and the phone alike, and a reset takes effect on
+both at the next sign-in. Proved by the Mitra server's test/dcrs-devices.test.ts ("ONE PASSWORD").
+
+**Routes and shapes.** `POST /api/auth/login` takes `device: { id, touchPoints }` from the website; 403
+`{ error, code: "device-limit", limit, devices: [{ name, category, place, since, sinceText }] }`. Any signed-in route,
+`/api/auth/me` and every `/api/v1` route answer an ended session with 401 `{ error, code: "session-ended", why,
+endedAt, endedAtText }`. `GET /api/access/overview` gives each person `devices: [{ id, userId, name, category, place,
+client, system, address, signedInAt, lastUsedAt, endsAt, before, current }]` and `devices: { limit, phonesNamed, known }`
+for the rule. `POST /api/access/sessions/:id/end` (the super admin's alone) ends one session: 200 `{ ended }`, 404
+`no-such-session`, 400 `own-device`. docs/api/dcrs-api.openapi.json says the same: the login's `device`, its 403
+`device-limit`, the 401 `session-ended` with its fields, and `POST /api/auth/logout` ending the session.
+
+**Next, not in this build (the brief's later parts):** where each person may sign in (website, phone app or both),
+the phone only on the plant's network, one sign-in at a time, tidying the accounts the early tests left, and the
+auditor's account with its audit pack.
+
+**Tests:** backend/tests/deviceSessions.test.ts (the limit; a device signing in again replaced, never counted twice; a
+third refused in words naming the two and since when, in three languages; the super admin exempt and listed; a
+sign-out ends it; the super admin ends a device and it is told so in three languages; an account switched off; the
+day's end; a token from before taken in once; "last used" at most once a minute; two sign-ins at once; X-Mitra-Key
+compared in constant time and never logged; a phone through the Mitra app without the key a mobile on the phone
+app; what hangs on a session told when it is ended on purpose or replaced; the same checks on PostgreSQL when
+DCRS_SESSIONS_TEST_URL names a throwaway database), backend/tests/accessRoutes.test.ts (the "Signed in on" list,
+"Sign out this device", its refusals), backend/tests/apiV1.test.ts (a session ended in DCRS refused at its next
+/api/v1 request, in the caller's language; a phone's registration for pushes made under its session, gone with the
+super admin's sign-out, the person's own and the account switched off, carried on by a sign-in again),
+backend/tests/notificationLedger.test.ts (the ledger forgets and moves phones by session, in memory and on
+PostgreSQL with DCRS_LEDGER_TEST_URL), frontend/tests/deviceSignIn.test.ts (the browser's own id; the words). Browser suite: e2e_user_access.py
+section 10b (an account signed in from a computer's browser and an Android phone's is listed on two devices with their
+categories; "Sign out this device"; the phone's next request back at the sign-in screen with the words; the computer
+still signed in). The test servers run with DCRS_MAX_DEVICES=off (the suites open many sessions per account). The
+Mitra server: test/dcrs-devices.test.ts.
+
+## §107 The Database overview set up by DCRS itself, and both applications' data in PostgreSQL (9-Oct-2026)
+
+The owner, 9-Oct-2026, with a picture of the super admin's Database overview saying "OVERVIEW_DATABASE_URL is not
+set": "also tell me what it is and fix it or add it whatever this image tell you but make sure this does not remove
+any document from anywhere ... make sure data will stored in our postgres database perfectly of both application
+because now i am going towards deployment part so do it properly".
+
+**What the Database overview is, in plain words.** A page for the super admin alone, in the admin area beside Users &
+Access (§83). It answers questions such as "Who downloaded or printed what last week?", "Which CAPA findings are open?"
+and "Which pest control reports are missing this month?" straight from the database, as tables that can be searched
+and downloaded for Excel, with no SQL. It reads ready-made views in the database, one row per real thing: an account,
+a record, a CAPA finding, a day of the pest control register, a line of the activity log, a download. It can only
+read: nothing on it can change, add or delete anything. The picture showed it waiting for a step a database
+administrator had to take by hand: make a read-only login (the role `overview_viewer`) and write its address into
+`backend/.env` as `OVERVIEW_DATABASE_URL`.
+
+**What changes** (backend/overviewSetup.ts, backend/overviewRoutes.ts, database/sql/01 and 02, the page):
+
+1. **No manual step where none is needed.** At start-up, when `OVERVIEW_DATABASE_URL` is not set, DCRS looks whether
+   the overview's schema, its three roles and its seven views over DCRS's data are in its database, whether
+   `overview_viewer` may read each view, and whether DCRS's own role may read as `overview_viewer`. What is missing it
+   adds itself when its own database role may: a superuser (as on the PostgreSQL that DCRS starts by itself on the
+   plant's PC), or a role that may make roles and create in the database. It applies the two files `npm run db:shared --
+   setup` applies (database/sql/01-schemas-and-roles.sql and 02-overview-dcrs.sql) in ONE transaction, all of it or
+   none of it, under a lock of its own so that two servers starting at once do not both do it. Both files now look
+   before each step and change only what differs, so a role that may make roles but is no superuser can apply them too
+   (it makes the three roles so that it may become them, never inheriting their rights).
+2. **The page reads as the viewer, through DCRS's own connection.** Every question the page asks runs in a read-only
+   transaction that first becomes `overview_viewer` (SET LOCAL ROLE), with the viewer's own limits: a minute per
+   question, the views' schema only. So the page holds exactly the viewer's rights: it reads the views and nothing
+   else, and can change nothing, even when DCRS's own role is the database's superuser (the test proves a superuser's
+   own powers, such as running a program on the server, are refused inside it). Two such reads at a time at most, so
+   the people working never wait for it. The page says "through DCRS's own connection".
+3. **When DCRS's role may not** (a plain role of its own, as a careful deployment gives it), nothing is changed, and
+   the page says why and the one step, in plain words, with no address and no password: once, as a PostgreSQL
+   superuser, `npm run db:shared -- setup`. That step now also lets DCRS's role become `overview_viewer` (02's last
+   step), and nothing more: it does not take the viewer's rights, and may not hand the role on. DCRS looks again when
+   the page is opened, at most once a minute, so no restart is needed; the page's "Look again" asks.
+4. **`OVERVIEW_DATABASE_URL`, when set, is used exactly as before** (§83), and DCRS looks at nothing at start-up.
+5. **Why nothing is removed.** The set-up only adds: the schema `overview` with its views and small functions, the
+   schema `chatbot` (empty, for the Audit Assistant), and the roles `overview_viewer`, `overview_owner` and
+   `audit_assistant` (no password, so nobody can sign in as them). Not one of DCRS's own tables is created, altered,
+   moved or regranted (§83's rule); the views over DCRS's data belong to the role that owns DCRS's tables; no record,
+   document or row is touched. Proved on a throwaway PostgreSQL for each kind of role DCRS may sign in with: every DCRS
+   table's definition and rows, and every sequence, the same before the set-up, after it, and after the page was used.
+6. **Along the way.** The views' department map had fallen behind DCRS's own by twelve documents added since §83 (the
+   two HR cleaning records, two QC lamination inspections, seven Production records and the dispatch vehicle
+   cleaning): their records now name their department in the views, as the §83 test asks. The optional comments on
+   DCRS's tables now describe the four notification tables of §97.
+
+**Both applications' data in PostgreSQL** (docs/DEPLOYMENT.md, "Both applications on one PostgreSQL server"; the Mitra
+server, branch mitra-notify):
+
+1. DCRS keeps everything in PostgreSQL already (§55).
+2. **The Mitra server in production keeps its data in PostgreSQL only.** With `NODE_ENV=production` or
+   `MITRA_ENV=production` in its `server\.env` it refuses to start unless `DATABASE_URL` is a `postgres://` address,
+   and says why and what to do in plain words, never the address itself (it may hold a password); the demo refuses
+   production too. In development it keeps its embedded database folder (`server\.data\pglite`) as before.
+3. **`npm --prefix server run db:copy -- --from .data/pglite --to postgres://mitra:<password>@127.0.0.1:5432/mitra`**
+   brings what an embedded folder holds into an EMPTY PostgreSQL database without loss: the folder is only read (it is
+   copied aside first; one still open by a running Mitra server is refused); every table of Mitra's schema in an order
+   its foreign keys allow, every row with its id, each value passed as the exact text PostgreSQL writes for it (a
+   moment keeps its microseconds, a file every byte, the chats their Gujarati, Hindi and emoji); all in one
+   transaction, which commits only after every table's rows are counted and fingerprinted the same on both sides;
+   sequences set past the highest id; the counts printed table by table. A database that already holds Mitra's rows,
+   DCRS's own database and one not in UTF8 are refused, and nothing is changed.
+4. **One PostgreSQL server for both**: the database `dcrs` for DCRS (role `dcrs`) and the database `mitra` for Mitra
+   (role `mitra`), each application with its own `DATABASE_URL`. `npm run db:backup` takes both when
+   `MITRA_DATABASE_URL` is set in DCRS's `backend\.env` (`mitra-<date>-<time>.dump` beside `dcrs-...dump` and the
+   server's roles file, kept the same 14 days; a failure of either fails the run and deletes nothing), and
+   `npm run db:restore-test -- --mitra` restores Mitra's newest backup into a throwaway database and checks every
+   table's rows against Mitra's database.
+5. One password for both is unchanged (§105, §106): the phone signs in only through DCRS's own sign-in, and no table
+   of Mitra's holds a password.
+
+**Tests:** backend/tests/overviewSetup.test.ts (9 without a database: what is missing in words, who may set it up,
+PostgreSQL 16, the one step with no address or password, the viewer's own limits as part 1 sets them,
+OVERVIEW_DATABASE_URL looked at as before; and with `DCRS_OVERVIEW_TEST_URL` on a throwaway PostgreSQL, three cases:
+a role that may make roles, a superuser, and a plain role that may not, then the superuser's `db:shared -- setup` and
+the page reading with no restart; each with DCRS's own tables and rows unchanged, the page's routes answering as
+`overview_viewer`, read-only, and every write refused inside the overview's transaction), backend/tests/
+overviewRoutes.test.ts (the server's reason and step said apart; looked at again before it answers),
+backend/tests/databaseBackup.test.ts (Mitra's dump named, kept and found like DCRS's). The §83 database tests
+(`npm run db:shared -- test`) pass on the changed files. Browser suite: tests/e2e_database_overview.py, also with
+`E2E_OVERVIEW_OWN_POOL=1` (the product server without `OVERVIEW_DATABASE_URL`, reading through DCRS's own
+connection). The Mitra server: test/db-copy.test.ts (production refused in words; the copy whole on PGlite and, with
+`MITRA_PG_TEST_URL`, into a real PostgreSQL).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

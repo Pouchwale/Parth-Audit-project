@@ -1,5 +1,6 @@
 import { api, ApiError } from "./client";
 import type { PublicHours } from "../engine/workingHoursCore";
+import type { DeviceCategory, SessionPlace } from "../engine/deviceWords";
 
 // USER ACCESS (REQUIREMENTS §84) — the super admin's alone: the server answers
 // 403 to anybody else (backend/accessRoutes.ts). Who may use which module, and
@@ -53,6 +54,39 @@ export interface AccessPerson {
   today: AccessToday;
   now: AccessNow;
   quietMinutes: number | null;
+  /** The devices they are signed in on now, oldest sign-in first (REQUIREMENTS §106). Optional: an older server says nothing. */
+  devices?: AccessDevice[];
+}
+
+/** One device a person is signed in on now (REQUIREMENTS §106; backend/deviceSessions.ts DeviceSessionJson). */
+export interface AccessDevice {
+  /** The session's id, for "Sign out this device". */
+  id: string;
+  userId: string;
+  /** The device in words: "Windows computer - Chrome", "Android phone - Chrome", the phone's own name and model. */
+  name: string;
+  category: DeviceCategory;
+  place: SessionPlace;
+  /** The browser or the app: "Chrome 141", "Mitra app 1.1.0". */
+  client: string;
+  /** The system: "Windows", "Android 14". */
+  system: string;
+  address: string;
+  signedInAt: string;
+  lastUsedAt: string;
+  endsAt: string;
+  /** Signed in before devices were recorded: taken in at its first request after the change. */
+  before: boolean;
+  /** The super admin's own session, the one the page was read with. */
+  current: boolean;
+}
+
+/** The rule the devices are held to: at most `limit` per account (null: none), and whether phones are named by the Mitra server. */
+export interface AccessDeviceRule {
+  limit: number | null;
+  phonesNamed: boolean;
+  /** False when the server could not read the devices just now. */
+  known: boolean;
 }
 
 /** A refused or failed sign-in today. */
@@ -80,6 +114,8 @@ export interface AccessOverview {
   hours: PublicHours | null;
   people: AccessPerson[];
   attempts: AccessAttempt[];
+  /** Optional: an older server says nothing (§106). */
+  devices?: AccessDeviceRule;
 }
 
 export type AccessHistoryKind = "session" | "sign-out-alone" | "failed" | "refused";
@@ -159,4 +195,6 @@ export const accessApi = {
   /** A person's modules: department codes, or none for every module (backend/index.ts, logged there). */
   setModules: (userId: string, departments: string[]) =>
     api.post<{ user: { id: string; departments: string[] } }>(`/users/${encodeURIComponent(userId)}/departments`, { departments }),
+  /** "Sign out this device" (REQUIREMENTS §106): ends one device's session; the server logs it. 404 when it is no longer signed in. */
+  endSession: (sessionId: string) => api.post<{ ended: AccessDevice }>(`/access/sessions/${encodeURIComponent(sessionId)}/end`),
 };

@@ -837,6 +837,125 @@ Seven scripts live in `tests/`:
   not a change. New `frontend/tests/excursionRemarks.test.ts` (2: 21-Jul-2026's third batch is out of band; a Demo Mode
   July of F/QC/32 gives every out-of-band viscosity a remark). The browser check now fails only on a reading with no
   remark, says an empty window in words, and names the first readings it misses.
+- **The Database overview set up by DCRS itself, and both applications' data in PostgreSQL** (REQUIREMENTS §107,
+  10-Oct-2026). New unit tests, each failing before the change (the module did not exist):
+  `backend/tests/overviewSetup.test.ts` (9 without a database: the seven views the same as `db:shared`'s; ready only
+  with the schema, the three roles, the seven views readable by the viewer and DCRS able to become the viewer; what is
+  missing named in words; set up by DCRS only as a superuser or a role with CREATEROLE and CREATE on the database;
+  why it may not, naming its role, and that nothing was changed; the one step with no address or password; PostgreSQL
+  16 or newer; the page's transaction with the viewer's own limits, as part 1 sets them on the role; with
+  `OVERVIEW_DATABASE_URL` set, DCRS's pool never asked. And 3 more with `DCRS_OVERVIEW_TEST_URL` naming a superuser on
+  a throwaway PostgreSQL: a role with CREATEROLE that owns its database, a superuser, and a plain role. Each starts
+  from DCRS's own tables made by DCRS's own code with rows in them; every DCRS table's definition, rows and sequences
+  are the same before the start-up set-up, after it and after the page was used; the page's routes answer through
+  DCRS's own pool as `overview_viewer`, read-only (status, questions, the open CAPA finding, records, accounts with no
+  password hash, a CSV); inside the overview's transaction every write is refused (insert, update, delete, truncate,
+  create, a temporary table, nextval, dropping or writing a view, reading a DCRS table), and for the superuser its own
+  powers too (a program run through COPY, reading a server file, reloading the settings, making a role). The views
+  belong to the owner of `app_storage`; the role with CREATEROLE may become the viewer and does not inherit it; the
+  superuser is given no membership. The plain role: nothing made, 503 with its reason and the one step and no
+  address or password; after `npm run db:shared -- setup` as the superuser it may become the viewer (no INHERIT, no
+  ADMIN), the tables still the same, and the page reads at its next look with no restart).
+  `backend/tests/overviewRoutes.test.ts` (2 new and 1 changed: the server's own reason and step said apart, with no
+  address; looked at again before it answers, and reading at once when that finds it ready; nothing to read says why
+  and the one step). `backend/tests/databaseBackup.test.ts` (1 new: Mitra's dump named, kept fourteen days and found
+  like DCRS's, with the same roles file). The §83 database tests, `npm run db:shared -- test`, on a throwaway database
+  with the changed parts 1 and 2 applied twice: 34 passed, 3 skipped (the Audit Assistant's tables are not there),
+  "DCRS unchanged" included; they had found two things fixed with it: the views' department map twelve documents
+  behind DCRS's own, and the optional comments missing the four notification tables of §97. The Mitra server
+  (branch mitra-notify): `server/test/db-copy.test.ts` (9, and 11 with `MITRA_PG_TEST_URL` on a throwaway
+  PostgreSQL: production refused in words with no address, by the server and the demo, with no stack trace; every
+  table of the schema after the tables it points to; the copy whole on PGlite to PGlite: every row, ids, moments to the
+  microsecond, a file's 256 byte values, Gujarati, Hindi and emoji, nulls; a target holding Mitra's rows and DCRS's own
+  database refused, changing nothing; a sequence set past the highest id; a folder that is not a database, a folder a
+  server has open and a non-PostgreSQL address refused; into a real PostgreSQL: the whole command, the server's own
+  migrations opening the result with every table the same, the folder untouched, a second copy refused, DCRS's
+  database and a LATIN1 one refused).
+  **The deployment path rehearsed** (docs/DEPLOYMENT.md, "Both applications on one PostgreSQL server") on two throwaway
+  PostgreSQL 18 servers standing for 5433 and 5432, steps 1 to 7 as written: the roles and databases; DCRS's tables
+  dumped without the overview and restored as `dcrs` (15 tables, every table's rows and fingerprint the same, all owned
+  by `dcrs`); DCRS opening it as `dcrs` (nothing changed, the overview not ready, said in words); the superuser's
+  `db:shared -- setup` (the page then reads 400 records and 134 findings as `overview_viewer`, read-only); a Mitra folder
+  copied in as the role `mitra` (the production server then opening it and reading a file's 256 bytes and a Hindi
+  line); `dcrs_backup` with `pg_read_all_data` backing up both (`dcrs-...dump`, `mitra-...dump`, the roles file); and
+  `npm run db:restore-test` and `npm run db:restore-test -- --mitra`, both RESULT: PASSED.
+  **Run on 10-Oct-2026:** `npm run typecheck` clean and `npm run test:unit` passed (663 frontend tests; 532 backend, 529
+  passed and 3 skipped: the PostgreSQL ledger test by design and the two PostgreSQL placeholders, sessions and the
+  overview); `overviewSetup.test.ts` with `DCRS_OVERVIEW_TEST_URL` on a throwaway embedded PostgreSQL 18.4 passed all
+  12; `npm run db:shared -- test` as above. Browser suite, alone with the project's runner, 8842 and 8843 free:
+  `E2E_SKIP_UNIT=1 npm run test:e2e -- tests/e2e_database_overview.py` 42 of 42, and again with
+  `E2E_OVERVIEW_OWN_POOL=1` 42 of 42 (its server said "Database overview: ready ... through DCRS's own connection as
+  overview_viewer, read-only"). Mitra: `npm run typecheck` clean, `npm test` 30 files, 323 passed and 2 skipped (the
+  real-PostgreSQL cases), and `db-copy.test.ts` with `MITRA_PG_TEST_URL` 11 of 11. Not run: the other browser suites
+  (the runner still gives both servers `OVERVIEW_DATABASE_URL`, and part 1 now changes only what differs, which every
+  suite's start applies on a fresh database), and nothing on the owner's own databases.
+- **Where each person is signed in, on two devices at most** (REQUIREMENTS §106, 9 and 10-Oct-2026). New unit tests,
+  each failing before the change (the modules and the route did not exist): `backend/tests/deviceSessions.test.ts`
+  (20, and 29 with `DCRS_SESSIONS_TEST_URL` on a throwaway PostgreSQL, where the same ten session checks run on
+  `user_sessions` and passed: the limit read from DCRS_MAX_DEVICES; a device counted once; the device named from the
+  browser's own words and the phone's from the Mitra server's headers; two devices signed in and a third refused in
+  words naming them and since when, in English, Gujarati and Hindi; a device signing in again replaced, never counted
+  twice; the super admin exempt and listed; a sign-out ends the session; the super admin signs a device out and it is
+  told so in three languages; an account switched off; the day's end; a token from before taken in once; "last used"
+  at most once a minute; two sign-ins at the same moment; X-Mitra-Key compared through crypto.timingSafeEqual on
+  equal-length hashes, believed only when it matches, and never in a log line or an answer; a key under 16 characters
+  not used), `backend/tests/accessRoutes.test.ts` (4 new: the "Signed in on" list with each device's category, name,
+  place, address and since, the super admin's own marked; "Sign out this device" logged with the person and the
+  device, its next request told so; refused to anybody but the super admin, never his own device, 404 for a session no
+  longer open; the page answering when the devices cannot be read), `backend/tests/apiV1.test.ts` (1 new: a phone's
+  session signed out by the super admin refused at its next /api/v1 call, 401 `session-ended` in the caller's
+  language), `frontend/tests/deviceSignIn.test.ts` (4: the browser's own id kept outside `dcrs:v1:`; the refusal and
+  the ended session rebuilt in the screens' language; every sentence of the view in three languages). Browser suite:
+  `tests/e2e_user_access.py` section 10b (an account signed in from a computer's browser and an Android phone's is
+  listed on two devices, computer and mobile, with their names; each sign-in's line names its device; "Sign out this
+  device" asks first and is a line in the activity log; the phone's next request is back at the sign-in screen with
+  "The super admin signed this device out at ..."; the computer stays signed in). The e2e runner sets
+  DCRS_MAX_DEVICES=off and MITRA_SERVER_KEY empty on both test servers. The phone's half (Mitra, branch mitra-notify):
+  `server/test/dcrs-devices.test.ts` (12: the phone's headers beside the key, percent-encoded, and none without it;
+  the key in no log line; the session a phone still holds sent again; DCRS's device-limit words unchanged; a DCRS
+  session Mitra does not take up (the first password, an answer it cannot read) signed out of DCRS at once; a phone
+  signed out in DCRS signed out of Mitra at its next request in DCRS's words, on the relayed screens too; DCRS out of
+  reach not a sign-out; one password: DCRS's sign-in the only way in, nothing of the password kept).
+  **Run on 10-Oct-2026:** `npm run typecheck` and `npm run test:unit` passed (663 frontend tests; 519 backend, 2
+  skipped: the PostgreSQL ledger test by design and the PostgreSQL sessions placeholder); `deviceSessions.test.ts`
+  with `DCRS_SESSIONS_TEST_URL` on a throwaway embedded PostgreSQL passed all 29; `E2E_SKIP_UNIT=1 npm run test:e2e --
+  tests/e2e_user_access.py` passed whole (110 checks, ALL PASSED). Its first run found the suite's own mistake, not the
+  app's: User access was already open from section 10, so going to its address again drew nothing new; section 10b
+  now presses Refresh, as section 6 does. Mitra: `npm run typecheck` and `npm test` passed (29 files, 314 tests). Not
+  run: the other browser suites (the e2e runner gives both test servers DCRS_MAX_DEVICES=off, so the many sessions per
+  account they open are not refused), and no real phone (the forwarded headers and refusals are proved against the
+  stand-in DCRS).
+- **The review of 12-Oct-2026: a phone through Mitra is a mobile without the key, and a phone signed out is told
+  nothing more** (REQUIREMENTS §106). Two of the review's findings, each with tests that fail on the code before
+  its fix. F1: `backend/tests/deviceSessions.test.ts` (1 new, "lists a phone signed in through the Mitra app as a
+  mobile phone on the phone app even without the key, only not named": the device itself, with no key and with a
+  key that does not match, its line in the activity log, its name in Gujarati and Hindi, the Audit Assistant still a
+  computer through the API, the super admin's list and a refusal of one device too many naming it the mobile on
+  the phone app; failing before with computer/api; and the wrong-key check now expects phone-app). F2:
+  `backend/tests/deviceSessions.test.ts` (1 new, in the contract run on memory and on PostgreSQL: what hangs on a
+  session is told once for each way it is ended on purpose, and of a sign-in again on the device with the session
+  that replaced it; an account switched off even with nothing open; nothing at the day's end; a failure to follow
+  logged, never the sign-out's), `backend/tests/notificationLedger.test.ts` (1 new, memory and PostgreSQL: phones
+  forgotten with a session ended on purpose, moved to the one that replaces it, all gone with the account, nobody
+  else's), `backend/tests/apiV1.test.ts` (3 new: a phone registered under the session it signed in with, taken away
+  by the super admin's "Sign out this device" while the phone itself could not have removed it, 401
+  `session-ended`; a sign-in again on the same phone carries it on and the person's own sign-out drops it; an
+  account switched off loses its phones, nobody else's). **Run on 12-Oct-2026:** `npm run typecheck` clean;
+  `npm run test:unit` 663 frontend tests and 538 backend (535 passing, 3 skipped: the PostgreSQL contracts without
+  their database and the overview's); `deviceSessions.test.ts` and `notificationLedger.test.ts` with
+  `DCRS_SESSIONS_TEST_URL` and `DCRS_LEDGER_TEST_URL` on a throwaway embedded PostgreSQL, 54 of 54. A probe of the
+  real server (`backend/index.ts` on a throwaway embedded PostgreSQL, DCRS_MAX_DEVICES=2, no MITRA_SERVER_KEY,
+  PUSH_ENABLED=0): a computer and the Mitra server's sign-in for a phone are listed "Windows computer - Chrome
+  [computer/website]" and "A phone - its name is not known (...) [mobile/phone-app]", and a third device's refusal
+  names them so; the phone's registration is made under its session, moved to the new one when the Mitra server
+  signs the same phone in again with the session it holds, gone after the super admin's "Sign out this device"
+  (the phone's own removal answered 401 `session-ended`), and gone with the account switched off; `push_devices`
+  has its `session_id`. Browser suite: `E2E_SKIP_UNIT=1 npm run test:e2e -- tests/e2e_user_access.py` 110 of 110
+  at d982ca1. The phone's half (Mitra, branch mitra-notify): `server/test/phone-app.test.ts` (1 new: the phone
+  registers again at each new sign-in), `server/test/db-copy.test.ts` (1 new, the review's third finding: a server
+  on its embedded folder says at every start that its data is not in PostgreSQL and how to move it, src/index.ts
+  saying it as it starts); `npm run typecheck` clean, `npm test` 30 files, 325 passing and 2 skipped. Not run: the
+  other browser suites, and no real phone.
 - **Passwords are the super admin's** (REQUIREMENTS §105, 9-Oct-2026). New unit tests, each failing before the change
   (the module did not exist): `backend/tests/passwordPolicy.test.ts` (6: only the super admin changes their own; "No
   password yet" matches no password, the built-in one included, and is told apart from a real hash; the start-up
