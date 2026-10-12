@@ -14,14 +14,14 @@
 // PostgreSQL, and the server's own migrations opening the result.
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sql } from 'drizzle-orm';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { loadConfig, productionDatabaseRefusal, productionSaidBy } from '../src/config.ts';
+import { embeddedDatabaseWarning, loadConfig, productionDatabaseRefusal, productionSaidBy } from '../src/config.ts';
 import { CopyRefused, copyIntoPostgres, copyTables, setSequences, tablesInOrder, targetProblem } from '../src/db/copy.ts';
 import { openDatabase, type Db } from '../src/db/index.ts';
 
@@ -61,6 +61,36 @@ describe('production keeps its data in PostgreSQL', () => {
     expect(productionSaidBy({ NODE_ENV: ' Production ' })).toBe('NODE_ENV');
     expect(productionSaidBy({ MITRA_ENV: 'production' })).toBe('MITRA_ENV');
     expect(productionSaidBy({ NODE_ENV: 'test' })).toBeNull();
+  });
+
+  it('says, every time the server starts on an embedded folder, that its data is not in PostgreSQL and how to move it (review of 12-Oct-2026)', () => {
+    // The default (DATABASE_URL empty, NODE_ENV unset) kept everything in .data/pglite and said nothing about it, so the
+    // owner's "both applications' data in our PostgreSQL" held only if somebody set DATABASE_URL by hand.
+    const words = embeddedDatabaseWarning('.data/pglite');
+    expect(words).toMatch(/^Mitra's data is kept in the embedded database folder \.data\/pglite, not in PostgreSQL:/);
+    expect(words).toMatch(/no backup of the PostgreSQL server holds it/);
+    expect(words).toMatch(/npm --prefix server run db:copy -- --from \.data\/pglite --to postgres:\/\/mitra:<its password>@127\.0\.0\.1:5432\/mitra/);
+    expect(words).toMatch(/set DATABASE_URL in server\/\.env to that address and NODE_ENV=production/);
+    // PostgreSQL itself, and a database in memory (a test's, the demo's: nothing kept), say nothing.
+    expect(embeddedDatabaseWarning('postgres://mitra:pw@127.0.0.1:5432/mitra')).toBeNull();
+    expect(embeddedDatabaseWarning('postgresql://mitra@db-host/mitra')).toBeNull();
+    expect(embeddedDatabaseWarning('memory://')).toBeNull();
+    // An address that is not PostgreSQL's is not printed: it may hold a password.
+    const other = embeddedDatabaseWarning('mysql://mitra:a-secret-word@db-host/mitra') ?? '';
+    expect(other).toMatch(/DATABASE_URL is not a postgres:\/\/ address/);
+    expect(other).not.toContain('a-secret-word');
+    // The real server says it as it starts, before it opens the folder: here one it cannot make (under a file), so it
+    // stops at once instead of serving.
+    const dir = mkdtempSync(join(tmpdir(), 'mitra-embedded-'));
+    try {
+      writeFileSync(join(dir, 'a-file'), 'not a folder');
+      const folder = join(dir, 'a-file', 'pglite');
+      const env = { ...process.env, CREDENTIALS_KEY: KEY, DATABASE_URL: folder, NODE_ENV: '', MITRA_ENV: '', PORT: '39871', HOST: '127.0.0.1' };
+      const run = spawnSync(process.execPath, ['--no-warnings', 'src/index.ts'], { cwd: SERVER, env, encoding: 'utf8', timeout: 60_000 });
+      expect(`${run.stdout}${run.stderr}`).toContain(`Mitra's data is kept in the embedded database folder ${folder}, not in PostgreSQL:`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('the server and the demo say it in words and stop, with no stack trace', () => {

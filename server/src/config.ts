@@ -62,6 +62,29 @@ export function productionDatabaseRefusal(saidBy: 'NODE_ENV' | 'MITRA_ENV', data
   );
 }
 
+/**
+ * WHERE THE DATA IS KEPT, SAID AS THE SERVER STARTS (DCRS REQUIREMENTS §107, review of 12-Oct-2026): nothing for
+ * PostgreSQL, or for a database in memory (a test's, the demo's: nothing is kept); for an embedded PGlite folder, the
+ * default when DATABASE_URL is empty, the words of what that means and how to move it. The owner asked for both
+ * applications' data in PostgreSQL; the folder is on this computer's disk only, and no backup of the PostgreSQL server
+ * holds it. Production refuses it outright (loadConfig); anything else starts as before, saying this every time.
+ * Never an address that is not PostgreSQL's: it may hold a password.
+ */
+export function embeddedDatabaseWarning(databaseUrl: string): string | null {
+  if (POSTGRES_URL.test(databaseUrl) || databaseUrl.startsWith('memory://')) return null;
+  const folder = !databaseUrl.includes('://');
+  const said = folder
+    ? `Mitra's data is kept in the embedded database folder ${databaseUrl}, not in PostgreSQL`
+    : "Mitra's data is not kept in PostgreSQL (DATABASE_URL is not a postgres:// address)";
+  return (
+    `${said}: it is on this computer's disk only, and no backup of the PostgreSQL server holds it ` +
+    "(DCRS's npm run db:backup takes Mitra's database only when it is in PostgreSQL). For the plant, keep it in PostgreSQL with DCRS's: " +
+    "make the database mitra (README, \"Deployment: Mitra's data in PostgreSQL\"), then, with this server stopped, bring what it holds over: " +
+    `npm --prefix server run db:copy -- --from ${folder ? databaseUrl : '<the folder>'} --to postgres://mitra:<its password>@127.0.0.1:5432/mitra, ` +
+    'then set DATABASE_URL in server/.env to that address and NODE_ENV=production, and start the server again.'
+  );
+}
+
 export interface Config {
   port: number;
   host: string;
