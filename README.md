@@ -191,7 +191,7 @@ Fill in `server/.env` (copy it from `server/.env.example`):
 - `SUPER_ADMINS`: more DCRS usernames that can open the super admin view. DCRS's own super admin (role "admin" in DCRS's answer at each sign-in) can open it without being listed.
 - `GROQ_API_KEY`: create one at https://console.groq.com/keys.
 - `DCRS_BASE_URL`: the DCRS API's base URL.
-- `MITRA_SERVER_KEY`: **the same key on both servers**: here and as `MITRA_SERVER_KEY` in DCRS's `backend/.env` (at least 16 characters; the command is in `server/.env.example`). With it, DCRS names each phone for its super admin and can sign one out (DCRS REQUIREMENTS §106); without it a phone shows there as "Mitra server's request". Never put it in the app.
+- `MITRA_SERVER_KEY`: **the same key on both servers**: here and as `MITRA_SERVER_KEY` in DCRS's `backend/.env` (at least 16 characters; the command is in `server/.env.example`). With it, DCRS names each phone for its super admin (its own name, model and address) and can sign one out (DCRS REQUIREMENTS §106); without it a phone is still listed there as a mobile phone on the Mitra phone app, but not named ("A phone - its name is not known"), at this server's address. Never put it in the app.
 
 Then run `npm run dev`. In development the server uses an embedded Postgres (PGlite) stored in `server/.data/`, so no database setup is needed. In production it keeps its data in PostgreSQL only: see the next section. Migrations run automatically when the server starts.
 
