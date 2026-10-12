@@ -21,6 +21,7 @@ export const PUSH_POSSIBLE: boolean = Platform.OS !== 'web' && !(IN_EXPO_GO && P
 export const LOCAL_POSSIBLE: boolean = Platform.OS !== 'web';
 
 const REGISTRATION_KEY = 'pushRegistration';
+const SIGN_IN_KEY = 'pushSignIn';
 const INTRO_KEY = 'pushIntroSeen';
 const REMINDER_PREFIX = 'mitra-reminder-';
 
@@ -119,7 +120,7 @@ export async function register(call: Call, userId: string, language: Notificatio
   if (!token) return { status: 'off', reason: 'no-token' };
   const server = currentServer();
   if (!server) return { status: 'off', reason: 'server' };
-  const now = { token, language, server, userId };
+  const now = { token, language, server, userId, signIn: (await getItem(SIGN_IN_KEY).catch(() => null)) ?? '' };
   const saved = parseRegistration(await getItem(REGISTRATION_KEY).catch(() => null));
   if (!needsRegistering(saved, now, Date.now())) return { status: 'on' };
   const deviceName = deviceLabel(Device.deviceName);
@@ -139,6 +140,16 @@ export async function register(call: Call, userId: string, language: Notificatio
   }
   await setItem(REGISTRATION_KEY, JSON.stringify({ ...now, at: Date.now() })).catch(() => undefined);
   return { status: 'on' };
+}
+
+/**
+ * A new sign-in on this phone (lib/auth.tsx): the phone registers for DCRS's alerts again under it, whatever was saved.
+ * DCRS keeps a phone's registration under the sign-in it was made with and forgets it when that sign-in is ended on
+ * purpose (its super admin's "Sign out this device", the account switched off: DCRS REQUIREMENTS §106), so one saved
+ * under an earlier sign-in may not be there any more.
+ */
+export async function newSignIn(): Promise<void> {
+  await setItem(SIGN_IN_KEY, String(Date.now())).catch(() => undefined);
 }
 
 /** A new token from the phone (it can change): registered again at once. */

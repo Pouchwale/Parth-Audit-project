@@ -57,6 +57,12 @@ export interface Registration {
   /** The Mitra server it was told through, and who was signed in: another of either is another registration. */
   server: string;
   userId: string;
+  /**
+   * The sign-in it was made under (lib/push.ts newSignIn): another is another registration. DCRS keeps a phone's
+   * registration under the sign-in it was made with and forgets it when that sign-in is ended on purpose (its super
+   * admin's "Sign out this device", the account switched off: DCRS REQUIREMENTS §106). Absent from an earlier app's.
+   */
+  signIn?: string;
   /** When, in milliseconds. */
   at: number;
 }
@@ -64,10 +70,11 @@ export interface Registration {
 /** How often a registration that has not changed is sent again, so DCRS knows the phone is still in use. */
 export const REGISTER_AGAIN_MS = 24 * 60 * 60 * 1000;
 
-/** Whether to send the phone's token again: a new token, language, server or person, or a day since the last time. */
+/** Whether to send the phone's token again: a new token, language, server, person or sign-in, or a day since the last time. */
 export function needsRegistering(saved: Registration | null, now: Omit<Registration, 'at'>, nowMs: number): boolean {
   if (!saved) return true;
   if (saved.token !== now.token || saved.language !== now.language || saved.server !== now.server || saved.userId !== now.userId) return true;
+  if ((saved.signIn ?? '') !== (now.signIn ?? '')) return true;
   return nowMs - saved.at >= REGISTER_AGAIN_MS || nowMs < saved.at;
 }
 
@@ -79,6 +86,7 @@ export function parseRegistration(saved: string | null): Registration | null {
     const languages: readonly string[] = ['en', 'hi', 'gu'];
     if (typeof value.token !== 'string' || typeof value.server !== 'string' || typeof value.userId !== 'string' || typeof value.at !== 'number') return null;
     if (typeof value.language !== 'string' || !languages.includes(value.language)) return null;
+    if (value.signIn !== undefined && typeof value.signIn !== 'string') return null;
     return value as Registration;
   } catch {
     return null;

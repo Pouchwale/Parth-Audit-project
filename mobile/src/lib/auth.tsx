@@ -3,7 +3,7 @@ import type { CurrentUser } from '@shared/api';
 import { api, ApiError, loadServer } from './api';
 import { deviceInfo, deviceLocale } from './device';
 import { pushLanguage } from './notification-logic';
-import { unregister } from './push';
+import { newSignIn, unregister } from './push';
 import { replyLanguage } from './settings';
 import { deleteItem, getItem, setItem } from './storage';
 
@@ -65,7 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (username: string, password: string) => {
     // In the person's language, so DCRS's refusal (one device too many, its hours) comes in it, unchanged.
     const result = await api.login({ username, password, device: await deviceInfo() }, pushLanguage(replyLanguage(), deviceLocale()));
-    await Promise.all([setItem('token', result.token), setItem('user', JSON.stringify(result.user))]);
+    // A new sign-in: the phone registers for DCRS's alerts again under it (DCRS forgets a phone whose sign-in it ended).
+    await Promise.all([setItem('token', result.token), setItem('user', JSON.stringify(result.user)), newSignIn()]);
     current.current = result.token;
     setToken(result.token);
     setUser(result.user);

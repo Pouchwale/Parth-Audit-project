@@ -43,6 +43,21 @@ it('registers the phone again only for a new token, language, server or person, 
   }
 });
 
+it('registers the phone again at each new sign-in: DCRS forgets a phone whose sign-in it ended on purpose (DCRS §106, review of 12-Oct-2026)', () => {
+  const { needsRegistering, parseRegistration } = notifications;
+  const now = { token: 'ExponentPushToken[a]', language: 'gu', server: 'http://10.0.0.5:3000', userId: 'u1', signIn: '1760245200000' };
+  const saved = { ...now, at: 1_000_000 };
+  expect(needsRegistering(saved, now, 1_000_000 + 60_000)).toBe(false);
+  // Signed out by DCRS's super admin, then in again on the same phone, the same day: DCRS forgot the phone.
+  expect(needsRegistering(saved, { ...now, signIn: '1760252400000' }, 1_000_000 + 60_000)).toBe(true);
+  // A registration an earlier app saved (no sign-in in it) is made again once, under the sign-in.
+  const { signIn: _signIn, ...older } = saved;
+  expect(needsRegistering(older, now, 1_000_000 + 60_000)).toBe(true);
+  expect(parseRegistration(JSON.stringify(saved))).toEqual(saved);
+  expect(parseRegistration(JSON.stringify(older))).toEqual(older);
+  expect(parseRegistration(JSON.stringify({ ...saved, signIn: 1760245200000 }))).toBeNull();
+});
+
 it('opens what a tapped alert is about: its record, Tasks, or the inbox, also from a closed app', () => {
   const { linkOf, itemLink, notificationIdOf } = notifications;
   expect(linkOf({ url: 'mitra://task/rec-1' })).toEqual({ screen: 'task', recordId: 'rec-1' });
