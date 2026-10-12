@@ -4,10 +4,13 @@
 // register page; the browser posts the bytes to /api/assistant/extract and this
 // reads them into text that travels with the message. PDF by unpdf, Word and
 // Excel by opening the zip they are (backend/zip.ts — no library, the two
-// formats are XML members), CSV/TXT as they are, and pictures by OCR: this
-// key has no vision model, so a picture is read by tesseract.js (English and
-// Gujarati) and never sent to the model as pixels — and when a picture has no
-// readable text, the answer says so in plain words rather than guess.
+// formats are XML members), CSV/TXT as they are, and pictures: since
+// REQUIREMENTS §109, with the ChatGPT key, by the vision model (backend/ai.ts
+// aiReadPicture), which reads handwriting far better than OCR; otherwise — on
+// Groq, with no key, with PICTURES_READ_WITH_ASSISTANT=0, a picture the model
+// does not take, or whenever the model cannot read it — by tesseract.js
+// (English and Gujarati). When a picture has no readable text, the answer says
+// so in plain words rather than guess.
 //
 // The contract: never throw for a file. Whatever the file is, the answer is
 // an ExtractResult, with an empty `text` and a `note` when nothing could be
@@ -15,6 +18,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { extractText, getDocumentProxy } from "unpdf";
+import { aiProviderName, aiReadPicture, PICTURE_MAX_BYTES, PICTURE_MIME } from "./ai.ts";
 import { dataDir } from "./paths.ts";
 import { decodeEntities, docxText, isImageKind, looksLikeText, readZipEntry, sniffFileKind, zipHasEntry } from "./zip.ts";
 
@@ -31,7 +35,8 @@ export interface ExtractResult {
   sheets?: string[];
   /** Plain words for the person when the file could not be read, or only in part. */
   note?: string;
-  readBy: "text" | "ocr";
+  /** "model": a picture read by the vision model (REQUIREMENTS §109); "ocr": by tesseract.js. */
+  readBy: "text" | "ocr" | "model";
 }
 
 export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
@@ -426,13 +431,44 @@ function ocrImage(buf: Buffer): Promise<{ text: string; note?: string }> {
 }
 
 // ---------------------------------------------------------------------------
+// A PICTURE READ BY THE MODEL (REQUIREMENTS §109)
 
-/** Reads one attached file into text. Never throws: an unreadable file answers with an empty text and a note. */
-export async function readAttachment(buf: Buffer, fileName: string, mime?: string): Promise<ExtractResult> {
+/** Whether pictures go to the vision model first: with the ChatGPT key, unless PICTURES_READ_WITH_ASSISTANT=0. */
+export function picturesReadByModel(): boolean {
+  return process.env.PICTURES_READ_WITH_ASSISTANT !== "0" && aiProviderName() === "openai";
+}
+
+/**
+ * The picture's words: the model's when it may read it (a PNG, JPEG, WEBP or GIF by its bytes, 10 MB at most),
+ * else OCR's, and OCR's too whenever the model could not read it. The model answering "(no text)" is a picture
+ * with no readable text, said in plain words.
+ */
+async function readPicture(buf: Buffer, byModel: boolean): Promise<{ text: string; note?: string; readBy: "model" | "ocr" }> {
+  const mime = PICTURE_MIME[sniffFileKind(buf) ?? ""];
+  if (byModel && mime && buf.length <= PICTURE_MAX_BYTES) {
+    try {
+      const said = tidy(await aiReadPicture({ image: buf, mime }));
+      if (/^\(?no text\)?\.?$/i.test(said) || !hasWords(said)) return { text: "", note: NOTES.pictureNoText, readBy: "model" };
+      return { text: said, readBy: "model" };
+    } catch (err) {
+      console.error("Picture read by the model failed, read by OCR instead —", err instanceof Error ? err.message : err);
+    }
+  }
+  return { ...(await ocrImage(buf)), readBy: "ocr" };
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads one attached file into text. Never throws: an unreadable file answers with an empty text and a note.
+ * `pictureByModel`: whether a picture may go to the vision model (the route says no to a person over the throttle);
+ * by default whenever picturesReadByModel().
+ */
+export async function readAttachment(buf: Buffer, fileName: string, mime?: string, opts: { pictureByModel?: boolean } = {}): Promise<ExtractResult> {
   const name = fileName.trim().slice(0, 200) || "file";
   const inner = buf.length === 0 ? "unknown" : detectAttachmentKind(buf, name, mime);
   const kind: AttachmentKind = inner === "doc" || inner === "zip" ? "unknown" : inner;
-  const answer = (text: string, extra: { pages?: number; sheets?: string[]; note?: string; readBy?: "text" | "ocr" } = {}): ExtractResult => {
+  const answer = (text: string, extra: { pages?: number; sheets?: string[]; note?: string; readBy?: ExtractResult["readBy"] } = {}): ExtractResult => {
     const capped = cap(text);
     return {
       name,
@@ -473,8 +509,8 @@ export async function readAttachment(buf: Buffer, fileName: string, mime?: strin
         return answer(text, hasWords(text) ? {} : { note: NOTES.noText });
       }
       case "image": {
-        const r = await ocrImage(buf);
-        return answer(r.text, { note: r.note, readBy: "ocr" });
+        const r = await readPicture(buf, opts.pictureByModel ?? picturesReadByModel());
+        return answer(r.text, { note: r.note, readBy: r.readBy });
       }
       case "doc":
         return answer("", { note: NOTES.oldOffice });

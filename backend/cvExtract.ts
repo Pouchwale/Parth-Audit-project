@@ -11,7 +11,8 @@
 //     e-mail and phone patterns, the qualification ladder (10th … Ph.D), an
 //     explicit total experience or the employment periods listed under the
 //     experience heading. Deterministic, offline, and enough for most CVs.
-//   - THE ASSISTANT (Groq), when configured and not switched off with
+//   - THE ASSISTANT (backend/ai.ts: ChatGPT since REQUIREMENTS §109), when
+//     configured and not switched off with
 //     CV_READ_WITH_ASSISTANT=0: it fills what the rules could not find in a
 //     CV laid out some other way. It is told to return only what the CV
 //     states, and anything it returns that cannot be found in the CV's own
@@ -23,7 +24,7 @@
 // Nothing here stores the file or the text; it answers and forgets.
 
 import { extractText, getDocumentProxy } from "unpdf";
-import { groqChatJSON } from "./groq.ts";
+import { aiChatJSON } from "./ai.ts";
 import { docxText, looksLikeText, readZipEntry, sniffFileKind } from "./zip.ts";
 
 export interface CvProfile {
@@ -358,7 +359,7 @@ async function readCvWithAssistant(text: string): Promise<Partial<CvProfile> & {
     "highestQualification: the highest degree, diploma or school level the CV names, in its short form (MBA, B.Com, B.E, Diploma, ITI, 12th, 10th).",
     "totalExperienceYears: the total the CV states, or else the sum of the employment periods it lists (not education), to one decimal; null if neither. fresher: true only if the CV says so.",
   ].join("\n");
-  const raw = (await groqChatJSON({ system, user: text.slice(0, ASSISTANT_TEXT), temperature: 0 })) as Record<string, unknown>;
+  const raw = (await aiChatJSON({ system, user: text.slice(0, ASSISTANT_TEXT), temperature: 0 })) as Record<string, unknown>;
   const out: Partial<CvProfile> & { experienceYears?: number | null; fresher?: boolean } = {};
   out.name = titleCase(statedIn(text, raw.name, 60));
   out.sex = raw.sex === "Male" || raw.sex === "Female" ? raw.sex : "";

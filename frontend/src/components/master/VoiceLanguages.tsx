@@ -3,7 +3,7 @@
 // Inside the Master Data card "Sounds and Mitra's voice" (pages/MasterDataPage.tsx):
 // for English, Hindi and Gujarati, which voice speaks it in THIS browser: Edge's
 // natural Neerja, स्वरा, ધ્વની (or their male voices), Google's or Windows' voices,
-// Groq's from the server for English when the browser has no natural Indian
+// the AI service's from the server (ChatGPT's since REQUIREMENTS §109) for English when the browser has no natural Indian
 // English voice; or that there is none here and DCRS should be opened in
 // Microsoft Edge; and for each a "Hear Mitra" button that says one short sentence
 // in that language (utils/voice.ts sampleLine). The female or male choice is the
@@ -28,7 +28,7 @@ export function VoiceLanguages({ using }: { using: VoiceInUse | null }) {
   const t = useT();
   const { user } = useAuth();
   const describe = (lang: ScriptLanguage, v: LanguageVoice): string => {
-    if (v.source === "server") return t("voice.row.server", { name: v.name || "Groq" });
+    if (v.source === "server") return t("voice.row.server", { name: v.name || "Mitra" });
     if (v.source !== "none") return t(`voice.row.${v.source}`, { name: v.name });
     if (lang === "en") return t("voice.row.noneEnglish");
     return t(isEdgeBrowser() ? "voice.row.noneEdge" : "voice.row.none");

@@ -105,7 +105,17 @@ function runBackend(chosen: string[]): number {
       stdio: "inherit",
       // No OCR engine and no model in a unit test — the tests stand in for both. Sample data may go into a
       // Live record here, as on any test server (REQUIREMENTS §98): the engine host's tests fill with it.
-      env: { ...process.env, MITRA_OCR: process.env.MITRA_OCR ?? "0", ALLOW_SAMPLE_FILL: process.env.ALLOW_SAMPLE_FILL ?? "1" },
+      // No AI key either (REQUIREMENTS §109): backend/.env's real one, which OpenAI bills by the token, would
+      // otherwise be loaded by backend/env.ts into every test that imports the server; blank, every name a key
+      // goes by is set, so env.ts leaves it so. A test that needs a key sets a stand-in of its own.
+      env: {
+        ...process.env,
+        MITRA_OCR: process.env.MITRA_OCR ?? "0",
+        ALLOW_SAMPLE_FILL: process.env.ALLOW_SAMPLE_FILL ?? "1",
+        CHATGPT_API_KEY: "",
+        OPENAI_API_KEY: "",
+        GROQ_API_KEY: "",
+      },
     }
   );
   if (result.error) {

@@ -1,11 +1,13 @@
 // Mitra's natural voice on the server (REQUIREMENTS §81): backend/tts.ts cuts a
 // line into the pieces the speech model accepts, joins the WAV clips it answers
 // into one, keeps the last clips in memory and words each failure for the
-// route; backend/groq.ts groqSpeak asks Groq piece by piece. Groq is stood in
-// for here (globalThis.fetch is replaced for the groqSpeak cases) — nothing goes
-// out on the network. Run: npm run test:unit -- tts
+// route; backend/ai.ts aiSpeak asks the service. On a Groq key (a server set up
+// before §109) it asks piece by piece, which is what this file stands Groq in
+// for (globalThis.fetch is replaced for those cases) — nothing goes out on the
+// network. ChatGPT's voice (OpenAI) is backend/tests/ai.test.ts's.
+// Run: npm run test:unit -- tts
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it } from "node:test";
 import {
   chunkForSpeech,
   joinWavs,
@@ -22,7 +24,7 @@ import {
   VoiceNotConfiguredError,
   VoiceUnavailableError,
 } from "../tts.ts";
-import { groqSpeak, ttsModel, ttsVoiceName } from "../groq.ts";
+import { aiSpeak, ttsModel, ttsVoiceName } from "../ai.ts";
 
 // ---------------------------------------------------------------------------
 // a WAV writer: PCM, any rate/channels/bits, optionally written "as a stream"
@@ -218,32 +220,52 @@ describe("what the route answers when the voice cannot be made", () => {
     assert.equal(termsRequired(""), false);
   });
 
-  it("503 voice-unavailable, with what the admin must do; 503 not-configured; 502 otherwise — never Groq's words", () => {
-    const unavailable = speakFailure(new VoiceUnavailableError("canopylabs/orpheus-v1-english"));
+  it("503 voice-unavailable, with what the admin must do; 503 not-configured; 502 otherwise — never the service's words", () => {
+    const unavailable = speakFailure(new VoiceUnavailableError("canopylabs/orpheus-v1-english", "groq"));
     assert.equal(unavailable.status, 503);
     assert.equal(unavailable.body.code, "voice-unavailable");
     assert.equal(
       unavailable.body.error,
       "Mitra's natural voice needs the Groq organisation's admin to accept the model's terms at console.groq.com (canopylabs/orpheus-v1-english)."
     );
-    assert.equal(voiceUnavailableMessage("m"), "Mitra's natural voice needs the Groq organisation's admin to accept the model's terms at console.groq.com (m).");
+    assert.equal(voiceUnavailableMessage("m", "groq"), "Mitra's natural voice needs the Groq organisation's admin to accept the model's terms at console.groq.com (m).");
+    // §109: on the ChatGPT key, the account's project must be given the speech model.
+    const openai = speakFailure(new VoiceUnavailableError("gpt-4o-mini-tts", "openai"));
+    assert.equal(openai.status, 503);
+    assert.equal(openai.body.code, "voice-unavailable");
+    assert.match(openai.body.error, /speech model gpt-4o-mini-tts on the ChatGPT \(OpenAI\) account/);
+    assert.match(openai.body.error, /platform\.openai\.com/);
+    assert.match(openai.body.error, /AI_TTS_MODEL/);
     const none = speakFailure(new VoiceNotConfiguredError());
     assert.equal(none.status, 503);
     assert.equal(none.body.code, "not-configured");
+    assert.match(new VoiceNotConfiguredError().message, /CHATGPT_API_KEY/);
     const other = speakFailure(new Error("Speech request failed (500): {\"error\":{\"message\":\"secret org org_123\"}}"));
     assert.equal(other.status, 502);
     assert.equal(other.body.code, "failed");
     assert.doesNotMatch(other.body.error, /org_123|500/);
+    // The day's AI allowance spent (backend/ai.ts AiAllowanceError): 429 with the code the browser reads.
+    const spent = speakFailure(Object.assign(new Error("spent"), { code: "daily-allowance" }));
+    assert.equal(spent.status, 429);
+    assert.equal(spent.body.code, "daily-allowance");
   });
 });
 
-describe("groqSpeak — piece by piece, with Groq stood in for", () => {
+describe("aiSpeak on a Groq key — piece by piece, with Groq stood in for", () => {
   const realFetch = globalThis.fetch;
-  const realKey = process.env.GROQ_API_KEY;
+  const saved = { GROQ_API_KEY: process.env.GROQ_API_KEY, CHATGPT_API_KEY: process.env.CHATGPT_API_KEY, OPENAI_API_KEY: process.env.OPENAI_API_KEY };
+  const groqSpeak = aiSpeak;
+  beforeEach(() => {
+    // A Groq key alone: a server set up before REQUIREMENTS §109.
+    delete process.env.CHATGPT_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+  });
   afterEach(() => {
     globalThis.fetch = realFetch;
-    if (realKey === undefined) delete process.env.GROQ_API_KEY;
-    else process.env.GROQ_API_KEY = realKey;
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
     delete process.env.GROQ_TTS_VOICE_MALE;
   });
 
@@ -324,7 +346,7 @@ describe("VoiceAvailability and speakStatus — asked once, remembered", () => {
   const model = "canopylabs/orpheus-v1-english";
   const voices = { female: "hannah", male: "daniel" };
 
-  it("knows nothing at first: the server must ask Groq once", () => {
+  it("knows nothing at first: the server must ask the service once", () => {
     const a = new VoiceAvailability();
     assert.equal(a.current(1000), null);
     assert.equal(a.refusing(1000), false);
@@ -353,24 +375,39 @@ describe("VoiceAvailability and speakStatus — asked once, remembered", () => {
   });
 
   it("the GET's answer: available or not, why in plain words, the voices, and how long to keep it", () => {
-    const ok = speakStatus("available", model, voices, 0, VOICE_RECHECK_MS.available);
+    const ok = speakStatus("available", model, voices, 0, VOICE_RECHECK_MS.available, "groq");
     assert.deepEqual(
       { available: ok.available, code: ok.code, engine: ok.engine, voices: ok.voices, recheck: ok.recheckAfterMs },
       { available: true, code: "available", engine: "groq", voices, recheck: VOICE_RECHECK_MS.available }
     );
-    const terms = speakStatus("voice-unavailable", model, voices, 4 * 60 * 1000, 10 * 60 * 1000);
+    const terms = speakStatus("voice-unavailable", model, voices, 4 * 60 * 1000, 10 * 60 * 1000, "groq");
     assert.equal(terms.available, false);
     assert.equal(terms.engine, null);
-    assert.equal(terms.message, voiceUnavailableMessage(model), "what the Groq organisation's admin must do");
+    assert.equal(terms.message, voiceUnavailableMessage(model, "groq"), "what the Groq organisation's admin must do");
     assert.match(terms.message, /accept the model's terms at console\.groq\.com/);
     assert.equal(terms.recheckAfterMs, 6 * 60 * 1000, "only as long as the server itself goes by it");
     const none = speakStatus("not-configured", model, voices);
     assert.equal(none.available, false);
     assert.equal(none.voices, null);
-    assert.match(none.message, /GROQ_API_KEY/);
-    const failed = speakStatus("failed", model, voices, 0);
+    assert.match(none.message, /CHATGPT_API_KEY/, "what to set since §109");
+    const failed = speakStatus("failed", model, voices, 0, undefined, "groq");
     assert.equal(failed.recheckAfterMs, VOICE_RECHECK_MS.failed);
-    for (const s of [ok, terms, none, failed]) assert.doesNotMatch(s.message, /invalid_request_error|api key|Bearer/i, "never Groq's own words");
-    assert.ok(speakStatus("voice-unavailable", model, voices, 10, 11).recheckAfterMs >= 1000, "never a zero that would have a browser ask at once");
+    for (const s of [ok, terms, none, failed]) assert.doesNotMatch(s.message, /invalid_request_error|api key|Bearer/i, "never the service's own words");
+    assert.ok(speakStatus("voice-unavailable", model, voices, 10, 11, "groq").recheckAfterMs >= 1000, "never a zero that would have a browser ask at once");
+  });
+
+  it("§109: the same answers in ChatGPT's words (OpenAI), the plant's service by default", () => {
+    const tts = "gpt-4o-mini-tts";
+    const coral = { female: "coral", male: "ash" };
+    const ok = speakStatus("available", tts, coral, 0, VOICE_RECHECK_MS.available);
+    assert.equal(ok.engine, "openai");
+    assert.equal(ok.message, "Mitra speaks with ChatGPT's natural voice (OpenAI), made on this server.");
+    assert.deepEqual(ok.voices, coral);
+    const refused = speakStatus("voice-unavailable", tts, coral, 0, 10 * 60 * 1000, "openai");
+    assert.equal(refused.message, voiceUnavailableMessage(tts, "openai"));
+    assert.match(refused.message, /platform\.openai\.com/);
+    const failed = speakStatus("failed", tts, coral, 0, undefined, "openai");
+    assert.match(failed.message, /^ChatGPT's natural voice \(OpenAI\) could not be reached just now/);
+    for (const s of [ok, refused, failed]) assert.doesNotMatch(s.message, /Groq/, "nothing names Groq on the ChatGPT key");
   });
 });

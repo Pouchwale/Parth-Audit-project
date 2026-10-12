@@ -41,8 +41,8 @@ import { ensureWebsiteBuilt } from "./websiteBuild.ts";
 import { ALLOW_SIGNUP, FEATURES } from "./features.ts";
 import { runAssistant, interpretChecklistAnswer, SUPPORTED_DOCUMENT_KINDS, assistantAllowanceUsedUp } from "./assistant.ts";
 import { runAgentStep, validateAgentRequest, TRANSCRIBE_PROMPT } from "./mitraAgent.ts";
-import { readAttachment, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
-import { groqSpeak, groqTranscribe, ttsModel, ttsVoiceName } from "./groq.ts";
+import { readAttachment, picturesReadByModel, MAX_ATTACHMENT_BYTES } from "./attachments.ts";
+import { aiConfigured, aiProviderName, aiSpeak, aiTranscribe, aiUsage, ttsModel, ttsVoiceName } from "./ai.ts";
 import { speakFailure, speakStatus, speechCache, speechCacheKey, TTS_MAX_TEXT_CHARS, VOICE_PROBE_TEXT, VoiceAvailability, VoiceUnavailableError } from "./tts.ts";
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
@@ -317,9 +317,9 @@ const THROTTLE_WINDOW_MS = SIGN_IN_WINDOW_MS;
 
 // Signup itself was unthrottled — anyone could script unlimited account
 // creation. On its own that's just noise, but combined with the
-// per-account assistant-call cap below (MAX_ASSISTANT_CALLS), free signups
-// turned that cap into decoration: create N accounts, get N*20 Groq calls
-// instead of 20. Keyed by IP (not email — an attacker rotates that
+// per-account assistant-call cap below (maxAssistantCalls), free signups
+// turned that cap into decoration: create N accounts, get N times the model
+// calls of one. Keyed by IP (not email — an attacker rotates that
 // trivially) with the same window as the assistant throttle, generous
 // enough that nobody doing legitimate testing/onboarding would ever hit it.
 const signupAttempts = new Map<string, AttemptRecord>();
@@ -327,7 +327,8 @@ const signupAttempts = new Map<string, AttemptRecord>();
 // fourteen files against one server process, nine of which create a fresh
 // account, and the two fixed accounts of the departments suite have to be
 // creatable on a first run. Still a cap, and the per-account assistant cap
-// below is the control that actually bounds the Groq bill.
+// below, with the day's allowance (backend/ai.ts), is the control that actually
+// bounds the AI bill.
 const MAX_SIGNUPS_PER_IP = 20;
 
 function isSignupThrottled(key: string): boolean {
@@ -924,10 +925,15 @@ app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
 });
 
 // Same in-memory-per-key throttle shape as the sign-in throttle above, just keyed
-// by user id — caps how many Groq calls one account can
-// trigger so a stray loop or accidental spam can't run up the API bill.
+// by user id — caps how many model calls one account can
+// trigger so a stray loop or accidental spam can't run up the API bill. Twenty
+// in ten minutes was sized for Groq's free key (8,000 tokens a minute for the
+// whole plant); on the ChatGPT key (REQUIREMENTS §109) a person working with
+// Mitra's tools, several rounds a question, would meet it after a few
+// questions, so it is sixty there — the day's cost is held by the allowance in
+// backend/ai.ts.
 const assistantCalls = new Map<string, AttemptRecord>();
-const MAX_ASSISTANT_CALLS = 20;
+const maxAssistantCalls = (): number => (aiProviderName() === "groq" ? 20 : 60);
 const ASSISTANT_THROTTLE_WINDOW_MS = 10 * 60 * 1000;
 
 function isAssistantThrottled(userId: string): boolean {
@@ -937,8 +943,12 @@ function isAssistantThrottled(userId: string): boolean {
     assistantCalls.delete(userId);
     return false;
   }
-  return rec.count >= MAX_ASSISTANT_CALLS;
+  return rec.count >= maxAssistantCalls();
 }
+
+/** The words and code a route answers when the day's AI allowance is spent (backend/ai.ts AiAllowanceError); the browser reads the code. */
+const DAILY_ALLOWANCE_ANSWER = { error: "The assistant's allowance for today is used up — answers come from this system's own records until tomorrow.", code: "daily-allowance" };
+const allowanceSpent = (err: unknown): boolean => (err as { code?: unknown } | null)?.code === "daily-allowance";
 function recordAssistantCall(userId: string): void {
   const rec = assistantCalls.get(userId) ?? { count: 0, first: Date.now() };
   rec.count += 1;
@@ -995,7 +1005,7 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
   // currentData is a whole open record's form state — real ones are a few KB
   // at most (even the 24-row lamination log sheets). No legitimate use of
   // this endpoint needs more than a generous margin over that; capping it
-  // stops a request from padding out an oversized prompt against the Groq
+  // stops a request from padding out an oversized prompt against the AI
   // bill (Express's default 100KB body limit alone is not a meaningful cap
   // for that purpose).
   if (currentData !== undefined && JSON.stringify(currentData).length > 30000) {
@@ -1038,12 +1048,12 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
     res.status(400).json({ error: "Unsupported language." });
     return;
   }
-  // THE PLANT'S DAILY ALLOWANCE (REQUIREMENTS §75, backend/groq.ts): with 90%
-  // of the day's tokens used, the model is not asked at all. The browser shows
-  // its own answer with the reason (engine/assistantReach.ts "allowance"),
-  // which it reads from `code` — the words are for a person.
+  // THE PLANT'S DAILY ALLOWANCE (REQUIREMENTS §75, §109, backend/ai.ts): with
+  // 90% of the day's tokens used, the model is not asked at all. The browser
+  // shows its own answer with the reason (engine/assistantReach.ts
+  // "allowance"), which it reads from `code` — the words are for a person.
   if (assistantAllowanceUsedUp()) {
-    res.status(429).json({ error: "The assistant's allowance for today is used up — answers come from this system's own records until tomorrow.", code: "daily-allowance" });
+    res.status(429).json(DAILY_ALLOWANCE_ANSWER);
     return;
   }
   if (isAssistantThrottled(userId)) {
@@ -1069,11 +1079,16 @@ app.post("/api/assistant/chat", requireAuth, async (req: Request, res: Response)
     });
     res.json(result);
   } catch (err) {
+    if (allowanceSpent(err)) {
+      res.status(429).json(DAILY_ALLOWANCE_ANSWER);
+      return;
+    }
     // Log the real detail server-side (may include a vendor error body from
-    // Groq) but never forward it to the client — this is the one place in
-    // the app that talks to a third-party API, so its raw error text is the
-    // one response body worth keeping generic on principle, not just when
-    // it happens to contain something sensitive.
+    // the AI service, with any key taken out: backend/ai.ts redactSecrets) but
+    // never forward it to the client — this is the one place in the app that
+    // talks to a third-party API, so its raw error text is the one response
+    // body worth keeping generic on principle, not just when it happens to
+    // contain something sensitive.
     console.error(err);
     res.status(502).json({ error: "The assistant is having trouble right now — try again in a moment." });
   }
@@ -1095,7 +1110,7 @@ app.post("/api/assistant/agent", requireAuth, express.json({ limit: "200kb" }), 
     return;
   }
   if (assistantAllowanceUsedUp()) {
-    res.status(429).json({ error: "The assistant's allowance for today is used up — answers come from this system's own records until tomorrow.", code: "daily-allowance" });
+    res.status(429).json(DAILY_ALLOWANCE_ANSWER);
     return;
   }
   if (isAssistantThrottled(userId)) {
@@ -1106,6 +1121,10 @@ app.post("/api/assistant/agent", requireAuth, express.json({ limit: "200kb" }), 
   try {
     res.json(await runAgentStep(checked.request));
   } catch (err) {
+    if (allowanceSpent(err)) {
+      res.status(429).json(DAILY_ALLOWANCE_ANSWER);
+      return;
+    }
     console.error(err);
     res.status(502).json({ error: "The assistant is having trouble right now — try again in a moment." });
   }
@@ -1113,11 +1132,14 @@ app.post("/api/assistant/agent", requireAuth, express.json({ limit: "200kb" }), 
 
 // A FILE ATTACHED TO MITRA (REQUIREMENTS §80, backend/attachments.ts): the raw
 // bytes, whatever their content type (a file the browser cannot name arrives
-// with none), read into text — PDF, Word, Excel, CSV/text, or a picture by
-// OCR — and forgotten. No model is asked, so neither the allowance nor the
-// throttle applies; an unreadable file is a 200 with an empty text and a note
-// in plain words, which the browser shows on the attachment.
+// with none), read into text — PDF, Word, Excel, CSV/text, or a picture — and
+// forgotten. Only a picture may go to the model (ChatGPT's vision, §109), and
+// then it is counted like a chat call against the person's throttle (a person
+// over it has the picture read by OCR) and the day's allowance; an unreadable
+// file is a 200 with an empty text and a note in plain words, which the
+// browser shows on the attachment.
 app.post("/api/assistant/extract", requireAuth, express.raw({ type: () => true, limit: MAX_ATTACHMENT_BYTES }), async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).user.id;
   const body = req.body;
   if (!Buffer.isBuffer(body) || body.length === 0) {
     res.status(400).json({ error: "Choose a file to read." });
@@ -1131,24 +1153,28 @@ app.post("/api/assistant/extract", requireAuth, express.raw({ type: () => true, 
   }
   const mime = String(req.get("x-file-type") ?? "").slice(0, 100);
   try {
-    res.json(await readAttachment(body, fileName, mime || undefined));
+    const read = await readAttachment(body, fileName, mime || undefined, { pictureByModel: picturesReadByModel() && !isAssistantThrottled(userId) });
+    if (read.readBy === "model") recordAssistantCall(userId);
+    res.json(read);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "The file couldn't be read." });
   }
 });
 
-// WHAT A PERSON SAID TO MITRA (REQUIREMENTS §80, backend/groq.ts groqTranscribe):
-// a recording of up to 90 seconds, transcribed by Whisper. Without a key there
-// is nothing to transcribe with, and the browser falls back to its own speech
-// recognition on the `code`. Throttled and counted like a chat call; not
-// metered against the token allowance, which Whisper does not draw on.
+// WHAT A PERSON SAID TO MITRA (REQUIREMENTS §80, backend/ai.ts aiTranscribe):
+// a recording of up to 90 seconds, written down by the AI service (ChatGPT's
+// gpt-4o-mini-transcribe since §109; Whisper on Groq). Without a key there is
+// nothing to transcribe with, and the browser falls back to its own speech
+// recognition on the `code`. Throttled and counted like a chat call; counted
+// against the day's allowance by the tokens the service reports (OpenAI's do,
+// Whisper's on Groq do not).
 const MAX_RECORDING_BYTES = 10 * 1024 * 1024;
 const AUDIO_MIME_RE = /^(?:audio|video)\/[a-z0-9.+-]+(?:;[\w\s=.,-]*)?$/i;
 
 app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => true, limit: MAX_RECORDING_BYTES }), async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
-  if (!process.env.GROQ_API_KEY) {
+  if (!aiConfigured()) {
     res.status(503).json({ error: "Voice transcription isn't configured on this server.", code: "not-configured" });
     return;
   }
@@ -1159,7 +1185,7 @@ app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => tru
   }
   const mimeHeader = String(req.get("x-mime") ?? "").slice(0, 100);
   const mime = AUDIO_MIME_RE.test(mimeHeader) ? mimeHeader : "audio/webm";
-  // A language only when the person chose one; "auto" (what the browser sends) lets Whisper hear which (REQUIREMENTS §89).
+  // A language only when the person chose one; "auto" (what the browser sends) lets the model hear which (REQUIREMENTS §89).
   const languageHeader = req.get("x-language");
   const language = languageHeader === "en" || languageHeader === "hi" || languageHeader === "gu" ? languageHeader : undefined;
   if (isAssistantThrottled(userId)) {
@@ -1168,37 +1194,43 @@ app.post("/api/assistant/transcribe", requireAuth, express.raw({ type: () => tru
   }
   recordAssistantCall(userId);
   try {
-    res.json(await groqTranscribe({ audio: body, mime, language, prompt: TRANSCRIBE_PROMPT }));
+    res.json(await aiTranscribe({ audio: body, mime, language, prompt: TRANSCRIBE_PROMPT }));
   } catch (err) {
+    if (allowanceSpent(err)) {
+      res.status(429).json(DAILY_ALLOWANCE_ANSWER);
+      return;
+    }
     console.error(err);
     res.status(502).json({ error: "The recording couldn't be transcribed — try again, or type the message." });
   }
 });
 
-// MITRA'S NATURAL VOICE (REQUIREMENTS §81 and §85, backend/groq.ts groqSpeak, backend/tts.ts).
+// MITRA'S NATURAL VOICE (REQUIREMENTS §81, §85 and §109, backend/ai.ts aiSpeak, backend/tts.ts).
 //
 // GET: whether the server can speak — ALWAYS a 200, so a browser finds out
 // without an error in its console (§85: "ask once, remember"). Without a key:
-// not-configured. Otherwise what the server has learnt of Groq (VoiceAvailability):
-// when nothing is known yet it asks Groq ONCE — one short line, shared by every
-// browser asking meanwhile, and kept as a clip — and remembers the answer (the
-// terms not accepted: ten minutes; a failure: two; a working voice: an hour).
-// The browser keeps the answer for recheckAfterMs and asks for lines only when
-// the voice is available (frontend/src/utils/voice.ts).
+// not-configured. Otherwise what the server has learnt of the AI service's voice
+// (VoiceAvailability): when nothing is known yet it asks the service ONCE — one
+// short line, shared by every browser asking meanwhile, and kept as a clip — and
+// remembers the answer (the voice not available to the account: ten minutes; a
+// failure: two; a working voice: an hour). The browser keeps the answer for
+// recheckAfterMs and asks for lines only when the voice is available
+// (frontend/src/utils/voice.ts).
 //
-// POST: English text of up to 600 characters in, one WAV out. Without a key, or
-// while the Groq organisation has not accepted the speech model's terms, the
+// POST: text of up to 600 characters in, one WAV out. Without a key, or while the
+// account cannot use the speech model (on Groq, its terms not accepted), the
 // answer is a 503 with a code, and the browser says the line with its own best
 // voice. Clips are kept in memory (the last 60) — a reminder said again is not
-// made again. Its own throttle, never the chat's; never Groq's words in an answer.
+// made again. Its own throttle, never the chat's; never the service's words in
+// an answer.
 const voiceAvailability = new VoiceAvailability();
 let voiceProbe: Promise<void> | null = null;
 
-/** Learns once whether Groq will speak, by asking it for VOICE_PROBE_TEXT; every caller meanwhile waits on the same ask. */
-function probeGroqVoice(): Promise<void> {
+/** Learns once whether the service will speak, by asking it for VOICE_PROBE_TEXT; every caller meanwhile waits on the same ask. */
+function probeVoice(): Promise<void> {
   if (voiceProbe) return voiceProbe;
   const model = ttsModel();
-  voiceProbe = groqSpeak({ text: VOICE_PROBE_TEXT, voice: "female" })
+  voiceProbe = aiSpeak({ text: VOICE_PROBE_TEXT, voice: "female" })
     .then((clip) => {
       speechCache.set(speechCacheKey("female", VOICE_PROBE_TEXT), clip);
       voiceAvailability.markAvailable(model);
@@ -1208,7 +1240,8 @@ function probeGroqVoice(): Promise<void> {
         if (voiceAvailability.markUnavailable(err.model)) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
       } else {
         voiceAvailability.markFailed(model);
-        console.warn(`Mitra's natural voice could not be reached: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
+        // The day's allowance spent was said once already, by backend/ai.ts.
+        if (!allowanceSpent(err)) console.warn(`Mitra's natural voice could not be reached: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`);
       }
     })
     .finally(() => {
@@ -1219,19 +1252,21 @@ function probeGroqVoice(): Promise<void> {
 
 app.get("/api/assistant/speak", requireAuth, async (_req: Request, res: Response): Promise<void> => {
   const voices = { female: ttsVoiceName("female"), male: ttsVoiceName("male") };
-  if (!process.env.GROQ_API_KEY) {
+  const service = aiProviderName();
+  if (!service) {
     res.json(speakStatus("not-configured", ttsModel(), voices));
     return;
   }
-  if (!voiceAvailability.current()) await probeGroqVoice();
+  if (!voiceAvailability.current()) await probeVoice();
   const known = voiceAvailability.current();
   const now = Date.now();
-  res.json(known ? speakStatus(known.code, known.model, voices, now, known.until) : speakStatus("failed", ttsModel(), voices, now));
+  res.json(known ? speakStatus(known.code, known.model, voices, now, known.until, service) : speakStatus("failed", ttsModel(), voices, now, undefined, service));
 });
 
 app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
-  if (!process.env.GROQ_API_KEY) {
+  const service = aiProviderName();
+  if (!service) {
     res.status(503).json({ error: "Mitra's natural voice isn't configured on this server.", code: "not-configured" });
     return;
   }
@@ -1258,7 +1293,7 @@ app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response
   }
   const refusing = voiceAvailability.current();
   if (refusing?.code === "voice-unavailable") {
-    const { status, body } = speakFailure(new VoiceUnavailableError(refusing.model));
+    const { status, body } = speakFailure(new VoiceUnavailableError(refusing.model, service));
     res.status(status).json(body);
     return;
   }
@@ -1272,14 +1307,14 @@ app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response
   current.count += 1;
   speakCalls.set(userId, current);
   try {
-    const clip = await groqSpeak({ text: said, voice: kind });
+    const clip = await aiSpeak({ text: said, voice: kind });
     speechCache.set(key, clip);
     if (voiceAvailability.current()?.code !== "available") voiceAvailability.markAvailable(ttsModel());
     res.type("audio/wav").send(clip);
   } catch (err) {
     if (err instanceof VoiceUnavailableError) {
       if (voiceAvailability.markUnavailable(err.model)) console.warn(`Mitra's natural voice is unavailable: ${err.message}`);
-    } else {
+    } else if (!allowanceSpent(err)) {
       console.error(err);
     }
     const { status, body } = speakFailure(err);
@@ -1291,9 +1326,10 @@ app.post("/api/assistant/speak", requireAuth, async (req: Request, res: Response
 // The file comes as the raw request body (application/octet-stream), so the
 // JSON parser's 100KB limit doesn't apply and nothing is base64-inflated on the
 // way; its own cap is 5 MB. The text rules always run; the assistant adds what
-// they miss when Groq is configured, the per-user throttle allows it, and
-// CV_READ_WITH_ASSISTANT isn't "0" (the network-independent test run sets it).
-// Nothing is stored — the answer goes back to the form HR checks.
+// they miss when an AI key is set (backend/ai.ts: ChatGPT since §109), the
+// per-user throttle allows it, and CV_READ_WITH_ASSISTANT isn't "0" (the
+// network-independent test run sets it). Nothing is stored — the answer goes
+// back to the form HR checks.
 app.post(
   "/api/hr/cv/read",
   requireAuth,
@@ -1311,7 +1347,7 @@ app.post(
     } catch {
       /* a malformed name only loses the extension hint */
     }
-    const useAssistant = process.env.CV_READ_WITH_ASSISTANT !== "0" && !!process.env.GROQ_API_KEY && !isAssistantThrottled(userId);
+    const useAssistant = process.env.CV_READ_WITH_ASSISTANT !== "0" && aiConfigured() && !isAssistantThrottled(userId);
     if (useAssistant) recordAssistantCall(userId);
     try {
       res.json(await readCv(body, fileName, { useAssistant }));
@@ -1328,7 +1364,7 @@ app.post(
 
 // The guided checklist walk-through's free-text path (see
 // frontend/src/engine/guidedChecklist.ts). Same per-user throttle as chat —
-// it's one Groq call per answer.
+// it's one model call per answer (the short-jobs model, backend/ai.ts).
 app.post("/api/assistant/checklist-answer", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).user.id;
   const { activity, answer, today } = req.body ?? {};
@@ -1352,9 +1388,20 @@ app.post("/api/assistant/checklist-answer", requireAuth, async (req: Request, re
   try {
     res.json(await interpretChecklistAnswer({ activity: activity.trim(), answer: answer.trim(), today }));
   } catch (err) {
+    if (allowanceSpent(err)) {
+      res.status(429).json(DAILY_ALLOWANCE_ANSWER);
+      return;
+    }
     console.error(err);
     res.status(502).json({ error: "The assistant is having trouble right now — try again in a moment." });
   }
+});
+
+// THE DAY'S AI ALLOWANCE, FOR THE SUPER ADMIN (REQUIREMENTS §109, backend/ai.ts): which service answers ("openai",
+// "groq" or null), the day's allowance in tokens (AI_DAILY_TOKEN_BUDGET), what the plant's calls have used today on
+// the plant's clock, and where the chat stops (90%). Counted in this server's memory since it started; never a key.
+app.get("/api/assistant/usage", requireAdmin, (_req: Request, res: Response): void => {
+  res.json(aiUsage());
 });
 
 // The digest goes out from the company mailbox to whatever addresses the

@@ -13,7 +13,8 @@ import { assistantConfigured } from "./features";
 // bother trying.
 //
 // AND IT ANSWERS THAT AS NARROWLY AS IT CAN. The first version of this file
-// also refused to try when the server had reported no GROQ_API_KEY, and
+// also refused to try when the server had reported no AI key (then
+// GROQ_API_KEY; since REQUIREMENTS §109 CHATGPT_API_KEY), and
 // remembered a failure for twenty seconds so the next few messages would not
 // each wait out the same timeout. Both were the client second-guessing the
 // server, and both were wrong:
@@ -28,14 +29,15 @@ import { assistantConfigured } from "./features";
 //     it not try, and it can only ever be out of date.
 //
 // A request to OUR OWN server is not the slow thing: if there is no key it
-// fails at once, without any call to Groq. So the only case worth short-
+// fails at once, without any call to the AI service. So the only case worth short-
 // circuiting is the one the browser can actually be sure of — no network at
 // all. Everything else is attempted, and the server's answer decides.
 
 /**
  * Why the model could not answer — what the person is told, in the app's own
  * words. "allowance": the plant's daily allowance of model answers is used up
- * (backend/groq.ts, REQUIREMENTS §75) — the server says so and does not ask.
+ * (backend/ai.ts, REQUIREMENTS §75; since §109 the ChatGPT key's cost guard,
+ * AI_DAILY_TOKEN_BUDGET) — the server says so and does not ask.
  */
 export type Unreachable = "offline" | "not-configured" | "failed" | "allowance";
 

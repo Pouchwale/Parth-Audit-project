@@ -18,7 +18,8 @@
 // then always tear the server down again -- regardless of pass/fail -- so
 // `npm run test:e2e` doesn't leak a background process. (tests/visual_qa.py
 // and tests/e2e_assistant_chat.py are NOT run here -- they're slower/make
-// real network calls to Groq -- see docs/TESTING.md for running those manually.)
+// real, paid network calls to the AI service (ChatGPT since REQUIREMENTS §109)
+// -- see docs/TESTING.md for running those manually.)
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import net from "node:net";
@@ -244,22 +245,30 @@ async function main(): Promise<void> {
     spawn(process.execPath, [...nodeArgs, "backend/index.ts"], {
       cwd: root,
       stdio: "inherit",
-      // CVs are read by the text rules alone here, so the suites stay network-independent (backend/cvExtract.ts).
+      // CVs are read by the text rules alone here, and pictures by OCR, so the suites stay network-independent
+      // (backend/cvExtract.ts, backend/attachments.ts).
       // Every flag is always said, "0" included: one left in the shell or in backend/.env must not reach either server.
       env: {
         ...process.env,
         API_PORT: String(port),
         CV_READ_WITH_ASSISTANT: "0",
-        // NO MODEL FOR THESE SUITES (REQUIREMENTS §72). Mitra now asks Groq
-        // first and only answers from the app's own tables when it cannot —
-        // which is the point: a person must be able to tell which of the two
-        // replied. But these suites are network-independent by design, and
-        // backend/.env's real GROQ_API_KEY reaches this server through
-        // process.env above, so without this line every chat message in every
-        // suite would become a live, paid, flaky API call. Blanked here, the
-        // server reports the assistant as not configured and the suites get
-        // the app's own answers, labelled as such. The REAL API is exercised
-        // by tests/e2e_assistant_chat.py, which is run on its own (docs/TESTING.md).
+        PICTURES_READ_WITH_ASSISTANT: "0",
+        // NO MODEL FOR THESE SUITES (REQUIREMENTS §72, §109). Mitra asks the
+        // model first and only answers from the app's own tables when it
+        // cannot — which is the point: a person must be able to tell which of
+        // the two replied. But these suites are network-independent by design,
+        // and backend/.env's real key (since §109 the owner's ChatGPT key,
+        // CHATGPT_API_KEY, which OpenAI bills by the token) reaches this server
+        // through process.env above, so without these lines every chat message
+        // in every suite would become a live, PAID, flaky API call. Every name
+        // a key goes by is blanked here (backend/ai.ts aiProvider reads these
+        // three, and backend/env.ts never fills a name that is set, even
+        // blank), so the server reports the assistant as not configured and
+        // the suites get the app's own answers, labelled as such. The REAL API
+        // is exercised by tests/e2e_assistant_chat.py, which is run on its own
+        // (docs/TESTING.md).
+        CHATGPT_API_KEY: "",
+        OPENAI_API_KEY: "",
         GROQ_API_KEY: "",
         DATABASE_URL,
         // The Database overview's own read-only connection (backend/overviewRoutes.ts), on this run's database.

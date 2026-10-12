@@ -1,16 +1,21 @@
 """
 Exercises the assistant "buddy" chat endpoint (/api/assistant/chat, backed by
-Groq — see backend/groq.ts / backend/assistant.ts) through the actual UI:
-natural-language navigation ("show me August's reports", "open CAPA"),
-natural-language field filling on an already-open record, and a plain
-conversational reply. Makes real network calls to Groq, so this is NOT wired
-into `npm run test:e2e` (network/quota-dependent, like visual_qa.py) — run it
-manually against a server you start yourself:
+the AI service — ChatGPT (OpenAI) since REQUIREMENTS s109; see backend/ai.ts /
+backend/assistant.ts) through the actual UI: natural-language navigation
+("show me August's reports", "open CAPA"), natural-language field filling on an
+already-open record, and a plain conversational reply. Makes real, PAID network
+calls to the AI service, so this is NOT wired into `npm run test:e2e`
+(network/quota-dependent, like visual_qa.py) — run it manually against a server
+you start yourself, with the key loaded by the program (never printed):
 
     npm run build
     API_PORT=8844 npm run server &     # Windows PowerShell: $env:API_PORT=8844; npm run server
     python tests/e2e_assistant_chat.py
+
+E2E_CHAT_PACE_S paces the model-bound messages: 2 seconds by default (the
+ChatGPT key allows 2,000,000 tokens a minute); 22 on a Groq free key (8,000).
 """
+import os
 import sys
 import time
 from datetime import date, timedelta
@@ -76,12 +81,13 @@ def open_widget(page):
         page.wait_for_timeout(200)
 
 
-# This account's Groq tier allows 8000 tokens per minute and each call carries
-# the route guide, the scope rule and the live-facts context (~2.5k tokens), so
-# the suite paces its model-bound messages rather than firing them back to back
-# — otherwise later calls 429 (backend/groq.ts retries, but the whole minute's
-# budget can already be gone). See docs/TESTING.md.
-PACE_SECONDS = 22
+# Each call carries the route guide, the scope rule and the live-facts context
+# (~2.5k tokens). Groq's free tier allowed 8,000 tokens a minute, so the suite
+# paced its model-bound messages 22 s apart — otherwise later calls 429
+# (backend/ai.ts retries, but the whole minute's budget could already be gone).
+# The ChatGPT key (REQUIREMENTS s109) allows 2,000,000 a minute: a short pause
+# is enough. See docs/TESTING.md.
+PACE_SECONDS = float(os.environ.get("E2E_CHAT_PACE_S", "2"))
 _last_model_call = [0.0]
 
 
@@ -94,7 +100,7 @@ def pace(page):
 
 def wait_for_reply(page, locator, before, timeout_ms=45000):
     """Wait for a new bot bubble carrying actual text. A fixed sleep is not
-    enough: a real Groq round trip plus a rate-limit retry can take tens of
+    enough: a real model round trip plus a rate-limit retry can take tens of
     seconds. The typing indicator is also a .chat-msg.bot but has no text, so
     requiring non-empty text skips it."""
     deadline = time.time() + timeout_ms / 1000
@@ -160,7 +166,7 @@ def main():
         # ---- 3. Plain conversational reply (no navigation, no fill) ----
         # A phrase the client-side answer layer (engine/assistantLocal.ts)
         # does NOT catch — "what can you do" is answered locally now — so this
-        # still round-trips through Groq.
+        # still round-trips through the model.
         url_before = page.url
         before = bot_messages(page).count()
         ask(page, "hi there, how is your day going?")
@@ -242,7 +248,7 @@ def main():
 
         # ---- 5. Full-page Assistant: the model answers from the live app context ----
         # No date/weekday in the question, so it is NOT answered locally
-        # (engine/assistantLocal.ts) — it goes to Groq with the context digest
+        # (engine/assistantLocal.ts) — it goes to the model with the context digest
         # attached, which states the weekly off is Thursday.
         page.goto(f"{BASE}/index.html#/assistant")
         page.wait_for_timeout(400)

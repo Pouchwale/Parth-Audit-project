@@ -9,6 +9,7 @@
 // told with who is signed in (index.ts: /api/auth/me, login, signup) and reads
 // it in frontend/src/engine/features.ts.
 import "./env.ts";
+import { aiConfigured } from "./ai.ts";
 
 export const DEMO_MODE = process.env.DEMO_MODE === "1";
 
@@ -22,12 +23,13 @@ export const DEMO_MODE = process.env.DEMO_MODE === "1";
 export const ALLOW_SIGNUP = process.env.ALLOW_SIGNUP === "1";
 
 // WHETHER THERE IS A MODEL TO ASK AT ALL (REQUIREMENTS §72). Mitra's replies
-// come from Groq (backend/groq.ts), which needs GROQ_API_KEY. Without it there
-// is no model for anybody, and the app must say THAT rather than blame the
-// person's internet — or, worse, answer from its own tables and let them think
-// they were talking to the model. Only WHETHER a key is set is ever sent; the
-// key itself never leaves the server.
-export const ASSISTANT_CONFIGURED = !!(process.env.GROQ_API_KEY ?? "").trim();
+// come from the model (backend/ai.ts), which needs a key: since §109 the
+// owner's ChatGPT key, CHATGPT_API_KEY (or OPENAI_API_KEY), else GROQ_API_KEY on
+// a server set up before it. Without one there is no model for anybody, and the
+// app must say THAT rather than blame the person's internet — or, worse, answer
+// from its own tables and let them think they were talking to the model. Only
+// WHETHER a key is set is ever sent; the key itself never leaves the server.
+export const ASSISTANT_CONFIGURED = aiConfigured();
 
 /** What the browser is told, beside the account — and, before anybody signs in, by GET /api/auth/config. */
 export const FEATURES = { demoMode: DEMO_MODE, signup: ALLOW_SIGNUP, assistant: ASSISTANT_CONFIGURED };
