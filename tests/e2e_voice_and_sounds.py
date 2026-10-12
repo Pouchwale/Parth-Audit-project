@@ -529,10 +529,12 @@ with sync_playwright() as p:
     # 4. The top bar's speaker mutes everything, and brings it back
     # ==================================================================
     print("\n==== The top bar's speaker ====")
+    # Since s90 the theme switch (light, dark, the computer's) sits between the language and the speaker
+    # (components/layout/Topbar.tsx: "after the language, so the bar still begins connection, clock, language").
     order = page.evaluate(
-        """() => { const end = document.querySelector('.app-topbar-end'); if (!end) return []; return Array.from(end.children).map((el) => el.matches('[data-connection]') ? 'connection' : el.matches('[data-clock]') ? 'clock' : el.matches('.lang-select, .lang-select *') || el.querySelector('.lang-select') ? 'language' : el.matches("[data-action='toggle-sound']") ? 'sound' : (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 20)); }"""
+        """() => { const end = document.querySelector('.app-topbar-end'); if (!end) return []; return Array.from(end.children).map((el) => el.matches('[data-connection]') ? 'connection' : el.matches('[data-clock]') ? 'clock' : el.matches('.lang-select, .lang-select *') || el.querySelector('.lang-select') ? 'language' : el.matches('[data-theme-switch]') ? 'theme' : el.matches("[data-action='toggle-sound']") ? 'sound' : (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 20)); }"""
     )
-    check("The speaker sits after the connection, the clock and the language", order[:4] == ["connection", "clock", "language", "sound"], order)
+    check("The speaker sits after the connection, the clock, the language and the theme", order[:5] == ["connection", "clock", "language", "theme", "sound"], order)
     toggle = page.locator("[data-action='toggle-sound']")
     check("It is on, and says what pressing it does", toggle.get_attribute("aria-pressed") == "true" and "Mute" in (toggle.get_attribute("title") or ""), toggle.get_attribute("title"))
     toggle.click()
