@@ -7506,7 +7506,9 @@ and `GROQ_API_KEY` for both test servers (and sets `PICTURES_READ_WITH_ASSISTANT
 blanks the three for the backend's tests: `backend/env.ts` never fills a name that is set, even blank, so the real key
 in `backend/.env` cannot reach a test, and every suite and unit test runs without a network call. A service's error
 can echo the key it was sent (OpenAI's 401 names it, partly hidden): every error's words lose this server's keys,
-anything shaped like a key (`sk-…`, `gsk_…`) and a Bearer value before they reach an exception or the log.
+anything shaped like a key (`sk-…`, `gsk_…`) and a Bearer value before they reach an exception or the log. A server
+with no AI key answers the chat, the agent and the checklist at once, 503 `not-configured` in plain words, and writes
+nothing to its log for it (until now each question left a stack trace there); the browser's words are unchanged (§72).
 
 **9. The Mitra server and the phone app** (their own repository, branch mitra-notify; docs/chatbot-integration.md
 says the contract). The Mitra server switches every AI call to OpenAI with the same settings' names, taking them from
