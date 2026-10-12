@@ -910,6 +910,19 @@ Seven scripts live in `tests/`:
   `e2e_access_levels.py` 148 of 148, and `e2e_every_record_starts.py` 30 of 30 with `E2E_ONLY=mnt-new-equipment` (the
   browser full, a reload, Maintenance's account). Changed: scripts/run-e2e.ts
   empties `app_storage_changes` with `app_storage` before each suite. Not run: the full browser run.
+- **Two browser suites that failed for reasons of their own, not the app's** (review of 12-Oct-2026).
+  `tests/e2e_storage_room.py` expected Demo Mode's daily log sheets from exactly three months before the month in
+  hand. The generator draws fewer months back when the browser has no room for them all, and the Demo Mode page
+  says so (`data/demoGenerator.ts`, shortOfRoom); from October 2026 a fresh test browser is that full, so it draws
+  August to November and the page says 7 earlier months were left out, not 6 (the failure recorded on 8 and
+  10-Oct-2026). The check now takes the page's own window when the page says the browser had no room, and still
+  holds it to start after the fixed one and no later than the month in hand. `tests/e2e_access_levels.py` expected
+  the super admin's own "Make staff" shut, which it is only while he is the only super admin: a sign-up suite on
+  :8842 run before it in the same run leaves its first account a super admin on the same database. It now asks the
+  accounts first, as e2e_user_access.py section 10 does, and checks the button open when there is another. Run
+  together, so the storage suite's sign-up came first: `E2E_SKIP_UNIT=1 npm run test:e2e --
+  tests/e2e_storage_room.py tests/e2e_access_levels.py` passed 16 of 16 and 148 of 148 ("With another super admin
+  on this database (['room-...@example.com']), his own 'Make staff' is open").
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

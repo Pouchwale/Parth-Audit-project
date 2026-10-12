@@ -455,9 +455,16 @@ with sync_playwright() as p:
         admin.click("[data-action='show-who-fills']")
         admin.wait_for_timeout(300)
 
-        # Super admin or staff.
+        # Super admin or staff. His own "Make staff" is shut while he is the only super admin; a sign-up suite on :8842
+        # run before this one in the same run leaves its first account a super admin on the same database (as
+        # e2e_user_access.py section 10 allows for), and then it is open, as it should be.
         me_row = admin.locator(f"[data-table='users'] tr[data-user='{ADMIN}']")
-        check("The last super admin cannot be made staff", me_row.locator("[data-action='make-staff']").is_disabled())
+        listed = (api(admin, "GET", "/api/users").get("body") or {}).get("users") or []
+        other_admins = [u.get("email") for u in listed if u.get("role") == "admin" and u.get("active") is not False and u.get("email") != ADMIN]
+        if other_admins:
+            check(f"With another super admin on this database ({other_admins}), his own 'Make staff' is open", not me_row.locator("[data-action='make-staff']").is_disabled(), other_admins)
+        else:
+            check("The last super admin cannot be made staff", me_row.locator("[data-action='make-staff']").is_disabled())
         admin.locator(f"[data-table='users'] tr[data-user='{BHARAT}'] [data-action='make-admin']").click()
         admin.wait_for_selector("[data-action='confirm-ask']", timeout=10000)
         words = admin.locator("[data-section='confirm-user-action']").inner_text()

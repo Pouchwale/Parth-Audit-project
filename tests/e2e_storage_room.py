@@ -6,10 +6,11 @@ came back on the dashboard.
   * a fresh browser shows no warning;
   * opening Demo Mode generates the light records of the whole demo year and
     the daily log sheets of the month in hand and the three before it ONLY (a
-    fixed window, the same in every browser) - the working copy stays under
-    the warning mark, no warning appears, and the Demo Mode page says how many
-    earlier months' daily sheets were left out (worked out from the real
-    clock: none in January);
+    fixed window, the same in every browser; fewer months back only when the
+    browser has no room for them all, which the page then says) - the working
+    copy stays under the warning mark, no warning appears, and the Demo Mode
+    page says how many earlier months' daily sheets were left out (worked out
+    from the real clock: none in January);
   * pushed past the mark, the dashboard's warning says how much is used, how
     much of it is demo data, how many records, and offers to clear it;
   * one click clears the demo data - the live records untouched - and the
@@ -152,17 +153,29 @@ with sync_playwright() as p:
     page.wait_for_timeout(800)
     dismiss(page)
     # The daily sheets' window, worked out from the real clock as the generator does: the month in hand (0-11) and
-    # the three before it, plus the month ahead's blank shells.
+    # the three before it, plus the month ahead's blank shells. FEWER months back only when the browser, nearly as
+    # full as it is allowed to be, has no room for them all (data/demoGenerator.ts, shortOfRoom): from October 2026
+    # a fresh test browser holds that much of the year's light records, so the window starts a month later, and the
+    # page says why. Then the window is the page's, starting after the fixed one and no later than the month in hand.
     cur = datetime.now().month - 1
     first = max(0, cur - 3)
-    left_out = first
-    heavy_months = cur - first + 1
     room_note = page.locator("[data-section='demo-room']")
     note_text = room_note.inner_text() if room_note.count() else ""
+    short_of_room = "has room for" in note_text
+    window_ok = True
+    if short_of_room:
+        months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        drawn = re.search(r"Demo Mode draws them for (\w+) to (\w+) only", note_text)
+        drawn_from = months.index(drawn.group(1)) if drawn and drawn.group(1) in months else -1
+        window_ok = first < drawn_from <= cur
+        first = drawn_from if window_ok else first
+    left_out = first
+    heavy_months = cur - first + 1
     if left_out > 0:
         check(
-            f"The Demo Mode page says the daily sheets of {left_out} earlier months were left out, and which months have them",
-            room_note.count() == 1 and re.search(rf"daily log sheets of {left_out} earlier months? of the demo year", note_text) is not None and "not the whole year" in note_text,
+            f"The Demo Mode page says the daily sheets of {left_out} earlier months were left out, and which months have them"
+            + (" (fewer months back than three: this browser had no room for more, and the page says so)" if short_of_room else ""),
+            window_ok and room_note.count() == 1 and re.search(rf"daily log sheets of {left_out} earlier months? of the demo year", note_text) is not None and "not the whole year" in note_text,
             note_text[:300],
         )
     else:
