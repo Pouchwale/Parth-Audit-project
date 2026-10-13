@@ -577,8 +577,11 @@ export function LogSheetRecordView({
                 about it belongs under QC forms only: under a Maintenance or a
                 Purchase footer it named a signature those forms do not have
                 (REQUIREMENTS §74). */}
-            {/* ...and only where the form has no APPROVED BY box of its own to write it in (§111). */}
-            {qcForm && !layout.footerFields.some((f) => /approved by/i.test(f.label)) && (
+            {/* ...and only where the form has no APPROVED BY box of its own to write it in (§111), no box of the QA
+                Manager's own (F/QC/25's "Sign By (QA Manager)") and does not print that it needs no signature (the
+                certificates of analysis' "IT DOES NOT REQUIRE A SIGNATURE."): there the line named an approval the
+                paper does not have. */}
+            {qcForm && !paperHasItsOwnApproval(layout) && (
               <div className="text-xs text-muted mt-3 no-print">
                 "Approved by (QA Manager)" on the paper form is the <strong>Verify</strong> step here — the verifier's name and time are stamped automatically.
               </div>
@@ -775,6 +778,19 @@ function ColumnHead({ col, rowSpan, bound }: { col: LogColumn; rowSpan?: number;
       {/* The paper's own heading, "" where it prints none (F/QC/25's descriptions, REQUIREMENTS §111). */}
       {columnHeading(col)}
     </th>
+  );
+}
+
+/**
+ * WHETHER THE PAPER SAYS WHO APPROVES IT, so the screen's line that "Approved by (QA Manager)" on the paper is
+ * the Verify step here would be wrong (REQUIREMENTS §74, §111): an APPROVED BY box of its own (the incoming
+ * records), a box of the QA Manager's (F/QC/25's Sign By), or the words that it needs no signature at all
+ * (the certificates of analysis).
+ */
+export function paperHasItsOwnApproval(layout: { footerFields?: { label: string }[]; notesAtFoot?: string[] }): boolean {
+  return (
+    (layout.footerFields ?? []).some((f) => /approved by|qa manager/i.test(f.label)) ||
+    (layout.notesAtFoot ?? []).some((line) => /does not require a signature/i.test(line))
   );
 }
 

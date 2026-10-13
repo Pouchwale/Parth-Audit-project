@@ -601,6 +601,10 @@ test("F/QC/06 Certificate of Analysis [COA] For Label: every block under its own
   );
   const t = text(html);
   for (const w of DCRS_WORDS) assert.ok(!w.test(t), String(w));
+  // The certificate needs no signature: the screen names no "Approved by (QA Manager)" on it (it once did, under its boxes).
+  assert.ok(!html.includes("is the <strong>Verify</strong> step here"));
+  // A QC form whose paper prints an approval it has no box for (F/QC/37 pouching, §86) still says where it is given.
+  assert.ok((await sheet("qc-inspection-pouching")).includes("is the <strong>Verify</strong> step here"));
 });
 
 test("F/QC/07 Certificate of Analysis [COA] For Shrink Sleeves: its Specified Size and SLEEVE FILM tables, its own FINISHING, the heat sentence above the retest sentence", async () => {
@@ -687,6 +691,7 @@ test("F/QC/25 Certificate of Analysis [COA] For CORRUGATED BOXES: its heading bl
   const t = text(html);
   for (const w of DCRS_WORDS) assert.ok(!w.test(t), String(w));
   assert.ok(!/>Description</.test(html) && !/>Observation</.test(html), "no heading the paper does not print");
+  assert.ok(!html.includes("is the <strong>Verify</strong> step here"), "the QA Manager signs his own box: the screen does not say his approval is the Verify step");
   assert.match(html, /style="--paper-box-columns:2[^"]*"><div class="field" data-paper-column="2"><label>Date:<\/label>/);
 });
 
