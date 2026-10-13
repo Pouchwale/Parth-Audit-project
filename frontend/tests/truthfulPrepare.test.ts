@@ -167,6 +167,11 @@ function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate:
     for (const c of layout.columns) {
       const v = row[c.key];
       if (blank(v) || c.computed || c.linkedFrom) continue;
+      // A paper's own Sr. No. column holds the line's place (F/QC/16, REQUIREMENTS §111): nothing observed.
+      if (c.autoFill?.lineNumber) {
+        if (v !== String(i + 1)) say(`line ${i + 1} "${c.label}" holds "${v}", not its place`);
+        continue;
+      }
       if (c.fixed) {
         const printed = mode.kind === "fixedRows" ? mode.rows[i]?.[c.key] : mode.kind === "timeSlots" && c.key === mode.slotKey ? mode.slots[i] : undefined;
         if (v !== printed) say(`line ${i + 1} "${c.label}" holds "${v}", not the printed "${printed}"`);

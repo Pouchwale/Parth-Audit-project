@@ -287,6 +287,13 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
   }
   const dateColumns = layout.columns.filter((c) => columnKind(c) === "date");
   for (const row of rows) for (const c of dateColumns) row[c.key] = dueDate;
+  // A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111): each line its place.
+  const numberedBy = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
+  if (numberedBy) {
+    rows.forEach((row, i) => {
+      row[numberedBy] = String(i + 1);
+    });
+  }
 
   // A figure another real record gives: the opening stock is the last sheet's closing stock.
   const figures: string[] = [];

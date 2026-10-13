@@ -16,6 +16,7 @@ import { createDefaultData } from "../src/engine/recordDefaults";
 import { autoFillRecord } from "../src/engine/autoFill";
 import { prepareKnownParts } from "../src/engine/knownParts";
 import { validateForSubmit } from "../src/engine/validation";
+import { applyAssistantPatch } from "../src/engine/recordPatch";
 import { SEED_HISTORICAL_RECORDS } from "../src/data/seed/historicalRecords";
 import { COMPLIANCE_STATEMENTS } from "../src/data/seed/complianceStatements";
 import { UTILITY_TEST_JOB_NAMES } from "../src/data/seed/qcReportLayouts";
@@ -323,6 +324,13 @@ test("F31: F/QC/16 keeps its paper's own Sr. No. — 7, 9, 8, 10 on the 2022 pag
   assert.equal(headings(html).filter((h) => h === "Sr. No.").length, 1, "one Sr. No., the paper's");
   assert.match(text(between(html, "<tbody", "</tbody>")), / 9 Neilmed Pharmaceuticals Inc Wound Wash 177mL Sleeve /);
   assert.deepEqual(sample("qc-obsolete-artwork").rows.map((r) => r.srNo), ["1", "2"], "a sample day's two lines");
+  // A Live record's blank line, and a line Mitra adds, are numbered too: a line's place, nothing observed.
+  const live = prepareKnownParts(docOf("qc-obsolete-artwork"), DAY, master, undefined)!.data as LogSheetData;
+  assert.deepEqual(live.rows.map((r) => r.srNo), ["1"]);
+  assert.ok(live.rows.every((r) => !r.customerName && !r.jobName), "nothing else written");
+  assert.deepEqual(blank("qc-obsolete-artwork").rows.map((r) => r.srNo), ["1"]);
+  const added = applyAssistantPatch("log-sheet", "qc-obsolete-artwork", live, { rows: [...live.rows, { customerName: "Nivea India Pvt Ltd" }] });
+  assert.deepEqual((added.data as LogSheetData).rows.map((r) => r.srNo), ["1", "2"]);
 });
 
 test("F30, F31: a copy of the 2022 pages stored before is brought in step once, with a line in its history", () => {

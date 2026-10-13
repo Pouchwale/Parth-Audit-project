@@ -506,6 +506,15 @@ function normRows(layout: LogSheetLayout, cur: Obj[], value: unknown[], problems
   }
   // Free rows: kept rows first in their original order, then any new ones.
   const kept = cur.map((_, i) => out[i]).filter(Boolean) as Obj[];
+  // A new line on a paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) is
+  // numbered after the one above it, unless the patch numbered it.
+  const numberedBy = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
+  if (numberedBy) {
+    added.forEach((row, i) => {
+      const own = row[numberedBy];
+      if (own === undefined || own === null || own === "") row[numberedBy] = String(kept.length + i + 1);
+    });
+  }
   return [...kept, ...added];
 }
 

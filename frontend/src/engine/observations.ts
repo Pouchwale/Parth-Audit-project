@@ -97,6 +97,8 @@ export function boxKind(f: LogHeaderField, layout: LogSheetLayout): SlotKind {
 /** A grid column: printed (fixed), worked out, the record's date, or the person's. */
 export function columnKind(col: LogColumn): Exclude<SlotKind, "standing"> | "fixed" {
   if (col.fixed) return "fixed";
+  // A paper's own Sr. No. column (F/QC/16, REQUIREMENTS §111): the line's place, written as the form numbers it, not observed.
+  if (col.autoFill?.lineNumber) return "fixed";
   if (col.computed || col.linkedFrom) return "computed";
   if (col.autoFill?.dueDate) return "date";
   return "observation";
