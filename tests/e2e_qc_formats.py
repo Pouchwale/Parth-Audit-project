@@ -672,7 +672,15 @@ with sync_playwright() as p:
     def heads(page):
         return page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
 
+    # With QC_PAPER_SHOTS set, each paper's preview is photographed there, to be looked at beside its original.
+    def shot(name):
+        folder = os.environ.get("QC_PAPER_SHOTS")
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+            page.locator("[data-section='document-preview']").first.screenshot(path=os.path.join(folder, f"{name}.png"))
+
     open_page(page, "#/document/qc-printing-aids-destruction")
+    shot("fqc20-destruction")
     body = printed_text(page)
     whole = page.locator(".app-content").evaluate("e => e.textContent")
     check(
@@ -681,6 +689,7 @@ with sync_playwright() as p:
         body[:600],
     )
     open_page(page, "#/document/qc-utility-test-report")
+    shot("fqc29-utility-test")
     whole = page.locator(".app-content").evaluate("e => e.textContent")
     check(
         "The Nivea utility test is headed MINUTES OF MEETINGS, the format it is printed on, with its own heading above the grid in the paper's spacing",
@@ -689,11 +698,14 @@ with sync_playwright() as p:
     )
     check("...Job Name under Description, as the paper heads it", "Description" in heads(page) and "Job Name" in heads(page), heads(page))
     open_page(page, "#/document/qc-analysis-report")
+    shot("fqc29-analysis-report")
     whole = page.locator(".app-content").evaluate("e => e.textContent")
     check("The analysis report prints nothing of DCRS's above its grid", "The scan of the supplied page" not in whole and "eleven printed descriptions" not in whole, whole[:600])
     open_page(page, "#/document/qc-minutes-of-meetings")
+    shot("fqc30-minutes")
     check("The minutes' grid is headed Key points Discussed:, as the paper", "Key points Discussed:" in heads(page), heads(page))
     open_page(page, "#/document/qc-temperature")
+    shot("fqc40c-temperature")
     check(
         "F-QC-40.C: DATE and the six TEMP. + SIGN readings, and no Sign column of DCRS's",
         heads(page)[1:] == ["DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN"],
@@ -701,6 +713,7 @@ with sync_playwright() as p:
     )
 
     open_page(page, "#/document/qc-test-reliability-label")
+    shot("fqc14-label")
     whole = page.locator(".app-content").evaluate("e => e.textContent")
     check(
         "F-QC-14 Label opens headed INTERNAL TEST RELIABILITY RECORD and F-QC-14",
@@ -725,12 +738,27 @@ with sync_playwright() as p:
         body[-600:],
     )
     open_page(page, "#/document/qc-test-reliability-sleeve")
+    shot("fqc14-sleeve")
     body = printed_text(page)
     check(
         "F-QC-14 Sleeve: five checks of three lines, the shrinkage ratio as written",
         sheet_rows(page).count() == 15 and "Shrinkage Ratio : TD 60 ± 2 %, MD 0 ~ 6%" in body and "TD-61 MD-3" in body,
         (sheet_rows(page).count(), body[:400]),
     )
+
+    if os.environ.get("QC_PAPER_SHOTS"):
+        # The rest of this group's papers, photographed only (their checks are above and in qcPaperFormatsMore.test.ts).
+        for route, name in [
+            ("qc-calibration-master-list", "fqc08-calibration-master-list"),
+            ("qc-obsolete-artwork", "fqc16-obsolete-artwork"),
+            ("qc-line-clearance-printing", "fqc15a-line-clearance-printing"),
+            ("qc-line-clearance-punching", "fqc15b-line-clearance-punching"),
+            ("qc-inprocess-printing", "fqc13-ipqc"),
+            ("qc-line-clearance-materials", "fqc15-gujarati-materials"),
+            ("qc-line-clearance-quality", "fqc15-gujarati-quality"),
+        ]:
+            open_page(page, f"#/document/{route}")
+            shot(name)
 
     rid = start_record(page, "qc-test-reliability-label")
     started = record(page, rid) or {}

@@ -239,6 +239,9 @@ export const QC_REPORT_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/30 (01 / 01.12.2022) — MINUTES OF MEETINGS ----
   "qc-minutes-of-meetings": {
     documentId: "qc-minutes-of-meetings",
+    // The paper gives each box a line of its own: Client Name, Location and Date one under another in its table, then
+    // Subject: and Participants : across the page (REQUIREMENTS §111). Five to a line cut every value short.
+    headerColumns: 1,
     headerFields: [
       { key: "clientName", label: "Client Name :", type: "text", width: 300, autoFill: { carryForward: true } },
       { key: "location", label: "Location :", type: "text", width: 300, autoFill: { default: COMPANY.shortName } },

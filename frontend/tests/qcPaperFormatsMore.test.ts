@@ -353,6 +353,7 @@ test("F/QC/29 analysis report and utility test, and F/QC/30 minutes: the paper's
   assert.deepEqual(printedAbove(minutes), [], "the headings are the labels of what they head, not lines above the boxes");
   assert.deepEqual(minutes.headerFields.map((f) => f.label), ["Client Name :", "Location :", "Date :", "Subject:", "Participants :"]);
   assert.deepEqual(minutes.columns.map((c) => c.label), ["Key points Discussed:"]);
+  assert.equal(minutes.headerColumns, 1, "each box a line of its own, as the paper");
 });
 
 test("F-QC-40.C hot room: TEMPERATURE MONITORING RECORD, the recommended temperature above, DATE and the six TEMP. + SIGN readings, no Sign column of DCRS's", async () => {
@@ -421,6 +422,7 @@ test("F-QC-14: both sheets are F-QC-14, headed INTERNAL TEST RELIABILITY RECORD,
       paper.names.map((name) => `Conclusion (${name})`),
       `${id}: one Conclusion per check, in order`
     );
+    assert.ok(layout.footerFields?.every((f) => f.type === "paragraph"), `${id}: each Conclusion a sentence across the page`);
     const html = await sheet(id, createDefaultData(doc, DAY, master) as LogSheetData);
     assert.equal(headings(html).filter((t) => t === "Sr. No.").length, 0, `${id}: no Sr. No. of the sheet's`);
     assert.ok(text(html).includes("Specification : 70 ± 5%") || id.endsWith("sleeve"), id);

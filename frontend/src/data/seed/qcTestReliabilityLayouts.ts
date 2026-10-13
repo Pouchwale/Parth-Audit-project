@@ -93,7 +93,8 @@ const columns = (): LogColumn[] => [
 ];
 
 const footer = (checks: ReliabilityCheck[]): LogHeaderField[] =>
-  checks.map((check, i) => ({ key: conclusionKey(i), label: `Conclusion (${check.name})`, type: "text", width: 520 }));
+  // The paper writes each Conclusion across its table's four columns: a sentence, so a box the width of the page.
+  checks.map((check, i) => ({ key: conclusionKey(i), label: `Conclusion (${check.name})`, type: "paragraph" }));
 
 const lines = (checks: ReliabilityCheck[]) => checks.flatMap((check) => Array.from({ length: SAMPLES_PER_CHECK }, () => ({ parameter: check.heading })));
 
