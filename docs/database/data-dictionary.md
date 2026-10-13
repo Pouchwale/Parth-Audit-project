@@ -53,13 +53,12 @@ Kinds of value, in the Type column:
   - [chatbot.sessions](#chatbotsessions)
   - [chatbot.users](#chatbotusers)
   - [chatbot.weekly_reports](#chatbotweekly_reports)
-- [The schema public: DCRS's own tables](#the-schema-public-dcrss-own-tables) (11)
+- [The schema public: DCRS's own tables](#the-schema-public-dcrss-own-tables) (10)
   - [public.activity_daily](#publicactivity_daily)
   - [public.activity_daily_state](#publicactivity_daily_state)
   - [public.activity_log](#publicactivity_log)
   - [public.activity_log_archive](#publicactivity_log_archive)
   - [public.app_storage](#publicapp_storage)
-  - [public.app_storage_changes](#publicapp_storage_changes)
   - [public.digest_log](#publicdigest_log)
   - [public.escalations](#publicescalations)
   - [public.job_runs](#publicjob_runs)
@@ -655,19 +654,6 @@ standard public schema
 | `seq` | whole number | The order of every write to every item (from the sequence app_storage_seq), so a browser can ask what has changed since it last looked. |
 | `updated_at` | moment | When the item was last written. |
 | `updated_by` | text | The email of the account that last wrote the item. |
-
-### public.app_storage_changes
-
-*A table, owned by postgres.* Which records each write of the company's records changed (REQUIREMENTS 108): one row for the write itself and one for each record it changed or removed, written in the same transaction as the write. A browser that says which version of the records it holds is handed only the records changed since. The records themselves are in app_storage, as before.
-
-| Column | Type | What it holds |
-|---|---|---|
-| `seq` | whole number | The write's seq: app_storage.seq of the item just after it. |
-| `scope` | text | The item's scope: company. |
-| `key` | text | The item: records. |
-| `version` | whole number | The item's version just after the write. |
-| `record_id` | text | A record the write changed or removed; empty on the row that stands for the write itself. |
-| `removed` | yes or no | True when the write removed the record. |
 
 ### public.digest_log
 

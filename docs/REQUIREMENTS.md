@@ -7288,6 +7288,9 @@ from the database (part 2).
 and each sign-in downloads every item; the server takes an item of up to 25 MB (`STORAGE_MAX_BYTES`), which the
 records at the measured 7.9 MB a year reach in about three years. A save that sends the one record that changed, and
 PostgreSQL keeping one row per record, are the C-1 design (the draft for §95), for the next change.
+A first build of it (10-Oct-2026) was withdrawn from the release on 13-Oct-2026: the security review found, each in a
+scratch test, that it could drop a waiting save, empty a browser's copy or bring back a record removed elsewhere
+(docs/TESTING.md, "One record per save, withdrawn"). It waits on branch browser-room for a redo that starts from those tests.
 
 **Tests.** frontend/tests/browserRoom.test.ts (16, over a stand-in IndexedDB, BroadcastChannel and navigator.locks,
 frontend/tests/support/fakeBrowserRoom.ts): a value over the room kept, read at once and read back after a reload, a

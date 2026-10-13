@@ -518,15 +518,7 @@ function carriesOwnEntry(r: unknown, by: string): boolean {
  */
 export function composeRecords(view: AccessView, storedValue: string | null, postedLines: readonly unknown[], by?: string): ComposedRecords {
   const storedParsed = parseJson(storedValue);
-  const out = composeRecordLines(view, Array.isArray(storedParsed) ? storedParsed : [], postedLines, by);
-  return { value: JSON.stringify(out.lines), kept: out.kept };
-}
-
-/**
- * As composeRecords, on the stored lines already read (REQUIREMENTS §108: a save that sends the records it changed is
- * laid over the item as stored, which the server holds parsed): the lines to store, and the records kept as stored.
- */
-export function composeRecordLines(view: AccessView, all: readonly unknown[], postedLines: readonly unknown[], by?: string): { lines: unknown[]; kept: string[] } {
+  const all: unknown[] = Array.isArray(storedParsed) ? storedParsed : [];
   // Every document a record names is placed before anybody's level is asked.
   const ids = new Set<string>();
   for (const r of all) if (isRecordLike(r)) ids.add(r.documentId);
@@ -534,7 +526,7 @@ export function composeRecordLines(view: AccessView, all: readonly unknown[], po
   view.catalogue.include(ids);
 
   const theirsStored = all.filter((l) => !view.holds(l));
-  if (view.editsAll) return { lines: [...postedLines.filter((l) => view.holds(l)), ...theirsStored], kept: [] };
+  if (view.editsAll) return { value: JSON.stringify([...postedLines.filter((l) => view.holds(l)), ...theirsStored]), kept: [] };
 
   const storedMine = all.filter((l) => view.holds(l));
   // ONE LINE PER RECORD, AND ONLY RECORDS (the security review of 9-Oct-2026). Each record's first posted line is the
@@ -571,7 +563,7 @@ export function composeRecordLines(view: AccessView, all: readonly unknown[], po
     if (c.personal) throw new AccessRefused(refusalBody(view, c.documentId, missing, c.recordId));
     else keepStored.add(c.recordId);
   }
-  if (keepStored.size === 0 && dropNew.size === 0) return { lines: [...mine, ...theirsStored], kept: [] };
+  if (keepStored.size === 0 && dropNew.size === 0) return { value: JSON.stringify([...mine, ...theirsStored]), kept: [] };
 
   const storedById = new Map<string, unknown>();
   for (const r of storedMine) if (isRecordLike(r)) storedById.set(r.id, r);
@@ -589,7 +581,7 @@ export function composeRecordLines(view: AccessView, all: readonly unknown[], po
   }
   // A record the person's browser cleared that their level does not let them remove: kept as stored.
   for (const id of keepStored) if (!placed.has(id) && storedById.has(id)) out.push(storedById.get(id));
-  return { lines: [...out, ...theirsStored], kept: [...keepStored, ...dropNew] };
+  return { value: JSON.stringify([...out, ...theirsStored]), kept: [...keepStored, ...dropNew] };
 }
 
 // ---------------------------------------------------------------------------

@@ -32,17 +32,6 @@
 // The working copy is the browser's localStorage, and what does not fit there
 // is kept in its IndexedDB (data/browserRoom.ts, REQUIREMENTS §108): `raw` below
 // reads and writes both, and everything here works on either the same way.
-//
-// ONE RECORD PER SAVE (REQUIREMENTS §108, its second half). The records are
-// sent record by record: a save sends the records that changed and the ids
-// removed (the repository says which, data/repositories/recordRepository.ts),
-// with the version its copy was made from; somebody else's save of other
-// records in between is laid under it on the server and handed back with the
-// answer, and a save naming a record somebody else changed first comes back
-// with theirs, merged as two copies of a record always were. Asking what has
-// changed, the browser says which version of the records it holds, and is
-// handed only the records changed since (backend/changeJournal.ts). Anything
-// that cannot be said record by record goes whole, as before.
 
 import { onRoomRefused, roomBusy, roomGet, roomIdle, roomKept, roomNames, roomRemove, roomSet } from "./browserRoom";
 
@@ -103,14 +92,6 @@ const WRITE_DELAY_MS = 400;
 const PULL_EVERY_MS = 5000;
 const RETRY_MS = 4000;
 const KEEPALIVE_MAX_CHARS = 60_000;
-/** The item sent record by record (§108). */
-const RECORDS = "records";
-/** At most this many characters of records in one save; a longer one (a migration that touched every record) goes in several. */
-const LINES_PER_SAVE_CHARS = 1_000_000;
-/** False once the server has said it takes no save of single records (an older server): the records go whole, as before. */
-let lineSaves = true;
-/** The next question asks for the whole records item: a change handed over could not be laid over this copy. */
-let wholeRecordsNext = false;
 
 interface Marker {
   /** Whose copy: "company" or "user:<id>". */
@@ -125,20 +106,6 @@ interface Marker {
   p?: 1;
   /** The departments the copy was made for, as the server named them ("*": every department). */
   d?: string;
-  /** The seq of the database's write this version came from: with `v`, which copy of the records this is (§108). */
-  q?: number;
-  /**
-   * The records: the ids of the ones changed or removed here that the database has not confirmed (§108). Left out
-   * while `p` is set: not known, so the save works out what changed against the copy it was made from.
-   */
-  r?: string[];
-}
-
-/** The records handed over one by one (§108): those changed since the browser's version, and the ids removed. */
-interface LinesHanded {
-  from?: number;
-  changed?: Obj[];
-  removed?: string[];
 }
 
 interface StoredItem {
@@ -146,8 +113,6 @@ interface StoredItem {
   value: string;
   version: number;
   seq: number;
-  /** In place of `value`: the records changed since the version the browser said it holds (§108). */
-  changes?: LinesHanded;
 }
 
 interface StorageResponse {
@@ -543,8 +508,6 @@ function saveBasesOfPending(): void {
     const marker = readMarker(key);
     const b = bases.get(key);
     if (!marker || !marker.p || marker.s !== scopeFor(key, s.userId) || !b || b.v !== marker.v) continue;
-    // The records waiting are named (§108): the next sign-in sends them by name, and needs no copy to work them out from.
-    if (key === RECORDS && marker.r !== undefined) continue;
     const saved: SavedBase = key === "records" ? { v: b.v, ids: Object.fromEntries(entityHashes(b.value)) } : { v: b.v, value: b.value };
     raw.set(BASE_PREFIX + key, JSON.stringify(saved));
   }
@@ -808,13 +771,8 @@ const sendHeaders = (key: string, base: number, copyScope: string): Record<strin
   ...(LINE_KEYS.has(key) ? { "X-Scope": copyScope } : {}),
 });
 
-/** Sends one item: the records record by record (sendLines, §108), anything else whole. */
-function send(key: string): Promise<void> {
-  return key === RECORDS && lineSaves ? sendLines(key) : sendWhole(key);
-}
-
-/** Sends one item whole; merges and sends again when the database has moved on. */
-async function sendWhole(key: string): Promise<void> {
+/** Sends one item; merges and sends again when the database has moved on. */
+async function send(key: string): Promise<void> {
   const s = session;
   if (!s || !SYNC_KEYS.has(key) || s.denied.has(key)) return;
   const scope = scopeFor(key, s.userId);
@@ -824,7 +782,6 @@ async function sendWhole(key: string): Promise<void> {
   const before = readMarker(key);
   const ours = before && before.s === scope ? before : null;
   let base = ours ? ours.v : 0;
-  let baseSeq = ours?.q;
   let baseView = baseFor(key, base);
   let copyScope = ours?.d ?? s.scope;
   if (!ours || !ours.p) writeMarker(key, { s: scope, v: base, h: ours ? ours.h : "", t: ours ? ours.t : "", p: 1, d: copyScope });
@@ -834,13 +791,13 @@ async function sendWhole(key: string): Promise<void> {
     const res = await request("PUT", `/${encodeURIComponent(key)}`, s.userId, upload.body, { ...sendHeaders(key, base, copyScope), ...upload.headers });
     if (session !== s) return;
     if (res.ok) {
-      const { version, seq } = (await res.json()) as { version: number; seq?: number };
+      const { version } = (await res.json()) as { version: number };
       rememberBase(key, version, body);
       const now = local.get(key);
       // Held in memory for want of room (§93): the database has it now, and the browser's storage takes it back if it has room again.
       const held = heldInMemory.has(NAMESPACE + key);
       if (held && now === body) raw.set(NAMESPACE + key, body);
-      writeMarkerOf(key, { s: scope, v: version, q: seq, t: iso(), d: copyScope, ...(now === body ? {} : { p: 1 as const }) }, body);
+      writeMarkerOf(key, { s: scope, v: version, t: iso(), d: copyScope, ...(now === body ? {} : { p: 1 as const }) }, body);
       if (now === body) {
         forgetSavedBase(key);
         if (heldUnsent.delete(key)) dispatch(STORAGE_HELD_SAVED, { key, stillHeld: heldInMemory.has(NAMESPACE + key) });
@@ -868,13 +825,13 @@ async function sendWhole(key: string): Promise<void> {
         dispatch(ACCESS_REFUSED_EVENT, { key, message: typeof said.error === "string" ? said.error : "Your access level does not allow that change." });
         const stored = baseView?.value;
         if (stored !== undefined && local.setOrHold(key, stored, false)) {
-          writeMarkerOf(key, { s: scope, v: base, q: baseSeq, t: iso(), d: copyScope }, stored);
+          writeMarkerOf(key, { s: scope, v: base, t: iso(), d: copyScope }, stored);
           forgetSavedBase(key);
           notify(key);
           return;
         }
         // No copy of what the database holds: not sent again, and the database's copy replaces this one when it next changes.
-        writeMarkerOf(key, { s: scope, v: base, q: baseSeq, t: iso(), d: copyScope }, body);
+        writeMarkerOf(key, { s: scope, v: base, t: iso(), d: copyScope }, body);
         return;
       }
       // Not this account's departments' to hold (backend/index.ts).
@@ -913,404 +870,20 @@ async function sendWhole(key: string): Promise<void> {
       rememberBase(key, current.version, current.value);
       body = merged;
       base = current.version;
-      baseSeq = current.seq;
       baseView = { value: current.value };
       if (merged === current.value) {
-        writeMarkerOf(key, { s: scope, v: current.version, q: current.seq, t: iso(), d: copyScope }, current.value);
+        writeMarkerOf(key, { s: scope, v: current.version, t: iso(), d: copyScope }, current.value);
         forgetSavedBase(key);
         // The database had everything already, the held change included (§93).
         if (heldUnsent.delete(key)) dispatch(STORAGE_HELD_SAVED, { key, stillHeld: heldInMemory.has(NAMESPACE + key) });
         return;
       }
-      writeMarkerOf(key, { s: scope, v: current.version, q: current.seq, t: iso(), p: 1, d: copyScope }, current.value);
+      writeMarkerOf(key, { s: scope, v: current.version, t: iso(), p: 1, d: copyScope }, current.value);
       continue;
     }
     throw new Error(`The database refused ${key} (${res.status}).`);
   }
   throw new Error(`${key} kept changing in the database; it is sent again shortly.`);
-}
-
-// ---------------------------------------------------------------------------
-// one record per save (REQUIREMENTS §108)
-
-/** The records' working copy, record by record: data/repositories/recordRepository.ts serves it from its parsed array. */
-export interface RecordsCopy {
-  /** Each record's text as the copy holds it now, in the copy's order (null for an id it does not hold); with no ids, every record's. */
-  texts(ids?: Iterable<string>): Map<string, string | null>;
-  /** The copy's text with these records put in (in place of the one with the same id, or at the end) and these ids taken out. Nothing is stored. */
-  splice(put: Obj[], out: Iterable<string>): string;
-}
-
-/** Each record's text by id, in order, from a stored text (the first of an id). */
-function textsOfList(text: string | null): Map<string, string> {
-  const out = new Map<string, string>();
-  try {
-    const list = text === null ? [] : JSON.parse(text);
-    if (Array.isArray(list)) {
-      for (const r of list) {
-        const id = idOf(r);
-        if (id !== null && !out.has(id)) out.set(id, JSON.stringify(r));
-      }
-    }
-  } catch {
-    /* unreadable: nothing */
-  }
-  return out;
-}
-
-/** Without the repository (a test of this module alone): the stored text, parsed each time. */
-let recordsCopy: RecordsCopy = {
-  texts(ids) {
-    const all = textsOfList(local.get(RECORDS));
-    if (!ids) return all;
-    const wanted = new Set(ids);
-    const out = new Map<string, string | null>();
-    for (const [id, text] of all) if (wanted.has(id)) out.set(id, text);
-    for (const id of wanted) if (!out.has(id)) out.set(id, null);
-    return out;
-  },
-  splice(put, out) {
-    let list: unknown[] = [];
-    try {
-      const parsed = JSON.parse(local.get(RECORDS) ?? "[]");
-      if (Array.isArray(parsed)) list = parsed;
-    } catch {
-      /* unreadable: started again */
-    }
-    const given = new Map<string, Obj>();
-    for (const r of put) if (idOf(r) !== null) given.set(idOf(r)!, r);
-    const gone = new Set(out);
-    const next: unknown[] = [];
-    for (const r of list) {
-      const id = idOf(r);
-      const theirs = id === null ? undefined : given.get(id);
-      if (theirs) {
-        next.push(theirs);
-        given.delete(id!);
-      } else if (id === null || !gone.has(id)) next.push(r);
-    }
-    for (const r of given.values()) next.push(r);
-    return JSON.stringify(next);
-  },
-};
-
-/** data/repositories/recordRepository.ts: the records' copy, served from its parsed array. */
-export function serveRecordsCopy(copy: RecordsCopy): void {
-  recordsCopy = copy;
-}
-
-/** The records waiting after a write that named `lines` (or did not: undefined, not known). */
-function waitingAfterWrite(marker: Marker, lines: Iterable<string> | undefined): string[] | undefined {
-  if (lines === undefined) return undefined;
-  if (marker.p && marker.r === undefined) return undefined;
-  const out = new Set(marker.p ? marker.r : []);
-  for (const id of lines) out.add(id);
-  return [...out];
-}
-
-/** The ids whose record differs between two stored texts of the records, or is in one only. */
-function linesBetween(was: Map<string, string | null>, now: Map<string, string | null>): string[] {
-  const out: string[] = [];
-  for (const [id, text] of now) if (text !== null && was.get(id) !== text) out.push(id);
-  for (const [id, text] of was) if (text !== null && (now.get(id) ?? null) === null) out.push(id);
-  return out;
-}
-
-/**
- * THE RECORDS CHANGED SINCE THE COPY WAS IN STEP, worked out record by record: the fallback for a change that did not
- * name its records (§108), against the copy the database held (in memory, or kept over a page close as each record's
- * hash). Null when that copy is not known: the records then go whole, as before.
- */
-function linesChangedSince(key: string, marker: Marker): string[] | null {
-  const base = baseFor(key, marker.v);
-  if (!base) return null;
-  const now = recordsCopy.texts();
-  if (base.value !== undefined) return linesBetween(textsOfList(base.value), now);
-  if (!base.ids) return null;
-  const out: string[] = [];
-  for (const [id, text] of now) if (text !== null && base.ids.get(id) !== hash(text)) out.push(id);
-  for (const id of base.ids.keys()) if (!now.has(id)) out.push(id);
-  return out;
-}
-
-/**
- * LAYS THE RECORDS THE DATABASE HANDED BACK OVER THE COPY (§108): theirs where the copy has nothing of its own waiting
- * for that record; where it has, the later of the two, as two copies of a record have always been merged
- * (laterRecord); a record removed there and changed here since stays, and goes again. `sent`: what a save sent, by id
- * (null for removed) — one unchanged since is no longer waiting. `refused`: records the database refused (§96), which
- * go back to the database's copy whatever is waiting. Returns the records still waiting. Throws when the copy cannot
- * be stored at all.
- */
-function takeLines(key: string, handed: LinesHanded | undefined, sent: ReadonlyMap<string, string | null>, waiting: Iterable<string>, refused: ReadonlySet<string> = new Set()): Set<string> {
-  const pending = new Set(waiting);
-  const theirs = (handed?.changed ?? []).filter((r) => idOf(r) !== null);
-  const gone = handed?.removed ?? [];
-  const ids = new Set<string>([...sent.keys(), ...theirs.map((r) => idOf(r)!), ...gone]);
-  if (ids.size === 0) return pending;
-  const now = recordsCopy.texts(ids);
-  for (const [id, text] of sent) if ((now.get(id) ?? null) === text) pending.delete(id);
-  const put: Obj[] = [];
-  const out: string[] = [];
-  for (const t of theirs) {
-    const id = idOf(t)!;
-    const mine = now.get(id) ?? null;
-    if (pending.has(id) && mine !== null && !refused.has(id)) {
-      // Changed here too: the later of the two stands; this copy's goes again when it is the later.
-      if (laterRecord(JSON.parse(mine) as Rec, t as Rec, "mine") !== t) continue;
-    }
-    pending.delete(id);
-    if (mine !== JSON.stringify(t)) put.push(t);
-  }
-  for (const id of gone) {
-    const mine = now.get(id) ?? null;
-    // Removed there, and changed here since: kept, and sent again.
-    if (pending.has(id) && mine !== null && !refused.has(id)) continue;
-    pending.delete(id);
-    if (mine !== null) out.push(id);
-  }
-  if (put.length || out.length) {
-    const text = recordsCopy.splice(put, out);
-    if (!local.setOrHold(key, text, pending.size > 0)) throw new Error(`There is no room in this browser for the ${key} handed back by the database; they are asked for again shortly.`);
-    notify(key);
-  }
-  return pending;
-}
-
-/**
- * What is waiting now: this send's own, and whatever was written while it was on its way (in this tab or another, all
- * named in the marker). `known` false: a write meanwhile did not name its records, so what changed is worked out afresh.
- */
-function waitingNow(key: string, scope: string, mine: Iterable<string>): { ids: string[]; known: boolean } {
-  const m = readMarker(key);
-  const ids = new Set(mine);
-  if (m && m.s === scope && m.p) {
-    if (m.r === undefined) return { ids: [...ids], known: false };
-    for (const id of m.r) ids.add(id);
-  }
-  return { ids: [...ids], known: true };
-}
-
-/**
- * SENDS THE RECORDS THAT CHANGED (REQUIREMENTS §108): each one waiting, as the copy holds it now, and the ids removed,
- * with the version the copy was made from and the write that made it — PATCH /api/storage/records. A million
- * characters of records at most in one save; the rest follow. The answer hands back what this copy had not seen (the
- * records somebody else changed meanwhile, and any of its own the server kept as stored), laid over the copy. A record
- * somebody else changed first: 409 with theirs, merged, and sent again. Anything that cannot be said record by record —
- * a first upload, a copy whose origin is not known, a server older than this — goes whole (sendWhole).
- */
-async function sendLines(key: string): Promise<void> {
-  const s = session;
-  if (!s || !SYNC_KEYS.has(key) || s.denied.has(key)) return;
-  const scope = scopeFor(key, s.userId);
-  const before = readMarker(key);
-  const ours = before && before.s === scope ? before : null;
-  if (!ours || ours.v <= 0 || local.get(key) === null) return sendWhole(key);
-  const named = ours.p ? ours.r : undefined;
-  const worked = named ?? linesChangedSince(key, ours);
-  if (!worked) return sendWhole(key);
-  if (named === undefined) writeMarker(key, { ...ours, p: 1, r: worked });
-  let pending = worked;
-  let base = { v: ours.v, q: ours.q };
-  let copyScope = ours.d ?? s.scope;
-  // In step again: nothing waiting, the copy as the database holds it at `v`.
-  const inStep = (v: number, q: number | undefined) => {
-    const text = local.get(key) ?? "";
-    rememberBase(key, v, text);
-    writeMarkerOf(key, { s: scope, v, q, t: iso(), d: copyScope }, text);
-    forgetSavedBase(key);
-    // Held in memory for want of room (§93): the database has it now, and the browser's storage takes it back if it has room again.
-    if (heldInMemory.has(NAMESPACE + key)) raw.set(NAMESPACE + key, text);
-    if (heldUnsent.delete(key)) dispatch(STORAGE_HELD_SAVED, { key, stillHeld: heldInMemory.has(NAMESPACE + key) });
-  };
-  // Still waiting after an answer: named in the marker (or not known, `known` false), at the version the database is at now.
-  const stillWaiting = (v: number, q: number | undefined, left: Set<string>, known: boolean): string[] | null => {
-    if (known && left.size === 0) {
-      inStep(v, q);
-      return null;
-    }
-    bases.delete(key);
-    const r = known ? [...left] : undefined;
-    writeMarkerOf(key, { s: scope, v, q, t: iso(), p: 1, r, d: copyScope }, local.get(key) ?? "");
-    return r ?? [];
-  };
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const texts = recordsCopy.texts(pending);
-    const batch = new Map<string, string | null>();
-    let size = 0;
-    for (const [id, text] of texts) {
-      const n = text === null ? id.length + 3 : text.length + 1;
-      if (batch.size && size + n > LINES_PER_SAVE_CHARS) break;
-      batch.set(id, text);
-      size += n;
-    }
-    if (batch.size === 0) {
-      const now = waitingNow(key, scope, []);
-      if (stillWaiting(base.v, base.q, new Set(now.ids), now.known) !== null) schedule(key);
-      return;
-    }
-    const changed: string[] = [];
-    const removed: string[] = [];
-    for (const [id, text] of batch) {
-      if (text === null) removed.push(id);
-      else changed.push(text);
-    }
-    const upload = await packed(`{"changed":[${changed.join(",")}],"removed":${JSON.stringify(removed)}}`);
-    if (session !== s) return;
-    const headers: Record<string, string> = {
-      // As text, as a whole item goes: the server's JSON parser of every other route (100 KB) never takes it (backend/index.ts).
-      "Content-Type": "text/plain;charset=utf-8",
-      "X-Base-Version": String(base.v),
-      ...(base.q ? { "X-Base-Seq": String(base.q) } : {}),
-      "X-Scope": copyScope,
-      ...upload.headers,
-    };
-    const res = await request("PATCH", `/${encodeURIComponent(key)}`, s.userId, upload.body, headers);
-    if (session !== s) return;
-    if (res.status === 404 || res.status === 405) {
-      // A server older than this: the records go whole, as before.
-      lineSaves = false;
-      return sendWhole(key);
-    }
-    if (res.ok) {
-      const answer = (await res.json()) as { version: number; seq?: number; changes?: LinesHanded };
-      if (session !== s) return;
-      const now = waitingNow(key, scope, pending);
-      const left = takeLines(key, answer.changes, batch, now.ids);
-      const next = stillWaiting(answer.version, answer.seq, left, now.known);
-      // The rest of a long save, or what was changed while this one was on its way: sent next.
-      if (next !== null) schedule(key, next.length ? 0 : WRITE_DELAY_MS);
-      return;
-    }
-    if (res.status === 401) {
-      sessionEnded();
-      throw new SignedOut(`Signed out; ${key} is sent at the next sign-in.`);
-    }
-    if (res.status === 400) {
-      // Something here a save of records does not take: the whole item, as before.
-      return sendWhole(key);
-    }
-    if (res.status === 403) {
-      type Refusal = { code?: unknown; error?: unknown; recordId?: unknown; changes?: LinesHanded };
-      let said: Refusal | null = null;
-      try {
-        said = (await res.json()) as Refusal;
-      } catch {
-        /* no words */
-      }
-      if (session !== s) return;
-      if (said && said.code === "access-level") {
-        // A CHANGE OF THEIR OWN THEIR LEVEL DOES NOT ALLOW (REQUIREMENTS §96), as sendWhole says it: the record goes back
-        // to what the database holds, the person is told why, and the rest of what is waiting is sent again.
-        dispatch(ACCESS_REFUSED_EVENT, { key, message: typeof said.error === "string" ? said.error : "Your access level does not allow that change." });
-        const refused = new Set<string>(typeof said.recordId === "string" ? [said.recordId] : batch.keys());
-        const handed = said.changes ?? { changed: [], removed: [] };
-        const now = waitingNow(key, scope, pending);
-        const left = takeLines(key, handed, new Map(), now.ids, refused);
-        for (const id of refused) left.delete(id);
-        const next = stillWaiting(base.v, base.q, left, now.known);
-        if (next === null) return;
-        if (next.length === 0) return schedule(key);
-        pending = next;
-        continue;
-      }
-      // Not this account's departments' to hold (backend/index.ts).
-      s.denied.add(key);
-      writeMarker(key, null);
-      forgetSavedBase(key);
-      return;
-    }
-    if (res.status === 409) {
-      const body = (await res.json()) as { changes?: LinesHanded; version?: number; seq?: number; current?: StoredItem | null; scope?: string; conflicts?: string[] };
-      if (session !== s) return;
-      // Refused because the copy was made for other departments than the account has now: merged with what it sees now.
-      if (typeof body.scope === "string") copyScope = body.scope;
-      if (body.changes && typeof body.version === "number") {
-        // Somebody else changed some of these records first: theirs laid over the copy, each such record merged, and
-        // what is still this copy's own sent again from the version the database is at now.
-        const now = waitingNow(key, scope, pending);
-        const left = takeLines(key, body.changes, new Map(), now.ids);
-        const next = stillWaiting(body.version, body.seq, left, now.known);
-        if (next === null) return;
-        if (next.length === 0) return schedule(key, 0);
-        pending = next;
-        base = { v: body.version, q: body.seq };
-        continue;
-      }
-      // Not to be said record by record (the journal does not reach back to this copy): the whole item, merged as
-      // before, and then whatever the merged copy has that the database does not, record by record.
-      const current = body.current ?? null;
-      if (!current) {
-        // It was stored, and the database no longer has it: the database was reset.
-        databaseWasReset();
-        return;
-      }
-      const mine = local.get(key) ?? "[]";
-      const merged = merge(key, baseFor(key, base.v), mine, current.value, "mine");
-      if (merged !== mine) {
-        // No room for the merged copy: it is held in memory and sent from there, so the change still reaches the database (§93).
-        if (!local.setOrHold(key, merged, true)) throw new Error(`There is no room in this browser for the merged ${key}; it is sent again shortly.`);
-        notify(key);
-      }
-      rememberBase(key, current.version, current.value);
-      base = { v: current.version, q: current.seq };
-      pending = linesBetween(textsOfList(current.value), textsOfList(merged));
-      if (pending.length === 0) {
-        inStep(current.version, current.seq);
-        return;
-      }
-      writeMarkerOf(key, { s: scope, v: current.version, q: current.seq, t: iso(), p: 1, r: pending, d: copyScope }, current.value);
-      continue;
-    }
-    throw new Error(`The database refused ${key} (${res.status}).`);
-  }
-  throw new Error(`${key} kept changing in the database; it is sent again shortly.`);
-}
-
-/** The page is closing: the records waiting go with it, if they are few enough to go with a closing page (§108). */
-function sendLinesAsPageCloses(s: Session, key: string): void {
-  const m = readMarker(key);
-  if (!m || m.s !== scopeFor(key, s.userId) || !m.p || !m.r || m.v <= 0 || s.denied.has(key)) return;
-  const changed: string[] = [];
-  const removed: string[] = [];
-  let size = 0;
-  for (const [id, text] of recordsCopy.texts(m.r)) {
-    size += text === null ? id.length + 3 : text.length + 1;
-    if (text === null) removed.push(id);
-    else changed.push(text);
-  }
-  if (size > KEEPALIVE_MAX_CHARS) return;
-  const headers: Record<string, string> = {
-    "Content-Type": "text/plain;charset=utf-8",
-    "X-Base-Version": String(m.v),
-    ...(m.q ? { "X-Base-Seq": String(m.q) } : {}),
-    "X-Scope": m.d ?? s.scope,
-  };
-  void request("PATCH", `/${encodeURIComponent(key)}`, s.userId, `{"changed":[${changed.join(",")}],"removed":${JSON.stringify(removed)}}`, headers, true).catch(() => undefined);
-}
-
-/**
- * The records this browser holds when it signs in (§108), said with the first question when the copy is in step with
- * the database (stored, nothing of its own waiting, unchanged since): its version, the write that made it, and whom it
- * was made for. Null otherwise: the whole item, as before.
- */
-function recordsHeldAtSignIn(userId: string): { headers: Record<string, string> } | null {
-  if (!lineSaves) return null;
-  const m = readMarker(RECORDS);
-  const mine = local.get(RECORDS);
-  if (!m || m.s !== scopeFor(RECORDS, userId) || m.p || m.v <= 0 || !m.q || mine === null || changedSince(RECORDS, m, mine)) return null;
-  return { headers: { "X-Records-Version": String(m.v), "X-Records-Seq": String(m.q), "X-Scope": m.d ?? "*" } };
-}
-
-/**
- * Which records this copy holds, said with a question (§108): its version and the write that made it. The answer is
- * then the records changed since, or nothing when there are none. Not said for a copy never stored, nor while the next
- * answer must be the whole item.
- */
-function recordsAsked(s: Session): Record<string, string> {
-  if (!lineSaves || wholeRecordsNext || s.denied.has(RECORDS)) return {};
-  const m = readMarker(RECORDS);
-  if (!m || m.s !== scopeFor(RECORDS, s.userId) || m.v <= 0 || !m.q) return {};
-  return { "X-Records-Version": String(m.v), "X-Records-Seq": String(m.q), "X-Scope": m.d ?? s.scope };
 }
 
 function schedule(key: string, delay = WRITE_DELAY_MS): void {
@@ -1350,24 +923,15 @@ function schedule(key: string, delay = WRITE_DELAY_MS): void {
   announce();
 }
 
-/**
- * storageAdapter.ts: an item of the working copy was written. `lines`: for the records, the ids of the ones the write
- * changed or removed (§108); left out, what changed is worked out at the save.
- */
-export function noteLocalWrite(key: string, lines?: Iterable<string>): void {
+/** storageAdapter.ts: an item of the working copy was written. */
+export function noteLocalWrite(key: string): void {
   const s = session;
   if (!s || !SYNC_KEYS.has(key) || s.denied.has(key)) return;
   const scope = scopeFor(key, s.userId);
   const marker = readMarker(key);
   // Marked unsent now, so a page closed before the send leaves this copy to go at the next sign-in.
   if (!marker) writeMarker(key, { s: scope, v: 0, h: "", t: "", p: 1, d: s.scope });
-  else if (marker.s === scope) {
-    if (key === RECORDS) {
-      // The records waiting are named in the marker, so whichever tab or sign-in sends them sends just those.
-      const r = waitingAfterWrite(marker, lines);
-      if (!marker.p || (marker.r?.length ?? -1) !== (r?.length ?? -1)) writeMarker(key, { ...marker, p: 1, r });
-    } else if (!marker.p) writeMarker(key, { ...marker, p: 1 });
-  }
+  else if (marker.s === scope && !marker.p) writeMarker(key, { ...marker, p: 1 });
   schedule(key);
 }
 
@@ -1427,8 +991,7 @@ async function pull(): Promise<void> {
     const m = readMarker(key);
     if (m && m.v > 0 && m.s === scopeFor(key, s.userId)) known.set(key, m.v);
   }
-  const asked = recordsAsked(s);
-  const res = await request("GET", `?since=${s.seq}`, s.userId, undefined, asked);
+  const res = await request("GET", `?since=${s.seq}`, s.userId);
   if (session !== s) return;
   if (res.status === 401) {
     sessionEnded();
@@ -1437,7 +1000,6 @@ async function pull(): Promise<void> {
   if (!res.ok) return;
   const { items, seq, versions, denied, scope } = (await res.json()) as StorageResponse;
   if (session !== s) return;
-  if (!asked["X-Records-Version"]) wholeRecordsNext = false;
 
   // The administrator changed this account's departments: the app loads again for them. What is
   // unsent stays marked with the departments it was made for, and is merged on the way.
@@ -1481,26 +1043,6 @@ async function pull(): Promise<void> {
     const scope = scopeFor(key, s.userId);
     const marker = readMarker(key);
     const current = local.get(key);
-    if (item.changes) {
-      // THE RECORDS CHANGED SINCE THIS COPY (§108), laid over it when it has nothing of its own waiting; a change made
-      // here goes first, and its answer brings these too; a copy that is not the one they were worked out from asks
-      // for the whole item next time.
-      const ours = marker && marker.s === scope ? marker : null;
-      if (current !== null && ours && !ours.p && ours.v === item.changes.from && !changedSince(key, ours, current)) {
-        try {
-          takeLines(key, item.changes, new Map(), []);
-        } catch (err) {
-          console.error(err);
-          continue;
-        }
-        const text = local.get(key) ?? current;
-        rememberBase(key, item.version, text);
-        writeMarkerOf(key, { s: scope, v: item.version, q: item.seq, t: iso(), d: s.scope }, text);
-        forgetSavedBase(key);
-      } else if (current !== null && ours && (ours.p || changedSince(key, ours, current))) schedule(key);
-      else wholeRecordsNext = true;
-      continue;
-    }
     if (marker && marker.s === scope && marker.v >= item.version) {
       // Brought in step by another tab of this browser: what the database holds is still the copy a merge here starts from.
       if (marker.v === item.version && bases.get(key)?.v !== item.version) rememberBase(key, item.version, item.value);
@@ -1518,7 +1060,7 @@ async function pull(): Promise<void> {
       continue;
     }
     rememberBase(key, item.version, item.value);
-    writeMarkerOf(key, { s: scope, v: item.version, q: item.seq, t: iso(), d: s.scope }, item.value);
+    writeMarkerOf(key, { s: scope, v: item.version, t: iso(), d: s.scope }, item.value);
     forgetSavedBase(key);
     if (current !== item.value) notify(key);
   }
@@ -1580,10 +1122,6 @@ const onPageHide = () => {
   const s = session;
   if (!s) return;
   for (const key of scheduled.keys()) {
-    if (key === RECORDS && lineSaves) {
-      sendLinesAsPageCloses(s, key);
-      continue;
-    }
     const body = local.get(key);
     const marker = readMarker(key);
     if (body === null || body.length > KEEPALIVE_MAX_CHARS || s.denied.has(key)) continue;
@@ -1644,12 +1182,9 @@ export function startServerSync(userId: string): Promise<void> {
       throw new SyncError("storage-disabled", "This browser does not let the app keep its working copy (site data is blocked), so nothing could be saved to the database.");
     }
     const loadStartedAt = iso();
-    // THE RECORDS THIS BROWSER ALREADY HOLDS (§108): said with the question when its copy is in step with the
-    // database, so a sign-in or a reload is handed only the records changed since (or nothing) instead of every one.
-    const held = recordsHeldAtSignIn(userId);
     let res: Response;
     try {
-      res = await request("GET", "", userId, undefined, held?.headers ?? {});
+      res = await request("GET", "", userId);
     } catch (err) {
       throw new SyncError("unreachable", `The database could not be reached (${err instanceof Error ? err.message : String(err)}).`);
     }
@@ -1658,7 +1193,7 @@ export function startServerSync(userId: string): Promise<void> {
       throw new SyncError("signed-out", "Not signed in.");
     }
     if (!res.ok) throw new SyncError("unreachable", `The database could not be reached (${res.status}).`);
-    const { items, seq, denied, scope: copyScope, versions } = (await res.json()) as StorageResponse;
+    const { items, seq, denied, scope: copyScope } = (await res.json()) as StorageResponse;
     const s: Session = { userId, seq, pollTimer: null, failing: false, denied: new Set(denied ?? []), scope: copyScope ?? "*" };
     session = s;
     bases.clear();
@@ -1681,7 +1216,7 @@ export function startServerSync(userId: string): Promise<void> {
         throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
       }
       rememberBase(key, item.version, item.value);
-      writeMarkerOf(key, { s: scopeFor(key, userId), v: item.version, q: item.seq, t: iso(), d: s.scope }, item.value);
+      writeMarkerOf(key, { s: scopeFor(key, userId), v: item.version, t: iso(), d: s.scope }, item.value);
       forgetSavedBase(key);
     };
     try {
@@ -1703,31 +1238,7 @@ export function startServerSync(userId: string): Promise<void> {
         }
         // Another tab of this browser brought this copy in step while the load was on its way: it is the newer.
         if (mine !== null && ours && !pending && ours.t >= loadStartedAt && (!item || ours.v >= item.version)) {
-          if (item && ours.v === item.version && item.changes === undefined) rememberBase(key, item.version, item.value);
-          continue;
-        }
-        if (key === RECORDS && held && mine !== null && ours) {
-          if (!item && !pending && versions?.[key] === ours.v) {
-            // The copy is the database's still: kept as it is, nothing downloaded (§108).
-            rememberBase(key, ours.v, mine);
-            continue;
-          }
-          if (item?.changes) {
-            // The records changed since this copy, laid over it; a change made here goes first, and its answer brings them.
-            if (pending) sends.push(key);
-            else if (ours.v === item.changes.from) {
-              takeLines(key, item.changes, new Map(), []);
-              const text = local.get(key) ?? mine;
-              rememberBase(key, item.version, text);
-              writeMarkerOf(key, { s: scope, v: item.version, q: item.seq, t: iso(), d: s.scope }, text);
-              forgetSavedBase(key);
-            } else wholeRecordsNext = true;
-            continue;
-          }
-        }
-        if (item?.changes) {
-          // Records handed over for a copy this one no longer is: asked for again by the next question.
-          wholeRecordsNext = true;
+          if (item && ours.v === item.version) rememberBase(key, item.version, item.value);
           continue;
         }
         if (item) {
@@ -1743,7 +1254,7 @@ export function startServerSync(userId: string): Promise<void> {
             else {
               if (!local.setOrHold(key, merged, true)) throw new SyncError("no-room", `There is no room in this browser for the company's ${key}.`);
               rememberBase(key, item.version, item.value);
-              writeMarkerOf(key, { s: scope, v: item.version, q: item.seq, t: iso(), p: 1, d: s.scope }, item.value);
+              writeMarkerOf(key, { s: scope, v: item.version, t: iso(), p: 1, d: s.scope }, item.value);
               sends.push(key);
             }
           } else adopt(key, item);
