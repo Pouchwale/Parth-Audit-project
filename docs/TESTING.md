@@ -1076,10 +1076,10 @@ Seven scripts live in `tests/`:
   moved and run again), `tests/e2e_every_record_starts.py` 340 of 340, `tests/e2e_realism.py` 22 of 22 (F-QC-40.C's
   readings in band without its Sign column), `tests/e2e_mobile_mitra_api.py` 32 of 32, `tests/e2e_print_all_documents.py`
   438 of 438 (F-QC-14's two sheets among every document printed), `tests/e2e_find_every_document.py` 71 of 71,
-  `tests/e2e_access_levels.py` 148 of 148. Two runs did not start and one stopped: the
+  `tests/e2e_access_levels.py` 148 of 148, `tests/e2e_mitra_agent.py` 21 of 21. Two runs did not start and one stopped: the
   runner's server lost :8842 to another worktree's run started the same minute ("DCRS's tables are not in this
   database"), and one print run waited 30 s on a click while the machine ran two suites; each was run again alone. Not
-  run: the full browser run, e2e_assistant_fill.py (every document filled, about 95 minutes) and e2e_mitra_agent.py.
+  run: the full browser run and e2e_assistant_fill.py (every document filled, about 95 minutes).
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for
