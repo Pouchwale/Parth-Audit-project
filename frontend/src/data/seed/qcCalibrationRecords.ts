@@ -15,7 +15,9 @@ import { GSM_HEADER, GSM_SPECIMEN_ROWS, WEIGHT_SCALE_HEADER, WEIGHT_SCALE_SPECIM
 //   F/QC/11  the 31.12.2024 calibration of the four GSM cutting plates, each
 //            measured four times at its own size with 0% deviation, all Pass,
 //            signed Rashmi. The Serial No reads as a scribble and the Due Date
-//            beside the calibration date is not legible; both are marked.
+//            beside the calibration date is not legible; both are left blank,
+//            as the paper's boxes are (REQUIREMENTS §111 part 6: DCRS's "TO BE
+//            CONFIRMED" in the Serial No printed on the page).
 //
 // The signature columns are left blank: a signature on a scan is a mark, not a
 // name, and the tester's name is already in Tested By.

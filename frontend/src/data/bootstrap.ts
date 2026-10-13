@@ -11,6 +11,7 @@ import { alignTubeLightDates } from "../engine/tubeLightMigration";
 import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
 import { alignCompanyName } from "./companyNameMigration";
 import { alignSeededLineNumbers } from "./lineNumbersMigration";
+import { alignSeededPlaceholders } from "./seededPlaceholderMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -72,6 +73,10 @@ export function bootstrap(): void {
   // Two seeded records wrote each line's own number in its words beside the sheet's
   // Sr. No.: their lines take the words without it (REQUIREMENTS §102).
   alignSeededLineNumbers();
+  // The F/QC/11 page on file stored DCRS's "TO BE CONFIRMED" in its Serial No, which printed and was carried onto
+  // every new sheet: it takes the paper's blank box (REQUIREMENTS §111 part 6). Before the month's preparation, so
+  // nothing carries it forward.
+  alignSeededPlaceholders();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

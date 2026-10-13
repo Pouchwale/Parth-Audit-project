@@ -136,6 +136,16 @@ const sampleColumns = (): LogColumn[] => [
   { key: "sample3", label: "SAMPLE - 3", type: "text", width: 140 },
 ];
 
+/**
+ * THE SPECIFICATION PRINTED ON EACH LINE JUDGES THE READING WRITTEN BESIDE IT (REQUIREMENTS §111 part 6, rule 2):
+ * "OUTER DIA (mm) 90 (+2.0 / -1.0)", "MOISTURE CONTENT (%) Max 15%", "VISCOSITY.(SEC) 30 ± 10" — a reading outside
+ * is highlighted, as a reading outside its printed band is on every sheet. Only a specification that is a plain
+ * figure is read; "As per P.O." and a band for each ply are the inspector's (engine/printedBands.ts).
+ */
+export const OBSERVATION_BAND = { spec: "specification", readings: ["observation"] };
+/** F/QC/02 and F/QC/04: each of the three samples judged by its line's specification. */
+const SAMPLES_BAND = { spec: "specification", readings: ["sample1", "sample2", "sample3"] };
+
 /** The lines printed down the grid: [TEST PARAMETERS, SPECIFICATION]. */
 const printedRows = (rows: [string, string][]): LogRowMode => ({
   kind: "fixedRows",
@@ -183,6 +193,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       // The two spaces before "(+ 2" are the paper's own.
       ["SIZE (mm)", "Should be as per P.O.  (+ 2/- 0.0)"],
@@ -201,6 +212,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: sampleColumns(),
+    specBand: SAMPLES_BAND,
     rowMode: printedRows([
       ["SIZE (L x W x H) mm", "AS PER P.O. (±5)"],
       ["NOS OF PLY", "AS PER P.O."],
@@ -219,6 +231,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["SIZE (mm)", "Should be as per P.O."],
       ["TOTAL GSM (GSM)", "Should be as per P.O."],
@@ -244,6 +257,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: sampleColumns(),
+    specBand: SAMPLES_BAND,
     rowMode: printedRows([
       ["OUTER DIA (mm)", "90 (+2.0 / -1.0)"],
       ["INNER DIA (mm)", "76 (+2.0 / -0.0)"],
@@ -265,6 +279,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["SIZE (mm)", "Should be as per P.O. (±2)"],
       // "SHRINKAGE RATIO (%))" is printed with two closing brackets — the paper's own.
@@ -286,6 +301,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["CODE NO.", "As per PO"],
       ["SHADE", "Should match to the master or the specimen Or To Pantone Code No"],
@@ -314,6 +330,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["Size (mm)", "As per PO"],
       ["Total GSM (gm/sq.m)", "As per PO"],
@@ -335,6 +352,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["Size (mm)", "As per PO"],
       ["Total GSM (gm/sq.m)", "As per PO"],
@@ -360,6 +378,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     // Its lines are numbered "1", "2" with no full stop, where the other thirteen print "1.", "2.".
     headerFields: incomingHeader("Batch number"),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["Code no", "As per purchase order"],
       ["Shade", "Should match to the master or the specimen Or To Pantone Code No"],
@@ -382,6 +401,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["SKINNING AND FOREIGN PARTICLES", "skinning of the top layer and foreign particles mixed in the adhesive is not acceptable"],
       ["VISCOSITY (sec)", "Viscosity is 15 to 20 secs, when measured with B4 Ford cup"],
@@ -400,6 +420,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       ["SKINNING AND FOREIGN PARTICLES", "skinning of the top layer and foreign particles mixed in the adhesive is not acceptable"],
       ["VISCOSITY (sec)", "Mixed of adhesive with 20% water, viscosity is 30 to 40 secs, when measured with B4 Ford cup"],
@@ -416,6 +437,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       // "APPERANCE." with its full stop, "CONTAINT" and "VISCOSITY.(SEC)" are the paper's own.
       ["APPERANCE.", "Milky White"],
@@ -435,6 +457,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       // "APPERANCE.", "Cremes to Brown Color", "CONTAINT" and "VISCOSITY.(SEC)" are the paper's own.
       ["APPERANCE.", "Cremes to Brown Color"],
@@ -456,6 +479,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
+    specBand: OBSERVATION_BAND,
     rowMode: printedRows([
       // The two spaces before "(+ 2" are the paper's own, as on F/QC/01.
       ["SIZE (mm)", "Should be as per P.O.  (+ 2/- 0.0)"],

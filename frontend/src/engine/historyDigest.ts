@@ -22,7 +22,8 @@ import { departmentScope, departmentScopeLabel, isDocumentIdVisible } from "./de
 import { isHumanRecord, type Insight } from "./insights";
 import { breakdownLines, luxReadings, normText, supplierStandings, type BreakdownLine } from "./insightRules";
 import { prepareScopedInsights, scopedInsights } from "./scopedInsights";
-import { isLotAccepted, isOutOfBand } from "./validation";
+import { isLotAccepted } from "./validation";
+import { outOfBandCount } from "./printedBands";
 import { actionForGrade, RM_PM_PERFORMANCE_ID, SERVICE_PROVIDER_PERFORMANCE_ID, serviceRatingCells } from "./purchaseRatings";
 import { closedDays, decisionText, formatMinus, minusScore, scoreOf, scorecards, type Person } from "./performance";
 import { machineKey, machineNumbersIn } from "./equipmentMaster";
@@ -846,9 +847,9 @@ const bdMemo = new WeakMap<RecordInstance, BreakdownLine[]>();
 function outOfBand(record: RecordInstance, layout: LogSheetLayout | undefined): number {
   const hit = oobMemo.get(record);
   if (hit && hit.layout === layout) return hit.n;
-  let n = 0;
-  const rows = (record.data as LogSheetData | undefined)?.rows;
-  if (layout && Array.isArray(rows)) for (const row of rows) for (const col of layout.columns) if (isOutOfBand(col, row[col.key])) n += 1;
+  // A column's band, a tolerance box's, a line's printed specification and a box against its tolerance (REQUIREMENTS §111 rule 2).
+  const data = record.data as LogSheetData | undefined;
+  const n = layout && data && Array.isArray(data.rows) ? outOfBandCount(layout, data) : 0;
   oobMemo.set(record, { layout, n });
   return n;
 }

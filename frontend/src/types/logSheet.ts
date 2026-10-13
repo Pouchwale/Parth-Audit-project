@@ -132,6 +132,14 @@ export interface LogHeaderField {
    * (`answerAcross`): the boxes share that line's place over the answers, in their order. Elsewhere, among the boxes.
    */
   inGridHead?: true;
+  /**
+   * THE BOX IS JUDGED AGAINST ANOTHER BY THE PAPER'S TOLERANCE (REQUIREMENTS §111, rule 2): a certificate of
+   * analysis prints its TOLERANCE table — Length + 2 mm / - 2 mm, Face Material ± 10 % — and its Tested Size
+   * Length outside the Client's Specified Size Length by more than that is highlighted. `of`: the box holding the
+   * figure it is judged against; `plus` and `minus`: the table's figures, in the box's unit or, with `percent`, a
+   * percentage of that figure (engine/printedBands.ts). Nothing is judged where either box is not a plain figure.
+   */
+  within?: { of: string; plus: number; minus: number; percent?: true };
 }
 
 export interface LogColumn {
@@ -197,6 +205,13 @@ export interface LogColumn {
    * Word files made from it, the format's designer) puts it below.
    */
   beneath?: string;
+  /**
+   * THE BAND IS THE TOLERANCE WRITTEN IN A BOX ABOVE THE GRID (REQUIREMENTS §111, rule 2): F/QC/12 prints
+   * "Acceptable Tolerance:" among its boxes, and each Deviation % ("0.02%") outside ± that figure ("0.05 %")
+   * is highlighted as a reading outside its printed band is. The key of that box; the band is read from what
+   * the record holds there, so a sheet with no tolerance written highlights nothing (engine/printedBands.ts).
+   */
+  toleranceFrom?: string;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
   //   dueDate → sign → nominal (random reading inside the band) → carryForward
   //   (copy the template value exactly) → jitter (template value ± jitter%) →
@@ -317,6 +332,21 @@ export interface LogSheetLayout {
    * unchanged: every line still holds every column.
    */
   answerAcross?: { answer: string; across: string[]; headingLine: number; lines: number[] };
+  /**
+   * ONE CELL A HEADING ON THESE PRINTED LINES (REQUIREMENTS §111): F/QC/11 prints its Pass/Fail and Sign. lines with
+   * one cell under each plate, across the plate's size and Deviation columns. On these lines (counted from 0) each
+   * run of columns under one heading (LogColumn.group) is drawn as one cell, its first column's; the record keeps
+   * every column, the others empty.
+   */
+  groupCellLines?: number[];
+  /**
+   * THE SPECIFICATION PRINTED ON EACH LINE IS THE LINE'S BAND (REQUIREMENTS §111, rule 2): an incoming material
+   * record prints "OUTER DIA (mm) | 90 (+2.0 / -1.0)", "MOISTURE CONTENT (%) | Max 15%", "VISCOSITY.(SEC) | 30 ± 10"
+   * down its side, and a reading written in `readings` outside the figures `spec` prints is highlighted. Only a
+   * specification that is a plain figure is read ("As per P.O.", a band for each ply or side, "Except ..." are left
+   * to the inspector), and only a reading that is a plain figure is judged (engine/printedBands.ts).
+   */
+  specBand?: { spec: string; readings: string[] };
   /**
    * EVERY ENTRY TAKES TWO LINES (REQUIREMENTS §111): the second line's own
    * heading, written in the first column — F/QC/12's "Deviation %". The columns

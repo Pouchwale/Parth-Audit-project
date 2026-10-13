@@ -22,6 +22,14 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../types";
 export type SlotKind = "date" | "computed" | "standing" | "observation";
 
 /**
+ * DCRS'S OWN MARK FOR A BOX IT COULD NOT READ — "TO BE CONFIRMED" — is never a standing value (REQUIREMENTS §111
+ * part 6). The 31.12.2024 F/QC/11 page was transcribed with it in its Serial No, a scribble on the scan; as a
+ * standing box that value went onto every new sheet, Live and sample, and printed there. A box holding it is
+ * carried as empty, as the paper's box is.
+ */
+export const isPlaceholder = (value: unknown): boolean => typeof value === "string" && /^\s*to be confirmed\s*$/i.test(value);
+
+/**
  * The boxes above or below the grid that hold a standing value, by key. Equipment and instrument
  * identity, the chemicals in use, the site and its standing team, and the words a format prints as
  * its own default. A lot's identity (FG code, PO, roll, batch), a person's name and the shift are not

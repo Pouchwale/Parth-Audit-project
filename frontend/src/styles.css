@@ -1689,6 +1689,9 @@ body { top: 0 !important; }
 .doc-table table.log-sheet td .cell-text { display: block; min-width: 40px; font-size: 12.5px; line-height: 1.35; white-space: pre-line; }
 .cell-out-of-band { background: var(--color-warning-bg) !important; }
 .cell-out-of-band .input { border-color: var(--color-warning); }
+/* A box outside the paper's tolerance of the box it is judged against (LogHeaderField.within, REQUIREMENTS §111 rule 2):
+   a certificate's Tested Size Length beyond its Client's Specified Size Length by more than the TOLERANCE table's 2 mm. */
+.field-out-of-band .input { border-color: var(--color-warning); background: var(--color-warning-bg); }
 /* EVERY QC FORMAT EXACTLY AS THE PAPER (REQUIREMENTS §111). The boxes above the grid
    stand as many to a line as the paper draws them (F/QC/12's three rows of three); a
    phone takes them one under another. An entry of two lines (F/QC/12's "Deviation %"

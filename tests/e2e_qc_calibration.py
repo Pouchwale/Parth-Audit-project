@@ -274,12 +274,14 @@ with sync_playwright() as p:
     )
     values = header_values(page)
     check(
-        "...and the boxes written in as the scan: serial TO BE CONFIRMED, expiry 22.09.2025, calibrated 31.12.2024, due date blank",
-        values[:4] == ["TO BE CONFIRMED", "2025-09-22", "2024-12-31", ""],
+        "...and the boxes written in as the scan: serial blank as the paper's box (s111 part 6), expiry 22.09.2025, calibrated 31.12.2024, due date blank",
+        values[:4] == ["", "2025-09-22", "2024-12-31", ""],
         values,
     )
     labels = sheet.locator(".field label").all_inner_texts()
-    check("...the calibration date headed 'I. Calibration Date', as printed", "I. Calibration Date" in labels and "Due Date" in labels, labels)
+    check("...the calibration date headed 'I. Calibration Date:-' and its Due Date:-, as printed (s111 part 6)", "I. Calibration Date:-" in labels and "Due Date:-" in labels and "Serial No:" in labels, labels)
+    one_a_plate = sheet.locator("table.log-sheet tbody tr").evaluate_all("rows => rows.map((r) => r.querySelectorAll('td').length)")
+    check("...Pass/Fail and Sign. one cell under each plate, as printed (s111 part 6)", one_a_plate == [9, 9, 9, 9, 5, 5], one_a_plate)
     body = sheet_text(page)
     check(
         "...the PROCEDURE below the grid and no explanation of DCRS's above it",

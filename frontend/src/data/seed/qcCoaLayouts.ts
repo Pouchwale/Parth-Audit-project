@@ -126,6 +126,15 @@ export const CORPORATE_OFFICE = [
 const COA_FOOT = [SYSTEM_GENERATED_NOTE, ...CORPORATE_OFFICE];
 
 const field = (key: string, label: string, width = 170): LogHeaderField => ({ key, label, type: "text", width });
+/**
+ * A tested box judged against the client's or the required figure by the certificate's TOLERANCE table (REQUIREMENTS
+ * §111 part 6, rule 2): outside it, the box is highlighted (engine/printedBands.ts). `percent`: the table's figure is a
+ * percentage of the required one ("10 %" of the face material's GSM). The table itself is printed as before.
+ */
+const judged = (f: LogHeaderField, of: string, tolerance: number, percent = false): LogHeaderField => ({
+  ...f,
+  within: { of, plus: tolerance, minus: tolerance, ...(percent ? { percent: true as const } : {}) },
+});
 /** A specification / client detail that repeats from the previous certificate of the same job. */
 const carried = (key: string, label: string, width = 170): LogHeaderField => ({
   key,
@@ -439,8 +448,9 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
         rows: ["Client's Specified Size", "Tested Size"],
       }),
       carried("specifiedWidth", "Client's Specified Size Width(mm)", 190),
-      field("testedLength", "Tested Size Length(mm)", 180),
-      field("testedWidth", "Tested Size Width(mm)", 180),
+      // Judged by the TOLERANCE table below: Length and Width + 2 mm / - 2 mm.
+      judged(field("testedLength", "Tested Size Length(mm)", 180), "specifiedLength", 2),
+      judged(field("testedWidth", "Tested Size Width(mm)", 180), "specifiedWidth", 2),
       // LABEL STOCK — the paper's table, Material × Face Material / Adhesive /
       // Release Liner on its four rows Required / Tested / Type Required /
       // Observed; one box per printed cell, each named by its column and row.
@@ -451,9 +461,10 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
       ),
       carried("adhesiveRequired", "Adhesive — Required", 180),
       carried("releaseLinerRequired", "Release Liner — Required", 180),
-      field("faceMaterialTested", "Face Material — Tested", 180),
-      field("adhesiveTested", "Adhesive — Tested", 180),
-      field("releaseLinerTested", "Release Liner — Tested", 180),
+      // Judged by the TOLERANCE table: Face Material 10 %, Adhesive 2 GSM, Release Liner 5 %.
+      judged(field("faceMaterialTested", "Face Material — Tested", 180), "faceMaterialRequired", 10, true),
+      judged(field("adhesiveTested", "Adhesive — Tested", 180), "adhesiveRequired", 2),
+      judged(field("releaseLinerTested", "Release Liner — Tested", 180), "releaseLinerRequired", 5, true),
       carried("faceMaterialTypeRequired", "Face Material — Type Required", 190),
       carried("adhesiveTypeRequired", "Adhesive — Type Required", 190),
       carried("releaseLinerTypeRequired", "Release Liner — Type Required", 190),
@@ -523,8 +534,9 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
         rows: ["Client's Specified Size", "Tested Size"],
       }),
       carried("specifiedOpenWidth", "Client's Specified Size Open Width(mm)", 200),
-      field("testedCutLength", "Tested Size Cut Length(mm)", 190),
-      field("testedOpenWidth", "Tested Size Open Width(mm)", 190),
+      // Judged by the TOLERANCE table below: Cut Length and Open Width + 2 mm / - 2 mm.
+      judged(field("testedCutLength", "Tested Size Cut Length(mm)", 190), "specifiedCutLength", 2),
+      judged(field("testedOpenWidth", "Tested Size Open Width(mm)", 190), "specifiedOpenWidth", 2),
       // SLEEVE FILM — the paper's table, Material × Thickness(Microns) / Shrinkage Ratio (%) / Type, on Required and Tested.
       opensTable(
         carried("thicknessRequired", "Thickness(Microns) Required", 190),
@@ -533,7 +545,8 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
       ),
       carried("shrinkageRatioRequired", "Shrinkage Ratio (%) Required", 190),
       carried("typeRequired", "Type Required", 320),
-      field("thicknessTested", "Thickness(Microns) Tested", 190),
+      // Microns 10 %. (Its "Shrinkage Ration 5 %" does not say whether of the ratio or in points of it: the inspector's.)
+      judged(field("thicknessTested", "Thickness(Microns) Tested", 190), "thicknessRequired", 10, true),
       field("shrinkageRatioTested", "Shrinkage Ratio (%) Tested", 190),
       field("typeTested", "Type Tested", 240),
     ],
