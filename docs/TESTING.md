@@ -1024,6 +1024,34 @@ Seven scripts live in `tests/`:
   together, so the storage suite's sign-up came first: `E2E_SKIP_UNIT=1 npm run test:e2e --
   tests/e2e_storage_room.py tests/e2e_access_levels.py` passed 16 of 16 and 148 of 148 ("With another super admin
   on this database (['room-...@example.com']), his own 'Make staff' is open").
+- **Every QC format exactly as the paper** (REQUIREMENTS §111, 13-Oct-2026: the layout abilities `printed`,
+  `srNoShowsDate`, `beneath` with `secondLine`, `notesBelow` and `headerColumns`, an empty box printing empty, and
+  F-QC-30, F-QC-32, F/QC/11 and F/QC/12 as their originals in source-documents/qc-originals-2026-10-13/ and the
+  WhatsApp picture of F-QC-30). New unit tests, each failing on the code before (none of the abilities existed, and
+  the four layouts printed DCRS's explanations, F/QC/12 a Sr. No. and its Deviation % beside each weight):
+  `frontend/tests/qcPaperFormats.test.ts` (12, listed in REQUIREMENTS §111 "Tests"). Changed:
+  `frontend/tests/lineNumbers.test.ts` (F/QC/12 among the forms drawn with no Sr. No.) and
+  `frontend/tests/roundTripBindings.test.ts` (a printed box is not bound; a cell on an entry's second line is found by
+  its line). `npm run typecheck` clean; `npm run test:unit` on both commits of §111: frontend 695 of 695, backend 535 of
+  538 with 3 skipped (the PostgreSQL ledger's, without `DCRS_LEDGER_TEST_URL`). Browser suites, each run alone with
+  the project's runner, 8842 and 8843 free (`E2E_SKIP_UNIT=1 npm run test:e2e -- tests/<suite>.py`):
+  `tests/e2e_qc_calibration.py` 56 of 56 (changed: both calibration pages as their papers on screen — F/QC/12's
+  headings with no Sr. No. and no Deviation %, its four entries on two lines with 0% under each Tested Value, the
+  PROCEDURE after the grid and no explanation above it, the boxes three to a line; F/QC/11's No. 54 to 57 over size and
+  Deviation, its four printed boxes, "I. Calibration Date"; a new F/QC/12 holding the week's one calibration dated the
+  sheet's day; the deviation typed and told to Mitra, read on the second line; a new F/QC/11 with its printed boxes
+  and nothing to type into them; an empty Next Due Date printing empty; F-QC-30's 24 lines with the record's date in the
+  first Sr. No. only and no specification line; F-QC-32's Date column, each line dated the record's day; with
+  QC_PAPER_SHOTS set it photographs the four on screen and in print, which were looked at beside the originals). The
+  first run failed one check of the suite's own (it looked for the printed boxes under the document page's preview on a
+  record page); fixed and run again. `tests/e2e_print_all_documents.py` 432 of 432 (changed: on every document, every
+  empty date, time or choice box prints empty — 138 printouts, none showing "dd-mm-yyyy", "--:--" or "Select…"; and the
+  four as their papers in print). Its first run failed 136 checks of its own: the new grid headings were given the key
+  the suite already used for the page's own headings; renamed and run again. `tests/e2e_qc_formats.py` 80 of 80, run
+  unchanged. Not run: the full browser run; the suites that also open these four documents
+  (e2e_every_record_starts, e2e_mobile_mitra_api, e2e_mitra_agent, e2e_realism, e2e_access_levels and the others that
+  name them), which read no part of their layout this changes but the phone's layout's new `printed`/`value` on a
+  header box, `beneath`, `srNoShowsDate`, `secondLine` and `notesBelow`.
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

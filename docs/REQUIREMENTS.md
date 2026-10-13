@@ -7315,6 +7315,126 @@ Changed: tests/e2e_storage_room.py (its part past the mark runs in a page withou
 tests/e2e_every_record_starts.py (with the browser full, Start opens the record, which is in the database and in
 IndexedDB, with no banner, and opens after a reload with the browser still full).
 
+## §111 Every QC format exactly as the paper (13-Oct-2026)
+
+**The request.** The owner, 13-Oct-2026, with pictures of DCRS's F-QC-30 marked by hand (the specification line above
+the grid crossed out; the numbered Sr. No. column circled with a "?"), the Excel original of F-QC-32, and DCRS's own
+PDFs of F-QC-11, F-QC-12 and F-QC-32: "there are many problem are coming like wrong data in F-QC-11, F-QC-12 and many
+others so make sure i have given you documents according to that format only i want So fix those errors any how by
+today ... make sure format would not be change any how." With 41 originals: "make sure it will look in our systems
+like similar". The originals are kept in the repository: source-documents/qc-originals-2026-10-13/ (the 41) and
+source-documents/qc-dcrs-prints-2026-10-13/ (what DCRS printed, and the marked F-QC-30). The OCR part of his message (a
+photograph of an old record read into the right document) is §103's scan fill, the next piece of work, not this one.
+
+**What was wrong, against the originals.**
+
+- *F-QC-30* (WhatsApp Image 2026-09-07 at 2.15.18 PM.jpeg). DCRS printed "Viscosity specification: 20.0 ± 1.0 Sec.
+  One reading every hour, round the clock (09:00 to 08:00 next day)." above the grid, which the paper does not print
+  (the specification is in the Viscosity heading), and numbered the Sr. No. 1 to 24, where the paper writes the day's
+  date on the day's first line ("6/9/26", then nothing until "7/9/26") and the hours under Date/Time.
+- *F-QC-32* (the owner's Excel picture; WhatsApp Image 2026-09-07 at 2.15.17 PM.jpeg). The Date column was missing, and
+  DCRS printed "One row per adhesive batch mixed. Standard mix observed on the specimen: ..." above the grid.
+- *F/QC/11* (F-QC-11 GSM cutting plate internal calibration record (2).pdf). The paper PRINTS its Device ID No
+  ("1-54, 2-55, 3-56, 4-57"), Location ("LAB"), Department ("LAB") and Manufacturer ("Global Eng. Co. (GEC)"); DCRS
+  offered them as boxes, and the owner's print read "WS-2026-10, QC Lab, Quality Control, ScaleCo" — the wrong data.
+  DCRS printed two explanation lines of its own and the PROCEDURE above the grid (the paper prints it below), headed the
+  columns "No. 54 (20 x 20cm)" and "Deviation %" (the paper: "No. 54" over "20 x 20cm" and "Deviation"), and its
+  calibration date "Calibration Date" (the paper: "I. Calibration Date:-").
+- *F/QC/12* (F-QC-12 Weighing balance internal calibration record (2).pdf). The paper has no Sr. No. column; each entry
+  takes two lines, the second headed "Deviation %" in the Date column with each weight's Deviation % under its Tested
+  Value; its nine boxes stand three to a line; its PROCEDURE is below the grid. DCRS added a Sr. No., moved the five
+  Deviation % up beside the weights, printed two explanation lines and the PROCEDURE above the grid, and — the owner's
+  "wrong data" — a weekly sheet carried FOUR calibration lines all dated the same day, and an empty Next Due Date printed
+  "dd-mm-yyyy".
+
+**The layout abilities (types/logSheet.ts, engine/paperLayout.ts).** Four things the paper does that a layout could not
+say:
+
+- `LogHeaderField.printed`: the value the paper prints in a box. Shown as text, never a box to type into; written into
+  every new record (engine/recordDefaults.ts, the morning prepare engine/knownParts.ts, Demo Mode and sample data
+  engine/autoFill.ts) and into every record as it is shown or stored (engine/computedCells.ts runs `withPrintedBoxes`
+  with the worked-out cells), so a record typed over before reads the paper's words; never bound for a downloaded
+  file (engine/roundTrip/bindingsFor.ts), never asked by the guided fill (engine/guidedRecord.ts) or the submit checks
+  (engine/validation.ts); Mitra is told "printed ..., never write it" (engine/mitraTools.ts, pages/RecordPage.tsx's
+  `_layout`, backend/assistant.ts) and a patch that changes it is refused with "Device ID No is printed on the form
+  ("1-54, 2-55, 3-56, 4-57") and can't be changed." (engine/recordPatch.ts); the phone's layout (engineHost/entry.ts
+  layoutOf) says `printed: true` with its `value`, so the phone has nothing to ask for it.
+- `LogSheetLayout.srNoShowsDate`: the Sr. No. column holds the record's date (as the header block shows it) on the
+  first line and nothing on the others.
+- `LogColumn.beneath` with `LogSheetLayout.secondLine: { label }`: every entry is drawn on two lines; the second's
+  heading stands in the first column and each column `beneath` another is drawn under it. The line's data stays one
+  object, the heading row leaves the columns beneath out, and the sheet's own controls (remove, Sr. No.) span both
+  lines. A downloaded Excel or Word file says what the second lines are headed (the grid's `data-bind-second-line`,
+  the map's `secondLine`), so a line headed "Deviation %" — added below with a new entry, or one edited — is never
+  read back as a new entry (engine/roundTrip/readFile.ts).
+- `LogSheetLayout.notesBelow`: the paper's text below the grid, verbatim; a heading the paper prints in capitals
+  ("PROCEDURE:") in bold (components/records/NotesBelow.tsx). With it, `headerColumns`: how many boxes the paper puts
+  on one line above the grid (one under another on a phone).
+
+Each is honoured wherever a layout is read: the record's sheet open and signed off (components/records/
+LogSheetRecordView.tsx), its print and the server's PDF of it (backend/pdfReport.ts prints that page), the Excel and
+Word files (made from the sheet as drawn, utils/documentExport.ts) and their upload, the format's designer (components/
+documents/SheetDesigner.tsx: the printed value shown in its box, the second line with its columns' names and menus, the
+date's place in the Sr. No., the notes below), the English of a form issued in Gujarati (i18n/documentText.ts), Mitra,
+the guided fill, the morning prepare, Demo Mode and the phone's layout. A format the plant edited before this section
+(stored whole, with DCRS's explanations and none of these) takes them from the issued layout, box by box and column by
+column, and loses the explanation lines this section took off (data/seed/logSheetLayouts.ts `asThePaper`); one edited
+since says what it says.
+
+**An empty box prints empty.** An empty date box printed Chrome's "dd-mm-yyyy", a time box "--:--", a choice box its
+"Select…". For the length of a print (the Print button, Ctrl+P, the server's PDF) every empty date, time or choice box
+in a document is marked `data-empty` (utils/print.ts; the log sheets, the daily pest register and the fly catcher
+record mark their own as they draw them), and the stylesheet prints it blank (styles.css, "Print": the text's fill
+made transparent and the date's fields hidden; placeholders were already transparent).
+
+**The four the owner named, as their originals now.**
+
+- *F-QC-30*: Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By, nothing above the grid, the day's date in
+  the Sr. No. of the first line. The heading's 20.0 ± 1.0 is the band (19.0 to 21.0) a reading outside is highlighted by.
+- *F-QC-32*: Sr. No. | Date | Time | Adhesive (kg) | Hardener (kg) | Ethyl (kg) | Viscosity (Sec.) | Remark | Checked
+  by | Verified by, the Date the record's (a known part on the morning's sheet; a line written after midnight is changed
+  by the person), nothing above the grid.
+- *F/QC/11*: Device ID No, Location, Department / Manufacturer, Serial No, Calibration Expiry three to a line, the first
+  four printed; "I. Calibration Date" and Due Date; Index | No. 54 over (20 x 20cm | Deviation) ... No. 57 over (2.5 x
+  2.5cm | Deviation); the lines Tasted-1, 2, 3, 4, Pass/Fail, Sign. as printed; "PROCEDURE: Calibration to be done
+  ..." below the grid. Its name for Mitra and the history stays "Calibration Date".
+- *F/QC/12*: Device ID No, Location, Department / Manufacturer, Serial No, Calibration Expiry / Minimum Reading
+  Capacity, Maximum Reading Capacity, Acceptable Tolerance; Date | Tested By | Weight 1 | Tested Value 1 | ... | Weight 5
+  | Tested Value 5 | Pass / Fail | Sign | Next Due Date with no Sr. No.; each entry's second line "Deviation %" with
+  each weight's Deviation % (worked out, §61) under its Tested Value; "PROCEDURE:" and its sentence below the grid. One
+  sheet a week holds that week's one calibration, dated the sheet's day (rule 3 of the brief: never four lines on one
+  day); the supplied page of February–March 2024 keeps its four weeks, as written. The Deviation % columns are named
+  "Deviation % 1" to "Deviation % 5" for Mitra and the history (the paper heads the line once).
+
+Records already on file keep their data: no key changed, so every value is where it was, and F/QC/11's printed boxes
+read the paper's words whatever a record holds there.
+
+**Not in this section.** The other QC formats of the 41 originals, Mitra's document finding in any spelling and the
+reference-only Statements of Compliance (rules 1 and 4 of the brief, another builder's part); the scan fill (§103);
+F/QC/11's Pass/Fail and Sign. lines drawn as one cell across each plate's two columns, as the paper draws them (the
+grid draws the two cells, the Deviation one empty); a Deviation % beyond F/QC/12's Acceptable Tolerance highlighted
+(Pass / Fail already follows it, §61). The F/QC/12 original prints "F/QC/13 (01/01.01.2022)" in its footer; DCRS keeps
+F/QC/12, the number on the Master List of Formats, until the owner says which is right.
+
+**Tests.** frontend/tests/qcPaperFormats.test.ts (12, each failing on the code before this section, which had none of
+these abilities): a printed box written into a new record, the prepare and Demo Mode, and read on a record typed over
+("WS-2026-10" reads "1-54, 2-55, 3-56, 4-57"), the same object once right, other forms untouched; never bound, never
+patched by Mitra (with the words of the refusal), never asked or required, drawn as text; the Sr. No. holding the date
+on the first of F-QC-30's 24 lines only; F/QC/12's two lines (the first line's columns, the second's heading and its
+Deviation % under each Tested Value, a column beneath the first column or beneath nothing kept on the first line, the
+grid's second-line attribute); the PROCEDURE after the grid word for word and no explanation above it, on F/QC/11 and
+F/QC/12; an empty date and choice box marked and the print rules; a downloaded F/QC/12 in Excel and in Word with an
+entry and its Deviation % line added below reading back as one new entry, and the map keeping the second line's
+heading; a format edited before §111 taking the paper's shape (and one edited since left alone); and each of the four
+documents against its original. Changed: frontend/tests/lineNumbers.test.ts (F/QC/12 among the forms drawn with no
+Sr. No.), frontend/tests/roundTripBindings.test.ts (a printed box is not written, so not bound; the cell under a column
+on a second line is found by its line). Browser suites: tests/e2e_qc_calibration.py (both calibration pages as their
+papers on screen, a new F/QC/11 with its printed boxes, a new F/QC/12 with one dated line, the deviation typed and told
+to Mitra on the second line, an empty Next Due Date printing empty, F-QC-30's date in its Sr. No. and F-QC-32's Date;
+with QC_PAPER_SHOTS set it photographs the four on screen and in print), tests/e2e_print_all_documents.py (every
+document: an empty date, time or choice box prints empty; the four as their papers in print), tests/e2e_qc_formats.py
+(run unchanged).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

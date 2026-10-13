@@ -22,6 +22,15 @@
 // measured; a document a little wider than a portrait page is scaled down to it
 // (to no less than 80%), a wider one turns the page to landscape and is scaled
 // down to that if it has to be — every column on the paper, and in the PDF.
+//
+// AN EMPTY BOX PRINTS EMPTY (REQUIREMENTS §111). Chrome draws "dd-mm-yyyy" in a
+// date box with no date and "--:--" in a time box with no time, and a choice box
+// with nothing chosen shows its "Select…": none of it is on the paper, and the
+// owner's F/QC/12 printout read "dd-mm-yyyy" in a Next Due Date nobody had
+// written. For the length of the print every such box in a document is marked
+// data-empty, and the stylesheet prints it blank (styles.css, "Print"). The
+// record sheets mark their own as they draw them; the marks put on here come off
+// when printing ends.
 
 import { logActivity } from "./activityLog";
 
@@ -30,7 +39,23 @@ const HIDDEN = "print-scope-hidden";
 const ANCESTOR = "print-scope-ancestor";
 const SCOPED = "print-scoped";
 
-let active: { hidden: Element[]; ancestors: Element[] } | null = null;
+let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[] } | null = null;
+
+const EMPTY_ATTR = "data-empty";
+const EMPTY_BOXES = "input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month'], select";
+
+/** Marks every empty date, time or choice box in the documents, so it prints blank; the ones marked here are returned. */
+function markEmptyBoxes(docs: Element[]): Element[] {
+  const marked: Element[] = [];
+  for (const d of docs) {
+    for (const box of Array.from(d.querySelectorAll(EMPTY_BOXES)) as (HTMLInputElement | HTMLSelectElement)[]) {
+      if (box.value !== "" || box.hasAttribute(EMPTY_ATTR)) continue;
+      box.setAttribute(EMPTY_ATTR, "");
+      marked.push(box);
+    }
+  }
+  return marked;
+}
 
 const PAGE_STYLE_ID = "print-page-fit";
 const PX_PER_MM = 96 / 25.4;
@@ -105,6 +130,7 @@ function unscope(): void {
   if (!active) return;
   for (const el of active.hidden) el.classList.remove(HIDDEN);
   for (const el of active.ancestors) el.classList.remove(ANCESTOR);
+  for (const el of active.emptied) el.removeAttribute(EMPTY_ATTR);
   document.documentElement.classList.remove(SCOPED);
   active = null;
 }
@@ -132,7 +158,7 @@ function scope(targets: Element[]): void {
     if (a !== document.body) a.classList.add(ANCESTOR);
   }
   document.documentElement.classList.add(SCOPED);
-  active = { hidden, ancestors };
+  active = { hidden, ancestors, emptied: markEmptyBoxes(docs) };
   fitToPage(docs);
 }
 

@@ -12,7 +12,14 @@ the same way. On each one:
     banners;
   * and it is the same whether the page's own Print button is used or the
     browser's (Ctrl+P), because both go through the same scoping
-    (utils/print.ts: printDocument() and the beforeprint listener).
+    (utils/print.ts: printDocument() and the beforeprint listener);
+  * an empty date, time or choice box prints empty — no "dd-mm-yyyy", "--:--" or
+    "Select…" on the paper (REQUIREMENTS §111: the owner's F/QC/12 printout read
+    "dd-mm-yyyy" in a Next Due Date nobody had written);
+  * the four QC formats the owner named on 13-Oct-2026 print as their papers:
+    F/QC/11 and F/QC/12 with the PROCEDURE below the grid and nothing of DCRS's
+    above it, F/QC/12 with no Sr. No. and each entry on two lines, F-QC-30 with the
+    day's date in its Sr. No., F-QC-32 with its Date column (REQUIREMENTS §111).
 
 Network-independent, and driven against the production build on :8842.
 """
@@ -62,6 +69,20 @@ PRINTED = """
       history: outside('.record-history'),
       assistant: outside('.assistant-widget, .assistant-panel, [data-section="assistant"]'),
       banners: outside('.correction-banner, .prepared-banner, .agreement-card, .card-header'),
+      // An empty date, time or choice box that would print the browser's words in it (s111).
+      emptyShown: Array.from(document.querySelectorAll('[data-print-doc] input[type="date"], [data-print-doc] input[type="time"], [data-print-doc] select'))
+        .filter((el) => shown(el) && el.value === '' && !['rgba(0, 0, 0, 0)', 'transparent'].includes(getComputedStyle(el).webkitTextFillColor))
+        .map((el) => el.getAttribute('data-bind') || el.getAttribute('data-field') || el.outerHTML.slice(0, 80)),
+      emptyBoxes: Array.from(document.querySelectorAll('[data-print-doc] input[type="date"], [data-print-doc] input[type="time"], [data-print-doc] select')).filter((el) => shown(el) && el.value === '').length,
+      gridHeadings: Array.from(document.querySelectorAll('[data-print-doc] table.log-sheet thead th')).filter(shown).map((e) => e.textContent.trim()),
+      srNo: Array.from(document.querySelectorAll('[data-print-doc] table.log-sheet td[data-sr-no]')).filter(shown).map((e) => e.textContent.trim()),
+      secondLines: Array.from(document.querySelectorAll('[data-print-doc] table.log-sheet tr[data-line="second"]')).filter(shown).length,
+      notesAfterGrid: (() => {
+        const n = document.querySelector('[data-print-doc] [data-section="notes-below"]');
+        const t = document.querySelector('[data-print-doc] table.log-sheet');
+        return !!n && !!t && shown(n) && !!(t.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING) ? n.textContent : null;
+      })(),
+      text: docs.map((d) => d.textContent).join(' '),
     };
   }
 """
@@ -114,8 +135,34 @@ def check_printout(page, what):
         and seen["headings"] == 0
         and seen["history"] == 0
         and seen["assistant"] == 0,
-        seen,
+        {k: v for k, v in seen.items() if k != "text"},
     )
+    check(f"{what}: an empty date, time or choice box prints empty (s111)", seen["emptyShown"] == [], (seen["emptyShown"][:5], seen["emptyBoxes"]))
+    return seen
+
+
+# The four QC formats the owner named on 13-Oct-2026, as their papers print (REQUIREMENTS s111).
+PROCEDURE = "Calibration to be done by qualified QA person as per calibration work procedure."
+
+
+def check_paper(doc_id, seen):
+    if doc_id == "qc-viscosity":
+        check("F-QC-30 prints Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By", seen["gridHeadings"] == ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"], seen["gridHeadings"])
+        check("...the day's date in the Sr. No. of the first line only", len(seen["srNo"]) == 24 and seen["srNo"][0] != "" and all(x == "" for x in seen["srNo"][1:]), seen["srNo"][:3])
+        check("...and no specification line above the grid", "Viscosity specification" not in seen["text"])
+    elif doc_id == "qc-adhesive-mixing":
+        check("F-QC-32 prints its Date column", seen["gridHeadings"][:3] == ["Sr. No.", "Date", "Time"], seen["gridHeadings"])
+        check("...and no 'One row per adhesive batch mixed' line", "One row per adhesive batch" not in seen["text"])
+    elif doc_id == "qc-gsm-plate-calibration":
+        check("F/QC/11 prints No. 54 to 57 over size and Deviation", seen["gridHeadings"][:5] == ["Index", "No. 54", "No. 55", "No. 56", "No. 57"], seen["gridHeadings"])
+        check("...the four printed boxes", all(v in seen["text"] for v in ["1-54, 2-55, 3-56, 4-57", "Global Eng. Co. (GEC)"]))
+        check("...the PROCEDURE below the grid", bool(seen["notesAfterGrid"]) and PROCEDURE in seen["notesAfterGrid"], seen["notesAfterGrid"])
+        check("...and no explanation of DCRS's", "The four plates" not in seen["text"] and "worked out" not in seen["text"])
+    elif doc_id == "qc-weight-scale-calibration":
+        check("F/QC/12 prints no Sr. No. and no Deviation % heading", seen["gridHeadings"][:2] == ["Date", "Tested By"] and "Deviation %" not in seen["gridHeadings"], seen["gridHeadings"])
+        check("...each entry on two lines, the second headed Deviation %", seen["secondLines"] >= 1 and "Deviation %" in seen["text"], seen["secondLines"])
+        check("...the PROCEDURE below the grid", bool(seen["notesAfterGrid"]) and PROCEDURE in seen["notesAfterGrid"], seen["notesAfterGrid"])
+        check("...and no explanation of DCRS's", "One line per weekly calibration" not in seen["text"] and "On the paper the Deviation %" not in seen["text"])
 
 
 with sync_playwright() as p:
@@ -169,7 +216,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(1300)
         close_assistant(page)
         page.evaluate(STUB_PRINT)
-        check_printout(page, doc_id)
+        check_paper(doc_id, check_printout(page, doc_id))
 
     # ---- the reference documents, registers, reports and file lists ----
     pages = [
