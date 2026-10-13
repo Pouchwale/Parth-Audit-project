@@ -735,6 +735,9 @@ const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
     ...(c.linkedFrom ? { readFrom: c.linkedFrom } : {}),
     ...(typeof c.min === "number" ? { min: c.min } : {}),
     ...(typeof c.max === "number" ? { max: c.max } : {}),
+    // The paper's own words (§111): the heading it prints ("" for none) and the lines it prints above a box's group.
+    ...(f.printedLabel !== undefined ? { printedLabel: f.printedLabel } : {}),
+    ...((f as LogHeaderField).printedAbove?.length ? { printedAbove: (f as LogHeaderField).printedAbove } : {}),
   };
 };
 
@@ -763,6 +766,7 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         ...(l.srNoShowsDate ? { srNoShowsDate: true } : {}),
         ...(l.secondLine ? { secondLine: l.secondLine } : {}),
         ...(l.notesBelow?.length ? { notesBelow: l.notesBelow } : {}),
+        ...(l.notesAtFoot?.length ? { notesAtFoot: l.notesAtFoot } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),

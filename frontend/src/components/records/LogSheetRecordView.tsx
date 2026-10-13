@@ -41,8 +41,9 @@ import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
 import { bindProps, effectiveColumn, logCellBind, logColumnBind, logHeaderBind, logRowName } from "../../engine/roundTrip/bindingsFor";
-import { gridLines, isPrintedBox, srNoText, type GridLines } from "../../engine/paperLayout";
+import { boxGroups, columnHeading, gridLines, isPrintedBox, placedTables, srNoText, type BoxGroup, type GridLines } from "../../engine/paperLayout";
 import { NotesBelow } from "./NotesBelow";
+import { PrintedTable } from "./PrintedTable";
 
 /** A sheet open for writing with more lines than this draws only those near the screen (REQUIREMENTS §76). */
 const DRAW_NEAR_FROM = 60;
@@ -279,6 +280,43 @@ export function LogSheetRecordView({
   // What the stable handlers above forward to: this render's, which hold this render's data.
   handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, removeRow };
 
+  // One box above the grid: a person's or a machine's box offers the people or the machines it can be filled from.
+  const headerBox = (f: LogHeaderField, fi: number) => {
+    const personBox = fetching && link?.where === "header" && link.nameField === f.key;
+    const machineList = machineHeaderList(f.key);
+    const machineIdBox = eqFetching && eqLink?.where === "header" && eqLink.idField === f.key;
+    return (
+      <SheetBox
+        key={f.key}
+        field={f}
+        issuedLabel={issued?.headerFields[fi]?.label ?? f.label}
+        value={data.header?.[f.key] ?? ""}
+        editable={editable}
+        onBox={onBox}
+        employees={employeeNames}
+        list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : (lists?.[f.key] ?? f.list)}
+        onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : undefined}
+      />
+    );
+  };
+  // One box below the grid.
+  const footerBox = (f: LogHeaderField, fi: number) => (
+    <SheetBox
+      key={f.key}
+      field={f}
+      issuedLabel={issued?.footerFields?.[fi]?.label ?? f.label}
+      value={data.header?.[f.key] ?? ""}
+      editable={editable}
+      onBox={onBox}
+      employees={employeeNames}
+      list={lists?.[f.key] ?? f.list}
+    />
+  );
+  // The printed tables offered behind "Show" above the sheet: all but those the paper prints in a place of their
+  // own among the boxes (tableAbove — the certificates' TOLERANCE, REQUIREMENTS §111), which are drawn there, open.
+  const placed = placedTables(layout);
+  const topTables = (layout.referenceTables ?? []).filter((t) => !placed.has(t.title));
+
   const mode = layout.rowMode;
   const qcForm = departmentOfDocument(doc.id, doc.formatNo) === "QC";
   const canAddRows = editable && mode.kind === "free";
@@ -336,7 +374,7 @@ export function LogSheetRecordView({
         </div>
       )}
 
-      {(layout.instructions?.length || layout.headerFields.length > 0 || layout.referenceTables?.length) && (
+      {(layout.instructions?.length || layout.headerFields.length > 0 || topTables.length) && (
         <div className="card mt-4">
           <div className="card-pad">
             {layout.instructions?.map((line, i) => (
@@ -344,7 +382,7 @@ export function LogSheetRecordView({
                 {line}
               </p>
             ))}
-            {layout.referenceTables?.map((t) => (
+            {topTables.map((t) => (
               <div key={t.title} className="mt-2">
                 <button className="btn btn-ghost btn-sm no-print" style={{ padding: "2px 6px" }} onClick={() => setShowReference((s) => !s)}>
                   {showReference ? "Hide" : "Show"} {t.title}
@@ -375,37 +413,19 @@ export function LogSheetRecordView({
                 )}
               </div>
             ))}
-            {layout.headerFields.length > 0 && (
-              // As many boxes to a line as the paper draws, where it says (F/QC/12's three rows of three,
-              // REQUIREMENTS §111); otherwise as many as the screen holds. A phone takes them one under another (styles.css).
-              <div
-                className={`grid${layout.instructions?.length || layout.referenceTables?.length ? " mt-3" : ""}${layout.headerColumns ? " sheet-boxes-paper" : ""}`}
-                data-section="sheet-boxes"
-                style={
-                  layout.headerColumns
-                    ? ({ "--paper-box-columns": layout.headerColumns, gap: "10px 16px" } as React.CSSProperties)
-                    : { gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px 16px" }
-                }
-              >
-                {layout.headerFields.map((f, fi) => {
-                  const personBox = fetching && link?.where === "header" && link.nameField === f.key;
-                  const machineList = machineHeaderList(f.key);
-                  const machineIdBox = eqFetching && eqLink?.where === "header" && eqLink.idField === f.key;
-                  return (
-                    <SheetBox
-                      key={f.key}
-                      field={f}
-                      issuedLabel={issued?.headerFields[fi]?.label ?? f.label}
-                      value={data.header?.[f.key] ?? ""}
-                      editable={editable}
-                      onBox={onBox}
-                      employees={employeeNames}
-                      list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : (lists?.[f.key] ?? f.list)}
-                      onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : undefined}
-                    />
-                  );
-                })}
-              </div>
+            {/* As many boxes to a line as the paper draws, where it says (F/QC/12's three rows of three,
+                REQUIREMENTS §111); otherwise as many as the screen holds. A phone takes them one under another
+                (styles.css). A group the paper heads (F/QC/06's LABEL STOCK) is drawn under its heading. */}
+            {boxGroups(layout, "header").map((group, gi) =>
+              group.lead ? (
+                <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={layout.instructions?.length || topTables.length ? "mt-3" : ""}>
+                  {group.boxes.map(({ field, index }) => headerBox(field, index))}
+                </BoxLine>
+              ) : (
+                <PrintedGroup key={gi} area="header" group={group} className={gi > 0 || layout.instructions?.length || topTables.length ? "mt-3" : ""}>
+                  {group.boxes.map(({ field, index }) => headerBox(field, index))}
+                </PrintedGroup>
+              )
             )}
           </div>
         </div>
@@ -518,52 +538,26 @@ export function LogSheetRecordView({
       {layout.footerFields && layout.footerFields.length > 0 && (
         <div className="card mt-4">
           <div className="card-pad">
-            {(() => {
-              // Lines the paper prints across the sheet above a box start a group of
-              // their own, drawn in the paper's two columns under them (F/MNT/08's
-              // hand-over, REQUIREMENTS §93); every other form's boxes are as they were.
-              const footer = layout.footerFields;
-              const split = footer.findIndex((f) => (f.printedAbove?.length ?? 0) > 0);
-              const box = (f: LogHeaderField, fi: number) => (
-                <SheetBox
-                  key={f.key}
-                  field={f}
-                  issuedLabel={issued?.footerFields?.[fi]?.label ?? f.label}
-                  value={data.header?.[f.key] ?? ""}
-                  editable={editable}
-                  onBox={onBox}
-                  employees={employeeNames}
-                  list={lists?.[f.key] ?? f.list}
-                />
-              );
-              const flowing = split < 0 ? footer : footer.slice(0, split);
-              return (
-                <>
-                  {flowing.length > 0 && (
-                    <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 16px" }}>
-                      {flowing.map((f, fi) => box(f, fi))}
-                    </div>
-                  )}
-                  {split >= 0 && (
-                    <div className={flowing.length > 0 ? "mt-3" : ""} data-section="printed-group">
-                      {footer[split].printedAbove!.map((line) => (
-                        <p key={line} className="text-sm font-semibold mb-2" style={{ whiteSpace: "pre-wrap" }}>
-                          {line}
-                        </p>
-                      ))}
-                      <div className="grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px 16px" }}>
-                        {footer.slice(split).map((f, gi) => box(f, split + gi))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
+            {/* Lines (or a table) the paper prints across the sheet above a box start a group of their
+                own, drawn under them: F/MNT/08's hand-over in the paper's two columns (REQUIREMENTS §93), a
+                certificate's COATING, FINISHING and TOLERANCE (§111); every other form's boxes are as they were. */}
+            {boxGroups(layout, "footer").map((group, gi) =>
+              group.lead ? (
+                <BoxLine key={gi} group={group} minWidth={220}>
+                  {group.boxes.map(({ field, index }) => footerBox(field, index))}
+                </BoxLine>
+              ) : (
+                <PrintedGroup key={gi} area="footer" group={group} className={gi > 0 ? "mt-3" : ""}>
+                  {group.boxes.map(({ field, index }) => footerBox(field, index))}
+                </PrintedGroup>
+              )
+            )}
             {/* The QA Manager's approval is a QC form's own box, so the line
                 about it belongs under QC forms only: under a Maintenance or a
                 Purchase footer it named a signature those forms do not have
                 (REQUIREMENTS §74). */}
-            {qcForm && (
+            {/* ...and only where the form has no APPROVED BY box of its own to write it in (§111). */}
+            {qcForm && !layout.footerFields.some((f) => /approved by/i.test(f.label)) && (
               <div className="text-xs text-muted mt-3 no-print">
                 "Approved by (QA Manager)" on the paper form is the <strong>Verify</strong> step here — the verifier's name and time are stamped automatically.
               </div>
@@ -571,6 +565,8 @@ export function LogSheetRecordView({
           </div>
         </div>
       )}
+      {/* The paper's own text at the foot of the sheet, after every box (REQUIREMENTS §111): the certificates' "THIS IS A SYSTEM GENERATED DOCUMENT." */}
+      {layout.notesAtFoot && layout.notesAtFoot.length > 0 && <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />}
       {fetching && <HrMasterPeopleList />}
       {eqFetching && <EquipmentMachineList />}
       <datalist id="log-sheet-employees">
@@ -755,8 +751,50 @@ function ColumnHead({ col, rowSpan, bound }: { col: LogColumn; rowSpan?: number;
       rowSpan={rowSpan}
       title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
     >
-      {col.label}
+      {/* The paper's own heading, "" where it prints none (F/QC/25's descriptions, REQUIREMENTS §111). */}
+      {columnHeading(col)}
     </th>
+  );
+}
+
+/**
+ * ONE RUN OF BOXES, as many to a line as the paper puts there (REQUIREMENTS §111) or, where it does not
+ * say, as many as the screen holds. A phone takes them one under another (styles.css .sheet-boxes-paper).
+ */
+function BoxLine({ group, minWidth, section, className, children }: { group: BoxGroup; minWidth: number; section?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div
+      className={`grid${className ? ` ${className}` : ""}${group.perLine ? " sheet-boxes-paper" : ""}`}
+      data-section={section}
+      style={
+        group.perLine
+          ? ({ "--paper-box-columns": group.perLine, gap: "10px 16px" } as React.CSSProperties)
+          : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: "10px 16px" }
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * A GROUP OF BOXES UNDER WHAT THE PAPER PRINTS ABOVE IT (REQUIREMENTS §93, §111): its printed table, open
+ * (the certificates' TOLERANCE), the lines printed across the sheet (F/MNT/08's declaration, a certificate's
+ * LABEL STOCK, COATING, FINISHING, its notes), then its boxes.
+ */
+function PrintedGroup({ area, group, className, children }: { area: "header" | "footer"; group: BoxGroup; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={className || undefined} data-section="printed-group" data-area={area}>
+      {group.table && <PrintedTable table={group.table} />}
+      {group.lines.map((line, i) => (
+        <p key={i} className="text-sm font-semibold mb-2" style={{ whiteSpace: "pre-wrap" }}>
+          {line}
+        </p>
+      ))}
+      <BoxLine group={group} minWidth={area === "header" ? 200 : 220}>
+        {children}
+      </BoxLine>
+    </div>
   );
 }
 

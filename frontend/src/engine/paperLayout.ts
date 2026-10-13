@@ -1,4 +1,4 @@
-import type { LogColumn, LogHeaderField, LogSheetData, LogSheetLayout } from "../types";
+import type { LogColumn, LogHeaderField, LogSheetData, LogSheetLayout, ReferenceTable } from "../types";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 
 // EVERY QC FORMAT EXACTLY AS THE PAPER (REQUIREMENTS §111, 13-Oct-2026).
@@ -17,6 +17,20 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 //   an entry of two lines            LogColumn.beneath with the layout's
 //                                    secondLine — F/QC/12's "Deviation %" line.
 //   the text below the grid          LogSheetLayout.notesBelow — the PROCEDURE.
+//
+// And, for the incoming material records, the certificates of analysis and the
+// tolerance card, the places the paper puts its boxes and words:
+//
+//   the boxes in the paper's groups  LogHeaderField.printedAbove, tableAbove and
+//                                    boxesPerLine, above or below the grid —
+//                                    F/QC/06's LABEL STOCK three across, its
+//                                    COATING, FINISHING and TOLERANCE in their
+//                                    places (boxGroups).
+//   the text at the foot             LogSheetLayout.notesAtFoot — the
+//                                    certificates' "THIS IS A SYSTEM GENERATED
+//                                    DOCUMENT." after every box.
+//   a heading the paper leaves out   LogColumn.printedLabel — F/QC/25 heads its
+//                                    descriptions with nothing (columnHeading).
 
 /** A box the paper prints its value in (REQUIREMENTS §111). */
 export const isPrintedBox = (f: Pick<LogHeaderField, "printed">): f is LogHeaderField & { printed: string } => typeof f.printed === "string";
@@ -103,4 +117,67 @@ export function gridLines(layout: LogSheetLayout): GridLines {
 export function srNoText(layout: LogSheetLayout, index: number, recordDate: string): string {
   if (layout.srNoShowsDate) return index === 0 ? recordDate : "";
   return String(index + 1);
+}
+
+/** The heading the sheet draws over a column: the paper's own words where they differ from its name, "" for none (REQUIREMENTS §111). */
+export const columnHeading = (c: Pick<LogColumn, "label" | "printedLabel">): string => c.printedLabel ?? c.label;
+
+/** One group of boxes, above or below the grid, as the paper draws it. */
+export interface BoxGroup {
+  /** The boxes, each with its place among the area's boxes (the issued layout's box at the same place names it, §58). */
+  boxes: { field: LogHeaderField; index: number }[];
+  /** The boxes before any box that starts a group of its own: drawn as every sheet's boxes always were. */
+  lead: boolean;
+  /** The printed table just above the group (tableAbove), drawn open. */
+  table?: ReferenceTable;
+  /** The lines printed just above the group (printedAbove). */
+  lines: string[];
+  /** Boxes to a line; none: as many as the screen holds. */
+  perLine?: number;
+}
+
+/** A box that starts a group of its own: it has words or a table printed above it, or its own number of boxes to a line. */
+export const startsBoxGroup = (f: Pick<LogHeaderField, "printedAbove" | "tableAbove" | "boxesPerLine">): boolean =>
+  (f.printedAbove?.length ?? 0) > 0 || !!f.tableAbove || f.boxesPerLine !== undefined;
+
+const groupsOf = { header: new WeakMap<LogSheetLayout, BoxGroup[]>(), footer: new WeakMap<LogSheetLayout, BoxGroup[]>() };
+
+/**
+ * THE BOXES IN THE PAPER'S GROUPS (REQUIREMENTS §93, §111). The boxes above the grid (`header`) or
+ * below it (`footer`), cut at every box that starts a group of its own: F/MNT/08's hand-over under its
+ * declaration, a certificate of analysis' LABEL STOCK three across, its COATING and FINISHING, its
+ * TOLERANCE table and notes just above the retest date. The boxes before the first such box are the
+ * lead group, drawn as they always were: above the grid as many to a line as the paper says
+ * (headerColumns) or the screen holds, below it as the screen holds. A later group takes its first
+ * box's boxesPerLine; without one, two to a line below the grid (the paper's two columns, F/MNT/08) and
+ * as the lead group above it. Worked out once per layout.
+ */
+export function boxGroups(layout: LogSheetLayout, area: "header" | "footer"): BoxGroup[] {
+  const hit = groupsOf[area].get(layout);
+  if (hit) return hit;
+  const fields = area === "header" ? layout.headerFields : (layout.footerFields ?? []);
+  const groups: BoxGroup[] = [];
+  for (let index = 0; index < fields.length; index++) {
+    const field = fields[index];
+    let current = groups[groups.length - 1];
+    if (!current || startsBoxGroup(field)) {
+      const lead = !current && !startsBoxGroup(field);
+      const table = field.tableAbove ? layout.referenceTables?.find((t) => t.title === field.tableAbove) : undefined;
+      const perLine = lead ? (area === "header" ? layout.headerColumns : undefined) : (field.boxesPerLine ?? (area === "footer" ? 2 : layout.headerColumns));
+      current = { boxes: [], lead, lines: lead ? [] : (field.printedAbove ?? []), ...(table ? { table } : {}), ...(perLine ? { perLine } : {}) };
+      groups.push(current);
+    }
+    current.boxes.push({ field, index });
+  }
+  groupsOf[area].set(layout, groups);
+  return groups;
+}
+
+/** The titles of the printed tables drawn in their own place among the boxes (tableAbove), not behind "Show" above the sheet. */
+export function placedTables(layout: LogSheetLayout): Set<string> {
+  const out = new Set<string>();
+  for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+    if (f.tableAbove && layout.referenceTables?.some((t) => t.title === f.tableAbove)) out.add(f.tableAbove);
+  }
+  return out;
 }

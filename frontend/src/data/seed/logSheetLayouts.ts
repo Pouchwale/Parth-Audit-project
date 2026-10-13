@@ -1,11 +1,11 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
 import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
-import { QC_INCOMING_LAYOUTS } from "./qcIncomingLayouts";
+import { FLEXO_INK_SYSTEM_NOTE, QC_INCOMING_LAYOUTS } from "./qcIncomingLayouts";
 import { QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
-import { QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
-import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
+import { QC_REGISTER_LAYOUTS, TOLERANCE_CARD_NOTE } from "./qcRegisterLayouts";
+import { COA_WITHDRAWN_LINES, QC_COA_LAYOUTS } from "./qcCoaLayouts";
 import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
 import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
@@ -305,10 +305,14 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/36 — Inspection Record – Solvent Base Lamination Film (00/15.12.2024)
   // Supplied 02-Oct-2026 as a PDF with its Word original (REQUIREMENTS §86): every label and
   // line is the .doc's own text, in its own capitals and spacing ("Date / SHIFT", "2nd  SUBSTRATE
-  // DETAILS"), where F/QC/34/35/37 were read off photographs. As on those three, APPROVED BY
-  // (QA MANAGER) is the app's Verify.
+  // DETAILS"), where F/QC/34/35/37 were read off photographs. Held against the original again on
+  // 13-Oct-2026 (§111): the header box is two boxes to a line, read across as the paper reads it;
+  // below the grid the LOT STATUS and the REASON each take a line, and the paper's two signatures,
+  // INSPECTED BY (QA INSPECTOR) and APPROVED BY (QA MANAGER), stand side by side — the paper prints
+  // both, so both are boxes here (the verifier's Verify is stamped as on every record besides).
   "qc-inspection-sb-lamination": {
     documentId: "qc-inspection-sb-lamination",
+    headerColumns: 2,
     headerFields: [
       { key: "fgCode", label: "JOB CODE (FG CODE)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO NUMBER", type: "text", required: true, autoFill: { carryForward: true } },
@@ -335,9 +339,11 @@ Object.assign(LOG_SHEET_LAYOUTS, {
       ]),
     },
     footerFields: [
-      { key: "lotStatus", label: "LOT STATUS", type: "select", options: ["ACCEPTED", "REJECT / SCRAP", "SEGREGATION", "ACCEPTED ON DEVIATION"], required: true, autoFill: { default: "ACCEPTED" } },
+      { key: "lotStatus", label: "LOT STATUS", type: "select", options: ["ACCEPTED", "REJECT / SCRAP", "SEGREGATION", "ACCEPTED ON DEVIATION"], required: true, autoFill: { default: "ACCEPTED" }, boxesPerLine: 1 },
       { key: "deviationReason", label: "REASON FOR DEVIATION / REJECTION / SEGREGATION", type: "text" },
-      { key: "inspectedBy", label: "INSPECTED BY (QA INSPECTOR)", type: "text", required: true, autoFill: { sign: true } },
+      { key: "inspectedBy", label: "INSPECTED BY (QA INSPECTOR)", type: "text", required: true, autoFill: { sign: true }, boxesPerLine: 2 },
+      // Printed on the paper beside INSPECTED BY (REQUIREMENTS §111); signed by the QA Manager, so never required of the inspector.
+      { key: "approvedBy", label: "APPROVED BY (QA MANAGER)", type: "text", autoFill: { sign: true } },
     ],
     // Nothing was supplied filled in: these are typical values for the assistant, worded as F/QC/35's register words them.
     specimenHeader: {
@@ -536,9 +542,11 @@ export function getLogSheetLayout(documentId: string): LogSheetLayout | undefine
 // THE PAPER'S OWN SHAPE IN A FORMAT EDITED BEFORE §111 TOO (REQUIREMENTS §111). A format the
 // plant changed before 13-Oct-2026 was stored whole, with DCRS's explanations above its grid and
 // none of what the paper does that a layout could not say then: a box it prints the value of, the
-// date in its Sr. No., an entry of two lines, its text below the grid. Such a layout (one that says
-// none of those) takes them from the issued one, box by box and column by column where the key is
-// still there, and loses the explanation lines §111 took off the issued layouts. A format edited
+// date in its Sr. No., an entry of two lines, its text below the grid and at its foot, its boxes in
+// the paper's groups under the lines and tables printed above them, a heading it leaves out. Such a
+// layout (one that says none of those) takes them from the issued one, box by box and column by
+// column where the key is still there, and loses the explanation lines §111 took off the issued
+// layouts (and the paper's own lines §111 moved below the grid or to the foot, which would print twice). A format edited
 // since is the plant's own word and is left as it is. The same object until the edit changes.
 const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
   "qc-viscosity": ["Viscosity specification: 20.0 ± 1.0 Sec. One reading every hour, round the clock (09:00 to 08:00 next day)."],
@@ -554,6 +562,11 @@ const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
     "Each Deviation % is worked out from the size written beside it, by area, against the plate's own size printed at the head of its column.",
     `PROCEDURE: ${CALIBRATION_PROCEDURE}`,
   ],
+  // Printed at the foot of the page now, as the paper prints it.
+  "qc-flexo-ink": [FLEXO_INK_SYSTEM_NOTE],
+  // The certificates' explanations, and their printed notes now in the paper's places (qcCoaLayouts.ts).
+  ...COA_WITHDRAWN_LINES,
+  "qc-tolerance-card-nivea": [TOLERANCE_CARD_NOTE],
 };
 
 const asPaper = new WeakMap<LogSheetLayout, LogSheetLayout>();
@@ -565,13 +578,23 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
   const boxes = [...edited.headerFields, ...(edited.footerFields ?? [])];
   const saysPaper =
     edited.srNoShowsDate !== undefined || edited.secondLine !== undefined || edited.notesBelow !== undefined || edited.headerColumns !== undefined ||
-    boxes.some((f) => f.printed !== undefined) || edited.columns.some((c) => c.beneath !== undefined);
+    edited.notesAtFoot !== undefined || boxes.some((f) => f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined) ||
+    edited.columns.some((c) => c.beneath !== undefined || c.printedLabel !== undefined);
   if (issued && !saysPaper) {
     const issuedBoxes = new Map([...issued.headerFields, ...(issued.footerFields ?? [])].map((f) => [f.key, f]));
     const issuedColumns = new Map(issued.columns.map((c) => [c.key, c]));
+    // The paper's own words and places of a box (§111): its printed value, the table and lines printed above it, how
+    // many boxes stand to a line from it, the words printed beside it — each where the edited box says nothing of its own.
     const box = (f: LogHeaderField): LogHeaderField => {
-      const printed = issuedBoxes.get(f.key)?.printed;
-      return printed === undefined ? f : { ...f, printed };
+      const own = issuedBoxes.get(f.key);
+      if (!own) return f;
+      const paper: Partial<LogHeaderField> = {};
+      if (own.printed !== undefined) paper.printed = own.printed;
+      if (own.tableAbove !== undefined) paper.tableAbove = own.tableAbove;
+      if (own.boxesPerLine !== undefined) paper.boxesPerLine = own.boxesPerLine;
+      if (own.printedAbove !== undefined && f.printedAbove === undefined) paper.printedAbove = own.printedAbove;
+      if (own.printedLabel !== undefined && f.printedLabel === undefined) paper.printedLabel = own.printedLabel;
+      return Object.keys(paper).length === 0 ? f : { ...f, ...paper };
     };
     const withdrawn = new Set(WITHDRAWN_EXPLANATIONS[edited.documentId] ?? []);
     const instructions = edited.instructions?.filter((line) => !withdrawn.has(line));
@@ -580,13 +603,17 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       ...(issued.srNoShowsDate ? { srNoShowsDate: issued.srNoShowsDate } : {}),
       ...(issued.secondLine ? { secondLine: issued.secondLine } : {}),
       ...(issued.notesBelow ? { notesBelow: issued.notesBelow } : {}),
+      ...(issued.notesAtFoot ? { notesAtFoot: issued.notesAtFoot } : {}),
       ...(issued.headerColumns ? { headerColumns: issued.headerColumns } : {}),
       instructions: instructions && instructions.length > 0 ? instructions : undefined,
       headerFields: edited.headerFields.map(box),
       footerFields: edited.footerFields?.map(box),
       columns: edited.columns.map((c) => {
-        const beneath = issuedColumns.get(c.key)?.beneath;
-        return beneath === undefined ? c : { ...c, beneath };
+        const own = issuedColumns.get(c.key);
+        const paper: Partial<LogColumn> = {};
+        if (own?.beneath !== undefined) paper.beneath = own.beneath;
+        if (own?.printedLabel !== undefined) paper.printedLabel = own.printedLabel;
+        return Object.keys(paper).length === 0 ? c : { ...c, ...paper };
       }),
     };
     if (edited.instructions === undefined) delete out.instructions;

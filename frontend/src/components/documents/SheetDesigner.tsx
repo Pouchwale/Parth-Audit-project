@@ -8,8 +8,9 @@ import { FormatEditor } from "./FormatEditor";
 import { COMPANY } from "../../data/seed/masterData";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
-import { gridLines, isPrintedBox } from "../../engine/paperLayout";
+import { boxGroups, gridLines, isPrintedBox, placedTables } from "../../engine/paperLayout";
 import { NotesBelow } from "../records/NotesBelow";
+import { PrintedTable } from "../records/PrintedTable";
 import { nextRevisionNo, type FormatRevision } from "../../data/formatEdits";
 import { closeDesignSession, openDesignSession } from "../../engine/designSession";
 import { setLeaveGuard } from "../../store/router";
@@ -691,17 +692,45 @@ export function SheetDesigner({
         </div>
       );
     }
-    // The boxes above the grid stand as many to a line as the paper draws them (REQUIREMENTS §111).
-    const paperColumns = area === "header" ? layout.headerColumns : undefined;
+    // The boxes stand as many to a line as the paper draws them, in the paper's groups under what it prints
+    // above each — a certificate's LABEL STOCK, COATING, FINISHING and TOLERANCE (REQUIREMENTS §111), as on
+    // the record's sheet (engine/paperLayout.ts boxGroups).
     return (
-      <div
-        className={`grid${paperColumns ? " sheet-boxes-paper" : ""}`}
-        style={
-          paperColumns
-            ? ({ "--paper-box-columns": paperColumns, gap: "10px 16px" } as React.CSSProperties)
-            : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: "10px 16px" }
-        }
-      >
+      <>
+        {boxGroups(layout, area).map((group, gi) => {
+          const grid = (
+            <div
+              className={`grid${group.perLine ? " sheet-boxes-paper" : ""}`}
+              style={
+                group.perLine
+                  ? ({ "--paper-box-columns": group.perLine, gap: "10px 16px" } as React.CSSProperties)
+                  : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: "10px 16px" }
+              }
+            >
+              {boxCells(area, group.boxes.map((b) => b.field))}
+            </div>
+          );
+          if (group.lead) return <React.Fragment key={gi}>{grid}</React.Fragment>;
+          return (
+            <div key={gi} className={gi > 0 ? "mt-3" : undefined} data-section="designer-printed-group" data-area={area}>
+              {group.table && <PrintedTable table={group.table} />}
+              {group.lines.map((line, i) => (
+                <p key={i} className="text-sm font-semibold mb-2 notranslate" translate="no" style={{ whiteSpace: "pre-wrap" }}>
+                  {line}
+                </p>
+              ))}
+              {grid}
+            </div>
+          );
+        })}
+      </>
+    );
+  };
+
+  /** The boxes of one group, each with its name and its menu. */
+  const boxCells = (area: BoxArea, boxes: LogHeaderField[]) => {
+    return (
+      <>
         {boxes.map((f) => {
           const isRenaming = renaming?.kind === "box" && renaming.key === f.key;
           const open = menu?.kind === "box" && menu.key === f.key;
@@ -745,7 +774,7 @@ export function SheetDesigner({
             </div>
           );
         })}
-      </div>
+      </>
     );
   };
 
@@ -818,6 +847,12 @@ export function SheetDesigner({
           </button>
         </div>
         <span className="designer-type no-print">{c.fixed ? "Printed on the form" : c.computed ? "Worked out" : typeHint(c)}</span>
+        {/* The name is what a record and Mitra go by; the paper's own heading is said beside it where it differs (§111). */}
+        {c.printedLabel !== undefined && c.printedLabel !== c.label && (
+          <span className="designer-type no-print" data-printed-heading={c.key}>
+            {c.printedLabel ? `The paper heads it “${c.printedLabel}”` : "The paper prints no heading here"}
+          </span>
+        )}
       </>
     );
   };
@@ -1021,11 +1056,14 @@ export function SheetDesigner({
                 })}
               </div>
             )}
-            {layout.referenceTables?.map((t) => (
-              <div key={t.title} className="text-xs text-faint mt-2 no-print">
-                {t.title} — reference material printed with the form; it stays as issued.
-              </div>
-            ))}
+            {/* A table the paper prints among its boxes is drawn there, open (REQUIREMENTS §111). */}
+            {layout.referenceTables
+              ?.filter((t) => !placedTables(layout).has(t.title))
+              .map((t) => (
+                <div key={t.title} className="text-xs text-faint mt-2 no-print">
+                  {t.title} — reference material printed with the form; it stays as issued.
+                </div>
+              ))}
             <div className="mt-3">{boxGrid("header", 200)}</div>
           </div>
         </div>
@@ -1148,6 +1186,8 @@ export function SheetDesigner({
         <div className={`card mt-4${layout.footerFields?.length ? "" : " no-print"}`}>
           <div className="card-pad">{boxGrid("footer", 220)}</div>
         </div>
+        {/* The paper's own text at the foot of the sheet, after every box, as issued (REQUIREMENTS §111). */}
+        {layout.notesAtFoot && layout.notesAtFoot.length > 0 && <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />}
       </div>
 
       {menu && menuBody && (

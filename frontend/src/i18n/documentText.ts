@@ -66,8 +66,14 @@ const en = (s: string): string => DOCUMENT_TEXT_EN[s] ?? s;
 // box starts with, the values of the supplied page kept as the specimen — and
 // rewriting any of that would leave a saved record's value matching none of
 // the choices, or put the display language into a new record.
-const field = <T extends LogHeaderField>(f: T): T => ({ ...f, label: en(f.label) });
-const column = (c: LogColumn): LogColumn => ({ ...c, label: en(c.label) });
+// The words printed above a box and a column's printed heading are printed words too (REQUIREMENTS §111).
+const field = <T extends LogHeaderField>(f: T): T => ({
+  ...f,
+  label: en(f.label),
+  ...(f.printedLabel !== undefined ? { printedLabel: en(f.printedLabel) } : {}),
+  ...(f.printedAbove ? { printedAbove: f.printedAbove.map(en) } : {}),
+});
+const column = (c: LogColumn): LogColumn => ({ ...c, label: en(c.label), ...(c.printedLabel ? { printedLabel: en(c.printedLabel) } : {}) });
 type PrintedRow = Record<string, string | number | null>;
 const row = (r: PrintedRow): PrintedRow => {
   const out: PrintedRow = { ...r };
@@ -81,6 +87,7 @@ function printedTextIn(layout: LogSheetLayout): LogSheetLayout {
     instructions: layout.instructions?.map(en),
     // The words the paper prints below its grid and on an entry's second line (REQUIREMENTS §111).
     notesBelow: layout.notesBelow?.map(en),
+    notesAtFoot: layout.notesAtFoot?.map(en),
     secondLine: layout.secondLine ? { label: en(layout.secondLine.label) } : undefined,
     headerFields: layout.headerFields.map(field),
     columns: layout.columns.map(column),

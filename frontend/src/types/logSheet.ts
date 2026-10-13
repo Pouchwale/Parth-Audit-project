@@ -47,12 +47,31 @@ export interface LogHeaderField {
    */
   printedLabel?: string;
   /**
-   * Below the grid only: lines the paper prints across the sheet just above this
-   * box — F/MNT/08's declaration and its "Hand over & Take over Protocol"
-   * heading — and the boxes from this one on are drawn under them in the
-   * paper's two columns, a head beside its date (REQUIREMENTS §93).
+   * Lines the paper prints across the sheet just above this box — F/MNT/08's
+   * declaration and its "Hand over & Take over Protocol" heading below the grid
+   * (REQUIREMENTS §93), a certificate of analysis' LABEL STOCK above it and its
+   * COATING and FINISHING below it (§111) — and the boxes from this one on, to
+   * the next box that starts a group of its own, are drawn under them: below the
+   * grid in the paper's two columns, a head beside its date, unless
+   * `boxesPerLine` says otherwise; above it as the other boxes above it are.
    */
   printedAbove?: string[];
+  /**
+   * THE TABLE THE PAPER PRINTS JUST ABOVE THIS BOX (REQUIREMENTS §111): the
+   * title of one of the layout's `referenceTables` — the certificates of
+   * analysis print their TOLERANCE between the FINISHING boxes and the notes —
+   * drawn open in that place, on the sheet and in its print, not behind "Show"
+   * above the sheet. The box starts a group of its own, as with printedAbove.
+   */
+  tableAbove?: string;
+  /**
+   * HOW MANY BOXES THE PAPER PUTS ON ONE LINE from this box on, to the next box
+   * that starts a group of its own (REQUIREMENTS §111): F/QC/06's LABEL STOCK
+   * is three across (Face Material, Adhesive, Release Liner), an inspection
+   * record's lot status takes a line of its own and its two signatures stand
+   * side by side. The box starts a group of its own.
+   */
+  boxesPerLine?: number;
   /**
    * THE VALUE THE PAPER PRINTS IN THE BOX (REQUIREMENTS §111): F/QC/11 prints
    * "1-54, 2-55, 3-56, 4-57" in its Device ID No box, "LAB" in Location and
@@ -68,6 +87,15 @@ export interface LogHeaderField {
 export interface LogColumn {
   key: string;
   label: string; // verbatim column heading
+  /**
+   * THE HEADING THE PAPER PRINTS OVER THE COLUMN, where its name (`label`, which
+   * a record's history, Mitra and the checks go by) has to say what the paper
+   * leaves unsaid (REQUIREMENTS §111): F/QC/25 prints no heading over its
+   * descriptions or its observations, the tolerance card none over its panels'
+   * headings, so "" draws the heading empty. The sheet and its print show these
+   * words; everything else, the name.
+   */
+  printedLabel?: string;
   type: LogFieldType;
   unit?: string; // e.g. "kg", "Sec.", "°C"
   options?: string[];
@@ -217,6 +245,14 @@ export interface LogSheetLayout {
    * boxes flow as many to a line as the screen holds.
    */
   headerColumns?: number;
+  /**
+   * The paper's text AT THE FOOT of the sheet, after the boxes below the grid,
+   * verbatim and in its order (REQUIREMENTS §111): F/QC/21's "This is a system
+   * generated document ...", the certificates of analysis' "THIS IS A SYSTEM
+   * GENERATED DOCUMENT." and their corporate office. `notesBelow` is what the
+   * paper prints straight under the grid. Never filled in, never stored.
+   */
+  notesAtFoot?: string[];
   // Fields printed BELOW the grid (lot status, reason for deviation,
   // inspected-by ...). Stored in LogSheetData.header alongside headerFields.
   footerFields?: LogHeaderField[];
