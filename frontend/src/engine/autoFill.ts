@@ -35,7 +35,8 @@ import { withComputedCells } from "./computedCells";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
-import { GRADE_ACTIONS, GRADE_DEFECTS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
+import { GRADE_ACTIONS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
+import { documentTextIn } from "../i18n/documentText";
 import { LINE_CLEARANCE_REGISTERS, lineClearanceChangeovers } from "./lineClearanceSample";
 
 // DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
@@ -732,7 +733,7 @@ function observeRow(doc: DocumentDefinition, layout: LogSheetLayout, row: LogShe
   return row;
 }
 
-/** F/QC/13: the grade against one printing parameter, its defect count, and Pass?. */
+/** F/QC/13: the grade against one printing parameter, and Pass?. The paper has no defect count (REQUIREMENTS §111). */
 function varyGrade(layout: LogSheetLayout, row: LogSheetRow, dueDate: string, index: number): LogSheetRow {
   // Pass? follows the day's grade, never the last sheet's: a "No" written
   // under an F grade once must not follow every sheet after it.
@@ -746,7 +747,6 @@ function varyGrade(layout: LogSheetLayout, row: LogSheetRow, dueDate: string, in
   const rng = makeRng(`grade|${dueDate}|${index}`);
   const grade = weightedPick(rng, GRADE_MIX);
   row.grade = grade;
-  row.defectCount = rng.pick(GRADE_DEFECTS[grade] ?? ["-"]);
   // An F grade stops printing (the form's own rule), so it never passes.
   row.pass = grade === "F" ? "No" : (ownPass ?? (row.pass === "No" ? "Yes" : row.pass));
   return row;
@@ -1098,7 +1098,8 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       ];
     }
     case "qc-inprocess-printing": {
-      const grades = rows.map((r) => `${String(r.parameter).split(" (")[1]?.replace(")", "") ?? r.parameter}: ${r.grade}`).join(", ");
+      // Each parameter by its English, the paper printing it in Gujarati alone (REQUIREMENTS §111).
+      const grades = rows.map((r) => `${documentTextIn(String(r.parameter ?? ""), "en")}: ${r.grade}`).join(", ");
       return [
         `${previous ? "Carried forward" : "Loaded"} grades for item ${h.itemCode} (PO ${h.poNumber}) on ${h.machine}, operator ${h.operator} — ${grades}.`,
         `QA person ${h.qaPerson}. Change any grade that differs on today's sample sheets; an F grade means printing must stop.`,

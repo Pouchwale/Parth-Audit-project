@@ -5,6 +5,7 @@ import { DocumentHeader } from "../documents/DocumentHeader";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
 import { getLogSheetLayoutForRecord } from "../../data/seed/logSheetLayouts";
+import { formatEditFor } from "../../data/formatEdits";
 import { departmentOfDocument } from "../../data/seed/departments";
 import { masterRepository } from "../../data/repositories/masterRepository";
 import { hrMasterRepository } from "../../data/repositories/hrMasterRepository";
@@ -319,6 +320,8 @@ export function LogSheetRecordView({
     <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined} data-bind-record={record.id}>
       <DocumentHeader
         doc={doc}
+        // The title as the paper prints it, unless the plant has renamed the format since (REQUIREMENTS §111).
+        title={layout.paperTitle && !formatEditFor(doc.id)?.name ? layout.paperTitle : undefined}
         dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
         pageLabel={record.headerBlock?.page ?? headerDefaults.page}
         revision={superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined}
@@ -345,12 +348,16 @@ export function LogSheetRecordView({
               </p>
             ))}
             {layout.referenceTables?.map((t) => (
-              <div key={t.title} className="mt-2">
-                <button className="btn btn-ghost btn-sm no-print" style={{ padding: "2px 6px" }} onClick={() => setShowReference((s) => !s)}>
-                  {showReference ? "Hide" : "Show"} {t.title}
-                </button>
-                {showReference && (
-                  <div className="doc-table mt-2" style={{ overflowX: "auto" }}>
+              <div key={t.title} className="mt-2" data-reference-table={t.printed ? "printed" : "on-request"}>
+                {/* A table the paper prints in full (F/QC/13's grade criteria, REQUIREMENTS §111) is drawn open,
+                    on screen and in print, with no "Show" of DCRS's above it. */}
+                {!t.printed && (
+                  <button className="btn btn-ghost btn-sm no-print" style={{ padding: "2px 6px" }} onClick={() => setShowReference((s) => !s)}>
+                    {showReference ? "Hide" : "Show"} {t.title}
+                  </button>
+                )}
+                {(showReference || t.printed) && (
+                  <div className={`doc-table${t.printed ? "" : " mt-2"}`} style={{ overflowX: "auto" }}>
                     <table className="compact">
                       <thead>
                         <tr>
@@ -363,7 +370,7 @@ export function LogSheetRecordView({
                         {t.rows.map((r, ri) => (
                           <tr key={ri}>
                             {r.map((cell, ci) => (
-                              <td key={ci} className={`text-xs ${ci === 0 ? "font-semibold" : ""}`} style={{ verticalAlign: "top", whiteSpace: "normal" }}>
+                              <td key={ci} className={`text-xs ${ci === 0 ? "font-semibold" : ""}`} style={{ verticalAlign: "top", whiteSpace: t.printed ? "pre-line" : "normal" }}>
                                 {cell}
                               </td>
                             ))}
@@ -736,6 +743,15 @@ function PmPlanLine({ line }: { line: PmPlanLineView }) {
 
 // The columns as the grid heads them: consecutive columns carrying the same
 // `group` become one run, and every other column is a run of its own.
+/**
+ * A printed cell as the record holds it, or — where the record was written before the format printed that
+ * column (F/QC/13's own સ.નં, REQUIREMENTS §111) — as the format prints it on that line.
+ */
+function printedCell(row: LogSheetRow, key: string, fixedRow: Record<string, string | number | null> | undefined): string | number | null | undefined {
+  const held = row[key];
+  return held === undefined && fixedRow ? fixedRow[key] : held;
+}
+
 function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn[] }[] {
   const runs: { group?: string; columns: LogColumn[] }[] = [];
   for (const col of columns) {
@@ -849,7 +865,7 @@ const SheetRow = React.memo(function SheetRow({
               // A printed cell — the parameter, the material, the specification
               // the form prints down its side — reads in the chosen language;
               // a written one reads exactly as it was written. Its own number is the Sr. No.'s (§102).
-              value={col.fixed ? documentTextIn(numbered ? withoutLineNumber(row[c.key], index + 1) : row[c.key], lang) : row[c.key]}
+              value={col.fixed ? documentTextIn(numbered ? withoutLineNumber(printedCell(row, c.key, fixedRow), index + 1) : printedCell(row, c.key, fixedRow), lang) : row[c.key]}
               editable={editable && !col.fixed && !col.computed}
               onChange={(v) => onCell(row.id, c.key, v)}
               employees={employees}
@@ -972,8 +988,10 @@ function HeaderFieldInput({
   // and offering them the people on the payroll put a person's name one tap
   // away from a machine's box. "Sign" is a word of its own: "Designation" holds
   // a post, not a person (REQUIREMENTS §76).
+  // A Gujarati paper's label is read by its English (F/QC/13's "ઓપરેટર", "QA પર્સન", REQUIREMENTS §111).
+  const named = `${issuedLabel} ${documentTextIn(issuedLabel, "en")}`;
   const isName =
-    /operator|name|inspected|person|\bsign/i.test(issuedLabel) && field.type === "text" && !/job name|customer name|machine|equipment|equipoment/i.test(issuedLabel);
+    /operator|name|inspected|person|\bsign/i.test(named) && field.type === "text" && !/job name|customer name|machine|equipment|equipoment/i.test(named);
   // Where the box's value lives in the record — header and footer boxes alike
   // live in data.header — for an edited Excel file read back (REQUIREMENTS §81).
   // A box the sheet works out is not bound.
@@ -1010,7 +1028,7 @@ function HeaderFieldInput({
       <div className="field field-paragraph">
         <label>
           {field.printedLabel ?? field.label}
-          {field.required ? " *" : ""}
+          {field.required ? <span className="no-print"> *</span> : ""}
         </label>
         <ParagraphInput value={value} editable={editable} onChange={onChange} bind={bound} />
       </div>
@@ -1020,7 +1038,8 @@ function HeaderFieldInput({
     <div className="field">
       <label>
         {field.printedLabel ?? field.label}
-        {field.required ? " *" : ""}
+        {/* The mark of a box that must be written is DCRS's, not the paper's: it does not print (REQUIREMENTS §111). */}
+        {field.required ? <span className="no-print"> *</span> : ""}
       </label>
       {/* A BOX THE FORM PRINTS AS A CHOICE is offered as one, and "yesno"
           means the same thing here as it does in the grid above: the two

@@ -118,6 +118,8 @@ test("a form that numbers its own lines says so, and only such a form", () => {
     "qc-coa-label",
     "qc-coa-sleeve",
     "qc-gsm-plate-calibration",
+    // F/QC/13 prints its own સ.નં, ૧ to ૬ (REQUIREMENTS §111).
+    "qc-inprocess-printing",
     // The line clearances have no Sr. No. column on the paper: F/QC/15-A to G open with Completion Date, the two
     // Gujarati checklists with પ્રોસેસ (REQUIREMENTS §111).
     "qc-line-clearance-materials",

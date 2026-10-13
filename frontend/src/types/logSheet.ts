@@ -173,10 +173,23 @@ export interface ReferenceTable {
   title: string;
   columns: string[];
   rows: string[][];
+  /**
+   * PRINTED ON THE PAGE, NOT SHOWN ON REQUEST (REQUIREMENTS §111): F/QC/13 prints its grade criteria in full
+   * under the procedure, so the table is drawn open on the sheet and in its print, with no title of DCRS's above
+   * it, each cell keeping its own lines. Without it the table is a reference shown on a click and never printed.
+   */
+  printed?: true;
 }
 
 export interface LogSheetLayout {
   documentId: string;
+  /**
+   * THE TITLE AS THE PAPER PRINTS IT, where the name the document is filed and found under says more
+   * (REQUIREMENTS §111): F/QC/13 prints "In Process Quality Control", filed as "In Process Quality Control
+   * (Printing) — ઇન પ્રોસેસ ક્વોલિટી કંટ્રોલ"; the Nivea utility test is printed on the "MINUTES OF MEETINGS"
+   * format. A record and its print are headed with it; a format the plant has renamed is headed with its new name.
+   */
+  paperTitle?: string;
   // Text printed on the form above the grid (instructions, recommended
   // values, ALC protocol, ...), verbatim. Only what the paper prints: an
   // explanation of DCRS's own is never put here (REQUIREMENTS §111).

@@ -172,21 +172,22 @@ QUALITY_IN_ENGLISH = [
     "Packing table", "Slit rolls",
 ]
 
+# F/QC/13 as the owner's original of 13-Oct-2026, "F-QC-13 IPQC format (2).jpg" (REQUIREMENTS s111): the
+# procedure, the grade criteria printed in full, the eight boxes, the paper's own Sr. No. and its five columns,
+# and the five boxes below the grid, which the paper prints in English.
 FQC13_IN_ENGLISH = [
-    "Procedure:- During the production process the Q.A. person shall ensure that samples of 3 full sheets of the job are taken every 6000 meters.",
-    "Grading criteria: All grades must be given as per the criteria below.",
-    "<11% of total ups = A",
-    "Item Code", "PO Number", "Machine", "Operator", "QA Person", "Sample Qty, sheets", "Total Ups", "Order Length, m",
-    "Parameter", "Test chart", "Grade", "Pass?", "Defect count",
+    "Procedure:– During the production process the Q.A. person shall ensure that samples of 3 full sheets of the job are taken every 6000 meters.",
+    "Item Code", "PO Number", "Date", "Machine", "Operator", "QA Person", "Order Length in Meter", "Sample Quantity",
+    "Sr. No.", "Parameter", "Test criteria", "Grade", "Pass?",
     "Registration", "Shade", "Coating", "Punching", "Print pressure", "Print deformities",
-    "M.C. description (if applicable)", "Reason for signing (override)", "Name of the person signing off", "Remarks", "QA Sign",
+    "Description of NC (If applicable):", "Sign Off Reason (If Applicable)", "Sign Off By: (If Applicable)", "REMARKS:", "QA Sign:",
 ]
 
 GRADE_CHART_IN_ENGLISH = [
-    "Grade chart — A / B / C / F per parameter",
-    "All registers are perfectly in order; no print has been spoiled.",
-    "Major and serious misregistration issues or overlap lines are clearly visible.",
-    "Excessive shallow punching / heavy misregistration found.",
+    "Grade criteria",
+    "A – All registers are perfectly in order. No print has been judged spoiled.",
+    "F – Major and serious misregistration issues or overlap lines are clearly visible.",
+    "F – Excessive deep punching, heavy misregistration found.",
 ]
 
 BOPP_PARAMETERS = ["SIZE (mm)", "COLOUR", "THICKNESS OF FILM (µm)", "CORONA TREATMENT (Dynes)"]
@@ -778,18 +779,15 @@ with sync_playwright() as p:
         not missing and not GUJARATI.search(sheet),
         missing[:6] or GUJARATI.findall(sheet)[:8] or sheet[:500],
     )
-    grade_chart = page.locator("[data-section='document-preview'] button:has-text('Grade chart')")
-    if grade_chart.count():
-        grade_chart.first.click()
-        page.wait_for_timeout(500)
-        chart = printed_text(page)
-        check(
-            "…and the grade chart printed with it, A to F, in English",
-            all(w in chart for w in GRADE_CHART_IN_ENGLISH) and not GUJARATI.search(chart),
-            [w for w in GRADE_CHART_IN_ENGLISH if w not in chart][:4] or GUJARATI.findall(chart)[:6],
-        )
-    else:
-        check("…and the grade chart printed with it, A to F, in English", False, "no Grade chart button on the preview")
+    # The grade criteria are printed on the page in full, as the paper prints them: open, with no button (s111).
+    printed_chart = page.locator("[data-section='document-preview'] [data-reference-table='printed']")
+    chart = printed_chart.first.evaluate("e => e.textContent") if printed_chart.count() else ""
+    check(
+        "…and the grade criteria printed with it in full, A to F, in English, with no button to show them",
+        printed_chart.count() == 1 and all(w in chart for w in GRADE_CHART_IN_ENGLISH) and not GUJARATI.search(chart)
+        and page.locator("[data-section='document-preview'] button:has-text('Grade')").count() == 0,
+        [w for w in GRADE_CHART_IN_ENGLISH if w not in chart][:4] or GUJARATI.findall(chart)[:6] or printed_chart.count(),
+    )
 
     # The form READS in English; what the record HOLDS is the Gujarati the
     # department issued, so a printed line is never rewritten by being read.

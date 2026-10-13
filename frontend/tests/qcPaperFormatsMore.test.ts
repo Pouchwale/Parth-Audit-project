@@ -216,4 +216,63 @@ test("the Gujarati line clearance checklists: the paper's words alone, no Englis
   const html = await sheet("qc-line-clearance-quality", createDefaultData(docOf("qc-line-clearance-quality"), DAY, master) as LogSheetData);
   assert.ok(!headings(html).includes("Sr. No."));
   assert.ok(!text(html).includes("એક જ પાના પર"), "DCRS's own line that the two share a page is gone");
+  assert.deepEqual([materials.paperTitle, quality.paperTitle], ["લાઈન કિલયરન્સ", "ક્વોલીટી શહી"], "each headed with the words at the head of its form");
+  assert.ok(text(html).includes("QUALITY SIGN"), "read in English with English chosen");
+});
+
+// ---------------------------------------------------------------------------
+// 3. F/QC/13, In Process Quality Control, "F-QC-13 IPQC format (2).jpg"
+
+test("F/QC/13: the procedure, the grade criteria printed in full, eight boxes three to a line, સ.નં | પેરામીટર | ટેસ્ટ ક્રાઈટ | ગ્રેડ | પાસ?, the five boxes below in English", async () => {
+  const id = "qc-inprocess-printing";
+  const layout = layoutOf(id);
+  assert.equal(printedAbove(layout).length, 1, "the procedure alone: the grading rules and the ups line are not on this paper");
+  assert.ok(printedAbove(layout)[0].startsWith("પ્રોસીઝરઃ– ઉત્પાદન ની પ્રક્રિયા દરમિયાન Q.A. વ્યકિત ખાતરી કરશે કે ૩ પૂર્ણ સીટ્સ ના જોબના દર ૬૦૦૦ મીટરે"));
+  assert.ok(printedAbove(layout)[0].endsWith("તો Q.A. મેનેઝર તેમજ સુપરવાઈઝર ની શહી કરાવવી આવશ્યક છે."));
+  const chart = layout.referenceTables?.[0];
+  assert.ok(chart?.printed, "the grade criteria are printed on the page, not shown on request");
+  assert.deepEqual(chart!.columns, ["સ.નં", "પેરામીટર", "ગ્રેડ ક્રાઈટ"]);
+  assert.deepEqual(chart!.rows.map((r) => r[1]), ["રજિસ્ટ્રેશન", "શેડ", "કોટીંગ", "પંચીંગ", "પ્રીન્ટ પ્રેસર", "પ્રીન્ટ ડીફોરમીટસ"]);
+  for (const row of chart!.rows) assert.deepEqual(row[2].split("\n").map((l) => l.slice(0, 2)), ["A–", "B–", "C–", "F–"], row[1]);
+  assert.equal(layout.headerColumns, 3);
+  assert.deepEqual(layout.headerFields.map((f) => [f.key, f.label]), [
+    ["itemCode", "આઈટમ કોડ"], ["poNumber", "પ્રો. નંબર"], ["date", "તારીખ"],
+    ["machine", "મશીન"], ["operator", "ઓપરેટર"], ["qaPerson", "QA પર્સન"],
+    ["orderLength", "ઓર્ડર લેન્થ ઈન મીટર"], ["sampleQty", "સેમ્પલ કોલીટી"],
+  ]);
+  assert.deepEqual(layout.columns.map((c) => c.label), ["સ.નં", "પેરામીટર", "ટેસ્ટ ક્રાઈટ", "ગ્રેડ", "પાસ?"]);
+  assert.equal(layout.ownLineNumbers, true);
+  assert.equal(layout.rowMode.kind, "fixedRows");
+  if (layout.rowMode.kind === "fixedRows") {
+    assert.deepEqual(layout.rowMode.rows.map((r) => r.srNo), ["૧", "૨", "૩", "૪", "૫", "૬"]);
+    assert.deepEqual(layout.rowMode.rows.map((r) => r.parameter), ["રજિસ્ટ્રેશન", "શેડ", "કોટીંગ", "પંચીંગ", "પ્રીન્ટ પ્રેસર", "પ્રીન્ટ ડીફોર્મીટસ"]);
+  }
+  assert.deepEqual(layout.footerFields?.map((f) => f.label), ["Description of NC (If applicable):", "Sign Off Reason (If Applicable)", "Sign Off By: (If Applicable)", "REMARKS:", "QA Sign:"]);
+  // Every word of it reads in English when English is chosen.
+  const gujarati = /[઀-૿]/;
+  const words = [
+    ...printedAbove(layout), ...chart!.columns, ...chart!.rows.flat(),
+    ...layout.headerFields.map((f) => f.label), ...layout.columns.map((c) => c.label),
+    ...(layout.rowMode.kind === "fixedRows" ? layout.rowMode.rows.flatMap((r) => [r.srNo, r.parameter, r.testChart].map(String)) : []),
+  ];
+  assert.deepEqual(words.filter((w) => gujarati.test(documentTextIn(w, "en"))), [], "a line with no English");
+  // The sheet: the criteria open and printed, the paper's own numbers and no Sr. No. of the sheet's.
+  const filled = autoFillRecord(docOf(id), DAY, master, undefined)!.data as LogSheetData;
+  const html = await sheet(id, filled);
+  assert.match(html, /data-reference-table="printed"/);
+  assert.equal(layout.paperTitle, "In Process Quality Control");
+  assert.ok(text(html).includes("IN PROCESS QUALITY CONTROL") && !text(html).includes("(PRINTING)"), "headed with the paper's own title");
+  // English is chosen in the harness, so the Gujarati form reads in English (REQUIREMENTS §58).
+  assert.ok(!/>\s*Show /.test(html), "no Show button of DCRS's");
+  assert.ok(text(html).includes("A – All registers are perfectly in order. No print has been judged spoiled."), "the criteria are on the sheet");
+  const grid = between(html, 'class="compact log-sheet', "</table>");
+  assert.deepEqual(headings(grid), ["Sr. No.", "Parameter", "Test criteria", "Grade", "Pass?"], "the paper's five columns, its own સ.નં the first");
+  // A sample fill grades each parameter and writes no defect count, which the paper has no column for.
+  assert.equal(filled.rows.length, 6);
+  assert.ok(filled.rows.every((r) => ["A", "B", "C", "F", "-"].includes(String(r.grade)) && !("defectCount" in r)), JSON.stringify(filled.rows));
+  assert.equal(filled.header.date, DAY);
+  assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, filled)).errors, []);
+  // A record written before the paper's own સ.નં was a column reads the paper's number on each line.
+  const older = { ...filled, rows: filled.rows.map(({ srNo: _n, ...r }) => r) } as LogSheetData;
+  assert.match(text(between(await sheet(id, older), 'class="compact log-sheet', "</table>")), / 6 Print deformities /);
 });

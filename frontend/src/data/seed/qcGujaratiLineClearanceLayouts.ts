@@ -43,6 +43,8 @@ const parameterRows = (rows: [string, string][]) => rows.map(([process, paramete
 export const QC_GUJARATI_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-line-clearance-materials": {
     documentId: "qc-line-clearance-materials",
+    // The words the paper prints at the head of the form, in its first box (REQUIREMENTS §111).
+    paperTitle: "લાઈન કિલયરન્સ",
     instructions: [
       "પ્રોસેસઃ– નીચે લખેલા દરેક પોઈન્ટ માટે QUALIFIED Q.A વ્યકિત એ પહેલી સાચી સીટ તપાસવી. જો દરેક પોઈન્ટ સાચો ઠરે તો એનાથી લાગતી પ્રોસેસ ઉપર ✓ અને સહી કરવી. સહી થયા બાદ ઓપરેટર પ્રોડકશન ચાલુ કરી શકે છે. લાઈન કિલયરન્સ બોર્ડ પર સાચો જોબ લખેલો છે કે નહી તે પણ તપાસવું કોઈપણ તકલીફ દેખાય તો QA MANAGER ને જાણ કરવી.",
     ],
@@ -76,6 +78,8 @@ export const QC_GUJARATI_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> 
 
   "qc-line-clearance-quality": {
     documentId: "qc-line-clearance-quality",
+    // The words the paper prints at the head of the form, in its first box (REQUIREMENTS §111).
+    paperTitle: "ક્વોલીટી શહી",
     instructions: [
       "પ્રોસીઝરઃ– ઓપરેટર ખાતરી કરવી જોઈ એ કે નીચે ની સૂચિબદ્ધસ બ્ધીજ આઈટમ્સો ઉત્પાદન ક્ષેત્ર માં થી દૂર કરવા માં આવી છે. અને યોગ્ય રીસે મુકવા માં આવી છે. તે બ્ધીજ સામગ્રી સંગ્રહ સ્થાન થી દૂર કર્યા પછી. QA ના વ્યકિત એ લાઈન કિલયરન્સ તપાસી લેવું. અને તે મંજુર કરવું આવશ્યક છે. તે પણ ખાતરી કરવી જ જોઈ એ કે લાઈન કિલયરન્સ બોર્ડ પર સાચા જોબ નો ઉલ્લેખ કરવા માં આવ્યો છે કે નહી. જો કોઈ સમસ્યા જાણ થઈ હોય તો બ્ધુજ કિલયરન્સ થઈ જાય પછી જ ઉત્પાદન શરૂ થવું જોઈએ",
     ],
