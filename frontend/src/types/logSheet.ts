@@ -105,6 +105,27 @@ export interface LogHeaderField {
    * never write it, and nobody is asked for it.
    */
   printed?: string;
+  /**
+   * THE CHOICES THE PAPER PRINTS ACROSS THE BOX'S LINE, in the order of `options`, for the one that holds
+   * to be marked (REQUIREMENTS §111, part 4): an incoming material record prints "LOT STATUS ⇒ ACCEPTED |
+   * REJECT & SEND BACK TO SUPPLIER / SCRAP | SEGREGATION | ACCEPTED ON DEVIATION" and the inspector marks
+   * one. Each is the paper's own word for the option at its place — F/QC/21 Flexo Ink prints "Accepted" —
+   * while the record keeps the option itself. The sheet signed off and every print show the words across
+   * with the chosen one marked; open for writing, the box is the choice box it always was.
+   */
+  choicesAcross?: string[];
+  /**
+   * THE WORDS THE PAPER PRINTS UNDER THE BOX (REQUIREMENTS §111, part 4): an incoming record heads its
+   * signature box "INSPECTED BY" and prints "QA INSPECTOR" under the space it is signed in; F/QC/25 prints
+   * "(QA Inspector)" under "Testing By". The box's name stays what it was.
+   */
+  printedBelow?: string;
+  /**
+   * THE VALUE WRITTEN INSIDE THE PAPER'S SENTENCE (REQUIREMENTS §111, part 4): a certificate of analysis
+   * prints "This material should be retested on 03/07/2022 before usage." — the words before the box, the
+   * box, the words after it, on one line.
+   */
+  inSentence?: { before: string; after: string };
 }
 
 export interface LogColumn {
@@ -222,8 +243,14 @@ export type LogRowMode =
 
 export interface ReferenceTable {
   title: string;
+  /** The headings over its columns; none, and no heading row is drawn. */
   columns: string[];
   rows: string[][];
+  /**
+   * THE PAPER PRINTS NO TITLE OVER IT (REQUIREMENTS §111, part 4): F/QC/25's letterhead, three cells side by side.
+   * `title` is then only its name among the layout's tables (a box's `tableAbove`), never drawn.
+   */
+  untitled?: true;
 }
 
 export interface LogSheetLayout {
@@ -250,6 +277,17 @@ export interface LogSheetLayout {
    * is empty on the others.
    */
   srNoShowsDate?: true;
+  /**
+   * THE SR. NO. PRINTED WITH ITS FULL STOP (REQUIREMENTS §111, part 4): thirteen of the incoming material
+   * records and F/QC/36 number their lines "1.", "2.", "3."; F/QC/21 Flexo Ink, like most papers, "1", "2".
+   */
+  srNoFullStop?: true;
+  /**
+   * THE PAPER'S HEADINGS IN THE PAPER'S OWN LETTERS (REQUIREMENTS §111, part 4): the sheet prints every
+   * heading of its tables in capitals, which turned a certificate's "Length(mm)" into "LENGTH(MM)" — a unit
+   * the paper does not print. A sheet that says so prints its headings as they are written.
+   */
+  headingsAsPrinted?: true;
   /**
    * EVERY ENTRY TAKES TWO LINES (REQUIREMENTS §111): the second line's own
    * heading, written in the first column — F/QC/12's "Deviation %". The columns

@@ -746,7 +746,7 @@ export function SheetDesigner({
                 ) : (
                   <button type="button" className="designer-label notranslate" translate="no" data-action="rename-box" data-box={f.key} title="Click to rename" onClick={() => setRenaming({ kind: "box", area, key: f.key })}>
                     {f.label}
-                    {f.required ? " *" : ""}
+                    {f.required ? <span className="no-print"> *</span> : ""}
                   </button>
                 )}
                 <button
@@ -773,6 +773,22 @@ export function SheetDesigner({
                 <div className="input input-sm designer-sample">
                   <span className="no-print">{typeHint(f)}</span>
                 </div>
+              )}
+              {/* The paper's own marks around the box (REQUIREMENTS §111, part 4), said as the record's sheet draws them. */}
+              {f.choicesAcross && f.choicesAcross.length > 0 && (
+                <span className="designer-type no-print" data-printed-choices={f.key}>
+                  The paper prints the choices across: {f.choicesAcross.join(" | ")}
+                </span>
+              )}
+              {f.inSentence && (
+                <span className="designer-type no-print" data-printed-sentence={f.key}>
+                  Printed inside the sentence “{f.inSentence.before} … {f.inSentence.after}”
+                </span>
+              )}
+              {f.printedBelow && (
+                <span className="box-printed-below notranslate" translate="no" data-printed-below={f.key}>
+                  {f.printedBelow}
+                </span>
               )}
             </div>
           );
@@ -833,7 +849,7 @@ export function SheetDesigner({
           ) : (
             <button type="button" className="designer-label notranslate" translate="no" data-action="rename-column" data-column={c.key} title="Click to rename" onClick={() => setRenaming({ kind: "column", key: c.key })}>
               {c.label}
-              {c.required ? " *" : ""}
+              {c.required ? <span className="no-print"> *</span> : ""}
             </button>
           )}
           <button
@@ -861,7 +877,8 @@ export function SheetDesigner({
   };
 
   return (
-    <div ref={root} data-section="sheet-designer" data-document={doc.id}>
+    // The paper's headings in its own letters where it writes them so (REQUIREMENTS §111, part 4), as on the record's sheet.
+    <div ref={root} className={layout?.headingsAsPrinted ? "headings-as-printed" : undefined} data-section="sheet-designer" data-document={doc.id}>
       <div className="designer-toolbar no-print" data-section="designer-toolbar" role="toolbar" aria-label="Design the format">
         <button className="btn btn-secondary btn-sm" data-action="designer-add-column" onClick={() => insertColumn()}>
           + Column
@@ -1143,6 +1160,7 @@ export function SheetDesigner({
                       <PrintedLine
                         index={i}
                         numbered={!(layout && numbersOwnLines(layout))}
+                        fullStop={!!layout?.srNoFullStop}
                         row={row}
                         columns={lines.first}
                         focusKey={focusCell?.index === i ? focusCell.key : null}
@@ -1162,7 +1180,7 @@ export function SheetDesigner({
                   <React.Fragment key={i}>
                     <tr className="designer-sample-line">
                       <td className="text-muted" data-sr-no="">
-                        {layout.srNoShowsDate ? (i === 0 ? <span className="text-xs no-print">the record&apos;s date</span> : null) : i + 1}
+                        {layout.srNoShowsDate ? (i === 0 ? <span className="text-xs no-print">the record&apos;s date</span> : null) : `${i + 1}${layout.srNoFullStop ? "." : ""}`}
                       </td>
                       {lines.first.map((c) => (
                         <td key={c.key} className="notranslate" translate="no">
@@ -1386,6 +1404,7 @@ function ChangeList({ changes }: { changes: string[] }) {
 const PrintedLine = React.memo(function PrintedLine({
   index,
   numbered,
+  fullStop,
   row,
   columns,
   focusKey,
@@ -1397,6 +1416,8 @@ const PrintedLine = React.memo(function PrintedLine({
   index: number;
   /** The handle shows the line's number, except on a form that numbers its own lines (REQUIREMENTS §102). */
   numbered: boolean;
+  /** The number printed with its full stop, "1.", as the paper prints it (REQUIREMENTS §111, part 4). */
+  fullStop?: boolean;
   row: PrintedRow;
   columns: LogColumn[];
   /** The printed cell of this line to put the cursor in — a line just added — or null. */
@@ -1409,7 +1430,7 @@ const PrintedLine = React.memo(function PrintedLine({
   return (
     <tr data-designer-item="line" data-index={index}>
       <td className="text-muted designer-line-no">
-        {numbered ? index + 1 : null}
+        {numbered ? `${index + 1}${fullStop ? "." : ""}` : null}
         <button type="button" className="designer-menu-button no-print" data-action="line-menu" data-line={index} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={`What can be done to line ${index + 1}`} onClick={() => onMenu(index)}>
           <FiChevronDown size={13} />
         </button>

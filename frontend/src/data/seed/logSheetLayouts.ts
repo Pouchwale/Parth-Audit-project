@@ -1,7 +1,7 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
 import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
-import { FLEXO_INK_SYSTEM_NOTE, QC_INCOMING_LAYOUTS } from "./qcIncomingLayouts";
+import { FLEXO_INK_SYSTEM_NOTE, QC_INCOMING_LAYOUTS, signatureBoxes } from "./qcIncomingLayouts";
 import { QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
 import { QC_REGISTER_LAYOUTS, TOLERANCE_CARD_NOTE } from "./qcRegisterLayouts";
@@ -260,6 +260,8 @@ const inspectionColumns = (): LogColumn[] => [
 ];
 
 const fixedParams = (list: [string, string][]) => list.map(([parameter, specification]) => ({ parameter, specification }));
+/** F/QC/36's four lot statuses, as printed across its LOT STATUS line ("REJECT / SCRAP" where the incoming records print more). */
+const SB_LAMINATION_LOT_STATUS = ["ACCEPTED", "REJECT / SCRAP", "SEGREGATION", "ACCEPTED ON DEVIATION"];
 
 Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/37 — Inspection Record – Pouching Process (00/15.12.2024)
@@ -309,10 +311,14 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   // 13-Oct-2026 (§111): the header box is two boxes to a line, read across as the paper reads it;
   // below the grid the LOT STATUS and the REASON each take a line, and the paper's two signatures,
   // INSPECTED BY (QA INSPECTOR) and APPROVED BY (QA MANAGER), stand side by side — the paper prints
-  // both, so both are boxes here (the verifier's Verify is stamped as on every record besides).
+  // both, so both are boxes here (the verifier's Verify is stamped as on every record besides). And
+  // (part 4) the statuses printed across their line, QA INSPECTOR and QA MANAGER under the signatures,
+  // the lines numbered "1.", "2.", "3.".
   "qc-inspection-sb-lamination": {
     documentId: "qc-inspection-sb-lamination",
     headerColumns: 2,
+    // Its lines numbered "1.", "2.", "3." as printed (REQUIREMENTS §111, part 4).
+    srNoFullStop: true,
     headerFields: [
       { key: "fgCode", label: "JOB CODE (FG CODE)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO NUMBER", type: "text", required: true, autoFill: { carryForward: true } },
@@ -340,11 +346,22 @@ Object.assign(LOG_SHEET_LAYOUTS, {
       ]),
     },
     footerFields: [
-      { key: "lotStatus", label: "LOT STATUS", type: "select", options: ["ACCEPTED", "REJECT / SCRAP", "SEGREGATION", "ACCEPTED ON DEVIATION"], required: true, autoFill: { default: "ACCEPTED" }, boxesPerLine: 1 },
+      // The four statuses printed across the line for the inspector to mark one (choicesAcross, §111 part 4).
+      {
+        key: "lotStatus",
+        label: "LOT STATUS",
+        type: "select",
+        options: SB_LAMINATION_LOT_STATUS,
+        choicesAcross: SB_LAMINATION_LOT_STATUS,
+        required: true,
+        autoFill: { default: "ACCEPTED" },
+        boxesPerLine: 1,
+      },
       { key: "deviationReason", label: "REASON FOR DEVIATION / REJECTION / SEGREGATION", type: "text" },
-      { key: "inspectedBy", label: "INSPECTED BY (QA INSPECTOR)", type: "text", required: true, autoFill: { sign: true }, boxesPerLine: 2 },
-      // Printed on the paper beside INSPECTED BY (REQUIREMENTS §111); signed by the QA Manager, so never required of the inspector.
-      { key: "approvedBy", label: "APPROVED BY (QA MANAGER)", type: "text", autoFill: { sign: true } },
+      // INSPECTED BY over QA INSPECTOR and APPROVED BY over QA MANAGER, side by side, as on the incoming records. The
+      // inspector signs; APPROVED BY is printed on the paper beside it (§111) and signed by the QA Manager, so never
+      // required of the inspector.
+      ...signatureBoxes().map((f) => (f.key === "inspectedBy" ? { ...f, required: true } : f)),
     ],
     // Nothing was supplied filled in: these are typical values for the assistant, worded as F/QC/35's register words them.
     specimenHeader: {
@@ -572,6 +589,17 @@ const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
 };
 
 const asPaper = new WeakMap<LogSheetLayout, LogSheetLayout>();
+/** The edited format's tables, with each table an issued box prints above it (tableAbove) that the edit does not hold. */
+function placedTablesFrom(issued: LogSheetLayout, edited: LogSheetLayout): { referenceTables?: LogSheetLayout["referenceTables"] } {
+  const own = edited.referenceTables ?? [];
+  const keys = new Set([...edited.headerFields, ...(edited.footerFields ?? [])].map((f) => f.key));
+  const wanted = new Set([...issued.headerFields, ...(issued.footerFields ?? [])].filter((f) => f.tableAbove && keys.has(f.key)).map((f) => f.tableAbove!));
+  const missing = (issued.referenceTables ?? []).filter((t) => wanted.has(t.title) && !own.some((o) => o.title === t.title));
+  return missing.length > 0 ? { referenceTables: [...own, ...missing] } : {};
+}
+/** The paper's words for a box's choices fit an edited box only while it offers the same choices (else they would print other words). */
+const sameChoices = (own: LogHeaderField, edited: LogHeaderField): boolean =>
+  (own.options ?? []).length === (edited.options ?? []).length && (own.options ?? []).every((o, i) => edited.options?.[i] === o);
 function asThePaper(edited: LogSheetLayout): LogSheetLayout {
   const known = asPaper.get(edited);
   if (known) return known;
@@ -580,8 +608,12 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
   const boxes = [...edited.headerFields, ...(edited.footerFields ?? [])];
   const saysPaper =
     edited.srNoShowsDate !== undefined || edited.secondLine !== undefined || edited.notesBelow !== undefined || edited.headerColumns !== undefined ||
-    edited.notesAtFoot !== undefined || edited.gridAcross !== undefined ||
-    boxes.some((f) => f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined || f.paperColumn !== undefined || f.boxTable !== undefined) ||
+    edited.notesAtFoot !== undefined || edited.gridAcross !== undefined || edited.srNoFullStop !== undefined || edited.headingsAsPrinted !== undefined ||
+    boxes.some(
+      (f) =>
+        f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined || f.paperColumn !== undefined || f.boxTable !== undefined ||
+        f.choicesAcross !== undefined || f.printedBelow !== undefined || f.inSentence !== undefined
+    ) ||
     edited.columns.some((c) => c.beneath !== undefined || c.printedLabel !== undefined);
   if (issued && !saysPaper) {
     const issuedBoxes = new Map([...issued.headerFields, ...(issued.footerFields ?? [])].map((f) => [f.key, f]));
@@ -597,6 +629,10 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       if (own.boxesPerLine !== undefined) paper.boxesPerLine = own.boxesPerLine;
       if (own.paperColumn !== undefined) paper.paperColumn = own.paperColumn;
       if (own.boxTable !== undefined) paper.boxTable = own.boxTable;
+      // The paper's own marks (part 4): its choices printed across, its words under the box, its sentence.
+      if (own.choicesAcross !== undefined && sameChoices(own, f)) paper.choicesAcross = own.choicesAcross;
+      if (own.printedBelow !== undefined) paper.printedBelow = own.printedBelow;
+      if (own.inSentence !== undefined) paper.inSentence = own.inSentence;
       if (own.printedAbove !== undefined && f.printedAbove === undefined) paper.printedAbove = own.printedAbove;
       if (own.printedLabel !== undefined && f.printedLabel === undefined) paper.printedLabel = own.printedLabel;
       return Object.keys(paper).length === 0 ? f : { ...f, ...paper };
@@ -611,7 +647,12 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       ...(issued.notesAtFoot ? { notesAtFoot: issued.notesAtFoot } : {}),
       ...(issued.headerColumns ? { headerColumns: issued.headerColumns } : {}),
       ...(issued.gridAcross ? { gridAcross: issued.gridAcross } : {}),
+      ...(issued.srNoFullStop ? { srNoFullStop: issued.srNoFullStop } : {}),
+      ...(issued.headingsAsPrinted ? { headingsAsPrinted: issued.headingsAsPrinted } : {}),
       instructions: instructions && instructions.length > 0 ? instructions : undefined,
+      // A table the paper prints among the boxes that the edited format never held (F/QC/25's letterhead, part 4)
+      // comes with the box it stands above; the format's own tables are kept as they are.
+      ...placedTablesFrom(issued, edited),
       headerFields: edited.headerFields.map(box),
       footerFields: edited.footerFields?.map(box),
       columns: edited.columns.map((c) => {

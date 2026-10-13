@@ -76,6 +76,11 @@ const field = <T extends LogHeaderField>(f: T): T => ({
   ...(f.boxTable
     ? { boxTable: { ...f.boxTable, columns: f.boxTable.columns.map(en), rows: f.boxTable.rows.map(en), ...(f.boxTable.corner !== undefined ? { corner: en(f.boxTable.corner) } : {}) } }
     : {}),
+  // The paper's own marks (§111, part 4): the words it prints for the choices across the line (never the options,
+  // which are record data), the words under a box, the sentence a value is written inside.
+  ...(f.choicesAcross ? { choicesAcross: f.choicesAcross.map(en) } : {}),
+  ...(f.printedBelow !== undefined ? { printedBelow: en(f.printedBelow) } : {}),
+  ...(f.inSentence ? { inSentence: { before: en(f.inSentence.before), after: en(f.inSentence.after) } } : {}),
 });
 const column = (c: LogColumn): LogColumn => ({ ...c, label: en(c.label), ...(c.printedLabel ? { printedLabel: en(c.printedLabel) } : {}) });
 type PrintedRow = Record<string, string | number | null>;

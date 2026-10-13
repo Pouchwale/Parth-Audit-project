@@ -38,6 +38,19 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 //                                    the Minimum Gloss line (boxGroups).
 //   the grid printed across          LogSheetLayout.gridAcross — a certificate's
 //                                    PRINTING, its colours 1 to 10 across.
+//
+// And, from a third look at the same originals (part 4), the paper's own marks:
+//
+//   the choices printed across       LogHeaderField.choicesAcross — an incoming
+//                                    record's LOT STATUS, the one that holds
+//                                    marked (choiceWords).
+//   the words under a box            LogHeaderField.printedBelow — "QA INSPECTOR"
+//                                    under INSPECTED BY.
+//   a value inside its sentence      LogHeaderField.inSentence — "This material
+//                                    should be retested on … before usage."
+//   the Sr. No. with its full stop   LogSheetLayout.srNoFullStop — "1.", "2.".
+//   headings in the paper's letters  LogSheetLayout.headingsAsPrinted — a
+//                                    certificate's "Length(mm)", not "LENGTH(MM)".
 
 /** A box the paper prints its value in (REQUIREMENTS §111). */
 export const isPrintedBox = (f: Pick<LogHeaderField, "printed">): f is LogHeaderField & { printed: string } => typeof f.printed === "string";
@@ -123,7 +136,21 @@ export function gridLines(layout: LogSheetLayout): GridLines {
  */
 export function srNoText(layout: LogSheetLayout, index: number, recordDate: string): string {
   if (layout.srNoShowsDate) return index === 0 ? recordDate : "";
-  return String(index + 1);
+  // "1." where the paper prints its numbers with a full stop (part 4).
+  return layout.srNoFullStop ? `${index + 1}.` : String(index + 1);
+}
+
+/**
+ * THE CHOICES THE PAPER PRINTS ACROSS A BOX'S LINE (REQUIREMENTS §111, part 4): each option with the paper's
+ * own word for it (F/QC/21 Flexo Ink's "Accepted"), and whether it is the one the record holds. Null for a
+ * box that is not printed so — or whose words do not match its options one for one, which is then drawn as
+ * the choice box it always was rather than a line that says something else.
+ */
+export function choiceWords(f: Pick<LogHeaderField, "type" | "options" | "choicesAcross">, value: string): { option: string; word: string; chosen: boolean }[] | null {
+  const words = f.choicesAcross;
+  const options = f.type === "yesno" ? ["Yes", "No"] : (f.options ?? []);
+  if (!words || words.length === 0 || words.length !== options.length || (f.type !== "select" && f.type !== "yesno")) return null;
+  return options.map((option, i) => ({ option, word: words[i], chosen: value !== "" && value === option }));
 }
 
 /** The heading the sheet draws over a column: the paper's own words where they differ from its name, "" for none (REQUIREMENTS §111). */

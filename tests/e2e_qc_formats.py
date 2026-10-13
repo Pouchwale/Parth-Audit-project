@@ -235,7 +235,49 @@ INCOMING_RECORDS = {
 }
 OBSERVATION_HEADINGS = ["TEST PARAMETERS", "SPECIFICATION", "OBSERVATION"]
 SAMPLE_HEADINGS = ["TEST PARAMETERS", "SPECIFICATION", "SAMPLE – 1", "SAMPLE – 2", "SAMPLE - 3"]
-INCOMING_FOOTER = ["LOT STATUS", "REASON FOR DEVIATION / REJECTION / SEGREGATION", "INSPECTED BY (QA INSPECTOR)", "APPROVED BY (QA MANAGER)"]
+# The footer's headings as the paper prints them: INSPECTED BY and APPROVED BY, with QA INSPECTOR and QA MANAGER
+# printed under the signatures (s111 part 4; the boxes are still named "INSPECTED BY (QA INSPECTOR)" ...).
+INCOMING_FOOTER = ["LOT STATUS", "REASON FOR DEVIATION / REJECTION / SEGREGATION", "INSPECTED BY", "APPROVED BY"]
+# The paper's own marks on an open record as it prints (s111 part 4): the LOT STATUS line's four statuses across
+# beside its label with the chosen one ringed and its choice box gone, QA INSPECTOR and QA MANAGER under the
+# signatures, the lines numbered as printed, and no "*" of the screen's on any label.
+PAPER_MARKS = """() => {
+  const doc = document.querySelector('[data-print-doc]');
+  const lot = doc.querySelector('[data-choices-across="lotStatus"]');
+  const box = lot && lot.closest('.field');
+  const label = box && box.querySelector(':scope > label');
+  const select = box && box.querySelector('select');
+  const words = lot ? Array.from(lot.querySelectorAll('.choice-across')) : [];
+  const mid = (e) => { const r = e.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+  const below = (k) => {
+    const s = doc.querySelector(`[data-printed-below="${k}"]`);
+    const f = s && s.closest('.field');
+    const i = f && f.querySelector('input');
+    const l = f && f.querySelector(':scope > label');
+    return s && i && l ? [l.innerText.trim(), s.textContent, s.getBoundingClientRect().top >= i.getBoundingClientRect().bottom - 1] : null;
+  };
+  return {
+    words: words.map((w) => w.textContent),
+    chosen: words.filter((w) => w.classList.contains('is-chosen')).map((w) => w.textContent),
+    shown: !!lot && getComputedStyle(lot).display !== 'none',
+    oneLine: words.length > 0 && words.every((w) => Math.abs(mid(w) - mid(words[0])) < 6),
+    besideLabel: !!label && words.length > 0 && Math.abs(mid(words[0]) - mid(label)) < 12 && words[0].getBoundingClientRect().left > label.getBoundingClientRect().right - 1,
+    selectShown: !!select && getComputedStyle(select).display !== 'none',
+    inspector: below('inspectedBy'),
+    manager: below('approvedBy'),
+    srNo: Array.from(doc.querySelectorAll('td[data-sr-no]')).map((t) => t.textContent.trim()),
+    stars: Array.from(doc.querySelectorAll('.field > label')).filter((l) => l.innerText.includes('*')).length,
+  };
+}"""
+# A certificate's retest sentence with its date inside it, and Coating Done : beside its value, on one line each (s111 part 4).
+ONE_LINE = """(selector) => {
+  const f = document.querySelector(`[data-print-doc] ${selector}`);
+  if (!f) return null;
+  const parts = [f.querySelector(':scope > label'), f.querySelector('input'), f.querySelector('.field-sentence-after')].filter(Boolean);
+  const r = parts.map((p) => p.getBoundingClientRect());
+  const mid = (x) => (x.top + x.bottom) / 2;
+  return { parts: parts.length, oneLine: r.every((x) => Math.abs(mid(x) - mid(r[0])) < 10), inOrder: r.every((x, i) => i === 0 || r[i - 1].right <= x.left + 1), value: (f.querySelector('input') || {}).value };
+}"""
 # The certificates' letterhead line, its own two spaces kept.
 COA_LETTERHEAD_GSTIN = "GSTIN :  24AAACG7781P1Z1, IEC CODE : 0894007882, PAN : AAACG7781P"
 # Words of DCRS's own that once stood above these grids (s111): none may stand on them now.
@@ -1124,7 +1166,37 @@ with sync_playwright() as p:
         and all((r.get("observation") or "").strip() for r in lot.get("rows", [])),
         head,
     )
+    # The paper's own marks (s111 part 4), on the screen open for writing and as it prints.
+    on_screen = page.evaluate(PAPER_MARKS)
+    check(
+        "F/QC/01 open for writing: LOT STATUS is still the choice box, the paper's four words wait for the print",
+        on_screen["selectShown"] and not on_screen["shown"] and on_screen["srNo"] == ["1.", "2.", "3.", "4."],
+        on_screen,
+    )
+    page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
+    page.emulate_media(media="print")
+    try:
+        marks = page.evaluate(PAPER_MARKS)
+    finally:
+        page.emulate_media(media="screen")
+        page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
+    check(
+        "F/QC/01 prints LOT STATUS as the paper does: the four statuses across beside it, the chosen one ringed, no choice box",
+        marks["shown"] and marks["words"] == LOT_STATUSES and marks["chosen"] == [head.get("lotStatus")] and marks["oneLine"] and marks["besideLabel"] and not marks["selectShown"],
+        marks,
+    )
+    check(
+        "...INSPECTED BY over QA INSPECTOR and APPROVED BY over QA MANAGER, the lines numbered 1. to 4., and no '*' of the screen's",
+        marks["inspector"] == ["INSPECTED BY", "QA INSPECTOR", True] and marks["manager"] == ["APPROVED BY", "QA MANAGER", True]
+        and marks["srNo"] == ["1.", "2.", "3.", "4."] and marks["stars"] == 0,
+        marks,
+    )
     shoot(page, "F-QC-01")
+    # Signed off, the LOT STATUS line shows the paper's words on the screen too; Flexo Ink's first is "Accepted".
+    open_page(page, "#/document/qc-flexo-ink", settle=900)
+    flexo = page.locator(f"{PREVIEW} [data-choices-across='lotStatus'] .choice-across").evaluate_all("els => els.map((e) => e.textContent)")
+    check("F/QC/21 Flexo Ink prints its own 'Accepted' first on the LOT STATUS line, and numbers its lines 1, 2 with no full stop",
+          flexo[:1] == ["Accepted"] and page.locator(f"{PREVIEW} td[data-sr-no]").first.text_content().strip() == "1", flexo)
 
     # F/QC/36: the paper's seven boxes two to a line, and both signatures.
     open_page(page, "#/document/qc-inspection-sb-lamination", settle=900)
@@ -1178,6 +1250,20 @@ with sync_playwright() as p:
             page.emulate_media(media="screen")
             page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
         check(f"{name}: ...and all of them print", shown)
+        # Its headings in the paper's letters, the retest date inside its sentence, Coating Done : beside its value (s111 part 4).
+        letters = [
+            doc.locator("table[data-section='box-table'] th").first.inner_text().strip(),
+            doc.locator("[data-section='printed-table'][data-table='TOLERANCE'] th").first.inner_text().strip(),
+            doc.locator("table[data-across] th.log-sheet-across-head").first.inner_text().strip(),
+        ]
+        check(f"{name}: ...its headings in the paper's own letters (Specified Size, Field, No. of Colors), not the sheet's capitals", letters == ["Specified Size", "Field", "No. of Colors"], letters)
+        retest = page.evaluate(ONE_LINE, ".field-in-sentence")
+        corner = page.evaluate(ONE_LINE, "th.paper-box-table-corner > .field")
+        check(
+            f"{name}: ...'This material should be retested on' its date 'before usage.' on one line, and 'Coating Done :' beside its value",
+            bool(retest) and retest["parts"] == 3 and retest["oneLine"] and retest["inOrder"] and bool(corner) and corner["parts"] == 2 and corner["oneLine"] and corner["inOrder"],
+            (retest, corner),
+        )
         shoot(page, name)
 
     # F/QC/25 and the tolerance card: the headings the paper prints, and none it does not.
@@ -1186,6 +1272,27 @@ with sync_playwright() as p:
     heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("F/QC/25: Sr.No., nothing over the descriptions and observations, Specified  GSM and Tested GSM under GSM", heads == ["Sr.No.", "", "", "GSM", "BF", "Grade of Paper", "Specified  GSM", "Tested GSM"], heads)
     check("...its Date: alone at the right above the grid, OID :- and Job Code: side by side under it", page.evaluate(DATE_ALONE))
+    # Its letterhead as the paper's three cells, Sr.No. in its own letters, its roles under the signatures (s111 part 4).
+    letterhead = page.locator("[data-print-doc] [data-table='Letterhead'] td").evaluate_all("els => els.map((e) => e.innerText.split('\\n').map((l) => l.trim()).filter(Boolean))")
+    written = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")
+    check(
+        "F/QC/25: its letterhead the paper's three cells, each in its lines, with no dashes of DCRS's between them",
+        letterhead == [
+            ["GUJARAT PRINT PACK PUBLICATIONS PVT LTD", "308/9, GIDC DEDIASAN", "MEHSANA. GUJARAT."],
+            ["DEPT:QUALITY", "ASSURENCE", "(2009 EDITION)"],
+            ["DOC.NO.", "QA-IP-TRFCBA-011-00-01-09-18", "FG(CO) =FINISH GOODS", "(CORRUGATION)"],
+        ]
+        and "GUJARAT. — DEPT" not in written,
+        letterhead,
+    )
+    corrugated = page.evaluate(
+        """() => ({
+             head: document.querySelector('[data-print-doc] table.log-sheet thead th').innerText.trim(),
+             testing: Array.from(document.querySelectorAll('[data-print-doc] [data-printed-below]')).map((s) => [s.closest('.field').querySelector(':scope > label').innerText.trim(), s.textContent]),
+           })"""
+    )
+    check("...Sr.No. as the paper writes it, and '(QA Inspector)' under Testing By, '(QA Manager)' under Sign By",
+          corrugated == {"head": "Sr.No.", "testing": [["Testing By", "(QA Inspector)"], ["Sign By", "(QA Manager)"]]}, corrugated)
     shoot(page, "F-QC-25")
     rid = start_record(page, "qc-tolerance-card-nivea")
     heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")

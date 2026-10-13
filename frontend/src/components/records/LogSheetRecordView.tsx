@@ -41,7 +41,7 @@ import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
 import { bindProps, effectiveColumn, logCellBind, logColumnBind, logHeaderBind, logRowName } from "../../engine/roundTrip/bindingsFor";
-import { boxGroups, columnHeading, gridLines, inBoxTable, isPrintedBox, paperColumnProps, placedTables, srNoText, type BoxGroup, type GridLines } from "../../engine/paperLayout";
+import { boxGroups, choiceWords, columnHeading, gridLines, inBoxTable, isPrintedBox, paperColumnProps, placedTables, srNoText, type BoxGroup, type GridLines } from "../../engine/paperLayout";
 import { BoxTable } from "./BoxTable";
 import { NotesBelow } from "./NotesBelow";
 import { PrintedTable } from "./PrintedTable";
@@ -357,8 +357,11 @@ export function LogSheetRecordView({
     ? { [BIND_TABLE_ATTR]: "rows", ...(superseded ? {} : { [BIND_APPEND_ATTR]: "1" }), ...(lines.second ? { [BIND_SECOND_LINE_ATTR]: lines.second.label } : {}) }
     : undefined;
 
+  // A sheet whose paper writes its headings in its own letters prints them so (REQUIREMENTS §111, part 4): a
+  // certificate's "Length(mm)", which the sheet's capitals made "LENGTH(MM)".
+  const rootClass = [asIssued ? "notranslate" : "", layout.headingsAsPrinted ? "headings-as-printed" : ""].filter(Boolean).join(" ");
   return (
-    <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined} data-bind-record={record.id}>
+    <div className={rootClass || undefined} translate={asIssued ? "no" : undefined} data-bind-record={record.id}>
       <DocumentHeader
         doc={doc}
         dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
@@ -1131,15 +1134,23 @@ function HeaderFieldInput({
   // table's own words, so it draws no label of its own: its name is what a screen reader says. Every other
   // box stands under its label, in its column of the line where the paper puts it there (paperColumn).
   const named = inTable ? { "aria-label": field.label } : {};
+  // THE WORDS THE PAPER PRINTS UNDER THE BOX (REQUIREMENTS §111, part 4): "QA INSPECTOR" under the space INSPECTED BY
+  // is signed in. Printed words, not a value: a downloaded file names the box by its label, as before.
+  const below = field.printedBelow ? (
+    <span className="box-printed-below" aria-hidden="true" data-printed-below={field.key}>
+      {field.printedBelow}
+    </span>
+  ) : null;
   const box = (className: string, label: React.ReactNode, body: React.ReactNode) =>
     inTable ? (
       <div className={`${className} field-in-table`} data-box={field.key}>
         {body}
       </div>
     ) : (
-      <div className={className} {...paperColumnProps(field)}>
+      <div className={below ? `${className} field-printed-below` : className} {...paperColumnProps(field)}>
         {label}
         {body}
+        {below}
       </div>
     );
   // A box that names a PERSON offers the employee names. "Machine Name:",
@@ -1176,16 +1187,49 @@ function HeaderFieldInput({
       </span>
     );
   }
+  // The "*" of a box that must be written is the screen's mark, not the paper's: it does not print
+  // (REQUIREMENTS §111, part 4 — the incoming records printed "Date of Inspection *").
+  const required = field.required ? <span className="no-print"> *</span> : null;
   const label = (
     <label>
-      {field.printedLabel ?? field.label}
-      {field.required ? " *" : ""}
+      {field.inSentence ? field.inSentence.before : (field.printedLabel ?? field.label)}
+      {required}
     </label>
   );
   // A block of prose is its own kind of box: it takes the width of the row it
   // sits in and grows with what is written (REQUIREMENTS §68).
   if (field.type === "paragraph") {
     return box("field field-paragraph", label, <ParagraphInput value={value} editable={editable} onChange={onChange} bind={bound} />);
+  }
+  const input = (
+    <input
+      className="input input-sm"
+      {...bound}
+      {...named}
+      type={field.type === "date" ? "date" : field.type === "time" ? "time" : "text"}
+      // An empty date or time box prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111, styles.css).
+      data-empty={value ? undefined : ""}
+      list={list ?? (isName ? "log-sheet-employees" : undefined)}
+      disabled={!editable}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
+    />
+  );
+  // THE VALUE INSIDE THE PAPER'S SENTENCE (REQUIREMENTS §111, part 4): "This material should be retested on
+  // 03/07/2022 before usage." on one line. The words after the box are printed words: a downloaded file names
+  // the box by the words before it and holds the date alone, as before.
+  if (field.inSentence && field.type !== "select" && field.type !== "yesno") {
+    return box(
+      "field field-in-sentence",
+      label,
+      <>
+        {input}
+        <span className="field-sentence-after" aria-hidden="true">
+          {field.inSentence.after}
+        </span>
+      </>
+    );
   }
   // A BOX THE FORM PRINTS AS A CHOICE is offered as one, and "yesno"
   // means the same thing here as it does in the grid above: the two
@@ -1194,34 +1238,39 @@ function HeaderFieldInput({
   // asked a yes-or-no question and gave a free text box to answer it
   // (REQUIREMENTS §68, found while adding F/STR/01 in §71, whose stamp is
   // seven such questions).
-  return box(
-    "field",
-    label,
-    field.type === "select" || field.type === "yesno" ? (
-      <select className="input input-sm" {...bound} {...named} data-empty={value ? undefined : ""} disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Select…</option>
-        {(field.type === "yesno" ? ["Yes", "No"] : (field.options ?? [])).map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    ) : (
-      <input
-        className="input input-sm"
-        {...bound}
-        {...named}
-        type={field.type === "date" ? "date" : field.type === "time" ? "time" : "text"}
-        // An empty date or time box prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111, styles.css).
-        data-empty={value ? undefined : ""}
-        list={list ?? (isName ? "log-sheet-employees" : undefined)}
-        disabled={!editable}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
-      />
-    )
+  if (field.type !== "select" && field.type !== "yesno") return box("field", label, input);
+  const choice = (
+    <select className="input input-sm" {...bound} {...named} data-empty={value ? undefined : ""} disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">Select…</option>
+      {(field.type === "yesno" ? ["Yes", "No"] : (field.options ?? [])).map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
   );
+  // THE CHOICES THE PAPER PRINTS ACROSS THE LINE (REQUIREMENTS §111, part 4): an incoming record's "LOT STATUS
+  // ⇒ ACCEPTED | REJECT & SEND BACK TO SUPPLIER / SCRAP | SEGREGATION | ACCEPTED ON DEVIATION", the one that
+  // holds marked. Open for writing, the choice box is what is used and the words print; signed off, the words
+  // are what is shown. The choice box stays the record's bound box either way (the downloads, a screen reader).
+  const words = choiceWords(field, value);
+  if (words) {
+    return box(
+      `field field-choices-across${editable ? " is-editable" : ""}`,
+      label,
+      <>
+        {choice}
+        <span className="choices-across" aria-hidden="true" data-choices-across={field.key}>
+          {words.map((w) => (
+            <span key={w.option} className={w.chosen ? "choice-across is-chosen" : "choice-across"} data-chosen={w.chosen ? "" : undefined}>
+              {w.word}
+            </span>
+          ))}
+        </span>
+      </>
+    );
+  }
+  return box("field", label, choice);
 }
 
 /**

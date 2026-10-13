@@ -740,6 +740,11 @@ const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
     ...((f as LogHeaderField).printedAbove?.length ? { printedAbove: (f as LogHeaderField).printedAbove } : {}),
     // The table of boxes the paper prints from this box on (a certificate's LABEL STOCK): its headings.
     ...((f as LogHeaderField).boxTable ? { boxTable: (f as LogHeaderField).boxTable } : {}),
+    // The paper's own marks (§111, part 4): the words it prints for each choice across the line (the record still
+    // holds the option), the words under the box, the sentence the value is written inside.
+    ...((f as LogHeaderField).choicesAcross?.length ? { choicesAcross: (f as LogHeaderField).choicesAcross } : {}),
+    ...((f as LogHeaderField).printedBelow ? { printedBelow: (f as LogHeaderField).printedBelow } : {}),
+    ...((f as LogHeaderField).inSentence ? { inSentence: (f as LogHeaderField).inSentence } : {}),
   };
 };
 
@@ -766,6 +771,8 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         ...(numbersOwnLines(l) ? { ownLineNumbers: true } : {}),
         // The paper's own shape (REQUIREMENTS §111): the day in its Sr. No., an entry's second line, its text below the grid.
         ...(l.srNoShowsDate ? { srNoShowsDate: true } : {}),
+        // "1.", "2." where the paper prints its numbers with a full stop (§111, part 4).
+        ...(l.srNoFullStop ? { srNoFullStop: true } : {}),
         ...(l.secondLine ? { secondLine: l.secondLine } : {}),
         ...(l.notesBelow?.length ? { notesBelow: l.notesBelow } : {}),
         ...(l.notesAtFoot?.length ? { notesAtFoot: l.notesAtFoot } : {}),

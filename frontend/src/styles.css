@@ -1717,6 +1717,36 @@ body { top: 0 !important; }
 @media print {
   tr[data-line="first"] { break-after: avoid; }
 }
+/* THE PAPER'S OWN MARKS (REQUIREMENTS §111, part 4).
+   The choices printed across the box's line (choicesAcross: an incoming record's LOT STATUS), the one that holds
+   ringed as a pen rings it; beside the label, as the paper prints them. Open for writing, the choice box is used
+   and the words are for the print; signed off, the words are shown and the choice box is kept for a screen reader. */
+.field-choices-across .choices-across { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12.5px; font-weight: 600; color: var(--color-text); }
+.field-choices-across .choice-across { padding: 1px 8px; border: 1.5px solid transparent; border-radius: 999px; }
+.field-choices-across .choice-across.is-chosen { border-color: currentColor; }
+.field-choices-across.is-editable .choices-across { display: none; }
+.field-choices-across:not(.is-editable) { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 18px; }
+.field-choices-across:not(.is-editable) select { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media print {
+  .field-choices-across, .field-choices-across.is-editable { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 18px; }
+  .field-choices-across.is-editable .choices-across { display: flex; }
+  .field-choices-across select { display: none; }
+}
+/* The words the paper prints under a box (printedBelow: "QA INSPECTOR" under INSPECTED BY), the box's heading
+   and the words centred over and under the space it is signed in, as on the paper. */
+.field-printed-below { text-align: center; }
+.field-printed-below > label { text-align: center; }
+.field-printed-below .box-printed-below { font-size: 12px; color: var(--color-text); }
+@media print { .field-printed-below .input { text-align: center; min-height: 28px; } }
+/* A value inside the paper's sentence (inSentence: "This material should be retested on … before usage."):
+   the words, the box and the words after it on one line, in the sentence's bold. */
+.field-in-sentence { flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 6px; }
+.field-in-sentence > label, .field-in-sentence .field-sentence-after { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.field-in-sentence .input { width: auto; min-width: 128px; flex: 0 0 auto; }
+/* The paper's headings in its own letters (headingsAsPrinted: a certificate's "Length(mm)"). */
+.headings-as-printed .doc-table th { text-transform: none; letter-spacing: 0; }
+/* A box standing in the corner of the paper's table (boxTable cornerBox): "Coating Done :  Gloss UV" on one line. */
+.doc-table table.paper-box-table th.paper-box-table-corner > .field { flex-direction: row; align-items: baseline; gap: 8px; }
 
 /* ---- Sheet designer (REQUIREMENTS §64) ---- */
 /* A format designed on the sheet itself (components/documents/SheetDesigner.tsx).

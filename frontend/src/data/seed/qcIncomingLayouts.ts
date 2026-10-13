@@ -86,7 +86,13 @@ import type { LogColumn, LogHeaderField, LogRowMode, LogSheetLayout } from "../.
 // LOT STATUS and the REASON each take a line and the two signatures stand side
 // by side; and F/QC/21 FLEXO INK's "This is a system generated document ..."
 // is printed at the foot, under everything, where the paper prints it. Nothing
-// of DCRS's own is printed on any of them. The address and "Format number: -
+// of DCRS's own is printed on any of them. And from a third look (part 4): the
+// LOT STATUS line prints its four statuses across with the chosen one marked,
+// as the inspector marks the paper (choicesAcross; F/QC/21 Flexo Ink's first
+// reads "Accepted"); each signature box is headed INSPECTED BY or APPROVED BY
+// with QA INSPECTOR or QA MANAGER printed under it (printedLabel, printedBelow);
+// the lines are numbered "1.", "2." as printed (srNoFullStop) — but on Flexo
+// Ink, which prints "1", "2". The address and "Format number: -
 // ... Page 1 of 1" footer of the paper is the page's own header block here
 // (components/documents/DocumentHeader.tsx), as on every document.
 
@@ -147,12 +153,21 @@ const LOT_STATUS = [
 /**
  * The footer printed below the grid on all fourteen: the LOT STATUS line and the REASON line,
  * each the width of the sheet, then INSPECTED BY and APPROVED BY side by side (REQUIREMENTS §111).
+ * The LOT STATUS line prints its four statuses across, for the inspector to mark one (choicesAcross);
+ * each signature box is headed INSPECTED BY / APPROVED BY with QA INSPECTOR / QA MANAGER printed under
+ * the space it is signed in (printedLabel, printedBelow) — the boxes keep their names (§111, part 4).
+ * `accepted`: the paper's word for the first status — F/QC/21 Flexo Ink prints "Accepted".
  */
-const lotStatusFooter = (): LogHeaderField[] => [
-  { key: "lotStatus", label: "LOT STATUS", type: "select", options: LOT_STATUS, width: 260, boxesPerLine: 1 },
+const lotStatusFooter = (accepted = "ACCEPTED"): LogHeaderField[] => [
+  { key: "lotStatus", label: "LOT STATUS", type: "select", options: LOT_STATUS, choicesAcross: [accepted, ...LOT_STATUS.slice(1)], width: 260, boxesPerLine: 1 },
   { key: "deviationReason", label: "REASON FOR DEVIATION / REJECTION / SEGREGATION", type: "text", width: 320 },
-  { key: "inspectedBy", label: "INSPECTED BY (QA INSPECTOR)", type: "text", width: 200, autoFill: { sign: true }, boxesPerLine: 2 },
-  { key: "approvedBy", label: "APPROVED BY (QA MANAGER)", type: "text", width: 200, autoFill: { sign: true } },
+  ...signatureBoxes(),
+];
+
+/** INSPECTED BY over QA INSPECTOR and APPROVED BY over QA MANAGER, side by side, as the incoming records and F/QC/36 print them. */
+export const signatureBoxes = (): LogHeaderField[] => [
+  { key: "inspectedBy", label: "INSPECTED BY (QA INSPECTOR)", printedLabel: "INSPECTED BY", printedBelow: "QA INSPECTOR", type: "text", width: 200, autoFill: { sign: true }, boxesPerLine: 2 },
+  { key: "approvedBy", label: "APPROVED BY (QA MANAGER)", printedLabel: "APPROVED BY", printedBelow: "QA MANAGER", type: "text", width: 200, autoFill: { sign: true } },
 ];
 
 /** F/QC/21 FLEXO INK's line at the foot of the paper, under the address (REQUIREMENTS §111). */
@@ -165,6 +180,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-bopp-film": {
     documentId: "qc-bopp-film",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -182,6 +198,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-corrugated-box": {
     documentId: "qc-corrugated-box",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: sampleColumns(),
     rowMode: printedRows([
@@ -199,6 +216,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-label-stock": {
     documentId: "qc-label-stock",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -223,6 +241,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-paper-core": {
     documentId: "qc-paper-core",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: sampleColumns(),
     rowMode: printedRows([
@@ -243,6 +262,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-pvc-pet-film": {
     documentId: "qc-pvc-pet-film",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -263,6 +283,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-offset-ink": {
     documentId: "qc-offset-ink",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -290,6 +311,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-duplex-board": {
     documentId: "qc-duplex-board",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -310,6 +332,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-kraft-paper": {
     documentId: "qc-kraft-paper",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -334,6 +357,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
     documentId: "qc-flexo-ink",
     notesAtFoot: [FLEXO_INK_SYSTEM_NOTE],
     headerColumns: HEADER_BOXES_PER_LINE,
+    // Its lines are numbered "1", "2" with no full stop, where the other thirteen print "1.", "2.".
     headerFields: incomingHeader("Batch number"),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -345,7 +369,8 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
       ["B Value", "-"],
       ["SPECTROMETER SHADE RANGE (dE)", "Delta Value DE should be below 2.0"],
     ]),
-    footerFields: lotStatusFooter(),
+    // Its LOT STATUS line prints "Accepted" where the others print "ACCEPTED"; the record keeps the option ACCEPTED.
+    footerFields: lotStatusFooter("Accepted"),
     specimenSource: blankForm("F-QC-21- Flexo INk.pdf"),
   } satisfies LogSheetLayout,
 
@@ -354,6 +379,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-lamination-adhesive-inspection": {
     documentId: "qc-lamination-adhesive-inspection",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -371,6 +397,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-side-pasting-adhesive": {
     documentId: "qc-side-pasting-adhesive",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -386,6 +413,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-starch-powder": {
     documentId: "qc-starch-powder",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -404,6 +432,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-sheet-pasting-powder": {
     documentId: "qc-sheet-pasting-powder",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([
@@ -424,6 +453,7 @@ export const QC_INCOMING_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-incoming-lamination-film": {
     documentId: "qc-incoming-lamination-film",
     headerColumns: HEADER_BOXES_PER_LINE,
+    srNoFullStop: true,
     headerFields: incomingHeader(),
     columns: observationColumns(),
     rowMode: printedRows([

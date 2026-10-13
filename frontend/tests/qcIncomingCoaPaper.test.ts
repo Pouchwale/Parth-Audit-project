@@ -166,7 +166,8 @@ test("a table printed among the boxes is drawn open in its place, and the text a
   assert.ok(!/>(Show|Hide) TOLERANCE</.test(html), "not behind Show above the sheet");
   const table = html.indexOf('data-section="printed-table" data-table="TOLERANCE"');
   const finishing = html.indexOf("Over All Quality Remarks");
-  const retest = html.indexOf("This material should be retested on … before usage.");
+  // The retest sentence, its date written inside it (part 4).
+  const retest = html.indexOf('class="field field-in-sentence"');
   const foot = html.indexOf('data-section="notes-at-foot"');
   assert.ok(finishing > 0 && table > finishing && retest > table && foot > retest, JSON.stringify({ finishing, table, retest, foot }));
   assert.ok(text(html.slice(table)).includes("Field Length Width Face Material Adhesive Release Liner + 2 mm 2 mm 10 % 2 GSM 5 % - 2 mm 2 mm 10 % 2 GSM 5 %"));
@@ -245,6 +246,8 @@ test("the grid printed across: each line a column, each column a line, the recor
 
 const INCOMING_HEADER = ["Supplier Name", "Report number", "Product Description", "SAP Batch number", "GRN Qty.", "GRN number", "Date of Inspection"];
 const INCOMING_FOOTER = ["LOT STATUS", "REASON FOR DEVIATION / REJECTION / SEGREGATION", "INSPECTED BY (QA INSPECTOR)", "APPROVED BY (QA MANAGER)"];
+/** The footer's headings as the paper prints them: the signature boxes headed INSPECTED BY and APPROVED BY, their roles under them (part 4). */
+const INCOMING_FOOTER_PRINTED = ["LOT STATUS", "REASON FOR DEVIATION / REJECTION / SEGREGATION", "INSPECTED BY", "APPROVED BY"];
 const OBSERVATION = ["TEST PARAMETERS", "SPECIFICATION", "OBSERVATION"];
 const SAMPLES = ["TEST PARAMETERS", "SPECIFICATION", "SAMPLE – 1", "SAMPLE – 2", "SAMPLE - 3"];
 
@@ -467,7 +470,7 @@ for (const [id, paper] of Object.entries(INCOMING)) {
 
     const html = await sheet(id);
     assert.deepEqual(headings(html), ["Sr. No.", ...paper.columns], "the paper's SR. NO., printed in capitals as every heading is");
-    assert.deepEqual(boxLabels(html), [...header, ...INCOMING_FOOTER]);
+    assert.deepEqual(boxLabels(html), [...header, ...INCOMING_FOOTER_PRINTED]);
     assert.match(html, /class="grid sheet-boxes-paper"[^>]*data-section="sheet-boxes"[^>]*style="--paper-box-columns:2/);
     assert.match(html, /<div class="field" data-paper-column="2"><label>Date of Inspection/);
     const t = text(html);
@@ -475,7 +478,7 @@ for (const [id, paper] of Object.entries(INCOMING)) {
     for (const w of DCRS_WORDS) assert.ok(!w.test(t), `${id}: ${w}`);
     if (id === "qc-flexo-ink") {
       const foot = html.indexOf('data-section="notes-at-foot"');
-      assert.ok(foot > html.indexOf("APPROVED BY (QA MANAGER)"), "the system note at the foot, under the signatures");
+      assert.ok(foot > html.indexOf('data-printed-below="approvedBy"'), "the system note at the foot, under the signatures");
       assert.ok(text(html.slice(foot)).includes(FLEXO_INK_SYSTEM_NOTE));
       assert.ok(!text(html.slice(0, html.indexOf("<table"))).includes("system generated"), "not above the grid any more");
     }
@@ -671,9 +674,16 @@ test("F/QC/07 Certificate of Analysis [COA] For Shrink Sleeves: its Specified Si
 
 test("F/QC/25 Certificate of Analysis [COA] For CORRUGATED BOXES: its heading block, Date:, its fourteen lines under Sr.No. and GSM, the two signatures", async () => {
   const layout = layoutOf("qc-coa-corrugated");
-  assert.equal(layout.instructions?.length, 2);
-  assert.match(layout.instructions![0], /308\/9, GIDC DEDIASAN MEHSANA\. GUJARAT\. — DEPT:QUALITY ASSURENCE \(2009 EDITION\) — DOC\.NO\. QA-IP-TRFCBA-011-00-01-09-18 — FG\(CO\) =FINISH GOODS \(CORRUGATION\)$/);
-  assert.equal(layout.instructions![1], "CBA: CORRUGATED BOX ANALYSIS");
+  // The letterhead as the paper's three cells above "Date:", the line under it — not one line joined by dashes (part 4).
+  assert.equal(layout.instructions, undefined, "nothing of its own above the boxes");
+  assert.deepEqual(layout.headerFields[0].tableAbove, "Letterhead");
+  assert.deepEqual(layout.headerFields[0].printedAbove, ["CBA: CORRUGATED BOX ANALYSIS"]);
+  const letterhead = layout.referenceTables?.find((t) => t.title === "Letterhead");
+  assert.equal(letterhead?.untitled, true);
+  assert.deepEqual(letterhead?.columns, []);
+  assert.equal(letterhead?.rows.length, 1);
+  assert.match(letterhead!.rows[0][0], /\n308\/9, GIDC DEDIASAN\nMEHSANA\. GUJARAT\.$/);
+  assert.deepEqual(letterhead!.rows[0].slice(1), ["DEPT:QUALITY\nASSURENCE\n(2009 EDITION)", "DOC.NO.\nQA-IP-TRFCBA-011-00-01-09-18\nFG(CO) =FINISH GOODS\n(CORRUGATION)"]);
   assert.deepEqual(layout.headerFields.map((f) => f.label), ["Date:", "OID :-", "Job Code:"]);
   // "Date:" alone at the right above the grid, then OID :- and Job Code: side by side.
   assert.equal(layout.headerColumns, 2);
@@ -742,7 +752,7 @@ test("a certificate edited before §111 loses DCRS's lines, keeps the paper's no
   const issued = getIssuedLogSheetLayout("qc-coa-label")!;
   const strip = <T extends object>(o: T, keys: string[]): T => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k))) as T;
   const old: LogSheetLayout = {
-    ...strip(issued, ["notesAtFoot", "headerColumns", "gridAcross"]),
+    ...strip(issued, ["notesAtFoot", "headerColumns", "gridAcross", "headingsAsPrinted"]),
     instructions: [
       "Certificate of Analysis [COA] For Label. The certificate's own boxes and the LABEL STOCK block are above the grid; the PRINTING block's colours are the grid; the rest of PRINTING, the COATING block, the FINISHING block and the retest date are below it.",
       GRADE_SCALE_NOTE,
@@ -750,7 +760,7 @@ test("a certificate edited before §111 loses DCRS's lines, keeps the paper's no
       "Our own line about the job.",
     ],
     headerFields: issued.headerFields.map((f) => strip(f, ["boxesPerLine", "printedAbove", "boxTable"])),
-    footerFields: issued.footerFields!.map((f) => strip(f, ["boxesPerLine", "printedAbove", "tableAbove", "printedLabel", "boxTable"])),
+    footerFields: issued.footerFields!.map((f) => strip(f, ["boxesPerLine", "printedAbove", "tableAbove", "printedLabel", "boxTable", "inSentence"])),
   } as LogSheetLayout;
   try {
     saveFormatEdit("qc-coa-label", { revisionNo: "01", revisionDate: "2026-10-01", layout: old, revisions: [] });
@@ -763,6 +773,9 @@ test("a certificate edited before §111 loses DCRS's lines, keeps the paper's no
     assert.equal(now.gridAcross, true);
     assert.deepEqual(now.headerFields.find((f) => f.key === "faceMaterialRequired")?.boxTable?.rows, ["Required", "Tested", "Type Required", "Observed"]);
     assert.equal(now.footerFields?.find((f) => f.key === "coatingDone")?.boxTable?.cornerBox, true);
+    // The paper's own marks (the third look, part 4): its headings in its letters, the retest date inside its sentence.
+    assert.equal(now.headingsAsPrinted, true);
+    assert.deepEqual(now.footerFields?.find((f) => f.key === "retestOn")?.inSentence, { before: "This material should be retested on", after: "before usage." });
   } finally {
     dropFormatEdit("qc-coa-label");
   }

@@ -1,4 +1,4 @@
-import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
+import type { LogColumn, LogHeaderField, LogSheetLayout, ReferenceTable } from "../../types";
 import { COMPANY } from "./masterData";
 
 // THE THREE CERTIFICATES OF ANALYSIS (REQUIREMENTS §57) — the Quality Control
@@ -50,9 +50,14 @@ import { COMPANY } from "./masterData";
 //                     and Tested) in place of LABEL STOCK, its own FINISHING
 //                     boxes, and its heat sentence above the retest sentence.
 //   F/QC/25 (corrugated boxes)  printed as a numbered list of fourteen lines,
-//                     so that list IS the grid; its heading block above it, its
-//                     "Date:" alone at the right, then OID :- and Job Code: side
-//                     by side; the two signatures side by side below.
+//                     so that list IS the grid; its letterhead above it, as the
+//                     paper's three cells, its "Date:" alone at the right, then
+//                     OID :- and Job Code: side by side; the two signatures side
+//                     by side below, "(QA Inspector)" and "(QA Manager)" under them.
+//
+// AND, FROM A THIRD LOOK (part 4): the headings in the paper's own letters
+// ("Length(mm)", not "LENGTH(MM)": headingsAsPrinted), the retest date inside its
+// sentence (inSentence), "Coating Done :" beside its value in the table's corner.
 //
 // THE PRINTING BLOCK IS PRINTED ACROSS, AS THE PAPER PRINTS IT. The paper
 // prints the ten colours as ten columns numbered 1 to 10, with two rows under
@@ -150,6 +155,8 @@ const retestField = (notesAbove: string[]): LogHeaderField => ({
   key: "retestOn",
   label: "This material should be retested on",
   printedLabel: "This material should be retested on … before usage.",
+  // The date written inside the sentence, on one line, as printed (REQUIREMENTS §111, part 4).
+  inSentence: { before: "This material should be retested on", after: "before usage." },
   type: "date",
   width: 200,
   tableAbove: "TOLERANCE",
@@ -378,12 +385,32 @@ const CORRUGATED_COLUMNS: LogColumn[] = [
   { key: "gradeOfPaper", label: "Grade of Paper", type: "text", width: 150 },
 ];
 
-/** F/QC/25's heading block, as printed: the company's cell (its name as the owner gave it, COMPANY.name), the department's and the document number's, then the line under them. */
-export const CORRUGATED_HEADING = [
-  // The certificate's own spellings kept ("DEDIASAN", "ASSURENCE") — all but the company's name,
-  // which is printed as the owner gave it on 02-Oct-2026 (COMPANY.name), not as the certificate abbreviates it.
+/**
+ * F/QC/25's letterhead, as printed: three cells side by side — the company's (its name as the owner gave it,
+ * COMPANY.name, then its address), the department's and the document number's — each broken into lines where
+ * the paper breaks it, with no title and no heading row (REQUIREMENTS §111, part 4). The certificate's own
+ * spellings are kept ("DEDIASAN", "ASSURENCE") — all but the company's name, which is printed as the owner gave
+ * it on 02-Oct-2026, not as the certificate abbreviates it ("GUJRAT PRINT PACK PUB.LTD"). Before part 4 the
+ * three were one line joined by dashes of DCRS's own.
+ */
+export const CORRUGATED_LETTERHEAD: ReferenceTable = {
+  title: "Letterhead",
+  untitled: true,
+  columns: [],
+  rows: [
+    [
+      `${COMPANY.name}\n308/9, GIDC DEDIASAN\nMEHSANA. GUJARAT.`,
+      "DEPT:QUALITY\nASSURENCE\n(2009 EDITION)",
+      "DOC.NO.\nQA-IP-TRFCBA-011-00-01-09-18\nFG(CO) =FINISH GOODS\n(CORRUGATION)",
+    ],
+  ],
+};
+/** The line printed under the letterhead (at its right on the paper). */
+export const CORRUGATED_ANALYSIS_LINE = "CBA: CORRUGATED BOX ANALYSIS";
+/** The heading line DCRS printed above the grid before part 4 — the letterhead's three cells joined by dashes — and the line under it. */
+const CORRUGATED_HEADING_BEFORE = [
   `${COMPANY.name} 308/9, GIDC DEDIASAN MEHSANA. GUJARAT. — DEPT:QUALITY ASSURENCE (2009 EDITION) — DOC.NO. QA-IP-TRFCBA-011-00-01-09-18 — FG(CO) =FINISH GOODS (CORRUGATION)`,
-  "CBA: CORRUGATED BOX ANALYSIS",
+  CORRUGATED_ANALYSIS_LINE,
 ];
 
 // ---------------------------------------------------------------------------
@@ -396,6 +423,8 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     // across the page, a colour to a column (gridAcross, §111).
     ownLineNumbers: true,
     gridAcross: true,
+    // "Length(mm)", "Face Material", "No. of Colors" in the paper's own letters, not the sheet's capitals (§111, part 4).
+    headingsAsPrinted: true,
     instructions: COA_LETTERHEAD,
     // Production Order No., Delivery No. and COA Date : on the paper's first line.
     headerColumns: 3,
@@ -479,6 +508,8 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     // across the page, a colour to a column (gridAcross, §111).
     ownLineNumbers: true,
     gridAcross: true,
+    // "Length(mm)", "Face Material", "No. of Colors" in the paper's own letters, not the sheet's capitals (§111, part 4).
+    headingsAsPrinted: true,
     instructions: COA_LETTERHEAD,
     headerColumns: 3,
     headerFields: [
@@ -549,20 +580,24 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-coa-corrugated": {
     documentId: "qc-coa-corrugated",
     ownLineNumbers: true,
-    instructions: CORRUGATED_HEADING,
+    // "Sr.No.", "Specified  GSM", "Grade of Paper" in the paper's own letters (§111, part 4).
+    headingsAsPrinted: true,
     // "Date:" alone at the right above the grid, then OID :- and Job Code: side by side on the grid's top line.
     headerColumns: 2,
     headerFields: [
-      { key: "date", label: "Date:", type: "date", width: 150, paperColumn: 2 }, // "Date:" as printed, above the grid's right-hand end
+      // "Date:" as printed, above the grid's right-hand end — under the letterhead's three cells and the line under them.
+      { key: "date", label: "Date:", type: "date", width: 150, paperColumn: 2, tableAbove: CORRUGATED_LETTERHEAD.title, printedAbove: [CORRUGATED_ANALYSIS_LINE] },
       { key: "oid", label: "OID :-", type: "text", width: 160 }, // the paper's own "OID :-"
       { key: "jobCode", label: "Job Code:", type: "text", width: 160, autoFill: { carryForward: true } },
     ],
     columns: CORRUGATED_COLUMNS,
     rowMode: { kind: "fixedRows", rows: CORRUGATED_LINES.map(([srNo, description]) => ({ srNo, description })) },
+    referenceTables: [CORRUGATED_LETTERHEAD],
     footerFields: [
-      // "Testing By" over "(QA Inspector)" on the left, "Sign By" over "(QA Manager)" on the right.
-      { key: "testingBy", label: "Testing By (QA Inspector)", type: "text", width: 220, autoFill: { sign: true }, boxesPerLine: 2 },
-      { key: "signBy", label: "Sign By (QA Manager)", type: "text", width: 220, autoFill: { sign: true } },
+      // "Testing By" over "(QA Inspector)" on the left, "Sign By" over "(QA Manager)" on the right: the paper's words
+      // over and under the space each is signed in (printedLabel, printedBelow, §111 part 4); the names stay.
+      { key: "testingBy", label: "Testing By (QA Inspector)", printedLabel: "Testing By", printedBelow: "(QA Inspector)", type: "text", width: 220, autoFill: { sign: true }, boxesPerLine: 2 },
+      { key: "signBy", label: "Sign By (QA Manager)", printedLabel: "Sign By", printedBelow: "(QA Manager)", type: "text", width: 220, autoFill: { sign: true } },
     ],
     // Supplied blank — no box on the form carries a value, so there is no
     // specimenHeader and there are no specimenRows.
@@ -595,5 +630,7 @@ export const COA_WITHDRAWN_LINES: Record<string, string[]> = {
   ],
   "qc-coa-corrugated": [
     "The certificate's fourteen numbered lines are printed on the form, 7 breaking into 7.1 TOP PAPER, 7.2 PLAIN PAPER and 7.3 FLUTE PAPER. Those three lines are the ones with the four paper columns — Specified  GSM, Tested GSM, BF and Grade of Paper; every other line has the single Observation box.",
+    // The letterhead drawn as its three cells, and the line under it above "Date:", since part 4.
+    ...CORRUGATED_HEADING_BEFORE,
   ],
 };
