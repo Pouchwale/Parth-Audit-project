@@ -1002,33 +1002,15 @@ Seven scripts live in `tests/`:
   `e2e_postgres_storage.py` 34 of 34 at 5a6b3ac. Not run: the full browser run, and every_record_starts over all 125
   documents; the 38 suites that read `dcrs:v1:records` from localStorage keep it there, since nothing of theirs
   passes the room.
-- **One record per save** (REQUIREMENTS §108, its second half, 10-Oct-2026: a save sends the records that changed,
-  `PATCH /api/storage/records`, and a browser asking what changed is handed only those, by the change journal
-  `app_storage_changes`; backend/changeJournal.ts, frontend/src/data/serverSync.ts). New unit tests:
-  `backend/tests/storageRoutes.test.ts` (20 new, 36 in all; 19 of the 20 fail on the route before the change, the 20th
-  is the old whole answer kept where the journal does not reach) and `frontend/tests/oneRecordPerSave.test.ts` (8, all
-  failing on the browser's code before the change), both over stand-ins that run the very steps of
-  backend/changeJournal.ts (`saveLines`, `answerLines`); what each proves is listed in REQUIREMENTS §108 "Tests of part
-  2". The route tests' server now parses JSON before the routes, as backend/index.ts does: the first browser run found
-  every save falling back to the whole item, because a save sent as `application/json` was taken by the server's 100 KB
-  JSON parser before the route; the browser now sends it as text, as a whole item goes, and the route also takes a small
-  one already parsed. New browser suite `tests/e2e_one_record_per_save.py` (:8842, after `e2e_browser_room.py` in
-  scripts/run-e2e.ts), run alone with the project's runner (`E2E_SKIP_UNIT=1 npm run test:e2e --
-  tests/e2e_one_record_per_save.py`, 8842 and 8843 free): 36 of 36 at 1ea8874, no JavaScript error. Measured there: a
-  save of one F/MNT/08 record 1,888 bytes on the wire where the whole records item was 96,651 bytes compressed (796,723
-  characters); a colleague's save reached the other browser in 2,104 bytes; with the records grown to 27,875,948
-  characters (a whole save of them refused, 413) a save of one record 11,005 bytes, stored. The suites the change
-  touches, at 1ea8874 with the project's runner: `e2e_departments.py` 39 of 39, `e2e_browser_room.py` 39 of 39,
-  `e2e_postgres_storage.py` 34 of 34 (the browser's copy still the database's to the character),
-  `e2e_access_levels.py` 148 of 148 and `e2e_mobile_mitra_api.py` 32 of 32 (the phones' whole writes journaled record by
-  record). Run after the :8842 suites in one invocation, `e2e_access_levels.py` failed only "The last super admin
-  cannot be made staff": `e2e_departments.py`'s first sign-up on the fresh database is a second super admin, so the
-  seeded one is no longer the last (an order effect, not this change); run on its own it passes. Again at d6b0c83, after
-  a department's account stopped being handed the ids of other departments' records: `e2e_one_record_per_save.py` 36 of
-  36 (a save 1,888 bytes, a colleague's 2,104, past 25 MB 10,982), `e2e_postgres_storage.py` 34 of 34,
-  `e2e_access_levels.py` 148 of 148, and `e2e_every_record_starts.py` 30 of 30 with `E2E_ONLY=mnt-new-equipment` (the
-  browser full, a reload, Maintenance's account). Changed: scripts/run-e2e.ts
-  empties `app_storage_changes` with `app_storage` before each suite. Not run: the full browser run.
+- **One record per save, withdrawn from this release** (REQUIREMENTS §108 part 2; the security review of 13-Oct-2026).
+  The review found, each in a scratch test, that the new sync could lose or bring back records: two tabs of one
+  browser with a reload between them removed the browser's copy and dropped a save waiting in it (critical); a
+  colleague's save landing between the two reads of a sign-in answer emptied the copy; a save merged with no common
+  copy brought back a record removed elsewhere; a sign-in answer could pass a write and keep a browser stale. The
+  commits eae4aae, 1ea8874, d6b0c83, 51b7225 and 06a9809 are reverted on integrate-12oct: saving and the questions of
+  what changed work exactly as before §108 (the whole records item, merged three ways), and the first half of §108,
+  the browser's room in IndexedDB that ends the "copy is full" banner, stays. Part 2 is kept on branch browser-room
+  for a redo with these four cases as its first tests.
 - **Two browser suites that failed for reasons of their own, not the app's** (review of 12-Oct-2026).
   `tests/e2e_storage_room.py` expected Demo Mode's daily log sheets from exactly three months before the month in
   hand. The generator draws fewer months back when the browser has no room for them all, and the Demo Mode page

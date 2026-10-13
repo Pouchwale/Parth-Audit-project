@@ -7281,57 +7281,13 @@ read took 65 to 263 ms, once with a task of 214 ms; a save read the stored value
 169 ms) and put it in one call of 47 to 167 ms. Now the stamp alone is read, and the value is kept in eight parts, read
 all asked for at once and put one by one: the start-up read took 116 to 591 ms, its longest task 83 ms (none over 50 ms
 on the quieter run), and a save's IndexedDB work made no task over 50 ms (its longest put 26 to 34 ms). The app's own
-script, which begins the read, ran 1.6 to 4.3 s at 6x, as before this section. Every reload still downloaded every item
-from the database; since part 2 a copy of the records in step is not downloaded again.
+script, which begins the read, ran 1.6 to 4.3 s at 6x, as before this section. Every reload still downloads every item
+from the database (part 2).
 
-**2. One record per save** (built 10-Oct-2026: backend/changeJournal.ts, backend/storageRoutes.ts, backend/db.ts,
-frontend/src/data/serverSync.ts, data/repositories/recordRepository.ts). Until now each save sent the whole records
-item (up to the 25 MB body limit, `STORAGE_MAX_BYTES`, which the records at the measured 7.9 MB a year reach in about
-three years), and every open computer downloaded the whole item again after anybody's save. The records stay stored
-exactly as before: one item, `records`, in `app_storage`, which /api/v1, the engine host (the phones' path), the
-escalation job and the Database overview's views read whole. Only what travels changes.
-
-- *A save sends the records that changed.* Each write of the repository names the records it changed or removed (a
-  start, a fill, a submit, a removal, a start-up migration's records), and the marker of the browser's copy keeps them
-  until the database confirms them, so whichever tab sends them, or the next sign-in, sends just those. `PATCH
-  /api/storage/records` takes `{ "changed": [records], "removed": [ids] }` with the version of the copy
-  (`X-Base-Version`) and the write that made it (`X-Base-Seq`), sent as text as a whole item is, a million characters
-  of records at most at a time (a migration that touched every record goes in parts). The server lays them over the
-  item as stored, in the write's transaction and under its lock, checked record by record against the person's level
-  exactly as a whole write is (§96): a Read-only person's own change is refused with 403 in words, and the refused
-  record is handed back as stored for the page to put back; the app's housekeeping is kept as stored and handed back;
-  a record of a document the person does not see is left in their copy, as before.
-- *Somebody else's save in between is no reason to refuse it.* When none of the records the save names changed since
-  its copy, it is laid over what is stored (no 409), and the answer hands back the records the browser had not seen.
-  When one of them did, nothing is written: 409 with the records changed since, which the browser merges as two copies
-  of a record always were (the later stands; a person's change over an automatic preparation) and sends again. A save
-  sent twice (its answer lost on the way) is taken once. The same blank sheet made on two computers at once: the one
-  stored stays and the other is told (the merge's duplicate-blank rule, now kept on the server too).
-- *A colleague's save brings only that record.* A new table, `app_storage_changes` (seq, scope, key, version, record
-  id, removed), journals each write of the records in the same transaction: one row for the write and one for each
-  record it changed or removed. A whole write (the phones' engine, a CAPA closed through /api/v1, a browser's first
-  upload) is compared with what was stored, record by record, to make its rows. A browser asking what changed says
-  which version of the records it holds and the write that made it (`X-Records-Version`, `X-Records-Seq`). When the
-  journal holds that very write and one row for every version since, and what the person may see has not changed
-  since (the copy's key is today's, and neither the catalogue nor the access rules were written since), it is handed
-  only the records changed since that the person may see, and the ids of records gone from the item (a record of a
-  document they do not see is not handed over at all, not even by its id), and nothing at all when its copy is the
-  stored version: the saver no longer downloads its own save again (data-9 of the audit). A sign-in or a reload
-  with a copy in step is answered the same way, so the records are not downloaded again at every reload. Otherwise,
-  or when more than a quarter of the records (and over 500) changed, the whole item, as before.
-- *A whole write stays possible* (`PUT /api/storage/records`, up to the 25 MB body limit as before): the first upload,
-  a copy whose origin is not known, and a server older than this (no PATCH: the browser then sends the item whole).
-  The records saved record by record may grow past 25 MB.
-- *The journal* says which records changed, never what was in them, and only grows: about one row per save and one
-  per record saved. The e2e runner empties it with `app_storage`, and a full reset does both (docs/DEPLOYMENT.md).
-
-**Measured** (10-Oct-2026, tests/e2e_one_record_per_save.py, headless Chromium on the production build against a
-throwaway PostgreSQL). A save of one F/MNT/08 record was 1,888 bytes on the wire, where the whole records item it used
-to send was 96,651 bytes compressed (796,723 characters, a fresh plant's month); a colleague's save of one record
-reached the other browser in 2,104 bytes, where it used to bring the whole item again. With the records grown to
-27,875,948 characters, past the old body limit (a whole save of them is refused, 413), a save of one record was 11,005
-bytes and was stored. At a year of the plant's records the whole item is ten times the fresh plant's, and a save and a
-colleague's save stay the size of the records they carry.
+**2. One record per save** (the second half; not built in this change). Each save still sends the whole records item,
+and each sign-in downloads every item; the server takes an item of up to 25 MB (`STORAGE_MAX_BYTES`), which the
+records at the measured 7.9 MB a year reach in about three years. A save that sends the one record that changed, and
+PostgreSQL keeping one row per record, are the C-1 design (the draft for §95), for the next change.
 
 **Tests.** frontend/tests/browserRoom.test.ts (16, over a stand-in IndexedDB, BroadcastChannel and navigator.locks,
 frontend/tests/support/fakeBrowserRoom.ts): a value over the room kept, read at once and read back after a reload, a
@@ -7355,41 +7311,6 @@ copy timed at 6x, and the banner's words with IndexedDB refusing.
 Changed: tests/e2e_storage_room.py (its part past the mark runs in a page without IndexedDB) and
 tests/e2e_every_record_starts.py (with the browser full, Start opens the record, which is in the database and in
 IndexedDB, with no banner, and opens after a reload with the browser still full).
-
-**Tests of part 2.** backend/tests/storageRoutes.test.ts (20 new, over a stand-in that runs the very steps PostgreSQL's
-writes run, backend/changeJournal.ts saveLines and answerLines, with its journal, behind the server's own JSON parser):
-a save of one record laid over the item in place and journaled by its id; somebody else's save of another record in
-between taken with no 409 and handed back; a save naming a record changed first refused 409 with the records changed
-since and nothing written, then taken from the version it was handed; a save sent twice taken once; a removal
-journaled, and told to a save made before it; the same blank sheet made twice (the one stored stays, the other told; a
-sheet worked on takes the place of a stored blank one); a whole write journaled record by record and answered by
-record; a save of more than the JSON parser's 100 KB taken as text, a small one as JSON; what is not a save of records
-refused. At each person's level: a Read-only person's own change refused 403 in words, with the record handed back as
-stored; a change the level allows taken, everyone else's records as stored; the app's housekeeping kept out and handed
-back; a removal at Edit taken, below it kept and handed back; a copy made for other levels answered 409 as a whole
-write is. Asking what changed: nothing when the copy is the stored version (its own save included); only the records
-changed and the ids removed when the journal covers the span; the whole item for a copy older than the journal and for
-another write of the same version; a department's account handed its own records and nothing of another
-department's, not even its id, and a record gone from the item by its id; the whole item again once the access rules
-were written. A records item of 26 million characters taking a save of one record of under a thousand characters.
-19 of the 20 fail on the route before this change; the 20th, the whole item where the journal does not reach, is the
-old answer kept. frontend/tests/oneRecordPerSave.test.ts (8, the working copy in front
-of a stand-in database running the same steps): a save sends the one record that changed (680 characters, where the
-whole item is 196,774) and the database's copy is the browser's to the character; somebody else's save of another
-record in between, no 409, theirs handed back; the same record changed in both, merged, the later standing (theirs
-later: one 409, nothing sent again; this copy's later: 409, then 200); a removal travels as its id; a colleague's save
-reaches the copy as that record alone (410 characters) and the saver is not handed its own; a save of 2,600 records
-goes in parts of a million characters; signing in again with a copy in step downloads no records, and a colleague's
-save meanwhile comes as that record; a server without PATCH gets the whole item, as before (all 8 fail on the browser's
-code before this change). tests/e2e_one_record_per_save.py
-(new, :8842, after e2e_browser_room.py): two people in two browsers on the production build - a save sends the one
-record that changed, never the whole item; a colleague's save reaches the other browser as that record alone, its
-question saying which records it holds, and the saver is not handed its own save; a browser saving from a copy older
-than the other's save is not refused, both records stored and the other's handed back with the answer, and two
-starting a record at the same moment both kept; the same record written in both, the later standing in the database
-and in both browsers after one 409; a deletion sent as its id, gone from the database and the other browser; the
-records grown past 25 MB by saves of a megabyte, a whole save of them refused 413, and a save of one record taken.
-Changed: scripts/run-e2e.ts (the new suite; `app_storage_changes` emptied with `app_storage` before each suite).
 
 ## Master data provenance summary
 
