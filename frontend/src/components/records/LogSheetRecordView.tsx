@@ -39,8 +39,10 @@ import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
 import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
-import { BIND_APPEND_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
+import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
 import { bindProps, effectiveColumn, logCellBind, logColumnBind, logHeaderBind, logRowName } from "../../engine/roundTrip/bindingsFor";
+import { gridLines, isPrintedBox, srNoText, type GridLines } from "../../engine/paperLayout";
+import { NotesBelow } from "./NotesBelow";
 
 /** A sheet open for writing with more lines than this draws only those near the screen (REQUIREMENTS §76). */
 const DRAW_NEAR_FROM = 60;
@@ -291,16 +293,27 @@ export function LogSheetRecordView({
   // column, F/HR/04's 01 to 10) gets no Sr. No. column of the sheet's, and on every other form a
   // printed line's words never repeat the Sr. No. beside them.
   const numbered = !numbersOwnLines(layout);
+  // AN ENTRY OF TWO LINES (REQUIREMENTS §111): where the paper gives each entry a second line
+  // (F/QC/12's "Deviation %"), the columns drawn on it are left out of the heading and drawn on
+  // that line, under the column each names (engine/paperLayout.ts). Every other sheet: one line.
+  const lines = gridLines(layout);
+  const issuedFirst = issued ? gridLines(issued).first : undefined;
   // The heading rows: the columns grouped into the runs the paper draws under
   // one spanning heading, and two rows instead of one where there is such a run.
-  const headRuns = headingRuns(layout.columns);
+  const headRuns = headingRuns(lines.first);
   const headRows = headRuns.some((r) => r.group !== undefined) ? 2 : 1;
+  // THE DAY IN THE SR. NO. COLUMN (REQUIREMENTS §111): F-QC-30 writes the record's date there on the
+  // first line and nothing on the others; every other sheet numbers its lines.
+  const recordDate = formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date);
   // A SHEET OF FREE LINES says so on its grid (REQUIREMENTS §81): the list the
   // lines are, and — wherever a line can be added, now or once a signed-off
   // sheet is reopened for correction — that lines added to the downloaded
   // file become new lines here. Each heading names the box of a line it holds.
   const freeRows = mode.kind === "free";
-  const gridBind = freeRows ? { [BIND_TABLE_ATTR]: "rows", ...(superseded ? {} : { [BIND_APPEND_ATTR]: "1" }) } : undefined;
+  // Entries of two lines say what the second is headed, so a downloaded file's "Deviation %" line is never read as a new entry (§111).
+  const gridBind = freeRows
+    ? { [BIND_TABLE_ATTR]: "rows", ...(superseded ? {} : { [BIND_APPEND_ATTR]: "1" }), ...(lines.second ? { [BIND_SECOND_LINE_ATTR]: lines.second.label } : {}) }
+    : undefined;
 
   return (
     <div className={asIssued ? "notranslate" : undefined} translate={asIssued ? "no" : undefined} data-bind-record={record.id}>
@@ -363,7 +376,17 @@ export function LogSheetRecordView({
               </div>
             ))}
             {layout.headerFields.length > 0 && (
-              <div className="grid mt-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px 16px" }}>
+              // As many boxes to a line as the paper draws, where it says (F/QC/12's three rows of three,
+              // REQUIREMENTS §111); otherwise as many as the screen holds. A phone takes them one under another (styles.css).
+              <div
+                className={`grid${layout.instructions?.length || layout.referenceTables?.length ? " mt-3" : ""}${layout.headerColumns ? " sheet-boxes-paper" : ""}`}
+                data-section="sheet-boxes"
+                style={
+                  layout.headerColumns
+                    ? ({ "--paper-box-columns": layout.headerColumns, gap: "10px 16px" } as React.CSSProperties)
+                    : { gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px 16px" }
+                }
+              >
                 {layout.headerFields.map((f, fi) => {
                   const personBox = fetching && link?.where === "header" && link.nameField === f.key;
                   const machineList = machineHeaderList(f.key);
@@ -409,7 +432,7 @@ export function LogSheetRecordView({
           <thead>
             <tr>
               {numbered && (
-                <th style={{ width: 44 }} rowSpan={headRows}>
+                <th style={{ width: layout.srNoShowsDate ? 96 : 44 }} rowSpan={headRows}>
                   Sr. No.
                 </th>
               )}
@@ -431,7 +454,7 @@ export function LogSheetRecordView({
             </tr>
             {headRows === 2 && (
               <tr>
-                {layout.columns.filter((c) => c.group !== undefined).map((c) => (
+                {lines.first.filter((c) => c.group !== undefined).map((c) => (
                   <ColumnHead key={c.key} col={c} bound={freeRows} />
                 ))}
               </tr>
@@ -440,7 +463,7 @@ export function LogSheetRecordView({
           <tbody ref={bodyRef}>
             {data.rows.length === 0 && (
               <tr>
-                <td colSpan={layout.columns.length + (numbered ? 2 : 1)} className="text-muted text-center" style={{ padding: 16 }}>
+                <td colSpan={lines.first.length + (numbered ? 2 : 1)} className="text-muted text-center" style={{ padding: 16 }}>
                   No rows yet.
                 </td>
               </tr>
@@ -450,10 +473,12 @@ export function LogSheetRecordView({
                 key={row.id}
                 row={row}
                 index={i}
-                columns={layout.columns}
-                issuedColumns={issued?.columns}
+                columns={lines.first}
+                issuedColumns={issuedFirst}
+                second={lines.second}
                 fixedRow={mode.kind === "fixedRows" ? mode.rows[i] : undefined}
                 numbered={numbered}
+                srNo={numbered ? srNoText(layout, i, recordDate) : undefined}
                 editable={editable}
                 lang={lang}
                 employees={employeeNames}
@@ -482,6 +507,8 @@ export function LogSheetRecordView({
           <FiPlus size={13} /> Add Row
         </button>
       )}
+      {/* The paper's own text below the grid, word for word (REQUIREMENTS §111): F/QC/11's and F/QC/12's PROCEDURE. */}
+      {layout.notesBelow && layout.notesBelow.length > 0 && <NotesBelow lines={layout.notesBelow} />}
 
       {/* The charts the form prints from its own figures (REQUIREMENTS §77). */}
       {layout.charts?.map((chart, i) => (
@@ -747,8 +774,10 @@ const SheetRow = React.memo(function SheetRow({
   index,
   columns,
   issuedColumns,
+  second,
   fixedRow,
   numbered,
+  srNo,
   editable,
   lang,
   employees,
@@ -766,10 +795,14 @@ const SheetRow = React.memo(function SheetRow({
   index: number;
   columns: LogColumn[];
   issuedColumns: LogColumn[] | undefined;
+  /** The entry's second line, where the paper gives it one (REQUIREMENTS §111): its heading, and the column under each of `columns`. */
+  second?: GridLines["second"];
   /** The line the form prints here, on a form that prints its lines. */
   fixedRow: Record<string, string | number | null> | undefined;
   /** The sheet's own Sr. No. is drawn (the form does not number its lines itself, REQUIREMENTS §102). */
   numbered: boolean;
+  /** What the Sr. No. shows: the line's number, or the record's date on a sheet that writes the day there (REQUIREMENTS §111). */
+  srNo?: string;
   editable: boolean;
   lang: Parameters<typeof documentTextIn>[1];
   employees: string[];
@@ -788,9 +821,14 @@ const SheetRow = React.memo(function SheetRow({
 }) {
   // What the line is called in a downloaded file's list of boxes: its time slot, its parameter (REQUIREMENTS §81).
   const rowName = logRowName(row, columns);
-  return (
-    <tr>
-      {numbered && <td className="text-muted">{index + 1}</td>}
+  const lineSpan = second ? 2 : undefined;
+  const firstLine = (
+    <tr data-line={second ? "first" : undefined}>
+      {numbered && (
+        <td className="text-muted" rowSpan={lineSpan} data-sr-no="">
+          {srNo ?? index + 1}
+        </td>
+      )}
       {columns.map((c, ci) => {
         // A line the form prints blank (F/HR/05's two spare topic lines)
         // has nothing fixed in it, so it is written in like any cell.
@@ -822,13 +860,49 @@ const SheetRow = React.memo(function SheetRow({
         );
       })}
       {canRemove && (
-        <td>
+        <td rowSpan={lineSpan}>
           <button className="btn btn-ghost btn-sm btn-icon" onClick={() => onRemove(row.id)} title="Remove row">
             <FiTrash2 size={13} />
           </button>
         </td>
       )}
     </tr>
+  );
+  if (!second) return firstLine;
+  // THE ENTRY'S SECOND LINE (REQUIREMENTS §111): its heading in the first column, and under each
+  // column of the first line the column the paper draws beneath it — F/QC/12's Deviation % under
+  // each Tested Value. The values are the same line's; nothing is stored apart.
+  return (
+    <>
+      {firstLine}
+      <tr data-line="second" className="log-second-line">
+        {columns.map((c, ci) => {
+          if (ci === 0) {
+            return (
+              <td key={c.key} className="second-line-label">
+                {second.label}
+              </td>
+            );
+          }
+          const under = second.under[ci];
+          if (!under) return <td key={c.key} />;
+          return (
+            <td key={c.key} className={isOutOfBand(under, row[under.key]) ? "cell-out-of-band" : ""} data-beneath={under.key}>
+              <CellInput
+                col={under}
+                bind={bindProps(logCellBind(row, index, under, rowName))}
+                issuedLabel={under.label}
+                value={row[under.key]}
+                editable={editable && !under.fixed && !under.computed}
+                onChange={(v) => onCell(row.id, under.key, v)}
+                employees={employees}
+                list={lists?.[under.key] ?? under.list}
+              />
+            </td>
+          );
+        })}
+      </tr>
+    </>
   );
 });
 
@@ -904,6 +978,19 @@ function HeaderFieldInput({
   // live in data.header — for an edited Excel file read back (REQUIREMENTS §81).
   // A box the sheet works out is not bound.
   const bound = bindProps(logHeaderBind(field));
+  // A BOX THE PAPER FILLS IN PRINT — F/QC/11's Device ID No "1-54, 2-55, 3-56, 4-57" — reads as the
+  // paper prints it, as text, and is never typed into (REQUIREMENTS §111). What a record holds there is
+  // the same words (engine/paperLayout.ts), so nothing is bound.
+  if (isPrintedBox(field)) {
+    return (
+      <div className="field">
+        <label>{field.printedLabel ?? field.label}</label>
+        <span className="cell-text notranslate" translate="no" data-printed={field.key}>
+          {field.printed}
+        </span>
+      </div>
+    );
+  }
   // A box WORKED OUT from the sheet — F/MKT/02's totals and its % Satisfaction
   // Index (REQUIREMENTS §77) — reads as text, as a worked-out cell does.
   if (field.computed) {
@@ -943,7 +1030,7 @@ function HeaderFieldInput({
           (REQUIREMENTS §68, found while adding F/STR/01 in §71, whose stamp is
           seven such questions). */}
       {field.type === "select" || field.type === "yesno" ? (
-        <select className="input input-sm" {...bound} disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
+        <select className="input input-sm" {...bound} data-empty={value ? undefined : ""} disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">Select…</option>
           {(field.type === "yesno" ? ["Yes", "No"] : (field.options ?? [])).map((o) => (
             <option key={o} value={o}>
@@ -956,6 +1043,8 @@ function HeaderFieldInput({
           className="input input-sm"
           {...bound}
           type={field.type === "date" ? "date" : field.type === "time" ? "time" : "text"}
+          // An empty date or time box prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111, styles.css).
+          data-empty={value ? undefined : ""}
           list={list ?? (isName ? "log-sheet-employees" : undefined)}
           disabled={!editable}
           value={value}
@@ -1055,7 +1144,7 @@ function CellInput({
   if (col.type === "yesno" || col.type === "select") {
     const opts = col.type === "yesno" ? ["Yes", "No"] : (col.options ?? []);
     return (
-      <select className="input input-sm" {...bind} disabled={!editable} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)}>
+      <select className="input input-sm" {...bind} data-empty={value ? undefined : ""} disabled={!editable} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)}>
         <option value="">—</option>
         {opts.map((o) => (
           <option key={o} value={o}>
@@ -1089,6 +1178,8 @@ function CellInput({
       type={col.type === "time" ? "time" : col.type === "date" ? "date" : "text"}
       className="input input-sm"
       {...bind}
+      // An empty date or time box prints empty, not "dd-mm-yyyy" or "--:--" (REQUIREMENTS §111, styles.css).
+      data-empty={value === null || value === undefined || value === "" ? "" : undefined}
       list={list ?? (isSign && employees.length ? "log-sheet-employees" : undefined)}
       disabled={!editable}
       value={(value as string) ?? ""}

@@ -4,7 +4,21 @@ import { columnName, isoToSerial, xmlText, zipStored, customPropertiesXml, CUSTO
 import { downloadBlob } from "./csv";
 import { formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT } from "./print";
-import { BIND_APPEND_ATTR, BIND_ATTR, BIND_COL_ATTR, BIND_OPTIONS_ATTR, BIND_RECORD_ATTR, BIND_TABLE_ATTR, BIND_TYPE_ATTR, BIND_TYPES, decodeOptions, parseBindPath, readBinding, type BindType } from "../engine/roundTrip/bindPath";
+import {
+  BIND_APPEND_ATTR,
+  BIND_ATTR,
+  BIND_COL_ATTR,
+  BIND_OPTIONS_ATTR,
+  BIND_RECORD_ATTR,
+  BIND_SECOND_LINE_ATTR,
+  BIND_TABLE_ATTR,
+  BIND_TYPE_ATTR,
+  BIND_TYPES,
+  decodeOptions,
+  parseBindPath,
+  readBinding,
+  type BindType,
+} from "../engine/roundTrip/bindPath";
 import {
   ENVELOPE_PROPERTY,
   ExportMapBuilder,
@@ -337,7 +351,9 @@ function appendableGrid(table: HTMLTableElement, columnsAt: Map<Element, number>
     const label = clean(textOf(cell));
     columns.push({ key, type, options: decodeOptions(cell.getAttribute(BIND_OPTIONS_ATTR)), col, ...(label ? { label } : {}) });
   }
-  return columns.length ? { recordId, listPath, columns: columns.sort((a, b) => a.col - b.col) } : undefined;
+  // A grid whose entries take two lines says what the second is headed (REQUIREMENTS §111).
+  const secondLine = (table.getAttribute(BIND_SECOND_LINE_ATTR) ?? "").trim();
+  return columns.length ? { recordId, listPath, columns: columns.sort((a, b) => a.col - b.col), ...(secondLine ? { secondLine } : {}) } : undefined;
 }
 
 // A grid read into rows of cells the way the screen lays it out. A heading that

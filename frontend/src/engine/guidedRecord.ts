@@ -572,6 +572,8 @@ function logSheetPlan(doc: DocumentDefinition, record: RecordInstance, d: LogShe
   const personKey = link?.where === "header" ? link.nameField : null;
 
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+    // Printed on the paper (REQUIREMENTS §111) or worked out: nothing to ask.
+    if (typeof f.printed === "string" || f.computed) continue;
     if (link && f.key === personKey) {
       qs.push({
         id: `h-${f.key}`,

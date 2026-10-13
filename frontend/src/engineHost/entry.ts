@@ -717,6 +717,8 @@ function documentNamed(said: string): { doc: DocumentDefinition } | { refusal: O
 
 const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
   const c = f as LogColumn;
+  // A box the paper prints its value in (REQUIREMENTS §111) is printed, with that value: the phone asks nothing for it.
+  const printedBox = typeof (f as LogHeaderField).printed === "string" ? (f as LogHeaderField).printed : undefined;
   return {
     key: f.key,
     label: f.label,
@@ -725,8 +727,11 @@ const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
     ...(f.required ? { required: true } : {}),
     ...(c.unit ? { unit: c.unit } : {}),
     ...(c.group ? { group: c.group } : {}),
-    ...(c.fixed ? { printed: true } : {}),
+    ...(c.fixed || printedBox !== undefined ? { printed: true } : {}),
+    ...(printedBox !== undefined ? { value: printedBox } : {}),
     ...(f.computed ? { computed: true } : {}),
+    // Drawn on the entry's second line, under this column (F/QC/12's Deviation %, §111): the same line's key.
+    ...(c.beneath ? { beneath: c.beneath } : {}),
     ...(c.linkedFrom ? { readFrom: c.linkedFrom } : {}),
     ...(typeof c.min === "number" ? { min: c.min } : {}),
     ...(typeof c.max === "number" ? { max: c.max } : {}),
@@ -754,6 +759,10 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         kind: "log-sheet",
         // The form numbers its own lines: no "Row N" of the reader's beside them (REQUIREMENTS §102).
         ...(numbersOwnLines(l) ? { ownLineNumbers: true } : {}),
+        // The paper's own shape (REQUIREMENTS §111): the day in its Sr. No., an entry's second line, its text below the grid.
+        ...(l.srNoShowsDate ? { srNoShowsDate: true } : {}),
+        ...(l.secondLine ? { secondLine: l.secondLine } : {}),
+        ...(l.notesBelow?.length ? { notesBelow: l.notesBelow } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),

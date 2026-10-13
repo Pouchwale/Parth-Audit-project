@@ -1,6 +1,6 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
-import { QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
+import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
 import { QC_INCOMING_LAYOUTS } from "./qcIncomingLayouts";
 import { QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
@@ -34,9 +34,14 @@ const HOURLY_SLOTS = [
 
 export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F-QC-30 — Lamination Adhesive Viscosity Record (Rev 00, 15.12.2024)
+  // As the paper (REQUIREMENTS §111): Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By, and
+  // nothing printed above the grid — the specification is in the Viscosity heading, where the paper prints it
+  // and where it sets the band a reading outside is highlighted by. The owner crossed out the line DCRS
+  // printed above, and circled its numbered Sr. No.: on the paper the day's date is written there on the
+  // day's first line ("6/9/26", "7/9/26") and the hours under Date/Time.
   "qc-viscosity": {
     documentId: "qc-viscosity",
-    instructions: ["Viscosity specification: 20.0 ± 1.0 Sec. One reading every hour, round the clock (09:00 to 08:00 next day)."],
+    srNoShowsDate: true,
     headerFields: [],
     columns: [
       { key: "time", label: "Date/Time", type: "time", fixed: true, width: 90 },
@@ -62,11 +67,15 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   },
 
   // ---- F-QC-32 — Adhesive Mixing Ratio Record (Rev 00, 15.12.2024)
+  // As the paper (REQUIREMENTS §111): Sr. No. | Date | Time | Adhesive (kg) | Hardener (kg) | Ethyl (kg) |
+  // Viscosity (Sec.) | Remark | Checked by | Verified by. The Date column was missing; nothing is printed above
+  // the grid (DCRS's "One row per adhesive batch mixed..." was its own explanation, not the paper's).
   "qc-adhesive-mixing": {
     documentId: "qc-adhesive-mixing",
-    instructions: ["One row per adhesive batch mixed. Standard mix observed on the specimen: 15 kg adhesive : 1.65 kg hardener : 19.5 kg ethyl acetate."],
     headerFields: [],
     columns: [
+      // The day the batch was mixed: the record's date (a line written after midnight is changed by the person).
+      { key: "date", label: "Date", type: "date", width: 130, autoFill: { dueDate: true } },
       { key: "time", label: "Time", type: "time", required: true, width: 90, autoFill: { nowTime: true } },
       // Weighed set quantities — always the same 15 / 1.65 / 19.5 on the
       // specimen, so they are copied exactly (band only drives highlighting).
@@ -80,10 +89,10 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
     ],
     rowMode: { kind: "free", minRows: 1, typicalRows: 3 },
     specimenRows: [
-      { time: "04:30", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.9, remark: "", checkedBy: "Jeni", verifiedBy: "" },
-      { time: "21:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.76, remark: "", checkedBy: "Singh", verifiedBy: "" },
-      { time: "02:50", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.89, remark: "", checkedBy: "Singh", verifiedBy: "" },
-      { time: "06:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 20.15, remark: "", checkedBy: "Singh", verifiedBy: "" },
+      { date: "2026-09-06", time: "04:30", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.9, remark: "", checkedBy: "Jeni", verifiedBy: "" },
+      { date: "2026-09-06", time: "21:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.76, remark: "", checkedBy: "Singh", verifiedBy: "" },
+      { date: "2026-09-06", time: "02:50", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.89, remark: "", checkedBy: "Singh", verifiedBy: "" },
+      { date: "2026-09-06", time: "06:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 20.15, remark: "", checkedBy: "Singh", verifiedBy: "" },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.17 PM.jpeg (F-QC-32, filled 6/9/26 – 7/9/26)",
   },
@@ -521,7 +530,70 @@ Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
 // otherwise. `getIssuedLogSheetLayout` is the paper's own transcription.
 export function getLogSheetLayout(documentId: string): LogSheetLayout | undefined {
   const edited = formatEditFor(documentId)?.layout;
-  return edited ? printedLinesOnce(edited) : LOG_SHEET_LAYOUTS[documentId];
+  return edited ? printedLinesOnce(asThePaper(edited)) : LOG_SHEET_LAYOUTS[documentId];
+}
+
+// THE PAPER'S OWN SHAPE IN A FORMAT EDITED BEFORE §111 TOO (REQUIREMENTS §111). A format the
+// plant changed before 13-Oct-2026 was stored whole, with DCRS's explanations above its grid and
+// none of what the paper does that a layout could not say then: a box it prints the value of, the
+// date in its Sr. No., an entry of two lines, its text below the grid. Such a layout (one that says
+// none of those) takes them from the issued one, box by box and column by column where the key is
+// still there, and loses the explanation lines §111 took off the issued layouts. A format edited
+// since is the plant's own word and is left as it is. The same object until the edit changes.
+const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
+  "qc-viscosity": ["Viscosity specification: 20.0 ± 1.0 Sec. One reading every hour, round the clock (09:00 to 08:00 next day)."],
+  "qc-adhesive-mixing": ["One row per adhesive batch mixed. Standard mix observed on the specimen: 15 kg adhesive : 1.65 kg hardener : 19.5 kg ethyl acetate."],
+  "qc-weight-scale-calibration": [
+    "WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE. One line per weekly calibration: the five test weights, the value the scale showed for each, the deviation, Pass / Fail, the tester's sign and when the next one is due.",
+    "On the paper the Deviation % of each entry is written on a second line beneath it; here every weight carries its own Deviation % column on the same line. Each Deviation % is worked out from the weight and its tested value — (tested − weight) ÷ weight × 100, in whatever unit they are written — and Pass / Fail follows the Acceptable Tolerance above.",
+    // Printed below the grid now, as the paper prints it.
+    `PROCEDURE: ${CALIBRATION_PROCEDURE}`,
+  ],
+  "qc-gsm-plate-calibration": [
+    "MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE. The four plates — No. 54 (20 x 20cm), No. 55 (10 x 10cm), No. 56 (5 x 5cm), No. 57 (2.5 x 2.5cm) — measured four times each, with the deviation beside every measurement, then Pass / Fail and the tester's sign for each plate.",
+    "Each Deviation % is worked out from the size written beside it, by area, against the plate's own size printed at the head of its column.",
+    `PROCEDURE: ${CALIBRATION_PROCEDURE}`,
+  ],
+};
+
+const asPaper = new WeakMap<LogSheetLayout, LogSheetLayout>();
+function asThePaper(edited: LogSheetLayout): LogSheetLayout {
+  const known = asPaper.get(edited);
+  if (known) return known;
+  let out = edited;
+  const issued = LOG_SHEET_LAYOUTS[edited.documentId];
+  const boxes = [...edited.headerFields, ...(edited.footerFields ?? [])];
+  const saysPaper =
+    edited.srNoShowsDate !== undefined || edited.secondLine !== undefined || edited.notesBelow !== undefined || edited.headerColumns !== undefined ||
+    boxes.some((f) => f.printed !== undefined) || edited.columns.some((c) => c.beneath !== undefined);
+  if (issued && !saysPaper) {
+    const issuedBoxes = new Map([...issued.headerFields, ...(issued.footerFields ?? [])].map((f) => [f.key, f]));
+    const issuedColumns = new Map(issued.columns.map((c) => [c.key, c]));
+    const box = (f: LogHeaderField): LogHeaderField => {
+      const printed = issuedBoxes.get(f.key)?.printed;
+      return printed === undefined ? f : { ...f, printed };
+    };
+    const withdrawn = new Set(WITHDRAWN_EXPLANATIONS[edited.documentId] ?? []);
+    const instructions = edited.instructions?.filter((line) => !withdrawn.has(line));
+    out = {
+      ...edited,
+      ...(issued.srNoShowsDate ? { srNoShowsDate: issued.srNoShowsDate } : {}),
+      ...(issued.secondLine ? { secondLine: issued.secondLine } : {}),
+      ...(issued.notesBelow ? { notesBelow: issued.notesBelow } : {}),
+      ...(issued.headerColumns ? { headerColumns: issued.headerColumns } : {}),
+      instructions: instructions && instructions.length > 0 ? instructions : undefined,
+      headerFields: edited.headerFields.map(box),
+      footerFields: edited.footerFields?.map(box),
+      columns: edited.columns.map((c) => {
+        const beneath = issuedColumns.get(c.key)?.beneath;
+        return beneath === undefined ? c : { ...c, beneath };
+      }),
+    };
+    if (edited.instructions === undefined) delete out.instructions;
+    if (edited.footerFields === undefined) delete out.footerFields;
+  }
+  asPaper.set(edited, out);
+  return out;
 }
 
 // ONE NUMBER PER LINE IN AN EDITED FORMAT TOO (REQUIREMENTS §102). A format the plant

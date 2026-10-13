@@ -235,6 +235,11 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
   const header: Record<string, string> = {};
   const carried: string[] = [];
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+    // What the paper prints in the box is the box's value, on every sheet (REQUIREMENTS §111).
+    if (typeof f.printed === "string") {
+      header[f.key] = f.printed;
+      continue;
+    }
     const kind = boxKind(f, layout);
     if (kind === "date") {
       header[f.key] = dueDate;

@@ -174,7 +174,8 @@ export function logFieldType(type: LogFieldType, multiline?: boolean): BindType 
  * header would not be what the page itself writes there.
  */
 export function logHeaderBind(field: LogHeaderField): Bound | null {
-  if (field.computed) return null;
+  // Worked out, or printed on the paper (REQUIREMENTS §111): shown, never written, so never bound.
+  if (field.computed || typeof field.printed === "string") return null;
   const type = field.type === "number" ? "text" : logFieldType(field.type);
   return { path: join("header", propSeg(field.key)), type, label: field.label, options: type === "select" ? field.options : undefined };
 }

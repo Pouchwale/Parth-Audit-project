@@ -805,6 +805,11 @@ function fillLogSheet(
       header[f.key] = "";
       continue;
     }
+    // A box the paper prints its value in holds that value, never a carried or a sample one (REQUIREMENTS §111).
+    if (typeof f.printed === "string") {
+      header[f.key] = f.printed;
+      continue;
+    }
     const prev = previous?.data.header?.[f.key];
     if (f.autoFill?.sign) header[f.key] = prev?.trim() || responsibleName(doc, master, layout.specimenHeader?.[f.key] ?? "");
     // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.

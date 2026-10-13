@@ -213,6 +213,8 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       const layout = getLogSheetLayoutForRecord(doc.id, record);
       if (!layout) break;
       for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+        // A box the paper prints its value in is never asked for (REQUIREMENTS §111): nobody writes it.
+        if (typeof f.printed === "string") continue;
         if (f.required && !(d.header?.[f.key] ?? "").toString().trim()) errors.push(`${f.label} is required.`);
       }
       if (layout.footerFields?.some((f) => f.key === "lotStatus") && d.header?.lotStatus && !isLotAccepted(d.header.lotStatus) && !(d.header.deviationReason ?? "").trim()) {

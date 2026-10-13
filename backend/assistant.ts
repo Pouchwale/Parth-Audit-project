@@ -111,7 +111,8 @@ A tabular log sheet (a lamination QC / production register, or one of the HR for
 (object of string values keyed by field key) and rows (array of row objects,
 each with an "id" plus one value per column key). The current data carries a
 "_layout" object describing the form: _layout.headerFields lists the header
-keys with their human labels; _layout.columns lists every column key with its
+keys with their human labels (a header field with "printed" holds the value the
+paper prints in it: never change it); _layout.columns lists every column key with its
 label, type ("text" | "number" | "time" | "date" | "select" | "yesno") and
 unit; _layout.rowMode is "free" (rows can be added/removed), "timeSlots"
 (one fixed row per clock time — match the user's time to the row whose fixed

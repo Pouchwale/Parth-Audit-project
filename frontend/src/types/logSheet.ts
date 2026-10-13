@@ -53,6 +53,16 @@ export interface LogHeaderField {
    * paper's two columns, a head beside its date (REQUIREMENTS §93).
    */
   printedAbove?: string[];
+  /**
+   * THE VALUE THE PAPER PRINTS IN THE BOX (REQUIREMENTS §111): F/QC/11 prints
+   * "1-54, 2-55, 3-56, 4-57" in its Device ID No box, "LAB" in Location and
+   * Department, "Global Eng. Co. (GEC)" in Manufacturer. Such a box is shown as
+   * text and never typed into: a new record is written with it, every record
+   * shows it (engine/computedCells.ts writes it on the way in and out), an
+   * upload cannot change it, Mitra and the phone are told it is printed and
+   * never write it, and nobody is asked for it.
+   */
+  printed?: string;
 }
 
 export interface LogColumn {
@@ -100,6 +110,15 @@ export interface LogColumn {
    * the moment somebody typed into it.
    */
   multiline?: boolean;
+  /**
+   * DRAWN ON THE ENTRY'S SECOND LINE, UNDER THE COLUMN THIS NAMES (REQUIREMENTS
+   * §111): F/QC/12 gives every calibration two lines, the second headed
+   * "Deviation %" (the layout's `secondLine`), with each weight's Deviation %
+   * under its Tested Value. The column has no heading of its own and the line's
+   * data stays one object; only the drawing (the sheet, its print, the Excel and
+   * Word files made from it, the format's designer) puts it below.
+   */
+  beneath?: string;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
   //   dueDate → sign → nominal (random reading inside the band) → carryForward
   //   (copy the template value exactly) → jitter (template value ± jitter%) →
@@ -159,7 +178,8 @@ export interface ReferenceTable {
 export interface LogSheetLayout {
   documentId: string;
   // Text printed on the form above the grid (instructions, recommended
-  // values, ALC protocol, ...), verbatim.
+  // values, ALC protocol, ...), verbatim. Only what the paper prints: an
+  // explanation of DCRS's own is never put here (REQUIREMENTS §111).
   instructions?: string[];
   headerFields: LogHeaderField[];
   columns: LogColumn[];
@@ -171,6 +191,32 @@ export interface LogSheetLayout {
   // it the sheet numbers the lines, and a printed line never repeats that
   // number in its words (engine/lineNumbers.ts).
   ownLineNumbers?: true;
+  /**
+   * THE SR. NO. COLUMN HOLDS THE DAY, NOT A COUNT (REQUIREMENTS §111): on
+   * F-QC-30 the hours are written under Date/Time and the day's date is written
+   * in the Sr. No. column on its first line only ("6/9/26", then nothing until
+   * "7/9/26"). The sheet's Sr. No. shows the record's date on the first line and
+   * is empty on the others.
+   */
+  srNoShowsDate?: true;
+  /**
+   * EVERY ENTRY TAKES TWO LINES (REQUIREMENTS §111): the second line's own
+   * heading, written in the first column — F/QC/12's "Deviation %". The columns
+   * drawn on it are those with `beneath`.
+   */
+  secondLine?: { label: string };
+  /**
+   * The paper's text BELOW the grid, verbatim and in its order — F/QC/11's and
+   * F/QC/12's PROCEDURE (REQUIREMENTS §111). `instructions` is what it prints
+   * above. Never filled in, never stored on a record.
+   */
+  notesBelow?: string[];
+  /**
+   * How many boxes the paper puts on one line above the grid: F/QC/12's nine
+   * header boxes are three rows of three (REQUIREMENTS §111). Without it the
+   * boxes flow as many to a line as the screen holds.
+   */
+  headerColumns?: number;
   // Fields printed BELOW the grid (lot status, reason for deviation,
   // inspected-by ...). Stored in LogSheetData.header alongside headerFields.
   footerFields?: LogHeaderField[];

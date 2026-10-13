@@ -24,6 +24,7 @@ import { ensureSeeded as ensureHrMasterSeeded } from "../src/data/repositories/h
 import { recordRepository, ensureSeeded as ensureRecordsSeeded } from "../src/data/repositories/recordRepository";
 import { getLogSheetLayoutForRecord } from "../src/data/seed/logSheetLayouts";
 import { numbersOwnLines } from "../src/engine/formLineNumbers";
+import { gridLines } from "../src/engine/paperLayout";
 import { COMPLIANCE_STATEMENTS } from "../src/data/seed/complianceStatements";
 import { nextWorkingDay } from "../src/engine/holidays";
 import { createDefaultData } from "../src/engine/recordDefaults";
@@ -348,7 +349,8 @@ function markupProblems(
     if (!inDoc(t)) continue;
     const isBox = t.name === "input" || t.name === "select" || t.name === "textarea";
     const isWords =
-      (t.name === "span" && classes(t).includes("cell-text") && !("data-computed" in t.attrs)) ||
+      // A worked-out value, and a box whose value the paper prints (F/QC/11's Device ID No, REQUIREMENTS §111), are not written: not bound.
+      (t.name === "span" && classes(t).includes("cell-text") && !("data-computed" in t.attrs) && !("data-printed" in t.attrs)) ||
       (t.name === "p" && classes(t).includes("paragraph-text")) ||
       classes(t).includes("caf-value");
     if ((isBox || isWords) && !t.attrs["data-bind"] && !boundInside.has(t) && !unboundOnPurpose(t) && !alsoUnbound(t)) problems.push(`${where}: ${describe(t)} shows a value with no binding`);
@@ -471,11 +473,17 @@ test("every value on every record page carries a binding that leads to it — op
         const layout = doc.kind === "log-sheet" ? getLogSheetLayoutForRecord(doc.id, record) : undefined;
         // The sheet's own Sr. No. is the line's first cell, except on a form that numbers its own lines (REQUIREMENTS §102).
         const before = layout && numbersOwnLines(layout) ? 0 : 1;
+        // An entry of two lines (F/QC/12, REQUIREMENTS §111): its first line holds the columns not drawn beneath
+        // another, and its second line — which has no Sr. No. cell of its own — the columns under them.
+        const lines = layout ? gridLines(layout) : undefined;
         const computedCell = (t: Tag): string | null => {
-          if (!layout) return null;
+          if (!layout || !lines) return null;
           const td = [...t.ancestors].reverse().find((a) => a.name === "td");
+          const tr = [...t.ancestors].reverse().find((a) => a.name === "tr");
           const inGrid = t.ancestors.some((a) => a.name === "table" && classes(a).includes("log-sheet"));
-          return td && inGrid && layout.columns[td.index - before]?.computed ? "a worked-out cell" : null;
+          if (!td || !inGrid) return null;
+          const col = tr?.attrs["data-line"] === "second" ? lines.second?.under[td.index] : lines.first[td.index - before];
+          return col?.computed ? "a worked-out cell" : null;
         };
         const found = markupProblems(where, html, (id) => (id === record.id ? recordRepository.getById(id)?.data : undefined), computedCell);
         if (found.bound === 0) problems.push(`${where}: nothing on the page is bound`);

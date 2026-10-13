@@ -118,6 +118,8 @@ test("a form that numbers its own lines says so, and only such a form", () => {
     "qc-coa-label",
     "qc-coa-sleeve",
     "qc-gsm-plate-calibration",
+    // F/QC/12 has no Sr. No. column at all: its entries are known by their Date (REQUIREMENTS §111).
+    "qc-weight-scale-calibration",
     "sys-audit-risk",
   ]);
 });

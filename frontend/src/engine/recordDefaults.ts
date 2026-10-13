@@ -143,7 +143,9 @@ export function createDefaultData(
         // "Accepted", nor the shift "1st", nor the operator "Gaurav Singh".
         // Whoever fills the sheet writes those (engine/observations.ts).
         for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
-          header[f.key] = isDecisionField(f.key) || boxKind(f, layout) !== "standing" ? "" : (f.autoFill?.default ?? "");
+          // A box whose value the paper prints is written with it (REQUIREMENTS §111).
+          if (typeof f.printed === "string") header[f.key] = f.printed;
+          else header[f.key] = isDecisionField(f.key) || boxKind(f, layout) !== "standing" ? "" : (f.autoFill?.default ?? "");
         }
         rows = emptyLogRows(doc.id);
       }

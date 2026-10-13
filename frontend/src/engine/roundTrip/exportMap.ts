@@ -92,6 +92,8 @@ export interface MapTable {
   headerRows?: number;
   /** Both: the text of each line of the grid that holds no bound value ("No rows yet."), so it is not read as a new line. */
   fixedRows?: string[];
+  /** Both: the heading of each entry's second line (F/QC/12's "Deviation %", REQUIREMENTS §111): a line holding it is never a new entry. */
+  secondLine?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +120,8 @@ export interface ExportTableBinding {
   recordId: string;
   listPath: string;
   columns: { key: string; type: BindType; options: BindOption[]; col: number; label?: string }[];
+  /** The heading of each entry's second line, on a grid whose entries take two (REQUIREMENTS §111). */
+  secondLine?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +159,14 @@ export class ExportMapBuilder {
   }
 
   addTable(table: ExportTableBinding, extra: Omit<MapTable, "t" | "recordId" | "listPath" | "columns"> = {}): MapTable {
-    const out: MapTable = { t: this.tables.length, recordId: table.recordId, listPath: table.listPath, columns: table.columns.map((c) => ({ ...c, options: c.options ?? [] })), ...extra };
+    const out: MapTable = {
+      t: this.tables.length,
+      recordId: table.recordId,
+      listPath: table.listPath,
+      columns: table.columns.map((c) => ({ ...c, options: c.options ?? [] })),
+      ...(table.secondLine ? { secondLine: table.secondLine } : {}),
+      ...extra,
+    };
     this.tables.push(out);
     return out;
   }
@@ -202,7 +213,7 @@ export const entryName = (i: number) => `${ENTRY_NAME_PREFIX}${i}`;
 export const tableName = (t: number, which: "h" | "z" | "n") => `${ENTRY_NAME_PREFIX}t${t}_${which}`;
 
 const ENTRY_COLUMNS = ["i", "ref", "recordId", "path", "type", "options", "label", "text", "pre", "post", "anchorCol", "anchorText", "anchorGrid"] as const;
-const TABLE_COLUMNS = ["t", "recordId", "listPath", "headerRow", "lastRow", "firstRow", "nextRow", "key", "type", "options", "col", "fixedRows", "label"] as const;
+const TABLE_COLUMNS = ["t", "recordId", "listPath", "headerRow", "lastRow", "firstRow", "nextRow", "key", "type", "options", "col", "fixedRows", "label", "secondLine"] as const;
 const ENVELOPE_KEYS = ["v", "app", "kind", "documentId", "formatNo", "revisionNo", "recordIds", "exportedAt"] as const;
 
 const numText = (n: number | undefined) => (typeof n === "number" && Number.isFinite(n) ? String(n) : "");
@@ -237,6 +248,7 @@ export function mapSheetRows(envelope: RoundTripEnvelope, entries: readonly MapE
         String(c.col),
         ci === 0 && t.fixedRows?.length ? JSON.stringify(t.fixedRows) : "",
         c.label ?? "",
+        ci === 0 && t.secondLine ? t.secondLine : "",
       ]);
     });
   }
@@ -356,6 +368,8 @@ export function parseMapSheetRows(rows: readonly (readonly string[])[]): { envel
       }
       const fixed = jsonStrings(get("fixedRows"));
       if (fixed.length) table.fixedRows = fixed;
+      const second = get("secondLine").trim();
+      if (second) table.secondLine = second;
       const column: MapTable["columns"][number] = { key: get("key"), type, options: decodeOptions(get("options")), col };
       if (get("label")) column.label = get("label");
       table.columns.push(column);
@@ -440,6 +454,7 @@ export function parseMapJson(text: string): { envelope: RoundTripEnvelope; entri
       if (v !== undefined) table[k] = v;
     }
     if (Array.isArray(x.fixedRows)) table.fixedRows = x.fixedRows.map(str);
+    if (str(x.secondLine).trim()) table.secondLine = str(x.secondLine).trim();
     tables.push(table);
   }
   return { envelope, entries, tables };

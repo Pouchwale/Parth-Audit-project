@@ -309,8 +309,9 @@ export function RecordPage({ recordId }: { recordId?: string }) {
     ? {
         ...(data as Record<string, unknown>),
         _layout: {
-          headerFields: [...layout.headerFields, ...(layout.footerFields ?? [])].map((f) => ({ key: f.key, label: f.label, type: f.type, options: f.options })),
-          columns: layout.columns.map((c) => ({ key: c.key, label: c.label, type: c.type, unit: c.unit, fixed: c.fixed, options: c.options })),
+          // A box the paper prints its value in says so, and is never written (REQUIREMENTS §111).
+          headerFields: [...layout.headerFields, ...(layout.footerFields ?? [])].map((f) => ({ key: f.key, label: f.label, type: f.type, options: f.options, printed: f.printed })),
+          columns: layout.columns.map((c) => ({ key: c.key, label: c.label, type: c.type, unit: c.unit, fixed: c.fixed, computed: c.computed, group: c.group, beneath: c.beneath, options: c.options })),
           rowMode: layout.rowMode.kind,
           ...(layout.rowMode.kind === "timeSlots" ? { slotKey: layout.rowMode.slotKey } : {}),
         },

@@ -79,6 +79,9 @@ function printedTextIn(layout: LogSheetLayout): LogSheetLayout {
   const out: LogSheetLayout = {
     ...layout,
     instructions: layout.instructions?.map(en),
+    // The words the paper prints below its grid and on an entry's second line (REQUIREMENTS §111).
+    notesBelow: layout.notesBelow?.map(en),
+    secondLine: layout.secondLine ? { label: en(layout.secondLine.label) } : undefined,
     headerFields: layout.headerFields.map(field),
     columns: layout.columns.map(column),
     footerFields: layout.footerFields?.map(field),
