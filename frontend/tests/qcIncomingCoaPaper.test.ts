@@ -11,6 +11,9 @@
 // Three layout abilities place them (engine/paperLayout.ts): boxes in the paper's groups under the lines and the
 // table printed above them (LogHeaderField printedAbove, tableAbove, boxesPerLine), the text at the foot of the sheet
 // (LogSheetLayout.notesAtFoot), and a heading the paper leaves out (LogColumn.printedLabel).
+//
+// And Demo Mode's records of them read as real ones (engine/qcPaperSamples.ts, rule 3 of the brief), while a Live
+// record is prepared with none of it (REQUIREMENTS §98).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createElement as h } from "react";
@@ -18,7 +21,7 @@ import { renderToStaticMarkup } from "react-dom/server.edge";
 import type { DocumentDefinition, LogSheetData, LogSheetLayout, MasterData, RecordInstance } from "../src/types";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
-import { ensureSeeded as ensureHrMasterSeeded } from "../src/data/repositories/hrMasterRepository";
+import { hrMasterRepository, ensureSeeded as ensureHrMasterSeeded } from "../src/data/repositories/hrMasterRepository";
 import { getIssuedLogSheetLayout, getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
 import { COA_LETTERHEAD, CORPORATE_OFFICE, GRADE_SCALE_NOTE, HEAT_SENSITIVE_NOTE, SUPPLIER_COA_NOTE, SYSTEM_GENERATED_NOTE } from "../src/data/seed/qcCoaLayouts";
 import { FLEXO_INK_SYSTEM_NOTE } from "../src/data/seed/qcIncomingLayouts";
@@ -26,6 +29,11 @@ import { dropFormatEdit, saveFormatEdit } from "../src/data/formatEdits";
 import { boxGroups, columnHeading, placedTables } from "../src/engine/paperLayout";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { numbersOwnLines } from "../src/engine/formLineNumbers";
+import { autoFillRecord } from "../src/engine/autoFill";
+import { prepareKnownParts } from "../src/engine/knownParts";
+import { validateForSubmit } from "../src/engine/validation";
+import { jobsFor } from "../src/engine/plantSimulation";
+import { QC_PAPER_SAMPLE_DOCUMENTS } from "../src/engine/qcPaperSamples";
 
 // store/router.tsx reads window.location the moment it loads; the harness stands up none.
 if (typeof (globalThis as { location?: unknown }).location === "undefined") {
@@ -583,5 +591,143 @@ test("a certificate edited before §111 loses DCRS's lines, keeps the paper's no
     assert.equal(now.footerFields?.find((f) => f.key === "retestOn")?.tableAbove, "TOLERANCE");
   } finally {
     dropFormatEdit("qc-coa-label");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 6. Demo Mode's records look real; a Live record holds nothing invented
+
+const demoOf = (id: string, day = DAY): LogSheetData => {
+  const filled = autoFillRecord(docOf(id), day, master, undefined);
+  assert.ok(filled, id);
+  return filled!.data as LogSheetData;
+};
+const hrNames = () => new Set(hrMasterRepository.all().map((p) => p.fullName));
+const between2 = (v: unknown, lo: number, hi: number) => {
+  const n = parseFloat(String(v));
+  return Number.isFinite(n) && n >= lo && n <= hi;
+};
+const INCOMING_IDS = Object.keys(INCOMING);
+
+test("Demo Mode's incoming inspection is a lot: supplier, product, GRN, report and batch, every line read, inspected and approved by two people of HR Master Data", () => {
+  const names = hrNames();
+  const grns = new Set<string>();
+  const reports = new Set<string>();
+  for (const id of INCOMING_IDS) {
+    const data = demoOf(id);
+    const h = data.header;
+    for (const k of ["supplierName", "productDescription", "grnQty", "reportNumber", "batchNumber", "grnNumber"]) assert.ok(String(h[k] ?? "").trim(), `${id}: ${k} is written`);
+    assert.equal(h.dateOfInspection, DAY, `${id}: inspected on the record's day`);
+    assert.equal(h.lotStatus, "ACCEPTED");
+    assert.ok(names.has(h.inspectedBy) && names.has(h.approvedBy), `${id}: ${h.inspectedBy} / ${h.approvedBy} are on HR Master Data`);
+    assert.notEqual(h.inspectedBy, h.approvedBy, `${id}: the QA inspector and the QA Manager are two people`);
+    assert.equal(h.approvedBy, "Kapila Barad", "the QA Manager approves");
+    assert.match(h.grnNumber, /^\d{5}$/);
+    assert.ok(h.batchNumber.startsWith(`${h.grnNumber}/`), `${id}: the batch written GRN/batch, as the plant's own records write it`);
+    assert.match(h.reportNumber, /^IR\/26-27\/\d{4}$/);
+    grns.add(h.grnNumber);
+    reports.add(h.reportNumber);
+    const samples = data.rows.flatMap((r) => ("observation" in r ? [r.observation] : [r.sample1, r.sample2, r.sample3]));
+    assert.ok(samples.every((v) => String(v ?? "").trim() !== ""), `${id}: every printed line is read`);
+  }
+  assert.ok(grns.size >= 10, "the day's lots each have a GRN of their own");
+  assert.equal(reports.size, grns.size, "and a report number of their own");
+});
+
+test("Demo Mode's readings sit inside the specification the paper prints beside them", () => {
+  const obs = (id: string, day: string) => demoOf(id, day).rows.map((r) => r.observation);
+  const samplesOf = (id: string, day: string) => demoOf(id, day).rows.map((r) => [r.sample1, r.sample2, r.sample3]);
+  for (const day of ["2026-06-03", "2026-08-21", DAY, "2027-01-12"]) {
+    const bopp = demoOf("qc-bopp-film", day);
+    const mic = Number(/(\d+) mic/.exec(bopp.header.productDescription)![1]);
+    assert.ok(between2(bopp.rows[2].observation, mic - 1, mic + 1), `BOPP thickness ${bopp.rows[2].observation} inside ${mic} ± 1`);
+    assert.ok(Number(/(\d+) dynes/.exec(String(bopp.rows[3].observation))![1]) >= 36, "corona at least 36 dynes");
+    const box = samplesOf("qc-corrugated-box", day);
+    assert.ok(box[2].every((v) => between2(v, 11, 13)) && box[3].every((v) => between2(v, 200, 300)), "5 ply: bursting 12 ± 1, compression 250 ± 50");
+    const core = samplesOf("qc-paper-core", day);
+    assert.ok(core[0].every((v) => between2(v, 89, 92)) && core[1].every((v) => between2(v, 76, 78)) && core[2].every((v) => between2(v, 6.5, 7.5)) && core[4].every((v) => between2(v, 0, 15)));
+    const label = obs("qc-label-stock", day);
+    assert.ok(between2(label[2], 75, 85) && between2(label[3], 25, 29) && between2(label[4], 55, 65) && between2(label[8], 1800, 2400));
+    assert.equal(Number(label[1]), Number(label[2]) + Number(label[3]) + Number(label[4]), "the total GSM adds up");
+    const ink = obs("qc-offset-ink", day);
+    assert.ok(between2(ink[2], 0, 2.99) && between2(ink[4], 0, 120), "dE below 3.0, flow at most 120 mm");
+    assert.ok(between2(obs("qc-flexo-ink", day)[5], 0, 1.99), "flexo dE below 2.0");
+    const adhesive = obs("qc-lamination-adhesive-inspection", day);
+    assert.ok(between2(adhesive[1], 15, 20) && between2(adhesive[2], 40, 100) && between2(adhesive[3], 85.01, 100));
+    const side = obs("qc-side-pasting-adhesive", day);
+    assert.ok(between2(side[1], 30, 40) && between2(side[2], 50, 100));
+    const starch = obs("qc-starch-powder", day);
+    assert.ok(between2(starch[1], 0, 13.99) && between2(starch[3], 20, 40) && between2(starch[4], 16, 25));
+    const duplex = obs("qc-duplex-board", day);
+    assert.ok(between2(duplex[3], 5.5, 8.5));
+    const kraft = obs("qc-kraft-paper", day);
+    assert.ok(between2(kraft[3], 5.5, 8.5) && between2(kraft[4], 30, 50) && between2(kraft[6], 1.3, 2));
+    const film = demoOf("qc-incoming-lamination-film", day);
+    const filmMic = Number(/(\d+) mic/.exec(film.header.productDescription)![1]);
+    assert.ok(between2(film.rows[1].observation, filmMic - 1, filmMic + 1));
+  }
+});
+
+test("Demo Mode's inspector had joined by the inspection's day", () => {
+  const joined = new Map(hrMasterRepository.all().map((p) => [p.fullName, p.joiningDate]));
+  for (const day of ["2025-11-04", "2026-01-20", "2026-02-27"]) {
+    for (const id of INCOMING_IDS) {
+      const who = demoOf(id, day).header.inspectedBy;
+      const since = joined.get(who) ?? "";
+      assert.ok(since === "" || since <= day, `${id} on ${day}: ${who} joined ${since}`);
+    }
+  }
+});
+
+test("Demo Mode's certificates: today's production order and date, tested figures inside the printed TOLERANCE, retest six months on", () => {
+  const label = demoOf("qc-coa-label").header;
+  assert.equal(label.coaDate, DAY);
+  assert.match(label.productionOrderNo, /^\d{5}$/);
+  assert.notEqual(label.productionOrderNo, "33858", "not the specimen's order");
+  assert.ok(between2(label.testedLength, 68, 72) && between2(label.testedWidth, 113, 117), "length and width ± 2 mm");
+  assert.ok(between2(label.faceMaterialTested, 72, 88) && between2(label.adhesiveTested, 25, 29) && between2(label.releaseLinerTested, 57, 63), "face ± 10 %, adhesive ± 2 GSM, liner ± 5 %");
+  assert.equal(label.retestOn, "2027-04-13", "14-10-2026 → 13-04-2027, as 04/01/2022 → 03/07/2022");
+  assert.equal(label.finalInspection, "Passed");
+  const sleeve = demoOf("qc-coa-sleeve").header;
+  assert.equal(sleeve.coaDate, DAY);
+  assert.ok(between2(sleeve.testedCutLength, 150.4, 154.4) && between2(sleeve.testedOpenWidth, 166, 170) && between2(sleeve.thicknessTested, 36, 44) && between2(sleeve.shrinkageRatioTested, 47.5, 52.5));
+  const box = demoOf("qc-coa-corrugated");
+  assert.equal(box.header.date, DAY);
+  assert.ok(box.header.oid && /^FGCO\d{4}$/.test(box.header.jobCode));
+  assert.notEqual(box.header.testingBy, box.header.signBy);
+  for (const row of box.rows) {
+    if (["7.1", "7.2", "7.3"].includes(String(row.srNo))) assert.ok(row.specifiedGsm && row.testedGsm && row.bf && row.gradeOfPaper && !row.observation, `line ${row.srNo}: the four paper columns`);
+    else if (row.srNo !== "7") assert.ok(row.observation && !row.testedGsm, `line ${row.srNo}: its observation`);
+  }
+  assert.ok(between2(box.rows[3].observation, 11, 13) && between2(box.rows[4].observation, 200, 300), "the box's B.S. and C.S. inside F/QC/02's 5 ply specification");
+  const card = demoOf("qc-tolerance-card-nivea");
+  assert.ok(card.rows.length === 7 && card.rows.every((r) => r.approvedBy === "Kapila Barad" && r.sign === "Kapila Barad"));
+});
+
+test("Demo Mode's F/QC/36 is the day's first laminated job, with its own films and composite GSM, and both signatures", () => {
+  for (const day of ["2026-09-08", DAY]) {
+    const data = demoOf("qc-inspection-sb-lamination", day);
+    const job = jobsFor(day)[0];
+    assert.equal(data.header.fgCode, job.fgCode);
+    assert.equal(data.header.poNumber, job.poNo, "the same job and PO as the day's lamination sheets");
+    assert.match(data.header.dateShift, new RegExp(`^${day.slice(8, 10)}\\.${day.slice(5, 7)}\\.${day.slice(0, 4)} / (1st|2nd)$`));
+    assert.ok(data.header.substrate1 && data.header.substrate2 && data.header.inspectedBy && data.header.approvedBy);
+    assert.notEqual(data.header.inspectedBy, data.header.approvedBy);
+    assert.ok(between2(data.rows[0].observation, 30, 110), `composite GSM ${data.rows[0].observation}`);
+  }
+});
+
+test("every Demo record of these papers can be submitted as it stands, and a Live record is prepared with none of it", () => {
+  for (const id of QC_PAPER_SAMPLE_DOCUMENTS) {
+    const demo = demoOf(id);
+    const errors = validateForSubmit(docOf(id), { ...recordOf(id, demo), isDemo: true } as RecordInstance).errors;
+    assert.deepEqual(errors, [], `${id}: ${errors.join(" | ")}`);
+    const live = prepareKnownParts(docOf(id), DAY, master, undefined);
+    if (!live) continue;
+    const data = live.data as LogSheetData;
+    const written = Object.entries(data.header).filter(([k, v]) => String(v ?? "").trim() !== "" && !/date/i.test(k));
+    assert.deepEqual(written, [], `${id}: nothing but the date is written in a Live record's boxes`);
+    const observed = data.rows.flatMap((r) => ["observation", "sample1", "sample2", "sample3", "approvedBy", "sign", "givenByClient", "testedGsm"].map((k) => r[k])).filter((v) => v !== undefined && v !== null && String(v).trim() !== "");
+    assert.deepEqual(observed, [], `${id}: and nothing observed on its lines`);
   }
 });
