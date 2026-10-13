@@ -983,7 +983,7 @@
         ],
         "operationId": "getDocument",
         "summary": "READ — one document: what it is, who fills it, when, how, its format",
-        "description": "The document named by its id, its format number, or words that name exactly one of the person's documents: its description (what), the people Master Data assigns to it (who), its schedule (when), how it is filled, its layout — the keys a patch names — and its latest records. Another department's is refused (403 not-your-department, saying whose); a format on the Master List that DCRS does not hold is 404 not-in-dcrs; words that name several are 400 ambiguous, with the candidates.",
+        "description": "The document named by its id, its format number, or words that name exactly one of the person's documents: its description (what), the people Master Data assigns to it (who), its schedule (when), how it is filled, its layout — the keys a patch names — and its latest records. Another department's is refused (403 not-your-department, saying whose); a format on the Master List that DCRS does not hold is 404 not-in-dcrs; words that name several are 400 ambiguous, with the candidates. A reference document (F/QC-09 and F/QC-38, the Statements of Compliance; the Chemical Master; the licence) has no layout and no records: its own words are in `issued` (REQUIREMENTS §111), to be shown when the person asks to open it.",
         "parameters": [
           {
             "$ref": "#/components/parameters/DocumentRef"
@@ -1619,7 +1619,7 @@
             }
           },
           "409": {
-            "description": "The document has no records (reference-only) or the records kept changing (busy).",
+            "description": "The document has no records (reference-only: it is read, and its words come with the answer in `document` and `issued`, as GET /api/v1/documents/{id} gives them — show them to the person, REQUIREMENTS §111) or the records kept changing (busy).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1628,8 +1628,21 @@
                 "examples": {
                   "reference-only": {
                     "value": {
-                      "error": "Chemical Master is kept as issued; it has no records to fill.",
-                      "code": "reference-only"
+                      "error": "F/QC-09 Statement of Compliance (SOC) — Pressure Labels is kept as issued: there is no record to start, it is read. Its words are in \"issued\"; show them to the person.",
+                      "code": "reference-only",
+                      "document": {
+                        "id": "soc-labels",
+                        "formatNo": "F/QC-09",
+                        "name": "Statement of Compliance (SOC) — Pressure Labels",
+                        "referenceOnly": true,
+                        "route": "/soc/soc-labels"
+                      },
+                      "issued": {
+                        "title": "STATEMENT OF COMPLIANCE – PRESSURE LABELS",
+                        "formatRef": "F/QC- 09 (Rev – 00 / 01.12.2021)",
+                        "text": "STATEMENT OF COMPLIANCE – PRESSURE LABELS\nManufacturer:\n  GUJARAT PRINT PACK PUBLICATIONS PVT LTD\n…",
+                        "route": "/soc/soc-labels"
+                      }
                     }
                   }
                 }
@@ -5613,6 +5626,75 @@
                     }
                   }
                 }
+              },
+              "issued": {
+                "description": "A reference document's own words, to read (REQUIREMENTS §111); null for a document that holds records. A Statement of Compliance gives its title, sections, declarations, who signed it, its date of publication and validity, and the whole as `text`; another reference document only where it is read (`route`).",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      },
+                      "formatRef": {
+                        "type": "string"
+                      },
+                      "sections": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string"
+                            },
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "declarations": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "signedBy": {
+                        "type": "string"
+                      },
+                      "signedTitle": {
+                        "type": "string"
+                      },
+                      "publishedOn": {
+                        "type": "string"
+                      },
+                      "validUntil": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "text": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "route": {
+                        "type": "string"
+                      },
+                      "note": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             }
           }

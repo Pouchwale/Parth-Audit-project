@@ -508,7 +508,20 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "qc-tolerance-card-nivea", aliases: ["tolerance card", "beiersdorf", "nivea tolerance card"] },
   { id: "qc-analysis-report", aliases: ["analysis report", "psl analysis", "psl analysis report", "f/qc/29"] },
   { id: "qc-utility-test-report", aliases: ["utility test report", "utility test", "freeze desiccator oven"] },
-  { id: "qc-minutes-of-meetings", aliases: ["minutes of meetings", "minutes of meeting", "meeting minutes"] },
+  { id: "qc-minutes-of-meetings", aliases: ["minutes of meetings", "minutes of meeting", "meeting minutes", "mom"] },
+  // QC's two Statements of Compliance, F/QC-09 and F/QC-38 (REQUIREMENTS §111): each by the words people use for it,
+  // never one for the other; "statement of compliance" alone names both, and Mitra asks which.
+  {
+    id: "soc-labels",
+    aliases: ["statement of compliance labels", "statement of compliance for labels", "statement of compliance pressure labels", "soc labels", "soc label", "soc for labels", "label soc", "pressure label soc", "soc pressure labels"],
+  },
+  {
+    id: "soc-flexible-packaging",
+    aliases: [
+      "statement of compliance flexible packaging", "statement of compliance for flexible packaging", "statement of compliance pouches", "soc flexible packaging",
+      "soc pouch", "soc pouches", "soc for pouches", "pouch soc", "soc film", "flexible packaging soc", "soc rolls",
+    ],
+  },
   // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46).
   { id: "hr-competence", aliases: ["personal competence", "competence record", "competence records", "competence chart", "f/hr/01", "competence"] },
   { id: "hr-skill-matrix", aliases: ["skill matrix", "operator skill", "skill status", "f/hr/03"] },
