@@ -134,6 +134,8 @@ test("a form that numbers its own lines says so, and only such a form", () => {
     // F-QC-14 numbers no line: each check's three samples under its heading (REQUIREMENTS §111).
     "qc-test-reliability-label",
     "qc-test-reliability-sleeve",
+    // The tolerance card numbers nothing: each panel is known by its heading (REQUIREMENTS §111).
+    "qc-tolerance-card-nivea",
     // F/QC/12 has no Sr. No. column at all: its entries are known by their Date (REQUIREMENTS §111).
     "qc-weight-scale-calibration",
     "sys-audit-risk",

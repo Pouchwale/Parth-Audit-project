@@ -80,8 +80,10 @@ test("the papers' own text names the company the owner's way, and no key moved",
       ["gppDated", `For, ${NAME} — On dated`],
     ]
   );
-  // F/QC/25's heading line: the name replaced, its address and document number as printed.
-  assert.ok(getIssuedLogSheetLayout("qc-coa-corrugated")!.instructions?.[0].startsWith(`${NAME} 308/9, GIDC DEDIASAN MEHSANA. GUJARAT. — DEPT:QUALITY ASSURENCE (2009 EDITION) — DOC.NO. QA-IP-TRFCBA-011-00-01-09-18`));
+  // F/QC/25's letterhead: the name replaced, its address and document number as printed, in the paper's three cells (§111, part 4).
+  const letterhead = getIssuedLogSheetLayout("qc-coa-corrugated")!.referenceTables?.find((t) => t.title === "Letterhead")?.rows[0];
+  assert.deepEqual(letterhead?.[0], `${NAME}\n308/9, GIDC DEDIASAN\nMEHSANA. GUJARAT.`);
+  assert.ok(letterhead?.[2].startsWith("DOC.NO.\nQA-IP-TRFCBA-011-00-01-09-18"));
   // F/QC/30's location and F/SYS/20's site name, on the paper and on the records seeded from it.
   const minutes = getIssuedLogSheetLayout("qc-minutes-of-meetings")!;
   assert.equal(minutes.headerFields.find((f) => f.key === "location")?.autoFill?.default, RUNNING);

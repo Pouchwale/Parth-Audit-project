@@ -788,6 +788,18 @@ const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
     ...(c.linkedFrom ? { readFrom: c.linkedFrom } : {}),
     ...(typeof c.min === "number" ? { min: c.min } : {}),
     ...(typeof c.max === "number" ? { max: c.max } : {}),
+    // The paper's own words (§111): the heading it prints ("" for none) and the lines it prints above a box's group.
+    ...(f.printedLabel !== undefined ? { printedLabel: f.printedLabel } : {}),
+    ...((f as LogHeaderField).printedAbove?.length ? { printedAbove: (f as LogHeaderField).printedAbove } : {}),
+    // The table of boxes the paper prints from this box on (a certificate's LABEL STOCK): its headings.
+    ...((f as LogHeaderField).boxTable ? { boxTable: (f as LogHeaderField).boxTable } : {}),
+    // The paper's own marks (§111, part 4): the words it prints for each choice across the line (the record still
+    // holds the option), the words under the box, the sentence the value is written inside.
+    ...((f as LogHeaderField).choicesAcross?.length ? { choicesAcross: (f as LogHeaderField).choicesAcross } : {}),
+    ...((f as LogHeaderField).printedBelow ? { printedBelow: (f as LogHeaderField).printedBelow } : {}),
+    ...((f as LogHeaderField).inSentence ? { inSentence: (f as LogHeaderField).inSentence } : {}),
+    // Printed on the grid's top line (F/QC/25's OID :- and Job Code:): still a box above the lines a patch names.
+    ...((f as LogHeaderField).inGridHead ? { inGridHead: true } : {}),
   };
 };
 
@@ -814,8 +826,15 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         ...(numbersOwnLines(l) ? { ownLineNumbers: true } : {}),
         // The paper's own shape (REQUIREMENTS §111): the day in its Sr. No., an entry's second line, its text below the grid.
         ...(l.srNoShowsDate ? { srNoShowsDate: true } : {}),
+        // "1.", "2." where the paper prints its numbers with a full stop (§111, part 4).
+        ...(l.srNoFullStop ? { srNoFullStop: true } : {}),
         ...(l.secondLine ? { secondLine: l.secondLine } : {}),
         ...(l.notesBelow?.length ? { notesBelow: l.notesBelow } : {}),
+        ...(l.notesAtFoot?.length ? { notesAtFoot: l.notesAtFoot } : {}),
+        // The grid printed across (a certificate's PRINTING): the lines are still the rows a patch names.
+        ...(l.gridAcross ? { gridAcross: true } : {}),
+        // One answer across the paper's columns (F/QC/25, §111 part 4): which column each printed line is written in.
+        ...(l.answerAcross ? { answerAcross: l.answerAcross } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),

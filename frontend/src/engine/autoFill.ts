@@ -32,6 +32,7 @@ import {
 import { dayInfo } from "./holidays";
 import { isLotAccepted, isOutOfBand, supersededRevisionOf } from "./validation";
 import { withComputedCells } from "./computedCells";
+import { qcPaperSample } from "./qcPaperSamples";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
@@ -937,16 +938,23 @@ function fillLogSheet(
   const gradeAction = gradeRuleAction(doc, rows);
   if (gradeAction) header.remarks = gradeAction;
 
+  // AN INSPECTION, A CERTIFICATE OR THE TOLERANCE CARD READS AS A REAL ONE (REQUIREMENTS §111):
+  // the lot's supplier, product, GRN and readings inside the printed specification, the
+  // certificate's tested figures inside its TOLERANCE, the inspector and the QA Manager two
+  // people of HR Master Data (engine/qcPaperSamples.ts). This is Demo Mode's and a test server's
+  // sample data only, as everything in this file is.
+  const paper = qcPaperSample(doc.id, layout, dueDate, { header, rows }, lot, master, responsibleName(doc, master, ""));
+
   // Every worked-out cell worked out on what was filled (engine/computedCells.ts,
   // REQUIREMENTS §74): a prepared, sample, guided or demo record stores the
   // right figure, not the one the specimen or the last sheet happened to hold.
-  const data: LogSheetData = withComputedCells(doc.id, { header, rows });
+  const data: LogSheetData = withComputedCells(doc.id, paper ?? { header, rows });
   const notes = describeLogSheet(doc, layout, data, previous);
   const excursion = describeExcursions(ctx);
   if (excursion) notes.unshift(excursion);
   if (gradeAction) notes.unshift(`Check this before you submit: ${gradeAction}`);
-  if (header.lotStatus && !isLotAccepted(header.lotStatus)) {
-    notes.unshift(`Check this before you submit: this lot is marked ${header.lotStatus} — ${header.deviationReason} Confirm the disposition with QA.`);
+  if (data.header.lotStatus && !isLotAccepted(data.header.lotStatus)) {
+    notes.unshift(`Check this before you submit: this lot is marked ${data.header.lotStatus} — ${data.header.deviationReason} Confirm the disposition with QA.`);
   }
   // A Calibration Expiry is a fact about the instrument, so it is carried as
   // it was written, never moved on to make a sheet look current. When it has

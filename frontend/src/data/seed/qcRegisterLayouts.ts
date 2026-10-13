@@ -43,14 +43,17 @@ import { GSM_PLATES, GSM_PRINTED, WEIGHT_SCALE_HEADER } from "./qcCalibrationLay
 //     rather than as fields, so nobody can type over them.
 //   * F-QC-19 IS A PHYSICAL CARD: sample labels are mounted on its panels, and
 //     a mounted label cannot be reproduced on screen. What is reproduced is the
-//     card's panels in their printed order, each panel's error category as
-//     headed, and the approval box. The three column headings of that grid
-//     ("Error category", "Sample mounted", "Remarks") are NOT printed on the
-//     card — the card has no grid — they name what the grid holds.
-//   * F-QC-19 repeats an APPROVED BY / SIGN. box under EVERY panel. A layout's
-//     footer is printed once, below the grid, so the sheet carries one approval
-//     for the whole card.
-//   * The grid's Sr. No. column is the renderer's own and is never declared.
+//     card's seven panels in their printed order, one line each: the panel's
+//     heading as printed, and its own APPROVED BY: and SIGN. : boxes — the
+//     card prints those two under EVERY panel (REQUIREMENTS §111, 13-Oct-2026;
+//     until then the sheet carried one approval for the card, and two columns
+//     of its own, "Sample mounted" and "Remarks", the card does not print).
+//     The card heads nothing over its panel headings, so that heading is not
+//     printed (printedLabel ""), and it numbers nothing, so the sheet draws no
+//     Sr. No. (ownLineNumbers). Its banner, "TOLERANCE CARD FOR BEIERSDORF AG.
+//     GERMANY", and its "DOC NO. : F-QC-19", printed on every panel, are the
+//     page's own title and format number (components/documents/DocumentHeader.tsx).
+//   * Every other grid's Sr. No. column is the renderer's own and is never declared.
 //
 // F/QC/20 IS CARRIED BY TWO FORMATS. This destruction record and the Kraft
 // Paper & White Top Liner inspection record (qcIncomingLayouts.ts) were both
@@ -237,7 +240,8 @@ const cameraChallengeColumns = (): LogColumn[] => [
 // not as a box anyone fills, so it is not a field; nor is the customer, which
 // the card names in its own title.
 
-const TOLERANCE_CARD_NOTE =
+/** The explanation DCRS used to print above the card, withdrawn (REQUIREMENTS §111, data/seed/logSheetLayouts.ts asThePaper). */
+export const TOLERANCE_CARD_NOTE =
   "The card's mounted sample labels are physical; this reproduces the card's panels, their error categories and the approval boxes.";
 
 /**
@@ -256,21 +260,15 @@ const TOLERANCE_CARD_PANELS: string[] = [
   "ERROR : IN PLAIN AREA",
 ];
 
-const toleranceCardColumns = (): LogColumn[] => [
-  // The card prints each error category as a panel heading; the three headings
-  // of this grid are not printed on the card, they name what the grid holds.
-  { key: "errorCategory", label: "Error category", type: "text", fixed: true, width: 300 },
-  { key: "sampleMounted", label: "Sample mounted", type: "yesno", width: 140 },
-  { key: "remarks", label: "Remarks", type: "text", width: 260 },
-];
-
 /**
- * The card prints an APPROVED BY / SIGN. box under every panel. A footer is
- * printed once, below the grid, so the sheet carries one approval for the card.
+ * One line per panel: its heading as the card prints it, and the APPROVED BY: and SIGN. : boxes the
+ * card prints under every panel (REQUIREMENTS §111). The panel heading's column has a name of its own
+ * for Mitra and a record's history; the card prints no heading over it.
  */
-const toleranceCardFooter = (): LogHeaderField[] => [
-  { key: "approvedBy", label: "APPROVED BY:", type: "text", width: 220, autoFill: { sign: true } },
-  { key: "sign", label: "SIGN. :", type: "text", width: 200 },
+const toleranceCardColumns = (): LogColumn[] => [
+  { key: "errorCategory", label: "Error category", printedLabel: "", type: "text", fixed: true, width: 300 },
+  { key: "approvedBy", label: "APPROVED BY:", type: "text", width: 240, autoFill: { sign: true } },
+  { key: "sign", label: "SIGN. :", type: "text", width: 200, autoFill: { sign: true } },
 ];
 
 // ---------------------------------------------------------------------------
@@ -338,11 +336,11 @@ export const QC_REGISTER_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F-QC-19 — TOLERANCE CARD FOR BEIERSDORF AG. GERMANY ----
   "qc-tolerance-card-nivea": {
     documentId: "qc-tolerance-card-nivea",
-    instructions: [TOLERANCE_CARD_NOTE],
+    // The card numbers nothing: no Sr. No. beside its panels (REQUIREMENTS §111).
+    ownLineNumbers: true,
     headerFields: [],
     columns: toleranceCardColumns(),
     rowMode: { kind: "fixedRows", rows: TOLERANCE_CARD_PANELS.map((errorCategory) => ({ errorCategory })) },
-    footerFields: toleranceCardFooter(),
     specimenSource: "F-QC-19_ Tolerance card for Nivea.pdf (the card as supplied 18-Sep-2026 — its sample labels are mounted on the paper and nothing is written in, so there is no filled specimen)",
   } satisfies LogSheetLayout,
 };

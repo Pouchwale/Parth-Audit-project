@@ -1052,7 +1052,7 @@ Seven scripts live in `tests/`:
   (e2e_every_record_starts, e2e_mobile_mitra_api, e2e_mitra_agent, e2e_realism, e2e_access_levels and the others that
   name them), which read no part of their layout this changes but the phone's layout's new `printed`/`value` on a
   header box, `beneath`, `srNoShowsDate`, `secondLine` and `notesBelow`.
-- **Every QC format exactly as the paper, part 3** (REQUIREMENTS §111 part 3, 13-Oct-2026: F/QC/15-A to G, the two
+- **Every QC format exactly as the paper, part 5** (REQUIREMENTS §111 part 5, 13-Oct-2026: F/QC/15-A to G, the two
   Gujarati checklists, F/QC/13, F-QC-40.C, F/QC/08, /16, /20, both F/QC/29 papers and F/QC/30 against their originals;
   F-QC-14 built from its workbook as two documents; every QC document found by its number, and the two Statements of
   Compliance read through the phone). New unit tests, each failing on the code before (the layouts printed DCRS's

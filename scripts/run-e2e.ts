@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 import EmbeddedPostgres from "embedded-postgres";
 import pg from "pg";
 import { pgCtlPath } from "../backend/db.ts";
+import { holdE2eRunLock } from "./e2e-run-lock.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -147,6 +148,13 @@ function freePort(): Promise<number> {
 }
 
 async function main(): Promise<void> {
+  // ONE RUN AT A TIME ON THIS COMPUTER (REQUIREMENTS §111, part 4): another worktree's run started in the same
+  // minute took the same ports and its database ran into this one's (13-Oct-2026). This run waits for it.
+  await holdE2eRunLock({
+    root,
+    onWait: (holder) =>
+      console.log(`Another run of the browser suites holds the test ports (process ${holder?.pid ?? "?"}, ${holder?.root ?? "another folder"}): waiting for it to end...`),
+  });
   // A server left over from an earlier run would answer the readiness probe
   // while the fresh one dies on EADDRINUSE — and every suite would then pass
   // or fail against the old build without saying so.
@@ -298,6 +306,13 @@ async function main(): Promise<void> {
     });
   console.log(`Starting server on :${TEST_PORT}...`);
   const server = startServer(TEST_PORT, false);
+  // THIS RUN'S OWN SERVER (REQUIREMENTS §111, part 4): one that exits before it answers — its port taken —
+  // must not leave the run reading whatever else answers there, as it did on 13-Oct-2026 ("DCRS's tables are
+  // not in this database": the tables were the other run's).
+  let serverEnded: number | null | undefined;
+  server.once("exit", (code) => {
+    serverEnded = code;
+  });
   let productServer: ReturnType<typeof startServer> | null = null;
   const sql = new pg.Client({ connectionString: DATABASE_URL });
 
@@ -308,6 +323,9 @@ async function main(): Promise<void> {
     // a single suite ran. The wait ends the moment the server answers.
     const ready = await waitForServer(`http://localhost:${TEST_PORT}/api/auth/me`, 60000);
     if (!ready) throw new Error(`Server did not come up on :${TEST_PORT} in time.`);
+    // A moment for a server that could not have the port to say so by ending, before anything is read from it.
+    await new Promise((r) => setTimeout(r, 1500));
+    if (serverEnded !== undefined) throw new Error(`This run's server on :${TEST_PORT} ended (exit ${serverEnded}) before the suites began: something else holds the port.`);
 
     // The server has made DCRS's tables by now (it answers only once its schema
     // is in place), so the overview can be laid over them. Each part is safe to

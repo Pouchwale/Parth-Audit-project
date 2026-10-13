@@ -7435,7 +7435,185 @@ with QC_PAPER_SHOTS set it photographs the four on screen and in print), tests/e
 document: an empty date, time or choice box prints empty; the four as their papers in print), tests/e2e_qc_formats.py
 (run unchanged).
 
-### §111, part 3: the line clearances, F/QC/13, the registers and reports, F-QC-14, and every QC number found
+### §111, part 2: the incoming material records, the certificates of analysis and the tolerance card
+
+**Held against their originals of 13-Oct-2026**, one at a time, word for word, box for box: F-QC-01 to F-QC-05,
+F-QC-18 to F-QC-24 and F-QC-33 (the fourteen incoming material inspection records, data/seed/qcIncomingLayouts.ts),
+F-QC-36 (solvent base lamination film, data/seed/logSheetLayouts.ts), F-QC-06, F-QC-07 and F-QC-25 (the certificates
+of analysis, data/seed/qcCoaLayouts.ts) and the Nivea tolerance card F-QC-19 (data/seed/qcRegisterLayouts.ts). The
+titles, test parameters, specifications (their typos included: "RELEAE LINER THICKNES", "BRUSTING", "APPERANCE.",
+"((± 5)"), columns and lot statuses were already the papers'. What was not:
+
+- *The incoming records and F/QC/36*: the paper's header box is a table two boxes to a line, read across (Supplier Name
+  beside Report number, Product Description beside SAP Batch number, GRN Qty. beside GRN number, then Date of
+  Inspection; F/QC/36: JOB CODE (FG CODE) beside PO NUMBER ...); DCRS flowed them as many to a line as the screen held,
+  in another order. Below the grid the paper gives LOT STATUS and the REASON a line each and the two signatures side
+  by side. F/QC/21 Flexo Ink's "This is a system generated document with regulated access. It does not require a
+  signature" is printed at the very foot of the paper; DCRS printed it above the grid. F/QC/36 prints APPROVED BY (QA
+  MANAGER) beside INSPECTED BY; DCRS had no such box (it is a box now, not required of the inspector; Verify is stamped
+  as on every record). The fourth line of the incoming header's left-hand column is printed empty (and Date of
+  Inspection stands at its right since part 3).
+- *F/QC/06 and F/QC/07*: DCRS printed three lines of its own above the grid (what goes where; that the PRINTING table
+  is turned; that the retest date is the last box), the paper's notes above the grid instead of at the foot, and the
+  TOLERANCE table only behind "Show TOLERANCE" — so it was never printed. It printed none of the paper's block headings
+  but PRINTING's, nor the letterhead's address, contact and GSTIN lines, nor the corporate office. Now, in the paper's
+  order: the letterhead's three lines; Production Order No. / Delivery No. / COA Date : on one line, Client Name, GP3
+  Code with the two Client Item Codes, Product Name, "Specified Size" two to a line; LABEL STOCK (SLEEVE FILM) three to a
+  line, so its Required / Tested / Type Required / Observed stand as the table's rows; PRINTING over the colour table;
+  the rest of PRINTING two to a line; COATING; FINISHING; the TOLERANCE table printed open; the two bullet notes (and
+  the sleeve's heat sentence); the retest sentence "This material should be retested on … before usage." with its
+  date; "THIS IS A SYSTEM GENERATED DOCUMENT.    IT DOES NOT REQUIRE A SIGNATURE." and the corporate office at the foot.
+  "COA Date :" is printed with its spaced colon, and the sleeve's three minimum glosses read "Minimum Gloss Required at
+  60° — Aqueous / U.V / Lamination" as the paper prints them. The colour table stayed turned in this part (one colour a
+  line, under PRINTING), so no record changes shape; part 3 prints it across and draws the paper's tables. The ISO 9001 mark beside the corporate office is a picture, like the logo,
+  and is not drawn.
+- *F/QC/25*: DCRS printed an explanation line above the grid and headed two columns the paper leaves unheaded
+  ("Description", "Observation"); "Specified  GSM" and "Tested GSM" stand under the paper's "GSM" now; "Date:" as
+  printed; the two signatures side by side.
+- *The tolerance card*: the card prints APPROVED BY: and SIGN. : under every one of its seven panels and numbers
+  nothing. DCRS drew one approval for the card, a Sr. No., two columns the card does not print ("Sample mounted",
+  "Remarks") and a line of its own. Now one line per panel: its heading as printed (no heading over them), APPROVED BY:
+  and SIGN. :. Its banner and "DOC NO. : F-QC-19" are the page's own title and format number.
+
+**Three more layout abilities (types/logSheet.ts, engine/paperLayout.ts), honoured wherever the first four are.**
+
+- *Boxes in the paper's groups*: `LogHeaderField.printedAbove` (§93) now above the grid too and at every box that
+  carries it, with `tableAbove` (one of the layout's referenceTables drawn open in that place, not behind "Show") and
+  `boxesPerLine`; a box with any of them starts a group, drawn under its table and lines, so many to a line
+  (`boxGroups`). F/MNT/08's hand-over is drawn as before.
+- *The text at the foot*: `LogSheetLayout.notesAtFoot`, after every box (components/records/NotesBelow.tsx; a line
+  printed all in capitals is bold).
+- *A heading the paper leaves out*: `LogColumn.printedLabel` ("" for none); the column keeps its name for Mitra, the
+  checks and a record's history, and the format's designer says what the paper prints.
+A format the plant edited before §111 takes these from the issued layout and loses the lines this part took off,
+including the paper's own lines now printed in their places (`WITHDRAWN_EXPLANATIONS`, `COA_WITHDRAWN_LINES`).
+
+**Demo Mode and sample data look real (rule 3), never a Live record.** Demo Mode wrote these papers as the blank form
+with ACCEPTED and one name in both signature boxes. engine/qcPaperSamples.ts, called from engine/autoFill.ts only, now
+writes a lot: the supplier from the plant's own papers (Avery Dennison, Centroiid Plastopack) or the Purchase module's
+approved list (Sample Supplier A to K; L to P for the materials that list does not name — no other outside company is
+named), a product, the GRN on the plant's own series (16741 of 03.07.2024 and 17229 of 17.08.2024 on its traceability
+records), the batch GRN/batch, a report number of its own, every printed line read inside its specification (three
+samples where the paper has three); F/QC/36 the day's first laminated job (the lamination sheets' FG code and PO), its
+films and the composite GSM worked out from them; the certificates today's production order and date, tested figures
+inside the TOLERANCE, retest six months on (04/01/2022 → 03/07/2022 on the plant's own); F/QC/25 a 5 ply shipper inside
+F/QC/02's specification; the card approved panel by panel. Inspected by a lab executive of HR Master Data who had
+joined by that day, approved by the QA Manager — two people. The morning prepare of a Live record still writes nothing
+but the date on all nineteen (REQUIREMENTS §98).
+
+**Records already on file keep their data.** No key changed but the tolerance card's: its old one approval
+(header approvedBy, sign) and its two columns are no longer drawn; every other value is where it was.
+
+**Not in this part.** The lot status words of F/QC/21 Flexo Ink print "Accepted" where the other papers print
+"ACCEPTED"; the option is kept as "ACCEPTED" so records already holding it still show it (for the owner to say). The
+paper footer's address and "Format number: - F/QC/01 (01 / 16.02.2022) | Page 1 of 1" are the page's header block, as
+on every document. The suppliers of corrugated boxes, kraft paper, flexo ink and the two adhesives are on no paper of
+the plant's; Demo Mode names them Sample Supplier L to P until the Purchase module's list names them.
+
+**Tests.** frontend/tests/qcIncomingCoaPaper.test.ts (30): the groups (F/MNT/08's unchanged, a lead group's
+headerColumns), a printed table drawn open in its place with the foot after every box, an empty heading kept by name,
+a sheet with nothing above its grid drawing nothing there (the first draw of the groups wrote a stray "0" there on
+the tolerance card and F-QC-30, seen in the photographs and fixed);
+each of the fourteen incoming records against its original (title, number, header order and two to a line, columns,
+every printed line with its specification, footer and its groups, nothing above the grid, F/QC/21's foot); F/QC/36;
+F/QC/06 and F/QC/07 block by block and in the paper's order on the signed-off certificate; F/QC/25; the tolerance card;
+a certificate edited before §111; Demo Mode's lots (every box written, GRN and report numbers each their own, two
+signers of HR Master Data, the inspector joined by the day), its readings inside the printed specifications on four
+days, its certificates inside the TOLERANCE, its F/QC/36 the day's first job, every Demo record submittable as it stands,
+and a Live prepare writing nothing but the date. Changed: frontend/tests/lineNumbers.test.ts (the card among the forms
+with no Sr. No.). Browser suite: tests/e2e_qc_formats.py section 11 (the fourteen on screen, F/QC/21's foot, a BOPP lot
+filled with sample data, F/QC/36, both certificates on file in the paper's order with the TOLERANCE printed, F/QC/25 and
+the card; with QC_PAPER_SHOTS set it photographs them on screen and in print).
+
+### §111, part 3: the boxes in their places, the certificates' tables as printed, the colours across
+
+**A second look at the same originals** (13-Oct-2026, after the first builder run was cut off by a lost connection
+with parts 1 and 2 committed). Every document of part 2 was held against its original again, this time against the
+places of its boxes as well as their words; the words, columns, lines and specifications were the papers' already.
+What still stood elsewhere than the paper puts it:
+
+- *The fourteen incoming material records*: the paper prints Date of Inspection in the right-hand column of its header
+  box's fourth line, under GRN number, its left-hand cells empty; DCRS drew it at the left.
+- *F/QC/36*: the header box's last line is "1st Pass / 2nd Pass / 3rd Pass" alone, its answer the width of the box;
+  DCRS stood it in the left-hand half.
+- *F/QC/25*: "Date:" stands alone at the right above the grid, and OID :- and Job Code: side by side on the grid's top
+  line; DCRS drew the three on one line.
+- *F/QC/06 and F/QC/07*: the paper prints Specified Size, LABEL STOCK (SLEEVE FILM) and COATING's Minimum Gloss line as
+  TABLES — "Specified Size" over Length(mm) and Width(mm) (Cut Length(mm) and Open Width(mm) on the sleeve) on the rows
+  Client's Specified Size and Tested Size; "Material" over Face Material, Adhesive and Release Liner on Required,
+  Tested, Type Required and Observed (Thickness(Microns), Shrinkage Ratio (%) and Type on Required and Tested); "Coating
+  Done : Gloss UV" in the corner over Aqueous, U.V, Lamination, Achieved Gloss and Scuff Test, with "Minimum Gloss
+  Required at 60°" heading the line of figures. DCRS drew each cell as a box with a long label of its own ("Face
+  Material — Required"). And it drew PRINTING turned, a colour to a line, where the paper prints the ten colours across,
+  "No. of Colors" over 1 to 10 with Given By Client and Color Shade Verified under them.
+
+**Three more layout abilities (types/logSheet.ts, engine/paperLayout.ts), honoured wherever the others are.**
+
+- *A box in its column of the line*: `LogHeaderField.paperColumn`, counted from 1, where the boxes stand a set number to
+  a line (`headerColumns`, `boxesPerLine`): the cells before it on its line are left empty, as the paper leaves them
+  (`paperColumnProps`, styles.css `[data-paper-column]`). A phone takes the boxes one under another.
+- *Boxes as the paper's table*: `LogHeaderField.boxTable { corner, cornerBox, columns, rows }` on the box that starts the
+  group: the group's boxes are the table's cells, a row at a time, under the paper's column headings and beside its
+  row headings (components/records/BoxTable.tsx, `boxTableRows`). Each cell is the record's own box — bound where the
+  record keeps it, so the Excel and Word files made from the sheet and their upload read it as before — and draws no
+  label of its own: the table's words head it, and its name is what a screen reader says (`aria-label`). Its name stays
+  what Mitra, the checks and a record's history go by. With `cornerBox` the group's first box stands in the corner
+  under its own label ("Coating Done :"), and that first line is a line of the table, not a heading row, so a file
+  made from the sheet keeps the box a box (`inBoxTable`).
+- *The grid printed across*: `LogSheetLayout.gridAcross`: the record's lines are drawn as columns and its columns as
+  lines, under the heading the columns share (PRINTING), each cell the record's own (the same binding, the same words
+  for a printed cell, the same highlight out of band). The record's data is unchanged: still one line a colour, so no
+  record on file changes shape and Mitra, the phone and an upload name the lines as before. For a sheet that numbers
+  its own lines, so no Sr. No. is drawn. The format's designer designs the lines a line to a row, as on every grid,
+  and says the record prints them across (`designer-across-note`); it draws a table of boxes as the table, each box
+  with its name and its menu.
+
+Each is honoured on the sheet open and signed off, its print and the server's PDF, the Excel and Word files made from
+the sheet (utils/documentExport.ts reads the tables as drawn: a table of boxes is a table whose cells are bound), the
+format's designer, the English reading of a form issued in Gujarati (`boxTable`'s words, i18n/documentText.ts), the
+phone's layout (engineHost/entry.ts: `boxTable` on the box that opens one, `gridAcross` on the layout) and a format the
+plant edited before §111 (`asThePaper` gives it `paperColumn`, `boxTable` and `gridAcross` from the issued layout).
+
+**The documents now.** Date of Inspection at the right of the fourth line on all fourteen incoming records; F/QC/36's
+pass alone on its line; F/QC/25's Date: alone at the right, OID :- and Job Code: under it; F/QC/06's and F/QC/07's
+Specified Size, LABEL STOCK / SLEEVE FILM and COATING as the paper's three tables (the supplied certificates read, cell
+for cell, "Required | 80 GSM /Microns | 27 GSM | 60 GSM" … "Observed | Chromo | Rubber Based (Hot Melt) | Glassine
+Paper"; "Minimum Gloss Required at 60° | 35% | 72% | 75% | 84.00% | 2 lbs, 100 rounds Okay"), and PRINTING across: "No.
+of Colors | 1 … 10", "Given By Client | Cyan | Magenta | Yellow | Black | Blue | P.151C", "Color Shade Verified | OK …".
+No key changed; every record keeps its data.
+
+**Not in this part.** The paper writes "Coating Done : Gloss UV" on one line; the corner box stands its label over its
+value, as every box does. A heading cell the paper prints in title case ("Face Material") prints in capitals, as every
+heading of the sheet does. The retest date stands under its sentence ("This material should be retested on … before
+usage."), not inside it.
+
+**And the screen's line about the Verify step.** Under a QC form's boxes the screen says that "Approved by (QA
+Manager)" on the paper form is the Verify step here. The photographs showed it under F/QC/06 and F/QC/07, which print
+"IT DOES NOT REQUIRE A SIGNATURE.", and it stood under F/QC/25, whose QA Manager signs a box of his own: an approval
+those papers do not have. It is said now only where the paper has no APPROVED BY box, no box of the QA Manager's and
+does not say it needs no signature (components/records/LogSheetRecordView.tsx `paperHasItsOwnApproval`); on screen
+only, as before.
+
+**Tests.** frontend/tests/qcIncomingCoaPaper.test.ts (33; the three new ones and the changes fail on the code before
+this part): a box in its column of the line (`paperColumnProps`, the one box so marked on F/QC/01, the stylesheet's
+rule and the phone's reset); boxes as the paper's table (a row's spare cell empty, the corner box keeping its label,
+the LABEL STOCK table's cells bound where the record keeps them, named for a screen reader and drawing no label, the
+corner box on a line of the table and not a heading row); the grid printed across (PRINTING, No. of Colors over 1 to
+10, a box per colour bound to its own line, the printed numbers no boxes, no Sr. No., no grid down the page besides,
+the designer's note); each of the fourteen incoming records with Date of Inspection in the second column; F/QC/36's
+pass alone on its line; F/QC/06 and F/QC/07 group by group with their tables' headings, and their supplied certificates
+drawn signed off read cell for cell from the three tables and the colours across; F/QC/25's Date: in the second
+column; a certificate edited before §111 taking the tables and the colours across from the issued layout; the Verify
+line gone from the certificates and F/QC/25 and still under F/QC/37 pouching. Browser suite: tests/e2e_qc_formats.py
+section 11 (Date of Inspection under GRN number at the right on all fourteen; F/QC/36's pass the width of the box; both
+certificates on file with their three tables read cell for cell and the colours across, all of them printing; F/QC/25's
+Date: alone at the right above OID :- and Job Code:); tests/e2e_realism.py closes the briefing before its clicks.
+Run on 39920f8, one suite at a time: e2e_qc_formats 126 of 126, e2e_sheet_designer 140 of 140, e2e_portal_controls 38
+of 38, e2e_every_record_starts 336 of 336, e2e_mobile_mitra_api 32 of 32. e2e_print_all_documents and e2e_realism did
+not get as far as a test: each was started in the same minute as another worktree's run, and the two runs' servers and
+databases ran into each other (part 4 says what was done about it); they are run again with part 4.
+
+### §111, part 5: the line clearances, F/QC/13, the registers and reports, F-QC-14, and every QC number found
 
 **Held against their originals of 13-Oct-2026** (source-documents/qc-originals-2026-10-13/, or the older paper a
 layout's specimenSource names), one at a time, word for word, box for box. What was not the paper's:

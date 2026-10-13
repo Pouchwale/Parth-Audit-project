@@ -165,6 +165,28 @@ def signup(page):
             got.first.click()
             page.wait_for_timeout(200)
         settle_briefing(page)
+    tidy(page)
+
+
+def tidy(page):
+    """What a person closes as soon as it appears, as e2e_every_record_starts.py does: the briefing (which can open
+    after the sign-up's own clicks; on 13-Oct-2026 its veil took the click meant for Demo Mode), the agreement's
+    reminder, Mitra's panel. Clicked in the page, so a veil over a button cannot take the click."""
+    page.wait_for_timeout(1500)
+    for _ in range(2):
+        for selector in ("button:has-text('Got it')", "button[aria-label='Close briefing']"):
+            shut = page.locator(selector)
+            if shut.count():
+                shut.first.evaluate("el => el.click()")
+                page.wait_for_timeout(150)
+    later = page.locator("[data-action='agreement-later']")
+    if later.count():
+        later.first.evaluate("el => el.click()")
+        page.wait_for_timeout(150)
+    close = page.locator("button[aria-label='Close assistant']")
+    if close.count():
+        close.first.evaluate("el => el.click()")
+        page.wait_for_timeout(120)
 
 
 with sync_playwright() as p:
@@ -180,6 +202,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(3000)
     page.goto(f"{BASE}/index.html#/demo")
     page.wait_for_timeout(1500)
+    tidy(page)
     gen = page.locator("button:has-text('Generate')")
     if gen.count():
         gen.first.click()
@@ -263,6 +286,7 @@ with sync_playwright() as p:
     second.wait_for_timeout(3000)
     second.goto(f"{BASE}/index.html#/demo")
     second.wait_for_timeout(1500)
+    tidy(second)
     gen = second.locator("button:has-text('Generate')")
     if gen.count():
         gen.first.click()
