@@ -421,12 +421,20 @@ with sync_playwright() as p:
     shoot(page, "F-QC-12")
     page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
     page.emulate_media(media="print")
+    written_date = page.locator("table.log-sheet tbody tr[data-line='first']").first.locator("td").nth(0).locator("input")
     try:
         empty = due.evaluate("e => ({ marked: e.hasAttribute('data-empty'), fill: getComputedStyle(e).webkitTextFillColor })")
+        # A written date prints its words, not the browser's drawing of the date (s111 part 6: '14·10·2026').
+        as_text = written_date.evaluate("e => ({ value: e.value, hidden: getComputedStyle(e).display === 'none', text: (e.nextElementSibling && e.nextElementSibling.classList.contains('print-box-text')) ? e.nextElementSibling.textContent : null })")
     finally:
         page.emulate_media(media="screen")
         page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
     check("F/QC/12: an empty Next Due Date prints empty, not dd-mm-yyyy", empty["marked"] and empty["fill"] in ("rgba(0, 0, 0, 0)", "transparent"), empty)
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    want = f"{as_text['value'][8:10]}-{months[int(as_text['value'][5:7]) - 1]}-{as_text['value'][:4]}" if as_text.get("value") else None
+    check("F/QC/12: the entry's written Date prints as the sheet writes it (14-Oct-2026), its box not printed (s111 part 6)", as_text["hidden"] and as_text["text"] == want, as_text)
+    left = written_date.evaluate("e => ({ marked: e.classList.contains('print-as-text'), beside: !!(e.nextElementSibling && e.nextElementSibling.classList.contains('print-box-text')) })")
+    check("...and after printing the box is the box again, the words gone", not left["marked"] and not left["beside"], left)
 
     # F-QC-30: nothing above the grid, and the day's date in the Sr. No. of its first line only.
     open_page(page, "#/library")
@@ -439,10 +447,11 @@ with sync_playwright() as p:
     headings = page.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("F-QC-30: Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By", headings == ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"], headings)
     sr = page.locator("table.log-sheet tbody tr td[data-sr-no]").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    header_date = page.locator(".doc-header .meta-cell").nth(2).locator(".v").inner_text().strip()
+    # The header's Date cell, the record's own (the format's Rev Date stands beside it since s111 part 6).
+    header_date = page.evaluate("() => { const c = Array.from(document.querySelectorAll('.doc-header .meta-cell')).find((m) => (m.querySelector('.k') || {}).textContent === 'Date'); return c ? c.querySelector('.v').innerText.trim() : ''; }")
     check(
         "...the record's date in the Sr. No. of the first line, and nothing in the others (the paper's 6/9/26)",
-        len(sr) == 24 and sr[0] == header_date and re.match(r"^\d{2}-[A-Z][a-z]{2}-\d{4}$", sr[0] or "") is not None and all(x == "" for x in sr[1:]),
+        len(sr) == 23 and sr[0] == header_date and re.match(r"^\d{2}-[A-Z][a-z]{2}-\d{4}$", sr[0] or "") is not None and all(x == "" for x in sr[1:]),
         (sr[:3], header_date),
     )
     text30 = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")

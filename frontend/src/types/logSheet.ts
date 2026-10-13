@@ -289,6 +289,25 @@ export interface LogSheetLayout {
    * format. A record and its print are headed with it; a format the plant has renamed is headed with its new name.
    */
   paperTitle?: string;
+  /**
+   * THE TITLE IN THE PAPER'S OWN LETTERS (REQUIREMENTS §111 part 6): the header block prints every title in
+   * capitals, as most papers do; the certificates print "Certificate of Analysis [COA] For Label", F/QC/13 "In
+   * Process Quality Control", and theirs is printed so.
+   */
+  titleAsPrinted?: true;
+  /**
+   * THE LINES THE PAPER PRINTS UNDER THE COMPANY'S NAME, in the header block (REQUIREMENTS §111 part 6): F/QC/11
+   * and F/QC/12 print "Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes";
+   * the certificates of analysis their address, contact and GSTIN lines; F/QC/25 "CBA: CORRUGATED BOX ANALYSIS"
+   * under its letterhead. Before the title, where the paper prints them.
+   */
+  underCompany?: string[];
+  /**
+   * THE PAPER'S OWN LETTERHEAD IN PLACE OF THE COMPANY'S LINE (REQUIREMENTS §111 part 6): the title of one of the
+   * layout's `referenceTables` (untitled) drawn at the top of the header block — F/QC/25's three cells, the
+   * company's name in the first — so the name is printed once and the title stands under it, as on the paper.
+   */
+  letterhead?: string;
   // Text printed on the form above the grid (instructions, recommended
   // values, ALC protocol, ...), verbatim. Only what the paper prints: an
   // explanation of DCRS's own is never put here (REQUIREMENTS §111).
@@ -339,6 +358,13 @@ export interface LogSheetLayout {
    * every column, the others empty.
    */
   groupCellLines?: number[];
+  /**
+   * A PRINTED LINE THAT CONTINUES THE ONE ABOVE IT (REQUIREMENTS §111 part 6): F/QC/18 prints DRYING TEST once over
+   * two specifications — "By Thumb Impression : ..." and, on an unnumbered line under it, "On Glass surface : ..." —
+   * each with its own OBSERVATION box. On these lines (counted from 0) the printed cells left empty stand merged with
+   * the line above's (its Sr. No. and its TEST PARAMETERS), and the line takes no number; its other cells are its own.
+   */
+  continuationLines?: number[];
   /**
    * THE SPECIFICATION PRINTED ON EACH LINE IS THE LINE'S BAND (REQUIREMENTS §111, rule 2): an incoming material
    * record prints "OUTER DIA (mm) | 90 (+2.0 / -1.0)", "MOISTURE CONTENT (%) | Max 15%", "VISCOSITY.(SEC) | 30 ± 10"

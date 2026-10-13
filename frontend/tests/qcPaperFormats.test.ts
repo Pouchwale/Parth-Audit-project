@@ -166,16 +166,17 @@ test("the Sr. No. holds the record's date on the day's first line and nothing on
   assert.equal(layout.srNoShowsDate, true);
   assert.equal(srNoText(layout, 0, "14-Oct-2026"), "14-Oct-2026");
   assert.equal(srNoText(layout, 1, "14-Oct-2026"), "");
-  assert.equal(srNoText(layout, 23, "14-Oct-2026"), "");
+  assert.equal(srNoText(layout, 22, "14-Oct-2026"), "");
   assert.equal(srNoText(layoutOf(MIXING), 2, "14-Oct-2026"), "3", "every other sheet numbers its lines");
   const data = createDefaultData(docOf(VISCOSITY), DAY, master) as LogSheetData;
   const rows = bodyRows(await sheet(VISCOSITY, data));
-  assert.equal(rows.length, 24);
+  // 9:00 to 07:00, as the page is written: no 08:00 line (§111 part 6).
+  assert.equal(rows.length, 23);
   assert.equal(rows[0].cells[0].text, "14-Oct-2026", "the date on the first line");
   assert.ok(rows.slice(1).every((r) => r.cells[0].text === ""), "and nothing below it");
   assert.deepEqual(
     rows.map((r) => r.cells[1].text),
-    ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00", "08:00"],
+    ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00"],
     "the hours under Date/Time"
   );
 });

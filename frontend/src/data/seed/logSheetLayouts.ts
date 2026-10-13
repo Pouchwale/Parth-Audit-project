@@ -1,7 +1,7 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
 import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
-import { FLEXO_INK_SYSTEM_NOTE, OBSERVATION_BAND, QC_INCOMING_LAYOUTS, signatureBoxes } from "./qcIncomingLayouts";
+import { FLEXO_INK_SYSTEM_NOTE, INCOMING_ADDRESS, OBSERVATION_BAND, QC_INCOMING_LAYOUTS, signatureBoxes } from "./qcIncomingLayouts";
 import { FQC13_WITHDRAWN_LINES, QC_IN_PROCESS_LAYOUTS } from "./qcInProcessLayouts";
 import { LINE_CLEARANCE_TITLE_LINES, QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
@@ -28,10 +28,13 @@ import { withoutLineNumber } from "../../engine/lineNumbers";
 // verbatim; specimen rows are the actual handwritten values (best-effort
 // reads of handwriting are flagged in docs/REQUIREMENTS.md).
 
+// F-QC-30's day, as its page is written (REQUIREMENTS §111 part 6): 9:00 to 07:00 — twenty-three readings, the next
+// day's first at 9:00. DCRS printed an 08:00 line the page does not have, and filled it on its specimen with the
+// next morning's 9:00 reading (7/9/26, 19.59, Jeni).
 const HOURLY_SLOTS = [
   "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
   "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00",
-  "03:00", "04:00", "05:00", "06:00", "07:00", "08:00",
+  "03:00", "04:00", "05:00", "06:00", "07:00",
 ];
 
 export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
@@ -65,7 +68,7 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
       { time: "01:00", viscosity: 20.58, testedBy: "Singh" }, { time: "02:00", viscosity: 19.76, testedBy: "Singh" },
       { time: "03:00", viscosity: 19.87, testedBy: "Singh" }, { time: "04:00", viscosity: 19.52, testedBy: "Singh" },
       { time: "05:00", viscosity: 19.78, testedBy: "Singh" }, { time: "06:00", viscosity: 19.16, testedBy: "Singh" },
-      { time: "07:00", viscosity: 19.76, testedBy: "Singh" }, { time: "08:00", viscosity: 19.59, testedBy: "Jeni" },
+      { time: "07:00", viscosity: 19.76, testedBy: "Singh" },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.18 PM.jpeg (F-QC-30, filled 6/9/26 – 7/9/26)",
   },
@@ -353,6 +356,8 @@ Object.assign(LOG_SHEET_LAYOUTS, {
     ],
     // A reading outside the specification printed on its line is highlighted, as on the incoming records (§111 part 6).
     specBand: OBSERVATION_BAND,
+    // The address printed at the foot of the paper, as on the incoming records (part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     rowMode: {
       kind: "fixedRows",
       rows: fixedParams([
@@ -560,6 +565,13 @@ function placedTablesFrom(issued: LogSheetLayout, edited: LogSheetLayout): { ref
   const missing = (issued.referenceTables ?? []).filter((t) => wanted.has(t.title) && !own.some((o) => o.title === t.title));
   return missing.length > 0 ? { referenceTables: [...own, ...missing] } : {};
 }
+/** The paper's letterhead (part 6), with its table where the edited format never held it; none where the format holds its own table of that title. */
+function letterheadFrom(issued: LogSheetLayout, edited: LogSheetLayout): Pick<LogSheetLayout, "letterhead" | "referenceTables"> {
+  const table = issued.letterhead ? issued.referenceTables?.find((t) => t.title === issued.letterhead) : undefined;
+  if (!issued.letterhead || !table) return {};
+  const own = edited.referenceTables ?? [];
+  return own.some((t) => t.title === table.title) ? { letterhead: issued.letterhead } : { letterhead: issued.letterhead, referenceTables: [...own, table] };
+}
 /** The paper's words for a box's choices fit an edited box only while it offers the same choices (else they would print other words). */
 const sameChoices = (own: LogHeaderField, edited: LogHeaderField): boolean =>
   (own.options ?? []).length === (edited.options ?? []).length && (own.options ?? []).every((o, i) => edited.options?.[i] === o);
@@ -624,6 +636,9 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       // Part 6: the lines one cell a heading (F/QC/11's Pass/Fail and Sign.), and the specification each line prints
       // judging its reading (the incoming records) where the edit keeps both columns.
       ...(issued.groupCellLines ? { groupCellLines: issued.groupCellLines } : {}),
+      // The header block as the paper's: the title in its letters, the lines under the company's name, its letterhead.
+      ...(issued.titleAsPrinted ? { titleAsPrinted: issued.titleAsPrinted } : {}),
+      ...(issued.underCompany ? { underCompany: issued.underCompany } : {}),
       ...(issued.specBand && [issued.specBand.spec, ...issued.specBand.readings].every((k) => edited.columns.some((c) => c.key === k)) ? { specBand: issued.specBand } : {}),
       instructions: instructions && instructions.length > 0 ? instructions : undefined,
       // A table the paper prints among the boxes that the edited format never held (F/QC/25's letterhead, part 4)
@@ -641,6 +656,8 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
         return Object.keys(paper).length === 0 ? c : { ...c, ...paper };
       }),
     };
+    // F/QC/25's letterhead in the header block, its table brought along where the format never held it.
+    out = { ...out, ...letterheadFrom(issued, out) };
     if (edited.instructions === undefined) delete out.instructions;
     if (edited.footerFields === undefined) delete out.footerFields;
   }

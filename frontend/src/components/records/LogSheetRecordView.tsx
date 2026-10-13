@@ -53,7 +53,9 @@ import {
   gridHeadSpans,
   gridLines,
   inBoxTable,
+  continuationsOf,
   isPrintedBox,
+  letterheadTable,
   paperColumnProps,
   placedTables,
   srNoText,
@@ -340,6 +342,7 @@ export function LogSheetRecordView({
   // The printed tables offered behind "Show" above the sheet: all but those the paper prints in a place of their
   // own among the boxes (tableAbove — the certificates' TOLERANCE, REQUIREMENTS §111), which are drawn there, open.
   const placed = placedTables(layout);
+  const letterhead = letterheadTable(layout);
   const topTables = (layout.referenceTables ?? []).filter((t) => !placed.has(t.title));
 
   const mode = layout.rowMode;
@@ -353,6 +356,9 @@ export function LogSheetRecordView({
   const outOfBand = outOfBandCount(layout, data);
   // F/QC/11's Pass/Fail and Sign. lines: one cell a plate (groupCellLines).
   const groupCells = layout.groupCellLines;
+  // F/QC/18's "On Glass surface" line under DRYING TEST: its Sr. No. and parameter merged with the line above (part 6).
+  const joined = continuationsOf(layout, data.rows);
+  const joinedLines = new Set(joined.keys());
   // A FORM THE PAPER PRINTS AS BOXES ALONE has no grid to draw — the Supplier
   // Registration Form is labelled lines and prose blocks from the top of page 1
   // to the bottom of page 3 (REQUIREMENTS §68). Drawing the empty table would
@@ -395,6 +401,11 @@ export function LogSheetRecordView({
         doc={doc}
         // The title as the paper prints it, unless the plant has renamed the format since (REQUIREMENTS §111).
         title={layout.paperTitle && !formatEditFor(doc.id)?.name ? layout.paperTitle : undefined}
+        // The paper's letters, its lines under the company's name and its own letterhead in place of the company's
+        // line (F/QC/25), before the title, as the paper prints them (REQUIREMENTS §111 part 6).
+        titleAsPrinted={layout.titleAsPrinted}
+        underCompany={layout.underCompany}
+        letterhead={letterhead ? <div className="doc-letterhead"><PrintedTable table={letterhead} /></div> : undefined}
         dateLabel={formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date)}
         pageLabel={record.headerBlock?.page ?? headerDefaults.page}
         revision={superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined}
@@ -578,7 +589,9 @@ export function LogSheetRecordView({
                 judge={judge}
                 groupCells={groupCells?.includes(i)}
                 numbered={numbered}
-                srNo={numbered ? srNoText(layout, i, recordDate) : undefined}
+                srNo={numbered ? srNoText(layout, i, recordDate, joinedLines) : undefined}
+                spanDown={joined.get(i + 1)}
+                joinsAbove={joined.get(i)}
                 editable={editable}
                 lang={lang}
                 employees={employeeNames}
@@ -1145,6 +1158,8 @@ const SheetRow = React.memo(function SheetRow({
   fixedRow,
   judge,
   groupCells,
+  spanDown,
+  joinsAbove,
   numbered,
   srNo,
   editable,
@@ -1172,6 +1187,10 @@ const SheetRow = React.memo(function SheetRow({
   judge: CellJudge;
   /** A line the paper prints with one cell under each heading (LogSheetLayout.groupCellLines): F/QC/11's Pass/Fail and Sign. */
   groupCells?: boolean;
+  /** The printed cells of this line that stand down over the next, which continues it (continuationLines): its Sr. No. too. */
+  spanDown?: string[];
+  /** The printed cells of this line drawn by the line above, which it continues: and its Sr. No. */
+  joinsAbove?: string[];
   /** The sheet's own Sr. No. is drawn (the form does not number its lines itself, REQUIREMENTS §102). */
   numbered: boolean;
   /** What the Sr. No. shows: the line's number, or the record's date on a sheet that writes the day there (REQUIREMENTS §111). */
@@ -1196,9 +1215,9 @@ const SheetRow = React.memo(function SheetRow({
   const rowName = logRowName(row, columns);
   const lineSpan = second ? 2 : undefined;
   const firstLine = (
-    <tr data-line={second ? "first" : undefined}>
-      {numbered && (
-        <td className="text-muted" rowSpan={lineSpan} data-sr-no="">
+    <tr data-line={second ? "first" : undefined} data-continues={joinsAbove ? "" : undefined}>
+      {numbered && !joinsAbove && (
+        <td className="text-muted" rowSpan={spanDown ? 2 : lineSpan} data-sr-no="">
           {srNo ?? index + 1}
         </td>
       )}
@@ -1207,6 +1226,8 @@ const SheetRow = React.memo(function SheetRow({
         // columns are one cell, the first column's; the record keeps the others, empty.
         const span = groupCells && c.group !== undefined ? groupSpan(columns, ci) : 1;
         if (span === 0) return null;
+        // A printed cell the line above draws down over this one (F/QC/18's DRYING TEST, §111 part 6).
+        if (joinsAbove?.includes(c.key)) return null;
         // A line the form prints blank (F/HR/05's two spare topic lines)
         // has nothing fixed in it, so it is written in like any cell.
         const col = effectiveColumn(c, fixedRow);
@@ -1218,7 +1239,7 @@ const SheetRow = React.memo(function SheetRow({
           );
         }
         return (
-          <td key={c.key} className={judge(row, c, fixedRow) ? "cell-out-of-band" : ""} colSpan={span > 1 ? span : undefined}>
+          <td key={c.key} className={judge(row, c, fixedRow) ? "cell-out-of-band" : ""} colSpan={span > 1 ? span : undefined} rowSpan={spanDown?.includes(c.key) ? 2 : undefined}>
             <CellInput
               col={col}
               bind={bindProps(logCellBind(row, index, col, rowName))}

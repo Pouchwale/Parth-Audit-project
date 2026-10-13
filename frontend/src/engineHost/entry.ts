@@ -835,6 +835,10 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         ...(l.gridAcross ? { gridAcross: true } : {}),
         // One answer across the paper's columns (F/QC/25, §111 part 4): which column each printed line is written in.
         ...(l.answerAcross ? { answerAcross: l.answerAcross } : {}),
+        // Part 6: F/QC/11's Pass/Fail and Sign. one cell a plate, and F/QC/18's line continuing DRYING TEST (no number of
+        // its own) — the lines are still the rows a patch names, each by its index.
+        ...(l.groupCellLines?.length ? { groupCellLines: l.groupCellLines } : {}),
+        ...(l.continuationLines?.length ? { continuationLines: l.continuationLines } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),

@@ -243,14 +243,15 @@ def main():
         page.wait_for_timeout(300)
         if opened_log:
             check("Log sheet shows the F-QC-30 header", "F-QC-30" in page.content())
-            check("Log sheet was pre-filled with 24 hourly rows", page.locator("table.log-sheet tbody tr").count() == 24)
-            # REQUIREMENTS s98: the prepare writes the 24 time slots, never a reading or who tested it. The banner
+            # 9:00 to 07:00, as F-QC-30's page is written: 23 hourly lines (s111 part 6).
+            check("Log sheet was pre-filled with 23 hourly rows", page.locator("table.log-sheet tbody tr").count() == 23)
+            # REQUIREMENTS s98: the prepare writes the 23 time slots, never a reading or who tested it. The banner
             # says so, and the person enters each reading and signs it, as on the paper, before it can be submitted.
-            check("Prepared banner says the slots are there and the readings are the person's", "24 time slots are on the sheet" in page.content() or not PREPARED_EXPECTED)
+            check("Prepared banner says the slots are there and the readings are the person's", "23 time slots are on the sheet" in page.content() or not PREPARED_EXPECTED)
             if PREPARED_EXPECTED:
                 readings = page.locator("[data-bind$='/viscosity']")
                 testers = page.locator("[data-bind$='/testedBy']")
-                check("...and every reading starts empty", readings.count() == 24 and all(readings.nth(i).input_value() == "" for i in range(readings.count())))
+                check("...and every reading starts empty", readings.count() == 23 and all(readings.nth(i).input_value() == "" for i in range(readings.count())))
                 for i in range(readings.count()):
                     readings.nth(i).scroll_into_view_if_needed()
                     readings.nth(i).fill("20.1")
@@ -273,7 +274,7 @@ def main():
         else:
             check(
                 "Status persists after reload (a closed day: the sheet is still there, not submitted)",
-                page.locator("table.log-sheet tbody tr").count() == 24 and "Pending Verification" not in page.content(),
+                page.locator("table.log-sheet tbody tr").count() == 23 and "Pending Verification" not in page.content(),
             )
 
         # ---- 5. Dashboard reflects update ----

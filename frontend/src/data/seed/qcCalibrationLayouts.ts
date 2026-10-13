@@ -47,6 +47,9 @@ import type { LogColumn, LogSheetLayout } from "../../types";
 export const CALIBRATION_PROCEDURE =
   "Calibration to be done by qualified QA person as per calibration work procedure. If any deviation is found during internal calibration, it must be reported to the QA manager. Calibration records of all weights used must be available and valid.";
 
+/** The line both calibration papers print under the company's name (REQUIREMENTS §111 part 6). */
+export const MANUFACTURERS_LINE = "Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes";
+
 const text = (key: string, label: string, width?: number): LogColumn => ({ key, label, type: "text", width });
 
 /** The five test weights of the weight scale sheet, as the form prints them. */
@@ -118,6 +121,8 @@ const weightScale: LogSheetLayout = {
   ownLineNumbers: true,
   // Every entry takes two lines; the second is headed "Deviation %" in the Date column.
   secondLine: { label: "Deviation %" },
+  // "Manufacturers of Printed Cartons, ..." under the company's name, as the paper prints it.
+  underCompany: [MANUFACTURERS_LINE],
   // Three rows of three: Device ID No, Location, Department / Manufacturer, Serial No,
   // Calibration Expiry / Minimum Reading Capacity, Maximum Reading Capacity, Acceptable Tolerance.
   headerColumns: 3,
@@ -200,6 +205,8 @@ const gsmPlate: LogSheetLayout = {
   documentId: "qc-gsm-plate-calibration",
   // The paper's own Index column (Tasted-1, 2, 3, 4, Pass/Fail, Sign.) numbers the lines (REQUIREMENTS §102).
   ownLineNumbers: true,
+  // "Manufacturers of Printed Cartons, ..." under the company's name, as the paper prints it.
+  underCompany: [MANUFACTURERS_LINE],
   headerColumns: 3,
   // "Index", "No. 54", "20 x 20cm", "Deviation" in the paper's own letters, not the sheet's capitals.
   headingsAsPrinted: true,

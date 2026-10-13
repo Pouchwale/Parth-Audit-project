@@ -436,7 +436,10 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     gridAcross: true,
     // "Length(mm)", "Face Material", "No. of Colors" in the paper's own letters, not the sheet's capitals (§111, part 4).
     headingsAsPrinted: true,
-    instructions: COA_LETTERHEAD,
+    // The address, contact and GSTIN lines under the company's name, then "Certificate of Analysis [COA] For Label"
+    // in its own letters, as the certificate prints them (§111 part 6) — not under the title and the format's row.
+    underCompany: COA_LETTERHEAD,
+    titleAsPrinted: true,
     // Production Order No., Delivery No. and COA Date : on the paper's first line.
     headerColumns: 3,
     headerFields: [
@@ -523,7 +526,9 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     gridAcross: true,
     // "Length(mm)", "Face Material", "No. of Colors" in the paper's own letters, not the sheet's capitals (§111, part 4).
     headingsAsPrinted: true,
-    instructions: COA_LETTERHEAD,
+    // The letterhead's lines under the company's name and the title in its own letters, as on F/QC/06 (§111 part 6).
+    underCompany: COA_LETTERHEAD,
+    titleAsPrinted: true,
     headerColumns: 3,
     headerFields: [
       ...certificateHead(),
@@ -597,11 +602,18 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     ownLineNumbers: true,
     // "Sr.No.", "Specified  GSM", "Grade of Paper" in the paper's own letters (§111, part 4).
     headingsAsPrinted: true,
+    // The letterhead's three cells at the head of the page in place of the company's line, "CBA: CORRUGATED BOX
+    // ANALYSIS" under them, then the title in its own letters (§111 part 6): the company's name printed once, the
+    // title under the letterhead, not above it.
+    letterhead: CORRUGATED_LETTERHEAD.title,
+    underCompany: [CORRUGATED_ANALYSIS_LINE],
+    paperTitle: "Certificate of Analysis [COA] For CORRUGATED BOXES",
+    titleAsPrinted: true,
     // "Date:" alone at the right above the grid, then OID :- and Job Code: side by side on the grid's top line.
     headerColumns: 2,
     headerFields: [
-      // "Date:" as printed, above the grid's right-hand end — under the letterhead's three cells and the line under them.
-      { key: "date", label: "Date:", type: "date", width: 150, paperColumn: 2, tableAbove: CORRUGATED_LETTERHEAD.title, printedAbove: [CORRUGATED_ANALYSIS_LINE] },
+      // "Date:" as printed, above the grid's right-hand end, under the title.
+      { key: "date", label: "Date:", type: "date", width: 150, paperColumn: 2 },
       // The paper's own "OID :-" and "Job Code:", printed on the grid's top line over the answers (part 4).
       { key: "oid", label: "OID :-", type: "text", width: 160, inGridHead: true },
       { key: "jobCode", label: "Job Code:", type: "text", width: 160, autoFill: { carryForward: true }, inGridHead: true },
@@ -636,6 +648,8 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
  */
 export const COA_WITHDRAWN_LINES: Record<string, string[]> = {
   "qc-coa-label": [
+    // The letterhead's lines, printed under the company's name in the header block since part 6.
+    ...COA_LETTERHEAD,
     "Certificate of Analysis [COA] For Label. The certificate's own boxes and the LABEL STOCK block are above the grid; the PRINTING block's colours are the grid; the rest of PRINTING, the COATING block, the FINISHING block and the retest date are below it.",
     'PRINTING: the certificate prints the ten colours across the page as columns numbered 1 to 10, with "Given By Client" and "Color Shade Verified" on two lines under them. A grid reads down the page, so each colour is one line here — the printed number, then the two entries.',
     GRADE_SCALE_NOTE,
@@ -644,6 +658,7 @@ export const COA_WITHDRAWN_LINES: Record<string, string[]> = {
     SYSTEM_GENERATED_NOTE,
   ],
   "qc-coa-sleeve": [
+    ...COA_LETTERHEAD,
     "Certificate of Analysis [COA] For Shrink Sleeves. The certificate's own boxes and the SLEEVE FILM block are above the grid; the PRINTING block's colours are the grid; the rest of PRINTING, the COATING block, the FINISHING block and the retest date are below it.",
     'PRINTING: the certificate prints the ten colours across the page as columns numbered 1 to 10, with "Given By Client" and "Color Shade Verified" on two lines under them. A grid reads down the page, so each colour is one line here — the printed number, then the two entries.',
     GRADE_SCALE_NOTE,

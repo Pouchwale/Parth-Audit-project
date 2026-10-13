@@ -1439,7 +1439,7 @@ with sync_playwright() as p:
     rid = start_record(page, "qc-tolerance-card-nivea")
     heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     panels = page.locator("[data-print-doc] table.log-sheet tbody tr").count()
-    check("The tolerance card: seven panels, each with its own APPROVED BY: and SIGN. :, no Sr. No.", heads == ["", "APPROVED BY:", "SIGN. :"] and panels == 7, (heads, panels))
+    check("The tolerance card: its nine panels (s111 part 6), each with its own APPROVED BY: and SIGN. :, no Sr. No.", heads == ["", "APPROVED BY:", "SIGN. :"] and panels == 9, (heads, panels))
     shoot(page, "F-QC-19-tolerance-card")
 
     check("No JavaScript errors", not errors, errors[:5])

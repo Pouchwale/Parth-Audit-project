@@ -278,7 +278,7 @@ test("get_open_record describes a log sheet's layout by key and strips _layout f
   assert.ok(res.layout.columns.some((c) => c.startsWith("viscosity:") && /number/.test(c)), JSON.stringify(res.layout.columns));
   assert.ok(res.layout.columns.some((c) => c.startsWith("time:") && /printed/.test(c)));
   assert.equal(res.layout.rowMode, "timeSlots");
-  assert.equal(res.layout.rows, 24);
+  assert.equal(res.layout.rows, 23, "9:00 to 07:00, as F-QC-30's page is written");
   assert.ok(!("_layout" in res.data), "the layout the target adds for the model is not repeated as data");
   assert.ok(r.content.length <= MAX_TOOL_RESULT_CHARS, `${r.content.length} characters`);
 });

@@ -8,7 +8,7 @@ import { FormatEditor } from "./FormatEditor";
 import { COMPANY } from "../../data/seed/masterData";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
-import { answerAcrossOf, boxGroups, gridHeadBoxes, gridLines, isPrintedBox, paperColumnProps, placedTables } from "../../engine/paperLayout";
+import { answerAcrossOf, boxGroups, gridHeadBoxes, gridLines, isPrintedBox, letterheadTable, paperColumnProps, placedTables } from "../../engine/paperLayout";
 import { BoxTable } from "../records/BoxTable";
 import { NotesBelow } from "../records/NotesBelow";
 import { PrintedTable } from "../records/PrintedTable";
@@ -977,7 +977,11 @@ export function SheetDesigner({
         <DocumentHeader
           doc={doc}
           title={draft.name}
-          pageLabel="1 of 1 (digital)"
+          // The paper's letters, its lines under the company's name and its own letterhead, as on the record (§111 part 6).
+          titleAsPrinted={layout.titleAsPrinted}
+          underCompany={layout.underCompany}
+          letterhead={letterheadTable(layout) ? <div className="doc-letterhead"><PrintedTable table={letterheadTable(layout)!} /></div> : undefined}
+          pageLabel="1 of 1"
           edit={{
             editing: renaming?.kind === "header" ? renaming.field : null,
             onEdit: (field) => {

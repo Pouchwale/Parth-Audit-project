@@ -7613,6 +7613,27 @@ of 38, e2e_every_record_starts 336 of 336, e2e_mobile_mitra_api 32 of 32. e2e_pr
 not get as far as a test: each was started in the same minute as another worktree's run, and the two runs' servers and
 databases ran into each other (part 4 says what was done about it); they are run again with part 4.
 
+### §111, part 4: the papers' own marks, and F/QC/25's one answer across its columns
+
+A third look at the originals of 13-Oct-2026, held against DCRS's own print of each (commit 99d9bed, and da19065 for
+F/QC/25's grid). The words and boxes were the papers' already; what the print did not show is now a layout ability:
+
+- *The LOT STATUS line* of the fourteen incoming records and F/QC/36 prints its four statuses across, for the
+  inspector to mark one (LogHeaderField.choicesAcross); F/QC/21 Flexo Ink's first reads "Accepted".
+- *The signature boxes* are headed INSPECTED BY and APPROVED BY with QA INSPECTOR and QA MANAGER printed under the
+  space they are signed in; F/QC/25 prints "(QA Inspector)" under "Testing By" (LogHeaderField.printedBelow).
+- *The line numbers* print "1.", "2." where the paper does (LogSheetLayout.srNoFullStop); Flexo Ink prints "1", "2".
+- *The screen's "*"* after a box that must be written no longer prints.
+- *The certificates' headings* print in the paper's letters ("Length(mm)", LogSheetLayout.headingsAsPrinted); their
+  retest date stands inside its sentence (LogHeaderField.inSentence); "Coating Done :" beside its value.
+- *F/QC/25's letterhead* is the paper's three cells (ReferenceTable.untitled), not one line joined by dashes.
+- *F/QC/25's grid* (LogSheetLayout.answerAcross, LogHeaderField.inGridHead): one answer box a line across the paper's
+  four columns, but on 7.1, 7.2 and 7.3, which are written in Specified GSM, Tested GSM, BF and Grade of Paper; those
+  four are headed on line 7, "Material Specification", where the paper heads them (GSM over Specified and Tested GSM);
+  OID :- and Job Code: stand on the grid's top line. The record's data is unchanged: every line holds every column.
+
+Tests: frontend/tests/qcPaperMarks.test.ts (sections 1 to 7). Browser suite: tests/e2e_qc_formats.py.
+
 ### §111, part 5: the line clearances, F/QC/13, the registers and reports, F-QC-14, and every QC number found
 
 **Held against their originals of 13-Oct-2026** (source-documents/qc-originals-2026-10-13/, or the older paper a
@@ -7716,6 +7737,81 @@ F-QC-14's two sheets on file and a Label record filled with sample data by Mitra
 the twelve line clearance headings with no Sr. No.; F/QC/13 as its original), and the document counts in
 e2e_smoke.py, e2e_hr_module.py, e2e_every_record_starts.py, e2e_departments.py and e2e_qc_calibration.py (131
 documents, 43 in QC's module, 48 for a QC account).
+
+### §111, part 6: the findings on parts 1 to 5, fixed
+
+A review held every print against its original again and ran the sheets as the plant and Mitra do (the morning
+prepare, the sample fill, Demo Mode, the print). Both builders' branches are one now (formats-13oct-b merged into
+formats-13oct): on either alone F/QC/30 opened F-QC-30, or the incoming records were not the papers. What it found,
+and what was done:
+
+- *F/QC/11's Serial No printed DCRS's "TO BE CONFIRMED"*, on the 31.12.2024 page on file and, it being a standing box
+  whose value comes from the specimen, on every new sheet, Live and sample. The scan's scribble is left blank, as the
+  paper's box is; DCRS's mark is never carried onto a new sheet (engine/observations.ts isPlaceholder, read by the
+  morning prepare and the sample fill); a copy of the page stored with it takes the blank at start-up with one line in
+  its history (data/seededPlaceholderMigration.ts).
+- *Sample and Demo calibration sheets showed an instrument out of calibration, all Pass*: the 2024 page's expiry
+  (27.08.2024 on F/QC/12, 22.09.2025 on F/QC/11) on 2026 sheets. A sample sheet's instrument now carries its yearly
+  calibration's next date after the sheet's day; F/QC/11's Due Date is the next month's calibration; its Sign. line is
+  signed by a QC lab executive of HR Master Data, not "Rashmi". A Live sheet still carries the expiry as written and
+  says first that it has run out (§75).
+- *The boxes and the grid as printed*: both calibration records carry the paper's own box words, colons and ":-"
+  included ("Device ID No:", "I. Calibration Date:-"), F/QC/11's "Due Date:-" at the right of its line; F/QC/11's
+  Pass/Fail and Sign. lines are one cell a plate (LogSheetLayout.groupCellLines); F-QC-30, F-QC-32, F/QC/11 and
+  F/QC/12 print their headings in the paper's letters ("No. 54", "20 x 20cm", "Viscosity (20.0 ± 1.0 Sec.)").
+- *A printed tolerance or specification drives the highlight* (rule 2; engine/printedBands.ts): F/QC/12's Deviation %
+  outside ± its Acceptable Tolerance (LogColumn.toleranceFrom); an incoming record's reading outside the
+  SPECIFICATION printed on its line, where that is a plain figure — "90 (+2.0 / -1.0)", "Max 15%", "30 ± 10", "Delta
+  Value DE should be below 3.0" (LogSheetLayout.specBand; "As per P.O.", a band for each ply or side and "Except ..."
+  are left to the inspector); a certificate's tested size, stock and thickness outside its TOLERANCE table
+  (LogHeaderField.within; the sleeve's "Shrinkage Ration 5 %", which does not say of what, is left to the inspector).
+  Highlighted on the sheet and its print, counted above the grid, in validation's count and the record's history;
+  never a block. Demo Mode's lots read inside every band.
+- *The header block as the paper's*: the lines a paper prints under the company's name (LogSheetLayout.underCompany:
+  F/QC/11's and F/QC/12's "Manufacturers of Printed Cartons, ...", the certificates' address, contact and GSTIN
+  lines); the title in the paper's own letters where it is not in capitals (titleAsPrinted: the certificates, F/QC/13);
+  F/QC/25's letterhead in place of the company's line (LogSheetLayout.letterhead), the company's name printed once, then
+  "CBA: CORRUGATED BOX ANALYSIS", then its title, then Date:. The Rev No. of F/QC/06 and F/QC/07 is the Master List of
+  Formats' (F-SYS-02 gives 01.12.21 in its Rev 0 column: Rev 00 of 01.12.2021); a revision nobody has given (F/QC/25,
+  F-QC-19, F/QC/13) is said on screen and prints as an empty cell. A record headed with its own date prints the
+  format's revision date beside it ("Rev Date"), the date the paper prints in its header; the page is "1 of 1", not
+  "1 of 1 (digital)".
+- *The address at the foot*: the incoming records, F/QC/33 and F/QC/36 print "308/9, GIDC, DEDIYASAN, MEHSANA,
+  GUAJRAT, INDIA - 384002" under their Format number line; F/QC/21 Flexo Ink its own "308/9 GIDC, DEDIYASAN, MEHSANA -
+  384002, GUJARAT, INDIA" above its system-generated line (notesAtFoot). The paper's spellings are kept.
+- *A written date prints as written* (utils/print.ts): for the length of a print every written date or time box in a
+  document prints as text in its place ("14-Oct-2026", "10:17"), not the browser's drawing of it ("14·10·2026",
+  "13 - 10 - 2026", the owner's "12..10..2026").
+- *F-QC-19's tolerance card* draws its nine printed headings (the second "ERROR : OTHER" and "ERROR : IN BATCH COADING
+  AREA" were missing). Its sheet prints seven APPROVED BY / SIGN. boxes for nine headings, ten banners and ten DOC NO.
+  labels: the banners and the number are the header block's; every panel keeps its approval.
+- *F/QC/18's DRYING TEST* stands over its two printed lines, the second ("On Glass surface ...") unnumbered with an
+  OBSERVATION box of its own (LogSheetLayout.continuationLines); ALKALI RESISTANCE stays "7.". A record written before
+  holds its own words on its lines and reads as it was written.
+- *F-QC-30's day* is 9:00 to 07:00, twenty-three lines, as its page is written; DCRS's 08:00 line is gone, and with it
+  the specimen's 08:00 reading, which was the next morning's 9:00 one. The paper prints its grid twice side by side and
+  the hours by hand: DCRS keeps one grid of the day's printed hours.
+- *F-QC-32's specimen* has its signatures under Verified by, Checked by blank, as written, and its fifth line (7/9/26);
+  a sample sheet signs Verified by.
+- *Signed by people of HR Master Data* (rule 3): Demo Mode's and sample QC lines and boxes, and Demo Mode's QC
+  submissions, are signed by QC's lab executives (the longest-serving on the day shift, the next on the night shift)
+  and the QA Manager — not "Jeni", "Singh", "Rashmi", "Pooja P", "Priya Solanki", "Vijay" or "Yogesh Rathod", who are
+  not on HR Master Data. Where HR Master Data holds no lab executive, the names the papers give.
+
+**Not done, and why.** Demo Mode's and sample incoming lots still name "Sample Supplier C" and the like: the approved
+supplier list on file (F/PUR/03) is the blank format's made-up lines, and no outside company is invented (§98's sample
+data rule); the plant's own list would give the real names. F/QC/12's paper prints its own footer number as "F/QC/13
+(01/01.01.2022)", the IPQC's; DCRS keeps F/QC/12, which the file name and the Master List give — for the owner to
+confirm and the paper to be corrected. F-QC-30's two grids side by side and its handwritten hours are not reproduced.
+
+**Tests.** frontend/tests/qcPaperFindings.test.ts (17, each failing on the code before this part); changed:
+qcPaperFormats.test.ts (the box words, 23 hourly lines, a format edited before §111), qcIncomingCoaPaper.test.ts (the
+address at the foot, the certificates' header lines, F/QC/25's letterhead, the card's nine panels, F/QC/18's two
+DRYING TEST lines), qcPaperMarks.test.ts (an incoming format edited before §111 holds no foot), qcPaperFormatsMore.test.ts
+(F/QC/13's title in its letters), recordHeader.test.ts and mitraTools.test.ts ("1 of 1", 23 lines). Browser suites:
+tests/e2e_qc_calibration.py (the blank serial, the box words, one cell a plate, a written Date printing as text, 23
+lines), tests/e2e_qc_formats.py (F/QC/25's grid head and line 7, the card's nine panels), tests/e2e_smoke.py,
+tests/e2e_print_all_documents.py and tests/e2e_header_editing.py (23 lines, "1 of 1").
 
 ## Master data provenance summary
 

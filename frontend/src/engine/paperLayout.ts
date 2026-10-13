@@ -140,10 +140,30 @@ export function gridLines(layout: LogSheetLayout): GridLines {
  * where the paper writes the day there (F-QC-30) — the record's date on the
  * first line and nothing on the others.
  */
-export function srNoText(layout: LogSheetLayout, index: number, recordDate: string): string {
+export function srNoText(layout: LogSheetLayout, index: number, recordDate: string, joined: ReadonlySet<number> = new Set(layout.continuationLines ?? [])): string {
   if (layout.srNoShowsDate) return index === 0 ? recordDate : "";
+  // A line continuing the one above takes no number, and the lines after it count on from the one above (part 6).
+  if (joined.has(index)) return "";
+  let n = index + 1;
+  for (const j of joined) if (j < index) n -= 1;
   // "1." where the paper prints its numbers with a full stop (part 4).
-  return layout.srNoFullStop ? `${index + 1}.` : String(index + 1);
+  return layout.srNoFullStop ? `${n}.` : String(n);
+}
+
+/**
+ * THE LINES OF A RECORD THAT CONTINUE THE ONE ABOVE (LogSheetLayout.continuationLines, §111 part 6), and the printed
+ * cells each stands merged in: the layout's lines whose printed cells the record holds empty. A record written
+ * before the paper's line was split holds its own words there, and reads line for line as it was written.
+ */
+export function continuationsOf(layout: LogSheetLayout, rows: readonly Record<string, unknown>[]): Map<number, string[]> {
+  const out = new Map<number, string[]>();
+  const printed = layout.rowMode.kind === "fixedRows" ? layout.rowMode.rows : [];
+  for (const i of layout.continuationLines ?? []) {
+    if (i <= 0 || !rows[i] || !printed[i]) continue;
+    const keys = layout.columns.filter((c) => c.fixed && String(printed[i][c.key] ?? "") === "" && String(rows[i][c.key] ?? "") === "").map((c) => c.key);
+    if (keys.length > 0) out.set(i, keys);
+  }
+  return out;
 }
 
 /**
@@ -313,9 +333,16 @@ export function boxGroupsBesideGrid(layout: LogSheetLayout): BoxGroup[] {
   return out;
 }
 
+/** The paper's letterhead table, drawn in the header block in place of the company's line (LogSheetLayout.letterhead, §111 part 6). */
+export function letterheadTable(layout: LogSheetLayout): ReferenceTable | undefined {
+  return layout.letterhead ? layout.referenceTables?.find((t) => t.title === layout.letterhead) : undefined;
+}
+
 /** The titles of the printed tables drawn in their own place among the boxes (tableAbove), not behind "Show" above the sheet. */
 export function placedTables(layout: LogSheetLayout): Set<string> {
   const out = new Set<string>();
+  // The paper's letterhead is drawn in the header block (LogSheetLayout.letterhead, §111 part 6).
+  if (layout.letterhead && layout.referenceTables?.some((t) => t.title === layout.letterhead)) out.add(layout.letterhead);
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
     if (f.tableAbove && layout.referenceTables?.some((t) => t.title === f.tableAbove)) out.add(f.tableAbove);
   }

@@ -234,11 +234,21 @@ const cameraChallengeColumns = (): LogColumn[] => [
 // ---------------------------------------------------------------------------
 // F-QC-19 — TOLERANCE CARD FOR BEIERSDORF AG. GERMANY
 //
-// A physical card: seven printed panels, each headed with an error category,
-// onto which sample labels are mounted, with an APPROVED BY / SIGN. box under
-// each panel. DOC NO. : F-QC-19 is printed on the card as its format number,
-// not as a box anyone fills, so it is not a field; nor is the customer, which
-// the card names in its own title.
+// A physical card: printed panels, each headed with an error category, onto
+// which sample labels are mounted, with an APPROVED BY / SIGN. box under each
+// panel. DOC NO. : F-QC-19 is printed on the card as its format number, not as
+// a box anyone fills, so it is not a field; nor is the customer, which the card
+// names in its own title.
+//
+// THE PAPER, COUNTED (REQUIREMENTS §111 part 6). "F-QC-19_ Tolerance card for
+// Nivea.pdf" is the card's printed sheet: NINE error headings (page 1's seven,
+// then "ERROR : OTHER" and "ERROR : IN BATCH COADING AREA" again at the top of
+// page 2), ten "TOLERANCE CARD FOR BEIERSDORF AG. GERMANY" banners and ten
+// "DOC NO. : F-QC-19" labels (the card's title and number, printed once in the
+// header block here), and seven APPROVED BY: / SIGN. : boxes. DCRS drew seven
+// panels and left the last two headings out; it draws the nine now, in the
+// printed order, each with its approval as every panel has one. The seven boxes
+// against nine headings is the sheet's own count, left for QA to confirm.
 
 /** The explanation DCRS used to print above the card, withdrawn (REQUIREMENTS §111, data/seed/logSheetLayouts.ts asThePaper). */
 export const TOLERANCE_CARD_NOTE =
@@ -247,10 +257,11 @@ export const TOLERANCE_CARD_NOTE =
 /**
  * The card's panels in the printed order, each exactly as headed. THREE PANELS
  * CARRY "ERROR : MISREGISTRATION" — the card really does head three of its
- * seven panels the same way, each with its own mounted samples — and "COADING"
- * is the card's own spelling of "CODING". Both are kept as printed.
+ * panels the same way, each with its own mounted samples — and "OTHER" and "IN
+ * BATCH COADING AREA" are printed twice, the second time at the top of page 2.
+ * "COADING" is the card's own spelling of "CODING". All kept as printed.
  */
-const TOLERANCE_CARD_PANELS: string[] = [
+export const TOLERANCE_CARD_PANELS: string[] = [
   "ERROR : MISREGISTRATION",
   "ERROR : MISREGISTRATION",
   "ERROR : MISREGISTRATION",
@@ -258,6 +269,9 @@ const TOLERANCE_CARD_PANELS: string[] = [
   "ERROR : IN BATCH COADING AREA",
   "ERROR : IN NIVEA LOGO",
   "ERROR : IN PLAIN AREA",
+  // Page 2 of the printed sheet (§111 part 6).
+  "ERROR : OTHER",
+  "ERROR : IN BATCH COADING AREA",
 ];
 
 /**

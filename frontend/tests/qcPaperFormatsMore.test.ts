@@ -264,7 +264,8 @@ test("F/QC/13: the procedure, the grade criteria printed in full, eight boxes th
   const html = await sheet(id, filled);
   assert.match(html, /data-reference-table="printed"/);
   assert.equal(layout.paperTitle, "In Process Quality Control");
-  assert.ok(text(html).includes("IN PROCESS QUALITY CONTROL") && !text(html).includes("(PRINTING)"), "headed with the paper's own title");
+  // In its own letters, as the paper prints it (§111 part 6), not the header's capitals.
+  assert.ok(text(html).includes("In Process Quality Control") && !text(html).includes("IN PROCESS QUALITY CONTROL") && !text(html).includes("(PRINTING)"), "headed with the paper's own title");
   // English is chosen in the harness, so the Gujarati form reads in English (REQUIREMENTS §58).
   assert.ok(!/>\s*Show /.test(html), "no Show button of DCRS's");
   assert.ok(text(html).includes("A – All registers are perfectly in order. No print has been judged spoiled."), "the criteria are on the sheet");

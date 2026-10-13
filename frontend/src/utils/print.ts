@@ -31,15 +31,24 @@
 // data-empty, and the stylesheet prints it blank (styles.css, "Print"). The
 // record sheets mark their own as they draw them; the marks put on here come off
 // when printing ends.
+//
+// A WRITTEN DATE PRINTS AS IT IS WRITTEN (REQUIREMENTS §111 part 6). A date box
+// holding a date printed the browser's own drawing of it — "14·10·2026",
+// "13 - 10 - 2026", and on the owner's printout "12..10..2026". For the length of
+// the print every written date or time box in a document prints as text beside
+// it — the date as the sheet writes it everywhere else ("14-Oct-2026"), the time
+// as written ("10:17") — and the box itself does not print. The words come off
+// when printing ends.
 
 import { logActivity } from "./activityLog";
+import { formatDisplayDate } from "./date";
 
 const DOC_SELECTOR = "[data-print-doc]";
 const HIDDEN = "print-scope-hidden";
 const ANCESTOR = "print-scope-ancestor";
 const SCOPED = "print-scoped";
 
-let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[] } | null = null;
+let active: { hidden: Element[]; ancestors: Element[]; emptied: Element[]; written: { box: Element; text: Element }[] } | null = null;
 
 const EMPTY_ATTR = "data-empty";
 const EMPTY_BOXES = "input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month'], select";
@@ -55,6 +64,34 @@ function markEmptyBoxes(docs: Element[]): Element[] {
     }
   }
   return marked;
+}
+
+/** The class of a written date or time box while its words print in its place, and of those words. */
+export const PRINTED_AS_TEXT = "print-as-text";
+export const PRINT_BOX_TEXT = "print-box-text";
+const WRITTEN_BOXES = "input[type='date'], input[type='time']";
+
+/** What a written date or time box prints: the date as the sheet writes dates, the time as written. */
+export function printedBoxText(type: string, value: string): string {
+  if (type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDisplayDate(value);
+  return value;
+}
+
+/** Puts the words of every written date or time box in the documents beside it, for the print; the pairs are returned. */
+function writeBoxesAsText(docs: Element[]): { box: Element; text: Element }[] {
+  const written: { box: Element; text: Element }[] = [];
+  for (const d of docs) {
+    for (const box of Array.from(d.querySelectorAll(WRITTEN_BOXES)) as HTMLInputElement[]) {
+      if (box.value === "" || box.classList.contains(PRINTED_AS_TEXT)) continue;
+      const text = document.createElement("span");
+      text.className = PRINT_BOX_TEXT;
+      text.textContent = printedBoxText(box.type, box.value);
+      box.insertAdjacentElement("afterend", text);
+      box.classList.add(PRINTED_AS_TEXT);
+      written.push({ box, text });
+    }
+  }
+  return written;
 }
 
 const PAGE_STYLE_ID = "print-page-fit";
@@ -131,6 +168,10 @@ function unscope(): void {
   for (const el of active.hidden) el.classList.remove(HIDDEN);
   for (const el of active.ancestors) el.classList.remove(ANCESTOR);
   for (const el of active.emptied) el.removeAttribute(EMPTY_ATTR);
+  for (const { box, text } of active.written) {
+    box.classList.remove(PRINTED_AS_TEXT);
+    text.remove();
+  }
   document.documentElement.classList.remove(SCOPED);
   active = null;
 }
@@ -158,7 +199,7 @@ function scope(targets: Element[]): void {
     if (a !== document.body) a.classList.add(ANCESTOR);
   }
   document.documentElement.classList.add(SCOPED);
-  active = { hidden, ancestors, emptied: markEmptyBoxes(docs) };
+  active = { hidden, ancestors, emptied: markEmptyBoxes(docs), written: writeBoxesAsText(docs) };
   fitToPage(docs);
 }
 

@@ -336,3 +336,100 @@ test("Demo Mode's and sample QC sheets are signed by QC's people on HR Master Da
     for (const [label, name] of signed) assert.ok(names.has(String(name)), `${id} ${label}: ${name} is not on HR Master Data`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// 6. The header block and the foot as the papers print them
+
+test("the header block prints the paper's lines under the company's name and its title in its own letters; F/QC/25 its letterhead in place of the company's line", async () => {
+  const label = await sheet("qc-coa-label", createDefaultData(docOf("qc-coa-label"), DAY, master) as LogSheetData);
+  const head = label.slice(label.indexOf('<div class="doc-header">'), label.indexOf('<div class="meta-row">'));
+  assert.match(head, /<div class="company-name has-lines notranslate" translate="no">/);
+  assert.match(head, /data-section="under-company"><div>308,309,232 A &amp; B,G\.I\.D\.C\. Estate,At Dediyasan,Mehsana - 384002 Gujarat India<\/div><div>Contact Number :  , Email : info@gujprintpack\.com<\/div><div>GSTIN :  24AAACG7781P1Z1, IEC CODE : 0894007882, PAN : AAACG7781P<\/div><\/div><div class="doc-title">/);
+  assert.match(head, /<div class="doc-title"><span>Certificate of Analysis \[COA\] For Label<\/span><\/div>/, "the title in the paper's letters, under the lines");
+  assert.ok(!text(label).includes("CERTIFICATE OF ANALYSIS"));
+  const gsm = await sheet(GSM, createDefaultData(docOf(GSM), DAY, master) as LogSheetData);
+  assert.match(gsm, /data-section="under-company"><div>Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes<\/div><\/div>/);
+  assert.match(gsm, /<div class="doc-title"><span>MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE<\/span>/, "a title printed in capitals stays so");
+  const scale = await sheet(SCALE, createDefaultData(docOf(SCALE), DAY, master) as LogSheetData);
+  assert.match(scale, /data-section="under-company"><div>Manufacturers of Printed Cartons/);
+  // F/QC/25: its letterhead's three cells head the page, the company's name in the first, printed once; then the
+  // CBA line; then its title in its own letters; then Date: among the boxes.
+  const cba = await sheet("qc-coa-corrugated", createDefaultData(docOf("qc-coa-corrugated"), DAY, master) as LogSheetData);
+  const cbaHead = cba.slice(cba.indexOf('<div class="doc-header">'), cba.indexOf('<div class="meta-row">'));
+  assert.ok(!cbaHead.includes('class="company-name'), "no company line besides the letterhead's");
+  const order = ['data-table="Letterhead"', "CBA: CORRUGATED BOX ANALYSIS", "Certificate of Analysis [COA] For CORRUGATED BOXES"].map((w) => cbaHead.indexOf(w));
+  assert.ok(order.every((at, i) => at >= 0 && (i === 0 || order[i - 1] < at)), JSON.stringify(order));
+  assert.equal(text(cba).split("GUJARAT PRINT PACK PUBLICATIONS PVT LTD").length - 1, 1, "the company's name printed once");
+  assert.ok(cba.indexOf("<label>Date:</label>") > cba.indexOf("Certificate of Analysis [COA] For CORRUGATED BOXES"));
+  // F/QC/13 in its own letters.
+  assert.equal(layoutOf("qc-inprocess-printing").titleAsPrinted, true);
+});
+
+test("the header's Rev No. prints the Master List's revision for the certificates, and nothing where none is given; the page is 1 of 1, beside the format's Rev Date", async () => {
+  assert.deepEqual([docOf("qc-coa-label").revisionNo, docOf("qc-coa-label").revisionDate], ["00", "2021-12-01"]);
+  assert.deepEqual([docOf("qc-coa-sleeve").revisionNo, docOf("qc-coa-sleeve").revisionDate], ["00", "2021-12-01"]);
+  const label = await sheet("qc-coa-label", createDefaultData(docOf("qc-coa-label"), DAY, master) as LogSheetData);
+  const meta = (html: string) =>
+    Array.from(html.slice(html.indexOf('<div class="meta-row">')).matchAll(/<div class="meta-cell"[^>]*><span class="k">([^<]+)<\/span>([\s\S]*?)<\/div>/g), (m) => [m[1], text(m[2]).trim()]).slice(0, 5);
+  assert.deepEqual(meta(label), [
+    ["Format No.", "F/QC/06"],
+    ["Rev No.", "00"],
+    ["Rev Date", "01-Dec-2021"],
+    ["Date", "14-Oct-2026"],
+    ["Page No.", "1 of 1"],
+  ]);
+  assert.ok(!label.includes("(digital)"));
+  // F/QC/25's revision is not given anywhere: the screen says so, the print leaves the cell empty.
+  assert.equal(docOf("qc-coa-corrugated").revisionNo, "TO BE CONFIRMED");
+  const cba = await sheet("qc-coa-corrugated", createDefaultData(docOf("qc-coa-corrugated"), DAY, master) as LogSheetData);
+  assert.match(cba, /<span class="no-print text-muted" data-revision-unconfirmed="">TO BE CONFIRMED<\/span>/);
+  assert.ok(!/Rev Date/.test(cba.slice(cba.indexOf('<div class="meta-row">'), cba.indexOf('<div class="meta-row">') + 2000)), "no revision date to print");
+});
+
+test("the incoming records and F/QC/36 print the address at their foot, word for word; Flexo Ink its own, above its system line", async () => {
+  for (const id of ["qc-bopp-film", "qc-paper-core", "qc-offset-ink", "qc-incoming-lamination-film", "qc-inspection-sb-lamination"]) {
+    assert.deepEqual(layoutOf(id).notesAtFoot, ["308/9, GIDC, DEDIYASAN, MEHSANA, GUAJRAT, INDIA - 384002"], id);
+  }
+  assert.deepEqual(layoutOf("qc-flexo-ink").notesAtFoot, [
+    "308/9 GIDC, DEDIYASAN, MEHSANA - 384002, GUJARAT, INDIA",
+    "This is a system generated document with regulated access. It does not require a signature",
+  ]);
+  const html = await sheet("qc-paper-core", createDefaultData(docOf("qc-paper-core"), DAY, master) as LogSheetData);
+  assert.match(html, /data-section="notes-at-foot"><p class="text-sm" style="white-space:pre-wrap"><strong>308\/9, GIDC, DEDIYASAN, MEHSANA, GUAJRAT, INDIA - 384002<\/strong><\/p><\/div>/);
+});
+
+test("a written date or time box prints its words: the date as the sheet writes dates, the time as written, the box itself not printed", async () => {
+  const { printedBoxText, PRINTED_AS_TEXT, PRINT_BOX_TEXT } = await import("../src/utils/print");
+  assert.equal(printedBoxText("date", "2026-10-14"), "14-Oct-2026");
+  assert.equal(printedBoxText("time", "10:17"), "10:17");
+  assert.equal(printedBoxText("date", ""), "");
+  assert.equal(PRINTED_AS_TEXT, "print-as-text");
+  assert.equal(PRINT_BOX_TEXT, "print-box-text");
+  const printCss = Array.from(css.matchAll(/@media print \{([\s\S]*?)\n\}/g), (m) => m[1]).join("\n");
+  assert.match(printCss, /input\.print-as-text \{ display: none; \}/);
+});
+
+test("F/QC/18's DRYING TEST stands over its two printed lines, the second unnumbered with its own OBSERVATION box; the lines after count on", async () => {
+  const id = "qc-offset-ink";
+  const layout = layoutOf(id);
+  assert.deepEqual(layout.continuationLines, [6]);
+  const data = createDefaultData(docOf(id), DAY, master) as LogSheetData;
+  assert.equal(data.rows.length, 10);
+  const html = await sheet(id, data, true);
+  const rows = bodyRows(html);
+  const at = rows.findIndex((r) => r.some((c) => text(c.html).includes("DRYING TEST")));
+  assert.equal(at, 5);
+  // The DRYING TEST line: its number and its parameter stand down over the next line.
+  assert.match(rows[at][0].attrs, /rowSpan="2"/i);
+  assert.equal(text(rows[at][0].html).trim(), "6.");
+  assert.match(rows[at][1].attrs, /rowSpan="2"/i);
+  // The "On Glass surface" line: its specification and its own observation box, nothing else.
+  assert.equal(rows[at + 1].length, 2);
+  assert.ok(text(rows[at + 1][0].html).includes("On Glass surface"));
+  assert.match(rows[at + 1][1].html, /data-bind="rows\/[^"]+\/observation"/);
+  // ALKALI RESISTANCE is "7.", as printed.
+  assert.equal(text(rows[at + 2][0].html).trim(), "7.");
+  // A sample lot writes both observations.
+  const sample = autoFillRecord(docOf(id), DAY, master, undefined)!.data as LogSheetData;
+  assert.ok(String(sample.rows[5].observation).includes("thumb") && String(sample.rows[6].observation).includes("Solid dried"), JSON.stringify(sample.rows.slice(5, 7)));
+});

@@ -318,7 +318,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
   };
   // THE HEADER BLOCK, TYPED OVER ON THE RECORD (REQUIREMENTS §86): the format's own
   // cells change the format; the record's Date and Page No. are saved on it at once.
-  const headerDefaults = { date: record?.dueDate ?? "", page: "1 of 1 (digital)" };
+  const headerDefaults = { date: record?.dueDate ?? "", page: "1 of 1" };
   const { edit: headerEdit, panel: headerPanel } = useHeaderEditing({
     doc,
     record: record
@@ -581,7 +581,7 @@ export function ComplaintChecklistPage({ recordId }: { recordId: string }) {
       <DocumentHeader
         doc={doc}
         dateLabel={formatDisplayDate(record.headerBlock?.date ?? record.dueDate)}
-        pageLabel={record.headerBlock?.page ?? "1 of 1 (digital)"}
+        pageLabel={record.headerBlock?.page ?? "1 of 1"}
         edit={headerEdit}
       />
       {headerPanel}
