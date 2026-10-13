@@ -276,3 +276,95 @@ test("F/QC/13: the procedure, the grade criteria printed in full, eight boxes th
   const older = { ...filled, rows: filled.rows.map(({ srNo: _n, ...r }) => r) } as LogSheetData;
   assert.match(text(between(await sheet(id, older), 'class="compact log-sheet', "</table>")), / 6 Print deformities /);
 });
+
+// ---------------------------------------------------------------------------
+// 4. The registers and the reports: F/QC/08, F/QC/16, F/QC/20, F/QC/29 (both), F/QC/30, and F-QC-40.C
+
+test("F/QC/08 master list of calibration instruments: its Note above the grid and its sixteen columns; a sample names DCRS's own instruments", () => {
+  const id = "qc-calibration-master-list";
+  const layout = layoutOf(id);
+  assert.equal(printedAbove(layout).length, 1);
+  assert.ok(printedAbove(layout)[0].startsWith("Note : List of calibration instruments are those which impact the process conformity"));
+  assert.deepEqual(layout.columns.map((c) => c.label), [
+    "Name of Instrument", "Instrument ID No.", "Make", "Purpose of Instrument", "Location of use", "Instrument - Range", "Least count", "Accuracy / Acceptable Error",
+    "Method of Calibration - Internal / External", "Frequency of Calibration", "Date of Initial Calibration", "Current Calibration date", "Next due date of calibration",
+    "Calibration agency", "Calibration report number", "Remarks",
+  ]);
+  const filled = autoFillRecord(docOf(id), DAY, master, undefined)!.data as LogSheetData;
+  assert.equal(filled.rows.length, 11, "the paper's eleven lines");
+  assert.deepEqual(filled.rows.slice(0, 5).map((r) => [r.instrumentName, r.instrumentIdNo, r.make]), [
+    ["Weighing Balance", "QC-76", "Force Strain Sensors"],
+    ["GSM Cutting Plate 20 x 20cm", "54", "Global Eng. Co. (GEC)"],
+    ["GSM Cutting Plate 10 x 10cm", "55", "Global Eng. Co. (GEC)"],
+    ["GSM Cutting Plate 5 x 5cm", "56", "Global Eng. Co. (GEC)"],
+    ["GSM Cutting Plate 2.5 x 2.5cm", "57", "Global Eng. Co. (GEC)"],
+  ]);
+  assert.ok(filled.rows.every((r) => r.currentCalibrationDate === "" && r.nextDueDate === ""), "the calibration dates are the person's");
+  // A Live record's list starts blank.
+  assert.ok((createDefaultData(docOf(id), DAY, master) as LogSheetData).rows.every((r) => r.instrumentName === ""));
+});
+
+test("F/QC/16 register of obsolete artwork: its nine columns, nothing above; a sample day withdraws two artworks that day", () => {
+  const id = "qc-obsolete-artwork";
+  const layout = layoutOf(id);
+  assert.deepEqual(printedAbove(layout), []);
+  assert.deepEqual(layout.columns.map((c) => c.label), [
+    "Customer name", "Job name", "Artwork number / Master Shade card number (FG Code)", "Sales Person", "Reason for artwork obsolete", "Date of obsolete", "Updated by - QC In-charge", "Remarks",
+  ]);
+  const filled = autoFillRecord(docOf(id), DAY, master, undefined)!.data as LogSheetData;
+  assert.equal(filled.rows.length, 2);
+  assert.ok(filled.rows.every((r) => r.dateOfObsolete === DAY && String(r.updatedBy).trim() !== "" && r.reasonObsolete === "A/W Change"), JSON.stringify(filled.rows));
+});
+
+test("F/QC/20 destruction record: titled DESTRUCTION RECORD, PRINTING AIDS DESTRUCTION RECORD above, Date:, its four columns, the issue and review dates at its foot", async () => {
+  const id = "qc-printing-aids-destruction";
+  const layout = layoutOf(id);
+  assert.equal(layout.paperTitle, "DESTRUCTION RECORD");
+  assert.deepEqual(printedAbove(layout), ["PRINTING AIDS DESTRUCTION RECORD"]);
+  assert.deepEqual(layout.headerFields.map((f) => f.label), ["Date:"]);
+  assert.deepEqual(layout.columns.map((c) => c.label), ["Item Description", "Actual Qty.", "Destroyed By", "Checked By"]);
+  assert.deepEqual(layout.notesBelow, ["Current Issue date 1st January 2022", "Next Review date 31st December 2024"]);
+  const html = await sheet(id, createDefaultData(docOf(id), DAY, master) as LogSheetData);
+  assert.ok(!text(html).includes("The form's footer prints"), "DCRS's own line is gone");
+  assert.ok(text(html).includes("DESTRUCTION RECORD") && text(html).includes("Next Review date 31st December 2024"));
+});
+
+test("F/QC/29 analysis report and utility test, and F/QC/30 minutes: the paper's words, nothing of DCRS's above the grid", async () => {
+  const analysis = layoutOf("qc-analysis-report");
+  assert.deepEqual(printedAbove(analysis), [], "the two lines DCRS printed above the grid are gone");
+  assert.deepEqual(analysis.headerFields.map((f) => f.label), ["Date :", "Report"]);
+  assert.deepEqual(analysis.columns.map((c) => c.label), ["Description", "Observation"]);
+  assert.deepEqual(analysis.footerFields?.map((f) => f.label), ["Testing By (QA Executive)", "Approved By (QA Manager)"]);
+
+  const utility = layoutOf("qc-utility-test-report");
+  assert.equal(utility.paperTitle, "MINUTES OF MEETINGS", "printed on the minutes of meetings format, and headed so");
+  assert.deepEqual(printedAbove(utility), ["NIVEA SAMPLES -  UTILITY TEST  REPORT"]);
+  assert.deepEqual(utility.headerFields.map((f) => f.label), ["DATE:"]);
+  assert.deepEqual(utility.columns.map((c) => [c.group ?? "", c.label]), [
+    ["Description", "Job Name"], ["", "Observation (24Hrs.) Freeze"], ["", "Observation (24Hrs.) Desiccator"], ["", "Observation (24Hrs.) Oven"],
+  ]);
+  const html = await sheet("qc-utility-test-report", createDefaultData(docOf("qc-utility-test-report"), DAY, master) as LogSheetData);
+  assert.ok(text(html).includes("MINUTES OF MEETINGS") && !text(html).includes("for the MR to confirm"));
+
+  const minutes = layoutOf("qc-minutes-of-meetings");
+  assert.deepEqual(printedAbove(minutes), [], "the headings are the labels of what they head, not lines above the boxes");
+  assert.deepEqual(minutes.headerFields.map((f) => f.label), ["Client Name :", "Location :", "Date :", "Subject:", "Participants :"]);
+  assert.deepEqual(minutes.columns.map((c) => c.label), ["Key points Discussed:"]);
+});
+
+test("F-QC-40.C hot room: TEMPERATURE MONITORING RECORD, the recommended temperature above, DATE and the six TEMP. + SIGN readings, no Sign column of DCRS's", async () => {
+  const id = "qc-temperature";
+  const layout = layoutOf(id);
+  assert.equal(layout.paperTitle, "TEMPERATURE MONITORING RECORD");
+  assert.deepEqual(printedAbove(layout), ["RECOMMENDED TEMPERATURE : HOT ROOM 45°C ± 2°C"]);
+  assert.deepEqual(layout.columns.map((c) => c.label), [
+    "DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN",
+  ]);
+  for (const c of layout.columns.slice(1)) assert.deepEqual([c.min, c.max], [43, 47], "45 ± 2 °C, the band a reading is highlighted outside");
+  const filled = autoFillRecord(docOf(id), DAY, master, undefined)!;
+  const row = (filled.data as LogSheetData).rows[0];
+  assert.equal(row.date, DAY);
+  assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, filled.data as LogSheetData)).errors, []);
+  const html = await sheet(id, filled.data as LogSheetData);
+  assert.ok(text(html).includes("TEMPERATURE MONITORING RECORD") && !text(html).includes("— HOT ROOM"), "headed as the paper");
+});

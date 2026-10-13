@@ -5,9 +5,9 @@ import { QC_INCOMING_LAYOUTS } from "./qcIncomingLayouts";
 import { FQC13_WITHDRAWN_LINES, QC_IN_PROCESS_LAYOUTS } from "./qcInProcessLayouts";
 import { LINE_CLEARANCE_TITLE_LINES, QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
-import { QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
+import { PRINTING_AIDS_WITHDRAWN_LINE, QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
 import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
-import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
+import { QC_REPORT_LAYOUTS, QC_REPORT_WITHDRAWN_LINES } from "./qcReportLayouts";
 import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
 import { STORE_LAYOUTS } from "./storeLayouts";
@@ -99,24 +99,29 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   },
 
   // ---- F-QC-40.C — Temperature Monitoring Record (00/28.02.25)
+  // As the photographed register (REQUIREMENTS §111): headed TEMPERATURE MONITORING RECORD, the recommended
+  // temperature printed above the grid, then SR NO | DATE | six readings, each column "... HRS TEMP. + SIGN" — the
+  // reading and the tester's sign written in the one cell. The DATE column was missing (the record's day; one line a
+  // day), and DCRS's own Sign column, which the paper does not have, is gone; a record that holds one keeps it.
   "qc-temperature": {
     documentId: "qc-temperature",
+    paperTitle: "TEMPERATURE MONITORING RECORD",
     instructions: ["RECOMMENDED TEMPERATURE : HOT ROOM 45°C ± 2°C"],
     headerFields: [],
     columns: [
-      { key: "t0830", label: "08:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t1230", label: "12:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t1630", label: "16:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t2030", label: "20:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t0030", label: "12:30am HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t0430", label: "04:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "sign", label: "Sign", type: "text", required: true, autoFill: { sign: true }, width: 140 },
+      { key: "date", label: "DATE", type: "date", width: 130, autoFill: { dueDate: true } },
+      { key: "t0830", label: "08:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t1230", label: "12:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t1630", label: "16:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t2030", label: "20:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t0030", label: "12:30am HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t0430", label: "04:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
     ],
     rowMode: { kind: "single" },
     specimenRows: [
-      { t0830: 45, t1230: 45, t1630: 46, t2030: 44, t0030: 45, t0430: 46, sign: "" },
-      { t0830: 44, t1230: 44, t1630: 45, t2030: 46, t0030: 44, t0430: 45, sign: "" },
-      { t0830: 46, t1230: 44, t1630: 46, t2030: 45, t0030: 45, t0430: 44, sign: "" },
+      { date: "2026-08-21", t0830: 45, t1230: 45, t1630: 46, t2030: 44, t0030: 45, t0430: 46 },
+      { date: "2026-08-22", t0830: 44, t1230: 44, t1630: 45, t2030: 46, t0030: 44, t0430: 45 },
+      { date: "2026-08-23", t0830: 46, t1230: 44, t1630: 46, t2030: 45, t0030: 45, t0430: 44 },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.19 PM (1).jpeg (F-QC-40.C, filled 21-08-26 to 5-9-26)",
   },
@@ -491,6 +496,9 @@ const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
   ],
   // F/QC/15-A to F/QC/15-G: the title, printed in the header, was printed again above the grid.
   ...Object.fromEntries(Object.entries(LINE_CLEARANCE_TITLE_LINES).map(([id, title]) => [id, [title]])),
+  // F/QC/29 (both), F/QC/30 and F/QC/20: DCRS's lines above their grids.
+  ...QC_REPORT_WITHDRAWN_LINES,
+  "qc-printing-aids-destruction": [PRINTING_AIDS_WITHDRAWN_LINE],
   // F/QC/13: two lines of grading rules the owner's original of 13-Oct-2026 does not print.
   "qc-inprocess-printing": FQC13_WITHDRAWN_LINES,
   // The two Gujarati checklists: DCRS's own line saying the two are printed on one page.

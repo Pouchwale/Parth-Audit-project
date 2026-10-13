@@ -1,4 +1,5 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
+import { GSM_PLATES, GSM_PRINTED, WEIGHT_SCALE_HEADER } from "./qcCalibrationLayouts";
 
 // THE FIVE QUALITY CONTROL REGISTERS AND CARDS (REQUIREMENTS §57) — the last of
 // the Quality Control formats supplied on 18-Sep-2026, reproduced as log-sheet
@@ -38,8 +39,8 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 //     layout has no field for the Note, so it is carried verbatim as a printed
 //     instruction.
 //   * F/QC/20's issue and review dates are printed in the form's footer, not in
-//     a box anyone fills; they are carried as a printed instruction rather than
-//     as fields, so nobody can type over them.
+//     a box anyone fills; they are printed below the grid (notesBelow, §111)
+//     rather than as fields, so nobody can type over them.
 //   * F-QC-19 IS A PHYSICAL CARD: sample labels are mounted on its panels, and
 //     a mounted label cannot be reproduced on screen. What is reproduced is the
 //     card's panels in their printed order, each panel's error category as
@@ -102,6 +103,24 @@ const calibrationMasterListColumns = (): LogColumn[] => [
   { key: "remarks", label: "Remarks", type: "text", width: 180 },
 ];
 
+/**
+ * The instruments DCRS's two internal calibration records name, as a sample list (qcCalibrationLayouts.ts): the
+ * weighing balance of F/QC/12, calibrated in-house weekly against its Acceptable Tolerance, and the four GSM cutting
+ * plates of F/QC/11, monthly. Their own boxes say the rest; what neither record says (a least count, a plate's
+ * error) is left blank, and the calibration dates are the person's.
+ */
+const CALIBRATION_MASTER_SAMPLE: Record<string, string>[] = [
+  {
+    instrumentName: "Weighing Balance", instrumentIdNo: WEIGHT_SCALE_HEADER.deviceIdNo, make: WEIGHT_SCALE_HEADER.manufacturer, purpose: "Weighing of GSM samples",
+    locationOfUse: WEIGHT_SCALE_HEADER.location, instrumentRange: `${WEIGHT_SCALE_HEADER.minReadingCapacity} – ${WEIGHT_SCALE_HEADER.maxReadingCapacity}`, leastCount: WEIGHT_SCALE_HEADER.minReadingCapacity,
+    accuracy: `± ${WEIGHT_SCALE_HEADER.acceptableTolerance}`, methodOfCalibration: "Internal", frequency: "Weekly", calibrationAgency: "In-house (F/QC/12)",
+  },
+  ...GSM_PLATES.map((plate) => ({
+    instrumentName: `GSM Cutting Plate ${plate.size}`, instrumentIdNo: plate.no.replace("No. ", ""), make: GSM_PRINTED.manufacturer, purpose: "Cutting of GSM samples",
+    locationOfUse: GSM_PRINTED.location, instrumentRange: plate.size, leastCount: "", accuracy: "", methodOfCalibration: "Internal", frequency: "Monthly", calibrationAgency: "In-house (F/QC/11)",
+  })),
+];
+
 // ---------------------------------------------------------------------------
 // F/QC/16 — REGISTER OF OBSOLETE ARTWORK
 //
@@ -114,7 +133,8 @@ const obsoleteArtworkColumns = (): LogColumn[] => [
   { key: "artworkNumber", label: "Artwork number / Master Shade card number (FG Code)", type: "text", width: 220 },
   { key: "salesPerson", label: "Sales Person", type: "text", width: 150 },
   { key: "reasonObsolete", label: "Reason for artwork obsolete", type: "text", width: 200 },
-  { key: "dateOfObsolete", label: "Date of obsolete", type: "date", width: 140 },
+  // The day the artwork was withdrawn: the record's day in Demo Mode and a sample fill (the person writes it otherwise).
+  { key: "dateOfObsolete", label: "Date of obsolete", type: "date", width: 140, autoFill: { dueDate: true } },
   { key: "updatedBy", label: "Updated by - QC In-charge", type: "text", width: 170, autoFill: { sign: true } },
   { key: "remarks", label: "Remarks", type: "text", width: 180 },
 ];
@@ -154,6 +174,9 @@ export const OBSOLETE_ARTWORK_LINES: Record<string, string>[] = [
 // ---------------------------------------------------------------------------
 // F/QC/20 — DESTRUCTION RECORD (PRINTING AIDS DESTRUCTION RECORD)
 
+/** What F/QC/20 printed above its grid until 13-Oct-2026 and its paper does not (logSheetLayouts.ts WITHDRAWN_EXPLANATIONS). */
+export const PRINTING_AIDS_WITHDRAWN_LINE = 'The form\'s footer prints "Current Issue date 1st January 2022" and "Next Review date 31st December 2024".';
+
 const printingAidsDestructionColumns = (): LogColumn[] => [
   { key: "itemDescription", label: "Item Description", type: "text", width: 380 },
   { key: "actualQty", label: "Actual Qty.", type: "text", width: 120 },
@@ -163,7 +186,7 @@ const printingAidsDestructionColumns = (): LogColumn[] => [
 
 /** The Date box printed above the grid; the supplied page reads "Date: 01.06.2022". */
 const printingAidsDestructionHeader = (): LogHeaderField[] => [
-  { key: "date", label: "Date", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
+  { key: "date", label: "Date:", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
 ];
 
 /**
@@ -265,6 +288,9 @@ export const QC_REGISTER_LAYOUTS: Record<string, LogSheetLayout> = {
     // The blank form prints eleven numbered lines; the list grows as
     // instruments are purchased, so lines can be added.
     rowMode: { kind: "free", minRows: 11, typicalRows: 11 },
+    // Demo Mode's and the sample fill's lines (never a Live record's, REQUIREMENTS §98, §111): the instruments DCRS's own
+    // calibration records name, with what those records print about them. The rest of the eleven lines stay blank.
+    specimenRows: CALIBRATION_MASTER_SAMPLE,
     specimenSource: blankForm("Copy of F-QC-08_Master list of Calibration instruments (2).pdf"),
   } satisfies LogSheetLayout,
 
@@ -273,19 +299,22 @@ export const QC_REGISTER_LAYOUTS: Record<string, LogSheetLayout> = {
     documentId: "qc-obsolete-artwork",
     headerFields: [],
     columns: obsoleteArtworkColumns(),
-    rowMode: { kind: "free", minRows: 1, typicalRows: 13 },
+    // A sample day withdraws two artworks, not the supplied page's thirteen of January and February 2022.
+    rowMode: { kind: "free", minRows: 1, typicalRows: 2 },
     specimenRows: OBSOLETE_ARTWORK_LINES,
     specimenSource:
       "Copy of F-QC-16 OBSOLETE ARTWORK & SHADE CARD RECORD.pdf — F/QC/16 (00 / 01.12.2021), the supplied page's thirteen lines, 03.01.2022 to 18.02.2022 (on file as a record, qcRegisterRecords.ts)",
   } satisfies LogSheetLayout,
 
   // ---- F/QC/20 (Rev. no. - 00) — DESTRUCTION RECORD ----
+  // As "F-QC-20.pdf" (REQUIREMENTS §111): titled DESTRUCTION RECORD, with PRINTING AIDS DESTRUCTION RECORD printed
+  // above the Date and the grid, and its issue and review dates printed at its foot. DCRS's own line describing the
+  // footer is gone (logSheetLayouts.ts WITHDRAWN_EXPLANATIONS).
   "qc-printing-aids-destruction": {
     documentId: "qc-printing-aids-destruction",
-    instructions: [
-      // Printed in the form's footer, not in a box anyone fills.
-      'The form\'s footer prints "Current Issue date 1st January 2022" and "Next Review date 31st December 2024".',
-    ],
+    paperTitle: "DESTRUCTION RECORD",
+    instructions: ["PRINTING AIDS DESTRUCTION RECORD"],
+    notesBelow: ["Current Issue date 1st January 2022", "Next Review date 31st December 2024"],
     headerFields: printingAidsDestructionHeader(),
     columns: printingAidsDestructionColumns(),
     // The blank form prints two lines; more are added as aids are destroyed.

@@ -879,9 +879,12 @@ function fillLogSheet(
     // and no filled specimen. It still gets the lines the form prints a minimum
     // of, each filled by its own columns' rules (the date, a signature), rather
     // than no lines at all: a record with no lines cannot be submitted.
+    // A specimen of fewer lines than the form prints (F/QC/08's five known instruments on its eleven lines) is the
+    // first of them, and the rest of the printed lines are filled by their columns' own rules, as on a blank form.
     const templates = source.length
       ? source.slice(0, Math.max(wanted, mode.minRows ?? 1))
       : Array.from({ length: Math.max(mode.minRows ?? 1, 1) }, () => ({}) as Record<string, string | number | null>);
+    while (templates.length < (mode.minRows ?? 0)) templates.push({});
     if (LINE_CLEARANCE_REGISTERS.has(doc.id)) {
       // A day's job changes on the area's machine (engine/lineClearanceSample.ts, REQUIREMENTS §111), not the
       // blank template's three 2022 example lines.
@@ -1032,7 +1035,8 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       const vals = keys.map((k) => rows[0]?.[k]).filter((v): v is number => typeof v === "number");
       return [
         `Logged all 6 hot-room readings: ${Math.min(...vals)}–${Math.max(...vals)} °C (recommended 45 ± 2 °C).`,
-        `Signed ${rows[0]?.sign || "—"}.`,
+        // The paper has no Sign column: each reading cell is "TEMP. + SIGN" (REQUIREMENTS §111).
+        "Each reading is entered by whoever takes it; the paper's \"+ SIGN\" is their name on the record when it is submitted.",
       ];
     }
     case "qc-adhesive-mixing": {

@@ -89,8 +89,7 @@ const machineBox = (label: string): LogHeaderField[] => [
  * close out the previous job, the last six open the new one.
  */
 const clearanceColumns = (): LogColumn[] => [
-  // The day the previous job finished: the record's own day in a sample fill (the person writes it otherwise).
-  { key: "completionDate", label: "Completion Date", type: "date", width: 130, autoFill: { dueDate: true } },
+  { key: "completionDate", label: "Completion Date", type: "date", width: 130 },
   // Written on the form in clock-face style ("11.00 AM"), so text.
   { key: "completionTime", label: "Completion Time", type: "text", width: 110 },
   { key: "previousJobPoNo", label: "PO No. of previous Job", type: "text", width: 150 },
