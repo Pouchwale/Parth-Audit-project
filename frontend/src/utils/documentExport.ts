@@ -436,9 +436,22 @@ function walk(el: Element, out: ExportBlock[]): void {
     return;
   }
   if (el.classList.contains("doc-header")) {
-    for (const part of Array.from(el.querySelectorAll(".company-name, .doc-title"))) {
-      const text = clean(textOf(part));
-      if (text) out.push({ kind: "text", text, strong: true, title: true });
+    // The paper's letterhead table (F/QC/25) and its lines under the company's name (REQUIREMENTS §111 part 6) go
+    // into the file as the header block prints them, in their order.
+    for (const part of Array.from(el.querySelectorAll(".doc-letterhead, .company-name, .company-lines, .doc-title"))) {
+      if (part.classList.contains("doc-letterhead")) {
+        const table = part.querySelector("table");
+        const block = table instanceof HTMLTableElement ? tableBlock(table) : null;
+        if (block) out.push(block);
+      } else if (part.classList.contains("company-lines")) {
+        for (const line of Array.from(part.children)) {
+          const text = clean(textOf(line));
+          if (text) out.push({ kind: "text", text, strong: false });
+        }
+      } else {
+        const text = clean(textOf(part));
+        if (text) out.push({ kind: "text", text, strong: true, title: true });
+      }
     }
     const meta = Array.from(el.querySelectorAll(".meta-cell")).flatMap((c) => [{ text: clean(textOf(c.querySelector(".k") ?? c)) }, cellFrom([c.querySelector(".v") ?? c])]);
     if (meta.length > 0) out.push({ kind: "table", rows: [meta], headerRows: 0 });
