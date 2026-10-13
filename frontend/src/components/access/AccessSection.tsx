@@ -98,6 +98,7 @@ type Drawer = { kind: "person"; userId: string; module: string } | { kind: "docu
 
 export function AccessSection({
   users,
+  everyone,
   rules,
   version,
   onSaved,
@@ -105,6 +106,8 @@ export function AccessSection({
   onUsersChanged,
 }: {
   users: ManagedUser[];
+  /** Every account, the removed ones too (REQUIREMENTS §110): a person whose account was removed is not "missing". */
+  everyone?: ManagedUser[];
   rules: AccessRules;
   version: number;
   onSaved: (rules: AccessRules, version: number) => void;
@@ -127,7 +130,7 @@ export function AccessSection({
   const staff = useMemo(() => users.filter((u) => u.role !== "admin"), [users]);
   const bosses = useMemo(() => users.filter((u) => u.role === "admin"), [users]);
   const flagged = useMemo(() => undescribedAccounts(users, rules, docs, access), [users, rules, docs, access]);
-  const missing = useMemo(() => missingPeople(users), [users]);
+  const missing = useMemo(() => missingPeople(everyone ?? users), [everyone, users]);
   const nameOf = useMemo(() => {
     const map = new Map<string, string>();
     for (const u of users) map.set(u.email.toLowerCase(), u.name);

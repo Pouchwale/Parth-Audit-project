@@ -26,4 +26,12 @@ export interface ManagedUser extends AuthUser {
   active?: boolean;
   /** When they last signed in, ISO; null if they never have. */
   lastSignIn?: string | null;
+  /** When the super admin removed the account (REQUIREMENTS §110), ISO; null while it is on the list. */
+  removedAt?: string | null;
+  /** Who removed it, by name. */
+  removedBy?: string | null;
+  /** The sign-in it gave up to another account (a rename's "Replace it"), or null. */
+  signInGivenUp?: string | null;
+  /** The sign-ins it had before it was renamed. */
+  formerSignIns?: string[];
 }

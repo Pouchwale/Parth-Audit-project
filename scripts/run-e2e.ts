@@ -70,6 +70,10 @@ const TOUR_SUITE = "tests/e2e_tour.py";
 // account, on a system live since the first of last month (product server; it adds the departments' accounts, so it
 // runs last).
 const EVERY_RECORD_STARTS_SUITE = "tests/e2e_every_record_starts.py";
+// REQUIREMENTS §110: the accounts the plant keeps (rename with "Replace it", the short sign-in name, remove and bring
+// back, "Keep only these") and the super admin's master list of who does what (product server; it renames and removes
+// accounts of its own making, so it runs after every other suite of the product server).
+const ACCOUNTS_MASTER_SUITE = "tests/e2e_accounts_master.py";
 const PRODUCT_SUITES = [
   PRODUCT_SUITE,
   LOGIN_ONLY_SUITE,
@@ -83,6 +87,7 @@ const PRODUCT_SUITES = [
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
   EVERY_RECORD_STARTS_SUITE,
+  ACCOUNTS_MASTER_SUITE,
 ];
 // THE SHARED DATABASE'S OVERVIEW (REQUIREMENTS §83), set up on this run's
 // database exactly as a DBA sets it up on the plant's: its two new schemas and
@@ -425,8 +430,10 @@ async function main(): Promise<void> {
   // REQUIREMENTS §85 — the mobile app's API, DCRS's engine on the server.
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
-  // REQUIREMENTS §93 — every record starts and stays; last, because it adds the departments' accounts.
+  // REQUIREMENTS §93 — every record starts and stays; after the others, because it adds the departments' accounts.
   EVERY_RECORD_STARTS_SUITE,
+  // REQUIREMENTS §110 — the accounts and the master list of who does what; last, because it renames and removes accounts.
+  ACCOUNTS_MASTER_SUITE,
     ];
     // `npm run test:e2e -- tests/e2e_postgres_storage.py ...` runs just those suites.
     const only = process.argv.slice(2).map((a) => a.split("\\").join("/")).filter((a) => a.endsWith(".py"));

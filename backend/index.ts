@@ -19,6 +19,7 @@ import {
   isDatabaseUnavailable,
   listActivity,
   activitySummary,
+  listAllUsers,
   listUsers,
   markSignedIn,
   openDatabase,
@@ -62,7 +63,10 @@ import { registerStorageRoutes, sendCompressedJson } from "./storageRoutes.ts";
 import { registerAccessRulesRoutes } from "./accessRulesRoutes.ts";
 import { accessAccountOf, sharedCatalogue } from "./accessStore.ts";
 import { viewFor } from "./accessLevels.ts";
-import { SEED_ACCOUNTS } from "./seedAccounts.ts";
+import { seedAccountsToAdd } from "./seedAccounts.ts";
+import { managedAccount, registerAccountRoutes } from "./accountRoutes.ts";
+import { signInAddress } from "../frontend/src/engine/accountNames.ts";
+import { accountLanguageOf, accountWord } from "../frontend/src/engine/accountWords.ts";
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 4000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -201,7 +205,8 @@ async function readSession(req: Request): Promise<SessionRead | { ended: Session
   const payload = typeof token === "string" && token ? verifySessionToken(token) : null;
   if (!payload) return null;
   const row = await getUserById(payload.sub);
-  if (!row || !row.active) return null;
+  // Switched off, or removed by the super admin (REQUIREMENTS §110: a removed account is switched off too; asked of both).
+  if (!row || !row.active || row.removed_at) return null;
   const key = sessionKeyOf(token, payload.sessionId);
   const held = await devices.check({ sessionId: key, userId: row.id, issuedAt: payload.issuedAt, endsAt: payload.endsAt, request: deviceRequest(req) });
   if (!held.ok) {
@@ -472,12 +477,14 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
   next();
 }
 
+// EVERY ACCOUNT, THE REMOVED ONES TOO (REQUIREMENTS §110): each with when it was removed and by whom (null while it is
+// on the list), the sign-in it gave up to another account and the ones it had before a rename. Users & Access shows the
+// removed ones only under "Show removed accounts".
 app.get("/api/users", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
-  const rows = await listUsers();
+  const rows = await listAllUsers();
+  const byId = new Map(rows.map((r) => [r.id, r.name] as const));
   // No hash and nothing of anybody's password, here or anywhere (REQUIREMENTS §66).
-  res.json({
-    users: rows.map((r) => ({ ...toPublicUser(r), createdAt: r.created_at, mustChangePassword: r.must_change_password, noPasswordYet: hasNoPasswordYet(r), active: r.active, lastSignIn: r.last_sign_in })),
-  });
+  res.json({ users: rows.map((r) => managedAccount(r, (id) => byId.get(id) ?? null)) });
 });
 
 // WHO ANSWERS FOR WHICH DEPARTMENT — for the Performance Scorecard (REQUIREMENTS
@@ -531,7 +538,13 @@ app.post("/api/users", requireAdmin, async (req: Request, res: Response): Promis
   // Normalised exactly as signing in normalises it, so the same person cannot be
   // given two accounts by typing their address in different case.
   const normalizedEmail = email.trim().toLowerCase();
-  if (await getUserByEmail(normalizedEmail)) {
+  const holder = await getUserByEmail(normalizedEmail);
+  if (holder) {
+    // A removed account keeps its sign-in (REQUIREMENTS §110): it is brought back rather than made twice.
+    if (holder.removed_at) {
+      res.status(409).json({ error: accountWord("en", "err.signInRemovedHolder", { email: normalizedEmail, holder: holder.name }), code: "removed-account" });
+      return;
+    }
     res.status(409).json({ error: "An account with that sign-in address already exists." });
     return;
   }
@@ -593,6 +606,11 @@ app.post("/api/users/:id/active", requireAdmin, async (req: Request, res: Respon
     res.status(400).json({ error: "You cannot switch off the account you are signed in with." });
     return;
   }
+  // A removed account is brought back, not switched on (REQUIREMENTS §110): it would sign in while still off every list.
+  if (target.removed_at) {
+    res.status(409).json({ error: "This account has been removed. Bring it back first (Users & Access, Show removed accounts).", code: "removed-account" });
+    return;
+  }
   const row = await setUserActive(target.id, active);
   if (!row) {
     res.status(404).json({ error: "No such account." });
@@ -634,7 +652,10 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
+  // THE SHORT NAME (REQUIREMENTS §110): "kapila.barad", "kapila barad" or "KAPILA BARAD" signs in to
+  // kapila.barad@gpp.local, the plant's own sign-in, and to nothing else; an address is taken as it always was
+  // (frontend/src/engine/accountNames.ts signInAddress). Only an exact match of that: nothing is guessed.
+  const normalizedEmail = signInAddress(email);
   // No account can have an address like this (signup refuses it), so answer
   // exactly as for a wrong password — but without adding it to the throttle
   // map, which would otherwise keep one entry per made-up "email" forever.
@@ -658,6 +679,13 @@ app.post("/api/auth/login", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
+  // REMOVED BY THE SUPER ADMIN (REQUIREMENTS §110), like switched off below: said plainly, and only after the password
+  // was right; in the language asked (X-Language), the phone's.
+  if (row.removed_at) {
+    logActivity(req, toPublicUser(row), "Sign-in refused", normalizedEmail, "The account has been removed by the super admin");
+    res.status(403).json({ error: accountWord(accountLanguageOf(req.get("x-language")), "err.accountRemoved"), code: "account-removed" });
+    return;
+  }
   // SWITCHED OFF (REQUIREMENTS §66): said plainly rather than as a wrong
   // password — the person is not mistaken, and the administrator is who to ask.
   // Only ever after the password was right, so it tells a stranger nothing.
@@ -1467,6 +1495,10 @@ registerOverviewRoutes(app, { requireAuth, logActivity });
 // USER ACCESS (REQUIREMENTS §84): the super admin's view of who may use which module, and every sign-in and sign-out;
 // and where each person is signed in now, with "Sign out this device" (§106).
 registerAccessRoutes(app, { requireAuth, logActivity, sessions: devices });
+// THE ACCOUNTS THE PLANT KEEPS (REQUIREMENTS §110): rename, remove, bring back and "Keep only these", the super admin's
+// alone, each one transaction with the access rules (backend/accountRoutes.ts); their sessions ended through the same
+// sessions as every sign-in (§106).
+registerAccountRoutes(app, { requireAuth, logActivity, sessions: devices });
 // EACH PERSON'S NOTIFICATIONS (REQUIREMENTS §97): the bell and the Notifications page (backend/notificationRoutes.ts).
 registerNotificationRoutes(app, { requireAuth });
 // ...and the notify job ends by pushing them to the phones (backend/push.ts; PUSH_ENABLED=0 sends nothing).
@@ -1557,14 +1589,16 @@ await prepareOverview({ pool: database });
 // (backend/seedAccounts.ts) — what each may do is the access rules' to say. Each
 // is an ordinary account from then on — its password is changed from the top
 // bar, its levels by the super admin — and an account that already exists is
-// never touched. SEED_ACCOUNTS=0 leaves them out (the test runner does, because
+// never touched. NOR IS ONE THE SUPER ADMIN REMOVED OR RENAMED (REQUIREMENTS §110):
+// a sign-in a removed account keeps, gave up to another, or an account had before
+// a rename is never made again (db.ts seedUser). SEED_ACCOUNTS=0 leaves them out (the test runner does, because
 // its first signup has to be the admin). On a plant already running, the super
 // admin adds the missing ones from Users & Access ("Create the missing accounts",
 // POST /api/access/accounts/create-missing) on a first password of their own.
 // THE ACCOUNTS WAITING TO CHOOSE THEIR OWN PASSWORD (REQUIREMENTS §105): passwords are
 // the super admin's now, so the wait is lifted once, and an account still on the built-in
 // first password, which anybody can read, is locked until the super admin gives it one.
-await settleFirstPasswords({ accounts: listUsers, verify: verifyPassword, setPassword: setUserPassword, log: (line) => console.log(line) });
+await settleFirstPasswords({ accounts: listAllUsers, verify: verifyPassword, setPassword: setUserPassword, log: (line) => console.log(line) });
 
 if (process.env.SEED_ACCOUNTS !== "0") {
   const chosen = process.env.SEED_ACCOUNT_PASSWORD;
@@ -1574,7 +1608,8 @@ if (process.env.SEED_ACCOUNTS !== "0") {
   // password at all (NO_PASSWORD_YET), until the super admin gives it one in Users & Access.
   // One the administrator chose themselves (SEED_ACCOUNT_PASSWORD) is everybody's
   // first password, and nobody is asked to change it.
-  for (const a of SEED_ACCOUNTS) {
+  // Only those no account has, ever had or gave up (REQUIREMENTS §110): nothing the super admin removed or renamed.
+  for (const a of seedAccountsToAdd(await listAllUsers())) {
     const superAdmin = a.role === "admin";
     const mustChange = superAdmin && !chosen;
     const password = chosen || (superAdmin ? BUILT_IN_FIRST_PASSWORD : null);

@@ -12,6 +12,7 @@ import {
   type AccessRules,
   type PersonRules,
 } from "./accessRules";
+import { releasedFrom } from "./accountNames";
 
 // WHAT THE SUPER ADMIN CHANGES ON USERS & ACCESS, WORKED OUT WITHOUT A SCREEN (REQUIREMENTS §96).
 //
@@ -65,7 +66,8 @@ export function applyAccessChange(rules: AccessRules, change: AccessChange, docs
     if (same) delete responsibility[change.documentId];
     else responsibility[change.documentId] = next;
   }
-  return normalizeAccessRules({ version: 1, people, responsibility });
+  // The removed accounts (REQUIREMENTS §110) are the server's to say: carried as they were read.
+  return normalizeAccessRules({ version: 1, people, responsibility, removed: base.removed });
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +151,10 @@ export interface AccessPerson {
   role: string;
   departments: readonly string[];
   active?: boolean;
+  /** When the super admin removed the account (REQUIREMENTS §110); null or absent for one on the list. */
+  removedAt?: string | null;
+  /** The sign-ins it had before it was renamed (§110), which the plant still counts as its own. */
+  formerSignIns?: readonly string[];
 }
 
 /** Every email the rules name: the owner's twelve, a stored setting, anybody a document is given to. */
@@ -162,7 +168,7 @@ export function describedEmails(rules: AccessRules, docs: readonly AccessDoc[], 
 /** Staff accounts nobody has described: they keep what they had (their departments, or every module at Edit), and the page asks the super admin to choose. */
 export function undescribedAccounts<P extends AccessPerson>(people: readonly P[], rules: AccessRules, docs: readonly AccessDoc[], access?: Access): P[] {
   const named = describedEmails(rules, docs, access);
-  return people.filter((p) => p.role !== "admin" && p.active !== false && !named.has(lower(p.email)));
+  return people.filter((p) => p.role !== "admin" && p.active !== false && !p.removedAt && !named.has(lower(p.email)));
 }
 
 /** What an account nobody has described keeps, in words. */
@@ -171,15 +177,26 @@ export function keepsWhatItHad(p: Pick<AccessPerson, "departments">, moduleName:
   return codes.length === 0 ? "Edit in every module, as before" : `Edit in ${codes.map(moduleName).join(", ")}, as before`;
 }
 
-/** The owner's people who have no account yet (by sign-in address). */
-export function missingPeople(people: readonly Pick<AccessPerson, "email">[]): { email: string; name: string }[] {
-  const have = new Set(people.map((p) => lower(p.email)));
+/**
+ * The owner's people who have no account yet (by sign-in address). An account removed, one whose sign-in was given to
+ * another, and a sign-in an account had before it was renamed all count as an account (REQUIREMENTS §110): "Create
+ * the missing accounts" never makes again what the super admin removed or renamed.
+ */
+export function missingPeople(people: readonly Pick<AccessPerson, "email" | "formerSignIns">[]): { email: string; name: string }[] {
+  const have = new Set<string>();
+  for (const p of people) {
+    const email = lower(p.email);
+    have.add(email);
+    const was = releasedFrom(email);
+    if (was) have.add(was);
+    for (const f of p.formerSignIns ?? []) have.add(lower(f));
+  }
   return DEFAULT_PEOPLE.filter((p) => !have.has(p.email));
 }
 
 /** Would making this account staff leave no super admin who can sign in? */
 export function lastSuperAdmin(people: readonly AccessPerson[], id: string): boolean {
-  const others = people.filter((p) => p.id !== id && p.role === "admin" && p.active !== false);
+  const others = people.filter((p) => p.id !== id && p.role === "admin" && p.active !== false && !p.removedAt);
   return others.length === 0;
 }
 
@@ -196,7 +213,7 @@ export function moduleDefaults(rules: AccessRules, docs: readonly AccessDoc[], p
   const people = { ...r.people };
   const own = people[email];
   if (own) people[email] = own.documents ? { documents: own.documents } : {};
-  const a = buildAccess(docs, { version: 1, people, responsibility: r.responsibility });
+  const a = buildAccess(docs, { version: 1, people, responsibility: r.responsibility, removed: r.removed });
   return Object.fromEntries(ACCESS_MODULES.map((m) => [m, a.moduleLevel(accountOf(p), m)]));
 }
 
@@ -207,5 +224,5 @@ export function documentDefaults(rules: AccessRules, docs: readonly AccessDoc[],
   const people = { ...r.people };
   const own = people[email];
   if (own) people[email] = own.modules ? { modules: own.modules } : {};
-  return buildAccess(docs, { version: 1, people, responsibility: r.responsibility });
+  return buildAccess(docs, { version: 1, people, responsibility: r.responsibility, removed: r.removed });
 }

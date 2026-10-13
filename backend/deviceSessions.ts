@@ -425,7 +425,7 @@ const INSERT = `INSERT INTO user_sessions (id, user_id, device_id, device_name, 
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
 const CATEGORIES: readonly DeviceCategory[] = ["computer", "mobile", "tablet"];
 const PLACES: readonly SessionPlace[] = ["website", "phone-app", "api"];
-const REASONS: readonly SessionEndReason[] = ["signed-out", "super-admin", "replaced", "account-off"];
+const REASONS: readonly SessionEndReason[] = ["signed-out", "super-admin", "replaced", "account-off", "renamed"];
 
 function recordOf(r: SessionRow): SessionRecord {
   return {

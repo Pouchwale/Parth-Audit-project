@@ -1,12 +1,13 @@
 import crypto from "node:crypto";
 import type { Express, Request, RequestHandler, Response } from "express";
 import { hashPassword, type PublicUser } from "./auth.ts";
-import { createStaffUser, listUsers, readItem, setUserRole, writeItem, type StoredItem, type UserRow, type WriteResult } from "./db.ts";
+import { createStaffUser, formerSignIns, listAllUsers, listUsers, readItem, setUserRole, writeItem, type StoredItem, type UserRow, type WriteResult } from "./db.ts";
 import { ACCESS_KEY, AccessCatalogue, catalogueOf } from "./accessLevels.ts";
 import { databaseLedger, type LedgerItem, type NotificationLedger } from "./notifications.ts";
 import type { AccessRulesWriter } from "./storageRoutes.ts";
 import { ACCESS_LEVELS, ACCESS_MODULES, DEFAULT_PEOPLE, LEVEL_WORDS, levelRank, normalizeAccessRules, type AccessAccount, type AccessLevel, type AccessRules } from "../frontend/src/engine/accessRules.ts";
 import { PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments.ts";
+import { releasedFrom } from "../frontend/src/engine/accountNames.ts";
 
 // WHO MAY DO WHAT, SET BY THE SUPER ADMIN (REQUIREMENTS §96).
 //
@@ -30,6 +31,12 @@ import { PLANT_DEPARTMENTS } from "../frontend/src/data/seed/documentDepartments
 // gained or lost is told. Every account made is a line, and so is a change of role, which the person is told of too.
 // The generic storage write of the item (PUT /api/storage/access) comes here as well (backend/storageRoutes.ts):
 // there is one way to change the rules, and it is logged.
+//
+// THE REMOVED ACCOUNTS ARE NOT A PAGE'S TO WRITE (REQUIREMENTS §110). The rules list the sign-ins of the accounts the
+// super admin removed (`removed`), written with the removal itself (backend/accountRoutes.ts). A save keeps that list as
+// stored, whatever the page sent, so no page can bring a removed person back into who fills what; clearing the rules
+// (DELETE /api/storage/access) keeps it too. The master list of who does what (pages/MasterListPage.tsx) and Users &
+// Access write the rules through PUT /api/access/rules alike: one item, one way, the same checks.
 
 type LogActivity = (req: Request, who: PublicUser | null, action: string, target?: string, detail?: string, department?: string) => void;
 type AuthedRequest = Request & { user: PublicUser };
@@ -39,11 +46,13 @@ export interface AccessRulesStore {
   readItem(scope: string, key: string): Promise<StoredItem | null>;
   writeItem(scope: string, key: string, value: string, baseVersion: number | null, by: string, compose?: (stored: string | null) => string): Promise<WriteResult>;
   listUsers(): Promise<UserRow[]>;
+  /** Every account, the removed ones too (REQUIREMENTS §110); listUsers where a stand-in has no such thing. */
+  listAllUsers?(): Promise<UserRow[]>;
   createStaffUser(u: { id: string; name: string; email: string; password_hash: string; created_at: string; departments: string }): Promise<UserRow | null>;
   setUserRole(id: string, role: "admin" | "staff"): ReturnType<typeof setUserRole>;
 }
 
-const databaseStore: AccessRulesStore = { readItem, writeItem, listUsers, createStaffUser, setUserRole };
+const databaseStore: AccessRulesStore = { readItem, writeItem, listUsers, listAllUsers, createStaffUser, setUserRole };
 
 export interface AccessRulesDeps {
   requireAuth: RequestHandler;
@@ -135,6 +144,8 @@ export function rulesDiff(before: AccessRules, after: AccessRules, catalogue: Ac
 export interface AccessRulesService extends AccessRulesWriter {
   /** The rules as stored, made safe, with their version (0 when none are stored). */
   read(): Promise<{ rules: AccessRules; version: number }>;
+  /** Clears what the super admin set, keeping the removed accounts (§110): false when there are none to keep (the item may simply go). */
+  clear(req: Request, by: PublicUser): Promise<boolean>;
 }
 
 export function registerAccessRulesRoutes(app: Express, deps: AccessRulesDeps): AccessRulesService {
@@ -220,10 +231,12 @@ export function registerAccessRulesRoutes(app: Express, deps: AccessRulesDeps): 
       return { rules: normalizeAccessRules(parseJson(item?.value ?? null)), version: item?.version ?? 0 };
     },
     async save(req, by, rules, baseVersion) {
-      const after = normalizeAccessRules(rules);
+      let after = normalizeAccessRules(rules);
       let storedBefore: string | null = null;
       const result = await store.writeItem("company", ACCESS_KEY, JSON.stringify(after), baseVersion, by.email, (stored) => {
         storedBefore = stored;
+        // The removed accounts as stored, whatever the page sent (§110).
+        after = normalizeAccessRules({ ...after, removed: normalizeAccessRules(parseJson(stored)).removed ?? [] });
         return JSON.stringify(after);
       });
       if (result.ok) {
@@ -231,6 +244,12 @@ export function registerAccessRulesRoutes(app: Express, deps: AccessRulesDeps): 
         await announce(req, by, before, after, result.version).catch((err: unknown) => console.error("[access] the change could not be announced:", err instanceof Error ? err.message : err));
       }
       return result;
+    },
+    async clear(_req, by) {
+      const removed = normalizeAccessRules(parseJson((await store.readItem("company", ACCESS_KEY))?.value ?? null)).removed ?? [];
+      if (removed.length === 0) return false;
+      const result = await store.writeItem("company", ACCESS_KEY, JSON.stringify({ version: 1, people: {}, responsibility: {}, removed }), null, by.email);
+      return result.ok;
     },
   };
 
@@ -276,7 +295,16 @@ export function registerAccessRulesRoutes(app: Express, deps: AccessRulesDeps): 
     }
     const { rules } = await service.read();
     const access = (await catalogueNow(rules)).access;
-    const have = new Set((await store.listUsers()).map((u) => u.email.toLowerCase()));
+    // An account removed, one whose sign-in went to another and a sign-in an account had before it was renamed all count
+    // as the person's account (REQUIREMENTS §110): what the super admin removed or renamed is never made again.
+    const have = new Set<string>();
+    for (const u of await (store.listAllUsers ? store.listAllUsers() : store.listUsers())) {
+      const email = u.email.toLowerCase();
+      have.add(email);
+      const was = releasedFrom(email);
+      if (was) have.add(was);
+      for (const f of formerSignIns(u)) have.add(f.toLowerCase());
+    }
     const created: { name: string; email: string }[] = [];
     const existing: string[] = [];
     for (const person of DEFAULT_PEOPLE) {
@@ -318,6 +346,11 @@ export function registerAccessRulesRoutes(app: Express, deps: AccessRulesDeps): 
     const done = await store.setUserRole(String(req.params.id ?? ""), role);
     if (!done) {
       res.status(404).json({ error: "No such account.", code: "not-found" });
+      return;
+    }
+    if ("refused" in done && done.refused === "removed") {
+      // A removed account is brought back first (REQUIREMENTS §110): a role change would switch it on.
+      res.status(409).json({ error: "This account has been removed. Bring it back first (Users & Access, Show removed accounts).", code: "removed-account" });
       return;
     }
     if ("refused" in done) {

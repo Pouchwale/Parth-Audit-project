@@ -203,6 +203,8 @@ const en = {
   "nav.users": "Users & Access",
   "nav.databaseOverview": "Database overview",
   "nav.accessDashboard": "User access",
+  // The master list of who does what (REQUIREMENTS §110), beside Users & Access.
+  "nav.masterList": "Master list — who does what",
   "nav.activityLog": "Activity Log",
   "nav.performance": "Performance Scorecard",
   "top.changePassword": "Change password",
@@ -1025,6 +1027,7 @@ const gu: Record<StringKey, string> = {
   "nav.users": "વપરાશકર્તાઓ અને ઍક્સેસ",
   "nav.databaseOverview": "ડેટાબેઝ ઝાંખી",
   "nav.accessDashboard": "વપરાશકર્તા પ્રવેશ",
+  "nav.masterList": "માસ્ટર લિસ્ટ - કોણ શું કરે છે",
   "nav.activityLog": "પ્રવૃત્તિ લોગ",
   "nav.performance": "કામગીરી સ્કોરકાર્ડ",
   "top.changePassword": "પાસવર્ડ બદલો",

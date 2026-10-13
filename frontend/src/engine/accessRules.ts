@@ -27,6 +27,7 @@
 //     document at Edit, and the only one who can change this table.
 //
 // A PERSON'S LEVEL ON A DOCUMENT, first match wins (level()):
+//   0. an account the super admin removed (§110)         none, and it answers for nothing
 //   1. the super admin                                   edit
 //   2. the person's own setting for that document        whatever the super admin set
 //   3. the person's own setting for that module          whatever the super admin set
@@ -112,6 +113,13 @@ export interface AccessRules {
   people: Record<string, PersonRules>;
   /** Document id -> who answers for it, the main person first; replaces the default table for that document. */
   responsibility: Record<string, string[]>;
+  /**
+   * THE SIGN-INS OF THE ACCOUNTS THE SUPER ADMIN REMOVED (REQUIREMENTS §110), sorted; left out when there are none.
+   * Written by the server alone, in the same transaction as the removal (backend/accountRoutes.ts), never by a page: a
+   * removed person answers for nothing (a document only they filled has nobody, and the super admin answers for it) and
+   * has no access anywhere. Their own settings stay stored, so "Bring back" gives them back exactly.
+   */
+  removed?: string[];
 }
 
 export const EMPTY_ACCESS_RULES: AccessRules = { version: 1, people: {}, responsibility: {} };
@@ -157,7 +165,9 @@ export function normalizeAccessRules(value: unknown): AccessRules {
       responsibility[id.trim()] = emails;
     }
   }
-  return { version: 1, people, responsibility };
+  // The removed accounts' sign-ins (REQUIREMENTS §110): each once, sorted, so two copies of the same rules read the same.
+  const removed = Array.isArray(value.removed) ? Array.from(new Set(value.removed.filter((e): e is string => typeof e === "string").map(lower).filter((e) => e.includes("@")))).sort() : [];
+  return removed.length > 0 ? { version: 1, people, responsibility, removed } : { version: 1, people, responsibility };
 }
 
 // ---------------------------------------------------------------------------
@@ -289,10 +299,14 @@ export function buildAccess(docs: readonly AccessDoc[], storedRules?: unknown): 
   const stored = normalizeAccessRules(storedRules);
   const byId = new Map<string, AccessDoc>(docs.map((d) => [d.id, d] as const));
   const answers = new Map<string, string[]>();
+  // THE ACCOUNTS THE SUPER ADMIN REMOVED (REQUIREMENTS §110): out of every list of who fills what, the owner's table's
+  // own lists too, so a document only they filled has nobody (and the super admin answers for it); no access anywhere.
+  const removed = new Set(stored.removed ?? []);
   // Whom each person sees a module through, by what they answer for: their own module (the owner, 7-Oct-2026: "own module only").
   const derivedModules = new Map<string, Set<string>>();
   for (const d of docs) {
-    const list = stored.responsibility[d.id] ?? defaultResponsible(d);
+    const listed = stored.responsibility[d.id] ?? defaultResponsible(d);
+    const list = removed.size > 0 ? listed.filter((e) => !removed.has(e)) : listed;
     answers.set(d.id, list);
     for (const email of list) {
       if (!d.department) continue;
@@ -316,10 +330,11 @@ export function buildAccess(docs: readonly AccessDoc[], storedRules?: unknown): 
   };
 
   const level = (account: AccessAccount, documentId: string): AccessLevel => {
+    const email = lower(account.email ?? "");
+    if (removed.has(email)) return "none";
     if (isBoss(account)) return "edit";
     const doc = byId.get(documentId);
     if (!doc) return "none";
-    const email = lower(account.email ?? "");
     const person = stored.people[email];
     const own = person?.documents?.[documentId];
     if (own !== undefined) return own;
@@ -357,8 +372,9 @@ export function buildAccess(docs: readonly AccessDoc[], storedRules?: unknown): 
       return ACCESS_MODULES.filter((m) => top.has(m)).map((module) => ({ module, level: top.get(module)! }));
     },
     moduleLevel: (account, module) => {
-      if (isBoss(account)) return "edit";
       const email = lower(account.email ?? "");
+      if (removed.has(email)) return "none";
+      if (isBoss(account)) return "edit";
       const base = moduleBase(email, module);
       if (base !== "none" || described.has(email)) return base;
       const departments = (account.departments ?? []).map((d) => d.trim().toUpperCase()).filter(Boolean);
@@ -366,4 +382,65 @@ export function buildAccess(docs: readonly AccessDoc[], storedRules?: unknown): 
     },
     isBoss,
   };
+}
+
+// ---------------------------------------------------------------------------
+// an account renamed: what was set for it, moved to its new sign-in
+
+const sameList = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((e, i) => e === b[i]);
+
+/**
+ * AN ACCOUNT RENAMED (REQUIREMENTS §110): what the super admin set for it and its place in who fills what move from its
+ * old sign-in to its new one, in rules that are otherwise unchanged (a new copy; nothing handed in is changed).
+ *   * Who fills what: every list naming the old sign-in names the new one, in the same place, the owner's table's own
+ *     lists too (stored as a setting where they then differ from the table, removed where they come back to it).
+ *   * Its own settings, by module and by document, go to the new sign-in over whatever was stored there (the renamed
+ *     account's own winning where both set the same thing), and nothing is left under the old one. An account the rules
+ *     described stays described under the new sign-in, even with nothing set.
+ *   * What the owner's table gives a sign-in itself stays with that sign-in: renamed to kapila.barad@gpp.local, an
+ *     account gets Kapila Barad's rights from the table (the owner's case of 12-Oct-2026).
+ *   * Neither sign-in is among the removed ones afterwards.
+ */
+export function moveAccount(rulesIn: unknown, docs: readonly AccessDoc[], fromEmail: string, toEmail: string): AccessRules {
+  const rules = normalizeAccessRules(rulesIn);
+  const from = lower(fromEmail);
+  const to = lower(toEmail);
+  if (!from || !to || from === to) return rules;
+  const swap = (list: readonly string[]): string[] => Array.from(new Set(list.map((e) => (e === from ? to : e))));
+
+  const responsibility: Record<string, string[]> = {};
+  for (const [id, list] of Object.entries(rules.responsibility)) responsibility[id] = list.slice();
+  let answered = false;
+  for (const d of docs) {
+    const table = defaultResponsible(d);
+    const now = responsibility[d.id] ?? table;
+    if (!now.includes(from)) continue;
+    answered = true;
+    const next = swap(now);
+    if (sameList(next, table)) delete responsibility[d.id];
+    else responsibility[d.id] = next;
+  }
+  // A document the catalogue does not list (yet) keeps its stored list, the name changed in it.
+  for (const [id, list] of Object.entries(responsibility)) {
+    if (!list.includes(from)) continue;
+    answered = true;
+    responsibility[id] = swap(list);
+  }
+
+  const people: Record<string, PersonRules> = {};
+  for (const [e, p] of Object.entries(rules.people)) {
+    people[e] = { ...(p.modules ? { modules: { ...p.modules } } : {}), ...(p.documents ? { documents: { ...p.documents } } : {}) };
+  }
+  const mine = people[from];
+  const described = !!mine || answered || DEFAULT_PEOPLE.some((p) => p.email === from);
+  if (described) {
+    const theirs = people[to] ?? {};
+    const modules = { ...(theirs.modules ?? {}), ...(mine?.modules ?? {}) };
+    const documents = { ...(theirs.documents ?? {}), ...(mine?.documents ?? {}) };
+    people[to] = { ...(Object.keys(modules).length > 0 ? { modules } : {}), ...(Object.keys(documents).length > 0 ? { documents } : {}) };
+  }
+  delete people[from];
+
+  const removed = (rules.removed ?? []).filter((e) => e !== from && e !== to);
+  return normalizeAccessRules({ version: 1, people, responsibility, removed });
 }
