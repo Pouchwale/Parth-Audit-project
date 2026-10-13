@@ -73,6 +73,29 @@ export interface LogHeaderField {
    */
   boxesPerLine?: number;
   /**
+   * THE COLUMN OF ITS LINE THE BOX STANDS IN, counted from 1, where the paper
+   * leaves the cells before it empty (REQUIREMENTS §111): an incoming material
+   * record prints Date of Inspection in the right-hand column of its header
+   * box's fourth line, F/QC/25 its "Date:" at the right above the grid. Honoured
+   * where the boxes stand a set number to a line (headerColumns, boxesPerLine);
+   * a phone takes them one under another.
+   */
+  paperColumn?: number;
+  /**
+   * THE BOXES DRAWN AS THE PAPER'S TABLE (REQUIREMENTS §111): from this box on,
+   * to the next box that starts a group of its own, the boxes are the cells of
+   * a table, a row at a time, `columns` printed over them, each row's heading
+   * (`rows`) printed at its left and `corner` above those. F/QC/06 prints its
+   * LABEL STOCK as "Material" over Face Material / Adhesive / Release Liner on
+   * Required, Tested, Type Required and Observed. A box's label stays its name
+   * (Mitra, a record's history, the checks, a downloaded file); the table's
+   * words are what the sheet and its print show. The box starts a group of its
+   * own. With `cornerBox` the group's first box stands in the corner, under its
+   * own label, and the table's cells are the boxes after it: F/QC/06 prints
+   * "Coating Done : Gloss UV" over the Minimum Gloss line's row headings.
+   */
+  boxTable?: { corner?: string; cornerBox?: true; columns: string[]; rows: string[] };
+  /**
    * THE VALUE THE PAPER PRINTS IN THE BOX (REQUIREMENTS §111): F/QC/11 prints
    * "1-54, 2-55, 3-56, 4-57" in its Device ID No box, "LAB" in Location and
    * Department, "Global Eng. Co. (GEC)" in Manufacturer. Such a box is shown as
@@ -253,6 +276,16 @@ export interface LogSheetLayout {
    * paper prints straight under the grid. Never filled in, never stored.
    */
   notesAtFoot?: string[];
+  /**
+   * THE GRID PRINTED ACROSS THE PAGE (REQUIREMENTS §111): the paper prints each
+   * line as a column and each column as a line — F/QC/06's and F/QC/07's PRINTING
+   * table numbers its ten colours 1 to 10 across, with "Given By Client" and
+   * "Color Shade Verified" on the two lines under them. The record's lines stay
+   * its lines; only the drawing (the sheet, its print and the server's PDF, the
+   * Excel and Word files made from it) turns them. For a sheet of printed lines
+   * that numbers its own (ownLineNumbers): no Sr. No. is drawn.
+   */
+  gridAcross?: true;
   // Fields printed BELOW the grid (lot status, reason for deviation,
   // inspected-by ...). Stored in LogSheetData.header alongside headerFields.
   footerFields?: LogHeaderField[];

@@ -72,6 +72,10 @@ const field = <T extends LogHeaderField>(f: T): T => ({
   label: en(f.label),
   ...(f.printedLabel !== undefined ? { printedLabel: en(f.printedLabel) } : {}),
   ...(f.printedAbove ? { printedAbove: f.printedAbove.map(en) } : {}),
+  // The headings of a table of boxes the paper prints (§111).
+  ...(f.boxTable
+    ? { boxTable: { ...f.boxTable, columns: f.boxTable.columns.map(en), rows: f.boxTable.rows.map(en), ...(f.boxTable.corner !== undefined ? { corner: en(f.boxTable.corner) } : {}) } }
+    : {}),
 });
 const column = (c: LogColumn): LogColumn => ({ ...c, label: en(c.label), ...(c.printedLabel ? { printedLabel: en(c.printedLabel) } : {}) });
 type PrintedRow = Record<string, string | number | null>;

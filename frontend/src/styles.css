@@ -1695,9 +1695,22 @@ body { top: 0 !important; }
    line) keeps its two lines together, the second's heading in small type, and the
    paper's own text below the grid (the PROCEDURE) reads as printed words. */
 .sheet-boxes-paper { grid-template-columns: repeat(var(--paper-box-columns, 3), minmax(0, 1fr)); }
+/* A box in its column of the line, the cells before it left empty as the paper leaves them
+   (paperColumn: an incoming record's Date of Inspection at the right of its fourth line). */
+.sheet-boxes-paper > [data-paper-column="2"] { grid-column-start: 2; }
+.sheet-boxes-paper > [data-paper-column="3"] { grid-column-start: 3; }
+.sheet-boxes-paper > [data-paper-column="4"] { grid-column-start: 4; }
 @media screen and (max-width: 600px) {
   .sheet-boxes-paper { grid-template-columns: minmax(0, 1fr); }
+  .sheet-boxes-paper > [data-paper-column] { grid-column-start: auto; }
 }
+/* Boxes as the paper's table (boxTable: a certificate's LABEL STOCK, Material × Face Material ...):
+   each cell the record's box, the width of its cell; the rows' headings in the paper's words. */
+.doc-table table.paper-box-table th.paper-box-table-row { text-align: left; white-space: normal; }
+.doc-table table.paper-box-table td .field-in-table .input { width: 100%; min-width: 64px; }
+/* The grid printed across (gridAcross: a certificate's PRINTING, its colours 1 to 10 across). */
+.doc-table table.log-sheet-across th.log-sheet-across-head { text-align: left; white-space: nowrap; vertical-align: middle; }
+.doc-table table.log-sheet-across td { text-align: center; }
 .doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: dotted; }
 .doc-table table.log-sheet tbody tr.log-second-line .second-line-label { font-size: 11px; white-space: nowrap; }
 .sheet-notes-below p { line-height: 1.45; }

@@ -8,9 +8,12 @@
 // columns and their headings, the lines the paper prints down its side with their specifications, the boxes below
 // the grid and their groups, the printed words in their places — and nothing of DCRS's own.
 //
-// Three layout abilities place them (engine/paperLayout.ts): boxes in the paper's groups under the lines and the
+// Six layout abilities place them (engine/paperLayout.ts): boxes in the paper's groups under the lines and the
 // table printed above them (LogHeaderField printedAbove, tableAbove, boxesPerLine), the text at the foot of the sheet
-// (LogSheetLayout.notesAtFoot), and a heading the paper leaves out (LogColumn.printedLabel).
+// (LogSheetLayout.notesAtFoot), a heading the paper leaves out (LogColumn.printedLabel); and, from the second look at
+// the originals the same day, a box in its column of the line (LogHeaderField.paperColumn: Date of Inspection at the
+// right), boxes as the paper's table (LogHeaderField.boxTable: the certificates' Specified Size, LABEL STOCK, SLEEVE
+// FILM and COATING) and the grid printed across (LogSheetLayout.gridAcross: their PRINTING, colours 1 to 10 across).
 //
 // And Demo Mode's records of them read as real ones (engine/qcPaperSamples.ts, rule 3 of the brief), while a Live
 // record is prepared with none of it (REQUIREMENTS §98).
@@ -23,10 +26,23 @@ import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../sr
 import { masterRepository, ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { hrMasterRepository, ensureSeeded as ensureHrMasterSeeded } from "../src/data/repositories/hrMasterRepository";
 import { getIssuedLogSheetLayout, getLogSheetLayout } from "../src/data/seed/logSheetLayouts";
-import { COA_LETTERHEAD, CORPORATE_OFFICE, GRADE_SCALE_NOTE, HEAT_SENSITIVE_NOTE, SUPPLIER_COA_NOTE, SYSTEM_GENERATED_NOTE } from "../src/data/seed/qcCoaLayouts";
+import {
+  COA_LABEL_SPECIMEN_HEADER,
+  COA_LABEL_SPECIMEN_ROWS,
+  COA_LETTERHEAD,
+  COA_SLEEVE_SPECIMEN_HEADER,
+  COA_SLEEVE_SPECIMEN_ROWS,
+  CORPORATE_OFFICE,
+  GRADE_SCALE_NOTE,
+  HEAT_SENSITIVE_NOTE,
+  SUPPLIER_COA_NOTE,
+  SYSTEM_GENERATED_NOTE,
+} from "../src/data/seed/qcCoaLayouts";
 import { FLEXO_INK_SYSTEM_NOTE } from "../src/data/seed/qcIncomingLayouts";
 import { dropFormatEdit, saveFormatEdit } from "../src/data/formatEdits";
-import { boxGroups, columnHeading, placedTables } from "../src/engine/paperLayout";
+import { boxGroups, boxTableRows, columnHeading, inBoxTable, paperColumnProps, placedTables } from "../src/engine/paperLayout";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { numbersOwnLines } from "../src/engine/formLineNumbers";
 import { autoFillRecord } from "../src/engine/autoFill";
@@ -93,7 +109,19 @@ const between = (html: string, from: string, to: string) => {
   return html.slice(a, b < 0 ? undefined : b);
 };
 const headings = (html: string) => Array.from(between(html, "<thead", "</thead>").matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g), (m) => text(m[1]).trim());
-const boxLabels = (html: string) => Array.from(html.matchAll(/<div class="field[^"]*"><label>([\s\S]*?)<\/label>/g), (m) => text(m[1]).replace(/\s*\*\s*$/, "").trim());
+const boxLabels = (html: string) => Array.from(html.matchAll(/<div class="field[^"]*"[^>]*><label>([\s\S]*?)<\/label>/g), (m) => text(m[1]).replace(/\s*\*\s*$/, "").trim());
+const decoded = (s: string) => s.replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"');
+/** A cell's words as the page shows them: its text, then what each box in it holds (value="..."). */
+const cellWords = (cell: string) =>
+  [text(cell).trim(), ...Array.from(cell.matchAll(/<input[^>]*value="([^"]*)"/g), (m) => decoded(m[1]))].filter((w) => w !== "").join(" ");
+/** Every table whose opening tag carries `marker`, as rows of cell words, in the order they stand on the sheet. */
+const tablesWith = (html: string, marker: string): string[][][] =>
+  Array.from(html.matchAll(new RegExp(`<table[^>]*${marker}[^>]*>([\\s\\S]*?)</table>`, "g")), (m) =>
+    Array.from(m[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (r) => Array.from(r[1].matchAll(/<t([hd])[^>]*>([\s\S]*?)<\/t\1>/g), (c) => cellWords(c[2])))
+  );
+/** A supplied certificate as a record holds it: its header, and its colour lines each with an id. */
+const certificate = (header: Record<string, string>, rows: Record<string, string>[]): LogSheetData =>
+  ({ header: { ...header }, rows: rows.map((r, i) => ({ id: `colour-${i + 1}`, ...r })) }) as LogSheetData;
 /** Where each of these words first stands in the sheet's text, so their order can be compared with the paper's. */
 const order = (html: string, words: string[]) => {
   const t = text(html);
@@ -158,6 +186,58 @@ test("a heading the paper leaves out is drawn empty, and the column keeps its na
   // (The markup's text is read with its spaces run together; the paper's "Specified  GSM" keeps its two in the layout.)
   assert.deepEqual(headings(html), ["Sr.No.", "", "", "GSM", "BF", "Grade of Paper", "Specified GSM", "Tested GSM"]);
   assert.ok(html.includes(">Specified  GSM<"));
+});
+
+test("a box in its column of the line: Date of Inspection stands at the right, the cell before it empty; a phone takes it under the others", async () => {
+  assert.deepEqual(paperColumnProps({ paperColumn: 2 }), { "data-paper-column": "2" });
+  assert.deepEqual(paperColumnProps({}), {}, "every other box as it was");
+  assert.deepEqual(paperColumnProps({ paperColumn: 1 }), {}, "the first column is where a box stands anyway");
+  const html = await sheet("qc-bopp-film");
+  assert.match(html, /<div class="field" data-paper-column="2"><label>Date of Inspection/);
+  assert.equal(html.split("data-paper-column").length - 1, 1, "only the one box the paper puts there");
+  const css = readFileSync(path.join(process.cwd(), "frontend", "src", "styles.css"), "utf8");
+  assert.match(css, /\.sheet-boxes-paper > \[data-paper-column="2"\] \{ grid-column-start: 2; \}/);
+  const phone = css.slice(css.indexOf('[data-paper-column="4"]'));
+  assert.match(phone, /@media screen and \(max-width: 600px\) \{\s*\.sheet-boxes-paper \{ grid-template-columns: minmax\(0, 1fr\); \}\s*\.sheet-boxes-paper > \[data-paper-column\] \{ grid-column-start: auto; \}/);
+});
+
+test("boxes as the paper's table: a row of boxes at a time under its headings, each the record's own box, named for a screen reader", async () => {
+  const table = { corner: "Material", columns: ["A", "B", "C"], rows: ["Required", "Tested"] };
+  assert.deepEqual(boxTableRows(table, [1, 2, 3, 4, 5]), [[1, 2, 3], [4, 5, undefined]], "a row's spare cell is left empty");
+  const coating = boxGroups(layoutOf("qc-coa-label"), "footer").find((g) => g.lines[0] === "COATING")!;
+  assert.deepEqual([inBoxTable(coating, 0), inBoxTable(coating, 1), inBoxTable(coating, 5)], [false, true, true], "the corner box keeps its own label");
+  const plain = boxGroups(layoutOf("qc-coa-label"), "footer")[0];
+  assert.equal(inBoxTable(plain, 0), false);
+  // The sheet open for writing: each cell is the box itself, bound where the record keeps it, with no label of its own.
+  const html = await sheet("qc-coa-label");
+  const stock = between(html, "LABEL STOCK", "</table>");
+  assert.match(stock, /data-section="box-table"/);
+  assert.equal((stock.match(/<label>/g) ?? []).length, 0, "the table's words head the boxes");
+  for (const key of ["faceMaterialRequired", "adhesiveTested", "releaseLinerObserved"]) assert.match(stock, new RegExp(`data-bind="header/${key}"`), key);
+  assert.match(stock, /aria-label="Face Material — Required"/);
+  // The corner box: "Coating Done :" over its box, on the table's first line, a line like any other (not a heading a file keeps as words).
+  const coatingTable = between(html, ">COATING<", "</table>");
+  assert.ok(!coatingTable.includes("<thead"), "no heading row: the corner holds a box");
+  assert.match(coatingTable, /<th class="paper-box-table-corner"><div class="field"><label>Coating Done :<\/label><input[^>]*data-bind="header\/coatingDone"/);
+});
+
+test("the grid printed across: each line a column, each column a line, the record's cells bound as on any grid, no Sr. No.", async () => {
+  const layout = layoutOf("qc-coa-label");
+  assert.equal(layout.gridAcross, true);
+  const html = await sheet("qc-coa-label");
+  const [printing] = tablesWith(html, "data-across");
+  assert.deepEqual(printing[0], ["PRINTING"]);
+  assert.deepEqual(printing[1], ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
+  assert.deepEqual(printing.slice(2).map((r) => [r[0], r.length]), [["Given By Client", 11], ["Color Shade Verified", 11]]);
+  const across = between(html, "data-across", "</table>");
+  assert.equal((across.match(/data-bind="rows\/@[^"]+\/givenByClient"/g) ?? []).length, 10, "a box per colour, bound to its own line");
+  assert.equal((across.match(/data-bind="rows\/@[^"]+\/colorShadeVerified"/g) ?? []).length, 10);
+  assert.ok(!/data-bind="rows\/@[^"]+\/colorNo"/.test(across), "the printed numbers are printed, not boxes");
+  assert.ok(!text(html).includes("Sr. No."), "the certificate's own 1 to 10, no Sr. No. of the sheet's");
+  assert.ok(!/<table class="compact log-sheet( is-editing)?"/.test(html), "and no grid drawn down the page besides");
+  // The format's designer says so where it designs the lines (components/documents/SheetDesigner.tsx).
+  const designer = readFileSync(path.join(process.cwd(), "frontend", "src", "components", "documents", "SheetDesigner.tsx"), "utf8");
+  assert.match(designer, /data-section="designer-across-note"/);
 });
 
 // ---------------------------------------------------------------------------
@@ -363,6 +443,11 @@ for (const [id, paper] of Object.entries(INCOMING)) {
     const header = paper.batch ? INCOMING_HEADER.map((l) => (l === "SAP Batch number" ? paper.batch! : l)) : INCOMING_HEADER;
     assert.deepEqual(layout.headerFields.map((f) => f.label), header, "read across, as the paper's two-column box reads");
     assert.equal(layout.headerColumns, 2);
+    assert.deepEqual(
+      layout.headerFields.filter((f) => f.paperColumn !== undefined).map((f) => [f.key, f.paperColumn]),
+      [["dateOfInspection", 2]],
+      "Date of Inspection in the right-hand column of the fourth line, as printed"
+    );
     assert.deepEqual(layout.columns.map((c) => c.label), paper.columns);
     assert.ok(layout.rowMode.kind === "fixedRows");
     if (layout.rowMode.kind === "fixedRows") assert.deepEqual(layout.rowMode.rows.map((r) => [r.parameter, r.specification]), paper.rows);
@@ -384,6 +469,7 @@ for (const [id, paper] of Object.entries(INCOMING)) {
     assert.deepEqual(headings(html), ["Sr. No.", ...paper.columns], "the paper's SR. NO., printed in capitals as every heading is");
     assert.deepEqual(boxLabels(html), [...header, ...INCOMING_FOOTER]);
     assert.match(html, /class="grid sheet-boxes-paper"[^>]*data-section="sheet-boxes"[^>]*style="--paper-box-columns:2/);
+    assert.match(html, /<div class="field" data-paper-column="2"><label>Date of Inspection/);
     const t = text(html);
     for (const [parameter] of paper.rows) assert.ok(t.includes(parameter.replace(/\s+/g, " ")), parameter);
     for (const w of DCRS_WORDS) assert.ok(!w.test(t), `${id}: ${w}`);
@@ -396,7 +482,7 @@ for (const [id, paper] of Object.entries(INCOMING)) {
   });
 }
 
-test("F/QC/36 Inspection Record – Solvent Base Lamination Film: its seven boxes two to a line, three printed lines, both signatures", async () => {
+test("F/QC/36 Inspection Record – Solvent Base Lamination Film: its boxes two to a line and the pass alone on the last, three printed lines, both signatures", async () => {
   const id = "qc-inspection-sb-lamination";
   assert.deepEqual([docOf(id).name, docOf(id).formatNo], ["Inspection Record – Solvent Base Lamination Film", "F/QC/36"]);
   const layout = layoutOf(id);
@@ -407,6 +493,11 @@ test("F/QC/36 Inspection Record – Solvent Base Lamination Film: its seven boxe
     "1st Pass / 2nd Pass / 3rd Pass",
   ]);
   assert.equal(layout.headerColumns, 2);
+  assert.deepEqual(
+    boxGroups(layout, "header").map((g) => [g.boxes.length, g.perLine ?? null]),
+    [[6, 2], [1, 1]],
+    "the header box's last line is the pass alone, its answer the width of the sheet"
+  );
   assert.deepEqual(layout.columns.map((c) => c.label), OBSERVATION);
   assert.ok(layout.rowMode.kind === "fixedRows");
   if (layout.rowMode.kind === "fixedRows") {
@@ -429,71 +520,110 @@ test("F/QC/36 Inspection Record – Solvent Base Lamination Film: its seven boxe
 // ---------------------------------------------------------------------------
 // 3. The certificates of analysis
 
-test("F/QC/06 Certificate of Analysis [COA] For Label: every block under its own heading, in the paper's order, and nothing of DCRS's", async () => {
+/** A group as the paper draws it: the lines over it, its table's headings or how many boxes stand to a line, its boxes. */
+const groupShape = (g: ReturnType<typeof boxGroups>[number]) => [
+  g.lines,
+  g.boxTable ? { corner: g.boxTable.corner ?? null, cornerBox: !!g.boxTable.cornerBox, columns: g.boxTable.columns, rows: g.boxTable.rows } : (g.perLine ?? null),
+  g.boxes.map((b) => b.field.printedLabel ?? b.field.label),
+];
+
+test("F/QC/06 Certificate of Analysis [COA] For Label: every block under its own heading, its tables as the paper's, in the paper's order, and nothing of DCRS's", async () => {
   const layout = layoutOf("qc-coa-label");
   assert.deepEqual(layout.instructions, COA_LETTERHEAD, "the letterhead's three lines under the company's name");
-  assert.deepEqual(
-    boxGroups(layout, "header").map((g) => [g.lines, g.perLine ?? null, g.boxes.map((b) => b.field.label)]),
+  assert.deepEqual(boxGroups(layout, "header").map(groupShape), [
+    [[], 3, ["Production Order No.", "Delivery No.", "COA Date :"]],
+    [[], 1, ["Client Name"]],
+    [[], 3, ["GP3 Code", "Client Item Code 1", "Client Item Code 2"]],
+    [[], 1, ["Product Name"]],
     [
-      [[], 3, ["Production Order No.", "Delivery No.", "COA Date :"]],
-      [[], 1, ["Client Name"]],
-      [[], 3, ["GP3 Code", "Client Item Code 1", "Client Item Code 2"]],
-      [[], 1, ["Product Name"]],
-      [["Specified Size"], 2, ["Client's Specified Size Length(mm)", "Client's Specified Size Width(mm)", "Tested Size Length(mm)", "Tested Size Width(mm)"]],
+      [],
+      { corner: "Specified Size", cornerBox: false, columns: ["Length(mm)", "Width(mm)"], rows: ["Client's Specified Size", "Tested Size"] },
+      ["Client's Specified Size Length(mm)", "Client's Specified Size Width(mm)", "Tested Size Length(mm)", "Tested Size Width(mm)"],
+    ],
+    [
+      ["LABEL STOCK"],
+      { corner: "Material", cornerBox: false, columns: ["Face Material", "Adhesive", "Release Liner"], rows: ["Required", "Tested", "Type Required", "Observed"] },
       [
-        ["LABEL STOCK"],
-        3,
-        [
-          "Face Material — Required", "Adhesive — Required", "Release Liner — Required",
-          "Face Material — Tested", "Adhesive — Tested", "Release Liner — Tested",
-          "Face Material — Type Required", "Adhesive — Type Required", "Release Liner — Type Required",
-          "Face Material — Observed", "Adhesive — Observed", "Release Liner — Observed",
-        ],
+        "Face Material — Required", "Adhesive — Required", "Release Liner — Required",
+        "Face Material — Tested", "Adhesive — Tested", "Release Liner — Tested",
+        "Face Material — Type Required", "Adhesive — Type Required", "Release Liner — Type Required",
+        "Face Material — Observed", "Adhesive — Observed", "Release Liner — Observed",
       ],
-    ]
-  );
+    ],
+  ]);
   assert.deepEqual(layout.columns.map((c) => [c.group, c.label]), [["PRINTING", "No. of Colors"], ["PRINTING", "Given By Client"], ["PRINTING", "Color Shade Verified"]]);
   assert.ok(layout.rowMode.kind === "fixedRows" && layout.rowMode.rows.map((r) => r.colorNo).join(",") === "1,2,3,4,5,6,7,8,9,10");
   assert.ok(numbersOwnLines(layout), "the paper's own 1 to 10, no Sr. No. beside them");
+  assert.equal(layout.gridAcross, true, "printed across, as the paper prints it");
+  const minGloss = { corner: null, cornerBox: true, columns: ["Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"], rows: ["Minimum Gloss Required at 60°"] };
   assert.deepEqual(
-    boxGroups(layout, "footer").map((g) => [g.lines, g.table?.title ?? null, g.perLine ?? null, g.boxes.map((b) => b.field.printedLabel ?? b.field.label)]),
+    boxGroups(layout, "footer").map((g) => [...groupShape(g), g.table?.title ?? null]),
     [
-      [[], null, 2, ["Shade Match Grade", "Remarks For Shade :", "Text  Matter Verification With Specified Art Work", "Remarks For Text Verification", "Bar Code Grade", "Bar Code Remarks"]],
-      [["COATING"], null, 3, ["Coating Done :", "Minimum Gloss Required at 60° — Aqueous", "Minimum Gloss Required at 60° — U.V", "Minimum Gloss Required at 60° — Lamination", "Achieved Gloss", "Scuff Test"]],
-      [["FINISHING"], null, 2, ["Finishing Quality Grade", "Die Cutting Type", "Die Cutting", "Rewinding Quality", "Emboss", "Packing Quality", "Foil Stamping", "Slitting Quality"]],
-      [[], null, 1, ["Remarks For Finishing Quality", "Final Inspection", "Over All Quality Remarks"]],
-      [[`● ${GRADE_SCALE_NOTE}`, `● ${SUPPLIER_COA_NOTE}`], "TOLERANCE", 1, ["This material should be retested on … before usage."]],
+      [[], 2, ["Shade Match Grade", "Remarks For Shade :", "Text  Matter Verification With Specified Art Work", "Remarks For Text Verification", "Bar Code Grade", "Bar Code Remarks"], null],
+      [["COATING"], minGloss, ["Coating Done :", "Minimum Gloss Required at 60° — Aqueous", "Minimum Gloss Required at 60° — U.V", "Minimum Gloss Required at 60° — Lamination", "Achieved Gloss", "Scuff Test"], null],
+      [["FINISHING"], 2, ["Finishing Quality Grade", "Die Cutting Type", "Die Cutting", "Rewinding Quality", "Emboss", "Packing Quality", "Foil Stamping", "Slitting Quality"], null],
+      [[], 1, ["Remarks For Finishing Quality", "Final Inspection", "Over All Quality Remarks"], null],
+      [[`● ${GRADE_SCALE_NOTE}`, `● ${SUPPLIER_COA_NOTE}`], 1, ["This material should be retested on … before usage."], "TOLERANCE"],
     ]
   );
   assert.deepEqual(layout.notesAtFoot, [SYSTEM_GENERATED_NOTE, ...CORPORATE_OFFICE]);
 
-  // The seeded certificate of 04/01/2022, drawn signed off: every block in the paper's order.
-  const html = await sheet("qc-coa-label", undefined, false);
-  assert.deepEqual(headings(html), ["PRINTING", "No. of Colors", "Given By Client", "Color Shade Verified"]);
+  // The supplied certificate of 04/01/2022, drawn signed off: its tables read as the paper's, every block in the paper's order.
+  const html = await sheet("qc-coa-label", certificate(COA_LABEL_SPECIMEN_HEADER, COA_LABEL_SPECIMEN_ROWS), false);
+  assert.deepEqual(tablesWith(html, 'data-section="box-table"'), [
+    [
+      ["Specified Size", "Length(mm)", "Width(mm)"],
+      ["Client's Specified Size", "70", "115"],
+      ["Tested Size", "70", "115"],
+    ],
+    [
+      ["Material", "Face Material", "Adhesive", "Release Liner"],
+      ["Required", "80 GSM /Microns", "27 GSM", "60 GSM"],
+      ["Tested", "80 GSM/Microns", "26 GSM", "59 GSM"],
+      ["Type Required", "Chromo", "HotMelt", "Glassine"],
+      ["Observed", "Chromo", "Rubber Based (Hot Melt)", "Glassine Paper"],
+    ],
+    [
+      ["Coating Done : Gloss UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+      ["Minimum Gloss Required at 60°", "35%", "72%", "75%", "84.00%", "2 lbs, 100 rounds Okay"],
+    ],
+  ]);
+  assert.deepEqual(tablesWith(html, "data-across"), [
+    [
+      ["PRINTING"],
+      ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+      ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Blue", "P.151C", "", "", "", ""],
+      ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "OK", "", "", "", ""],
+    ],
+  ]);
   assert.ok(
-    ascending(order(html, [COA_LETTERHEAD[2], "Production Order No.", "Product Name", "Specified Size", "LABEL STOCK", "Release Liner — Observed", "PRINTING", "Shade Match Grade", "Bar Code Remarks", "COATING", "Scuff Test", "FINISHING", "Over All Quality Remarks", "TOLERANCE", GRADE_SCALE_NOTE, SUPPLIER_COA_NOTE, "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT.", "Corporate Office :"]))
+    ascending(order(html, [COA_LETTERHEAD[2], "Production Order No.", "Product Name", "Specified Size", "LABEL STOCK", "Observed", "PRINTING", "Shade Match Grade", "Bar Code Remarks", "COATING", "Scuff Test", "FINISHING", "Over All Quality Remarks", "TOLERANCE", GRADE_SCALE_NOTE, SUPPLIER_COA_NOTE, "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT.", "Corporate Office :"]))
   );
   const t = text(html);
   for (const w of DCRS_WORDS) assert.ok(!w.test(t), String(w));
 });
 
-test("F/QC/07 Certificate of Analysis [COA] For Shrink Sleeves: SLEEVE FILM three to a line, its own FINISHING, the heat sentence above the retest sentence", async () => {
+test("F/QC/07 Certificate of Analysis [COA] For Shrink Sleeves: its Specified Size and SLEEVE FILM tables, its own FINISHING, the heat sentence above the retest sentence", async () => {
   const layout = layoutOf("qc-coa-sleeve");
   assert.deepEqual(layout.instructions, COA_LETTERHEAD);
+  assert.equal(layout.gridAcross, true);
   const header = boxGroups(layout, "header");
-  assert.deepEqual(header[4].lines, ["Specified Size"]);
-  assert.deepEqual(header[4].boxes.map((b) => b.field.label), ["Client's Specified Size Cut Length(mm)", "Client's Specified Size Open Width(mm)", "Tested Size Cut Length(mm)", "Tested Size Open Width(mm)"]);
-  assert.deepEqual([header[5].lines, header[5].perLine, header[5].boxes.map((b) => b.field.label)], [
+  assert.deepEqual(groupShape(header[4]), [
+    [],
+    { corner: "Specified Size", cornerBox: false, columns: ["Cut Length(mm)", "Open Width(mm)"], rows: ["Client's Specified Size", "Tested Size"] },
+    ["Client's Specified Size Cut Length(mm)", "Client's Specified Size Open Width(mm)", "Tested Size Cut Length(mm)", "Tested Size Open Width(mm)"],
+  ]);
+  assert.deepEqual(groupShape(header[5]), [
     ["SLEEVE FILM"],
-    3,
+    { corner: "Material", cornerBox: false, columns: ["Thickness(Microns)", "Shrinkage Ratio (%)", "Type"], rows: ["Required", "Tested"] },
     ["Thickness(Microns) Required", "Shrinkage Ratio (%) Required", "Type Required", "Thickness(Microns) Tested", "Shrinkage Ratio (%) Tested", "Type Tested"],
   ]);
   const footer = boxGroups(layout, "footer");
   assert.deepEqual(
-    footer.map((g) => [g.lines[0] ?? null, g.perLine ?? null, g.boxes.map((b) => b.field.key)]),
+    footer.map((g) => [g.lines[0] ?? null, g.boxTable ? "table" : (g.perLine ?? null), g.boxes.map((b) => b.field.key)]),
     [
       [null, 2, ["shadeMatchGrade", "remarksForShade", "textMatterVerification", "remarksForTextVerification", "barCodeGrade", "barCodeRemarks"]],
-      ["COATING", 3, ["coatingDone", "aqueous", "uv", "lamination", "achievedGloss", "scuffTest"]],
+      ["COATING", "table", ["coatingDone", "aqueous", "uv", "lamination", "achievedGloss", "scuffTest"]],
       ["FINISHING", 1, ["finishingQualityGrade"]],
       [null, 2, ["perforationQuality", "rewindingQuality", "holdingGlueQuality", "packingQuality", "whiteOpacity", "slittingQuality"]],
       [null, 1, ["remarksForFinishingQuality", "finalInspection", "overAllQualityRemarks"]],
@@ -508,7 +638,28 @@ test("F/QC/07 Certificate of Analysis [COA] For Shrink Sleeves: SLEEVE FILM thre
     ["Minimum Gloss Required at 60° — Aqueous", "Minimum Gloss Required at 60° — U.V", "Minimum Gloss Required at 60° — Lamination"],
     "the words the paper prints in front of the three"
   );
-  const html = await sheet("qc-coa-sleeve", undefined, false);
+  const html = await sheet("qc-coa-sleeve", certificate(COA_SLEEVE_SPECIMEN_HEADER, COA_SLEEVE_SPECIMEN_ROWS), false);
+  assert.deepEqual(tablesWith(html, 'data-section="box-table"'), [
+    [
+      ["Specified Size", "Cut Length(mm)", "Open Width(mm)"],
+      ["Client's Specified Size", "152.40", "168.00"],
+      ["Tested Size", "152", "168"],
+    ],
+    [
+      ["Material", "Thickness(Microns)", "Shrinkage Ratio (%)", "Type"],
+      ["Required", "40", "50", "Centroiid Plastopack PVC Blown 40 mic 200 mm"],
+      ["Tested", "40", "49", "PVC Blown"],
+    ],
+    [
+      ["Coating Done : Matt UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+      ["Minimum Gloss Required at 60°", "35%", "72%", "75%", "50%", "2 lbs, 100 rounds Okay"],
+    ],
+  ]);
+  assert.deepEqual(tablesWith(html, "data-across")[0].slice(1), [
+    ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+    ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Gold", "", "", "", "", ""],
+    ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "", "", "", "", ""],
+  ]);
   assert.ok(ascending(order(html, ["SLEEVE FILM", "PRINTING", "COATING", "FINISHING", "TOLERANCE", HEAT_SENSITIVE_NOTE, "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT."])));
   const t = text(html);
   for (const w of DCRS_WORDS) assert.ok(!w.test(t), String(w));
@@ -520,6 +671,9 @@ test("F/QC/25 Certificate of Analysis [COA] For CORRUGATED BOXES: its heading bl
   assert.match(layout.instructions![0], /308\/9, GIDC DEDIASAN MEHSANA\. GUJARAT\. — DEPT:QUALITY ASSURENCE \(2009 EDITION\) — DOC\.NO\. QA-IP-TRFCBA-011-00-01-09-18 — FG\(CO\) =FINISH GOODS \(CORRUGATION\)$/);
   assert.equal(layout.instructions![1], "CBA: CORRUGATED BOX ANALYSIS");
   assert.deepEqual(layout.headerFields.map((f) => f.label), ["Date:", "OID :-", "Job Code:"]);
+  // "Date:" alone at the right above the grid, then OID :- and Job Code: side by side.
+  assert.equal(layout.headerColumns, 2);
+  assert.deepEqual(layout.headerFields.map((f) => f.paperColumn ?? null), [2, null, null]);
   assert.deepEqual(layout.columns.map((c) => [c.group ?? "", columnHeading(c)]), [["", "Sr.No."], ["", ""], ["", ""], ["GSM", "Specified  GSM"], ["GSM", "Tested GSM"], ["", "BF"], ["", "Grade of Paper"]]);
   assert.ok(layout.rowMode.kind === "fixedRows");
   if (layout.rowMode.kind === "fixedRows") {
@@ -533,6 +687,7 @@ test("F/QC/25 Certificate of Analysis [COA] For CORRUGATED BOXES: its heading bl
   const t = text(html);
   for (const w of DCRS_WORDS) assert.ok(!w.test(t), String(w));
   assert.ok(!/>Description</.test(html) && !/>Observation</.test(html), "no heading the paper does not print");
+  assert.match(html, /style="--paper-box-columns:2[^"]*"><div class="field" data-paper-column="2"><label>Date:<\/label>/);
 });
 
 // ---------------------------------------------------------------------------
@@ -582,15 +737,15 @@ test("a certificate edited before §111 loses DCRS's lines, keeps the paper's no
   const issued = getIssuedLogSheetLayout("qc-coa-label")!;
   const strip = <T extends object>(o: T, keys: string[]): T => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k))) as T;
   const old: LogSheetLayout = {
-    ...strip(issued, ["notesAtFoot", "headerColumns"]),
+    ...strip(issued, ["notesAtFoot", "headerColumns", "gridAcross"]),
     instructions: [
       "Certificate of Analysis [COA] For Label. The certificate's own boxes and the LABEL STOCK block are above the grid; the PRINTING block's colours are the grid; the rest of PRINTING, the COATING block, the FINISHING block and the retest date are below it.",
       GRADE_SCALE_NOTE,
       SYSTEM_GENERATED_NOTE,
       "Our own line about the job.",
     ],
-    headerFields: issued.headerFields.map((f) => strip(f, ["boxesPerLine", "printedAbove"])),
-    footerFields: issued.footerFields!.map((f) => strip(f, ["boxesPerLine", "printedAbove", "tableAbove", "printedLabel"])),
+    headerFields: issued.headerFields.map((f) => strip(f, ["boxesPerLine", "printedAbove", "boxTable"])),
+    footerFields: issued.footerFields!.map((f) => strip(f, ["boxesPerLine", "printedAbove", "tableAbove", "printedLabel", "boxTable"])),
   } as LogSheetLayout;
   try {
     saveFormatEdit("qc-coa-label", { revisionNo: "01", revisionDate: "2026-10-01", layout: old, revisions: [] });
@@ -599,6 +754,10 @@ test("a certificate edited before §111 loses DCRS's lines, keeps the paper's no
     assert.deepEqual(now.notesAtFoot, [SYSTEM_GENERATED_NOTE, ...CORPORATE_OFFICE]);
     assert.deepEqual(boxGroups(now, "footer").map((g) => g.lines[0] ?? g.table?.title ?? null), [null, "COATING", "FINISHING", null, `● ${GRADE_SCALE_NOTE}`]);
     assert.equal(now.footerFields?.find((f) => f.key === "retestOn")?.tableAbove, "TOLERANCE");
+    // The paper's tables and its colours across (the second look at the originals, 13-Oct-2026).
+    assert.equal(now.gridAcross, true);
+    assert.deepEqual(now.headerFields.find((f) => f.key === "faceMaterialRequired")?.boxTable?.rows, ["Required", "Tested", "Type Required", "Observed"]);
+    assert.equal(now.footerFields?.find((f) => f.key === "coatingDone")?.boxTable?.cornerBox, true);
   } finally {
     dropFormatEdit("qc-coa-label");
   }

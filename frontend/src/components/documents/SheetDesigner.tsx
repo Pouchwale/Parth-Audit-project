@@ -8,7 +8,8 @@ import { FormatEditor } from "./FormatEditor";
 import { COMPANY } from "../../data/seed/masterData";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
-import { boxGroups, gridLines, isPrintedBox, placedTables } from "../../engine/paperLayout";
+import { boxGroups, gridLines, isPrintedBox, paperColumnProps, placedTables } from "../../engine/paperLayout";
+import { BoxTable } from "../records/BoxTable";
 import { NotesBelow } from "../records/NotesBelow";
 import { PrintedTable } from "../records/PrintedTable";
 import { nextRevisionNo, type FormatRevision } from "../../data/formatEdits";
@@ -719,7 +720,9 @@ export function SheetDesigner({
                   {line}
                 </p>
               ))}
-              {grid}
+              {/* Boxes the paper prints as a table (a certificate's LABEL STOCK) stand in that table here too,
+                  each with its name and its menu (REQUIREMENTS §111). */}
+              {group.boxTable ? <BoxTable table={group.boxTable} cells={group.boxes.map((b) => <React.Fragment key={b.field.key}>{boxCells(area, [b.field])}</React.Fragment>)} /> : grid}
             </div>
           );
         })}
@@ -736,7 +739,7 @@ export function SheetDesigner({
           const open = menu?.kind === "box" && menu.key === f.key;
           return (
             // A prose box takes the whole width of the row of boxes, as the paper draws it (REQUIREMENTS §68).
-            <div key={f.key} className={`field designer-box${f.type === "paragraph" ? " field-paragraph" : ""}`} data-designer-item="box" data-key={f.key} data-area={area}>
+            <div key={f.key} className={`field designer-box${f.type === "paragraph" ? " field-paragraph" : ""}`} data-designer-item="box" data-key={f.key} data-area={area} {...paperColumnProps(f)}>
               <div className="designer-heading">
                 {isRenaming ? (
                   <RenameBox field="rename-box" label="Name of the box" initial={f.label} onCommit={commitRename} onCancel={cancelRename} />
@@ -1174,6 +1177,13 @@ export function SheetDesigner({
             </tbody>
           </table>
         </div>
+        )}
+        {/* A grid the paper prints across (a certificate's PRINTING, REQUIREMENTS §111) is designed here a line
+            to a row, as every grid is, and drawn across on the record and in its print. */}
+        {layout.gridAcross && columns.length > 0 && (
+          <p className="text-xs text-muted mt-2 no-print" data-section="designer-across-note">
+            Printed across, as the paper prints it: on a record each line above is a column and each column a line.
+          </p>
         )}
         {/* The paper's own text below the grid, as issued (REQUIREMENTS §111). */}
         {layout.notesBelow && layout.notesBelow.length > 0 && <NotesBelow lines={layout.notesBelow} />}

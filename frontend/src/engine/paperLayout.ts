@@ -31,6 +31,13 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 //                                    DOCUMENT." after every box.
 //   a heading the paper leaves out   LogColumn.printedLabel — F/QC/25 heads its
 //                                    descriptions with nothing (columnHeading).
+//   a box in its column of the line  LogHeaderField.paperColumn — an incoming
+//                                    record's Date of Inspection at the right.
+//   boxes as the paper's table       LogHeaderField.boxTable — a certificate's
+//                                    Specified Size, LABEL STOCK, SLEEVE FILM and
+//                                    the Minimum Gloss line (boxGroups).
+//   the grid printed across          LogSheetLayout.gridAcross — a certificate's
+//                                    PRINTING, its colours 1 to 10 across.
 
 /** A box the paper prints its value in (REQUIREMENTS §111). */
 export const isPrintedBox = (f: Pick<LogHeaderField, "printed">): f is LogHeaderField & { printed: string } => typeof f.printed === "string";
@@ -134,11 +141,34 @@ export interface BoxGroup {
   lines: string[];
   /** Boxes to a line; none: as many as the screen holds. */
   perLine?: number;
+  /** The group's boxes are the cells of the paper's table (boxTable): its column and row headings. */
+  boxTable?: NonNullable<LogHeaderField["boxTable"]>;
 }
 
-/** A box that starts a group of its own: it has words or a table printed above it, or its own number of boxes to a line. */
-export const startsBoxGroup = (f: Pick<LogHeaderField, "printedAbove" | "tableAbove" | "boxesPerLine">): boolean =>
-  (f.printedAbove?.length ?? 0) > 0 || !!f.tableAbove || f.boxesPerLine !== undefined;
+/** A box that starts a group of its own: it has words or a table printed above it, its own number of boxes to a line, or it opens the paper's table of boxes. */
+export const startsBoxGroup = (f: Pick<LogHeaderField, "printedAbove" | "tableAbove" | "boxesPerLine" | "boxTable">): boolean =>
+  (f.printedAbove?.length ?? 0) > 0 || !!f.tableAbove || f.boxesPerLine !== undefined || f.boxTable !== undefined;
+
+/**
+ * A BOX IN ITS COLUMN OF THE LINE (REQUIREMENTS §111): the attributes that put it there among boxes
+ * standing a set number to a line (styles.css .sheet-boxes-paper [data-paper-column]); none for the rest.
+ */
+export function paperColumnProps(f: Pick<LogHeaderField, "paperColumn">): { "data-paper-column"?: string } {
+  return f.paperColumn && f.paperColumn > 1 ? { "data-paper-column": String(f.paperColumn) } : {};
+}
+
+/** A group's box drawn as a cell of the paper's table (under the table's words, not its own label): every box of a boxTable group but a corner box. */
+export const inBoxTable = (group: Pick<BoxGroup, "boxTable">, at: number): boolean => !!group.boxTable && !(group.boxTable.cornerBox && at === 0);
+
+/** The rows of the paper's table of boxes (boxTable): the boxes a row at a time, a row's spare cells empty. */
+export function boxTableRows<T>(table: NonNullable<LogHeaderField["boxTable"]>, boxes: T[]): (T | undefined)[][] {
+  const across = Math.max(1, table.columns.length);
+  const rows: (T | undefined)[][] = [];
+  for (let at = 0; at < boxes.length; at += across) {
+    rows.push(Array.from({ length: across }, (_, c) => boxes[at + c]));
+  }
+  return rows;
+}
 
 const groupsOf = { header: new WeakMap<LogSheetLayout, BoxGroup[]>(), footer: new WeakMap<LogSheetLayout, BoxGroup[]>() };
 
@@ -150,7 +180,8 @@ const groupsOf = { header: new WeakMap<LogSheetLayout, BoxGroup[]>(), footer: ne
  * lead group, drawn as they always were: above the grid as many to a line as the paper says
  * (headerColumns) or the screen holds, below it as the screen holds. A later group takes its first
  * box's boxesPerLine; without one, two to a line below the grid (the paper's two columns, F/MNT/08) and
- * as the lead group above it. Worked out once per layout.
+ * as the lead group above it. A group whose first box opens the paper's table (boxTable) is drawn as
+ * that table. Worked out once per layout.
  */
 export function boxGroups(layout: LogSheetLayout, area: "header" | "footer"): BoxGroup[] {
   const hit = groupsOf[area].get(layout);
@@ -164,7 +195,14 @@ export function boxGroups(layout: LogSheetLayout, area: "header" | "footer"): Bo
       const lead = !current && !startsBoxGroup(field);
       const table = field.tableAbove ? layout.referenceTables?.find((t) => t.title === field.tableAbove) : undefined;
       const perLine = lead ? (area === "header" ? layout.headerColumns : undefined) : (field.boxesPerLine ?? (area === "footer" ? 2 : layout.headerColumns));
-      current = { boxes: [], lead, lines: lead ? [] : (field.printedAbove ?? []), ...(table ? { table } : {}), ...(perLine ? { perLine } : {}) };
+      current = {
+        boxes: [],
+        lead,
+        lines: lead ? [] : (field.printedAbove ?? []),
+        ...(table ? { table } : {}),
+        ...(perLine ? { perLine } : {}),
+        ...(field.boxTable ? { boxTable: field.boxTable } : {}),
+      };
       groups.push(current);
     }
     current.boxes.push({ field, index });

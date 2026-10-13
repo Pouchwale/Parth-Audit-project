@@ -27,36 +27,42 @@ import { COMPANY } from "./masterData";
 //     above the grid  the letterhead's three lines under the company's name;
 //                     the certificate's own boxes three to a line (Production
 //                     Order No., Delivery No., COA Date :), Client Name, GP3
-//                     Code and the two Client Item Codes, Product Name, the
-//                     Specified Size block two to a line; then LABEL STOCK,
-//                     three to a line (Face Material, Adhesive, Release Liner)
-//                     on its four lines Required, Tested, Type Required,
-//                     Observed — the paper's small table, box for box.
-//     the grid        PRINTING, the colour table (below).
-//     below the grid  the rest of the PRINTING block two to a line; COATING;
-//                     FINISHING; then the printed TOLERANCE table, the two
-//                     bullet notes and the retest sentence with its date —
-//                     in that order, as printed (LogHeaderField printedAbove,
-//                     tableAbove, boxesPerLine: engine/paperLayout.ts).
+//                     Code and the two Client Item Codes, Product Name; the
+//                     Specified Size table ("Specified Size" over Length(mm)
+//                     and Width(mm), on Client's Specified Size and Tested
+//                     Size); then LABEL STOCK over its table, "Material" over
+//                     Face Material, Adhesive and Release Liner on the rows
+//                     Required, Tested, Type Required, Observed — box for box.
+//     the grid        PRINTING, the colour table, printed across (below).
+//     below the grid  the rest of the PRINTING block two to a line; COATING
+//                     over its table ("Coating Done :" in the corner, the
+//                     Minimum Gloss line under Aqueous, U.V, Lamination,
+//                     Achieved Gloss and Scuff Test); FINISHING; then the
+//                     printed TOLERANCE table, the two bullet notes and the
+//                     retest sentence with its date — in that order, as
+//                     printed (LogHeaderField printedAbove, tableAbove,
+//                     boxesPerLine, boxTable: engine/paperLayout.ts).
 //     at the foot     "THIS IS A SYSTEM GENERATED DOCUMENT.    IT DOES NOT
 //                     REQUIRE A SIGNATURE." and the corporate office (notesAtFoot).
-//   F/QC/07 (shrink sleeves)  the same, with SLEEVE FILM (Thickness(Microns),
-//                     Shrinkage Ratio (%), Type on Required and Tested) in place
-//                     of LABEL STOCK, its own FINISHING boxes, and its heat
-//                     sentence above the retest sentence.
+//   F/QC/07 (shrink sleeves)  the same, with Cut Length(mm) and Open Width(mm)
+//                     in its Specified Size table, SLEEVE FILM's table
+//                     (Thickness(Microns), Shrinkage Ratio (%), Type on Required
+//                     and Tested) in place of LABEL STOCK, its own FINISHING
+//                     boxes, and its heat sentence above the retest sentence.
 //   F/QC/25 (corrugated boxes)  printed as a numbered list of fourteen lines,
-//                     so that list IS the grid; its heading block above it, the
-//                     three boxes of its heading (Date:, OID :-, Job Code:) and
-//                     the two signatures side by side below.
+//                     so that list IS the grid; its heading block above it, its
+//                     "Date:" alone at the right, then OID :- and Job Code: side
+//                     by side; the two signatures side by side below.
 //
-// THE PRINTING BLOCK IS TURNED. The paper prints the ten colours as ten
-// columns numbered 1 to 10, with two rows under them — "Given By Client" and
-// "Color Shade Verified". A grid reads down the page, not across it, so each
-// colour is ONE LINE here: the printed number in a fixed "No. of Colors"
-// column and the two entries beside it, ten lines whether or not the job uses
-// ten colours, all three under the block's own heading PRINTING. Nothing is
-// added and nothing is dropped; only the direction of reading changes, and the
-// records already written keep their lines.
+// THE PRINTING BLOCK IS PRINTED ACROSS, AS THE PAPER PRINTS IT. The paper
+// prints the ten colours as ten columns numbered 1 to 10, with two rows under
+// them — "Given By Client" and "Color Shade Verified". The record keeps each
+// colour as ONE LINE (the printed number in a fixed "No. of Colors" column and
+// the two entries beside it, ten lines whether or not the job uses ten
+// colours), as it always has, so no record changes shape; the sheet and its
+// print turn it back across the page under the block's heading PRINTING
+// (gridAcross, REQUIREMENTS §111). Before 13-Oct-2026 the sheet drew it turned,
+// a colour to a line.
 //
 // F/QC/25's LINES ARE NOT THE RENDERER'S Sr. No. The certificate numbers its
 // lines 1 to 14 but breaks 7 into 7.1 TOP PAPER, 7.2 PLAIN PAPER and 7.3 FLUTE
@@ -123,6 +129,18 @@ const carried = (key: string, label: string, width = 170): LogHeaderField => ({
 });
 /** A box that starts a group of the paper's own (engine/paperLayout.ts boxGroups): its heading, and how many boxes stand to a line. */
 const startsGroup = (f: LogHeaderField, boxesPerLine: number, printedAbove?: string[]): LogHeaderField => ({ ...f, boxesPerLine, ...(printedAbove ? { printedAbove } : {}) });
+/** A box that opens a table of boxes the paper prints (boxTable): the table's headings, and the heading printed over it. */
+const opensTable = (f: LogHeaderField, boxTable: NonNullable<LogHeaderField["boxTable"]>, printedAbove?: string[]): LogHeaderField => ({
+  ...f,
+  boxTable,
+  ...(printedAbove ? { printedAbove } : {}),
+});
+/** COATING's table on both certificates: "Coating Done :" in its corner, then the Minimum Gloss line under its five headings. */
+const MIN_GLOSS_TABLE: NonNullable<LogHeaderField["boxTable"]> = {
+  cornerBox: true,
+  columns: ["Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+  rows: ["Minimum Gloss Required at 60°"],
+};
 
 /**
  * The retest sentence, "This material should be retested on 03/07/2022 before usage.", with the date
@@ -374,23 +392,32 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/06 — Certificate of Analysis [COA] For Label ----
   "qc-coa-label": {
     documentId: "qc-coa-label",
-    // The certificate prints its own numbers 1 to 10 over the colour table (REQUIREMENTS §102).
+    // The certificate prints its own numbers 1 to 10 over the colour table (REQUIREMENTS §102),
+    // across the page, a colour to a column (gridAcross, §111).
     ownLineNumbers: true,
+    gridAcross: true,
     instructions: COA_LETTERHEAD,
     // Production Order No., Delivery No. and COA Date : on the paper's first line.
     headerColumns: 3,
     headerFields: [
       ...certificateHead(),
-      // "Specified Size" over "Length(mm)" and "Width(mm)", on Client's Specified Size and Tested Size.
-      startsGroup(carried("specifiedLength", "Client's Specified Size Length(mm)", 190), 2, ["Specified Size"]),
+      // The paper's table: "Specified Size" over "Length(mm)" and "Width(mm)", on Client's Specified Size and Tested Size.
+      opensTable(carried("specifiedLength", "Client's Specified Size Length(mm)", 190), {
+        corner: "Specified Size",
+        columns: ["Length(mm)", "Width(mm)"],
+        rows: ["Client's Specified Size", "Tested Size"],
+      }),
       carried("specifiedWidth", "Client's Specified Size Width(mm)", 190),
       field("testedLength", "Tested Size Length(mm)", 180),
       field("testedWidth", "Tested Size Width(mm)", 180),
-      // LABEL STOCK — on the paper a small table read Material × Face Material
-      // / Adhesive / Release Liner; here one box per printed cell, three to a
-      // line, so the four lines Required / Tested / Type Required / Observed
-      // stand as the table's four rows.
-      startsGroup(carried("faceMaterialRequired", "Face Material — Required", 180), 3, ["LABEL STOCK"]),
+      // LABEL STOCK — the paper's table, Material × Face Material / Adhesive /
+      // Release Liner on its four rows Required / Tested / Type Required /
+      // Observed; one box per printed cell, each named by its column and row.
+      opensTable(
+        carried("faceMaterialRequired", "Face Material — Required", 180),
+        { corner: "Material", columns: ["Face Material", "Adhesive", "Release Liner"], rows: ["Required", "Tested", "Type Required", "Observed"] },
+        ["LABEL STOCK"]
+      ),
       carried("adhesiveRequired", "Adhesive — Required", 180),
       carried("releaseLinerRequired", "Release Liner — Required", 180),
       field("faceMaterialTested", "Face Material — Tested", 180),
@@ -408,8 +435,9 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     footerFields: [
       // The rest of the PRINTING block, printed under the colour table.
       ...printingBelowTable("Text  Matter Verification With Specified Art Work"), // the paper's own double space in "Text  Matter"
-      // COATING: "Coating Done :" and the Minimum Gloss Required at 60° under Aqueous, U.V and Lamination, then Achieved Gloss and Scuff Test.
-      startsGroup(field("coatingDone", "Coating Done :", 180), 3, ["COATING"]), // the paper's own spaced colon
+      // COATING, the paper's table: "Coating Done :" in its corner (the paper's own spaced colon), then the
+      // Minimum Gloss Required at 60° under Aqueous, U.V and Lamination, with Achieved Gloss and Scuff Test.
+      opensTable(field("coatingDone", "Coating Done :", 180), MIN_GLOSS_TABLE, ["COATING"]),
       carried("minGlossAqueous", "Minimum Gloss Required at 60° — Aqueous", 190),
       carried("minGlossUv", "Minimum Gloss Required at 60° — U.V", 190),
       carried("minGlossLamination", "Minimum Gloss Required at 60° — Lamination", 190),
@@ -447,19 +475,29 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/07 — Certificate of Analysis [COA] For Shrink Sleeves ----
   "qc-coa-sleeve": {
     documentId: "qc-coa-sleeve",
-    // The certificate prints its own numbers 1 to 10 over the colour table (REQUIREMENTS §102).
+    // The certificate prints its own numbers 1 to 10 over the colour table (REQUIREMENTS §102),
+    // across the page, a colour to a column (gridAcross, §111).
     ownLineNumbers: true,
+    gridAcross: true,
     instructions: COA_LETTERHEAD,
     headerColumns: 3,
     headerFields: [
       ...certificateHead(),
-      // "Specified Size" over "Cut Length(mm)" and "Open Width(mm)", on Client's Specified Size and Tested Size.
-      startsGroup(carried("specifiedCutLength", "Client's Specified Size Cut Length(mm)", 200), 2, ["Specified Size"]),
+      // The paper's table: "Specified Size" over "Cut Length(mm)" and "Open Width(mm)", on Client's Specified Size and Tested Size.
+      opensTable(carried("specifiedCutLength", "Client's Specified Size Cut Length(mm)", 200), {
+        corner: "Specified Size",
+        columns: ["Cut Length(mm)", "Open Width(mm)"],
+        rows: ["Client's Specified Size", "Tested Size"],
+      }),
       carried("specifiedOpenWidth", "Client's Specified Size Open Width(mm)", 200),
       field("testedCutLength", "Tested Size Cut Length(mm)", 190),
       field("testedOpenWidth", "Tested Size Open Width(mm)", 190),
-      // SLEEVE FILM — Material × Thickness(Microns) / Shrinkage Ratio (%) / Type, on Required and Tested.
-      startsGroup(carried("thicknessRequired", "Thickness(Microns) Required", 190), 3, ["SLEEVE FILM"]),
+      // SLEEVE FILM — the paper's table, Material × Thickness(Microns) / Shrinkage Ratio (%) / Type, on Required and Tested.
+      opensTable(
+        carried("thicknessRequired", "Thickness(Microns) Required", 190),
+        { corner: "Material", columns: ["Thickness(Microns)", "Shrinkage Ratio (%)", "Type"], rows: ["Required", "Tested"] },
+        ["SLEEVE FILM"]
+      ),
       carried("shrinkageRatioRequired", "Shrinkage Ratio (%) Required", 190),
       carried("typeRequired", "Type Required", 320),
       field("thicknessTested", "Thickness(Microns) Tested", 190),
@@ -471,8 +509,8 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     footerFields: [
       // The rest of the PRINTING block, printed under the colour table.
       ...printingBelowTable("Text  Matter Verification"), // the paper's own double space in "Text  Matter"
-      // COATING, as on the label certificate: the three under "Minimum Gloss Required at 60°".
-      startsGroup(field("coatingDone", "Coating Done :", 180), 3, ["COATING"]), // the paper's own spaced colon
+      // COATING, the paper's table as on the label certificate: "Coating Done :" in its corner, the Minimum Gloss line under it.
+      opensTable(field("coatingDone", "Coating Done :", 180), MIN_GLOSS_TABLE, ["COATING"]),
       carried("aqueous", "Minimum Gloss Required at 60° — Aqueous", 190),
       carried("uv", "Minimum Gloss Required at 60° — U.V", 190),
       carried("lamination", "Minimum Gloss Required at 60° — Lamination", 190),
@@ -512,8 +550,10 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     documentId: "qc-coa-corrugated",
     ownLineNumbers: true,
     instructions: CORRUGATED_HEADING,
+    // "Date:" alone at the right above the grid, then OID :- and Job Code: side by side on the grid's top line.
+    headerColumns: 2,
     headerFields: [
-      { key: "date", label: "Date:", type: "date", width: 150 }, // "Date:" as printed, above the grid's right-hand end
+      { key: "date", label: "Date:", type: "date", width: 150, paperColumn: 2 }, // "Date:" as printed, above the grid's right-hand end
       { key: "oid", label: "OID :-", type: "text", width: 160 }, // the paper's own "OID :-"
       { key: "jobCode", label: "Job Code:", type: "text", width: 160, autoFill: { carryForward: true } },
     ],

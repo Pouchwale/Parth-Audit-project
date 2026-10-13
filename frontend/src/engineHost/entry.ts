@@ -738,6 +738,8 @@ const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
     // The paper's own words (§111): the heading it prints ("" for none) and the lines it prints above a box's group.
     ...(f.printedLabel !== undefined ? { printedLabel: f.printedLabel } : {}),
     ...((f as LogHeaderField).printedAbove?.length ? { printedAbove: (f as LogHeaderField).printedAbove } : {}),
+    // The table of boxes the paper prints from this box on (a certificate's LABEL STOCK): its headings.
+    ...((f as LogHeaderField).boxTable ? { boxTable: (f as LogHeaderField).boxTable } : {}),
   };
 };
 
@@ -767,6 +769,8 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         ...(l.secondLine ? { secondLine: l.secondLine } : {}),
         ...(l.notesBelow?.length ? { notesBelow: l.notesBelow } : {}),
         ...(l.notesAtFoot?.length ? { notesAtFoot: l.notesAtFoot } : {}),
+        // The grid printed across (a certificate's PRINTING): the lines are still the rows a patch names.
+        ...(l.gridAcross ? { gridAcross: true } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),

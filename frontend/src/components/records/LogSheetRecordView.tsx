@@ -41,7 +41,8 @@ import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
 import { bindProps, effectiveColumn, logCellBind, logColumnBind, logHeaderBind, logRowName } from "../../engine/roundTrip/bindingsFor";
-import { boxGroups, columnHeading, gridLines, isPrintedBox, placedTables, srNoText, type BoxGroup, type GridLines } from "../../engine/paperLayout";
+import { boxGroups, columnHeading, gridLines, inBoxTable, isPrintedBox, paperColumnProps, placedTables, srNoText, type BoxGroup, type GridLines } from "../../engine/paperLayout";
+import { BoxTable } from "./BoxTable";
 import { NotesBelow } from "./NotesBelow";
 import { PrintedTable } from "./PrintedTable";
 
@@ -281,7 +282,8 @@ export function LogSheetRecordView({
   handlers.current = { setCell, setHeader, fillFromName, fillFromMachine, removeRow };
 
   // One box above the grid: a person's or a machine's box offers the people or the machines it can be filled from.
-  const headerBox = (f: LogHeaderField, fi: number) => {
+  // `inTable`: a cell of the paper's table of boxes (boxTable, REQUIREMENTS §111), headed by the table's words.
+  const headerBox = (f: LogHeaderField, fi: number, inTable = false) => {
     const personBox = fetching && link?.where === "header" && link.nameField === f.key;
     const machineList = machineHeaderList(f.key);
     const machineIdBox = eqFetching && eqLink?.where === "header" && eqLink.idField === f.key;
@@ -296,11 +298,12 @@ export function LogSheetRecordView({
         employees={employeeNames}
         list={personBox ? "hr-master-people" : machineList !== undefined ? machineList : (lists?.[f.key] ?? f.list)}
         onBoxBlur={personBox ? onPersonBlur : machineIdBox ? onMachineBlur : undefined}
+        inTable={inTable}
       />
     );
   };
   // One box below the grid.
-  const footerBox = (f: LogHeaderField, fi: number) => (
+  const footerBox = (f: LogHeaderField, fi: number, inTable = false) => (
     <SheetBox
       key={f.key}
       field={f}
@@ -310,6 +313,7 @@ export function LogSheetRecordView({
       onBox={onBox}
       employees={employeeNames}
       list={lists?.[f.key] ?? f.list}
+      inTable={inTable}
     />
   );
   // The printed tables offered behind "Show" above the sheet: all but those the paper prints in a place of their
@@ -415,7 +419,8 @@ export function LogSheetRecordView({
             ))}
             {/* As many boxes to a line as the paper draws, where it says (F/QC/12's three rows of three,
                 REQUIREMENTS §111); otherwise as many as the screen holds. A phone takes them one under another
-                (styles.css). A group the paper heads (F/QC/06's LABEL STOCK) is drawn under its heading. */}
+                (styles.css). A group the paper heads (F/QC/06's LABEL STOCK) is drawn under its heading, and
+                one the paper prints as a table (its LABEL STOCK, Material × Face Material ...) as that table. */}
             {boxGroups(layout, "header").map((group, gi) =>
               group.lead ? (
                 <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={layout.instructions?.length || topTables.length ? "mt-3" : ""}>
@@ -423,7 +428,7 @@ export function LogSheetRecordView({
                 </BoxLine>
               ) : (
                 <PrintedGroup key={gi} area="header" group={group} className={gi > 0 || layout.instructions?.length || topTables.length ? "mt-3" : ""}>
-                  {group.boxes.map(({ field, index }) => headerBox(field, index))}
+                  {group.boxes.map(({ field, index }, bi) => headerBox(field, index, inBoxTable(group, bi)))}
                 </PrintedGroup>
               )
             )}
@@ -446,7 +451,23 @@ export function LogSheetRecordView({
         </div>
       )}
 
-      {hasGrid && (
+      {/* THE GRID PRINTED ACROSS (REQUIREMENTS §111): a certificate's PRINTING numbers its colours 1 to 10
+          across the page, with Given By Client and Color Shade Verified on the lines under them. */}
+      {hasGrid && layout.gridAcross && (
+        <AcrossGrid
+          columns={lines.first}
+          issuedColumns={issuedFirst}
+          rows={data.rows}
+          fixedRows={mode.kind === "fixedRows" ? mode.rows : undefined}
+          editable={editable}
+          lang={lang}
+          employees={employeeNames}
+          lists={lists}
+          onCell={onCell}
+        />
+      )}
+
+      {hasGrid && !layout.gridAcross && (
       <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
         <table className={editable ? "compact log-sheet is-editing" : "compact log-sheet"} {...gridBind}>
           <thead>
@@ -548,7 +569,7 @@ export function LogSheetRecordView({
                 </BoxLine>
               ) : (
                 <PrintedGroup key={gi} area="footer" group={group} className={gi > 0 ? "mt-3" : ""}>
-                  {group.boxes.map(({ field, index }) => footerBox(field, index))}
+                  {group.boxes.map(({ field, index }, bi) => footerBox(field, index, inBoxTable(group, bi)))}
                 </PrintedGroup>
               )
             )}
@@ -780,7 +801,8 @@ function BoxLine({ group, minWidth, section, className, children }: { group: Box
 /**
  * A GROUP OF BOXES UNDER WHAT THE PAPER PRINTS ABOVE IT (REQUIREMENTS §93, §111): its printed table, open
  * (the certificates' TOLERANCE), the lines printed across the sheet (F/MNT/08's declaration, a certificate's
- * LABEL STOCK, COATING, FINISHING, its notes), then its boxes.
+ * LABEL STOCK, COATING, FINISHING, its notes), then its boxes — as the paper's table where it prints them as
+ * one (boxTable: a certificate's Specified Size, LABEL STOCK, SLEEVE FILM and Minimum Gloss line).
  */
 function PrintedGroup({ area, group, className, children }: { area: "header" | "footer"; group: BoxGroup; className?: string; children: React.ReactNode }) {
   return (
@@ -791,9 +813,86 @@ function PrintedGroup({ area, group, className, children }: { area: "header" | "
           {line}
         </p>
       ))}
-      <BoxLine group={group} minWidth={area === "header" ? 200 : 220}>
-        {children}
-      </BoxLine>
+      {group.boxTable ? (
+        <BoxTable table={group.boxTable} cells={React.Children.toArray(children)} />
+      ) : (
+        <BoxLine group={group} minWidth={area === "header" ? 200 : 220}>
+          {children}
+        </BoxLine>
+      )}
+    </div>
+  );
+}
+
+/**
+ * THE GRID PRINTED ACROSS THE PAGE (REQUIREMENTS §111): each line of the record is a column and each
+ * column a line, as F/QC/06 and F/QC/07 print their PRINTING table — "No. of Colors" over 1 to 10, then
+ * Given By Client and Color Shade Verified. The cells are the record's own (the same binding, the same
+ * words for a printed cell, the same highlight out of band), so what is written, checked, downloaded and
+ * read back is as on any grid. The spanning heading the columns share (PRINTING) heads the table.
+ */
+function AcrossGrid({
+  columns,
+  issuedColumns,
+  rows,
+  fixedRows,
+  editable,
+  lang,
+  employees,
+  lists,
+  onCell,
+}: {
+  columns: LogColumn[];
+  issuedColumns: LogColumn[] | undefined;
+  rows: LogSheetRow[];
+  fixedRows: Record<string, string | number | null>[] | undefined;
+  editable: boolean;
+  lang: Parameters<typeof documentTextIn>[1];
+  employees: string[];
+  lists?: Record<string, string>;
+  onCell: (rowId: string, key: string, value: string | number | null) => void;
+}) {
+  const shared = columns.length > 0 && columns.every((c) => c.group !== undefined && c.group === columns[0].group) ? columns[0].group : undefined;
+  return (
+    <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
+      <table className={editable ? "compact log-sheet log-sheet-across is-editing" : "compact log-sheet log-sheet-across"} data-across="">
+        {shared && (
+          <thead>
+            <tr>
+              <th className="col-group" colSpan={rows.length + 1}>
+                {shared}
+              </th>
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {columns.map((c, ci) => (
+            <tr key={c.key} data-column={c.key}>
+              <th scope="row" className="log-sheet-across-head">
+                {columnHeading(c)}
+              </th>
+              {rows.map((row, i) => {
+                const col = effectiveColumn(c, fixedRows?.[i]);
+                return (
+                  <td key={row.id} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
+                    <CellInput
+                      col={col}
+                      bind={bindProps(logCellBind(row, i, col, logRowName(row, columns)))}
+                      issuedLabel={issuedColumns?.[ci]?.label ?? c.label}
+                      // A printed cell (the colour's number) reads in the chosen language; a written one as it was written.
+                      value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
+                      editable={editable && !col.fixed && !col.computed}
+                      onChange={(v) => onCell(row.id, c.key, v)}
+                      employees={employees}
+                      list={lists?.[c.key] ?? c.list}
+                    />
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -959,6 +1058,7 @@ const SheetBox = React.memo(function SheetBox({
   employees,
   list,
   onBoxBlur,
+  inTable,
 }: {
   field: LogHeaderField;
   issuedLabel: string;
@@ -969,6 +1069,8 @@ const SheetBox = React.memo(function SheetBox({
   list?: string;
   /** The person or machine fetch a box offers when it is left (REQUIREMENTS §53, §74); called with no line. */
   onBoxBlur?: (rowId: string | null, value: string) => void;
+  /** A cell of the paper's table of boxes (boxTable, REQUIREMENTS §111). */
+  inTable?: boolean;
 }) {
   return (
     <HeaderFieldInput
@@ -980,6 +1082,7 @@ const SheetBox = React.memo(function SheetBox({
       employees={employees}
       list={list}
       onBlur={onBoxBlur ? (v) => onBoxBlur(null, v) : undefined}
+      inTable={inTable}
     />
   );
 });
@@ -993,6 +1096,7 @@ function HeaderFieldInput({
   employees,
   list,
   onBlur,
+  inTable = false,
 }: {
   field: LogHeaderField;
   /** The label AS ISSUED — which boxes offer the employee list cannot depend on the language being read (REQUIREMENTS §58). */
@@ -1004,7 +1108,24 @@ function HeaderFieldInput({
   /** A suggestion list of its own (HR Master Data's people), in place of the employees. */
   list?: string;
   onBlur?: (v: string) => void;
+  /** A cell of the paper's table of boxes (boxTable, REQUIREMENTS §111): the table's words head it. */
+  inTable?: boolean;
 }) {
+  // A CELL OF THE PAPER'S TABLE OF BOXES (REQUIREMENTS §111) — F/QC/06's LABEL STOCK — is headed by the
+  // table's own words, so it draws no label of its own: its name is what a screen reader says. Every other
+  // box stands under its label, in its column of the line where the paper puts it there (paperColumn).
+  const named = inTable ? { "aria-label": field.label } : {};
+  const box = (className: string, label: React.ReactNode, body: React.ReactNode) =>
+    inTable ? (
+      <div className={`${className} field-in-table`} data-box={field.key}>
+        {body}
+      </div>
+    ) : (
+      <div className={className} {...paperColumnProps(field)}>
+        {label}
+        {body}
+      </div>
+    );
   // A box that names a PERSON offers the employee names. "Machine Name:",
   // "Name of Equipment:" and "EQUIPMENT NAME" name a machine (REQUIREMENTS §74),
   // and offering them the people on the payroll put a person's name one tap
@@ -1020,78 +1141,70 @@ function HeaderFieldInput({
   // paper prints it, as text, and is never typed into (REQUIREMENTS §111). What a record holds there is
   // the same words (engine/paperLayout.ts), so nothing is bound.
   if (isPrintedBox(field)) {
-    return (
-      <div className="field">
-        <label>{field.printedLabel ?? field.label}</label>
-        <span className="cell-text notranslate" translate="no" data-printed={field.key}>
-          {field.printed}
-        </span>
-      </div>
+    return box(
+      "field",
+      <label>{field.printedLabel ?? field.label}</label>,
+      <span className="cell-text notranslate" translate="no" data-printed={field.key}>
+        {field.printed}
+      </span>
     );
   }
   // A box WORKED OUT from the sheet — F/MKT/02's totals and its % Satisfaction
   // Index (REQUIREMENTS §77) — reads as text, as a worked-out cell does.
   if (field.computed) {
-    return (
-      <div className="field">
-        <label>{field.printedLabel ?? field.label}</label>
-        <span className="cell-text notranslate" translate="no" data-computed={field.key}>
-          {value}
-        </span>
-      </div>
+    return box(
+      "field",
+      <label>{field.printedLabel ?? field.label}</label>,
+      <span className="cell-text notranslate" translate="no" data-computed={field.key}>
+        {value}
+      </span>
     );
   }
+  const label = (
+    <label>
+      {field.printedLabel ?? field.label}
+      {field.required ? " *" : ""}
+    </label>
+  );
   // A block of prose is its own kind of box: it takes the width of the row it
   // sits in and grows with what is written (REQUIREMENTS §68).
   if (field.type === "paragraph") {
-    return (
-      <div className="field field-paragraph">
-        <label>
-          {field.printedLabel ?? field.label}
-          {field.required ? " *" : ""}
-        </label>
-        <ParagraphInput value={value} editable={editable} onChange={onChange} bind={bound} />
-      </div>
-    );
+    return box("field field-paragraph", label, <ParagraphInput value={value} editable={editable} onChange={onChange} bind={bound} />);
   }
-  return (
-    <div className="field">
-      <label>
-        {field.printedLabel ?? field.label}
-        {field.required ? " *" : ""}
-      </label>
-      {/* A BOX THE FORM PRINTS AS A CHOICE is offered as one, and "yesno"
-          means the same thing here as it does in the grid above: the two
-          answers, without them having to be written out in the layout. It did
-          not, and so F/PUR/01's "DO YOU HOLD ISO 9001 ... CERTIFICATION:"
-          asked a yes-or-no question and gave a free text box to answer it
-          (REQUIREMENTS §68, found while adding F/STR/01 in §71, whose stamp is
-          seven such questions). */}
-      {field.type === "select" || field.type === "yesno" ? (
-        <select className="input input-sm" {...bound} data-empty={value ? undefined : ""} disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Select…</option>
-          {(field.type === "yesno" ? ["Yes", "No"] : (field.options ?? [])).map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          className="input input-sm"
-          {...bound}
-          type={field.type === "date" ? "date" : field.type === "time" ? "time" : "text"}
-          // An empty date or time box prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111, styles.css).
-          data-empty={value ? undefined : ""}
-          list={list ?? (isName ? "log-sheet-employees" : undefined)}
-          disabled={!editable}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
-        />
-      )}
-      {isName && employees.length === 0 ? null : null}
-    </div>
+  // A BOX THE FORM PRINTS AS A CHOICE is offered as one, and "yesno"
+  // means the same thing here as it does in the grid above: the two
+  // answers, without them having to be written out in the layout. It did
+  // not, and so F/PUR/01's "DO YOU HOLD ISO 9001 ... CERTIFICATION:"
+  // asked a yes-or-no question and gave a free text box to answer it
+  // (REQUIREMENTS §68, found while adding F/STR/01 in §71, whose stamp is
+  // seven such questions).
+  return box(
+    "field",
+    label,
+    field.type === "select" || field.type === "yesno" ? (
+      <select className="input input-sm" {...bound} {...named} data-empty={value ? undefined : ""} disabled={!editable} value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Select…</option>
+        {(field.type === "yesno" ? ["Yes", "No"] : (field.options ?? [])).map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <input
+        className="input input-sm"
+        {...bound}
+        {...named}
+        type={field.type === "date" ? "date" : field.type === "time" ? "time" : "text"}
+        // An empty date or time box prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111, styles.css).
+        data-empty={value ? undefined : ""}
+        list={list ?? (isName ? "log-sheet-employees" : undefined)}
+        disabled={!editable}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
+      />
+    )
   );
 }
 

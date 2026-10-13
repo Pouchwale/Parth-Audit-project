@@ -81,8 +81,8 @@ import type { LogColumn, LogHeaderField, LogRowMode, LogSheetLayout } from "../.
 // against its original line by line, and three things moved to the paper's
 // places: the header box stands two boxes to a line, read across as the paper
 // reads it (Supplier Name beside Report number, Product Description beside SAP
-// Batch number, GRN Qty. beside GRN number, then Date of Inspection; the fourth
-// line's left-hand cell is printed empty and is not drawn); below the grid the
+// Batch number, GRN Qty. beside GRN number, then Date of Inspection in the right-hand
+// column of the fourth line, whose left-hand cells are printed empty); below the grid the
 // LOT STATUS and the REASON each take a line and the two signatures stand side
 // by side; and F/QC/21 FLEXO INK's "This is a system generated document ..."
 // is printed at the foot, under everything, where the paper prints it. Nothing
@@ -102,7 +102,8 @@ const incomingHeader = (batchLabel = "SAP Batch number"): LogHeaderField[] => [
   { key: "batchNumber", label: batchLabel, type: "text", width: 170 },
   { key: "grnQty", label: "GRN Qty.", type: "text", width: 140 },
   { key: "grnNumber", label: "GRN number", type: "text", width: 160 },
-  { key: "dateOfInspection", label: "Date of Inspection", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
+  // In the right-hand column of the fourth line, the left-hand cells printed empty (paperColumn, REQUIREMENTS §111).
+  { key: "dateOfInspection", label: "Date of Inspection", type: "date", required: true, width: 150, autoFill: { dueDate: true }, paperColumn: 2 },
 ];
 
 /** The paper's header box is two boxes to a line (REQUIREMENTS §111). */

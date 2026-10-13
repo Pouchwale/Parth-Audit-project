@@ -322,7 +322,8 @@ Object.assign(LOG_SHEET_LAYOUTS, {
       { key: "substrate1", label: "1st SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true } },
       // The two spaces after "2nd" are the paper's own.
       { key: "substrate2", label: "2nd  SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true } },
-      { key: "pass", label: "1st Pass / 2nd Pass / 3rd Pass", type: "select", options: ["1st Pass", "2nd Pass", "3rd Pass"], required: true, autoFill: { default: "1st Pass" } },
+      // The header box's last line is this box alone, its answer the width of the sheet (REQUIREMENTS §111).
+      { key: "pass", label: "1st Pass / 2nd Pass / 3rd Pass", type: "select", options: ["1st Pass", "2nd Pass", "3rd Pass"], required: true, autoFill: { default: "1st Pass" }, boxesPerLine: 1 },
     ],
     columns: [
       { key: "parameter", label: "TEST PARAMETERS", type: "text", fixed: true, width: 300 },
@@ -543,7 +544,8 @@ export function getLogSheetLayout(documentId: string): LogSheetLayout | undefine
 // plant changed before 13-Oct-2026 was stored whole, with DCRS's explanations above its grid and
 // none of what the paper does that a layout could not say then: a box it prints the value of, the
 // date in its Sr. No., an entry of two lines, its text below the grid and at its foot, its boxes in
-// the paper's groups under the lines and tables printed above them, a heading it leaves out. Such a
+// the paper's groups under the lines and tables printed above them, a heading it leaves out, a box
+// in its column of the line, boxes printed as a table, a grid printed across. Such a
 // layout (one that says none of those) takes them from the issued one, box by box and column by
 // column where the key is still there, and loses the explanation lines §111 took off the issued
 // layouts (and the paper's own lines §111 moved below the grid or to the foot, which would print twice). A format edited
@@ -578,7 +580,8 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
   const boxes = [...edited.headerFields, ...(edited.footerFields ?? [])];
   const saysPaper =
     edited.srNoShowsDate !== undefined || edited.secondLine !== undefined || edited.notesBelow !== undefined || edited.headerColumns !== undefined ||
-    edited.notesAtFoot !== undefined || boxes.some((f) => f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined) ||
+    edited.notesAtFoot !== undefined || edited.gridAcross !== undefined ||
+    boxes.some((f) => f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined || f.paperColumn !== undefined || f.boxTable !== undefined) ||
     edited.columns.some((c) => c.beneath !== undefined || c.printedLabel !== undefined);
   if (issued && !saysPaper) {
     const issuedBoxes = new Map([...issued.headerFields, ...(issued.footerFields ?? [])].map((f) => [f.key, f]));
@@ -592,6 +595,8 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       if (own.printed !== undefined) paper.printed = own.printed;
       if (own.tableAbove !== undefined) paper.tableAbove = own.tableAbove;
       if (own.boxesPerLine !== undefined) paper.boxesPerLine = own.boxesPerLine;
+      if (own.paperColumn !== undefined) paper.paperColumn = own.paperColumn;
+      if (own.boxTable !== undefined) paper.boxTable = own.boxTable;
       if (own.printedAbove !== undefined && f.printedAbove === undefined) paper.printedAbove = own.printedAbove;
       if (own.printedLabel !== undefined && f.printedLabel === undefined) paper.printedLabel = own.printedLabel;
       return Object.keys(paper).length === 0 ? f : { ...f, ...paper };
@@ -605,6 +610,7 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       ...(issued.notesBelow ? { notesBelow: issued.notesBelow } : {}),
       ...(issued.notesAtFoot ? { notesAtFoot: issued.notesAtFoot } : {}),
       ...(issued.headerColumns ? { headerColumns: issued.headerColumns } : {}),
+      ...(issued.gridAcross ? { gridAcross: issued.gridAcross } : {}),
       instructions: instructions && instructions.length > 0 ? instructions : undefined,
       headerFields: edited.headerFields.map(box),
       footerFields: edited.footerFields?.map(box),

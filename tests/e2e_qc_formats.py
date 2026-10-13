@@ -248,6 +248,74 @@ DCRS_WORDS = [
     "Sample mounted",
 ]
 PREVIEW = "[data-section='document-preview']"
+# A table's rows as the page shows them: each cell's words, a box's label then what the box holds (s111).
+TABLE_WORDS = """t => Array.from(t.rows).map((r) => Array.from(r.cells).map((c) => {
+  const box = c.querySelector('input, select');
+  const label = c.querySelector('label');
+  const words = label ? label.textContent.trim() : (box ? '' : c.textContent.trim());
+  return [words, box ? box.value : ''].filter(Boolean).join(' ');
+}))"""
+# The certificates' tables, as the supplied certificates of 04/01/2022 (label) and production order 33814 (sleeve) print them.
+COA_TABLES = {
+    "F-QC-06": [
+        [["Specified Size", "Length(mm)", "Width(mm)"], ["Client's Specified Size", "70", "115"], ["Tested Size", "70", "115"]],
+        [
+            ["Material", "Face Material", "Adhesive", "Release Liner"],
+            ["Required", "80 GSM /Microns", "27 GSM", "60 GSM"],
+            ["Tested", "80 GSM/Microns", "26 GSM", "59 GSM"],
+            ["Type Required", "Chromo", "HotMelt", "Glassine"],
+            ["Observed", "Chromo", "Rubber Based (Hot Melt)", "Glassine Paper"],
+        ],
+        [
+            ["Coating Done : Gloss UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+            ["Minimum Gloss Required at 60°", "35%", "72%", "75%", "84.00%", "2 lbs, 100 rounds Okay"],
+        ],
+    ],
+    "F-QC-07": [
+        [["Specified Size", "Cut Length(mm)", "Open Width(mm)"], ["Client's Specified Size", "152.40", "168.00"], ["Tested Size", "152", "168"]],
+        [
+            ["Material", "Thickness(Microns)", "Shrinkage Ratio (%)", "Type"],
+            ["Required", "40", "50", "Centroiid Plastopack PVC Blown 40 mic 200 mm"],
+            ["Tested", "40", "49", "PVC Blown"],
+        ],
+        [
+            ["Coating Done : Matt UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+            ["Minimum Gloss Required at 60°", "35%", "72%", "75%", "50%", "2 lbs, 100 rounds Okay"],
+        ],
+    ],
+}
+COA_PRINTING = {
+    "F-QC-06": [
+        ["PRINTING"],
+        ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+        ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Blue", "P.151C", "", "", "", ""],
+        ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "OK", "", "", "", ""],
+    ],
+    "F-QC-07": [
+        ["PRINTING"],
+        ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+        ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Gold", "", "", "", "", ""],
+        ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "", "", "", "", ""],
+    ],
+}
+# Whether the box holding `label` stands in the right-hand column of its line, under the box `under`, and below `above`.
+AT_THE_RIGHT = """([label, under, above]) => {
+  const boxes = Array.from(document.querySelectorAll("[data-section='document-preview'] .field, [data-print-doc] .field"));
+  const named = (w) => boxes.find((b) => (b.querySelector(':scope > label') || {}).textContent?.replace(/\\s*\\*$/, '').trim() === w);
+  const box = named(label), top = named(under), before = named(above);
+  if (!box || !top || !before) return false;
+  const a = box.getBoundingClientRect(), b = top.getBoundingClientRect(), c = before.getBoundingClientRect();
+  return Math.abs(a.left - b.left) < 2 && a.top > c.top + 4 && a.left > c.left + 40;
+}"""
+# F/QC/25: "Date:" alone at the right, OID :- and Job Code: side by side on the line under it.
+DATE_ALONE = """() => {
+  const boxes = Array.from(document.querySelectorAll("[data-print-doc] .field"));
+  const named = (w) => boxes.find((b) => (b.querySelector(':scope > label') || {}).textContent?.trim() === w);
+  const date = named('Date:'), oid = named('OID :-'), job = named('Job Code:');
+  if (!date || !oid || !job) return false;
+  const d = date.getBoundingClientRect(), o = oid.getBoundingClientRect(), j = job.getBoundingClientRect();
+  return Math.abs(d.left - j.left) < 2 && d.top + 4 < o.top && Math.abs(o.top - j.top) < 2 && o.left + 40 < j.left;
+}"""
 
 
 def check(label, cond, detail=None):
@@ -1023,6 +1091,10 @@ with sync_playwright() as p:
             and not any(w in written for w in DCRS_WORDS),
             (heads, labels, boxes),
         )
+        check(
+            f"{fmt}: ...Date of Inspection in the right-hand column of the fourth line, under GRN number, as printed",
+            page.evaluate(AT_THE_RIGHT, ["Date of Inspection", "Report number", "GRN Qty."]),
+        )
     groups = page.locator(f"{PREVIEW} [data-section='printed-group'][data-area='footer']").evaluate_all(
         "els => els.map((g) => Array.from(g.querySelectorAll('.field > label')).map((l) => l.textContent.trim()))"
     )
@@ -1064,6 +1136,12 @@ with sync_playwright() as p:
         and page.locator(f"{PREVIEW} [data-section='sheet-boxes'].sheet-boxes-paper").count() == 1,
         labels,
     )
+    widths = page.evaluate(
+        """() => ['JOB CODE (FG CODE)', '1st Pass / 2nd Pass / 3rd Pass'].map((w) => {
+             const b = Array.from(document.querySelectorAll("[data-section='document-preview'] .field")).find((f) => (f.querySelector(':scope > label') || {}).textContent?.replace(/\\s*\\*$/, '').trim() === w);
+             return b ? Math.round(b.getBoundingClientRect().width) : 0; })"""
+    )
+    check("...the pass alone on the header box's last line, the width of the sheet", widths[0] > 0 and widths[1] > 1.8 * widths[0], widths)
 
     # The two certificates on file: every block in the paper's order, the TOLERANCE printed open.
     for rid, name, film in (("qc-coa-label-2022-01", "F-QC-06", "LABEL STOCK"), ("qc-coa-sleeve-2022-01", "F-QC-07", "SLEEVE FILM")):
@@ -1078,16 +1156,28 @@ with sync_playwright() as p:
             and page.locator("button:has-text('Show TOLERANCE')").count() == 0
             and not any(w in written for w in DCRS_WORDS),
         )
-        headings_now = doc.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-        check(f"{name}: ...the colour table under PRINTING, numbered 1 to 10 as printed, no Sr. No.", headings_now == ["PRINTING", "No. of Colors", "Given By Client", "Color Shade Verified"], headings_now)
+        tables = doc.locator("table[data-section='box-table']").evaluate_all(f"els => els.map({TABLE_WORDS})")
+        check(f"{name}: ...Specified Size, {film} and COATING drawn as the paper's tables, box for box (s111)", tables == COA_TABLES[name], tables)
+        printing = doc.locator("table[data-across]").evaluate_all(f"els => els.map({TABLE_WORDS})")
+        check(
+            f"{name}: ...the colour table printed across under PRINTING, numbered 1 to 10 as printed, no Sr. No.",
+            printing == [COA_PRINTING[name]] and doc.locator("table.log-sheet:not([data-across])").count() == 0 and "Sr. No." not in written,
+            printing,
+        )
         page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
         page.emulate_media(media="print")
         try:
-            shown = doc.locator("[data-section='printed-table'] table").first.is_visible() and doc.locator("[data-section='notes-at-foot']").first.is_visible()
+            shown = (
+                doc.locator("[data-section='printed-table'] table").first.is_visible()
+                and doc.locator("[data-section='notes-at-foot']").first.is_visible()
+                and doc.locator("table[data-across]").first.is_visible()
+                and doc.locator("table[data-section='box-table']").count() == 3
+                and all(doc.locator("table[data-section='box-table']").nth(i).is_visible() for i in range(3))
+            )
         finally:
             page.emulate_media(media="screen")
             page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
-        check(f"{name}: ...and both print", shown)
+        check(f"{name}: ...and all of them print", shown)
         shoot(page, name)
 
     # F/QC/25 and the tolerance card: the headings the paper prints, and none it does not.
@@ -1095,6 +1185,7 @@ with sync_playwright() as p:
     fill_with_sample_data(page)
     heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("F/QC/25: Sr.No., nothing over the descriptions and observations, Specified  GSM and Tested GSM under GSM", heads == ["Sr.No.", "", "", "GSM", "BF", "Grade of Paper", "Specified  GSM", "Tested GSM"], heads)
+    check("...its Date: alone at the right above the grid, OID :- and Job Code: side by side under it", page.evaluate(DATE_ALONE))
     shoot(page, "F-QC-25")
     rid = start_record(page, "qc-tolerance-card-nivea")
     heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
