@@ -184,8 +184,10 @@ test("a heading the paper leaves out is drawn empty, and the column keeps its na
   assert.equal(columnHeading(description), "");
   assert.equal(columnHeading(layout.columns[0]), "Sr.No.");
   const html = await sheet("qc-coa-corrugated");
+  // The grid's top line as the paper's (part 4): Sr.No., nothing over the printed words, then OID :- and Job Code:; GSM, BF
+  // and Grade of Paper are headed on line 7, where the paper prints them (qcPaperMarks.test.ts).
   // (The markup's text is read with its spaces run together; the paper's "Specified  GSM" keeps its two in the layout.)
-  assert.deepEqual(headings(html), ["Sr.No.", "", "", "GSM", "BF", "Grade of Paper", "Specified GSM", "Tested GSM"]);
+  assert.deepEqual(headings(html), ["Sr.No.", "", "OID :-", "Job Code:"]);
   assert.ok(html.includes(">Specified  GSM<"));
 });
 

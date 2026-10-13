@@ -8,7 +8,7 @@ import { FormatEditor } from "./FormatEditor";
 import { COMPANY } from "../../data/seed/masterData";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
-import { boxGroups, gridLines, isPrintedBox, paperColumnProps, placedTables } from "../../engine/paperLayout";
+import { answerAcrossOf, boxGroups, gridHeadBoxes, gridLines, isPrintedBox, paperColumnProps, placedTables } from "../../engine/paperLayout";
 import { BoxTable } from "../records/BoxTable";
 import { NotesBelow } from "../records/NotesBelow";
 import { PrintedTable } from "../records/PrintedTable";
@@ -802,6 +802,8 @@ export function SheetDesigner({
   // AN ENTRY OF TWO LINES (REQUIREMENTS §111): the columns the paper draws on an entry's second line
   // (F/QC/12's Deviation %) are named on that line, not in the heading, as on the record's sheet.
   const lines = gridLines(layout);
+  // One answer across the paper's columns (F/QC/25, REQUIREMENTS §111 part 4): said under the grid, drawn so on the record.
+  const answerAcross = answerAcrossOf(layout);
   const runs = headingRuns(lines.first);
   // Two heading rows where the paper draws a heading over a run of columns, one otherwise.
   const headRows = runs.some((r) => r.group !== undefined) ? 2 : 1;
@@ -1201,6 +1203,15 @@ export function SheetDesigner({
         {layout.gridAcross && columns.length > 0 && (
           <p className="text-xs text-muted mt-2 no-print" data-section="designer-across-note">
             Printed across, as the paper prints it: on a record each line above is a column and each column a line.
+          </p>
+        )}
+        {/* One answer across the paper's columns (F/QC/25, REQUIREMENTS §111 part 4): designed a column to a heading,
+            as every grid is, and drawn as the paper on the record. */}
+        {answerAcross && columns.length > 0 && (
+          <p className="text-xs text-muted mt-2 no-print" data-section="designer-answer-across-note">
+            Printed as the paper prints it: on a record “{answerAcross.answer.label}” is one box across {answerAcross.across.map((c) => c.label.replace(/\s+/g, " ")).join(", ")} on
+            every line but those written in them, whose headings stand on the line the paper prints them on
+            {gridHeadBoxes(layout).length > 0 ? `; ${gridHeadBoxes(layout).map((b) => b.field.label).join(" and ")} stand on the grid's top line` : ""}.
           </p>
         )}
         {/* The paper's own text below the grid, as issued (REQUIREMENTS §111). */}

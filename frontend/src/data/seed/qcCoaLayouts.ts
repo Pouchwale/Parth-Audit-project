@@ -81,10 +81,12 @@ import { COMPANY } from "./masterData";
 // F/QC/25's FOUR PAPER COLUMNS. Three of the fourteen lines (7.1, 7.2, 7.3)
 // carry four columns of their own — Specified  GSM / Tested GSM / BF / Grade of
 // Paper — where every other line carries a single Observation box spanning
-// them. A grid has one set of columns for all of its lines, so all five entry
-// columns are present on every line; on the paper's terms only Observation is
+// them. A record has one set of columns for all of its lines, so all five entry
+// columns are held on every line; on the paper's terms only Observation is
 // filled on the eleven ordinary lines and only the four paper columns on 7.1,
-// 7.2 and 7.3.
+// 7.2 and 7.3. Since part 4 the sheet draws them so (answerAcross): the one box
+// across the four on every other line, the four's headings on line 7 where the
+// paper prints them, and OID :- and Job Code: on the grid's top line.
 //
 // NEITHER COA IS SIGNED. Both certificates print "THIS IS A SYSTEM GENERATED
 // DOCUMENT.    IT DOES NOT REQUIRE A SIGNATURE.", so neither layout has a
@@ -587,11 +589,20 @@ export const QC_COA_LAYOUTS: Record<string, LogSheetLayout> = {
     headerFields: [
       // "Date:" as printed, above the grid's right-hand end — under the letterhead's three cells and the line under them.
       { key: "date", label: "Date:", type: "date", width: 150, paperColumn: 2, tableAbove: CORRUGATED_LETTERHEAD.title, printedAbove: [CORRUGATED_ANALYSIS_LINE] },
-      { key: "oid", label: "OID :-", type: "text", width: 160 }, // the paper's own "OID :-"
-      { key: "jobCode", label: "Job Code:", type: "text", width: 160, autoFill: { carryForward: true } },
+      // The paper's own "OID :-" and "Job Code:", printed on the grid's top line over the answers (part 4).
+      { key: "oid", label: "OID :-", type: "text", width: 160, inGridHead: true },
+      { key: "jobCode", label: "Job Code:", type: "text", width: 160, autoFill: { carryForward: true }, inGridHead: true },
     ],
     columns: CORRUGATED_COLUMNS,
     rowMode: { kind: "fixedRows", rows: CORRUGATED_LINES.map(([srNo, description]) => ({ srNo, description })) },
+    // One answer box a line across the paper's four columns, but on 7.1, 7.2 and 7.3, which are written in them;
+    // their headings printed on line 7, "Material Specification", not over the grid (part 4).
+    answerAcross: {
+      answer: "observation",
+      across: ["specifiedGsm", "testedGsm", "bf", "gradeOfPaper"],
+      headingLine: CORRUGATED_LINES.findIndex(([n]) => n === "7"),
+      lines: CORRUGATED_LINES.flatMap(([n], i) => (n.startsWith("7.") ? [i] : [])),
+    },
     referenceTables: [CORRUGATED_LETTERHEAD],
     footerFields: [
       // "Testing By" over "(QA Inspector)" on the left, "Sign By" over "(QA Manager)" on the right: the paper's words

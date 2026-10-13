@@ -609,10 +609,11 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
   const saysPaper =
     edited.srNoShowsDate !== undefined || edited.secondLine !== undefined || edited.notesBelow !== undefined || edited.headerColumns !== undefined ||
     edited.notesAtFoot !== undefined || edited.gridAcross !== undefined || edited.srNoFullStop !== undefined || edited.headingsAsPrinted !== undefined ||
+    edited.answerAcross !== undefined ||
     boxes.some(
       (f) =>
         f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined || f.paperColumn !== undefined || f.boxTable !== undefined ||
-        f.choicesAcross !== undefined || f.printedBelow !== undefined || f.inSentence !== undefined
+        f.choicesAcross !== undefined || f.printedBelow !== undefined || f.inSentence !== undefined || f.inGridHead !== undefined
     ) ||
     edited.columns.some((c) => c.beneath !== undefined || c.printedLabel !== undefined);
   if (issued && !saysPaper) {
@@ -633,6 +634,7 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       if (own.choicesAcross !== undefined && sameChoices(own, f)) paper.choicesAcross = own.choicesAcross;
       if (own.printedBelow !== undefined) paper.printedBelow = own.printedBelow;
       if (own.inSentence !== undefined) paper.inSentence = own.inSentence;
+      if (own.inGridHead !== undefined) paper.inGridHead = own.inGridHead;
       if (own.printedAbove !== undefined && f.printedAbove === undefined) paper.printedAbove = own.printedAbove;
       if (own.printedLabel !== undefined && f.printedLabel === undefined) paper.printedLabel = own.printedLabel;
       return Object.keys(paper).length === 0 ? f : { ...f, ...paper };
@@ -649,6 +651,8 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       ...(issued.gridAcross ? { gridAcross: issued.gridAcross } : {}),
       ...(issued.srNoFullStop ? { srNoFullStop: issued.srNoFullStop } : {}),
       ...(issued.headingsAsPrinted ? { headingsAsPrinted: issued.headingsAsPrinted } : {}),
+      // The one answer across the paper's columns (F/QC/25); a column the edit took off and it is drawn as every grid is (answerAcrossOf).
+      ...(issued.answerAcross ? { answerAcross: issued.answerAcross } : {}),
       instructions: instructions && instructions.length > 0 ? instructions : undefined,
       // A table the paper prints among the boxes that the edited format never held (F/QC/25's letterhead, part 4)
       // comes with the box it stands above; the format's own tables are kept as they are.

@@ -1747,6 +1747,11 @@ body { top: 0 !important; }
 .headings-as-printed .doc-table th { text-transform: none; letter-spacing: 0; }
 /* A box standing in the corner of the paper's table (boxTable cornerBox): "Coating Done :  Gloss UV" on one line. */
 .doc-table table.paper-box-table th.paper-box-table-corner > .field { flex-direction: row; align-items: baseline; gap: 8px; }
+/* A box on the grid's top line (inGridHead: F/QC/25's "OID :-" and "Job Code:"), its words beside it as printed, and
+   the headings the paper prints on one of its lines (answerAcross: line 7's GSM, BF, Grade of Paper). */
+.doc-table table.log-sheet th.grid-head-box > .field { flex-direction: row; align-items: baseline; gap: 8px; }
+.doc-table table.log-sheet th.grid-head-box > .field .input { flex: 1 1 auto; min-width: 80px; }
+.doc-table table.log-sheet-answer-across tbody th { vertical-align: middle; }
 
 /* ---- Sheet designer (REQUIREMENTS §64) ---- */
 /* A format designed on the sheet itself (components/documents/SheetDesigner.tsx).

@@ -41,7 +41,24 @@ import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
 import { bindProps, effectiveColumn, logCellBind, logColumnBind, logHeaderBind, logRowName } from "../../engine/roundTrip/bindingsFor";
-import { boxGroups, choiceWords, columnHeading, gridLines, inBoxTable, isPrintedBox, paperColumnProps, placedTables, srNoText, type BoxGroup, type GridLines } from "../../engine/paperLayout";
+import {
+  answerAcrossOf,
+  boxGroups,
+  boxGroupsBesideGrid,
+  choiceWords,
+  columnHeading,
+  gridHeadBoxes,
+  gridHeadSpans,
+  gridLines,
+  inBoxTable,
+  isPrintedBox,
+  paperColumnProps,
+  placedTables,
+  srNoText,
+  type AnswerAcross,
+  type BoxGroup,
+  type GridLines,
+} from "../../engine/paperLayout";
 import { BoxTable } from "./BoxTable";
 import { NotesBelow } from "./NotesBelow";
 import { PrintedTable } from "./PrintedTable";
@@ -340,6 +357,8 @@ export function LogSheetRecordView({
   // that line, under the column each names (engine/paperLayout.ts). Every other sheet: one line.
   const lines = gridLines(layout);
   const issuedFirst = issued ? gridLines(issued).first : undefined;
+  // One answer across the paper's columns, their headings on a printed line (F/QC/25, §111 part 4); null on every other sheet.
+  const answerAcross = answerAcrossOf(layout);
   // The heading rows: the columns grouped into the runs the paper draws under
   // one spanning heading, and two rows instead of one where there is such a run.
   const headRuns = headingRuns(lines.first);
@@ -424,7 +443,8 @@ export function LogSheetRecordView({
                 REQUIREMENTS §111); otherwise as many as the screen holds. A phone takes them one under another
                 (styles.css). A group the paper heads (F/QC/06's LABEL STOCK) is drawn under its heading, and
                 one the paper prints as a table (its LABEL STOCK, Material × Face Material ...) as that table. */}
-            {boxGroups(layout, "header").map((group, gi) =>
+            {/* A box the paper prints on the grid's top line (F/QC/25's OID :- and Job Code:, §111 part 4) is drawn there, not here. */}
+            {boxGroupsBesideGrid(layout).map((group, gi) =>
               group.lead ? (
                 <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={layout.instructions?.length || topTables.length ? "mt-3" : ""}>
                   {group.boxes.map(({ field, index }) => headerBox(field, index))}
@@ -470,7 +490,25 @@ export function LogSheetRecordView({
         />
       )}
 
-      {hasGrid && !layout.gridAcross && (
+      {/* ONE ANSWER ACROSS THE PAPER'S COLUMNS (REQUIREMENTS §111, part 4): F/QC/25's one box a line, but for the
+          lines written in its four paper columns, headed on its line 7; its OID :- and Job Code: on the top line. */}
+      {hasGrid && answerAcross && (
+        <AnswerAcrossGrid
+          spec={answerAcross}
+          headBoxes={gridHeadBoxes(layout).map(({ field, index }) => headerBox(field, index))}
+          rows={data.rows}
+          fixedRows={mode.kind === "fixedRows" ? mode.rows : undefined}
+          issuedColumns={issued?.columns}
+          columns={layout.columns}
+          editable={editable}
+          lang={lang}
+          employees={employeeNames}
+          lists={lists}
+          onCell={onCell}
+        />
+      )}
+
+      {hasGrid && !layout.gridAcross && !answerAcross && (
       <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
         <table className={editable ? "compact log-sheet is-editing" : "compact log-sheet"} {...gridBind}>
           <thead>
@@ -769,13 +807,26 @@ function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn
   return runs;
 }
 
-function ColumnHead({ col, rowSpan, bound }: { col: LogColumn; rowSpan?: number; /** A free-row sheet's heading names the box of a line it holds (REQUIREMENTS §81). */ bound?: boolean }) {
+function ColumnHead({
+  col,
+  rowSpan,
+  colSpan,
+  bound,
+}: {
+  col: LogColumn;
+  rowSpan?: number;
+  /** A heading over the columns one answer stands across (answerAcross, REQUIREMENTS §111 part 4). */
+  colSpan?: number;
+  /** A free-row sheet's heading names the box of a line it holds (REQUIREMENTS §81). */
+  bound?: boolean;
+}) {
   const b = bound ? logColumnBind(col) : null;
   return (
     <th
       {...(b ? bindColAttrs(b.key, b.type, b.options) : undefined)}
       style={col.width ? { minWidth: col.width } : undefined}
       rowSpan={rowSpan}
+      colSpan={colSpan}
       title={col.nominal !== undefined ? `Nominal ${col.nominal}${col.unit ? " " + col.unit : ""}; band ${col.min}–${col.max}` : undefined}
     >
       {/* The paper's own heading, "" where it prints none (F/QC/25's descriptions, REQUIREMENTS §111). */}
@@ -910,6 +961,125 @@ function AcrossGrid({
               })}
             </tr>
           ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * ONE ANSWER ACROSS THE PAPER'S COLUMNS (REQUIREMENTS §111, part 4), as F/QC/25 prints its fourteen lines: the top
+ * line holds Sr.No., the printed words' empty heading and the boxes the paper prints there (OID :- and Job Code:);
+ * every line has its one answer box across the paper's four columns, but the lines written in those columns (7.1,
+ * 7.2, 7.3), whose headings — GSM over Specified GSM and Tested GSM, BF, Grade of Paper — stand on the printed line
+ * the paper heads them on (7, Material Specification). The cells are the record's own (the same binding, the same
+ * words for a printed cell, the same highlight out of band); the record still holds every column on every line.
+ */
+function AnswerAcrossGrid({
+  spec,
+  headBoxes,
+  rows,
+  fixedRows,
+  columns,
+  issuedColumns,
+  editable,
+  lang,
+  employees,
+  lists,
+  onCell,
+}: {
+  spec: AnswerAcross;
+  /** The boxes the paper prints on the grid's top line, drawn by the sheet (they are header boxes). */
+  headBoxes: React.ReactNode[];
+  rows: LogSheetRow[];
+  fixedRows: Record<string, string | number | null>[] | undefined;
+  columns: LogColumn[];
+  issuedColumns: LogColumn[] | undefined;
+  editable: boolean;
+  lang: Parameters<typeof documentTextIn>[1];
+  employees: string[];
+  lists?: Record<string, string>;
+  onCell: (rowId: string, key: string, value: string | number | null) => void;
+}) {
+  const { answer, across, lead, headingLine, lines } = spec;
+  const spans = gridHeadSpans(headBoxes.length, across.length);
+  const runs = headingRuns(across);
+  const twoHeadingRows = runs.some((r) => r.group !== undefined);
+  const cell = (c: LogColumn, row: LogSheetRow, i: number, extra: { colSpan?: number; rowSpan?: number } = {}) => {
+    const col = effectiveColumn(c, fixedRows?.[i]);
+    const at = columns.indexOf(c);
+    return (
+      <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""} {...extra}>
+        <CellInput
+          col={col}
+          bind={bindProps(logCellBind(row, i, col, logRowName(row, columns)))}
+          issuedLabel={issuedColumns?.[at]?.label ?? c.label}
+          // A printed cell (the line's number, its words) reads in the chosen language; a written one as it was written.
+          value={col.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
+          editable={editable && !col.fixed && !col.computed}
+          onChange={(v) => onCell(row.id, c.key, v)}
+          employees={employees}
+          list={lists?.[c.key] ?? c.list}
+        />
+      </td>
+    );
+  };
+  return (
+    <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
+      <table className={editable ? "compact log-sheet log-sheet-answer-across is-editing" : "compact log-sheet log-sheet-answer-across"} data-answer-across={answer.key}>
+        <thead>
+          <tr>
+            {lead.map((c) => (
+              <ColumnHead key={c.key} col={c} />
+            ))}
+            {headBoxes.length > 0 ? (
+              headBoxes.map((box, bi) => (
+                <th key={bi} className="grid-head-box" colSpan={spans[bi] ?? 1}>
+                  {box}
+                </th>
+              ))
+            ) : (
+              <ColumnHead col={answer} colSpan={across.length} />
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            if (i === headingLine) {
+              // The printed line that heads the paper's columns: its own number and words, then their headings.
+              return (
+                <React.Fragment key={row.id}>
+                  <tr data-heading-line="">
+                    {lead.map((c) => cell(c, row, i, twoHeadingRows ? { rowSpan: 2 } : {}))}
+                    {runs.map((run, ri) =>
+                      run.group !== undefined ? (
+                        <th key={`g-${ri}`} className="col-group" colSpan={run.columns.length}>
+                          {run.group}
+                        </th>
+                      ) : (
+                        run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={twoHeadingRows ? 2 : undefined} />)
+                      )
+                    )}
+                  </tr>
+                  {twoHeadingRows && (
+                    <tr data-heading-line="">
+                      {across
+                        .filter((c) => c.group !== undefined)
+                        .map((c) => (
+                          <ColumnHead key={c.key} col={c} />
+                        ))}
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            }
+            return (
+              <tr key={row.id}>
+                {lead.map((c) => cell(c, row, i))}
+                {lines.has(i) ? across.map((c) => cell(c, row, i)) : cell(answer, row, i, { colSpan: across.length })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

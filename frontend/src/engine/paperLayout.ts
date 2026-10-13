@@ -51,6 +51,12 @@ import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 //   the Sr. No. with its full stop   LogSheetLayout.srNoFullStop — "1.", "2.".
 //   headings in the paper's letters  LogSheetLayout.headingsAsPrinted — a
 //                                    certificate's "Length(mm)", not "LENGTH(MM)".
+//   one answer across the columns    LogSheetLayout.answerAcross — F/QC/25's one
+//                                    answer box a line, its GSM / BF / Grade of
+//                                    Paper headed on line 7 (answerAcrossOf), and
+//                                    LogHeaderField.inGridHead — its OID :- and
+//                                    Job Code: on the grid's top line
+//                                    (gridHeadBoxes, boxGroupsBesideGrid).
 
 /** A box the paper prints its value in (REQUIREMENTS §111). */
 export const isPrintedBox = (f: Pick<LogHeaderField, "printed">): f is LogHeaderField & { printed: string } => typeof f.printed === "string";
@@ -236,6 +242,75 @@ export function boxGroups(layout: LogSheetLayout, area: "header" | "footer"): Bo
   }
   groupsOf[area].set(layout, groups);
   return groups;
+}
+
+/** One answer across the paper's columns (answerAcross), with its columns found in the layout. */
+export interface AnswerAcross {
+  /** The column of the one answer box. */
+  answer: LogColumn;
+  /** The columns it stands across, in the layout's order. */
+  across: LogColumn[];
+  /** The columns drawn before them on every line (F/QC/25's Sr.No. and its printed words). */
+  lead: LogColumn[];
+  /** The printed line the `across` columns' headings stand on. */
+  headingLine: number;
+  /** The printed lines written in the `across` columns. */
+  lines: Set<number>;
+}
+
+const answerAcrossCache = new WeakMap<LogSheetLayout, AnswerAcross | null>();
+
+/**
+ * ONE ANSWER ACROSS THE PAPER'S COLUMNS (REQUIREMENTS §111, part 4), as the grid draws it — or null where the layout
+ * says none, or names a column it does not have (a format edited since: drawn as every grid is, losing nothing).
+ */
+export function answerAcrossOf(layout: LogSheetLayout): AnswerAcross | null {
+  const hit = answerAcrossCache.get(layout);
+  if (hit !== undefined) return hit;
+  let out: AnswerAcross | null = null;
+  const spec = layout.answerAcross;
+  if (spec && !layout.gridAcross && !layout.secondLine) {
+    const answer = layout.columns.find((c) => c.key === spec.answer);
+    const across = layout.columns.filter((c) => spec.across.includes(c.key));
+    if (answer && across.length === spec.across.length && across.length > 0 && !spec.across.includes(spec.answer)) {
+      const lead = layout.columns.filter((c) => c.key !== spec.answer && !spec.across.includes(c.key));
+      out = { answer, across, lead, headingLine: spec.headingLine, lines: new Set(spec.lines) };
+    }
+  }
+  answerAcrossCache.set(layout, out);
+  return out;
+}
+
+/** The boxes above the grid that stand on its top line (inGridHead), each with its place among the boxes — where the grid has room for them (answerAcross). */
+export function gridHeadBoxes(layout: LogSheetLayout): { field: LogHeaderField; index: number }[] {
+  if (!answerAcrossOf(layout)) return [];
+  return layout.headerFields.flatMap((field, index) => (field.inGridHead ? [{ field, index }] : []));
+}
+
+/** How many of the answers' columns each box on the grid's top line spans: the place shared out in order, the first ones taking any spare. */
+export function gridHeadSpans(boxes: number, columns: number): number[] {
+  if (boxes <= 0) return [];
+  if (boxes >= columns) return [columns];
+  const base = Math.floor(columns / boxes);
+  return Array.from({ length: boxes }, (_, i) => base + (i < columns % boxes ? 1 : 0));
+}
+
+const besideGrid = new WeakMap<LogSheetLayout, BoxGroup[]>();
+
+/** The groups of boxes above the grid as the record's sheet draws them: those on the grid's top line taken out (they are drawn there), a group left with nothing to draw dropped. */
+export function boxGroupsBesideGrid(layout: LogSheetLayout): BoxGroup[] {
+  const hit = besideGrid.get(layout);
+  if (hit) return hit;
+  const inHead = new Set(gridHeadBoxes(layout).map((b) => b.index));
+  const groups = boxGroups(layout, "header");
+  const out =
+    inHead.size === 0
+      ? groups
+      : groups
+          .map((g) => ({ ...g, boxes: g.boxes.filter((b) => !inHead.has(b.index)) }))
+          .filter((g) => g.boxes.length > 0 || g.lines.length > 0 || g.table !== undefined);
+  besideGrid.set(layout, out);
+  return out;
 }
 
 /** The titles of the printed tables drawn in their own place among the boxes (tableAbove), not behind "Show" above the sheet. */

@@ -31,7 +31,7 @@ import { getIssuedLogSheetLayout, getLogSheetLayout } from "../src/data/seed/log
 import { dropFormatEdit, saveFormatEdit } from "../src/data/formatEdits";
 import { COA_LABEL_SPECIMEN_HEADER, COA_LABEL_SPECIMEN_ROWS } from "../src/data/seed/qcCoaLayouts";
 import { createDefaultData } from "../src/engine/recordDefaults";
-import { boxGroups, choiceWords, srNoText } from "../src/engine/paperLayout";
+import { answerAcrossOf, boxGroups, boxGroupsBesideGrid, choiceWords, gridHeadBoxes, gridHeadSpans, srNoText } from "../src/engine/paperLayout";
 import { logHeaderBind } from "../src/engine/roundTrip/bindingsFor";
 
 // store/router.tsx reads window.location the moment it loads; the harness stands up none.
@@ -331,9 +331,87 @@ test("an incoming record's format edited before §111 takes the marks from the i
   }
 });
 
+// ---------------------------------------------------------------------------
+// 7. F/QC/25's one answer across its four paper columns (answerAcross, inGridHead)
+
+/** The table that carries `marker`, as its lines: each cell's tag, colSpan, rowSpan and words (a box's label for a box). */
+function gridLinesOf(html: string, marker: string): { tag: string; span: number; rows: number; words: string }[][] {
+  const at = html.indexOf(marker);
+  assert.ok(at >= 0, `the sheet holds ${marker}`);
+  const table = html.slice(html.lastIndexOf("<table", at), html.indexOf("</table>", at));
+  return Array.from(table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g), (r) =>
+    Array.from(r[1].matchAll(/<(t[hd])([^>]*)>([\s\S]*?)<\/\1>/g), (c) => ({
+      tag: c[1],
+      span: Number(c[2].match(/colSpan="(\d+)"/i)?.[1] ?? 1),
+      rows: Number(c[2].match(/rowSpan="(\d+)"/i)?.[1] ?? 1),
+      words: [...Array.from(c[3].matchAll(/<label>([\s\S]*?)<\/label>/g), (m) => text(m[1]).trim()), text(c[3]).trim()].filter(Boolean)[0] ?? "",
+    }))
+  );
+}
+
+test("F/QC/25 is drawn as its paper: one answer a line across GSM, BF and Grade of Paper, those headed on line 7 and written on 7.1 to 7.3, OID :- and Job Code: on the top line", async () => {
+  const html = await sheet("qc-coa-corrugated");
+  const grid = gridLinesOf(html, 'data-answer-across="observation"');
+  // The top line: Sr.No., nothing over the printed words, then the paper's two boxes sharing the four columns' place.
+  assert.deepEqual(
+    grid[0].map((c) => [c.tag, c.span, c.words]),
+    [["th", 1, "Sr.No."], ["th", 1, ""], ["th", 2, "OID :-"], ["th", 2, "Job Code:"]]
+  );
+  assert.ok(boxMarkup(html, 'data-bind="header/oid"').includes("<label>OID :-</label>"), "OID :- is still a box of the record");
+  // Line 1, PARTY NAME: one answer box across the four.
+  assert.deepEqual(grid[1].map((c) => c.span), [1, 1, 4]);
+  // Line 7, Material Specification: its number and words, then the four's headings as the paper prints them there.
+  const seven = grid.findIndex((l) => l.some((c) => c.words === "Material Specification"));
+  assert.deepEqual(
+    grid[seven].map((c) => [c.tag, c.span, c.rows, c.words]),
+    [["td", 1, 2, "7"], ["td", 1, 2, "Material Specification"], ["th", 2, 1, "GSM"], ["th", 1, 2, "BF"], ["th", 1, 2, "Grade of Paper"]]
+  );
+  assert.deepEqual(grid[seven + 1].map((c) => c.words), ["Specified GSM", "Tested GSM"]);
+  // 7.1, 7.2, 7.3: written in the four columns, a box each; 8 and after: one answer again.
+  for (const [i, words] of [[seven + 2, "TOP PAPER"], [seven + 3, "PLAIN PAPER"], [seven + 4, "FLUTE PAPER"]] as const) {
+    assert.deepEqual(grid[i].map((c) => c.span), [1, 1, 1, 1, 1, 1], `${words} has the four columns`);
+    assert.equal(grid[i][1].words, words);
+  }
+  assert.deepEqual(grid[seven + 5].map((c) => c.span), [1, 1, 4], "8 BOX PLY has one answer across");
+  assert.equal(grid.length, 1 + 17 + 1, "the top line, the 17 printed lines and line 7's second heading line");
+  // The record is unchanged: every line still holds every column.
+  const data = createDefaultData(docOf("qc-coa-corrugated"), DAY, master) as LogSheetData;
+  for (const row of data.rows) for (const key of ["observation", "specifiedGsm", "testedGsm", "bf", "gradeOfPaper"]) assert.ok(key in row, key);
+});
+
+test("a format of F/QC/25 edited before §111 is drawn as the paper; one that took a column off is drawn as every grid is", () => {
+  const issued = getIssuedLogSheetLayout("qc-coa-corrugated")!;
+  // The format as the plant could have edited it before §111: none of the paper's marks on it (logSheetLayouts.ts asThePaper).
+  const strip = <T extends object>(o: T, keys: string[]): T => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k))) as T;
+  const boxMarks = ["printed", "tableAbove", "boxesPerLine", "paperColumn", "boxTable", "choicesAcross", "printedBelow", "inSentence", "inGridHead", "printedAbove", "printedLabel"];
+  const before = {
+    ...strip(issued, ["srNoShowsDate", "secondLine", "notesBelow", "headerColumns", "notesAtFoot", "gridAcross", "srNoFullStop", "headingsAsPrinted", "answerAcross"]),
+    headerFields: issued.headerFields.map((f) => strip(f, boxMarks)),
+    footerFields: (issued.footerFields ?? []).map((f) => strip(f, boxMarks)),
+    columns: issued.columns.map((c) => strip(c, ["beneath", "printedLabel"])),
+  } as LogSheetLayout;
+  try {
+    saveFormatEdit("qc-coa-corrugated", { revisionNo: "01", revisionDate: "2026-10-01", layout: before, revisions: [] });
+    const now = getLogSheetLayout("qc-coa-corrugated")!;
+    assert.deepEqual(now.answerAcross, issued.answerAcross);
+    assert.deepEqual(now.headerFields.filter((f) => f.inGridHead).map((f) => f.key), ["oid", "jobCode"]);
+    assert.ok(answerAcrossOf(now));
+    // A column the four stand across taken off: no answer across, and OID :- and Job Code: back among the boxes.
+    const less = { ...now, columns: now.columns.filter((c) => c.key !== "bf") } as LogSheetLayout;
+    assert.equal(answerAcrossOf(less), null);
+    assert.deepEqual(gridHeadBoxes(less), []);
+    assert.ok(boxGroupsBesideGrid(less).some((g) => g.boxes.some((b) => b.field.key === "oid")));
+  } finally {
+    dropFormatEdit("qc-coa-corrugated");
+  }
+  assert.deepEqual(gridHeadSpans(2, 4), [2, 2]);
+  assert.deepEqual(gridHeadSpans(3, 4), [2, 1, 1]);
+  assert.deepEqual(gridHeadSpans(5, 4), [4]);
+});
+
 test("the phone's layout and the English reading of a form carry the marks", () => {
   const entry = readFileSync(path.join(root, "frontend", "src", "engineHost", "entry.ts"), "utf8");
-  for (const mark of ["choicesAcross", "printedBelow", "inSentence", "srNoFullStop"]) assert.ok(entry.includes(`{ ${mark}:`), `engineHost/entry.ts tells the phone ${mark}`);
+  for (const mark of ["choicesAcross", "printedBelow", "inSentence", "srNoFullStop", "answerAcross", "inGridHead"]) assert.ok(entry.includes(`{ ${mark}:`), `engineHost/entry.ts tells the phone ${mark}`);
   const words = readFileSync(path.join(root, "frontend", "src", "i18n", "documentText.ts"), "utf8");
   for (const mark of ["choicesAcross: f.choicesAcross.map(en)", "printedBelow: en(f.printedBelow)", "inSentence: { before: en(f.inSentence.before), after: en(f.inSentence.after) }"]) {
     assert.ok(words.includes(mark), mark);

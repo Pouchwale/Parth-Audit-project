@@ -126,6 +126,12 @@ export interface LogHeaderField {
    * box, the words after it, on one line.
    */
   inSentence?: { before: string; after: string };
+  /**
+   * THE BOX STANDS ON THE GRID'S TOP LINE (REQUIREMENTS §111, part 4): F/QC/25 prints "OID :-" and "Job Code:" in the
+   * heading line of its table, over the answers. Honoured where the layout draws one answer across the paper's columns
+   * (`answerAcross`): the boxes share that line's place over the answers, in their order. Elsewhere, among the boxes.
+   */
+  inGridHead?: true;
 }
 
 export interface LogColumn {
@@ -288,6 +294,16 @@ export interface LogSheetLayout {
    * the paper does not print. A sheet that says so prints its headings as they are written.
    */
   headingsAsPrinted?: true;
+  /**
+   * ONE ANSWER ACROSS THE PAPER'S COLUMNS, AND THEIR HEADINGS ON A PRINTED LINE (REQUIREMENTS §111, part 4): F/QC/25
+   * gives each of its printed lines one answer box across the page, but for 7.1 TOP PAPER, 7.2 PLAIN PAPER and 7.3
+   * FLUTE PAPER, which are written in four columns — Specified GSM and Tested GSM under GSM, BF, Grade of Paper —
+   * whose headings it prints on line 7, "Material Specification", not over the grid. `answer` is the column of the one
+   * box; `across`, the columns it stands across; `headingLine`, the printed line (counted from 0) the `across`
+   * columns' headings stand on; `lines`, the printed lines written in the `across` columns. The record's data is
+   * unchanged: every line still holds every column.
+   */
+  answerAcross?: { answer: string; across: string[]; headingLine: number; lines: number[] };
   /**
    * EVERY ENTRY TAKES TWO LINES (REQUIREMENTS §111): the second line's own
    * heading, written in the first column — F/QC/12's "Deviation %". The columns
