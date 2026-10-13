@@ -1752,6 +1752,30 @@ body { top: 0 !important; }
 .doc-table table.log-sheet th.grid-head-box > .field { flex-direction: row; align-items: baseline; gap: 8px; }
 .doc-table table.log-sheet th.grid-head-box > .field .input { flex: 1 1 auto; min-width: 80px; }
 .doc-table table.log-sheet-answer-across tbody th { vertical-align: middle; }
+/* FROM THE REVIEW OF 13-OCT-2026 (REQUIREMENTS §111).
+   The paper's small tables (panels: F-QC-14's checks, two to a row), each heading keeping its own lines ("GSM - Total"
+   over "Specification : 70 ± 5%", "Inspector - 1" over "(Kapila)"); a phone takes them one under another. */
+.paper-panels { display: grid; grid-template-columns: repeat(var(--paper-panels, 2), minmax(0, 1fr)); gap: 14px 16px; align-items: start; }
+.paper-panels .doc-table table.paper-panel th { white-space: pre-line; text-align: center; vertical-align: middle; }
+.paper-panels .doc-table table.paper-panel tfoot th, .paper-panels .doc-table table.paper-panel tfoot td { border-top: 1px solid var(--color-border); }
+.paper-panels .paper-panel .paper-panel-box { display: inline-block; width: auto; min-width: 72px; max-width: 100%; }
+@media screen and (max-width: 600px) {
+  .paper-panels { grid-template-columns: minmax(0, 1fr); }
+}
+@media print { .paper-panels table.paper-panel { break-inside: avoid; } }
+/* A box drawn as the paper's heading (asHeading: F/QC/29's "PSL Analysis Report"), centred and bold, its label unprinted. */
+.field-as-heading .input { text-align: center; font-weight: 700; font-size: 15px; }
+@media print { .field-as-heading .input { border-color: transparent; } }
+/* A cell the paper merges down its lines (merged: a process, its signatures, F/QC/13's પાસ?), and the blank line it leaves
+   between its processes (gapBetweenRuns). */
+.doc-table table.log-sheet td[data-merged] { vertical-align: middle; }
+.doc-table table.log-sheet tr.log-gap-line td { height: 18px; padding: 0; background: transparent; }
+/* The photograph a paper prints under its table (photoBelowGrid: F/QC/29's analysis report). */
+.sheet-photos { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.sheet-photos .sheet-photo { margin: 0; display: flex; align-items: flex-start; gap: 4px; }
+.sheet-photos .sheet-photo img { max-width: min(100%, 480px); max-height: 320px; border-radius: 4px; }
+/* The paper's own lines printed with its format number (printedWithNumber: F/QC/20's issue and review dates), in its letters. */
+.doc-header .meta-cell[data-meta="printed-with-number"] .k { text-transform: none; }
 
 /* ---- Sheet designer (REQUIREMENTS §64) ---- */
 /* A format designed on the sheet itself (components/documents/SheetDesigner.tsx).

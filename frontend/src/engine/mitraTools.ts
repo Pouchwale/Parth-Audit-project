@@ -326,7 +326,9 @@ const fieldWords = (f: LogHeaderField | LogColumn): string => {
   // A box the paper prints its value in is never written (REQUIREMENTS §111); a column drawn on an
   // entry's second line is still the same line's key (F/QC/12's Deviation %, worked out).
   const printed = typeof box.printed === "string" ? `printed "${short(box.printed, 30)}", never write it` : "";
-  const flags = [f.type, col.unit, col.fixed ? "printed" : "", printed, col.computed ? "computed" : "", col.beneath ? `second line, under ${col.beneath}` : "", f.required ? "required" : ""]
+  // A cell the paper merges down a run of lines is written once, on the run's first line (the review of 13-Oct-2026).
+  const merged = col.merged ? (col.merged.by ? `one cell for each run of ${col.merged.by}: write it on the run's first line` : "one cell down every line: write it on line 1") : "";
+  const flags = [f.type, col.unit, col.fixed ? "printed" : "", printed, col.computed ? "computed" : "", col.beneath ? `second line, under ${col.beneath}` : "", merged, f.required ? "required" : ""]
     .filter(Boolean)
     .join(", ");
   // The heading over a run of columns names them: "No. 54 20 x 20cm", "No. 54 Deviation".

@@ -665,7 +665,8 @@ def main():
         # ---- 8b. Statements of Compliance ----
         page.click("text=Statements of Compliance")
         page.wait_for_timeout(300)
-        check("SOC list shows both statements", "F/QC- 09" in page.content() and "F/QC- 38" in page.content())
+        # The footer reference as each document prints it, "F/QC-09" with no space (REQUIREMENTS s111, the review of 13-Oct-2026).
+        check("SOC list shows both statements", "F/QC-09" in page.content() and "F/QC-38" in page.content())
         page.click("text=Pressure Labels")
         page.wait_for_timeout(300)
         check("SOC detail renders the declaration", "Shail Patel" in page.content() and "94/62/EC" in page.content())

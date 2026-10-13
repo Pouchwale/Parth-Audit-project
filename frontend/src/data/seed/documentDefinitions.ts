@@ -963,8 +963,10 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     section: "In-Process & Inspection",
     name: "In Process Quality Control (Printing) — ઇન પ્રોસેસ ક્વોલિટી કંટ્રોલ",
     formatNo: "F/QC/13",
-    revisionNo: "TO BE CONFIRMED",
-    revisionDate: null,
+    // The page prints no number or revision; the Master List of Formats (F/SYS/02) gives F-QC-13, IPQC - PRINTING,
+    // revision 00 of 01.12.21 and no revision since (REQUIREMENTS §111, the review of 13-Oct-2026).
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
     department: "Quality Assurance",
     module: "Quality Control — Inspection Records",
     frequency: "Daily",
@@ -1639,15 +1641,17 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     section: "Analysis & Meetings",
     name: "Minutes of Meetings",
     formatNo: "F/QC/30",
-    revisionNo: "01",
-    revisionDate: "2022-12-01",
+    // As the owner's original of 13-Oct-2026 prints it, "F/QC/30 (00 / 01.01.2022)" (the review of 13-Oct-2026): a
+    // revision 01 of 01.12.2022 was read from a "MOM F-QC-30.pdf" that is not in the repository.
+    revisionNo: "00",
+    revisionDate: "2022-01-01",
     department: "Quality Control",
     module: "Quality Control — Inspection Records",
     frequency: "As Required",
     status: "Configured",
     description:
       "What was agreed at a meeting about quality: the client, where and when it was held, the subject, who attended, and the points discussed with what the plant will do about each. The 07-Jun-2022 meeting with Gangwal Healthcare is on file as supplied.",
-    sourceFile: "MOM F-QC-30.pdf",
+    sourceFile: "F-QC-30 MOM.pdf",
     schedule: { type: "as-required" },
   },
   // ---------------------------------------------------------------------

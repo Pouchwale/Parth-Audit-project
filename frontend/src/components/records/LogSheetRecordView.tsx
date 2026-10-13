@@ -1,6 +1,6 @@
 import React from "react";
 import { FiAlertTriangle, FiPlus, FiTrash2 } from "react-icons/fi";
-import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance } from "../../types";
+import type { DocumentDefinition, LogColumn, LogHeaderField, LogSheetData, LogSheetRow, RecordInstance, SheetPhoto } from "../../types";
 import { DocumentHeader } from "../documents/DocumentHeader";
 import { recordHeaderEditing, useHeaderEditing, type RecordHeaderHost } from "../documents/HeaderEditing";
 import { recordHeaderDefaults } from "../../engine/recordLifecycle";
@@ -34,7 +34,8 @@ import { isOutOfBand, supersededRevisionOf } from "../../engine/validation";
 import { withoutLineNumber } from "../../engine/lineNumbers";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
 import { withComputedCells } from "../../engine/computedCells";
-import { documentLayoutIn, documentTextIn, keepFormAsIssued } from "../../i18n/documentText";
+import { documentLayoutIn, documentTextIn, keepFormAsIssued, sheetLanguage } from "../../i18n/documentText";
+import { imageFileToDataUrl } from "../../utils/image";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
@@ -44,21 +45,26 @@ import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs 
 import { bindProps, effectiveColumn, logCellBind, logColumnBind, logHeaderBind, logRowName } from "../../engine/roundTrip/bindingsFor";
 import {
   answerAcrossOf,
-  boxGroups,
   boxGroupsBesideGrid,
   choiceWords,
   columnHeading,
+  footerGroupsBesideGrid,
   gridHeadBoxes,
   gridHeadSpans,
   gridLines,
+  headingParts,
   inBoxTable,
   isPrintedBox,
+  mergedRuns,
+  panelsOf,
   paperColumnProps,
   placedTables,
+  runStarts,
   srNoText,
   type AnswerAcross,
   type BoxGroup,
   type GridLines,
+  type Panels,
 } from "../../engine/paperLayout";
 import { BoxTable } from "./BoxTable";
 import { NotesBelow } from "./NotesBelow";
@@ -98,7 +104,9 @@ export function LogSheetRecordView({
   // department issues in Gujarati reads in English while English is chosen
   // (REQUIREMENTS §58, i18n/documentText.ts). The KEYS never change, so what a
   // record holds is untouched either way.
-  const { lang, version } = useAppStore();
+  // A QC paper printed in Gujarati reads as issued in every language (REQUIREMENTS §111): its own words are its Gujarati.
+  const { lang: chosenLang, version } = useAppStore();
+  const lang = sheetLanguage(doc.id, chosenLang);
   // The layout THIS RECORD was filled on: the format as it stands, or — for a
   // page kept on a revision the format has since replaced — that revision's
   // own boxes and columns (REQUIREMENTS §74).
@@ -107,7 +115,7 @@ export function LogSheetRecordView({
   const superseded = supersededRevisionOf(record);
   // A form the department issues in Gujarati already reads in Gujarati, so with
   // ગુજરાતી chosen it is not handed to Google at all — it reads as issued.
-  const asIssued = keepFormAsIssued(doc.id, lang);
+  const asIssued = keepFormAsIssued(doc.id, chosenLang);
   // EVERY WORKED-OUT CELL IS WORKED OUT FROM WHAT IS WRITTEN — the purchase
   // registers' weighted ratings (§68), the calibration deviations (§61), the
   // breakdown register's total minutes (§74) — in one pass
@@ -230,6 +238,12 @@ export function LogSheetRecordView({
     [pmIndex, doc.id, data.header?.machineIdNo, record.isDemo, version]
   );
 
+  // ONE CELL DOWN A RUN OF LINES, AND A BLANK LINE BETWEEN RUNS (REQUIREMENTS §111, the review of 13-Oct-2026): the
+  // Gujarati line clearance's process and its two signatures once per process, F/QC/13's one પાસ?. Worked out once
+  // per version of the lines, and only on a sheet that has such a column.
+  const merged = React.useMemo(() => (layout ? mergedRuns(layout, data.rows) : new Map<string, number[]>()), [layout, data.rows]);
+  const gaps = React.useMemo(() => (layout ? runStarts(layout, data.rows) : new Set<number>()), [layout, data.rows]);
+
   if (!layout) {
     return <div className="empty-state">No layout is configured for this document (id: {doc.id}).</div>;
   }
@@ -240,7 +254,11 @@ export function LogSheetRecordView({
     save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)) });
   const addRow = () => {
     const row: LogSheetRow = { id: generateId("row") };
-    for (const c of layout.columns) row[c.key] = c.type === "number" ? null : c.autoFill?.default !== undefined && c.type !== "text" ? String(c.autoFill.default) : "";
+    for (const c of layout.columns) {
+      // A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111): the next number.
+      if (c.autoFill?.lineNumber) row[c.key] = String(data.rows.length + 1);
+      else row[c.key] = c.type === "number" ? null : c.autoFill?.default !== undefined && c.type !== "text" ? String(c.autoFill.default) : "";
+    }
     save({ ...data, rows: [...data.rows, row] });
   };
   const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
@@ -360,6 +378,14 @@ export function LogSheetRecordView({
   const issuedFirst = issued ? gridLines(issued).first : undefined;
   // One answer across the paper's columns, their headings on a printed line (F/QC/25, §111 part 4); null on every other sheet.
   const answerAcross = answerAcrossOf(layout);
+  // The paper's small tables, F-QC-14's checks two to a row (REQUIREMENTS §111, the review of 13-Oct-2026); null elsewhere.
+  const panels = panelsOf(layout);
+  // A photograph the paper prints under its table (F/QC/29's analysis report): added, kept and printed there.
+  const setPhotos = (photos: SheetPhoto[]) => save({ ...data, photos });
+  // The boxes below the grid the sheet draws in its footer card: those the paper prints inside its small tables are drawn there.
+  const footerGroups = footerGroupsBesideGrid(layout);
+  // "Approved by (QA Manager) is the Verify step" is said only under a paper that prints such an approval and has no box for it (REQUIREMENTS §74, §111).
+  const sayVerifyIsApproval = qcForm && !!layout.approvedOnVerify && !paperHasItsOwnApproval(layout);
   // The heading rows: the columns grouped into the runs the paper draws under
   // one spanning heading, and two rows instead of one where there is such a run.
   const headRuns = headingRuns(lines.first);
@@ -377,6 +403,26 @@ export function LogSheetRecordView({
     ? { [BIND_TABLE_ATTR]: "rows", ...(superseded ? {} : { [BIND_APPEND_ATTR]: "1" }), ...(lines.second ? { [BIND_SECOND_LINE_ATTR]: lines.second.label } : {}) }
     : undefined;
 
+  // THE BOXES ABOVE THE GRID. As many boxes to a line as the paper draws, where it says (F/QC/12's three rows of three,
+  // REQUIREMENTS §111); otherwise as many as the screen holds. A phone takes them one under another (styles.css). A
+  // group the paper heads (F/QC/06's LABEL STOCK) is drawn under its heading, and one the paper prints as a table (its
+  // LABEL STOCK, Material × Face Material ...) as that table. A box the paper prints on the grid's top line (F/QC/25's
+  // OID :- and Job Code:, §111 part 4) or inside its small tables (F-QC-14's inspectors) is drawn there, not here. Where
+  // the paper prints its boxes above its paragraph (F/QC/15-A to G's machine box, the review of 13-Oct-2026) they come first.
+  const boxesFirst = !!layout.boxesAboveInstructions;
+  const wordsAbove = (layout.instructions?.length ?? 0) > 0 || topTables.length > 0;
+  const headerBoxes = boxGroupsBesideGrid(layout).map((group, gi) =>
+    group.lead ? (
+      <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={!boxesFirst && wordsAbove ? "mt-3" : ""}>
+        {group.boxes.map(({ field, index }) => headerBox(field, index))}
+      </BoxLine>
+    ) : (
+      <PrintedGroup key={gi} area="header" group={group} className={gi > 0 || (!boxesFirst && wordsAbove) ? "mt-3" : ""}>
+        {group.boxes.map(({ field, index }, bi) => headerBox(field, index, inBoxTable(group, bi)))}
+      </PrintedGroup>
+    )
+  );
+
   // A sheet whose paper writes its headings in its own letters prints them so (REQUIREMENTS §111, part 4): a
   // certificate's "Length(mm)", which the sheet's capitals made "LENGTH(MM)".
   const rootClass = [asIssued ? "notranslate" : "", layout.headingsAsPrinted ? "headings-as-printed" : ""].filter(Boolean).join(" ");
@@ -390,6 +436,9 @@ export function LogSheetRecordView({
         pageLabel={record.headerBlock?.page ?? headerDefaults.page}
         revision={superseded ? { no: superseded.revisionNo, date: superseded.revisionDate } : undefined}
         edit={headerEdit}
+        language={lang}
+        numberNotPrinted={!!layout.numberNotPrinted}
+        printedWithNumber={layout.printedWithNumber}
       />
       {headerPanel}
       {/* A page kept on the revision it was written on says so (REQUIREMENTS §74). */}
@@ -405,9 +454,13 @@ export function LogSheetRecordView({
 
       {((layout.instructions?.length ?? 0) > 0 || layout.headerFields.length > 0 || topTables.length > 0) && (
         <div className="card mt-4">
-          <div className="card-pad">
+          <div className={`card-pad${boxesFirst ? " boxes-above-instructions" : ""}`}>
+            {boxesFirst && headerBoxes}
             {layout.instructions?.map((line, i) => (
-              <p key={i} className={`text-sm ${i === 0 ? "font-semibold" : "text-muted"} ${i < (layout.instructions?.length ?? 0) - 1 ? "mb-1" : ""}`}>
+              <p
+                key={i}
+                className={`text-sm ${i === 0 ? "font-semibold" : "text-muted"} ${i < (layout.instructions?.length ?? 0) - 1 ? "mb-1" : ""}${boxesFirst && i === 0 ? " mt-3" : ""}`}
+              >
                 {line}
               </p>
             ))}
@@ -446,22 +499,7 @@ export function LogSheetRecordView({
                 )}
               </div>
             ))}
-            {/* As many boxes to a line as the paper draws, where it says (F/QC/12's three rows of three,
-                REQUIREMENTS §111); otherwise as many as the screen holds. A phone takes them one under another
-                (styles.css). A group the paper heads (F/QC/06's LABEL STOCK) is drawn under its heading, and
-                one the paper prints as a table (its LABEL STOCK, Material × Face Material ...) as that table. */}
-            {/* A box the paper prints on the grid's top line (F/QC/25's OID :- and Job Code:, §111 part 4) is drawn there, not here. */}
-            {boxGroupsBesideGrid(layout).map((group, gi) =>
-              group.lead ? (
-                <BoxLine key={gi} group={group} minWidth={200} section="sheet-boxes" className={layout.instructions?.length || topTables.length ? "mt-3" : ""}>
-                  {group.boxes.map(({ field, index }) => headerBox(field, index))}
-                </BoxLine>
-              ) : (
-                <PrintedGroup key={gi} area="header" group={group} className={gi > 0 || layout.instructions?.length || topTables.length ? "mt-3" : ""}>
-                  {group.boxes.map(({ field, index }, bi) => headerBox(field, index, inBoxTable(group, bi)))}
-                </PrintedGroup>
-              )
-            )}
+            {!boxesFirst && headerBoxes}
           </div>
         </div>
       )}
@@ -515,21 +553,40 @@ export function LogSheetRecordView({
         />
       )}
 
-      {hasGrid && !layout.gridAcross && !answerAcross && (
+      {/* THE PAPER'S SMALL TABLES (REQUIREMENTS §111, the review of 13-Oct-2026): F-QC-14's checks, two to a row, each
+          headed with its check over the inspectors and their names, its Conclusion under its three lines. */}
+      {hasGrid && panels && (
+        <PanelGrid
+          panels={panels}
+          layout={layout}
+          rows={data.rows}
+          header={data.header ?? {}}
+          issuedColumns={issued?.columns}
+          editable={editable}
+          lang={lang}
+          employees={employeeNames}
+          lists={lists}
+          onCell={onCell}
+          onBox={onBox}
+        />
+      )}
+
+      {hasGrid && !layout.gridAcross && !answerAcross && !panels && (
       <div className="doc-table mt-4" style={{ overflowX: "auto" }}>
         <table className={editable ? "compact log-sheet is-editing" : "compact log-sheet"} {...gridBind}>
           <thead>
             <tr>
               {numbered && (
                 <th style={{ width: layout.srNoShowsDate ? 96 : 44 }} rowSpan={headRows}>
-                  Sr. No.
+                  {/* "SR NO" on F-QC-40.C, nothing over F/QC/30's numbered points (REQUIREMENTS §111). */}
+                  {layout.srNoLabel ?? "Sr. No."}
                 </th>
               )}
               {/* A run of columns the paper draws under ONE spanning heading gets
                   that heading here and its own headings on the row below; every
                   other column spans both rows, as it does on the paper. */}
               {headRuns.map((run, ri) => (
-                <React.Fragment key={run.group ?? `column-${ri}`}>
+                <React.Fragment key={`${run.group ?? "column"}-${ri}`}>
                   {run.group === undefined ? (
                     run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={headRows} bound={freeRows} />)
                   ) : (
@@ -558,10 +615,17 @@ export function LogSheetRecordView({
               </tr>
             )}
             {data.rows.slice(0, rowsShown).map((row, i) => (
+              <React.Fragment key={row.id}>
+              {/* A blank line where the paper leaves one between its processes (gapBetweenRuns, REQUIREMENTS §111). */}
+              {gaps.has(i) && (
+                <tr className="log-gap-line" aria-hidden="true" data-gap-line="">
+                  <td colSpan={lines.first.length + (numbered ? 1 : 0) + (canRemoveRows ? 1 : 0)} />
+                </tr>
+              )}
               <SheetRow
-                key={row.id}
                 row={row}
                 index={i}
+                spans={merged.size > 0 ? spansAt(merged, i) : undefined}
                 columns={lines.first}
                 issuedColumns={issuedFirst}
                 second={lines.second}
@@ -581,6 +645,7 @@ export function LogSheetRecordView({
                 onMachineBlur={onMachineBlur}
                 onRemove={onRemoveRow}
               />
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -599,18 +664,21 @@ export function LogSheetRecordView({
       {/* The paper's own text below the grid, word for word (REQUIREMENTS §111): F/QC/11's and F/QC/12's PROCEDURE. */}
       {layout.notesBelow && layout.notesBelow.length > 0 && <NotesBelow lines={layout.notesBelow} />}
 
+      {/* The photograph the paper prints under its table (F/QC/29's analysis report, REQUIREMENTS §111). */}
+      {layout.photoBelowGrid && <SheetPhotos photos={data.photos ?? []} editable={editable} onChange={setPhotos} />}
+
       {/* The charts the form prints from its own figures (REQUIREMENTS §77). */}
       {layout.charts?.map((chart, i) => (
         <SheetChart key={i} chart={chart} data={data} />
       ))}
 
-      {layout.footerFields && layout.footerFields.length > 0 && (
+      {(footerGroups.length > 0 || sayVerifyIsApproval) && (
         <div className="card mt-4">
           <div className="card-pad">
             {/* Lines (or a table) the paper prints across the sheet above a box start a group of their
                 own, drawn under them: F/MNT/08's hand-over in the paper's two columns (REQUIREMENTS §93), a
                 certificate's COATING, FINISHING and TOLERANCE (§111); every other form's boxes are as they were. */}
-            {boxGroups(layout, "footer").map((group, gi) =>
+            {footerGroups.map((group, gi) =>
               group.lead ? (
                 <BoxLine key={gi} group={group} minWidth={220}>
                   {group.boxes.map(({ field, index }) => footerBox(field, index))}
@@ -629,8 +697,10 @@ export function LogSheetRecordView({
                 Manager's own (F/QC/25's "Sign By (QA Manager)") and does not print that it needs no signature (the
                 certificates of analysis' "IT DOES NOT REQUIRE A SIGNATURE."): there the line named an approval the
                 paper does not have. */}
-            {qcForm && !paperHasItsOwnApproval(layout) && (
-              <div className="text-xs text-muted mt-3 no-print">
+            {/* ...and, since the review of 13-Oct-2026, only under a paper that prints an approval DCRS stamps on Verify
+                (approvedOnVerify: F/QC/34, /35, /37): F-QC-14 and F/QC/13 print none, and the line named one. */}
+            {sayVerifyIsApproval && (
+              <div className={`text-xs text-muted no-print${footerGroups.length > 0 ? " mt-3" : ""}`}>
                 "Approved by (QA Manager)" on the paper form is the <strong>Verify</strong> step here — the verifier's name and time are stamped automatically.
               </div>
             )}
@@ -817,10 +887,18 @@ function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn
   const runs: { group?: string; columns: LogColumn[] }[] = [];
   for (const col of columns) {
     const last = runs[runs.length - 1];
-    if (last && last.group !== undefined && last.group === col.group) last.columns.push(col);
+    // "Observation (24Hrs.)" over Freeze, again over Desiccator: the paper's own cell over each (groupApart, §111).
+    if (last && last.group !== undefined && last.group === col.group && !col.groupApart) last.columns.push(col);
     else runs.push({ group: col.group, columns: [col] });
   }
   return runs;
+}
+
+/** One line's spans of the merged columns: on a run's first line how many lines the cell runs down, 0 on the lines it covers. */
+function spansAt(merged: Map<string, number[]>, index: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [key, spans] of merged) out[key] = spans[index] ?? 1;
+  return out;
 }
 
 function ColumnHead({
@@ -905,6 +983,217 @@ function PrintedGroup({ area, group, className, children }: { area: "header" | "
         <BoxLine group={group} minWidth={area === "header" ? 200 : 220}>
           {children}
         </BoxLine>
+      )}
+    </div>
+  );
+}
+
+/**
+ * THE PAPER'S SMALL TABLES (REQUIREMENTS §111, the review of 13-Oct-2026), as F-QC-14 prints its checks: two to a row,
+ * each headed with its check and specification over the inspectors, each inspector's name under his heading in
+ * brackets, its first column headed with what was sampled ("Paper Reel SAP batch no.", "Roll no.", "FGLA 11430
+ * sample no."), its three lines, and "Conclusion" with the check's own conclusion under them. The cells are the
+ * record's own (the same bindings, the same words for a printed cell); the boxes written in the headings are the
+ * record's boxes above the grid — typed in the first table that names each, shown as written in the others — and
+ * each Conclusion is its box below the grid. A phone takes the tables one under another (styles.css).
+ */
+function PanelGrid({
+  panels,
+  layout,
+  rows,
+  header,
+  issuedColumns,
+  editable,
+  lang,
+  employees,
+  lists,
+  onCell,
+  onBox,
+}: {
+  panels: Panels;
+  layout: { columns: LogColumn[]; headerFields: LogHeaderField[] };
+  rows: LogSheetRow[];
+  header: Record<string, string>;
+  issuedColumns: LogColumn[] | undefined;
+  editable: boolean;
+  lang: Parameters<typeof documentTextIn>[1];
+  employees: string[];
+  lists?: Record<string, string>;
+  onCell: (rowId: string, key: string, value: string | number | null) => void;
+  onBox: (key: string, value: string) => void;
+}) {
+  const boxes = new Map(layout.headerFields.map((f) => [f.key, f]));
+  // Each box written in a heading is typed (and bound, for a downloaded file) in the first table that names it.
+  const host = new Map<string, number>();
+  for (const t of panels.tables) {
+    for (const p of headingParts(t.firstHeading)) if ("box" in p && !host.has(p.box)) host.set(p.box, t.index);
+  }
+  for (const key of Object.values(panels.namesUnder)) if (!host.has(key)) host.set(key, 0);
+  const headingBox = (key: string, table: number) => {
+    const field = boxes.get(key);
+    if (!field) return null;
+    return <HeadingBox field={field} value={header[key] ?? ""} editable={editable} bound={host.get(key) === table} onBox={onBox} list={lists?.[key] ?? field.list} />;
+  };
+  const [first, ...readings] = panels.columns;
+  return (
+    <div className="paper-panels mt-4" data-section="paper-panels" style={{ "--paper-panels": panels.perRow } as React.CSSProperties}>
+      {panels.tables.map((t) => (
+        <div key={t.index} className="doc-table" style={{ overflowX: "auto" }} data-panel={t.index}>
+          <table className={editable ? "compact log-sheet paper-panel is-editing" : "compact log-sheet paper-panel"}>
+            <thead>
+              <tr>
+                <th rowSpan={2} className="paper-panel-first">
+                  {headingParts(t.firstHeading).map((p, pi) => ("box" in p ? <React.Fragment key={pi}>{headingBox(p.box, t.index)}</React.Fragment> : <React.Fragment key={pi}>{p.text}</React.Fragment>))}
+                </th>
+                <th className="col-group paper-panel-heading" colSpan={Math.max(1, readings.length)}>
+                  {documentTextIn(t.heading, lang)}
+                </th>
+              </tr>
+              <tr>
+                {readings.map((c) => {
+                  const nameKey = panels.namesUnder[c.key];
+                  const name = nameKey ? (header[nameKey] ?? "") : "";
+                  return (
+                    <th key={c.key}>
+                      {columnHeading(c)}
+                      {nameKey && (editable || name) ? (
+                        <>
+                          {"\n("}
+                          {headingBox(nameKey, t.index)}
+                          {")"}
+                        </>
+                      ) : null}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.slice(t.first, t.first + t.length).map((row, j) => {
+                const i = t.first + j;
+                const rowName = logRowName(row, layout.columns);
+                return (
+                  <tr key={row.id}>
+                    {[first, ...readings].map((c) => {
+                      const at = layout.columns.indexOf(c);
+                      return (
+                        <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
+                          <CellInput
+                            col={c}
+                            bind={bindProps(logCellBind(row, i, c, rowName))}
+                            issuedLabel={issuedColumns?.[at]?.label ?? c.label}
+                            value={c.fixed ? documentTextIn(row[c.key], lang) : row[c.key]}
+                            editable={editable && !c.fixed && !c.computed}
+                            onChange={(v) => onCell(row.id, c.key, v)}
+                            employees={employees}
+                            list={lists?.[c.key] ?? c.list}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+            {t.footer && (
+              <tfoot>
+                <tr data-panel-footer={t.footer.key}>
+                  <th scope="row" className="paper-panel-footer-label">
+                    {panels.footerLabel}
+                  </th>
+                  <td colSpan={Math.max(1, readings.length)}>
+                    <HeaderFieldInput field={t.footer} issuedLabel={t.footer.label} value={header[t.footer.key] ?? ""} editable={editable} onChange={(v) => onBox(t.footer!.key, v)} employees={employees} inTable />
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A box above the grid written inside a heading of the paper's small tables (F-QC-14's inspectors' names, its FG code):
+ * typed where it is bound, shown as written everywhere else. Its name is what a screen reader says.
+ */
+function HeadingBox({
+  field,
+  value,
+  editable,
+  bound,
+  onBox,
+  list,
+}: {
+  field: LogHeaderField;
+  value: string;
+  editable: boolean;
+  bound: boolean;
+  onBox: (key: string, value: string) => void;
+  list?: string;
+}) {
+  const bind = bound ? bindProps(logHeaderBind(field)) : undefined;
+  if (!editable || !bound) {
+    return (
+      // A copy written again where the paper writes it again says so: its value is bound where it is typed.
+      <span className="cell-text notranslate" translate="no" data-heading-box={field.key} data-repeats={bound ? undefined : field.key} {...bind}>
+        {value}
+      </span>
+    );
+  }
+  return <input className="input input-sm paper-panel-box" {...bind} aria-label={field.label} data-heading-box={field.key} value={value} list={list} onChange={(e) => onBox(field.key, e.target.value)} />;
+}
+
+/** A sheet holds one photograph where its paper prints one (F/QC/29's analysis report). */
+const SHEET_PHOTOS_MAX = 1;
+
+/**
+ * THE PHOTOGRAPH A PAPER PRINTS UNDER ITS TABLE (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/29's analysis
+ * report prints the label roll it analysed. Added from a picture while the record is open for writing — scaled down to
+ * a JPEG as the complaint report's photographs are (utils/image.ts) — kept in the record and printed in its place.
+ */
+function SheetPhotos({ photos, editable, onChange }: { photos: SheetPhoto[]; editable: boolean; onChange: (photos: SheetPhoto[]) => void }) {
+  const fileRef = React.useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [problem, setProblem] = React.useState<string | null>(null);
+  if (!editable && photos.length === 0) return null;
+  const add = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      onChange([...photos, { id: generateId("photo"), name: file.name, dataUrl: await imageFileToDataUrl(file) }].slice(0, SHEET_PHOTOS_MAX));
+      setProblem(null);
+    } catch {
+      setProblem(`${file.name} couldn't be read as a photograph — use a JPG or PNG.`);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+  return (
+    <div className="sheet-photos mt-4" data-section="sheet-photos">
+      {photos.map((p) => (
+        <figure key={p.id} className="sheet-photo" data-photo={p.id}>
+          <img src={p.dataUrl} alt={p.name || "Photograph"} />
+          {editable && (
+            <button className="btn btn-ghost btn-sm no-print" title="Remove this photograph" aria-label="Remove this photograph" data-action="remove-sheet-photo" onClick={() => onChange(photos.filter((x) => x.id !== p.id))}>
+              <FiTrash2 size={13} />
+            </button>
+          )}
+        </figure>
+      ))}
+      {editable && photos.length < SHEET_PHOTOS_MAX && (
+        <button type="button" className="btn btn-secondary btn-sm no-print" data-action="add-sheet-photo" disabled={busy} onClick={() => fileRef.current?.click()}>
+          <FiPlus size={13} /> {busy ? "Adding…" : "Add photograph"}
+        </button>
+      )}
+      {editable && <input ref={fileRef} type="file" accept="image/*" hidden data-field="sheet-photo-upload" onChange={(e) => void add(e.target.files)} />}
+      {problem && (
+        <div className="text-xs no-print mt-1" style={{ color: "var(--color-warning)" }}>
+          {problem}
+        </div>
       )}
     </div>
   );
@@ -1114,6 +1403,7 @@ function AnswerAcrossGrid({
 const SheetRow = React.memo(function SheetRow({
   row,
   index,
+  spans,
   columns,
   issuedColumns,
   second,
@@ -1135,6 +1425,8 @@ const SheetRow = React.memo(function SheetRow({
 }: {
   row: LogSheetRow;
   index: number;
+  /** By merged column, how many lines its cell runs down from this line — 0 where a cell above covers it (LogColumn.merged, REQUIREMENTS §111). */
+  spans?: Record<string, number>;
   columns: LogColumn[];
   issuedColumns: LogColumn[] | undefined;
   /** The entry's second line, where the paper gives it one (REQUIREMENTS §111): its heading, and the column under each of `columns`. */
@@ -1164,6 +1456,9 @@ const SheetRow = React.memo(function SheetRow({
   // What the line is called in a downloaded file's list of boxes: its time slot, its parameter (REQUIREMENTS §81).
   const rowName = logRowName(row, columns);
   const lineSpan = second ? 2 : undefined;
+  // A second line headed with nothing (F-QC-40.C's sign under each reading, REQUIREMENTS §111): the first column — the
+  // day — runs down both lines, as the one cell of the paper holds the reading and the sign.
+  const leadSpans = !!second && second.label === "";
   const firstLine = (
     <tr data-line={second ? "first" : undefined}>
       {numbered && (
@@ -1182,8 +1477,12 @@ const SheetRow = React.memo(function SheetRow({
             </td>
           );
         }
+        // A cell the paper merges down a run of lines is drawn on the run's first line only, across the run.
+        const span = spans?.[c.key];
+        if (span === 0) return null;
+        const rowSpan = span !== undefined && span > 1 ? span : ci === 0 && leadSpans ? 2 : undefined;
         return (
-          <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""}>
+          <td key={c.key} className={isOutOfBand(c, row[c.key]) ? "cell-out-of-band" : ""} rowSpan={rowSpan} data-merged={span !== undefined && span > 1 ? String(span) : undefined}>
             <CellInput
               col={col}
               bind={bindProps(logCellBind(row, index, col, rowName))}
@@ -1220,6 +1519,7 @@ const SheetRow = React.memo(function SheetRow({
       <tr data-line="second" className="log-second-line">
         {columns.map((c, ci) => {
           if (ci === 0) {
+            if (leadSpans) return null;
             return (
               <td key={c.key} className="second-line-label">
                 {second.label}
@@ -1404,6 +1704,12 @@ function HeaderFieldInput({
       onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
     />
   );
+  // THE PAPER'S HEADING, WRITTEN BY THE PERSON (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/29's "PSL Analysis
+  // Report", centred over the table in bold with no label. The label stays the box's name for a downloaded file and a
+  // screen reader, and is not printed.
+  if (field.asHeading && field.type === "text") {
+    return box("field field-as-heading", <label className="sr-only">{field.label}</label>, input);
+  }
   // THE VALUE INSIDE THE PAPER'S SENTENCE (REQUIREMENTS §111, part 4): "This material should be retested on
   // 03/07/2022 before usage." on one line. The words after the box are printed words: a downloaded file names
   // the box by the words before it and holds the date alone, as before.

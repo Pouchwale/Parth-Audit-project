@@ -20,18 +20,19 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 //
 // Every word is the workbook's own: "Coloue shade", the double spaces after "Specification :" and "Specs :", "60˚".
 //
-// WHAT A GRID DRAWS DIFFERENTLY, and why. The paper is eight small tables, two to a row, each headed with its check and
-// its specification, its first column headed with what was sampled ("Paper Reel SAP batch no.", "Roll no.", "FGLA 11430
-// sample no."), then the four inspectors, three lines and a Conclusion line under them. A sheet here is one grid:
-//   * each check is three lines of it, the check's heading printed on every one of its lines (as the Gujarati line
-//     clearance prints its process on every line, where the paper merges the cell), in the order the sheet is read,
-//     row by row: the left table, then the one beside it;
-//   * the first column is headed with the three words the paper uses for what was sampled, and holds the reel's batch
-//     and roll, or the sample's number, as written;
-//   * the inspectors' names, written under their headings on the paper, are the four boxes above the grid headed as
-//     the columns are; the finished job's FG code, written in its tables' first heading, is the FG Code box;
-//   * each check's Conclusion is a box below the grid, named with its check;
-//   * the paper numbers no line, so neither does the sheet (ownLineNumbers).
+// AS THE PAPER DRAWS IT (the review of 13-Oct-2026: it was one grid). The paper is eight small tables, two to a row, each
+// headed with its check and its specification, its first column headed with what was sampled ("Paper Reel SAP batch
+// no.", "Roll no.", "FGLA 11430 sample no."), then the four inspectors — "Inspector - 1" over "(Kapila)" — three lines,
+// and "Conclusion" with the check's conclusion under them. The sheet draws exactly that (LogSheetLayout.panels,
+// components/records/LogSheetRecordView.tsx PanelGrid). The record underneath is as it was:
+//   * each check is three lines of the record, in the order the sheet is read, row by row: the left table, then the one
+//     beside it; each line holds the check's heading (`parameter`, printed over its table, not as a column), what was
+//     sampled and the four readings;
+//   * the inspectors' names are four boxes, written under the inspectors' headings (typed in the first table, shown in
+//     the others); the finished job's FG code is a box, written in its tables' first heading ("{fgCode} sample no.");
+//   * each check's Conclusion is a box, printed under its own table;
+//   * the paper numbers no line, so neither does the sheet (ownLineNumbers); its "Date :" stands at the right.
+// A box's label is its name for Mitra, a record's history and a downloaded file; the sheet prints the paper's words.
 // A reading outside the specification is not highlighted: each line holds another check, and a column has one band.
 
 /** One check as the paper heads it, and what its three lines sample. */
@@ -42,29 +43,35 @@ export interface ReliabilityCheck {
   name: string;
   /** What the paper samples for it: the reel or film's rolls, or a finished job's numbered samples. */
   sampled: "roll" | "sample";
+  /** The heading of its table's first column, as printed: "Paper Reel SAP batch no.", "Roll no.", "{fgCode} sample no." (the FG Code box written in it). */
+  firstHeading: string;
 }
+
+const ROLL = "Roll no.";
+const SAMPLE = "{fgCode} sample no.";
 
 /** The "Label" sheet's eight checks, read row by row. */
 export const LABEL_CHECKS: ReliabilityCheck[] = [
-  { heading: "GSM - Total\nSpecification : 70 ± 5%", name: "GSM - Total", sampled: "roll" },
-  { heading: "Dimension (Length & Width)\nSpecification : Length :50mm & Width :40mm", name: "Dimension (Length & Width)", sampled: "sample" },
+  // The first table's first column is headed "Paper Reel SAP batch no.", the other rolls' "Roll no.".
+  { heading: "GSM - Total\nSpecification : 70 ± 5%", name: "GSM - Total", sampled: "roll", firstHeading: "Paper Reel SAP batch no." },
+  { heading: "Dimension (Length & Width)\nSpecification : Length :50mm & Width :40mm", name: "Dimension (Length & Width)", sampled: "sample", firstHeading: SAMPLE },
   // The paper's two spaces after the colon.
-  { heading: "GSM - Adhesive\nSpecification :  16.0 ± 2", name: "GSM - Adhesive", sampled: "roll" },
-  { heading: "Scuff Test\nSpecification :  2lbs/100rounds", name: "Scuff Test", sampled: "sample" },
-  { heading: "Thickness\nSpecs :  110 micron", name: "Thickness", sampled: "roll" },
+  { heading: "GSM - Adhesive\nSpecification :  16.0 ± 2", name: "GSM - Adhesive", sampled: "roll", firstHeading: ROLL },
+  { heading: "Scuff Test\nSpecification :  2lbs/100rounds", name: "Scuff Test", sampled: "sample", firstHeading: SAMPLE },
+  { heading: "Thickness\nSpecs :  110 micron", name: "Thickness", sampled: "roll", firstHeading: ROLL },
   // "Coloue" is the paper's own spelling.
-  { heading: "Coloue shade: Should be OK", name: "Coloue shade", sampled: "sample" },
-  { heading: "Peel Strength\nSpecs :  More than 1000 gms", name: "Peel Strength", sampled: "roll" },
-  { heading: "Gloss Testing\nSpecification : Minimum Gloss Required at 60˚", name: "Gloss Testing", sampled: "sample" },
+  { heading: "Coloue shade: Should be OK", name: "Coloue shade", sampled: "sample", firstHeading: SAMPLE },
+  { heading: "Peel Strength\nSpecs :  More than 1000 gms", name: "Peel Strength", sampled: "roll", firstHeading: ROLL },
+  { heading: "Gloss Testing\nSpecification : Minimum Gloss Required at 60˚", name: "Gloss Testing", sampled: "sample", firstHeading: SAMPLE },
 ];
 
 /** The "Sleeve" sheet's five checks, read row by row. */
 export const SLEEVE_CHECKS: ReliabilityCheck[] = [
-  { heading: "Thickness: 40 micron", name: "Thickness", sampled: "roll" },
-  { heading: "Dimension (Length & Width)\nSpecification : Length :203.20mm & Width :178mm", name: "Dimension (Length & Width)", sampled: "sample" },
-  { heading: "Shrinkage Ratio : TD 60 ± 2 %, MD 0 ~ 6%", name: "Shrinkage Ratio", sampled: "roll" },
-  { heading: "Coloue shade: Should be OK", name: "Coloue shade", sampled: "sample" },
-  { heading: "Corona Treatment - Both side Min. 36 dynes", name: "Corona Treatment", sampled: "roll" },
+  { heading: "Thickness: 40 micron", name: "Thickness", sampled: "roll", firstHeading: ROLL },
+  { heading: "Dimension (Length & Width)\nSpecification : Length :203.20mm & Width :178mm", name: "Dimension (Length & Width)", sampled: "sample", firstHeading: SAMPLE },
+  { heading: "Shrinkage Ratio : TD 60 ± 2 %, MD 0 ~ 6%", name: "Shrinkage Ratio", sampled: "roll", firstHeading: ROLL },
+  { heading: "Coloue shade: Should be OK", name: "Coloue shade", sampled: "sample", firstHeading: SAMPLE },
+  { heading: "Corona Treatment - Both side Min. 36 dynes", name: "Corona Treatment", sampled: "roll", firstHeading: ROLL },
 ];
 
 /** The three lines each check takes. */
@@ -79,7 +86,8 @@ export const RELIABILITY_ACCEPTED = "Variation are within specification limit, h
 const conclusionKey = (i: number) => `conclusion${i + 1}`;
 
 const header = (): LogHeaderField[] => [
-  { key: "date", label: "Date :", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
+  // "Date :  12.02.2022" at the right, beside the title.
+  { key: "date", label: "Date :", type: "date", required: true, width: 150, autoFill: { dueDate: true }, paperColumn: 3 },
   // The four names written under the inspectors' headings: who did this exercise, never carried to the next one.
   ...INSPECTORS.map((label, i): LogHeaderField => ({ key: `inspector${i + 1}`, label, type: "text", width: 190 })),
   // The finished job sampled: "FGLA 11430" in the heading "FGLA 11430 sample no.".
@@ -97,6 +105,17 @@ const footer = (checks: ReliabilityCheck[]): LogHeaderField[] =>
   checks.map((check, i) => ({ key: conclusionKey(i), label: `Conclusion (${check.name})`, type: "paragraph" }));
 
 const lines = (checks: ReliabilityCheck[]) => checks.flatMap((check) => Array.from({ length: SAMPLES_PER_CHECK }, () => ({ parameter: check.heading })));
+
+/** The paper's small tables (LogSheetLayout.panels): one a check, two to a row, the inspectors' names under their headings, each Conclusion under its table. */
+const panels = (checks: ReliabilityCheck[]): NonNullable<LogSheetLayout["panels"]> => ({
+  lines: SAMPLES_PER_CHECK,
+  perRow: 2,
+  headingColumn: "parameter",
+  firstHeadings: checks.map((c) => c.firstHeading),
+  namesUnder: Object.fromEntries(INSPECTORS.map((_, i) => [`reading${i + 1}`, `inspector${i + 1}`])),
+  footers: checks.map((_, i) => conclusionKey(i)),
+  footerLabel: "Conclusion",
+});
 
 // ---------------------------------------------------------------------------
 // The workbook as filled in on 12.02.2022: each line's sample and the four readings, in the order of the checks above.
@@ -190,6 +209,8 @@ export const QC_TEST_RELIABILITY_LAYOUTS: Record<string, LogSheetLayout> = {
     headerColumns: 3,
     columns: columns(),
     ownLineNumbers: true,
+    headingsAsPrinted: true,
+    panels: panels(LABEL_CHECKS),
     rowMode: { kind: "fixedRows", rows: lines(LABEL_CHECKS) },
     footerFields: footer(LABEL_CHECKS),
     specimenHeader: TEST_RELIABILITY_LABEL_HEADER,
@@ -205,6 +226,8 @@ export const QC_TEST_RELIABILITY_LAYOUTS: Record<string, LogSheetLayout> = {
     headerColumns: 3,
     columns: columns(),
     ownLineNumbers: true,
+    headingsAsPrinted: true,
+    panels: panels(SLEEVE_CHECKS),
     rowMode: { kind: "fixedRows", rows: lines(SLEEVE_CHECKS) },
     footerFields: footer(SLEEVE_CHECKS),
     specimenHeader: TEST_RELIABILITY_SLEEVE_HEADER,

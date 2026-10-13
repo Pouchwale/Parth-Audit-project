@@ -166,9 +166,24 @@ GUJARATI_NAMES_IN_ENGLISH = {
     "qc-line-clearance-quality": "Line Clearance — Quality",
 }
 
-# ---- REQUIREMENTS s58: the English the three Gujarati formats read in while
-# English is chosen, typed from i18n/documentTextEn.ts (the plant's own words).
+# ---- REQUIREMENTS s58 and s111: the three Gujarati QC papers print as issued in every language (the review of
+# 13-Oct-2026: with English chosen they printed the English of i18n/documentTextEn.ts, which is not the paper). The
+# English below is what they printed then, and must not print now; the Gujarati is the paper's.
 GUJARATI = re.compile("[\u0a80-\u0aff]")
+
+MATERIALS_IN_GUJARATI = [
+    "પ્રોસેસઃ– નીચે લખેલા દરેક પોઈન્ટ", "આઈટમ નં.", "પ્રો.નં.", "મશીનનું નામઃ–", "તા.",
+    "પ્રોસેસ", "મટીરીયલ્સ", "ઓપરેટર ની શહી", "Q.A એ ચેકીંગ", "Q.A ની શહી",
+    "પ્રિન્ટીંગ", "રો–મટીરીયલ્સ સ્ટોક", "મેગ્નેટીક ડાઈ", "પંચીંગ", "ક્વોલીટી ચેકીંગ", "લેબલ સ્લીટીંગ", "સ્લીટ રોલ",
+]
+QUALITY_IN_GUJARATI = ["પ્રોસીઝરઃ– ઓપરેટર ખાતરી કરવી", "આઈટમ નં.", "પ્રોડકશન નં.", "પેરામિટર", "Q.A ચેકીંગ", "એપુવ થયેલ આર્ટવર્ક", "માસ્ટર – સ્પોટસ"]
+FQC13_IN_GUJARATI = [
+    "પ્રોસીઝરઃ– ઉત્પાદન ની પ્રક્રિયા દરમિયાન", "આઈટમ કોડ", "પ્રો. નંબર", "તારીખ", "મશીન", "ઓપરેટર", "QA પર્સન", "ઓર્ડર લેન્થ ઈન મીટર", "સેમ્પલ કોલીટી",
+    "સ.નં", "પેરામીટર", "ટેસ્ટ ક્રાઈટ", "ગ્રેડ", "પાસ?",
+    # The five boxes below the grid, which the paper prints in English.
+    "Description of NC (If applicable):", "Sign Off Reason (If Applicable)", "Sign Off By: (If Applicable)", "REMARKS:", "QA Sign:",
+]
+GRADE_CHART_IN_GUJARATI = ["ગ્રેડ ક્રાઈટ", "A– બધાજ રજિસ્ટર સંપુર્ણ પણે બરાબર છે.", "F– ખુબજ વધારે ઉંડું પંચીંગ ભારે ગેરરીતી મળી."]
 
 MATERIALS_IN_ENGLISH = [
     "Process:– For each point written below, a QUALIFIED Q.A person must check the first correct sheet.",
@@ -223,7 +238,8 @@ PUNCHING_CHECKLIST = (
     "(1) Die of Previous Job removed ? (2) Die of Current / New Job changed ? (3) Matrix Roll (Wastage) of previous job removed ? "
     "(4) Finished Punching Rolls of Previous Production order shifted to designated place ?"
 )
-PUNCHING_MACHINE_BOX = "PUNCHING MACHINE NAME : - ____________________"
+# The paper's words before its printed rule: the box is the rule (the review of 13-Oct-2026).
+PUNCHING_MACHINE_BOX = "PUNCHING MACHINE NAME : -"
 
 # EXACTLY AS THE PAPER (REQUIREMENTS s111, the originals sent again on 13-Oct-2026): the fourteen incoming material
 # inspection records, as source-documents/qc-originals-2026-10-13/ prints them.
@@ -447,7 +463,8 @@ def record(page, rid):
 
 
 def sheet_rows(page):
-    return page.locator("[data-section='document-preview'] table.log-sheet tbody tr")
+    # A blank line the paper leaves between its processes is no line of the record (gapBetweenRuns, s111).
+    return page.locator("[data-section='document-preview'] table.log-sheet tbody tr:not([data-gap-line])")
 
 
 def printed_text(page):
@@ -744,21 +761,28 @@ with sync_playwright() as p:
     # ==================================================================
     # 6. The two Gujarati clearance checklists
     # ==================================================================
-    # English is chosen, so both read in English (REQUIREMENTS s58, checked line
-    # for line further down); what a record of one HOLDS is the form's own
-    # Gujarati, also checked there.
+    # English is chosen, and both print as issued all the same (REQUIREMENTS s111, the review of 13-Oct-2026, checked
+    # line for line further down): each process once beside its lines, its two signatures once, a blank line between.
     open_page(page, "#/document/qc-line-clearance-materials")
     body = printed_text(page)
     check(
         "The Gujarati materials clearance prints its twelve lines, process by process",
-        sheet_rows(page).count() == 12 and "Printing" in body and "Magnetic die" in body and "Label slitting" in body,
+        sheet_rows(page).count() == 12 and "પ્રિન્ટીંગ" in body and "મેગ્નેટીક ડાઈ" in body and "લેબલ સ્લીટીંગ" in body,
         (sheet_rows(page).count(), body[:200]),
     )
+    merged = page.locator("[data-section='document-preview'] table.log-sheet td[data-merged]").evaluate_all("els => els.map((e) => e.getAttribute('data-merged'))")
+    check(
+        "...each process printed once beside its lines, and signed once by the operator and by QA, a blank line between processes",
+        merged == ["6", "6", "6", "2", "2", "2", "2", "2", "2", "2", "2", "2"] and page.locator("[data-section='document-preview'] tr[data-gap-line]").count() == 3,
+        (merged, page.locator("[data-section='document-preview'] tr[data-gap-line]").count()),
+    )
+    head = page.locator("[data-section='document-preview'] .doc-header").first.inner_text()
+    check("...its header prints no format number of DCRS's: never TO BE CONFIRMED", "TO BE CONFIRMED" not in head, head)
     open_page(page, "#/document/qc-line-clearance-quality")
     body = printed_text(page)
     check(
         "The Gujarati quality clearance prints its fifteen lines",
-        sheet_rows(page).count() == 15 and "Approved artwork" in body and "Master – Spots" in body,
+        sheet_rows(page).count() == 15 and "એપુવ થયેલ આર્ટવર્ક" in body and "માસ્ટર – સ્પોટસ" in body,
         (sheet_rows(page).count(), body[:200]),
     )
 
@@ -868,10 +892,17 @@ with sync_playwright() as p:
     shot("fqc20-destruction")
     body = printed_text(page)
     whole = page.locator(".app-content").evaluate("e => e.textContent")
+    head = page.locator("[data-section='document-preview'] .doc-header").first.evaluate("e => e.textContent")
     check(
-        "F/QC/20 is headed DESTRUCTION RECORD, PRINTING AIDS DESTRUCTION RECORD above its Date:, the issue and review dates below the grid",
-        "DESTRUCTION RECORD" in whole.upper() and "PRINTING AIDS DESTRUCTION RECORD" in body and "Next Review date 31st December 2024" in body and "The form's footer prints" not in whole,
-        body[:600],
+        "F/QC/20 is headed DESTRUCTION RECORD, PRINTING AIDS DESTRUCTION RECORD above its Date:, the issue and review dates with its format number",
+        "DESTRUCTION RECORD" in whole.upper() and "PRINTING AIDS DESTRUCTION RECORD" in body and "Next Review date" in head and "31st December 2024" in head
+        and "1st January 2022" in head and "The form's footer prints" not in whole,
+        (head, body[:600]),
+    )
+    check(
+        "...its Date: at the right of its line, as printed",
+        page.locator("[data-section='document-preview'] [data-paper-column='3']").count() == 1,
+        page.locator("[data-section='document-preview'] [data-paper-column]").count(),
     )
     open_page(page, "#/document/qc-utility-test-report")
     shot("fqc29-utility-test")
@@ -882,6 +913,11 @@ with sync_playwright() as p:
         whole[:600],
     )
     check("...Job Name under Description, as the paper heads it", "Description" in heads(page) and "Job Name" in heads(page), heads(page))
+    check(
+        "...and Observation (24Hrs.) over each of Freeze, Desiccator and Oven, a cell each",
+        heads(page).count("Observation (24Hrs.)") == 3 and heads(page)[-3:] == ["Freeze", "Desiccator", "Oven"],
+        heads(page),
+    )
     open_page(page, "#/document/qc-analysis-report")
     shot("fqc29-analysis-report")
     whole = page.locator(".app-content").evaluate("e => e.textContent")
@@ -905,21 +941,25 @@ with sync_playwright() as p:
         "INTERNAL TEST RELIABILITY RECORD" in whole.upper() and "F-QC-14" in whole,
         whole[:400],
     )
+    # The workbook's eight small tables, two to a row (the review of 13-Oct-2026: it was one grid).
+    panels = page.locator("[data-section='document-preview'] table.paper-panel")
+    first_heads = panels.first.locator("thead th").evaluate_all("els => els.map((e) => e.textContent.trim())") if panels.count() else []
     check(
-        "...the four inspectors' columns and no Sr. No.",
-        heads(page) == ["Test", "Paper Reel SAP batch no. / Roll no. / sample no.", "Inspector - 1", "Inspector - 2", "Inspector - 3", "Inspector - 4"],
-        heads(page),
+        "...the workbook's eight small tables, the first headed Paper Reel SAP batch no. and GSM - Total over the four inspectors, Kapila under Inspector - 1",
+        panels.count() == 8 and first_heads[0] == "Paper Reel SAP batch no." and first_heads[1].startswith("GSM - Total") and first_heads[2].replace(" ", "") == "Inspector-1\n(Kapila)".replace(" ", ""),
+        (panels.count(), first_heads),
     )
     first = cell_texts(page, 0)
     check(
-        "...the workbook of 12.02.2022 on file: eight checks of three lines, GSM - Total first, 9460/5234/15 read 72, 71, 70, 71",
-        sheet_rows(page).count() == 24 and "GSM - Total" in first[0] and "Specification : 70 ± 5%" in first[0] and first[1:] == ["9460/5234/15", "72", "71", "70", "71"],
+        "...the workbook of 12.02.2022 on file: eight checks of three lines, 9460/5234/15 read 72, 71, 70, 71",
+        sheet_rows(page).count() == 24 and first == ["9460/5234/15", "72", "71", "70", "71"],
         (sheet_rows(page).count(), first),
     )
     body = printed_text(page)
     check(
-        "...each check concluded below the grid in the workbook's words",
-        "Conclusion (Gloss Testing)" in body and "Variation are within specification limit, hence test reliability accepted" in body,
+        "...each check concluded under its own table in the workbook's words, with no words of DCRS's",
+        body.count("Conclusion") == 8 and "Variation are within specification limit, hence test reliability accepted" in body
+        and "Conclusion (" not in body and "FG Code" not in body and "Paper Reel SAP batch no. / Roll no." not in body,
         body[-600:],
     )
     open_page(page, "#/document/qc-test-reliability-sleeve")
@@ -1039,8 +1079,8 @@ with sync_playwright() as p:
     )
     guj_rows = [r for r in rows if r["id"] in ("qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality")]
     check(
-        "The three Gujarati formats say so, and that they are being shown in English",
-        len(guj_rows) == 3 and all("Gujarati form, shown in English" in r["sub"] for r in guj_rows),
+        "The three Gujarati formats say so — printed as issued, never shown in English (s111)",
+        len(guj_rows) == 3 and all("Gujarati form" in r["sub"] and "shown in English" not in r["sub"] for r in guj_rows),
         [r["sub"] for r in guj_rows],
     )
     page.locator("[data-qc-doc='qc-bopp-film']").click()
@@ -1065,53 +1105,48 @@ with sync_playwright() as p:
     check("The sidebar reaches QC Records", qc_link.count() >= 1, page.locator(".app-sidebar").inner_text()[:400])
 
 
-    # ------------------------------------------------------------------ THE GUJARATI FORMATS, IN ENGLISH (s58)
-    # English is chosen, so Google Translate is not loaded at all and the three
-    # formats the department issues in Gujarati read from the English written
-    # down in i18n/documentTextEn.ts - every printed line of them.
+    # ------------------------------------------------------------------ THE GUJARATI QC PAPERS, AS ISSUED (s58, s111)
+    # English is chosen, and the three QC papers the department issues in Gujarati print their own Gujarati all the
+    # same (the review of 13-Oct-2026): the paper is the format. What printed before — their English, from
+    # i18n/documentTextEn.ts — is not printed; Mitra and the guided questions still have it.
     open_page(page, "#/document/qc-line-clearance-materials")
     sheet = printed_text(page)
-    missing = [w for w in MATERIALS_IN_ENGLISH if w not in sheet]
+    missing = [w for w in MATERIALS_IN_GUJARATI if w not in sheet]
+    english = [w for w in ["Operator's sign", "Raw materials stock", "Checked by Q.A", "LINE CLEARANCE"] if w in sheet]
     check(
-        "The Gujarati line clearance checklist reads in English, line for line",
-        not missing,
-        missing[:6] or sheet[:400],
-    )
-    check(
-        "…with nothing of it left in Gujarati",
-        not GUJARATI.search(sheet),
-        (GUJARATI.findall(sheet)[:8], sheet[:300]),
+        "The Gujarati line clearance checklist prints its own Gujarati with English chosen, line for line",
+        not missing and not english,
+        missing[:6] or english or sheet[:400],
     )
 
     open_page(page, "#/document/qc-line-clearance-quality")
     sheet = printed_text(page)
-    missing = [w for w in QUALITY_IN_ENGLISH if w not in sheet]
+    missing = [w for w in QUALITY_IN_GUJARATI if w not in sheet]
     check(
-        "The Gujarati quality checklist reads in English, its fifteen parameters included",
-        not missing and not GUJARATI.search(sheet),
-        missing[:6] or GUJARATI.findall(sheet)[:8] or sheet[:400],
+        "The Gujarati quality checklist prints its own Gujarati, its fifteen parameters included",
+        not missing and "Approved artwork" not in sheet and "QUALITY SIGN" not in sheet.upper(),
+        missing[:6] or sheet[:400],
     )
 
     open_page(page, "#/document/qc-inprocess-printing")
     sheet = printed_text(page)
-    missing = [w for w in FQC13_IN_ENGLISH if w not in sheet]
+    missing = [w for w in FQC13_IN_GUJARATI if w not in sheet]
     check(
-        "F/QC/13 reads in English — its procedure, its boxes and its six graded parameters",
-        not missing and not GUJARATI.search(sheet),
-        missing[:6] or GUJARATI.findall(sheet)[:8] or sheet[:500],
+        "F/QC/13 prints its own Gujarati — its procedure, its boxes and its six graded parameters — and its five boxes in its English",
+        not missing and "Test criteria" not in sheet,
+        missing[:6] or sheet[:500],
     )
     # The grade criteria are printed on the page in full, as the paper prints them: open, with no button (s111).
     printed_chart = page.locator("[data-section='document-preview'] [data-reference-table='printed']")
     chart = printed_chart.first.evaluate("e => e.textContent") if printed_chart.count() else ""
     check(
-        "…and the grade criteria printed with it in full, A to F, in English, with no button to show them",
-        printed_chart.count() == 1 and all(w in chart for w in GRADE_CHART_IN_ENGLISH) and not GUJARATI.search(chart)
+        "…and the grade criteria printed with it in full, A to F, as issued, with no button to show them",
+        printed_chart.count() == 1 and all(w in chart for w in GRADE_CHART_IN_GUJARATI)
         and page.locator("[data-section='document-preview'] button:has-text('Grade')").count() == 0,
-        [w for w in GRADE_CHART_IN_ENGLISH if w not in chart][:4] or GUJARATI.findall(chart)[:6] or printed_chart.count(),
+        [w for w in GRADE_CHART_IN_GUJARATI if w not in chart][:4] or printed_chart.count(),
     )
 
-    # The form READS in English; what the record HOLDS is the Gujarati the
-    # department issued, so a printed line is never rewritten by being read.
+    # The form prints as issued, and what the record HOLDS is the Gujarati the department issued.
     rid = start_record(page, "qc-line-clearance-materials")
     rec = record(page, rid)
     rows = (rec or {}).get("data", {}).get("rows", [])
@@ -1125,8 +1160,8 @@ with sync_playwright() as p:
     )
     shown = page.locator("[data-print-doc]").evaluate("e => e.textContent")
     check(
-        "…while the line on screen reads Printing / Raw materials stock",
-        "Printing" in shown and "Raw materials stock" in shown and not GUJARATI.search(shown),
+        "…and the line on screen reads as the paper, પ્રિન્ટીંગ / રો–મટીરીયલ્સ સ્ટોક",
+        "પ્રિન્ટીંગ" in shown and "રો–મટીરીયલ્સ સ્ટોક" in shown and "Raw materials stock" not in shown,
         shown[:300],
     )
 

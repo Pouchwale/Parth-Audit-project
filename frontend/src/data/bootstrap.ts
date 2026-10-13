@@ -11,6 +11,7 @@ import { alignTubeLightDates } from "../engine/tubeLightMigration";
 import { pinSchedulesWrittenOnRev00 } from "../engine/pmSchedule";
 import { alignCompanyName } from "./companyNameMigration";
 import { alignSeededLineNumbers } from "./lineNumbersMigration";
+import { alignPapersOnFile } from "./paperOnFileMigration";
 import { demoModeRuledOut } from "../engine/features";
 import { todayISO } from "../utils/date";
 
@@ -72,6 +73,8 @@ export function bootstrap(): void {
   // Two seeded records wrote each line's own number in its words beside the sheet's
   // Sr. No.: their lines take the words without it (REQUIREMENTS §102).
   alignSeededLineNumbers();
+  // Two seeded papers as their papers write them: F/QC/16's own Sr. No., F/QC/30's participants a line each (§111).
+  alignPapersOnFile();
 
   const today = new Date(todayISO());
   ensureRecordsGeneratedForMonth(today.getFullYear(), today.getMonth(), { isDemo: false });

@@ -40,7 +40,21 @@ export const isGujaratiDocument = (documentId: string): boolean => GUJARATI_DOCU
  * was issued. (With English chosen there is nothing to keep it from — Google
  * is not loaded at all — and the form reads from the English below.)
  */
-export const keepFormAsIssued = (documentId: string, lang: Language): boolean => lang !== "en" && isGujaratiDocument(documentId);
+export const keepFormAsIssued = (documentId: string, lang: Language): boolean => (lang !== "en" && isGujaratiDocument(documentId)) || sheetAsIssued(documentId);
+
+/**
+ * THE QC PAPERS PRINTED IN GUJARATI ARE PRINTED AS ISSUED, IN EVERY LANGUAGE (REQUIREMENTS §111, the review of
+ * 13-Oct-2026): F/QC/13 and the two line clearance checklists. The paper is the format, so their sheet and its print
+ * read in the paper's own Gujarati whatever language is chosen — with English chosen they printed an English
+ * translation ("LINE CLEARANCE", "Process | Materials | Operator's sign"), which is not the paper. What is said
+ * about them — Mitra's questions, the guided interview, the library's list — still follows the chosen language.
+ */
+export const SHEETS_PRINTED_AS_ISSUED: readonly string[] = ["qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality"];
+
+export const sheetAsIssued = (documentId: string): boolean => SHEETS_PRINTED_AS_ISSUED.includes(documentId);
+
+/** The language a form's own printed words read in on its sheet: the paper's Gujarati for a sheet printed as issued, the chosen language for every other. */
+export const sheetLanguage = (documentId: string, lang: Language): Language => (sheetAsIssued(documentId) ? "gu" : lang);
 
 /** A document's own name in the chosen language: the three Gujarati formats carry a Gujarati title. */
 export const documentNameIn = (doc: Pick<DocumentDefinition, "name">, lang: Language): string => documentTextIn(doc.name, lang);

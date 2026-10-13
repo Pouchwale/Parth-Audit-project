@@ -186,5 +186,8 @@ export function emptyLogRows(documentId: string): LogSheetRow[] {
   }
   if (mode.kind === "single") return [blank()];
   if (mode.kind === "fixedRows") return mode.rows.map((fixed) => ({ ...blank(), ...fixed }));
-  return Array.from({ length: mode.minRows ?? 1 }, blank);
+  // A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) has each blank line
+  // numbered: the number is the line's place on the paper, not anything observed.
+  const numberedBy = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
+  return Array.from({ length: mode.minRows ?? 1 }, (_, i) => (numberedBy ? { ...blank(), [numberedBy]: String(i + 1) } : blank()));
 }

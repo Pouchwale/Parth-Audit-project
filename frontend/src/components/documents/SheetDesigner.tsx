@@ -173,7 +173,8 @@ function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn
   const runs: { group?: string; columns: LogColumn[] }[] = [];
   for (const col of columns) {
     const last = runs[runs.length - 1];
-    if (last && last.group !== undefined && last.group === col.group) last.columns.push(col);
+    // A heading the paper prints over this column alone (groupApart, REQUIREMENTS §111) is a cell of its own.
+    if (last && last.group !== undefined && last.group === col.group && !col.groupApart) last.columns.push(col);
     else runs.push({ group: col.group, columns: [col] });
   }
   return runs;

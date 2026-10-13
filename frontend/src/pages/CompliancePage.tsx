@@ -276,8 +276,11 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
         </table>
       </div>
 
-      <div className="card mt-4">
-        <div className="card-header">
+      {/* What the document prints after its table, as it prints it (REQUIREMENTS §111, the review of 13-Oct-2026): no
+          heading of DCRS's over it; a heading the document prints in the list (F/QC-38's REACH) as a heading, and a "⇨"
+          line as a bullet of the line above it. The heading on screen only names the card. */}
+      <div className="card mt-4" data-section="soc-list">
+        <div className="card-header no-print">
           <h3 className="text-base font-semibold flex items-center gap-2">
             <FiShield size={14} /> Declarations
           </h3>
@@ -294,7 +297,12 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
                 onChange={(e) => patch({ declarations: s.declarations.map((x, xi) => (xi === i ? e.target.value : x)) })}
               />
             ) : (
-              <p key={i} className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}`} {...bindProps(complianceBind.declaration(i))}>
+              <p
+                key={i}
+                className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}${s.headings?.includes(d) ? " font-semibold" : ""}`}
+                style={d.startsWith("⇨") ? { paddingLeft: 24 } : undefined}
+                {...bindProps(complianceBind.declaration(i))}
+              >
                 {d}
               </p>
             )

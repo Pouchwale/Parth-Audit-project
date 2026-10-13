@@ -301,7 +301,9 @@ const besideGrid = new WeakMap<LogSheetLayout, BoxGroup[]>();
 export function boxGroupsBesideGrid(layout: LogSheetLayout): BoxGroup[] {
   const hit = besideGrid.get(layout);
   if (hit) return hit;
-  const inHead = new Set(gridHeadBoxes(layout).map((b) => b.index));
+  // ...and those the paper writes inside its small tables' headings (F-QC-14's inspectors and FG code, panels).
+  const inPanels = panelBoxes(layout).header;
+  const inHead = new Set([...gridHeadBoxes(layout).map((b) => b.index), ...layout.headerFields.flatMap((f, i) => (inPanels.has(f.key) ? [i] : []))]);
   const groups = boxGroups(layout, "header");
   const out =
     inHead.size === 0
@@ -319,5 +321,204 @@ export function placedTables(layout: LogSheetLayout): Set<string> {
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
     if (f.tableAbove && layout.referenceTables?.some((t) => t.title === f.tableAbove)) out.add(f.tableAbove);
   }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// FROM THE REVIEW OF 13-OCT-2026 (REQUIREMENTS §111): what the papers of group B do that a layout could not say.
+//
+//   one cell down a run of lines     LogColumn.merged — the Gujarati line clearance's process and its two
+//                                    signatures once per process, F/QC/13's one પાસ? (mergedRuns,
+//                                    withMergedRuns).
+//   a blank line between the runs    LogSheetLayout.gapBetweenRuns — between the Gujarati line clearance's
+//                                    processes (runStarts).
+//   the paper's small tables         LogSheetLayout.panels — F-QC-14's checks, two to a row (panelsOf,
+//                                    panelBoxes, footerGroupsBesideGrid).
+
+/** What a line holds in a column, or — on a form that prints its lines — what the form prints there (a record written before the column was printed). */
+function lineValue(layout: LogSheetLayout, rows: readonly Record<string, unknown>[], i: number, key: string): string {
+  const held = rows[i]?.[key];
+  if (held !== undefined && held !== null && held !== "") return String(held);
+  const fixed = layout.rowMode.kind === "fixedRows" ? layout.rowMode.rows[i]?.[key] : undefined;
+  return fixed === undefined || fixed === null ? "" : String(fixed);
+}
+
+/** The runs of lines whose `by` column holds the same words, as [first, length] — the whole sheet where there is no `by`. */
+function runsOf(layout: LogSheetLayout, rows: readonly Record<string, unknown>[], by: string | undefined): [number, number][] {
+  const runs: [number, number][] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const last = runs[runs.length - 1];
+    if (last && (by === undefined || lineValue(layout, rows, i, by) === lineValue(layout, rows, last[0], by))) last[1]++;
+    else runs.push([i, 1]);
+  }
+  return runs;
+}
+
+/** The merged columns of a layout. */
+export const mergedColumns = (layout: LogSheetLayout): LogColumn[] => layout.columns.filter((c) => c.merged !== undefined);
+
+/**
+ * ONE CELL DOWN A RUN OF LINES (LogColumn.merged): for each merged column, each line's span — on a run's first line
+ * the number of lines its one cell runs down, 0 on the lines that cell covers. Empty for a layout with none.
+ */
+export function mergedRuns(layout: LogSheetLayout, rows: readonly Record<string, unknown>[]): Map<string, number[]> {
+  const out = new Map<string, number[]>();
+  for (const c of mergedColumns(layout)) {
+    const spans = new Array<number>(rows.length).fill(0);
+    for (const [first, length] of runsOf(layout, rows, c.merged?.by)) spans[first] = length;
+    out.set(c.key, spans);
+  }
+  return out;
+}
+
+/**
+ * The lines with every merged column holding its run's value on the run's first line and nothing on the others (a
+ * "No" anywhere in a yes/no run is the run's "No"; otherwise the first value written) — the same array when nothing
+ * changes. Demo Mode's and the sample fill's lines are written once per line and are brought to the paper's one cell here.
+ */
+export function withMergedRuns<R extends Record<string, string | number | null>>(layout: LogSheetLayout, rows: R[]): R[] {
+  const merged = mergedColumns(layout);
+  if (merged.length === 0 || rows.length === 0) return rows;
+  let out: R[] | null = null;
+  for (const c of merged) {
+    const blank = c.type === "number" ? null : "";
+    for (const [first, length] of runsOf(layout, rows, c.merged?.by)) {
+      const values = rows.slice(first, first + length).map((r) => r[c.key]).filter((v) => v !== null && v !== undefined && v !== "");
+      const value = c.type === "yesno" && values.includes("No") ? "No" : (values[0] ?? blank);
+      for (let i = first; i < first + length; i++) {
+        const want = i === first ? value : blank;
+        if ((rows[i][c.key] ?? blank) === want) continue;
+        out = out ?? rows.slice();
+        out[i] = { ...(out[i] as R), [c.key]: want };
+      }
+    }
+  }
+  return out ?? rows;
+}
+
+/** The lines a new run of the `gapBetweenRuns` column starts on (never the first): the paper leaves a blank line above each. */
+export function runStarts(layout: LogSheetLayout, rows: readonly Record<string, unknown>[]): Set<number> {
+  if (!layout.gapBetweenRuns) return new Set();
+  return new Set(
+    runsOf(layout, rows, layout.gapBetweenRuns)
+      .map(([first]) => first)
+      .filter((i) => i > 0)
+  );
+}
+
+/** One of the paper's small tables (LogSheetLayout.panels). */
+export interface PanelTable {
+  /** Its place among the tables, from 0. */
+  index: number;
+  /** The record's first line it holds. */
+  first: number;
+  /** How many lines it holds. */
+  length: number;
+  /** The words over its readings (the check and its specification), from its first line's printed heading cell. */
+  heading: string;
+  /** Its first column's heading, "{key}" standing for a box above the grid. */
+  firstHeading: string;
+  /** The box below the grid printed under its lines. */
+  footer?: LogHeaderField;
+}
+
+export interface Panels {
+  tables: PanelTable[];
+  /** The columns each table draws, in order: every column but the one whose words head the tables. */
+  columns: LogColumn[];
+  perRow: number;
+  namesUnder: Record<string, string>;
+  footerLabel: string;
+}
+
+const panelsCache = new WeakMap<LogSheetLayout, Panels | null>();
+
+/**
+ * THE PAPER'S SMALL TABLES (LogSheetLayout.panels), as the sheet draws them — or null where the layout says none, or
+ * says them of a grid it cannot cut so (a format edited since: drawn as every grid is, losing nothing).
+ */
+export function panelsOf(layout: LogSheetLayout): Panels | null {
+  const hit = panelsCache.get(layout);
+  if (hit !== undefined) return hit;
+  let out: Panels | null = null;
+  const spec = layout.panels;
+  const mode = layout.rowMode;
+  if (spec && mode.kind === "fixedRows" && spec.lines > 0 && !layout.gridAcross && !layout.answerAcross && !layout.secondLine && layout.columns.some((c) => c.key === spec.headingColumn)) {
+    const count = Math.ceil(mode.rows.length / spec.lines);
+    const footers = layout.footerFields ?? [];
+    const tables: PanelTable[] = Array.from({ length: count }, (_, index) => {
+      const first = index * spec.lines;
+      const footer = footers.find((f) => f.key === spec.footers?.[index]);
+      return {
+        index,
+        first,
+        length: Math.min(spec.lines, mode.rows.length - first),
+        heading: String(mode.rows[first]?.[spec.headingColumn] ?? ""),
+        firstHeading: spec.firstHeadings[index] ?? "",
+        ...(footer ? { footer } : {}),
+      };
+    });
+    out = {
+      tables,
+      columns: layout.columns.filter((c) => c.key !== spec.headingColumn),
+      perRow: Math.max(1, spec.perRow),
+      namesUnder: spec.namesUnder ?? {},
+      footerLabel: spec.footerLabel ?? "",
+    };
+  }
+  panelsCache.set(layout, out);
+  return out;
+}
+
+/** The "{key}" boxes a heading is written with: its words and the boxes between them, in order. */
+export function headingParts(words: string): ({ text: string } | { box: string })[] {
+  const parts: ({ text: string } | { box: string })[] = [];
+  let at = 0;
+  for (const m of words.matchAll(/\{([A-Za-z0-9_]+)\}/g)) {
+    if ((m.index ?? 0) > at) parts.push({ text: words.slice(at, m.index) });
+    parts.push({ box: m[1] });
+    at = (m.index ?? 0) + m[0].length;
+  }
+  if (at < words.length) parts.push({ text: words.slice(at) });
+  return parts;
+}
+
+const panelBoxesCache = new WeakMap<LogSheetLayout, { header: Set<string>; footer: Set<string> }>();
+
+/** The boxes the paper writes inside its small tables — above the grid (the inspectors' names, the FG code) and below it (each Conclusion) — and so not drawn among the other boxes. */
+export function panelBoxes(layout: LogSheetLayout): { header: Set<string>; footer: Set<string> } {
+  const hit = panelBoxesCache.get(layout);
+  if (hit) return hit;
+  const panels = panelsOf(layout);
+  const header = new Set<string>();
+  const footer = new Set<string>();
+  if (panels) {
+    const headerKeys = new Set(layout.headerFields.map((f) => f.key));
+    for (const t of panels.tables) {
+      for (const p of headingParts(t.firstHeading)) if ("box" in p && headerKeys.has(p.box)) header.add(p.box);
+      if (t.footer) footer.add(t.footer.key);
+    }
+    for (const key of Object.values(panels.namesUnder)) if (headerKeys.has(key)) header.add(key);
+  }
+  const out = { header, footer };
+  panelBoxesCache.set(layout, out);
+  return out;
+}
+
+const footerBeside = new WeakMap<LogSheetLayout, BoxGroup[]>();
+
+/** The groups of boxes below the grid as the record's sheet draws them: those the paper prints inside its small tables taken out, a group left with nothing to draw dropped. */
+export function footerGroupsBesideGrid(layout: LogSheetLayout): BoxGroup[] {
+  const hit = footerBeside.get(layout);
+  if (hit) return hit;
+  const inPanels = panelBoxes(layout).footer;
+  const groups = boxGroups(layout, "footer");
+  const out =
+    inPanels.size === 0
+      ? groups
+      : groups
+          .map((g) => ({ ...g, boxes: g.boxes.filter((b) => !inPanels.has(b.field.key)) }))
+          .filter((g) => g.boxes.length > 0 || g.lines.length > 0 || g.table !== undefined);
+  footerBeside.set(layout, out);
   return out;
 }

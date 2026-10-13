@@ -5,6 +5,16 @@
 // re-issue instead of treating them as fillable records. The company's name
 // is the one exception to verbatim: it is written as the owner gave it on
 // 02-Oct-2026 (COMPANY.name), not as each Word document spelt it.
+//
+// AS THE DOCUMENTS PRINT IT (REQUIREMENTS §111, the review of 13-Oct-2026): the
+// footer reference as each footer prints it ("F/QC-09", no space); and on
+// F/QC-38, what follows the table is one bulleted list — the regulations under
+// no heading, "Please refer below for Intended Food Contact packaging: ‐" and
+// its food categories, the 282/2008 regulation again after them, then the
+// REACH heading and its points, then the declarations — so it is held as the
+// document holds it: one line per bullet, in order (`declarations`), each
+// "⇨" line a bullet of the list above it, as the document draws it, and the
+// headings it prints in the list named in `headings`.
 import { COMPANY } from "./masterData";
 
 export interface ComplianceSection {
@@ -19,6 +29,8 @@ export interface ComplianceStatement {
   referenceSource?: string;
   sections: ComplianceSection[];
   declarations: string[];
+  /** Lines of `declarations` the document prints as a heading of the list (F/QC-38's "REACH"), not as a bullet. */
+  headings?: string[];
   signedBy: string;
   signedTitle: string;
   signedOn: string; // ISO date
@@ -29,7 +41,7 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
   "soc-labels": {
     documentId: "soc-labels",
     headerTitle: "STATEMENT OF COMPLIANCE – PRESSURE LABELS",
-    footerRef: "F/QC- 09 (Rev – 00 / 01.12.2021)",
+    footerRef: "F/QC-09 (Rev – 00 / 01.12.2021)",
     sections: [
       { label: "Manufacturer", lines: [COMPANY.name] },
       { label: "Address", lines: ["308,309, G.I.D.C. Estate, At Dediyasan, Mehsana – 384002, Gujarat, India"] },
@@ -77,7 +89,7 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
   "soc-flexible-packaging": {
     documentId: "soc-flexible-packaging",
     headerTitle: "STATEMENT OF COMPLIANCE – FLEXIBLE PACKAGING (ROLLS & POUCHES)",
-    footerRef: "F/QC- 38 (Rev – 00 / 24.02.2025)",
+    footerRef: "F/QC-38 (Rev – 00 / 24.02.2025)",
     referenceSource: "BRC Global Standard for Packaging and Packaging Materials",
     sections: [
       { label: "Manufacturer", lines: [COMPANY.name] },
@@ -123,37 +135,42 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
         label: "Post-consumer recycling instructions/specification",
         lines: ["No PCWR waste used for the manufacturing of packaging materials in the process. Packaging materials can be recycled subject to layer & substrate combination"],
       },
-      {
-        label: "Applicable regulations",
-        lines: [
-          "Regulation (EC) No. 1935/2004 of 27 October 2004 on materials and articles intended to come into contact with food.",
-          "Commission Regulation (EC) No. 10/2011 of 14 January 2011 with amendments (EC) No. 2023/1442 dated 11th July 2023, on plastic materials and articles intended to come into contact with food",
-          "Commission Directive 2002/72/EC of 6 August 2002 with amendments (EC) No. 975/2009, 2008/39/EC, 2007/19/EC, 2005/79/EC, 2004/19/EC and 2004/1/EC relating to plastic materials and articles intended to come into contact with foodstuffs",
-          "Commission Regulation (EC) No. 282/2008 of 27 March 2008 on recycled plastic materials and articles intended to come into contact with foods",
-          "Commission Regulation (EC) No. 2023/2006 of 22 December 2006 on good manufacturing practice for materials and articles intended to come into contact with food",
-          "Council Directive 94/62/EC of 20 December 1994 with amendments 2005/20/EC and 2004/12/EC on packaging and packaging waste",
-          "Compliance of packaging materials to the requirements of EU Directives no. 2018/851 and 2018/852 and in particular to the obligations of identification and classification of packaging according to the provisions of Decision 97/129 / EC",
-          "FSSAI regulation for packaging materials 2018 & amended as 2020",
-        ],
-      },
-      {
-        label: "Intended Food Contact packaging",
-        lines: [
-          "Type of Food (e.g., infant product, culinary product and confectionery), foreseen shelf life and storage conditions.",
-          "Description of the suitability for food contact i.e., suitable for all types of food or only one /several of the following categories: Dry Food; Dry and non‐fatty food; Wet & aqueous food; Fatty food; Specific Food (e.g., acid, alcoholic); Food to be reheated in packaging (time and max. temperature in °C)",
-        ],
-      },
-      {
-        label: "REACH",
-        lines: [
-          "Under the REACH regulation 1907/2006/EC, all the products of OSWAL [FIBC Bags] are manufactured items and so exempt from REACH registration",
-          "GPPPL have taken all the necessary steps to ensure that the chemical components from which GPPPL products are obtained fulfil the obligation of the REACH registration, with specific requests of declarations from GPPPL’s Raw material suppliers",
-          "Raw material suppliers to GPPPL are: Producers of Films / Foils; Producers of Additives; Producers of Glue / Adhesives; Producers of Ink; Producers of Solvents",
-          "Nevertheless, the obligation of registration of the individual chemical substances used by the raw material suppliers to GPPPL goes down in the supply chain to the obliged parties that supply the raw materials",
-        ],
-      },
     ],
+    // After the table the document prints one bulleted list, in this order: the regulations under no heading, the
+    // food contact lines and their categories (each "⇨"), the 282/2008 regulation again, the REACH heading and its
+    // points, and the declarations.
     declarations: [
+      "Regulation (EC) No. 1935/2004 of 27 October 2004 on materials and articles intended to come into contact with food.",
+      "Commission Regulation (EC) No. 10/2011 of 14 January 2011 with amendments (EC) No. 2023/1442 dated 11th July 2023, on plastic materials and articles intended to come into contact with food",
+      "Commission Directive 2002/72/EC of 6 August 2002 with amendments (EC) No. 975/2009, 2008/39/EC, 2007/19/EC, 2005/79/EC, 2004/19/EC and 2004/1/EC relating to plastic materials and articles intended to come into contact with foodstuffs",
+      "Commission Regulation (EC) No. 282/2008 of 27 March 2008 on recycled plastic materials and articles intended to come into contact with foods",
+      "Commission Regulation (EC) No. 2023/2006 of 22 December 2006 on good manufacturing practice for materials and articles intended to come into contact with food",
+      "Council Directive 94/62/EC of 20 December 1994 with amendments 2005/20/EC and 2004/12/EC on packaging and packaging waste",
+      "Compliance of packaging materials to the requirements of EU Directives no. 2018/851 and 2018/852 and in particular to the obligations of identification and classification of packaging according to the provisions of Decision 97/129 / EC",
+      "FSSAI regulation for packaging materials 2018 & amended as 2020",
+      // The document's own words, its "‐" after the colon included.
+      "Please refer below for Intended Food Contact packaging: ‐",
+      "Type of Food (e.g., infant product, culinary product and confectionery), foreseen shelf life and storage conditions.",
+      "Description of the suitability for food contact i.e., suitable for all types of food or only one /several of the following categories",
+      "⇨ Dry Food",
+      "⇨ Dry and non‐fatty food",
+      "⇨ Wet & aqueous food",
+      "⇨ Fatty food",
+      "⇨ Specific Food (e.g., acid, alcoholic)",
+      "⇨ Food to be reheated in packaging (time and max. temperature in °C)",
+      // Printed a second time here, after the food categories: the document's own.
+      "Commission Regulation (EC) No. 282/2008 of 27 March 2008 on recycled plastic materials and articles intended to come into contact with foods",
+      "REACH",
+      "Under the REACH regulation 1907/2006/EC, all the products of OSWAL [FIBC Bags] are manufactured items and so exempt from REACH registration",
+      "GPPPL have taken all the necessary steps to ensure that the chemical components from which GPPPL products are obtained fulfil the obligation of the REACH registration, with specific requests of declarations from GPPPL’s Raw material suppliers",
+      "Raw material suppliers to GPPPL are",
+      "⇨ Producers of Films / Foils",
+      "⇨ Producers of Additives",
+      "⇨ Producers of Glue / Adhesives",
+      "⇨ Producers of Ink",
+      "⇨ Producers of Solvents",
+      // The two spaces after "GPPPL" are the document's own.
+      "Nevertheless, the obligation of registration of the individual chemical substances used by the raw material suppliers to GPPPL  goes down in the supply chain to the obliged parties that supply the raw materials",
       "We declare that all raw materials used in the manufacturing of products with BOPP, METALIZED BOPP, PEARLISED BOPP, MATT BOPP, PET, METPET, CPP, ALUMINIUM FOIL do not have a concentration of lead, cadmium, Hexavalent chromium and mercury that exceeds 100 PPM, and conform to Council Directive 94/62/EC with amendments 2005/20/EC and 2004/12/EC",
       "Substances such as 4-methylbenzophenone, benzophenone, hydroxybenzophenone and bisphenol A are not added or used in the manufacturing of products with BOPP, METALIZED BOPP, PEARLISED BOPP, MATT BOPP, PET, METPET, CPP, ALUMINIUM FOIL and are therefore not expected to be present in our products",
       "Inks used are suitable for Indirect Food Contact where there is a barrier between the ink and the product. They confirm to the requirement of Heavy Metal Content of CONEG and EN 71 part 3. The inks do not contain any material that is in the negative list of CEPE. The inks do not contain any animal fat",
@@ -165,6 +182,7 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
       "Whilst this Declaration is made using all due diligence, it is the responsibility of the downstream users of these articles to ensure compliance with all relevant legislation in their own applications and technologies",
       "This Declaration of Compliance is applicable to current and future supplies of Products manufactured from BOPP, METALIZED BOPP, PEARLISED BOPP, MATT BOPP, PET, METPET, CPP, ALUMINIUM FOIL and are updated only by (1) Legislative changes (2) Creation of new scientific data that affects the use of the material & (3) Modified composition of the material or the article that has significance for the application",
     ],
+    headings: ["REACH"],
     signedBy: "Shail Patel",
     signedTitle: "CEO",
     signedOn: "2025-02-24",

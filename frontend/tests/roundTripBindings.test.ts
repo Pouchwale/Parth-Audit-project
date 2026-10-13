@@ -327,6 +327,9 @@ function unboundOnPurpose(t: Tag): string | null {
   if ((t.attrs.title ?? "").startsWith("Same as line")) return "the service report's mirrored quantity";
   if (/-address$/.test(t.attrs["data-field"] ?? "")) return "an address held as several lines, edited joined";
   if (t.attrs["data-field"] === "fhr18-add-date" || t.attrs["data-field"] === "soc-lines") return "not a value of the record";
+  // F-QC-14's inspectors' names and FG code, written again in every table that prints them (REQUIREMENTS §111, the review
+  // of 13-Oct-2026): bound where they are typed, in the first table that names each.
+  if (t.attrs["data-repeats"]) return "a box written again where the paper writes it again";
   return null;
 }
 

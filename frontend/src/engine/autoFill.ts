@@ -33,6 +33,8 @@ import { dayInfo } from "./holidays";
 import { isLotAccepted, isOutOfBand, supersededRevisionOf } from "./validation";
 import { withComputedCells } from "./computedCells";
 import { qcPaperSample } from "./qcPaperSamples";
+import { qcReportSample } from "./qcReportSamples";
+import { withMergedRuns } from "./paperLayout";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
@@ -419,8 +421,10 @@ function fillTraining(
 // ---------------------------------------------------------------------------
 // 5. Generic log sheets (lamination QC / production)
 
-function signFor(col: LogColumn, time: string | undefined, doc: DocumentDefinition, master: MasterData, dueDate: string): string {
+function signFor(col: LogColumn, lineTime: string | undefined, doc: DocumentDefinition, master: MasterData, dueDate: string): string {
   const shift = col.autoFill?.byShift;
+  // The time the reading the sign is under was taken at (F-QC-40.C's "20:30 HRS", REQUIREMENTS §111), else the line's.
+  const time = col.autoFill?.atTime ?? lineTime;
   if (shift && time) return isNightHour(time) ? shift.night : shift.day;
   if (shift) return shift.day;
   // A QC sheet with one sign box (the hot-room record) is signed by whoever
@@ -480,6 +484,11 @@ function fillRow(
     }
     if (col.fixed && t !== undefined && t !== null) {
       row[col.key] = t;
+      continue;
+    }
+    // The line's own number, where the paper numbers its lines in a column of its own (F/QC/16, REQUIREMENTS §111).
+    if (!col.fixed && col.autoFill?.lineNumber) {
+      row[col.key] = String(rowIndex + 1);
       continue;
     }
     // A judgement made afresh each time (REQUIREMENTS §76) — an audit's
@@ -944,11 +953,17 @@ function fillLogSheet(
   // people of HR Master Data (engine/qcPaperSamples.ts). This is Demo Mode's and a test server's
   // sample data only, as everything in this file is.
   const paper = qcPaperSample(doc.id, layout, dueDate, { header, rows }, lot, master, responsibleName(doc, master, ""));
+  // The reports and registers of group B the same way (engine/qcReportSamples.ts, the review of 13-Oct-2026): their
+  // two signatures two people of HR Master Data, the utility test's samples and the printing aids destroyed that day's.
+  const report = qcReportSample(doc.id, dueDate, paper ?? { header, rows }, master, responsibleName(doc, master, ""));
+  const filled = report ?? paper ?? { header, rows };
 
   // Every worked-out cell worked out on what was filled (engine/computedCells.ts,
   // REQUIREMENTS §74): a prepared, sample, guided or demo record stores the
   // right figure, not the one the specimen or the last sheet happened to hold.
-  const data: LogSheetData = withComputedCells(doc.id, paper ?? { header, rows });
+  // A cell the paper merges down its lines holds its value on the run's first line only (LogColumn.merged, §111):
+  // the Gujarati line clearance's signatures once per process, F/QC/13's one પાસ? — "No" if any line was not passed.
+  const data: LogSheetData = withComputedCells(doc.id, { ...filled, rows: withMergedRuns(layout, filled.rows) });
   const notes = describeLogSheet(doc, layout, data, previous);
   const excursion = describeExcursions(ctx);
   if (excursion) notes.unshift(excursion);
@@ -1059,10 +1074,11 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
     case "qc-temperature": {
       const keys = layout.columns.filter((c) => c.type === "number").map((c) => c.key);
       const vals = keys.map((k) => rows[0]?.[k]).filter((v): v is number => typeof v === "number");
+      // Each reading cell is "TEMP. + SIGN": the sign under each reading, the shift's tester's (REQUIREMENTS §111).
+      const signers = Array.from(new Set(layout.columns.filter((c) => c.beneath).map((c) => String(rows[0]?.[c.key] ?? "")).filter(Boolean)));
       return [
         `Logged all 6 hot-room readings: ${Math.min(...vals)}–${Math.max(...vals)} °C (recommended 45 ± 2 °C).`,
-        // The paper has no Sign column: each reading cell is "TEMP. + SIGN" (REQUIREMENTS §111).
-        "Each reading is entered by whoever takes it; the paper's \"+ SIGN\" is their name on the record when it is submitted.",
+        signers.length ? `Each reading signed under it by the tester on shift: ${signers.join(" / ")}.` : "Each reading is signed under it by whoever takes it.",
       ];
     }
     case "qc-adhesive-mixing": {

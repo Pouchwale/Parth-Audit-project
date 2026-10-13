@@ -38,9 +38,10 @@ import { GSM_PLATES, GSM_PRINTED, WEIGHT_SCALE_HEADER } from "./qcCalibrationLay
 //     prints the name as the owner gave it on 02-Oct-2026 (COMPANY.name); a
 //     layout has no field for the Note, so it is carried verbatim as a printed
 //     instruction.
-//   * F/QC/20's issue and review dates are printed in the form's footer, not in
-//     a box anyone fills; they are printed below the grid (notesBelow, §111)
-//     rather than as fields, so nobody can type over them.
+//   * F/QC/20's issue and review dates are printed in the form's footer, in the
+//     block that holds its format number and revision, not in a box anyone
+//     fills; the header prints them there, beside the revision
+//     (printedWithNumber, the review of 13-Oct-2026), so nobody can type over them.
 //   * F-QC-19 IS A PHYSICAL CARD: sample labels are mounted on its panels, and
 //     a mounted label cannot be reproduced on screen. What is reproduced is the
 //     card's seven panels in their printed order, one line each: the panel's
@@ -131,6 +132,9 @@ const CALIBRATION_MASTER_SAMPLE: Record<string, string>[] = [
 // FG code, who sold it, why it went obsolete and on what date.
 
 const obsoleteArtworkColumns = (): LogColumn[] => [
+  // The paper's own Sr. No., written on each line (the review of 13-Oct-2026): the page of 2022 numbers two of its lines
+  // out of order, 7, 9, 8, 10, and the record keeps that. A new line is numbered after the one above it.
+  { key: "srNo", label: "Sr. No.", type: "text", width: 60, autoFill: { lineNumber: true } },
   { key: "customerName", label: "Customer name", type: "text", width: 240 },
   { key: "jobName", label: "Job name", type: "text", width: 300 },
   { key: "artworkNumber", label: "Artwork number / Master Shade card number (FG Code)", type: "text", width: 220 },
@@ -149,29 +153,29 @@ const obsoleteArtworkColumns = (): LogColumn[] => [
  *
  * THE LINES ARE IN THE PRINTED ORDER, NOT IN Sr. No. ORDER. The page's own
  * Sr. No. column reads 1, 2, 3, 4, 5, 6, 7, 9, 8, 10, 11, 12, 13 — the eighth
- * and ninth lines down are numbered out of order on the paper. Keeping the
- * printed order means the renderer's own Sr. No. will differ from the page's on
- * those two lines; re-sorting them to match would move the lines themselves,
- * which the record must not do.
+ * and ninth lines down are numbered out of order on the paper. The Sr. No. is
+ * the paper's own column (the review of 13-Oct-2026), so each line keeps the
+ * number written on it; re-sorting the lines to match would move the lines
+ * themselves, which the record must not do.
  *
  * Updated by - QC In-charge and Remarks are blank on every line of the page,
  * so they stay blank here.
  */
 export const OBSOLETE_ARTWORK_LINES: Record<string, string>[] = [
-  { customerName: "Nivea India Pvt Ltd", jobName: "Soft 50ml Side label", artworkNumber: "FGLA11067", salesPerson: "Savan Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-03", updatedBy: "", remarks: "" },
-  { customerName: "Nivea India Pvt Ltd", jobName: "Nivea Gel body lotion Aloevera Front 200ml label", artworkNumber: "FGLA10900", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-05", updatedBy: "", remarks: "" },
-  { customerName: "Dabur India Ltd. Kolkata", jobName: "SA Label Ashokarishta 680 ml Kolkata", artworkNumber: "FGLA9871", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-08", updatedBy: "", remarks: "" },
-  { customerName: "Aculife Healthcare Pvt. Ltd./ Nirma", jobName: "RL 500ml label", artworkNumber: "FGLA8665", salesPerson: "Savan Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-21", updatedBy: "", remarks: "" },
-  { customerName: "Shreeji Agchem Pvt. Ltd", jobName: "Wilbond 3gm Label", artworkNumber: "FGLA8542", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-23", updatedBy: "", remarks: "" },
+  { srNo: "1", customerName: "Nivea India Pvt Ltd", jobName: "Soft 50ml Side label", artworkNumber: "FGLA11067", salesPerson: "Savan Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-03", updatedBy: "", remarks: "" },
+  { srNo: "2", customerName: "Nivea India Pvt Ltd", jobName: "Nivea Gel body lotion Aloevera Front 200ml label", artworkNumber: "FGLA10900", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-05", updatedBy: "", remarks: "" },
+  { srNo: "3", customerName: "Dabur India Ltd. Kolkata", jobName: "SA Label Ashokarishta 680 ml Kolkata", artworkNumber: "FGLA9871", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-08", updatedBy: "", remarks: "" },
+  { srNo: "4", customerName: "Aculife Healthcare Pvt. Ltd./ Nirma", jobName: "RL 500ml label", artworkNumber: "FGLA8665", salesPerson: "Savan Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-21", updatedBy: "", remarks: "" },
+  { srNo: "5", customerName: "Shreeji Agchem Pvt. Ltd", jobName: "Wilbond 3gm Label", artworkNumber: "FGLA8542", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-23", updatedBy: "", remarks: "" },
   // The page's job name opens a bracket it never closes — the paper's own.
-  { customerName: "Purity Polytubes Private Limited", jobName: "Clarifying Mud Mask 75ml _ Russia Label ( Change Cylinder", artworkNumber: "FGLA9462", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-25", updatedBy: "", remarks: "" },
-  { customerName: "Neilmed Pharmaceuticals Inc", jobName: "Neil Cleanse Piercing Aftercare 75ml Sleeves Rev-2", artworkNumber: "FGSL1153", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-28", updatedBy: "", remarks: "" },
-  { customerName: "Neilmed Pharmaceuticals Inc", jobName: "Wound Wash 177mL Sleeve", artworkNumber: "FGSL1126", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-30", updatedBy: "", remarks: "" },
-  { customerName: "Aculife Healthcare Pvt. Ltd./ Nirma", jobName: "C Box Label NS Euroflex Label", artworkNumber: "FGLA9984", salesPerson: "Savan Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-02", updatedBy: "", remarks: "" },
-  { customerName: "M/s. UPL Ltd Vapi", jobName: "Viraat 100ml Label Rev2", artworkNumber: "FGLA6505", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-02", updatedBy: "", remarks: "" },
-  { customerName: "Ceego Labs Pvt.Ltd.", jobName: "Magnesa Joint rescue Sleeve", artworkNumber: "FGSL0148", salesPerson: "Savan Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-07", updatedBy: "", remarks: "" },
-  { customerName: "Shreeji Agchem Pvt. Ltd", jobName: "Wiltez 100ml Label", artworkNumber: "FGLA7696", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-18", updatedBy: "", remarks: "" },
-  { customerName: "Shreeji Agchem Pvt. Ltd", jobName: "Wiltez 250ml Label", artworkNumber: "FGLA7697", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-18", updatedBy: "", remarks: "" },
+  { srNo: "6", customerName: "Purity Polytubes Private Limited", jobName: "Clarifying Mud Mask 75ml _ Russia Label ( Change Cylinder", artworkNumber: "FGLA9462", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-25", updatedBy: "", remarks: "" },
+  { srNo: "7", customerName: "Neilmed Pharmaceuticals Inc", jobName: "Neil Cleanse Piercing Aftercare 75ml Sleeves Rev-2", artworkNumber: "FGSL1153", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-28", updatedBy: "", remarks: "" },
+  { srNo: "9", customerName: "Neilmed Pharmaceuticals Inc", jobName: "Wound Wash 177mL Sleeve", artworkNumber: "FGSL1126", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-01-30", updatedBy: "", remarks: "" },
+  { srNo: "8", customerName: "Aculife Healthcare Pvt. Ltd./ Nirma", jobName: "C Box Label NS Euroflex Label", artworkNumber: "FGLA9984", salesPerson: "Savan Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-02", updatedBy: "", remarks: "" },
+  { srNo: "10", customerName: "M/s. UPL Ltd Vapi", jobName: "Viraat 100ml Label Rev2", artworkNumber: "FGLA6505", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-02", updatedBy: "", remarks: "" },
+  { srNo: "11", customerName: "Ceego Labs Pvt.Ltd.", jobName: "Magnesa Joint rescue Sleeve", artworkNumber: "FGSL0148", salesPerson: "Savan Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-07", updatedBy: "", remarks: "" },
+  { srNo: "12", customerName: "Shreeji Agchem Pvt. Ltd", jobName: "Wiltez 100ml Label", artworkNumber: "FGLA7696", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-18", updatedBy: "", remarks: "" },
+  { srNo: "13", customerName: "Shreeji Agchem Pvt. Ltd", jobName: "Wiltez 250ml Label", artworkNumber: "FGLA7697", salesPerson: "Keyur Sathwara", reasonObsolete: "A/W Change", dateOfObsolete: "2022-02-18", updatedBy: "", remarks: "" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -187,9 +191,15 @@ const printingAidsDestructionColumns = (): LogColumn[] => [
   { key: "checkedBy", label: "Checked By", type: "text", width: 180, autoFill: { sign: true } },
 ];
 
-/** The Date box printed above the grid; the supplied page reads "Date: 01.06.2022". */
+/** The Date box printed above the grid, at the right of its line; the supplied page reads "Date: 01.06.2022". */
 const printingAidsDestructionHeader = (): LogHeaderField[] => [
-  { key: "date", label: "Date:", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
+  { key: "date", label: "Date:", type: "date", required: true, width: 150, autoFill: { dueDate: true }, paperColumn: 3 },
+];
+
+/** The issue and review dates the paper prints with its format number and revision ("Format number: - F/QC/20 | Rev. no. - 00"). */
+export const PRINTING_AIDS_ISSUE_DATES: { label: string; value: string }[] = [
+  { label: "Current Issue date", value: "1st January 2022" },
+  { label: "Next Review date", value: "31st December 2024" },
 ];
 
 /**
@@ -277,6 +287,8 @@ export const QC_REGISTER_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/08 (01 / 01.12.2021) — MASTER LIST OF CALIBRATION INSTRUMENTS ----
   "qc-calibration-master-list": {
     documentId: "qc-calibration-master-list",
+    // Its sixteen headings in the paper's own letters ("Name of Instrument", "Least count"), not in capitals.
+    headingsAsPrinted: true,
     // The list's own Note, printed above the table. The company heading and the
     // title above it are the page's letterhead, which every document page prints
     // already (components/documents/DocumentHeader.tsx).
@@ -295,6 +307,9 @@ export const QC_REGISTER_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/16 (00 / 01.12.2021) — REGISTER OF OBSOLETE ARTWORK ----
   "qc-obsolete-artwork": {
     documentId: "qc-obsolete-artwork",
+    headingsAsPrinted: true,
+    // The paper's Sr. No. is its own column (above): no second number of the sheet's beside it.
+    ownLineNumbers: true,
     headerFields: [],
     columns: obsoleteArtworkColumns(),
     // A sample day withdraws two artworks, not the supplied page's thirteen of January and February 2022.
@@ -306,13 +321,16 @@ export const QC_REGISTER_LAYOUTS: Record<string, LogSheetLayout> = {
 
   // ---- F/QC/20 (Rev. no. - 00) — DESTRUCTION RECORD ----
   // As "F-QC-20.pdf" (REQUIREMENTS §111): titled DESTRUCTION RECORD, with PRINTING AIDS DESTRUCTION RECORD printed
-  // above the Date and the grid, and its issue and review dates printed at its foot. DCRS's own line describing the
-  // footer is gone (logSheetLayouts.ts WITHDRAWN_EXPLANATIONS).
+  // above the Date and the grid, "Date:" at the right, and its issue and review dates printed with its format number
+  // and revision (the review of 13-Oct-2026: they printed under the grid). DCRS's own line describing the footer is
+  // gone (logSheetLayouts.ts WITHDRAWN_EXPLANATIONS).
   "qc-printing-aids-destruction": {
     documentId: "qc-printing-aids-destruction",
     paperTitle: "DESTRUCTION RECORD",
     instructions: ["PRINTING AIDS DESTRUCTION RECORD"],
-    notesBelow: ["Current Issue date 1st January 2022", "Next Review date 31st December 2024"],
+    printedWithNumber: PRINTING_AIDS_ISSUE_DATES,
+    headingsAsPrinted: true,
+    headerColumns: 3,
     headerFields: printingAidsDestructionHeader(),
     columns: printingAidsDestructionColumns(),
     // The blank form prints two lines; more are added as aids are destroyed.

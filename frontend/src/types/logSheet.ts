@@ -132,6 +132,13 @@ export interface LogHeaderField {
    * (`answerAcross`): the boxes share that line's place over the answers, in their order. Elsewhere, among the boxes.
    */
   inGridHead?: true;
+  /**
+   * THE PAPER'S HEADING, WRITTEN BY THE PERSON (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/29's analysis
+   * report prints "PSL Analysis Report" centred over its table, in bold, with no label beside it; another analysis
+   * is headed with its own words. The box takes a line of its own and is drawn as that heading. Its label is its
+   * name (Mitra, a record's history, a downloaded file) and is not printed.
+   */
+  asHeading?: true;
 }
 
 export interface LogColumn {
@@ -157,6 +164,20 @@ export interface LogColumn {
   // next to each other, and the grid then draws a second heading row for them;
   // a column with no group spans both rows, as it does on the paper.
   group?: string;
+  /**
+   * THE GROUP'S HEADING IN A CELL OF ITS OWN over this column, beside a column of the same group (REQUIREMENTS §111,
+   * the review of 13-Oct-2026): F/QC/29's utility test prints "Observation (24Hrs.)" over Freeze, again over
+   * Desiccator and again over Oven — three cells, not one across the three.
+   */
+  groupApart?: true;
+  /**
+   * ONE CELL DOWN A RUN OF LINES (REQUIREMENTS §111, the review of 13-Oct-2026): the paper merges this column's cell
+   * down the lines that print the same words in the column `by` names — the Gujarati line clearance prints each
+   * process once beside its lines, and its operator's and QA's signatures once for the process — or down every line,
+   * with no `by` (F/QC/13's one "પાસ?" beside its six parameters). The value is the run's first line's: drawn there,
+   * across the run; the run's other lines hold nothing in it (engine/paperLayout.ts mergedRuns).
+   */
+  merged?: { by?: string };
   // Read-only, pre-filled column (e.g. the fixed hourly time slot).
   fixed?: boolean;
   /**
@@ -211,6 +232,12 @@ export interface LogColumn {
     // day/night tester if `byShift` is set.
     sign?: boolean;
     byShift?: { day: string; night: string };
+    // The clock time the reading this sign is under is taken at ("20:30" on F-QC-40.C), so `byShift` names
+    // whoever was on shift then, on a sheet whose line has no time of its own (REQUIREMENTS §111).
+    atTime?: string;
+    // The line's own number, on a paper that numbers its lines in a column of its own (F/QC/16's Sr. No.,
+    // REQUIREMENTS §111): a new line is numbered after the one above it; the person may write another.
+    lineNumber?: boolean;
     // Copy the previous record's / specimen's value for the same row
     // position exactly (set-points, codes, fixed quantities).
     carryForward?: boolean;
@@ -307,6 +334,70 @@ export interface LogSheetLayout {
    * the paper does not print. A sheet that says so prints its headings as they are written.
    */
   headingsAsPrinted?: true;
+  /**
+   * THE HEADING THE PAPER PRINTS OVER ITS OWN NUMBERING COLUMN (REQUIREMENTS §111, the review of 13-Oct-2026): the
+   * sheet's Sr. No. column is headed "Sr. No." unless the paper heads it otherwise — F-QC-40.C's "SR NO", and ""
+   * for F/QC/30's key points, which the paper numbers "1.", "2." under no heading of their own.
+   */
+  srNoLabel?: string;
+  /**
+   * THE PAPER PRINTS NO FORMAT NUMBER AND NO REVISION (REQUIREMENTS §111, the review of 13-Oct-2026): the two
+   * Gujarati line clearance checklists. The header's Format No. and Rev No. print empty, never "TO BE CONFIRMED";
+   * the document is still filed and found as DCRS lists it.
+   */
+  numberNotPrinted?: true;
+  /**
+   * THE PAPER'S OWN LINES PRINTED WITH ITS FORMAT NUMBER (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/20
+   * prints "Current Issue date | 1st January 2022" and "Next Review date | 31st December 2024" in the block that holds
+   * its format number and its revision. The header prints them there, after the revision.
+   */
+  printedWithNumber?: { label: string; value: string }[];
+  /**
+   * THE BOXES THE PAPER PRINTS ABOVE ITS PARAGRAPH (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/15-A to G
+   * print the machine box beside the title, above "Line Clearance * :"; the Gujarati checklists their આઈટમ નં. and
+   * પ્રો.નં. above the procedure. Without it the paper's paragraph comes first, as on most forms.
+   */
+  boxesAboveInstructions?: true;
+  /**
+   * THE PAPER LEAVES A BLANK LINE BETWEEN THE RUNS of the column this names (REQUIREMENTS §111, the review of
+   * 13-Oct-2026): the Gujarati line clearance's processes. Drawn on the sheet and its print; never a line of the record.
+   */
+  gapBetweenRuns?: string;
+  /**
+   * THE PAPER PRINTS A PHOTOGRAPH UNDER ITS TABLE (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/29's analysis
+   * report prints the label roll it analysed. The sheet has a place for it there: added from a picture while the
+   * record is open for writing, kept in the record (LogSheetData.photos, scaled down as the complaint report keeps its
+   * photographs) and printed where the paper prints it. Never filled by Demo Mode or a sample.
+   */
+  photoBelowGrid?: true;
+  /**
+   * THE PAPER'S "APPROVED BY (QA MANAGER)" IS DCRS'S VERIFY (REQUIREMENTS §74, §111): F/QC/34, /35 and /37 print an
+   * approval DCRS stamps when the record is verified, not a box to type. Only such a sheet says so on the screen
+   * (a line that does not print); a paper with no approval says nothing of one (the review of 13-Oct-2026).
+   */
+  approvedOnVerify?: true;
+  /**
+   * THE GRID PRINTED AS THE PAPER'S SMALL TABLES (REQUIREMENTS §111, the review of 13-Oct-2026): F-QC-14 prints each
+   * check as a table of its own, two to a row — the check and its specification over the inspectors, each inspector's
+   * name under his heading, the first column headed with what was sampled, three lines, and the check's Conclusion
+   * under them. The record is unchanged — its lines in order, `lines` to a table, and its boxes; only the drawing (the
+   * sheet, its print, the server's PDF and the Excel and Word files made from it) puts them in the paper's tables.
+   */
+  panels?: {
+    /** The record's lines each table holds, in order. */
+    lines: number;
+    /** Tables to a row on the paper. */
+    perRow: number;
+    /** The printed column whose words head each table (the check and its specification); not drawn as a column. */
+    headingColumn: string;
+    /** Each table's first heading, in order; "{key}" stands for the box above the grid of that key, written in it ("{fgCode} sample no."). */
+    firstHeadings: string[];
+    /** By column, the box above the grid whose value the paper writes under the column's heading, in brackets ("Inspector - 1" over "(Kapila)"). */
+    namesUnder?: Record<string, string>;
+    /** Each table's box below the grid, in order, printed under its lines beside `footerLabel`. */
+    footers?: string[];
+    footerLabel?: string;
+  };
   /**
    * ONE ANSWER ACROSS THE PAPER'S COLUMNS, AND THEIR HEADINGS ON A PRINTED LINE (REQUIREMENTS §111, part 4): F/QC/25
    * gives each of its printed lines one answer box across the page, but for 7.1 TOP PAPER, 7.2 PLAIN PAPER and 7.3

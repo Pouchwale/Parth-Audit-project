@@ -131,6 +131,9 @@ test("a form that numbers its own lines says so, and only such a form", () => {
     "qc-line-clearance-sleeve-cutting",
     "qc-line-clearance-sleeve-gluing",
     "qc-line-clearance-slitting",
+    // F/QC/16 numbers its lines in a Sr. No. column of its own, two of them out of order on its 2022 page (the review
+    // of 13-Oct-2026).
+    "qc-obsolete-artwork",
     // F-QC-14 numbers no line: each check's three samples under its heading (REQUIREMENTS §111).
     "qc-test-reliability-label",
     "qc-test-reliability-sleeve",

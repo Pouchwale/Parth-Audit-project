@@ -54,9 +54,13 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 //   * The title "AREA LINE CLEARANCE REPORT -  PRINTING" is printed once, in
 //     the header, as the paper prints it; it is not printed again above the grid
 //     (it was until 13-Oct-2026, REQUIREMENTS §111).
-//   * The machine box keeps the paper's printed rule of underscores inside its
-//     label, so the box reads as it does on the form; the value itself is
-//     typed in and carries forward from the previous sheet.
+//   * The machine box is the paper's words before its printed rule of
+//     underscores — the box itself is the rule (the review of 13-Oct-2026: the
+//     rule was printed and a box drawn after it) — and stands above the paper's
+//     note, as the paper prints it beside its title (boxesAboveInstructions). Its
+//     value is typed in and carries forward from the previous sheet.
+//   * The paper's headings print in its own letters ("Completion Date",
+//     "Line Clearance* (Done/Not Done)"), not in capitals (headingsAsPrinted).
 
 /** Printed above the grid on every one of the seven, verbatim (the paper's own spacing). */
 const LINE_CLEARANCE_NOTE =
@@ -79,10 +83,13 @@ export const LINE_CLEARANCE_TITLE_LINES: Record<string, string> = {
   "qc-line-clearance-sleeve-cutting": "AREA LINE CLEARANCE REPORT -  SHRINK SLEEVE CUTTING",
 };
 
-/** The machine box printed above the grid — its label is the paper's own, rule of underscores included. */
+/** The machine box printed above the grid — its label the paper's own words; the box is the rule of underscores the paper prints after them. */
 const machineBox = (label: string): LogHeaderField[] => [
   { key: "machineName", label, type: "text", width: 300, autoFill: { carryForward: true } },
 ];
+
+/** What every one of the seven says of its paper beside its own words: headings in the paper's letters, the machine box above the note. */
+const PAPER = { headingsAsPrinted: true, boxesAboveInstructions: true } as const;
 
 /**
  * The twelve printed columns, in the order the form prints them. The first six
@@ -140,10 +147,11 @@ export const QC_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
     instructions: printedAboveGrid(
       "(1) Unprinted Rolls, Master Shade card, Nylo Plates, Magnetic die, Special Varnish, Screen & Inks of Previous Job removed ? (2) Ink of Current Job changed ? (3) Master shade card of new Job issued ? (4) Nylo Plates of New job changed & verified as per Master shade card  ? (5) Job change waste removed ? (7) Finished printed Rolls of Previous Production order shifted to designated place ?",
     ),
-    headerFields: machineBox("PRINTING MACHINE NAME : - ____________________"),
+    headerFields: machineBox("PRINTING MACHINE NAME : -"),
     columns: clearanceColumns(),
     rowMode: REGISTER,
     ownLineNumbers: true,
+    ...PAPER,
     specimenRows: templateExampleLines(),
     specimenSource: `F-QC-15-A-G Line Clearance Printing Printing.pdf — F/QC/15-A (00/16.02.2022), ${exampleLinesNote}`,
   } satisfies LogSheetLayout,
@@ -160,10 +168,11 @@ export const QC_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
     instructions: printedAboveGrid(
       "(1) Die of Previous Job removed ? (2) Die of Current / New Job changed ? (3) Matrix Roll (Wastage) of previous job removed ? (4) Finished Punching Rolls of Previous Production order shifted to designated place ?",
     ),
-    headerFields: machineBox("PUNCHING MACHINE NAME : - ____________________"),
+    headerFields: machineBox("PUNCHING MACHINE NAME : -"),
     columns: clearanceColumns(),
     rowMode: REGISTER,
     ownLineNumbers: true,
+    ...PAPER,
     specimenRows: templateExampleLines(),
     specimenSource: `F-QC-15-A-G Line Clearance Punching - Printing.pdf — F/QC/15-B (00/16.02.2022), ${exampleLinesNote}`,
     originalPages: [
@@ -180,10 +189,11 @@ export const QC_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
     instructions: printedAboveGrid(
       "(1) Finished QC Inspected Rolls of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ?",
     ),
-    headerFields: machineBox("QC INSPECTION MACHINE NAME : - ____________________"),
+    headerFields: machineBox("QC INSPECTION MACHINE NAME : -"),
     columns: clearanceColumns(),
     rowMode: REGISTER,
     ownLineNumbers: true,
+    ...PAPER,
     specimenRows: templateExampleLines(),
     specimenSource: `F-QC-15-A-G Line Clearance Quality inspection - Printing.pdf — F/QC/15-C (00/16.02.2022), ${exampleLinesNote}`,
   } satisfies LogSheetLayout,
@@ -196,10 +206,11 @@ export const QC_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
     instructions: printedAboveGrid(
       "(1) Finished QC Inspected Rolls of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ?",
     ),
-    headerFields: machineBox("QC MACHINE NAME : - ____________________"),
+    headerFields: machineBox("QC MACHINE NAME : -"),
     columns: clearanceColumns(),
     rowMode: REGISTER,
     ownLineNumbers: true,
+    ...PAPER,
     specimenRows: templateExampleLines(),
     specimenSource: `F-QC-15-A-G Line Clearance Quality inspection-2 - Printing.pdf — F/QC/15-D (00/16.02.2022), ${exampleLinesNote}`,
   } satisfies LogSheetLayout,
@@ -210,26 +221,28 @@ export const QC_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
     instructions: printedAboveGrid(
       "(1) Finished Slitted Rolls of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ?",
     ),
-    headerFields: machineBox("SLITTING MACHINE NAME : - ____________________"),
+    headerFields: machineBox("SLITTING MACHINE NAME : -"),
     columns: clearanceColumns(),
     rowMode: REGISTER,
     ownLineNumbers: true,
+    ...PAPER,
     specimenRows: templateExampleLines(),
     specimenSource: `Copy of F-QC-15-A-G Line Clearance for slitting- Printing.pdf — F/QC/15-E (00/16.02.2022), ${exampleLinesNote}`,
   } satisfies LogSheetLayout,
 
   // ---- F/QC/15-F — AREA LINE CLEARANCE REPORT -  SHRINK SLEEVE GLUING ----
   // Item (3) is printed without a question mark, and the machine box has a
-  // double space before MACHINE and a shorter printed rule. The paper's own.
+  // double space before MACHINE (and a shorter printed rule). The paper's own.
   "qc-line-clearance-sleeve-gluing": {
     documentId: "qc-line-clearance-sleeve-gluing",
     instructions: printedAboveGrid(
       "(1) Finished Printed Rolls of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ? (3) Leaflet plate of previous Job removed",
     ),
-    headerFields: machineBox("SHRINK SLEEVE GLUING  MACHINE NAME : - ____________"),
+    headerFields: machineBox("SHRINK SLEEVE GLUING  MACHINE NAME : -"),
     columns: clearanceColumns(),
     rowMode: REGISTER,
     ownLineNumbers: true,
+    ...PAPER,
     specimenRows: templateExampleLines(),
     specimenSource: `Copy of F-QC-15-A-G Line Clearance - Printing.pdf — F/QC/15-F (00/16.02.2022), ${exampleLinesNote}`,
   } satisfies LogSheetLayout,
@@ -241,10 +254,11 @@ export const QC_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
     instructions: printedAboveGrid(
       "(1) Cut Shrink sleeve packed boxes of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ?",
     ),
-    headerFields: machineBox("SHRINK SLEEVE CUTTING MACHINE NAME : - ____________"),
+    headerFields: machineBox("SHRINK SLEEVE CUTTING MACHINE NAME : -"),
     columns: clearanceColumns(),
     rowMode: REGISTER,
     ownLineNumbers: true,
+    ...PAPER,
     specimenRows: templateExampleLines(),
     specimenSource: `Copy of F-QC-15-A-G Line Clearance - Printing (2).pdf — F/QC/15-G (00/16.02.2022), ${exampleLinesNote}`,
   } satisfies LogSheetLayout,

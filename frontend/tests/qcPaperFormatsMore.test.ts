@@ -91,40 +91,40 @@ const printedAbove = (layout: LogSheetLayout) => layout.instructions ?? [];
 const CLEARANCES: Record<string, { area: string; machineBox: string; checklist: string }> = {
   "qc-line-clearance-printing": {
     area: "PRINTING",
-    machineBox: "PRINTING MACHINE NAME : - ____________________",
+    machineBox: "PRINTING MACHINE NAME : -",
     checklist:
       "(1) Unprinted Rolls, Master Shade card, Nylo Plates, Magnetic die, Special Varnish, Screen & Inks of Previous Job removed ? (2) Ink of Current Job changed ? (3) Master shade card of new Job issued ? (4) Nylo Plates of New job changed & verified as per Master shade card  ? (5) Job change waste removed ? (7) Finished printed Rolls of Previous Production order shifted to designated place ?",
   },
   "qc-line-clearance-punching": {
     area: "PUNCHING",
-    machineBox: "PUNCHING MACHINE NAME : - ____________________",
+    machineBox: "PUNCHING MACHINE NAME : -",
     checklist:
       "(1) Die of Previous Job removed ? (2) Die of Current / New Job changed ? (3) Matrix Roll (Wastage) of previous job removed ? (4) Finished Punching Rolls of Previous Production order shifted to designated place ?",
   },
   "qc-line-clearance-qc-machine": {
     area: "QC MACHINE INSPECTION",
-    machineBox: "QC INSPECTION MACHINE NAME : - ____________________",
+    machineBox: "QC INSPECTION MACHINE NAME : -",
     checklist: "(1) Finished QC Inspected Rolls of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ?",
   },
   "qc-line-clearance-qc-manual": {
     area: "QC MANUAL INSPECTION",
-    machineBox: "QC MACHINE NAME : - ____________________",
+    machineBox: "QC MACHINE NAME : -",
     checklist: "(1) Finished QC Inspected Rolls of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ?",
   },
   "qc-line-clearance-slitting": {
     area: "SLITTING",
-    machineBox: "SLITTING MACHINE NAME : - ____________________",
+    machineBox: "SLITTING MACHINE NAME : -",
     checklist: "(1) Finished Slitted Rolls of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ?",
   },
   "qc-line-clearance-sleeve-gluing": {
     area: "SHRINK SLEEVE GLUING",
-    machineBox: "SHRINK SLEEVE GLUING  MACHINE NAME : - ____________",
+    machineBox: "SHRINK SLEEVE GLUING  MACHINE NAME : -",
     checklist:
       "(1) Finished Printed Rolls of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ? (3) Leaflet plate of previous Job removed",
   },
   "qc-line-clearance-sleeve-cutting": {
     area: "SHRINK SLEEVE CUTTING",
-    machineBox: "SHRINK SLEEVE CUTTING MACHINE NAME : - ____________",
+    machineBox: "SHRINK SLEEVE CUTTING MACHINE NAME : -",
     checklist: "(1) Cut Shrink sleeve packed boxes of Previous Production order shifted to designated place ? (2) Wastage of previous job removed ?",
   },
 };
@@ -185,7 +185,8 @@ test("F/QC/15-A to G: a sample day is the area's own job changes, written the pa
 test("a line clearance edited before §111 loses the title DCRS printed above its grid", () => {
   const id = "qc-line-clearance-slitting";
   const issued = getIssuedLogSheetLayout(id)!;
-  const { ownLineNumbers: _own, ...rest } = issued;
+  // A format edited before §111 said nothing of the paper: none of what the layouts have said of it since.
+  const { ownLineNumbers: _own, headingsAsPrinted: _letters, boxesAboveInstructions: _above, ...rest } = issued;
   const old: LogSheetLayout = { ...rest, instructions: ["AREA LINE CLEARANCE REPORT -  SLITTING", ...printedAbove(issued)] };
   try {
     saveFormatEdit(id, { revisionNo: "01", revisionDate: "2026-10-01", layout: old, revisions: [] });
@@ -213,14 +214,16 @@ test("the Gujarati line clearance checklists: the paper's words alone, no Englis
     assert.equal(layout.ownLineNumbers, true, "the paper has no Sr. No.");
     for (const label of [...layout.headerFields.map((f) => f.label), ...layout.columns.map((c) => c.label)]) {
       assert.ok(!/\(|[A-Za-z]{3,}/.test(label.replace(/^Q\.A /, "")), `"${label}" is the paper's Gujarati alone`);
-      assert.notEqual(documentTextIn(label, "en"), label, `"${label}" still reads in English when English is chosen`);
+      // Its English is still there for Mitra and the guided questions; the sheet prints the Gujarati (the review of 13-Oct-2026).
+      assert.notEqual(documentTextIn(label, "en"), label, `"${label}" has its English for Mitra`);
     }
   }
   const html = await sheet("qc-line-clearance-quality", createDefaultData(docOf("qc-line-clearance-quality"), DAY, master) as LogSheetData);
   assert.ok(!headings(html).includes("Sr. No."));
   assert.ok(!text(html).includes("એક જ પાના પર"), "DCRS's own line that the two share a page is gone");
   assert.deepEqual([materials.paperTitle, quality.paperTitle], ["લાઈન કિલયરન્સ", "ક્વોલીટી શહી"], "each headed with the words at the head of its form");
-  assert.ok(text(html).includes("QUALITY SIGN"), "read in English with English chosen");
+  // Printed as issued, English chosen or not (the review of 13-Oct-2026: it printed "QUALITY SIGN").
+  assert.ok(text(html).includes("ક્વોલીટી શહી") && !text(html).includes("QUALITY SIGN"), "the paper's Gujarati, English chosen");
 });
 
 // ---------------------------------------------------------------------------
@@ -265,11 +268,11 @@ test("F/QC/13: the procedure, the grade criteria printed in full, eight boxes th
   assert.match(html, /data-reference-table="printed"/);
   assert.equal(layout.paperTitle, "In Process Quality Control");
   assert.ok(text(html).includes("IN PROCESS QUALITY CONTROL") && !text(html).includes("(PRINTING)"), "headed with the paper's own title");
-  // English is chosen in the harness, so the Gujarati form reads in English (REQUIREMENTS §58).
+  // English is chosen in the harness, and the paper prints as issued all the same (the review of 13-Oct-2026).
   assert.ok(!/>\s*Show /.test(html), "no Show button of DCRS's");
-  assert.ok(text(html).includes("A – All registers are perfectly in order. No print has been judged spoiled."), "the criteria are on the sheet");
+  assert.ok(text(html).includes("A– બધાજ રજિસ્ટર સંપુર્ણ પણે બરાબર છે."), "the criteria are on the sheet");
   const grid = between(html, 'class="compact log-sheet', "</table>");
-  assert.deepEqual(headings(grid), ["Sr. No.", "Parameter", "Test criteria", "Grade", "Pass?"], "the paper's five columns, its own સ.નં the first");
+  assert.deepEqual(headings(grid), ["સ.નં", "પેરામીટર", "ટેસ્ટ ક્રાઈટ", "ગ્રેડ", "પાસ?"], "the paper's five columns, its own સ.નં the first");
   // A sample fill grades each parameter and writes no defect count, which the paper has no column for.
   assert.equal(filled.rows.length, 6);
   assert.ok(filled.rows.every((r) => ["A", "B", "C", "F", "-"].includes(String(r.grade)) && !("defectCount" in r)), JSON.stringify(filled.rows));
@@ -277,7 +280,7 @@ test("F/QC/13: the procedure, the grade criteria printed in full, eight boxes th
   assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, filled)).errors, []);
   // A record written before the paper's own સ.નં was a column reads the paper's number on each line.
   const older = { ...filled, rows: filled.rows.map(({ srNo: _n, ...r }) => r) } as LogSheetData;
-  assert.match(text(between(await sheet(id, older), 'class="compact log-sheet', "</table>")), / 6 Print deformities /);
+  assert.match(text(between(await sheet(id, older), 'class="compact log-sheet', "</table>")), / ૬ પ્રીન્ટ ડીફોર્મીટસ /);
 });
 
 // ---------------------------------------------------------------------------
@@ -311,8 +314,9 @@ test("F/QC/16 register of obsolete artwork: its nine columns, nothing above; a s
   const id = "qc-obsolete-artwork";
   const layout = layoutOf(id);
   assert.deepEqual(printedAbove(layout), []);
+  // The paper's own Sr. No. first (the review of 13-Oct-2026).
   assert.deepEqual(layout.columns.map((c) => c.label), [
-    "Customer name", "Job name", "Artwork number / Master Shade card number (FG Code)", "Sales Person", "Reason for artwork obsolete", "Date of obsolete", "Updated by - QC In-charge", "Remarks",
+    "Sr. No.", "Customer name", "Job name", "Artwork number / Master Shade card number (FG Code)", "Sales Person", "Reason for artwork obsolete", "Date of obsolete", "Updated by - QC In-charge", "Remarks",
   ]);
   const filled = autoFillRecord(docOf(id), DAY, master, undefined)!.data as LogSheetData;
   assert.equal(filled.rows.length, 2);
@@ -326,7 +330,11 @@ test("F/QC/20 destruction record: titled DESTRUCTION RECORD, PRINTING AIDS DESTR
   assert.deepEqual(printedAbove(layout), ["PRINTING AIDS DESTRUCTION RECORD"]);
   assert.deepEqual(layout.headerFields.map((f) => f.label), ["Date:"]);
   assert.deepEqual(layout.columns.map((c) => c.label), ["Item Description", "Actual Qty.", "Destroyed By", "Checked By"]);
-  assert.deepEqual(layout.notesBelow, ["Current Issue date 1st January 2022", "Next Review date 31st December 2024"]);
+  // Printed with its format number and revision, as the paper's footer prints them (the review of 13-Oct-2026).
+  assert.deepEqual(layout.printedWithNumber, [
+    { label: "Current Issue date", value: "1st January 2022" },
+    { label: "Next Review date", value: "31st December 2024" },
+  ]);
   const html = await sheet(id, createDefaultData(docOf(id), DAY, master) as LogSheetData);
   assert.ok(!text(html).includes("The form's footer prints"), "DCRS's own line is gone");
   assert.ok(text(html).includes("DESTRUCTION RECORD") && text(html).includes("Next Review date 31st December 2024"));
@@ -343,8 +351,9 @@ test("F/QC/29 analysis report and utility test, and F/QC/30 minutes: the paper's
   assert.equal(utility.paperTitle, "MINUTES OF MEETINGS", "printed on the minutes of meetings format, and headed so");
   assert.deepEqual(printedAbove(utility), ["NIVEA SAMPLES -  UTILITY TEST  REPORT"]);
   assert.deepEqual(utility.headerFields.map((f) => f.label), ["DATE:"]);
+  // "Observation (24Hrs.)" over each place, a cell each (the review of 13-Oct-2026).
   assert.deepEqual(utility.columns.map((c) => [c.group ?? "", c.label]), [
-    ["Description", "Job Name"], ["", "Observation (24Hrs.) Freeze"], ["", "Observation (24Hrs.) Desiccator"], ["", "Observation (24Hrs.) Oven"],
+    ["Description", "Job Name"], ["Observation (24Hrs.)", "Freeze"], ["Observation (24Hrs.)", "Desiccator"], ["Observation (24Hrs.)", "Oven"],
   ]);
   const html = await sheet("qc-utility-test-report", createDefaultData(docOf("qc-utility-test-report"), DAY, master) as LogSheetData);
   assert.ok(text(html).includes("MINUTES OF MEETINGS") && !text(html).includes("for the MR to confirm"));
@@ -361,10 +370,11 @@ test("F-QC-40.C hot room: TEMPERATURE MONITORING RECORD, the recommended tempera
   const layout = layoutOf(id);
   assert.equal(layout.paperTitle, "TEMPERATURE MONITORING RECORD");
   assert.deepEqual(printedAbove(layout), ["RECOMMENDED TEMPERATURE : HOT ROOM 45°C ± 2°C"]);
-  assert.deepEqual(layout.columns.map((c) => c.label), [
+  // The headings the sheet prints, and each reading's sign under it in its cell (the review of 13-Oct-2026).
+  assert.deepEqual(layout.columns.filter((c) => !c.beneath).map((c) => c.label), [
     "DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN",
   ]);
-  for (const c of layout.columns.slice(1)) assert.deepEqual([c.min, c.max], [43, 47], "45 ± 2 °C, the band a reading is highlighted outside");
+  for (const c of layout.columns.filter((x) => x.type === "number")) assert.deepEqual([c.min, c.max], [43, 47], "45 ± 2 °C, the band a reading is highlighted outside");
   const filled = autoFillRecord(docOf(id), DAY, master, undefined)!;
   const row = (filled.data as LogSheetData).rows[0];
   assert.equal(row.date, DAY);

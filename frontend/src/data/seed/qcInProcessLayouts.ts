@@ -4,9 +4,10 @@ import type { LogSheetLayout } from "../../types";
 // (REQUIREMENTS §57, §58), as the owner's original of 13-Oct-2026: "F-QC-13 IPQC format (2).jpg" in
 // source-documents/qc-originals-2026-10-13/ (REQUIREMENTS §111). Every line below is the paper's own Gujarati,
 // its spellings and spacing included ("વ્યકિત", "મેનેઝર", "સેડ", "ટેકસ", "રહયા", "છેં" with its stray
-// anusvara, "તી" for "ની" in the print-pressure F grade, "સેમ્પલ કોલીટી"); with English chosen it reads in
-// English from i18n/documentTextEn.ts, as it always did. The page prints no format number of its own: F/QC/13
-// is the department's number for it.
+// anusvara, "તી" for "ની" in the print-pressure F grade, "સેમ્પલ કોલીટી"). The sheet and its print read in the
+// paper's own Gujarati in every language (the review of 13-Oct-2026; i18n/documentTextEn.ts still gives Mitra and
+// the guided questions their English). The page prints no format number of its own: F/QC/13 is the department's
+// number for it, revision 00 of 01.12.2021 on the Master List of Formats (F/SYS/02).
 
 /** The procedure printed at the head of the page. */
 export const FQC13_PROCEDURE =
@@ -101,8 +102,9 @@ export const QC_IN_PROCESS_LAYOUTS: Record<string, LogSheetLayout> = {
   // સેમ્પલ કોલીટી, three to a line; the grid સ.નં | પેરામીટર | ટેસ્ટ ક્રાઈટ | ગ્રેડ | પાસ? with the paper's own
   // numbers ૧ to ૬; and the five boxes below it in the paper's English. It was built from a photographed register
   // whose labels carried English glosses, a "Defect count" column, a Total Ups box and two lines of grading rules
-  // above the grid that this paper does not print; those are gone. The paper draws પાસ? as one cell down the six
-  // lines; a grid cannot merge cells, so each line has its own. Keys unchanged where the box is the same.
+  // above the grid that this paper does not print; those are gone. Keys unchanged where the box is the same. As the
+  // paper since the review of 13-Oct-2026: પાસ? is one cell down the six lines (merged); સેમ્પલ કોલીટી stands at the
+  // right of its line, under તારીખ and QA પર્સન; the five boxes below the grid stand one, then two, then two.
   "qc-inprocess-printing": {
     documentId: "qc-inprocess-printing",
     paperTitle: "In Process Quality Control",
@@ -125,14 +127,15 @@ export const QC_IN_PROCESS_LAYOUTS: Record<string, LogSheetLayout> = {
       { key: "qaPerson", label: "QA પર્સન", type: "text", required: true, autoFill: { sign: true } },
       { key: "orderLength", label: "ઓર્ડર લેન્થ ઈન મીટર", type: "text", autoFill: { carryForward: true } },
       // "કોલીટી" as the paper prints it (for કોન્ટીટી, quantity).
-      { key: "sampleQty", label: "સેમ્પલ કોલીટી", type: "text", autoFill: { carryForward: true, default: "1" } },
+      { key: "sampleQty", label: "સેમ્પલ કોલીટી", type: "text", autoFill: { carryForward: true, default: "1" }, paperColumn: 3 },
     ],
     columns: [
       { key: "srNo", label: "સ.નં", type: "text", fixed: true, width: 60 },
       { key: "parameter", label: "પેરામીટર", type: "text", fixed: true, width: 150 },
       { key: "testChart", label: "ટેસ્ટ ક્રાઈટ", type: "text", fixed: true, width: 440 },
       { key: "grade", label: "ગ્રેડ", type: "select", options: ["A", "B", "C", "F", "-"], required: true, autoFill: { carryForward: true }, width: 80 },
-      { key: "pass", label: "પાસ?", type: "yesno", autoFill: { carryForward: true }, width: 90 },
+      // One cell down the six lines, as printed: the sheet's one answer, on the first line.
+      { key: "pass", label: "પાસ?", type: "yesno", autoFill: { carryForward: true }, width: 90, merged: {} },
     ],
     // The paper's own સ.નં, ૧ to ૬: no Sr. No. of the sheet's beside it (REQUIREMENTS §102).
     ownLineNumbers: true,
@@ -141,8 +144,9 @@ export const QC_IN_PROCESS_LAYOUTS: Record<string, LogSheetLayout> = {
       rows: FQC13_TESTS.map(([srNo, parameter, testChart]) => ({ srNo, parameter, testChart })),
     },
     footerFields: [
-      { key: "mlDescription", label: "Description of NC (If applicable):", type: "text", autoFill: { default: "N/A" } },
-      { key: "overrideReason", label: "Sign Off Reason (If Applicable)", type: "text", autoFill: { default: "N/A" } },
+      // One box across the page, then two to a line, as printed.
+      { key: "mlDescription", label: "Description of NC (If applicable):", type: "text", autoFill: { default: "N/A" }, boxesPerLine: 1 },
+      { key: "overrideReason", label: "Sign Off Reason (If Applicable)", type: "text", autoFill: { default: "N/A" }, boxesPerLine: 2 },
       { key: "signOffName", label: "Sign Off By: (If Applicable)", type: "text", autoFill: { default: "N/A" } },
       { key: "remarks", label: "REMARKS:", type: "text" },
       { key: "qaSign", label: "QA Sign:", type: "text", required: true, autoFill: { sign: true } },

@@ -28,6 +28,24 @@ import { withoutLineNumber } from "../../engine/lineNumbers";
 // verbatim; specimen rows are the actual handwritten values (best-effort
 // reads of handwriting are flagged in docs/REQUIREMENTS.md).
 
+/**
+ * F-QC-40.C's six readings, each "... HRS TEMP. + SIGN": the temperature, and under it in the same cell the sign of who
+ * took it (REQUIREMENTS §111, the review of 13-Oct-2026). The sign is a column of its own drawn on the entry's second
+ * line, beneath its reading, with no heading of its own; the shift's QC tester signs (the day's three, the night's three).
+ */
+const hotRoomReading = (key: string, heading: string, time: string): LogColumn[] => [
+  { key, label: heading, type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+  {
+    key: `${key}Sign`,
+    label: `${heading.replace(/ TEMP\. \+ SIGN$/, "")} SIGN`,
+    type: "text",
+    required: true,
+    beneath: key,
+    width: 110,
+    autoFill: { sign: true, byShift: { day: "Jeni", night: "Singh" }, atTime: time },
+  },
+];
+
 const HOURLY_SLOTS = [
   "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
   "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00",
@@ -103,20 +121,26 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   // As the photographed register (REQUIREMENTS §111): headed TEMPERATURE MONITORING RECORD, the recommended
   // temperature printed above the grid, then SR NO | DATE | six readings, each column "... HRS TEMP. + SIGN" — the
   // reading and the tester's sign written in the one cell. The DATE column was missing (the record's day; one line a
-  // day), and DCRS's own Sign column, which the paper does not have, is gone; a record that holds one keeps it.
+  // day). DCRS's own Sign column, one for the day, is gone (a record that holds one keeps it); since the review of
+  // 13-Oct-2026 each reading has its sign under it, in its cell, as the paper asks — the reading on the cell's first
+  // line, the sign on its second, the day running down both. The paper heads its numbers "SR NO", in its own letters.
   "qc-temperature": {
     documentId: "qc-temperature",
     paperTitle: "TEMPERATURE MONITORING RECORD",
     instructions: ["RECOMMENDED TEMPERATURE : HOT ROOM 45°C ± 2°C"],
+    headingsAsPrinted: true,
+    srNoLabel: "SR NO",
+    // The sign is written in the reading's own cell: a second line with no heading of its own.
+    secondLine: { label: "" },
     headerFields: [],
     columns: [
       { key: "date", label: "DATE", type: "date", width: 130, autoFill: { dueDate: true } },
-      { key: "t0830", label: "08:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t1230", label: "12:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t1630", label: "16:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t2030", label: "20:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t0030", label: "12:30am HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t0430", label: "04:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      ...hotRoomReading("t0830", "08:30 HRS TEMP. + SIGN", "08:30"),
+      ...hotRoomReading("t1230", "12:30 HRS TEMP. + SIGN", "12:30"),
+      ...hotRoomReading("t1630", "16:30 HRS TEMP. + SIGN", "16:30"),
+      ...hotRoomReading("t2030", "20:30 HRS TEMP. + SIGN", "20:30"),
+      ...hotRoomReading("t0030", "12:30am HRS TEMP. + SIGN", "00:30"),
+      ...hotRoomReading("t0430", "04:30 HRS TEMP. + SIGN", "04:30"),
     ],
     rowMode: { kind: "single" },
     specimenRows: [
@@ -274,6 +298,8 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/37 — Inspection Record – Pouching Process (00/15.12.2024)
   "qc-inspection-pouching": {
     documentId: "qc-inspection-pouching",
+    // "Approved by / QA Manager" on the paper is the Verify step (REQUIREMENTS §74, §111).
+    approvedOnVerify: true,
     headerFields: [
       { key: "fgCode", label: "Job Code (FG Code)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO Number", type: "text", required: true, autoFill: { carryForward: true } },
@@ -385,6 +411,7 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/35 — Inspection Record – Slitting - Lamination Grade Film (00/15.12.2024)
   "qc-inspection-slitting": {
     documentId: "qc-inspection-slitting",
+    approvedOnVerify: true,
     headerFields: [
       { key: "fgCode", label: "Job Code (FG Code)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO Number", type: "text", required: true, autoFill: { carryForward: true } },
@@ -413,6 +440,7 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/34 — Inspection Record – Lamination Grade Printed Film (00/15.12.2024)
   "qc-inspection-printed-film": {
     documentId: "qc-inspection-printed-film",
+    approvedOnVerify: true,
     headerFields: [
       { key: "fgCode", label: "Job Code (FG Code)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO Number", type: "text", required: true, autoFill: { carryForward: true } },
@@ -563,12 +591,16 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
     edited.srNoShowsDate !== undefined || edited.secondLine !== undefined || edited.notesBelow !== undefined || edited.headerColumns !== undefined ||
     edited.notesAtFoot !== undefined || edited.gridAcross !== undefined || edited.srNoFullStop !== undefined || edited.headingsAsPrinted !== undefined ||
     edited.answerAcross !== undefined ||
+    // From the review of 13-Oct-2026 (REQUIREMENTS §111).
+    edited.srNoLabel !== undefined || edited.numberNotPrinted !== undefined || edited.printedWithNumber !== undefined ||
+    edited.boxesAboveInstructions !== undefined || edited.gapBetweenRuns !== undefined || edited.photoBelowGrid !== undefined ||
+    edited.approvedOnVerify !== undefined || edited.panels !== undefined ||
     boxes.some(
       (f) =>
         f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined || f.paperColumn !== undefined || f.boxTable !== undefined ||
-        f.choicesAcross !== undefined || f.printedBelow !== undefined || f.inSentence !== undefined || f.inGridHead !== undefined
+        f.choicesAcross !== undefined || f.printedBelow !== undefined || f.inSentence !== undefined || f.inGridHead !== undefined || f.asHeading !== undefined
     ) ||
-    edited.columns.some((c) => c.beneath !== undefined || c.printedLabel !== undefined);
+    edited.columns.some((c) => c.beneath !== undefined || c.printedLabel !== undefined || c.groupApart !== undefined || c.merged !== undefined);
   if (issued && !saysPaper) {
     const issuedBoxes = new Map([...issued.headerFields, ...(issued.footerFields ?? [])].map((f) => [f.key, f]));
     const issuedColumns = new Map(issued.columns.map((c) => [c.key, c]));
@@ -590,6 +622,8 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       if (own.inGridHead !== undefined) paper.inGridHead = own.inGridHead;
       if (own.printedAbove !== undefined && f.printedAbove === undefined) paper.printedAbove = own.printedAbove;
       if (own.printedLabel !== undefined && f.printedLabel === undefined) paper.printedLabel = own.printedLabel;
+      // The paper's heading the person writes (F/QC/29's analysis report, the review of 13-Oct-2026).
+      if (own.asHeading !== undefined && f.type === own.type) paper.asHeading = own.asHeading;
       return Object.keys(paper).length === 0 ? f : { ...f, ...paper };
     };
     const withdrawn = new Set(WITHDRAWN_EXPLANATIONS[edited.documentId] ?? []);
@@ -606,6 +640,17 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
       ...(issued.headingsAsPrinted ? { headingsAsPrinted: issued.headingsAsPrinted } : {}),
       // The one answer across the paper's columns (F/QC/25); a column the edit took off and it is drawn as every grid is (answerAcrossOf).
       ...(issued.answerAcross ? { answerAcross: issued.answerAcross } : {}),
+      // From the review of 13-Oct-2026: the Sr. No.'s own heading, a number the paper does not print, its lines printed
+      // with its number, its boxes above its paragraph, its blank lines, its photograph, its approval stamped on
+      // Verify, its small tables (each drawn only where the edited grid still has what it needs: paperLayout.ts).
+      ...(issued.srNoLabel !== undefined ? { srNoLabel: issued.srNoLabel } : {}),
+      ...(issued.numberNotPrinted ? { numberNotPrinted: issued.numberNotPrinted } : {}),
+      ...(issued.printedWithNumber ? { printedWithNumber: issued.printedWithNumber } : {}),
+      ...(issued.boxesAboveInstructions ? { boxesAboveInstructions: issued.boxesAboveInstructions } : {}),
+      ...(issued.gapBetweenRuns ? { gapBetweenRuns: issued.gapBetweenRuns } : {}),
+      ...(issued.photoBelowGrid ? { photoBelowGrid: issued.photoBelowGrid } : {}),
+      ...(issued.approvedOnVerify ? { approvedOnVerify: issued.approvedOnVerify } : {}),
+      ...(issued.panels ? { panels: issued.panels } : {}),
       instructions: instructions && instructions.length > 0 ? instructions : undefined,
       // A table the paper prints among the boxes that the edited format never held (F/QC/25's letterhead, part 4)
       // comes with the box it stands above; the format's own tables are kept as they are.
@@ -617,6 +662,9 @@ function asThePaper(edited: LogSheetLayout): LogSheetLayout {
         const paper: Partial<LogColumn> = {};
         if (own?.beneath !== undefined) paper.beneath = own.beneath;
         if (own?.printedLabel !== undefined) paper.printedLabel = own.printedLabel;
+        // A group heading in a cell of its own, a cell merged down its lines (the review of 13-Oct-2026).
+        if (own?.groupApart !== undefined && c.group === own.group) paper.groupApart = own.groupApart;
+        if (own?.merged !== undefined) paper.merged = own.merged;
         return Object.keys(paper).length === 0 ? c : { ...c, ...paper };
       }),
     };

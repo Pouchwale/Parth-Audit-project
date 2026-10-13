@@ -800,6 +800,12 @@ const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
     ...((f as LogHeaderField).inSentence ? { inSentence: (f as LogHeaderField).inSentence } : {}),
     // Printed on the grid's top line (F/QC/25's OID :- and Job Code:): still a box above the lines a patch names.
     ...((f as LogHeaderField).inGridHead ? { inGridHead: true } : {}),
+    // From the review of 13-Oct-2026 (§111): a box drawn as the paper's heading, still written by the person; a cell
+    // the paper merges down its lines, written once on the run's first line ("by": the column whose words make a run;
+    // none: every line); a group heading over this column alone.
+    ...((f as LogHeaderField).asHeading ? { asHeading: true } : {}),
+    ...(c.merged ? { merged: c.merged.by ? { by: c.merged.by } : {} } : {}),
+    ...(c.groupApart ? { groupApart: true } : {}),
   };
 };
 
@@ -835,6 +841,10 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         ...(l.gridAcross ? { gridAcross: true } : {}),
         // One answer across the paper's columns (F/QC/25, §111 part 4): which column each printed line is written in.
         ...(l.answerAcross ? { answerAcross: l.answerAcross } : {}),
+        // The paper's small tables (F-QC-14, the review of 13-Oct-2026): the lines are still the rows a patch names.
+        ...(l.panels ? { panels: { lines: l.panels.lines, perRow: l.panels.perRow } } : {}),
+        // The lines printed with the format number (F/QC/20's issue and review dates): printed, nothing to write.
+        ...(l.printedWithNumber?.length ? { printedWithNumber: l.printedWithNumber } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),
