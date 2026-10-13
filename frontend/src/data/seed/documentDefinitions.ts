@@ -1562,6 +1562,43 @@ export const SEED_DOCUMENTS: DocumentDefinition[] = [
     sourceFile: "F-QC-19_ Tolerance card for Nivea.pdf",
     schedule: { type: "as-required" },
   },
+  // F-QC-14, supplied on 13-Oct-2026 as one workbook of two sheets, one per product
+  // (data/seed/qcTestReliabilityLayouts.ts, REQUIREMENTS §111). The revision date is
+  // the Master List of Formats' (F/SYS/02: "01.12.21").
+  {
+    id: "qc-test-reliability-label",
+    kind: "log-sheet",
+    section: "Analysis & Meetings",
+    name: "Internal Test Reliability Record — Label",
+    formatNo: "F-QC-14",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Quality Control",
+    module: "Quality Control — Inspection Records",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "How far QC's inspectors agree on a label: four inspectors test the same three samples for each of eight checks — GSM total and adhesive, thickness and peel strength on the paper reel's rolls; dimension, scuff, colour shade and gloss on a finished label — and each check is concluded. The 12-Feb-2022 record is on file as supplied.",
+    sourceFile: "F-QC-14 TEST RELIABILITY RECORD.xlsx (sheet Label)",
+    schedule: { type: "as-required" },
+  },
+  {
+    id: "qc-test-reliability-sleeve",
+    kind: "log-sheet",
+    section: "Analysis & Meetings",
+    name: "Internal Test Reliability Record — Sleeve",
+    formatNo: "F-QC-14",
+    revisionNo: "00",
+    revisionDate: "2021-12-01",
+    department: "Quality Control",
+    module: "Quality Control — Inspection Records",
+    frequency: "As Required",
+    status: "Configured",
+    description:
+      "How far QC's inspectors agree on a shrink sleeve: four inspectors test the same three samples for each of five checks — thickness, shrinkage ratio and corona treatment on the film's rolls; dimension and colour shade on a finished sleeve — and each check is concluded. The 12-Feb-2022 record is on file as supplied.",
+    sourceFile: "F-QC-14 TEST RELIABILITY RECORD.xlsx (sheet Sleeve)",
+    schedule: { type: "as-required" },
+  },
   {
     id: "qc-analysis-report",
     kind: "log-sheet",

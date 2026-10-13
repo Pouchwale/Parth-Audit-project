@@ -127,6 +127,8 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "qc-printing-aids-destruction": "QC", // F/QC/20
   "qc-camera-challenge-test": "QC", // F: QA/PRO/FL/CCT/01
   "qc-tolerance-card-nivea": "QC", // F-QC-19
+  "qc-test-reliability-label": "QC", // F-QC-14, its Label sheet
+  "qc-test-reliability-sleeve": "QC", // F-QC-14, its Sleeve sheet
   "qc-analysis-report": "QC", // F/QC/29
   "qc-utility-test-report": "QC", // F/QC/29 (on the MOM format)
   "qc-minutes-of-meetings": "QC", // F/QC/30

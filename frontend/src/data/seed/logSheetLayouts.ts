@@ -2,11 +2,13 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
 import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
 import { FLEXO_INK_SYSTEM_NOTE, QC_INCOMING_LAYOUTS, signatureBoxes } from "./qcIncomingLayouts";
-import { QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
+import { FQC13_WITHDRAWN_LINES, QC_IN_PROCESS_LAYOUTS } from "./qcInProcessLayouts";
+import { LINE_CLEARANCE_TITLE_LINES, QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
-import { QC_REGISTER_LAYOUTS, TOLERANCE_CARD_NOTE } from "./qcRegisterLayouts";
+import { PRINTING_AIDS_WITHDRAWN_LINE, QC_REGISTER_LAYOUTS, TOLERANCE_CARD_NOTE } from "./qcRegisterLayouts";
 import { COA_WITHDRAWN_LINES, QC_COA_LAYOUTS } from "./qcCoaLayouts";
-import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
+import { QC_REPORT_LAYOUTS, QC_REPORT_WITHDRAWN_LINES } from "./qcReportLayouts";
+import { QC_TEST_RELIABILITY_LAYOUTS } from "./qcTestReliabilityLayouts";
 import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
 import { STORE_LAYOUTS } from "./storeLayouts";
@@ -98,24 +100,29 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   },
 
   // ---- F-QC-40.C — Temperature Monitoring Record (00/28.02.25)
+  // As the photographed register (REQUIREMENTS §111): headed TEMPERATURE MONITORING RECORD, the recommended
+  // temperature printed above the grid, then SR NO | DATE | six readings, each column "... HRS TEMP. + SIGN" — the
+  // reading and the tester's sign written in the one cell. The DATE column was missing (the record's day; one line a
+  // day), and DCRS's own Sign column, which the paper does not have, is gone; a record that holds one keeps it.
   "qc-temperature": {
     documentId: "qc-temperature",
+    paperTitle: "TEMPERATURE MONITORING RECORD",
     instructions: ["RECOMMENDED TEMPERATURE : HOT ROOM 45°C ± 2°C"],
     headerFields: [],
     columns: [
-      { key: "t0830", label: "08:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t1230", label: "12:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t1630", label: "16:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t2030", label: "20:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t0030", label: "12:30am HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t0430", label: "04:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "sign", label: "Sign", type: "text", required: true, autoFill: { sign: true }, width: 140 },
+      { key: "date", label: "DATE", type: "date", width: 130, autoFill: { dueDate: true } },
+      { key: "t0830", label: "08:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t1230", label: "12:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t1630", label: "16:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t2030", label: "20:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t0030", label: "12:30am HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+      { key: "t0430", label: "04:30 HRS TEMP. + SIGN", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
     ],
     rowMode: { kind: "single" },
     specimenRows: [
-      { t0830: 45, t1230: 45, t1630: 46, t2030: 44, t0030: 45, t0430: 46, sign: "" },
-      { t0830: 44, t1230: 44, t1630: 45, t2030: 46, t0030: 44, t0430: 45, sign: "" },
-      { t0830: 46, t1230: 44, t1630: 46, t2030: 45, t0030: 45, t0430: 44, sign: "" },
+      { date: "2026-08-21", t0830: 45, t1230: 45, t1630: 46, t2030: 44, t0030: 45, t0430: 46 },
+      { date: "2026-08-22", t0830: 44, t1230: 44, t1630: 45, t2030: 46, t0030: 44, t0430: 45 },
+      { date: "2026-08-23", t0830: 46, t1230: 44, t1630: 46, t2030: 45, t0030: 45, t0430: 44 },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.19 PM (1).jpeg (F-QC-40.C, filled 21-08-26 to 5-9-26)",
   },
@@ -239,7 +246,7 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
 };
 
 // ---------------------------------------------------------------------------
-// QC INSPECTION RECORDS (F/QC/34, /35, /36, /37) and IN-PROCESS QC (F/QC/13).
+// QC INSPECTION RECORDS (F/QC/34, /35, /36, /37). F/QC/13 is in qcInProcessLayouts.ts.
 // Shared shape: job header, a fixed list of test parameters with a printed
 // specification and an observation to fill, a lot-status decision, and the
 // QA inspector's sign. "Approved by / QA Manager" on the paper is the app's
@@ -436,80 +443,14 @@ Object.assign(LOG_SHEET_LAYOUTS, {
     ],
     specimenSource: "Photographed F/QC/34 register (filled 18/8/26, shift I, Lombardi)",
   } satisfies LogSheetLayout,
-
-  // ---- F/QC/13 — In Process Quality Control (Gujarati form, printing) ----
-  "qc-inprocess-printing": {
-    documentId: "qc-inprocess-printing",
-    instructions: [
-      "પ્રોસીઝર:- ઉત્પાદનની પ્રક્રિયા દરમિયાન Q.A. વ્યક્તિ ખાતરી કરશે કે 3 પૂર્ણ સીટ્સના જોબના દર ૬૦૦૦ મીટરે નમુના લેવામાં આવે. તે નમુનાઓને નીચે જણાવેલા પોઈન્ટ પ્રમાણે ચકાસીને ગ્રેડ આપશે. જો કોઈ સમસ્યાઓની જાણ થાય તો તરત જ Q.A. મેનેજર અને સુપરવાઈઝર ને જાણ કરશે. જો મટીરીયલ્સ સ્વીકાર્ય છે, તો Q.A. મેનેજર તેમજ સુપરવાઈઝરની સહી કરાવવી આવશ્યક છે.",
-      "ગ્રેડિંગ માપદંડ: બધા ગ્રેડ નીચે મુજબના માપદંડ મુજબ આપવા જોઈએ. જો કોઈ માપદંડમાં એફ ગ્રેડ આપવામાં આવે તો ઉત્પાદન બંધ કરવું આવશ્યક છે. જો ૧ થી વધુ સી ગ્રેડ મળી આવે, તો છાપવાનું બંધ કરવું જોઈએ અને ક્યુ.એ. મેનેજર કેવી રીતે આગળ વધવું તેના વિશે નિર્ણય કરશે. જો ૩ થી વધુ બી ગ્રેડ મળ્યા હોય, તો છાપવાનું બંધ કરવું જોઈએ અને ક્યુ.એ. મેનેજર કેવી રીતે આગળ વધવું તેના વિશે નિર્ણય કરશે.",
-      "ખામી યુક્ત અપ્સ (બધીજ એકત્રિત સીટમાં) મુજબ ગ્રેડ: <11% of total ups = A · <21% = B · <25% = C · >25% = F. જો એરર્સ બેથી ઓછા અપ્સ માં માત્ર હોય તો એ ગ્રેડ આપવો.",
-    ],
-    headerFields: [
-      { key: "itemCode", label: "આઇટમ કોડ (Item Code)", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "poNumber", label: "પ્રો. નંબર (PO Number)", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "machine", label: "મશીન (Machine)", type: "text", required: true, autoFill: { carryForward: true, default: "Lombardi" } },
-      { key: "operator", label: "ઓપરેટર (Operator)", type: "text", autoFill: { carryForward: true, default: "Pankajbhai" } },
-      { key: "qaPerson", label: "QA પર્સન (QA Person)", type: "text", required: true, autoFill: { sign: true } },
-      { key: "sampleQty", label: "સેમ્પલ કોન્ટીટી (સીટ) (Sample Qty, sheets)", type: "text", autoFill: { carryForward: true, default: "1" } },
-      { key: "totalUps", label: "ટોટલ નંબર ઓફ અપ્સ (Total Ups)", type: "text", autoFill: { carryForward: true } },
-      { key: "orderLength", label: "ઓર્ડર લેન્થ ઈન મીટર (Order Length, m)", type: "text", autoFill: { carryForward: true } },
-    ],
-    columns: [
-      { key: "parameter", label: "પેરામીટર (Parameter)", type: "text", fixed: true, width: 170 },
-      { key: "testChart", label: "ટેસ્ટ ચાર્ટ (Test chart)", type: "text", fixed: true, width: 420 },
-      { key: "grade", label: "ગ્રેડ (Grade)", type: "select", options: ["A", "B", "C", "F", "-"], required: true, autoFill: { carryForward: true }, width: 80 },
-      { key: "pass", label: "પાસ? (Pass?)", type: "yesno", autoFill: { carryForward: true }, width: 80 },
-      { key: "defectCount", label: "ખામી ગણતરી (Defect count)", type: "text", autoFill: { carryForward: true }, width: 110 },
-    ],
-    rowMode: {
-      kind: "fixedRows",
-      rows: [
-        { parameter: "રજિસ્ટ્રેશન (Registration)", testChart: "બધા જ ચાર ખૂણાઓનું રજીસ્ટ્રેશન અને બબલ્સનું કેન્દ્ર નિયંત્રણમાં હોવું જોઈએ; બધાજ ઓવરલેપીંગ અને નિયંત્રણની નોંધણી ચશ્માંનો ઉપયોગ કરીને તપાસો." },
-        { parameter: "શેડ (Shade)", testChart: "સીટના શેડને તપાસવા માટે શેડ કાર્ડ, પેન્ટોન કોડ અથવા છેલ્લા સ્વીકૃત સીટનો ઉપયોગ કરવો; ક્લાયન્ટની મેચીંગ સ્ટડી મુજબ જ શેડ મેચ થવો જોઈએ." },
-        { parameter: "કોટીંગ (Coating)", testChart: "કોટીંગ સમાન રૂપે લાગુ થઈ રહ્યું છે અને લેમીનેશનમાં કોઈ બબલ્સની રચના નથી તેની ખાતરી કરો; વાર્નિશ ન હોય તેવા વિસ્તારો, અસમાન વાર્નિશ અને વિન્ડોઝના વિસ્તારમાં પણ વાર્નિશ તપાસો." },
-        { parameter: "પંચીંગ (Punching)", testChart: "દરેક સીટમાં થોડું હાથથી પ્રેસર આપીને રીલીઝ લાઈનર તૂટતું નથી તે તપાસો; છીછરું પંચીંગ તપાસવા અમુક લેબલો કાઢીને નીચેથી પેપર જરાય તૂટે નહિ તે રીતે લેબલ આસાનીથી ઉખડે છે તેની તપાસ કરો." },
-        { parameter: "પ્રિન્ટ પ્રેસર (Print pressure)", testChart: "લેબલના ચાર ખૂણા અને સીટના વચ્ચેના ભાગમાં ખુબ જ વધારે અથવા ખુબ જ ઓછા પ્રિન્ટીંગના દબાણને તપાસો; વધારે દબાણવાળા વિસ્તારો અને ઓછી/અસમાન છપાઈના હલ્કા વિસ્તારો પણ તપાસો." },
-        { parameter: "પ્રિન્ટ ડીફોરમીટસ (Print deformities)", testChart: "હિકીઝ જેવી પ્રિન્ટ વિકૃતિઓ માટે સીટના બધા જ લેબલો તપાસો — બબલ્સ, ગુમ થયેલ છાપ/પ્રકાર, પેચો, રેખાઓ જેવી સમસ્યાઓ; મંજુર થયેલ આર્ટવર્કમાં અન્ય ચિહ્નો ન હોવા જોઈએ." },
-      ],
-    },
-    footerFields: [
-      { key: "mlDescription", label: "એમ.સી.નું વર્ણન (જો લાગુ પડતું હોય તો)", type: "text", autoFill: { default: "N/A" } },
-      { key: "overrideReason", label: "સહી કરવાનું કારણ (ઓવરરાઈડ)", type: "text", autoFill: { default: "N/A" } },
-      { key: "signOffName", label: "સાઇન ઓફ કરનાર વ્યક્તિનું નામ", type: "text", autoFill: { default: "N/A" } },
-      { key: "remarks", label: "રિમાર્કસ (Remarks)", type: "text" },
-      { key: "qaSign", label: "ક્યુ.એ.ની સહી (QA Sign)", type: "text", required: true, autoFill: { sign: true } },
-    ],
-    referenceTables: [
-      {
-        title: "ગ્રેડ ચાર્ટ (Grade chart) — A / B / C / F per parameter",
-        columns: ["પેરામીટર", "A", "B", "C", "F"],
-        rows: [
-          ["રજિસ્ટ્રેશન", "બધા જ રજિસ્ટર સંપૂર્ણ પણે બરાબર છે; કોઈપણ પ્રિન્ટ ખરાબ થઈ નથી.", "રજિસ્ટરમાં અને પ્રિન્ટના વિસ્તારમાં ન્યૂનતમ ગેરરીતી મળી.", "રજિસ્ટરમાં મધ્યમ ગેરરીતી મળી, પરંતુ પ્રિન્ટ અને ટેક્સમાં ઓવર લાઈન્સ બતાવતું નથી.", "મોટી અને ગંભીર ગેરરીતીના મુદ્દાઓ અથવા ઓવરલેપ લાઈન્સ સ્પષ્ટ પણે દેખાય છે."],
-          ["શેડ", "બધા જ શેડો કલરના સંદર્ભ મુજબ બરાબર મળી રહ્યા છે.", "લોગો બરાબર છે, પરંતુ બીજા કલરમાં નાના ફેરફારો જોવા મળે છે.", "લોગો અને પ્રોસેસ કલરમાં નાના ફેરફારો જોવા મળે છે.", "લોગોના કલરમાં મધ્યમ ફેરફારો અને બીજા કલરોમાં મોટા ફેરફારો જોવા મળે છે."],
-          ["કોટીંગ", "કોટીંગના તમામ ક્ષેત્રો સરળ, સ્પોટ અને કરચલી વગરના મળી રહ્યા છે.", "કોટીંગવાળા વિસ્તારમાં નાની-નાની કરચલીઓ અને બબલ્સ મળી આવે છે.", "લોગો અને પ્રોસેસ કલરમાં નાના ફેરફારો જોવા મળે છે.", "લોગોના કલરમાં મધ્યમ ફેરફારો અને બીજા કલરોમાં મોટા ફેરફારો જોવા મળે છે."],
-          ["પંચીંગ", "છીછરું પંચીંગ અથવા ગેરસમજ દેખાતી નથી.", "ઓછામાં ઓછું છીછરું પંચીંગ અથવા ખોટી નોંધણીનું અવલોકન થાય છે.", "ન્યૂનતમ છીછરું પંચીંગ અથવા મધ્યમ ગેરમાર્ગે પંચીંગ નજરમાં આવે છે (ટેક્સ પર મંજૂરી નથી).", "ખુબ જ વધારે છીછરું પંચીંગ / ભારે ગેરરીતી મળી."],
-          ["પ્રિન્ટ પ્રેસર", "ઉચ્ચ અને નીચા છાપના દબાણવાળા કોઈપણ ક્ષેત્ર મળ્યા નથી.", "ન્યૂનતમ દબાણની સમસ્યા મળી; લોગો અને બારકોડ પર અસર થતી નથી.", "મધ્યમ દબાણની સમસ્યા મળી; લોગો અને બારકોડ પર અસર થતી નથી.", "લોગો અને બારકોડ પર મુખ્ય દબાણની અસર ગ્રસ્ત છે."],
-          ["પ્રિન્ટ ડીફોરમીટસ", "કોઈ નાની અથવા મુખ્ય પ્રિન્ટની વિકૃતિનું અવલોકન થતું નથી.", "પ્રિન્ટ વિસ્તારમાં ફીકી અથવા નાની બબલ્સ મળી આવે છે.", "ટેક્સમાં, લોગોના કે નોન પ્રિન્ટ વિસ્તારમાં નાની વિકૃતિ મળી આવે છે.", "ફ્રેમ્સ, લોગોના કે નોન પ્રિન્ટ વિસ્તારમાં મોટી વિકૃતિ મળી આવે છે."],
-        ],
-      },
-    ],
-    specimenHeader: {
-      itemCode: "FGLA 19377", poNumber: "89480", machine: "Lombardi", operator: "Pankajbhai", qaPerson: "HNP", sampleQty: "1", totalUps: "7", orderLength: "",
-      mlDescription: "N/A", overrideReason: "N/A", signOffName: "N/A", remarks: "Adjust by Pankajbhai", qaSign: "HNP",
-    },
-    specimenRows: [
-      { grade: "B", pass: "Yes", defectCount: "+2" }, { grade: "A", pass: "", defectCount: "-" }, { grade: "A", pass: "", defectCount: "-" },
-      { grade: "-", pass: "", defectCount: "-" }, { grade: "A", pass: "", defectCount: "-" }, { grade: "B", pass: "", defectCount: "+2" },
-    ],
-    specimenSource: "Photographed F/QC/13 register, 2 pages (filled 6-9-26, Lombardi, PO 89480)",
-  } satisfies LogSheetLayout,
 });
 
 // The sixteen Human Resources formats, F/HR/01 to F/HR/22 — data/seed/hrLayouts.ts.
 Object.assign(LOG_SHEET_LAYOUTS, HR_LAYOUTS);
 // Quality Control's two internal calibration records, F/QC/11 and F/QC/12.
 Object.assign(LOG_SHEET_LAYOUTS, QC_CALIBRATION_LAYOUTS);
+// F/QC/13, In Process Quality Control, the Gujarati form as the owner's original of 13-Oct-2026 (REQUIREMENTS §111).
+Object.assign(LOG_SHEET_LAYOUTS, QC_IN_PROCESS_LAYOUTS);
 
 // Quality Control's formats supplied on 18-Sep-2026 (REQUIREMENTS §57): the
 // thirteen incoming material inspection records, the seven line clearances
@@ -521,6 +462,8 @@ Object.assign(LOG_SHEET_LAYOUTS, QC_GUJARATI_LINE_CLEARANCE_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REGISTER_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_COA_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REPORT_LAYOUTS);
+// F-QC-14, the internal test reliability record, its Label and Sleeve sheets, supplied on 13-Oct-2026 (REQUIREMENTS §111).
+Object.assign(LOG_SHEET_LAYOUTS, QC_TEST_RELIABILITY_LAYOUTS);
 
 // Purchase's formats supplied on 23-Sep-2026 (REQUIREMENTS §68): the supplier
 // registration form and the supplier audit report, the list of approved
@@ -586,6 +529,16 @@ const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
   // The certificates' explanations, and their printed notes now in the paper's places (qcCoaLayouts.ts).
   ...COA_WITHDRAWN_LINES,
   "qc-tolerance-card-nivea": [TOLERANCE_CARD_NOTE],
+  // F/QC/15-A to F/QC/15-G: the title, printed in the header, was printed again above the grid.
+  ...Object.fromEntries(Object.entries(LINE_CLEARANCE_TITLE_LINES).map(([id, title]) => [id, [title]])),
+  // F/QC/29 (both), F/QC/30 and F/QC/20: DCRS's lines above their grids.
+  ...QC_REPORT_WITHDRAWN_LINES,
+  "qc-printing-aids-destruction": [PRINTING_AIDS_WITHDRAWN_LINE],
+  // F/QC/13: two lines of grading rules the owner's original of 13-Oct-2026 does not print.
+  "qc-inprocess-printing": FQC13_WITHDRAWN_LINES,
+  // The two Gujarati checklists: DCRS's own line saying the two are printed on one page.
+  "qc-line-clearance-materials": ["આ ફોર્મ અને ક્વોલીટી શહી (Line Clearance — Quality) એક જ પાના પર છપાયેલાં છે."],
+  "qc-line-clearance-quality": ["આ ફોર્મ અને લાઈન કિલયરન્સ (Line Clearance — Materials) એક જ પાના પર છપાયેલાં છે."],
 };
 
 const asPaper = new WeakMap<LogSheetLayout, LogSheetLayout>();

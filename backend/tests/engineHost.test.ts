@@ -147,6 +147,40 @@ describe("the host, over a stand-in store", { timeout: 300_000 }, () => {
     assert.ok(!store.get<{ id: string }[]>("records").some((r) => r.id === id));
   });
 
+  it("a Statement of Compliance is read through the phone by its number in any spelling, never taken for the other (§111)", async () => {
+    for (const id of ["F QC 09", "FQC09", "f-qc-9", "F/QC/09"]) {
+      const r = await host.read(QC, "document", { id });
+      assert.equal(r.status, 200, `${id}: ${JSON.stringify(r.body).slice(0, 200)}`);
+      const body = r.body as { id: string; referenceOnly: boolean; layout: unknown; issued: { title: string; text: string; sections: { label: string }[]; validUntil: string | null } };
+      assert.equal(body.id, "soc-labels", id);
+      assert.equal(body.referenceOnly, true);
+      assert.equal(body.layout, null);
+      assert.equal(body.issued.title, "STATEMENT OF COMPLIANCE – PRESSURE LABELS");
+      assert.ok(body.issued.sections.some((x) => x.label === "Product") && body.issued.text.includes("Pressure Labels"), "its words, to show");
+    }
+    const other = await host.read(QC, "document", { id: "F QC 38" });
+    assert.equal((other.body as { id: string }).id, "soc-flexible-packaging");
+    // Asked to open it, the phone is told it is read, and given its words.
+    const opened = await host.change(QC, "open", { documentId: "F QC 09" }, () => undefined);
+    assert.equal(opened.status, 409);
+    const refusal = opened.body as { code: string; document: { id: string }; issued: { title: string } };
+    assert.equal(refusal.code, "reference-only");
+    assert.equal(refusal.document.id, "soc-labels");
+    assert.equal(refusal.issued.title, "STATEMENT OF COMPLIANCE – PRESSURE LABELS");
+  });
+
+  it("a number two papers print names one only as its paper prints it; written loosely the phone is asked which (§111)", async () => {
+    const viscosity = await host.read(QC, "document", { id: "F-QC-30" });
+    assert.equal((viscosity.body as { id: string }).id, "qc-viscosity");
+    const minutes = await host.read(QC, "document", { id: "F/QC/30" });
+    assert.equal((minutes.body as { id: string }).id, "qc-minutes-of-meetings");
+    const loose = await host.read(QC, "document", { id: "F QC 30" });
+    assert.equal(loose.status, 400);
+    const asked = loose.body as { code: string; candidates: { id: string }[] };
+    assert.equal(asked.code, "ambiguous");
+    assert.deepEqual(asked.candidates.map((c) => c.id).sort(), ["qc-minutes-of-meetings", "qc-viscosity"]);
+  });
+
   it("answers at another moment when asked (the engine's clock), and on the real clock again after", async () => {
     // Noon, factory time, on Friday 9 October 2026: the same calendar day in every zone from UTC-6 to UTC+14.
     const at = await host.read(ADMIN, "today", {}, { now: new Date("2026-10-09T06:30:00.000Z") });

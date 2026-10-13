@@ -307,6 +307,8 @@ export const SEED_MASTER_DATA: MasterData = {
     "qc-printing-aids-destruction": "QA Inspector",
     "qc-camera-challenge-test": "QA Inspector",
     "qc-tolerance-card-nivea": "QA",
+    "qc-test-reliability-label": "QA",
+    "qc-test-reliability-sleeve": "QA",
     "qc-analysis-report": "QA Inspector",
     "qc-utility-test-report": "QA Inspector",
     "qc-minutes-of-meetings": "QA",

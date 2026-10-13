@@ -273,6 +273,7 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   qc-line-clearance-sleeve-gluing, qc-line-clearance-sleeve-cutting, qc-line-clearance-materials,
   qc-line-clearance-quality, qc-calibration-master-list, qc-coa-label, qc-coa-sleeve, qc-coa-corrugated,
   qc-obsolete-artwork, qc-printing-aids-destruction, qc-camera-challenge-test, qc-tolerance-card-nivea,
+  qc-test-reliability-label, qc-test-reliability-sleeve,
   qc-analysis-report, qc-utility-test-report, qc-minutes-of-meetings, pur-supplier-registration,
   pur-supplier-audit-report, pur-approved-suppliers, pur-supplier-performance,
   pur-service-provider-performance, str-incoming-material-vehicle, str-sharp-metal-objects,

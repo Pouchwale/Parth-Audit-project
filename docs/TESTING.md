@@ -1052,6 +1052,34 @@ Seven scripts live in `tests/`:
   (e2e_every_record_starts, e2e_mobile_mitra_api, e2e_mitra_agent, e2e_realism, e2e_access_levels and the others that
   name them), which read no part of their layout this changes but the phone's layout's new `printed`/`value` on a
   header box, `beneath`, `srNoShowsDate`, `secondLine` and `notesBelow`.
+- **Every QC format exactly as the paper, part 5** (REQUIREMENTS §111 part 5, 13-Oct-2026: F/QC/15-A to G, the two
+  Gujarati checklists, F/QC/13, F-QC-40.C, F/QC/08, /16, /20, both F/QC/29 papers and F/QC/30 against their originals;
+  F-QC-14 built from its workbook as two documents; every QC document found by its number, and the two Statements of
+  Compliance read through the phone). New unit tests, each failing on the code before (the layouts printed DCRS's
+  explanations and a Sr. No. on papers with none, a line clearance's sample day was the template's 2022 example lines,
+  F-QC-14 did not exist, and the phone took F QC 09 for F/QC-38): `frontend/tests/qcPaperFormatsMore.test.ts` (14) and
+  `frontend/tests/qcFindByNumber.test.ts` (3), and two more in `backend/tests/engineHost.test.ts` (an SOC read through
+  the phone by its number; a shared number answered with the candidates). Changed: `lineNumbers.test.ts` (the line
+  clearances, F/QC/13 and F-QC-14 among the forms with no Sr. No. of the sheet's), `formats.test.ts` (the F-QC-14
+  pair), `accessRules.test.ts` (F-QC-14 Kapila's). `npm run typecheck` clean; `npm run test:unit` frontend 712 of 712,
+  backend 537 of 540 with 3 skipped (the PostgreSQL ledger's). Browser suites, each run alone with the project's runner,
+  8842 and 8843 free (`E2E_SKIP_UNIT=1 npm run test:e2e -- tests/<suite>.py`): `tests/e2e_qc_formats.py` 94 of 94
+  (new section 8b: F/QC/20's title and foot, the utility test on the MINUTES OF MEETINGS format, nothing of DCRS's above
+  the analysis report, the minutes' heading, F-QC-40.C's DATE and TEMP. + SIGN columns, F-QC-14's two sheets on file as
+  the workbook, a new Label record holding its 24 printed lines and nothing written, filled with sample data by Mitra
+  inside every specification and submitted; with QC_PAPER_SHOTS set it photographs this group's papers, which were
+  looked at beside the originals — they showed F-QC-14's Conclusions cut short four to a line and the minutes' five boxes
+  cut short on one line, both fixed and run again; the first run's one failure was the suite reading a box's value as
+  text), `tests/e2e_departments.py` 39 of 39 (a QC account sees 48 documents), `tests/e2e_qc_calibration.py` 56 of 56
+  (43 in QC's module), `tests/e2e_smoke.py` 168 of 168 (131 documents), `tests/e2e_hr_module.py` 146 of 146 (131
+  documents; its first run failed two checks §102 had left behind — F/HR/19's and F/HR/20's first lines read "1 | ..." —
+  moved and run again), `tests/e2e_every_record_starts.py` 340 of 340, `tests/e2e_realism.py` 22 of 22 (F-QC-40.C's
+  readings in band without its Sign column), `tests/e2e_mobile_mitra_api.py` 32 of 32, `tests/e2e_print_all_documents.py`
+  438 of 438 (F-QC-14's two sheets among every document printed), `tests/e2e_find_every_document.py` 71 of 71,
+  `tests/e2e_access_levels.py` 148 of 148, `tests/e2e_mitra_agent.py` 21 of 21. Two runs did not start and one stopped: the
+  runner's server lost :8842 to another worktree's run started the same minute ("DCRS's tables are not in this
+  database"), and one print run waited 30 s on a click while the machine ran two suites; each was run again alone. Not
+  run: the full browser run and e2e_assistant_fill.py (every document filled, about 95 minutes).
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

@@ -1,4 +1,5 @@
 import { MNT04_TEXT_EN } from "../data/seed/maintenanceLayouts";
+import { FQC13_GRADE_CRITERIA, FQC13_PROCEDURE, FQC13_TESTS } from "../data/seed/qcInProcessLayouts";
 
 // THE THREE GUJARATI FORMATS, IN ENGLISH (REQUIREMENTS §58).
 //
@@ -27,6 +28,84 @@ import { MNT04_TEXT_EN } from "../data/seed/maintenanceLayouts";
 // A line changed in one of those layouts has to be added here as well, or it
 // simply stays in Gujarati when English is chosen — tests/e2e_qc_formats.py
 // reads both forms end to end in English and would say so.
+
+// F/QC/13 AS THE OWNER'S ORIGINAL OF 13-OCT-2026 (REQUIREMENTS §111): its procedure, its grade criteria table,
+// its boxes, its grid and its six tests, keyed by the layout's own lines (data/seed/qcInProcessLayouts.ts), so a
+// line can never be in the layout and missing here. The same English as before where the paper says the same.
+const FQC13_PARAMETERS_EN = ["Registration", "Shade", "Coating", "Punching", "Print pressure", "Print deformities"];
+const FQC13_TESTS_EN = [
+  "Registration at all four corners and the centre of the label must be under control; check all overlapping and registration control using a magnifying glass.",
+  "Use the shade card, the Pantone code and the sheet of the last supply to check the shade of the sheet; the shade must match exactly as per the client's matching study.",
+  "Make sure the coating is being applied evenly and that no bubbles are forming in the lamination; also check for areas with no varnish, uneven varnish and varnish in the window areas.",
+  "On every sheet, give a little pressure by hand and check on the release liner too that it does not break. Check it carefully. To check for shallow punching, take off a few labels and check. Check that the label peels off easily without the paper underneath tearing at all.",
+  "Check for very high or very low printing pressure at the four corners of the label and in the centre of the sheet; also check the areas of heavy dark print and the light areas of uneven image.",
+  "Check every label on the sheet for print deformities such as hickeys — bubbles, missing type, missing image, dark or light patches, lines; no marks other than those in the approved artwork were seen.",
+];
+const FQC13_CRITERIA_EN = [
+  [
+    "A – All registers are perfectly in order. No print has been judged spoiled.",
+    "B – Minimal misregistration found in the register and in the print area.",
+    "C – Moderate misregistration found in the register, but the print and the text do not show overlap lines.",
+    "F – Major and serious misregistration issues or overlap lines are clearly visible.",
+  ],
+  [
+    "A – All shades are matching correctly as per the colour reference.",
+    "B – The logo is correct, but small variations are seen in the other colours.",
+    "C – Small variations are seen in the logo and the process colours.",
+    "F – Moderate variations are seen in the logo colour and major variations in the other colours.",
+  ],
+  [
+    "A – All coated areas are found smooth, without spots, and without wrinkles",
+    "B – Tiny wrinkles and bubbles are found in the coated area.",
+    "C – Small variations are seen in the logo and the process colours.",
+    "F – Moderate variations are seen in the logo colour and major variations in the other colours.",
+  ],
+  [
+    "A – Shallow punching or misregistration is seen.",
+    "B – At least slight deep punching or wrong registration is observed",
+    "C – Minimal shallow punching or moderate misplaced punching is noticed. (Not permitted on text)",
+    "F – Excessive deep punching, heavy misregistration found.",
+  ],
+  [
+    "A – No areas of high or low print pressure were found.",
+    "B – Minimal pressure problem found. The logo and the key elements are not affected.",
+    "C – Moderate pressure problem found; the logo and the barcode are not affected.",
+    "F – Major pressure effect has affected the logo and the barcode.",
+  ],
+  [
+    "A – No minor or major print deformity is observed.",
+    "B – Faint or small bubbles are found in the print area.",
+    "C – Minor deformity is found in the text, the logo or the non-print area.",
+    "F – Major deformity is found in the frames, the logo or the non-print area.",
+  ],
+];
+const FQC13_TEXT_EN: Record<string, string> = Object.fromEntries([
+  [
+    FQC13_PROCEDURE,
+    "Procedure:– During the production process the Q.A. person shall ensure that samples of 3 full sheets of the job are taken every 6000 meters. He shall check those samples against the points listed below and grade them. If any problems come to notice, he shall inform the Q.A. manager and the supervisor immediately. If the material is acceptable, the signature of the Q.A. manager as well as the supervisor is required.",
+  ],
+  ["ગ્રેડ ક્રાઈટ", "Grade criteria"],
+  ["સ.નં", "Sr. No."],
+  ["ટેસ્ટ ક્રાઈટ", "Test criteria"],
+  ["ગ્રેડ", "Grade"],
+  ["પાસ?", "Pass?"],
+  ["આઈટમ કોડ", "Item Code"],
+  ["પ્રો. નંબર", "PO Number"],
+  ["મશીન", "Machine"],
+  ["ઓપરેટર", "Operator"],
+  ["QA પર્સન", "QA Person"],
+  ["ઓર્ડર લેન્થ ઈન મીટર", "Order Length in Meter"],
+  ["સેમ્પલ કોલીટી", "Sample Quantity"],
+  ...FQC13_TESTS.flatMap(([no, parameter, test], i) => [
+    [no, String(i + 1)],
+    [parameter, FQC13_PARAMETERS_EN[i]],
+    [test, FQC13_TESTS_EN[i]],
+  ]),
+  ...FQC13_GRADE_CRITERIA.flatMap(([, parameter, criteria], i) => [
+    [parameter, FQC13_PARAMETERS_EN[i]],
+    [criteria, FQC13_CRITERIA_EN[i].join("\n")],
+  ]),
+]);
 
 export const DOCUMENT_TEXT_EN: Record<string, string> = {
   // ── The names the three forms are filed under, and the paper each was read
@@ -126,10 +205,19 @@ export const DOCUMENT_TEXT_EN: Record<string, string> = {
   "પ્રો.નં. (PO No.)": "PO No.",
   "મશીનનું નામઃ– (Machine name)": "Machine name:–",
   "તા. (Date)": "Date",
+  // As the paper prints them, with no English beside them (REQUIREMENTS §111).
+  "લાઈન કિલયરન્સ": "Line Clearance",
+  "ક્વોલીટી શહી": "Quality Sign",
+  "આઈટમ નં.": "Item No.",
+  "પ્રો.નં.": "PO No.",
+  "મશીનનું નામઃ–": "Machine name:–",
+  "તા.": "Date",
 
   // ── લાઈન કિલયરન્સ — its two printed columns
   "પ્રોસેસ (Process)": "Process",
   "મટીરીયલ્સ (Materials)": "Materials",
+  "પ્રોસેસ": "Process",
+  "મટીરીયલ્સ": "Materials",
 
   // ── લાઈન કિલયરન્સ — its twelve printed lines, process by process
   "પ્રિન્ટીંગ": "Printing",
@@ -154,6 +242,8 @@ export const DOCUMENT_TEXT_EN: Record<string, string> = {
   "આ ફોર્મ અને લાઈન કિલયરન્સ (Line Clearance — Materials) એક જ પાના પર છપાયેલાં છે.": "This form and Line Clearance — Materials are printed on the same page.",
   "પ્રોડકશન નં. (Production No.)": "Production No.",
   "પેરામિટર (Parameter)": "Parameter",
+  "પ્રોડકશન નં.": "Production No.",
+  "પેરામિટર": "Parameter",
 
   // ── ક્વોલીટી શહી — its fifteen printed lines
   "જોબ સ્પેકસ": "Job specs",
@@ -224,4 +314,5 @@ export const DOCUMENT_TEXT_EN: Record<string, string> = {
   //    one row, and its two footnotes. Written once, beside the layout they
   //    belong to (data/seed/maintenanceLayouts.ts), so the two cannot drift.
   ...MNT04_TEXT_EN,
+  ...FQC13_TEXT_EN,
 };

@@ -97,6 +97,8 @@ QC_DOCUMENT_IDS = {
     "qc-tolerance-card-nivea",
     "qc-analysis-report",
     "qc-utility-test-report",
+    "qc-test-reliability-label",
+    "qc-test-reliability-sleeve",
     "qc-minutes-of-meetings",
     "qc-incoming-lamination-film",
     "qc-inspection-sb-lamination",
@@ -375,8 +377,8 @@ with sync_playwright() as p:
 
     qc_docs = library_documents(page)
     check(
-        "Its Document Library holds only Quality Control's forty-six documents",
-        len(qc_docs) == 46 and len(qc_docs) < len(all_docs),
+        "Its Document Library holds only Quality Control's forty-eight documents",
+        len(qc_docs) == 48 and len(qc_docs) < len(all_docs),
         {"count": len(qc_docs), "docs": qc_docs},
     )
     ids = page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.dataset.document)")

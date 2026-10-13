@@ -36,7 +36,11 @@ import { qcPaperSample } from "./qcPaperSamples";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
-import { GRADE_ACTIONS, GRADE_DEFECTS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
+import { GRADE_ACTIONS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
+import { documentTextIn } from "../i18n/documentText";
+import { LINE_CLEARANCE_REGISTERS, lineClearanceChangeovers } from "./lineClearanceSample";
+import { RELIABILITY_DOCUMENTS, testReliabilitySample } from "./testReliabilitySample";
+import { OBSOLETE_ARTWORK_LINES } from "../data/seed/qcRegisterLayouts";
 
 // DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
 // SIMULATION: it writes readings, counts, answers, findings and signatures that
@@ -732,7 +736,7 @@ function observeRow(doc: DocumentDefinition, layout: LogSheetLayout, row: LogShe
   return row;
 }
 
-/** F/QC/13: the grade against one printing parameter, its defect count, and Pass?. */
+/** F/QC/13: the grade against one printing parameter, and Pass?. The paper has no defect count (REQUIREMENTS §111). */
 function varyGrade(layout: LogSheetLayout, row: LogSheetRow, dueDate: string, index: number): LogSheetRow {
   // Pass? follows the day's grade, never the last sheet's: a "No" written
   // under an F grade once must not follow every sheet after it.
@@ -746,7 +750,6 @@ function varyGrade(layout: LogSheetLayout, row: LogSheetRow, dueDate: string, in
   const rng = makeRng(`grade|${dueDate}|${index}`);
   const grade = weightedPick(rng, GRADE_MIX);
   row.grade = grade;
-  row.defectCount = rng.pick(GRADE_DEFECTS[grade] ?? ["-"]);
   // An F grade stops printing (the form's own rule), so it never passes.
   row.pass = grade === "F" ? "No" : (ownPass ?? (row.pass === "No" ? "Yes" : row.pass));
   return row;
@@ -879,10 +882,24 @@ function fillLogSheet(
     // and no filled specimen. It still gets the lines the form prints a minimum
     // of, each filled by its own columns' rules (the date, a signature), rather
     // than no lines at all: a record with no lines cannot be submitted.
+    // A specimen of fewer lines than the form prints (F/QC/08's five known instruments on its eleven lines) is the
+    // first of them, and the rest of the printed lines are filled by their columns' own rules, as on a blank form.
     const templates = source.length
       ? source.slice(0, Math.max(wanted, mode.minRows ?? 1))
       : Array.from({ length: Math.max(mode.minRows ?? 1, 1) }, () => ({}) as Record<string, string | number | null>);
-    if (doc.id === "qc-adhesive-mixing") {
+    while (templates.length < (mode.minRows ?? 0)) templates.push({});
+    if (LINE_CLEARANCE_REGISTERS.has(doc.id)) {
+      // A day's job changes on the area's machine (engine/lineClearanceSample.ts, REQUIREMENTS §111), not the
+      // blank template's three 2022 example lines.
+      const changes = lineClearanceChangeovers(doc.id, dueDate);
+      rows = changes.map((line, i) => ({ ...fillRow(layout, line, rng, doc, master, dueDate, i, changes.length, ctx), ...line }));
+    } else if (doc.id === "qc-obsolete-artwork") {
+      // A sample day withdraws two of the plant's artworks (REQUIREMENTS §111, rule 3), not the first two lines of the
+      // last register every time: the same artwork cannot go obsolete twice.
+      const pool = [...OBSOLETE_ARTWORK_LINES];
+      const picks = [0, 1].map(() => pool.splice(rng.int(0, pool.length - 1), 1)[0]);
+      rows = picks.map((t, i) => fillRow(layout, { ...t }, rng, doc, master, dueDate, i, picks.length, ctx));
+    } else if (doc.id === "qc-adhesive-mixing") {
       // Batches are mixed a few times a day at irregular hours; spread them
       // out rather than copying yesterday's clock times verbatim.
       const hours = [rng.int(7, 10), rng.int(13, 16), rng.int(20, 23)].slice(0, wanted);
@@ -891,6 +908,16 @@ function fillLogSheet(
       );
     } else {
       rows = templates.map((t, i) => fillRow(layout, t, rng, doc, master, dueDate, i, templates.length, ctx));
+    }
+  }
+
+  if (RELIABILITY_DOCUMENTS.has(doc.id)) {
+    // F-QC-14 as a real exercise (engine/testReliabilitySample.ts, REQUIREMENTS §111): the plant's reel and FG code,
+    // QA's four people of that day, every reading inside its check's specification; not the workbook of 2022 copied.
+    const exercise = testReliabilitySample(doc.id, dueDate, responsibleName(doc, master, ""));
+    if (exercise) {
+      Object.assign(header, exercise.header);
+      rows = rows.map((row, i) => ({ ...row, ...(exercise.rows[i] ?? {}) }));
     }
   }
 
@@ -1034,7 +1061,8 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       const vals = keys.map((k) => rows[0]?.[k]).filter((v): v is number => typeof v === "number");
       return [
         `Logged all 6 hot-room readings: ${Math.min(...vals)}–${Math.max(...vals)} °C (recommended 45 ± 2 °C).`,
-        `Signed ${rows[0]?.sign || "—"}.`,
+        // The paper has no Sign column: each reading cell is "TEMP. + SIGN" (REQUIREMENTS §111).
+        "Each reading is entered by whoever takes it; the paper's \"+ SIGN\" is their name on the record when it is submitted.",
       ];
     }
     case "qc-adhesive-mixing": {
@@ -1100,7 +1128,8 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       ];
     }
     case "qc-inprocess-printing": {
-      const grades = rows.map((r) => `${String(r.parameter).split(" (")[1]?.replace(")", "") ?? r.parameter}: ${r.grade}`).join(", ");
+      // Each parameter by its English, the paper printing it in Gujarati alone (REQUIREMENTS §111).
+      const grades = rows.map((r) => `${documentTextIn(String(r.parameter ?? ""), "en")}: ${r.grade}`).join(", ");
       return [
         `${previous ? "Carried forward" : "Loaded"} grades for item ${h.itemCode} (PO ${h.poNumber}) on ${h.machine}, operator ${h.operator} — ${grades}.`,
         `QA person ${h.qaPerson}. Change any grade that differs on today's sample sheets; an F grade means printing must stop.`,

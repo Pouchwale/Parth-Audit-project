@@ -6,6 +6,7 @@ import { breakdownSpanMinutes } from "./maintenanceCalc";
 import { isPlaceholder, machineKey } from "./equipmentMaster";
 import { dayDotMonth, dayDotMonthYear, isLinkedLine, pmActuals, pmDoneIndex, pmSheetMachine, type PmIndex, type PmPlaced } from "./pmSchedule";
 import { compareISO, formatDisplayDate, MONTH_NAMES } from "../utils/date";
+import { documentTextIn } from "../i18n/documentText";
 
 // THE RULES BEHIND THE INSIGHTS (REQUIREMENTS §75) — each one a fixed piece of
 // arithmetic on the plant's own records, with the reason for its severity
@@ -110,7 +111,9 @@ const clip = (v: unknown, n = 80): string => {
 };
 const quote = (v: unknown, n = 80): string => `"${clip(v, n)}"`;
 /** "રજિસ્ટ્રેશન (Registration)" → "Registration": F/QC/13 prints its parameters in Gujarati with the English in brackets. */
-const englishName = (parameter: unknown): string => text(parameter).match(/\(([^)]+)\)\s*$/)?.[1] ?? text(parameter);
+// A Gujarati paper's printed name by its English: "રજિસ્ટ્રેશન (Registration)" as F/QC/13 was first built, and
+// "રજિસ્ટ્રેશન" alone as the paper prints it (REQUIREMENTS §111).
+const englishName = (parameter: unknown): string => text(parameter).match(/\(([^)]+)\)\s*$/)?.[1] ?? documentTextIn(text(parameter), "en");
 const num = (n: number, places = 2): string => {
   const f = 10 ** places;
   return String(Math.round(n * f) / f);

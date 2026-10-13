@@ -62,6 +62,8 @@ import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "../data/r
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { departmentName, departmentOfDocument } from "../data/seed/departments";
 import { formatEditFor } from "../data/formatEdits";
+import { complianceStatement } from "../data/repositories/referenceRepository";
+import { complianceValidUntil } from "../data/seed/complianceStatements";
 import { setFeatures } from "../engine/features";
 import { numbersOwnLines } from "../engine/formLineNumbers";
 import { departmentScope, documentLevel, isDocumentIdVisible, mayDo, setAccessScope, setDepartmentScope } from "../engine/departmentScope";
@@ -648,6 +650,42 @@ function brief(doc: DocumentDefinition): Obj {
   };
 }
 
+/**
+ * A REFERENCE DOCUMENT AS ISSUED, TO READ (REQUIREMENTS §111): F/QC-09 and F/QC-38, the Statements of Compliance,
+ * hold no records — they are read, as their page in DCRS shows them (corrected where somebody corrected a word). The
+ * phone is given their words, so that asked to open one Mitra shows it rather than saying it cannot. The other
+ * reference documents (the Chemical Master, the licence) say where they are read.
+ */
+function issuedOf(doc: DocumentDefinition): Obj | null {
+  if (!isReference(doc)) return null;
+  const route = documentOpenRoute(doc);
+  const statement = doc.kind === "compliance-statement" ? complianceStatement(doc.id) : undefined;
+  if (!statement) return { title: doc.name, text: null, route, note: `${calledBy(doc.id)} is kept as issued; it is read on its own page in DCRS.` };
+  const validUntil = complianceValidUntil(statement);
+  const lines = [
+    statement.headerTitle,
+    ...statement.sections.flatMap((section) => [`${section.label}:`, ...section.lines.map((l) => `  ${l}`)]),
+    "",
+    ...statement.declarations,
+    "",
+    `${statement.signedBy}, ${statement.signedTitle}`,
+    `Date of publication: ${formatDisplayDate(statement.signedOn)}${validUntil ? `, valid until ${formatDisplayDate(validUntil)}` : ""}`,
+    statement.footerRef,
+  ];
+  return {
+    title: statement.headerTitle,
+    formatRef: statement.footerRef,
+    sections: statement.sections.map((section) => ({ label: section.label, lines: section.lines })),
+    declarations: statement.declarations,
+    signedBy: statement.signedBy,
+    signedTitle: statement.signedTitle,
+    publishedOn: statement.signedOn,
+    validUntil: validUntil || null,
+    text: lines.join("\n"),
+    route,
+  };
+}
+
 function documentsOp(args: Obj): Outcome {
   const q = str(args.q);
   const limit = Math.max(1, Math.min(200, Number(args.limit) || 50));
@@ -680,7 +718,22 @@ function documentNamed(said: string): { doc: DocumentDefinition } | { refusal: O
   // word), else by the words people use for it (DOC_KEYWORDS, as Mitra reads them).
   const exact = documentRepository.getByIdUnscoped(s);
   const byNumber = exact ? [] : documentsByFormatNumberUnscoped(s);
-  let doc = exact ? (isDocumentIdVisible(exact.id, exact.formatNo) ? exact : undefined) : byNumber.find((d) => isDocumentIdVisible(d.id, d.formatNo));
+  // A NUMBER TWO PAPERS CARRY names one of them only when it is written as that paper prints it (REQUIREMENTS §111):
+  // "F-QC-30" is the viscosity record, "F/QC/30" the minutes of meetings; "F QC 30" could be either, and the person is
+  // asked which — never handed the first in the catalogue. Mitra's find_documents reads a number the same way.
+  const visibleByNumber = byNumber.filter((d) => isDocumentIdVisible(d.id, d.formatNo));
+  if (visibleByNumber.length > 1) {
+    const asPrinted = visibleByNumber.filter((d) => d.formatNo.trim().toLowerCase() === s.toLowerCase());
+    if (asPrinted.length !== 1) {
+      return {
+        refusal: refuse(400, "ambiguous", `${visibleByNumber.length} documents carry the number "${s.slice(0, 40)}" — say which one, by its id or its number exactly as its paper prints it.`, {
+          candidates: visibleByNumber.slice(0, 12).map((d) => ({ id: d.id, formatNo: d.formatNo, name: d.name })),
+        }),
+      };
+    }
+    return { doc: asPrinted[0] };
+  }
+  let doc = exact ? (isDocumentIdVisible(exact.id, exact.formatNo) ? exact : undefined) : visibleByNumber[0];
   let other = exact ?? byNumber[0];
   if (!doc && !other) {
     const found = findDocuments(s);
@@ -867,6 +920,8 @@ function documentOp(args: Obj): Outcome {
     how: info.how,
     layout: isReference(doc) ? null : layoutOf(doc),
     patchShape: isReference(doc) ? null : patchShape(doc),
+    // A reference document's own words, to read (§111): nothing to fill, everything to show.
+    issued: issuedOf(doc),
     records: {
       count: records.length,
       latest: records.slice(0, 5).map((r) => ({ recordId: storedIds.has(r.id) ? r.id : null, dueDate: r.dueDate, status: r.status, started: storedIds.has(r.id) })),
@@ -1527,7 +1582,14 @@ function openOp(args: Obj, who: Who): Outcome {
   const named = documentNamed(str(args.documentId));
   if ("refusal" in named) return named.refusal;
   const doc = named.doc;
-  if (isReference(doc)) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no records to fill.`);
+  // A reference document has no record to start or open; it is READ as issued, so its words come with the answer
+  // (REQUIREMENTS §111) and GET /api/v1/documents/{id} gives them too.
+  if (isReference(doc)) {
+    return refuse(409, "reference-only", `${calledBy(doc.id)} is kept as issued: there is no record to start, it is read. Its words are in "issued"; show them to the person.`, {
+      document: brief(doc),
+      issued: issuedOf(doc),
+    });
+  }
   const today = todayISO();
   const date = dateArg(args.date, today);
   if (date === null) return refuse(400, "bad-date", "date must be a date written YYYY-MM-DD (or today, yesterday, tomorrow).");
