@@ -1762,6 +1762,7 @@ body { top: 0 !important; }
 /* A box on the grid's top line (inGridHead: F/QC/25's "OID :-" and "Job Code:"), its words beside it as printed, and
    the headings the paper prints on one of its lines (answerAcross: line 7's GSM, BF, Grade of Paper). */
 .doc-table table.log-sheet th.grid-head-box > .field { flex-direction: row; align-items: baseline; gap: 8px; }
+.doc-table table.log-sheet th.grid-head-box > .field > label { white-space: nowrap; }
 .doc-table table.log-sheet th.grid-head-box > .field .input { flex: 1 1 auto; min-width: 80px; }
 .doc-table table.log-sheet-answer-across tbody th { vertical-align: middle; }
 
