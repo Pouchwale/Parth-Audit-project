@@ -5,7 +5,7 @@ give you all documents which you have put in QC Module and make sure each and
 every document will be editable and bot will perform task according to user
 query". REQUIREMENTS s57. So this suite checks that:
 
-  * the Quality Control module holds all forty-one documents, shelved in the
+  * the Quality Control module holds all forty-three documents, shelved in the
     department's seven sections;
   * every one of the thirty-two new formats, F/QC/15-B, F/QC/33 and F/QC/36, opens on a page of
     its own, headed by its own format number;
@@ -26,6 +26,11 @@ query". REQUIREMENTS s57. So this suite checks that:
     obsolete artworks, the printing aids destroyed, the label and sleeve
     certificates of analysis, the PSL analysis, the nine Nivea utility tests and
     the Gangwal meeting's seven points;
+  * the registers and reports as their papers (REQUIREMENTS s111): F/QC/20's
+    title and foot, the utility test on the MINUTES OF MEETINGS format, nothing
+    of DCRS's above the analysis report, F-QC-40.C's DATE and TEMP. + SIGN
+    columns; F-QC-14's two sheets as the workbook, a Label record filled with
+    sample data by Mitra as a real exercise and submitted;
   * a certificate, a report and the tolerance card download as Word, and a
     register as Excel;
   * QC Records at /qc lists every one of the department's formats as the
@@ -113,6 +118,9 @@ NEW_FORMATS = {
     # Supplied on 02-Oct-2026 (REQUIREMENTS s86).
     "qc-incoming-lamination-film": "F/QC/33",
     "qc-inspection-sb-lamination": "F/QC/36",
+    # Supplied on 13-Oct-2026 (REQUIREMENTS s111): F-QC-14's Label and Sleeve sheets.
+    "qc-test-reliability-label": "F-QC-14",
+    "qc-test-reliability-sleeve": "F-QC-14",
 }
 
 
@@ -316,11 +324,11 @@ with sync_playwright() as p:
     sign_in(page)
 
     # ==================================================================
-    # 1. The module holds all forty-one, in the department's seven sections
+    # 1. The module holds all forty-three, in the department's seven sections
     # ==================================================================
     open_page(page, "#/library/quality-control-inspection-records")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-    check("Quality Control - Inspection Records holds forty-one documents", rows.count() == 41, rows.count())
+    check("Quality Control - Inspection Records holds forty-three documents", rows.count() == 43, rows.count())
     sections = page.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved in the department's seven sections, in order", sections == QC_SECTIONS, sections)
     text = page.locator(".app-content").inner_text()
@@ -656,6 +664,106 @@ with sync_playwright() as p:
             "Shade variation issue in TBS deep cleansing beard wash-250ml Label" in json.dumps(minutes["data"]["rows"][4]),
             minutes["data"]["rows"][4],
         )
+
+
+    # ==================================================================
+    # 8b. The registers and reports as their papers, and F-QC-14 (REQUIREMENTS s111)
+    # ==================================================================
+    def heads(page):
+        return page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+
+    open_page(page, "#/document/qc-printing-aids-destruction")
+    body = printed_text(page)
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check(
+        "F/QC/20 is headed DESTRUCTION RECORD, PRINTING AIDS DESTRUCTION RECORD above its Date:, the issue and review dates below the grid",
+        "DESTRUCTION RECORD" in whole.upper() and "PRINTING AIDS DESTRUCTION RECORD" in body and "Next Review date 31st December 2024" in body and "The form's footer prints" not in whole,
+        body[:600],
+    )
+    open_page(page, "#/document/qc-utility-test-report")
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check(
+        "The Nivea utility test is headed MINUTES OF MEETINGS, the format it is printed on, with its own heading above the grid in the paper's spacing",
+        "MINUTES OF MEETINGS" in whole.upper() and "NIVEA SAMPLES -  UTILITY TEST  REPORT" in whole and "for the MR to confirm" not in whole,
+        whole[:600],
+    )
+    check("...Job Name under Description, as the paper heads it", "Description" in heads(page) and "Job Name" in heads(page), heads(page))
+    open_page(page, "#/document/qc-analysis-report")
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check("The analysis report prints nothing of DCRS's above its grid", "The scan of the supplied page" not in whole and "eleven printed descriptions" not in whole, whole[:600])
+    open_page(page, "#/document/qc-minutes-of-meetings")
+    check("The minutes' grid is headed Key points Discussed:, as the paper", "Key points Discussed:" in heads(page), heads(page))
+    open_page(page, "#/document/qc-temperature")
+    check(
+        "F-QC-40.C: DATE and the six TEMP. + SIGN readings, and no Sign column of DCRS's",
+        heads(page)[1:] == ["DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN"],
+        heads(page),
+    )
+
+    open_page(page, "#/document/qc-test-reliability-label")
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check(
+        "F-QC-14 Label opens headed INTERNAL TEST RELIABILITY RECORD and F-QC-14",
+        "INTERNAL TEST RELIABILITY RECORD" in whole.upper() and "F-QC-14" in whole,
+        whole[:400],
+    )
+    check(
+        "...the four inspectors' columns and no Sr. No.",
+        heads(page) == ["Test", "Paper Reel SAP batch no. / Roll no. / sample no.", "Inspector - 1", "Inspector - 2", "Inspector - 3", "Inspector - 4"],
+        heads(page),
+    )
+    first = cell_texts(page, 0)
+    check(
+        "...the workbook of 12.02.2022 on file: eight checks of three lines, GSM - Total first, 9460/5234/15 read 72, 71, 70, 71",
+        sheet_rows(page).count() == 24 and "GSM - Total" in first[0] and "Specification : 70 ± 5%" in first[0] and first[1:] == ["9460/5234/15", "72", "71", "70", "71"],
+        (sheet_rows(page).count(), first),
+    )
+    body = printed_text(page)
+    check(
+        "...each check concluded below the grid in the workbook's words",
+        "Conclusion (Gloss Testing)" in body and "Variation are within specification limit, hence test reliability accepted" in body,
+        body[-600:],
+    )
+    open_page(page, "#/document/qc-test-reliability-sleeve")
+    body = printed_text(page)
+    check(
+        "F-QC-14 Sleeve: five checks of three lines, the shrinkage ratio as written",
+        sheet_rows(page).count() == 15 and "Shrinkage Ratio : TD 60 ± 2 %, MD 0 ~ 6%" in body and "TD-61 MD-3" in body,
+        (sheet_rows(page).count(), body[:400]),
+    )
+
+    rid = start_record(page, "qc-test-reliability-label")
+    started = record(page, rid) or {}
+    started_rows = started.get("data", {}).get("rows", [])
+    check(
+        "A new F-QC-14 Label record holds the twenty-four printed lines and nothing written in them",
+        len(started_rows) == 24 and all(not r.get("reading1") and not r.get("sampleNo") for r in started_rows),
+        started_rows[:2],
+    )
+    opener = page.locator("button:has-text('Ask Mitra')")
+    if opener.count():
+        opener.first.click()
+        page.wait_for_timeout(400)
+    composer = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+    composer.fill("fill it with sample data")
+    composer.press("Enter")
+    page.wait_for_timeout(2500)
+    filled = record(page, rid) or {}
+    header = filled.get("data", {}).get("header", {})
+    filled_rows = filled.get("data", {}).get("rows", [])
+    gsm = [r for r in filled_rows if str(r.get("parameter", "")).startswith("GSM - Total")]
+    readings = [float(r.get(k)) for r in gsm for k in ("reading1", "reading2", "reading3", "reading4") if str(r.get(k, "")).strip()]
+    check(
+        "Mitra's sample data is a real exercise: four inspectors, the reel's rolls, every GSM - Total inside 70 ± 5%",
+        bool(header.get("inspector1")) and len(gsm) == 3 and len(readings) == 12 and all(66.5 <= v <= 73.5 for v in readings)
+        and not any(str(r.get("sampleNo", "")).startswith("9460/5234") for r in filled_rows),
+        (header, gsm),
+    )
+    close_assistant(page)
+    page.locator("[data-action='submit']").first.click()
+    page.wait_for_timeout(1600)
+    submitted = record(page, rid) or {}
+    check("...and it is submitted", submitted.get("status") in ("Submitted", "Pending Verification"), submitted.get("status"))
 
     # ==================================================================
     # 9. A certificate is a document, a register is a spreadsheet

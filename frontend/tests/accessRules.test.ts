@@ -150,6 +150,8 @@ const EXPECTED: Record<string, string> = {
   "qc-starch-powder":                 "Kapila",  // F/QC/23
   "qc-sheet-pasting-powder":          "Kapila",  // F/QC/24
   "qc-coa-corrugated":                "Kapila",  // F/QC/25
+  "qc-test-reliability-label":        "Kapila",  // F-QC-14
+  "qc-test-reliability-sleeve":       "Kapila",  // F-QC-14
   "qc-analysis-report":               "Kapila",  // F/QC/29
   "qc-utility-test-report":           "Kapila",  // F/QC/29
   "qc-label-stock":                   "Kapila",  // F/QC/03

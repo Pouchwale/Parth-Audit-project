@@ -21,6 +21,9 @@ import { prepareKnownParts } from "../src/engine/knownParts";
 import { validateForSubmit } from "../src/engine/validation";
 import { clockFace } from "../src/engine/lineClearanceSample";
 import { documentTextIn } from "../src/i18n/documentText";
+import { SEED_HISTORICAL_RECORDS } from "../src/data/seed/historicalRecords";
+import { findDocuments } from "../src/engine/documentFinder";
+import { matchDocuments } from "../src/engine/assistantLocal";
 
 // store/router.tsx reads window.location the moment it loads; the harness stands up none.
 if (typeof (globalThis as { location?: unknown }).location === "undefined") {
@@ -367,4 +370,116 @@ test("F-QC-40.C hot room: TEMPERATURE MONITORING RECORD, the recommended tempera
   assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, filled.data as LogSheetData)).errors, []);
   const html = await sheet(id, filled.data as LogSheetData);
   assert.ok(text(html).includes("TEMPERATURE MONITORING RECORD") && !text(html).includes("— HOT ROOM"), "headed as the paper");
+});
+
+// ---------------------------------------------------------------------------
+// 5. F-QC-14, the internal test reliability record: the workbook's two sheets, Label and Sleeve
+
+const RELIABILITY = {
+  "qc-test-reliability-label": {
+    headings: [
+      "GSM - Total\nSpecification : 70 ± 5%",
+      "Dimension (Length & Width)\nSpecification : Length :50mm & Width :40mm",
+      "GSM - Adhesive\nSpecification :  16.0 ± 2",
+      "Scuff Test\nSpecification :  2lbs/100rounds",
+      "Thickness\nSpecs :  110 micron",
+      "Coloue shade: Should be OK",
+      "Peel Strength\nSpecs :  More than 1000 gms",
+      "Gloss Testing\nSpecification : Minimum Gloss Required at 60˚",
+    ],
+    names: ["GSM - Total", "Dimension (Length & Width)", "GSM - Adhesive", "Scuff Test", "Thickness", "Coloue shade", "Peel Strength", "Gloss Testing"],
+    seeded: "qc-test-reliability-label-2022-02",
+  },
+  "qc-test-reliability-sleeve": {
+    headings: [
+      "Thickness: 40 micron",
+      "Dimension (Length & Width)\nSpecification : Length :203.20mm & Width :178mm",
+      "Shrinkage Ratio : TD 60 ± 2 %, MD 0 ~ 6%",
+      "Coloue shade: Should be OK",
+      "Corona Treatment - Both side Min. 36 dynes",
+    ],
+    names: ["Thickness", "Dimension (Length & Width)", "Shrinkage Ratio", "Coloue shade", "Corona Treatment"],
+    seeded: "qc-test-reliability-sleeve-2022-02",
+  },
+} as const;
+
+test("F-QC-14: both sheets are F-QC-14, headed INTERNAL TEST RELIABILITY RECORD, the four inspectors' columns, each check's three lines as headed, no Sr. No., a Conclusion for each check", async () => {
+  for (const [id, paper] of Object.entries(RELIABILITY)) {
+    const doc = docOf(id);
+    const layout = layoutOf(id);
+    assert.equal(doc.formatNo, "F-QC-14", id);
+    assert.equal(layout.paperTitle, "INTERNAL TEST RELIABILITY RECORD", id);
+    assert.deepEqual(printedAbove(layout), [], `${id}: nothing of DCRS's above the grid`);
+    assert.equal(layout.ownLineNumbers, true, `${id}: the paper numbers no line`);
+    assert.deepEqual(layout.headerFields.map((f) => f.label), ["Date :", "Inspector - 1", "Inspector - 2", "Inspector - 3", "Inspector - 4", "FG Code"], id);
+    assert.deepEqual(layout.columns.map((c) => c.label), ["Test", "Paper Reel SAP batch no. / Roll no. / sample no.", "Inspector - 1", "Inspector - 2", "Inspector - 3", "Inspector - 4"], id);
+    assert.ok(layout.rowMode.kind === "fixedRows");
+    const lines = layout.rowMode.kind === "fixedRows" ? layout.rowMode.rows.map((r) => r.parameter) : [];
+    assert.deepEqual(lines, paper.headings.flatMap((heading) => [heading, heading, heading]), `${id}: each check's three lines, headed as the workbook heads it`);
+    assert.deepEqual(
+      layout.footerFields?.map((f) => f.label),
+      paper.names.map((name) => `Conclusion (${name})`),
+      `${id}: one Conclusion per check, in order`
+    );
+    const html = await sheet(id, createDefaultData(doc, DAY, master) as LogSheetData);
+    assert.equal(headings(html).filter((t) => t === "Sr. No.").length, 0, `${id}: no Sr. No. of the sheet's`);
+    assert.ok(text(html).includes("Specification : 70 ± 5%") || id.endsWith("sleeve"), id);
+  }
+});
+
+test("F-QC-14: the workbook of 12.02.2022 is on file, cell for cell, as two Verified Live records", () => {
+  const label = SEED_HISTORICAL_RECORDS.find((r) => r.id === RELIABILITY["qc-test-reliability-label"].seeded)!;
+  const sleeve = SEED_HISTORICAL_RECORDS.find((r) => r.id === RELIABILITY["qc-test-reliability-sleeve"].seeded)!;
+  assert.ok(label && sleeve);
+  for (const r of [label, sleeve]) assert.ok(r.status === "Verified" && r.isDemo === false && r.dueDate === "2022-02-12", r.id);
+  const l = label.data as LogSheetData;
+  assert.deepEqual([l.header.inspector1, l.header.inspector2, l.header.inspector3, l.header.inspector4, l.header.fgCode], ["Kapila", "Kirti Patel", "Anil Raval", "Karan Prajapati", "FGLA 11430"]);
+  assert.equal(l.rows.length, 24);
+  assert.deepEqual([l.rows[0].sampleNo, l.rows[0].reading1, l.rows[0].reading2, l.rows[0].reading3, l.rows[0].reading4], ["9460/5234/15", "72", "71", "70", "71"]);
+  assert.deepEqual([l.rows[18].sampleNo, l.rows[18].reading2], ["9460/5234/15", "1220"], "Peel Strength, the first roll");
+  assert.deepEqual([l.rows[23].sampleNo, l.rows[23].reading1], ["3", "82"], "Gloss Testing, the third sample");
+  const s = sleeve.data as LogSheetData;
+  assert.equal(s.header.fgCode, "FGSL1241");
+  assert.equal(s.rows.length, 15);
+  assert.deepEqual([s.rows[6].sampleNo, s.rows[6].reading1, s.rows[6].reading2], ["9396/5146/1", "TD-61 MD-3", "TD-60,MD-3"], "the shrinkage cells as written");
+  assert.ok(Object.keys(l.header).filter((k) => k.startsWith("conclusion")).every((k) => l.header[k] === "Variation are within specification limit, hence test reliability accepted"));
+});
+
+test("F-QC-14 in Demo Mode and the sample fill: a real exercise of that day, every reading inside its specification; a Live record gets only its date", () => {
+  for (const id of Object.keys(RELIABILITY)) {
+    const filled = autoFillRecord(docOf(id), DAY, master, undefined)!.data as LogSheetData;
+    const header = filled.header;
+    assert.ok(String(header.inspector1).trim() !== "", `${id}: Inspector - 1 named`);
+    assert.ok(header.inspector1 !== "Kapila" || header.inspector2 !== "Kirti Patel", `${id}: QA's people of that day, not the workbook's names copied`);
+    assert.ok(!filled.rows.some((r) => String(r.sampleNo).startsWith("9460/5234")), `${id}: not the 2022 reel`);
+    assert.ok(/^FG(LA |SL)\d+$/.test(String(header.fgCode)), `${id}: ${header.fgCode}`);
+    assert.deepEqual(validateForSubmit(docOf(id), recordOf(id, filled)).errors, [], id);
+    const byHeading = (start: string) => filled.rows.filter((r) => String(r.parameter).startsWith(start));
+    const values = (start: string) => byHeading(start).flatMap((r) => [r.reading1, r.reading2, r.reading3, r.reading4].map(String));
+    if (id.endsWith("label")) {
+      assert.ok(values("GSM - Total").every((v) => Number(v) >= 66.5 && Number(v) <= 73.5), values("GSM - Total").join());
+      assert.ok(values("GSM - Adhesive").every((v) => Number(v) >= 14 && Number(v) <= 18), values("GSM - Adhesive").join());
+      assert.ok(values("Peel Strength").every((v) => Number(v) > 1000), values("Peel Strength").join());
+      assert.ok(byHeading("Dimension").every((r, i) => r.sampleNo === String(i + 1)), "the finished label's samples 1, 2, 3");
+      assert.ok(byHeading("GSM - Total").every((r) => /^\d+\/\d+\/\d+$/.test(String(r.sampleNo))), "the reel's batch and roll");
+    } else {
+      assert.ok(values("Shrinkage Ratio").every((v) => /^TD-(5[89]|6[0-2]),MD-[0-6]$/.test(v)), values("Shrinkage Ratio").join());
+      assert.ok(values("Thickness").every((v) => Math.abs(Number(v) - 40) <= 1), values("Thickness").join());
+    }
+    // The morning prepare of a Live record: the date and the printed lines, no reading, no name, no conclusion.
+    const known = prepareKnownParts(docOf(id), DAY, master, undefined)!.data as LogSheetData;
+    assert.equal(known.header.date, DAY);
+    for (const [k, v] of Object.entries(known.header)) if (k !== "date") assert.ok(!String(v ?? "").trim(), `${id}: ${k} left for the person`);
+    assert.ok(known.rows.every((r) => !r.sampleNo && !r.reading1 && !r.reading4), `${id}: no reading written`);
+  }
+});
+
+test("F-QC-14 is found by its number in any spelling, both sheets, and by the words people use", () => {
+  for (const q of ["F-QC-14", "F QC 14", "fqc14", "f/qc/14"]) {
+    const found = findDocuments(q).flatMap((f) => (f.kind === "master" ? [] : [f.doc.id])).sort();
+    assert.deepEqual(found, ["qc-test-reliability-label", "qc-test-reliability-sleeve"], q);
+    assert.ok(!findDocuments(q).some((f) => f.kind === "master"), `${q}: no longer "not in DCRS yet"`);
+  }
+  assert.deepEqual(matchDocuments("open the test reliability record").sort(), ["qc-test-reliability-label", "qc-test-reliability-sleeve"], "both, and Mitra asks which");
+  assert.deepEqual(matchDocuments("open the sleeve test reliability"), ["qc-test-reliability-sleeve"]);
 });

@@ -4,7 +4,7 @@ Asked for on 14-Sep-2026, with sixteen F/HR PDFs attached: "make HR module ...
 add those in HR Module only ... also added that Pest Control module and
 everything in HR Module". So this suite checks that:
 
-  * the Document Library holds one hundred and twenty-nine documents, and the Human Resources module
+  * the Document Library holds one hundred and thirty-one documents, and the Human Resources module
     groups twenty-eight of them - the eighteen formats under HR's five sections
     (F/HR/15 and F/HR/16, the cleaning records, joined them on 02-Oct-2026, s86),
     then the pest control file's ten under its own four;
@@ -14,7 +14,7 @@ everything in HR Module". So this suite checks that:
   * "Open Document" opens every document on a page of its own, never the Record
     Calendar - an HR format its HR page, with the register on it in full, and
     any other log sheet its document page (REQUIREMENTS s47);
-  * the library holds one hundred and twenty-nine documents (REQUIREMENTS s51 added
+  * the library holds one hundred and thirty-one documents (REQUIREMENTS s51 added
     Quality Control's two internal calibration records, s57 its thirty-two more,
     s68 the Purchase module's five, s70 and s71 Dispatch's and Store's two each,
     s74 Maintenance's eight, s76 System / Management's eighteen, s77 Marketing's
@@ -243,10 +243,10 @@ with sync_playwright() as p:
     sign_in(page, *UNSCOPED)
 
     # ==================================================================
-    # 1. The Document Library: one hundred and twenty-nine documents, twenty-eight of them HR's
+    # 1. The Document Library: one hundred and thirty-one documents, twenty-eight of them HR's
     # ==================================================================
     open_library(page)
-    check("The Document Library lists one hundred and twenty-nine documents", library_rows(page).count() == 129, library_rows(page).count())
+    check("The Document Library lists one hundred and thirty-one documents", library_rows(page).count() == 131, library_rows(page).count())
     group = hr_group(page)
     check("The Human Resources module is one group of the library", group.count() == 1)
     check("...and there is no Pest Control module any more", page.locator(".app-content h3:has-text('Pest Control')").count() == 0)
@@ -464,7 +464,7 @@ with sync_playwright() as p:
     # ==================================================================
     open_library(page)
     all_ids = page.eval_on_selector_all("[data-action='open-document']", "els => els.map((e) => e.getAttribute('data-document'))")
-    check("Every document in the library has Open Document", len(all_ids) == 129, len(all_ids))
+    check("Every document in the library has Open Document", len(all_ids) == 131, len(all_ids))
     landed = {}
     for doc_id in all_ids:
         open_library(page)

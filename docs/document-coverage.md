@@ -15,19 +15,18 @@ copies are not present in our software of every module."
 
 Checked against the company's workbook of F/SYS/02 (141 lines, the list DCRS keeps), using its own **Method of
 Recording** column: "Hard copy" (117 lines), "SAP" (11), "SAP/ Hard copy" (6), not stated (6, the newest lines), and
-one marked "Obsolate on 25.06.25". DCRS holds 129 documents; nothing new was built since 6-Oct-2026, so the gaps are
-the same as below, now split by how each format is kept.
+one marked "Obsolate on 25.06.25". DCRS holds 131 documents: F-QC-14, supplied on 13-Oct-2026, is in DCRS since (§111);
+the other gaps are the same as below, now split by how each format is kept.
 
 **Complete:** System / Management, Store, Maintenance and Dispatch: every hard copy on the list is in DCRS.
 
-**Hard copies not in DCRS: 34** (please send the blank format, and a filled page if there is one):
+**Hard copies not in DCRS: 33** (please send the blank format, and a filled page if there is one):
 
 | Module | Format | Name on the list | Kept as | Latest revision on the list |
 |---|---|---|---|---|
 | Marketing | F-MKT-03 | Customer complaint Form (CAPA report) | Hard copy | 01.12.21 |
 | Purchase | F-PUR-04 | Purchase Order | Hard copy | 01.12.21 |
 | Quality Control | F-QC-10 | Statement of Compliance (SOC) - Sleeve | Hard copy | 01.12.21 |
-| Quality Control | F-QC-14 | Test Reliability Record | Hard copy | 01.12.21 |
 | Quality Control | F-QC-17 | Scale / Ruler internal calibration record | Hard copy | 01.12.21 |
 | Quality Control | F-QC-31 | COA Pouch | Hard copy | 15.12.2024 |
 | Quality Control | F-QC-40. A | Temperature Monitoring record - Printing machine, Ink kitchen, Ware house | Hard copy | 01.07.2026 |
@@ -109,7 +108,7 @@ QA-CAF-00 (CAPA module). F-QC-41 "Curing time monitoring record" is marked obsol
    differ" below). Its other sheet, "GPPL - Formats list (2)", is an older copy that also has five un-numbered
    lines (F-QC-18, 19, 20, 22 and 25). DCRS keeps the workbook's 141 lines as its F/SYS/02 record (`FORMAT_LINES`
    in `frontend/src/data/seed/sysDocumentControlLayouts.ts`).
-4. **DCRS's documents:** the 129 definitions in `frontend/src/data/seed/documentDefinitions.ts` (id, name, format
+4. **DCRS's documents:** the 131 definitions in `frontend/src/data/seed/documentDefinitions.ts` (id, name, format
    number, revision). Each one's department comes from `frontend/src/data/seed/documentDepartments.ts`.
 5. **What you supplied:** the 120 files in `source-documents/` (the 91 of the first check, the F-QC-15-B paper
    copied there from your Downloads folder when it was built, the ten originals sent on 02-Oct-2026 and the eighteen
@@ -146,8 +145,8 @@ department code; DCRS files it under Quality Control.
 **Lines only in the workbook** (not on the PDF): Marketing has 2 more (F-MKT-05 and F-MKT-06, both in DCRS) and
 Production has 4 more (F-PRD-27 to F-PRD-30, not supplied yet).
 
-**The other way round:** DCRS holds 129 documents. 103 of them are formats on the list (F-QC-15 and F-MNT-05 each
-have two DCRS documents). The other 26 are not on the PDF list; they are explained in "DCRS documents that are not
+**The other way round:** DCRS holds 131 documents. 105 of them are formats on the list (F-QC-14, F-QC-15 and F-MNT-05
+each have two DCRS documents). The other 26 are not on the PDF list; they are explained in "DCRS documents that are not
 on the master list" below.
 
 ## Every format on the list, by department
@@ -229,7 +228,7 @@ What the status words mean:
 | 39 | F-QC-11 | GSM cutting plate internal calibration record | **In DCRS** as `qc-gsm-plate-calibration` "Monthly Internal Calibration Records – GSM Cutting Plate", Rev 01 |
 | 40 | F-QC-12 | Weighing balance internal calibration record | **In DCRS** as `qc-weight-scale-calibration` "Weekly Internal Calibration Records - Weight Scale", Rev 01 |
 | 41 | F-QC-13 | IPQC - PRINTING | **In DCRS** as `qc-inprocess-printing` "In Process Quality Control (Printing) — ઇન પ્રોસેસ ક્વોલિટી કંટ્રોલ", Rev TO BE CONFIRMED. The Gujarati form. |
-| 42 | F-QC-14 | TEST RELIABILITY RECORD | **Not supplied yet.** |
+| 42 | F-QC-14 | TEST RELIABILITY RECORD | **In DCRS** as `qc-test-reliability-label` "Internal Test Reliability Record — Label" and `qc-test-reliability-sleeve` "Internal Test Reliability Record — Sleeve", Rev 00. Supplied on 13-Oct-2026 as one workbook of two sheets, one per product, filled in on 12.02.2022 (§111); both are on file. |
 | 43 | F-QC-15 | Area Line Clearance format | **In DCRS** as `qc-line-clearance-materials` "Line Clearance — Materials (લાઈન કિલયરન્સ)", Rev TO BE CONFIRMED and `qc-line-clearance-quality` "Line Clearance — Quality (ક્વોલીટી શહી)", Rev TO BE CONFIRMED. The Gujarati checklist prints no number, so DCRS still shows "TO BE CONFIRMED" (§57), but its photograph is saved on your computer as "F-QC-15 Line Clearance format (2).jpg", so it is very likely F-QC-15. Please confirm. |
 | 44 | F-QC-15 - A | Area Line Clearance - PRINTING | **In DCRS** as `qc-line-clearance-printing` "Area Line Clearance Report - Printing", Rev 00 |
 | 45 | F-QC-15 - B | Area Line Clearance - PUNCHING | **In DCRS** as `qc-line-clearance-punching` "Area Line Clearance Report - Punching", Rev 00. Built on 30-Sep-2026 (§85) from "F-QC-15-A-G Line Clearance Punching - Printing.pdf", which was in your Downloads folder, saved on 18-Sep-2026 with the other QC papers but never sent (§57 listed 15-B as not supplied); the paper is now in source-documents/ and its page is shown beside the form. It prints "AREA LINE CLEARANCE REPORT - PUNCHING", Format no. F/QC/15-B, Rev 00, effective 16.02.2022. |
@@ -421,7 +420,7 @@ report (withdrawn on 08-Sep-2026; no specimen was ever supplied; §5).
 
 ## Formats to ask for
 
-Please send the paper for each of these 37 formats: the blank format, and a filled page if there is one.
+Please send the paper for each of these 36 formats: the blank format, and a filled page if there is one.
 
 **Marketing (1)**
 - F-MKT-03 Customer complaint Form (the workbook: "Customer complaint Form (CAPA report)")
@@ -429,9 +428,8 @@ Please send the paper for each of these 37 formats: the blank format, and a fill
 **Purchase (1)**
 - F-PUR-04 Purchase Order (the company's own file is F-PUR-04_Purchase order.xlsx)
 
-**Quality Control (7)**
+**Quality Control (6)**
 - F-QC-10 Statement of Compliance (SOC) - Sleeve
-- F-QC-14 TEST RELIABILITY RECORD
 - F-QC-17 Scale / Ruler internal calibration record
 - F-QC-31 COA Pouch
 - F-QC-39 FGPO Specification (the workbook says it is kept in SAP; say if it should stay out of DCRS)

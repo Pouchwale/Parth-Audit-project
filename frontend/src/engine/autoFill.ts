@@ -38,6 +38,8 @@ import { makeRng, type Rng } from "../utils/random";
 import { GRADE_ACTIONS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
 import { documentTextIn } from "../i18n/documentText";
 import { LINE_CLEARANCE_REGISTERS, lineClearanceChangeovers } from "./lineClearanceSample";
+import { RELIABILITY_DOCUMENTS, testReliabilitySample } from "./testReliabilitySample";
+import { OBSOLETE_ARTWORK_LINES } from "../data/seed/qcRegisterLayouts";
 
 // DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
 // SIMULATION: it writes readings, counts, answers, findings and signatures that
@@ -890,6 +892,12 @@ function fillLogSheet(
       // blank template's three 2022 example lines.
       const changes = lineClearanceChangeovers(doc.id, dueDate);
       rows = changes.map((line, i) => ({ ...fillRow(layout, line, rng, doc, master, dueDate, i, changes.length, ctx), ...line }));
+    } else if (doc.id === "qc-obsolete-artwork") {
+      // A sample day withdraws two of the plant's artworks (REQUIREMENTS §111, rule 3), not the first two lines of the
+      // last register every time: the same artwork cannot go obsolete twice.
+      const pool = [...OBSOLETE_ARTWORK_LINES];
+      const picks = [0, 1].map(() => pool.splice(rng.int(0, pool.length - 1), 1)[0]);
+      rows = picks.map((t, i) => fillRow(layout, { ...t }, rng, doc, master, dueDate, i, picks.length, ctx));
     } else if (doc.id === "qc-adhesive-mixing") {
       // Batches are mixed a few times a day at irregular hours; spread them
       // out rather than copying yesterday's clock times verbatim.
@@ -899,6 +907,16 @@ function fillLogSheet(
       );
     } else {
       rows = templates.map((t, i) => fillRow(layout, t, rng, doc, master, dueDate, i, templates.length, ctx));
+    }
+  }
+
+  if (RELIABILITY_DOCUMENTS.has(doc.id)) {
+    // F-QC-14 as a real exercise (engine/testReliabilitySample.ts, REQUIREMENTS §111): the plant's reel and FG code,
+    // QA's four people of that day, every reading inside its check's specification; not the workbook of 2022 copied.
+    const exercise = testReliabilitySample(doc.id, dueDate, responsibleName(doc, master, ""));
+    if (exercise) {
+      Object.assign(header, exercise.header);
+      rows = rows.map((row, i) => ({ ...row, ...(exercise.rows[i] ?? {}) }));
     }
   }
 

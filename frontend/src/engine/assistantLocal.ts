@@ -506,6 +506,9 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "qc-printing-aids-destruction", aliases: ["destruction record", "printing aids destruction", "printing aids"] },
   { id: "qc-camera-challenge-test", aliases: ["camera challenge", "camera challenge test", "defect detection", "defect detection system"] },
   { id: "qc-tolerance-card-nivea", aliases: ["tolerance card", "beiersdorf", "nivea tolerance card"] },
+  // F-QC-14's two sheets (REQUIREMENTS §111): "test reliability" alone names both, and Mitra asks which.
+  { id: "qc-test-reliability-label", aliases: ["test reliability", "test reliability record", "label test reliability", "test reliability label", "reliability record label"] },
+  { id: "qc-test-reliability-sleeve", aliases: ["test reliability", "test reliability record", "sleeve test reliability", "test reliability sleeve", "reliability record sleeve"] },
   { id: "qc-analysis-report", aliases: ["analysis report", "psl analysis", "psl analysis report", "f/qc/29"] },
   { id: "qc-utility-test-report", aliases: ["utility test report", "utility test", "freeze desiccator oven"] },
   { id: "qc-minutes-of-meetings", aliases: ["minutes of meetings", "minutes of meeting", "meeting minutes", "mom"] },

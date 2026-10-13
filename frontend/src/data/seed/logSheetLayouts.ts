@@ -8,6 +8,7 @@ import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLay
 import { PRINTING_AIDS_WITHDRAWN_LINE, QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
 import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
 import { QC_REPORT_LAYOUTS, QC_REPORT_WITHDRAWN_LINES } from "./qcReportLayouts";
+import { QC_TEST_RELIABILITY_LAYOUTS } from "./qcTestReliabilityLayouts";
 import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
 import { STORE_LAYOUTS } from "./storeLayouts";
@@ -437,6 +438,8 @@ Object.assign(LOG_SHEET_LAYOUTS, QC_GUJARATI_LINE_CLEARANCE_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REGISTER_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_COA_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REPORT_LAYOUTS);
+// F-QC-14, the internal test reliability record, its Label and Sleeve sheets, supplied on 13-Oct-2026 (REQUIREMENTS §111).
+Object.assign(LOG_SHEET_LAYOUTS, QC_TEST_RELIABILITY_LAYOUTS);
 
 // Purchase's formats supplied on 23-Sep-2026 (REQUIREMENTS §68): the supplier
 // registration form and the supplier audit report, the list of approved
