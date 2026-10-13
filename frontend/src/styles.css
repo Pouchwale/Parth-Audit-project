@@ -1219,7 +1219,7 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
   /* A written date or time box prints its words in its place (utils/print.ts, REQUIREMENTS §111 part 6): "14-Oct-2026",
      not the browser's drawing of the date ("14·10·2026", "13 - 10 - 2026"). */
   input.print-as-text { display: none; }
-  .print-box-text { color: #000; white-space: nowrap; }
+  .print-box-text { color: #000; white-space: nowrap; font-size: 12.5px; padding: 2px 0; display: inline-block; }
   /* The demo band is a coloured strip with white text: it has to print as
      one, or a demo printout would pass for a real record. */
   .demo-watermark::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
