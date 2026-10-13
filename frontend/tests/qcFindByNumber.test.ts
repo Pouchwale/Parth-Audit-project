@@ -9,7 +9,7 @@ import { ensureSeeded as ensureDocumentsSeeded, documentRepository } from "../sr
 import { ensureSeeded as ensureMasterSeeded } from "../src/data/repositories/masterRepository";
 import { findDocuments } from "../src/engine/documentFinder";
 import { matchDocuments } from "../src/engine/assistantLocal";
-import { formatKey } from "../src/engine/formatNumbers";
+import { documentsByFormatNumberUnscoped, formatKey } from "../src/engine/formatNumbers";
 import { findDocument } from "../src/engine/mitraTools";
 
 if (typeof (globalThis as { location?: unknown }).location === "undefined") {
@@ -74,4 +74,43 @@ test("F QC 09 is the Statement of Compliance for pressure labels and never F/QC-
   assert.deepEqual(matchDocuments("show me the pouch soc"), ["soc-flexible-packaging"]);
   assert.deepEqual(findDocuments("statement of compliance").flatMap((f) => (f.kind === "master" ? [] : [f.doc.id])).sort(), ["soc-flexible-packaging", "soc-labels"], "the words both share name both");
   assert.deepEqual(matchDocuments("open the mom"), ["qc-minutes-of-meetings"]);
+});
+
+// The review of 13-Oct-2026 (OPS-6): voice typing writes F/QC/15-A as "F QC 15 A", the letter said apart. The phone
+// answered "7 documents carry the number 'F QC 15 A'" and Mitra asked which of 15-A to 15-G was meant.
+test("a QC number with its letter said apart names that one form, never all seven line clearances", () => {
+  for (const q of ["F QC 15 A", "f qc 15 a", "F/QC/15 A", "F-QC-15 A", "fqc 15 a", "F QC 15-A"]) {
+    assert.deepEqual(matchDocuments(q.toLowerCase()), ["qc-line-clearance-printing"], `Mitra's words for "${q}"`);
+    assert.deepEqual(matchDocuments(`open ${q}`.toLowerCase()), ["qc-line-clearance-printing"], `"open ${q}"`);
+    assert.deepEqual(documentsByFormatNumberUnscoped(q).map((d) => d.id), ["qc-line-clearance-printing"], `the phone's lookup of "${q}"`);
+    assert.equal(findDocument(q)?.id, "qc-line-clearance-printing", `Mitra's tools for "${q}"`);
+  }
+  assert.equal(findDocument("f qc 15 g")?.id, "qc-line-clearance-sleeve-cutting");
+  assert.equal(findDocument("F QC 40 C")?.id, "qc-temperature");
+  // The number alone still names the seven, and Mitra asks which.
+  assert.equal(matchDocuments("f qc 15").length, 7);
+  // A word after the number is not its letter where no form of that number carries one: "I" here is the person.
+  assert.deepEqual(matchDocuments("open f qc 11 i need it"), ["qc-gsm-plate-calibration"]);
+  assert.deepEqual(matchDocuments("f qc 15 a new one"), ["qc-line-clearance-printing"]);
+  // A letter no form of the number carries names the forms the number does.
+  assert.equal(documentsByFormatNumberUnscoped("F QC 15 Z").length, 7);
+});
+
+// The review of 13-Oct-2026 (OPS-9): Search and the phone found "F.QC.11" and "F_QC_12"; Mitra's words and tools did
+// not, and a server without an AI key answered "The assistant is having trouble right now".
+test("a QC number written with dots or underscores names its document in Mitra's words and tools, as in Search", () => {
+  const cases: [string, string][] = [
+    ["F.QC.11", "qc-gsm-plate-calibration"],
+    ["F_QC_12", "qc-weight-scale-calibration"],
+    ["F.QC.09", "soc-labels"],
+    ["f.qc.13", "qc-inprocess-printing"],
+    ["F_QC_40.C", "qc-temperature"],
+    ["F.QC.15.B", "qc-line-clearance-punching"],
+  ];
+  for (const [q, id] of cases) {
+    assert.deepEqual(matchDocuments(q.toLowerCase()), [id], `Mitra's words for "${q}"`);
+    assert.deepEqual(matchDocuments(`open ${q}`.toLowerCase()), [id], `"open ${q}"`);
+    assert.equal(findDocument(q)?.id, id, `Mitra's tools for "${q}"`);
+    assert.ok(findDocuments(q).some((f) => f.kind !== "master" && f.doc.id === id), `Search for "${q}"`);
+  }
 });

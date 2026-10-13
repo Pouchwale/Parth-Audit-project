@@ -23,8 +23,12 @@ import { t } from "../i18n";
 // hold is said to be not here yet.
 
 const DEPARTMENT_CODES = "SYS|MKT|PUR|STR|QC|QA|PRD|MNT|HR|DISP";
-const STANDARD = new RegExp(`(?<![A-Z0-9])F?\\s*[-/ ]?\\s*(${DEPARTMENT_CODES})\\s*[-/ ]?\\s*(\\d{1,2})(?:[.-]?([A-Z]))?(?![A-Z0-9])`, "gi");
-const WHOLE = new RegExp(`^\\s*F?\\s*[-/ ]?\\s*(${DEPARTMENT_CODES})\\s*[-/ ]?\\s*(\\d{1,2})\\s*(?:[.-]?\\s*([A-Z]))?\\s*$`, "i");
+// The parts may be parted by a dash, a slash, a space, a dot or an underscore ("F.QC.11", "F_QC_12" — REQUIREMENTS
+// §111, the review of 13-Oct-2026: Search found them and Mitra did not), and a format's letter may be said apart from
+// its number, as voice typing writes it ("F QC 15 A"). A letter no format of that number carries is let go again
+// (resolveAll), so "open f qc 11 i need it" is still F/QC/11.
+const STANDARD = new RegExp(`(?<![A-Z0-9])F?\\s*[-/ ._]?\\s*(${DEPARTMENT_CODES})\\s*[-/ ._]?\\s*(\\d{1,2})(?:\\s*[._-]?\\s*([A-Z]))?(?![A-Z0-9])`, "gi");
+const WHOLE = new RegExp(`^\\s*F?\\s*[-/ ._]?\\s*(${DEPARTMENT_CODES})\\s*[-/ ._]?\\s*(\\d{1,2})\\s*(?:[._-]?\\s*([A-Z]))?\\s*$`, "i");
 
 const squash = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 const knownNumber = (doc: DocumentDefinition) => !!doc.formatNo && doc.formatNo !== "TO BE CONFIRMED";
@@ -115,8 +119,11 @@ function resolveAll(ref: Reference, visible: readonly DocumentDefinition[] = doc
   const lettered = visible.filter((d) => knownNumber(d) && formatKey(d.formatNo)?.replace(/[A-Z]$/, "") === ref.key);
   if (lettered.length > 0) return lettered;
   if (!ref.key.match(/[A-Z]$/)) return [];
+  // A letter no format of the number carries — a word said after it, "F QC 11 I need it" — names the number alone:
+  // its one format, or each of its lettered ones ("F QC 15 Z": the seven line clearances, and Mitra asks which).
   const base = ref.key.replace(/[A-Z]$/, "");
-  return visible.filter((d) => knownNumber(d) && formatKey(d.formatNo) === base);
+  const plain = visible.filter((d) => knownNumber(d) && formatKey(d.formatNo) === base);
+  return plain.length > 0 ? plain : visible.filter((d) => knownNumber(d) && formatKey(d.formatNo)?.replace(/[A-Z]$/, "") === base);
 }
 
 /** The person's own documents a piece of text names by format number, in the order named. */
