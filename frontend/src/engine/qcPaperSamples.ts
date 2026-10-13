@@ -15,8 +15,10 @@ import { makeRng, type Rng } from "../utils/random";
 // that is no example of one. Here each lot is a lot:
 //   * the supplier from the plant's own documents (Avery Dennison on its traceability test, Centroiid
 //     Plastopack on its sleeve certificate) or the Purchase module's approved list (F/PUR/03, F/PUR/05:
-//     "Sample Supplier C" for BOPP and PET films, "B" for offset ink...); no other outside company is
-//     named, as nowhere in the sample data (engine/sampleFill.ts);
+//     "Sample Supplier C" for BOPP and PET films, "B" for offset ink...), and in the same way "Sample
+//     Supplier L" to "P" for the materials that list does not name (corrugated boxes, kraft paper,
+//     flexo ink, the two adhesives); no other outside company is named, as nowhere in the sample data
+//     (engine/sampleFill.ts);
 //   * the GRN number on the plant's own series (GRN no. 16741 of 03.07.2024 and 17229 of 17.08.2024
 //     on its traceability records, some eleven a day), the batch written GRN/batch as those records
 //     write it, the report numbered within the financial year;

@@ -565,6 +565,16 @@ test("F-QC-19 Tolerance card for Beiersdorf AG. Germany: seven panels, each with
   assert.ok(!t.includes("Sr. No."));
 });
 
+test("a sheet with nothing printed above its grid draws nothing there — not even a stray 0", async () => {
+  // The tolerance card and F-QC-30 have no boxes, no lines and no table above the grid. A count of
+  // nothing written into the page as "0" between the header block and the grid was the first draw of §111's groups.
+  for (const id of ["qc-tolerance-card-nivea", "qc-viscosity"]) {
+    const html = await sheet(id);
+    const before = text(html.slice(0, html.lastIndexOf("<", html.indexOf('class="doc-table'))));
+    assert.ok(!/\s0\s*$/.test(before), `${id}: ${before.slice(-60)}`);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // 5. A format the plant edited before §111
 

@@ -374,7 +374,7 @@ export function LogSheetRecordView({
         </div>
       )}
 
-      {(layout.instructions?.length || layout.headerFields.length > 0 || topTables.length) && (
+      {((layout.instructions?.length ?? 0) > 0 || layout.headerFields.length > 0 || topTables.length > 0) && (
         <div className="card mt-4">
           <div className="card-pad">
             {layout.instructions?.map((line, i) => (
