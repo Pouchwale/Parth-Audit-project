@@ -118,6 +118,17 @@ test("a form that numbers its own lines says so, and only such a form", () => {
     "qc-coa-label",
     "qc-coa-sleeve",
     "qc-gsm-plate-calibration",
+    // The line clearances have no Sr. No. column on the paper: F/QC/15-A to G open with Completion Date, the two
+    // Gujarati checklists with પ્રોસેસ (REQUIREMENTS §111).
+    "qc-line-clearance-materials",
+    "qc-line-clearance-printing",
+    "qc-line-clearance-punching",
+    "qc-line-clearance-qc-machine",
+    "qc-line-clearance-qc-manual",
+    "qc-line-clearance-quality",
+    "qc-line-clearance-sleeve-cutting",
+    "qc-line-clearance-sleeve-gluing",
+    "qc-line-clearance-slitting",
     // F/QC/12 has no Sr. No. column at all: its entries are known by their Date (REQUIREMENTS §111).
     "qc-weight-scale-calibration",
     "sys-audit-risk",

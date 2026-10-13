@@ -126,10 +126,17 @@ export const DOCUMENT_TEXT_EN: Record<string, string> = {
   "પ્રો.નં. (PO No.)": "PO No.",
   "મશીનનું નામઃ– (Machine name)": "Machine name:–",
   "તા. (Date)": "Date",
+  // As the paper prints them, with no English beside them (REQUIREMENTS §111).
+  "આઈટમ નં.": "Item No.",
+  "પ્રો.નં.": "PO No.",
+  "મશીનનું નામઃ–": "Machine name:–",
+  "તા.": "Date",
 
   // ── લાઈન કિલયરન્સ — its two printed columns
   "પ્રોસેસ (Process)": "Process",
   "મટીરીયલ્સ (Materials)": "Materials",
+  "પ્રોસેસ": "Process",
+  "મટીરીયલ્સ": "Materials",
 
   // ── લાઈન કિલયરન્સ — its twelve printed lines, process by process
   "પ્રિન્ટીંગ": "Printing",
@@ -154,6 +161,8 @@ export const DOCUMENT_TEXT_EN: Record<string, string> = {
   "આ ફોર્મ અને લાઈન કિલયરન્સ (Line Clearance — Materials) એક જ પાના પર છપાયેલાં છે.": "This form and Line Clearance — Materials are printed on the same page.",
   "પ્રોડકશન નં. (Production No.)": "Production No.",
   "પેરામિટર (Parameter)": "Parameter",
+  "પ્રોડકશન નં.": "Production No.",
+  "પેરામિટર": "Parameter",
 
   // ── ક્વોલીટી શહી — its fifteen printed lines
   "જોબ સ્પેકસ": "Job specs",

@@ -36,6 +36,7 @@ import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
 import { GRADE_ACTIONS, GRADE_DEFECTS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
+import { LINE_CLEARANCE_REGISTERS, lineClearanceChangeovers } from "./lineClearanceSample";
 
 // DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
 // SIMULATION: it writes readings, counts, answers, findings and signatures that
@@ -881,7 +882,12 @@ function fillLogSheet(
     const templates = source.length
       ? source.slice(0, Math.max(wanted, mode.minRows ?? 1))
       : Array.from({ length: Math.max(mode.minRows ?? 1, 1) }, () => ({}) as Record<string, string | number | null>);
-    if (doc.id === "qc-adhesive-mixing") {
+    if (LINE_CLEARANCE_REGISTERS.has(doc.id)) {
+      // A day's job changes on the area's machine (engine/lineClearanceSample.ts, REQUIREMENTS §111), not the
+      // blank template's three 2022 example lines.
+      const changes = lineClearanceChangeovers(doc.id, dueDate);
+      rows = changes.map((line, i) => ({ ...fillRow(layout, line, rng, doc, master, dueDate, i, changes.length, ctx), ...line }));
+    } else if (doc.id === "qc-adhesive-mixing") {
       // Batches are mixed a few times a day at irregular hours; spread them
       // out rather than copying yesterday's clock times verbatim.
       const hours = [rng.int(7, 10), rng.int(13, 16), rng.int(20, 23)].slice(0, wanted);

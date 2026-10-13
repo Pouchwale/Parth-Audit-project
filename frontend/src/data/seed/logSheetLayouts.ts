@@ -2,7 +2,7 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
 import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
 import { QC_INCOMING_LAYOUTS } from "./qcIncomingLayouts";
-import { QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
+import { LINE_CLEARANCE_TITLE_LINES, QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
 import { QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
 import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
@@ -554,6 +554,11 @@ const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
     "Each Deviation % is worked out from the size written beside it, by area, against the plate's own size printed at the head of its column.",
     `PROCEDURE: ${CALIBRATION_PROCEDURE}`,
   ],
+  // F/QC/15-A to F/QC/15-G: the title, printed in the header, was printed again above the grid.
+  ...Object.fromEntries(Object.entries(LINE_CLEARANCE_TITLE_LINES).map(([id, title]) => [id, [title]])),
+  // The two Gujarati checklists: DCRS's own line saying the two are printed on one page.
+  "qc-line-clearance-materials": ["આ ફોર્મ અને ક્વોલીટી શહી (Line Clearance — Quality) એક જ પાના પર છપાયેલાં છે."],
+  "qc-line-clearance-quality": ["આ ફોર્મ અને લાઈન કિલયરન્સ (Line Clearance — Materials) એક જ પાના પર છપાયેલાં છે."],
 };
 
 const asPaper = new WeakMap<LogSheetLayout, LogSheetLayout>();

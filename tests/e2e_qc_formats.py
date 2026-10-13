@@ -198,8 +198,9 @@ CLEARANCE_HEADINGS = [
 ]
 
 # F/QC/15-B as its paper prints it ("F-QC-15-A-G Line Clearance Punching -
-# Printing.pdf"), the paper's own spacing included.
-PUNCHING_TITLE = "AREA LINE CLEARANCE REPORT -  PUNCHING"
+# Printing.pdf"), the paper's own spacing included. The title is the header's,
+# printed once (REQUIREMENTS s111), where a page's whitespace reads as one space.
+PUNCHING_TITLE = "AREA LINE CLEARANCE REPORT - PUNCHING"
 PUNCHING_CHECKLIST = (
     "(1) Die of Previous Job removed ? (2) Die of Current / New Job changed ? (3) Matrix Roll (Wastage) of previous job removed ? "
     "(4) Finished Punching Rolls of Previous Production order shifted to designated place ?"
@@ -408,7 +409,8 @@ with sync_playwright() as p:
     # ==================================================================
     open_page(page, "#/document/qc-line-clearance-printing")
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("The printing line clearance takes the register's twelve columns", headings[1:] == CLEARANCE_HEADINGS, headings)
+    # No Sr. No. of the sheet's: the paper's grid opens with Completion Date (REQUIREMENTS s111).
+    check("The printing line clearance takes the register's twelve columns, and no Sr. No.", headings == CLEARANCE_HEADINGS, headings)
     body = page.locator(".app-content").inner_text()
     check(
         "...under the clearance the area asks for, printed as the form has it",
@@ -436,11 +438,11 @@ with sync_playwright() as p:
     # ==================================================================
     open_page(page, "#/document/qc-line-clearance-punching")
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("The punching line clearance takes the register's twelve columns", headings[1:] == CLEARANCE_HEADINGS, headings)
+    check("The punching line clearance takes the register's twelve columns, and no Sr. No.", headings == CLEARANCE_HEADINGS, headings)
     written_out = printed_text(page)
     check(
-        "...under its own title and the four-point punching checklist, as the paper prints them",
-        PUNCHING_TITLE in written_out and PUNCHING_CHECKLIST in written_out and "Activity to make sure a production line & its processing area are completely cleared" in written_out,
+        "...under its own title, once, and the four-point punching checklist, as the paper prints them",
+        written_out.count(PUNCHING_TITLE) == 1 and PUNCHING_CHECKLIST in written_out and "Activity to make sure a production line & its processing area are completely cleared" in written_out,
         written_out[:600],
     )
     labels = page.locator("[data-section='document-preview'] .field label").all_inner_texts()
