@@ -551,11 +551,12 @@ with sync_playwright() as p:
     # 5. A new record of each blank format opens with the paper's rows
     # ==================================================================
     for doc_id, expected, first_text in [
-        ("hr-gmp-checklist", 55, "1. Whether outside land is free of debris and refuse?"),
+        # One number per line (REQUIREMENTS s102): the line's number is the sheet's Sr. No., never again in its words.
+        ("hr-gmp-checklist", 55, "Whether outside land is free of debris and refuse?"),
         ("hr-hygiene-report", 31, "1"),
         ("hr-visitor-health", 9, "Sickness such as"),
         ("hr-pre-employment-health", 21, "01. Have you suffered from any of the following"),
-        ("hr-psc-survey", 15, "1. I can freely speak up"),
+        ("hr-psc-survey", 15, "I can freely speak up"),
         ("hr-training-effectiveness", 8, "Structure"),
         ("hr-induction-staff", 7, "Briefing on Company profile"),
         # The cleaning records of 02-Oct-2026 (REQUIREMENTS s86): seventeen areas and the two signature lines;
