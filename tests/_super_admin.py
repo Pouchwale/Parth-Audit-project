@@ -75,7 +75,9 @@ def become_super_admin(page, base, dismiss=True):
     page.fill("#login-email", SUPER_ADMIN_EMAIL)
     page.fill("#login-password", SUPER_ADMIN_PASSWORD)
     page.click("button:has-text('Log In')")
-    page.wait_for_selector(".app-sidebar, .auth-error", timeout=60000)
+    # The app, or the sign-in's own refusal - not the signed-out notice the form may carry (LoginForm.tsx).
+    REFUSED = ".auth-error:not([data-section='signed-out-notice'])"
+    page.wait_for_selector(f".app-sidebar, {REFUSED}", timeout=60000)
     made = False
     if page.locator(".app-sidebar").count() == 0:
         # Not on this server yet: this suite is the first of the run to ask, so it makes the account - the
@@ -87,10 +89,10 @@ def become_super_admin(page, base, dismiss=True):
         page.fill("#signup-password", SUPER_ADMIN_PASSWORD)
         page.fill("#signup-confirm", SUPER_ADMIN_PASSWORD)
         page.click("button:has-text('Create Account')")
-        page.wait_for_selector(".app-sidebar, .auth-error", timeout=60000)
+        page.wait_for_selector(f".app-sidebar, {REFUSED}", timeout=60000)
         made = True
     if page.locator(".app-sidebar").count() == 0:
-        said = page.locator(".auth-error").first.inner_text().strip()[:200] if page.locator(".auth-error").count() else ""
+        said = page.locator(REFUSED).first.inner_text().strip()[:200] if page.locator(REFUSED).count() else ""
         print(f"[NOTE] Could not sign in as {SUPER_ADMIN_EMAIL}: {said or 'no sidebar and no error shown'}")
         return None
     page.wait_for_timeout(1200)
