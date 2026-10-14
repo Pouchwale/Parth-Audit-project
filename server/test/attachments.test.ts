@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import Groq from 'groq-sdk';
+import { AiApiError } from '../src/ai.ts';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { AssistantReply, ConversationDetail, FileInfo, UserMessage } from '@shared/api.ts';
 import { conversations, files, messageEvents } from '../src/db/schema.ts';
@@ -131,8 +131,8 @@ it('gives the model the text of the newest files first, within the budget, and k
 it('says plainly when the conversation is too long for the model, and a retry still has the files to read', async () => {
   const alice = await t.signIn('alice');
   const note = await upload(alice, 'note.txt', 'text/plain', 'Drain cover broken.');
-  // How Groq turns down a request over the key's tokens-per-minute limit.
-  const tooLarge = new Groq.APIError(413, { error: { message: 'Request too large for model', type: 'tokens', code: 'rate_limit_exceeded' } }, 'Request too large', new Headers());
+  // How the service turns down a request over the key's tokens-per-minute limit.
+  const tooLarge = new AiApiError(413, { message: 'Request too large for model', type: 'tokens', code: 'rate_limit_exceeded' });
   t.model.queue(fails(tooLarge));
 
   const refused = await send(alice, 'Read this', [note.id]);
@@ -150,7 +150,7 @@ it('says plainly when the conversation is too long for the model, and a retry st
 
 it('does not send the image reader a picture it turned down again, and says why', async () => {
   const alice = await t.signIn('alice');
-  t.vision.state.error = new Groq.BadRequestError(400, { error: { message: 'invalid image data', type: 'invalid_request_error' } }, 'invalid image data', new Headers());
+  t.vision.state.error = new AiApiError(400, { message: 'invalid image data', type: 'invalid_request_error' });
   const bad = await upload(alice, 'not-really.png', 'image/png', 'BM not a png');
   expect(t.vision.images).toHaveLength(1);
 
@@ -165,7 +165,7 @@ it('does not send the image reader a picture it turned down again, and says why'
 
 it('reads a photo again when the image reader was busy at upload, and otherwise says why nothing could be read', async () => {
   const alice = await t.signIn('alice');
-  const busy = new Groq.RateLimitError(429, undefined, 'Rate limit reached', new Headers());
+  const busy = new AiApiError(429, { message: 'Rate limit reached' }, { retryInMs: 5_000 });
   t.vision.state.error = busy;
   const later = await upload(alice, 'later.png', 'image/png', png(2, 2));
   const never = await upload(alice, 'never.png', 'image/png', png(2, 2));

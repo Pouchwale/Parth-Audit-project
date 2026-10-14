@@ -1,5 +1,5 @@
 import type { FastifyBaseLogger } from 'fastify';
-import type Groq from 'groq-sdk';
+import type { AiService } from '../ai.ts';
 import type { Config } from '../config.ts';
 import { shorten } from './transcript.ts';
 
@@ -10,21 +10,28 @@ export type Titler = (firstMessage: string) => Promise<string>;
 // findings "Open Research Questions").
 const INSTRUCTIONS = 'Write a 2-6 word title for a conversation that starts with this request, using its key words. Reply with the title only.';
 
-export function groqTitler(config: Config, groq: () => Groq): Titler {
+/**
+ * Titles on the short-jobs model (DCRS REQUIREMENTS §109): AI_SHORT_MODEL, gpt-5.4-nano, which answers at once with
+ * reasoning_effort "none", and the second model when it cannot; on Groq GROQ_TITLE_MODEL, gpt-oss-20b thinking with low
+ * effort, as before. Asked once the reply's first words are on their way, never before them (agent.ts).
+ */
+export function aiTitler(config: Config, service: AiService): Titler {
+  const openai = service.provider === 'openai';
   return async (firstMessage) => {
-    const completion = await groq().chat.completions.create(
+    const completion = await service.complete(
+      [config.titleModel, ...(openai && config.fallbackModel ? [config.fallbackModel] : [])],
       {
-        model: config.titleModel,
         messages: [
           { role: 'system', content: INSTRUCTIONS },
           { role: 'user', content: firstMessage },
         ],
-        reasoning_effort: 'low',
-        // Reasoning counts toward this (about 40 tokens at low effort), leaving room for a short title.
-        max_completion_tokens: 100,
+        groqEffort: 'low',
+        // On Groq, reasoning counts toward this (about 40 tokens at low effort), leaving room for a short title. ChatGPT's
+        // short model does not reason here, and six words of Gujarati are well under 60 tokens.
+        maxTokens: openai ? 60 : 100,
       },
-      // The first reply waits for the title, so a slow title gives way to the fallback.
-      { timeout: 10_000, maxRetries: 0 },
+      // A title is never worth a long wait: past this the conversation is named after its first words.
+      { timeoutMs: 10_000, use: 'other' },
     );
     const choice = completion.choices[0];
     // A title cut off part-way is no title.

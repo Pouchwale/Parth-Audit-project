@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import Groq from 'groq-sdk';
+import { AiConnectionError } from '../src/ai.ts';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { ActionStatus, AssistantReply, CurrentUser, WeeklyReport, WeeklyReportSummary } from '@shared/api.ts';
 import { storeCompletedWeeks, weekStartOf } from '../src/admin/weekly.ts';
@@ -332,7 +332,7 @@ it('counts each message a person sends, without its text, but not decisions or r
   const alice = await account('alice');
   t.model.queue(callsTool('fake__close_item', { id: '12', note: 'done' }));
   const proposed = (await t.as(alice.token).post('/assistant/messages', { text: 'Close item 12' })).json<AssistantReply>();
-  t.model.queue(says('Done.'), fails(new Groq.APIConnectionError({ message: 'network down' })), says('Two items.'));
+  t.model.queue(says('Done.'), fails(new AiConnectionError('network down')), says('Two items.'));
   await t.as(alice.token).post(`/assistant/conversations/${proposed.conversationId}/decision`, { confirmationId: proposed.confirmation!.id, decision: 'confirm' });
   const failed = await t.as(alice.token).post('/assistant/messages', { text: 'What is open?', conversationId: proposed.conversationId });
   expect(failed.statusCode).toBe(503);

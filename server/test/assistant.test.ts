@@ -1,9 +1,8 @@
 import { eq } from 'drizzle-orm';
-import Groq from 'groq-sdk';
+import { AiConnectionError, AiNotConfigured } from '../src/ai.ts';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { AssistantMessage, AssistantReply, ConfirmationPart, ConversationDetail } from '@shared/api.ts';
 import { recoverAfterRestart } from '../src/agent/agent.ts';
-import { ModelNotConfigured } from '../src/agent/model.ts';
 import { actions, conversations, sessions } from '../src/db/schema.ts';
 import { callsTool, callsTools, fails, says, setup } from './helpers.ts';
 
@@ -169,7 +168,7 @@ it('still reports a confirmed change when the model is unavailable afterwards', 
   t.model.queue(callsTool('fake__close_item', { id: '12', note: 'done' }));
   const proposed = (await ask(alice, 'Close item 12')).json<AssistantReply>();
 
-  t.model.queue(fails(new Groq.APIConnectionError({ message: 'network down' })));
+  t.model.queue(fails(new AiConnectionError('network down')));
   const response = await answer(alice, proposed, 'confirm');
   expect(response.statusCode).toBe(200);
   expect(response.json<AssistantReply>().reply).toBe('Done: Close item 12 with the note "done".');
@@ -298,7 +297,7 @@ it('keeps a confirmation open when a restart cut off the answer to it before it 
 
 it('explains when the assistant has no API key yet', async () => {
   const alice = await t.signIn('alice');
-  t.model.queue(fails(new ModelNotConfigured('GROQ_API_KEY is not set')));
+  t.model.queue(fails(new AiNotConfigured()));
 
   const response = await ask(alice, 'What is open?');
   expect(response.statusCode).toBe(503);

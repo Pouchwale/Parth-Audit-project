@@ -2,14 +2,14 @@
 // or always in the one the person chose in the app's settings (replyLanguage). The rule is in the standing
 // instructions, the same for everyone; the choice and what the message is written in go in the note that follows.
 import { randomUUID } from 'node:crypto';
-import type Groq from 'groq-sdk';
+import { aiService } from '../src/ai.ts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AssistantReply, ReplyLanguage, TranscriptionResponse } from '@shared/api.ts';
 import { languageNote, turnLanguage, writtenIn } from '../src/agent/language.ts';
 import { wireMessages } from '../src/agent/model.ts';
 import { turnContext } from '../src/agent/prompt.ts';
 import { createDcrsConnector } from '../src/connectors/dcrs/index.ts';
-import { groqTranscriber, transcriptionPrompt } from '../src/voice/transcriber.ts';
+import { aiTranscriber, transcriptionPrompt } from '../src/voice/transcriber.ts';
 import { callsTool, cutOff, says, setup, testConfig } from './helpers.ts';
 import { typicalRequest } from './request-size.ts';
 
@@ -165,23 +165,22 @@ describe('hearing Gujarati and Hindi', () => {
     // Groq's limit is 224 tokens: this prompt is 123 in Whisper's tokenizer, where a Gujarati letter can take three.
     expect(prompt.length).toBeLessThan(200);
 
-    const sent: Record<string, unknown>[] = [];
-    const groq = {
-      audio: {
-        transcriptions: {
-          create: async (params: Record<string, unknown>) => {
-            sent.push(params);
-            return { text: '  આજનો F/QC/30 રેકોર્ડ ખોલો  ' };
-          },
-        },
-      },
-    } as unknown as Groq;
-    const transcribe = groqTranscriber(testConfig({ transcriptionModel: 'whisper-large-v3' }), () => groq, [connector]);
+    // The form as the service receives it (Whisper on Groq here; ai.test.ts covers ChatGPT's gpt-4o-mini-transcribe).
+    const sent: { url: string; form: FormData }[] = [];
+    const fetch = async (url: string | URL | Request, init?: RequestInit) => {
+      sent.push({ url: String(url), form: init?.body as FormData });
+      return Response.json({ text: '  આજનો F/QC/30 રેકોર્ડ ખોલો  ' });
+    };
+    const config = testConfig({ aiProvider: 'groq', aiApiKey: 'gsk_test_key_0123456789', transcriptionModel: 'whisper-large-v3' });
+    const transcribe = aiTranscriber(config, aiService(config, { fetch: fetch as typeof globalThis.fetch }), [connector]);
     expect(await transcribe({ data: Buffer.alloc(2048, 1), filename: 'audio.m4a', mimeType: 'audio/mp4' })).toBe('આજનો F/QC/30 રેકોર્ડ ખોલો');
     expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({ model: 'whisper-large-v3', prompt, response_format: 'json', temperature: 0 });
+    expect(sent[0]!.url).toBe('https://api.groq.com/openai/v1/audio/transcriptions');
+    const fields = Object.fromEntries([...sent[0]!.form.entries()].filter(([name]) => name !== 'file'));
+    expect(fields).toEqual({ model: 'whisper-large-v3', prompt, response_format: 'json', temperature: '0' });
+    expect((sent[0]!.form.get('file') as File).name).toBe('audio.m4a');
     // No language is forced: Whisper hears which one was spoken.
-    expect(sent[0]).not.toHaveProperty('language');
+    expect(sent[0]!.form.has('language')).toBe(false);
   });
 
   it('hands back what was said in Gujarati or Hindi exactly as Whisper wrote it', async () => {

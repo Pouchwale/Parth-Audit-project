@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
-import type Groq from 'groq-sdk';
 import { z } from 'zod';
 import type {
   ActionStatus,
@@ -16,6 +15,7 @@ import type {
   StreamEvent,
   UserMessage,
 } from '@shared/api.ts';
+import { AiAllowanceError } from '../ai.ts';
 import type { AppDeps } from '../app.ts';
 import { loadCredentials, signedOutUpstream } from '../auth/sessions.ts';
 import type { Registry, ToolBinding } from '../connectors/registry.ts';
@@ -29,7 +29,17 @@ import { conversationFiles, fileInfo, storeFile } from '../files/store.ts';
 import { errorResponse, HttpError } from '../http.ts';
 import { openConversation, openInterrupted, type WorkingConversation } from './conversation.ts';
 import { fixedReply, turnLanguage, type TurnLanguage } from './language.ts';
-import { explainGroqError, isRequestTooLarge, TURN_WAIT_MS, type ModelRequest, type Tool, type ToolMessage, type WaitBudget } from './model.ts';
+import {
+  explainAiError,
+  isRequestTooLarge,
+  TURN_WAIT_MS,
+  type Completion,
+  type ModelRequest,
+  type Tool,
+  type ToolCall,
+  type ToolMessage,
+  type WaitBudget,
+} from './model.ts';
 import { CHANGE_MARK, systemPrompt, turnContext } from './prompt.ts';
 import { titleFor } from './titles.ts';
 import {
@@ -49,8 +59,6 @@ const MAX_MODEL_CALLS = 8;
 const MAX_RESULT_CHARS = 60_000;
 /** How many of one response's lookups run at the same time. The rest wait their turn. */
 const LOOKUPS_AT_ONCE = 4;
-
-type ToolCall = Groq.Chat.ChatCompletionMessageToolCall;
 
 /** One request from a signed-in person. */
 export interface Turn {
@@ -129,11 +137,11 @@ export async function sendMessage(
       userMessage,
       work: async (reply) => {
         await countMessage(turn, conv.id, text, attached.length);
-        const naming = conversationId ? undefined : nameConversation(turn, conv, text);
+        const naming = conversationId ? undefined : titleOnceAnswering(turn, conv, text);
         try {
-          return await runModel(turn, conv, reply, text);
+          return await runModel(turn, conv, reply, text, naming?.answering);
         } finally {
-          await naming;
+          await naming?.settled();
         }
       },
     };
@@ -328,9 +336,15 @@ async function confirm(
   }
 }
 
-async function runModel(turn: Turn, conv: WorkingConversation, reply: MessageWriter, request: string): Promise<Outcome> {
+/**
+ * Answers the request: the model, the lookups it asks for, and the changes it proposes, for at most MAX_MODEL_CALLS
+ * rounds. `answering` is told once the reply is under way (its first words streamed, or the first round answered), so
+ * whatever can wait, such as a new conversation's title, waits for it (DCRS REQUIREMENTS §109: nothing slow before the
+ * first token).
+ */
+async function runModel(turn: Turn, conv: WorkingConversation, reply: MessageWriter, request: string, answering?: () => void): Promise<Outcome> {
   const { deps } = turn;
-  // The same bytes for every person and every turn, so Groq can reuse its work on them: see prompt.ts.
+  // The same bytes for every person and every turn, so the AI service can reuse its work on them: see prompt.ts.
   const system = systemPrompt(deps.registry.connectors);
   const tools = toolDefinitions(deps.registry);
   const attached = await attachedFiles(deps.db, turn.userId, conv.id, conv.messages);
@@ -354,7 +368,17 @@ async function runModel(turn: Turn, conv: WorkingConversation, reply: MessageWri
       language,
     });
     const messages = modelMessages(history, attached, deps.config.fileTextChars);
-    const completion = await callModel(turn, { system, context, tools, messages }, reply, wait);
+    let completion: Completion | undefined;
+    try {
+      completion = await callModel(turn, { system, context, tools, messages }, reply, wait, answering);
+    } catch (error) {
+      if (!(error instanceof AiAllowanceError)) throw error;
+      // The day's allowance is as good as used (the cost guard, §109): the person hears so in their language, at once,
+      // and nothing is asked of the model until tomorrow.
+      turn.log.warn('the AI allowance for today is used up: the reply says so');
+      return say(conv, reply, fixedReply('allowance', turn.replyLanguage, language));
+    }
+    answering?.();
     if (!completion) return stopped(conv, reply);
     const choice = completion.choices[0];
     if (!choice || choice.finish_reason === 'length') {
@@ -523,27 +547,42 @@ async function inTurns<T>(items: readonly T[], limit: number, work: (item: T) =>
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 }
 
-/** Calls the model, writing its text into the reply as it streams. Returns nothing when the person stopped the reply. */
-async function callModel(turn: Turn, request: ModelRequest, reply: MessageWriter, wait: WaitBudget): Promise<Groq.Chat.ChatCompletion | undefined> {
+/**
+ * Calls the model, writing its text into the reply as it streams; `answering` is told at its first words. Returns
+ * nothing when the person stopped the reply. Throws AiAllowanceError as it is, for runModel to say in the person's
+ * language; any other failure as an error the person can be shown.
+ */
+async function callModel(
+  turn: Turn,
+  request: ModelRequest,
+  reply: MessageWriter,
+  wait: WaitBudget,
+  answering?: () => void,
+): Promise<Completion | undefined> {
   const signal = turn.stream?.signal;
   if (signal?.aborted) return undefined;
   if (turn.stats) turn.stats.modelCalls++;
   // While the model is busy, the person is told how long the wait is, and when it is over.
   const onWait = (retryInMs: number | null) =>
     turn.stream?.send(retryInMs === null ? { type: 'status', status: null } : { type: 'status', status: 'waiting_for_model', retryInMs });
+  const onText = (delta: string) => {
+    reply.text(delta);
+    answering?.();
+  };
   try {
-    const completion = await turn.deps.model(request, { signal, onText: reply.text, onWait, wait, log: turn.log });
+    const completion = await turn.deps.model(request, { signal, onText, onWait, wait, log: turn.log });
     return signal?.aborted ? undefined : completion;
   } catch (error) {
     if (signal?.aborted) return undefined;
     // The unfinished response never reaches the history, so its text goes too: a retry writes it again.
     reply.discardResponse();
+    if (error instanceof AiAllowanceError) throw error;
     if (isRequestTooLarge(error)) {
       // The history, with the files' text in it, is more than the model's tier takes in one request. Trying again can't help.
       turn.log.warn({ err: error }, 'the conversation is too long for the model');
       throw new HttpError(413, 'conversation_too_long', 'This conversation, with its files, has grown too long for the assistant. Start a new one, or send less at a time.');
     }
-    throw explainGroqError(error, turn.log);
+    throw explainAiError(error, turn.log);
   }
 }
 
@@ -749,6 +788,27 @@ async function recoverInterrupted(db: Db, conv: WorkingConversation) {
   }
   conv.messages.push(...results);
   conv.pending = null;
+}
+
+/**
+ * Names a new conversation once its first reply is under way, never before (DCRS REQUIREMENTS §109: nothing slow
+ * before the first token; the title's own model call would otherwise come first). `answering` says the reply is under
+ * way; `settled` lets the naming go ahead whatever happened to the reply and waits for it, so a reply that failed
+ * before its first word still gets its conversation a title.
+ */
+function titleOnceAnswering(turn: Turn, conv: WorkingConversation, firstMessage: string): { answering: () => void; settled: () => Promise<void> } {
+  let answering!: () => void;
+  const started = new Promise<void>((resolve) => {
+    answering = resolve;
+  });
+  const naming = started.then(() => nameConversation(turn, conv, firstMessage));
+  return {
+    answering,
+    settled: () => {
+      answering();
+      return naming;
+    },
+  };
 }
 
 /** Names a new conversation while its first reply is written. A failure here never fails the reply. */

@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import type Groq from 'groq-sdk';
 import { z } from 'zod';
 import type { DeviceInfo, LoginResponse, StreamEvent } from '@shared/api.ts';
 import type { Model, ModelOptions, ModelRequest } from '../src/agent/model.ts';
+import type { Completion } from '../src/ai.ts';
 import type { Titler } from '../src/agent/titles.ts';
 import { buildApp } from '../src/app.ts';
 import type { Config } from '../src/config.ts';
@@ -24,7 +24,9 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     confirmationTtlMs: 10 * 60_000,
     conversationRetentionMs: 24 * 3600_000,
     reportTimeZone: 'UTC',
-    groqApiKey: undefined,
+    aiProvider: null,
+    aiApiKey: undefined,
+    dailyTokenBudget: null,
     model: 'test-model',
     reasoningEffort: '',
     fallbackModel: undefined,
@@ -110,7 +112,7 @@ export function fakeSystem(extraActions: readonly Action[] = []) {
   return { connector, items, calls, state };
 }
 
-type Step = (request: ModelRequest, options: ModelOptions) => Groq.Chat.ChatCompletion | Promise<Groq.Chat.ChatCompletion>;
+type Step = (request: ModelRequest, options: ModelOptions) => Completion | Promise<Completion>;
 let nextId = 0;
 
 /** Stands in for the model: returns queued responses in order and records every request. */
@@ -169,14 +171,14 @@ export function fails(error: Error): Step {
   };
 }
 
-function completion(message: Groq.Chat.ChatCompletionMessage, finishReason: 'stop' | 'tool_calls' | 'length'): Groq.Chat.ChatCompletion {
+function completion(message: Completion['choices'][number]['message'], finishReason: 'stop' | 'tool_calls' | 'length'): Completion {
   return {
     id: `chatcmpl_${++nextId}`,
     object: 'chat.completion',
     created: 0,
     model: 'test-model',
-    choices: [{ index: 0, message, finish_reason: finishReason, logprobs: null }],
-  } as Groq.Chat.ChatCompletion;
+    choices: [{ index: 0, message, finish_reason: finishReason }],
+  };
 }
 
 export interface LoginOptions {

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import Groq from 'groq-sdk';
+import { AiApiError } from '../src/ai.ts';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { AssistantReply, FileInfo } from '@shared/api.ts';
 import { conversationExports, conversations, files } from '../src/db/schema.ts';
@@ -205,7 +205,7 @@ it('keeps only the name of a file, and checks its name and folder path', async (
 
 it('keeps a photo the image reader could not take, and says why', async () => {
   const alice = await t.signIn('alice');
-  t.vision.state.error = new Groq.RateLimitError(429, undefined, 'Rate limit reached', new Headers());
+  t.vision.state.error = new AiApiError(429, { message: 'Rate limit reached' }, { retryInMs: 5_000 });
   const busy = await uploaded(alice, png(2, 2), { name: 'busy.png', type: 'image/png' });
   expect(await stored(busy.id)).toMatchObject({ textStatus: 'failed', text: null });
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import Groq from 'groq-sdk';
+import { AiAbortError, AiConnectionError } from '../src/ai.ts';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { AssistantMessage, AssistantReply, ConversationDetail, StreamEvent } from '@shared/api.ts';
 import { ModelBusy } from '../src/agent/model.ts';
@@ -152,7 +152,7 @@ it('answers problems found before the stream starts as ordinary JSON errors', as
 
 it('reports a failure after the stream started as an error event, and saves the message as failed', async () => {
   const alice = await t.signIn('alice');
-  t.model.queue(fails(new Groq.APIConnectionError({ message: 'network down' })));
+  t.model.queue(fails(new AiConnectionError('network down')));
 
   const events = parseEvents((await stream(alice, '/assistant/messages', { text: 'What is open?' })).payload);
   expect(events.map((e) => e.type).filter((type) => type !== 'title')).toEqual(['start', 'error']);
@@ -281,7 +281,7 @@ it('stops when the person stops the reply, keeping the text written so far', asy
   t.model.queue(async (_request, { onText, signal }) => {
     onText?.('Here are the');
     await new Promise((resolve) => signal?.addEventListener('abort', resolve));
-    throw new Groq.APIUserAbortError();
+    throw new AiAbortError();
   });
 
   const client = await streamUntil(await listen(), alice, 'List everything', 'event: delta');

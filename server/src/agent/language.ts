@@ -142,7 +142,7 @@ export function languageNote(choice: ReplyLanguage | undefined, found: TurnLangu
 }
 
 /** The sentences the server says itself rather than the model. */
-export type FixedReply = 'cancelled' | 'expired' | 'unclear' | 'unfinished';
+export type FixedReply = 'cancelled' | 'expired' | 'unclear' | 'unfinished' | 'allowance';
 
 const FIXED: Record<FixedReply, Record<Voice, string>> = {
   cancelled: {
@@ -172,6 +172,14 @@ const FIXED: Record<FixedReply, Record<Voice, string>> = {
     'gu-latin': 'Maaf karjo, e puru na thai shakyu. Nana nana bhag ma kahesho?',
     hi: 'माफ़ कीजिए, यह पूरा नहीं हो पाया। छोटे-छोटे हिस्सों में कहेंगे?',
     'hi-latin': 'Maaf kijiye, yeh poora nahi ho paaya. Chhote-chhote hisson mein kahenge?',
+  },
+  // The day's AI allowance, the cost guard of DCRS REQUIREMENTS §109, is as good as used (ai.ts aiMeter).
+  allowance: {
+    en: "Sorry, today's AI allowance is used up, so I can answer again tomorrow. Nothing was changed.",
+    gu: 'માફ કરજો, આજની AI મર્યાદા પૂરી થઈ ગઈ છે, એટલે હવે જવાબ આવતીકાલે મળશે. કંઈ બદલાયું નથી.',
+    'gu-latin': 'Maaf karjo, aajni AI maryada puri thai gai che, etle have javab aavti kale malshe. Kai badlayu nathi.',
+    hi: 'माफ़ कीजिए, आज की AI सीमा पूरी हो गई है, इसलिए अब जवाब कल मिलेगा। कुछ नहीं बदला गया।',
+    'hi-latin': 'Maaf kijiye, aaj ki AI seema poori ho gayi hai, isliye ab jawab kal milega. Kuch nahi badla gaya.',
   },
 };
 

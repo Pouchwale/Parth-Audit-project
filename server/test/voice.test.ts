@@ -1,4 +1,4 @@
-import Groq from 'groq-sdk';
+import { AiConnectionError } from '../src/ai.ts';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { TranscriptionResponse } from '@shared/api.ts';
 import { setup } from './helpers.ts';
@@ -90,7 +90,7 @@ it('limits each device to 30 recordings a minute', async () => {
 
 it('explains when transcription is unavailable', async () => {
   const alice = await t.signIn('alice');
-  t.voice.state.error = new Groq.APIConnectionError({ message: 'network down' });
+  t.voice.state.error = new AiConnectionError('network down');
   const response = await upload(alice, 'audio/mp4');
   expect(response.statusCode).toBe(503);
   expect(response.json()).toMatchObject({ error: 'assistant_unavailable' });

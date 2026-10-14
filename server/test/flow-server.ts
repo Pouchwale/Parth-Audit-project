@@ -1,4 +1,4 @@
-// A Mitra server for driving the app without Groq: the real server, the DCRS connector on DCRS_BASE, an in-memory
+// A Mitra server for driving the app without an AI service: the real server, the DCRS connector on DCRS_BASE, an in-memory
 // database, and a scripted model with fixed behaviours, so the app's chat can be tested end to end.
 //
 //   DCRS_BASE=http://127.0.0.1:4000 node --no-warnings server/test/flow-server.ts [--port 8899] [--origin http://localhost:8081]
@@ -16,7 +16,7 @@
 // English. So a Gujarati question gets a Gujarati answer, and a Hindi one a Hindi answer.
 // --port picks the port (8899 unless given), --origin the web origin allowed to call it (CORS; * for any).
 import { randomBytes } from 'node:crypto';
-import Groq from 'groq-sdk';
+import { AiAbortError, AiConnectionError, type Completion } from '../src/ai.ts';
 import { buildApp } from '../src/app.ts';
 import type { Model, ModelOptions, ModelRequest } from '../src/agent/model.ts';
 import { loadConfig } from '../src/config.ts';
@@ -44,27 +44,27 @@ const failedOnce = new Set<string>();
 
 type Message = ModelRequest['messages'][number];
 
-function completion(message: Partial<Groq.Chat.ChatCompletionMessage>, finish: 'stop' | 'tool_calls'): Groq.Chat.ChatCompletion {
+function completion(message: Partial<Completion['choices'][number]['message']>, finish: 'stop' | 'tool_calls'): Completion {
   return {
     id: `chatcmpl_${++ids}`,
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
     model: 'scripted',
-    choices: [{ index: 0, message: { role: 'assistant', content: null, ...message }, finish_reason: finish, logprobs: null }],
-  } as Groq.Chat.ChatCompletion;
+    choices: [{ index: 0, message: { role: 'assistant', content: null, ...message }, finish_reason: finish }],
+  };
 }
 
 /** Streams `text` in pieces of about `size` characters, `gapMs` apart, then answers with it whole. */
-async function stream(text: string, { onText, signal }: ModelOptions, size = 24, gapMs = 20): Promise<Groq.Chat.ChatCompletion> {
+async function stream(text: string, { onText, signal }: ModelOptions, size = 24, gapMs = 20): Promise<Completion> {
   for (let at = 0; at < text.length; at += size) {
-    if (signal?.aborted) throw new Groq.APIUserAbortError();
+    if (signal?.aborted) throw new AiAbortError();
     onText?.(text.slice(at, at + size));
     await sleep(gapMs);
   }
   return completion({ content: text }, 'stop');
 }
 
-function calls(list: [name: string, input: Record<string, unknown>][]): Groq.Chat.ChatCompletion {
+function calls(list: [name: string, input: Record<string, unknown>][]): Completion {
   return completion(
     { content: null, tool_calls: list.map(([name, input]) => ({ id: `call_${++ids}`, type: 'function', function: { name, arguments: JSON.stringify(input) } })) },
     'tool_calls',
@@ -202,7 +202,7 @@ const model: Model = async (request, options = {}) => {
       failedOnce.add(key);
       options.onText?.('Let me look that ');
       await sleep(300);
-      throw new Groq.APIConnectionError({ message: 'The connection to Groq was lost.' });
+      throw new AiConnectionError('The connection to the AI service was lost.');
     }
     return stream('That worked the second time. The first try failed on purpose, so Retry could be tested.', options);
   }

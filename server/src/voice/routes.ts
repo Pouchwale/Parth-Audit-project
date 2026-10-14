@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { TranscriptionResponse } from '@shared/api.ts';
-import { explainGroqError } from '../agent/model.ts';
+import { explainAiError } from '../agent/model.ts';
 import type { AppDeps } from '../app.ts';
 import { requireSession } from '../auth/sessions.ts';
 import { HttpError } from '../http.ts';
@@ -9,7 +9,7 @@ const MAX_BYTES = 15 * 1024 * 1024;
 // Too short to hold a spoken request, and Whisper tends to invent words for near-silence.
 const MIN_BYTES = 1024;
 
-// The file extension Groq needs for each kind of recording the apps send.
+// The file extension the AI service needs for each kind of recording the apps send.
 const EXTENSIONS = new Map([
   ['audio/mp4', 'm4a'],
   ['audio/m4a', 'm4a'],
@@ -56,7 +56,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: AppDeps) {
         try {
           text = await deps.transcriber({ data: request.body, filename: `audio.${extension}`, mimeType });
         } catch (error) {
-          throw explainGroqError(error, request.log);
+          throw explainAiError(error, request.log);
         }
         if (!text.trim()) throw noSpeech();
         return { text: text.trim() };

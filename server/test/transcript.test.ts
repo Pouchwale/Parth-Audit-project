@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import Groq from 'groq-sdk';
+import { AiConnectionError } from '../src/ai.ts';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { AssistantMessage, AssistantReply, ConfirmationPart, ConversationDetail } from '@shared/api.ts';
 import { actions } from '../src/db/schema.ts';
@@ -126,7 +126,7 @@ it('marks a waiting card cancelled when the person moves on', async () => {
 
 it('keeps the request when the model fails, and a retry continues the same message', async () => {
   const alice = await t.signIn('alice');
-  t.model.queue(callsTool('fake__list_items', {}), fails(new Groq.APIConnectionError({ message: 'network down' })));
+  t.model.queue(callsTool('fake__list_items', {}), fails(new AiConnectionError('network down')));
 
   const failed = await t.as(alice).post('/assistant/messages', { text: 'What is there?' });
   expect(failed.statusCode).toBe(503);
@@ -158,7 +158,7 @@ it('drops the text of a response that failed part-way, so a retry does not repea
   const alice = await t.signIn('alice');
   t.model.queue((_request, { onText }) => {
     onText?.('Two items are');
-    throw new Groq.APIConnectionError({ message: 'The connection to Groq was lost.' });
+    throw new AiConnectionError('The connection to the AI service was lost.');
   });
   expect((await t.as(alice).post('/assistant/messages', { text: 'What is there?' })).statusCode).toBe(503);
   const [conversation] = (await t.as(alice).get('/assistant/conversations')).json<{ id: string }[]>();
@@ -173,7 +173,7 @@ it('can retry the report after a confirmed change when the model failed', async 
   const alice = await t.signIn('alice');
   const proposed = await propose(alice);
 
-  t.model.queue(fails(new Groq.APIConnectionError({ message: 'network down' })));
+  t.model.queue(fails(new AiConnectionError('network down')));
   const confirmed = await answer(alice, proposed, 'confirm');
   expect(confirmed.message).toMatchObject({ status: 'error', parts: [{}, { type: 'confirmation', changes: [{ status: 'succeeded' }] }] });
 
