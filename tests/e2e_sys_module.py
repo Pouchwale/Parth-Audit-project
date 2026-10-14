@@ -373,7 +373,9 @@ with sync_playwright() as p:
     # As drawn, the Sum and frequency are the engine's (engine/auditRisk.ts), not the stored ones.
     open_page(page, "#/record/seed-sys-audit-risk-2024", settle=1500)
     drawn = page.locator("table.log-sheet tbody tr").evaluate_all("trs => trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => (td.textContent || '').trim()))")
-    site = next((r for r in drawn if len(r) > 1 and r[1] == "4.1"), None)
+    # The paper numbers its own lines (4.1, 4.2 ...), so the sheet draws no Sr. No. of its own and the paper's number is
+    # the FIRST cell (REQUIREMENTS §102).
+    site = next((r for r in drawn if len(r) > 1 and r[0] == "4.1"), None)
     check("...and drawn with its Sum and frequency worked out: 4.1 Site Standards 3 + 4 = 7, Twice / Year", bool(site) and "7" in site and "Twice / Year" in site, site)
     rid7 = start_record(page, "sys-audit-risk")
     line = page.locator("table.log-sheet tbody tr").first
