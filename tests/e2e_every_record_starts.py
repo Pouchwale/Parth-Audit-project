@@ -564,7 +564,7 @@ with sync_playwright() as p:
     DEFS.update(definitions(page))
     recordable = [r["id"] for r in rows if r["hasNew"]]
     reference = [r["id"] for r in rows if not r["hasNew"]]
-    check("The library lists every document, and New on every one that holds records", len(rows) >= 131 and len(recordable) >= 127, (len(rows), len(recordable), reference))
+    check("The library lists every document, and New on every one that holds records", len(rows) >= 135 and len(recordable) >= 130, (len(rows), len(recordable), reference))
     todo = [d for d in recordable if not ONLY or d in ONLY]
     admin_started = start_every_document(page, todo, DEFS, "super admin", again=True)
 

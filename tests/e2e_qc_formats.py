@@ -5,7 +5,7 @@ give you all documents which you have put in QC Module and make sure each and
 every document will be editable and bot will perform task according to user
 query". REQUIREMENTS s57. So this suite checks that:
 
-  * the Quality Control module holds all forty-three documents, shelved in the
+  * the Quality Control module holds all forty-six documents, shelved in the
     department's seven sections;
   * every one of the thirty-two new formats, F/QC/15-B, F/QC/33 and F/QC/36, opens on a page of
     its own, headed by its own format number;
@@ -31,6 +31,12 @@ query". REQUIREMENTS s57. So this suite checks that:
     of DCRS's above the analysis report, F-QC-40.C's DATE and TEMP. + SIGN
     columns; F-QC-14's two sheets as the workbook, a Label record filled with
     sample data by Mitra as a real exercise and submitted;
+  * the owner's four of 14-Oct-2026 as their papers (REQUIREMENTS s111, part 8):
+    F-QC-40.A's recommended line, AREA and M/C NO., "MONITORING RECORD - TIME &
+    SIGN." and one heading over each time's temperature and humidity; F-QC-40.B's
+    six TEMP. + SIGN readings; F/QC/17's two tables of details, its printed
+    tolerance and six points, a verification filled by Mitra and submitted; and
+    F/QC-10, the shrink sleeves' statement, read as issued;
   * a certificate, a report and the tolerance card download as Word, and a
     register as Excel;
   * QC Records at /qc lists every one of the department's formats as the
@@ -130,6 +136,10 @@ NEW_FORMATS = {
     # Supplied on 13-Oct-2026 (REQUIREMENTS s111): F-QC-14's Label and Sleeve sheets.
     "qc-test-reliability-label": "F-QC-14",
     "qc-test-reliability-sleeve": "F-QC-14",
+    # Supplied on 14-Oct-2026 (REQUIREMENTS s111, part 8).
+    "qc-temperature-humidity": "F-QC-40.A",
+    "qc-temperature-sleeve": "F-QC-40.B",
+    "qc-ruler-verification": "F/QC/17",
 }
 
 
@@ -150,6 +160,7 @@ OTHER_QC_FORMATS = {
     # on their own page - F/QC numbers, so Quality Control's formats.
     "soc-labels": "F/QC-09",
     "soc-flexible-packaging": "F/QC-38",
+    "soc-shrink-sleeves": "F/QC-10",
 }
 
 # The camera challenge test is numbered as a QA procedure, and the overview
@@ -526,11 +537,11 @@ with sync_playwright() as p:
     sign_in(page)
 
     # ==================================================================
-    # 1. The module holds all forty-three, in the department's seven sections
+    # 1. The module holds all forty-six, in the department's seven sections
     # ==================================================================
     open_page(page, "#/library/quality-control-inspection-records")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-    check("Quality Control - Inspection Records holds forty-three documents", rows.count() == 43, rows.count())
+    check("Quality Control - Inspection Records holds forty-six documents", rows.count() == 46, rows.count())
     sections = page.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved in the department's seven sections, in order", sections == QC_SECTIONS, sections)
     text = page.locator(".app-content").inner_text()
@@ -1021,6 +1032,83 @@ with sync_playwright() as p:
     page.wait_for_timeout(1600)
     submitted = record(page, rid) or {}
     check("...and it is submitted", submitted.get("status") in ("Submitted", "Pending Verification"), submitted.get("status"))
+
+    # ==================================================================
+    # 8c. The owner's four of 14-Oct-2026 as their papers (REQUIREMENTS s111, part 8)
+    # ==================================================================
+    open_page(page, "#/document/qc-temperature-humidity")
+    shot("fqc40a-temperature-humidity")
+    body = printed_text(page)
+    order = [body.find(w) for w in ["RECOMMENDED TEMPERATURE & HUMIDITY : 25°C ± 2°C / 45 ± 5%", "AREA:", "M/C NO. :", "MONITORING RECORD - TIME & SIGN."]]
+    check(
+        "F-QC-40.A: the recommended line, AREA: and M/C NO. :, then MONITORING RECORD - TIME & SIGN., in the paper's order",
+        all(i >= 0 for i in order) and order == sorted(order) and "TEMPERATURE & HUMIDITY MONITORING RECORD" in page.locator(".app-content").evaluate("e => e.textContent").upper(),
+        (order, body[:500]),
+    )
+    check(
+        "...the paper's words on its AREA line, PRINTING/ INK KITCHEN/ WARE HOUSE",
+        all(w in body for w in ["PRINTING/", "INK KITCHEN/", "WARE HOUSE"]),
+        body[:500],
+    )
+    head_rows = page.locator("[data-section='document-preview'] table.log-sheet thead tr").count()
+    check(
+        "...SR NO | DATE | 08:30 HRS | 12:30 HRS | 16:30 HRS on one heading row, each time over its one cell",
+        heads(page) == ["SR NO", "DATE", "08:30 HRS", "12:30 HRS", "16:30 HRS"] and head_rows == 1,
+        (heads(page), head_rows),
+    )
+    open_page(page, "#/document/qc-temperature-sleeve")
+    shot("fqc40b-temperature-sleeve")
+    body = printed_text(page)
+    check(
+        "F-QC-40.B: TEMPERATURE MONITORING RECORD for the sleeve division at 28°C ± 2°C, six TEMP. + SIGN readings",
+        "RECOMMENDED TEMPERATURE : SLEEVE DIVISION 28°C ± 2°C" in body
+        and heads(page) == ["SR NO", "DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN"],
+        (heads(page), body[:300]),
+    )
+    open_page(page, "#/document/qc-ruler-verification")
+    shot("fqc17-ruler-verification")
+    body = printed_text(page)
+    check(
+        "F/QC/17: Measuring Scale (Ruler) Internal Verification Record in its letters, the master's and the ruler's tables, + / - 1 mm printed",
+        "Measuring Scale (Ruler) Internal Verification Record" in page.locator(".app-content").evaluate("e => e.textContent")
+        and body.find("Master Measuring Scale (Ruler) Details") < body.find("Measuring Scale (Ruler) under calibration details")
+        and "Accetable tolerance" in body and "+ / - 1 mm" in body and "Calibration report number" in body,
+        body[:700],
+    )
+    check(
+        "...# | Master calibrator reading | Observed reading (mm) | Difference | Status (Pass/Fail) | Calibration performed by, on 50 to 290 mm",
+        heads(page) == ["#", "Master calibrator reading", "Observed reading (mm)", "Difference", "Status (Pass/Fail)", "Calibration performed by"]
+        and [cell_texts(page, i)[1] for i in range(sheet_rows(page).count())] == ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"],
+        (heads(page), sheet_rows(page).count()),
+    )
+    rid = start_record(page, "qc-ruler-verification")
+    started = record(page, rid) or {}
+    started_header = started.get("data", {}).get("header", {})
+    check(
+        "A new F/QC/17 holds the master scale's identity, the day and the printed tolerance, and nothing of the 2024 page",
+        started_header.get("masterSerialNo") == "QC-44" and started_header.get("acceptableTolerance") == "+ / - 1 mm"
+        and not started_header.get("serialNo") and "2024" not in json.dumps(started.get("data", {})),
+        started_header,
+    )
+    fill_with_sample_data(page)
+    filled = record(page, rid) or {}
+    filled_rows = filled.get("data", {}).get("rows", [])
+    check(
+        "...Mitra's sample data reads the six points, works out each Difference and passes the ruler",
+        len(filled_rows) == 6 and all(str(r.get("difference", "")) in ("0.0", "1.0", "-1.0") for r in filled_rows) and filled_rows[0].get("status") == "Pass",
+        filled_rows[:2],
+    )
+    page.locator("[data-action='submit']").first.click()
+    page.wait_for_timeout(1600)
+    check("...and it is submitted", (record(page, rid) or {}).get("status") in ("Submitted", "Pending Verification"), (record(page, rid) or {}).get("status"))
+    open_page(page, "#/soc/soc-shrink-sleeves")
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check(
+        "F/QC-10: the Statement of Compliance for shrink sleeves, read as issued",
+        "STATEMENT OF COMPLIANCE – SHRINK SLEEVES" in whole and "F/QC-10 (Rev – 00 / 01.12.2021)" in whole
+        and "Usable for packers of products max up to 30 Deg C." in whole and "Shail Patel" in whole,
+        whole[:500],
+    )
 
     # ==================================================================
     # 9. A certificate is a document, a register is a spreadsheet

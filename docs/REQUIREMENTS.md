@@ -7917,6 +7917,107 @@ CONFIRMED in their header; F/QC/20's dates in the header and its Date at the rig
 "Observation (24Hrs.)"; F-QC-14's small tables; the three Gujarati papers as issued with English chosen) and
 tests/e2e_smoke.py (the statements' footers as printed).
 
+### §111, part 8: the owner's formats of 14-Oct-2026 — F-QC-40.A, F-QC-40.B, F/QC/17 and F/QC-10
+
+**The request.** The owner, 14-Oct-2026, with four files: "So make sure this is more Four files which i want which you
+need to add this and also i providing F-QC-31 also soon". The files are kept with the others in
+source-documents/qc-originals-2026-10-13/. The one sent as "F-QC-10_Statement of Compliance (SOC) - Flexible packaging
+Pouch & Film.pdf" prints F/QC-38 on every page — it is F/QC-38, already in DCRS — so it is kept as "F-QC-10 file as sent
+2026-10-14 - its pages are F-QC-38, not F-QC-10.pdf"; the owner then sent F/QC-10 itself, "F-QC-10_Statement of
+Compliance (SOC) - Shrink Sleeve.pdf". All four were on the Master List of Formats only ("not in DCRS yet", item 42).
+DCRS holds 135 documents now; 46 in Quality Control's module, 52 for a QC account.
+
+**F-QC-40.A, TEMPERATURE & HUMIDITY MONITORING RECORD** (`qc-temperature-humidity`, Rev 02 of 01.07.26, data/seed/
+qcTemperatureLayouts.ts). As the paper: "RECOMMENDED TEMPERATURE & HUMIDITY : 25°C ± 2°C / 45 ± 5%"; "AREA: PRINTING/
+INK KITCHEN/ WARE HOUSE" at the left of the next line, the area the sheet is for marked on it (the choice printed across,
+`choicesAcross`, the paper's own words with their slashes), and "M/C NO. :" at its right; "MONITORING RECORD - TIME &
+SIGN." across the top of the table; SR NO | DATE | 08:30 HRS | 12:30 HRS | 16:30 HRS. Each time's one cell holds the
+temperature and the humidity, judged by 23–27 °C and 40–50 %, and the sign under them. The Excel page also prints, outside
+its print area, a second copy of its number and its M/C NO. box under "PRINTING AREA & INK KITCHEN, WARE HOUSE:" — a
+leftover of the workbook, not drawn.
+
+**F-QC-40.B, TEMPERATURE MONITORING RECORD** (`qc-temperature-sleeve`, Rev 00 of 28.02.25). The same paper as F-QC-40.C,
+the hot room's: "RECOMMENDED TEMPERATURE : SLEEVE DIVISION 28°C ± 2°C", SR NO | DATE | six readings each "... HRS TEMP. +
+SIGN", the reading and its sign in one cell (the entry's second line, headed with nothing), judged by 26–30 °C.
+
+Both are Quality Control's Registers & Records, daily, and Ajay Zala's (the owner's table of 7-Oct-2026: "QC-13, 34, 40
+A, 40 B Ajay Zala"; engine/accessRules.ts had them by number already). Like F-QC-40.C they keep a day's line as a record
+of its own, where the papers print SR NO 1 to 31, a month on one page.
+
+**F/QC/17, Measuring Scale (Ruler) Internal Verification Record** (`qc-ruler-verification`, Rev 00 of 01.12.2021, data/
+seed/qcRulerVerificationLayouts.ts; the page of 24.09.2024 with its .xlsx). As the paper: the title in its own letters;
+"Master Measuring Scale (Ruler) Details" over Make, Serial number, Range, Least count, Calibration date, Calibration due
+date, Calibration report number, a box beside each; "Measuring Scale (Ruler) under calibration details" over the same for
+the ruler, its last line "Accetable tolerance" (the paper's spelling) with "+ / - 1 mm" printed in it; then # | Master
+calibrator reading | Observed reading (mm) | Difference | Status (Pass/Fail) | Calibration performed by on the six printed
+points 50, 100, 150, 200, 250 and 290 mm, the Status and the name one cell down the six lines (`merged`). The Difference
+is worked out — the reading less the point, to one place, "0.0" (engine/calibration.ts) — and judged by the printed
+tolerance (`toleranceFrom`); the Status follows it: Fail as soon as a point is outside, Pass when all six are read inside,
+otherwise as the person sets it. Calibration, as required, Kapila Barad's. The master scale's identity (Kristeen, QC-44,
+0 - 600 mm, 1 mm) is a standing value written on every sheet (engine/observations.ts); its certificate's dates and number
+and the ruler's own details are the person's.
+
+**F/QC-10, Statement of Compliance — Shrink Sleeves** (`soc-shrink-sleeves`, Rev 00 of 01.12.2021, signed by Shail Patel,
+CEO, on 1st April 2025, valid to 01-Apr-2027), in Quality — Compliance with F/QC-09 and F/QC-38, read as issued on its
+own page (/soc/soc-shrink-sleeves), on the phone through GET /api/v1/documents/{id} (`issued`), and by Mitra, as the
+other two (part 5). As the document prints it: its reference source, its table's labels with the colons it prints, the
+raw materials a bullet each, "❖" before the conditions and "✓" before each, its seven declarations; the company's name
+COMPANY.name, as on the other two.
+
+**What a layout could not say, and the one place each is worked out.**
+
+- *One heading over a group whose columns print none* — a run of `LogColumn.group` whose columns all have
+  `printedLabel: ""` is drawn as one heading cell over them, down both heading rows, with no second heading row for it
+  (components/records/LogSheetRecordView.tsx `headless`, the cell marked `data-group-alone`): F-QC-40.A's "08:30 HRS" over
+  the one cell its temperature and humidity are written in. A sheet of free lines keeps its columns' headings, which name
+  the boxes of a downloaded file's new lines (§81). The columns keep their names ("08:30 HRS TEMPERATURE", "08:30 HRS
+  HUMIDITY") for Mitra, the checks and a record's history.
+- *A table of boxes headed across* — a `boxTable` with no columns of its own is headed by its corner across both of its
+  columns (components/records/BoxTable.tsx, styles.css `.paper-box-table-across`): F/QC/17's two tables of details.
+
+**Demo Mode and a sample day look real (rule 3); a Live record gets the known parts only (§98).** F-QC-40.A and .B: the
+day's line dated the record's day, each reading from the plant model inside its band (the default model, as no register
+of theirs is on file), each signed by the QC lab executive of HR Master Data on that shift (§111 part 6: the day's three
+one person, the night's another); F-QC-40.A's sample sheet is the printing area's, at one of the plant's three UV flexo
+presses (F/MNT/01: M-01, M-47, M-83), then carried forward. F/QC/17 (engine/rulerVerificationSample.ts): the master
+calibrated outside on 23 September of the year (as on the page: 23.09.2024, due 22.09.2025), its certificate numbered on
+the page's series one a year (CAL/LPI/GP-23/23 for 2024), the page's ruler (Ajanta, GP-3/MS/04, 0-600 mm, 1 mm) verified
+the day the record is for and due a year less a day later, the six points read to the millimetre with one in five sheets
+a millimetre off (inside the tolerance), signed by a lab executive. No date of the 2024 page is put into a new record. A
+Live record: the date, the printed tolerance and the master scale's identity; F-QC-40.A's area and machine, every
+reading, sign, status and name are the person's.
+
+**Mitra and Search.** Each is found by its number in any spelling (F QC 17, FQC17, f-qc-17; F QC 40 A, fqc40a; F/QC-10,
+F QC 10) and by its words ("ruler verification", "measuring scale", "temperature and humidity", "sleeve division
+temperature", "soc sleeves"); "F-QC-40", "F/QC/40" and "temperature monitoring" name the three of F-QC-40 and Mitra asks
+which (F-QC-40.C lost its "f-qc-40" alias, which took the number for the hot room alone); "statement of compliance" names
+the three statements. Never a bare "scale", which is F/QC/12's weighing scale.
+
+**Not in this part.** F-QC-40.A and .B are one record a day with one line, where the papers are a month of 31 lines on a
+page (as F-QC-40.C, part 7: the owner is asked). F-QC-40.A is one sheet a day for its three areas: the area is marked on
+it, and a second area the same day has no sheet of its own (the owner is asked whether each area keeps its own). The
+F/QC-10 table prints its labels with colons where F/QC-09 and F/QC-38 are still held without them (part 7); its "Shrink
+Sleeves" printed in bold inside the declarations is plain. F/QC/17's own company line ("GUJARAT PRINT PACK PUBLICATION
+PRIVATE LIMITED") prints as COMPANY.name, by the owner's rule of 2-Oct-2026. F-QC-31 (COA Pouch) has not come.
+
+**Tests.** frontend/tests/qcFormats14Oct.test.ts (9): F-QC-40.B against its paper (number, revision, schedule, its
+section, Ajay Zala's, its line, six bands and signs, the headings drawn) and its sample day and Live day, a reading
+outside highlighted; F-QC-40.A against its paper (the recommended line, AREA's words, M/C NO., the table's line, the
+paper's order on the sheet signed off, the area marked, one heading row with three headings alone) and its sample and
+Live days, a humidity and a temperature outside highlighted, the area asked for; F/QC/17's two tables headed across, the
+tolerance printed, the six points, the Status and name one cell each down six lines; the Difference and Status worked
+out (Pass, a millimetre inside, Fail before the rest are read, no verdict half read); a sample verification dated today
+and none of 2024, the master's certificate before and after September, and a Live record's known parts exactly; F/QC-10
+as the document prints it and found by its number; Mitra's finding of all four. Changed: accessRules.test.ts (the four in
+the owner's table), documentFinding.test.ts (F/QC/40 finds the three in DCRS, none on the list only), truthfulPrepare.
+test.ts (a scale's "Least count" is not a count; a box the paper prints holds its printed value on any sheet),
+qcFindByNumber.test.ts ("statement of compliance" names three), companyName.test.ts (F/QC-10's "Manufacturer:"),
+backend/tests/engineHost.test.ts (F/QC-10 read through the phone by its number in four spellings). Browser suites:
+tests/e2e_qc_formats.py (section 8c: the four as their papers, a F/QC/17 verification started with only its known parts,
+filled with sample data by Mitra and submitted; the module holds 46; with QC_PAPER_SHOTS set it photographs the three
+sheets), and the document counts in e2e_smoke.py, e2e_hr_module.py (135), e2e_every_record_starts.py, e2e_departments.py
+(52 for a QC account) and e2e_qc_calibration.py (46).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -8074,12 +8175,12 @@ tests/e2e_smoke.py (the statements' footers as printed).
 41. **DCRS's own database login** (§83). In development DCRS connects as the PostgreSQL superuser, so DCRS's own connection
     could read the assistant's tables, though it never does. For production, DCRS should connect as a role of its own that
     owns DCRS's tables and is not a superuser (docs/DEPLOYMENT.md already shows `postgres://dcrs:…`). Agreed?
-42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 36 in all
-    (F-QC-14 came on 13-Oct-2026 and is built, §111),
+42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 32 in all
+    (F-QC-14 came on 13-Oct-2026, and F-QC-10, F-QC-17, F-QC-40.A and F-QC-40.B on 14-Oct-2026, all built, §111 parts 5 and 8),
     since five came on 02-Oct-2026 (F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04, built in §86) and seven on 06-Oct-2026
     (F-PRD-10, 20, 21, 22, 23, 24 and 26, built in §91, with F-PRD-18 and 19 sent again and F-PRD-25 sent empty):
-    MKT — F-MKT-03 Customer complaint Form. PUR — F-PUR-04 Purchase Order. QC — F-QC-10 SOC Sleeve, F-QC-17 Scale/Ruler internal calibration, F-QC-31 COA Pouch, F-QC-39 FGPO Specification, F-QC-40.A Temperature
-    (printing machine / ink kitchen / warehouse), F-QC-40.B Temperature (Sleeve Division). QA — F-QA-01 Traceability Report.
+    MKT — F-MKT-03 Customer complaint Form. PUR — F-PUR-04 Purchase Order. QC — F-QC-31 COA Pouch, F-QC-39 FGPO Specification.
+    QA — F-QA-01 Traceability Report.
     PRD — F-PRD-01 to 09, 11 to 13, 14.A, 14.B, 14.E, 15, 16, 17.A, 17.B, 17.C, 25 (sent on 06-Oct-2026 as an empty
     workbook, item 54), and the workbook's 27 to 30. HR — F-HR-02
     Personnel competence criteria, F-HR-10 Training Imparted Record. Until they come, search and the Document Library show them

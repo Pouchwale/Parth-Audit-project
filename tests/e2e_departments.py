@@ -65,6 +65,7 @@ QC_DOCUMENT_IDS = {
     "qc-inprocess-printing",
     "soc-labels",
     "soc-flexible-packaging",
+    "soc-shrink-sleeves",
     "qc-bopp-film",
     "qc-corrugated-box",
     "qc-label-stock",
@@ -102,6 +103,10 @@ QC_DOCUMENT_IDS = {
     "qc-minutes-of-meetings",
     "qc-incoming-lamination-film",
     "qc-inspection-sb-lamination",
+    # The owner's of 14-Oct-2026 (REQUIREMENTS s111, part 8).
+    "qc-temperature-humidity",
+    "qc-temperature-sleeve",
+    "qc-ruler-verification",
 }
 
 UNSCOPED = ("dept-all@example.com", "Dept All QA", "")
@@ -377,8 +382,8 @@ with sync_playwright() as p:
 
     qc_docs = library_documents(page)
     check(
-        "Its Document Library holds only Quality Control's forty-eight documents",
-        len(qc_docs) == 48 and len(qc_docs) < len(all_docs),
+        "Its Document Library holds only Quality Control's fifty-two documents",
+        len(qc_docs) == 52 and len(qc_docs) < len(all_docs),
         {"count": len(qc_docs), "docs": qc_docs},
     )
     ids = page.eval_on_selector_all("[data-action='new-record']", "els => els.map((e) => e.dataset.document)")

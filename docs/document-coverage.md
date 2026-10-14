@@ -15,22 +15,19 @@ copies are not present in our software of every module."
 
 Checked against the company's workbook of F/SYS/02 (141 lines, the list DCRS keeps), using its own **Method of
 Recording** column: "Hard copy" (117 lines), "SAP" (11), "SAP/ Hard copy" (6), not stated (6, the newest lines), and
-one marked "Obsolate on 25.06.25". DCRS holds 131 documents: F-QC-14, supplied on 13-Oct-2026, is in DCRS since (§111);
-the other gaps are the same as below, now split by how each format is kept.
+one marked "Obsolate on 25.06.25". DCRS holds 135 documents: F-QC-14, supplied on 13-Oct-2026, and F-QC-10, F-QC-17,
+F-QC-40. A and F-QC-40. B, supplied on 14-Oct-2026, are in DCRS since (§111 parts 5 and 8); the other gaps are the same
+as below, now split by how each format is kept.
 
 **Complete:** System / Management, Store, Maintenance and Dispatch: every hard copy on the list is in DCRS.
 
-**Hard copies not in DCRS: 33** (please send the blank format, and a filled page if there is one):
+**Hard copies not in DCRS: 29** (please send the blank format, and a filled page if there is one):
 
 | Module | Format | Name on the list | Kept as | Latest revision on the list |
 |---|---|---|---|---|
 | Marketing | F-MKT-03 | Customer complaint Form (CAPA report) | Hard copy | 01.12.21 |
 | Purchase | F-PUR-04 | Purchase Order | Hard copy | 01.12.21 |
-| Quality Control | F-QC-10 | Statement of Compliance (SOC) - Sleeve | Hard copy | 01.12.21 |
-| Quality Control | F-QC-17 | Scale / Ruler internal calibration record | Hard copy | 01.12.21 |
 | Quality Control | F-QC-31 | COA Pouch | Hard copy | 15.12.2024 |
-| Quality Control | F-QC-40. A | Temperature Monitoring record - Printing machine, Ink kitchen, Ware house | Hard copy | 01.07.2026 |
-| Quality Control | F-QC-40. B | Temperature Monitoring record - Sleeve Division | Hard copy | 28.02.25 |
 | Quality Assurance | F-QA-01 | Traceability Report | SAP and hard copy | 01.11.22 |
 | Production | F-PRD-01 | Flexo Printing Production Register | Hard copy | 01.12.21 |
 | Production | F-PRD-02 | Punching Production Register | Hard copy | 01.12.21 |
@@ -76,19 +73,21 @@ QA-CAF-00 (CAPA module). F-QC-41 "Curing time monitoring record" is marked obsol
 
 ## In short
 
-- The master list you shared today lists **135 formats** across ten departments. **DCRS has 101 of them**, F-QC-15-B
+- The master list you shared today lists **135 formats** across ten departments. **DCRS has 106 of them**, F-QC-15-B
   (the punching line clearance) included: its paper was on your computer but never built, and it was built on
-  30-Sep-2026 (§85); the five sent on 02-Oct-2026 (§86); and the seven production formats sent on 06-Oct-2026 (§91).
-  **32 have not been supplied yet**, one was sent but could not be built (F-PRD-25: the workbook is empty), and one
+  30-Sep-2026 (§85); the five sent on 02-Oct-2026 (§86); the seven production formats sent on 06-Oct-2026 (§91); F-QC-14
+  sent on 13-Oct-2026 and F-QC-10, F-QC-17, F-QC-40. A and F-QC-40. B sent on 14-Oct-2026 (§111).
+  **27 have not been supplied yet**, one was sent but could not be built (F-PRD-25: the workbook is empty), and one
   (F-QC-41) is marked obsolete on the list itself.
 - **Complete:** System / Management (16 of 16), Store (2 of 2), Maintenance (11 of 11) and Dispatch (3 of 3).
-- **Nearly complete:** Human Resources (20 of 22), Quality Control (32 of 40), Purchase (5 of 6), Marketing (3 of 4).
+- **Nearly complete:** Human Resources (20 of 22), Quality Control (37 of 40: F-QC-31 and F-QC-39 not supplied, F-QC-41
+  obsolete), Purchase (5 of 6), Marketing (3 of 4).
 - **Production** has 9 of its 30 formats in DCRS since 06-Oct-2026 (the Production module, §91): the lamination,
   slitting, doctoring and pouching records and the sharp object and blade records. F-PRD-25 was sent as an empty
   workbook, and 20 have not been supplied. Quality Assurance's one format (F-QA-01) is not in DCRS either.
 - The company's own workbook of the same list is newer than the PDF and has six more lines. DCRS has two of them
   (F-MKT-05 and F-MKT-06, in the CAPA module); the other four (F-PRD-27 to F-PRD-30) have not been supplied.
-- **37 formats to ask for** are listed at the end, grouped by department (F-PRD-25 among them again), with a few
+- **32 formats to ask for** are listed at the end, grouped by department (F-PRD-25 among them again), with a few
   things to confirm.
 
 ## What was compared
@@ -145,7 +144,7 @@ department code; DCRS files it under Quality Control.
 **Lines only in the workbook** (not on the PDF): Marketing has 2 more (F-MKT-05 and F-MKT-06, both in DCRS) and
 Production has 4 more (F-PRD-27 to F-PRD-30, not supplied yet).
 
-**The other way round:** DCRS holds 131 documents. 105 of them are formats on the list (F-QC-14, F-QC-15 and F-MNT-05
+**The other way round:** DCRS holds 135 documents. 109 of them are formats on the list (F-QC-14, F-QC-15 and F-MNT-05
 each have two DCRS documents). The other 26 are not on the PDF list; they are explained in "DCRS documents that are not
 on the master list" below.
 
@@ -224,7 +223,7 @@ What the status words mean:
 | 35 | F-QC-07 | Certificate of analysis (COA)-Sleeve | **In DCRS** as `qc-coa-sleeve` "Certificate of Analysis [COA] For Shrink Sleeves", Rev TO BE CONFIRMED |
 | 36 | F-QC-08 | MASTER LIST OF CALIBRATION INSTRUMENTS | **In DCRS** as `qc-calibration-master-list` "Master List of Calibration Instruments", Rev 01 |
 | 37 | F-QC-09 | Statement of Compliance (SOC) - Label | **In DCRS** as `soc-labels` "Statement of Compliance (SOC) — Pressure Labels", Rev 00. Shown in the "Quality — Compliance" module. |
-| 38 | F-QC-10 | Statement of Compliance (SOC) - Sleeve | **Not supplied yet.** |
+| 38 | F-QC-10 | Statement of Compliance (SOC) - Sleeve | **In DCRS** as `soc-shrink-sleeves` "Statement of Compliance (SOC) — Shrink Sleeves", Rev 00, supplied 14-Oct-2026 (§111 part 8). Read as issued, in the "Quality — Compliance" module. |
 | 39 | F-QC-11 | GSM cutting plate internal calibration record | **In DCRS** as `qc-gsm-plate-calibration` "Monthly Internal Calibration Records – GSM Cutting Plate", Rev 01 |
 | 40 | F-QC-12 | Weighing balance internal calibration record | **In DCRS** as `qc-weight-scale-calibration` "Weekly Internal Calibration Records - Weight Scale", Rev 01 |
 | 41 | F-QC-13 | IPQC - PRINTING | **In DCRS** as `qc-inprocess-printing` "In Process Quality Control (Printing) — ઇન પ્રોસેસ ક્વોલિટી કંટ્રોલ", Rev TO BE CONFIRMED. The Gujarati form. |
@@ -238,7 +237,7 @@ What the status words mean:
 | 49 | F-QC-15 - F | Area Line Clearance - SHRINK SLEEVE GLUING | **In DCRS** as `qc-line-clearance-sleeve-gluing` "Area Line Clearance Report - Shrink Sleeve Gluing", Rev 00 |
 | 50 | F-QC-15 - G | Area Line Clearance - SHRINK SLEEVE CUTTING | **In DCRS** as `qc-line-clearance-sleeve-cutting` "Area Line Clearance Report - Shrink Sleeve Cutting", Rev 00 |
 | 51 | F-QC-16 | OBSOLETE ARTWORK & SHADE CARD RECORD | **In DCRS** as `qc-obsolete-artwork` "Register of Obsolete Artwork", Rev 00 |
-| 52 | F-QC-17 | Scale / Ruler internal calibration record | **Not supplied yet.** |
+| 52 | F-QC-17 | Scale / Ruler internal calibration record | **In DCRS** as `qc-ruler-verification` "Measuring Scale (Ruler) Internal Verification Record" (F/QC/17), Rev 00, supplied 14-Oct-2026 (§111 part 8). |
 | 53 | F-QC-21 | _Inspection record for Flexo Ink | **In DCRS** as `qc-flexo-ink` "Inspection Record – Flexo Ink", Rev 00. A second supplied paper also prints F/QC/21 (the lamination film adhesive record, see below). |
 | 54 | F-QC-30 | Lamination Adhesive Viscosity Record | **In DCRS** as `qc-viscosity` "Lamination Adhesive Viscosity Record", Rev 00. Shown in the "Lamination — Quality Control" module. |
 | 55 | F-QC-31 | COA Pouch | **Not supplied yet.** |
@@ -250,8 +249,8 @@ What the status words mean:
 | 61 | F-QC-37 | INSPECTION RECORD – POUCHING PROCESS | **In DCRS** as `qc-inspection-pouching` "Inspection Record — Pouching Process", Rev 00 |
 | 62 | F-QC-38 | Statement of Compliance (SOC) - Flexible packaging materials (Laminated Pouch & Rolls) | **In DCRS** as `soc-flexible-packaging` "Statement of Compliance (SOC) — Flexible Packaging (Rolls & Pouches)", Rev 00. Shown in the "Quality — Compliance" module. |
 | 63 | F-QC-39 | FGPO Specification | **Not supplied yet.** The workbook says it is kept in SAP. |
-| 64 | F-QC-40. A | Temperature Monitoring record - Printing machine, Ink kitchen, Ware house | **Not supplied yet.** The workbook adds revision 01.07.2026 and the note "Humidity also mentioned". |
-| 65 | F-QC-40. B | Temperature Monitoring record - Sleeve Division | **Not supplied yet.** |
+| 64 | F-QC-40. A | Temperature Monitoring record - Printing machine, Ink kitchen, Ware house | **In DCRS** as `qc-temperature-humidity` "Temperature & Humidity Monitoring Record — Printing, Ink Kitchen & Ware House", Rev 02 of 01.07.2026 (the workbook's revision; its note "Humidity also mentioned"), supplied 14-Oct-2026 (§111 part 8). |
+| 65 | F-QC-40. B | Temperature Monitoring record - Sleeve Division | **In DCRS** as `qc-temperature-sleeve` "Temperature Monitoring Record — Sleeve Division", Rev 00, supplied 14-Oct-2026 (§111 part 8). |
 | 66 | F-QC-40. C | Temperature Monitoring record - Hotroom | **In DCRS** as `qc-temperature` "Temperature Monitoring Record — Hot Room", Rev 00. Shown in the "Lamination — Quality Control" module. |
 | 67 | F-QC-41 | Curing time monitoring record | **Obsolete on the list.** The list prints "Obsolate-24.06.25" (the workbook says "Obsolate on 25.06.25"). Not in DCRS, and nothing to ask for. |
 | 99 | QA-PRO-FL-CCT-01 | Camera Challenge Test | **In DCRS** as `qc-camera-challenge-test` "Defect Detection System Camera Challenge Test", Rev 00. The list prints it after the Production formats and its number has no department code; DCRS files it under Quality Control. |
@@ -420,7 +419,7 @@ report (withdrawn on 08-Sep-2026; no specimen was ever supplied; §5).
 
 ## Formats to ask for
 
-Please send the paper for each of these 36 formats: the blank format, and a filled page if there is one.
+Please send the paper for each of these 32 formats: the blank format, and a filled page if there is one.
 
 **Marketing (1)**
 - F-MKT-03 Customer complaint Form (the workbook: "Customer complaint Form (CAPA report)")
@@ -428,13 +427,9 @@ Please send the paper for each of these 36 formats: the blank format, and a fill
 **Purchase (1)**
 - F-PUR-04 Purchase Order (the company's own file is F-PUR-04_Purchase order.xlsx)
 
-**Quality Control (6)**
-- F-QC-10 Statement of Compliance (SOC) - Sleeve
-- F-QC-17 Scale / Ruler internal calibration record
+**Quality Control (2)**
 - F-QC-31 COA Pouch
 - F-QC-39 FGPO Specification (the workbook says it is kept in SAP; say if it should stay out of DCRS)
-- F-QC-40. A Temperature Monitoring record - Printing machine, Ink kitchen, Ware house (the workbook's latest revision is 01.07.2026)
-- F-QC-40. B Temperature Monitoring record - Sleeve Division
 
 **Quality Assurance (1)**
 - F-QA-01 Traceability Report
