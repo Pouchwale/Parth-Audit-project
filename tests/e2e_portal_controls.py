@@ -23,11 +23,14 @@
 Network-independent, against the production build on :8842.
 """
 import json
+import os
 import sys
 import time
 from datetime import date
 
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin, sign_out  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -114,24 +117,20 @@ def enter_todays_pest_round(page):
     return True
 
 
-def change_own_password(page):
-    """The super admin changes their own password from the top bar: the eye on its three boxes, the wrong current one refused."""
-    page.click("[data-action='change-password']")
-    page.wait_for_timeout(400)
-    page.fill("[data-field='current-password']", "not-the-password")
-    page.fill("[data-field='new-password']", NEW_PASSWORD)
-    page.fill("[data-field='new-password-again']", NEW_PASSWORD)
-    check("Change password has the eye on all three of its boxes", page.locator(".modal-box [data-action='toggle-password']").count() == 3)
-    page.click("[data-action='save-password']")
-    page.wait_for_timeout(900)
-    check("The wrong current password is refused", "current password is not right" in page.locator(".modal-box").inner_text())
-    page.fill("[data-field='current-password']", PASSWORD)
-    page.click("[data-action='save-password']")
+def sign_in_as(page, email, password):
+    """Signs in as that account, from the app or from the sign-in page."""
+    if page.locator(".app-sidebar").count():
+        sign_out(page)
+    page.goto(f"{BASE}/index.html")
+    page.wait_for_selector("#login-email", timeout=60000)
+    page.wait_for_timeout(300)
+    page.fill("#login-email", email)
+    page.fill("#login-password", password)
+    page.click("button:has-text('Log In')")
+    page.wait_for_selector(".app-sidebar", timeout=60000)
     page.wait_for_timeout(1200)
-    check("The right one changes it", "Your password is changed" in page.locator(".modal-box").inner_text())
-    page.locator(".modal-box button:has-text('Done')").click()
-    flat = [" | ".join(l) for l in log_lines(page, "Password")]
-    check("Both are in the log - the refusal and the change - and the password itself is not", any("Password change refused" in l for l in flat) and any("Password changed" in l for l in flat) and not any(NEW_PASSWORD in l or PASSWORD in l for l in flat), flat[:4])
+    dismiss(page)
+    close_assistant(page)
 
 
 def log_lines(page, query=""):
@@ -149,6 +148,11 @@ with sync_playwright() as p:
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     email = f"portal-{int(time.time() * 1000)}@example.com"
+    # The run's super admin is made first (tests/_super_admin.py), so this suite's own sign-up is staff in every
+    # order; the Activity Log, the super admin's (REQUIREMENTS s116), is read as the super admin in section 3.
+    role = become_super_admin(page, BASE)
+    check("The run's super admin is on the server before this suite's own sign-up", role == "admin", role)
+    sign_out(page)
     page.goto(f"{BASE}/index.html")
     page.wait_for_selector("text=Sign up", timeout=60000)
     page.wait_for_timeout(800)
@@ -282,6 +286,8 @@ with sync_playwright() as p:
     # ==================================================================
     # 3. The activity log
     # ==================================================================
+    # The log is the super admin's (REQUIREMENTS s116) and holds every account's lines, Portal QA's among them.
+    check("Signed in as the run's super admin to read the log", become_super_admin(page, BASE) == "admin")
     lines = log_lines(page)
     flat = [" | ".join(l) for l in lines]
     check("The activity log holds the account being created, by name", any("Account created" in l and "Portal QA" in l for l in flat), flat[:6])
@@ -317,28 +323,29 @@ with sync_playwright() as p:
     # ==================================================================
     # 4. Passwords are the super admin's (REQUIREMENTS §105)
     # ==================================================================
-    # The suite's own sign-up is the super admin only on an empty database (run alone); in the full run it is staff.
+    # The run's super admin was made before this suite's own sign-up, so Portal QA is staff in every order. Signed
+    # in again (the log above was read as the super admin): the name in the top bar offers no password change and
+    # the server refuses one. The super admin's own change is tests/e2e_login_only.py's.
+    sign_in_as(page, email, PASSWORD)
     role = page.evaluate("async () => ((await (await fetch('/api/auth/me', { credentials: 'same-origin' })).json()).user || {}).role")
-    if role != "admin":
-        check(
-            "Staff: the name in the top bar does not offer 'Change password'",
-            page.locator("[data-action='change-password']").count() == 0 and page.locator("[data-field='signed-in-as']").count() == 1,
-        )
-        refused = page.evaluate(
-            """async ([current, next]) => {
-                 const res = await fetch('/api/auth/change-password', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: current, newPassword: next }) });
-                 return { status: res.status, body: await res.json().catch(() => null) };
-               }""",
-            [PASSWORD, NEW_PASSWORD],
-        )
-        check(
-            "...and the server refuses them a password of their own, and says who sets it",
-            refused["status"] == 403 and (refused["body"] or {}).get("code") == "password-set-by-super-admin",
-            refused,
-        )
-        NEW_PASSWORD = PASSWORD
-    else:
-        change_own_password(page)
+    check("Portal QA is staff", role == "staff", role)
+    check(
+        "Staff: the name in the top bar does not offer 'Change password'",
+        page.locator("[data-action='change-password']").count() == 0 and page.locator("[data-field='signed-in-as']").count() == 1,
+    )
+    refused = page.evaluate(
+        """async ([current, next]) => {
+             const res = await fetch('/api/auth/change-password', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: current, newPassword: next }) });
+             return { status: res.status, body: await res.json().catch(() => null) };
+           }""",
+        [PASSWORD, NEW_PASSWORD],
+    )
+    check(
+        "...and the server refuses them a password of their own, and says who sets it",
+        refused["status"] == 403 and (refused["body"] or {}).get("code") == "password-set-by-super-admin",
+        refused,
+    )
+    NEW_PASSWORD = PASSWORD
     page.click("button:has-text('Log Out')")
     # Every log-out asks about the day's work first (REQUIREMENTS s72).
     page.wait_for_timeout(500)

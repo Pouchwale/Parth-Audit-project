@@ -23,8 +23,11 @@ one left unassigned, which therefore covers every department, and one assigned
 to Quality Control at signup.
 """
 import re
+import os
 import sys
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 def settle_briefing(page):
     """Mark today's briefing slots as already shown, so it cannot re-open part
     way through the run and intercept a click. The briefing shows itself once in
@@ -109,7 +112,6 @@ QC_DOCUMENT_IDS = {
     "qc-ruler-verification",
 }
 
-UNSCOPED = ("dept-all@example.com", "Dept All QA", "")
 QC_USER = ("dept-qc@example.com", "Dept QC QA", "QC")
 PASSWORD = "PlaywrightQA123"
 
@@ -242,7 +244,10 @@ with sync_playwright() as p:
     # ==================================================================
     # 1. An account with no department assigned covers every department
     # ==================================================================
-    sign_in(page, *UNSCOPED)
+    # The run's super admin (tests/_super_admin.py), which has no department of its own: Master Data, read in
+    # section 4, is the super admin's (REQUIREMENTS s116).
+    role = become_super_admin(page, BASE)
+    check("Signed in as the run's super admin", role == "admin", role)
     who = me(page)
     check("An account with no department assigned is stored with none", who.get("user", {}).get("departments") == [], who)
     # A Human Resources record of the plant, for the QC account to try by its address below: since the access levels
@@ -481,18 +486,19 @@ with sync_playwright() as p:
         reply[:300],
     )
 
-    # A staff account cannot give itself another department.
+    # A staff account cannot give itself another department: Master Data is the super admin's (REQUIREMENTS s116),
+    # out of its sidebar, and refusing it by its address in the page's words.
+    check("Master Data is not in a staff account's sidebar", page.locator(".app-sidebar a[href='#/master-data']").count() == 0)
     page.goto(f"{BASE}/index.html#/master-data")
     page.wait_for_timeout(1100)
     dismiss(page)
-    page.locator(".pill-tab", has_text="Departments & access").first.click()
-    page.wait_for_timeout(800)
+    refusal = page.locator("[data-section='super-admin-only'][data-page='master-data']")
     check(
-        "Only the administrator may change an assignment, and staff are told so",
-        page.locator("[data-state='not-admin']").count() == 1,
-        page.locator("[data-section='departments-access']").inner_text()[:300],
+        "Only the super admin may open Master Data, and staff are told so",
+        refusal.count() == 1 and "Master Data is the super admin's" in refusal.inner_text(),
+        page.locator(".app-content").inner_text()[:300],
     )
-    check("...and the accounts table is not shown to them", page.locator("[data-table='user-access']").count() == 0)
+    check("...and neither the departments nor the accounts table is shown to them", page.locator("[data-table='departments']").count() == 0 and page.locator("[data-table='user-access']").count() == 0)
     status = page.evaluate("() => fetch('/api/users', {credentials:'include'}).then((r) => r.status)")
     check("...and the API refuses them the list of accounts", status == 403, status)
 

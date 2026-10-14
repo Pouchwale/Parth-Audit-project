@@ -27,8 +27,8 @@ admin's own master data and putting them back:
     signed out by the browser itself - the sign-in page says why, the server's
     session is over, and the log says "At the close of working hours";
   * Master Data: the super admin edits the plant's hours and saves them, the
-    server follows, a wrong pair is refused in words; a member of staff sees
-    them and cannot change them, and cannot change them through the API either;
+    server follows, a wrong pair is refused in words; a member of staff is
+    refused the page (REQUIREMENTS s116) and cannot change them through the API;
   * the super admin is never held to them: their session runs to the factory's
     midnight and no staff warning comes even when a fake says the day is closing;
   * the words are the STAFF's hours (the owner, 6-Oct-2026: "this statement is
@@ -851,19 +851,19 @@ def throttle_checks(browser):
 
 
 def staff_master_view(browser, admin_ctx):
-    """A member of staff reads the plant's hours and cannot change them - not on the page, not through the API."""
+    """A member of staff is refused Master Data (REQUIREMENTS s116) and cannot change the plant's hours through the API."""
     ctx = new_context(browser)
     page = new_page(ctx)
     try:
         if sign_in(page, STAFF):
+            # Master Data is the super admin's (REQUIREMENTS s116): a member of staff reaching it by its address is
+            # refused in the page's words, with no box of the plant's hours to read or change.
             page.goto(f"{BASE}/index.html#/master-data")
             page.wait_for_timeout(1200)
             dismiss(page)
-            page.locator(".pill-tab", has_text="Working Hours & Briefing").first.click()
-            page.wait_for_selector("[data-section='plant-hours']", timeout=10000)
-            card = page.locator("[data-section='plant-hours']")
-            check("A member of staff reads the plant's hours, with no box to change them", card.locator("#plant-hours-start").count() == 0 and card.locator("[data-field='plant-hours-admin-only']").count() == 1, card.inner_text()[:300])
-            check("...and no line of the super admin's", card.locator("[data-field='plant-hours-for-you']").count() == 0)
+            refusal = page.locator("[data-section='super-admin-only'][data-page='master-data']")
+            check("A member of staff is refused Master Data by its address, in the page's words", refusal.count() == 1 and "Master Data is the super admin's" in refusal.inner_text(), page.locator(".app-content").inner_text()[:300])
+            check("...with no box of the plant's hours, and no line of the super admin's", page.locator("[data-section='plant-hours']").count() == 0 and page.locator("[data-field='plant-hours-for-you']").count() == 0)
             sign_out(page)
         else:
             check("A member of staff signs in to the app", False)
