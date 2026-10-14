@@ -424,6 +424,12 @@ function normCheckpoints(cur: Obj, value: unknown, problems: string[]): Obj {
       if (note !== undefined) next[k] = { ...prev, note };
       continue;
     }
+    // CLEARED (the owner, 13-Oct-2026: Mitra adds, changes and clears anything in any record): an empty value, "" or
+    // null, takes the check point's answer out, its note with it, so the box is blank again and nothing says Yes or No.
+    if (raw === null || String(raw).trim() === "") {
+      delete next[k];
+      continue;
+    }
     if (no === 4) {
       const n = normNumber(raw);
       if (n === null) {
