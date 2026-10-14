@@ -7964,6 +7964,15 @@ other two (part 5). As the document prints it: its reference source, its table's
 raw materials a bullet each, "❖" before the conditions and "✓" before each, its seven declarations; the company's name
 COMPANY.name, as on the other two.
 
+**F/QC-09 and F/QC-38 held against their papers again.** The file the owner sent as "F-QC-10" is F/QC-38 as the plant
+prints it, page for page; its words are DCRS's transcription's, but its table — like the Word originals of both
+statements — marks its lines, where DCRS held them bare or put a "•" of its own before the conditions: F/QC-09's raw
+materials "•", "❖" before its conditions and "✓" before each; F/QC-38's products, raw materials and uses "❖", its
+conditions "✓" (data/seed/complianceStatements.ts). The list after the table, a bullet to an item on all three papers,
+is drawn so on the page and in print (pages/CompliancePage.tsx, the stylesheet's bullet, so a downloaded file reads each
+item's words alone). The phone's text of a statement gave a label printed with its colon a second one ("Manufacturer::",
+engineHost/entry.ts issuedOf).
+
 **What a layout could not say, and the one place each is worked out.**
 
 - *One heading over a group whose columns print none* — a run of `LogColumn.group` whose columns all have
@@ -7998,7 +8007,8 @@ page (as F-QC-40.C, part 7: the owner is asked). F-QC-40.A is one sheet a day fo
 it, and a second area the same day has no sheet of its own (the owner is asked whether each area keeps its own). The
 F/QC-10 table prints its labels with colons where F/QC-09 and F/QC-38 are still held without them (part 7); its "Shrink
 Sleeves" printed in bold inside the declarations is plain. F/QC/17's own company line ("GUJARAT PRINT PACK PUBLICATION
-PRIVATE LIMITED") prints as COMPANY.name, by the owner's rule of 2-Oct-2026. F-QC-31 (COA Pouch) has not come.
+PRIVATE LIMITED") prints as COMPANY.name, by the owner's rule of 2-Oct-2026. F-QC-31 (COA Pouch) has not come. A
+statement's list prints its bullets in a downloaded Word file as paragraphs, as before.
 
 **Tests.** frontend/tests/qcFormats14Oct.test.ts (9): F-QC-40.B against its paper (number, revision, schedule, its
 section, Ajay Zala's, its line, six bands and signs, the headings drawn) and its sample day and Live day, a reading
@@ -8008,14 +8018,20 @@ Live days, a humidity and a temperature outside highlighted, the area asked for;
 tolerance printed, the six points, the Status and name one cell each down six lines; the Difference and Status worked
 out (Pass, a millimetre inside, Fail before the rest are read, no verdict half read); a sample verification dated today
 and none of 2024, the master's certificate before and after September, and a Live record's known parts exactly; F/QC-10
-as the document prints it and found by its number; Mitra's finding of all four. Changed: accessRules.test.ts (the four in
+as the document prints it and found by its number; F/QC-09's and F/QC-38's marks; Mitra's finding of all four, and the
+master list no longer offering them. Changed: accessRules.test.ts (the four in
 the owner's table), documentFinding.test.ts (F/QC/40 finds the three in DCRS, none on the list only), truthfulPrepare.
 test.ts (a scale's "Least count" is not a count; a box the paper prints holds its printed value on any sheet),
 qcFindByNumber.test.ts ("statement of compliance" names three), companyName.test.ts (F/QC-10's "Manufacturer:"),
-backend/tests/engineHost.test.ts (F/QC-10 read through the phone by its number in four spellings). Browser suites:
+backend/tests/engineHost.test.ts (F/QC-10 read through the phone by its number in four spellings, its labels one
+colon each). That test bundles the engine into the computer's temp folder (dcrs-engine-host-tests), which every
+worktree shares: a bundle another worktree built a minute later counts as current, and a run then reads the other
+branch's catalogue (seen on 14-Oct-2026: F/QC-10 unknown). Touching frontend/src/engineHost/entry.ts makes it build
+this worktree's again. Browser suites:
 tests/e2e_qc_formats.py (section 8c: the four as their papers, a F/QC/17 verification started with only its known parts,
 filled with sample data by Mitra and submitted; the module holds 46; with QC_PAPER_SHOTS set it photographs the three
-sheets), and the document counts in e2e_smoke.py, e2e_hr_module.py (135), e2e_every_record_starts.py, e2e_departments.py
+sheets), tests/e2e_find_every_document.py (the master list no longer offers F-QC-10, F-QC-17, F-QC-40. A or B), and
+the document counts in e2e_smoke.py, e2e_hr_module.py (135), e2e_every_record_starts.py, e2e_departments.py
 (52 for a QC account) and e2e_qc_calibration.py (46).
 
 ## Master data provenance summary

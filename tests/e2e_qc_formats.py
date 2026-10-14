@@ -1102,6 +1102,9 @@ with sync_playwright() as p:
     page.wait_for_timeout(1600)
     check("...and it is submitted", (record(page, rid) or {}).get("status") in ("Submitted", "Pending Verification"), (record(page, rid) or {}).get("status"))
     open_page(page, "#/soc/soc-shrink-sleeves")
+    if os.environ.get("QC_PAPER_SHOTS"):
+        os.makedirs(os.environ["QC_PAPER_SHOTS"], exist_ok=True)
+        page.locator(".app-content").first.screenshot(path=os.path.join(os.environ["QC_PAPER_SHOTS"], "fqc10-soc-shrink-sleeves.png"))
     whole = page.locator(".app-content").evaluate("e => e.textContent")
     check(
         "F/QC-10: the Statement of Compliance for shrink sleeves, read as issued",
