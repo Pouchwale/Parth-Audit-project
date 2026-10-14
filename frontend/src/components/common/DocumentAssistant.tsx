@@ -1944,7 +1944,10 @@ export function DocumentAssistant() {
   // once; and the composer is left as it is.
   const send = async (raw?: string, spoken = false, edit?: { files: MitraAttachment[]; earlier: ChatMessage[] }) => {
     const text = (raw ?? input).trim();
-    if (!text || loading) return;
+    if (!text) return;
+    // While a turn runs nothing new is sent — except the answer to the question that turn is waiting on
+    // (a tool's confirm below): the turn holds until it is answered, so the answer must get through (REQUIREMENTS §113).
+    if (loading && !(pendingConfirmRef.current && !edit)) return;
     autoOpenedRef.current = false;
     if (!edit) {
       setInput("");

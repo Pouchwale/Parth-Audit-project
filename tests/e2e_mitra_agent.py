@@ -139,10 +139,13 @@ def agent_route(route):
     # REQUIREMENTS s113: the four operations on a record's lines, in the patch shapes the schema gives the model.
     elif "add a line" in low:
         route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c4", "edit_open_record", {"patch": {"addItems": {"rows": [{"time": "10:30", "viscosity": 20.4, "checkedBy": "Jeni"}]}}})]})
-    elif "delete line 4" in low:
-        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c5", "edit_open_record", {"patch": {"removeItems": {"rows": [4]}}})]})
-    elif "clear line 4" in low:
-        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c6", "edit_open_record", {"patch": {"clearItems": {"rows": [{"row": 4, "keys": ["viscosity"]}]}}})]})
+    # The line asked for is whichever the sheet has (the suite counts its rows): the stand-in reads the number as the model would.
+    elif re.search(r"delete line \d+", low):
+        line = int(re.search(r"delete line (\d+)", low).group(1))
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c5", "edit_open_record", {"patch": {"removeItems": {"rows": [line]}}})]})
+    elif re.search(r"clear line \d+", low):
+        line = int(re.search(r"clear line (\d+)", low).group(1))
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c6", "edit_open_record", {"patch": {"clearItems": {"rows": [{"row": line, "keys": ["viscosity"]}]}}})]})
     elif "rodent" in low:
         route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c7", "edit_open_record", {"patch": {"addItems": {"rodentCatches": [{"trapBoxNo": "RB-27", "location": "Canteen", "count": 1}]}}})]})
     elif "open a new internal capa" in low:
@@ -332,6 +335,9 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
 
     def dock_say(words, wait_for=None):
+        # A chip's answer can fold the dock: open it again before typing, as a person would.
+        if not page.locator(".assistant-dock button[aria-label='Send']").is_visible():
+            open_dock()
         page.locator(".assistant-dock textarea.input").fill(words)
         page.locator(".assistant-dock button[aria-label='Send']").click()
         if wait_for:
@@ -378,12 +384,27 @@ with sync_playwright() as p:
     check("Added again for the deletion", len(rows) == before_rows + 1, len(rows))
     line_no = len(rows)
     dock_say(f"delete line {line_no}", ".assistant-dock .chat-chip")
-    question = page.locator(".assistant-dock .chat-msg.bot").last.inner_text()
+    question = "\n".join(page.locator(".assistant-dock .chat-msg.bot").all_inner_texts())  # every bubble: the last can be an empty, still-streaming one
     check("A deletion is asked first, in the line's own words, as chips", dock_chip("Yes, delete it").count() == 1 and dock_chip("No, keep it").count() == 1 and re.search(rf"Delete line {line_no} \(.*10:30.*20\.4.*Jeni\) from", question) is not None, question[:200])
     dock_chip("No, keep it").first.click()
     page.wait_for_timeout(1200)
     rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
     check("No: the line stays", len(rows) == line_no, len(rows))
+    # The turn must end with the answer: a composer still busy would hold every later word (REQUIREMENTS §113).
+    try:
+        page.wait_for_selector(".assistant-dock .mitra-composer:not(.is-busy)", timeout=10000)
+    except Exception:
+        pass
+    check(
+        "A declined deletion ends the turn: the composer is free again",
+        page.locator(".assistant-dock .mitra-composer.is-busy").count() == 0,
+        {
+            "bot": page.locator(".assistant-dock .chat-msg.bot").all_inner_texts()[-3:],
+            "chips": page.locator(".assistant-dock .chat-chip").all_inner_texts(),
+            "lastRequestRole": ((REQUESTS[-1].get("messages") or [{}])[-1].get("role") if REQUESTS else None),
+            "requests": len(REQUESTS),
+        },
+    )
     dock_say(f"delete line {line_no}", ".assistant-dock .chat-chip")
     if dock_chip("Yes, delete it").count():
         dock_chip("Yes, delete it").first.click()
@@ -396,7 +417,7 @@ with sync_playwright() as p:
     rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
     line_no = len(rows)
     dock_say(f"clear line {line_no}", ".assistant-dock .chat-chip")
-    question = page.locator(".assistant-dock .chat-msg.bot").last.inner_text()
+    question = "\n".join(page.locator(".assistant-dock .chat-msg.bot").all_inner_texts())  # every bubble: the last can be an empty, still-streaming one
     check("A clear of a written value is asked first, naming the value and the line", dock_chip("Yes, clear it").count() == 1 and dock_chip("No, leave it").count() == 1 and re.search(rf"Clear 20\.4 from line {line_no} \(10:30\) on", question) is not None, question[:200])
     dock_chip("Yes, clear it").first.click()
     page.wait_for_timeout(1500)
