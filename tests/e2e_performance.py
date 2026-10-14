@@ -573,11 +573,15 @@ with sync_playwright() as p:
                       minus: m ? Number(m.dataset.minus) : null, minusText: el.querySelector("[data-field='person-score']").textContent.trim() };
            })"""
     )
+    # Who is scored depends on the accounts the server holds when this runs: in a run where no earlier suite made an
+    # account kept to a department, nobody is (the QC account of section 8 is not made yet), and that is right.
+    kept_to_a_department = sorted(x["name"] for x in people if x["departments"] and x["role"] != "admin")
     check(
         "Every person who is scored carries the minus score for their own counts as THE score - never the percentage done (the owner, 13-Oct-2026)",
-        bool(scored) and all(s["score"] == minus_text(minus_for(s["overdue"], card_due(s))) and "%" not in s["score"] for s in scored),
-        scored,
+        (bool(scored) or not kept_to_a_department) and all(s["score"] == minus_text(minus_for(s["overdue"], card_due(s))) and "%" not in s["score"] for s in scored),
+        (scored, kept_to_a_department),
     )
+    check("...and every account kept to a department is scored, nobody else", sorted(s["name"] for s in scored) == kept_to_a_department, (scored, kept_to_a_department))
     check("...and no card says 'out of 100'", page.locator("[data-person][data-scored='yes']").evaluate_all("els => els.every((el) => !el.textContent.includes('out of 100'))"))
     check(
         "...and a minus score that is the share of their own records due never done",
