@@ -7717,6 +7717,110 @@ the twelve line clearance headings with no Sr. No.; F/QC/13 as its original), an
 e2e_smoke.py, e2e_hr_module.py, e2e_every_record_starts.py, e2e_departments.py and e2e_qc_calibration.py (131
 documents, 43 in QC's module, 48 for a QC account).
 
+### §111, part 7: the review of 13-Oct-2026, group B — what was still unlike the papers
+
+A review held group B's papers (part 5) against their originals again, and the sheets, their prints and their sample
+data against what the papers ask. Every finding below was confirmed and is fixed; each has a unit check that failed on
+the code before (frontend/tests/qcPaperReview.test.ts, 20). The branch first took group A's work (formats-13oct, which
+already held part 5), so the fixes use A's abilities — `headingsAsPrinted`, `paperColumn`, `boxesPerLine`,
+`srNoFullStop`, `paperHasItsOwnApproval`, `qcPaperSigners` — rather than a second copy of each. (Part 6 is the same
+review's findings on group A's papers, made on formats-13oct.)
+
+**What the papers do that a layout could not say, and the one place each is worked out** (types/logSheet.ts;
+engine/paperLayout.ts; drawn by components/records/LogSheetRecordView.tsx for the sheet, its print, the server's PDF and
+the Excel and Word files made from it; a format edited before takes them from the issued layout, logSheetLayouts.ts
+asThePaper):
+
+- *One cell down a run of lines* — `LogColumn.merged` ({ by: key } or {} for every line): the Gujarati line
+  clearance's process and its operator's and QA's signatures once per process, F/QC/13's one પાસ?. The value is the
+  run's first line's (mergedRuns; Demo Mode's and the sample's lines brought to it by withMergedRuns, a "No" anywhere in
+  a yes/no run the run's "No"); the checks ask for it once; Mitra's tools and the phone are told so.
+- *A blank line between runs* — `LogSheetLayout.gapBetweenRuns`: between the Gujarati processes. Never a line of the record.
+- *The paper's small tables* — `LogSheetLayout.panels`: F-QC-14's checks, two to a row, each headed with its check
+  over the inspectors, each inspector's name under his heading in brackets, its first column headed as printed ("Paper
+  Reel SAP batch no.", "Roll no.", "{fgCode} sample no." with the FG code written in), its three lines and "Conclusion"
+  with its own conclusion. The record is unchanged: its lines, its boxes. The names and the FG code are typed in the
+  first table that prints them and shown as written in the others (`data-repeats`).
+- *An entry's second line headed with nothing* — `secondLine: { label: "" }`: the first column (F-QC-40.C's day) runs
+  down both lines, so a reading and its sign stand in one cell.
+- *The Sr. No.'s own heading* — `srNoLabel`: "SR NO" (F-QC-40.C), "" (F/QC/30's numbered points).
+- *A box drawn as the paper's heading* — `LogHeaderField.asHeading`: F/QC/29's "PSL Analysis Report", centred, its
+  label unprinted.
+- *A photograph under the table* — `photoBelowGrid`, kept in the record as `LogSheetData.photos` (a scaled-down
+  JPEG, as the complaint report keeps its photographs), one to a sheet; never written by Demo Mode or a sample.
+- *Boxes above the paragraph* — `boxesAboveInstructions`. *Lines printed with the format number* —
+  `printedWithNumber` (DocumentHeader, after the revision). *No number printed* — `numberNotPrinted` (an unconfirmed
+  number prints empty). *A group heading in a cell of its own* — `LogColumn.groupApart`. *The Verify step named only
+  where the paper prints its approval* — `approvedOnVerify`. *A paper's own Sr. No. column* — the column's
+  `autoFill.lineNumber`: a new or blank line numbered after the one above it. *The time a sign is under* —
+  `autoFill.atTime`.
+
+**The findings, paper by paper.**
+
+- *F-QC-40.C* (F01, F33): each "... HRS TEMP. + SIGN" cell is the reading and, under it, the tester's sign — a column
+  of its own (`t0830Sign` ...), required, drawn on the entry's second line with no heading; Demo Mode and a sample have
+  the day's QC tester sign the three day readings and the night's the three night ones. Headed "SR NO".
+- *Group B's headings* (F05): in the papers' own letters (`headingsAsPrinted`) on F/QC/08, F/QC/15-A to G, F/QC/16,
+  F/QC/20, both F/QC/29 papers, F/QC/30, F-QC-14 and F-QC-40.C ("Observation (24Hrs.)", "Completion Date", "Customer
+  name", "Inspector - 1", "12:30am").
+- *Numbers* (F07, F08): the two Gujarati checklists print no Format No. or Rev No. (never TO BE CONFIRMED; still filed
+  as DCRS lists them). F/QC/13 is revision 00 of 01.12.2021, as the Master List of Formats gives it. F/QC/30 is revision
+  00 of 01.01.2022, as the owner's original "F-QC-30 MOM.pdf" prints it; the "MOM F-QC-30.pdf" its revision 01 was read
+  from is not in the repository.
+- *F-QC-14* (F11): drawn as the workbook's eight (Label) and five (Sleeve) small tables; no "Test" heading, no joined
+  "Paper Reel SAP batch no. / Roll no. / sample no.", no "FG Code" box, no "Conclusion (GSM - Total)". The boxes'
+  names stay what they were for Mitra, a record's history and a downloaded file.
+- *The Gujarati papers* (F12): F/QC/13 and the two checklists print their own Gujarati whatever language is chosen
+  (i18n/documentText.ts `sheetAsIssued`) — with English chosen they printed an English translation. Their English
+  (documentTextEn.ts) is still what Mitra and the guided questions use, and the library lists them by their English names.
+- *F/QC/29 analysis report* (F13, F28): "Date :" at the right; the heading centred with no "Report" label; the
+  photograph's place under the table. *Utility test* (F29, F28, OPS-2): "Observation (24Hrs.)" over each place in a cell
+  of its own; "DATE:" at the right; the job names are written by the person on free lines (a new report no longer
+  starts with the nine samples of 02-Dec-2022); a sample day tests five to nine of the plant's own Nivea labels.
+- *Line clearances* (F25): the machine box above the note, the paper's words without the printed rule ("PRINTING
+  MACHINE NAME : -"); the Gujarati checklists' boxes above their procedure, two to a line.
+- *Gujarati checklists* (F26): the process printed once beside its lines, the operator's and QA's signatures once per
+  process, QA's tick on each line, a blank line between processes.
+- *F/QC/13* (F27): સેમ્પલ કોલીટી at the right of its line; the five boxes below the grid one, then two, then two; one
+  પાસ? down the six lines.
+- *F/QC/20* (F28): "Date:" at the right; "Current Issue date | 1st January 2022" and "Next Review date | 31st December
+  2024" printed with the format number and the revision, where the paper's footer prints them, not under the grid.
+- *F/QC/30* (F30): the key points numbered "1.", "2." under no Sr. No. heading; the participants one to a line.
+- *F/QC/16* (F31): the paper's own Sr. No. is its column: the 2022 page keeps its 7, 9, 8, 10.
+- *F/QC-09, F/QC-38* (F32): the footer as printed ("F/QC-09 (Rev – 00 / 01.12.2021)"); after F/QC-38's table, one
+  list as the document prints it — the regulations under no heading, "Please refer below for Intended Food Contact
+  packaging: ‐" and its food categories a line each ("⇨ Dry Food" ...), the 282/2008 regulation again, the REACH
+  heading and its points with their suppliers a line each, then the declarations. The screen's "Declarations" heading
+  over that list does not print.
+- *The Verify note* (F34): "Approved by (QA Manager) on the paper form is the Verify step" shows only under F/QC/34,
+  /35 and /37, whose papers print that approval; F-QC-14, F/QC/13 and the others print none.
+- *Demo Mode's signatures* (OPS-3, engine/qcReportSamples.ts): F/QC/29's Testing By and Approved By, F/QC/20's
+  Destroyed By and Checked By are two people of HR Master Data — one of QC's lab executives and the QA Manager —
+  F/QC/16's QC In-charge the QA Manager; F/QC/20 destroys the printing aids of an artwork F/QC/16 withdrew.
+- *Mitra and the phone* (OPS-6, OPS-9): a letter said apart from its number ("F QC 15 A") names that form, not the
+  seven line clearances; a word after the number that no form's letter is ("open f qc 11 i need it") is let go; a dot
+  or an underscore parts a number as a dash does ("F.QC.11", "F_QC_12").
+
+**The records on file.** Two seeds changed with their papers: F/QC/16's 2022 page holds its own Sr. No., and the 2022
+Gangwal minutes their participants a line each. A copy stored before is brought in step once at start-up
+(data/paperOnFileMigration.ts), with one line in its history; a record reopened for correction is left alone.
+
+**Not in this part.** F-QC-40.C is one record a day with one line, where the paper is a register of fifty lines a
+month: changing it would change how the reports read the hot room by day (the owner is asked). The Gujarati materials
+checklist's two ક્વોલીટી ચેકીંગ lines are still two lines with a tick each, where the paper writes them in one cell.
+F/QC/34, /35 and /37 still wait for their papers. The minutes' sample is still the supplied Gangwal meeting dated the
+day. The label of a box on F/QC-09's and F/QC-38's table keeps no colon where the documents print one.
+
+**Tests.** frontend/tests/qcPaperReview.test.ts (20: F01, F33, F05, F07, F08, F11, F12, F13, F25, F26, F27, F28, F29,
+F30, F31 with the start-up alignment, F32, F34, OPS-2, OPS-3), frontend/tests/qcFindByNumber.test.ts (2 more: OPS-6,
+OPS-9). Changed: qcPaperFormatsMore.test.ts (the machine boxes, the Gujarati sheets as issued, F/QC/16's columns,
+F/QC/20's dates, the utility test's headings, F-QC-40.C's signs), lineNumbers.test.ts (F/QC/16 numbers its own lines),
+roundTripBindings.test.ts (a box written again where the paper writes it again is bound where it is typed). Browser
+suites: tests/e2e_qc_formats.py (the Gujarati checklists in Gujarati with their merged cells and blank lines, no TO BE
+CONFIRMED in their header; F/QC/20's dates in the header and its Date at the right; the utility test's three
+"Observation (24Hrs.)"; F-QC-14's small tables; the three Gujarati papers as issued with English chosen) and
+tests/e2e_smoke.py (the statements' footers as printed).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

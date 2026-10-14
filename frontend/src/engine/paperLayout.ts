@@ -377,7 +377,8 @@ export function mergedRuns(layout: LogSheetLayout, rows: readonly Record<string,
  * changes. Demo Mode's and the sample fill's lines are written once per line and are brought to the paper's one cell here.
  */
 export function withMergedRuns<R extends Record<string, string | number | null>>(layout: LogSheetLayout, rows: R[]): R[] {
-  const merged = mergedColumns(layout);
+  // A printed column (the Gujarati line clearance's process) keeps its words on every line: only its drawing is one cell.
+  const merged = mergedColumns(layout).filter((c) => !c.fixed);
   if (merged.length === 0 || rows.length === 0) return rows;
   let out: R[] | null = null;
   for (const c of merged) {
@@ -443,7 +444,17 @@ export function panelsOf(layout: LogSheetLayout): Panels | null {
   let out: Panels | null = null;
   const spec = layout.panels;
   const mode = layout.rowMode;
-  if (spec && mode.kind === "fixedRows" && spec.lines > 0 && !layout.gridAcross && !layout.answerAcross && !layout.secondLine && layout.columns.some((c) => c.key === spec.headingColumn)) {
+  // The tables need the column that heads them and at least one more to draw.
+  if (
+    spec &&
+    mode.kind === "fixedRows" &&
+    spec.lines > 0 &&
+    !layout.gridAcross &&
+    !layout.answerAcross &&
+    !layout.secondLine &&
+    layout.columns.some((c) => c.key === spec.headingColumn) &&
+    layout.columns.length > 1
+  ) {
     const count = Math.ceil(mode.rows.length / spec.lines);
     const footers = layout.footerFields ?? [];
     const tables: PanelTable[] = Array.from({ length: count }, (_, index) => {

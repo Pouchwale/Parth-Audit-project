@@ -248,6 +248,8 @@ test("F25: F/QC/15-A to G and the Gujarati checklists print their boxes above th
 test("F26: the Gujarati checklist signs once per process, its process printed once, a blank line between processes", async () => {
   const id = "qc-line-clearance-materials";
   const filled = sample(id);
+  // Every line keeps the process its paper prints beside it: only the drawing is one cell.
+  assert.deepEqual(filled.rows.map((r) => r.process).slice(0, 7), ["પ્રિન્ટીંગ", "પ્રિન્ટીંગ", "પ્રિન્ટીંગ", "પ્રિન્ટીંગ", "પ્રિન્ટીંગ", "પ્રિન્ટીંગ", "પંચીંગ"]);
   // The signatures are written on each process's first line only.
   const firsts = [0, 6, 8, 10];
   filled.rows.forEach((r, i) => {
