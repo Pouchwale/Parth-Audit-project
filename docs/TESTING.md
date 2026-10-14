@@ -1110,6 +1110,24 @@ Seven scripts live in `tests/`:
   runner's server lost :8842 to another worktree's run started the same minute ("DCRS's tables are not in this
   database"), and one print run waited 30 s on a click while the machine ran two suites; each was run again alone. Not
   run: the full browser run and e2e_assistant_fill.py (every document filled, about 95 minutes).
+- **Mitra adds, changes and deletes anything in any record, and nothing is lost: the engine** (REQUIREMENTS §113,
+  14-Oct-2026). New unit test, failing on the code before it (a list sent whole kept only the lines it named, there was
+  no addItems / removeItems / clearItems, a removed line's values were not in the history): `frontend/tests/recordLines.test.ts`
+  (277: every list of every one of the recordable documents walked twice — a list sent whole never drops a line and
+  every id stays; add at the end and at a position, remove by id and by number, clear two boxes, or the refusal in the
+  registry's own words with nothing changed; then the brief's named cases — the fly catcher's 13 units stay 13 after
+  one is sent, a service report's areas stay, two CAPA findings stay two and a new one takes the next number never
+  reused, free rows added, placed after row 1 and removed by id and by time, F/HR/17's first rodent catch by addItems
+  and by the list sent whole with the record then passing the submit check, F-QC-30 (time slots), F/QC/15 (printed
+  rows) and F/QC/37 (single line) refusing add and remove in the §64 sentences and clearing a line instead, the row
+  commands saying the same, `replaceList: true` the only way to replace, a list of plain words changed by its number,
+  the complaint checklist's activity cleared by section and number and its lines fixed, the typed "X attended" adding
+  only the name and "X was absent" removing by id; the history writing "Row 2 (09:00)": "09:00, 19.87, Jeni" →
+  "(row removed)", the words "Line 2 removed (09:00, 19.87, Jeni)", and an entry that moves a line never folded).
+  Unchanged tests that cover the same modules all pass: `firstListItem`, `checkpointClear`, `addRowBlank`,
+  `lineNumbers`, `mitraTools`, `maintenancePm`, `qcPaperReview`, `qcPaperFormats`, `mitraHistory`, `truthfulPrepare`,
+  `everydoc`. `npm run typecheck` clean. No browser suite was run (the engine's half; the tools, the API and the phone
+  follow in the brief's §2.8 steps 4 to 6, with `tests/e2e_mitra_lines.py` there).
 - **Every record starts** (REQUIREMENTS §93, 7-Oct-2026). New unit tests, each failing on the code before the change it
   proves: `frontend/tests/periodSheet.test.ts` (7: the week, half month, month, quarter and year a date falls in; New on
   F/MNT/09 (monthly), F/QC/12 (weekly), F/MNT/03 and F/PUR/03 (yearly: a verified sheet opened, a blank one started for

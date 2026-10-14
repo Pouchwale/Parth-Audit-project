@@ -8241,6 +8241,101 @@ names `CHATGPT_API_KEY`, the voice card names platform.openai.com), `tests/e2e_a
 by hand on :8844 with the key loaded by the program, paced 2 seconds apart by default, `E2E_CHAT_PACE_S`). The VERIFY
 stage measures the live answers on the owner's key (at most 60,000 tokens).
 
+## §113 Mitra adds, changes and deletes anything in any record, and nothing is lost (14-Oct-2026)
+
+**The request.** The owner, 13-Oct-2026: Mitra adds, changes and deletes anything in any record, on the website and
+on the phone. The review behind it (DCRS-handoff/briefs/voice-and-edits-brief.md, Part 2) proved, on the engine, what
+the patch did with a list: a list sent whole through Mitra's `edit_open_record` (`engine/recordPatch.ts`
+`applyAssistantPatch`) kept only the lines it named — one fly catcher unit sent of 13 left 1, one service area of 16
+left 1, one CAPA finding of two left one, three free rows and a new one left one — with no warning and, on the website,
+no confirmation; there was no way to add or take off a line through the patch except by sending the whole list; the
+first line of an empty list was stored as `{}` (fixed the same day: the list's blank line was known to the patch) and
+the submit check threw on the box that was not there; and the history wrote a removed line as "(row present) → (row
+removed)", its values gone. This section is the engine's half. The tools, the API and the phone (the brief's §2.8
+steps 4 to 6) build on it.
+
+**1. One registry of every record's lines: `frontend/src/engine/recordLines.ts`.** For every list of every kind of
+record it says, once: whether lines may be added and removed, why not in plain words when not, how many the list keeps
+(a free sheet's printed rows, `minRows`), how many may be added at once (50), what one line is called ("line", "unit",
+"area", "finding", "catch", "observation", "attendee", "topic", "clause", "contact", "activity", "photo", "page"),
+which key names a line on the paper (`pcId`, `slNo`, `sNo`, `trapBoxNo`, a time slot, a section's `key`, an
+activity's `srNo`), which key is the paper's own line number and how a new line is numbered (its place on the sheet
+for a Sr. No. column, one past the highest for a finding — never reused), what a new line holds before the person
+writes anything (the `blank` line: "" and null, a finding Open and Internal, printed values none), and which boxes a
+person writes (`writable`). The kinds and their lists:
+
+| Kind | List | Add | Remove | Named by |
+|---|---|---|---|---|
+| log-sheet, free rows | `rows` (and `photos` where the paper prints one under its table) | yes, 1 to 50 at once | yes, keeps the printed rows | id; a Sr. No. column is numbered by place |
+| log-sheet, time slots / single line / printed rows | `rows` | refused: the §64 sentences (`WHY_FIXED`) | refused, cleared instead | the slot's time |
+| daily-pest-monitoring (F/HR/17) | `rodentCatches`, `summaryActions` | yes | yes | trap box |
+| fly-catcher | `entries` (the 13 printed units) | refused: "This register prints one line for each fly catcher unit, so units are not added or removed — only filled in or cleared." | refused, cleared instead | `pcId` |
+| service-report (3) | `lines` (the areas of the service) | refused: "This report prints one line for each area of the service, so areas are not added or removed — only the quantity and remarks are written or cleared." | refused, cleared instead | `slNo` |
+| gap-inspection (CAPA) | `findings` | yes, numbered one past the highest | yes | `sNo` |
+| | `generalComments` (plain words) | yes | yes | its place |
+| training-record | `attendees` | yes | yes | the name |
+| | `topics` (plain words) | yes | yes | its place |
+| complaint-checklist | `sections`, and `items` inside each section | refused: "The checklist prints its sections and activities, so none are added or removed — only answered or cleared." | refused, cleared instead | section `key`; activity `srNo` |
+| complaint-ack | `photos` | yes | yes | id |
+| pest-responsibilities | `siteResponsibilities`, `equipmentStorage`, `ehsClauses`, `serviceClauses` (plain words); `emergencyCalls` | yes | yes | place; `issue` |
+| service-agreement | `scopeOfServices`, `serviceSchedule`, `obligations`, `commercialTerms`, `generalTerms` (plain words); `scans` | yes | yes | place; id |
+| reference kinds (chemical master, licence, statements) | none | — | — | kept as issued |
+
+The dock registers the gap and training pages as "gap" and "training"; the registry answers those names too.
+
+**2. The patch (`engine/recordPatch.ts`), one language for both apps.** Beside the fields, `header`, `checkpoints`
+and `itemEdits` the patch takes three more operations, each checked by the same checker: an unknown list, a list
+whose lines are fixed, or a line that is not there is a problem in plain words and nothing changes.
+
+```jsonc
+{
+  "itemEdits":   [{"collection": "rows", "match": {"id": "row-…"} | {"row": 3} | {"time": "11:00"} | {"pcId": "PC-05"} | {"sNo": 2}, "set": {"viscosity": 20.4}}],
+  "addItems":    {"rows": [{"time": "10:00", "viscosity": 20.4, "checkedBy": "Jeni"}, {"values": {"time": "09:30"}, "after": 1}]},
+  "removeItems": {"rows": ["row-abc", 3, {"time": "11:00"}], "findings": [{"no": 2}], "attendees": [{"employeeName": "Rahul Patel"}]},
+  "clearItems":  {"rows": [{"row": 3, "keys": ["viscosity", "checkedBy"]}, {"time": "11:00"}], "items": [{"section": "A", "no": 3, "keys": ["done"]}]},
+  "replaceList": true   // ONLY when a list sent whole is meant as the whole list; nobody sends it by default
+}
+```
+
+- **A list sent whole means "set these lines, keep the rest".** Each line sent is matched to a line on the record by
+  its `id`, else by its name on the paper (PC-05, Sl. No. 3, S. No. 2, a time slot, an activity's Sr. No.), else, on
+  a printed list, by its place; it is set, and every line the patch does not mention stays exactly as it was. A line
+  matching nothing is added where the list allows it and refused in the registry's words where the form prints its
+  lines. A list of plain words is set by place. Only `replaceList: true` makes the list sent the whole list (the old
+  behaviour); no caller sends it.
+- **addItems** appends, or places a line with `{"values": {…}, "after": n}` / `"before"` / `"at"`. A new line is the
+  registry's blank line with its own id and number, holding only what the person said (§98): no box is decided for
+  them — the typed "X attended" no longer writes a department either.
+- **removeItems** names each line by its id, its place (a 1-based number), its printed number (`{"no": n}`) or its
+  name; the lines named are taken off together and the rest keep their ids and order. Nothing matching, or more than
+  one line matching, is a problem and nothing changes. A free sheet keeps the lines the form prints, with the §64
+  sentence offering to clear instead; a printed list answers with its reason and "I can clear it instead."
+- **clearItems** blanks the boxes named (`keys`), or every box a person writes when none are named; a printed box is
+  never cleared and the line stays, so it is allowed on every list. A check point still clears with `""` or `null`.
+- Order: `itemEdits`, then `clearItems`, then `removeItems` (numbers name the lines as they were), then `addItems`.
+- Mitra's typed row commands (`engine/recordRowCommands.ts`: "add 3 rows", "delete row 3", "clear row 4") and the
+  sheet's own Add Row and bin (`components/records/LogSheetRecordView.tsx`) read the same rule, so a sheet with
+  printed lines shows no Add Row and no bin, and a new line is the same line whichever path builds it.
+
+**3. The history keeps the line (`engine/recordHistory.ts`).** A removed line is written as its name, its values and
+"(row removed)": `Row 2 (09:00)`: "09:00, 19.87, Jeni" → "(row removed)"; an added line as "(no row)" → its values;
+120 characters at most, the line's own number not repeated (§102). `lineChangeWords` says it for a reply or a card:
+"Line 2 removed (09:00, 19.87, Jeni)", "Finding 1 added (Gap under the door, Open)". An entry that removes or adds a
+line is never folded into the one before it by `appendHistory`, so a line removed and put back stays in the history
+as both.
+
+**4. The submit checks read every box defensively (`engine/validation.ts`).** A line stored without a box — an older
+record, a change that lost it — is reported in words ("Rodent catch #1: location is required.", "Unit 3: Flies catch
+count is required."), never a TypeError thrown at the person pressing Submit.
+
+**Proved by** `frontend/tests/recordLines.test.ts` (277 checks: every list of every recordable document walked — a
+list sent whole never drops a line and ids stay; add at the end and at a position, remove by id and by number, clear
+two boxes, or the refusal in the registry's words; the brief's own cases: the fly catcher's 13 units, a service
+report's areas, two CAPA findings and the next number never reused, free rows added, placed and removed, F/HR/17's
+first catch through both routes and the record submitting, the three fixed sheets refusing in words and clearing a
+line instead, `replaceList` only when asked, a list of plain words changed by number, the checklist's activity cleared
+by section and number, the typed attendance rule and row commands; the history's words and no folding).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

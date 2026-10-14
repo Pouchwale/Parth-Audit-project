@@ -1,6 +1,6 @@
 import type { LogColumn, LogSheetData, LogSheetLayout, LogSheetRow } from "../types";
 import { findByLabel } from "./formatCommands";
-import { blankLogRow } from "./recordDefaults";
+import { insertLines, logRowsRule, newRow, withoutLines } from "./recordLines";
 
 // A RECORD'S OWN LINES, CHANGED BY SAYING SO (REQUIREMENTS §64).
 //
@@ -112,9 +112,9 @@ export function parseRowCommand(text: string): RowCommand | null {
 // ---------------------------------------------------------------------------
 // doing it
 
-/** A new line, exactly as the sheet's own Add Row builds one: blank in every box that is not printed (engine/recordDefaults.ts, REQUIREMENTS §98). */
-export function blankRow(layout: LogSheetLayout, id: string): LogSheetRow {
-  return blankLogRow(layout, id);
+/** A new line, exactly as the sheet's own Add Row builds one: blank in every box that is not printed (engine/recordLines.ts, REQUIREMENTS §98, §113). */
+export function blankRow(layout: LogSheetLayout, id: string, existing: LogSheetRow[] = []): LogSheetRow {
+  return newRow(layout, existing, id);
 }
 
 const isBlank = (v: unknown): boolean => v === null || v === undefined || String(v).trim() === "";
@@ -122,19 +122,16 @@ const writable = (c: LogColumn): boolean => !c.fixed && !c.computed;
 const plural = (n: number, one: string): string => `${n} ${one}${n === 1 ? "" : "s"}`;
 const rowList = (numbers: number[]): string => (numbers.length === 1 ? `row ${numbers[0]}` : `rows ${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}`);
 
-const WHY_FIXED: Record<Exclude<LogSheetLayout["rowMode"]["kind"], "free">, string> = {
-  timeSlots: "This sheet has one line for each time slot the form prints, so lines are not added or removed — only filled in.",
-  single: "This sheet is a single line, so lines are not added or removed — only filled in.",
-  fixedRows: "This form prints its own lines, so they are the format's, not this record's.",
-};
-
 /**
  * What `cmd` makes of `data`, and a sentence saying what was done — or why it
  * was not. `newId` gives each new line its id (utils/id.ts in the app).
+ * Whether the sheet's lines may be added or removed, and how many it keeps,
+ * is the one registry's rule (engine/recordLines.ts, REQUIREMENTS §113) — the
+ * same rule the patch checker and the sheet's own buttons read.
  */
 export function applyRowCommand(layout: LogSheetLayout, data: LogSheetData, cmd: RowCommand, newId: () => string): RowCommandResult {
   const rows = data.rows ?? [];
-  const mode = layout.rowMode;
+  const rule = logRowsRule(layout);
   const at = (ref: RowRef): number => (ref === "last" ? rows.length - 1 : ref - 1);
   const missing = (ref: RowRef): string => (rows.length === 0 || ref === "last" ? "This record has no rows yet." : `There is no row ${ref} on this record — it has ${plural(rows.length, "row")}.`);
 
@@ -160,21 +157,21 @@ export function applyRowCommand(layout: LogSheetLayout, data: LogSheetData, cmd:
     return { ok: true, data: { ...data, rows: rows.map((r, ri) => (ri === i ? cleared : r)) }, what };
   }
 
-  if (mode.kind !== "free") return { ok: false, why: WHY_FIXED[mode.kind] };
-  const minRows = mode.minRows ?? 0;
+  if (!rule.canAdd || !rule.canRemove) return { ok: false, why: rule.whyFixed ?? "This sheet's lines are not added or removed — only filled in." };
+  const minRows = rule.minLines;
 
   if (cmd.kind === "add") {
-    if (cmd.count < 1 || cmd.count > 50) return { ok: false, why: "I add between 1 and 50 rows at a time." };
+    if (cmd.count < 1 || cmd.count > rule.maxAddAtOnce) return { ok: false, why: `I add between 1 and ${rule.maxAddAtOnce} rows at a time.` };
     let index = rows.length;
     if (cmd.at) {
       const beside = at(cmd.at.row);
       if (!rows[beside]) return { ok: false, why: missing(cmd.at.row) };
       index = cmd.at.rel === "before" ? beside : beside + 1;
     }
-    const fresh = Array.from({ length: cmd.count }, () => blankRow(layout, newId()));
+    const fresh = Array.from({ length: cmd.count }, (_, i) => blankRow(layout, newId(), [...rows.slice(0, index + i)]));
     const numbers = fresh.map((_, i) => index + i + 1);
     const where = index === rows.length ? "at the end" : `${cmd.at?.rel} row ${at(cmd.at?.row ?? "last") + 1}`;
-    return { ok: true, data: { ...data, rows: [...rows.slice(0, index), ...fresh, ...rows.slice(index)] }, what: `added ${plural(cmd.count, "blank row")} ${where} (${rowList(numbers)})` };
+    return { ok: true, data: { ...data, rows: insertLines(rows, index, fresh) }, what: `added ${plural(cmd.count, "blank row")} ${where} (${rowList(numbers)})` };
   }
 
   if (cmd.kind === "duplicate") {
@@ -182,7 +179,7 @@ export function applyRowCommand(layout: LogSheetLayout, data: LogSheetData, cmd:
     const row = rows[i];
     if (!row) return { ok: false, why: missing(cmd.row) };
     const copies = Array.from({ length: cmd.times }, () => ({ ...row, id: newId() }));
-    return { ok: true, data: { ...data, rows: [...rows.slice(0, i + 1), ...copies, ...rows.slice(i + 1)] }, what: `copied row ${i + 1} as ${rowList(copies.map((_, c) => i + c + 2))}` };
+    return { ok: true, data: { ...data, rows: insertLines(rows, i + 1, copies) }, what: `copied row ${i + 1} as ${rowList(copies.map((_, c) => i + c + 2))}` };
   }
 
   // The three ways of taking lines off come down to which lines.
@@ -210,6 +207,5 @@ export function applyRowCommand(layout: LogSheetLayout, data: LogSheetData, cmd:
       why: `This sheet keeps at least ${plural(minRows, "row")} — the form prints that many — and it has ${rows.length}, so ${gone.length === 1 ? `row ${gone[0] + 1} stays` : "those rows stay"}. I can clear ${gone.length === 1 ? "it" : "them"} instead: say “clear row ${gone[0] + 1}”.`,
     };
   }
-  const drop = new Set(gone);
-  return { ok: true, data: { ...data, rows: rows.filter((_, i) => !drop.has(i)) }, what: `removed ${rowList(gone.map((i) => i + 1))}` };
+  return { ok: true, data: { ...data, rows: withoutLines(rows, gone) }, what: `removed ${rowList(gone.map((i) => i + 1))}` };
 }

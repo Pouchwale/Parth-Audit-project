@@ -40,7 +40,7 @@ import { imageFileToDataUrl } from "../../utils/image";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate, todayISO } from "../../utils/date";
 import { generateId } from "../../utils/id";
-import { blankLogRow } from "../../engine/recordDefaults";
+import { logRowsRule, newRow } from "../../engine/recordLines";
 import { useProgressiveCount } from "../../utils/useProgressive";
 import { SheetChart } from "../charts/SheetChart";
 import { BIND_APPEND_ATTR, BIND_SECOND_LINE_ATTR, BIND_TABLE_ATTR, bindColAttrs } from "../../engine/roundTrip/bindPath";
@@ -258,11 +258,8 @@ export function LogSheetRecordView({
     save({ ...data, rows: data.rows.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)) });
   // Add Row starts a line blank in every box (REQUIREMENTS §98): no "ALC DONE: Yes" or "Cleaning: Dry" decided for the
   // person. A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) gets the next number.
-  const addRow = () => {
-    const row = blankLogRow(layout, generateId("row"));
-    for (const c of layout.columns) if (c.autoFill?.lineNumber) row[c.key] = String(data.rows.length + 1);
-    save({ ...data, rows: [...data.rows, row] });
-  };
+  // The line is the one registry's (engine/recordLines.ts, §113): the same line Mitra's "add a row" and its patch build.
+  const addRow = () => save({ ...data, rows: [...data.rows, newRow(layout, data.rows, generateId("row"))] });
   const removeRow = (rowId: string) => save({ ...data, rows: data.rows.filter((r) => r.id !== rowId) });
 
   // HR formats that name a person fetch them from HR Master Data (REQUIREMENTS
@@ -364,8 +361,11 @@ export function LogSheetRecordView({
 
   const mode = layout.rowMode;
   const qcForm = departmentOfDocument(doc.id, doc.formatNo) === "QC";
-  const canAddRows = editable && mode.kind === "free";
-  const canRemoveRows = editable && mode.kind === "free" && data.rows.length > (mode.minRows ?? 0);
+  // Whether lines may be added or removed is the registry's rule (engine/recordLines.ts, REQUIREMENTS §113): a sheet
+  // with printed lines shows no Add Row and no bin; a free sheet keeps the lines the form prints.
+  const linesRule = logRowsRule(layout);
+  const canAddRows = editable && linesRule.canAdd;
+  const canRemoveRows = editable && linesRule.canRemove && data.rows.length > linesRule.minLines;
   // Every reading outside the band its paper prints: a column's, a tolerance box's, a line's specification, a box
   // against its tolerance (engine/printedBands.ts, REQUIREMENTS §111 rule 2). The judge is made again only when a
   // tolerance box changes, so a keystroke elsewhere redraws no line of the grid.
