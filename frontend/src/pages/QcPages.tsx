@@ -12,7 +12,7 @@ import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { NotYourDepartment } from "../components/common/NotYourDepartment";
 import { nextDueDate } from "./PestControlPages";
-import { documentTextIn, isGujaratiDocument } from "../i18n/documentText";
+import { documentTextIn, isGujaratiDocument, sheetAsIssued } from "../i18n/documentText";
 import { useT } from "../i18n";
 import { compareISO, formatDisplayDate, todayISO } from "../utils/date";
 import type { DocumentDefinition, RecordInstance } from "../types";
@@ -155,7 +155,8 @@ export function QcOverviewPage() {
                               <div className="text-xs text-faint">
                                 {doc.department} · {doc.frequency}
                                 {numbered ? "" : " · no format number printed"}
-                                {isGujaratiDocument(doc.id) ? ` · ${lang === "en" ? t("qc.gujaratiInEnglish") : t("qc.gujaratiForm")}` : ""}
+                                {/* A QC paper printed in Gujarati is printed as issued in every language (REQUIREMENTS §111): only its name here is in English. */}
+                                {isGujaratiDocument(doc.id) ? ` · ${lang === "en" && !sheetAsIssued(doc.id) ? t("qc.gujaratiInEnglish") : t("qc.gujaratiForm")}` : ""}
                               </div>
                             </td>
                             <td className="text-sm">

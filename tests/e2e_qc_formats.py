@@ -5,7 +5,7 @@ give you all documents which you have put in QC Module and make sure each and
 every document will be editable and bot will perform task according to user
 query". REQUIREMENTS s57. So this suite checks that:
 
-  * the Quality Control module holds all forty-one documents, shelved in the
+  * the Quality Control module holds all forty-six documents, shelved in the
     department's seven sections;
   * every one of the thirty-two new formats, F/QC/15-B, F/QC/33 and F/QC/36, opens on a page of
     its own, headed by its own format number;
@@ -26,6 +26,17 @@ query". REQUIREMENTS s57. So this suite checks that:
     obsolete artworks, the printing aids destroyed, the label and sleeve
     certificates of analysis, the PSL analysis, the nine Nivea utility tests and
     the Gangwal meeting's seven points;
+  * the registers and reports as their papers (REQUIREMENTS s111): F/QC/20's
+    title and foot, the utility test on the MINUTES OF MEETINGS format, nothing
+    of DCRS's above the analysis report, F-QC-40.C's DATE and TEMP. + SIGN
+    columns; F-QC-14's two sheets as the workbook, a Label record filled with
+    sample data by Mitra as a real exercise and submitted;
+  * the owner's four of 14-Oct-2026 as their papers (REQUIREMENTS s111, part 8):
+    F-QC-40.A's recommended line, AREA and M/C NO., "MONITORING RECORD - TIME &
+    SIGN." and one heading over each time's temperature and humidity; F-QC-40.B's
+    six TEMP. + SIGN readings; F/QC/17's two tables of details, its printed
+    tolerance and six points, a verification filled by Mitra and submitted; and
+    F/QC-10, the shrink sleeves' statement, read as issued;
   * a certificate, a report and the tolerance card download as Word, and a
     register as Excel;
   * QC Records at /qc lists every one of the department's formats as the
@@ -39,7 +50,16 @@ query". REQUIREMENTS s57. So this suite checks that:
     tap starts today's record and asks the first question - and it goes again
     when the document is left untouched (REQUIREMENTS s60);
   * every new format is found by its format number, and Mitra opens one by name;
-  * what a person types on any of them is stored.
+  * what a person types on any of them is stored;
+  * EXACTLY AS THE PAPER (REQUIREMENTS s111, 13-Oct-2026): the fourteen incoming
+    material records with their header box two to a line read across and their
+    footer in the paper's lines, F/QC/21 Flexo Ink's system line at the foot,
+    F/QC/36's seven boxes and both signatures, the two certificates of analysis
+    with every block in the paper's order and the TOLERANCE printed open, F/QC/25
+    and the tolerance card headed as printed, nothing of DCRS's own on any of
+    them; a BOPP lot filled with sample data reads as a real one. With
+    QC_PAPER_SHOTS set to a folder, they are photographed there on screen and in
+    print, to be laid beside the originals.
 
 Every figure below is typed from the supplied PDFs, so this is a transcription
 check as much as a behaviour one.
@@ -113,6 +133,13 @@ NEW_FORMATS = {
     # Supplied on 02-Oct-2026 (REQUIREMENTS s86).
     "qc-incoming-lamination-film": "F/QC/33",
     "qc-inspection-sb-lamination": "F/QC/36",
+    # Supplied on 13-Oct-2026 (REQUIREMENTS s111): F-QC-14's Label and Sleeve sheets.
+    "qc-test-reliability-label": "F-QC-14",
+    "qc-test-reliability-sleeve": "F-QC-14",
+    # Supplied on 14-Oct-2026 (REQUIREMENTS s111, part 8).
+    "qc-temperature-humidity": "F-QC-40.A",
+    "qc-temperature-sleeve": "F-QC-40.B",
+    "qc-ruler-verification": "F/QC/17",
 }
 
 
@@ -133,6 +160,7 @@ OTHER_QC_FORMATS = {
     # on their own page - F/QC numbers, so Quality Control's formats.
     "soc-labels": "F/QC-09",
     "soc-flexible-packaging": "F/QC-38",
+    "soc-shrink-sleeves": "F/QC-10",
 }
 
 # The camera challenge test is numbered as a QA procedure, and the overview
@@ -149,9 +177,24 @@ GUJARATI_NAMES_IN_ENGLISH = {
     "qc-line-clearance-quality": "Line Clearance — Quality",
 }
 
-# ---- REQUIREMENTS s58: the English the three Gujarati formats read in while
-# English is chosen, typed from i18n/documentTextEn.ts (the plant's own words).
+# ---- REQUIREMENTS s58 and s111: the three Gujarati QC papers print as issued in every language (the review of
+# 13-Oct-2026: with English chosen they printed the English of i18n/documentTextEn.ts, which is not the paper). The
+# English below is what they printed then, and must not print now; the Gujarati is the paper's.
 GUJARATI = re.compile("[\u0a80-\u0aff]")
+
+MATERIALS_IN_GUJARATI = [
+    "પ્રોસેસઃ– નીચે લખેલા દરેક પોઈન્ટ", "આઈટમ નં.", "પ્રો.નં.", "મશીનનું નામઃ–", "તા.",
+    "પ્રોસેસ", "મટીરીયલ્સ", "ઓપરેટર ની શહી", "Q.A એ ચેકીંગ", "Q.A ની શહી",
+    "પ્રિન્ટીંગ", "રો–મટીરીયલ્સ સ્ટોક", "મેગ્નેટીક ડાઈ", "પંચીંગ", "ક્વોલીટી ચેકીંગ", "લેબલ સ્લીટીંગ", "સ્લીટ રોલ",
+]
+QUALITY_IN_GUJARATI = ["પ્રોસીઝરઃ– ઓપરેટર ખાતરી કરવી", "આઈટમ નં.", "પ્રોડકશન નં.", "પેરામિટર", "Q.A ચેકીંગ", "એપુવ થયેલ આર્ટવર્ક", "માસ્ટર – સ્પોટસ"]
+FQC13_IN_GUJARATI = [
+    "પ્રોસીઝરઃ– ઉત્પાદન ની પ્રક્રિયા દરમિયાન", "આઈટમ કોડ", "પ્રો. નંબર", "તારીખ", "મશીન", "ઓપરેટર", "QA પર્સન", "ઓર્ડર લેન્થ ઈન મીટર", "સેમ્પલ કોલીટી",
+    "સ.નં", "પેરામીટર", "ટેસ્ટ ક્રાઈટ", "ગ્રેડ", "પાસ?",
+    # The five boxes below the grid, which the paper prints in English.
+    "Description of NC (If applicable):", "Sign Off Reason (If Applicable)", "Sign Off By: (If Applicable)", "REMARKS:", "QA Sign:",
+]
+GRADE_CHART_IN_GUJARATI = ["ગ્રેડ ક્રાઈટ", "A– બધાજ રજિસ્ટર સંપુર્ણ પણે બરાબર છે.", "F– ખુબજ વધારે ઉંડું પંચીંગ ભારે ગેરરીતી મળી."]
 
 MATERIALS_IN_ENGLISH = [
     "Process:– For each point written below, a QUALIFIED Q.A person must check the first correct sheet.",
@@ -172,21 +215,22 @@ QUALITY_IN_ENGLISH = [
     "Packing table", "Slit rolls",
 ]
 
+# F/QC/13 as the owner's original of 13-Oct-2026, "F-QC-13 IPQC format (2).jpg" (REQUIREMENTS s111): the
+# procedure, the grade criteria printed in full, the eight boxes, the paper's own Sr. No. and its five columns,
+# and the five boxes below the grid, which the paper prints in English.
 FQC13_IN_ENGLISH = [
-    "Procedure:- During the production process the Q.A. person shall ensure that samples of 3 full sheets of the job are taken every 6000 meters.",
-    "Grading criteria: All grades must be given as per the criteria below.",
-    "<11% of total ups = A",
-    "Item Code", "PO Number", "Machine", "Operator", "QA Person", "Sample Qty, sheets", "Total Ups", "Order Length, m",
-    "Parameter", "Test chart", "Grade", "Pass?", "Defect count",
+    "Procedure:– During the production process the Q.A. person shall ensure that samples of 3 full sheets of the job are taken every 6000 meters.",
+    "Item Code", "PO Number", "Date", "Machine", "Operator", "QA Person", "Order Length in Meter", "Sample Quantity",
+    "Sr. No.", "Parameter", "Test criteria", "Grade", "Pass?",
     "Registration", "Shade", "Coating", "Punching", "Print pressure", "Print deformities",
-    "M.C. description (if applicable)", "Reason for signing (override)", "Name of the person signing off", "Remarks", "QA Sign",
+    "Description of NC (If applicable):", "Sign Off Reason (If Applicable)", "Sign Off By: (If Applicable)", "REMARKS:", "QA Sign:",
 ]
 
 GRADE_CHART_IN_ENGLISH = [
-    "Grade chart — A / B / C / F per parameter",
-    "All registers are perfectly in order; no print has been spoiled.",
-    "Major and serious misregistration issues or overlap lines are clearly visible.",
-    "Excessive shallow punching / heavy misregistration found.",
+    "Grade criteria",
+    "A – All registers are perfectly in order. No print has been judged spoiled.",
+    "F – Major and serious misregistration issues or overlap lines are clearly visible.",
+    "F – Excessive deep punching, heavy misregistration found.",
 ]
 
 BOPP_PARAMETERS = ["SIZE (mm)", "COLOUR", "THICKNESS OF FILM (µm)", "CORONA TREATMENT (Dynes)"]
@@ -198,13 +242,161 @@ CLEARANCE_HEADINGS = [
 ]
 
 # F/QC/15-B as its paper prints it ("F-QC-15-A-G Line Clearance Punching -
-# Printing.pdf"), the paper's own spacing included.
-PUNCHING_TITLE = "AREA LINE CLEARANCE REPORT -  PUNCHING"
+# Printing.pdf"), the paper's own spacing included. The title is the header's,
+# printed once (REQUIREMENTS s111), where a page's whitespace reads as one space.
+PUNCHING_TITLE = "AREA LINE CLEARANCE REPORT - PUNCHING"
 PUNCHING_CHECKLIST = (
     "(1) Die of Previous Job removed ? (2) Die of Current / New Job changed ? (3) Matrix Roll (Wastage) of previous job removed ? "
     "(4) Finished Punching Rolls of Previous Production order shifted to designated place ?"
 )
-PUNCHING_MACHINE_BOX = "PUNCHING MACHINE NAME : - ____________________"
+# The paper's words before its printed rule: the box is the rule (the review of 13-Oct-2026).
+PUNCHING_MACHINE_BOX = "PUNCHING MACHINE NAME : -"
+
+# EXACTLY AS THE PAPER (REQUIREMENTS s111, the originals sent again on 13-Oct-2026): the fourteen incoming material
+# inspection records, as source-documents/qc-originals-2026-10-13/ prints them.
+INCOMING_RECORDS = {
+    "qc-bopp-film": "F/QC/01",
+    "qc-corrugated-box": "F/QC/02",
+    "qc-label-stock": "F/QC/03",
+    "qc-paper-core": "F/QC/04",
+    "qc-pvc-pet-film": "F/QC/05",
+    "qc-offset-ink": "F/QC/18",
+    "qc-duplex-board": "F/QC/19",
+    "qc-kraft-paper": "F/QC/20",
+    "qc-flexo-ink": "F/QC/21 (Flexo Ink)",
+    "qc-lamination-adhesive-inspection": "F/QC/21 (Lamination Film Adhesive)",
+    "qc-side-pasting-adhesive": "F/QC/22",
+    "qc-starch-powder": "F/QC/23",
+    "qc-sheet-pasting-powder": "F/QC/24",
+    "qc-incoming-lamination-film": "F/QC/33",
+}
+OBSERVATION_HEADINGS = ["TEST PARAMETERS", "SPECIFICATION", "OBSERVATION"]
+SAMPLE_HEADINGS = ["TEST PARAMETERS", "SPECIFICATION", "SAMPLE – 1", "SAMPLE – 2", "SAMPLE - 3"]
+# The footer's headings as the paper prints them: INSPECTED BY and APPROVED BY, with QA INSPECTOR and QA MANAGER
+# printed under the signatures (s111 part 4; the boxes are still named "INSPECTED BY (QA INSPECTOR)" ...).
+INCOMING_FOOTER = ["LOT STATUS", "REASON FOR DEVIATION / REJECTION / SEGREGATION", "INSPECTED BY", "APPROVED BY"]
+# The paper's own marks on an open record as it prints (s111 part 4): the LOT STATUS line's four statuses across
+# beside its label with the chosen one ringed and its choice box gone, QA INSPECTOR and QA MANAGER under the
+# signatures, the lines numbered as printed, and no "*" of the screen's on any label.
+PAPER_MARKS = """() => {
+  const doc = document.querySelector('[data-print-doc]');
+  const lot = doc.querySelector('[data-choices-across="lotStatus"]');
+  const box = lot && lot.closest('.field');
+  const label = box && box.querySelector(':scope > label');
+  const select = box && box.querySelector('select');
+  const words = lot ? Array.from(lot.querySelectorAll('.choice-across')) : [];
+  const mid = (e) => { const r = e.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+  const below = (k) => {
+    const s = doc.querySelector(`[data-printed-below="${k}"]`);
+    const f = s && s.closest('.field');
+    const i = f && f.querySelector('input');
+    const l = f && f.querySelector(':scope > label');
+    return s && i && l ? [l.innerText.trim(), s.textContent, s.getBoundingClientRect().top >= i.getBoundingClientRect().bottom - 1] : null;
+  };
+  return {
+    words: words.map((w) => w.textContent),
+    chosen: words.filter((w) => w.classList.contains('is-chosen')).map((w) => w.textContent),
+    shown: !!lot && getComputedStyle(lot).display !== 'none',
+    oneLine: words.length > 0 && words.every((w) => Math.abs(mid(w) - mid(words[0])) < 6),
+    besideLabel: !!label && words.length > 0 && Math.abs(mid(words[0]) - mid(label)) < 12 && words[0].getBoundingClientRect().left > label.getBoundingClientRect().right - 1,
+    selectShown: !!select && getComputedStyle(select).display !== 'none',
+    inspector: below('inspectedBy'),
+    manager: below('approvedBy'),
+    srNo: Array.from(doc.querySelectorAll('td[data-sr-no]')).map((t) => t.textContent.trim()),
+    stars: Array.from(doc.querySelectorAll('.field > label')).filter((l) => l.innerText.includes('*')).length,
+  };
+}"""
+# A certificate's retest sentence with its date inside it, and Coating Done : beside its value, on one line each (s111 part 4).
+ONE_LINE = """(selector) => {
+  const f = document.querySelector(`[data-print-doc] ${selector}`);
+  if (!f) return null;
+  const parts = [f.querySelector(':scope > label'), f.querySelector('input'), f.querySelector('.field-sentence-after')].filter(Boolean);
+  const r = parts.map((p) => p.getBoundingClientRect());
+  const mid = (x) => (x.top + x.bottom) / 2;
+  return { parts: parts.length, oneLine: r.every((x) => Math.abs(mid(x) - mid(r[0])) < 10), inOrder: r.every((x, i) => i === 0 || r[i - 1].right <= x.left + 1), value: (f.querySelector('input') || {}).value };
+}"""
+# The certificates' letterhead line, its own two spaces kept.
+COA_LETTERHEAD_GSTIN = "GSTIN :  24AAACG7781P1Z1, IEC CODE : 0894007882, PAN : AAACG7781P"
+# Words of DCRS's own that once stood above these grids (s111): none may stand on them now.
+DCRS_WORDS = [
+    "A grid reads down the page",
+    "is the last box below the grid",
+    "the PRINTING block's colours are the grid",
+    "are printed on the form, 7 breaking",
+    "this reproduces the card's panels",
+    "Sample mounted",
+]
+PREVIEW = "[data-section='document-preview']"
+# A table's rows as the page shows them: each cell's words, a box's label then what the box holds (s111).
+TABLE_WORDS = """t => Array.from(t.rows).map((r) => Array.from(r.cells).map((c) => {
+  const box = c.querySelector('input, select');
+  const label = c.querySelector('label');
+  const words = label ? label.textContent.trim() : (box ? '' : c.textContent.trim());
+  return [words, box ? box.value : ''].filter(Boolean).join(' ');
+}))"""
+# The certificates' tables, as the supplied certificates of 04/01/2022 (label) and production order 33814 (sleeve) print them.
+COA_TABLES = {
+    "F-QC-06": [
+        [["Specified Size", "Length(mm)", "Width(mm)"], ["Client's Specified Size", "70", "115"], ["Tested Size", "70", "115"]],
+        [
+            ["Material", "Face Material", "Adhesive", "Release Liner"],
+            ["Required", "80 GSM /Microns", "27 GSM", "60 GSM"],
+            ["Tested", "80 GSM/Microns", "26 GSM", "59 GSM"],
+            ["Type Required", "Chromo", "HotMelt", "Glassine"],
+            ["Observed", "Chromo", "Rubber Based (Hot Melt)", "Glassine Paper"],
+        ],
+        [
+            ["Coating Done : Gloss UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+            ["Minimum Gloss Required at 60°", "35%", "72%", "75%", "84.00%", "2 lbs, 100 rounds Okay"],
+        ],
+    ],
+    "F-QC-07": [
+        [["Specified Size", "Cut Length(mm)", "Open Width(mm)"], ["Client's Specified Size", "152.40", "168.00"], ["Tested Size", "152", "168"]],
+        [
+            ["Material", "Thickness(Microns)", "Shrinkage Ratio (%)", "Type"],
+            ["Required", "40", "50", "Centroiid Plastopack PVC Blown 40 mic 200 mm"],
+            ["Tested", "40", "49", "PVC Blown"],
+        ],
+        [
+            ["Coating Done : Matt UV", "Aqueous", "U.V", "Lamination", "Achieved Gloss", "Scuff Test"],
+            ["Minimum Gloss Required at 60°", "35%", "72%", "75%", "50%", "2 lbs, 100 rounds Okay"],
+        ],
+    ],
+}
+COA_PRINTING = {
+    "F-QC-06": [
+        ["PRINTING"],
+        ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+        ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Blue", "P.151C", "", "", "", ""],
+        ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "OK", "", "", "", ""],
+    ],
+    "F-QC-07": [
+        ["PRINTING"],
+        ["No. of Colors", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+        ["Given By Client", "Cyan", "Magenta", "Yellow", "Black", "Gold", "", "", "", "", ""],
+        ["Color Shade Verified", "OK", "OK", "OK", "OK", "OK", "", "", "", "", ""],
+    ],
+}
+# Whether the box holding `label` stands in the right-hand column of its line, under the box `under`, and below `above`.
+AT_THE_RIGHT = """([label, under, above]) => {
+  const boxes = Array.from(document.querySelectorAll("[data-section='document-preview'] .field, [data-print-doc] .field"));
+  const named = (w) => boxes.find((b) => (b.querySelector(':scope > label') || {}).textContent?.replace(/\\s*\\*$/, '').trim() === w);
+  const box = named(label), top = named(under), before = named(above);
+  if (!box || !top || !before) return false;
+  const a = box.getBoundingClientRect(), b = top.getBoundingClientRect(), c = before.getBoundingClientRect();
+  return Math.abs(a.left - b.left) < 2 && a.top > c.top + 4 && a.left > c.left + 40;
+}"""
+# F/QC/25: "Date:" alone at the right above the grid; OID :- and Job Code: side by side on the grid's top line, as the
+# paper prints them (s111 part 4, answerAcross).
+DATE_ALONE = """() => {
+  const boxes = Array.from(document.querySelectorAll("[data-print-doc] .field"));
+  const named = (w) => boxes.find((b) => (b.querySelector(':scope > label') || {}).textContent?.trim() === w);
+  const date = named('Date:'), oid = named('OID :-'), job = named('Job Code:');
+  if (!date || !oid || !job) return false;
+  if (!oid.closest('th.grid-head-box') || !job.closest('th.grid-head-box') || date.closest('table.log-sheet')) return false;
+  const d = date.getBoundingClientRect(), o = oid.getBoundingClientRect(), j = job.getBoundingClientRect();
+  return d.left > o.left + 40 && d.top + 4 < o.top && Math.abs(o.top - j.top) < 2 && o.left + 40 < j.left;
+}"""
 
 
 def check(label, cond, detail=None):
@@ -282,7 +474,8 @@ def record(page, rid):
 
 
 def sheet_rows(page):
-    return page.locator("[data-section='document-preview'] table.log-sheet tbody tr")
+    # A blank line the paper leaves between its processes is no line of the record (gapBetweenRuns, s111).
+    return page.locator("[data-section='document-preview'] table.log-sheet tbody tr:not([data-gap-line])")
 
 
 def printed_text(page):
@@ -306,6 +499,36 @@ def start_record(page, doc_id):
     return page.url.split("#/record/")[-1]
 
 
+def fill_with_sample_data(page):
+    """Asks Mitra for sample data on the open record (allowed in a Live record on the test server, s98)."""
+    if page.locator("button:has-text('Ask Mitra')").count():
+        page.click("button:has-text('Ask Mitra')")
+    page.wait_for_timeout(400)
+    mitra_box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+    mitra_box.fill("fill it with sample data")
+    mitra_box.press("Enter")
+    page.wait_for_timeout(1800)
+    close_assistant(page)
+
+
+def shoot(page, name):
+    """With QC_PAPER_SHOTS set to a folder, the open record photographed on screen and as it prints (s111)."""
+    folder = os.environ.get("QC_PAPER_SHOTS")
+    if not folder:
+        return
+    os.makedirs(folder, exist_ok=True)
+    doc = page.locator("[data-print-doc]").first
+    if doc.count():
+        doc.screenshot(path=os.path.join(folder, f"{name}-screen.png"))
+        page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
+        page.emulate_media(media="print")
+        try:
+            doc.screenshot(path=os.path.join(folder, f"{name}-print.png"))
+        finally:
+            page.emulate_media(media="screen")
+            page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
+
+
 with sync_playwright() as p:
     browser = p.chromium.launch()
     page = browser.new_page(viewport={"width": 1500, "height": 1000})
@@ -314,11 +537,11 @@ with sync_playwright() as p:
     sign_in(page)
 
     # ==================================================================
-    # 1. The module holds all forty-one, in the department's seven sections
+    # 1. The module holds all forty-six, in the department's seven sections
     # ==================================================================
     open_page(page, "#/library/quality-control-inspection-records")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-    check("Quality Control - Inspection Records holds forty-one documents", rows.count() == 41, rows.count())
+    check("Quality Control - Inspection Records holds forty-six documents", rows.count() == 46, rows.count())
     sections = page.locator("tr.doc-section-row").evaluate_all("els => els.map((e) => e.textContent.trim())")
     check("...shelved in the department's seven sections, in order", sections == QC_SECTIONS, sections)
     text = page.locator(".app-content").inner_text()
@@ -396,11 +619,15 @@ with sync_playwright() as p:
     check("The paper core record prints its six parameters, also in three samples", sheet_rows(page).count() == 6, sheet_rows(page).count())
 
     open_page(page, "#/document/qc-offset-ink")
-    drying = next((row for row in (cell_texts(page, i) for i in range(9)) if "DRYING TEST" in row[1]), [])
+    # DRYING TEST stands over two printed lines, the second unnumbered with its own OBSERVATION (s111 part 6).
+    at = next((i for i in range(10) if "DRYING TEST" in " ".join(cell_texts(page, i))), -1)
+    drying = cell_texts(page, at) if at >= 0 else []
+    glass = cell_texts(page, at + 1) if at >= 0 else []
     check(
-        "The offset ink record keeps both drying tests the form prints against the one parameter",
-        "By Thumb Impression" in " ".join(drying) and "On Glass surface" in " ".join(drying),
-        drying,
+        "The offset ink record keeps both drying tests the form prints against the one parameter, each on a line of its own",
+        drying[:2] == ["6.", "DRYING TEST"] and "By Thumb Impression" in " ".join(drying) and len(glass) == 2 and glass[0].startswith("On Glass surface")
+        and sheet_rows(page).count() == 10 and cell_texts(page, at + 2)[0] == "7.",
+        (drying, glass),
     )
 
     # ==================================================================
@@ -408,7 +635,8 @@ with sync_playwright() as p:
     # ==================================================================
     open_page(page, "#/document/qc-line-clearance-printing")
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("The printing line clearance takes the register's twelve columns", headings[1:] == CLEARANCE_HEADINGS, headings)
+    # No Sr. No. of the sheet's: the paper's grid opens with Completion Date (REQUIREMENTS s111).
+    check("The printing line clearance takes the register's twelve columns, and no Sr. No.", headings == CLEARANCE_HEADINGS, headings)
     body = page.locator(".app-content").inner_text()
     check(
         "...under the clearance the area asks for, printed as the form has it",
@@ -436,11 +664,11 @@ with sync_playwright() as p:
     # ==================================================================
     open_page(page, "#/document/qc-line-clearance-punching")
     headings = page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    check("The punching line clearance takes the register's twelve columns", headings[1:] == CLEARANCE_HEADINGS, headings)
+    check("The punching line clearance takes the register's twelve columns, and no Sr. No.", headings == CLEARANCE_HEADINGS, headings)
     written_out = printed_text(page)
     check(
-        "...under its own title and the four-point punching checklist, as the paper prints them",
-        PUNCHING_TITLE in written_out and PUNCHING_CHECKLIST in written_out and "Activity to make sure a production line & its processing area are completely cleared" in written_out,
+        "...under its own title, once, and the four-point punching checklist, as the paper prints them",
+        written_out.count(PUNCHING_TITLE) == 1 and PUNCHING_CHECKLIST in written_out and "Activity to make sure a production line & its processing area are completely cleared" in written_out,
         written_out[:600],
     )
     labels = page.locator("[data-section='document-preview'] .field label").all_inner_texts()
@@ -548,21 +776,28 @@ with sync_playwright() as p:
     # ==================================================================
     # 6. The two Gujarati clearance checklists
     # ==================================================================
-    # English is chosen, so both read in English (REQUIREMENTS s58, checked line
-    # for line further down); what a record of one HOLDS is the form's own
-    # Gujarati, also checked there.
+    # English is chosen, and both print as issued all the same (REQUIREMENTS s111, the review of 13-Oct-2026, checked
+    # line for line further down): each process once beside its lines, its two signatures once, a blank line between.
     open_page(page, "#/document/qc-line-clearance-materials")
     body = printed_text(page)
     check(
         "The Gujarati materials clearance prints its twelve lines, process by process",
-        sheet_rows(page).count() == 12 and "Printing" in body and "Magnetic die" in body and "Label slitting" in body,
+        sheet_rows(page).count() == 12 and "પ્રિન્ટીંગ" in body and "મેગ્નેટીક ડાઈ" in body and "લેબલ સ્લીટીંગ" in body,
         (sheet_rows(page).count(), body[:200]),
     )
+    merged = page.locator("[data-section='document-preview'] table.log-sheet td[data-merged]").evaluate_all("els => els.map((e) => e.getAttribute('data-merged'))")
+    check(
+        "...each process printed once beside its lines, and signed once by the operator and by QA, a blank line between processes",
+        merged == ["6", "6", "6", "2", "2", "2", "2", "2", "2", "2", "2", "2"] and page.locator("[data-section='document-preview'] tr[data-gap-line]").count() == 3,
+        (merged, page.locator("[data-section='document-preview'] tr[data-gap-line]").count()),
+    )
+    head = page.locator("[data-section='document-preview'] .doc-header").first.inner_text()
+    check("...its header prints no format number of DCRS's: never TO BE CONFIRMED", "TO BE CONFIRMED" not in head, head)
     open_page(page, "#/document/qc-line-clearance-quality")
     body = printed_text(page)
     check(
         "The Gujarati quality clearance prints its fifteen lines",
-        sheet_rows(page).count() == 15 and "Approved artwork" in body and "Master – Spots" in body,
+        sheet_rows(page).count() == 15 and "એપુવ થયેલ આર્ટવર્ક" in body and "માસ્ટર – સ્પોટસ" in body,
         (sheet_rows(page).count(), body[:200]),
     )
 
@@ -654,6 +889,230 @@ with sync_playwright() as p:
             minutes["data"]["rows"][4],
         )
 
+
+    # ==================================================================
+    # 8b. The registers and reports as their papers, and F-QC-14 (REQUIREMENTS s111)
+    # ==================================================================
+    def heads(page):
+        return page.locator("[data-section='document-preview'] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+
+    # With QC_PAPER_SHOTS set, each paper's preview is photographed there, to be looked at beside its original.
+    def shot(name):
+        folder = os.environ.get("QC_PAPER_SHOTS")
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+            page.locator("[data-section='document-preview']").first.screenshot(path=os.path.join(folder, f"{name}.png"))
+
+    open_page(page, "#/document/qc-printing-aids-destruction")
+    shot("fqc20-destruction")
+    body = printed_text(page)
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    head = page.locator("[data-section='document-preview'] .doc-header").first.evaluate("e => e.textContent")
+    check(
+        "F/QC/20 is headed DESTRUCTION RECORD, PRINTING AIDS DESTRUCTION RECORD above its Date:, the issue and review dates with its format number",
+        "DESTRUCTION RECORD" in whole.upper() and "PRINTING AIDS DESTRUCTION RECORD" in body and "Next Review date" in head and "31st December 2024" in head
+        and "1st January 2022" in head and "The form's footer prints" not in whole,
+        (head, body[:600]),
+    )
+    check(
+        "...its Date: at the right of its line, as printed",
+        page.locator("[data-section='document-preview'] [data-paper-column='3']").count() == 1,
+        page.locator("[data-section='document-preview'] [data-paper-column]").count(),
+    )
+    open_page(page, "#/document/qc-utility-test-report")
+    shot("fqc29-utility-test")
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check(
+        "The Nivea utility test is headed MINUTES OF MEETINGS, the format it is printed on, with its own heading above the grid in the paper's spacing",
+        "MINUTES OF MEETINGS" in whole.upper() and "NIVEA SAMPLES -  UTILITY TEST  REPORT" in whole and "for the MR to confirm" not in whole,
+        whole[:600],
+    )
+    check("...Job Name under Description, as the paper heads it", "Description" in heads(page) and "Job Name" in heads(page), heads(page))
+    check(
+        "...and Observation (24Hrs.) over each of Freeze, Desiccator and Oven, a cell each",
+        heads(page).count("Observation (24Hrs.)") == 3 and heads(page)[-3:] == ["Freeze", "Desiccator", "Oven"],
+        heads(page),
+    )
+    open_page(page, "#/document/qc-analysis-report")
+    shot("fqc29-analysis-report")
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check("The analysis report prints nothing of DCRS's above its grid", "The scan of the supplied page" not in whole and "eleven printed descriptions" not in whole, whole[:600])
+    open_page(page, "#/document/qc-minutes-of-meetings")
+    shot("fqc30-minutes")
+    check("The minutes' grid is headed Key points Discussed:, as the paper", "Key points Discussed:" in heads(page), heads(page))
+    open_page(page, "#/document/qc-temperature")
+    shot("fqc40c-temperature")
+    check(
+        "F-QC-40.C: DATE and the six TEMP. + SIGN readings, and no Sign column of DCRS's",
+        heads(page)[1:] == ["DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN"],
+        heads(page),
+    )
+
+    open_page(page, "#/document/qc-test-reliability-label")
+    shot("fqc14-label")
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check(
+        "F-QC-14 Label opens headed INTERNAL TEST RELIABILITY RECORD and F-QC-14",
+        "INTERNAL TEST RELIABILITY RECORD" in whole.upper() and "F-QC-14" in whole,
+        whole[:400],
+    )
+    # The workbook's eight small tables, two to a row (the review of 13-Oct-2026: it was one grid).
+    panels = page.locator("[data-section='document-preview'] table.paper-panel")
+    first_heads = panels.first.locator("thead th").evaluate_all("els => els.map((e) => e.textContent.trim())") if panels.count() else []
+    check(
+        "...the workbook's eight small tables, the first headed Paper Reel SAP batch no. and GSM - Total over the four inspectors, Kapila under Inspector - 1",
+        panels.count() == 8 and first_heads[0] == "Paper Reel SAP batch no." and first_heads[1].startswith("GSM - Total") and first_heads[2].replace(" ", "") == "Inspector-1\n(Kapila)".replace(" ", ""),
+        (panels.count(), first_heads),
+    )
+    first = cell_texts(page, 0)
+    check(
+        "...the workbook of 12.02.2022 on file: eight checks of three lines, 9460/5234/15 read 72, 71, 70, 71",
+        sheet_rows(page).count() == 24 and first == ["9460/5234/15", "72", "71", "70", "71"],
+        (sheet_rows(page).count(), first),
+    )
+    body = printed_text(page)
+    check(
+        "...each check concluded under its own table in the workbook's words, with no words of DCRS's",
+        body.count("Conclusion") == 8 and "Variation are within specification limit, hence test reliability accepted" in body
+        and "Conclusion (" not in body and "FG Code" not in body and "Paper Reel SAP batch no. / Roll no." not in body,
+        body[-600:],
+    )
+    open_page(page, "#/document/qc-test-reliability-sleeve")
+    shot("fqc14-sleeve")
+    body = printed_text(page)
+    check(
+        "F-QC-14 Sleeve: five checks of three lines, the shrinkage ratio as written",
+        sheet_rows(page).count() == 15 and "Shrinkage Ratio : TD 60 ± 2 %, MD 0 ~ 6%" in body and "TD-61 MD-3" in body,
+        (sheet_rows(page).count(), body[:400]),
+    )
+
+    if os.environ.get("QC_PAPER_SHOTS"):
+        # The rest of this group's papers, photographed only (their checks are above and in qcPaperFormatsMore.test.ts).
+        for route, name in [
+            ("qc-calibration-master-list", "fqc08-calibration-master-list"),
+            ("qc-obsolete-artwork", "fqc16-obsolete-artwork"),
+            ("qc-line-clearance-printing", "fqc15a-line-clearance-printing"),
+            ("qc-line-clearance-punching", "fqc15b-line-clearance-punching"),
+            ("qc-inprocess-printing", "fqc13-ipqc"),
+            ("qc-line-clearance-materials", "fqc15-gujarati-materials"),
+            ("qc-line-clearance-quality", "fqc15-gujarati-quality"),
+        ]:
+            open_page(page, f"#/document/{route}")
+            shot(name)
+
+    rid = start_record(page, "qc-test-reliability-label")
+    started = record(page, rid) or {}
+    started_rows = started.get("data", {}).get("rows", [])
+    check(
+        "A new F-QC-14 Label record holds the twenty-four printed lines and nothing written in them",
+        len(started_rows) == 24 and all(not r.get("reading1") and not r.get("sampleNo") for r in started_rows),
+        started_rows[:2],
+    )
+    opener = page.locator("button:has-text('Ask Mitra')")
+    if opener.count():
+        opener.first.click()
+        page.wait_for_timeout(400)
+    composer = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+    composer.fill("fill it with sample data")
+    composer.press("Enter")
+    page.wait_for_timeout(2500)
+    filled = record(page, rid) or {}
+    header = filled.get("data", {}).get("header", {})
+    filled_rows = filled.get("data", {}).get("rows", [])
+    gsm = [r for r in filled_rows if str(r.get("parameter", "")).startswith("GSM - Total")]
+    readings = [float(r.get(k)) for r in gsm for k in ("reading1", "reading2", "reading3", "reading4") if str(r.get(k, "")).strip()]
+    check(
+        "Mitra's sample data is a real exercise: four inspectors, the reel's rolls, every GSM - Total inside 70 ± 5%",
+        bool(header.get("inspector1")) and len(gsm) == 3 and len(readings) == 12 and all(66.5 <= v <= 73.5 for v in readings)
+        and not any(str(r.get("sampleNo", "")).startswith("9460/5234") for r in filled_rows),
+        (header, gsm),
+    )
+    close_assistant(page)
+    page.locator("[data-action='submit']").first.click()
+    page.wait_for_timeout(1600)
+    submitted = record(page, rid) or {}
+    check("...and it is submitted", submitted.get("status") in ("Submitted", "Pending Verification"), submitted.get("status"))
+
+    # ==================================================================
+    # 8c. The owner's four of 14-Oct-2026 as their papers (REQUIREMENTS s111, part 8)
+    # ==================================================================
+    open_page(page, "#/document/qc-temperature-humidity")
+    shot("fqc40a-temperature-humidity")
+    body = printed_text(page)
+    order = [body.find(w) for w in ["RECOMMENDED TEMPERATURE & HUMIDITY : 25°C ± 2°C / 45 ± 5%", "AREA:", "M/C NO. :", "MONITORING RECORD - TIME & SIGN."]]
+    check(
+        "F-QC-40.A: the recommended line, AREA: and M/C NO. :, then MONITORING RECORD - TIME & SIGN., in the paper's order",
+        all(i >= 0 for i in order) and order == sorted(order) and "TEMPERATURE & HUMIDITY MONITORING RECORD" in page.locator(".app-content").evaluate("e => e.textContent").upper(),
+        (order, body[:500]),
+    )
+    check(
+        "...the paper's words on its AREA line, PRINTING/ INK KITCHEN/ WARE HOUSE",
+        all(w in body for w in ["PRINTING/", "INK KITCHEN/", "WARE HOUSE"]),
+        body[:500],
+    )
+    head_rows = page.locator("[data-section='document-preview'] table.log-sheet thead tr").count()
+    check(
+        "...SR NO | DATE | 08:30 HRS | 12:30 HRS | 16:30 HRS on one heading row, each time over its one cell",
+        heads(page) == ["SR NO", "DATE", "08:30 HRS", "12:30 HRS", "16:30 HRS"] and head_rows == 1,
+        (heads(page), head_rows),
+    )
+    open_page(page, "#/document/qc-temperature-sleeve")
+    shot("fqc40b-temperature-sleeve")
+    body = printed_text(page)
+    check(
+        "F-QC-40.B: TEMPERATURE MONITORING RECORD for the sleeve division at 28°C ± 2°C, six TEMP. + SIGN readings",
+        "RECOMMENDED TEMPERATURE : SLEEVE DIVISION 28°C ± 2°C" in body
+        and heads(page) == ["SR NO", "DATE", "08:30 HRS TEMP. + SIGN", "12:30 HRS TEMP. + SIGN", "16:30 HRS TEMP. + SIGN", "20:30 HRS TEMP. + SIGN", "12:30am HRS TEMP. + SIGN", "04:30 HRS TEMP. + SIGN"],
+        (heads(page), body[:300]),
+    )
+    open_page(page, "#/document/qc-ruler-verification")
+    shot("fqc17-ruler-verification")
+    body = printed_text(page)
+    check(
+        "F/QC/17: Measuring Scale (Ruler) Internal Verification Record in its letters, the master's and the ruler's tables, + / - 1 mm printed",
+        "Measuring Scale (Ruler) Internal Verification Record" in page.locator(".app-content").evaluate("e => e.textContent")
+        and body.find("Master Measuring Scale (Ruler) Details") < body.find("Measuring Scale (Ruler) under calibration details")
+        and "Accetable tolerance" in body and "+ / - 1 mm" in body and "Calibration report number" in body,
+        body[:700],
+    )
+    check(
+        "...# | Master calibrator reading | Observed reading (mm) | Difference | Status (Pass/Fail) | Calibration performed by, on 50 to 290 mm",
+        heads(page) == ["#", "Master calibrator reading", "Observed reading (mm)", "Difference", "Status (Pass/Fail)", "Calibration performed by"]
+        and [cell_texts(page, i)[1] for i in range(sheet_rows(page).count())] == ["50 mm", "100 mm", "150 mm", "200 mm", "250 mm", "290 mm"],
+        (heads(page), sheet_rows(page).count()),
+    )
+    rid = start_record(page, "qc-ruler-verification")
+    started = record(page, rid) or {}
+    started_header = started.get("data", {}).get("header", {})
+    check(
+        "A new F/QC/17 holds the master scale's identity, the day and the printed tolerance, and nothing of the 2024 page",
+        started_header.get("masterSerialNo") == "QC-44" and started_header.get("acceptableTolerance") == "+ / - 1 mm"
+        and not started_header.get("serialNo") and "2024" not in json.dumps(started.get("data", {})),
+        started_header,
+    )
+    fill_with_sample_data(page)
+    filled = record(page, rid) or {}
+    filled_rows = filled.get("data", {}).get("rows", [])
+    check(
+        "...Mitra's sample data reads the six points, works out each Difference and passes the ruler",
+        len(filled_rows) == 6 and all(str(r.get("difference", "")) in ("0.0", "1.0", "-1.0") for r in filled_rows) and filled_rows[0].get("status") == "Pass",
+        filled_rows[:2],
+    )
+    page.locator("[data-action='submit']").first.click()
+    page.wait_for_timeout(1600)
+    check("...and it is submitted", (record(page, rid) or {}).get("status") in ("Submitted", "Pending Verification"), (record(page, rid) or {}).get("status"))
+    open_page(page, "#/soc/soc-shrink-sleeves")
+    if os.environ.get("QC_PAPER_SHOTS"):
+        os.makedirs(os.environ["QC_PAPER_SHOTS"], exist_ok=True)
+        page.locator(".app-content").first.screenshot(path=os.path.join(os.environ["QC_PAPER_SHOTS"], "fqc10-soc-shrink-sleeves.png"))
+    whole = page.locator(".app-content").evaluate("e => e.textContent")
+    check(
+        "F/QC-10: the Statement of Compliance for shrink sleeves, read as issued",
+        "STATEMENT OF COMPLIANCE – SHRINK SLEEVES" in whole and "F/QC-10 (Rev – 00 / 01.12.2021)" in whole
+        and "Usable for packers of products max up to 30 Deg C." in whole and "Shail Patel" in whole,
+        whole[:500],
+    )
+
     # ==================================================================
     # 9. A certificate is a document, a register is a spreadsheet
     # ==================================================================
@@ -715,8 +1174,8 @@ with sync_playwright() as p:
     )
     guj_rows = [r for r in rows if r["id"] in ("qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality")]
     check(
-        "The three Gujarati formats say so, and that they are being shown in English",
-        len(guj_rows) == 3 and all("Gujarati form, shown in English" in r["sub"] for r in guj_rows),
+        "The three Gujarati formats say so — printed as issued, never shown in English (s111)",
+        len(guj_rows) == 3 and all("Gujarati form" in r["sub"] and "shown in English" not in r["sub"] for r in guj_rows),
         [r["sub"] for r in guj_rows],
     )
     page.locator("[data-qc-doc='qc-bopp-film']").click()
@@ -741,56 +1200,48 @@ with sync_playwright() as p:
     check("The sidebar reaches QC Records", qc_link.count() >= 1, page.locator(".app-sidebar").inner_text()[:400])
 
 
-    # ------------------------------------------------------------------ THE GUJARATI FORMATS, IN ENGLISH (s58)
-    # English is chosen, so Google Translate is not loaded at all and the three
-    # formats the department issues in Gujarati read from the English written
-    # down in i18n/documentTextEn.ts - every printed line of them.
+    # ------------------------------------------------------------------ THE GUJARATI QC PAPERS, AS ISSUED (s58, s111)
+    # English is chosen, and the three QC papers the department issues in Gujarati print their own Gujarati all the
+    # same (the review of 13-Oct-2026): the paper is the format. What printed before — their English, from
+    # i18n/documentTextEn.ts — is not printed; Mitra and the guided questions still have it.
     open_page(page, "#/document/qc-line-clearance-materials")
     sheet = printed_text(page)
-    missing = [w for w in MATERIALS_IN_ENGLISH if w not in sheet]
+    missing = [w for w in MATERIALS_IN_GUJARATI if w not in sheet]
+    english = [w for w in ["Operator's sign", "Raw materials stock", "Checked by Q.A", "LINE CLEARANCE"] if w in sheet]
     check(
-        "The Gujarati line clearance checklist reads in English, line for line",
-        not missing,
-        missing[:6] or sheet[:400],
-    )
-    check(
-        "…with nothing of it left in Gujarati",
-        not GUJARATI.search(sheet),
-        (GUJARATI.findall(sheet)[:8], sheet[:300]),
+        "The Gujarati line clearance checklist prints its own Gujarati with English chosen, line for line",
+        not missing and not english,
+        missing[:6] or english or sheet[:400],
     )
 
     open_page(page, "#/document/qc-line-clearance-quality")
     sheet = printed_text(page)
-    missing = [w for w in QUALITY_IN_ENGLISH if w not in sheet]
+    missing = [w for w in QUALITY_IN_GUJARATI if w not in sheet]
     check(
-        "The Gujarati quality checklist reads in English, its fifteen parameters included",
-        not missing and not GUJARATI.search(sheet),
-        missing[:6] or GUJARATI.findall(sheet)[:8] or sheet[:400],
+        "The Gujarati quality checklist prints its own Gujarati, its fifteen parameters included",
+        not missing and "Approved artwork" not in sheet and "QUALITY SIGN" not in sheet.upper(),
+        missing[:6] or sheet[:400],
     )
 
     open_page(page, "#/document/qc-inprocess-printing")
     sheet = printed_text(page)
-    missing = [w for w in FQC13_IN_ENGLISH if w not in sheet]
+    missing = [w for w in FQC13_IN_GUJARATI if w not in sheet]
     check(
-        "F/QC/13 reads in English — its procedure, its boxes and its six graded parameters",
-        not missing and not GUJARATI.search(sheet),
-        missing[:6] or GUJARATI.findall(sheet)[:8] or sheet[:500],
+        "F/QC/13 prints its own Gujarati — its procedure, its boxes and its six graded parameters — and its five boxes in its English",
+        not missing and "Test criteria" not in sheet,
+        missing[:6] or sheet[:500],
     )
-    grade_chart = page.locator("[data-section='document-preview'] button:has-text('Grade chart')")
-    if grade_chart.count():
-        grade_chart.first.click()
-        page.wait_for_timeout(500)
-        chart = printed_text(page)
-        check(
-            "…and the grade chart printed with it, A to F, in English",
-            all(w in chart for w in GRADE_CHART_IN_ENGLISH) and not GUJARATI.search(chart),
-            [w for w in GRADE_CHART_IN_ENGLISH if w not in chart][:4] or GUJARATI.findall(chart)[:6],
-        )
-    else:
-        check("…and the grade chart printed with it, A to F, in English", False, "no Grade chart button on the preview")
+    # The grade criteria are printed on the page in full, as the paper prints them: open, with no button (s111).
+    printed_chart = page.locator("[data-section='document-preview'] [data-reference-table='printed']")
+    chart = printed_chart.first.evaluate("e => e.textContent") if printed_chart.count() else ""
+    check(
+        "…and the grade criteria printed with it in full, A to F, as issued, with no button to show them",
+        printed_chart.count() == 1 and all(w in chart for w in GRADE_CHART_IN_GUJARATI)
+        and page.locator("[data-section='document-preview'] button:has-text('Grade')").count() == 0,
+        [w for w in GRADE_CHART_IN_GUJARATI if w not in chart][:4] or printed_chart.count(),
+    )
 
-    # The form READS in English; what the record HOLDS is the Gujarati the
-    # department issued, so a printed line is never rewritten by being read.
+    # The form prints as issued, and what the record HOLDS is the Gujarati the department issued.
     rid = start_record(page, "qc-line-clearance-materials")
     rec = record(page, rid)
     rows = (rec or {}).get("data", {}).get("rows", [])
@@ -804,8 +1255,8 @@ with sync_playwright() as p:
     )
     shown = page.locator("[data-print-doc]").evaluate("e => e.textContent")
     check(
-        "…while the line on screen reads Printing / Raw materials stock",
-        "Printing" in shown and "Raw materials stock" in shown and not GUJARATI.search(shown),
+        "…and the line on screen reads as the paper, પ્રિન્ટીંગ / રો–મટીરીયલ્સ સ્ટોક",
+        "પ્રિન્ટીંગ" in shown and "રો–મટીરીયલ્સ સ્ટોક" in shown and "Raw materials stock" not in shown,
         shown[:300],
     )
 
@@ -929,6 +1380,197 @@ with sync_playwright() as p:
             opened.startswith("record/") and (record(page, opened.split("record/")[-1]) or {}).get("documentId") == "qc-line-clearance-punching"
         )
         check(f"...and the punching line clearance, asked for as '{asked}'", landed, page.url)
+
+    # ==================================================================
+    # 11. Exactly as the paper (REQUIREMENTS s111): the incoming material records, F/QC/36,
+    #     the certificates of analysis and the tolerance card, on screen and in print
+    # ==================================================================
+    for doc_id, fmt in INCOMING_RECORDS.items():
+        open_page(page, f"#/document/{doc_id}", settle=900)
+        heads = page.locator(f"{PREVIEW} table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+        columns = SAMPLE_HEADINGS if doc_id in ("qc-corrugated-box", "qc-paper-core") else OBSERVATION_HEADINGS
+        labels = page.locator(f"{PREVIEW} .field > label").evaluate_all("els => els.map((e) => e.textContent.replace(/\\s*\\*$/, '').trim())")
+        boxes = page.locator(f"{PREVIEW} [data-section='sheet-boxes'].sheet-boxes-paper").evaluate_all("els => els.map((e) => e.style.getPropertyValue('--paper-box-columns'))")
+        written = printed_text(page)
+        batch = "Batch number" if doc_id == "qc-flexo-ink" else "SAP Batch number"
+        check(
+            f"{fmt}: the paper's columns, its header box two to a line read across, its footer, and nothing of DCRS's (s111)",
+            heads == ["Sr. No.", *columns]
+            and labels == ["Supplier Name", "Report number", "Product Description", batch, "GRN Qty.", "GRN number", "Date of Inspection", *INCOMING_FOOTER]
+            and boxes == ["2"]
+            and not any(w in written for w in DCRS_WORDS),
+            (heads, labels, boxes),
+        )
+        check(
+            f"{fmt}: ...Date of Inspection in the right-hand column of the fourth line, under GRN number, as printed",
+            page.evaluate(AT_THE_RIGHT, ["Date of Inspection", "Report number", "GRN Qty."]),
+        )
+    groups = page.locator(f"{PREVIEW} [data-section='printed-group'][data-area='footer']").evaluate_all(
+        "els => els.map((g) => Array.from(g.querySelectorAll('.field > label')).map((l) => l.textContent.trim()))"
+    )
+    check(
+        "...below the grid the LOT STATUS and the REASON a line each, then INSPECTED BY beside APPROVED BY",
+        groups == [INCOMING_FOOTER[:2], INCOMING_FOOTER[2:]],
+        groups,
+    )
+    open_page(page, "#/document/qc-flexo-ink", settle=900)
+    foot = page.locator(f"{PREVIEW} [data-section='notes-at-foot']")
+    check(
+        "F/QC/21 Flexo Ink prints its system-generated line at the foot, under the signatures, not above the grid",
+        foot.count() == 1 and "This is a system generated document with regulated access" in foot.inner_text()
+        and page.locator(PREVIEW).evaluate("e => { const f = e.querySelector('[data-section=notes-at-foot]'); const s = Array.from(e.querySelectorAll('.field')).pop(); return !!f && !!s && !!(s.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING); }"),
+    )
+
+    # A new BOPP film inspection filled with sample data reads as a real lot: a supplier, a product, a GRN, a
+    # reading on every line inside its specification, and the inspector and the QA Manager two people.
+    rid = start_record(page, "qc-bopp-film")
+    fill_with_sample_data(page)
+    lot = (record(page, rid) or {}).get("data", {})
+    head = lot.get("header", {})
+    check(
+        "A BOPP lot filled with sample data reads as a real one: supplier, product, GRN, batch, report, every line read, two signatures",
+        all((head.get(k) or "").strip() for k in ("supplierName", "productDescription", "grnQty", "grnNumber", "batchNumber", "reportNumber", "inspectedBy", "approvedBy"))
+        and head.get("inspectedBy") != head.get("approvedBy")
+        and all((r.get("observation") or "").strip() for r in lot.get("rows", [])),
+        head,
+    )
+    # The paper's own marks (s111 part 4), on the screen open for writing and as it prints.
+    on_screen = page.evaluate(PAPER_MARKS)
+    check(
+        "F/QC/01 open for writing: LOT STATUS is still the choice box, the paper's four words wait for the print",
+        on_screen["selectShown"] and not on_screen["shown"] and on_screen["srNo"] == ["1.", "2.", "3.", "4."],
+        on_screen,
+    )
+    page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
+    page.emulate_media(media="print")
+    try:
+        marks = page.evaluate(PAPER_MARKS)
+    finally:
+        page.emulate_media(media="screen")
+        page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
+    check(
+        "F/QC/01 prints LOT STATUS as the paper does: the four statuses across beside it, the chosen one ringed, no choice box",
+        marks["shown"] and marks["words"] == LOT_STATUSES and marks["chosen"] == [head.get("lotStatus")] and marks["oneLine"] and marks["besideLabel"] and not marks["selectShown"],
+        marks,
+    )
+    check(
+        "...INSPECTED BY over QA INSPECTOR and APPROVED BY over QA MANAGER, the lines numbered 1. to 4., and no '*' of the screen's",
+        marks["inspector"] == ["INSPECTED BY", "QA INSPECTOR", True] and marks["manager"] == ["APPROVED BY", "QA MANAGER", True]
+        and marks["srNo"] == ["1.", "2.", "3.", "4."] and marks["stars"] == 0,
+        marks,
+    )
+    shoot(page, "F-QC-01")
+    # Signed off, the LOT STATUS line shows the paper's words on the screen too; Flexo Ink's first is "Accepted".
+    open_page(page, "#/document/qc-flexo-ink", settle=900)
+    flexo = page.locator(f"{PREVIEW} [data-choices-across='lotStatus'] .choice-across").evaluate_all("els => els.map((e) => e.textContent)")
+    check("F/QC/21 Flexo Ink prints its own 'Accepted' first on the LOT STATUS line, and numbers its lines 1, 2 with no full stop",
+          flexo[:1] == ["Accepted"] and page.locator(f"{PREVIEW} td[data-sr-no]").first.text_content().strip() == "1", flexo)
+
+    # F/QC/36: the paper's seven boxes two to a line, and both signatures.
+    open_page(page, "#/document/qc-inspection-sb-lamination", settle=900)
+    labels = page.locator(f"{PREVIEW} .field > label").evaluate_all("els => els.map((e) => e.textContent.replace(/\\s*\\*$/, '').trim())")
+    check(
+        "F/QC/36: its header box two to a line as the paper's, and INSPECTED BY beside the APPROVED BY the paper prints",
+        labels[:7] == ["JOB CODE (FG CODE)", "PO NUMBER", "Date / SHIFT", "Laminated Roll number", "1st SUBSTRATE DETAILS", "2nd  SUBSTRATE DETAILS", "1st Pass / 2nd Pass / 3rd Pass"]
+        and labels[7:] == INCOMING_FOOTER
+        and page.locator(f"{PREVIEW} [data-section='sheet-boxes'].sheet-boxes-paper").count() == 1,
+        labels,
+    )
+    widths = page.evaluate(
+        """() => ['JOB CODE (FG CODE)', '1st Pass / 2nd Pass / 3rd Pass'].map((w) => {
+             const b = Array.from(document.querySelectorAll("[data-section='document-preview'] .field")).find((f) => (f.querySelector(':scope > label') || {}).textContent?.replace(/\\s*\\*$/, '').trim() === w);
+             return b ? Math.round(b.getBoundingClientRect().width) : 0; })"""
+    )
+    check("...the pass alone on the header box's last line, the width of the sheet", widths[0] > 0 and widths[1] > 1.8 * widths[0], widths)
+
+    # The two certificates on file: every block in the paper's order, the TOLERANCE printed open.
+    for rid, name, film in (("qc-coa-label-2022-01", "F-QC-06", "LABEL STOCK"), ("qc-coa-sleeve-2022-01", "F-QC-07", "SLEEVE FILM")):
+        open_page(page, f"#/record/{rid}")
+        doc = page.locator("[data-print-doc]").first
+        written = doc.evaluate("e => e.textContent")
+        at = [written.find(w) for w in [COA_LETTERHEAD_GSTIN, "Production Order No.", film, "PRINTING", "Shade Match Grade", "COATING", "FINISHING", "TOLERANCE", "All Grades are given on a scale of 5", "This material should be retested on", "THIS IS A SYSTEM GENERATED DOCUMENT.", "Corporate Office :"]]
+        check(f"{name}: every block where the certificate prints it, in its order (s111)", all(a >= 0 for a in at) and at == sorted(at), at)
+        check(
+            f"{name}: ...the TOLERANCE table printed open in its place, not behind Show; nothing of DCRS's",
+            doc.locator("[data-section='printed-table'][data-table='TOLERANCE'] table").count() == 1
+            and page.locator("button:has-text('Show TOLERANCE')").count() == 0
+            and not any(w in written for w in DCRS_WORDS),
+        )
+        tables = doc.locator("table[data-section='box-table']").evaluate_all(f"els => els.map({TABLE_WORDS})")
+        check(f"{name}: ...Specified Size, {film} and COATING drawn as the paper's tables, box for box (s111)", tables == COA_TABLES[name], tables)
+        printing = doc.locator("table[data-across]").evaluate_all(f"els => els.map({TABLE_WORDS})")
+        check(
+            f"{name}: ...the colour table printed across under PRINTING, numbered 1 to 10 as printed, no Sr. No.",
+            printing == [COA_PRINTING[name]] and doc.locator("table.log-sheet:not([data-across])").count() == 0 and "Sr. No." not in written,
+            printing,
+        )
+        page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
+        page.emulate_media(media="print")
+        try:
+            shown = (
+                doc.locator("[data-section='printed-table'] table").first.is_visible()
+                and doc.locator("[data-section='notes-at-foot']").first.is_visible()
+                and doc.locator("table[data-across]").first.is_visible()
+                and doc.locator("table[data-section='box-table']").count() == 3
+                and all(doc.locator("table[data-section='box-table']").nth(i).is_visible() for i in range(3))
+            )
+        finally:
+            page.emulate_media(media="screen")
+            page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
+        check(f"{name}: ...and all of them print", shown)
+        # Its headings in the paper's letters, the retest date inside its sentence, Coating Done : beside its value (s111 part 4).
+        letters = [
+            doc.locator("table[data-section='box-table'] th").first.inner_text().strip(),
+            doc.locator("[data-section='printed-table'][data-table='TOLERANCE'] th").first.inner_text().strip(),
+            doc.locator("table[data-across] th.log-sheet-across-head").first.inner_text().strip(),
+        ]
+        check(f"{name}: ...its headings in the paper's own letters (Specified Size, Field, No. of Colors), not the sheet's capitals", letters == ["Specified Size", "Field", "No. of Colors"], letters)
+        retest = page.evaluate(ONE_LINE, ".field-in-sentence")
+        corner = page.evaluate(ONE_LINE, "th.paper-box-table-corner > .field")
+        check(
+            f"{name}: ...'This material should be retested on' its date 'before usage.' on one line, and 'Coating Done :' beside its value",
+            bool(retest) and retest["parts"] == 3 and retest["oneLine"] and retest["inOrder"] and bool(corner) and corner["parts"] == 2 and corner["oneLine"] and corner["inOrder"],
+            (retest, corner),
+        )
+        shoot(page, name)
+
+    # F/QC/25 and the tolerance card: the headings the paper prints, and none it does not.
+    rid = start_record(page, "qc-coa-corrugated")
+    fill_with_sample_data(page)
+    heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    check("F/QC/25: Sr.No., nothing over the descriptions, then OID :- and Job Code: on the grid's top line", heads == ["Sr.No.", "", "OID :-", "Job Code:"], heads)
+    seven = page.locator("[data-print-doc] table.log-sheet tbody tr[data-heading-line] th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    check("...GSM over Specified  GSM and Tested GSM, BF and Grade of Paper headed on line 7, Material Specification", seven == ["GSM", "BF", "Grade of Paper", "Specified  GSM", "Tested GSM"], seven)
+    across = page.locator("[data-print-doc] table.log-sheet tbody td[colspan='4']").count()
+    check("...one answer across the four columns on each of the 13 lines not written in them", across == 13, across)
+    check("...its Date: alone at the right above the grid, OID :- and Job Code: side by side on the grid's top line", page.evaluate(DATE_ALONE))
+    # Its letterhead as the paper's three cells, Sr.No. in its own letters, its roles under the signatures (s111 part 4).
+    letterhead = page.locator("[data-print-doc] [data-table='Letterhead'] td").evaluate_all("els => els.map((e) => e.innerText.split('\\n').map((l) => l.trim()).filter(Boolean))")
+    written = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")
+    check(
+        "F/QC/25: its letterhead the paper's three cells, each in its lines, with no dashes of DCRS's between them",
+        letterhead == [
+            ["GUJARAT PRINT PACK PUBLICATIONS PVT LTD", "308/9, GIDC DEDIASAN", "MEHSANA. GUJARAT."],
+            ["DEPT:QUALITY", "ASSURENCE", "(2009 EDITION)"],
+            ["DOC.NO.", "QA-IP-TRFCBA-011-00-01-09-18", "FG(CO) =FINISH GOODS", "(CORRUGATION)"],
+        ]
+        and "GUJARAT. — DEPT" not in written,
+        letterhead,
+    )
+    corrugated = page.evaluate(
+        """() => ({
+             head: document.querySelector('[data-print-doc] table.log-sheet thead th').innerText.trim(),
+             testing: Array.from(document.querySelectorAll('[data-print-doc] [data-printed-below]')).map((s) => [s.closest('.field').querySelector(':scope > label').innerText.trim(), s.textContent]),
+           })"""
+    )
+    check("...Sr.No. as the paper writes it, and '(QA Inspector)' under Testing By, '(QA Manager)' under Sign By",
+          corrugated == {"head": "Sr.No.", "testing": [["Testing By", "(QA Inspector)"], ["Sign By", "(QA Manager)"]]}, corrugated)
+    shoot(page, "F-QC-25")
+    rid = start_record(page, "qc-tolerance-card-nivea")
+    heads = page.locator("[data-print-doc] table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    panels = page.locator("[data-print-doc] table.log-sheet tbody tr").count()
+    check("The tolerance card: its nine panels (s111 part 6), each with its own APPROVED BY: and SIGN. :, no Sr. No.", heads == ["", "APPROVED BY:", "SIGN. :"] and panels == 9, (heads, panels))
+    shoot(page, "F-QC-19-tolerance-card")
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()

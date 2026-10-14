@@ -111,7 +111,8 @@ A tabular log sheet (a lamination QC / production register, or one of the HR for
 (object of string values keyed by field key) and rows (array of row objects,
 each with an "id" plus one value per column key). The current data carries a
 "_layout" object describing the form: _layout.headerFields lists the header
-keys with their human labels; _layout.columns lists every column key with its
+keys with their human labels (a header field with "printed" holds the value the
+paper prints in it: never change it); _layout.columns lists every column key with its
 label, type ("text" | "number" | "time" | "date" | "select" | "yesno") and
 unit; _layout.rowMode is "free" (rows can be added/removed), "timeSlots"
 (one fixed row per clock time — match the user's time to the row whose fixed
@@ -272,6 +273,8 @@ Valid navigation targets (use EXACTLY this shape, "path/param" meaning substitut
   qc-line-clearance-sleeve-gluing, qc-line-clearance-sleeve-cutting, qc-line-clearance-materials,
   qc-line-clearance-quality, qc-calibration-master-list, qc-coa-label, qc-coa-sleeve, qc-coa-corrugated,
   qc-obsolete-artwork, qc-printing-aids-destruction, qc-camera-challenge-test, qc-tolerance-card-nivea,
+  qc-test-reliability-label, qc-test-reliability-sleeve, qc-temperature-humidity, qc-temperature-sleeve,
+  qc-ruler-verification,
   qc-analysis-report, qc-utility-test-report, qc-minutes-of-meetings, pur-supplier-registration,
   pur-supplier-audit-report, pur-approved-suppliers, pur-supplier-performance,
   pur-service-provider-performance, str-incoming-material-vehicle, str-sharp-metal-objects,

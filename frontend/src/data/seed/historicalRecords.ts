@@ -13,6 +13,7 @@ import { SEED_QC_CALIBRATION_RECORDS } from "./qcCalibrationRecords";
 import { SEED_QC_REGISTER_RECORDS } from "./qcRegisterRecords";
 import { SEED_QC_COA_RECORDS } from "./qcCoaRecords";
 import { SEED_QC_REPORT_RECORDS } from "./qcReportRecords";
+import { SEED_QC_TEST_RELIABILITY_RECORDS } from "./qcTestReliabilityRecords";
 import { SEED_MNT_RECORDS } from "./maintenanceRecords";
 import { SEED_MNT_SAMPLE_RECORDS } from "./maintenanceSampleRecords";
 import { SEED_SYS_DOCUMENT_CONTROL_RECORDS } from "./sysDocumentControlRecords";
@@ -227,6 +228,8 @@ export const SEED_HISTORICAL_RECORDS: RecordInstance[] = [
   ...(SEED_QC_REGISTER_RECORDS as RecordInstance[]),
   ...SEED_QC_COA_RECORDS,
   ...SEED_QC_REPORT_RECORDS,
+  // F-QC-14's two sheets, supplied filled in on 13-Oct-2026 (REQUIREMENTS §111).
+  ...SEED_QC_TEST_RELIABILITY_RECORDS,
   // Maintenance's pages supplied filled in on 24-Sep-2026 (REQUIREMENTS §74): the
   // equipment list, and the two lux rounds — the older kept on its own revision.
   ...(SEED_MNT_RECORDS as RecordInstance[]),

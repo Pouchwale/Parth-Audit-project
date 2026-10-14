@@ -12,6 +12,7 @@ import { documentBlocks, documentFileBytes, type ExportBlock } from "../src/util
 import { readUploadedFile, type ReadResult } from "../src/engine/roundTrip/readFile";
 import { planImport, type ImportPlan, type PlanContext } from "../src/engine/roundTrip/plan";
 import { unzip, zipStored } from "../src/utils/xlsx";
+import { bindAttrs } from "../src/engine/roundTrip/bindPath";
 
 // ---------------------------------------------------------------------------
 // a DOM just big enough for the walk
@@ -366,4 +367,105 @@ test("a signed-off record's multi-line value is a multi-line value in the Word f
   assert.equal(remarks.text, "All good\nNo leaks");
   assert.equal(r.values.get(remarks.i)?.text, "All good\nNo leaks", "written with a line break, read back with one");
   assert.deepEqual(planImport(r, "upload.docx", ctx(signedOffData())).changes, []);
+});
+
+// ---------------------------------------------------------------------------
+// the paper's own marks print, and stay out of the downloaded file (REQUIREMENTS §111, part 4)
+
+const LOT = ["ACCEPTED", "REJECT & SEND BACK TO SUPPLIER / SCRAP", "SEGREGATION", "ACCEPTED ON DEVIATION"];
+
+/** An incoming record's boxes signed off, as components/records/LogSheetRecordView.tsx draws them since part 4. */
+function incomingSignedOff(status: string): FakeElement {
+  const choice = h("select", { class: "input input-sm", ...bindAttrs("header/lotStatus", "select", { label: "LOT STATUS", options: LOT }), disabled: "" }) as FakeSelect;
+  Object.assign(choice, { value: status, selectedOptions: status ? [{ textContent: status }] : [] });
+  const hidden = { "aria-hidden": "true" };
+  return h(
+    "div",
+    { "data-print-doc": "", "data-bind-record": REC },
+    {},
+    // LOT STATUS: its bound choice box kept off the screen but in the page, the paper's four words across beside it.
+    h(
+      "div",
+      { class: "field field-choices-across" },
+      { display: "flex" },
+      h("label", {}, {}, "LOT STATUS"),
+      choice,
+      h("span", { class: "choices-across", ...hidden, "data-choices-across": "lotStatus" }, { display: "flex" }, ...LOT.map((w) => h("span", { class: w === status ? "choice-across is-chosen" : "choice-across" }, {}, w)))
+    ),
+    // INSPECTED BY over its box, QA INSPECTOR printed under it.
+    h(
+      "div",
+      { class: "field field-printed-below" },
+      { display: "flex" },
+      h("label", {}, {}, "INSPECTED BY"),
+      input("Patel Poojan Vishnubhai", { ...bindAttrs("header/inspectedBy", "text", { label: "INSPECTED BY (QA INSPECTOR)" }), disabled: "" }),
+      h("span", { class: "box-printed-below", ...hidden }, {}, "QA INSPECTOR")
+    ),
+    // The retest date inside its sentence.
+    h(
+      "div",
+      { class: "field field-in-sentence" },
+      { display: "flex" },
+      h("label", {}, {}, "This material should be retested on"),
+      input("2022-07-03", { type: "date", ...bindAttrs("header/retestOn", "date", { label: "This material should be retested on" }), disabled: "" }),
+      h("span", { class: "field-sentence-after", ...hidden }, {}, "before usage.")
+    ),
+    // A box that must be written: the screen's "*" in its label, kept off the paper.
+    h("div", { class: "field" }, { display: "flex" }, h("label", {}, {}, "Date of Inspection", h("span", { class: "no-print" }, {}, " *")), input("2026-10-14", { type: "date", ...bindAttrs("header/dateOfInspection", "date", { label: "Date of Inspection" }), disabled: "" }))
+  );
+}
+const incomingData = (status: string) => ({ header: { lotStatus: status, inspectedBy: "Patel Poojan Vishnubhai", retestOn: "2022-07-03", dateOfInspection: "2026-10-14" }, rows: [] });
+
+test("the paper's own marks stay out of the downloaded file: LOT STATUS reads the status, the signature its name, the retest its date, no '*'", async () => {
+  const blocks = documentBlocks([incomingSignedOff("SEGREGATION")] as unknown as Element[]);
+  const fields = blocks.filter((b): b is Extract<ExportBlock, { kind: "fields" }> => b.kind === "fields").flatMap((b) => b.pairs.map(([name, cell]) => [name, cell.text]));
+  assert.deepEqual(fields, [
+    ["LOT STATUS", "SEGREGATION"],
+    ["INSPECTED BY", "Patel Poojan Vishnubhai"],
+    ["This material should be retested on", "03-Jul-2022"],
+    ["Date of Inspection", "14-Oct-2026"],
+  ]);
+  // The words the file shows (not the bindings, which carry the choice box's options as they always did).
+  const shown = blocks
+    .flatMap((b) => (b.kind === "text" ? [b.text] : b.kind === "fields" ? b.pairs.flatMap(([name, cell]) => [name, cell.text]) : b.rows.flatMap((r) => r.map((c) => c.text))))
+    .join("\n");
+  for (const words of ["ACCEPTED ON DEVIATION", "QA INSPECTOR", "before usage.", "*"]) assert.ok(!shown.includes(words), `${words} is the paper's, not the file's`);
+
+  for (const kind of ["xlsx", "docx"] as const) {
+    const bytes = documentFileBytes(kind, DOC, blocks, [REC], EXPORTED_AT);
+    const untouched = await read(bytes, `upload.${kind}`);
+    assert.deepEqual(untouched.missing, [], `${kind}: every box is found in the file`);
+    assert.deepEqual(planImport(untouched, `upload.${kind}`, ctx(incomingData("SEGREGATION"))).changes, [], `${kind}: read back untouched, nothing changes`);
+  }
+  // The status changed in Excel is read back as the status.
+  const bytes = documentFileBytes("xlsx", DOC, blocks, [REC], EXPORTED_AT);
+  const untouched = await read(bytes);
+  const parts = await partsOf(bytes);
+  setText(parts, untouched.entries.find((e) => e.path === "header/lotStatus")!.ref!, "ACCEPTED");
+  assert.deepEqual(changesBy(planImport(await read(zipOf(parts)), "upload.xlsx", ctx(incomingData("SEGREGATION")))), { "header/lotStatus": "ACCEPTED" });
+});
+
+// ---------------------------------------------------------------------------
+// the header block's own lines (REQUIREMENTS §111 part 6): the paper's lines under the company's name go into the file
+
+test("a downloaded file carries the lines the paper prints under the company's name, between the name and the title", () => {
+  const head = h(
+    "div",
+    { "data-print-doc": "", "data-bind-record": REC },
+    {},
+    h(
+      "div",
+      { class: "doc-header" },
+      {},
+      h("div", { class: "company-name has-lines" }, {}, "GUJARAT PRINT PACK PUBLICATIONS PVT LTD"),
+      h("div", { class: "company-lines" }, {}, h("div", {}, {}, "Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes")),
+      h("div", { class: "doc-title" }, {}, "WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE")
+    )
+  );
+  const texts = documentBlocks([head] as unknown as Element[]).flatMap((b) => (b.kind === "text" ? [[b.text, b.strong]] : []));
+  assert.deepEqual(texts, [
+    ["GUJARAT PRINT PACK PUBLICATIONS PVT LTD", true],
+    ["Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes", false],
+    ["WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE", true],
+  ]);
 });

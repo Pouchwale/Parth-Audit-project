@@ -275,7 +275,25 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "training-record", aliases: ["training record", "training"] },
   { id: "qc-viscosity", aliases: ["adhesive viscosity", "viscosity record", "f-qc-30", "viscosity"] },
   { id: "qc-adhesive-mixing", aliases: ["adhesive mixing", "mixing ratio", "f-qc-32"] },
-  { id: "qc-temperature", aliases: ["hot room temperature", "temperature monitoring", "f-qc-40"] },
+  // The three temperature records, F-QC-40.A, .B and .C (REQUIREMENTS §111, part 8): "temperature monitoring" and the
+  // number without its letter name all three, and Mitra asks which; each one's own words name it alone.
+  { id: "qc-temperature", aliases: ["hot room temperature", "hot room temperature monitoring", "temperature monitoring"] },
+  {
+    id: "qc-temperature-humidity",
+    aliases: [
+      "temperature monitoring",
+      "temperature and humidity",
+      "temperature & humidity",
+      "temperature and humidity monitoring",
+      "temperature & humidity monitoring",
+      "humidity monitoring",
+      "printing area temperature",
+      "ink kitchen temperature",
+      "ware house temperature",
+      "warehouse temperature",
+    ],
+  },
+  { id: "qc-temperature-sleeve", aliases: ["temperature monitoring", "sleeve division temperature", "sleeve division temperature monitoring", "sleeve temperature"] },
   // THE PRODUCTION MODULE (REQUIREMENTS §91). Each format is found by its whole name, so a name typed in full beats
   // every shorter word inside it ("pouching" is F/QC/37's, "slitting" F/QC/35's): only the longest alias a
   // document matches is weighed, and a longer one that contains another's wins. The words three of them share
@@ -471,6 +489,11 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "qc-inprocess-printing", aliases: ["in process quality control", "in-process quality control", "in process printing", "f/qc/13"] },
   { id: "qc-weight-scale-calibration", aliases: ["weight scale calibration", "weighing balance", "weight scale", "weighing scale", "f/qc/12"] },
   { id: "qc-gsm-plate-calibration", aliases: ["gsm cutting plate", "cutting plate", "gsm plate", "f/qc/11"] },
+  // F/QC/17 (REQUIREMENTS §111, part 8): never a bare "scale", which is F/QC/12's weighing scale.
+  {
+    id: "qc-ruler-verification",
+    aliases: ["ruler verification", "ruler internal verification", "ruler calibration", "measuring scale", "measuring scale verification", "scale ruler", "scale (ruler)", "ruler record"],
+  },
   // Quality Control's formats supplied on 18-Sep-2026 (REQUIREMENTS §57). Every
   // one is also found by its format number, which needs no alias at all
   // (engine/formatNumbers.ts) — these are the words people say instead.
@@ -506,9 +529,32 @@ export const DOC_KEYWORDS: { id: string; aliases: string[] }[] = [
   { id: "qc-printing-aids-destruction", aliases: ["destruction record", "printing aids destruction", "printing aids"] },
   { id: "qc-camera-challenge-test", aliases: ["camera challenge", "camera challenge test", "defect detection", "defect detection system"] },
   { id: "qc-tolerance-card-nivea", aliases: ["tolerance card", "beiersdorf", "nivea tolerance card"] },
+  // F-QC-14's two sheets (REQUIREMENTS §111): "test reliability" alone names both, and Mitra asks which.
+  { id: "qc-test-reliability-label", aliases: ["test reliability", "test reliability record", "label test reliability", "test reliability label", "reliability record label"] },
+  { id: "qc-test-reliability-sleeve", aliases: ["test reliability", "test reliability record", "sleeve test reliability", "test reliability sleeve", "reliability record sleeve"] },
   { id: "qc-analysis-report", aliases: ["analysis report", "psl analysis", "psl analysis report", "f/qc/29"] },
   { id: "qc-utility-test-report", aliases: ["utility test report", "utility test", "freeze desiccator oven"] },
-  { id: "qc-minutes-of-meetings", aliases: ["minutes of meetings", "minutes of meeting", "meeting minutes"] },
+  { id: "qc-minutes-of-meetings", aliases: ["minutes of meetings", "minutes of meeting", "meeting minutes", "mom"] },
+  // QC's Statements of Compliance, F/QC-09, F/QC-38 and F/QC-10 (REQUIREMENTS §111): each by the words people use for
+  // it, never one for another; "statement of compliance" alone names them all, and Mitra asks which.
+  {
+    id: "soc-labels",
+    aliases: ["statement of compliance labels", "statement of compliance for labels", "statement of compliance pressure labels", "soc labels", "soc label", "soc for labels", "label soc", "pressure label soc", "soc pressure labels"],
+  },
+  {
+    id: "soc-flexible-packaging",
+    aliases: [
+      "statement of compliance flexible packaging", "statement of compliance for flexible packaging", "statement of compliance pouches", "soc flexible packaging",
+      "soc pouch", "soc pouches", "soc for pouches", "pouch soc", "soc film", "flexible packaging soc", "soc rolls",
+    ],
+  },
+  {
+    id: "soc-shrink-sleeves",
+    aliases: [
+      "statement of compliance shrink sleeves", "statement of compliance for shrink sleeves", "statement of compliance shrink sleeve", "statement of compliance sleeves",
+      "soc shrink sleeve", "soc shrink sleeves", "soc sleeve", "soc sleeves", "soc for sleeves", "sleeve soc", "shrink sleeve soc",
+    ],
+  },
   // Human Resources — the sixteen F/HR formats (REQUIREMENTS §46).
   { id: "hr-competence", aliases: ["personal competence", "competence record", "competence records", "competence chart", "f/hr/01", "competence"] },
   { id: "hr-skill-matrix", aliases: ["skill matrix", "operator skill", "skill status", "f/hr/03"] },

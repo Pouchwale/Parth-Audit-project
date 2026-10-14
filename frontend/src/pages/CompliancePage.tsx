@@ -276,8 +276,11 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
         </table>
       </div>
 
-      <div className="card mt-4">
-        <div className="card-header">
+      {/* What the document prints after its table, as it prints it (REQUIREMENTS §111, the review of 13-Oct-2026): no
+          heading of DCRS's over it; a heading the document prints in the list (F/QC-38's REACH) as a heading, and a "⇨"
+          line as a bullet of the line above it. The heading on screen only names the card. */}
+      <div className="card mt-4" data-section="soc-list">
+        <div className="card-header no-print">
           <h3 className="text-base font-semibold flex items-center gap-2">
             <FiShield size={14} /> Declarations
           </h3>
@@ -294,7 +297,15 @@ export function ComplianceDetailPage({ documentId }: { documentId: string }) {
                 onChange={(e) => patch({ declarations: s.declarations.map((x, xi) => (xi === i ? e.target.value : x)) })}
               />
             ) : (
-              <p key={i} className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}`} {...bindProps(complianceBind.declaration(i))}>
+              <p
+                key={i}
+                // A bullet to each item, as the documents print their list (REQUIREMENTS §111, part 8): drawn by the
+                // stylesheet, so the words a download holds and reads back are the item's alone. A heading (REACH) has
+                // none; a "⇨" line is a bullet of the item above, with its own arrow.
+                className={`text-sm ${i < s.declarations.length - 1 ? "mb-2" : ""}${s.headings?.includes(d) ? " font-semibold" : d.startsWith("⇨") ? "" : " soc-item"}`}
+                style={d.startsWith("⇨") ? { paddingLeft: 24 } : undefined}
+                {...bindProps(complianceBind.declaration(i))}
+              >
                 {d}
               </p>
             )

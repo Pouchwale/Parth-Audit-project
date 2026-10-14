@@ -270,9 +270,10 @@ test("a master-list number DCRS holds under another number finds that document, 
   // F-PRD-19 is the process parameter record's own number now (REQUIREMENTS §91): found by it, with nothing to note.
   const prd19 = findDocuments("F-PRD-19");
   assert.ok(prd19.length === 1 && prd19[0].kind === "yours" && prd19[0].doc.id === "prd-process-parameter" && prd19[0].asListed === undefined, describe(prd19));
-  // The lettered family: F/QC/40 is F-QC-40.C in DCRS, and F-QC-40. A and B on the list only.
+  // The lettered family: F/QC/40 is F-QC-40.A, .B and .C, all three in DCRS since the owner sent A and B on
+  // 14-Oct-2026 (REQUIREMENTS §111, part 8); none of them is left on the list only.
   const qc40 = findDocuments("F/QC/40").map((f) => (f.kind === "master" ? `master ${f.format.formatNo}` : `${f.kind} ${f.doc.id}`));
-  assert.deepEqual(qc40, ["yours qc-temperature", "master F-QC-40. A", "master F-QC-40. B"]);
+  assert.deepEqual(qc40.sort(), ["yours qc-temperature", "yours qc-temperature-humidity", "yours qc-temperature-sleeve"]);
 });
 
 // ---------------------------------------------------------------------------

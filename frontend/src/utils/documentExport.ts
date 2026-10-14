@@ -4,7 +4,21 @@ import { columnName, isoToSerial, xmlText, zipStored, customPropertiesXml, CUSTO
 import { downloadBlob } from "./csv";
 import { formatDisplayDate, todayISO } from "./date";
 import { PRINT_PREPARE_EVENT } from "./print";
-import { BIND_APPEND_ATTR, BIND_ATTR, BIND_COL_ATTR, BIND_OPTIONS_ATTR, BIND_RECORD_ATTR, BIND_TABLE_ATTR, BIND_TYPE_ATTR, BIND_TYPES, decodeOptions, parseBindPath, readBinding, type BindType } from "../engine/roundTrip/bindPath";
+import {
+  BIND_APPEND_ATTR,
+  BIND_ATTR,
+  BIND_COL_ATTR,
+  BIND_OPTIONS_ATTR,
+  BIND_RECORD_ATTR,
+  BIND_SECOND_LINE_ATTR,
+  BIND_TABLE_ATTR,
+  BIND_TYPE_ATTR,
+  BIND_TYPES,
+  decodeOptions,
+  parseBindPath,
+  readBinding,
+  type BindType,
+} from "../engine/roundTrip/bindPath";
 import {
   ENVELOPE_PROPERTY,
   ExportMapBuilder,
@@ -337,7 +351,9 @@ function appendableGrid(table: HTMLTableElement, columnsAt: Map<Element, number>
     const label = clean(textOf(cell));
     columns.push({ key, type, options: decodeOptions(cell.getAttribute(BIND_OPTIONS_ATTR)), col, ...(label ? { label } : {}) });
   }
-  return columns.length ? { recordId, listPath, columns: columns.sort((a, b) => a.col - b.col) } : undefined;
+  // A grid whose entries take two lines says what the second is headed (REQUIREMENTS §111).
+  const secondLine = (table.getAttribute(BIND_SECOND_LINE_ATTR) ?? "").trim();
+  return columns.length ? { recordId, listPath, columns: columns.sort((a, b) => a.col - b.col), ...(secondLine ? { secondLine } : {}) } : undefined;
 }
 
 // A grid read into rows of cells the way the screen lays it out. A heading that
@@ -420,9 +436,22 @@ function walk(el: Element, out: ExportBlock[]): void {
     return;
   }
   if (el.classList.contains("doc-header")) {
-    for (const part of Array.from(el.querySelectorAll(".company-name, .doc-title"))) {
-      const text = clean(textOf(part));
-      if (text) out.push({ kind: "text", text, strong: true, title: true });
+    // The paper's letterhead table (F/QC/25) and its lines under the company's name (REQUIREMENTS §111 part 6) go
+    // into the file as the header block prints them, in their order.
+    for (const part of Array.from(el.querySelectorAll(".doc-letterhead, .company-name, .company-lines, .doc-title"))) {
+      if (part.classList.contains("doc-letterhead")) {
+        const table = part.querySelector("table");
+        const block = table instanceof HTMLTableElement ? tableBlock(table) : null;
+        if (block) out.push(block);
+      } else if (part.classList.contains("company-lines")) {
+        for (const line of Array.from(part.children)) {
+          const text = clean(textOf(line));
+          if (text) out.push({ kind: "text", text, strong: false });
+        }
+      } else {
+        const text = clean(textOf(part));
+        if (text) out.push({ kind: "text", text, strong: true, title: true });
+      }
     }
     const meta = Array.from(el.querySelectorAll(".meta-cell")).flatMap((c) => [{ text: clean(textOf(c.querySelector(".k") ?? c)) }, cellFrom([c.querySelector(".v") ?? c])]);
     if (meta.length > 0) out.push({ kind: "table", rows: [meta], headerRows: 0 });

@@ -23,6 +23,7 @@ import { effectiveDueDatesInMonth } from "../engine/holidays";
 import { fillsThroughYear, periodKeyFor } from "../engine/recordGenerator";
 import { fixedMaterialForServiceArea, normalizeServiceLines } from "../engine/serviceMaterials";
 import { autoFillRecord } from "../engine/autoFill";
+import { qcShiftSigner } from "../engine/qcPaperSamples";
 import { createDefaultData } from "../engine/recordDefaults";
 import { describeRodentEvent, rodentEventFor } from "../engine/rodentPattern";
 import { flyCatchFor, tubeLightCycle } from "../engine/flyPattern";
@@ -424,7 +425,14 @@ export function generateDemoRecordsForMonth(year: number, month: number, only?: 
       // the verifier got to it the same day or a week later, whether it was
       // sent back (engine/plantSimulation.ts). Every record submitted at
       // 10:00 and verified at 15:00 was the clearest tell in the old data.
-      const submitter = rngFor("submitter", doc.id, dueDate).chance(0.75) ? DEMO_CHECKERS[0] : rngFor("submitter2", doc.id, dueDate).pick(DEMO_CHECKERS);
+      // A QC record is submitted by the QC lab executive of HR Master Data on the day's shift, and verified by the QA
+      // Manager (REQUIREMENTS §111 part 6, rule 3: signed by people of HR Master Data — "Priya Solanki", "Vijay" and
+      // "Yogesh Rathod" are not QC's, nor on it).
+      const submitter = doc.id.startsWith("qc-")
+        ? qcShiftSigner(dueDate, "09:00", DEMO_CHECKERS[0])
+        : rngFor("submitter", doc.id, dueDate).chance(0.75)
+          ? DEMO_CHECKERS[0]
+          : rngFor("submitter2", doc.id, dueDate).pick(DEMO_CHECKERS);
       // The record's own data goes in, so a record sent back is sent back for
       // something it shows (REQUIREMENTS §75).
       const life: LifecycleOutcome | { status: RecordStatus } = inFuture

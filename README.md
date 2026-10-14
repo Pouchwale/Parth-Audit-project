@@ -259,6 +259,15 @@ The app behaves like a personal assistant rather than a blank form:
   a document's page shows the record just started, and every record started by hand is in the activity log as "Record
   started". F/STR/02, F/MNT/08 and F/MNT/09, sent again on 7-Oct-2026, read as their papers (F/MNT/09 stays on its newer
   issue of 01.09.2025).
+- **Every QC format exactly as the paper** (REQUIREMENTS §111). Each Quality Control format is held against the owner's
+  originals of 13-Oct-2026 (source-documents/qc-originals-2026-10-13/): its title, labels, columns and printed text in
+  their places, nothing of DCRS's own printed on it, a value the paper prints shown as printed, and Demo Mode's sample
+  data a real day's. F-QC-14, the internal test reliability record, came with them and is built from its workbook, one
+  document for its Label sheet and one for its Sleeve sheet. Mitra finds every QC document by its number however it is
+  written, and the two Statements of Compliance open as issued on the phone too. On 14-Oct-2026 the owner sent four
+  more, each built as its paper: F-QC-40.A (temperature and humidity of the printing area, ink kitchen and ware house),
+  F-QC-40.B (the sleeve division's temperature), F/QC/17 (a measuring scale verified against the master scale) and F/QC-10
+  (the shrink sleeves' Statement of Compliance). DCRS holds 135 documents.
 - **Mitra in your pocket, and Mitra like Claude** (REQUIREMENTS §85). The **Mitra mobile app** (its own repository) now
   signs people in with their DCRS accounts and does what Mitra does in the browser — what is due, finding and reading records,
   starting and filling them, submitting and verifying, photos, figures, PDFs — through DCRS's own engine running on the server,

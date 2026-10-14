@@ -11,22 +11,46 @@ import type { LogColumn, LogSheetLayout } from "../../types";
 // internal calibration record", F-QC-12 "Weighing balance internal calibration
 // record", both Rev. 01 of 01.01.22), and both are Quality Control's.
 //
-// Every heading, every printed word and the procedure note are the paper's own.
-// The one difference in shape, and it is the paper's own doing: the weight
-// scale sheet prints the Deviation % of each entry on a second line under it,
-// which a grid cannot hold, so each weight carries its own Deviation % column
-// on the same line. Nothing is added and nothing is dropped.
+// EXACTLY AS THE PAPER (REQUIREMENTS §111, 13-Oct-2026). The owner sent both
+// blank originals again ("F-QC-11 GSM cutting plate internal calibration record
+// (2).pdf", "F-QC-12 Weighing balance internal calibration record (2).pdf") with
+// DCRS's own prints of them, which showed DCRS's explanations above the grid,
+// the device's printed values typed over, a Sr. No. the weight scale sheet does
+// not have, and its Deviation % moved up beside each weight. Now:
+//   * nothing is printed above either grid but the header boxes; the PROCEDURE
+//     is printed BELOW the grid, where both papers print it (notesBelow);
+//   * F/QC/11's Device ID No, Location, Department and Manufacturer are printed
+//     on the paper, so they are printed here and never typed (printed);
+//   * F/QC/12's entries take two lines, the second headed "Deviation %" with each
+//     weight's Deviation % under its Tested Value (secondLine, beneath), and the
+//     sheet has no Sr. No. column (ownLineNumbers);
+//   * F/QC/11's plates head their columns as the paper does: "No. 54" over
+//     "20 x 20cm" and "Deviation" (group).
+// The boxes stand three to a line, as both papers draw them (headerColumns).
+//
+// AND FROM THE FINDINGS ON §111 (13-Oct-2026, REQUIREMENTS §111 part 6): every box
+// carries the paper's own words, colons and ":-" included ("Device ID No:",
+// "I. Calibration Date:-"), F/QC/11's Due Date stands at the right of its line;
+// the headings print in the paper's letters ("No. 54", "20 x 20cm", "Deviation %"),
+// not the sheet's capitals; F/QC/11's Pass/Fail and Sign. lines are one cell a
+// plate (groupCellLines); a Deviation % outside F/QC/12's Acceptable Tolerance is
+// highlighted (toleranceFrom); and the 31.12.2024 page's Serial No, a scribble on
+// the scan, is left blank as the paper's box is, not DCRS's "TO BE CONFIRMED" —
+// which the morning prepare and the sample fill carried onto every new sheet.
 //
 // THE DEVIATION IS WORKED OUT, NOT TYPED (REQUIREMENTS §61, engine/calibration.ts):
 // (tested value − weight) ÷ weight × 100 on the weight scale, with Pass / Fail
 // against the sheet's Acceptable Tolerance; measured area against the plate's
-// printed size on the GSM cutting plate. The Deviation % columns are `computed`.
+// printed size on the GSM cutting plate. The Deviation columns are `computed`.
 
-const PROCEDURE =
-  "PROCEDURE: Calibration to be done by qualified QA person as per calibration work procedure. If any deviation is found during internal calibration, it must be reported to the QA manager. Calibration records of all weights used must be available and valid.";
+/** The procedure both papers print below the grid, word for word. */
+export const CALIBRATION_PROCEDURE =
+  "Calibration to be done by qualified QA person as per calibration work procedure. If any deviation is found during internal calibration, it must be reported to the QA manager. Calibration records of all weights used must be available and valid.";
+
+/** The line both calibration papers print under the company's name (REQUIREMENTS §111 part 6). */
+export const MANUFACTURERS_LINE = "Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes";
 
 const text = (key: string, label: string, width?: number): LogColumn => ({ key, label, type: "text", width });
-const deviation = (key: string): LogColumn => ({ key, label: "Deviation %", type: "text", width: 90, computed: true });
 
 /** The five test weights of the weight scale sheet, as the form prints them. */
 export const WEIGHT_SCALE_COLUMNS: LogColumn[] = [
@@ -41,7 +65,10 @@ export const WEIGHT_SCALE_COLUMNS: LogColumn[] = [
 for (let i = 1; i <= 5; i++) {
   WEIGHT_SCALE_COLUMNS.push(text(`weight${i}`, `Weight ${i}`, 110));
   WEIGHT_SCALE_COLUMNS.push(text(`testedValue${i}`, `Tested Value ${i}`, 120));
-  WEIGHT_SCALE_COLUMNS.push(deviation(`deviation${i}`));
+  // On the entry's second line, under its Tested Value (REQUIREMENTS §111). Its
+  // name says which weight it is: the paper heads the line "Deviation %" once.
+  // Highlighted outside ± the Acceptable Tolerance written above the grid (REQUIREMENTS §111, rule 2).
+  WEIGHT_SCALE_COLUMNS.push({ key: `deviation${i}`, label: `Deviation % ${i}`, type: "text", width: 90, computed: true, beneath: `testedValue${i}`, toleranceFrom: "acceptableTolerance" });
 }
 WEIGHT_SCALE_COLUMNS.push({ key: "passFail", label: "Pass / Fail", type: "select", options: ["Pass", "Fail"], width: 100 });
 WEIGHT_SCALE_COLUMNS.push({ key: "sign", label: "Sign", type: "text", width: 110, autoFill: { sign: true } });
@@ -90,24 +117,34 @@ export const WEIGHT_SCALE_HEADER: Record<string, string> = {
 
 const weightScale: LogSheetLayout = {
   documentId: "qc-weight-scale-calibration",
-  instructions: [
-    "WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE. One line per weekly calibration: the five test weights, the value the scale showed for each, the deviation, Pass / Fail, the tester's sign and when the next one is due.",
-    PROCEDURE,
-    "On the paper the Deviation % of each entry is written on a second line beneath it; here every weight carries its own Deviation % column on the same line. Each Deviation % is worked out from the weight and its tested value — (tested − weight) ÷ weight × 100, in whatever unit they are written — and Pass / Fail follows the Acceptable Tolerance above.",
-  ],
+  // The paper has no Sr. No. column: its entries are known by their Date (REQUIREMENTS §111).
+  ownLineNumbers: true,
+  // Every entry takes two lines; the second is headed "Deviation %" in the Date column.
+  secondLine: { label: "Deviation %" },
+  // "Manufacturers of Printed Cartons, ..." under the company's name, as the paper prints it.
+  underCompany: [MANUFACTURERS_LINE],
+  // Three rows of three: Device ID No, Location, Department / Manufacturer, Serial No,
+  // Calibration Expiry / Minimum Reading Capacity, Maximum Reading Capacity, Acceptable Tolerance.
+  headerColumns: 3,
+  // "Date", "Tested By", "Weight 1", "Pass / Fail" in the paper's own letters, not the sheet's capitals.
+  headingsAsPrinted: true,
+  // Each box's words as the paper prints them, its colon included; the names stay those the history and Mitra go by.
   headerFields: [
-    { key: "deviceIdNo", label: "Device ID No", type: "text", width: 140, autoFill: { carryForward: true } },
-    { key: "location", label: "Location", type: "text", width: 140, autoFill: { carryForward: true } },
-    { key: "department", label: "Department", type: "text", width: 120, autoFill: { carryForward: true } },
-    { key: "manufacturer", label: "Manufacturer", type: "text", width: 170, autoFill: { carryForward: true } },
-    { key: "serialNo", label: "Serial No", type: "text", width: 110, autoFill: { carryForward: true } },
-    { key: "calibrationExpiry", label: "Calibration Expiry", type: "date", width: 150, autoFill: { carryForward: true } },
-    { key: "minReadingCapacity", label: "Minimum Reading Capacity", type: "text", width: 150, autoFill: { carryForward: true } },
-    { key: "maxReadingCapacity", label: "Maximum Reading Capacity", type: "text", width: 150, autoFill: { carryForward: true } },
-    { key: "acceptableTolerance", label: "Acceptable Tolerance", type: "text", width: 140, autoFill: { carryForward: true } },
+    { key: "deviceIdNo", label: "Device ID No", printedLabel: "Device ID No:", type: "text", width: 140, autoFill: { carryForward: true } },
+    { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 140, autoFill: { carryForward: true } },
+    { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, autoFill: { carryForward: true } },
+    { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, autoFill: { carryForward: true } },
+    { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 110, autoFill: { carryForward: true } },
+    { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true } },
+    { key: "minReadingCapacity", label: "Minimum Reading Capacity", printedLabel: "Minimum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true } },
+    { key: "maxReadingCapacity", label: "Maximum Reading Capacity", printedLabel: "Maximum Reading Capacity:", type: "text", width: 150, autoFill: { carryForward: true } },
+    { key: "acceptableTolerance", label: "Acceptable Tolerance", printedLabel: "Acceptable Tolerance:", type: "text", width: 140, autoFill: { carryForward: true } },
   ],
   columns: WEIGHT_SCALE_COLUMNS,
-  rowMode: { kind: "free", minRows: 1, typicalRows: 4 },
+  // One sheet a week, and one calibration on it: the week's (REQUIREMENTS §111, rule 3 — never
+  // four lines on one day). The supplied page carries four weeks because it is a month of paper.
+  rowMode: { kind: "free", minRows: 1, typicalRows: 1 },
+  notesBelow: ["PROCEDURE:", CALIBRATION_PROCEDURE],
   specimenHeader: WEIGHT_SCALE_HEADER,
   specimenRows: WEIGHT_SCALE_SPECIMEN_LINES,
   specimenSource: "weekly and monthly internal calibration records.pdf, page 1 — F/QC/12 (01/01.01.2022), four calibrations Feb–Mar 2024",
@@ -117,8 +154,8 @@ const weightScale: LogSheetLayout = {
 // F/QC/11 — MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE
 //
 // The paper's grid is read down the page: four test rows, then Pass/Fail, then
-// Sign — each of the four plates a pair of columns (the size measured, and the
-// deviation). Exactly that, here.
+// Sign — each of the four plates a pair of columns under its number (the size
+// measured, and the deviation). Exactly that, here.
 
 export const GSM_PLATES: { key: string; no: string; size: string }[] = [
   { key: "p54", no: "No. 54", size: "20 x 20cm" },
@@ -131,8 +168,8 @@ export const GSM_ROWS = ["Tasted-1", "2", "3", "4", "Pass/Fail", "Sign."];
 
 const gsmColumns: LogColumn[] = [{ key: "parameter", label: "Index", type: "text", fixed: true, width: 90 }];
 for (const plate of GSM_PLATES) {
-  gsmColumns.push(text(plate.key, `${plate.no} (${plate.size})`, 130));
-  gsmColumns.push(deviation(`${plate.key}dev`));
+  gsmColumns.push({ key: plate.key, label: plate.size, type: "text", width: 130, group: plate.no });
+  gsmColumns.push({ key: `${plate.key}dev`, label: "Deviation", type: "text", width: 90, computed: true, group: plate.no });
 }
 
 /** The supplied page: every plate measured at its own size, deviation 0%, all Pass, signed Rashmi. */
@@ -145,12 +182,20 @@ export const GSM_SPECIMEN_ROWS: Record<string, string>[] = GSM_ROWS.map((row) =>
   return line;
 });
 
-export const GSM_HEADER: Record<string, string> = {
+/** What the paper prints in its first four boxes (REQUIREMENTS §111): the four plates and where they are kept. */
+export const GSM_PRINTED = {
   deviceIdNo: "1-54, 2-55, 3-56, 4-57",
   location: "LAB",
   department: "LAB",
   manufacturer: "Global Eng. Co. (GEC)",
-  serialNo: "TO BE CONFIRMED",
+} as const;
+
+export const GSM_HEADER: Record<string, string> = {
+  ...GSM_PRINTED,
+  // A scribble on the scan, not legible: left blank, as the paper's box is (REQUIREMENTS §51's list of what is
+  // to be confirmed says so). DCRS's "TO BE CONFIRMED" written here printed on the page and, as this is also the
+  // specimen a new sheet's standing boxes come from, on every new sheet (§111 part 6).
+  serialNo: "",
   calibrationExpiry: "2025-09-22",
   calibrationDate: "2024-12-31",
   dueDate: "",
@@ -160,26 +205,32 @@ const gsmPlate: LogSheetLayout = {
   documentId: "qc-gsm-plate-calibration",
   // The paper's own Index column (Tasted-1, 2, 3, 4, Pass/Fail, Sign.) numbers the lines (REQUIREMENTS §102).
   ownLineNumbers: true,
-  instructions: [
-    "MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE. The four plates — No. 54 (20 x 20cm), No. 55 (10 x 10cm), No. 56 (5 x 5cm), No. 57 (2.5 x 2.5cm) — measured four times each, with the deviation beside every measurement, then Pass / Fail and the tester's sign for each plate.",
-    PROCEDURE,
-    "Each Deviation % is worked out from the size written beside it, by area, against the plate's own size printed at the head of its column.",
-  ],
+  // "Manufacturers of Printed Cartons, ..." under the company's name, as the paper prints it.
+  underCompany: [MANUFACTURERS_LINE],
+  headerColumns: 3,
+  // "Index", "No. 54", "20 x 20cm", "Deviation" in the paper's own letters, not the sheet's capitals.
+  headingsAsPrinted: true,
+  // Each box's words as the paper prints them, its colon or ":-" included; the names stay those the history and Mitra go by.
   headerFields: [
-    { key: "deviceIdNo", label: "Device ID No", type: "text", width: 170, autoFill: { carryForward: true } },
-    { key: "location", label: "Location", type: "text", width: 120, autoFill: { carryForward: true } },
-    { key: "department", label: "Department", type: "text", width: 120, autoFill: { carryForward: true } },
-    { key: "manufacturer", label: "Manufacturer", type: "text", width: 170, autoFill: { carryForward: true } },
-    { key: "serialNo", label: "Serial No", type: "text", width: 120, autoFill: { carryForward: true } },
-    { key: "calibrationExpiry", label: "Calibration Expiry", type: "date", width: 150, autoFill: { carryForward: true } },
+    { key: "deviceIdNo", label: "Device ID No", printedLabel: "Device ID No:", type: "text", width: 170, printed: GSM_PRINTED.deviceIdNo },
+    { key: "location", label: "Location", printedLabel: "Location:", type: "text", width: 120, printed: GSM_PRINTED.location },
+    { key: "department", label: "Department", printedLabel: "Department:", type: "text", width: 120, printed: GSM_PRINTED.department },
+    { key: "manufacturer", label: "Manufacturer", printedLabel: "Manufacturer:", type: "text", width: 170, printed: GSM_PRINTED.manufacturer },
+    { key: "serialNo", label: "Serial No", printedLabel: "Serial No:", type: "text", width: 120, autoFill: { carryForward: true } },
+    { key: "calibrationExpiry", label: "Calibration Expiry", printedLabel: "Calibration Expiry:", type: "date", width: 150, autoFill: { carryForward: true } },
     // The month's calibration is done on the day its record is for; left to the
     // specimen it was blank on every sheet (REQUIREMENTS §75). The Calibration
-    // Expiry above is the plates' own, carried as written.
-    { key: "calibrationDate", label: "Calibration Date", type: "date", width: 150, autoFill: { dueDate: true } },
-    { key: "dueDate", label: "Due Date", type: "date", width: 150 },
+    // Expiry above is the plates' own, carried as written. The paper prints
+    // "I. Calibration Date:-" over the grid; its name stays "Calibration Date".
+    { key: "calibrationDate", label: "Calibration Date", printedLabel: "I. Calibration Date:-", type: "date", width: 150, autoFill: { dueDate: true } },
+    // "Due Date:-" at the right of the line, where the paper prints it (paperColumn).
+    { key: "dueDate", label: "Due Date", printedLabel: "Due Date:-", type: "date", width: 150, paperColumn: 3 },
   ],
   columns: gsmColumns,
   rowMode: { kind: "fixedRows", rows: GSM_ROWS.map((parameter) => ({ parameter })) },
+  // Pass/Fail and Sign.: one cell under each plate, across its size and Deviation, as printed.
+  groupCellLines: [GSM_ROWS.indexOf("Pass/Fail"), GSM_ROWS.indexOf("Sign.")],
+  notesBelow: [`PROCEDURE: ${CALIBRATION_PROCEDURE}`],
   specimenHeader: GSM_HEADER,
   specimenRows: GSM_SPECIMEN_ROWS,
   specimenSource: "weekly and monthly internal calibration records.pdf, page 2 — F/QC/11 (01/01.01.2022), calibration of 31.12.2024",

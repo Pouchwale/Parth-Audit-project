@@ -1,10 +1,12 @@
 import React from "react";
-import type { DocumentDefinition } from "../../types";
+import { TBC, type DocumentDefinition } from "../../types";
 import type { HeaderField } from "../../engine/formatOps";
 import { COMPANY } from "../../data/seed/masterData";
 import { documentTextIn } from "../../i18n/documentText";
+import type { Language } from "../../i18n/strings";
 import { useAppStore } from "../../store/AppStore";
 import { formatDisplayDate } from "../../utils/date";
+import { isPlaceholder } from "../../engine/observations";
 
 // Reproduces the original paper header block: company name, document title,
 // Format No. / Rev No. / Date / Page No. row — used by every record view so
@@ -31,6 +33,13 @@ import { formatDisplayDate } from "../../utils/date";
 // way a column heading is (components/documents/SheetDesigner.tsx). The caller
 // passes `edit` only then: the field being typed, what to do on a click, the
 // draft's values, and the box to draw in the cell being typed.
+//
+// A REVISION NOBODY HAS GIVEN PRINTS EMPTY (REQUIREMENTS §111 part 6). A format
+// whose paper prints no revision, and whose revision the plant has not confirmed
+// (F/QC/25, F-QC-19's tolerance card), is held as "TO BE CONFIRMED": the screen
+// says so, the print leaves the cell empty, as the paper does. A record headed
+// with its own date prints the format's revision date beside it ("Rev Date"),
+// the date the paper prints in its own header.
 //
 // AND ON EVERY RECORD (REQUIREMENTS §86): a record page passes `edit` as well,
 // with `fields` naming the cells that take a click there. The format's own
@@ -110,8 +119,13 @@ export function DocumentHeader({
   companyName,
   letterhead,
   title,
+  titleAsPrinted = false,
+  underCompany,
   revision,
   edit,
+  language,
+  numberNotPrinted,
+  printedWithNumber,
 }: {
   doc: DocumentDefinition;
   extraTitle?: string;
@@ -123,14 +137,28 @@ export function DocumentHeader({
   letterhead?: React.ReactNode;
   /** The title exactly as the form prints it, when it differs from doc.name. */
   title?: string;
+  /** The title in the paper's own letters, not the header's capitals (LogSheetLayout.titleAsPrinted, §111 part 6). */
+  titleAsPrinted?: boolean;
+  /** The lines the paper prints under the company's name or its letterhead, before the title (§111 part 6). */
+  underCompany?: string[];
   /** The superseded revision a record was filled on (number, ISO issue date), printed in place of the current one. */
   revision?: { no: string; date: string };
   /** The header being designed in place (REQUIREMENTS §77). */
   edit?: HeaderEdit;
+  /** The language the form's own words read in, where it is not the chosen one: a QC paper printed in Gujarati is printed as issued (REQUIREMENTS §111). */
+  language?: Language;
+  /** The paper prints no format number and no revision (the Gujarati checklists, REQUIREMENTS §111): an unconfirmed one prints empty. */
+  numberNotPrinted?: boolean;
+  /** The paper's own lines printed with its format number (F/QC/20's issue and review dates, REQUIREMENTS §111), after the revision. */
+  printedWithNumber?: { label: string; value: string }[];
 }) {
   // A form issued in Gujarati carries its Gujarati title; with English chosen
-  // the title reads in English like the rest of it (REQUIREMENTS §58).
-  const { lang } = useAppStore();
+  // the title reads in English like the rest of it (REQUIREMENTS §58) — unless
+  // the form is printed as issued in every language (§111).
+  const { lang: chosen } = useAppStore();
+  const lang = language ?? chosen;
+  // A number the paper does not print, and DCRS has not been told, prints empty — never "TO BE CONFIRMED" on the sheet (§111).
+  const asPrinted = (value: string | null | undefined): string => (numberNotPrinted && (!value || value.trim() === TBC) ? "" : (value ?? ""));
   // What the plant changed on the format wins over what the form was issued
   // with (data/formatEdits.ts); a draft being designed wins over both.
   const company = edit?.values.companyName ?? doc.companyName ?? companyName ?? COMPANY.name;
@@ -140,15 +168,24 @@ export function DocumentHeader({
   return (
     <div className="doc-header">
       {letterhead ?? (
-        <div className="company-name notranslate" translate="no">
+        <div className={underCompany?.length ? "company-name has-lines notranslate" : "company-name notranslate"} translate="no">
           <Cell field="companyName" edit={edit}>
             {company}
           </Cell>
         </div>
       )}
+      {/* The paper's own lines under the company's name — F/QC/11's "Manufacturers of ...", a certificate's address —
+          as issued, in every language (§111 part 6). */}
+      {underCompany && underCompany.length > 0 && (
+        <div className="company-lines notranslate" translate="no" data-section="under-company">
+          {underCompany.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      )}
       <div className="doc-title">
         <Cell field="title" edit={edit}>
-          {documentTextIn(title ?? doc.name, lang).toUpperCase()}
+          {titleAsPrinted ? documentTextIn(title ?? doc.name, lang) : documentTextIn(title ?? doc.name, lang).toUpperCase()}
           {extraTitle ? ` — ${extraTitle}` : ""}
         </Cell>
       </div>
@@ -156,7 +193,7 @@ export function DocumentHeader({
         <div className="meta-cell">
           <span className="k">Format No.</span>
           <Cell field="formatNo" edit={edit} className="v notranslate" translate>
-            {formatNo}
+            {asPrinted(formatNo)}
           </Cell>
         </div>
         <div className="meta-cell">
@@ -166,20 +203,48 @@ export function DocumentHeader({
           ) : (
             <span className="v notranslate" translate="no" data-revision={revision ? revision.no : undefined}>
               <Cell field="revisionNo" edit={edit}>
-                {revisionNo}
+                {/* A number the paper does not print prints empty (§111); one not yet given is said on screen and an empty
+                    cell in print (§111 part 6). */}
+                {numberNotPrinted ? (
+                  asPrinted(revisionNo)
+                ) : isPlaceholder(revisionNo) ? (
+                  <span className="no-print text-muted" data-revision-unconfirmed="">
+                    {revisionNo}
+                  </span>
+                ) : (
+                  revisionNo
+                )}
               </Cell>
             </span>
           )}
         </div>
+        {printedWithNumber?.map((m) => (
+          <div key={m.label} className="meta-cell" data-meta="printed-with-number">
+            <span className="k">{m.label}</span>
+            <span className="v notranslate" translate="no">
+              {m.value}
+            </span>
+          </div>
+        ))}
         {/* Where the Date cell is taken by the record's own date, the date the
-            superseded revision was issued still has to be on the header — it is
-            half of what identifies the paper the record was written on. */}
+            revision was issued still has to be on the header — it is half of
+            what identifies the paper the record was written on, and the date the
+            paper itself prints there (§111 part 6). A superseded revision's takes
+            no click; the current one's changes the format, as its number does. */}
         {revision && dateLabel !== undefined && (
           <div className="meta-cell" data-meta="revision-date">
             <span className="k">Rev Date</span>
             <span className="v notranslate" translate="no">
               {formatDisplayDate(revision.date)}
             </span>
+          </div>
+        )}
+        {!revision && dateLabel !== undefined && revisionDate && (
+          <div className="meta-cell" data-meta="revision-date">
+            <span className="k">Rev Date</span>
+            <Cell field="revisionDate" edit={edit} className="v notranslate" translate>
+              {formatDisplayDate(revisionDate)}
+            </Cell>
           </div>
         )}
         <div className="meta-cell">

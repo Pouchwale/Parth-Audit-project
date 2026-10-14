@@ -468,6 +468,13 @@ function normHeader(layout: LogSheetLayout, cur: Obj, value: unknown, problems: 
       problems.push(`"${k}" isn't a field on this form, so I left it out.`);
       continue;
     }
+    // PRINTED ON THE PAPER, never written (REQUIREMENTS §111): F/QC/11's Device ID No reads
+    // "1-54, 2-55, 3-56, 4-57" on every sheet. Sending that same value changes nothing; anything else is refused.
+    if (typeof f.printed === "string") {
+      if (String(v ?? "").trim() !== f.printed) problems.push(`${f.label} is printed on the form ("${f.printed}") and can't be changed.`);
+      next[k] = f.printed;
+      continue;
+    }
     const n = normTyped(f, v, problems);
     if (n !== INVALID) next[k] = n;
   }
@@ -540,6 +547,15 @@ function normRows(layout: LogSheetLayout, cur: Obj[], value: unknown[], problems
   }
   // Free rows: kept rows first in their original order, then any new ones.
   const kept = cur.map((_, i) => out[i]).filter(Boolean) as Obj[];
+  // A new line on a paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) is
+  // numbered after the one above it, unless the patch numbered it.
+  const numberedBy = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
+  if (numberedBy) {
+    added.forEach((row, i) => {
+      const own = row[numberedBy];
+      if (own === undefined || own === null || own === "") row[numberedBy] = String(kept.length + i + 1);
+    });
+  }
   return [...kept, ...added];
 }
 

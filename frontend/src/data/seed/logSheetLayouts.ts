@@ -1,12 +1,16 @@
 import type { LogColumn, LogHeaderField, LogSheetLayout } from "../../types";
 import { HR_LAYOUTS } from "./hrLayouts";
-import { QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
-import { QC_INCOMING_LAYOUTS } from "./qcIncomingLayouts";
-import { QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
+import { CALIBRATION_PROCEDURE, QC_CALIBRATION_LAYOUTS } from "./qcCalibrationLayouts";
+import { FLEXO_INK_SYSTEM_NOTE, INCOMING_ADDRESS, OBSERVATION_BAND, QC_INCOMING_LAYOUTS, signatureBoxes } from "./qcIncomingLayouts";
+import { FQC13_WITHDRAWN_LINES, QC_IN_PROCESS_LAYOUTS } from "./qcInProcessLayouts";
+import { LINE_CLEARANCE_TITLE_LINES, QC_LINE_CLEARANCE_LAYOUTS } from "./qcLineClearanceLayouts";
 import { QC_GUJARATI_LINE_CLEARANCE_LAYOUTS } from "./qcGujaratiLineClearanceLayouts";
-import { QC_REGISTER_LAYOUTS } from "./qcRegisterLayouts";
-import { QC_COA_LAYOUTS } from "./qcCoaLayouts";
-import { QC_REPORT_LAYOUTS } from "./qcReportLayouts";
+import { PRINTING_AIDS_WITHDRAWN_LINE, QC_REGISTER_LAYOUTS, TOLERANCE_CARD_NOTE } from "./qcRegisterLayouts";
+import { COA_WITHDRAWN_LINES, QC_COA_LAYOUTS } from "./qcCoaLayouts";
+import { QC_REPORT_LAYOUTS, QC_REPORT_WITHDRAWN_LINES } from "./qcReportLayouts";
+import { QC_TEST_RELIABILITY_LAYOUTS } from "./qcTestReliabilityLayouts";
+import { QC_TEMPERATURE_LAYOUTS } from "./qcTemperatureLayouts";
+import { QC_RULER_VERIFICATION_LAYOUTS } from "./qcRulerVerificationLayouts";
 import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
 import { STORE_LAYOUTS } from "./storeLayouts";
@@ -26,17 +30,45 @@ import { withoutLineNumber } from "../../engine/lineNumbers";
 // verbatim; specimen rows are the actual handwritten values (best-effort
 // reads of handwriting are flagged in docs/REQUIREMENTS.md).
 
+/**
+ * F-QC-40.C's six readings, each "... HRS TEMP. + SIGN": the temperature, and under it in the same cell the sign of who
+ * took it (REQUIREMENTS §111, the review of 13-Oct-2026). The sign is a column of its own drawn on the entry's second
+ * line, beneath its reading, with no heading of its own; the shift's QC tester signs (the day's three, the night's three).
+ */
+const hotRoomReading = (key: string, heading: string, time: string): LogColumn[] => [
+  { key, label: heading, type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
+  {
+    key: `${key}Sign`,
+    label: `${heading.replace(/ TEMP\. \+ SIGN$/, "")} SIGN`,
+    type: "text",
+    required: true,
+    beneath: key,
+    width: 110,
+    autoFill: { sign: true, byShift: { day: "Jeni", night: "Singh" }, atTime: time },
+  },
+];
+
+// F-QC-30's day, as its page is written (REQUIREMENTS §111 part 6): 9:00 to 07:00 — twenty-three readings, the next
+// day's first at 9:00. DCRS printed an 08:00 line the page does not have, and filled it on its specimen with the
+// next morning's 9:00 reading (7/9/26, 19.59, Jeni).
 const HOURLY_SLOTS = [
   "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
   "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00",
-  "03:00", "04:00", "05:00", "06:00", "07:00", "08:00",
+  "03:00", "04:00", "05:00", "06:00", "07:00",
 ];
 
 export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F-QC-30 — Lamination Adhesive Viscosity Record (Rev 00, 15.12.2024)
+  // As the paper (REQUIREMENTS §111): Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By, and
+  // nothing printed above the grid — the specification is in the Viscosity heading, where the paper prints it
+  // and where it sets the band a reading outside is highlighted by. The owner crossed out the line DCRS
+  // printed above, and circled its numbered Sr. No.: on the paper the day's date is written there on the
+  // day's first line ("6/9/26", "7/9/26") and the hours under Date/Time.
   "qc-viscosity": {
     documentId: "qc-viscosity",
-    instructions: ["Viscosity specification: 20.0 ± 1.0 Sec. One reading every hour, round the clock (09:00 to 08:00 next day)."],
+    srNoShowsDate: true,
+    // "Viscosity (20.0 ± 1.0 Sec.)" and "Tested By" in the paper's own letters, not the sheet's capitals (§111 part 6).
+    headingsAsPrinted: true,
     headerFields: [],
     columns: [
       { key: "time", label: "Date/Time", type: "time", fixed: true, width: 90 },
@@ -56,17 +88,23 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
       { time: "01:00", viscosity: 20.58, testedBy: "Singh" }, { time: "02:00", viscosity: 19.76, testedBy: "Singh" },
       { time: "03:00", viscosity: 19.87, testedBy: "Singh" }, { time: "04:00", viscosity: 19.52, testedBy: "Singh" },
       { time: "05:00", viscosity: 19.78, testedBy: "Singh" }, { time: "06:00", viscosity: 19.16, testedBy: "Singh" },
-      { time: "07:00", viscosity: 19.76, testedBy: "Singh" }, { time: "08:00", viscosity: 19.59, testedBy: "Jeni" },
+      { time: "07:00", viscosity: 19.76, testedBy: "Singh" },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.18 PM.jpeg (F-QC-30, filled 6/9/26 – 7/9/26)",
   },
 
   // ---- F-QC-32 — Adhesive Mixing Ratio Record (Rev 00, 15.12.2024)
+  // As the paper (REQUIREMENTS §111): Sr. No. | Date | Time | Adhesive (kg) | Hardener (kg) | Ethyl (kg) |
+  // Viscosity (Sec.) | Remark | Checked by | Verified by. The Date column was missing; nothing is printed above
+  // the grid (DCRS's "One row per adhesive batch mixed..." was its own explanation, not the paper's).
   "qc-adhesive-mixing": {
     documentId: "qc-adhesive-mixing",
-    instructions: ["One row per adhesive batch mixed. Standard mix observed on the specimen: 15 kg adhesive : 1.65 kg hardener : 19.5 kg ethyl acetate."],
+    // "Adhesive (kg)", "Viscosity (Sec.)", "Checked by" in the paper's own letters, not the sheet's capitals (§111 part 6).
+    headingsAsPrinted: true,
     headerFields: [],
     columns: [
+      // The day the batch was mixed: the record's date (a line written after midnight is changed by the person).
+      { key: "date", label: "Date", type: "date", width: 130, autoFill: { dueDate: true } },
       { key: "time", label: "Time", type: "time", required: true, width: 90, autoFill: { nowTime: true } },
       // Weighed set quantities — always the same 15 / 1.65 / 19.5 on the
       // specimen, so they are copied exactly (band only drives highlighting).
@@ -75,38 +113,53 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
       { key: "ethyl", label: "Ethyl (kg)", type: "number", unit: "kg", min: 19.0, max: 20.0, decimals: 2, required: true, autoFill: { carryForward: true, default: 19.5 }, width: 100 },
       { key: "viscosity", label: "Viscosity (Sec.)", type: "number", unit: "Sec.", nominal: 20.0, min: 19.0, max: 21.0, decimals: 2, required: true, width: 110 },
       { key: "remark", label: "Remark", type: "text" },
-      { key: "checkedBy", label: "Checked by", type: "text", autoFill: { sign: true, byShift: { day: "Jeni", night: "Singh" } }, width: 130 },
-      { key: "verifiedBy", label: "Verified by", type: "text", width: 130 },
+      // The page is signed under Verified by, by the shift's QC tester; Checked by is left blank (§111 part 6).
+      { key: "checkedBy", label: "Checked by", type: "text", width: 130 },
+      { key: "verifiedBy", label: "Verified by", type: "text", autoFill: { sign: true, byShift: { day: "Jeni", night: "Singh" } }, width: 130 },
     ],
     rowMode: { kind: "free", minRows: 1, typicalRows: 3 },
+    // As the page is written (REQUIREMENTS §111 part 6): the signatures stand under Verified by, Checked by is left
+    // blank, and its fifth line is of the next morning, 7/9/26.
     specimenRows: [
-      { time: "04:30", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.9, remark: "", checkedBy: "Jeni", verifiedBy: "" },
-      { time: "21:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.76, remark: "", checkedBy: "Singh", verifiedBy: "" },
-      { time: "02:50", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.89, remark: "", checkedBy: "Singh", verifiedBy: "" },
-      { time: "06:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 20.15, remark: "", checkedBy: "Singh", verifiedBy: "" },
+      { date: "2026-09-06", time: "04:30", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.9, remark: "", checkedBy: "", verifiedBy: "Jeni" },
+      { date: "2026-09-06", time: "21:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.76, remark: "", checkedBy: "", verifiedBy: "Singh" },
+      { date: "2026-09-06", time: "02:50", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 19.89, remark: "", checkedBy: "", verifiedBy: "Singh" },
+      { date: "2026-09-06", time: "06:00", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 20.15, remark: "", checkedBy: "", verifiedBy: "Singh" },
+      { date: "2026-09-07", time: "11:20", adhesive: 15, hardener: 1.65, ethyl: 19.5, viscosity: 20.12, remark: "", checkedBy: "", verifiedBy: "Jeni" },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.17 PM.jpeg (F-QC-32, filled 6/9/26 – 7/9/26)",
   },
 
   // ---- F-QC-40.C — Temperature Monitoring Record (00/28.02.25)
+  // As the photographed register (REQUIREMENTS §111): headed TEMPERATURE MONITORING RECORD, the recommended
+  // temperature printed above the grid, then SR NO | DATE | six readings, each column "... HRS TEMP. + SIGN" — the
+  // reading and the tester's sign written in the one cell. The DATE column was missing (the record's day; one line a
+  // day). DCRS's own Sign column, one for the day, is gone (a record that holds one keeps it); since the review of
+  // 13-Oct-2026 each reading has its sign under it, in its cell, as the paper asks — the reading on the cell's first
+  // line, the sign on its second, the day running down both. The paper heads its numbers "SR NO", in its own letters.
   "qc-temperature": {
     documentId: "qc-temperature",
+    paperTitle: "TEMPERATURE MONITORING RECORD",
     instructions: ["RECOMMENDED TEMPERATURE : HOT ROOM 45°C ± 2°C"],
+    headingsAsPrinted: true,
+    srNoLabel: "SR NO",
+    // The sign is written in the reading's own cell: a second line with no heading of its own.
+    secondLine: { label: "" },
     headerFields: [],
     columns: [
-      { key: "t0830", label: "08:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t1230", label: "12:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t1630", label: "16:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t2030", label: "20:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t0030", label: "12:30am HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "t0430", label: "04:30 HRS TEMP.", type: "number", unit: "°C", nominal: 45, min: 43, max: 47, decimals: 0, required: true, width: 110 },
-      { key: "sign", label: "Sign", type: "text", required: true, autoFill: { sign: true }, width: 140 },
+      { key: "date", label: "DATE", type: "date", width: 130, autoFill: { dueDate: true } },
+      ...hotRoomReading("t0830", "08:30 HRS TEMP. + SIGN", "08:30"),
+      ...hotRoomReading("t1230", "12:30 HRS TEMP. + SIGN", "12:30"),
+      ...hotRoomReading("t1630", "16:30 HRS TEMP. + SIGN", "16:30"),
+      ...hotRoomReading("t2030", "20:30 HRS TEMP. + SIGN", "20:30"),
+      ...hotRoomReading("t0030", "12:30am HRS TEMP. + SIGN", "00:30"),
+      ...hotRoomReading("t0430", "04:30 HRS TEMP. + SIGN", "04:30"),
     ],
     rowMode: { kind: "single" },
     specimenRows: [
-      { t0830: 45, t1230: 45, t1630: 46, t2030: 44, t0030: 45, t0430: 46, sign: "" },
-      { t0830: 44, t1230: 44, t1630: 45, t2030: 46, t0030: 44, t0430: 45, sign: "" },
-      { t0830: 46, t1230: 44, t1630: 46, t2030: 45, t0030: 45, t0430: 44, sign: "" },
+      { date: "2026-08-21", t0830: 45, t1230: 45, t1630: 46, t2030: 44, t0030: 45, t0430: 46 },
+      { date: "2026-08-22", t0830: 44, t1230: 44, t1630: 45, t2030: 46, t0030: 44, t0430: 45 },
+      { date: "2026-08-23", t0830: 46, t1230: 44, t1630: 46, t2030: 45, t0030: 45, t0430: 44 },
     ],
     specimenSource: "WhatsApp Image 2026-09-07 at 2.15.19 PM (1).jpeg (F-QC-40.C, filled 21-08-26 to 5-9-26)",
   },
@@ -230,7 +283,7 @@ export const LOG_SHEET_LAYOUTS: Record<string, LogSheetLayout> = {
 };
 
 // ---------------------------------------------------------------------------
-// QC INSPECTION RECORDS (F/QC/34, /35, /36, /37) and IN-PROCESS QC (F/QC/13).
+// QC INSPECTION RECORDS (F/QC/34, /35, /36, /37). F/QC/13 is in qcInProcessLayouts.ts.
 // Shared shape: job header, a fixed list of test parameters with a printed
 // specification and an observation to fill, a lot-status decision, and the
 // QA inspector's sign. "Approved by / QA Manager" on the paper is the app's
@@ -251,11 +304,15 @@ const inspectionColumns = (): LogColumn[] => [
 ];
 
 const fixedParams = (list: [string, string][]) => list.map(([parameter, specification]) => ({ parameter, specification }));
+/** F/QC/36's four lot statuses, as printed across its LOT STATUS line ("REJECT / SCRAP" where the incoming records print more). */
+const SB_LAMINATION_LOT_STATUS = ["ACCEPTED", "REJECT / SCRAP", "SEGREGATION", "ACCEPTED ON DEVIATION"];
 
 Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/37 — Inspection Record – Pouching Process (00/15.12.2024)
   "qc-inspection-pouching": {
     documentId: "qc-inspection-pouching",
+    // "Approved by / QA Manager" on the paper is the Verify step (REQUIREMENTS §74, §111).
+    approvedOnVerify: true,
     headerFields: [
       { key: "fgCode", label: "Job Code (FG Code)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO Number", type: "text", required: true, autoFill: { carryForward: true } },
@@ -296,10 +353,18 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/36 — Inspection Record – Solvent Base Lamination Film (00/15.12.2024)
   // Supplied 02-Oct-2026 as a PDF with its Word original (REQUIREMENTS §86): every label and
   // line is the .doc's own text, in its own capitals and spacing ("Date / SHIFT", "2nd  SUBSTRATE
-  // DETAILS"), where F/QC/34/35/37 were read off photographs. As on those three, APPROVED BY
-  // (QA MANAGER) is the app's Verify.
+  // DETAILS"), where F/QC/34/35/37 were read off photographs. Held against the original again on
+  // 13-Oct-2026 (§111): the header box is two boxes to a line, read across as the paper reads it;
+  // below the grid the LOT STATUS and the REASON each take a line, and the paper's two signatures,
+  // INSPECTED BY (QA INSPECTOR) and APPROVED BY (QA MANAGER), stand side by side — the paper prints
+  // both, so both are boxes here (the verifier's Verify is stamped as on every record besides). And
+  // (part 4) the statuses printed across their line, QA INSPECTOR and QA MANAGER under the signatures,
+  // the lines numbered "1.", "2.", "3.".
   "qc-inspection-sb-lamination": {
     documentId: "qc-inspection-sb-lamination",
+    headerColumns: 2,
+    // Its lines numbered "1.", "2.", "3." as printed (REQUIREMENTS §111, part 4).
+    srNoFullStop: true,
     headerFields: [
       { key: "fgCode", label: "JOB CODE (FG CODE)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO NUMBER", type: "text", required: true, autoFill: { carryForward: true } },
@@ -309,13 +374,18 @@ Object.assign(LOG_SHEET_LAYOUTS, {
       { key: "substrate1", label: "1st SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true } },
       // The two spaces after "2nd" are the paper's own.
       { key: "substrate2", label: "2nd  SUBSTRATE DETAILS", type: "text", autoFill: { carryForward: true } },
-      { key: "pass", label: "1st Pass / 2nd Pass / 3rd Pass", type: "select", options: ["1st Pass", "2nd Pass", "3rd Pass"], required: true, autoFill: { default: "1st Pass" } },
+      // The header box's last line is this box alone, its answer the width of the sheet (REQUIREMENTS §111).
+      { key: "pass", label: "1st Pass / 2nd Pass / 3rd Pass", type: "select", options: ["1st Pass", "2nd Pass", "3rd Pass"], required: true, autoFill: { default: "1st Pass" }, boxesPerLine: 1 },
     ],
     columns: [
       { key: "parameter", label: "TEST PARAMETERS", type: "text", fixed: true, width: 300 },
       { key: "specification", label: "SPECIFICATION", type: "text", fixed: true, width: 200 },
       { key: "observation", label: "OBSERVATION", type: "text", required: true, autoFill: { carryForward: true }, width: 200 },
     ],
+    // A reading outside the specification printed on its line is highlighted, as on the incoming records (§111 part 6).
+    specBand: OBSERVATION_BAND,
+    // The address printed at the foot of the paper, as on the incoming records (part 6).
+    notesAtFoot: [INCOMING_ADDRESS],
     rowMode: {
       kind: "fixedRows",
       rows: fixedParams([
@@ -326,9 +396,22 @@ Object.assign(LOG_SHEET_LAYOUTS, {
       ]),
     },
     footerFields: [
-      { key: "lotStatus", label: "LOT STATUS", type: "select", options: ["ACCEPTED", "REJECT / SCRAP", "SEGREGATION", "ACCEPTED ON DEVIATION"], required: true, autoFill: { default: "ACCEPTED" } },
+      // The four statuses printed across the line for the inspector to mark one (choicesAcross, §111 part 4).
+      {
+        key: "lotStatus",
+        label: "LOT STATUS",
+        type: "select",
+        options: SB_LAMINATION_LOT_STATUS,
+        choicesAcross: SB_LAMINATION_LOT_STATUS,
+        required: true,
+        autoFill: { default: "ACCEPTED" },
+        boxesPerLine: 1,
+      },
       { key: "deviationReason", label: "REASON FOR DEVIATION / REJECTION / SEGREGATION", type: "text" },
-      { key: "inspectedBy", label: "INSPECTED BY (QA INSPECTOR)", type: "text", required: true, autoFill: { sign: true } },
+      // INSPECTED BY over QA INSPECTOR and APPROVED BY over QA MANAGER, side by side, as on the incoming records. The
+      // inspector signs; APPROVED BY is printed on the paper beside it (§111) and signed by the QA Manager, so never
+      // required of the inspector.
+      ...signatureBoxes().map((f) => (f.key === "inspectedBy" ? { ...f, required: true } : f)),
     ],
     // Nothing was supplied filled in: these are typical values for the assistant, worded as F/QC/35's register words them.
     specimenHeader: {
@@ -345,6 +428,7 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/35 — Inspection Record – Slitting - Lamination Grade Film (00/15.12.2024)
   "qc-inspection-slitting": {
     documentId: "qc-inspection-slitting",
+    approvedOnVerify: true,
     headerFields: [
       { key: "fgCode", label: "Job Code (FG Code)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO Number", type: "text", required: true, autoFill: { carryForward: true } },
@@ -373,6 +457,7 @@ Object.assign(LOG_SHEET_LAYOUTS, {
   // ---- F/QC/34 — Inspection Record – Lamination Grade Printed Film (00/15.12.2024)
   "qc-inspection-printed-film": {
     documentId: "qc-inspection-printed-film",
+    approvedOnVerify: true,
     headerFields: [
       { key: "fgCode", label: "Job Code (FG Code)", type: "text", required: true, autoFill: { carryForward: true } },
       { key: "poNumber", label: "PO Number", type: "text", required: true, autoFill: { carryForward: true } },
@@ -403,80 +488,14 @@ Object.assign(LOG_SHEET_LAYOUTS, {
     ],
     specimenSource: "Photographed F/QC/34 register (filled 18/8/26, shift I, Lombardi)",
   } satisfies LogSheetLayout,
-
-  // ---- F/QC/13 — In Process Quality Control (Gujarati form, printing) ----
-  "qc-inprocess-printing": {
-    documentId: "qc-inprocess-printing",
-    instructions: [
-      "પ્રોસીઝર:- ઉત્પાદનની પ્રક્રિયા દરમિયાન Q.A. વ્યક્તિ ખાતરી કરશે કે 3 પૂર્ણ સીટ્સના જોબના દર ૬૦૦૦ મીટરે નમુના લેવામાં આવે. તે નમુનાઓને નીચે જણાવેલા પોઈન્ટ પ્રમાણે ચકાસીને ગ્રેડ આપશે. જો કોઈ સમસ્યાઓની જાણ થાય તો તરત જ Q.A. મેનેજર અને સુપરવાઈઝર ને જાણ કરશે. જો મટીરીયલ્સ સ્વીકાર્ય છે, તો Q.A. મેનેજર તેમજ સુપરવાઈઝરની સહી કરાવવી આવશ્યક છે.",
-      "ગ્રેડિંગ માપદંડ: બધા ગ્રેડ નીચે મુજબના માપદંડ મુજબ આપવા જોઈએ. જો કોઈ માપદંડમાં એફ ગ્રેડ આપવામાં આવે તો ઉત્પાદન બંધ કરવું આવશ્યક છે. જો ૧ થી વધુ સી ગ્રેડ મળી આવે, તો છાપવાનું બંધ કરવું જોઈએ અને ક્યુ.એ. મેનેજર કેવી રીતે આગળ વધવું તેના વિશે નિર્ણય કરશે. જો ૩ થી વધુ બી ગ્રેડ મળ્યા હોય, તો છાપવાનું બંધ કરવું જોઈએ અને ક્યુ.એ. મેનેજર કેવી રીતે આગળ વધવું તેના વિશે નિર્ણય કરશે.",
-      "ખામી યુક્ત અપ્સ (બધીજ એકત્રિત સીટમાં) મુજબ ગ્રેડ: <11% of total ups = A · <21% = B · <25% = C · >25% = F. જો એરર્સ બેથી ઓછા અપ્સ માં માત્ર હોય તો એ ગ્રેડ આપવો.",
-    ],
-    headerFields: [
-      { key: "itemCode", label: "આઇટમ કોડ (Item Code)", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "poNumber", label: "પ્રો. નંબર (PO Number)", type: "text", required: true, autoFill: { carryForward: true } },
-      { key: "machine", label: "મશીન (Machine)", type: "text", required: true, autoFill: { carryForward: true, default: "Lombardi" } },
-      { key: "operator", label: "ઓપરેટર (Operator)", type: "text", autoFill: { carryForward: true, default: "Pankajbhai" } },
-      { key: "qaPerson", label: "QA પર્સન (QA Person)", type: "text", required: true, autoFill: { sign: true } },
-      { key: "sampleQty", label: "સેમ્પલ કોન્ટીટી (સીટ) (Sample Qty, sheets)", type: "text", autoFill: { carryForward: true, default: "1" } },
-      { key: "totalUps", label: "ટોટલ નંબર ઓફ અપ્સ (Total Ups)", type: "text", autoFill: { carryForward: true } },
-      { key: "orderLength", label: "ઓર્ડર લેન્થ ઈન મીટર (Order Length, m)", type: "text", autoFill: { carryForward: true } },
-    ],
-    columns: [
-      { key: "parameter", label: "પેરામીટર (Parameter)", type: "text", fixed: true, width: 170 },
-      { key: "testChart", label: "ટેસ્ટ ચાર્ટ (Test chart)", type: "text", fixed: true, width: 420 },
-      { key: "grade", label: "ગ્રેડ (Grade)", type: "select", options: ["A", "B", "C", "F", "-"], required: true, autoFill: { carryForward: true }, width: 80 },
-      { key: "pass", label: "પાસ? (Pass?)", type: "yesno", autoFill: { carryForward: true }, width: 80 },
-      { key: "defectCount", label: "ખામી ગણતરી (Defect count)", type: "text", autoFill: { carryForward: true }, width: 110 },
-    ],
-    rowMode: {
-      kind: "fixedRows",
-      rows: [
-        { parameter: "રજિસ્ટ્રેશન (Registration)", testChart: "બધા જ ચાર ખૂણાઓનું રજીસ્ટ્રેશન અને બબલ્સનું કેન્દ્ર નિયંત્રણમાં હોવું જોઈએ; બધાજ ઓવરલેપીંગ અને નિયંત્રણની નોંધણી ચશ્માંનો ઉપયોગ કરીને તપાસો." },
-        { parameter: "શેડ (Shade)", testChart: "સીટના શેડને તપાસવા માટે શેડ કાર્ડ, પેન્ટોન કોડ અથવા છેલ્લા સ્વીકૃત સીટનો ઉપયોગ કરવો; ક્લાયન્ટની મેચીંગ સ્ટડી મુજબ જ શેડ મેચ થવો જોઈએ." },
-        { parameter: "કોટીંગ (Coating)", testChart: "કોટીંગ સમાન રૂપે લાગુ થઈ રહ્યું છે અને લેમીનેશનમાં કોઈ બબલ્સની રચના નથી તેની ખાતરી કરો; વાર્નિશ ન હોય તેવા વિસ્તારો, અસમાન વાર્નિશ અને વિન્ડોઝના વિસ્તારમાં પણ વાર્નિશ તપાસો." },
-        { parameter: "પંચીંગ (Punching)", testChart: "દરેક સીટમાં થોડું હાથથી પ્રેસર આપીને રીલીઝ લાઈનર તૂટતું નથી તે તપાસો; છીછરું પંચીંગ તપાસવા અમુક લેબલો કાઢીને નીચેથી પેપર જરાય તૂટે નહિ તે રીતે લેબલ આસાનીથી ઉખડે છે તેની તપાસ કરો." },
-        { parameter: "પ્રિન્ટ પ્રેસર (Print pressure)", testChart: "લેબલના ચાર ખૂણા અને સીટના વચ્ચેના ભાગમાં ખુબ જ વધારે અથવા ખુબ જ ઓછા પ્રિન્ટીંગના દબાણને તપાસો; વધારે દબાણવાળા વિસ્તારો અને ઓછી/અસમાન છપાઈના હલ્કા વિસ્તારો પણ તપાસો." },
-        { parameter: "પ્રિન્ટ ડીફોરમીટસ (Print deformities)", testChart: "હિકીઝ જેવી પ્રિન્ટ વિકૃતિઓ માટે સીટના બધા જ લેબલો તપાસો — બબલ્સ, ગુમ થયેલ છાપ/પ્રકાર, પેચો, રેખાઓ જેવી સમસ્યાઓ; મંજુર થયેલ આર્ટવર્કમાં અન્ય ચિહ્નો ન હોવા જોઈએ." },
-      ],
-    },
-    footerFields: [
-      { key: "mlDescription", label: "એમ.સી.નું વર્ણન (જો લાગુ પડતું હોય તો)", type: "text", autoFill: { default: "N/A" } },
-      { key: "overrideReason", label: "સહી કરવાનું કારણ (ઓવરરાઈડ)", type: "text", autoFill: { default: "N/A" } },
-      { key: "signOffName", label: "સાઇન ઓફ કરનાર વ્યક્તિનું નામ", type: "text", autoFill: { default: "N/A" } },
-      { key: "remarks", label: "રિમાર્કસ (Remarks)", type: "text" },
-      { key: "qaSign", label: "ક્યુ.એ.ની સહી (QA Sign)", type: "text", required: true, autoFill: { sign: true } },
-    ],
-    referenceTables: [
-      {
-        title: "ગ્રેડ ચાર્ટ (Grade chart) — A / B / C / F per parameter",
-        columns: ["પેરામીટર", "A", "B", "C", "F"],
-        rows: [
-          ["રજિસ્ટ્રેશન", "બધા જ રજિસ્ટર સંપૂર્ણ પણે બરાબર છે; કોઈપણ પ્રિન્ટ ખરાબ થઈ નથી.", "રજિસ્ટરમાં અને પ્રિન્ટના વિસ્તારમાં ન્યૂનતમ ગેરરીતી મળી.", "રજિસ્ટરમાં મધ્યમ ગેરરીતી મળી, પરંતુ પ્રિન્ટ અને ટેક્સમાં ઓવર લાઈન્સ બતાવતું નથી.", "મોટી અને ગંભીર ગેરરીતીના મુદ્દાઓ અથવા ઓવરલેપ લાઈન્સ સ્પષ્ટ પણે દેખાય છે."],
-          ["શેડ", "બધા જ શેડો કલરના સંદર્ભ મુજબ બરાબર મળી રહ્યા છે.", "લોગો બરાબર છે, પરંતુ બીજા કલરમાં નાના ફેરફારો જોવા મળે છે.", "લોગો અને પ્રોસેસ કલરમાં નાના ફેરફારો જોવા મળે છે.", "લોગોના કલરમાં મધ્યમ ફેરફારો અને બીજા કલરોમાં મોટા ફેરફારો જોવા મળે છે."],
-          ["કોટીંગ", "કોટીંગના તમામ ક્ષેત્રો સરળ, સ્પોટ અને કરચલી વગરના મળી રહ્યા છે.", "કોટીંગવાળા વિસ્તારમાં નાની-નાની કરચલીઓ અને બબલ્સ મળી આવે છે.", "લોગો અને પ્રોસેસ કલરમાં નાના ફેરફારો જોવા મળે છે.", "લોગોના કલરમાં મધ્યમ ફેરફારો અને બીજા કલરોમાં મોટા ફેરફારો જોવા મળે છે."],
-          ["પંચીંગ", "છીછરું પંચીંગ અથવા ગેરસમજ દેખાતી નથી.", "ઓછામાં ઓછું છીછરું પંચીંગ અથવા ખોટી નોંધણીનું અવલોકન થાય છે.", "ન્યૂનતમ છીછરું પંચીંગ અથવા મધ્યમ ગેરમાર્ગે પંચીંગ નજરમાં આવે છે (ટેક્સ પર મંજૂરી નથી).", "ખુબ જ વધારે છીછરું પંચીંગ / ભારે ગેરરીતી મળી."],
-          ["પ્રિન્ટ પ્રેસર", "ઉચ્ચ અને નીચા છાપના દબાણવાળા કોઈપણ ક્ષેત્ર મળ્યા નથી.", "ન્યૂનતમ દબાણની સમસ્યા મળી; લોગો અને બારકોડ પર અસર થતી નથી.", "મધ્યમ દબાણની સમસ્યા મળી; લોગો અને બારકોડ પર અસર થતી નથી.", "લોગો અને બારકોડ પર મુખ્ય દબાણની અસર ગ્રસ્ત છે."],
-          ["પ્રિન્ટ ડીફોરમીટસ", "કોઈ નાની અથવા મુખ્ય પ્રિન્ટની વિકૃતિનું અવલોકન થતું નથી.", "પ્રિન્ટ વિસ્તારમાં ફીકી અથવા નાની બબલ્સ મળી આવે છે.", "ટેક્સમાં, લોગોના કે નોન પ્રિન્ટ વિસ્તારમાં નાની વિકૃતિ મળી આવે છે.", "ફ્રેમ્સ, લોગોના કે નોન પ્રિન્ટ વિસ્તારમાં મોટી વિકૃતિ મળી આવે છે."],
-        ],
-      },
-    ],
-    specimenHeader: {
-      itemCode: "FGLA 19377", poNumber: "89480", machine: "Lombardi", operator: "Pankajbhai", qaPerson: "HNP", sampleQty: "1", totalUps: "7", orderLength: "",
-      mlDescription: "N/A", overrideReason: "N/A", signOffName: "N/A", remarks: "Adjust by Pankajbhai", qaSign: "HNP",
-    },
-    specimenRows: [
-      { grade: "B", pass: "Yes", defectCount: "+2" }, { grade: "A", pass: "", defectCount: "-" }, { grade: "A", pass: "", defectCount: "-" },
-      { grade: "-", pass: "", defectCount: "-" }, { grade: "A", pass: "", defectCount: "-" }, { grade: "B", pass: "", defectCount: "+2" },
-    ],
-    specimenSource: "Photographed F/QC/13 register, 2 pages (filled 6-9-26, Lombardi, PO 89480)",
-  } satisfies LogSheetLayout,
 });
 
 // The sixteen Human Resources formats, F/HR/01 to F/HR/22 — data/seed/hrLayouts.ts.
 Object.assign(LOG_SHEET_LAYOUTS, HR_LAYOUTS);
 // Quality Control's two internal calibration records, F/QC/11 and F/QC/12.
 Object.assign(LOG_SHEET_LAYOUTS, QC_CALIBRATION_LAYOUTS);
+// F/QC/13, In Process Quality Control, the Gujarati form as the owner's original of 13-Oct-2026 (REQUIREMENTS §111).
+Object.assign(LOG_SHEET_LAYOUTS, QC_IN_PROCESS_LAYOUTS);
 
 // Quality Control's formats supplied on 18-Sep-2026 (REQUIREMENTS §57): the
 // thirteen incoming material inspection records, the seven line clearances
@@ -488,6 +507,11 @@ Object.assign(LOG_SHEET_LAYOUTS, QC_GUJARATI_LINE_CLEARANCE_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REGISTER_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_COA_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REPORT_LAYOUTS);
+// F-QC-14, the internal test reliability record, its Label and Sleeve sheets, supplied on 13-Oct-2026 (REQUIREMENTS §111).
+Object.assign(LOG_SHEET_LAYOUTS, QC_TEST_RELIABILITY_LAYOUTS);
+// F-QC-40.A, F-QC-40.B and F/QC/17, supplied on 14-Oct-2026 (REQUIREMENTS §111, part 8).
+Object.assign(LOG_SHEET_LAYOUTS, QC_TEMPERATURE_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, QC_RULER_VERIFICATION_LAYOUTS);
 
 // Purchase's formats supplied on 23-Sep-2026 (REQUIREMENTS §68): the supplier
 // registration form and the supplier audit report, the list of approved
@@ -521,7 +545,177 @@ Object.assign(LOG_SHEET_LAYOUTS, PRODUCTION_LAYOUTS);
 // otherwise. `getIssuedLogSheetLayout` is the paper's own transcription.
 export function getLogSheetLayout(documentId: string): LogSheetLayout | undefined {
   const edited = formatEditFor(documentId)?.layout;
-  return edited ? printedLinesOnce(edited) : LOG_SHEET_LAYOUTS[documentId];
+  return edited ? printedLinesOnce(asThePaper(edited)) : LOG_SHEET_LAYOUTS[documentId];
+}
+
+// THE PAPER'S OWN SHAPE IN A FORMAT EDITED BEFORE §111 TOO (REQUIREMENTS §111). A format the
+// plant changed before 13-Oct-2026 was stored whole, with DCRS's explanations above its grid and
+// none of what the paper does that a layout could not say then: a box it prints the value of, the
+// date in its Sr. No., an entry of two lines, its text below the grid and at its foot, its boxes in
+// the paper's groups under the lines and tables printed above them, a heading it leaves out, a box
+// in its column of the line, boxes printed as a table, a grid printed across. Such a
+// layout (one that says none of those) takes them from the issued one, box by box and column by
+// column where the key is still there, and loses the explanation lines §111 took off the issued
+// layouts (and the paper's own lines §111 moved below the grid or to the foot, which would print twice). A format edited
+// since is the plant's own word and is left as it is. The same object until the edit changes.
+const WITHDRAWN_EXPLANATIONS: Record<string, string[]> = {
+  "qc-viscosity": ["Viscosity specification: 20.0 ± 1.0 Sec. One reading every hour, round the clock (09:00 to 08:00 next day)."],
+  "qc-adhesive-mixing": ["One row per adhesive batch mixed. Standard mix observed on the specimen: 15 kg adhesive : 1.65 kg hardener : 19.5 kg ethyl acetate."],
+  "qc-weight-scale-calibration": [
+    "WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE. One line per weekly calibration: the five test weights, the value the scale showed for each, the deviation, Pass / Fail, the tester's sign and when the next one is due.",
+    "On the paper the Deviation % of each entry is written on a second line beneath it; here every weight carries its own Deviation % column on the same line. Each Deviation % is worked out from the weight and its tested value — (tested − weight) ÷ weight × 100, in whatever unit they are written — and Pass / Fail follows the Acceptable Tolerance above.",
+    // Printed below the grid now, as the paper prints it.
+    `PROCEDURE: ${CALIBRATION_PROCEDURE}`,
+  ],
+  "qc-gsm-plate-calibration": [
+    "MONTHLY INTERNAL CALIBRATION RECORDS – GSM CUTTING PLATE. The four plates — No. 54 (20 x 20cm), No. 55 (10 x 10cm), No. 56 (5 x 5cm), No. 57 (2.5 x 2.5cm) — measured four times each, with the deviation beside every measurement, then Pass / Fail and the tester's sign for each plate.",
+    "Each Deviation % is worked out from the size written beside it, by area, against the plate's own size printed at the head of its column.",
+    `PROCEDURE: ${CALIBRATION_PROCEDURE}`,
+  ],
+  // Printed at the foot of the page now, as the paper prints it.
+  "qc-flexo-ink": [FLEXO_INK_SYSTEM_NOTE],
+  // The certificates' explanations, and their printed notes now in the paper's places (qcCoaLayouts.ts).
+  ...COA_WITHDRAWN_LINES,
+  "qc-tolerance-card-nivea": [TOLERANCE_CARD_NOTE],
+  // F/QC/15-A to F/QC/15-G: the title, printed in the header, was printed again above the grid.
+  ...Object.fromEntries(Object.entries(LINE_CLEARANCE_TITLE_LINES).map(([id, title]) => [id, [title]])),
+  // F/QC/29 (both), F/QC/30 and F/QC/20: DCRS's lines above their grids.
+  ...QC_REPORT_WITHDRAWN_LINES,
+  "qc-printing-aids-destruction": [PRINTING_AIDS_WITHDRAWN_LINE],
+  // F/QC/13: two lines of grading rules the owner's original of 13-Oct-2026 does not print.
+  "qc-inprocess-printing": FQC13_WITHDRAWN_LINES,
+  // The two Gujarati checklists: DCRS's own line saying the two are printed on one page.
+  "qc-line-clearance-materials": ["આ ફોર્મ અને ક્વોલીટી શહી (Line Clearance — Quality) એક જ પાના પર છપાયેલાં છે."],
+  "qc-line-clearance-quality": ["આ ફોર્મ અને લાઈન કિલયરન્સ (Line Clearance — Materials) એક જ પાના પર છપાયેલાં છે."],
+};
+
+const asPaper = new WeakMap<LogSheetLayout, LogSheetLayout>();
+/** The edited format's tables, with each table an issued box prints above it (tableAbove) that the edit does not hold. */
+function placedTablesFrom(issued: LogSheetLayout, edited: LogSheetLayout): { referenceTables?: LogSheetLayout["referenceTables"] } {
+  const own = edited.referenceTables ?? [];
+  const keys = new Set([...edited.headerFields, ...(edited.footerFields ?? [])].map((f) => f.key));
+  const wanted = new Set([...issued.headerFields, ...(issued.footerFields ?? [])].filter((f) => f.tableAbove && keys.has(f.key)).map((f) => f.tableAbove!));
+  const missing = (issued.referenceTables ?? []).filter((t) => wanted.has(t.title) && !own.some((o) => o.title === t.title));
+  return missing.length > 0 ? { referenceTables: [...own, ...missing] } : {};
+}
+/** The paper's letterhead (part 6), with its table where the edited format never held it; none where the format holds its own table of that title. */
+function letterheadFrom(issued: LogSheetLayout, edited: LogSheetLayout): Pick<LogSheetLayout, "letterhead" | "referenceTables"> {
+  const table = issued.letterhead ? issued.referenceTables?.find((t) => t.title === issued.letterhead) : undefined;
+  if (!issued.letterhead || !table) return {};
+  const own = edited.referenceTables ?? [];
+  return own.some((t) => t.title === table.title) ? { letterhead: issued.letterhead } : { letterhead: issued.letterhead, referenceTables: [...own, table] };
+}
+/** The paper's words for a box's choices fit an edited box only while it offers the same choices (else they would print other words). */
+const sameChoices = (own: LogHeaderField, edited: LogHeaderField): boolean =>
+  (own.options ?? []).length === (edited.options ?? []).length && (own.options ?? []).every((o, i) => edited.options?.[i] === o);
+function asThePaper(edited: LogSheetLayout): LogSheetLayout {
+  const known = asPaper.get(edited);
+  if (known) return known;
+  let out = edited;
+  const issued = LOG_SHEET_LAYOUTS[edited.documentId];
+  const boxes = [...edited.headerFields, ...(edited.footerFields ?? [])];
+  const saysPaper =
+    edited.srNoShowsDate !== undefined || edited.secondLine !== undefined || edited.notesBelow !== undefined || edited.headerColumns !== undefined ||
+    edited.notesAtFoot !== undefined || edited.gridAcross !== undefined || edited.srNoFullStop !== undefined || edited.headingsAsPrinted !== undefined ||
+    edited.answerAcross !== undefined ||
+    // From the review of 13-Oct-2026 (REQUIREMENTS §111).
+    edited.srNoLabel !== undefined || edited.numberNotPrinted !== undefined || edited.printedWithNumber !== undefined ||
+    edited.boxesAboveInstructions !== undefined || edited.gapBetweenRuns !== undefined || edited.photoBelowGrid !== undefined ||
+    edited.approvedOnVerify !== undefined || edited.panels !== undefined ||
+    boxes.some(
+      (f) =>
+        f.printed !== undefined || f.tableAbove !== undefined || f.boxesPerLine !== undefined || f.paperColumn !== undefined || f.boxTable !== undefined ||
+        f.choicesAcross !== undefined || f.printedBelow !== undefined || f.inSentence !== undefined || f.inGridHead !== undefined || f.asHeading !== undefined
+    ) ||
+    // (Part 6's marks — groupCellLines, specBand, toleranceFrom, within — are no part of this test: the format editor
+    // holds none of them, so a format it saved since carries them only as the issued layout gave them.)
+    edited.columns.some((c) => c.beneath !== undefined || c.printedLabel !== undefined || c.groupApart !== undefined || c.merged !== undefined);
+  if (issued && !saysPaper) {
+    const issuedBoxes = new Map([...issued.headerFields, ...(issued.footerFields ?? [])].map((f) => [f.key, f]));
+    const issuedColumns = new Map(issued.columns.map((c) => [c.key, c]));
+    const keys = new Set(boxes.map((f) => f.key));
+    // The paper's own words and places of a box (§111): its printed value, the table and lines printed above it, how
+    // many boxes stand to a line from it, the words printed beside it — each where the edited box says nothing of its own.
+    const box = (f: LogHeaderField): LogHeaderField => {
+      const own = issuedBoxes.get(f.key);
+      if (!own) return f;
+      const paper: Partial<LogHeaderField> = {};
+      if (own.printed !== undefined) paper.printed = own.printed;
+      if (own.tableAbove !== undefined) paper.tableAbove = own.tableAbove;
+      if (own.boxesPerLine !== undefined) paper.boxesPerLine = own.boxesPerLine;
+      if (own.paperColumn !== undefined) paper.paperColumn = own.paperColumn;
+      if (own.boxTable !== undefined) paper.boxTable = own.boxTable;
+      // The paper's own marks (part 4): its choices printed across, its words under the box, its sentence.
+      if (own.choicesAcross !== undefined && sameChoices(own, f)) paper.choicesAcross = own.choicesAcross;
+      if (own.printedBelow !== undefined) paper.printedBelow = own.printedBelow;
+      if (own.inSentence !== undefined) paper.inSentence = own.inSentence;
+      if (own.inGridHead !== undefined) paper.inGridHead = own.inGridHead;
+      // The tolerance a box is judged by (a certificate's TOLERANCE table, part 6), where it is judged against a box the edit still has.
+      if (own.within !== undefined && keys.has(own.within.of)) paper.within = own.within;
+      if (own.printedAbove !== undefined && f.printedAbove === undefined) paper.printedAbove = own.printedAbove;
+      if (own.printedLabel !== undefined && f.printedLabel === undefined) paper.printedLabel = own.printedLabel;
+      // The paper's heading the person writes (F/QC/29's analysis report, the review of 13-Oct-2026).
+      if (own.asHeading !== undefined && f.type === own.type) paper.asHeading = own.asHeading;
+      return Object.keys(paper).length === 0 ? f : { ...f, ...paper };
+    };
+    const withdrawn = new Set(WITHDRAWN_EXPLANATIONS[edited.documentId] ?? []);
+    const instructions = edited.instructions?.filter((line) => !withdrawn.has(line));
+    out = {
+      ...edited,
+      ...(issued.srNoShowsDate ? { srNoShowsDate: issued.srNoShowsDate } : {}),
+      ...(issued.secondLine ? { secondLine: issued.secondLine } : {}),
+      ...(issued.notesBelow ? { notesBelow: issued.notesBelow } : {}),
+      ...(issued.notesAtFoot ? { notesAtFoot: issued.notesAtFoot } : {}),
+      ...(issued.headerColumns ? { headerColumns: issued.headerColumns } : {}),
+      ...(issued.gridAcross ? { gridAcross: issued.gridAcross } : {}),
+      ...(issued.srNoFullStop ? { srNoFullStop: issued.srNoFullStop } : {}),
+      ...(issued.headingsAsPrinted ? { headingsAsPrinted: issued.headingsAsPrinted } : {}),
+      // The one answer across the paper's columns (F/QC/25); a column the edit took off and it is drawn as every grid is (answerAcrossOf).
+      ...(issued.answerAcross ? { answerAcross: issued.answerAcross } : {}),
+      // From the review of 13-Oct-2026: the Sr. No.'s own heading, a number the paper does not print, its lines printed
+      // with its number, its boxes above its paragraph, its blank lines, its photograph, its approval stamped on
+      // Verify, its small tables (each drawn only where the edited grid still has what it needs: paperLayout.ts).
+      ...(issued.srNoLabel !== undefined ? { srNoLabel: issued.srNoLabel } : {}),
+      ...(issued.numberNotPrinted ? { numberNotPrinted: issued.numberNotPrinted } : {}),
+      ...(issued.printedWithNumber ? { printedWithNumber: issued.printedWithNumber } : {}),
+      ...(issued.boxesAboveInstructions ? { boxesAboveInstructions: issued.boxesAboveInstructions } : {}),
+      ...(issued.gapBetweenRuns ? { gapBetweenRuns: issued.gapBetweenRuns } : {}),
+      ...(issued.photoBelowGrid ? { photoBelowGrid: issued.photoBelowGrid } : {}),
+      ...(issued.approvedOnVerify ? { approvedOnVerify: issued.approvedOnVerify } : {}),
+      ...(issued.panels ? { panels: issued.panels } : {}),
+      // Part 6: the lines one cell a heading (F/QC/11's Pass/Fail and Sign.), and the specification each line prints
+      // judging its reading (the incoming records) where the edit keeps both columns.
+      ...(issued.groupCellLines ? { groupCellLines: issued.groupCellLines } : {}),
+      // The header block as the paper's: the title in its letters, the lines under the company's name, its letterhead.
+      ...(issued.titleAsPrinted ? { titleAsPrinted: issued.titleAsPrinted } : {}),
+      ...(issued.underCompany ? { underCompany: issued.underCompany } : {}),
+      ...(issued.specBand && [issued.specBand.spec, ...issued.specBand.readings].every((k) => edited.columns.some((c) => c.key === k)) ? { specBand: issued.specBand } : {}),
+      instructions: instructions && instructions.length > 0 ? instructions : undefined,
+      // A table the paper prints among the boxes that the edited format never held (F/QC/25's letterhead, part 4)
+      // comes with the box it stands above; the format's own tables are kept as they are.
+      ...placedTablesFrom(issued, edited),
+      headerFields: edited.headerFields.map(box),
+      footerFields: edited.footerFields?.map(box),
+      columns: edited.columns.map((c) => {
+        const own = issuedColumns.get(c.key);
+        const paper: Partial<LogColumn> = {};
+        if (own?.beneath !== undefined) paper.beneath = own.beneath;
+        if (own?.printedLabel !== undefined) paper.printedLabel = own.printedLabel;
+        // A group heading in a cell of its own, a cell merged down its lines (the review of 13-Oct-2026).
+        if (own?.groupApart !== undefined && c.group === own.group) paper.groupApart = own.groupApart;
+        if (own?.merged !== undefined) paper.merged = own.merged;
+        // F/QC/12's Deviation % judged by its Acceptable Tolerance box (part 6), where the edit keeps the box.
+        if (own?.toleranceFrom !== undefined && keys.has(own.toleranceFrom)) paper.toleranceFrom = own.toleranceFrom;
+        return Object.keys(paper).length === 0 ? c : { ...c, ...paper };
+      }),
+    };
+    // F/QC/25's letterhead in the header block, its table brought along where the format never held it.
+    out = { ...out, ...letterheadFrom(issued, out) };
+    if (edited.instructions === undefined) delete out.instructions;
+    if (edited.footerFields === undefined) delete out.footerFields;
+  }
+  asPaper.set(edited, out);
+  return out;
 }
 
 // ONE NUMBER PER LINE IN AN EDITED FORMAT TOO (REQUIREMENTS §102). A format the plant

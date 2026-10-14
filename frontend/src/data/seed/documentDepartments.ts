@@ -127,12 +127,18 @@ export const DOCUMENT_DEPARTMENTS: Record<string, string> = {
   "qc-printing-aids-destruction": "QC", // F/QC/20
   "qc-camera-challenge-test": "QC", // F: QA/PRO/FL/CCT/01
   "qc-tolerance-card-nivea": "QC", // F-QC-19
+  "qc-test-reliability-label": "QC", // F-QC-14, its Label sheet
+  "qc-test-reliability-sleeve": "QC", // F-QC-14, its Sleeve sheet
+  "qc-temperature-humidity": "QC", // F-QC-40.A
+  "qc-temperature-sleeve": "QC", // F-QC-40.B
+  "qc-ruler-verification": "QC", // F/QC/17
   "qc-analysis-report": "QC", // F/QC/29
   "qc-utility-test-report": "QC", // F/QC/29 (on the MOM format)
   "qc-minutes-of-meetings": "QC", // F/QC/30
 
   "soc-labels": "QC", // F/QC-09
   "soc-flexible-packaging": "QC", // F/QC-38
+  "soc-shrink-sleeves": "QC", // F/QC-10
 
   // --- Production (REQUIREMENTS §91): the two lamination records and the seven papers of 06-Oct-2026. Their
   // numbers give the department already; listed so the activity log, which names a document by its id alone,

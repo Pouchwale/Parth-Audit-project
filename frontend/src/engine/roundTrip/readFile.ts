@@ -749,6 +749,8 @@ async function readXlsx(pkg: Package, workbookPath: string): Promise<ReadResult>
         const texts = rowTexts(r);
         if (!after && texts.every((t) => !t.trim())) continue;
         if (fixed.has(rowSignature(texts))) continue;
+        // An entry's second line (F/QC/12's "Deviation %", REQUIREMENTS §111) is part of the entry above it, never a new one.
+        if (table.secondLine && texts.some((t) => t.trim() === table.secondLine)) continue;
         const cells: Record<string, UploadedValue> = {};
         let any = false;
         for (const col of table.columns) {
@@ -1044,6 +1046,8 @@ async function readDocx(pkg: Package, documentPath: string): Promise<ReadResult>
       const row = Array.from(texts, (t) => t ?? "");
       if (row.every((t) => !t.trim())) return;
       if (fixed.has(rowSignature(row))) return;
+      // An entry's second line (REQUIREMENTS §111) is part of the entry above it, never a new one.
+      if (table.secondLine && row.some((t) => t.trim() === table.secondLine)) return;
       const cells: Record<string, UploadedValue> = {};
       let any = false;
       for (const c of table.columns) {

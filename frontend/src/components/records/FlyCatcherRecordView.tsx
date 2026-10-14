@@ -109,6 +109,8 @@ export function FlyCatcherRecordView({
                       type="date"
                       className="input input-sm"
                       {...bindProps(flyCatcherBind.entry(e.pcId, "tubeLightInstallDate"))}
+                      // An empty date prints empty, not "dd-mm-yyyy" (REQUIREMENTS §111).
+                      data-empty={e.tubeLightInstallDate ? undefined : ""}
                       disabled={!editable}
                       value={e.tubeLightInstallDate ?? ""}
                       onChange={(ev) => updateEntry(e.pcId, { tubeLightInstallDate: ev.target.value || null })}
@@ -119,6 +121,7 @@ export function FlyCatcherRecordView({
                       type="date"
                       className="input input-sm"
                       {...bindProps(flyCatcherBind.entry(e.pcId, "tubeLightDueDate"))}
+                      data-empty={e.tubeLightDueDate ? undefined : ""}
                       disabled={!editable}
                       value={e.tubeLightDueDate ?? ""}
                       onChange={(ev) => updateEntry(e.pcId, { tubeLightDueDate: ev.target.value || null })}

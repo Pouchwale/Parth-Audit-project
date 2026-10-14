@@ -18,7 +18,9 @@ import { masterRepository } from "../data/repositories/masterRepository";
 import { getLogSheetLayout, getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { withoutLineNumber } from "./lineNumbers";
 import { numbersOwnLines } from "./formLineNumbers";
+import { mergedRuns } from "./paperLayout";
 import { codeRulesFor } from "./documentFormats";
+import { outOfBandCount } from "./printedBands";
 
 // "Was the lot accepted as it is?" — the one status that needs no reason
 // beside it. Each form prints the words its own way (the incoming material
@@ -39,9 +41,8 @@ export function isOutOfBand(col: LogColumn, value: unknown): boolean {
 export function logSheetOutOfBandCount(documentId: string, data: LogSheetData, record?: { formatRevision?: string } | null): number {
   const layout = getLogSheetLayoutForRecord(documentId, record);
   if (!layout) return 0;
-  let n = 0;
-  for (const row of data.rows) for (const col of layout.columns) if (isOutOfBand(col, row[col.key])) n += 1;
-  return n;
+  // A column's band, a tolerance box's, a line's printed specification and a box against its tolerance (REQUIREMENTS §111 rule 2).
+  return outOfBandCount(layout, data);
 }
 
 /** A revision of a format that a record was filled on and the format has since replaced. */
@@ -215,6 +216,8 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       const layout = getLogSheetLayoutForRecord(doc.id, record);
       if (!layout) break;
       for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+        // A box the paper prints its value in is never asked for (REQUIREMENTS §111): nobody writes it.
+        if (typeof f.printed === "string") continue;
         if (f.required && !(d.header?.[f.key] ?? "").toString().trim()) errors.push(`${f.label} is required.`);
       }
       if (layout.footerFields?.some((f) => f.key === "lotStatus") && d.header?.lotStatus && !isLotAccepted(d.header.lotStatus) && !(d.header.deviationReason ?? "").trim()) {
@@ -224,6 +227,8 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       const mode = layout.rowMode;
       // A printed line's words as the sheet shows them: its own number is the Sr. No.'s (REQUIREMENTS §102).
       const ownNumbers = numbersOwnLines(layout);
+      // A cell the paper merges down a run of lines is asked for once, on the run's first line (REQUIREMENTS §111).
+      const merged = mergedRuns(layout, d.rows ?? []);
       (d.rows ?? []).forEach((row, i) => {
         const label =
           mode.kind === "timeSlots"
@@ -236,6 +241,7 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
           // cells it comes from are, and those carry their own requirement
           // (engine/computedCells.ts, REQUIREMENTS §74).
           if (!col.required || col.computed) continue;
+          if (merged.get(col.key)?.[i] === 0) continue;
           const v = row[col.key];
           if (v === null || v === undefined || `${v}`.trim() === "") errors.push(`${label}: ${col.label} is required.`);
         }

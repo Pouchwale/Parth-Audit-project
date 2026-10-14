@@ -11,10 +11,11 @@ import { COMPANY } from "./masterData";
 //     — "F-QC-29 _ Analysis report.pdf"
 //   qc-utility-test-report  F/QC/29 (00 / 01.01.2022)  NIVEA SAMPLES - UTILITY TEST REPORT
 //     — "F-QC-29 Analysis report.pdf" (printed on the MINUTES OF MEETINGS format)
-//   qc-minutes-of-meetings  F/QC/30 (01 / 01.12.2022)  MINUTES OF MEETINGS
-//     — "F-QC-30 MOM.pdf" (the 07.06.2022 meeting, minuted on revision
-//       00 / 01.01.2022) and "MOM F-QC-30.pdf" (the blank current revision,
-//       01 / 01.12.2022)
+//   qc-minutes-of-meetings  F/QC/30 (00 / 01.01.2022)  MINUTES OF MEETINGS
+//     — "F-QC-30 MOM.pdf" (the 07.06.2022 meeting), the owner's original of
+//       13-Oct-2026. A "MOM F-QC-30.pdf" said to be a blank revision 01 of
+//       01.12.2022 is not in the repository, so the format is the revision the
+//       owner's original prints (the review of 13-Oct-2026).
 //
 // ALL THREE WERE SUPPLIED FILLED IN and are on file as real records. Their
 // values live in this file, where they are also the formats' specimens, and are
@@ -30,18 +31,28 @@ import { COMPANY } from "./masterData";
 //
 // WHAT HAD TO BE REPRESENTED DIFFERENTLY FROM THE PAPER, and why:
 //   * F/QC/29's ANALYSIS REPORT prints its own heading over the table — the
-//     supplied page reads "PSL Analysis Report". A layout has no field for a
-//     heading and another analysis would be headed differently, so the heading
-//     is a carried-forward header field labelled "Report" rather than a printed
-//     default nobody could change.
+//     supplied page reads "PSL Analysis Report" — and another analysis is headed
+//     differently, so the heading is a box the person writes (named "Report",
+//     carried forward), drawn as the paper's centred heading with no label
+//     (asHeading, the review of 13-Oct-2026). Its "Date :" stands at the right.
 //   * The scan of that page carries a photograph of the label roll beneath the
-//     table. A record here holds figures, not photographs, so the figures are
-//     reproduced and the photograph is not; the layout says so in print.
+//     table. The sheet has its place there (photoBelowGrid): a picture added to
+//     the record is printed where the paper prints its photograph. The 2022
+//     report on file holds its figures only.
+//   * Nothing of DCRS's own is printed on any of the three (REQUIREMENTS §111): the lines that explained the
+//     analysis report and the utility test above their grids are gone (logSheetLayouts.ts WITHDRAWN_EXPLANATIONS),
+//     and each prints what its paper prints — the utility test its "NIVEA SAMPLES -  UTILITY TEST  REPORT" above
+//     the grid under the MINUTES OF MEETINGS title of the format it is printed on (paperTitle), its Job Name under
+//     "Description" as the paper heads it; the minutes their own "Subject:", "Participants :" and "Key points
+//     Discussed:" as the labels of what they head, not twice as lines above the boxes.
 //   * F/QC/30 prints a numbered list of who attended under "Participants :".
 //     One text box per participant would fix how many may attend, so the
-//     meeting's participants are held in a single Participants field, listed as
-//     the page lists them and separated by "; ".
-//   * The grid's Sr. No. column is the renderer's own and is never declared.
+//     meeting's participants are one block of lines, one person to a line,
+//     numbered as the page numbers them (the review of 13-Oct-2026: they were
+//     joined on one line by "; ").
+//   * The grid's Sr. No. column is the renderer's own and is never declared. On
+//     F/QC/30 it is headed with nothing and numbers the key points "1.", "2.",
+//     as the paper numbers them under "Key points Discussed:".
 //
 // F/QC/29 IS CARRIED BY TWO FORMATS. The Analysis Report and the Nivea utility
 // test report — which is printed on the MINUTES OF MEETINGS format — were both
@@ -99,9 +110,13 @@ export const ANALYSIS_REPORT_HEADER: Record<string, string> = {
 // what is typed on it is a utility test report: a date, then nine label samples
 // each held for 24 hours in the freezer, the desiccator and the oven.
 
+// "Observation (24Hrs.)" printed over each place in a cell of its own, as the paper prints it over Freeze, again over
+// Desiccator and again over Oven (groupApart, the review of 13-Oct-2026); it was joined into each column's heading.
 const observation = (key: string, place: string): LogColumn => ({
   key,
-  label: `Observation (24Hrs.) ${place}`,
+  label: place,
+  group: "Observation (24Hrs.)",
+  groupApart: true,
   type: "select",
   options: ["Pass", "Fail"],
   width: 190,
@@ -164,31 +179,47 @@ export const MINUTES_GANGWAL_HEADER: Record<string, string> = {
   // Written on the page as 07.06.2022 and stored as the ISO date a date field holds.
   date: "2022-06-07",
   subject: "Discussion about Quality Issues",
-  // The five who attended, as the page's numbered list names them, separated by "; ".
-  participants: "1. Gangwal team; 2. Shail Patel; 3. Virat Rajgor; 4. Mehul Prajapati; 5. Kapila Barad",
+  // The five who attended, one to a line, as the page's numbered list names them.
+  participants: "1. Gangwal team\n2. Shail Patel\n3. Virat Rajgor\n4. Mehul Prajapati\n5. Kapila Barad",
 };
 
 // ---------------------------------------------------------------------------
+
+/** What the three printed above their grids until 13-Oct-2026 and their papers do not (data/seed/logSheetLayouts.ts WITHDRAWN_EXPLANATIONS). */
+export const QC_REPORT_WITHDRAWN_LINES: Record<string, string[]> = {
+  "qc-analysis-report": [
+    "ANALYSIS REPORT. The material analysed against the form's eleven printed descriptions: the job, its face paper, release liner and adhesive, the total caliper and GSM, and each layer's GSM and micron.",
+    "The scan of the supplied page carries a photograph of the label roll beneath the table. A record here holds the figures, not the photograph: the figures are reproduced, the photograph is not.",
+  ],
+  "qc-utility-test-report": [
+    "NIVEA SAMPLES - UTILITY TEST REPORT. Nine label samples, each held for 24 hours in the freezer, in the desiccator and in the oven, and whether each one passed.",
+    "The supplied page is printed on the MINUTES OF MEETINGS format, numbered F/QC/29, while what is typed on it is a utility test report. The number F/QC/29 is also carried by the Analysis Report supplied the same day — for the MR to confirm which format should carry it.",
+  ],
+  // Printed now as the labels of the boxes they head.
+  "qc-minutes-of-meetings": ["Participants :", "Key points Discussed:"],
+};
 
 export const QC_REPORT_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/29 (00 / 01.01.2022) — ANALYSIS REPORT ----
   "qc-analysis-report": {
     documentId: "qc-analysis-report",
-    instructions: [
-      "ANALYSIS REPORT. The material analysed against the form's eleven printed descriptions: the job, its face paper, release liner and adhesive, the total caliper and GSM, and each layer's GSM and micron.",
-      "The scan of the supplied page carries a photograph of the label roll beneath the table. A record here holds the figures, not the photograph: the figures are reproduced, the photograph is not.",
-    ],
+    // The paper's headings in its own letters (REQUIREMENTS §111): "Sr. No. | Description | Observation".
+    headingsAsPrinted: true,
+    // "Date :" at the right of its line, the heading centred on a line of its own under it.
+    headerColumns: 3,
     headerFields: [
-      { key: "date", label: "Date", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
+      { key: "date", label: "Date :", type: "date", required: true, width: 150, autoFill: { dueDate: true }, paperColumn: 3 },
       // The page prints its own heading over the table; the supplied page reads
       // "PSL Analysis Report", and another analysis is headed differently.
-      { key: "report", label: "Report", type: "text", width: 260, autoFill: { carryForward: true } },
+      { key: "report", label: "Report", type: "text", width: 260, autoFill: { carryForward: true }, asHeading: true, boxesPerLine: 1 },
     ],
     columns: [
       { key: "description", label: "Description", type: "text", fixed: true, width: 260 },
       { key: "observation", label: "Observation", type: "text", width: 240 },
     ],
     rowMode: { kind: "fixedRows", rows: ANALYSIS_REPORT_DESCRIPTIONS.map((description) => ({ description })) },
+    // The photograph of the sample the paper prints under its table.
+    photoBelowGrid: true,
     footerFields: [sign("testingBy", "Testing By (QA Executive)"), sign("approvedBy", "Approved By (QA Manager)")],
     specimenHeader: ANALYSIS_REPORT_HEADER,
     specimenRows: ANALYSIS_REPORT_LINES,
@@ -199,18 +230,24 @@ export const QC_REPORT_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/29 (00 / 01.01.2022) — NIVEA SAMPLES - UTILITY TEST REPORT ----
   "qc-utility-test-report": {
     documentId: "qc-utility-test-report",
-    instructions: [
-      "NIVEA SAMPLES - UTILITY TEST REPORT. Nine label samples, each held for 24 hours in the freezer, in the desiccator and in the oven, and whether each one passed.",
-      "The supplied page is printed on the MINUTES OF MEETINGS format, numbered F/QC/29, while what is typed on it is a utility test report. The number F/QC/29 is also carried by the Analysis Report supplied the same day — for the MR to confirm which format should carry it.",
-    ],
-    headerFields: [{ key: "date", label: "DATE", type: "date", required: true, width: 150, autoFill: { dueDate: true } }],
+    // Printed on the MINUTES OF MEETINGS format, and headed so; the report's own heading is printed above the grid.
+    paperTitle: "MINUTES OF MEETINGS",
+    // The paper's own double spaces.
+    instructions: ["NIVEA SAMPLES -  UTILITY TEST  REPORT"],
+    headingsAsPrinted: true,
+    // "DATE:" at the right of its line, as printed.
+    headerColumns: 3,
+    headerFields: [{ key: "date", label: "DATE:", type: "date", required: true, width: 150, autoFill: { dueDate: true }, paperColumn: 3 }],
     columns: [
-      { key: "jobName", label: "Job Name", type: "text", fixed: true, width: 260 },
+      // Headed "Description" over "Job Name" on the paper. The job names are that day's samples, written by the person
+      // (the review of 13-Oct-2026: the nine of 02-Dec-2022 were printed lines on every new report).
+      { key: "jobName", label: "Job Name", type: "text", required: true, width: 260, group: "Description" },
       observation("freeze", "Freeze"),
       observation("desiccator", "Desiccator"),
       observation("oven", "Oven"),
     ],
-    rowMode: { kind: "fixedRows", rows: UTILITY_TEST_JOB_NAMES.map((jobName) => ({ jobName })) },
+    // A line for each sample tested; the 2022 page tested nine.
+    rowMode: { kind: "free", minRows: 1, typicalRows: 9 },
     footerFields: [sign("testingBy", "Testing By (QA Inspector)"), sign("approvedBy", "Approved By (QA Manager)")],
     specimenHeader: UTILITY_TEST_HEADER,
     specimenRows: UTILITY_TEST_LINES,
@@ -221,26 +258,28 @@ export const QC_REPORT_LAYOUTS: Record<string, LogSheetLayout> = {
   // ---- F/QC/30 (01 / 01.12.2022) — MINUTES OF MEETINGS ----
   "qc-minutes-of-meetings": {
     documentId: "qc-minutes-of-meetings",
-    // The two headings the form prints above its blocks.
-    instructions: ["Participants :", "Key points Discussed:"],
+    headingsAsPrinted: true,
+    // The key points numbered "1.", "2." under "Key points Discussed:", with no Sr. No. heading of the sheet's.
+    srNoLabel: "",
+    srNoFullStop: true,
+    // The paper gives each box a line of its own: Client Name, Location and Date one under another in its table, then
+    // Subject: and Participants : across the page (REQUIREMENTS §111). Five to a line cut every value short.
+    headerColumns: 1,
     headerFields: [
       { key: "clientName", label: "Client Name :", type: "text", width: 300, autoFill: { carryForward: true } },
       { key: "location", label: "Location :", type: "text", width: 300, autoFill: { default: COMPANY.shortName } },
       { key: "date", label: "Date :", type: "date", required: true, width: 150, autoFill: { dueDate: true } },
-      { key: "subject", label: "Subject", type: "text", width: 300, autoFill: { carryForward: true } },
-      // The form prints a numbered list of who attended. One text box per
-      // participant would fix how many may attend, so the meeting's
-      // participants are listed in this one field as the page lists them,
-      // separated by "; ".
-      { key: "participants", label: "Participants", type: "text", width: 700 },
+      { key: "subject", label: "Subject:", type: "text", width: 300, autoFill: { carryForward: true } },
+      // The form prints a numbered list of who attended, one to a line. One text box per participant would fix how
+      // many may attend, so they are one block of lines, as the page lists them.
+      { key: "participants", label: "Participants :", type: "paragraph", width: 700, autoFill: { carryForward: true } },
     ],
-    columns: [{ key: "keyPointsDiscussed", label: "Key points Discussed", type: "text", width: 700 }],
+    columns: [{ key: "keyPointsDiscussed", label: "Key points Discussed:", type: "text", width: 700 }],
     rowMode: { kind: "free", minRows: 1, typicalRows: 7 },
     specimenHeader: MINUTES_GANGWAL_HEADER,
     specimenRows: MINUTES_GANGWAL_POINTS,
-    // The meeting was minuted on revision 00 (01.01.2022) of the format; the
-    // current revision, supplied blank the same day, is 01 / 01.12.2022.
+    // The meeting was minuted on revision 00 (01.01.2022) of the format, the revision the owner's original prints.
     specimenSource:
-      "F-QC-30 MOM.pdf — the 07.06.2022 meeting with M/s. Gangwal Healthcare Pvt. Ltd., minuted on F/QC/30 revision 00 (01.01.2022); the current revision 01 (01.12.2022) was supplied blank as MOM F-QC-30.pdf (the meeting is on file as a record, qcReportRecords.ts)",
+      "F-QC-30 MOM.pdf — the 07.06.2022 meeting with M/s. Gangwal Healthcare Pvt. Ltd., minuted on F/QC/30 revision 00 (01.01.2022) (the meeting is on file as a record, qcReportRecords.ts)",
   } satisfies LogSheetLayout,
 };

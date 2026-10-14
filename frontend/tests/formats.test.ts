@@ -42,6 +42,9 @@ const SHARED_BY_THE_COMPANY: Record<string, string[]> = {
   "QC-20": ["qc-kraft-paper", "qc-printing-aids-destruction"],
   "QC-21": ["qc-flexo-ink", "qc-lamination-adhesive-inspection"],
   "QC-29": ["qc-analysis-report", "qc-utility-test-report"],
+  // REQUIREMENTS §111: F-QC-14 is one workbook of two sheets, one per product, the Label sheet headed "F-QC-14/00"
+  // and the Sleeve sheet with no number of its own. Each sheet is a document; both are F-QC-14.
+  "QC-14": ["qc-test-reliability-label", "qc-test-reliability-sleeve"],
   // The minutes of meetings print F/QC/30; the master list gives F-QC-30 to the
   // Lamination Adhesive Viscosity Record.
   "QC-30": ["qc-viscosity", "qc-minutes-of-meetings"],

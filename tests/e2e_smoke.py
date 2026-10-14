@@ -243,14 +243,15 @@ def main():
         page.wait_for_timeout(300)
         if opened_log:
             check("Log sheet shows the F-QC-30 header", "F-QC-30" in page.content())
-            check("Log sheet was pre-filled with 24 hourly rows", page.locator("table.log-sheet tbody tr").count() == 24)
-            # REQUIREMENTS s98: the prepare writes the 24 time slots, never a reading or who tested it. The banner
+            # 9:00 to 07:00, as F-QC-30's page is written: 23 hourly lines (s111 part 6).
+            check("Log sheet was pre-filled with 23 hourly rows", page.locator("table.log-sheet tbody tr").count() == 23)
+            # REQUIREMENTS s98: the prepare writes the 23 time slots, never a reading or who tested it. The banner
             # says so, and the person enters each reading and signs it, as on the paper, before it can be submitted.
-            check("Prepared banner says the slots are there and the readings are the person's", "24 time slots are on the sheet" in page.content() or not PREPARED_EXPECTED)
+            check("Prepared banner says the slots are there and the readings are the person's", "23 time slots are on the sheet" in page.content() or not PREPARED_EXPECTED)
             if PREPARED_EXPECTED:
                 readings = page.locator("[data-bind$='/viscosity']")
                 testers = page.locator("[data-bind$='/testedBy']")
-                check("...and every reading starts empty", readings.count() == 24 and all(readings.nth(i).input_value() == "" for i in range(readings.count())))
+                check("...and every reading starts empty", readings.count() == 23 and all(readings.nth(i).input_value() == "" for i in range(readings.count())))
                 for i in range(readings.count()):
                     readings.nth(i).scroll_into_view_if_needed()
                     readings.nth(i).fill("20.1")
@@ -273,7 +274,7 @@ def main():
         else:
             check(
                 "Status persists after reload (a closed day: the sheet is still there, not submitted)",
-                page.locator("table.log-sheet tbody tr").count() == 24 and "Pending Verification" not in page.content(),
+                page.locator("table.log-sheet tbody tr").count() == 23 and "Pending Verification" not in page.content(),
             )
 
         # ---- 5. Dashboard reflects update ----
@@ -665,7 +666,8 @@ def main():
         # ---- 8b. Statements of Compliance ----
         page.click("text=Statements of Compliance")
         page.wait_for_timeout(300)
-        check("SOC list shows both statements", "F/QC- 09" in page.content() and "F/QC- 38" in page.content())
+        # The footer reference as each document prints it, "F/QC-09" with no space (REQUIREMENTS s111, the review of 13-Oct-2026).
+        check("SOC list shows both statements", "F/QC-09" in page.content() and "F/QC-38" in page.content())
         page.click("text=Pressure Labels")
         page.wait_for_timeout(300)
         check("SOC detail renders the declaration", "Shail Patel" in page.content() and "94/62/EC" in page.content())
@@ -690,7 +692,7 @@ def main():
         page.click("text=Document Library")
         page.wait_for_timeout(300)
         rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
-        check("Document Library lists all 129 documents", rows.count() == 129, rows.count())
+        check("Document Library lists all 135 documents", rows.count() == 135, rows.count())
         check("Document Library shows the lamination module", "Lamination — Quality Control" in page.content())
         check("Document Library shows the QC inspection module", "Quality Control — Inspection Records" in page.content())
         check("Document Library groups both CAPA documents under the CAPA module", page.locator(".app-content h3:has-text('CAPA (Corrective')").count() == 1)

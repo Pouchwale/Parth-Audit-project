@@ -14,23 +14,39 @@ import type { LogColumn, LogSheetLayout } from "../../types";
 // register of job changeovers; these two are the checklist a QA person ticks
 // and signs before the changeover is allowed.
 //
-// Every word below is the page's own Gujarati, with an English gloss in
-// brackets where the label is a heading (the app's Gujarati is never machine
-// translated — see i18n/strings.ts). The paper merges the "પ્રોસેસ" cell across
-// the lines of each process; a grid cannot merge cells, so the process is
-// printed on every one of its lines instead. Nothing else differs.
+// Every word below is the page's own Gujarati, and nothing else (REQUIREMENTS
+// §111, against the owner's original of 13-Oct-2026, "F-QC-15 Line Clearance
+// format (2).jpg", the two forms on one page): no English gloss beside a label
+// and no line of DCRS's own above the grid. The sheet and its print read in the
+// paper's own Gujarati in every language (i18n/documentText.ts
+// SHEETS_PRINTED_AS_ISSUED, the review of 13-Oct-2026: with English chosen the
+// sheet printed an English translation; i18n/documentTextEn.ts still gives
+// Mitra and the guided questions their English). Neither form has a Sr. No. column
+// (ownLineNumbers). As on the paper (the review of 13-Oct-2026): the
+// "પ્રોસેસ" cell is merged down the lines of each process, and so are the
+// operator's and QA's signatures — signed once per process (LogColumn.merged);
+// a blank line stands between the processes (gapBetweenRuns); the boxes stand
+// above the procedure, two to a line, as the paper prints them beside its
+// title; and the page prints no format number, so none is printed
+// (numberNotPrinted). The paper writes the two QC lines of "ક્વોલીટી ચેકીંગ" in
+// one cell with one tick box; here each is a line of its own, so each is ticked.
 //
 // The two tick-and-sign columns are the paper's own: "Q.A એ ચેકીંગ" /
-// "Q.A ચેકીંગ" is the tick, and "Q.A ની શહી" the signature beside it.
+// "Q.A ચેકીંગ" is the tick, one for each line, and "Q.A ની શહી" the signature
+// for the process.
 
-const PROCESS = (label: string): LogColumn => ({ key: "process", label, type: "text", fixed: true, width: 150 });
+/** The process, printed once beside its lines. */
+const PROCESS: LogColumn = { key: "process", label: "પ્રોસેસ", type: "text", fixed: true, width: 150, merged: { by: "process" } };
 
-/** The three columns every line of both forms ends with: the operator's sign, QA's tick, QA's sign. */
+/** The three columns every line of both forms ends with: the operator's sign and QA's sign once for the process, QA's tick on each line. */
 const signOffColumns = (checkLabel: string): LogColumn[] => [
-  { key: "operatorSign", label: "ઓપરેટર ની શહી", type: "text", width: 150, autoFill: { sign: true } },
+  { key: "operatorSign", label: "ઓપરેટર ની શહી", type: "text", width: 150, autoFill: { sign: true }, merged: { by: "process" } },
   { key: "qaChecked", label: checkLabel, type: "yesno", width: 130 },
-  { key: "qaSign", label: "Q.A ની શહી", type: "text", width: 140, autoFill: { sign: true } },
+  { key: "qaSign", label: "Q.A ની શહી", type: "text", width: 140, autoFill: { sign: true }, merged: { by: "process" } },
 ];
+
+/** What both forms say of their paper beside their own words. */
+const PAPER = { numberNotPrinted: true, boxesAboveInstructions: true, gapBetweenRuns: "process", headerColumns: 2 } as const;
 
 const materialRows = (rows: [string, string][]) => rows.map(([process, material]) => ({ process, material }));
 const parameterRows = (rows: [string, string][]) => rows.map(([process, parameter]) => ({ process, parameter }));
@@ -38,17 +54,20 @@ const parameterRows = (rows: [string, string][]) => rows.map(([process, paramete
 export const QC_GUJARATI_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> = {
   "qc-line-clearance-materials": {
     documentId: "qc-line-clearance-materials",
+    // The words the paper prints at the head of the form, in its first box (REQUIREMENTS §111).
+    paperTitle: "લાઈન કિલયરન્સ",
+    ...PAPER,
     instructions: [
       "પ્રોસેસઃ– નીચે લખેલા દરેક પોઈન્ટ માટે QUALIFIED Q.A વ્યકિત એ પહેલી સાચી સીટ તપાસવી. જો દરેક પોઈન્ટ સાચો ઠરે તો એનાથી લાગતી પ્રોસેસ ઉપર ✓ અને સહી કરવી. સહી થયા બાદ ઓપરેટર પ્રોડકશન ચાલુ કરી શકે છે. લાઈન કિલયરન્સ બોર્ડ પર સાચો જોબ લખેલો છે કે નહી તે પણ તપાસવું કોઈપણ તકલીફ દેખાય તો QA MANAGER ને જાણ કરવી.",
-      "આ ફોર્મ અને ક્વોલીટી શહી (Line Clearance — Quality) એક જ પાના પર છપાયેલાં છે.",
     ],
     headerFields: [
-      { key: "itemNo", label: "આઈટમ નં. (Item No.)", type: "text", autoFill: { carryForward: true } },
-      { key: "poNo", label: "પ્રો.નં. (PO No.)", type: "text", autoFill: { carryForward: true } },
-      { key: "machineName", label: "મશીનનું નામઃ– (Machine name)", type: "text", autoFill: { carryForward: true } },
-      { key: "date", label: "તા. (Date)", type: "date", required: true, autoFill: { dueDate: true } },
+      { key: "itemNo", label: "આઈટમ નં.", type: "text", autoFill: { carryForward: true } },
+      { key: "poNo", label: "પ્રો.નં.", type: "text", autoFill: { carryForward: true } },
+      { key: "machineName", label: "મશીનનું નામઃ–", type: "text", autoFill: { carryForward: true } },
+      { key: "date", label: "તા.", type: "date", required: true, autoFill: { dueDate: true } },
     ],
-    columns: [PROCESS("પ્રોસેસ (Process)"), { key: "material", label: "મટીરીયલ્સ (Materials)", type: "text", fixed: true, width: 260 }, ...signOffColumns("Q.A એ ચેકીંગ")],
+    columns: [PROCESS, { key: "material", label: "મટીરીયલ્સ", type: "text", fixed: true, width: 260 }, ...signOffColumns("Q.A એ ચેકીંગ")],
+    ownLineNumbers: true,
     rowMode: {
       kind: "fixedRows",
       rows: materialRows([
@@ -71,15 +90,18 @@ export const QC_GUJARATI_LINE_CLEARANCE_LAYOUTS: Record<string, LogSheetLayout> 
 
   "qc-line-clearance-quality": {
     documentId: "qc-line-clearance-quality",
+    // The words the paper prints at the head of the form, in its first box (REQUIREMENTS §111).
+    paperTitle: "ક્વોલીટી શહી",
+    ...PAPER,
     instructions: [
       "પ્રોસીઝરઃ– ઓપરેટર ખાતરી કરવી જોઈ એ કે નીચે ની સૂચિબદ્ધસ બ્ધીજ આઈટમ્સો ઉત્પાદન ક્ષેત્ર માં થી દૂર કરવા માં આવી છે. અને યોગ્ય રીસે મુકવા માં આવી છે. તે બ્ધીજ સામગ્રી સંગ્રહ સ્થાન થી દૂર કર્યા પછી. QA ના વ્યકિત એ લાઈન કિલયરન્સ તપાસી લેવું. અને તે મંજુર કરવું આવશ્યક છે. તે પણ ખાતરી કરવી જ જોઈ એ કે લાઈન કિલયરન્સ બોર્ડ પર સાચા જોબ નો ઉલ્લેખ કરવા માં આવ્યો છે કે નહી. જો કોઈ સમસ્યા જાણ થઈ હોય તો બ્ધુજ કિલયરન્સ થઈ જાય પછી જ ઉત્પાદન શરૂ થવું જોઈએ",
-      "આ ફોર્મ અને લાઈન કિલયરન્સ (Line Clearance — Materials) એક જ પાના પર છપાયેલાં છે.",
     ],
     headerFields: [
-      { key: "itemNo", label: "આઈટમ નં. (Item No.)", type: "text", autoFill: { carryForward: true } },
-      { key: "productionNo", label: "પ્રોડકશન નં. (Production No.)", type: "text", autoFill: { carryForward: true } },
+      { key: "itemNo", label: "આઈટમ નં.", type: "text", autoFill: { carryForward: true } },
+      { key: "productionNo", label: "પ્રોડકશન નં.", type: "text", autoFill: { carryForward: true } },
     ],
-    columns: [PROCESS("પ્રોસેસ (Process)"), { key: "parameter", label: "પેરામિટર (Parameter)", type: "text", fixed: true, width: 260 }, ...signOffColumns("Q.A ચેકીંગ")],
+    columns: [PROCESS, { key: "parameter", label: "પેરામિટર", type: "text", fixed: true, width: 260 }, ...signOffColumns("Q.A ચેકીંગ")],
+    ownLineNumbers: true,
     rowMode: {
       kind: "fixedRows",
       rows: parameterRows([

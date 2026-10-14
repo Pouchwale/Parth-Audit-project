@@ -8,6 +8,10 @@ import { FormatEditor } from "./FormatEditor";
 import { COMPANY } from "../../data/seed/masterData";
 import { getLogSheetLayout } from "../../data/seed/logSheetLayouts";
 import { numbersOwnLines } from "../../engine/formLineNumbers";
+import { answerAcrossOf, boxGroups, gridHeadBoxes, gridLines, isPrintedBox, letterheadTable, paperColumnProps, placedTables } from "../../engine/paperLayout";
+import { BoxTable } from "../records/BoxTable";
+import { NotesBelow } from "../records/NotesBelow";
+import { PrintedTable } from "../records/PrintedTable";
 import { nextRevisionNo, type FormatRevision } from "../../data/formatEdits";
 import { closeDesignSession, openDesignSession } from "../../engine/designSession";
 import { setLeaveGuard } from "../../store/router";
@@ -169,7 +173,8 @@ function headingRuns(columns: LogColumn[]): { group?: string; columns: LogColumn
   const runs: { group?: string; columns: LogColumn[] }[] = [];
   for (const col of columns) {
     const last = runs[runs.length - 1];
-    if (last && last.group !== undefined && last.group === col.group) last.columns.push(col);
+    // A heading the paper prints over this column alone (groupApart, REQUIREMENTS §111) is a cell of its own.
+    if (last && last.group !== undefined && last.group === col.group && !col.groupApart) last.columns.push(col);
     else runs.push({ group: col.group, columns: [col] });
   }
   return runs;
@@ -689,21 +694,60 @@ export function SheetDesigner({
         </div>
       );
     }
+    // The boxes stand as many to a line as the paper draws them, in the paper's groups under what it prints
+    // above each — a certificate's LABEL STOCK, COATING, FINISHING and TOLERANCE (REQUIREMENTS §111), as on
+    // the record's sheet (engine/paperLayout.ts boxGroups).
     return (
-      <div className="grid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: "10px 16px" }}>
+      <>
+        {boxGroups(layout, area).map((group, gi) => {
+          const grid = (
+            <div
+              className={`grid${group.perLine ? " sheet-boxes-paper" : ""}`}
+              style={
+                group.perLine
+                  ? ({ "--paper-box-columns": group.perLine, gap: "10px 16px" } as React.CSSProperties)
+                  : { gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`, gap: "10px 16px" }
+              }
+            >
+              {boxCells(area, group.boxes.map((b) => b.field))}
+            </div>
+          );
+          if (group.lead) return <React.Fragment key={gi}>{grid}</React.Fragment>;
+          return (
+            <div key={gi} className={gi > 0 ? "mt-3" : undefined} data-section="designer-printed-group" data-area={area}>
+              {group.table && <PrintedTable table={group.table} />}
+              {group.lines.map((line, i) => (
+                <p key={i} className="text-sm font-semibold mb-2 notranslate" translate="no" style={{ whiteSpace: "pre-wrap" }}>
+                  {line}
+                </p>
+              ))}
+              {/* Boxes the paper prints as a table (a certificate's LABEL STOCK) stand in that table here too,
+                  each with its name and its menu (REQUIREMENTS §111). */}
+              {group.boxTable ? <BoxTable table={group.boxTable} cells={group.boxes.map((b) => <React.Fragment key={b.field.key}>{boxCells(area, [b.field])}</React.Fragment>)} /> : grid}
+            </div>
+          );
+        })}
+      </>
+    );
+  };
+
+  /** The boxes of one group, each with its name and its menu. */
+  const boxCells = (area: BoxArea, boxes: LogHeaderField[]) => {
+    return (
+      <>
         {boxes.map((f) => {
           const isRenaming = renaming?.kind === "box" && renaming.key === f.key;
           const open = menu?.kind === "box" && menu.key === f.key;
           return (
             // A prose box takes the whole width of the row of boxes, as the paper draws it (REQUIREMENTS §68).
-            <div key={f.key} className={`field designer-box${f.type === "paragraph" ? " field-paragraph" : ""}`} data-designer-item="box" data-key={f.key} data-area={area}>
+            <div key={f.key} className={`field designer-box${f.type === "paragraph" ? " field-paragraph" : ""}`} data-designer-item="box" data-key={f.key} data-area={area} {...paperColumnProps(f)}>
               <div className="designer-heading">
                 {isRenaming ? (
                   <RenameBox field="rename-box" label="Name of the box" initial={f.label} onCommit={commitRename} onCancel={cancelRename} />
                 ) : (
                   <button type="button" className="designer-label notranslate" translate="no" data-action="rename-box" data-box={f.key} title="Click to rename" onClick={() => setRenaming({ kind: "box", area, key: f.key })}>
                     {f.label}
-                    {f.required ? " *" : ""}
+                    {f.required ? <span className="no-print"> *</span> : ""}
                   </button>
                 )}
                 <button
@@ -720,36 +764,95 @@ export function SheetDesigner({
                   <FiChevronDown size={13} />
                 </button>
               </div>
-              {/* Where a person writes on a record — empty on the format, saying only what it takes. */}
-              <div className="input input-sm designer-sample">
-                <span className="no-print">{typeHint(f)}</span>
-              </div>
+              {/* Where a person writes on a record — empty on the format, saying only what it takes. A box
+                  the paper prints its value in shows that value, as every record does (REQUIREMENTS §111). */}
+              {isPrintedBox(f) ? (
+                <span className="cell-text notranslate" translate="no" data-printed={f.key}>
+                  {f.printed}
+                </span>
+              ) : (
+                <div className="input input-sm designer-sample">
+                  <span className="no-print">{typeHint(f)}</span>
+                </div>
+              )}
+              {/* The paper's own marks around the box (REQUIREMENTS §111, part 4), said as the record's sheet draws them. */}
+              {f.choicesAcross && f.choicesAcross.length > 0 && (
+                <span className="designer-type no-print" data-printed-choices={f.key}>
+                  The paper prints the choices across: {f.choicesAcross.join(" | ")}
+                </span>
+              )}
+              {f.inSentence && (
+                <span className="designer-type no-print" data-printed-sentence={f.key}>
+                  Printed inside the sentence “{f.inSentence.before} … {f.inSentence.after}”
+                </span>
+              )}
+              {f.printedBelow && (
+                <span className="box-printed-below notranslate" translate="no" data-printed-below={f.key}>
+                  {f.printedBelow}
+                </span>
+              )}
             </div>
           );
         })}
-      </div>
+      </>
     );
   };
 
   const nextRev = nextRevisionNo(doc.revisionNo);
   const deleting = dialog?.kind === "delete" ? dialog.target : null;
-  const runs = headingRuns(columns);
+  // AN ENTRY OF TWO LINES (REQUIREMENTS §111): the columns the paper draws on an entry's second line
+  // (F/QC/12's Deviation %) are named on that line, not in the heading, as on the record's sheet.
+  const lines = gridLines(layout);
+  // One answer across the paper's columns (F/QC/25, REQUIREMENTS §111 part 4): said under the grid, drawn so on the record.
+  const answerAcross = answerAcrossOf(layout);
+  const runs = headingRuns(lines.first);
   // Two heading rows where the paper draws a heading over a run of columns, one otherwise.
   const headRows = runs.some((r) => r.group !== undefined) ? 2 : 1;
 
   /** One column's heading: typed over in place, with its own menu beside it. */
-  const columnHead = (c: LogColumn, rowSpan?: number) => {
+  const columnHead = (c: LogColumn, rowSpan?: number) => (
+    <th key={c.key} style={c.width ? { minWidth: c.width } : undefined} rowSpan={rowSpan} data-designer-item="column" data-key={c.key}>
+      {columnName(c)}
+    </th>
+  );
+  /**
+   * An entry's second line, under its first (REQUIREMENTS §111): the line's heading in the first column, and
+   * each column the paper draws there under the column it names — named and offered its menu on the first
+   * entry, blank on the others. Nothing at all on a sheet whose entries take one line.
+   */
+  const secondLine = (i: number) => {
+    const second = gridLines(layout).second;
+    if (!second) return null;
+    const first = gridLines(layout).first;
+    return (
+      <tr className="designer-sample-line log-second-line" data-line="second">
+        <td />
+        {first.map((c, ci) => {
+          if (ci === 0) return <td key={c.key} className="second-line-label notranslate" translate="no">{second.label}</td>;
+          const under = second.under[ci];
+          if (!under || i > 0) return <td key={c.key} />;
+          return (
+            <td key={c.key} data-designer-item="column" data-key={under.key} data-beneath={under.beneath}>
+              {columnName(under)}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  };
+  /** A column's name and menu — in its heading, or, for a column drawn on an entry's second line, in that line's cell (REQUIREMENTS §111). */
+  const columnName = (c: LogColumn) => {
     const isRenaming = renaming?.kind === "column" && renaming.key === c.key;
     const open = menu?.kind === "column" && menu.key === c.key;
     return (
-      <th key={c.key} style={c.width ? { minWidth: c.width } : undefined} rowSpan={rowSpan} data-designer-item="column" data-key={c.key}>
+      <>
         <div className="designer-heading">
           {isRenaming ? (
             <RenameBox field="rename-column" label="Column heading" initial={c.label} onCommit={commitRename} onCancel={cancelRename} />
           ) : (
             <button type="button" className="designer-label notranslate" translate="no" data-action="rename-column" data-column={c.key} title="Click to rename" onClick={() => setRenaming({ kind: "column", key: c.key })}>
               {c.label}
-              {c.required ? " *" : ""}
+              {c.required ? <span className="no-print"> *</span> : ""}
             </button>
           )}
           <button
@@ -766,12 +869,19 @@ export function SheetDesigner({
           </button>
         </div>
         <span className="designer-type no-print">{c.fixed ? "Printed on the form" : c.computed ? "Worked out" : typeHint(c)}</span>
-      </th>
+        {/* The name is what a record and Mitra go by; the paper's own heading is said beside it where it differs (§111). */}
+        {c.printedLabel !== undefined && c.printedLabel !== c.label && (
+          <span className="designer-type no-print" data-printed-heading={c.key}>
+            {c.printedLabel ? `The paper heads it “${c.printedLabel}”` : "The paper prints no heading here"}
+          </span>
+        )}
+      </>
     );
   };
 
   return (
-    <div ref={root} data-section="sheet-designer" data-document={doc.id}>
+    // The paper's headings in its own letters where it writes them so (REQUIREMENTS §111, part 4), as on the record's sheet.
+    <div ref={root} className={layout?.headingsAsPrinted ? "headings-as-printed" : undefined} data-section="sheet-designer" data-document={doc.id}>
       <div className="designer-toolbar no-print" data-section="designer-toolbar" role="toolbar" aria-label="Design the format">
         <button className="btn btn-secondary btn-sm" data-action="designer-add-column" onClick={() => insertColumn()}>
           + Column
@@ -868,7 +978,11 @@ export function SheetDesigner({
         <DocumentHeader
           doc={doc}
           title={draft.name}
-          pageLabel="1 of 1 (digital)"
+          // The paper's letters, its lines under the company's name and its own letterhead, as on the record (§111 part 6).
+          titleAsPrinted={layout.titleAsPrinted}
+          underCompany={layout.underCompany}
+          letterhead={letterheadTable(layout) ? <div className="doc-letterhead"><PrintedTable table={letterheadTable(layout)!} /></div> : undefined}
+          pageLabel="1 of 1"
           edit={{
             editing: renaming?.kind === "header" ? renaming.field : null,
             onEdit: (field) => {
@@ -969,11 +1083,14 @@ export function SheetDesigner({
                 })}
               </div>
             )}
-            {layout.referenceTables?.map((t) => (
-              <div key={t.title} className="text-xs text-faint mt-2 no-print">
-                {t.title} — reference material printed with the form; it stays as issued.
-              </div>
-            ))}
+            {/* A table the paper prints among its boxes is drawn there, open (REQUIREMENTS §111). */}
+            {layout.referenceTables
+              ?.filter((t) => !placedTables(layout).has(t.title))
+              .map((t) => (
+                <div key={t.title} className="text-xs text-faint mt-2 no-print">
+                  {t.title} — reference material printed with the form; it stays as issued.
+                </div>
+              ))}
             <div className="mt-3">{boxGrid("header", 200)}</div>
           </div>
         </div>
@@ -1033,50 +1150,77 @@ export function SheetDesigner({
                   </React.Fragment>
                 ))}
               </tr>
-              {headRows === 2 && <tr>{columns.filter((c) => c.group !== undefined).map((c) => columnHead(c))}</tr>}
+              {headRows === 2 && <tr>{lines.first.filter((c) => c.group !== undefined).map((c) => columnHead(c))}</tr>}
             </thead>
             <tbody>
               {printed ? (
                 <>
                   {printed.length === 0 && (
                     <tr>
-                      <td colSpan={columns.length + 1} className="text-muted text-center no-print" style={{ padding: 16 }}>
+                      <td colSpan={lines.first.length + 1} className="text-muted text-center no-print" style={{ padding: 16 }}>
                         No printed lines — “+ Line” adds one.
                       </td>
                     </tr>
                   )}
                   {printed.slice(0, linesShown).map((row, i) => (
-                    <PrintedLine
-                      key={i}
-                      index={i}
-                      numbered={!(layout && numbersOwnLines(layout))}
-                      row={row}
-                      columns={columns}
-                      focusKey={focusCell?.index === i ? focusCell.key : null}
-                      menuOpen={menu?.kind === "line" && menu.index === i}
-                      onCell={setCell}
-                      onMenu={toggleLineMenu}
-                      onFocused={clearFocusCell}
-                    />
+                    <React.Fragment key={i}>
+                      <PrintedLine
+                        index={i}
+                        numbered={!(layout && numbersOwnLines(layout))}
+                        fullStop={!!layout?.srNoFullStop}
+                        row={row}
+                        columns={lines.first}
+                        focusKey={focusCell?.index === i ? focusCell.key : null}
+                        menuOpen={menu?.kind === "line" && menu.index === i}
+                        onCell={setCell}
+                        onMenu={toggleLineMenu}
+                        onFocused={clearFocusCell}
+                      />
+                      {secondLine(i)}
+                    </React.Fragment>
                   ))}
                 </>
               ) : (
-                // Two lines of the sheet as a record has them: blank, for whoever fills it in.
+                // Two lines of the sheet as a record has them: blank, for whoever fills it in. A sheet that
+                // writes the day in its Sr. No. (F-QC-30, REQUIREMENTS §111) says where the date goes.
                 [0, 1].map((i) => (
-                  <tr key={i} className="designer-sample-line">
-                    <td className="text-muted">{i + 1}</td>
-                    {columns.map((c) => (
-                      <td key={c.key} className="notranslate" translate="no">
-                        {layout.rowMode.kind === "timeSlots" && layout.rowMode.slotKey === c.key ? (layout.rowMode.slots[i] ?? "") : ""}
+                  <React.Fragment key={i}>
+                    <tr className="designer-sample-line">
+                      <td className="text-muted" data-sr-no="">
+                        {layout.srNoShowsDate ? (i === 0 ? <span className="text-xs no-print">the record&apos;s date</span> : null) : `${i + 1}${layout.srNoFullStop ? "." : ""}`}
                       </td>
-                    ))}
-                  </tr>
+                      {lines.first.map((c) => (
+                        <td key={c.key} className="notranslate" translate="no">
+                          {layout.rowMode.kind === "timeSlots" && layout.rowMode.slotKey === c.key ? (layout.rowMode.slots[i] ?? "") : ""}
+                        </td>
+                      ))}
+                    </tr>
+                    {secondLine(i)}
+                  </React.Fragment>
                 ))
               )}
             </tbody>
           </table>
         </div>
         )}
+        {/* A grid the paper prints across (a certificate's PRINTING, REQUIREMENTS §111) is designed here a line
+            to a row, as every grid is, and drawn across on the record and in its print. */}
+        {layout.gridAcross && columns.length > 0 && (
+          <p className="text-xs text-muted mt-2 no-print" data-section="designer-across-note">
+            Printed across, as the paper prints it: on a record each line above is a column and each column a line.
+          </p>
+        )}
+        {/* One answer across the paper's columns (F/QC/25, REQUIREMENTS §111 part 4): designed a column to a heading,
+            as every grid is, and drawn as the paper on the record. */}
+        {answerAcross && columns.length > 0 && (
+          <p className="text-xs text-muted mt-2 no-print" data-section="designer-answer-across-note">
+            Printed as the paper prints it: on a record “{answerAcross.answer.label}” is one box across {answerAcross.across.map((c) => c.label.replace(/\s+/g, " ")).join(", ")} on
+            every line but those written in them, whose headings stand on the line the paper prints them on
+            {gridHeadBoxes(layout).length > 0 ? `; ${gridHeadBoxes(layout).map((b) => b.field.label).join(" and ")} stand on the grid's top line` : ""}.
+          </p>
+        )}
+        {/* The paper's own text below the grid, as issued (REQUIREMENTS §111). */}
+        {layout.notesBelow && layout.notesBelow.length > 0 && <NotesBelow lines={layout.notesBelow} />}
         {!printed && columns.length > 0 && (
           <p className="text-xs text-muted mt-2 no-print" data-section="designer-lines-note">
             The lines of this sheet are written on each record, so there is nothing of the format&apos;s to design there — the two above only show where they go.
@@ -1086,6 +1230,8 @@ export function SheetDesigner({
         <div className={`card mt-4${layout.footerFields?.length ? "" : " no-print"}`}>
           <div className="card-pad">{boxGrid("footer", 220)}</div>
         </div>
+        {/* The paper's own text at the foot of the sheet, after every box, as issued (REQUIREMENTS §111). */}
+        {layout.notesAtFoot && layout.notesAtFoot.length > 0 && <NotesBelow lines={layout.notesAtFoot} section="notes-at-foot" />}
       </div>
 
       {menu && menuBody && (
@@ -1274,6 +1420,7 @@ function ChangeList({ changes }: { changes: string[] }) {
 const PrintedLine = React.memo(function PrintedLine({
   index,
   numbered,
+  fullStop,
   row,
   columns,
   focusKey,
@@ -1285,6 +1432,8 @@ const PrintedLine = React.memo(function PrintedLine({
   index: number;
   /** The handle shows the line's number, except on a form that numbers its own lines (REQUIREMENTS §102). */
   numbered: boolean;
+  /** The number printed with its full stop, "1.", as the paper prints it (REQUIREMENTS §111, part 4). */
+  fullStop?: boolean;
   row: PrintedRow;
   columns: LogColumn[];
   /** The printed cell of this line to put the cursor in — a line just added — or null. */
@@ -1297,7 +1446,7 @@ const PrintedLine = React.memo(function PrintedLine({
   return (
     <tr data-designer-item="line" data-index={index}>
       <td className="text-muted designer-line-no">
-        {numbered ? index + 1 : null}
+        {numbered ? `${index + 1}${fullStop ? "." : ""}` : null}
         <button type="button" className="designer-menu-button no-print" data-action="line-menu" data-line={index} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={`What can be done to line ${index + 1}`} onClick={() => onMenu(index)}>
           <FiChevronDown size={13} />
         </button>

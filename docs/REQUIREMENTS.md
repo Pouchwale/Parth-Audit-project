@@ -7315,6 +7315,725 @@ Changed: tests/e2e_storage_room.py (its part past the mark runs in a page withou
 tests/e2e_every_record_starts.py (with the browser full, Start opens the record, which is in the database and in
 IndexedDB, with no banner, and opens after a reload with the browser still full).
 
+## §111 Every QC format exactly as the paper (13-Oct-2026)
+
+**The request.** The owner, 13-Oct-2026, with pictures of DCRS's F-QC-30 marked by hand (the specification line above
+the grid crossed out; the numbered Sr. No. column circled with a "?"), the Excel original of F-QC-32, and DCRS's own
+PDFs of F-QC-11, F-QC-12 and F-QC-32: "there are many problem are coming like wrong data in F-QC-11, F-QC-12 and many
+others so make sure i have given you documents according to that format only i want So fix those errors any how by
+today ... make sure format would not be change any how." With 41 originals: "make sure it will look in our systems
+like similar". The originals are kept in the repository: source-documents/qc-originals-2026-10-13/ (the 41) and
+source-documents/qc-dcrs-prints-2026-10-13/ (what DCRS printed, and the marked F-QC-30). The OCR part of his message (a
+photograph of an old record read into the right document) is §103's scan fill, the next piece of work, not this one.
+
+**What was wrong, against the originals.**
+
+- *F-QC-30* (WhatsApp Image 2026-09-07 at 2.15.18 PM.jpeg). DCRS printed "Viscosity specification: 20.0 ± 1.0 Sec.
+  One reading every hour, round the clock (09:00 to 08:00 next day)." above the grid, which the paper does not print
+  (the specification is in the Viscosity heading), and numbered the Sr. No. 1 to 24, where the paper writes the day's
+  date on the day's first line ("6/9/26", then nothing until "7/9/26") and the hours under Date/Time.
+- *F-QC-32* (the owner's Excel picture; WhatsApp Image 2026-09-07 at 2.15.17 PM.jpeg). The Date column was missing, and
+  DCRS printed "One row per adhesive batch mixed. Standard mix observed on the specimen: ..." above the grid.
+- *F/QC/11* (F-QC-11 GSM cutting plate internal calibration record (2).pdf). The paper PRINTS its Device ID No
+  ("1-54, 2-55, 3-56, 4-57"), Location ("LAB"), Department ("LAB") and Manufacturer ("Global Eng. Co. (GEC)"); DCRS
+  offered them as boxes, and the owner's print read "WS-2026-10, QC Lab, Quality Control, ScaleCo" — the wrong data.
+  DCRS printed two explanation lines of its own and the PROCEDURE above the grid (the paper prints it below), headed the
+  columns "No. 54 (20 x 20cm)" and "Deviation %" (the paper: "No. 54" over "20 x 20cm" and "Deviation"), and its
+  calibration date "Calibration Date" (the paper: "I. Calibration Date:-").
+- *F/QC/12* (F-QC-12 Weighing balance internal calibration record (2).pdf). The paper has no Sr. No. column; each entry
+  takes two lines, the second headed "Deviation %" in the Date column with each weight's Deviation % under its Tested
+  Value; its nine boxes stand three to a line; its PROCEDURE is below the grid. DCRS added a Sr. No., moved the five
+  Deviation % up beside the weights, printed two explanation lines and the PROCEDURE above the grid, and — the owner's
+  "wrong data" — a weekly sheet carried FOUR calibration lines all dated the same day, and an empty Next Due Date printed
+  "dd-mm-yyyy".
+
+**The layout abilities (types/logSheet.ts, engine/paperLayout.ts).** Four things the paper does that a layout could not
+say:
+
+- `LogHeaderField.printed`: the value the paper prints in a box. Shown as text, never a box to type into; written into
+  every new record (engine/recordDefaults.ts, the morning prepare engine/knownParts.ts, Demo Mode and sample data
+  engine/autoFill.ts) and into every record as it is shown or stored (engine/computedCells.ts runs `withPrintedBoxes`
+  with the worked-out cells), so a record typed over before reads the paper's words; never bound for a downloaded
+  file (engine/roundTrip/bindingsFor.ts), never asked by the guided fill (engine/guidedRecord.ts) or the submit checks
+  (engine/validation.ts); Mitra is told "printed ..., never write it" (engine/mitraTools.ts, pages/RecordPage.tsx's
+  `_layout`, backend/assistant.ts) and a patch that changes it is refused with "Device ID No is printed on the form
+  ("1-54, 2-55, 3-56, 4-57") and can't be changed." (engine/recordPatch.ts); the phone's layout (engineHost/entry.ts
+  layoutOf) says `printed: true` with its `value`, so the phone has nothing to ask for it.
+- `LogSheetLayout.srNoShowsDate`: the Sr. No. column holds the record's date (as the header block shows it) on the
+  first line and nothing on the others.
+- `LogColumn.beneath` with `LogSheetLayout.secondLine: { label }`: every entry is drawn on two lines; the second's
+  heading stands in the first column and each column `beneath` another is drawn under it. The line's data stays one
+  object, the heading row leaves the columns beneath out, and the sheet's own controls (remove, Sr. No.) span both
+  lines. A downloaded Excel or Word file says what the second lines are headed (the grid's `data-bind-second-line`,
+  the map's `secondLine`), so a line headed "Deviation %" — added below with a new entry, or one edited — is never
+  read back as a new entry (engine/roundTrip/readFile.ts).
+- `LogSheetLayout.notesBelow`: the paper's text below the grid, verbatim; a heading the paper prints in capitals
+  ("PROCEDURE:") in bold (components/records/NotesBelow.tsx). With it, `headerColumns`: how many boxes the paper puts
+  on one line above the grid (one under another on a phone).
+
+Each is honoured wherever a layout is read: the record's sheet open and signed off (components/records/
+LogSheetRecordView.tsx), its print and the server's PDF of it (backend/pdfReport.ts prints that page), the Excel and
+Word files (made from the sheet as drawn, utils/documentExport.ts) and their upload, the format's designer (components/
+documents/SheetDesigner.tsx: the printed value shown in its box, the second line with its columns' names and menus, the
+date's place in the Sr. No., the notes below), the English of a form issued in Gujarati (i18n/documentText.ts), Mitra,
+the guided fill, the morning prepare, Demo Mode and the phone's layout. A format the plant edited before this section
+(stored whole, with DCRS's explanations and none of these) takes them from the issued layout, box by box and column by
+column, and loses the explanation lines this section took off (data/seed/logSheetLayouts.ts `asThePaper`); one edited
+since says what it says.
+
+**An empty box prints empty.** An empty date box printed Chrome's "dd-mm-yyyy", a time box "--:--", a choice box its
+"Select…". For the length of a print (the Print button, Ctrl+P, the server's PDF) every empty date, time or choice box
+in a document is marked `data-empty` (utils/print.ts; the log sheets, the daily pest register and the fly catcher
+record mark their own as they draw them), and the stylesheet prints it blank (styles.css, "Print": the text's fill
+made transparent and the date's fields hidden; placeholders were already transparent).
+
+**The four the owner named, as their originals now.**
+
+- *F-QC-30*: Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By, nothing above the grid, the day's date in
+  the Sr. No. of the first line. The heading's 20.0 ± 1.0 is the band (19.0 to 21.0) a reading outside is highlighted by.
+- *F-QC-32*: Sr. No. | Date | Time | Adhesive (kg) | Hardener (kg) | Ethyl (kg) | Viscosity (Sec.) | Remark | Checked
+  by | Verified by, the Date the record's (a known part on the morning's sheet; a line written after midnight is changed
+  by the person), nothing above the grid.
+- *F/QC/11*: Device ID No, Location, Department / Manufacturer, Serial No, Calibration Expiry three to a line, the first
+  four printed; "I. Calibration Date" and Due Date; Index | No. 54 over (20 x 20cm | Deviation) ... No. 57 over (2.5 x
+  2.5cm | Deviation); the lines Tasted-1, 2, 3, 4, Pass/Fail, Sign. as printed; "PROCEDURE: Calibration to be done
+  ..." below the grid. Its name for Mitra and the history stays "Calibration Date".
+- *F/QC/12*: Device ID No, Location, Department / Manufacturer, Serial No, Calibration Expiry / Minimum Reading
+  Capacity, Maximum Reading Capacity, Acceptable Tolerance; Date | Tested By | Weight 1 | Tested Value 1 | ... | Weight 5
+  | Tested Value 5 | Pass / Fail | Sign | Next Due Date with no Sr. No.; each entry's second line "Deviation %" with
+  each weight's Deviation % (worked out, §61) under its Tested Value; "PROCEDURE:" and its sentence below the grid. One
+  sheet a week holds that week's one calibration, dated the sheet's day (rule 3 of the brief: never four lines on one
+  day); the supplied page of February–March 2024 keeps its four weeks, as written. The Deviation % columns are named
+  "Deviation % 1" to "Deviation % 5" for Mitra and the history (the paper heads the line once).
+
+Records already on file keep their data: no key changed, so every value is where it was, and F/QC/11's printed boxes
+read the paper's words whatever a record holds there.
+
+**Not in this section.** The other QC formats of the 41 originals, Mitra's document finding in any spelling and the
+reference-only Statements of Compliance (rules 1 and 4 of the brief, another builder's part); the scan fill (§103);
+F/QC/11's Pass/Fail and Sign. lines drawn as one cell across each plate's two columns, as the paper draws them (the
+grid draws the two cells, the Deviation one empty); a Deviation % beyond F/QC/12's Acceptable Tolerance highlighted
+(Pass / Fail already follows it, §61). The F/QC/12 original prints "F/QC/13 (01/01.01.2022)" in its footer; DCRS keeps
+F/QC/12, the number on the Master List of Formats, until the owner says which is right.
+
+**Tests.** frontend/tests/qcPaperFormats.test.ts (12, each failing on the code before this section, which had none of
+these abilities): a printed box written into a new record, the prepare and Demo Mode, and read on a record typed over
+("WS-2026-10" reads "1-54, 2-55, 3-56, 4-57"), the same object once right, other forms untouched; never bound, never
+patched by Mitra (with the words of the refusal), never asked or required, drawn as text; the Sr. No. holding the date
+on the first of F-QC-30's 24 lines only; F/QC/12's two lines (the first line's columns, the second's heading and its
+Deviation % under each Tested Value, a column beneath the first column or beneath nothing kept on the first line, the
+grid's second-line attribute); the PROCEDURE after the grid word for word and no explanation above it, on F/QC/11 and
+F/QC/12; an empty date and choice box marked and the print rules; a downloaded F/QC/12 in Excel and in Word with an
+entry and its Deviation % line added below reading back as one new entry, and the map keeping the second line's
+heading; a format edited before §111 taking the paper's shape (and one edited since left alone); and each of the four
+documents against its original. Changed: frontend/tests/lineNumbers.test.ts (F/QC/12 among the forms drawn with no
+Sr. No.), frontend/tests/roundTripBindings.test.ts (a printed box is not written, so not bound; the cell under a column
+on a second line is found by its line). Browser suites: tests/e2e_qc_calibration.py (both calibration pages as their
+papers on screen, a new F/QC/11 with its printed boxes, a new F/QC/12 with one dated line, the deviation typed and told
+to Mitra on the second line, an empty Next Due Date printing empty, F-QC-30's date in its Sr. No. and F-QC-32's Date;
+with QC_PAPER_SHOTS set it photographs the four on screen and in print), tests/e2e_print_all_documents.py (every
+document: an empty date, time or choice box prints empty; the four as their papers in print), tests/e2e_qc_formats.py
+(run unchanged).
+
+### §111, part 2: the incoming material records, the certificates of analysis and the tolerance card
+
+**Held against their originals of 13-Oct-2026**, one at a time, word for word, box for box: F-QC-01 to F-QC-05,
+F-QC-18 to F-QC-24 and F-QC-33 (the fourteen incoming material inspection records, data/seed/qcIncomingLayouts.ts),
+F-QC-36 (solvent base lamination film, data/seed/logSheetLayouts.ts), F-QC-06, F-QC-07 and F-QC-25 (the certificates
+of analysis, data/seed/qcCoaLayouts.ts) and the Nivea tolerance card F-QC-19 (data/seed/qcRegisterLayouts.ts). The
+titles, test parameters, specifications (their typos included: "RELEAE LINER THICKNES", "BRUSTING", "APPERANCE.",
+"((± 5)"), columns and lot statuses were already the papers'. What was not:
+
+- *The incoming records and F/QC/36*: the paper's header box is a table two boxes to a line, read across (Supplier Name
+  beside Report number, Product Description beside SAP Batch number, GRN Qty. beside GRN number, then Date of
+  Inspection; F/QC/36: JOB CODE (FG CODE) beside PO NUMBER ...); DCRS flowed them as many to a line as the screen held,
+  in another order. Below the grid the paper gives LOT STATUS and the REASON a line each and the two signatures side
+  by side. F/QC/21 Flexo Ink's "This is a system generated document with regulated access. It does not require a
+  signature" is printed at the very foot of the paper; DCRS printed it above the grid. F/QC/36 prints APPROVED BY (QA
+  MANAGER) beside INSPECTED BY; DCRS had no such box (it is a box now, not required of the inspector; Verify is stamped
+  as on every record). The fourth line of the incoming header's left-hand column is printed empty (and Date of
+  Inspection stands at its right since part 3).
+- *F/QC/06 and F/QC/07*: DCRS printed three lines of its own above the grid (what goes where; that the PRINTING table
+  is turned; that the retest date is the last box), the paper's notes above the grid instead of at the foot, and the
+  TOLERANCE table only behind "Show TOLERANCE" — so it was never printed. It printed none of the paper's block headings
+  but PRINTING's, nor the letterhead's address, contact and GSTIN lines, nor the corporate office. Now, in the paper's
+  order: the letterhead's three lines; Production Order No. / Delivery No. / COA Date : on one line, Client Name, GP3
+  Code with the two Client Item Codes, Product Name, "Specified Size" two to a line; LABEL STOCK (SLEEVE FILM) three to a
+  line, so its Required / Tested / Type Required / Observed stand as the table's rows; PRINTING over the colour table;
+  the rest of PRINTING two to a line; COATING; FINISHING; the TOLERANCE table printed open; the two bullet notes (and
+  the sleeve's heat sentence); the retest sentence "This material should be retested on … before usage." with its
+  date; "THIS IS A SYSTEM GENERATED DOCUMENT.    IT DOES NOT REQUIRE A SIGNATURE." and the corporate office at the foot.
+  "COA Date :" is printed with its spaced colon, and the sleeve's three minimum glosses read "Minimum Gloss Required at
+  60° — Aqueous / U.V / Lamination" as the paper prints them. The colour table stayed turned in this part (one colour a
+  line, under PRINTING), so no record changes shape; part 3 prints it across and draws the paper's tables. The ISO 9001 mark beside the corporate office is a picture, like the logo,
+  and is not drawn.
+- *F/QC/25*: DCRS printed an explanation line above the grid and headed two columns the paper leaves unheaded
+  ("Description", "Observation"); "Specified  GSM" and "Tested GSM" stand under the paper's "GSM" now; "Date:" as
+  printed; the two signatures side by side.
+- *The tolerance card*: the card prints APPROVED BY: and SIGN. : under every one of its seven panels and numbers
+  nothing. DCRS drew one approval for the card, a Sr. No., two columns the card does not print ("Sample mounted",
+  "Remarks") and a line of its own. Now one line per panel: its heading as printed (no heading over them), APPROVED BY:
+  and SIGN. :. Its banner and "DOC NO. : F-QC-19" are the page's own title and format number.
+
+**Three more layout abilities (types/logSheet.ts, engine/paperLayout.ts), honoured wherever the first four are.**
+
+- *Boxes in the paper's groups*: `LogHeaderField.printedAbove` (§93) now above the grid too and at every box that
+  carries it, with `tableAbove` (one of the layout's referenceTables drawn open in that place, not behind "Show") and
+  `boxesPerLine`; a box with any of them starts a group, drawn under its table and lines, so many to a line
+  (`boxGroups`). F/MNT/08's hand-over is drawn as before.
+- *The text at the foot*: `LogSheetLayout.notesAtFoot`, after every box (components/records/NotesBelow.tsx; a line
+  printed all in capitals is bold).
+- *A heading the paper leaves out*: `LogColumn.printedLabel` ("" for none); the column keeps its name for Mitra, the
+  checks and a record's history, and the format's designer says what the paper prints.
+A format the plant edited before §111 takes these from the issued layout and loses the lines this part took off,
+including the paper's own lines now printed in their places (`WITHDRAWN_EXPLANATIONS`, `COA_WITHDRAWN_LINES`).
+
+**Demo Mode and sample data look real (rule 3), never a Live record.** Demo Mode wrote these papers as the blank form
+with ACCEPTED and one name in both signature boxes. engine/qcPaperSamples.ts, called from engine/autoFill.ts only, now
+writes a lot: the supplier from the plant's own papers (Avery Dennison, Centroiid Plastopack) or the Purchase module's
+approved list (Sample Supplier A to K; L to P for the materials that list does not name — no other outside company is
+named), a product, the GRN on the plant's own series (16741 of 03.07.2024 and 17229 of 17.08.2024 on its traceability
+records), the batch GRN/batch, a report number of its own, every printed line read inside its specification (three
+samples where the paper has three); F/QC/36 the day's first laminated job (the lamination sheets' FG code and PO), its
+films and the composite GSM worked out from them; the certificates today's production order and date, tested figures
+inside the TOLERANCE, retest six months on (04/01/2022 → 03/07/2022 on the plant's own); F/QC/25 a 5 ply shipper inside
+F/QC/02's specification; the card approved panel by panel. Inspected by a lab executive of HR Master Data who had
+joined by that day, approved by the QA Manager — two people. The morning prepare of a Live record still writes nothing
+but the date on all nineteen (REQUIREMENTS §98).
+
+**Records already on file keep their data.** No key changed but the tolerance card's: its old one approval
+(header approvedBy, sign) and its two columns are no longer drawn; every other value is where it was.
+
+**Not in this part.** The lot status words of F/QC/21 Flexo Ink print "Accepted" where the other papers print
+"ACCEPTED"; the option is kept as "ACCEPTED" so records already holding it still show it (for the owner to say). The
+paper footer's address and "Format number: - F/QC/01 (01 / 16.02.2022) | Page 1 of 1" are the page's header block, as
+on every document. The suppliers of corrugated boxes, kraft paper, flexo ink and the two adhesives are on no paper of
+the plant's; Demo Mode names them Sample Supplier L to P until the Purchase module's list names them.
+
+**Tests.** frontend/tests/qcIncomingCoaPaper.test.ts (30): the groups (F/MNT/08's unchanged, a lead group's
+headerColumns), a printed table drawn open in its place with the foot after every box, an empty heading kept by name,
+a sheet with nothing above its grid drawing nothing there (the first draw of the groups wrote a stray "0" there on
+the tolerance card and F-QC-30, seen in the photographs and fixed);
+each of the fourteen incoming records against its original (title, number, header order and two to a line, columns,
+every printed line with its specification, footer and its groups, nothing above the grid, F/QC/21's foot); F/QC/36;
+F/QC/06 and F/QC/07 block by block and in the paper's order on the signed-off certificate; F/QC/25; the tolerance card;
+a certificate edited before §111; Demo Mode's lots (every box written, GRN and report numbers each their own, two
+signers of HR Master Data, the inspector joined by the day), its readings inside the printed specifications on four
+days, its certificates inside the TOLERANCE, its F/QC/36 the day's first job, every Demo record submittable as it stands,
+and a Live prepare writing nothing but the date. Changed: frontend/tests/lineNumbers.test.ts (the card among the forms
+with no Sr. No.). Browser suite: tests/e2e_qc_formats.py section 11 (the fourteen on screen, F/QC/21's foot, a BOPP lot
+filled with sample data, F/QC/36, both certificates on file in the paper's order with the TOLERANCE printed, F/QC/25 and
+the card; with QC_PAPER_SHOTS set it photographs them on screen and in print).
+
+### §111, part 3: the boxes in their places, the certificates' tables as printed, the colours across
+
+**A second look at the same originals** (13-Oct-2026, after the first builder run was cut off by a lost connection
+with parts 1 and 2 committed). Every document of part 2 was held against its original again, this time against the
+places of its boxes as well as their words; the words, columns, lines and specifications were the papers' already.
+What still stood elsewhere than the paper puts it:
+
+- *The fourteen incoming material records*: the paper prints Date of Inspection in the right-hand column of its header
+  box's fourth line, under GRN number, its left-hand cells empty; DCRS drew it at the left.
+- *F/QC/36*: the header box's last line is "1st Pass / 2nd Pass / 3rd Pass" alone, its answer the width of the box;
+  DCRS stood it in the left-hand half.
+- *F/QC/25*: "Date:" stands alone at the right above the grid, and OID :- and Job Code: side by side on the grid's top
+  line; DCRS drew the three on one line.
+- *F/QC/06 and F/QC/07*: the paper prints Specified Size, LABEL STOCK (SLEEVE FILM) and COATING's Minimum Gloss line as
+  TABLES — "Specified Size" over Length(mm) and Width(mm) (Cut Length(mm) and Open Width(mm) on the sleeve) on the rows
+  Client's Specified Size and Tested Size; "Material" over Face Material, Adhesive and Release Liner on Required,
+  Tested, Type Required and Observed (Thickness(Microns), Shrinkage Ratio (%) and Type on Required and Tested); "Coating
+  Done : Gloss UV" in the corner over Aqueous, U.V, Lamination, Achieved Gloss and Scuff Test, with "Minimum Gloss
+  Required at 60°" heading the line of figures. DCRS drew each cell as a box with a long label of its own ("Face
+  Material — Required"). And it drew PRINTING turned, a colour to a line, where the paper prints the ten colours across,
+  "No. of Colors" over 1 to 10 with Given By Client and Color Shade Verified under them.
+
+**Three more layout abilities (types/logSheet.ts, engine/paperLayout.ts), honoured wherever the others are.**
+
+- *A box in its column of the line*: `LogHeaderField.paperColumn`, counted from 1, where the boxes stand a set number to
+  a line (`headerColumns`, `boxesPerLine`): the cells before it on its line are left empty, as the paper leaves them
+  (`paperColumnProps`, styles.css `[data-paper-column]`). A phone takes the boxes one under another.
+- *Boxes as the paper's table*: `LogHeaderField.boxTable { corner, cornerBox, columns, rows }` on the box that starts the
+  group: the group's boxes are the table's cells, a row at a time, under the paper's column headings and beside its
+  row headings (components/records/BoxTable.tsx, `boxTableRows`). Each cell is the record's own box — bound where the
+  record keeps it, so the Excel and Word files made from the sheet and their upload read it as before — and draws no
+  label of its own: the table's words head it, and its name is what a screen reader says (`aria-label`). Its name stays
+  what Mitra, the checks and a record's history go by. With `cornerBox` the group's first box stands in the corner
+  under its own label ("Coating Done :"), and that first line is a line of the table, not a heading row, so a file
+  made from the sheet keeps the box a box (`inBoxTable`).
+- *The grid printed across*: `LogSheetLayout.gridAcross`: the record's lines are drawn as columns and its columns as
+  lines, under the heading the columns share (PRINTING), each cell the record's own (the same binding, the same words
+  for a printed cell, the same highlight out of band). The record's data is unchanged: still one line a colour, so no
+  record on file changes shape and Mitra, the phone and an upload name the lines as before. For a sheet that numbers
+  its own lines, so no Sr. No. is drawn. The format's designer designs the lines a line to a row, as on every grid,
+  and says the record prints them across (`designer-across-note`); it draws a table of boxes as the table, each box
+  with its name and its menu.
+
+Each is honoured on the sheet open and signed off, its print and the server's PDF, the Excel and Word files made from
+the sheet (utils/documentExport.ts reads the tables as drawn: a table of boxes is a table whose cells are bound), the
+format's designer, the English reading of a form issued in Gujarati (`boxTable`'s words, i18n/documentText.ts), the
+phone's layout (engineHost/entry.ts: `boxTable` on the box that opens one, `gridAcross` on the layout) and a format the
+plant edited before §111 (`asThePaper` gives it `paperColumn`, `boxTable` and `gridAcross` from the issued layout).
+
+**The documents now.** Date of Inspection at the right of the fourth line on all fourteen incoming records; F/QC/36's
+pass alone on its line; F/QC/25's Date: alone at the right, OID :- and Job Code: under it; F/QC/06's and F/QC/07's
+Specified Size, LABEL STOCK / SLEEVE FILM and COATING as the paper's three tables (the supplied certificates read, cell
+for cell, "Required | 80 GSM /Microns | 27 GSM | 60 GSM" … "Observed | Chromo | Rubber Based (Hot Melt) | Glassine
+Paper"; "Minimum Gloss Required at 60° | 35% | 72% | 75% | 84.00% | 2 lbs, 100 rounds Okay"), and PRINTING across: "No.
+of Colors | 1 … 10", "Given By Client | Cyan | Magenta | Yellow | Black | Blue | P.151C", "Color Shade Verified | OK …".
+No key changed; every record keeps its data.
+
+**Not in this part.** The paper writes "Coating Done : Gloss UV" on one line; the corner box stands its label over its
+value, as every box does. A heading cell the paper prints in title case ("Face Material") prints in capitals, as every
+heading of the sheet does. The retest date stands under its sentence ("This material should be retested on … before
+usage."), not inside it.
+
+**And the screen's line about the Verify step.** Under a QC form's boxes the screen says that "Approved by (QA
+Manager)" on the paper form is the Verify step here. The photographs showed it under F/QC/06 and F/QC/07, which print
+"IT DOES NOT REQUIRE A SIGNATURE.", and it stood under F/QC/25, whose QA Manager signs a box of his own: an approval
+those papers do not have. It is said now only where the paper has no APPROVED BY box, no box of the QA Manager's and
+does not say it needs no signature (components/records/LogSheetRecordView.tsx `paperHasItsOwnApproval`); on screen
+only, as before.
+
+**Tests.** frontend/tests/qcIncomingCoaPaper.test.ts (33; the three new ones and the changes fail on the code before
+this part): a box in its column of the line (`paperColumnProps`, the one box so marked on F/QC/01, the stylesheet's
+rule and the phone's reset); boxes as the paper's table (a row's spare cell empty, the corner box keeping its label,
+the LABEL STOCK table's cells bound where the record keeps them, named for a screen reader and drawing no label, the
+corner box on a line of the table and not a heading row); the grid printed across (PRINTING, No. of Colors over 1 to
+10, a box per colour bound to its own line, the printed numbers no boxes, no Sr. No., no grid down the page besides,
+the designer's note); each of the fourteen incoming records with Date of Inspection in the second column; F/QC/36's
+pass alone on its line; F/QC/06 and F/QC/07 group by group with their tables' headings, and their supplied certificates
+drawn signed off read cell for cell from the three tables and the colours across; F/QC/25's Date: in the second
+column; a certificate edited before §111 taking the tables and the colours across from the issued layout; the Verify
+line gone from the certificates and F/QC/25 and still under F/QC/37 pouching. Browser suite: tests/e2e_qc_formats.py
+section 11 (Date of Inspection under GRN number at the right on all fourteen; F/QC/36's pass the width of the box; both
+certificates on file with their three tables read cell for cell and the colours across, all of them printing; F/QC/25's
+Date: alone at the right above OID :- and Job Code:); tests/e2e_realism.py closes the briefing before its clicks.
+Run on 39920f8, one suite at a time: e2e_qc_formats 126 of 126, e2e_sheet_designer 140 of 140, e2e_portal_controls 38
+of 38, e2e_every_record_starts 336 of 336, e2e_mobile_mitra_api 32 of 32. e2e_print_all_documents and e2e_realism did
+not get as far as a test: each was started in the same minute as another worktree's run, and the two runs' servers and
+databases ran into each other (part 4 says what was done about it); they are run again with part 4.
+
+### §111, part 4: the papers' own marks, and F/QC/25's one answer across its columns
+
+A third look at the originals of 13-Oct-2026, held against DCRS's own print of each (commit 99d9bed, and da19065 for
+F/QC/25's grid). The words and boxes were the papers' already; what the print did not show is now a layout ability:
+
+- *The LOT STATUS line* of the fourteen incoming records and F/QC/36 prints its four statuses across, for the
+  inspector to mark one (LogHeaderField.choicesAcross); F/QC/21 Flexo Ink's first reads "Accepted".
+- *The signature boxes* are headed INSPECTED BY and APPROVED BY with QA INSPECTOR and QA MANAGER printed under the
+  space they are signed in; F/QC/25 prints "(QA Inspector)" under "Testing By" (LogHeaderField.printedBelow).
+- *The line numbers* print "1.", "2." where the paper does (LogSheetLayout.srNoFullStop); Flexo Ink prints "1", "2".
+- *The screen's "*"* after a box that must be written no longer prints.
+- *The certificates' headings* print in the paper's letters ("Length(mm)", LogSheetLayout.headingsAsPrinted); their
+  retest date stands inside its sentence (LogHeaderField.inSentence); "Coating Done :" beside its value.
+- *F/QC/25's letterhead* is the paper's three cells (ReferenceTable.untitled), not one line joined by dashes.
+- *F/QC/25's grid* (LogSheetLayout.answerAcross, LogHeaderField.inGridHead): one answer box a line across the paper's
+  four columns, but on 7.1, 7.2 and 7.3, which are written in Specified GSM, Tested GSM, BF and Grade of Paper; those
+  four are headed on line 7, "Material Specification", where the paper heads them (GSM over Specified and Tested GSM);
+  OID :- and Job Code: stand on the grid's top line. The record's data is unchanged: every line holds every column.
+
+Tests: frontend/tests/qcPaperMarks.test.ts (sections 1 to 7). Browser suite: tests/e2e_qc_formats.py.
+
+### §111, part 5: the line clearances, F/QC/13, the registers and reports, F-QC-14, and every QC number found
+
+**Held against their originals of 13-Oct-2026** (source-documents/qc-originals-2026-10-13/, or the older paper a
+layout's specimenSource names), one at a time, word for word, box for box. What was not the paper's:
+
+- *F/QC/15-A to F/QC/15-G, the area line clearance reports* (the four "F-QC-15-A-G Line Clearance ... - Printing"
+  PDFs and the .xls of the quality inspection one): the paper's grid opens with Completion Date; DCRS added a Sr. No.
+  (`ownLineNumbers` now) and printed the title, already in the header, a second time above the grid. A sample day
+  wrote the blank template's own three 2022 example lines (36633, "xyz", "11.00 AM"); it is now the area's own job
+  changes (engine/lineClearanceSample.ts): the record's date, clock-face times as the paper writes them ("2.40 PM"),
+  the plant's PO series and customers, each new job the next line's previous job, the area's operator from F/HR/03 and
+  QC's IPQC executive on shift. A Live record gets none of it, and the Completion Date is the person's.
+- *The two Gujarati checklists* ("F-QC-15 Line Clearance format (2).jpg", લાઈન કિલયરન્સ and ક્વોલીટી શહી, one page):
+  DCRS printed an English gloss beside every Gujarati label, a Sr. No., and a line of its own saying the two share a
+  page. Now the paper's Gujarati alone, no Sr. No.; with English chosen they still read in English
+  (i18n/documentTextEn.ts).
+- *F/QC/13 In Process Quality Control* ("F-QC-13 IPQC format (2).jpg"): now the paper word for word in its own
+  Gujarati spellings — the procedure; the grade criteria table printed in full on the page (`ReferenceTable.printed`:
+  drawn open, no Show button, printed); eight boxes three to a line, the Date among them; the grid સ.નં | પેરામીટર |
+  ટેસ્ટ ક્રાઈટ | ગ્રેડ | પાસ? with the paper's own numbers ૧ to ૬; the five boxes below in the paper's English. Gone, as
+  the paper prints none of them: the English glosses, a Defect count column, a Total Ups box and two lines of grading
+  rules. Headed "In Process Quality Control" (`LogSheetLayout.paperTitle`: the title the paper prints, where the name
+  the document is filed under says more); the Gujarati checklists are headed લાઈન કિલયરન્સ and ક્વોલીટી શહી. A
+  required box's "*" is DCRS's and no longer prints.
+- *F-QC-40.C Temperature Monitoring Record* (WhatsApp Image 2026-09-07 at 2.15.19 PM (1).jpeg): headed TEMPERATURE
+  MONITORING RECORD; SR NO | DATE | six readings each headed "... HRS TEMP. + SIGN" — the reading and the tester's sign
+  in one cell. DCRS had no DATE column and a Sign column of its own; the DATE is the record's day, and the Sign column
+  is gone (a record holding one keeps its value).
+- *F/QC/08 Master list of calibration instruments*: the Note and the sixteen columns were the paper's. Demo Mode and the
+  sample fill now list the instruments DCRS's own calibration records name (F/QC/12's weighing balance QC-76, F/QC/11's
+  four GSM cutting plates 54 to 57) on the first of the paper's eleven lines, with what those records print about
+  them; the calibration dates are the person's; a Live list starts blank.
+- *F/QC/16 Register of obsolete artwork*: a sample day withdrew the supplied page's thirteen lines of 2022, the same
+  ones every time; it now withdraws two of the plant's artworks, dated that day, a different two each day.
+- *F/QC/20 Destruction record* (F-QC-20.pdf): titled DESTRUCTION RECORD, PRINTING AIDS DESTRUCTION RECORD printed above
+  "Date:" and the grid, "Current Issue date 1st January 2022" and "Next Review date 31st December 2024" printed below
+  it. DCRS printed a line describing the footer instead.
+- *F/QC/29 Analysis report* (F-QC-29 _ Analysis report.pdf): "Date :"; the two explanation lines DCRS printed above
+  the grid (what is analysed, that the photograph of the label roll is not reproduced) are gone.
+- *F/QC/29 Nivea utility test* (F-QC-29 Analysis report.pdf): printed on the MINUTES OF MEETINGS format and headed so;
+  "NIVEA SAMPLES -  UTILITY TEST  REPORT" above the grid in the paper's spacing, "DATE:", Job Name under Description
+  as the paper heads it. DCRS's two lines (one of them a question for the MR) are gone.
+- *F/QC/30 Minutes of meetings* (F-QC-30 MOM.pdf): "Subject:", "Participants :" and "Key points Discussed:" are the
+  labels of what they head; DCRS printed the last two again as lines above the boxes.
+- *F/QC/34, F/QC/35, F/QC/37*: their photographed registers are not among the originals or in the repository, so
+  they could not be held against a paper again; nothing of DCRS's is printed on them (no line above the grid).
+
+Every withdrawn line is in `WITHDRAWN_EXPLANATIONS` (data/seed/logSheetLayouts.ts), so a format the plant edited
+before reads the same. No key changed, so every record on file keeps its values.
+
+**F-QC-14, the internal test reliability record, built** (data/seed/qcTestReliabilityLayouts.ts). It came among the
+41 as the workbook "F-QC-14 TEST RELIABILITY RECORD.xlsx", filled in on 12.02.2022, and was on the Master List only
+("not in DCRS yet", item 42). Four inspectors, each named under his heading ("Inspector - 1 (Kapila)"), test the same
+three samples for each check, and each check is concluded. The workbook has two sheets, so two documents, both F-QC-14
+(as the F/QC/29 pair; frontend/tests/formats.test.ts lets the pair through): `qc-test-reliability-label` (the "Label"
+sheet, headed "F-QC-14/00": GSM - Total, Dimension (Length & Width), GSM - Adhesive, Scuff Test, Thickness, Coloue
+shade, Peel Strength, Gloss Testing) and `qc-test-reliability-sleeve` (the "Sleeve" sheet: Thickness, Dimension,
+Shrinkage Ratio, Coloue shade, Corona Treatment), in "Analysis & Meetings", Kapila Barad's (the owner's QC rule), Rev
+00 of 01.12.2021 (the Master List). Every heading is the workbook's, "Coloue" and the double spaces included. The paper
+is eight small tables two to a row; a sheet here is one grid, so: each check is three lines, its heading printed on
+every one (as the Gujarati checklist prints its process), in the order the sheet is read; the first column is headed
+with the paper's three words for what was sampled ("Paper Reel SAP batch no. / Roll no. / sample no."); the four
+names are the boxes Inspector - 1 to 4 above the grid, the finished job's FG code (written in its tables' heading,
+"FGLA 11430 sample no.") the FG Code box; each check's Conclusion a box below the grid named with its check; no Sr. No.
+The 12.02.2022 workbook is on file, both sheets, cell for cell (data/seed/qcTestReliabilityRecords.ts). Demo Mode and
+the sample fill write a real exercise (engine/testReliabilitySample.ts): the reel's batch and rolls on the plant's
+series as the workbook writes them, the FG code on the plant's FGLA / FGSL series, every reading inside the
+specification over its check with the four inspectors a reading or two apart, Inspector - 1 the QA Manager and the
+other three QC's lab executives on HR Master Data who had joined by that day; a Live record gets only its date. Mitra
+finds it as "test reliability" (and asks which sheet) or "sleeve test reliability". Its download is a workbook.
+
+**Every QC document by its number, and the two Statements of Compliance read** (rule 4). Search, Mitra's words and
+Mitra's tools find every QC document by its number in any spelling ("F QC 09", "FQC09", "F/QC/09", "f-qc-9", "qc 9")
+and never take it for another: the phone was answering about F/QC-38 when asked to open F QC 09. Six numbers are
+printed on two papers each (F/QC/19, /20, /21, /29, /30, and F-QC-14's two sheets): written exactly as one paper prints
+it, the number names that paper; written loosely it names both, and Mitra asks which (the phone is answered 400
+"ambiguous" with the candidates, where it was handed the first in the catalogue). F/QC-09 and F/QC-38, kept as issued,
+open to read: on the website their own page (/soc/...), and through /api/v1 GET /api/v1/documents/{id} gives the
+statement's own words in `issued` (title, sections, declarations, who signed, publication and validity, the whole as
+text); asked to open one, the phone is given them with the 409 reference-only, so Mitra shows the statement instead of
+"I can't open it". Each SOC's everyday names and "mom" for the minutes are Mitra's words (engine/assistantLocal.ts);
+docs/api/dcrs-api.openapi.json says so.
+
+**Not in this part.** F-QC-14's readings are not highlighted outside their specifications (each line holds another
+check; a column has one band); its Conclusions stand below the grid, not under each table. F/QC/34, 35 and 37 wait
+for their papers. The minutes' sample fill is still the supplied Gangwal meeting dated the day. The F/QC/20 issue and
+review dates are printed below the grid, not in a footer table. The scan fill (§103) is the next piece of work.
+
+**Tests.** frontend/tests/qcPaperFormatsMore.test.ts (14): F/QC/15-A to G's columns, note, checklist and title once,
+a sample day of job changes and none for a Live record, a clearance edited before §111; the Gujarati checklists; F/QC/13
+against its original, in Gujarati and in English; F/QC/08's Note, columns and sample instruments; F/QC/16's columns and
+a sample day; F/QC/20 against its PDF; both F/QC/29 papers and F/QC/30; F-QC-40.C's columns and a sample day; F-QC-14's
+two sheets (headings, columns, the lines as headed, no Sr. No., a Conclusion per check), the workbook on file cell for
+cell, a sample exercise inside every specification and a Live prepare writing only the date, and F-QC-14 found by
+number and by name. frontend/tests/qcFindByNumber.test.ts (3): every QC document in six spellings, the shared numbers,
+F QC 09 never F/QC-38. backend/tests/engineHost.test.ts (2 more): an SOC read through the phone by its number, a
+shared number answered with the candidates. Changed: lineNumbers.test.ts (the line clearances, F/QC/13 and F-QC-14
+among the forms with no Sr. No. of the sheet's), formats.test.ts (the F-QC-14 pair), accessRules.test.ts (F-QC-14
+Kapila's). Browser suites: tests/e2e_qc_formats.py (section 8b: F/QC/20, the two F/QC/29 papers, F/QC/30, F-QC-40.C,
+F-QC-14's two sheets on file and a Label record filled with sample data by Mitra and submitted; the module holds 43;
+the twelve line clearance headings with no Sr. No.; F/QC/13 as its original), and the document counts in
+e2e_smoke.py, e2e_hr_module.py, e2e_every_record_starts.py, e2e_departments.py and e2e_qc_calibration.py (131
+documents, 43 in QC's module, 48 for a QC account).
+
+### §111, part 6: the findings on parts 1 to 5, fixed
+
+A review held every print against its original again and ran the sheets as the plant and Mitra do (the morning
+prepare, the sample fill, Demo Mode, the print). Both builders' branches are one now (formats-13oct-b merged into
+formats-13oct): on either alone F/QC/30 opened F-QC-30, or the incoming records were not the papers. What it found,
+and what was done:
+
+- *F/QC/11's Serial No printed DCRS's "TO BE CONFIRMED"*, on the 31.12.2024 page on file and, it being a standing box
+  whose value comes from the specimen, on every new sheet, Live and sample. The scan's scribble is left blank, as the
+  paper's box is; DCRS's mark is never carried onto a new sheet (engine/observations.ts isPlaceholder, read by the
+  morning prepare and the sample fill); a copy of the page stored with it takes the blank at start-up with one line in
+  its history (data/seededPlaceholderMigration.ts).
+- *Sample and Demo calibration sheets showed an instrument out of calibration, all Pass*: the 2024 page's expiry
+  (27.08.2024 on F/QC/12, 22.09.2025 on F/QC/11) on 2026 sheets. A sample sheet's instrument now carries its yearly
+  calibration's next date after the sheet's day; F/QC/11's Due Date is the next month's calibration; its Sign. line is
+  signed by a QC lab executive of HR Master Data, not "Rashmi". A Live sheet still carries the expiry as written and
+  says first that it has run out (§75).
+- *The boxes and the grid as printed*: both calibration records carry the paper's own box words, colons and ":-"
+  included ("Device ID No:", "I. Calibration Date:-"), F/QC/11's "Due Date:-" at the right of its line; F/QC/11's
+  Pass/Fail and Sign. lines are one cell a plate (LogSheetLayout.groupCellLines); F-QC-30, F-QC-32, F/QC/11 and
+  F/QC/12 print their headings in the paper's letters ("No. 54", "20 x 20cm", "Viscosity (20.0 ± 1.0 Sec.)").
+- *A printed tolerance or specification drives the highlight* (rule 2; engine/printedBands.ts): F/QC/12's Deviation %
+  outside ± its Acceptable Tolerance (LogColumn.toleranceFrom); an incoming record's reading outside the
+  SPECIFICATION printed on its line, where that is a plain figure — "90 (+2.0 / -1.0)", "Max 15%", "30 ± 10", "Delta
+  Value DE should be below 3.0" (LogSheetLayout.specBand; "As per P.O.", a band for each ply or side and "Except ..."
+  are left to the inspector); a certificate's tested size, stock and thickness outside its TOLERANCE table
+  (LogHeaderField.within; the sleeve's "Shrinkage Ration 5 %", which does not say of what, is left to the inspector).
+  Highlighted on the sheet and its print, counted above the grid, in validation's count and the record's history;
+  never a block. Demo Mode's lots read inside every band.
+- *The header block as the paper's*: the lines a paper prints under the company's name (LogSheetLayout.underCompany:
+  F/QC/11's and F/QC/12's "Manufacturers of Printed Cartons, ...", the certificates' address, contact and GSTIN
+  lines); the title in the paper's own letters where it is not in capitals (titleAsPrinted: the certificates, F/QC/13);
+  F/QC/25's letterhead in place of the company's line (LogSheetLayout.letterhead), the company's name printed once, then
+  "CBA: CORRUGATED BOX ANALYSIS", then its title, then Date:. The Rev No. of F/QC/06 and F/QC/07 is the Master List of
+  Formats' (F-SYS-02 gives 01.12.21 in its Rev 0 column: Rev 00 of 01.12.2021); a revision nobody has given (F/QC/25,
+  F-QC-19, F/QC/13) is said on screen and prints as an empty cell. A record headed with its own date prints the
+  format's revision date beside it ("Rev Date"), the date the paper prints in its header; the page is "1 of 1", not
+  "1 of 1 (digital)".
+- *The address at the foot*: the incoming records, F/QC/33 and F/QC/36 print "308/9, GIDC, DEDIYASAN, MEHSANA,
+  GUAJRAT, INDIA - 384002" under their Format number line; F/QC/21 Flexo Ink its own "308/9 GIDC, DEDIYASAN, MEHSANA -
+  384002, GUJARAT, INDIA" above its system-generated line (notesAtFoot). The paper's spellings are kept.
+- *A written date prints as written* (utils/print.ts): for the length of a print every written date or time box in a
+  document prints as text in its place ("14-Oct-2026", "10:17"), not the browser's drawing of it ("14·10·2026",
+  "13 - 10 - 2026", the owner's "12..10..2026").
+- *F-QC-19's tolerance card* draws its nine printed headings (the second "ERROR : OTHER" and "ERROR : IN BATCH COADING
+  AREA" were missing). Its sheet prints seven APPROVED BY / SIGN. boxes for nine headings, ten banners and ten DOC NO.
+  labels: the banners and the number are the header block's; every panel keeps its approval.
+- *F/QC/18's DRYING TEST* stands over its two printed lines, the second ("On Glass surface ...") unnumbered with an
+  OBSERVATION box of its own (LogSheetLayout.continuationLines); ALKALI RESISTANCE stays "7.". A record written before
+  holds its own words on its lines and reads as it was written.
+- *F-QC-30's day* is 9:00 to 07:00, twenty-three lines, as its page is written; DCRS's 08:00 line is gone, and with it
+  the specimen's 08:00 reading, which was the next morning's 9:00 one. The paper prints its grid twice side by side and
+  the hours by hand: DCRS keeps one grid of the day's printed hours.
+- *F-QC-32's specimen* has its signatures under Verified by, Checked by blank, as written, and its fifth line (7/9/26);
+  a sample sheet signs Verified by.
+- *Signed by people of HR Master Data* (rule 3): Demo Mode's and sample QC lines and boxes, and Demo Mode's QC
+  submissions, are signed by QC's lab executives (the longest-serving on the day shift, the next on the night shift)
+  and the QA Manager — not "Jeni", "Singh", "Rashmi", "Pooja P", "Priya Solanki", "Vijay" or "Yogesh Rathod", who are
+  not on HR Master Data. Where HR Master Data holds no lab executive, the names the papers give.
+
+**Not done, and why.** Demo Mode's and sample incoming lots still name "Sample Supplier C" and the like: the approved
+supplier list on file (F/PUR/03) is the blank format's made-up lines, and no outside company is invented (§98's sample
+data rule); the plant's own list would give the real names. F/QC/12's paper prints its own footer number as "F/QC/13
+(01/01.01.2022)", the IPQC's; DCRS keeps F/QC/12, which the file name and the Master List give — for the owner to
+confirm and the paper to be corrected. F-QC-30's two grids side by side and its handwritten hours are not reproduced.
+
+**Tests.** frontend/tests/qcPaperFindings.test.ts (17, each failing on the code before this part); changed:
+qcPaperFormats.test.ts (the box words, 23 hourly lines, a format edited before §111), qcIncomingCoaPaper.test.ts (the
+address at the foot, the certificates' header lines, F/QC/25's letterhead, the card's nine panels, F/QC/18's two
+DRYING TEST lines), qcPaperMarks.test.ts (an incoming format edited before §111 holds no foot), qcPaperFormatsMore.test.ts
+(F/QC/13's title in its letters), recordHeader.test.ts and mitraTools.test.ts ("1 of 1", 23 lines). Browser suites:
+tests/e2e_qc_calibration.py (the blank serial, the box words, one cell a plate, a written Date printing as text, 23
+lines), tests/e2e_qc_formats.py (F/QC/25's grid head and line 7, the card's nine panels), tests/e2e_smoke.py,
+tests/e2e_print_all_documents.py and tests/e2e_header_editing.py (23 lines, "1 of 1").
+
+### §111, part 7: the review of 13-Oct-2026, group B — what was still unlike the papers
+
+A review held group B's papers (part 5) against their originals again, and the sheets, their prints and their sample
+data against what the papers ask. Every finding below was confirmed and is fixed; each has a unit check that failed on
+the code before (frontend/tests/qcPaperReview.test.ts, 20). The branch first took group A's work (formats-13oct, which
+already held part 5), so the fixes use A's abilities — `headingsAsPrinted`, `paperColumn`, `boxesPerLine`,
+`srNoFullStop`, `paperHasItsOwnApproval`, `qcPaperSigners` — rather than a second copy of each. (Part 6 is the same
+review's findings on group A's papers, made on formats-13oct.)
+
+**What the papers do that a layout could not say, and the one place each is worked out** (types/logSheet.ts;
+engine/paperLayout.ts; drawn by components/records/LogSheetRecordView.tsx for the sheet, its print, the server's PDF and
+the Excel and Word files made from it; a format edited before takes them from the issued layout, logSheetLayouts.ts
+asThePaper):
+
+- *One cell down a run of lines* — `LogColumn.merged` ({ by: key } or {} for every line): the Gujarati line
+  clearance's process and its operator's and QA's signatures once per process, F/QC/13's one પાસ?. The value is the
+  run's first line's (mergedRuns; Demo Mode's and the sample's lines brought to it by withMergedRuns, a "No" anywhere in
+  a yes/no run the run's "No"); the checks ask for it once; Mitra's tools and the phone are told so.
+- *A blank line between runs* — `LogSheetLayout.gapBetweenRuns`: between the Gujarati processes. Never a line of the record.
+- *The paper's small tables* — `LogSheetLayout.panels`: F-QC-14's checks, two to a row, each headed with its check
+  over the inspectors, each inspector's name under his heading in brackets, its first column headed as printed ("Paper
+  Reel SAP batch no.", "Roll no.", "{fgCode} sample no." with the FG code written in), its three lines and "Conclusion"
+  with its own conclusion. The record is unchanged: its lines, its boxes. The names and the FG code are typed in the
+  first table that prints them and shown as written in the others (`data-repeats`).
+- *An entry's second line headed with nothing* — `secondLine: { label: "" }`: the first column (F-QC-40.C's day) runs
+  down both lines, so a reading and its sign stand in one cell.
+- *The Sr. No.'s own heading* — `srNoLabel`: "SR NO" (F-QC-40.C), "" (F/QC/30's numbered points).
+- *A box drawn as the paper's heading* — `LogHeaderField.asHeading`: F/QC/29's "PSL Analysis Report", centred, its
+  label unprinted.
+- *A photograph under the table* — `photoBelowGrid`, kept in the record as `LogSheetData.photos` (a scaled-down
+  JPEG, as the complaint report keeps its photographs), one to a sheet; never written by Demo Mode or a sample.
+- *Boxes above the paragraph* — `boxesAboveInstructions`. *Lines printed with the format number* —
+  `printedWithNumber` (DocumentHeader, after the revision). *No number printed* — `numberNotPrinted` (an unconfirmed
+  number prints empty). *A group heading in a cell of its own* — `LogColumn.groupApart`. *The Verify step named only
+  where the paper prints its approval* — `approvedOnVerify`. *A paper's own Sr. No. column* — the column's
+  `autoFill.lineNumber`: a new or blank line numbered after the one above it. *The time a sign is under* —
+  `autoFill.atTime`.
+
+**The findings, paper by paper.**
+
+- *F-QC-40.C* (F01, F33): each "... HRS TEMP. + SIGN" cell is the reading and, under it, the tester's sign — a column
+  of its own (`t0830Sign` ...), required, drawn on the entry's second line with no heading; Demo Mode and a sample have
+  the day's QC tester sign the three day readings and the night's the three night ones. Headed "SR NO".
+- *Group B's headings* (F05): in the papers' own letters (`headingsAsPrinted`) on F/QC/08, F/QC/15-A to G, F/QC/16,
+  F/QC/20, both F/QC/29 papers, F/QC/30, F-QC-14 and F-QC-40.C ("Observation (24Hrs.)", "Completion Date", "Customer
+  name", "Inspector - 1", "12:30am").
+- *Numbers* (F07, F08): the two Gujarati checklists print no Format No. or Rev No. (never TO BE CONFIRMED; still filed
+  as DCRS lists them). F/QC/13 is revision 00 of 01.12.2021, as the Master List of Formats gives it. F/QC/30 is revision
+  00 of 01.01.2022, as the owner's original "F-QC-30 MOM.pdf" prints it; the "MOM F-QC-30.pdf" its revision 01 was read
+  from is not in the repository.
+- *F-QC-14* (F11): drawn as the workbook's eight (Label) and five (Sleeve) small tables; no "Test" heading, no joined
+  "Paper Reel SAP batch no. / Roll no. / sample no.", no "FG Code" box, no "Conclusion (GSM - Total)". The boxes'
+  names stay what they were for Mitra, a record's history and a downloaded file.
+- *The Gujarati papers* (F12): F/QC/13 and the two checklists print their own Gujarati whatever language is chosen
+  (i18n/documentText.ts `sheetAsIssued`) — with English chosen they printed an English translation. Their English
+  (documentTextEn.ts) is still what Mitra and the guided questions use, and the library lists them by their English names.
+- *F/QC/29 analysis report* (F13, F28): "Date :" at the right; the heading centred with no "Report" label; the
+  photograph's place under the table. *Utility test* (F29, F28, OPS-2): "Observation (24Hrs.)" over each place in a cell
+  of its own; "DATE:" at the right; the job names are written by the person on free lines (a new report no longer
+  starts with the nine samples of 02-Dec-2022); a sample day tests five to nine of the plant's own Nivea labels.
+- *Line clearances* (F25): the machine box above the note, the paper's words without the printed rule ("PRINTING
+  MACHINE NAME : -"); the Gujarati checklists' boxes above their procedure, two to a line.
+- *Gujarati checklists* (F26): the process printed once beside its lines, the operator's and QA's signatures once per
+  process, QA's tick on each line, a blank line between processes.
+- *F/QC/13* (F27): સેમ્પલ કોલીટી at the right of its line; the five boxes below the grid one, then two, then two; one
+  પાસ? down the six lines.
+- *F/QC/20* (F28): "Date:" at the right; "Current Issue date | 1st January 2022" and "Next Review date | 31st December
+  2024" printed with the format number and the revision, where the paper's footer prints them, not under the grid.
+- *F/QC/30* (F30): the key points numbered "1.", "2." under no Sr. No. heading; the participants one to a line.
+- *F/QC/16* (F31): the paper's own Sr. No. is its column: the 2022 page keeps its 7, 9, 8, 10.
+- *F/QC-09, F/QC-38* (F32): the footer as printed ("F/QC-09 (Rev – 00 / 01.12.2021)"); after F/QC-38's table, one
+  list as the document prints it — the regulations under no heading, "Please refer below for Intended Food Contact
+  packaging: ‐" and its food categories a line each ("⇨ Dry Food" ...), the 282/2008 regulation again, the REACH
+  heading and its points with their suppliers a line each, then the declarations. The screen's "Declarations" heading
+  over that list does not print.
+- *The Verify note* (F34): "Approved by (QA Manager) on the paper form is the Verify step" shows only under F/QC/34,
+  /35 and /37, whose papers print that approval; F-QC-14, F/QC/13 and the others print none.
+- *Demo Mode's signatures* (OPS-3, engine/qcReportSamples.ts): F/QC/29's Testing By and Approved By, F/QC/20's
+  Destroyed By and Checked By are two people of HR Master Data — one of QC's lab executives and the QA Manager —
+  F/QC/16's QC In-charge the QA Manager; F/QC/20 destroys the printing aids of an artwork F/QC/16 withdrew.
+- *Mitra and the phone* (OPS-6, OPS-9): a letter said apart from its number ("F QC 15 A") names that form, not the
+  seven line clearances; a word after the number that no form's letter is ("open f qc 11 i need it") is let go; a dot
+  or an underscore parts a number as a dash does ("F.QC.11", "F_QC_12").
+
+**The records on file.** Two seeds changed with their papers: F/QC/16's 2022 page holds its own Sr. No., and the 2022
+Gangwal minutes their participants a line each. A copy stored before is brought in step once at start-up
+(data/paperOnFileMigration.ts), with one line in its history; a record reopened for correction is left alone.
+
+**Not in this part.** F-QC-40.C is one record a day with one line, where the paper is a register of fifty lines a
+month: changing it would change how the reports read the hot room by day (the owner is asked). The Gujarati materials
+checklist's two ક્વોલીટી ચેકીંગ lines are still two lines with a tick each, where the paper writes them in one cell.
+F/QC/34, /35 and /37 still wait for their papers. The minutes' sample is still the supplied Gangwal meeting dated the
+day. The label of a box on F/QC-09's and F/QC-38's table keeps no colon where the documents print one.
+
+**Tests.** frontend/tests/qcPaperReview.test.ts (20: F01, F33, F05, F07, F08, F11, F12, F13, F25, F26, F27, F28, F29,
+F30, F31 with the start-up alignment, F32, F34, OPS-2, OPS-3), frontend/tests/qcFindByNumber.test.ts (2 more: OPS-6,
+OPS-9). Changed: qcPaperFormatsMore.test.ts (the machine boxes, the Gujarati sheets as issued, F/QC/16's columns,
+F/QC/20's dates, the utility test's headings, F-QC-40.C's signs), lineNumbers.test.ts (F/QC/16 numbers its own lines),
+roundTripBindings.test.ts (a box written again where the paper writes it again is bound where it is typed). Browser
+suites: tests/e2e_qc_formats.py (the Gujarati checklists in Gujarati with their merged cells and blank lines, no TO BE
+CONFIRMED in their header; F/QC/20's dates in the header and its Date at the right; the utility test's three
+"Observation (24Hrs.)"; F-QC-14's small tables; the three Gujarati papers as issued with English chosen) and
+tests/e2e_smoke.py (the statements' footers as printed).
+
+### §111, part 8: the owner's formats of 14-Oct-2026 — F-QC-40.A, F-QC-40.B, F/QC/17 and F/QC-10
+
+**The request.** The owner, 14-Oct-2026, with four files: "So make sure this is more Four files which i want which you
+need to add this and also i providing F-QC-31 also soon". The files are kept with the others in
+source-documents/qc-originals-2026-10-13/. The one sent as "F-QC-10_Statement of Compliance (SOC) - Flexible packaging
+Pouch & Film.pdf" prints F/QC-38 on every page — it is F/QC-38, already in DCRS — so it is kept as "F-QC-10 file as sent
+2026-10-14 - its pages are F-QC-38, not F-QC-10.pdf"; the owner then sent F/QC-10 itself, "F-QC-10_Statement of
+Compliance (SOC) - Shrink Sleeve.pdf". All four were on the Master List of Formats only ("not in DCRS yet", item 42).
+DCRS holds 135 documents now; 46 in Quality Control's module, 52 for a QC account.
+
+**F-QC-40.A, TEMPERATURE & HUMIDITY MONITORING RECORD** (`qc-temperature-humidity`, Rev 02 of 01.07.26, data/seed/
+qcTemperatureLayouts.ts). As the paper: "RECOMMENDED TEMPERATURE & HUMIDITY : 25°C ± 2°C / 45 ± 5%"; "AREA: PRINTING/
+INK KITCHEN/ WARE HOUSE" at the left of the next line, the area the sheet is for marked on it (the choice printed across,
+`choicesAcross`, the paper's own words with their slashes), and "M/C NO. :" at its right; "MONITORING RECORD - TIME &
+SIGN." across the top of the table; SR NO | DATE | 08:30 HRS | 12:30 HRS | 16:30 HRS. Each time's one cell holds the
+temperature and the humidity, judged by 23–27 °C and 40–50 %, and the sign under them. The Excel page also prints, outside
+its print area, a second copy of its number and its M/C NO. box under "PRINTING AREA & INK KITCHEN, WARE HOUSE:" — a
+leftover of the workbook, not drawn.
+
+**F-QC-40.B, TEMPERATURE MONITORING RECORD** (`qc-temperature-sleeve`, Rev 00 of 28.02.25). The same paper as F-QC-40.C,
+the hot room's: "RECOMMENDED TEMPERATURE : SLEEVE DIVISION 28°C ± 2°C", SR NO | DATE | six readings each "... HRS TEMP. +
+SIGN", the reading and its sign in one cell (the entry's second line, headed with nothing), judged by 26–30 °C.
+
+Both are Quality Control's Registers & Records, daily, and Ajay Zala's (the owner's table of 7-Oct-2026: "QC-13, 34, 40
+A, 40 B Ajay Zala"; engine/accessRules.ts had them by number already). Like F-QC-40.C they keep a day's line as a record
+of its own, where the papers print SR NO 1 to 31, a month on one page.
+
+**F/QC/17, Measuring Scale (Ruler) Internal Verification Record** (`qc-ruler-verification`, Rev 00 of 01.12.2021, data/
+seed/qcRulerVerificationLayouts.ts; the page of 24.09.2024 with its .xlsx). As the paper: the title in its own letters;
+"Master Measuring Scale (Ruler) Details" over Make, Serial number, Range, Least count, Calibration date, Calibration due
+date, Calibration report number, a box beside each; "Measuring Scale (Ruler) under calibration details" over the same for
+the ruler, its last line "Accetable tolerance" (the paper's spelling) with "+ / - 1 mm" printed in it; then # | Master
+calibrator reading | Observed reading (mm) | Difference | Status (Pass/Fail) | Calibration performed by on the six printed
+points 50, 100, 150, 200, 250 and 290 mm, the Status and the name one cell down the six lines (`merged`). The Difference
+is worked out — the reading less the point, to one place, "0.0" (engine/calibration.ts) — and judged by the printed
+tolerance (`toleranceFrom`); the Status follows it: Fail as soon as a point is outside, Pass when all six are read inside,
+otherwise as the person sets it. Calibration, as required, Kapila Barad's. The master scale's identity (Kristeen, QC-44,
+0 - 600 mm, 1 mm) is a standing value written on every sheet (engine/observations.ts); its certificate's dates and number
+and the ruler's own details are the person's.
+
+**F/QC-10, Statement of Compliance — Shrink Sleeves** (`soc-shrink-sleeves`, Rev 00 of 01.12.2021, signed by Shail Patel,
+CEO, on 1st April 2025, valid to 01-Apr-2027), in Quality — Compliance with F/QC-09 and F/QC-38, read as issued on its
+own page (/soc/soc-shrink-sleeves), on the phone through GET /api/v1/documents/{id} (`issued`), and by Mitra, as the
+other two (part 5). As the document prints it: its reference source, its table's labels with the colons it prints, the
+raw materials a bullet each, "❖" before the conditions and "✓" before each, its seven declarations; the company's name
+COMPANY.name, as on the other two.
+
+**F/QC-09 and F/QC-38 held against their papers again.** The file the owner sent as "F-QC-10" is F/QC-38 as the plant
+prints it, page for page; its words are DCRS's transcription's, but its table — like the Word originals of both
+statements — marks its lines, where DCRS held them bare or put a "•" of its own before the conditions: F/QC-09's raw
+materials "•", "❖" before its conditions and "✓" before each; F/QC-38's products, raw materials and uses "❖", its
+conditions "✓" (data/seed/complianceStatements.ts). The list after the table, a bullet to an item on all three papers,
+is drawn so on the page and in print (pages/CompliancePage.tsx, the stylesheet's bullet, so a downloaded file reads each
+item's words alone). The phone's text of a statement gave a label printed with its colon a second one ("Manufacturer::",
+engineHost/entry.ts issuedOf).
+
+**What a layout could not say, and the one place each is worked out.**
+
+- *One heading over a group whose columns print none* — a run of `LogColumn.group` whose columns all have
+  `printedLabel: ""` is drawn as one heading cell over them, down both heading rows, with no second heading row for it
+  (components/records/LogSheetRecordView.tsx `headless`, the cell marked `data-group-alone`): F-QC-40.A's "08:30 HRS" over
+  the one cell its temperature and humidity are written in. A sheet of free lines keeps its columns' headings, which name
+  the boxes of a downloaded file's new lines (§81). The columns keep their names ("08:30 HRS TEMPERATURE", "08:30 HRS
+  HUMIDITY") for Mitra, the checks and a record's history.
+- *A table of boxes headed across* — a `boxTable` with no columns of its own is headed by its corner across both of its
+  columns (components/records/BoxTable.tsx, styles.css `.paper-box-table-across`): F/QC/17's two tables of details.
+
+**Demo Mode and a sample day look real (rule 3); a Live record gets the known parts only (§98).** F-QC-40.A and .B: the
+day's line dated the record's day, each reading from the plant model inside its band (the default model, as no register
+of theirs is on file), each signed by the QC lab executive of HR Master Data on that shift (§111 part 6: the day's three
+one person, the night's another); F-QC-40.A's sample sheet is the printing area's, at one of the plant's three UV flexo
+presses (F/MNT/01: M-01, M-47, M-83), then carried forward. F/QC/17 (engine/rulerVerificationSample.ts): the master
+calibrated outside on 23 September of the year (as on the page: 23.09.2024, due 22.09.2025), its certificate numbered on
+the page's series one a year (CAL/LPI/GP-23/23 for 2024), the page's ruler (Ajanta, GP-3/MS/04, 0-600 mm, 1 mm) verified
+the day the record is for and due a year less a day later, the six points read to the millimetre with one in five sheets
+a millimetre off (inside the tolerance), signed by a lab executive. No date of the 2024 page is put into a new record. A
+Live record: the date, the printed tolerance and the master scale's identity; F-QC-40.A's area and machine, every
+reading, sign, status and name are the person's.
+
+**Mitra and Search.** Each is found by its number in any spelling (F QC 17, FQC17, f-qc-17; F QC 40 A, fqc40a; F/QC-10,
+F QC 10) and by its words ("ruler verification", "measuring scale", "temperature and humidity", "sleeve division
+temperature", "soc sleeves"); "F-QC-40", "F/QC/40" and "temperature monitoring" name the three of F-QC-40 and Mitra asks
+which (F-QC-40.C lost its "f-qc-40" alias, which took the number for the hot room alone); "statement of compliance" names
+the three statements. Never a bare "scale", which is F/QC/12's weighing scale.
+
+**Not in this part.** F-QC-40.A and .B are one record a day with one line, where the papers are a month of 31 lines on a
+page (as F-QC-40.C, part 7: the owner is asked). F-QC-40.A is one sheet a day for its three areas: the area is marked on
+it, and a second area the same day has no sheet of its own (the owner is asked whether each area keeps its own). The
+F/QC-10 table prints its labels with colons where F/QC-09 and F/QC-38 are still held without them (part 7); its "Shrink
+Sleeves" printed in bold inside the declarations is plain. F/QC/17's own company line ("GUJARAT PRINT PACK PUBLICATION
+PRIVATE LIMITED") prints as COMPANY.name, by the owner's rule of 2-Oct-2026. F-QC-31 (COA Pouch) has not come. A
+statement's list prints its bullets in a downloaded Word file as paragraphs, as before.
+
+**Tests.** frontend/tests/qcFormats14Oct.test.ts (9): F-QC-40.B against its paper (number, revision, schedule, its
+section, Ajay Zala's, its line, six bands and signs, the headings drawn) and its sample day and Live day, a reading
+outside highlighted; F-QC-40.A against its paper (the recommended line, AREA's words, M/C NO., the table's line, the
+paper's order on the sheet signed off, the area marked, one heading row with three headings alone) and its sample and
+Live days, a humidity and a temperature outside highlighted, the area asked for; F/QC/17's two tables headed across, the
+tolerance printed, the six points, the Status and name one cell each down six lines; the Difference and Status worked
+out (Pass, a millimetre inside, Fail before the rest are read, no verdict half read); a sample verification dated today
+and none of 2024, the master's certificate before and after September, and a Live record's known parts exactly; F/QC-10
+as the document prints it and found by its number; F/QC-09's and F/QC-38's marks; Mitra's finding of all four, and the
+master list no longer offering them. Changed: accessRules.test.ts (the four in
+the owner's table), documentFinding.test.ts (F/QC/40 finds the three in DCRS, none on the list only), truthfulPrepare.
+test.ts (a scale's "Least count" is not a count; a box the paper prints holds its printed value on any sheet),
+qcFindByNumber.test.ts ("statement of compliance" names three), companyName.test.ts (F/QC-10's "Manufacturer:"),
+backend/tests/engineHost.test.ts (F/QC-10 read through the phone by its number in four spellings, its labels one
+colon each). That test bundles the engine into the computer's temp folder (dcrs-engine-host-tests), which every
+worktree shares: a bundle another worktree built a minute later counts as current, and a run then reads the other
+branch's catalogue (seen on 14-Oct-2026: F/QC-10 unknown). Touching frontend/src/engineHost/entry.ts makes it build
+this worktree's again. Browser suites:
+tests/e2e_qc_formats.py (section 8c: the four as their papers, a F/QC/17 verification started with only its known parts,
+filled with sample data by Mitra and submitted; the module holds 46; with QC_PAPER_SHOTS set it photographs the three
+sheets), tests/e2e_find_every_document.py (the master list no longer offers F-QC-10, F-QC-17, F-QC-40. A or B), and
+the document counts in e2e_smoke.py, e2e_hr_module.py (135), e2e_every_record_starts.py, e2e_departments.py
+(52 for a QC account) and e2e_qc_calibration.py (46).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
@@ -7472,12 +8191,12 @@ IndexedDB, with no banner, and opens after a reload with the browser still full)
 41. **DCRS's own database login** (§83). In development DCRS connects as the PostgreSQL superuser, so DCRS's own connection
     could read the assistant's tables, though it never does. For production, DCRS should connect as a role of its own that
     owns DCRS's tables and is not a superuser (docs/DEPLOYMENT.md already shows `postgres://dcrs:…`). Agreed?
-42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 37 in all,
+42. **The formats on the Master List of Formats not supplied yet** (§84; the full table is docs/document-coverage.md). 32 in all
+    (F-QC-14 came on 13-Oct-2026, and F-QC-10, F-QC-17, F-QC-40.A and F-QC-40.B on 14-Oct-2026, all built, §111 parts 5 and 8),
     since five came on 02-Oct-2026 (F-HR-15, F-HR-16, F-QC-33, F-QC-36 and F-DISP-04, built in §86) and seven on 06-Oct-2026
     (F-PRD-10, 20, 21, 22, 23, 24 and 26, built in §91, with F-PRD-18 and 19 sent again and F-PRD-25 sent empty):
-    MKT — F-MKT-03 Customer complaint Form. PUR — F-PUR-04 Purchase Order. QC — F-QC-10 SOC Sleeve, F-QC-14 Test Reliability
-    Record, F-QC-17 Scale/Ruler internal calibration, F-QC-31 COA Pouch, F-QC-39 FGPO Specification, F-QC-40.A Temperature
-    (printing machine / ink kitchen / warehouse), F-QC-40.B Temperature (Sleeve Division). QA — F-QA-01 Traceability Report.
+    MKT — F-MKT-03 Customer complaint Form. PUR — F-PUR-04 Purchase Order. QC — F-QC-31 COA Pouch, F-QC-39 FGPO Specification.
+    QA — F-QA-01 Traceability Report.
     PRD — F-PRD-01 to 09, 11 to 13, 14.A, 14.B, 14.E, 15, 16, 17.A, 17.B, 17.C, 25 (sent on 06-Oct-2026 as an empty
     workbook, item 54), and the workbook's 27 to 30. HR — F-HR-02
     Personnel competence criteria, F-HR-10 Training Imparted Record. Until they come, search and the Document Library show them

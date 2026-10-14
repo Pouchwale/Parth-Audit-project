@@ -3,6 +3,7 @@ import type {
   DocumentDefinition,
   FlyCatcherData,
   LogColumn,
+  LogHeaderField,
   LogSheetData,
   LogSheetLayout,
   LogSheetRow,
@@ -11,6 +12,7 @@ import type {
   ServiceReportData,
   TrainingRecordData,
 } from "../types";
+import { GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
 import { getLogSheetLayout } from "../data/seed/logSheetLayouts";
 import { SEED_AWARENESS_TRAINING_RECORD } from "../data/seed/historicalRecords";
 import { createDefaultData } from "./recordDefaults";
@@ -32,10 +34,19 @@ import {
 import { dayInfo } from "./holidays";
 import { isLotAccepted, isOutOfBand, supersededRevisionOf } from "./validation";
 import { withComputedCells } from "./computedCells";
+import { qcPaperSample, qcPaperSigners, qcShiftSigner } from "./qcPaperSamples";
+import { isPlaceholder } from "./observations";
+import { qcReportSample } from "./qcReportSamples";
+import { withMergedRuns } from "./paperLayout";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 import { makeRng, type Rng } from "../utils/random";
-import { GRADE_ACTIONS, GRADE_DEFECTS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
+import { GRADE_ACTIONS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "../data/seed/plantPattern";
+import { documentTextIn } from "../i18n/documentText";
+import { LINE_CLEARANCE_REGISTERS, lineClearanceChangeovers } from "./lineClearanceSample";
+import { RELIABILITY_DOCUMENTS, testReliabilitySample } from "./testReliabilitySample";
+import { rulerVerificationSample } from "./rulerVerificationSample";
+import { OBSOLETE_ARTWORK_LINES } from "../data/seed/qcRegisterLayouts";
 
 // DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
 // SIMULATION: it writes readings, counts, answers, findings and signatures that
@@ -414,17 +425,35 @@ function fillTraining(
 // ---------------------------------------------------------------------------
 // 5. Generic log sheets (lamination QC / production)
 
-function signFor(col: LogColumn, time: string | undefined, doc: DocumentDefinition, master: MasterData, dueDate: string): string {
+function signFor(col: LogColumn, lineTime: string | undefined, doc: DocumentDefinition, master: MasterData, dueDate: string): string {
   const shift = col.autoFill?.byShift;
+  // The time the reading the sign is under was taken at (F-QC-40.C's "20:30 HRS", REQUIREMENTS §111), else the line's.
+  const time = col.autoFill?.atTime ?? lineTime;
+  // A QC line is signed by the QC lab executive of HR Master Data on that shift (REQUIREMENTS §111 part 6): the
+  // papers' own "Jeni" and "Singh" are not on HR Master Data, so they sign only where it holds no lab executive.
+  if (doc.id.startsWith("qc-")) {
+    // A QC sheet with one sign box (the hot-room record) is signed by whoever was on that shift, not by the first
+    // name the role lookup happens to return — which used to put "Jeni" on every temperature sheet ever filed.
+    const at = time ?? (shift ? "09:00" : makeRng(`shift|${doc.id}|${dueDate}`).chance(0.5) ? "09:00" : "21:00");
+    const paper = shift ? (isNightHour(at) ? shift.night : shift.day) : qcSignerFor(at);
+    return qcShiftSigner(dueDate, at, paper);
+  }
   if (shift && time) return isNightHour(time) ? shift.night : shift.day;
   if (shift) return shift.day;
-  // A QC sheet with one sign box (the hot-room record) is signed by whoever
-  // was on that shift, not by the first name the role lookup happens to
-  // return — which used to put "Jeni" on every temperature sheet ever filed.
-  if (doc.id.startsWith("qc-") && !col.autoFill?.byShift) {
-    return qcSignerFor(makeRng(`shift|${doc.id}|${dueDate}`).chance(0.5) ? "09:00" : "21:00");
-  }
   return responsibleName(doc, master, "");
+}
+
+/**
+ * Who signs a box above or below a QC sheet in Demo Mode and sample data (REQUIREMENTS §111 part 6): the QA Manager
+ * where the box is an approval or a verification, a QC lab executive of HR Master Data where it is an inspection, a
+ * test or a check — never a name HR Master Data does not hold ("Pooja P", "Rashmi"). Any other box (an operator's)
+ * is the document's responsible person, as before.
+ */
+function qcBoxSigner(field: LogHeaderField, doc: DocumentDefinition, master: MasterData, dueDate: string, otherwise: string): string {
+  const words = `${field.label} ${field.printedLabel ?? ""}`;
+  if (/approv|verif|manager/i.test(words)) return qcPaperSigners(dueDate, doc.id, master, otherwise).manager;
+  if (/inspect|test|check|\bqa\b|quality|sign/i.test(words) && !/operator/i.test(words)) return qcShiftSigner(dueDate, "09:00", otherwise);
+  return otherwise;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -475,6 +504,11 @@ function fillRow(
     }
     if (col.fixed && t !== undefined && t !== null) {
       row[col.key] = t;
+      continue;
+    }
+    // The line's own number, where the paper numbers its lines in a column of its own (F/QC/16, REQUIREMENTS §111).
+    if (!col.fixed && col.autoFill?.lineNumber) {
+      row[col.key] = String(rowIndex + 1);
       continue;
     }
     // A judgement made afresh each time (REQUIREMENTS §76) — an audit's
@@ -731,7 +765,7 @@ function observeRow(doc: DocumentDefinition, layout: LogSheetLayout, row: LogShe
   return row;
 }
 
-/** F/QC/13: the grade against one printing parameter, its defect count, and Pass?. */
+/** F/QC/13: the grade against one printing parameter, and Pass?. The paper has no defect count (REQUIREMENTS §111). */
 function varyGrade(layout: LogSheetLayout, row: LogSheetRow, dueDate: string, index: number): LogSheetRow {
   // Pass? follows the day's grade, never the last sheet's: a "No" written
   // under an F grade once must not follow every sheet after it.
@@ -745,7 +779,6 @@ function varyGrade(layout: LogSheetLayout, row: LogSheetRow, dueDate: string, in
   const rng = makeRng(`grade|${dueDate}|${index}`);
   const grade = weightedPick(rng, GRADE_MIX);
   row.grade = grade;
-  row.defectCount = rng.pick(GRADE_DEFECTS[grade] ?? ["-"]);
   // An F grade stops printing (the form's own rule), so it never passes.
   row.pass = grade === "F" ? "No" : (ownPass ?? (row.pass === "No" ? "Yes" : row.pass));
   return row;
@@ -805,13 +838,24 @@ function fillLogSheet(
       header[f.key] = "";
       continue;
     }
-    const prev = previous?.data.header?.[f.key];
-    if (f.autoFill?.sign) header[f.key] = prev?.trim() || responsibleName(doc, master, layout.specimenHeader?.[f.key] ?? "");
+    // A box the paper prints its value in holds that value, never a carried or a sample one (REQUIREMENTS §111).
+    if (typeof f.printed === "string") {
+      header[f.key] = f.printed;
+      continue;
+    }
+    // DCRS's own "TO BE CONFIRMED" (a box the scan could not be read in) is never carried onto a new sheet (§111 part 6).
+    const prevRaw = previous?.data.header?.[f.key];
+    const prev = isPlaceholder(prevRaw) ? undefined : prevRaw;
+    const specimen = isPlaceholder(layout.specimenHeader?.[f.key]) ? "" : (layout.specimenHeader?.[f.key] ?? "");
+    if (f.autoFill?.sign) {
+      const named = prev?.trim() || responsibleName(doc, master, specimen);
+      header[f.key] = doc.id.startsWith("qc-") ? qcBoxSigner(f, doc, master, dueDate, named) : named;
+    }
     // "Date of Inspection", "Date :" — the day the record is for, not the day the last one was.
     else if (f.autoFill?.dueDate) header[f.key] = dueDate;
     else if (f.autoFill?.carryForward && prev) header[f.key] = prev;
     else if (f.autoFill?.default !== undefined) header[f.key] = f.autoFill.default;
-    else header[f.key] = f.autoFill?.carryForward ? (layout.specimenHeader?.[f.key] ?? "") : "";
+    else header[f.key] = f.autoFill?.carryForward ? specimen : "";
   }
 
   // How the lot was dispositioned, on the inspection formats that print a Lot
@@ -873,10 +917,24 @@ function fillLogSheet(
     // and no filled specimen. It still gets the lines the form prints a minimum
     // of, each filled by its own columns' rules (the date, a signature), rather
     // than no lines at all: a record with no lines cannot be submitted.
+    // A specimen of fewer lines than the form prints (F/QC/08's five known instruments on its eleven lines) is the
+    // first of them, and the rest of the printed lines are filled by their columns' own rules, as on a blank form.
     const templates = source.length
       ? source.slice(0, Math.max(wanted, mode.minRows ?? 1))
       : Array.from({ length: Math.max(mode.minRows ?? 1, 1) }, () => ({}) as Record<string, string | number | null>);
-    if (doc.id === "qc-adhesive-mixing") {
+    while (templates.length < (mode.minRows ?? 0)) templates.push({});
+    if (LINE_CLEARANCE_REGISTERS.has(doc.id)) {
+      // A day's job changes on the area's machine (engine/lineClearanceSample.ts, REQUIREMENTS §111), not the
+      // blank template's three 2022 example lines.
+      const changes = lineClearanceChangeovers(doc.id, dueDate);
+      rows = changes.map((line, i) => ({ ...fillRow(layout, line, rng, doc, master, dueDate, i, changes.length, ctx), ...line }));
+    } else if (doc.id === "qc-obsolete-artwork") {
+      // A sample day withdraws two of the plant's artworks (REQUIREMENTS §111, rule 3), not the first two lines of the
+      // last register every time: the same artwork cannot go obsolete twice.
+      const pool = [...OBSOLETE_ARTWORK_LINES];
+      const picks = [0, 1].map(() => pool.splice(rng.int(0, pool.length - 1), 1)[0]);
+      rows = picks.map((t, i) => fillRow(layout, { ...t }, rng, doc, master, dueDate, i, picks.length, ctx));
+    } else if (doc.id === "qc-adhesive-mixing") {
       // Batches are mixed a few times a day at irregular hours; spread them
       // out rather than copying yesterday's clock times verbatim.
       const hours = [rng.int(7, 10), rng.int(13, 16), rng.int(20, 23)].slice(0, wanted);
@@ -886,6 +944,29 @@ function fillLogSheet(
     } else {
       rows = templates.map((t, i) => fillRow(layout, t, rng, doc, master, dueDate, i, templates.length, ctx));
     }
+  }
+
+  if (RELIABILITY_DOCUMENTS.has(doc.id)) {
+    // F-QC-14 as a real exercise (engine/testReliabilitySample.ts, REQUIREMENTS §111): the plant's reel and FG code,
+    // QA's four people of that day, every reading inside its check's specification; not the workbook of 2022 copied.
+    const exercise = testReliabilitySample(doc.id, dueDate, responsibleName(doc, master, ""));
+    if (exercise) {
+      Object.assign(header, exercise.header);
+      rows = rows.map((row, i) => ({ ...row, ...(exercise.rows[i] ?? {}) }));
+    }
+  }
+
+  if (doc.id === "qc-ruler-verification") {
+    // F/QC/17 as a real verification (engine/rulerVerificationSample.ts, REQUIREMENTS §111 part 8): the master's
+    // current certificate, the ruler verified that day and its six readings; not the page of 24.09.2024 copied.
+    const verification = rulerVerificationSample(dueDate);
+    Object.assign(header, verification.header);
+    rows = rows.map((row, i) => ({ ...row, observed: verification.observed[i] ?? null }));
+  }
+  if (doc.id === "qc-temperature-humidity" && header.area === "PRINTING" && !String(header.machineNo ?? "").trim()) {
+    // F-QC-40.A's sheet in the printing area names the printing machine it hangs at: one of the plant's three UV flexo
+    // presses (F/MNT/01: M-01 Gallus ECS 340, M-47 Lombardi Delta 330, M-83 Lombardi Delta 430), then carried forward.
+    header.machineNo = makeRng(`temperature-area|${dueDate}`).pick(["M-01", "M-47", "M-83"]);
   }
 
   explainExcursions(layout, rows, doc, dueDate, ctx);
@@ -905,16 +986,31 @@ function fillLogSheet(
   const gradeAction = gradeRuleAction(doc, rows);
   if (gradeAction) header.remarks = gradeAction;
 
+  // AN INSPECTION, A CERTIFICATE OR THE TOLERANCE CARD READS AS A REAL ONE (REQUIREMENTS §111):
+  // the lot's supplier, product, GRN and readings inside the printed specification, the
+  // certificate's tested figures inside its TOLERANCE, the inspector and the QA Manager two
+  // people of HR Master Data (engine/qcPaperSamples.ts). This is Demo Mode's and a test server's
+  // sample data only, as everything in this file is.
+  const paper = qcPaperSample(doc.id, layout, dueDate, { header, rows }, lot, master, responsibleName(doc, master, ""));
+  // The two internal calibration records as a real week's or month's sheet (REQUIREMENTS §111 part 6).
+  calibrationSample(doc.id, dueDate, header, rows);
+  // The reports and registers of group B the same way (engine/qcReportSamples.ts, the review of 13-Oct-2026): their
+  // two signatures two people of HR Master Data, the utility test's samples and the printing aids destroyed that day's.
+  const report = qcReportSample(doc.id, dueDate, paper ?? { header, rows }, master, responsibleName(doc, master, ""));
+  const filled = report ?? paper ?? { header, rows };
+
   // Every worked-out cell worked out on what was filled (engine/computedCells.ts,
   // REQUIREMENTS §74): a prepared, sample, guided or demo record stores the
   // right figure, not the one the specimen or the last sheet happened to hold.
-  const data: LogSheetData = withComputedCells(doc.id, { header, rows });
+  // A cell the paper merges down its lines holds its value on the run's first line only (LogColumn.merged, §111):
+  // the Gujarati line clearance's signatures once per process, F/QC/13's one પાસ? — "No" if any line was not passed.
+  const data: LogSheetData = withComputedCells(doc.id, { ...filled, rows: withMergedRuns(layout, filled.rows) });
   const notes = describeLogSheet(doc, layout, data, previous);
   const excursion = describeExcursions(ctx);
   if (excursion) notes.unshift(excursion);
   if (gradeAction) notes.unshift(`Check this before you submit: ${gradeAction}`);
-  if (header.lotStatus && !isLotAccepted(header.lotStatus)) {
-    notes.unshift(`Check this before you submit: this lot is marked ${header.lotStatus} — ${header.deviationReason} Confirm the disposition with QA.`);
+  if (data.header.lotStatus && !isLotAccepted(data.header.lotStatus)) {
+    notes.unshift(`Check this before you submit: this lot is marked ${data.header.lotStatus} — ${data.header.deviationReason} Confirm the disposition with QA.`);
   }
   // A Calibration Expiry is a fact about the instrument, so it is carried as
   // it was written, never moved on to make a sheet look current. When it has
@@ -931,6 +1027,51 @@ function fillLogSheet(
 }
 
 const isLaminationSheet = (documentId: string): boolean => documentId === "prd-process-parameter" || documentId === "prd-alc-production";
+
+/** The first day on or after `onOrAfter` that falls on the same day and month as `iso` (a yearly calibration's anniversary). */
+function anniversaryFrom(iso: string, onOrAfter: string): string {
+  const [, m, d] = iso.split("-");
+  let year = Number(onOrAfter.slice(0, 4));
+  const at = (y: number) => {
+    // 29 February in a year without one is the 28th.
+    const day = m === "02" && d === "29" && !(y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? "28" : d;
+    return `${y}-${m}-${day}`;
+  };
+  while (compareISO(at(year), onOrAfter) < 0) year += 1;
+  return at(year);
+}
+
+/** The same day a month on ("2026-10-14" → "2026-11-14"; the 31st into a shorter month is that month's last day). */
+function monthOn(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const year = m === 12 ? y + 1 : y;
+  const month = m === 12 ? 1 : m + 1;
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+
+/**
+ * THE INTERNAL CALIBRATION RECORDS AS A REAL SHEET (REQUIREMENTS §111 part 6, rule 3 of the brief). Demo Mode's and a
+ * test server's sample data only, as everything in this file is; a Live sheet is prepared by engine/knownParts.ts,
+ * which carries the Calibration Expiry as written and says first when it has run out.
+ *   - The Calibration Expiry the supplied 2024 pages wrote (22.09.2025 on F/QC/11, 27.08.2024 on F/QC/12) is past on
+ *     a sheet of 2026, and every line on it read Pass: an instrument out of calibration passed. A sample sheet's
+ *     instrument was calibrated on its yearly date since, so its expiry is that date's next anniversary.
+ *   - F/QC/11's Due Date is the next month's calibration, a month after this one (it was left blank).
+ *   - F/QC/11's Sign. line is signed, plate by plate, by the QC lab executive of HR Master Data who calibrated (the
+ *     supplied page's "Rashmi" is not on HR Master Data).
+ */
+function calibrationSample(documentId: string, dueDate: string, header: Record<string, string>, rows: LogSheetRow[]): void {
+  if (documentId !== "qc-gsm-plate-calibration" && documentId !== "qc-weight-scale-calibration") return;
+  const expiry = header.calibrationExpiry;
+  if (typeof expiry === "string" && ISO_DATE.test(expiry) && compareISO(expiry, dueDate) < 0) header.calibrationExpiry = anniversaryFrom(expiry, addDays(dueDate, 1));
+  if (documentId !== "qc-gsm-plate-calibration") return;
+  const calibrated = ISO_DATE.test(header.calibrationDate ?? "") ? header.calibrationDate : dueDate;
+  header.dueDate = monthOn(calibrated);
+  const signer = qcShiftSigner(dueDate, "09:00", "");
+  const sign = rows.find((r) => r.parameter === "Sign.");
+  if (sign && signer) for (const plate of GSM_PLATES) sign[plate.key] = signer;
+}
 
 // Map one scheduled job onto whichever of the two lamination sheets is being
 // filled — the two formats record the same run in different columns.
@@ -1019,16 +1160,44 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
     case "qc-temperature": {
       const keys = layout.columns.filter((c) => c.type === "number").map((c) => c.key);
       const vals = keys.map((k) => rows[0]?.[k]).filter((v): v is number => typeof v === "number");
+      // Each reading cell is "TEMP. + SIGN": the sign under each reading, the shift's tester's (REQUIREMENTS §111).
+      const signers = Array.from(new Set(layout.columns.filter((c) => c.beneath).map((c) => String(rows[0]?.[c.key] ?? "")).filter(Boolean)));
       return [
         `Logged all 6 hot-room readings: ${Math.min(...vals)}–${Math.max(...vals)} °C (recommended 45 ± 2 °C).`,
-        `Signed ${rows[0]?.sign || "—"}.`,
+        signers.length ? `Each reading signed under it by the tester on shift: ${signers.join(" / ")}.` : "Each reading is signed under it by whoever takes it.",
+      ];
+    }
+    // F-QC-40.B and F-QC-40.A (REQUIREMENTS §111, part 8): the day's readings against the paper's recommended band.
+    case "qc-temperature-sleeve":
+    case "qc-temperature-humidity": {
+      const humidity = doc.id === "qc-temperature-humidity";
+      const of = (unit: string) =>
+        layout.columns
+          .filter((c) => c.type === "number" && c.unit === unit)
+          .map((c) => rows[0]?.[c.key])
+          .filter((v): v is number => typeof v === "number");
+      const temps = of("°C");
+      const signers = Array.from(new Set(layout.columns.filter((c) => c.beneath).map((c) => String(rows[0]?.[c.key] ?? "")).filter(Boolean)));
+      const hums = of("%");
+      return [
+        humidity
+          ? `Logged the ${h.area ? `${String(h.area).toLowerCase()} area's ` : ""}readings at 08:30, 12:30 and 16:30: ${Math.min(...temps)}–${Math.max(...temps)} °C and ${Math.min(...hums)}–${Math.max(...hums)} % (recommended 25 ± 2 °C / 45 ± 5 %).`
+          : `Logged all 6 sleeve division readings: ${Math.min(...temps)}–${Math.max(...temps)} °C (recommended 28 ± 2 °C).`,
+        signers.length ? `Each reading signed under it by the tester on shift: ${signers.join(" / ")}.` : "Each reading is signed under it by whoever takes it.",
+      ];
+    }
+    case "qc-ruler-verification": {
+      const off = rows.filter((r) => String(r.difference ?? "") !== "" && String(r.difference) !== "0.0").length;
+      return [
+        `Verified ${h.make || "the ruler"} ${h.serialNo || ""} against the master ${h.masterSerialNo || ""} at the six printed points: ${off === 0 ? "every reading on the master's figure" : `${off} off the master's figure`}, ${rows[0]?.status || "no verdict yet"} against + / - 1 mm.`.replace(/\s+/g, " "),
+        `The master's certificate is written as its calibration of ${formatDisplayDate(h.masterCalibrationDate)} (report ${h.masterCalibrationReportNo || "—"}): check it against the certificate on file before you submit.`,
       ];
     }
     case "qc-adhesive-mixing": {
       const r = rangeOf(rows, "viscosity");
       return [
         `Prepared ${rows.length} batch rows at the standard 15 kg adhesive / 1.65 kg hardener / 19.5 kg ethyl mix.`,
-        `Mix viscosity ${r?.min.toFixed(2)}–${r?.max.toFixed(2)} Sec.; checked by ${Array.from(new Set(rows.map((x) => x.checkedBy).filter(Boolean))).join(", ")}. Add or remove rows to match today's batches.`,
+        `Mix viscosity ${r?.min.toFixed(2)}–${r?.max.toFixed(2)} Sec.; verified by ${Array.from(new Set(rows.map((x) => x.verifiedBy).filter(Boolean))).join(", ")}. Add or remove rows to match today's batches.`,
       ];
     }
     // DATE & SHIFT is written by the person, as on the paper (REQUIREMENTS §91): a sheet filed before then holds a shift.
@@ -1087,7 +1256,8 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       ];
     }
     case "qc-inprocess-printing": {
-      const grades = rows.map((r) => `${String(r.parameter).split(" (")[1]?.replace(")", "") ?? r.parameter}: ${r.grade}`).join(", ");
+      // Each parameter by its English, the paper printing it in Gujarati alone (REQUIREMENTS §111).
+      const grades = rows.map((r) => `${documentTextIn(String(r.parameter ?? ""), "en")}: ${r.grade}`).join(", ");
       return [
         `${previous ? "Carried forward" : "Loaded"} grades for item ${h.itemCode} (PO ${h.poNumber}) on ${h.machine}, operator ${h.operator} — ${grades}.`,
         `QA person ${h.qaPerson}. Change any grade that differs on today's sample sheets; an F grade means printing must stop.`,

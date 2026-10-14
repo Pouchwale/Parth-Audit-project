@@ -22,6 +22,14 @@ import type { LogColumn, LogHeaderField, LogSheetLayout } from "../types";
 export type SlotKind = "date" | "computed" | "standing" | "observation";
 
 /**
+ * DCRS'S OWN MARK FOR A BOX IT COULD NOT READ — "TO BE CONFIRMED" — is never a standing value (REQUIREMENTS §111
+ * part 6). The 31.12.2024 F/QC/11 page was transcribed with it in its Serial No, a scribble on the scan; as a
+ * standing box that value went onto every new sheet, Live and sample, and printed there. A box holding it is
+ * carried as empty, as the paper's box is.
+ */
+export const isPlaceholder = (value: unknown): boolean => typeof value === "string" && /^\s*to be confirmed\s*$/i.test(value);
+
+/**
  * The boxes above or below the grid that hold a standing value, by key. Equipment and instrument
  * identity, the chemicals in use, the site and its standing team, and the words a format prints as
  * its own default. A lot's identity (FG code, PO, roll, batch), a person's name and the shift are not
@@ -45,6 +53,11 @@ const STANDING_BOX_KEYS = new Set([
   "maxReadingCapacity",
   "acceptableTolerance",
   "calibrationExpiry",
+  // the master scale F/QC/17 checks a ruler against: its make, number, range and least count (REQUIREMENTS §111, part 8)
+  "masterMake",
+  "masterSerialNo",
+  "masterRange",
+  "masterLeastCount",
   "location",
   "locations",
   "locationFunction",
@@ -80,6 +93,8 @@ const EQUIPMENT_BOX_KEYS = ["deviceIdNo", "machineIdNo", "equipmentName"];
 
 export function boxKind(f: LogHeaderField, layout: LogSheetLayout): SlotKind {
   if (f.computed) return "computed";
+  // A box the paper prints its value in (F/QC/11's Device ID No, REQUIREMENTS §111) is known before anybody writes.
+  if (typeof f.printed === "string") return "standing";
   if (f.autoFill?.dueDate) return "date";
   if (f.autoFill?.sign) return "observation";
   // A choice, a yes or no and a clock time are answers: the shift, the pass, the lot's status, a time of day.
@@ -95,6 +110,8 @@ export function boxKind(f: LogHeaderField, layout: LogSheetLayout): SlotKind {
 /** A grid column: printed (fixed), worked out, the record's date, or the person's. */
 export function columnKind(col: LogColumn): Exclude<SlotKind, "standing"> | "fixed" {
   if (col.fixed) return "fixed";
+  // A paper's own Sr. No. column (F/QC/16, REQUIREMENTS §111): the line's place, written as the form numbers it, not observed.
+  if (col.autoFill?.lineNumber) return "fixed";
   if (col.computed || col.linkedFrom) return "computed";
   if (col.autoFill?.dueDate) return "date";
   return "observation";

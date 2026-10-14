@@ -41,7 +41,7 @@ const layout = (id: string): LogSheetLayout => {
   return l!;
 };
 
-const DEFAULTS = (r: RecordInstance) => ({ date: r.dueDate, page: "1 of 1 (digital)" });
+const DEFAULTS = (r: RecordInstance) => ({ date: r.dueDate, page: "1 of 1" });
 
 function freshRecord(docId: string, dateISO: string): RecordInstance {
   const { record } = createRecordForDocument(doc(docId), { dateISO });
@@ -60,19 +60,19 @@ test("a record's own Date and Page No. are saved on it alone, with a history lin
     last?.changes?.map((c) => [c.label, c.before, c.after]),
     [
       ["Header · Date", "15-Sep-2026", "16-Sep-2026"],
-      ["Header · Page No.", "1 of 1 (digital)", "1 of 2"],
+      ["Header · Page No.", "1 of 1", "1 of 2"],
     ]
   );
   assert.deepEqual(saved.data, r.data, "the form's boxes are untouched — the header is beside the data, never in it");
   // Typed back to what the header prints anyway, the record's own is dropped.
-  const back = saveHeaderBlock(saved, { date: r.dueDate, page: "1 of 1 (digital)" }, "Test Desk", DEFAULTS(r));
+  const back = saveHeaderBlock(saved, { date: r.dueDate, page: "1 of 1" }, "Test Desk", DEFAULTS(r));
   assert.equal(back.headerBlock, undefined);
   // Nothing changed: nothing saved, no history line.
   assert.equal(saveHeaderBlock(back, {}, "Test Desk", DEFAULTS(r)), back);
 });
 
 test("only a real date and a page written as something are kept", () => {
-  const d = { date: "2026-09-15", page: "1 of 1 (digital)" };
+  const d = { date: "2026-09-15", page: "1 of 1" };
   assert.equal(cleanHeaderBlock({ date: "15-09-2026" }, d), undefined, "not an ISO date");
   assert.equal(cleanHeaderBlock({ page: "   " }, d), undefined, "rubbed out");
   assert.deepEqual(cleanHeaderBlock({ date: " 2026-09-20 ", page: " 2 of 2 " }, d), { date: "2026-09-20", page: "2 of 2" });
@@ -131,7 +131,7 @@ test("a day of the daily register prints its row of the month's register, and Ca
   const r = freshRecord("daily-pest-monitoring", "2026-10-05");
   const defaults = recordHeaderDefaults(r);
   assert.deepEqual(defaults, { date: "2026-10-05", page: "row 5 of the October register" });
-  assert.equal(recordHeaderDefaults(freshRecord("disp-vehicle-cleaning", "2026-10-05")).page, "1 of 1 (digital)", "any other record");
+  assert.equal(recordHeaderDefaults(freshRecord("disp-vehicle-cleaning", "2026-10-05")).page, "1 of 1", "any other record, as the paper numbers its page (§111 part 6)");
   const verified = recordRepository.upsert({ ...r, status: "Verified", verifiedBy: "QA", verifiedAt: new Date().toISOString() });
   const changed = saveHeaderBlock(reopenForCorrection(verified, "Test Desk", "the page was wrong"), { page: "1 of 1" }, "Test Desk", defaults);
   assert.equal(changed.headerBlock?.page, "1 of 1");
@@ -139,7 +139,7 @@ test("a day of the daily register prints its row of the month's register, and Ca
   assert.deepEqual(
     cancelled.history?.at(-1)?.changes?.map((c) => [c.label, c.before, c.after]),
     [["Header · Page No.", "1 of 1", "row 5 of the October register"]],
-    "what the header prints again, not \"1 of 1 (digital)\""
+    "what the header prints again, not \"1 of 1\""
   );
 });
 

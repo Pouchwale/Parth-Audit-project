@@ -62,6 +62,8 @@ import { ensureSeeded as ensureRecordsSeeded, recordRepository } from "../data/r
 import { getLogSheetLayoutForRecord } from "../data/seed/logSheetLayouts";
 import { departmentName, departmentOfDocument } from "../data/seed/departments";
 import { formatEditFor } from "../data/formatEdits";
+import { complianceStatement } from "../data/repositories/referenceRepository";
+import { complianceValidUntil } from "../data/seed/complianceStatements";
 import { setFeatures } from "../engine/features";
 import { numbersOwnLines } from "../engine/formLineNumbers";
 import { departmentScope, documentLevel, isDocumentIdVisible, mayDo, setAccessScope, setDepartmentScope } from "../engine/departmentScope";
@@ -648,6 +650,42 @@ function brief(doc: DocumentDefinition): Obj {
   };
 }
 
+/**
+ * A REFERENCE DOCUMENT AS ISSUED, TO READ (REQUIREMENTS §111): F/QC-09 and F/QC-38, the Statements of Compliance,
+ * hold no records — they are read, as their page in DCRS shows them (corrected where somebody corrected a word). The
+ * phone is given their words, so that asked to open one Mitra shows it rather than saying it cannot. The other
+ * reference documents (the Chemical Master, the licence) say where they are read.
+ */
+function issuedOf(doc: DocumentDefinition): Obj | null {
+  if (!isReference(doc)) return null;
+  const route = documentOpenRoute(doc);
+  const statement = doc.kind === "compliance-statement" ? complianceStatement(doc.id) : undefined;
+  if (!statement) return { title: doc.name, text: null, route, note: `${calledBy(doc.id)} is kept as issued; it is read on its own page in DCRS.` };
+  const validUntil = complianceValidUntil(statement);
+  const lines = [
+    statement.headerTitle,
+    ...statement.sections.flatMap((section) => [`${section.label.replace(/:\s*$/, "")}:`, ...section.lines.map((l) => `  ${l}`)]),
+    "",
+    ...statement.declarations,
+    "",
+    `${statement.signedBy}, ${statement.signedTitle}`,
+    `Date of publication: ${formatDisplayDate(statement.signedOn)}${validUntil ? `, valid until ${formatDisplayDate(validUntil)}` : ""}`,
+    statement.footerRef,
+  ];
+  return {
+    title: statement.headerTitle,
+    formatRef: statement.footerRef,
+    sections: statement.sections.map((section) => ({ label: section.label, lines: section.lines })),
+    declarations: statement.declarations,
+    signedBy: statement.signedBy,
+    signedTitle: statement.signedTitle,
+    publishedOn: statement.signedOn,
+    validUntil: validUntil || null,
+    text: lines.join("\n"),
+    route,
+  };
+}
+
 function documentsOp(args: Obj): Outcome {
   const q = str(args.q);
   const limit = Math.max(1, Math.min(200, Number(args.limit) || 50));
@@ -680,7 +718,22 @@ function documentNamed(said: string): { doc: DocumentDefinition } | { refusal: O
   // word), else by the words people use for it (DOC_KEYWORDS, as Mitra reads them).
   const exact = documentRepository.getByIdUnscoped(s);
   const byNumber = exact ? [] : documentsByFormatNumberUnscoped(s);
-  let doc = exact ? (isDocumentIdVisible(exact.id, exact.formatNo) ? exact : undefined) : byNumber.find((d) => isDocumentIdVisible(d.id, d.formatNo));
+  // A NUMBER TWO PAPERS CARRY names one of them only when it is written as that paper prints it (REQUIREMENTS §111):
+  // "F-QC-30" is the viscosity record, "F/QC/30" the minutes of meetings; "F QC 30" could be either, and the person is
+  // asked which — never handed the first in the catalogue. Mitra's find_documents reads a number the same way.
+  const visibleByNumber = byNumber.filter((d) => isDocumentIdVisible(d.id, d.formatNo));
+  if (visibleByNumber.length > 1) {
+    const asPrinted = visibleByNumber.filter((d) => d.formatNo.trim().toLowerCase() === s.toLowerCase());
+    if (asPrinted.length !== 1) {
+      return {
+        refusal: refuse(400, "ambiguous", `${visibleByNumber.length} documents carry the number "${s.slice(0, 40)}" — say which one, by its id or its number exactly as its paper prints it.`, {
+          candidates: visibleByNumber.slice(0, 12).map((d) => ({ id: d.id, formatNo: d.formatNo, name: d.name })),
+        }),
+      };
+    }
+    return { doc: asPrinted[0] };
+  }
+  let doc = exact ? (isDocumentIdVisible(exact.id, exact.formatNo) ? exact : undefined) : visibleByNumber[0];
   let other = exact ?? byNumber[0];
   if (!doc && !other) {
     const found = findDocuments(s);
@@ -717,6 +770,8 @@ function documentNamed(said: string): { doc: DocumentDefinition } | { refusal: O
 
 const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
   const c = f as LogColumn;
+  // A box the paper prints its value in (REQUIREMENTS §111) is printed, with that value: the phone asks nothing for it.
+  const printedBox = typeof (f as LogHeaderField).printed === "string" ? (f as LogHeaderField).printed : undefined;
   return {
     key: f.key,
     label: f.label,
@@ -725,11 +780,32 @@ const fieldOf = (f: LogHeaderField | LogColumn): Obj => {
     ...(f.required ? { required: true } : {}),
     ...(c.unit ? { unit: c.unit } : {}),
     ...(c.group ? { group: c.group } : {}),
-    ...(c.fixed ? { printed: true } : {}),
+    ...(c.fixed || printedBox !== undefined ? { printed: true } : {}),
+    ...(printedBox !== undefined ? { value: printedBox } : {}),
     ...(f.computed ? { computed: true } : {}),
+    // Drawn on the entry's second line, under this column (F/QC/12's Deviation %, §111): the same line's key.
+    ...(c.beneath ? { beneath: c.beneath } : {}),
     ...(c.linkedFrom ? { readFrom: c.linkedFrom } : {}),
     ...(typeof c.min === "number" ? { min: c.min } : {}),
     ...(typeof c.max === "number" ? { max: c.max } : {}),
+    // The paper's own words (§111): the heading it prints ("" for none) and the lines it prints above a box's group.
+    ...(f.printedLabel !== undefined ? { printedLabel: f.printedLabel } : {}),
+    ...((f as LogHeaderField).printedAbove?.length ? { printedAbove: (f as LogHeaderField).printedAbove } : {}),
+    // The table of boxes the paper prints from this box on (a certificate's LABEL STOCK): its headings.
+    ...((f as LogHeaderField).boxTable ? { boxTable: (f as LogHeaderField).boxTable } : {}),
+    // The paper's own marks (§111, part 4): the words it prints for each choice across the line (the record still
+    // holds the option), the words under the box, the sentence the value is written inside.
+    ...((f as LogHeaderField).choicesAcross?.length ? { choicesAcross: (f as LogHeaderField).choicesAcross } : {}),
+    ...((f as LogHeaderField).printedBelow ? { printedBelow: (f as LogHeaderField).printedBelow } : {}),
+    ...((f as LogHeaderField).inSentence ? { inSentence: (f as LogHeaderField).inSentence } : {}),
+    // Printed on the grid's top line (F/QC/25's OID :- and Job Code:): still a box above the lines a patch names.
+    ...((f as LogHeaderField).inGridHead ? { inGridHead: true } : {}),
+    // From the review of 13-Oct-2026 (§111): a box drawn as the paper's heading, still written by the person; a cell
+    // the paper merges down its lines, written once on the run's first line ("by": the column whose words make a run;
+    // none: every line); a group heading over this column alone.
+    ...((f as LogHeaderField).asHeading ? { asHeading: true } : {}),
+    ...(c.merged ? { merged: c.merged.by ? { by: c.merged.by } : {} } : {}),
+    ...(c.groupApart ? { groupApart: true } : {}),
   };
 };
 
@@ -754,6 +830,25 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         kind: "log-sheet",
         // The form numbers its own lines: no "Row N" of the reader's beside them (REQUIREMENTS §102).
         ...(numbersOwnLines(l) ? { ownLineNumbers: true } : {}),
+        // The paper's own shape (REQUIREMENTS §111): the day in its Sr. No., an entry's second line, its text below the grid.
+        ...(l.srNoShowsDate ? { srNoShowsDate: true } : {}),
+        // "1.", "2." where the paper prints its numbers with a full stop (§111, part 4).
+        ...(l.srNoFullStop ? { srNoFullStop: true } : {}),
+        ...(l.secondLine ? { secondLine: l.secondLine } : {}),
+        ...(l.notesBelow?.length ? { notesBelow: l.notesBelow } : {}),
+        ...(l.notesAtFoot?.length ? { notesAtFoot: l.notesAtFoot } : {}),
+        // The grid printed across (a certificate's PRINTING): the lines are still the rows a patch names.
+        ...(l.gridAcross ? { gridAcross: true } : {}),
+        // One answer across the paper's columns (F/QC/25, §111 part 4): which column each printed line is written in.
+        ...(l.answerAcross ? { answerAcross: l.answerAcross } : {}),
+        // The paper's small tables (F-QC-14, the review of 13-Oct-2026): the lines are still the rows a patch names.
+        ...(l.panels ? { panels: { lines: l.panels.lines, perRow: l.panels.perRow } } : {}),
+        // The lines printed with the format number (F/QC/20's issue and review dates): printed, nothing to write.
+        ...(l.printedWithNumber?.length ? { printedWithNumber: l.printedWithNumber } : {}),
+        // Part 6: F/QC/11's Pass/Fail and Sign. one cell a plate, and F/QC/18's line continuing DRYING TEST (no number of
+        // its own) — the lines are still the rows a patch names, each by its index.
+        ...(l.groupCellLines?.length ? { groupCellLines: l.groupCellLines } : {}),
+        ...(l.continuationLines?.length ? { continuationLines: l.continuationLines } : {}),
         header: l.headerFields.map(fieldOf),
         footer: (l.footerFields ?? []).map(fieldOf),
         columns: l.columns.map(fieldOf),
@@ -839,6 +934,8 @@ function documentOp(args: Obj): Outcome {
     how: info.how,
     layout: isReference(doc) ? null : layoutOf(doc),
     patchShape: isReference(doc) ? null : patchShape(doc),
+    // A reference document's own words, to read (§111): nothing to fill, everything to show.
+    issued: issuedOf(doc),
     records: {
       count: records.length,
       latest: records.slice(0, 5).map((r) => ({ recordId: storedIds.has(r.id) ? r.id : null, dueDate: r.dueDate, status: r.status, started: storedIds.has(r.id) })),
@@ -1499,7 +1596,14 @@ function openOp(args: Obj, who: Who): Outcome {
   const named = documentNamed(str(args.documentId));
   if ("refusal" in named) return named.refusal;
   const doc = named.doc;
-  if (isReference(doc)) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no records to fill.`);
+  // A reference document has no record to start or open; it is READ as issued, so its words come with the answer
+  // (REQUIREMENTS §111) and GET /api/v1/documents/{id} gives them too.
+  if (isReference(doc)) {
+    return refuse(409, "reference-only", `${calledBy(doc.id)} is kept as issued: there is no record to start, it is read. Its words are in "issued"; show them to the person.`, {
+      document: brief(doc),
+      issued: issuedOf(doc),
+    });
+  }
   const today = todayISO();
   const date = dateArg(args.date, today);
   if (date === null) return refuse(400, "bad-date", "date must be a date written YYYY-MM-DD (or today, yesterday, tomorrow).");

@@ -265,6 +265,8 @@ export function DailyPestMonitoringRecordView({
                 type="time"
                 className="input"
                 {...bindProps(dailyPestBind.timeOfChecking())}
+                // An empty time prints empty, not "--:--" (REQUIREMENTS §111).
+                data-empty={data.timeOfChecking ? undefined : ""}
                 disabled={!editable}
                 value={data.timeOfChecking}
                 onChange={(e) => setField("timeOfChecking", e.target.value)}
@@ -328,6 +330,7 @@ export function DailyPestMonitoringRecordView({
                       type="date"
                       className="input input-sm"
                       {...bindProps(dailyPestBind.action(a, ai, "dateOfObservation"))}
+                      data-empty={a.dateOfObservation ? undefined : ""}
                       disabled={!editable}
                       value={a.dateOfObservation}
                       onChange={(e) =>

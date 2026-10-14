@@ -47,17 +47,120 @@ export interface LogHeaderField {
    */
   printedLabel?: string;
   /**
-   * Below the grid only: lines the paper prints across the sheet just above this
-   * box — F/MNT/08's declaration and its "Hand over & Take over Protocol"
-   * heading — and the boxes from this one on are drawn under them in the
-   * paper's two columns, a head beside its date (REQUIREMENTS §93).
+   * Lines the paper prints across the sheet just above this box — F/MNT/08's
+   * declaration and its "Hand over & Take over Protocol" heading below the grid
+   * (REQUIREMENTS §93), a certificate of analysis' LABEL STOCK above it and its
+   * COATING and FINISHING below it (§111) — and the boxes from this one on, to
+   * the next box that starts a group of its own, are drawn under them: below the
+   * grid in the paper's two columns, a head beside its date, unless
+   * `boxesPerLine` says otherwise; above it as the other boxes above it are.
    */
   printedAbove?: string[];
+  /**
+   * THE TABLE THE PAPER PRINTS JUST ABOVE THIS BOX (REQUIREMENTS §111): the
+   * title of one of the layout's `referenceTables` — the certificates of
+   * analysis print their TOLERANCE between the FINISHING boxes and the notes —
+   * drawn open in that place, on the sheet and in its print, not behind "Show"
+   * above the sheet. The box starts a group of its own, as with printedAbove.
+   */
+  tableAbove?: string;
+  /**
+   * HOW MANY BOXES THE PAPER PUTS ON ONE LINE from this box on, to the next box
+   * that starts a group of its own (REQUIREMENTS §111): F/QC/06's LABEL STOCK
+   * is three across (Face Material, Adhesive, Release Liner), an inspection
+   * record's lot status takes a line of its own and its two signatures stand
+   * side by side. The box starts a group of its own.
+   */
+  boxesPerLine?: number;
+  /**
+   * THE COLUMN OF ITS LINE THE BOX STANDS IN, counted from 1, where the paper
+   * leaves the cells before it empty (REQUIREMENTS §111): an incoming material
+   * record prints Date of Inspection in the right-hand column of its header
+   * box's fourth line, F/QC/25 its "Date:" at the right above the grid. Honoured
+   * where the boxes stand a set number to a line (headerColumns, boxesPerLine);
+   * a phone takes them one under another.
+   */
+  paperColumn?: number;
+  /**
+   * THE BOXES DRAWN AS THE PAPER'S TABLE (REQUIREMENTS §111): from this box on,
+   * to the next box that starts a group of its own, the boxes are the cells of
+   * a table, a row at a time, `columns` printed over them, each row's heading
+   * (`rows`) printed at its left and `corner` above those. F/QC/06 prints its
+   * LABEL STOCK as "Material" over Face Material / Adhesive / Release Liner on
+   * Required, Tested, Type Required and Observed. A box's label stays its name
+   * (Mitra, a record's history, the checks, a downloaded file); the table's
+   * words are what the sheet and its print show. The box starts a group of its
+   * own. With `cornerBox` the group's first box stands in the corner, under its
+   * own label, and the table's cells are the boxes after it: F/QC/06 prints
+   * "Coating Done : Gloss UV" over the Minimum Gloss line's row headings.
+   */
+  boxTable?: { corner?: string; cornerBox?: true; columns: string[]; rows: string[] };
+  /**
+   * THE VALUE THE PAPER PRINTS IN THE BOX (REQUIREMENTS §111): F/QC/11 prints
+   * "1-54, 2-55, 3-56, 4-57" in its Device ID No box, "LAB" in Location and
+   * Department, "Global Eng. Co. (GEC)" in Manufacturer. Such a box is shown as
+   * text and never typed into: a new record is written with it, every record
+   * shows it (engine/computedCells.ts writes it on the way in and out), an
+   * upload cannot change it, Mitra and the phone are told it is printed and
+   * never write it, and nobody is asked for it.
+   */
+  printed?: string;
+  /**
+   * THE CHOICES THE PAPER PRINTS ACROSS THE BOX'S LINE, in the order of `options`, for the one that holds
+   * to be marked (REQUIREMENTS §111, part 4): an incoming material record prints "LOT STATUS ⇒ ACCEPTED |
+   * REJECT & SEND BACK TO SUPPLIER / SCRAP | SEGREGATION | ACCEPTED ON DEVIATION" and the inspector marks
+   * one. Each is the paper's own word for the option at its place — F/QC/21 Flexo Ink prints "Accepted" —
+   * while the record keeps the option itself. The sheet signed off and every print show the words across
+   * with the chosen one marked; open for writing, the box is the choice box it always was.
+   */
+  choicesAcross?: string[];
+  /**
+   * THE WORDS THE PAPER PRINTS UNDER THE BOX (REQUIREMENTS §111, part 4): an incoming record heads its
+   * signature box "INSPECTED BY" and prints "QA INSPECTOR" under the space it is signed in; F/QC/25 prints
+   * "(QA Inspector)" under "Testing By". The box's name stays what it was.
+   */
+  printedBelow?: string;
+  /**
+   * THE VALUE WRITTEN INSIDE THE PAPER'S SENTENCE (REQUIREMENTS §111, part 4): a certificate of analysis
+   * prints "This material should be retested on 03/07/2022 before usage." — the words before the box, the
+   * box, the words after it, on one line.
+   */
+  inSentence?: { before: string; after: string };
+  /**
+   * THE BOX STANDS ON THE GRID'S TOP LINE (REQUIREMENTS §111, part 4): F/QC/25 prints "OID :-" and "Job Code:" in the
+   * heading line of its table, over the answers. Honoured where the layout draws one answer across the paper's columns
+   * (`answerAcross`): the boxes share that line's place over the answers, in their order. Elsewhere, among the boxes.
+   */
+  inGridHead?: true;
+  /**
+   * THE PAPER'S HEADING, WRITTEN BY THE PERSON (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/29's analysis
+   * report prints "PSL Analysis Report" centred over its table, in bold, with no label beside it; another analysis
+   * is headed with its own words. The box takes a line of its own and is drawn as that heading. Its label is its
+   * name (Mitra, a record's history, a downloaded file) and is not printed.
+   */
+  asHeading?: true;
+  /**
+   * THE BOX IS JUDGED AGAINST ANOTHER BY THE PAPER'S TOLERANCE (REQUIREMENTS §111, rule 2): a certificate of
+   * analysis prints its TOLERANCE table — Length + 2 mm / - 2 mm, Face Material ± 10 % — and its Tested Size
+   * Length outside the Client's Specified Size Length by more than that is highlighted. `of`: the box holding the
+   * figure it is judged against; `plus` and `minus`: the table's figures, in the box's unit or, with `percent`, a
+   * percentage of that figure (engine/printedBands.ts). Nothing is judged where either box is not a plain figure.
+   */
+  within?: { of: string; plus: number; minus: number; percent?: true };
 }
 
 export interface LogColumn {
   key: string;
   label: string; // verbatim column heading
+  /**
+   * THE HEADING THE PAPER PRINTS OVER THE COLUMN, where its name (`label`, which
+   * a record's history, Mitra and the checks go by) has to say what the paper
+   * leaves unsaid (REQUIREMENTS §111): F/QC/25 prints no heading over its
+   * descriptions or its observations, the tolerance card none over its panels'
+   * headings, so "" draws the heading empty. The sheet and its print show these
+   * words; everything else, the name.
+   */
+  printedLabel?: string;
   type: LogFieldType;
   unit?: string; // e.g. "kg", "Sec.", "°C"
   options?: string[];
@@ -69,6 +172,20 @@ export interface LogColumn {
   // next to each other, and the grid then draws a second heading row for them;
   // a column with no group spans both rows, as it does on the paper.
   group?: string;
+  /**
+   * THE GROUP'S HEADING IN A CELL OF ITS OWN over this column, beside a column of the same group (REQUIREMENTS §111,
+   * the review of 13-Oct-2026): F/QC/29's utility test prints "Observation (24Hrs.)" over Freeze, again over
+   * Desiccator and again over Oven — three cells, not one across the three.
+   */
+  groupApart?: true;
+  /**
+   * ONE CELL DOWN A RUN OF LINES (REQUIREMENTS §111, the review of 13-Oct-2026): the paper merges this column's cell
+   * down the lines that print the same words in the column `by` names — the Gujarati line clearance prints each
+   * process once beside its lines, and its operator's and QA's signatures once for the process — or down every line,
+   * with no `by` (F/QC/13's one "પાસ?" beside its six parameters). The value is the run's first line's: drawn there,
+   * across the run; the run's other lines hold nothing in it (engine/paperLayout.ts mergedRuns).
+   */
+  merged?: { by?: string };
   // Read-only, pre-filled column (e.g. the fixed hourly time slot).
   fixed?: boolean;
   /**
@@ -100,6 +217,22 @@ export interface LogColumn {
    * the moment somebody typed into it.
    */
   multiline?: boolean;
+  /**
+   * DRAWN ON THE ENTRY'S SECOND LINE, UNDER THE COLUMN THIS NAMES (REQUIREMENTS
+   * §111): F/QC/12 gives every calibration two lines, the second headed
+   * "Deviation %" (the layout's `secondLine`), with each weight's Deviation %
+   * under its Tested Value. The column has no heading of its own and the line's
+   * data stays one object; only the drawing (the sheet, its print, the Excel and
+   * Word files made from it, the format's designer) puts it below.
+   */
+  beneath?: string;
+  /**
+   * THE BAND IS THE TOLERANCE WRITTEN IN A BOX ABOVE THE GRID (REQUIREMENTS §111, rule 2): F/QC/12 prints
+   * "Acceptable Tolerance:" among its boxes, and each Deviation % ("0.02%") outside ± that figure ("0.05 %")
+   * is highlighted as a reading outside its printed band is. The key of that box; the band is read from what
+   * the record holds there, so a sheet with no tolerance written highlights nothing (engine/printedBands.ts).
+   */
+  toleranceFrom?: string;
   // Auto-fill behaviour for this column. Precedence in engine/autoFill.ts:
   //   dueDate → sign → nominal (random reading inside the band) → carryForward
   //   (copy the template value exactly) → jitter (template value ± jitter%) →
@@ -114,6 +247,12 @@ export interface LogColumn {
     // day/night tester if `byShift` is set.
     sign?: boolean;
     byShift?: { day: string; night: string };
+    // The clock time the reading this sign is under is taken at ("20:30" on F-QC-40.C), so `byShift` names
+    // whoever was on shift then, on a sheet whose line has no time of its own (REQUIREMENTS §111).
+    atTime?: string;
+    // The line's own number, on a paper that numbers its lines in a column of its own (F/QC/16's Sr. No.,
+    // REQUIREMENTS §111): a new line is numbered after the one above it; the person may write another.
+    lineNumber?: boolean;
     // Copy the previous record's / specimen's value for the same row
     // position exactly (set-points, codes, fixed quantities).
     carryForward?: boolean;
@@ -152,14 +291,53 @@ export type LogRowMode =
 
 export interface ReferenceTable {
   title: string;
+  /** The headings over its columns; none, and no heading row is drawn. */
   columns: string[];
   rows: string[][];
+  /**
+   * THE PAPER PRINTS NO TITLE OVER IT (REQUIREMENTS §111, part 4): F/QC/25's letterhead, three cells side by side.
+   * `title` is then only its name among the layout's tables (a box's `tableAbove`), never drawn.
+   */
+  untitled?: true;
+  /**
+   * PRINTED ON THE PAGE, NOT SHOWN ON REQUEST (REQUIREMENTS §111): F/QC/13 prints its grade criteria in full
+   * under the procedure, so the table is drawn open on the sheet and in its print, with no title of DCRS's above
+   * it, each cell keeping its own lines. Without it the table is a reference shown on a click and never printed.
+   */
+  printed?: true;
 }
 
 export interface LogSheetLayout {
   documentId: string;
+  /**
+   * THE TITLE AS THE PAPER PRINTS IT, where the name the document is filed and found under says more
+   * (REQUIREMENTS §111): F/QC/13 prints "In Process Quality Control", filed as "In Process Quality Control
+   * (Printing) — ઇન પ્રોસેસ ક્વોલિટી કંટ્રોલ"; the Nivea utility test is printed on the "MINUTES OF MEETINGS"
+   * format. A record and its print are headed with it; a format the plant has renamed is headed with its new name.
+   */
+  paperTitle?: string;
+  /**
+   * THE TITLE IN THE PAPER'S OWN LETTERS (REQUIREMENTS §111 part 6): the header block prints every title in
+   * capitals, as most papers do; the certificates print "Certificate of Analysis [COA] For Label", F/QC/13 "In
+   * Process Quality Control", and theirs is printed so.
+   */
+  titleAsPrinted?: true;
+  /**
+   * THE LINES THE PAPER PRINTS UNDER THE COMPANY'S NAME, in the header block (REQUIREMENTS §111 part 6): F/QC/11
+   * and F/QC/12 print "Manufacturers of Printed Cartons, Self Adhesive Labels, Shrink sleeves, Corrugated Boxes";
+   * the certificates of analysis their address, contact and GSTIN lines; F/QC/25 "CBA: CORRUGATED BOX ANALYSIS"
+   * under its letterhead. Before the title, where the paper prints them.
+   */
+  underCompany?: string[];
+  /**
+   * THE PAPER'S OWN LETTERHEAD IN PLACE OF THE COMPANY'S LINE (REQUIREMENTS §111 part 6): the title of one of the
+   * layout's `referenceTables` (untitled) drawn at the top of the header block — F/QC/25's three cells, the
+   * company's name in the first — so the name is printed once and the title stands under it, as on the paper.
+   */
+  letterhead?: string;
   // Text printed on the form above the grid (instructions, recommended
-  // values, ALC protocol, ...), verbatim.
+  // values, ALC protocol, ...), verbatim. Only what the paper prints: an
+  // explanation of DCRS's own is never put here (REQUIREMENTS §111).
   instructions?: string[];
   headerFields: LogHeaderField[];
   columns: LogColumn[];
@@ -171,6 +349,157 @@ export interface LogSheetLayout {
   // it the sheet numbers the lines, and a printed line never repeats that
   // number in its words (engine/lineNumbers.ts).
   ownLineNumbers?: true;
+  /**
+   * THE SR. NO. COLUMN HOLDS THE DAY, NOT A COUNT (REQUIREMENTS §111): on
+   * F-QC-30 the hours are written under Date/Time and the day's date is written
+   * in the Sr. No. column on its first line only ("6/9/26", then nothing until
+   * "7/9/26"). The sheet's Sr. No. shows the record's date on the first line and
+   * is empty on the others.
+   */
+  srNoShowsDate?: true;
+  /**
+   * THE SR. NO. PRINTED WITH ITS FULL STOP (REQUIREMENTS §111, part 4): thirteen of the incoming material
+   * records and F/QC/36 number their lines "1.", "2.", "3."; F/QC/21 Flexo Ink, like most papers, "1", "2".
+   */
+  srNoFullStop?: true;
+  /**
+   * THE PAPER'S HEADINGS IN THE PAPER'S OWN LETTERS (REQUIREMENTS §111, part 4): the sheet prints every
+   * heading of its tables in capitals, which turned a certificate's "Length(mm)" into "LENGTH(MM)" — a unit
+   * the paper does not print. A sheet that says so prints its headings as they are written.
+   */
+  headingsAsPrinted?: true;
+  /**
+   * THE HEADING THE PAPER PRINTS OVER ITS OWN NUMBERING COLUMN (REQUIREMENTS §111, the review of 13-Oct-2026): the
+   * sheet's Sr. No. column is headed "Sr. No." unless the paper heads it otherwise — F-QC-40.C's "SR NO", and ""
+   * for F/QC/30's key points, which the paper numbers "1.", "2." under no heading of their own.
+   */
+  srNoLabel?: string;
+  /**
+   * THE PAPER PRINTS NO FORMAT NUMBER AND NO REVISION (REQUIREMENTS §111, the review of 13-Oct-2026): the two
+   * Gujarati line clearance checklists. The header's Format No. and Rev No. print empty, never "TO BE CONFIRMED";
+   * the document is still filed and found as DCRS lists it.
+   */
+  numberNotPrinted?: true;
+  /**
+   * THE PAPER'S OWN LINES PRINTED WITH ITS FORMAT NUMBER (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/20
+   * prints "Current Issue date | 1st January 2022" and "Next Review date | 31st December 2024" in the block that holds
+   * its format number and its revision. The header prints them there, after the revision.
+   */
+  printedWithNumber?: { label: string; value: string }[];
+  /**
+   * THE BOXES THE PAPER PRINTS ABOVE ITS PARAGRAPH (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/15-A to G
+   * print the machine box beside the title, above "Line Clearance * :"; the Gujarati checklists their આઈટમ નં. and
+   * પ્રો.નં. above the procedure. Without it the paper's paragraph comes first, as on most forms.
+   */
+  boxesAboveInstructions?: true;
+  /**
+   * THE PAPER LEAVES A BLANK LINE BETWEEN THE RUNS of the column this names (REQUIREMENTS §111, the review of
+   * 13-Oct-2026): the Gujarati line clearance's processes. Drawn on the sheet and its print; never a line of the record.
+   */
+  gapBetweenRuns?: string;
+  /**
+   * THE PAPER PRINTS A PHOTOGRAPH UNDER ITS TABLE (REQUIREMENTS §111, the review of 13-Oct-2026): F/QC/29's analysis
+   * report prints the label roll it analysed. The sheet has a place for it there: added from a picture while the
+   * record is open for writing, kept in the record (LogSheetData.photos, scaled down as the complaint report keeps its
+   * photographs) and printed where the paper prints it. Never filled by Demo Mode or a sample.
+   */
+  photoBelowGrid?: true;
+  /**
+   * THE PAPER'S "APPROVED BY (QA MANAGER)" IS DCRS'S VERIFY (REQUIREMENTS §74, §111): F/QC/34, /35 and /37 print an
+   * approval DCRS stamps when the record is verified, not a box to type. Only such a sheet says so on the screen
+   * (a line that does not print); a paper with no approval says nothing of one (the review of 13-Oct-2026).
+   */
+  approvedOnVerify?: true;
+  /**
+   * THE GRID PRINTED AS THE PAPER'S SMALL TABLES (REQUIREMENTS §111, the review of 13-Oct-2026): F-QC-14 prints each
+   * check as a table of its own, two to a row — the check and its specification over the inspectors, each inspector's
+   * name under his heading, the first column headed with what was sampled, three lines, and the check's Conclusion
+   * under them. The record is unchanged — its lines in order, `lines` to a table, and its boxes; only the drawing (the
+   * sheet, its print, the server's PDF and the Excel and Word files made from it) puts them in the paper's tables.
+   */
+  panels?: {
+    /** The record's lines each table holds, in order. */
+    lines: number;
+    /** Tables to a row on the paper. */
+    perRow: number;
+    /** The printed column whose words head each table (the check and its specification); not drawn as a column. */
+    headingColumn: string;
+    /** Each table's first heading, in order; "{key}" stands for the box above the grid of that key, written in it ("{fgCode} sample no."). */
+    firstHeadings: string[];
+    /** By column, the box above the grid whose value the paper writes under the column's heading, in brackets ("Inspector - 1" over "(Kapila)"). */
+    namesUnder?: Record<string, string>;
+    /** Each table's box below the grid, in order, printed under its lines beside `footerLabel`. */
+    footers?: string[];
+    footerLabel?: string;
+  };
+  /**
+   * ONE ANSWER ACROSS THE PAPER'S COLUMNS, AND THEIR HEADINGS ON A PRINTED LINE (REQUIREMENTS §111, part 4): F/QC/25
+   * gives each of its printed lines one answer box across the page, but for 7.1 TOP PAPER, 7.2 PLAIN PAPER and 7.3
+   * FLUTE PAPER, which are written in four columns — Specified GSM and Tested GSM under GSM, BF, Grade of Paper —
+   * whose headings it prints on line 7, "Material Specification", not over the grid. `answer` is the column of the one
+   * box; `across`, the columns it stands across; `headingLine`, the printed line (counted from 0) the `across`
+   * columns' headings stand on; `lines`, the printed lines written in the `across` columns. The record's data is
+   * unchanged: every line still holds every column.
+   */
+  answerAcross?: { answer: string; across: string[]; headingLine: number; lines: number[] };
+  /**
+   * ONE CELL A HEADING ON THESE PRINTED LINES (REQUIREMENTS §111): F/QC/11 prints its Pass/Fail and Sign. lines with
+   * one cell under each plate, across the plate's size and Deviation columns. On these lines (counted from 0) each
+   * run of columns under one heading (LogColumn.group) is drawn as one cell, its first column's; the record keeps
+   * every column, the others empty.
+   */
+  groupCellLines?: number[];
+  /**
+   * A PRINTED LINE THAT CONTINUES THE ONE ABOVE IT (REQUIREMENTS §111 part 6): F/QC/18 prints DRYING TEST once over
+   * two specifications — "By Thumb Impression : ..." and, on an unnumbered line under it, "On Glass surface : ..." —
+   * each with its own OBSERVATION box. On these lines (counted from 0) the printed cells left empty stand merged with
+   * the line above's (its Sr. No. and its TEST PARAMETERS), and the line takes no number; its other cells are its own.
+   */
+  continuationLines?: number[];
+  /**
+   * THE SPECIFICATION PRINTED ON EACH LINE IS THE LINE'S BAND (REQUIREMENTS §111, rule 2): an incoming material
+   * record prints "OUTER DIA (mm) | 90 (+2.0 / -1.0)", "MOISTURE CONTENT (%) | Max 15%", "VISCOSITY.(SEC) | 30 ± 10"
+   * down its side, and a reading written in `readings` outside the figures `spec` prints is highlighted. Only a
+   * specification that is a plain figure is read ("As per P.O.", a band for each ply or side, "Except ..." are left
+   * to the inspector), and only a reading that is a plain figure is judged (engine/printedBands.ts).
+   */
+  specBand?: { spec: string; readings: string[] };
+  /**
+   * EVERY ENTRY TAKES TWO LINES (REQUIREMENTS §111): the second line's own
+   * heading, written in the first column — F/QC/12's "Deviation %". The columns
+   * drawn on it are those with `beneath`.
+   */
+  secondLine?: { label: string };
+  /**
+   * The paper's text BELOW the grid, verbatim and in its order — F/QC/11's and
+   * F/QC/12's PROCEDURE (REQUIREMENTS §111). `instructions` is what it prints
+   * above. Never filled in, never stored on a record.
+   */
+  notesBelow?: string[];
+  /**
+   * How many boxes the paper puts on one line above the grid: F/QC/12's nine
+   * header boxes are three rows of three (REQUIREMENTS §111). Without it the
+   * boxes flow as many to a line as the screen holds.
+   */
+  headerColumns?: number;
+  /**
+   * The paper's text AT THE FOOT of the sheet, after the boxes below the grid,
+   * verbatim and in its order (REQUIREMENTS §111): F/QC/21's "This is a system
+   * generated document ...", the certificates of analysis' "THIS IS A SYSTEM
+   * GENERATED DOCUMENT." and their corporate office. `notesBelow` is what the
+   * paper prints straight under the grid. Never filled in, never stored.
+   */
+  notesAtFoot?: string[];
+  /**
+   * THE GRID PRINTED ACROSS THE PAGE (REQUIREMENTS §111): the paper prints each
+   * line as a column and each column as a line — F/QC/06's and F/QC/07's PRINTING
+   * table numbers its ten colours 1 to 10 across, with "Given By Client" and
+   * "Color Shade Verified" on the two lines under them. The record's lines stay
+   * its lines; only the drawing (the sheet, its print and the server's PDF, the
+   * Excel and Word files made from it) turns them. For a sheet of printed lines
+   * that numbers its own (ownLineNumbers): no Sr. No. is drawn.
+   */
+  gridAcross?: true;
   // Fields printed BELOW the grid (lot status, reason for deviation,
   // inspected-by ...). Stored in LogSheetData.header alongside headerFields.
   footerFields?: LogHeaderField[];

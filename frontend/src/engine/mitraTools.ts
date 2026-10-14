@@ -322,8 +322,17 @@ const isLayout = (v: unknown): v is LogSheetLayout => isObj(v) && Array.isArray(
 
 const fieldWords = (f: LogHeaderField | LogColumn): string => {
   const col = f as LogColumn;
-  const flags = [f.type, col.unit, col.fixed ? "printed" : "", col.computed ? "computed" : "", f.required ? "required" : ""].filter(Boolean).join(", ");
-  return `${f.key}: ${short(f.label, 40)} (${flags})`;
+  const box = f as LogHeaderField;
+  // A box the paper prints its value in is never written (REQUIREMENTS §111); a column drawn on an
+  // entry's second line is still the same line's key (F/QC/12's Deviation %, worked out).
+  const printed = typeof box.printed === "string" ? `printed "${short(box.printed, 30)}", never write it` : "";
+  // A cell the paper merges down a run of lines is written once, on the run's first line (the review of 13-Oct-2026).
+  const merged = col.merged ? (col.merged.by ? `one cell for each run of ${col.merged.by}: write it on the run's first line` : "one cell down every line: write it on line 1") : "";
+  const flags = [f.type, col.unit, col.fixed ? "printed" : "", printed, col.computed ? "computed" : "", col.beneath ? `second line, under ${col.beneath}` : "", merged, f.required ? "required" : ""]
+    .filter(Boolean)
+    .join(", ");
+  // The heading over a run of columns names them: "No. 54 20 x 20cm", "No. 54 Deviation".
+  return `${f.key}: ${short(col.group ? `${col.group} ${f.label}` : f.label, 40)} (${flags})`;
 };
 
 /** A log sheet's layout in a few lines: what each key is, so a patch names the right box. */

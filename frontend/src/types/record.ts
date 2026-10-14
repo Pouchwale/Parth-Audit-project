@@ -138,6 +138,18 @@ export type LogSheetRow = { id: string } & Record<string, string | number | null
 export interface LogSheetData {
   header: Record<string, string>; // keyed by LogHeaderField.key
   rows: LogSheetRow[];
+  /**
+   * The photograph a paper prints under its table (LogSheetLayout.photoBelowGrid, REQUIREMENTS §111): F/QC/29's
+   * analysis report's label roll. A scaled-down JPEG kept inside the record, as the complaint report keeps its own.
+   */
+  photos?: SheetPhoto[];
+}
+
+/** A photograph on a log sheet: its own id, the file's name and the picture (a scaled-down JPEG's data URL). */
+export interface SheetPhoto {
+  id: string;
+  name: string;
+  dataUrl: string;
 }
 
 // ---- 1. Daily Pest Control Monitoring Record (F/HR/17) -------------------

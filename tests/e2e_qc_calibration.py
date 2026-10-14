@@ -13,8 +13,21 @@ following the sheet's Acceptable Tolerance, and the GSM plate by area.
   page 1  F/QC/12  WEEKLY INTERNAL CALIBRATION RECORDS - WEIGHT SCALE
   page 2  F/QC/11  MONTHLY INTERNAL CALIBRATION RECORDS - GSM CUTTING PLATE
 
+EXACTLY AS THE PAPER (REQUIREMENTS s111, 13-Oct-2026). The owner sent the blank
+originals of both again, and of F-QC-32, with DCRS's own prints and his marked
+F-QC-30: the two calibration records print their PROCEDURE below the grid and
+nothing of DCRS's above it; F/QC/11's Device ID No, Location, Department and
+Manufacturer are printed, not typed; F/QC/12 has no Sr. No., and each entry takes
+two lines, the second headed "Deviation %"; one calibration a week; F-QC-30's
+Sr. No. holds the day's date on its first line; F-QC-32 has its Date column; and
+an empty date box prints empty. Section 6 checks the four on screen and in print.
+With QC_PAPER_SHOTS set to a folder, the four are photographed there, on screen
+and in print, to be laid beside the originals.
+
 Network-independent, against the production build on :8842.
 """
+import os
+import re
 import sys
 from playwright.sync_api import sync_playwright
 
@@ -108,8 +121,36 @@ def record(page, rid):
 
 
 def header_values(page):
-    """What the sheet's header block says — the fields above the grid."""
+    """What the sheet's header block says — the fields above the grid that are written in."""
     return page.locator("[data-section='document-preview'] .field input, [data-section='document-preview'] .field select").evaluate_all("els => els.map((e) => e.value)")
+
+
+def printed_values(page):
+    """The boxes whose value the paper prints (s111), by key."""
+    # The document's page shows the sheet under document-preview; a record's page is the printed document itself.
+    return page.locator("[data-section='document-preview'] [data-printed], [data-print-doc] [data-printed]").evaluate_all("els => Object.fromEntries(els.map((e) => [e.getAttribute('data-printed'), e.textContent.trim()]))")
+
+
+def sheet_text(page):
+    return page.locator("[data-section='document-preview']").evaluate("e => e.textContent")
+
+
+def shoot(page, name):
+    """With QC_PAPER_SHOTS set, the document photographed on screen and as it prints."""
+    folder = os.environ.get("QC_PAPER_SHOTS")
+    if not folder:
+        return
+    os.makedirs(folder, exist_ok=True)
+    doc = page.locator("[data-print-doc]").first
+    if doc.count():
+        doc.screenshot(path=os.path.join(folder, f"{name}-screen.png"))
+        page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
+        page.emulate_media(media="print")
+        try:
+            doc.screenshot(path=os.path.join(folder, f"{name}-print.png"))
+        finally:
+            page.emulate_media(media="screen")
+            page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
 
 
 def open_page(page, route):
@@ -133,7 +174,7 @@ with sync_playwright() as p:
     open_page(page, "#/library/quality-control-inspection-records")
     rows = page.locator(".doc-table tbody tr:not(.doc-section-row)")
     text = page.locator(".app-content").inner_text()
-    check("Quality Control - Inspection Records now holds forty-one documents", rows.count() == 41, rows.count())
+    check("Quality Control - Inspection Records now holds forty-six documents", rows.count() == 46, rows.count())
     check(
         "...the two calibration records among them, each with its own name and format number",
         "Weekly Internal Calibration Records - Weight Scale" in text and "F/QC/12" in text
@@ -152,13 +193,25 @@ with sync_playwright() as p:
     check("...the supplied page listed among this document's sheets", supplied.count() == 1)
     supplied.click()
     page.wait_for_timeout(500)
-    check("...and shown in full when picked: its four calibrations", sheet.locator("table.log-sheet tbody tr").count() == 4, sheet.locator("table.log-sheet tbody tr").count())
+    firsts = sheet.locator("table.log-sheet tbody tr[data-line='first']")
+    seconds = sheet.locator("table.log-sheet tbody tr[data-line='second']")
+    check("...and shown in full when picked: its four calibrations, each on two lines as the paper", firsts.count() == 4 and seconds.count() == 4, (firsts.count(), seconds.count()))
     headings = sheet.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    expected = ["Sr. No.", "Date", "Tested By"]
+    expected = ["Date", "Tested By"]
     for i in range(1, 6):
-        expected += [f"Weight {i}", f"Tested Value {i}", "Deviation %"]
+        expected += [f"Weight {i}", f"Tested Value {i}"]
     expected += ["Pass / Fail", "Sign", "Next Due Date"]
-    check("...the form's own columns, in order, with a Deviation % beside every weight", headings == expected, headings)
+    check("...the paper's own headings, in order: no Sr. No., and no Deviation % among them (s111)", headings == expected, headings)
+    second = seconds.first.locator("td").evaluate_all("els => els.map((e) => e.getAttribute('data-beneath') || e.textContent.trim())")
+    check(
+        "...each entry's second line headed Deviation % in the Date column, with each weight's Deviation % under its Tested Value",
+        second == ["Deviation %", "", "", "deviation1", "", "deviation2", "", "deviation3", "", "deviation4", "", "deviation5", "", "", ""],
+        second,
+    )
+    check(
+        "...under them the 0% the scan shows",
+        seconds.first.locator("td[data-beneath]").evaluate_all("els => els.map((e) => e.textContent.trim())") == ["0%"] * 5,
+    )
     body = sheet.inner_text()
     values = header_values(page)
     check(
@@ -167,6 +220,17 @@ with sync_playwright() as p:
         values,
     )
     check("...the procedure note the form prints", "reported to the QA manager" in body and "Calibration records of all weights used must be available and valid" in body)
+    notes = sheet.locator("[data-section='notes-below']")
+    check(
+        "...printed below the grid, as the paper prints it, with its heading 'PROCEDURE:' on a line of its own",
+        notes.count() == 1 and notes.locator("p").first.inner_text().strip() == "PROCEDURE:"
+        and sheet.evaluate("e => { const t = e.querySelector('table.log-sheet'); const n = e.querySelector('[data-section=notes-below]'); return !!t && !!n && !!(t.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING); }"),
+    )
+    check(
+        "...and nothing of DCRS's own above the grid (the two explanation lines are gone)",
+        "One line per weekly calibration" not in body and "On the paper the Deviation %" not in body and "worked out" not in body,
+    )
+    check("...the nine boxes three to a line, as the paper draws them", sheet.locator("[data-section='sheet-boxes'].sheet-boxes-paper").count() == 1)
 
     stored = record(page, "qc-weight-scale-calibration-2024-03")
     check("The supplied page is on file as a Verified record of four lines", stored is not None and stored["status"] == "Verified" and len(stored["data"]["rows"]) == 4, stored["status"] if stored else None)
@@ -200,15 +264,29 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     check("...six printed lines: four measurements, then Pass/Fail and Sign", sheet.locator("table.log-sheet tbody tr").count() == 6, sheet.locator("table.log-sheet tbody tr").count())
     headings = sheet.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
-    expected = ["Sr. No.", "Index", "No. 54 (20 x 20cm)", "Deviation %", "No. 55 (10 x 10cm)", "Deviation %", "No. 56 (5 x 5cm)", "Deviation %", "No. 57 (2.5 x 2.5cm)", "Deviation %"]
-    check("...the four plates with their sizes, each with a Deviation % column", headings == expected, headings)
+    expected = ["Index", "No. 54", "No. 55", "No. 56", "No. 57", "20 x 20cm", "Deviation", "10 x 10cm", "Deviation", "5 x 5cm", "Deviation", "2.5 x 2.5cm", "Deviation"]
+    check("...the four plates as the paper heads them: No. 54 to 57, each over its size and Deviation (s111)", headings == expected, headings)
+    printed = printed_values(page)
+    check(
+        "...Device ID No, Location, Department and Manufacturer printed as the paper prints them, not typed (s111)",
+        printed == {"deviceIdNo": "1-54, 2-55, 3-56, 4-57", "location": "LAB", "department": "LAB", "manufacturer": "Global Eng. Co. (GEC)"},
+        printed,
+    )
     values = header_values(page)
     check(
-        "...the header as written: the four device ids, LAB, Global Eng. Co. (GEC), expiry 22.09.2025, calibrated 31.12.2024",
-        values[:8] == ["1-54, 2-55, 3-56, 4-57", "LAB", "LAB", "Global Eng. Co. (GEC)", "TO BE CONFIRMED", "2025-09-22", "2024-12-31", ""],
+        "...and the boxes written in as the scan: serial blank as the paper's box (s111 part 6), expiry 22.09.2025, calibrated 31.12.2024, due date blank",
+        values[:4] == ["", "2025-09-22", "2024-12-31", ""],
         values,
     )
-    check("...with the serial number marked TO BE CONFIRMED, being a scribble on the scan, and the due date left blank", "TO BE CONFIRMED" in values and values[7] == "")
+    labels = sheet.locator(".field label").all_inner_texts()
+    check("...the calibration date headed 'I. Calibration Date:-' and its Due Date:-, as printed (s111 part 6)", "I. Calibration Date:-" in labels and "Due Date:-" in labels and "Serial No:" in labels, labels)
+    one_a_plate = sheet.locator("table.log-sheet tbody tr").evaluate_all("rows => rows.map((r) => r.querySelectorAll('td').length)")
+    check("...Pass/Fail and Sign. one cell under each plate, as printed (s111 part 6)", one_a_plate == [9, 9, 9, 9, 5, 5], one_a_plate)
+    body = sheet_text(page)
+    check(
+        "...the PROCEDURE below the grid and no explanation of DCRS's above it",
+        sheet.locator("[data-section='notes-below']").count() == 1 and "PROCEDURE:" in body and "The four plates" not in body and "worked out" not in body,
+    )
 
     stored = record(page, "qc-gsm-plate-calibration-2024-12")
     check("The 31.12.2024 calibration is on file, Verified", stored is not None and stored["status"] == "Verified" and stored["data"]["header"].get("calibrationDate") == "2024-12-31", stored["data"]["header"] if stored else None)
@@ -239,7 +317,8 @@ with sync_playwright() as p:
     # record starts it blank. Either way Mitra fills it when asked, carrying the
     # page on file's four lines forward (engine/sampleFill.ts, allowed in a Live
     # record on the test server), so this holds whatever the day.
-    if fresh is not None and len(fresh["data"]["rows"]) != 4:
+    # One sheet a week holds that week's calibration, one entry (s111: never four lines on one day).
+    if fresh is not None and not (fresh["data"]["rows"] and fresh["data"]["rows"][0].get("weight4")):
         # Mitra opens by itself when a record is opened (s60); the pill exists only while closed.
         if page.locator("button:has-text('Ask Mitra')").count():
             page.click("button:has-text('Ask Mitra')")
@@ -250,7 +329,11 @@ with sync_playwright() as p:
         page.wait_for_timeout(1500)
         close_assistant(page)
         fresh = record(page, new_id)
-    check("A new weight scale sheet starts from the page on file, ready to be checked", fresh is not None and len(fresh["data"]["rows"]) == 4, len(fresh["data"]["rows"]) if fresh else None)
+    check(
+        "A new weight scale sheet holds the week's one calibration, dated the sheet's day, from the page on file",
+        fresh is not None and len(fresh["data"]["rows"]) == 1 and fresh["data"]["rows"][0].get("date") == fresh["dueDate"],
+        [(r.get("date"), r.get("weight4")) for r in fresh["data"]["rows"]] if fresh else None,
+    )
     if fresh:
         check(
             "...carrying the device, its capacities and its tolerance forward",
@@ -260,23 +343,26 @@ with sync_playwright() as p:
     # ==================================================================
     # 5. The deviation is worked out, not typed (REQUIREMENTS s61)
     # ==================================================================
-    # Columns: Sr, Date, Tested By, then Weight / Tested Value / Deviation % x 5, Pass / Fail, Sign, Next Due.
-    line = page.locator("table.log-sheet tbody tr").first
+    # The entry's first line: Date, Tested By, then Weight / Tested Value x 5, Pass / Fail, Sign, Next Due (no Sr. No.);
+    # its second line: "Deviation %", then each weight's Deviation % under its Tested Value (s111).
+    line = page.locator("table.log-sheet tbody tr[data-line='first']").first
+    below = page.locator("table.log-sheet tbody tr[data-line='second']").first
     cell = lambda n: line.locator("td").nth(n)
+    under = lambda n: below.locator("td").nth(n)
     check(
         "The Deviation % cells are worked out, not typed: no box to type into, while the weights and tested values keep theirs",
-        cell(5).locator("input").count() == 0 and cell(14).locator("input").count() == 0 and cell(3).locator("input").count() == 1 and cell(4).locator("input").count() == 1,
+        under(3).locator("input").count() == 0 and under(9).locator("input").count() == 0 and cell(2).locator("input").count() == 1 and cell(3).locator("input").count() == 1,
     )
-    cell(13).locator("input").fill("200.04 gm")
+    cell(9).locator("input").fill("200.04 gm")
     page.wait_for_timeout(1500)
     row = record(page, new_id)["data"]["rows"][0]
     check(
-        "Typing a tested value of 200.04 gm against the 200.000gm weight gives 0.02%, on the sheet and in the record",
-        row["deviation4"] == "0.02%" and cell(14).inner_text().strip() == "0.02%",
-        (row["deviation4"], cell(14).inner_text()),
+        "Typing a tested value of 200.04 gm against the 200.000gm weight gives 0.02%, on the sheet (under it) and in the record",
+        row["deviation4"] == "0.02%" and under(9).inner_text().strip() == "0.02%",
+        (row["deviation4"], under(9).inner_text()),
     )
     check("...inside the 0.05 % tolerance, so the line stays Pass, and the other weights stay 0%", row["passFail"] == "Pass" and row["deviation1"] == "0%" and row["deviation5"] == "0%", row)
-    cell(13).locator("input").fill("200400 mg")
+    cell(9).locator("input").fill("200400 mg")
     page.wait_for_timeout(1500)
     row = record(page, new_id)["data"]["rows"][0]
     check("A tested value written in mg against a weight in gm is read in its own unit: 200400 mg is 0.2%", row["deviation4"] == "0.2%", row["deviation4"])
@@ -303,16 +389,108 @@ with sync_playwright() as p:
     close_assistant(page)
     gsm_id = page.url.split("#/record/")[-1]
     first = page.locator("table.log-sheet tbody tr").first
-    # Columns: Sr, Index, then each plate's size and its Deviation %.
-    check("The GSM plate's Deviation % cells are worked out too", first.locator("td").nth(3).locator("input").count() == 0 and first.locator("td").nth(2).locator("input").count() == 1)
-    first.locator("td").nth(2).locator("input").fill("20.1 x 20cm")
+    # Columns: Index (the paper's own, no Sr. No.), then each plate's size and its Deviation.
+    check("The GSM plate's Deviation cells are worked out too", first.locator("td").nth(2).locator("input").count() == 0 and first.locator("td").nth(1).locator("input").count() == 1)
+    check(
+        "...and its printed boxes are printed on a new sheet too, with nothing to type into",
+        printed_values(page).get("deviceIdNo") == "1-54, 2-55, 3-56, 4-57" and page.locator("[data-print-doc] input[data-bind='header/deviceIdNo']").count() == 0,
+        printed_values(page),
+    )
+    first.locator("td").nth(1).locator("input").fill("20.1 x 20cm")
     page.wait_for_timeout(1500)
     grow = record(page, gsm_id)["data"]["rows"][0]
     check("No. 54 measured 20.1 x 20cm against its 20 x 20cm is 0.5%", grow["p54dev"] == "0.5%", grow)
-    first.locator("td").nth(2).locator("input").fill("20 x 20cm")
+    first.locator("td").nth(1).locator("input").fill("20 x 20cm")
     page.wait_for_timeout(1500)
     rows = record(page, gsm_id)["data"]["rows"]
     check("...and back at its own size, 0% - with nothing worked out on the Pass/Fail and Sign lines", rows[0]["p54dev"] == "0%" and (rows[4].get("p54dev") or "") == "" and (rows[5].get("p54dev") or "") == "", [r.get("p54dev") for r in rows])
+    check("...and the record holds the paper's printed values", record(page, gsm_id)["data"]["header"].get("manufacturer") == "Global Eng. Co. (GEC)", record(page, gsm_id)["data"]["header"])
+    shoot(page, "F-QC-11")
+
+    # ==================================================================
+    # 6. The four the owner named, as their papers (REQUIREMENTS s111)
+    # ==================================================================
+    # F/QC/12 in print: an entry with no Next Due Date written prints an empty box, not "dd-mm-yyyy".
+    page.goto(f"{BASE}/index.html#/record/{new_id}")
+    page.wait_for_timeout(1400)
+    dismiss(page)
+    close_assistant(page)
+    due = page.locator("table.log-sheet tbody tr[data-line='first']").first.locator("td").nth(14).locator("input")
+    due.fill("")
+    page.wait_for_timeout(800)
+    shoot(page, "F-QC-12")
+    page.evaluate("() => window.dispatchEvent(new Event('beforeprint'))")
+    page.emulate_media(media="print")
+    written_date = page.locator("table.log-sheet tbody tr[data-line='first']").first.locator("td").nth(0).locator("input")
+    try:
+        empty = due.evaluate("e => ({ marked: e.hasAttribute('data-empty'), fill: getComputedStyle(e).webkitTextFillColor })")
+        # A written date prints its words, not the browser's drawing of the date (s111 part 6: '14·10·2026').
+        as_text = written_date.evaluate("e => ({ value: e.value, hidden: getComputedStyle(e).display === 'none', text: (e.nextElementSibling && e.nextElementSibling.classList.contains('print-box-text')) ? e.nextElementSibling.textContent : null })")
+    finally:
+        page.emulate_media(media="screen")
+        page.evaluate("() => window.dispatchEvent(new Event('afterprint'))")
+    check("F/QC/12: an empty Next Due Date prints empty, not dd-mm-yyyy", empty["marked"] and empty["fill"] in ("rgba(0, 0, 0, 0)", "transparent"), empty)
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    want = f"{as_text['value'][8:10]}-{months[int(as_text['value'][5:7]) - 1]}-{as_text['value'][:4]}" if as_text.get("value") else None
+    check("F/QC/12: the entry's written Date prints as the sheet writes it (14-Oct-2026), its box not printed (s111 part 6)", as_text["hidden"] and as_text["text"] == want, as_text)
+    left = written_date.evaluate("e => ({ marked: e.classList.contains('print-as-text'), beside: !!(e.nextElementSibling && e.nextElementSibling.classList.contains('print-box-text')) })")
+    check("...and after printing the box is the box again, the words gone", not left["marked"] and not left["beside"], left)
+
+    # F-QC-30: nothing above the grid, and the day's date in the Sr. No. of its first line only.
+    open_page(page, "#/library")
+    page.locator("[data-action='new-record'][data-document='qc-viscosity']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1400)
+    close_assistant(page)
+    sheet = page.locator("[data-section='document-preview']")
+    if sheet.count() == 0:
+        sheet = page.locator("[data-print-doc]").first
+    headings = page.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    check("F-QC-30: Sr. No. | Date/Time | Viscosity (20.0 ± 1.0 Sec.) | Tested By", headings == ["Sr. No.", "Date/Time", "Viscosity (20.0 ± 1.0 Sec.)", "Tested By"], headings)
+    sr = page.locator("table.log-sheet tbody tr td[data-sr-no]").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    # The header's Date cell, the record's own (the format's Rev Date stands beside it since s111 part 6).
+    header_date = page.evaluate("() => { const c = Array.from(document.querySelectorAll('.doc-header .meta-cell')).find((m) => (m.querySelector('.k') || {}).textContent === 'Date'); return c ? c.querySelector('.v').innerText.trim() : ''; }")
+    check(
+        "...the record's date in the Sr. No. of the first line, and nothing in the others (the paper's 6/9/26)",
+        len(sr) == 23 and sr[0] == header_date and re.match(r"^\d{2}-[A-Z][a-z]{2}-\d{4}$", sr[0] or "") is not None and all(x == "" for x in sr[1:]),
+        (sr[:3], header_date),
+    )
+    text30 = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")
+    check("...and the specification line the owner crossed out is gone", "Viscosity specification" not in text30 and "round the clock" not in text30)
+    shoot(page, "F-QC-30")
+
+    # F-QC-32: the Date column, dated the record's day, and nothing above the grid.
+    open_page(page, "#/library")
+    page.locator("[data-action='new-record'][data-document='qc-adhesive-mixing']").first.evaluate("el => el.click()")
+    page.wait_for_timeout(1400)
+    close_assistant(page)
+    mix_id = page.url.split("#/record/")[-1]
+    headings = page.locator("table.log-sheet thead th").evaluate_all("els => els.map((e) => e.textContent.trim())")
+    check(
+        "F-QC-32: Sr. No. | Date | Time | Adhesive (kg) | Hardener (kg) | Ethyl (kg) | Viscosity (Sec.) | Remark | Checked by | Verified by",
+        headings == ["Sr. No.", "Date", "Time", "Adhesive (kg)", "Hardener (kg)", "Ethyl (kg)", "Viscosity (Sec.)", "Remark", "Checked by", "Verified by"],
+        headings,
+    )
+    mix = record(page, mix_id)
+    # Prepared in the morning, its line carries the record's date (a known part); a sheet started blank
+    # has nothing written yet, so Mitra fills it with sample data (allowed on the test server), as above.
+    if mix is not None and not any(r.get("date") for r in mix["data"]["rows"]):
+        if page.locator("button:has-text('Ask Mitra')").count():
+            page.click("button:has-text('Ask Mitra')")
+        page.wait_for_timeout(400)
+        mitra_box = page.locator("button[aria-label='Send']").locator("xpath=preceding-sibling::textarea")
+        mitra_box.fill("fill it with sample data")
+        mitra_box.press("Enter")
+        page.wait_for_timeout(1500)
+        close_assistant(page)
+        mix = record(page, mix_id)
+    check(
+        "...each line dated the record's day",
+        mix is not None and len(mix["data"]["rows"]) >= 1 and all(r.get("date") == mix["dueDate"] for r in mix["data"]["rows"]),
+        [(r.get("date"), r.get("time")) for r in mix["data"]["rows"]] if mix else None,
+    )
+    text32 = page.locator("[data-print-doc]").first.evaluate("e => e.textContent")
+    check("...and the 'One row per adhesive batch mixed' line is gone", "One row per adhesive batch" not in text32 and "Standard mix observed" not in text32)
+    shoot(page, "F-QC-32")
 
     check("No JavaScript errors", not errors, errors[:5])
     browser.close()
@@ -322,4 +500,4 @@ if FAILURES:
     for f in FAILURES:
         print(" -", f)
     sys.exit(1)
-print("\nBoth internal calibration records read exactly as the supplied pages.")
+print("\nBoth internal calibration records, F-QC-30 and F-QC-32 read exactly as the papers.")

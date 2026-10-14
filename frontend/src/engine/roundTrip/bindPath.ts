@@ -38,6 +38,11 @@ export const BIND_TABLE_ATTR = "data-bind-table";
 export const BIND_APPEND_ATTR = "data-bind-append";
 /** On a header cell of such a table: the key of the item's field that column holds (with BIND_TYPE_ATTR / BIND_OPTIONS_ATTR). */
 export const BIND_COL_ATTR = "data-bind-col";
+/**
+ * On such a grid whose entries take two lines (REQUIREMENTS §111): the heading of every entry's second
+ * line, F/QC/12's "Deviation %". A line of an uploaded file headed so is that second line, never a new entry.
+ */
+export const BIND_SECOND_LINE_ATTR = "data-bind-second-line";
 
 /**
  * What kind of value a bound box holds — how a value read back from a file is turned into data.

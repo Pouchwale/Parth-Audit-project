@@ -150,6 +150,8 @@ const EXPECTED: Record<string, string> = {
   "qc-starch-powder":                 "Kapila",  // F/QC/23
   "qc-sheet-pasting-powder":          "Kapila",  // F/QC/24
   "qc-coa-corrugated":                "Kapila",  // F/QC/25
+  "qc-test-reliability-label":        "Kapila",  // F-QC-14
+  "qc-test-reliability-sleeve":       "Kapila",  // F-QC-14
   "qc-analysis-report":               "Kapila",  // F/QC/29
   "qc-utility-test-report":           "Kapila",  // F/QC/29
   "qc-label-stock":                   "Kapila",  // F/QC/03
@@ -164,11 +166,15 @@ const EXPECTED: Record<string, string> = {
   "soc-flexible-packaging":           "",  // F/QC-38 (reference: filled by nobody)
   "qc-paper-core":                    "Kapila",  // F/QC/04
   "qc-temperature":                   "Ankur",  // F-QC-40.C
+  "qc-temperature-humidity":          "Zala",  // F-QC-40.A
+  "qc-temperature-sleeve":            "Zala",  // F-QC-40.B
+  "qc-ruler-verification":            "Kapila",  // F/QC/17
   "qc-pvc-pet-film":                  "Kapila",  // F/QC/05
   "qc-coa-label":                     "Kapila",  // F/QC/06
   "qc-coa-sleeve":                    "Kapila",  // F/QC/07
   "qc-calibration-master-list":       "Kapila",  // F/QC/08
   "soc-labels":                       "",  // F/QC-09 (reference: filled by nobody)
+  "soc-shrink-sleeves":               "",  // F/QC-10 (reference: filled by nobody)
   "qc-camera-challenge-test":         "AjaySinh",  // F: QA/PRO/FL/CCT/01
   "qc-line-clearance-materials":      "Kapila",  // TO BE CONFIRMED
   "qc-line-clearance-quality":        "Kapila",  // TO BE CONFIRMED

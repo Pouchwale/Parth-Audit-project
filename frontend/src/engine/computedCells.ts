@@ -3,6 +3,7 @@ import { withMarketingCalc } from "./marketingCalc";
 import { withCalibration } from "./calibration";
 import { withMaintenanceCalc } from "./maintenanceCalc";
 import { withPurchaseRatings } from "./purchaseRatings";
+import { withPrintedBoxes } from "./paperLayout";
 
 // EVERY WORKED-OUT CELL, IN ONE PASS (REQUIREMENTS §74, building on §61 and
 // §68). Four families of form print a cell that is arithmetic on the cells
@@ -27,5 +28,7 @@ import { withPurchaseRatings } from "./purchaseRatings";
 // every render costs nothing for the forms without such a cell.
 export function withComputedCells<T>(documentId: string | undefined, data: T): T {
   // F/MKT/02's satisfaction index and F/MKT/04's Pareto (REQUIREMENTS §77) join the pass the same way.
-  return withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, data)))));
+  // So does a box whose value the paper prints (REQUIREMENTS §111): F/QC/11's Device ID No reads
+  // "1-54, 2-55, 3-56, 4-57" on every record, whatever was typed into it before it was printed.
+  return withPrintedBoxes(documentId, withMarketingCalc(documentId, withAuditRisk(documentId, withMaintenanceCalc(documentId, withCalibration(documentId, withPurchaseRatings(documentId, data))))));
 }

@@ -1209,6 +1209,17 @@ textarea.input.input-cell-multiline { field-sizing: content; min-height: 40px; m
   html.print-scoped :is(div, section, main, article, nav).print-scope-ancestor { display: block !important; }
   /* An empty field prints empty, not with its on-screen hint ("Qty used"). */
   input::placeholder, textarea::placeholder { color: transparent !important; }
+  /* And an empty date or time box prints empty, not with the browser's "dd-mm-yyyy" or
+     "--:--", nor a choice box with nothing chosen its "Select…" (REQUIREMENTS §111: the
+     owner's F/QC/12 printout read "dd-mm-yyyy" in a Next Due Date nobody had written).
+     The record views mark such a box data-empty. The text's fill, not its colour: the colour is
+     forced black for every printed box above, and the fill wins without forcing. */
+  input[data-empty]:not([type="checkbox"]):not([type="radio"]), select[data-empty] { -webkit-text-fill-color: transparent; }
+  input[data-empty]::-webkit-datetime-edit { visibility: hidden; }
+  /* A written date or time box prints its words in its place (utils/print.ts, REQUIREMENTS §111 part 6): "14-Oct-2026",
+     not the browser's drawing of the date ("14·10·2026", "13 - 10 - 2026"). */
+  input.print-as-text { display: none; }
+  .print-box-text { color: #000; white-space: nowrap; font-size: 12.5px; padding: 2px 0; display: inline-block; }
   /* The demo band is a coloured strip with white text: it has to print as
      one, or a demo printout would pass for a real record. */
   .demo-watermark::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1633,6 +1644,11 @@ body { top: 0 !important; }
 .doc-header { border: 1.5px solid #2c3e50; border-radius: 2px; overflow: hidden; background: #fff; }
 .doc-header .company-name { text-align: center; font-weight: 700; font-size: 15px; padding: 10px; border-bottom: 1.5px solid #2c3e50; letter-spacing: 0.02em; }
 .doc-header .doc-title { text-align: center; font-weight: 700; font-size: 13.5px; padding: 9px; border-bottom: 1.5px solid #2c3e50; text-decoration: underline; }
+/* The paper's lines under the company's name (LogSheetLayout.underCompany, REQUIREMENTS §111 part 6): one block with it. */
+.doc-header .company-name.has-lines { border-bottom: none; padding-bottom: 2px; }
+.doc-header .company-lines { text-align: center; font-size: 11.5px; font-weight: 600; line-height: 1.45; padding: 0 10px 7px; border-bottom: 1.5px solid #2c3e50; }
+.doc-header .doc-letterhead { padding: 8px 10px 0; }
+.doc-header .doc-letterhead + .company-lines { text-align: right; padding-top: 2px; }
 .doc-header .meta-row { display: flex; }
 .doc-header .meta-cell { flex: 1; padding: 7px 10px; font-size: 11.5px; border-right: 1px solid #2c3e50; }
 .doc-header .meta-cell:last-child { border-right: none; }
@@ -1682,6 +1698,102 @@ body { top: 0 !important; }
 .doc-table table.log-sheet td .cell-text { display: block; min-width: 40px; font-size: 12.5px; line-height: 1.35; white-space: pre-line; }
 .cell-out-of-band { background: var(--color-warning-bg) !important; }
 .cell-out-of-band .input { border-color: var(--color-warning); }
+/* A box outside the paper's tolerance of the box it is judged against (LogHeaderField.within, REQUIREMENTS §111 rule 2):
+   a certificate's Tested Size Length beyond its Client's Specified Size Length by more than the TOLERANCE table's 2 mm. */
+.field-out-of-band .input { border-color: var(--color-warning); background: var(--color-warning-bg); }
+/* EVERY QC FORMAT EXACTLY AS THE PAPER (REQUIREMENTS §111). The boxes above the grid
+   stand as many to a line as the paper draws them (F/QC/12's three rows of three); a
+   phone takes them one under another. An entry of two lines (F/QC/12's "Deviation %"
+   line) keeps its two lines together, the second's heading in small type, and the
+   paper's own text below the grid (the PROCEDURE) reads as printed words. */
+.sheet-boxes-paper { grid-template-columns: repeat(var(--paper-box-columns, 3), minmax(0, 1fr)); }
+/* A box in its column of the line, the cells before it left empty as the paper leaves them
+   (paperColumn: an incoming record's Date of Inspection at the right of its fourth line). */
+.sheet-boxes-paper > [data-paper-column="2"] { grid-column-start: 2; }
+.sheet-boxes-paper > [data-paper-column="3"] { grid-column-start: 3; }
+.sheet-boxes-paper > [data-paper-column="4"] { grid-column-start: 4; }
+@media screen and (max-width: 600px) {
+  .sheet-boxes-paper { grid-template-columns: minmax(0, 1fr); }
+  .sheet-boxes-paper > [data-paper-column] { grid-column-start: auto; }
+}
+/* Boxes as the paper's table (boxTable: a certificate's LABEL STOCK, Material × Face Material ...):
+   each cell the record's box, the width of its cell; the rows' headings in the paper's words. */
+.doc-table table.paper-box-table th.paper-box-table-row { text-align: left; white-space: normal; }
+.doc-table table.paper-box-table td .field-in-table .input { width: 100%; min-width: 64px; }
+/* A table of boxes headed across by its corner (F/QC/17's "Master Measuring Scale (Ruler) Details"), centred as printed. */
+.doc-table table.paper-box-table th.paper-box-table-across { text-align: center; }
+/* A Statement of Compliance's list after its table, a bullet to an item as the documents print it (§111 part 8). */
+[data-section="soc-list"] p.soc-item { position: relative; padding-left: 18px; }
+[data-section="soc-list"] p.soc-item::before { content: "•"; position: absolute; left: 4px; }
+/* The grid printed across (gridAcross: a certificate's PRINTING, its colours 1 to 10 across). */
+.doc-table table.log-sheet-across th.log-sheet-across-head { text-align: left; white-space: nowrap; vertical-align: middle; }
+.doc-table table.log-sheet-across td { text-align: center; }
+.doc-table table.log-sheet tbody tr[data-line="first"] td { border-bottom-style: dotted; }
+.doc-table table.log-sheet tbody tr.log-second-line .second-line-label { font-size: 11px; white-space: nowrap; }
+.sheet-notes-below p { line-height: 1.45; }
+@media print {
+  tr[data-line="first"] { break-after: avoid; }
+}
+/* THE PAPER'S OWN MARKS (REQUIREMENTS §111, part 4).
+   The choices printed across the box's line (choicesAcross: an incoming record's LOT STATUS), the one that holds
+   ringed as a pen rings it; beside the label, as the paper prints them. Open for writing, the choice box is used
+   and the words are for the print; signed off, the words are shown and the choice box is kept for a screen reader. */
+.field-choices-across .choices-across { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12.5px; font-weight: 600; color: var(--color-text); }
+.field-choices-across .choice-across { padding: 1px 8px; border: 1.5px solid transparent; border-radius: 999px; }
+.field-choices-across .choice-across.is-chosen { border-color: currentColor; }
+.field-choices-across.is-editable .choices-across { display: none; }
+.field-choices-across:not(.is-editable) { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 18px; }
+.field-choices-across:not(.is-editable) select { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media print {
+  .field-choices-across, .field-choices-across.is-editable { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 18px; }
+  .field-choices-across.is-editable .choices-across { display: flex; }
+  .field-choices-across select { display: none; }
+}
+/* The words the paper prints under a box (printedBelow: "QA INSPECTOR" under INSPECTED BY), the box's heading
+   and the words centred over and under the space it is signed in, as on the paper. */
+.field-printed-below { text-align: center; }
+.field-printed-below > label { text-align: center; }
+.field-printed-below .box-printed-below { font-size: 12px; color: var(--color-text); }
+@media print { .field-printed-below .input { text-align: center; min-height: 28px; } }
+/* A value inside the paper's sentence (inSentence: "This material should be retested on … before usage."):
+   the words, the box and the words after it on one line, in the sentence's bold. */
+.field-in-sentence { flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 6px; }
+.field-in-sentence > label, .field-in-sentence .field-sentence-after { font-size: 13px; font-weight: 700; color: var(--color-text); }
+.field-in-sentence .input { width: auto; min-width: 128px; flex: 0 0 auto; }
+/* The paper's headings in its own letters (headingsAsPrinted: a certificate's "Length(mm)"). */
+.headings-as-printed .doc-table th { text-transform: none; letter-spacing: 0; }
+/* A box standing in the corner of the paper's table (boxTable cornerBox): "Coating Done :  Gloss UV" on one line. */
+.doc-table table.paper-box-table th.paper-box-table-corner > .field { flex-direction: row; align-items: baseline; gap: 8px; }
+/* A box on the grid's top line (inGridHead: F/QC/25's "OID :-" and "Job Code:"), its words beside it as printed, and
+   the headings the paper prints on one of its lines (answerAcross: line 7's GSM, BF, Grade of Paper). */
+.doc-table table.log-sheet th.grid-head-box > .field { flex-direction: row; align-items: baseline; gap: 8px; }
+.doc-table table.log-sheet th.grid-head-box > .field > label { white-space: nowrap; }
+.doc-table table.log-sheet th.grid-head-box > .field .input { flex: 1 1 auto; min-width: 80px; }
+.doc-table table.log-sheet-answer-across tbody th { vertical-align: middle; }
+/* FROM THE REVIEW OF 13-OCT-2026 (REQUIREMENTS §111).
+   The paper's small tables (panels: F-QC-14's checks, two to a row), each heading keeping its own lines ("GSM - Total"
+   over "Specification : 70 ± 5%", "Inspector - 1" over "(Kapila)"); a phone takes them one under another. */
+.paper-panels { display: grid; grid-template-columns: repeat(var(--paper-panels, 2), minmax(0, 1fr)); gap: 14px 16px; align-items: start; }
+.paper-panels .doc-table table.paper-panel th { white-space: pre-line; text-align: center; vertical-align: middle; }
+.paper-panels .doc-table table.paper-panel tfoot th, .paper-panels .doc-table table.paper-panel tfoot td { border-top: 1px solid var(--color-border); }
+.paper-panels .paper-panel .paper-panel-box { display: inline-block; width: auto; min-width: 72px; max-width: 100%; }
+@media screen and (max-width: 600px) {
+  .paper-panels { grid-template-columns: minmax(0, 1fr); }
+}
+@media print { .paper-panels table.paper-panel { break-inside: avoid; } }
+/* A box drawn as the paper's heading (asHeading: F/QC/29's "PSL Analysis Report"), centred and bold, its label unprinted. */
+.field-as-heading .input { text-align: center; font-weight: 700; font-size: 15px; }
+@media print { .field-as-heading .input { border-color: transparent; } }
+/* A cell the paper merges down its lines (merged: a process, its signatures, F/QC/13's પાસ?), and the blank line it leaves
+   between its processes (gapBetweenRuns). */
+.doc-table table.log-sheet td[data-merged] { vertical-align: middle; }
+.doc-table table.log-sheet tr.log-gap-line td { height: 18px; padding: 0; background: transparent; }
+/* The photograph a paper prints under its table (photoBelowGrid: F/QC/29's analysis report). */
+.sheet-photos { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.sheet-photos .sheet-photo { margin: 0; display: flex; align-items: flex-start; gap: 4px; }
+.sheet-photos .sheet-photo img { max-width: min(100%, 480px); max-height: 320px; border-radius: 4px; }
+/* The paper's own lines printed with its format number (printedWithNumber: F/QC/20's issue and review dates), in its letters. */
+.doc-header .meta-cell[data-meta="printed-with-number"] .k { text-transform: none; }
 
 /* ---- Sheet designer (REQUIREMENTS §64) ---- */
 /* A format designed on the sheet itself (components/documents/SheetDesigner.tsx).

@@ -40,7 +40,21 @@ export const isGujaratiDocument = (documentId: string): boolean => GUJARATI_DOCU
  * was issued. (With English chosen there is nothing to keep it from — Google
  * is not loaded at all — and the form reads from the English below.)
  */
-export const keepFormAsIssued = (documentId: string, lang: Language): boolean => lang !== "en" && isGujaratiDocument(documentId);
+export const keepFormAsIssued = (documentId: string, lang: Language): boolean => (lang !== "en" && isGujaratiDocument(documentId)) || sheetAsIssued(documentId);
+
+/**
+ * THE QC PAPERS PRINTED IN GUJARATI ARE PRINTED AS ISSUED, IN EVERY LANGUAGE (REQUIREMENTS §111, the review of
+ * 13-Oct-2026): F/QC/13 and the two line clearance checklists. The paper is the format, so their sheet and its print
+ * read in the paper's own Gujarati whatever language is chosen — with English chosen they printed an English
+ * translation ("LINE CLEARANCE", "Process | Materials | Operator's sign"), which is not the paper. What is said
+ * about them — Mitra's questions, the guided interview, the library's list — still follows the chosen language.
+ */
+export const SHEETS_PRINTED_AS_ISSUED: readonly string[] = ["qc-inprocess-printing", "qc-line-clearance-materials", "qc-line-clearance-quality"];
+
+export const sheetAsIssued = (documentId: string): boolean => SHEETS_PRINTED_AS_ISSUED.includes(documentId);
+
+/** The language a form's own printed words read in on its sheet: the paper's Gujarati for a sheet printed as issued, the chosen language for every other. */
+export const sheetLanguage = (documentId: string, lang: Language): Language => (sheetAsIssued(documentId) ? "gu" : lang);
 
 /** A document's own name in the chosen language: the three Gujarati formats carry a Gujarati title. */
 export const documentNameIn = (doc: Pick<DocumentDefinition, "name">, lang: Language): string => documentTextIn(doc.name, lang);
@@ -66,8 +80,23 @@ const en = (s: string): string => DOCUMENT_TEXT_EN[s] ?? s;
 // box starts with, the values of the supplied page kept as the specimen — and
 // rewriting any of that would leave a saved record's value matching none of
 // the choices, or put the display language into a new record.
-const field = <T extends LogHeaderField>(f: T): T => ({ ...f, label: en(f.label) });
-const column = (c: LogColumn): LogColumn => ({ ...c, label: en(c.label) });
+// The words printed above a box and a column's printed heading are printed words too (REQUIREMENTS §111).
+const field = <T extends LogHeaderField>(f: T): T => ({
+  ...f,
+  label: en(f.label),
+  ...(f.printedLabel !== undefined ? { printedLabel: en(f.printedLabel) } : {}),
+  ...(f.printedAbove ? { printedAbove: f.printedAbove.map(en) } : {}),
+  // The headings of a table of boxes the paper prints (§111).
+  ...(f.boxTable
+    ? { boxTable: { ...f.boxTable, columns: f.boxTable.columns.map(en), rows: f.boxTable.rows.map(en), ...(f.boxTable.corner !== undefined ? { corner: en(f.boxTable.corner) } : {}) } }
+    : {}),
+  // The paper's own marks (§111, part 4): the words it prints for the choices across the line (never the options,
+  // which are record data), the words under a box, the sentence a value is written inside.
+  ...(f.choicesAcross ? { choicesAcross: f.choicesAcross.map(en) } : {}),
+  ...(f.printedBelow !== undefined ? { printedBelow: en(f.printedBelow) } : {}),
+  ...(f.inSentence ? { inSentence: { before: en(f.inSentence.before), after: en(f.inSentence.after) } } : {}),
+});
+const column = (c: LogColumn): LogColumn => ({ ...c, label: en(c.label), ...(c.printedLabel ? { printedLabel: en(c.printedLabel) } : {}) });
 type PrintedRow = Record<string, string | number | null>;
 const row = (r: PrintedRow): PrintedRow => {
   const out: PrintedRow = { ...r };
@@ -79,6 +108,10 @@ function printedTextIn(layout: LogSheetLayout): LogSheetLayout {
   const out: LogSheetLayout = {
     ...layout,
     instructions: layout.instructions?.map(en),
+    // The words the paper prints below its grid and on an entry's second line (REQUIREMENTS §111).
+    notesBelow: layout.notesBelow?.map(en),
+    notesAtFoot: layout.notesAtFoot?.map(en),
+    secondLine: layout.secondLine ? { label: en(layout.secondLine.label) } : undefined,
     headerFields: layout.headerFields.map(field),
     columns: layout.columns.map(column),
     footerFields: layout.footerFields?.map(field),

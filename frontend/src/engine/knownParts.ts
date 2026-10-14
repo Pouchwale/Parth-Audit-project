@@ -15,7 +15,7 @@ import { createDefaultData } from "./recordDefaults";
 import { dayInfo } from "./holidays";
 import { withComputedCells } from "./computedCells";
 import { supersededRevisionOf, validateForSubmit } from "./validation";
-import { boxKind, CARRIED_FIGURES, columnKind, LIST_COLUMNS } from "./observations";
+import { boxKind, CARRIED_FIGURES, columnKind, isPlaceholder, LIST_COLUMNS } from "./observations";
 import { compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
 
@@ -235,13 +235,20 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
   const header: Record<string, string> = {};
   const carried: string[] = [];
   for (const f of [...layout.headerFields, ...(layout.footerFields ?? [])]) {
+    // What the paper prints in the box is the box's value, on every sheet (REQUIREMENTS §111).
+    if (typeof f.printed === "string") {
+      header[f.key] = f.printed;
+      continue;
+    }
     const kind = boxKind(f, layout);
     if (kind === "date") {
       header[f.key] = dueDate;
     } else if (kind === "standing") {
-      const fromPrior = scheduled ? String(prior?.data.header?.[f.key] ?? "").trim() : "";
+      // DCRS's own "TO BE CONFIRMED" (a box the scan could not be read in) is no standing value (§111 part 6).
+      const known = (v: unknown) => (isPlaceholder(v) ? "" : String(v ?? "").trim());
+      const fromPrior = scheduled ? known(prior?.data.header?.[f.key]) : "";
       const fromFormat = f.autoFill?.default !== undefined ? String(f.autoFill.default) : "";
-      const fromSpecimen = scheduled ? String(layout.specimenHeader?.[f.key] ?? "").trim() : "";
+      const fromSpecimen = scheduled ? known(layout.specimenHeader?.[f.key]) : "";
       header[f.key] = fromPrior || fromFormat || fromSpecimen;
       if (header[f.key]) carried.push(shortLabel(f.label));
     } else {
@@ -282,6 +289,13 @@ function logSheet(doc: DocumentDefinition, dueDate: string, master: MasterData, 
   }
   const dateColumns = layout.columns.filter((c) => columnKind(c) === "date");
   for (const row of rows) for (const c of dateColumns) row[c.key] = dueDate;
+  // A paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111): each line its place.
+  const numberedBy = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
+  if (numberedBy) {
+    rows.forEach((row, i) => {
+      row[numberedBy] = String(i + 1);
+    });
+  }
 
   // A figure another real record gives: the opening stock is the last sheet's closing stock.
   const figures: string[] = [];
