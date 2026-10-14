@@ -222,7 +222,21 @@ export interface FilePart {
   file: FileInfo;
 }
 
-export type MessagePart = TextPart | ActivityPart | ConfirmationPart | FilePart;
+/** A record Mitra changed (DCRS's REQUIREMENTS §113): a small card that opens the Review screen at the line touched. */
+export interface RecordPart {
+  type: 'record';
+  /** The action's id in the audit log. */
+  id: string;
+  recordId: string;
+  /** The document and day: "F-QC-32 Adhesive Mixing Ratio Record · 11-Oct-2026". */
+  title: string;
+  /** The lines touched, in DCRS's words. */
+  lines: string[];
+  /** The id of the first line added, to open the Review screen at it. */
+  lineId?: string | number | null;
+}
+
+export type MessagePart = TextPart | ActivityPart | ConfirmationPart | FilePart | RecordPart;
 
 export interface UserMessage {
   id: string;

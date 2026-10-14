@@ -7,6 +7,7 @@ import type {
   ConfirmationPart,
   FileInfo,
   FilePart,
+  RecordPart,
   MessagePart,
   StreamEvent,
   TextPart,
@@ -76,7 +77,7 @@ export interface MessageWriter {
   /** Removes the text of a response that failed part-way. */
   discardResponse(): void;
   /** Adds a part, or replaces the part with the same id. Call again after changing a part's status. */
-  put(part: ActivityPart | ConfirmationPart | FilePart): void;
+  put(part: ActivityPart | ConfirmationPart | FilePart | RecordPart): void;
 }
 
 /** Writes an assistant message part by part, sending each change on as it happens. */

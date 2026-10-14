@@ -8,6 +8,7 @@ import { ActivityRow } from './ActivityRow';
 import { AssistantMark } from './AssistantMark';
 import { ConfirmationCard } from './ConfirmationCard';
 import { FileCard } from './FileCard';
+import { RecordCard } from './RecordCard';
 import { InlineError } from './InlineError';
 import { Markdown } from './Markdown';
 import { MessageActions } from './MessageActions';
@@ -78,6 +79,8 @@ export function AssistantResponse({
         );
       case 'file':
         return <FileCard key={`file-${part.file.id}`} file={part.file} />;
+      case 'record':
+        return <RecordCard key={`record-${part.id}`} part={part} />;
     }
   }
 

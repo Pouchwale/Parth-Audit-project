@@ -545,7 +545,8 @@ const CASES: Case[] = [
     route: 'POST /api/v1/records/rec-1/changes',
     body: { patch: { itemEdits: [{ collection: 'rows', match: { row: 2 }, set: { status: 'OK' } }] }, note: 'Checked at 9' },
     answer: CHANGED,
-    model: CHANGED_FOR_MODEL,
+    // Plus the record card the chat shows (§113): the record and the lines touched, which the model is not told.
+    model: { ...CHANGED_FOR_MODEL, recordCard: { recordId: 'rec-1', title: 'Record rec-1', lines: ['Status: OK'], lineId: null } },
   },
   {
     action: 'record_action',

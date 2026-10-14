@@ -192,7 +192,10 @@ export function recordActions(dcrs: DcrsClient) {
         const language = ctx.language ?? 'en';
         const said = madeWords(made, language);
         const shaped = changeForModel(started(answer, created));
-        return { ...(said ? { said } : {}), ...(shaped && typeof shaped === 'object' ? shaped : { result: shaped }), ...(undoNote(made, language) ?? {}) };
+        // The card in the chat: the document and day (asked of DCRS, best effort) and the lines touched, in DCRS's words.
+        const lines = [...made.added.map((line) => line.words), ...made.removed, ...made.cleared, ...made.changes.filter((c) => !/^\((no row|row removed)\)$/.test(c.after) && c.before !== '(no row)').map((c) => `${c.label}: ${c.after}`)].filter(Boolean).slice(0, 6);
+        const recordCard = { recordId, title: `Record ${recordId}`, lines, lineId: made.added.find((line) => line.id !== null)?.id ?? null };
+        return { ...(said ? { said } : {}), ...(shaped && typeof shaped === 'object' ? shaped : { result: shaped }), ...(undoNote(made, language) ?? {}), recordCard };
       },
     }),
     defineAction({

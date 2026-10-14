@@ -11,6 +11,7 @@ import type {
   Confirmation,
   ConfirmationPart,
   FileInfo,
+  RecordPart,
   ReplyLanguage,
   StreamEvent,
   UserMessage,
@@ -315,6 +316,7 @@ async function confirm(
     const run = await execute(turn, conv.id, call.toolName, call.input, call.toolCallId, call.actionId, spokenLanguage(turn.replyLanguage, languageOf(conv, pending.request)));
     show(call, run.ok ? 'succeeded' : 'failed', run.error ?? null);
     for (const file of run.files) reply.put({ type: 'file', file });
+    if (run.card) reply.put(run.card);
     results.push(run.result);
     outcomes.push(run.ok ? `Done: ${call.summary}.` : `Couldn't ${lowerFirst(call.summary)}: ${run.error}`);
     if (!run.ok) stop = run.signedOut ? 'signed_out' : 'failed';
@@ -612,6 +614,8 @@ interface RunResult {
   error?: string;
   /** Files the action handed the person. */
   files: FileInfo[];
+  /** A record the action changed: the chat shows it as a card that opens the Review screen (§113). */
+  card?: RecordPart;
 }
 
 const FILES_NOTE =
@@ -654,7 +658,11 @@ async function execute(
   // The system did what was asked, so a failure from here on is the server's own, never the action's.
   await finish(deps.db, actionId, 'succeeded', null);
 
-  const { result, files } = splitResult(output);
+  const { result: whole, files } = splitResult(output);
+  // A record the change touched, for the chat's card: the model is not told it twice.
+  const { recordCard, ...rest } = whole && typeof whole === 'object' && !Array.isArray(whole) ? (whole as { recordCard?: unknown }) : { recordCard: undefined };
+  const result = recordCard === undefined ? whole : rest;
+  const card = recordCardOf(recordCard, actionId);
   const delivered: FileInfo[] = [];
   const handedOver: { id: string; filename: string; mimeType: string; sizeBytes: number; description?: string | undefined }[] = [];
   for (const file of files) {
@@ -663,7 +671,7 @@ async function execute(
     handedOver.push({ id: info.id, filename: info.filename, mimeType: info.mimeType, sizeBytes: info.sizeBytes, description: file.description });
   }
   const json = JSON.stringify(handedOver.length > 0 ? { result: result ?? null, files: handedOver, note: FILES_NOTE } : (result ?? null));
-  if (json.length <= MAX_RESULT_CHARS) return { ok: true, signedOut: false, result: toolResult(toolCallId, json), files: delivered };
+  if (json.length <= MAX_RESULT_CHARS) return { ok: true, signedOut: false, result: toolResult(toolCallId, json), files: delivered, ...(card ? { card } : {}) };
   const tooLarge =
     binding.action.kind === 'write'
       ? 'The change was made, but the response was too large to include.'
@@ -924,6 +932,16 @@ async function describe(
     turn.log.error({ err: error, tool: binding.toolName }, 'describing a call failed unexpectedly');
     return { summary: `${binding.connector.name}: ${binding.action.name}`, input };
   }
+}
+
+/** The record card an action answered with, when it is shaped as one. */
+function recordCardOf(value: unknown, actionId: string): RecordPart | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const card = value as { recordId?: unknown; title?: unknown; lines?: unknown; lineId?: unknown };
+  if (typeof card.recordId !== 'string' || !card.recordId) return undefined;
+  const lines = Array.isArray(card.lines) ? card.lines.filter((line): line is string => typeof line === 'string' && line !== '') : [];
+  const lineId = typeof card.lineId === 'string' || typeof card.lineId === 'number' ? card.lineId : null;
+  return { type: 'record', id: actionId, recordId: card.recordId, title: typeof card.title === 'string' && card.title ? card.title : `Record ${card.recordId}`, lines, lineId };
 }
 
 function toolResult(toolCallId: string, content: string): ToolMessage {

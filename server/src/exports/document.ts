@@ -81,6 +81,7 @@ function partBlock(part: MessagePart, at: Date): string {
   if (part.type === 'text') return part.text.trim();
   if (part.type === 'activity') return `${part.kind === 'read' ? 'Lookup' : 'Change'}: ${outcome(part)}`;
   if (part.type === 'file') return `File from ${part.file.system ?? 'a connected system'}: ${fileLine(part.file)}`;
+  if (part.type === 'record') return [`Record changed: ${part.title}`, ...part.lines.map((line) => `- ${line}`)].join('\n');
   const shown = part.status === 'pending' && Date.parse(part.expiresAt) <= at.getTime() ? expired(part) : part;
   const changes = shown.changes.map((change) => `- ${outcome(change)}`);
   return [`Changes proposed for confirmation — ${DECISION[shown.status]}`, ...changes].join('\n');

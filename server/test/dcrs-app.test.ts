@@ -254,6 +254,11 @@ it("adds, undoes and corrects lines through DCRS's dry run (§113): the card fro
   expect(changes().at(-1)).toEqual({ patch: ADD_LINE, note: 'from the floor' });
   // The model was told what was added, in words, with the Undo patch by the line's id as DCRS stored it.
   expect(lastToldTo(model)).toMatchObject({ said: 'Added 11:00 · 20.2 · Jeni.', added: [{ id: 'row-c3' }], undoPatch: UNDO });
+  expect(lastToldTo(model)).not.toHaveProperty('recordCard');
+  // The chat shows the record as a card with the line touched, which opens the Review screen at that line.
+  const saved = (await kapila.get(`/assistant/conversations/${proposed.conversationId}`)).json<{ messages: { parts?: { type: string }[] }[] }>();
+  const card = saved.messages.at(-1)!.parts!.find((part) => part.type === 'record');
+  expect(card).toMatchObject({ type: 'record', recordId: 'rec-32', title: 'Record rec-32', lines: ['11:00 · 20.2 · Jeni'], lineId: 'row-c3' });
 
   // UNDO: the same tool with that patch; the card asks, with the line's words from the dry run.
   model.queue(callsTool('dcrs__edit_record', { recordId: 'rec-32', patch: UNDO }));

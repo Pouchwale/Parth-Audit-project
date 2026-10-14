@@ -53,7 +53,10 @@ const ACTION_WORDS: Record<ReviewAction, { title: string; button: string; done: 
  * each asked once more before it is done. DCRS's levels decide what may be done, and its refusals are shown in its words.
  */
 export default function ReviewScreen() {
-  const { recordId } = useLocalSearchParams<{ recordId: string }>();
+  // `line`: the id of a line to open the screen at (the chat's record card, §113).
+  const { recordId, line: openAt } = useLocalSearchParams<{ recordId: string; line?: string }>();
+  const list = useRef<FlatList<EntryGroup>>(null);
+  const scrolled = useRef(false);
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { call } = useAuth();
@@ -199,6 +202,14 @@ export default function ReviewScreen() {
       : entry.groups
     : [];
   const submit = submitState(record, entry, reviewed);
+  // Opened at a line from the chat: scrolled to once, as soon as the groups are there.
+  if (openAt && !scrolled.current && groups.length > 0) {
+    const index = groups.findIndex((group) => group.line && String(group.line.id ?? '') === openAt);
+    if (index >= 0) {
+      scrolled.current = true;
+      setTimeout(() => list.current?.scrollToIndex({ index, viewPosition: 0.1, animated: false }), 0);
+    }
+  }
   const lists = editable ? lineListsOf(record) : [];
   const listsByKey = new Map(lists.map((list) => [list.key, list]));
   // The last group of each list: "Add a line" sits under it, and a fixed list says why once.
@@ -311,7 +322,9 @@ export default function ReviewScreen() {
     <>
       {header}
       <FlatList
+        ref={list}
         data={groups}
+        onScrollToIndexFailed={() => undefined}
         keyExtractor={(group, index) => `${index}:${group.title}`}
         contentContainerStyle={[styles.list, { paddingBottom: Spacing.xl + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
