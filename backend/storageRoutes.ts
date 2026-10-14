@@ -78,6 +78,24 @@ export interface StorageDeps {
   accessRules?: AccessRulesWriter;
   /** The catalogue and the rules; by default read from `store`, once per change. */
   catalogue?: () => Promise<AccessCatalogue>;
+  /**
+   * The ids of the blank sheets from before go-live that the archive keeps (backend/recordsArchive.ts archivedRecordIds,
+   * REQUIREMENTS §115): a browser holding an old copy of the records cannot write them back.
+   */
+  archivedRecordIds?: () => Set<string>;
+}
+
+/** The records value without the sheets the archive keeps; the ids kept out. */
+function withoutArchived(value: string, archived: Set<string>): { value: string; keptOut: number } {
+  let list: unknown;
+  try {
+    list = JSON.parse(value);
+  } catch {
+    return { value, keptOut: 0 };
+  }
+  if (!Array.isArray(list)) return { value, keptOut: 0 };
+  const next = list.filter((r) => !(r && typeof r === "object" && typeof (r as { id?: unknown }).id === "string" && archived.has((r as { id: string }).id)));
+  return next.length === list.length ? { value, keptOut: 0 } : { value: JSON.stringify(next), keptOut: list.length - next.length };
 }
 
 /** A tab still working for one account while the browser has signed in as another: refused. */
@@ -262,6 +280,19 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         // never the lock (§66). Everything else in that write is theirs as before.
         compose = (stored) => withStoredHours(posted, stored);
       }
+      // THE ARCHIVED SHEETS STAY ARCHIVED (REQUIREMENTS §115): a browser whose old copy still holds blank sheets the
+      // server moved to the archive writes everything but those. Looked for in what was posted first, so a browser
+      // without them costs nothing more.
+      let keptOut = 0;
+      const archived = key === "records" && Array.isArray(parsed) ? deps.archivedRecordIds?.() : undefined;
+      if (archived && archived.size > 0 && (parsed as unknown[]).some((r) => !!r && typeof r === "object" && typeof (r as { id?: unknown }).id === "string" && archived.has((r as { id: string }).id))) {
+        const inner = compose;
+        compose = (stored) => {
+          const out = withoutArchived(inner ? inner(stored) : posted, archived);
+          keptOut = out.keptOut;
+          return out.value;
+        };
+      }
       let result: WriteResult;
       try {
         result = await store.writeItem(storageScope(key, user.id), key, posted, baseVersion, user.email, compose);
@@ -274,7 +305,8 @@ export function registerStorageRoutes(app: Express, deps: StorageDeps): void {
         throw err;
       }
       if (result.ok) {
-        res.json({ version: result.version, seq: result.seq, ...(kept.length ? { kept } : {}) });
+        if (keptOut > 0) logActivity(req, user, "Archived sheets kept out", "Records from before go-live", `${keptOut} blank sheet${keptOut === 1 ? "" : "s"} this browser's old copy still held stay in the archive (REQUIREMENTS §115).`);
+        res.json({ version: result.version, seq: result.seq, ...(kept.length ? { kept } : {}), ...(keptOut ? { keptOut } : {}) });
         return;
       }
       const current = result.current && scoped ? { ...result.current, value: visibleLines(result.current.value, view.holds) } : result.current;

@@ -1082,6 +1082,17 @@ Seven scripts live in `tests/`:
   (e2e_every_record_starts, e2e_mobile_mitra_api, e2e_mitra_agent, e2e_realism, e2e_access_levels and the others that
   name them), which read no part of their layout this changes but the phone's layout's new `printed`/`value` on a
   header box, `beneath`, `srNoShowsDate`, `secondLine` and `notesBelow`.
+- **The blank sheets from before go-live moved to the archive, never deleted** (REQUIREMENTS §115, 14-Oct-2026: the
+  "Found 3457 blank records ... Clean up" banner on every profile; the owner: "without any loss of any records or any
+  modules"). New: `backend/recordsArchive.ts` (the `records_archive` table, the two-step move at start-up, the super
+  admin's count, restore and run-by-hand routes), `frontend/src/engine/preLaunchNoise.ts` (the one rule, read by the
+  browser and the server), `backend/tests/recordsArchive.test.ts` (8), `frontend/tests/archiveBlanks.test.ts` (4),
+  `tests/e2e_archive_blanks.py` (in `scripts/run-e2e.ts`). Changed: `backend/storageRoutes.ts` (PUT records keeps the
+  archived ids out), `frontend/src/data/serverSync.ts` (a sign-in's merge drops the old copy's archived sheets),
+  `engine/backlogCleanup.ts` (`purgePreLaunchNoise` gone), the Dashboard, the briefing popup and the storage banner (no
+  clean-up offer), `MasterDataPage.tsx` (the super admin's card). What each proves is listed in REQUIREMENTS §115
+  "Tests". `npm run typecheck` clean; `npm run test:unit`: frontend 853 of 853, backend 612 of 616 (4 skipped, as
+  before).
 - **Every QC format exactly as the paper, part 5** (REQUIREMENTS §111 part 5, 13-Oct-2026: F/QC/15-A to G, the two
   Gujarati checklists, F/QC/13, F-QC-40.C, F/QC/08, /16, /20, both F/QC/29 papers and F/QC/30 against their originals;
   F-QC-14 built from its workbook as two documents; every QC document found by its number, and the two Statements of

@@ -60,6 +60,8 @@ import { setNotificationDeps, startJobs } from "./jobs.ts";
 import { runPushes } from "./push.ts";
 import { PHOTO_ROUTE } from "./apiV1Records.ts";
 import { registerStorageRoutes, sendCompressedJson } from "./storageRoutes.ts";
+// The archive of the blank sheets from before go-live (REQUIREMENTS §115): its table is registered as this is loaded.
+import { archiveAtStartUp, archivedRecordIds, registerArchiveRoutes } from "./recordsArchive.ts";
 import { registerAccessRulesRoutes } from "./accessRulesRoutes.ts";
 import { accessAccountOf, sharedCatalogue } from "./accessStore.ts";
 import { viewFor } from "./accessLevels.ts";
@@ -1545,7 +1547,9 @@ async function documentFormatNos(): Promise<Map<string, string>> {
 // (backend/accessRulesRoutes.ts) — and THE APP'S DATA, IN POSTGRESQL (REQUIREMENTS §55), handed over and taken in at
 // each person's levels (backend/storageRoutes.ts, backend/accessLevels.ts).
 const accessRules = registerAccessRulesRoutes(app, { requireAuth, logActivity });
-registerStorageRoutes(app, { requireAuth, logActivity, accessRules });
+registerStorageRoutes(app, { requireAuth, logActivity, accessRules, archivedRecordIds });
+// The super admin's count of the archived blank sheets, "Bring them back", and the move run by hand (REQUIREMENTS §115).
+registerArchiveRoutes(app, { requireAdmin, logActivity });
 
 // THE AUDIT ASSISTANT'S API AND THE DATABASE OVERVIEW (REQUIREMENTS §83). New
 // routes only, each in a file of its own: /api/v1/* lets another server act as
@@ -1702,6 +1706,12 @@ if (process.env.SEED_ACCOUNTS !== "0") {
     }
   }
 }
+
+// THE BLANK SHEETS FROM BEFORE GO-LIVE, MOVED TO THE ARCHIVE BY THE SERVER ITSELF (REQUIREMENTS §115): copied into
+// records_archive first, then taken out of the records item with the version check, so every browser drops them; a
+// crash between the two loses nothing, and the next start finishes. Nothing is deleted; the super admin brings them
+// back from Master Data. Never stops the start. ARCHIVE_BLANKS=0 leaves the step out (a test server that plants them).
+if (process.env.ARCHIVE_BLANKS !== "0") await archiveAtStartUp();
 
 // NOBODY COULD EVER SIGN IN (REQUIREMENTS §66). With no account on file, no
 // seeded accounts and no self-registration, the portal has no way in at all —

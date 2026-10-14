@@ -12,7 +12,6 @@ import {
 } from "../../data/storageAdapter";
 import { clearAllDemoData } from "../../data/demoGenerator";
 import { demoModeAvailable } from "../../engine/features";
-import { purgePreLaunchNoise } from "../../engine/backlogCleanup";
 import { roomLabel, storageBreakdown, type StorageBreakdown } from "../../engine/storageRoom";
 import { useT } from "../../i18n";
 import { useAppStore } from "../../store/AppStore";
@@ -93,17 +92,19 @@ export function StorageFullBanner() {
 
   // Cleared, measured again, and every screen redrawn: below the mark the
   // banner goes by itself (the measurement says so); above it, the figures update.
-  const clear = (what: "demo" | "leftovers") => {
+  // Only the demo data is cleared from here. The blank sheets from before go-live are the server's to move, into its
+  // archive, at its start (REQUIREMENTS §115): no button removes them from a browser any more.
+  const clear = () => {
     const before = workingCopyChars();
-    const removed = what === "demo" ? clearAllDemoData() : purgePreLaunchNoise();
+    const removed = clearAllDemoData();
     const after = measureWorkingCopy();
     // In Demo Mode the dashboard fills the demo year again the moment it redraws (DashboardPage's
     // ensureDemoRecordsGeneratedForYear), which undid the clearing at once — so the click also returns the app to
     // Live Mode, and says so.
-    const toLive = what === "demo" && mode === "demo";
+    const toLive = mode === "demo";
     if (toLive) setMode("live");
     setDone(
-      `${what === "demo" ? "Cleared" : "Removed"} ${removed} ${what === "demo" ? "demo" : "blank"} record${removed === 1 ? "" : "s"} — ${roomLabel(Math.max(0, before - after))} freed.` +
+      `Cleared ${removed} demo record${removed === 1 ? "" : "s"} — ${roomLabel(Math.max(0, before - after))} freed.` +
         (toLive ? " The app is in Live Mode now: Demo Mode fills the demo year again when it is opened." : "")
     );
     setParts(storageBreakdown());
@@ -128,7 +129,7 @@ export function StorageFullBanner() {
   const demo = parts?.demo;
   const leftovers = parts?.leftovers;
   const written = parts?.written;
-  const hasClearable = (demo?.records ?? 0) > 0 || (leftovers?.records ?? 0) > 0;
+  const hasClearable = (demo?.records ?? 0) > 0;
 
   return (
     <div
@@ -164,17 +165,15 @@ export function StorageFullBanner() {
               <li data-room="demo">
                 <strong>{roomLabel(demo.chars)}</strong> is {demoModeAvailable() ? "Demo Mode's " : ""}demo data — {demo.records} made-up records that can go at any time and come back at a click.
                 {mode === "demo" && " Clearing it returns the app to Live Mode."}{" "}
-                <button type="button" className="btn btn-secondary btn-sm" data-action="clear-demo-data" onClick={() => clear("demo")}>
+                <button type="button" className="btn btn-secondary btn-sm" data-action="clear-demo-data" onClick={clear}>
                   <FiTrash2 size={12} /> Clear the demo data
                 </button>
               </li>
             )}
             {leftovers && leftovers.records > 0 && (
               <li data-room="leftovers">
-                <strong>{roomLabel(leftovers.chars)}</strong> is {leftovers.records} blank sheets from before the system went live, which nobody has written on.{" "}
-                <button type="button" className="btn btn-secondary btn-sm" data-action="purge-leftovers" onClick={() => clear("leftovers")}>
-                  <FiTrash2 size={12} /> Remove them
-                </button>
+                <strong>{roomLabel(leftovers.chars)}</strong> is {leftovers.records} blank sheets from before the system went live, which nobody has written on. The
+                server moves them to its archive when it next starts; nothing is deleted (REQUIREMENTS §115).
               </li>
             )}
             {written && (

@@ -1,18 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiCalendar, FiCheckCircle, FiClock, FiAlertTriangle, FiBookOpen, FiArrowRight, FiZap, FiTrash2, FiX, FiCompass } from "react-icons/fi";
+import { FiCalendar, FiCheckCircle, FiClock, FiAlertTriangle, FiBookOpen, FiArrowRight, FiZap, FiCompass } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
 import { useAuth } from "../store/AuthContext";
 import { useRouter } from "../store/router";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
-import { settingsRepository } from "../data/repositories/settingsRepository";
 import { ensureRecordsGeneratedForMonth } from "../engine/recordGenerator";
 import { prepareDueRecords } from "../engine/assistantPrepare";
 import { routeForRecord } from "../engine/reminders";
 import { mayDo } from "../engine/departmentScope";
 import { computeBriefing, briefingHeadline } from "../engine/assistantBriefing";
-import { findPreLaunchNoise, purgePreLaunchNoise } from "../engine/backlogCleanup";
-import { measureWorkingCopy } from "../data/storageAdapter";
 import { ensureDemoRecordsGeneratedForYear } from "../data/demoGenerator";
 import { openCorrectiveActionsCount, refreshGapFindingStatuses, moduleSummaries, rodentsInMonth } from "../data/selectors";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -117,16 +114,8 @@ export function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const briefing = useMemo(() => computeBriefing(user?.name), [version, user?.name]);
 
-  // One-time noise banner: blank/untouched record shells the frequency
-  // engine generated for dates before this system's launch-date floor
-  // existed (see engine/backlogCleanup.ts) — e.g. from browsing the Calendar
-  // back through old months during testing. Dismissible without deleting
-  // anything; re-checked each time the Dashboard mounts.
-  const [noiseDismissed, setNoiseDismissed] = useState(false);
-  const [purged, setPurged] = useState<number | null>(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const noiseCount = useMemo(() => (isDemo ? 0 : findPreLaunchNoise().length), [isDemo, version]);
-  const liveStartDate = settingsRepository.get().liveStartDate;
+  // The blank sheets from before the system went live are no banner any more (REQUIREMENTS §115): the server moves
+  // them to its archive at its start, and only the super admin sees their count, under Master Data.
   const master = masterRepository.get();
   const todayInfo = dayInfo(today, master);
 
@@ -167,46 +156,6 @@ export function DashboardPage() {
 
       {/* Every person's minus score, worst first (8 of 10 done is −20%): the administrator's and the super admin's (REQUIREMENTS §92). */}
       {user?.role === "admin" && <TeamScoreCard />}
-
-      {!isDemo && !noiseDismissed && (noiseCount > 0 || purged !== null) && (
-        <div className="card mb-4 no-print" style={{ borderColor: "var(--color-warning)", background: "var(--color-warning-bg)" }}>
-          <div className="card-pad flex items-center justify-between gap-3 wrap">
-            <div className="text-sm">
-              {purged !== null ? (
-                <>
-                  <strong>Cleaned up.</strong> Removed {purged} blank, untouched record{purged === 1 ? "" : "s"} that had been
-                  generated for dates before {liveStartDate ? formatDisplayDate(liveStartDate) : "today"} (e.g. from browsing
-                  old calendar months) — nothing anyone had opened, edited or submitted was touched.
-                </>
-              ) : (
-                <>
-                  <FiAlertTriangle size={13} style={{ verticalAlign: -2 }} /> Found <strong>{noiseCount}</strong> blank record
-                  {noiseCount === 1 ? "" : "s"} generated for dates before {liveStartDate ? formatDisplayDate(liveStartDate) : "today"}{" "}
-                  (from browsing old calendar months) that nobody has ever opened. Safe to remove — anything edited, submitted or
-                  verified is never touched by this.
-                </>
-              )}
-            </div>
-            <div className="flex gap-2" style={{ flexShrink: 0 }}>
-              {purged === null && (
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    setPurged(purgePreLaunchNoise());
-                    measureWorkingCopy(); // much smaller now — the storage warning goes with it (REQUIREMENTS §65)
-                    bump();
-                  }}
-                >
-                  <FiTrash2 size={12} /> Clean up {noiseCount}
-                </button>
-              )}
-              <button className="btn btn-ghost btn-sm" onClick={() => setNoiseDismissed(true)} aria-label="Dismiss">
-                <FiX size={13} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {!isDemo && (
         <div className="card mb-6 card-rail-accent">

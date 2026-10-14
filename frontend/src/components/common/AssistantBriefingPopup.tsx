@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertCircle, FiArrowRight, FiCheck, FiCheckCircle, FiClock, FiSend, FiShield, FiTrash2, FiX } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiCheck, FiCheckCircle, FiClock, FiSend, FiShield, FiX } from "react-icons/fi";
 import { ASSISTANT_NAME } from "../../engine/assistantPersona";
 import { useAppStore } from "../../store/AppStore";
 import { useAuth } from "../../store/AuthContext";
@@ -7,8 +7,6 @@ import { useRouter } from "../../store/router";
 import { prepareDueRecords } from "../../engine/assistantPrepare";
 import { computeBriefing, briefingHeadline, pendingCount, submitPreparedRecords, upcomingLabel, type Briefing, type BriefingItem } from "../../engine/assistantBriefing";
 import { dueBriefingSlot, recordBriefingShown } from "../../engine/briefingSchedule";
-import { purgePreLaunchNoise } from "../../engine/backlogCleanup";
-import { measureWorkingCopy } from "../../data/storageAdapter";
 import { computeReminders } from "../../engine/reminders";
 import type { BriefingSlot } from "../../data/repositories/settingsRepository";
 import { reminderDigestApi } from "../../api/client";
@@ -79,7 +77,6 @@ export function AssistantBriefingPopup() {
   const [submitResult, setSubmitResult] = useState<{ submitted: number; failed: number } | null>(null);
   // The records the person has ticked as reviewed and verified, this sitting.
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
-  const [purged, setPurged] = useState<number | null>(null);
 
   useEffect(() => {
     const created = prepareDueRecords();
@@ -206,11 +203,6 @@ export function AssistantBriefingPopup() {
       else next.add(recordId);
       return next;
     });
-  const cleanUp = () => {
-    setPurged(purgePreLaunchNoise());
-    measureWorkingCopy(); // much smaller now — the storage warning goes with it (REQUIREMENTS §65)
-    bump();
-  };
 
   const total = briefing.ready.length + briefing.needsInput.length + briefing.overdue.length + briefing.awaitingVerification.length;
   const subtitle =
@@ -268,22 +260,8 @@ export function AssistantBriefingPopup() {
             </div>
           )}
 
-          {(briefing.noiseCount > 0 || purged !== null) && (
-            <Section icon={<FiTrash2 size={13} />} tone="warning" title={purged !== null ? "Cleaned up" : `${briefing.noiseCount} leftover records from before this system went live`}>
-              <div className="text-xs text-muted">
-                {purged !== null
-                  ? `Removed ${purged} blank, untouched record${purged === 1 ? "" : "s"} dated before ${briefing.liveStartDate ? formatDisplayDate(briefing.liveStartDate) : "today"}. Nothing anyone had opened, edited or submitted was touched.`
-                  : `These were generated for dates before ${briefing.liveStartDate ? formatDisplayDate(briefing.liveStartDate) : "today"} (from browsing old calendar months) and nobody has ever opened them — they aren't real work, so I've left them out of the lists below. Safe to remove; anything edited, submitted or verified is never touched.`}
-              </div>
-              {purged === null && (
-                <div>
-                  <button className="btn btn-secondary btn-sm" onClick={cleanUp}>
-                    <FiTrash2 size={12} /> Clean up {briefing.noiseCount}
-                  </button>
-                </div>
-              )}
-            </Section>
-          )}
+          {/* The blank sheets from before go-live are left out of the lists below (noiseCount), and no longer offered for
+              a clean-up here: the server moves them to its archive by itself (REQUIREMENTS §115). */}
 
           {briefing.ready.length > 0 && (
             <Section

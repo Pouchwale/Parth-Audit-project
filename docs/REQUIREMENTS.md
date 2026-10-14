@@ -8241,6 +8241,81 @@ names `CHATGPT_API_KEY`, the voice card names platform.openai.com), `tests/e2e_a
 by hand on :8844 with the key loaded by the program, paced 2 seconds apart by default, `E2E_CHAT_PACE_S`). The VERIFY
 stage measures the live answers on the owner's key (at most 60,000 tokens).
 
+## §115 The blank sheets from before go-live are moved to the archive, never deleted (14-Oct-2026)
+
+**What the owner saw (13-Oct-2026).** On every profile the Dashboard said "Found 3457 blank records generated for
+dates before 08-Sep-2026 (from browsing old calendar months) that nobody has ever opened. Safe to remove ... [Clean up
+3457]"; the same sheets were the "blank sheets from before the system went live" of the storage banner ("Remove
+them") and of the briefing's "Clean up". The owner: "make sure do fix it anyhow without any loss of any records or any
+modules".
+
+**What they are.** Before `recordGenerator.ts` had its launch-date floor, browsing the calendar back through old
+months made a blank sheet for every period of every document — thousands of them, dated before the day the system
+went live, which nobody was ever going to fill. The rule that finds them is now one file, read by the browser and the
+server alike (`frontend/src/engine/preLaunchNoise.ts` `isPreLaunchNoise`): a Live record dated before the go-live day,
+with status Scheduled or Due (an untouched shell), or In Progress with a `prepared` stamp, never submitted, and an
+`updatedAt` within two minutes of the preparation (the assistant's batch, never saved by a person since). **Never
+moved:** anything Submitted, Pending Verification, Verified or Rejected; anything edited after being prepared; any
+record In Progress without a preparation (a person's); the seeded historical specimens; demo records; the go-live day
+itself; and a sheet the super admin brought back.
+
+**Nothing is deleted — the server moves them.** Once, when it starts (`backend/index.ts` → `backend/recordsArchive.ts`
+`archiveAtStartUp`), whoever signs in or nobody, the server moves the sheets into a table of DCRS's own:
+
+    records_archive  id (PRIMARY KEY), document_id, due_date, record JSONB (the whole record), archived_at, why,
+                     restored_at, restored_by
+
+in two steps, in an order a crash cannot hurt: (1) each sheet is **copied** into the archive — `INSERT ... ON CONFLICT
+(id) DO NOTHING`, so a second run copies nothing twice; (2) then they are **taken out of the records item** with the
+version check every write takes (`writeItem(..., baseVersion)`) and a retry (up to five, read again each time) when a
+browser saved in between — the same path a removal in a browser takes (`recordRepository.removeIds` → PUT
+/api/storage/records), so every browser's three-way merge drops them too. A server that dies between the two steps
+loses nothing: the archive holds the copy, and the next start finishes, because step 2 takes out every id the archive
+KEEPS (`restored_at IS NULL`), found again or not. Run again, it moves only what is new; with no go-live day stored,
+nothing. `ARCHIVE_BLANKS=0` leaves the step out (a test server that plants them). The super admin can run it by hand:
+`POST /api/archive/blanks/run`. Each move writes a line of the activity log ("Blank sheets archived", by System at
+start-up, by the super admin when run by hand).
+
+**A browser holding the old copy cannot bring them back.** PUT /api/storage/records keeps out every id the archive
+keeps (`backend/storageRoutes.ts`, `archivedRecordIds`): the rest of the write — today's work — is stored as it was,
+the answer carries `keptOut: N`, and a line "Archived sheets kept out" is written; looked for in what was posted
+first, so a browser without them costs nothing more. The browser's own merge without a common copy (a sign-in:
+`frontend/src/data/serverSync.ts` `mergeRecords`) drops a sheet of ITS copy that the rule finds and the database no
+longer holds; one the database holds and the browser does not is kept, as any other.
+
+**Nobody is offered a delete any more.** The Dashboard's banner, the briefing's "Clean up N" section and the storage
+banner's "Remove them" are gone, for staff and the super admin alike (`purgePreLaunchNoise` no longer exists). The
+storage breakdown still names the blank sheets' share and says the server moves them at its next start. The briefing
+still leaves them out of the day's lists, as before.
+
+**The super admin alone**, under Master Data → Working Hours & Briefing, sees the card "Blank sheets from before
+go-live, kept in the archive: N" (`data-section="archived-blanks"`, `data-count`) with **Bring them back**
+(`POST /api/archive/blanks/restore`): every sheet the archive keeps goes back into the records item, whole, exactly as
+it was, never a duplicate of one the records already hold (counted as `alreadyThere`), written with the version check
+and a retry; the rows are marked `restored_at`/`restored_by` only once the records are written, and from then on the
+server never moves them again by itself. The browsers receive them through the sync. A line "Blank sheets brought
+back" is written. Staff see no card, and the three routes answer 403 to anybody but the super admin.
+
+**Reports, counts, scores, reminders and notifications are unchanged by the move.** Those sheets were never due work:
+the go-live date already excluded them from the briefing, the reminders, the morning prepare and the minus score, and
+`frontend/tests/archiveBlanks.test.ts` proves the minus score (by person and by document), the briefing's five lists
+and the reminders read exactly the same with three thousand of them in the records as with them moved out.
+
+**Tests.** `backend/tests/recordsArchive.test.ts` (8, over an in-memory stand-in for the records item and the archive,
+and PUT /api/storage/records on a real Express server: exactly the sheets the rule finds are moved and everything else
+stays in its order; idempotent; a crash between the copy and the removal finished by the next run with one row, not
+two; a browser's save in between retried, neither side's change lost; the old copy written back keeps everything but
+the archived sheets, with `keptOut` and the activity line, and costs a browser without them nothing; restore exact,
+never a duplicate, never moved again by itself). `frontend/tests/archiveBlanks.test.ts` (4: the rule case by case;
+`findPreLaunchNoise` over the plant's records, never a seeded specimen; the minus score, the briefing and the reminders
+unchanged; no "Clean up"/"Remove them" offer left in the Dashboard, the briefing or the storage banner, the engine's
+cleanup deletes nothing, the card is the super admin's and restores through the server). Browser suite
+`tests/e2e_archive_blanks.py` (in `scripts/run-e2e.ts` after e2e_browser_room.py: the sheets planted as a browser once
+made them, moved by the super admin's run, the written sheet and every earlier record untouched; no banner and no
+clean-up for the super admin or staff; the old copy's PUT kept out; the Master Data card, Bring them back exact and
+through the sync, the archive then empty, the server never moving them again; staff see no card and the routes refuse
+them; the activity lines).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |
