@@ -793,11 +793,19 @@ with sync_playwright() as p:
     # 9. Two accounts in one department: a record counts for whoever submitted it
     # ==================================================================
     # The e2e server has no two accounts whose names are on the demo records, so
-    # the page is handed a directory that has: "ROSHNI" (the operator who submits
-    # most of the demo year, typed differently) and somebody who answers for QC
-    # and HR both. Only the list of accounts is made up; the records and the
-    # scoring are the real ones.
-    SUBMITTER = "ROSHNI"
+    # the page is handed a directory that has: the person who submits most of
+    # this month's QC records (QC's lab executive of HR Master Data on the day
+    # shift, REQUIREMENTS s111 part 6, engine/qcPaperSamples.ts qcShiftSigner -
+    # read from the records themselves, and typed differently) and somebody who
+    # answers for QC and HR both. Only the list of accounts is made up; the
+    # records and the scoring are the real ones.
+    qc_master = stored(page, "master")
+    signers = [
+        (r.get("submittedBy") or "").strip().lower()
+        for r in stored(page, "records") or []
+        if r.get("isDemo") and r["documentId"].startswith("qc-") and focus_first <= r["dueDate"] <= month_last and not closed_day(r["dueDate"], qc_master) and (r.get("submittedBy") or "").strip()
+    ]
+    SUBMITTER = (max(set(signers), key=signers.count) if signers else "roshni").upper()
     BOTH = "Desk Twofold"
     made_up = {
         "people": [
@@ -819,7 +827,6 @@ with sync_playwright() as p:
     if submitter_card.count() == 1 and both_card.count() == 1 and shared_dept is not None:
         hers = card_figures(submitter_card)
         theirs = card_figures(both_card)
-        qc_master = stored(page, "master")
         by_her = sum(
             1
             for r in stored(page, "records") or []
@@ -829,7 +836,7 @@ with sync_playwright() as p:
             and not closed_day(r["dueDate"], qc_master)
             and (r.get("submittedBy") or "").strip().lower() == SUBMITTER.lower()
         )
-        check("The operator's records are on file to be counted", THIN or by_her > 0, by_her)
+        check("The lab executive's records are on file to be counted", THIN or by_her > 0, (SUBMITTER, by_her))
         check(
             "A record nobody submitted counts against every account of the department",
             hers["overdue"] == theirs["overdue"] == shared_dept["overdue"],
