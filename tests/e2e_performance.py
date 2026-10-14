@@ -628,11 +628,21 @@ with sync_playwright() as p:
         (exported, qc_row),
     )
     # An account listed without a score has blanks in every figure, "No score" at the grade.
-    scored_rows = [l for l in lines[1:] if l[3] != ""]
+    # Scored: something fell due. A line with nothing due has a blank score and "Nothing was due" at the grade.
+    scored_rows = [l for l in lines[1:] if l[3] not in ("", "0")]
+
+    def num(x):
+        try:
+            return int(x)
+        except ValueError:
+            return None
+
+    # A line that is off is named, never a crash on an empty cell.
+    off = [l[:11] for l in scored_rows if num(l[8]) is None or num(l[8]) != minus_for(int(l[6]), int(l[3])) or num(l[8]) > 0]
     check(
         "Every scored line of the export has the share of its records due never done as its score, a plain number never above 0",
-        bool(scored_rows) and all(int(l[8]) == minus_for(int(l[6]), int(l[3])) and int(l[8]) <= 0 for l in scored_rows),
-        [l[:10] for l in scored_rows if int(l[8]) != minus_for(int(l[6]), int(l[3]))][:3],
+        bool(scored_rows) and not off,
+        off[:3],
     )
     unscored_rows = [l for l in lines[1:] if l[0] == "Person" and l[3] == ""]
     check("...and an account listed without a score has a blank there, and No score at the grade", all(l[3:10] == [""] * 7 and l[10] == "No score" for l in unscored_rows), unscored_rows[:2])
