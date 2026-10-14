@@ -61,9 +61,10 @@ ALL = ["QC", "HR", "SYS", "MNT", "PRD", "PUR", "STR", "MKT", "DISP", "QA"]
 CODE_RE = re.compile(r"^\s*F?\s*[-/ ]?\s*(SYS|MKT|PUR|STR|QC|QA|PRD|MNT|HR|DISP)\s*[-/ ]?\s*\d", re.I)
 
 # THE OWNER'S TABLE (access-spec of 7-Oct-2026): the modules each person sees, a document each answers for, one each may
-# only read (or None), and one of a module they do not see (or None: Kapila Barad sees every module).
+# only read (or None: Kapila Barad edits every module since 13-Oct-2026), and one of a module they do not see (or None:
+# Kapila Barad sees every module).
 PEOPLE = [
-    ("Kapila Barad", KAPILA, ALL, "qc-bopp-film", "prd-alc-production", None),
+    ("Kapila Barad", KAPILA, ALL, "qc-bopp-film", None, None),
     ("Vinay Bhojak", VINAY, ["HR"], "hr-competence", "hr-daily-cleaning", "qc-bopp-film"),
     ("Sandeep Parekh", "sandeep.parekh@gpp.local", ["HR"], "hr-competence", "daily-pest-monitoring", "qc-bopp-film"),
     ("Chirag Parmar", "chirag.parmar@gpp.local", ["PUR"], "pur-supplier-registration", None, "qc-bopp-film"),
@@ -370,9 +371,9 @@ with sync_playwright() as p:
         legend = admin.locator("[data-section='access-legend']").inner_text()
         check("...with the words of each level beside it", all(w in legend for w in ("No access", "Read", "Write", "Edit", "print or download", "submit them and verify them", "delete records")), legend)
         check(
-            "...Kapila Barad at Edit in Quality Control and Read in Production; Vinay Bhojak Read in HR, answering for 16",
+            "...Kapila Barad at Edit in Quality Control and in Production (every module, 13-Oct-2026); Vinay Bhojak Read in HR, answering for 16",
             grid.locator(f"tr[data-access-person='{KAPILA}'] td[data-cell='QC']").get_attribute("data-level") == "edit"
-            and grid.locator(f"tr[data-access-person='{KAPILA}'] td[data-cell='PRD']").get_attribute("data-level") == "read"
+            and grid.locator(f"tr[data-access-person='{KAPILA}'] td[data-cell='PRD']").get_attribute("data-level") == "edit"
             and grid.locator(f"tr[data-access-person='{VINAY}'] td[data-cell='HR']").get_attribute("data-level") == "read"
             and "answers for 16" in grid.locator(f"tr[data-access-person='{VINAY}'] td[data-cell='HR']").inner_text(),
         )

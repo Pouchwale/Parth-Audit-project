@@ -479,7 +479,7 @@ function contract(title: string, make: MakeWorld): void {
         const now = access(rules);
         assert.equal(now.level(staff(KAPILA), "qc-viscosity"), "write", "her own setting moved with her");
         assert.equal(now.level(staff(KAPILA), "qc-inspection-pouching"), "edit", "the owner's table: she fills QC");
-        assert.equal(now.level(staff(KAPILA), "prd-alc-production"), "read", "the owner's table: Kapila Barad views every module");
+        assert.equal(now.level(staff(KAPILA), "prd-alc-production"), "edit", "the owner's table: Kapila Barad edits every module (13 and 14-Oct-2026)");
         assert.ok(now.responsible("qc-inspection-pouching").includes(KAPILA));
         assert.equal(now.level(staff(KAPILA_GMAIL), "qc-inspection-pouching"), "edit", "the old address is nobody's: it keeps what an undescribed account keeps");
         // The activity log: old and new, and the account replaced.

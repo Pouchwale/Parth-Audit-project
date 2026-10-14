@@ -4,7 +4,7 @@ import { accessApi, ApiError, type AccessRulesAnswer } from "../../api/client";
 import { documentRepository } from "../../data/repositories/documentRepository";
 import { DEPARTMENTS } from "../../data/seed/departments";
 import { accessDocOf, setAccessRules } from "../../engine/departmentScope";
-import { ACCESS_LEVELS, ACCESS_MODULES, LEVEL_WORDS, buildAccess, normalizeAccessRules, type Access, type AccessDoc, type AccessLevel, type AccessRules } from "../../engine/accessRules";
+import { ACCESS_LEVELS, ACCESS_MODULES, LEVEL_WORDS, buildAccess, canonicalEmail, normalizeAccessRules, type Access, type AccessDoc, type AccessLevel, type AccessRules } from "../../engine/accessRules";
 import {
   LEVEL_LEGEND,
   STALE_RULES_WORDS,
@@ -558,7 +558,7 @@ function AccessDrawer({
           own: rules.people[person.email.toLowerCase()]?.documents?.[d.id],
           level: access.level(account, d.id),
           asModule: without.level(account, d.id),
-          answers: access.responsible(d.id).includes(person.email.toLowerCase()),
+          answers: access.responsible(d.id).includes(canonicalEmail(person.email)),
           reference: !!accessDocOf(d).reference,
         }));
     }
@@ -574,7 +574,7 @@ function AccessDrawer({
         own: rules.people[u.email.toLowerCase()]?.documents?.[d.id],
         level: access.level(account, d.id),
         asModule: documentDefaults(rules, docs, u).level(account, d.id),
-        answers: access.responsible(d.id).includes(u.email.toLowerCase()),
+        answers: access.responsible(d.id).includes(canonicalEmail(u.email)),
         reference: !!accessDocOf(d).reference,
       };
     });

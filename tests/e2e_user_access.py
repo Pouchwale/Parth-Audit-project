@@ -83,7 +83,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 BASE = os.environ.get("DCRS_BASE", "http://localhost:8843").rstrip("/")
 SEED_PASSWORD = os.environ.get("DCRS_SEED_PASSWORD", "SeedQA@2026")
 ADMIN = "admin@gpp.local"
-KAPILA = "kapila.barad@gpp.local"  # views every module; edits Quality Control and SYS (REQUIREMENTS §96)
+KAPILA = "kapila.barad@gpp.local"  # edits every module (REQUIREMENTS §96, the owner's word of 13 and 14-Oct-2026)
 ANKUR = "ankur.raval@gpp.local"  # views Quality Control; answers for F-QC-30, F-QC-32 and F-QC-40.C
 SANDEEP = "sandeep.parekh@gpp.local"  # kept to Human Resources
 STAMP = int(time.time())

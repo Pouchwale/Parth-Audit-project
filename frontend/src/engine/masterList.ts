@@ -2,7 +2,7 @@ import type { DocumentDefinition } from "../types";
 import { FORMAT_LIST_ROWS } from "../data/seed/sysDocumentControlLayouts";
 import { departmentFromFormatNo, departmentOfDocument } from "../data/seed/departments";
 import { formatKey } from "./formatNumbers";
-import { ACCESS_MODULES, DEFAULT_PEOPLE, buildAccess, defaultResponsible, normalizeAccessRules, type Access, type AccessAccount, type AccessDoc, type AccessLevel, type AccessRules } from "./accessRules";
+import { ACCESS_MODULES, DEFAULT_PEOPLE, buildAccess, canonicalEmail, defaultResponsible, normalizeAccessRules, type Access, type AccessAccount, type AccessDoc, type AccessLevel, type AccessRules } from "./accessRules";
 import { applyAccessChange, documentDefaults } from "./accessEditing";
 
 // THE MASTER LIST OF WHO DOES WHAT, WITHOUT A SCREEN (REQUIREMENTS §110; pages/MasterListPage.tsx draws it).
@@ -238,7 +238,7 @@ export function filterRows(sections: readonly MasterSection[], filter: MasterFil
     if (filter.module && s.module !== filter.module) continue;
     const rows = s.rows.filter((r) => {
       if (filter.nobody && (r.reference || access.responsible(r.id).length > 0)) return false;
-      if (account && !filter.every && !access.responsible(r.id).includes(account.email) && access.level(account, r.id) === "none") return false;
+      if (account && !filter.every && !access.responsible(r.id).includes(canonicalEmail(account.email)) && access.level(account, r.id) === "none") return false;
       if (needle) {
         const hay = `${r.formatNo} ${r.name}`.toLowerCase();
         if (!hay.includes(needle) && !(squashed.length >= 3 && squash(r.formatNo).includes(squashed))) return false;

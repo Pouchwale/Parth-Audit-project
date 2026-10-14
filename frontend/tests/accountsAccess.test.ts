@@ -88,11 +88,18 @@ test("a rename moves what the super admin set and who fills what; nothing stays 
   assert.deepEqual(rules.responsibility["hr-competence"], [VINAY, RAGHUNATH], "nothing handed in is changed");
 });
 
-test("THE OWNER'S CASE: kapilabarad01@gmail.com renamed to kapila.barad@gpp.local gets Kapila Barad's rights from the owner's table", () => {
-  // Before: an account nobody described, kept to Quality Control (as she was made), Edit there and nothing else.
+test("THE OWNER'S CASE: kapilabarad01@gmail.com is Kapila Barad in the rules, with or without the rename to kapila.barad@gpp.local", () => {
+  // Before any rename: her own address on the plant's system already has her rights (the owner, 14-Oct-2026).
   const before = buildAccess(docs, EMPTY);
-  assert.equal(before.level(staff(KAPILA_GMAIL, ["QC"]), "qc-inprocess-printing"), "edit");
-  assert.equal(before.level(staff(KAPILA_GMAIL, ["QC"]), "hr-competence"), "none");
+  const own = staff(KAPILA_GMAIL, ["QC"]);
+  assert.equal(before.level(own, "qc-inprocess-printing"), "edit");
+  assert.equal(before.level(own, "hr-competence"), "edit", "every module to edit, under her own address");
+  assert.deepEqual(before.modules(own).map((m) => m.module), ACCESS_MODULES.slice(), "every module, under her own address");
+  assert.ok(before.answersFor(own).includes("daily-pest-monitoring"), "she answers for F/HR/17 under her own address");
+  // A setting stored under either address is hers under both.
+  const set = buildAccess(docs, { version: 1, people: { [KAPILA_GMAIL]: { documents: { "hr-competence": "read" } } }, responsibility: {} });
+  assert.equal(set.level(own, "hr-competence"), "read");
+  assert.equal(set.level(staff(KAPILA, ["QC"]), "hr-competence"), "read");
   const rules = moveAccount(EMPTY, docs, KAPILA_GMAIL, KAPILA);
   assert.deepEqual(rules, EMPTY, "nothing was set for her: nothing to move");
   const after = buildAccess(docs, rules);
@@ -104,7 +111,7 @@ test("THE OWNER'S CASE: kapilabarad01@gmail.com renamed to kapila.barad@gpp.loca
   );
   assert.equal(after.level(her, "qc-inprocess-printing"), "edit", "QC to fill");
   assert.equal(after.level(her, "sys-format-list"), "edit", "SYS to fill");
-  assert.equal(after.level(her, "hr-competence"), "read", "every other module to read");
+  assert.equal(after.level(her, "hr-competence"), "edit", "every other module to edit too (13-Oct-2026)");
   assert.ok(after.answersFor(her).includes("daily-pest-monitoring"), "she answers for F/HR/17 by the owner's table");
 });
 

@@ -5,6 +5,7 @@ import {
   DEFAULT_PEOPLE,
   atLeast,
   buildAccess,
+  canonicalEmail,
   levelNeeded,
   normalizeAccessRules,
   type Access,
@@ -273,7 +274,7 @@ export function scoreAnswerRule(): AnswerRule | null {
   if (!b) return null;
   const { access, describedEmails } = b;
   const emailOf = (p: Person): string | null => {
-    const given = typeof p.email === "string" && p.email.includes("@") ? p.email.trim().toLowerCase() : null;
+    const given = typeof p.email === "string" && p.email.includes("@") ? canonicalEmail(p.email) : null;
     return given ?? EMAIL_BY_NAME.get(sameName(p.name)) ?? null;
   };
   const cache = new Map<string, boolean>();

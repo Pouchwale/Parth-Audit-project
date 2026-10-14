@@ -138,7 +138,7 @@ export function normalizeAccessRules(value: unknown): AccessRules {
   const people: Record<string, PersonRules> = {};
   if (isRecord(value.people)) {
     for (const [rawEmail, rawRules] of Object.entries(value.people)) {
-      const email = lower(rawEmail);
+      const email = canonicalEmail(rawEmail);
       if (!email.includes("@") || !isRecord(rawRules)) continue;
       const rules: PersonRules = {};
       if (isRecord(rawRules.modules)) {
@@ -154,19 +154,26 @@ export function normalizeAccessRules(value: unknown): AccessRules {
         for (const [id, level] of Object.entries(rawRules.documents)) if (id.trim() && isLevel(level)) documents[id.trim()] = level;
         rules.documents = documents;
       }
-      people[email] = rules;
+      // A second sign-in of the same person (canonicalEmail): what was set under either address is one setting.
+      const had = people[email];
+      people[email] = had
+        ? {
+            ...(had.modules || rules.modules ? { modules: { ...had.modules, ...rules.modules } } : {}),
+            ...(had.documents || rules.documents ? { documents: { ...had.documents, ...rules.documents } } : {}),
+          }
+        : rules;
     }
   }
   const responsibility: Record<string, string[]> = {};
   if (isRecord(value.responsibility)) {
     for (const [id, list] of Object.entries(value.responsibility)) {
       if (!id.trim() || !Array.isArray(list)) continue;
-      const emails = Array.from(new Set(list.filter((e): e is string => typeof e === "string").map(lower).filter((e) => e.includes("@"))));
+      const emails = Array.from(new Set(list.filter((e): e is string => typeof e === "string").map(canonicalEmail).filter((e) => e.includes("@"))));
       responsibility[id.trim()] = emails;
     }
   }
   // The removed accounts' sign-ins (REQUIREMENTS §110): each once, sorted, so two copies of the same rules read the same.
-  const removed = Array.isArray(value.removed) ? Array.from(new Set(value.removed.filter((e): e is string => typeof e === "string").map(lower).filter((e) => e.includes("@")))).sort() : [];
+  const removed = Array.isArray(value.removed) ? Array.from(new Set(value.removed.filter((e): e is string => typeof e === "string").map(canonicalEmail).filter((e) => e.includes("@")))).sort() : [];
   return removed.length > 0 ? { version: 1, people, responsibility, removed } : { version: 1, people, responsibility };
 }
 
@@ -215,8 +222,24 @@ const RAGHUNATH = "raghunath.mane@gpp.local";
 const AJAY_ZALA = "ajay.zala@gpp.local";
 const ANKUR = "ankur.raval@gpp.local";
 
-/** The person who has every module to read, and Edit in QC and SYS (the owner, 7-Oct-2026: "she can only edit QC and SYS documents, in every other module she can only view"). */
-const SEES_EVERYTHING = new Map<string, Record<string, AccessLevel>>([[KAPILA, { QC: "edit", SYS: "edit" }]]);
+/**
+ * KAPILA BARAD'S TWO SIGN-INS ARE ONE PERSON IN THE RULES (the owner, 14-Oct-2026: "give all other access module access
+ * to kapilabarad01@gmail.com profile"): her own address on the plant's system and the seeded kapila.barad@gpp.local both
+ * get what the table gives her, and a setting stored under either is hers under both, with no rename needed.
+ */
+const SAME_PERSON: Readonly<Record<string, string>> = { "kapilabarad01@gmail.com": KAPILA };
+
+/** An email lower-cased, and a second sign-in of the same person read as their first (SAME_PERSON). */
+export const canonicalEmail = (s: string): string => {
+  const email = lower(s);
+  return SAME_PERSON[email] ?? email;
+};
+
+/**
+ * The person who has EVERY module to edit (the owner, 13-Oct-2026: "give all module access to kapila barad", and
+ * 14-Oct-2026 for her own address). Until then she had every module to view and Edit in QC and SYS (7-Oct-2026).
+ */
+const EDITS_EVERYTHING = new Set<string>([KAPILA]);
 
 /** Documents the owner named one by one, or whose number cannot tell them apart (F-QC-30 the viscosity record and F/QC/30 the minutes). */
 const NAMED: Record<string, string[]> = {
@@ -324,13 +347,13 @@ export function buildAccess(docs: readonly AccessDoc[], storedRules?: unknown): 
     const set = stored.people[email]?.modules?.[module];
     if (set !== undefined) return set;
     let level: AccessLevel = "none";
-    if (SEES_EVERYTHING.has(email)) level = higher(level, SEES_EVERYTHING.get(email)![module] ?? "read");
+    if (EDITS_EVERYTHING.has(email)) level = "edit";
     if (derivedModules.get(email)?.has(module)) level = higher(level, "read");
     return level;
   };
 
   const level = (account: AccessAccount, documentId: string): AccessLevel => {
-    const email = lower(account.email ?? "");
+    const email = canonicalEmail(account.email ?? "");
     if (removed.has(email)) return "none";
     if (isBoss(account)) return "edit";
     const doc = byId.get(documentId);
@@ -357,7 +380,7 @@ export function buildAccess(docs: readonly AccessDoc[], storedRules?: unknown): 
     may: (account, documentId, action) => atLeast(level(account, documentId), NEEDS[action]),
     answersFor: (account) => {
       if (isBoss(account)) return [];
-      const email = lower(account.email ?? "");
+      const email = canonicalEmail(account.email ?? "");
       const ids: string[] = [];
       for (const d of docs) if (answers.get(d.id)?.includes(email) && atLeast(level(account, d.id), "write")) ids.push(d.id);
       return ids;
@@ -372,7 +395,7 @@ export function buildAccess(docs: readonly AccessDoc[], storedRules?: unknown): 
       return ACCESS_MODULES.filter((m) => top.has(m)).map((module) => ({ module, level: top.get(module)! }));
     },
     moduleLevel: (account, module) => {
-      const email = lower(account.email ?? "");
+      const email = canonicalEmail(account.email ?? "");
       if (removed.has(email)) return "none";
       if (isBoss(account)) return "edit";
       const base = moduleBase(email, module);

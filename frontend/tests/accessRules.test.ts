@@ -7,7 +7,7 @@
 //     the rules' own code, and every line was read against what he said;
 //   * each of the twelve people sees the modules of what they fill and nothing else (Kapila Barad and the super admin see all);
 //   * a person has Edit on what they answer for, Read on the rest of their modules, and nothing elsewhere (Kapila Barad:
-//     Edit on all of QC and SYS as well);
+//     Edit on every module, the owner's word of 13 and 14-Oct-2026);
 //   * the three levels are cumulative, and decide start, fill, submit, verify, correct, delete and change the format;
 //   * what the super admin sets wins over the default, a document's setting over its module's;
 //   * an account nobody has described keeps what it had; stored junk is dropped;
@@ -242,7 +242,7 @@ test("each person sees the modules of the documents they fill, and Kapila Barad 
   assert.ok(access.modules(BOSS).every((m) => m.level === "edit"));
 });
 
-test("a person has Edit on what they answer for and Read on the rest of their modules; Kapila Barad has Edit on all of QC and SYS as well; nobody has anything elsewhere", () => {
+test("a person has Edit on what they answer for and Read on the rest of their modules; Kapila Barad has Edit on every module; nobody has anything elsewhere", () => {
   const docs = catalogue();
   const access = buildAccess(docs);
   const problems: string[] = [];
@@ -251,7 +251,8 @@ test("a person has Edit on what they answer for and Read on the rest of their mo
     const seen = new Set(MODULES_SEEN[who]!.split(" "));
     for (const d of docs) {
       const answers = EXPECTED[d.id]!.split("+").includes(who);
-      const kapilaEdits = who === "Kapila" && (d.department === "QC" || d.department === "SYS");
+      // Every module to edit (the owner, 13 and 14-Oct-2026); until then QC and SYS to edit and the rest to read.
+      const kapilaEdits = who === "Kapila";
       const want: AccessLevel = answers || kapilaEdits ? "edit" : seen.has(d.department ?? "") ? "read" : "none";
       const got = access.level(me, d.id);
       if (got !== want) problems.push(`${who} on ${d.id}: ${got}, expected ${want}`);

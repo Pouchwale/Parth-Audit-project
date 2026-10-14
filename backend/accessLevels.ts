@@ -39,6 +39,7 @@ import {
   DEFAULT_PEOPLE,
   atLeast,
   buildAccess,
+  canonicalEmail,
   levelNeeded,
   normalizeAccessRules,
   type Access,
@@ -202,7 +203,7 @@ function shortHash(s: string): string {
  * rules never name with no departments (every module at Edit, as before).
  */
 export function copyKey(rules: AccessRules, account: AccessAccount): string {
-  const email = (account.email ?? "").trim().toLowerCase();
+  const email = canonicalEmail(account.email ?? "");
   const departments = [...(account.departments ?? [])].map((d) => d.trim().toUpperCase()).filter(Boolean).sort();
   const answering = Object.entries(rules.responsibility);
   const described = DEFAULT_PEOPLE.some((p) => p.email === email) || !!rules.people[email] || answering.some(([, list]) => list.includes(email));
@@ -676,7 +677,7 @@ export function answerRule(catalogue: AccessCatalogue): (person: AccessAccount, 
   for (const d of catalogue.docs) for (const e of access.responsible(d.id)) described.add(e);
   return (person, documentId) => {
     if (person.role === "admin") return false;
-    const email = person.email.trim().toLowerCase();
+    const email = canonicalEmail(person.email);
     if (described.has(email)) return access.responsible(documentId).includes(email) && access.may({ ...person, email }, documentId, "fill");
     const code = catalogue.byId.get(documentId)?.department ?? departmentOfDocument(documentId, undefined);
     const kept = (person.departments ?? []).map((c) => c.trim().toUpperCase()).filter(Boolean);
