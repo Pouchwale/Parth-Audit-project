@@ -293,6 +293,10 @@ with sync_playwright() as p:
 
     # THE CHIPS (the owner, 14-Oct-2026): who, which module, which document, what - each filtered on the server, combined.
     open_page(page, "#/activity", settle=2600)
+    # The search typed above stays in its box across the reopen; the chips are tried on the whole log (Clear is the chips' own).
+    page.fill("[data-field='activity-search']", "")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(1000)
     page.locator("[data-field='activity-span'] [data-span='all']").click()
     page.wait_for_timeout(1500)
     page.locator("[data-field='activity-chips-action'] [data-chip='action'][data-value='Format changed']").click()
