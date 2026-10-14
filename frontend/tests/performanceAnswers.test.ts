@@ -10,9 +10,9 @@ import assert from "node:assert/strict";
 import type { RecordInstance } from "../src/types";
 import { documentRepository, ensureSeeded as ensureDocumentsSeeded } from "../src/data/repositories/documentRepository";
 import { ensureSeeded as ensureMasterSeeded, masterRepository } from "../src/data/repositories/masterRepository";
-import { scoreAnswerRule, setAccessRules, setAccessScope, setDepartmentScope } from "../src/engine/departmentScope";
+import { departmentScope, scoreAnswerRule, setAccessRules, setAccessScope, setDepartmentScope } from "../src/engine/departmentScope";
 import type { AccessAccount } from "../src/engine/accessRules";
-import { scorecards, type Person } from "../src/engine/performance";
+import { outsideView, scorecards, type Person } from "../src/engine/performance";
 import { createDefaultData } from "../src/engine/recordDefaults";
 import { addDays, todayISO } from "../src/utils/date";
 
@@ -60,6 +60,41 @@ test("a person shares a module only where somebody else answers for the same doc
     assert.deepEqual(card("r").shared, [], "nobody else answers for F/MNT/03, though Kapila Barad and Ajay Zala answer for other Maintenance documents");
     assert.deepEqual(card("v").shared, ["HR"], "Vinay Bhojak and Sandeep Parekh both answer for F/HR/01");
     assert.deepEqual(card("s").shared, ["HR"]);
+  } finally {
+    setDepartmentScope(null);
+    setAccessRules(null);
+  }
+});
+
+// A PART OF SOMEBODY'S WORK (REQUIREMENTS §92): on a QC account's screen, which holds QC's documents alone, a colleague
+// kept to QC and HR is scored on QC's records only, and the card says Human Resources is outside this screen. Under the
+// answer rule a person's scored departments are the modules of the documents in view, so the HR that is not in view
+// was never named (the Performance suite's check of 14-Oct-2026): the account's own departments say so.
+test("a person who also answers for a department this screen cannot see is told so, from the account's own departments", () => {
+  const today = todayISO();
+  const due = addDays(today, -5);
+  const docs = [byNumber("F/QC/30")];
+  const records = [late("F/QC/30", due)];
+  const people: Person[] = [
+    { id: "m", name: "Meena Tally", role: "staff", departments: ["QC"] },
+    { id: "d", name: "Desk Twofold", role: "staff", departments: ["QC", "HR"] },
+    { id: "t", name: "Tally QA", role: "staff", departments: [] },
+    { id: "b", name: "Theme QA", role: "admin", departments: [] },
+  ];
+  // Signed in as an account kept to Quality Control that the rules never name.
+  setAccessScope({ email: "meena.tally@example.com", role: "staff", departments: ["QC"] }, null);
+  try {
+    const scope = departmentScope();
+    assert.deepEqual(scope, ["QC"], "a QC account's screen is Quality Control's");
+    const cards = scorecards(records, docs, people, { from: addDays(today, -10), to: today }, today, undefined, scoreAnswerRule());
+    const card = (id: string) => cards.byPerson.find((p) => p.person.id === id)!;
+    assert.deepEqual(card("d").departments, ["QC"], "scored here on QC's documents alone");
+    assert.equal(card("d").overdue, 1);
+    assert.deepEqual(outsideView(card("d"), scope), ["HR"], "and told Human Resources is outside this screen");
+    assert.deepEqual(outsideView(card("m"), scope), [], "the QC account itself: nothing outside");
+    assert.deepEqual(outsideView(card("t"), scope), [], "an account with no departments answers for none");
+    assert.deepEqual(outsideView(card("b"), scope), [], "the super admin answers for none");
+    assert.deepEqual(outsideView(card("d"), null), [], "with every department in view nothing is outside");
   } finally {
     setDepartmentScope(null);
     setAccessRules(null);

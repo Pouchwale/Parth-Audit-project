@@ -575,3 +575,19 @@ export function scorecards(
 
   return { period, byPerson, byDepartment, byModule, byDocument };
 }
+
+/**
+ * A PART OF SOMEBODY'S WORK (REQUIREMENTS §92). An account kept to departments is handed only its own departments'
+ * documents and records, so a person it shares one department with — but who answers for another as well — is
+ * scored on that screen from part of what they do. The card and the export say so: the figure is what people are
+ * judged by, and the whole of it is on the scorecard of somebody who sees every department. The departments
+ * outside `scope` (the screen's, engine/departmentScope.ts departmentScope): the ones the person was scored on here
+ * and the account's own, since a document of a department outside the screen is never in view to be answered for.
+ * Nothing with every department in view (scope null).
+ */
+export function outsideView(p: PersonScore, scope: readonly string[] | null): string[] {
+  if (!scope) return [];
+  return Array.from(new Set([...p.departments, ...keptTo(p.person)]))
+    .filter((code) => !scope.includes(code))
+    .sort();
+}

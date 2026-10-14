@@ -1399,6 +1399,14 @@ Seven scripts live in `tests/`:
     (62 checks; with the minus score of §92, 7-Oct-2026, 75: every line's, card's, tile's and CSV row's minus
     score is -10 for each never done with a true minus sign, the rule's words, the two new CSV columns, the print,
     the QC account's and both shared accounts', and F-QC-30's still open today recounted from its records.
+    14-Oct-2026, brought up to the owner's rules: nobody is scored while no account on the server answers for a
+    department, and every account kept to one is (the QC account is made in section 8); a QC account's
+    directory holds the accounts that see every module too, listed without a score (§96, as e2e_user_access
+    asks for Kapila Barad on Ankur Raval's list); the QC demo records' submitter is read from the records
+    (QC's lab executive on the day shift, §111 part 6, not "Roshni"); the Gujarati rule says −20 with no
+    percent sign (§92 part 6); every log-out answers the LogoutReview first (§72); and a colleague kept to QC
+    and HR is told Human Resources is outside a QC account's screen from the account's own departments
+    (engine/performance.ts outsideView, `frontend/tests/performanceAnswers.test.ts`, 2).
     `DCRS_BASE` points it at another server, such as a preview.)
   `tests/e2e_portal_controls.py` reaches the §62 dialog through the designer's *More options…* (37 checks,
   unchanged). With them `npm run test:e2e` is green at **1591 checks across twenty-seven suites**, all on

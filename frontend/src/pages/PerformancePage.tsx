@@ -22,6 +22,7 @@ import {
   formatMinus,
   grade,
   minusScore,
+  outsideView,
   periodFor,
   scoreOf,
   scorecards,
@@ -315,15 +316,6 @@ function WeeklyDigestCard({ digest, lang, onOpen }: { digest: WeeklyDigest; lang
       </div>
     </div>
   );
-}
-
-// A PART OF SOMEBODY'S WORK. An account kept to departments is handed only its
-// own departments' records, so a person it shares one department with — but who
-// answers for another as well — is scored on that screen from part of what they
-// do. The card and the export say so: the figure is what people are judged by,
-// and the whole of it is on the scorecard of somebody who sees every department.
-function outsideView(p: PersonScore, scope: string[] | null): string[] {
-  return scope ? p.departments.filter((code) => !scope.includes(code)) : [];
 }
 
 export function PersonCard({
