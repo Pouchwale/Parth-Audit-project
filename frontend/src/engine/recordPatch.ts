@@ -316,10 +316,42 @@ function normObjectSet(base: Obj, set: Obj, problems: string[], template: Obj = 
   return next;
 }
 
+// The shape of an item on the lists a record kind keeps, for the FIRST item of
+// an empty list (types/record.ts; the same blank line the guided interview
+// adds, engine/guidedRecord.ts). With no item to copy the shape from, the
+// first rodent catch, finding or attendee the model gave used to be stored as
+// {} — every key dropped as "not a field" — and the submit check then threw on
+// the box that was not there (REQUIREMENTS §98: nothing invented, nothing
+// lost). The values here are the printed form's starting state, not data: a
+// finding starts Open and Internal, the rest is blank until the person fills
+// it. Keyed by the list's name, which no two kinds share.
+const LIST_TEMPLATES: Record<string, Obj> = {
+  // F/HR/17 — a rodent in a trap box: which box, where, how many.
+  rodentCatches: { id: "", trapBoxNo: "", location: "", count: null },
+  // F/HR/17 — the summary of actions at the foot of the sheet.
+  summaryActions: { id: "", dateOfObservation: "", descriptionOfObservation: "", actionTaken: "", remarks: "" },
+  // The inspection findings report (CAPA — Internal).
+  findings: {
+    id: "",
+    sNo: 1,
+    findingOfInspection: "",
+    commentsOnFindings: "",
+    correctiveActionContractor: "",
+    correctiveActionClient: "",
+    targetDate: null,
+    actualDateOfAction: null,
+    verifiedByServiceProvider: "",
+    status: "Open",
+    source: "Internal",
+  },
+  // The training record's attendance sheet.
+  attendees: { id: "", employeeName: "", department: "" },
+};
+
 function normArray(key: string, cur: unknown[], value: unknown[], problems: string[]): unknown[] {
-  const scalarList = cur.length > 0 ? !isObj(cur[0]) : value.every((v) => !isObj(v));
+  const scalarList = cur.length > 0 ? !isObj(cur[0]) : value.every((v) => !isObj(v)) && !(key in LIST_TEMPLATES);
   if (scalarList) return value.filter((v) => !isObj(v) && !Array.isArray(v)).map((v) => String(v ?? "").trim());
-  const template = (cur.find(isObj) ?? {}) as Obj;
+  const template = (cur.find(isObj) ?? LIST_TEMPLATES[key] ?? {}) as Obj;
   const hasId = "id" in template;
   return value.filter(isObj).map((raw, i) => {
     // A list whose items carry an id is matched by it; one whose items carry
@@ -338,8 +370,11 @@ function normArray(key: string, cur: unknown[], value: unknown[], problems: stri
         ? (cur[i] as Obj)
         : undefined;
     if (existing) return normObjectSet(existing, raw, problems, template);
-    const fresh: Obj = { ...blankLike(template) };
+    // A new line starts from the kind's own blank line where the engine knows
+    // one (a finding Open and Internal, numbered by its place on the sheet).
+    const fresh: Obj = { ...blankLike(template), ...clone(LIST_TEMPLATES[key] ?? {}) };
     if (hasId) fresh.id = generateId(key);
+    if ("sNo" in fresh && normNumber(raw.sNo) === null) fresh.sNo = i + 1;
     // A new line may set the printed text (a new activity has none to protect).
     for (const k of PROTECTED_KEYS) if (k in raw && k in fresh) fresh[k] = raw[k];
     const { id: _ignore, ...rest } = raw;
