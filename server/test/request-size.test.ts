@@ -40,7 +40,7 @@ it('keeps the standing part of the request within the free plan, and reports its
   // never-invent rule (DCRS REQUIREMENTS §113, 14-Oct-2026) made it 12,123; since the owner's ChatGPT key (§109,
   // 2,000,000 tokens a minute) the guard keeps only the prompt from growing unnoticed.
   expect(sizes.staticPrefix).toBeLessThan(12_300);
-  expect(sizes.estimatedTokens).toBeLessThan(3_000);
+  expect(sizes.estimatedTokens).toBeLessThan(3_300);
   console.log(`request size: ${JSON.stringify(sizes)}`);
 });
 
