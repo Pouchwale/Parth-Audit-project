@@ -7404,7 +7404,10 @@ say:
   ("1-54, 2-55, 3-56, 4-57") and can't be changed." (engine/recordPatch.ts); the phone's layout (engineHost/entry.ts
   layoutOf) says `printed: true` with its `value`, so the phone has nothing to ask for it.
 - `LogSheetLayout.srNoShowsDate`: the Sr. No. column holds the record's date (as the header block shows it) on the
-  first line and nothing on the others.
+  first line and nothing on the others. Set on no issued format since 14-Oct-2026: the owner sent a phone picture of
+  F-QC-30 with the date standing in the Sr. No. column ("there is a separate column for Sr. Number but there the date
+  is coming ... I don't want this in any document"), so every sheet's Sr. No. numbers its lines and the day is the
+  header's DATE alone; the ability stays for a designer who chooses it.
 - `LogColumn.beneath` with `LogSheetLayout.secondLine: { label }`: every entry is drawn on two lines; the second's
   heading stands in the first column and each column `beneath` another is drawn under it. The line's data stays one
   object, the heading row leaves the columns beneath out, and the sheet's own controls (remove, Sr. No.) span both

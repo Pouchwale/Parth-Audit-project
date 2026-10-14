@@ -5,7 +5,8 @@
 // before are layout abilities now, each honoured wherever a layout is read:
 //   * a box the paper fills in print (LogHeaderField.printed) — F/QC/11's Device ID No, Location, Department,
 //     Manufacturer;
-//   * the day in the Sr. No. column (LogSheetLayout.srNoShowsDate) — F-QC-30;
+//   * the day in the Sr. No. column (LogSheetLayout.srNoShowsDate) — set on no issued format since 14-Oct-2026 (the
+//     owner: the Sr. No. column numbers the lines, the date is the header's); the ability stays for a designer;
 //   * an entry of two lines (LogColumn.beneath with the layout's secondLine) — F/QC/12's "Deviation %" line;
 //   * the paper's text below the grid (LogSheetLayout.notesBelow) — the PROCEDURE of F/QC/11 and F/QC/12;
 // and an empty box prints empty. Then the four documents themselves, held to their originals
@@ -159,21 +160,23 @@ test("a box the paper prints is never typed, uploaded, asked for or written by M
 });
 
 // ---------------------------------------------------------------------------
-// 2. The day in the Sr. No. column (srNoShowsDate)
+// 2. The Sr. No. column numbers the lines (srNoShowsDate on no issued format, the owner, 14-Oct-2026)
 
-test("the Sr. No. holds the record's date on the day's first line and nothing on the others (F-QC-30)", async () => {
+test("F-QC-30's Sr. No. numbers its lines; the date is the header's, never the column's", async () => {
   const layout = layoutOf(VISCOSITY);
-  assert.equal(layout.srNoShowsDate, true);
-  assert.equal(srNoText(layout, 0, "14-Oct-2026"), "14-Oct-2026");
-  assert.equal(srNoText(layout, 1, "14-Oct-2026"), "");
-  assert.equal(srNoText(layout, 22, "14-Oct-2026"), "");
+  assert.equal(layout.srNoShowsDate, undefined);
+  assert.equal(srNoText(layout, 0, "14-Oct-2026"), "1");
+  assert.equal(srNoText(layout, 1, "14-Oct-2026"), "2");
+  // The ability itself still reads as designed, for a designer who chooses it.
+  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 0, "14-Oct-2026"), "14-Oct-2026");
+  assert.equal(srNoText({ ...layout, srNoShowsDate: true }, 1, "14-Oct-2026"), "");
+  assert.equal(srNoText(layout, 22, "14-Oct-2026"), "23");
   assert.equal(srNoText(layoutOf(MIXING), 2, "14-Oct-2026"), "3", "every other sheet numbers its lines");
   const data = createDefaultData(docOf(VISCOSITY), DAY, master) as LogSheetData;
   const rows = bodyRows(await sheet(VISCOSITY, data));
   // 9:00 to 07:00, as the page is written: no 08:00 line (§111 part 6).
   assert.equal(rows.length, 23);
-  assert.equal(rows[0].cells[0].text, "14-Oct-2026", "the date on the first line");
-  assert.ok(rows.slice(1).every((r) => r.cells[0].text === ""), "and nothing below it");
+  assert.deepEqual(rows.map((r) => r.cells[0].text), rows.map((_, i) => String(i + 1)), "the Sr. No. numbers every line; the date is the header's");
   assert.deepEqual(
     rows.map((r) => r.cells[1].text),
     ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00"],
@@ -359,7 +362,7 @@ test("a format edited before §111 takes the paper's shape from the issued one, 
   try {
     saveFormatEdit(VISCOSITY, { revisionNo: "01", revisionDate: "2026-10-01", layout: old, revisions: [] });
     const now = getLogSheetLayout(VISCOSITY)!;
-    assert.equal(now.srNoShowsDate, true);
+    assert.equal(now.srNoShowsDate, undefined);
     assert.deepEqual(now.instructions, ["Keep the cup clean."], "the plant's own line stays, DCRS's explanation goes");
     assert.equal(getLogSheetLayout(VISCOSITY), now, "the same object each time");
 
@@ -387,7 +390,7 @@ test("a format edited before §111 takes the paper's shape from the issued one, 
 
     // A format edited since says what it says.
     saveFormatEdit(VISCOSITY, { revisionNo: "02", revisionDate: "2026-10-14", layout: { ...issued, instructions: ["Keep the cup clean."], notesBelow: [] }, revisions: [] });
-    assert.equal(getLogSheetLayout(VISCOSITY)!.srNoShowsDate, true);
+    assert.equal(getLogSheetLayout(VISCOSITY)!.srNoShowsDate, undefined);
     assert.deepEqual(getLogSheetLayout(VISCOSITY)!.notesBelow, []);
   } finally {
     dropFormatEdit(VISCOSITY);
