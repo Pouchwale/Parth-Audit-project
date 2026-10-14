@@ -188,6 +188,60 @@ export const COMPLIANCE_STATEMENTS: Record<string, ComplianceStatement> = {
     signedOn: "2025-02-24",
     validityYears: 2,
   },
+
+  // F/QC-10, sent by the owner on 14-Oct-2026 as "F-QC-10_Statement of Compliance (SOC) - Shrink Sleeve.pdf"
+  // (source-documents/qc-originals-2026-10-13/; the file sent first under the name F-QC-10 holds F/QC-38's pages).
+  // As the document prints it (REQUIREMENTS §111, part 8): its table's labels with their colons where it prints them,
+  // the raw materials a bullet each, "❖" before the conditions and "✓" before each of them; after the table its seven
+  // declarations, a bullet each. Only the company's name is COMPANY.name, as on the other two.
+  "soc-shrink-sleeves": {
+    documentId: "soc-shrink-sleeves",
+    headerTitle: "STATEMENT OF COMPLIANCE – SHRINK SLEEVES",
+    footerRef: "F/QC-10 (Rev – 00 / 01.12.2021)",
+    referenceSource: "BRC Global Standard for Packaging and Packaging Materials",
+    sections: [
+      { label: "Manufacturer:", lines: [COMPANY.name] },
+      { label: "Address:", lines: ["308,309, G.I.D.C. Estate, At Dediyasan, Mehsana – 384002, Gujarat, India"] },
+      { label: "Product:", lines: ["Shrink Sleeves"] },
+      {
+        label: "Raw materials used",
+        lines: ["• PVC Cast Film, PVC Blown film, PET Film", "• Ink", "• Solvent", "• Cold Foil", "• Coil Foil adhesive", "• Glue", "• UV Varnish"],
+      },
+      { label: "Manufacturing process", lines: ["Printing (Flexo), Foiling, Coating, Gluing, Slitting"] },
+      { label: "Subcontracted / Outsource manufacturing", lines: ["Nil"] },
+      { label: "Function or known uses:", lines: ["FMCG, Pharma, Food industries, Cosmetic"] },
+      {
+        label: "Specification for use:",
+        lines: [
+          "Used as secondary packaging for packers of FMCG, Pharma, Food industries & Cosmetic products for product aesthetic, identification & labelling",
+          "Usable for packers of products max up to 30 Deg C.",
+          "❖ Finish products shall not be used for further use by the customer, if found with any of the below mentioned conditions.",
+          "✓ Chemical contamination in the product as well as product packaging such as traces of any chemicals, oil or objectionable materials",
+          "✓ Physical contamination in the products such as any non-product foreign matter found in the products",
+          "✓ Product packaging are damaged",
+          "✓ Products are damaged during transportation",
+        ],
+      },
+      { label: "Usable life", lines: ["6 months from the date of manufacturing if stored at ambient temperature & maximum up to 30 Deg C"] },
+      { label: "Storage condition", lines: ["Store in dry place. Protect from moist environment"] },
+      { label: "Regulatory requirements", lines: ["Nil"] },
+      { label: "Country of Sale", lines: ["India, USA"] },
+      { label: "Post-consumer recycling", lines: ["No PCWR waste used"] },
+    ],
+    declarations: [
+      `${COMPANY.name}, hereby declares that all raw materials used in the manufacturing of Shrink Sleeves do not have a concentration of lead, cadmium, Hexavalent chromium and mercury that exceeds 100 PPM, and conform to Council Directive 94/62/EC with amendments 2005/20/EC and 2004/12/EC`,
+      "Substances such as 4-methylbenzophenone, benzophenone, hydroxybenzophenone and bisphenol A are not added or used in the manufacturing of Shrink Sleeves and are therefore not expected to be present in our products",
+      "Inks used are suitable for Indirect Food Contact where there is a barrier between the ink and the product. They confirm to the requirement of Heavy Metal Content of CONEG and EN 71 part 3. The inks do not contain any material that is in the negative list of CEPE. The inks do not contain any animal fat",
+      "Shrink Sleeves have to be kept in its original packaging in a cool or ambient temperate and dry place. Avoid direct exposure to sunlight and UV light.",
+      "This Declaration is valid for two years from the date of Publication, unless there is a change to the materials used, processing technologies or applicable legislation.",
+      "Whilst this Declaration is made using all due diligence, it is the responsibility of the downstream users of these articles to ensure compliance with all relevant legislation in their own applications and technologies",
+      `This Declaration of Compliance is applicable to current and future supplies of Products manufactured by ${COMPANY.name} and are updated only when there are (1) Legislative changes (2) Creation of new scientific data that affects the use of the material & (3) Modified composition of the material or the article that has significance for the application`,
+    ],
+    signedBy: "Shail Patel",
+    signedTitle: "CEO",
+    signedOn: "2025-04-01",
+    validityYears: 2,
+  },
 };
 
 /** A date of publication the statement can be dated by: an ISO date (yyyy-mm-dd). */

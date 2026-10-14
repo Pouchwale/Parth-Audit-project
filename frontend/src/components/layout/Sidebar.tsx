@@ -443,7 +443,7 @@ const LINK_DOCUMENT_IDS: Record<string, readonly string[]> = {
   "/gap/external": ["capa-customer-complaint"],
   // The Statements of Compliance page lists both statements and refuses only
   // when neither is the viewer's, so either one earns the link.
-  "/soc": ["soc-labels", "soc-flexible-packaging"],
+  "/soc": ["soc-labels", "soc-flexible-packaging", "soc-shrink-sleeves"],
   // Purchase (REQUIREMENTS §68): one page per F/PUR format, each shown when
   // that format is the viewer's. "/library/purchase" owns no single document
   // and so is not listed — the library filters itself document by document.

@@ -65,9 +65,9 @@ const blank = (v: unknown): boolean => v === undefined || v === null || (typeof 
 // ---------------------------------------------------------------------------
 // what an observation is, by the words on the paper
 
-/** A box or column whose printed words say it holds what somebody saw, decided, signed or was. ("Designation" is not a sign; a scale's "Reading Capacity" is not a reading.) */
+/** A box or column whose printed words say it holds what somebody saw, decided, signed or was. ("Designation" is not a sign; a scale's "Reading Capacity" is not a reading, nor its "Least count" a count.) */
 const OBSERVATION_WORDS =
-  /\bsign(ed|ature)?\b|operator|inspect|checked|verif|approv|tested|\bby\b|shift|\bpo\b|p\.o|\bfg\b|job|batch|\blot\b|roll|customer|supplier|invoice|vehicle|driver|reading(?! capacity)|observ|result|pass|fail|status|count|qty|quantit|weight|\btime\b|remark|comment|finding|deviation|action|reason|problem|spares|carried out|trainee|employee|visitor|attend|auditor|observer|furnished|survey|achieved|compliance|clean|done|temp|viscosity|ok\b|સહી|ઓપરેટર|ગ્રાહક|ડ્રાઈવર|વાહન|ઇન્વોઇસ|પીઓ|નંબર/i;
+  /\bsign(ed|ature)?\b|operator|inspect|checked|verif|approv|tested|\bby\b|shift|\bpo\b|p\.o|\bfg\b|job|batch|\blot\b|roll|customer|supplier|invoice|vehicle|driver|reading(?! capacity)|observ|result|pass|fail|status|(?<!least )count|qty|quantit|weight|\btime\b|remark|comment|finding|deviation|action|reason|problem|spares|carried out|trainee|employee|visitor|attend|auditor|observer|furnished|survey|achieved|compliance|clean|done|temp|viscosity|ok\b|સહી|ઓપરેટર|ગ્રાહક|ડ્રાઈવર|વાહન|ઇન્વોઇસ|પીઓ|નંબર/i;
 /** A person's name. Not the machine's, the site's, the transporter's or the standing team member's. */
 const PERSON_NAME = /\bname\b|નામ/i;
 const NOT_A_PERSON = /machine|equipment|site name|team member|transporter|product name|મશીન/i;
@@ -151,6 +151,11 @@ function logSheetObservations(doc: DocumentDefinition, d: LogSheetData, dueDate:
     if (blank(v) || f.computed) continue;
     if (f.autoFill?.dueDate) {
       if (v !== dueDate) say(`"${f.label}" holds ${v}, not the record's date`);
+      continue;
+    }
+    // What the paper prints in the box is the box's value on every sheet (F/QC/17's "+ / - 1 mm", REQUIREMENTS §111).
+    if (typeof f.printed === "string") {
+      if (v !== f.printed) say(`"${f.label}" holds "${v}", not what the paper prints`);
       continue;
     }
     const why = boxMayHold(f, layout);

@@ -1,5 +1,6 @@
 import type { LogSheetData, LogSheetRow } from "../types";
 import { GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
+import { RULER_POINTS } from "../data/seed/qcRulerVerificationLayouts";
 
 // THE DEVIATION ON THE TWO INTERNAL CALIBRATION RECORDS IS WORKED OUT, NOT
 // TYPED (REQUIREMENTS §61).
@@ -12,6 +13,10 @@ import { GSM_PLATES } from "../data/seed/qcCalibrationLayouts";
 //   F/QC/11  GSM cutting plate  the measured plate against the size printed at
 //                               the head of its column — "20 x 20cm" — by AREA,
 //                               because area is what a GSM plate is for
+//   F/QC/17  measuring scale    the observed reading less the master's printed
+//                               point ("50 mm"), in mm to one place ("0.0"), and
+//                               the one Status down the six lines against the
+//                               printed "+ / - 1 mm" (REQUIREMENTS §111, part 8)
 //
 // It is done here, on the data, so it is the same whoever wrote the figures:
 // a person typing into the sheet, Mitra filling it, or sample data. A figure
@@ -87,11 +92,50 @@ function gsmRow(row: LogSheetRow): LogSheetRow {
   return next;
 }
 
+/** A ruler's difference from the master's point, as the paper writes it: "0.0", "1.0", "-0.5". */
+export function formatDifference(mm: number): string {
+  const text = (Math.round(mm * 10) / 10).toFixed(1);
+  return text === "-0.0" ? "0.0" : text;
+}
+
+/** F/QC/17: each line's Difference, and the Status on the first line once a point is outside or all six are within. */
+function rulerRows(rows: LogSheetRow[], tolerance: number | null): LogSheetRow[] {
+  const mm = (v: unknown): number | null => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    const m = String(v ?? "").trim().match(/^-?\d+(?:\.\d+)?/);
+    return m ? Number(m[0]) : null;
+  };
+  const found: (number | null)[] = rows.map((row, i) => {
+    const point = mm(row.masterReading) ?? RULER_POINTS[i] ?? null;
+    const observed = mm(row.observed);
+    return point === null || observed === null ? null : observed - point;
+  });
+  const out: LogSheetRow[] = rows.map((row, i) => {
+    const d = found[i];
+    return { ...row, difference: d === null ? "" : formatDifference(d) };
+  });
+  if (tolerance !== null && out.length > 0) {
+    const outside = found.some((d) => d !== null && Math.abs(d) > tolerance + 1e-9);
+    const allRead = found.length === RULER_POINTS.length && found.every((d) => d !== null);
+    // The one Status cell is the first line's (LogColumn.merged); left as the tester set it until there is a verdict.
+    if (outside) out[0] = { ...out[0], status: "Fail" };
+    else if (allRead) out[0] = { ...out[0], status: "Pass" };
+  }
+  return out;
+}
+
 /** The record's data with every deviation worked out; any other document's data is returned as it is. */
 export function withCalibration<T>(documentId: string | undefined, data: T): T {
-  if (documentId !== "qc-weight-scale-calibration" && documentId !== "qc-gsm-plate-calibration") return data;
+  if (documentId !== "qc-weight-scale-calibration" && documentId !== "qc-gsm-plate-calibration" && documentId !== "qc-ruler-verification") return data;
   const d = data as unknown as LogSheetData | undefined;
   if (!d || !Array.isArray(d.rows)) return data;
+  if (documentId === "qc-ruler-verification") {
+    // "+ / - 1 mm": the figure printed in the box (engine/printedBands.ts reads it the same way for the highlight).
+    const m = String(d.header?.acceptableTolerance ?? "").match(/\d+(?:\.\d+)?/);
+    const worked = rulerRows(d.rows, m ? Number(m[0]) : null);
+    const rows = worked.map((next, i) => (Object.keys(next).every((k) => next[k] === d.rows[i][k]) ? d.rows[i] : next));
+    return rows.every((r, i) => r === d.rows[i]) ? data : ({ ...d, rows } as unknown as T);
+  }
   const tolerance = tolerancePercent(d.header?.acceptableTolerance);
   // A line whose figures are unchanged is handed back as it was, so the sheet
   // redraws only the line that changed (components/records/LogSheetRecordView.tsx SheetRow).

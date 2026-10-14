@@ -1720,6 +1720,8 @@ body { top: 0 !important; }
    each cell the record's box, the width of its cell; the rows' headings in the paper's words. */
 .doc-table table.paper-box-table th.paper-box-table-row { text-align: left; white-space: normal; }
 .doc-table table.paper-box-table td .field-in-table .input { width: 100%; min-width: 64px; }
+/* A table of boxes headed across by its corner (F/QC/17's "Master Measuring Scale (Ruler) Details"), centred as printed. */
+.doc-table table.paper-box-table th.paper-box-table-across { text-align: center; }
 /* The grid printed across (gridAcross: a certificate's PRINTING, its colours 1 to 10 across). */
 .doc-table table.log-sheet-across th.log-sheet-across-head { text-align: left; white-space: nowrap; vertical-align: middle; }
 .doc-table table.log-sheet-across td { text-align: center; }

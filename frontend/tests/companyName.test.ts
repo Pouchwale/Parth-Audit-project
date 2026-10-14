@@ -90,10 +90,11 @@ test("the papers' own text names the company the owner's way, and no key moved",
   assert.equal(minutes.specimenHeader?.location, RUNNING);
   assert.equal(minutes.specimenHeader?.clientName, "M/s. Gangwal Healthcare Pvt. Ltd.", "the customer's own name is the customer's");
   assert.equal(getIssuedLogSheetLayout("sys-hara-annual")!.specimenHeader?.siteName, NAME);
-  // The Statements of Compliance.
+  // The Statements of Compliance (F/QC-10 prints its label "Manufacturer:", REQUIREMENTS §111 part 8).
   for (const s of Object.values(COMPLIANCE_STATEMENTS)) {
-    assert.deepEqual(s.sections.find((x) => x.label === "Manufacturer")?.lines, [NAME], s.documentId);
+    assert.deepEqual(s.sections.find((x) => x.label.replace(/:$/, "") === "Manufacturer")?.lines, [NAME], s.documentId);
   }
+  assert.ok(COMPLIANCE_STATEMENTS["soc-shrink-sleeves"].declarations.some((d) => d.startsWith(`${NAME}, hereby declares`)));
   assert.ok(COMPLIANCE_STATEMENTS["soc-labels"].declarations.some((d) => d.startsWith(`${NAME}, hereby declares`)));
   assert.ok(COMPLIANCE_STATEMENTS["soc-labels"].declarations.some((d) => d.includes(`manufactured by ${NAME} and are updated`)));
   // The seeded records: the GAP report's premises, the training's attendees, the two agreements' client.

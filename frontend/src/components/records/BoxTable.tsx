@@ -16,9 +16,16 @@ export function BoxTable({ table, cells }: { table: NonNullable<LogHeaderField["
   const rows = boxTableRows(table, table.cornerBox ? cells.slice(1) : cells);
   // A table whose rows the paper heads has a heading column, and its corner above it.
   const headed = table.rows.length > 0 || corner !== undefined;
+  // A table with no column headings of its own is headed ACROSS by its corner (REQUIREMENTS §111, part 8): F/QC/17's
+  // "Master Measuring Scale (Ruler) Details" over its labels and their values, a box to a line.
+  const across = table.columns.length === 0 && !table.cornerBox;
   const headingRow = (
     <tr>
-      {headed && <th className="paper-box-table-corner">{corner ?? ""}</th>}
+      {headed && (
+        <th className={across ? "paper-box-table-corner paper-box-table-across" : "paper-box-table-corner"} colSpan={across ? 2 : undefined}>
+          {corner ?? ""}
+        </th>
+      )}
       {table.columns.map((c, ci) => (
         <th key={ci}>{c}</th>
       ))}

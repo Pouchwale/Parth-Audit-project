@@ -72,7 +72,11 @@ test("F QC 09 is the Statement of Compliance for pressure labels and never F/QC-
   for (const q of ["F QC 38", "FQC38", "F/QC/38", "f-qc-38", "F/QC-38"]) assert.deepEqual(matchDocuments(q.toLowerCase()), ["soc-flexible-packaging"], q);
   assert.deepEqual(matchDocuments("open the soc for labels"), ["soc-labels"]);
   assert.deepEqual(matchDocuments("show me the pouch soc"), ["soc-flexible-packaging"]);
-  assert.deepEqual(findDocuments("statement of compliance").flatMap((f) => (f.kind === "master" ? [] : [f.doc.id])).sort(), ["soc-flexible-packaging", "soc-labels"], "the words both share name both");
+  assert.deepEqual(
+    findDocuments("statement of compliance").flatMap((f) => (f.kind === "master" ? [] : [f.doc.id])).sort(),
+    ["soc-flexible-packaging", "soc-labels", "soc-shrink-sleeves"],
+    "the words they share name all three (F/QC-10 since 14-Oct-2026)"
+  );
   assert.deepEqual(matchDocuments("open the mom"), ["qc-minutes-of-meetings"]);
 });
 

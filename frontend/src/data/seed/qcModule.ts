@@ -41,8 +41,8 @@ export const QC_OTHER_GROUP_TITLE = "Other Quality Control Records";
 /** QC's own log sheets that the Lamination module keeps (§51). */
 export const QC_LAMINATION_DOCUMENT_IDS: readonly string[] = ["qc-viscosity", "qc-adhesive-mixing", "qc-temperature"];
 
-/** QC's two Statements of Compliance, F/QC-09 and F/QC-38 (§28), read on their own page. */
-export const QC_COMPLIANCE_DOCUMENT_IDS: readonly string[] = ["soc-labels", "soc-flexible-packaging"];
+/** QC's Statements of Compliance, F/QC-09 and F/QC-38 (§28) and F/QC-10 (§111 part 8), read on their own page. */
+export const QC_COMPLIANCE_DOCUMENT_IDS: readonly string[] = ["soc-labels", "soc-flexible-packaging", "soc-shrink-sleeves"];
 
 export interface QcGroup {
   /** The card's heading — a section of the module, or the Lamination module by name. */

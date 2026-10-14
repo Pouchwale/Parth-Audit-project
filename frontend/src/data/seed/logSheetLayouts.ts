@@ -9,6 +9,8 @@ import { PRINTING_AIDS_WITHDRAWN_LINE, QC_REGISTER_LAYOUTS, TOLERANCE_CARD_NOTE 
 import { COA_WITHDRAWN_LINES, QC_COA_LAYOUTS } from "./qcCoaLayouts";
 import { QC_REPORT_LAYOUTS, QC_REPORT_WITHDRAWN_LINES } from "./qcReportLayouts";
 import { QC_TEST_RELIABILITY_LAYOUTS } from "./qcTestReliabilityLayouts";
+import { QC_TEMPERATURE_LAYOUTS } from "./qcTemperatureLayouts";
+import { QC_RULER_VERIFICATION_LAYOUTS } from "./qcRulerVerificationLayouts";
 import { PURCHASE_LAYOUTS } from "./purchaseLayouts";
 import { DISPATCH_LAYOUTS } from "./dispatchLayouts";
 import { STORE_LAYOUTS } from "./storeLayouts";
@@ -507,6 +509,9 @@ Object.assign(LOG_SHEET_LAYOUTS, QC_COA_LAYOUTS);
 Object.assign(LOG_SHEET_LAYOUTS, QC_REPORT_LAYOUTS);
 // F-QC-14, the internal test reliability record, its Label and Sleeve sheets, supplied on 13-Oct-2026 (REQUIREMENTS §111).
 Object.assign(LOG_SHEET_LAYOUTS, QC_TEST_RELIABILITY_LAYOUTS);
+// F-QC-40.A, F-QC-40.B and F/QC/17, supplied on 14-Oct-2026 (REQUIREMENTS §111, part 8).
+Object.assign(LOG_SHEET_LAYOUTS, QC_TEMPERATURE_LAYOUTS);
+Object.assign(LOG_SHEET_LAYOUTS, QC_RULER_VERIFICATION_LAYOUTS);
 
 // Purchase's formats supplied on 23-Sep-2026 (REQUIREMENTS §68): the supplier
 // registration form and the supplier audit report, the list of approved

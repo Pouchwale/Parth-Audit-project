@@ -404,7 +404,12 @@ export function LogSheetRecordView({
   // The heading rows: the columns grouped into the runs the paper draws under
   // one spanning heading, and two rows instead of one where there is such a run.
   const headRuns = headingRuns(lines.first);
-  const headRows = headRuns.some((r) => r.group !== undefined) ? 2 : 1;
+  // A group whose columns print no heading of their own is ONE heading over them (REQUIREMENTS §111, part 8):
+  // F-QC-40.A prints "08:30 HRS" over the one cell its temperature and its humidity are written in. A sheet of free
+  // lines keeps the columns' own headings, which name the box of a line a downloaded file holds (§81).
+  const headless = (run: { group?: string; columns: LogColumn[] }) =>
+    mode.kind !== "free" && run.group !== undefined && run.columns.every((c) => columnHeading(c) === "");
+  const headRows = headRuns.some((r) => r.group !== undefined && !headless(r)) ? 2 : 1;
   // THE DAY IN THE SR. NO. COLUMN (REQUIREMENTS §111): F-QC-30 writes the record's date there on the
   // first line and nothing on the others; every other sheet numbers its lines.
   const recordDate = formatDisplayDate(record.headerBlock?.date ?? headerDefaults.date);
@@ -610,7 +615,7 @@ export function LogSheetRecordView({
                   {run.group === undefined ? (
                     run.columns.map((c) => <ColumnHead key={c.key} col={c} rowSpan={headRows} bound={freeRows} />)
                   ) : (
-                    <th className="col-group" colSpan={run.columns.length}>
+                    <th className="col-group" colSpan={run.columns.length} rowSpan={headless(run) ? headRows : undefined} data-group-alone={headless(run) ? "" : undefined}>
                       {run.group}
                     </th>
                   )}
@@ -620,9 +625,12 @@ export function LogSheetRecordView({
             </tr>
             {headRows === 2 && (
               <tr>
-                {lines.first.filter((c) => c.group !== undefined).map((c) => (
-                  <ColumnHead key={c.key} col={c} bound={freeRows} />
-                ))}
+                {headRuns
+                  .filter((run) => run.group !== undefined && !headless(run))
+                  .flatMap((run) => run.columns)
+                  .map((c) => (
+                    <ColumnHead key={c.key} col={c} bound={freeRows} />
+                  ))}
               </tr>
             )}
           </thead>

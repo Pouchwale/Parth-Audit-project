@@ -45,6 +45,7 @@ import { GRADE_ACTIONS, GRADE_MIX, LOT_REASONS, MEASUREMENT_VARIATION } from "..
 import { documentTextIn } from "../i18n/documentText";
 import { LINE_CLEARANCE_REGISTERS, lineClearanceChangeovers } from "./lineClearanceSample";
 import { RELIABILITY_DOCUMENTS, testReliabilitySample } from "./testReliabilitySample";
+import { rulerVerificationSample } from "./rulerVerificationSample";
 import { OBSOLETE_ARTWORK_LINES } from "../data/seed/qcRegisterLayouts";
 
 // DEMO MODE AND SAMPLE DATA ONLY (REQUIREMENTS §98, 8-Oct-2026). This is a
@@ -955,6 +956,19 @@ function fillLogSheet(
     }
   }
 
+  if (doc.id === "qc-ruler-verification") {
+    // F/QC/17 as a real verification (engine/rulerVerificationSample.ts, REQUIREMENTS §111 part 8): the master's
+    // current certificate, the ruler verified that day and its six readings; not the page of 24.09.2024 copied.
+    const verification = rulerVerificationSample(dueDate);
+    Object.assign(header, verification.header);
+    rows = rows.map((row, i) => ({ ...row, observed: verification.observed[i] ?? null }));
+  }
+  if (doc.id === "qc-temperature-humidity" && header.area === "PRINTING" && !String(header.machineNo ?? "").trim()) {
+    // F-QC-40.A's sheet in the printing area names the printing machine it hangs at: one of the plant's three UV flexo
+    // presses (F/MNT/01: M-01 Gallus ECS 340, M-47 Lombardi Delta 330, M-83 Lombardi Delta 430), then carried forward.
+    header.machineNo = makeRng(`temperature-area|${dueDate}`).pick(["M-01", "M-47", "M-83"]);
+  }
+
   explainExcursions(layout, rows, doc, dueDate, ctx);
   // The lot's disposition, in the Lot Status box. Every one of them used to
   // read "Accepted" for ever.
@@ -1151,6 +1165,32 @@ function describeLogSheet(doc: DocumentDefinition, layout: LogSheetLayout, data:
       return [
         `Logged all 6 hot-room readings: ${Math.min(...vals)}–${Math.max(...vals)} °C (recommended 45 ± 2 °C).`,
         signers.length ? `Each reading signed under it by the tester on shift: ${signers.join(" / ")}.` : "Each reading is signed under it by whoever takes it.",
+      ];
+    }
+    // F-QC-40.B and F-QC-40.A (REQUIREMENTS §111, part 8): the day's readings against the paper's recommended band.
+    case "qc-temperature-sleeve":
+    case "qc-temperature-humidity": {
+      const humidity = doc.id === "qc-temperature-humidity";
+      const of = (unit: string) =>
+        layout.columns
+          .filter((c) => c.type === "number" && c.unit === unit)
+          .map((c) => rows[0]?.[c.key])
+          .filter((v): v is number => typeof v === "number");
+      const temps = of("°C");
+      const signers = Array.from(new Set(layout.columns.filter((c) => c.beneath).map((c) => String(rows[0]?.[c.key] ?? "")).filter(Boolean)));
+      const hums = of("%");
+      return [
+        humidity
+          ? `Logged the ${h.area ? `${String(h.area).toLowerCase()} area's ` : ""}3 readings: ${Math.min(...temps)}–${Math.max(...temps)} °C and ${Math.min(...hums)}–${Math.max(...hums)} % (recommended 25 ± 2 °C / 45 ± 5 %).`
+          : `Logged all 6 sleeve division readings: ${Math.min(...temps)}–${Math.max(...temps)} °C (recommended 28 ± 2 °C).`,
+        signers.length ? `Each reading signed under it by the tester on shift: ${signers.join(" / ")}.` : "Each reading is signed under it by whoever takes it.",
+      ];
+    }
+    case "qc-ruler-verification": {
+      const off = rows.filter((r) => String(r.difference ?? "") !== "" && String(r.difference) !== "0.0").length;
+      return [
+        `Verified ${h.make || "the ruler"} ${h.serialNo || ""} against the master ${h.masterSerialNo || ""} at the six printed points: ${off === 0 ? "every reading on the master's figure" : `${off} a millimetre off`}, ${rows[0]?.status || "status to judge"} against + / - 1 mm.`.replace(/\s+/g, " "),
+        "Write the master's certificate (calibration date, due date, report number) as it stands, and sign the verification.",
       ];
     }
     case "qc-adhesive-mixing": {

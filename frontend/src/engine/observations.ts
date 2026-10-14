@@ -53,6 +53,11 @@ const STANDING_BOX_KEYS = new Set([
   "maxReadingCapacity",
   "acceptableTolerance",
   "calibrationExpiry",
+  // the master scale F/QC/17 checks a ruler against: its make, number, range and least count (REQUIREMENTS §111, part 8)
+  "masterMake",
+  "masterSerialNo",
+  "masterRange",
+  "masterLeastCount",
   "location",
   "locations",
   "locationFunction",
