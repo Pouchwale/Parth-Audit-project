@@ -334,7 +334,7 @@ What it can do. Lookups run at once; changes are shown on a confirmation card an
 | `get_pest_control_report` | lookup | The daily pest control record (F/HR/17) of a date, as a PDF |
 | `get_pest_control_report_summary` | lookup | The same record as data |
 | `open_record` | change | Opens a document's record for a date, starting it if there is none |
-| `edit_record` | change | Changes values on a record, as DCRS's Mitra changes them |
+| `edit_record` | change | Changes a record as DCRS's Mitra does: values, and its lines (add, change, delete, clear; see below). The card comes from DCRS's dry run; a signed-off record takes a reason |
 | `record_action` | change | Submit, verify, send back, resume, reopen for correction, cancel a correction, or delete a record |
 | `add_photo_to_record` | change | Adds a photo attached in the chat to a record's photos or scans |
 | `fill_record_with_sample_data` | change | Fills a record with sample data, marked as made up; it stays a draft |
@@ -343,6 +343,27 @@ What it can do. Lookups run at once; changes are shown on a confirmation card an
 Not offered, as DCRS's hand-off says: moving around DCRS's own pages, its question-by-question fill and its questions with buttons (the chat does these itself), reading attachments (this server reads them itself), and changing a document's format (a design task for DCRS on a desktop).
 
 Its tests run it against a stand-in DCRS: every action, what each sends, and every refusal (`server/test/dcrs-connector.test.ts`), and sign-in, a lookup and a confirmed change through the server (`server/test/dcrs-app.test.ts`).
+
+### Changing a record from the phone
+
+Since DCRS's REQUIREMENTS §113 (14-Oct-2026) a record's lines can be changed from the phone, in the chat and on the Review screen, through the same DCRS call (`POST /api/v1/records/{id}/changes`) and the same checks as DCRS's own pages. DCRS describes every list of lines of a form in `layout.lists` — whether lines can be added (`canAdd`, up to `maxAddAtOnce` at once) or taken off (`canRemove`), why not (`whyFixed`: a sheet that prints a line for each time slot, a single-line sheet, printed units), the boxes of a new line (`item`, `writable`), and on a record each line by its `id` — and `patchShape` says how a change is written. The four operations, on top of setting a value:
+
+| Operation | The patch | What DCRS does |
+|---|---|---|
+| Add a line | `{"addItems": {"rows": [{"time": "10:00", "viscosity": 20.4, "checkedBy": "Jeni"}]}}` | Adds the line with only what the person said, nothing invented; answers its `id` |
+| Change a line | `{"itemEdits": [{"collection": "rows", "match": {"id": "row-…"}, "set": {"viscosity": 20.3}}]}` | Changes exactly that line, aimed by its id (never a position that moved) |
+| Delete a line | `{"removeItems": {"rows": ["row-…"]}}` (or a row number, or the list's name key) | Takes the line off; its values stay in the record's history |
+| Clear a box | `{"clearItems": {"rows": [{"id": "row-…", "keys": ["viscosity"]}]}}`; F/HR/17 `{"checkpoints": {"3": null}}` | Blanks the box; names what it cleared |
+
+A whole list is never sent: a list sent whole keeps the lines it does not name.
+
+**The card first.** Nothing changes until the person says so. The chat's confirmation card and the Review screen's sheet are worded from DCRS's own **dry run** (the same patch with `dryRun: true`, 200 and nothing written): DCRS names the lines it would take off (`removed`: "line 3 (10:00, 20.4, Jeni)") or blank (`cleared`: "20.1 from line 4 (11:00)") in their own words, and the lines it would add (`added`). What is deleted or cleared is asked; what is added is listed back, since nothing written is lost. A patch that changes nothing is refused before any card (400 `nothing-changed`, with what DCRS left out). In the chat the card is in the language of the reply (English, Hindi or Gujarati; `server/src/connectors/dcrs/lines.ts`); on the Review screen in the language the app is read in (`mobile/src/lib/review-words.ts`).
+
+**Undo.** A line added comes back with its `id` as stored. In the chat Mitra offers Undo after an add, and "undo" sends `removeItems` by that id — through the same card. On the Review screen Undo is offered for a minute after an add.
+
+**The levels (DCRS REQUIREMENTS §96).** Read is refused in DCRS's words (403 `access-level`). Write changes a draft. A record under correction, or signed off (submitted, verified, sent back), needs Edit and a `reason`: with both, DCRS reopens the record for correction and makes the change in one call (`reopened: true`, the reason on the reopen line of its history); without the reason the dry run says `willReopen` and `reasonNeeded`, so Mitra asks why first and the Review screen's sheet asks for the reason; a real change without it is 409 `needs-reopen`.
+
+**On the Review screen** (`mobile/src/app/task/[recordId].tsx`): a bin on each line DCRS lets go, a clear on each box that holds a value, "Add a line" (or "Add a rodent catch", in DCRS's noun) under each list that allows it — under the form when the list has no line yet, such as F/HR/17's first rodent catch — and DCRS's reason under a list that cannot change. The server's phone route relays `dryRun` as a read (never logged) and `reason` as a correction. Tests: `server/test/dcrs-lines.test.ts`, `dcrs-app.test.ts` (the chat's flow with a mocked model), `phone-relay.test.ts` and `phone-app.test.ts` (the Review screen's logic).
 
 ## Login and action logs, super admin view
 
