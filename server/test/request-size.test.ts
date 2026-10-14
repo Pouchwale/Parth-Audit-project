@@ -36,8 +36,10 @@ it('keeps the standing part of the request within the free plan, and reports its
   // Before 2-Oct-2026 the instructions and tools took 11,735 characters (about 2,800 tokens as JSON); on 3-Oct-2026
   // 10,767. The rule to answer in the language and script asked in (6-Oct-2026) added 629 characters, 149 tokens as
   // gpt-oss counts them (o200k_base): 11,396. It is in the part Groq keeps from one request to the next, which does not
-  // count against the minute's tokens once kept.
-  expect(sizes.staticPrefix).toBeLessThan(11_500);
+  // count against the minute's tokens once kept. The four operations on a record's lines, the lists' offset and the
+  // never-invent rule (DCRS REQUIREMENTS §113, 14-Oct-2026) made it 12,123; since the owner's ChatGPT key (§109,
+  // 2,000,000 tokens a minute) the guard keeps only the prompt from growing unnoticed.
+  expect(sizes.staticPrefix).toBeLessThan(12_300);
   expect(sizes.estimatedTokens).toBeLessThan(3_000);
   console.log(`request size: ${JSON.stringify(sizes)}`);
 });

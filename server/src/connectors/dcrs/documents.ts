@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineAction } from '../types.ts';
 import { tokenOf, type DcrsClient } from './client.ts';
 import { BUDGET, fit, WEB_ONLY_IN_LISTS, without } from './fit.ts';
-import { documentId, isoDate, limit, searchWords, segment, text } from './inputs.ts';
+import { documentId, isoDate, limit, offset, searchWords, segment, text } from './inputs.ts';
 import { aboutDocument } from './names.ts';
 import { documentForModel, documentsForModel, figuresForModel, todayForModel } from './shape.ts';
 
@@ -14,10 +14,10 @@ export function documentActions(dcrs: DcrsClient) {
       description:
         'Finds documents (formats) by words, format number or module; no q lists all. Also names matches kept by other departments, and formats not in DCRS yet.',
       kind: 'read',
-      input: z.object({ q: searchWords.optional(), limit: limit(50) }),
+      input: z.object({ q: searchWords.optional(), limit: limit(50), offset }),
       describe: (input) => (input.q ? `Find the documents matching "${input.q}"` : 'List your documents'),
       run: async (ctx, input) => {
-        const answer = await dcrs.json('GET', '/api/v1/documents', { token: tokenOf(ctx.credentials), query: { q: input.q, limit: input.limit ?? 20 } });
+        const answer = await dcrs.json('GET', '/api/v1/documents', { token: tokenOf(ctx.credentials), query: { q: input.q, limit: input.limit ?? 20, offset: input.offset } });
         return documentsForModel(answer);
       },
     }),

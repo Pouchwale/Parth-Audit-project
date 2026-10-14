@@ -209,3 +209,95 @@ it('keeps SUPER_ADMINS as an extra list beside DCRS', async () => {
   const response = await app.inject({ method: 'POST', url: '/auth/login', payload: { username: 'admin@gpp.local', password: 'x', device: { deviceId: 'd1' } } });
   expect(response.json<LoginResponse>().user.role).toBe('super_admin');
 });
+
+const ADD_LINE = { addItems: { rows: [{ time: '11:00', viscosity: 20.2, checkedBy: 'Jeni' }] } };
+const TITLE_32 = 'the Adhesive Mixing Ratio Record of 11-Oct-2026';
+const UNDO = { removeItems: { rows: ['row-c3'] } };
+
+/** The last thing the model was told: a tool's result, as JSON. */
+function lastToldTo(model: ReturnType<typeof scriptedModel>): Record<string, unknown> {
+  return JSON.parse((model.requests.at(-1)!.messages.at(-1) as { content: string }).content) as Record<string, unknown>;
+}
+
+it("adds, undoes and corrects lines through DCRS's dry run (§113): the card from the dry run, the real call on yes, Undo by the added line's id, the reason asked for a signed-off record", async () => {
+  const preview = (extra: Record<string, unknown>) => ({ dryRun: true, recordId: 'rec-32', title: TITLE_32, status: 'In Progress', editable: true, willReopen: false, changes: [], added: [], removed: [], cleared: [], problems: [], ...extra });
+  const made = (extra: Record<string, unknown>) => ({ recordId: 'rec-32', status: 'In Progress', editable: true, actions: ['submit'], history: [], changes: [], added: [], removed: [], cleared: [], problems: [], ...extra });
+  const LINE = 'line 3 (11:00, 20.2, Jeni)';
+  let verified = false;
+  const { login, as, dcrs, model } = await start({
+    'POST /api/v1/records/rec-32/changes': (r) => {
+      const body = r.body as { patch: Record<string, unknown>; dryRun?: boolean; reason?: string };
+      const removing = !!body.patch.removeItems;
+      if (verified && !body.reason) {
+        return body.dryRun
+          ? json(200, preview({ status: 'Verified', editable: false, willReopen: true, reasonNeeded: true, removed: [LINE] }))
+          : refusal(409, 'needs-reopen', 'This record is Verified: reopen it for correction, with a reason.', { reasonNeeded: true, canReopen: true });
+      }
+      if (body.dryRun) {
+        return json(200, removing ? preview({ removed: [LINE], ...(verified ? { status: 'Verified', editable: false, willReopen: true, reasonNeeded: false } : {}) }) : preview({ added: [{ collection: 'rows', words: '11:00 · 20.2 · Jeni' }] }));
+      }
+      return json(200, removing ? made({ removed: [LINE], ...(verified ? { reopened: true } : {}) }) : made({ added: [{ collection: 'rows', id: 'row-c3', row: 3, words: '11:00 · 20.2 · Jeni' }] }));
+    },
+  });
+  const kapila = as((await login()).json<LoginResponse>().token);
+  const changes = () => dcrs.seen.filter((r) => r.path === '/api/v1/records/rec-32/changes').map((r) => r.body);
+
+  // ADD: the card lists the line back, no question; only the dry run was asked while it waits.
+  model.queue(callsTool('dcrs__edit_record', { recordId: 'rec-32', patch: ADD_LINE, note: 'from the floor' }, 'I can add that line.'));
+  const proposed = (await kapila.post('/assistant/messages', { text: 'Add a line 11:00 viscosity 20.2 Jeni to F-QC-32' })).json<AssistantReply>();
+  expect(proposed.confirmation?.changes).toEqual([{ system: 'Digital Controlled Record System', summary: `Add a line (11:00 · 20.2 · Jeni) in ${TITLE_32}. (note: "from the floor")` }]);
+  expect(changes()).toEqual([{ patch: ADD_LINE, dryRun: true }]);
+
+  model.queue(says('Done. Added line 3 (11:00 · 20.2 · Jeni). Say "undo" to take it off again.'));
+  const added = (await kapila.post(`/assistant/conversations/${proposed.conversationId}/decision`, { confirmationId: proposed.confirmation!.id, decision: 'confirm' })).json<AssistantReply>();
+  expect(added.reply).toContain('Added line 3');
+  expect(changes().at(-1)).toEqual({ patch: ADD_LINE, note: 'from the floor' });
+  // The model was told what was added, in words, with the Undo patch by the line's id as DCRS stored it.
+  expect(lastToldTo(model)).toMatchObject({ said: 'Added 11:00 · 20.2 · Jeni.', added: [{ id: 'row-c3' }], undoPatch: UNDO });
+
+  // UNDO: the same tool with that patch; the card asks, with the line's words from the dry run.
+  model.queue(callsTool('dcrs__edit_record', { recordId: 'rec-32', patch: UNDO }));
+  const undo = (await kapila.post('/assistant/messages', { text: 'undo', conversationId: proposed.conversationId })).json<AssistantReply>();
+  expect(undo.confirmation?.changes[0]!.summary).toBe(`Delete ${LINE} in ${TITLE_32}?`);
+  model.queue(says('Deleted line 3.'));
+  await kapila.post(`/assistant/conversations/${undo.conversationId}/decision`, { confirmationId: undo.confirmation!.id, decision: 'confirm' });
+  expect(changes().at(-1)).toEqual({ patch: UNDO });
+  expect(lastToldTo(model)).toMatchObject({ said: `Deleted ${LINE}.` });
+
+  // A SIGNED-OFF RECORD: the dry run says a reason is needed, so the model is told to ask; with the reason, the card says it reopens.
+  verified = true;
+  model.queue(callsTool('dcrs__edit_record', { recordId: 'rec-32', patch: UNDO }), says('That record is Verified. Why is it being corrected?'));
+  const asked = (await kapila.post('/assistant/messages', { text: 'delete line 3 of F-QC-32', conversationId: proposed.conversationId })).json<AssistantReply>();
+  expect(asked.confirmation).toBeNull();
+  expect(asked.reply).toBe('That record is Verified. Why is it being corrected?');
+  expect(lastToldTo(model)).toEqual({ error: 'The Adhesive Mixing Ratio Record of 11-Oct-2026 is Verified. Changing it reopens it for correction, which needs a reason: ask the person why, then call edit_record again with the reason.' });
+  model.queue(callsTool('dcrs__edit_record', { recordId: 'rec-32', patch: UNDO, reason: 'it was a test line' }));
+  const correction = (await kapila.post('/assistant/messages', { text: 'it was a test line', conversationId: proposed.conversationId })).json<AssistantReply>();
+  expect(correction.confirmation?.changes[0]!.summary).toBe(
+    `The Adhesive Mixing Ratio Record of 11-Oct-2026 is Verified. Reopen it for correction and delete ${LINE}? Reason: “it was a test line”. It will need submitting and verifying again.`,
+  );
+  model.queue(says('Deleted line 3; the record is reopened for correction.'));
+  await kapila.post(`/assistant/conversations/${correction.conversationId}/decision`, { confirmationId: correction.confirmation!.id, decision: 'confirm' });
+  expect(changes().at(-1)).toEqual({ patch: UNDO, reason: 'it was a test line' });
+  expect(lastToldTo(model)).toMatchObject({ reopened: true, said: `Deleted ${LINE}. The record was reopened for correction: it needs submitting and verifying again.` });
+});
+
+it('words the card in the reply language (Gujarati), and refuses a change that would change nothing before any card', async () => {
+  const { login, as, model } = await start({
+    'POST /api/v1/records/rec-32/changes': (r) => {
+      const body = r.body as { patch: Record<string, unknown> };
+      if (body.patch.remarks) return refusal(400, 'nothing-changed', 'Nothing on the form changed.', { problems: ['"remarks" isn\'t a field on this form, so I left it out.'] });
+      return json(200, { dryRun: true, recordId: 'rec-32', title: '11-Oct-2026 નો Adhesive Mixing Ratio Record', status: 'In Progress', editable: true, willReopen: false, changes: [], added: [], removed: ['લાઇન 3 (11:00, 20.2, Jeni)'], cleared: [], problems: [] });
+    },
+  });
+  const kapila = as((await login()).json<LoginResponse>().token);
+  model.queue(callsTool('dcrs__edit_record', { recordId: 'rec-32', patch: { removeItems: { rows: [3] } } }));
+  const gu = (await kapila.post('/assistant/messages', { text: 'F-QC-32 ની લાઇન 3 કાઢી નાખો', replyLanguage: 'gu' })).json<AssistantReply>();
+  expect(gu.confirmation?.changes[0]!.summary).toBe('11-Oct-2026 નો Adhesive Mixing Ratio Recordમાં લાઇન 3 (11:00, 20.2, Jeni) કાઢી નાખો?');
+
+  model.queue(callsTool('dcrs__edit_record', { recordId: 'rec-32', patch: { remarks: 'x' } }), says('There is no Remarks box on that form.'));
+  const nothing = (await kapila.post('/assistant/messages', { text: 'set remarks to x' })).json<AssistantReply>();
+  expect(nothing.confirmation).toBeNull();
+  expect(nothing.reply).toBe('There is no Remarks box on that form.');
+  expect(lastToldTo(model)).toEqual({ error: 'Nothing on the form changed: "remarks" isn\'t a field on this form, so I left it out..' });
+});

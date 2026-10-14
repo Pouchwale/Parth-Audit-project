@@ -6,6 +6,7 @@
 // the same facts cost two to three times as much. Every answer is read defensively: an answer shaped otherwise is
 // passed on, cut to the budget by fit().
 import { BUDGET, fit, shorten, table, tables, WEB_ONLY, WEB_ONLY_IN_LISTS, without } from './fit.ts';
+import { listsForModel, listsOf } from './lines.ts';
 
 type Obj = Record<string, unknown>;
 
@@ -106,7 +107,7 @@ export function documentsForModel(answer: unknown): unknown {
   const others = pick(answer, ['kept', 'notInDcrs']);
   return fit(
     {
-      ...pick(answer, ['query', 'total']),
+      ...pick(answer, ['query', 'total', 'offset', 'more']),
       documents: table(answer.documents.map(documentBrief)),
       ...Object.fromEntries(Object.entries(others).map(([key, items]) => [key, table(list(items))])),
     },
@@ -166,17 +167,23 @@ export function recordsForModel(answer: unknown): unknown {
   return fit(
     {
       ...(isObj(document) && Object.keys(document).length > 0 ? { document } : {}),
-      ...pick(answer, ['query', 'from', 'to', 'status', 'total', 'complete', 'note']),
+      ...pick(answer, ['query', 'from', 'to', 'status', 'total', 'offset', 'more', 'complete', 'note']),
       [key]: table(items.map((item) => recordBrief(item, oneDocument))),
     },
     BUDGET.list,
   );
 }
 
-/** A layout without its empty parts (a log sheet with no boxes above or below its lines says so twice). */
+/**
+ * A layout without its empty parts (a log sheet with no boxes above or below its lines says so twice). Its lists
+ * (REQUIREMENTS §113) as the model aims a change: each list's rules, and on a record its lines by row, id and words.
+ */
 function layoutBrief(layout: unknown): unknown {
   if (!isObj(layout)) return layout;
-  return Object.fromEntries(Object.entries(layout).filter(([, item]) => !isEmpty(item)));
+  const brief = Object.fromEntries(Object.entries(layout).filter(([, item]) => !isEmpty(item)));
+  const lists = listsOf({ layout });
+  if (lists.length > 0) brief.lists = listsForModel(lists);
+  return brief;
 }
 
 const oneLine = (value: unknown) => String(value ?? '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim();

@@ -141,6 +141,16 @@ export function languageNote(choice: ReplyLanguage | undefined, found: TurnLangu
   return `${found.earlier ? 'This conversation is' : 'Their latest message is'} in ${name}: answer in ${name}.`;
 }
 
+/**
+ * The language a connector words its own sentences in (a confirmation card, a system's refusal through X-Language):
+ * the person's choice in the app's settings, else what they wrote in, else English. Gujarati or Hindi in Latin letters
+ * gets its own script, as DCRS's own pages answer it.
+ */
+export function spokenLanguage(choice: ReplyLanguage | undefined, found: TurnLanguage | null): Language {
+  if (choice === 'en' || choice === 'gu' || choice === 'hi') return choice;
+  return found?.written.language ?? 'en';
+}
+
 /** The sentences the server says itself rather than the model. */
 export type FixedReply = 'cancelled' | 'expired' | 'unclear' | 'unfinished' | 'allowance';
 

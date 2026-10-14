@@ -127,6 +127,8 @@ export interface ActionContext {
   /** The credentials this connector returned from authenticate() for the signed-in person. */
   credentials: unknown;
   files: ConversationFiles;
+  /** The language the person is answered in (en, hi or gu): the confirmation card's words, and the system's own (X-Language). */
+  language?: 'en' | 'hi' | 'gu';
 }
 
 /** What describe() has to work with: the same as run(), since naming a call exactly can mean asking the system. */
@@ -198,12 +200,15 @@ export class ConnectorError extends Error {
    * (one device too many at sign-in) and "session-ended" (a device its super admin signed out).
    */
   readonly code: string | undefined;
+  /** More the system said with its refusal, when the program needs it: DCRS's `reasonNeeded` and `canReopen` on needs-reopen. */
+  readonly details: Readonly<Record<string, unknown>>;
 
-  constructor(kind: ConnectorErrorKind, message: string, options: { code?: string } = {}) {
+  constructor(kind: ConnectorErrorKind, message: string, options: { code?: string; details?: Record<string, unknown> } = {}) {
     super(message);
     this.name = 'ConnectorError';
     this.kind = kind;
     this.code = options.code;
+    this.details = options.details ?? {};
   }
 }
 

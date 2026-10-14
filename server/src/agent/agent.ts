@@ -28,7 +28,7 @@ import { baseName } from '../files/names.ts';
 import { conversationFiles, fileInfo, storeFile } from '../files/store.ts';
 import { errorResponse, HttpError } from '../http.ts';
 import { openConversation, openInterrupted, type WorkingConversation } from './conversation.ts';
-import { fixedReply, turnLanguage, type TurnLanguage } from './language.ts';
+import { fixedReply, spokenLanguage, turnLanguage, type Language, type TurnLanguage } from './language.ts';
 import {
   explainAiError,
   isRequestTooLarge,
@@ -312,7 +312,7 @@ async function confirm(
       continue;
     }
     show(call, 'running', null);
-    const run = await execute(turn, conv.id, call.toolName, call.input, call.toolCallId, call.actionId);
+    const run = await execute(turn, conv.id, call.toolName, call.input, call.toolCallId, call.actionId, spokenLanguage(turn.replyLanguage, languageOf(conv, pending.request)));
     show(call, run.ok ? 'succeeded' : 'failed', run.error ?? null);
     for (const file of run.files) reply.put({ type: 'file', file });
     results.push(run.result);
@@ -399,7 +399,7 @@ async function runModel(turn: Turn, conv: WorkingConversation, reply: MessageWri
     const text = content?.trim() ?? '';
     if (toolCalls.length === 0) return { reply: text, confirmation: null };
 
-    const { results, proposed, signedOut, signedOutWords } = await runToolCalls(turn, conv.id, toolCalls, files, request, reply);
+    const { results, proposed, signedOut, signedOutWords } = await runToolCalls(turn, conv.id, toolCalls, files, request, reply, spokenLanguage(turn.replyLanguage, language));
     if (signedOut) {
       for (const call of proposed) results.push(await skip(turn, call, SIGNED_OUT));
       conv.messages.push(...results);
@@ -453,6 +453,7 @@ async function runToolCalls(
   files: ConversationFiles,
   request: string,
   reply: MessageWriter,
+  language: Language,
 ): Promise<{ results: ToolMessage[]; proposed: PendingCall[]; signedOut: boolean; signedOutWords?: string }> {
   const { deps } = turn;
   const planned: Planned[] = toolCalls.map((call) => check(deps.registry, call));
@@ -471,7 +472,7 @@ async function runToolCalls(
   };
   await inTurns(planned, LOOKUPS_AT_ONCE, async (item) => {
     if (!item.binding || item.result) return;
-    const described = await describe(turn, item.binding, item.input, { credentials: await credentialsOf(item.binding.connector.id), files });
+    const described = await describe(turn, item.binding, item.input, { credentials: await credentialsOf(item.binding.connector.id), files, language });
     if (described instanceof ConnectorError) {
       item.result = toolError(item.call.id, described.message);
       if (described.kind === 'unauthorized' && item.binding.connector.id === deps.registry.signIn.id) {
@@ -512,7 +513,7 @@ async function runToolCalls(
     const actionId = await logAction(turn, conversationId, binding, item.input, summary, 'running', request);
     const activity: ActivityPart = { type: 'activity', id: actionId, system: binding.connector.name, summary, kind: 'read', status: 'running', error: null };
     reply.put(activity);
-    const run = await execute(turn, conversationId, binding.toolName, item.input, item.call.id, actionId);
+    const run = await execute(turn, conversationId, binding.toolName, item.input, item.call.id, actionId, language);
     reply.put({ ...activity, status: run.ok ? 'succeeded' : 'failed', error: run.error ?? null });
     for (const file of run.files) reply.put({ type: 'file', file });
     item.result = run.result;
@@ -623,6 +624,7 @@ async function execute(
   input: unknown,
   toolCallId: string,
   actionId: string,
+  language: Language,
 ): Promise<RunResult> {
   const { deps } = turn;
   const binding = deps.registry.find(toolName);
@@ -639,7 +641,7 @@ async function execute(
   try {
     const credentials = await loadCredentials(deps, turn.sessionId, binding.connector.id);
     if (credentials === undefined) throw new ConnectorError('unauthorized', `You aren't signed in to ${binding.connector.name}.`);
-    output = await binding.action.run({ credentials, files: conversationFiles(deps, turn.userId, conversationId) }, parsed.data);
+    output = await binding.action.run({ credentials, files: conversationFiles(deps, turn.userId, conversationId), language }, parsed.data);
   } catch (error) {
     const known = error instanceof ConnectorError ? error : undefined;
     if (!known) turn.log.error({ err: error, tool: toolName }, 'connector action failed unexpectedly');
@@ -911,7 +913,7 @@ async function describe(
   turn: Turn,
   binding: ToolBinding,
   input: unknown,
-  context: { credentials: unknown; files: ConversationFiles },
+  context: { credentials: unknown; files: ConversationFiles; language: Language },
 ): Promise<Described<unknown> | ConnectorError> {
   try {
     const said = await binding.action.describe(input, context);

@@ -64,6 +64,9 @@ interface Refusal {
   errors?: unknown;
   /** With the code "ambiguous": the documents the words could mean. */
   candidates?: unknown;
+  /** With the code "needs-reopen" (REQUIREMENTS §113): a reason would let the change reopen the record, and whether it can be. */
+  reasonNeeded?: unknown;
+  canReopen?: unknown;
 }
 
 interface LoginAnswer {
@@ -323,15 +326,17 @@ export async function refusalOf(response: Response): Promise<ConnectorError> {
       // A name that fits several documents: DCRS lists them, so the assistant can ask the person which one.
       const which = code === 'ambiguous' ? candidateWords(body?.candidates) : [];
       if (which.length > 0) return new ConnectorError('invalid_request', `${said ?? 'Several documents fit that name.'} They are: ${which.join('; ')}.`);
-      return new ConnectorError('invalid_request', withProblems(said ?? 'DCRS turned the request down.'));
+      // Such as nothing-changed: a patch that changes nothing on the form, with what was left out and why.
+      return new ConnectorError('invalid_request', withProblems(said ?? 'DCRS turned the request down.'), { code, details: { problems } });
     }
     case 401:
       // A session DCRS ended (its super admin signed the device out): DCRS's own words, as they are (§106).
       if (code === SESSION_ENDED && said) return new ConnectorError('unauthorized', said, { code });
       return new ConnectorError('unauthorized', SIGNED_OUT);
     case 403:
-      // Outside the plant's working hours, another department's records, a password still to change: DCRS says which.
-      return new ConnectorError('forbidden', said ?? "DCRS doesn't let this account do that.");
+      // Outside the plant's working hours, another department's records, a password still to change, or a level too
+      // low for the step (access-level, REQUIREMENTS §96): DCRS says which, in the X-Language asked.
+      return new ConnectorError('forbidden', said ?? "DCRS doesn't let this account do that.", { code });
     case 404:
       if (code === 'no-such-route') {
         return new ConnectorError('unavailable', "This DCRS server doesn't offer that yet. It needs updating to the version with the mobile app's API.");
@@ -339,13 +344,17 @@ export async function refusalOf(response: Response): Promise<ConnectorError> {
       return new ConnectorError('not_found', said ?? "DCRS has nothing like that. Check the details and try again.");
     case 409: {
       if (code === 'needs-reopen') {
+        // A signed-off record: with a reason (and Edit), DCRS reopens it and makes the change in one call (§113).
         const message = said ?? 'That record cannot be changed as it stands.';
+        const reasonNeeded = body?.reasonNeeded === true;
+        const canReopen = body?.canReopen !== false;
         return new ConnectorError(
           'conflict',
           /reopen/i.test(message) ? message : `${message} To correct it, it must first be reopened for correction, with a reason.`,
+          { code, details: { reasonNeeded, canReopen } },
         );
       }
-      return new ConnectorError('conflict', withProblems(said ?? 'DCRS could not do that as things stand.'));
+      return new ConnectorError('conflict', withProblems(said ?? 'DCRS could not do that as things stand.'), { code });
     }
     case 413:
       return new ConnectorError('invalid_request', said ?? 'That is too large for DCRS to take.');

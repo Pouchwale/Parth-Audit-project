@@ -28,6 +28,8 @@ export const recordId = text(200);
 export const documentId = text(200);
 export const searchWords = text(200);
 export const limit = (most: number) => z.number().int().min(1).max(most).optional();
+/** Where a page of a list starts (DCRS's offset, REQUIREMENTS §113): 0 unless the person asks for more. */
+export const offset = z.number().int().min(0).optional();
 
 /** A path segment, such as a record's id, made safe for a URL. */
 export const segment = (value: string) => encodeURIComponent(value.trim());
@@ -70,6 +72,29 @@ export function patchInWords(patch: Record<string, unknown>, max = 420): string 
         const where = edit.match === undefined ? '' : ` where ${pairs(edit.match)}`;
         const what = edit.set === undefined ? 'change the row' : `set ${pairs(edit.set)}`;
         parts.push(`in ${typeof edit.collection === 'string' ? edit.collection : 'the rows'}${where}: ${what}`);
+      }
+    } else if (key === 'addItems' && isObject(value)) {
+      // The lines to add, per list: {"rows": [{...values} | {values, after}]} (REQUIREMENTS §113).
+      for (const [list, lines] of Object.entries(value)) {
+        for (const line of Array.isArray(lines) ? lines : [lines]) {
+          const values = isObject(line) && isObject(line.values) ? line.values : line;
+          parts.push(`add to ${list}: ${pairs(values)}`);
+        }
+      }
+    } else if (key === 'removeItems' && isObject(value)) {
+      // The lines to take off, per list: by id, by row, or by the list's name key.
+      for (const [list, lines] of Object.entries(value)) {
+        for (const line of Array.isArray(lines) ? lines : [lines]) parts.push(`delete from ${list}: ${isObject(line) ? pairs(line) : spoken(line, 40)}`);
+      }
+    } else if (key === 'clearItems' && isObject(value)) {
+      for (const [list, lines] of Object.entries(value)) {
+        for (const line of Array.isArray(lines) ? lines : [lines]) {
+          if (isObject(line)) {
+            const { keys, ...match } = line;
+            const which = Array.isArray(keys) && keys.length > 0 ? keys.map(String).join(', ') : 'every box';
+            parts.push(`clear ${which} of the line in ${list} where ${pairs(match)}`);
+          } else parts.push(`clear the line in ${list} at ${spoken(line, 40)}`);
+        }
       }
     } else {
       parts.push(`${key} to ${spoken(value)}`);

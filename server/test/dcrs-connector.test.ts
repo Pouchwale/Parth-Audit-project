@@ -54,8 +54,12 @@ const READS = [
   'insights',
   'escalations',
 ];
-/** The most the tool definitions may take, in characters of JSON. */
-const TOOLS_BUDGET = 8_800;
+/**
+ * The most the tool definitions may take, in characters of JSON. Set for the Groq key's 8,000 tokens a minute; since
+ * the owner's ChatGPT key (DCRS REQUIREMENTS §109, 2,000,000 tokens a minute) it guards only the prompt's size, and
+ * took the four operations on a record's lines (§113) and the lists' offset.
+ */
+const TOOLS_BUDGET = 9_600;
 
 /** A describe() answer's sentence, whether it came alone or with the input as resolved. */
 const summaryOf = (said: string | Described<unknown>) => (typeof said === 'string' ? said : said.summary);
@@ -704,6 +708,12 @@ group('what the person is asked to confirm', () => {
       'GET /api/v1/documents/F-QC-15-A': () => json(200, DOC_BRIEF),
       'GET /api/v1/records': (r) => json(200, dayAnswer(r.query.documentId === 'daily-pest-monitoring' ? PEST_DOC : DOC_BRIEF, r.query.from === 'today' ? '2026-09-30' : r.query.from!)),
       'GET /api/v1/records/rec-1': () => json(200, RECORD),
+      // A change's card is worded from DCRS's own dry run (§113).
+      'POST /api/v1/records/rec-1/changes': (r) => {
+        const patch = (r.body as { patch: Record<string, unknown> }).patch;
+        const changes = Object.entries(patch).map(([key, value]) => ({ label: key === 'temperature' ? 'Temperature' : 'Remarks', before: '', after: String(value) }));
+        return json(200, { dryRun: true, recordId: 'rec-1', title: 'the Area Line Clearance – Printing of 30-Sep-2026', status: 'In Progress', editable: true, willReopen: false, changes, added: [], removed: [], cleared: [], problems: [] });
+      },
     });
     const action = actionOf(connector.actions, name);
     return summaryOf(await action.describe(action.input.parse(input), ctx));
@@ -718,7 +728,7 @@ group('what the person is asked to confirm', () => {
       'Open the record of F/QC/15-A Area Line Clearance – Printing for 2026-09-29, starting it if there is none yet',
     );
     expect(await words('edit_record', { recordId: 'rec-1', patch: { temperature: 4, remarks: 'All clear' }, note: 'Reading at 9' })).toBe(
-      'In record rec-1, set temperature to 4; remarks to "All clear" (note: "Reading at 9")',
+      'Set Temperature to 4 and set Remarks to All clear in the Area Line Clearance – Printing of 30-Sep-2026. (note: "Reading at 9")',
     );
     expect(await words('record_action', { recordId: 'rec-1', action: 'submit' })).toBe(SUBMIT_REC_1);
     expect(await words('record_action', { recordId: 'rec-1', action: 'verify' })).toBe('Verify (approve) record rec-1');
@@ -996,8 +1006,13 @@ group('naming a record by its document', () => {
   });
 
   it('edits and photographs a record by its document too, and names a dated record as such', async () => {
-    const { said } = await describeOf({ 'GET /api/v1/records': () => day([LIST_ITEM]) }, 'edit_record', { documentId: 'F-QC-15-A', date: '2026-09-29', patch: { lineNo: '4' } });
-    expect(said).toEqual({ summary: `In the record of ${LABEL} for 2026-09-29, set lineNo to "4"`, input: { recordId: 'rec-1', patch: { lineNo: '4' } } });
+    const dryRun = () =>
+      json(200, { dryRun: true, recordId: 'rec-1', title: 'the Area Line Clearance – Printing of 29-Sep-2026', status: 'In Progress', editable: true, willReopen: false, changes: [{ label: 'Line No.', before: '3', after: '4' }], added: [], removed: [], cleared: [], problems: [] });
+    const { said, seen } = await describeOf({ 'GET /api/v1/records': () => day([LIST_ITEM]), 'POST /api/v1/records/rec-1/changes': dryRun }, 'edit_record', { documentId: 'F-QC-15-A', date: '2026-09-29', patch: { lineNo: '4' } });
+    // The record DCRS named is the one dry-run, and the card says what DCRS would do to it.
+    expect(said).toEqual({ summary: 'Set Line No. to 4 in the Area Line Clearance – Printing of 29-Sep-2026.', input: { recordId: 'rec-1', patch: { lineNo: '4' } } });
+    expect(seen.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /api/v1/records', 'POST /api/v1/records/rec-1/changes']);
+    expect(seen[1]!.body).toEqual({ patch: { lineNo: '4' }, dryRun: true });
     const empty = await describeOf({ 'GET /api/v1/records': () => day([]) }, 'edit_record', { documentId: 'F-QC-15-A', patch: { lineNo: '4' } });
     expect(summaryOf(empty.said)).toBe(`Start today's record of ${LABEL} and set lineNo to "4"`);
     const photo = await describeOf({ 'GET /api/v1/records': () => day([]) }, 'add_photo_to_record', { documentId: 'F-QC-15-A', fileId: PHOTO.id });

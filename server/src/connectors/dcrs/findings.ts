@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineAction } from '../types.ts';
 import { PDF_TIMEOUT_MS, tokenOf, type DcrsClient } from './client.ts';
 import { BUDGET, fit, WEB_ONLY, WEB_ONLY_IN_LISTS, without } from './fit.ts';
-import { isoDate, pdfForPerson, searchWords, segment, spoken, text } from './inputs.ts';
+import { isoDate, offset, pdfForPerson, searchWords, segment, spoken, text } from './inputs.ts';
 
 const status = z.enum(['open', 'closed', 'all']).optional();
 // "id" is the key DCRS's database overview reads a finding from (overview.assistant_action_targets), and "date" the
@@ -17,12 +17,12 @@ export function findingActions(dcrs: DcrsClient) {
       description:
         'Lists CAPA findings (pest control inspections): id, ref, finding, target date, status. status: open (default, overdue too), closed or all; q: words; from, to: report dates.',
       kind: 'read',
-      input: z.object({ status, q: searchWords.optional(), from: isoDate.optional(), to: isoDate.optional() }),
-      describe: (input) => `List the ${input.status === 'all' ? '' : `${input.status ?? 'open'} `}CAPA findings${input.q ? ` about "${input.q}"` : ''}`,
+      input: z.object({ status, q: searchWords.optional(), from: isoDate.optional(), to: isoDate.optional(), offset }),
+      describe: (input) => `List the ${input.status === 'all' ? '' : `${input.status ?? 'open'} `}CAPA findings${input.q ? ` about "${input.q}"` : ''}${input.offset ? ` from number ${input.offset + 1}` : ''}`,
       run: async (ctx, input) => {
         const answer = await dcrs.json('GET', '/api/v1/findings', {
           token: tokenOf(ctx.credentials),
-          query: { status: input.status, q: input.q, from: input.from, to: input.to, limit: 30 },
+          query: { status: input.status, q: input.q, from: input.from, to: input.to, limit: 30, offset: input.offset },
         });
         return fit(without(answer, WEB_ONLY_IN_LISTS), BUDGET.list);
       },

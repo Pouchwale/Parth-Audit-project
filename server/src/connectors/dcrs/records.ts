@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { ConnectorError, defineAction, type ActionContext } from '../types.ts';
 import { PDF_TIMEOUT_MS, tokenOf, type DcrsClient } from './client.ts';
-import { documentId, isoDate, limit, patchInWords, pdfForPerson, searchWords, segment, spoken, text } from './inputs.ts';
+import { documentId, isoDate, limit, offset, patchInWords, pdfForPerson, searchWords, segment, spoken, text } from './inputs.ts';
+import { cardWords, changeMade, madeWords, previewOf, undoNote } from './lines.ts';
 import { aboutDocument, dcrsNames, dayRecordWords, recordRef } from './names.ts';
 import { changeForModel, openedForModel, recordForModel, recordsForModel } from './shape.ts';
 
@@ -60,14 +61,14 @@ export function recordActions(dcrs: DcrsClient) {
       description:
         'Lists records, of one document or all, from..to (default the last 31 days), newest first. status: Scheduled, Due, In Progress, Submitted, Pending Verification, Verified, Rejected.',
       kind: 'read',
-      input: z.object({ documentId: documentId.optional(), from: isoDate.optional(), to: isoDate.optional(), status: text(40).optional(), limit: limit(50) }),
+      input: z.object({ documentId: documentId.optional(), from: isoDate.optional(), to: isoDate.optional(), status: text(40).optional(), limit: limit(50), offset }),
       describe: (input) =>
-        `List the records${input.documentId ? ` of ${input.documentId}` : ''}${input.from ? ` from ${input.from}` : ''}${input.to ? ` to ${input.to}` : ''}${input.status ? ` that are ${input.status}` : ''}`,
+        `List the records${input.documentId ? ` of ${input.documentId}` : ''}${input.from ? ` from ${input.from}` : ''}${input.to ? ` to ${input.to}` : ''}${input.status ? ` that are ${input.status}` : ''}${input.offset ? ` from number ${input.offset + 1}` : ''}`,
       run: async (ctx, input) => {
         const answer = await aboutDocument(input.documentId, () =>
           dcrs.json('GET', '/api/v1/records', {
             token: tokenOf(ctx.credentials),
-            query: { documentId: input.documentId, from: input.from, to: input.to, status: input.status, limit: input.limit ?? 20 },
+            query: { documentId: input.documentId, from: input.from, to: input.to, status: input.status, limit: input.limit ?? 20, offset: input.offset },
           }),
         );
         return recordsForModel(answer);
@@ -77,13 +78,13 @@ export function recordActions(dcrs: DcrsClient) {
       name: 'search_records',
       description: 'Searches the words written on records (names, codes, remarks), newest first, with snippets. Optional documentId, from, to.',
       kind: 'read',
-      input: z.object({ q: searchWords, documentId: documentId.optional(), from: isoDate.optional(), to: isoDate.optional(), limit: limit(20) }),
-      describe: (input) => `Search the records for "${input.q}"`,
+      input: z.object({ q: searchWords, documentId: documentId.optional(), from: isoDate.optional(), to: isoDate.optional(), limit: limit(20), offset }),
+      describe: (input) => `Search the records for "${input.q}"${input.offset ? ` from hit ${input.offset + 1}` : ''}`,
       run: async (ctx, input) => {
         const answer = await aboutDocument(input.documentId, () =>
           dcrs.json('GET', '/api/v1/records/search', {
             token: tokenOf(ctx.credentials),
-            query: { q: input.q, documentId: input.documentId, from: input.from, to: input.to, limit: input.limit ?? 10 },
+            query: { q: input.q, documentId: input.documentId, from: input.from, to: input.to, limit: input.limit ?? 10, offset: input.offset },
           }),
         );
         return recordsForModel(answer);
@@ -151,26 +152,47 @@ export function recordActions(dcrs: DcrsClient) {
     defineAction({
       name: 'edit_record',
       description:
-        'Changes values on a record; get_record first for the field keys and options. patch: {fieldKey: value}; log sheet: {header: {key: value}, itemEdits: [{collection, match: {key: value}, set: {key: value}}]}; F/HR/17: {checkpoints: {"1": "Yes"}}. A submitted or verified record needs record_action reopen first.',
+        'Changes a record; get_record first for its keys, lists and line ids. patch: {fieldKey: value}; header: {key: value}; itemEdits: [{collection, match: {id|row|key}, set}]; addItems: {list: [{values}]}; removeItems: {list: [id|row]}; clearItems: {list: [{id|row, keys?}]}; checkpoints: {"1": "Yes"}. Never send a whole list. A signed-off record needs reason (DCRS reopens it): ask first.',
       kind: 'write',
       input: z.object({
         ...recordRef,
         patch: z.object({}).catchall(z.unknown()),
         note: text(500).optional().describe('Why, if the person said'),
+        reason: text(500).optional().describe('For a signed-off record: why it is corrected'),
       }),
+      // THE CONFIRMATION CARD IS WORDED FROM DCRS'S OWN DRY RUN (REQUIREMENTS §113): the same patch with dryRun: true,
+      // which writes nothing and names the lines it would take off or clear in their own words — so the card says
+      // exactly what DCRS will do. What would change nothing is refused before any card; a signed-off record needs the
+      // person's reason first. A record not started yet has nothing to dry-run: its card says the patch in words.
       describe: async (input, ctx) => {
         if (Object.keys(input.patch).length === 0) throw new ConnectorError('invalid_request', 'The patch is empty: say which fields to change.');
         const named = await names.record(ctx, input, { start: true });
-        const change = `set ${patchInWords(input.patch)}${input.note ? ` (note: ${spoken(input.note, 120)})` : ''}`;
-        return { summary: named.started ? `In ${named.words}, ${change}` : `Start ${named.words} and ${change}`, input: named.input };
+        const note = input.note ? ` (note: ${spoken(input.note, 120)})` : '';
+        if (!named.started || !named.input.recordId) {
+          return { summary: `Start ${named.words} and set ${patchInWords(input.patch)}${note}`, input: named.input };
+        }
+        const preview = previewOf(
+          await dcrs.json('POST', `/api/v1/records/${segment(named.input.recordId)}/changes`, {
+            token: tokenOf(ctx.credentials),
+            language: ctx.language,
+            body: { patch: input.patch, dryRun: true, ...(input.reason ? { reason: input.reason } : {}) },
+          }),
+        );
+        return { summary: `${cardWords(preview, ctx.language ?? 'en', input.reason)}${note}`, input: named.input };
       },
       run: async (ctx, input) => {
         const { recordId, created } = await names.recordIdOf(ctx, input, { start: true });
         const answer = await dcrs.json('POST', `/api/v1/records/${segment(recordId)}/changes`, {
           token: tokenOf(ctx.credentials),
-          body: { patch: input.patch, ...(input.note ? { note: input.note } : {}) },
+          language: ctx.language,
+          body: { patch: input.patch, ...(input.note ? { note: input.note } : {}), ...(input.reason ? { reason: input.reason } : {}) },
         });
-        return changeForModel(started(answer, created));
+        // The lines added come back with their ids as stored: the reply names them, and Undo takes them off again.
+        const made = changeMade(answer);
+        const language = ctx.language ?? 'en';
+        const said = madeWords(made, language);
+        const shaped = changeForModel(started(answer, created));
+        return { ...(said ? { said } : {}), ...(shaped && typeof shaped === 'object' ? shaped : { result: shaped }), ...(undoNote(made, language) ?? {}) };
       },
     }),
     defineAction({
