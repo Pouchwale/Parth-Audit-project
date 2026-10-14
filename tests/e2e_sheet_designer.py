@@ -178,7 +178,9 @@ def design_and_save(page, doc_id, format_no, anchor, issued_rev, next_rev, fixed
         "The design surface looks like the sheet: the header block, and the grid drawn with the log sheet's own classes",
         page.locator(f"{DESIGNER} .doc-header").count() == 1 and page.locator(f"{DESIGNER} .doc-table table.compact.log-sheet").count() == 1 and format_no in page.locator(f"{DESIGNER} .doc-header").inner_text(),
     )
-    check("...with the columns it was issued with", headings(page) == issued_headings[1:], (headings(page), issued_headings))
+    # The sheet's own Sr. No. heading is not a column of the format; a form that numbers its own lines has none of the
+    # sheet's (REQUIREMENTS §102), so its headings are the format's columns exactly.
+    check("...with the columns it was issued with", headings(page) in (issued_headings, issued_headings[1:]), (headings(page), issued_headings))
     toolbar = page.locator("[data-section='designer-toolbar']")
     check("The toolbar is a control, so it never prints", "no-print" in (toolbar.get_attribute("class") or ""))
     printable_controls = page.evaluate(
@@ -476,7 +478,9 @@ def design_and_save(page, doc_id, format_no, anchor, issued_rev, next_rev, fixed
     close_assistant(page)
     check("Its one button leaves design mode: the records and the preview are back", page.locator(DESIGNER).count() == 0 and page.locator("[data-table='document-records']").count() == 1 and page.locator("[data-section='document-preview']").count() == 1)
     shown = sheet_headings(page)
-    check("The sheet on the page carries the new columns, where they were put", "Batch Number" in shown and shown.index("Batch Number") == at + 2 and shown[-1] == "Checked by QA" and "Batch Number (2)" not in shown, shown)
+    # One heading further on than in the designer (the sheet's own Sr. No.), or the same place on a form that numbers
+    # its own lines (REQUIREMENTS §102).
+    check("The sheet on the page carries the new columns, where they were put", "Batch Number" in shown and shown.index("Batch Number") - at in (1, 2) and shown[-1] == "Checked by QA" and "Batch Number (2)" not in shown, shown)
     check(f"...and the format is at Rev {next_rev}", sheet_rev(page) == next_rev, sheet_rev(page))
     edit = (stored(page, "formatEdits") or {}).get(doc_id) or {}
     rev = (edit.get("revisions") or [{}])[0]
