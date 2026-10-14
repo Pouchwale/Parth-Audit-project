@@ -18,8 +18,10 @@ records or any modules".
     the browser through the sync; staff see no card;
   * each move and each restore is a line of the activity log.
 
-Network-independent. Against the test server on :8842 (sign-up open: the
-first account is the super admin, later ones staff).
+Network-independent. Against the product server on :8843 (seeded, sign-up closed: admin@gpp.local is the
+super admin, and the staff account is one the super admin makes, REQUIREMENTS §105). The test server on :8842
+is one database for the whole run, so its super admin is whichever suite signed up first, and its records
+item can be the storage-room suite's 7 MB copy.
 """
 import json
 import sys
@@ -29,8 +31,11 @@ from playwright.sync_api import sync_playwright
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-BASE = "http://localhost:8842"
-PASSWORD = "PlaywrightQA123"
+BASE = "http://localhost:8843"
+# The seeded administrator and the first password scripts/run-e2e.ts gives the product server (PRODUCT_SEED_PASSWORD).
+ADMIN_EMAIL = "admin@gpp.local"
+SEED_PASSWORD = "SeedQA@2026"
+STAFF_PASSWORD = "ArchiveQA@2026"
 FAILURES = []
 STAMP = int(time.time() * 1000)
 PREFIX = f"archive-qa-{STAMP}-"
@@ -93,25 +98,16 @@ def sign_out(page):
         page.wait_for_timeout(300)
 
 
-def sign_in(page, email, name):
-    """Signs in, creating the account the first time (the first account of the server is the super admin)."""
+def sign_in(page, email, password):
+    """Signs in as an account the product server already has: sign-up is closed there (REQUIREMENTS §105)."""
     page.goto(f"{BASE}/index.html")
     page.wait_for_timeout(600)
     if logged_in(page):
         sign_out(page)
     page.wait_for_selector("#login-email", timeout=60000)
     page.fill("#login-email", email)
-    page.fill("#login-password", PASSWORD)
+    page.fill("#login-password", password)
     page.click("button:has-text('Log In')")
-    page.wait_for_timeout(1500)
-    if not logged_in(page):
-        page.click("text=Sign up")
-        page.wait_for_timeout(300)
-        page.fill("#signup-name", name)
-        page.fill("#signup-email", email)
-        page.fill("#signup-password", PASSWORD)
-        page.fill("#signup-confirm", PASSWORD)
-        page.click("button:has-text('Create Account')")
     page.wait_for_selector(".app-sidebar", timeout=60000)
     page.wait_for_timeout(1500)
     dismiss(page)
@@ -123,7 +119,9 @@ def api(page, method, path, body=None, headers=None):
         """async ([method, path, body, headers]) => {
              const me = await fetch('/api/auth/me', { credentials: 'same-origin' }).then((r) => r.json());
              const h = { 'X-Account': me.user ? me.user.id : '', ...(headers || {}) };
-             if (body !== null) h['Content-Type'] = 'application/json';
+             // A storage item goes as the app sends it (frontend/src/data/serverSync.ts): text, read whole by the
+             // storage route; as JSON it would meet the JSON parser's own small limit and be refused as too large.
+             if (body !== null) h['Content-Type'] = path.startsWith('/api/storage/') ? 'text/plain;charset=utf-8' : 'application/json';
              const res = await fetch(path, { method, credentials: 'same-origin', headers: h, body: body === null ? undefined : body });
              let json = null;
              try { json = await res.json(); } catch (e) { json = null; }
@@ -140,6 +138,19 @@ def stored_records(page):
         if item["key"] == "records":
             return json.loads(item["value"]), item["version"]
     return [], 0
+
+
+def put_records(page, make):
+    """Writes the records item as the app does: read, change, write with the version read. The browser's own sync
+    writes the item too (a sign-in's merge, the day's preparation), so a 409 is read again and written again."""
+    put = None
+    for _ in range(4):
+        current, version = stored_records(page)
+        put = api(page, "PUT", "/api/storage/records", json.dumps(make(current)), {"X-Base-Version": str(version)})
+        if put["status"] != 409:
+            return put
+        page.wait_for_timeout(1500)
+    return put
 
 
 def live_start(page):
@@ -182,12 +193,12 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: errors.append(str(e)))
 
     print("\n==== The super admin, and the sheets planted as a browser once made them ====")
-    sign_in(page, f"archive-admin-{STAMP}@example.com", "Archive Admin QA")
+    sign_in(page, ADMIN_EMAIL, SEED_PASSWORD)
     me = api(page, "GET", "/api/auth/me")["json"]
-    check("The first account is the super admin", me.get("user", {}).get("role") == "admin", me)
+    check("The seeded administrator is the super admin", me.get("user", {}).get("role") == "admin", me)
     go_live = live_start(page)
     check("The system has a go-live day", bool(go_live), go_live)
-    records, version = stored_records(page)
+    records, _ = stored_records(page)
     before_ids = {r["id"] for r in records}
     # A dozen blank sheets for the twelve days before go-live, as the old calendar made them, plus one a person
     # wrote on (In Progress, no preparation) which must never move.
@@ -197,7 +208,7 @@ with sync_playwright() as p:
     first = datetime.date(y, m, d)
     planted = [shell(i, (first - datetime.timedelta(days=i + 1)).isoformat()) for i in range(PLANTED)]
     written = dict(shell(99, (first - datetime.timedelta(days=30)).isoformat()), status="In Progress", updatedAt=f"{(first - datetime.timedelta(days=30)).isoformat()}T09:00:00.000Z")
-    put = api(page, "PUT", "/api/storage/records", json.dumps(records + planted + [written]), {"X-Base-Version": str(version)})
+    put = put_records(page, lambda current: current + planted + [written])
     check("The planted sheets are stored", put["status"] == 200, put)
     stored, _ = stored_records(page)
     check("The database holds them all", len(planted_in(stored)) == PLANTED + 1, planted_in(stored))
@@ -233,8 +244,7 @@ with sync_playwright() as p:
     check("No 'Remove them' button exists on any screen", page.locator("[data-action='purge-leftovers']").count() == 0)
 
     print("\n==== A browser holding the old copy cannot bring them back ====")
-    stored, version = stored_records(page)
-    put = api(page, "PUT", "/api/storage/records", json.dumps(stored + planted), {"X-Base-Version": str(version)})
+    put = put_records(page, lambda current: current + planted)
     check("The old copy is written without the archived sheets, and says how many it kept out", put["status"] == 200 and put["json"].get("keptOut") == PLANTED, put)
     stored, _ = stored_records(page)
     check("The records still do not hold them", planted_in(stored) == [f"{PREFIX}99"], planted_in(stored))
@@ -267,9 +277,12 @@ with sync_playwright() as p:
     check("Run again, the server never moves what the super admin brought back", run["status"] == 200 and run["json"].get("moved") == 0, run)
 
     print("\n==== Staff: nothing of it ====")
-    sign_in(page, f"archive-staff-{STAMP}@example.com", "Archive Staff QA")
+    staff_email = f"archive.staff.{STAMP}@gpp.local"
+    made = api(page, "POST", "/api/users", json.dumps({"name": "Archive Staff QA", "email": staff_email, "password": STAFF_PASSWORD, "departments": ["HR"]}))
+    check("The super admin makes a staff account (REQUIREMENTS §66, §105)", made["status"] in (200, 201), made)
+    sign_in(page, staff_email, STAFF_PASSWORD)
     me = api(page, "GET", "/api/auth/me")["json"]
-    check("A later account is staff", me.get("user", {}).get("role") == "staff", me)
+    check("The account the super admin made is staff", me.get("user", {}).get("role") == "staff", me)
     page.goto(f"{BASE}/index.html#/")
     page.wait_for_timeout(2000)
     dismiss(page)
@@ -287,9 +300,8 @@ with sync_playwright() as p:
     check("The archive's routes are the super admin's alone", refused["status"] == 403, refused)
 
     print("\n==== Tidy up: the planted sheets taken out again ====")
-    sign_in(page, f"archive-admin-{STAMP}@example.com", "Archive Admin QA")
-    stored, version = stored_records(page)
-    put = api(page, "PUT", "/api/storage/records", json.dumps([r for r in stored if not str(r.get("id", "")).startswith(PREFIX)]), {"X-Base-Version": str(version)})
+    sign_in(page, ADMIN_EMAIL, SEED_PASSWORD)
+    put = put_records(page, lambda current: [r for r in current if not str(r.get("id", "")).startswith(PREFIX)])
     check("The planted sheets are removed from the test server", put["status"] == 200, put)
 
     check("No JS page errors", not [e for e in errors if "401" not in e], errors)

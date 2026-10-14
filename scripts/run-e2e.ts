@@ -72,6 +72,10 @@ const TOUR_SUITE = "tests/e2e_tour.py";
 // account, on a system live since the first of last month (product server; it adds the departments' accounts, so it
 // runs last).
 const EVERY_RECORD_STARTS_SUITE = "tests/e2e_every_record_starts.py";
+// REQUIREMENTS §115: the blank sheets from before go-live moved to the archive by the server. On the product server,
+// where the seeded administrator is the super admin and the records item is the seeded one: on :8842 the super admin is
+// whichever suite signed up first, and the storage-room suite leaves a 7 MB records item behind.
+const ARCHIVE_BLANKS_SUITE = "tests/e2e_archive_blanks.py";
 // REQUIREMENTS §110: the accounts the plant keeps (rename with "Replace it", the short sign-in name, remove and bring
 // back, "Keep only these") and the super admin's master list of who does what (product server; it renames and removes
 // accounts of its own making, so it runs after every other suite of the product server).
@@ -89,6 +93,7 @@ const PRODUCT_SUITES = [
   MOBILE_MITRA_API_SUITE,
   TOUR_SUITE,
   EVERY_RECORD_STARTS_SUITE,
+  ARCHIVE_BLANKS_SUITE,
   ACCOUNTS_MASTER_SUITE,
 ];
 // THE SHARED DATABASE'S OVERVIEW (REQUIREMENTS §83), set up on this run's
@@ -405,7 +410,7 @@ async function main(): Promise<void> {
       "tests/e2e_browser_room.py",
       // REQUIREMENTS §115: the blank sheets from before go-live moved to the archive by the server, never deleted; no
       // banner and no clean-up for anybody; the super admin's card under Master Data and "Bring them back".
-      "tests/e2e_archive_blanks.py",
+      ARCHIVE_BLANKS_SUITE,
   "tests/e2e_mitra_agent.py",
   // REQUIREMENTS §81: the 3D introduction and the fonts; sound and Mitra's voice; celebrations in every module;
   // and every document's Word/Excel downloaded, edited and uploaded back.

@@ -1087,7 +1087,9 @@ Seven scripts live in `tests/`:
   modules"). New: `backend/recordsArchive.ts` (the `records_archive` table, the two-step move at start-up, the super
   admin's count, restore and run-by-hand routes), `frontend/src/engine/preLaunchNoise.ts` (the one rule, read by the
   browser and the server), `backend/tests/recordsArchive.test.ts` (8), `frontend/tests/archiveBlanks.test.ts` (4),
-  `tests/e2e_archive_blanks.py` (in `scripts/run-e2e.ts`). Changed: `backend/storageRoutes.ts` (PUT records keeps the
+  `tests/e2e_archive_blanks.py` (in `scripts/run-e2e.ts`, on the product server: the seeded administrator is its
+  super admin and the staff account is one it makes — on :8842 the super admin is whichever suite signed up first, and
+  the storage-room suite's 7 MB records item would push the suite's own PUT past the 25 MB storage limit). Changed: `backend/storageRoutes.ts` (PUT records keeps the
   archived ids out), `frontend/src/data/serverSync.ts` (a sign-in's merge drops the old copy's archived sheets),
   `engine/backlogCleanup.ts` (`purgePreLaunchNoise` gone), the Dashboard, the briefing popup and the storage banner (no
   clean-up offer), `MasterDataPage.tsx` (the super admin's card). What each proves is listed in REQUIREMENTS §115
