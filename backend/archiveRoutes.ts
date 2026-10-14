@@ -29,6 +29,8 @@ export interface ArchiveRouteDeps {
   activityFilter: (req: Request) => ActivityFilter;
   /** index.ts's JSON answer, compressed when it is long. */
   sendJson: (req: Request, res: Response, status: number, body: unknown) => void;
+  /** The readings over the log and its archive; activityArchive.ts's unless a test hands in a stand-in. */
+  read?: { lines: typeof listActivityWithArchive; tally: typeof activityTally };
 }
 
 // The "Show older" cursor and the page size, read as GET /api/activity reads them (index.ts).
@@ -37,6 +39,7 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function registerActivityArchiveRoutes(app: Express, deps: ArchiveRouteDeps): void {
   const { requireAuth, activityFilter, sendJson } = deps;
+  const read = deps.read ?? { lines: listActivityWithArchive, tally: activityTally };
 
   /** The super admin, or null having answered 403. */
   const superAdmin = (req: Request, res: Response): PublicUser | null => {
@@ -75,11 +78,11 @@ export function registerActivityArchiveRoutes(app: Express, deps: ArchiveRouteDe
     if (!superAdmin(req, res)) return;
     const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
     const before = typeof req.query.before === "string" && BEFORE_RE.test(req.query.before) ? req.query.before : undefined;
-    sendJson(req, res, 200, { lines: await listActivityWithArchive({ ...activityFilter(req), limit, before }) });
+    sendJson(req, res, 200, { lines: await read.lines({ ...activityFilter(req), limit, before }) });
   });
 
   app.get("/api/activity/with-archive/summary", requireAuth, async (req: Request, res: Response): Promise<void> => {
     if (!superAdmin(req, res)) return;
-    sendJson(req, res, 200, { people: await activityTally(activityFilter(req), true) });
+    sendJson(req, res, 200, { people: await read.tally(activityFilter(req), true) });
   });
 }

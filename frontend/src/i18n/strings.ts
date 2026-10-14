@@ -32,6 +32,7 @@ import { INTRO_STRINGS } from "./strings.intro";
 import { SCORE_STRINGS } from "./strings.score";
 import { NOTIFICATION_STRINGS } from "./strings.notifications";
 import { ROOM_STRINGS } from "./strings.room";
+import { ACTIVITY_STRINGS } from "./strings.activity";
 
 export type Language = "en" | "gu";
 
@@ -873,6 +874,7 @@ const en = {
   ...SCORE_STRINGS.en,
   ...NOTIFICATION_STRINGS.en,
   ...ROOM_STRINGS.en,
+  ...ACTIVITY_STRINGS.en,
 } as const;
 
 export type StringKey = keyof typeof en;
@@ -1672,6 +1674,7 @@ const gu: Record<StringKey, string> = {
   ...SCORE_STRINGS.gu,
   ...NOTIFICATION_STRINGS.gu,
   ...ROOM_STRINGS.gu,
+  ...ACTIVITY_STRINGS.gu,
 };
 
 export const STRINGS: Record<Language, Record<StringKey, string>> = { en, gu };

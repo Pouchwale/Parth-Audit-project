@@ -48,6 +48,7 @@ import { speakFailure, speakStatus, speechCache, speechCacheKey, TTS_MAX_TEXT_CH
 import { sendReminderDigestIfDue, type DigestReminder } from "./digest.ts";
 import { readCv, CvReadError, CV_MAX_BYTES } from "./cvExtract.ts";
 import { registerActivityArchiveRoutes } from "./archiveRoutes.ts";
+import { activityFilterOf, registerActivityRoutes } from "./activityRoutes.ts";
 import { registerEscalationRoutes } from "./escalationRoutes.ts";
 import { registerApiV1 } from "./apiV1.ts";
 import { registerOverviewRoutes } from "./overviewRoutes.ts";
@@ -856,43 +857,10 @@ app.post("/api/activity", requireAuth, async (req: Request, res: Response): Prom
 // The administrator reads every line. An account kept to departments reads its
 // own lines and its departments'; an account with no departments set works
 // across the plant (management, the MR, QA) and reads every line too — all but
-// the escalations' two, which are the super admin's alone (§75, db.ts).
-// A DAY, A MONTH OR A YEAR, AND ONE PERSON'S OWN LINES (REQUIREMENTS §73):
-// `from` / `to` as plain YYYY-MM-DD, both ends included, and `person` as an
-// account id. The scoping rule above still decides WHOSE lines can be asked
-// for at all, so `person` narrows what this account may already read and can
-// never widen it.
-const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-const day = (v: unknown): string | undefined => (typeof v === "string" && DAY_RE.test(v) ? v : undefined);
-const personId = (v: unknown): string | undefined => (typeof v === "string" && v.trim().length > 0 && v.length <= 64 ? v.trim() : undefined);
-// A line's id as the "Show older" cursor: digits only, and no more than 18 of
-// them, so it is always inside PostgreSQL's bigint — a longer one used to fail
-// the whole request instead of simply finding nothing.
-const BEFORE_RE = /^[0-9]{1,18}$/;
-
-/**
- * WHAT A READING OF THE LOG IS KEPT TO — one reading of the request for the
- * lines AND for the tally beside them, so the two can never be filtered
- * differently: the account's scope, then `person`, `from`, `to` and the search
- * `q`. (The tally used to ignore the search, so a search showed ten lines
- * beside a count of the whole day.)
- */
-function activityFilter(req: Request): Parameters<typeof activitySummary>[0] {
-  const user = (req as AuthedRequest).user;
-  const search = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80) : "";
-  // The modules the person sees at Read or more (REQUIREMENTS §96), worked out by requireAuthWithModules below.
-  const modules = (req as Request & { accessModules?: string[] | null }).accessModules;
-  return {
-    departments: user.role === "admin" ? null : modules === undefined ? (user.departments.length > 0 ? user.departments : null) : modules,
-    userId: user.id,
-    // The escalations' lines are the super admin's alone (db.ts SUPER_ADMIN_ACTIONS, REQUIREMENTS §75).
-    superAdmin: user.role === "admin",
-    search: search || undefined,
-    person: personId(req.query.person),
-    from: day(req.query.from),
-    to: day(req.query.to),
-  };
-}
+// the escalations' two, which are the super admin's alone (§75, db.ts). The
+// reading of the request into that filter — person, span, search, and the
+// super admin's module, document and action chips — is activityRoutes.ts
+// readActivityFilter, shared with the archive's routes.
 
 /**
  * Signed in, with the modules the person sees (REQUIREMENTS §96): the activity log is read by the same line as the
@@ -911,27 +879,12 @@ const requireAuthWithModules = (req: Request, res: Response, next: NextFunction)
   });
 };
 
-app.get("/api/activity", requireAuthWithModules, async (req: Request, res: Response): Promise<void> => {
-  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
-  const before = typeof req.query.before === "string" && BEFORE_RE.test(req.query.before) ? req.query.before : undefined;
-  const lines = await listActivity({ ...activityFilter(req), limit, before });
-  sendCompressedJson(req, res, 200, { lines });
-});
-
-// WHAT EACH PERSON DID OVER THE SPAN, counted (REQUIREMENTS §73) — the tally
-// the Performance Scorecard is read beside. Same scoping: the administrator
-// sees everybody, an account kept to departments sees itself and its
-// departments'. The counts are worked out in PostgreSQL, not here, over
-// exactly the lines GET /api/activity would list for the same request.
-app.get("/api/activity/summary", requireAuthWithModules, async (req: Request, res: Response): Promise<void> => {
-  const people = await activitySummary(activityFilter(req));
-  sendCompressedJson(req, res, 200, { people });
-});
+registerActivityRoutes(app, { requireAuth: requireAuthWithModules, lines: listActivity, summary: activitySummary, sendJson: sendCompressedJson });
 
 // THE LOG'S ARCHIVE (REQUIREMENTS §62, §75): the super admin's count of what is
 // old enough to archive, the move itself, and the log read with its archive —
 // the same filter as the two routes above (archiveRoutes.ts).
-registerActivityArchiveRoutes(app, { requireAuth: requireAuthWithModules, activityFilter, sendJson: sendCompressedJson });
+registerActivityArchiveRoutes(app, { requireAuth: requireAuthWithModules, activityFilter: activityFilterOf, sendJson: sendCompressedJson });
 
 app.get("/api/auth/me", async (req: Request, res: Response): Promise<void> => {
   const session = await readSession(req);
