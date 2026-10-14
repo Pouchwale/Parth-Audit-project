@@ -21,9 +21,12 @@ import { matchDocuments } from "../src/engine/assistantLocal";
 import { findDocument } from "../src/engine/mitraTools";
 import { findDocuments } from "../src/engine/documentFinder";
 import { defaultResponsible } from "../src/engine/accessRules";
-import { QC_GROUPS } from "../src/data/seed/qcModule";
+import { QC_COMPLIANCE_DOCUMENT_IDS, QC_COMPLIANCE_MODULE, QC_GROUPS } from "../src/data/seed/qcModule";
 import { COMPLIANCE_STATEMENTS, complianceValidUntil } from "../src/data/seed/complianceStatements";
 import { COMPANY } from "../src/data/seed/masterData";
+import { SEED_DOCUMENTS } from "../src/data/seed/documentDefinitions";
+import { departmentOfDocument } from "../src/data/seed/documentDepartments";
+import { documentFileKind } from "../src/utils/documentExport";
 
 if (typeof (globalThis as { location?: unknown }).location === "undefined") {
   Object.defineProperty(globalThis, "location", { value: { hash: "#/dashboard", hostname: "localhost" }, configurable: true, writable: true });
@@ -312,6 +315,60 @@ test("F/QC-10: the Statement of Compliance for shrink sleeves as the document pr
   }
   assert.deepEqual(matchDocuments("open the soc for sleeves"), [id]);
   assert.deepEqual(matchDocuments("show me the pouch soc"), ["soc-flexible-packaging"], "never the sleeves' for the pouches'");
+});
+
+// The paper's words, line for line: "F-QC-10_Statement of Compliance (SOC) - Shrink Sleeve.pdf", two pages, read with
+// unpdf on 14-Oct-2026. The company's name is COMPANY.name where the paper prints its own spelling (the owner's rule of
+// 2-Oct-2026); every other line is the paper's, its marks included.
+test("F/QC-10's words are the paper's, and it is listed with F/QC-09 and F/QC-38 as the third statement", () => {
+  const id = "soc-shrink-sleeves";
+  const s = COMPLIANCE_STATEMENTS[id];
+  const lines = (label: string) => s.sections.find((x) => x.label === label)!.lines;
+  // Page 1, the table.
+  assert.deepEqual(lines("Address:"), ["308,309, G.I.D.C. Estate, At Dediyasan, Mehsana – 384002, Gujarat, India"]);
+  assert.deepEqual(lines("Product:"), ["Shrink Sleeves"]);
+  assert.deepEqual(lines("Manufacturing process"), ["Printing (Flexo), Foiling, Coating, Gluing, Slitting"]);
+  assert.deepEqual(lines("Subcontracted / Outsource manufacturing"), ["Nil"]);
+  assert.deepEqual(lines("Function or known uses:"), ["FMCG, Pharma, Food industries, Cosmetic"]);
+  assert.deepEqual(lines("Specification for use:"), [
+    "Used as secondary packaging for packers of FMCG, Pharma, Food industries & Cosmetic products for product aesthetic, identification & labelling",
+    "Usable for packers of products max up to 30 Deg C.",
+    "❖ Finish products shall not be used for further use by the customer, if found with any of the below mentioned conditions.",
+    "✓ Chemical contamination in the product as well as product packaging such as traces of any chemicals, oil or objectionable materials",
+    "✓ Physical contamination in the products such as any non-product foreign matter found in the products",
+    "✓ Product packaging are damaged",
+    "✓ Products are damaged during transportation",
+  ]);
+  assert.deepEqual(lines("Storage condition"), ["Store in dry place. Protect from moist environment"]);
+  assert.deepEqual(lines("Regulatory requirements"), ["Nil"]);
+  assert.deepEqual(lines("Country of Sale"), ["India, USA"]);
+  assert.deepEqual(lines("Post-consumer recycling"), ["No PCWR waste used"]);
+  // Page 2, the seven declarations, a bullet each and no heading among them.
+  assert.deepEqual(s.declarations, [
+    `${COMPANY.name}, hereby declares that all raw materials used in the manufacturing of Shrink Sleeves do not have a concentration of lead, cadmium, Hexavalent chromium and mercury that exceeds 100 PPM, and conform to Council Directive 94/62/EC with amendments 2005/20/EC and 2004/12/EC`,
+    "Substances such as 4-methylbenzophenone, benzophenone, hydroxybenzophenone and bisphenol A are not added or used in the manufacturing of Shrink Sleeves and are therefore not expected to be present in our products",
+    "Inks used are suitable for Indirect Food Contact where there is a barrier between the ink and the product. They confirm to the requirement of Heavy Metal Content of CONEG and EN 71 part 3. The inks do not contain any material that is in the negative list of CEPE. The inks do not contain any animal fat",
+    "Shrink Sleeves have to be kept in its original packaging in a cool or ambient temperate and dry place. Avoid direct exposure to sunlight and UV light.",
+    "This Declaration is valid for two years from the date of Publication, unless there is a change to the materials used, processing technologies or applicable legislation.",
+    "Whilst this Declaration is made using all due diligence, it is the responsibility of the downstream users of these articles to ensure compliance with all relevant legislation in their own applications and technologies",
+    `This Declaration of Compliance is applicable to current and future supplies of Products manufactured by ${COMPANY.name} and are updated only when there are (1) Legislative changes (2) Creation of new scientific data that affects the use of the material & (3) Modified composition of the material or the article that has significance for the application`,
+  ]);
+  assert.equal(s.headings, undefined, "F/QC-10 prints no heading inside its list");
+  // The signatory block: "Signed ... Shail Patel (CEO) 1st April 2025"; valid two years from that date.
+  assert.deepEqual([s.signedBy, s.signedTitle, s.signedOn, s.validityYears, complianceValidUntil(s)], ["Shail Patel", "CEO", "2025-04-01", 2, "2027-04-01"]);
+  // Listed with the other two, everywhere the three are listed: the QC module's compliance group, the issued
+  // definitions of its kind (all in Quality — Compliance, all read as issued), the statements' own table, and QC's.
+  const three = ["soc-labels", "soc-flexible-packaging", "soc-shrink-sleeves"];
+  assert.deepEqual([...QC_COMPLIANCE_DOCUMENT_IDS], three);
+  const issued = SEED_DOCUMENTS.filter((d) => d.kind === "compliance-statement");
+  assert.deepEqual(issued.map((d) => d.id), three);
+  assert.ok(issued.every((d) => d.module === QC_COMPLIANCE_MODULE && d.isReferenceOnly === true && d.frequency === "As Required"));
+  assert.deepEqual(Object.keys(COMPLIANCE_STATEMENTS), three);
+  for (const each of three) {
+    assert.equal(departmentOfDocument(each, docOf(each).formatNo), "QC", each);
+    // The paper came as a PDF; a statement downloads as a Word document, as the other two do.
+    assert.equal(documentFileKind(docOf(each)), "docx", each);
+  }
 });
 
 test("F/QC-09 and F/QC-38 print their table's own marks — •, ❖ and ✓ — as their Word originals and the owner's PDF of 14-Oct-2026 do", () => {

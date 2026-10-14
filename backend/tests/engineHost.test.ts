@@ -147,11 +147,13 @@ describe("the host, over a stand-in store", { timeout: 300_000 }, () => {
     assert.ok(!store.get<{ id: string }[]>("records").some((r) => r.id === id));
   });
 
-  // F/QC-10 STATEMENT OF COMPLIANCE – SHRINK SLEEVES (the owner, 14-Oct-2026): Mitra's alias is in, the statement's own
-  // words are not yet in data/seed/complianceStatements.ts. Held here, skipped and said, until they are (the next job).
-  it("F/QC-10, the shrink sleeves' statement, is read through the phone by its number in any spelling (§111 part 8)", { skip: "F-QC-10's statement is not added yet (the next job, 14-Oct-2026)" }, async () => {
+  // F/QC-10 STATEMENT OF COMPLIANCE – SHRINK SLEEVES (the owner's paper of 14-Oct-2026, §111 part 8): its words are in
+  // data/seed/complianceStatements.ts as the paper prints them, its labels with their colons ("Manufacturer:"), so the
+  // phone's text gives such a label ONE colon, never "Manufacturer::". (Held skipped until the words were in.)
+  it("F/QC-10, the shrink sleeves' statement, is read through the phone by its number in any spelling (§111 part 8)", async () => {
     for (const id of ["F QC 10", "FQC10", "f-qc-10", "F/QC-10"]) {
       const sleeves = await host.read(QC, "document", { id });
+      assert.equal(sleeves.status, 200, `${id}: ${JSON.stringify(sleeves.body).slice(0, 200)}`);
       const body = sleeves.body as { id: string; referenceOnly: boolean; issued: { title: string; text: string } };
       assert.equal(body.id, "soc-shrink-sleeves", id);
       assert.equal(body.referenceOnly, true);
@@ -174,8 +176,7 @@ describe("the host, over a stand-in store", { timeout: 300_000 }, () => {
     }
     const other = await host.read(QC, "document", { id: "F QC 38" });
     assert.equal((other.body as { id: string }).id, "soc-flexible-packaging");
-    // F/QC-10, the shrink sleeves' statement the owner sent on 14-Oct-2026 (§111 part 8): held in the test above until
-    // its words are in data/seed/complianceStatements.ts (the next job).
+    // F/QC-10, the shrink sleeves' statement the owner sent on 14-Oct-2026 (§111 part 8): the test above.
     // Asked to open it, the phone is told it is read, and given its words.
     const opened = await host.change(QC, "open", { documentId: "F QC 09" }, () => undefined);
     assert.equal(opened.status, 409);

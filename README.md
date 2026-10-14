@@ -805,8 +805,9 @@ The app behaves like a personal assistant rather than a blank form:
   sheet for printing (F/QC/13). Fixed printed test parameters with read-only specifications; the
   assistant carries observations, grades, lot status and the inspector's sign forward; "Approved by /
   QA Manager" is the Verify step, not a box to type in.
-- Quality — Compliance (2): Statements of Compliance for Pressure Labels (F/QC-09) and Flexible
-  Packaging (F/QC-38), with validity tracking (two years from publication).
+- Quality — Compliance (3): Statements of Compliance for Pressure Labels (F/QC-09), Flexible
+  Packaging (F/QC-38) and Shrink Sleeves (F/QC-10, the owner's paper of 14-Oct-2026, REQUIREMENTS §111
+  part 8), each as its paper prints it, with validity tracking (two years from publication).
 
 All grid-shaped registers share one generic **log-sheet** renderer driven by a layout registry
 (`src/data/seed/logSheetLayouts.ts`) — a new register is a layout entry plus a DocumentDefinition

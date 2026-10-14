@@ -133,7 +133,11 @@ AS $$
       'qc-coa-sleeve', 'qc-coa-corrugated', 'qc-obsolete-artwork', 'qc-printing-aids-destruction',
       'qc-camera-challenge-test', 'qc-tolerance-card-nivea', 'qc-analysis-report', 'qc-utility-test-report',
       'qc-minutes-of-meetings', 'soc-labels', 'soc-flexible-packaging', 'qc-inspection-sb-lamination',
-      'qc-incoming-lamination-film'
+      'qc-incoming-lamination-film',
+      -- The owner's formats of 13 and 14-Oct-2026 (REQUIREMENTS §111 parts 5 and 8): F-QC-14's two sheets,
+      -- F-QC-40.A and .B, F/QC/17 and F/QC-10, the shrink sleeves' Statement of Compliance.
+      'qc-test-reliability-label', 'qc-test-reliability-sleeve', 'qc-temperature-humidity', 'qc-temperature-sleeve',
+      'qc-ruler-verification', 'soc-shrink-sleeves'
     ) THEN 'QC'
     WHEN document_id IN (
       'gap-inspection'

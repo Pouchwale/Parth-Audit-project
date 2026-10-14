@@ -8024,7 +8024,13 @@ the owner's table), documentFinding.test.ts (F/QC/40 finds the three in DCRS, no
 test.ts (a scale's "Least count" is not a count; a box the paper prints holds its printed value on any sheet),
 qcFindByNumber.test.ts ("statement of compliance" names three), companyName.test.ts (F/QC-10's "Manufacturer:"),
 backend/tests/engineHost.test.ts (F/QC-10 read through the phone by its number in four spellings, its labels one
-colon each). That test bundles the engine into the computer's temp folder (dcrs-engine-host-tests), which every
+colon each — held skipped while the statement's words were still to come, and run since they are in, 14-Oct-2026).
+Added the same day: qcFormats14Oct.test.ts's tenth, F/QC-10's words line for line against the paper (its table, its seven
+declarations with no heading among them, its signatory block) and the three statements listed together everywhere they
+are listed (the QC module's compliance group, the issued definitions of the kind, the statements' own table, QC's
+department, a Word download for each); and database/sql/02-overview-dcrs.sql's copy of DOCUMENT_DEPARTMENTS names the
+six ids of parts 5 and 8 (F-QC-14's two sheets, F-QC-40.A and .B, F/QC/17, F/QC-10) with QC, as
+database/tests/sharedDatabase.test.ts asks of every id in that map. That host test bundles the engine into the computer's temp folder (dcrs-engine-host-tests), which every
 worktree shares: a bundle another worktree built a minute later counts as current, and a run then reads the other
 branch's catalogue (seen on 14-Oct-2026: F/QC-10 unknown). Touching frontend/src/engineHost/entry.ts makes it build
 this worktree's again. Browser suites:
