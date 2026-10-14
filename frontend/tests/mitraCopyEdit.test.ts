@@ -223,6 +223,8 @@ function ctxOf(over: Partial<MitraToolContext> = {}): MitraToolContext & { navig
     isDemo: true,
     language: "en",
     userName: "Unit Test",
+    // The super admin: Insights, which a turn here opens, is theirs alone (REQUIREMENTS §116).
+    role: "admin",
     currentRoute: "/assistant",
     navigate: (route) => {
       navigated.push(route);

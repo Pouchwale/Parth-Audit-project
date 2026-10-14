@@ -49,6 +49,7 @@ import { levelNeeded, type DocumentAction } from "./accessRules";
 import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "./pmSchedule";
 import { ASSISTANT_NAME } from "./assistantPersona";
 import { printedWordsOnce } from "./formLineNumbers";
+import { maySeeSystemSection, superAdminPageOf, systemRefusalMitra } from "./systemSection";
 import { t } from "../i18n";
 import { addDays, compareISO, formatDisplayDate } from "../utils/date";
 import { generateId } from "../utils/id";
@@ -514,6 +515,10 @@ const NAVIGATE: MitraTool = {
     const route = raw.startsWith("/") ? raw : `/${raw}`;
     const clean = route.length > 1 ? route.replace(/\/+$/, "") : route;
     if (!(await validAppRoute(clean))) return no(`${clean} is not a page of this app`, { route: clean });
+    // THE SYSTEM SECTION IS THE SUPER ADMIN'S (REQUIREMENTS §116): a staff account asked for Reports, Master Data, the
+    // Activity Log, the scorecard or Insights is told so in one line, in its language, instead of being taken there.
+    const system = superAdminPageOf(clean);
+    if (system && !maySeeSystemSection(ctx.role)) return no(systemRefusalMitra(ctx.language, system), { route: clean, superAdminOnly: true });
     ctx.navigate(clean);
     return ok({ route: clean }, say("ai.step.opened", "Opened {what}", { what: routeWords(clean) }), clean);
   },

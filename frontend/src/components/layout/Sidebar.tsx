@@ -61,6 +61,7 @@ import { useT } from "../../i18n";
 import { HR_RECORD_PAGES } from "../../data/seed/hrModule";
 import { QC_OVERVIEW_DOCUMENT_IDS } from "../../data/seed/qcModule";
 import { demoModeAvailable } from "../../engine/features";
+import { maySeeSystemSection } from "../../engine/systemSection";
 import { useAuth } from "../../store/AuthContext";
 import { currentAddress } from "../../utils/moduleSlug";
 
@@ -537,6 +538,8 @@ function visibleEntries(entries: NavEntry[], visibleDocumentIds: Set<string>): N
   });
 }
 
+// THE WHOLE SYSTEM GROUP IS THE SUPER ADMIN'S (REQUIREMENTS §116, the owner, 15-Oct-2026): nobody else is shown it,
+// its heading included, and each page refuses them by its address (components/common/SuperAdminOnly.tsx).
 const NAV_SYSTEM: NavItem[] = [
   { to: "/reports", labelKey: "nav.reports", icon: FiBarChart2 },
   { to: "/master-data", labelKey: "nav.masterData", icon: FiDatabase },
@@ -545,8 +548,7 @@ const NAV_SYSTEM: NavItem[] = [
   // Who did their documents on time — by person, department and module (REQUIREMENTS §64).
   { to: "/performance", labelKey: "nav.performance", icon: FiAward },
   // What the records show when read together — drift, repeats, overdue CAPA,
-  // expired calibration, breakdowns, lux falls (REQUIREMENTS §75). Shown to
-  // every account: the page reads only what the account may see.
+  // expired calibration, breakdowns, lux falls (REQUIREMENTS §75).
   { to: "/insights", labelKey: "nav.insights", icon: FiTrendingUp },
 ];
 // Demo Mode is not part of the product: its link is listed only on a server
@@ -614,11 +616,12 @@ export function Sidebar() {
   const path = currentAddress(address);
   const t = useT();
   const { user } = useAuth();
-  // Demo Mode only where the server has it (§65); Users & Access only for the
-  // administrator, whose own it is (§66).
+  // The System group is the super admin's alone (§116): Demo Mode only where the server has it (§65), then Users &
+  // Access and the rest of the super admin's own (§66, §83, §84, §110). Anybody else gets no group at all.
   const systemItems = useMemo(() => {
+    if (!maySeeSystemSection(user?.role)) return [];
     const items = demoModeAvailable() ? NAV_SYSTEM_WITH_DEMO : NAV_SYSTEM;
-    return user?.role === "admin" ? [...items, USERS_ITEM, MASTER_LIST_ITEM, ACCESS_ITEM, DATABASE_OVERVIEW_ITEM] : items;
+    return [...items, USERS_ITEM, MASTER_LIST_ITEM, ACCESS_ITEM, DATABASE_OVERVIEW_ITEM];
   }, [user?.role]);
   const { visible, narrow, close } = useSidebar();
   const [openState, setOpenState] = useState<Record<string, boolean>>(loadOpenState);
@@ -761,8 +764,12 @@ export function Sidebar() {
             );
           })}
 
-          <div className="nav-section-label">{t("nav.system")}</div>
-          <NavGroup items={systemItems} path={path} />
+          {systemItems.length > 0 && (
+            <>
+              <div className="nav-section-label">{t("nav.system")}</div>
+              <NavGroup items={systemItems} path={path} />
+            </>
+          )}
         </nav>
 
       </aside>

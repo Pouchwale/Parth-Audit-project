@@ -219,24 +219,26 @@ describe("each chip is one parameter, read into the one filter the lines and the
 });
 
 describe("staff cannot filter beyond their own lines", () => {
-  it("a member of QC asking for HR's lines gets their own lines in HR, nobody else's", async () => {
-    const res = await get("/api/activity?department=HR", "staff");
-    assert.deepEqual(targets(res.json), ["Kapila Barad · Record started · F/HR/17 Fly Catcher — 2026-10-14"]);
-    assert.deepEqual([asked[0].filter.departments, asked[0].filter.userId, asked[0].filter.superAdmin], [["QC"], "u-kapila", false], "the scope is still there under the chip");
-    // Nor by naming the person: Vinay's HR lines are not Kapila's to read.
-    assert.deepEqual((await get("/api/activity?person=u-vinay&department=HR", "staff")).json.lines, []);
-    // Nor by action or document: an escalation is the super admin's alone, whatever is asked for.
-    assert.deepEqual((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, "staff")).json.lines, []);
-    assert.deepEqual((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, "every")).json.lines, []);
+  it("a member of QC, or an account with every department, is refused the log's readings: the super admin's alone (§116)", async () => {
+    for (const who of ["staff", "every"]) {
+      for (const route of ["/api/activity?department=HR", "/api/activity?person=u-vinay&department=HR", `/api/activity?action=${encodeURIComponent(ESCALATION)}`, "/api/activity/summary"]) {
+        const res = await get(route, who);
+        assert.equal(res.status, 403, `${who} ${route}`);
+        assert.equal(res.json.error, "Only the super admin can open the Activity Log.");
+        assert.equal(asked.length, 0, "nothing is read for a refused request");
+      }
+    }
     assert.equal((await get(`/api/activity?action=${encodeURIComponent(ESCALATION)}`, "admin")).json.lines.length, 1);
   });
 
   it("a value that is not a module's code is no filter at all — never an error, never a wider reading", async () => {
     for (const bad of ["Quality Control", "'; drop table users;--", "Q", "ABCDE", ""]) {
-      const res = await get(`/api/activity?department=${encodeURIComponent(bad)}`, "staff");
+      const res = await get(`/api/activity?department=${encodeURIComponent(bad)}`, "admin");
       assert.equal(res.status, 200, bad);
       assert.equal(asked[0].filter.department, undefined, bad);
-      assert.deepEqual(asked[0].filter.departments, ["QC"], bad);
+      // The scope under a bad chip for a staff account is proved on the filter itself below (the readings are the
+      // super admin's, §116).
+      assert.equal(asked[0].filter.superAdmin, true, bad);
     }
   });
 });

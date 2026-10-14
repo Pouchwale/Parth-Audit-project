@@ -557,6 +557,7 @@ export function AssistantPage() {
       isDemo,
       language: lang,
       userName: user?.name ?? currentUser,
+      role: user?.role,
       currentRoute: "/assistant",
       navigate: (route) => {
         if (isValidAppRoute(route)) navigate(route);

@@ -1,5 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "../store/AppStore";
+import { useAuth } from "../store/AuthContext";
+import { SuperAdminOnly } from "../components/common/SuperAdminOnly";
 import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { insightCounts, isHumanRecord, startInsights, type Insight, type InsightSeverity } from "../engine/insights";
@@ -79,7 +81,14 @@ function useSay() {
   );
 }
 
+// INSIGHTS ARE THE SUPER ADMIN'S (REQUIREMENTS §116): anybody else who reaches the page by its address is refused it.
 export function InsightsPage() {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <SuperAdminOnly page="insights" />;
+  return <InsightsForSuperAdmin />;
+}
+
+function InsightsForSuperAdmin() {
   const { mode, version, currentUser, bump } = useAppStore();
   const { navigate } = useRouter();
   const say = useSay();

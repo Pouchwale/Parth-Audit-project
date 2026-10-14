@@ -1082,6 +1082,21 @@ Seven scripts live in `tests/`:
   (e2e_every_record_starts, e2e_mobile_mitra_api, e2e_mitra_agent, e2e_realism, e2e_access_levels and the others that
   name them), which read no part of their layout this changes but the phone's layout's new `printed`/`value` on a
   header box, `beneath`, `srNoShowsDate`, `secondLine` and `notesBelow`.
+- **The System section is the super admin's** (REQUIREMENTS §116, 15-Oct-2026: "remove last part of System where
+  report, master data, activity, performance and other is store from all id accept Superadmin"). New:
+  `frontend/src/engine/systemSection.ts` (the pages by address, the words in three languages),
+  `frontend/src/components/common/SuperAdminOnly.tsx` (the refusal each page shows), `frontend/tests/systemSection.test.ts`
+  (4). Changed: `Sidebar.tsx` (no System group, no heading, for anybody but the super admin), the six pages (Reports,
+  Master Data, Activity Log, Performance, Insights, Demo Mode: a wrapper that refuses by role), `engine/mitraTools.ts`
+  (navigate refuses a staff account the System pages in one line; the tool context carries the role from the widget, the
+  Ask Mitra page and the server's engine host), `backend/activityRoutes.ts` (both readings 403 for staff),
+  `frontend/tests/mitraTools.test.ts`, `mitraAgent.test.ts`, `mitraCopyEdit.test.ts`, `minusScoreWords.test.ts` (run as
+  the super admin, whose pages these are), `backend/tests/activityRoutes.test.ts` (a staff account refused both
+  readings). Browser suites: those that opened these pages as a staff account made by sign-up are listed in REQUIREMENTS
+  §116 and brought over one by one — each either signs in as the run's super admin or checks the refusal; the checks
+  that a staff account's sidebar has no System group, that each address answers it with the refusal and that the super
+  admin has them all are `tests/e2e_user_access.py`'s. `npm run typecheck` clean; `npm run test:unit`: frontend 1152
+  (one voice-timing test flaky under the full run's load, green alone), backend 636 (4 skipped, as before).
 - **The blank sheets from before go-live moved to the archive, never deleted** (REQUIREMENTS §115, 14-Oct-2026: the
   "Found 3457 blank records ... Clean up" banner on every profile; the owner: "without any loss of any records or any
   modules"). New: `backend/recordsArchive.ts` (the `records_archive` table, the two-step move at start-up, the super

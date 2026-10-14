@@ -15,6 +15,7 @@ import { DepartmentsAccess } from "../components/master/DepartmentsAccess";
 import { useT } from "../i18n";
 import { documentTextIn } from "../i18n/documentText";
 import { useAuth } from "../store/AuthContext";
+import { SuperAdminOnly } from "../components/common/SuperAdminOnly";
 import { CUE_NAMES, type CueName } from "../engine/engageBus";
 import { playCue } from "../utils/sounds";
 import { onVoiceChange, serverVoiceState, updateVoiceSettings, voiceInUse, VOICE_SETTINGS_EVENT, type VoiceInUse } from "../utils/voice";
@@ -55,7 +56,14 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "settings", label: "Working Hours & Briefing" },
 ];
 
+// MASTER DATA IS THE SUPER ADMIN'S (REQUIREMENTS §116): anybody else who reaches the page by its address is refused it.
 export function MasterDataPage() {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <SuperAdminOnly page="master-data" />;
+  return <MasterDataForSuperAdmin />;
+}
+
+function MasterDataForSuperAdmin() {
   const t = useT();
   const { bump, version, lang } = useAppStore();
   const [tab, setTab] = useState<Tab>("employees");

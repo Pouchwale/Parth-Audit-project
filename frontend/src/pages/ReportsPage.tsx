@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FiDownload, FiPrinter } from "react-icons/fi";
 import { useAppStore } from "../store/AppStore";
+import { useAuth } from "../store/AuthContext";
+import { SuperAdminOnly } from "../components/common/SuperAdminOnly";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -50,7 +52,14 @@ const TAB_FALLBACK: Partial<Record<Tab, string>> = { summary: "Management Summar
 
 const isTab = (v: string | undefined): v is Tab => !!v && (TAB_KEYS as string[]).includes(v);
 
-export function ReportsPage({
+// REPORTS ARE THE SUPER ADMIN'S (REQUIREMENTS §116): anybody else who reaches the page by its address is refused it.
+export function ReportsPage(props: { initialYear?: number; initialMonth?: number; initialTab?: string }) {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <SuperAdminOnly page="reports" />;
+  return <ReportsForSuperAdmin {...props} />;
+}
+
+function ReportsForSuperAdmin({
   initialYear,
   initialMonth,
   initialTab,

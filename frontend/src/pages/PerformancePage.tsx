@@ -4,6 +4,7 @@ import { api, ApiError, escalationsApi, ESCALATIONS_CHANGED, usersApi, type Dire
 import { APPROVED, countOf, FILLED_IN, SUBMITTED, type ActivityTally } from "../engine/activityWork";
 import { useAppStore } from "../store/AppStore";
 import { useAuth } from "../store/AuthContext";
+import { SuperAdminOnly } from "../components/common/SuperAdminOnly";
 import { useRouter } from "../store/router";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -469,7 +470,16 @@ function DocumentsTable({ rows, lang, onOpen }: { rows: DocumentScore[]; lang: L
   );
 }
 
+// THE PERFORMANCE SCORECARD IS THE SUPER ADMIN'S (REQUIREMENTS §116): anybody else who reaches the page by its address
+// is refused it; their own score card stays on their Dashboard (§92).
 export function PerformancePage() {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <SuperAdminOnly page="performance" />;
+  return <PerformanceScorecard />;
+}
+
+/** The scorecard itself, for the super admin (exported for frontend/tests/minusScoreWords.test.ts, which reads its words). */
+export function PerformanceScorecard() {
   const { mode, version, lang } = useAppStore();
   const { navigate } = useRouter();
   const { user } = useAuth();

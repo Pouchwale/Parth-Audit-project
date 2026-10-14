@@ -70,6 +70,8 @@ function ctxOf(over: Partial<MitraToolContext> = {}): TestCtx {
     isDemo: true,
     language: "en",
     userName: "Unit Test",
+    // The super admin: Reports, which these turns open, is theirs alone (REQUIREMENTS §116).
+    role: "admin",
     currentRoute: "/dashboard",
     navigate: (route) => {
       navigated.push(route);

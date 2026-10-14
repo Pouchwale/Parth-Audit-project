@@ -110,7 +110,17 @@ export function readActivityPage(query: Record<string, unknown>): { limit: numbe
 export function registerActivityRoutes(app: Express, deps: ActivityRouteDeps): void {
   const { requireAuth, lines, summary, sendJson } = deps;
 
+  // THE ACTIVITY LOG IS THE SUPER ADMIN'S (REQUIREMENTS §116, the owner, 15-Oct-2026): the page refuses anybody else
+  // (pages/ActivityLogPage.tsx), and so do its two readings here, whatever is asked for. The scope an account's lines
+  // were read with until then (readActivityFilter) is kept for the archive's readings and the server's own use.
+  const superAdminOnly = (req: Request, res: Response): boolean => {
+    if ((req as Request & { user?: { role?: string } }).user?.role === "admin") return true;
+    sendJson(req, res, 403, { error: "Only the super admin can open the Activity Log." });
+    return false;
+  };
+
   app.get("/api/activity", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (!superAdminOnly(req, res)) return;
     sendJson(req, res, 200, { lines: await lines({ ...activityFilterOf(req), ...readActivityPage(req.query as Record<string, unknown>) }) });
   });
 
@@ -120,6 +130,7 @@ export function registerActivityRoutes(app: Express, deps: ActivityRouteDeps): v
   // departments'. The counts are worked out in PostgreSQL, not here, over
   // exactly the lines GET /api/activity would list for the same request.
   app.get("/api/activity/summary", requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (!superAdminOnly(req, res)) return;
     sendJson(req, res, 200, { people: await summary(activityFilterOf(req)) });
   });
 }

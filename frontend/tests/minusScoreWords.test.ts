@@ -79,7 +79,8 @@ async function ui(lang: "en" | "gu") {
   ]);
   const render = (el: ReactElement): string => renderToStaticMarkup(h(auth.AuthProvider, null, h(store.AppStoreProvider, null, h(router.RouterProvider, null, el))));
   return {
-    page: () => split(render(h(page.PerformancePage))),
+    // The scorecard itself: the page refuses anybody but the super admin (REQUIREMENTS §116), and nobody is signed in here.
+    page: () => split(render(h(page.PerformanceScorecard))),
     card: (p: PersonScore) => split(render(h(page.PersonCard, { p, lang, scope: null, onOpen: () => undefined }))),
   };
 }

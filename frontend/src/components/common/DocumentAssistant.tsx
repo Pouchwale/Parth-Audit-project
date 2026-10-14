@@ -1791,6 +1791,7 @@ export function DocumentAssistant() {
         isDemo,
         language: lang,
         userName: user?.name ?? currentUser,
+        role: user?.role,
         get currentRoute() {
           return pathRef.current;
         },

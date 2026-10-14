@@ -86,6 +86,8 @@ export interface MitraToolContext {
   isDemo: boolean;
   language: "en" | "gu";
   userName: string;
+  /** "admin" for the super admin, whose the System section is (engine/systemSection.ts, §116); left out: staff. */
+  role?: string;
   currentRoute: string;
   navigate: (route: string) => void;
   /**
