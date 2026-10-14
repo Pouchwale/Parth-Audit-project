@@ -50,13 +50,23 @@ export const labelsFor = (doc: DocumentDefinition, record: RecordInstance): Reco
  * TrainingPage.tsx, CapaPage.tsx): a log sheet with its computed cells, a checklist whole, the rest merged over
  * what is stored. False, and nothing written, when the record is no longer open for writing.
  */
-export function commitRecord(doc: DocumentDefinition, recordId: string, next: unknown, note: string, action: "assistant-edit" | "imported", userName: string): boolean {
+export function commitRecord(doc: DocumentDefinition, recordId: string, next: unknown, note: string, action: "assistant-edit" | "imported", userName: string, opts: CommitOptions = {}): boolean {
   const base = recordRepository.getById(recordId);
   if (!base || !isEditableStatus(base.status)) return false;
   const page = pageOf(doc) ?? "record";
   const data = page === "record" ? withComputedCells(doc.id, next) : page === "complaint" ? next : { ...(isObj(base.data) ? base.data : {}), ...(isObj(next) ? next : {}) };
-  recordRepository.upsert(saveDraft(base, data, userName, { action, note, ...(page === "record" ? { labels: labelsFor(doc, base) } : {}) }));
+  const save = (b: RecordInstance): RecordInstance => saveDraft(b, data, userName, { action, note, ...(page === "record" ? { labels: labelsFor(doc, base) } : {}) });
+  if (opts.save) opts.save(base, save);
+  else recordRepository.upsert(save(base));
   return true;
+}
+
+export interface CommitOptions {
+  /**
+   * How the saved record is stored: the repository's upsert when left out. The engine host (engineHost/entry.ts
+   * savedApart) stores it with a mark that keeps each change through the phone as its own history entry.
+   */
+  save?: (base: RecordInstance, save: (record: RecordInstance) => RecordInstance) => RecordInstance;
 }
 
 /** How a record is called in a sentence: "the Lamination Adhesive Viscosity Record of 11-Oct-2026". */
@@ -67,7 +77,7 @@ export const recordCalled = (doc: DocumentDefinition, record: Pick<RecordInstanc
  * where the status allows a correction and the person's level does (Edit, §96), so a tool never offers one it
  * would then refuse; `correction` says the record is already open under correction.
  */
-export function targetForRecord(doc: DocumentDefinition, record: RecordInstance, userName: string, opts: { bump?: () => void; noteFor?: (toolNote: string) => string } = {}): AssistantTarget {
+export function targetForRecord(doc: DocumentDefinition, record: RecordInstance, userName: string, opts: { bump?: () => void; noteFor?: (toolNote: string) => string } & CommitOptions = {}): AssistantTarget {
   const noteFor = opts.noteFor ?? ((n: string) => n);
   return {
     documentKind: patchKindOf(doc),
@@ -80,7 +90,7 @@ export function targetForRecord(doc: DocumentDefinition, record: RecordInstance,
     getData: () => recordRepository.getById(record.id)?.data,
     labels: labelsFor(doc, record),
     commit: (next, toolNote, action) => {
-      commitRecord(doc, record.id, next, noteFor(toolNote), action ?? "assistant-edit", userName);
+      commitRecord(doc, record.id, next, noteFor(toolNote), action ?? "assistant-edit", userName, { save: opts.save });
       opts.bump?.();
     },
     reopen:

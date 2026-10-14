@@ -74,13 +74,13 @@ import {
   rejectRecord,
   reopenForCorrection,
   resumeAfterRejection,
-  saveDraft,
   submitRecord,
   verifyRecord,
 } from "../engine/recordLifecycle";
 import { historyOf, recordLabel } from "../engine/recordHistory";
-import { fieldLabels, humanKey, normDate } from "../engine/recordPatch";
-import { withComputedCells } from "../engine/computedCells";
+import { humanKey, lineValuesWords, normDate } from "../engine/recordPatch";
+import { lineRulesFor } from "../engine/recordLines";
+import { labelsFor, pageOf as pageKindOf, patchKindOf, recordCalled, targetForRecord, type PageKind } from "../engine/recordTarget";
 import { supersededRevisionOf, validateForSubmit, type ValidationResult } from "../engine/validation";
 import { entriesWaiting } from "../engine/knownParts";
 import { createRecordForDocument, deleteRecordWithTrail, recordCoveringDate, type DeletionEntry } from "../engine/recordCrud";
@@ -127,7 +127,7 @@ import { equipmentChatAnswer } from "../engine/equipmentMasterAssistant";
 import { insightCounts, insightsHeadline, type Insight } from "../engine/insights";
 import { scopedInsights } from "../engine/scopedInsights";
 import { canSampleFill, SAMPLE_FILL_NOTE } from "../engine/sampleFill";
-import { ALL_TOOLS } from "../engine/mitraTools";
+import { ALL_TOOLS, PATCH_SCHEMA, previewPatch } from "../engine/mitraTools";
 import { currentPmIndex, isLinkedLine, pmActuals, pmCellText, PM_MONTH_KEYS, scheduleYear, schedulesLinked } from "../engine/pmSchedule";
 import { addDays, compareISO, formatDisplayDate, todayISO } from "../utils/date";
 
@@ -140,9 +140,12 @@ const str = (v: unknown): string => (typeof v === "string" ? v.trim() : typeof v
  * "equipment" (F/MNT/01) and "insights" (what stands out), for the Mitra mobile app (2-Oct-2026). 3: the access rules
  * item, the morning prepare ("prepare"), the notification plan ("notifications"), the engine's clock (`now` on a
  * message), today by person and the reviewed submit (REQUIREMENTS §96, §97, 8-Oct-2026). 4: the person on `load`
- * (`account`), each request scoped and each change checked by the access levels (REQUIREMENTS §96, 9-Oct-2026).
+ * (`account`), each request scoped and each change checked by the access levels (REQUIREMENTS §96, 9-Oct-2026). 5: the
+ * lines of every record (REQUIREMENTS §113, 14-Oct-2026): the four operations in every patchShape, a change's dry run
+ * (`dryRun`), a signed-off record corrected with a reason, each list's rules and line ids in the layout, and paging
+ * (`offset`) on the lists.
  */
-export const ENGINE_API_VERSION = 4;
+export const ENGINE_API_VERSION = 5;
 
 // ---------------------------------------------------------------------------
 // the engine's clock
@@ -428,7 +431,8 @@ export async function run(op: string, args: Obj): Promise<Outcome> {
     viewer = { email: who.email.toLowerCase(), role: who.role, departments: Array.isArray(args.departments) ? (args.departments as unknown[]).map((d) => str(d)).filter(Boolean) : [] };
     setAccessScope(viewer);
   }
-  const changes = CHANGE_OPS.has(op);
+  // A DRY RUN (§113) is a read: the change is worked out and nothing is written, so nothing is laid over the records.
+  const changes = CHANGE_OPS.has(op) && !(op === "change" && args.dryRun === true);
   if (changes) {
     dirty = true;
     touched = new Set();
@@ -686,12 +690,22 @@ function issuedOf(doc: DocumentDefinition): Obj | null {
   };
 }
 
+/** Where a page of a list starts (REQUIREMENTS §113, the phone with many documents): 0 unless the caller asked further on. */
+const offsetOf = (value: unknown): number => Math.max(0, Math.floor(Number(value) || 0));
+
+/** One page of a list: the items from `offset`, at most `limit`, and whether more follow. */
+function paged<T>(all: T[], offset: number, limit: number): { items: T[]; page: { total: number; offset: number; limit: number; more: boolean } } {
+  const items = all.slice(offset, offset + limit);
+  return { items, page: { total: all.length, offset, limit, more: offset + items.length < all.length } };
+}
+
 function documentsOp(args: Obj): Outcome {
   const q = str(args.q);
   const limit = Math.max(1, Math.min(200, Number(args.limit) || 50));
+  const offset = offsetOf(args.offset);
   if (!q) {
-    const all = documentRepository.getAll();
-    return done({ query: "", documents: all.slice(0, limit).map(brief), total: all.length, kept: [], notInDcrs: [] });
+    const all = paged(documentRepository.getAll(), offset, limit);
+    return done({ query: "", documents: all.items.map(brief), ...all.page, kept: [], notInDcrs: [] });
   }
   const found = findDocuments(q);
   const yours: DocumentDefinition[] = [];
@@ -705,7 +719,8 @@ function documentsOp(args: Obj): Outcome {
     f.kind === "kept" ? [{ id: f.doc.id, formatNo: f.doc.formatNo, name: f.doc.name, module: f.doc.module, department: f.department, note: keptByLabel(f.department) }] : []
   );
   const notInDcrs = found.flatMap((f) => (f.kind === "master" ? [{ formatNo: f.format.formatNo, name: f.format.name, department: f.format.departmentName, note: NOT_IN_DCRS_YET }] : []));
-  return done({ query: q, documents: yours.slice(0, limit).map(brief), total: yours.length, kept, notInDcrs });
+  const mine = paged(yours, offset, limit);
+  return done({ query: q, documents: mine.items.map(brief), ...mine.page, kept, notInDcrs });
 }
 
 /** A document the person may open, named by its id, its format number or its words — or the refusal. */
@@ -819,8 +834,50 @@ function typeOfValue(key: string, value: unknown): string {
   return value === null ? "number or blank" : "text";
 }
 
-/** What the form is made of, in the keys a patch names: a log sheet's boxes and columns, F/HR/17's check points, any other form's fields. */
+/**
+ * THE LISTS OF THE FORM, AND WHAT EACH ALLOWS (REQUIREMENTS §113): one entry per list from the engine's own registry
+ * (engine/recordLines.ts) — whether lines may be added and removed (and why not, in words), how many it keeps, the key
+ * that names a line on the paper, the boxes of a new line — and, with a record, each line as it stands: its place
+ * (`row`), its `id` where its lines carry one, its printed name and its words. So the phone aims a change by id,
+ * never by a position that moved.
+ */
+function listsOf(doc: DocumentDefinition, record?: RecordInstance): Obj[] {
+  const data = record && isObj(record.data) ? record.data : undefined;
+  return lineRulesFor(doc.kind, doc.id, record).map((rule) => {
+    const list = data && Array.isArray(data[rule.key]) ? (data[rule.key] as unknown[]) : undefined;
+    const lines = list?.map((line, i) => {
+      const named = rule.nameKey && isObj(line) ? line[rule.nameKey] : undefined;
+      return {
+        row: i + 1,
+        ...(isObj(line) && typeof line.id === "string" ? { id: line.id } : {}),
+        ...(rule.nameKey && named !== undefined && named !== null && named !== "" ? { [rule.nameKey]: named } : {}),
+        words: lineValuesWords(doc.kind, doc.id, rule.key, line, record),
+      };
+    });
+    return {
+      key: rule.key,
+      label: humanKey(rule.key),
+      noun: rule.noun,
+      canAdd: rule.canAdd,
+      canRemove: rule.canRemove,
+      ...(rule.whyFixed ? { whyFixed: rule.whyFixed } : {}),
+      minLines: rule.minLines,
+      maxAddAtOnce: rule.maxAddAtOnce,
+      ...(rule.nameKey ? { nameKey: rule.nameKey } : {}),
+      ...(rule.numberKey ? { numberKey: rule.numberKey } : {}),
+      ...(rule.scalar ? { scalar: true } : {}),
+      ...(rule.within ? { within: rule.within } : {}),
+      // The boxes of one line: a plain line of words is set as {"text": "…"}.
+      item: isObj(rule.blank) ? Object.keys(rule.blank) : ["text"],
+      writable: rule.writable,
+      ...(lines ? { count: lines.length, lines } : {}),
+    };
+  });
+}
+
+/** What the form is made of, in the keys a patch names: a log sheet's boxes and columns, F/HR/17's check points, any other form's fields — and its lists (listsOf). */
 function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
+  const lists = listsOf(doc, record);
   if (doc.kind === "log-sheet") {
     const l: LogSheetLayout | undefined = getLogSheetLayoutForRecord(doc.id, record);
     if (l) {
@@ -858,6 +915,7 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
           ...(mode.kind === "fixedRows" ? { fixed: mode.rows.length } : {}),
           ...(rows !== undefined ? { count: rows } : {}),
         },
+        lists,
       };
     }
   }
@@ -871,14 +929,11 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
         { key: "timeOfChecking", label: "Time of checking", type: "time" },
         { key: "isHoliday", label: "Holiday", type: "yesno" },
       ],
-      lists: [
-        { key: "rodentCatches", label: "Rodent catches", items: ["trapBoxNo", "location", "count"] },
-        { key: "summaryActions", label: "Observations and actions", items: ["dateOfObservation", "descriptionOfObservation", "actionTaken", "remarks"] },
-      ],
+      lists,
     };
   }
   const data = record?.data ?? createDefaultData(doc, todayISO(), master);
-  if (!isObj(data)) return { kind: doc.kind, fields: [] };
+  if (!isObj(data)) return { kind: doc.kind, fields: [], lists };
   const fields: Obj[] = [];
   for (const [key, value] of Object.entries(data)) {
     const type = typeOfValue(key, value);
@@ -890,23 +945,41 @@ function layoutOf(doc: DocumentDefinition, record?: RecordInstance): Obj {
     } else if (isObj(value)) field.parts = Object.keys(value);
     fields.push(field);
   }
-  return { kind: doc.kind, fields };
+  return { kind: doc.kind, fields, lists };
 }
 
-/** How a change to this kind of form is written (engine/recordPatch.ts applyAssistantPatch, Mitra's edit_open_record). */
+/** A whole list is never replaced through a patch (REQUIREMENTS §113): the sentence every patchShape ends with. */
+export const WHOLE_LIST_KEPT = "A whole list is never replaced: a list sent whole sets the lines it names (by id, else by the paper's name, else by place) and keeps every other line; a line without an id is added where the list allows it.";
+
+/** The four operations on a record's lines, in the very words Mitra's edit_open_record is given (engine/mitraTools.ts PATCH_SCHEMA). */
+function patchOperations(): string {
+  const ops = PATCH_SCHEMA.properties;
+  return `${PATCH_SCHEMA.description} itemEdits — ${ops.itemEdits.description}. addItems — ${ops.addItems.description}. removeItems — ${ops.removeItems.description}. clearItems — ${ops.clearItems.description}.`;
+}
+
+/**
+ * How a change to this kind of form is written (engine/recordPatch.ts applyAssistantPatch, Mitra's edit_open_record):
+ * the form's own boxes, then the four operations on its lines verbatim, then that a whole list is never replaced.
+ * `layout.lists` says which lists take which operations.
+ */
 function patchShape(doc: DocumentDefinition): string {
-  switch (doc.kind) {
-    case "log-sheet":
-      return 'A box: {"header": {"<box key>": value}}. One line: {"itemEdits": [{"collection": "rows", "match": {"<slot key>": "10:00"} or {"row": 2}, "set": {"<column key>": value}}]}. Printed and computed columns cannot be written.';
-    case "daily-pest-monitoring":
-      return 'Check points by number: {"checkpoints": {"1": "Yes", "4": 100, "8": {"value": "Yes", "note": "near the store"}}, "checker": "Name", "timeOfChecking": "09:30"}.';
-    case "gap-inspection":
-      return 'A field: {"inspectionDate": "YYYY-MM-DD"}. One finding: {"itemEdits": [{"collection": "findings", "match": {"sNo": 1}, "set": {"correctiveActionClient": "…", "targetDate": "YYYY-MM-DD"}}]}.';
-    case "complaint-checklist":
-      return 'A field: {"customerName": "…"}. One activity: {"itemEdits": [{"collection": "sections", "match": {"key": "A"}, …}]} — the checklist is answered one activity at a time, A1 to E32.';
-    default:
-      return 'A field: {"<field key>": value}. One line of a list: {"itemEdits": [{"collection": "<list key>", "match": {"<key>": value} or {"row": 2}, "set": {"<key>": value}}]}.';
-  }
+  const own = (() => {
+    switch (doc.kind) {
+      case "log-sheet":
+        return 'A box: {"header": {"<box key>": value}}. The lines are "rows", matched by {"id": "row-…"}, {"row": 2} or {"<slot key>": "10:00"}. Printed and computed columns cannot be written.';
+      case "daily-pest-monitoring":
+        return 'Check points by number: {"checkpoints": {"1": "Yes", "4": 100, "8": {"value": "Yes", "note": "near the store"}, "3": null}} (null clears one), "checker": "Name", "timeOfChecking": "09:30". The lists are "rodentCatches" (trapBoxNo, location, count) and "summaryActions".';
+      case "gap-inspection":
+        return 'A field: {"inspectionDate": "YYYY-MM-DD"}. The list is "findings", matched by {"sNo": 1}; a new finding takes only what was said (findingOfInspection, …) and its number is given.';
+      case "training-record":
+        return 'A field: {"topic": "…"}. The lists are "attendees" (employeeName, department) and "topics" (a line of words, set as {"text": "…"}).';
+      case "complaint-checklist":
+        return 'A field: {"customerName": "…"}. One activity: {"itemEdits": [{"collection": "sections", "match": {"key": "A"}, …}]} — the checklist is answered one activity at a time, A1 to E32; its lines are printed.';
+      default:
+        return 'A field: {"<field key>": value}. The lists are the ones layout.lists names, each line matched by {"id": …}, {"row": n} or its name key.';
+    }
+  })();
+  return `${own} ${patchOperations()} ${WHOLE_LIST_KEPT}`;
 }
 
 function documentOp(args: Obj): Outcome {
@@ -1171,13 +1244,14 @@ function recordsOp(args: Obj): Outcome {
     .filter((r) => !status || r.status === status)
     .sort((a, b) => compareISO(b.dueDate, a.dueDate) || (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
   const docs = new Map(documentRepository.getAll().map((d) => [d.id, d] as const));
+  const page = paged(records, offsetOf(args.offset), limit);
   return done({
     ...(doc ? { document: brief(doc) } : {}),
     from: lo,
     to: hi,
     ...(status ? { status } : {}),
-    total: records.length,
-    records: records.slice(0, limit).map((r) => listItem(r, docs.get(r.documentId))),
+    ...page.page,
+    records: page.items.map((r) => listItem(r, docs.get(r.documentId))),
   });
 }
 
@@ -1189,6 +1263,7 @@ function searchOp(args: Obj, who: Who): Outcome {
   if (!q) return refuse(400, "bad-request", "q is needed: the words to look for.");
   const today = todayISO();
   const limit = Math.max(1, Math.min(100, Number(args.limit) || 20));
+  const offset = offsetOf(args.offset);
   const from = dateArg(args.from, today);
   const to = dateArg(args.to, today);
   if (from === null || to === null) return refuse(400, "bad-date", "from and to must be dates written YYYY-MM-DD.");
@@ -1210,7 +1285,8 @@ function searchOp(args: Obj, who: Who): Outcome {
       .flatMap((id) => recordRepository.query({ documentId: id, isDemo: false }))
       .filter(inRange)
       .sort((a, b) => compareISO(b.dueDate, a.dueDate));
-    return done({ query: q, kind: "register", total: records.length, hits: records.slice(0, limit).map((r) => listItem(r, docs.get(r.documentId))) });
+    const page = paged(records, offset, limit);
+    return done({ query: q, kind: "register", ...page.page, hits: page.items.map((r) => listItem(r, docs.get(r.documentId))) });
   }
   // The index is built here and now, slice by slice, so nothing is ever answered from half of it.
   const opts = { isDemo: false, account: who.userId };
@@ -1219,12 +1295,14 @@ function searchOp(args: Obj, who: Who): Outcome {
   while (!status.ready && Date.now() - started < INDEX_BUILD_MS) status = ensureRecordIndex(opts);
   const res = searchRecords(reading.words, { ...opts, limit: 500, documentIds: docIds });
   const hits = res.hits.filter(inRange);
+  const page = paged(hits, offset, limit);
   return done({
     query: q,
     kind: "words",
+    ...page.page,
     total: from || to ? hits.length : res.total,
     complete: res.complete,
-    hits: hits.slice(0, limit).map((h) => ({ ...listItem(recordRepository.getById(h.id) ?? (h as unknown as RecordInstance), docs.get(h.documentId)), snippet: snippetFor(h.cells, res.terms) })),
+    hits: page.items.map((h) => ({ ...listItem(recordRepository.getById(h.id) ?? (h as unknown as RecordInstance), docs.get(h.documentId)), snippet: snippetFor(h.cells, res.terms) })),
     ...(res.total === 0 ? { note: "Only what people wrote on records is searched; blank or prepared sheets are listed with GET /api/v1/records." } : {}),
   });
 }
@@ -1257,20 +1335,14 @@ function recordNamed(id: string): { record: RecordInstance; doc: DocumentDefinit
   return { record, doc };
 }
 
-/** Which of DCRS's pages this record opens on — and so which page's own handlers act on it. */
-type PageKind = "record" | "gap" | "training" | "complaint";
-function pageOf(doc: DocumentDefinition): PageKind | null {
-  if (isReference(doc)) return null;
-  if (doc.kind === "gap-inspection") return "gap";
-  if (doc.kind === "training-record") return "training";
-  if (doc.kind === "complaint-checklist") return "complaint";
-  return "record";
-}
+/**
+ * Which of DCRS's pages this record opens on — and so which page's own commit saves a change to it: the engine's rule
+ * (engine/recordTarget.ts pageOf), with the host's wider reading of a reference document (REFERENCE_KINDS: a chemical
+ * master, a licence or a statement of compliance has no page to change on, flagged as issued or not).
+ */
+const pageOf = (doc: DocumentDefinition): PageKind | null => (isReference(doc) ? null : pageKindOf(doc));
 
-/** The kind Mitra's patch checker is told the open record is: what each page registers (store/AssistantContext.tsx). */
-const patchKindOf = (doc: DocumentDefinition, page: PageKind): string => (page === "gap" ? "gap" : page === "training" ? "training" : doc.kind);
-
-const titleOf = (doc: DocumentDefinition, record: RecordInstance): string => `the ${doc.name} of ${formatDisplayDate(record.dueDate)}`;
+const titleOf = recordCalled;
 
 /** What can be done to it now, as the page's action bar offers it (components/records/RecordActionBar.tsx). */
 function actionsFor(record: RecordInstance, page: PageKind): string[] {
@@ -1630,45 +1702,15 @@ function openOp(args: Obj, who: Who): Outcome {
   return done({ created: !wasStored, record: recordJson(record, doc) }, wasStored ? 200 : 201);
 }
 
-interface PageHandlers {
-  doc: DocumentDefinition;
-  page: PageKind;
-  labels: Record<string, string>;
-}
-
-function handlersFor(doc: DocumentDefinition, record: RecordInstance): PageHandlers | null {
-  const page = pageOf(doc);
-  if (!page) return null;
-  // The labels a record's history is written in: a log sheet's printed ones (pages/RecordPage.tsx); none on the other pages.
-  return { doc, page, labels: page === "record" ? fieldLabels(doc.kind, doc.id, record) : {} };
-}
-
-/** Saves a change to the record's data exactly as its page's commit does (pages/RecordPage.tsx, GapPage.tsx, TrainingPage.tsx, CapaPage.tsx). */
-function commitOn(h: PageHandlers, recordId: string, next: unknown, note: string, action: "assistant-edit" | "imported", userName: string): boolean {
-  const base = recordRepository.getById(recordId);
-  if (!base || !isEditableStatus(base.status)) return false;
-  const data = h.page === "record" ? withComputedCells(h.doc.id, next) : h.page === "complaint" ? next : { ...(base.data as Obj), ...(next as Obj) };
-  savedApart(base, (b) => saveDraft(b, data, userName, { action, note, ...(h.page === "record" ? { labels: h.labels } : {}) }));
-  touched.add(recordId);
-  return true;
-}
-
-/** The open record as Mitra's tools see it (store/AssistantContext.tsx AssistantTarget), for one change through the app. */
-function targetFor(h: PageHandlers, record: RecordInstance, userName: string, noteFor: (toolNote: string) => string): AssistantTarget {
-  return {
-    documentKind: patchKindOf(h.doc, h.page),
-    documentId: h.doc.id,
-    recordId: record.id,
-    status: record.status,
-    editable: isEditableStatus(record.status),
-    currentData: record.data,
-    getData: () => recordRepository.getById(record.id)?.data,
-    labels: h.labels,
-    commit: (next, toolNote, action) => {
-      commitOn(h, record.id, next, noteFor(toolNote), action ?? "assistant-edit", userName);
-    },
-    title: titleOf(h.doc, record),
-  };
+/**
+ * The record as Mitra's tools see it (store/AssistantContext.tsx AssistantTarget), for one change through the app:
+ * the engine's own target (engine/recordTarget.ts targetForRecord — the same commit as the record's page), saved
+ * apart so each change through the phone keeps its own history entry, and the record marked as touched. No `reopen`:
+ * a signed-off record is reopened by the host itself, with the person's reason, before any tool runs (changeOp).
+ */
+function targetFor(doc: DocumentDefinition, record: RecordInstance, userName: string, noteFor: (toolNote: string) => string): AssistantTarget {
+  const target = targetForRecord(doc, record, userName, { noteFor, bump: () => touched.add(record.id), save: savedApart });
+  return { ...target, reopen: undefined };
 }
 
 function toolContext(target: AssistantTarget, who: Who, words: string, attachments: MitraAttachment[] = []): MitraToolContext {
@@ -1682,9 +1724,10 @@ function toolContext(target: AssistantTarget, who: Who, words: string, attachmen
     target,
     bump: () => undefined,
     attachments,
-    // Nothing is asked here: the app asked the person before it called, and a record
-    // that would need reopening is refused before any tool runs.
-    confirm: async () => false,
+    // A line taken off or a written value cleared is asked about on the phone BEFORE it calls (its confirmation card
+    // is worded from the dry run, §113), so the tool's own question is answered yes here; a record that would need
+    // reopening is reopened, or refused, before any tool runs.
+    confirm: async () => true,
     userWords: words,
   };
 }
@@ -1720,24 +1763,102 @@ function changeSummary(record: RecordInstance, doc: DocumentDefinition, entries:
   };
 }
 
+const changeWords = (c: { label: string; before: string; after: string }): Obj => ({ label: c.label, before: c.before, after: c.after });
+
+/**
+ * The lines a change ADDED, as stored: each by its collection and its id (its place, on a list of plain words) with
+ * its words — what an Undo takes off again (engine/mitraTools.ts undoAddedLines). Read off the record after the
+ * change, since a line's id is given when it is written: a dry run's new line has none yet.
+ */
+function linesAdded(doc: DocumentDefinition, record: RecordInstance, before: unknown, after: unknown): Obj[] {
+  const out: Obj[] = [];
+  if (!isObj(before) || !isObj(after)) return out;
+  for (const [collection, list] of Object.entries(after)) {
+    if (!Array.isArray(list)) continue;
+    const was = Array.isArray(before[collection]) ? (before[collection] as unknown[]) : [];
+    const ids = new Set(was.map((l) => (isObj(l) && typeof l.id === "string" ? l.id : null)).filter(Boolean));
+    list.forEach((line, i) => {
+      if (isObj(line) && typeof line.id === "string") {
+        if (!ids.has(line.id)) out.push({ collection, id: line.id, row: i + 1, words: lineValuesWords(doc.kind, doc.id, collection, line, record) });
+      } else if (typeof line === "string" && i >= was.length) out.push({ collection, id: i + 1, row: i + 1, words: line });
+    });
+  }
+  return out;
+}
+
+/**
+ * A CHANGE TO A RECORD'S LINES AND BOXES (REQUIREMENTS §113): Mitra's own edit_open_record over the engine's patch —
+ * the four operations (itemEdits, addItems, removeItems, clearItems), a whole list never replaced — run exactly as the
+ * website runs it. With `dryRun`, the patch is applied to a copy and diffed (engine/mitraTools.ts previewPatch) and
+ * NOTHING is written: the answer names each line it would add (with its words; its id is given when it is written),
+ * take off or clear, so the phone's confirmation card says exactly what DCRS will do. The levels (§96): Write on a draft, Edit on a record under
+ * correction; a signed-off record is a correction — Edit, and a `reason` the reopen line of its history carries —
+ * refused in words without the level (403), and with 409 needs-reopen without the reason.
+ */
 async function changeOp(args: Obj, who: Who): Promise<Outcome> {
   const found = recordNamed(str(args.id));
   if ("refusal" in found) return found.refusal;
-  const { record, doc } = found;
-  const h = handlersFor(doc, record);
-  if (!h) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no record to change.`);
+  const { doc } = found;
+  let record = found.record;
+  const page = pageOf(doc);
+  if (!page) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no record to change.`);
   const refused = levelRefusal(doc.id, record.correction ? "correct" : "fill", who, record.id);
   if (refused) return refused;
-  if (!isEditableStatus(record.status)) return needsReopen(record, doc, h.page);
   const patch = args.patch;
   if (!isObj(patch) || Object.keys(patch).length === 0) return refuse(400, "bad-patch", "patch is needed: an object of the fields to change (see patchShape in GET /api/v1/records/{id}).");
+  const dryRun = args.dryRun === true;
+  const reason = str(args.reason);
+  let willReopen = false;
+  if (!isEditableStatus(record.status)) {
+    // A SIGNED-OFF RECORD IS CORRECTED, NOT CHANGED (§96): Edit's step, with a reason, as the website asks before it
+    // reopens one for Mitra's change. The dry run says it would reopen; the change itself needs the reason.
+    if (!actionsFor(record, page).includes("reopen")) return needsReopen(record, doc, page);
+    const edit = levelRefusal(doc.id, "correct", who, record.id);
+    if (edit) return edit;
+    if (!dryRun && !reason) {
+      return refuse(
+        409,
+        "needs-reopen",
+        `${titleOf(doc, record)} is ${record.status}: a change to it is a correction. Send the change again with a reason, or reopen it first (action "reopen"); it will then need submitting and verifying again.`,
+        { status: record.status, canReopen: true, reasonNeeded: true }
+      );
+    }
+    willReopen = true;
+  }
   const said = str(args.note);
-  const note = through(who.client, said || "changes asked for in the chat");
-  const target = targetFor(h, record, who.userName, () => note);
+  // THE DRY RUN FIRST, as the website's tool runs it: what the patch would do, in the lines' own words, nothing written.
+  const preview = previewPatch(patchKindOf(doc), doc.id, record.data, patch, record, labelsFor(doc, record));
+  if (preview.changes.length === 0) return refuse(400, "nothing-changed", "Nothing on the form changed.", { problems: preview.problems.slice(0, 8) });
+  if (dryRun) {
+    return done({
+      dryRun: true,
+      recordId: record.id,
+      title: titleOf(doc, record),
+      status: record.status,
+      editable: writableNow(record, doc),
+      willReopen,
+      ...(willReopen ? { reasonNeeded: !reason } : {}),
+      changes: preview.changes.map(changeWords),
+      // A line to be added has no id yet: the change that writes it answers with the id.
+      added: preview.added.map((l) => ({ collection: l.collection, words: l.words })),
+      removed: preview.removed,
+      cleared: preview.cleared,
+      problems: preview.problems,
+      route: routeForRecord(doc, record.id),
+    });
+  }
   const before = record;
+  if (willReopen) {
+    reopenForCorrection(record, who.userName, reason);
+    touched.add(record.id);
+    record = recordRepository.getById(record.id) ?? record;
+  }
+  const note = through(who.client, said || "changes asked for in the chat");
+  const target = targetFor(doc, record, who.userName, () => note);
   // MITRA'S OWN edit_open_record: the patch checked and normalised field by field
   // (engine/recordPatch.ts applyAssistantPatch), what it changes worked out, and
-  // the change saved through the page's own commit.
+  // the change saved through the page's own commit, the history keeping a
+  // removed line's values (engine/recordHistory.ts).
   const result = await tool("edit_open_record").run({ patch }, toolContext(target, who, said || "changes asked for in the chat"));
   const answer = (result.result ?? {}) as Obj;
   if (!result.ok) {
@@ -1746,11 +1867,16 @@ async function changeOp(args: Obj, who: Who): Promise<Outcome> {
   }
   const entries = markThrough(record.id, before, who.client);
   const now = recordRepository.getById(record.id) ?? record;
-  const entry = entries[entries.length - 1];
+  const entry = entries.filter((h) => h.action === "assistant-edit").at(-1) ?? entries[entries.length - 1];
   return done({
     ...changeSummary(now, doc, entries),
-    changes: (entry?.changes ?? []).map((c) => ({ label: c.label, before: c.before, after: c.after })),
+    ...(willReopen ? { reopened: true } : {}),
+    changes: (entry?.changes ?? []).map(changeWords),
     ...(entry?.moreChanges ? { moreChanges: entry.moreChanges } : {}),
+    // The lines added (by id, as stored), taken off and cleared, in their own words.
+    added: linesAdded(doc, now, before.data, now.data),
+    removed: preview.removed,
+    cleared: preview.cleared,
     problems: Array.isArray(answer.rejected) ? answer.rejected : [],
   });
 }
@@ -1759,12 +1885,12 @@ async function sampleFillOp(args: Obj, who: Who): Promise<Outcome> {
   const found = recordNamed(str(args.id));
   if ("refusal" in found) return found.refusal;
   const { record, doc } = found;
-  const h = handlersFor(doc, record);
-  if (!h || !canSampleFill(doc.kind)) return refuse(409, "no-sample", `${doc.name} is kept as issued — there is no sample data for it.`);
+  const page = pageOf(doc);
+  if (!page || !canSampleFill(doc.kind)) return refuse(409, "no-sample", `${doc.name} is kept as issued — there is no sample data for it.`);
   const refused = levelRefusal(doc.id, record.correction ? "correct" : "fill", who, record.id);
   if (refused) return refused;
-  if (!isEditableStatus(record.status)) return needsReopen(record, doc, h.page);
-  const target = targetFor(h, record, who.userName, (toolNote) => through(who.client, toolNote || SAMPLE_FILL_NOTE));
+  if (!isEditableStatus(record.status)) return needsReopen(record, doc, page);
+  const target = targetFor(doc, record, who.userName, (toolNote) => through(who.client, toolNote || SAMPLE_FILL_NOTE));
   // MITRA'S OWN fill_open_record_with_sample_data (engine/sampleFill.ts): realistic, made up, marked so, never submitted.
   const result = await tool("fill_open_record_with_sample_data").run({}, toolContext(target, who, "fill it with sample data"));
   const answer = (result.result ?? {}) as Obj;
@@ -1791,18 +1917,18 @@ async function photoOp(args: Obj, who: Who): Promise<Outcome> {
   const found = recordNamed(str(args.id));
   if ("refusal" in found) return found.refusal;
   const { record, doc } = found;
-  const h = handlersFor(doc, record);
-  if (!h || !photoListOf(record.data)) return refuse(409, "no-photo-list", `${doc.name} has no photo or scan list.`);
+  const page = pageOf(doc);
+  if (!page || !photoListOf(record.data)) return refuse(409, "no-photo-list", `${doc.name} has no photo or scan list.`);
   const refused = levelRefusal(doc.id, record.correction ? "correct" : "fill", who, record.id);
   if (refused) return refused;
-  if (!isEditableStatus(record.status)) return needsReopen(record, doc, h.page);
+  if (!isEditableStatus(record.status)) return needsReopen(record, doc, page);
   const name = str(args.fileName) || "photo.jpg";
   const dataUrl = str(args.dataUrl);
   const size = Number(args.size) || 0;
   const said = str(args.note);
   const note = through(who.client, said || `photo ${name} added`);
   const attachment: MitraAttachment = { id: "app-photo", name, kind: "image", size, status: "ready", text: "", characters: 0, dataUrl };
-  const target = targetFor(h, record, who.userName, () => note);
+  const target = targetFor(doc, record, who.userName, () => note);
   // MITRA'S OWN add_photo_to_open_record: the picture goes on the record's photo or scan list as the page keeps it.
   const result = await tool("add_photo_to_open_record").run({ attachmentId: attachment.id }, toolContext(target, who, said || `add ${name}`, [attachment]));
   const answer = (result.result ?? {}) as Obj;
@@ -1852,14 +1978,14 @@ function actionOp(args: Obj, who: Who): Outcome {
   const found = recordNamed(str(args.id));
   if ("refusal" in found) return found.refusal;
   const { record: stored, doc } = found;
-  const h = handlersFor(doc, stored);
-  if (!h) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no record to act on.`);
+  const page = pageOf(doc);
+  if (!page) return refuse(409, "reference-only", `${doc.name} is kept as issued; it has no record to act on.`);
   const levelRefused = levelRefusal(doc.id, ACTION_NEEDS[action] ?? "correct", who, stored.id);
   if (levelRefused) return levelRefused;
   const reason = str(args.reason);
   const user = who.userName;
   const title = titleOf(doc, stored);
-  const wrongStatus = (why: string): Outcome => refuse(409, "wrong-status", `${title} is ${stored.status}: ${why}`, { status: stored.status, actions: allowedActions(stored, doc, h.page) });
+  const wrongStatus = (why: string): Outcome => refuse(409, "wrong-status", `${title} is ${stored.status}: ${why}`, { status: stored.status, actions: allowedActions(stored, doc, page) });
   const finish = (what: string): Outcome => {
     touched.add(stored.id);
     const entries = markThrough(stored.id, stored, who.client);
@@ -1878,7 +2004,7 @@ function actionOp(args: Obj, who: Who): Outcome {
         return refuse(409, "needs-review", `The assistant prepared ${title}. Check every value, tick "Reviewed and correct", then submit it.`);
       }
       let base = stored;
-      if (h.page === "complaint") {
+      if (page === "complaint") {
         // Submit stamps Prepared By with the person when nobody typed a name (pages/CapaPage.tsx doSubmit) — kept even when the submit is refused.
         const data = stored.data as ComplaintChecklistData;
         const preparedBy = { name: data.preparedBy.name.trim() || user, designation: data.preparedBy.designation, date: data.preparedBy.date ?? today };
@@ -1904,14 +2030,14 @@ function actionOp(args: Obj, who: Who): Outcome {
     case "verify": {
       if (!VERIFIABLE.includes(stored.status)) return wrongStatus("only a submitted record can be verified.");
       let base = stored;
-      if (h.page === "complaint") {
+      if (page === "complaint") {
         // Approval stamps Approved By with the approver and today (pages/CapaPage.tsx doApprove).
         const data = stored.data as ComplaintChecklistData;
         base = recordRepository.upsert({ ...stored, data: { ...data, approvedBy: approvalSignoff(data.approvedBy, user, today) } } as RecordInstance);
         touched.add(stored.id);
       }
       const { result } = verifyRecord(doc, base, user);
-      return check(result, "Verifying it") ?? finish(h.page === "complaint" ? "Approved" : "Verified");
+      return check(result, "Verifying it") ?? finish(page === "complaint" ? "Approved" : "Verified");
     }
     case "send_back": {
       if (!VERIFIABLE.includes(stored.status)) return wrongStatus("only a submitted record waiting for verification can be sent back.");
@@ -1925,7 +2051,7 @@ function actionOp(args: Obj, who: Who): Outcome {
       return finish("Resumed");
     }
     case "reopen": {
-      if (!actionsFor(stored, h.page).includes("reopen")) {
+      if (!actionsFor(stored, page).includes("reopen")) {
         return wrongStatus(isCorrectableStatus(stored.status) ? "it is kept as written on a revision the format has since replaced." : "only a submitted, verified or sent-back record is reopened for correction.");
       }
       if (!reason) return refuse(400, "needs-reason", "reason is needed: say why the record is being corrected.");
@@ -1934,8 +2060,8 @@ function actionOp(args: Obj, who: Who): Outcome {
     }
     case "cancel_correction": {
       if (!stored.correction) return wrongStatus("it is not open for correction, so there is nothing to put back.");
-      if (h.page === "record" && !isEditableStatus(stored.status)) return wrongStatus("it is not open for writing.");
-      cancelCorrection(stored, user, h.page === "record" ? h.labels : {});
+      if (page === "record" && !isEditableStatus(stored.status)) return wrongStatus("it is not open for writing.");
+      cancelCorrection(stored, user, labelsFor(doc, stored));
       return finish("Put back as it was");
     }
     case "delete": {

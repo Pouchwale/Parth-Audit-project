@@ -102,6 +102,14 @@ function limitOf(value: unknown, fallback: number, max: number): number | null {
   return Math.min(Number(value), max);
 }
 
+/** Where a page of a list starts (REQUIREMENTS §113, the phone with many documents): 0 when absent; null when not a whole number. */
+function offsetOf(value: unknown): number | null {
+  if (value === undefined) return 0;
+  if (typeof value !== "string" || !/^\d{1,7}$/.test(value)) return null;
+  return Number(value);
+}
+const BAD_OFFSET = "offset must be a whole number: how many to skip (0, the default, starts at the first).";
+
 /** The departments a person is kept to, or null for every department (backend/index.ts accountDepartments). */
 function departmentsOf(user: PublicUser): string[] | null {
   return user.role !== "admin" && user.departments.length > 0 ? user.departments : null;
@@ -266,9 +274,11 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
   app.get("/api/v1/documents", signedIn, async (req: Request, res: Response): Promise<void> => {
     const q = queryText(req.query.q);
     const limit = limitOf(req.query.limit, 50, 200);
+    const offset = offsetOf(req.query.offset);
     if (q === null) return fail(res, 400, "bad-request", `q must be text of at most ${MAX_TEXT} characters.`);
     if (limit === null) return fail(res, 400, "bad-request", "limit must be a whole number from 1 to 200.");
-    const answer = await read(req, res, "documents", { q: q ?? "", limit });
+    if (offset === null) return fail(res, 400, "bad-request", BAD_OFFSET);
+    const answer = await read(req, res, "documents", { q: q ?? "", limit, offset });
     if (answer) send(req, res, answer);
   });
 
@@ -298,9 +308,11 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     const to = queryText(req.query.to, 20);
     const status = queryText(req.query.status, 40);
     const limit = limitOf(req.query.limit, 50, 200);
+    const offset = offsetOf(req.query.offset);
     if (documentId === null || from === null || to === null || status === null) return fail(res, 400, "bad-request", "documentId, from, to and status must be short text.");
     if (limit === null) return fail(res, 400, "bad-request", "limit must be a whole number from 1 to 200.");
-    const answer = await read(req, res, "records", { documentId, from, to, status, limit });
+    if (offset === null) return fail(res, 400, "bad-request", BAD_OFFSET);
+    const answer = await read(req, res, "records", { documentId, from, to, status, limit, offset });
     if (answer) send(req, res, answer);
   });
 
@@ -311,10 +323,12 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     const from = queryText(req.query.from, 20);
     const to = queryText(req.query.to, 20);
     const limit = limitOf(req.query.limit, 20, 100);
+    const offset = offsetOf(req.query.offset);
     if (!q) return fail(res, 400, "bad-request", `q is needed: the words to look for, at most ${MAX_TEXT} characters.`);
     if (documentId === null || from === null || to === null) return fail(res, 400, "bad-request", "documentId, from and to must be short text.");
     if (limit === null) return fail(res, 400, "bad-request", "limit must be a whole number from 1 to 100.");
-    const answer = await read(req, res, "search", { q, documentId, from, to, limit });
+    if (offset === null) return fail(res, 400, "bad-request", BAD_OFFSET);
+    const answer = await read(req, res, "search", { q, documentId, from, to, limit, offset });
     if (answer) send(req, res, answer);
   });
 
@@ -451,9 +465,12 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
     await change(req, res, "open", { documentId: body.documentId, date: typeof body.date === "string" ? body.date : undefined });
   });
 
-  // edit_open_record: Mitra's patch, applied by DCRS's own engine exactly as Mitra applies it.
+  // edit_open_record: Mitra's patch — the four operations on a record's lines (REQUIREMENTS §113) — applied by DCRS's
+  // own engine exactly as Mitra applies it. With dryRun: true the engine says what the patch WOULD do (the lines it
+  // would add, take off or clear, in their words) and writes nothing: the phone's confirmation card is worded from
+  // it. A signed-off record is corrected with a reason (Edit, §96): the reopen line of its history carries it.
   app.post("/api/v1/records/:id/changes", signedIn, async (req: Request, res: Response): Promise<void> => {
-    const body = (req.body ?? {}) as { patch?: unknown; note?: unknown };
+    const body = (req.body ?? {}) as { patch?: unknown; note?: unknown; dryRun?: unknown; reason?: unknown };
     let patch = body.patch;
     if (typeof patch === "string") {
       try {
@@ -466,7 +483,16 @@ export function registerApiV1Records(app: Express, deps: RecordsRouteDeps): void
       return fail(res, 400, "bad-patch", "patch is needed: an object of the fields to change (GET /api/v1/records/{id} gives the field keys and the patch's shape).");
     }
     if (body.note !== undefined && (typeof body.note !== "string" || body.note.length > MAX_NOTE)) return fail(res, 400, "bad-note", `note must be text of at most ${MAX_NOTE} characters.`);
-    await change(req, res, "change", { id: idOf(req), patch, note: typeof body.note === "string" ? body.note : "" });
+    if (body.dryRun !== undefined && typeof body.dryRun !== "boolean") return fail(res, 400, "bad-request", "dryRun must be true or false.");
+    if (body.reason !== undefined && body.reason !== null && (typeof body.reason !== "string" || body.reason.length > MAX_REASON)) return fail(res, 400, "bad-request", `reason must be text of at most ${MAX_REASON} characters.`);
+    const args = { id: idOf(req), patch, note: typeof body.note === "string" ? body.note : "", reason: typeof body.reason === "string" ? body.reason : "" };
+    if (body.dryRun === true) {
+      // A read: nothing is written, nothing is logged.
+      const answer = await read(req, res, "change", { ...args, dryRun: true });
+      if (answer) send(req, res, answer);
+      return;
+    }
+    await change(req, res, "change", args);
   });
 
   // record_action: submit, verify (approve), send_back, resume, reopen, cancel_correction, delete. A record the

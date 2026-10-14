@@ -623,8 +623,9 @@ const GET_OPEN_RECORD: MitraTool = {
 
 // THE PATCH THE MODEL SENDS (REQUIREMENTS §113): the four operations on a record's lines, their shapes exactly as
 // engine/recordPatch.ts applyAssistantPatch reads them. A whole list is never asked for, and "replaceList" — the only
-// way to replace a list — is not in the schema and is struck from anything the model sends (previewPatch).
-const PATCH_SCHEMA = {
+// way to replace a list — is not in the schema and is struck from anything the model sends (previewPatch). The engine
+// host hands the phone these very words as a record's patchShape (engineHost/entry.ts), so both apps read one shape.
+export const PATCH_SCHEMA = {
   type: "object",
   description: "{field:value}; header{key:value}; F/HR/17 checkpoints{n:value or null clears}. Never send a whole list: use the four operations.",
   properties: {

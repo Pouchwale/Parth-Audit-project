@@ -894,6 +894,17 @@
             }
           },
           {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Paging (REQUIREMENTS §113): how many to skip; the answer says offset, limit, total and more.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
             "$ref": "#/components/parameters/ClientName"
           }
         ],
@@ -1109,7 +1120,7 @@
                       "count": 24
                     }
                   },
-                  "patchShape": "A box: {\"header\": {\"<box key>\": value}}. One line: {\"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}. Printed and computed columns cannot be written.",
+                  "patchShape": "A box: {\"header\": {\"<box key>\": value}}. The lines are \"rows\", matched by {\"id\": \"row-\u2026\"}, {\"row\": 2} or {\"<slot key>\": \"10:00\"}. Printed and computed columns cannot be written. {field:value}; header{key:value}; F/HR/17 checkpoints{n:value or null clears}. Never send a whole list: use the four operations. itemEdits \u2014 Change one line: [{\"collection\": \"rows\", \"match\": {\"id\"|\"row\"|\"<name key>\"}, \"set\": {...}}]. addItems \u2014 Add lines, only what the person said: {\"rows\": [{\"time\": \"10:00\", \"viscosity\": 20.4}, {\"values\": {...}, \"after\": 2}]}. removeItems \u2014 Take off lines, each named once (asked first): {\"rows\": [\"row-abc\", 3, {\"time\": \"11:00\"}]}. clearItems \u2014 Blank a line's boxes, all written ones without keys (asked first): {\"rows\": [{\"row\": 3, \"keys\": [\"viscosity\"]}, 4]}. A whole list is never replaced: a list sent whole sets the lines it names (by id, else by the paper's name, else by place) and keeps every other line; a line without an id is added where the list allows it.",
                   "records": {
                     "count": 2,
                     "latest": [
@@ -1330,6 +1341,17 @@
               "minimum": 1,
               "maximum": 200,
               "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Paging (REQUIREMENTS §113): how many to skip; the answer says offset, limit, total and more.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
             }
           },
           {
@@ -1558,7 +1580,7 @@
                         "count": 24
                       }
                     },
-                    "patchShape": "A box: {\"header\": {\"<box key>\": value}}. One line: {\"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}. Printed and computed columns cannot be written.",
+                    "patchShape": "A box: {\"header\": {\"<box key>\": value}}. The lines are \"rows\", matched by {\"id\": \"row-\u2026\"}, {\"row\": 2} or {\"<slot key>\": \"10:00\"}. Printed and computed columns cannot be written. {field:value}; header{key:value}; F/HR/17 checkpoints{n:value or null clears}. Never send a whole list: use the four operations. itemEdits \u2014 Change one line: [{\"collection\": \"rows\", \"match\": {\"id\"|\"row\"|\"<name key>\"}, \"set\": {...}}]. addItems \u2014 Add lines, only what the person said: {\"rows\": [{\"time\": \"10:00\", \"viscosity\": 20.4}, {\"values\": {...}, \"after\": 2}]}. removeItems \u2014 Take off lines, each named once (asked first): {\"rows\": [\"row-abc\", 3, {\"time\": \"11:00\"}]}. clearItems \u2014 Blank a line's boxes, all written ones without keys (asked first): {\"rows\": [{\"row\": 3, \"keys\": [\"viscosity\"]}, 4]}. A whole list is never replaced: a list sent whole sets the lines it names (by id, else by the paper's name, else by place) and keeps every other line; a line without an id is added where the list allows it.",
                     "inWords": [],
                     "data": {
                       "header": {},
@@ -1692,6 +1714,17 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Paging (REQUIREMENTS §113): how many to skip; the answer says offset, limit, total and more.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
             }
           },
           {
@@ -1861,7 +1894,7 @@
                       "count": 24
                     }
                   },
-                  "patchShape": "A box: {\"header\": {\"<box key>\": value}}. One line: {\"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}. Printed and computed columns cannot be written.",
+                  "patchShape": "A box: {\"header\": {\"<box key>\": value}}. The lines are \"rows\", matched by {\"id\": \"row-\u2026\"}, {\"row\": 2} or {\"<slot key>\": \"10:00\"}. Printed and computed columns cannot be written. {field:value}; header{key:value}; F/HR/17 checkpoints{n:value or null clears}. Never send a whole list: use the four operations. itemEdits \u2014 Change one line: [{\"collection\": \"rows\", \"match\": {\"id\"|\"row\"|\"<name key>\"}, \"set\": {...}}]. addItems \u2014 Add lines, only what the person said: {\"rows\": [{\"time\": \"10:00\", \"viscosity\": 20.4}, {\"values\": {...}, \"after\": 2}]}. removeItems \u2014 Take off lines, each named once (asked first): {\"rows\": [\"row-abc\", 3, {\"time\": \"11:00\"}]}. clearItems \u2014 Blank a line's boxes, all written ones without keys (asked first): {\"rows\": [{\"row\": 3, \"keys\": [\"viscosity\"]}, 4]}. A whole list is never replaced: a list sent whole sets the lines it names (by id, else by the paper's name, else by place) and keeps every other line; a line without an id is added where the list allows it.",
                   "inWords": [
                     {
                       "where": "10:00",
@@ -2228,7 +2261,7 @@
         ],
         "operationId": "changeRecord",
         "summary": "CHANGE — change a record with Mitra's patch (Mitra's edit_open_record)",
-        "description": "The patch is applied by DCRS's own engine exactly as Mitra applies it (engine/recordPatch.ts): every field checked against the form, every value normalised to what the form stores, printed and computed columns never written, one line changed only when the match names exactly one. The change is saved as the record's page saves it (a Due record becomes In Progress, computed cells worked out), with its own entry in the record's history — in the person's name, the note \"Through <client>: <note>\" — and the activity line \"Record edited through Mitra\" with the same words. What was left out is in `problems`; a patch that changes nothing is 400 nothing-changed. A record that is not open for writing (submitted, verified, sent back) is 409 needs-reopen: reopen it with a reason first (POST .../actions reopen). Ask the person first.",
+        "description": "The patch is applied by DCRS's own engine exactly as Mitra applies it (engine/recordPatch.ts): every field checked against the form, every value normalised to what the form stores, printed and computed columns never written, one line changed only when the match names exactly one. The change is saved as the record's page saves it (a Due record becomes In Progress, computed cells worked out), with its own entry in the record's history — in the person's name, the note \"Through <client>: <note>\" — and the activity line \"Record edited through Mitra\" with the same words. What was left out is in `problems`; a patch that changes nothing is 400 nothing-changed. The four operations on the record's lines (REQUIREMENTS §113): itemEdits changes one line, addItems adds lines with only what the person said, removeItems takes lines off, clearItems blanks a line's boxes; a whole list is never replaced. With dryRun: true nothing is written: the answer (ChangePreview) names the lines the patch would add, take off or clear in their own words, so the confirmation card the app shows says exactly what DCRS will do — ask the person, then send the same patch without dryRun. The levels (REQUIREMENTS §96): Write on a draft; Edit on a record under correction; a submitted, verified or sent-back record is a correction — Edit, and a `reason`: with both, DCRS reopens it (the reason on its history's reopen line) and makes the change (`reopened: true`); without the level 403 access-level in words; without the reason 409 needs-reopen.",
         "parameters": [
           {
             "$ref": "#/components/parameters/RecordId"
@@ -2298,11 +2331,18 @@
             "$ref": "#/components/responses/EngineUnavailable"
           },
           "200": {
-            "description": "Changed.",
+            "description": "Changed — or, with dryRun: true, what would change (ChangePreview), nothing written.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChangeResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ChangeResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ChangePreview"
+                    }
+                  ]
                 },
                 "example": {
                   "recordId": "rec-munyy41g-97-e22nuo",
@@ -4625,7 +4665,7 @@
         }
       },
       "ChangeRefused": {
-        "description": "Refused by DCRS's own rules. needs-reopen: the record is submitted or verified — reopen it with a reason first (action reopen). wrong-status: that action does not apply to it now (`actions` says what does). invalid: DCRS's validation stopped it (`problems`). busy: the records kept changing while this was saved — try again. needs-review: a record the assistant prepared is submitted only after the person reviewed it - send \"reviewed\": true.",
+        "description": "Refused by DCRS's own rules. needs-reopen: the record is submitted or verified — send the change again with a `reason` (Edit), or reopen it first (action reopen); `reasonNeeded: true` says the reason is what was missing. wrong-status: that action does not apply to it now (`actions` says what does). invalid: DCRS's validation stopped it (`problems`). busy: the records kept changing while this was saved — try again. needs-review: a record the assistant prepared is submitted only after the person reviewed it - send \"reviewed\": true.",
         "content": {
           "application/json": {
             "schema": {
@@ -5481,6 +5521,17 @@
           "total": {
             "type": "integer"
           },
+          "offset": {
+            "type": "integer",
+            "description": "Where this page starts."
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "more": {
+            "type": "boolean",
+            "description": "More follow: ask again with offset + limit."
+          },
           "kept": {
             "type": "array",
             "description": "Another department's documents that match: found, never opened (REQUIREMENTS §84).",
@@ -5533,7 +5584,7 @@
       },
       "Layout": {
         "type": "object",
-        "description": "What the form is made of, in the keys a patch names. A log sheet: `header`, `footer` (boxes) and `columns`, each {key, label, type, options?, required?, unit?, min?, max?, printed?, computed?, readFrom?}, and `rows` {mode: timeSlots|fixedRows|free|single, slotKey?, slots?, count?}. F/HR/17: `checkpoints` {number, question, answer, noteAsks?, findingWhen?}, `fields`, `lists`. Any other form: `fields` {key, label, type, items?, parts?}. A printed or computed column, or one read from another document (readFrom), cannot be written.",
+        "description": "What the form is made of, in the keys a patch names. A log sheet: `header`, `footer` (boxes) and `columns`, each {key, label, type, options?, required?, unit?, min?, max?, printed?, computed?, readFrom?}, and `rows` {mode: timeSlots|fixedRows|free|single, slotKey?, slots?, count?}. F/HR/17: `checkpoints` {number, question, answer, noteAsks?, findingWhen?}, `fields`, `lists`. Any other form: `fields` {key, label, type, items?, parts?}. Every form: `lists` (REQUIREMENTS §113), one per list of lines from DCRS's own registry — {key, label, noun, canAdd, canRemove, whyFixed?, minLines, maxAddAtOnce, nameKey?, numberKey?, scalar?, within?, item: [the boxes of a new line], writable: [the boxes a person writes]} and, on a record, `count` and `lines` [{row, id?, <nameKey>?, words}] so a change aims at a line by its id. A printed or computed column, or one read from another document (readFrom), cannot be written.",
         "additionalProperties": true
       },
       "DocumentDetail": {
@@ -5611,7 +5662,7 @@
                   "string",
                   "null"
                 ],
-                "description": "How a change to this kind of form is written (POST /api/v1/records/{id}/changes)."
+                "description": "How a change to this kind of form is written (POST /api/v1/records/{id}/changes): the form's own boxes, then the four operations on its lines in the very words Mitra's edit_open_record is given (itemEdits, addItems, removeItems, clearItems), then that a whole list is never replaced."
               },
               "records": {
                 "type": "object",
@@ -5945,6 +5996,17 @@
           "total": {
             "type": "integer"
           },
+          "offset": {
+            "type": "integer",
+            "description": "Where this page starts."
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "more": {
+            "type": "boolean",
+            "description": "More follow: ask again with offset + limit."
+          },
           "records": {
             "type": "array",
             "items": {
@@ -5969,6 +6031,17 @@
           },
           "total": {
             "type": "integer"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Where this page starts."
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "more": {
+            "type": "boolean",
+            "description": "More follow: ask again with offset + limit."
           },
           "complete": {
             "type": "boolean"
@@ -6170,7 +6243,8 @@
             "$ref": "#/components/schemas/Layout"
           },
           "patchShape": {
-            "type": "string"
+            "type": "string",
+            "description": "How a change to this record is written: its form's boxes, the four operations on its lines verbatim, and that a whole list is never replaced. layout.lists says which lists take which."
           },
           "inWords": {
             "type": "array",
@@ -6286,13 +6360,23 @@
         "properties": {
           "patch": {
             "type": "object",
-            "description": "Mitra's patch (engine/recordPatch.ts applyAssistantPatch). A field: {\"<key>\": value}. A log sheet: {\"header\": {\"<box key>\": value}, \"itemEdits\": [{\"collection\": \"rows\", \"match\": {\"<slot key>\": \"10:00\"} or {\"row\": 2}, \"set\": {\"<column key>\": value}}]}, or \"rows\" given in full. F/HR/17: {\"checkpoints\": {\"<n>\": value or {value, note}}}. Values are read as the form stores them (\"yes\" -> Yes, \"9.15 am\" -> 09:15, \"20.4\" -> 20.4, a select's option however it is cased); a field the form does not have, a printed or computed column, or a value it cannot hold is left out and said in `problems`.",
+            "description": "Mitra's patch (engine/recordPatch.ts applyAssistantPatch), the record's patchShape word for word. A field: {\"<key>\": value}; a log sheet's box: {\"header\": {\"<box key>\": value}}; F/HR/17: {\"checkpoints\": {\"<n>\": value or {value, note} or null to clear}}. The four operations on a record's lines (REQUIREMENTS §113): itemEdits [{collection, match: {id | row | <name key>}, set}] changes one line; addItems {\"<list>\": [{...values} | {values, after}]} adds lines with only what the person said; removeItems {\"<list>\": [id | row | {<name key>: value}]} takes lines off; clearItems {\"<list>\": [{match…, keys?} | row]} blanks a line's boxes. Never send a whole list: a list sent whole sets the lines it names and keeps every other line. Values are read as the form stores them (\"yes\" -> Yes, \"9.15 am\" -> 09:15, \"20.4\" -> 20.4, a select's option however it is cased); a field the form does not have, a printed or computed column, or a value it cannot hold is left out and said in `problems`.",
             "additionalProperties": true
           },
           "note": {
             "type": "string",
             "maxLength": 1000,
             "description": "Why, in the person's words: the history says \"Through <client>: <note>\"."
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false,
+            "description": "True: DCRS says what the patch WOULD do (ChangePreview) and writes nothing — the words for the confirmation card. The lines it would take off or clear are named in their own words."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "For a submitted, verified or sent-back record (REQUIREMENTS §96): why it is being corrected. With it, and Edit on the document, DCRS reopens the record for correction (the reason on the reopen line of its history) and then makes the change; without it, 409 needs-reopen."
           }
         }
       },
@@ -6324,6 +6408,49 @@
               "moreChanges": {
                 "type": "integer"
               },
+              "reopened": {
+                "type": "boolean",
+                "description": "The record was signed off and has been reopened for this correction with the reason given (its history has the reopen line)."
+              },
+              "added": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "collection": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "description": "The line's id as stored (its place, on a list of plain words): what removeItems takes off again (Undo).",
+                      "type": [
+                        "string",
+                        "integer"
+                      ]
+                    },
+                    "row": {
+                      "type": "integer"
+                    },
+                    "words": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "description": "The lines this change added, each by id with its words."
+              },
+              "removed": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Each line taken off, in its own words: \"line 3 (10:00, 20.4, Jeni)\". Its values are kept in the history entry."
+              },
+              "cleared": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Each written value blanked, with its line: \"20.1 from line 4 (11:00)\"."
+              },
               "problems": {
                 "type": "array",
                 "items": {
@@ -6334,6 +6461,93 @@
             }
           }
         ]
+      },
+      "ChangePreview": {
+        "type": "object",
+        "description": "A dry run's answer (dryRun: true): what the patch would do, nothing written. The confirmation card is worded from it.",
+        "properties": {
+          "dryRun": {
+            "type": "boolean",
+            "const": true
+          },
+          "recordId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "description": "\"the Lamination Adhesive Viscosity Record of 11-Oct-2026\"."
+          },
+          "status": {
+            "type": "string"
+          },
+          "editable": {
+            "type": "boolean"
+          },
+          "willReopen": {
+            "type": "boolean",
+            "description": "The record is signed off: the change would reopen it for correction first (Edit, with a reason)."
+          },
+          "reasonNeeded": {
+            "type": "boolean",
+            "description": "With willReopen: no reason was sent yet — ask the person for one before the change."
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "before": {
+                  "type": "string"
+                },
+                "after": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "collection": {
+                  "type": "string"
+                },
+                "words": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The lines it would add, with their words (no id yet: the change that writes a line answers with its id)."
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cleared": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "route": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          }
+        }
       },
       "ActionRequest": {
         "type": "object",

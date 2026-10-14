@@ -222,6 +222,22 @@ describe("the host, over a stand-in store", { timeout: 300_000 }, () => {
     assert.equal((refusedPrepare.body as { code: string }).code, "system-only");
   });
 
+  it("a change's dry run (REQUIREMENTS §113) is a read: it names the lines and writes nothing", async () => {
+    const opened = await host.change(QC, "open", { documentId: "qc-adhesive-mixing", date: "2026-09-12" }, () => undefined);
+    assert.ok(opened.status === 201 || opened.status === 200, JSON.stringify(opened.body).slice(0, 300));
+    const id = (opened.body as { record: { recordId: string } }).record.recordId;
+    const version = store.items.get("records")?.version;
+    const dry = await host.read(QC, "change", { id, patch: { addItems: { rows: [{ time: "10:00", viscosity: 20.4 }] } }, dryRun: true });
+    assert.equal(dry.status, 200, JSON.stringify(dry.body).slice(0, 300));
+    const body = dry.body as { dryRun: boolean; added: { id: string; words: string }[]; removed: string[] };
+    assert.equal(body.dryRun, true);
+    assert.equal(body.added.length, 1);
+    assert.match(body.added[0].words, /10:00/);
+    assert.equal(store.items.get("records")?.version, version, "nothing was written");
+    const stored = store.get<{ id: string; data: { rows: unknown[] } }[]>("records").find((r) => r.id === id)!;
+    assert.ok(!stored.data.rows.some((r) => (r as { time?: string }).time === "10:00"), "the line was not added");
+  });
+
   it("a worker that was stopped is started again", async () => {
     await host.close();
     const r = await host.read(QC, "today", {});
