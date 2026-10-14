@@ -37,6 +37,12 @@ def sign_out(page):
         return
     btn = page.locator(".app-topbar button[title='Log Out']")
     if btn.count():
+        # The briefing is a blocking overlay (a reload inside the morning or evening slot brings it back): clear it
+        # first, or it swallows the click.
+        got_it = page.locator("button:has-text('Got it')")
+        if got_it.count():
+            got_it.first.click()
+            page.wait_for_timeout(200)
         btn.first.click()
         # Every log-out asks about the day's work first (REQUIREMENTS s72).
         page.wait_for_timeout(500)
