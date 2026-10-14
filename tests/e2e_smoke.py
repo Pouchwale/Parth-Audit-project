@@ -11,10 +11,13 @@ Run: npm run test:e2e
 ready, runs this script, then shuts the server down again.)
 """
 import re
+import os
 import sys
 import time
 from datetime import date, datetime, timedelta
 from playwright.sync_api import sync_playwright, expect
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _super_admin import become_super_admin, sign_out, SUPER_ADMIN_NAME  # noqa: E402  (the run's super admin, REQUIREMENTS s116)
 
 # The app writes "Submitted ✅" and the Gujarati formats are Gujarati, so a
 # failure that prints what it saw must not itself die on Windows' cp1252
@@ -108,6 +111,16 @@ def main():
         console_errors = []
         page.on("pageerror", lambda e: console_errors.append(str(e)))
         page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
+
+        # ---- 0. The run's super admin (REQUIREMENTS s116) ----
+        # First in the runner's order, this suite makes the run's super admin account before any other
+        # sign-up (tests/_super_admin.py): Demo Mode, Reports and Master Data, opened from section 6 on, are
+        # its. The suite's own random "Playwright QA" account, signed up next, is then staff.
+        role = become_super_admin(page, BASE)
+        check("The run's super admin account is made first, and is the super admin", role == "admin", role)
+        sign_out(page)
+        # The sign-in that found no account yet logs a failed fetch; nothing of the app's.
+        console_errors.clear()
 
         # ---- 1. Signup gate, then Dashboard loads ----
         page.goto(f"{BASE}/index.html")
@@ -281,6 +294,21 @@ def main():
         page.click("text=Dashboard")
         page.wait_for_timeout(300)
         check("Dashboard shows stat tiles", page.locator(".stat-tile").count() >= 4)
+
+        # ---- 5b. The System section is the super admin's (REQUIREMENTS s116) ----
+        # A staff account has no Reports in its sidebar, and Reports by its address answers with the refusal.
+        check("A staff account's sidebar has no Reports link", page.locator(".app-sidebar a[href='#/reports']").count() == 0)
+        page.goto(f"{BASE}/index.html#/reports")
+        page.wait_for_timeout(500)
+        refusal = page.locator("[data-section='super-admin-only'][data-page='reports']")
+        check(
+            "Reports by its address refuses a staff account, in the page's words",
+            refusal.count() == 1 and "Only the super admin can open this" in refusal.inner_text() and "Reports is the super admin's" in refusal.inner_text(),
+            page.locator(".app-content").inner_text()[:300],
+        )
+        # Demo Mode, Reports and Master Data from here on are the super admin's: the run's super admin signs in.
+        role = become_super_admin(page, BASE)
+        check("Signed in as the run's super admin for the System pages", role == "admin", role)
 
         # ---- 6. Demo Mode: generate + isolation from live ----
         # Switch to Demo mode via the top-bar pill (not just the sidebar nav
@@ -633,7 +661,7 @@ def main():
             (f"{hits.count()} confirmations, {mentions.count()} mentions", [mentions.nth(i).inner_text() for i in range(mentions.count())]),
         )
         check("Checklist status is Pending Verification (awaiting approval)", "Pending Verification" in page.locator(".app-content").inner_text())
-        check("Prepared By was stamped with the logged-in user", page.locator("input[value='Playwright QA']").count() >= 1)
+        check("Prepared By was stamped with the logged-in user", page.locator(f"input[value='{SUPER_ADMIN_NAME}']").count() >= 1)
 
         chat_chip(r"^Review & approve$")
         check("Assistant offers to approve", page.locator(".chat-chip", has_text=re.compile(r"^Approve$")).count() == 1)
