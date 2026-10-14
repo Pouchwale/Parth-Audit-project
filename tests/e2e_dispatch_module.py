@@ -210,8 +210,10 @@ with sync_playwright() as p:
     print("\n==== F/DISP/02 Container Stuffing & Vehicle Inspection ====")
     open_page(page, f"#/document/{CONTAINER}")
     check("It opens on a page of its own", page.locator("[data-page='document-records']").count() == 1)
+    # ONE NUMBER PER LINE (REQUIREMENTS §102): the paper numbers its own lines, so the sheet draws no Sr. No. column of
+    # its own and the paper's number is the FIRST cell (it was the second while the sheet numbered the lines again).
     numbers = page.locator(f"{PREVIEW} table.log-sheet tbody tr").evaluate_all(
-        "els => els.map((e) => (e.querySelectorAll('td')[1] || {}).textContent || '')"
+        "els => els.map((e) => (e.querySelectorAll('td')[0] || {}).textContent || '')"
     )
     numbers = [n.strip() for n in numbers if n.strip()]
     check(
