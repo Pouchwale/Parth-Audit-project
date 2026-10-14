@@ -633,6 +633,217 @@ describe("the Mitra mobile app's routes, answered by DCRS's own engine", { timeo
     assert.equal(refused.body.code, "pdf-not-offered");
   });
 
+  // THE LINES OF EVERY RECORD THROUGH THE API (REQUIREMENTS §113, the owner 13-Oct-2026): the four operations, the
+  // dry run the phone's confirmation card is worded from, a whole list never dropping a line, each list's rules and
+  // line ids in the record answer, the levels, and paging.
+  it("a free sheet's lines: addItems writes only what was said and answers the line's id; a dry run names the line and writes nothing; removeItems keeps its values in the history; clearItems blanks a box", async () => {
+    const opened = await call(s, "POST", "/api/v1/records", T.qc, { documentId: "qc-adhesive-mixing", date: workingDay });
+    assert.ok(opened.status === 201 || opened.status === 200, JSON.stringify(opened.body).slice(0, 300));
+    const id = opened.body.record.recordId;
+    const rows = opened.body.record.layout.lists.find((l: Body) => l.key === "rows");
+    assert.ok(rows && rows.canAdd === true && rows.canRemove === true && rows.minLines === 1, JSON.stringify(opened.body.record.layout.lists));
+    assert.ok(rows.item.includes("viscosity") && rows.writable.includes("viscosity"), "a new line's boxes");
+    assert.match(opened.body.record.patchShape, /addItems — Add lines, only what the person said/);
+    assert.match(opened.body.record.patchShape, /A whole list is never replaced/);
+    const was = storedRecord(s, id).data.rows.length;
+
+    const added = await call(s, "POST", `/api/v1/records/${id}/changes`, T.qc, { patch: { addItems: { rows: [{ time: "10:00", viscosity: 20.4, checkedBy: "Jeni" }] } }, note: "a line from the floor" });
+    assert.equal(added.status, 200, JSON.stringify(added.body).slice(0, 400));
+    assert.equal(added.body.added.length, 1, JSON.stringify(added.body));
+    const lineId = added.body.added[0].id;
+    assert.match(lineId, /^row-/);
+    assert.match(added.body.added[0].words, /10:00/);
+    assert.deepEqual(added.body.removed, []);
+    const stored = storedRecord(s, id);
+    assert.equal(stored.data.rows.length, was + 1, "one line more, none dropped");
+    const line = stored.data.rows.find((r: Body) => r.id === lineId);
+    assert.equal(line.viscosity, 20.4);
+    assert.equal(line.checkedBy, "Jeni");
+    assert.ok(!line.remark, "only what was said");
+    assert.ok(stored.history.at(-1).changes.some((c: Body) => c.before === "(no row)" && /10:00/.test(c.after)), "the history holds the added line's values");
+    // The record answer lists each line by id, so the phone aims by id.
+    const read = await call(s, "GET", `/api/v1/records/${id}`, T.qc);
+    const listed = read.body.layout.lists.find((l: Body) => l.key === "rows");
+    assert.equal(listed.count, was + 1);
+    assert.ok(listed.lines.some((l: Body) => l.id === lineId && /10:00/.test(l.words) && typeof l.row === "number"), JSON.stringify(listed.lines));
+
+    // THE DRY RUN: what the patch would do, in the line's own words — and nothing written.
+    const before = JSON.stringify(storedRecord(s, id));
+    const linesBefore = s.lines.length;
+    const dry = await call(s, "POST", `/api/v1/records/${id}/changes`, T.qc, { patch: { removeItems: { rows: [lineId] } }, dryRun: true });
+    assert.equal(dry.status, 200, JSON.stringify(dry.body).slice(0, 400));
+    assert.equal(dry.body.dryRun, true);
+    assert.equal(dry.body.removed.length, 1);
+    assert.match(dry.body.removed[0], /10:00.*20\.4.*Jeni/);
+    assert.equal(dry.body.willReopen, false);
+    assert.ok(dry.body.changes.some((c: Body) => c.after === "(row removed)"));
+    assert.equal(JSON.stringify(storedRecord(s, id)), before, "a dry run changes nothing");
+    assert.equal(s.lines.length, linesBefore, "and logs nothing");
+
+    const removed = await call(s, "POST", `/api/v1/records/${id}/changes`, T.qc, { patch: { removeItems: { rows: [lineId] } }, note: "the line was a test" });
+    assert.equal(removed.status, 200, JSON.stringify(removed.body).slice(0, 400));
+    assert.match(removed.body.removed[0], /10:00/);
+    const after = storedRecord(s, id);
+    assert.equal(after.data.rows.length, was);
+    assert.ok(!after.data.rows.some((r: Body) => r.id === lineId));
+    const entry = after.history.at(-1);
+    assert.equal(entry.note, "Through Mitra mobile app: the line was a test");
+    assert.ok(entry.changes.some((c: Body) => c.after === "(row removed)" && /10:00.*20\.4.*Jeni/.test(c.before)), "a removed line's values are kept: " + JSON.stringify(entry.changes));
+
+    // A WHOLE LIST SENT NEVER DROPS A LINE: a line without an id is added, the rest kept.
+    const whole = await call(s, "POST", `/api/v1/records/${id}/changes`, T.qc, { patch: { rows: [{ time: "11:00", viscosity: 20.1 }] } });
+    assert.equal(whole.status, 200, JSON.stringify(whole.body).slice(0, 400));
+    assert.equal(storedRecord(s, id).data.rows.length, was + 1, "the lines not named are kept");
+    assert.equal(whole.body.added.length, 1);
+
+    const cleared = await call(s, "POST", `/api/v1/records/${id}/changes`, T.qc, { patch: { clearItems: { rows: [{ time: "11:00", keys: ["viscosity"] }] } } });
+    assert.equal(cleared.status, 200, JSON.stringify(cleared.body).slice(0, 400));
+    assert.equal(cleared.body.cleared.length, 1);
+    assert.match(cleared.body.cleared[0], /20\.1/);
+    assert.equal(storedRecord(s, id).data.rows.find((r: Body) => r.time === "11:00").viscosity, null);
+  });
+
+  it("F/HR/17's first rodent catch goes on through the API, and the record is still read whole after it", async () => {
+    const opened = await call(s, "POST", "/api/v1/records", T.hr, { documentId: "daily-pest-monitoring", date: workingDay });
+    assert.ok(opened.status === 201 || opened.status === 200, JSON.stringify(opened.body).slice(0, 300));
+    const id = opened.body.record.recordId;
+    const catches = opened.body.record.layout.lists.find((l: Body) => l.key === "rodentCatches");
+    assert.ok(catches && catches.canAdd && catches.nameKey === "trapBoxNo", JSON.stringify(opened.body.record.layout.lists));
+    assert.deepEqual(catches.item, ["trapBoxNo", "location", "count"]);
+    const added = await call(s, "POST", `/api/v1/records/${id}/changes`, T.hr, { patch: { checkpoints: { 7: "Yes" }, addItems: { rodentCatches: [{ trapBoxNo: "RB-27", location: "Canteen", count: 1 }] } } });
+    assert.equal(added.status, 200, JSON.stringify(added.body).slice(0, 400));
+    assert.equal(added.body.added.length, 1);
+    assert.match(added.body.added[0].words, /RB-27/);
+    const stored = storedRecord(s, id);
+    assert.equal(stored.data.rodentCatches.length, 1);
+    assert.equal(stored.data.rodentCatches[0].trapBoxNo, "RB-27");
+    assert.equal(stored.data.rodentCatches[0].count, 1);
+    assert.ok(stored.data.rodentCatches[0].id, "a catch carries an id");
+    const read = await call(s, "GET", `/api/v1/records/${id}`, T.hr);
+    assert.equal(read.status, 200, JSON.stringify(read.body).slice(0, 300));
+    const listed = read.body.layout.lists.find((l: Body) => l.key === "rodentCatches");
+    assert.equal(listed.lines[0].trapBoxNo, "RB-27");
+    assert.equal(listed.lines[0].id, stored.data.rodentCatches[0].id);
+    assert.ok(Array.isArray(read.body.problems), "the submit checks read the catch without failing");
+  });
+
+  it("a CAPA finding and a training attendee are added through the API with only what was said", async () => {
+    const gap = await call(s, "POST", "/api/v1/records", T.admin, { documentId: "gap-inspection", date: "2026-09-20" });
+    assert.ok(gap.status === 201 || gap.status === 200, JSON.stringify(gap.body).slice(0, 300));
+    const gapId = gap.body.record.recordId;
+    const findings = gap.body.record.layout.lists.find((l: Body) => l.key === "findings");
+    assert.ok(findings && findings.canAdd && findings.nameKey === "sNo", JSON.stringify(gap.body.record.layout.lists));
+    const wasFindings = storedRecord(s, gapId).data.findings.length;
+    const finding = await call(s, "POST", `/api/v1/records/${gapId}/changes`, T.admin, { patch: { addItems: { findings: [{ findingOfInspection: "Gap under the store door" }] } } });
+    assert.equal(finding.status, 200, JSON.stringify(finding.body).slice(0, 400));
+    const storedGap = storedRecord(s, gapId);
+    assert.equal(storedGap.data.findings.length, wasFindings + 1);
+    const made = storedGap.data.findings.at(-1);
+    assert.equal(made.findingOfInspection, "Gap under the store door");
+    assert.equal(typeof made.sNo, "number");
+    assert.equal(made.status, "Open");
+
+    const training = await call(s, "POST", "/api/v1/records", T.admin, { documentId: "training-record", date: "2026-09-20" });
+    assert.ok(training.status === 201 || training.status === 200, JSON.stringify(training.body).slice(0, 300));
+    const trainingId = training.body.record.recordId;
+    const attendee = await call(s, "POST", `/api/v1/records/${trainingId}/changes`, T.admin, { patch: { addItems: { attendees: [{ employeeName: "Rahul Patel" }] } } });
+    assert.equal(attendee.status, 200, JSON.stringify(attendee.body).slice(0, 400));
+    assert.match(attendee.body.added[0].words, /Rahul Patel/);
+    const attendees = storedRecord(s, trainingId).data.attendees;
+    assert.equal(attendees.at(-1).employeeName, "Rahul Patel");
+    assert.ok(attendees.at(-1).id);
+    const topics = training.body.record.layout.lists.find((l: Body) => l.key === "topics");
+    assert.ok(topics && topics.scalar === true && topics.canAdd, "a list of plain lines");
+  });
+
+  it("the levels on a change (REQUIREMENTS §96): Read refused in words, Write on a draft, Edit with a reason on a Verified record, no reason refused", async () => {
+    // Ajay Zala reads F-QC-30: refused in the website's words.
+    const read = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.zala, { patch: { itemEdits: [{ collection: "rows", match: { time: "10:00" }, set: { viscosity: 20.3 } }] } });
+    assert.equal(read.status, 403, JSON.stringify(read.body));
+    assert.equal(read.body.code, "access-level");
+    assert.match(read.body.error, /Read/);
+    s.store.put("access", { version: 1, people: { "ajay.zala@gpp.local": { documents: { "qc-viscosity": "write", "qc-adhesive-mixing": "write" } } }, responsibility: {} });
+    try {
+      // Write: a draft is his to fill.
+      const draft = await call(s, "POST", "/api/v1/records", T.zala, { documentId: "qc-adhesive-mixing", date: workingDay });
+      assert.ok(draft.status === 200 || draft.status === 201, JSON.stringify(draft.body).slice(0, 300));
+      const written = await call(s, "POST", `/api/v1/records/${draft.body.record.recordId}/changes`, T.zala, { patch: { addItems: { rows: [{ time: "12:00", viscosity: 20.2 }] } } });
+      assert.equal(written.status, 200, JSON.stringify(written.body).slice(0, 300));
+      // Write on a Verified record, with a reason: a correction is Edit's — refused in words.
+      const verified = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.zala, { patch: { itemEdits: [{ collection: "rows", match: { time: "10:00" }, set: { viscosity: 20.3 } }] }, reason: "misread" });
+      assert.equal(verified.status, 403, JSON.stringify(verified.body));
+      assert.equal(verified.body.code, "access-level");
+      assert.match(verified.body.error, /Edit/);
+    } finally {
+      s.store.put("access", null);
+    }
+    // Edit (Kapila Barad, QC): no reason, refused; the dry run says it would reopen and that a reason is needed.
+    assert.equal(storedRecord(s, recordId).status, "Verified");
+    const noReason = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.qc, { patch: { itemEdits: [{ collection: "rows", match: { time: "10:00" }, set: { viscosity: 20.3 } }] } });
+    assert.equal(noReason.status, 409, JSON.stringify(noReason.body));
+    assert.equal(noReason.body.code, "needs-reopen");
+    assert.equal(noReason.body.reasonNeeded, true);
+    const dry = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.qc, { patch: { itemEdits: [{ collection: "rows", match: { time: "10:00" }, set: { viscosity: 20.3 } }] }, dryRun: true });
+    assert.equal(dry.status, 200, JSON.stringify(dry.body));
+    assert.equal(dry.body.willReopen, true);
+    assert.equal(dry.body.reasonNeeded, true);
+    assert.equal(storedRecord(s, recordId).status, "Verified", "a dry run reopens nothing");
+    const corrected = await call(s, "POST", `/api/v1/records/${recordId}/changes`, T.qc, {
+      patch: { itemEdits: [{ collection: "rows", match: { time: "10:00" }, set: { viscosity: 20.3 } }] },
+      reason: "The 10 o'clock reading was misread",
+      note: "corrected from the phone",
+    });
+    assert.equal(corrected.status, 200, JSON.stringify(corrected.body).slice(0, 400));
+    assert.equal(corrected.body.reopened, true);
+    assert.equal(corrected.body.status, "In Progress");
+    assert.ok(corrected.body.changes.some((c: Body) => c.after === "20.3"), JSON.stringify(corrected.body.changes));
+    const stored = storedRecord(s, recordId);
+    assert.equal(stored.correction.reason, "The 10 o'clock reading was misread");
+    const reopened = stored.history.filter((h: Body) => h.action === "reopened").at(-1);
+    assert.equal(reopened.note, "Through Mitra mobile app: The 10 o'clock reading was misread");
+    assert.equal(stored.history.at(-1).note, "Through Mitra mobile app: corrected from the phone");
+    assert.equal(stored.data.rows.find((r: Body) => r.time === "10:00").viscosity, 20.3);
+  });
+
+  it("the record answer carries each list's rules and line ids; a sheet with printed lines says why none are added", async () => {
+    const r = await call(s, "GET", `/api/v1/records/${recordId}`, T.qc);
+    assert.equal(r.status, 200);
+    const rows = r.body.layout.lists.find((l: Body) => l.key === "rows");
+    assert.equal(rows.canAdd, false);
+    assert.equal(rows.canRemove, false);
+    assert.match(rows.whyFixed, /time slot/);
+    assert.equal(rows.nameKey, "time");
+    assert.equal(rows.count, 23);
+    assert.ok(rows.lines.every((l: Body) => typeof l.id === "string" && typeof l.time === "string" && typeof l.words === "string"), JSON.stringify(rows.lines.slice(0, 2)));
+    const doc = await call(s, "GET", "/api/v1/documents/qc-adhesive-mixing", T.qc);
+    const free = doc.body.layout.lists.find((l: Body) => l.key === "rows");
+    assert.ok(free.canAdd && free.lines === undefined, "a document's layout has the rules, no record's lines");
+    assert.match(doc.body.patchShape, /removeItems — Take off lines/);
+  });
+
+  it("the lists page with offset (REQUIREMENTS §113): documents, records and the search", async () => {
+    const first = await call(s, "GET", "/api/v1/documents?limit=3", T.qc);
+    const next = await call(s, "GET", "/api/v1/documents?limit=3&offset=3", T.qc);
+    assert.equal(next.status, 200);
+    assert.equal(next.body.offset, 3);
+    assert.equal(next.body.limit, 3);
+    assert.equal(next.body.total, first.body.total);
+    assert.equal(next.body.documents.length, 3);
+    assert.ok(!next.body.documents.some((d: Body) => first.body.documents.some((f: Body) => f.id === d.id)), "the next three, not the first three again");
+    assert.equal(typeof next.body.more, "boolean");
+    const records = await call(s, "GET", "/api/v1/records?documentId=qc-viscosity&from=2026-09-01&to=2030-12-31&limit=1", T.qc);
+    const second = await call(s, "GET", "/api/v1/records?documentId=qc-viscosity&from=2026-09-01&to=2030-12-31&limit=1&offset=1", T.qc);
+    assert.equal(second.status, 200);
+    assert.equal(second.body.records.length, 1);
+    assert.notEqual(second.body.records[0].dueDate, records.body.records[0].dueDate);
+    assert.equal(second.body.total, records.body.total);
+    const search = await call(s, "GET", "/api/v1/records/search?q=Kapila&limit=1&offset=1", T.qc);
+    assert.equal(search.status, 200, JSON.stringify(search.body).slice(0, 300));
+    assert.equal(search.body.offset, 1);
+    const bad = await call(s, "GET", "/api/v1/records?offset=x", T.qc);
+    assert.equal(bad.status, 400);
+  });
+
   it("the same checks as every /api/v1 route: not signed in, and still on the administrator's password", async () => {
     const none = await fetch(`${s.base}/api/v1/today`);
     assert.equal(none.status, 401);

@@ -212,7 +212,7 @@ The findings are the internal CAPA findings: the lines of the "CAPA — Internal
 
 Keep and send `ref` when you can. Every route accepts either.
 
-**List and search.** `GET /api/v1/findings?status=open&q=rodent&from=2026-01-01&to=2026-12-31&limit=50&offset=0`
+**List and search.** `GET /api/v1/findings?status=open&q=rodent&from=2026-01-01&to=2026-12-31&limit=50&offset=0` (`GET /api/v1/documents`, `/records` and `/records/search` page the same way, REQUIREMENTS §113: `offset`, and the answer's `offset`, `limit`, `total` and `more`)
 
 | Parameter | Meaning |
 |---|---|
@@ -461,7 +461,7 @@ Two changes in a row each keep their own history entry. In the browser, two edit
 | (the insights headline in her live facts) | `insights` `{}` | read | `GET /api/v1/insights?limit=` |
 | (the escalations line in her live facts, super admin only) | `escalations` `{ status? }` | read | `GET /api/v1/escalations?open=` |
 | `open_document` with create | `open_record` `{ documentId, date? }` | change | `POST /api/v1/records` |
-| `edit_open_record` | `edit_record` `{ recordId, patch, note? }` | change | `POST /api/v1/records/{id}/changes` |
+| `edit_open_record` | `edit_record` `{ recordId, patch, note?, reason?, dryRun? }` | change | `POST /api/v1/records/{id}/changes` (`dryRun: true` is a read: the words for the confirmation card) |
 | `record_action` | `record_action` `{ recordId, action, reason? }` | change | `POST /api/v1/records/{id}/actions` |
 | `add_photo_to_open_record` | `add_photo_to_record` `{ recordId, … }` | change | `POST /api/v1/records/{id}/photos` |
 | `fill_open_record_with_sample_data` | `fill_record_with_sample_data` `{ recordId }` | change | `POST /api/v1/records/{id}/sample-fill` |
@@ -508,8 +508,8 @@ Mitra works on the record open on the screen. The mobile app has no screen, so i
 
 **One document.** `GET /api/v1/documents/qc-viscosity`. The id can also be the format number (`F-QC-30`), or words that name exactly one of the person's documents. The answer says:
 - what the document is (`what`), who fills it (`who`, from Master Data), when (`when`) and how (`how`);
-- its `layout`, which lists the keys a patch names;
-- `patchShape`, how a change to this kind of form is written;
+- its `layout`, which lists the keys a patch names, and `layout.lists`: every list of lines with what it allows (`canAdd`, `canRemove`, `whyFixed`, `minLines`, `nameKey`, `item`, `writable`);
+- `patchShape`, how a change to this kind of form is written: its boxes, then the four operations on its lines verbatim, then that a whole list is never replaced;
 - its latest records.
 
 ```json
@@ -593,7 +593,7 @@ Each item also says its `module`, and whether the person may submit or verify it
 **One record.** `GET /api/v1/records/rec-munyy41g-97-e22nuo` answers everything Mitra reads about a record:
 - its status, and whether it can be changed now (`editable`);
 - what can be done to it now (`actions`);
-- its `layout` and `patchShape`;
+- its `layout` and `patchShape`; `layout.lists` has, per list, the rules above and each line as it stands — `{ row, id, <nameKey>, words }` — so a change aims at a line by its `id`, never by a position that moved;
 - its data in words (`inWords`) and exactly as stored (`data`);
 - its `history`.
 
@@ -715,11 +715,26 @@ The patch is Mitra's own shape. DCRS applies it exactly as Mitra does:
 | Form | Patch |
 |---|---|
 | Any form | `{"<field key>": value}` |
-| A log sheet | a box: `{"header": {"<box key>": value}}`; one line: `{"itemEdits": [{"collection": "rows", "match": {"<slot key>": "10:00"}, "set": {"<column key>": value}}]}` (or `"match": {"row": 2}`); or `"rows"` given in full, each row with its `id` |
+| A log sheet | a box: `{"header": {"<box key>": value}}`; one line: `{"itemEdits": [{"collection": "rows", "match": {"id": "row-…"}, "set": {"<column key>": value}}]}` (or `"match": {"row": 2}`, or `{"<slot key>": "10:00"}`) |
 | F/HR/17 | `{"checkpoints": {"1": "Yes", "4": 100, "8": {"value": "Yes", "note": "near the store"}}, "checker": "Roshni", "timeOfChecking": "09:30"}` |
 | A list of any other form | `{"itemEdits": [{"collection": "<list key>", "match": {"<key>": value}, "set": {"<key>": value}}]}` |
+| **Add lines** (REQUIREMENTS §113) | `{"addItems": {"rows": [{"time": "10:00", "viscosity": 20.4, "checkedBy": "Jeni"}]}}` — only what the person said; `{"values": {…}, "after": 2}` places one. F/HR/17: `{"addItems": {"rodentCatches": [{"trapBoxNo": "RB-27", "location": "Canteen", "count": 1}]}}`; CAPA: `{"addItems": {"findings": [{"findingOfInspection": "…"}]}}` (the number is given); training: `{"addItems": {"attendees": [{"employeeName": "…"}]}}` |
+| **Take lines off** | `{"removeItems": {"rows": ["row-abc", 3, {"time": "11:00"}]}}` — each named once, by id, place or name key. The history keeps the line's values |
+| **Clear a line's boxes** | `{"clearItems": {"rows": [{"row": 3, "keys": ["viscosity"]}, 4]}}` — every written box without `keys`. A check point: `{"checkpoints": {"3": null}}` |
 
-`GET /api/v1/records/{id}` gives each record's keys (`layout`) and its patch shape (`patchShape`).
+**Never send a whole list.** A list sent whole sets the lines it names (by id, else by the paper's name, else by place) and keeps every other line; nothing is dropped. `layout.lists` says which lists take lines (`canAdd`, `canRemove`) and why not when not (`whyFixed`: a sheet with printed lines, a time slot a line).
+
+**The dry run.** Send the same body with `"dryRun": true` and DCRS answers what the patch would do, writing nothing:
+
+```json
+{"dryRun": true, "recordId": "rec-…", "title": "the Adhesive Mixing Ratio Record of 14-Oct-2026", "status": "In Progress", "editable": true, "willReopen": false,
+ "changes": [{"label": "Row 3 (10:00)", "before": "10:00, 20.4, Jeni", "after": "(row removed)"}],
+ "added": [], "removed": ["line 3 (10:00, 20.4, Jeni)"], "cleared": [], "problems": []}
+```
+
+Word the confirmation card from `removed`, `cleared` and `added` (their words are the lines' own), ask the person, then send the patch without `dryRun`. The change answers `added` with each new line's `id` (what `removeItems` takes off again for an Undo), `removed` and `cleared`. On a signed-off record the dry run says `willReopen: true` and `reasonNeeded: true` until a `reason` is sent: the change then reopens the record for correction with that reason (Edit, §96) and answers `reopened: true`.
+
+`GET /api/v1/records/{id}` gives each record's keys and lists (`layout`) and its patch shape (`patchShape`).
 
 **Values are read as the form stores them.**
 - "yes" becomes Yes, "9.15 am" becomes 09:15, and "20.4" becomes the number 20.4.
@@ -837,8 +852,8 @@ REQUIREMENTS §96 (9 October 2026). The owner: "keep users according to module, 
 |---|---|
 | No access | the document is not shown at all: `403 not-your-department` |
 | Read | see the document and its records, print and download them (every `GET`) |
-| Write | also start a record (`POST /api/v1/records` for a record not stored yet), change it (`/changes`, `/photos`, `/sample-fill`), and `submit`, `verify`, `send_back` and `resume` it (`/actions`); close a CAPA finding |
-| Edit | also `reopen` a signed-off record for correction, change a record under correction, `cancel_correction`, and `delete` a record |
+| Write | also start a record (`POST /api/v1/records` for a record not stored yet), change a draft (`/changes` — add, change, take off and clear its lines — `/photos`, `/sample-fill`), and `submit`, `verify`, `send_back` and `resume` it (`/actions`); close a CAPA finding |
+| Edit | also `reopen` a signed-off record for correction — or send `/changes` with a `reason`, which reopens it and makes the change in one — change a record under correction, `cancel_correction`, and `delete` a record |
 
 The people who answer for a document have Edit on it. As before, whoever may fill a document may also verify it, even their own record. The super admin passes everything. An account the access rules never name (one made before 9 October 2026 for somebody who is not among the plant's twelve people) keeps what it had: its departments at Edit, or every module when it has none.
 

@@ -26,6 +26,13 @@ the agent path runs without a key. Checked against the production build on :8842
     exactly as a person's words would, with the step shown;
   * every request the browser sent is in OpenAI's chat shapes (s109): the
     server hands its tools and messages to ChatGPT as they are;
+  * Mitra adds, changes and deletes anything in any record (s113): on a free
+    sheet a line is added at once and listed back with Undo (which takes off
+    exactly that line), a deletion is asked first in the line's own words
+    (No keeps it, Yes takes it off), a clear of a written value is asked
+    first too; F/HR/17 gets a rodent catch; a CAPA finding and a training
+    attendee are added through the same tool after open_document opened the
+    record;
   * no JavaScript errors.
 """
 import json
@@ -129,6 +136,23 @@ def agent_route(route):
         route.fulfill(json={"kind": "final", "text": f"I read {m.group(1) if m else 'the file'}: the sheet lists viscosity readings 20.1, 20.4 and 20.9."})
     elif GUJARATI.search(text):
         route.fulfill(json={"kind": "final", "text": "હા, આજનું Daily Pest Control Monitoring Record (F/HR/17) ખોલું છું."})
+    # REQUIREMENTS s113: the four operations on a record's lines, in the patch shapes the schema gives the model.
+    elif "add a line" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c4", "edit_open_record", {"patch": {"addItems": {"rows": [{"time": "10:30", "viscosity": 20.4, "checkedBy": "Jeni"}]}}})]})
+    elif "delete line 4" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c5", "edit_open_record", {"patch": {"removeItems": {"rows": [4]}}})]})
+    elif "clear line 4" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c6", "edit_open_record", {"patch": {"clearItems": {"rows": [{"row": 4, "keys": ["viscosity"]}]}}})]})
+    elif "rodent" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c7", "edit_open_record", {"patch": {"addItems": {"rodentCatches": [{"trapBoxNo": "RB-27", "location": "Canteen", "count": 1}]}}})]})
+    elif "open a new internal capa" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c8", "open_document", {"documentId": "gap-inspection", "create": True})]})
+    elif "add a finding" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c9", "edit_open_record", {"patch": {"addItems": {"findings": [{"findingOfInspection": "Gap under the store door"}]}}})]})
+    elif "open a new training record" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c10", "open_document", {"documentId": "training-record", "create": True})]})
+    elif "attended" in low:
+        route.fulfill(json={"kind": "tools", "text": None, "calls": [tool_call("c11", "edit_open_record", {"patch": {"addItems": {"attendees": [{"employeeName": "Rahul Patel"}]}}})]})
     elif "viscosity" in low:
         route.fulfill(
             json={
@@ -298,6 +322,139 @@ with sync_playwright() as p:
     )
     check("...and the sheet now reads 20.4 at 14:00", stored is not None and stored["viscosity"] == 20.4, stored)
     check("...and the final words are shown in the dock", page.locator(".assistant-dock .chat-msg.bot", has_text="20.4").count() >= 1)
+
+    # ---- REQUIREMENTS s113: Mitra adds, changes and deletes anything in any record ------------------------------
+    def open_dock():
+        pill = page.locator(".assistant-pill")
+        if pill.count():
+            pill.first.click()
+            page.wait_for_selector("[data-assistant='docked']", timeout=10000)
+        page.wait_for_timeout(400)
+
+    def dock_say(words, wait_for=None):
+        page.locator(".assistant-dock textarea.input").fill(words)
+        page.locator(".assistant-dock button[aria-label='Send']").click()
+        if wait_for:
+            try:
+                page.wait_for_selector(wait_for, timeout=15000)
+            except Exception:
+                pass
+        page.wait_for_timeout(800)
+
+    def stored_record(document_id):
+        return page.evaluate(
+            """(documentId) => { const rs = JSON.parse(localStorage.getItem('dcrs:v1:records') || '[]').filter((r) => r.documentId === documentId && !r.isDemo);
+                 rs.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)); return rs[0] ? { id: rs[0].id, data: rs[0].data, history: (rs[0].historyEntries || rs[0].history || []).length } : null; }""",
+            document_id,
+        )
+
+    def dock_chip(label):
+        return page.locator(".assistant-dock .chat-chip", has_text=label)
+
+    print("\n==== A free sheet: add a line (Undo), delete a line after its confirmation, clear a value ====")
+    page.goto(f"{BASE}/index.html#/document/qc-adhesive-mixing")
+    page.wait_for_selector("[data-action='document-new-record']", timeout=30000)
+    page.wait_for_timeout(500)
+    dismiss(page)
+    page.locator("[data-action='document-new-record']").first.click()
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    open_dock()
+    before_rows = len((stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"])
+    dock_say("add a line 10:30 viscosity 20.4 Jeni", ".assistant-dock .mitra-step[data-tool='edit_open_record'][data-status='done']")
+    rec = stored_record("qc-adhesive-mixing")
+    rows = rec["data"]["rows"] if rec else []
+    check("The line is added at once, holding only what was said", len(rows) == before_rows + 1 and rows[-1]["time"] == "10:30" and rows[-1]["viscosity"] == 20.4 and rows[-1]["checkedBy"] == "Jeni" and not rows[-1].get("remark"), rows[-1] if rows else rec)
+    added_id = rows[-1]["id"] if rows else None
+    check("...and is listed back with an Undo chip", page.locator(".assistant-dock .chat-msg.bot", has_text="10:30").count() >= 1 and page.locator(".assistant-dock .chat-chip[data-chip='undoLines']").count() == 1, page.locator(".assistant-dock .chat-msg.bot").last.inner_text()[:160])
+    check("No question was asked for an added line", dock_chip("Yes, delete it").count() == 0 and dock_chip("Yes, clear it").count() == 0)
+    page.locator(".assistant-dock .chat-chip[data-chip='undoLines']").first.click()
+    page.wait_for_timeout(800)
+    rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
+    check("Undo takes off exactly that line, by id", len(rows) == before_rows and all(r["id"] != added_id for r in rows), [r.get("id") for r in rows])
+
+    dock_say("add a line 10:30 viscosity 20.4 Jeni", ".assistant-dock .mitra-step[data-tool='edit_open_record'][data-status='done']")
+    rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
+    check("Added again for the deletion", len(rows) == before_rows + 1, len(rows))
+    line_no = len(rows)
+    dock_say(f"delete line {line_no}", ".assistant-dock .chat-chip")
+    question = page.locator(".assistant-dock .chat-msg.bot").last.inner_text()
+    check("A deletion is asked first, in the line's own words, as chips", dock_chip("Yes, delete it").count() == 1 and dock_chip("No, keep it").count() == 1 and re.search(rf"Delete line {line_no} \(.*10:30.*20\.4.*Jeni\) from", question) is not None, question[:200])
+    dock_chip("No, keep it").first.click()
+    page.wait_for_timeout(1200)
+    rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
+    check("No: the line stays", len(rows) == line_no, len(rows))
+    dock_say(f"delete line {line_no}", ".assistant-dock .chat-chip")
+    if dock_chip("Yes, delete it").count():
+        dock_chip("Yes, delete it").first.click()
+        page.wait_for_timeout(1500)
+    rec = stored_record("qc-adhesive-mixing")
+    rows = rec["data"]["rows"] if rec else []
+    check("Yes: the line is gone, and nothing else", len(rows) == before_rows and all(r.get("time") != "10:30" for r in rows), [r.get("time") for r in rows])
+
+    dock_say("add a line 10:30 viscosity 20.4 Jeni", ".assistant-dock .mitra-step[data-tool='edit_open_record'][data-status='done']")
+    rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
+    line_no = len(rows)
+    dock_say(f"clear line {line_no}", ".assistant-dock .chat-chip")
+    question = page.locator(".assistant-dock .chat-msg.bot").last.inner_text()
+    check("A clear of a written value is asked first, naming the value and the line", dock_chip("Yes, clear it").count() == 1 and dock_chip("No, leave it").count() == 1 and re.search(rf"Clear 20\.4 from line {line_no} \(10:30\) on", question) is not None, question[:200])
+    dock_chip("Yes, clear it").first.click()
+    page.wait_for_timeout(1500)
+    rows = (stored_record("qc-adhesive-mixing") or {"data": {"rows": []}})["data"]["rows"]
+    check("Yes: the value is blank, the line stays", len(rows) == line_no and rows[-1]["viscosity"] is None and rows[-1]["time"] == "10:30", rows[-1] if rows else None)
+
+    print("\n==== F/HR/17: a rodent catch added ====")
+    page.goto(f"{BASE}/index.html#/document/daily-pest-monitoring")
+    page.wait_for_selector("[data-action='document-new-record']", timeout=30000)
+    page.wait_for_timeout(500)
+    dismiss(page)
+    page.locator("[data-action='document-new-record']").first.click()
+    page.wait_for_timeout(1500)
+    dismiss(page)
+    open_dock()
+    dock_say("a rodent was caught in RB-27 at the canteen", ".assistant-dock .mitra-step[data-tool='edit_open_record'][data-status='done']")
+    rec = stored_record("daily-pest-monitoring")
+    catches = (rec or {"data": {}})["data"].get("rodentCatches") or []
+    check("The catch is on F/HR/17: trap box, location and count as said", len(catches) == 1 and catches[0]["trapBoxNo"] == "RB-27" and catches[0]["location"] == "Canteen" and catches[0]["count"] == 1, catches)
+    check("...listed back with Undo", page.locator(".assistant-dock .chat-chip[data-chip='undoLines']").count() == 1)
+
+    print("\n==== A CAPA finding and a training attendee, through the same tool ====")
+    page.goto(f"{BASE}/index.html#/assistant")
+    page.wait_for_selector(".assistant-page textarea.assistant-input", timeout=30000)
+    page.wait_for_timeout(500)
+    dismiss(page)
+    page.locator(".assistant-page textarea.assistant-input").fill("open a new internal capa")
+    page.locator(".assistant-page [data-action='send']").click()
+    try:
+        page.wait_for_function("() => /#\\/gap\\/rec/.test(location.hash)", timeout=15000)
+    except Exception:
+        pass
+    page.wait_for_timeout(1200)
+    check("open_document with create opens a new inspection findings report", re.search(r"#/gap/rec", page.url) is not None, page.url)
+    dismiss(page)
+    open_dock()
+    before_findings = len(((stored_record("gap-inspection") or {"data": {}})["data"].get("findings") or []))
+    dock_say("add a finding: gap under the store door", ".assistant-dock .mitra-step[data-tool='edit_open_record'][data-status='done']")
+    findings = ((stored_record("gap-inspection") or {"data": {}})["data"].get("findings") or [])
+    check("The finding is added with the next number and only what was said", len(findings) == before_findings + 1 and findings[-1]["findingOfInspection"] == "Gap under the store door" and int(findings[-1].get("sNo") or 0) >= 1, findings[-1] if findings else None)
+
+    page.goto(f"{BASE}/index.html#/assistant")
+    page.wait_for_selector(".assistant-page textarea.assistant-input", timeout=30000)
+    page.wait_for_timeout(500)
+    dismiss(page)
+    page.locator(".assistant-page textarea.assistant-input").fill("open a new training record")
+    page.locator(".assistant-page [data-action='send']").click()
+    try:
+        page.wait_for_function("() => /#\\/training\\/rec/.test(location.hash)", timeout=15000)
+    except Exception:
+        pass
+    page.wait_for_timeout(1200)
+    check("open_document with create opens a new training record", re.search(r"#/training/rec", page.url) is not None, page.url)
+    dismiss(page)
+    open_dock()
+    dock_say("Rahul Patel attended", ".assistant-dock .mitra-step[data-tool='edit_open_record'][data-status='done']")
+    attendees = ((stored_record("training-record") or {"data": {}})["data"].get("attendees") or [])
+    check("The attendee is added with the name only (s98: no department nobody gave)", len(attendees) >= 1 and attendees[-1]["employeeName"] == "Rahul Patel" and not attendees[-1].get("department"), attendees[-1] if attendees else None)
 
     def openai_shapes(body):
         """What is not in OpenAI's chat shapes in one request (s109: the server hands these to ChatGPT as they are)."""

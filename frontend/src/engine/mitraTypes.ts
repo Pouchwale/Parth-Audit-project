@@ -105,6 +105,28 @@ export interface MitraToolContext {
   runWidgetAction?: (action: ChipAction) => void;
   /** The person's words this turn, for history notes ("Asked of Mitra: …"). */
   userWords: string;
+  /**
+   * Lines Mitra has just ADDED to the record (REQUIREMENTS §113): the host lists them back with an Undo that takes
+   * off exactly those lines, by id (components/common/DocumentAssistant.tsx). Absent: the tool's result alone says it.
+   */
+  linesAdded?: (info: AddedLines) => void;
+  /**
+   * What to answer when no record is at hand (the Ask Mitra page, engine/recordTarget.ts): which record Mitra needs
+   * named, in words the model relays — "Which F-QC-30? Say its date…". Absent: "no record is open — open one first".
+   */
+  noTarget?: string;
+}
+
+/** One line Mitra added, named so an Undo can take off exactly it (its id; its place on a list of plain words). */
+export interface AddedLine {
+  collection: string;
+  id: string | number;
+  words: string;
+}
+
+export interface AddedLines {
+  recordId: string;
+  lines: AddedLine[];
 }
 
 export interface MitraToolResult {

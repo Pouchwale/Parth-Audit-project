@@ -73,9 +73,11 @@ export interface EngineStore {
 /**
  * Must equal ENGINE_API_VERSION in frontend/src/engineHost/entry.ts (2: the equipment list and the insights, 2-Oct-2026;
  * 3: the access rules, the morning prepare, the notification plan, the engine's clock, 8-Oct-2026; 4: the person on
- * every load, each request scoped and each change checked by the access levels, 9-Oct-2026).
+ * every load, each request scoped and each change checked by the access levels, 9-Oct-2026; 5: the lines of every
+ * record — the four operations, a change's dry run, each list's rules and line ids, paging, REQUIREMENTS §113,
+ * 14-Oct-2026).
  */
-export const ENGINE_API_VERSION = 4;
+export const ENGINE_API_VERSION = 5;
 /** The company items a browser holds (backend/index.ts COMPANY_KEYS), and the super admin's access rules — entry.ts ITEM_KEYS. */
 export const ITEM_KEYS = ["records", "documents", "master", "hrMasterData", "referenceEdits", "formatEdits", "deletions", "live-start", "access"] as const;
 type ItemKey = (typeof ITEM_KEYS)[number];

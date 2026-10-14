@@ -8,6 +8,7 @@ import { ApiError, assistantApi } from "../../api/client";
 import { useAssistantTarget, type AssistantTarget } from "../../store/AssistantContext";
 import { applyAssistantPatch, looksLikeEdit, parseLocalEdit } from "../../engine/recordPatch";
 import { diffRecordData } from "../../engine/recordHistory";
+import { linesLost, undoAddedLines } from "../../engine/mitraTools";
 import type { DocumentDefinition, FieldChange, LogSheetData } from "../../types";
 import { useAuth } from "../../store/AuthContext";
 import { useAppStore } from "../../store/AppStore";
@@ -252,6 +253,8 @@ export function DocumentAssistant() {
   const pendingRef = useRef<{ next: unknown; changes: FieldChange[]; note: string; recordId: string; problems: string[] } | null>(null);
   // What each assistant change replaced, so "Undo" can put it back.
   const undoRef = useRef(new Map<string, { recordId: string; data: unknown }>());
+  // A deletion or a clear of a line typed in words, waiting for "Yes, delete it" (REQUIREMENTS §113).
+  const pendingLinesRef = useRef<{ recordId: string; next: unknown; changes: FieldChange[]; note: string; intro: string } | null>(null);
   // A fetch from HR Master Data shown to the user and waiting for their yes (REQUIREMENTS §53).
   const masterFillRef = useRef<{ recordId: string; personId: string; editable: boolean; next: unknown; blanksOnly: unknown; changes: FieldChange[]; blankChanges: FieldChange[]; note: string } | null>(null);
   // Mitra asked "whose details?" — the next message names the person (REQUIREMENTS §53).
@@ -1232,6 +1235,47 @@ export function DocumentAssistant() {
         bot("Undone — the record is back to what it said before.");
         return;
       }
+      // Exactly the lines Mitra added, taken off again by id (REQUIREMENTS §113); anything written since stays.
+      case "undoLines": {
+        me(chip.label);
+        const tt = getTarget();
+        if (!tt || tt.recordId !== a.recordId) {
+          bot("I can only undo that while the record is still open.");
+          return;
+        }
+        if (!tt.editable) {
+          bot("This record has been submitted since then — use \"Correct this record\" to change it.");
+          return;
+        }
+        const before = tt.getData();
+        const res = undoAddedLines(tt.documentKind, tt.documentId, before, a.lines, recordRepository.getById(tt.recordId));
+        const changes = diffRecordData(before, res.data, tt.labels);
+        if (changes.length === 0) {
+          bot(`Those lines are not on the record any more.${res.problems.length ? `\n${res.problems.join("\n")}` : ""}`);
+          return;
+        }
+        tt.commit(res.data, "Undo of the lines Mitra added");
+        bot(`Undone — ${a.lines.length === 1 ? "the line is" : `those ${a.lines.length} lines are`} off the record again.`);
+        return;
+      }
+      case "confirmLineChange": {
+        me(chip.label);
+        const p = pendingLinesRef.current;
+        pendingLinesRef.current = null;
+        const tt = getTarget();
+        if (!p || !tt || tt.recordId !== p.recordId) {
+          bot("That record is no longer open, so nothing was changed.");
+          return;
+        }
+        changeOrAsk(tt, p.next, p.changes, p.note, [], p.intro);
+        return;
+      }
+      case "cancelLineChange": {
+        me(chip.label);
+        pendingLinesRef.current = null;
+        bot("Left as it was — nothing on the record changed.");
+        return;
+      }
     }
   };
 
@@ -1488,7 +1532,9 @@ export function DocumentAssistant() {
   // is changed only after "Yes, correct it", which reopens it with the reason on
   // record — whether the change is a value (above) or the record's lines (below).
   const changeOrAsk = (target: AssistantTarget, next: unknown, changes: FieldChange[], note: string, problems: string[], intro: string) => {
-    const stop = levelStops(target.documentId, "fill") ?? (!target.editable && !target.reopen ? levelStops(target.documentId, "correct") : null);
+    // The person's level first (REQUIREMENTS §96): Write fills a draft; a correction — a record under correction, or
+    // one signed off that would be reopened — is Edit's, and below it the change is refused in words, never half-done.
+    const stop = levelStops(target.documentId, target.correction || !target.editable ? "correct" : "fill");
     if (stop) {
       bot(`${intro}${stop}`);
       return;
@@ -1529,7 +1575,26 @@ export function DocumentAssistant() {
       bot(`🚫 ${res.why}`);
       return;
     }
-    changeOrAsk(target, res.data, diffRecordData(before, res.data, target.labels), words, [], `${res.what.charAt(0).toUpperCase()}${res.what.slice(1)}.\n`);
+    const changes = diffRecordData(before, res.data, target.labels);
+    const intro = `${res.what.charAt(0).toUpperCase()}${res.what.slice(1)}.\n`;
+    // A LINE TAKEN OFF, OR A WRITTEN VALUE CLEARED, IS ASKED FIRST — on a draft too (REQUIREMENTS §113), in the
+    // line's own words, as the tool asks; an added line is done at once and listed back with Undo.
+    const lost = linesLost(changes);
+    if (lost.removed.length || lost.cleared.length) {
+      const stop = levelStops(target.documentId, target.correction || !target.editable ? "correct" : "fill");
+      if (stop) {
+        bot(stop);
+        return;
+      }
+      const what = [lost.removed.length ? `delete ${lost.removed.join(" and ")}` : "", lost.cleared.length ? `clear ${lost.cleared.join(" and ")}` : ""].filter(Boolean).join(", and ");
+      pendingLinesRef.current = { recordId: target.recordId, next: res.data, changes, note: words, intro };
+      bot(`${what.charAt(0).toUpperCase()}${what.slice(1)} ${lost.removed.length && !lost.cleared.length ? "from" : "on"} ${target.title ?? "this record"}?`, [
+        { label: lost.removed.length ? "Yes, delete it" : "Yes, clear it", action: { type: "confirmLineChange" }, tone: "danger" },
+        { label: lost.removed.length ? "No, keep it" : "No, leave it", action: { type: "cancelLineChange" } },
+      ]);
+      return;
+    }
+    changeOrAsk(target, res.data, changes, words, [], intro);
   };
 
   // ---- changing the FORMAT, in words (REQUIREMENTS §64) --------------------------
@@ -1748,6 +1813,10 @@ export function DocumentAssistant() {
             ]);
           }),
         runWidgetAction: (action) => runAction({ label: text, action }),
+        // Lines Mitra added are listed back with an Undo that takes off exactly those lines (REQUIREMENTS §113);
+        // a deletion or a clear was asked first through `confirm` above, so it needs no Undo of its own.
+        linesAdded: ({ recordId, lines }) =>
+          bot(`Added:\n${lines.map((l) => `• ${l.words}`).join("\n")}\n\n${REVIEW_LINE}`, [{ label: "Undo", action: { type: "undoLines", recordId, lines: lines.map((l) => ({ collection: l.collection, id: l.id })) } }]),
       };
       const out = await runMitraTurn({
         text,

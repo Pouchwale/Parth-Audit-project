@@ -82,6 +82,15 @@ function fail(errors: string[]): ValidationResult {
   return { valid: false, errors };
 }
 
+// EVERY BOX IS READ DEFENSIVELY (REQUIREMENTS §113): a line stored without a
+// box — an older record, a change that lost it — is a problem to report in
+// words, never a TypeError thrown at the person pressing Submit. `text` reads
+// any value as trimmed words, `list` any value as a list, `part` any value as
+// an object.
+const text = (v: unknown): string => (v === null || v === undefined ? "" : String(v)).trim();
+const list = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const part = <T extends object>(v: unknown): Partial<T> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Partial<T>) : {});
+
 // The plant's own codes on a document — an FG code, a PO number, a complaint
 // number — have to read the way the department writes them
 // (engine/documentFormats.ts) before it can be submitted.
@@ -100,10 +109,10 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       const d = record.data as DailyPestMonitoringData;
       if (d.isHoliday) break;
       const checkpoints = masterRepository.get().checkpoints;
-      if (!d.checker.trim()) errors.push("Checker name is required.");
-      if (!d.timeOfChecking.trim()) errors.push("Time of checking is required.");
+      if (!text(d.checker)) errors.push("Checker name is required.");
+      if (!text(d.timeOfChecking)) errors.push("Time of checking is required.");
       for (const cp of checkpoints) {
-        const ans = d.checkpoints[cp.no];
+        const ans = part<DailyPestMonitoringData["checkpoints"]>(d.checkpoints)[cp.no];
         if (!ans || ans.value === null || ans.value === "") {
           errors.push(`Checkpoint ${cp.no} has not been answered.`);
         }
@@ -113,63 +122,65 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       }
       // A rodent in a trap box is a count, not a tick: box, location and
       // how many — that's what the Rodent Catch Report adds up.
-      if (d.checkpoints[7]?.value === "Yes") {
-        const catches = d.rodentCatches ?? [];
+      if (part<DailyPestMonitoringData["checkpoints"]>(d.checkpoints)[7]?.value === "Yes") {
+        const catches = list<NonNullable<DailyPestMonitoringData["rodentCatches"]>[number]>(d.rodentCatches);
         if (catches.length === 0) errors.push("Checkpoint 7 is Yes — add the rodent catch details (trap box, location, number of rodents).");
         catches.forEach((c, i) => {
           // Read defensively: a line stored without the box (an older record,
           // or a change that lost it) is a problem to report, not a crash.
-          if (!String(c.location ?? "").trim()) errors.push(`Rodent catch #${i + 1}: location is required.`);
-          if (!(Number(c.count) >= 1)) errors.push(`Rodent catch #${i + 1}: number of rodents must be at least 1.`);
+          if (!text(c?.location)) errors.push(`Rodent catch #${i + 1}: location is required.`);
+          if (!(Number(c?.count) >= 1)) errors.push(`Rodent catch #${i + 1}: number of rodents must be at least 1.`);
         });
       }
       break;
     }
     case "fly-catcher": {
       const d = record.data as FlyCatcherData;
-      d.entries.forEach((e) => {
-        if (e.catchCountApprox === null) errors.push(`${e.pcId}: Flies catch count is required.`);
-        if (!String(e.cleaningDoneBy ?? "").trim()) errors.push(`${e.pcId}: "Cleaning Done By" is required.`);
+      list<FlyCatcherData["entries"][number]>(d.entries).forEach((e, i) => {
+        const unit = text(e?.pcId) || `Unit ${i + 1}`;
+        if (e?.catchCountApprox === null || e?.catchCountApprox === undefined) errors.push(`${unit}: Flies catch count is required.`);
+        if (!text(e?.cleaningDoneBy)) errors.push(`${unit}: "Cleaning Done By" is required.`);
       });
       break;
     }
     case "service-report": {
       const d = record.data as ServiceReportData;
-      if (!d.technicianSign.trim()) errors.push("Technician signature (name) is required.");
+      if (!text(d.technicianSign)) errors.push("Technician signature (name) is required.");
       break;
     }
     case "gap-inspection": {
       const d = record.data as GapInspectionData;
       if (!d.inspectionDate) errors.push("Inspection date is required.");
-      if (d.findings.length === 0) errors.push("At least one finding is required.");
-      d.findings.forEach((f) => {
-        if (!String(f.findingOfInspection ?? "").trim()) errors.push(`Finding #${f.sNo}: description is required.`);
+      const findings = list<GapInspectionData["findings"][number]>(d.findings);
+      if (findings.length === 0) errors.push("At least one finding is required.");
+      findings.forEach((f, i) => {
+        if (!text(f?.findingOfInspection)) errors.push(`Finding #${f?.sNo ?? i + 1}: description is required.`);
       });
       break;
     }
     case "training-record": {
       const d = record.data as TrainingRecordData;
-      if (!d.trainerProvider.trim()) errors.push("Trainer / provider is required.");
-      if (d.attendees.length === 0) {
+      if (!text(d.trainerProvider)) errors.push("Trainer / provider is required.");
+      if (list(d.attendees).length === 0) {
         errors.push("The attendance sheet needs at least one name.");
       }
       break;
     }
     case "complaint-checklist": {
       const d = record.data as ComplaintChecklistData;
-      if (!d.customerName.trim()) errors.push("Customer Name is required.");
-      if (!d.complaintNo.trim()) errors.push("Complaint No. is required.");
+      if (!text(d.customerName)) errors.push("Customer Name is required.");
+      if (!text(d.complaintNo)) errors.push("Complaint No. is required.");
       errors.push(...codeProblems("complaint-checklist", d));
       if (!d.complaintReceivedDate) errors.push("Complaint Received Date is required.");
-      if (!d.preparedBy.name.trim()) errors.push("Prepared By (name) is required.");
+      if (!text(part<ComplaintChecklistData["preparedBy"]>(d.preparedBy).name)) errors.push("Prepared By (name) is required.");
       // Every section is mandatory, activity by activity (the department's
       // rule for External CAPA, 12-Sep-2026): each one is done, done on a date,
       // or marked not required — nothing is left blank. The walk-through works
       // the same way, so this is the same rule from either end.
-      for (const s of d.sections) {
-        const blank = s.items.filter((it) => !it.done && !it.notRequired && !it.comment.trim());
+      for (const s of list<ComplaintChecklistData["sections"][number]>(d.sections)) {
+        const blank = list<ComplaintChecklistData["sections"][number]["items"][number]>(s?.items).filter((it) => !it?.done && !it?.notRequired && !text(it?.comment));
         if (blank.length === 0) continue;
-        const which = blank.map((it) => `${s.key}${it.srNo}`).join(", ");
+        const which = blank.map((it) => `${s.key}${it?.srNo ?? ""}`).join(", ");
         errors.push(
           `Section ${s.key} — ${s.title} is not finished: ${blank.length} activit${blank.length === 1 ? "y" : "ies"} still blank (${which}). Mark each one done, done on a date, or not required.`
         );
@@ -179,23 +190,23 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
     case "complaint-ack": {
       const d = record.data as ComplaintAckData;
       if (!d.reportDate) errors.push("Date is required.");
-      if (!d.toName.trim()) errors.push('"To" — the person the complaint is explained to — is required.');
-      if (!d.customerName.trim()) errors.push("Customer Name is required.");
+      if (!text(d.toName)) errors.push('"To" — the person the complaint is explained to — is required.');
+      if (!text(d.customerName)) errors.push("Customer Name is required.");
       if (!d.complaintReceivedOn) errors.push("Complaint received on is required.");
-      if (!d.jobName.trim()) errors.push("Job name is required.");
-      if (!d.scenario.trim()) errors.push("Scenario is required.");
-      if (!d.rootCause.trim()) errors.push("Root Cause is required.");
-      if (!d.correctiveAction.trim()) errors.push("Corrective Action is required.");
-      if (!d.preventiveAction.trim()) errors.push("Preventive Action is required.");
-      if (!d.employeeName.trim()) errors.push("The employee's name (the acknowledgement) is required.");
+      if (!text(d.jobName)) errors.push("Job name is required.");
+      if (!text(d.scenario)) errors.push("Scenario is required.");
+      if (!text(d.rootCause)) errors.push("Root Cause is required.");
+      if (!text(d.correctiveAction)) errors.push("Corrective Action is required.");
+      if (!text(d.preventiveAction)) errors.push("Preventive Action is required.");
+      if (!text(d.employeeName)) errors.push("The employee's name (the acknowledgement) is required.");
       errors.push(...codeProblems("complaint-ack", d));
       break;
     }
     case "pest-responsibilities": {
       const d = record.data as PestResponsibilitiesData;
-      if (d.siteResponsibilities.length === 0) errors.push("The site responsibilities are empty — add at least one point.");
-      if (!d.client.name.trim()) errors.push("The client representative's name is required.");
-      if (!d.provider.name.trim()) errors.push("The pest control agency representative's name is required.");
+      if (list(d.siteResponsibilities).length === 0) errors.push("The site responsibilities are empty — add at least one point.");
+      if (!text(part<PestResponsibilitiesData["client"]>(d.client).name)) errors.push("The client representative's name is required.");
+      if (!text(part<PestResponsibilitiesData["provider"]>(d.provider).name)) errors.push("The pest control agency representative's name is required.");
       break;
     }
     case "service-agreement": {
@@ -204,9 +215,9 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       if (!d.effectiveTo) errors.push("The date the agreement runs to is required.");
       if (d.effectiveFrom && d.effectiveTo && d.effectiveTo <= d.effectiveFrom) errors.push("The agreement must run to a date after it starts.");
       // Either the signed copy is on file, or this format carries both names.
-      if (d.scans.length === 0) {
-        if (!d.clientSignatory.name.trim()) errors.push("Who signs for the client is required (or upload the signed agreement).");
-        if (!d.providerSignatory.name.trim()) errors.push("Who signs for the service provider is required (or upload the signed agreement).");
+      if (list(d.scans).length === 0) {
+        if (!text(part<ServiceAgreementData["clientSignatory"]>(d.clientSignatory).name)) errors.push("Who signs for the client is required (or upload the signed agreement).");
+        if (!text(part<ServiceAgreementData["providerSignatory"]>(d.providerSignatory).name)) errors.push("Who signs for the service provider is required (or upload the signed agreement).");
       }
       break;
     }
@@ -264,12 +275,12 @@ export function validateForVerify(doc: DocumentDefinition, record: RecordInstanc
   switch (doc.kind) {
     case "service-report": {
       const d = record.data as ServiceReportData;
-      if (!d.customerSign.trim()) errors.push("Customer's representative signature is required to verify.");
+      if (!text(d.customerSign)) errors.push("Customer's representative signature is required to verify.");
       break;
     }
     case "gap-inspection": {
       const d = record.data as GapInspectionData;
-      const unverified = d.findings.filter((f) => f.status !== "Closed" && f.status !== "Verified");
+      const unverified = list<GapInspectionData["findings"][number]>(d.findings).filter((f) => f?.status !== "Closed" && f?.status !== "Verified");
       if (unverified.length > 0) {
         errors.push(`${unverified.length} finding(s) are not yet closed/verified.`);
       }
@@ -277,7 +288,7 @@ export function validateForVerify(doc: DocumentDefinition, record: RecordInstanc
     }
     case "complaint-checklist": {
       const d = record.data as ComplaintChecklistData;
-      if (!d.approvedBy.name.trim()) errors.push("Approved By (name) is required — the approver's name is stamped when you approve.");
+      if (!text(part<ComplaintChecklistData["approvedBy"]>(d.approvedBy).name)) errors.push("Approved By (name) is required — the approver's name is stamped when you approve.");
       break;
     }
     default:

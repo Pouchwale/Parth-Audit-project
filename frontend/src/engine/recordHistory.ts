@@ -228,6 +228,50 @@ function rowKeys(map: Map<string, Leaf>): Map<string, string> {
   return rows;
 }
 
+// A LINE'S VALUES ARE KEPT WHEN IT GOES (REQUIREMENTS §113). A removed line used
+// to be written as "(row present) → (row removed)", which told an auditor that
+// something was there and nothing of what. Now the history holds the line as
+// it was — its written boxes in their order, blanks left out, at most this
+// many characters — and an added line the same way.
+const LINE_WORDS_LIMIT = 120;
+export const ROW_REMOVED = "(row removed)";
+export const NO_ROW = "(no row)";
+
+/** The words of one line (its leaves under `row`), "09:00, 19.87, Jeni"; "(blank)" when nothing was written. */
+function rowValues(map: Map<string, Leaf>, row: string): string {
+  const parts: string[] = [];
+  for (const [path, leaf] of map) {
+    if (path !== row && !path.startsWith(row + ".") && !path.startsWith(row + "[")) continue;
+    // A picture's bytes, a finding's insight links, and the line's own number (its name says it once, §102).
+    if (/\.(dataUrl|insightKey|sourceRecordIds(\[.*)?|sNo|slNo|srNo)$/.test(path)) continue;
+    const v = leaf.value.trim();
+    if (!v) continue;
+    parts.push(v);
+  }
+  const words = parts.join(", ");
+  if (!words) return "(blank)";
+  return words.length > LINE_WORDS_LIMIT ? `${words.slice(0, LINE_WORDS_LIMIT - 1)}…` : words;
+}
+
+/** Whether a change is a line removed or added (its values kept in `before` / `after`). */
+export function isLineChange(c: FieldChange): boolean {
+  return c.after === ROW_REMOVED || c.before === NO_ROW;
+}
+
+/**
+ * A line change in words for a chat reply or a confirmation card: "Line 3
+ * removed (09:00, 19.87, Jeni)", "Finding 2 added (Gap under the store door)".
+ * Null for a change that is not a line removed or added.
+ */
+export function lineChangeWords(c: FieldChange): string | null {
+  if (!isLineChange(c)) return null;
+  const m = c.label.match(/^(?:.* · )?(\w+) (\d+)/);
+  const noun = m ? (m[1] === "Row" ? "Line" : m[1]) : "Line";
+  const n = m ? m[2] : "";
+  const values = c.after === ROW_REMOVED ? c.before : c.after;
+  return `${noun}${n ? ` ${n}` : ""} ${c.after === ROW_REMOVED ? "removed" : "added"} (${values})`;
+}
+
 /**
  * What changed between two versions of a record's data, in words.
  * `labels` maps a field key to the label printed on the form (a log sheet's
@@ -245,13 +289,13 @@ export function diffRecordData(before: unknown, after: unknown, labels: Record<s
 
   for (const [row, label] of rowsA) {
     if (!rowsB.has(row)) {
-      changes.push({ field: row, label, before: "(row present)", after: "(row removed)" });
+      changes.push({ field: row, label, before: rowValues(a, row), after: ROW_REMOVED });
       skipPrefixes.push(row);
     }
   }
   for (const [row, label] of rowsB) {
     if (!rowsA.has(row)) {
-      changes.push({ field: row, label, before: "(no row)", after: "(row added)" });
+      changes.push({ field: row, label, before: NO_ROW, after: rowValues(b, row) });
       skipPrefixes.push(row);
     }
   }
@@ -284,17 +328,22 @@ export function makeEntry(action: HistoryAction, by: string, extra: Partial<Omit
  * Appends an entry. Two consecutive plain edits by the same person within a
  * few minutes are folded into one — each field keeps its ORIGINAL "before"
  * and its latest "after", and a field changed and then changed back drops
- * out — so autosave doesn't bury the history in keystrokes. Nothing else is
- * ever merged or removed.
+ * out — so autosave doesn't bury the history in keystrokes. An entry that
+ * removes or adds a line is never folded, either into the one before it or
+ * by the one after it (REQUIREMENTS §113): a line removed and put back stays
+ * in the history as both. Nothing else is ever merged or removed.
  */
 export function appendHistory<T>(record: RecordInstance<T>, entry: HistoryEntry): RecordInstance<T> {
   const history = (record.history ?? []).slice();
   const last = history[history.length - 1];
+  const movesLines = (e: HistoryEntry) => (e.changes ?? []).some(isLineChange);
   const foldable =
     last &&
     (entry.action === "edited" || entry.action === "assistant-edit") &&
     last.action === entry.action &&
     last.by === entry.by &&
+    !movesLines(last) &&
+    !movesLines(entry) &&
     Date.parse(entry.at) - Date.parse(last.at) < COALESCE_WINDOW_MS;
 
   if (foldable && entry.changes) {

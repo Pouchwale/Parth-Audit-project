@@ -7,7 +7,7 @@ import { normalizeServiceLines } from "./serviceMaterials";
 import { codeRulesFor, softFgCodeProblem } from "./documentFormats";
 import { addDays, pad2, todayISO } from "../utils/date";
 import { generateId } from "../utils/id";
-import { COMPANY } from "../data/seed/masterData";
+import { clearedLine, insertLines, lineRuleFor, lineWords, newLine, withoutLines, type LineRule } from "./recordLines";
 
 // EVERY CHANGE THE ASSISTANT MAKES IS CHECKED HERE FIRST.
 //
@@ -23,7 +23,15 @@ import { COMPANY } from "../data/seed/masterData";
 //   * printed columns (a time slot, a test parameter) can never be changed,
 //     and a form with a fixed set of rows never gains or loses one;
 //   * a change to one row or item ("itemEdits") is applied to exactly the row
-//     it names — and refused if it matches none, or more than one.
+//     it names — and refused if it matches none, or more than one;
+//   * a list sent whole NEVER deletes what it leaves out (REQUIREMENTS §113):
+//     it means "set these lines, keep the rest" — each line matched by its id,
+//     else by its name on the paper (a unit's PC-NN, an area's Sl. No., a
+//     finding's S. No., a time slot), else by its place; lines are added with
+//     "addItems", taken off with "removeItems" and blanked with "clearItems",
+//     each checked against the one registry of what every list allows
+//     (engine/recordLines.ts). Only "replaceList: true" means the whole list,
+//     and nobody sends it by default.
 //
 // The same module also understands simple edit instructions typed or spoken
 // in plain words ("14:00 viscosity is 20.4", "check point 3 is no", "PC-05
@@ -287,7 +295,17 @@ function blankLike(template: Obj): Obj {
   return out;
 }
 
-function normObjectSet(base: Obj, set: Obj, problems: string[], template: Obj = base): Obj {
+/** What one patch is checked against: the record kind, its document and revision, and whether whole lists replace. */
+interface PatchCtx {
+  kind: string;
+  documentId: string;
+  record?: PatchRecord;
+  layout?: LogSheetLayout;
+  /** `replaceList: true` was sent: a list given whole IS the whole list (the old behaviour; nobody sends it by default). */
+  replace: boolean;
+}
+
+function normObjectSet(base: Obj, set: Obj, problems: string[], template: Obj, ctx: PatchCtx): Obj {
   const next: Obj = { ...base };
   for (const [k, v] of Object.entries(set)) {
     if (k === "id") continue;
@@ -301,12 +319,12 @@ function normObjectSet(base: Obj, set: Obj, problems: string[], template: Obj = 
       continue;
     }
     if (Array.isArray(cur)) {
-      if (Array.isArray(v)) next[k] = normArray(k, cur, v, problems);
+      if (Array.isArray(v)) next[k] = normArray(k, cur, v, problems, ctx);
       else problems.push(`${humanKey(k)} is a list, so I left it unchanged.`);
       continue;
     }
     if (isObj(cur)) {
-      if (isObj(v)) next[k] = normObjectSet(cur, v, problems);
+      if (isObj(v)) next[k] = normObjectSet(cur, v, problems, cur, ctx);
       else problems.push(`${humanKey(k)} has several parts, so I left it unchanged.`);
       continue;
     }
@@ -316,72 +334,98 @@ function normObjectSet(base: Obj, set: Obj, problems: string[], template: Obj = 
   return next;
 }
 
-// The shape of an item on the lists a record kind keeps, for the FIRST item of
-// an empty list (types/record.ts; the same blank line the guided interview
-// adds, engine/guidedRecord.ts). With no item to copy the shape from, the
-// first rodent catch, finding or attendee the model gave used to be stored as
-// {} — every key dropped as "not a field" — and the submit check then threw on
-// the box that was not there (REQUIREMENTS §98: nothing invented, nothing
-// lost). The values here are the printed form's starting state, not data: a
-// finding starts Open and Internal, the rest is blank until the person fills
-// it. Keyed by the list's name, which no two kinds share.
-const LIST_TEMPLATES: Record<string, Obj> = {
-  // F/HR/17 — a rodent in a trap box: which box, where, how many.
-  rodentCatches: { id: "", trapBoxNo: "", location: "", count: null },
-  // F/HR/17 — the summary of actions at the foot of the sheet.
-  summaryActions: { id: "", dateOfObservation: "", descriptionOfObservation: "", actionTaken: "", remarks: "" },
-  // The inspection findings report (CAPA — Internal).
-  findings: {
-    id: "",
-    sNo: 1,
-    findingOfInspection: "",
-    commentsOnFindings: "",
-    correctiveActionContractor: "",
-    correctiveActionClient: "",
-    targetDate: null,
-    actualDateOfAction: null,
-    verifiedByServiceProvider: "",
-    status: "Open",
-    source: "Internal",
-  },
-  // The training record's attendance sheet.
-  attendees: { id: "", employeeName: "", department: "" },
-};
+/** The same line, named on the paper: "PC-05" is "pc-05", 9:00 is "09:00", 3 is "3". */
+function sameName(have: unknown, want: unknown): boolean {
+  if (have === undefined || have === null || want === undefined || want === null) return false;
+  const th = normTime(have);
+  const tw = normTime(want);
+  if (th && tw) return th === tw;
+  if (typeof have === "number" || typeof want === "number") return normNumber(have) === normNumber(want);
+  return String(have).trim().toLowerCase() === String(want).trim().toLowerCase();
+}
 
-function normArray(key: string, cur: unknown[], value: unknown[], problems: string[]): unknown[] {
-  const scalarList = cur.length > 0 ? !isObj(cur[0]) : value.every((v) => !isObj(v)) && !(key in LIST_TEMPLATES);
-  if (scalarList) return value.filter((v) => !isObj(v) && !Array.isArray(v)).map((v) => String(v ?? "").trim());
-  const template = (cur.find(isObj) ?? LIST_TEMPLATES[key] ?? {}) as Obj;
-  const hasId = "id" in template;
-  return value.filter(isObj).map((raw, i) => {
-    // A list whose items carry an id is matched by it; one whose items carry
-    // none — the complaint checklist's sections and their activities, a
-    // service report's area lines, the fly catcher's units, the emergency
-    // contacts — is matched by POSITION, the way the printed form identifies
-    // them. Without that, a reply giving the COMPLETE list (which is exactly
-    // what the model is told to do for the checklist) rebuilt every item from
-    // a blank template: the values it echoed back unchanged were dropped, and
-    // the printed text it repeated came back as "not a field on this form".
-    const existing = hasId
-      ? typeof raw.id === "string"
-        ? (cur.find((c) => isObj(c) && c.id === raw.id) as Obj | undefined)
-        : undefined
-      : isObj(cur[i])
-        ? (cur[i] as Obj)
-        : undefined;
-    if (existing) return normObjectSet(existing, raw, problems, template);
-    // A new line starts from the kind's own blank line where the engine knows
-    // one (a finding Open and Internal, numbered by its place on the sheet).
-    const fresh: Obj = { ...blankLike(template), ...clone(LIST_TEMPLATES[key] ?? {}) };
-    if (hasId) fresh.id = generateId(key);
-    if ("sNo" in fresh && normNumber(raw.sNo) === null) fresh.sNo = i + 1;
-    // A new line may set the printed text (a new activity has none to protect).
-    for (const k of PROTECTED_KEYS) if (k in raw && k in fresh) fresh[k] = raw[k];
-    const { id: _ignore, ...rest } = raw;
-    void _ignore;
-    const withoutProtected = Object.fromEntries(Object.entries(rest).filter(([k]) => !PROTECTED_KEYS.has(k)));
-    return normObjectSet(fresh, withoutProtected, problems, template);
+/** A new line of a list from what the patch gave for it: the rule's blank line, its id and number, then only what was said. */
+function freshItem(rule: LineRule | undefined, key: string, template: Obj, raw: Obj, existing: unknown[], problems: string[], ctx: PatchCtx): Obj {
+  // A new line starts from the kind's own blank line (engine/recordLines.ts): a
+  // finding Open and Internal with the next number, a catch with its count
+  // null. With no blank line known, the shape of the lines already there.
+  const fresh: Obj = rule ? (newLine(rule, existing) as Obj) : { ...blankLike(template), ...(template.id !== undefined ? { id: generateId(key) } : {}) };
+  // A number the patch gave for a new line is kept when no line has it yet (a finding's S. No. is never reused).
+  if (rule?.numberKey && rule.numbering === "next") {
+    const given = normNumber(raw[rule.numberKey]);
+    if (given !== null && !existing.some((l) => isObj(l) && normNumber(l[rule.numberKey!]) === given)) fresh[rule.numberKey] = given;
+  }
+  // A new line may set the printed text (a new activity has none to protect).
+  for (const k of PROTECTED_KEYS) if (k in raw && k in fresh) fresh[k] = raw[k];
+  const { id: _ignore, ...rest } = raw;
+  void _ignore;
+  const withoutProtected = Object.fromEntries(Object.entries(rest).filter(([k]) => !PROTECTED_KEYS.has(k) && !(rule?.numberKey === k && rule.numbering === "next")));
+  return normObjectSet(fresh, withoutProtected, problems, { ...template, ...fresh }, ctx);
+}
+
+// A LIST SENT WHOLE MEANS "SET THESE LINES, KEEP THE REST" (REQUIREMENTS §113).
+// Before, only the lines sent were kept: one fly catcher unit sent of 13 left
+// 1, one service area of 16 left 1, one CAPA finding of two left one, with no
+// warning. Now each line sent is matched to a line on the record — by its id,
+// else by its name on the paper (PC-05, Sl. No. 3, S. No. 2, a time slot, an
+// activity's Sr. No.), else, on a printed list, by its place — and set; a line
+// the patch does not mention stays exactly as it was. A line that matches
+// nothing is added where the list allows it (free rows, catches, findings,
+// attendees) and refused in words where the form prints its lines. Only
+// `replaceList: true` makes the list sent the whole list.
+function normArray(key: string, cur: unknown[], value: unknown[], problems: string[], ctx: PatchCtx): unknown[] {
+  const rule = lineRuleFor(ctx.kind, ctx.documentId, key, ctx.record);
+  const scalarList = rule ? rule.scalar : cur.length > 0 ? !isObj(cur[0]) : value.every((v) => !isObj(v));
+  if (scalarList) {
+    const sent = value.filter((v) => !isObj(v) && !Array.isArray(v)).map((v) => String(v ?? "").trim());
+    if (ctx.replace) return sent;
+    // Plain lines (clauses, topics): the ones sent take their places, the rest stay; extra ones go on the end.
+    const out = cur.map((v) => String(v ?? ""));
+    sent.forEach((s, i) => {
+      out[i] = s;
+    });
+    return out;
+  }
+  const template = (rule && isObj(rule.blank) ? { ...rule.blank, ...(cur.find(isObj) ?? {}) } : (cur.find(isObj) ?? {})) as Obj;
+  const out = cur.slice();
+  const used = new Set<number>();
+  const added: Obj[] = [];
+  const inOrder: unknown[] = [];
+  let refusedAdd = false;
+  value.filter(isObj).forEach((raw, i) => {
+    const nameKey = rule?.nameKey;
+    const named = nameKey !== undefined && raw[nameKey] !== undefined && raw[nameKey] !== null && raw[nameKey] !== "";
+    let idx = typeof raw.id === "string" ? cur.findIndex((c) => isObj(c) && c.id === raw.id) : -1;
+    if (idx < 0 && named) {
+      const hits = cur.map((_, j) => j).filter((j) => isObj(cur[j]) && sameName((cur[j] as Obj)[nameKey!], raw[nameKey!]));
+      if (hits.length === 1) idx = hits[0];
+      else if (hits.length > 1) {
+        problems.push(`More than one ${rule!.noun} is ${humanKey(nameKey!).toLowerCase()} ${String(raw[nameKey!])} — tell me which one, so I don't change the wrong line.`);
+        return;
+      } else if (rule && !rule.canAdd) {
+        problems.push(`I couldn't find ${rule.noun} ${String(raw[nameKey!])} on this form, so nothing was changed there.`);
+        return;
+      }
+    }
+    // Neither an id nor a name: a printed list's lines are the paper's, matched by their place.
+    if (idx < 0 && typeof raw.id !== "string" && !named && (!rule || !rule.canAdd) && i < cur.length && !used.has(i)) idx = i;
+    if (idx >= 0) {
+      used.add(idx);
+      out[idx] = normObjectSet(out[idx] as Obj, raw, problems, template, ctx);
+      inOrder.push(out[idx]);
+      return;
+    }
+    if (rule && !rule.canAdd) {
+      if (!refusedAdd) problems.push(rule.whyFixed ?? `Lines are not added to ${humanKey(key).toLowerCase()} on this form.`);
+      refusedAdd = true;
+      return;
+    }
+    const line = freshItem(rule, key, template, raw, [...out, ...added], problems, ctx);
+    added.push(line);
+    inOrder.push(line);
   });
+  if (ctx.replace) return inOrder;
+  return [...out, ...added];
 }
 
 // ---- daily monitoring check points ------------------------------------------
@@ -521,42 +565,56 @@ function linkedRefusal(col: LogColumn, row: Obj): string {
   );
 }
 
-function normRows(layout: LogSheetLayout, cur: Obj[], value: unknown[], problems: string[]): Obj[] {
-  const free = layout.rowMode.kind === "free";
+// A log sheet's rows sent whole: the same rule as every other list (REQUIREMENTS
+// §113) — each row sent is matched by its id, else by its time slot, else, on
+// a printed grid, by its place, and set; a row not sent stays. On a sheet whose
+// lines a person writes, a row matching none is added; where the form prints
+// its lines it is refused in words. Only `replaceList: true` drops the rows
+// not sent.
+function normRows(ctx: PatchCtx, rule: LineRule, cur: Obj[], value: unknown[], problems: string[]): Obj[] {
+  const layout = ctx.layout!;
   const byId = new Map(cur.map((r, i) => [String(r.id), i]));
-  // `out` is indexed by existing row; new rows are kept apart. Pushed onto
-  // `out`, a new row listed before the existing ones took slot 0 and was then
-  // overwritten by existing row 0 — silently lost.
-  const out: Obj[] = [];
+  const out: Obj[] = cur.slice();
   const added: Obj[] = [];
+  const inOrder: Obj[] = [];
   const used = new Set<number>();
+  let refusedAdd = false;
   value.forEach((raw, i) => {
     if (!isObj(raw)) return;
     let idx = typeof raw.id === "string" && byId.has(raw.id) ? byId.get(raw.id)! : -1;
-    if (idx < 0 && !free && i < cur.length && !used.has(i)) idx = i;
-    if (idx >= 0 && !used.has(idx)) {
+    const slot = rule.nameKey;
+    const named = slot !== undefined && raw[slot] !== undefined && raw[slot] !== null && raw[slot] !== "";
+    if (idx < 0 && named) {
+      const hits = cur.map((_, j) => j).filter((j) => sameName(cur[j][slot!], raw[slot!]));
+      if (hits.length === 1) idx = hits[0];
+      else if (hits.length === 0) {
+        problems.push(`I couldn't find the ${String(raw[slot!])} line on this form, so nothing was changed there.`);
+        return;
+      }
+    }
+    if (idx < 0 && !rule.canAdd && typeof raw.id !== "string" && !named && i < cur.length && !used.has(i)) idx = i;
+    if (idx >= 0) {
       used.add(idx);
-      out[idx] = normRow(layout, cur[idx], raw, problems);
+      out[idx] = normRow(layout, out[idx], raw, problems);
+      inOrder.push(out[idx]);
       return;
     }
-    if (free) added.push(normRow(layout, { id: generateId("row") }, raw, problems));
+    if (!rule.canAdd) {
+      if (!refusedAdd) problems.push("This form has a fixed set of rows, so none were added or removed — only values in the existing rows changed.");
+      refusedAdd = true;
+      return;
+    }
+    // A new line is built as the sheet's own Add Row builds one — blank, with its number where the paper numbers its
+    // lines (F/QC/16's Sr. No., REQUIREMENTS §111) — then holds only what the patch said (§98).
+    const fresh = newLine(rule, [...out, ...added]) as Obj;
+    const { id: _ignore, ...rest } = raw;
+    void _ignore;
+    const row = normRow(layout, fresh, rest, problems);
+    added.push(row);
+    inOrder.push(row);
   });
-  if (!free) {
-    if (value.length !== cur.length) problems.push("This form has a fixed set of rows, so none were added or removed — only values in the existing rows changed.");
-    return cur.map((r, i) => out[i] ?? r);
-  }
-  // Free rows: kept rows first in their original order, then any new ones.
-  const kept = cur.map((_, i) => out[i]).filter(Boolean) as Obj[];
-  // A new line on a paper that numbers its lines in a column of its own (F/QC/16's Sr. No., REQUIREMENTS §111) is
-  // numbered after the one above it, unless the patch numbered it.
-  const numberedBy = layout.columns.find((c) => c.autoFill?.lineNumber)?.key;
-  if (numberedBy) {
-    added.forEach((row, i) => {
-      const own = row[numberedBy];
-      if (own === undefined || own === null || own === "") row[numberedBy] = String(kept.length + i + 1);
-    });
-  }
-  return [...kept, ...added];
+  if (ctx.replace && rule.canAdd) return inOrder;
+  return [...out, ...added];
 }
 
 // ---- matching one item in a list ------------------------------------------------
@@ -583,23 +641,36 @@ function describeMatch(match: Obj): string {
   return parts.length ? parts.join(" and ") : "that line";
 }
 
-function applyItemEdit(layout: LogSheetLayout | undefined, next: Obj, edit: unknown, problems: string[]): void {
+/** One line of a list, set in the record's own shape: a log sheet's row by its layout, a plain line by its words, any other by its fields. */
+function setLine(ctx: PatchCtx, rule: LineRule | undefined, collection: string, line: unknown, set: Obj, problems: string[]): unknown {
+  if (rule?.scalar || typeof line === "string") {
+    const v = set.text ?? set.value ?? set[collection];
+    if (v === undefined || isObj(v) || Array.isArray(v)) {
+      problems.push(`A ${rule?.noun ?? "line"} here is plain words — give them as {"text": "…"}.`);
+      return line;
+    }
+    return String(v ?? "").trim();
+  }
+  if (!isObj(line)) return line;
+  if (ctx.layout && collection === "rows") return normRow(ctx.layout, line, set, problems);
+  return normObjectSet(line, set, problems, rule && isObj(rule.blank) ? { ...rule.blank, ...line } : line, ctx);
+}
+
+function applyItemEdit(ctx: PatchCtx, next: Obj, edit: unknown, problems: string[]): void {
   if (!isObj(edit) || typeof edit.collection !== "string" || !isObj(edit.set)) {
     problems.push("One change didn't say which line to change and what to put in it, so I skipped it.");
     return;
   }
-  const coll = next[edit.collection];
-  if (!Array.isArray(coll)) {
-    problems.push(`There's no list called "${edit.collection}" on this form.`);
-    return;
-  }
+  const found = listIn(ctx, next, edit.collection, isObj(edit.match) ? edit.match : {}, problems);
+  if (!found) return;
+  const { coll, rule } = found;
   const match = isObj(edit.match) ? edit.match : {};
   const hits =
     Object.keys(match).length === 0
       ? coll.length === 1
         ? [0]
         : []
-      : coll.map((_, i) => i).filter((i) => itemMatches(coll[i], i, match));
+      : coll.map((_, i) => i).filter((i) => (rule?.scalar ? scalarMatches(i, match) : itemMatches(coll[i], i, match)));
   if (hits.length === 0) {
     problems.push(
       Object.keys(match).length === 0 ? "Tell me which line you mean, so I don't change the wrong one." : `I couldn't find ${describeMatch(match)} on this form, so nothing was changed there.`
@@ -611,10 +682,312 @@ function applyItemEdit(layout: LogSheetLayout | undefined, next: Obj, edit: unkn
     return;
   }
   const updated = coll.slice();
-  for (const i of hits) {
-    updated[i] = layout && edit.collection === "rows" ? normRow(layout, updated[i] as Obj, edit.set, problems) : normObjectSet(updated[i] as Obj, edit.set, problems);
+  for (const i of hits) updated[i] = setLine(ctx, rule, edit.collection, updated[i], edit.set, problems);
+  found.put(updated);
+}
+
+/** A plain line (a clause, a topic) is named only by its place: {"row": 2}. */
+function scalarMatches(index: number, match: Obj): boolean {
+  return Object.entries(match).every(([k, want]) => (k === "__row" || k === "row" || k === "line" || k === "no" || k === "number") && Number(want) === index + 1);
+}
+
+// ---------------------------------------------------------------------------
+// adding, removing and clearing lines (REQUIREMENTS §113)
+
+/** A list of the record found by its key — or, for the checklist's activities, the one section's items the match names. */
+function listIn(ctx: PatchCtx, next: Obj, collection: string, match: Obj, problems: string[]): { coll: unknown[]; rule: LineRule | undefined; put: (updated: unknown[]) => void } | null {
+  const rule = lineRuleFor(ctx.kind, ctx.documentId, collection, ctx.record);
+  if (rule?.within) {
+    const outer = next[rule.within];
+    const outerRule = lineRuleFor(ctx.kind, ctx.documentId, rule.within, ctx.record);
+    const sectionName = match.section ?? match[outerRule?.nameKey ?? "section"];
+    if (!Array.isArray(outer) || sectionName === undefined || sectionName === null || sectionName === "") {
+      problems.push(`Tell me which ${outerRule?.noun ?? "section"} the ${rule.noun} is in, so I don't change the wrong one.`);
+      return null;
+    }
+    const si = outer.findIndex((s) => isObj(s) && sameName(s[outerRule?.nameKey ?? "key"], sectionName));
+    if (si < 0 || !isObj(outer[si]) || !Array.isArray((outer[si] as Obj)[collection])) {
+      problems.push(`I couldn't find ${outerRule?.noun ?? "section"} ${String(sectionName)} on this form, so nothing was changed there.`);
+      return null;
+    }
+    const section = outer[si] as Obj;
+    return {
+      coll: section[collection] as unknown[],
+      rule,
+      put: (updated) => {
+        const sections = outer.slice();
+        sections[si] = { ...section, [collection]: updated };
+        next[rule.within!] = sections;
+      },
+    };
   }
-  next[edit.collection] = updated;
+  const coll = next[collection];
+  if (!Array.isArray(coll)) {
+    if (rule && coll === undefined) {
+      // A list the form has but this record does not carry yet (an older F/HR/17 with no rodentCatches).
+      return { coll: [], rule, put: (updated) => void (next[collection] = updated) };
+    }
+    problems.push(`There's no list called "${collection}" on this form.`);
+    return null;
+  }
+  return { coll, rule, put: (updated) => void (next[collection] = updated) };
+}
+
+/** What a removeItems / clearItems entry names, in words: "line 3", "PC-05", "the line row-abc". */
+function describeLine(rule: LineRule | undefined, spec: unknown): string {
+  const noun = rule?.noun ?? "line";
+  if (typeof spec === "number") return `${noun} ${spec}`;
+  if (typeof spec === "string") return /^[A-Z]\d{1,2}$/i.test(spec) ? `activity ${spec.toUpperCase()}` : `${noun} ${spec}`;
+  if (isObj(spec)) {
+    const { keys: _k, section, ...rest } = spec;
+    void _k;
+    const parts = Object.entries(rest)
+      .filter(([k, v]) => v !== undefined && !["values", "at", "after", "before"].includes(k))
+      .map(([k, v]) => (["row", "__row", "line", "no", "number"].includes(k) ? `${noun} ${String(v)}` : k === "id" ? `the ${noun} ${String(v)}` : `${humanKey(k).toLowerCase()} ${String(v)}`));
+    return `${parts.join(" and ") || `that ${noun}`}${section !== undefined ? ` in section ${String(section)}` : ""}`;
+  }
+  return `that ${noun}`;
+}
+
+/**
+ * The one line a removeItems / clearItems entry names, as a 0-based index into
+ * `coll`: a number is the line's place (1-based), a string its id or its name
+ * on the paper ("PC-05", "11:00", "A3" for the checklist), an object {id},
+ * {row}, {no} or {<name key>: value}, each matched exactly. Returns -1 and a
+ * problem when nothing, or more than one line, matches.
+ */
+function lineIndex(rule: LineRule | undefined, coll: unknown[], spec: unknown, problems: string[]): number {
+  const noun = rule?.noun ?? "line";
+  const byPlace = (n: unknown): number[] => {
+    const i = normNumber(n);
+    return i !== null && Number.isInteger(i) && i >= 1 && i <= coll.length ? [i - 1] : [];
+  };
+  const byId = (id: string): number[] => coll.map((c, i) => (isObj(c) && c.id === id ? i : -1)).filter((i) => i >= 0);
+  const byKey = (key: string, want: unknown): number[] => coll.map((c, i) => (isObj(c) && sameName(c[key], want) ? i : -1)).filter((i) => i >= 0);
+  let hits: number[] = [];
+  if (typeof spec === "number") hits = byPlace(spec);
+  else if (typeof spec === "string") {
+    hits = byId(spec);
+    if (hits.length === 0 && rule?.nameKey) hits = byKey(rule.nameKey, spec);
+    if (hits.length === 0 && rule?.within && /^[A-Z]\d{1,2}$/i.test(spec)) hits = byKey(rule.nameKey ?? "srNo", spec.slice(1));
+    if (hits.length === 0 && rule?.numberKey && rule.numberKey !== rule.nameKey) hits = byKey(rule.numberKey, spec);
+    if (hits.length === 0 && /^\d+$/.test(spec) && !rule?.numberKey) hits = byPlace(spec);
+  } else if (isObj(spec)) {
+    const { keys: _keys, section: _section, values: _v, at: _at, after: _after, before: _before, ...named } = spec;
+    void _keys;
+    void _section;
+    void _v;
+    void _at;
+    void _after;
+    void _before;
+    const entries = Object.entries(named).filter(([, v]) => v !== undefined && v !== null && v !== "");
+    if (entries.length === 0) {
+      problems.push(`Tell me which ${noun} you mean, so I don't change the wrong one.`);
+      return -1;
+    }
+    hits = coll.map((_, i) => i);
+    for (const [k, v] of entries) {
+      let these: number[];
+      if (k === "id") these = typeof v === "string" ? byId(v) : [];
+      else if (["row", "__row", "line"].includes(k)) these = byPlace(v);
+      else if (k === "no" || k === "number") these = rule?.numberKey ? byKey(rule.numberKey, v) : byPlace(v);
+      else these = rule?.scalar ? [] : byKey(k, v);
+      hits = hits.filter((i) => these.includes(i));
+    }
+  } else {
+    problems.push(`Tell me which ${noun} you mean, so I don't change the wrong one.`);
+    return -1;
+  }
+  if (hits.length === 0) {
+    problems.push(`I couldn't find ${describeLine(rule, spec)} on this form, so nothing was changed there.`);
+    return -1;
+  }
+  if (hits.length > 1) {
+    problems.push(`More than one ${noun} matches ${describeLine(rule, spec)} — tell me which one, so I don't change the wrong line.`);
+    return -1;
+  }
+  return hits[0];
+}
+
+/** addItems / removeItems / clearItems as a map {list: [entry, ...]}, or as a list [{collection, ...}] — both read the same. */
+function perList(op: unknown, valuesKey: "values" | "match", problems: string[], what: string): [string, unknown[]][] {
+  if (Array.isArray(op)) {
+    const out = new Map<string, unknown[]>();
+    for (const e of op) {
+      if (!isObj(e) || typeof e.collection !== "string") {
+        problems.push(`One ${what} didn't say which list it is for, so I skipped it.`);
+        continue;
+      }
+      const { collection, ...rest } = e;
+      const entry = valuesKey === "values" ? rest : (rest.match ?? rest.id ?? rest.row ?? rest.no ?? (rest.keys !== undefined ? rest : undefined));
+      const spec = valuesKey === "match" && isObj(entry) && rest.keys !== undefined && !("keys" in entry) ? { ...(entry as Obj), keys: rest.keys } : entry;
+      out.set(collection, [...(out.get(collection) ?? []), spec]);
+    }
+    return Array.from(out.entries());
+  }
+  if (isObj(op)) return Object.entries(op).map(([k, v]) => [k, Array.isArray(v) ? v : [v]]);
+  problems.push(`${what}s have to be given per list, so I left them out.`);
+  return [];
+}
+
+// Lines added (REQUIREMENTS §113): each list's entries, appended — or placed with
+// {"values": {...}, "after": 2} / "before" / "at" — each built from the
+// list's own blank line and holding only what was said (§98). Where the form
+// prints its lines the add is refused in the registry's words and nothing
+// changes.
+function applyAdds(ctx: PatchCtx, next: Obj, op: unknown, problems: string[]): void {
+  for (const [collection, entries] of perList(op, "values", problems, "line to add")) {
+    const found = listIn(ctx, next, collection, {}, problems);
+    if (!found) continue;
+    const { rule } = found;
+    if (!rule) {
+      problems.push(`Lines are not added to ${humanKey(collection).toLowerCase()} on this form.`);
+      continue;
+    }
+    if (!rule.canAdd) {
+      problems.push(rule.whyFixed ?? `Lines are not added to ${humanKey(collection).toLowerCase()} on this form.`);
+      continue;
+    }
+    if (entries.length < 1 || entries.length > rule.maxAddAtOnce) {
+      problems.push(`I add between 1 and ${rule.maxAddAtOnce} ${rule.noun}s at a time.`);
+      continue;
+    }
+    let coll = found.coll.slice();
+    for (const entry of entries) {
+      const wrapped = isObj(entry) && (isObj(entry.values) || typeof entry.values === "string") && ("at" in entry || "after" in entry || "before" in entry || Object.keys(entry).length === 1);
+      const values = wrapped ? (entry as Obj).values : entry;
+      let index = coll.length;
+      if (wrapped) {
+        const e = entry as Obj;
+        const ref = e.at ?? e.after ?? e.before;
+        if (ref !== undefined) {
+          const i = lineIndex(rule, coll, ref, problems);
+          if (i < 0) continue;
+          index = "before" in e ? i : "at" in e ? i : i + 1;
+        }
+      }
+      let line: unknown;
+      if (rule.scalar) {
+        const text = isObj(values) ? (values.text ?? values.value) : values;
+        if (text === undefined || text === null || isObj(text) || Array.isArray(text)) {
+          problems.push(`A ${rule.noun} here is plain words — give them as {"text": "…"}.`);
+          continue;
+        }
+        line = String(text).trim();
+      } else {
+        if (!isObj(values)) {
+          problems.push(`A new ${rule.noun} needs its boxes as {"key": value}, so I skipped one.`);
+          continue;
+        }
+        const fresh = newLine(rule, coll, index) as Obj;
+        const { id: _ignore, ...rest } = values;
+        void _ignore;
+        line = collection === "rows" && ctx.layout ? normRow(ctx.layout, fresh, rest, problems) : freshItemFrom(ctx, rule, fresh, rest, coll, problems);
+      }
+      coll = insertLines(coll, index, [line]);
+      // Lines after one placed mid-sheet keep their own Sr. No. (the paper's), as the sheet's own Add Row does.
+    }
+    found.put(coll);
+  }
+}
+
+/** A new line from the rule's blank line and what was said (the number given is kept only when no line has it). */
+function freshItemFrom(ctx: PatchCtx, rule: LineRule, fresh: Obj, raw: Obj, existing: unknown[], problems: string[]): Obj {
+  const template = { ...(isObj(rule.blank) ? rule.blank : {}), ...fresh };
+  if (rule.numberKey && rule.numbering === "next") {
+    const given = normNumber(raw[rule.numberKey]);
+    if (given !== null && !existing.some((l) => isObj(l) && normNumber(l[rule.numberKey!]) === given)) fresh[rule.numberKey] = given;
+  }
+  for (const k of PROTECTED_KEYS) if (k in raw && k in fresh) fresh[k] = raw[k];
+  const rest = Object.fromEntries(Object.entries(raw).filter(([k]) => !PROTECTED_KEYS.has(k) && !(rule.numberKey === k && rule.numbering === "next")));
+  return normObjectSet(fresh, rest, problems, template, ctx);
+}
+
+// Lines removed (§113): each entry names exactly one line (its id, its place,
+// its number on the paper, or its name); the lines named are taken off
+// together, the rest keep their ids and their order. A printed list refuses in
+// the registry's words; a free sheet keeps the lines the form prints
+// (minRows) and offers to clear instead. Numbers name the lines as they are
+// BEFORE this patch's additions, which come after.
+function applyRemoves(ctx: PatchCtx, next: Obj, op: unknown, problems: string[]): void {
+  for (const [collection, entries] of perList(op, "match", problems, "line to remove")) {
+    const section = entries.find((e) => isObj(e) && e.section !== undefined);
+    const found = listIn(ctx, next, collection, isObj(section) ? section : {}, problems);
+    if (!found) continue;
+    const { coll, rule } = found;
+    if (!rule) {
+      problems.push(`Lines are not removed from ${humanKey(collection).toLowerCase()} on this form.`);
+      continue;
+    }
+    if (!rule.canRemove) {
+      problems.push(`${rule.whyFixed ?? `Lines are not removed from ${humanKey(collection).toLowerCase()} on this form.`} I can clear ${entries.length === 1 ? "it" : "them"} instead.`);
+      continue;
+    }
+    const gone: number[] = [];
+    let bad = false;
+    for (const spec of entries) {
+      const i = lineIndex(rule, coll, spec, problems);
+      if (i < 0) bad = true;
+      else gone.push(i);
+    }
+    if (bad || gone.length === 0) continue;
+    const unique = Array.from(new Set(gone)).sort((x, y) => x - y);
+    if (coll.length - unique.length < rule.minLines) {
+      problems.push(
+        `This sheet keeps at least ${rule.minLines} ${rule.minLines === 1 ? "row" : "rows"} — the form prints that many — and it has ${coll.length}, so ${unique.length === 1 ? `row ${unique[0] + 1} stays` : "those rows stay"}. I can clear ${unique.length === 1 ? "it" : "them"} instead: say “clear row ${unique[0] + 1}”.`
+      );
+      continue;
+    }
+    found.put(withoutLines(coll, unique));
+  }
+}
+
+// Lines cleared (§113): each entry names one line and, optionally, the boxes
+// to blank ("keys"); with none named every box a person writes is blanked. A
+// printed box is never cleared, and the line itself stays, so this is allowed
+// on every list — it is what Mitra offers where a line cannot be removed.
+function applyClears(ctx: PatchCtx, next: Obj, op: unknown, problems: string[]): void {
+  for (const [collection, entries] of perList(op, "match", problems, "line to clear")) {
+    const section = entries.find((e) => isObj(e) && e.section !== undefined);
+    const found = listIn(ctx, next, collection, isObj(section) ? section : {}, problems);
+    if (!found) continue;
+    const { rule } = found;
+    const coll = found.coll.slice();
+    let changed = false;
+    for (const spec of entries) {
+      const i = lineIndex(rule, coll, spec, problems);
+      if (i < 0) continue;
+      const keys = isObj(spec) && Array.isArray(spec.keys) ? spec.keys.map(String) : undefined;
+      if (rule?.scalar) {
+        coll[i] = "";
+        changed = true;
+        continue;
+      }
+      if (collection === "rows" && ctx.layout) {
+        const row = coll[i] as Obj;
+        const columns = ctx.layout.columns.filter((c) => !c.fixed && !c.computed && !c.linkedFrom);
+        const chosen = keys ? columns.filter((c) => keys.includes(c.key)) : columns;
+        for (const k of keys ?? []) if (!chosen.some((c) => c.key === k)) problems.push(ctx.layout.columns.some((c) => c.key === k) ? `${ctx.layout.columns.find((c) => c.key === k)!.label.split(" (")[0]} is printed on the form and can't be cleared.` : `"${k}" isn't a column on this form, so I left it out.`);
+        const cleared: Obj = { ...row };
+        for (const c of chosen) cleared[c.key] = c.type === "number" ? null : "";
+        coll[i] = cleared;
+        changed = true;
+        continue;
+      }
+      if (!rule) {
+        problems.push(`Lines of ${humanKey(collection).toLowerCase()} are not cleared on this form.`);
+        continue;
+      }
+      for (const k of keys ?? []) if (!rule.writable.includes(k)) problems.push(isObj(rule.blank) && k in rule.blank ? `${humanKey(k)} is printed on the form and can't be cleared.` : `"${k}" isn't a field on this form, so I left it out.`);
+      if (rule.writable.length === 0) {
+        problems.push(`A ${rule.noun} here has nothing to clear — remove it instead.`);
+        continue;
+      }
+      coll[i] = clearedLine(rule, coll[i], keys);
+      changed = true;
+    }
+    if (changed) found.put(coll);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -634,14 +1007,26 @@ export type PatchRecord = { formatRevision?: string } | null | undefined;
  * Never mutates `current`. A log sheet's change is checked against the layout
  * the record was filled on — `record` names it — so a page kept on a
  * superseded revision is only ever changed in its own boxes.
+ *
+ * The patch (REQUIREMENTS §113):
+ *   {"<field>": value, "header": {...}, "checkpoints": {...},   // as before
+ *    "itemEdits":   [{"collection": "rows", "match": {"id"|"row"|"<name key>"}, "set": {...}}],
+ *    "addItems":    {"rows": [{"time": "10:00", "viscosity": 20.4}, {"values": {...}, "after": 2}]},
+ *    "removeItems": {"rows": ["row-abc", 3, {"time": "11:00"}]},
+ *    "clearItems":  {"rows": [{"row": 3, "keys": ["viscosity"]}, 4]},
+ *    "replaceList": true}   // only when a list sent whole IS the whole list; nobody by default
+ * A list sent whole sets the lines it names and keeps the rest. itemEdits
+ * first, then clearItems, then removeItems (numbers name the lines as they
+ * were), then addItems.
  */
 export function applyAssistantPatch<T>(kind: string, documentId: string, current: T, patch: Obj, record?: PatchRecord): PatchOutcome<T> {
   const problems: string[] = [];
   const next = (clone(current) ?? {}) as unknown as Obj;
   const layout = kind === "log-sheet" ? getLogSheetLayoutForRecord(documentId, record) : undefined;
-  const { itemEdits, _layout, _linked, ...fields } = isObj(patch) ? patch : ({} as Obj);
+  const { itemEdits, addItems, removeItems, clearItems, replaceList, _layout, _linked, ...fields } = isObj(patch) ? patch : ({} as Obj);
   void _layout;
   void _linked;
+  const ctx: PatchCtx = { kind, documentId, record, layout, replace: replaceList === true };
 
   for (const [key, value] of Object.entries(fields)) {
     if (!(key in next) && !(OPTIONAL_KEYS[kind] ?? []).includes(key)) {
@@ -662,16 +1047,17 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
         problems.push("Rows have to be given as a list, so I left them unchanged.");
         continue;
       }
-      next[key] = normRows(layout, Array.isArray(cur) ? (cur as Obj[]) : [], value, problems);
+      const rule = lineRuleFor(kind, documentId, "rows", record);
+      if (rule) next[key] = normRows(ctx, rule, Array.isArray(cur) ? (cur as Obj[]) : [], value, problems);
       continue;
     }
     if (isObj(cur)) {
-      if (isObj(value)) next[key] = normObjectSet(cur, value, problems);
+      if (isObj(value)) next[key] = normObjectSet(cur, value, problems, cur, ctx);
       else problems.push(`${humanKey(key)} has several parts, so I left it unchanged.`);
       continue;
     }
     if (Array.isArray(cur) || (cur === undefined && Array.isArray(value))) {
-      if (Array.isArray(value)) next[key] = normArray(key, (cur as unknown[]) ?? [], value, problems);
+      if (Array.isArray(value)) next[key] = normArray(key, (cur as unknown[]) ?? [], value, problems, ctx);
       else problems.push(`${humanKey(key)} is a list, so I left it unchanged.`);
       continue;
     }
@@ -679,11 +1065,19 @@ export function applyAssistantPatch<T>(kind: string, documentId: string, current
     if (n !== INVALID) next[key] = n;
   }
 
-  if (Array.isArray(itemEdits)) for (const edit of itemEdits) applyItemEdit(layout, next, edit, problems);
+  if (Array.isArray(itemEdits)) for (const edit of itemEdits) applyItemEdit(ctx, next, edit, problems);
+  if (clearItems !== undefined) applyClears(ctx, next, clearItems, problems);
+  if (removeItems !== undefined) applyRemoves(ctx, next, removeItems, problems);
+  if (addItems !== undefined) applyAdds(ctx, next, addItems, problems);
   if (kind === "service-report" && isObj(current)) next.lines = serviceLinesAfterPatch(documentId, current.lines, next.lines, problems);
   if (kind === "complaint-checklist" && isObj(current)) keepChecklistOrder(current, next, problems);
   applyCodeFormats(kind, next, isObj(current) ? current : {}, problems);
   return { data: next as unknown as T, problems };
+}
+
+/** A line's values in words for a history line or a confirmation card ("09:00, 19.87, Jeni"): the registry's reading (engine/recordLines.ts). */
+export function lineValuesWords(kind: string, documentId: string, collection: string, line: unknown, record?: PatchRecord): string {
+  return lineWords(lineRuleFor(kind, documentId, collection, record), line);
 }
 
 // The plant's own codes (engine/documentFormats.ts): an FG code, a PO number or
@@ -1052,10 +1446,11 @@ function attendanceEdit(text: string, data: Obj): Obj | null {
     if (hit) return null; // already on the sheet — nothing to change
     const name = m[1].trim().replace(/\s+/g, " ");
     if (name.length < 3) return null;
-    return { attendees: [...attendees, { id: generateId("att"), employeeName: name, department: COMPANY.shortName }] };
+    // Only the name the person said (§98): the department is not decided for them.
+    return { addItems: { attendees: [{ employeeName: name }] } };
   }
   if (!hit) return null;
-  return { attendees: attendees.filter((a) => a.employeeName !== hit.employeeName) };
+  return { removeItems: { attendees: [typeof hit.id === "string" ? hit.id : { employeeName: hit.employeeName }] } };
 }
 
 /**

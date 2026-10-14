@@ -67,6 +67,11 @@ export type ChipAction =
   | { type: "cancelCorrection" }
   // Put back what the record said before an assistant change.
   | { type: "undo"; id: string }
+  // Take off exactly the lines Mitra added, by id (REQUIREMENTS §113).
+  | { type: "undoLines"; recordId: string; lines: { collection: string; id: string | number }[] }
+  // A deletion or a clear of a line, asked first in the line's own words (REQUIREMENTS §113).
+  | { type: "confirmLineChange" }
+  | { type: "cancelLineChange" }
   // The record's own life, driven from the chat (engine/assistantCommands.ts).
   | { type: "createRecord"; documentId: string; dateISO: string }
   | { type: "askDelete" }
