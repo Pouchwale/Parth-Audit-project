@@ -116,7 +116,9 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
         const catches = d.rodentCatches ?? [];
         if (catches.length === 0) errors.push("Checkpoint 7 is Yes — add the rodent catch details (trap box, location, number of rodents).");
         catches.forEach((c, i) => {
-          if (!c.location.trim()) errors.push(`Rodent catch #${i + 1}: location is required.`);
+          // Read defensively: a line stored without the box (an older record,
+          // or a change that lost it) is a problem to report, not a crash.
+          if (!String(c.location ?? "").trim()) errors.push(`Rodent catch #${i + 1}: location is required.`);
           if (!(Number(c.count) >= 1)) errors.push(`Rodent catch #${i + 1}: number of rodents must be at least 1.`);
         });
       }
@@ -126,7 +128,7 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       const d = record.data as FlyCatcherData;
       d.entries.forEach((e) => {
         if (e.catchCountApprox === null) errors.push(`${e.pcId}: Flies catch count is required.`);
-        if (!e.cleaningDoneBy.trim()) errors.push(`${e.pcId}: "Cleaning Done By" is required.`);
+        if (!String(e.cleaningDoneBy ?? "").trim()) errors.push(`${e.pcId}: "Cleaning Done By" is required.`);
       });
       break;
     }
@@ -140,7 +142,7 @@ export function validateForSubmit(doc: DocumentDefinition, record: RecordInstanc
       if (!d.inspectionDate) errors.push("Inspection date is required.");
       if (d.findings.length === 0) errors.push("At least one finding is required.");
       d.findings.forEach((f) => {
-        if (!f.findingOfInspection.trim()) errors.push(`Finding #${f.sNo}: description is required.`);
+        if (!String(f.findingOfInspection ?? "").trim()) errors.push(`Finding #${f.sNo}: description is required.`);
       });
       break;
     }
