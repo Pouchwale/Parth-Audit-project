@@ -1,7 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiArchive, FiDownload, FiRefreshCw, FiSearch, FiX } from "react-icons/fi";
-import { activityArchiveApi, api, ApiError, type ActivityArchivePreview } from "../api/client";
+import { activityArchiveApi, api, ApiError, usersApi, type ActivityArchivePreview } from "../api/client";
 import { useAuth } from "../store/AuthContext";
+import { useT } from "../i18n";
+import { DEPARTMENTS } from "../data/seed/departments";
+import { documentRepository } from "../data/repositories/documentRepository";
+import { actionsHeld, activityQuery, anyChip, matchingLines, NO_CHIPS, SPAN_IDS, type ActivityChips, type SpanId } from "../engine/activityFilters";
 import { Modal } from "../components/common/Modal";
 import { downloadCSV, toCSV } from "../utils/csv";
 import { formatDisplayDate } from "../utils/date";
@@ -39,65 +43,60 @@ interface Line {
 
 const PAGE = 100;
 
-// A DAY, A MONTH, A YEAR (REQUIREMENTS §73).
-//
-// "whatever the work that user has done in whole day, month, year and
-// according to that logs also score will decide."
-//
-// The spans a person actually asks for, each as two plain dates the server
-// filters on. "All" sends none, which is the log as it was before.
-type SpanId = "day" | "month" | "year" | "all";
+// A DAY, A MONTH, A YEAR (REQUIREMENTS §73) — engine/activityFilters.ts spanDates.
+const SPAN_LABELS: Record<SpanId, string> = { day: "Today", month: "This month", year: "This year", all: "Everything" };
 
-const SPANS: { id: SpanId; label: string }[] = [
-  { id: "day", label: "Today" },
-  { id: "month", label: "This month" },
-  { id: "year", label: "This year" },
-  { id: "all", label: "Everything" },
-];
-
-const pad = (n: number): string => String(n).padStart(2, "0");
-const iso = (d: Date): string => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-/** Both ends included, as a person means them. */
-function spanDates(span: SpanId, now = new Date()): { from?: string; to?: string } {
-  if (span === "all") return {};
-  const to = iso(now);
-  if (span === "day") return { from: to, to };
-  if (span === "month") return { from: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`, to };
-  return { from: `${now.getFullYear()}-01-01`, to };
+/** The format numbers a document chip can be picked from: every document this account sees, numbered. */
+function formatNumbers(): { formatNo: string; name: string }[] {
+  return documentRepository
+    .getAll()
+    .filter((d) => d.formatNo && !d.formatNo.startsWith("TO BE"))
+    .map((d) => ({ formatNo: d.formatNo, name: d.name }));
 }
-
-
 
 export function ActivityLogPage() {
   const { user } = useAuth();
+  const t = useT();
   const [lines, setLines] = useState<Line[]>([]);
-  const [query, setQuery] = useState("");
+  /** The search box as typed; sent with the Search button, as before. */
+  const [typed, setTyped] = useState("");
   const [loading, setLoading] = useState(false);
   const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [span, setSpan] = useState<SpanId>("day");
-  /** Whose lines to show — "" is everybody this account may read. */
-  const [person, setPerson] = useState("");
+  // THE CHIPS (the owner, 14-Oct-2026): the span, and who, which module, which
+  // document and what — each one query parameter the SERVER filters on
+  // (backend/activityRoutes.ts), combined. engine/activityFilters.ts builds
+  // the query; "Show older" and the CSV keep to the reading they belong to.
+  const [chips, setChips] = useState<ActivityChips>(NO_CHIPS);
+  const chip = useCallback((patch: Partial<ActivityChips>) => setChips((c) => ({ ...c, ...patch })), []);
   const [tallies, setTallies] = useState<ActivityTally[]>([]);
+  /** Every action a reading has held so far, so a pressed chip never loses the others. */
+  const [actions, setActions] = useState<string[]>([]);
+  /** Every account on the plant (the super admin's, from GET /api/users); others pick from the tally. */
+  const [people, setPeople] = useState<{ id: string; name: string }[] | null>(null);
   const admin = user?.role === "admin";
   /** The super admin's "Include archived lines": the list and the tally read the archive too. */
   const [withArchive, setWithArchive] = useState(false);
   const archived = admin && withArchive;
+  const formats = useMemo(formatNumbers, []);
 
-  // The span and the person go to the server, which filters and counts there:
-  // a year of a busy plant is far more lines than this page should hold.
-  const params = useCallback(() => {
-    const { from, to } = spanDates(span);
-    const q = query.trim();
-    return [from ? `from=${from}` : "", to ? `to=${to}` : "", person ? `person=${encodeURIComponent(person)}` : "", q ? `q=${encodeURIComponent(q)}` : ""]
-      .filter(Boolean)
-      .join("&");
-  }, [span, person, query]);
+  useEffect(() => {
+    if (!admin) return;
+    let live = true;
+    usersApi
+      .list()
+      .then((r) => {
+        if (live) setPeople(r.users.map((u) => ({ id: u.id, name: u.name })).sort((x, y) => x.name.localeCompare(y.name)));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [admin]);
 
   // "SHOW OLDER" GOES ON WITH THE LIST ON THE SCREEN (REQUIREMENTS §62, §75).
   // The next page must be read with the filter the list was LOADED with — the
-  // span, the person, the search and the archive tick of that reading — not
+  // span, the chips, the search and the archive tick of that reading — not
   // with whatever is in the search box now: a search typed but not yet sent
   // used to go with "Show older", and lines of another search were added
   // under the first one's, beside a tally re-counted for the words typed.
@@ -110,7 +109,7 @@ export function ActivityLogPage() {
   const load = useCallback(
     async (before?: string) => {
       const fresh = !before;
-      const filter = !fresh && shown.current ? shown.current : { rest: params(), archived };
+      const filter = !fresh && shown.current ? shown.current : { rest: activityQuery(chips), archived };
       const mine = fresh ? ++reading.current : reading.current;
       const current = () => mine === reading.current;
       setLoading(true);
@@ -134,18 +133,21 @@ export function ActivityLogPage() {
       // The tally is an extra: a page of lines must still show if it fails.
       try {
         const sum = filter.archived ? await activityArchiveApi.summary(filter.rest) : await api.get<{ people: ActivityTally[] }>(`/activity/summary${filter.rest ? `?${filter.rest}` : ""}`);
-        if (current()) setTallies(sum.people ?? []);
+        if (current()) {
+          setTallies(sum.people ?? []);
+          setActions((known) => actionsHeld(sum.people ?? [], known));
+        }
       } catch {
         if (current()) setTallies([]);
       }
     },
-    [params, archived]
+    [chips, archived]
   );
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [span, person, archived]);
+  }, [chips, archived]);
 
   const exportCSV = () =>
     downloadCSV(
@@ -157,6 +159,11 @@ export function ActivityLogPage() {
     );
 
   const everything = user?.role === "admin" || (user?.departments.length ?? 0) === 0;
+  // Who can be picked: every account for the super admin, else whoever the tally holds.
+  const pickable = people ?? tallies.filter((tl) => tl.userId).map((tl) => ({ id: tl.userId as string, name: tl.userName }));
+  const personName = pickable.find((p) => p.id === chips.person)?.name ?? tallies.find((tl) => tl.userId === chips.person)?.userName ?? "";
+  const count = matchingLines(tallies);
+  const countWords = loading && tallies.length === 0 ? t("activity.chips.counting") : count === 0 ? t("activity.chips.countNone") : count === 1 ? t("activity.chips.countOne") : t("activity.chips.count", { n: count.toLocaleString("en-IN") });
 
   return (
     <div data-page="activity-log">
@@ -180,17 +187,12 @@ export function ActivityLogPage() {
       {/* THE SPAN (REQUIREMENTS §73): a day, a month, a year, or everything. */}
       <div className="flex gap-2 mb-3 wrap items-center">
         <div className="pill-tabs" data-field="activity-span">
-          {SPANS.map((sp) => (
-            <div key={sp.id} className={`pill-tab ${span === sp.id ? "active" : ""}`} data-span={sp.id} role="button" tabIndex={0} onClick={() => setSpan(sp.id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? setSpan(sp.id) : undefined)}>
-              {sp.label}
+          {SPAN_IDS.map((sp) => (
+            <div key={sp} className={`pill-tab ${chips.span === sp ? "active" : ""}`} data-span={sp} role="button" tabIndex={0} onClick={() => chip({ span: sp })} onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? chip({ span: sp }) : undefined)}>
+              {SPAN_LABELS[sp]}
             </div>
           ))}
         </div>
-        {person && (
-          <button className="btn btn-secondary btn-sm" data-action="activity-all-people" onClick={() => setPerson("")}>
-            <FiX size={12} /> {tallies.find((t) => t.userId === person)?.userName ?? "This person"} only — show everybody
-          </button>
-        )}
         {/* THE ARCHIVE, READ BACK (REQUIREMENTS §75): the super admin's only. */}
         {admin && (
           <label className="flex items-center gap-2 text-sm text-muted" title="Lines moved to the archive are kept, and are read and searched here with the rest.">
@@ -198,6 +200,40 @@ export function ActivityLogPage() {
             Include archived lines
           </label>
         )}
+      </div>
+
+      {/* THE CHIPS: who, which module, which document, what (the owner, 14-Oct-2026). Each goes to the server; they combine. */}
+      <div className="card mb-3" data-section="activity-chips">
+        <div className="card-pad" style={{ display: "grid", gap: 8 }}>
+          <div className="flex items-center justify-between wrap gap-2">
+            <span className="text-xs text-faint">{t("activity.chips.lead")}</span>
+            <span className="text-sm font-semibold notranslate" translate="no" data-field="activity-count" data-count={count}>
+              {countWords}
+            </span>
+          </div>
+          <ChipRow label={t("activity.chips.person")} kind="person" all={t("activity.chips.everybody")} chosen={chips.person} choices={pickable.map((p) => ({ id: p.id, label: p.name }))} onPick={(id) => chip({ person: id })} />
+          <ChipRow
+            label={t("activity.chips.module")}
+            kind="department"
+            all={t("activity.chips.allModules")}
+            chosen={chips.department}
+            choices={DEPARTMENTS.map((d) => ({ id: d.code, label: `${d.code} · ${d.name}` }))}
+            onPick={(id) => chip({ department: id })}
+          />
+          <ChipRow label={t("activity.chips.action")} kind="action" all={t("activity.chips.allActions")} chosen={chips.action} choices={actions.map((a) => ({ id: a, label: a }))} onPick={(id) => chip({ action: id })} />
+          <div className="flex items-center gap-2 wrap">
+            <span className="text-xs uppercase text-muted" style={{ minWidth: 64 }}>
+              {t("activity.chips.document")}
+            </span>
+            <DocumentChip kept={chips.document} formats={formats} placeholder={t("activity.chips.documentPlaceholder")} keptWord={t("activity.chips.documentKept")} onKeep={(doc) => chip({ document: doc })} />
+            {anyChip(chips) && (
+              <button className="btn btn-ghost btn-sm" data-action="activity-clear-chips" onClick={() => chip({ person: "", department: "", document: "", action: "" })}>
+                <FiX size={12} /> {t("activity.chips.clear")}
+                {personName ? ` (${personName})` : ""}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* WHAT EACH PERSON DID IN THE SPAN. The counts the Performance
@@ -224,7 +260,7 @@ export function ActivityLogPage() {
                   <tr key={tl.userId ?? tl.userName} data-person={tl.userId ?? ""} data-total={tl.total}>
                     <td className="text-sm notranslate" translate="no">
                       {tl.userId ? (
-                        <button className="link-button text-sm" data-action="activity-pick-person" onClick={() => setPerson(tl.userId as string)}>
+                        <button className="link-button text-sm" data-action="activity-pick-person" onClick={() => chip({ person: tl.userId as string })}>
                           {tl.userName || "—"}
                         </button>
                       ) : (
@@ -257,10 +293,12 @@ export function ActivityLogPage() {
         className="flex gap-2 mb-3"
         onSubmit={(e) => {
           e.preventDefault();
-          void load();
+          // The same words sent again still re-read the log, as Search always has.
+          if (typed.trim() === chips.q) void load();
+          else chip({ q: typed.trim() });
         }}
       >
-        <input className="input" style={{ maxWidth: 360 }} placeholder="A name, an action, a format number…" value={query} onChange={(e) => setQuery(e.target.value)} data-field="activity-search" />
+        <input className="input" style={{ maxWidth: 360 }} placeholder="A name, an action, a format number…" value={typed} onChange={(e) => setTyped(e.target.value)} data-field="activity-search" />
         <button className="btn btn-primary btn-sm" type="submit">
           <FiSearch size={13} /> Search
         </button>
@@ -288,33 +326,7 @@ export function ActivityLogPage() {
                   </td>
                 </tr>
               )}
-              {lines.map((l) => (
-                <tr key={l.id} data-activity={l.action} data-archived={l.archived ? "1" : undefined}>
-                  <td className="text-sm notranslate" translate="no">
-                    {new Date(l.at).toLocaleString()}
-                  </td>
-                  <td className="text-sm notranslate" translate="no" title={l.userEmail}>
-                    {l.userName || "—"}
-                  </td>
-                  <td className="text-sm font-semibold">
-                    {l.action}
-                    {l.archived && (
-                      <>
-                        {" "}
-                        <span className="badge badge-Scheduled" title="Moved to the archive by the super admin — kept, and read here because “Include archived lines” is ticked.">
-                          Archived
-                        </span>
-                      </>
-                    )}
-                  </td>
-                  <td className="text-sm notranslate" translate="no">
-                    {l.target}
-                  </td>
-                  <td className="text-sm text-muted notranslate" translate="no">
-                    {oneNumberLabel(l.detail)}
-                  </td>
-                </tr>
-              ))}
+              <Rows lines={lines} />
             </tbody>
           </table>
         </div>
@@ -327,6 +339,119 @@ export function ActivityLogPage() {
 
       {admin && <ArchivePanel onArchived={() => void load()} />}
     </div>
+  );
+}
+
+/**
+ * THE LINES THEMSELVES, drawn again only when the lines change — not for a
+ * letter typed in the search box or a chip hovered: a year's page on a low-end
+ * laptop must not be re-drawn per keystroke.
+ */
+const Rows = memo(function Rows({ lines }: { lines: Line[] }) {
+  return (
+    <>
+      {lines.map((l) => (
+        <tr key={l.id} data-activity={l.action} data-department={l.department || undefined} data-archived={l.archived ? "1" : undefined}>
+          <td className="text-sm notranslate" translate="no">
+            {new Date(l.at).toLocaleString()}
+          </td>
+          <td className="text-sm notranslate" translate="no" title={l.userEmail}>
+            {l.userName || "—"}
+          </td>
+          <td className="text-sm font-semibold">
+            {l.action}
+            {l.archived && (
+              <>
+                {" "}
+                <span className="badge badge-Scheduled" title="Moved to the archive by the super admin — kept, and read here because “Include archived lines” is ticked.">
+                  Archived
+                </span>
+              </>
+            )}
+          </td>
+          <td className="text-sm notranslate" translate="no">
+            {l.target}
+          </td>
+          <td className="text-sm text-muted notranslate" translate="no">
+            {oneNumberLabel(l.detail)}
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+});
+
+/** One row of chips: "All", then each choice; the chosen one is marked. Pressing the chosen one again is pressing "All". */
+const ChipRow = memo(function ChipRow({ label, kind, all, chosen, choices, onPick }: { label: string; kind: string; all: string; chosen: string; choices: { id: string; label: string }[]; onPick: (id: string) => void }) {
+  const press = (id: string) => onPick(id === chosen ? "" : id);
+  const one = (id: string, text: string) => (
+    <div key={id || "*"} className={`pill-tab ${chosen === id ? "active" : ""}`} role="button" tabIndex={0} data-chip={kind} data-value={id} onClick={() => press(id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? press(id) : undefined)}>
+      {text}
+    </div>
+  );
+  return (
+    <div className="flex items-center gap-2 wrap">
+      <span className="text-xs uppercase text-muted" style={{ minWidth: 64 }}>
+        {label}
+      </span>
+      <div className="pill-tabs notranslate" translate="no" style={{ flexWrap: "wrap" }} data-field={`activity-chips-${kind}`}>
+        {one("", all)}
+        {choices.map((c) => one(c.id, c.label))}
+      </div>
+    </div>
+  );
+});
+
+/**
+ * The document chip: a format number typed or picked from the list, kept when
+ * Enter is pressed or one is picked — typed into this box's own state, so a
+ * letter never re-draws the page.
+ */
+function DocumentChip({ kept, formats, placeholder, keptWord, onKeep }: { kept: string; formats: { formatNo: string; name: string }[]; placeholder: string; keptWord: string; onKeep: (doc: string) => void }) {
+  const [typed, setTyped] = useState(kept);
+  useEffect(() => setTyped(kept), [kept]);
+  const keep = (v: string) => onKeep(v.trim());
+  return (
+    <form
+      className="flex items-center gap-2 wrap"
+      onSubmit={(e) => {
+        e.preventDefault();
+        keep(typed);
+      }}
+    >
+      <input
+        className="input input-sm notranslate"
+        translate="no"
+        style={{ width: 220 }}
+        list="activity-format-numbers"
+        placeholder={placeholder}
+        value={typed}
+        data-field="activity-document"
+        onChange={(e) => {
+          setTyped(e.target.value);
+          // Picked from the list: kept at once.
+          if (formats.some((f) => f.formatNo === e.target.value)) keep(e.target.value);
+        }}
+      />
+      <datalist id="activity-format-numbers">
+        {formats.map((f) => (
+          <option key={f.formatNo} value={f.formatNo}>
+            {f.name}
+          </option>
+        ))}
+      </datalist>
+      <button className="btn btn-secondary btn-sm" type="submit" data-action="activity-keep-document">
+        <FiSearch size={12} /> {keptWord}
+      </button>
+      {kept && (
+        <span className="badge badge-Scheduled notranslate" translate="no" data-field="activity-document-kept">
+          {kept}{" "}
+          <button type="button" className="link-button" data-action="activity-clear-document" aria-label="Clear" onClick={() => keep("")} style={{ marginLeft: 4 }}>
+            <FiX size={11} />
+          </button>
+        </span>
+      )}
+    </form>
   );
 }
 

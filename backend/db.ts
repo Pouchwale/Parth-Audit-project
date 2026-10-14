@@ -1116,6 +1116,17 @@ export interface ActivityFilter {
   /** Inclusive day bounds, YYYY-MM-DD. */
   from?: string;
   to?: string;
+  // WHICH MODULE, WHICH DOCUMENT, WHICH ACTION (the owner, 14-Oct-2026: "which
+  // user what does and in which modules and documents"). Each is one more
+  // condition ANDed onto the scope above — narrowing what the account may
+  // already read, never widening it — and each is a parameter, never put in
+  // the SQL text (activityRoutes.ts reads them from the query).
+  /** One module's lines only — the department code the line was filed under ("QC"). */
+  department?: string;
+  /** One document's lines only — words of its format number or name, anywhere in the line's target. */
+  document?: string;
+  /** One action's lines only — exactly as the log holds it ("Record started"). */
+  action?: string;
 }
 
 /** Appends this filter's conditions to `args` and returns them. Also read by activityArchive.ts, for the log and its archive together. */
@@ -1145,6 +1156,19 @@ export function activityWhere(opts: ActivityFilter, args: unknown[]): string[] {
     args.push(likeContaining(opts.search));
     // E'\\' is one backslash whatever standard_conforming_strings says.
     where.push(`${ACTIVITY_SEARCH_TEXT} LIKE $${args.length} ESCAPE E'\\\\'`);
+  }
+  if (opts.department) {
+    args.push(opts.department);
+    where.push(`department = $${args.length}`);
+  }
+  if (opts.action) {
+    args.push(opts.action);
+    where.push(`action = $${args.length}`);
+  }
+  if (opts.document) {
+    // The target names the document or the record ("F/QC/01 Daily ... — 2026-10-14"); the words typed, anywhere in it.
+    args.push(likeContaining(opts.document));
+    where.push(`lower(target) LIKE $${args.length} ESCAPE E'\\\\'`);
   }
   return where;
 }

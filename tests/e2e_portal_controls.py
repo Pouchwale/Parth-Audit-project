@@ -291,6 +291,29 @@ with sync_playwright() as p:
     found = log_lines(page, "Format changed")
     check("Searching the log narrows it to what was asked for", len(found) >= 1 and all("Format changed" in " ".join(l) for l in found), found[:3])
 
+    # THE CHIPS (the owner, 14-Oct-2026): who, which module, which document, what - each filtered on the server, combined.
+    open_page(page, "#/activity", settle=2600)
+    page.locator("[data-field='activity-span'] [data-span='all']").click()
+    page.wait_for_timeout(1500)
+    page.locator("[data-field='activity-chips-action'] [data-chip='action'][data-value='Format changed']").click()
+    page.wait_for_timeout(1500)
+    rows = page.locator("[data-table='activity-log'] tbody tr[data-activity]").evaluate_all("els => els.map((e) => e.getAttribute('data-activity'))")
+    count = page.locator("[data-field='activity-count']").get_attribute("data-count")
+    check("The action chip keeps the log to that action alone, and says how many lines match", len(rows) >= 1 and all(a == "Format changed" for a in rows) and count == str(len(rows)), (rows[:4], count))
+    page.locator("[data-field='activity-chips-department'] [data-chip='department'][data-value='QC']").click()
+    page.wait_for_timeout(1500)
+    departments = page.locator("[data-table='activity-log'] tbody tr[data-activity]").evaluate_all("els => els.map((e) => [e.getAttribute('data-activity'), e.getAttribute('data-department')])")
+    check("...and the module chip combines with it: QC's format changes only", len(departments) >= 1 and all(a == "Format changed" and d == "QC" for a, d in departments), departments[:4])
+    page.fill("[data-field='activity-document']", "F/QC/01")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(1500)
+    targets = page.locator("[data-table='activity-log'] tbody tr[data-activity] td:nth-child(4)").all_inner_texts()
+    check("...and the document chip, typed, keeps it to that format number", len(targets) >= 1 and all("F/QC/01" in t for t in targets), targets[:4])
+    page.locator("[data-action='activity-clear-chips']").click()
+    page.wait_for_timeout(1500)
+    rows = page.locator("[data-table='activity-log'] tbody tr[data-activity]").evaluate_all("els => els.map((e) => e.getAttribute('data-activity'))")
+    check("Clearing the chips brings the whole log back", len(rows) > len(departments) and any(a != "Format changed" for a in rows), rows[:6])
+
     # ==================================================================
     # 4. Passwords are the super admin's (REQUIREMENTS §105)
     # ==================================================================
