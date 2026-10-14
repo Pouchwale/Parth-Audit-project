@@ -1095,7 +1095,28 @@ Seven scripts live in `tests/`:
   readings). Browser suites: those that opened these pages as a staff account made by sign-up are listed in REQUIREMENTS
   §116 and brought over one by one — each either signs in as the run's super admin or checks the refusal; the checks
   that a staff account's sidebar has no System group, that each address answers it with the refusal and that the super
-  admin has them all are `tests/e2e_user_access.py`'s (section 9b); `tests/e2e_tour.py` (the staff tour has no Reports step, the super admin's has it before their own pages) and `tests/e2e_mitra_agent.py` (the mocked model opens the Calendar, a page every account has) are brought over; the rest named in §116 wait on a free browser. `npm run typecheck` clean; `npm run test:unit`: frontend 1152
+  admin has them all are `tests/e2e_user_access.py`'s (section 9b); `tests/e2e_tour.py` (the staff tour has no Reports step, the super admin's has it before their own pages) and `tests/e2e_mitra_agent.py` (the mocked model opens the Calendar, a page every account has) are brought over. *The run's super admin on the test server :8842* (part 2, 14-Oct-2026): `scripts/run-e2e.ts`
+  starts :8842 with SEED_ACCOUNTS=0, so the run's super admin is whoever signs up FIRST and every later sign-up is
+  staff. New: `tests/_super_admin.py` — `become_super_admin(page, base)` signs in as `super.admin.qa@example.com`
+  ("Super Admin QA"), making the account when it is not on the server yet, and returns the role the server gives
+  it, printed as a [NOTE]; a suite that needed the super admin and did not get it fails its first check saying so.
+  THE RULE: a :8842 suite that needs the super admin becomes it FIRST, before any sign-up of its own, so the account
+  is the first on the server in every order (the full run, a run resumed from a later suite, a suite alone) and the
+  suite's own sign-ups are staff. Brought to it: `e2e_smoke` (first in the runner's order, it makes the account; its
+  random "Playwright QA" account is staff, refused Reports in the page's words, and Demo Mode, Reports and Master
+  Data from section 6 on are the super admin's), `e2e_translate`, `e2e_print_and_forms`, `e2e_print_all_documents`,
+  `e2e_trend_reports`, `e2e_sys_module`, `e2e_sheet_designer`, `e2e_voice_languages`, `visual_qa`, `e2e_departments`
+  (the account that covers every department is the super admin; the QC account is refused Master Data),
+  `e2e_portal_controls` (the Activity Log read as the super admin; Portal QA is staff in every order, its password
+  the super admin's), `e2e_insights` (section 6: a Maintenance and a QC account are refused Insights and the
+  Management Summary, and keep their own search), `e2e_voice_and_sounds` (the person of Production for sections 1
+  to 4; the super admin for Master Data's voice card from 4b on), `e2e_performance` (sections 1–7 and 9–12 as the
+  super admin; section 8: a QC account is refused the scorecard, keeps its own score card on the Dashboard with no
+  list of every person's, and is handed the directory as before; section 9's made-up second account is QC's, and
+  nobody is part-scored on the super admin's scorecard; section 12 uses the helper's account, the admin@gpp.local
+  fallback gone); and on the product server `e2e_working_hours` (a member of staff is refused Master Data; the API
+  refusal of a forged write as before). `e2e_theme` opens every page as a staff sign-up, the refusals in dark among
+  them, unchanged. `npm run typecheck` clean; `npm run test:unit`: frontend 1152
   (one voice-timing test flaky under the full run's load, green alone), backend 636 (4 skipped, as before).
 - **The blank sheets from before go-live moved to the archive, never deleted** (REQUIREMENTS §115, 14-Oct-2026: the
   "Found 3457 blank records ... Clean up" banner on every profile; the owner: "without any loss of any records or any
