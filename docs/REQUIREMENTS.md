@@ -8336,6 +8336,52 @@ first catch through both routes and the record submitting, the three fixed sheet
 line instead, `replaceList` only when asked, a list of plain words changed by number, the checklist's activity cleared
 by section and number, the typed attendance rule and row commands; the history's words and no folding).
 
+**5. The tools and the levels on the website (14-Oct-2026, the brief's §2.8 step 4).**
+
+- **`edit_open_record`** (`engine/mitraTools.ts`) carries the four operations in its schema with their shapes
+  exactly as the patch reads them — `itemEdits [{"collection","match":{"id"|"row"|"<name key>"},"set"}]`,
+  `addItems {"rows": [{…}, {"values": {…}, "after": 2}]}`, `removeItems {"rows": ["row-abc", 3, {"time": "11:00"}]}`,
+  `clearItems {"rows": [{"row": 3, "keys": […]}, 4]}` — and is told never to send a whole list. `replaceList` is not in
+  the schema and is struck from anything the model sends (`previewPatch`): through Mitra a list is never replaced.
+  Every kind goes through the same tool: a free sheet's rows, F/HR/17's catches and observations, a CAPA finding,
+  a training attendee, the clause lists; a printed list refuses in the registry's words and offers to clear.
+- **The dry run first** (`previewPatch`: `applyAssistantPatch` + `diffRecordData`, nothing committed) names the lines
+  the patch would remove or clear in their own words (`lineChangeWords`, `linesLost`): "line 3 (09:00, 19.87,
+  Jeni)", "21.08, Jeni from line 3 (11:00)", "Yes from Check point 3"; and the lines it would add by id. The engine
+  host's `dryRun` for the phone's confirmation card is this same function.
+- **A deletion or a clear of a written value is ASKED first, on a draft too**, through `ctx.confirm` — two chips
+  in the chat: "Delete line 3 (09:00, 19.87, Jeni) from the Lamination Adhesive Viscosity Record of 11-Oct-2026?"
+  with "Yes, delete it" / "No, keep it"; "Clear 20.3 from line 3 (10:00) on …?" with "Yes, clear it" / "No, leave
+  it". "No" changes nothing. Clearing a box that is already blank asks nothing. The dock's typed row commands
+  ("delete row 3", "clear row 4", `components/common/DocumentAssistant.tsx` changeRows) ask the same way.
+- **An added line needs no question**: it is written at once, holding only what the person said (§98), and listed
+  back with an **Undo** chip that takes off exactly that line by id (`undoAddedLines`; a line of plain words by its
+  place) — a value written on another line since the add stays.
+- **The levels (§96)**: Write fills a draft; a record under correction (`AssistantTarget.correction`, set by the
+  four record pages) or a signed-off record that would be reopened is Edit's step — `stepOn` and the dock's
+  `changeOrAsk` check "correct" there, and below it the change is refused in the level's own words, never
+  half-done. The Gap, Training and CAPA pages hand Mitra a `reopen` only above Edit, as the record page does. A
+  correction of a signed-off record carries its reason: the tool's `reason`, else the person's own words, asked
+  in one question that names the line — "… is Verified. Reopen it for correction and delete line 2 (…)? Reason:
+  “written on the wrong line”. It will need submitting and verifying again." — and written on the reopen line.
+- **The Ask Mitra page changes the record its words name** (`engine/recordTarget.ts`, lifted from the engine host's
+  `targetFor` / `commitOn`): "add a row to F-QC-30 of today" — the document by its number as its paper prints it
+  ("F-QC-30" the viscosity record, "F/QC/30" the minutes; "F QC 30" is asked about, §111), else by the words people
+  use for it when exactly one answers; the date by its words (today, yesterday, 11-Oct, 11 October, 11/10/2026,
+  ISO); the record covering the date. A change is committed as that record's page commits it (saveDraft with the
+  page's labels; reopenForCorrection for a correction). Without a date, with no record for it, or with several,
+  Mitra asks which rather than guesses (`noTarget`, relayed by the model).
+
+**Proved by** `frontend/tests/mitraLines.test.ts` (8: the schema's shapes and no replaceList; replaceList struck; the
+dry run's words for a removal, a clear and a check point, and no question for a blank; the deletion asked — No keeps,
+Yes removes exactly the line named; the clear asked, the add not asked and handed over by id, the Undo taking off
+exactly it with a later value kept; a rodent catch, a CAPA finding with the next number and its removal asked, an
+attendee with the name only; the page's resolution by number as printed, the ambiguous number and the missing date
+asked, a day with no record, the date spellings; Read refused, Write refused under correction, Edit with its reason)
+and `tests/e2e_mitra_agent.py` (extended: on F-QC-32's sister free sheet a line added with Undo, deleted after
+its confirmation — No then Yes — and cleared after its; F/HR/17's rodent catch; a CAPA finding and a training
+attendee opened through `open_document` and added through the dock).
+
 ## Master data provenance summary
 
 | Master list | Source | Notes |

@@ -1110,6 +1110,22 @@ Seven scripts live in `tests/`:
   runner's server lost :8842 to another worktree's run started the same minute ("DCRS's tables are not in this
   database"), and one print run waited 30 s on a click while the machine ran two suites; each was run again alone. Not
   run: the full browser run and e2e_assistant_fill.py (every document filled, about 95 minutes).
+- **Mitra adds, changes and deletes anything in any record: the tools, the confirmation, Undo and the levels**
+  (REQUIREMENTS §113 part 5, 14-Oct-2026). New unit test, failing on the code before it (the schema carried no
+  add / remove / clear, nothing was asked before a line went, no Undo by id, the Ask Mitra page had no record to
+  change, a record under correction was Write's): `frontend/tests/mitraLines.test.ts` (8 tests: edit_open_record's
+  schema carries the four shapes and never replaceList, and replaceList from the model is struck; the dry run names a
+  removal, a clear and a cleared check point in the lines' own words and writes nothing, a blank cleared asks nothing;
+  a deletion is asked — "Delete line 2 (…) from …?" with "Yes, delete it" / "No, keep it" — No keeps, Yes takes off
+  exactly the line named with the other ids kept; a clear is asked, an add is not and is handed over by id, the Undo
+  takes off exactly that line while a value written since stays; F/HR/17's catch, a CAPA finding numbered next and its
+  removal asked, an attendee with the name only; the page's record by "F-QC-30 of today", "F/QC/30" the other paper,
+  "F QC 30" and no date asked, a day with no record, the date spellings; Read refused, Write refused under correction,
+  Edit on Verified carrying its reason into the reopen). `mitraTools` (schema set 6,514 characters of 9,000) and
+  `mitraToolsAccess` unchanged and passing; `npm run typecheck` clean. `tests/e2e_mitra_agent.py` extended (model
+  mocked at the network edge): on a free sheet a line added with Undo, deleted after its confirmation (No, then Yes)
+  and cleared after its; F/HR/17's rodent catch; a CAPA finding and a training attendee through `open_document` and
+  the dock — compiled, not run (the browser ports were in use by another worktree's run).
 - **Mitra adds, changes and deletes anything in any record, and nothing is lost: the engine** (REQUIREMENTS §113,
   14-Oct-2026). New unit test, failing on the code before it (a list sent whole kept only the lines it named, there was
   no addItems / removeItems / clearItems, a removed line's values were not in the history): `frontend/tests/recordLines.test.ts`

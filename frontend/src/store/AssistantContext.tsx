@@ -35,8 +35,18 @@ export interface AssistantTarget {
    * (REQUIREMENTS §81) and is recorded as that, not as Mitra's. Absent: "assistant-edit".
    */
   commit: (next: unknown, note: string, action?: "assistant-edit" | "imported") => void;
-  /** Reopens a submitted/verified record for correction; absent when that isn't possible. */
+  /**
+   * Reopens a submitted/verified record for correction; absent when that isn't possible — the page leaves it out
+   * below Edit (REQUIREMENTS §96), so Mitra never offers a correction the person's level would refuse. The reason
+   * given is the one written on the reopen line of the record's history.
+   */
   reopen?: (reason: string) => void;
+  /**
+   * The record is open UNDER CORRECTION (reopened, not yet resubmitted). A change to it is a correction — Edit's
+   * step, not Write's — so Mitra's tools and the dock check "correct" (REQUIREMENTS §96, §113), and the reason the
+   * record was reopened with stays in its history (recordLifecycle.ts reopenForCorrection).
+   */
+  correction?: boolean;
   // The rest of the record's life, so the assistant can do anything the
   // buttons can (engine/assistantCommands.ts). Each is absent when the page
   // can't do it right now — a draft has no Verify, a locked record no Submit.

@@ -19,7 +19,7 @@
 //   * every result is compact JSON capped at 1,500 characters — the wire's own
 //     limit, and the plant's token allowance (SPEC "Hard constraints").
 import type { DocumentDefinition, FieldChange, LogColumn, LogFieldType, LogHeaderField, LogSheetData, LogSheetLayout, RecordInstance } from "../types";
-import type { MitraTool, MitraToolContext, MitraToolResult, MitraToolRun, ToolSchema } from "./mitraTypes";
+import type { AddedLine, MitraTool, MitraToolContext, MitraToolResult, MitraToolRun, ToolSchema } from "./mitraTypes";
 import { documentRepository } from "../data/repositories/documentRepository";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { masterRepository } from "../data/repositories/masterRepository";
@@ -31,8 +31,8 @@ import { buildAssistantContext, matchDocuments } from "./assistantLocal";
 import { documentOpenRoute } from "./documentRoutes";
 import { createRecordForDocument } from "./recordCrud";
 import { computeReminders, routeForRecord } from "./reminders";
-import { applyAssistantPatch, normDate } from "./recordPatch";
-import { diffRecordData } from "./recordHistory";
+import { applyAssistantPatch, lineValuesWords, normDate, type PatchRecord } from "./recordPatch";
+import { diffRecordData, lineChangeWords, ROW_REMOVED } from "./recordHistory";
 import { canSampleFill, sampleFillAllowedFor, sampleFillDeclined, sampleFillRecord, SAMPLE_FILL_NOTE } from "./sampleFill";
 import { applyFormatCommand, type FormatCommand, type Place, type TargetRef } from "./formatCommands";
 import { canDesignGrid, commitFormatChange, draftOf, type BoxArea, type HeaderField } from "./formatOps";
@@ -110,8 +110,9 @@ function levelStops(documentId: string | undefined, action: DocumentAction, ctx:
 }
 
 /** What changing the open record is: filling it while it is still open (a draft, sent back), correcting it once signed off. */
-const stepOn = (tgt: { editable: boolean; status: string }): DocumentAction =>
-  tgt.editable || ["Scheduled", "Due", "In Progress", "Rejected"].includes(tgt.status) ? "fill" : "correct";
+// A record open UNDER CORRECTION is corrected too (§96): Edit's step, whatever its status says.
+const stepOn = (tgt: { editable: boolean; status: string; correction?: boolean }): DocumentAction =>
+  tgt.correction ? "correct" : tgt.editable || ["Scheduled", "Due", "In Progress", "Rejected"].includes(tgt.status) ? "fill" : "correct";
 
 const noteOf = (ctx: MitraToolContext): string => `Asked of ${ASSISTANT_NAME}: ${short(ctx.userWords.trim() || "(spoken)", 200)}`;
 
@@ -597,7 +598,7 @@ const GET_OPEN_RECORD: MitraTool = {
   parameters: objectSchema({}),
   run: (_args, ctx) => {
     const tgt = ctx.target;
-    if (!tgt) return no("no record is open — open one first");
+    if (!tgt) return no(ctx.noTarget ?? "no record is open — open one first");
     const doc = documentRepository.getById(tgt.documentId);
     const { data, layout: carried } = dataOf(tgt.currentData ?? tgt.getData());
     const stored = recordRepository.getById(tgt.recordId);
@@ -620,43 +621,164 @@ const GET_OPEN_RECORD: MitraTool = {
   },
 };
 
+// THE PATCH THE MODEL SENDS (REQUIREMENTS §113): the four operations on a record's lines, their shapes exactly as
+// engine/recordPatch.ts applyAssistantPatch reads them. A whole list is never asked for, and "replaceList" — the only
+// way to replace a list — is not in the schema and is struck from anything the model sends (previewPatch).
+const PATCH_SCHEMA = {
+  type: "object",
+  description: "{field:value}; header{key:value}; F/HR/17 checkpoints{n:value or null clears}. Never send a whole list: use the four operations.",
+  properties: {
+    itemEdits: { type: "array", items: { type: "object" }, description: 'Change one line: [{"collection": "rows", "match": {"id"|"row"|"<name key>"}, "set": {...}}]' },
+    addItems: { type: "object", description: 'Add lines, only what the person said: {"rows": [{"time": "10:00", "viscosity": 20.4}, {"values": {...}, "after": 2}]}' },
+    removeItems: { type: "object", description: 'Take off lines, each named once (asked first): {"rows": ["row-abc", 3, {"time": "11:00"}]}' },
+    clearItems: { type: "object", description: 'Blank a line\'s boxes, all written ones without keys (asked first): {"rows": [{"row": 3, "keys": ["viscosity"]}, 4]}' },
+  },
+} as const;
+
+/** A written value gone blank in a change: what the person had written is lost, so it is asked first (§113). */
+const blank = (v: string): boolean => v.trim() === "" || v === "(blank)";
+const lowerFirst = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
+const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
+export interface PatchPreview<T> {
+  data: T;
+  problems: string[];
+  changes: FieldChange[];
+  /** Each line the patch takes off, in its own words: "line 3 (09:00, 19.87, Jeni)". */
+  removed: string[];
+  /** Each written value the patch blanks, with its line: "21.08, Jeni from line 3 (11:00)", "Yes from Check point 3". */
+  cleared: string[];
+  /** Each line the patch adds, by id, with its words — what an Undo takes off again. */
+  added: AddedLine[];
+}
+
+/**
+ * What a change LOSES, in the lines' own words (§113): each line taken off ("line 3 (09:00, 19.87, Jeni)") and each
+ * written value blanked with its line ("21.08, Jeni from line 3 (11:00)", "Yes from Check point 3"). Both are asked
+ * about before they are written, by the tool and by the dock's typed row commands alike.
+ */
+export function linesLost(changes: FieldChange[]): { removed: string[]; cleared: string[] } {
+  const removed: string[] = [];
+  const clearedByLine = new Map<string, { line: string; values: string[] }>();
+  for (const c of changes) {
+    if (c.after === ROW_REMOVED) {
+      const words = lineChangeWords(c);
+      if (words) removed.push(lowerFirst(words.replace(/ removed \(/, " (")));
+      continue;
+    }
+    if (!blank(c.after) || blank(c.before)) continue;
+    const row = c.field.match(/^(.*?\[#[^\]]+\])/);
+    const line = row ? c.label.split(" · ").slice(0, -1).join(" · ") || c.label : c.label;
+    const key = row ? row[1] : c.field;
+    const got = clearedByLine.get(key) ?? { line: row ? lowerFirst(line.replace(/^Row\b/, "Line")) : line, values: [] };
+    got.values.push(c.before);
+    clearedByLine.set(key, got);
+  }
+  return { removed, cleared: Array.from(clearedByLine.values()).map((x) => `${x.values.join(", ")} from ${x.line}`) };
+}
+
+/**
+ * THE DRY RUN (REQUIREMENTS §113): the patch applied to a copy and diffed, nothing committed — what edit_open_record
+ * asks the person about before it writes, and what the engine host answers the phone's confirmation card with. The
+ * lines it would remove or clear are named in their own words (recordHistory.ts lineChangeWords), the lines it would
+ * add by id, so an Undo can take off exactly those. "replaceList" from the model is struck: nobody replaces a list.
+ */
+export function previewPatch<T>(kind: string, documentId: string, before: T, patch: Obj, record?: PatchRecord, labels?: Record<string, string>): PatchPreview<T> {
+  const { replaceList: _never, ...sent } = patch;
+  void _never;
+  const { data, problems } = applyAssistantPatch(kind, documentId, before, sent, record);
+  const changes = diffRecordData(before, data, labels);
+  const { removed, cleared } = linesLost(changes);
+  const added: AddedLine[] = [];
+  if (isObj(before) && isObj(data)) {
+    for (const [collection, list] of Object.entries(data)) {
+      if (!Array.isArray(list)) continue;
+      const was = Array.isArray((before as Obj)[collection]) ? ((before as Obj)[collection] as unknown[]) : [];
+      const ids = new Set(was.map((l) => (isObj(l) && typeof l.id === "string" ? l.id : null)).filter(Boolean));
+      list.forEach((line, i) => {
+        if (isObj(line) && typeof line.id === "string") {
+          if (!ids.has(line.id)) added.push({ collection, id: line.id, words: lineValuesWords(kind, documentId, collection, line, record) });
+        } else if (typeof line === "string" && i >= was.length) added.push({ collection, id: i + 1, words: line });
+      });
+    }
+  }
+  return { data, problems, changes, removed, cleared, added };
+}
+
+/** The lines Mitra added taken off again, by id (a place on a list of plain words): the Undo chip's own change. */
+export function undoAddedLines<T>(kind: string, documentId: string, data: T, lines: { collection: string; id: string | number }[], record?: PatchRecord): { data: T; problems: string[] } {
+  const removeItems: Record<string, (string | number)[]> = {};
+  for (const l of lines) (removeItems[l.collection] ??= []).push(l.id);
+  return applyAssistantPatch(kind, documentId, data, { removeItems }, record);
+}
+
+/** "delete line 3 (…) and clear 21.08 from line 4 (11:00)" — what a patch asks the person about, or null when nothing written is lost. */
+function linesAsked(p: PatchPreview<unknown>): string | null {
+  const parts: string[] = [];
+  if (p.removed.length) parts.push(`delete ${p.removed.join(" and ")}`);
+  if (p.cleared.length) parts.push(`clear ${p.cleared.join(" and ")}`);
+  return parts.length ? parts.join(", and ") : null;
+}
+
 const EDIT_OPEN_RECORD: MitraTool = {
   name: "edit_open_record",
-  description: "Change the open record. patch: {field:value}; log sheet: header{key:value}, itemEdits[{collection,match,set}]; F/HR/17 checkpoints{n:value}.",
-  parameters: objectSchema({ patch: { type: "object" } }, ["patch"]),
+  description: "Change the open record: patch with fields, header, itemEdits, addItems, removeItems, clearItems (shapes in the schema). Never a whole list.",
+  parameters: objectSchema({ patch: PATCH_SCHEMA, reason: S }, ["patch"]),
   writes: true,
   run: async (args, ctx) => {
     const tgt = ctx.target;
-    if (!tgt) return no("no record is open — open one first");
+    if (!tgt) return no(ctx.noTarget ?? "no record is open — open one first");
     const patch = asObject(args.patch);
     if (!patch || Object.keys(patch).length === 0) return no("patch needed: an object of the fields to change");
     const stop = levelStops(tgt.documentId, stepOn(tgt), ctx);
     if (stop) return stop;
     const before = tgt.getData();
     const record = recordRepository.getById(tgt.recordId);
-    const { data: next, problems } = applyAssistantPatch(tgt.documentKind, tgt.documentId, before, patch, record);
-    const changes = diffRecordData(before, next, tgt.labels);
+    // The dry run first: what the patch would do, nothing written yet (§113).
+    const preview = previewPatch(tgt.documentKind, tgt.documentId, before, patch, record, tgt.labels);
+    const { data: next, problems, changes } = preview;
     if (changes.length === 0) return no("nothing on the form changed", { rejected: problems.slice(0, 6) });
     const note = noteOf(ctx);
     const title = tgt.title ?? documentRepository.getById(tgt.documentId)?.name ?? "this record";
+    const asked = linesAsked(preview);
+    const reason = str(args.reason);
     if (!tgt.editable) {
       if (!tgt.reopen) return no(`${title} is ${tgt.status} and cannot be changed from here`);
+      // A correction carries its reason (§96): the one given, else the person's own words.
+      const why = reason || ctx.userWords.trim() || "(spoken)";
       const yes = await ctx.confirm(
-        say("ai.confirm.reopen", "{title} is {status}. Reopen it for correction and make {n} change(s)? It will need submitting and verifying again.", { title, status: tgt.status, n: changes.length }),
+        asked
+          ? say("ai.confirm.reopenLines", "{title} is {status}. Reopen it for correction and {what}? Reason: “{reason}”. It will need submitting and verifying again.", { title, status: tgt.status, what: asked, reason: short(why, 120) })
+          : say("ai.confirm.reopen", "{title} is {status}. Reopen it for correction and make {n} change(s)? It will need submitting and verifying again.", { title, status: tgt.status, n: changes.length }),
         say("ai.confirm.yesCorrect", "Yes, correct it"),
         say("ai.confirm.noLeave", "No, leave it")
       );
       if (!yes) return no("the person chose not to reopen the record", {}, say("ai.step.leftAsWas", "Left as it was"));
-      tgt.reopen(note);
+      tgt.reopen(reason ? `Asked of ${ASSISTANT_NAME}: ${short(reason, 200)}` : note);
+    } else if (asked) {
+      // A LINE TAKEN OFF, OR A WRITTEN VALUE CLEARED, IS ASKED FIRST — on a draft too (§113): nothing a person wrote
+      // goes without their yes, and the question names the line in its own words. An added line needs no question.
+      const deleting = preview.removed.length > 0;
+      const yes = await ctx.confirm(
+        say("ai.confirm.lines", "{what} {where} {title}?", { what: upperFirst(asked), where: deleting && !preview.cleared.length ? "from" : "on", title }),
+        deleting ? say("ai.confirm.yesDeleteLine", "Yes, delete it") : say("ai.confirm.yesClear", "Yes, clear it"),
+        deleting ? say("ai.confirm.noKeep", "No, keep it") : say("ai.confirm.noLeave", "No, leave it")
+      );
+      if (!yes) return no("the person chose to keep the line as it was", {}, say("ai.step.leftAsWas", "Left as it was"));
     }
     tgt.commit(next, note);
+    if (preview.added.length && ctx.linesAdded) ctx.linesAdded({ recordId: tgt.recordId, lines: preview.added });
     return ok(
       {
         changes: changes.slice(0, 20).map(changeOf),
         ...(changes.length > 20 ? { more: changes.length - 20 } : {}),
+        ...(preview.added.length ? { added: preview.added.slice(0, 10).map((l) => l.words) } : {}),
+        ...(preview.removed.length ? { removed: preview.removed.slice(0, 10) } : {}),
         ...(problems.length ? { rejected: problems.slice(0, 8) } : {}),
       },
-      say("ai.step.filled", "Filled {n} boxes on {title}", { n: changes.length, title })
+      preview.added.length && changes.length === preview.added.length
+        ? say("ai.step.linesAdded", "Added {n} line(s) to {title}", { n: preview.added.length, title })
+        : say("ai.step.filled", "Filled {n} boxes on {title}", { n: changes.length, title })
     );
   },
 };

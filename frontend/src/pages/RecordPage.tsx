@@ -350,6 +350,7 @@ export function RecordPage({ recordId }: { recordId?: string }) {
                 if (base) persistLocal(reopenForCorrection(base, currentUser, reason));
               }
             : undefined,
+          correction: !!record.correction,
           // The rest of what the buttons do, so the assistant can do it too —
           // typed or spoken (engine/assistantCommands.ts).
           title: `${doc.name} for ${formatDisplayDate(record.dueDate)}`,

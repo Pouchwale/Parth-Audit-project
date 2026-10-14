@@ -48,6 +48,7 @@ import { prepareScopedInsights } from "../engine/scopedInsights";
 import { parseAssistantCommand } from "../engine/assistantCommands";
 import { hrMasterChatAnswer } from "../engine/hrMasterAssistant";
 import { createRecordForDocument } from "../engine/recordCrud";
+import { resolveRecordTarget } from "../engine/recordTarget";
 import { refusalFor } from "../engine/accessRefusal";
 import { recordRepository } from "../data/repositories/recordRepository";
 import { documentRepository } from "../data/repositories/documentRepository";
@@ -546,23 +547,30 @@ export function AssistantPage() {
     void send(choice);
   };
 
-  const toolContext = (convId: string, words: string, files: MitraAttachment[]): MitraToolContext => ({
-    today: todayISO(),
-    isDemo,
-    language: lang,
-    userName: user?.name ?? currentUser,
-    currentRoute: "/assistant",
-    navigate: (route) => {
-      if (isValidAppRoute(route)) navigate(route);
-    },
-    // No record is open on this page; the widget is the host for that.
-    target: null,
-    bump,
-    attachments: files,
-    confirm: (question, yes, no) => askToConfirm(convId, question, yes, no),
-    runWidgetAction: runToolAction,
-    userWords: words,
-  });
+  const toolContext = (convId: string, words: string, files: MitraAttachment[]): MitraToolContext => {
+    // No record is open on this page, so the record the words name is the one Mitra's record tools act on
+    // (engine/recordTarget.ts, REQUIREMENTS §113): "add a row to F-QC-30 of today". Named but not found, or not
+    // one record, Mitra asks which — the tools answer with the question, and the model relays it.
+    const named = resolveRecordTarget(words, { today: todayISO(), isDemo, userName: user?.name ?? currentUser, bump });
+    return {
+      today: todayISO(),
+      isDemo,
+      language: lang,
+      userName: user?.name ?? currentUser,
+      currentRoute: "/assistant",
+      navigate: (route) => {
+        if (isValidAppRoute(route)) navigate(route);
+      },
+      target: named.kind === "found" ? named.target : null,
+      ...(named.kind === "ask" ? { noTarget: named.question } : {}),
+      bump,
+      attachments: files,
+      confirm: (question, yes, no) => askToConfirm(convId, question, yes, no),
+      runWidgetAction: runToolAction,
+      userWords: words,
+      linesAdded: ({ lines }) => append(convId, { id: generateId("msg"), role: "bot", text: `Added:\n${lines.map((l) => `• ${l.words}`).join("\n")}`, at: stamp() }),
+    };
+  };
 
   // FILES FOR THE MESSAGE BEING WRITTEN (REQUIREMENTS §80). Each is read on the
   // server as soon as it is chosen (engine/mitraAttachments.ts) so its chip

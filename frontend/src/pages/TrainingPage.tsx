@@ -189,14 +189,17 @@ export function TrainingRecordPage({ recordId }: { recordId: string }) {
           getData: () => current()?.data,
           // Mitra's change, or one read back from an uploaded Word file ("imported", REQUIREMENTS §81).
           commit: (next, note, action) => applyPatch(next as TrainingRecordData, { action: action ?? "assistant-edit", note }),
-          reopen: isCorrectableStatus(record.status)
-            ? (reason) => {
-                const base = current();
-                if (!base) return;
-                setRecord(reopenForCorrection(base, currentUser, reason) as RecordInstance<TrainingRecordData>);
-                bump();
-              }
-            : undefined,
+          // A correction is Edit's step (REQUIREMENTS §96): below it Mitra is not handed a reopen at all.
+          reopen:
+            isCorrectableStatus(record.status) && mayDo(record.documentId, "correct")
+              ? (reason) => {
+                  const base = current();
+                  if (!base) return;
+                  setRecord(reopenForCorrection(base, currentUser, reason) as RecordInstance<TrainingRecordData>);
+                  bump();
+                }
+              : undefined,
+          correction: !!record.correction,
           // Everything the buttons do, so it can be asked for in words too.
           title: `the training record of ${formatDisplayDate(record.data.trainingDate || record.dueDate)}`,
           submit: editable ? () => actions.current.submit?.() ?? { ok: false, errors: [] } : undefined,
